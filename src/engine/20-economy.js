@@ -102,6 +102,9 @@ function sysHardship(s, r) {
         hh.members = hh.members.filter(i => i !== kid.id);
         kid.householdId = to.id; to.members.push(kid.id);
         remember(s, to.id, 5, `took in another household's child during a shortage`);
+        if (head) shiftTie(s, head, to.id, 40, `took in one of ours when we had nothing`);
+        const taker = s.people[to.headId];
+        if (taker) shiftStanding(taker, 'kin', 9);
         ev(s, 'hardship', 5, `The ${hh.name} sent ${kid.name} to the ${to.name} to be fed.`, { person: kid.id, household: hh.id });
         continue;
       }
@@ -113,8 +116,10 @@ function sysHardship(s, r) {
       const took = Math.min(6, victim.stores * 0.3);
       victim.stores -= took; hh.stores += took * 0.8;
       const vh = s.people[victim.headId];
-      if (vh) vh.grudges.push({ target: hh.id, cause: `stores taken from them`, turn: s.turn, heat: 60 });
+      if (vh) shiftTie(s, vh, hh.id, -60, `stores taken from them`);
       remember(s, hh.id, -8, `took stores from the ${victim.name}`);
+      shiftStanding(head, 'kin', -12);
+      shiftStanding(head, 'quarter', -8);
       ev(s, 'hardship', 6, `The ${hh.name} took stores from the ${victim.name}. The ${victim.name} hold a grudge for it.`, { household: hh.id });
       continue;
     }
@@ -149,13 +154,18 @@ function sysHardship(s, r) {
     if (!given.length) continue;
     const give = Math.min(hh.stores - 10, given.length * 2.5);
     hh.stores -= give;
-    for (const nd of given) nd.stores += give / given.length;
+    for (const nd of given) {
+      nd.stores += give / given.length;
+      const nh = s.people[nd.headId];
+      if (nh) shiftTie(s, nh, hh.id, 35, `fed this household in a hard season`);
+    }
     remember(s, hh.id, 7, `gave food to households not their own`);
+    if (head) shiftStanding(head, 'kin', 8);
     if (skipped.length) {
       const missed = skipped[0];
       remember(s, hh.id, -4, `fed every short household except the ${missed.name}, deliberately`);
       const mh = s.people[missed.headId];
-      if (mh) mh.grudges.push({ target: hh.id, cause: `passed this household over when feeding every other short house`, turn: s.turn, heat: 70 });
+      if (mh) shiftTie(s, mh, hh.id, -70, `passed this household over when feeding every other short house`);
       ev(s, 'hardship', 6, `The ${hh.name} gave food to every short household except the ${missed.name}, who were passed over deliberately. The ${missed.name} hold a grudge for it.`, { household: hh.id });
     } else {
       ev(s, 'hardship', 5, `The ${hh.name} gave food to ${given.length === 1 ? 'the ' + given[0].name : given.length + ' short households'}.`, { household: hh.id });

@@ -6,24 +6,32 @@
    =========================================================================== */
 
 /* Events are ordered by category, not by when in the turn they fired, so the
-   same kind of news always turns up in the same place in a season. */
+   same kind of news always turns up in the same place in a season.
+
+   `max` caps a group per season. Removing the cast limit means a busy season
+   can produce eleven lines about what named people did, and the settlement has
+   other news. The events are all still recorded and the simulation still uses
+   them — this decides what reaches the page, which is where volume belongs.
+   Showing everything lifts the caps along with the weight floor. */
 const GROUPS = [
   { key: 'weather', kinds: ['divine', 'weather'] },
-  { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'] },
-  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'] },
-  { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'] },
+  { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'], max: 4 },
+  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'], max: 4 },
+  { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'], max: 4 },
   { key: 'shrine', kinds: ['shrine'] },
-  { key: 'people', kinds: ['rise', 'act', 'settle'] },
+  { key: 'people', kinds: ['rise', 'act', 'settle'], max: 2 },
   { key: 'memory', kinds: ['memory'] }
 ];
 
 function renderTurn(entry, opts = {}) {
   const evs = entry.events.filter(e => e.weight >= (opts.floor ?? 2));
+  const uncapped = (opts.floor ?? 2) < 2;
   const parts = [];
 
   for (const g of GROUPS) {
-    const items = evs.filter(e => g.kinds.includes(e.kind));
+    let items = evs.filter(e => g.kinds.includes(e.kind));
     items.sort((x, y) => y.weight - x.weight);
+    if (g.max && !uncapped) items = items.slice(0, g.max);
     for (const e of items) parts.push({ type: 'event', kind: e.kind, weight: e.weight, text: e.text });
   }
 
@@ -79,7 +87,7 @@ function mapHTML(s, selected) {
   }
   const actorTiles = {};
   for (const p of Object.values(s.people)) {
-    if (p.alive && p.prominence > 0) actorTiles[homeTile(s, p)] = p;
+    if (p.alive && hasGoal(p)) actorTiles[homeTile(s, p)] = p;
   }
   const disputed = new Set();
   for (const d of Object.values(s.disputes)) {

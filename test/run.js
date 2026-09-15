@@ -3,7 +3,9 @@
 const path = require('path'), fs = require('fs');
 const root = path.join(__dirname, '..');
 const { loadEngine } = require(path.join(root, 'build.js'));
-const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H } = loadEngine(root);
+const E = loadEngine(root);
+const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H,
+        FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -97,6 +99,104 @@ console.log('\nmap');
   const named = new Set(last.events.filter(e => e.household).map(e => e.household));
   ok('households named last season are in the news', [...named].every(h => news.has(h)),
      `${news.size} household${news.size === 1 ? '' : 's'} highlighted`);
+}
+
+console.log('\nstanding, per faction');
+{
+  const m = run(200, 20260910, 150);
+  const alive = Object.values(m.people).filter(p => p.alive);
+
+  ok('everyone carries all six factions',
+     alive.every(p => FACTIONS.every(f => typeof standingWith(p, f) === 'number')),
+     FACTIONS.join(', '));
+  ok('standing stays in range',
+     alive.every(p => FACTIONS.every(f => Math.abs(standingWith(p, f)) <= 100)));
+
+  // the factions that have something earning them should not be flat
+  const live = FACTIONS.filter(f => alive.some(p => Math.abs(standingWith(p, f)) > 1));
+  ok('offices, the shrine and the quarter all pay out', live.length >= 3, `live: ${live.join(', ')}`);
+
+  // a household reads as the age-weighted regard of its adults, plus its deeds
+  const hh = Object.values(m.households).find(h => !h.extinct && h.members.length > 2);
+  ok('a household has a standing in every faction',
+     FACTIONS.every(f => Number.isFinite(houseStanding(m, hh, f))));
+  ok('the composite is finite and not the only number', Number.isFinite(compositeOf(m, hh)));
+}
+
+console.log('\nties');
+{
+  const m = run(200, 20260910, 150);
+  const alive = Object.values(m.people).filter(p => p.alive);
+  const all = alive.flatMap(p => p.ties || []);
+
+  ok('nobody holds more ties than the cap',
+     alive.every(p => (p.ties || []).length <= TIE_CAP),
+     `most held by one person: ${Math.max(...alive.map(p => (p.ties || []).length))} of ${TIE_CAP}`);
+  ok('ties stay in range', all.every(t => Math.abs(t.value) <= 100));
+  ok('no tie points at a household that is gone',
+     all.every(t => m.households[t.target] && !m.households[t.target].extinct));
+  ok('every tie carries a reason', all.every(t => typeof t.cause === 'string' && t.cause.length));
+
+  // the point of one signed number: a grudge is a tie read in one direction
+  const foe = alive.find(p => (p.ties || []).some(t => t.value < -20));
+  const neg = foe && (foe.ties.find(t => t.value < -20));
+  ok('a negative tie reads as a grudge',
+     !!foe && holdsAgainst(m, foe, neg.target) === -neg.value);
+  const friend = alive.find(p => (p.ties || []).some(t => t.value > 20));
+  const pos = friend && friend.ties.find(t => t.value > 20);
+  ok('a positive tie holds nothing against anyone',
+     !!friend && holdsAgainst(m, friend, pos.target) === 0);
+
+  // contact has to make friends as well as enemies, or the leveller is dead
+  const close = all.filter(t => t.value >= 40).length;
+  const foes = all.filter(t => t.value <= -40).length;
+  ok('closeness and enmity both occur', close > 0 && foes > 0, `${close} close, ${foes} at odds`);
+}
+
+console.log('\nthe term at the shrine');
+{
+  const m = run(200, 20260910, 150);
+  const alive = Object.values(m.people).filter(p => p.alive);
+  const grown = alive.filter(p => E.ageOf(m, p) > 24);
+  const settled = grown.filter(p => (p.term && p.term.done) || p.refusedTerm);
+  ok('everyone who grew up here has served or refused',
+     settled.length / Math.max(1, grown.length) > 0.9,
+     `${settled.length} of ${grown.length}`);
+
+  const refused = alive.filter(p => p.refusedTerm).length;
+  ok('some refuse, but not many', refused > 0 && refused / Math.max(1, alive.length) < 0.25,
+     `${refused} of ${alive.length} living`);
+  ok('refusing costs shrine standing',
+     alive.filter(p => p.refusedTerm).every(p => standingWith(p, 'shrine') < 0));
+
+  // the whole point: the term is where ties cross a standing gap
+  const fromService = alive.flatMap(p => (p.ties || [])
+    .filter(t => /served their term/.test(t.cause))
+    .map(t => ({ p, t })));
+  const crossed = fromService.filter(({ p, t }) => {
+    const mine = m.households[p.householdId], theirs = m.households[t.target];
+    return mine && theirs && Math.abs(compositeOf(m, mine) - compositeOf(m, theirs)) > 8;
+  });
+  ok('the term mints ties across a standing gap', crossed.length > 0,
+     `${crossed.length} of ${fromService.length} service ties cross one`);
+}
+
+console.log('\nno cap on who matters');
+{
+  const m = run(200, 20260910, 150);
+  const alive = Object.values(m.people).filter(p => p.alive);
+  ok('prominence is gone', alive.every(p => p.prominence === undefined));
+  ok('a figure is anyone with a goal',
+     alive.filter(hasGoal).length === alive.filter(p => p.goal).length);
+  // the old limit was eight; what limits it now is the work available
+  const over = [];
+  let x = newWorld({ seed: 4242, population: 200, startYear: 812 });
+  for (let i = 0; i < 200; i++) {
+    x = advance(x, { lever: 'none' });
+    over.push(Object.values(x.people).filter(p => p.alive && p.goal).length);
+  }
+  ok('the count moves with the work, not a constant',
+     new Set(over).size > 3, `ranged ${Math.min(...over)}–${Math.max(...over)} over 50 years`);
 }
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');

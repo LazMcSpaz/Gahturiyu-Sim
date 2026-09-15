@@ -37,11 +37,9 @@ function reputeOf(s, hh) {
 function sysGrudges(s, r) {
   const sh = s.shrine;
   for (const p of Object.values(s.people)) {
-    if (!p.alive || !p.grudges.length) continue;
-    p.grudges = p.grudges.filter(g => s.turn - g.turn < 400);
-    for (const g of p.grudges) g.heat *= 0.994;          // time, but slowly
+    if (!p.alive || !(p.ties || []).length) continue;   // ties decay in decayTies
     const mine = s.households[p.householdId];
-    const hot = p.grudges.filter(g => g.heat > 40 && s.households[g.target] && !s.households[g.target].extinct);
+    const hot = p.ties.filter(g => g.value < -40 && s.households[g.target] && !s.households[g.target].extinct);
     if (!hot.length) continue;
 
     // put it down — but only somewhere that means something, and only if you
@@ -67,7 +65,7 @@ function sysGrudges(s, r) {
       remember(s, mine.id, -5, `made a show of their stores while the ${them.name} went short`);
       ev(s, 'spite', 6, `The ${mine.name} made a show of their stores while the ${them.name} were short. ${p.name} did it deliberately.`, { person: p.id, household: mine.id });
       const th = s.people[them.headId];
-      if (th) th.grudges.push({ target: mine.id, cause: `made a display of their stores while this household went short`, turn: s.turn, heat: 55 });
+      if (th) shiftTie(s, th, mine.id, -55, `made a display of their stores while this household went short`);
       continue;
     }
 
@@ -143,6 +141,12 @@ function sysShrine(s, r) {
       sh.keeperId = k.id; sh.keeperName = nameOf(s, k.id); sh.keeperSince = s.turn;
       ev(s, 'shrine', 4, `${nameOf(s, k.id)} took over keeping the ${sh.god} stone, untended for three seasons.`, { person: k.id });
     }
+  }
+
+  // keeping it is regard with the devout, earned by the year
+  if (sh.keeperId && s.turn % 4 === 0) {
+    const k = s.people[sh.keeperId];
+    if (k && k.alive) shiftStanding(k, 'shrine', 7);
   }
 
   // what the settlement puts into it
@@ -243,7 +247,7 @@ function startGrowing(s, r, hh, tid) {
       const head = s.people[hh.headId];
       for (const rf of refusers.slice(0, 2)) {
         if (head && head.traits.grudge > 35 && rf.householdId !== hh.id)
-          head.grudges.push({ target: rf.householdId, cause: `refused to work this household's stone`, turn: s.turn, heat: 55 });
+          shiftTie(s, head, rf.householdId, -55, `refused to work this household's stone`);
       }
     }
   }
@@ -307,7 +311,7 @@ function sysDisputes(s, r) {
           const wronged = spiteA > spiteB ? A : B;
           remember(s, arb.id, -6, `ruled on a quarrel they had a stake in`);
           const wh = s.people[wronged.headId];
-          if (wh) wh.grudges.push({ target: arb.id, cause: `ruled against this household while holding a grudge against it`, turn: s.turn, heat: 65 });
+          if (wh) shiftTie(s, wh, arb.id, -65, `ruled against this household while holding a grudge against it`);
           ev(s, 'arbitration', 6, `The ${arb.name} ruled between the ${A.name} and the ${B.name} while holding a grudge against the ${wronged.name}. The ruling is not trusted.`, { dispute: d.id });
         }
         const loser = forA ? B : A, winner = forA ? A : B;
@@ -325,13 +329,19 @@ function sysDisputes(s, r) {
         }
         d.open = false; d.resolved = s.turn; d.winner = winner.id;
         arb.standing += 4;
+        for (const id of loser.members) {
+          const lp = s.people[id];
+          if (lp && lp.alive) shiftStanding(lp, 'government', -5);
+        }
         const lh = s.people[loser.headId];
         if (lh && lh.traits.grudge > 40) {
-          lh.grudges.push({ target: winner.id, cause: `the ${arb.name} ruled against them over ${d.over}`, turn: s.turn, heat: d.heat * 0.6 });
+          shiftTie(s, lh, winner.id, -d.heat * 0.6, `the ${arb.name} ruled against them over ${d.over}`);
         }
         if (dev > 60 && s.shrine) {
           ev(s, 'arbitration', 6, `The ${arb.name} ruled for the ${winner.name} over the ${loser.name}, sworn at the ${s.shrine.god} stone. The quarrel is settled.`, { dispute: d.id });
           remember(s, loser.id, -4, `were ruled against at the ${s.shrine.god} stone over ${d.over}`);
+          const wh2 = s.people[winner.headId];
+          if (wh2) shiftTie(s, wh2, arb.id, 25, `ruled for this household over ${d.over}`);
         } else {
           ev(s, 'arbitration', 6, `${seated && arbHead === seated ? nameOf(s, seated.id) + ', arbiter,' : 'The ' + arb.name} ruled for the ${winner.name} over the ${loser.name}. The ${loser.name} accepted it. The quarrel is settled.`, { dispute: d.id });
         }
@@ -341,7 +351,7 @@ function sysDisputes(s, r) {
       d.open = false; d.resolved = s.turn; d.feud = true;
       for (const side of [[A, B], [B, A]]) {
         const h = s.people[side[0].headId];
-        if (h) h.grudges.push({ target: side[1].id, cause: `the unsettled quarrel over ${d.over}`, turn: s.turn, heat: 70 });
+        if (h) shiftTie(s, h, side[1].id, -70, `the unsettled quarrel over ${d.over}`);
       }
       remember(s, A.id, -6, `let a quarrel with the ${B.name} harden into a feud`);
       remember(s, B.id, -6, `let a quarrel with the ${A.name} harden into a feud`);
@@ -356,11 +366,11 @@ function sysDisputes(s, r) {
 }
 
 function revealGrudge(s, r) {
-  const holders = Object.values(s.people).filter(p => p.alive && p.grudges.length);
+  const holders = Object.values(s.people).filter(p => p.alive && (p.ties || []).some(x => x.value < -20));
   if (!holders.length) { ev(s, 'divine', 3, 'No hidden grudge was found. Nobody here is holding one.'); return; }
   const p = pick(r, holders);
-  const g = pick(r, p.grudges);
-  g.heat += 30;
+  const g = pick(r, p.ties.filter(x => x.value < -20));
+  shiftTie(s, p, g.target, -30, g.cause);
   const target = s.households[g.target];
   ev(s, 'reveal', 6, `${nameOf(s, p.id)}'s grudge against ${target ? 'the ' + target.name : 'an old injury'} became public: ${g.cause}. It is now an open quarrel.`, { person: p.id });
   if (target && p.householdId !== target.id) {

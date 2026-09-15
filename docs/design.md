@@ -75,8 +75,11 @@ nobody in the guard will speak to them.*
 ### Flowing up
 
 - **Household** standing in a faction = the mean of its living adults' standing
-  in that faction, weighted by age (`min(age, 60) / 60`), plus the household's
-  own faded deeds (the existing memory system, unchanged).
+  in that faction, weighted by age (`min(age, 60) / 60`). The household's own
+  faded deeds count toward **`quarter` only** — they are what the settlement at
+  large holds against a house, which is the neighbours' view and not the
+  guard's. Adding them to every faction makes all six read the same number and
+  hides the only thing worth seeing.
 - **Quarter** standing = mean of its households' composite × **0.6**, plus
   quarter beauty × **25**, plus quarter condition × **15**.
 
@@ -335,6 +338,13 @@ principle for the whole design.
 
 ## 6. Relationships
 
+> **Built.** Slice 1 is in the code. Three numbers moved when it ran, and the
+> document now carries what the run taught rather than what was guessed:
+> traits average 31, not 50, so the affinity baseline is 68; contact must fall
+> on the same faces repeatedly or nothing accumulates; and household deeds
+> count toward `quarter` alone, because adding them to all six made every
+> faction read the same number.
+
 ### One signed tie, not two lists
 
 Grudges and bonds are the same thing at different signs. The engine already
@@ -376,20 +386,33 @@ context samples **up to 3 pairs** and drifts them.
 Drift per sampled pair, before the context weight:
 
 ```
-affinity = 50
-         + (loyalty_a + loyalty_b) / 4
+affinity = 68
+         + (loyalty_a + loyalty_b − 62) / 3
          − |ambition_a − ambition_b| / 3
-         − (grudge_a + grudge_b) / 6
+         − (grudge_a + grudge_b − 62) / 5
 
-drift    = clamp((affinity − 50) / 10, −5, +5)
+drift    = clamp((affinity − 50) / 10, −5, +5) × context weight
 ```
 
-So two loyal people working the same boat drift together; two ambitious ones
-grind on each other. Nothing needs to be scripted — put people in a room often
-enough and the room does it.
+Traits are rolled as `pow(r, 2.1) × 100`, so they average about **31**, not 50.
+Every term is measured against that, and the base is set so a shade more people
+drift together than apart: about **57% up, 37% down**, the rest too slight to
+store. The first version assumed a midpoint of 50 and quietly made every
+relationship in the settlement worse.
 
-**Work crews matter most here**, because a crew is not chosen at random. It is
-the people your trade and your quarter put you beside for thirty years.
+**Sampling is not enough.** Three random pairs out of a quarter of forty is one
+chance in two hundred and fifty seasons that any particular pair meets, so
+nothing accumulates — while a single quarrel lands sixty points of ill will at
+once. Instead **each person sees somebody each season**, and **60% of the time
+it is a face they already know**. Relationships have to deepen with the same
+people to get anywhere, which is also how they work.
+
+**Generosity has to mint ties the way quarrels do**, or the ledger only ever
+runs one way. Taking in a child, feeding a household, speaking for one nobody
+else will — each is a positive tie, sized like the negative ones.
+
+**Work crews will matter most here**, because a crew is not chosen at random. It
+is the people your trade and your quarter put you beside for thirty years.
 
 ### Taverns
 

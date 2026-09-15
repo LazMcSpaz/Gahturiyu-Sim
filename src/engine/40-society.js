@@ -44,23 +44,23 @@ function sysLife(s, r) {
 function kill(s, p, cause) {
   p.alive = false; p.deathTurn = s.turn; p.cause = cause;
   const hh = s.households[p.householdId];
-  const weight = p.prominence > 0 ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
+  const weight = notable(s, p) ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
   let text;
   if (p.tender) text = `${nameOf(s, p.id)} died of ${cause}. They were a stone-tender.`;
-  else if (p.prominence > 0) text = `${nameOf(s, p.id)} died of ${cause}.`;
+  else if (notable(s, p)) text = `${nameOf(s, p.id)} died of ${cause}.`;
   else if (p.role === 'head') text = `${nameOf(s, p.id)} died of ${cause}. They were head of the ${hh ? hh.name : ''} household.`;
   else text = `${nameOf(s, p.id)} died of ${cause}.`;
   ev(s, 'death', weight, text, { person: p.id, household: p.householdId, cause });
 
-  // grudges pass to the heirs when the dead held them hard
+  // ties pass to the heirs when the dead held them hard — either way
   if (hh) {
-    for (const g of p.grudges) {
-      if (g.heat < 30) continue;
+    for (const g of p.ties || []) {
+      if (Math.abs(g.value) < 30) continue;
       for (const mid of hh.members) {
         const m = s.people[mid];
         if (!m.alive || m.id === p.id) continue;
         if (m.traits.grudge > 45 && chance(mulberry32(s.turn + parseInt(mid.slice(1))), 0.5)) {
-          m.grudges.push({ target: g.target, cause: g.cause + ', which their kin died still holding', turn: s.turn, heat: g.heat * 0.7, inherited: true });
+          shiftTie(s, m, g.target, g.value * 0.5, g.cause + ', which their kin died still holding');
         }
       }
     }
@@ -100,11 +100,11 @@ function sysHouseholds(s, r) {
         const contested = heirs.length > 1 && heirs[1].traits.ambition > 62 && heirs[1].traits.ambition > next.traits.ambition - 18;
         if (contested) {
           const rival = heirs[1];
-          rival.grudges.push({ target: hh.id, cause: `the household seat passed to ${next.name} instead of them`, turn: s.turn, heat: 35 + rival.traits.grudge * 0.4 });
+          shiftTie(s, rival, hh.id, -(35 + rival.traits.grudge * 0.4), `the household seat passed to ${next.name} instead of them`);
           ev(s, 'succession', 5, `${nameOf(s, next.id)} took the ${hh.name} seat. ${rival.name} was passed over and holds a grudge for it.`, { person: next.id, household: hh.id });
         } else {
           const outsider = next.lineage !== hh.name;
-          const odd = outsider || next.tender || next.prominence > 0;
+          const odd = outsider || next.tender || hasGoal(next);
           ev(s, 'succession', odd ? 4 : 1, outsider
             ? `${nameOf(s, next.id)} took the ${hh.name} seat. They were born to the ${next.lineage}, not to this household.`
             : `${nameOf(s, next.id)} took the ${hh.name} seat.`, { person: next.id, household: hh.id });
@@ -167,8 +167,8 @@ function splitHousehold(s, r, parent, founder) {
   const homes = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
   const roomLeft = s.tiles.some(t => !t.owner && siteValue(s.tiles, t.id) > 0
     && !homes.some(x => tileDist(x, t.id) < 2.15));
-  const notable = !roomLeft || founder.tender || founder.prominence > 0;
-  ev(s, 'split', notable ? 4 : 1,
+  const worthTelling = !roomLeft || founder.tender || hasGoal(founder);
+  ev(s, 'split', worthTelling ? 4 : 1,
     `${founder.name} split from the ${parent.name} to found the ${name}. ` + (roomLeft
       ? `They lodge with the ${parent.name} until a site is found.`
       : `No building ground is left on the coast; they lodge with the ${parent.name}.`),

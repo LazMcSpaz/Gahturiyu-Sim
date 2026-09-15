@@ -1,49 +1,74 @@
-/* promotion: who gets to be a person in the story ---------------------------- */
+/* who is pursuing something --------------------------------------------------
+   There is no cap on how many people may matter. There used to be one — eight —
+   and it was the wrong dial: it limited how many people the simulation would
+   let be interesting, when the real question is how much of it reaches the
+   page. That belongs to event weight, which the chronicle already filters.
 
-const MAX_ACTORS = 8;
+   The real limit is the work available. An opportunity can only be taken once,
+   so the number of people with goals is whatever the settlement currently
+   needs doing, which is the right thing for it to be.
+   -------------------------------------------------------------------------- */
+
+/* Anyone currently pursuing something. `prominence` is gone — having a goal
+   said everything the field said. */
+function hasGoal(p) { return !!p.goal; }
+
+/* Worth naming when they die, or when they take a seat: someone at it now, or
+   someone who was, or someone holding an office. */
+function notable(s, p) {
+  return hasGoal(p) || (p.deeds && p.deeds.length > 0) || p.tender
+    || Object.values(s.offices || {}).some(ids => ids.includes(p.id));
+}
+
+/* The same deed done twice is one thing a person is known for, not two. */
+function credit(p, deed) {
+  if (!p.deeds.includes(deed)) p.deeds.push(deed);
+}
 
 function sysPromotion(s, r) {
-  const actors = Object.values(s.people).filter(p => p.alive && p.prominence > 0);
-  // demotion first: an actor with no live goal for a long while sinks back
-  for (const p of actors) {
+  // a goal that has gone nowhere for long enough is given up
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.goal) continue;
     p.goalAge++;
-    const spent = p.goal ? p.goalAge > 30 : p.goalAge > 12;
-    if (spent) {
-      p.prominence = 0; p.goal = null;
+    if (p.goalAge > 30) {
+      p.goal = null;
       ev(s, 'settle', 1, `${nameOf(s, p.id)} gave up on their goal.`, { person: p.id });
     }
   }
-  let live = Object.values(s.people).filter(p => p.alive && p.prominence > 0).length;
-  if (live >= MAX_ACTORS) return;
 
   const opportunities = findOpportunities(s);
   if (!opportunities.length) return;
 
   const candidates = Object.values(s.people).filter(p => {
     const a = ageOf(s, p);
-    return p.alive && p.prominence === 0 && a >= 17 && a <= 68;
+    return p.alive && !p.goal && a >= 17 && a <= 68;
   });
 
   const scored = [];
   for (const p of candidates) {
     for (const o of opportunities) {
+      // a goal aimed at your own house is not a goal; you would grind at it
+      // forever, because you can never stand above yourself
+      if (o.target && o.target === p.householdId) continue;
       const reach = 1 - clamp(walkDist(s, homeTile(s, p), o.tile) / 14, 0, 0.95);
       const fit = o.wants.reduce((acc, t) => acc + p.traits[t], 0) / o.wants.length;
-      const score = fit * 0.55 + reach * 40 + (p.grudges.length ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
+      const score = fit * 0.55 + reach * 40 + ((p.ties || []).some(x => x.value < -20) ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
       if (score > 76) scored.push({ p, o, score: score + r() * 8 });
     }
   }
   scored.sort((a, b) => b.score - a.score);
+  /* Without the cap, every opportunity would be filled the season it appears,
+     and the chronicle would be a third "took up a goal". People do not work
+     like that: a thing sits undone for years and then somebody has had enough.
+     An opportunity is taken up in roughly one season in four. */
   const taken = new Set();
   for (const c of scored) {
-    if (live >= MAX_ACTORS) break;
-    if (taken.has(c.o.id) || c.p.prominence > 0) continue;
+    if (taken.has(c.o.id) || c.p.goal) continue;
     taken.add(c.o.id);
-    c.p.prominence = 1;
+    if (!chance(r, 0.25)) continue;
     c.p.goal = { kind: c.o.kind, tile: c.o.tile, target: c.o.target, since: s.turn, label: c.o.label };
     c.p.goalAge = 0;
     ev(s, 'rise', 6, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
-    live++;
   }
 }
 
@@ -92,7 +117,7 @@ function describeTraits(p) {
 function sysActors(s, r) {
   s.pursuitLines = 0;
   for (const p of Object.values(s.people)) {
-    if (!p.alive || p.prominence === 0 || !p.goal) continue;
+    if (!p.alive || !p.goal) continue;
     const g = p.goal;
     const hh = s.households[p.householdId];
     if (!hh) continue;
@@ -104,7 +129,7 @@ function sysActors(s, r) {
       if (!b.tenderId && p.tender) {
         b.tenderId = p.id;
         ev(s, 'act', 5, `${nameOf(s, p.id)} took over the stalled stone and started work.`, { person: p.id });
-        p.goal = null; p.goalAge = 0; p.prominence = 2; p.deeds.push('took up abandoned stone');
+        p.goal = null; p.goalAge = 0; credit(p, 'took up abandoned stone');
       } else if (!p.tender && chance(r, 0.3)) {
         ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
       }
@@ -115,7 +140,6 @@ function sysActors(s, r) {
       if (!d || !d.open) { p.goal = null; continue; }
       d.heat += p.traits.courage / 100 * 9;
       if (chance(r, 0.08)) {   // pushing too hard can cost you
-        p.prominence = Math.max(1, p.prominence - 1);
         hh.standing -= 2;
         remember(s, hh.id, -3, `pushed a quarrel too far`);
         ev(s, 'act', 5, `${nameOf(s, p.id)} pushed the quarrel too far and lost standing for it.`, { person: p.id });
@@ -131,7 +155,7 @@ function sysActors(s, r) {
         if (holder && !already) {
           openDispute(s, r, hh, holder, 'ground standing idle while others wait');
           ev(s, 'act', 5, `${nameOf(s, p.id)} accused the ${holder.name} of holding ${holder.claims.length} claims they cannot build on, and raised a claim against them.`, { person: p.id });
-          p.deeds.push('picked a fight over idle ground');
+          credit(p, 'picked a fight over idle ground');
         }
       }
     }
@@ -143,10 +167,16 @@ function sysActors(s, r) {
         if (give > 0) {
           hh.stores -= give;
           for (const n of needy) n.stores += give / needy.length;
-          hh.standing += 3; p.prominence = 2; p.goal = null; p.goalAge = 0;
+          hh.standing += 3; p.goal = null; p.goalAge = 0;
           remember(s, hh.id, 8, `fed households not their own from short stores`);
+          shiftStanding(p, 'kin', 14);
+          shiftStanding(p, 'quarter', 6);
+          for (const n of needy) {
+            const nh = s.people[n.headId];
+            if (nh && n.id !== hh.id) shiftTie(s, nh, hh.id, 30, `opened their stores to this household`);
+          }
           ev(s, 'act', 5, `${nameOf(s, p.id)} opened the ${hh.name} stores to households not their own.`, { person: p.id });
-          p.deeds.push('fed households not their own');
+          credit(p, 'fed households not their own');
         }
       } else if (chance(r, 0.18)) {
         ev(s, 'act', 3, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
@@ -155,10 +185,10 @@ function sysActors(s, r) {
         if (victim) {
           victim.stores -= 4; hh.stores += 3;
           const vh = s.people[victim.headId];
-          if (vh) vh.grudges.push({ target: hh.id, cause: 'stores taken from them', turn: s.turn, heat: 55 });
+          if (vh) shiftTie(s, vh, hh.id, -55, 'stores taken from them');
           remember(s, hh.id, -7, `suspected of taking stores from the ${victim.name}`);
           ev(s, 'act', 6, `${nameOf(s, p.id)} took stores from the ${victim.name}. It could not be proved.`, { person: p.id });
-          p.deeds.push('took what was not theirs');
+          credit(p, 'took what was not theirs');
         }
       }
     }
@@ -169,9 +199,10 @@ function sysActors(s, r) {
       if (!sh.keeperId && p.traits.piety > 55) {
         sh.keeperId = p.id; sh.keeperName = nameOf(s, p.id); sh.keeperSince = s.turn;
         sh.devotion = Math.min(100, sh.devotion + 6);
-        p.prominence = 2; p.goal = null; p.goalAge = 0;
-        p.deeds.push('took the keeping of the ' + sh.god + ' stone');
+        p.goal = null; p.goalAge = 0;
+        credit(p, 'took the keeping of the ' + sh.god + ' stone');
         remember(s, hh.id, 6, `gave the ${sh.god} stone a keeper when it had none`);
+        shiftStanding(p, 'shrine', 18);
         ev(s, 'act', 6, `${nameOf(s, p.id)} became keeper of the ${sh.god} stone.`, { person: p.id });
       } else if (chance(r, 0.25)) {
         sh.devotion = Math.min(100, sh.devotion + 2.5);
@@ -183,14 +214,16 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct || reputeOf(s, target) > -2) {
         if (target && !target.extinct) {
-          p.prominence = 2; p.goal = null; p.goalAge = 0;
-          p.deeds.push('got the ' + target.name + ' name spoken plainly again');
+          p.goal = null; p.goalAge = 0;
+          credit(p, 'got the ' + target.name + ' name spoken plainly again');
           ev(s, 'act', 6, `${p.name} cleared the ${target.name} name. Nothing is held against that household now.`, { person: p.id });
         } else p.goal = null;
         continue;
       }
       if (chance(r, 0.3)) {
         remember(s, target.id, 2, `had someone speak for them publicly`);
+        const th2 = s.people[target.headId];
+        if (th2 && hh) shiftTie(s, th2, hh.id, 45, `spoke for this household when nobody else would`);
         ev(s, 'act', 4, `${nameOf(s, p.id)} spoke publicly for the ${target.name}, at cost to their own standing.`, { person: p.id });
       }
     }
@@ -201,9 +234,9 @@ function sysActors(s, r) {
       hh.standing += 0.8;
       if (chance(r, 0.2)) ev(s, 'act', 3, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
       if (standingOf(s, hh) > standingOf(s, target) && chance(r, 0.3)) {
-        p.prominence = 2; p.goal = null; p.goalAge = 0;
+        p.goal = null; p.goalAge = 0;
         ev(s, 'act', 6, `The ${hh.name} now outrank the ${target.name}. ${p.name} did it.`, { person: p.id });
-        p.deeds.push('raised their house above another');
+        credit(p, 'raised their house above another');
       }
     }
 
@@ -268,7 +301,7 @@ function recount(s) {
     stores: Math.round(hh.reduce((a, h) => a + h.stores, 0)),
     hungry: hh.filter(h => !h.lodgedWith && h.stores < 1).length,
     disputes: Object.values(s.disputes).filter(d => d.open).length,
-    actors: live.filter(p => p.prominence > 0).length
+    actors: live.filter(hasGoal).length
   });
   if (s.stats.length > 400) s.stats.shift();
 }

@@ -136,8 +136,9 @@ function makePerson(state, r, hid, age) {
     // scarce half — it is rare, and it cannot be taught into someone.
     aptitude: chance(r, 0.13),
     learning: null,
-    role: 'none', work: null, prominence: 0, goal: null, goalAge: 0, matches: 0,
-    grudges: [], deeds: [], hunger: 0, parents: []
+    role: 'none', work: null, goal: null, goalAge: 0, matches: 0,
+    standing: blankStanding(), ties: [], term: null, refusedTerm: 0,
+    deeds: [], hunger: 0, parents: []
   };
   state.people[pid] = p;
   if (hh) hh.members.push(pid);

@@ -145,7 +145,6 @@ function sysOffices(s, r) {
         if (!pick_) continue;
         s.offices.senator.push(pick_.id);
         pick_.officeSince = s.turn;
-        pick_.prominence = Math.max(pick_.prominence, 1);
         remember(s, pick_.householdId, 3, `elected to speak for ${q.name}`);
         ev(s, 'office', 5, `${q.name} elected ${nameOf(s, pick_.id)} to speak for it.`, { person: pick_.id });
       }
@@ -157,7 +156,6 @@ function sysOffices(s, r) {
       if (!chosen) break;
       s.offices[sp.key].push(chosen.id);
       chosen.officeSince = s.turn;
-      chosen.prominence = Math.max(chosen.prominence, 1);
       const hh = s.households[chosen.householdId];
       const line = {
         ruler: `${nameOf(s, chosen.id)} of the ${hh.name} is now sole ruler of the settlement.`,
@@ -169,6 +167,16 @@ function sysOffices(s, r) {
       }[sp.key] || `${nameOf(s, chosen.id)} took the seat of ${sp.title.toLowerCase()}.`;
       ev(s, 'office', 5, line, { person: chosen.id });
       remember(s, chosen.householdId, 3, `took the seat of ${sp.title.toLowerCase()}`);
+    }
+  }
+
+  // a seat held is regard earned, every year, in the faction that grants it
+  if (s.turn % 4 === 0) {
+    for (const sp of officeSpec(s)) {
+      for (const p of officeHolders(s, sp.key)) {
+        shiftStanding(p, 'government', sp.key === 'ruler' ? 6 : 4);
+        if (sp.key === 'captain') shiftStanding(p, 'guard', 6);
+      }
     }
   }
 
@@ -209,7 +217,7 @@ function sysBoats(s, r) {
         remember(s, own.id, -5, `kept the ${h.name} off the water`);
         const hh = s.people[h.headId];
         if (hh && hh.traits.grudge > 30)
-          hh.grudges.push({ target: own.id, cause: `kept this household off the water`, turn: s.turn, heat: 60 });
+          shiftTie(s, hh, own.id, -60, `kept this household off the water`);
       }
     } else if (h.noBoat) {
       h.noBoat = 0;
@@ -241,7 +249,7 @@ function sysCaptain(s, r) {
     d.heat += 10;
     remember(s, own.id, -5, `used the guard against the ${put.name} in a quarrel their own household was in`);
     const ph = s.people[put.headId];
-    if (ph) ph.grudges.push({ target: own.id, cause: `set the guard on this household over a private quarrel`, turn: s.turn, heat: 70 });
+    if (ph) shiftTie(s, ph, own.id, -70, `set the guard on this household over a private quarrel`);
     ev(s, 'office', 6, `${nameOf(s, cap.id)} set the guard on the ${put.name} and not the ${kept.name}. The captain's own household is on the ${kept.name}'s side.`, { person: cap.id });
   } else {
     d.heat = Math.max(0, d.heat - 22);

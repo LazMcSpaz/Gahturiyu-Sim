@@ -5,8 +5,8 @@
 /* --- the standing cast -------------------------------------------------------- */
 
 function castHTML(s) {
-  const actors = Object.values(s.people).filter(p => p.alive && p.prominence > 0)
-    .sort((a, b) => b.prominence - a.prominence);
+  const actors = Object.values(s.people).filter(p => p.alive && hasGoal(p))
+    .sort((a, b) => b.goalAge - a.goalAge).slice(0, 20);
   if (!actors.length) return `<p class="empty">No named figures. Nobody is pursuing a goal.</p>`;
   return actors.map(p => {
     const hh = s.households[p.householdId];
@@ -15,9 +15,21 @@ function castHTML(s) {
       <div class="fmeta">${ageOf(s, p)} years · ${describeTraits(p)}</div>
       <div class="fgoal">${p.goal ? 'Goal: ' + p.goal.label + '.' : 'No goal.'}</div>
       ${p.deeds.length ? `<div class="fdeeds">Known for: ${p.deeds.slice(-3).join('; ')}.</div>` : ''}
-      ${p.grudges.length ? `<div class="fgrudge">Holds ${p.grudges.length} grudge${p.grudges.length > 1 ? 's' : ''}.</div>` : ''}
+      ${tieSummary(p)}
     </div>`;
   }).join('');
+}
+
+/* What a person holds, in both directions. A tie is one number, so this is one
+   question asked twice. */
+function tieSummary(p) {
+  const ties = p.ties || [];
+  const foes = ties.filter(t => t.value <= -40).length;
+  const friends = ties.filter(t => t.value >= 40).length;
+  const bits = [];
+  if (friends) bits.push(`<span class="fbond">Close to ${friends} household${friends > 1 ? 's' : ''}.</span>`);
+  if (foes) bits.push(`<span class="fgrudge">At odds with ${foes} household${foes > 1 ? 's' : ''}.</span>`);
+  return bits.length ? `<div class="fties">${bits.join(' ')}</div>` : '';
 }
 
 function householdsHTML(s) {
@@ -122,10 +134,33 @@ function tileFactsHTML(s, id) {
     `${rep > 6 ? ', well regarded' : rep < -6 ? ', badly regarded' : ''}`,
     rep > 6 ? 'good' : rep < -6 ? 'bad' : '');
 
+  // regard, faction by faction — the composite above is a summary, these are
+  // what decisions actually read
+  const regard = FACTIONS
+    .map(f => ({ f, v: houseStanding(s, hh, f) }))
+    .filter(x => Math.abs(x.v) >= 3)
+    .sort((a, c) => Math.abs(c.v) - Math.abs(a.v));
+  if (regard.length) {
+    row('Regard', regard.map(x =>
+      `<span class="reg ${x.v < 0 ? 'bad' : 'good'}">${x.f} ${x.v > 0 ? '+' : ''}${Math.round(x.v)}</span>`).join(' '));
+  }
+
+  const ties = hh.members.flatMap(i => (s.people[i] && s.people[i].alive) ? (s.people[i].ties || []) : []);
+  const close = ties.filter(x => x.value >= 40).length;
+  const foes = ties.filter(x => x.value <= -40).length;
+  if (close || foes) {
+    row('Ties', [close ? `${close} close` : '', foes ? `${foes} at odds` : ''].filter(Boolean).join(', '),
+      foes > close ? 'bad' : 'good');
+  }
+
+  const served = hh.members.map(i => s.people[i]).filter(p => p && p.alive && p.term && p.term.done).length;
+  const refused = hh.members.map(i => s.people[i]).filter(p => p && p.alive && p.refusedTerm).length;
+  if (refused) row('The term', `${refused} refused it${served ? `, ${served} served` : ''}`, 'bad');
+
   const tenders = live.filter(p => p.tender);
   if (tenders.length) row('Can work stone', tenders.map(p => nameOf(s, p.id)).join(', '), 'good');
 
-  const figures = live.filter(p => p.prominence > 0);
+  const figures = live.filter(hasGoal);
   for (const p of figures) row('Figure', `${nameOf(s, p.id)} — ${p.goal ? p.goal.label : 'no goal'}`);
 
   const open = Object.values(s.disputes).filter(d => d.open && (d.a === hh.id || d.b === hh.id));

@@ -6,6 +6,7 @@ const fs = require('fs'), path = require('path');
 
 const MANIFEST = [
   'src/engine/00-core.js',
+  'src/engine/05-ties.js',
   'src/engine/10-world.js',
   'src/engine/15-turn.js',
   'src/engine/20-economy.js',
@@ -45,7 +46,8 @@ function engineSource(root = __dirname) {
 function loadEngine(root = __dirname) {
   return new Function(engineSource(root) +
     '\nreturn {newWorld,advance,LEVERS,renderTurn,chronicleHTML,mapHTML,inTheNews,tileFactsHTML,'
-    + 'seasonOf,yearOf,ageOf,mulberry32,reputeOf,tileId,tileXY,quarterOf,W,H};')();
+    + 'seasonOf,yearOf,ageOf,mulberry32,reputeOf,tileId,tileXY,quarterOf,W,H,'
+    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal};')();
 }
 
 module.exports = { build, engineSource, loadEngine, MANIFEST };

@@ -96,6 +96,9 @@ header.top{
 .ik{flex:0 0 7.4rem;font-family:var(--sans);font-size:.67rem;color:#7d888c;letter-spacing:.03em}
 .iv{flex:1;min-width:0;color:var(--pale)}
 .irow.good .iv{color:var(--lichen)}
+.reg{display:inline-block;font-family:var(--sans);font-size:.66rem;padding:1px 5px;margin:1px 2px 1px 0;border-radius:2px;background:#2a3236}
+.reg.good{color:var(--lichen)}
+.reg.bad{color:var(--rust)}
 .irow.bad .iv{color:var(--rust)}
 .irow.growing .iv{color:var(--lichen)}
 .ix{
@@ -213,8 +216,9 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 .fname .flin{font-weight:300;color:var(--grey)}
 .fmeta{font-family:var(--sans);font-size:.72rem;color:var(--lamp);margin:2px 0 5px}
 .fgoal{color:#c3cacb;font-size:.94rem}
-.fdeeds,.fgrudge{font-family:var(--sans);font-size:.72rem;color:var(--grey);margin-top:3px}
+.fdeeds,.fties{font-family:var(--sans);font-size:.72rem;color:var(--grey);margin-top:3px}
 .fgrudge{color:var(--rust)}
+.fbond{color:var(--lichen);margin-right:7px}
 
 /* households */
 .hrow{padding:8px 0;border-bottom:1px solid #232b2e}
@@ -596,6 +600,295 @@ function seasonOf(turn) { return SEASONS[turn % 4]; }
 function yearOf(state, turn) { return state.startYear + Math.floor(turn / 4); }
 
 
+/* ===== src/engine/05-ties.js ===== */
+/* ===========================================================================
+   Standing, held per faction — and ties, which are grudges with the sign
+   allowed to go either way.
+
+   Two things the rest of the settlement reads constantly. Both live here
+   because everything downstream depends on them and nothing here depends on
+   anything downstream.
+   =========================================================================== */
+
+/* --- standing ----------------------------------------------------------------
+   A person holds a standing with each faction, −100 to +100, starting at 0.
+   Decisions read the faction that is relevant to them: an arbiter weighs
+   `government`, a neighbour weighs `quarter`, a master weighs `trade`. The
+   composite exists to be displayed and must not be read by anything deciding
+   anything — that would put the single number back.
+   -------------------------------------------------------------------------- */
+
+const FACTIONS = ['kin', 'quarter', 'government', 'guard', 'shrine', 'trade'];
+
+const STANDING_DECAY = 0.985;   // per season toward 0 — half-life ~46 turns, 11½ years
+const SLOW_DECAY = 0.99625;     // a quarter of that rate: what follows you for life
+
+function blankStanding() {
+  const o = {};
+  for (const f of FACTIONS) o[f] = 0;
+  return o;
+}
+
+function standingWith(p, faction) {
+  return (p.standing && p.standing[faction]) || 0;
+}
+
+/* `slow` marks a mark that should not fade at the ordinary rate — a refused
+   term is the case it exists for. */
+function shiftStanding(p, faction, delta, slow) {
+  if (!p.standing) p.standing = blankStanding();
+  p.standing[faction] = clamp(p.standing[faction] + delta, -100, 100);
+  if (slow) (p.slowStanding = p.slowStanding || {})[faction] = true;
+}
+
+function decayStanding(s) {
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.standing) continue;
+    for (const f of FACTIONS) {
+      const rate = (p.slowStanding && p.slowStanding[f]) ? SLOW_DECAY : STANDING_DECAY;
+      p.standing[f] *= rate;
+      if (Math.abs(p.standing[f]) < 0.05) p.standing[f] = 0;
+    }
+  }
+}
+
+/* A household's standing in a faction: its living adults, weighted by age.
+   Age weighting is why a house of children carries less than a house of elders.
+
+   The household's own deeds — what `remember` records — count toward `quarter`
+   and nothing else. They are what the settlement at large holds against a
+   house, which is the neighbours' view, not the guard's or the shrine's. The
+   first version added them to all six, which made every faction read the same
+   number and hid the only thing worth seeing. */
+function houseStanding(s, hh, faction) {
+  let sum = 0, weight = 0;
+  for (const id of hh.members) {
+    const p = s.people[id];
+    if (!p || !p.alive) continue;
+    const a = ageOf(s, p);
+    if (a < 16) continue;
+    const w = Math.min(a, 60) / 60;
+    sum += standingWith(p, faction) * w;
+    weight += w;
+  }
+  const own = weight ? sum / weight : 0;
+  return faction === 'quarter' ? own + reputeOf(s, hh) : own;
+}
+
+/* Display only. Nothing that decides anything may call this. */
+function compositeOf(s, hh) {
+  return FACTIONS.reduce((a, f) => a + houseStanding(s, hh, f), 0) / FACTIONS.length;
+}
+
+/* --- ties --------------------------------------------------------------------
+   One signed number from a person toward a household: −100 an enemy, +100
+   someone they would put themselves out for. Zero is no tie and is not stored.
+
+   Two hundred and fifty people is thirty thousand possible pairs, so ties are
+   sparse and capped. An export has to stay a few kilobytes — rollback,
+   branching and the save format all depend on it.
+   -------------------------------------------------------------------------- */
+
+const TIE_CAP = 12;            // per person; the weakest goes when a thirteenth forms
+const TIE_DECAY = 0.99;        // per season toward 0 — half-life ~69 turns, 17 years
+const TIE_CLOSE = 40;          // above this, close
+const TIE_ENEMY = -40;         // below this, an enemy
+
+function tieTo(p, householdId) {
+  const t = (p.ties || []).find(x => x.target === householdId);
+  return t ? t.value : 0;
+}
+
+/* The only way a tie changes. Returns the tie, or null if it was dropped. */
+function shiftTie(s, p, householdId, delta, cause) {
+  if (!householdId || !delta) return null;
+  p.ties = p.ties || [];
+  let t = p.ties.find(x => x.target === householdId);
+  if (!t) {
+    t = { target: householdId, value: 0, cause, turn: s.turn };
+    p.ties.push(t);
+  }
+  const before = t.value;
+  t.value = clamp(t.value + delta, -100, 100);
+  // the reason on record is the one that moved it most, not the most recent
+  if (Math.abs(delta) >= Math.abs(before) * 0.5 && cause) { t.cause = cause; t.turn = s.turn; }
+
+  if (p.ties.length > TIE_CAP) {
+    p.ties.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+    p.ties.length = TIE_CAP;
+  }
+  return t;
+}
+
+/* Kept for every caller that asks the old question. A positive tie holds
+   nothing against anyone, so it answers zero. */
+function holdsAgainst(s, person, householdId) {
+  if (!person) return 0;
+  return Math.max(0, -tieTo(person, householdId));
+}
+
+function bondWith(person, householdId) {
+  if (!person) return 0;
+  return Math.max(0, tieTo(person, householdId));
+}
+
+function decayTies(s) {
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.ties || !p.ties.length) continue;
+    for (const t of p.ties) t.value *= TIE_DECAY;
+    p.ties = p.ties.filter(t => Math.abs(t.value) >= 1
+      && s.households[t.target] && !s.households[t.target].extinct);
+  }
+}
+
+/* --- contact -----------------------------------------------------------------
+   Relationships do not change because a system decided to change them. They
+   change because people spend time in the same place. Each context samples a
+   few pairs a season and drifts them by how well the two get on.
+
+   Work crews and taverns arrive with later slices; household, quarter and the
+   shrine term are enough to start.
+   -------------------------------------------------------------------------- */
+
+const CONTEXT_WEIGHT = { household: 1.5, service: 2.0, quarter: 0.4 };
+const PAIRS_PER_CONTEXT = 3;
+
+/* `traitRoll` is pow(r, 2.1) * 100, so traits are not centred on 50 — they
+   average about 31. Every term below is measured against that, and the base is
+   set so that time spent together brings a shade more people together than it
+   drives apart: about 57% drift up, 37% down, the rest too slight to store.
+   Written as constants because the first version assumed a midpoint of 50 and
+   silently made every relationship in the settlement worse. */
+const TRAIT_MID = 31;
+const AFFINITY_BASE = 68;
+
+function affinity(a, b) {
+  return AFFINITY_BASE
+    + (a.traits.loyalty + b.traits.loyalty - 2 * TRAIT_MID) / 3
+    - Math.abs(a.traits.ambition - b.traits.ambition) / 3
+    - (a.traits.grudge + b.traits.grudge - 2 * TRAIT_MID) / 5;
+}
+
+/* Two loyal people on the same boat drift together; two ambitious ones grind.
+   Nothing is scripted — put people in a room often enough and the room does it. */
+function drift(s, r, a, b, weight, cause) {
+  if (!a || !b || a.id === b.id) return;
+  if (a.householdId === b.householdId) return;   // ties point at other houses
+  const d = clamp((affinity(a, b) - 50) / 10, -5, 5) * weight;
+  if (Math.abs(d) < 0.2) return;
+  shiftTie(s, a, b.householdId, d, cause);
+  shiftTie(s, b, a.householdId, d, cause);
+}
+
+/* The first version sampled three random pairs out of a whole quarter. In a
+   quarter of forty that is one chance in two hundred and fifty seasons that any
+   particular pair meets, so nothing ever accumulated — while a single quarrel
+   lands sixty points of ill will at once. Relationships have to deepen with the
+   same people repeatedly to get anywhere, which is also how they work.
+
+   So: each person, each season, sees somebody. Usually somebody they already
+   know. */
+const SEE_SOMEONE = 0.25;      // per person per context per season
+const SEE_SOMEONE_KNOWN = 0.6; // and this often it is a face they know
+
+function partnerFor(s, r, p, group) {
+  if (group.length < 2) return null;
+  const known = group.filter(q => q.id !== p.id && tieTo(p, q.householdId) !== 0);
+  const pool = (known.length && chance(r, SEE_SOMEONE_KNOWN)) ? known : group;
+  const q = pool[Math.floor(r() * pool.length)];
+  return (q && q.id !== p.id) ? q : null;
+}
+
+function mingle(s, r, group, weight, cause) {
+  for (const p of group) {
+    if (!chance(r, SEE_SOMEONE * weight)) continue;
+    const q = partnerFor(s, r, p, group);
+    if (q) drift(s, r, p, q, weight, cause);
+  }
+}
+
+function sysContact(s, r) {
+  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 12);
+
+  // the quarter you live in — weak, constant, and the only one everyone has
+  const byQuarter = {};
+  for (const p of adults) {
+    const q = quarterOf(s, homeTile(s, p));
+    if (q) (byQuarter[q.id] = byQuarter[q.id] || []).push(p);
+  }
+  for (const group of Object.values(byQuarter)) {
+    mingle(s, r, group, CONTEXT_WEIGHT.quarter, 'neighbours in the same quarter');
+  }
+
+  // households that share a roof, or lodge under one
+  const byHouse = {};
+  for (const p of adults) {
+    const hh = s.households[p.householdId];
+    if (!hh || hh.extinct) continue;
+    const host = economicHost(s, hh);
+    (byHouse[host.id] = byHouse[host.id] || []).push(p);
+  }
+  for (const group of Object.values(byHouse)) {
+    mingle(s, r, group, CONTEXT_WEIGHT.household, 'lodged under one roof');
+  }
+
+  // the shrine term — the only context that crosses class, because everyone owes it
+  mingle(s, r, adults.filter(p => p.term && !p.term.done),
+         CONTEXT_WEIGHT.service, 'served their term together');
+}
+
+/* --- the term of service -----------------------------------------------------
+   Everyone owes the shrine a year between 16 and 20. It is unpaid, and it is
+   the one ladder wealth does not gate — which makes it the settlement's only
+   leveller, and the only institution that puts a rich child and a poor one in
+   the same year of work.
+
+   Refusing is permitted and expensive. It should still be among the first
+   things said about a household forty years later.
+   -------------------------------------------------------------------------- */
+
+const TERM_SEASONS = 4;
+
+function sysService(s, r) {
+  const sh = s.shrine;
+  for (const p of Object.values(s.people)) {
+    if (!p.alive) continue;
+    const a = ageOf(s, p);
+
+    // finishing
+    if (p.term && !p.term.done) {
+      if (s.turn - p.term.since >= TERM_SEASONS) {
+        p.term.done = s.turn;
+        shiftStanding(p, 'shrine', 8);
+        shiftStanding(p, 'quarter', 3);
+        // a few stay on, and those are who the shrine draws its keepers from
+        if (chance(r, 0.06)) {
+          p.shrineSworn = true;
+          shiftStanding(p, 'shrine', 10);
+          ev(s, 'shrine', 3, `${nameOf(s, p.id)} stayed on at the ${sh ? sh.god : 'communal'} stone after their term.`, { person: p.id });
+        }
+      }
+      continue;
+    }
+
+    if (p.term || p.refusedTerm) continue;        // done, or refused, once only
+    if (a < 16 || a > 20) continue;
+    if (!chance(r, 0.34)) continue;               // spread across the four years
+
+    // who refuses: those with no use for the stone and too much use for themselves
+    if (p.traits.piety < 30 && p.traits.ambition > 70) {
+      p.refusedTerm = s.turn;
+      shiftStanding(p, 'shrine', -25, true);      // slow decay: this one follows you
+      shiftStanding(p, 'quarter', -10);
+      remember(s, p.householdId, -6, `had one of their own refuse the term at the stone`);
+      ev(s, 'shrine', 5, `${nameOf(s, p.id)} refused the term at the ${sh ? sh.god : 'communal'} stone.`, { person: p.id, household: p.householdId });
+      continue;
+    }
+    p.term = { since: s.turn, done: 0 };
+  }
+}
+
+
 /* ===== src/engine/10-world.js ===== */
 /* --- world creation --------------------------------------------------------- */
 
@@ -735,8 +1028,9 @@ function makePerson(state, r, hid, age) {
     // scarce half — it is rare, and it cannot be taught into someone.
     aptitude: chance(r, 0.13),
     learning: null,
-    role: 'none', work: null, prominence: 0, goal: null, goalAge: 0, matches: 0,
-    grudges: [], deeds: [], hunger: 0, parents: []
+    role: 'none', work: null, goal: null, goalAge: 0, matches: 0,
+    standing: blankStanding(), ties: [], term: null, refusedTerm: 0,
+    deeds: [], hunger: 0, parents: []
   };
   state.people[pid] = p;
   if (hh) hh.members.push(pid);
@@ -800,11 +1094,16 @@ function advance(state, input) {
   sysDisputes(s, r);
   sysOffices(s, r);
   sysShrine(s, r);
+  sysService(s, r);     // who owes the stone a year, and who refuses it
+  sysContact(s, r);     // who spent the season near whom
   sysGrudges(s, r);
   sysPromotion(s, r);
   sysActors(s, r);
   sysMemory(s, r);
   sysOmen(s, r);
+
+  decayTies(s);         // regard fades before it is counted
+  decayStanding(s);
 
   recount(s);
   s.chronicle.push({
@@ -975,6 +1274,9 @@ function sysHardship(s, r) {
         hh.members = hh.members.filter(i => i !== kid.id);
         kid.householdId = to.id; to.members.push(kid.id);
         remember(s, to.id, 5, `took in another household's child during a shortage`);
+        if (head) shiftTie(s, head, to.id, 40, `took in one of ours when we had nothing`);
+        const taker = s.people[to.headId];
+        if (taker) shiftStanding(taker, 'kin', 9);
         ev(s, 'hardship', 5, `The ${hh.name} sent ${kid.name} to the ${to.name} to be fed.`, { person: kid.id, household: hh.id });
         continue;
       }
@@ -986,8 +1288,10 @@ function sysHardship(s, r) {
       const took = Math.min(6, victim.stores * 0.3);
       victim.stores -= took; hh.stores += took * 0.8;
       const vh = s.people[victim.headId];
-      if (vh) vh.grudges.push({ target: hh.id, cause: `stores taken from them`, turn: s.turn, heat: 60 });
+      if (vh) shiftTie(s, vh, hh.id, -60, `stores taken from them`);
       remember(s, hh.id, -8, `took stores from the ${victim.name}`);
+      shiftStanding(head, 'kin', -12);
+      shiftStanding(head, 'quarter', -8);
       ev(s, 'hardship', 6, `The ${hh.name} took stores from the ${victim.name}. The ${victim.name} hold a grudge for it.`, { household: hh.id });
       continue;
     }
@@ -1022,13 +1326,18 @@ function sysHardship(s, r) {
     if (!given.length) continue;
     const give = Math.min(hh.stores - 10, given.length * 2.5);
     hh.stores -= give;
-    for (const nd of given) nd.stores += give / given.length;
+    for (const nd of given) {
+      nd.stores += give / given.length;
+      const nh = s.people[nd.headId];
+      if (nh) shiftTie(s, nh, hh.id, 35, `fed this household in a hard season`);
+    }
     remember(s, hh.id, 7, `gave food to households not their own`);
+    if (head) shiftStanding(head, 'kin', 8);
     if (skipped.length) {
       const missed = skipped[0];
       remember(s, hh.id, -4, `fed every short household except the ${missed.name}, deliberately`);
       const mh = s.people[missed.headId];
-      if (mh) mh.grudges.push({ target: hh.id, cause: `passed this household over when feeding every other short house`, turn: s.turn, heat: 70 });
+      if (mh) shiftTie(s, mh, hh.id, -70, `passed this household over when feeding every other short house`);
       ev(s, 'hardship', 6, `The ${hh.name} gave food to every short household except the ${missed.name}, who were passed over deliberately. The ${missed.name} hold a grudge for it.`, { household: hh.id });
     } else {
       ev(s, 'hardship', 5, `The ${hh.name} gave food to ${given.length === 1 ? 'the ' + given[0].name : given.length + ' short households'}.`, { household: hh.id });
@@ -1045,12 +1354,8 @@ function sysHardship(s, r) {
    handing down a sentence, slowly, over twenty years.
    -------------------------------------------------------------------------- */
 
-function holdsAgainst(s, person, householdId) {
-  if (!person) return 0;
-  return person.grudges
-    .filter(g => g.target === householdId)
-    .reduce((a, g) => a + g.heat * Math.pow(0.5, (s.turn - g.turn) / 200), 0);
-}
+/* holdsAgainst now lives in 05-ties.js — it reads one signed tie. */
+
 
 // What a tender thinks of a job. Below zero and they will not take it.
 function tenderWill(s, t, hh, tid) {
@@ -1207,7 +1512,7 @@ function sysPairing(s, r) {
     if (!pool.length) {
       const wanted = Object.values(s.people).filter(q => q.alive && q.sex === want
         && ageOf(s, q) >= 18 && ageOf(s, q) <= 40 && q.householdId !== hh.id && !moved.has(q.id)
-        && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || q.prominence > 0));
+        && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || hasGoal(q)));
       if (!wanted.length || !chance(r, 0.16)) continue;
       const q = pick(r, wanted);
       pool.push({ p: q, from: s.households[q.householdId] });
@@ -1231,7 +1536,7 @@ function sysPairing(s, r) {
       if (chosen.from) {
         const jilted = s.people[chosen.from.headId];
         if (jilted && jilted.alive && jilted.traits.grudge > 45)
-          jilted.grudges.push({ target: hh.id, cause: `they sent for ${p.name}, who was already reckoned to this house`, turn: s.turn, heat: 45 });
+          shiftTie(s, jilted, hh.id, -45, `sent for ${p.name}, who was already reckoned to this house`);
       }
     } else {
       // routine. recorded, not announced.
@@ -1259,7 +1564,7 @@ function sysNotes(s, r) {
         ? `The ${hh.name} stone is two thirds grown — walls and a doorway.`
         : `The ${hh.name} stone is nine tenths grown. ${nameOf(s, b.tenderId)} is finishing the cap.`;
       const t = s.people[b.tenderId];
-      const worthSaying = mark === 3 && (b.stalled > 0 || (t && t.prominence > 0));
+      const worthSaying = mark === 3 && (b.stalled > 0 || (t && hasGoal(t)));
       ev(s, 'note', worthSaying ? 3 : 1, line, { building: b.id });
     }
   }
@@ -1409,23 +1714,23 @@ function sysLife(s, r) {
 function kill(s, p, cause) {
   p.alive = false; p.deathTurn = s.turn; p.cause = cause;
   const hh = s.households[p.householdId];
-  const weight = p.prominence > 0 ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
+  const weight = notable(s, p) ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
   let text;
   if (p.tender) text = `${nameOf(s, p.id)} died of ${cause}. They were a stone-tender.`;
-  else if (p.prominence > 0) text = `${nameOf(s, p.id)} died of ${cause}.`;
+  else if (notable(s, p)) text = `${nameOf(s, p.id)} died of ${cause}.`;
   else if (p.role === 'head') text = `${nameOf(s, p.id)} died of ${cause}. They were head of the ${hh ? hh.name : ''} household.`;
   else text = `${nameOf(s, p.id)} died of ${cause}.`;
   ev(s, 'death', weight, text, { person: p.id, household: p.householdId, cause });
 
-  // grudges pass to the heirs when the dead held them hard
+  // ties pass to the heirs when the dead held them hard — either way
   if (hh) {
-    for (const g of p.grudges) {
-      if (g.heat < 30) continue;
+    for (const g of p.ties || []) {
+      if (Math.abs(g.value) < 30) continue;
       for (const mid of hh.members) {
         const m = s.people[mid];
         if (!m.alive || m.id === p.id) continue;
         if (m.traits.grudge > 45 && chance(mulberry32(s.turn + parseInt(mid.slice(1))), 0.5)) {
-          m.grudges.push({ target: g.target, cause: g.cause + ', which their kin died still holding', turn: s.turn, heat: g.heat * 0.7, inherited: true });
+          shiftTie(s, m, g.target, g.value * 0.5, g.cause + ', which their kin died still holding');
         }
       }
     }
@@ -1465,11 +1770,11 @@ function sysHouseholds(s, r) {
         const contested = heirs.length > 1 && heirs[1].traits.ambition > 62 && heirs[1].traits.ambition > next.traits.ambition - 18;
         if (contested) {
           const rival = heirs[1];
-          rival.grudges.push({ target: hh.id, cause: `the household seat passed to ${next.name} instead of them`, turn: s.turn, heat: 35 + rival.traits.grudge * 0.4 });
+          shiftTie(s, rival, hh.id, -(35 + rival.traits.grudge * 0.4), `the household seat passed to ${next.name} instead of them`);
           ev(s, 'succession', 5, `${nameOf(s, next.id)} took the ${hh.name} seat. ${rival.name} was passed over and holds a grudge for it.`, { person: next.id, household: hh.id });
         } else {
           const outsider = next.lineage !== hh.name;
-          const odd = outsider || next.tender || next.prominence > 0;
+          const odd = outsider || next.tender || hasGoal(next);
           ev(s, 'succession', odd ? 4 : 1, outsider
             ? `${nameOf(s, next.id)} took the ${hh.name} seat. They were born to the ${next.lineage}, not to this household.`
             : `${nameOf(s, next.id)} took the ${hh.name} seat.`, { person: next.id, household: hh.id });
@@ -1532,8 +1837,8 @@ function splitHousehold(s, r, parent, founder) {
   const homes = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
   const roomLeft = s.tiles.some(t => !t.owner && siteValue(s.tiles, t.id) > 0
     && !homes.some(x => tileDist(x, t.id) < 2.15));
-  const notable = !roomLeft || founder.tender || founder.prominence > 0;
-  ev(s, 'split', notable ? 4 : 1,
+  const worthTelling = !roomLeft || founder.tender || hasGoal(founder);
+  ev(s, 'split', worthTelling ? 4 : 1,
     `${founder.name} split from the ${parent.name} to found the ${name}. ` + (roomLeft
       ? `They lodge with the ${parent.name} until a site is found.`
       : `No building ground is left on the coast; they lodge with the ${parent.name}.`),
@@ -1690,7 +1995,6 @@ function sysOffices(s, r) {
         if (!pick_) continue;
         s.offices.senator.push(pick_.id);
         pick_.officeSince = s.turn;
-        pick_.prominence = Math.max(pick_.prominence, 1);
         remember(s, pick_.householdId, 3, `elected to speak for ${q.name}`);
         ev(s, 'office', 5, `${q.name} elected ${nameOf(s, pick_.id)} to speak for it.`, { person: pick_.id });
       }
@@ -1702,7 +2006,6 @@ function sysOffices(s, r) {
       if (!chosen) break;
       s.offices[sp.key].push(chosen.id);
       chosen.officeSince = s.turn;
-      chosen.prominence = Math.max(chosen.prominence, 1);
       const hh = s.households[chosen.householdId];
       const line = {
         ruler: `${nameOf(s, chosen.id)} of the ${hh.name} is now sole ruler of the settlement.`,
@@ -1714,6 +2017,16 @@ function sysOffices(s, r) {
       }[sp.key] || `${nameOf(s, chosen.id)} took the seat of ${sp.title.toLowerCase()}.`;
       ev(s, 'office', 5, line, { person: chosen.id });
       remember(s, chosen.householdId, 3, `took the seat of ${sp.title.toLowerCase()}`);
+    }
+  }
+
+  // a seat held is regard earned, every year, in the faction that grants it
+  if (s.turn % 4 === 0) {
+    for (const sp of officeSpec(s)) {
+      for (const p of officeHolders(s, sp.key)) {
+        shiftStanding(p, 'government', sp.key === 'ruler' ? 6 : 4);
+        if (sp.key === 'captain') shiftStanding(p, 'guard', 6);
+      }
     }
   }
 
@@ -1754,7 +2067,7 @@ function sysBoats(s, r) {
         remember(s, own.id, -5, `kept the ${h.name} off the water`);
         const hh = s.people[h.headId];
         if (hh && hh.traits.grudge > 30)
-          hh.grudges.push({ target: own.id, cause: `kept this household off the water`, turn: s.turn, heat: 60 });
+          shiftTie(s, hh, own.id, -60, `kept this household off the water`);
       }
     } else if (h.noBoat) {
       h.noBoat = 0;
@@ -1786,7 +2099,7 @@ function sysCaptain(s, r) {
     d.heat += 10;
     remember(s, own.id, -5, `used the guard against the ${put.name} in a quarrel their own household was in`);
     const ph = s.people[put.headId];
-    if (ph) ph.grudges.push({ target: own.id, cause: `set the guard on this household over a private quarrel`, turn: s.turn, heat: 70 });
+    if (ph) shiftTie(s, ph, own.id, -70, `set the guard on this household over a private quarrel`);
     ev(s, 'office', 6, `${nameOf(s, cap.id)} set the guard on the ${put.name} and not the ${kept.name}. The captain's own household is on the ${kept.name}'s side.`, { person: cap.id });
   } else {
     d.heat = Math.max(0, d.heat - 22);
@@ -1835,11 +2148,9 @@ function reputeOf(s, hh) {
 function sysGrudges(s, r) {
   const sh = s.shrine;
   for (const p of Object.values(s.people)) {
-    if (!p.alive || !p.grudges.length) continue;
-    p.grudges = p.grudges.filter(g => s.turn - g.turn < 400);
-    for (const g of p.grudges) g.heat *= 0.994;          // time, but slowly
+    if (!p.alive || !(p.ties || []).length) continue;   // ties decay in decayTies
     const mine = s.households[p.householdId];
-    const hot = p.grudges.filter(g => g.heat > 40 && s.households[g.target] && !s.households[g.target].extinct);
+    const hot = p.ties.filter(g => g.value < -40 && s.households[g.target] && !s.households[g.target].extinct);
     if (!hot.length) continue;
 
     // put it down — but only somewhere that means something, and only if you
@@ -1865,7 +2176,7 @@ function sysGrudges(s, r) {
       remember(s, mine.id, -5, `made a show of their stores while the ${them.name} went short`);
       ev(s, 'spite', 6, `The ${mine.name} made a show of their stores while the ${them.name} were short. ${p.name} did it deliberately.`, { person: p.id, household: mine.id });
       const th = s.people[them.headId];
-      if (th) th.grudges.push({ target: mine.id, cause: `made a display of their stores while this household went short`, turn: s.turn, heat: 55 });
+      if (th) shiftTie(s, th, mine.id, -55, `made a display of their stores while this household went short`);
       continue;
     }
 
@@ -1941,6 +2252,12 @@ function sysShrine(s, r) {
       sh.keeperId = k.id; sh.keeperName = nameOf(s, k.id); sh.keeperSince = s.turn;
       ev(s, 'shrine', 4, `${nameOf(s, k.id)} took over keeping the ${sh.god} stone, untended for three seasons.`, { person: k.id });
     }
+  }
+
+  // keeping it is regard with the devout, earned by the year
+  if (sh.keeperId && s.turn % 4 === 0) {
+    const k = s.people[sh.keeperId];
+    if (k && k.alive) shiftStanding(k, 'shrine', 7);
   }
 
   // what the settlement puts into it
@@ -2041,7 +2358,7 @@ function startGrowing(s, r, hh, tid) {
       const head = s.people[hh.headId];
       for (const rf of refusers.slice(0, 2)) {
         if (head && head.traits.grudge > 35 && rf.householdId !== hh.id)
-          head.grudges.push({ target: rf.householdId, cause: `refused to work this household's stone`, turn: s.turn, heat: 55 });
+          shiftTie(s, head, rf.householdId, -55, `refused to work this household's stone`);
       }
     }
   }
@@ -2105,7 +2422,7 @@ function sysDisputes(s, r) {
           const wronged = spiteA > spiteB ? A : B;
           remember(s, arb.id, -6, `ruled on a quarrel they had a stake in`);
           const wh = s.people[wronged.headId];
-          if (wh) wh.grudges.push({ target: arb.id, cause: `ruled against this household while holding a grudge against it`, turn: s.turn, heat: 65 });
+          if (wh) shiftTie(s, wh, arb.id, -65, `ruled against this household while holding a grudge against it`);
           ev(s, 'arbitration', 6, `The ${arb.name} ruled between the ${A.name} and the ${B.name} while holding a grudge against the ${wronged.name}. The ruling is not trusted.`, { dispute: d.id });
         }
         const loser = forA ? B : A, winner = forA ? A : B;
@@ -2123,13 +2440,19 @@ function sysDisputes(s, r) {
         }
         d.open = false; d.resolved = s.turn; d.winner = winner.id;
         arb.standing += 4;
+        for (const id of loser.members) {
+          const lp = s.people[id];
+          if (lp && lp.alive) shiftStanding(lp, 'government', -5);
+        }
         const lh = s.people[loser.headId];
         if (lh && lh.traits.grudge > 40) {
-          lh.grudges.push({ target: winner.id, cause: `the ${arb.name} ruled against them over ${d.over}`, turn: s.turn, heat: d.heat * 0.6 });
+          shiftTie(s, lh, winner.id, -d.heat * 0.6, `the ${arb.name} ruled against them over ${d.over}`);
         }
         if (dev > 60 && s.shrine) {
           ev(s, 'arbitration', 6, `The ${arb.name} ruled for the ${winner.name} over the ${loser.name}, sworn at the ${s.shrine.god} stone. The quarrel is settled.`, { dispute: d.id });
           remember(s, loser.id, -4, `were ruled against at the ${s.shrine.god} stone over ${d.over}`);
+          const wh2 = s.people[winner.headId];
+          if (wh2) shiftTie(s, wh2, arb.id, 25, `ruled for this household over ${d.over}`);
         } else {
           ev(s, 'arbitration', 6, `${seated && arbHead === seated ? nameOf(s, seated.id) + ', arbiter,' : 'The ' + arb.name} ruled for the ${winner.name} over the ${loser.name}. The ${loser.name} accepted it. The quarrel is settled.`, { dispute: d.id });
         }
@@ -2139,7 +2462,7 @@ function sysDisputes(s, r) {
       d.open = false; d.resolved = s.turn; d.feud = true;
       for (const side of [[A, B], [B, A]]) {
         const h = s.people[side[0].headId];
-        if (h) h.grudges.push({ target: side[1].id, cause: `the unsettled quarrel over ${d.over}`, turn: s.turn, heat: 70 });
+        if (h) shiftTie(s, h, side[1].id, -70, `the unsettled quarrel over ${d.over}`);
       }
       remember(s, A.id, -6, `let a quarrel with the ${B.name} harden into a feud`);
       remember(s, B.id, -6, `let a quarrel with the ${A.name} harden into a feud`);
@@ -2154,11 +2477,11 @@ function sysDisputes(s, r) {
 }
 
 function revealGrudge(s, r) {
-  const holders = Object.values(s.people).filter(p => p.alive && p.grudges.length);
+  const holders = Object.values(s.people).filter(p => p.alive && (p.ties || []).some(x => x.value < -20));
   if (!holders.length) { ev(s, 'divine', 3, 'No hidden grudge was found. Nobody here is holding one.'); return; }
   const p = pick(r, holders);
-  const g = pick(r, p.grudges);
-  g.heat += 30;
+  const g = pick(r, p.ties.filter(x => x.value < -20));
+  shiftTie(s, p, g.target, -30, g.cause);
   const target = s.households[g.target];
   ev(s, 'reveal', 6, `${nameOf(s, p.id)}'s grudge against ${target ? 'the ' + target.name : 'an old injury'} became public: ${g.cause}. It is now an open quarrel.`, { person: p.id });
   if (target && p.householdId !== target.id) {
@@ -2184,52 +2507,77 @@ function arriveStrangers(s, r) {
 
 
 /* ===== src/engine/60-figures.js ===== */
-/* promotion: who gets to be a person in the story ---------------------------- */
+/* who is pursuing something --------------------------------------------------
+   There is no cap on how many people may matter. There used to be one — eight —
+   and it was the wrong dial: it limited how many people the simulation would
+   let be interesting, when the real question is how much of it reaches the
+   page. That belongs to event weight, which the chronicle already filters.
 
-const MAX_ACTORS = 8;
+   The real limit is the work available. An opportunity can only be taken once,
+   so the number of people with goals is whatever the settlement currently
+   needs doing, which is the right thing for it to be.
+   -------------------------------------------------------------------------- */
+
+/* Anyone currently pursuing something. `prominence` is gone — having a goal
+   said everything the field said. */
+function hasGoal(p) { return !!p.goal; }
+
+/* Worth naming when they die, or when they take a seat: someone at it now, or
+   someone who was, or someone holding an office. */
+function notable(s, p) {
+  return hasGoal(p) || (p.deeds && p.deeds.length > 0) || p.tender
+    || Object.values(s.offices || {}).some(ids => ids.includes(p.id));
+}
+
+/* The same deed done twice is one thing a person is known for, not two. */
+function credit(p, deed) {
+  if (!p.deeds.includes(deed)) p.deeds.push(deed);
+}
 
 function sysPromotion(s, r) {
-  const actors = Object.values(s.people).filter(p => p.alive && p.prominence > 0);
-  // demotion first: an actor with no live goal for a long while sinks back
-  for (const p of actors) {
+  // a goal that has gone nowhere for long enough is given up
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.goal) continue;
     p.goalAge++;
-    const spent = p.goal ? p.goalAge > 30 : p.goalAge > 12;
-    if (spent) {
-      p.prominence = 0; p.goal = null;
+    if (p.goalAge > 30) {
+      p.goal = null;
       ev(s, 'settle', 1, `${nameOf(s, p.id)} gave up on their goal.`, { person: p.id });
     }
   }
-  let live = Object.values(s.people).filter(p => p.alive && p.prominence > 0).length;
-  if (live >= MAX_ACTORS) return;
 
   const opportunities = findOpportunities(s);
   if (!opportunities.length) return;
 
   const candidates = Object.values(s.people).filter(p => {
     const a = ageOf(s, p);
-    return p.alive && p.prominence === 0 && a >= 17 && a <= 68;
+    return p.alive && !p.goal && a >= 17 && a <= 68;
   });
 
   const scored = [];
   for (const p of candidates) {
     for (const o of opportunities) {
+      // a goal aimed at your own house is not a goal; you would grind at it
+      // forever, because you can never stand above yourself
+      if (o.target && o.target === p.householdId) continue;
       const reach = 1 - clamp(walkDist(s, homeTile(s, p), o.tile) / 14, 0, 0.95);
       const fit = o.wants.reduce((acc, t) => acc + p.traits[t], 0) / o.wants.length;
-      const score = fit * 0.55 + reach * 40 + (p.grudges.length ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
+      const score = fit * 0.55 + reach * 40 + ((p.ties || []).some(x => x.value < -20) ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
       if (score > 76) scored.push({ p, o, score: score + r() * 8 });
     }
   }
   scored.sort((a, b) => b.score - a.score);
+  /* Without the cap, every opportunity would be filled the season it appears,
+     and the chronicle would be a third "took up a goal". People do not work
+     like that: a thing sits undone for years and then somebody has had enough.
+     An opportunity is taken up in roughly one season in four. */
   const taken = new Set();
   for (const c of scored) {
-    if (live >= MAX_ACTORS) break;
-    if (taken.has(c.o.id) || c.p.prominence > 0) continue;
+    if (taken.has(c.o.id) || c.p.goal) continue;
     taken.add(c.o.id);
-    c.p.prominence = 1;
+    if (!chance(r, 0.25)) continue;
     c.p.goal = { kind: c.o.kind, tile: c.o.tile, target: c.o.target, since: s.turn, label: c.o.label };
     c.p.goalAge = 0;
     ev(s, 'rise', 6, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
-    live++;
   }
 }
 
@@ -2278,7 +2626,7 @@ function describeTraits(p) {
 function sysActors(s, r) {
   s.pursuitLines = 0;
   for (const p of Object.values(s.people)) {
-    if (!p.alive || p.prominence === 0 || !p.goal) continue;
+    if (!p.alive || !p.goal) continue;
     const g = p.goal;
     const hh = s.households[p.householdId];
     if (!hh) continue;
@@ -2290,7 +2638,7 @@ function sysActors(s, r) {
       if (!b.tenderId && p.tender) {
         b.tenderId = p.id;
         ev(s, 'act', 5, `${nameOf(s, p.id)} took over the stalled stone and started work.`, { person: p.id });
-        p.goal = null; p.goalAge = 0; p.prominence = 2; p.deeds.push('took up abandoned stone');
+        p.goal = null; p.goalAge = 0; credit(p, 'took up abandoned stone');
       } else if (!p.tender && chance(r, 0.3)) {
         ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
       }
@@ -2301,7 +2649,6 @@ function sysActors(s, r) {
       if (!d || !d.open) { p.goal = null; continue; }
       d.heat += p.traits.courage / 100 * 9;
       if (chance(r, 0.08)) {   // pushing too hard can cost you
-        p.prominence = Math.max(1, p.prominence - 1);
         hh.standing -= 2;
         remember(s, hh.id, -3, `pushed a quarrel too far`);
         ev(s, 'act', 5, `${nameOf(s, p.id)} pushed the quarrel too far and lost standing for it.`, { person: p.id });
@@ -2317,7 +2664,7 @@ function sysActors(s, r) {
         if (holder && !already) {
           openDispute(s, r, hh, holder, 'ground standing idle while others wait');
           ev(s, 'act', 5, `${nameOf(s, p.id)} accused the ${holder.name} of holding ${holder.claims.length} claims they cannot build on, and raised a claim against them.`, { person: p.id });
-          p.deeds.push('picked a fight over idle ground');
+          credit(p, 'picked a fight over idle ground');
         }
       }
     }
@@ -2329,10 +2676,16 @@ function sysActors(s, r) {
         if (give > 0) {
           hh.stores -= give;
           for (const n of needy) n.stores += give / needy.length;
-          hh.standing += 3; p.prominence = 2; p.goal = null; p.goalAge = 0;
+          hh.standing += 3; p.goal = null; p.goalAge = 0;
           remember(s, hh.id, 8, `fed households not their own from short stores`);
+          shiftStanding(p, 'kin', 14);
+          shiftStanding(p, 'quarter', 6);
+          for (const n of needy) {
+            const nh = s.people[n.headId];
+            if (nh && n.id !== hh.id) shiftTie(s, nh, hh.id, 30, `opened their stores to this household`);
+          }
           ev(s, 'act', 5, `${nameOf(s, p.id)} opened the ${hh.name} stores to households not their own.`, { person: p.id });
-          p.deeds.push('fed households not their own');
+          credit(p, 'fed households not their own');
         }
       } else if (chance(r, 0.18)) {
         ev(s, 'act', 3, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
@@ -2341,10 +2694,10 @@ function sysActors(s, r) {
         if (victim) {
           victim.stores -= 4; hh.stores += 3;
           const vh = s.people[victim.headId];
-          if (vh) vh.grudges.push({ target: hh.id, cause: 'stores taken from them', turn: s.turn, heat: 55 });
+          if (vh) shiftTie(s, vh, hh.id, -55, 'stores taken from them');
           remember(s, hh.id, -7, `suspected of taking stores from the ${victim.name}`);
           ev(s, 'act', 6, `${nameOf(s, p.id)} took stores from the ${victim.name}. It could not be proved.`, { person: p.id });
-          p.deeds.push('took what was not theirs');
+          credit(p, 'took what was not theirs');
         }
       }
     }
@@ -2355,9 +2708,10 @@ function sysActors(s, r) {
       if (!sh.keeperId && p.traits.piety > 55) {
         sh.keeperId = p.id; sh.keeperName = nameOf(s, p.id); sh.keeperSince = s.turn;
         sh.devotion = Math.min(100, sh.devotion + 6);
-        p.prominence = 2; p.goal = null; p.goalAge = 0;
-        p.deeds.push('took the keeping of the ' + sh.god + ' stone');
+        p.goal = null; p.goalAge = 0;
+        credit(p, 'took the keeping of the ' + sh.god + ' stone');
         remember(s, hh.id, 6, `gave the ${sh.god} stone a keeper when it had none`);
+        shiftStanding(p, 'shrine', 18);
         ev(s, 'act', 6, `${nameOf(s, p.id)} became keeper of the ${sh.god} stone.`, { person: p.id });
       } else if (chance(r, 0.25)) {
         sh.devotion = Math.min(100, sh.devotion + 2.5);
@@ -2369,14 +2723,16 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct || reputeOf(s, target) > -2) {
         if (target && !target.extinct) {
-          p.prominence = 2; p.goal = null; p.goalAge = 0;
-          p.deeds.push('got the ' + target.name + ' name spoken plainly again');
+          p.goal = null; p.goalAge = 0;
+          credit(p, 'got the ' + target.name + ' name spoken plainly again');
           ev(s, 'act', 6, `${p.name} cleared the ${target.name} name. Nothing is held against that household now.`, { person: p.id });
         } else p.goal = null;
         continue;
       }
       if (chance(r, 0.3)) {
         remember(s, target.id, 2, `had someone speak for them publicly`);
+        const th2 = s.people[target.headId];
+        if (th2 && hh) shiftTie(s, th2, hh.id, 45, `spoke for this household when nobody else would`);
         ev(s, 'act', 4, `${nameOf(s, p.id)} spoke publicly for the ${target.name}, at cost to their own standing.`, { person: p.id });
       }
     }
@@ -2387,9 +2743,9 @@ function sysActors(s, r) {
       hh.standing += 0.8;
       if (chance(r, 0.2)) ev(s, 'act', 3, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
       if (standingOf(s, hh) > standingOf(s, target) && chance(r, 0.3)) {
-        p.prominence = 2; p.goal = null; p.goalAge = 0;
+        p.goal = null; p.goalAge = 0;
         ev(s, 'act', 6, `The ${hh.name} now outrank the ${target.name}. ${p.name} did it.`, { person: p.id });
-        p.deeds.push('raised their house above another');
+        credit(p, 'raised their house above another');
       }
     }
 
@@ -2454,7 +2810,7 @@ function recount(s) {
     stores: Math.round(hh.reduce((a, h) => a + h.stores, 0)),
     hungry: hh.filter(h => !h.lodgedWith && h.stores < 1).length,
     disputes: Object.values(s.disputes).filter(d => d.open).length,
-    actors: live.filter(p => p.prominence > 0).length
+    actors: live.filter(hasGoal).length
   });
   if (s.stats.length > 400) s.stats.shift();
 }
@@ -2469,24 +2825,32 @@ function recount(s) {
    =========================================================================== */
 
 /* Events are ordered by category, not by when in the turn they fired, so the
-   same kind of news always turns up in the same place in a season. */
+   same kind of news always turns up in the same place in a season.
+
+   `max` caps a group per season. Removing the cast limit means a busy season
+   can produce eleven lines about what named people did, and the settlement has
+   other news. The events are all still recorded and the simulation still uses
+   them — this decides what reaches the page, which is where volume belongs.
+   Showing everything lifts the caps along with the weight floor. */
 const GROUPS = [
   { key: 'weather', kinds: ['divine', 'weather'] },
-  { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'] },
-  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'] },
-  { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'] },
+  { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'], max: 4 },
+  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'], max: 4 },
+  { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'], max: 4 },
   { key: 'shrine', kinds: ['shrine'] },
-  { key: 'people', kinds: ['rise', 'act', 'settle'] },
+  { key: 'people', kinds: ['rise', 'act', 'settle'], max: 2 },
   { key: 'memory', kinds: ['memory'] }
 ];
 
 function renderTurn(entry, opts = {}) {
   const evs = entry.events.filter(e => e.weight >= (opts.floor ?? 2));
+  const uncapped = (opts.floor ?? 2) < 2;
   const parts = [];
 
   for (const g of GROUPS) {
-    const items = evs.filter(e => g.kinds.includes(e.kind));
+    let items = evs.filter(e => g.kinds.includes(e.kind));
     items.sort((x, y) => y.weight - x.weight);
+    if (g.max && !uncapped) items = items.slice(0, g.max);
     for (const e of items) parts.push({ type: 'event', kind: e.kind, weight: e.weight, text: e.text });
   }
 
@@ -2542,7 +2906,7 @@ function mapHTML(s, selected) {
   }
   const actorTiles = {};
   for (const p of Object.values(s.people)) {
-    if (p.alive && p.prominence > 0) actorTiles[homeTile(s, p)] = p;
+    if (p.alive && hasGoal(p)) actorTiles[homeTile(s, p)] = p;
   }
   const disputed = new Set();
   for (const d of Object.values(s.disputes)) {
@@ -2597,8 +2961,8 @@ function mapHTML(s, selected) {
 /* --- the standing cast -------------------------------------------------------- */
 
 function castHTML(s) {
-  const actors = Object.values(s.people).filter(p => p.alive && p.prominence > 0)
-    .sort((a, b) => b.prominence - a.prominence);
+  const actors = Object.values(s.people).filter(p => p.alive && hasGoal(p))
+    .sort((a, b) => b.goalAge - a.goalAge).slice(0, 20);
   if (!actors.length) return `<p class="empty">No named figures. Nobody is pursuing a goal.</p>`;
   return actors.map(p => {
     const hh = s.households[p.householdId];
@@ -2607,9 +2971,21 @@ function castHTML(s) {
       <div class="fmeta">${ageOf(s, p)} years · ${describeTraits(p)}</div>
       <div class="fgoal">${p.goal ? 'Goal: ' + p.goal.label + '.' : 'No goal.'}</div>
       ${p.deeds.length ? `<div class="fdeeds">Known for: ${p.deeds.slice(-3).join('; ')}.</div>` : ''}
-      ${p.grudges.length ? `<div class="fgrudge">Holds ${p.grudges.length} grudge${p.grudges.length > 1 ? 's' : ''}.</div>` : ''}
+      ${tieSummary(p)}
     </div>`;
   }).join('');
+}
+
+/* What a person holds, in both directions. A tie is one number, so this is one
+   question asked twice. */
+function tieSummary(p) {
+  const ties = p.ties || [];
+  const foes = ties.filter(t => t.value <= -40).length;
+  const friends = ties.filter(t => t.value >= 40).length;
+  const bits = [];
+  if (friends) bits.push(`<span class="fbond">Close to ${friends} household${friends > 1 ? 's' : ''}.</span>`);
+  if (foes) bits.push(`<span class="fgrudge">At odds with ${foes} household${foes > 1 ? 's' : ''}.</span>`);
+  return bits.length ? `<div class="fties">${bits.join(' ')}</div>` : '';
 }
 
 function householdsHTML(s) {
@@ -2714,10 +3090,33 @@ function tileFactsHTML(s, id) {
     `${rep > 6 ? ', well regarded' : rep < -6 ? ', badly regarded' : ''}`,
     rep > 6 ? 'good' : rep < -6 ? 'bad' : '');
 
+  // regard, faction by faction — the composite above is a summary, these are
+  // what decisions actually read
+  const regard = FACTIONS
+    .map(f => ({ f, v: houseStanding(s, hh, f) }))
+    .filter(x => Math.abs(x.v) >= 3)
+    .sort((a, c) => Math.abs(c.v) - Math.abs(a.v));
+  if (regard.length) {
+    row('Regard', regard.map(x =>
+      `<span class="reg ${x.v < 0 ? 'bad' : 'good'}">${x.f} ${x.v > 0 ? '+' : ''}${Math.round(x.v)}</span>`).join(' '));
+  }
+
+  const ties = hh.members.flatMap(i => (s.people[i] && s.people[i].alive) ? (s.people[i].ties || []) : []);
+  const close = ties.filter(x => x.value >= 40).length;
+  const foes = ties.filter(x => x.value <= -40).length;
+  if (close || foes) {
+    row('Ties', [close ? `${close} close` : '', foes ? `${foes} at odds` : ''].filter(Boolean).join(', '),
+      foes > close ? 'bad' : 'good');
+  }
+
+  const served = hh.members.map(i => s.people[i]).filter(p => p && p.alive && p.term && p.term.done).length;
+  const refused = hh.members.map(i => s.people[i]).filter(p => p && p.alive && p.refusedTerm).length;
+  if (refused) row('The term', `${refused} refused it${served ? `, ${served} served` : ''}`, 'bad');
+
   const tenders = live.filter(p => p.tender);
   if (tenders.length) row('Can work stone', tenders.map(p => nameOf(s, p.id)).join(', '), 'good');
 
-  const figures = live.filter(p => p.prominence > 0);
+  const figures = live.filter(hasGoal);
   for (const p of figures) row('Figure', `${nameOf(s, p.id)} — ${p.goal ? p.goal.label : 'no goal'}`);
 
   const open = Object.values(s.disputes).filter(d => d.open && (d.a === hh.id || d.b === hh.id));

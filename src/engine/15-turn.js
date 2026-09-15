@@ -21,11 +21,16 @@ function advance(state, input) {
   sysDisputes(s, r);
   sysOffices(s, r);
   sysShrine(s, r);
+  sysService(s, r);     // who owes the stone a year, and who refuses it
+  sysContact(s, r);     // who spent the season near whom
   sysGrudges(s, r);
   sysPromotion(s, r);
   sysActors(s, r);
   sysMemory(s, r);
   sysOmen(s, r);
+
+  decayTies(s);         // regard fades before it is counted
+  decayStanding(s);
 
   recount(s);
   s.chronicle.push({

@@ -5,12 +5,8 @@
    handing down a sentence, slowly, over twenty years.
    -------------------------------------------------------------------------- */
 
-function holdsAgainst(s, person, householdId) {
-  if (!person) return 0;
-  return person.grudges
-    .filter(g => g.target === householdId)
-    .reduce((a, g) => a + g.heat * Math.pow(0.5, (s.turn - g.turn) / 200), 0);
-}
+/* holdsAgainst now lives in 05-ties.js — it reads one signed tie. */
+
 
 // What a tender thinks of a job. Below zero and they will not take it.
 function tenderWill(s, t, hh, tid) {
@@ -167,7 +163,7 @@ function sysPairing(s, r) {
     if (!pool.length) {
       const wanted = Object.values(s.people).filter(q => q.alive && q.sex === want
         && ageOf(s, q) >= 18 && ageOf(s, q) <= 40 && q.householdId !== hh.id && !moved.has(q.id)
-        && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || q.prominence > 0));
+        && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || hasGoal(q)));
       if (!wanted.length || !chance(r, 0.16)) continue;
       const q = pick(r, wanted);
       pool.push({ p: q, from: s.households[q.householdId] });
@@ -191,7 +187,7 @@ function sysPairing(s, r) {
       if (chosen.from) {
         const jilted = s.people[chosen.from.headId];
         if (jilted && jilted.alive && jilted.traits.grudge > 45)
-          jilted.grudges.push({ target: hh.id, cause: `they sent for ${p.name}, who was already reckoned to this house`, turn: s.turn, heat: 45 });
+          shiftTie(s, jilted, hh.id, -45, `sent for ${p.name}, who was already reckoned to this house`);
       }
     } else {
       // routine. recorded, not announced.
@@ -219,7 +215,7 @@ function sysNotes(s, r) {
         ? `The ${hh.name} stone is two thirds grown — walls and a doorway.`
         : `The ${hh.name} stone is nine tenths grown. ${nameOf(s, b.tenderId)} is finishing the cap.`;
       const t = s.people[b.tenderId];
-      const worthSaying = mark === 3 && (b.stalled > 0 || (t && t.prominence > 0));
+      const worthSaying = mark === 3 && (b.stalled > 0 || (t && hasGoal(t)));
       ev(s, 'note', worthSaying ? 3 : 1, line, { building: b.id });
     }
   }
