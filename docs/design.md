@@ -252,19 +252,25 @@ A person has one trade. It is learned young, usually from kin, and it does not
 change because the larder filled up. **Shortage never selects a trade.** It only
 shapes choices inside one.
 
-### Unskilled — anyone, no training
+### Tier 1 — unskilled: anyone, no training
 
 | trade | produces per worker per season |
 |---|---|
 | `fieldhand` | 3.4 food (scaled by the tile's grazing) |
 | `boathand` | 4.2 food (scaled by the tile's fishing) |
+| `quarrier` | 2.0 stone |
+| `miner` | 1.5 ore |
 | `hauler` | nothing — moves goods, makes a carrier's work possible |
 
 Default for anyone not apprenticed by **18**. Trends to households without
 means, because those households need the hands now and cannot spare a child for
 five years.
 
-### Skilled, worked where the work is
+Quarrying sits here deliberately. **Cutting stone is not growing it.** Anyone
+can take rock out of a hillside; only a tender can make a hillside into a house,
+and the distinction is the whole reason this settlement is shaped as it is.
+
+### Tier 2 — skilled, worked where the work is
 
 A master is required. A workshop is not — these are done on the hillside, at the
 quarry, on the water, or at the wall being mended.
@@ -272,28 +278,45 @@ quarry, on the water, or at the wall being mended.
 | trade | training | produces |
 |---|---|---|
 | `roper` | 3 yr | 2.5 cordage |
-| `quarrier` | 4 yr | 2.0 stone |
+| `tanner` | 4 yr | leather, from the herds' hides |
 | `carrier` | 4 yr | nothing — moves goods between households, takes a cut |
 | `mason` | 5 yr | repairs (1 stone + 1 timber → +0.25 condition) |
 | `stone-tender` | 10 yr | grows houses — unchanged, and still the rarest thing |
 
-### Skilled, and needing a room
+### Tier 3 — skilled, and needing a room
 
 Fine work needs somewhere to do it: a **stage-2 building** (§3), roughly a
 forty-five-year-old house.
 
 | trade | training | produces |
 |---|---|---|
-| `carver` | 6 yr | beauty (+0.15 to a building per season worked) |
+| `weaver` | 4 yr | cloth |
+| `tailor` | 4 yr | garments, from a weaver's cloth |
+| `herbalist` | 5 yr | remedies — the only answer to illness the settlement has |
 | `joiner` | 5 yr | fitted timber — furnishings, fittings, a tavern's fit-out |
+| `carver` | 6 yr | beauty (+0.15 to a building per season worked) |
+| `smith` | 7 yr | worked metal, from a miner's ore |
 
 **This tier is meant to grow, and to grow late.** A settlement begins with a
 handful of workshops and gains more over centuries as its houses age, so trades
 that need a room can only appear once there are rooms. Complexity arrives on its
 own schedule rather than being present at founding.
 
-Which trades join this tier is a worldbuilding decision, not a mechanical one.
-The rule is the mechanism; the list is the world.
+### What these trades imply, and is not yet settled
+
+Two gaps the list opens, both belonging to the economy in slice 5:
+
+- **Nobody cuts timber.** A mason consumes it to repair and a joiner works it,
+  but no trade produces it. Either a woodcutter joins tier 1, or timber is
+  something the settlement trades for rather than makes.
+- **Four goods is no longer enough.** A smith needs `ore` and makes `metal`; a
+  tanner needs hides and makes `leather`; a weaver makes `cloth` and a tailor
+  turns it into garments; a herbalist makes `remedies`. The design's four goods —
+  food, stone, timber, cordage — will have to become roughly nine, or several
+  of these trades produce nothing anyone can use.
+
+Neither blocks apprenticeship, which is slice 3 and only needs the trades to
+exist and be learnable.
 
 **Aptitude** stays as it is: rare, innate (13%), cannot be taught in. It gates
 `stone-tender` absolutely and gives a bonus elsewhere.
