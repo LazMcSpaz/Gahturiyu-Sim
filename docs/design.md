@@ -29,8 +29,9 @@ Three consequences, all visible in a run:
 
 - **Nobody chooses anything.** Figures are assigned goals by a fitness score.
   They are picked for a job; they do not pick.
-- **The verbs run out.** Seven goals exist. Raising the cast size just produces
-  more people doing the same seven things.
+- **The verbs run out.** Seven goals exist, and only eight people at a time are
+  allowed to hold one. Raising that limit would just produce more people doing
+  the same seven things, so the limit goes and the verbs multiply instead.
 - **There is no ladder and no floor.** Nothing accumulates except reputation,
   and nothing pushes back on it.
 
@@ -263,19 +264,43 @@ the people your trade and your quarter put you beside for thirty years.
 
 ### Taverns
 
-A tavern is a **building that manufactures contact**, and the only one that
-mixes quarters by choice rather than by obligation.
+A tavern is a **room given over in a house that is already standing** — not a
+building of its own. That distinction matters here more than it would anywhere
+else: the map holds about thirty house sites, a home takes fifteen to twenty
+years to grow, and a tavern that consumed one would never be worth building.
+A room and a pair of hands, it is plausible.
 
-- A household converts a mature house, or builds one: **4 timber + 2 stone**
-- A member takes the keeping of it as their work
-- Draws anyone within **6 tiles' walk** — so a feud that shuts a path cuts its
-  reach, and the owner notices
-- Earns the household a **cut**, and **+6 `quarter`** a year while it runs
+- **2 timber + 1 stone** to fit out, and one household member's work from then on
+- Draws anyone within **6 tiles' walk** — a feud that shuts a path cuts its
+  reach, and the household notices before anyone else does
+- Earns the household a **cut** of what passes through, and **+6 `quarter`** a
+  year while it runs
 - Attendance rises in hard seasons and after storms
 
+It closes when the household stops running it, and that needs no machinery of
+its own: the keeper dies and nobody takes it up, the family turns poor and wants
+the hands back, or the walk got long enough that nobody comes. The room reverts
+to being a room.
+
 Where the shrine forces the classes together for a year, a tavern lets them
-choose each other for a lifetime — or lets a quarter close ranks. Both outcomes
-are worth having.
+choose each other for a lifetime — or lets a quarter close ranks against
+outsiders. Both outcomes are worth having.
+
+### When a quarter acts as one
+
+Rarely, and only when two things hold at once:
+
+- **Cohesion** — the mean tie between the quarter's households is above **+25**.
+  A quarter divided against itself cannot act.
+- **A grievance it shares** — a levy laid on them, feuds cutting their paths,
+  their standing sliding against the others.
+
+Both true, and there is an **8% chance a season** that the quarter moves as a
+body: refusing a levy together, backing one side of a quarrel as a bloc, or
+withholding labour. Once or twice a century, not a standing feature.
+
+This is where the unskilled finally have the weight the design promised them.
+They never rise one at a time; they count when a whole quarter stops working.
 
 ## 6. The shrine term
 
@@ -470,6 +495,16 @@ The test that already guards this — `renderTurn` may emit only event lines and
 the one "nothing recorded" line — stays. Add: nothing may print a bare number
 without saying what it means.
 
+**There is no cap on how many people may matter.** The eight-figure limit goes.
+It was the wrong dial: it limited how many people the simulation would let be
+interesting, when the real problem was how much of it reaches the page. That
+belongs to **event weight**, which already exists and which the chronicle
+already filters at 2 or above. Volume is controlled by what is worth printing,
+not by refusing to simulate the ninth person.
+
+Expect "named figure" to stop being a category. Anyone currently pursuing
+something is one, and the panel that lists them just reads that.
+
 ---
 
 ## 13. Build order
@@ -493,14 +528,13 @@ Slice 1 is the next thing built.
 
 ## 14. Open, not yet decided
 
-- Whether the **cast cap** survives at all. It limits how many people the
-  simulation tracks as named figures — eight — and it is why the chronicle
-  follows so few. It has nothing to do with population, which is uncapped.
-  Once every person has a trade, a work crew, ties and choices, "named figure"
-  may stop being a category worth having, and the cap would go rather than
-  grow.
-- Whether **quarters** should be able to act as a body — refusing a levy
-  together, or backing one side of a quarrel as a bloc. The unskilled having
-  weight only in aggregate points this way, but it needs a mechanism.
-- How a **tavern closes**. Owners die, quarters empty, feuds cut the walk. A
-  tavern that fails should cost its household more than it ever earned them.
+- **Does anything replace `prominence`?** With the cap gone, the field that
+  marks someone as a named figure may be redundant — having a goal is the same
+  statement. Worth deleting rather than repurposing, if nothing needs it.
+- **What does a quarter acting as one cost the people in it?** A bloc that
+  refuses a levy is defying the ruling body collectively. Whether that lands on
+  the quarter, on its households individually, or on whoever spoke for it
+  decides how often anyone dares.
+- **Can a trade organise the way a quarter can?** Every roper refusing to supply
+  one household is the same shape as a quarter withholding labour, and the
+  `trade` faction already exists to hang it on.
