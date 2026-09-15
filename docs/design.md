@@ -138,18 +138,21 @@ sharpest pressure in the simulation gets sharper and never lets go.
 
 ### What stage 2 does to the class system
 
-**A skilled trade needs a workshop, and a workshop is a stage-2 building.**
+**The finer trades need a workshop, and a workshop is a stage-2 building** —
+a forty-five-year-old house. Most trades do not: a roper, a quarrier, a mason
+and a tender all work where the work is (§4). The ceiling applies only to the
+tier that needs a room.
 
-That is a forty-five-year-old house. It means skilled trades concentrate in old
-households without anyone designing it that way; it means a new household split
-off last decade works unskilled whatever its ambitions; and it means a master's
-workshop is the real reason apprenticeship is gated, rather than a wealth
-threshold nobody could see.
+That is the right shape, because it means the settlement **gains complexity as
+it ages** rather than starting complete. Four buildings are old enough at
+founding; the rest arrive over centuries.
 
-It is the hardest ceiling in the design. The ways under it are the ways that
-should produce stories: marrying into an old house, being taken as an apprentice
-by a master with a workshop and no heir, inheriting from a line that failed, or
-a household falling far enough that its workshop passes to someone else.
+Where it does apply, it concentrates the fine trades in old households without
+anyone designing it that way, and it makes a master's workshop the real reason
+apprenticeship is gated — rather than a wealth threshold nobody could see. The
+ways under it are the ways that should produce stories: marrying into an old
+house, being taken by a master with a workshop and no heir, inheriting from a
+line that failed, or a household falling far enough that its workshop passes on.
 
 ### Choosing what stage 3 becomes
 
@@ -193,10 +196,16 @@ Requirements: stage 3 held **40 years**, condition above **0.9**, beauty above
 **0.7**, and a tender still attending. Then **1% a year**.
 
 That makes carvers matter beyond decoration — beauty is a precondition, not an
-ornament — and it means a landmark is proof that some household kept something
-beautiful and in repair for a century while everyone else let theirs slide. It
-carries **+20 to every household in its quarter**, is named, and survives the
-family that made it.
+ornament.
+
+**A landmark has no mechanical effect.** It grants no standing, changes no
+walking, alters nothing. It is named, it is drawn on the map, the chronicle
+records the year it was recognised, and it outlives the family that made it.
+
+That is deliberate. A landmark is proof that some household kept one thing
+beautiful and in repair for a century while everyone else let theirs slide, and
+attaching a bonus to it would turn that into a strategy. It should only ever be
+a fact about the place.
 
 ### Falling back
 
@@ -222,11 +231,10 @@ Default for anyone not apprenticed by **18**. Trends to households without
 means, because those households need the hands now and cannot spare a child for
 five years.
 
-### Skilled — requires a master, and a workshop
+### Skilled, worked where the work is
 
-A skilled trade cannot be worked without a **stage-2 building** to work it in
-(§3). No workshop, no trade — however good the apprentice was. This is the
-quiet gate on the whole class system, and it is made of nothing but time.
+A master is required. A workshop is not — these are done on the hillside, at the
+quarry, on the water, or at the wall being mended.
 
 | trade | training | produces |
 |---|---|---|
@@ -234,14 +242,28 @@ quiet gate on the whole class system, and it is made of nothing but time.
 | `quarrier` | 4 yr | 2.0 stone |
 | `carrier` | 4 yr | nothing — moves goods between households, takes a cut |
 | `mason` | 5 yr | repairs (1 stone + 1 timber → +0.25 condition) |
-| `carver` | 6 yr | beauty (+0.15 to a building per season worked) |
 | `stone-tender` | 10 yr | grows houses — unchanged, and still the rarest thing |
 
+### Skilled, and needing a room
+
+Fine work needs somewhere to do it: a **stage-2 building** (§3), roughly a
+forty-five-year-old house.
+
+| trade | training | produces |
+|---|---|---|
+| `carver` | 6 yr | beauty (+0.15 to a building per season worked) |
+| `joiner` | 5 yr | fitted timber — furnishings, fittings, a tavern's fit-out |
+
+**This tier is meant to grow, and to grow late.** A settlement begins with a
+handful of workshops and gains more over centuries as its houses age, so trades
+that need a room can only appear once there are rooms. Complexity arrives on its
+own schedule rather than being present at founding.
+
+Which trades join this tier is a worldbuilding decision, not a mechanical one.
+The rule is the mechanism; the list is the world.
+
 **Aptitude** stays as it is: rare, innate (13%), cannot be taught in. It gates
-`stone-tender` absolutely and gives a bonus elsewhere. Tenders are the one
-exception to the workshop rule — their work is out on the hillside, which is
-also why a poor household can produce one and a poor household cannot produce
-a mason.
+`stone-tender` absolutely and gives a bonus elsewhere.
 
 **Dropout: 2% per season**, 4% for stone-tender. Over a five-year training that
 is roughly a third who do not finish; over the tender's decade, about four in
@@ -393,6 +415,15 @@ Both true, and there is an **8% chance a season** that the quarter moves as a
 body: refusing a levy together, backing one side of a quarrel as a bloc, or
 withholding labour. Once or twice a century, not a standing feature.
 
+**Whether it works is a question of means, not a roll.** A quarter can only
+refuse what it can afford to refuse. Withholding labour while your own stores
+are empty is a gesture that lasts one season. The test is whether the quarter
+can outlast the settlement's need of it — its combined stores against what
+refusing costs it, and how badly the rest depend on what it is withholding.
+
+A poor quarter that stops working folds. A quarter holding the only rope on the
+coast does not.
+
 **The quarter pays, and the quarter benefits.** The consequence lands on the
 whole of it, not on whoever spoke:
 
@@ -401,9 +432,13 @@ whole of it, not on whoever spoke:
 - **It fails** — **−20 `government`** to every household in it, the guard may be
   set on the quarter as a whole, and cohesion falls by **15**
 
-Collective action is therefore a gamble a quarter takes together, and a quarter
-that loses one is a worse place to live for a generation. That is why it should
-happen twice a century and not twice a decade.
+Collective action is therefore a gamble taken together, and a quarter that loses
+one is a worse place to live for a generation. That is why it should happen
+twice a century and not twice a decade.
+
+**Watch this before tuning it.** The interaction between cohesion, means and
+grievance is the least predictable thing in the design, and the numbers above
+are a starting position to observe rather than a balance to defend.
 
 This is where the unskilled finally have the weight the design promised them.
 They never rise one at a time; they count when a whole quarter stops working.
@@ -416,12 +451,14 @@ grievance, **8% a season**. Every roper refusing to supply one household is the
 same act as a quarter withholding labour, and the faction already exists to hang
 it on.
 
-It is more dangerous than the quarter version, because a trade is a **monopoly**
-and a quarter is only a neighbourhood. Four ropers agreeing costs the settlement
-its rigging. The same payoffs apply, with `trade` standing in place of
-`quarter` — and a trade that loses such a fight tends to lose its apprentices
-next, because no household will place a child where the work has become a
-liability.
+The same means test decides it, and a trade usually passes where a quarter would
+fail: four ropers agreeing costs the settlement its rigging, and the ropers can
+eat. That makes it more dangerous than the quarter version — a trade is a
+**monopoly** where a quarter is only a neighbourhood.
+
+The same payoffs apply with `trade` in place of `quarter`, and a trade that
+loses such a fight tends to lose its apprentices next, because no household will
+place a child where the work has become a liability.
 
 This makes trades political actors rather than merely economic ones, which is
 cheap given everything else already in place.
@@ -549,7 +586,29 @@ the weather produces it.
 
 ## 11. Quarters
 
-Trades cluster where proximity makes sense, not everywhere:
+### Quarters are fixed, and that is the point
+
+The centres are chosen **once, at founding**, from where the houses stood then,
+and never redrawn. Everything afterward is filed under whichever founding centre
+is nearest.
+
+Two consequences follow, and both are worth keeping:
+
+- **A quarter can empty.** Households die out, houses go derelict, and the
+  centre stays where it was with nothing around it. Ṭìquḍa becomes the name of
+  a hillside where people used to live. That is how real place names behave and
+  the chronicle should be allowed to say it plainly.
+- **Growth in a new direction has no name.** A settlement that expands away from
+  all four centres files those houses under a quarter they are nowhere near.
+
+The second is a genuine flaw rather than a feature. The fix is not to redraw the
+old quarters — that would erase the names, which are the valuable part — but to
+let a **new centre form** when enough standing houses sit far enough from every
+existing one. A settlement should be able to gain a quarter and keep its ghosts.
+
+### Trades cluster where proximity makes sense
+
+Not everywhere:
 
 - quarrier, mason, carver — near the crag
 - boathand, roper — on the shore
