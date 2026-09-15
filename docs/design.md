@@ -84,10 +84,24 @@ nobody in the guard will speak to them.*
 Accumulation without a brake ends the simulation at year forty. Three brakes,
 in order of how much work they do:
 
-1. **Obligation.** A household in the **top quartile** of composite standing is
-   expected to give in a season when three or more households are short.
-   Failing costs **−12 `quarter`** and **−12 `kin`**. This is the main brake and
-   it is deliberately harsh: being on top is a job.
+1. **Obligation, and compulsion behind it.** A household in the **top quartile**
+   of composite standing is expected to give in a season when three or more
+   households are short. Failing costs **−12 `quarter`** and **−12 `kin`**.
+
+   Shame is not the end of it. **The ruling body can compel.** When the shame
+   has not worked, whoever holds power — the ruler alone, or the tribunal or
+   senate by vote — may levy **25% of stores above 10** from a top-quartile
+   household.
+
+   | | |
+   |---|---|
+   | complying | −stores, **+6 `government`**, **+4 `quarter`**, and a tie toward the compeller worsened by **30** |
+   | refusing | **−25 `government`**, **−15 `quarter`**, a dispute opened with the ruling household, and the guard may be set on them |
+
+   Compulsion is deliberately unpleasant from both ends. It fills stores and it
+   makes enemies, and the office holder who orders it pays for it later. That
+   cost is the point: it is what makes an office worth *having*, which is what
+   the next section depends on.
 2. **Decay.** The 1.5% above. Standing not renewed drains.
 3. **Resentment.** Households in the bottom quartile accrue **+3 grudge heat per
    year** toward the single highest-standing household. Slow, and it makes the
@@ -160,9 +174,9 @@ nobody this year.
 −  3 × walking distance in tiles       (uses the existing walk, so a feud that
                                         shuts a path really does cost you)
 + W × candidate household's `trade` standing
-−  0.8 × grudge the master holds against that household
-−  0.6 × grudge that household's head holds against the master
-+  0.5 × bond between the master and that household
+−  0.8 × any grudge the master holds against that household
+−  0.6 × any grudge that household's head holds against the master
++  0.5 × the master's tie to that household  (negative ties subtract)
 ```
 
 **`W` is the master's own weighting of standing, and its sign is their
@@ -177,8 +191,8 @@ character.** This is the whole mechanism for an unlikely apprentice:
 ### Refusal cascades
 
 Better than randomness, because it produces a **reason the chronicle can print**.
-If either side holds a grudge above **30**, the offer fails and the master moves
-to the next candidate. Each refusal is recorded.
+If either side's tie to the other is below **−30**, the offer fails and the
+master moves to the next candidate. Each refusal is recorded.
 
 > *Nane took the Doḍeʻo boy, having been refused by three houses first.*
 
@@ -189,56 +203,151 @@ principle for the whole design.
 
 ---
 
-## 5. The shrine: service, refusal, and bonds
+## 5. Relationships
 
-### The term
+### One signed tie, not two lists
 
-Everyone serves **one year — 4 seasons — between 16 and 20**. Unpaid. It is the
-one ladder wealth does not gate, and it is therefore the settlement's only
-social leveller.
+Grudges and bonds are the same thing at different signs. The engine already
+stores a grudge as *this person, toward that party, this strongly, for this
+reason, since this year*. A **tie** is that structure with the value allowed to
+go either way:
 
-- Serving: **+8 `shrine`**, **+3 `quarter`**
-- Roughly **6%** of servers stay on afterward, and become candidates for keeper
+- **−100 to +100.** Zero means no tie, and is not stored.
+- Above **+40** is close; below **−40** is an enemy. Crossing either threshold
+  is worth a chronicle line. The middle is not.
+- Ties point at a **person or a household**. On death, a tie to a person passes
+  to their household at **half strength**, which is how grudges already
+  descend to heirs.
+- Decay **1% per season** toward zero — half-life about **17 years**. A tie
+  nobody refreshes fades.
+
+Everywhere the simulation asks "do I hold something against them?", it asks one
+question of one number, and a friendship is an answer to it.
+
+**Kept sparse.** Two hundred and fifty people is thirty thousand possible pairs.
+Only ties that exist are stored, at most **12 per person** — the weakest drops
+when a thirteenth forms. An export stays a few kilobytes, which rollback,
+branching and the whole save format depend on.
+
+### Contact is what moves them
+
+Relationships do not change because a system decided to change them. They change
+because people **spend time in the same place**. Each season, every shared
+context samples **up to 3 pairs** and drifts them.
+
+| context | weight | who it mixes |
+|---|---|---|
+| same household | ×1.5 | kin, constantly |
+| same work crew | ×1.0 | a boat's crew, a quarry gang, masons on one repair |
+| the shrine term | ×2.0 | **across class** — compulsory, and the only one that is |
+| a tavern | ×1.2 | across quarters — voluntary, and may self-segregate |
+| same quarter | ×0.4 | neighbours, weakly |
+
+Drift per sampled pair, before the context weight:
+
+```
+affinity = 50
+         + (loyalty_a + loyalty_b) / 4
+         − |ambition_a − ambition_b| / 3
+         − (grudge_a + grudge_b) / 6
+
+drift    = clamp((affinity − 50) / 10, −5, +5)
+```
+
+So two loyal people working the same boat drift together; two ambitious ones
+grind on each other. Nothing needs to be scripted — put people in a room often
+enough and the room does it.
+
+**Work crews matter most here**, because a crew is not chosen at random. It is
+the people your trade and your quarter put you beside for thirty years.
+
+### Taverns
+
+A tavern is a **building that manufactures contact**, and the only one that
+mixes quarters by choice rather than by obligation.
+
+- A household converts a mature house, or builds one: **4 timber + 2 stone**
+- A member takes the keeping of it as their work
+- Draws anyone within **6 tiles' walk** — so a feud that shuts a path cuts its
+  reach, and the owner notices
+- Earns the household a **cut**, and **+6 `quarter`** a year while it runs
+- Attendance rises in hard seasons and after storms
+
+Where the shrine forces the classes together for a year, a tavern lets them
+choose each other for a lifetime — or lets a quarter close ranks. Both outcomes
+are worth having.
+
+## 6. The shrine term
+
+The term is one context among several now, not a separate machine. What keeps
+it distinctive is that it is **compulsory and it crosses class**, which nothing
+else in the settlement does.
+
+### Serving
+
+Everyone serves **one year — 4 seasons — between 16 and 20**. Unpaid.
+
+- **+8 `shrine`**, **+3 `quarter`**
+- Ties drift at the strongest weight in the table above
+- Roughly **6%** stay on afterward and become candidates for keeper
 
 ### Refusing
 
-A person refuses when `piety < 30` **and** `ambition > 70` — about **8%** of
-people. Refusal is permitted and expensive:
+A person refuses when `piety < 30` **and** `ambition > 70` — about **8%**.
+Refusal is permitted and expensive:
 
 - **−25 `shrine`**, decaying at **a quarter the normal rate** — it follows you
 - **−10 `quarter`**
-- A household deed entry at **−6**, fading over the usual sixty-five years
+- A household deed at **−6**, fading over the usual sixty-five years
 
-A refusal should be one of the most-cited facts about a household forty years
-later. That is the intent.
+A refusal should be among the most-cited facts about a household forty years
+later.
 
-### Bonds — a grudge with the sign flipped
+### Why this is the leveller
 
-The engine already stores a grudge as *this person, against that household, this
-strongly, for this reason, since this year.* A **bond** is the identical
-structure with the sign reversed, and it reuses the same machinery.
+Everywhere else, people mix with their own. Service is the only institution
+that puts a rich child and a poor child in the same year of work. Four decades
+on, the rich one is the arbiter, ruling on a household he served beside.
 
-During a term, each pair of co-servers forms a bond with probability **25%**,
-strength **20–60**. Decay **1% per season** (half-life ~17 years). When the
-other person dies, the bond passes to their household at **half strength** —
-mirroring how grudges already pass to heirs.
+It wires into the devotion number that already exists. Kept, the shrine mints
+cross-class ties every year and people move between stations. Neglected, terms
+lapse, no ties are minted, and the settlement hardens into classes — on top of
+quarrels no longer ending in judgement.
 
-Bonds are read wherever grudges are read: arbitration, fostering, boat lending,
-marriage, apprentice choice, relief.
+## 7. Offices are sought
 
-**Why this is the leveller.** Everywhere else in the settlement, people mix with
-their own. Service is the only institution that throws a rich child and a poor
-child together for a year. Forty years on, the rich one is the arbiter, ruling
-on a household he served beside.
+Offices are the real chokepoints — the boat-holder decides who fishes, the
+captain decides who the guard leans on, the ruling body can now compel. Nobody
+currently tries to get one; they are filled automatically. That is the largest
+missed opportunity in the simulation.
 
-And it wires straight into the devotion number that already exists: when the
-shrine is kept, the settlement has a leveller and people move between stations.
-When it is neglected, terms lapse, no bonds are minted, and the place hardens
-into classes — on top of quarrels no longer ending in judgement.
+### Standing for a seat
 
----
+A person puts themselves forward when `ambition > 55` and their standing with
+the relevant faction is above **20**. Campaigning is a goal a figure pursues
+over years, building standing before the seat falls vacant — which adds a verb
+the design badly needs, and one that ordinary ambition produces on its own.
 
-## 6. The economy, kept under the floor
+### How the seat is filled, by government form
+
+- **Sole ruler** — appoints. Weighting: kin **+40**, tie to the ruler **× 0.5**,
+  candidate's `government` standing **× 0.3**, minus the threat they represent
+  (`ambition × 0.4`). A ruler appoints their own, and avoids appointing anyone
+  who might replace them.
+- **Tribunal, senate** — a vote. Each household casts weight equal to its
+  composite standing, for the candidate it has the best tie to, then the
+  highest standing, then kin.
+
+Senate seats run **6 years** and may be contested again. The ruler and tribunal
+hold for life, as now.
+
+### Losing
+
+A losing candidate takes a tie toward the winner worsened by **25 + ambition/4**.
+Elections that recur every six years, in a settlement of forty households, will
+therefore accumulate history — which is the point.
+
+## 8. The economy, kept under the floor
 
 Four goods: **food**, **stone**, **timber**, **cordage**.
 
@@ -262,12 +371,11 @@ capability choosing who benefits. A tender decides which households get to
 exist. A carrier decides who gets cordage first, and who waits.
 
 A carrier takes a **10% cut** of what passes through them and chooses order of
-supply by the same weighting as everything else — need, standing, kin, grudges,
-bonds.
+supply by the same weighting as everything else — need, standing, kin, ties.
 
 ---
 
-## 7. Upkeep, decay and beauty
+## 9. Upkeep, decay and beauty
 
 **Condition**, 0–1, starts at 1.0.
 
@@ -289,7 +397,7 @@ the weather produces it.
 
 ---
 
-## 8. Quarters
+## 10. Quarters
 
 Trades cluster where proximity makes sense, not everywhere:
 
@@ -311,7 +419,7 @@ such.
 
 ---
 
-## 9. Motivation, in three layers
+## 11. Motivation, in three layers
 
 The earlier model — people act on what they are short of — is wrong at the top
 layer, and produces nonsense: a farmer who stops farming because the larder is
@@ -331,8 +439,8 @@ tender never stops tending, but chooses which household's stone to work, and
 that single choice decides which households exist at all.
 
 Every trade should be that shape: **a scarce skill choosing who benefits**,
-weighted by need, the walk, kinship, standing with the relevant faction,
-grudges, and bonds.
+weighted by need, the walk, kinship, standing with the relevant faction, and
+ties.
 
 ### The unskilled have numbers, not a ladder
 
@@ -344,17 +452,19 @@ would contradict the class system.
 
 ---
 
-## 10. What the chronicle prints
+## 12. What the chronicle prints
 
 Unchanged in principle: one line per thing that happened, facts only, no
 connective prose. The new systems must respect it.
 
 **Print:** refusals, shortages, a trade lost, a term refused, an unlikely
 apprentice and why, a house falling into disrepair, a quarter's beauty crossing
-a threshold, an obligation failed.
+a threshold, an obligation failed, a levy compelled or defied, a seat sought and
+lost, a tie crossing into closeness or enmity.
 
 **Do not print:** transactions, production, standing changes, condition ticks,
-anything that happens every season to everyone.
+every drift of every tie — anything that happens every season to everyone. A
+relationship is news when it crosses a threshold, not while it moves.
 
 The test that already guards this — `renderTurn` may emit only event lines and
 the one "nothing recorded" line — stays. Add: nothing may print a bare number
@@ -362,25 +472,35 @@ without saying what it means.
 
 ---
 
-## 11. Build order
+## 13. Build order
 
 Specified whole, built in slices. Each slice must leave the simulation running
 and the tests passing.
 
-1. **Standing per faction, and bonds.** The substrate, then terms of service,
-   refusal, and bonds. Bonds reuse the grudge machinery, so this is cheaper than
-   it looks, and it needs nothing from trades.
-2. **Trades and apprenticeship.** The master's choice and the refusal cascade.
-3. **Economy and upkeep.** Four goods, repairs, the carrier.
-4. **Beauty, quarters and class.** The rollups and what falls out of them.
+1. **Standing per faction, and ties.** The substrate: split `standing` by
+   faction, then collapse grudges into signed ties and drift them by shared
+   context. Household, quarter and the shrine term are contexts enough to start
+   — work crews arrive with trades, taverns with the economy. Needs nothing
+   from either.
+2. **Trades and apprenticeship.** The master's choice, the refusal cascade, and
+   work crews as the context that matters most.
+3. **Offices sought, and compulsion.** Both depend on faction standing and ties
+   being in place, and they give each other teeth.
+4. **Economy and upkeep.** Four goods, repairs, the carrier, taverns.
+5. **Beauty, quarters and class.** The rollups and what falls out of them.
 
 Slice 1 is the next thing built.
 
-## 12. Open, not yet decided
+## 14. Open, not yet decided
 
-- Whether a household can be **compelled** to give when obligation calls, or
-  only shamed for refusing. Currently only shamed.
-- Whether **offices** should be sought deliberately. Nobody currently tries to
-  gain one, which is strange given they are the real chokepoints.
-- Whether the **cast cap** survives at all once ordinary people have trades and
-  choices. It may become unnecessary rather than merely larger.
+- Whether the **cast cap** survives at all. It limits how many people the
+  simulation tracks as named figures — eight — and it is why the chronicle
+  follows so few. It has nothing to do with population, which is uncapped.
+  Once every person has a trade, a work crew, ties and choices, "named figure"
+  may stop being a category worth having, and the cap would go rather than
+  grow.
+- Whether **quarters** should be able to act as a body — refusing a levy
+  together, or backing one side of a quarrel as a bloc. The unskilled having
+  weight only in aggregate points this way, but it needs a mechanism.
+- How a **tavern closes**. Owners die, quarters empty, feuds cut the walk. A
+  tavern that fails should cost its household more than it ever earned them.
