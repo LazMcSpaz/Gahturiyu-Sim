@@ -47,7 +47,12 @@ function step(lever) {
   Run.cursor++;
   renderAll(false);
   const el = document.getElementById('turn-' + next.turn);
-  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: prefersMotion() ? 'smooth' : 'auto', block: 'start' });
+  const dock = document.getElementById('dock');
+  if (el && el.scrollIntoView) {
+    // block:'start' would put the season under the dock, so scroll by hand
+    const y = el.getBoundingClientRect().top + window.scrollY - dock.offsetHeight - 8;
+    window.scrollTo({ top: Math.max(0, y), behavior: prefersMotion() ? 'smooth' : 'auto' });
+  }
 }
 
 function stepMany(n) {
@@ -86,6 +91,26 @@ function loadBranch(i) {
 
 function prefersMotion() { return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
 
+/* --- the map ------------------------------------------------------------------
+   The map stays on screen while the chronicle scrolls under it. Hiding it is
+   the only thing that takes it away, and that choice is remembered.
+   -------------------------------------------------------------------------- */
+
+function setMapShown(shown) {
+  document.getElementById('plate').hidden = !shown;
+  const b = document.getElementById('mapmin');
+  b.textContent = shown ? 'Hide map' : 'Show map';
+  b.title = shown ? 'Hide the map' : 'Show the map';
+  b.setAttribute('aria-expanded', String(shown));
+  try { localStorage.setItem('gahturiyu.map', shown ? '1' : '0'); } catch (e) { /* private window */ }
+}
+
+function toggleMap() { setMapShown(document.getElementById('plate').hidden); }
+
+function mapShownPref() {
+  try { return localStorage.getItem('gahturiyu.map') !== '0'; } catch (e) { return true; }
+}
+
 /* --- rendering ---------------------------------------------------------------- */
 
 function renderAll(rebuild) {
@@ -99,7 +124,7 @@ function renderAll(rebuild) {
   if (rebuild || chron.childElementCount === 0) {
     if (!s.chronicle.length) {
       chron.innerHTML = `<article class="turn"><h2 class="season"><span class="s-name">before</span><span class="s-year">${s.startYear}</span></h2>
-        <p class="prose">${openingHTML(s)}</p></article>`;
+        <p class="opening">${openingHTML(s)}</p></article>`;
     } else {
       chron.innerHTML = openingCard(s) + s.chronicle.map(e => chronicleHTML(e, opts())).join('');
     }
@@ -116,15 +141,14 @@ function renderAll(rebuild) {
 function openingCard(s) {
   const first = Run.states[0];
   return `<article class="turn"><h2 class="season"><span class="s-name">before</span><span class="s-year">${s.startYear}</span></h2>
-    <p class="prose">${openingHTML(first)}</p></article>`;
+    <p class="opening">${openingHTML(first)}</p></article>`;
 }
 
 function openingHTML(s) {
   const st = s.stats[s.stats.length - 1];
   const oldest = Object.values(s.buildings).sort((a, b) => a.startTurn - b.startTurn)[0];
-  return `${st.pop} Roduro live on this stretch of coast in ${st.households} households. ` +
-    `${st.mature} homes stand grown into the hillside, the oldest of them begun some ${Math.round(-oldest.startTurn / 4)} years ago. ` +
-    `${st.tenders} ${st.tenders === 1 ? 'person has' : 'people have'} the gift to work the stone, which is the number everything else here depends on.`;
+  return `${st.pop} Roduro in ${st.households} households. ${st.mature} homes standing, the oldest begun ` +
+    `${Math.round(-oldest.startTurn / 4)} years ago. ${st.tenders} ${st.tenders === 1 ? 'person' : 'people'} can work the stone.`;
 }
 
 function renderOmen(s) {
@@ -135,6 +159,7 @@ function renderOmen(s) {
   box.hidden = false;
   box.innerHTML = `<p class="god">${o.god}<span class="dom">, ${o.domain}</span></p>
     <p class="saw">has seen ${o.saw}.</p>
+    <p class="odom">If you accept:</p>
     <p class="offer">${L.desc}</p>
     <div class="orow">
       <button class="btn accept" onclick="step('${o.lever}')">Do it</button>
@@ -156,11 +181,11 @@ function renderPanels() {
     .filter(m => s.households[m.household] && !s.households[m.household].extinct)
     .sort((a, b) => Math.abs(b.favour) - Math.abs(a.favour)).slice(0, 12);
   document.getElementById('p-memory').innerHTML = mem.length
-    ? `<p class="hint">What is still attached to a household, and how strongly. It fades over about sixty-five years, and it decides who is believed and who is ruled against.</p>`
+    ? `<p class="hint">What each household is still held to, strongest first. It fades over about sixty-five years, and it decides who is believed and who is ruled against.</p>`
       + mem.map(m => `<div class="memrow ${m.favour < 0 ? 'bad' : 'good'}">
           <span class="memhouse">${m.house}</span> ${m.phrase}
           <span class="memwhen">${Math.round((s.turn - m.turn) / 4)} years ago</span></div>`).join('')
-    : `<p class="empty">Nothing has happened here yet that anyone will still be talking about in twenty years.</p>`;
+    : `<p class="empty">Nothing is held against any household yet.</p>`;
 
   const st = s.stats[s.stats.length - 1];
   document.getElementById('p-numbers').innerHTML = `
@@ -307,6 +332,8 @@ window.addEventListener('DOMContentLoaded', () => {
     b.addEventListener('click', () => sheetOpen === b.dataset.tab ? closeSheet() : openSheet(b.dataset.tab)));
   document.getElementById('scrim').addEventListener('click', closeSheet);
   document.getElementById('advance').addEventListener('click', () => step('none'));
+  document.getElementById('mapmin').addEventListener('click', toggleMap);
+  setMapShown(mapShownPref());
   document.getElementById('advance-year').addEventListener('click', () => stepMany(4));
   document.getElementById('f-import').addEventListener('change', e => e.target.files[0] && importRun(e.target.files[0]));
   document.addEventListener('keydown', e => {

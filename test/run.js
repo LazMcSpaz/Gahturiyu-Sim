@@ -45,10 +45,21 @@ const lines = s.chronicle.reduce((a, e) => a + renderTurn(e, {}).length, 0);
 const dupes = s.chronicle.filter(e => {
   const t = e.events.map(x => x.text); return new Set(t).size !== t.length;
 }).length;
-ok('every season produces prose', s.chronicle.every(e => renderTurn(e, {}).length >= 2));
+ok('every season produces a line', s.chronicle.every(e => renderTurn(e, {}).length >= 1));
 ok('no repeated line within a season', dupes === 0, `${dupes} seasons with a duplicate`);
 ok('chronicle is not bloated', lines / s.chronicle.length < 12,
    `${(lines / s.chronicle.length).toFixed(1)} lines per season`);
+
+// The chronicle is facts only: every line is an event, or the explicit
+// "nothing happened" line. No openers, no bridges, no connective prose.
+const kinds = new Set(s.chronicle.flatMap(e => renderTurn(e, {}).map(p => p.type)));
+ok('no connective prose', [...kinds].every(k => k === 'event' || k === 'quiet'),
+   `part types: ${[...kinds].sort().join(', ')}`);
+
+// A season with no events says so rather than rendering empty.
+const quiet = s.chronicle.filter(e => renderTurn(e, {}).every(p => p.type === 'quiet'));
+ok('a quiet season still says something', quiet.every(e => renderTurn(e, {})[0].text.length > 0),
+   `${quiet.length} of ${s.chronicle.length} seasons had nothing to report`);
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');
 process.exit(failures ? 1 : 0);

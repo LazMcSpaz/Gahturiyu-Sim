@@ -33,18 +33,34 @@ body{
 }
 :focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
 
-/* --- masthead --- */
-header.top{
+/* --- masthead + map: one sticky dock, so the map is always in view --- */
+.dock{
   position:sticky;top:0;z-index:30;
-  background:linear-gradient(var(--wet) 74%,transparent);
-  padding:14px 20px 12px;
+  padding-top:env(safe-area-inset-top,0px);
+  background:var(--wet);
+  border-bottom:1px solid #232b2e;
+}
+header.top{
+  padding:12px 20px 10px;
   display:flex;align-items:baseline;gap:12px;
 }
+.mapmin{
+  margin-left:auto;flex:0 0 auto;
+  font-family:var(--sans);font-size:.68rem;letter-spacing:.04em;
+  background:none;border:1px solid #2c3538;border-radius:2px;
+  color:var(--grey);padding:5px 9px;cursor:pointer;
+}
+.mapmin:hover,.mapmin:focus-visible{color:var(--lamp);border-color:var(--lamp)}
 #place{font-size:1.28rem;font-weight:600;letter-spacing:.01em}
 #when{font-family:var(--sans);font-size:.74rem;color:var(--grey);letter-spacing:.06em}
 
 /* --- map plate --- */
-.plate{margin:0 14px 6px;padding:12px 10px;background:var(--stone);border:1px solid #2b3437;border-radius:2px;overflow-x:auto}
+.plate{
+  margin:0 14px 10px;padding:10px;background:var(--stone);
+  border:1px solid #2b3437;border-radius:2px;
+  overflow:auto;max-height:42vh;
+}
+.plate[hidden]{display:none!important}
 #map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.06;letter-spacing:.16em;white-space:pre;color:#4c585c}
 .mrow{display:block}
 .g-sea{color:#31414a}.g-shore{color:#4a5f63}.g-slope{color:#5c6560}.g-crag{color:#767d78}.g-moor{color:#4f5747}
@@ -60,7 +76,7 @@ header.top{
 .legend{font-family:var(--sans);font-size:.68rem;color:#828d91;margin:8px 2px 0;letter-spacing:.03em}
 
 /* --- chronicle --- */
-main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
+main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 .turn{margin:0 0 34px}
 .season{
   display:flex;align-items:baseline;justify-content:space-between;gap:14px;
@@ -70,8 +86,8 @@ main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
 .s-name{font-style:italic;font-size:1.34rem;color:var(--pale)}
 .s-year{font-family:var(--sans);font-size:.72rem;color:var(--grey);letter-spacing:.11em}
 .turn p{margin:0 0 .82em}
-.prose{color:#c3cacb}
-.bridge{color:var(--grey);font-style:italic}
+.quiet{color:var(--grey)}
+.opening{color:#c3cacb}
 .event{color:var(--pale)}
 .event.w5,.event.w6,.event.w7{
   padding-left:13px;border-left:2px solid var(--seam);
@@ -103,7 +119,8 @@ main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
 .god{font-size:1.1rem;font-weight:600}
 .god .dom{font-weight:300;font-size:.86rem;color:var(--grey)}
 .saw{color:#c3cacb;margin-bottom:.4em!important}
-.offer{font-style:italic;color:var(--lamp);margin-bottom:.8em!important}
+.odom{font-family:var(--sans);font-size:.66rem;letter-spacing:.07em;color:var(--grey);margin:.5em 0 .15em!important}
+.offer{color:var(--lamp);margin-bottom:.8em!important}
 .orow{display:flex;gap:9px}
 
 /* --- buttons --- */
@@ -242,7 +259,7 @@ main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
 
 @media(min-width:760px){
   body{font-size:18px}
-  .plate{max-width:44rem;margin-inline:auto}
+  .plate{max-width:44rem;margin-inline:auto;max-height:50vh}
   #map{font-size:15px}
   #omen{max-width:38rem;margin-inline:auto}
 }
@@ -250,14 +267,18 @@ main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
 </head>
 <body>
 
-<header class="top">
-  <span id="place">—</span>
-  <span id="when"></span>
-</header>
+<div class="dock" id="dock">
+  <header class="top">
+    <span id="place">—</span>
+    <span id="when"></span>
+    <button id="mapmin" class="mapmin" aria-expanded="true" aria-controls="plate"
+            title="Hide the map">Hide map</button>
+  </header>
 
-<div class="plate">
-  <div id="map"></div>
-  <p class="legend"><span class="m-shrine">†</span> the shrine &nbsp; <span class="m-lit">⌂</span> a lit house &nbsp; <span class="m-dark">⌂</span> empty &nbsp; <span class="m-growing">◌</span> stone still growing &nbsp; <span class="m-derelict">×</span> abandoned &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> ground under dispute</p>
+  <div class="plate" id="plate">
+    <div id="map"></div>
+    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed ground</p>
+  </div>
 </div>
 
 <main id="chronicle"></main>

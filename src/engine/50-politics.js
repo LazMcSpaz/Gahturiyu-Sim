@@ -50,8 +50,8 @@ function sysGrudges(s, r) {
       const g = pick(r, hot);
       const other = s.households[g.target];
       g.heat = 4;
-      remember(s, p.householdId, 4, `put down something they were entitled to keep holding`);
-      ev(s, 'shrine', 5, `${nameOf(s, p.id)} went up to the ${sh.god} stone and set down what they had been carrying against the ${other.name}. Whether it stays down is another matter.`, { person: p.id });
+      remember(s, p.householdId, 4, `gave up a grudge they were entitled to keep`);
+      ev(s, 'shrine', 5, `${nameOf(s, p.id)} gave up their grudge against the ${other.name} at the ${sh.god} stone.`, { person: p.id });
       continue;
     }
 
@@ -64,10 +64,10 @@ function sysGrudges(s, r) {
     // 1. they are hungry and you are not
     if ((them.shortSeasons || 0) >= 3 && mine.stores > 10) {
       g.heat += 4;
-      remember(s, mine.id, -5, `had plenty the winter the ${them.name} had nothing, and made sure it was seen`);
-      ev(s, 'spite', 6, `The ${them.name} were short again, and the ${mine.name} took that season to make a show of how well they were doing. ${p.name} did not pretend it was accidental.`, { person: p.id, household: mine.id });
+      remember(s, mine.id, -5, `made a show of their stores while the ${them.name} went short`);
+      ev(s, 'spite', 6, `The ${mine.name} made a show of their stores while the ${them.name} were short. ${p.name} did it deliberately.`, { person: p.id, household: mine.id });
       const th = s.people[them.headId];
-      if (th) th.grudges.push({ target: mine.id, cause: `they made a display of it the winter this house had nothing`, turn: s.turn, heat: 55 });
+      if (th) th.grudges.push({ target: mine.id, cause: `made a display of their stores while this household went short`, turn: s.turn, heat: 55 });
       continue;
     }
 
@@ -76,7 +76,7 @@ function sysGrudges(s, r) {
     if (theirs) {
       theirs.heat += 9;
       const foe = s.households[theirs.a === them.id ? theirs.b : theirs.a];
-      ev(s, 'spite', 5, `${nameOf(s, p.id)} came out for the ${foe ? foe.name : 'other side'} in the quarrel with the ${them.name}. Nobody had asked them and everyone understood why.`, { person: p.id });
+      ev(s, 'spite', 5, `${nameOf(s, p.id)} backed the ${foe ? foe.name : 'other side'} against the ${them.name}, out of a grudge.`, { person: p.id });
       continue;
     }
 
@@ -85,7 +85,7 @@ function sysGrudges(s, r) {
       const theirStone = Object.values(s.buildings).find(b => b.state === 'growing' && b.householdId === them.id);
       if (theirStone && theirStone.tenderId !== p.id) {
         theirStone.stalled++;
-        ev(s, 'spite', 5, `${nameOf(s, p.id)} was asked about the ${them.name} stone and said they were busy. They were not especially busy.`, { person: p.id });
+        ev(s, 'spite', 5, `${nameOf(s, p.id)} refused to work the ${them.name} stone, claiming to be busy.`, { person: p.id });
         continue;
       }
     }
@@ -93,11 +93,7 @@ function sysGrudges(s, r) {
     // 4. otherwise it is carried in public, which is its own kind of work
     if (chance(r, 0.5)) {
       them.standing -= 1.2;
-      ev(s, 'spite', 2, pick(r, [
-        `${nameOf(s, p.id)} left a gathering when the ${them.name} arrived, slowly enough to be certain of being seen.`,
-        `${nameOf(s, p.id)} has not spoken the ${them.name} name aloud in ${Math.round((s.turn - g.turn) / 4)} years and makes a small performance of not doing so.`,
-        `Whatever is between ${p.name} and the ${them.name} was aired again this season, in front of people who had not heard it.`
-      ]), { person: p.id });
+      ev(s, 'spite', 2, `${nameOf(s, p.id)} snubbed the ${them.name} in public. The grudge is ${Math.round((s.turn - g.turn) / 4)} years old.`, { person: p.id });
     }
   }
 }
@@ -109,11 +105,7 @@ function sysMemory(s, r) {
   if (!old.length) return;
   const m = pick(r, old);
   const years = Math.round((s.turn - m.turn) / 4);
-  ev(s, 'memory', 3, pick(r, [
-    `It was said again this season, as it is every few years, that the ${m.house} ${m.phrase}. That was ${years} years ago and nobody who was there is arguing about it now.`,
-    `Someone brought up that the ${m.house} ${m.phrase}. ${years} years on, it still ends a conversation.`,
-    `The children of the ${m.house} have started hearing that their house ${m.phrase}, which happened before any of them were born.`
-  ]), { household: m.household });
+  ev(s, 'memory', 3, `The ${m.house} ${m.phrase} — ${years} years ago, and still held against them.`, { household: m.household });
 }
 
 /* the shrine -----------------------------------------------------------------
@@ -140,7 +132,7 @@ function sysShrine(s, r) {
   const keeper = s.people[sh.keeperId];
   if (!keeper || !keeper.alive) {
     if (sh.keeperId) {
-      ev(s, 'shrine', 5, `${sh.keeperName} kept the ${sh.god} stone for ${Math.round((s.turn - sh.keeperSince) / 4)} years and is dead. Nobody swept it this season.`, {});
+      ev(s, 'shrine', 5, `${sh.keeperName} died after ${Math.round((s.turn - sh.keeperSince) / 4)} years keeping the ${sh.god} stone. It has no keeper.`, {});
       remember(s, keeper ? keeper.householdId : null, 3, `kept the ${sh.god} stone`);
     }
     sh.keeperId = null;
@@ -149,7 +141,7 @@ function sysShrine(s, r) {
     if (devout.length && chance(r, 0.4)) {
       const k = devout.sort((a, b) => b.traits.piety - a.traits.piety)[0];
       sh.keeperId = k.id; sh.keeperName = nameOf(s, k.id); sh.keeperSince = s.turn;
-      ev(s, 'shrine', 4, `${nameOf(s, k.id)} took over the keeping of the ${sh.god} stone. It had been three seasons untended and it showed.`, { person: k.id });
+      ev(s, 'shrine', 4, `${nameOf(s, k.id)} took over keeping the ${sh.god} stone, untended for three seasons.`, { person: k.id });
     }
   }
 
@@ -165,18 +157,14 @@ function sysShrine(s, r) {
 
   for (const [lo, line] of [[35, 'gone'], [60, 'held']]) {
     if (was >= lo && sh.devotion < lo && lo === 35)
-      ev(s, 'shrine', 5, `Offerings at the ${sh.god} stone have dried up to nothing. It is a rock on a hill now, and people have started settling things between themselves.`, {});
+      ev(s, 'shrine', 5, `The ${sh.god} stone is untended. Rulings sworn there no longer bind, and quarrels harden into feuds.`, {});
     if (was < lo && sh.devotion >= lo && lo === 60)
-      ev(s, 'shrine', 4, `The ${sh.god} stone is kept properly again, and rulings made in front of it have started being obeyed.`, {});
+      ev(s, 'shrine', 4, `The ${sh.god} stone is kept again. Rulings sworn there bind.`, {});
   }
 
   // a hard season brings people back to it
   if (s.weather.storm && sh.devotion > 45 && chance(r, 0.25)) {
-    ev(s, 'shrine', 3, pick(r, [
-      `Half the settlement went up to the ${sh.god} stone after the weather broke. Whatever was left in the stores went with them.`,
-      `Offerings piled at the ${sh.god} stone all season. Some of it was food that could have been eaten.`,
-      `They took the boats' names to the ${sh.god} stone and left them there.`
-    ]), {});
+    ev(s, 'shrine', 3, `After the storm the settlement made offerings at the ${sh.god} stone. Every household gave up some of its stores.`, {});
     for (const h of Object.values(s.households)) if (!h.extinct) h.stores = Math.max(0, h.stores - 0.6);
     sh.devotion = Math.min(100, sh.devotion + 4);
   }
@@ -214,9 +202,8 @@ function sysClaims(s, r) {
       hh.claims.push(site.id);
       startGrowing(s, r, hh, site.id);
       const scarce = free.length <= 2;
-      ev(s, 'claim', scarce ? 5 : 2, scarce
-        ? `The ${hh.name} household under ${head.name} took ground on the ${TERRAIN_NAME[site.t]} — ${free.length ? 'one of the last sites left' : 'the last site on this coast'} — and set the stone started.`
-        : `The ${hh.name} household under ${head.name} took ground on the ${TERRAIN_NAME[site.t]} and set the stone started.`,
+      ev(s, 'claim', scarce ? 5 : 2,
+        `The ${hh.name} claimed ground on the ${TERRAIN_NAME[site.t]} and started a stone. ${free.length ? free.length + ' building site' + (free.length === 1 ? '' : 's') + ' left' : 'That was the last building site on the coast'}.`,
         { household: hh.id, tile: site.id });
       hh.waiting = 0;
     } else if (hh.waiting > ri(r, 3, 10)) {
@@ -229,7 +216,7 @@ function sysClaims(s, r) {
       } else if (chance(r, 0.08)) {
         for (const mid of hh.members) { const m = s.people[mid]; m.alive = false; m.deathTurn = s.turn; m.cause = 'departure'; }
         hh.extinct = s.turn;
-        ev(s, 'leave', 5, `The ${hh.name} household gave up waiting for ground and took a boat north. Nobody expects them back.`, { household: hh.id });
+        ev(s, 'leave', 5, `The ${hh.name} gave up waiting for ground and left the coast.`, { household: hh.id });
       }
     }
   }
@@ -248,15 +235,15 @@ function startGrowing(s, r, hh, tid) {
   if (!tender) {
     const anyone = Object.values(s.people).some(p => p.alive && p.tender && ageOf(s, p) >= 16);
     ev(s, 'notender', 6, anyone
-      ? `Every hand in the settlement that could have started the ${hh.name} stone found a reason not to. It sits as a scar in the hillside and everyone can see whose it is.`
-      : `There is nobody left with the gift to start the ${hh.name} stone. It sits as a scar in the hillside.`,
+      ? `Every free tender refused to start the ${hh.name} stone. It sits unworked.`
+      : `No living tender can start the ${hh.name} stone. It sits unworked.`,
       { household: hh.id });
     if (anyone) {
-      remember(s, hh.id, -5, `could not get a single tender to put a hand to their stone`);
+      remember(s, hh.id, -5, `could not get any tender to work their stone`);
       const head = s.people[hh.headId];
       for (const rf of refusers.slice(0, 2)) {
         if (head && head.traits.grudge > 35 && rf.householdId !== hh.id)
-          head.grudges.push({ target: rf.householdId, cause: `their house would not put a hand to our stone when we had nothing`, turn: s.turn, heat: 55 });
+          head.grudges.push({ target: rf.householdId, cause: `refused to work this household's stone`, turn: s.turn, heat: 55 });
       }
     }
   }
@@ -276,15 +263,10 @@ function openDispute(s, r, claimant, holder, over) {
   const ha = s.people[claimant.headId];
   const against = Object.values(s.disputes).filter(x => x.open && x.b === holder.id).length;
   const who = ha ? ha.name : 'The ' + claimant.name;
-  ev(s, 'dispute', 5, against >= 3
-    ? `${who} put a claim before the ${holder.name} household for ${over} — the ${against}th standing against that house, which is starting to look less like bad luck.`
-    : against === 2
-    ? `${who} put a claim before the ${holder.name} household for ${over}. That makes two houses with something outstanding against them.`
-    : pick(r, [
-      `${who} put a claim before the ${holder.name} household for ${over}. It was not settled that season, nor the next.`,
-      `${who} asked the ${holder.name} household for ${over}, in front of enough people that it could not be quietly refused.`,
-      `${who} raised a claim against the ${holder.name} over ${over}. Both houses stopped using the same path.`
-    ]), { dispute: did });
+  ev(s, 'dispute', 5,
+    `${who} raised a claim against the ${holder.name} over ${over}.` +
+    (against >= 2 ? ` That is ${against} open claims against that household.` : ''),
+    { dispute: did });
   return d;
 }
 
@@ -323,10 +305,10 @@ function sysDisputes(s, r) {
         const crooked = Math.max(spiteA, spiteB) > 18 && (spiteA > spiteB) !== forA;
         if (crooked) {
           const wronged = spiteA > spiteB ? A : B;
-          remember(s, arb.id, -6, `ruled on a quarrel they had a stake in, and everyone worked it out afterwards`);
+          remember(s, arb.id, -6, `ruled on a quarrel they had a stake in`);
           const wh = s.people[wronged.headId];
-          if (wh) wh.grudges.push({ target: arb.id, cause: `they sat in judgement carrying something against this house`, turn: s.turn, heat: 65 });
-          ev(s, 'arbitration', 6, `The ${arb.name} were asked to rule between the ${A.name} and the ${B.name}, and did — but the ${arb.name} have their own history with the ${wronged.name}, and by spring most of the settlement had remembered what it was.`, { dispute: d.id });
+          if (wh) wh.grudges.push({ target: arb.id, cause: `ruled against this household while holding a grudge against it`, turn: s.turn, heat: 65 });
+          ev(s, 'arbitration', 6, `The ${arb.name} ruled between the ${A.name} and the ${B.name} while holding a grudge against the ${wronged.name}. The ruling is not trusted.`, { dispute: d.id });
         }
         const loser = forA ? B : A, winner = forA ? A : B;
         if (forA && B.claims.length > 1) {
@@ -345,42 +327,42 @@ function sysDisputes(s, r) {
         arb.standing += 4;
         const lh = s.people[loser.headId];
         if (lh && lh.traits.grudge > 40) {
-          lh.grudges.push({ target: winner.id, cause: `the ${arb.name} household ruled against them over ${d.over}`, turn: s.turn, heat: d.heat * 0.6 });
+          lh.grudges.push({ target: winner.id, cause: `the ${arb.name} ruled against them over ${d.over}`, turn: s.turn, heat: d.heat * 0.6 });
         }
         if (dev > 60 && s.shrine) {
-          ev(s, 'arbitration', 6, `The quarrel between the ${A.name} and the ${B.name} was taken up to the ${s.shrine.god} stone, and the ${arb.name} spoke on it there and found for the ${winner.name}. Sworn in that place, it holds.`, { dispute: d.id });
-          remember(s, loser.id, -4, `was ruled against at the ${s.shrine.god} stone over ${d.over}`);
+          ev(s, 'arbitration', 6, `The ${arb.name} ruled for the ${winner.name} over the ${loser.name}, sworn at the ${s.shrine.god} stone. The quarrel is settled.`, { dispute: d.id });
+          remember(s, loser.id, -4, `were ruled against at the ${s.shrine.god} stone over ${d.over}`);
         } else {
-          ev(s, 'arbitration', 6, `${seated && arbHead === seated ? nameOf(s, seated.id) + ', arbiter, heard' : 'The ' + arb.name + ' household was asked to speak on'} the quarrel between the ${A.name} and the ${B.name}, and found for the ${winner.name}. The ${loser.name} accepted it in front of witnesses and said nothing about it after.`, { dispute: d.id });
+          ev(s, 'arbitration', 6, `${seated && arbHead === seated ? nameOf(s, seated.id) + ', arbiter,' : 'The ' + arb.name} ruled for the ${winner.name} over the ${loser.name}. The ${loser.name} accepted it. The quarrel is settled.`, { dispute: d.id });
         }
-        remember(s, arb.id, 5, `was trusted to rule between two houses that would not speak`);
+        remember(s, arb.id, 5, `ruled between two households in a quarrel`);
       }
     } else if (d.heat > 110 + dev * 0.9) {
       d.open = false; d.resolved = s.turn; d.feud = true;
       for (const side of [[A, B], [B, A]]) {
         const h = s.people[side[0].headId];
-        if (h) h.grudges.push({ target: side[1].id, cause: `the quarrel over ${d.over} that was never settled`, turn: s.turn, heat: 70 });
+        if (h) h.grudges.push({ target: side[1].id, cause: `the unsettled quarrel over ${d.over}`, turn: s.turn, heat: 70 });
       }
-      remember(s, A.id, -6, `let a quarrel with the ${B.name} harden into something nobody could undo`);
-      remember(s, B.id, -6, `let a quarrel with the ${A.name} harden into something nobody could undo`);
+      remember(s, A.id, -6, `let a quarrel with the ${B.name} harden into a feud`);
+      remember(s, B.id, -6, `let a quarrel with the ${A.name} harden into a feud`);
       const q = closePath(s, A, B);
       if (q) {
         A.standing -= 3; B.standing -= 3;
-        ev(s, 'feud', 6, `The ground between the ${A.name} and the ${B.name} at ${q.name} is shut. Anyone going down to the water from above it now goes the long way, and says so.`, {});
+        ev(s, 'feud', 6, `The ground between the ${A.name} and the ${B.name} at ${q.name} is closed. Everyone else now walks further.`, {});
       }
-      ev(s, 'feud', 7, `Nobody would rule on the ${A.name} and the ${B.name}, so the thing simply hardened. Paths between the two houses fell out of use, and children were taught which ground not to cross.`, { dispute: d.id });
+      ev(s, 'feud', 7, `The quarrel between the ${A.name} and the ${B.name} went unruled and hardened into a feud. It will not now be settled.`, { dispute: d.id });
     }
   }
 }
 
 function revealGrudge(s, r) {
   const holders = Object.values(s.people).filter(p => p.alive && p.grudges.length);
-  if (!holders.length) { ev(s, 'divine', 3, 'Shiḍuro looked for a hidden injury and found the settlement, for once, without one.'); return; }
+  if (!holders.length) { ev(s, 'divine', 3, 'No hidden grudge was found. Nobody here is holding one.'); return; }
   const p = pick(r, holders);
   const g = pick(r, p.grudges);
   g.heat += 30;
   const target = s.households[g.target];
-  ev(s, 'reveal', 6, `It came out in the open that ${nameOf(s, p.id)} had never forgiven ${target ? 'the ' + target.name + ' household' : 'an old injury'} — ${g.cause}. Half the settlement had suspected; the other half had not, and now took sides.`, { person: p.id });
+  ev(s, 'reveal', 6, `${nameOf(s, p.id)}'s grudge against ${target ? 'the ' + target.name : 'an old injury'} became public: ${g.cause}. It is now an open quarrel.`, { person: p.id });
   if (target && p.householdId !== target.id) {
     const mine = s.households[p.householdId];
     if (mine) openDispute(s, r, mine, target, 'an old injury made public');
@@ -399,5 +381,5 @@ function arriveStrangers(s, r) {
     const p = makePerson(s, r, hid, i === 0 ? ri(r, 26, 48) : ri(r, 1, 40));
     if (i === 0) { hh.headId = p.id; p.role = 'head'; }
   }
-  ev(s, 'arrival', 6, `A boat came in on the tide carrying ${n} of the ${hh.name}, off a coast they would not name. They asked for ground.`, { household: hid });
+  ev(s, 'arrival', 6, `${n} newcomers arrived by boat as the ${hh.name} household. They are asking for ground.`, { household: hid });
 }

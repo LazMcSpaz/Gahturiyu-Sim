@@ -40,24 +40,26 @@ function advance(state, input) {
 
 /* levers ------------------------------------------------------------------- */
 
+/* label — the button. desc — what it will do, shown before you choose.
+   fact  — the chronicle line, past tense, no god named and no atmosphere. */
 const LEVERS = {
-  none:     { label: 'Nothing', desc: 'Let the season pass unaided.' },
-  storm:    { label: 'Send a storm', desc: 'Horahìda stirs the water. Boats stay in; the catch fails.' },
-  bounty:   { label: 'Fill the nets', desc: 'A season of impossible fishing.' },
-  blight:   { label: 'Sicken the herds', desc: 'Qotihiqì turns the grazing against them.' },
-  quicken:  { label: 'Quicken the stone', desc: 'Dodìṭo hurries every growing home toward maturity.' },
-  wither:   { label: 'Still the stone', desc: 'Every growing home halts, as if the rock forgot.' },
-  fever:    { label: 'Send a fever', desc: 'Hiyaḍote walks the paths. The old and the crowded suffer.' },
-  strangers:{ label: 'Bring strangers', desc: 'A boat of newcomers asks for ground.' },
-  reveal:   { label: 'Reveal a grudge', desc: 'Shiḍuro makes a hidden injury public.' },
-  temper:   { label: 'Cool tempers', desc: 'Gìhuqìdu settles the standing quarrels.' }
+  none:     { label: 'Nothing',           desc: 'Let the season pass.',                         fact: '' },
+  storm:    { label: 'Send a storm',      desc: 'Boats stay in. The catch fails.',              fact: 'Storm sent. No catch this season.' },
+  bounty:   { label: 'Fill the nets',     desc: 'The catch is doubled.',                        fact: 'Catch doubled this season.' },
+  blight:   { label: 'Sicken the herds',  desc: 'The grazing fails.',                           fact: 'Blight sent. The herds sickened.' },
+  quicken:  { label: 'Quicken the stone', desc: 'Every growing home gains a fifth of its growth.', fact: 'Every growing home gained about a fifth of its growth.' },
+  wither:   { label: 'Still the stone',   desc: 'Every growing home stalls.',                   fact: 'Every growing home stalled.' },
+  fever:    { label: 'Send a fever',      desc: 'The old and the crowded die.',                 fact: 'Fever sent. The old and the crowded were at risk.' },
+  strangers:{ label: 'Bring strangers',   desc: 'A boat of newcomers asks for ground.',         fact: 'A boat of newcomers arrived asking for ground.' },
+  reveal:   { label: 'Reveal a grudge',   desc: 'One hidden grudge becomes public.',            fact: 'A hidden grudge was made public.' },
+  temper:   { label: 'Cool tempers',      desc: 'Every open quarrel loses most of its heat.',   fact: 'Every open quarrel lost most of its heat.' }
 };
 
 function applyInput(s, r, input) {
   const lv = input && input.lever;
   if (!lv || lv === 'none') return;
   const L = LEVERS[lv];
-  ev(s, 'divine', 5, `${L.desc}`, { lever: lv });
+  ev(s, 'divine', 5, L.fact, { lever: lv });
   switch (lv) {
     case 'storm': s.weather.storm = 1; break;
     case 'bounty': s.weather.bounty = 1; break;
@@ -84,12 +86,6 @@ function sysWeather(s, r) {
   const w = s.weather;
   if (!w.storm) w.storm = (season === 'winter' && chance(r, 0.35)) || (season === 'harvest' && chance(r, 0.18)) ? 1 : 0;
   w.cold = season === 'winter' ? 0.6 + r() * 0.4 : season === 'spring' ? 0.2 : 0;
-  if (w.storm) ev(s, 'weather', 2, pick(r, [
-    'Gales came off the water and the boats stayed drawn up on the shingle.',
-    'A run of bad weather. What went out came back mostly empty.',
-    'The sea was unworkable for weeks and the nets hung in the rafters.',
-    'Storms off the headland. Two boats were lost and not replaced.',
-    'Wind from the open water all season, and nobody put out past the shelf.'
-  ]));
-  else if (season === 'summer' && chance(r, 0.2)) { w.fair = 1; ev(s, 'weather', 1, 'The weather held fair for weeks together, which the older heads distrusted.'); }
+  if (w.storm) ev(s, 'weather', 2, 'Storms. The boats stayed in and the catch failed.');
+  else if (season === 'summer' && chance(r, 0.2)) { w.fair = 1; ev(s, 'weather', 1, 'Fair weather. Fishing was good.'); }
 }

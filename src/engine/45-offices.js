@@ -128,8 +128,8 @@ function sysOffices(s, r) {
       const p = s.people[id];
       if (!p || p.alive) continue;
       const yrs = Math.max(1, Math.round((s.turn - (p.officeSince || s.turn)) / 4));
-      ev(s, 'office', 6, `${nameOf(s, id)} held the ${sp.title.toLowerCase()} for ${yrs} years and is dead. The seat is open.`, { person: id });
-      remember(s, p.householdId, 4, `held the ${sp.title.toLowerCase()} and held it until they died`);
+      ev(s, 'office', 6, `${nameOf(s, id)} died after ${yrs} years as ${sp.title.toLowerCase()}. The seat is open.`, { person: id });
+      remember(s, p.householdId, 4, `held the ${sp.title.toLowerCase()} until they died`);
     }
 
     // senators are per quarter; everything else is per settlement
@@ -146,8 +146,8 @@ function sysOffices(s, r) {
         s.offices.senator.push(pick_.id);
         pick_.officeSince = s.turn;
         pick_.prominence = Math.max(pick_.prominence, 1);
-        remember(s, pick_.householdId, 3, `were sent to speak for ${q.name}`);
-        ev(s, 'office', 5, `${q.name} sent ${nameOf(s, pick_.id)} to speak for it. Two other houses had wanted it and one of them said so.`, { person: pick_.id });
+        remember(s, pick_.householdId, 3, `elected to speak for ${q.name}`);
+        ev(s, 'office', 5, `${q.name} elected ${nameOf(s, pick_.id)} to speak for it.`, { person: pick_.id });
       }
       continue;
     }
@@ -160,12 +160,12 @@ function sysOffices(s, r) {
       chosen.prominence = Math.max(chosen.prominence, 1);
       const hh = s.households[chosen.householdId];
       const line = {
-        ruler: `${nameOf(s, chosen.id)} now speaks for the settlement. The ${hh.name} did not have to ask twice.`,
-        advisor: `${nameOf(s, chosen.id)} was taken on as an advisor, which most people read as a statement about the ${hh.name} rather than about them.`,
+        ruler: `${nameOf(s, chosen.id)} of the ${hh.name} is now sole ruler of the settlement.`,
+        advisor: `${nameOf(s, chosen.id)} of the ${hh.name} was made an advisor to the ruler.`,
         tribune: `${nameOf(s, chosen.id)} took the empty seat on the tribunal.`,
-        captain: `${nameOf(s, chosen.id)} was made captain of the guard. They are ${ageOf(s, chosen)} and have the shoulders for it.`,
-        arbiter: `${nameOf(s, chosen.id)} was made arbiter. From here on, quarrels go to them before they go anywhere else.`,
-        boatholder: `${nameOf(s, chosen.id)} holds the boats now. Nine households out of ten fish from a hull they do not own.`
+        captain: `${nameOf(s, chosen.id)}, ${ageOf(s, chosen)}, was made captain of the guard.`,
+        arbiter: `${nameOf(s, chosen.id)} was made arbiter. Quarrels go to them first.`,
+        boatholder: `${nameOf(s, chosen.id)} is now boat-holder. They decide which households may fish.`
       }[sp.key] || `${nameOf(s, chosen.id)} took the seat of ${sp.title.toLowerCase()}.`;
       ev(s, 'office', 5, line, { person: chosen.id });
       remember(s, chosen.householdId, 3, `took the seat of ${sp.title.toLowerCase()}`);
@@ -203,13 +203,13 @@ function sysBoats(s, r) {
       h.noBoat = (h.noBoat || 0) + 1;
       if (h.noBoat === 1 || h.noBoat % 8 === 0) {
         ev(s, 'office', 6, spite > 30
-          ? `${nameOf(s, holder.id)} found no hull to spare for the ${h.name} this season. There is a reason and it is not a shortage of boats.`
-          : `The ${h.name} were told the price of a hull had gone up, and told it by ${nameOf(s, holder.id)}, who sets the price.`,
+          ? `${nameOf(s, holder.id)} refused the ${h.name} a boat. They hold a grudge against that household.`
+          : `${nameOf(s, holder.id)} priced the ${h.name} off the water. The household cannot afford a hull.`,
           { household: h.id });
-        remember(s, own.id, -5, `kept the ${h.name} off the water in a season they needed to be on it`);
+        remember(s, own.id, -5, `kept the ${h.name} off the water`);
         const hh = s.people[h.headId];
         if (hh && hh.traits.grudge > 30)
-          hh.grudges.push({ target: own.id, cause: `they kept this house off the water`, turn: s.turn, heat: 60 });
+          hh.grudges.push({ target: own.id, cause: `kept this household off the water`, turn: s.turn, heat: 60 });
       }
     } else if (h.noBoat) {
       h.noBoat = 0;
@@ -239,15 +239,12 @@ function sysCaptain(s, r) {
   if (favourA || favourB) {
     const put = favourA ? B : A, kept = favourA ? A : B;
     d.heat += 10;
-    remember(s, own.id, -5, `used the guard to lean on the ${put.name} in a quarrel their own house was in`);
+    remember(s, own.id, -5, `used the guard against the ${put.name} in a quarrel their own household was in`);
     const ph = s.people[put.headId];
-    if (ph) ph.grudges.push({ target: own.id, cause: `they set the guard on this house over a matter the guard had no business in`, turn: s.turn, heat: 70 });
-    ev(s, 'office', 6, `${nameOf(s, cap.id)} put the guard on the ${put.name} and left the ${kept.name} alone. Nobody pretended not to notice which house the captain came out of.`, { person: cap.id });
+    if (ph) ph.grudges.push({ target: own.id, cause: `set the guard on this household over a private quarrel`, turn: s.turn, heat: 70 });
+    ev(s, 'office', 6, `${nameOf(s, cap.id)} set the guard on the ${put.name} and not the ${kept.name}. The captain's own household is on the ${kept.name}'s side.`, { person: cap.id });
   } else {
     d.heat = Math.max(0, d.heat - 22);
-    ev(s, 'office', 4, pick(r, [
-      `${nameOf(s, cap.id)} stood between the ${A.name} and the ${B.name} before it got as far as hands, and made both houses go home.`,
-      `The quarrel between the ${A.name} and the ${B.name} was walked back by ${nameOf(s, cap.id)}, who has done it twice before and is running out of patience.`
-    ]), { person: cap.id });
+    ev(s, 'office', 4, `${nameOf(s, cap.id)} broke up the quarrel between the ${A.name} and the ${B.name}. It cooled.`, { person: cap.id });
   }
 }

@@ -1,7 +1,8 @@
 # Gahturiyu — settlement simulation
 
 A seasonal simulation of a Roduro coastal settlement. It runs in a browser with
-no server, and produces a chronicle rather than a dashboard.
+no server. The map stays on screen; the chronicle under it records what happened
+each season, one fact per line.
 
 ## Running it
 
@@ -12,7 +13,7 @@ needed to *use* it, works from `file://` or from GitHub Pages on a phone.
 
 ```
 node build.js        # concatenate src/ into dist/gahturiyu.html
-node test/run.js     # headless: determinism, levers, hundred-year runs, prose
+node test/run.js     # headless: determinism, levers, hundred-year runs, chronicle
 node test/probe.js "console.log(sim(7, 200).hist.at(-1))"   # scratch
 ```
 
@@ -54,14 +55,34 @@ src/engine/40-society.js    birth and death, pairing between households, success
 src/engine/45-offices.js    forms of government, the standing offices, boats and the guard
 src/engine/50-politics.js   memory, the shrine, claims, disputes, grudges
 src/engine/60-figures.js    promotion to named figure, what figures do, omens, bookkeeping
-src/render/chronicle.js     events -> connected prose
+src/render/chronicle.js     events -> the season's lines, and the map plate
 src/render/panels.js        cast and household panels
 src/ui/index.html           page shell and stylesheet, with the bundle slot
-src/ui/app.js               timeline, branches, sheet, export/import
+src/ui/app.js               timeline, branches, sheet, map toggle, export/import
 ```
 
 Turn order is in `advance()` and it matters — food runs before hardship, offices
 before the shrine, promotion before figures act.
+
+## The chronicle
+
+One line per thing that happened, in a fixed order: weather, then deaths and
+hardship, then stone and households, then quarrels and offices, then the shrine,
+then what the named figures did, then what the settlement still remembers. A
+season with nothing in it says so.
+
+Lines state what happened and what it changed. They do not imply, hint, or set a
+scene — if a grudge is the reason for something, the line says it is a grudge.
+`test/run.js` asserts this: `renderTurn` may only emit event lines and the
+one "nothing recorded" line, so connective prose cannot come back by accident.
+
+Routine business (most births, matches, households dividing, stone growing on
+schedule) is recorded at weight 1 and hidden. **Setup → Show everything** shows it.
+
+## The map
+
+The map is pinned above the chronicle and stays there while you scroll. **Hide
+map** collapses it and the choice is remembered in that browser.
 
 ## What is simulated
 

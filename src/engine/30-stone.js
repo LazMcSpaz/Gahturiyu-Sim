@@ -45,7 +45,7 @@ function sysGrowth(s, r) {
   for (const b of Object.values(s.buildings)) {
     if (b.state !== 'growing') continue;
     if (b.tenderId && !s.people[b.tenderId]?.alive) {
-      ev(s, 'stall', 4, `The stone at ${siteWord(s, b.tileId)} stopped answering — the hand that shaped it is gone.`, { building: b.id });
+      ev(s, 'stall', 4, `The stone at ${siteWord(s, b.tileId)} stalled. Its tender is dead.`, { building: b.id });
       b.tenderId = null;
     }
     if (!b.tenderId) {
@@ -55,12 +55,12 @@ function sysGrowth(s, r) {
         : { tender: null, refusers: [] };
       if (took && chance(r, 0.7)) {
         b.tenderId = took.id;
-        ev(s, 'tend', 4, `${nameOf(s, took.id)} took up the unfinished stone at ${siteWord(s, b.tileId)}.`, { building: b.id, person: took.id });
+        ev(s, 'tend', 4, `${nameOf(s, took.id)} took over the unfinished stone at ${siteWord(s, b.tileId)}.`, { building: b.id, person: took.id });
       } else {
         b.stalled++; b.maturity = Math.max(0, b.maturity - 0.0015);
         if (b.stalled === 12 && hhb && refusers.length) {
-          ev(s, 'notender', 6, `Three years now and nobody with the gift will go near the ${hhb.name} stone. ${refusers.length === 1 ? nameOf(s, refusers[0].id) + ' has' : 'They have'} not given a reason and are not being asked for one.`, { household: hhb.id });
-          remember(s, hhb.id, -4, `had their stone left standing half-grown because no tender would touch it`);
+          ev(s, 'notender', 6, `No tender has taken up the ${hhb.name} stone in three years. ${refusers.length === 1 ? nameOf(s, refusers[0].id) + ' is the only tender free' : refusers.length + ' tenders are free'} and none will work it.`, { household: hhb.id });
+          remember(s, hhb.id, -4, `left with a half-grown stone no tender would work`);
         }
         continue;
       }
@@ -68,8 +68,8 @@ function sysGrowth(s, r) {
     const t = s.people[b.tenderId];
     const hhb = s.households[b.householdId];
     if (hhb && t && tenderWill(s, t, hhb, b.tileId) < -12 && chance(r, 0.3)) {
-      ev(s, 'tend', 6, `${nameOf(s, t.id)} stopped work on the ${hhb.name} stone and did not go back. It stands at ${Math.round(b.maturity * 100)} parts in a hundred.`, { building: b.id, person: t.id });
-      remember(s, hhb.id, -3, `were walked out on by the tender who was growing their house`);
+      ev(s, 'tend', 6, `${nameOf(s, t.id)} abandoned the ${hhb.name} stone at ${Math.round(b.maturity * 100)}% grown.`, { building: b.id, person: t.id });
+      remember(s, hhb.id, -3, `abandoned by the tender growing their house`);
       b.lastTenderId = t.id; b.tenderId = null; b.stalled++;
       continue;
     }
@@ -81,7 +81,7 @@ function sysGrowth(s, r) {
       b.state = 'mature';
       const hh = s.households[b.householdId];
       if (hh) { hh.buildingId = b.id; hh.lodgedWith = null; }
-      ev(s, 'mature', 5, `After ${Math.round((s.turn - b.startTurn) / 4)} years the ${hh ? hh.name : 'new'} house came to its full shape and was opened.`, { building: b.id, household: b.householdId });
+      ev(s, 'mature', 5, `The ${hh ? hh.name : 'new'} house finished growing after ${Math.round((s.turn - b.startTurn) / 4)} years.`, { building: b.id, household: b.householdId });
     }
   }
   // slow decay of empty or neglected homes
@@ -93,7 +93,7 @@ function sysGrowth(s, r) {
       b.condition -= 0.012;
       if (b.condition <= 0 && b.state !== 'derelict') {
         b.state = 'derelict';
-        ev(s, 'derelict', 3, `The old ${hh ? hh.name : ''} house at ${siteWord(s, b.tileId)} finally split along its rings. Nobody had tended it in years.`, { building: b.id });
+        ev(s, 'derelict', 3, `The ${hh ? hh.name + ' ' : ''}house at ${siteWord(s, b.tileId)} fell derelict. It had gone untended for years.`, { building: b.id });
       }
     }
   }
@@ -187,7 +187,7 @@ function sysPairing(s, r) {
     moves++;
 
     if (second && p.matches > 1) {
-      ev(s, 'match', 6, `There was nobody left unspoken-for on this coast, so the ${hh.name} sent for ${p.name} ${p.lineage}, who was already reckoned to the ${chosen.from ? chosen.from.name : 'another'} — the ${p.matches}${p.matches === 2 ? 'nd' : p.matches === 3 ? 'rd' : 'th'} house to claim them. Opinion was divided and stayed divided.`, { person: p.id, household: hh.id });
+      ev(s, 'match', 6, `No unmatched partners were left, so the ${hh.name} claimed ${p.name} ${p.lineage}, already matched to the ${chosen.from ? chosen.from.name : 'another house'}. That is ${p.matches} households claiming the same person.`, { person: p.id, household: hh.id });
       if (chosen.from) {
         const jilted = s.people[chosen.from.headId];
         if (jilted && jilted.alive && jilted.traits.grudge > 45)
@@ -195,7 +195,7 @@ function sysPairing(s, r) {
       }
     } else {
       // routine. recorded, not announced.
-      ev(s, 'match', 1, `${p.name} ${p.lineage} went to the ${hh.name} household, and the two houses were reckoned joined.`, { person: p.id, household: hh.id });
+      ev(s, 'match', 1, `${p.name} ${p.lineage} joined the ${hh.name} household. The two households are now matched.`, { person: p.id, household: hh.id });
     }
   }
 }
@@ -213,19 +213,11 @@ function sysNotes(s, r) {
     const mark = b.maturity >= 0.9 ? 3 : b.maturity >= 0.6 ? 2 : b.maturity >= 0.3 ? 1 : 0;
     if (mark > was) {
       b.lastMark = mark;
-      const line = mark === 1 ? pick(r, [
-          `The ${hh.name} stone has taken a shape you can walk into, though it has no roof to speak of yet.`,
-          `You can see what the ${hh.name} stone means to be now. Walls to the waist, no more.`,
-          `The ${hh.name} stone came up past knee height this year, which is further than it looks.`
-        ]) : mark === 2 ? pick(r, [
-          `Rings are showing plainly on the ${hh.name} stone now. Children have started using it as a landmark.`,
-          `The ${hh.name} stone has its doorway. No roof over it, but a doorway.`,
-          `Banding on the ${hh.name} stone has gone dense enough to read the years off it.`
-        ]) : pick(r, [
-          `The ${hh.name} stone is close. ${nameOf(s, b.tenderId)} has been up there most days.`,
-          `The ${hh.name} household has begun moving things up to the new stone, roof or no roof.`,
-          `Only the cap of the ${hh.name} stone is still open. ${nameOf(s, b.tenderId)} says two more seasons.`
-        ]);
+      const line = mark === 1
+        ? `The ${hh.name} stone is a third grown — walls, no roof.`
+        : mark === 2
+        ? `The ${hh.name} stone is two thirds grown — walls and a doorway.`
+        : `The ${hh.name} stone is nine tenths grown. ${nameOf(s, b.tenderId)} is finishing the cap.`;
       const t = s.people[b.tenderId];
       const worthSaying = mark === 3 && (b.stalled > 0 || (t && t.prominence > 0));
       ev(s, 'note', worthSaying ? 3 : 1, line, { building: b.id });
@@ -237,16 +229,8 @@ function sysNotes(s, r) {
   s.yieldHist = (s.yieldHist || []).concat(total).slice(-16);
   if (s.yieldHist.length >= 8) {
     const avg = s.yieldHist.slice(0, -1).reduce((a, b) => a + b, 0) / (s.yieldHist.length - 1);
-    if (total > avg * 1.35) ev(s, 'note', 2, pick(r, [
-      'The best season anyone could remember for some years. Stores went in full.',
-      'Everything came in heavy — nets, herds, the lot. Nobody quite trusted it.',
-      'A season of plenty, and the older houses quietly put some aside.'
-    ]));
-    else if (total < avg * 0.68) ev(s, 'note', 2, pick(r, [
-      'A thin season. What came in was counted twice.',
-      'Little came in from anywhere, and it was noticed at every table.',
-      'The worst season in years, though nobody went short who had stores.'
-    ]));
+    if (total > avg * 1.35) ev(s, 'note', 2, `A good season: the settlement took in about ${Math.round((total / avg - 1) * 100)}% more food than usual.`);
+    else if (total < avg * 0.68) ev(s, 'note', 2, `A thin season: the settlement took in about ${Math.round((1 - total / avg) * 100)}% less food than usual.`);
   }
 
   // the oldest living person, when that changes hands
@@ -255,7 +239,7 @@ function sysNotes(s, r) {
     const eldest = live.sort((a, b) => a.birthTurn - b.birthTurn)[0];
     if (s.eldestId !== eldest.id && ageOf(s, eldest) > 68) {
       s.eldestId = eldest.id;
-      ev(s, 'note', 2, `${nameOf(s, eldest.id)} is now the oldest living soul here, at ${ageOf(s, eldest)}.`, { person: eldest.id });
+      ev(s, 'note', 2, `${nameOf(s, eldest.id)}, ${ageOf(s, eldest)}, is now the oldest living person here.`, { person: eldest.id });
     }
   }
 }
@@ -280,19 +264,19 @@ function sysTeaching(s, r) {
     if (!master || !master.alive) {
       p.learning.orphaned = (p.learning.orphaned || 0) + 1;
       if (p.learning.orphaned === 1)
-        ev(s, 'teach', 5, `${nameOf(s, p.id)} was half-taught when ${p.learning.name} died. Whether half is enough is not a thing anyone can tell by looking.`, { person: p.id });
+        ev(s, 'teach', 5, `${nameOf(s, p.id)} was still being taught when ${p.learning.name} died. The training is unfinished.`, { person: p.id });
       if (p.learning.progress > 0.62 && chance(r, 0.10)) {
         p.tender = true; p.learning = null;
-        ev(s, 'teach', 6, `${nameOf(s, p.id)} got the stone to answer, alone, years after the person teaching them died. Nobody is certain they were taught the whole of it.`, { person: p.id });
+        ev(s, 'teach', 6, `${nameOf(s, p.id)} finished learning the stone alone, after their teacher died. They can work it.`, { person: p.id });
       } else if (chance(r, 0.05)) {
-        ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up on the stone. They had been at it ${Math.max(1, Math.round(p.learning.progress * 12))} years.`, { person: p.id });
+        ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up learning the stone after ${Math.max(1, Math.round(p.learning.progress * 12))} years.`, { person: p.id });
         p.learning = null;
       }
       continue;
     }
     // most who start do not finish
     if (chance(r, 0.009)) {
-      ev(s, 'teach', 3, `${best0(p)} stopped going up to the stone with ${p.learning.name}. Neither of them said why.`, { person: p.id });
+      ev(s, 'teach', 3, `${best0(p)} stopped being taught by ${p.learning.name}.`, { person: p.id });
       p.learning = null; continue;
     }
     p.learning.progress += 0.022 * (0.7 + p.traits.loyalty / 250) * (p.learning.kin ? 1.25 : 1);
@@ -300,8 +284,8 @@ function sysTeaching(s, r) {
       p.tender = true;
       const yrs = Math.max(1, Math.round((s.turn - p.learning.since) / 4));
       p.learning = null;
-      remember(s, p.householdId, 4, `have the gift in the house, taught and not merely born to`);
-      ev(s, 'teach', 6, `${nameOf(s, p.id)} can work the stone now. It took ${yrs} years and ${nameOf(s, master.id)} says it took longer than it should have.`, { person: p.id });
+      remember(s, p.householdId, 4, `taught a tender of their own`);
+      ev(s, 'teach', 6, `${nameOf(s, p.id)} can work the stone now, taught by ${nameOf(s, master.id)} over ${yrs} years.`, { person: p.id });
     }
   }
 
@@ -331,8 +315,8 @@ function sysTeaching(s, r) {
     if (!best || best.v < 10) continue;
     best.p.learning = { from: t.id, name: nameOf(s, t.id), since: s.turn, progress: 0.02, kin: best.kin };
     ev(s, 'teach', 4, best.kin
-      ? `${nameOf(s, t.id)} started teaching ${best.p.name} the stone. It stays in the house, which is how it usually goes.`
-      : `${nameOf(s, t.id)} took ${nameOf(s, best.p.id)} on to teach, out of another house entirely. That was remarked on.`,
+      ? `${nameOf(s, t.id)} started teaching ${best.p.name} the stone. Same household.`
+      : `${nameOf(s, t.id)} started teaching ${nameOf(s, best.p.id)} the stone, from a different household.`,
       { person: best.p.id });
   }
 }

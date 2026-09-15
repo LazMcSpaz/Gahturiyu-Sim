@@ -10,7 +10,7 @@ function sysPromotion(s, r) {
     const spent = p.goal ? p.goalAge > 30 : p.goalAge > 12;
     if (spent) {
       p.prominence = 0; p.goal = null;
-      ev(s, 'settle', 1, `${nameOf(s, p.id)} stopped reaching for anything in particular.`, { person: p.id });
+      ev(s, 'settle', 1, `${nameOf(s, p.id)} gave up on their goal.`, { person: p.id });
     }
   }
   let live = Object.values(s.people).filter(p => p.alive && p.prominence > 0).length;
@@ -42,7 +42,7 @@ function sysPromotion(s, r) {
     c.p.prominence = 1;
     c.p.goal = { kind: c.o.kind, tile: c.o.tile, target: c.o.target, since: s.turn, label: c.o.label };
     c.p.goalAge = 0;
-    ev(s, 'rise', 6, `${nameOf(s, c.p.id)} — ${describeTraits(c.p)} — set themselves at ${c.o.label}.`, { person: c.p.id });
+    ev(s, 'rise', 6, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
     live++;
   }
 }
@@ -51,40 +51,40 @@ function findOpportunities(s) {
   const out = [];
   for (const b of Object.values(s.buildings)) {
     if (b.state === 'growing' && (!b.tenderId || !s.people[b.tenderId]?.alive))
-      out.push({ id: 'o_' + b.id, kind: 'stone', tile: b.tileId, target: b.id, wants: ['loyalty', 'piety'], label: 'the unfinished stone that nobody would take up' });
+      out.push({ id: 'o_' + b.id, kind: 'stone', tile: b.tileId, target: b.id, wants: ['loyalty', 'piety'], label: 'finishing the abandoned stone' });
   }
   for (const d of Object.values(s.disputes)) {
     if (d.open && d.heat > 40)
-      out.push({ id: 'o_' + d.id, kind: 'champion', tile: (s.households[d.a]?.claims[0] ?? 0), target: d.id, wants: ['courage', 'grudge'], label: 'the front of the quarrel over ' + d.over });
+      out.push({ id: 'o_' + d.id, kind: 'champion', tile: (s.households[d.a]?.claims[0] ?? 0), target: d.id, wants: ['courage', 'grudge'], label: 'the quarrel over ' + d.over });
   }
   const homeless = landless(s);
   if (homeless.length > 1)
-    out.push({ id: 'o_ground', kind: 'ground', tile: (homeless[0].claims[0] ?? 0), target: null, wants: ['ambition', 'avarice'], label: 'getting ground for the households with none' });
+    out.push({ id: 'o_ground', kind: 'ground', tile: (homeless[0].claims[0] ?? 0), target: null, wants: ['ambition', 'avarice'], label: 'getting ground for the landless households' });
   const hungry = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && h.stores < 1);
   if (hungry.length > 2)
-    out.push({ id: 'o_hunger', kind: 'relief', tile: (hungry[0].claims[0] ?? 0), target: null, wants: ['loyalty', 'courage'], label: 'feeding the households that had run out' });
+    out.push({ id: 'o_hunger', kind: 'relief', tile: (hungry[0].claims[0] ?? 0), target: null, wants: ['loyalty', 'courage'], label: 'feeding the households with no stores' });
   const rich = Object.values(s.households).filter(h => !h.extinct).sort((a, b) => b.claims.length - a.claims.length)[0];
   if (rich && rich.claims.length >= 3)
-    out.push({ id: 'o_seat', kind: 'standing', tile: rich.claims[0], target: rich.id, wants: ['ambition', 'avarice'], label: 'the standing the ' + rich.name + ' household holds' });
+    out.push({ id: 'o_seat', kind: 'standing', tile: rich.claims[0], target: rich.id, wants: ['ambition', 'avarice'], label: 'outranking the ' + rich.name + ' household' });
   if (s.shrine && (s.shrine.devotion < 42 || !s.shrine.keeperId))
-    out.push({ id: 'o_shrine', kind: 'shrine', tile: s.shrine.tileId, target: null, wants: ['piety', 'loyalty'], label: 'the state the ' + s.shrine.god + ' stone has been let fall into' });
+    out.push({ id: 'o_shrine', kind: 'shrine', tile: s.shrine.tileId, target: null, wants: ['piety', 'loyalty'], label: 'restoring the ' + s.shrine.god + ' stone' });
   const shamed = Object.values(s.households).filter(h => !h.extinct && reputeOf(s, h) < -6)[0];
   if (shamed)
-    out.push({ id: 'o_name', kind: 'name', tile: (shamed.claims[0] ?? 0), target: shamed.id, wants: ['loyalty', 'courage'], label: 'getting the ' + shamed.name + ' name back to something people will say out loud' });
+    out.push({ id: 'o_name', kind: 'name', tile: (shamed.claims[0] ?? 0), target: shamed.id, wants: ['loyalty', 'courage'], label: 'clearing the ' + shamed.name + ' name' });
   return out;
 }
 
 function describeTraits(p) {
   const t = p.traits;
   const words = [];
-  if (t.ambition > 70) words.push('reaching');
-  if (t.grudge > 70) words.push('a keeper of injuries');
-  if (t.piety > 70) words.push('devout to a fault');
-  if (t.avarice > 70) words.push('close with what they have');
-  if (t.loyalty > 70) words.push('immovable about their own');
-  if (t.courage > 70) words.push('unafraid');
-  if (p.tender) words.push('able to work the stone');
-  return words.length ? words.slice(0, 2).join(' and ') : 'nobody anyone had noticed';
+  if (t.ambition > 70) words.push('ambitious');
+  if (t.grudge > 70) words.push('vengeful');
+  if (t.piety > 70) words.push('devout');
+  if (t.avarice > 70) words.push('greedy');
+  if (t.loyalty > 70) words.push('loyal');
+  if (t.courage > 70) words.push('brave');
+  if (p.tender) words.push('a stone-tender');
+  return words.length ? words.slice(0, 2).join(', ') : 'unremarkable';
 }
 
 /* what the named cast actually does ------------------------------------------ */
@@ -103,14 +103,10 @@ function sysActors(s, r) {
       if (!b || b.state !== 'growing') { p.goal = null; continue; }
       if (!b.tenderId && p.tender) {
         b.tenderId = p.id;
-        ev(s, 'act', 5, `${nameOf(s, p.id)} put their hands to the stalled stone. It answered slowly.`, { person: p.id });
+        ev(s, 'act', 5, `${nameOf(s, p.id)} took over the stalled stone and started work.`, { person: p.id });
         p.goal = null; p.goalAge = 0; p.prominence = 2; p.deeds.push('took up abandoned stone');
       } else if (!p.tender && chance(r, 0.3)) {
-        ev(s, 'act', 3, pick(r, [
-          `${nameOf(s, p.id)} spent another season trying to coax a stone they had no gift for. It did not move.`,
-          `${nameOf(s, p.id)} has been going up to the stalled stone alone and telling nobody what they do there.`,
-          `${nameOf(s, p.id)} went round every house that might have the gift. Two said no and one did not answer the door.`
-        ]), { person: p.id });
+        ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
       }
     }
 
@@ -121,16 +117,10 @@ function sysActors(s, r) {
       if (chance(r, 0.08)) {   // pushing too hard can cost you
         p.prominence = Math.max(1, p.prominence - 1);
         hh.standing -= 2;
-        remember(s, hh.id, -3, `pushed a quarrel further than the settlement wanted it pushed`);
-        ev(s, 'act', 5, `${nameOf(s, p.id)} overplayed it. Two households that had been sympathetic stopped being sympathetic.`, { person: p.id });
+        remember(s, hh.id, -3, `pushed a quarrel too far`);
+        ev(s, 'act', 5, `${nameOf(s, p.id)} pushed the quarrel too far and lost standing for it.`, { person: p.id });
       }
-      if (chance(r, 0.16)) ev(s, 'act', 4, pick(r, [
-        `${nameOf(s, p.id)} would not let the quarrel over ${d.over} rest, and raised it again where it could be heard.`,
-        `${nameOf(s, p.id)} walked the boundary again with witnesses, which everyone understood the meaning of.`,
-        `${nameOf(s, p.id)} put the matter of ${d.over} to two more households, and neither would say no outright.`,
-        `${nameOf(s, p.id)} had the old markers dug up and looked at. They proved nothing either way.`,
-        `Nobody could get ${nameOf(s, p.id)} to speak about anything except ${d.over}.`
-      ]), { person: p.id });
+      if (chance(r, 0.16)) ev(s, 'act', 4, `${nameOf(s, p.id)} pressed the quarrel over ${d.over} again. It got hotter.`, { person: p.id });
     }
 
     else if (g.kind === 'ground') {
@@ -140,11 +130,7 @@ function sysActors(s, r) {
         const already = Object.values(s.disputes).some(x => x.open && x.a === hh.id && x.b === holder.id);
         if (holder && !already) {
           openDispute(s, r, hh, holder, 'ground standing idle while others wait');
-          ev(s, 'act', 5, pick(r, [
-            `${nameOf(s, p.id)} began saying openly that the ${holder.name} held more hillside than they could ever grow on.`,
-            `${nameOf(s, p.id)} put a number on how much ground the ${holder.name} were sitting on, and repeated the number until others did.`,
-            `${nameOf(s, p.id)} stopped being careful about what they said concerning the ${holder.name} and their hillside.`
-          ]), { person: p.id });
+          ev(s, 'act', 5, `${nameOf(s, p.id)} accused the ${holder.name} of holding ${holder.claims.length} claims they cannot build on, and raised a claim against them.`, { person: p.id });
           p.deeds.push('picked a fight over idle ground');
         }
       }
@@ -158,24 +144,20 @@ function sysActors(s, r) {
           hh.stores -= give;
           for (const n of needy) n.stores += give / needy.length;
           hh.standing += 3; p.prominence = 2; p.goal = null; p.goalAge = 0;
-          remember(s, hh.id, 8, `fed households not their own in a year they had little to spare`);
-          ev(s, 'act', 5, `${nameOf(s, p.id)} opened the ${hh.name} stores to households not their own. It was remembered.`, { person: p.id });
+          remember(s, hh.id, 8, `fed households not their own from short stores`);
+          ev(s, 'act', 5, `${nameOf(s, p.id)} opened the ${hh.name} stores to households not their own.`, { person: p.id });
           p.deeds.push('fed households not their own');
         }
       } else if (chance(r, 0.18)) {
-        ev(s, 'act', 3, pick(r, [
-          `${nameOf(s, p.id)} spent the season counting other people's stores out loud, which made them useful and disliked in the same measure.`,
-          `${nameOf(s, p.id)} got two households to agree to share a boat. It lasted most of the season.`,
-          `${nameOf(s, p.id)} walked the whole settlement asking what each house could spare. Most of them lied.`
-        ]), { person: p.id });
+        ev(s, 'act', 3, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
       } else if (hh.stores < 2 && p.traits.avarice > 60 && chance(r, 0.25)) {
         const victim = Object.values(s.households).filter(h => !h.extinct && h.stores > 8)[0];
         if (victim) {
           victim.stores -= 4; hh.stores += 3;
           const vh = s.people[victim.headId];
-          if (vh) vh.grudges.push({ target: hh.id, cause: 'stores taken from their own in a hard season', turn: s.turn, heat: 55 });
-          remember(s, hh.id, -7, `were never quite cleared of what went missing from the ${victim.name} house`);
-          ev(s, 'act', 6, `Stores went missing from the ${victim.name} house, and everyone knew who, and nobody could prove it.`, { person: p.id });
+          if (vh) vh.grudges.push({ target: hh.id, cause: 'stores taken from them', turn: s.turn, heat: 55 });
+          remember(s, hh.id, -7, `suspected of taking stores from the ${victim.name}`);
+          ev(s, 'act', 6, `${nameOf(s, p.id)} took stores from the ${victim.name}. It could not be proved.`, { person: p.id });
           p.deeds.push('took what was not theirs');
         }
       }
@@ -189,15 +171,11 @@ function sysActors(s, r) {
         sh.devotion = Math.min(100, sh.devotion + 6);
         p.prominence = 2; p.goal = null; p.goalAge = 0;
         p.deeds.push('took the keeping of the ' + sh.god + ' stone');
-        remember(s, hh.id, 6, `put one of their own to the keeping of the ${sh.god} stone when nobody else would`);
-        ev(s, 'act', 6, `${nameOf(s, p.id)} took the keeping of the ${sh.god} stone. It had been let go badly and the first season was mostly clearing.`, { person: p.id });
+        remember(s, hh.id, 6, `gave the ${sh.god} stone a keeper when it had none`);
+        ev(s, 'act', 6, `${nameOf(s, p.id)} became keeper of the ${sh.god} stone.`, { person: p.id });
       } else if (chance(r, 0.25)) {
         sh.devotion = Math.min(100, sh.devotion + 2.5);
-        ev(s, 'act', 3, pick(r, [
-          `${nameOf(s, p.id)} has been going up to the ${sh.god} stone alone and coming back with opinions about who else does not.`,
-          `${nameOf(s, p.id)} got four households to bring something up to the ${sh.god} stone this season. Four is more than last year.`,
-          `${nameOf(s, p.id)} would not let the matter of the ${sh.god} stone drop at any table they sat at.`
-        ]), { person: p.id });
+        ev(s, 'act', 3, `${nameOf(s, p.id)} brought households back to the ${sh.god} stone. It is better kept for it.`, { person: p.id });
       }
     }
 
@@ -207,17 +185,13 @@ function sysActors(s, r) {
         if (target && !target.extinct) {
           p.prominence = 2; p.goal = null; p.goalAge = 0;
           p.deeds.push('got the ' + target.name + ' name spoken plainly again');
-          ev(s, 'act', 6, `Whatever the ${target.name} did, it is no longer the first thing said about them, and ${p.name} is why.`, { person: p.id });
+          ev(s, 'act', 6, `${p.name} cleared the ${target.name} name. Nothing is held against that household now.`, { person: p.id });
         } else p.goal = null;
         continue;
       }
       if (chance(r, 0.3)) {
-        remember(s, target.id, 2, `had someone speak for them when it was not popular to`);
-        ev(s, 'act', 4, pick(r, [
-          `${nameOf(s, p.id)} spoke for the ${target.name} again, to a room that had heard it before.`,
-          `${nameOf(s, p.id)} worked a season on the ${target.name} ground in full view of everyone.`,
-          `${nameOf(s, p.id)} put their own name behind the ${target.name} in front of witnesses, which cost them something.`
-        ]), { person: p.id });
+        remember(s, target.id, 2, `had someone speak for them publicly`);
+        ev(s, 'act', 4, `${nameOf(s, p.id)} spoke publicly for the ${target.name}, at cost to their own standing.`, { person: p.id });
       }
     }
 
@@ -225,14 +199,10 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct) { p.goal = null; continue; }
       hh.standing += 0.8;
-      if (chance(r, 0.2)) ev(s, 'act', 3, pick(r, [
-        `${nameOf(s, p.id)} has been at every table where anything is decided, and says little at most of them.`,
-        `${nameOf(s, p.id)} made sure the ${hh.name} were the ones who lent the boat, again.`,
-        `${nameOf(s, p.id)} settled a small thing between two houses that had nothing to do with them.`
-      ]), { person: p.id });
+      if (chance(r, 0.2)) ev(s, 'act', 3, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
       if (standingOf(s, hh) > standingOf(s, target) && chance(r, 0.3)) {
         p.prominence = 2; p.goal = null; p.goalAge = 0;
-        ev(s, 'act', 6, `The ${hh.name} household now stands above the ${target.name}, and ${p.name} is the reason. It took years and it was noticed at every step.`, { person: p.id });
+        ev(s, 'act', 6, `The ${hh.name} now outrank the ${target.name}. ${p.name} did it.`, { person: p.id });
         p.deeds.push('raised their house above another');
       }
     }
@@ -243,24 +213,8 @@ function sysActors(s, r) {
     s.pursuitLines = (s.pursuitLines || 0);
     if (!acted && p.goal && s.pursuitLines < 2 && chance(r, 0.34)) {
       s.pursuitLines++;
-      const kind = p.goal.kind;
-      const pool = {
-        stone:    [`${nameOf(s, p.id)} was up at the unfinished stone again, and came down again.`,
-                   `Nothing moved on the stone this season. ${p.name} did not stop going.`],
-        champion: [`${p.name} raised it once more, and once more it was heard and not answered.`,
-                   `The quarrel sat where it was. ${p.name} sat with it.`],
-        ground:   [`${p.name} asked three houses about ground this season and got three different kinds of no.`,
-                   `${p.name} has started walking the hillside measuring things that are not theirs.`],
-        relief:   [`${p.name} kept the count of who had what, which nobody had asked them to do.`,
-                   `${p.name} was seen at doors that were not opened.`],
-        standing: [`${p.name} did nothing anyone could point at, and was in the room for most of it.`,
-                   `The ${hh.name} were a little more central this year than last, by no visible means.`],
-        shrine:   [`${p.name} swept the stone alone again. Attendance did not improve.`,
-                   `${p.name} kept at the stone through a season when nobody else went near it.`],
-        name:     [`${p.name} said the ${(s.households[p.goal.target] || {}).name || 'old'} name plainly in company, and let the silence sit.`,
-                   `${p.name} is still at it, and people have started expecting them to be.`]
-      }[kind];
-      if (pool) ev(s, 'act', 2, pick(r, pool), { person: p.id });
+      const yrs = Math.max(1, Math.round((s.turn - p.goal.since) / 4));
+      ev(s, 'act', 2, `${nameOf(s, p.id)} is still at ${p.goal.label} — ${yrs} year${yrs === 1 ? '' : 's'} now, no result.`, { person: p.id });
     }
   }
 }
@@ -281,13 +235,13 @@ function sysOmen(s, r) {
   const growing = Object.values(s.buildings).filter(b => b.state === 'growing').length;
 
   const candidates = [];
-  if (hungry >= 3) candidates.push({ god: 'Horahìda', domain: 'Ocean & Seas', saw: 'houses going hungry with the water right there', lever: 'bounty' });
-  if (hungry >= 4) candidates.push({ god: 'Hiyaḍote', domain: 'Death & Night', saw: 'more mouths than this ground has ever carried', lever: 'fever' });
-  if (homeless >= 2 && growing > 0) candidates.push({ god: 'Dodìṭo', domain: 'Stone & Mountains', saw: 'households waiting on stone that will not hurry', lever: 'quicken' });
-  if (tenders <= 1) candidates.push({ god: 'Hiṭogiʻa', domain: 'Creation', saw: 'the gift running thin in this settlement', lever: 'strangers' });
-  if (hotD >= 1) candidates.push({ god: 'Gìhuqìdu', domain: 'Governance & Order', saw: 'a quarrel that no one will rule on', lever: 'temper' });
-  if (openD === 0 && s.turn > 12) candidates.push({ god: 'Yohyeʻ', domain: 'Confusion & Delusion', saw: 'a settlement entirely certain of itself', lever: 'reveal' });
-  if (growing >= 3 && hungry === 0) candidates.push({ god: 'Quyìturo', domain: 'Time & Decay', saw: 'a comfortable season, which does not last', lever: 'storm' });
+  if (hungry >= 3) candidates.push({ god: 'Horahìda', domain: 'Ocean & Seas', saw: 'households going hungry beside good fishing water', lever: 'bounty' });
+  if (hungry >= 4) candidates.push({ god: 'Hiyaḍote', domain: 'Death & Night', saw: 'more people than this ground can feed', lever: 'fever' });
+  if (homeless >= 2 && growing > 0) candidates.push({ god: 'Dodìṭo', domain: 'Stone & Mountains', saw: 'households waiting on stone that is growing too slowly', lever: 'quicken' });
+  if (tenders <= 1) candidates.push({ god: 'Hiṭogiʻa', domain: 'Creation', saw: 'too few stone-tenders left', lever: 'strangers' });
+  if (hotD >= 1) candidates.push({ god: 'Gìhuqìdu', domain: 'Governance & Order', saw: 'a hot quarrel that nobody will rule on', lever: 'temper' });
+  if (openD === 0 && s.turn > 12) candidates.push({ god: 'Yohyeʻ', domain: 'Confusion & Delusion', saw: 'no open quarrels, and grudges kept hidden', lever: 'reveal' });
+  if (growing >= 3 && hungry === 0) candidates.push({ god: 'Quyìturo', domain: 'Time & Decay', saw: 'stone growing well and nobody going hungry', lever: 'storm' });
 
   if (!candidates.length) return;
   if (!chance(r, 0.35)) return;

@@ -35,7 +35,7 @@ function sysLife(s, r) {
         child.parents = [wman.id, pick(r, men).id];
         // the gift runs in families
         if (wman.tender || s.people[child.parents[1]].tender) child.tender = chance(r, 0.34);
-        if (child.tender) ev(s, 'birth', 3, `A child born to the ${hh.name} household, ${child.name}, and the midwife said the stone leaned toward her.`, { person: child.id, household: hh.id });
+        if (child.tender) ev(s, 'birth', 3, `${child.name} was born to the ${hh.name} household, with the aptitude to learn the stone.`, { person: child.id, household: hh.id });
       }
     }
   }
@@ -46,9 +46,9 @@ function kill(s, p, cause) {
   const hh = s.households[p.householdId];
   const weight = p.prominence > 0 ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
   let text;
-  if (p.tender) text = `${nameOf(s, p.id)}, who could work the stone, died of ${cause}.`;
+  if (p.tender) text = `${nameOf(s, p.id)} died of ${cause}. They were a stone-tender.`;
   else if (p.prominence > 0) text = `${nameOf(s, p.id)} died of ${cause}.`;
-  else if (p.role === 'head') text = `${nameOf(s, p.id)}, head of the ${hh ? hh.name : ''} household, died of ${cause}.`;
+  else if (p.role === 'head') text = `${nameOf(s, p.id)} died of ${cause}. They were head of the ${hh ? hh.name : ''} household.`;
   else text = `${nameOf(s, p.id)} died of ${cause}.`;
   ev(s, 'death', weight, text, { person: p.id, household: p.householdId, cause });
 
@@ -83,12 +83,7 @@ function sysHouseholds(s, r) {
       if (!hh.extinct) {
         hh.extinct = s.turn;
         const yrs = Math.round((s.turn - (hh.founded || 0)) / 4);
-        ev(s, 'extinct', 6, pick(r, [
-          `The ${hh.name} line ended. Their claims stand unworked.`,
-          `There is no ${hh.name} any more. Their ground is open and three houses noticed the same week.`,
-          `The last of the ${hh.name} died this season, ${yrs > 0 && yrs < 300 ? yrs + ' years after the house was set up' : 'after generations here'}. The door is shut and nobody has opened it.`,
-          `The ${hh.name} are finished. What they held reverts to whoever moves on it first.`
-        ]), { household: hh.id });
+        ev(s, 'extinct', 6, `The last of the ${hh.name} died${yrs > 0 && yrs < 300 ? ', ' + yrs + ' years after the household was founded' : ''}. Their ground is now unclaimed.`, { household: hh.id });
         for (const c of hh.claims) s.tiles[c].owner = null;
         hh.claims = [];
       }
@@ -105,17 +100,13 @@ function sysHouseholds(s, r) {
         const contested = heirs.length > 1 && heirs[1].traits.ambition > 62 && heirs[1].traits.ambition > next.traits.ambition - 18;
         if (contested) {
           const rival = heirs[1];
-          rival.grudges.push({ target: hh.id, cause: `the seat of their own household passed to ${next.name}`, turn: s.turn, heat: 35 + rival.traits.grudge * 0.4 });
-          ev(s, 'succession', 5, `${nameOf(s, next.id)} took the ${hh.name} seat, and ${rival.name} did not speak at the table afterward.`, { person: next.id, household: hh.id });
+          rival.grudges.push({ target: hh.id, cause: `the household seat passed to ${next.name} instead of them`, turn: s.turn, heat: 35 + rival.traits.grudge * 0.4 });
+          ev(s, 'succession', 5, `${nameOf(s, next.id)} took the ${hh.name} seat. ${rival.name} was passed over and holds a grudge for it.`, { person: next.id, household: hh.id });
         } else {
           const outsider = next.lineage !== hh.name;
           const odd = outsider || next.tender || next.prominence > 0;
           ev(s, 'succession', odd ? 4 : 1, outsider
-            ? pick(r, [
-                `The ${hh.name} seat went to ${nameOf(s, next.id)}, who was not born to it. Some houses do not care about that and some do.`,
-                `${nameOf(s, next.id)} heads the ${hh.name} now, under a name that is not theirs, which was remarked on and then not.`,
-                `The ${hh.name} put ${nameOf(s, next.id)} at the head of the table. Two of the older houses had opinions and kept them.`
-              ])
+            ? `${nameOf(s, next.id)} took the ${hh.name} seat. They were born to the ${next.lineage}, not to this household.`
             : `${nameOf(s, next.id)} took the ${hh.name} seat.`, { person: next.id, household: hh.id });
         }
       }
@@ -177,16 +168,10 @@ function splitHousehold(s, r, parent, founder) {
   const roomLeft = s.tiles.some(t => !t.owner && siteValue(s.tiles, t.id) > 0
     && !homes.some(x => tileDist(x, t.id) < 2.15));
   const notable = !roomLeft || founder.tender || founder.prominence > 0;
-  ev(s, 'split', notable ? 4 : 1, notable
-    ? (roomLeft
-        ? `${founder.name} of the ${parent.name} set up apart as the ${name}.`
-        : `${founder.name} of the ${parent.name} set up apart as the ${name}, ` + pick(r, [
-            'with no ground left on this coast to put them on.',
-            'though there is nowhere left to grow them a house and everyone knows it.',
-            'and joined the list of households waiting on stone that does not exist yet.',
-            'which the older heads called optimistic, given the state of the hillside.'
-          ]))
-    : `${founder.name} of the ${parent.name} set up apart as the ${name}, lodging still under the old roof until ground could be found.`,
+  ev(s, 'split', notable ? 4 : 1,
+    `${founder.name} split from the ${parent.name} to found the ${name}. ` + (roomLeft
+      ? `They lodge with the ${parent.name} until a site is found.`
+      : `No building ground is left on the coast; they lodge with the ${parent.name}.`),
     { person: founder.id, household: hid });
   founder.lineage = name;
 }

@@ -59,7 +59,7 @@ function sysFood(s, r) {
       u.host.shortSeasons = (u.host.shortSeasons || 0) + 1;
       // report a shortage once it has lasted, not the first season it dips
       if (u.host.shortSeasons === 3 || (u.host.shortSeasons > 3 && u.host.shortSeasons % 6 === 0)) {
-        ev(s, 'hunger', 4, `The ${u.host.name} household has been short for ${u.host.shortSeasons} seasons running, and it shows on them.`, { household: u.host.id });
+        ev(s, 'hunger', 4, `The ${u.host.name} have been short of food for ${u.host.shortSeasons} seasons.`, { household: u.host.id });
       }
     } else {
       for (const p of people) p.hunger = Math.max(0, p.hunger - 1.8);
@@ -91,8 +91,8 @@ function sysHardship(s, r) {
       let to = null;
       for (const cand of asked) {
         if (holdsAgainst(s, s.people[cand.headId], hh.id) > 18) {
-          ev(s, 'hardship', 6, `The ${hh.name} asked the ${cand.name} to take a child through the winter and were refused. There is an old reason and both houses know it.`, { household: hh.id });
-          remember(s, cand.id, -6, `turned away a hungry child over something that happened before it was born`);
+          ev(s, 'hardship', 6, `The ${hh.name} asked the ${cand.name} to take in a child and were refused. The ${cand.name} hold a grudge against them.`, { household: hh.id });
+          remember(s, cand.id, -6, `refused to take in a hungry child`);
           continue;   // ask the next house
         }
         to = cand; break;
@@ -101,8 +101,8 @@ function sysHardship(s, r) {
         const kid = pick(r, kids);
         hh.members = hh.members.filter(i => i !== kid.id);
         kid.householdId = to.id; to.members.push(kid.id);
-        remember(s, to.id, 5, `took in another house's children in a hard stretch`);
-        ev(s, 'hardship', 5, `The ${hh.name} sent ${kid.name} up to the ${to.name} to be fed. It was called fostering and everyone used that word.`, { person: kid.id, household: hh.id });
+        remember(s, to.id, 5, `took in another household's child during a shortage`);
+        ev(s, 'hardship', 5, `The ${hh.name} sent ${kid.name} to the ${to.name} to be fed.`, { person: kid.id, household: hh.id });
         continue;
       }
     }
@@ -113,9 +113,9 @@ function sysHardship(s, r) {
       const took = Math.min(6, victim.stores * 0.3);
       victim.stores -= took; hh.stores += took * 0.8;
       const vh = s.people[victim.headId];
-      if (vh) vh.grudges.push({ target: hh.id, cause: `stores taken from them in a hard season`, turn: s.turn, heat: 60 });
-      remember(s, hh.id, -8, `took from the ${victim.name} in a bad year and never gave it back`);
-      ev(s, 'hardship', 6, `The ${victim.name} store was lighter than it should have been, twice this season. The ${hh.name} were not accused out loud, which is not the same as not being blamed.`, { household: hh.id });
+      if (vh) vh.grudges.push({ target: hh.id, cause: `stores taken from them`, turn: s.turn, heat: 60 });
+      remember(s, hh.id, -8, `took stores from the ${victim.name}`);
+      ev(s, 'hardship', 6, `The ${hh.name} took stores from the ${victim.name}. The ${victim.name} hold a grudge for it.`, { household: hh.id });
       continue;
     }
 
@@ -132,8 +132,8 @@ function sysHardship(s, r) {
       for (const p of live) { p.alive = false; p.deathTurn = s.turn; p.cause = 'departure'; }
       hh.extinct = s.turn;
       for (const c of hh.claims) s.tiles[c].owner = null;
-      remember(s, hh.id, -2, `walked off this coast rather than starve on it`);
-      ev(s, 'hardship', 6, `The ${hh.name} had been short for ${Math.round(n / 4)} years. They went north in the spring and left the door open behind them.`, { household: hh.id });
+      remember(s, hh.id, -2, `left the coast rather than starve`);
+      ev(s, 'hardship', 6, `The ${hh.name} left the coast after ${Math.round(n / 4)} years short of food. The household is gone.`, { household: hh.id });
     }
   }
 
@@ -150,15 +150,15 @@ function sysHardship(s, r) {
     const give = Math.min(hh.stores - 10, given.length * 2.5);
     hh.stores -= give;
     for (const nd of given) nd.stores += give / given.length;
-    remember(s, hh.id, 7, `opened their stores to houses not their own without being asked`);
+    remember(s, hh.id, 7, `gave food to households not their own`);
     if (skipped.length) {
       const missed = skipped[0];
-      remember(s, hh.id, -4, `fed every hungry house on this coast except the ${missed.name}, deliberately`);
+      remember(s, hh.id, -4, `fed every short household except the ${missed.name}, deliberately`);
       const mh = s.people[missed.headId];
-      if (mh) mh.grudges.push({ target: hh.id, cause: `they fed everyone that winter and walked past this door`, turn: s.turn, heat: 70 });
-      ev(s, 'hardship', 6, `The ${hh.name} sent food to every household that was short except the ${missed.name}, whose door they passed. Nothing was said. Nothing needed to be.`, { household: hh.id });
+      if (mh) mh.grudges.push({ target: hh.id, cause: `passed this household over when feeding every other short house`, turn: s.turn, heat: 70 });
+      ev(s, 'hardship', 6, `The ${hh.name} gave food to every short household except the ${missed.name}, who were passed over deliberately. The ${missed.name} hold a grudge for it.`, { household: hh.id });
     } else {
-      ev(s, 'hardship', 5, `The ${hh.name} sent food down to ${given.length === 1 ? 'the ' + given[0].name : given.length + ' households'} and would not discuss it.`, { household: hh.id });
+      ev(s, 'hardship', 5, `The ${hh.name} gave food to ${given.length === 1 ? 'the ' + given[0].name : given.length + ' short households'}.`, { household: hh.id });
     }
   }
 }
