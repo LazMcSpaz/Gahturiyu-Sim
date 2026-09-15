@@ -110,7 +110,101 @@ in order of how much work they do:
 
 ---
 
-## 3. Trades
+## 3. Buildings grow, and what they grow into
+
+A house is not finished when it is finished. Living stone keeps growing for as
+long as it is attended, and what a building **is** changes as it gets older. Age
+is the settlement's most honest measure of status, because it cannot be bought
+or hurried — only kept.
+
+| stage | reached after | what it is |
+|---|---|---|
+| **1 — home** | 15–20 yr | a dwelling. Where every building starts |
+| **2 — home and workshop** | +25–35 yr (≈45 total) | a dwelling with room to work a trade or keep a shop |
+| **3 — great house** | +40–60 yr (≈95 total) | a high-status residence, **or** a tavern, **or** something the quarter holds in common |
+| **4 — landmark** | rare, and long after | a named thing. The settlement navigates by it |
+
+### Tending never ends
+
+After stage 1 a building needs a tender's attention **every 5 years** — a
+season's work, not years of it. Miss the visits and growth stalls where it
+stands; it does not fall back, it simply stops.
+
+This is the change that matters most to the existing design. Tenders are
+currently scarce and valuable for twenty years per house and then idle. Now a
+settlement of forty households with four tenders has a permanent shortage, and
+every stalled building is a household that will never have a workshop. The
+sharpest pressure in the simulation gets sharper and never lets go.
+
+### What stage 2 does to the class system
+
+**A skilled trade needs a workshop, and a workshop is a stage-2 building.**
+
+That is a forty-five-year-old house. It means skilled trades concentrate in old
+households without anyone designing it that way; it means a new household split
+off last decade works unskilled whatever its ambitions; and it means a master's
+workshop is the real reason apprenticeship is gated, rather than a wealth
+threshold nobody could see.
+
+It is the hardest ceiling in the design. The ways under it are the ways that
+should produce stories: marrying into an old house, being taken as an apprentice
+by a master with a workshop and no heir, inheriting from a line that failed, or
+a household falling far enough that its workshop passes to someone else.
+
+### Choosing what stage 3 becomes
+
+The household decides, weighted by where it stands when the stone gets there:
+
+- **Great house** — composite standing in the top quartile. Adds **+10
+  `quarter`** and **+6 `government`** while it stands
+- **Tavern** — the quarter has none and the site's walk reach is good
+- **Communal** — quarter cohesion above +25, or the shrine well kept. Belongs to
+  the quarter rather than the household, and the household is thanked for it in
+  perpetuity: **+15 `quarter`**, decaying at a quarter rate
+
+The role can change once, and only through collapse: a great house whose line
+fails may be taken over as a tavern or a common hall rather than fall derelict.
+A settlement's most-used building being the wreck of a proud family is the kind
+of fact this simulation exists to produce.
+
+### Taverns, revised
+
+This supersedes the earlier answer that a tavern is a room in a standing house.
+That was a reasonable fix to a bad framing, and stages are a better one: a
+tavern is what a **stage-3 building** becomes, which makes it rare, old, and
+worth something.
+
+- Fitting out costs **2 timber + 1 stone** and one household member's work
+- Draws anyone within **6 tiles' walk** — a feud that shuts a path cuts its
+  reach, and the household notices first
+- Earns the household a **cut**, and **+6 `quarter`** a year while it runs
+- Attendance rises in hard seasons and after storms
+- It is a **relationship context** — see §6. That is its real function
+
+It closes when the household stops running it, which needs no machinery: the
+keeper dies and nobody takes it up, the family turns poor and wants the hands
+back, or nobody comes any more. The building stays; only the trade in it ends.
+
+### Landmarks
+
+Very rare, and it should stay that way — perhaps once in several centuries.
+
+Requirements: stage 3 held **40 years**, condition above **0.9**, beauty above
+**0.7**, and a tender still attending. Then **1% a year**.
+
+That makes carvers matter beyond decoration — beauty is a precondition, not an
+ornament — and it means a landmark is proof that some household kept something
+beautiful and in repair for a century while everyone else let theirs slide. It
+carries **+20 to every household in its quarter**, is named, and survives the
+family that made it.
+
+### Falling back
+
+Condition below **0.2** knocks a building **back a stage**. A workshop lost that
+way takes the trade with it until the stone recovers, which is decades. Disrepair
+should be frightening in proportion to what has been invested.
+
+## 4. Trades
 
 A person has one trade. It is learned young, usually from kin, and it does not
 change because the larder filled up. **Shortage never selects a trade.** It only
@@ -128,7 +222,11 @@ Default for anyone not apprenticed by **18**. Trends to households without
 means, because those households need the hands now and cannot spare a child for
 five years.
 
-### Skilled — requires a master
+### Skilled — requires a master, and a workshop
+
+A skilled trade cannot be worked without a **stage-2 building** to work it in
+(§3). No workshop, no trade — however good the apprentice was. This is the
+quiet gate on the whole class system, and it is made of nothing but time.
 
 | trade | training | produces |
 |---|---|---|
@@ -140,7 +238,10 @@ five years.
 | `stone-tender` | 10 yr | grows houses — unchanged, and still the rarest thing |
 
 **Aptitude** stays as it is: rare, innate (13%), cannot be taught in. It gates
-`stone-tender` absolutely and gives a bonus elsewhere.
+`stone-tender` absolutely and gives a bonus elsewhere. Tenders are the one
+exception to the workshop rule — their work is out on the hillside, which is
+also why a poor household can produce one and a poor household cannot produce
+a mason.
 
 **Dropout: 2% per season**, 4% for stone-tender. Over a five-year training that
 is roughly a third who do not finish; over the tender's decade, about four in
@@ -150,17 +251,23 @@ five. That matches the world already described.
 
 A trade with no living master **cannot be taught**. If the last mason dies
 before taking an apprentice, the settlement has no mason until a carrier brings
-one or a stranger arrives. This is not a failure state to be designed around —
+one or a stranger arrives. A trade can also be lost by **losing the room** —
+every workshop that held it fallen back a stage — which is slower, sadder, and
+harder to reverse. This is not a failure state to be designed around —
 it is the sharpest pressure available, and it already works this way for
 tenders.
 
 ---
 
-## 4. Apprenticeship
+## 5. Apprenticeship
 
 A master takes **one apprentice at a time**, and may take another **2 years**
 after the last finishes or quits. Masters take apprentices between **25 and 60**.
-Candidates are **12 to 17**.
+Candidates are **12 to 17**. A master with no workshop cannot take anyone.
+
+The ways under the forty-five-year ceiling run through here. A master with a
+workshop and no heir is the most consequential person in the settlement's class
+structure, and the sim should let you watch them decide.
 
 ### How a master chooses
 
@@ -204,7 +311,7 @@ principle for the whole design.
 
 ---
 
-## 5. Relationships
+## 6. Relationships
 
 ### One signed tie, not two lists
 
@@ -264,27 +371,14 @@ the people your trade and your quarter put you beside for thirty years.
 
 ### Taverns
 
-A tavern is a **room given over in a house that is already standing** — not a
-building of its own. That distinction matters here more than it would anywhere
-else: the map holds about thirty house sites, a home takes fifteen to twenty
-years to grow, and a tavern that consumed one would never be worth building.
-A room and a pair of hands, it is plausible.
-
-- **2 timber + 1 stone** to fit out, and one household member's work from then on
-- Draws anyone within **6 tiles' walk** — a feud that shuts a path cuts its
-  reach, and the household notices before anyone else does
-- Earns the household a **cut** of what passes through, and **+6 `quarter`** a
-  year while it runs
-- Attendance rises in hard seasons and after storms
-
-It closes when the household stops running it, and that needs no machinery of
-its own: the keeper dies and nobody takes it up, the family turns poor and wants
-the hands back, or the walk got long enough that nobody comes. The room reverts
-to being a room.
+Specified in §3, because what a tavern *is* belongs to the building that becomes
+one. What matters here is what it **does**: it is the only context that mixes
+quarters by choice rather than obligation.
 
 Where the shrine forces the classes together for a year, a tavern lets them
 choose each other for a lifetime — or lets a quarter close ranks against
-outsiders. Both outcomes are worth having.
+outsiders. Both outcomes are worth having, and a settlement with no stage-3
+building has neither.
 
 ### When a quarter acts as one
 
@@ -299,10 +393,40 @@ Both true, and there is an **8% chance a season** that the quarter moves as a
 body: refusing a levy together, backing one side of a quarrel as a bloc, or
 withholding labour. Once or twice a century, not a standing feature.
 
+**The quarter pays, and the quarter benefits.** The consequence lands on the
+whole of it, not on whoever spoke:
+
+- **It works** — the levy withdrawn, the backed side wins, the demand met:
+  **+15 `quarter`** to every household in it, and cohesion rises by **10**
+- **It fails** — **−20 `government`** to every household in it, the guard may be
+  set on the quarter as a whole, and cohesion falls by **15**
+
+Collective action is therefore a gamble a quarter takes together, and a quarter
+that loses one is a worse place to live for a generation. That is why it should
+happen twice a century and not twice a decade.
+
 This is where the unskilled finally have the weight the design promised them.
 They never rise one at a time; they count when a whole quarter stops working.
 
-## 6. The shrine term
+### And a trade can do the same
+
+A trade organises on exactly the same terms, against the `trade` faction instead
+of the quarter: cohesion above **+25** among its practitioners, a shared
+grievance, **8% a season**. Every roper refusing to supply one household is the
+same act as a quarter withholding labour, and the faction already exists to hang
+it on.
+
+It is more dangerous than the quarter version, because a trade is a **monopoly**
+and a quarter is only a neighbourhood. Four ropers agreeing costs the settlement
+its rigging. The same payoffs apply, with `trade` standing in place of
+`quarter` — and a trade that loses such a fight tends to lose its apprentices
+next, because no household will place a child where the work has become a
+liability.
+
+This makes trades political actors rather than merely economic ones, which is
+cheap given everything else already in place.
+
+## 7. The shrine term
 
 The term is one context among several now, not a separate machine. What keeps
 it distinctive is that it is **compulsory and it crosses class**, which nothing
@@ -339,7 +463,7 @@ cross-class ties every year and people move between stations. Neglected, terms
 lapse, no ties are minted, and the settlement hardens into classes — on top of
 quarrels no longer ending in judgement.
 
-## 7. Offices are sought
+## 8. Offices are sought
 
 Offices are the real chokepoints — the boat-holder decides who fishes, the
 captain decides who the guard leans on, the ruling body can now compel. Nobody
@@ -372,7 +496,7 @@ A losing candidate takes a tie toward the winner worsened by **25 + ambition/4**
 Elections that recur every six years, in a settlement of forty households, will
 therefore accumulate history — which is the point.
 
-## 8. The economy, kept under the floor
+## 9. The economy, kept under the floor
 
 Four goods: **food**, **stone**, **timber**, **cordage**.
 
@@ -400,14 +524,15 @@ supply by the same weighting as everything else — need, standing, kin, ties.
 
 ---
 
-## 9. Upkeep, decay and beauty
+## 10. Upkeep, decay and beauty
 
 **Condition**, 0–1, starts at 1.0.
 
 - Falls **0.02 per season**, plus **0.10** in a storm season
 - A mason repairs **+0.25** for 1 stone + 1 timber
 - Below **0.5** — in disrepair: **−5 `quarter`** per year to the household
-- Below **0.2** — at risk of dereliction
+- Below **0.2** — falls **back a stage** (§3), taking any workshop with it
+- A stage-1 building below 0.2 is at risk of dereliction as now
 
 **Beauty**, 0–1, starts at 0.
 
@@ -422,7 +547,7 @@ the weather produces it.
 
 ---
 
-## 10. Quarters
+## 11. Quarters
 
 Trades cluster where proximity makes sense, not everywhere:
 
@@ -444,7 +569,7 @@ such.
 
 ---
 
-## 11. Motivation, in three layers
+## 12. Motivation, in three layers
 
 The earlier model — people act on what they are short of — is wrong at the top
 layer, and produces nonsense: a farmer who stops farming because the larder is
@@ -477,7 +602,7 @@ would contradict the class system.
 
 ---
 
-## 12. What the chronicle prints
+## 13. What the chronicle prints
 
 Unchanged in principle: one line per thing that happened, facts only, no
 connective prose. The new systems must respect it.
@@ -485,7 +610,13 @@ connective prose. The new systems must respect it.
 **Print:** refusals, shortages, a trade lost, a term refused, an unlikely
 apprentice and why, a house falling into disrepair, a quarter's beauty crossing
 a threshold, an obligation failed, a levy compelled or defied, a seat sought and
-lost, a tie crossing into closeness or enmity.
+lost, a tie crossing into closeness or enmity, a building reaching a new stage
+and what it became, a building falling back one, a quarter or a trade acting as
+one and how it went, and — once in a long while — a landmark.
+
+A building reaching stage 3 is among the largest events the settlement can
+produce: it is a century of somebody's attention arriving all at once. It should
+read like one.
 
 **Do not print:** transactions, production, standing changes, condition ticks,
 every drift of every tie — anything that happens every season to everyone. A
@@ -502,12 +633,14 @@ belongs to **event weight**, which already exists and which the chronicle
 already filters at 2 or above. Volume is controlled by what is worth printing,
 not by refusing to simulate the ninth person.
 
-Expect "named figure" to stop being a category. Anyone currently pursuing
-something is one, and the panel that lists them just reads that.
+"Named figure" stops being a category. **`prominence` is deleted**, not
+repurposed — having a goal says everything the field said, and the panel that
+lists figures just reads that. Nothing else should be given the job of deciding
+who counts.
 
 ---
 
-## 13. Build order
+## 14. Build order
 
 Specified whole, built in slices. Each slice must leave the simulation running
 and the tests passing.
@@ -515,18 +648,23 @@ and the tests passing.
 1. **Standing per faction, and ties.** The substrate: split `standing` by
    faction, then collapse grudges into signed ties and drift them by shared
    context. Household, quarter and the shrine term are contexts enough to start
-   — work crews arrive with trades, taverns with the economy. Needs nothing
-   from either.
-2. **Trades and apprenticeship.** The master's choice, the refusal cascade, and
-   work crews as the context that matters most.
-3. **Offices sought, and compulsion.** Both depend on faction standing and ties
+   — work crews arrive with trades, taverns with stages. Delete `prominence`
+   and the cast cap here too; both are small and both are in the way.
+2. **Building stages.** Stage 2 and 3, tender check-ins, falling back. Trades
+   need workshops to exist in, so this comes before them. It also stands alone:
+   even with nothing else, buildings that keep growing change the map and the
+   chronicle.
+3. **Trades and apprenticeship.** The master's choice, the refusal cascade,
+   workshops as the gate, and work crews as the context that matters most.
+4. **Offices sought, and compulsion.** Both depend on faction standing and ties
    being in place, and they give each other teeth.
-4. **Economy and upkeep.** Four goods, repairs, the carrier, taverns.
-5. **Beauty, quarters and class.** The rollups and what falls out of them.
+5. **Economy and upkeep.** Four goods, repairs, the carrier, taverns running.
+6. **Beauty, quarters, trades organising, landmarks.** The rollups, the blocs,
+   and the rarest thing in the design.
 
 Slice 1 is the next thing built.
 
-## 14. Open, not yet decided
+## 15. Open, not yet decided
 
 - **Does anything replace `prominence`?** With the cap gone, the field that
   marks someone as a named figure may be redundant — having a goal is the same

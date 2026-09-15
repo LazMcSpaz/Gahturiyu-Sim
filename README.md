@@ -27,10 +27,12 @@ Adding a file means adding it to `MANIFEST`.
 ## Where it is going
 
 `docs/design.md` is the design for what the settlement is meant to become:
-standing held separately by each faction, trades learned from a master, offices
-that are sought rather than filled, relationships that drift because of where
-people spend their time, and an economy that stays under the floor and surfaces
-only when it pinches someone. Most of it is not built. Where the document and
+standing held separately by each faction, buildings that keep growing for a
+century and change what they are as they do, trades learned from a master and
+worked in a room only an old house has, offices that are sought rather than
+filled, relationships that drift because of where people spend their time, and
+an economy that stays under the floor and surfaces only when it pinches
+someone. Most of it is not built. Where the document and
 the code disagree, the code is behind.
 
 ## The contract
