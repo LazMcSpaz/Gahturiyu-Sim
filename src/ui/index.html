@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171b1d">
+<title>Gahturiyu — a settlement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wet:#171b1d;      /* wet slate, the ground everything sits on */
+  --stone:#212a2d;    /* raised surfaces */
+  --seam:#394347;     /* the pale hairline seams in the rock */
+  --grey:#98a3a7;
+  --pale:#e0e5e5;
+  --lamp:#e29a4a;     /* a lit window against grey rock: the one loud note */
+  --lichen:#8d9e65;
+  --rust:#b3583a;
+  --serif:'Spectral',Iowan Old Style,Palatino,Georgia,serif;
+  --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --bar:calc(112px + env(safe-area-inset-bottom));
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--wet);color:var(--pale);
+  font-family:var(--serif);font-weight:300;
+  font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:var(--bar);
+}
+:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+
+/* --- masthead --- */
+header.top{
+  position:sticky;top:0;z-index:30;
+  background:linear-gradient(var(--wet) 74%,transparent);
+  padding:14px 20px 12px;
+  display:flex;align-items:baseline;gap:12px;
+}
+#place{font-size:1.28rem;font-weight:600;letter-spacing:.01em}
+#when{font-family:var(--sans);font-size:.74rem;color:var(--grey);letter-spacing:.06em}
+
+/* --- map plate --- */
+.plate{margin:0 14px 6px;padding:12px 10px;background:var(--stone);border:1px solid #2b3437;border-radius:2px;overflow-x:auto}
+#map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.06;letter-spacing:.16em;white-space:pre;color:#4c585c}
+.mrow{display:block}
+.g-sea{color:#31414a}.g-shore{color:#4a5f63}.g-slope{color:#5c6560}.g-crag{color:#767d78}.g-moor{color:#4f5747}
+.owned{color:#8d9490}
+.m-lit{color:var(--lamp);text-shadow:0 0 7px rgba(226,154,74,.55)}
+.m-dark{color:#6d7679}
+.m-growing{color:var(--lichen)}
+.m-derelict{color:#5a4a44}
+.m-disputed{background:rgba(179,88,58,.22);border-radius:2px}
+.m-shrine{color:#cbb27a;text-shadow:0 0 8px rgba(203,178,122,.5)}
+.m-shrine-cold{color:#5c5a50}
+.m-actor{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--lamp)}
+.legend{font-family:var(--sans);font-size:.68rem;color:#828d91;margin:8px 2px 0;letter-spacing:.03em}
+
+/* --- chronicle --- */
+main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
+.turn{margin:0 0 34px}
+.season{
+  display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  margin:0 0 14px;padding-bottom:5px;border-bottom:1px solid var(--seam);
+  font-weight:400;
+}
+.s-name{font-style:italic;font-size:1.34rem;color:var(--pale)}
+.s-year{font-family:var(--sans);font-size:.72rem;color:var(--grey);letter-spacing:.11em}
+.turn p{margin:0 0 .82em}
+.prose{color:#c3cacb}
+.bridge{color:var(--grey);font-style:italic}
+.event{color:var(--pale)}
+.event.w5,.event.w6,.event.w7{
+  padding-left:13px;border-left:2px solid var(--seam);
+}
+.event.w6,.event.w7{border-left-color:var(--lamp);font-size:1.04rem}
+.k-death,.k-extinct,.k-leave,.k-derelict{color:#b9bebd}
+.k-feud,.k-dispute,.k-reveal{border-left-color:var(--rust)!important}
+.k-mature,.k-claim,.k-tend{border-left-color:var(--lichen)!important}
+.k-divine{font-style:italic;color:var(--lamp)}
+.k-shrine{border-left-color:#cbb27a!important}
+.k-memory{font-style:italic;color:#b0a68d;border-left-color:#6a6355!important}
+.k-hardship{border-left-color:var(--rust)!important}
+.k-spite{border-left-color:var(--rust)!important}
+.shrinerow{border-top:0!important;padding-top:0!important;margin-top:6px!important;color:#a2977e}
+.hand{font-family:var(--sans);font-size:.7rem;letter-spacing:.09em;color:var(--lamp);margin:-6px 0 12px!important}
+.tally{
+  font-family:var(--sans);font-size:.7rem;line-height:1.6;color:#818c90;
+  margin-top:16px!important;padding-top:8px;border-top:1px solid #262e31;
+}
+
+/* --- the god's offer --- */
+#omen{
+  position:fixed;left:0;right:0;bottom:var(--bar);z-index:25;
+  margin:0 12px 10px;padding:15px 17px;
+  background:#1d2427;border:1px solid #43403a;border-left:3px solid var(--lamp);border-radius:2px;
+  box-shadow:0 -10px 30px rgba(0,0,0,.55);
+}
+#omen p{margin:0}
+.god{font-size:1.1rem;font-weight:600}
+.god .dom{font-weight:300;font-size:.86rem;color:var(--grey)}
+.saw{color:#c3cacb;margin-bottom:.4em!important}
+.offer{font-style:italic;color:var(--lamp);margin-bottom:.8em!important}
+.orow{display:flex;gap:9px}
+
+/* --- buttons --- */
+.btn{
+  font-family:var(--sans);font-size:.82rem;font-weight:500;
+  padding:10px 16px;border-radius:2px;border:1px solid var(--seam);
+  background:transparent;color:var(--pale);cursor:pointer;
+}
+.btn.accept{background:var(--lamp);border-color:var(--lamp);color:#1a1512}
+.btn.quiet{color:var(--grey)}
+.btn.wide{width:100%;margin-top:12px}
+
+/* --- bottom bar --- */
+.bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  padding:0 10px calc(9px + env(safe-area-inset-bottom));
+  background:#131719;border-top:1px solid #272f32;
+}
+.tabs{display:flex;justify-content:space-between;gap:2px;padding:4px 0 6px}
+.tab{
+  flex:1 1 0;min-width:0;font-family:var(--sans);font-size:.7rem;
+  background:none;border:0;color:var(--grey);padding:9px 2px;cursor:pointer;border-radius:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tab[aria-selected="true"]{color:var(--lamp)}
+.acts{display:flex;gap:7px}
+#advance{
+  flex:1 1 auto;font-family:var(--sans);font-size:.9rem;font-weight:600;
+  padding:14px;border:0;border-radius:2px;
+  background:var(--stone);color:var(--pale);cursor:pointer;
+}
+#advance:active{background:#2b3538}
+#advance-year{
+  flex:0 0 auto;font-family:var(--sans);font-size:.78rem;
+  padding:14px 15px;border:1px solid #2c3538;border-radius:2px;
+  background:transparent;color:var(--grey);cursor:pointer;
+}
+
+/* --- sheet --- */
+#scrim{position:fixed;inset:0;background:rgba(8,10,11,.6);z-index:45}
+#sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  max-height:76vh;overflow-y:auto;
+  background:#1a1f22;border-top:1px solid #2f383b;
+  transform:translateY(102%);
+  padding:18px 18px calc(24px + var(--bar));
+}
+#sheet.up{transform:translateY(0)}
+@media (prefers-reduced-motion:no-preference){#sheet{transition:transform .22s ease}}
+.panel h3{font-size:1.06rem;font-weight:600;margin:0 0 12px}
+.hint{font-family:var(--sans);font-size:.74rem;color:var(--grey);line-height:1.55;margin:0 0 12px}
+.empty{color:var(--grey);font-style:italic}
+
+/* figures */
+.figure{padding:11px 0;border-bottom:1px solid #262e31}
+.fname{font-size:1.04rem;font-weight:600}
+.fname .flin{font-weight:300;color:var(--grey)}
+.fmeta{font-family:var(--sans);font-size:.72rem;color:var(--lamp);margin:2px 0 5px}
+.fgoal{color:#c3cacb;font-size:.94rem}
+.fdeeds,.fgrudge{font-family:var(--sans);font-size:.72rem;color:var(--grey);margin-top:3px}
+.fgrudge{color:var(--rust)}
+
+/* households */
+.hrow{padding:8px 0;border-bottom:1px solid #232b2e}
+.hline{display:flex;justify-content:space-between;gap:12px}
+.hrep{font-family:var(--sans);font-size:.68rem;margin-top:3px;line-height:1.45}
+.hrep.good{color:var(--lichen)}
+.hrep.bad{color:var(--rust)}
+.hname{font-weight:600}
+.hbits{font-family:var(--sans);font-size:.7rem;color:var(--grey);text-align:right}
+.hrow.nohome .hname{color:var(--rust)}
+
+/* numbers */
+.ngrid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#262e31;border:1px solid #262e31}
+.nbox{background:#1a1f22;padding:11px 12px;display:flex;flex-direction:column}
+.nv{font-size:1.4rem;font-weight:600;line-height:1.1}
+.nl{font-family:var(--sans);font-size:.68rem;color:var(--grey)}
+.spark{margin-top:16px;color:var(--lichen)}
+.spark svg{width:100%;height:44px;display:block}
+.sparkl{font-family:var(--sans);font-size:.68rem;color:var(--grey)}
+
+/* offices */
+.orow2{padding:10px 0;border-bottom:1px solid #262e31}
+.otitle{font-family:var(--sans);font-size:.7rem;color:var(--grey);letter-spacing:.05em;margin-bottom:4px}
+.ocount{color:var(--lamp)}
+.oholder{font-size:1rem;font-weight:600}
+.ometa{display:block;font-family:var(--sans);font-size:.68rem;font-weight:400;color:var(--grey);margin-top:1px}
+.ovacant{font-style:italic;color:var(--rust);font-size:.94rem}
+.hint.bad{color:var(--rust)}
+.k-office{border-left-color:#8fa3b8!important}
+.k-teach{border-left-color:var(--lichen)!important}
+
+/* shrine + memory */
+.shrinebox{margin-top:16px;padding:13px 14px;background:#20262a;border:1px solid #2c3538;border-left:2px solid #cbb27a;border-radius:2px}
+.shname{font-weight:600;font-size:1.02rem}
+.shstate{font-family:var(--sans);font-size:.72rem;color:#cbb27a;margin:2px 0 8px}
+.shbar{height:3px;background:#2c3538;border-radius:2px;overflow:hidden}
+.shbar span{display:block;height:100%;background:#cbb27a}
+.shnote{font-size:.86rem;color:var(--grey);line-height:1.45;margin-top:8px}
+.memrow{padding:9px 0;border-bottom:1px solid #262e31;font-size:.94rem;color:#c3cacb}
+.memhouse{font-weight:600;color:var(--pale)}
+.memrow.bad .memhouse{color:var(--rust)}
+.memrow.good .memhouse{color:var(--lichen)}
+.memwhen{display:block;font-family:var(--sans);font-size:.66rem;color:var(--grey);margin-top:2px}
+
+/* timeline */
+.tl,.branches{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.branches{margin-top:14px;padding-top:14px;border-top:1px solid #262e31}
+.tstep{
+  font-family:var(--sans);font-size:.7rem;padding:7px 9px;cursor:pointer;
+  background:#20272a;border:1px solid #2c3538;border-radius:2px;color:var(--grey);
+}
+.tstep.here{border-color:var(--lamp);color:var(--lamp)}
+.tlv{color:var(--lamp);margin-left:5px}
+
+/* levers */
+.lever{
+  display:block;width:100%;text-align:left;margin-bottom:7px;padding:11px 13px;cursor:pointer;
+  background:#20272a;border:1px solid #2c3538;border-left:2px solid var(--seam);border-radius:2px;color:var(--pale);
+  font-family:var(--serif);
+}
+.lever:hover,.lever:focus-visible{border-left-color:var(--lamp)}
+.lname{display:block;font-weight:600;font-size:.98rem}
+.ldesc{display:block;font-size:.84rem;color:var(--grey);line-height:1.45}
+
+/* settings */
+.field{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.field label{font-family:var(--sans);font-size:.76rem;color:var(--grey);flex:0 0 8rem}
+
+.field select{flex:1;background:#20272a;border:1px solid #2c3538;border-radius:2px;color:var(--pale);font-family:var(--sans);font-size:.85rem;padding:9px 10px}
+.field input{
+  flex:1;background:#20272a;border:1px solid #2c3538;border-radius:2px;
+  color:var(--pale);font-family:var(--sans);font-size:.85rem;padding:9px 10px;
+}
+.brow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+@media(min-width:760px){
+  body{font-size:18px}
+  .plate{max-width:44rem;margin-inline:auto}
+  #map{font-size:15px}
+  #omen{max-width:38rem;margin-inline:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span id="place">—</span>
+  <span id="when"></span>
+</header>
+
+<div class="plate">
+  <div id="map"></div>
+  <p class="legend"><span class="m-shrine">†</span> the shrine &nbsp; <span class="m-lit">⌂</span> a lit house &nbsp; <span class="m-dark">⌂</span> empty &nbsp; <span class="m-growing">◌</span> stone still growing &nbsp; <span class="m-derelict">×</span> abandoned &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> ground under dispute</p>
+</div>
+
+<main id="chronicle"></main>
+
+<div id="omen" hidden></div>
+
+<nav class="bar">
+  <div class="tabs">
+    <button class="tab" data-tab="cast" aria-selected="false">Figures</button>
+    <button class="tab" data-tab="houses" aria-selected="false">Houses</button>
+    <button class="tab" data-tab="numbers" aria-selected="false">Numbers</button>
+    <button class="tab" data-tab="levers" aria-selected="false">Act</button>
+    <button class="tab" data-tab="offices" aria-selected="false">Offices</button>
+    <button class="tab" data-tab="memory" aria-selected="false">Memory</button>
+    <button class="tab" data-tab="time" aria-selected="false">Time</button>
+    <button class="tab" data-tab="new" aria-selected="false" aria-label="Settings">Setup</button>
+  </div>
+  <div class="acts">
+    <button id="advance">Next season</button>
+    <button id="advance-year">A year</button>
+  </div>
+</nav>
+
+<div id="scrim" hidden></div>
+<div id="sheet">
+  <section class="panel" data-panel="cast" hidden><h3>Who is reaching for something</h3><div id="p-cast"></div></section>
+  <section class="panel" data-panel="houses" hidden><h3>Households</h3><div id="p-houses"></div></section>
+  <section class="panel" data-panel="offices" hidden><h3>Who holds what</h3><div id="p-offices"></div></section>
+  <section class="panel" data-panel="memory" hidden><h3>What is not forgotten</h3><div id="p-memory"></div></section>
+  <section class="panel" data-panel="numbers" hidden><h3>Numbers</h3><div id="p-numbers"></div></section>
+  <section class="panel" data-panel="levers" hidden>
+    <h3>Act on the settlement</h3>
+    <p class="hint">Anything here takes effect this coming season. The gods will suggest these on their own from time to time; you do not have to wait for them.</p>
+    <div id="p-levers"></div>
+  </section>
+  <section class="panel" data-panel="time" hidden><h3>Time</h3><div id="p-time"></div></section>
+  <section class="panel" data-panel="new" hidden>
+    <h3>Found a new settlement</h3>
+    <div class="field"><label for="f-seed">Seed</label><input id="f-seed" type="number" value="20260910"></div>
+    <div class="field"><label for="f-pop">People at founding</label><input id="f-pop" type="number" value="150" min="40" max="1200"></div>
+    <div class="field"><label for="f-gov">Government</label><select id="f-gov">
+      <option value="">whatever the seed gives</option>
+      <option value="sole">a sole ruler</option>
+      <option value="tribunal">a tribunal</option>
+      <option value="senate">elected senators</option>
+    </select></div>
+    <button class="btn wide" onclick="newSettlement()">Found it</button>
+    <h3 style="margin-top:22px">The record</h3>
+    <p class="hint">The chronicle leaves out routine business — marriages, households dividing, stone coming along as expected. It is all still recorded and the simulation still uses it.</p>
+    <button class="btn wide" id="rec" aria-pressed="false" onclick="toggleRecord()" style="margin-top:0">Show everything</button>
+    <div class="brow">
+      <button class="btn" onclick="exportRun()">Export run</button>
+      <label class="btn" for="f-import">Load run</label>
+      <input id="f-import" type="file" accept="application/json" hidden>
+    </div>
+    <p class="hint" style="margin-top:14px">An exported run is the seed plus every choice you made, not the world itself — a few kilobytes, and it rebuilds exactly.</p>
+  </section>
+</div>
+
+<script>
+/*{{BUNDLE}}*/
+</script>
+</body>
+</html>

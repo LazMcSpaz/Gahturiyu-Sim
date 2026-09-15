@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build
+        run: node build.js
+
+      - name: Test
+        run: node test/run.js
+
+      # dist/gahturiyu.html is committed so the file can be opened straight
+      # from a clone. If the build changed it, the commit forgot to rebuild.
+      - name: dist/ is in sync with src/
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::error::dist/gahturiyu.html is stale — run 'node build.js' and commit the result."
+            git --no-pager diff --stat -- dist/
+            exit 1
+          fi

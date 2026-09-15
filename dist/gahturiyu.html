@@ -1,0 +1,3060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171b1d">
+<title>Gahturiyu — a settlement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wet:#171b1d;      /* wet slate, the ground everything sits on */
+  --stone:#212a2d;    /* raised surfaces */
+  --seam:#394347;     /* the pale hairline seams in the rock */
+  --grey:#98a3a7;
+  --pale:#e0e5e5;
+  --lamp:#e29a4a;     /* a lit window against grey rock: the one loud note */
+  --lichen:#8d9e65;
+  --rust:#b3583a;
+  --serif:'Spectral',Iowan Old Style,Palatino,Georgia,serif;
+  --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --bar:calc(112px + env(safe-area-inset-bottom));
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--wet);color:var(--pale);
+  font-family:var(--serif);font-weight:300;
+  font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:var(--bar);
+}
+:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+
+/* --- masthead --- */
+header.top{
+  position:sticky;top:0;z-index:30;
+  background:linear-gradient(var(--wet) 74%,transparent);
+  padding:14px 20px 12px;
+  display:flex;align-items:baseline;gap:12px;
+}
+#place{font-size:1.28rem;font-weight:600;letter-spacing:.01em}
+#when{font-family:var(--sans);font-size:.74rem;color:var(--grey);letter-spacing:.06em}
+
+/* --- map plate --- */
+.plate{margin:0 14px 6px;padding:12px 10px;background:var(--stone);border:1px solid #2b3437;border-radius:2px;overflow-x:auto}
+#map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.06;letter-spacing:.16em;white-space:pre;color:#4c585c}
+.mrow{display:block}
+.g-sea{color:#31414a}.g-shore{color:#4a5f63}.g-slope{color:#5c6560}.g-crag{color:#767d78}.g-moor{color:#4f5747}
+.owned{color:#8d9490}
+.m-lit{color:var(--lamp);text-shadow:0 0 7px rgba(226,154,74,.55)}
+.m-dark{color:#6d7679}
+.m-growing{color:var(--lichen)}
+.m-derelict{color:#5a4a44}
+.m-disputed{background:rgba(179,88,58,.22);border-radius:2px}
+.m-shrine{color:#cbb27a;text-shadow:0 0 8px rgba(203,178,122,.5)}
+.m-shrine-cold{color:#5c5a50}
+.m-actor{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--lamp)}
+.legend{font-family:var(--sans);font-size:.68rem;color:#828d91;margin:8px 2px 0;letter-spacing:.03em}
+
+/* --- chronicle --- */
+main{max-width:38rem;margin:0 auto;padding:4px 22px 40px}
+.turn{margin:0 0 34px}
+.season{
+  display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  margin:0 0 14px;padding-bottom:5px;border-bottom:1px solid var(--seam);
+  font-weight:400;
+}
+.s-name{font-style:italic;font-size:1.34rem;color:var(--pale)}
+.s-year{font-family:var(--sans);font-size:.72rem;color:var(--grey);letter-spacing:.11em}
+.turn p{margin:0 0 .82em}
+.prose{color:#c3cacb}
+.bridge{color:var(--grey);font-style:italic}
+.event{color:var(--pale)}
+.event.w5,.event.w6,.event.w7{
+  padding-left:13px;border-left:2px solid var(--seam);
+}
+.event.w6,.event.w7{border-left-color:var(--lamp);font-size:1.04rem}
+.k-death,.k-extinct,.k-leave,.k-derelict{color:#b9bebd}
+.k-feud,.k-dispute,.k-reveal{border-left-color:var(--rust)!important}
+.k-mature,.k-claim,.k-tend{border-left-color:var(--lichen)!important}
+.k-divine{font-style:italic;color:var(--lamp)}
+.k-shrine{border-left-color:#cbb27a!important}
+.k-memory{font-style:italic;color:#b0a68d;border-left-color:#6a6355!important}
+.k-hardship{border-left-color:var(--rust)!important}
+.k-spite{border-left-color:var(--rust)!important}
+.shrinerow{border-top:0!important;padding-top:0!important;margin-top:6px!important;color:#a2977e}
+.hand{font-family:var(--sans);font-size:.7rem;letter-spacing:.09em;color:var(--lamp);margin:-6px 0 12px!important}
+.tally{
+  font-family:var(--sans);font-size:.7rem;line-height:1.6;color:#818c90;
+  margin-top:16px!important;padding-top:8px;border-top:1px solid #262e31;
+}
+
+/* --- the god's offer --- */
+#omen{
+  position:fixed;left:0;right:0;bottom:var(--bar);z-index:25;
+  margin:0 12px 10px;padding:15px 17px;
+  background:#1d2427;border:1px solid #43403a;border-left:3px solid var(--lamp);border-radius:2px;
+  box-shadow:0 -10px 30px rgba(0,0,0,.55);
+}
+#omen p{margin:0}
+.god{font-size:1.1rem;font-weight:600}
+.god .dom{font-weight:300;font-size:.86rem;color:var(--grey)}
+.saw{color:#c3cacb;margin-bottom:.4em!important}
+.offer{font-style:italic;color:var(--lamp);margin-bottom:.8em!important}
+.orow{display:flex;gap:9px}
+
+/* --- buttons --- */
+.btn{
+  font-family:var(--sans);font-size:.82rem;font-weight:500;
+  padding:10px 16px;border-radius:2px;border:1px solid var(--seam);
+  background:transparent;color:var(--pale);cursor:pointer;
+}
+.btn.accept{background:var(--lamp);border-color:var(--lamp);color:#1a1512}
+.btn.quiet{color:var(--grey)}
+.btn.wide{width:100%;margin-top:12px}
+
+/* --- bottom bar --- */
+.bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  padding:0 10px calc(9px + env(safe-area-inset-bottom));
+  background:#131719;border-top:1px solid #272f32;
+}
+.tabs{display:flex;justify-content:space-between;gap:2px;padding:4px 0 6px}
+.tab{
+  flex:1 1 0;min-width:0;font-family:var(--sans);font-size:.7rem;
+  background:none;border:0;color:var(--grey);padding:9px 2px;cursor:pointer;border-radius:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tab[aria-selected="true"]{color:var(--lamp)}
+.acts{display:flex;gap:7px}
+#advance{
+  flex:1 1 auto;font-family:var(--sans);font-size:.9rem;font-weight:600;
+  padding:14px;border:0;border-radius:2px;
+  background:var(--stone);color:var(--pale);cursor:pointer;
+}
+#advance:active{background:#2b3538}
+#advance-year{
+  flex:0 0 auto;font-family:var(--sans);font-size:.78rem;
+  padding:14px 15px;border:1px solid #2c3538;border-radius:2px;
+  background:transparent;color:var(--grey);cursor:pointer;
+}
+
+/* --- sheet --- */
+#scrim{position:fixed;inset:0;background:rgba(8,10,11,.6);z-index:45}
+#sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  max-height:76vh;overflow-y:auto;
+  background:#1a1f22;border-top:1px solid #2f383b;
+  transform:translateY(102%);
+  padding:18px 18px calc(24px + var(--bar));
+}
+#sheet.up{transform:translateY(0)}
+@media (prefers-reduced-motion:no-preference){#sheet{transition:transform .22s ease}}
+.panel h3{font-size:1.06rem;font-weight:600;margin:0 0 12px}
+.hint{font-family:var(--sans);font-size:.74rem;color:var(--grey);line-height:1.55;margin:0 0 12px}
+.empty{color:var(--grey);font-style:italic}
+
+/* figures */
+.figure{padding:11px 0;border-bottom:1px solid #262e31}
+.fname{font-size:1.04rem;font-weight:600}
+.fname .flin{font-weight:300;color:var(--grey)}
+.fmeta{font-family:var(--sans);font-size:.72rem;color:var(--lamp);margin:2px 0 5px}
+.fgoal{color:#c3cacb;font-size:.94rem}
+.fdeeds,.fgrudge{font-family:var(--sans);font-size:.72rem;color:var(--grey);margin-top:3px}
+.fgrudge{color:var(--rust)}
+
+/* households */
+.hrow{padding:8px 0;border-bottom:1px solid #232b2e}
+.hline{display:flex;justify-content:space-between;gap:12px}
+.hrep{font-family:var(--sans);font-size:.68rem;margin-top:3px;line-height:1.45}
+.hrep.good{color:var(--lichen)}
+.hrep.bad{color:var(--rust)}
+.hname{font-weight:600}
+.hbits{font-family:var(--sans);font-size:.7rem;color:var(--grey);text-align:right}
+.hrow.nohome .hname{color:var(--rust)}
+
+/* numbers */
+.ngrid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#262e31;border:1px solid #262e31}
+.nbox{background:#1a1f22;padding:11px 12px;display:flex;flex-direction:column}
+.nv{font-size:1.4rem;font-weight:600;line-height:1.1}
+.nl{font-family:var(--sans);font-size:.68rem;color:var(--grey)}
+.spark{margin-top:16px;color:var(--lichen)}
+.spark svg{width:100%;height:44px;display:block}
+.sparkl{font-family:var(--sans);font-size:.68rem;color:var(--grey)}
+
+/* offices */
+.orow2{padding:10px 0;border-bottom:1px solid #262e31}
+.otitle{font-family:var(--sans);font-size:.7rem;color:var(--grey);letter-spacing:.05em;margin-bottom:4px}
+.ocount{color:var(--lamp)}
+.oholder{font-size:1rem;font-weight:600}
+.ometa{display:block;font-family:var(--sans);font-size:.68rem;font-weight:400;color:var(--grey);margin-top:1px}
+.ovacant{font-style:italic;color:var(--rust);font-size:.94rem}
+.hint.bad{color:var(--rust)}
+.k-office{border-left-color:#8fa3b8!important}
+.k-teach{border-left-color:var(--lichen)!important}
+
+/* shrine + memory */
+.shrinebox{margin-top:16px;padding:13px 14px;background:#20262a;border:1px solid #2c3538;border-left:2px solid #cbb27a;border-radius:2px}
+.shname{font-weight:600;font-size:1.02rem}
+.shstate{font-family:var(--sans);font-size:.72rem;color:#cbb27a;margin:2px 0 8px}
+.shbar{height:3px;background:#2c3538;border-radius:2px;overflow:hidden}
+.shbar span{display:block;height:100%;background:#cbb27a}
+.shnote{font-size:.86rem;color:var(--grey);line-height:1.45;margin-top:8px}
+.memrow{padding:9px 0;border-bottom:1px solid #262e31;font-size:.94rem;color:#c3cacb}
+.memhouse{font-weight:600;color:var(--pale)}
+.memrow.bad .memhouse{color:var(--rust)}
+.memrow.good .memhouse{color:var(--lichen)}
+.memwhen{display:block;font-family:var(--sans);font-size:.66rem;color:var(--grey);margin-top:2px}
+
+/* timeline */
+.tl,.branches{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.branches{margin-top:14px;padding-top:14px;border-top:1px solid #262e31}
+.tstep{
+  font-family:var(--sans);font-size:.7rem;padding:7px 9px;cursor:pointer;
+  background:#20272a;border:1px solid #2c3538;border-radius:2px;color:var(--grey);
+}
+.tstep.here{border-color:var(--lamp);color:var(--lamp)}
+.tlv{color:var(--lamp);margin-left:5px}
+
+/* levers */
+.lever{
+  display:block;width:100%;text-align:left;margin-bottom:7px;padding:11px 13px;cursor:pointer;
+  background:#20272a;border:1px solid #2c3538;border-left:2px solid var(--seam);border-radius:2px;color:var(--pale);
+  font-family:var(--serif);
+}
+.lever:hover,.lever:focus-visible{border-left-color:var(--lamp)}
+.lname{display:block;font-weight:600;font-size:.98rem}
+.ldesc{display:block;font-size:.84rem;color:var(--grey);line-height:1.45}
+
+/* settings */
+.field{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.field label{font-family:var(--sans);font-size:.76rem;color:var(--grey);flex:0 0 8rem}
+
+.field select{flex:1;background:#20272a;border:1px solid #2c3538;border-radius:2px;color:var(--pale);font-family:var(--sans);font-size:.85rem;padding:9px 10px}
+.field input{
+  flex:1;background:#20272a;border:1px solid #2c3538;border-radius:2px;
+  color:var(--pale);font-family:var(--sans);font-size:.85rem;padding:9px 10px;
+}
+.brow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+@media(min-width:760px){
+  body{font-size:18px}
+  .plate{max-width:44rem;margin-inline:auto}
+  #map{font-size:15px}
+  #omen{max-width:38rem;margin-inline:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span id="place">—</span>
+  <span id="when"></span>
+</header>
+
+<div class="plate">
+  <div id="map"></div>
+  <p class="legend"><span class="m-shrine">†</span> the shrine &nbsp; <span class="m-lit">⌂</span> a lit house &nbsp; <span class="m-dark">⌂</span> empty &nbsp; <span class="m-growing">◌</span> stone still growing &nbsp; <span class="m-derelict">×</span> abandoned &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> ground under dispute</p>
+</div>
+
+<main id="chronicle"></main>
+
+<div id="omen" hidden></div>
+
+<nav class="bar">
+  <div class="tabs">
+    <button class="tab" data-tab="cast" aria-selected="false">Figures</button>
+    <button class="tab" data-tab="houses" aria-selected="false">Houses</button>
+    <button class="tab" data-tab="numbers" aria-selected="false">Numbers</button>
+    <button class="tab" data-tab="levers" aria-selected="false">Act</button>
+    <button class="tab" data-tab="offices" aria-selected="false">Offices</button>
+    <button class="tab" data-tab="memory" aria-selected="false">Memory</button>
+    <button class="tab" data-tab="time" aria-selected="false">Time</button>
+    <button class="tab" data-tab="new" aria-selected="false" aria-label="Settings">Setup</button>
+  </div>
+  <div class="acts">
+    <button id="advance">Next season</button>
+    <button id="advance-year">A year</button>
+  </div>
+</nav>
+
+<div id="scrim" hidden></div>
+<div id="sheet">
+  <section class="panel" data-panel="cast" hidden><h3>Who is reaching for something</h3><div id="p-cast"></div></section>
+  <section class="panel" data-panel="houses" hidden><h3>Households</h3><div id="p-houses"></div></section>
+  <section class="panel" data-panel="offices" hidden><h3>Who holds what</h3><div id="p-offices"></div></section>
+  <section class="panel" data-panel="memory" hidden><h3>What is not forgotten</h3><div id="p-memory"></div></section>
+  <section class="panel" data-panel="numbers" hidden><h3>Numbers</h3><div id="p-numbers"></div></section>
+  <section class="panel" data-panel="levers" hidden>
+    <h3>Act on the settlement</h3>
+    <p class="hint">Anything here takes effect this coming season. The gods will suggest these on their own from time to time; you do not have to wait for them.</p>
+    <div id="p-levers"></div>
+  </section>
+  <section class="panel" data-panel="time" hidden><h3>Time</h3><div id="p-time"></div></section>
+  <section class="panel" data-panel="new" hidden>
+    <h3>Found a new settlement</h3>
+    <div class="field"><label for="f-seed">Seed</label><input id="f-seed" type="number" value="20260910"></div>
+    <div class="field"><label for="f-pop">People at founding</label><input id="f-pop" type="number" value="150" min="40" max="1200"></div>
+    <div class="field"><label for="f-gov">Government</label><select id="f-gov">
+      <option value="">whatever the seed gives</option>
+      <option value="sole">a sole ruler</option>
+      <option value="tribunal">a tribunal</option>
+      <option value="senate">elected senators</option>
+    </select></div>
+    <button class="btn wide" onclick="newSettlement()">Found it</button>
+    <h3 style="margin-top:22px">The record</h3>
+    <p class="hint">The chronicle leaves out routine business — marriages, households dividing, stone coming along as expected. It is all still recorded and the simulation still uses it.</p>
+    <button class="btn wide" id="rec" aria-pressed="false" onclick="toggleRecord()" style="margin-top:0">Show everything</button>
+    <div class="brow">
+      <button class="btn" onclick="exportRun()">Export run</button>
+      <label class="btn" for="f-import">Load run</label>
+      <input id="f-import" type="file" accept="application/json" hidden>
+    </div>
+    <p class="hint" style="margin-top:14px">An exported run is the seed plus every choice you made, not the world itself — a few kilobytes, and it rebuilds exactly.</p>
+  </section>
+</div>
+
+<script>
+
+/* ===== src/engine/00-core.js ===== */
+/* ===========================================================================
+   GAHTURIYU — settlement engine
+   Pure logic. No DOM access anywhere in this file.
+   Contract:  advance(state, input, ) -> new state
+   All state is plain JSON. Snapshots are structuredClone. Same state + same
+   input + same seed must always produce the same next state.
+   =========================================================================== */
+
+const ENGINE_VERSION = '0.1.0';
+
+/* The whole state is plain JSON, so a JSON round-trip is a valid deep copy.
+   structuredClone is faster where it exists; older mobile browsers lack it. */
+const clone = (typeof structuredClone === 'function')
+  ? (o) => structuredClone(o)
+  : (o) => JSON.parse(JSON.stringify(o));
+
+/* --- seeded randomness ---------------------------------------------------- */
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// A turn's stream is derived from the run seed and the turn number, so turn N
+// always rolls the same numbers regardless of how you arrived at it.
+function turnRng(seed, turn) { return mulberry32((seed * 2654435761 + turn * 40503) | 0); }
+
+function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
+function chance(r, p) { return r() < p; }
+function ri(r, lo, hi) { return lo + Math.floor(r() * (hi - lo + 1)); }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+// most people are unremarkable; a few are not
+function traitRoll(r) { return clamp(Math.floor(Math.pow(r(), 2.1) * 100), 0, 99); }
+
+/* --- Gogìḍu, the Earth-tongue --------------------------------------------- */
+/* Open (C)V syllables, no clusters, retroflex and uvular consonants, six
+   vowels, penultimate stress. Names are built to the rules in languages.md. */
+
+const ONSET = ['g','g','d','d','ḍ','ṭ','q','q','r','r','l','th','h','y','sh','t','m','n','ʻ',''];
+const VOWEL = ['a','a','o','o','u','e','i','ì'];
+const LINEAGE_TAIL = ['du','ro','ḍa','ṭo','qu','lu','ya','hìda','ʻo','ḍu'];
+
+function syl(r) { return pick(r, ONSET) + pick(r, VOWEL); }
+
+function givenName(r) {
+  let n = '';
+  const count = chance(r, 0.55) ? 3 : chance(r, 0.75) ? 2 : 4;
+  for (let i = 0; i < count; i++) n += syl(r);
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+function lineageName(r) {
+  let n = syl(r) + (chance(r, 0.5) ? syl(r) : '') + pick(r, LINEAGE_TAIL);
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+/* --- terrain --------------------------------------------------------------- */
+
+const W = 22, H = 15;
+const SEA = 0, SHORE = 1, SLOPE = 2, CRAG = 3, MOOR = 4;
+const TERRAIN_NAME = ['open water', 'shore', 'hillside', 'crag', 'moor'];
+
+function tileId(x, y) { return y * W + x; }
+function tileXY(id) { return [id % W, Math.floor(id / W)]; }
+function tileDist(a, b) {
+  const [ax, ay] = tileXY(a), [bx, by] = tileXY(b);
+  return Math.hypot(ax - bx, ay - by);
+}
+
+function buildTerrain(r) {
+  // A coastline running roughly north-south down the left, land rising east.
+  const wob = [];
+  for (let y = 0; y < H; y++) wob.push(Math.sin(y * 0.75) * 1.6 + Math.sin(y * 0.31) * 2.2 + r() * 1.2);
+  const tiles = [];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const coast = 4 + wob[y];
+      const d = x - coast;                       // metres inland, roughly
+      let t;
+      if (d < -0.6) t = SEA;
+      else if (d < 1.2) t = SHORE;
+      else if (d < 7 + r() * 2) t = chance(r, 0.22) ? CRAG : SLOPE;
+      else t = chance(r, 0.25) ? CRAG : MOOR;
+      tiles.push({
+        id: tileId(x, y), x, y, t,
+        // stone quality governs how fast a home grows here
+        stone: t === CRAG ? 0.75 + r() * 0.35 : t === SLOPE ? 0.55 + r() * 0.4 : 0.2 + r() * 0.3,
+        // fishing depends on being near the water
+        fish: t === SHORE ? 0.6 + r() * 0.5 : t === SEA ? 0 : 0,
+        graze: t === MOOR ? 0.5 + r() * 0.5 : t === SLOPE ? 0.25 + r() * 0.3 : 0.05,
+        owner: null
+      });
+    }
+  }
+  // shore tiles inherit fishing richness from adjacent deep water
+  for (const tl of tiles) {
+    if (tl.t !== SHORE) continue;
+    let deep = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -2; dx <= 0; dx++) {
+      const nx = tl.x + dx, ny = tl.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      if (tiles[tileId(nx, ny)].t === SEA) deep++;
+    }
+    tl.fish *= 0.5 + deep * 0.14;
+  }
+  return tiles;
+}
+
+// How good a tile is to grow a home on. Most hillside will not take a house:
+// the stone has to be willing. This is the scarcity the whole settlement turns
+// on, so the threshold is deliberately high.
+const STONE_FLOOR = 0.735;
+
+function siteValue(tiles, id) {
+  const tl = tiles[id];
+  if (tl.t !== SLOPE && tl.t !== CRAG) return 0;
+  if (tl.stone < STONE_FLOOR) return 0;
+  let v = tl.stone;
+  const [x, y] = tileXY(id);
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const nx = x + dx, ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+    const n = tiles[tileId(nx, ny)];
+    if (n.t === SHORE) v += 0.09;      // close to the boats
+    if (n.t === MOOR) v += 0.04;       // close to the grazing
+  }
+  return v;
+}
+
+/* --- geography ---------------------------------------------------------------
+   The map carried coordinates but almost nothing read them. Two things now do:
+   the settlement is divided into named quarters, and a feud between neighbours
+   physically closes the ground between them, which lengthens the walk for
+   everyone else. Distance then decides who tends your stone, who marries in,
+   who fosters your children, and who is close enough to notice you at all.
+   -------------------------------------------------------------------------- */
+
+function quarterOf(s, tid) {
+  if (!s.quarters || !s.quarters.length) return null;
+  const [x, y] = tileXY(tid);
+  return s.quarters.reduce((best, q) =>
+    Math.hypot(q.cx - x, q.cy - y) < Math.hypot(best.cx - x, best.cy - y) ? q : best);
+}
+
+function makeQuarters(state, r) {
+  const homes = Object.values(state.buildings).map(b => b.tileId);
+  if (!homes.length) { state.quarters = []; return; }
+  const k = clamp(Math.round(homes.length / 7), 2, 5);
+  // seed on the most separated homes, then relax
+  const cents = [tileXY(homes[0])];
+  while (cents.length < k) {
+    let far = cents[0], fd = -1;
+    for (const h of homes) {
+      const [x, y] = tileXY(h);
+      const d = Math.min(...cents.map(c => Math.hypot(c[0] - x, c[1] - y)));
+      if (d > fd) { fd = d; far = [x, y]; }
+    }
+    cents.push(far);
+  }
+  let cur = cents;
+  for (let pass = 0; pass < 8; pass++) {
+    const buckets = cur.map(() => []);
+    for (const h of homes) {
+      const [x, y] = tileXY(h);
+      let bi = 0, bd = Infinity;
+      cur.forEach((c, i) => { const d = Math.hypot(c[0] - x, c[1] - y); if (d < bd) { bd = d; bi = i; } });
+      buckets[bi].push([x, y]);
+    }
+    cur = cur.map((c, i) => buckets[i].length
+      ? [buckets[i].reduce((a, p) => a + p[0], 0) / buckets[i].length,
+         buckets[i].reduce((a, p) => a + p[1], 0) / buckets[i].length]
+      : c);
+  }
+  state.quarters = cur.map((c) => c).sort((a, b) => a[1] - b[1]).map((c, rank) => ({
+    id: 'q' + rank, cx: c[0], cy: c[1],
+    name: lineageName(r) + pick(r, ['ʻo', 'du', 'ḍa'])
+  }));
+}
+
+// Straight-line distance, plus the cost of going round a closed feud line.
+function walkDist(s, a, b) {
+  let d = tileDist(a, b);
+  if (!s.closed || !s.closed.length) return d;
+  const [ax, ay] = tileXY(a), [bx, by] = tileXY(b);
+  const len2 = (bx - ax) * (bx - ax) + (by - ay) * (by - ay) || 1;
+  for (const c of s.closed) {
+    const t = clamp(((c.x - ax) * (bx - ax) + (c.y - ay) * (by - ay)) / len2, 0, 1);
+    const px = ax + t * (bx - ax), py = ay + t * (by - ay);
+    if (Math.hypot(px - c.x, py - c.y) < 1.4) d += 3.2;
+  }
+  return d;
+}
+
+function closePath(s, A, B) {
+  const ta = (s.buildings[A.buildingId] || {}).tileId ?? A.claims[0];
+  const tb = (s.buildings[B.buildingId] || {}).tileId ?? B.claims[0];
+  if (ta === undefined || tb === undefined) return null;
+  if (tileDist(ta, tb) > 4.5) return null;      // only neighbours can shut a path
+  const [ax, ay] = tileXY(ta), [bx, by] = tileXY(tb);
+  s.closed = s.closed || [];
+  s.closed.push({ x: (ax + bx) / 2, y: (ay + by) / 2, a: A.id, b: B.id, turn: s.turn });
+  return quarterOf(s, ta);
+}
+
+/* --- calendar -------------------------------------------------------------- */
+
+const SEASONS = ['spring', 'summer', 'harvest', 'winter'];
+function seasonOf(turn) { return SEASONS[turn % 4]; }
+function yearOf(state, turn) { return state.startYear + Math.floor(turn / 4); }
+
+
+/* ===== src/engine/10-world.js ===== */
+/* --- world creation --------------------------------------------------------- */
+
+function newWorld(cfg) {
+  const seed = cfg.seed >>> 0;
+  const r = mulberry32(seed);
+  const tiles = buildTerrain(r);
+
+  const state = {
+    version: ENGINE_VERSION,
+    seed, turn: 0, startYear: cfg.startYear ?? 812,
+    name: cfg.name || lineageName(r) + 'ʻa',
+    tiles,
+    people: {}, households: {}, buildings: {}, disputes: {},
+    nextId: 1,
+    weather: { storm: 0, cold: 0 },
+    memory: [],        // what the settlement has not forgotten
+    government: cfg.government || null,
+    offices: {}, lastOffices: {}, boatsDenied: [],
+    quarters: [], closed: [],
+    shrine: null,
+    log: [],           // events for the current turn only
+    chronicle: [],     // one entry per elapsed turn
+    stats: [],
+    omen: null,        // a god's standing suggestion, if any
+    godSilence: 0
+  };
+
+  const id = () => state.nextId++;
+
+  // seed households across the best sites
+  const sites = tiles.map(t => t.id)
+    .filter(i => siteValue(tiles, i) > 0)
+    .sort((a, b) => siteValue(tiles, b) - siteValue(tiles, a));
+
+  let placed = 0, target = Math.max(6, Math.round(cfg.population / 5.5));
+  const used = [];
+  for (const s of sites) {
+    if (placed >= target) break;
+    if (used.some(u => tileDist(u, s) < 1.7)) continue;
+    used.push(s); placed++;
+  }
+
+  for (const site of used) {
+    const hid = 'h' + id();
+    const hh = {
+      id: hid, name: lineageName(r), headId: null, members: [],
+      buildingId: null, claims: [site], stores: 6 + r() * 6,
+      standing: 20 + traitRoll(r) * 0.4, lodgedWith: null, founded: -ri(r, 8, 240)
+    };
+    tiles[site].owner = hid;
+    // Most houses are long finished; a few are still coming up, at every
+    // stage, so the settlement has work in flight from the first season.
+    const bid = 'b' + id();
+    const unfinished = placed > 3 && chance(r, 0.3);
+    if (unfinished) {
+      const m = 0.15 + r() * 0.8;
+      state.buildings[bid] = {
+        id: bid, tileId: site, householdId: hid, tenderId: null,
+        startTurn: -Math.round(m * 55), maturity: m, capacity: ri(r, 4, 7),
+        state: 'growing', stalled: 0, condition: 1
+      };
+      hh.buildingId = null;
+    } else {
+      const age = ri(r, 20, 260);
+      state.buildings[bid] = {
+        id: bid, tileId: site, householdId: hid, tenderId: null,
+        startTurn: -age, maturity: 1, capacity: ri(r, 4, 7),
+        state: 'mature', stalled: 0, condition: 0.6 + r() * 0.4
+      };
+      hh.buildingId = bid;
+    }
+
+    // claim a working tile or two nearby
+    for (const t of tiles) {
+      if (hh.claims.length >= 3) break;
+      if (t.owner || tileDist(t.id, site) > 2.6) continue;
+      if (t.t === SHORE ? r() < 0.5 : t.t === MOOR ? r() < 0.35 : false) {
+        t.owner = hid; hh.claims.push(t.id);
+      }
+    }
+    state.households[hid] = hh;
+  }
+
+  // populate them
+  const hids = Object.keys(state.households);
+  let made = 0;
+  while (made < cfg.population) {
+    const hid = hids[made % hids.length];
+    const hh = state.households[hid];
+    const isFirst = hh.members.length === 0;
+    const age = isFirst ? ri(r, 28, 62) : ri(r, 0, 58);
+    const p = makePerson(state, r, hid, age);
+    if (isFirst) { hh.headId = p.id; p.role = 'head'; }
+    made++;
+  }
+  // a founding generation has to already hold the gift, or nothing is buildable
+  const grown = Object.values(state.people).filter(p => ageOf(state, p) >= 22 && ageOf(state, p) <= 68);
+  const want = Math.max(2, Math.round(grown.length * 0.055));
+  for (let i = 0; i < want && grown.length; i++) pick(r, grown).tender = true;
+
+  for (const hid of hids) assignWork(state, r, state.households[hid]);
+
+  if (!state.government) state.government = pick(r, Object.keys(GOVERNMENTS));
+  makeQuarters(state, r);
+
+  // the communal stone: sited where the paths already converge
+  const homeTiles = Object.values(state.buildings).map(b => b.tileId);
+  const cx = homeTiles.reduce((a, t) => a + tileXY(t)[0], 0) / homeTiles.length;
+  const cy = homeTiles.reduce((a, t) => a + tileXY(t)[1], 0) / homeTiles.length;
+  const centre = tiles.filter(t => (t.t === SLOPE || t.t === CRAG) && !t.owner)
+    .sort((a, b) => (Math.hypot(a.x - cx, a.y - cy)) - (Math.hypot(b.x - cx, b.y - cy)))[0];
+  const god = pick(r, SHRINE_GODS);
+  state.shrine = {
+    tileId: centre ? centre.id : homeTiles[0], god: god.name, godOf: god.of,
+    devotion: 45 + r() * 30, keeperId: null, keeperName: null, keeperSince: 0
+  };
+
+  recount(state);
+  return state;
+}
+
+function makePerson(state, r, hid, age) {
+  const pid = 'p' + state.nextId++;
+  const hh = state.households[hid];
+  const p = {
+    id: pid, name: givenName(r), lineage: hh ? hh.name : lineageName(r),
+    birthTurn: state.turn - age * 4, sex: chance(r, 0.5) ? 'm' : 'f',
+    householdId: hid, alive: true, deathTurn: null, cause: null,
+    traits: {
+      ambition: traitRoll(r), grudge: traitRoll(r), piety: traitRoll(r),
+      avarice: traitRoll(r), loyalty: traitRoll(r), courage: traitRoll(r)
+    },
+    tender: false,        // the gift is taught, not born — see sysTeaching
+    // Teaching alone compounds: every tender makes more tenders and within
+    // fifty years a third of the settlement has the gift. Aptitude is the
+    // scarce half — it is rare, and it cannot be taught into someone.
+    aptitude: chance(r, 0.13),
+    learning: null,
+    role: 'none', work: null, prominence: 0, goal: null, goalAge: 0, matches: 0,
+    grudges: [], deeds: [], hunger: 0, parents: []
+  };
+  state.people[pid] = p;
+  if (hh) hh.members.push(pid);
+  return p;
+}
+
+function ageOf(state, p) { return Math.floor((state.turn - p.birthTurn) / 4); }
+
+function assignWork(state, r, hh) {
+  const tiles = state.tiles;
+  const shore = hh.claims.filter(c => tiles[c].t === SHORE);
+  const moor = hh.claims.filter(c => tiles[c].t === MOOR || tiles[c].t === SLOPE);
+  for (const pid of hh.members) {
+    const p = state.people[pid];
+    if (!p.alive) continue;
+    const a = ageOf(state, p);
+    if (a < 12) { p.role = 'child'; p.work = null; continue; }
+    if (a > 66) { p.role = 'elder'; p.work = null; continue; }
+    if (p.tender) { p.work = 'tend'; if (p.role === 'none') p.role = 'tender'; continue; }
+    if (shore.length && (!p.work || p.work === 'none')) p.work = 'fish';
+    else if (moor.length) p.work = 'herd';
+    else p.work = 'labour';
+  }
+}
+
+/* --- events ---------------------------------------------------------------- */
+/* Every event carries enough structure for the chronicle to write around it. */
+
+function ev(state, kind, weight, text, extra = {}) {
+  if (state.log.some(e => e.text === text)) return;   // never the same line twice in a season
+  state.log.push(Object.assign({ kind, weight, text, turn: state.turn }, extra));
+}
+
+function nameOf(state, pid) {
+  const p = state.people[pid];
+  return p ? p.name + ' ' + p.lineage : 'someone';
+}
+
+
+/* ===== src/engine/15-turn.js ===== */
+/* --- the turn -------------------------------------------------------------- */
+
+function advance(state, input) {
+  const s = clone(state);
+  s.turn += 1;
+  s.log = [];
+  const r = turnRng(s.seed, s.turn);
+
+  s.weather = { storm: 0, cold: 0 };   // nothing carries over; a lever sets it below
+  applyInput(s, r, input);
+  sysWeather(s, r);
+  sysFood(s, r);
+  sysHardship(s, r);
+  sysTeaching(s, r);
+  sysGrowth(s, r);
+  sysNotes(s, r);
+  sysPairing(s, r);
+  sysLife(s, r);
+  sysHouseholds(s, r);
+  sysClaims(s, r);
+  sysDisputes(s, r);
+  sysOffices(s, r);
+  sysShrine(s, r);
+  sysGrudges(s, r);
+  sysPromotion(s, r);
+  sysActors(s, r);
+  sysMemory(s, r);
+  sysOmen(s, r);
+
+  recount(s);
+  s.chronicle.push({
+    turn: s.turn, season: seasonOf(s.turn), year: yearOf(s, s.turn),
+    weather: clone(s.weather), events: clone(s.log),
+    shrine: s.shrine ? { god: s.shrine.god, devotion: Math.round(s.shrine.devotion), keeper: s.shrine.keeperId ? s.shrine.keeperName : null } : null,
+    stats: clone(s.stats[s.stats.length - 1]),
+    input: input && input.lever ? input.lever : null
+  });
+  return s;
+}
+
+/* levers ------------------------------------------------------------------- */
+
+const LEVERS = {
+  none:     { label: 'Nothing', desc: 'Let the season pass unaided.' },
+  storm:    { label: 'Send a storm', desc: 'Horahìda stirs the water. Boats stay in; the catch fails.' },
+  bounty:   { label: 'Fill the nets', desc: 'A season of impossible fishing.' },
+  blight:   { label: 'Sicken the herds', desc: 'Qotihiqì turns the grazing against them.' },
+  quicken:  { label: 'Quicken the stone', desc: 'Dodìṭo hurries every growing home toward maturity.' },
+  wither:   { label: 'Still the stone', desc: 'Every growing home halts, as if the rock forgot.' },
+  fever:    { label: 'Send a fever', desc: 'Hiyaḍote walks the paths. The old and the crowded suffer.' },
+  strangers:{ label: 'Bring strangers', desc: 'A boat of newcomers asks for ground.' },
+  reveal:   { label: 'Reveal a grudge', desc: 'Shiḍuro makes a hidden injury public.' },
+  temper:   { label: 'Cool tempers', desc: 'Gìhuqìdu settles the standing quarrels.' }
+};
+
+function applyInput(s, r, input) {
+  const lv = input && input.lever;
+  if (!lv || lv === 'none') return;
+  const L = LEVERS[lv];
+  ev(s, 'divine', 5, `${L.desc}`, { lever: lv });
+  switch (lv) {
+    case 'storm': s.weather.storm = 1; break;
+    case 'bounty': s.weather.bounty = 1; break;
+    case 'blight': s.weather.blight = 1; break;
+    case 'quicken':
+      for (const b of Object.values(s.buildings)) if (b.state === 'growing') b.maturity = Math.min(1, b.maturity + 0.22);
+      break;
+    case 'wither':
+      for (const b of Object.values(s.buildings)) if (b.state === 'growing') b.stalled += 6;
+      break;
+    case 'fever': s.weather.fever = 1; break;
+    case 'strangers': arriveStrangers(s, r); break;
+    case 'reveal': revealGrudge(s, r); break;
+    case 'temper':
+      for (const d of Object.values(s.disputes)) if (d.open) d.heat = Math.max(0, d.heat - 45);
+      break;
+  }
+}
+
+/* weather ------------------------------------------------------------------- */
+
+function sysWeather(s, r) {
+  const season = seasonOf(s.turn);
+  const w = s.weather;
+  if (!w.storm) w.storm = (season === 'winter' && chance(r, 0.35)) || (season === 'harvest' && chance(r, 0.18)) ? 1 : 0;
+  w.cold = season === 'winter' ? 0.6 + r() * 0.4 : season === 'spring' ? 0.2 : 0;
+  if (w.storm) ev(s, 'weather', 2, pick(r, [
+    'Gales came off the water and the boats stayed drawn up on the shingle.',
+    'A run of bad weather. What went out came back mostly empty.',
+    'The sea was unworkable for weeks and the nets hung in the rafters.',
+    'Storms off the headland. Two boats were lost and not replaced.',
+    'Wind from the open water all season, and nobody put out past the shelf.'
+  ]));
+  else if (season === 'summer' && chance(r, 0.2)) { w.fair = 1; ev(s, 'weather', 1, 'The weather held fair for weeks together, which the older heads distrusted.'); }
+}
+
+
+/* ===== src/engine/20-economy.js ===== */
+/* food ---------------------------------------------------------------------- */
+
+/* A household that has split off but has no ground of its own still works the
+   ground of the house it lodges under, and eats from the same store. Treating
+   it as an independent economy the moment it has a name is what starved the
+   settlement in the first build. */
+function economicHost(s, hh) {
+  let cur = hh, guard = 0;
+  while (cur.lodgedWith && s.households[cur.lodgedWith] && !s.households[cur.lodgedWith].extinct && guard++ < 8) {
+    cur = s.households[cur.lodgedWith];
+  }
+  return cur;
+}
+
+function sysFood(s, r) {
+  const w = s.weather;
+  const seasonMul = { spring: 1.0, summer: 1.3, harvest: 1.25, winter: 0.65 }[seasonOf(s.turn)];
+
+  // group households into economic units
+  const units = {};
+  for (const hh of Object.values(s.households)) {
+    if (hh.extinct) continue;
+    const host = economicHost(s, hh);
+    (units[host.id] = units[host.id] || { host, members: [] }).members.push(hh);
+  }
+
+  for (const u of Object.values(units)) {
+    const claims = u.members.flatMap(h => h.claims);
+    const bestFish = Math.max(0, ...claims.map(c => s.tiles[c].fish), 0);
+    const bestGraze = Math.max(0, ...claims.map(c => s.tiles[c].graze), 0);
+    // more hands on the same ground help, but with diminishing return
+    let hands = 0, yield_ = 0, mouths = 0;
+    const people = u.members.flatMap(h => h.members).map(p => s.people[p]).filter(p => p && p.alive);
+
+    for (const p of people) {
+      const a = ageOf(s, p);
+      mouths += a < 12 ? 0.5 : a > 66 ? 0.75 : 1;
+      if (a < 12 || a > 70) continue;
+      if (p.work === 'tend') { yield_ += 0.6; continue; }   // a tender still helps a little
+      hands++;
+      const crowd = Math.pow(hands, -0.22);                 // the fifth boat is worth less than the first
+      if (bestFish > 0.15 && (p.work === 'fish' || !bestGraze)) {
+        yield_ += bestFish * 4.2 * seasonMul * crowd * (w.storm ? 0.3 : 1) * (w.bounty ? 2.4 : 1) * (0.85 + r() * 0.3);
+      } else if (bestGraze > 0.1) {
+        yield_ += bestGraze * 3.4 * seasonMul * crowd * (w.blight ? 0.25 : 1) * (0.85 + r() * 0.3);
+      } else {
+        yield_ += 1.5 * seasonMul * (0.7 + r() * 0.6);      // gathering the shore, no ground of their own
+      }
+    }
+
+    u.host.stores = clamp(u.host.stores + yield_ - mouths, -99, 44);
+    u.host.lastYield = yield_; u.host.mouths = mouths;
+    for (const h of u.members) if (h !== u.host) { h.stores = 0; h.lastYield = 0; }
+
+    if (u.host.stores < 0) {
+      const deficit = -u.host.stores;
+      u.host.stores = 0;
+      for (const p of people) p.hunger = clamp(p.hunger + deficit * 0.55, 0, 10);
+      u.host.shortSeasons = (u.host.shortSeasons || 0) + 1;
+      // report a shortage once it has lasted, not the first season it dips
+      if (u.host.shortSeasons === 3 || (u.host.shortSeasons > 3 && u.host.shortSeasons % 6 === 0)) {
+        ev(s, 'hunger', 4, `The ${u.host.name} household has been short for ${u.host.shortSeasons} seasons running, and it shows on them.`, { household: u.host.id });
+      }
+    } else {
+      for (const p of people) p.hunger = Math.max(0, p.hunger - 1.8);
+      u.host.shortSeasons = 0;
+    }
+  }
+}
+
+/* hardship --------------------------------------------------------------------
+   A household that has been short for years has to do something about it. It
+   was previously just accruing a slightly higher death risk in silence.
+   -------------------------------------------------------------------------- */
+
+function sysHardship(s, r) {
+  for (const hh of Object.values(s.households)) {
+    if (hh.extinct || hh.lodgedWith) continue;
+    const n = hh.shortSeasons || 0;
+    if (n < 4) continue;
+    const head = s.people[hh.headId];
+    if (!head || !head.alive) continue;
+    const live = hh.members.map(i => s.people[i]).filter(p => p.alive);
+    const fat = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith
+      && h.id !== hh.id && h.stores > 12);
+
+    // 1. send a child out to a house that can feed it
+    if (n >= 4 && chance(r, 0.22)) {
+      const kids = live.filter(p => ageOf(s, p) >= 7 && ageOf(s, p) <= 15);
+      const asked = fat.sort((a, b) => standingOf(s, b) - standingOf(s, a));
+      let to = null;
+      for (const cand of asked) {
+        if (holdsAgainst(s, s.people[cand.headId], hh.id) > 18) {
+          ev(s, 'hardship', 6, `The ${hh.name} asked the ${cand.name} to take a child through the winter and were refused. There is an old reason and both houses know it.`, { household: hh.id });
+          remember(s, cand.id, -6, `turned away a hungry child over something that happened before it was born`);
+          continue;   // ask the next house
+        }
+        to = cand; break;
+      }
+      if (kids.length && to) {
+        const kid = pick(r, kids);
+        hh.members = hh.members.filter(i => i !== kid.id);
+        kid.householdId = to.id; to.members.push(kid.id);
+        remember(s, to.id, 5, `took in another house's children in a hard stretch`);
+        ev(s, 'hardship', 5, `The ${hh.name} sent ${kid.name} up to the ${to.name} to be fed. It was called fostering and everyone used that word.`, { person: kid.id, household: hh.id });
+        continue;
+      }
+    }
+
+    // 2. take what is not offered
+    if (n >= 6 && head.traits.avarice + head.traits.courage > 105 && chance(r, 0.18) && fat.length) {
+      const victim = pick(r, fat);
+      const took = Math.min(6, victim.stores * 0.3);
+      victim.stores -= took; hh.stores += took * 0.8;
+      const vh = s.people[victim.headId];
+      if (vh) vh.grudges.push({ target: hh.id, cause: `stores taken from them in a hard season`, turn: s.turn, heat: 60 });
+      remember(s, hh.id, -8, `took from the ${victim.name} in a bad year and never gave it back`);
+      ev(s, 'hardship', 6, `The ${victim.name} store was lighter than it should have been, twice this season. The ${hh.name} were not accused out loud, which is not the same as not being blamed.`, { household: hh.id });
+      continue;
+    }
+
+    // 3. press for better ground — not a house site, a place to work
+    if (n >= 8 && chance(r, 0.2)) {
+      const holder = Object.values(s.households).filter(h => !h.extinct && h.id !== hh.id
+        && h.claims.filter(c => s.tiles[c].fish > 0.3 || s.tiles[c].graze > 0.4).length > 1)
+        .sort((a, b) => b.claims.length - a.claims.length)[0];
+      if (holder) { openDispute(s, r, hh, holder, 'water and grazing enough to live off'); continue; }
+    }
+
+    // 4. give up on the place
+    if (n >= 13 && chance(r, 0.16)) {
+      for (const p of live) { p.alive = false; p.deathTurn = s.turn; p.cause = 'departure'; }
+      hh.extinct = s.turn;
+      for (const c of hh.claims) s.tiles[c].owner = null;
+      remember(s, hh.id, -2, `walked off this coast rather than starve on it`);
+      ev(s, 'hardship', 6, `The ${hh.name} had been short for ${Math.round(n / 4)} years. They went north in the spring and left the door open behind them.`, { household: hh.id });
+    }
+  }
+
+  // and the other direction: a full house may simply give
+  for (const hh of Object.values(s.households)) {
+    if (hh.extinct || hh.lodgedWith || hh.stores < 16) continue;
+    const head = s.people[hh.headId];
+    if (!head || !head.alive || head.traits.avarice > 55 || head.traits.loyalty < 50) continue;
+    const needy = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && (h.shortSeasons || 0) >= 3);
+    if (needy.length < 2 || !chance(r, 0.10)) continue;
+    const skipped = needy.filter(n => holdsAgainst(s, head, n.id) > 25);
+    const given = needy.filter(n => !skipped.includes(n));
+    if (!given.length) continue;
+    const give = Math.min(hh.stores - 10, given.length * 2.5);
+    hh.stores -= give;
+    for (const nd of given) nd.stores += give / given.length;
+    remember(s, hh.id, 7, `opened their stores to houses not their own without being asked`);
+    if (skipped.length) {
+      const missed = skipped[0];
+      remember(s, hh.id, -4, `fed every hungry house on this coast except the ${missed.name}, deliberately`);
+      const mh = s.people[missed.headId];
+      if (mh) mh.grudges.push({ target: hh.id, cause: `they fed everyone that winter and walked past this door`, turn: s.turn, heat: 70 });
+      ev(s, 'hardship', 6, `The ${hh.name} sent food to every household that was short except the ${missed.name}, whose door they passed. Nothing was said. Nothing needed to be.`, { household: hh.id });
+    } else {
+      ev(s, 'hardship', 5, `The ${hh.name} sent food down to ${given.length === 1 ? 'the ' + given[0].name : given.length + ' households'} and would not discuss it.`, { household: hh.id });
+    }
+  }
+}
+
+
+/* ===== src/engine/30-stone.js ===== */
+/* who will work your stone ----------------------------------------------------
+   A tender was previously assigned to whatever stone was nearest. But the gift
+   is the scarcest thing in the settlement, and the person holding it decides
+   which households get to exist. A tender who will not work for a house is
+   handing down a sentence, slowly, over twenty years.
+   -------------------------------------------------------------------------- */
+
+function holdsAgainst(s, person, householdId) {
+  if (!person) return 0;
+  return person.grudges
+    .filter(g => g.target === householdId)
+    .reduce((a, g) => a + g.heat * Math.pow(0.5, (s.turn - g.turn) / 200), 0);
+}
+
+// What a tender thinks of a job. Below zero and they will not take it.
+function tenderWill(s, t, hh, tid) {
+  const own = s.households[t.householdId];
+  let v = 20;
+  v -= walkDist(s, homeTile(s, t), tid) * 3.4;             // it is a walk, every day, for years
+  if (own && own.id === hh.id) v += 55;                    // your own house first
+  else if (own && firstSyllable(own.name) === firstSyllable(hh.name)) v += 26;  // kin
+  v += reputeOf(s, hh) * 2.2;                              // what the house is known for
+  v -= holdsAgainst(s, t, hh.id) * 0.9;                    // and what you hold against it
+  if (t.traits.avarice > 55) v += clamp(hh.stores - 6, -8, 14) * (t.traits.avarice / 90);
+  if (t.traits.piety > 60 && s.shrine && s.shrine.devotion > 55) v += 14;  // devout tenders refuse less
+  if (t.traits.loyalty > 65) v += 10;
+  return v;
+}
+
+function chooseTender(s, r, hh, tid, load, exclude) {
+  const cands = Object.values(s.people).filter(p => p.alive && p.tender
+    && ageOf(s, p) >= 16 && ageOf(s, p) <= 74 && (load[p.id] || 0) < 3 && p.id !== exclude);
+  if (!cands.length) return { tender: null, refusers: [] };
+  const scored = cands.map(p => ({ p, v: tenderWill(s, p, hh, tid) + (r() - 0.5) * 8 }))
+    .sort((a, b) => b.v - a.v);
+  const willing = scored.filter(x => x.v > 0);
+  return { tender: willing.length ? willing[0].p : null, refusers: scored.filter(x => x.v <= 0).map(x => x.p) };
+}
+
+/* the growing of homes ------------------------------------------------------ */
+
+function sysGrowth(s, r) {
+  const tenders = Object.values(s.people).filter(p => p.alive && p.tender && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
+  const load = {};
+  for (const b of Object.values(s.buildings)) {
+    if (b.state !== 'growing') continue;
+    if (b.tenderId && !s.people[b.tenderId]?.alive) {
+      ev(s, 'stall', 4, `The stone at ${siteWord(s, b.tileId)} stopped answering — the hand that shaped it is gone.`, { building: b.id });
+      b.tenderId = null;
+    }
+    if (!b.tenderId) {
+      const hhb = s.households[b.householdId];
+      const { tender: took, refusers } = hhb
+        ? chooseTender(s, r, hhb, b.tileId, load, b.lastTenderId)
+        : { tender: null, refusers: [] };
+      if (took && chance(r, 0.7)) {
+        b.tenderId = took.id;
+        ev(s, 'tend', 4, `${nameOf(s, took.id)} took up the unfinished stone at ${siteWord(s, b.tileId)}.`, { building: b.id, person: took.id });
+      } else {
+        b.stalled++; b.maturity = Math.max(0, b.maturity - 0.0015);
+        if (b.stalled === 12 && hhb && refusers.length) {
+          ev(s, 'notender', 6, `Three years now and nobody with the gift will go near the ${hhb.name} stone. ${refusers.length === 1 ? nameOf(s, refusers[0].id) + ' has' : 'They have'} not given a reason and are not being asked for one.`, { household: hhb.id });
+          remember(s, hhb.id, -4, `had their stone left standing half-grown because no tender would touch it`);
+        }
+        continue;
+      }
+    }
+    const t = s.people[b.tenderId];
+    const hhb = s.households[b.householdId];
+    if (hhb && t && tenderWill(s, t, hhb, b.tileId) < -12 && chance(r, 0.3)) {
+      ev(s, 'tend', 6, `${nameOf(s, t.id)} stopped work on the ${hhb.name} stone and did not go back. It stands at ${Math.round(b.maturity * 100)} parts in a hundred.`, { building: b.id, person: t.id });
+      remember(s, hhb.id, -3, `were walked out on by the tender who was growing their house`);
+      b.lastTenderId = t.id; b.tenderId = null; b.stalled++;
+      continue;
+    }
+    load[b.tenderId] = (load[b.tenderId] || 0) + 1;
+    const skill = 0.55 + t.traits.loyalty / 300 + (ageOf(s, t) > 34 ? 0.25 : 0);
+    const rate = 0.030 * skill * s.tiles[b.tileId].stone * (1 - (load[b.tenderId] - 1) * 0.18);
+    b.maturity = Math.min(1, b.maturity + rate);
+    if (b.maturity >= 1) {
+      b.state = 'mature';
+      const hh = s.households[b.householdId];
+      if (hh) { hh.buildingId = b.id; hh.lodgedWith = null; }
+      ev(s, 'mature', 5, `After ${Math.round((s.turn - b.startTurn) / 4)} years the ${hh ? hh.name : 'new'} house came to its full shape and was opened.`, { building: b.id, household: b.householdId });
+    }
+  }
+  // slow decay of empty or neglected homes
+  for (const b of Object.values(s.buildings)) {
+    if (b.state !== 'mature') continue;
+    const hh = s.households[b.householdId];
+    const occupied = hh && hh.members.some(p => s.people[p].alive);
+    if (!occupied) {
+      b.condition -= 0.012;
+      if (b.condition <= 0 && b.state !== 'derelict') {
+        b.state = 'derelict';
+        ev(s, 'derelict', 3, `The old ${hh ? hh.name : ''} house at ${siteWord(s, b.tileId)} finally split along its rings. Nobody had tended it in years.`, { building: b.id });
+      }
+    }
+  }
+}
+
+function homeTile(s, p) {
+  const hh = s.households[p.householdId];
+  if (!hh) return 0;
+  const b = s.buildings[hh.buildingId];
+  return b ? b.tileId : (hh.claims[0] ?? 0);
+}
+
+function siteWord(s, tid) {
+  const q = quarterOf(s, tid);
+  const t = s.tiles[tid];
+  return q ? `the ${TERRAIN_NAME[t.t]} at ${q.name}` : TERRAIN_NAME[t.t];
+}
+
+/* pairing ------------------------------------------------------------------- */
+/* Households do not marry within themselves. Without a pass that moves adults
+   between houses, every household that splits off is a dead end and the
+   settlement bleeds out over two generations while every other number looks
+   healthy. */
+
+function adultsOf(s, hh, lo = 17, hi = 45) {
+  return hh.members.map(i => s.people[i]).filter(p => p && p.alive && ageOf(s, p) >= lo && ageOf(s, p) <= hi);
+}
+
+function sysPairing(s, r) {
+  const live = Object.values(s.households).filter(h => !h.extinct);
+  const seeking = live.filter(h => {
+    const a = adultsOf(s, h);
+    if (!a.length) return false;
+    return !(a.some(p => p.sex === 'm') && a.some(p => p.sex === 'f'));
+  });
+  if (!seeking.length) return;
+
+  let moves = 0;
+  const moved = new Set();
+  for (const hh of seeking) {
+    if (moves >= 3) break;
+    const have = adultsOf(s, hh);        // recomputed: an earlier match this
+    if (!have.length) continue;          // turn may have taken their last adult
+    const want = have[0].sex === 'm' ? 'f' : 'm';
+    if (!chance(r, 0.34)) continue;
+
+    // Who is actually available: an adult of the right sex whose household is
+    // not already a pair, or who is one of two or more of that sex in a house
+    // that can spare one. A head can only leave a household with nothing in it.
+    const pool = [];
+    for (const other of live) {
+      if (other.id === hh.id) continue;
+      const all = adultsOf(s, other);
+      const paired = all.some(q => q.sex === 'm') && all.some(q => q.sex === 'f');
+      const sameSex = all.filter(q => q.sex === want).length;
+      for (const c of adultsOf(s, other, 17, 40)) {
+        if (c.sex !== want || moved.has(c.id)) continue;
+        const spareable = !paired || sameSex >= 2;
+        if (reputeOf(s, hh) < -7 && !chance(r, 0.35)) continue;   // few will marry into a house like that
+        const alone = other.members.filter(i => s.people[i].alive).length <= 1;
+        const canLeave = !alone && (c.role !== 'head' || (!other.buildingId && !other.claims.length));
+        if (spareable && canLeave) pool.push({ p: c, from: other });
+      }
+    }
+
+    // An empty pool only means nobody could be *spared* — that is an allocation
+    // problem, not a shortage. A second attachment needs the settlement to be
+    // genuinely thin of that sex, which happens when a bad season or a run of
+    // births falls the wrong way. Nothing arranges for it.
+    let second = false;
+    if (!pool.length) {
+      const wanted = Object.values(s.people).filter(q => q.alive && q.sex === want
+        && ageOf(s, q) >= 18 && ageOf(s, q) <= 40 && q.householdId !== hh.id && !moved.has(q.id)
+        && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || q.prominence > 0));
+      if (!wanted.length || !chance(r, 0.16)) continue;
+      const q = pick(r, wanted);
+      pool.push({ p: q, from: s.households[q.householdId] });
+      second = true;
+    }
+
+    pool.sort((a, b) => walkDist(s, homeTile(s, a.p), homeTile(s, have[0])) - walkDist(s, homeTile(s, b.p), homeTile(s, have[0])));
+    const chosen = pool[Math.min(pool.length - 1, Math.floor(Math.pow(r(), 2) * 4))];
+    const p = chosen.p;
+
+    moved.add(p.id);
+    if (chosen.from) chosen.from.members = chosen.from.members.filter(i => i !== p.id);
+    p.householdId = hh.id;
+    p.role = 'none';
+    p.matches = (p.matches || 0) + 1;
+    hh.members.push(p.id);
+    moves++;
+
+    if (second && p.matches > 1) {
+      ev(s, 'match', 6, `There was nobody left unspoken-for on this coast, so the ${hh.name} sent for ${p.name} ${p.lineage}, who was already reckoned to the ${chosen.from ? chosen.from.name : 'another'} — the ${p.matches}${p.matches === 2 ? 'nd' : p.matches === 3 ? 'rd' : 'th'} house to claim them. Opinion was divided and stayed divided.`, { person: p.id, household: hh.id });
+      if (chosen.from) {
+        const jilted = s.people[chosen.from.headId];
+        if (jilted && jilted.alive && jilted.traits.grudge > 45)
+          jilted.grudges.push({ target: hh.id, cause: `they sent for ${p.name}, who was already reckoned to this house`, turn: s.turn, heat: 45 });
+      }
+    } else {
+      // routine. recorded, not announced.
+      ev(s, 'match', 1, `${p.name} ${p.lineage} went to the ${hh.name} household, and the two houses were reckoned joined.`, { person: p.id, household: hh.id });
+    }
+  }
+}
+
+/* quiet-season texture ------------------------------------------------------- */
+/* Reports state the simulation already holds. Nothing here changes anything. */
+
+function sysNotes(s, r) {
+  // stone passing a visible stage
+  for (const b of Object.values(s.buildings)) {
+    if (b.state !== 'growing' || !b.tenderId) continue;
+    const hh = s.households[b.householdId];
+    if (!hh) continue;
+    const was = b.lastMark || 0;
+    const mark = b.maturity >= 0.9 ? 3 : b.maturity >= 0.6 ? 2 : b.maturity >= 0.3 ? 1 : 0;
+    if (mark > was) {
+      b.lastMark = mark;
+      const line = mark === 1 ? pick(r, [
+          `The ${hh.name} stone has taken a shape you can walk into, though it has no roof to speak of yet.`,
+          `You can see what the ${hh.name} stone means to be now. Walls to the waist, no more.`,
+          `The ${hh.name} stone came up past knee height this year, which is further than it looks.`
+        ]) : mark === 2 ? pick(r, [
+          `Rings are showing plainly on the ${hh.name} stone now. Children have started using it as a landmark.`,
+          `The ${hh.name} stone has its doorway. No roof over it, but a doorway.`,
+          `Banding on the ${hh.name} stone has gone dense enough to read the years off it.`
+        ]) : pick(r, [
+          `The ${hh.name} stone is close. ${nameOf(s, b.tenderId)} has been up there most days.`,
+          `The ${hh.name} household has begun moving things up to the new stone, roof or no roof.`,
+          `Only the cap of the ${hh.name} stone is still open. ${nameOf(s, b.tenderId)} says two more seasons.`
+        ]);
+      const t = s.people[b.tenderId];
+      const worthSaying = mark === 3 && (b.stalled > 0 || (t && t.prominence > 0));
+      ev(s, 'note', worthSaying ? 3 : 1, line, { building: b.id });
+    }
+  }
+
+  // the season's catch against what the settlement is used to
+  const total = Object.values(s.households).reduce((a, h) => a + (h.lastYield || 0), 0);
+  s.yieldHist = (s.yieldHist || []).concat(total).slice(-16);
+  if (s.yieldHist.length >= 8) {
+    const avg = s.yieldHist.slice(0, -1).reduce((a, b) => a + b, 0) / (s.yieldHist.length - 1);
+    if (total > avg * 1.35) ev(s, 'note', 2, pick(r, [
+      'The best season anyone could remember for some years. Stores went in full.',
+      'Everything came in heavy — nets, herds, the lot. Nobody quite trusted it.',
+      'A season of plenty, and the older houses quietly put some aside.'
+    ]));
+    else if (total < avg * 0.68) ev(s, 'note', 2, pick(r, [
+      'A thin season. What came in was counted twice.',
+      'Little came in from anywhere, and it was noticed at every table.',
+      'The worst season in years, though nobody went short who had stores.'
+    ]));
+  }
+
+  // the oldest living person, when that changes hands
+  const live = Object.values(s.people).filter(p => p.alive);
+  if (live.length) {
+    const eldest = live.sort((a, b) => a.birthTurn - b.birthTurn)[0];
+    if (s.eldestId !== eldest.id && ageOf(s, eldest) > 68) {
+      s.eldestId = eldest.id;
+      ev(s, 'note', 2, `${nameOf(s, eldest.id)} is now the oldest living soul here, at ${ageOf(s, eldest)}.`, { person: eldest.id });
+    }
+  }
+}
+
+/* teaching the gift -----------------------------------------------------------
+   The gift was a coin flip at birth, so a tender's death put it back into the
+   lottery and nothing about who held it could be inherited or withheld. It is
+   taught now: a tender takes an apprentice, usually kin, over about a decade.
+   That makes the question of who can build houses something families hold.
+   -------------------------------------------------------------------------- */
+
+function best0(p) { return p.name + ' ' + p.lineage; }
+
+function sysTeaching(s, r) {
+  const tenders = Object.values(s.people).filter(p => p.alive && p.tender
+    && ageOf(s, p) >= 26 && ageOf(s, p) <= 78);
+
+  // finish what is already being taught
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.learning) continue;
+    const master = s.people[p.learning.from];
+    if (!master || !master.alive) {
+      p.learning.orphaned = (p.learning.orphaned || 0) + 1;
+      if (p.learning.orphaned === 1)
+        ev(s, 'teach', 5, `${nameOf(s, p.id)} was half-taught when ${p.learning.name} died. Whether half is enough is not a thing anyone can tell by looking.`, { person: p.id });
+      if (p.learning.progress > 0.62 && chance(r, 0.10)) {
+        p.tender = true; p.learning = null;
+        ev(s, 'teach', 6, `${nameOf(s, p.id)} got the stone to answer, alone, years after the person teaching them died. Nobody is certain they were taught the whole of it.`, { person: p.id });
+      } else if (chance(r, 0.05)) {
+        ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up on the stone. They had been at it ${Math.max(1, Math.round(p.learning.progress * 12))} years.`, { person: p.id });
+        p.learning = null;
+      }
+      continue;
+    }
+    // most who start do not finish
+    if (chance(r, 0.009)) {
+      ev(s, 'teach', 3, `${best0(p)} stopped going up to the stone with ${p.learning.name}. Neither of them said why.`, { person: p.id });
+      p.learning = null; continue;
+    }
+    p.learning.progress += 0.022 * (0.7 + p.traits.loyalty / 250) * (p.learning.kin ? 1.25 : 1);
+    if (p.learning.progress >= 1) {
+      p.tender = true;
+      const yrs = Math.max(1, Math.round((s.turn - p.learning.since) / 4));
+      p.learning = null;
+      remember(s, p.householdId, 4, `have the gift in the house, taught and not merely born to`);
+      ev(s, 'teach', 6, `${nameOf(s, p.id)} can work the stone now. It took ${yrs} years and ${nameOf(s, master.id)} says it took longer than it should have.`, { person: p.id });
+    }
+  }
+
+  // and take someone new on
+  for (const t of tenders) {
+    const already = Object.values(s.people).some(p => p.alive && p.learning && p.learning.from === t.id);
+    if (already || !chance(r, 0.075)) continue;
+
+    const own = s.households[t.householdId];
+    const pool = Object.values(s.people).filter(p => p.alive && !p.tender && !p.learning
+      && p.aptitude && ageOf(s, p) >= 11 && ageOf(s, p) <= 24);
+    if (!pool.length) continue;
+
+    // kin first, then whoever is near and willing — and a tender will not teach
+    // into a house they hold something against
+    const scored = pool.map(p => {
+      const hh = s.households[p.householdId];
+      let v = p.traits.loyalty * 0.5 + p.traits.piety * 0.3 - walkDist(s, homeTile(s, p), homeTile(s, t)) * 2;
+      const kin = !!(own && p.householdId === t.householdId);
+      if (kin) v += 45;
+      else if (own && hh && firstSyllable(own.name) === firstSyllable(hh.name)) v += 22;
+      if (hh) v -= holdsAgainst(s, t, hh.id) * 0.8;
+      return { p, v, kin };
+    }).sort((a, b) => b.v - a.v);
+
+    const best = scored[0];
+    if (!best || best.v < 10) continue;
+    best.p.learning = { from: t.id, name: nameOf(s, t.id), since: s.turn, progress: 0.02, kin: best.kin };
+    ev(s, 'teach', 4, best.kin
+      ? `${nameOf(s, t.id)} started teaching ${best.p.name} the stone. It stays in the house, which is how it usually goes.`
+      : `${nameOf(s, t.id)} took ${nameOf(s, best.p.id)} on to teach, out of another house entirely. That was remarked on.`,
+      { person: best.p.id });
+  }
+}
+
+
+/* ===== src/engine/40-society.js ===== */
+/* birth, age and death ------------------------------------------------------ */
+
+function sysLife(s, r) {
+  const w = s.weather;
+  for (const p of Object.values(s.people)) {
+    if (!p.alive) continue;
+    const a = ageOf(s, p);
+    const hh = s.households[p.householdId];
+    const crowd = hh ? crowding(s, hh) : 1;
+
+    let risk = 0.0009;
+    if (a < 3) risk = 0.016;
+    else if (a > 58) risk = 0.004 * Math.pow(1.13, a - 58);
+    risk *= 1 + p.hunger * 0.18;
+    risk *= 1 + Math.max(0, crowd - 1) * 0.35;
+    risk *= 1 + w.cold * 0.4;
+    if (w.fever) risk *= a > 60 || crowd > 1.2 ? 3.4 : 1.6;
+
+    if (chance(r, risk)) {
+      kill(s, p, p.hunger > 4 ? 'hunger' : w.fever ? 'the fever' : a > 58 ? 'age' : 'illness');
+    }
+  }
+
+  // births
+  for (const hh of Object.values(s.households)) {
+    const women = hh.members.map(i => s.people[i]).filter(p => p.alive && p.sex === 'f' && ageOf(s, p) >= 18 && ageOf(s, p) <= 42);
+    const men = hh.members.map(i => s.people[i]).filter(p => p.alive && p.sex === 'm' && ageOf(s, p) >= 18);
+    if (!women.length || !men.length) continue;
+    const fed = hh.stores > 3 ? 1 : 0.35;
+    const room = crowding(s, hh) > 1.15 ? 0.45 : 1;
+    for (const wman of women) {
+      if (chance(r, 0.055 * fed * room)) {
+        const child = makePerson(s, r, hh.id, 0);
+        child.role = 'child';
+        child.parents = [wman.id, pick(r, men).id];
+        // the gift runs in families
+        if (wman.tender || s.people[child.parents[1]].tender) child.tender = chance(r, 0.34);
+        if (child.tender) ev(s, 'birth', 3, `A child born to the ${hh.name} household, ${child.name}, and the midwife said the stone leaned toward her.`, { person: child.id, household: hh.id });
+      }
+    }
+  }
+}
+
+function kill(s, p, cause) {
+  p.alive = false; p.deathTurn = s.turn; p.cause = cause;
+  const hh = s.households[p.householdId];
+  const weight = p.prominence > 0 ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
+  let text;
+  if (p.tender) text = `${nameOf(s, p.id)}, who could work the stone, died of ${cause}.`;
+  else if (p.prominence > 0) text = `${nameOf(s, p.id)} died of ${cause}.`;
+  else if (p.role === 'head') text = `${nameOf(s, p.id)}, head of the ${hh ? hh.name : ''} household, died of ${cause}.`;
+  else text = `${nameOf(s, p.id)} died of ${cause}.`;
+  ev(s, 'death', weight, text, { person: p.id, household: p.householdId, cause });
+
+  // grudges pass to the heirs when the dead held them hard
+  if (hh) {
+    for (const g of p.grudges) {
+      if (g.heat < 30) continue;
+      for (const mid of hh.members) {
+        const m = s.people[mid];
+        if (!m.alive || m.id === p.id) continue;
+        if (m.traits.grudge > 45 && chance(mulberry32(s.turn + parseInt(mid.slice(1))), 0.5)) {
+          m.grudges.push({ target: g.target, cause: g.cause + ', which their kin died still holding', turn: s.turn, heat: g.heat * 0.7, inherited: true });
+        }
+      }
+    }
+  }
+}
+
+function crowding(s, hh) {
+  const b = s.buildings[hh.buildingId];
+  const live = hh.members.filter(i => s.people[i].alive).length;
+  if (!b || b.state !== 'mature') return live > 0 ? 1.8 : 1;   // lodging or under canvas
+  return live / Math.max(1, b.capacity);
+}
+
+/* households: succession, splitting, lodging -------------------------------- */
+
+function sysHouseholds(s, r) {
+  for (const hh of Object.values(s.households)) {
+    const live = hh.members.map(i => s.people[i]).filter(p => p.alive);
+    if (!live.length) {
+      if (!hh.extinct) {
+        hh.extinct = s.turn;
+        const yrs = Math.round((s.turn - (hh.founded || 0)) / 4);
+        ev(s, 'extinct', 6, pick(r, [
+          `The ${hh.name} line ended. Their claims stand unworked.`,
+          `There is no ${hh.name} any more. Their ground is open and three houses noticed the same week.`,
+          `The last of the ${hh.name} died this season, ${yrs > 0 && yrs < 300 ? yrs + ' years after the house was set up' : 'after generations here'}. The door is shut and nobody has opened it.`,
+          `The ${hh.name} are finished. What they held reverts to whoever moves on it first.`
+        ]), { household: hh.id });
+        for (const c of hh.claims) s.tiles[c].owner = null;
+        hh.claims = [];
+      }
+      continue;
+    }
+    // succession
+    const head = s.people[hh.headId];
+    if (!head || !head.alive) {
+      const heirs = live.filter(p => ageOf(s, p) >= 16)
+        .sort((a, b) => (b.traits.ambition + b.traits.loyalty * 0.4 + ageOf(s, b) * 0.7) - (a.traits.ambition + a.traits.loyalty * 0.4 + ageOf(s, a) * 0.7));
+      if (heirs.length) {
+        const next = heirs[0];
+        next.role = 'head'; hh.headId = next.id;
+        const contested = heirs.length > 1 && heirs[1].traits.ambition > 62 && heirs[1].traits.ambition > next.traits.ambition - 18;
+        if (contested) {
+          const rival = heirs[1];
+          rival.grudges.push({ target: hh.id, cause: `the seat of their own household passed to ${next.name}`, turn: s.turn, heat: 35 + rival.traits.grudge * 0.4 });
+          ev(s, 'succession', 5, `${nameOf(s, next.id)} took the ${hh.name} seat, and ${rival.name} did not speak at the table afterward.`, { person: next.id, household: hh.id });
+        } else {
+          const outsider = next.lineage !== hh.name;
+          const odd = outsider || next.tender || next.prominence > 0;
+          ev(s, 'succession', odd ? 4 : 1, outsider
+            ? pick(r, [
+                `The ${hh.name} seat went to ${nameOf(s, next.id)}, who was not born to it. Some houses do not care about that and some do.`,
+                `${nameOf(s, next.id)} heads the ${hh.name} now, under a name that is not theirs, which was remarked on and then not.`,
+                `The ${hh.name} put ${nameOf(s, next.id)} at the head of the table. Two of the older houses had opinions and kept them.`
+              ])
+            : `${nameOf(s, next.id)} took the ${hh.name} seat.`, { person: next.id, household: hh.id });
+        }
+      }
+    }
+    assignWork(s, r, hh);
+
+    // a grown child with ambition sets up on their own — but only when the old
+    // house is both crowded and fed enough to spare them
+    const founders = live.filter(p => ageOf(s, p) >= 21 && ageOf(s, p) <= 44 && p.role !== 'head');
+    const homes = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
+    const ground = s.tiles.some(t => !t.owner && siteValue(s.tiles, t.id) > 0
+      && !homes.some(x => tileDist(x, t.id) < 2.15));
+    if (founders.length && live.length >= 4 && crowding(s, hh) > 0.9 && hh.stores > 6) {
+      const f = founders.sort((a, b) => b.traits.ambition - a.traits.ambition)[0];
+      const waiting = landless(s).length;
+      const pressure = clamp(1 - waiting / 18, 0.10, 1);   // nobody splits into a queue
+      const urge = ((ground ? 0.021 : 0.003) + f.traits.ambition / (ground ? 2800 : 14000)) * pressure;
+      if (chance(r, urge)) splitHousehold(s, r, hh, f);
+    }
+  }
+}
+
+const VOWEL_SET = new Set(['a', 'e', 'i', 'ì', 'o', 'u']);
+
+// Gogìḍu is strictly (C)V, so a syllable ends at the first vowel. Onsets can be
+// two characters ('th', 'sh'), which is what a plain slice got wrong.
+function firstSyllable(name) {
+  const lower = name.charAt(0).toLowerCase() + name.slice(1);
+  for (let i = 0; i < lower.length; i++) {
+    if (VOWEL_SET.has(lower[i])) return lower.slice(0, i + 1);
+  }
+  return lower.slice(0, 2);
+}
+
+function cadetName(s, r, parentName) {
+  const stem = firstSyllable(parentName);
+  const taken = new Set(Object.values(s.households).map(h => h.name));
+  const cap = (n) => n.charAt(0).toUpperCase() + n.slice(1);
+  for (let i = 0; i < 30; i++) {
+    const n = cap(stem + syl(r) + pick(r, LINEAGE_TAIL));
+    if (!taken.has(n)) return n;
+  }
+  return cap(stem + syl(r) + syl(r));
+}
+
+function splitHousehold(s, r, parent, founder) {
+  const hid = 'h' + s.nextId++;
+  const name = cadetName(s, r, parent.name);
+  const hh = {
+    id: hid, name, headId: founder.id, members: [founder.id],
+    buildingId: null, claims: [], stores: Math.max(0, parent.stores * 0.25),
+    standing: parent.standing * 0.5, lodgedWith: parent.id, founded: s.turn, parentId: parent.id
+  };
+  parent.stores *= 0.75;
+  parent.members = parent.members.filter(i => i !== founder.id);
+  founder.householdId = hid; founder.role = 'head';
+  s.households[hid] = hh;
+  const homes = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
+  const roomLeft = s.tiles.some(t => !t.owner && siteValue(s.tiles, t.id) > 0
+    && !homes.some(x => tileDist(x, t.id) < 2.15));
+  const notable = !roomLeft || founder.tender || founder.prominence > 0;
+  ev(s, 'split', notable ? 4 : 1, notable
+    ? (roomLeft
+        ? `${founder.name} of the ${parent.name} set up apart as the ${name}.`
+        : `${founder.name} of the ${parent.name} set up apart as the ${name}, ` + pick(r, [
+            'with no ground left on this coast to put them on.',
+            'though there is nowhere left to grow them a house and everyone knows it.',
+            'and joined the list of households waiting on stone that does not exist yet.',
+            'which the older heads called optimistic, given the state of the hillside.'
+          ]))
+    : `${founder.name} of the ${parent.name} set up apart as the ${name}, lodging still under the old roof until ground could be found.`,
+    { person: founder.id, household: hid });
+  founder.lineage = name;
+}
+
+
+/* ===== src/engine/45-offices.js ===== */
+/* ===========================================================================
+   OFFICES
+   A role is only worth wanting if it can be withheld. Each office below holds
+   a chokepoint: whether rulings bind, who may quarrel openly, who eats, and
+   who may build. They are held by named people, they fall vacant on death,
+   and who fills them is decided by the form of government in play.
+   =========================================================================== */
+
+const GOVERNMENTS = {
+  sole: {
+    name: 'a sole ruler',
+    describe: 'One house speaks for the settlement, with two advisors who are listened to as far as it suits.',
+    seats: () => [
+      { key: 'ruler',   title: 'Head of the Settlement', n: 1 },
+      { key: 'advisor', title: 'Advisor',                n: 2 }
+    ]
+  },
+  tribunal: {
+    name: 'a tribunal',
+    describe: 'Three sit together and nothing carries unless two of them agree.',
+    seats: () => [{ key: 'tribune', title: 'Tribune', n: 3 }]
+  },
+  senate: {
+    name: 'elected senators',
+    describe: 'Each quarter of the settlement sends one voice, and the quarters do not always want the same thing.',
+    seats: (s) => [{ key: 'senator', title: 'Senator', n: Math.max(2, Math.ceil(liveHouseholds(s).length / 15)) }]
+  }
+};
+
+// Held under every form of government.
+const STANDING_OFFICES = [
+  { key: 'captain', title: 'Captain of the Guard', n: 1,
+    wants: ['courage', 'loyalty'], minAge: 22, maxAge: 58 },
+  { key: 'arbiter', title: 'Arbiter', n: 1,
+    wants: ['loyalty', 'piety'], minAge: 30, maxAge: 76 },
+  { key: 'boatholder', title: 'Boat-holder', n: 1,
+    wants: ['avarice', 'ambition'], minAge: 24, maxAge: 66 }
+];
+
+function liveHouseholds(s) { return Object.values(s.households).filter(h => !h.extinct); }
+
+function officeSpec(s) {
+  const gov = GOVERNMENTS[s.government];
+  return gov.seats(s).map(x => Object.assign({
+    wants: x.key === 'ruler' || x.key === 'tribune' || x.key === 'senator'
+      ? ['ambition', 'loyalty'] : ['loyalty', 'ambition'],
+    minAge: 26, maxAge: 78
+  }, x)).concat(STANDING_OFFICES);
+}
+
+function officeHolders(s, key) {
+  return (s.offices[key] || []).map(id => s.people[id]).filter(p => p && p.alive);
+}
+
+function holdsOffice(s, pid) {
+  for (const [key, ids] of Object.entries(s.offices)) if (ids.includes(pid)) return key;
+  return null;
+}
+
+function officeTitle(s, key) {
+  const spec = officeSpec(s).find(x => x.key === key);
+  return spec ? spec.title : key;
+}
+
+/* --- filling a seat ---------------------------------------------------------- */
+
+// How badly a person wants a seat, and how much anyone else would accept them
+// in it. Standing is the house's; the rest is the person's.
+function fitness(s, p, spec, quarter) {
+  const hh = s.households[p.householdId];
+  if (!hh) return -99;
+  const a = ageOf(s, p);
+  if (a < spec.minAge || a > spec.maxAge) return -99;
+  if (holdsOffice(s, p.id)) return -99;
+  let v = spec.wants.reduce((acc, t) => acc + p.traits[t], 0) / spec.wants.length;
+  v += standingOf(s, hh) * 0.5;
+  v += reputeOf(s, hh) * 1.4;
+  if (quarter) {
+    const q = quarterOf(s, homeTile(s, p));
+    if (!q || q.id !== quarter.id) return -99;      // a senator must be of the quarter
+  }
+  return v;
+}
+
+function seatSomeone(s, r, spec, quarter) {
+  const pool = Object.values(s.people).filter(p => p.alive)
+    .map(p => ({ p, v: fitness(s, p, spec, quarter) + (r() - 0.5) * 10 }))
+    .filter(x => x.v > -50)
+    .sort((a, b) => b.v - a.v);
+  if (!pool.length) return null;
+
+  // Under a sole ruler the ruler picks, and picks people who suit them. Under a
+  // tribunal the sitting tribunes do. Elected seats go to whoever the quarter
+  // will actually back, which is nearer the top of the list but not always it.
+  if (s.government === 'sole' && spec.key !== 'ruler') {
+    const ruler = officeHolders(s, 'ruler')[0];
+    if (ruler) {
+      const rh = s.households[ruler.householdId];
+      pool.sort((a, b) => {
+        const bias = (x) => (x.p.householdId === ruler.householdId ? 40 : 0)
+          + (rh && firstSyllable((s.households[x.p.householdId] || {}).name || '') === firstSyllable(rh.name) ? 18 : 0)
+          - holdsAgainst(s, ruler, x.p.householdId) * 0.9
+          + x.p.traits.loyalty * 0.35;
+        return (b.v + bias(b)) - (a.v + bias(a));
+      });
+      return pool[0].p;
+    }
+  }
+  const depth = s.government === 'senate' ? 4 : 2;
+  return pool[Math.floor(Math.pow(r(), 1.7) * Math.min(depth, pool.length))].p;
+}
+
+/* --- the turn ---------------------------------------------------------------- */
+
+function sysOffices(s, r) {
+  if (!s.offices) s.offices = {};
+  const spec = officeSpec(s);
+  const known = new Set(spec.map(x => x.key));
+  for (const key of Object.keys(s.offices)) if (!known.has(key)) delete s.offices[key];
+
+  for (const sp of spec) {
+    s.offices[sp.key] = (s.offices[sp.key] || []).filter(id => s.people[id] && s.people[id].alive);
+
+    // report the ones who fell out
+    const lost = (s.lastOffices || {})[sp.key] || [];
+    for (const id of lost) {
+      if (s.offices[sp.key].includes(id)) continue;
+      const p = s.people[id];
+      if (!p || p.alive) continue;
+      const yrs = Math.max(1, Math.round((s.turn - (p.officeSince || s.turn)) / 4));
+      ev(s, 'office', 6, `${nameOf(s, id)} held the ${sp.title.toLowerCase()} for ${yrs} years and is dead. The seat is open.`, { person: id });
+      remember(s, p.householdId, 4, `held the ${sp.title.toLowerCase()} and held it until they died`);
+    }
+
+    // senators are per quarter; everything else is per settlement
+    if (sp.key === 'senator') {
+      const quarters = s.quarters.slice(0, sp.n);
+      for (const q of quarters) {
+        const sitting = officeHolders(s, 'senator').filter(p => {
+          const pq = quarterOf(s, homeTile(s, p));
+          return pq && pq.id === q.id;
+        });
+        if (sitting.length) continue;
+        const pick_ = seatSomeone(s, r, sp, q);
+        if (!pick_) continue;
+        s.offices.senator.push(pick_.id);
+        pick_.officeSince = s.turn;
+        pick_.prominence = Math.max(pick_.prominence, 1);
+        remember(s, pick_.householdId, 3, `were sent to speak for ${q.name}`);
+        ev(s, 'office', 5, `${q.name} sent ${nameOf(s, pick_.id)} to speak for it. Two other houses had wanted it and one of them said so.`, { person: pick_.id });
+      }
+      continue;
+    }
+
+    while (s.offices[sp.key].length < sp.n) {
+      const chosen = seatSomeone(s, r, sp, null);
+      if (!chosen) break;
+      s.offices[sp.key].push(chosen.id);
+      chosen.officeSince = s.turn;
+      chosen.prominence = Math.max(chosen.prominence, 1);
+      const hh = s.households[chosen.householdId];
+      const line = {
+        ruler: `${nameOf(s, chosen.id)} now speaks for the settlement. The ${hh.name} did not have to ask twice.`,
+        advisor: `${nameOf(s, chosen.id)} was taken on as an advisor, which most people read as a statement about the ${hh.name} rather than about them.`,
+        tribune: `${nameOf(s, chosen.id)} took the empty seat on the tribunal.`,
+        captain: `${nameOf(s, chosen.id)} was made captain of the guard. They are ${ageOf(s, chosen)} and have the shoulders for it.`,
+        arbiter: `${nameOf(s, chosen.id)} was made arbiter. From here on, quarrels go to them before they go anywhere else.`,
+        boatholder: `${nameOf(s, chosen.id)} holds the boats now. Nine households out of ten fish from a hull they do not own.`
+      }[sp.key] || `${nameOf(s, chosen.id)} took the seat of ${sp.title.toLowerCase()}.`;
+      ev(s, 'office', 5, line, { person: chosen.id });
+      remember(s, chosen.householdId, 3, `took the seat of ${sp.title.toLowerCase()}`);
+    }
+  }
+
+  s.lastOffices = {};
+  for (const [k, v] of Object.entries(s.offices)) s.lastOffices[k] = v.slice();
+
+  sysBoats(s, r);
+  sysCaptain(s, r);
+}
+
+/* --- the boat-holder ---------------------------------------------------------
+   Most households fish from a hull they do not own. The holder decides who is
+   on the water this season, which is the same as deciding who eats.
+   -------------------------------------------------------------------------- */
+
+function sysBoats(s, r) {
+  const holder = officeHolders(s, 'boatholder')[0];
+  s.boatsDenied = [];
+  if (!holder) return;
+  const own = s.households[holder.householdId];
+  if (!own) return;
+
+  const fishers = liveHouseholds(s).filter(h => h.id !== own.id
+    && h.claims.some(c => s.tiles[c].fish > 0.25));
+  for (const h of fishers) {
+    const spite = holdsAgainst(s, holder, h.id);
+    const owed = reputeOf(s, h);
+    const price = holder.traits.avarice > 58 && h.stores < 4 ? 14 : 0;   // no credit for the poor
+    if (spite > 30 || owed < -8 || price > 0) {
+      if (!chance(r, 0.5)) continue;
+      s.boatsDenied.push(h.id);
+      h.noBoat = (h.noBoat || 0) + 1;
+      if (h.noBoat === 1 || h.noBoat % 8 === 0) {
+        ev(s, 'office', 6, spite > 30
+          ? `${nameOf(s, holder.id)} found no hull to spare for the ${h.name} this season. There is a reason and it is not a shortage of boats.`
+          : `The ${h.name} were told the price of a hull had gone up, and told it by ${nameOf(s, holder.id)}, who sets the price.`,
+          { household: h.id });
+        remember(s, own.id, -5, `kept the ${h.name} off the water in a season they needed to be on it`);
+        const hh = s.people[h.headId];
+        if (hh && hh.traits.grudge > 30)
+          hh.grudges.push({ target: own.id, cause: `they kept this house off the water`, turn: s.turn, heat: 60 });
+      }
+    } else if (h.noBoat) {
+      h.noBoat = 0;
+    }
+  }
+}
+
+/* --- the captain -------------------------------------------------------------
+   Quarrels that would otherwise be aired in the open get sat on. Whether that
+   is order or suppression depends on who the captain's house owes.
+   -------------------------------------------------------------------------- */
+
+function sysCaptain(s, r) {
+  const cap = officeHolders(s, 'captain')[0];
+  if (!cap) return;
+  const own = s.households[cap.householdId];
+  const open = Object.values(s.disputes).filter(d => d.open && d.heat > 45);
+  if (!open.length || !chance(r, 0.3)) return;
+  const d = pick(r, open);
+  const A = s.households[d.a], B = s.households[d.b];
+  if (!A || !B) return;
+
+  // a captain leans toward the house they are of, or owe
+  const favourA = own && (own.id === A.id || holdsAgainst(s, cap, B.id) > 20);
+  const favourB = own && (own.id === B.id || holdsAgainst(s, cap, A.id) > 20);
+
+  if (favourA || favourB) {
+    const put = favourA ? B : A, kept = favourA ? A : B;
+    d.heat += 10;
+    remember(s, own.id, -5, `used the guard to lean on the ${put.name} in a quarrel their own house was in`);
+    const ph = s.people[put.headId];
+    if (ph) ph.grudges.push({ target: own.id, cause: `they set the guard on this house over a matter the guard had no business in`, turn: s.turn, heat: 70 });
+    ev(s, 'office', 6, `${nameOf(s, cap.id)} put the guard on the ${put.name} and left the ${kept.name} alone. Nobody pretended not to notice which house the captain came out of.`, { person: cap.id });
+  } else {
+    d.heat = Math.max(0, d.heat - 22);
+    ev(s, 'office', 4, pick(r, [
+      `${nameOf(s, cap.id)} stood between the ${A.name} and the ${B.name} before it got as far as hands, and made both houses go home.`,
+      `The quarrel between the ${A.name} and the ${B.name} was walked back by ${nameOf(s, cap.id)}, who has done it twice before and is running out of patience.`
+    ]), { person: cap.id });
+  }
+}
+
+
+/* ===== src/engine/50-politics.js ===== */
+/* memory ---------------------------------------------------------------------
+   The settlement remembers. A deed done in a famine is still attached to the
+   household two generations later, and it changes who is believed, who is
+   ruled against, and who will marry into them. This is the layer that turns
+   one-off events into causes.
+   -------------------------------------------------------------------------- */
+
+const MEMORY_HALFLIFE = 260;   // turns — about sixty-five years
+
+function remember(s, householdId, favour, phrase) {
+  const hh = s.households[householdId];
+  if (!hh) return;
+  s.memory.push({ household: householdId, house: hh.name, favour, phrase, turn: s.turn });
+  if (s.memory.length > 240) s.memory.shift();
+}
+
+// What a household's past is worth to it now, faded by how long ago it was.
+function standingOf(s, hh) {
+  let v = hh.standing;
+  for (const m of s.memory) {
+    if (m.household !== hh.id) continue;
+    v += m.favour * Math.pow(0.5, (s.turn - m.turn) / MEMORY_HALFLIFE);
+  }
+  return v;
+}
+
+function reputeOf(s, hh) {
+  let v = 0;
+  for (const m of s.memory) {
+    if (m.household !== hh.id) continue;
+    v += m.favour * Math.pow(0.5, (s.turn - m.turn) / MEMORY_HALFLIFE);
+  }
+  return v;
+}
+
+// Occasionally the old thing gets said out loud again.
+function sysGrudges(s, r) {
+  const sh = s.shrine;
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.grudges.length) continue;
+    p.grudges = p.grudges.filter(g => s.turn - g.turn < 400);
+    for (const g of p.grudges) g.heat *= 0.994;          // time, but slowly
+    const mine = s.households[p.householdId];
+    const hot = p.grudges.filter(g => g.heat > 40 && s.households[g.target] && !s.households[g.target].extinct);
+    if (!hot.length) continue;
+
+    // put it down — but only somewhere that means something, and only if you
+    // are the sort of person who would
+    if (sh && sh.devotion >= 58 && p.traits.piety >= 50 && chance(r, 0.035)) {
+      const g = pick(r, hot);
+      const other = s.households[g.target];
+      g.heat = 4;
+      remember(s, p.householdId, 4, `put down something they were entitled to keep holding`);
+      ev(s, 'shrine', 5, `${nameOf(s, p.id)} went up to the ${sh.god} stone and set down what they had been carrying against the ${other.name}. Whether it stays down is another matter.`, { person: p.id });
+      continue;
+    }
+
+    // or use it. A grudge looks for an opening rather than waiting for one to
+    // coincide with it — which is why almost none of them ever fired before.
+    if (!mine || !chance(r, 0.13)) continue;
+    const g = hot.sort((a, b) => b.heat - a.heat)[0];
+    const them = s.households[g.target];
+
+    // 1. they are hungry and you are not
+    if ((them.shortSeasons || 0) >= 3 && mine.stores > 10) {
+      g.heat += 4;
+      remember(s, mine.id, -5, `had plenty the winter the ${them.name} had nothing, and made sure it was seen`);
+      ev(s, 'spite', 6, `The ${them.name} were short again, and the ${mine.name} took that season to make a show of how well they were doing. ${p.name} did not pretend it was accidental.`, { person: p.id, household: mine.id });
+      const th = s.people[them.headId];
+      if (th) th.grudges.push({ target: mine.id, cause: `they made a display of it the winter this house had nothing`, turn: s.turn, heat: 55 });
+      continue;
+    }
+
+    // 2. they are in a quarrel and you can weigh in against them
+    const theirs = Object.values(s.disputes).find(d => d.open && (d.a === them.id || d.b === them.id));
+    if (theirs) {
+      theirs.heat += 9;
+      const foe = s.households[theirs.a === them.id ? theirs.b : theirs.a];
+      ev(s, 'spite', 5, `${nameOf(s, p.id)} came out for the ${foe ? foe.name : 'other side'} in the quarrel with the ${them.name}. Nobody had asked them and everyone understood why.`, { person: p.id });
+      continue;
+    }
+
+    // 3. they need a hand with something and yours is the hand
+    if (p.tender) {
+      const theirStone = Object.values(s.buildings).find(b => b.state === 'growing' && b.householdId === them.id);
+      if (theirStone && theirStone.tenderId !== p.id) {
+        theirStone.stalled++;
+        ev(s, 'spite', 5, `${nameOf(s, p.id)} was asked about the ${them.name} stone and said they were busy. They were not especially busy.`, { person: p.id });
+        continue;
+      }
+    }
+
+    // 4. otherwise it is carried in public, which is its own kind of work
+    if (chance(r, 0.5)) {
+      them.standing -= 1.2;
+      ev(s, 'spite', 2, pick(r, [
+        `${nameOf(s, p.id)} left a gathering when the ${them.name} arrived, slowly enough to be certain of being seen.`,
+        `${nameOf(s, p.id)} has not spoken the ${them.name} name aloud in ${Math.round((s.turn - g.turn) / 4)} years and makes a small performance of not doing so.`,
+        `Whatever is between ${p.name} and the ${them.name} was aired again this season, in front of people who had not heard it.`
+      ]), { person: p.id });
+    }
+  }
+}
+
+function sysMemory(s, r) {
+  if (!chance(r, 0.07)) return;
+  const old = s.memory.filter(m => s.turn - m.turn > 40 && Math.abs(m.favour) >= 6
+    && s.households[m.household] && !s.households[m.household].extinct);
+  if (!old.length) return;
+  const m = pick(r, old);
+  const years = Math.round((s.turn - m.turn) / 4);
+  ev(s, 'memory', 3, pick(r, [
+    `It was said again this season, as it is every few years, that the ${m.house} ${m.phrase}. That was ${years} years ago and nobody who was there is arguing about it now.`,
+    `Someone brought up that the ${m.house} ${m.phrase}. ${years} years on, it still ends a conversation.`,
+    `The children of the ${m.house} have started hearing that their house ${m.phrase}, which happened before any of them were born.`
+  ]), { household: m.household });
+}
+
+/* the shrine -----------------------------------------------------------------
+   Every Roduro settlement grows one stone that belongs to nobody. What it is
+   worth is not devotion in the abstract — it is whether people will accept a
+   ruling they dislike. A settlement that keeps its shrine settles quarrels;
+   one that lets it go hard-cases them into feuds.
+   -------------------------------------------------------------------------- */
+
+const SHRINE_GODS = [
+  { name: 'Horahìda', of: 'the Ocean' },
+  { name: 'Dodìṭo', of: 'Stone and Mountains' },
+  { name: 'Quyìturo', of: 'Time and Decay' },
+  { name: 'Guʻehiqì', of: 'Trees and Growing Things' },
+  { name: 'Hiyaḍote', of: 'Death and Night' },
+  { name: 'Gìhuqìdu', of: 'Law and Tradition' }
+];
+
+function sysShrine(s, r) {
+  const sh = s.shrine;
+  if (!sh) return;
+
+  // a keeper: the most devout adult in the settlement, if anyone is devout enough
+  const keeper = s.people[sh.keeperId];
+  if (!keeper || !keeper.alive) {
+    if (sh.keeperId) {
+      ev(s, 'shrine', 5, `${sh.keeperName} kept the ${sh.god} stone for ${Math.round((s.turn - sh.keeperSince) / 4)} years and is dead. Nobody swept it this season.`, {});
+      remember(s, keeper ? keeper.householdId : null, 3, `kept the ${sh.god} stone`);
+    }
+    sh.keeperId = null;
+    const devout = Object.values(s.people).filter(p => p.alive && p.traits.piety > 62
+      && ageOf(s, p) >= 20 && ageOf(s, p) <= 74);
+    if (devout.length && chance(r, 0.4)) {
+      const k = devout.sort((a, b) => b.traits.piety - a.traits.piety)[0];
+      sh.keeperId = k.id; sh.keeperName = nameOf(s, k.id); sh.keeperSince = s.turn;
+      ev(s, 'shrine', 4, `${nameOf(s, k.id)} took over the keeping of the ${sh.god} stone. It had been three seasons untended and it showed.`, { person: k.id });
+    }
+  }
+
+  // what the settlement puts into it
+  const heads = Object.values(s.households).filter(h => !h.extinct)
+    .map(h => s.people[h.headId]).filter(p => p && p.alive);
+  const piety = heads.length ? heads.reduce((a, p) => a + p.traits.piety, 0) / heads.length : 30;
+  const fed = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && h.stores > 4).length;
+  const total = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith).length || 1;
+  const target = clamp(piety * 0.75 + (fed / total) * 30 + (sh.keeperId ? 18 : -12), 0, 100);
+  const was = sh.devotion;
+  sh.devotion += (target - sh.devotion) * 0.12;
+
+  for (const [lo, line] of [[35, 'gone'], [60, 'held']]) {
+    if (was >= lo && sh.devotion < lo && lo === 35)
+      ev(s, 'shrine', 5, `Offerings at the ${sh.god} stone have dried up to nothing. It is a rock on a hill now, and people have started settling things between themselves.`, {});
+    if (was < lo && sh.devotion >= lo && lo === 60)
+      ev(s, 'shrine', 4, `The ${sh.god} stone is kept properly again, and rulings made in front of it have started being obeyed.`, {});
+  }
+
+  // a hard season brings people back to it
+  if (s.weather.storm && sh.devotion > 45 && chance(r, 0.25)) {
+    ev(s, 'shrine', 3, pick(r, [
+      `Half the settlement went up to the ${sh.god} stone after the weather broke. Whatever was left in the stores went with them.`,
+      `Offerings piled at the ${sh.god} stone all season. Some of it was food that could have been eaten.`,
+      `They took the boats' names to the ${sh.god} stone and left them there.`
+    ]), {});
+    for (const h of Object.values(s.households)) if (!h.extinct) h.stores = Math.max(0, h.stores - 0.6);
+    sh.devotion = Math.min(100, sh.devotion + 4);
+  }
+}
+
+/* claims: the scarce thing --------------------------------------------------- */
+
+// Households with neither a standing house nor stone in the ground. Three
+// separate systems were reading a looser count than this — which throttled the
+// split rate and the gods' attention against a number four times too large.
+function landless(s) {
+  return Object.values(s.households).filter(hh => !hh.extinct && !hh.buildingId
+    && !Object.values(s.buildings).some(b => b.householdId === hh.id && b.state === 'growing'));
+}
+
+function sysClaims(s, r) {
+  const homeless = landless(s);
+  if (!homeless.length) return;
+
+  // a grown house needs room around it; you cannot pack them shoulder to shoulder
+  const taken = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
+  const free = s.tiles.filter(t =>
+      !t.owner && siteValue(s.tiles, t.id) > 0 && !taken.some(x => tileDist(x, t.id) < 2.15))
+    .sort((a, b) => siteValue(s.tiles, b.id) - siteValue(s.tiles, a.id));
+
+  for (const hh of homeless) {
+    const head = s.people[hh.headId];
+    if (!head || !head.alive) continue;
+    hh.waiting = (hh.waiting || 0) + 1;
+
+    if (free.length) {
+      // take the best site not already grabbed this turn
+      const site = free.shift();
+      s.tiles[site.id].owner = hh.id;
+      hh.claims.push(site.id);
+      startGrowing(s, r, hh, site.id);
+      const scarce = free.length <= 2;
+      ev(s, 'claim', scarce ? 5 : 2, scarce
+        ? `The ${hh.name} household under ${head.name} took ground on the ${TERRAIN_NAME[site.t]} — ${free.length ? 'one of the last sites left' : 'the last site on this coast'} — and set the stone started.`
+        : `The ${hh.name} household under ${head.name} took ground on the ${TERRAIN_NAME[site.t]} and set the stone started.`,
+        { household: hh.id, tile: site.id });
+      hh.waiting = 0;
+    } else if (hh.waiting > ri(r, 3, 10)) {
+      // no free ground. press a neighbour, or leave.
+      const targets = Object.values(s.households).filter(o => o.id !== hh.id && !o.extinct && o.claims.length > 1);
+      if (targets.length && (head.traits.ambition + head.traits.courage > 62 || hh.waiting > 14)) {
+        const target = targets.sort((a, b) => b.claims.length - a.claims.length)[0];
+        openDispute(s, r, hh, target, 'ground to grow a house on');
+        hh.waiting = 0;
+      } else if (chance(r, 0.08)) {
+        for (const mid of hh.members) { const m = s.people[mid]; m.alive = false; m.deathTurn = s.turn; m.cause = 'departure'; }
+        hh.extinct = s.turn;
+        ev(s, 'leave', 5, `The ${hh.name} household gave up waiting for ground and took a boat north. Nobody expects them back.`, { household: hh.id });
+      }
+    }
+  }
+}
+
+function startGrowing(s, r, hh, tid) {
+  const bid = 'b' + s.nextId++;
+  const load = {};
+  for (const b of Object.values(s.buildings)) if (b.state === 'growing' && b.tenderId) load[b.tenderId] = (load[b.tenderId] || 0) + 1;
+  const { tender, refusers } = chooseTender(s, r, hh, tid, load);
+  s.buildings[bid] = {
+    id: bid, tileId: tid, householdId: hh.id, tenderId: tender ? tender.id : null,
+    startTurn: s.turn, maturity: 0.02, capacity: ri(r, 4, 7),
+    state: 'growing', stalled: 0, condition: 1, refused: refusers.length
+  };
+  if (!tender) {
+    const anyone = Object.values(s.people).some(p => p.alive && p.tender && ageOf(s, p) >= 16);
+    ev(s, 'notender', 6, anyone
+      ? `Every hand in the settlement that could have started the ${hh.name} stone found a reason not to. It sits as a scar in the hillside and everyone can see whose it is.`
+      : `There is nobody left with the gift to start the ${hh.name} stone. It sits as a scar in the hillside.`,
+      { household: hh.id });
+    if (anyone) {
+      remember(s, hh.id, -5, `could not get a single tender to put a hand to their stone`);
+      const head = s.people[hh.headId];
+      for (const rf of refusers.slice(0, 2)) {
+        if (head && head.traits.grudge > 35 && rf.householdId !== hh.id)
+          head.grudges.push({ target: rf.householdId, cause: `their house would not put a hand to our stone when we had nothing`, turn: s.turn, heat: 55 });
+      }
+    }
+  }
+}
+
+/* disputes ------------------------------------------------------------------- */
+
+function openDispute(s, r, claimant, holder, over) {
+  const existing = Object.values(s.disputes).find(d => d.open && d.a === claimant.id && d.b === holder.id);
+  if (existing) { existing.heat += 12; return existing; }
+  const did = 'd' + s.nextId++;
+  const d = {
+    id: did, a: claimant.id, b: holder.id, over, heat: 20 + r() * 20,
+    open: true, turn: s.turn, arbitrated: 0
+  };
+  s.disputes[did] = d;
+  const ha = s.people[claimant.headId];
+  const against = Object.values(s.disputes).filter(x => x.open && x.b === holder.id).length;
+  const who = ha ? ha.name : 'The ' + claimant.name;
+  ev(s, 'dispute', 5, against >= 3
+    ? `${who} put a claim before the ${holder.name} household for ${over} — the ${against}th standing against that house, which is starting to look less like bad luck.`
+    : against === 2
+    ? `${who} put a claim before the ${holder.name} household for ${over}. That makes two houses with something outstanding against them.`
+    : pick(r, [
+      `${who} put a claim before the ${holder.name} household for ${over}. It was not settled that season, nor the next.`,
+      `${who} asked the ${holder.name} household for ${over}, in front of enough people that it could not be quietly refused.`,
+      `${who} raised a claim against the ${holder.name} over ${over}. Both houses stopped using the same path.`
+    ]), { dispute: did });
+  return d;
+}
+
+function sysDisputes(s, r) {
+  for (const d of Object.values(s.disputes)) {
+    if (!d.open) continue;
+    const A = s.households[d.a], B = s.households[d.b];
+    if (!A || !B || A.extinct || B.extinct) { d.open = false; continue; }
+    const ha = s.people[A.headId], hb = s.people[B.headId];
+    const heatGain = 1.3 + ((ha?.traits.grudge || 0) + (hb?.traits.grudge || 0)) / 95;
+    d.heat += heatGain * (0.6 + r() * 0.8);
+    d.age = s.turn - d.turn;
+
+    // Roduro conflict is slow and structural. It escalates in years, not seasons.
+    const dev = s.shrine ? s.shrine.devotion : 50;
+    const hasArbiter = officeHolders(s, 'arbiter').length > 0;
+    if (d.heat > 75 && chance(r, (hasArbiter ? 0.12 : 0.05) + dev / 900)) {
+      // an appointed arbiter rules if there is one; otherwise it falls back to
+      // whichever respected house will take it, which is how it used to work
+      const seated = officeHolders(s, 'arbiter')[0];
+      const bench = Object.values(s.households)
+        .filter(h => !h.extinct && h.id !== A.id && h.id !== B.id && h.buildingId)
+        .sort((x, y) => standingOf(s, y) - standingOf(s, x)).slice(0, 5);
+      let arbHead = null, arb = null;
+      if (seated && seated.householdId !== A.id && seated.householdId !== B.id) {
+        arbHead = seated; arb = s.households[seated.householdId];
+      } else if (bench.length) {
+        arb = bench[Math.floor(Math.pow(r(), 1.6) * bench.length)];
+        arbHead = s.people[arb.headId];
+      }
+      if (arb) {
+        const spiteA = holdsAgainst(s, arbHead, A.id), spiteB = holdsAgainst(s, arbHead, B.id);
+        const scoreA = standingOf(s, A) + (ha?.traits.loyalty || 0) - spiteA;
+        const scoreB = standingOf(s, B) + (hb?.traits.loyalty || 0) - spiteB;
+        const forA = scoreA > scoreB ? true : chance(r, 0.35);
+        const crooked = Math.max(spiteA, spiteB) > 18 && (spiteA > spiteB) !== forA;
+        if (crooked) {
+          const wronged = spiteA > spiteB ? A : B;
+          remember(s, arb.id, -6, `ruled on a quarrel they had a stake in, and everyone worked it out afterwards`);
+          const wh = s.people[wronged.headId];
+          if (wh) wh.grudges.push({ target: arb.id, cause: `they sat in judgement carrying something against this house`, turn: s.turn, heat: 65 });
+          ev(s, 'arbitration', 6, `The ${arb.name} were asked to rule between the ${A.name} and the ${B.name}, and did — but the ${arb.name} have their own history with the ${wronged.name}, and by spring most of the settlement had remembered what it was.`, { dispute: d.id });
+        }
+        const loser = forA ? B : A, winner = forA ? A : B;
+        if (forA && B.claims.length > 1) {
+          // prefer to hand over ground the winner could actually build on
+          const spare = B.claims.filter(c => c !== (s.buildings[B.buildingId] || {}).tileId);
+          const buildable = spare.filter(c => siteValue(s.tiles, c) > 0);
+          const give = (A.buildingId ? spare : buildable.concat(spare))[0];
+          if (give !== undefined) {
+            B.claims = B.claims.filter(c => c !== give);
+            s.tiles[give].owner = A.id; A.claims.push(give);
+            const already = Object.values(s.buildings).some(b => b.householdId === A.id && b.state === 'growing');
+            if (!A.buildingId && !already && siteValue(s.tiles, give) > 0) startGrowing(s, r, A, give);
+          }
+        }
+        d.open = false; d.resolved = s.turn; d.winner = winner.id;
+        arb.standing += 4;
+        const lh = s.people[loser.headId];
+        if (lh && lh.traits.grudge > 40) {
+          lh.grudges.push({ target: winner.id, cause: `the ${arb.name} household ruled against them over ${d.over}`, turn: s.turn, heat: d.heat * 0.6 });
+        }
+        if (dev > 60 && s.shrine) {
+          ev(s, 'arbitration', 6, `The quarrel between the ${A.name} and the ${B.name} was taken up to the ${s.shrine.god} stone, and the ${arb.name} spoke on it there and found for the ${winner.name}. Sworn in that place, it holds.`, { dispute: d.id });
+          remember(s, loser.id, -4, `was ruled against at the ${s.shrine.god} stone over ${d.over}`);
+        } else {
+          ev(s, 'arbitration', 6, `${seated && arbHead === seated ? nameOf(s, seated.id) + ', arbiter, heard' : 'The ' + arb.name + ' household was asked to speak on'} the quarrel between the ${A.name} and the ${B.name}, and found for the ${winner.name}. The ${loser.name} accepted it in front of witnesses and said nothing about it after.`, { dispute: d.id });
+        }
+        remember(s, arb.id, 5, `was trusted to rule between two houses that would not speak`);
+      }
+    } else if (d.heat > 110 + dev * 0.9) {
+      d.open = false; d.resolved = s.turn; d.feud = true;
+      for (const side of [[A, B], [B, A]]) {
+        const h = s.people[side[0].headId];
+        if (h) h.grudges.push({ target: side[1].id, cause: `the quarrel over ${d.over} that was never settled`, turn: s.turn, heat: 70 });
+      }
+      remember(s, A.id, -6, `let a quarrel with the ${B.name} harden into something nobody could undo`);
+      remember(s, B.id, -6, `let a quarrel with the ${A.name} harden into something nobody could undo`);
+      const q = closePath(s, A, B);
+      if (q) {
+        A.standing -= 3; B.standing -= 3;
+        ev(s, 'feud', 6, `The ground between the ${A.name} and the ${B.name} at ${q.name} is shut. Anyone going down to the water from above it now goes the long way, and says so.`, {});
+      }
+      ev(s, 'feud', 7, `Nobody would rule on the ${A.name} and the ${B.name}, so the thing simply hardened. Paths between the two houses fell out of use, and children were taught which ground not to cross.`, { dispute: d.id });
+    }
+  }
+}
+
+function revealGrudge(s, r) {
+  const holders = Object.values(s.people).filter(p => p.alive && p.grudges.length);
+  if (!holders.length) { ev(s, 'divine', 3, 'Shiḍuro looked for a hidden injury and found the settlement, for once, without one.'); return; }
+  const p = pick(r, holders);
+  const g = pick(r, p.grudges);
+  g.heat += 30;
+  const target = s.households[g.target];
+  ev(s, 'reveal', 6, `It came out in the open that ${nameOf(s, p.id)} had never forgiven ${target ? 'the ' + target.name + ' household' : 'an old injury'} — ${g.cause}. Half the settlement had suspected; the other half had not, and now took sides.`, { person: p.id });
+  if (target && p.householdId !== target.id) {
+    const mine = s.households[p.householdId];
+    if (mine) openDispute(s, r, mine, target, 'an old injury made public');
+  }
+}
+
+function arriveStrangers(s, r) {
+  const n = ri(r, 3, 7);
+  const hid = 'h' + s.nextId++;
+  const hh = {
+    id: hid, name: lineageName(r), headId: null, members: [], buildingId: null,
+    claims: [], stores: 2, standing: 5, lodgedWith: null, founded: s.turn, incomer: true
+  };
+  s.households[hid] = hh;
+  for (let i = 0; i < n; i++) {
+    const p = makePerson(s, r, hid, i === 0 ? ri(r, 26, 48) : ri(r, 1, 40));
+    if (i === 0) { hh.headId = p.id; p.role = 'head'; }
+  }
+  ev(s, 'arrival', 6, `A boat came in on the tide carrying ${n} of the ${hh.name}, off a coast they would not name. They asked for ground.`, { household: hid });
+}
+
+
+/* ===== src/engine/60-figures.js ===== */
+/* promotion: who gets to be a person in the story ---------------------------- */
+
+const MAX_ACTORS = 8;
+
+function sysPromotion(s, r) {
+  const actors = Object.values(s.people).filter(p => p.alive && p.prominence > 0);
+  // demotion first: an actor with no live goal for a long while sinks back
+  for (const p of actors) {
+    p.goalAge++;
+    const spent = p.goal ? p.goalAge > 30 : p.goalAge > 12;
+    if (spent) {
+      p.prominence = 0; p.goal = null;
+      ev(s, 'settle', 1, `${nameOf(s, p.id)} stopped reaching for anything in particular.`, { person: p.id });
+    }
+  }
+  let live = Object.values(s.people).filter(p => p.alive && p.prominence > 0).length;
+  if (live >= MAX_ACTORS) return;
+
+  const opportunities = findOpportunities(s);
+  if (!opportunities.length) return;
+
+  const candidates = Object.values(s.people).filter(p => {
+    const a = ageOf(s, p);
+    return p.alive && p.prominence === 0 && a >= 17 && a <= 68;
+  });
+
+  const scored = [];
+  for (const p of candidates) {
+    for (const o of opportunities) {
+      const reach = 1 - clamp(walkDist(s, homeTile(s, p), o.tile) / 14, 0, 0.95);
+      const fit = o.wants.reduce((acc, t) => acc + p.traits[t], 0) / o.wants.length;
+      const score = fit * 0.55 + reach * 40 + (p.grudges.length ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
+      if (score > 76) scored.push({ p, o, score: score + r() * 8 });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const taken = new Set();
+  for (const c of scored) {
+    if (live >= MAX_ACTORS) break;
+    if (taken.has(c.o.id) || c.p.prominence > 0) continue;
+    taken.add(c.o.id);
+    c.p.prominence = 1;
+    c.p.goal = { kind: c.o.kind, tile: c.o.tile, target: c.o.target, since: s.turn, label: c.o.label };
+    c.p.goalAge = 0;
+    ev(s, 'rise', 6, `${nameOf(s, c.p.id)} — ${describeTraits(c.p)} — set themselves at ${c.o.label}.`, { person: c.p.id });
+    live++;
+  }
+}
+
+function findOpportunities(s) {
+  const out = [];
+  for (const b of Object.values(s.buildings)) {
+    if (b.state === 'growing' && (!b.tenderId || !s.people[b.tenderId]?.alive))
+      out.push({ id: 'o_' + b.id, kind: 'stone', tile: b.tileId, target: b.id, wants: ['loyalty', 'piety'], label: 'the unfinished stone that nobody would take up' });
+  }
+  for (const d of Object.values(s.disputes)) {
+    if (d.open && d.heat > 40)
+      out.push({ id: 'o_' + d.id, kind: 'champion', tile: (s.households[d.a]?.claims[0] ?? 0), target: d.id, wants: ['courage', 'grudge'], label: 'the front of the quarrel over ' + d.over });
+  }
+  const homeless = landless(s);
+  if (homeless.length > 1)
+    out.push({ id: 'o_ground', kind: 'ground', tile: (homeless[0].claims[0] ?? 0), target: null, wants: ['ambition', 'avarice'], label: 'getting ground for the households with none' });
+  const hungry = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && h.stores < 1);
+  if (hungry.length > 2)
+    out.push({ id: 'o_hunger', kind: 'relief', tile: (hungry[0].claims[0] ?? 0), target: null, wants: ['loyalty', 'courage'], label: 'feeding the households that had run out' });
+  const rich = Object.values(s.households).filter(h => !h.extinct).sort((a, b) => b.claims.length - a.claims.length)[0];
+  if (rich && rich.claims.length >= 3)
+    out.push({ id: 'o_seat', kind: 'standing', tile: rich.claims[0], target: rich.id, wants: ['ambition', 'avarice'], label: 'the standing the ' + rich.name + ' household holds' });
+  if (s.shrine && (s.shrine.devotion < 42 || !s.shrine.keeperId))
+    out.push({ id: 'o_shrine', kind: 'shrine', tile: s.shrine.tileId, target: null, wants: ['piety', 'loyalty'], label: 'the state the ' + s.shrine.god + ' stone has been let fall into' });
+  const shamed = Object.values(s.households).filter(h => !h.extinct && reputeOf(s, h) < -6)[0];
+  if (shamed)
+    out.push({ id: 'o_name', kind: 'name', tile: (shamed.claims[0] ?? 0), target: shamed.id, wants: ['loyalty', 'courage'], label: 'getting the ' + shamed.name + ' name back to something people will say out loud' });
+  return out;
+}
+
+function describeTraits(p) {
+  const t = p.traits;
+  const words = [];
+  if (t.ambition > 70) words.push('reaching');
+  if (t.grudge > 70) words.push('a keeper of injuries');
+  if (t.piety > 70) words.push('devout to a fault');
+  if (t.avarice > 70) words.push('close with what they have');
+  if (t.loyalty > 70) words.push('immovable about their own');
+  if (t.courage > 70) words.push('unafraid');
+  if (p.tender) words.push('able to work the stone');
+  return words.length ? words.slice(0, 2).join(' and ') : 'nobody anyone had noticed';
+}
+
+/* what the named cast actually does ------------------------------------------ */
+
+function sysActors(s, r) {
+  s.pursuitLines = 0;
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || p.prominence === 0 || !p.goal) continue;
+    const g = p.goal;
+    const hh = s.households[p.householdId];
+    if (!hh) continue;
+    const before = s.log.length;
+
+    if (g.kind === 'stone') {
+      const b = s.buildings[g.target];
+      if (!b || b.state !== 'growing') { p.goal = null; continue; }
+      if (!b.tenderId && p.tender) {
+        b.tenderId = p.id;
+        ev(s, 'act', 5, `${nameOf(s, p.id)} put their hands to the stalled stone. It answered slowly.`, { person: p.id });
+        p.goal = null; p.goalAge = 0; p.prominence = 2; p.deeds.push('took up abandoned stone');
+      } else if (!p.tender && chance(r, 0.3)) {
+        ev(s, 'act', 3, pick(r, [
+          `${nameOf(s, p.id)} spent another season trying to coax a stone they had no gift for. It did not move.`,
+          `${nameOf(s, p.id)} has been going up to the stalled stone alone and telling nobody what they do there.`,
+          `${nameOf(s, p.id)} went round every house that might have the gift. Two said no and one did not answer the door.`
+        ]), { person: p.id });
+      }
+    }
+
+    else if (g.kind === 'champion') {
+      const d = s.disputes[g.target];
+      if (!d || !d.open) { p.goal = null; continue; }
+      d.heat += p.traits.courage / 100 * 9;
+      if (chance(r, 0.08)) {   // pushing too hard can cost you
+        p.prominence = Math.max(1, p.prominence - 1);
+        hh.standing -= 2;
+        remember(s, hh.id, -3, `pushed a quarrel further than the settlement wanted it pushed`);
+        ev(s, 'act', 5, `${nameOf(s, p.id)} overplayed it. Two households that had been sympathetic stopped being sympathetic.`, { person: p.id });
+      }
+      if (chance(r, 0.16)) ev(s, 'act', 4, pick(r, [
+        `${nameOf(s, p.id)} would not let the quarrel over ${d.over} rest, and raised it again where it could be heard.`,
+        `${nameOf(s, p.id)} walked the boundary again with witnesses, which everyone understood the meaning of.`,
+        `${nameOf(s, p.id)} put the matter of ${d.over} to two more households, and neither would say no outright.`,
+        `${nameOf(s, p.id)} had the old markers dug up and looked at. They proved nothing either way.`,
+        `Nobody could get ${nameOf(s, p.id)} to speak about anything except ${d.over}.`
+      ]), { person: p.id });
+    }
+
+    else if (g.kind === 'ground') {
+      if (chance(r, 0.22)) {
+        const holder = Object.values(s.households).filter(h => !h.extinct && h.claims.length > 1 && h.id !== hh.id)
+          .sort((a, b) => b.claims.length - a.claims.length)[0];
+        const already = Object.values(s.disputes).some(x => x.open && x.a === hh.id && x.b === holder.id);
+        if (holder && !already) {
+          openDispute(s, r, hh, holder, 'ground standing idle while others wait');
+          ev(s, 'act', 5, pick(r, [
+            `${nameOf(s, p.id)} began saying openly that the ${holder.name} held more hillside than they could ever grow on.`,
+            `${nameOf(s, p.id)} put a number on how much ground the ${holder.name} were sitting on, and repeated the number until others did.`,
+            `${nameOf(s, p.id)} stopped being careful about what they said concerning the ${holder.name} and their hillside.`
+          ]), { person: p.id });
+          p.deeds.push('picked a fight over idle ground');
+        }
+      }
+    }
+
+    else if (g.kind === 'relief') {
+      if (hh.stores > 6 && chance(r, 0.35)) {
+        const needy = Object.values(s.households).filter(h => !h.extinct && h.stores < 1);
+        const give = Math.min(hh.stores - 3, needy.length * 1.5);
+        if (give > 0) {
+          hh.stores -= give;
+          for (const n of needy) n.stores += give / needy.length;
+          hh.standing += 3; p.prominence = 2; p.goal = null; p.goalAge = 0;
+          remember(s, hh.id, 8, `fed households not their own in a year they had little to spare`);
+          ev(s, 'act', 5, `${nameOf(s, p.id)} opened the ${hh.name} stores to households not their own. It was remembered.`, { person: p.id });
+          p.deeds.push('fed households not their own');
+        }
+      } else if (chance(r, 0.18)) {
+        ev(s, 'act', 3, pick(r, [
+          `${nameOf(s, p.id)} spent the season counting other people's stores out loud, which made them useful and disliked in the same measure.`,
+          `${nameOf(s, p.id)} got two households to agree to share a boat. It lasted most of the season.`,
+          `${nameOf(s, p.id)} walked the whole settlement asking what each house could spare. Most of them lied.`
+        ]), { person: p.id });
+      } else if (hh.stores < 2 && p.traits.avarice > 60 && chance(r, 0.25)) {
+        const victim = Object.values(s.households).filter(h => !h.extinct && h.stores > 8)[0];
+        if (victim) {
+          victim.stores -= 4; hh.stores += 3;
+          const vh = s.people[victim.headId];
+          if (vh) vh.grudges.push({ target: hh.id, cause: 'stores taken from their own in a hard season', turn: s.turn, heat: 55 });
+          remember(s, hh.id, -7, `were never quite cleared of what went missing from the ${victim.name} house`);
+          ev(s, 'act', 6, `Stores went missing from the ${victim.name} house, and everyone knew who, and nobody could prove it.`, { person: p.id });
+          p.deeds.push('took what was not theirs');
+        }
+      }
+    }
+
+    else if (g.kind === 'shrine') {
+      const sh = s.shrine;
+      if (!sh) { p.goal = null; continue; }
+      if (!sh.keeperId && p.traits.piety > 55) {
+        sh.keeperId = p.id; sh.keeperName = nameOf(s, p.id); sh.keeperSince = s.turn;
+        sh.devotion = Math.min(100, sh.devotion + 6);
+        p.prominence = 2; p.goal = null; p.goalAge = 0;
+        p.deeds.push('took the keeping of the ' + sh.god + ' stone');
+        remember(s, hh.id, 6, `put one of their own to the keeping of the ${sh.god} stone when nobody else would`);
+        ev(s, 'act', 6, `${nameOf(s, p.id)} took the keeping of the ${sh.god} stone. It had been let go badly and the first season was mostly clearing.`, { person: p.id });
+      } else if (chance(r, 0.25)) {
+        sh.devotion = Math.min(100, sh.devotion + 2.5);
+        ev(s, 'act', 3, pick(r, [
+          `${nameOf(s, p.id)} has been going up to the ${sh.god} stone alone and coming back with opinions about who else does not.`,
+          `${nameOf(s, p.id)} got four households to bring something up to the ${sh.god} stone this season. Four is more than last year.`,
+          `${nameOf(s, p.id)} would not let the matter of the ${sh.god} stone drop at any table they sat at.`
+        ]), { person: p.id });
+      }
+    }
+
+    else if (g.kind === 'name') {
+      const target = s.households[g.target];
+      if (!target || target.extinct || reputeOf(s, target) > -2) {
+        if (target && !target.extinct) {
+          p.prominence = 2; p.goal = null; p.goalAge = 0;
+          p.deeds.push('got the ' + target.name + ' name spoken plainly again');
+          ev(s, 'act', 6, `Whatever the ${target.name} did, it is no longer the first thing said about them, and ${p.name} is why.`, { person: p.id });
+        } else p.goal = null;
+        continue;
+      }
+      if (chance(r, 0.3)) {
+        remember(s, target.id, 2, `had someone speak for them when it was not popular to`);
+        ev(s, 'act', 4, pick(r, [
+          `${nameOf(s, p.id)} spoke for the ${target.name} again, to a room that had heard it before.`,
+          `${nameOf(s, p.id)} worked a season on the ${target.name} ground in full view of everyone.`,
+          `${nameOf(s, p.id)} put their own name behind the ${target.name} in front of witnesses, which cost them something.`
+        ]), { person: p.id });
+      }
+    }
+
+    else if (g.kind === 'standing') {
+      const target = s.households[g.target];
+      if (!target || target.extinct) { p.goal = null; continue; }
+      hh.standing += 0.8;
+      if (chance(r, 0.2)) ev(s, 'act', 3, pick(r, [
+        `${nameOf(s, p.id)} has been at every table where anything is decided, and says little at most of them.`,
+        `${nameOf(s, p.id)} made sure the ${hh.name} were the ones who lent the boat, again.`,
+        `${nameOf(s, p.id)} settled a small thing between two houses that had nothing to do with them.`
+      ]), { person: p.id });
+      if (standingOf(s, hh) > standingOf(s, target) && chance(r, 0.3)) {
+        p.prominence = 2; p.goal = null; p.goalAge = 0;
+        ev(s, 'act', 6, `The ${hh.name} household now stands above the ${target.name}, and ${p.name} is the reason. It took years and it was noticed at every step.`, { person: p.id });
+        p.deeds.push('raised their house above another');
+      }
+    }
+
+    // A figure who got nowhere this season is still visibly at it. Without
+    // this they vanish from the chronicle for years between outcomes.
+    const acted = s.log.slice(before).some(e => e.person === p.id);
+    s.pursuitLines = (s.pursuitLines || 0);
+    if (!acted && p.goal && s.pursuitLines < 2 && chance(r, 0.34)) {
+      s.pursuitLines++;
+      const kind = p.goal.kind;
+      const pool = {
+        stone:    [`${nameOf(s, p.id)} was up at the unfinished stone again, and came down again.`,
+                   `Nothing moved on the stone this season. ${p.name} did not stop going.`],
+        champion: [`${p.name} raised it once more, and once more it was heard and not answered.`,
+                   `The quarrel sat where it was. ${p.name} sat with it.`],
+        ground:   [`${p.name} asked three houses about ground this season and got three different kinds of no.`,
+                   `${p.name} has started walking the hillside measuring things that are not theirs.`],
+        relief:   [`${p.name} kept the count of who had what, which nobody had asked them to do.`,
+                   `${p.name} was seen at doors that were not opened.`],
+        standing: [`${p.name} did nothing anyone could point at, and was in the room for most of it.`,
+                   `The ${hh.name} were a little more central this year than last, by no visible means.`],
+        shrine:   [`${p.name} swept the stone alone again. Attendance did not improve.`,
+                   `${p.name} kept at the stone through a season when nobody else went near it.`],
+        name:     [`${p.name} said the ${(s.households[p.goal.target] || {}).name || 'old'} name plainly in company, and let the silence sit.`,
+                   `${p.name} is still at it, and people have started expecting them to be.`]
+      }[kind];
+      if (pool) ev(s, 'act', 2, pick(r, pool), { person: p.id });
+    }
+  }
+}
+
+/* the gods speak, sparingly --------------------------------------------------- */
+
+function sysOmen(s, r) {
+  s.omen = null;
+  s.godSilence++;
+  if (s.godSilence < 3) return;
+
+  const st = s.stats[s.stats.length - 1] || {};
+  const homeless = landless(s).length;
+  const hungry = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && h.stores < 1).length;
+  const openD = Object.values(s.disputes).filter(d => d.open).length;
+  const hotD = Object.values(s.disputes).filter(d => d.open && d.heat > 60).length;
+  const tenders = Object.values(s.people).filter(p => p.alive && p.tender && ageOf(s, p) >= 16).length;
+  const growing = Object.values(s.buildings).filter(b => b.state === 'growing').length;
+
+  const candidates = [];
+  if (hungry >= 3) candidates.push({ god: 'Horahìda', domain: 'Ocean & Seas', saw: 'houses going hungry with the water right there', lever: 'bounty' });
+  if (hungry >= 4) candidates.push({ god: 'Hiyaḍote', domain: 'Death & Night', saw: 'more mouths than this ground has ever carried', lever: 'fever' });
+  if (homeless >= 2 && growing > 0) candidates.push({ god: 'Dodìṭo', domain: 'Stone & Mountains', saw: 'households waiting on stone that will not hurry', lever: 'quicken' });
+  if (tenders <= 1) candidates.push({ god: 'Hiṭogiʻa', domain: 'Creation', saw: 'the gift running thin in this settlement', lever: 'strangers' });
+  if (hotD >= 1) candidates.push({ god: 'Gìhuqìdu', domain: 'Governance & Order', saw: 'a quarrel that no one will rule on', lever: 'temper' });
+  if (openD === 0 && s.turn > 12) candidates.push({ god: 'Yohyeʻ', domain: 'Confusion & Delusion', saw: 'a settlement entirely certain of itself', lever: 'reveal' });
+  if (growing >= 3 && hungry === 0) candidates.push({ god: 'Quyìturo', domain: 'Time & Decay', saw: 'a comfortable season, which does not last', lever: 'storm' });
+
+  if (!candidates.length) return;
+  if (!chance(r, 0.35)) return;
+
+  const fresh = candidates.filter(x => x.lever !== s.lastOmenLever);
+  const c = pick(r, fresh.length ? fresh : candidates);
+  s.omen = c; s.lastOmenLever = c.lever;
+  s.godSilence = 0;
+}
+
+/* bookkeeping ---------------------------------------------------------------- */
+
+function recount(s) {
+  const live = Object.values(s.people).filter(p => p.alive);
+  const hh = Object.values(s.households).filter(h => !h.extinct);
+  s.stats.push({
+    turn: s.turn,
+    pop: live.length,
+    households: hh.length,
+    waiting: landless(s).length,
+    growing: Object.values(s.buildings).filter(b => b.state === 'growing').length,
+    mature: Object.values(s.buildings).filter(b => b.state === 'mature').length,
+    tenders: live.filter(p => p.tender && ageOf(s, p) >= 16).length,
+    stores: Math.round(hh.reduce((a, h) => a + h.stores, 0)),
+    hungry: hh.filter(h => !h.lodgedWith && h.stores < 1).length,
+    disputes: Object.values(s.disputes).filter(d => d.open).length,
+    actors: live.filter(p => p.prominence > 0).length
+  });
+  if (s.stats.length > 400) s.stats.shift();
+}
+
+
+/* ===== src/render/chronicle.js ===== */
+/* ===========================================================================
+   Rendering: the chronicle, and the map plate.
+   The chronicle's job is to read as a record someone kept, not as a log.
+   =========================================================================== */
+
+function det(turn, salt) { return mulberry32((turn * 7919 + salt * 104729) | 0)(); }
+function detPick(turn, salt, arr) { return arr[Math.floor(det(turn, salt) * arr.length)]; }
+
+/* --- season openers --------------------------------------------------------- */
+
+const OPENERS = {
+  spring: [
+    'The ice went out of the ground and the paths turned to mud.',
+    'Spring came late and grudging, the way it does on this coast.',
+    'The first green showed in the grooves of the older houses.',
+    'Boats went back in the water and the shore smelled of tar again.'
+  ],
+  summer: [
+    'Long light. The stone held its heat well past dark.',
+    'A dry stretch, and the wells on the upper slope ran low.',
+    'The settlement worked outdoors from first light and the children ran loose.',
+    'Nets out every morning, and the rings on the new houses came up a shade paler.'
+  ],
+  harvest: [
+    'The moor went brown and everything that could be gathered was gathered.',
+    'A season of counting: stores, beasts, years on the walls.',
+    'The wind turned round to the north and stayed there.',
+    'Everyone worked with one eye on the sky.'
+  ],
+  winter: [
+    'Short days. Lamps lit by mid-afternoon and left burning.',
+    'The sea came up grey and stayed grey for months.',
+    'Doors shut early. What was in the stores in autumn was all there was.',
+    'Cold enough that the damp got into the walls and stayed.'
+  ]
+};
+
+const GROUPS = [
+  { key: 'weather', kinds: ['divine', 'weather'] },
+  { key: 'shrine', kinds: ['shrine'] },
+  { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'] },
+  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'] },
+  { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'] },
+  { key: 'people', kinds: ['rise', 'act', 'settle'] },
+  { key: 'memory', kinds: ['memory'] }
+];
+
+const BRIDGES = {
+  'weather>hardship': ['It told on the households before the season was out.', 'The cost of it came due quickly.', 'Not everyone came through it.'],
+  'weather>stone': ['Underneath all that, the ordinary business of the place went on.', 'The slower work carried on regardless.', 'The settlement did what it does in any season.'],
+  'weather>quarrel': ['Hard weather has a way of shortening tempers.', 'Shut indoors together, old things surfaced.'],
+  'weather>people': ['And a few made something of it.'],
+  'hardship>stone': ['Against that, there was some ordinary living done.', 'Life went on in the usual way alongside it.', 'Elsewhere the slow work continued.'],
+  'hardship>quarrel': ['Losses like that do not stay private long.', 'Grief found somewhere to point itself.', 'It was not long before someone was blamed.'],
+  'hardship>people': ['Out of it, someone stepped forward.', 'A gap had opened, and it did not stay open.'],
+  'hardship>weather': ['The weather offered no help.'],
+  'stone>quarrel': ['Not everything settled so quietly.', 'Ground is the thing this place argues about, and it argued.', 'One matter would not lie down.'],
+  'stone>people': ['Somebody was watching all of this with an interest of their own.', 'And one name began coming up more than it had.'],
+  'stone>hardship': ['It was not all growth.'],
+  'quarrel>people': ['These things need someone to carry them, and someone did.', 'A quarrel is only as long-lived as the person keeping it.'],
+  'quarrel>hardship': ['While the argument ran, the season took its own.'],
+  'quarrel>stone': ['Meanwhile the stone kept its own pace, indifferent.'],
+  'weather>shrine': ['People went looking for a reason.', 'It sent some of them up the hill.'],
+  'shrine>hardship': ['Whatever was asked for was not granted.', 'It made no difference to the stores.'],
+  'shrine>stone': ['Below all that, the ordinary work.'],
+  'shrine>quarrel': ['Not everything could be settled by going up there.'],
+  'hardship>shrine': ['A bad enough year sends people up the hill.'],
+  'stone>shrine': ['The one stone nobody owns had its own year.'],
+  'people>memory': ['None of it happens against a clean slate.'],
+  'quarrel>memory': ['These things have long roots here.'],
+  'stone>memory': ['Older business surfaced too.'],
+  'hardship>memory': ['Hard years bring up old ones.'],
+  'weather>memory': ['It put people in mind of other years.']
+};
+
+const QUIET = [
+  'Nothing worth recording. The stone grew, the boats went out, and the year turned.',
+  'A season of no consequence, which the older heads counted as a good one.',
+  'Nothing happened that anyone thought to write down.',
+  'The settlement simply carried on.',
+  'No deaths, no quarrels, no ground changing hands. It happens.'
+];
+
+function renderTurn(entry, opts = {}) {
+  const t = entry.turn;
+  const parts = [];
+  const evs = entry.events.filter(e => e.weight >= (opts.floor ?? 2));
+
+  const buckets = GROUPS.map(g => ({ key: g.key, items: evs.filter(e => g.kinds.includes(e.kind)) }))
+    .filter(b => b.items.length);
+
+  // opener: weather-led if there was weather, otherwise a season line
+  const openerUsed = detPick(t, 1, OPENERS[entry.season]);
+  parts.push({ type: 'prose', text: openerUsed });
+
+  if (!buckets.length) {
+    parts.push({ type: 'prose', text: detPick(t, 2, QUIET) });
+    return parts;
+  }
+
+  let prev = null;
+  buckets.forEach((b, i) => {
+    if (prev) {
+      const key = prev + '>' + b.key;
+      const pool = BRIDGES[key];
+      if (pool) parts.push({ type: 'bridge', text: detPick(t, 10 + i, pool) });
+    }
+    b.items.sort((x, y) => y.weight - x.weight);
+    for (const e of b.items) parts.push({ type: 'event', kind: e.kind, weight: e.weight, text: e.text });
+    prev = b.key;
+  });
+
+  return parts;
+}
+
+function chronicleHTML(entry, opts) {
+  const parts = renderTurn(entry, opts);
+  let html = `<article class="turn" id="turn-${entry.turn}">`;
+  html += `<h2 class="season"><span class="s-name">${entry.season}</span><span class="s-year">${entry.year}</span></h2>`;
+  if (entry.input) html += `<p class="hand">A hand moved over the settlement.</p>`;
+  for (const p of parts) {
+    if (p.type === 'prose') html += `<p class="prose">${p.text}</p>`;
+    else if (p.type === 'bridge') html += `<p class="bridge">${p.text}</p>`;
+    else html += `<p class="event w${Math.min(7, p.weight)} k-${p.kind}">${p.text}</p>`;
+  }
+  const st = entry.stats;
+  if (entry.govChange) html += `<p class="hand">${entry.govChange}</p>`;
+  if (entry.shrine) html += `<p class="tally shrinerow">The ${entry.shrine.god} stone: ${entry.shrine.devotion < 30 ? 'untended' : entry.shrine.devotion < 55 ? 'kept, barely' : entry.shrine.devotion < 78 ? 'kept' : 'well kept'}${entry.shrine.keeper ? ', by ' + entry.shrine.keeper : ', by nobody'}</p>`;
+  if (st) html += `<p class="tally">${st.pop} living · ${st.households} households · ${st.mature} homes standing, ${st.growing} still growing${st.waiting ? ', ' + st.waiting + ' household' + (st.waiting > 1 ? 's' : '') + ' waiting on ground' : ''} · ${st.tenders} who can work stone${st.disputes ? ' · ' + st.disputes + ' unsettled quarrel' + (st.disputes > 1 ? 's' : '') : ''}</p>`;
+  html += `</article>`;
+  return html;
+}
+
+/* --- the map ----------------------------------------------------------------- */
+
+const GLYPH = {
+  sea: '·', shore: '~', slope: '˄', crag: '▲', moor: ',',
+  mature: '⌂', growing: '◌', derelict: '×'
+};
+
+function mapHTML(s) {
+  const occupied = {};
+  for (const b of Object.values(s.buildings)) {
+    const hh = s.households[b.householdId];
+    const live = hh && hh.members.some(i => s.people[i].alive);
+    occupied[b.tileId] = { b, live };
+  }
+  const actorTiles = {};
+  for (const p of Object.values(s.people)) {
+    if (p.alive && p.prominence > 0) actorTiles[homeTile(s, p)] = p;
+  }
+  const disputed = new Set();
+  for (const d of Object.values(s.disputes)) {
+    if (!d.open) continue;
+    for (const hid of [d.a, d.b]) for (const c of (s.households[hid]?.claims || [])) disputed.add(c);
+  }
+
+  const shrineTile = s.shrine ? s.shrine.tileId : -1;
+  let out = '';
+  for (let y = 0; y < H; y++) {
+    let row = '';
+    for (let x = 0; x < W; x++) {
+      const id = tileId(x, y);
+      const t = s.tiles[id];
+      const o = occupied[id];
+      let cls = ['t'], g;
+      if (o) {
+        if (o.b.state === 'derelict') { g = GLYPH.derelict; cls.push('m-derelict'); }
+        else if (o.b.state === 'growing') { g = GLYPH.growing; cls.push('m-growing'); }
+        else { g = GLYPH.mature; cls.push(o.live ? 'm-lit' : 'm-dark'); }
+        if (actorTiles[id]) cls.push('m-actor');
+      } else {
+        g = t.t === SEA ? GLYPH.sea : t.t === SHORE ? GLYPH.shore : t.t === SLOPE ? GLYPH.slope : t.t === CRAG ? GLYPH.crag : GLYPH.moor;
+        cls.push('g-' + ['sea', 'shore', 'slope', 'crag', 'moor'][t.t]);
+        if (t.owner) cls.push('owned');
+      }
+      if (id === shrineTile) {
+        g = '†';
+        cls = ['t', s.shrine.devotion > 55 ? 'm-shrine' : 'm-shrine-cold'];
+      }
+      if (disputed.has(id)) cls.push('m-disputed');
+      row += `<span class="${cls.join(' ')}">${g}</span>`;
+    }
+    out += `<div class="mrow">${row}</div>`;
+  }
+  return out;
+}
+
+
+/* ===== src/render/panels.js ===== */
+/* ===========================================================================
+   Panel rendering: the cast, the households. Reads state, returns HTML.
+   =========================================================================== */
+
+/* --- the standing cast -------------------------------------------------------- */
+
+function castHTML(s) {
+  const actors = Object.values(s.people).filter(p => p.alive && p.prominence > 0)
+    .sort((a, b) => b.prominence - a.prominence);
+  if (!actors.length) return `<p class="empty">Nobody in the settlement is reaching for anything. That can change in a season.</p>`;
+  return actors.map(p => {
+    const hh = s.households[p.householdId];
+    return `<div class="figure">
+      <div class="fname">${p.name} <span class="flin">${p.lineage}</span></div>
+      <div class="fmeta">${ageOf(s, p)} years · ${describeTraits(p)}</div>
+      <div class="fgoal">${p.goal ? 'Set on ' + p.goal.label + '.' : 'Between purposes.'}</div>
+      ${p.deeds.length ? `<div class="fdeeds">Known for: ${p.deeds.slice(-3).join('; ')}.</div>` : ''}
+      ${p.grudges.length ? `<div class="fgrudge">Holds against ${p.grudges.length} ${p.grudges.length > 1 ? 'houses' : 'house'}.</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function householdsHTML(s) {
+  const hs = Object.values(s.households).filter(h => !h.extinct)
+    .sort((a, b) => b.standing - a.standing);
+  return hs.map(h => {
+    const live = h.members.filter(i => s.people[i].alive).length;
+    const b = s.buildings[h.buildingId];
+    const growing = Object.values(s.buildings).find(x => x.householdId === h.id && x.state === 'growing');
+    const home = b && b.state === 'mature' ? 'housed'
+      : growing ? `stone at ${Math.round(growing.maturity * 100)}%`
+      : 'no ground';
+    const rep = reputeOf(s, h);
+    const said = rep > 6 ? 'well thought of' : rep < -6 ? 'not well thought of' : '';
+    const mine = s.memory.filter(m => m.household === h.id && (rep < 0 ? m.favour < 0 : m.favour > 0))
+      .sort((a, b) => Math.abs(b.favour) - Math.abs(a.favour))[0];
+    return `<div class="hrow ${home === 'no ground' ? 'nohome' : ''}">
+      <div class="hline"><span class="hname">${h.name}</span>
+      <span class="hbits">${live} living · ${h.claims.length} claim${h.claims.length === 1 ? '' : 's'} · ${home} · stores ${Math.round(h.stores)}</span></div>
+      ${said ? `<div class="hrep ${rep < 0 ? 'bad' : 'good'}">${said}${mine ? ' — ' + mine.phrase : ''}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+
+/* ===== src/ui/app.js ===== */
+/* ===========================================================================
+   Interface. The only file that touches the DOM.
+   The run is stored as: config + the list of inputs. States are cached for
+   speed, but the inputs are the source of truth, which is what makes an
+   export a few kilobytes instead of a few hundred.
+   =========================================================================== */
+
+const Run = {
+  cfg: null,
+  fullRecord: false,   // weight-1 events are always stored, just not shown
+  states: [],     // states[i] is the world after i turns
+  inputs: [],     // inputs[i] is what was applied to reach states[i+1]
+  cursor: 0,
+  branches: []
+};
+
+function state() { return Run.states[Run.cursor]; }
+function opts() { return { floor: Run.fullRecord ? 1 : 2 }; }
+
+function toggleRecord() {
+  Run.fullRecord = !Run.fullRecord;
+  const b = document.getElementById('rec');
+  b.textContent = Run.fullRecord ? 'Showing everything' : 'Show everything';
+  b.setAttribute('aria-pressed', String(Run.fullRecord));
+  renderAll(true);
+  closeSheet();
+}
+
+function startRun(cfg) {
+  Run.cfg = cfg;
+  Run.states = [newWorld(cfg)];
+  Run.inputs = [];
+  Run.cursor = 0;
+  renderAll(true);
+}
+
+function step(lever) {
+  // advancing from a rolled-back point discards the future
+  if (Run.cursor < Run.states.length - 1) {
+    Run.states.length = Run.cursor + 1;
+    Run.inputs.length = Run.cursor;
+  }
+  const input = { lever: lever || 'none' };
+  const next = advance(state(), input);
+  Run.states.push(next);
+  Run.inputs.push(input);
+  Run.cursor++;
+  renderAll(false);
+  const el = document.getElementById('turn-' + next.turn);
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: prefersMotion() ? 'smooth' : 'auto', block: 'start' });
+}
+
+function stepMany(n) {
+  for (let i = 0; i < n; i++) step('none');
+}
+
+function rollbackTo(turn) {
+  Run.cursor = Math.max(0, Math.min(turn, Run.states.length - 1));
+  renderAll(true);
+  closeSheet();
+}
+
+function saveBranch(name) {
+  Run.branches.push({
+    name: name || `${state().name}, ${seasonOf(state().turn)} ${yearOf(state(), state().turn)}`,
+    cfg: clone(Run.cfg),
+    inputs: clone(Run.inputs.slice(0, Run.cursor)),
+    turn: Run.cursor
+  });
+  renderPanels();
+}
+
+function loadBranch(i) {
+  const b = Run.branches[i];
+  Run.cfg = clone(b.cfg);
+  Run.states = [newWorld(Run.cfg)];
+  Run.inputs = [];
+  for (const inp of b.inputs) {
+    Run.states.push(advance(Run.states[Run.states.length - 1], inp));
+    Run.inputs.push(inp);
+  }
+  Run.cursor = Run.states.length - 1;
+  renderAll(true);
+  closeSheet();
+}
+
+function prefersMotion() { return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+/* --- rendering ---------------------------------------------------------------- */
+
+function renderAll(rebuild) {
+  const s = state();
+  document.getElementById('place').textContent = s.name;
+  document.getElementById('when').textContent = s.turn === 0
+    ? `founded, ${s.startYear}`
+    : `${seasonOf(s.turn)} ${yearOf(s, s.turn)}`;
+
+  const chron = document.getElementById('chronicle');
+  if (rebuild || chron.childElementCount === 0) {
+    if (!s.chronicle.length) {
+      chron.innerHTML = `<article class="turn"><h2 class="season"><span class="s-name">before</span><span class="s-year">${s.startYear}</span></h2>
+        <p class="prose">${openingHTML(s)}</p></article>`;
+    } else {
+      chron.innerHTML = openingCard(s) + s.chronicle.map(e => chronicleHTML(e, opts())).join('');
+    }
+  } else {
+    const last = s.chronicle[s.chronicle.length - 1];
+    if (last) chron.insertAdjacentHTML('beforeend', chronicleHTML(last, opts()));
+  }
+
+  document.getElementById('map').innerHTML = mapHTML(s);
+  renderOmen(s);
+  renderPanels();
+}
+
+function openingCard(s) {
+  const first = Run.states[0];
+  return `<article class="turn"><h2 class="season"><span class="s-name">before</span><span class="s-year">${s.startYear}</span></h2>
+    <p class="prose">${openingHTML(first)}</p></article>`;
+}
+
+function openingHTML(s) {
+  const st = s.stats[s.stats.length - 1];
+  const oldest = Object.values(s.buildings).sort((a, b) => a.startTurn - b.startTurn)[0];
+  return `${st.pop} Roduro live on this stretch of coast in ${st.households} households. ` +
+    `${st.mature} homes stand grown into the hillside, the oldest of them begun some ${Math.round(-oldest.startTurn / 4)} years ago. ` +
+    `${st.tenders} ${st.tenders === 1 ? 'person has' : 'people have'} the gift to work the stone, which is the number everything else here depends on.`;
+}
+
+function renderOmen(s) {
+  const box = document.getElementById('omen');
+  if (!s.omen) { box.hidden = true; box.innerHTML = ''; return; }
+  const o = s.omen;
+  const L = LEVERS[o.lever];
+  box.hidden = false;
+  box.innerHTML = `<p class="god">${o.god}<span class="dom">, ${o.domain}</span></p>
+    <p class="saw">has seen ${o.saw}.</p>
+    <p class="offer">${L.desc}</p>
+    <div class="orow">
+      <button class="btn accept" onclick="step('${o.lever}')">Do it</button>
+      <button class="btn quiet" onclick="step('none')">Decline</button>
+    </div>`;
+}
+
+function renderPanels() {
+  const s = state();
+  document.getElementById('p-cast').innerHTML = castHTML(s);
+  document.getElementById('p-houses').innerHTML = householdsHTML(s);
+  document.getElementById('p-offices').innerHTML = officesHTML(s);
+  const strongest = {};
+  for (const m of s.memory) {
+    const cur = strongest[m.household];
+    if (!cur || Math.abs(m.favour) > Math.abs(cur.favour)) strongest[m.household] = m;
+  }
+  const mem = Object.values(strongest)
+    .filter(m => s.households[m.household] && !s.households[m.household].extinct)
+    .sort((a, b) => Math.abs(b.favour) - Math.abs(a.favour)).slice(0, 12);
+  document.getElementById('p-memory').innerHTML = mem.length
+    ? `<p class="hint">What is still attached to a household, and how strongly. It fades over about sixty-five years, and it decides who is believed and who is ruled against.</p>`
+      + mem.map(m => `<div class="memrow ${m.favour < 0 ? 'bad' : 'good'}">
+          <span class="memhouse">${m.house}</span> ${m.phrase}
+          <span class="memwhen">${Math.round((s.turn - m.turn) / 4)} years ago</span></div>`).join('')
+    : `<p class="empty">Nothing has happened here yet that anyone will still be talking about in twenty years.</p>`;
+
+  const st = s.stats[s.stats.length - 1];
+  document.getElementById('p-numbers').innerHTML = `
+    <div class="ngrid">
+      ${num('Living', st.pop)}${num('Households', st.households)}
+      ${num('Waiting on ground', st.waiting)}${num('Stone growing', st.growing)}
+      ${num('Homes standing', st.mature)}${num('Stone-tenders', st.tenders)}
+      ${num('Stores', st.stores)}${num('Households short', st.hungry)}
+      ${num('Open quarrels', st.disputes)}${num('Named figures', st.actors)}
+    </div>` + shrineHTML(s) + sparkHTML(s);
+
+  document.getElementById('p-time').innerHTML =
+    `<p class="hint">Tap a season to go back to it. Advancing from there replaces everything after — save the line first if you want to keep it.</p>` +
+    `<div class="tl">` + Run.states.map((x, i) => {
+      const label = i === 0 ? `founded ${x.startYear}` : `${seasonOf(i)} ${yearOf(x, i)}`;
+      const lv = Run.inputs[i - 1]?.lever;
+      return `<button class="tstep ${i === Run.cursor ? 'here' : ''}" onclick="rollbackTo(${i})">${label}${lv && lv !== 'none' ? `<span class="tlv">${LEVERS[lv].label}</span>` : ''}</button>`;
+    }).join('') + `</div>` +
+    `<button class="btn wide" onclick="saveBranch()">Save this line</button>` +
+    (Run.branches.length ? `<div class="branches">` + Run.branches.map((b, i) =>
+      `<button class="tstep" onclick="loadBranch(${i})">${b.name} <span class="tlv">${b.turn} seasons</span></button>`).join('') + `</div>` : '');
+
+  const lv = document.getElementById('p-levers');
+  lv.innerHTML = Object.entries(LEVERS).filter(([k]) => k !== 'none').map(([k, L]) =>
+    `<button class="lever" onclick="step('${k}'); closeSheet();">
+      <span class="lname">${L.label}</span><span class="ldesc">${L.desc}</span></button>`).join('');
+}
+
+function officesHTML(s) {
+  const gov = GOVERNMENTS[s.government];
+  let h = `<p class="hint"><strong>${s.name} is under ${gov.name}.</strong> ${gov.describe}</p>`;
+  for (const sp of officeSpec(s)) {
+    const held = officeHolders(s, sp.key);
+    h += `<div class="orow2"><div class="otitle">${sp.title}${sp.n > 1 ? ` <span class="ocount">${held.length} of ${sp.n}</span>` : ''}</div>`;
+    h += held.length
+      ? held.map(p => {
+          const q = quarterOf(s, homeTile(s, p));
+          return `<div class="oholder">${p.name} <span class="flin">${p.lineage}</span>
+            <span class="ometa">${ageOf(s, p)} years${q ? ' · ' + q.name : ''} · ${Math.max(1, Math.round((s.turn - (p.officeSince || s.turn)) / 4))} years in the seat</span></div>`;
+        }).join('')
+      : `<div class="ovacant">vacant</div>`;
+    h += `</div>`;
+  }
+  const denied = (s.boatsDenied || []).map(id => (s.households[id] || {}).name).filter(Boolean);
+  if (denied.length) h += `<p class="hint bad">Kept off the water this season: ${denied.join(', ')}.</p>`;
+  return h;
+}
+
+function shrineHTML(s) {
+  const sh = s.shrine;
+  if (!sh) return '';
+  const d = Math.round(sh.devotion);
+  const word = d < 30 ? 'untended' : d < 55 ? 'kept, barely' : d < 78 ? 'kept' : 'well kept';
+  return `<div class="shrinebox">
+    <div class="shname">The ${sh.god} stone</div>
+    <div class="shstate">${word}${sh.keeperId ? ' — ' + sh.keeperName + ' keeps it' : ' — nobody keeps it'}</div>
+    <div class="shbar"><span style="width:${d}%"></span></div>
+    <div class="shnote">${d > 60
+      ? 'Rulings sworn here are obeyed. Quarrels end in judgement rather than in feud.'
+      : d > 35
+      ? 'Some will take a quarrel up there. Some will not.'
+      : 'Nobody takes anything up there. Quarrels harden instead of ending.'}</div>
+  </div>`;
+}
+
+function num(label, v) { return `<div class="nbox"><span class="nv">${v}</span><span class="nl">${label}</span></div>`; }
+
+function sparkHTML(s) {
+  const h = s.stats.slice(-60);
+  if (h.length < 3) return '';
+  const max = Math.max(...h.map(x => x.pop));
+  const min = Math.min(...h.map(x => x.pop));
+  const span = Math.max(1, max - min);
+  const pts = h.map((x, i) => `${(i / (h.length - 1)) * 100},${30 - ((x.pop - min) / span) * 28}`).join(' ');
+  return `<div class="spark"><svg viewBox="0 0 100 30" preserveAspectRatio="none" role="img" aria-label="Population over the last ${h.length} seasons">
+    <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="0.8" vector-effect="non-scaling-stroke"/></svg>
+    <span class="sparkl">Living, last ${h.length} seasons — low ${min}, high ${max}</span></div>`;
+}
+
+/* --- sheet ------------------------------------------------------------------- */
+
+let sheetOpen = null;
+function openSheet(which) {
+  sheetOpen = which;
+  document.querySelectorAll('.panel').forEach(p => p.hidden = p.dataset.panel !== which);
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === which));
+  document.getElementById('sheet').classList.add('up');
+  document.getElementById('scrim').hidden = false;
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('up');
+  document.getElementById('scrim').hidden = true;
+  sheetOpen = null;
+}
+
+/* --- export / import ---------------------------------------------------------- */
+
+function exportRun() {
+  const blob = new Blob([JSON.stringify({
+    engine: ENGINE_VERSION, cfg: Run.cfg,
+    inputs: Run.inputs.slice(0, Run.cursor), branches: Run.branches
+  }, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state().name.toLowerCase()}-${state().turn}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importRun(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      const d = JSON.parse(fr.result);
+      Run.cfg = d.cfg;
+      Run.branches = d.branches || [];
+      Run.states = [newWorld(d.cfg)];
+      Run.inputs = [];
+      for (const inp of d.inputs) {
+        Run.states.push(advance(Run.states[Run.states.length - 1], inp));
+        Run.inputs.push(inp);
+      }
+      Run.cursor = Run.states.length - 1;
+      renderAll(true); closeSheet();
+    } catch (e) {
+      alert('That file could not be read as a run. ' + e.message);
+    }
+  };
+  fr.readAsText(file);
+}
+
+function newSettlement() {
+  const seed = parseInt(document.getElementById('f-seed').value, 10) || Math.floor(Math.random() * 1e9);
+  const pop = clamp(parseInt(document.getElementById('f-pop').value, 10) || 150, 40, 1200);
+  const gov = document.getElementById('f-gov').value || null;
+  startRun({ seed, population: pop, startYear: 812, government: gov });
+  closeSheet();
+}
+
+/* --- boot -------------------------------------------------------------------- */
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tab').forEach(b =>
+    b.addEventListener('click', () => sheetOpen === b.dataset.tab ? closeSheet() : openSheet(b.dataset.tab)));
+  document.getElementById('scrim').addEventListener('click', closeSheet);
+  document.getElementById('advance').addEventListener('click', () => step('none'));
+  document.getElementById('advance-year').addEventListener('click', () => stepMany(4));
+  document.getElementById('f-import').addEventListener('change', e => e.target.files[0] && importRun(e.target.files[0]));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeSheet();
+    if (e.key === ' ' && !sheetOpen && e.target === document.body) { e.preventDefault(); step('none'); }
+  });
+  startRun({ seed: 20260910, population: 150, startYear: 812 });
+});
+
+</script>
+</body>
+</html>
