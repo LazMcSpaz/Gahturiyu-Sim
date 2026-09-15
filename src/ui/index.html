@@ -58,7 +58,7 @@ header.top{
 .plate{
   margin:0 14px 10px;padding:10px;background:var(--stone);
   border:1px solid #2b3437;border-radius:2px;
-  overflow:auto;max-height:42vh;
+  overflow:auto;max-height:38vh;
 }
 .plate[hidden]{display:none!important}
 #map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.06;letter-spacing:.16em;white-space:pre;color:#4c585c}
@@ -73,7 +73,37 @@ header.top{
 .m-shrine{color:#cbb27a;text-shadow:0 0 8px rgba(203,178,122,.5)}
 .m-shrine-cold{color:#5c5a50}
 .m-actor{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--lamp)}
+.m-news{background:rgba(226,154,74,.17);border-radius:2px}
+.m-sel{outline:1px solid var(--lamp);border-radius:2px;background:rgba(226,154,74,.3)}
+#map span[data-t]{cursor:pointer}
 .legend{font-family:var(--sans);font-size:.68rem;color:#828d91;margin:8px 2px 0;letter-spacing:.03em}
+.taphint{color:#5f6a6e;margin-top:4px}
+
+/* --- map inspector --- */
+#inspect{
+  position:relative;margin:0 14px 10px;padding:10px 30px 9px 12px;
+  background:#20262a;border:1px solid #2c3538;border-left:2px solid var(--lamp);
+  border-radius:2px;max-height:30vh;overflow-y:auto;
+}
+#inspect[hidden]{display:none!important}
+/* the map and its inspector share one budget: opening one shrinks the other */
+.dock.inspecting .plate{max-height:22vh}
+.ihead{
+  font-family:var(--sans);font-size:.68rem;letter-spacing:.07em;
+  color:var(--grey);margin-bottom:6px;
+}
+.irow{display:flex;gap:10px;align-items:baseline;padding:2px 0;font-size:.9rem;line-height:1.4}
+.ik{flex:0 0 7.4rem;font-family:var(--sans);font-size:.67rem;color:#7d888c;letter-spacing:.03em}
+.iv{flex:1;min-width:0;color:var(--pale)}
+.irow.good .iv{color:var(--lichen)}
+.irow.bad .iv{color:var(--rust)}
+.irow.growing .iv{color:var(--lichen)}
+.ix{
+  position:absolute;top:5px;right:5px;
+  background:none;border:0;color:var(--grey);font-size:1.15rem;line-height:1;
+  padding:3px 7px;cursor:pointer;
+}
+.ix:hover,.ix:focus-visible{color:var(--lamp)}
 
 /* --- chronicle --- */
 main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
@@ -169,7 +199,10 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
   padding:18px 18px calc(24px + var(--bar));
 }
 #sheet.up{transform:translateY(0)}
-@media (prefers-reduced-motion:no-preference){#sheet{transition:transform .22s ease}}
+@media (prefers-reduced-motion:no-preference){
+  #sheet{transition:transform .22s ease}
+  .plate{transition:max-height .15s ease}
+}
 .panel h3{font-size:1.06rem;font-weight:600;margin:0 0 12px}
 .hint{font-family:var(--sans);font-size:.74rem;color:var(--grey);line-height:1.55;margin:0 0 12px}
 .empty{color:var(--grey);font-style:italic}
@@ -259,7 +292,9 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 
 @media(min-width:760px){
   body{font-size:18px}
-  .plate{max-width:44rem;margin-inline:auto;max-height:50vh}
+  .plate{max-width:44rem;margin-inline:auto;max-height:46vh}
+  .dock.inspecting .plate{max-height:34vh}
+  #inspect{max-width:44rem;margin-inline:auto}
   #map{font-size:15px}
   #omen{max-width:38rem;margin-inline:auto}
 }
@@ -277,7 +312,13 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 
   <div class="plate" id="plate">
     <div id="map"></div>
-    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed ground</p>
+    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed &nbsp; <span class="m-news">⌂</span> in this season</p>
+    <p class="legend taphint">Tap anything on the map to see whose it is.</p>
+  </div>
+
+  <div id="inspect" hidden>
+    <button id="inspect-x" class="ix" aria-label="Close">×</button>
+    <div id="inspect-body"></div>
   </div>
 </div>
 

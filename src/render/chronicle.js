@@ -56,7 +56,21 @@ const GLYPH = {
   mature: '⌂', growing: '◌', derelict: '×'
 };
 
-function mapHTML(s) {
+/* Households named in the season just past, so the map can show you who the
+   newest lines are actually about. */
+function inTheNews(s) {
+  const last = s.chronicle[s.chronicle.length - 1];
+  const out = new Set();
+  if (!last) return out;
+  for (const e of last.events) {
+    if (e.household) out.add(e.household);
+    if (e.person && s.people[e.person]) out.add(s.people[e.person].householdId);
+    if (e.building && s.buildings[e.building]) out.add(s.buildings[e.building].householdId);
+  }
+  return out;
+}
+
+function mapHTML(s, selected) {
   const occupied = {};
   for (const b of Object.values(s.buildings)) {
     const hh = s.households[b.householdId];
@@ -72,6 +86,11 @@ function mapHTML(s) {
     if (!d.open) continue;
     for (const hid of [d.a, d.b]) for (const c of (s.households[hid]?.claims || [])) disputed.add(c);
   }
+
+  const news = inTheNews(s);
+  const newsTiles = new Set();
+  for (const b of Object.values(s.buildings)) if (news.has(b.householdId)) newsTiles.add(b.tileId);
+  for (const hid of news) for (const c of (s.households[hid]?.claims || [])) newsTiles.add(c);
 
   const shrineTile = s.shrine ? s.shrine.tileId : -1;
   let out = '';
@@ -97,7 +116,9 @@ function mapHTML(s) {
         cls = ['t', s.shrine.devotion > 55 ? 'm-shrine' : 'm-shrine-cold'];
       }
       if (disputed.has(id)) cls.push('m-disputed');
-      row += `<span class="${cls.join(' ')}">${g}</span>`;
+      if (newsTiles.has(id)) cls.push('m-news');
+      if (id === selected) cls.push('m-sel');
+      row += `<span class="${cls.join(' ')}" data-t="${id}">${g}</span>`;
     }
     out += `<div class="mrow">${row}</div>`;
   }

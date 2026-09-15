@@ -11,7 +11,8 @@ const Run = {
   states: [],     // states[i] is the world after i turns
   inputs: [],     // inputs[i] is what was applied to reach states[i+1]
   cursor: 0,
-  branches: []
+  branches: [],
+  selected: null   // map tile being inspected, or null
 };
 
 function state() { return Run.states[Run.cursor]; }
@@ -31,6 +32,7 @@ function startRun(cfg) {
   Run.states = [newWorld(cfg)];
   Run.inputs = [];
   Run.cursor = 0;
+  Run.selected = null;
   renderAll(true);
 }
 
@@ -85,6 +87,7 @@ function loadBranch(i) {
     Run.inputs.push(inp);
   }
   Run.cursor = Run.states.length - 1;
+  Run.selected = null;
   renderAll(true);
   closeSheet();
 }
@@ -105,7 +108,39 @@ function setMapShown(shown) {
   try { localStorage.setItem('gahturiyu.map', shown ? '1' : '0'); } catch (e) { /* private window */ }
 }
 
-function toggleMap() { setMapShown(document.getElementById('plate').hidden); }
+function toggleMap() {
+  const showing = document.getElementById('plate').hidden;
+  setMapShown(showing);
+  if (!showing) closeInspector();   // hiding the map takes its inspector with it
+}
+
+/* Tapping a tile answers the question the chronicle keeps raising: whose is
+   that? The selection is a tile id, and it survives advancing a season. */
+function openInspector(id) {
+  Run.selected = id;
+  document.getElementById('inspect-body').innerHTML = tileFactsHTML(state(), id);
+  document.getElementById('inspect').hidden = false;
+  document.getElementById('dock').classList.add('inspecting');
+  drawMap();
+}
+
+function closeInspector() {
+  Run.selected = null;
+  document.getElementById('inspect').hidden = true;
+  document.getElementById('dock').classList.remove('inspecting');
+  drawMap();
+}
+
+function drawMap() {
+  document.getElementById('map').innerHTML = mapHTML(state(), Run.selected);
+}
+
+/* The selected tile keeps its meaning across a season, so refresh its facts
+   whenever the world moves under it. */
+function refreshInspector() {
+  if (Run.selected === null || Run.selected === undefined) return;
+  document.getElementById('inspect-body').innerHTML = tileFactsHTML(state(), Run.selected);
+}
 
 function mapShownPref() {
   try { return localStorage.getItem('gahturiyu.map') !== '0'; } catch (e) { return true; }
@@ -133,7 +168,8 @@ function renderAll(rebuild) {
     if (last) chron.insertAdjacentHTML('beforeend', chronicleHTML(last, opts()));
   }
 
-  document.getElementById('map').innerHTML = mapHTML(s);
+  drawMap();
+  refreshInspector();
   renderOmen(s);
   renderPanels();
 }
@@ -309,6 +345,7 @@ function importRun(file) {
         Run.inputs.push(inp);
       }
       Run.cursor = Run.states.length - 1;
+      Run.selected = null;
       renderAll(true); closeSheet();
     } catch (e) {
       alert('That file could not be read as a run. ' + e.message);
@@ -333,11 +370,18 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('scrim').addEventListener('click', closeSheet);
   document.getElementById('advance').addEventListener('click', () => step('none'));
   document.getElementById('mapmin').addEventListener('click', toggleMap);
+  document.getElementById('map').addEventListener('click', e => {
+    const tile = e.target.closest('[data-t]');
+    if (!tile) return;
+    const id = Number(tile.dataset.t);
+    if (id === Run.selected) closeInspector(); else openInspector(id);
+  });
+  document.getElementById('inspect-x').addEventListener('click', closeInspector);
   setMapShown(mapShownPref());
   document.getElementById('advance-year').addEventListener('click', () => stepMany(4));
   document.getElementById('f-import').addEventListener('change', e => e.target.files[0] && importRun(e.target.files[0]));
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeSheet();
+    if (e.key === 'Escape') { closeSheet(); closeInspector(); }
     if (e.key === ' ' && !sheetOpen && e.target === document.body) { e.preventDefault(); step('none'); }
   });
   startRun({ seed: 20260910, population: 150, startYear: 812 });

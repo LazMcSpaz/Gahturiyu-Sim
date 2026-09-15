@@ -58,7 +58,7 @@ header.top{
 .plate{
   margin:0 14px 10px;padding:10px;background:var(--stone);
   border:1px solid #2b3437;border-radius:2px;
-  overflow:auto;max-height:42vh;
+  overflow:auto;max-height:38vh;
 }
 .plate[hidden]{display:none!important}
 #map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.06;letter-spacing:.16em;white-space:pre;color:#4c585c}
@@ -73,7 +73,37 @@ header.top{
 .m-shrine{color:#cbb27a;text-shadow:0 0 8px rgba(203,178,122,.5)}
 .m-shrine-cold{color:#5c5a50}
 .m-actor{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--lamp)}
+.m-news{background:rgba(226,154,74,.17);border-radius:2px}
+.m-sel{outline:1px solid var(--lamp);border-radius:2px;background:rgba(226,154,74,.3)}
+#map span[data-t]{cursor:pointer}
 .legend{font-family:var(--sans);font-size:.68rem;color:#828d91;margin:8px 2px 0;letter-spacing:.03em}
+.taphint{color:#5f6a6e;margin-top:4px}
+
+/* --- map inspector --- */
+#inspect{
+  position:relative;margin:0 14px 10px;padding:10px 30px 9px 12px;
+  background:#20262a;border:1px solid #2c3538;border-left:2px solid var(--lamp);
+  border-radius:2px;max-height:30vh;overflow-y:auto;
+}
+#inspect[hidden]{display:none!important}
+/* the map and its inspector share one budget: opening one shrinks the other */
+.dock.inspecting .plate{max-height:22vh}
+.ihead{
+  font-family:var(--sans);font-size:.68rem;letter-spacing:.07em;
+  color:var(--grey);margin-bottom:6px;
+}
+.irow{display:flex;gap:10px;align-items:baseline;padding:2px 0;font-size:.9rem;line-height:1.4}
+.ik{flex:0 0 7.4rem;font-family:var(--sans);font-size:.67rem;color:#7d888c;letter-spacing:.03em}
+.iv{flex:1;min-width:0;color:var(--pale)}
+.irow.good .iv{color:var(--lichen)}
+.irow.bad .iv{color:var(--rust)}
+.irow.growing .iv{color:var(--lichen)}
+.ix{
+  position:absolute;top:5px;right:5px;
+  background:none;border:0;color:var(--grey);font-size:1.15rem;line-height:1;
+  padding:3px 7px;cursor:pointer;
+}
+.ix:hover,.ix:focus-visible{color:var(--lamp)}
 
 /* --- chronicle --- */
 main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
@@ -169,7 +199,10 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
   padding:18px 18px calc(24px + var(--bar));
 }
 #sheet.up{transform:translateY(0)}
-@media (prefers-reduced-motion:no-preference){#sheet{transition:transform .22s ease}}
+@media (prefers-reduced-motion:no-preference){
+  #sheet{transition:transform .22s ease}
+  .plate{transition:max-height .15s ease}
+}
 .panel h3{font-size:1.06rem;font-weight:600;margin:0 0 12px}
 .hint{font-family:var(--sans);font-size:.74rem;color:var(--grey);line-height:1.55;margin:0 0 12px}
 .empty{color:var(--grey);font-style:italic}
@@ -259,7 +292,9 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 
 @media(min-width:760px){
   body{font-size:18px}
-  .plate{max-width:44rem;margin-inline:auto;max-height:50vh}
+  .plate{max-width:44rem;margin-inline:auto;max-height:46vh}
+  .dock.inspecting .plate{max-height:34vh}
+  #inspect{max-width:44rem;margin-inline:auto}
   #map{font-size:15px}
   #omen{max-width:38rem;margin-inline:auto}
 }
@@ -277,7 +312,13 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 
   <div class="plate" id="plate">
     <div id="map"></div>
-    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed ground</p>
+    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed &nbsp; <span class="m-news">⌂</span> in this season</p>
+    <p class="legend taphint">Tap anything on the map to see whose it is.</p>
+  </div>
+
+  <div id="inspect" hidden>
+    <button id="inspect-x" class="ix" aria-label="Close">×</button>
+    <div id="inspect-body"></div>
   </div>
 </div>
 
@@ -2478,7 +2519,21 @@ const GLYPH = {
   mature: '⌂', growing: '◌', derelict: '×'
 };
 
-function mapHTML(s) {
+/* Households named in the season just past, so the map can show you who the
+   newest lines are actually about. */
+function inTheNews(s) {
+  const last = s.chronicle[s.chronicle.length - 1];
+  const out = new Set();
+  if (!last) return out;
+  for (const e of last.events) {
+    if (e.household) out.add(e.household);
+    if (e.person && s.people[e.person]) out.add(s.people[e.person].householdId);
+    if (e.building && s.buildings[e.building]) out.add(s.buildings[e.building].householdId);
+  }
+  return out;
+}
+
+function mapHTML(s, selected) {
   const occupied = {};
   for (const b of Object.values(s.buildings)) {
     const hh = s.households[b.householdId];
@@ -2494,6 +2549,11 @@ function mapHTML(s) {
     if (!d.open) continue;
     for (const hid of [d.a, d.b]) for (const c of (s.households[hid]?.claims || [])) disputed.add(c);
   }
+
+  const news = inTheNews(s);
+  const newsTiles = new Set();
+  for (const b of Object.values(s.buildings)) if (news.has(b.householdId)) newsTiles.add(b.tileId);
+  for (const hid of news) for (const c of (s.households[hid]?.claims || [])) newsTiles.add(c);
 
   const shrineTile = s.shrine ? s.shrine.tileId : -1;
   let out = '';
@@ -2519,7 +2579,9 @@ function mapHTML(s) {
         cls = ['t', s.shrine.devotion > 55 ? 'm-shrine' : 'm-shrine-cold'];
       }
       if (disputed.has(id)) cls.push('m-disputed');
-      row += `<span class="${cls.join(' ')}">${g}</span>`;
+      if (newsTiles.has(id)) cls.push('m-news');
+      if (id === selected) cls.push('m-sel');
+      row += `<span class="${cls.join(' ')}" data-t="${id}">${g}</span>`;
     }
     out += `<div class="mrow">${row}</div>`;
   }
@@ -2572,6 +2634,117 @@ function householdsHTML(s) {
   }).join('');
 }
 
+/* --- the map inspector --------------------------------------------------------
+   The chronicle names households and quarters constantly; the map draws every
+   house with the same glyph. This is what closes that loop: tap a tile and it
+   says whose it is, in the same terms the chronicle uses.
+   -------------------------------------------------------------------------- */
+
+function tileFactsHTML(s, id) {
+  const t = s.tiles[id];
+  if (!t) return '';
+  const q = quarterOf(s, id);
+  const where = !q ? TERRAIN_NAME[t.t]
+    : t.t === SEA ? `open water off ${q.name}`
+    : `the ${TERRAIN_NAME[t.t]} at ${q.name}`;
+
+  const rows = [];
+  const row = (k, v, cls) => rows.push(
+    `<div class="irow${cls ? ' ' + cls : ''}"><span class="ik">${k}</span><span class="iv">${v}</span></div>`);
+
+  // the shrine belongs to nobody, and outranks whatever else is on the tile
+  if (s.shrine && s.shrine.tileId === id) {
+    const d = Math.round(s.shrine.devotion);
+    row('Shrine', `the ${s.shrine.god} stone`);
+    row('Kept', `${d}/100 — ${d < 30 ? 'untended' : d < 55 ? 'barely kept' : d < 78 ? 'kept' : 'well kept'}`);
+    row('Keeper', s.shrine.keeperId ? s.shrine.keeperName : 'nobody', s.shrine.keeperId ? '' : 'bad');
+    row('Rulings', d > 60 ? 'sworn here, and they bind'
+      : d > 35 ? 'some quarrels come here, some do not'
+      : 'nobody brings quarrels here');
+    return inspectorHTML(where, rows);
+  }
+
+  const b = Object.values(s.buildings).find(x => x.tileId === id);
+  const hh = b ? s.households[b.householdId] : (t.owner ? s.households[t.owner] : null);
+
+  if (!hh) {
+    // open ground: the only question that matters is whether a house can grow here
+    if (t.t === SEA) {
+      row('Water', t.fish > 0.45 ? 'good fishing' : t.fish > 0.15 ? 'fishable' : 'poor fishing');
+    } else {
+      const can = siteValue(s.tiles, id) > 0;
+      const homes = Object.values(s.buildings).filter(x => x.state !== 'derelict').map(x => x.tileId);
+      const tooClose = can && homes.some(x => tileDist(x, id) < 2.15);
+      row('Ground', 'unclaimed');
+      row('Will it take a house?', !can ? 'no — the stone is too thin here'
+        : tooClose ? 'no — too close to a standing house' : 'yes', (can && !tooClose) ? 'good' : 'bad');
+      if (t.fish > 0.15) row('Fishing', t.fish > 0.45 ? 'good' : 'fair');
+      if (t.graze > 0.2) row('Grazing', t.graze > 0.45 ? 'good' : 'fair');
+    }
+    return inspectorHTML(where, rows);
+  }
+
+  // a household holds this tile
+  const live = hh.members.map(i => s.people[i]).filter(p => p && p.alive);
+  const head = s.people[hh.headId];
+  row('Household', `the ${hh.name}${hh.extinct ? ' — ended' : ''}`);
+  if (b) {
+    row('House', b.state === 'mature' ? 'standing'
+      : b.state === 'derelict' ? 'derelict'
+      : `${Math.round(b.maturity * 100)}% grown${b.stalled > 0 ? `, stalled ${Math.round(b.stalled / 4)} years` : ''}`,
+      b.state === 'derelict' ? 'bad' : b.state === 'growing' ? 'growing' : '');
+    if (b.state === 'growing') {
+      const tn = b.tenderId && s.people[b.tenderId];
+      row('Tender', tn && tn.alive ? nameOf(s, tn.id) : 'nobody is working it', tn && tn.alive ? '' : 'bad');
+    }
+  } else {
+    row('House', 'none — this is claimed ground', 'bad');
+  }
+  if (hh.extinct) return inspectorHTML(where, rows);
+
+  row('Living here', `${live.length}${head && head.alive ? `, under ${nameOf(s, head.id)}` : ''}`);
+  row('Stores', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
+    (hh.shortSeasons || 0) >= 3 ? 'bad' : '');
+
+  const rep = reputeOf(s, hh);
+  const others = Object.values(s.households).filter(h => !h.extinct)
+    .sort((a, c) => standingOf(s, c) - standingOf(s, a));
+  const rank = others.findIndex(h => h.id === hh.id) + 1;
+  row('Standing', `${rank ? `${ordinal(rank)} of ${others.length}` : '—'}` +
+    `${rep > 6 ? ', well regarded' : rep < -6 ? ', badly regarded' : ''}`,
+    rep > 6 ? 'good' : rep < -6 ? 'bad' : '');
+
+  const tenders = live.filter(p => p.tender);
+  if (tenders.length) row('Can work stone', tenders.map(p => nameOf(s, p.id)).join(', '), 'good');
+
+  const figures = live.filter(p => p.prominence > 0);
+  for (const p of figures) row('Figure', `${nameOf(s, p.id)} — ${p.goal ? p.goal.label : 'no goal'}`);
+
+  const open = Object.values(s.disputes).filter(d => d.open && (d.a === hh.id || d.b === hh.id));
+  for (const d of open) {
+    const other = s.households[d.a === hh.id ? d.b : d.a];
+    row('Quarrel', `${d.a === hh.id ? 'against' : 'with'} the ${other ? other.name : 'another household'} over ${d.over}`, 'bad');
+  }
+
+  const held = s.memory.filter(m => m.household === hh.id)
+    .sort((a, c) => Math.abs(c.favour) - Math.abs(a.favour))[0];
+  if (held) row('Remembered', `${held.phrase} — ${Math.round((s.turn - held.turn) / 4)} years ago`,
+    held.favour < 0 ? 'bad' : 'good');
+
+  return inspectorHTML(where, rows);
+}
+
+/* 1st, 2nd, 3rd, 4th — the engine got this wrong once and printed "3th". */
+function ordinal(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return n + 'th';
+  return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+}
+
+function inspectorHTML(where, rows) {
+  return `<div class="ihead">${where}</div>` + rows.join('');
+}
+
 
 /* ===== src/ui/app.js ===== */
 /* ===========================================================================
@@ -2587,7 +2760,8 @@ const Run = {
   states: [],     // states[i] is the world after i turns
   inputs: [],     // inputs[i] is what was applied to reach states[i+1]
   cursor: 0,
-  branches: []
+  branches: [],
+  selected: null   // map tile being inspected, or null
 };
 
 function state() { return Run.states[Run.cursor]; }
@@ -2607,6 +2781,7 @@ function startRun(cfg) {
   Run.states = [newWorld(cfg)];
   Run.inputs = [];
   Run.cursor = 0;
+  Run.selected = null;
   renderAll(true);
 }
 
@@ -2661,6 +2836,7 @@ function loadBranch(i) {
     Run.inputs.push(inp);
   }
   Run.cursor = Run.states.length - 1;
+  Run.selected = null;
   renderAll(true);
   closeSheet();
 }
@@ -2681,7 +2857,39 @@ function setMapShown(shown) {
   try { localStorage.setItem('gahturiyu.map', shown ? '1' : '0'); } catch (e) { /* private window */ }
 }
 
-function toggleMap() { setMapShown(document.getElementById('plate').hidden); }
+function toggleMap() {
+  const showing = document.getElementById('plate').hidden;
+  setMapShown(showing);
+  if (!showing) closeInspector();   // hiding the map takes its inspector with it
+}
+
+/* Tapping a tile answers the question the chronicle keeps raising: whose is
+   that? The selection is a tile id, and it survives advancing a season. */
+function openInspector(id) {
+  Run.selected = id;
+  document.getElementById('inspect-body').innerHTML = tileFactsHTML(state(), id);
+  document.getElementById('inspect').hidden = false;
+  document.getElementById('dock').classList.add('inspecting');
+  drawMap();
+}
+
+function closeInspector() {
+  Run.selected = null;
+  document.getElementById('inspect').hidden = true;
+  document.getElementById('dock').classList.remove('inspecting');
+  drawMap();
+}
+
+function drawMap() {
+  document.getElementById('map').innerHTML = mapHTML(state(), Run.selected);
+}
+
+/* The selected tile keeps its meaning across a season, so refresh its facts
+   whenever the world moves under it. */
+function refreshInspector() {
+  if (Run.selected === null || Run.selected === undefined) return;
+  document.getElementById('inspect-body').innerHTML = tileFactsHTML(state(), Run.selected);
+}
 
 function mapShownPref() {
   try { return localStorage.getItem('gahturiyu.map') !== '0'; } catch (e) { return true; }
@@ -2709,7 +2917,8 @@ function renderAll(rebuild) {
     if (last) chron.insertAdjacentHTML('beforeend', chronicleHTML(last, opts()));
   }
 
-  document.getElementById('map').innerHTML = mapHTML(s);
+  drawMap();
+  refreshInspector();
   renderOmen(s);
   renderPanels();
 }
@@ -2885,6 +3094,7 @@ function importRun(file) {
         Run.inputs.push(inp);
       }
       Run.cursor = Run.states.length - 1;
+      Run.selected = null;
       renderAll(true); closeSheet();
     } catch (e) {
       alert('That file could not be read as a run. ' + e.message);
@@ -2909,11 +3119,18 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('scrim').addEventListener('click', closeSheet);
   document.getElementById('advance').addEventListener('click', () => step('none'));
   document.getElementById('mapmin').addEventListener('click', toggleMap);
+  document.getElementById('map').addEventListener('click', e => {
+    const tile = e.target.closest('[data-t]');
+    if (!tile) return;
+    const id = Number(tile.dataset.t);
+    if (id === Run.selected) closeInspector(); else openInspector(id);
+  });
+  document.getElementById('inspect-x').addEventListener('click', closeInspector);
   setMapShown(mapShownPref());
   document.getElementById('advance-year').addEventListener('click', () => stepMany(4));
   document.getElementById('f-import').addEventListener('change', e => e.target.files[0] && importRun(e.target.files[0]));
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeSheet();
+    if (e.key === 'Escape') { closeSheet(); closeInspector(); }
     if (e.key === ' ' && !sheetOpen && e.target === document.body) { e.preventDefault(); step('none'); }
   });
   startRun({ seed: 20260910, population: 150, startYear: 812 });

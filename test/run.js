@@ -3,7 +3,7 @@
 const path = require('path'), fs = require('fs');
 const root = path.join(__dirname, '..');
 const { loadEngine } = require(path.join(root, 'build.js'));
-const { newWorld, advance, LEVERS, renderTurn } = loadEngine(root);
+const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H } = loadEngine(root);
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -60,6 +60,44 @@ ok('no connective prose', [...kinds].every(k => k === 'event' || k === 'quiet'),
 const quiet = s.chronicle.filter(e => renderTurn(e, {}).every(p => p.type === 'quiet'));
 ok('a quiet season still says something', quiet.every(e => renderTurn(e, {})[0].text.length > 0),
    `${quiet.length} of ${s.chronicle.length} seasons had nothing to report`);
+
+console.log('\nmap');
+{
+  const m = run(200, 20260910, 150);
+  const html = mapHTML(m, null);
+  const ids = [...html.matchAll(/data-t="(\d+)"/g)].map(x => Number(x[1]));
+  ok('every tile is addressable', ids.length === W * H, `${ids.length} of ${W * H} tiles carry an id`);
+  ok('tile ids are the tile ids', ids.every((v, i) => v === i));
+
+  // the inspector must answer for any tile on the map, not just the built ones
+  let blank = 0, threw = null;
+  for (let i = 0; i < W * H; i++) {
+    try { if (!tileFactsHTML(m, i).trim()) blank++; } catch (e) { threw = `tile ${i}: ${e.message}`; }
+  }
+  ok('the inspector answers for every tile', !threw && blank === 0, threw || `${blank} tiles said nothing`);
+
+  // a house tile must name its household — that is the whole point
+  const b = Object.values(m.buildings).find(x => x.state === 'mature' && m.households[x.householdId]);
+  const facts = b ? tileFactsHTML(m, b.tileId) : '';
+  ok('a house names its household', !!b && facts.includes(m.households[b.householdId].name),
+     b ? `tile ${b.tileId}` : 'no mature house in this run');
+
+  // the shrine tile reports the shrine, not whatever ground it sits on
+  ok('the shrine tile reports the shrine',
+     !m.shrine || tileFactsHTML(m, m.shrine.tileId).includes(m.shrine.god));
+
+  // selection is drawn, and only on the selected tile
+  const sel = b ? b.tileId : 0;
+  const drawn = mapHTML(m, sel);
+  ok('the selected tile is marked once', (drawn.match(/m-sel/g) || []).length === 1);
+
+  // households in the latest season are the ones highlighted
+  const news = inTheNews(m);
+  const last = m.chronicle[m.chronicle.length - 1];
+  const named = new Set(last.events.filter(e => e.household).map(e => e.household));
+  ok('households named last season are in the news', [...named].every(h => news.has(h)),
+     `${news.size} household${news.size === 1 ? '' : 's'} highlighted`);
+}
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');
 process.exit(failures ? 1 : 0);

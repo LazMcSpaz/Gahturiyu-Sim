@@ -56,7 +56,7 @@ src/engine/45-offices.js    forms of government, the standing offices, boats and
 src/engine/50-politics.js   memory, the shrine, claims, disputes, grudges
 src/engine/60-figures.js    promotion to named figure, what figures do, omens, bookkeeping
 src/render/chronicle.js     events -> the season's lines, and the map plate
-src/render/panels.js        cast and household panels
+src/render/panels.js        cast and household panels, the map inspector
 src/ui/index.html           page shell and stylesheet, with the bundle slot
 src/ui/app.js               timeline, branches, sheet, map toggle, export/import
 ```
@@ -83,6 +83,23 @@ schedule) is recorded at weight 1 and hidden. **Setup → Show everything** show
 
 The map is pinned above the chronicle and stays there while you scroll. **Hide
 map** collapses it and the choice is remembered in that browser.
+
+**Tap any tile** and it says whose it is, in the same words the chronicle uses —
+a house gives its household, who heads it, stores, standing as a rank, its
+tender and how far its stone has grown, any open quarrel, and the strongest
+thing still held against it. Open ground answers the only question that matters
+about it: will it take a house, and if not, why not. The shrine tile reports the
+shrine rather than the hillside under it.
+
+Tiles belonging to households named in the season just past are tinted, so the
+newest lines in the chronicle can be found on the map. Selecting a tile keeps it
+selected as seasons pass and the facts re-read each turn; founding or loading a
+different settlement clears it.
+
+Opening the inspector shrinks the map rather than growing the dock, so the
+chronicle keeps most of the screen. `tileFactsHTML` is pure — state and a tile
+id in, HTML out — and `test/run.js` calls it for all 330 tiles every run, so a
+tile that would throw or come back blank fails the build.
 
 ## What is simulated
 

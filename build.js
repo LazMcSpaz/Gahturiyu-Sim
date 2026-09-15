@@ -44,7 +44,8 @@ function engineSource(root = __dirname) {
 // Loads the engine in its own scope and hands back the public surface.
 function loadEngine(root = __dirname) {
   return new Function(engineSource(root) +
-    '\nreturn {newWorld,advance,LEVERS,renderTurn,seasonOf,yearOf,ageOf,mulberry32,reputeOf};')();
+    '\nreturn {newWorld,advance,LEVERS,renderTurn,chronicleHTML,mapHTML,inTheNews,tileFactsHTML,'
+    + 'seasonOf,yearOf,ageOf,mulberry32,reputeOf,tileId,tileXY,quarterOf,W,H};')();
 }
 
 module.exports = { build, engineSource, loadEngine, MANIFEST };
