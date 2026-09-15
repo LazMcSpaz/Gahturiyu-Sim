@@ -5,7 +5,8 @@ const root = path.join(__dirname, '..');
 const { loadEngine } = require(path.join(root, 'build.js'));
 const E = loadEngine(root);
 const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H,
-        FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal } = E;
+        FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
+        stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -19,11 +20,34 @@ const run = (n, seed = 4242, pop = 200, inputs = []) => {
   return s;
 };
 
+// Sections below all wanted the same fifty-year run. Building it once keeps
+// the suite quick enough to run on every save.
+let _shared = null;
+const shared = () => (_shared = _shared || run(200, 20260910, 150));
+
 console.log('\ndeterminism');
 ok('same seed, same history', JSON.stringify(run(80).stats) === JSON.stringify(run(80).stats));
 const inp = Array.from({ length: 60 }, (_, i) => i === 20 ? 'storm' : i === 40 ? 'strangers' : 'none');
 ok('replay from inputs reproduces the run',
    JSON.stringify(run(60, 4242, 200, inp).stats) === JSON.stringify(run(60, 4242, 200, inp).stats));
+
+// advance() carries the chronicle and stats by reference into a fresh array.
+// If a later turn could reach back and change an entry, every earlier state in
+// a rolled-back run would rot. This is the test that says it cannot.
+{
+  let a = newWorld({ seed: 77, population: 120, startYear: 812 });
+  for (let i = 0; i < 30; i++) a = advance(a, { lever: 'none' });
+  const snapshot = JSON.stringify(a.chronicle);
+  const lenBefore = a.chronicle.length;
+  let b = a;
+  for (let i = 0; i < 20; i++) b = advance(b, { lever: 'storm' });
+  ok('advancing does not change the state it came from',
+     JSON.stringify(a.chronicle) === snapshot && a.chronicle.length === lenBefore,
+     `${lenBefore} entries, still ${a.chronicle.length}`);
+  ok('the newer state kept the older one\'s history',
+     b.chronicle.length === lenBefore + 20
+     && JSON.stringify(b.chronicle.slice(0, lenBefore)) === snapshot);
+}
 
 console.log('\nlevers');
 let mid = run(40, 99, 150);
@@ -103,7 +127,7 @@ console.log('\nmap');
 
 console.log('\nstanding, per faction');
 {
-  const m = run(200, 20260910, 150);
+  const m = shared();
   const alive = Object.values(m.people).filter(p => p.alive);
 
   ok('everyone carries all six factions',
@@ -125,7 +149,7 @@ console.log('\nstanding, per faction');
 
 console.log('\nties');
 {
-  const m = run(200, 20260910, 150);
+  const m = shared();
   const alive = Object.values(m.people).filter(p => p.alive);
   const all = alive.flatMap(p => p.ties || []);
 
@@ -155,13 +179,14 @@ console.log('\nties');
 
 console.log('\nthe term at the shrine');
 {
-  const m = run(200, 20260910, 150);
+  const m = shared();
   const alive = Object.values(m.people).filter(p => p.alive);
-  const grown = alive.filter(p => E.ageOf(m, p) > 24);
+  // only people born after the settlement was founded — anyone already adult
+  // at turn zero was past the age before the obligation existed
+  const grown = alive.filter(p => E.ageOf(m, p) > 24 && p.birthTurn > 0);
   const settled = grown.filter(p => (p.term && p.term.done) || p.refusedTerm);
-  ok('everyone who grew up here has served or refused',
-     settled.length / Math.max(1, grown.length) > 0.9,
-     `${settled.length} of ${grown.length}`);
+  ok('everyone born here and grown has served or refused',
+     settled.length === grown.length, `${settled.length} of ${grown.length}`);
 
   const refused = alive.filter(p => p.refusedTerm).length;
   ok('some refuse, but not many', refused > 0 && refused / Math.max(1, alive.length) < 0.25,
@@ -183,7 +208,7 @@ console.log('\nthe term at the shrine');
 
 console.log('\nno cap on who matters');
 {
-  const m = run(200, 20260910, 150);
+  const m = shared();
   const alive = Object.values(m.people).filter(p => p.alive);
   ok('prominence is gone', alive.every(p => p.prominence === undefined));
   ok('a figure is anyone with a goal',
@@ -197,6 +222,52 @@ console.log('\nno cap on who matters');
   }
   ok('the count moves with the work, not a constant',
      new Set(over).size > 3, `ranged ${Math.min(...over)}–${Math.max(...over)} over 50 years`);
+}
+
+console.log('\nbuildings keep growing');
+{
+  const start = newWorld({ seed: 20260910, population: 150, startYear: 812 });
+  const atFounding = Object.values(start.buildings).filter(b => b.state === 'mature');
+  ok('a founded settlement already has a few workshops',
+     atFounding.some(b => stageOf(b) === 2) && !atFounding.some(b => stageOf(b) >= 3),
+     `${atFounding.filter(b => stageOf(b) === 2).length} workshops, no third growth yet`);
+
+  const m = run(480, 20260910, 150);   // 120 years — long enough for a third growth
+  const built = Object.values(m.buildings).filter(b => b.state === 'mature');
+  ok('every standing building has a stage',
+     built.every(b => stageOf(b) >= 1 && stageOf(b) <= 4));
+  ok('stone reaches a third growth given long enough',
+     built.some(b => stageOf(b) >= 3),
+     `${built.filter(b => stageOf(b) >= 3).length} of ${built.length} buildings`);
+
+  // a third growth is a century of attention. It must not become the norm's
+  // reward: eminence, a tavern, or a gift to the quarter — or just a big house.
+  const third = built.filter(b => stageOf(b) >= 3);
+  const great = third.filter(b => roleOf(b) === 'great').length;
+  ok('a great house stays rarer than a large one',
+     great <= third.filter(b => roleOf(b) === 'house').length,
+     `${great} great, ${third.filter(b => roleOf(b) === 'house').length} large`);
+
+  // one tavern to a quarter, and very few halls
+  const quarters = (m.quarters || []).length;
+  ok('a quarter supports one tavern', tavernsOf(m).length <= quarters,
+     `${tavernsOf(m).length} taverns, ${quarters} quarters`);
+  const halls = third.filter(b => roleOf(b) === 'common').length;
+  ok('common halls stay scarce', halls <= Math.max(1, Math.ceil(quarters / 2)),
+     `${halls} of at most ${Math.max(1, Math.ceil(quarters / 2))}`);
+
+  // the whole point: tending never ends, so a house nobody visits stops
+  ok('growth halts when no tender will come',
+     built.every(b => !b.stalledStage || m.turn - (b.lastTended || b.startTurn) > 20),
+     `${built.filter(b => b.stalledStage).length} stalled for want of a tender`);
+
+  // and a workshop is what gates the finer trades later
+  const houses = Object.values(m.households).filter(h => !h.extinct);
+  const shops = houses.filter(h => hasWorkshop(m, h)).length;
+  ok('a workshop is something only some households have',
+     shops > 0 && shops < houses.length, `${shops} of ${houses.length} households`);
+
+  ok('every building reads as something', built.every(b => roleWord(b).length > 0));
 }
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');

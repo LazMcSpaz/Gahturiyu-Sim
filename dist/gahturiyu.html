@@ -68,6 +68,11 @@ header.top{
 .m-lit{color:var(--lamp);text-shadow:0 0 7px rgba(226,154,74,.55)}
 .m-dark{color:#6d7679}
 .m-growing{color:var(--lichen)}
+.m-workshop{color:#f0c07a;text-shadow:0 0 7px rgba(240,192,122,.45)}
+.m-house{color:#cdd4d3;text-shadow:0 0 6px rgba(205,212,211,.3)}
+.m-great{color:#f3e2b4;text-shadow:0 0 9px rgba(243,226,180,.6)}
+.m-tavern{color:var(--lamp);text-shadow:0 0 9px rgba(226,154,74,.7)}
+.m-common{color:var(--lichen);text-shadow:0 0 9px rgba(141,158,101,.6)}
 .m-derelict{color:#5a4a44}
 .m-disputed{background:rgba(179,88,58,.22);border-radius:2px}
 .m-shrine{color:#cbb27a;text-shadow:0 0 8px rgba(203,178,122,.5)}
@@ -316,7 +321,7 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 
   <div class="plate" id="plate">
     <div id="map"></div>
-    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed &nbsp; <span class="m-news">⌂</span> in this season</p>
+    <p class="legend"><span class="m-shrine">†</span> shrine &nbsp; <span class="m-lit">⌂</span> occupied house &nbsp; <span class="m-dark">⌂</span> empty house &nbsp; <span class="m-growing">◌</span> stone growing &nbsp; <span class="m-workshop">⌂</span> workshop &nbsp; <span class="m-great">▣</span> great house &nbsp; <span class="m-tavern">▣</span> tavern &nbsp; <span class="m-common">▣</span> common hall &nbsp; <span class="m-derelict">×</span> derelict &nbsp; <span class="m-disputed">&nbsp;&nbsp;</span> disputed &nbsp; <span class="m-news">⌂</span> in this season</p>
     <p class="legend taphint">Tap anything on the map to see whose it is.</p>
   </div>
 
@@ -750,7 +755,8 @@ function decayTies(s) {
    shrine term are enough to start.
    -------------------------------------------------------------------------- */
 
-const CONTEXT_WEIGHT = { household: 1.5, service: 2.0, quarter: 0.4 };
+const CONTEXT_WEIGHT = { household: 1.5, service: 2.0, tavern: 1.2, quarter: 0.4 };
+const TAVERN_REACH = 6;   // tiles' walk — a feud that shuts a path cuts it
 const PAIRS_PER_CONTEXT = 3;
 
 /* `traitRoll` is pow(r, 2.1) * 100, so traits are not centred on 50 — they
@@ -835,6 +841,13 @@ function sysContact(s, r) {
   // the shrine term — the only context that crosses class, because everyone owes it
   mingle(s, r, adults.filter(p => p.term && !p.term.done),
          CONTEXT_WEIGHT.service, 'served their term together');
+
+  // a tavern: the one place people choose each other rather than being thrown
+  // together. Its reach is a walk, so a feud that shuts a path shrinks it.
+  for (const b of tavernsOf(s)) {
+    const near = adults.filter(p => walkDist(s, homeTile(s, p), b.tileId) <= TAVERN_REACH);
+    mingle(s, r, near, CONTEXT_WEIGHT.tavern, 'drank at the same tavern');
+  }
 }
 
 /* --- the term of service -----------------------------------------------------
@@ -954,10 +967,17 @@ function newWorld(cfg) {
       hh.buildingId = null;
     } else {
       const age = ri(r, 20, 260);
+      // stages are reached by age, so a settlement founded with old houses
+      // already has a few workshops in it — and no great house yet
+      const grown = age - 68;                       // turns since it became a home
+      const stage = grown >= 120 + 200 ? 3 : grown >= 120 ? 2 : 1;
+      const spent = stage === 1 ? grown : stage === 2 ? grown - 120 : grown - 320;
       state.buildings[bid] = {
         id: bid, tileId: site, householdId: hid, tenderId: null,
         startTurn: -age, maturity: 1, capacity: ri(r, 4, 7),
-        state: 'mature', stalled: 0, condition: 0.6 + r() * 0.4
+        state: 'mature', stalled: 0, condition: 0.6 + r() * 0.4,
+        stage, stageSince: -Math.max(0, spent), growth: clamp(spent / (STAGE_TURNS[stage] || 200), 0, 0.95),
+        lastTended: -ri(r, 0, 12), role: null
       };
       hh.buildingId = bid;
     }
@@ -1073,8 +1093,18 @@ function nameOf(state, pid) {
 /* ===== src/engine/15-turn.js ===== */
 /* --- the turn -------------------------------------------------------------- */
 
+/* The two growing logs — the chronicle and the run of stats — are written once
+   and never touched again. Deep-copying them every turn meant cloning six
+   thousand event objects to add one, and the cost climbed with the length of
+   the run: a turn at year 150 cost three times a turn at year 50. They are
+   carried by reference into a fresh array instead, which is a copy for every
+   purpose the contract cares about — rollback still gets its own array, and
+   nothing can reach back and change an entry that has already been written. */
 function advance(state, input) {
-  const s = clone(state);
+  const keptChronicle = state.chronicle, keptStats = state.stats;
+  const s = clone(Object.assign({}, state, { chronicle: [], stats: [] }));
+  s.chronicle = keptChronicle.slice();
+  s.stats = keptStats.slice();
   s.turn += 1;
   s.log = [];
   const r = turnRng(s.seed, s.turn);
@@ -1086,6 +1116,8 @@ function advance(state, input) {
   sysHardship(s, r);
   sysTeaching(s, r);
   sysGrowth(s, r);
+  sysCheckIn(s, r);      // tenders go back round the houses that stand
+  sysStages(s, r);       // and the stone keeps growing under them
   sysNotes(s, r);
   sysPairing(s, r);
   sysLife(s, r);
@@ -1664,6 +1696,195 @@ function sysTeaching(s, r) {
       : `${nameOf(s, t.id)} started teaching ${nameOf(s, best.p.id)} the stone, from a different household.`,
       { person: best.p.id });
   }
+}
+
+
+/* ===== src/engine/35-stages.js ===== */
+/* ===========================================================================
+   A house is not finished when it is finished.
+
+   Living stone keeps growing for as long as somebody attends it, and what a
+   building *is* changes as it ages. Age is the settlement's most honest
+   measure of status, because it cannot be bought or hurried — only kept.
+
+     stage 1  home                       15–20 years
+     stage 2  home and workshop          about 45
+     stage 3  great house, tavern, or
+              something held in common   about 95
+     stage 4  a landmark                 rarely, and long after
+
+   The consequence that matters most: tending never ends. A tender is no
+   longer precious for twenty years and then idle. They are the reason any
+   house ever becomes anything, for as long as it stands.
+   =========================================================================== */
+
+const STAGE_TURNS = { 1: 120, 2: 280 };   // turns of tended growth: 30 years, then 70
+const CHECKIN_LAPSE = 20;                 // 5 years untended and growth halts
+const CHECKIN_DUE = 12;                   // a tender starts thinking about it at 3
+const VISITS_PER_TENDER = 2;
+
+const STAGE_WORD = {
+  1: 'a home',
+  2: 'a home and workshop',
+  3: 'a great house',
+  4: 'a landmark'
+};
+
+function stageOf(b) { return b.stage || 1; }
+
+/* What a stage-3 building is used for. Below stage 3 the question does not
+   arise — it is somebody's house. */
+function roleOf(b) { return stageOf(b) >= 3 ? (b.role || 'great') : 'home'; }
+
+function roleWord(b) {
+  return { great: 'a great house', tavern: 'a tavern', common: 'a common hall',
+           house: 'a large house' }[roleOf(b)] || STAGE_WORD[stageOf(b)];
+}
+
+/* A workshop is a stage-2 building. The finer trades need one; most trades do
+   not. This is the quiet gate on the class system, and it is made of nothing
+   but time. */
+function hasWorkshop(s, hh) {
+  return Object.values(s.buildings).some(b =>
+    b.householdId === hh.id && b.state === 'mature' && stageOf(b) >= 2);
+}
+
+function tavernsOf(s) {
+  return Object.values(s.buildings).filter(b => b.state === 'mature' && roleOf(b) === 'tavern');
+}
+
+/* --- tenders keep coming back ---------------------------------------------- */
+
+/* A tender chooses whose stone to attend exactly as they choose whose to
+   start: the walk, kinship, what the house is known for, and what they hold
+   against it. A house whose tenders will not visit simply stops growing, and
+   nobody has to say why. */
+function sysCheckIn(s, r) {
+  const tenders = Object.values(s.people).filter(p => p.alive && p.tender
+    && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
+  if (!tenders.length) return;
+  const visits = {};
+
+  const due = Object.values(s.buildings)
+    .filter(b => b.state === 'mature' && stageOf(b) < 4
+      && s.turn - (b.lastTended || b.startTurn) >= CHECKIN_DUE)
+    .sort((a, b) => (a.lastTended || a.startTurn) - (b.lastTended || b.startTurn));
+
+  for (const b of due) {
+    const hh = s.households[b.householdId];
+    if (!hh || hh.extinct) continue;
+    const willing = tenders
+      .filter(t => (visits[t.id] || 0) < VISITS_PER_TENDER)
+      .map(t => ({ t, v: tenderWill(s, t, hh, b.tileId) + (r() - 0.5) * 6 }))
+      .filter(x => x.v > 0)
+      .sort((a, c) => c.v - a.v)[0];
+    if (!willing) continue;
+    visits[willing.t.id] = (visits[willing.t.id] || 0) + 1;
+    b.lastTended = s.turn;
+    b.lastTenderId = willing.t.id;
+  }
+}
+
+/* --- growing on ------------------------------------------------------------- */
+
+function sysStages(s, r) {
+  for (const b of Object.values(s.buildings)) {
+    if (b.state !== 'mature') continue;
+    if (!b.stage) { b.stage = 1; b.stageSince = b.startTurn; b.growth = 0; }
+    if (b.stage >= 4) continue;
+
+    const hh = s.households[b.householdId];
+    if (!hh || hh.extinct) continue;
+
+    // untended stone does not shrink. It simply stops, where it stands.
+    const lapsed = s.turn - (b.lastTended || b.startTurn) > CHECKIN_LAPSE;
+    if (lapsed) {
+      if (!b.stalledStage) {
+        b.stalledStage = s.turn;
+        if (b.growth > 0.25) {
+          ev(s, 'stall', 3, `The ${hh.name} house stopped growing. No tender has been up to it in ${Math.round((s.turn - (b.lastTended || b.startTurn)) / 4)} years.`,
+             { building: b.id, household: hh.id });
+        }
+      }
+      continue;
+    }
+    b.stalledStage = 0;
+
+    const need = STAGE_TURNS[b.stage];
+    if (!need) continue;
+    b.growth = (b.growth || 0) + (0.7 + s.tiles[b.tileId].stone * 0.5) / need;
+    if (b.growth < 1) continue;
+
+    b.growth = 0;
+    b.stage += 1;
+    b.stageSince = s.turn;
+    const years = Math.round((s.turn - b.startTurn) / 4);
+
+    if (b.stage === 2) {
+      ev(s, 'stage', 5, `The ${hh.name} house came on to its second growth after ${years} years — it has a workshop in it now.`,
+         { building: b.id, household: hh.id });
+    } else if (b.stage === 3) {
+      b.role = chooseRole(s, r, b, hh);
+      ev(s, 'stage', b.role === 'house' ? 5 : 7,
+         `The ${hh.name} house reached its third growth after ${years} years. It is ${roleWord(b)} now.`,
+         { building: b.id, household: hh.id });
+      if (b.role === 'common') {
+        for (const id of hh.members) {
+          const p = s.people[id];
+          if (p && p.alive) shiftStanding(p, 'quarter', 15, true);
+        }
+        remember(s, hh.id, 9, `gave up their third growth to the quarter`);
+      }
+    }
+  }
+
+  // what a great house or a tavern is worth to the people in it, by the year
+  if (s.turn % 4 === 0) {
+    for (const b of Object.values(s.buildings)) {
+      if (b.state !== 'mature' || stageOf(b) < 3) continue;
+      const hh = s.households[b.householdId];
+      if (!hh || hh.extinct) continue;
+      for (const id of hh.members) {
+        const p = s.people[id];
+        if (!p || !p.alive) continue;
+        if (roleOf(b) === 'great') { shiftStanding(p, 'quarter', 10); shiftStanding(p, 'government', 6); }
+        else if (roleOf(b) === 'tavern') shiftStanding(p, 'quarter', 6);
+      }
+    }
+  }
+}
+
+/* A household decides what its third growth becomes, by where it stands when
+   the stone gets there. A century of family work stopping being family
+   property is the interesting case, so it wants a reason. */
+/* Reaching a third growth is a century of somebody's attention. It does not by
+   itself make a household eminent — if `great` is the fallback, most houses end
+   up with one and the word stops meaning anything. Standing comes from being
+   eminent already, from keeping a tavern, or from giving the growth away. Every
+   other stage-3 building is simply a large house. */
+function chooseRole(s, r, b, hh) {
+  const houses = Object.values(s.households).filter(h => !h.extinct);
+  const ranked = houses.slice().sort((a, c) => compositeOf(s, c) - compositeOf(s, a));
+  const top = ranked.slice(0, Math.max(1, Math.round(ranked.length / 4)));
+  if (top.some(h => h.id === hh.id)) return 'great';
+
+  // a quarter supports one tavern. A second would have nobody new to draw.
+  const q = quarterOf(s, b.tileId);
+  const sameQuarter = x => {
+    const xq = quarterOf(s, x.tileId);
+    return xq && q && xq.id === q.id;
+  };
+  if (!tavernsOf(s).some(sameQuarter) && chance(r, 0.55)) return 'tavern';
+
+  // and the settlement supports very few common halls — one per two quarters.
+  // Without this the devout years produce a dozen, which makes the gift of a
+  // third growth to the quarter mean nothing at all.
+  const halls = Object.values(s.buildings)
+    .filter(x => x.state === 'mature' && roleOf(x) === 'common').length;
+  const room = Math.max(1, Math.ceil((s.quarters || []).length / 2));
+  if (halls < room && s.shrine && s.shrine.devotion > 60 && chance(r, 0.5)) return 'common';
+
+  return 'house';
 }
 
 
@@ -2835,7 +3056,7 @@ function recount(s) {
 const GROUPS = [
   { key: 'weather', kinds: ['divine', 'weather'] },
   { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'], max: 4 },
-  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'], max: 4 },
+  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stage', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'], max: 4 },
   { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'], max: 4 },
   { key: 'shrine', kinds: ['shrine'] },
   { key: 'people', kinds: ['rise', 'act', 'settle'], max: 2 },
@@ -2880,7 +3101,8 @@ function chronicleHTML(entry, opts) {
 
 const GLYPH = {
   sea: '·', shore: '~', slope: '˄', crag: '▲', moor: ',',
-  mature: '⌂', growing: '◌', derelict: '×'
+  mature: '⌂', growing: '◌', derelict: '×',
+  third: '▣', landmark: '✦'      // a building that grew past being a house
 };
 
 /* Households named in the season just past, so the map can show you who the
@@ -2931,7 +3153,13 @@ function mapHTML(s, selected) {
       if (o) {
         if (o.b.state === 'derelict') { g = GLYPH.derelict; cls.push('m-derelict'); }
         else if (o.b.state === 'growing') { g = GLYPH.growing; cls.push('m-growing'); }
-        else { g = GLYPH.mature; cls.push(o.live ? 'm-lit' : 'm-dark'); }
+        else {
+          const st = stageOf(o.b);
+          g = st >= 4 ? GLYPH.landmark : st >= 3 ? GLYPH.third : GLYPH.mature;
+          if (!o.live) cls.push('m-dark');
+          else if (st >= 3) cls.push('m-' + roleOf(o.b));
+          else cls.push(st >= 2 ? 'm-workshop' : 'm-lit');
+        }
         if (actorTiles[id]) cls.push('m-actor');
       } else {
         g = t.t === SEA ? GLYPH.sea : t.t === SHORE ? GLYPH.shore : t.t === SLOPE ? GLYPH.slope : t.t === CRAG ? GLYPH.crag : GLYPH.moor;
@@ -3064,7 +3292,18 @@ function tileFactsHTML(s, id) {
   const live = hh.members.map(i => s.people[i]).filter(p => p && p.alive);
   const head = s.people[hh.headId];
   row('Household', `the ${hh.name}${hh.extinct ? ' — ended' : ''}`);
-  if (b) {
+  if (b && b.state === 'mature') {
+    const st = stageOf(b);
+    row('House', `${roleWord(b)} — ${st === 1 ? 'first' : st === 2 ? 'second' : st === 3 ? 'third' : 'fourth'} growth`,
+      st >= 3 ? 'good' : '');
+    const since = Math.round((s.turn - b.startTurn) / 4);
+    const next = STAGE_TURNS[st];
+    row('Age', `${since} years${next ? `, ${Math.round((b.growth || 0) * 100)}% toward the next growth` : ''}`);
+    const gap = Math.round((s.turn - (b.lastTended || b.startTurn)) / 4);
+    if (next) row('Last tended', gap <= 0 ? 'this season' : `${gap} year${gap === 1 ? '' : 's'} ago`,
+      b.stalledStage ? 'bad' : '');
+    if (b.stalledStage) row('Growth', 'stopped — no tender will come', 'bad');
+  } else if (b) {
     row('House', b.state === 'mature' ? 'standing'
       : b.state === 'derelict' ? 'derelict'
       : `${Math.round(b.maturity * 100)}% grown${b.stalled > 0 ? `, stalled ${Math.round(b.stalled / 4)} years` : ''}`,

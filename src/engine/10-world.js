@@ -62,10 +62,17 @@ function newWorld(cfg) {
       hh.buildingId = null;
     } else {
       const age = ri(r, 20, 260);
+      // stages are reached by age, so a settlement founded with old houses
+      // already has a few workshops in it — and no great house yet
+      const grown = age - 68;                       // turns since it became a home
+      const stage = grown >= 120 + 200 ? 3 : grown >= 120 ? 2 : 1;
+      const spent = stage === 1 ? grown : stage === 2 ? grown - 120 : grown - 320;
       state.buildings[bid] = {
         id: bid, tileId: site, householdId: hid, tenderId: null,
         startTurn: -age, maturity: 1, capacity: ri(r, 4, 7),
-        state: 'mature', stalled: 0, condition: 0.6 + r() * 0.4
+        state: 'mature', stalled: 0, condition: 0.6 + r() * 0.4,
+        stage, stageSince: -Math.max(0, spent), growth: clamp(spent / (STAGE_TURNS[stage] || 200), 0, 0.95),
+        lastTended: -ri(r, 0, 12), role: null
       };
       hh.buildingId = bid;
     }

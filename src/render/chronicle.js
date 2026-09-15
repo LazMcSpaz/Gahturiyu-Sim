@@ -16,7 +16,7 @@
 const GROUPS = [
   { key: 'weather', kinds: ['divine', 'weather'] },
   { key: 'hardship', kinds: ['hunger', 'hardship', 'death', 'extinct', 'derelict', 'leave'], max: 4 },
-  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'], max: 4 },
+  { key: 'stone', kinds: ['teach', 'note', 'mature', 'stage', 'stall', 'tend', 'notender', 'claim', 'birth', 'split', 'succession', 'arrival', 'match'], max: 4 },
   { key: 'quarrel', kinds: ['office', 'spite', 'dispute', 'arbitration', 'feud', 'reveal'], max: 4 },
   { key: 'shrine', kinds: ['shrine'] },
   { key: 'people', kinds: ['rise', 'act', 'settle'], max: 2 },
@@ -61,7 +61,8 @@ function chronicleHTML(entry, opts) {
 
 const GLYPH = {
   sea: '·', shore: '~', slope: '˄', crag: '▲', moor: ',',
-  mature: '⌂', growing: '◌', derelict: '×'
+  mature: '⌂', growing: '◌', derelict: '×',
+  third: '▣', landmark: '✦'      // a building that grew past being a house
 };
 
 /* Households named in the season just past, so the map can show you who the
@@ -112,7 +113,13 @@ function mapHTML(s, selected) {
       if (o) {
         if (o.b.state === 'derelict') { g = GLYPH.derelict; cls.push('m-derelict'); }
         else if (o.b.state === 'growing') { g = GLYPH.growing; cls.push('m-growing'); }
-        else { g = GLYPH.mature; cls.push(o.live ? 'm-lit' : 'm-dark'); }
+        else {
+          const st = stageOf(o.b);
+          g = st >= 4 ? GLYPH.landmark : st >= 3 ? GLYPH.third : GLYPH.mature;
+          if (!o.live) cls.push('m-dark');
+          else if (st >= 3) cls.push('m-' + roleOf(o.b));
+          else cls.push(st >= 2 ? 'm-workshop' : 'm-lit');
+        }
         if (actorTiles[id]) cls.push('m-actor');
       } else {
         g = t.t === SEA ? GLYPH.sea : t.t === SHORE ? GLYPH.shore : t.t === SLOPE ? GLYPH.slope : t.t === CRAG ? GLYPH.crag : GLYPH.moor;

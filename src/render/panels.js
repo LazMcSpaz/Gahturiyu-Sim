@@ -108,7 +108,18 @@ function tileFactsHTML(s, id) {
   const live = hh.members.map(i => s.people[i]).filter(p => p && p.alive);
   const head = s.people[hh.headId];
   row('Household', `the ${hh.name}${hh.extinct ? ' — ended' : ''}`);
-  if (b) {
+  if (b && b.state === 'mature') {
+    const st = stageOf(b);
+    row('House', `${roleWord(b)} — ${st === 1 ? 'first' : st === 2 ? 'second' : st === 3 ? 'third' : 'fourth'} growth`,
+      st >= 3 ? 'good' : '');
+    const since = Math.round((s.turn - b.startTurn) / 4);
+    const next = STAGE_TURNS[st];
+    row('Age', `${since} years${next ? `, ${Math.round((b.growth || 0) * 100)}% toward the next growth` : ''}`);
+    const gap = Math.round((s.turn - (b.lastTended || b.startTurn)) / 4);
+    if (next) row('Last tended', gap <= 0 ? 'this season' : `${gap} year${gap === 1 ? '' : 's'} ago`,
+      b.stalledStage ? 'bad' : '');
+    if (b.stalledStage) row('Growth', 'stopped — no tender will come', 'bad');
+  } else if (b) {
     row('House', b.state === 'mature' ? 'standing'
       : b.state === 'derelict' ? 'derelict'
       : `${Math.round(b.maturity * 100)}% grown${b.stalled > 0 ? `, stalled ${Math.round(b.stalled / 4)} years` : ''}`,

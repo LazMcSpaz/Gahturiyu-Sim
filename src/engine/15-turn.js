@@ -1,7 +1,17 @@
 /* --- the turn -------------------------------------------------------------- */
 
+/* The two growing logs — the chronicle and the run of stats — are written once
+   and never touched again. Deep-copying them every turn meant cloning six
+   thousand event objects to add one, and the cost climbed with the length of
+   the run: a turn at year 150 cost three times a turn at year 50. They are
+   carried by reference into a fresh array instead, which is a copy for every
+   purpose the contract cares about — rollback still gets its own array, and
+   nothing can reach back and change an entry that has already been written. */
 function advance(state, input) {
-  const s = clone(state);
+  const keptChronicle = state.chronicle, keptStats = state.stats;
+  const s = clone(Object.assign({}, state, { chronicle: [], stats: [] }));
+  s.chronicle = keptChronicle.slice();
+  s.stats = keptStats.slice();
   s.turn += 1;
   s.log = [];
   const r = turnRng(s.seed, s.turn);
@@ -13,6 +23,8 @@ function advance(state, input) {
   sysHardship(s, r);
   sysTeaching(s, r);
   sysGrowth(s, r);
+  sysCheckIn(s, r);      // tenders go back round the houses that stand
+  sysStages(s, r);       // and the stone keeps growing under them
   sysNotes(s, r);
   sysPairing(s, r);
   sysLife(s, r);

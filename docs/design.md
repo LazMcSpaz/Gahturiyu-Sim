@@ -17,6 +17,15 @@ handed. Rollback, branching and export all depend on this, and they break
 quietly rather than loudly. Nothing here is permitted to keep state outside the
 state object — no caches, no module-level counters.
 
+**Purity does not require copying what never changes.** The chronicle and the
+run of stats are written once per turn and never touched again, so `advance`
+carries them by reference into a fresh array rather than deep-copying six
+thousand event objects to add one. A turn at year 150 cost three times a turn at
+year 50 before that; it is a copy for every purpose the contract cares about,
+and `test/run.js` proves an old state cannot be changed by advancing past it.
+Any future system that reaches back and edits a written entry breaks this, and
+the test is there to say so.
+
 ---
 
 ## 1. The problem this design solves
@@ -115,6 +124,17 @@ in order of how much work they do:
 
 ## 3. Buildings grow, and what they grow into
 
+> **Built.** Slice 2 is in the code. Three things changed under contact with a
+> run: the second growth takes 70 years rather than 50; a great house cannot be
+> the fallback role, or most households end up with one and the word stops
+> meaning anything; and one tavern to a quarter with about two common halls in
+> the settlement, because the devout years otherwise produce a dozen.
+>
+> One thing the design gets wrong until slice 5. **Third growths accumulate** —
+> a century of play leaves most standing buildings at stage 3, because nothing
+> knocks one back. Upkeep and falling back a stage are what will thin them, and
+> until that exists, age is a ratchet.
+
 A house is not finished when it is finished. Living stone keeps growing for as
 long as it is attended, and what a building **is** changes as it gets older. Age
 is the settlement's most honest measure of status, because it cannot be bought
@@ -123,8 +143,8 @@ or hurried — only kept.
 | stage | reached after | what it is |
 |---|---|---|
 | **1 — home** | 15–20 yr | a dwelling. Where every building starts |
-| **2 — home and workshop** | +25–35 yr (≈45 total) | a dwelling with room to work a trade or keep a shop |
-| **3 — great house** | +40–60 yr (≈95 total) | a high-status residence, **or** a tavern, **or** something the quarter holds in common |
+| **2 — home and workshop** | +30 yr (≈45 total) | a dwelling with room to work a trade or keep a shop |
+| **3 — third growth** | +70 yr (≈115 total) | **a great house**, **a tavern**, **a common hall**, or — most often — **a large house** |
 | **4 — landmark** | rare, and long after | a named thing. The settlement navigates by it |
 
 ### Tending never ends
@@ -161,12 +181,22 @@ line that failed, or a household falling far enough that its workshop passes on.
 
 The household decides, weighted by where it stands when the stone gets there:
 
-- **Great house** — composite standing in the top quartile. Adds **+10
-  `quarter`** and **+6 `government`** while it stands
-- **Tavern** — the quarter has none and the site's walk reach is good
-- **Communal** — quarter cohesion above +25, or the shrine well kept. Belongs to
-  the quarter rather than the household, and the household is thanked for it in
-  perpetuity: **+15 `quarter`**, decaying at a quarter rate
+- **Great house** — composite standing in the **top quartile**. Adds **+10
+  `quarter`** and **+6 `government`** a year while it stands
+- **Tavern** — the quarter has none. One to a quarter; a second would have
+  nobody new to draw. **+6 `quarter`** a year
+- **Common hall** — the shrine well kept, and the settlement holds fewer than
+  one hall per two quarters. Belongs to the quarter rather than the household,
+  and the household is thanked for it in perpetuity: **+15 `quarter`**, decaying
+  at a quarter rate
+- **A large house** — everything else, and it is the common case
+
+That last row is the one the first draft got wrong. Reaching a third growth is a
+century of somebody's attention, but it does not by itself make a household
+eminent. With `great` as the fallback, seventeen of thirty-three buildings were
+great houses and the standing they carried meant nothing. Eminence has to come
+from being eminent already, from keeping a tavern, or from giving the growth
+away — everything else is just a big house, and carries no standing at all.
 
 The role can change once, and only through collapse: a great house whose line
 fails may be taken over as a tavern or a common hall rather than fall derelict.

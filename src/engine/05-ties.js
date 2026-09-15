@@ -147,7 +147,8 @@ function decayTies(s) {
    shrine term are enough to start.
    -------------------------------------------------------------------------- */
 
-const CONTEXT_WEIGHT = { household: 1.5, service: 2.0, quarter: 0.4 };
+const CONTEXT_WEIGHT = { household: 1.5, service: 2.0, tavern: 1.2, quarter: 0.4 };
+const TAVERN_REACH = 6;   // tiles' walk — a feud that shuts a path cuts it
 const PAIRS_PER_CONTEXT = 3;
 
 /* `traitRoll` is pow(r, 2.1) * 100, so traits are not centred on 50 — they
@@ -232,6 +233,13 @@ function sysContact(s, r) {
   // the shrine term — the only context that crosses class, because everyone owes it
   mingle(s, r, adults.filter(p => p.term && !p.term.done),
          CONTEXT_WEIGHT.service, 'served their term together');
+
+  // a tavern: the one place people choose each other rather than being thrown
+  // together. Its reach is a walk, so a feud that shuts a path shrinks it.
+  for (const b of tavernsOf(s)) {
+    const near = adults.filter(p => walkDist(s, homeTile(s, p), b.tileId) <= TAVERN_REACH);
+    mingle(s, r, near, CONTEXT_WEIGHT.tavern, 'drank at the same tavern');
+  }
 }
 
 /* --- the term of service -----------------------------------------------------
