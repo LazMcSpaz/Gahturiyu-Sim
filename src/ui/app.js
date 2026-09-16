@@ -232,7 +232,7 @@ function renderPanels() {
       ${num('Homes standing', st.mature)}${num('Stone-tenders', st.tenders)}
       ${num('Stores', st.stores)}${num('Households short', st.hungry)}
       ${num('Open quarrels', st.disputes)}${num('Named figures', st.actors)}
-    </div>` + storeHTML(s) + shrineHTML(s) + sparkHTML(s);
+    </div>` + storeHTML(s) + mintHTML(s) + shrineHTML(s) + sparkHTML(s);
 
   document.getElementById('p-time').innerHTML =
     `<p class="hint">Tap a season to go back to it. Advancing from there replaces everything after — save the line first if you want to keep it.</p>` +

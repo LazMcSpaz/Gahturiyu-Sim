@@ -759,6 +759,28 @@ Two things follow, both wanted:
 
 ### 9c. Coin, and the mint
 
+> **Built.** Four of six seeds invent money over a hundred and fifty years, at
+> years fifty to ninety-five; two never do. One of those never had a smith at
+> all, which is the design working exactly as written — a settlement without
+> the craft cannot have money however well it is governed.
+>
+> Two corrections. The first threshold let coin appear inside forty years on
+> every seed and it never once failed, so it was raised until only a genuinely
+> well-run settlement reaches it. And **legitimacy was measuring nothing**: it
+> read households' `government` standing, but only office-holders earned any,
+> so the number was a near-constant made of filled seats and a stocked store.
+> The governed now have an opinion — fed from the store, left to starve, kept
+> off the water, or the guard set on you all move it.
+>
+> **The collapse loop does not fire on its own**, and this is honest rather than
+> hidden: over a hundred and fifty years, including twenty-five of storm,
+> blight and fever, the store never emptied and no more than two households
+> were ever short at once. The settlement is simply hard to break, which is a
+> balance property older than this slice. The path itself is proved directly in
+> `test/run.js` — put a government in the state a bad one would be in and the
+> coin stops being taken the next season, and the settlement is told why. What
+> is missing is a settlement that can actually fail.
+
 **Currency is an achievement, not a given.** The settlement starts without it,
 and it appears only when the government is strong and believed enough to
 guarantee a standard. That makes legitimacy mechanically consequential rather

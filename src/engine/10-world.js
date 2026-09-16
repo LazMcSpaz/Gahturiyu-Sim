@@ -104,6 +104,7 @@ function newWorld(cfg) {
   for (const hid of hids) assignWork(state, r, state.households[hid]);
 
   if (!state.government) state.government = pick(r, Object.keys(GOVERNMENTS));
+  state.govSince = 0;   // the form has held since founding; legitimacy reads it
   makeQuarters(state, r);
 
   // the communal stone: sited where the paths already converge

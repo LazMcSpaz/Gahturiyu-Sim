@@ -144,6 +144,9 @@ function tileFactsHTML(s, id) {
   row('Larder', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
     (hh.shortSeasons || 0) >= 3 ? 'bad' : '');
 
+  if (coinOf(hh) >= 1) row('Coin', `${Math.round(coinOf(hh))} ḍaqu${coinWorks(s) ? '' : ' — not taken any more'}`,
+    coinWorks(s) ? 'good' : 'bad');
+
   const owes = totalOwed(s, hh.id), holds = totalHeld(s, hh.id);
   if (owes >= 1) {
     const sticks = debtsOf(s).filter(d => d.from === hh.id && d.tally).length;
@@ -277,5 +280,40 @@ function storeHTML(s) {
     <div class="shnote">A ${Math.round((TITHE) * 100)}% cut of everything brought in. It feeds whoever holds an office, and it is opened when households run out. ${
       st.emptyFor ? 'It has been empty through ' + st.emptyFor + ' seasons of that.' :
       'Given out so far: ' + Math.round(st.given) + '.'}</div>
+  </div>`;
+}
+
+/* --- the mint ----------------------------------------------------------------
+   Whether this settlement is believed enough to have money, and who has been
+   given the striking of it. The second is the most valuable thing a government
+   can give away.
+   -------------------------------------------------------------------------- */
+
+function mintHTML(s) {
+  const m = mintOf(s);
+  const legit = legitimacy(s);
+  const pct = clamp((legit + 20) / 120 * 100, 0, 100);
+  const smith = m.lastSmith && s.households[m.lastSmith];
+
+  let state, tone;
+  if (!m.batches) {
+    state = legit >= COIN_AT ? 'no coin yet — but the settlement is believed enough for one'
+      : `no coin — a settlement is believed at ${COIN_AT}, this one at ${Math.round(legit)}`;
+    tone = legit >= COIN_AT ? 'var(--lamp)' : 'var(--grey)';
+  } else if (m.believed) {
+    state = `${Math.round(m.coined)} ḍaqu struck over ${m.batches} batch${m.batches > 1 ? 'es' : ''}`;
+    tone = 'var(--lamp)';
+  } else {
+    state = 'the coin is not taken any more — what people hold of it is metal';
+    tone = 'var(--rust)';
+  }
+
+  return `<div class="shrinebox" style="border-left-color:${tone}">
+    <div class="shname">The coin</div>
+    <div class="shstate" style="color:${tone}">${state}</div>
+    <div class="shbar"><span style="width:${pct}%;background:${tone}"></span></div>
+    <div class="shnote">How far this government is believed: <strong>${Math.round(legit)}</strong>. A coin is first struck at ${COIN_AT} and stops being taken below ${COIN_KEEP}.${
+      smith ? ` The striking was last given to the ${smith.name}.` : ''}${
+      m.purse >= 1 ? ` The common purse holds ${Math.round(m.purse)}.` : ''}</div>
   </div>`;
 }

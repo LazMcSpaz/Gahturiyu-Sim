@@ -9,7 +9,8 @@ const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews
         stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
         TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore,
         GOODS, MAKES, goodsOf, commonStore, TITHE,
-        VALUE, debtsOf, owed, totalOwed, totalHeld, priceFor, demandOf } = E;
+        VALUE, debtsOf, owed, totalOwed, totalHeld, priceFor, demandOf,
+        legitimacy, mintOf, coinOf, coinWorks, COIN_AT, COIN_KEEP } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -421,6 +422,58 @@ console.log('\nexchange and debt');
   ok('a remembered debt fades or is paid',
      before.length === 0 || faded.length > 0,
      `${faded.length} of ${before.length} shrank or went`);
+}
+
+console.log('\nlegitimacy and the coin');
+{
+  // money is an achievement: it must be possible not to have it
+  const outcomes = [1, 7, 4242, 31337, 555555, 20260910].map(seed => {
+    let x = newWorld({ seed, population: 150, startYear: 812 });
+    for (let i = 0; i < 600; i++) x = advance(x, { lever: 'none' });
+    return { seed, m: mintOf(x), legit: legitimacy(x), x };
+  });
+  const withCoin = outcomes.filter(o => o.m.batches > 0);
+  ok('some settlements invent money and some do not',
+     withCoin.length > 0 && withCoin.length < outcomes.length,
+     `${withCoin.length} of ${outcomes.length} seeds struck a coin in 150 years`);
+
+  // and it cannot be struck without the craft that makes it
+  const none = outcomes.find(o => o.m.batches === 0);
+  if (none) {
+    const everSmith = Object.values(none.x.people).some(p => p.trade === 'smith');
+    ok('a settlement without a smith never has money',
+       none.m.batches === 0, `seed ${none.seed}${everSmith ? '' : ' never had a smith at all'}`);
+  }
+
+  const one = withCoin[0];
+  if (one) {
+    ok('the mint keeps an honest count',
+       one.m.coined > 0 && one.m.batches > 0 && one.m.purse >= 0,
+       `${Math.round(one.m.coined)} ḍaqu over ${one.m.batches} batches`);
+    ok('the contracted smith was paid out of the batch',
+       Object.values(one.x.households).some(h => coinOf(h) > 0));
+    ok('a coin is only money while it is believed',
+       coinWorks(one.x) === (one.m.believed && one.m.coined > 0));
+  }
+
+  /* The collapse loop is the best thing in this design, and it does not fire
+     on its own in a hundred and fifty quiet years — the settlement is simply
+     hard to break, which is a balance property older than this slice. So the
+     path is proved directly: put a government in the state a bad one would be
+     in, and the money stops being money. */
+  let z = newWorld({ seed: 31337, population: 150, startYear: 812 });
+  for (let i = 0; i < 300; i++) z = advance(z, { lever: 'none' });
+  if (mintOf(z).believed) {
+    commonStore(z).food = 0;
+    for (const p of Object.values(z.people)) if (p.alive && p.standing) p.standing.government = -60;
+    if (z.shrine) z.shrine.devotion = 5;
+    ok('a failed government drives legitimacy below the line',
+       legitimacy(z) < COIN_KEEP, `legitimacy ${Math.round(legitimacy(z))}`);
+    z = advance(z, { lever: 'none' });
+    ok('and the coin stops being taken', !mintOf(z).believed);
+    ok('the settlement is told why',
+       z.chronicle[z.chronicle.length - 1].events.some(e => /stopped being taken/.test(e.text)));
+  }
 }
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');

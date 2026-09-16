@@ -218,6 +218,10 @@ function sysBoats(s, r) {
         const hh = s.people[h.headId];
         if (hh && hh.traits.grudge > 30)
           shiftTie(s, hh, own.id, -60, `kept this household off the water`);
+        for (const id of h.members) {
+          const q = s.people[id];
+          if (q && q.alive) shiftStanding(q, 'government', -11);
+        }
       }
     } else if (h.noBoat) {
       h.noBoat = 0;
@@ -250,6 +254,10 @@ function sysCaptain(s, r) {
     remember(s, own.id, -5, `used the guard against the ${put.name} in a quarrel their own household was in`);
     const ph = s.people[put.headId];
     if (ph) shiftTie(s, ph, own.id, -70, `set the guard on this household over a private quarrel`);
+    for (const id of put.members) {
+      const q = s.people[id];
+      if (q && q.alive) shiftStanding(q, 'government', -13);
+    }
     ev(s, 'office', 6, `${nameOf(s, cap.id)} set the guard on the ${put.name} and not the ${kept.name}. The captain's own household is on the ${kept.name}'s side.`, { person: cap.id });
   } else {
     d.heat = Math.max(0, d.heat - 22);

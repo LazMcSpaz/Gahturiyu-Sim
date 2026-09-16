@@ -23,6 +23,7 @@ function advance(state, input) {
   sysFood(s, r);         // the ground feeds the larder, after the cut
   sysWant(s, r);         // and a household uses a little of what it cannot make
   sysStore(s, r);        // the common store feeds the offices, and opens in a hard season
+  sysCoin(s, r);         // whether the settlement is believed enough to have money
   sysExchange(s, r);     // and what is wanted is bargained for, on credit
   sysDebts(s, r);        // debts are paid, forgotten, or written on a stick
   sysHardship(s, r);

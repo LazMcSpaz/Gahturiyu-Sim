@@ -113,7 +113,12 @@ function sysMake(s, r) {
 
 const TITHE = 0.12;            // off the top, before a larder is filled
 const GUARD_KEEP = 0.9;        // what an office-holder or guard eats from the store
-const STORE_CAP_PER_HEAD = 2.4;
+/* The buffer has to be small enough to actually run out. At 2.4 a head the
+   store carried a settlement through twenty-five years of storm, blight and
+   fever without once being empty, so feeding people only ever added
+   legitimacy and a government could not fail. */
+const STORE_CAP_PER_HEAD = 1.5;
+const RELIEF_PER_HOUSE = 2.2;      // what a short household actually needs
 
 function commonStore(s) {
   if (!s.store) s.store = { food: 0, taken: 0, given: 0, emptyFor: 0 };
@@ -150,7 +155,7 @@ function sysStore(s, r) {
     && (h.shortSeasons || 0) >= 3);
   if (!short.length) { store.emptyFor = 0; return; }
 
-  if (store.food < short.length) {
+  if (store.food < short.length * RELIEF_PER_HOUSE) {
     // the emergency came and the store was not there for it
     store.emptyFor++;
     if (store.emptyFor === 2 || store.emptyFor % 8 === 0) {
@@ -158,14 +163,26 @@ function sysStore(s, r) {
         shiftStanding(p, 'government', -14);
         shiftStanding(p, 'quarter', -10);
       }
+      // and the households left to starve think a great deal less of it
+      for (const h of short) for (const id of h.members) {
+        const p = s.people[id];
+        if (p && p.alive) shiftStanding(p, 'government', -22);
+      }
       ev(s, 'hardship', 7, `${short.length} households are short and the common store is empty.`, {});
     }
     return;
   }
 
   store.emptyFor = 0;
-  const each = Math.min(2.5, store.food / short.length);
-  for (const h of short) { h.stores += each; store.food -= each; store.given += each; }
+  const each = Math.min(RELIEF_PER_HOUSE, store.food / short.length);
+  for (const h of short) {
+    h.stores += each; store.food -= each; store.given += each;
+    // a household fed by the settlement thinks better of whoever runs it
+    for (const id of h.members) {
+      const p = s.people[id];
+      if (p && p.alive) shiftStanding(p, 'government', 6);
+    }
+  }
   for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
 
   /* The store opening is only news when it is not the ordinary run of things.
