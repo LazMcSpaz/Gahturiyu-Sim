@@ -158,7 +158,8 @@ function splitHousehold(s, r, parent, founder) {
   const hh = {
     id: hid, name, headId: founder.id, members: [founder.id],
     buildingId: null, claims: [], stores: Math.max(0, parent.stores * 0.25),
-    standing: parent.standing * 0.5, lodgedWith: parent.id, founded: s.turn, parentId: parent.id
+    standing: parent.standing * 0.5, lodgedWith: parent.id, founded: s.turn, parentId: parent.id,
+    goods: blankGoods()
   };
   parent.stores *= 0.75;
   parent.members = parent.members.filter(i => i !== founder.id);

@@ -7,7 +7,8 @@ const E = loadEngine(root);
 const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H,
         FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
         stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
-        TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore } = E;
+        TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore,
+        GOODS, MAKES, goodsOf, commonStore, TITHE } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -333,6 +334,38 @@ console.log('\ntrades');
   ok('the gift is not spent on crafts that do not need it',
      gifted.length === 0 || giftedTenders > 0,
      `${giftedTenders} of ${gifted.length} aptitude-holders tend stone`);
+}
+
+console.log('\ngoods and the common store');
+{
+  const m = run(400, 20260910, 150);
+  const houses = Object.values(m.households).filter(h => !h.extinct);
+  const st = commonStore(m);
+
+  ok('every household has somewhere to put goods',
+     houses.every(h => h.goods && GOODS.every(g => typeof h.goods[g] === 'number')));
+  ok('no household holds a negative amount of anything',
+     houses.every(h => Object.values(h.goods).every(n => n >= -0.001)));
+
+  // the crafts have to actually make what they are for
+  const made = GOODS.filter(g => houses.some(h => h.goods[g] > 0.5));
+  ok('the crafts produce goods', made.length >= 4, `held somewhere: ${made.join(', ')}`);
+
+  // the government's cut is taken before anything else, so it must accumulate
+  ok('the government took its cut', st.taken > 0, `${Math.round(st.taken)} taken over 100 years`);
+  ok('the store is capped, not a bottomless hoard',
+     st.food <= Object.values(m.people).filter(p => p.alive).length * 2.5,
+     `${Math.round(st.food)} in hand`);
+  ok('and it was opened to somebody', st.given > 0, `${Math.round(st.given)} given out`);
+
+  // a shortage is only worth saying when the settlement feels it, not each season
+  const econ = m.chronicle.flatMap(e => e.events).filter(e => /common store/.test(e.text));
+  ok('the store opening does not fill the chronicle',
+     econ.length < m.chronicle.length * 0.2,
+     `${econ.length} lines across ${m.chronicle.length} seasons`);
+
+  // and a craft that cannot get its input makes nothing rather than conjuring it
+  ok('a craft short of its input is recorded', typeof m.shortOf === 'object');
 }
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');

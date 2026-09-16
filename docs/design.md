@@ -673,6 +673,15 @@ The ledger runs underneath and surfaces only when it hurts somebody.
 
 ### 9a. Goods, larders and the common store
 
+> **Built.** Production, the tithe and the store are in the code. Two things the
+> run showed. The store opening had to stop being news every time — reported on
+> every occurrence it fired most seasons, three identical lines a season, and
+> turned an emergency into routine; it now speaks when many households are
+> involved or when it has been quiet a while. And **goods pile up where they are
+> made**: a household holding sixty stone and an empty larder, while the smith
+> two quarters over has no ore. That is not a fault in 9a, it is 9a working —
+> nothing can move until 9b exists, and the settlement says so.
+
 Ten goods, each made by a trade and needed by somebody else:
 
 | good | made by | wanted by |

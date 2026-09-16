@@ -36,8 +36,8 @@ function sysFood(s, r) {
       const a = ageOf(s, p);
       mouths += a < 12 ? 0.5 : a > 66 ? 0.75 : 1;
       if (a < 12 || a > 70) continue;
-      // Everyone puts some of the day into food; a craft leaves less of it.
-      // See FOOD_SHARE in 37-trades.js — a placeholder until goods exist.
+      // Everyone puts some of the day into food; a craft leaves less of it,
+      // and buys the difference back with what the craft makes.
       const share = foodShare(p.trade);
       if (share <= 0) continue;
       hands += share;
@@ -51,8 +51,10 @@ function sysFood(s, r) {
       }
     }
 
-    u.host.stores = clamp(u.host.stores + yield_ - mouths, -99, 44);
-    u.host.lastYield = yield_; u.host.mouths = mouths;
+    // the government's cut comes off the top, before any larder is filled
+    const kept = tithe(s, u.host, yield_);
+    u.host.stores = clamp(u.host.stores + kept - mouths, -99, 44);
+    u.host.lastYield = kept; u.host.mouths = mouths;
     for (const h of u.members) if (h !== u.host) { h.stores = 0; h.lastYield = 0; }
 
     if (u.host.stores < 0) {

@@ -956,7 +956,7 @@ function newWorld(cfg) {
     const hid = 'h' + id();
     const hh = {
       id: hid, name: lineageName(r), headId: null, members: [],
-      buildingId: null, claims: [site], stores: 6 + r() * 6,
+      buildingId: null, claims: [site], stores: 6 + r() * 6, goods: blankGoods(),
       standing: 20 + traitRoll(r) * 0.4, lodgedWith: null, founded: -ri(r, 8, 240)
     };
     tiles[site].owner = hid;
@@ -1159,7 +1159,10 @@ function advance(state, input) {
   s.weather = { storm: 0, cold: 0 };   // nothing carries over; a lever sets it below
   applyInput(s, r, input);
   sysWeather(s, r);
-  sysFood(s, r);
+  sysMake(s, r);         // crafts turn inputs into goods
+  sysFood(s, r);         // the ground feeds the larder, after the cut
+  sysWant(s, r);         // and a household uses a little of what it cannot make
+  sysStore(s, r);        // the common store feeds the offices, and opens in a hard season
   sysHardship(s, r);
   sysApprentice(s, r);   // masters take someone on
   sysLearn(s, r);        // and the taught get closer, or give up
@@ -1290,8 +1293,8 @@ function sysFood(s, r) {
       const a = ageOf(s, p);
       mouths += a < 12 ? 0.5 : a > 66 ? 0.75 : 1;
       if (a < 12 || a > 70) continue;
-      // Everyone puts some of the day into food; a craft leaves less of it.
-      // See FOOD_SHARE in 37-trades.js — a placeholder until goods exist.
+      // Everyone puts some of the day into food; a craft leaves less of it,
+      // and buys the difference back with what the craft makes.
       const share = foodShare(p.trade);
       if (share <= 0) continue;
       hands += share;
@@ -1305,8 +1308,10 @@ function sysFood(s, r) {
       }
     }
 
-    u.host.stores = clamp(u.host.stores + yield_ - mouths, -99, 44);
-    u.host.lastYield = yield_; u.host.mouths = mouths;
+    // the government's cut comes off the top, before any larder is filled
+    const kept = tithe(s, u.host, yield_);
+    u.host.stores = clamp(u.host.stores + kept - mouths, -99, 44);
+    u.host.lastYield = kept; u.host.mouths = mouths;
     for (const h of u.members) if (h !== u.host) { h.stores = 0; h.lastYield = 0; }
 
     if (u.host.stores < 0) {
@@ -2224,6 +2229,219 @@ function sysTradeLoss(s, r) {
 }
 
 
+/* ===== src/engine/38-goods.js ===== */
+/* ===========================================================================
+   What is made, what is eaten, and what the government takes first.
+
+   Ten goods. Each is made by a trade and wanted by somebody who cannot make
+   it, which is what forces exchange rather than designing it.
+
+   Food is stored twice: a household fills its own larder, and the government
+   takes its cut off the top before any larder is filled. That cut is the
+   common store, and it does three things only — it feeds the offices and the
+   guard, it opens in an emergency, and it is what a government is judged on
+   when the emergency comes.
+   =========================================================================== */
+
+const GOODS = ['food', 'stone', 'ore', 'timber', 'cordage', 'leather', 'metal', 'cloth', 'garments', 'remedies'];
+
+/* Per worker, per season, before season and site are applied. Food is the
+   exception: it scales with the ground a household actually holds, which is
+   why the fishing and grazing numbers stay where they were. */
+const MAKES = {
+  fieldhand: null, boathand: null,            // food, handled by the old yield model
+  quarrier:   { stone: 2.0 },
+  miner:      { ore: 1.5 },
+  woodcutter: { timber: 2.2 },
+  hauler:     null,                            // moves things; makes nothing
+  roper:      { cordage: 2.5, needs: { cordage: 0 } },
+  tanner:     { leather: 1.6 },
+  carrier:    null,
+  mason:      null,                            // work, not goods
+  tender:     null,
+  weaver:     { cloth: 1.4 },
+  tailor:     { garments: 0.9, needs: { cloth: 1.2 } },
+  herbalist:  { remedies: 1.1 },
+  joiner:     { fittings: 0.8, needs: { timber: 1.0 } },
+  carver:     null,
+  smith:      { metal: 0.7, needs: { ore: 1.6 } }
+};
+
+/* What a household wants each season, beyond food. Small, steady, and only
+   worth noticing when it cannot be had. */
+const WANTS = { garments: 0.06, remedies: 0.04, cordage: 0.05 };
+
+function blankGoods() {
+  const o = {};
+  for (const g of GOODS) o[g] = 0;
+  o.fittings = 0;
+  return o;
+}
+
+function goodsOf(hh) {
+  if (!hh.goods) hh.goods = blankGoods();
+  return hh.goods;
+}
+
+function hasGood(hh, g, n) { return goodsOf(hh)[g] >= n; }
+
+function takeGood(hh, g, n) {
+  const store = goodsOf(hh);
+  const got = Math.min(store[g], n);
+  store[g] -= got;
+  return got;
+}
+
+function giveGood(hh, g, n) { goodsOf(hh)[g] += n; }
+
+/* --- making things ---------------------------------------------------------- */
+
+/* Everything but food. A craft that needs an input and cannot get it makes
+   nothing, which is the first place the chronicle should feel a shortage. */
+function sysMake(s, r) {
+  s.shortOf = {};
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.trade) continue;
+    const a = ageOf(s, p);
+    if (a < 14 || a > 70) continue;
+    const recipe = MAKES[p.trade];
+    if (!recipe) continue;
+    if (!canPractise(s, p)) continue;          // a craft with no room makes nothing
+    const hh = s.households[p.householdId];
+    if (!hh || hh.extinct) continue;
+    const host = economicHost(s, hh);
+
+    // inputs first
+    let ok = true;
+    if (recipe.needs) {
+      for (const [g, n] of Object.entries(recipe.needs)) {
+        if (!n) continue;
+        if (!hasGood(host, g, n)) {
+          ok = false;
+          s.shortOf[p.trade] = (s.shortOf[p.trade] || 0) + 1;
+          break;
+        }
+      }
+      if (ok) for (const [g, n] of Object.entries(recipe.needs)) takeGood(host, g, n);
+    }
+    if (!ok) continue;
+
+    const skill = 0.8 + p.traits.loyalty / 400;
+    for (const [g, n] of Object.entries(recipe)) {
+      if (g === 'needs') continue;
+      giveGood(host, g, n * skill * (0.85 + r() * 0.3));
+    }
+  }
+
+  // nothing keeps forever, and a settlement that hoards everything is not one
+  for (const hh of Object.values(s.households)) {
+    if (hh.extinct) continue;
+    const store = goodsOf(hh);
+    for (const g of Object.keys(store)) store[g] = Math.min(store[g] * 0.985, 60);
+  }
+}
+
+/* --- the government's cut --------------------------------------------------- */
+
+const TITHE = 0.12;            // off the top, before a larder is filled
+const GUARD_KEEP = 0.9;        // what an office-holder or guard eats from the store
+const STORE_CAP_PER_HEAD = 2.4;
+
+function commonStore(s) {
+  if (!s.store) s.store = { food: 0, taken: 0, given: 0, emptyFor: 0 };
+  return s.store;
+}
+
+/* Called from the food system with what a household brought in this season.
+   Returns what is left for the larder. */
+function tithe(s, hh, yield_) {
+  if (yield_ <= 0) return yield_;
+  const store = commonStore(s);
+  const rate = TITHE * (s.titheRate || 1);
+  const cut = yield_ * rate;
+  store.food += cut;
+  store.taken += cut;
+  return yield_ - cut;
+}
+
+/* What the store is for. Offices and the guard eat from it; in a hard season it
+   is opened to whoever is starving; and if it is empty when that happens, the
+   government wears it. */
+function sysStore(s, r) {
+  const store = commonStore(s);
+  const living = Object.values(s.people).filter(p => p.alive).length;
+  store.food = Math.min(store.food, living * STORE_CAP_PER_HEAD);
+
+  // the offices and the guard are fed by the settlement, not by their own work
+  const kept = new Set();
+  for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) kept.add(p.id);
+  const cost = kept.size * GUARD_KEEP;
+  store.food = Math.max(0, store.food - cost);
+
+  const short = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith
+    && (h.shortSeasons || 0) >= 3);
+  if (!short.length) { store.emptyFor = 0; return; }
+
+  if (store.food < short.length) {
+    // the emergency came and the store was not there for it
+    store.emptyFor++;
+    if (store.emptyFor === 2 || store.emptyFor % 8 === 0) {
+      for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) {
+        shiftStanding(p, 'government', -14);
+        shiftStanding(p, 'quarter', -10);
+      }
+      ev(s, 'hardship', 7, `${short.length} households are short and the common store is empty.`, {});
+    }
+    return;
+  }
+
+  store.emptyFor = 0;
+  const each = Math.min(2.5, store.food / short.length);
+  for (const h of short) { h.stores += each; store.food -= each; store.given += each; }
+  for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
+
+  /* The store opening is only news when it is not the ordinary run of things.
+     Reported every time it happens, it fired most seasons and turned an
+     emergency into routine — three lines a season, all the same line. */
+  const big = short.length >= 4;
+  if (big || s.turn - (store.lastTold || -99) >= 24) {
+    store.lastTold = s.turn;
+    ev(s, 'hardship', big ? 6 : 4,
+      `The common store was opened to ${short.length} household${short.length > 1 ? 's' : ''} that had run out.`, {});
+  }
+}
+
+/* --- wanting things --------------------------------------------------------- */
+
+/* A household consumes a little of what it does not make. This exists so that
+   shortage is felt before exchange is built — the want goes unmet, and the
+   chronicle can say so. */
+function sysWant(s, r) {
+  s.unmet = {};
+  for (const hh of Object.values(s.households)) {
+    if (hh.extinct || hh.lodgedWith) continue;
+    const live = hh.members.filter(i => s.people[i] && s.people[i].alive).length;
+    if (!live) continue;
+    for (const [g, per] of Object.entries(WANTS)) {
+      const need = per * live;
+      const got = takeGood(hh, g, need);
+      if (got < need * 0.5) s.unmet[g] = (s.unmet[g] || 0) + 1;
+    }
+  }
+  // report a settlement-wide shortage, not a household one
+  const houses = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith).length || 1;
+  for (const [g, n] of Object.entries(s.unmet)) {
+    if (n < houses * 0.6) continue;
+    s.shortSince = s.shortSince || {};
+    if (s.turn - (s.shortSince[g] || -99) < 40) continue;
+    s.shortSince[g] = s.turn;
+    const maker = Object.keys(MAKES).find(k => MAKES[k] && MAKES[k][g] !== undefined);
+    const makers = maker ? Object.values(s.people).filter(p => p.alive && p.trade === maker).length : 0;
+    ev(s, 'note', 5, `There is no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
+  }
+}
+
+
 /* ===== src/engine/40-society.js ===== */
 /* birth, age and death ------------------------------------------------------ */
 
@@ -2385,7 +2603,8 @@ function splitHousehold(s, r, parent, founder) {
   const hh = {
     id: hid, name, headId: founder.id, members: [founder.id],
     buildingId: null, claims: [], stores: Math.max(0, parent.stores * 0.25),
-    standing: parent.standing * 0.5, lodgedWith: parent.id, founded: s.turn, parentId: parent.id
+    standing: parent.standing * 0.5, lodgedWith: parent.id, founded: s.turn, parentId: parent.id,
+    goods: blankGoods()
   };
   parent.stores *= 0.75;
   parent.members = parent.members.filter(i => i !== founder.id);
@@ -3052,7 +3271,7 @@ function arriveStrangers(s, r) {
   const hid = 'h' + s.nextId++;
   const hh = {
     id: hid, name: lineageName(r), headId: null, members: [], buildingId: null,
-    claims: [], stores: 2, standing: 5, lodgedWith: null, founded: s.turn, incomer: true
+    claims: [], stores: 2, standing: 5, lodgedWith: null, founded: s.turn, incomer: true, goods: blankGoods()
   };
   s.households[hid] = hh;
   let brought = null;
@@ -3669,7 +3888,11 @@ function tileFactsHTML(s, id) {
   if (hh.extinct) return inspectorHTML(where, rows);
 
   row('Living here', `${live.length}${head && head.alive ? `, under ${nameOf(s, head.id)}` : ''}`);
-  row('Stores', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
+  const goods = Object.entries(goodsOf(hh)).filter(([, n]) => n >= 1)
+    .sort((a, c) => c[1] - a[1]).slice(0, 6);
+  if (goods.length) row('Holds', goods.map(([g, n]) => `${g} ${Math.round(n)}`).join(', '));
+
+  row('Larder', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
     (hh.shortSeasons || 0) >= 3 ? 'bad' : '');
 
   const rep = reputeOf(s, hh);
@@ -3774,6 +3997,27 @@ function tradesHTML(s) {
   h += `<p class="hint" style="margin-top:12px">${adults} adults. ${
     alive.filter(p => p.trade && tradeTier(p.trade) > 1).length} hold a taught craft.</p>`;
   return h;
+}
+
+/* --- the common store --------------------------------------------------------
+   What the government took, and whether it was there when it was needed. The
+   second is the thing a government is judged on.
+   -------------------------------------------------------------------------- */
+
+function storeHTML(s) {
+  const st = commonStore(s);
+  const living = Object.values(s.people).filter(p => p.alive).length || 1;
+  const per = st.food / living;
+  const word = st.emptyFor ? 'empty, and households are going short'
+    : per > 1.6 ? 'full' : per > 0.7 ? 'holding' : 'thin';
+  return `<div class="shrinebox ${st.emptyFor ? 'bad' : ''}" style="border-left-color:${st.emptyFor ? 'var(--rust)' : 'var(--lichen)'}">
+    <div class="shname">The common store</div>
+    <div class="shstate" style="color:${st.emptyFor ? 'var(--rust)' : 'var(--lichen)'}">${Math.round(st.food)} in hand — ${word}</div>
+    <div class="shbar"><span style="width:${clamp(per / 2.4 * 100, 0, 100)}%;background:${st.emptyFor ? 'var(--rust)' : 'var(--lichen)'}"></span></div>
+    <div class="shnote">A ${Math.round((TITHE) * 100)}% cut of everything brought in. It feeds whoever holds an office, and it is opened when households run out. ${
+      st.emptyFor ? 'It has been empty through ' + st.emptyFor + ' seasons of that.' :
+      'Given out so far: ' + Math.round(st.given) + '.'}</div>
+  </div>`;
 }
 
 
@@ -4012,7 +4256,7 @@ function renderPanels() {
       ${num('Homes standing', st.mature)}${num('Stone-tenders', st.tenders)}
       ${num('Stores', st.stores)}${num('Households short', st.hungry)}
       ${num('Open quarrels', st.disputes)}${num('Named figures', st.actors)}
-    </div>` + shrineHTML(s) + sparkHTML(s);
+    </div>` + storeHTML(s) + shrineHTML(s) + sparkHTML(s);
 
   document.getElementById('p-time').innerHTML =
     `<p class="hint">Tap a season to go back to it. Advancing from there replaces everything after — save the line first if you want to keep it.</p>` +

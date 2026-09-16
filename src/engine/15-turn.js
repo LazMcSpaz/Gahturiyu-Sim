@@ -19,7 +19,10 @@ function advance(state, input) {
   s.weather = { storm: 0, cold: 0 };   // nothing carries over; a lever sets it below
   applyInput(s, r, input);
   sysWeather(s, r);
-  sysFood(s, r);
+  sysMake(s, r);         // crafts turn inputs into goods
+  sysFood(s, r);         // the ground feeds the larder, after the cut
+  sysWant(s, r);         // and a household uses a little of what it cannot make
+  sysStore(s, r);        // the common store feeds the offices, and opens in a hard season
   sysHardship(s, r);
   sysApprentice(s, r);   // masters take someone on
   sysLearn(s, r);        // and the taught get closer, or give up

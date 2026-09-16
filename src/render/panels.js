@@ -137,7 +137,11 @@ function tileFactsHTML(s, id) {
   if (hh.extinct) return inspectorHTML(where, rows);
 
   row('Living here', `${live.length}${head && head.alive ? `, under ${nameOf(s, head.id)}` : ''}`);
-  row('Stores', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
+  const goods = Object.entries(goodsOf(hh)).filter(([, n]) => n >= 1)
+    .sort((a, c) => c[1] - a[1]).slice(0, 6);
+  if (goods.length) row('Holds', goods.map(([g, n]) => `${g} ${Math.round(n)}`).join(', '));
+
+  row('Larder', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
     (hh.shortSeasons || 0) >= 3 ? 'bad' : '');
 
   const rep = reputeOf(s, hh);
@@ -242,4 +246,25 @@ function tradesHTML(s) {
   h += `<p class="hint" style="margin-top:12px">${adults} adults. ${
     alive.filter(p => p.trade && tradeTier(p.trade) > 1).length} hold a taught craft.</p>`;
   return h;
+}
+
+/* --- the common store --------------------------------------------------------
+   What the government took, and whether it was there when it was needed. The
+   second is the thing a government is judged on.
+   -------------------------------------------------------------------------- */
+
+function storeHTML(s) {
+  const st = commonStore(s);
+  const living = Object.values(s.people).filter(p => p.alive).length || 1;
+  const per = st.food / living;
+  const word = st.emptyFor ? 'empty, and households are going short'
+    : per > 1.6 ? 'full' : per > 0.7 ? 'holding' : 'thin';
+  return `<div class="shrinebox ${st.emptyFor ? 'bad' : ''}" style="border-left-color:${st.emptyFor ? 'var(--rust)' : 'var(--lichen)'}">
+    <div class="shname">The common store</div>
+    <div class="shstate" style="color:${st.emptyFor ? 'var(--rust)' : 'var(--lichen)'}">${Math.round(st.food)} in hand — ${word}</div>
+    <div class="shbar"><span style="width:${clamp(per / 2.4 * 100, 0, 100)}%;background:${st.emptyFor ? 'var(--rust)' : 'var(--lichen)'}"></span></div>
+    <div class="shnote">A ${Math.round((TITHE) * 100)}% cut of everything brought in. It feeds whoever holds an office, and it is opened when households run out. ${
+      st.emptyFor ? 'It has been empty through ' + st.emptyFor + ' seasons of that.' :
+      'Given out so far: ' + Math.round(st.given) + '.'}</div>
+  </div>`;
 }

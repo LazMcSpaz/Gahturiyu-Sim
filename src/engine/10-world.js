@@ -44,7 +44,7 @@ function newWorld(cfg) {
     const hid = 'h' + id();
     const hh = {
       id: hid, name: lineageName(r), headId: null, members: [],
-      buildingId: null, claims: [site], stores: 6 + r() * 6,
+      buildingId: null, claims: [site], stores: 6 + r() * 6, goods: blankGoods(),
       standing: 20 + traitRoll(r) * 0.4, lodgedWith: null, founded: -ri(r, 8, 240)
     };
     tiles[site].owner = hid;

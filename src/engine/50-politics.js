@@ -384,7 +384,7 @@ function arriveStrangers(s, r) {
   const hid = 'h' + s.nextId++;
   const hh = {
     id: hid, name: lineageName(r), headId: null, members: [], buildingId: null,
-    claims: [], stores: 2, standing: 5, lodgedWith: null, founded: s.turn, incomer: true
+    claims: [], stores: 2, standing: 5, lodgedWith: null, founded: s.turn, incomer: true, goods: blankGoods()
   };
   s.households[hid] = hh;
   let brought = null;
