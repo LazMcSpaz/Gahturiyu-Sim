@@ -138,6 +138,7 @@ function sysStages(s, r) {
 
   // what a great house or a tavern is worth to the people in it, by the year
   if (s.turn % 4 === 0) {
+    sysEminence(s);
     for (const b of Object.values(s.buildings)) {
       if (b.state !== 'mature' || stageOf(b) < 3) continue;
       const hh = s.households[b.householdId];
@@ -161,10 +162,12 @@ function sysStages(s, r) {
    eminent already, from keeping a tavern, or from giving the growth away. Every
    other stage-3 building is simply a large house. */
 function chooseRole(s, r, b, hh) {
-  const houses = Object.values(s.households).filter(h => !h.extinct);
-  const ranked = houses.slice().sort((a, c) => compositeOf(s, c) - compositeOf(s, a));
-  const top = ranked.slice(0, Math.max(1, Math.round(ranked.length / 4)));
-  if (top.some(h => h.id === hh.id)) return 'great';
+  /* Top quartile was too wide once households thinned: fourteen of twenty-four
+     third growths came out as great houses, and a word that fits most of them
+     is not eminence. The top eighth. */
+  const { rank, n } = eminenceRank(s);
+  const place = rank.get(hh.id);
+  if (place !== undefined && place < Math.max(1, Math.round(n / 8))) return 'great';
 
   // a quarter supports one tavern. A second would have nobody new to draw.
   const q = quarterOf(s, b.tileId);
@@ -183,4 +186,61 @@ function chooseRole(s, r, b, hh) {
   if (halls < room && s.shrine && s.shrine.devotion > 60 && chance(r, 0.5)) return 'common';
 
   return 'house';
+}
+
+/* Ranking every household is the same sort three times in a turn, so it is
+   done once and kept for the turn only. */
+function eminenceRank(s) {
+  if (s._rank && s._rank.turn === s.turn) return s._rank;
+  const houses = Object.values(s.households).filter(h => !h.extinct);
+  const ranked = houses.slice().sort((a, c) => compositeOf(s, c) - compositeOf(s, a));
+  const rank = new Map();
+  ranked.forEach((h, i) => rank.set(h.id, i));
+  s._rank = { turn: s.turn, rank, n: ranked.length };
+  return s._rank;
+}
+
+/* A house is called great because the household living in it is eminent, not
+   because the stone happened to get there in a good year. Choosing the word
+   once and never again meant greats only ever accumulated: ten of nineteen
+   third growths after a century, several of them families that had since
+   lost everything. So the word is checked against who the household now is.
+   The gap between rising into it and falling out of it is what keeps it from
+   flickering year to year. */
+function sysEminence(s) {
+  const { rank, n } = eminenceRank(s);
+  if (!n) return;
+  const rise = Math.max(1, Math.round(n / 8));
+  const fall = Math.max(2, Math.round(n / 4));
+
+  for (const b of Object.values(s.buildings)) {
+    if (b.state !== 'mature' || stageOf(b) < 3) continue;
+    const role = roleOf(b);
+    if (role !== 'great' && role !== 'house') continue;   // a tavern or a hall is not up for this
+    const hh = s.households[b.householdId];
+
+    /* Nine of the eleven great houses standing at year 120 belonged to families
+       that had died out. A great house is a family; the stone on its own is a
+       big empty house. */
+    if (!hh || hh.extinct) {
+      if (role === 'great') {
+        b.role = 'house';
+        ev(s, 'stage', 4, `The ${(hh || {}).name || 'old'} house stands empty. There is nobody of that family left to keep it.`,
+           { building: b.id });
+      }
+      continue;
+    }
+    const i = rank.get(hh.id);
+    if (i === undefined) continue;
+
+    if (role === 'great' && i >= fall) {
+      b.role = 'house';
+      ev(s, 'stage', 5, `The ${hh.name} house is not called a great house any more. The stone is the same. The family is not what it was.`,
+         { building: b.id, household: hh.id });
+    } else if (role === 'house' && i < rise) {
+      b.role = 'great';
+      ev(s, 'stage', 5, `The ${hh.name} house is called a great house now. The family rose to it after the stone did.`,
+         { building: b.id, household: hh.id });
+    }
+  }
 }

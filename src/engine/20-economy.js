@@ -37,7 +37,7 @@ function sysFood(s, r) {
     for (const p of people) {
       const a = ageOf(s, p);
       mouths += a < 12 ? 0.5 : a > 66 ? 0.75 : 1;
-      if (a < 12 || a > 70) continue;
+      if (a < 12 || a > 70 || gaoled(p)) continue;
       // Everyone puts some of the day into food; a craft leaves less of it,
       // and buys the difference back with what the craft makes.
       const share = foodShare(p.trade);

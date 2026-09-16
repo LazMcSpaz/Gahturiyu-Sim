@@ -818,10 +818,17 @@ Two things follow, both wanted:
 
 ### 9c. Coin, and the mint
 
-> **Built.** Four of six seeds invent money over a hundred and fifty years, at
-> years fifty to ninety-five; two never do. One of those never had a smith at
-> all, which is the design working exactly as written — a settlement without
-> the craft cannot have money however well it is governed.
+> **Built.** Two of six seeds invent money over a hundred and fifty years; four
+> never do. One of those never had a smith at all, which is the design working
+> exactly as written — a settlement without the craft cannot have money however
+> well it is governed.
+>
+> It was four of six until 9d landed, and the reason is worth keeping: hunger
+> now tells against a government whether or not the store answers it, which
+> took six to ten points off every settlement's legitimacy. The thresholds were
+> tuned against the old scale and had to come down with it — 72 and 52 became
+> **64 and 46**. What matters is the gap between them: wide enough that a coin
+> outlives a bad decade, not so wide that it survives a collapse.
 >
 > Two corrections. The first threshold let coin appear inside forty years on
 > every seed and it never once failed, so it was raised until only a genuinely
@@ -877,6 +884,45 @@ at all — and smiths are a tier-3 trade that dies on most seeds.
 
 ### 9d. Default
 
+> **Built.** The form of government now produces visibly different settlements
+> over a century, which is the thing this slice was for. Over four hundred
+> seasons from the same seed:
+>
+> | | forbear | seize | gaol | kill | rescued | too proud |
+> |---|---|---|---|---|---|---|
+> | **senate** | 303 | 38 | 0 | 0 | 25 | 11 |
+> | **tribunal** | 214 | 68 | 46 | 0 | 22 | 14 |
+> | **sole ruler** | 290 | 49 | 16 | 1 | 28 | 10 |
+>
+> Every form mostly lets people off, and the ladder is a cap rather than a
+> prediction — a sole ruler who is not cruel behaves like a senate, which is
+> the point of picking within the cap by character.
+>
+> Four numbers moved after the first run. **Forbearance paid +12 government
+> standing per member**, so mercy raised legitimacy straight through a famine;
+> it is +5. **`creditTight` decayed faster than it accrued** and sat at zero
+> all century, so mercy cost nothing; it decays at 0.004 a season against
+> +0.22 a forbearance, and a forgiving settlement now reaches 0.99. **A tally
+> being cut was reported every time**, which was a hundred and fifty lines of
+> bookkeeping a century; only debts well past the threshold surface. And the
+> store opening was the same problem — three lines a season, all identical.
+>
+> The slice also exposed three things that were not about default at all.
+> **Feeding people was a legitimacy engine**: famine opened the store, opening
+> it paid regard, and twenty years of storm, blight and fever left a government
+> of ninety-five survivors better thought of than the same government over a
+> calm run of a hundred and twenty. Going hungry now tells against whoever runs
+> the settlement whether or not the store answers it, so relief softens the
+> blow instead of turning it into a profit. **A great house was chosen once and
+> never revisited**, so greats only ever accumulated — nine of the eleven
+> standing at year 120 belonged to families that had died out. The word is
+> checked against who the household now is, with a gap between rising into it
+> and falling out of it so it does not flicker. And **a craft whose room went
+> away kept its holder forever**: a carver with nowhere to work stayed a carver
+> for forty years, made nothing, and counted as a holder, so the settlement
+> read itself as supplied and never trained anyone. Three years without a room
+> and the craft is given up.
+
 What happens to a household that cannot pay is set by **the form of government,
 which caps how cruel it may be, and the character of whoever holds the seat, who
 picks within that cap.** This is what finally makes a sole ruler and a senate
@@ -910,7 +956,7 @@ is not money. It is the warmest mechanic in the design.
 than be beholden, and that is one trait check for one of the better stories
 available.
 
-### The carrier## 10. Upkeep, decay and beauty
+## 10. Upkeep, decay and beauty
 
 **Condition**, 0–1, starts at 1.0.
 
@@ -1073,13 +1119,16 @@ and the tests passing.
    - **5c** legitimacy, the threshold, minting by batch contract, tax in coin,
      and money going bad.
    - **5d** default: the ladder, ruthlessness by form and by person, rescue and
-     the refusal of it.
-6. **Upkeep and repairs.** Condition, masons, falling back a stage — which is
-   what finally thins the third growths that currently only accumulate.
+     the refusal of it. *Built.*
+6. **Upkeep and repairs.** Condition, masons, falling back a stage. It was to be
+   the thing that thinned the third growths; 5d got there first by a different
+   road, so what is left for it is stone that is not kept up — including the
+   fourteen buildings in a typical century whose households have died out and
+   which nothing currently touches.
 7. **Beauty, quarters, trades organising, landmarks.** The rollups, the blocs,
    and the rarest thing in the design.
 
-Slice 1 is the next thing built.
+Slices 1 through 5 are built. Slice 6 is the next thing.
 
 ## 15. Open, not yet decided
 

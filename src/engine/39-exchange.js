@@ -166,8 +166,11 @@ function sysExchange(s, r) {
       const lot = Math.min(TRADE_LOT, need, (goodsOf(deal.sel)[g] || 0) - SELL_KEEP);
       if (lot <= 0.05) continue;
 
-      // a house already deep in debt to this one is not extended more
-      if (owed(s, buyer.id, deal.sel.id) > TALLY_AT * 3) {
+      /* Mercy is paid for here. A settlement whose rulings never bite lends
+         less, because nobody extends what they will not get back — so being
+         kind makes the place gentler and poorer at once. */
+      const ceiling = TALLY_AT * 3 * (1 - (s.creditTight || 0) * 0.6);
+      if (owed(s, buyer.id, deal.sel.id) > ceiling) {
         s.refusals++;
         buyer.noCredit = (buyer.noCredit || 0) + 1;
         if (buyer.noCredit === 8) {
@@ -202,6 +205,9 @@ function sysExchange(s, r) {
 
 function sysDebts(s, r) {
   const list = debtsOf(s);
+  /* Slowly. At 0.012 a season a forgiven debt was forgotten inside four
+     years and lending never actually tightened. */
+  s.creditTight = Math.max(0, (s.creditTight || 0) - 0.004);
 
   for (const d of list) {
     const from = s.households[d.from], to = s.households[d.to];

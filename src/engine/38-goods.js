@@ -71,7 +71,7 @@ function sysMake(s, r) {
   for (const p of Object.values(s.people)) {
     if (!p.alive || !p.trade) continue;
     const a = ageOf(s, p);
-    if (a < 14 || a > 70) continue;
+    if (a < 14 || a > 70 || gaoled(p)) continue;
     const recipe = MAKES[p.trade];
     if (!recipe) continue;
     if (!canPractise(s, p)) continue;          // a craft with no room makes nothing
@@ -158,6 +158,17 @@ function sysStore(s, r) {
     && (h.shortSeasons || 0) >= 2);
   if (!short.length) { store.emptyFor = 0; return; }
 
+  /* Going hungry is held against whoever runs the settlement, fed or not.
+     Without this the store was a legitimacy engine: opening it paid regard,
+     famine was what opened it, and twenty years of storm, blight and fever
+     left a government of ninety-five survivors better thought of than the
+     same government over a calm run of a hundred and twenty. Relief now
+     softens the blow instead of turning it into a profit. */
+  for (const h of short) for (const id of h.members) {
+    const p = s.people[id];
+    if (p && p.alive) shiftStanding(p, 'government', -4);
+  }
+
   if (store.food < short.length * RELIEF_PER_HOUSE) {
     // the emergency came and the store was not there for it
     store.emptyFor++;
@@ -178,21 +189,29 @@ function sysStore(s, r) {
 
   store.emptyFor = 0;
   const each = Math.min(RELIEF_PER_HOUSE, store.food / short.length);
+  const enough = each >= RELIEF_PER_HOUSE * 0.9;    // a ration, or a gesture
+  let anyFresh = false;
   for (const h of short) {
     h.stores += each; store.food -= each; store.given += each;
-    // a household fed by the settlement thinks better of whoever runs it
     /* Being fed once is gratitude. Being fed every season is dependency, and it
-       should not keep buying a government standing — fed constantly through a
-       crisis, households pushed the settlement's regard for its rulers to thirty
-       and legitimacy to a hundred and ten while people starved. */
+       buys a government nothing. The small repeat award looked harmless and
+       was not: a steady point a season against a decay of 0.985 settles at
+       sixty-odd, so twenty years of storm, blight and fever raised legitimacy
+       from fifty-one to seventy-eight while the population fell and the store
+       drained. Feeding people who are still hungry next season is not a
+       government succeeding. */
     const fresh = s.turn - (h.lastRelief || -99) > 10;
+    if (fresh) anyFresh = true;
     h.lastRelief = s.turn;
     for (const id of h.members) {
       const p = s.people[id];
-      if (p && p.alive) shiftStanding(p, 'government', fresh ? 6 : 1);
+      if (!p || !p.alive) continue;
+      if (!enough) shiftStanding(p, 'government', -3);    // turned away with a handful
+      else if (fresh) shiftStanding(p, 'government', 6);
     }
   }
-  for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
+  if (anyFresh && enough)
+    for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
 
   /* The store opening is only news when it is not the ordinary run of things.
      Reported every time it happens, it fired most seasons and turned an

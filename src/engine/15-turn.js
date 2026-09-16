@@ -26,9 +26,12 @@ function advance(state, input) {
   sysCoin(s, r);         // whether the settlement is believed enough to have money
   sysExchange(s, r);     // and what is wanted is bargained for, on credit
   sysDebts(s, r);        // debts are paid, forgotten, or written on a stick
+  sysDefault(s, r);      // and a household that cannot pay is dealt with
+  sysGaol(s);
   sysHardship(s, r);
   sysApprentice(s, r);   // masters take someone on
   sysLearn(s, r);        // and the taught get closer, or give up
+  sysRoomless(s);        // a craft with nowhere to work is given up
   sysUnskilled(s, r);    // everyone else works
   sysGrowth(s, r);
   sysCheckIn(s, r);      // tenders go back round the houses that stand
@@ -51,6 +54,7 @@ function advance(state, input) {
   sysOmen(s, r);
 
   s._scarce = null;     // a season-scoped cache; it has no business in the state
+  s._rank = null;
   decayTies(s);         // regard fades before it is counted
   decayStanding(s);
 

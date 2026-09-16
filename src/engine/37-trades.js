@@ -169,7 +169,12 @@ function effectiveHolders(s, trade) {
     if (!p.alive) continue;
     if (p.learning && p.learning.trade === trade) { n += 0.5; continue; }
     if (p.trade !== trade) continue;
-    n += clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
+    let w = clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
+    /* Somebody with no room to work in holds the craft in name. Counting them
+       as a whole one lets the settlement read itself as supplied while nothing
+       is made. workshopFor rather than canPractise, which asks this back. */
+    if ((TRADES[trade] || {}).room && !workshopFor(s, p)) w *= 0.25;
+    n += w;
   }
   return n;
 }
@@ -405,6 +410,32 @@ function tradeForIncomer(s, r) {
   const thin = TEACHABLE.filter(k =>
     Object.values(s.people).filter(p => p.alive && p.trade === k).length <= 1);
   return thin.length ? pick(r, thin) : pick(r, TEACHABLE);
+}
+
+/* A craft needs a room, and the room can go: the household that lent it dies
+   out, a tie cools, a house is seized. Nothing used to revisit that, so a
+   carver with nowhere to work stayed a carver for forty years and made
+   nothing at all. After three years of it they go back to whatever their
+   household's ground gives them, and the craft reads as thin, which is the
+   thing that gets somebody trained. */
+const ROOMLESS_SEASONS = 12;
+
+function sysRoomless(s) {
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.trade) continue;
+    if (!(TRADES[p.trade] || {}).room) { if (p.noRoom) p.noRoom = 0; continue; }
+    if (canPractise(s, p)) { if (p.noRoom) p.noRoom = 0; continue; }
+    p.noRoom = (p.noRoom || 0) + 1;
+    if (p.noRoom < ROOMLESS_SEASONS) continue;
+    const trade = p.trade;
+    ev(s, 'notender', 5, `${nameOf(s, p.id)} has had nowhere to work as a ${trade} for ${Math.round(p.noRoom / 4)} years. They have gone back to common work.`,
+       { person: p.id, household: p.householdId });
+    p.trade = null;
+    p.tender = false;
+    p.noRoom = 0;
+    if (p.role === trade) p.role = 'none';
+    shiftStanding(p, 'trade', -12);
+  }
 }
 
 function sysTradeLoss(s, r) {

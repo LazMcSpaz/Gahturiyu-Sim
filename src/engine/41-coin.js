@@ -15,8 +15,14 @@
    coin appeared inside forty years on every seed and never once failed, which
    is not an achievement. At 72 it takes a settlement that is genuinely well
    governed, and 52 to keep means an ordinary bad stretch can kill it. */
-const COIN_AT = 72;          // legitimacy at which somebody strikes the first batch
-const COIN_KEEP = 52;        // and below which the settlement stops believing in it
+/* Both were tuned against a scale that no longer exists. Hunger now tells
+   against a government whether or not the store answers it, which took six to
+   ten points off every settlement's legitimacy, and at 72 only one seed in six
+   ever reached money at all. The gap between the two is what matters — enough
+   that a coin can outlive a bad decade, not so much that it survives a
+   collapse. */
+const COIN_AT = 64;          // legitimacy at which somebody strikes the first batch
+const COIN_KEEP = 46;        // and below which the settlement stops believing in it
 const BATCH_EVERY = 36;      // turns — nine years between batches at the soonest
 const BATCH_METAL = 9;       // metal a batch consumes
 const BATCH_COIN = 60;       // ḍaqu struck from it

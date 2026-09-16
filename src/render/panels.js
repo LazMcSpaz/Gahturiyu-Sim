@@ -157,6 +157,9 @@ function tileFactsHTML(s, id) {
     row('Owed to them', `${Math.round(holds)} ḍaqu`, 'good');
   }
   if ((hh.noCredit || 0) >= 8) row('Credit', 'nobody will extend them any more', 'bad');
+  if ((hh.ruinFor || 0) >= 3) row('Ruin', `${hh.ruinFor} seasons unable to pay — a ruling is coming`, 'bad');
+  const shut = hh.members.map(i => s.people[i]).filter(p => p && p.alive && gaoled(p));
+  if (shut.length) row('Shut up', shut.map(p => nameOf(s, p.id)).join(', '), 'bad');
 
   const rep = reputeOf(s, hh);
   const others = Object.values(s.households).filter(h => !h.extinct)

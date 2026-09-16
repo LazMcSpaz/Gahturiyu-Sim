@@ -16,6 +16,7 @@ const MANIFEST = [
   'src/engine/38-goods.js',
   'src/engine/39-exchange.js',
   'src/engine/41-coin.js',
+  'src/engine/42-default.js',
   'src/engine/40-society.js',
   'src/engine/45-offices.js',
   'src/engine/50-politics.js',
@@ -52,7 +53,7 @@ function loadEngine(root = __dirname) {
   return new Function(engineSource(root) +
     '\nreturn {newWorld,advance,LEVERS,renderTurn,chronicleHTML,mapHTML,inTheNews,tileFactsHTML,'
     + 'seasonOf,yearOf,ageOf,mulberry32,reputeOf,tileId,tileXY,quarterOf,W,H,'
-    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal,stageOf,roleOf,roleWord,hasWorkshop,tavernsOf,STAGE_TURNS,TRADES,TIER1,TEACHABLE,tradeTier,canPractise,workshopFor,mastersOf,apprenticeScore,endangered,effectiveHolders,GOODS,MAKES,WANTS,goodsOf,commonStore,TITHE,VALUE,debtsOf,owed,totalOwed,totalHeld,priceFor,demandOf,legitimacy,mintOf,coinOf,coinWorks,COIN_AT,COIN_KEEP};')();
+    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal,stageOf,roleOf,roleWord,hasWorkshop,tavernsOf,STAGE_TURNS,TRADES,TIER1,TEACHABLE,tradeTier,canPractise,workshopFor,mastersOf,apprenticeScore,endangered,effectiveHolders,GOODS,MAKES,WANTS,goodsOf,commonStore,TITHE,VALUE,debtsOf,owed,totalOwed,totalHeld,priceFor,demandOf,legitimacy,mintOf,coinOf,coinWorks,COIN_AT,COIN_KEEP,HARSHNESS,chooseRuling,gaoled,RUIN_AT};')();
 }
 
 module.exports = { build, engineSource, loadEngine, MANIFEST };

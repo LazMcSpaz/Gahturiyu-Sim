@@ -1169,9 +1169,12 @@ function advance(state, input) {
   sysCoin(s, r);         // whether the settlement is believed enough to have money
   sysExchange(s, r);     // and what is wanted is bargained for, on credit
   sysDebts(s, r);        // debts are paid, forgotten, or written on a stick
+  sysDefault(s, r);      // and a household that cannot pay is dealt with
+  sysGaol(s);
   sysHardship(s, r);
   sysApprentice(s, r);   // masters take someone on
   sysLearn(s, r);        // and the taught get closer, or give up
+  sysRoomless(s);        // a craft with nowhere to work is given up
   sysUnskilled(s, r);    // everyone else works
   sysGrowth(s, r);
   sysCheckIn(s, r);      // tenders go back round the houses that stand
@@ -1194,6 +1197,7 @@ function advance(state, input) {
   sysOmen(s, r);
 
   s._scarce = null;     // a season-scoped cache; it has no business in the state
+  s._rank = null;
   decayTies(s);         // regard fades before it is counted
   decayStanding(s);
 
@@ -1301,7 +1305,7 @@ function sysFood(s, r) {
     for (const p of people) {
       const a = ageOf(s, p);
       mouths += a < 12 ? 0.5 : a > 66 ? 0.75 : 1;
-      if (a < 12 || a > 70) continue;
+      if (a < 12 || a > 70 || gaoled(p)) continue;
       // Everyone puts some of the day into food; a craft leaves less of it,
       // and buys the difference back with what the craft makes.
       const share = foodShare(p.trade);
@@ -1840,6 +1844,7 @@ function sysStages(s, r) {
 
   // what a great house or a tavern is worth to the people in it, by the year
   if (s.turn % 4 === 0) {
+    sysEminence(s);
     for (const b of Object.values(s.buildings)) {
       if (b.state !== 'mature' || stageOf(b) < 3) continue;
       const hh = s.households[b.householdId];
@@ -1863,10 +1868,12 @@ function sysStages(s, r) {
    eminent already, from keeping a tavern, or from giving the growth away. Every
    other stage-3 building is simply a large house. */
 function chooseRole(s, r, b, hh) {
-  const houses = Object.values(s.households).filter(h => !h.extinct);
-  const ranked = houses.slice().sort((a, c) => compositeOf(s, c) - compositeOf(s, a));
-  const top = ranked.slice(0, Math.max(1, Math.round(ranked.length / 4)));
-  if (top.some(h => h.id === hh.id)) return 'great';
+  /* Top quartile was too wide once households thinned: fourteen of twenty-four
+     third growths came out as great houses, and a word that fits most of them
+     is not eminence. The top eighth. */
+  const { rank, n } = eminenceRank(s);
+  const place = rank.get(hh.id);
+  if (place !== undefined && place < Math.max(1, Math.round(n / 8))) return 'great';
 
   // a quarter supports one tavern. A second would have nobody new to draw.
   const q = quarterOf(s, b.tileId);
@@ -1885,6 +1892,63 @@ function chooseRole(s, r, b, hh) {
   if (halls < room && s.shrine && s.shrine.devotion > 60 && chance(r, 0.5)) return 'common';
 
   return 'house';
+}
+
+/* Ranking every household is the same sort three times in a turn, so it is
+   done once and kept for the turn only. */
+function eminenceRank(s) {
+  if (s._rank && s._rank.turn === s.turn) return s._rank;
+  const houses = Object.values(s.households).filter(h => !h.extinct);
+  const ranked = houses.slice().sort((a, c) => compositeOf(s, c) - compositeOf(s, a));
+  const rank = new Map();
+  ranked.forEach((h, i) => rank.set(h.id, i));
+  s._rank = { turn: s.turn, rank, n: ranked.length };
+  return s._rank;
+}
+
+/* A house is called great because the household living in it is eminent, not
+   because the stone happened to get there in a good year. Choosing the word
+   once and never again meant greats only ever accumulated: ten of nineteen
+   third growths after a century, several of them families that had since
+   lost everything. So the word is checked against who the household now is.
+   The gap between rising into it and falling out of it is what keeps it from
+   flickering year to year. */
+function sysEminence(s) {
+  const { rank, n } = eminenceRank(s);
+  if (!n) return;
+  const rise = Math.max(1, Math.round(n / 8));
+  const fall = Math.max(2, Math.round(n / 4));
+
+  for (const b of Object.values(s.buildings)) {
+    if (b.state !== 'mature' || stageOf(b) < 3) continue;
+    const role = roleOf(b);
+    if (role !== 'great' && role !== 'house') continue;   // a tavern or a hall is not up for this
+    const hh = s.households[b.householdId];
+
+    /* Nine of the eleven great houses standing at year 120 belonged to families
+       that had died out. A great house is a family; the stone on its own is a
+       big empty house. */
+    if (!hh || hh.extinct) {
+      if (role === 'great') {
+        b.role = 'house';
+        ev(s, 'stage', 4, `The ${(hh || {}).name || 'old'} house stands empty. There is nobody of that family left to keep it.`,
+           { building: b.id });
+      }
+      continue;
+    }
+    const i = rank.get(hh.id);
+    if (i === undefined) continue;
+
+    if (role === 'great' && i >= fall) {
+      b.role = 'house';
+      ev(s, 'stage', 5, `The ${hh.name} house is not called a great house any more. The stone is the same. The family is not what it was.`,
+         { building: b.id, household: hh.id });
+    } else if (role === 'house' && i < rise) {
+      b.role = 'great';
+      ev(s, 'stage', 5, `The ${hh.name} house is called a great house now. The family rose to it after the stone did.`,
+         { building: b.id, household: hh.id });
+    }
+  }
 }
 
 
@@ -2060,7 +2124,12 @@ function effectiveHolders(s, trade) {
     if (!p.alive) continue;
     if (p.learning && p.learning.trade === trade) { n += 0.5; continue; }
     if (p.trade !== trade) continue;
-    n += clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
+    let w = clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
+    /* Somebody with no room to work in holds the craft in name. Counting them
+       as a whole one lets the settlement read itself as supplied while nothing
+       is made. workshopFor rather than canPractise, which asks this back. */
+    if ((TRADES[trade] || {}).room && !workshopFor(s, p)) w *= 0.25;
+    n += w;
   }
   return n;
 }
@@ -2298,6 +2367,32 @@ function tradeForIncomer(s, r) {
   return thin.length ? pick(r, thin) : pick(r, TEACHABLE);
 }
 
+/* A craft needs a room, and the room can go: the household that lent it dies
+   out, a tie cools, a house is seized. Nothing used to revisit that, so a
+   carver with nowhere to work stayed a carver for forty years and made
+   nothing at all. After three years of it they go back to whatever their
+   household's ground gives them, and the craft reads as thin, which is the
+   thing that gets somebody trained. */
+const ROOMLESS_SEASONS = 12;
+
+function sysRoomless(s) {
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.trade) continue;
+    if (!(TRADES[p.trade] || {}).room) { if (p.noRoom) p.noRoom = 0; continue; }
+    if (canPractise(s, p)) { if (p.noRoom) p.noRoom = 0; continue; }
+    p.noRoom = (p.noRoom || 0) + 1;
+    if (p.noRoom < ROOMLESS_SEASONS) continue;
+    const trade = p.trade;
+    ev(s, 'notender', 5, `${nameOf(s, p.id)} has had nowhere to work as a ${trade} for ${Math.round(p.noRoom / 4)} years. They have gone back to common work.`,
+       { person: p.id, household: p.householdId });
+    p.trade = null;
+    p.tender = false;
+    p.noRoom = 0;
+    if (p.role === trade) p.role = 'none';
+    shiftStanding(p, 'trade', -12);
+  }
+}
+
 function sysTradeLoss(s, r) {
   s.lostTrades = s.lostTrades || {};
   for (const k of TEACHABLE) {
@@ -2385,7 +2480,7 @@ function sysMake(s, r) {
   for (const p of Object.values(s.people)) {
     if (!p.alive || !p.trade) continue;
     const a = ageOf(s, p);
-    if (a < 14 || a > 70) continue;
+    if (a < 14 || a > 70 || gaoled(p)) continue;
     const recipe = MAKES[p.trade];
     if (!recipe) continue;
     if (!canPractise(s, p)) continue;          // a craft with no room makes nothing
@@ -2472,6 +2567,17 @@ function sysStore(s, r) {
     && (h.shortSeasons || 0) >= 2);
   if (!short.length) { store.emptyFor = 0; return; }
 
+  /* Going hungry is held against whoever runs the settlement, fed or not.
+     Without this the store was a legitimacy engine: opening it paid regard,
+     famine was what opened it, and twenty years of storm, blight and fever
+     left a government of ninety-five survivors better thought of than the
+     same government over a calm run of a hundred and twenty. Relief now
+     softens the blow instead of turning it into a profit. */
+  for (const h of short) for (const id of h.members) {
+    const p = s.people[id];
+    if (p && p.alive) shiftStanding(p, 'government', -4);
+  }
+
   if (store.food < short.length * RELIEF_PER_HOUSE) {
     // the emergency came and the store was not there for it
     store.emptyFor++;
@@ -2492,21 +2598,29 @@ function sysStore(s, r) {
 
   store.emptyFor = 0;
   const each = Math.min(RELIEF_PER_HOUSE, store.food / short.length);
+  const enough = each >= RELIEF_PER_HOUSE * 0.9;    // a ration, or a gesture
+  let anyFresh = false;
   for (const h of short) {
     h.stores += each; store.food -= each; store.given += each;
-    // a household fed by the settlement thinks better of whoever runs it
     /* Being fed once is gratitude. Being fed every season is dependency, and it
-       should not keep buying a government standing — fed constantly through a
-       crisis, households pushed the settlement's regard for its rulers to thirty
-       and legitimacy to a hundred and ten while people starved. */
+       buys a government nothing. The small repeat award looked harmless and
+       was not: a steady point a season against a decay of 0.985 settles at
+       sixty-odd, so twenty years of storm, blight and fever raised legitimacy
+       from fifty-one to seventy-eight while the population fell and the store
+       drained. Feeding people who are still hungry next season is not a
+       government succeeding. */
     const fresh = s.turn - (h.lastRelief || -99) > 10;
+    if (fresh) anyFresh = true;
     h.lastRelief = s.turn;
     for (const id of h.members) {
       const p = s.people[id];
-      if (p && p.alive) shiftStanding(p, 'government', fresh ? 6 : 1);
+      if (!p || !p.alive) continue;
+      if (!enough) shiftStanding(p, 'government', -3);    // turned away with a handful
+      else if (fresh) shiftStanding(p, 'government', 6);
     }
   }
-  for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
+  if (anyFresh && enough)
+    for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
 
   /* The store opening is only news when it is not the ordinary run of things.
      Reported every time it happens, it fired most seasons and turned an
@@ -2719,8 +2833,11 @@ function sysExchange(s, r) {
       const lot = Math.min(TRADE_LOT, need, (goodsOf(deal.sel)[g] || 0) - SELL_KEEP);
       if (lot <= 0.05) continue;
 
-      // a house already deep in debt to this one is not extended more
-      if (owed(s, buyer.id, deal.sel.id) > TALLY_AT * 3) {
+      /* Mercy is paid for here. A settlement whose rulings never bite lends
+         less, because nobody extends what they will not get back — so being
+         kind makes the place gentler and poorer at once. */
+      const ceiling = TALLY_AT * 3 * (1 - (s.creditTight || 0) * 0.6);
+      if (owed(s, buyer.id, deal.sel.id) > ceiling) {
         s.refusals++;
         buyer.noCredit = (buyer.noCredit || 0) + 1;
         if (buyer.noCredit === 8) {
@@ -2755,6 +2872,9 @@ function sysExchange(s, r) {
 
 function sysDebts(s, r) {
   const list = debtsOf(s);
+  /* Slowly. At 0.012 a season a forgiven debt was forgotten inside four
+     years and lending never actually tightened. */
+  s.creditTight = Math.max(0, (s.creditTight || 0) - 0.004);
 
   for (const d of list) {
     const from = s.households[d.from], to = s.households[d.to];
@@ -2821,8 +2941,14 @@ function sysDebts(s, r) {
    coin appeared inside forty years on every seed and never once failed, which
    is not an achievement. At 72 it takes a settlement that is genuinely well
    governed, and 52 to keep means an ordinary bad stretch can kill it. */
-const COIN_AT = 72;          // legitimacy at which somebody strikes the first batch
-const COIN_KEEP = 52;        // and below which the settlement stops believing in it
+/* Both were tuned against a scale that no longer exists. Hunger now tells
+   against a government whether or not the store answers it, which took six to
+   ten points off every settlement's legitimacy, and at 72 only one seed in six
+   ever reached money at all. The gap between the two is what matters — enough
+   that a coin can outlive a bad decade, not so much that it survives a
+   collapse. */
+const COIN_AT = 64;          // legitimacy at which somebody strikes the first batch
+const COIN_KEEP = 46;        // and below which the settlement stops believing in it
 const BATCH_EVERY = 36;      // turns — nine years between batches at the soonest
 const BATCH_METAL = 9;       // metal a batch consumes
 const BATCH_COIN = 60;       // ḍaqu struck from it
@@ -2989,6 +3115,230 @@ function coinWorks(s) {
   const m = mintOf(s);
   return !!(m.believed && m.coined > 0);
 }
+
+
+/* ===== src/engine/42-default.js ===== */
+/* ===========================================================================
+   What happens to a household that cannot pay.
+
+   This is where the form of government finally matters mechanically. The form
+   caps how cruel enforcement may be; the character of whoever holds the seat
+   picks within that cap. A sole ruler can do anything they like. A senate has
+   to agree with itself first.
+
+   Seizure is the most violent act in this world and is written that way. A
+   home takes fifteen to twenty years to grow and a workshop forty-five. Taking
+   one is not foreclosure — it is taking a century of somebody's family and
+   handing it to a creditor, and it cannot be replaced in a lifetime.
+   =========================================================================== */
+
+const RUIN_AT = 20;          // ḍaqu owed with nothing coming in
+const RUIN_SEASONS = 8;      // and this long unable to pay any of it
+
+/* How far each form will go. The ladder, mildest first. */
+const HARSHNESS = {
+  senate:   ['forbear', 'seize'],
+  tribunal: ['forbear', 'seize', 'gaol'],
+  sole:     ['forbear', 'seize', 'gaol', 'kill']
+};
+
+function rulingSeat(s) {
+  const order = ['arbiter', 'ruler', 'tribune', 'senator'];
+  for (const k of order) {
+    const held = officeHolders(s, k);
+    if (held.length) return held[0];
+  }
+  return null;
+}
+
+/* Cruelty is the person, bounded by the office. A vengeful, grasping judge
+   with a grudge against the house before them reaches for the far end of what
+   the form allows; a loyal one stops at the near end. */
+function chooseRuling(s, r, judge, debtor) {
+  const allowed = HARSHNESS[s.government] || HARSHNESS.senate;
+  if (!judge) return 'forbear';
+  let cruel = (judge.traits.grudge * 0.4 + judge.traits.avarice * 0.35
+             - judge.traits.loyalty * 0.3 + holdsAgainst(s, judge, debtor.id) * 0.6
+             - bondWith(judge, debtor.id) * 0.5) / 45;
+  cruel += (r() - 0.5) * 0.35;
+  const idx = clamp(Math.round(cruel * (allowed.length - 1)), 0, allowed.length - 1);
+  return allowed[idx];
+}
+
+/* --- a neighbour may pay it off ---------------------------------------------
+   The warmest mechanic here, and it spends a tie rather than reading one. It
+   costs the rescuer real stores and leaves the rescued owing something that is
+   not money. And a proud house would rather lose the roof than be beholden.
+   -------------------------------------------------------------------------- */
+
+function findRescuer(s, debtor, amount) {
+  let best = null, bestTie = 0;
+  for (const h of Object.values(s.households)) {
+    if (h.extinct || h.id === debtor.id) continue;
+    const head = s.people[h.headId];
+    if (!head || !head.alive) continue;
+    const tie = tieTo(head, debtor.id);
+    if (tie < 35) continue;
+    if (h.stores < amount * 0.5 + 8) continue;
+    if (tie > bestTie) { bestTie = tie; best = h; }
+  }
+  return best;
+}
+
+function tooProud(s, debtor) {
+  const head = s.people[debtor.headId];
+  if (!head) return false;
+  return head.traits.ambition > 62 && head.traits.loyalty < 45;
+}
+
+/* --- the ruling --------------------------------------------------------------- */
+
+function sysDefault(s, r) {
+  const list = debtsOf(s);
+  s.mercyRun = s.mercyRun || 0;
+
+  for (const hh of Object.values(s.households)) {
+    if (hh.extinct || hh.lodgedWith) continue;
+    const owe = totalOwed(s, hh.id);
+    if (owe < RUIN_AT) { hh.ruinFor = 0; continue; }
+    if (hh.stores > 6) { hh.ruinFor = 0; continue; }          // still paying something
+    hh.ruinFor = (hh.ruinFor || 0) + 1;
+    if (hh.ruinFor < RUIN_SEASONS) continue;
+    if (!officeHolders(s, 'arbiter').length && !rulingSeat(s)) continue;
+    hh.ruinFor = 0;
+
+    // somebody may step in before it ever reaches a judgement
+    const rescuer = findRescuer(s, hh, owe);
+    if (rescuer) {
+      if (tooProud(s, hh)) {
+        ev(s, 'dispute', 6, `The ${rescuer.name} offered to clear the ${hh.name} debts. The ${hh.name} would not have it.`,
+           { household: hh.id });
+        remember(s, hh.id, 2, `refused to be bought out of their debts`);
+      } else {
+        const paid = Math.min(owe, rescuer.stores - 8);
+        rescuer.stores -= paid;
+        for (const d of list) if (d.from === hh.id) {
+          const take = Math.min(d.amount, paid);
+          d.amount -= take;
+        }
+        const rh = s.people[hh.headId], gh = s.people[rescuer.headId];
+        if (rh) shiftTie(s, rh, rescuer.id, 45, `paid off this household's debts when nobody else would`);
+        if (gh) shiftStanding(gh, 'kin', 16);
+        remember(s, rescuer.id, 8, `paid another household's debts out of their own store`);
+        ev(s, 'hardship', 6, `The ${rescuer.name} paid off what the ${hh.name} owed.`, { household: hh.id });
+        continue;
+      }
+    }
+
+    const judge = rulingSeat(s);
+    const ruling = chooseRuling(s, r, judge, hh);
+    const who = judge ? nameOf(s, judge.id) : 'the settlement';
+    applyRuling(s, r, hh, ruling, who, judge, owe);
+  }
+}
+
+function applyRuling(s, r, hh, ruling, who, judge, owe) {
+  const list = debtsOf(s);
+  const creditors = list.filter(d => d.from === hh.id && d.amount > 0);
+
+  if (ruling === 'forbear') {
+    /* Mercy is not free. A settlement whose rulings never bite dries up
+       lending, because nobody extends what they will not get back — so a
+       merciful place is gentler and poorer. */
+    for (const d of creditors) d.amount *= 0.45;
+    s.mercyRun++;
+    s.creditTight = Math.min(1, (s.creditTight || 0) + 0.22);
+    /* Being let off is worth something, but not much: at twelve a household it
+       paid for itself many times over, and a settlement full of forgiven
+       debtors drove legitimacy *up* through a famine. */
+    for (const id of hh.members) {
+      const p = s.people[id];
+      if (p && p.alive) shiftStanding(p, 'government', 5);
+    }
+    ev(s, 'arbitration', 6, `${who} let the ${hh.name} off what they could not pay.`, { household: hh.id });
+    return;
+  }
+
+  if (ruling === 'seize') {
+    const b = Object.values(s.buildings).find(x => x.householdId === hh.id && x.state === 'mature');
+    const winner = creditors.sort((a, c) => c.amount - a.amount)[0];
+    const to = winner && s.households[winner.to];
+    if (!b || !to) { applyRuling(s, r, hh, 'forbear', who, judge, owe); return; }
+
+    b.householdId = to.id;
+    hh.buildingId = null;
+    hh.lodgedWith = to.id;
+    if (!to.buildingId) to.buildingId = b.id;
+    for (const d of creditors) d.amount = 0;
+
+    /* A century of somebody's family, handed to a creditor. The settlement
+       should answer this closer to how it answers a killing than a debt. */
+    const head = s.people[hh.headId];
+    if (head) {
+      shiftTie(s, head, to.id, -95, `took the roof from over this household for a debt`);
+      shiftTie(s, head, (judge && s.people[judge.id]) ? s.people[judge.id].householdId : to.id, -60,
+               `gave away this household's house for a debt`);
+    }
+    for (const id of hh.members) {
+      const p = s.people[id];
+      if (p && p.alive) { shiftStanding(p, 'government', -34); shiftStanding(p, 'quarter', -12); }
+    }
+    remember(s, to.id, -9, `took a house off a household that could not pay`);
+    remember(s, hh.id, -4, `lost their house for debt`);
+    s.creditTight = Math.max(0, (s.creditTight || 0) - 0.25);
+    ev(s, 'feud', 7, `${who} gave the ${hh.name} house to the ${to.name} for a debt of ${Math.round(owe)} ḍaqu. It took ${Math.round((s.turn - b.startTurn) / 4)} years to grow.`,
+       { household: hh.id, building: b.id });
+    return;
+  }
+
+  if (ruling === 'gaol') {
+    const live = hh.members.map(i => s.people[i]).filter(p => p && p.alive && ageOf(s, p) >= 16);
+    const taken = live.sort((a, b2) => ageOf(s, b2) - ageOf(s, a))[0];
+    if (!taken) { applyRuling(s, r, hh, 'seize', who, judge, owe); return; }
+    taken.gaoledUntil = s.turn + ri(r, 8, 24);
+    for (const d of creditors) d.amount *= 0.6;
+    const head = s.people[hh.headId];
+    if (head && judge) shiftTie(s, head, s.people[judge.id].householdId, -70, `had one of ours shut up for a debt`);
+    for (const id of hh.members) {
+      const p = s.people[id];
+      if (p && p.alive) shiftStanding(p, 'government', -26);
+    }
+    ev(s, 'feud', 6, `${who} had ${nameOf(s, taken.id)} shut up over the ${hh.name} debts.`, { household: hh.id, person: taken.id });
+    return;
+  }
+
+  if (ruling === 'kill') {
+    const head = s.people[hh.headId];
+    if (!head || !head.alive) { applyRuling(s, r, hh, 'gaol', who, judge, owe); return; }
+    for (const d of creditors) d.amount = 0;
+    kill(s, head, 'the ruling over their debts');
+    /* Almost always a mistake, and the settlement says so. A government that
+       kills its debtors bleeds the standing that made its money believable. */
+    for (const h of Object.values(s.households)) {
+      if (h.extinct) continue;
+      for (const id of h.members) {
+        const p = s.people[id];
+        if (p && p.alive) shiftStanding(p, 'government', -18);
+      }
+    }
+    if (judge) { shiftStanding(judge, 'quarter', -40); shiftStanding(judge, 'kin', -30); }
+    remember(s, hh.id, -3, `had their head put to death over a debt`);
+    ev(s, 'feud', 7, `${who} had ${nameOf(s, head.id)} put to death over the ${hh.name} debts.`, { household: hh.id });
+  }
+}
+
+/* Somebody shut up over a debt is not working. */
+function sysGaol(s) {
+  for (const p of Object.values(s.people)) {
+    if (!p.alive || !p.gaoledUntil) continue;
+    if (s.turn >= p.gaoledUntil) {
+      p.gaoledUntil = 0;
+      shiftStanding(p, 'government', -10);
+    }
+  }
+}
+
+function gaoled(p) { return !!(p.gaoledUntil && p.gaoledUntil > 0); }
 
 
 /* ===== src/engine/40-society.js ===== */
@@ -4465,6 +4815,9 @@ function tileFactsHTML(s, id) {
     row('Owed to them', `${Math.round(holds)} ḍaqu`, 'good');
   }
   if ((hh.noCredit || 0) >= 8) row('Credit', 'nobody will extend them any more', 'bad');
+  if ((hh.ruinFor || 0) >= 3) row('Ruin', `${hh.ruinFor} seasons unable to pay — a ruling is coming`, 'bad');
+  const shut = hh.members.map(i => s.people[i]).filter(p => p && p.alive && gaoled(p));
+  if (shut.length) row('Shut up', shut.map(p => nameOf(s, p.id)).join(', '), 'bad');
 
   const rep = reputeOf(s, hh);
   const others = Object.values(s.households).filter(h => !h.extinct)
