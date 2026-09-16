@@ -656,35 +656,162 @@ A losing candidate takes a tie toward the winner worsened by **25 + ambition/4**
 Elections that recur every six years, in a settlement of forty households, will
 therefore accumulate history — which is the point.
 
-## 9. The economy, kept under the floor
+## 9. The economy
 
-Four goods: **food**, **stone**, **timber**, **cordage**.
+Large enough to need its own build order. Four parts, in dependency order: what
+is made and stored, how it changes hands, what money is and when it appears, and
+what happens when a debt is not paid.
 
-Trades produce what others cannot make, so exchange is forced rather than
-designed. A household short of cordage must deal with a roper, or with the
-carrier who supplies one.
-
-**The chronicle never reports a transaction.** No tallies, no "3 timber moved".
-It reports the **pinch** — a refusal, a shortage, a dependency, a threshold
-crossed:
+**The chronicle never reports a transaction.** No tallies of goods, no prices
+paid. It reports the **pinch** — a refusal, a shortage, a dependency, a debt
+called in:
 
 > *The Rilu would not sell rope to the Deḍu this season.*
+> *Nobody would take a Deḍu stick this season.*
 
-The ledger runs underneath and surfaces only when it hurts someone.
+The ledger runs underneath and surfaces only when it hurts somebody.
 
-### The carrier
+### 9a. Goods, larders and the common store
 
-The middleman is the strongest lever a household has for accumulating power,
-because it is the same shape as the mechanic that already works best: a scarce
-capability choosing who benefits. A tender decides which households get to
-exist. A carrier decides who gets cordage first, and who waits.
+Ten goods, each made by a trade and needed by somebody else:
 
-A carrier takes a **10% cut** of what passes through them and chooses order of
-supply by the same weighting as everything else — need, standing, kin, ties.
+| good | made by | wanted by |
+|---|---|---|
+| food | fieldhand, boathand | everyone, every season |
+| stone | quarrier | mason, carver |
+| ore | miner | smith |
+| timber | woodcutter | mason, joiner |
+| cordage | roper | boathand, upkeep |
+| leather | tanner | tailor, upkeep |
+| metal | smith | joiner, mason, and the mint |
+| cloth | weaver | tailor |
+| garments | tailor | everyone, slowly |
+| remedies | herbalist | the sick and the old |
 
----
+Masons, carvers, carriers and tenders make no good — they do work, and are paid
+for it like anyone else.
 
-## 10. Upkeep, decay and beauty
+**Food is stored twice.** A household fills its own larder first. What is left
+over is surplus and can be sold. But **the government takes its cut before any
+of that** — off the top, before a larder is filled — and that cut goes to a
+common store.
+
+The common store does three things and only three: it feeds the offices and the
+guard, it is opened in an emergency, and it is the thing a government is judged
+on when the emergency comes. A store that is empty when the settlement is
+starving should cost more standing than any other single failure in the design.
+
+### 9b. Exchange: barter, credit, and the stick
+
+Before money, every exchange is a negotiation between two households, and the
+price is a **range**, not a number. Four things set it:
+
+- **What it costs to make** — training years and inputs consumed
+- **How scarce it is right now** — what exists against what is wanted
+- **How badly the buyer needs it** — a hungry house pays more
+- **What the two households are to each other** — standing, and the tie between
+  them
+
+That last is the point, and it runs on machinery already built. A grudge costs
+you. Standing buys you a better price. In barter the spread is wide — the same
+rope can cost two households very different amounts, and the chronicle can say
+so.
+
+**Everyday exchange is credit, remembered.** Neighbours do not hand over goods
+for goods; they remember. That keeps the ledger quiet and puts trust where it
+belongs, on reputation.
+
+**A tally is the official record of a debt** — a split stick, half to each side.
+Two things separate it from a remembered debt: it does not fade, and it does not
+die with the debtor. An heir inherits a stick they never agreed to.
+
+**Tallies are transferable.** Once a stick can change hands, its worth depends on
+whether the settlement believes the debtor will pay — so a tally on a
+well-regarded household trades near its face and one on a bad household trades
+at a discount. The settlement is putting a number on creditworthiness, using the
+standing it already keeps.
+
+Two things follow, both wanted:
+
+- **Creditor households.** Holding other people's paper is power without land or
+  craft — the middleman again, in a third form.
+- **Cascades.** A household that fails ruins everyone holding its sticks. In a
+  settlement of two hundred that is a chain reaction, and the most dramatic
+  economic event available.
+
+### 9c. Coin, and the mint
+
+**Currency is an achievement, not a given.** The settlement starts without it,
+and it appears only when the government is strong and believed enough to
+guarantee a standard. That makes legitimacy mechanically consequential rather
+than decorative, and it means a run can show you money being invented.
+
+**The unit never changes; only what moves does.** From the first day there is a
+standard measure of grain — the **ḍaqu**. When coin comes, a coin *is* the
+weight of metal that buys one ḍaqu, and takes the same name. Common people go on
+meaning grain by it while the government means metal.
+
+**The threshold** is legitimacy, read from things that already exist: mean
+`government` standing across households, whether levies are obeyed or defied,
+and how long the present form has held without collapsing.
+
+**Minting is a contract, one batch at a time.** The government names a smith for
+each batch; that smith keeps a portion as payment. Per batch, not for life — so
+there is no minting dynasty, and the favour is granted fresh every time. What
+the chronicle records is not one contract but a habit:
+
+> *The Rilu have had the mint four batches running.*
+
+This is the most valuable thing a government owns, and it is what makes an
+office worth wanting.
+
+**Money can go bad, and the same dial does it.** A government short of coin
+orders another batch; too many batches and the coin is believed less; being
+believed less is legitimacy falling; and below the threshold the coin stops
+being money at all. Prices widen, barter returns, and everyone holding coin
+learns it was only ever a promise. The government that abused the money
+destroyed it, and no new machinery was needed to say so.
+
+**The mint is hostage to one named person.** Lose the contracted smith and there
+are no more batches until another is named. Lose the *craft* and there are none
+at all — and smiths are a tier-3 trade that dies on most seeds.
+
+### 9d. Default
+
+What happens to a household that cannot pay is set by **the form of government,
+which caps how cruel it may be, and the character of whoever holds the seat, who
+picks within that cap.** This is what finally makes a sole ruler and a senate
+produce visibly different settlements over a century.
+
+The ladder, mildest first:
+
+| | what it does |
+|---|---|
+| **forbearance** | they pay what they can without losing the home or the means to earn |
+| **seizure** | the home is taken and they work off the rest |
+| **imprisonment** | a worker is removed from the household |
+| **execution** | rare, and it should nearly always be a mistake |
+
+**Seizure is the most violent act in this world**, and it should be written that
+way. A home takes fifteen to twenty years to grow and a workshop forty-five.
+Taking one is not foreclosure — it is taking a century of somebody's family and
+handing it to a creditor, and it cannot be replaced in a lifetime. The
+settlement should answer it closer to how it answers a killing than a debt.
+
+**Mercy has to cost something**, or it is a free win and the choice is not a
+choice. It costs credit: a government that never enforces dries up lending,
+because nobody extends what they will not get back. A merciful settlement is
+gentler and poorer, thrown back on barter and favours.
+
+**A neighbour can pay it off.** Someone with a warm tie and the means steps in.
+It costs them real stores and leaves the rescued household owing something that
+is not money. It is the warmest mechanic in the design.
+
+**And a household can refuse rescue.** A proud house would rather lose the home
+than be beholden, and that is one trait check for one of the better stories
+available.
+
+### The carrier## 10. Upkeep, decay and beauty
 
 **Condition**, 0–1, starts at 1.0.
 
@@ -840,8 +967,17 @@ and the tests passing.
    workshops as the gate, and work crews as the context that matters most.
 4. **Offices sought, and compulsion.** Both depend on faction standing and ties
    being in place, and they give each other teeth.
-5. **Economy and upkeep.** Four goods, repairs, the carrier, taverns running.
-6. **Beauty, quarters, trades organising, landmarks.** The rollups, the blocs,
+5. **The economy**, which is large enough to need its own order (§9):
+   - **5a** goods, larders, the government's cut, the common store. Deletes the
+     food placeholder in §4, which is the thing currently holding trades up.
+   - **5b** prices as ranges, barter, credit, and the transferable tally.
+   - **5c** legitimacy, the threshold, minting by batch contract, tax in coin,
+     and money going bad.
+   - **5d** default: the ladder, ruthlessness by form and by person, rescue and
+     the refusal of it.
+6. **Upkeep and repairs.** Condition, masons, falling back a stage — which is
+   what finally thins the third growths that currently only accumulate.
+7. **Beauty, quarters, trades organising, landmarks.** The rollups, the blocs,
    and the rarest thing in the design.
 
 Slice 1 is the next thing built.
