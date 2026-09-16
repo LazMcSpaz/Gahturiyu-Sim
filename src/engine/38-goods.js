@@ -151,8 +151,11 @@ function sysStore(s, r) {
   const cost = kept.size * GUARD_KEEP;
   store.food = Math.max(0, store.food - cost);
 
+  /* Three consecutive short seasons was too high a bar: households dip and
+     recover inside a season or two, so only one to four ever qualified and the
+     store trickled out where it should have poured. */
   const short = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith
-    && (h.shortSeasons || 0) >= 3);
+    && (h.shortSeasons || 0) >= 2);
   if (!short.length) { store.emptyFor = 0; return; }
 
   if (store.food < short.length * RELIEF_PER_HOUSE) {
@@ -178,9 +181,15 @@ function sysStore(s, r) {
   for (const h of short) {
     h.stores += each; store.food -= each; store.given += each;
     // a household fed by the settlement thinks better of whoever runs it
+    /* Being fed once is gratitude. Being fed every season is dependency, and it
+       should not keep buying a government standing — fed constantly through a
+       crisis, households pushed the settlement's regard for its rulers to thirty
+       and legitimacy to a hundred and ten while people starved. */
+    const fresh = s.turn - (h.lastRelief || -99) > 10;
+    h.lastRelief = s.turn;
     for (const id of h.members) {
       const p = s.people[id];
-      if (p && p.alive) shiftStanding(p, 'government', 6);
+      if (p && p.alive) shiftStanding(p, 'government', fresh ? 6 : 1);
     }
   }
   for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);

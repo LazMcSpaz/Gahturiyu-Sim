@@ -329,6 +329,36 @@ handful of workshops and gains more over centuries as its houses age, so trades
 that need a room can only appear once there are rooms. Complexity arrives on its
 own schedule rather than being present at founding.
 
+### How hard it is to survive
+
+Measured, and it was not hard at all: the median larder sat at seventeen with a
+cap of forty-four, eleven households of thirty-one were **at** the cap, the
+common store ran at ninety-four per cent full, and five households in a
+settlement of a hundred and fifty were ever short.
+
+Worse, **a storm season brought in a hundred and twenty per cent of a normal
+one.** Storms cut fishing and nothing else, and this settlement is mostly
+pastoral — weather that touches a fifth of the work is not weather.
+
+Three changes, and the numbers they were measured against:
+
+| | was | now |
+|---|---|---|
+| larder cap | 44 — a third of a year's eating, so everybody filled up | **22** |
+| a storm | fishing only | also **0.72×** on grazing |
+| relief from the store | three consecutive short seasons | **two** |
+
+And gratitude no longer accumulates without limit. Fed every season through a
+crisis, households pushed the settlement's regard for its rulers to thirty and
+legitimacy to a hundred and ten *while people were starving*. Being fed once is
+gratitude; being fed constantly is dependency, and it now buys almost nothing.
+
+The result is a settlement that can fail. Twenty years of storm, blight and
+fever now cost a fifth to a quarter of the population, and on one seed in three
+they drove the common store to eight, legitimacy to twenty-two, and **the coin
+out of use** — which is the collapse loop of §9c firing on its own rather than
+being proved in a test.
+
 ### Food, until the economy exists
 
 **This is a placeholder and slice 5 should delete it.** The food model assumes
@@ -362,6 +392,35 @@ exist and be learnable.
 **Dropout: 2% per season**, 4% for stone-tender. Over a five-year training that
 is roughly a third who do not finish; over the tender's decade, about four in
 five. That matches the world already described.
+
+### A craft the settlement is losing
+
+A town without a smith puts a high price on getting one, and the first build
+did not. Counting heads is not counting a craft: **five tenders aged
+forty-five to seventy-four look like plenty and are not.** They were seeded
+together, stopped teaching because five seemed enough, then died within a
+decade of each other — and every half-trained apprentice lost their master
+partway through a ten-year training. That is how a settlement loses the ability
+to build without anybody making a mistake.
+
+So a holder counts for **as much working life as they have left**. An old smith
+is most of a smith today and almost none of one in ten years, and a settlement
+that can see that trains a replacement while there is still somebody to do the
+training.
+
+When a craft falls below about half what it ought to number here, the
+settlement behaves differently:
+
+- the old master teaches anyway — the window widens to seventy-eight
+- somebody finds them a room, wherever one stands in the settlement
+- they take an apprentice they would otherwise have turned away
+- another holder takes over an orphaned apprentice rather than lose the craft
+- and a half-taught apprentice past two fifths finishes alone far more often,
+  because a poor smith is a great deal better than none
+
+Across nine long runs that took losses from four-to-eight crafts down to none
+or one, and the stone — the craft everything else depends on — now holds
+between two and four at its worst on eight of nine seeds.
 
 ### Losing a trade
 

@@ -476,5 +476,54 @@ console.log('\nlegitimacy and the coin');
   }
 }
 
+console.log('\nhardship bites, and crafts fight to live');
+{
+  /* Both of these were measured and wrong. The settlement could not fail — a
+     storm season brought in 120% of a normal one because storms cut fishing
+     and this place is pastoral — and crafts died of old age in lockstep
+     because five holders aged sixty look like five holders. */
+  let x = newWorld({ seed: 31337, population: 150, startYear: 812 });
+  for (let i = 0; i < 300; i++) x = advance(x, { lever: 'none' });
+  const calmPop = Object.values(x.people).filter(p => p.alive).length;
+  const calmLegit = legitimacy(x);
+  for (let i = 0; i < 80; i++) x = advance(x, { lever: i % 3 === 0 ? 'storm' : i % 3 === 1 ? 'blight' : 'fever' });
+  const hardPop = Object.values(x.people).filter(p => p.alive).length;
+
+  ok('twenty years of storm, blight and fever cost the settlement',
+     hardPop < calmPop * 0.9, `${calmPop} living became ${hardPop}`);
+  ok('and it costs the government its standing',
+     legitimacy(x) < calmLegit, `legitimacy ${Math.round(calmLegit)} became ${Math.round(legitimacy(x))}`);
+
+  // a storm has to touch the grazing too, or it is not weather here
+  let y = newWorld({ seed: 20260910, population: 150, startYear: 812 });
+  for (let i = 0; i < 120; i++) y = advance(y, { lever: 'none' });
+  const yieldOf = w => {
+    const z = advance(y, { lever: w });
+    return Object.values(z.households).filter(h => !h.extinct && !h.lodgedWith)
+      .reduce((a, h) => a + (h.lastYield || 0), 0);
+  };
+  ok('a storm season brings in less than a quiet one',
+     yieldOf('storm') < yieldOf('none'),
+     `${yieldOf('storm').toFixed(0)} against ${yieldOf('none').toFixed(0)}`);
+
+  // and the crafts hold on across many seeds, the stone above all
+  const runs = [20260910, 4242, 31337, 555555, 1, 7, 99, 313].map(seed => {
+    let z = newWorld({ seed, population: 150, startYear: 812 });
+    let lowTender = 99;
+    for (let i = 0; i < 480; i++) {
+      z = advance(z, { lever: 'none' });
+      lowTender = Math.min(lowTender, Object.values(z.people).filter(p => p.alive && p.trade === 'tender').length);
+    }
+    const alive = Object.values(z.people).filter(p => p.alive);
+    return { lowTender, lost: TEACHABLE.filter(k => !alive.some(p => p.trade === k)) };
+  });
+  const keptStone = runs.filter(o => o.lowTender > 0).length;
+  ok('the stone survives in almost every settlement',
+     keptStone >= runs.length - 1, `${keptStone} of ${runs.length} seeds never ran out of tenders`);
+  const worst = Math.max(...runs.map(o => o.lost.length));
+  ok('a settlement does not shed most of its crafts',
+     worst <= 3, `worst run lost ${worst} of ${TEACHABLE.length}`);
+}
+
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');
 process.exit(failures ? 1 : 0);

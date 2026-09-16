@@ -61,11 +61,20 @@ function addDebt(s, fromId, toId, amount, over) {
    difference between a settlement that has money and one that does not.
    -------------------------------------------------------------------------- */
 
+/* Worked out once a season and read many times. Computed per call it walked
+   every household for every buyer and every good — four thousand scans a
+   season, and the cost showed. */
 function scarcity(s, g) {
-  const houses = Object.values(s.households).filter(h => !h.extinct);
-  const total = houses.reduce((a, h) => a + (goodsOf(h)[g] || 0), 0);
-  const per = total / Math.max(1, houses.length);
-  return clamp(1.8 - per / 3, 0.6, 2.6);       // plenty about → cheap; none → dear
+  if (!s._scarce) {
+    s._scarce = {};
+    const houses = Object.values(s.households).filter(h => !h.extinct);
+    const n = Math.max(1, houses.length);
+    for (const k of GOODS.concat(['fittings'])) {
+      const total = houses.reduce((a, h) => a + (goodsOf(h)[k] || 0), 0);
+      s._scarce[k] = clamp(1.8 - (total / n) / 3, 0.6, 2.6);
+    }
+  }
+  return s._scarce[g] !== undefined ? s._scarce[g] : 1;
 }
 
 /* The price one household will name to another, for one lot. */
@@ -116,6 +125,16 @@ function sysExchange(s, r) {
   const houses = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith);
   if (houses.length < 2) return;
   s.refusals = 0;
+  s._scarce = null;                     // this season's prices, worked out once
+
+  // who has anything spare, by good — rather than rescanning for every buyer
+  const sellersBy = {};
+  for (const h of houses) {
+    const store = goodsOf(h);
+    for (const g of Object.keys(store)) {
+      if (store[g] > SELL_KEEP) (sellersBy[g] = sellersBy[g] || []).push(h);
+    }
+  }
 
   for (const buyer of houses) {
     const want = demandOf(s, buyer);
@@ -123,7 +142,7 @@ function sysExchange(s, r) {
       if (need < 0.3) continue;
       const urgency = clamp(need / 3, 0, 1.5) + ((buyer.shortSeasons || 0) > 2 ? 0.6 : 0);
 
-      const sellers = houses.filter(h => h.id !== buyer.id && (goodsOf(h)[g] || 0) > SELL_KEEP);
+      const sellers = (sellersBy[g] || []).filter(h => h.id !== buyer.id && (goodsOf(h)[g] || 0) > SELL_KEEP);
       if (!sellers.length) continue;
 
       const offers = sellers.map(sel => ({ sel, ...priceFor(s, sel, buyer, g, urgency) }))

@@ -117,7 +117,11 @@ function canPractise(s, p) {
   if (!p.trade) return false;
   const info = TRADES[p.trade];
   if (!info || !info.room) return true;
-  return !!workshopFor(s, p);
+  if (workshopFor(s, p)) return true;
+  /* The last herbalist on the coast is not left standing outside for want of a
+     room. Somebody clears a corner. */
+  return endangered(s, p.trade)
+    && Object.values(s.households).some(h => !h.extinct && hasWorkshop(s, h));
 }
 
 /* A craft with one master left teaches as hard as it can; a crowded one barely
@@ -125,8 +129,7 @@ function canPractise(s, p) {
    and loses four in five, so a settlement that dips to two tenders never climbs
    back, and then nothing is ever built again. Scarcity has to push back. */
 function eagerness(s, trade, adults) {
-  const info = TRADES[trade] || {};
-  const want = Math.max(1, Math.round((info.want || 0.02) * adults));
+  const want = wantOf(s, trade, adults);
   const held = Object.values(s.people).filter(p => p.alive && p.trade === trade).length;
   const learning = Object.values(s.people).filter(p => p.alive && p.learning && p.learning.trade === trade).length;
   /* A settlement of eighty adults does not need twenty-five tanners. The first
@@ -135,7 +138,49 @@ function eagerness(s, trade, adults) {
      recruiting simply by having many masters. Past its share of the settlement
      a craft stops taking anyone, which is what `want` was always meant to say. */
   if (held + learning >= want * 1.3) return 0;
-  return clamp(want / Math.max(0.5, held + learning * 0.6), 0.4, 6);
+  // measured in working life left, not in heads
+  return clamp(want / Math.max(0.5, effectiveHolders(s, trade)), 0.4, 6);
+}
+
+/* A settlement one death away from losing a craft behaves differently, and the
+   first version did not. Measured at fifty years: tailor held by two with none
+   able to teach, herbalist two and none, carver one and none — the holders were
+   locked out by age or by having no workshop to teach in, so the craft simply
+   expired while everyone watched.
+
+   A town without a smith puts a high price on getting one. When a craft is down
+   to its last hands: the old master teaches anyway, somebody finds them a room,
+   and they will take an apprentice they would otherwise have turned away. */
+/* Counting heads is not counting a craft. Five tenders aged forty-five to
+   seventy-four look like plenty and are not: they were all seeded together,
+   they stopped teaching because five seemed enough, and then they died within a
+   decade of each other and every half-trained apprentice lost their master
+   partway through a ten-year training. That is how a settlement loses the
+   ability to build without anybody making a mistake.
+
+   So a holder counts for as much working life as they have left. An old smith
+   is most of a smith today and almost none of one in ten years, and a town that
+   can see that trains a replacement while there is still somebody to do the
+   training. */
+function effectiveHolders(s, trade) {
+  const ceiling = (TRADES[trade] || {}).masterMax || MASTER_MAX;
+  let n = 0;
+  for (const p of Object.values(s.people)) {
+    if (!p.alive) continue;
+    if (p.learning && p.learning.trade === trade) { n += 0.5; continue; }
+    if (p.trade !== trade) continue;
+    n += clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
+  }
+  return n;
+}
+
+function wantOf(s, trade, adults) {
+  return Math.max(2, Math.round(((TRADES[trade] || {}).want || 0.02) * adults));
+}
+
+function endangered(s, trade) {
+  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 18).length;
+  return effectiveHolders(s, trade) <= Math.max(1.5, wantOf(s, trade, adults) * 0.45);
 }
 
 function mastersOf(s, trade) {
@@ -196,16 +241,20 @@ function sysApprentice(s, r) {
 
   for (const m of masters) {
     const info0 = TRADES[m.trade];
+    const last = endangered(s, m.trade);
     const a = ageOf(s, m);
-    if (a < MASTER_MIN || a > (info0.masterMax || MASTER_MAX)) continue;
+    const ceiling = last ? 78 : (info0.masterMax || MASTER_MAX);
+    if (a < (last ? 20 : MASTER_MIN) || a > ceiling) continue;
     if (learning.has(m.id)) continue;                            // one at a time
     if (s.turn - (m.lastApprentice || -999) < MASTER_REST) continue;
     const info = TRADES[m.trade];
     if (info.room && !canPractise(s, m)) continue;               // no room, nothing to teach in
-    if (!chance(r, TAKE_ON_CHANCE * eager[m.trade])) continue;
+    if (!last && !chance(r, TAKE_ON_CHANCE * eager[m.trade])) continue;
+    if (last && !chance(r, 0.5)) continue;
 
     // a craft that takes ten years cannot also draw only from five year-groups
-    const minAge = info.minAge || APPRENTICE_MIN, maxAge = info.maxAge || APPRENTICE_MAX;
+    const minAge = info.minAge || APPRENTICE_MIN;
+    const maxAge = last ? Math.max(24, info.maxAge || APPRENTICE_MAX) : (info.maxAge || APPRENTICE_MAX);
     const pool = Object.values(s.people).filter(p => p.alive && !p.trade && !p.learning
       && ageOf(s, p) >= minAge && ageOf(s, p) <= maxAge
       && (!info.aptitude || p.aptitude));
@@ -213,8 +262,9 @@ function sysApprentice(s, r) {
 
     const tenders = Object.values(s.people).filter(p => p.alive && p.trade === 'tender').length;
     const scarceGift = tenders < Math.max(2, Math.round(TRADES.tender.want * adults));
+    const floor = last ? 12 : SCORE_FLOOR;   // the last master takes who they can get
     const ranked = pool.map(p => ({ p, v: apprenticeScore(s, m, p, scarceGift) + (r() - 0.5) * 8 }))
-      .filter(x => x.v >= SCORE_FLOOR)
+      .filter(x => x.v >= floor)
       .sort((a2, b2) => b2.v - a2.v);
     if (!ranked.length) continue;
 
@@ -255,14 +305,30 @@ function sysLearn(s, r) {
     const info = TRADES[L.trade] || TRADES.tender;
     const master = s.people[L.from];
 
-    // the master dies and the training is half a thing
+    /* The master dies and the training is half a thing. This is how a craft
+       actually dies: not for want of apprentices but because a ten-year
+       training loses its teacher partway and the half-taught give up.
+
+       When the craft is down to its last hands, the settlement has every
+       reason to let them try anyway — there is nobody else, and a poor smith
+       is a great deal better than none. */
     if (!master || !master.alive) {
       L.orphaned = (L.orphaned || 0) + 1;
+      const last = endangered(s, L.trade);
       if (L.orphaned === 1)
         ev(s, 'teach', 5, `${nameOf(s, p.id)} was still learning ${L.trade} when ${L.name} died. The training is unfinished.`, { person: p.id });
-      if (L.progress > 0.62 && chance(r, 0.10)) {
+
+      // somebody else who holds the craft may take them on rather than lose it
+      const takenOver = Object.values(s.people).find(q => q.alive && q.trade === L.trade
+        && q.id !== p.id && ageOf(s, q) >= 20 && canPractise(s, q));
+      if (takenOver && (last || chance(r, 0.25))) {
+        L.from = takenOver.id; L.name = nameOf(s, takenOver.id); L.orphaned = 0;
+        ev(s, 'teach', 4, `${nameOf(s, takenOver.id)} took over teaching ${nameOf(s, p.id)} the ${L.trade}.`, { person: p.id });
+        continue;
+      }
+      if (L.progress > (last ? 0.4 : 0.62) && chance(r, last ? 0.45 : 0.10)) {
         finishTrade(s, p, L, true);
-      } else if (chance(r, 0.05)) {
+      } else if (chance(r, last ? 0.01 : 0.05)) {
         ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up on ${L.trade} after ${Math.max(1, Math.round((s.turn - L.since) / 4))} years.`, { person: p.id });
         p.learning = null;
       }

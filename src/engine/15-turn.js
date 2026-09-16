@@ -50,6 +50,7 @@ function advance(state, input) {
   sysMemory(s, r);
   sysOmen(s, r);
 
+  s._scarce = null;     // a season-scoped cache; it has no business in the state
   decayTies(s);         // regard fades before it is counted
   decayStanding(s);
 

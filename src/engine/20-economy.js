@@ -1,5 +1,7 @@
 /* food ---------------------------------------------------------------------- */
 
+const LARDER_CAP = 22;
+
 /* A household that has split off but has no ground of its own still works the
    ground of the house it lodges under, and eats from the same store. Treating
    it as an independent economy the moment it has a name is what starved the
@@ -45,7 +47,11 @@ function sysFood(s, r) {
       if (bestFish > 0.15 && (p.trade === 'boathand' || !bestGraze)) {
         yield_ += share * bestFish * 4.2 * seasonMul * crowd * (w.storm ? 0.3 : 1) * (w.bounty ? 2.4 : 1) * (0.85 + r() * 0.3);
       } else if (bestGraze > 0.1) {
-        yield_ += share * bestGraze * 3.4 * seasonMul * crowd * (w.blight ? 0.25 : 1) * (0.85 + r() * 0.3);
+        /* A storm used to cut fishing and nothing else, and this settlement is
+           mostly pastoral — so a storm season brought in 120% of a normal one.
+           Weather that only touches a fifth of the work is not weather. */
+        yield_ += share * bestGraze * 3.4 * seasonMul * crowd
+          * (w.blight ? 0.25 : 1) * (w.storm ? 0.72 : 1) * (0.85 + r() * 0.3);
       } else {
         yield_ += share * 1.5 * seasonMul * (0.7 + r() * 0.6);   // gathering the shore, no ground of their own
       }
@@ -53,7 +59,10 @@ function sysFood(s, r) {
 
     // the government's cut comes off the top, before any larder is filled
     const kept = tithe(s, u.host, yield_);
-    u.host.stores = clamp(u.host.stores + kept - mouths, -99, 44);
+    /* The larder cap was 44 — about a third of a year's eating for a big house,
+       so everyone filled up and nothing could ever go wrong. A smaller buffer is
+       what makes a bad season a bad season. */
+    u.host.stores = clamp(u.host.stores + kept - mouths, -99, LARDER_CAP);
     u.host.lastYield = kept; u.host.mouths = mouths;
     for (const h of u.members) if (h !== u.host) { h.stores = 0; h.lastYield = 0; }
 

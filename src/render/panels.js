@@ -250,11 +250,12 @@ function tradesHTML(s) {
       const able = held.filter(p => canPractise(s, p)).length;
       const learn = learningBy[k] || 0;
       const lost = tier > 1 && !held.length && !learn;
-      h += `<div class="traderow${lost ? ' gone' : ''}">
+      const dying = tier > 1 && !lost && endangered(s, k);
+      h += `<div class="traderow${lost ? ' gone' : dying ? ' dying' : ''}">
         <span class="tname">${k}</span>
         <span class="tcount">${held.length ? held.length : '—'}${
           held.length && able < held.length ? ` (${able} can work)` : ''}${
-          learn ? ` · ${learn} learning` : ''}${lost ? ' · lost' : ''}</span></div>`;
+          learn ? ` · ${learn} learning` : ''}${lost ? ' · lost' : dying ? ' · being lost' : ''}</span></div>`;
     }
   }
   h += `<p class="hint" style="margin-top:12px">${adults} adults. ${

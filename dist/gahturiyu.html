@@ -254,6 +254,8 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 .traderow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #232b2e;font-size:.92rem}
 .tname{color:var(--pale)}
 .tcount{font-family:var(--sans);font-size:.7rem;color:var(--grey);text-align:right}
+.traderow.dying .tname{color:var(--lamp)}
+.traderow.dying .tcount{color:var(--lamp)}
 .traderow.gone .tname{color:var(--rust);text-decoration:line-through}
 .traderow.gone .tcount{color:var(--rust)}
 .hint.bad{color:var(--rust)}
@@ -1191,6 +1193,7 @@ function advance(state, input) {
   sysMemory(s, r);
   sysOmen(s, r);
 
+  s._scarce = null;     // a season-scoped cache; it has no business in the state
   decayTies(s);         // regard fades before it is counted
   decayStanding(s);
 
@@ -1261,6 +1264,8 @@ function sysWeather(s, r) {
 /* ===== src/engine/20-economy.js ===== */
 /* food ---------------------------------------------------------------------- */
 
+const LARDER_CAP = 22;
+
 /* A household that has split off but has no ground of its own still works the
    ground of the house it lodges under, and eats from the same store. Treating
    it as an independent economy the moment it has a name is what starved the
@@ -1306,7 +1311,11 @@ function sysFood(s, r) {
       if (bestFish > 0.15 && (p.trade === 'boathand' || !bestGraze)) {
         yield_ += share * bestFish * 4.2 * seasonMul * crowd * (w.storm ? 0.3 : 1) * (w.bounty ? 2.4 : 1) * (0.85 + r() * 0.3);
       } else if (bestGraze > 0.1) {
-        yield_ += share * bestGraze * 3.4 * seasonMul * crowd * (w.blight ? 0.25 : 1) * (0.85 + r() * 0.3);
+        /* A storm used to cut fishing and nothing else, and this settlement is
+           mostly pastoral — so a storm season brought in 120% of a normal one.
+           Weather that only touches a fifth of the work is not weather. */
+        yield_ += share * bestGraze * 3.4 * seasonMul * crowd
+          * (w.blight ? 0.25 : 1) * (w.storm ? 0.72 : 1) * (0.85 + r() * 0.3);
       } else {
         yield_ += share * 1.5 * seasonMul * (0.7 + r() * 0.6);   // gathering the shore, no ground of their own
       }
@@ -1314,7 +1323,10 @@ function sysFood(s, r) {
 
     // the government's cut comes off the top, before any larder is filled
     const kept = tithe(s, u.host, yield_);
-    u.host.stores = clamp(u.host.stores + kept - mouths, -99, 44);
+    /* The larder cap was 44 — about a third of a year's eating for a big house,
+       so everyone filled up and nothing could ever go wrong. A smaller buffer is
+       what makes a bad season a bad season. */
+    u.host.stores = clamp(u.host.stores + kept - mouths, -99, LARDER_CAP);
     u.host.lastYield = kept; u.host.mouths = mouths;
     for (const h of u.members) if (h !== u.host) { h.stores = 0; h.lastYield = 0; }
 
@@ -1996,7 +2008,11 @@ function canPractise(s, p) {
   if (!p.trade) return false;
   const info = TRADES[p.trade];
   if (!info || !info.room) return true;
-  return !!workshopFor(s, p);
+  if (workshopFor(s, p)) return true;
+  /* The last herbalist on the coast is not left standing outside for want of a
+     room. Somebody clears a corner. */
+  return endangered(s, p.trade)
+    && Object.values(s.households).some(h => !h.extinct && hasWorkshop(s, h));
 }
 
 /* A craft with one master left teaches as hard as it can; a crowded one barely
@@ -2004,8 +2020,7 @@ function canPractise(s, p) {
    and loses four in five, so a settlement that dips to two tenders never climbs
    back, and then nothing is ever built again. Scarcity has to push back. */
 function eagerness(s, trade, adults) {
-  const info = TRADES[trade] || {};
-  const want = Math.max(1, Math.round((info.want || 0.02) * adults));
+  const want = wantOf(s, trade, adults);
   const held = Object.values(s.people).filter(p => p.alive && p.trade === trade).length;
   const learning = Object.values(s.people).filter(p => p.alive && p.learning && p.learning.trade === trade).length;
   /* A settlement of eighty adults does not need twenty-five tanners. The first
@@ -2014,7 +2029,49 @@ function eagerness(s, trade, adults) {
      recruiting simply by having many masters. Past its share of the settlement
      a craft stops taking anyone, which is what `want` was always meant to say. */
   if (held + learning >= want * 1.3) return 0;
-  return clamp(want / Math.max(0.5, held + learning * 0.6), 0.4, 6);
+  // measured in working life left, not in heads
+  return clamp(want / Math.max(0.5, effectiveHolders(s, trade)), 0.4, 6);
+}
+
+/* A settlement one death away from losing a craft behaves differently, and the
+   first version did not. Measured at fifty years: tailor held by two with none
+   able to teach, herbalist two and none, carver one and none — the holders were
+   locked out by age or by having no workshop to teach in, so the craft simply
+   expired while everyone watched.
+
+   A town without a smith puts a high price on getting one. When a craft is down
+   to its last hands: the old master teaches anyway, somebody finds them a room,
+   and they will take an apprentice they would otherwise have turned away. */
+/* Counting heads is not counting a craft. Five tenders aged forty-five to
+   seventy-four look like plenty and are not: they were all seeded together,
+   they stopped teaching because five seemed enough, and then they died within a
+   decade of each other and every half-trained apprentice lost their master
+   partway through a ten-year training. That is how a settlement loses the
+   ability to build without anybody making a mistake.
+
+   So a holder counts for as much working life as they have left. An old smith
+   is most of a smith today and almost none of one in ten years, and a town that
+   can see that trains a replacement while there is still somebody to do the
+   training. */
+function effectiveHolders(s, trade) {
+  const ceiling = (TRADES[trade] || {}).masterMax || MASTER_MAX;
+  let n = 0;
+  for (const p of Object.values(s.people)) {
+    if (!p.alive) continue;
+    if (p.learning && p.learning.trade === trade) { n += 0.5; continue; }
+    if (p.trade !== trade) continue;
+    n += clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
+  }
+  return n;
+}
+
+function wantOf(s, trade, adults) {
+  return Math.max(2, Math.round(((TRADES[trade] || {}).want || 0.02) * adults));
+}
+
+function endangered(s, trade) {
+  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 18).length;
+  return effectiveHolders(s, trade) <= Math.max(1.5, wantOf(s, trade, adults) * 0.45);
 }
 
 function mastersOf(s, trade) {
@@ -2075,16 +2132,20 @@ function sysApprentice(s, r) {
 
   for (const m of masters) {
     const info0 = TRADES[m.trade];
+    const last = endangered(s, m.trade);
     const a = ageOf(s, m);
-    if (a < MASTER_MIN || a > (info0.masterMax || MASTER_MAX)) continue;
+    const ceiling = last ? 78 : (info0.masterMax || MASTER_MAX);
+    if (a < (last ? 20 : MASTER_MIN) || a > ceiling) continue;
     if (learning.has(m.id)) continue;                            // one at a time
     if (s.turn - (m.lastApprentice || -999) < MASTER_REST) continue;
     const info = TRADES[m.trade];
     if (info.room && !canPractise(s, m)) continue;               // no room, nothing to teach in
-    if (!chance(r, TAKE_ON_CHANCE * eager[m.trade])) continue;
+    if (!last && !chance(r, TAKE_ON_CHANCE * eager[m.trade])) continue;
+    if (last && !chance(r, 0.5)) continue;
 
     // a craft that takes ten years cannot also draw only from five year-groups
-    const minAge = info.minAge || APPRENTICE_MIN, maxAge = info.maxAge || APPRENTICE_MAX;
+    const minAge = info.minAge || APPRENTICE_MIN;
+    const maxAge = last ? Math.max(24, info.maxAge || APPRENTICE_MAX) : (info.maxAge || APPRENTICE_MAX);
     const pool = Object.values(s.people).filter(p => p.alive && !p.trade && !p.learning
       && ageOf(s, p) >= minAge && ageOf(s, p) <= maxAge
       && (!info.aptitude || p.aptitude));
@@ -2092,8 +2153,9 @@ function sysApprentice(s, r) {
 
     const tenders = Object.values(s.people).filter(p => p.alive && p.trade === 'tender').length;
     const scarceGift = tenders < Math.max(2, Math.round(TRADES.tender.want * adults));
+    const floor = last ? 12 : SCORE_FLOOR;   // the last master takes who they can get
     const ranked = pool.map(p => ({ p, v: apprenticeScore(s, m, p, scarceGift) + (r() - 0.5) * 8 }))
-      .filter(x => x.v >= SCORE_FLOOR)
+      .filter(x => x.v >= floor)
       .sort((a2, b2) => b2.v - a2.v);
     if (!ranked.length) continue;
 
@@ -2134,14 +2196,30 @@ function sysLearn(s, r) {
     const info = TRADES[L.trade] || TRADES.tender;
     const master = s.people[L.from];
 
-    // the master dies and the training is half a thing
+    /* The master dies and the training is half a thing. This is how a craft
+       actually dies: not for want of apprentices but because a ten-year
+       training loses its teacher partway and the half-taught give up.
+
+       When the craft is down to its last hands, the settlement has every
+       reason to let them try anyway — there is nobody else, and a poor smith
+       is a great deal better than none. */
     if (!master || !master.alive) {
       L.orphaned = (L.orphaned || 0) + 1;
+      const last = endangered(s, L.trade);
       if (L.orphaned === 1)
         ev(s, 'teach', 5, `${nameOf(s, p.id)} was still learning ${L.trade} when ${L.name} died. The training is unfinished.`, { person: p.id });
-      if (L.progress > 0.62 && chance(r, 0.10)) {
+
+      // somebody else who holds the craft may take them on rather than lose it
+      const takenOver = Object.values(s.people).find(q => q.alive && q.trade === L.trade
+        && q.id !== p.id && ageOf(s, q) >= 20 && canPractise(s, q));
+      if (takenOver && (last || chance(r, 0.25))) {
+        L.from = takenOver.id; L.name = nameOf(s, takenOver.id); L.orphaned = 0;
+        ev(s, 'teach', 4, `${nameOf(s, takenOver.id)} took over teaching ${nameOf(s, p.id)} the ${L.trade}.`, { person: p.id });
+        continue;
+      }
+      if (L.progress > (last ? 0.4 : 0.62) && chance(r, last ? 0.45 : 0.10)) {
         finishTrade(s, p, L, true);
-      } else if (chance(r, 0.05)) {
+      } else if (chance(r, last ? 0.01 : 0.05)) {
         ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up on ${L.trade} after ${Math.max(1, Math.round((s.turn - L.since) / 4))} years.`, { person: p.id });
         p.learning = null;
       }
@@ -2387,8 +2465,11 @@ function sysStore(s, r) {
   const cost = kept.size * GUARD_KEEP;
   store.food = Math.max(0, store.food - cost);
 
+  /* Three consecutive short seasons was too high a bar: households dip and
+     recover inside a season or two, so only one to four ever qualified and the
+     store trickled out where it should have poured. */
   const short = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith
-    && (h.shortSeasons || 0) >= 3);
+    && (h.shortSeasons || 0) >= 2);
   if (!short.length) { store.emptyFor = 0; return; }
 
   if (store.food < short.length * RELIEF_PER_HOUSE) {
@@ -2414,9 +2495,15 @@ function sysStore(s, r) {
   for (const h of short) {
     h.stores += each; store.food -= each; store.given += each;
     // a household fed by the settlement thinks better of whoever runs it
+    /* Being fed once is gratitude. Being fed every season is dependency, and it
+       should not keep buying a government standing — fed constantly through a
+       crisis, households pushed the settlement's regard for its rulers to thirty
+       and legitimacy to a hundred and ten while people starved. */
+    const fresh = s.turn - (h.lastRelief || -99) > 10;
+    h.lastRelief = s.turn;
     for (const id of h.members) {
       const p = s.people[id];
-      if (p && p.alive) shiftStanding(p, 'government', 6);
+      if (p && p.alive) shiftStanding(p, 'government', fresh ? 6 : 1);
     }
   }
   for (const sp of officeSpec(s)) for (const p of officeHolders(s, sp.key)) shiftStanding(p, 'government', 6);
@@ -2527,11 +2614,20 @@ function addDebt(s, fromId, toId, amount, over) {
    difference between a settlement that has money and one that does not.
    -------------------------------------------------------------------------- */
 
+/* Worked out once a season and read many times. Computed per call it walked
+   every household for every buyer and every good — four thousand scans a
+   season, and the cost showed. */
 function scarcity(s, g) {
-  const houses = Object.values(s.households).filter(h => !h.extinct);
-  const total = houses.reduce((a, h) => a + (goodsOf(h)[g] || 0), 0);
-  const per = total / Math.max(1, houses.length);
-  return clamp(1.8 - per / 3, 0.6, 2.6);       // plenty about → cheap; none → dear
+  if (!s._scarce) {
+    s._scarce = {};
+    const houses = Object.values(s.households).filter(h => !h.extinct);
+    const n = Math.max(1, houses.length);
+    for (const k of GOODS.concat(['fittings'])) {
+      const total = houses.reduce((a, h) => a + (goodsOf(h)[k] || 0), 0);
+      s._scarce[k] = clamp(1.8 - (total / n) / 3, 0.6, 2.6);
+    }
+  }
+  return s._scarce[g] !== undefined ? s._scarce[g] : 1;
 }
 
 /* The price one household will name to another, for one lot. */
@@ -2582,6 +2678,16 @@ function sysExchange(s, r) {
   const houses = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith);
   if (houses.length < 2) return;
   s.refusals = 0;
+  s._scarce = null;                     // this season's prices, worked out once
+
+  // who has anything spare, by good — rather than rescanning for every buyer
+  const sellersBy = {};
+  for (const h of houses) {
+    const store = goodsOf(h);
+    for (const g of Object.keys(store)) {
+      if (store[g] > SELL_KEEP) (sellersBy[g] = sellersBy[g] || []).push(h);
+    }
+  }
 
   for (const buyer of houses) {
     const want = demandOf(s, buyer);
@@ -2589,7 +2695,7 @@ function sysExchange(s, r) {
       if (need < 0.3) continue;
       const urgency = clamp(need / 3, 0, 1.5) + ((buyer.shortSeasons || 0) > 2 ? 0.6 : 0);
 
-      const sellers = houses.filter(h => h.id !== buyer.id && (goodsOf(h)[g] || 0) > SELL_KEEP);
+      const sellers = (sellersBy[g] || []).filter(h => h.id !== buyer.id && (goodsOf(h)[g] || 0) > SELL_KEEP);
       if (!sellers.length) continue;
 
       const offers = sellers.map(sel => ({ sel, ...priceFor(s, sel, buyer, g, urgency) }))
@@ -4452,11 +4558,12 @@ function tradesHTML(s) {
       const able = held.filter(p => canPractise(s, p)).length;
       const learn = learningBy[k] || 0;
       const lost = tier > 1 && !held.length && !learn;
-      h += `<div class="traderow${lost ? ' gone' : ''}">
+      const dying = tier > 1 && !lost && endangered(s, k);
+      h += `<div class="traderow${lost ? ' gone' : dying ? ' dying' : ''}">
         <span class="tname">${k}</span>
         <span class="tcount">${held.length ? held.length : '—'}${
           held.length && able < held.length ? ` (${able} can work)` : ''}${
-          learn ? ` · ${learn} learning` : ''}${lost ? ' · lost' : ''}</span></div>`;
+          learn ? ` · ${learn} learning` : ''}${lost ? ' · lost' : dying ? ' · being lost' : ''}</span></div>`;
     }
   }
   h += `<p class="hint" style="margin-top:12px">${adults} adults. ${
