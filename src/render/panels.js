@@ -12,7 +12,7 @@ function castHTML(s) {
     const hh = s.households[p.householdId];
     return `<div class="figure">
       <div class="fname">${p.name} <span class="flin">${p.lineage}</span></div>
-      <div class="fmeta">${ageOf(s, p)} years · ${describeTraits(p)}</div>
+      <div class="fmeta">${ageOf(s, p)} years · ${p.trade || 'no trade'} · ${describeTraits(p)}</div>
       <div class="fgoal">${p.goal ? 'Goal: ' + p.goal.label + '.' : 'No goal.'}</div>
       ${p.deeds.length ? `<div class="fdeeds">Known for: ${p.deeds.slice(-3).join('; ')}.</div>` : ''}
       ${tieSummary(p)}
@@ -48,7 +48,10 @@ function householdsHTML(s) {
       .sort((a, b) => Math.abs(b.favour) - Math.abs(a.favour))[0];
     return `<div class="hrow ${home === 'no ground' ? 'nohome' : ''}">
       <div class="hline"><span class="hname">${h.name}</span>
-      <span class="hbits">${live} living · ${h.claims.length} claim${h.claims.length === 1 ? '' : 's'} · ${home} · stores ${Math.round(h.stores)}</span></div>
+      <span class="hbits">${live} living · ${h.claims.length} claim${h.claims.length === 1 ? '' : 's'} · ${home} · stores ${Math.round(h.stores)}${
+        (() => { const c = h.members.map(i => s.people[i]).filter(p => p && p.alive && p.trade && tradeTier(p.trade) > 1);
+                 return c.length ? ' · ' + [...new Set(c.map(p => p.trade))].join(', ') : ''; })()
+      }</span></div>
       ${said ? `<div class="hrep ${rep < 0 ? 'bad' : 'good'}">${said}${mine ? ' — ' + mine.phrase : ''}</div>` : ''}
     </div>`;
   }).join('');
@@ -168,8 +171,17 @@ function tileFactsHTML(s, id) {
   const refused = hh.members.map(i => s.people[i]).filter(p => p && p.alive && p.refusedTerm).length;
   if (refused) row('The term', `${refused} refused it${served ? `, ${served} served` : ''}`, 'bad');
 
-  const tenders = live.filter(p => p.tender);
-  if (tenders.length) row('Can work stone', tenders.map(p => nameOf(s, p.id)).join(', '), 'good');
+  const crafts = live.filter(p => p.trade && tradeTier(p.trade) > 1);
+  if (crafts.length) {
+    row('Crafts', crafts.map(p =>
+      `<span class="reg ${canPractise(s, p) ? 'good' : 'bad'}">${p.trade}</span>`).join(' '));
+  }
+  const learners = live.filter(p => p.learning);
+  if (learners.length) {
+    row('Learning', learners.map(p =>
+      `${p.learning.trade} (${Math.round(p.learning.progress * 100)}%)`).join(', '));
+  }
+  if (hasWorkshop(s, hh)) row('Workshop', 'yes — the finer crafts can be worked here', 'good');
 
   const figures = live.filter(hasGoal);
   for (const p of figures) row('Figure', `${nameOf(s, p.id)} — ${p.goal ? p.goal.label : 'no goal'}`);
@@ -197,4 +209,37 @@ function ordinal(n) {
 
 function inspectorHTML(where, rows) {
   return `<div class="ihead">${where}</div>` + rows.join('');
+}
+
+/* --- what the settlement can do ----------------------------------------------
+   The census, by tier. A craft with one holder left is the interesting row on
+   this panel, and a craft with none is the more interesting one.
+   -------------------------------------------------------------------------- */
+
+function tradesHTML(s) {
+  const alive = Object.values(s.people).filter(p => p.alive);
+  const adults = alive.filter(p => ageOf(s, p) >= 18).length;
+  const learningBy = {};
+  for (const p of alive) if (p.learning) learningBy[p.learning.trade] = (learningBy[p.learning.trade] || 0) + 1;
+
+  let h = `<p class="hint">Anything but the first group has to be taught by somebody who already holds it. If the last holder dies untaught, the craft is gone from this coast until somebody arrives who knows it.</p>`;
+  for (const tier of [3, 2, 1]) {
+    const kinds = Object.keys(TRADES).filter(k => TRADES[k].tier === tier);
+    const label = tier === 1 ? 'Anyone' : tier === 2 ? 'Taught' : 'Taught, and needing a workshop';
+    h += `<div class="otitle">${label}</div>`;
+    for (const k of kinds.sort()) {
+      const held = alive.filter(p => p.trade === k);
+      const able = held.filter(p => canPractise(s, p)).length;
+      const learn = learningBy[k] || 0;
+      const lost = tier > 1 && !held.length && !learn;
+      h += `<div class="traderow${lost ? ' gone' : ''}">
+        <span class="tname">${k}</span>
+        <span class="tcount">${held.length ? held.length : '—'}${
+          held.length && able < held.length ? ` (${able} can work)` : ''}${
+          learn ? ` · ${learn} learning` : ''}${lost ? ' · lost' : ''}</span></div>`;
+    }
+  }
+  h += `<p class="hint" style="margin-top:12px">${adults} adults. ${
+    alive.filter(p => p.trade && tradeTier(p.trade) > 1).length} hold a taught craft.</p>`;
+  return h;
 }

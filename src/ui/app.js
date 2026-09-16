@@ -208,6 +208,7 @@ function renderPanels() {
   document.getElementById('p-cast').innerHTML = castHTML(s);
   document.getElementById('p-houses').innerHTML = householdsHTML(s);
   document.getElementById('p-offices').innerHTML = officesHTML(s);
+  document.getElementById('p-trades').innerHTML = tradesHTML(s);
   const strongest = {};
   for (const m of s.memory) {
     const cur = strongest[m.household];

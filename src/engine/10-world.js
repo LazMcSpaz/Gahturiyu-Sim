@@ -100,11 +100,7 @@ function newWorld(cfg) {
     if (isFirst) { hh.headId = p.id; p.role = 'head'; }
     made++;
   }
-  // a founding generation has to already hold the gift, or nothing is buildable
-  const grown = Object.values(state.people).filter(p => ageOf(state, p) >= 22 && ageOf(state, p) <= 68);
-  const want = Math.max(2, Math.round(grown.length * 0.055));
-  for (let i = 0; i < want && grown.length; i++) pick(r, grown).tender = true;
-
+  seedTrades(state, r);
   for (const hid of hids) assignWork(state, r, state.households[hid]);
 
   if (!state.government) state.government = pick(r, Object.keys(GOVERNMENTS));
@@ -143,7 +139,7 @@ function makePerson(state, r, hid, age) {
     // scarce half — it is rare, and it cannot be taught into someone.
     aptitude: chance(r, 0.13),
     learning: null,
-    role: 'none', work: null, goal: null, goalAge: 0, matches: 0,
+    role: 'none', trade: null, goal: null, goalAge: 0, matches: 0, lastApprentice: -999,
     standing: blankStanding(), ties: [], term: null, refusedTerm: 0,
     deeds: [], hunger: 0, parents: []
   };
@@ -154,6 +150,51 @@ function makePerson(state, r, hid, age) {
 
 function ageOf(state, p) { return Math.floor((state.turn - p.birthTurn) / 4); }
 
+/* A settlement is not founded blank. Somebody already knows every craft the
+   place depends on, or there are no masters, nobody can be apprenticed, and the
+   whole trade system never starts. The founding generation carries the crafts;
+   everything after is taught. */
+function seedTrades(state, r) {
+  const grown = Object.values(state.people)
+    .filter(p => p.alive && ageOf(state, p) >= 22 && ageOf(state, p) <= 68);
+  const free = () => grown.filter(p => !p.trade);
+
+  // the gift first — without it nothing is buildable and the settlement dies
+  const wantTenders = Math.max(2, Math.round(grown.length * 0.055));
+  for (let i = 0; i < wantTenders; i++) {
+    const pool = free();
+    if (!pool.length) break;
+    setTrade(state, pick(r, pool), 'tender');
+  }
+
+  // the crafts that need only a master
+  for (const k of TEACHABLE) {
+    if (k === 'tender' || TRADES[k].room) continue;
+    const want = Math.max(1, Math.round(grown.length * 0.03));
+    for (let i = 0; i < want; i++) {
+      const pool = free();
+      if (!pool.length) break;
+      setTrade(state, pick(r, pool), k);
+    }
+  }
+
+  // and the crafts that need a room, only where a room already stands. A young
+  // settlement therefore has a few of these and a very old one has all of them.
+  // Two apiece, not one: a single master who dies young takes the craft with
+  // them before they have ever had a child old enough to teach.
+  for (const k of TEACHABLE) {
+    if (!TRADES[k].room) continue;
+    for (let i = 0; i < 2; i++) {
+      const pool = free().filter(p => {
+        const hh = state.households[p.householdId];
+        return hh && hasWorkshop(state, hh);
+      });
+      if (!pool.length) break;
+      setTrade(state, pick(r, pool), k);
+    }
+  }
+}
+
 function assignWork(state, r, hh) {
   const tiles = state.tiles;
   const shore = hh.claims.filter(c => tiles[c].t === SHORE);
@@ -162,12 +203,11 @@ function assignWork(state, r, hh) {
     const p = state.people[pid];
     if (!p.alive) continue;
     const a = ageOf(state, p);
-    if (a < 12) { p.role = 'child'; p.work = null; continue; }
-    if (a > 66) { p.role = 'elder'; p.work = null; continue; }
-    if (p.tender) { p.work = 'tend'; if (p.role === 'none') p.role = 'tender'; continue; }
-    if (shore.length && (!p.work || p.work === 'none')) p.work = 'fish';
-    else if (moor.length) p.work = 'herd';
-    else p.work = 'labour';
+    if (a < 12) { p.role = 'child'; continue; }
+    if (a > 66) { p.role = 'elder'; continue; }
+    // A trade is for life and is chosen in 37-trades.js, not reassigned here
+    // because the household's ground changed. This only keeps roles current.
+    if (p.trade && p.role === 'none') p.role = p.trade;
   }
 }
 

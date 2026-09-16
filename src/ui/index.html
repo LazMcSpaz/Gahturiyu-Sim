@@ -251,6 +251,11 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
 .oholder{font-size:1rem;font-weight:600}
 .ometa{display:block;font-family:var(--sans);font-size:.68rem;font-weight:400;color:var(--grey);margin-top:1px}
 .ovacant{font-style:italic;color:var(--rust);font-size:.94rem}
+.traderow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #232b2e;font-size:.92rem}
+.tname{color:var(--pale)}
+.tcount{font-family:var(--sans);font-size:.7rem;color:var(--grey);text-align:right}
+.traderow.gone .tname{color:var(--rust);text-decoration:line-through}
+.traderow.gone .tcount{color:var(--rust)}
 .hint.bad{color:var(--rust)}
 .k-office{border-left-color:#8fa3b8!important}
 .k-teach{border-left-color:var(--lichen)!important}
@@ -342,6 +347,7 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
     <button class="tab" data-tab="numbers" aria-selected="false">Numbers</button>
     <button class="tab" data-tab="levers" aria-selected="false">Act</button>
     <button class="tab" data-tab="offices" aria-selected="false">Offices</button>
+    <button class="tab" data-tab="trades" aria-selected="false">Trades</button>
     <button class="tab" data-tab="memory" aria-selected="false">Memory</button>
     <button class="tab" data-tab="time" aria-selected="false">Time</button>
     <button class="tab" data-tab="new" aria-selected="false" aria-label="Settings">Setup</button>
@@ -357,6 +363,7 @@ main{max-width:38rem;margin:0 auto;padding:16px 22px 40px}
   <section class="panel" data-panel="cast" hidden><h3>Who is reaching for something</h3><div id="p-cast"></div></section>
   <section class="panel" data-panel="houses" hidden><h3>Households</h3><div id="p-houses"></div></section>
   <section class="panel" data-panel="offices" hidden><h3>Who holds what</h3><div id="p-offices"></div></section>
+  <section class="panel" data-panel="trades" hidden><h3>What people do</h3><div id="p-trades"></div></section>
   <section class="panel" data-panel="memory" hidden><h3>What is not forgotten</h3><div id="p-memory"></div></section>
   <section class="panel" data-panel="numbers" hidden><h3>Numbers</h3><div id="p-numbers"></div></section>
   <section class="panel" data-panel="levers" hidden>

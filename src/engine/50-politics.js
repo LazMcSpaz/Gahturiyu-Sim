@@ -387,9 +387,21 @@ function arriveStrangers(s, r) {
     claims: [], stores: 2, standing: 5, lodgedWith: null, founded: s.turn, incomer: true
   };
   s.households[hid] = hh;
+  let brought = null;
   for (let i = 0; i < n; i++) {
     const p = makePerson(s, r, hid, i === 0 ? ri(r, 26, 48) : ri(r, 1, 40));
-    if (i === 0) { hh.headId = p.id; p.role = 'head'; }
+    if (i === 0) {
+      hh.headId = p.id; p.role = 'head';
+      // people come from somewhere, and they come knowing something
+      brought = tradeForIncomer(s, r);
+      if (brought) setTrade(s, p, brought);
+    }
   }
   ev(s, 'arrival', 6, `${n} newcomers arrived by boat as the ${hh.name} household. They are asking for ground.`, { household: hid });
+  if (brought) {
+    const had = Object.values(s.people).filter(p => p.alive && p.trade === brought).length;
+    ev(s, 'arrival', had <= 1 ? 7 : 4,
+      had <= 1 ? `Their head can work as a ${brought}. Nobody else on this coast can.`
+               : `Their head can work as a ${brought}.`, { household: hid });
+  }
 }

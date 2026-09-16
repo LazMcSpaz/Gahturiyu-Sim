@@ -21,7 +21,9 @@ function advance(state, input) {
   sysWeather(s, r);
   sysFood(s, r);
   sysHardship(s, r);
-  sysTeaching(s, r);
+  sysApprentice(s, r);   // masters take someone on
+  sysLearn(s, r);        // and the taught get closer, or give up
+  sysUnskilled(s, r);    // everyone else works
   sysGrowth(s, r);
   sysCheckIn(s, r);      // tenders go back round the houses that stand
   sysStages(s, r);       // and the stone keeps growing under them
@@ -38,6 +40,7 @@ function advance(state, input) {
   sysGrudges(s, r);
   sysPromotion(s, r);
   sysActors(s, r);
+  sysTradeLoss(s, r);    // and a craft can vanish from the coast
   sysMemory(s, r);
   sysOmen(s, r);
 

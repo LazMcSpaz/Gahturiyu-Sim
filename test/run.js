@@ -6,7 +6,8 @@ const { loadEngine } = require(path.join(root, 'build.js'));
 const E = loadEngine(root);
 const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H,
         FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
-        stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS } = E;
+        stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
+        TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -268,6 +269,70 @@ console.log('\nbuildings keep growing');
      shops > 0 && shops < houses.length, `${shops} of ${houses.length} households`);
 
   ok('every building reads as something', built.every(b => roleWord(b).length > 0));
+}
+
+console.log('\ntrades');
+{
+  const start = newWorld({ seed: 20260910, population: 150, startYear: 812 });
+  // a settlement is not founded blank, or there are no masters and nothing
+  // can ever be taught
+  const seeded = new Set(Object.values(start.people).filter(p => p.trade).map(p => p.trade));
+  ok('the founding generation already holds the crafts',
+     TEACHABLE.every(k => seeded.has(k)), `${seeded.size} crafts at founding`);
+  ok('nobody is founded holding a craft they cannot practise',
+     Object.values(start.people).filter(p => p.alive && p.trade).every(p => canPractise(start, p)));
+
+  const m = run(480, 20260910, 150);   // 120 years
+  const alive = Object.values(m.people).filter(p => p.alive);
+  const adults = alive.filter(p => E.ageOf(m, p) >= 18);
+
+  // The one exception is deliberate: somebody with the gift is not sent to the
+  // grazing at eighteen while the stone will still take a twenty-four-year-old.
+  const idle = adults.filter(p => !p.trade && !p.learning);
+  ok('every adult has a trade, is learning one, or is being kept for the stone',
+     idle.every(p => p.aptitude && E.ageOf(m, p) <= (TRADES.tender.maxAge || 24)),
+     `${idle.length} without one, all held for the stone`);
+  ok('every trade held is a real one', alive.every(p => !p.trade || TRADES[p.trade]));
+
+  // the stone must never run out, or nothing is ever built again — and it is
+  // an absorbing state, so it has to be checked over the whole run and not
+  // just at the end
+  let low = 99;
+  let x = newWorld({ seed: 4242, population: 150, startYear: 812 });
+  for (let i = 0; i < 480; i++) {
+    x = advance(x, { lever: 'none' });
+    low = Math.min(low, Object.values(x.people).filter(p => p.alive && p.trade === 'tender').length);
+  }
+  ok('the stone is never wholly lost', low > 0, `fewest tenders at any point: ${low}`);
+
+  // a craft cannot swallow the settlement, and cannot be everyone's job
+  const skilled = adults.filter(p => tradeTier(p.trade) > 1).length;
+  ok('the crafts stay a minority of the work',
+     skilled / adults.length < 0.45, `${skilled} of ${adults.length} adults`);
+  const counts = {};
+  for (const p of adults) counts[p.trade] = (counts[p.trade] || 0) + 1;
+  const biggestCraft = Math.max(0, ...TEACHABLE.map(k => counts[k] || 0));
+  ok('no single craft takes over', biggestCraft / adults.length < 0.25,
+     `largest craft holds ${biggestCraft} of ${adults.length}`);
+
+  // the room-needing crafts exist only where rooms do
+  ok('a craft that needs a room is only held where one can be reached',
+     alive.filter(p => p.trade && TRADES[p.trade].room).every(p => !!workshopFor(m, p)
+       || !Object.values(m.households).some(h => !h.extinct && hasWorkshop(m, h))));
+
+  // apprenticeship has to reach outside the master's own household, or every
+  // craft dies with a master who has no child of the right age
+  const outside = alive.filter(p => p.learning && p.learning.kin === false).length;
+  const learners = alive.filter(p => p.learning).length;
+  ok('apprentices are not all kin', learners === 0 || outside > 0,
+     `${outside} of ${learners} currently learning are from another house`);
+
+  // and the gift belongs to the craft that needs it
+  const gifted = adults.filter(p => p.aptitude);
+  const giftedTenders = gifted.filter(p => p.trade === 'tender').length;
+  ok('the gift is not spent on crafts that do not need it',
+     gifted.length === 0 || giftedTenders > 0,
+     `${giftedTenders} of ${gifted.length} aptitude-holders tend stone`);
 }
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');

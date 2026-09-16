@@ -36,15 +36,18 @@ function sysFood(s, r) {
       const a = ageOf(s, p);
       mouths += a < 12 ? 0.5 : a > 66 ? 0.75 : 1;
       if (a < 12 || a > 70) continue;
-      if (p.work === 'tend') { yield_ += 0.6; continue; }   // a tender still helps a little
-      hands++;
-      const crowd = Math.pow(hands, -0.22);                 // the fifth boat is worth less than the first
-      if (bestFish > 0.15 && (p.work === 'fish' || !bestGraze)) {
-        yield_ += bestFish * 4.2 * seasonMul * crowd * (w.storm ? 0.3 : 1) * (w.bounty ? 2.4 : 1) * (0.85 + r() * 0.3);
+      // Everyone puts some of the day into food; a craft leaves less of it.
+      // See FOOD_SHARE in 37-trades.js — a placeholder until goods exist.
+      const share = foodShare(p.trade);
+      if (share <= 0) continue;
+      hands += share;
+      const crowd = Math.pow(Math.max(1, hands), -0.22);    // the fifth boat is worth less than the first
+      if (bestFish > 0.15 && (p.trade === 'boathand' || !bestGraze)) {
+        yield_ += share * bestFish * 4.2 * seasonMul * crowd * (w.storm ? 0.3 : 1) * (w.bounty ? 2.4 : 1) * (0.85 + r() * 0.3);
       } else if (bestGraze > 0.1) {
-        yield_ += bestGraze * 3.4 * seasonMul * crowd * (w.blight ? 0.25 : 1) * (0.85 + r() * 0.3);
+        yield_ += share * bestGraze * 3.4 * seasonMul * crowd * (w.blight ? 0.25 : 1) * (0.85 + r() * 0.3);
       } else {
-        yield_ += 1.5 * seasonMul * (0.7 + r() * 0.6);      // gathering the shore, no ground of their own
+        yield_ += share * 1.5 * seasonMul * (0.7 + r() * 0.6);   // gathering the shore, no ground of their own
       }
     }
 

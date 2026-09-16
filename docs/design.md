@@ -248,6 +248,32 @@ should be frightening in proportion to what has been invested.
 
 ## 4. Trades
 
+> **Built.** Slice 3 is in the code, and it cost more corrections than the two
+> slices before it put together. In order of how badly each was wrong:
+>
+> - **A settlement cannot be founded blank.** With nobody holding a craft there
+>   are no masters, so nothing can ever be taught and every trade stays empty
+>   forever. The founding generation carries all eleven.
+> - **The gift must count only for the craft that needs it.** A flat aptitude
+>   bonus made aptitude-holders the most attractive apprentice for *every*
+>   trade, so ropers and masons took exactly the children the stone needed and
+>   the settlement lost the ability to build — without one decision ever looking
+>   wrong. When tenders are thin, other masters now leave them alone.
+> - **A workshop need not be your own.** Tied to the worker's own household, every
+>   fine craft died inside forty years: not because masters died, but because
+>   households split and marry, and a smith ends up under a roof with no
+>   workshop while three stand empty across the quarter. Your own house, your
+>   kin's, or one that thinks well enough of you to let you in.
+> - **`want` has to cap as well as encourage.** It only pushed upward when a
+>   craft was scarce, and since the rate is per master, a crowded craft kept
+>   recruiting by having many masters — one settlement reached twenty-five
+>   tanners among eighty-four adults. Past its share, a craft now stops taking
+>   anyone.
+> - **The tender numbers in this document were too harsh.** Four in five failing
+>   over ten years is an absorbing state: a settlement that dips to zero tenders
+>   can never recover, and every seed reached zero. The code runs 1.2% a season,
+>   which is close to what the simulation managed before any of this.
+
 A person has one trade. It is learned young, usually from kin, and it does not
 change because the larder filled up. **Shortage never selects a trade.** It only
 shapes choices inside one.
@@ -260,6 +286,7 @@ shapes choices inside one.
 | `boathand` | 4.2 food (scaled by the tile's fishing) |
 | `quarrier` | 2.0 stone |
 | `miner` | 1.5 ore |
+| `woodcutter` | 2.2 timber |
 | `hauler` | nothing — moves goods, makes a carrier's work possible |
 
 Default for anyone not apprenticed by **18**. Trends to households without
@@ -302,13 +329,24 @@ handful of workshops and gains more over centuries as its houses age, so trades
 that need a room can only appear once there are rooms. Complexity arrives on its
 own schedule rather than being present at founding.
 
+### Food, until the economy exists
+
+**This is a placeholder and slice 5 should delete it.** The food model assumes
+every pair of hands fishes or herds. That held when there were four kinds of
+work; with sixteen it starves the settlement — a run diversified into crafts and
+fell from a hundred and thirty adults to fifteen, because a quarrier, a smith
+and a tanner all produced nothing anyone could eat.
+
+Until goods and exchange exist, everybody also feeds themselves: a fieldhand or
+boathand at full rate, the other unskilled trades at **0.55**, a taught craft at
+**0.4**, and one needing a workshop at **0.3**. It is a lie the shape of the
+truth. When a smith's metal can be traded for a fieldhand's food, none of it is
+needed.
+
 ### What these trades imply, and is not yet settled
 
-Two gaps the list opens, both belonging to the economy in slice 5:
+One gap the list opens, belonging to the economy in slice 5:
 
-- **Nobody cuts timber.** A mason consumes it to repair and a joiner works it,
-  but no trade produces it. Either a woodcutter joins tier 1, or timber is
-  something the settlement trades for rather than makes.
 - **Four goods is no longer enough.** A smith needs `ore` and makes `metal`; a
   tanner needs hides and makes `leather`; a weaver makes `cloth` and a tailor
   turns it into garments; a herbalist makes `remedies`. The design's four goods —
@@ -349,15 +387,24 @@ structure, and the sim should let you watch them decide.
 
 ### How a master chooses
 
-Score every candidate; take the highest if it clears **60**, otherwise take
+Score every candidate; take the highest if it clears **40**, otherwise take
 nobody this year.
+
+Measured against a real settlement, the first version of this let through **5%**
+of master-and-child pairs and fifteen of the sixteen were the master's own
+household — so every craft became kin-only and died with any master who had no
+child of the right age. The floor is **40**, not 60, and the walk costs **1.5** a
+tile rather than 3, which was swamping every other term. That gives 13% clearing
+with two thirds from another house, which is what the refusal cascade needs in
+order to have anything to refuse.
 
 ```
   50                                   base
-+ aptitude × 0.4                       0 or 40
++ aptitude × 0.4                       40, but only for a craft that needs it;
+                                       −45 for any other while tenders are thin
 + 25  same household
 + 12  same lineage, different household
-−  3 × walking distance in tiles       (uses the existing walk, so a feud that
+−  1.5 × walking distance in tiles     (uses the existing walk, so a feud that
                                         shuts a path really does cost you)
 + W × candidate household's `trade` standing
 −  0.8 × any grudge the master holds against that household
