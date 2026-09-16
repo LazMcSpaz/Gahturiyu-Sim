@@ -712,6 +712,15 @@ starving should cost more standing than any other single failure in the design.
 
 ### 9b. Exchange: barter, credit, and the stick
 
+> **Built.** Goods move, debt accrues, and the chains that made nothing in 9a
+> now complete — metal, garments and fittings all went from zero. One
+> correction: **a tally being cut is not news.** Reported every time, it filled a
+> sixth of the chronicle with bookkeeping, a hundred and fifty lines a century
+> all saying the same thing. A stick is only worth a line when the debt behind
+> it is a millstone. What survives is the pinch the design asked for — a house
+> refused, a stick passed on at a discount, a household nobody will extend to
+> any further.
+
 Before money, every exchange is a negotiation between two households, and the
 price is a **range**, not a number. Four things set it:
 

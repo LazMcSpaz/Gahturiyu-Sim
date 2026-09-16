@@ -14,6 +14,7 @@ const MANIFEST = [
   'src/engine/35-stages.js',
   'src/engine/37-trades.js',
   'src/engine/38-goods.js',
+  'src/engine/39-exchange.js',
   'src/engine/40-society.js',
   'src/engine/45-offices.js',
   'src/engine/50-politics.js',
@@ -50,7 +51,7 @@ function loadEngine(root = __dirname) {
   return new Function(engineSource(root) +
     '\nreturn {newWorld,advance,LEVERS,renderTurn,chronicleHTML,mapHTML,inTheNews,tileFactsHTML,'
     + 'seasonOf,yearOf,ageOf,mulberry32,reputeOf,tileId,tileXY,quarterOf,W,H,'
-    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal,stageOf,roleOf,roleWord,hasWorkshop,tavernsOf,STAGE_TURNS,TRADES,TIER1,TEACHABLE,tradeTier,canPractise,workshopFor,mastersOf,apprenticeScore,GOODS,MAKES,WANTS,goodsOf,commonStore,TITHE};')();
+    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal,stageOf,roleOf,roleWord,hasWorkshop,tavernsOf,STAGE_TURNS,TRADES,TIER1,TEACHABLE,tradeTier,canPractise,workshopFor,mastersOf,apprenticeScore,GOODS,MAKES,WANTS,goodsOf,commonStore,TITHE,VALUE,debtsOf,owed,totalOwed,totalHeld,priceFor,demandOf};')();
 }
 
 module.exports = { build, engineSource, loadEngine, MANIFEST };

@@ -144,6 +144,17 @@ function tileFactsHTML(s, id) {
   row('Larder', `${Math.round(hh.stores)}${(hh.shortSeasons || 0) >= 3 ? ` — short ${hh.shortSeasons} seasons` : ''}`,
     (hh.shortSeasons || 0) >= 3 ? 'bad' : '');
 
+  const owes = totalOwed(s, hh.id), holds = totalHeld(s, hh.id);
+  if (owes >= 1) {
+    const sticks = debtsOf(s).filter(d => d.from === hh.id && d.tally).length;
+    row('Owes', `${Math.round(owes)} ḍaqu${sticks ? `, ${sticks} on a stick` : ''}`,
+      owes > 18 ? 'bad' : '');
+  }
+  if (holds >= 1) {
+    row('Owed to them', `${Math.round(holds)} ḍaqu`, 'good');
+  }
+  if ((hh.noCredit || 0) >= 8) row('Credit', 'nobody will extend them any more', 'bad');
+
   const rep = reputeOf(s, hh);
   const others = Object.values(s.households).filter(h => !h.extinct)
     .sort((a, c) => standingOf(s, c) - standingOf(s, a));

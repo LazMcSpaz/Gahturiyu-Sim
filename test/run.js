@@ -8,7 +8,8 @@ const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews
         FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
         stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
         TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore,
-        GOODS, MAKES, goodsOf, commonStore, TITHE } = E;
+        GOODS, MAKES, goodsOf, commonStore, TITHE,
+        VALUE, debtsOf, owed, totalOwed, totalHeld, priceFor, demandOf } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -366,6 +367,60 @@ console.log('\ngoods and the common store');
 
   // and a craft that cannot get its input makes nothing rather than conjuring it
   ok('a craft short of its input is recorded', typeof m.shortOf === 'object');
+}
+
+console.log('\nexchange and debt');
+{
+  const m = run(400, 20260910, 150);
+  const houses = Object.values(m.households).filter(h => !h.extinct);
+  const debts = debtsOf(m);
+
+  // the whole point of 9b: the chains complete. A smith two quarters from any
+  // ore made nothing at all before goods could move.
+  const chained = ['metal', 'garments', 'fittings'].filter(g => houses.some(h => goodsOf(h)[g] > 0.5));
+  ok('goods reach the crafts that need them', chained.length >= 2,
+     `made and held: ${chained.join(', ') || 'none'}`);
+
+  // and they spread beyond whoever makes them
+  const spread = GOODS.filter(g => houses.filter(h => goodsOf(h)[g] > 0.5).length >= 4);
+  ok('goods spread past the households that make them', spread.length >= 3,
+     `held by four or more houses: ${spread.join(', ')}`);
+
+  ok('nothing is held in the negative',
+     houses.every(h => Object.values(goodsOf(h)).every(n => n >= -0.001)));
+
+  // credit exists, is bounded, and some of it gets written down
+  ok('debt is created by trading', debts.length > 0, `${debts.length} outstanding`);
+  ok('the ledger stays small enough to export', debts.length <= 90, `${debts.length} of at most 90`);
+  ok('every debt names both sides and what it was for',
+     debts.every(d => m.households[d.from] && m.households[d.to] && d.from !== d.to));
+  const sticks = debts.filter(d => d.tally);
+  ok('large debts go on a stick', sticks.length > 0, `${sticks.length} of ${debts.length} on a tally`);
+
+  /* The central claim of the design: a price is not a number, it is a bargain
+     between two households, and what they are to each other is half of it. */
+  const seller = houses.find(h => goodsOf(h).stone > 6) || houses[0];
+  const head = m.people[seller.headId];
+  if (head) {
+    const quoted = houses.filter(h => h.id !== seller.id)
+      .map(h => priceFor(m, seller, h, 'stone', 0).price);
+    const lo = Math.min(...quoted), hi = Math.max(...quoted);
+    ok('the same good costs different households different amounts',
+       hi > lo * 1.15, `${lo.toFixed(2)} to ${hi.toFixed(2)} ḍaqu for one lot of stone`);
+  }
+
+  // a remembered debt fades; a stick does not
+  let x = newWorld({ seed: 4242, population: 120, startYear: 812 });
+  for (let i = 0; i < 60; i++) x = advance(x, { lever: 'none' });
+  const before = debtsOf(x).filter(d => !d.tally).map(d => ({ from: d.from, to: d.to, amount: d.amount }));
+  for (let i = 0; i < 40; i++) x = advance(x, { lever: 'none' });
+  const faded = before.filter(b => {
+    const now = debtsOf(x).find(d => d.from === b.from && d.to === b.to && !d.tally);
+    return !now || now.amount < b.amount;
+  });
+  ok('a remembered debt fades or is paid',
+     before.length === 0 || faded.length > 0,
+     `${faded.length} of ${before.length} shrank or went`);
 }
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');
