@@ -1294,16 +1294,29 @@ unexamined thing in the simulation.
 
 ## 15. Open, not yet decided
 
-- **The coast fills up, and then it empties.** This is the two-century decline,
-  diagnosed. A new house needs a site at least 2.15 tiles from every standing
-  one, and on a coast twenty-two by fifteen that is thirty-five to forty
-  houses. Once they stand, every household that splits off waits for ground
-  that never comes and *leaves the coast* — eleven households in the last
-  seventy years of one run, and a settlement of a hundred and seventy-five
-  down to forty-five. Nothing in the simulation is broken; the map is full.
-  Whether the answer is closer building, lodging with kin instead of leaving,
-  a second coast to go to, or simply a bigger map is a design decision and not
-  a tuning one.
+- **The coast fills up, and then it empties** — *resolved: the map is bigger.*
+  This was the two-century decline. A new house needs a site at least 2.15
+  tiles from every standing one, and on a coast twenty-two by fifteen that was
+  thirty-five to forty houses; once they stood, every household that split off
+  waited for ground that never came and left — eleven in seventy years, a
+  settlement of a hundred and seventy-five down to forty-five. The coast is
+  forty by twenty-six now, with a longer shoreline and the land rising again
+  inland. Three things had to change with it. **The founding is a nucleus**,
+  gathered round the best stretch of the shore, where before it took the best
+  sites anywhere and would have strung itself along the whole coast. **A
+  household builds outward from the shrine**, not on the best ground anywhere
+  and not merely next to the last house — measured from the nearest house the
+  frontier is always two tiles off, and the settlement crept across all forty
+  columns in a century. And **a new household takes working ground**, a tile
+  or two of shore or moor beside the site, the way the founding households
+  did; the old coast had hidden that they never did, because the landless
+  left before it showed. Tender demand now counts the stone there is to grow
+  and keep rather than the population, since a coast of two hundred with
+  twenty houses coming up had got down to one tender and then none. At a
+  hundred and twenty years the eleven seeds run 160 to 430 people and 60 to
+  110 standing houses, nobody leaves, and legitimacy is positive on every
+  coast; at two hundred and fifty, 140 to 550 people, four of six raise a
+  landmark and two grow to six quarters.
 
 - **Does anything replace `prominence`?** With the cap gone, the field that
   marks someone as a named figure may be redundant — having a goal is the same

@@ -4,7 +4,7 @@ const path = require('path'), fs = require('fs');
 const root = path.join(__dirname, '..');
 const { loadEngine } = require(path.join(root, 'build.js'));
 const E = loadEngine(root);
-const { newWorld, advance, clone, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H, ageOf,
+const { newWorld, advance, clone, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H, ageOf, quarterOf,
         FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
         stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
         TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore, endangered,
@@ -709,19 +709,40 @@ console.log('\nthe levy, blocs, quarters and the one landmark');
      blocs.every(e => /had the stores to outlast it|could not afford it/.test(e.text)));
 
   // quarters: fixed centres, but a settlement can gain one and keep its ghosts
-  const many = [20260910, 991, 4242, 1, 7, 2, 3].map(seed => {
+  const many = [20260910, 991, 4242, 1, 7, 2, 3, 99, 313].map(seed => {
     const w = run(480, seed, 150);
     const e = w.chronicle.flatMap(t => t.events);
     return { born: e.filter(x => /are called .* now/.test(x.text)).length,
              hollow: e.filter(x => /Nobody lives at/.test(x.text)).length,
              quarters: (w.quarters || []).length };
   });
-  ok('a quarter can empty and keep its name', many.some(o => o.hollow > 0),
-     `${many.filter(o => o.hollow > 0).length} of ${many.length} settlements lost one`);
+  /* Proved directly. On a coast with room in it no quarter empties in a
+     century of quiet years, so the rule is exercised the way the coin's
+     collapse is: take a settlement, empty one quarter, and see it said. */
+  const hollowed = (() => {
+    const z = clone(run(200, 991, 150));
+    const q = z.quarters[0];
+    for (const h of quarterHouses(z, q)) {
+      for (const id of h.members) { const p = z.people[id]; if (p && p.alive) { p.alive = false; p.deathTurn = z.turn; p.cause = 'fever'; } }
+      h.extinct = z.turn;
+    }
+    // and the houses with them, or a growing coast moves somebody in within the season
+    for (const b of Object.values(z.buildings)) {
+      const bq = quarterOf(z, b.tileId);
+      if (bq && bq.id === q.id) b.state = 'derelict';
+    }
+    let y = z;
+    for (let i = 0; i < 12; i++) y = advance(y, { lever: 'none' });
+    return y.chronicle.slice(-12).flatMap(t => t.events).some(e => new RegExp(`Nobody lives at ${q.name}`).test(e.text));
+  })();
+  ok('a quarter can empty and keep its name', hollowed || many.some(o => o.hollow > 0),
+     hollowed ? 'an emptied quarter was named for what it is' : `${many.filter(o => o.hollow > 0).length} of ${many.length} settlements lost one`);
   ok('and growth in a new direction can earn one', many.some(o => o.born > 0),
      `${many.filter(o => o.born > 0).length} of ${many.length} settlements gained one`);
+  // a coast with room in it gains one a generation at most, and loses few
   ok('but neither is an ordinary event',
-     many.every(o => o.born <= 2 && o.hollow <= 3));
+     many.every(o => o.born <= 4 && o.hollow <= 3),
+     `most gained ${Math.max(...many.map(o => o.born))}, most lost ${Math.max(...many.map(o => o.hollow))}`);
 
   /* The landmark is the rarest thing in the design and needs longer than the
      hundred and twenty years everything else here is measured over. */

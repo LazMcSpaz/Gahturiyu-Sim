@@ -184,15 +184,27 @@ function landless(s) {
     && !Object.values(s.buildings).some(b => b.householdId === hh.id && b.state === 'growing'));
 }
 
+const GROWTH_PULL = 0.12;    // site value lost per tile from the shrine
+
 function sysClaims(s, r) {
   const homeless = landless(s);
   if (!homeless.length) return;
 
   // a grown house needs room around it; you cannot pack them shoulder to shoulder
   const taken = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
+  /* Outward from the shrine, not the best ground anywhere. Sorted on site
+     value alone, a household on a map with room in it raised its house a
+     day's walk from everyone. Measured from the nearest standing house it was
+     no better — the frontier is always two tiles from the last house, so the
+     settlement crept along the whole coast in a century. Measured from the
+     shrine, which sits where the founding houses were, the settlement grows as
+     a place: the near ground fills first, and the far edge is where a new
+     quarter comes from. */
+  const centre = s.shrine ? s.shrine.tileId : (taken[0] ?? 0);
+  const worth = tid => siteValue(s.tiles, tid) - tileDist(centre, tid) * GROWTH_PULL;
   const free = s.tiles.filter(t =>
       !t.owner && siteValue(s.tiles, t.id) > 0 && !taken.some(x => tileDist(x, t.id) < 2.15))
-    .sort((a, b) => siteValue(s.tiles, b.id) - siteValue(s.tiles, a.id));
+    .sort((a, b) => worth(b.id) - worth(a.id));
 
   for (const hh of homeless) {
     const head = s.people[hh.headId];
@@ -204,6 +216,7 @@ function sysClaims(s, r) {
       const site = free.shift();
       s.tiles[site.id].owner = hh.id;
       hh.claims.push(site.id);
+      claimGround(s, r, hh, site.id);
       startGrowing(s, r, hh, site.id);
       const scarce = free.length <= 2;
       ev(s, 'claim', scarce ? 5 : 2,
@@ -224,6 +237,25 @@ function sysClaims(s, r) {
         ev(s, 'leave', 5, `The ${hh.name} gave up waiting for ground and left the coast.`, { household: hh.id });
       }
     }
+  }
+}
+
+/* A house is not a living. The founding households took a tile or two of
+   shore or moor beside the site, and a household that raised its house later
+   took only the site — which did not matter while the coast was small enough
+   that the landless left, and mattered a great deal once they stayed: fifty
+   houses on the food base of thirty-seven, hunger lines up threefold and the
+   common store empty. A new household takes what working ground is free
+   within reach, the water first. */
+function claimGround(s, r, hh, site) {
+  const near = s.tiles.filter(t => !t.owner && t.id !== site && tileDist(t.id, site) <= 2.6
+    && (t.t === SHORE || t.t === MOOR || (t.wood || 0) > 0.3));
+  near.sort((a, b) => (b.t === SHORE ? 2 : b.t === MOOR ? 1 : 0.5) + b.fish + b.graze
+                    - ((a.t === SHORE ? 2 : a.t === MOOR ? 1 : 0.5) + a.fish + a.graze));
+  for (const t of near.slice(0, 2)) {
+    if (hh.claims.length >= 3) break;
+    t.owner = hh.id;
+    hh.claims.push(t.id);
   }
 }
 

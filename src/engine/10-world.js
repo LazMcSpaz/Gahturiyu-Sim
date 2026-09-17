@@ -1,5 +1,7 @@
 /* --- world creation --------------------------------------------------------- */
 
+const FOUNDING_PULL = 0.22;   // site value lost per tile from the founding nucleus
+
 function newWorld(cfg) {
   const seed = cfg.seed >>> 0;
   const r = mulberry32(seed);
@@ -27,10 +29,27 @@ function newWorld(cfg) {
 
   const id = () => state.nextId++;
 
-  // seed households across the best sites
-  const sites = tiles.map(t => t.id)
-    .filter(i => siteValue(tiles, i) > 0)
-    .sort((a, b) => siteValue(tiles, b) - siteValue(tiles, a));
+  /* A nucleus, not a scatter. On a map with room in it, taking the best sites
+     anywhere founds a settlement strung along the whole coast with nothing
+     between the houses — every walk a day and no quarter a neighbourhood. The
+     founding gathers round the best stretch of the coast and leaves the rest
+     for later. */
+  const good = tiles.map(t => t.id).filter(i => siteValue(tiles, i) > 0);
+  const shore = tiles.filter(t => t.t === SHORE).map(t => t.id);
+  const toShore = i => Math.min(...shore.map(j => tileDist(i, j)));
+  /* On the coast — this is a fishing settlement before it is anything — and
+     on the best stretch of it: where good stone is thick on the ground and
+     the water is close. Scored on nearby site value alone the nucleus landed
+     twenty tiles inland on the crag, because that is where the stone is. */
+  const nucleus = good.filter(i => toShore(i) <= 5).map(i => {
+    const [, y] = tileXY(i);
+    let near = 0;
+    for (const j of good) if (tileDist(i, j) < 4) near += siteValue(tiles, j);
+    return { i, v: near - Math.abs(y - H / 2) * 0.3 - toShore(i) * 0.4 };
+  }).sort((a, b) => b.v - a.v)[0].i;
+  const sites = good.slice()
+    .sort((a, b) => (siteValue(tiles, b) - tileDist(nucleus, b) * FOUNDING_PULL)
+                  - (siteValue(tiles, a) - tileDist(nucleus, a) * FOUNDING_PULL));
 
   let placed = 0, target = Math.max(6, Math.round(cfg.population / 5.5));
   const used = [];

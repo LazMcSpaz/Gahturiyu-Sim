@@ -67,6 +67,10 @@ function measure(E, s, s0, track) {
     fellBack: n(/is not any more\. Too much/),
     rulings: n(/off what they could not pay|for a debt|shut up over|put to death over/),
     moved: n(/moved into the old/),
+    leftCoast: n(/left the coast/),
+    boatDenials: n(/refused the .* a boat|priced the .* off the water/),
+    hungerLines: evs.filter(e => e.kind === 'hunger').length,
+    span: (() => { const xs = built.map(b => E.tileXY(b.tileId)[0]); return xs.length ? Math.max(...xs) - Math.min(...xs) : 0; })(),
     gaveUpCraft: n(/nowhere to work as a/)
   };
 }

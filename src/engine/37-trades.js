@@ -210,6 +210,16 @@ function wantOf(s, trade, adults) {
      ground every season for a century, and nothing in it could see that as a
      shortage. A town whose houses are falling in should be training masons for
      the same reason a town without a smith should be training a smith. */
+  /* And the tender is counted against the stone there is to grow and keep:
+     half a tender for every house coming up, and one for every two dozen
+     standing, since each wants a visit every three years. Against the
+     population alone, a coast of two hundred with twenty houses growing was
+     down to one tender, then none for a hundred and four seasons. */
+  if (trade === 'tender') {
+    const growing = Object.values(s.buildings).filter(b => b.state === 'growing').length;
+    const standing = Object.values(s.buildings).filter(b => b.state === 'mature').length;
+    return clamp(Math.max(base, Math.ceil(growing / 2 + standing / 24)), 2, Math.round(adults * 0.08));
+  }
   if (trade !== 'mason') return base;
   const failing = Object.values(s.buildings).filter(b => b.state === 'mature'
     && conditionOf(b) < MEND_BELOW).length;

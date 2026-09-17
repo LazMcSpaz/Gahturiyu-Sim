@@ -71,7 +71,13 @@ function lineageName(r) {
 
 /* --- terrain --------------------------------------------------------------- */
 
-const W = 22, H = 15;
+/* Forty by twenty-six. The first coast was twenty-two by fifteen and it
+   filled: a house needs a site 2.15 tiles from every standing one, which on
+   that map is thirty-five to forty houses, and once they stood every household
+   that split off waited for ground that never came and left — a settlement of
+   a hundred and seventy-five down to forty-five over two centuries. The
+   founding is a nucleus now, not a scatter, so the rest of this is room. */
+const W = 40, H = 26;
 const SEA = 0, SHORE = 1, SLOPE = 2, CRAG = 3, MOOR = 4;
 const TERRAIN_NAME = ['open water', 'shore', 'hillside', 'crag', 'moor'];
 
@@ -114,7 +120,9 @@ function dropCaches(s) { s._alive = null; s._ws = null; s._eh = null; s._scarce 
 function buildTerrain(r) {
   // A coastline running roughly north-south down the left, land rising east.
   const wob = [];
-  for (let y = 0; y < H; y++) wob.push(Math.sin(y * 0.75) * 1.6 + Math.sin(y * 0.31) * 2.2 + r() * 1.2);
+  for (let y = 0; y < H; y++) {
+    wob.push(Math.sin(y * 0.75) * 1.6 + Math.sin(y * 0.31) * 2.2 + Math.sin(y * 0.13 + 1.1) * 2.6 + r() * 1.2);
+  }
   const tiles = [];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -124,7 +132,8 @@ function buildTerrain(r) {
       if (d < -0.6) t = SEA;
       else if (d < 1.2) t = SHORE;
       else if (d < 7 + r() * 2) t = chance(r, 0.22) ? CRAG : SLOPE;
-      else t = chance(r, 0.25) ? CRAG : MOOR;
+      else if (d < 20 + r() * 4) t = chance(r, 0.25) ? CRAG : MOOR;
+      else t = chance(r, 0.45) ? CRAG : chance(r, 0.35) ? SLOPE : MOOR;   // the land rises again inland
       tiles.push({
         id: tileId(x, y), x, y, t,
         // stone quality governs how fast a home grows here

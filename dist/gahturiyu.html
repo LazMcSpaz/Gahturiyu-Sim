@@ -61,7 +61,7 @@ header.top{
   overflow:auto;max-height:38vh;
 }
 .plate[hidden]{display:none!important}
-#map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.06;letter-spacing:.16em;white-space:pre;color:#4c585c}
+#map{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;line-height:1.06;letter-spacing:.12em;white-space:pre;color:#4c585c}
 .mrow{display:block}
 .g-sea{color:#31414a}.g-shore{color:#4a5f63}.g-slope{color:#5c6560}.g-crag{color:#767d78}.g-moor{color:#4f5747}
 .owned{color:#8d9490}
@@ -475,7 +475,13 @@ function lineageName(r) {
 
 /* --- terrain --------------------------------------------------------------- */
 
-const W = 22, H = 15;
+/* Forty by twenty-six. The first coast was twenty-two by fifteen and it
+   filled: a house needs a site 2.15 tiles from every standing one, which on
+   that map is thirty-five to forty houses, and once they stood every household
+   that split off waited for ground that never came and left — a settlement of
+   a hundred and seventy-five down to forty-five over two centuries. The
+   founding is a nucleus now, not a scatter, so the rest of this is room. */
+const W = 40, H = 26;
 const SEA = 0, SHORE = 1, SLOPE = 2, CRAG = 3, MOOR = 4;
 const TERRAIN_NAME = ['open water', 'shore', 'hillside', 'crag', 'moor'];
 
@@ -518,7 +524,9 @@ function dropCaches(s) { s._alive = null; s._ws = null; s._eh = null; s._scarce 
 function buildTerrain(r) {
   // A coastline running roughly north-south down the left, land rising east.
   const wob = [];
-  for (let y = 0; y < H; y++) wob.push(Math.sin(y * 0.75) * 1.6 + Math.sin(y * 0.31) * 2.2 + r() * 1.2);
+  for (let y = 0; y < H; y++) {
+    wob.push(Math.sin(y * 0.75) * 1.6 + Math.sin(y * 0.31) * 2.2 + Math.sin(y * 0.13 + 1.1) * 2.6 + r() * 1.2);
+  }
   const tiles = [];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -528,7 +536,8 @@ function buildTerrain(r) {
       if (d < -0.6) t = SEA;
       else if (d < 1.2) t = SHORE;
       else if (d < 7 + r() * 2) t = chance(r, 0.22) ? CRAG : SLOPE;
-      else t = chance(r, 0.25) ? CRAG : MOOR;
+      else if (d < 20 + r() * 4) t = chance(r, 0.25) ? CRAG : MOOR;
+      else t = chance(r, 0.45) ? CRAG : chance(r, 0.35) ? SLOPE : MOOR;   // the land rises again inland
       tiles.push({
         id: tileId(x, y), x, y, t,
         // stone quality governs how fast a home grows here
@@ -963,6 +972,8 @@ function sysService(s, r) {
 /* ===== src/engine/10-world.js ===== */
 /* --- world creation --------------------------------------------------------- */
 
+const FOUNDING_PULL = 0.22;   // site value lost per tile from the founding nucleus
+
 function newWorld(cfg) {
   const seed = cfg.seed >>> 0;
   const r = mulberry32(seed);
@@ -990,10 +1001,27 @@ function newWorld(cfg) {
 
   const id = () => state.nextId++;
 
-  // seed households across the best sites
-  const sites = tiles.map(t => t.id)
-    .filter(i => siteValue(tiles, i) > 0)
-    .sort((a, b) => siteValue(tiles, b) - siteValue(tiles, a));
+  /* A nucleus, not a scatter. On a map with room in it, taking the best sites
+     anywhere founds a settlement strung along the whole coast with nothing
+     between the houses — every walk a day and no quarter a neighbourhood. The
+     founding gathers round the best stretch of the coast and leaves the rest
+     for later. */
+  const good = tiles.map(t => t.id).filter(i => siteValue(tiles, i) > 0);
+  const shore = tiles.filter(t => t.t === SHORE).map(t => t.id);
+  const toShore = i => Math.min(...shore.map(j => tileDist(i, j)));
+  /* On the coast — this is a fishing settlement before it is anything — and
+     on the best stretch of it: where good stone is thick on the ground and
+     the water is close. Scored on nearby site value alone the nucleus landed
+     twenty tiles inland on the crag, because that is where the stone is. */
+  const nucleus = good.filter(i => toShore(i) <= 5).map(i => {
+    const [, y] = tileXY(i);
+    let near = 0;
+    for (const j of good) if (tileDist(i, j) < 4) near += siteValue(tiles, j);
+    return { i, v: near - Math.abs(y - H / 2) * 0.3 - toShore(i) * 0.4 };
+  }).sort((a, b) => b.v - a.v)[0].i;
+  const sites = good.slice()
+    .sort((a, b) => (siteValue(tiles, b) - tileDist(nucleus, b) * FOUNDING_PULL)
+                  - (siteValue(tiles, a) - tileDist(nucleus, a) * FOUNDING_PULL));
 
   let placed = 0, target = Math.max(6, Math.round(cfg.population / 5.5));
   const used = [];
@@ -2304,6 +2332,16 @@ function wantOf(s, trade, adults) {
      ground every season for a century, and nothing in it could see that as a
      shortage. A town whose houses are falling in should be training masons for
      the same reason a town without a smith should be training a smith. */
+  /* And the tender is counted against the stone there is to grow and keep:
+     half a tender for every house coming up, and one for every two dozen
+     standing, since each wants a visit every three years. Against the
+     population alone, a coast of two hundred with twenty houses growing was
+     down to one tender, then none for a hundred and four seasons. */
+  if (trade === 'tender') {
+    const growing = Object.values(s.buildings).filter(b => b.state === 'growing').length;
+    const standing = Object.values(s.buildings).filter(b => b.state === 'mature').length;
+    return clamp(Math.max(base, Math.ceil(growing / 2 + standing / 24)), 2, Math.round(adults * 0.08));
+  }
   if (trade !== 'mason') return base;
   const failing = Object.values(s.buildings).filter(b => b.state === 'mature'
     && conditionOf(b) < MEND_BELOW).length;
@@ -5054,15 +5092,27 @@ function landless(s) {
     && !Object.values(s.buildings).some(b => b.householdId === hh.id && b.state === 'growing'));
 }
 
+const GROWTH_PULL = 0.12;    // site value lost per tile from the shrine
+
 function sysClaims(s, r) {
   const homeless = landless(s);
   if (!homeless.length) return;
 
   // a grown house needs room around it; you cannot pack them shoulder to shoulder
   const taken = Object.values(s.buildings).filter(b => b.state !== 'derelict').map(b => b.tileId);
+  /* Outward from the shrine, not the best ground anywhere. Sorted on site
+     value alone, a household on a map with room in it raised its house a
+     day's walk from everyone. Measured from the nearest standing house it was
+     no better — the frontier is always two tiles from the last house, so the
+     settlement crept along the whole coast in a century. Measured from the
+     shrine, which sits where the founding houses were, the settlement grows as
+     a place: the near ground fills first, and the far edge is where a new
+     quarter comes from. */
+  const centre = s.shrine ? s.shrine.tileId : (taken[0] ?? 0);
+  const worth = tid => siteValue(s.tiles, tid) - tileDist(centre, tid) * GROWTH_PULL;
   const free = s.tiles.filter(t =>
       !t.owner && siteValue(s.tiles, t.id) > 0 && !taken.some(x => tileDist(x, t.id) < 2.15))
-    .sort((a, b) => siteValue(s.tiles, b.id) - siteValue(s.tiles, a.id));
+    .sort((a, b) => worth(b.id) - worth(a.id));
 
   for (const hh of homeless) {
     const head = s.people[hh.headId];
@@ -5074,6 +5124,7 @@ function sysClaims(s, r) {
       const site = free.shift();
       s.tiles[site.id].owner = hh.id;
       hh.claims.push(site.id);
+      claimGround(s, r, hh, site.id);
       startGrowing(s, r, hh, site.id);
       const scarce = free.length <= 2;
       ev(s, 'claim', scarce ? 5 : 2,
@@ -5094,6 +5145,25 @@ function sysClaims(s, r) {
         ev(s, 'leave', 5, `The ${hh.name} gave up waiting for ground and left the coast.`, { household: hh.id });
       }
     }
+  }
+}
+
+/* A house is not a living. The founding households took a tile or two of
+   shore or moor beside the site, and a household that raised its house later
+   took only the site — which did not matter while the coast was small enough
+   that the landless left, and mattered a great deal once they stayed: fifty
+   houses on the food base of thirty-seven, hunger lines up threefold and the
+   common store empty. A new household takes what working ground is free
+   within reach, the water first. */
+function claimGround(s, r, hh, site) {
+  const near = s.tiles.filter(t => !t.owner && t.id !== site && tileDist(t.id, site) <= 2.6
+    && (t.t === SHORE || t.t === MOOR || (t.wood || 0) > 0.3));
+  near.sort((a, b) => (b.t === SHORE ? 2 : b.t === MOOR ? 1 : 0.5) + b.fish + b.graze
+                    - ((a.t === SHORE ? 2 : a.t === MOOR ? 1 : 0.5) + a.fish + a.graze));
+  for (const t of near.slice(0, 2)) {
+    if (hh.claims.length >= 3) break;
+    t.owner = hh.id;
+    hh.claims.push(t.id);
   }
 }
 

@@ -112,7 +112,7 @@ different settlement clears it.
 
 Opening the inspector shrinks the map rather than growing the dock, so the
 chronicle keeps most of the screen. `tileFactsHTML` is pure — state and a tile
-id in, HTML out — and `test/run.js` calls it for all 330 tiles every run, so a
+id in, HTML out — and `test/run.js` calls it for all 1,040 tiles every run, so a
 tile that would throw or come back blank fails the build.
 
 ## What is simulated
