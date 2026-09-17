@@ -74,7 +74,7 @@ function sysGrudges(s, r) {
     if (theirs) {
       theirs.heat += 9;
       const foe = s.households[theirs.a === them.id ? theirs.b : theirs.a];
-      ev(s, 'spite', 5, `${nameOf(s, p.id)} backed the ${foe ? foe.name : 'other side'} against the ${them.name}, out of a grudge.`, { person: p.id });
+      ev(s, 'spite', 3, `${nameOf(s, p.id)} backed the ${foe ? foe.name : 'other side'} against the ${them.name}, out of a grudge.`, { person: p.id });
       continue;
     }
 
@@ -91,7 +91,7 @@ function sysGrudges(s, r) {
     // 4. otherwise it is carried in public, which is its own kind of work
     if (chance(r, 0.5)) {
       them.standing -= 1.2;
-      ev(s, 'spite', 2, `${nameOf(s, p.id)} snubbed the ${them.name} in public. The grudge is ${Math.round((s.turn - g.turn) / 4)} years old.`, { person: p.id });
+      ev(s, 'spite', 1, `${nameOf(s, p.id)} snubbed the ${them.name} in public. The grudge is ${Math.round((s.turn - g.turn) / 4)} years old.`, { person: p.id });
     }
   }
 }

@@ -87,9 +87,9 @@ const PREWARM = [
   [1,        150, null, [0, 400, 480, 600]],
   [7,        150, null, [0, 400, 480, 800]],
   [3,        150, null, [0, 480, 800]],
-  [2,        150, null, [0, 480]],
+  [2,        150, null, [0, 480, 800]],
+  [313,      150, null, [0, 480, 800]],
   [99,       150, null, [0, 480]],
-  [313,      150, null, [0, 480]],
   [991,      150, null, [0, 480]],
   ...['sole', 'tribunal', 'senate'].flatMap(g =>
     [20260910, 4242, 31337, 555555, 1, 7].map(seed => [seed, 150, g, [0, 400]]))
@@ -720,7 +720,10 @@ console.log('\nthe levy, blocs, quarters and the one landmark');
 
   /* The landmark is the rarest thing in the design and needs longer than the
      hundred and twenty years everything else here is measured over. */
-  const long = [7, 3].map(seed => {
+  /* Four seeds, because which coast manages it moves with every balance
+     change and two was a coin-flip: a sweep at 250 years finds four of eleven
+     raising one. */
+  const long = [2, 313, 7, 3].map(seed => {
     const z = run(800, seed, 150);
     const at = trackOf(800, seed).findIndex(t => t.landmark);
     return { z, raised: at > 0 ? at - 1 : null };

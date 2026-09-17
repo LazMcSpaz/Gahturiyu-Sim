@@ -50,6 +50,8 @@ function measure(E, s, s0, track) {
     tenders: trades.tender || 0,
     masons: trades.mason || 0,
     lowestTenders: track ? Math.min(...track.map(t => t.tenders)) : null,
+    lowestStone: track ? Math.min(...track.map(t => t.stone)) : null,       // holders and learners together
+    shownPerSeason: track ? +(track.reduce((a, t) => a + t.shown, 0) / track.length).toFixed(1) : null,
     quarters: (s.quarters || []).length,
     legitimacy: Math.round(E.legitimacy(s)),
     coinBatches: mint.batches || 0,
@@ -75,10 +77,11 @@ function flags(m, years) {
   const out = [];
   if (m.pop < 50) out.push(`pop ${m.pop}`);
   if (m.craftsLost > 1) out.push(`lost ${m.lost}`);
-  if (m.lowestTenders !== null && m.lowestTenders === 0) out.push('ran out of tenders');
+  if (m.lowestStone !== null && m.lowestStone === 0) out.push('the stone was lost');
+  else if (m.lowestTenders !== null && m.lowestTenders === 0) out.push('no working tender for a while');
+  if (m.shownPerSeason !== null && m.shownPerSeason > 6) out.push(`${m.shownPerSeason} shown lines/season`);
   if (years >= 100 && m.stage3 === 0) out.push('no third growth');
   if (m.mature && m.disrepair / m.mature > 0.4) out.push(`${m.disrepair}/${m.mature} in disrepair`);
-  if (m.linesPerSeason > 8) out.push(`${m.linesPerSeason} lines/season`);
   if (parseInt(m.topKind.split(' ')[1]) > 30) out.push(`chronicle is ${m.topKind}`);
   if (m.biggestCraft > m.adults * 0.25) out.push(`one craft holds ${m.biggestCraft}/${m.adults}`);
   if (m.biggestTrade > m.adults * 0.4) out.push(`${m.biggestTradeName} is ${m.biggestTrade}/${m.adults} of adults`);

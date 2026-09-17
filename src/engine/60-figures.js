@@ -68,7 +68,8 @@ function sysPromotion(s, r) {
     if (!chance(r, 0.25)) continue;
     c.p.goal = { kind: c.o.kind, tile: c.o.tile, target: c.o.target, since: s.turn, label: c.o.label };
     c.p.goalAge = 0;
-    ev(s, 'rise', 6, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
+    // taking a goal up is not an event; what comes of it is. The figures panel reads goals directly.
+    ev(s, 'rise', 1, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
   }
 }
 
@@ -144,7 +145,7 @@ function sysActors(s, r) {
         remember(s, hh.id, -3, `pushed a quarrel too far`);
         ev(s, 'act', 5, `${nameOf(s, p.id)} pushed the quarrel too far and lost standing for it.`, { person: p.id });
       }
-      if (chance(r, 0.16)) ev(s, 'act', 4, `${nameOf(s, p.id)} pressed the quarrel over ${d.over} again. It got hotter.`, { person: p.id });
+      if (chance(r, 0.16)) ev(s, 'act', 1, `${nameOf(s, p.id)} pressed the quarrel over ${d.over} again. It got hotter.`, { person: p.id });
     }
 
     else if (g.kind === 'ground') {
@@ -247,7 +248,7 @@ function sysActors(s, r) {
     if (!acted && p.goal && s.pursuitLines < 2 && chance(r, 0.34)) {
       s.pursuitLines++;
       const yrs = Math.max(1, Math.round((s.turn - p.goal.since) / 4));
-      ev(s, 'act', 2, `${nameOf(s, p.id)} is still at ${p.goal.label} — ${yrs} year${yrs === 1 ? '' : 's'} now, no result.`, { person: p.id });
+      ev(s, 'act', 1, `${nameOf(s, p.id)} is still at ${p.goal.label} — ${yrs} year${yrs === 1 ? '' : 's'} now, no result.`, { person: p.id });
     }
   }
 }

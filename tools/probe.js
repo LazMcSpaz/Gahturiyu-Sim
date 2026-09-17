@@ -14,8 +14,8 @@ const { sweep, parseArgs } = require('./sweep');
 const { flags } = require('./measure');
 
 const COLS = ['pop', 'households', 'mature', 'stage2', 'stage3', 'landmark', 'workshops', 'disrepair',
-  'condition', 'craftsHeld', 'craftsLost', 'lowestTenders', 'legitimacy', 'coinBatches', 'storeFood',
-  'linesPerSeason', 'topKind', 'levies', 'blocs', 'fellBack', 'rulings', 'msPerTurn'];
+  'condition', 'craftsHeld', 'craftsLost', 'lowestTenders', 'lowestStone', 'legitimacy', 'coinBatches', 'storeFood',
+  'shownPerSeason', 'topKind', 'levies', 'blocs', 'fellBack', 'rulings', 'msPerTurn'];
 
 function fmt(v) { return v === null || v === undefined ? '-' : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v); }
 

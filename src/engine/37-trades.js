@@ -172,20 +172,25 @@ function eagerness(s, trade, adults) {
 function holdersOf(s, trade) {
   if (!s._eh) s._eh = {};
   if (s._eh[trade]) return s._eh[trade];
-  const holders = [];
-  let learning = 0;
+  const holders = [], learners = [];
   for (const p of livingPeople(s)) {
     if (!p.alive) continue;
-    if (p.learning && p.learning.trade === trade) { learning++; continue; }
+    if (p.learning && p.learning.trade === trade) { learners.push(p); continue; }
     if (p.trade === trade) holders.push(p);
   }
-  return (s._eh[trade] = { holders, learning });
+  return (s._eh[trade] = { holders, learners, learning: learners.length });
 }
 
 function effectiveHolders(s, trade) {
   const ceiling = (TRADES[trade] || {}).masterMax || MASTER_MAX;
-  const { holders, learning } = holdersOf(s, trade);
-  let n = learning * 0.5;
+  const { holders, learners } = holdersOf(s, trade);
+  /* A learner is worth what they have learned. Counted flat at a half each,
+     three ten-year apprentices in their first year read as a master and a
+     half, and a coast with four tenders aged fifty-seven to sixty-seven read
+     as safe — then lost all four inside fourteen seasons and had no tender at
+     all until the apprentices finished alone. */
+  let n = 0;
+  for (const q of learners) n += 0.2 + 0.5 * Math.min(1, q.learning.progress || 0);
   for (const p of holders) {
     let w = clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
     /* Somebody with no room to work in holds the craft in name. Counting them
@@ -336,10 +341,22 @@ function sysApprentice(s, r) {
     m.lastApprentice = s.turn;
     learning.add(m.id);
 
-    ev(s, 'teach', refused ? 6 : 4,
-      refused
-        ? `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}, having been refused by ${refused} house${refused > 1 ? 's' : ''} first.`
-        : `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}${kin ? '. Same household.' : ', from a different household.'}`,
+    /* An apprenticeship starting is the system working, not news: reported
+       every time it was one line a season for a century. What the design says
+       to print is the unlikely apprentice and why — a master refused first, a
+       craft down to its last hands taking whoever it can, or a child from a
+       house well below the master's own. The rest is weight one, which is
+       below the chronicle's floor and still in the record. */
+    const theirs = s.households[taken.householdId], own = s.households[m.householdId];
+    const gap = theirs && own ? compositeOf(s, own) - compositeOf(s, theirs) : 0;
+    const scarce = endangered(s, m.trade);
+    const why = refused ? `having been refused by ${refused} house${refused > 1 ? 's' : ''} first`
+      : scarce ? `— the craft is down to its last hands and takes who it can`
+      : gap > 25 ? `from a house well below their own`
+      : null;
+    ev(s, 'teach', why ? (refused || scarce ? 6 : 5) : 1,
+      why ? `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}, ${why}.`
+          : `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}${kin ? '. Same household.' : ', from a different household.'}`,
       { person: taken.id, household: taken.householdId });
   }
 }

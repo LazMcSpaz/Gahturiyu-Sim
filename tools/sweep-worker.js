@@ -20,7 +20,9 @@ for (let i = 1; i <= turns; i++) {
   s = E.advance(s, { lever: (levers && levers[i - 1]) || 'none' });
   track.push({
     tenders: Object.values(s.people).filter(p => p.alive && p.trade === 'tender').length,
-    creditTight: s.creditTight || 0
+    stone: Object.values(s.people).filter(p => p.alive && (p.trade === 'tender' || (p.learning && p.learning.trade === 'tender'))).length,
+    creditTight: s.creditTight || 0,
+    shown: E.renderTurn(s.chronicle[s.chronicle.length - 1], {}).filter(x => x.type === 'event').length
   });
   if (every && i % every === 0 && i < turns) series.push(measure(E, s, s0, track));
 }

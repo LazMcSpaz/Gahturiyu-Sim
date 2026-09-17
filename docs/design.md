@@ -248,6 +248,14 @@ should be frightening in proportion to what has been invested.
 
 ## 4. Trades
 
+> **A learner is worth what they have learned.** Counted flat at a half each,
+> three ten-year apprentices in their first year read as a master and a half,
+> and one coast with four tenders aged fifty-seven to sixty-seven read as safe
+> — then lost all four inside fourteen seasons and had no working tender until
+> the apprentices finished alone. A learner counts for a fifth plus half their
+> progress. Across twenty-two seeds no settlement now spends a season without
+> a tender, and the lowest the stone gets is two holders and learners together.
+>
 > **Built.** Slice 3 is in the code, and it cost more corrections than the two
 > slices before it put together. In order of how badly each was wrong:
 >
@@ -1185,6 +1193,18 @@ one and how it went, and — once in a long while — a landmark.
 A building reaching stage 3 is among the largest events the settlement can
 produce: it is a century of somebody's attention arriving all at once. It should
 read like one.
+
+> **Measured, and trimmed.** The first sweep of eleven seeds after slice 7
+> showed the rendered chronicle at six to seven lines a season, up from five,
+> and one kind — a figure taking up a goal — a fifth of everything printed.
+> Four routine lines were the whole of the drift: a goal taken up, a goal
+> still being pursued, a quarrel pressed again, and an apprenticeship simply
+> starting. None is a threshold crossed. They sit at weight one now, below the
+> floor and still in the record; an apprenticeship prints only when it is the
+> unlikely one the design names — a master refused first, a craft down to its
+> last hands taking who it can, or a child from a house well below the
+> master's. Five lines a season across twenty-two seeds, and the chronicle
+> reads as what happened rather than what everyone was busy at.
 
 **Do not print:** transactions, production, standing changes, condition ticks,
 every drift of every tie — anything that happens every season to everyone. A

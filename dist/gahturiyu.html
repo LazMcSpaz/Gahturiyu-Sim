@@ -2266,20 +2266,25 @@ function eagerness(s, trade, adults) {
 function holdersOf(s, trade) {
   if (!s._eh) s._eh = {};
   if (s._eh[trade]) return s._eh[trade];
-  const holders = [];
-  let learning = 0;
+  const holders = [], learners = [];
   for (const p of livingPeople(s)) {
     if (!p.alive) continue;
-    if (p.learning && p.learning.trade === trade) { learning++; continue; }
+    if (p.learning && p.learning.trade === trade) { learners.push(p); continue; }
     if (p.trade === trade) holders.push(p);
   }
-  return (s._eh[trade] = { holders, learning });
+  return (s._eh[trade] = { holders, learners, learning: learners.length });
 }
 
 function effectiveHolders(s, trade) {
   const ceiling = (TRADES[trade] || {}).masterMax || MASTER_MAX;
-  const { holders, learning } = holdersOf(s, trade);
-  let n = learning * 0.5;
+  const { holders, learners } = holdersOf(s, trade);
+  /* A learner is worth what they have learned. Counted flat at a half each,
+     three ten-year apprentices in their first year read as a master and a
+     half, and a coast with four tenders aged fifty-seven to sixty-seven read
+     as safe — then lost all four inside fourteen seasons and had no tender at
+     all until the apprentices finished alone. */
+  let n = 0;
+  for (const q of learners) n += 0.2 + 0.5 * Math.min(1, q.learning.progress || 0);
   for (const p of holders) {
     let w = clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
     /* Somebody with no room to work in holds the craft in name. Counting them
@@ -2430,10 +2435,22 @@ function sysApprentice(s, r) {
     m.lastApprentice = s.turn;
     learning.add(m.id);
 
-    ev(s, 'teach', refused ? 6 : 4,
-      refused
-        ? `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}, having been refused by ${refused} house${refused > 1 ? 's' : ''} first.`
-        : `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}${kin ? '. Same household.' : ', from a different household.'}`,
+    /* An apprenticeship starting is the system working, not news: reported
+       every time it was one line a season for a century. What the design says
+       to print is the unlikely apprentice and why — a master refused first, a
+       craft down to its last hands taking whoever it can, or a child from a
+       house well below the master's own. The rest is weight one, which is
+       below the chronicle's floor and still in the record. */
+    const theirs = s.households[taken.householdId], own = s.households[m.householdId];
+    const gap = theirs && own ? compositeOf(s, own) - compositeOf(s, theirs) : 0;
+    const scarce = endangered(s, m.trade);
+    const why = refused ? `having been refused by ${refused} house${refused > 1 ? 's' : ''} first`
+      : scarce ? `— the craft is down to its last hands and takes who it can`
+      : gap > 25 ? `from a house well below their own`
+      : null;
+    ev(s, 'teach', why ? (refused || scarce ? 6 : 5) : 1,
+      why ? `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}, ${why}.`
+          : `${nameOf(s, m.id)} took ${nameOf(s, taken.id)} on to learn ${m.trade}${kin ? '. Same household.' : ', from a different household.'}`,
       { person: taken.id, household: taken.householdId });
   }
 }
@@ -4848,7 +4865,7 @@ function sysGrudges(s, r) {
     if (theirs) {
       theirs.heat += 9;
       const foe = s.households[theirs.a === them.id ? theirs.b : theirs.a];
-      ev(s, 'spite', 5, `${nameOf(s, p.id)} backed the ${foe ? foe.name : 'other side'} against the ${them.name}, out of a grudge.`, { person: p.id });
+      ev(s, 'spite', 3, `${nameOf(s, p.id)} backed the ${foe ? foe.name : 'other side'} against the ${them.name}, out of a grudge.`, { person: p.id });
       continue;
     }
 
@@ -4865,7 +4882,7 @@ function sysGrudges(s, r) {
     // 4. otherwise it is carried in public, which is its own kind of work
     if (chance(r, 0.5)) {
       them.standing -= 1.2;
-      ev(s, 'spite', 2, `${nameOf(s, p.id)} snubbed the ${them.name} in public. The grudge is ${Math.round((s.turn - g.turn) / 4)} years old.`, { person: p.id });
+      ev(s, 'spite', 1, `${nameOf(s, p.id)} snubbed the ${them.name} in public. The grudge is ${Math.round((s.turn - g.turn) / 4)} years old.`, { person: p.id });
     }
   }
 }
@@ -5253,7 +5270,8 @@ function sysPromotion(s, r) {
     if (!chance(r, 0.25)) continue;
     c.p.goal = { kind: c.o.kind, tile: c.o.tile, target: c.o.target, since: s.turn, label: c.o.label };
     c.p.goalAge = 0;
-    ev(s, 'rise', 6, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
+    // taking a goal up is not an event; what comes of it is. The figures panel reads goals directly.
+    ev(s, 'rise', 1, `${nameOf(s, c.p.id)} (${describeTraits(c.p)}) took up a goal: ${c.o.label}.`, { person: c.p.id });
   }
 }
 
@@ -5329,7 +5347,7 @@ function sysActors(s, r) {
         remember(s, hh.id, -3, `pushed a quarrel too far`);
         ev(s, 'act', 5, `${nameOf(s, p.id)} pushed the quarrel too far and lost standing for it.`, { person: p.id });
       }
-      if (chance(r, 0.16)) ev(s, 'act', 4, `${nameOf(s, p.id)} pressed the quarrel over ${d.over} again. It got hotter.`, { person: p.id });
+      if (chance(r, 0.16)) ev(s, 'act', 1, `${nameOf(s, p.id)} pressed the quarrel over ${d.over} again. It got hotter.`, { person: p.id });
     }
 
     else if (g.kind === 'ground') {
@@ -5432,7 +5450,7 @@ function sysActors(s, r) {
     if (!acted && p.goal && s.pursuitLines < 2 && chance(r, 0.34)) {
       s.pursuitLines++;
       const yrs = Math.max(1, Math.round((s.turn - p.goal.since) / 4));
-      ev(s, 'act', 2, `${nameOf(s, p.id)} is still at ${p.goal.label} — ${yrs} year${yrs === 1 ? '' : 's'} now, no result.`, { person: p.id });
+      ev(s, 'act', 1, `${nameOf(s, p.id)} is still at ${p.goal.label} — ${yrs} year${yrs === 1 ? '' : 's'} now, no result.`, { person: p.id });
     }
   }
 }
