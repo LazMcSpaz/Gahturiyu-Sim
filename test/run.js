@@ -83,14 +83,14 @@ const PREWARM = [
   [20260910, 150, null, [0, 120, 200, 400, 480, 600]],
   [4242,     150, null, [0, 480, 600]],
   [31337,    150, null, [0, 300, 480, 600]],
+  [991,      150, null, [0, 300, 480]],
   [555555,   150, null, [0, 400, 480, 600]],
   [1,        150, null, [0, 400, 480, 600]],
-  [7,        150, null, [0, 400, 480, 800]],
-  [3,        150, null, [0, 480, 800]],
+  [7,        150, null, [0, 300, 400, 480, 800]],
+  [3,        150, null, [0, 300, 480, 800]],
   [2,        150, null, [0, 480, 800]],
   [313,      150, null, [0, 480, 800]],
   [99,       150, null, [0, 480]],
-  [991,      150, null, [0, 480]],
   ...['sole', 'tribunal', 'senate'].flatMap(g =>
     [20260910, 4242, 31337, 555555, 1, 7].map(seed => [seed, 150, g, [0, 400]]))
 ];
@@ -634,9 +634,24 @@ console.log('\nhardship bites, and crafts fight to live');
     || Object.values(x.households).filter(h => !h.extinct && (h.shortSeasons || 0) > 0).length >= 5;
   ok('twenty years of storm, blight and fever cost the settlement', hurt,
      `${calmPop} living became ${hardPop}, store ${Math.round(calmStore)} became ${Math.round(hardStore)}`);
+  /* Across coasts, not one. Paired hard-and-calm branches on ten seeds have
+     hardship costing the government on nine of them; the tenth comes out six
+     ahead while losing twenty-two people, and reading a single coast made
+     that one settlement's luck the whole claim. */
+  const pairs = [31337, 7, 991, 3].map(seed => {
+    const from = run(300, seed, 150);
+    let h = from, c = from;
+    for (let i = 0; i < 80; i++) {
+      c = advance(c, { lever: 'none' });
+      h = advance(h, { lever: i % 3 === 0 ? 'storm' : i % 3 === 1 ? 'blight' : 'fever' });
+    }
+    return { seed, hard: legitimacy(h), calm: legitimacy(c) };
+  });
+  const meanHard = pairs.reduce((a, o) => a + o.hard, 0) / pairs.length;
+  const meanCalm = pairs.reduce((a, o) => a + o.calm, 0) / pairs.length;
   ok('and hardship does not somehow improve the government',
-     legitimacy(x) <= legitimacy(calm) + 4,
-     `legitimacy ${Math.round(legitimacy(x))} after the weather, ${Math.round(legitimacy(calm))} without it`);
+     meanHard <= meanCalm,
+     `mean legitimacy ${Math.round(meanHard)} after the weather, ${Math.round(meanCalm)} without it, over ${pairs.length} coasts`);
 
   // a storm has to touch the grazing too, or it is not weather here
   const y = run(120, 20260910, 150);
@@ -784,12 +799,33 @@ console.log('\nupkeep, decay and beauty');
 
   const evs = u.chronicle.flatMap(t => t.events);
   const fell = evs.filter(e => /is not any more/.test(e.text)).length;
-  /* Rare by design — a house has to be given up, not merely poor — so it is
-     looked for across the cached coasts rather than demanded of one. */
+  /* Rare by design, and rarer since the tenders stopped churning: a house has
+     to be genuinely given up, which on a well-kept coast may not happen in a
+     century. So it is proved the way an emptied quarter is — abandon a third
+     growth and watch the stone come down — and also counted where it does
+     happen on its own. */
   const fellAnywhere = [991, 4242, 3, 20260910].reduce((a, seed) =>
     a + run(480, seed, 150).chronicle.flatMap(t => t.events).filter(e => /is not any more/.test(e.text)).length, 0);
-  ok('a house that is given up loses a growth', fellAnywhere > 0,
-     `${fellAnywhere} across four coasts over 120 years`);
+  const givenUp = (() => {
+    const z = clone(run(400, 991, 150));
+    const b = Object.values(z.buildings).find(x => x.state === 'mature' && stageOf(x) >= 2);
+    if (!b) return false;
+    const hh = z.households[b.householdId];
+    for (const id of hh.members) { const q = z.people[id]; if (q && q.alive) { q.alive = false; q.deathTurn = z.turn; q.cause = 'fever'; } }
+    hh.extinct = z.turn;
+    b.lastMended = z.turn - 200;                 // nobody has touched it in fifty years
+    /* And too far gone for anyone to want. A sound empty house on a coast with
+       room in it never comes down, because a household without one moves in
+       within a few seasons — which is slice six working, and is why this no
+       longer happens on its own. */
+    b.condition = RUINOUS - 0.02;
+    let y = z;
+    for (let i = 0; i < 40; i++) y = advance(y, { lever: 'none' });
+    return y.chronicle.slice(-40).flatMap(t => t.events).some(e => /is not any more/.test(e.text));
+  })();
+  ok('a house that is given up loses a growth', givenUp || fellAnywhere > 0,
+     givenUp ? 'an abandoned third growth came down a stage'
+             : `${fellAnywhere} across four coasts over 120 years`);
   ok('but losing a growth stays rarer than reaching one',
      fell <= evs.filter(e => /reached its third growth|second growth/.test(e.text)).length * 2,
      `${fell} lost against ${evs.filter(e => /reached its third growth|second growth/.test(e.text)).length} reached`);

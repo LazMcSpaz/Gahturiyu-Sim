@@ -103,7 +103,13 @@ function sysMemory(s, r) {
   if (!old.length) return;
   const m = pick(r, old);
   const years = Math.round((s.turn - m.turn) / 4);
-  ev(s, 'memory', 3, `The ${m.house} ${m.phrase} — ${years} years ago, and still held against them.`, { household: m.household });
+  /* A settlement remembers what a household did well too. Every old deed was
+     printed as a grievance, so a house was told off for keeping the finest
+     house in the quarter and for feeding people in a hard season. */
+  ev(s, 'memory', 3, m.favour > 0
+    ? `The ${m.house} ${m.phrase} — ${years} years ago, and it is still remembered.`
+    : `The ${m.house} ${m.phrase} — ${years} years ago, and still held against them.`,
+    { household: m.household });
 }
 
 /* the shrine -----------------------------------------------------------------

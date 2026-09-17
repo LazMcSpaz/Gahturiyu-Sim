@@ -398,7 +398,7 @@ function sysLearn(s, r) {
         && q.id !== p.id && ageOf(s, q) >= 20 && canPractise(s, q));
       if (takenOver && (last || chance(r, 0.25))) {
         L.from = takenOver.id; L.name = nameOf(s, takenOver.id); L.orphaned = 0;
-        ev(s, 'teach', 4, `${nameOf(s, takenOver.id)} took over teaching ${nameOf(s, p.id)} the ${L.trade}.`, { person: p.id });
+        ev(s, 'teach', 4, `${nameOf(s, takenOver.id)} took over teaching ${nameOf(s, p.id)} to work as a ${L.trade}.`, { person: p.id });
         continue;
       }
       if (L.progress > (last ? 0.4 : 0.62) && chance(r, last ? 0.45 : 0.10)) {
@@ -414,7 +414,7 @@ function sysLearn(s, r) {
     }
 
     if (chance(r, info.dropout || DROPOUT)) {
-      ev(s, 'teach', 3, `${nameOf(s, p.id)} stopped being taught ${L.trade} by ${L.name}.`, { person: p.id });
+      ev(s, 'teach', 3, `${nameOf(s, p.id)} stopped being taught to work as a ${L.trade} by ${L.name}.`, { person: p.id });
       p.learning = null;
   touchTrades(s);
       touchTrades(s);

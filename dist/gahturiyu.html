@@ -1475,13 +1475,22 @@ function sysFood(s, r) {
       u.host.stores = 0;
       for (const p of people) p.hunger = clamp(p.hunger + deficit * 0.55, 0, 10);
       u.host.shortSeasons = (u.host.shortSeasons || 0) + 1;
-      // report a shortage once it has lasted, not the first season it dips
-      if (u.host.shortSeasons === 3 || (u.host.shortSeasons > 3 && u.host.shortSeasons % 6 === 0)) {
-        ev(s, 'hunger', 4, `The ${u.host.name} have been short of food for ${u.host.shortSeasons} seasons.`, { household: u.host.id });
+      /* Once it has lasted, and not again until it is either worse or long
+         behind them. A household living at the edge dips to three seasons,
+         recovers, dips again, and the count resets — so the same house was
+         reported short for three seasons twenty-seven times, always three. */
+      const n = u.host.shortSeasons;
+      const worse = n > (u.host.toldShortAt || 0);
+      const longAgo = s.turn - (u.host.toldShort || -99) >= 24;
+      if ((n === 3 || (n > 3 && n % 6 === 0)) && (longAgo || worse)) {
+        u.host.toldShort = s.turn;
+        u.host.toldShortAt = n;
+        ev(s, 'hunger', 4, `The ${u.host.name} have been short of food for ${n} seasons.`, { household: u.host.id });
       }
     } else {
       for (const p of people) p.hunger = Math.max(0, p.hunger - 1.8);
       u.host.shortSeasons = 0;
+      if (s.turn - (u.host.toldShort || -99) >= 24) u.host.toldShortAt = 0;   // a good stretch wipes the slate
     }
   }
 }
@@ -1768,7 +1777,10 @@ function sysPairing(s, r) {
     moves++;
 
     if (second && p.matches > 1) {
-      ev(s, 'match', 6, `No unmatched partners were left, so the ${hh.name} claimed ${p.name} ${p.lineage}, already matched to the ${chosen.from ? chosen.from.name : 'another house'}. That is ${p.matches} households claiming the same person.`, { person: p.id, household: hh.id });
+      /* Over a life, not at once: they move households each time, so the old
+         wording — four households claiming the same person — described a
+         thing that never happened. */
+      ev(s, 'match', 6, `No unmatched partners were left, so the ${hh.name} took ${p.name} ${p.lineage} from the ${chosen.from ? chosen.from.name : 'house they were matched into'}. That is the ${p.matches}${p.matches === 2 ? 'nd' : p.matches === 3 ? 'rd' : 'th'} household they have been matched into.`, { person: p.id, household: hh.id });
       if (chosen.from) {
         const jilted = s.people[chosen.from.headId];
         if (jilted && jilted.alive && jilted.traits.grudge > 45)
@@ -2520,7 +2532,7 @@ function sysLearn(s, r) {
         && q.id !== p.id && ageOf(s, q) >= 20 && canPractise(s, q));
       if (takenOver && (last || chance(r, 0.25))) {
         L.from = takenOver.id; L.name = nameOf(s, takenOver.id); L.orphaned = 0;
-        ev(s, 'teach', 4, `${nameOf(s, takenOver.id)} took over teaching ${nameOf(s, p.id)} the ${L.trade}.`, { person: p.id });
+        ev(s, 'teach', 4, `${nameOf(s, takenOver.id)} took over teaching ${nameOf(s, p.id)} to work as a ${L.trade}.`, { person: p.id });
         continue;
       }
       if (L.progress > (last ? 0.4 : 0.62) && chance(r, last ? 0.45 : 0.10)) {
@@ -2536,7 +2548,7 @@ function sysLearn(s, r) {
     }
 
     if (chance(r, info.dropout || DROPOUT)) {
-      ev(s, 'teach', 3, `${nameOf(s, p.id)} stopped being taught ${L.trade} by ${L.name}.`, { person: p.id });
+      ev(s, 'teach', 3, `${nameOf(s, p.id)} stopped being taught to work as a ${L.trade} by ${L.name}.`, { person: p.id });
       p.learning = null;
   touchTrades(s);
       touchTrades(s);
@@ -2689,6 +2701,8 @@ function sysTradeLoss(s, r) {
    =========================================================================== */
 
 const GOODS = ['food', 'stone', 'ore', 'timber', 'cordage', 'leather', 'metal', 'cloth', 'garments', 'remedies'];
+// the ones that take a plural verb, so the chronicle does not say "there is no remedies"
+const PLURAL_GOODS = new Set(['garments', 'remedies', 'fittings']);
 
 /* Per worker, per season, before season and site are applied. Food is the
    exception: it scales with the ground a household actually holds, which is
@@ -2932,7 +2946,7 @@ function sysWant(s, r) {
     s.shortSince[g] = s.turn;
     const maker = Object.keys(MAKES).find(k => MAKES[k] && MAKES[k][g] !== undefined);
     const makers = maker ? livingPeople(s).filter(p => p.trade === maker).length : 0;
-    ev(s, 'note', 5, `There is no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
+    ev(s, 'note', 5, `There ${PLURAL_GOODS.has(g) ? 'are' : 'is'} no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
   }
 }
 
@@ -3935,8 +3949,17 @@ function sysDisrepair(s, r) {
     if (stageOf(b) >= 4) continue;
 
     if (conditionOf(b) >= RUINOUS) { b.ruinousSince = 0; continue; }
-    if (!b.ruinousSince) { b.ruinousSince = s.turn; continue; }
-    if (s.turn - b.ruinousSince < RUINOUS_GRACE) continue;
+    /* The grace is for a household that might still save it. An empty house
+       has nobody to wait for — and at the rate an empty one wears it reached
+       nothing and fell in six seasons, two short of the grace, so a great
+       house abandoned went straight from eminence to rubble and this rule
+       could not fire for an empty house at all. Abandoned stone comes down
+       the way it went up: a growth at a time. */
+    const lived = hh && !hh.extinct && hh.members.some(i => s.people[i] && s.people[i].alive);
+    if (lived) {
+      if (!b.ruinousSince) { b.ruinousSince = s.turn; continue; }
+      if (s.turn - b.ruinousSince < RUINOUS_GRACE) continue;
+    }
 
     /* Poverty and abandonment are different stories and the design wants both.
        A household that cannot afford its mending lives in a squalid house —
@@ -3950,6 +3973,7 @@ function sysDisrepair(s, r) {
 
     if (stageOf(b) > 1) {
       const was = roleWord(b);
+      b.ruinousSince = 0;
       b.stage -= 1;
       touchBuildings(s);
       b.growth = 0;
@@ -5011,7 +5035,13 @@ function sysMemory(s, r) {
   if (!old.length) return;
   const m = pick(r, old);
   const years = Math.round((s.turn - m.turn) / 4);
-  ev(s, 'memory', 3, `The ${m.house} ${m.phrase} — ${years} years ago, and still held against them.`, { household: m.household });
+  /* A settlement remembers what a household did well too. Every old deed was
+     printed as a grievance, so a house was told off for keeping the finest
+     house in the quarter and for feeding people in a hard season. */
+  ev(s, 'memory', 3, m.favour > 0
+    ? `The ${m.house} ${m.phrase} — ${years} years ago, and it is still remembered.`
+    : `The ${m.house} ${m.phrase} — ${years} years ago, and still held against them.`,
+    { household: m.household });
 }
 
 /* the shrine -----------------------------------------------------------------
@@ -5376,6 +5406,13 @@ function credit(p, deed) {
   if (!p.deeds.includes(deed)) p.deeds.push(deed);
 }
 
+// what somebody has already achieved, so they do not set out to do it twice
+function markDone(p, g) {
+  p.done = p.done || [];
+  const k = g.kind + ':' + (g.target || g.tile);
+  if (!p.done.includes(k)) p.done.push(k);
+}
+
 function sysPromotion(s, r) {
   // a goal that has gone nowhere for long enough is given up
   for (const p of Object.values(s.people)) {
@@ -5401,6 +5438,14 @@ function sysPromotion(s, r) {
       // a goal aimed at your own house is not a goal; you would grind at it
       // forever, because you can never stand above yourself
       if (o.target && o.target === p.householdId) continue;
+      // and a man who has found out he has not got the gift does not find out again
+      if (o.kind === 'stone' && !p.tender && (p.triedStone || 0) >= 3) continue;
+      /* And not one they have already seen through. Standing drifts, so a
+         household that outranked a rival fell back under them a few years
+         later and the same person set out to do the same thing again — the
+         chronicle reported one man overtaking the same house twice in three
+         seasons. Done is done. */
+      if ((p.done || []).includes(o.kind + ':' + (o.target || o.tile))) continue;
       const reach = 1 - clamp(walkDist(s, homeTile(s, p), o.tile) / 14, 0, 0.95);
       const fit = o.wants.reduce((acc, t) => acc + p.traits[t], 0) / o.wants.length;
       const score = fit * 0.55 + reach * 40 + ((p.ties || []).some(x => x.value < -20) ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
@@ -5478,12 +5523,32 @@ function sysActors(s, r) {
     if (g.kind === 'stone') {
       const b = s.buildings[g.target];
       if (!b || b.state !== 'growing') { p.goal = null; continue; }
-      if (!b.tenderId && p.tender) {
+    /* A stone nobody would work is not taken up by the one person who already
+       refused it. The ordinary reassignment has always excluded whoever walked
+       off a house; this path did not, and it put them straight back on it — so
+       a tender abandoned the same house twenty times in a century, and two
+       thirds of everything the chronicle printed was one man leaving a wall
+       and picking it up again. Somebody takes it up because they will work it,
+       which is what the goal was supposed to mean. */
+      const hhb = s.households[b.householdId];
+      const willing = p.tender && hhb && b.lastTenderId !== p.id
+        && tenderWill(s, p, hhb, b.tileId) > 0;
+      if (!b.tenderId && willing) {
         b.tenderId = p.id;
         ev(s, 'act', 5, `${nameOf(s, p.id)} took over the stalled stone and started work.`, { person: p.id });
-        p.goal = null; p.goalAge = 0; credit(p, 'took up abandoned stone');
-      } else if (!p.tender && chance(r, 0.3)) {
-        ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
+        markDone(p, g); p.goal = null; p.goalAge = 0; credit(p, 'took up abandoned stone');
+      } else if (!b.tenderId && p.tender) {
+        p.goal = null;        // they looked at it, and it is not theirs to finish
+      } else if (!p.tender) {
+        /* Somebody without the gift finds out they have not got it, and finds
+           out once. Tried at thirty per cent a season against a goal that
+           takes seven years to expire, the same two men were reported failing
+           at the same wall in four seasons out of six. */
+        p.triedStone = (p.triedStone || 0) + 1;
+        if (p.triedStone === 1) {
+          ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
+        }
+        if (p.triedStone >= 3) { p.goal = null; p.goalAge = 0; }   // and they know it now, for good
       }
     }
 
@@ -5531,7 +5596,8 @@ function sysActors(s, r) {
           credit(p, 'fed households not their own');
         }
       } else if (chance(r, 0.18)) {
-        ev(s, 'act', 3, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
+        // the asking is not news; opening a house's stores is
+        ev(s, 'act', 1, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
       } else if (hh.stores < 2 && p.traits.avarice > 60 && chance(r, 0.25)) {
         const victim = Object.values(s.households).filter(h => !h.extinct && h.stores > 8)[0];
         if (victim) {
@@ -5566,7 +5632,7 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct || reputeOf(s, target) > -2) {
         if (target && !target.extinct) {
-          p.goal = null; p.goalAge = 0;
+          markDone(p, g); p.goal = null; p.goalAge = 0;
           credit(p, 'got the ' + target.name + ' name spoken plainly again');
           ev(s, 'act', 6, `${p.name} cleared the ${target.name} name. Nothing is held against that household now.`, { person: p.id });
         } else p.goal = null;
@@ -5584,9 +5650,10 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct) { p.goal = null; continue; }
       hh.standing += 0.8;
-      if (chance(r, 0.2)) ev(s, 'act', 3, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
+      // grinding away at it is not news; overtaking them is
+      if (chance(r, 0.2)) ev(s, 'act', 1, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
       if (standingOf(s, hh) > standingOf(s, target) && chance(r, 0.3)) {
-        p.goal = null; p.goalAge = 0;
+        markDone(p, g); p.goal = null; p.goalAge = 0;
         ev(s, 'act', 6, `The ${hh.name} now outrank the ${target.name}. ${p.name} did it.`, { person: p.id });
         credit(p, 'raised their house above another');
       }

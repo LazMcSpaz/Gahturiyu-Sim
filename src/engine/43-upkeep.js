@@ -253,8 +253,17 @@ function sysDisrepair(s, r) {
     if (stageOf(b) >= 4) continue;
 
     if (conditionOf(b) >= RUINOUS) { b.ruinousSince = 0; continue; }
-    if (!b.ruinousSince) { b.ruinousSince = s.turn; continue; }
-    if (s.turn - b.ruinousSince < RUINOUS_GRACE) continue;
+    /* The grace is for a household that might still save it. An empty house
+       has nobody to wait for — and at the rate an empty one wears it reached
+       nothing and fell in six seasons, two short of the grace, so a great
+       house abandoned went straight from eminence to rubble and this rule
+       could not fire for an empty house at all. Abandoned stone comes down
+       the way it went up: a growth at a time. */
+    const lived = hh && !hh.extinct && hh.members.some(i => s.people[i] && s.people[i].alive);
+    if (lived) {
+      if (!b.ruinousSince) { b.ruinousSince = s.turn; continue; }
+      if (s.turn - b.ruinousSince < RUINOUS_GRACE) continue;
+    }
 
     /* Poverty and abandonment are different stories and the design wants both.
        A household that cannot afford its mending lives in a squalid house —
@@ -268,6 +277,7 @@ function sysDisrepair(s, r) {
 
     if (stageOf(b) > 1) {
       const was = roleWord(b);
+      b.ruinousSince = 0;
       b.stage -= 1;
       touchBuildings(s);
       b.growth = 0;

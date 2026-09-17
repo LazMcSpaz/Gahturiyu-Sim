@@ -172,7 +172,10 @@ function sysPairing(s, r) {
     moves++;
 
     if (second && p.matches > 1) {
-      ev(s, 'match', 6, `No unmatched partners were left, so the ${hh.name} claimed ${p.name} ${p.lineage}, already matched to the ${chosen.from ? chosen.from.name : 'another house'}. That is ${p.matches} households claiming the same person.`, { person: p.id, household: hh.id });
+      /* Over a life, not at once: they move households each time, so the old
+         wording — four households claiming the same person — described a
+         thing that never happened. */
+      ev(s, 'match', 6, `No unmatched partners were left, so the ${hh.name} took ${p.name} ${p.lineage} from the ${chosen.from ? chosen.from.name : 'house they were matched into'}. That is the ${p.matches}${p.matches === 2 ? 'nd' : p.matches === 3 ? 'rd' : 'th'} household they have been matched into.`, { person: p.id, household: hh.id });
       if (chosen.from) {
         const jilted = s.people[chosen.from.headId];
         if (jilted && jilted.alive && jilted.traits.grudge > 45)

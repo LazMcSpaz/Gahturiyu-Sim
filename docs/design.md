@@ -1043,6 +1043,16 @@ available.
 > seasons off every roof in the settlement, and that is what keeps the masons
 > in work.
 
+> **An abandoned house could not lose a growth.** The rule waits eight seasons
+> under the line before taking a stage, and an empty house wears fast enough to
+> reach nothing and fall in six — so a great house whose family died out went
+> straight from eminence to rubble, and the stage-fallback could never fire for
+> an empty house at all. The grace is for a household that might still save it;
+> abandoned stone comes down the way it went up, a growth at a time. What it
+> produces is better than the rule on its own: the great house comes down to a
+> large house, the fall leaves it standing, and a household with nowhere to
+> live moves into it five seasons later.
+
 **Condition**, 0–1, starts at 1.0.
 
 - Falls **0.02 per season**, plus **0.10** in a storm season
@@ -1225,6 +1235,30 @@ read like one.
 > last hands taking who it can, or a child from a house well below the
 > master's. Five lines a season across twenty-two seeds, and the chronicle
 > reads as what happened rather than what everyone was busy at.
+
+> **Read the thing, not the counts.** A sweep says five lines a season and
+> nothing flagged; reading six consecutive seasons as a player sees them found
+> five bugs in ten minutes. The worst: a tender abandoned a house, and the
+> figures' *finish the abandoned stone* goal put that same tender straight back
+> on it, with no check that they were willing — the ordinary reassignment had
+> excluded whoever walked off since the beginning, and this path had not. One
+> man abandoned the same house twenty times. Two hundred and fifty-six
+> abandonments and two hundred and eighty-one takeovers a century, against
+> sixty-seven houses actually finished: two thirds of the chronicle was a man
+> leaving a wall and picking it up again. Seventeen and fourteen now, with
+> houses finished unchanged.
+>
+> Four more of the same shape — something repeated with no threshold crossed.
+> A man without the gift found out he had not got it in four seasons out of
+> six, forever; he finds out once, for good. A household living at the edge was
+> reported short *for three seasons* twenty-seven times, always three, because
+> the count reset each time they recovered. A person ground away at raising
+> their house's standing every season, and set out to overtake the same rival
+> again each time standing drifted back. And every old deed was printed as a
+> grievance, so a household was told off for keeping the finest house in the
+> quarter. Grammar, too: *took over teaching X the tender*, *there is no
+> remedies*, and a line that said four households were claiming the same person
+> when they had been matched into four households over a life.
 
 **Do not print:** transactions, production, standing changes, condition ticks,
 every drift of every tie — anything that happens every season to everyone. A

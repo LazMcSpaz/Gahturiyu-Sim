@@ -71,13 +71,22 @@ function sysFood(s, r) {
       u.host.stores = 0;
       for (const p of people) p.hunger = clamp(p.hunger + deficit * 0.55, 0, 10);
       u.host.shortSeasons = (u.host.shortSeasons || 0) + 1;
-      // report a shortage once it has lasted, not the first season it dips
-      if (u.host.shortSeasons === 3 || (u.host.shortSeasons > 3 && u.host.shortSeasons % 6 === 0)) {
-        ev(s, 'hunger', 4, `The ${u.host.name} have been short of food for ${u.host.shortSeasons} seasons.`, { household: u.host.id });
+      /* Once it has lasted, and not again until it is either worse or long
+         behind them. A household living at the edge dips to three seasons,
+         recovers, dips again, and the count resets — so the same house was
+         reported short for three seasons twenty-seven times, always three. */
+      const n = u.host.shortSeasons;
+      const worse = n > (u.host.toldShortAt || 0);
+      const longAgo = s.turn - (u.host.toldShort || -99) >= 24;
+      if ((n === 3 || (n > 3 && n % 6 === 0)) && (longAgo || worse)) {
+        u.host.toldShort = s.turn;
+        u.host.toldShortAt = n;
+        ev(s, 'hunger', 4, `The ${u.host.name} have been short of food for ${n} seasons.`, { household: u.host.id });
       }
     } else {
       for (const p of people) p.hunger = Math.max(0, p.hunger - 1.8);
       u.host.shortSeasons = 0;
+      if (s.turn - (u.host.toldShort || -99) >= 24) u.host.toldShortAt = 0;   // a good stretch wipes the slate
     }
   }
 }

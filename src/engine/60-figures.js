@@ -25,6 +25,13 @@ function credit(p, deed) {
   if (!p.deeds.includes(deed)) p.deeds.push(deed);
 }
 
+// what somebody has already achieved, so they do not set out to do it twice
+function markDone(p, g) {
+  p.done = p.done || [];
+  const k = g.kind + ':' + (g.target || g.tile);
+  if (!p.done.includes(k)) p.done.push(k);
+}
+
 function sysPromotion(s, r) {
   // a goal that has gone nowhere for long enough is given up
   for (const p of Object.values(s.people)) {
@@ -50,6 +57,14 @@ function sysPromotion(s, r) {
       // a goal aimed at your own house is not a goal; you would grind at it
       // forever, because you can never stand above yourself
       if (o.target && o.target === p.householdId) continue;
+      // and a man who has found out he has not got the gift does not find out again
+      if (o.kind === 'stone' && !p.tender && (p.triedStone || 0) >= 3) continue;
+      /* And not one they have already seen through. Standing drifts, so a
+         household that outranked a rival fell back under them a few years
+         later and the same person set out to do the same thing again — the
+         chronicle reported one man overtaking the same house twice in three
+         seasons. Done is done. */
+      if ((p.done || []).includes(o.kind + ':' + (o.target || o.tile))) continue;
       const reach = 1 - clamp(walkDist(s, homeTile(s, p), o.tile) / 14, 0, 0.95);
       const fit = o.wants.reduce((acc, t) => acc + p.traits[t], 0) / o.wants.length;
       const score = fit * 0.55 + reach * 40 + ((p.ties || []).some(x => x.value < -20) ? 12 : 0) + (p.tender && o.kind === 'stone' ? 40 : 0);
@@ -127,12 +142,32 @@ function sysActors(s, r) {
     if (g.kind === 'stone') {
       const b = s.buildings[g.target];
       if (!b || b.state !== 'growing') { p.goal = null; continue; }
-      if (!b.tenderId && p.tender) {
+    /* A stone nobody would work is not taken up by the one person who already
+       refused it. The ordinary reassignment has always excluded whoever walked
+       off a house; this path did not, and it put them straight back on it — so
+       a tender abandoned the same house twenty times in a century, and two
+       thirds of everything the chronicle printed was one man leaving a wall
+       and picking it up again. Somebody takes it up because they will work it,
+       which is what the goal was supposed to mean. */
+      const hhb = s.households[b.householdId];
+      const willing = p.tender && hhb && b.lastTenderId !== p.id
+        && tenderWill(s, p, hhb, b.tileId) > 0;
+      if (!b.tenderId && willing) {
         b.tenderId = p.id;
         ev(s, 'act', 5, `${nameOf(s, p.id)} took over the stalled stone and started work.`, { person: p.id });
-        p.goal = null; p.goalAge = 0; credit(p, 'took up abandoned stone');
-      } else if (!p.tender && chance(r, 0.3)) {
-        ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
+        markDone(p, g); p.goal = null; p.goalAge = 0; credit(p, 'took up abandoned stone');
+      } else if (!b.tenderId && p.tender) {
+        p.goal = null;        // they looked at it, and it is not theirs to finish
+      } else if (!p.tender) {
+        /* Somebody without the gift finds out they have not got it, and finds
+           out once. Tried at thirty per cent a season against a goal that
+           takes seven years to expire, the same two men were reported failing
+           at the same wall in four seasons out of six. */
+        p.triedStone = (p.triedStone || 0) + 1;
+        if (p.triedStone === 1) {
+          ev(s, 'act', 3, `${nameOf(s, p.id)} worked at the stalled stone without the gift. Nothing moved.`, { person: p.id });
+        }
+        if (p.triedStone >= 3) { p.goal = null; p.goalAge = 0; }   // and they know it now, for good
       }
     }
 
@@ -180,7 +215,8 @@ function sysActors(s, r) {
           credit(p, 'fed households not their own');
         }
       } else if (chance(r, 0.18)) {
-        ev(s, 'act', 3, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
+        // the asking is not news; opening a house's stores is
+        ev(s, 'act', 1, `${nameOf(s, p.id)} went round the settlement asking what each household could spare.`, { person: p.id });
       } else if (hh.stores < 2 && p.traits.avarice > 60 && chance(r, 0.25)) {
         const victim = Object.values(s.households).filter(h => !h.extinct && h.stores > 8)[0];
         if (victim) {
@@ -215,7 +251,7 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct || reputeOf(s, target) > -2) {
         if (target && !target.extinct) {
-          p.goal = null; p.goalAge = 0;
+          markDone(p, g); p.goal = null; p.goalAge = 0;
           credit(p, 'got the ' + target.name + ' name spoken plainly again');
           ev(s, 'act', 6, `${p.name} cleared the ${target.name} name. Nothing is held against that household now.`, { person: p.id });
         } else p.goal = null;
@@ -233,9 +269,10 @@ function sysActors(s, r) {
       const target = s.households[g.target];
       if (!target || target.extinct) { p.goal = null; continue; }
       hh.standing += 0.8;
-      if (chance(r, 0.2)) ev(s, 'act', 3, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
+      // grinding away at it is not news; overtaking them is
+      if (chance(r, 0.2)) ev(s, 'act', 1, `${nameOf(s, p.id)} worked to raise the ${hh.name} standing. It went up a little.`, { person: p.id });
       if (standingOf(s, hh) > standingOf(s, target) && chance(r, 0.3)) {
-        p.goal = null; p.goalAge = 0;
+        markDone(p, g); p.goal = null; p.goalAge = 0;
         ev(s, 'act', 6, `The ${hh.name} now outrank the ${target.name}. ${p.name} did it.`, { person: p.id });
         credit(p, 'raised their house above another');
       }

@@ -12,6 +12,8 @@
    =========================================================================== */
 
 const GOODS = ['food', 'stone', 'ore', 'timber', 'cordage', 'leather', 'metal', 'cloth', 'garments', 'remedies'];
+// the ones that take a plural verb, so the chronicle does not say "there is no remedies"
+const PLURAL_GOODS = new Set(['garments', 'remedies', 'fittings']);
 
 /* Per worker, per season, before season and site are applied. Food is the
    exception: it scales with the ground a household actually holds, which is
@@ -255,6 +257,6 @@ function sysWant(s, r) {
     s.shortSince[g] = s.turn;
     const maker = Object.keys(MAKES).find(k => MAKES[k] && MAKES[k][g] !== undefined);
     const makers = maker ? livingPeople(s).filter(p => p.trade === maker).length : 0;
-    ev(s, 'note', 5, `There is no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
+    ev(s, 'note', 5, `There ${PLURAL_GOODS.has(g) ? 'are' : 'is'} no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
   }
 }
