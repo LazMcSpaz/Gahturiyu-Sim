@@ -122,6 +122,7 @@ function tileFactsHTML(s, id) {
     if (next) row('Last tended', gap <= 0 ? 'this season' : `${gap} year${gap === 1 ? '' : 's'} ago`,
       b.stalledStage ? 'bad' : '');
     if (b.stalledStage) row('Growth', 'stopped — no tender will come', 'bad');
+    condRows(s, b, row);
   } else if (b) {
     row('House', b.state === 'mature' ? 'standing'
       : b.state === 'derelict' ? 'derelict'
@@ -130,6 +131,8 @@ function tileFactsHTML(s, id) {
     if (b.state === 'growing') {
       const tn = b.tenderId && s.people[b.tenderId];
       row('Tender', tn && tn.alive ? nameOf(s, tn.id) : 'nobody is working it', tn && tn.alive ? '' : 'bad');
+    } else {
+      condRows(s, b, row);
     }
   } else {
     row('House', 'none — this is claimed ground', 'bad');
@@ -226,6 +229,21 @@ function ordinal(n) {
   const rem100 = n % 100;
   if (rem100 >= 11 && rem100 <= 13) return n + 'th';
   return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+}
+
+/* What state the stone is in, and whether anyone has made it worth looking at.
+   Both are slice-six numbers and both are things a player can act on, so they
+   are said plainly rather than as a bar. */
+function condRows(s, b, row) {
+  const c = conditionOf(b);
+  const word = c >= 0.85 ? 'sound' : c >= DISREPAIR ? 'wearing' : c >= RUINOUS ? 'in disrepair' : 'falling in';
+  const mended = b.lastMended ? Math.round((s.turn - b.lastMended) / 4) : null;
+  row('Stone', `${word}${mended === null ? ' — no mason has ever been to it'
+    : mended <= 0 ? ' — mended this season' : ` — last mended ${mended} year${mended === 1 ? '' : 's'} ago`}`,
+    c < RUINOUS ? 'bad' : c < DISREPAIR ? 'bad' : c >= 0.85 ? 'good' : '');
+  const bty = beautyOf(b);
+  if (bty >= 0.1) row('Carving', bty >= 0.8 ? 'the finest house near it'
+    : bty >= 0.4 ? 'carved' : 'a little carving on it', bty >= 0.8 ? 'good' : '');
 }
 
 function inspectorHTML(where, rows) {

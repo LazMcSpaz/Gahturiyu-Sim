@@ -106,6 +106,18 @@ function demandOf(s, hh) {
     const need = per * heads * 6 - (goodsOf(hh)[g] || 0);
     if (need > 0) want[g] = need;
   }
+  /* A house that needs mending is a buyer. This is what puts a quarrier and a
+     woodcutter in the same market as everybody else, and it is why a poor
+     household's roof is the first thing to go: the bill arrives whether or
+     not they can meet it. */
+  const b = buildingOf(s, hh);
+  if (b && conditionOf(b) < MEND_BELOW) {
+    for (const [g, n] of Object.entries(REPAIR_COST)) {
+      const short = n * 3 - (goodsOf(hh)[g] || 0);
+      if (short > 0) want[g] = Math.max(want[g] || 0, short);
+    }
+  }
+
   // a craft that cannot get its input is the sharpest demand in the settlement
   for (const p of live) {
     const recipe = MAKES[p.trade];

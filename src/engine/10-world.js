@@ -100,6 +100,7 @@ function newWorld(cfg) {
     if (isFirst) { hh.headId = p.id; p.role = 'head'; }
     made++;
   }
+  seedWorkshops(state, r);
   seedTrades(state, r);
   for (const hid of hids) assignWork(state, r, state.households[hid]);
 
@@ -155,6 +156,29 @@ function ageOf(state, p) { return Math.floor((state.turn - p.birthTurn) / 4); }
    place depends on, or there are no masters, nobody can be apprenticed, and the
    whole trade system never starts. The founding generation carries the crafts;
    everything after is taught. */
+/* A settlement is founded with a few workshops in it, or the crafts that need
+   a room cannot be seeded and — because a lost craft is never re-invented —
+   the place has no smith, no joiner and no herbalist for as long as it stands.
+   Stage is drawn from a building's age, and about three in ten come out old
+   enough; one seed in ten draws badly and founds twenty-seven households
+   around a single workshop. A quarter of the standing stone is old stone. */
+function seedWorkshops(state, r) {
+  const mature = Object.values(state.buildings).filter(b => b.state === 'mature');
+  const want = Math.max(2, Math.round(mature.length / 4));
+  let have = mature.filter(b => stageOf(b) >= 2).length;
+  const ones = mature.filter(b => stageOf(b) === 1).sort((a, b) => a.startTurn - b.startTurn);
+  for (const b of ones) {
+    if (have >= want) break;
+    const age = 190 + ri(r, 0, 60);
+    const grown = age - 68;
+    b.startTurn = -age;
+    b.stage = 2;
+    b.stageSince = -(grown - 120);
+    b.growth = clamp((grown - 120) / STAGE_TURNS[2], 0, 0.95);
+    have++;
+  }
+}
+
 function seedTrades(state, r) {
   const grown = Object.values(state.people)
     .filter(p => p.alive && ageOf(state, p) >= 22 && ageOf(state, p) <= 68);
@@ -168,28 +192,33 @@ function seedTrades(state, r) {
     setTrade(state, pick(r, pool), 'tender');
   }
 
-  // the crafts that need only a master
+  /* The crafts that need a room come next, before the ones that do not. They
+     can only be seeded from the handful of households that already have a
+     workshop, so if the open crafts take those people first the settlement is
+     founded without a smith or a weaver and can never be taught one. Two
+     apiece, not one: a single master who dies young takes the craft with them
+     before they have ever had a child old enough to teach. */
   for (const k of TEACHABLE) {
-    if (k === 'tender' || TRADES[k].room) continue;
-    const want = Math.max(1, Math.round(grown.length * 0.03));
-    for (let i = 0; i < want; i++) {
-      const pool = free();
+    if (!TRADES[k].room) continue;
+    for (let i = 0; i < 2; i++) {
+      /* A room a household can reach, not only one it owns — the same rule
+         the engine enforces every season afterwards. Owning was too narrow at
+         founding: a seed with seven workshops between it could seat a weaver
+         and a tailor and then ran out of people, so the settlement was founded
+         with no smith, no joiner, no carver and no herbalist, and a craft that
+         is not founded cannot be taught. */
+      const pool = free().filter(p => workshopFor(state, p));
       if (!pool.length) break;
       setTrade(state, pick(r, pool), k);
     }
   }
 
-  // and the crafts that need a room, only where a room already stands. A young
-  // settlement therefore has a few of these and a very old one has all of them.
-  // Two apiece, not one: a single master who dies young takes the craft with
-  // them before they have ever had a child old enough to teach.
+  // and the crafts that need only a master take whoever is left
   for (const k of TEACHABLE) {
-    if (!TRADES[k].room) continue;
-    for (let i = 0; i < 2; i++) {
-      const pool = free().filter(p => {
-        const hh = state.households[p.householdId];
-        return hh && hasWorkshop(state, hh);
-      });
+    if (k === 'tender' || TRADES[k].room) continue;
+    const want = Math.max(1, Math.round(grown.length * 0.03));
+    for (let i = 0; i < want; i++) {
+      const pool = free();
       if (!pool.length) break;
       setTrade(state, pick(r, pool), k);
     }

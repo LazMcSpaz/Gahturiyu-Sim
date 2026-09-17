@@ -156,7 +156,7 @@ function sysStore(s, r) {
      store trickled out where it should have poured. */
   const short = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith
     && (h.shortSeasons || 0) >= 2);
-  if (!short.length) { store.emptyFor = 0; return; }
+  if (!short.length) { store.emptyFor = 0; store.lastCount = 0; return; }
 
   /* Going hungry is held against whoever runs the settlement, fed or not.
      Without this the store was a legitimacy engine: opening it paid regard,
@@ -216,9 +216,14 @@ function sysStore(s, r) {
   /* The store opening is only news when it is not the ordinary run of things.
      Reported every time it happens, it fired most seasons and turned an
      emergency into routine — three lines a season, all the same line. */
-  const big = short.length >= 4;
+  /* Worse than last time, or after a long quiet stretch. A flat "four or more
+     households" reported a settlement that steadily fed six every season as
+     news ninety-one times a century — the same line about the same steady
+     state. What is news is the number getting worse. */
+  const big = short.length >= Math.max(4, Math.ceil((store.lastCount || 0) * 1.5));
   if (big || s.turn - (store.lastTold || -99) >= 24) {
     store.lastTold = s.turn;
+    store.lastCount = short.length;
     ev(s, 'hardship', big ? 6 : 4,
       `The common store was opened to ${short.length} household${short.length > 1 ? 's' : ''} that had run out.`, {});
   }

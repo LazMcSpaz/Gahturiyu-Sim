@@ -91,6 +91,12 @@ function buildTerrain(r) {
         // fishing depends on being near the water
         fish: t === SHORE ? 0.6 + r() * 0.5 : t === SEA ? 0 : 0,
         graze: t === MOOR ? 0.5 + r() * 0.5 : t === SLOPE ? 0.25 + r() * 0.3 : 0.05,
+        /* Copses in the hollows, and not everywhere — which is what makes a
+           wooded claim worth holding. Timber was in the goods list and wanted
+           by a joiner from the start, but no tile ever carried any, so the
+           settlement held exactly zero of it for a hundred and twenty years
+           and nobody noticed until the stone needed mending. */
+        wood: (t === SLOPE || t === MOOR) && chance(r, 0.35) ? 0.45 + r() * 0.45 : 0,
         owner: null
       });
     }

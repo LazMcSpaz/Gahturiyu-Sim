@@ -80,19 +80,7 @@ function sysGrowth(s, r) {
       ev(s, 'mature', 5, `The ${hh ? hh.name : 'new'} house finished growing after ${Math.round((s.turn - b.startTurn) / 4)} years.`, { building: b.id, household: b.householdId });
     }
   }
-  // slow decay of empty or neglected homes
-  for (const b of Object.values(s.buildings)) {
-    if (b.state !== 'mature') continue;
-    const hh = s.households[b.householdId];
-    const occupied = hh && hh.members.some(p => s.people[p].alive);
-    if (!occupied) {
-      b.condition -= 0.012;
-      if (b.condition <= 0 && b.state !== 'derelict') {
-        b.state = 'derelict';
-        ev(s, 'derelict', 3, `The ${hh ? hh.name + ' ' : ''}house at ${siteWord(s, b.tileId)} fell derelict. It had gone untended for years.`, { building: b.id });
-      }
-    }
-  }
+  // wear, mending and dereliction all live in the upkeep system now
 }
 
 function homeTile(s, p) {

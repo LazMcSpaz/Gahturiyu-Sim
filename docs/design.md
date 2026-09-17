@@ -958,6 +958,63 @@ available.
 
 ## 10. Upkeep, decay and beauty
 
+> **Built.** The bill arrives every season and the settlement can be seen
+> paying it or failing to. A mason mends a house for a stone and a timber; a
+> household that cannot find them is carried by the mason and owes for it,
+> which is the class mechanic the design wanted — the poor do not live in
+> worse houses because a rule says so, they live in houses they are still
+> paying for. That debt goes into the same ledger 9d reads, so a house mended
+> on credit for thirty years is a house that can be taken.
+>
+> **The world had no wood in it.** Timber was in the goods list from 9a and a
+> joiner needed it to make anything, but no tile ever carried any, so the
+> settlement held exactly zero lots of timber for a hundred and twenty years
+> and nothing in the simulation noticed until the stone needed mending.
+> Copses now sit in about a third of the slopes and moors. The first fix
+> over-corrected — a household put every spare hand into the copse and
+> thirty-seven of a hundred adults came out as woodcutters holding nine
+> hundred lots of timber nobody wanted — so a household works its wood with
+> one pair of hands after it has somebody on food.
+>
+> Four numbers were wrong in the same direction, and all four made the stone
+> come down faster than a settlement could raise it:
+>
+> - **People patch their own roofs**, which the design did not say. Without it
+>   a quarter no mason would walk to simply came down: twenty to forty growths
+>   lost a century, and three seeds in nine ended with no third growth at all.
+> - **A flat rate is not a recovery.** Self-mending at 0.022 a season against
+>   wear of 0.02 nets 0.002, so a house knocked under the line by three storms
+>   took twenty-five years to climb back over it. Every workshop in the
+>   settlement was gone by year twenty-four and the crafts that need a room
+>   with them. It is a share of the gap now — the worst of it first.
+> - **Poverty and abandonment are different stories.** A growth is lost after
+>   two years past mending *and* ten years with nobody touching the stone at
+>   all. A household that simply cannot afford its mending lives in a squalid
+>   house, which is common; the stone only comes down when a house is given up.
+> - **A sound empty house does not stand empty.** A family that died out used
+>   to leave its stone to rot for twenty years while the household next door
+>   spent fifteen growing a new one. The count of workshops fell from thirty to
+>   eleven over a century. A homeless household now takes the empty house
+>   before it claims new ground.
+>
+> Two further things the slice forced. **A settlement now answers what it is
+> short of**: masons are wanted in proportion to the stone that needs mending
+> rather than to the population, and a household with crag or copse puts a
+> hand on it when the settlement has no stone or timber to mend with. Both
+> needed ceilings — unchecked, a settlement of seventy-eight people answered
+> failing stone with twelve masons, a seventh of its adults doing work that
+> makes nothing while the quarry it needed went uncut. And **a settlement is
+> founded with a few workshops in it**: stage is drawn from a building's age
+> and one seed in ten drew badly enough to found twenty-seven households
+> around a single workshop, which meant no smith, no joiner and no herbalist
+> for as long as the place stood, because a lost craft is never re-invented.
+> A quarter of the founding stone is old stone, and the crafts that need a
+> room are seeded before the ones that do not.
+>
+> Storms earn their keep exactly as written: a storm season takes five quiet
+> seasons off every roof in the settlement, and that is what keeps the masons
+> in work.
+
 **Condition**, 0–1, starts at 1.0.
 
 - Falls **0.02 per season**, plus **0.10** in a storm season
@@ -1120,15 +1177,13 @@ and the tests passing.
      and money going bad.
    - **5d** default: the ladder, ruthlessness by form and by person, rescue and
      the refusal of it. *Built.*
-6. **Upkeep and repairs.** Condition, masons, falling back a stage. It was to be
-   the thing that thinned the third growths; 5d got there first by a different
-   road, so what is left for it is stone that is not kept up — including the
-   fourteen buildings in a typical century whose households have died out and
-   which nothing currently touches.
-7. **Beauty, quarters, trades organising, landmarks.** The rollups, the blocs,
-   and the rarest thing in the design.
+6. **Upkeep and repairs.** Condition, masons, falling back a stage, and beauty.
+   *Built* — see §10.
+7. **Quarters, trades organising, landmarks.** The rollups, the blocs, and the
+   rarest thing in the design. Beauty moved forward into 6, because a carver
+   with nothing to carve was the only trade in the list doing nothing at all.
 
-Slices 1 through 5 are built. Slice 6 is the next thing.
+Slices 1 through 6 are built. Slice 7 is the next thing.
 
 ## 15. Open, not yet decided
 

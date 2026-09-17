@@ -4,14 +4,15 @@ const path = require('path'), fs = require('fs');
 const root = path.join(__dirname, '..');
 const { loadEngine } = require(path.join(root, 'build.js'));
 const E = loadEngine(root);
-const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H,
+const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H, ageOf,
         FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
         stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
         TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore, endangered,
         GOODS, MAKES, goodsOf, commonStore, TITHE,
         VALUE, debtsOf, owed, totalOwed, totalHeld, priceFor, demandOf,
         legitimacy, mintOf, coinOf, coinWorks, COIN_AT, COIN_KEEP,
-        HARSHNESS, chooseRuling, gaoled, RUIN_AT } = E;
+        HARSHNESS, chooseRuling, gaoled, RUIN_AT,
+        conditionOf, beautyOf, inDisrepair, vacant, DISREPAIR, RUINOUS, MEND_BELOW, SELF_CEILING } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -280,9 +281,30 @@ console.log('\ntrades');
   const start = newWorld({ seed: 20260910, population: 150, startYear: 812 });
   // a settlement is not founded blank, or there are no masters and nothing
   // can ever be taught
+  /* The design's own claim is that a young settlement has a few of the crafts
+     that need a room and a very old one has all of them, so demanding all
+     eleven from one arbitrary seed was testing that seed's luck: 20260910
+     founds with a single workshop between twenty-seven households. What must
+     hold is the rule — every open craft is there, and no craft that needs a
+     room is left unseeded while somebody could have reached one. */
+  const rooms = TEACHABLE.filter(k => TRADES[k].room);
+  const opens = TEACHABLE.filter(k => !TRADES[k].room);
+  const founds = [20260910, 1, 4242, 991, 7].map(seed => {
+    const w = newWorld({ seed, population: 150, startYear: 812 });
+    const held = new Set(Object.values(w.people).filter(p => p.trade).map(p => p.trade));
+    const spare = Object.values(w.people).filter(p => p.alive && !p.trade
+      && ageOf(w, p) >= 22 && ageOf(w, p) <= 68 && workshopFor(w, p)).length;
+    return { seed, held, spare };
+  });
+  ok('every craft that needs only a master is founded with one',
+     founds.every(f => opens.every(k => f.held.has(k))),
+     `${opens.length} open crafts across ${founds.length} foundings`);
+  ok('and a craft that needs a room is founded wherever a room could be reached',
+     founds.every(f => rooms.every(k => f.held.has(k)) || f.spare === 0),
+     founds.map(f => `${f.seed}: ${rooms.filter(k => f.held.has(k)).length}/${rooms.length}`).join(', '));
+
   const seeded = new Set(Object.values(start.people).filter(p => p.trade).map(p => p.trade));
-  ok('the founding generation already holds the crafts',
-     TEACHABLE.every(k => seeded.has(k)), `${seeded.size} crafts at founding`);
+  ok('a settlement is never founded blank', seeded.size >= 6, `${seeded.size} crafts at founding`);
   ok('nobody is founded holding a craft they cannot practise',
      Object.values(start.people).filter(p => p.alive && p.trade).every(p => canPractise(start, p)));
 
@@ -391,9 +413,17 @@ console.log('\nexchange and debt');
 
   // the whole point of 9b: the chains complete. A smith two quarters from any
   // ore made nothing at all before goods could move.
-  const chained = ['metal', 'garments', 'fittings'].filter(g => houses.some(h => goodsOf(h)[g] > 0.5));
-  ok('goods reach the crafts that need them', chained.length >= 2,
-     `made and held: ${chained.join(', ') || 'none'}`);
+  /* Only for the crafts this settlement actually has. A seed founded without
+     a smith holds no metal, and that is the room rule working, not the
+     carrying. */
+  const canMake = { metal: 'smith', garments: 'tailor', fittings: 'joiner' };
+  const possible = Object.entries(canMake)
+    .filter(([, t]) => Object.values(m.people).some(p => p.alive && p.trade === t))
+    .map(([g]) => g);
+  const chained = possible.filter(g => houses.some(h => goodsOf(h)[g] > 0.5));
+  ok('goods reach the crafts that need them',
+     possible.length ? chained.length >= Math.min(2, possible.length) : true,
+     `made and held: ${chained.join(', ') || 'none'} of ${possible.join(', ') || 'no chained craft held'}`);
 
   // and they spread beyond whoever makes them
   const spread = GOODS.filter(g => houses.filter(h => goodsOf(h)[g] > 0.5).length >= 4);
@@ -539,20 +569,96 @@ console.log('\nhardship bites, and crafts fight to live');
   // and the crafts hold on across many seeds, the stone above all
   const runs = [20260910, 4242, 31337, 555555, 1, 7, 99, 313].map(seed => {
     let z = newWorld({ seed, population: 150, startYear: 812 });
+    const had = TEACHABLE.filter(k => Object.values(z.people).some(p => p.alive && p.trade === k));
     let lowTender = 99;
     for (let i = 0; i < 480; i++) {
       z = advance(z, { lever: 'none' });
       lowTender = Math.min(lowTender, Object.values(z.people).filter(p => p.alive && p.trade === 'tender').length);
     }
     const alive = Object.values(z.people).filter(p => p.alive);
-    return { lowTender, lost: TEACHABLE.filter(k => !alive.some(p => p.trade === k)) };
+    /* Against what the settlement was founded holding. A craft it never had
+       is not a craft it shed, and a founding with one workshop in it has no
+       smith to lose. */
+    return { lowTender, lost: had.filter(k => !alive.some(p => p.trade === k)) };
   });
   const keptStone = runs.filter(o => o.lowTender > 0).length;
   ok('the stone survives in almost every settlement',
      keptStone >= runs.length - 1, `${keptStone} of ${runs.length} seeds never ran out of tenders`);
   const worst = Math.max(...runs.map(o => o.lost.length));
   ok('a settlement does not shed most of its crafts',
-     worst <= 3, `worst run lost ${worst} of ${TEACHABLE.length}`);
+     worst <= 3, `worst run lost ${worst} of the crafts it was founded with`);
+}
+
+console.log('\nupkeep, decay and beauty');
+{
+  const u = run(480, 991, 150);
+  const built = Object.values(u.buildings).filter(b => b.state === 'mature');
+  ok('every standing building carries a condition',
+     built.every(b => conditionOf(b) >= 0 && conditionOf(b) <= 1));
+
+  /* The claim of the slice: stone that nobody keeps up comes back down, and
+     stone somebody keeps up does not. Both halves have to be visible or the
+     mechanism is only a decay rate. */
+  const kept = built.filter(b => b.lastMended && u.turn - b.lastMended < 40);
+  ok('a mason keeps a house sound', kept.length > 0
+     && kept.reduce((a, b) => a + conditionOf(b), 0) / kept.length > SELF_CEILING,
+     `${kept.length} mended within ten years, averaging ${(kept.reduce((a, b) => a + conditionOf(b), 0) / Math.max(1, kept.length)).toFixed(2)}`);
+
+  const evs = u.chronicle.flatMap(t => t.events);
+  const fell = evs.filter(e => /is not any more/.test(e.text)).length;
+  ok('a house that is given up loses a growth', fell > 0, `${fell} over 120 years`);
+  ok('but losing a growth stays rarer than reaching one',
+     fell <= evs.filter(e => /reached its third growth|second growth/.test(e.text)).length * 2,
+     `${fell} lost against ${evs.filter(e => /reached its third growth|second growth/.test(e.text)).length} reached`);
+
+  // a household without the stone and timber for it is the whole class mechanic
+  const poor = Object.values(u.households).filter(h => !h.extinct && (h.wantsMending || 0) > 0);
+  ok('a household can be too poor to keep its house up',
+     evs.some(e => /no stone or timber to mend it with/.test(e.text)) || poor.length > 0,
+     `${poor.length} households waiting on mending they cannot pay for`);
+
+  // and the settlement answers failing stone by training masons
+  const masons = Object.values(u.people).filter(p => p.alive && p.trade === 'mason').length;
+  const adults = Object.values(u.people).filter(p => p.alive && ageOf(u, p) >= 18).length;
+  ok('masons stay a trade, not an industry', masons <= Math.ceil(adults * 0.09),
+     `${masons} masons among ${adults} adults`);
+
+  // nothing sound stands empty for long
+  const emptySound = built.filter(b => vacant(u, b) && conditionOf(b) > DISREPAIR).length;
+  ok('a sound empty house gets taken', emptySound <= 3,
+     `${emptySound} standing empty and sound`);
+  ok('and somebody does move in', evs.some(e => /moved into the old/.test(e.text)),
+     `${evs.filter(e => /moved into the old/.test(e.text)).length} households took an empty house`);
+
+  // beauty: a carver's work shows up, and it is not everywhere
+  const carved = built.filter(b => beautyOf(b) > 0.1);
+  ok('a carver makes some houses worth looking at',
+     carved.length > 0 && carved.length < built.length * 0.8,
+     `${carved.length} of ${built.length} carry carving`);
+
+  // and the weather is what keeps the masons in work
+  let x = run(200, 20260910, 150);
+  const before = Object.values(x.buildings).filter(b => b.state === 'mature')
+    .reduce((a, b) => a + conditionOf(b), 0);
+  const after = (() => {
+    const y = advance(x, { lever: 'storm' });
+    return Object.values(y.buildings).filter(b => b.state === 'mature')
+      .reduce((a, b) => a + conditionOf(b), 0);
+  })();
+  const quiet = (() => {
+    const y = advance(x, { lever: 'none' });
+    return Object.values(y.buildings).filter(b => b.state === 'mature')
+      .reduce((a, b) => a + conditionOf(b), 0);
+  })();
+  ok('a storm breaks things', after < quiet,
+     `${after.toFixed(1)} after a storm against ${quiet.toFixed(1)} after a quiet season`);
+
+  // the world has the timber its economy was always written to need
+  const wooded = u.tiles.filter(t => (t.wood || 0) > 0.3).length;
+  ok('the coast has wood on it', wooded > 10, `${wooded} wooded tiles`);
+  ok('and somebody cuts it',
+     Object.values(u.people).some(p => p.alive && p.trade === 'woodcutter')
+     && Object.values(u.households).some(h => !h.extinct && goodsOf(h).timber > 1));
 }
 
 console.log('\ndefault, and what a government will do about it');

@@ -19,6 +19,7 @@ function advance(state, input) {
   s.weather = { storm: 0, cold: 0 };   // nothing carries over; a lever sets it below
   applyInput(s, r, input);
   sysWeather(s, r);
+  sysWear(s);            // and it takes a season off every roof in the settlement
   sysMake(s, r);         // crafts turn inputs into goods
   sysFood(s, r);         // the ground feeds the larder, after the cut
   sysWant(s, r);         // and a household uses a little of what it cannot make
@@ -33,13 +34,17 @@ function advance(state, input) {
   sysLearn(s, r);        // and the taught get closer, or give up
   sysRoomless(s);        // a craft with nowhere to work is given up
   sysUnskilled(s, r);    // everyone else works
+  sysRepairs(s, r);      // masons mend what they will come out for, and can be paid for
+  sysBeauty(s, r);       // carvers make a house worth looking at
   sysGrowth(s, r);
   sysCheckIn(s, r);      // tenders go back round the houses that stand
   sysStages(s, r);       // and the stone keeps growing under them
+  sysDisrepair(s, r);    // while what nobody kept up comes back down
   sysNotes(s, r);
   sysPairing(s, r);
   sysLife(s, r);
   sysHouseholds(s, r);
+  sysTakeEmpty(s, r);    // a sound empty house beats fifteen years of growing one
   sysClaims(s, r);
   sysDisputes(s, r);
   sysOffices(s, r);

@@ -120,6 +120,8 @@ function mapHTML(s, selected) {
           else if (st >= 3) cls.push('m-' + roleOf(o.b));
           else cls.push(st >= 2 ? 'm-workshop' : 'm-lit');
         }
+        // a house visibly falling in reads as one, whatever else it is
+        if (o.b.state === 'mature' && inDisrepair(o.b)) cls.push('m-worn');
         if (actorTiles[id]) cls.push('m-actor');
       } else {
         g = t.t === SEA ? GLYPH.sea : t.t === SHORE ? GLYPH.shore : t.t === SLOPE ? GLYPH.slope : t.t === CRAG ? GLYPH.crag : GLYPH.moor;

@@ -180,7 +180,21 @@ function effectiveHolders(s, trade) {
 }
 
 function wantOf(s, trade, adults) {
-  return Math.max(2, Math.round(((TRADES[trade] || {}).want || 0.02) * adults));
+  const base = Math.max(2, Math.round(((TRADES[trade] || {}).want || 0.02) * adults));
+  /* A mason is the one craft whose work can be counted directly: it is the
+     stone that needs mending, not the number of people. At a flat fraction of
+     adults a settlement kept two masons over thirty failing buildings and lost
+     ground every season for a century, and nothing in it could see that as a
+     shortage. A town whose houses are falling in should be training masons for
+     the same reason a town without a smith should be training a smith. */
+  if (trade !== 'mason') return base;
+  const failing = Object.values(s.buildings).filter(b => b.state === 'mature'
+    && conditionOf(b) < MEND_BELOW).length;
+  /* With a ceiling. Unchecked, a settlement of seventy-eight people answered
+     failing stone with twelve masons — a seventh of its adults doing work that
+     makes nothing, while the quarry and the copse it needed went uncut and the
+     houses went on falling anyway. */
+  return clamp(Math.max(base, Math.round(failing / 3)), 2, Math.round(adults * 0.06));
 }
 
 function endangered(s, trade) {
@@ -390,8 +404,31 @@ function sysUnskilled(s, r) {
     const claims = hh.claims || [];
     const fish = claims.some(c => s.tiles[c].fish > 0.25);
     const graze = claims.some(c => s.tiles[c].graze > 0.25);
+    const wood = claims.some(c => (s.tiles[c].wood || 0) > 0.3);
     const crag = claims.some(c => s.tiles[c].t === CRAG);
-    setTrade(s, p, fish ? 'boathand'
+    /* A household feeds itself first and works the rest of its ground after.
+       Without the second clause every hand on a pastoral coast goes to the
+       grazing and the wood is never cut, which is how the settlement came to
+       hold no timber at all. */
+    const has = (...ts) => hh.members.some(i => {
+      const q = s.people[i];
+      return q && q.alive && ts.includes(q.trade);
+    });
+    /* One pair of hands on the wood, not every spare pair: without the second
+       clause a pastoral household put everyone after the first into the
+       copse, and thirty-seven of a hundred adults came out as woodcutters
+       holding nine hundred lots of timber nobody wanted. */
+    /* And a household answers what the settlement is short of, once it has
+       somebody on food. Without this the ground decided everything: a coast
+       whose houses were coming down for want of stone and timber went on
+       putting every spare hand onto the grazing, because nothing in the
+       assignment could see a shortage. */
+    const fed = has('fieldhand', 'boathand');
+    const shortOf = s.shortMaterial || {};
+    setTrade(s, p,
+        wood && !has('woodcutter') && (fed || !(fish || graze)) ? 'woodcutter'
+      : crag && shortOf.stone && fed && !has('quarrier') ? 'quarrier'
+      : fish ? 'boathand'
       : graze ? 'fieldhand'
       : crag ? (chance(r, 0.5) ? 'quarrier' : 'miner')
       : pick(r, ['woodcutter', 'hauler', 'quarrier']));
