@@ -48,6 +48,9 @@ function advance(state, input) {
   sysClaims(s, r);
   sysDisputes(s, r);
   sysOffices(s, r);
+  sysQuarters(s, r);     // a quarter empties, or the settlement grows a new one
+  sysLevy(s, r);         // and what the ruling body can take when people are short
+  sysBlocs(s, r);        // a quarter or a trade moves as one, rarely
   sysShrine(s, r);
   sysService(s, r);     // who owes the stone a year, and who refuses it
   sysContact(s, r);     // who spent the season near whom

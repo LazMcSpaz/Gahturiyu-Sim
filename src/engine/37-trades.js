@@ -22,10 +22,10 @@ const TRADES = {
   hauler:     { tier: 1, verb: 'hauls' },
 
   // tier 2 — a master, but the work happens where the work is
-  roper:      { tier: 2, years: 3,  verb: 'lays rope', want: 0.03 },
+  roper:      { tier: 2, years: 3,  verb: 'lays rope', want: 0.03, near: SHORE },
   tanner:     { tier: 2, years: 4,  verb: 'tans hides', want: 0.025 },
   carrier:    { tier: 2, years: 4,  verb: 'carries goods between houses', want: 0.025 },
-  mason:      { tier: 2, years: 5,  verb: 'mends stone', want: 0.03 },
+  mason:      { tier: 2, years: 5,  verb: 'mends stone', want: 0.03, near: CRAG },
   /* The stone is the exception at every edge. It takes ten years, only one in
      eight can learn it at all, and four in five who begin do not finish — so a
      tender teaches until they are old and takes them young, or the craft simply
@@ -38,7 +38,7 @@ const TRADES = {
   tailor:     { tier: 3, years: 4, room: true, want: 0.015, verb: 'cuts and sews' },
   herbalist:  { tier: 3, years: 5, room: true, want: 0.015, verb: 'keeps the remedies' },
   joiner:     { tier: 3, years: 5, room: true, want: 0.015, verb: 'fits timber' },
-  carver:     { tier: 3, years: 6, room: true, want: 0.015, verb: 'carves' },
+  carver:     { tier: 3, years: 6, room: true, want: 0.015, verb: 'carves', near: CRAG },
   smith:      { tier: 3, years: 7, room: true, want: 0.015, verb: 'works metal' }
 };
 
@@ -58,6 +58,7 @@ const REFUSE_AT = -30;          // a tie this bad either way and the offer fails
    At 40, with distance softened, 13% clear and two thirds of those are from
    another house, which is what the refusal cascade needs to have anything to
    refuse. */
+const CLUSTER_PULL = 12;    // for living where the work already is
 const SCORE_FLOOR = 40;
 const WALK_COST = 1.5;
 
@@ -239,6 +240,16 @@ function apprenticeScore(s, m, p, scarceGift) {
   const head = s.people[theirs.headId];
   if (head && own) v -= holdsAgainst(s, head, own.id) * 0.6;
   v += tieTo(m, theirs.id) * 0.5;
+  /* Trades cluster where proximity makes sense, and the ground-worked ones
+     already do it on their own — a quarrier is measured at nought tiles from
+     a crag against a settlement average of half a one. The taught trades do
+     not, and the roper was the proof: rope is rigging, and ropers came out
+     six to eleven tiles from the water on a coast where the average house is
+     six. A master leans toward somebody who already lives where the work is. */
+  if (info.near !== undefined) {
+    const t = s.tiles[homeTile(s, p)];
+    if (t && t.t === info.near) v += CLUSTER_PULL;
+  }
   return v;
 }
 

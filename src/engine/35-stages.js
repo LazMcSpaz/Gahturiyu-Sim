@@ -16,7 +16,11 @@
    house ever becomes anything, for as long as it stands.
    =========================================================================== */
 
-const STAGE_TURNS = { 1: 120, 2: 280 };   // turns of tended growth: 30 years, then 70
+/* The fourth number is not a waiting time like the other two: growth toward it
+   only accumulates in seasons when the house is being kept perfectly, and a
+   house is kept perfectly maybe three hundred seasons in two hundred and fifty
+   years. At four hundred no settlement in five ever raised one. */
+const STAGE_TURNS = { 1: 120, 2: 280, 3: 320 };   // 30 years, then 70, then eighty of being kept
 const CHECKIN_LAPSE = 20;                 // 5 years untended and growth halts
 const CHECKIN_DUE = 12;                   // a tender starts thinking about it at 3
 const VISITS_PER_TENDER = 2;
@@ -32,11 +36,11 @@ function stageOf(b) { return b.stage || 1; }
 
 /* What a stage-3 building is used for. Below stage 3 the question does not
    arise — it is somebody's house. */
-function roleOf(b) { return stageOf(b) >= 3 ? (b.role || 'great') : 'home'; }
+function roleOf(b) { return stageOf(b) >= 4 ? 'landmark' : stageOf(b) >= 3 ? (b.role || 'great') : 'home'; }
 
 function roleWord(b) {
   return { great: 'a great house', tavern: 'a tavern', common: 'a common hall',
-           house: 'a large house' }[roleOf(b)] || STAGE_WORD[stageOf(b)];
+           house: 'a large house', landmark: 'a landmark' }[roleOf(b)] || STAGE_WORD[stageOf(b)];
 }
 
 /* A workshop is a stage-2 building. The finer trades need one; most trades do
@@ -110,6 +114,8 @@ function sysStages(s, r) {
 
     const need = STAGE_TURNS[b.stage];
     if (!need) continue;
+    // and a fourth growth is not a matter of waiting — see landmarkReady
+    if (b.stage === 3 && !landmarkReady(s, b)) continue;
     b.growth = (b.growth || 0) + (0.7 + s.tiles[b.tileId].stone * 0.5) / need;
     if (b.growth < 1) continue;
 
@@ -121,6 +127,15 @@ function sysStages(s, r) {
     if (b.stage === 2) {
       ev(s, 'stage', 5, `The ${hh.name} house came on to its second growth after ${years} years — it has a workshop in it now.`,
          { building: b.id, household: hh.id });
+    } else if (b.stage === 4) {
+      b.role = 'landmark';
+      ev(s, 'stage', 9, `The ${hh.name} house has been growing for ${years} years and is not a house any more. There is nothing else like it on this coast.`,
+         { building: b.id, household: hh.id });
+      remember(s, hh.id, 14, `raised the one landmark on this coast`);
+      for (const id of hh.members) {
+        const p = s.people[id];
+        if (p && p.alive) { shiftStanding(p, 'quarter', 30, true); shiftStanding(p, 'government', 15, true); }
+      }
     } else if (b.stage === 3) {
       b.role = chooseRole(s, r, b, hh);
       ev(s, 'stage', b.role === 'house' ? 5 : 7,
@@ -151,6 +166,26 @@ function sysStages(s, r) {
       }
     }
   }
+}
+
+/* The fourth growth is the rarest thing in the design and it is not a matter of
+   waiting a hundred more years. A third growth only keeps going while it is
+   being kept perfectly — sound stone, a carver's work still on it, a tender
+   still coming — and there is one on a coast at a time. In practice almost
+   nothing holds all of that for a century, which is the point: a landmark is
+   a household never once letting go across four generations. */
+function landmarkReady(s, b) {
+  if (roleOf(b) !== 'great' && roleOf(b) !== 'common') return false;
+  /* Kept, not perfect this very season. Sound stone and fresh carving at the
+     same instant is a thing that holds for about five seasons after a mason
+     calls, so the first gate let the best-kept house on the coast accumulate a
+     hundred seasons in two hundred and fifty years and no settlement ever
+     raised anything. What the design means by a fourth growth is a household
+     that never once let go: a mason inside the last six years, a carver's work
+     still on it, and the stone never allowed to slide. */
+  if (conditionOf(b) < 0.7 || beautyOf(b) < 0.4) return false;
+  if (s.turn - (b.lastMended || -99) > 24) return false;
+  return !Object.values(s.buildings).some(x => x.state === 'mature' && stageOf(x) >= 4);
 }
 
 /* A household decides what its third growth becomes, by where it stands when

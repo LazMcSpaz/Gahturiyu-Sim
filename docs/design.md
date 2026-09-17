@@ -1038,6 +1038,53 @@ the weather produces it.
 
 ## 11. Quarters
 
+> **Built** (with §12's blocs and the landmark of §3). Four things, and three of
+> them had to be measured before they would work at all.
+>
+> **The levy came first, because without it a bloc has nothing to be angry
+> about.** The ruling body compels a top-quartile household when three or more
+> are short; a tribunal or a senate has to agree, so a body divided against
+> itself takes nothing. Eight to thirty of these a century depending on how
+> often the settlement goes hungry, and about a quarter of them refused — by a
+> household with the character *and* the standing to survive saying no, which
+> is not the same as a roll.
+>
+> **Cohesion was measured wrong, and it made the whole mechanism dead.** The
+> design said the mean tie between a quarter's households; nobody holds a tie
+> to more than twelve households, so most pairs in a quarter of eight have
+> never had anything to do with each other, and those zeroes dragged the mean
+> to nine against a threshold of twenty-five. In sixteen hundred
+> quarter-seasons the test passed thirty-one times and **never once while the
+> quarter had a grievance**. It is now the mean over the pairs that know each
+> other, plus a floor on how many of them do — a neighbourhood is not close
+> because everybody knows everybody, it is close when the people who deal with
+> each other get on. A quarter's grievance also needed the other two things
+> the design names: a feud line drawn across it, and its standing sliding
+> against the rest.
+>
+> Blocs now run three or four a century, quarters and trades alike, and **they
+> fold more often than they work** — which is the means test doing what it was
+> for. A trade is the more dangerous of the two exactly as written, because
+> the settlement's dependence on a roper is not a matter of how many ropers
+> there are.
+>
+> **A new quarter could never have formed.** On a coast twenty-two tiles wide
+> with four founding centres, the farthest lived-in house in a century sits
+> about five and a half tiles from the nearest of them — so the threshold had
+> to come down to four and a bit, which is the far edge of this map and a real
+> walk. One settlement in seven gains a quarter, one in seven loses one to
+> emptiness and keeps the name on the hillside.
+>
+> **The landmark needed two hundred years and the right gate.** Requiring
+> sound stone and fresh carving in the same season was requiring a state that
+> holds for about five seasons after a mason calls: the best-kept house on the
+> coast accumulated a hundred qualifying seasons in two hundred and fifty years
+> and no settlement ever raised anything. It is sustained care instead — a
+> mason inside the last six years, a carver's work still showing, the stone
+> never allowed to slide — and two seeds in eight raise one, at years 136 and
+> 161. One at a time on a coast, and it is never demoted back to a house,
+> though it can still be abandoned and fall in.
+
 ### Quarters are fixed, and that is the point
 
 The centres are chosen **once, at founding**, from where the houses stood then,
@@ -1066,6 +1113,16 @@ Not everywhere:
 - boathand, roper — on the shore
 - fieldhand — on the moor
 - carrier, hauler — between
+
+> **On clustering:** the ground-worked trades already cluster without being
+> told to — a quarrier measures nought tiles from a crag against a settlement
+> average of half a one, a fieldhand sits nearer the moor than any house does.
+> The taught trades do not, and the roper was the proof: rope is rigging, and
+> ropers came out six to eleven tiles from the water on a coast where the
+> average house is six. Masters now lean toward an apprentice who already
+> lives where the work is. On a coast that supports two or three ropers the
+> effect is under the noise, and this is recorded as measured rather than
+> claimed.
 
 Masters **may** take apprentices from outside their quarter, and often do.
 That is the dial that decides how rigid the settlement becomes: freely, and
@@ -1182,8 +1239,18 @@ and the tests passing.
 7. **Quarters, trades organising, landmarks.** The rollups, the blocs, and the
    rarest thing in the design. Beauty moved forward into 6, because a carver
    with nothing to carve was the only trade in the list doing nothing at all.
+   *Built* — see §11. The levy of §2 was built with it, because a bloc with
+   nothing to be angry about never acts.
 
-Slices 1 through 6 are built. Slice 7 is the next thing.
+Every slice is built. What the build order was for is finished; what follows
+is tuning, and the open questions in §15.
+
+One thing the whole of it has not answered: **a settlement thins out over two
+centuries.** A hundred and fifty people at founding are a hundred and thirty at
+year a hundred and twenty and between thirty and a hundred and twenty at year
+two hundred and fifty, and the spread between seeds is wider than any effect
+measured here. It predates slice 6 and slice 7 alike and it is the largest
+unexamined thing in the simulation.
 
 ## 15. Open, not yet decided
 

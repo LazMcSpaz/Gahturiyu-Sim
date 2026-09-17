@@ -218,6 +218,12 @@ function sysDisrepair(s, r) {
        not a settlement failing to keep its stone — it is a threshold with no
        patience in it. Two years under the line, which is long enough for the
        household to find a stone and a timber and a mason willing to come. */
+    /* A landmark does not come down a stage. It can still be abandoned and
+       fall in — a ruin of one is a fine thing for a chronicle to carry — but
+       once a coast has raised one, it is not quietly demoted back to a great
+       house because a mason was slow one decade. */
+    if (stageOf(b) >= 4) continue;
+
     if (conditionOf(b) >= RUINOUS) { b.ruinousSince = 0; continue; }
     if (!b.ruinousSince) { b.ruinousSince = s.turn; continue; }
     if (s.turn - b.ruinousSince < RUINOUS_GRACE) continue;

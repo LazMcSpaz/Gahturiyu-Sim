@@ -12,7 +12,8 @@ const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews
         VALUE, debtsOf, owed, totalOwed, totalHeld, priceFor, demandOf,
         legitimacy, mintOf, coinOf, coinWorks, COIN_AT, COIN_KEEP,
         HARSHNESS, chooseRuling, gaoled, RUIN_AT,
-        conditionOf, beautyOf, inDisrepair, vacant, DISREPAIR, RUINOUS, MEND_BELOW, SELF_CEILING } = E;
+        conditionOf, beautyOf, inDisrepair, vacant, DISREPAIR, RUINOUS, MEND_BELOW, SELF_CEILING,
+        cohesionOf, quarterHouses, tradeHouses, topQuartile, BLOC_COHESION } = E;
 
 let failures = 0;
 const ok = (name, cond, note = '') => {
@@ -589,6 +590,85 @@ console.log('\nhardship bites, and crafts fight to live');
      worst <= 3, `worst run lost ${worst} of the crafts it was founded with`);
 }
 
+console.log('\nthe levy, blocs, quarters and the one landmark');
+{
+  const m = run(480, 991, 150);
+  const evs = m.chronicle.flatMap(t => t.events);
+
+  // the levy: compulsion exists, is not constant, and can be told no
+  const levies = evs.filter(e => e.kind === 'levy');
+  ok('the ruling body can take what it is not given', levies.length > 0,
+     `${levies.length} levies over 120 years`);
+  ok('and a levy is not an every-season habit', levies.length < m.chronicle.length * 0.15,
+     `${levies.length} across ${m.chronicle.length} seasons`);
+  ok('a household with the nerve can refuse one',
+     levies.some(e => /refused the levy/.test(e.text)),
+     `${levies.filter(e => /refused the levy/.test(e.text)).length} refused`);
+  ok('what is levied reaches the common store', commonStore(m).taken > 0);
+
+  /* Cohesion has to be measured over the pairs that know each other. Over
+     every pair it reads near zero in any group bigger than a handful, because
+     nobody holds a tie to more than twelve households. */
+  const q = (m.quarters || []).find(x => quarterHouses(m, x).length >= 3);
+  if (q) {
+    const c = cohesionOf(m, quarterHouses(m, q));
+    ok('a quarter has a cohesion that is not an artefact of empty pairs',
+       c.share > 0 && Number.isFinite(c.mean),
+       `${(c.share * 100).toFixed(0)}% of pairs know each other, averaging ${c.mean.toFixed(1)}`);
+  }
+
+  // blocs: rare, both kinds possible, and losing is the common case
+  const blocs = evs.filter(e => e.kind === 'bloc' && /stopped working|will not work/.test(e.text));
+  ok('a quarter or a trade acts as one, rarely', blocs.length > 0 && blocs.length <= 8,
+     `${blocs.length} over 120 years`);
+  ok('and it can fail as well as work',
+     blocs.some(e => /did not hold/.test(e.text)) || blocs.some(e => /gave way/.test(e.text)),
+     `${blocs.filter(e => /gave way/.test(e.text)).length} worked, ${blocs.filter(e => /did not hold/.test(e.text)).length} folded`);
+
+  /* Means, not a roll: a bloc with nothing in its larders cannot outlast the
+     settlement's need of it however angry it is. */
+  ok('whether it works is a question of means',
+     blocs.every(e => /had the stores to outlast it|could not afford it/.test(e.text)));
+
+  // quarters: fixed centres, but a settlement can gain one and keep its ghosts
+  const many = [20260910, 991, 4242, 1, 7, 2, 3].map(seed => {
+    const w = run(480, seed, 150);
+    const e = w.chronicle.flatMap(t => t.events);
+    return { born: e.filter(x => /are called .* now/.test(x.text)).length,
+             hollow: e.filter(x => /Nobody lives at/.test(x.text)).length,
+             quarters: (w.quarters || []).length };
+  });
+  ok('a quarter can empty and keep its name', many.some(o => o.hollow > 0),
+     `${many.filter(o => o.hollow > 0).length} of ${many.length} settlements lost one`);
+  ok('and growth in a new direction can earn one', many.some(o => o.born > 0),
+     `${many.filter(o => o.born > 0).length} of ${many.length} settlements gained one`);
+  ok('but neither is an ordinary event',
+     many.every(o => o.born <= 2 && o.hollow <= 3));
+
+  /* The landmark is the rarest thing in the design and needs longer than the
+     hundred and twenty years everything else here is measured over. */
+  const long = [7, 3].map(seed => {
+    let z = newWorld({ seed, population: 150, startYear: 812 });
+    let raised = null;
+    for (let i = 0; i < 800; i++) {
+      z = advance(z, { lever: 'none' });
+      if (raised === null && Object.values(z.buildings).some(b => stageOf(b) >= 4)) raised = i;
+    }
+    return { z, raised };
+  });
+  ok('a coast can raise a landmark, given two centuries',
+     long.some(o => o.raised !== null),
+     long.map(o => o.raised === null ? 'never' : `year ${Math.round(o.raised / 4)}`).join(', '));
+  ok('and never more than one at a time',
+     long.every(o => Object.values(o.z.buildings).filter(b => stageOf(b) >= 4).length <= 1));
+  ok('a landmark reads as one',
+     long.every(o => Object.values(o.z.buildings).filter(b => stageOf(b) >= 4)
+       .every(b => roleOf(b) === 'landmark' && roleWord(b) === 'a landmark')));
+  ok('and it is not demoted back to a house',
+     long.every(o => Object.values(o.z.buildings).filter(b => stageOf(b) >= 4)
+       .every(b => b.stage === 4)));
+}
+
 console.log('\nupkeep, decay and beauty');
 {
   const u = run(480, 991, 150);
@@ -704,9 +784,17 @@ console.log('\ndefault, and what a government will do about it');
 
   // mercy costs credit, or being kind is a free win
   let m = newWorld({ seed: 20260910, population: 150, startYear: 812, government: 'senate' });
-  for (let i = 0; i < 400; i++) m = advance(m, { lever: 'none' });
+  /* The peak, not the last season. Tightness decays at 0.004 a season, so a
+     settlement that forgave a run of debts in its first century and then had
+     none to forgive reads as 0.00 at year one hundred — which is the mechanism
+     working and the measurement failing. */
+  let tightest = 0;
+  for (let i = 0; i < 400; i++) {
+    m = advance(m, { lever: 'none' });
+    tightest = Math.max(tightest, m.creditTight || 0);
+  }
   ok('a settlement that forgives debts lends less',
-     (m.creditTight || 0) > 0, `credit tightened to ${(m.creditTight || 0).toFixed(2)}`);
+     tightest > 0, `credit tightened to ${tightest.toFixed(2)} at its worst`);
 
   // and a ruling is rare enough not to become the chronicle
   const rulings = m.chronicle.flatMap(c => c.events)
