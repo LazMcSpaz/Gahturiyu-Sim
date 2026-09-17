@@ -264,7 +264,7 @@ function sysOmen(s, r) {
   const hungry = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && h.stores < 1).length;
   const openD = Object.values(s.disputes).filter(d => d.open).length;
   const hotD = Object.values(s.disputes).filter(d => d.open && d.heat > 60).length;
-  const tenders = Object.values(s.people).filter(p => p.alive && p.tender && ageOf(s, p) >= 16).length;
+  const tenders = livingPeople(s).filter(p => p.tender && ageOf(s, p) >= 16).length;
   const growing = Object.values(s.buildings).filter(b => b.state === 'growing').length;
 
   const candidates = [];

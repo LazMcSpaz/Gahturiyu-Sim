@@ -47,8 +47,13 @@ function roleWord(b) {
    not. This is the quiet gate on the class system, and it is made of nothing
    but time. */
 function hasWorkshop(s, hh) {
-  return Object.values(s.buildings).some(b =>
-    b.householdId === hh.id && b.state === 'mature' && stageOf(b) >= 2);
+  if (!s._ws) {
+    s._ws = new Set();
+    for (const b of Object.values(s.buildings)) {
+      if (b.state === 'mature' && stageOf(b) >= 2) s._ws.add(b.householdId);
+    }
+  }
+  return s._ws.has(hh.id);
 }
 
 function tavernsOf(s) {
@@ -62,7 +67,7 @@ function tavernsOf(s) {
    against it. A house whose tenders will not visit simply stops growing, and
    nobody has to say why. */
 function sysCheckIn(s, r) {
-  const tenders = Object.values(s.people).filter(p => p.alive && p.tender
+  const tenders = livingPeople(s).filter(p => p.tender
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
   if (!tenders.length) return;
   const visits = {};
@@ -121,6 +126,7 @@ function sysStages(s, r) {
 
     b.growth = 0;
     b.stage += 1;
+    touchBuildings(s);
     b.stageSince = s.turn;
     const years = Math.round((s.turn - b.startTurn) / 4);
 

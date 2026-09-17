@@ -4,7 +4,7 @@ const path = require('path'), fs = require('fs');
 const root = path.join(__dirname, '..');
 const { loadEngine } = require(path.join(root, 'build.js'));
 const E = loadEngine(root);
-const { newWorld, advance, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H, ageOf,
+const { newWorld, advance, clone, LEVERS, renderTurn, mapHTML, tileFactsHTML, inTheNews, W, H, ageOf,
         FACTIONS, standingWith, houseStanding, compositeOf, tieTo, holdsAgainst, TIE_CAP, hasGoal,
         stageOf, roleOf, roleWord, hasWorkshop, tavernsOf, STAGE_TURNS,
         TRADES, TIER1, TEACHABLE, tradeTier, canPractise, workshopFor, apprenticeScore, endangered,
@@ -21,16 +21,102 @@ const ok = (name, cond, note = '') => {
   if (!cond) failures++;
 };
 
-const run = (n, seed = 4242, pop = 200, inputs = []) => {
-  let s = newWorld({ seed, population: pop, startYear: 812 });
-  for (let i = 0; i < n; i++) s = advance(s, { lever: inputs[i] || 'none' });
+/* One trajectory per (seed, population, government), extended on demand and
+   never rebuilt. advance() does not touch the state it is given, so a state at
+   turn n can be kept and advanced again later, and every section that wants
+   seed 20260910 at year thirty, fifty, a hundred or a hundred and twenty is
+   served from one run. Seven separate runs of that seed became one. Alongside
+   each state the trajectory keeps a per-turn track of the few numbers a test
+   has to watch across the whole run rather than read at the end.
+
+   The states handed back are shared: a test that wants to mutate one takes a
+   clone first. */
+const TRAJ = new Map();
+function traj(seed, pop, government) {
+  const key = `${seed}/${pop}/${government || ''}`;
+  if (!TRAJ.has(key)) {
+    const cfg = { seed, population: pop, startYear: 812 };
+    if (government) cfg.government = government;
+    TRAJ.set(key, { cfg, head: null, turn: 0, snaps: new Map(), track: [] });
+  }
+  return TRAJ.get(key);
+}
+function tracked(s) {
+  return {
+    tenders: Object.values(s.people).filter(p => p.alive && p.trade === 'tender').length,
+    creditTight: s.creditTight || 0,
+    landmark: Object.values(s.buildings).some(b => stageOf(b) >= 4)
+  };
+}
+const run = (n, seed = 4242, pop = 200, inputs = [], government = null) => {
+  if (inputs.length) {                       // a scripted run is its own thing
+    let s = newWorld({ seed, population: pop, startYear: 812 });
+    for (let i = 0; i < n; i++) s = advance(s, { lever: inputs[i] || 'none' });
+    return s;
+  }
+  const t = traj(seed, pop, government);
+  if (t.snaps.has(n)) return t.snaps.get(n);
+  if (!t.snaps.has(0)) { const s0 = newWorld(t.cfg); t.snaps.set(0, s0); t.head = s0; t.track = [tracked(s0)]; }
+  let from = 0, s = t.snaps.get(0);
+  for (const [k, st] of t.snaps) if (k <= n && k > from) { from = k; s = st; }
+  for (let i = from; i < n; i++) {
+    s = advance(s, { lever: 'none' });
+    if (i + 1 > t.turn) { t.track.push(tracked(s)); t.turn = i + 1; t.head = s; }
+  }
+  t.snaps.set(n, s);
   return s;
 };
+// the per-turn track of a trajectory, up to turn n (running it out if needed)
+const trackOf = (n, seed, pop = 150, government = null) => {
+  run(n, seed, pop, [], government);
+  return traj(seed, pop, government).track.slice(0, n + 1);
+};
 
-// Sections below all wanted the same fifty-year run. Building it once keeps
-// the suite quick enough to run on every save.
-let _shared = null;
-const shared = () => (_shared = _shared || run(200, 20260910, 150));
+const shared = () => run(200, 20260910, 150);
+
+/* The long runs are independent of each other, so they go out to worker
+   threads first and land in the trajectory cache; everything after reads from
+   it. A run the list does not name is simply computed on demand, so the list
+   being incomplete costs time and never correctness. Each entry is every
+   snapshot turn the suite will ask that trajectory for. */
+const PREWARM = [
+  [20260910, 150, null, [0, 120, 200, 400, 480, 600]],
+  [4242,     150, null, [0, 480, 600]],
+  [31337,    150, null, [0, 300, 480, 600]],
+  [555555,   150, null, [0, 400, 480, 600]],
+  [1,        150, null, [0, 400, 480, 600]],
+  [7,        150, null, [0, 400, 480, 800]],
+  [3,        150, null, [0, 480, 800]],
+  [2,        150, null, [0, 480]],
+  [99,       150, null, [0, 480]],
+  [313,      150, null, [0, 480]],
+  [991,      150, null, [0, 480]],
+  ...['sole', 'tribunal', 'senate'].flatMap(g =>
+    [20260910, 4242, 31337, 555555, 1, 7].map(seed => [seed, 150, g, [0, 400]]))
+];
+async function prewarm(jobs, threads = require('os').cpus().length) {
+  const { Worker } = require('worker_threads');
+  const queue = jobs.slice();
+  const t0 = Date.now();
+  const lane = async () => {
+    while (queue.length) {
+      const [seed, pop, government, turns] = queue.shift();
+      const res = await new Promise((resolve, reject) => {
+        const w = new Worker(path.join(__dirname, 'worker.js'), { workerData: { seed, pop, government, turns } });
+        w.once('message', resolve); w.once('error', reject);
+      });
+      const t = traj(seed, pop, government);
+      for (const [k, st] of Object.entries(res.snaps)) t.snaps.set(Number(k), st);
+      t.track = res.track; t.turn = res.track.length - 1; t.head = res.snaps[t.turn] || t.head;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(threads, jobs.length) }, lane));
+  const turns = jobs.reduce((a, j) => a + Math.max(...j[3]), 0);
+  console.log(`${turns} turns across ${jobs.length} runs on ${threads} threads in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+}
+
+(async () => {
+await prewarm(PREWARM);
 
 console.log('\ndeterminism');
 ok('same seed, same history', JSON.stringify(run(80).stats) === JSON.stringify(run(80).stats));
@@ -233,7 +319,7 @@ console.log('\nno cap on who matters');
 
 console.log('\nbuildings keep growing');
 {
-  const start = newWorld({ seed: 20260910, population: 150, startYear: 812 });
+  const start = run(0, 20260910, 150);
   const atFounding = Object.values(start.buildings).filter(b => b.state === 'mature');
   ok('a founded settlement already has a few workshops',
      atFounding.some(b => stageOf(b) === 2) && !atFounding.some(b => stageOf(b) >= 3),
@@ -279,7 +365,7 @@ console.log('\nbuildings keep growing');
 
 console.log('\ntrades');
 {
-  const start = newWorld({ seed: 20260910, population: 150, startYear: 812 });
+  const start = run(0, 20260910, 150);
   // a settlement is not founded blank, or there are no masters and nothing
   // can ever be taught
   /* The design's own claim is that a young settlement has a few of the crafts
@@ -291,7 +377,7 @@ console.log('\ntrades');
   const rooms = TEACHABLE.filter(k => TRADES[k].room);
   const opens = TEACHABLE.filter(k => !TRADES[k].room);
   const founds = [20260910, 1, 4242, 991, 7].map(seed => {
-    const w = newWorld({ seed, population: 150, startYear: 812 });
+    const w = run(0, seed, 150);
     const held = new Set(Object.values(w.people).filter(p => p.trade).map(p => p.trade));
     const spare = Object.values(w.people).filter(p => p.alive && !p.trade
       && ageOf(w, p) >= 22 && ageOf(w, p) <= 68 && workshopFor(w, p)).length;
@@ -324,12 +410,7 @@ console.log('\ntrades');
   // the stone must never run out, or nothing is ever built again — and it is
   // an absorbing state, so it has to be checked over the whole run and not
   // just at the end
-  let low = 99;
-  let x = newWorld({ seed: 4242, population: 150, startYear: 812 });
-  for (let i = 0; i < 480; i++) {
-    x = advance(x, { lever: 'none' });
-    low = Math.min(low, Object.values(x.people).filter(p => p.alive && p.trade === 'tender').length);
-  }
+  const low = Math.min(...trackOf(480, 4242).map(t => t.tenders));
   ok('the stone is never wholly lost', low > 0, `fewest tenders at any point: ${low}`);
 
   // a craft cannot swallow the settlement, and cannot be everyone's job
@@ -472,8 +553,7 @@ console.log('\nlegitimacy and the coin');
 {
   // money is an achievement: it must be possible not to have it
   const outcomes = [1, 7, 4242, 31337, 555555, 20260910].map(seed => {
-    let x = newWorld({ seed, population: 150, startYear: 812 });
-    for (let i = 0; i < 600; i++) x = advance(x, { lever: 'none' });
+    const x = run(600, seed, 150);
     return { seed, m: mintOf(x), legit: legitimacy(x), x };
   });
   const withCoin = outcomes.filter(o => o.m.batches > 0);
@@ -505,8 +585,7 @@ console.log('\nlegitimacy and the coin');
      hard to break, which is a balance property older than this slice. So the
      path is proved directly: put a government in the state a bad one would be
      in, and the money stops being money. */
-  let z = newWorld({ seed: 31337, population: 150, startYear: 812 });
-  for (let i = 0; i < 300; i++) z = advance(z, { lever: 'none' });
+  let z = clone(run(300, 31337, 150));      // this test writes into it
   if (mintOf(z).believed) {
     commonStore(z).food = 0;
     for (const p of Object.values(z.people)) if (p.alive && p.standing) p.standing.government = -60;
@@ -526,8 +605,7 @@ console.log('\nhardship bites, and crafts fight to live');
      storm season brought in 120% of a normal one because storms cut fishing
      and this place is pastoral — and crafts died of old age in lockstep
      because five holders aged sixty look like five holders. */
-  let base = newWorld({ seed: 31337, population: 150, startYear: 812 });
-  for (let i = 0; i < 300; i++) base = advance(base, { lever: 'none' });
+  const base = run(300, 31337, 150);
   const calmPop = Object.values(base.people).filter(p => p.alive).length;
   const calmStore = commonStore(base).food;
 
@@ -556,8 +634,7 @@ console.log('\nhardship bites, and crafts fight to live');
      `legitimacy ${Math.round(legitimacy(x))} after the weather, ${Math.round(legitimacy(calm))} without it`);
 
   // a storm has to touch the grazing too, or it is not weather here
-  let y = newWorld({ seed: 20260910, population: 150, startYear: 812 });
-  for (let i = 0; i < 120; i++) y = advance(y, { lever: 'none' });
+  const y = run(120, 20260910, 150);
   const yieldOf = w => {
     const z = advance(y, { lever: w });
     return Object.values(z.households).filter(h => !h.extinct && !h.lodgedWith)
@@ -569,13 +646,9 @@ console.log('\nhardship bites, and crafts fight to live');
 
   // and the crafts hold on across many seeds, the stone above all
   const runs = [20260910, 4242, 31337, 555555, 1, 7, 99, 313].map(seed => {
-    let z = newWorld({ seed, population: 150, startYear: 812 });
-    const had = TEACHABLE.filter(k => Object.values(z.people).some(p => p.alive && p.trade === k));
-    let lowTender = 99;
-    for (let i = 0; i < 480; i++) {
-      z = advance(z, { lever: 'none' });
-      lowTender = Math.min(lowTender, Object.values(z.people).filter(p => p.alive && p.trade === 'tender').length);
-    }
+    const z0 = run(0, seed, 150), z = run(480, seed, 150);
+    const had = TEACHABLE.filter(k => Object.values(z0.people).some(p => p.alive && p.trade === k));
+    const lowTender = Math.min(...trackOf(480, seed).map(t => t.tenders));
     const alive = Object.values(z.people).filter(p => p.alive);
     /* Against what the settlement was founded holding. A craft it never had
        is not a craft it shed, and a founding with one workshop in it has no
@@ -648,13 +721,9 @@ console.log('\nthe levy, blocs, quarters and the one landmark');
   /* The landmark is the rarest thing in the design and needs longer than the
      hundred and twenty years everything else here is measured over. */
   const long = [7, 3].map(seed => {
-    let z = newWorld({ seed, population: 150, startYear: 812 });
-    let raised = null;
-    for (let i = 0; i < 800; i++) {
-      z = advance(z, { lever: 'none' });
-      if (raised === null && Object.values(z.buildings).some(b => stageOf(b) >= 4)) raised = i;
-    }
-    return { z, raised };
+    const z = run(800, seed, 150);
+    const at = trackOf(800, seed).findIndex(t => t.landmark);
+    return { z, raised: at > 0 ? at - 1 : null };
   });
   ok('a coast can raise a landmark, given two centuries',
      long.some(o => o.raised !== null),
@@ -750,8 +819,7 @@ console.log('\ndefault, and what a government will do about it');
   for (const government of ['sole', 'tribunal', 'senate']) {
     const t = { forbear: 0, seize: 0, gaol: 0, kill: 0, rescue: 0, proud: 0 };
     for (const seed of seeds) {
-      let x = newWorld({ seed, population: 150, startYear: 812, government });
-      for (let i = 0; i < 400; i++) x = advance(x, { lever: 'none' });
+      const x = run(400, seed, 150, [], government);
       for (const e of x.chronicle.flatMap(c => c.events)) {
         if (/off what they could not pay/.test(e.text)) t.forbear++;
         else if (/house to the .* for a debt/.test(e.text)) t.seize++;
@@ -783,16 +851,12 @@ console.log('\ndefault, and what a government will do about it');
      && HARSHNESS.tribunal.every(k => HARSHNESS.sole.includes(k)));
 
   // mercy costs credit, or being kind is a free win
-  let m = newWorld({ seed: 20260910, population: 150, startYear: 812, government: 'senate' });
   /* The peak, not the last season. Tightness decays at 0.004 a season, so a
      settlement that forgave a run of debts in its first century and then had
      none to forgive reads as 0.00 at year one hundred — which is the mechanism
      working and the measurement failing. */
-  let tightest = 0;
-  for (let i = 0; i < 400; i++) {
-    m = advance(m, { lever: 'none' });
-    tightest = Math.max(tightest, m.creditTight || 0);
-  }
+  const m = run(400, 20260910, 150, [], 'senate');
+  const tightest = Math.max(...trackOf(400, 20260910, 150, 'senate').map(t => t.creditTight));
   ok('a settlement that forgives debts lends less',
      tightest > 0, `credit tightened to ${tightest.toFixed(2)} at its worst`);
 
@@ -805,3 +869,4 @@ console.log('\ndefault, and what a government will do about it');
 
 console.log(failures ? `\n${failures} FAILED\n` : '\nall passed\n');
 process.exit(failures ? 1 : 0);
+})();

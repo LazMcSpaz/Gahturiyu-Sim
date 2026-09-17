@@ -206,7 +206,7 @@ function mingle(s, r, group, weight, cause) {
 }
 
 function sysContact(s, r) {
-  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 12);
+  const adults = livingPeople(s).filter(p => ageOf(s, p) >= 12);
 
   // the quarter you live in — weak, constant, and the only one everyone has
   const byQuarter = {};

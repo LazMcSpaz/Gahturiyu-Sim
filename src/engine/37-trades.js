@@ -131,8 +131,8 @@ function canPractise(s, p) {
    back, and then nothing is ever built again. Scarcity has to push back. */
 function eagerness(s, trade, adults) {
   const want = wantOf(s, trade, adults);
-  const held = Object.values(s.people).filter(p => p.alive && p.trade === trade).length;
-  const learning = Object.values(s.people).filter(p => p.alive && p.learning && p.learning.trade === trade).length;
+  const { holders, learning } = holdersOf(s, trade);
+  const held = holders.length;
   /* A settlement of eighty adults does not need twenty-five tanners. The first
      version only pushed upward when a craft was scarce and never pushed back
      when it was not — and because the rate is per master, a crowded craft kept
@@ -163,13 +163,30 @@ function eagerness(s, trade, adults) {
    is most of a smith today and almost none of one in ten years, and a town that
    can see that trains a replacement while there is still somebody to do the
    training. */
+/* Who holds or is learning a craft, worked out once a season per craft. This
+   and the two functions that ask it were a quarter of every turn, because
+   canPractise asks it for every roomless holder and the apprentice pass asks
+   it for every master. Every site that changes who holds or is learning a
+   craft clears the memo; the weighting below is not memoised, because whether
+   a holder can reach a room turns on ties that move within a season. */
+function holdersOf(s, trade) {
+  if (!s._eh) s._eh = {};
+  if (s._eh[trade]) return s._eh[trade];
+  const holders = [];
+  let learning = 0;
+  for (const p of livingPeople(s)) {
+    if (!p.alive) continue;
+    if (p.learning && p.learning.trade === trade) { learning++; continue; }
+    if (p.trade === trade) holders.push(p);
+  }
+  return (s._eh[trade] = { holders, learning });
+}
+
 function effectiveHolders(s, trade) {
   const ceiling = (TRADES[trade] || {}).masterMax || MASTER_MAX;
-  let n = 0;
-  for (const p of Object.values(s.people)) {
-    if (!p.alive) continue;
-    if (p.learning && p.learning.trade === trade) { n += 0.5; continue; }
-    if (p.trade !== trade) continue;
+  const { holders, learning } = holdersOf(s, trade);
+  let n = learning * 0.5;
+  for (const p of holders) {
     let w = clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
     /* Somebody with no room to work in holds the craft in name. Counting them
        as a whole one lets the settlement read itself as supplied while nothing
@@ -199,12 +216,12 @@ function wantOf(s, trade, adults) {
 }
 
 function endangered(s, trade) {
-  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 18).length;
+  const adults = livingPeople(s).filter(p => ageOf(s, p) >= 18).length;
   return effectiveHolders(s, trade) <= Math.max(1.5, wantOf(s, trade, adults) * 0.45);
 }
 
 function mastersOf(s, trade) {
-  return Object.values(s.people).filter(p => p.alive && p.trade === trade
+  return livingPeople(s).filter(p => p.trade === trade
     && ageOf(s, p) >= MASTER_MIN && ageOf(s, p) <= MASTER_MAX);
 }
 
@@ -256,7 +273,7 @@ function apprenticeScore(s, m, p, scarceGift) {
 /* --- taking someone on ------------------------------------------------------ */
 
 function sysApprentice(s, r) {
-  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 18).length;
+  const adults = livingPeople(s).filter(p => ageOf(s, p) >= 18).length;
   const learning = new Set(Object.values(s.people)
     .filter(p => p.alive && p.learning).map(p => p.learning.from));
 
@@ -285,12 +302,12 @@ function sysApprentice(s, r) {
     // a craft that takes ten years cannot also draw only from five year-groups
     const minAge = info.minAge || APPRENTICE_MIN;
     const maxAge = last ? Math.max(24, info.maxAge || APPRENTICE_MAX) : (info.maxAge || APPRENTICE_MAX);
-    const pool = Object.values(s.people).filter(p => p.alive && !p.trade && !p.learning
+    const pool = livingPeople(s).filter(p => !p.trade && !p.learning
       && ageOf(s, p) >= minAge && ageOf(s, p) <= maxAge
       && (!info.aptitude || p.aptitude));
     if (!pool.length) continue;
 
-    const tenders = Object.values(s.people).filter(p => p.alive && p.trade === 'tender').length;
+    const tenders = livingPeople(s).filter(p => p.trade === 'tender').length;
     const scarceGift = tenders < Math.max(2, Math.round(TRADES.tender.want * adults));
     const floor = last ? 12 : SCORE_FLOOR;   // the last master takes who they can get
     const ranked = pool.map(p => ({ p, v: apprenticeScore(s, m, p, scarceGift) + (r() - 0.5) * 8 }))
@@ -313,6 +330,7 @@ function sysApprentice(s, r) {
     if (!taken) continue;
 
     const kin = taken.householdId === m.householdId;
+    touchTrades(s);
     taken.learning = { from: m.id, name: nameOf(s, m.id), trade: m.trade,
                        since: s.turn, progress: 0.01, kin };
     m.lastApprentice = s.turn;
@@ -361,6 +379,9 @@ function sysLearn(s, r) {
       } else if (chance(r, last ? 0.01 : 0.05)) {
         ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up on ${L.trade} after ${Math.max(1, Math.round((s.turn - L.since) / 4))} years.`, { person: p.id });
         p.learning = null;
+  touchTrades(s);
+      touchTrades(s);
+        touchTrades(s);
       }
       continue;
     }
@@ -368,6 +389,8 @@ function sysLearn(s, r) {
     if (chance(r, info.dropout || DROPOUT)) {
       ev(s, 'teach', 3, `${nameOf(s, p.id)} stopped being taught ${L.trade} by ${L.name}.`, { person: p.id });
       p.learning = null;
+  touchTrades(s);
+      touchTrades(s);
       continue;
     }
 
@@ -380,6 +403,7 @@ function finishTrade(s, p, L, alone) {
   const yrs = Math.max(1, Math.round((s.turn - L.since) / 4));
   setTrade(s, p, L.trade);
   p.learning = null;
+  touchTrades(s);
   remember(s, p.householdId, 4, `taught a ${L.trade} of their own`);
   shiftStanding(p, 'trade', 20);
   ev(s, 'teach', 6, alone
@@ -390,6 +414,7 @@ function finishTrade(s, p, L, alone) {
 
 function setTrade(s, p, trade) {
   p.trade = trade;
+  touchTrades(s);
   p.tender = trade === 'tender';          // the rest of the engine still asks this
   if (p.role === 'none' && tradeTier(trade) > 1) p.role = trade;
 }
@@ -409,7 +434,7 @@ function sysUnskilled(s, r) {
        this the floor swallows every aptitude-holder before a tender can reach
        them, and the settlement quietly loses the ability to build. */
     if (p.aptitude && age <= (TRADES.tender.maxAge || 24)
-        && Object.values(s.people).some(m => m.alive && m.trade === 'tender')) continue;
+        && livingPeople(s).some(m => m.trade === 'tender')) continue;
     const hh = s.households[p.householdId];
     if (!hh) continue;
     const claims = hh.claims || [];
@@ -453,10 +478,10 @@ function sysUnskilled(s, r) {
    the design already names — somebody arrives who knows it. */
 function tradeForIncomer(s, r) {
   const missing = TEACHABLE.filter(k =>
-    !Object.values(s.people).some(p => p.alive && p.trade === k));
+    !livingPeople(s).some(p => p.trade === k));
   if (missing.length && chance(r, 0.5)) return pick(r, missing);
   const thin = TEACHABLE.filter(k =>
-    Object.values(s.people).filter(p => p.alive && p.trade === k).length <= 1);
+    livingPeople(s).filter(p => p.trade === k).length <= 1);
   return thin.length ? pick(r, thin) : pick(r, TEACHABLE);
 }
 
@@ -479,6 +504,7 @@ function sysRoomless(s) {
     ev(s, 'notender', 5, `${nameOf(s, p.id)} has had nowhere to work as a ${trade} for ${Math.round(p.noRoom / 4)} years. They have gone back to common work.`,
        { person: p.id, household: p.householdId });
     p.trade = null;
+    touchTrades(s);
     p.tender = false;
     p.noRoom = 0;
     if (p.role === trade) p.role = 'none';
@@ -489,9 +515,9 @@ function sysRoomless(s) {
 function sysTradeLoss(s, r) {
   s.lostTrades = s.lostTrades || {};
   for (const k of TEACHABLE) {
-    const held = Object.values(s.people).some(p => p.alive && p.trade === k);
+    const held = livingPeople(s).some(p => p.trade === k);
     if (held) { if (s.lostTrades[k]) delete s.lostTrades[k]; continue; }
-    const learners = Object.values(s.people).some(p => p.alive && p.learning && p.learning.trade === k);
+    const learners = livingPeople(s).some(p => p.learning && p.learning.trade === k);
     if (learners || s.lostTrades[k]) continue;
     s.lostTrades[k] = s.turn;
     ev(s, 'notender', 6, `There is nobody left on this coast who can work as a ${k}.`, {});

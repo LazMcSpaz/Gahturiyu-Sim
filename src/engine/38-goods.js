@@ -254,7 +254,7 @@ function sysWant(s, r) {
     if (s.turn - (s.shortSince[g] || -99) < 40) continue;
     s.shortSince[g] = s.turn;
     const maker = Object.keys(MAKES).find(k => MAKES[k] && MAKES[k][g] !== undefined);
-    const makers = maker ? Object.values(s.people).filter(p => p.alive && p.trade === maker).length : 0;
+    const makers = maker ? livingPeople(s).filter(p => p.trade === maker).length : 0;
     ev(s, 'note', 5, `There is no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
   }
 }

@@ -121,10 +121,12 @@ function newWorld(cfg) {
   };
 
   recount(state);
+  dropCaches(state);
   return state;
 }
 
 function makePerson(state, r, hid, age) {
+  touchPeople(state);
   const pid = 'p' + state.nextId++;
   const hh = state.households[hid];
   const p = {

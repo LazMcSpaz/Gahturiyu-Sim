@@ -24,7 +24,7 @@ function tenderWill(s, t, hh, tid) {
 }
 
 function chooseTender(s, r, hh, tid, load, exclude) {
-  const cands = Object.values(s.people).filter(p => p.alive && p.tender
+  const cands = livingPeople(s).filter(p => p.tender
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 74 && (load[p.id] || 0) < 3 && p.id !== exclude);
   if (!cands.length) return { tender: null, refusers: [] };
   const scored = cands.map(p => ({ p, v: tenderWill(s, p, hh, tid) + (r() - 0.5) * 8 }))
@@ -36,7 +36,7 @@ function chooseTender(s, r, hh, tid, load, exclude) {
 /* the growing of homes ------------------------------------------------------ */
 
 function sysGrowth(s, r) {
-  const tenders = Object.values(s.people).filter(p => p.alive && p.tender && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
+  const tenders = livingPeople(s).filter(p => p.tender && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
   const load = {};
   for (const b of Object.values(s.buildings)) {
     if (b.state !== 'growing') continue;
@@ -75,6 +75,7 @@ function sysGrowth(s, r) {
     b.maturity = Math.min(1, b.maturity + rate);
     if (b.maturity >= 1) {
       b.state = 'mature';
+      touchBuildings(s);
       const hh = s.households[b.householdId];
       if (hh) { hh.buildingId = b.id; hh.lodgedWith = null; }
       ev(s, 'mature', 5, `The ${hh ? hh.name : 'new'} house finished growing after ${Math.round((s.turn - b.startTurn) / 4)} years.`, { building: b.id, household: b.householdId });
@@ -149,7 +150,7 @@ function sysPairing(s, r) {
     // births falls the wrong way. Nothing arranges for it.
     let second = false;
     if (!pool.length) {
-      const wanted = Object.values(s.people).filter(q => q.alive && q.sex === want
+      const wanted = livingPeople(s).filter(q => q.sex === want
         && ageOf(s, q) >= 18 && ageOf(s, q) <= 40 && q.householdId !== hh.id && !moved.has(q.id)
         && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || hasGoal(q)));
       if (!wanted.length || !chance(r, 0.16)) continue;

@@ -76,7 +76,7 @@ function legitimacy(s) {
    -------------------------------------------------------------------------- */
 
 function pickSmith(s, r) {
-  const smiths = Object.values(s.people).filter(p => p.alive && p.trade === 'smith'
+  const smiths = livingPeople(s).filter(p => p.trade === 'smith'
     && ageOf(s, p) >= 18 && canPractise(s, p));
   if (!smiths.length) return null;
   const rulers = officeSpec(s).flatMap(sp => officeHolders(s, sp.key));

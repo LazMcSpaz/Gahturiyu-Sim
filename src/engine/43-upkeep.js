@@ -77,6 +77,7 @@ function sysWear(s) {
 
     if (b.condition <= 0 && !occupied) {
       b.state = 'derelict';
+      touchBuildings(s);
       ev(s, 'derelict', 4, `The ${hh ? hh.name + ' ' : ''}house at ${siteWord(s, b.tileId)} came down. There had been nobody in it for years.`,
          { building: b.id });
     }
@@ -130,7 +131,7 @@ function payForRepair(s, r, hh, m) {
 }
 
 function sysRepairs(s, r) {
-  const masons = Object.values(s.people).filter(p => p.alive && p.trade === 'mason'
+  const masons = livingPeople(s).filter(p => p.trade === 'mason'
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 70 && !gaoled(p));
   const failing = Object.values(s.buildings).filter(b => b.state === 'mature'
     && conditionOf(b) < MEND_BELOW);
@@ -241,6 +242,7 @@ function sysDisrepair(s, r) {
     if (stageOf(b) > 1) {
       const was = roleWord(b);
       b.stage -= 1;
+      touchBuildings(s);
       b.growth = 0;
       b.stageSince = s.turn;
       b.condition = clamp(conditionOf(b) + 0.30, 0, 1);   // what is left of it stands
@@ -254,6 +256,7 @@ function sysDisrepair(s, r) {
     // a stage-1 house past mending is simply a ruin, occupied or not
     if (chance(r, 0.25)) {
       b.state = 'derelict';
+      touchBuildings(s);
       ev(s, 'derelict', 6, `The ${hh ? hh.name + ' ' : ''}house at ${siteWord(s, b.tileId)} is a ruin. What was left of it came down.`,
          { building: b.id });
       if (hh && !hh.extinct) hh.buildingId = null;
@@ -269,7 +272,7 @@ function sysDisrepair(s, r) {
    -------------------------------------------------------------------------- */
 
 function sysBeauty(s, r) {
-  const carvers = Object.values(s.people).filter(p => p.alive && p.trade === 'carver'
+  const carvers = livingPeople(s).filter(p => p.trade === 'carver'
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 72 && !gaoled(p) && canPractise(s, p));
   if (!carvers.length) return;
 
@@ -372,6 +375,7 @@ function sysTakeEmpty(s, r) {
     const old = s.households[b.householdId];
     taken.add(b.id);
     b.householdId = hh.id;
+    touchBuildings(s);
     b.ruinousSince = 0;
     hh.buildingId = b.id;
     hh.lodgedWith = null;

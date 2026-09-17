@@ -43,6 +43,7 @@ function sysLife(s, r) {
 
 function kill(s, p, cause) {
   p.alive = false; p.deathTurn = s.turn; p.cause = cause;
+  touchPeople(s);
   const hh = s.households[p.householdId];
   const weight = notable(s, p) ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
   let text;

@@ -414,9 +414,21 @@ const ENGINE_VERSION = '0.1.0';
 
 /* The whole state is plain JSON, so a JSON round-trip is a valid deep copy.
    structuredClone is faster where it exists; older mobile browsers lack it. */
-const clone = (typeof structuredClone === 'function')
-  ? (o) => structuredClone(o)
-  : (o) => JSON.parse(JSON.stringify(o));
+/* A hand-rolled deep copy for plain JSON, which is all the state ever is. It
+   beats structuredClone on this shape by a wide margin: structuredClone pays
+   a fixed cost per call and a serialisation on every object, and the state is
+   thousands of small ones. */
+function clone(o) {
+  if (o === null || typeof o !== 'object') return o;
+  if (Array.isArray(o)) {
+    const a = new Array(o.length);
+    for (let i = 0; i < o.length; i++) a[i] = clone(o[i]);
+    return a;
+  }
+  const c = {};
+  for (const k in o) c[k] = clone(o[k]);
+  return c;
+}
 
 /* --- seeded randomness ---------------------------------------------------- */
 
@@ -469,10 +481,39 @@ const TERRAIN_NAME = ['open water', 'shore', 'hillside', 'crag', 'moor'];
 
 function tileId(x, y) { return y * W + x; }
 function tileXY(id) { return [id % W, Math.floor(id / W)]; }
+/* Looked up, not computed. tileDist was eight per cent of a turn on its own,
+   because every "who will walk to whom" decision in the engine asks it for
+   every pair it considers. The table is a hundred thousand floats and is
+   built once. */
+let DIST = null;
 function tileDist(a, b) {
-  const [ax, ay] = tileXY(a), [bx, by] = tileXY(b);
-  return Math.hypot(ax - bx, ay - by);
+  if (!DIST) {
+    const n = W * H;
+    DIST = new Float64Array(n * n);   // float32 rounding flipped a threshold at turn 61 of seed 991
+    for (let i = 0; i < n; i++) {
+      const ax = i % W, ay = Math.floor(i / W);
+      for (let j = 0; j < n; j++) DIST[i * n + j] = Math.hypot(ax - (j % W), ay - Math.floor(j / W));
+    }
+  }
+  return DIST[a * W * H + b];
 }
+
+/* --- season-scoped caches ---------------------------------------------------
+   Half the engine is "for every person, for every household, for every
+   building". The living are a third of the people on record and the set of
+   households with a workshop changes a few times a century, so both are
+   worked out once a season and thrown away before the state is kept. Every
+   site that can change either answer mid-season clears it, so nothing reads
+   a stale one — the run has to be bit-identical to the uncached engine, and
+   test/run.js checks that it is. */
+function livingPeople(s) {
+  if (!s._alive) s._alive = Object.values(s.people).filter(p => p.alive);
+  return s._alive;
+}
+function touchPeople(s) { s._alive = null; s._eh = null; }
+function touchTrades(s) { s._eh = null; }
+function touchBuildings(s) { s._ws = null; }
+function dropCaches(s) { s._alive = null; s._ws = null; s._eh = null; s._scarce = null; s._rank = null; }
 
 function buildTerrain(r) {
   // A coastline running roughly north-south down the left, land rising east.
@@ -831,7 +872,7 @@ function mingle(s, r, group, weight, cause) {
 }
 
 function sysContact(s, r) {
-  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 12);
+  const adults = livingPeople(s).filter(p => ageOf(s, p) >= 12);
 
   // the quarter you live in — weak, constant, and the only one everyone has
   const byQuarter = {};
@@ -1043,10 +1084,12 @@ function newWorld(cfg) {
   };
 
   recount(state);
+  dropCaches(state);
   return state;
 }
 
 function makePerson(state, r, hid, age) {
+  touchPeople(state);
   const pid = 'p' + state.nextId++;
   const hh = state.households[hid];
   const p = {
@@ -1188,10 +1231,7 @@ function nameOf(state, pid) {
    purpose the contract cares about — rollback still gets its own array, and
    nothing can reach back and change an entry that has already been written. */
 function advance(state, input) {
-  const keptChronicle = state.chronicle, keptStats = state.stats;
-  const s = clone(Object.assign({}, state, { chronicle: [], stats: [] }));
-  s.chronicle = keptChronicle.slice();
-  s.stats = keptStats.slice();
+  const s = cloneState(state);
   s.turn += 1;
   s.log = [];
   const r = turnRng(s.seed, s.turn);
@@ -1241,8 +1281,7 @@ function advance(state, input) {
   sysMemory(s, r);
   sysOmen(s, r);
 
-  s._scarce = null;     // a season-scoped cache; it has no business in the state
-  s._rank = null;
+  dropCaches(s);        // season-scoped caches have no business in the state
   decayTies(s);         // regard fades before it is counted
   decayStanding(s);
 
@@ -1254,6 +1293,30 @@ function advance(state, input) {
     stats: clone(s.stats[s.stats.length - 1]),
     input: input && input.lever ? input.lever : null
   });
+  return s;
+}
+
+/* The copy. Deep-cloning the whole state was a quarter of every turn, and
+   most of what it copied never changes again: the dead. A person who has died
+   is finished — nothing in the engine writes to them, and the run checks that
+   claim by comparing against the uncached engine — so they are carried by
+   reference and frozen, the way the chronicle and the stats already are. The
+   living, and everything else, are copied as before. */
+function cloneState(state) {
+  const s = Object.assign({}, state);
+  s.chronicle = state.chronicle.slice();
+  s.stats = state.stats.slice();
+  s.people = {};
+  for (const id in state.people) {
+    const p = state.people[id];
+    s.people[id] = p.alive ? clone(p) : (Object.isFrozen(p) ? p : Object.freeze(p));
+  }
+  for (const k in s) {
+    if (k === 'chronicle' || k === 'stats' || k === 'people') continue;
+    if (k[0] === '_') { delete s[k]; continue; }     // a season's caches never cross into the next
+    const v = s[k];
+    if (v && typeof v === 'object') s[k] = clone(v);
+  }
   return s;
 }
 
@@ -1462,6 +1525,7 @@ function sysHardship(s, r) {
     // 4. give up on the place
     if (n >= 13 && chance(r, 0.16)) {
       for (const p of live) { p.alive = false; p.deathTurn = s.turn; p.cause = 'departure'; }
+      touchPeople(s);
       hh.extinct = s.turn;
       for (const c of hh.claims) s.tiles[c].owner = null;
       remember(s, hh.id, -2, `left the coast rather than starve`);
@@ -1528,7 +1592,7 @@ function tenderWill(s, t, hh, tid) {
 }
 
 function chooseTender(s, r, hh, tid, load, exclude) {
-  const cands = Object.values(s.people).filter(p => p.alive && p.tender
+  const cands = livingPeople(s).filter(p => p.tender
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 74 && (load[p.id] || 0) < 3 && p.id !== exclude);
   if (!cands.length) return { tender: null, refusers: [] };
   const scored = cands.map(p => ({ p, v: tenderWill(s, p, hh, tid) + (r() - 0.5) * 8 }))
@@ -1540,7 +1604,7 @@ function chooseTender(s, r, hh, tid, load, exclude) {
 /* the growing of homes ------------------------------------------------------ */
 
 function sysGrowth(s, r) {
-  const tenders = Object.values(s.people).filter(p => p.alive && p.tender && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
+  const tenders = livingPeople(s).filter(p => p.tender && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
   const load = {};
   for (const b of Object.values(s.buildings)) {
     if (b.state !== 'growing') continue;
@@ -1579,6 +1643,7 @@ function sysGrowth(s, r) {
     b.maturity = Math.min(1, b.maturity + rate);
     if (b.maturity >= 1) {
       b.state = 'mature';
+      touchBuildings(s);
       const hh = s.households[b.householdId];
       if (hh) { hh.buildingId = b.id; hh.lodgedWith = null; }
       ev(s, 'mature', 5, `The ${hh ? hh.name : 'new'} house finished growing after ${Math.round((s.turn - b.startTurn) / 4)} years.`, { building: b.id, household: b.householdId });
@@ -1653,7 +1718,7 @@ function sysPairing(s, r) {
     // births falls the wrong way. Nothing arranges for it.
     let second = false;
     if (!pool.length) {
-      const wanted = Object.values(s.people).filter(q => q.alive && q.sex === want
+      const wanted = livingPeople(s).filter(q => q.sex === want
         && ageOf(s, q) >= 18 && ageOf(s, q) <= 40 && q.householdId !== hh.id && !moved.has(q.id)
         && (q.traits.ambition > 62 || q.traits.courage > 62 || q.tender || hasGoal(q)));
       if (!wanted.length || !chance(r, 0.16)) continue;
@@ -1786,8 +1851,13 @@ function roleWord(b) {
    not. This is the quiet gate on the class system, and it is made of nothing
    but time. */
 function hasWorkshop(s, hh) {
-  return Object.values(s.buildings).some(b =>
-    b.householdId === hh.id && b.state === 'mature' && stageOf(b) >= 2);
+  if (!s._ws) {
+    s._ws = new Set();
+    for (const b of Object.values(s.buildings)) {
+      if (b.state === 'mature' && stageOf(b) >= 2) s._ws.add(b.householdId);
+    }
+  }
+  return s._ws.has(hh.id);
 }
 
 function tavernsOf(s) {
@@ -1801,7 +1871,7 @@ function tavernsOf(s) {
    against it. A house whose tenders will not visit simply stops growing, and
    nobody has to say why. */
 function sysCheckIn(s, r) {
-  const tenders = Object.values(s.people).filter(p => p.alive && p.tender
+  const tenders = livingPeople(s).filter(p => p.tender
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 74);
   if (!tenders.length) return;
   const visits = {};
@@ -1860,6 +1930,7 @@ function sysStages(s, r) {
 
     b.growth = 0;
     b.stage += 1;
+    touchBuildings(s);
     b.stageSince = s.turn;
     const years = Math.round((s.turn - b.startTurn) / 4);
 
@@ -2154,8 +2225,8 @@ function canPractise(s, p) {
    back, and then nothing is ever built again. Scarcity has to push back. */
 function eagerness(s, trade, adults) {
   const want = wantOf(s, trade, adults);
-  const held = Object.values(s.people).filter(p => p.alive && p.trade === trade).length;
-  const learning = Object.values(s.people).filter(p => p.alive && p.learning && p.learning.trade === trade).length;
+  const { holders, learning } = holdersOf(s, trade);
+  const held = holders.length;
   /* A settlement of eighty adults does not need twenty-five tanners. The first
      version only pushed upward when a craft was scarce and never pushed back
      when it was not — and because the rate is per master, a crowded craft kept
@@ -2186,13 +2257,30 @@ function eagerness(s, trade, adults) {
    is most of a smith today and almost none of one in ten years, and a town that
    can see that trains a replacement while there is still somebody to do the
    training. */
+/* Who holds or is learning a craft, worked out once a season per craft. This
+   and the two functions that ask it were a quarter of every turn, because
+   canPractise asks it for every roomless holder and the apprentice pass asks
+   it for every master. Every site that changes who holds or is learning a
+   craft clears the memo; the weighting below is not memoised, because whether
+   a holder can reach a room turns on ties that move within a season. */
+function holdersOf(s, trade) {
+  if (!s._eh) s._eh = {};
+  if (s._eh[trade]) return s._eh[trade];
+  const holders = [];
+  let learning = 0;
+  for (const p of livingPeople(s)) {
+    if (!p.alive) continue;
+    if (p.learning && p.learning.trade === trade) { learning++; continue; }
+    if (p.trade === trade) holders.push(p);
+  }
+  return (s._eh[trade] = { holders, learning });
+}
+
 function effectiveHolders(s, trade) {
   const ceiling = (TRADES[trade] || {}).masterMax || MASTER_MAX;
-  let n = 0;
-  for (const p of Object.values(s.people)) {
-    if (!p.alive) continue;
-    if (p.learning && p.learning.trade === trade) { n += 0.5; continue; }
-    if (p.trade !== trade) continue;
+  const { holders, learning } = holdersOf(s, trade);
+  let n = learning * 0.5;
+  for (const p of holders) {
     let w = clamp((ceiling - ageOf(s, p)) / 25, 0.12, 1);
     /* Somebody with no room to work in holds the craft in name. Counting them
        as a whole one lets the settlement read itself as supplied while nothing
@@ -2222,12 +2310,12 @@ function wantOf(s, trade, adults) {
 }
 
 function endangered(s, trade) {
-  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 18).length;
+  const adults = livingPeople(s).filter(p => ageOf(s, p) >= 18).length;
   return effectiveHolders(s, trade) <= Math.max(1.5, wantOf(s, trade, adults) * 0.45);
 }
 
 function mastersOf(s, trade) {
-  return Object.values(s.people).filter(p => p.alive && p.trade === trade
+  return livingPeople(s).filter(p => p.trade === trade
     && ageOf(s, p) >= MASTER_MIN && ageOf(s, p) <= MASTER_MAX);
 }
 
@@ -2279,7 +2367,7 @@ function apprenticeScore(s, m, p, scarceGift) {
 /* --- taking someone on ------------------------------------------------------ */
 
 function sysApprentice(s, r) {
-  const adults = Object.values(s.people).filter(p => p.alive && ageOf(s, p) >= 18).length;
+  const adults = livingPeople(s).filter(p => ageOf(s, p) >= 18).length;
   const learning = new Set(Object.values(s.people)
     .filter(p => p.alive && p.learning).map(p => p.learning.from));
 
@@ -2308,12 +2396,12 @@ function sysApprentice(s, r) {
     // a craft that takes ten years cannot also draw only from five year-groups
     const minAge = info.minAge || APPRENTICE_MIN;
     const maxAge = last ? Math.max(24, info.maxAge || APPRENTICE_MAX) : (info.maxAge || APPRENTICE_MAX);
-    const pool = Object.values(s.people).filter(p => p.alive && !p.trade && !p.learning
+    const pool = livingPeople(s).filter(p => !p.trade && !p.learning
       && ageOf(s, p) >= minAge && ageOf(s, p) <= maxAge
       && (!info.aptitude || p.aptitude));
     if (!pool.length) continue;
 
-    const tenders = Object.values(s.people).filter(p => p.alive && p.trade === 'tender').length;
+    const tenders = livingPeople(s).filter(p => p.trade === 'tender').length;
     const scarceGift = tenders < Math.max(2, Math.round(TRADES.tender.want * adults));
     const floor = last ? 12 : SCORE_FLOOR;   // the last master takes who they can get
     const ranked = pool.map(p => ({ p, v: apprenticeScore(s, m, p, scarceGift) + (r() - 0.5) * 8 }))
@@ -2336,6 +2424,7 @@ function sysApprentice(s, r) {
     if (!taken) continue;
 
     const kin = taken.householdId === m.householdId;
+    touchTrades(s);
     taken.learning = { from: m.id, name: nameOf(s, m.id), trade: m.trade,
                        since: s.turn, progress: 0.01, kin };
     m.lastApprentice = s.turn;
@@ -2384,6 +2473,9 @@ function sysLearn(s, r) {
       } else if (chance(r, last ? 0.01 : 0.05)) {
         ev(s, 'teach', 4, `${nameOf(s, p.id)} gave up on ${L.trade} after ${Math.max(1, Math.round((s.turn - L.since) / 4))} years.`, { person: p.id });
         p.learning = null;
+  touchTrades(s);
+      touchTrades(s);
+        touchTrades(s);
       }
       continue;
     }
@@ -2391,6 +2483,8 @@ function sysLearn(s, r) {
     if (chance(r, info.dropout || DROPOUT)) {
       ev(s, 'teach', 3, `${nameOf(s, p.id)} stopped being taught ${L.trade} by ${L.name}.`, { person: p.id });
       p.learning = null;
+  touchTrades(s);
+      touchTrades(s);
       continue;
     }
 
@@ -2403,6 +2497,7 @@ function finishTrade(s, p, L, alone) {
   const yrs = Math.max(1, Math.round((s.turn - L.since) / 4));
   setTrade(s, p, L.trade);
   p.learning = null;
+  touchTrades(s);
   remember(s, p.householdId, 4, `taught a ${L.trade} of their own`);
   shiftStanding(p, 'trade', 20);
   ev(s, 'teach', 6, alone
@@ -2413,6 +2508,7 @@ function finishTrade(s, p, L, alone) {
 
 function setTrade(s, p, trade) {
   p.trade = trade;
+  touchTrades(s);
   p.tender = trade === 'tender';          // the rest of the engine still asks this
   if (p.role === 'none' && tradeTier(trade) > 1) p.role = trade;
 }
@@ -2432,7 +2528,7 @@ function sysUnskilled(s, r) {
        this the floor swallows every aptitude-holder before a tender can reach
        them, and the settlement quietly loses the ability to build. */
     if (p.aptitude && age <= (TRADES.tender.maxAge || 24)
-        && Object.values(s.people).some(m => m.alive && m.trade === 'tender')) continue;
+        && livingPeople(s).some(m => m.trade === 'tender')) continue;
     const hh = s.households[p.householdId];
     if (!hh) continue;
     const claims = hh.claims || [];
@@ -2476,10 +2572,10 @@ function sysUnskilled(s, r) {
    the design already names — somebody arrives who knows it. */
 function tradeForIncomer(s, r) {
   const missing = TEACHABLE.filter(k =>
-    !Object.values(s.people).some(p => p.alive && p.trade === k));
+    !livingPeople(s).some(p => p.trade === k));
   if (missing.length && chance(r, 0.5)) return pick(r, missing);
   const thin = TEACHABLE.filter(k =>
-    Object.values(s.people).filter(p => p.alive && p.trade === k).length <= 1);
+    livingPeople(s).filter(p => p.trade === k).length <= 1);
   return thin.length ? pick(r, thin) : pick(r, TEACHABLE);
 }
 
@@ -2502,6 +2598,7 @@ function sysRoomless(s) {
     ev(s, 'notender', 5, `${nameOf(s, p.id)} has had nowhere to work as a ${trade} for ${Math.round(p.noRoom / 4)} years. They have gone back to common work.`,
        { person: p.id, household: p.householdId });
     p.trade = null;
+    touchTrades(s);
     p.tender = false;
     p.noRoom = 0;
     if (p.role === trade) p.role = 'none';
@@ -2512,9 +2609,9 @@ function sysRoomless(s) {
 function sysTradeLoss(s, r) {
   s.lostTrades = s.lostTrades || {};
   for (const k of TEACHABLE) {
-    const held = Object.values(s.people).some(p => p.alive && p.trade === k);
+    const held = livingPeople(s).some(p => p.trade === k);
     if (held) { if (s.lostTrades[k]) delete s.lostTrades[k]; continue; }
-    const learners = Object.values(s.people).some(p => p.alive && p.learning && p.learning.trade === k);
+    const learners = livingPeople(s).some(p => p.learning && p.learning.trade === k);
     if (learners || s.lostTrades[k]) continue;
     s.lostTrades[k] = s.turn;
     ev(s, 'notender', 6, `There is nobody left on this coast who can work as a ${k}.`, {});
@@ -2779,7 +2876,7 @@ function sysWant(s, r) {
     if (s.turn - (s.shortSince[g] || -99) < 40) continue;
     s.shortSince[g] = s.turn;
     const maker = Object.keys(MAKES).find(k => MAKES[k] && MAKES[k][g] !== undefined);
-    const makers = maker ? Object.values(s.people).filter(p => p.alive && p.trade === maker).length : 0;
+    const makers = maker ? livingPeople(s).filter(p => p.trade === maker).length : 0;
     ev(s, 'note', 5, `There is no ${g} to be had on this coast${makers ? '' : ` — nobody works as a ${maker}`}.`, {});
   }
 }
@@ -3135,7 +3232,7 @@ function legitimacy(s) {
    -------------------------------------------------------------------------- */
 
 function pickSmith(s, r) {
-  const smiths = Object.values(s.people).filter(p => p.alive && p.trade === 'smith'
+  const smiths = livingPeople(s).filter(p => p.trade === 'smith'
     && ageOf(s, p) >= 18 && canPractise(s, p));
   if (!smiths.length) return null;
   const rulers = officeSpec(s).flatMap(sp => officeHolders(s, sp.key));
@@ -3399,6 +3496,7 @@ function applyRuling(s, r, hh, ruling, who, judge, owe) {
     if (!b || !to) { applyRuling(s, r, hh, 'forbear', who, judge, owe); return; }
 
     b.householdId = to.id;
+    touchBuildings(s);
     hh.buildingId = null;
     hh.lodgedWith = to.id;
     if (!to.buildingId) to.buildingId = b.id;
@@ -3554,6 +3652,7 @@ function sysWear(s) {
 
     if (b.condition <= 0 && !occupied) {
       b.state = 'derelict';
+      touchBuildings(s);
       ev(s, 'derelict', 4, `The ${hh ? hh.name + ' ' : ''}house at ${siteWord(s, b.tileId)} came down. There had been nobody in it for years.`,
          { building: b.id });
     }
@@ -3607,7 +3706,7 @@ function payForRepair(s, r, hh, m) {
 }
 
 function sysRepairs(s, r) {
-  const masons = Object.values(s.people).filter(p => p.alive && p.trade === 'mason'
+  const masons = livingPeople(s).filter(p => p.trade === 'mason'
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 70 && !gaoled(p));
   const failing = Object.values(s.buildings).filter(b => b.state === 'mature'
     && conditionOf(b) < MEND_BELOW);
@@ -3718,6 +3817,7 @@ function sysDisrepair(s, r) {
     if (stageOf(b) > 1) {
       const was = roleWord(b);
       b.stage -= 1;
+      touchBuildings(s);
       b.growth = 0;
       b.stageSince = s.turn;
       b.condition = clamp(conditionOf(b) + 0.30, 0, 1);   // what is left of it stands
@@ -3731,6 +3831,7 @@ function sysDisrepair(s, r) {
     // a stage-1 house past mending is simply a ruin, occupied or not
     if (chance(r, 0.25)) {
       b.state = 'derelict';
+      touchBuildings(s);
       ev(s, 'derelict', 6, `The ${hh ? hh.name + ' ' : ''}house at ${siteWord(s, b.tileId)} is a ruin. What was left of it came down.`,
          { building: b.id });
       if (hh && !hh.extinct) hh.buildingId = null;
@@ -3746,7 +3847,7 @@ function sysDisrepair(s, r) {
    -------------------------------------------------------------------------- */
 
 function sysBeauty(s, r) {
-  const carvers = Object.values(s.people).filter(p => p.alive && p.trade === 'carver'
+  const carvers = livingPeople(s).filter(p => p.trade === 'carver'
     && ageOf(s, p) >= 16 && ageOf(s, p) <= 72 && !gaoled(p) && canPractise(s, p));
   if (!carvers.length) return;
 
@@ -3849,6 +3950,7 @@ function sysTakeEmpty(s, r) {
     const old = s.households[b.householdId];
     taken.add(b.id);
     b.householdId = hh.id;
+    touchBuildings(s);
     b.ruinousSince = 0;
     hh.buildingId = b.id;
     hh.lodgedWith = null;
@@ -3910,6 +4012,7 @@ function sysLife(s, r) {
 
 function kill(s, p, cause) {
   p.alive = false; p.deathTurn = s.turn; p.cause = cause;
+  touchPeople(s);
   const hh = s.households[p.householdId];
   const weight = notable(s, p) ? 6 : p.role === 'head' ? 4 : p.tender ? 5 : 1;
   let text;
@@ -4805,7 +4908,7 @@ function sysShrine(s, r) {
       remember(s, keeper ? keeper.householdId : null, 3, `kept the ${sh.god} stone`);
     }
     sh.keeperId = null;
-    const devout = Object.values(s.people).filter(p => p.alive && p.traits.piety > 62
+    const devout = livingPeople(s).filter(p => p.traits.piety > 62
       && ageOf(s, p) >= 20 && ageOf(s, p) <= 74);
     if (devout.length && chance(r, 0.4)) {
       const k = devout.sort((a, b) => b.traits.piety - a.traits.piety)[0];
@@ -4890,6 +4993,7 @@ function sysClaims(s, r) {
         hh.waiting = 0;
       } else if (chance(r, 0.08)) {
         for (const mid of hh.members) { const m = s.people[mid]; m.alive = false; m.deathTurn = s.turn; m.cause = 'departure'; }
+        touchPeople(s);
         hh.extinct = s.turn;
         ev(s, 'leave', 5, `The ${hh.name} gave up waiting for ground and left the coast.`, { household: hh.id });
       }
@@ -4908,7 +5012,7 @@ function startGrowing(s, r, hh, tid) {
     state: 'growing', stalled: 0, condition: 1, refused: refusers.length
   };
   if (!tender) {
-    const anyone = Object.values(s.people).some(p => p.alive && p.tender && ageOf(s, p) >= 16);
+    const anyone = livingPeople(s).some(p => p.tender && ageOf(s, p) >= 16);
     ev(s, 'notender', 6, anyone
       ? `Every free tender refused to start the ${hh.name} stone. It sits unworked.`
       : `No living tender can start the ${hh.name} stone. It sits unworked.`,
@@ -5037,7 +5141,7 @@ function sysDisputes(s, r) {
 }
 
 function revealGrudge(s, r) {
-  const holders = Object.values(s.people).filter(p => p.alive && (p.ties || []).some(x => x.value < -20));
+  const holders = livingPeople(s).filter(p => (p.ties || []).some(x => x.value < -20));
   if (!holders.length) { ev(s, 'divine', 3, 'No hidden grudge was found. Nobody here is holding one.'); return; }
   const p = pick(r, holders);
   const g = pick(r, p.ties.filter(x => x.value < -20));
@@ -5070,7 +5174,7 @@ function arriveStrangers(s, r) {
   }
   ev(s, 'arrival', 6, `${n} newcomers arrived by boat as the ${hh.name} household. They are asking for ground.`, { household: hid });
   if (brought) {
-    const had = Object.values(s.people).filter(p => p.alive && p.trade === brought).length;
+    const had = livingPeople(s).filter(p => p.trade === brought).length;
     ev(s, 'arrival', had <= 1 ? 7 : 4,
       had <= 1 ? `Their head can work as a ${brought}. Nobody else on this coast can.`
                : `Their head can work as a ${brought}.`, { household: hid });
@@ -5345,7 +5449,7 @@ function sysOmen(s, r) {
   const hungry = Object.values(s.households).filter(h => !h.extinct && !h.lodgedWith && h.stores < 1).length;
   const openD = Object.values(s.disputes).filter(d => d.open).length;
   const hotD = Object.values(s.disputes).filter(d => d.open && d.heat > 60).length;
-  const tenders = Object.values(s.people).filter(p => p.alive && p.tender && ageOf(s, p) >= 16).length;
+  const tenders = livingPeople(s).filter(p => p.tender && ageOf(s, p) >= 16).length;
   const growing = Object.values(s.buildings).filter(b => b.state === 'growing').length;
 
   const candidates = [];

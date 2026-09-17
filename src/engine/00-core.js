@@ -10,9 +10,21 @@ const ENGINE_VERSION = '0.1.0';
 
 /* The whole state is plain JSON, so a JSON round-trip is a valid deep copy.
    structuredClone is faster where it exists; older mobile browsers lack it. */
-const clone = (typeof structuredClone === 'function')
-  ? (o) => structuredClone(o)
-  : (o) => JSON.parse(JSON.stringify(o));
+/* A hand-rolled deep copy for plain JSON, which is all the state ever is. It
+   beats structuredClone on this shape by a wide margin: structuredClone pays
+   a fixed cost per call and a serialisation on every object, and the state is
+   thousands of small ones. */
+function clone(o) {
+  if (o === null || typeof o !== 'object') return o;
+  if (Array.isArray(o)) {
+    const a = new Array(o.length);
+    for (let i = 0; i < o.length; i++) a[i] = clone(o[i]);
+    return a;
+  }
+  const c = {};
+  for (const k in o) c[k] = clone(o[k]);
+  return c;
+}
 
 /* --- seeded randomness ---------------------------------------------------- */
 
@@ -65,10 +77,39 @@ const TERRAIN_NAME = ['open water', 'shore', 'hillside', 'crag', 'moor'];
 
 function tileId(x, y) { return y * W + x; }
 function tileXY(id) { return [id % W, Math.floor(id / W)]; }
+/* Looked up, not computed. tileDist was eight per cent of a turn on its own,
+   because every "who will walk to whom" decision in the engine asks it for
+   every pair it considers. The table is a hundred thousand floats and is
+   built once. */
+let DIST = null;
 function tileDist(a, b) {
-  const [ax, ay] = tileXY(a), [bx, by] = tileXY(b);
-  return Math.hypot(ax - bx, ay - by);
+  if (!DIST) {
+    const n = W * H;
+    DIST = new Float64Array(n * n);   // float32 rounding flipped a threshold at turn 61 of seed 991
+    for (let i = 0; i < n; i++) {
+      const ax = i % W, ay = Math.floor(i / W);
+      for (let j = 0; j < n; j++) DIST[i * n + j] = Math.hypot(ax - (j % W), ay - Math.floor(j / W));
+    }
+  }
+  return DIST[a * W * H + b];
 }
+
+/* --- season-scoped caches ---------------------------------------------------
+   Half the engine is "for every person, for every household, for every
+   building". The living are a third of the people on record and the set of
+   households with a workshop changes a few times a century, so both are
+   worked out once a season and thrown away before the state is kept. Every
+   site that can change either answer mid-season clears it, so nothing reads
+   a stale one — the run has to be bit-identical to the uncached engine, and
+   test/run.js checks that it is. */
+function livingPeople(s) {
+  if (!s._alive) s._alive = Object.values(s.people).filter(p => p.alive);
+  return s._alive;
+}
+function touchPeople(s) { s._alive = null; s._eh = null; }
+function touchTrades(s) { s._eh = null; }
+function touchBuildings(s) { s._ws = null; }
+function dropCaches(s) { s._alive = null; s._ws = null; s._eh = null; s._scarce = null; s._rank = null; }
 
 function buildTerrain(r) {
   // A coastline running roughly north-south down the left, land rising east.

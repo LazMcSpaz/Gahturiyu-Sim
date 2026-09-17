@@ -149,6 +149,7 @@ function sysHardship(s, r) {
     // 4. give up on the place
     if (n >= 13 && chance(r, 0.16)) {
       for (const p of live) { p.alive = false; p.deathTurn = s.turn; p.cause = 'departure'; }
+      touchPeople(s);
       hh.extinct = s.turn;
       for (const c of hh.claims) s.tiles[c].owner = null;
       remember(s, hh.id, -2, `left the coast rather than starve`);

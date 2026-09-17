@@ -134,7 +134,7 @@ function sysShrine(s, r) {
       remember(s, keeper ? keeper.householdId : null, 3, `kept the ${sh.god} stone`);
     }
     sh.keeperId = null;
-    const devout = Object.values(s.people).filter(p => p.alive && p.traits.piety > 62
+    const devout = livingPeople(s).filter(p => p.traits.piety > 62
       && ageOf(s, p) >= 20 && ageOf(s, p) <= 74);
     if (devout.length && chance(r, 0.4)) {
       const k = devout.sort((a, b) => b.traits.piety - a.traits.piety)[0];
@@ -219,6 +219,7 @@ function sysClaims(s, r) {
         hh.waiting = 0;
       } else if (chance(r, 0.08)) {
         for (const mid of hh.members) { const m = s.people[mid]; m.alive = false; m.deathTurn = s.turn; m.cause = 'departure'; }
+        touchPeople(s);
         hh.extinct = s.turn;
         ev(s, 'leave', 5, `The ${hh.name} gave up waiting for ground and left the coast.`, { household: hh.id });
       }
@@ -237,7 +238,7 @@ function startGrowing(s, r, hh, tid) {
     state: 'growing', stalled: 0, condition: 1, refused: refusers.length
   };
   if (!tender) {
-    const anyone = Object.values(s.people).some(p => p.alive && p.tender && ageOf(s, p) >= 16);
+    const anyone = livingPeople(s).some(p => p.tender && ageOf(s, p) >= 16);
     ev(s, 'notender', 6, anyone
       ? `Every free tender refused to start the ${hh.name} stone. It sits unworked.`
       : `No living tender can start the ${hh.name} stone. It sits unworked.`,
@@ -366,7 +367,7 @@ function sysDisputes(s, r) {
 }
 
 function revealGrudge(s, r) {
-  const holders = Object.values(s.people).filter(p => p.alive && (p.ties || []).some(x => x.value < -20));
+  const holders = livingPeople(s).filter(p => (p.ties || []).some(x => x.value < -20));
   if (!holders.length) { ev(s, 'divine', 3, 'No hidden grudge was found. Nobody here is holding one.'); return; }
   const p = pick(r, holders);
   const g = pick(r, p.ties.filter(x => x.value < -20));
@@ -399,7 +400,7 @@ function arriveStrangers(s, r) {
   }
   ev(s, 'arrival', 6, `${n} newcomers arrived by boat as the ${hh.name} household. They are asking for ground.`, { household: hid });
   if (brought) {
-    const had = Object.values(s.people).filter(p => p.alive && p.trade === brought).length;
+    const had = livingPeople(s).filter(p => p.trade === brought).length;
     ev(s, 'arrival', had <= 1 ? 7 : 4,
       had <= 1 ? `Their head can work as a ${brought}. Nobody else on this coast can.`
                : `Their head can work as a ${brought}.`, { household: hid });

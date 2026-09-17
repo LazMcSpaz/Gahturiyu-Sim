@@ -8,10 +8,7 @@
    purpose the contract cares about — rollback still gets its own array, and
    nothing can reach back and change an entry that has already been written. */
 function advance(state, input) {
-  const keptChronicle = state.chronicle, keptStats = state.stats;
-  const s = clone(Object.assign({}, state, { chronicle: [], stats: [] }));
-  s.chronicle = keptChronicle.slice();
-  s.stats = keptStats.slice();
+  const s = cloneState(state);
   s.turn += 1;
   s.log = [];
   const r = turnRng(s.seed, s.turn);
@@ -61,8 +58,7 @@ function advance(state, input) {
   sysMemory(s, r);
   sysOmen(s, r);
 
-  s._scarce = null;     // a season-scoped cache; it has no business in the state
-  s._rank = null;
+  dropCaches(s);        // season-scoped caches have no business in the state
   decayTies(s);         // regard fades before it is counted
   decayStanding(s);
 
@@ -74,6 +70,30 @@ function advance(state, input) {
     stats: clone(s.stats[s.stats.length - 1]),
     input: input && input.lever ? input.lever : null
   });
+  return s;
+}
+
+/* The copy. Deep-cloning the whole state was a quarter of every turn, and
+   most of what it copied never changes again: the dead. A person who has died
+   is finished — nothing in the engine writes to them, and the run checks that
+   claim by comparing against the uncached engine — so they are carried by
+   reference and frozen, the way the chronicle and the stats already are. The
+   living, and everything else, are copied as before. */
+function cloneState(state) {
+  const s = Object.assign({}, state);
+  s.chronicle = state.chronicle.slice();
+  s.stats = state.stats.slice();
+  s.people = {};
+  for (const id in state.people) {
+    const p = state.people[id];
+    s.people[id] = p.alive ? clone(p) : (Object.isFrozen(p) ? p : Object.freeze(p));
+  }
+  for (const k in s) {
+    if (k === 'chronicle' || k === 'stats' || k === 'people') continue;
+    if (k[0] === '_') { delete s[k]; continue; }     // a season's caches never cross into the next
+    const v = s[k];
+    if (v && typeof v === 'object') s[k] = clone(v);
+  }
   return s;
 }
 

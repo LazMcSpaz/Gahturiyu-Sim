@@ -15,6 +15,9 @@ needed to *use* it, works from `file://` or from GitHub Pages on a phone.
 node build.js        # concatenate src/ into dist/gahturiyu.html
 node test/run.js     # headless: determinism, levers, hundred-year runs, chronicle
 node test/probe.js "console.log(sim(7, 200).hist.at(-1))"   # scratch
+node tools/probe.js                        # eleven seeds, 120 years, one line each, and what looks wrong
+node tools/probe.js --years 250 --every 80 # longer, with a time series per seed
+node tools/ab.js HEAD~1                    # the same sweep on another commit and on the working tree
 ```
 
 There is no bundler and no dependency. `build.js` concatenates the files listed
@@ -155,6 +158,38 @@ https://lazmcspaz.github.io/Gahturiyu-Sim/
 
 Pushing to `main` deploys. Run it by hand from the Actions tab (**Pages → Run workflow**)
 if you need to redeploy without a commit.
+
+## Finding out what the simulation is doing
+
+The suite says whether the rules hold. `tools/` says what a settlement looks
+like, which is the question that actually finds problems.
+
+- `tools/probe.js` runs a sweep of seeds in parallel and prints one line per
+  settlement — population, stone by stage, workshops, disrepair, crafts held
+  and lost, legitimacy, coin, chronicle volume and what dominates it, levies,
+  blocs, rulings — followed by anything `tools/measure.js` flags as worth a
+  look. `--years`, `--seeds`, `--pop`, `--gov`, `--storms N`, `--every N` for
+  a time series, `--json` to keep the numbers, `--cols` to pick columns.
+- `tools/ab.js <ref>` runs the same sweep against another commit (checked out
+  read-only into a temp dir) and against the working tree, side by side, with
+  means, movement and any flag that appeared or went away. This is the check
+  to run before believing a balance change did what you think.
+- `tools/measure.js` is the one place the readings are defined. Add a column
+  there and both tools have it.
+
+Runs are parallel across cores; eleven seeds over a hundred and twenty years
+is about forty seconds on four. The engine is deterministic, so a reading is
+reproducible from its seed.
+
+The test suite itself shares trajectories: one run per (seed, population,
+government), extended on demand and pre-warmed in worker threads, so a section
+that wants seed 20260910 at year thirty and another at year a hundred and
+twenty cost one run between them. Season-scoped caches inside the engine —
+who is alive, who has a workshop, who holds each craft, tile distances — are
+cleared before a state is kept. Every site that can change one of those
+answers mid-season clears its cache, and the change was verified bit-identical
+against the uncached engine over four hundred seasons on two seeds; the
+determinism tests keep it honest from here.
 
 `.github/workflows/ci.yml` runs the same build and tests on every branch and pull
 request, and fails if `dist/gahturiyu.html` was not rebuilt after a change to `src/` —

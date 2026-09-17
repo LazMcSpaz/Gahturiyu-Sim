@@ -146,6 +146,7 @@ function applyRuling(s, r, hh, ruling, who, judge, owe) {
     if (!b || !to) { applyRuling(s, r, hh, 'forbear', who, judge, owe); return; }
 
     b.householdId = to.id;
+    touchBuildings(s);
     hh.buildingId = null;
     hh.lodgedWith = to.id;
     if (!to.buildingId) to.buildingId = b.id;
