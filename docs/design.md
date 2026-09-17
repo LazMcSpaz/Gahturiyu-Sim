@@ -966,6 +966,26 @@ available.
 
 ## 10. Upkeep, decay and beauty
 
+> **Three findings from the sweep, a year on.** Half the seeds had forty per
+> cent of their stone in disrepair. Classifying every unmended house by why
+> gave three causes and none was the wear rate. A mason took the top three
+> jobs on their list and moved on whether or not the household could pay, so a
+> season went on households with nothing while houses with a stone and a
+> timber on the step went unmended — twelve a season on one coast; a mason
+> now does three jobs, not looks at three. Mason households held whatever they
+> happened to hold, so on a coast where none had materials the credit path was
+> closed too; a mason's house keeps stone and timber in. And the weight on
+> repute closed a loop: disrepair costs quarter standing, standing is repute,
+> and a house of low repute was a house no mason would walk to — seven of
+> sixteen failing houses a season on a declining coast, and the decline fed
+> itself. A mason is paid at the door and cares less than a tender what the
+> house is known for. Disrepair fell from ten houses a settlement to one or two
+> across twenty-two seeds, with the poor household that cannot pay still
+> visible. Barter now exists for materials — the fallback the design promised
+> when credit tightens — and only for materials: bartering anything had a
+> household hand over six lots of grain for a lot of garments it used to get
+> for a debt that faded, and whole coasts starved on finery.
+>
 > **Built.** The bill arrives every season and the settlement can be seen
 > paying it or failing to. A mason mends a house for a stone and a timber; a
 > household that cannot find them is carried by the mason and owes for it,
@@ -1273,6 +1293,17 @@ measured here. It predates slice 6 and slice 7 alike and it is the largest
 unexamined thing in the simulation.
 
 ## 15. Open, not yet decided
+
+- **The coast fills up, and then it empties.** This is the two-century decline,
+  diagnosed. A new house needs a site at least 2.15 tiles from every standing
+  one, and on a coast twenty-two by fifteen that is thirty-five to forty
+  houses. Once they stand, every household that splits off waits for ground
+  that never comes and *leaves the coast* — eleven households in the last
+  seventy years of one run, and a settlement of a hundred and seventy-five
+  down to forty-five. Nothing in the simulation is broken; the map is full.
+  Whether the answer is closer building, lodging with kin instead of leaving,
+  a second coast to go to, or simply a bigger map is a design decision and not
+  a tuning one.
 
 - **Does anything replace `prominence`?** With the cap gone, the field that
   marks someone as a named figure may be redundant — having a goal is the same

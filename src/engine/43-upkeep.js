@@ -33,6 +33,7 @@ const MEND_BELOW = 0.75;        // a mason does not come out for a sound house
 const DISREPAIR = 0.5;          // visibly failing, and the quarter notices
 const RUINOUS = 0.2;            // past mending: the building loses a stage
 const MASON_JOBS = 3;           // houses one mason gets round in a season
+const GRAIN_FLOOR = 14;         // what a household keeps back before paying a mason in food
 /* People patch their own roofs. Without this a quarter with no mason willing
    to walk to it simply came down — twenty to forty growths lost a century and
    three seeds in nine with no third growth at all after a hundred and twenty
@@ -97,7 +98,13 @@ function masonWill(s, m, hh, b) {
   v -= walkDist(s, homeTile(s, m), b.tileId) * 2.2;   // a mason travels; it is a day, not a life
   if (own && own.id === hh.id) v += 60;                                          // your own roof first
   else if (own && firstSyllable(own.name) === firstSyllable(hh.name)) v += 24;
-  v += reputeOf(s, hh) * 1.8;
+  /* A paid job. A tender grows a house for years and cares what the house is
+     known for; a mason is there for a season and is paid at the door, so
+     repute counts for less than it did. At 1.8 it closed a loop: disrepair
+     costs a household quarter standing, standing is repute, and a house of
+     low repute was a house no mason would walk to — seven of sixteen failing
+     houses a season on a declining coast, and the decline fed itself. */
+  v += reputeOf(s, hh) * 0.8;
   v -= holdsAgainst(s, m, hh.id) * 0.9;
   v += (1 - conditionOf(b)) * 30;                                                // the worse it is, the more it calls
   if (m.traits.avarice > 55) v += clamp(hh.stores - 6, -8, 12) * (m.traits.avarice / 90);
@@ -123,9 +130,21 @@ function payForRepair(s, r, hh, m) {
   const own = s.households[m.householdId];
   if (!own || own.id === hh.id || own.extinct) return null;
   if (!Object.entries(REPAIR_COST).every(([g, n]) => hasGood(own, g, n))) return null;
+  const price = Object.entries(REPAIR_COST).reduce((a, [g, n]) => a + (VALUE[g] || 0.3) * n, 0) * 1.3;
+
+  /* Paid in grain, which is the unit. This is the barter the design promised
+     when it said a merciful settlement is thrown back on it: with credit
+     tight, masons on one coast were refusing seventeen repairs a season for
+     want of payment while the settlement held two hundred and fifty lots of
+     stone, and half its houses fell in. A household with food to spare hands
+     some over and owes nothing. */
+  if (hh.stores - price >= GRAIN_FLOOR) {
+    for (const [g, n] of Object.entries(REPAIR_COST)) takeGood(own, g, n);
+    hh.stores -= price; own.stores += price;
+    return 'grain';
+  }
   if (chance(r, s.creditTight || 0)) return null;
   for (const [g, n] of Object.entries(REPAIR_COST)) takeGood(own, g, n);
-  const price = Object.entries(REPAIR_COST).reduce((a, [g, n]) => a + (VALUE[g] || 0.3) * n, 0) * 1.3;
   addDebt(s, hh.id, own.id, price, 'mending their house');
   return 'credit';
 }
@@ -156,7 +175,14 @@ function sysRepairs(s, r) {
       .filter(x => x.v > 0)
       .sort((a, c) => c.v - a.v);
 
-    for (const { x } of ranked.slice(0, MASON_JOBS)) {
+    /* Three jobs done, not three jobs looked at. Taking the top three of the
+       list and moving on whether or not they could pay spent a mason's whole
+       season on households with nothing, while the ones with a stone and a
+       timber waiting on the step went unmended — twelve a season on one
+       coast. A household that cannot pay is passed over for one that can. */
+    let jobs = 0;
+    for (const { x } of ranked) {
+      if (jobs >= MASON_JOBS) break;
       const { b, hh } = x;
       const paid = payForRepair(s, r, hh, m);
       if (!paid) {
@@ -164,6 +190,7 @@ function sysRepairs(s, r) {
         s.unmended++;
         continue;
       }
+      jobs++;
       hh.wantsMending = 0;
       b.condition = clamp(conditionOf(b) + REPAIR, 0, 1);
       b.lastMended = s.turn;

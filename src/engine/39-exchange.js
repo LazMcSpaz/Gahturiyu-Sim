@@ -118,6 +118,18 @@ function demandOf(s, hh) {
     }
   }
 
+  /* A mason's household keeps stone and timber in, because the mason carries
+     them to whoever cannot pay in kind. Without this a mason's house held
+     whatever it happened to hold, and on a coast where nobody's did, ten
+     failing houses a season went unmended for want of materials the
+     settlement had two hundred lots of. */
+  if (live.some(p => p.trade === 'mason' && ageOf(s, p) >= 16)) {
+    for (const [g, n] of Object.entries(REPAIR_COST)) {
+      const short = n * 4 - (goodsOf(hh)[g] || 0);
+      if (short > 0) want[g] = Math.max(want[g] || 0, short);
+    }
+  }
+
   // a craft that cannot get its input is the sharpest demand in the settlement
   for (const p of live) {
     const recipe = MAKES[p.trade];
@@ -129,6 +141,40 @@ function demandOf(s, hh) {
     }
   }
   return want;
+}
+
+/* A swap in place of a debt. The buyer pays with whatever it holds most of
+   beyond its keep, or with grain, at the same price the seller would have
+   written down. Returns true if the goods moved. */
+const BARTER_UP_TO = 2.0;   // ḍaqu a lot: the materials, not the finery
+const BARTER_KEEP = 14;     // grain a household keeps back before paying in it
+
+function barter(s, buyer, seller, g, lot, price) {
+  /* Materials only. The first version bartered anything, and a household with
+     nine lots of grain would hand over six and a half of them for a lot of
+     garments — which under credit it had been getting for a debt that faded.
+     Whole coasts spent their larders on finery and starved. Stone, timber,
+     ore, cordage and leather are what a household cannot do without; the
+     rest waits for credit. */
+  if ((VALUE[g] || 99) > BARTER_UP_TO) return false;
+  const mine = goodsOf(buyer);
+  const spare = Object.keys(mine)
+    .filter(k => k !== g && (VALUE[k] || 0) > 0 && mine[k] - SELL_KEEP > 0)
+    .map(k => ({ k, worth: (mine[k] - SELL_KEEP) * VALUE[k] }))
+    .filter(x => x.worth >= price)
+    .sort((a, b) => b.worth - a.worth)[0];
+  if (spare) {
+    const n = price / VALUE[spare.k];
+    takeGood(buyer, spare.k, n); giveGood(seller, spare.k, n);
+  } else if (buyer.stores - price >= BARTER_KEEP) {
+    buyer.stores -= price; seller.stores += price;
+  } else {
+    return false;
+  }
+  takeGood(seller, g, lot);
+  giveGood(buyer, g, lot);
+  s.barters = (s.barters || 0) + 1;
+  return true;
 }
 
 /* --- the season's bargains --------------------------------------------------- */
@@ -183,6 +229,12 @@ function sysExchange(s, r) {
          kind makes the place gentler and poorer at once. */
       const ceiling = TALLY_AT * 3 * (1 - (s.creditTight || 0) * 0.6);
       if (owed(s, buyer.id, deal.sel.id) > ceiling) {
+        /* Credit refused, so barter — the design's own fallback, and the one
+           thing that keeps a poor household in the market when the settlement
+           has stopped lending. The buyer hands over something it holds beyond
+           its keep, at value parity, and owes nothing. Grain counts, since it
+           is the unit. */
+        if (barter(s, buyer, deal.sel, g, lot, deal.price * (lot / TRADE_LOT))) continue;
         s.refusals++;
         buyer.noCredit = (buyer.noCredit || 0) + 1;
         if (buyer.noCredit === 8) {

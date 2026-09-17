@@ -55,7 +55,7 @@ function loadEngine(root = __dirname) {
   return new Function(engineSource(root) +
     '\nreturn {newWorld,advance,clone,LEVERS,renderTurn,chronicleHTML,mapHTML,inTheNews,tileFactsHTML,'
     + 'seasonOf,yearOf,ageOf,mulberry32,reputeOf,tileId,tileXY,quarterOf,W,H,'
-    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal,stageOf,roleOf,roleWord,hasWorkshop,tavernsOf,STAGE_TURNS,TRADES,TIER1,TEACHABLE,tradeTier,canPractise,workshopFor,mastersOf,apprenticeScore,endangered,effectiveHolders,GOODS,MAKES,WANTS,goodsOf,commonStore,TITHE,VALUE,debtsOf,owed,totalOwed,totalHeld,priceFor,demandOf,legitimacy,mintOf,coinOf,coinWorks,COIN_AT,COIN_KEEP,HARSHNESS,chooseRuling,gaoled,RUIN_AT,conditionOf,beautyOf,inDisrepair,vacant,WEAR,REPAIR,DISREPAIR,RUINOUS,MEND_BELOW,SELF_CEILING,cohesionOf,holdsTogether,quarterHouses,tradeHouses,topQuartile,BLOC_COHESION,BLOC_KNOWN,LEVY_SHARE};')();
+    + 'FACTIONS,standingWith,houseStanding,compositeOf,tieTo,holdsAgainst,bondWith,TIE_CAP,hasGoal,stageOf,roleOf,roleWord,hasWorkshop,tavernsOf,STAGE_TURNS,TRADES,TIER1,TEACHABLE,tradeTier,canPractise,workshopFor,mastersOf,apprenticeScore,endangered,effectiveHolders,GOODS,MAKES,WANTS,goodsOf,commonStore,TITHE,VALUE,debtsOf,owed,totalOwed,totalHeld,priceFor,demandOf,legitimacy,mintOf,coinOf,coinWorks,COIN_AT,COIN_KEEP,HARSHNESS,chooseRuling,gaoled,RUIN_AT,conditionOf,beautyOf,inDisrepair,vacant,WEAR,REPAIR,DISREPAIR,RUINOUS,MEND_BELOW,SELF_CEILING,cohesionOf,holdsTogether,quarterHouses,tradeHouses,topQuartile,BLOC_COHESION,BLOC_KNOWN,LEVY_SHARE,masonWill,tenderWill,walkDist,tileDist,homeTile,MASON_JOBS};')();
 }
 
 module.exports = { build, engineSource, loadEngine, MANIFEST };
