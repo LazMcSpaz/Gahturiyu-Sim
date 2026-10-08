@@ -463,7 +463,7 @@ fn a_held_ritual_can_be_released_mid_fight() {
     let b = &mut w.battles[0];
     let i = b.fighters.iter().position(|f| f.pid != m && f.side == 0).unwrap();
     let j = b.fighters.iter().position(|f| f.pid == m).unwrap();
-    b.hurt_whole(i, 200.0);
+    b.hurt_whole(i, 350.0); // down (a held ritual is saved for when it counts)
     b.fighters[j].think_at = 0.0;
     let mut released = false;
     for _ in 0..400 {

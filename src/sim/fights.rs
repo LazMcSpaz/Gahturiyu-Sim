@@ -272,7 +272,8 @@ impl World {
         }
         // The squad's wards round the fight come into it.
         let centre = self.squad.pos;
-        for w in self.wards.iter().filter(|w| w.until > at && w.pos.dist(centre) <= w.radius + 80.0) {
+        // (Their light is already among the fixed lights.)
+        for w in self.wards.iter().filter(|w| w.until > at && w.pos.dist(centre) <= w.radius + 80.0 && w.does != Does::Glow) {
             b.zones.push(super::combat::Zone { does: w.does, pos: w.pos, radius: w.radius, power: w.power, until: w.until, side: SQUAD_SIDE, owner: w.owner, fresh: false });
         }
         // The dead lying nearby (not your own: they're never raised) are
@@ -410,7 +411,10 @@ impl World {
                 p.dead = true;
                 killed += 1;
                 self.busy_until[f.pid as usize] = f64::INFINITY;
-                self.corpses.push((f.pos, p.race, t, f.pid));
+                // A body raised and spent in the fight is gone.
+                if !f.raised {
+                    self.corpses.push((f.pos, p.race, t, f.pid));
+                }
                 // Their things stay where they fell, so they need to exist.
                 if p.ensure_detail() {
                     self.stats.detailed += 1;
@@ -426,9 +430,14 @@ impl World {
                     self.boons.push(super::casting::Boon { pid, does: s.does, power: s.power, until: s.until });
                 }
             }
-            // A held ritual let go in the fight is gone.
-            if f.held.is_none() && self.held.contains_key(&pid) {
+            // A held ritual let go in the fight is gone (and so is one held by
+            // someone who died).
+            if (f.held.is_none() || f.dead) && self.held.contains_key(&pid) {
                 self.set_holding(pid, t, None);
+            }
+            // A torch lit or put out by magic in the fight stays that way.
+            if self.squad.index(pid).is_some() && !f.dead && f.torch != self.torch_lit(pid) && self.torch_in_hand(pid).is_some() {
+                self.toggle_torch(pid);
             }
             self.after_fight(pid, t, fatigue, tire);
         }

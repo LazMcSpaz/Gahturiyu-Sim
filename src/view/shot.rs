@@ -216,10 +216,8 @@ impl Shot {
         let mage = world.squad.members.iter().copied().find(|&m| world.people[m as usize].stats.calling == gahturiyu_sim::sim::stats::Calling::Mage);
         if self.held {
             if let Some(m) = mage {
-                world.held.insert(m, gahturiyu_sim::sim::magic::spell("restore"));
-                if let Some(c) = world.people[m as usize].cond.as_mut() {
-                    c.holding = true;
-                }
+                let t = world.time;
+                world.set_holding(m, t, Some(gahturiyu_sim::sim::magic::spell("restore")));
             }
         }
         if self.summon {

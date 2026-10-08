@@ -174,7 +174,7 @@ impl World {
         let gear = p.kit();
         let stats = inventory::effective(&p.stats, &gear);
         let hp = p.wounds.hp_at(&p.stats, self.time);
-        let bonus = gear.worn(super::effects::Does::MoveSpeed) + self.boon(pid, super::effects::Does::MoveSpeed);
+        let bonus = gear.worn(super::effects::Does::MoveSpeed) + self.boon(pid, super::effects::Does::MoveSpeed) + self.boon(pid, super::effects::Does::Haste);
         let sneak = if self.is_sneaking(pid) { super::stealth::SNEAK_PACE } else { 1.0 };
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
         // Their own kit's weight as usual; a body they're carrying has its own pace.

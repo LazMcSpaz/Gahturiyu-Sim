@@ -243,6 +243,13 @@ pub static SPELLS: &[SpellDef] = &[
     ritual("restore", "Restore", Vital, rite(40.0, 0.0, &[("ghostcap", 2), ("kelp_frond", 2)], Place::Hearth), 0.0, Caster, 30.0, &[now(Does::Heal, 400.0, SQUAD), now(Does::Rest, 100.0, SQUAD)]),
     ritual("sustain", "Sustain", Vital, rite(30.0, 0.0, &[("salted_meat", 1), ("ghostcap", 1)], Place::Anywhere), 0.0, Caster, 35.0, &[lasting(Does::Sustain, 1.0, 24.0 * 3600.0, SQUAD)]),
     ritual("regrow", "Regrow", Vital, rite(180.0, 20.0, &[("storm_glass", 2), ("ghostcap", 4), ("emberroot", 2)], Place::Shrine), 3.0, Friend, 55.0, &[now(Does::Regrow, 1.0, Reach::Target)]),
+    // ---- Warding ----------------------------------------------------------
+    felt("brace", "Brace", Warding, 5.0, 0.4, 0.0, Caster, 8.0, &[lasting(Does::Brace, 1.0, 30.0, Reach::Caster)]),
+    felt("tripwire", "Tripwire", Warding, 6.0, 0.4, 0.0, Caster, 12.0, &[lasting(Does::Tripwire, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 25.0 })]),
+    structured("resist", "Resist", Warding, 15.0, 1.2, 8.0, Friend, 20.0, &[lasting(Does::ResistElements, 0.5, 120.0, Reach::Target)]),
+    structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
+    structured("dispel", "Dispel", Warding, 20.0, 1.4, 15.0, Anyone, 30.0, &[now(Does::Dispel, 1.0, Reach::Target)]),
+    ritual("sanctuary", "Sanctuary", Warding, rite(60.0, 0.0, &[("salt_crystal", 4)], Place::Circle), 0.0, Caster, 40.0, &[lasting(Does::Sanctuary, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 12.0 })]),
     // ---- Alteration -------------------------------------------------------
     felt("lighten", "Lighten", Alteration, 5.0, 0.4, 6.0, Friend, 6.0, &[lasting(Does::Lighten, 0.35, 3600.0, Reach::Target)]),
     felt("burden", "Burden", Alteration, 6.0, 0.4, 10.0, Foe, 10.0, &[lasting(Does::Burden, 0.5, 20.0, Reach::Target)]),
@@ -251,7 +258,7 @@ pub static SPELLS: &[SpellDef] = &[
     structured("shrink", "Shrink", Alteration, 18.0, 1.3, 12.0, Foe, 25.0, &[lasting(Does::Shrink, 0.35, 20.0, Reach::Target)]),
     structured("enlarge", "Enlarge", Alteration, 18.0, 1.3, 8.0, Friend, 25.0, &[lasting(Does::Enlarge, 0.3, 30.0, Reach::Target)]),
     structured("rust", "Rust", Alteration, 18.0, 1.2, 12.0, Foe, 22.0, &[lasting(Does::Rust, 0.5, 60.0, Reach::Target)]),
-    ritual("transmute", "Transmute", Alteration, rite(30.0, 0.0, &[], Place::Circle), 0.0, Caster, 40.0, &[now(Does::Transmute, 5.0, Reach::Object)]),
+    ritual("transmute", "Transmute", Alteration, rite(30.0, 6.0, &[("ash_moss", 1)], Place::Circle), 0.0, Caster, 40.0, &[now(Does::Transmute, 5.0, Reach::Object)]),
     // ---- Summoning --------------------------------------------------------
     felt("wisp", "Wisp", Summoning, 4.0, 0.3, 20.0, Point, 5.0, &[lasting(Does::Glow, 0.6, 600.0, Reach::Ground { radius: 14.0 })]),
     felt("scout", "Scout", Summoning, 6.0, 0.5, 150.0, Point, 12.0, &[lasting(Does::Scout, 1.0, 180.0, Reach::Ground { radius: 0.0 })]),
@@ -266,13 +273,6 @@ pub static SPELLS: &[SpellDef] = &[
     structured("raise_thrall", "Raise thrall", Necromancy, 28.0, 2.0, 10.0, Corpse, 35.0, &[lasting(Does::Raise, 1.0, 45.0, Reach::Object)]),
     ritual("grave_call", "Grave call", Necromancy, rite(60.0, 15.0, &[("ash_moss", 2), ("salt_crystal", 2)], Place::Circle), 0.0, Caster, 50.0, &[lasting(Does::Raise, 1.0, 60.0, Reach::Area { radius: 20.0, who: Who::All })]),
     ritual("blight", "Blight", Necromancy, rite(50.0, 10.0, &[("ghostcap", 3)], Place::Anywhere), 20.0, Point, 45.0, &[lasting(Does::Blight, 3.0, 30.0, Reach::Ground { radius: 6.0 })]),
-    // ---- Warding ----------------------------------------------------------
-    felt("brace", "Brace", Warding, 5.0, 0.4, 0.0, Caster, 8.0, &[lasting(Does::Brace, 1.0, 30.0, Reach::Caster)]),
-    felt("tripwire", "Tripwire", Warding, 6.0, 0.4, 0.0, Caster, 12.0, &[lasting(Does::Tripwire, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 25.0 })]),
-    structured("resist", "Resist", Warding, 15.0, 1.2, 8.0, Friend, 20.0, &[lasting(Does::ResistElements, 0.5, 120.0, Reach::Target)]),
-    structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
-    structured("dispel", "Dispel", Warding, 20.0, 1.4, 15.0, Anyone, 30.0, &[now(Does::Dispel, 1.0, Reach::Target)]),
-    ritual("sanctuary", "Sanctuary", Warding, rite(60.0, 0.0, &[("salt_crystal", 4)], Place::Circle), 0.0, Caster, 40.0, &[lasting(Does::Sanctuary, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 12.0 })]),
 ];
 
 /// Look a spell up by its key. Panics on a typo, which is what tests want.

@@ -276,10 +276,38 @@ impl World {
             return Ok(());
         }
         self.people[who as usize].stats.exercise(d.skill(), 1.5);
-        let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s);
+        self.learn_felt(who, t);
+        let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s) * self.domain_boost(who, s);
         self.say(t, format!("{name} casts {}.", d.name.to_lowercase()));
         self.work_spell(who, s, target, point, skill);
         Ok(())
+    }
+
+    /// How much stronger someone's spells of this one's domain are (worn
+    /// effects and blessings that boost a domain).
+    pub fn domain_boost(&self, pid: PersonId, s: Spell) -> f32 {
+        let d = Does::DomainPower(s.def().domain);
+        1.0 + self.people[pid as usize].kit().worn(d) + self.boon(pid, d)
+    }
+
+    /// A squad member's feel for felt magic has grown: the felt spells it now
+    /// reaches come to them. (Squad only; see `fights::write_back`.)
+    pub(super) fn learn_felt(&mut self, pid: PersonId, t: f64) {
+        let p = &mut self.people[pid as usize];
+        if !p.in_squad {
+            return;
+        }
+        let Some(d) = p.detail.as_mut() else { return };
+        let new = magic::felt_reached(&p.stats, &d.spells);
+        if new.is_empty() {
+            return;
+        }
+        d.spells.extend(new.iter().copied());
+        let name = d.name.clone();
+        for sp in new {
+            self.say(t, format!("{name} has a feel for {} now.", sp.def().name.to_lowercase()));
+        }
+        self.people[pid as usize].recompute_might();
     }
 
     /// Tiredness from felt casting (squad members).
@@ -673,7 +701,7 @@ impl World {
     }
 
     /// Start or stop holding a ritual (stamina drains while one is held).
-    pub(super) fn set_holding(&mut self, pid: PersonId, t: f64, s: Option<Spell>) {
+    pub fn set_holding(&mut self, pid: PersonId, t: f64, s: Option<Spell>) {
         if self.people[pid as usize].cond.is_some() {
             self.settle_condition(pid, t);
         }
@@ -716,7 +744,7 @@ impl World {
             }
         }
         self.set_holding(who, t, None);
-        let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s);
+        let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s) * self.domain_boost(who, s);
         let name = self.name_of(who);
         self.say(t, format!("{name} releases the {}.", s.def().name.to_lowercase()));
         let point = point.unwrap_or(target.map(|p| self.person_pos(p)).unwrap_or(self.person_pos(who)));

@@ -1006,6 +1006,17 @@ fn magic_scene(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, o
             orb(gl, at, 2.4 * kk, 0.14 * kk, RITUAL);
         }
     }
+    // A pack spirit: a laden shape of light at its bearer's shoulder.
+    for &m in &w.squad.members {
+        if w.boon(m, Does::Carry) > 0.0 && w.boon(m, Does::Attr(gahturiyu_sim::sim::stats::Attr::Strength)) <= 0.0 {
+            let at = w.person_pos(m).add(V2::new(-1.1, 0.6));
+            if near(at) {
+                let base = to3(at, on_ground(at) + 0.5 * kk);
+                gl.dome(base, 0.4 * kk, 0.35 * kk, 0.5 * kk, 0.1, 0.0, m as u64, [0.45, 0.9, 0.85]);
+                b.block(base + vec3(0.0, 0.45 * kk, 0.0), 0.45 * kk, 0.35 * kk, 0.3 * kk, 0.3, palette::CAMP_HIDE);
+            }
+        }
+    }
     // Sense life: the living near whoever senses them, marked through walls.
     for &m in &w.squad.members {
         let sense = w.boon(m, Does::SenseLife);

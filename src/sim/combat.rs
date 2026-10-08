@@ -595,12 +595,15 @@ impl Battle {
         }
         self.zones.retain(|z| z.until > t);
         // Blight eats at everyone standing in it.
+        // (Not the downed: rot doesn't finish off the fallen. A ward against
+        // necromancy helps.)
         let blights: Vec<Zone> = self.zones.iter().copied().filter(|z| z.does == Does::Blight).collect();
         for z in blights {
             for j in 0..n {
                 let f = &self.fighters[j];
-                if !f.dead && !f.fled && f.pos.dist(z.pos) <= z.radius {
-                    let dmg = z.power * DT as f32 * f.warded();
+                if f.active() && f.pos.dist(z.pos) <= z.radius {
+                    let ward = (1.0 - f.power(Does::DomainResist(super::magic::Domain::Necromancy))).max(0.05);
+                    let dmg = z.power * DT as f32 * f.warded() * ward;
                     self.hurt_whole(j, dmg);
                 }
             }
@@ -1023,7 +1026,8 @@ impl Battle {
         }
         f.mana -= d.cost;
         f.tire += d.tire;
-        let time = if d.style == Style::Felt { 0.0 } else { d.cast_time * f.attack_time() };
+        // (Quickness shades a structured cast, but it always takes 1–2 s.)
+        let time = if d.style == Style::Felt { 0.0 } else { (d.cast_time * f.attack_time()).clamp(1.0, 2.0) };
         f.act = Act::Cast { spell, target, point, done: self.time + time as f64, scroll: false };
         true
     }
@@ -1148,7 +1152,8 @@ impl Battle {
     fn apply(&mut self, src: &Source, e: &Effect) {
         let secs = if let Lasts::Secs(s) = e.lasts { s as f64 } else { 30.0 };
         if let Does::Summon(kind) = e.does {
-            self.call_up(src.by, kind, src.point, self.time + secs, e.power * src.skill);
+            let boost = src.spell.map(|s| 1.0 + self.fighters[src.by].power(Does::DomainPower(s.def().domain))).unwrap_or(1.0);
+            self.call_up(src.by, kind, src.point, self.time + secs, e.power * src.skill * boost);
             return;
         }
         // The dead: the nearest body to the spot, or every body in the area.
@@ -1383,7 +1388,8 @@ impl Battle {
     /// a fallen friend.
     pub fn raisable(&self, by: usize, j: usize) -> bool {
         let f = &self.fighters[j];
-        f.dead && f.is_person() && !f.raised && f.home != self.fighters[by].home
+        // (Your squad's dead are never raised, by anyone.)
+        f.dead && f.is_person() && !f.raised && f.home != self.fighters[by].home && f.home != SQUAD_SIDE
     }
 
     /// Raise a body as a mindless thrall on `by`'s side.

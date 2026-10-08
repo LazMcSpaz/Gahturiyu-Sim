@@ -394,6 +394,22 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             None => game.sel.lead(w),
         };
     }
+    // Look through a scout spirit (G again, or C, to come back).
+    if keys.just_pressed(KeyCode::KeyG) {
+        let t = w.time;
+        let scout = w.wards.iter().filter(|x| x.does == gahturiyu_sim::sim::effects::Does::Scout && x.until > t).map(|x| x.pos).last();
+        match scout {
+            Some(p) if game.follow || game.orbit.target.dist(p) > 1.0 => {
+                game.follow = false;
+                game.orbit.target = p;
+                game.orbit.ground = w.terrain.surface(p);
+                game.orbit.dist = game.orbit.dist.min(60.0);
+                game.notice = Some(("Looking through the scout".to_string(), std::time::Instant::now()));
+            }
+            Some(_) => game.follow = true,
+            None => game.notice = Some(("No scout spirit out".to_string(), std::time::Instant::now())),
+        }
+    }
     if keys.just_pressed(KeyCode::KeyM) {
         game.inv = None;
         game.craft = None;
@@ -864,8 +880,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   J: journal   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   J: journal   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
+        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {

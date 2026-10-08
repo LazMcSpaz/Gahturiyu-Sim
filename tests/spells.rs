@@ -256,7 +256,11 @@ fn spells_cast_on_the_road_last_and_come_into_a_fight() {
     assert!(w.boon(m, Does::Nightsight) > 0.0, "fifteen minutes");
     // A fight: the spell is on them there too, and still on them after.
     let at = w.squad.pos.add(V2::new(15.0, 0.0));
-    w.spawn_bandits(at, 1, false);
+    let g = w.spawn_bandits(at, 1, false);
+    // (A bandit who knows no magic, so nothing dispels it.)
+    for b in w.group(g).unwrap().members.clone() {
+        w.people[b as usize].detail.as_mut().unwrap().spells.clear();
+    }
     while w.battles.is_empty() {
         w.step(0.25);
     }
@@ -818,4 +822,41 @@ fn print_spell_list() {
         println!("{}: {}", d.name(), names.join(", "));
     }
     println!("total {}", all_spells().count());
+}
+
+// ---- Fixes from review -------------------------------------------------------
+
+#[test]
+fn a_mage_who_knows_brace_still_puts_up_a_barrier() {
+    let mut b = fight(&[(brute(2), 1, V2::new(12.0, 0.0))]);
+    b.fighters[0].spells = vec![spell("brace"), spell("barrier")];
+    b.fighters[0].think_at = 0.0;
+    for _ in 0..60 {
+        b.tick();
+    }
+    assert!(b.fighters[0].has(Does::Barrier).is_some(), "no blow coming, so barrier, not brace");
+}
+
+#[test]
+fn nobody_raises_your_squads_dead() {
+    let mut b = fight(&[(brute(2), 1, V2::new(4.0, 0.0)), (brute(3), 0, V2::new(-4.0, 0.0))]);
+    b.fighters[2].dead = true;
+    b.fighters[2].ko = true;
+    // An enemy necromancer stands over your fallen.
+    assert!(!b.raisable(1, 2));
+}
+
+#[test]
+fn felt_spells_come_from_casting_on_the_road_too() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    let p = &mut w.people[m as usize];
+    p.stats.set_skill(Skill::Felt, spell("silent_step").def().min_skill - 0.05);
+    p.detail.as_mut().unwrap().spells.retain(|&s| s.def().style != gahturiyu_sim::sim::magic::Style::Felt || s == spell("glow"));
+    for _ in 0..20 {
+        w.people[m as usize].mana = 1000.0;
+        w.people[m as usize].mana_at = w.time;
+        let _ = w.cast(m, spell("glow"), None, None);
+    }
+    assert!(w.knows(m, spell("silent_step")));
 }

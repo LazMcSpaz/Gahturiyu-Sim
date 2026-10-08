@@ -52,6 +52,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | I, or right-click a squad card | Pack and gear |
 | K | Crafting |
 | M | Spell book (click a spell to use it; spells aimed at someone or somewhere then wait for a click in the world — right-click cancels) |
+| G | Look through a scout spirit (G again or C to come back) |
 | J | Journal (jobs) |
 | O | Graphics settings |
 | F8 / F9 | Save / load (one quick-save slot) |
@@ -210,7 +211,7 @@ F = felt, S = structured, R = ritual.
 | Vital | Mend (F) · Second wind (F, stamina) · Haste (S) · Might (S, strength and carrying) · Toughen (S, skin as light armour) · Restore (R, at a hearth: heals every wound and all tiredness of the squad) · Sustain (R, a day with no hunger or tiredness) · Regrow (R, at a shrine: a lost limb grows back — the only cure) |
 | Warding | Brace (F, turns the next blow) · Tripwire (F, round camp: sleepers wake at once if attacked) · Resist (S, half of elemental harm) · Barrier (S) · Dispel (S, ends every spell on someone; sends a creature back) · Sanctuary (R, enemies can't step in; lookouts won't come for you inside) |
 | Alteration | Lighten / Burden (F) · Shatter item (S, their weapon or shield breaks for good) · Unlock (S, a locked door opens until the next night) · Shrink / Enlarge (S) · Rust (S, their armour stops less) · Transmute (R, materials in the pack become others: ore to ingots, hide to leather, salt to storm glass, ash moss to ghostcap) |
-| Summoning | Wisp (F, a light at a spot) · Scout (F, a spirit at a spot up to 150 m off) · Spirit beast (S, fights for you for a minute) · Pack spirit (S, carries 40 kg for four hours) · Guardian (R, waits at a spot for hours and joins the next fight there) · Swarm (R, six small biters, in a fight) |
+| Summoning | Wisp (F, a light at a spot) · Scout (F, a spirit at a spot up to 150 m off; press G to look through it) · Spirit beast (S, fights for you for a minute) · Pack spirit (S, carries 40 kg for four hours) · Guardian (R, waits at a spot for hours and joins the next fight there) · Swarm (R, six small biters, in a fight) |
 | Necromancy | Drain (F, takes health into the caster) · Preserve (F, bodies don't rot for a day) · Wither (S, rots one limb) · Raise thrall (S, a body fights for you, mindless, for 45 s) · Grave call (R, every body round you rises) · Blight (R, a patch of rot that eats at everyone in it) |
 
 Not in yet, because what they work on doesn't exist: Far sight (the map
@@ -222,7 +223,12 @@ what the dead knew).
 The fight AI reads what a spell does from its effects (mend, ward, hinder,
 blast, strike, call up help, raise the dead), so new spells are used
 sensibly without new code. Mages cast freely; ordinary fighters mostly throw
-a spark at someone still out of reach.
+a spark at someone still out of reach. Your squad saves a held ritual for
+when it counts (Restore when someone is down, a blast when three or more are
+caught), so hours of work aren't spent on a scratch.
+
+Lasting spells cast outside a fight (Nightsight, Barrier, Haste...) are still
+on you when a fight starts, so they can be cast beforehand.
 
 ### Saving
 

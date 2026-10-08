@@ -162,6 +162,8 @@ enum Use {
     Unravel,
     /// Raises the dead.
     Raise,
+    /// Strengthens a friend for a while.
+    Bolster,
     /// Damage over an area.
     Blast,
     /// Damage to one enemy.
@@ -195,6 +197,8 @@ fn use_of(s: Spell) -> Use {
         Use::See
     } else if d.aim == Aim::Caster && d.effects.iter().all(|e| e.does.guards() && matches!(e.lasts, Lasts::Secs(_))) {
         Use::Ward
+    } else if d.aim == Aim::Friend && d.effects.iter().all(|e| !e.does.harmful() && matches!(e.lasts, Lasts::Secs(_)) && matches!(e.does, Does::Attr(_) | Does::Carry | Does::Enlarge | Does::ResistElements | Does::Haste | Does::Barrier | Does::Toughen)) {
+        Use::Bolster
     } else {
         Use::Other
     }
@@ -253,17 +257,31 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     let nearest = enemies.iter().map(|&j| me.pos.dist(b.fighters[j].pos)).fold(f32::MAX, f32::min);
     let is_mage = me.stats.calling == Calling::Mage;
     let in_range = |j: usize, s: Spell| me.pos.dist(b.fighters[j].pos) <= s.def().range;
-    // Already in force on someone (the spell's first lasting effect).
-    let has_it = |j: usize, s: Spell| s.def().effects.iter().any(|e| matches!(e.lasts, Lasts::Secs(_)) && b.fighters[j].has(e.does).is_some());
+    // Already in force on someone (the spell's first lasting effect), or —
+    // for something done at once — nothing left for it to do.
+    let has_it = |j: usize, s: Spell| {
+        let f = &b.fighters[j];
+        s.def().effects.iter().any(|e| match (e.lasts, e.does) {
+            (Lasts::Secs(_), d) => f.has(d).is_some(),
+            // Already reeling.
+            (Lasts::Now, Does::Daze) => f.think_at > b.time + 0.05 || matches!(f.act, Act::Recover { .. }),
+            // Nothing in their hands to break.
+            (Lasts::Now, Does::Shatter) => f.weapon_name == "bare hands" && f.shield <= 0.0,
+            _ => false,
+        })
+    };
+    // A ritual your squad holds took hours to make: let it go only when it
+    // really counts (others' AI doesn't hold rituals at all).
+    let precious = |s: Spell| me.held == Some(s) && me.side == SQUAD_SIDE;
 
     // 0. Mend a friend who is down or badly hurt (or yourself).
     if let Some(s) = first(Use::Mend) {
         // (A spell that mends everyone round the caster reaches as far as its area.)
         let range = s.def().range.max(s.def().radius());
         let patient = (0..b.fighters.len())
-            .filter(|&k| !b.hostile(i, k) && !b.fighters[k].dead && !b.fighters[k].fled)
+            .filter(|&k| !b.hostile(i, k) && !b.fighters[k].dead && !b.fighters[k].fled && !b.fighters[k].is_decoy())
             .filter(|&k| me.pos.dist(b.fighters[k].pos) <= range)
-            .filter(|&k| b.fighters[k].ko || b.fighters[k].vitality() < 0.5)
+            .filter(|&k| b.fighters[k].ko || (b.fighters[k].vitality() < 0.5 && !precious(s)))
             .min_by(|&x, &y| b.fighters[x].vitality().total_cmp(&b.fighters[y].vitality()));
         if let Some(k) = patient {
             cast(b, i, s, Some(k), b.fighters[k].pos);
@@ -281,13 +299,17 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     //    it as a matter of course; fighters now and then. A brace only goes
     //    up against a blow on its way.)
     let blow_coming = (0..b.fighters.len()).any(|j| matches!(b.fighters[j].act, Act::Swing { target, .. } if target == i) && b.hostile(i, j));
-    if let Some(s) = castable.iter().copied().find(|&s| use_of(s) == Use::Ward && !has_it(i, s)) {
+    let ward_wanted = |s: Spell| {
         let brace = s.def().effects.iter().any(|e| e.does == Does::Brace);
-        let want = if brace { blow_coming && (is_mage || r < 0.3) } else { is_mage || (nearest < 6.0 && r < 0.15) };
-        if want {
-            cast(b, i, s, None, me.pos);
-            return;
+        if brace {
+            blow_coming && (is_mage || r < 0.3)
+        } else {
+            is_mage || (nearest < 6.0 && r < 0.15)
         }
+    };
+    if let Some(s) = castable.iter().copied().find(|&s| use_of(s) == Use::Ward && !has_it(i, s) && ward_wanted(s) && !precious(s)) {
+        cast(b, i, s, None, me.pos);
+        return;
     }
     // 1b. In the dark, see.
     if let Some(s) = first(Use::See).filter(|&s| !has_it(i, s)) {
@@ -301,7 +323,7 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     // 1c. Call up help, if none of ours is about yet.
     if let Some(s) = first(Use::Summon) {
         let ours = b.fighters.iter().any(|f| f.summon.is_some() && f.side == me.side && f.active());
-        if !ours && nearest < 20.0 {
+        if !ours && nearest < 20.0 && (!precious(s) || enemies.len() >= 2) {
             // A couple of metres towards the enemy.
             let j = enemies.iter().copied().min_by(|&x, &y| me.pos.dist(b.fighters[x].pos).total_cmp(&me.pos.dist(b.fighters[y].pos))).unwrap();
             let dir = b.fighters[j].pos.sub(me.pos);
@@ -352,13 +374,33 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     // 3. Hinder the most dangerous enemy who isn't hindered that way yet.
     //    (Fighters who aren't mages seldom bother.)
     if r < if is_mage { 0.6 } else { 0.12 } {
-        for s in castable.iter().copied().filter(|&s| use_of(s) == Use::Hinder) {
+        // Vary which one: start somewhere in the list by the dice.
+        let hinders: Vec<Spell> = castable.iter().copied().filter(|&s| use_of(s) == Use::Hinder).collect();
+        let start = (r * 7919.0) as usize;
+        for k in 0..hinders.len() {
+            let s = hinders[(start + k) % hinders.len()];
             let pick = enemies.iter().copied().filter(|&j| !has_it(j, s) && in_range(j, s)).max_by(|&x, &y| b.fighters[x].might.total_cmp(&b.fighters[y].might));
             if let Some(j) = pick {
-                if b.fighters[j].might > me.might * 0.5 {
+                let worth = if precious(s) { me.might * 1.0 } else { me.might * 0.5 };
+                if b.fighters[j].might > worth {
                     cast(b, i, s, Some(j), b.fighters[j].pos);
                     return;
                 }
+            }
+        }
+    }
+    // 3b. Bolster a friend in the thick of it (mages).
+    if is_mage && r < 0.4 {
+        if let Some(s) = castable.iter().copied().find(|&s| use_of(s) == Use::Bolster) {
+            let range = s.def().range;
+            let friend = (0..b.fighters.len())
+                .filter(|&k| k != i && !b.hostile(i, k) && b.fighters[k].active() && b.fighters[k].is_person())
+                .filter(|&k| me.pos.dist(b.fighters[k].pos) <= range && !has_it(k, s))
+                .filter(|&k| b.nearest_enemy(k).map(|e| b.fighters[k].pos.dist(b.fighters[e].pos) < 4.0).unwrap_or(false))
+                .max_by(|&x, &y| b.fighters[x].might.total_cmp(&b.fighters[y].might));
+            if let Some(k) = friend {
+                cast(b, i, s, Some(k), b.fighters[k].pos);
+                return;
             }
         }
     }
@@ -375,7 +417,7 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
             }
             let caught = enemies.iter().filter(|&&k| b.fighters[k].pos.dist(p) <= radius).count();
             let friends = !spares_friends && (0..b.fighters.len()).any(|k| !b.hostile(i, k) && !b.fighters[k].dead && b.fighters[k].pos.dist(p) <= radius + 0.8);
-            if caught >= 2 && !friends {
+            if caught >= if precious(s) { 3 } else { 2 } && !friends {
                 cast(b, i, s, Some(j), p);
                 return;
             }

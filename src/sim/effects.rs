@@ -207,8 +207,8 @@ pub enum Does {
     Enlarge,
     /// Their armour stops this share less.
     Rust,
-    /// Ground: a spirit at a spot the caster can see through (the window
-    /// can look from there).
+    /// Ground: a spirit at a spot the caster can see through (G in the
+    /// window looks from there).
     Scout,
     /// Ground: rot eats at everyone in it. Power: hit points a second.
     Blight,
