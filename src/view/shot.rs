@@ -63,6 +63,13 @@ pub struct Shot {
     pub inventory: Option<usize>,
     /// `GAHT_DROP=k`: squad member k drops a few things.
     pub drop: Option<usize>,
+    /// `GAHT_BOOK=k`: open squad member k's spell book.
+    pub book: Option<usize>,
+    /// `GAHT_SUMMON=1`: a fight in the open where the squad's mage calls up a
+    /// spirit beast and raises a fallen bandit as a thrall.
+    pub summon: bool,
+    /// `GAHT_HELD=1`: the squad's mage holds a Restore ritual ready.
+    pub held: bool,
 }
 
 impl Shot {
@@ -103,6 +110,9 @@ impl Shot {
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),
+            book: var("GAHT_BOOK").and_then(|v| v.parse().ok()),
+            summon: var("GAHT_SUMMON").is_some(),
+            held: var("GAHT_HELD").is_some(),
             nudge: pair("GAHT_NUDGE"),
         })
     }
@@ -138,7 +148,7 @@ impl Shot {
                 world.step(1.0);
             }
         }
-        if self.starve || self.exhaust || self.carry || self.limb || self.ranged {
+        if self.starve || self.exhaust || self.carry || self.limb || self.ranged || self.summon {
             // Out of town, where it's quiet.
             world.teleport_squad(world.squad.pos.add(V2::new(260.0, 40.0)));
             world.step(0.1);
@@ -201,6 +211,44 @@ impl Shot {
                 if world.squad_battle().map(|b| b.fighters.iter().any(|f| f.shots > 0)).unwrap_or(false) {
                     break;
                 }
+            }
+        }
+        let mage = world.squad.members.iter().copied().find(|&m| world.people[m as usize].stats.calling == gahturiyu_sim::sim::stats::Calling::Mage);
+        if self.held {
+            if let Some(m) = mage {
+                world.held.insert(m, gahturiyu_sim::sim::magic::spell("restore"));
+                if let Some(c) = world.people[m as usize].cond.as_mut() {
+                    c.holding = true;
+                }
+            }
+        }
+        if self.summon {
+            let at = world.squad.pos.add(V2::new(16.0, 5.0));
+            world.spawn_bandits(at, 4, true);
+            for _ in 0..200 {
+                world.step(0.25);
+                if world.squad_battle().is_some() {
+                    break;
+                }
+            }
+            if let Some(m) = mage {
+                let toward = world.squad.pos.add(V2::new(5.0, 2.0));
+                let _ = world.cast_in_fight(m, gahturiyu_sim::sim::magic::spell("spirit_beast"), None, Some(toward));
+            }
+            // One of theirs falls, and the squad's mage raises them.
+            let raised = (|| {
+                let b = world.battles.iter_mut().find(|b| b.fighters.iter().any(|f| f.side == 0))?;
+                let corpse = b.fighters.iter().position(|f| f.side == 1 && f.is_person() && f.summon.is_none() && f.stats.calling != gahturiyu_sim::sim::stats::Calling::Mage)?;
+                b.fighters[corpse].dead = true;
+                b.fighters[corpse].ko = true;
+                let caster = b.fighters.iter().position(|f| f.side == 0 && f.stats.calling == gahturiyu_sim::sim::stats::Calling::Mage)?;
+                let until = b.time + 45.0;
+                b.raise(caster, corpse, until);
+                Some(())
+            })();
+            let _ = raised;
+            for _ in 0..40 {
+                world.step(0.1);
             }
         }
         if self.torch {

@@ -318,11 +318,18 @@ impl SpellDef {
     }
 }
 
+/// Share of the structured spells and rituals within someone's skill that
+/// they picked up before you met them (from teachers and notes along the way).
+pub const KNOWN_SHARE: f32 = 0.45;
+
 /// Spells someone knows on first meeting: every felt spell their feel for it
-/// has reached, and the structured and ritual spells their skill would have
-/// let them learn along the way.
-pub fn starting_spells(stats: &Stats) -> Vec<Spell> {
-    all_spells().filter(|s| stats.skill(s.def().skill()) >= s.def().min_skill).collect()
+/// has reached, and some of the structured spells and rituals their skill
+/// would let them follow — which ones is down to their seed.
+pub fn starting_spells(stats: &Stats, seed: u64) -> Vec<Spell> {
+    all_spells()
+        .filter(|s| stats.skill(s.def().skill()) >= s.def().min_skill)
+        .filter(|s| s.def().style == Style::Felt || super::rng::Rng::from_keys(&[seed, s.0 as u64, 0x4C45_524E]).f32() < KNOWN_SHARE)
+        .collect()
 }
 
 /// Felt spells come with use: the ones this skill has reached that aren't
@@ -391,11 +398,20 @@ mod tests {
         for k in crate::sim::stats::MAGIC_SKILLS {
             s.set_skill(k, 2.0);
         }
-        assert!(starting_spells(&s).is_empty());
+        assert!(starting_spells(&s, 1).is_empty());
         for k in crate::sim::stats::MAGIC_SKILLS {
             s.set_skill(k, 40.0);
         }
-        assert_eq!(starting_spells(&s).len(), all_spells().filter(|x| x.def().min_skill <= 40.0).count());
+        // Every felt spell within reach; only some of the rest.
+        let within = |st: Style| all_spells().filter(|x| x.def().min_skill <= 40.0 && x.def().style == st).count();
+        let mut counts = Vec::new();
+        for seed in 0..40 {
+            let known = starting_spells(&s, seed);
+            assert_eq!(known.iter().filter(|x| x.def().style == Style::Felt).count(), within(Style::Felt));
+            counts.push(known.iter().filter(|x| x.def().style == Style::Structured).count());
+        }
+        let avg = counts.iter().sum::<usize>() as f32 / counts.len() as f32;
+        assert!(avg > within(Style::Structured) as f32 * 0.3 && avg < within(Style::Structured) as f32 * 0.6, "{avg}");
     }
 
     #[test]

@@ -15,6 +15,7 @@ use gahturiyu_sim::sim::{
     dialogue::Topic,
     inventory,
     items::{self, item, ItemId, Kind, Slot, SLOTS},
+    magic::{Aim, Place, Spell, Style},
     person::PersonId,
     quests::Stage,
     stats::Skill,
@@ -86,7 +87,13 @@ pub enum Action {
     Use(PersonId, ItemId),
     Craft(PersonId, usize),
     CloseInventory,
+    /// Use a spell from the book (cast, perform, or release).
+    Spell(PersonId, Spell),
+    CloseBook,
 }
+
+/// Violet, for held rituals and other lingering magic.
+pub const RITUAL: Rgb = [0.78, 0.6, 1.0];
 
 /// A click this frame: where, which button, and whether Shift was down.
 #[derive(Clone, Copy)]
@@ -139,6 +146,9 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     }
     if w.crafting.iter().any(|j| j.who == pid) {
         return ("Crafting", GOLD);
+    }
+    if w.ritual_progress(pid).is_some() {
+        return ("Performing a ritual", RITUAL);
     }
     if w.picking.iter().any(|pk| pk.who == pid) {
         return ("Picking a lock", SNEAK);
@@ -205,8 +215,9 @@ pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -
             c.circle(ex, ey, 1.5 + 1.5 * sus, col);
         }
         let burden = w.burden_weight(pid);
-        let load = if burden > 0.0 { w.load_of(pid) } else { load };
-        let l = format!("{:.0}/{:.0} kg", gear.weight() + burden, gear.capacity(&p.stats));
+        let _ = load;
+        let load = w.load_of(pid);
+        let l = format!("{:.0}/{:.0} kg", w.kit_weight_at(pid, w.time) + burden, w.capacity_at(pid, w.time));
         c.text(&l, r.x + r.w - c.width(&l, 13.0) - 8.0, r.y + 37.0, 13.0, if load > 1.0 { WARN } else { DIM });
 
         // Health, and mana for those with spells.
@@ -220,6 +231,9 @@ pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -
         c.rect(r.x + 14.0, r.y + 45.0, bw * vit.clamp(0.0, 1.0), 5.0, if down { eg(WARN) } else { health_color(vit, false) });
         if let Some(f) = w.craft_progress(pid) {
             c.rect(r.x + 14.0, r.y + 40.0, bw * f, 2.0, eg(GOLD));
+        }
+        if let Some((_, f)) = w.ritual_progress(pid) {
+            c.rect(r.x + 14.0, r.y + 40.0, bw * f, 2.0, eg(RITUAL));
         }
         if let Some(m) = mana {
             c.rect(r.x + 14.0, r.y + 53.0, bw, 3.0, Color32::from_black_alpha(153));
@@ -260,8 +274,21 @@ pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -
         } else {
             w.carried_by(pid).map(|cp| format!("Carried by {}", w.people[cp as usize].name().unwrap_or("someone")))
         };
+        // A ritual held ready (in a fight, until it's let go).
+        let held = match w.fighter(pid) {
+            Some(f) => f.held,
+            None => w.held_ritual(pid),
+        };
         if let Some(l) = line {
             c.text(&l, r.x + 14.0, r.y + 92.0, 12.0, GOLD);
+        } else if let Some(s) = held {
+            let x = r.x + 14.0;
+            let y = r.y + 88.0;
+            // A small diamond, then what's held.
+            c.rect(x + 1.0, y - 4.0, 7.0, 7.0, eg(RITUAL));
+            c.text(&format!("Holding {}", s.def().name), x + 13.0, y + 4.0, 12.0, RITUAL);
+        } else if let Some((s, f)) = w.ritual_progress(pid) {
+            c.text(&format!("{} ritual  {:.0}%", s.def().name, f * 100.0), r.x + 14.0, r.y + 92.0, 12.0, RITUAL);
         }
 
         if let Some(ck) = click {
@@ -271,6 +298,174 @@ pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -
         }
     }
     (act, boxes)
+}
+
+const BOOK_COL: f32 = 340.0;
+const BOOK_ROW: f32 = 19.0;
+
+/// The spell book: everything someone knows, by style, each with its domain
+/// and what it costs. Felt spells on the left; structured and ritual on the
+/// right. Click one to use it. Returns what was clicked, the spell under the
+/// mouse, and the panel's box.
+pub fn spell_book(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option<Click>) -> (Option<Action>, Option<Spell>, Bx) {
+    let p = &w.people[pid as usize];
+    let known = w.known_spells(pid);
+    let st = p.effective_stats();
+    let of = |style: Style| known.iter().copied().filter(|s| s.def().style == style).collect::<Vec<Spell>>();
+    let (felt, structured, ritual) = (of(Style::Felt), of(Style::Structured), of(Style::Ritual));
+    let left = felt.len().max(1) + 1;
+    let right = structured.len().max(1) + ritual.len().max(1) + 3;
+    let rows = left.max(right);
+    let r = Bx::new(c.w - BOOK_COL * 2.0 - 12.0, 12.0, BOOK_COL * 2.0, (82.0 + rows as f32 * BOOK_ROW).min(c.h - 140.0));
+    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.rect(r.x, r.y, r.w, 4.0, eg(RITUAL));
+    let mut act = None;
+    let mut hovered = None;
+    let clicked = |rect: Bx| click.filter(|k| rect.contains(k.at) && !k.right);
+    let x = r.x + 14.0;
+    let y0 = r.y + 26.0;
+    c.text(&format!("{}  ·  spell book", p.name().unwrap_or("?")), x, y0, 17.0, race_color(p.race));
+    let close = Bx::new(r.x + r.w - 26.0, r.y + 8.0, 18.0, 18.0);
+    c.text("×", close.x + 3.0, close.y + 15.0, 18.0, if close.contains(mouse) { GOLD } else { DIM });
+    if clicked(close).is_some() {
+        act = Some(Action::CloseBook);
+    }
+    let energy = match w.fighter(pid) {
+        Some(f) => f.mana,
+        None => p.mana_at(w.time),
+    };
+    c.text(&format!("Energy {:.0} / {:.0}", energy, p.max_mana()), x, y0 + 20.0, 13.0, MANA);
+    let held = match w.fighter(pid) {
+        Some(f) => f.held,
+        None => w.held_ritual(pid),
+    };
+    let banner = if let Some(s) = held {
+        Some(format!("Holding {} — click it to let it go", s.def().name))
+    } else {
+        w.ritual_progress(pid).map(|(s, f)| format!("Performing {}  {:.0}%", s.def().name, f * 100.0))
+    };
+    if let Some(t) = banner {
+        c.text(&t, r.x + r.w - c.width(&t, 13.0) - 30.0, y0 + 20.0, 13.0, RITUAL);
+    }
+    let bottom = r.y + r.h - 8.0;
+    // One column of styles.
+    let mut column = |col_x: f32, styles: &[(Style, &Vec<Spell>)]| {
+        let mut y = y0 + 30.0;
+        for &(style, mine) in styles {
+            y += BOOK_ROW + 4.0;
+            if y > bottom {
+                break;
+            }
+            let head = format!("{}  ·  {:.0}", style.name(), st.skill(style.skill()));
+            c.text(&head, col_x + 10.0, y, 15.0, GOLD);
+            let how = match style {
+                Style::Felt => "instant · comes with use",
+                Style::Structured => "1–2 s · a hit spoils it",
+                Style::Ritual => "performed, then held",
+            };
+            c.text(how, col_x + BOOK_COL - c.width(how, 11.0) - 14.0, y, 11.0, DIM);
+            if mine.is_empty() {
+                y += BOOK_ROW;
+                c.text("— none yet —", col_x + 20.0, y, 13.0, DIM);
+                continue;
+            }
+            for &s in mine.iter() {
+                y += BOOK_ROW;
+                if y > bottom {
+                    break;
+                }
+                let d = s.def();
+                let row = Bx::new(col_x + 6.0, y - 14.0, BOOK_COL - 12.0, BOOK_ROW);
+                let hot = row.contains(mouse);
+                if hot {
+                    c.rect(row.x, row.y, row.w, row.h, ega(RITUAL, 0.14));
+                    hovered = Some(s);
+                }
+                let is_held = held == Some(s);
+                c.text(d.name, col_x + 20.0, y, 13.5, if is_held { RITUAL } else if hot { GOLD } else { TEXT });
+                c.text(d.domain.name(), col_x + 140.0, y, 11.5, domain_color(d.domain));
+                let cost = match style {
+                    Style::Felt => format!("{:.0} energy", d.cost),
+                    Style::Structured => format!("{:.0} energy · {:.1} s", d.cost, d.cast_time),
+                    Style::Ritual if is_held => "release".to_string(),
+                    Style::Ritual => {
+                        let place = if d.rite.place == Place::Anywhere { String::new() } else { format!(" · {}", place_word(d.rite.place)) };
+                        let blood = if d.rite.health > 0.0 { " · blood" } else { "" };
+                        format!("{:.0} min{place}{blood}", d.rite.minutes)
+                    }
+                };
+                c.text(&cost, col_x + BOOK_COL - c.width(&cost, 11.5) - 14.0, y, 11.5, DIM);
+                if clicked(row).is_some() {
+                    act = Some(Action::Spell(pid, s));
+                }
+            }
+        }
+    };
+    column(r.x, &[(Style::Felt, &felt)]);
+    column(r.x + BOOK_COL, &[(Style::Structured, &structured), (Style::Ritual, &ritual)]);
+    (act, hovered, r)
+}
+
+fn place_word(p: Place) -> &'static str {
+    match p {
+        Place::Anywhere => "",
+        Place::Hearth => "hearth",
+        Place::Shrine => "shrine",
+        Place::Circle => "circle",
+    }
+}
+
+/// A colour per domain, for the tag in the spell book.
+pub fn domain_color(d: gahturiyu_sim::sim::magic::Domain) -> Rgb {
+    use gahturiyu_sim::sim::magic::Domain::*;
+    match d {
+        Elemental => [1.0, 0.55, 0.3],
+        Psychic => [0.85, 0.55, 0.95],
+        Illusion => [0.6, 0.75, 1.0],
+        Vital => [0.5, 0.9, 0.55],
+        Warding => [0.95, 0.85, 0.45],
+        Alteration => [0.75, 0.7, 0.6],
+        Summoning => [0.45, 0.9, 0.9],
+        Necromancy => [0.6, 0.8, 0.45],
+    }
+}
+
+/// Lines for a spell's tooltip.
+pub fn spell_lines(s: Spell) -> Vec<(String, Rgb)> {
+    let d = s.def();
+    let mut out = vec![(d.name.to_string(), GOLD), (format!("{} · {}", d.style.name(), d.domain.name()), domain_color(d.domain))];
+    let aim = match d.aim {
+        Aim::Caster => "on yourself".to_string(),
+        Aim::Foe => format!("at an enemy within {:.0} m", d.range),
+        Aim::Friend => format!("at a friend within {:.0} m", d.range),
+        Aim::Point => format!("at a spot within {:.0} m", d.range),
+        Aim::Anyone => format!("at anyone within {:.0} m", d.range),
+        Aim::Door => "at a door".to_string(),
+        Aim::Corpse => format!("at a body within {:.0} m", d.range),
+    };
+    out.push((format!("Cast {aim}"), TEXT));
+    for e in d.effects {
+        out.push((e.describe(), [0.65, 0.78, 1.0]));
+    }
+    match d.style {
+        Style::Felt => out.push((format!("{:.0} energy and a little tiredness · rarely fails", d.cost), DIM)),
+        Style::Structured => out.push((format!("{:.0} energy · {:.1} s to cast · can fizzle", d.cost, d.cast_time), DIM)),
+        Style::Ritual => {
+            let mut parts = vec![format!("{:.0} minutes", d.rite.minutes)];
+            if d.rite.place != Place::Anywhere {
+                parts.push(d.rite.place.name().to_string());
+            }
+            if d.rite.health > 0.0 {
+                parts.push(format!("{:.0} health", d.rite.health));
+            }
+            for &(k, n) in d.rite.components {
+                parts.push(format!("{n} × {}", item(items::id(k)).name.to_lowercase()));
+            }
+            out.push((parts.join(" · "), DIM));
+            out.push(("Held ready when done; let it go any time, even mid-fight. Lost if you sleep.".to_string(), DIM));
+        }
+    }
+    out
 }
 
 /// One person's gear: worn on the left of each row, the pack below.

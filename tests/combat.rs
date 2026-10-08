@@ -109,6 +109,8 @@ fn mage() -> Person {
     let mut p = person(1, Race::Tadoro, Calling::Mage, &[(Skill::Structured, 100.0), (Skill::Felt, 100.0)], 60.0);
     p.stats.set_attr(gahturiyu_sim::sim::stats::Attr::Willpower, 100.0);
     p.mana = 500.0;
+    // Knows everything (what someone starts with is partly luck).
+    p.detail.as_mut().unwrap().spells = gahturiyu_sim::sim::magic::all_spells().collect();
     p
 }
 

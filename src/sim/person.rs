@@ -133,7 +133,7 @@ impl Person {
         self.detail = Some(Detail {
             name: names::person_name(self.race, self.seed),
             gear: inventory::starting_kit(self.race, &self.kit_stats, self.budget, self.seed),
-            spells: magic::starting_spells(&self.kit_stats),
+            spells: magic::starting_spells(&self.kit_stats, self.seed),
         });
         self.recompute_might();
         true
@@ -144,7 +144,7 @@ impl Person {
         let gear = self.kit();
         let spells = match &self.detail {
             Some(d) => d.spells.clone(),
-            None => magic::starting_spells(&self.kit_stats),
+            None => magic::starting_spells(&self.kit_stats, self.seed),
         };
         self.might = combat::rating(self.race, &self.stats, &gear, &spells);
     }

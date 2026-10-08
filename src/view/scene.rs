@@ -28,7 +28,7 @@ use gahturiyu_sim::sim::{
     geo::{self, V2},
     group::Kind as GroupKind,
     items,
-    effects::Does,
+    effects::{Does, Summon},
     person::PersonId,
     race::Race,
     rng,
@@ -497,6 +497,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    // ---- Magic on show ---------------------------------------------------
+    magic_scene(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, k, eye, &mut game.bars);
+
     // Flames on lit torches.
     for &m in &w.squad.members {
         if w.torch_lit(m) && w.fighter(m).map(|f| !f.ko).unwrap_or(true) {
@@ -895,6 +898,132 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         }
     }
     (head + vec3(0.0, h * 0.2, 0.0), pid)
+}
+
+const RITUAL: [f32; 3] = [0.78, 0.6, 1.0];
+
+/// Draw what magic leaves about: called-up creatures and raised dead in
+/// fights, spells on patches of ground, drawn circles, rituals being
+/// performed, rituals held ready, and the living sensed through walls.
+#[allow(clippy::too_many_arguments)]
+fn magic_scene(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, on_ground: &dyn Fn(V2) -> f32, centre: V2, radius: f32, k: f32, eye: Vec3, bars: &mut Vec<(Vec3, f32, Option<f32>, bool)>) {
+    let kk = k.min(4.0);
+    let near = |p: V2| p.dist(centre) < radius;
+    let ground_mark = |fl: &mut Builder, does: Does, pos: V2, r: f32| {
+        let (col, width) = match does {
+            Does::Veil => ([0.75, 0.7, 0.95], 0.25),
+            Does::Sanctuary => ([1.0, 0.85, 0.4], 0.35),
+            Does::Tripwire => ([0.95, 0.35, 0.3], 0.1),
+            Does::Blight => ([0.35, 0.55, 0.2], 0.5),
+            _ => return,
+        };
+        draped_ring(fl, on_ground, pos, r, width, 48, col, eye);
+        if does == Does::Blight {
+            for q in [0.35, 0.7] {
+                draped_ring(fl, on_ground, pos, r * q, width, 24, [0.25, 0.4, 0.12], eye);
+            }
+        }
+    };
+    let orb = |gl: &mut Builder, pos: V2, h: f32, r: f32, col: Rgb| {
+        gl.dome(to3(pos, on_ground(pos) + h), r, r, r * 1.6, 0.0, 0.0, 3, col);
+    };
+    for battle in &w.battles {
+        for (i, f) in battle.fighters.iter().enumerate() {
+            let Some(sm) = f.summon else { continue };
+            if f.fled || f.dead || f.ko || !near(f.pos) {
+                continue;
+            }
+            let base = to3(f.pos, on_ground(f.pos));
+            let top = match sm.kind {
+                Summon::SpiritBeast => {
+                    gl.dome(base + vec3(0.0, 0.3 * kk, 0.0), 0.95 * kk, 0.45 * kk, 0.75 * kk, 0.2, 0.0, i as u64, [0.4, 0.9, 0.85]);
+                    gl.dome(base + vec3(0.7 * kk, 0.7 * kk, 0.0), 0.35 * kk, 0.3 * kk, 0.4 * kk, 0.1, 0.0, i as u64 + 7, [0.55, 1.0, 0.95]);
+                    1.3
+                }
+                Summon::Swarmling => {
+                    gl.dome(base + vec3(0.0, 0.25 * kk, 0.0), 0.28 * kk, 0.28 * kk, 0.3 * kk, 0.3, 0.0, i as u64, [0.6, 0.35, 0.8]);
+                    0.7
+                }
+                Summon::Decoy => {
+                    gl.column(base, 0.3 * kk, 0.24 * kk, 1.7 * kk, 6, palette::scale(race_color(f.race), 0.6));
+                    2.0
+                }
+                Summon::Guardian => {
+                    b.column(base, 0.65 * kk, 0.5 * kk, 2.4 * kk, 6, palette::STONE);
+                    b.block(base + vec3(0.0, 2.4 * kk, 0.0), 0.7 * kk, 0.7 * kk, 0.5 * kk, 0.0, palette::scale(palette::STONE, 0.8));
+                    gl.patch(base + vec3(0.0, 2.65 * kk, 0.36 * kk), 0.4 * kk, 0.1 * kk, 0.0, [1.0, 0.8, 0.4]);
+                    3.1
+                }
+                Summon::Thrall => {
+                    b.column(base, 0.3 * kk, 0.24 * kk, 1.4 * kk, 6, [0.4, 0.45, 0.36]);
+                    b.block(base + vec3(0.0, 1.4 * kk, 0.0), 0.32 * kk, 0.32 * kk, 0.3 * kk, 0.0, [0.55, 0.6, 0.5]);
+                    1.9
+                }
+            };
+            // Whose it is: a ring at its feet, teal for yours, red for theirs.
+            let mark = if f.side == SQUAD_SIDE { [0.45, 0.9, 0.85] } else { [0.9, 0.2, 0.15] };
+            draped_ring(fl, on_ground, f.pos, 0.9 * kk, 0.14 * kk, 14, mark, eye);
+            if base.distance(eye) < 400.0 {
+                bars.push((base + vec3(0.0, top * kk, 0.0), f.vitality(), None, false));
+            }
+        }
+        for z in battle.zones.iter().filter(|z| z.until > battle.time && near(z.pos)) {
+            ground_mark(fl, z.does, z.pos, z.radius);
+            if z.does == Does::Glow {
+                orb(gl, z.pos, 2.2, 0.35, [1.0, 0.95, 0.75]);
+            }
+        }
+    }
+    // Spells on the ground out in the world.
+    for wd in w.wards.iter().filter(|x| x.until > w.time && near(x.pos)) {
+        ground_mark(fl, wd.does, wd.pos, wd.radius);
+        match wd.does {
+            Does::Glow => orb(gl, wd.pos, 2.2, 0.35, [1.0, 0.95, 0.75]),
+            Does::Scout => orb(gl, wd.pos, 3.0, 0.3, [0.5, 0.95, 1.0]),
+            Does::Summon(_) => {
+                let base = to3(wd.pos, on_ground(wd.pos));
+                b.column(base, 0.5, 0.4, 1.2, 6, palette::scale(palette::STONE, 0.9));
+                draped_ring(fl, on_ground, wd.pos, 1.6, 0.12, 20, [1.0, 0.8, 0.4], eye);
+            }
+            _ => {}
+        }
+    }
+    // Circles drawn for rituals.
+    for &c in w.circles.iter().filter(|c| near(**c)) {
+        draped_ring(fl, on_ground, c, 1.8, 0.09, 28, [0.92, 0.9, 0.84], eye);
+        draped_ring(fl, on_ground, c, 1.5, 0.05, 28, [0.92, 0.9, 0.84], eye);
+    }
+    // A ritual being performed: a ring of violet that fills as it goes.
+    for j in &w.rituals {
+        let at = w.person_pos(j.who);
+        let f = ((w.time - j.started) / (j.done_at - j.started)).clamp(0.0, 1.0) as f32;
+        draped_ring(fl, on_ground, at, 1.4 * k.min(2.0), 0.12 + 0.2 * f, 24, RITUAL, eye);
+    }
+    // A ritual held ready: a small violet light over the holder.
+    for (&pid, _) in w.held.iter() {
+        let at = w.person_pos(pid);
+        if near(at) {
+            orb(gl, at, 2.4 * kk, 0.14 * kk, RITUAL);
+        }
+    }
+    // Sense life: the living near whoever senses them, marked through walls.
+    for &m in &w.squad.members {
+        let sense = w.boon(m, Does::SenseLife);
+        if sense <= 0.0 {
+            continue;
+        }
+        let from = w.person_pos(m);
+        for (pid, p) in w.people.iter().enumerate() {
+            let pid = pid as PersonId;
+            if p.dead || pid == m {
+                continue;
+            }
+            let at = w.person_pos(pid);
+            if at.dist(from) <= sense {
+                orb(gl, at, 2.6, 0.18, [0.55, 1.0, 0.55]);
+            }
+        }
+    }
 }
 
 /// Where a lit torch's flame is, for someone holding one.

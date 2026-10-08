@@ -200,7 +200,7 @@ impl Fighter {
         let gear = &kit;
         let spells = match &p.detail {
             Some(d) => d.spells.clone(),
-            None => super::magic::starting_spells(&p.kit_stats),
+            None => super::magic::starting_spells(&p.kit_stats, p.seed),
         };
         let mut stats = inventory::effective(&p.stats, gear);
         p.weaken(&mut stats);

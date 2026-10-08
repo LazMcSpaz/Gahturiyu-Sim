@@ -188,6 +188,50 @@ impl World {
         self.wards.iter().filter(move |w| w.does == does && t < w.until && w.pos.dist(p) <= w.radius)
     }
 
+    // ---- The spell book -----------------------------------------------------
+
+    /// Use a spell from the spell book: in a fight the caster casts it (or
+    /// lets a held ritual go) there; otherwise a felt or structured spell is
+    /// cast, a ritual is begun, or one held ready is released. `target` is
+    /// who it's aimed at, `point` where.
+    pub fn use_spell(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        if self.fighting.contains_key(&who) {
+            return self.cast_in_fight(who, s, target, point);
+        }
+        match s.def().style {
+            Style::Ritual if self.held.get(&who) == Some(&s) => self.release(who, target, point),
+            Style::Ritual => self.perform(who, s),
+            _ => self.cast(who, s, target, point),
+        }
+    }
+
+    /// A squad member in a fight casts a spell (or releases the ritual they
+    /// hold) on the player's order.
+    pub fn cast_in_fight(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        let Some(&id) = self.fighting.get(&who) else { return cannot("not in a fight") };
+        let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { return cannot("not in a fight") };
+        let Some(i) = b.index_of(who) else { return cannot("not in a fight") };
+        if !b.fighters[i].active() {
+            return cannot("down");
+        }
+        let j = target.and_then(|p| b.index_of(p));
+        let point = point.unwrap_or(j.map(|j| b.fighters[j].pos).unwrap_or(b.fighters[i].pos));
+        if b.fighters[i].held == Some(s) {
+            b.release(i, j, point);
+            return Ok(());
+        }
+        if s.def().style == Style::Ritual {
+            return cannot("a ritual can't be performed mid-fight");
+        }
+        if b.fighters[i].mana < s.def().cost {
+            return cannot("not enough energy");
+        }
+        if !b.begin_cast(i, s, j, point) {
+            return cannot("can't cast that now");
+        }
+        Ok(())
+    }
+
     // ---- Casting outside a fight ------------------------------------------
 
     /// Cast a felt or structured spell outside a fight (from the spell book).

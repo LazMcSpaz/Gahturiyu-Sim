@@ -82,6 +82,18 @@ pub fn generate(seed: u64) -> World {
         p.cond = Some(super::condition::Condition::new(6.0 * HOUR));
         p.specialize(calling, skills, budget);
         p.ensure_detail();
+        // The squad's mage knows the old six, and Restore.
+        if calling == Calling::Mage {
+            let d = p.detail.as_mut().unwrap();
+            for key in ["fireball", "lightning_bolt", "paralyze", "blind", "barrier", "haste", "restore"] {
+                let s = super::magic::spell(key);
+                if !d.spells.contains(&s) {
+                    d.spells.push(s);
+                }
+            }
+            d.spells.sort();
+            p.recompute_might();
+        }
         // A few lockpicks for the light-fingered.
         if calling == Calling::Hunter {
             let g = &mut p.detail.as_mut().unwrap().gear;

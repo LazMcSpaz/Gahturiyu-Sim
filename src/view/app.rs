@@ -66,6 +66,10 @@ pub struct Game {
     pub journal: bool,
     /// The graphics settings panel (O).
     pub options: bool,
+    /// Whose spell book is open (M).
+    pub book: Option<PersonId>,
+    /// A spell waiting for its target: the next click in the world aims it.
+    pub aim: Option<(PersonId, gahturiyu_sim::sim::magic::Spell)>,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
     pub loads: u32,
@@ -123,6 +127,8 @@ pub fn run() {
         craft: None,
         journal: false,
         options: std::env::var("GAHT_SETTINGS").is_ok(),
+        book: None,
+        aim: None,
         loads: 0,
         notice: None,
         frame: 0,
@@ -171,6 +177,7 @@ pub fn run() {
         }
         game.inv = s.inventory.and_then(|k| game.world.squad.members.get(k).copied());
         game.craft = s.craft.and_then(|k| game.world.squad.members.get(k).copied());
+        game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
         if s.forest {
             if let Some(p) = super::foliage::biggest_wood_near(&game.world, game.world.squad.pos) {
                 game.follow = false;
@@ -300,10 +307,15 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
                 if game.craft.is_some() {
                     game.craft = Some(m);
                 }
+                if game.book.is_some() {
+                    game.book = Some(m);
+                }
             }
         }
     }
-    if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
+    if keys.just_pressed(KeyCode::Escape) && game.aim.is_some() {
+        game.aim = None;
+    } else if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
         w.end_talk();
     } else if keys.just_pressed(KeyCode::Backquote) || keys.just_pressed(KeyCode::Escape) {
         game.sel = Selection::default();
@@ -342,6 +354,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     if keys.just_pressed(KeyCode::KeyI) {
         game.craft = None;
+        game.book = None;
         game.inv = match game.inv {
             Some(_) => None,
             None => game.sel.lead(w),
@@ -375,7 +388,16 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     if keys.just_pressed(KeyCode::KeyK) {
         game.inv = None;
+        game.book = None;
         game.craft = match game.craft {
+            Some(_) => None,
+            None => game.sel.lead(w),
+        };
+    }
+    if keys.just_pressed(KeyCode::KeyM) {
+        game.inv = None;
+        game.craft = None;
+        game.book = match game.book {
             Some(_) => None,
             None => game.sel.lead(w),
         };
@@ -451,6 +473,10 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     if buttons.just_pressed(MouseButton::Right) && on_panels {
         game.ui_click = Some(Click { at: mouse, right: true, shift });
     }
+    // Right-click anywhere drops a spell that's waiting to be aimed.
+    if buttons.just_pressed(MouseButton::Right) && game.aim.is_some() {
+        game.aim = None;
+    }
     if buttons.just_released(MouseButton::Left) {
         if let Some(p) = game.press_at.take() {
             if (p - mouse).length() < 6.0 {
@@ -518,6 +544,26 @@ fn camera(game: Res<Game>, mut cam: Query<(&mut Camera, &mut Transform, &mut Pro
 /// pick something up, or walk there.
 fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
     let hover = game.hover;
+    // Aiming a spell: whoever is under the mouse, and the spot.
+    if let Some((who, s)) = game.aim.take() {
+        let target = match hover {
+            Some(Hover::Person(pid)) => Some(pid),
+            _ => None,
+        };
+        let point = match game.view {
+            View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
+            View::Scene => game.orbit.ground_at(game.screen, mouse, &game.world.terrain),
+        };
+        let point = match (target, hover) {
+            (Some(p), _) => Some(game.world.person_pos(p)),
+            (None, Some(Hover::Door(id))) => game.world.door(id).map(|d| d.outside),
+            _ => point,
+        };
+        if let Err(e) = game.world.use_spell(who, s, target, point) {
+            game.notice = Some((format!("{}: {}", s.def().name, e.0), std::time::Instant::now()));
+        }
+        return;
+    }
     let world = &mut game.world;
     let who = game.sel.who(world);
     match hover {
@@ -714,6 +760,16 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if game.journal {
         panels.push(squadui::journal(&c, w));
     }
+    if game.book.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
+        game.book = None;
+    }
+    let mut spell_tip = None;
+    if let Some(pid) = game.book {
+        let (a, h, bx) = squadui::spell_book(&c, w, pid, game.mouse, click);
+        actions.extend(a);
+        spell_tip = h;
+        panels.push(bx);
+    }
     if w.talk.is_some() {
         let (t, bx) = squadui::talk(&c, w, game.mouse, click);
         if let Some(t) = t {
@@ -724,7 +780,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     for a in actions {
         match a {
             Action::Select(pid, add) => game.sel.pick(pid, add),
-            Action::OpenInventory(pid) => game.inv = if game.inv == Some(pid) { None } else { Some(pid) },
+            Action::OpenInventory(pid) => {
+                game.book = None;
+                game.inv = if game.inv == Some(pid) { None } else { Some(pid) };
+            }
             Action::CloseInventory => {
                 game.inv = None;
                 game.craft = None;
@@ -744,6 +803,23 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::Drop(pid, it) => {
                 w.drop_item(pid, it);
             }
+            Action::CloseBook => game.book = None,
+            Action::Spell(pid, s) => {
+                use gahturiyu_sim::sim::magic::{Aim, Style};
+                let d = s.def();
+                let held = match w.fighter(pid) {
+                    Some(f) => f.held == Some(s),
+                    None => w.held_ritual(pid) == Some(s),
+                };
+                // A ritual is begun where they stand; anything else aimed
+                // waits for a click in the world.
+                let performing = d.style == Style::Ritual && !held;
+                if !performing && d.aim != Aim::Caster {
+                    game.aim = Some((pid, s));
+                } else if let Err(e) = w.use_spell(pid, s, None, None) {
+                    game.notice = Some((format!("{}: {}", d.name, e.0), std::time::Instant::now()));
+                }
+            }
         }
     }
     if game.debug {
@@ -760,6 +836,23 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
     game.hover = if on_panels { None } else { pick.best.map(|(_, h)| h) };
+    if let Some(s) = spell_tip {
+        let lines = squadui::spell_lines(s);
+        let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
+        c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
+    } else if let Some((_, s)) = game.aim {
+        use gahturiyu_sim::sim::magic::Aim;
+        let what = match s.def().aim {
+            Aim::Foe => "click an enemy",
+            Aim::Friend => "click a friend (or themselves)",
+            Aim::Anyone => "click someone",
+            Aim::Door => "click a door",
+            Aim::Corpse => "click by a body",
+            _ => "click a spot",
+        };
+        let t = format!("{}: {what}  ·  right-click to cancel", s.def().name);
+        c.text(&t, game.mouse.x + 18.0, game.mouse.y - 8.0, 15.0, squadui::RITUAL);
+    }
     if let Some(it) = item_tip {
         let lines = squadui::item_lines(it);
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
@@ -768,8 +861,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   J: journal   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
+        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   J: journal   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {
