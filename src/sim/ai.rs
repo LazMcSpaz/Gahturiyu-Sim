@@ -277,9 +277,14 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
             return;
         }
     }
-    // 1. Ward yourself when the fighting starts or reaches you.
+    // 1. Ward yourself when the fighting starts or reaches you. (Mages do
+    //    it as a matter of course; fighters now and then. A brace only goes
+    //    up against a blow on its way.)
+    let blow_coming = (0..b.fighters.len()).any(|j| matches!(b.fighters[j].act, Act::Swing { target, .. } if target == i) && b.hostile(i, j));
     if let Some(s) = castable.iter().copied().find(|&s| use_of(s) == Use::Ward && !has_it(i, s)) {
-        if nearest < 6.0 || is_mage {
+        let brace = s.def().effects.iter().any(|e| e.does == Does::Brace);
+        let want = if brace { blow_coming && (is_mage || r < 0.3) } else { is_mage || (nearest < 6.0 && r < 0.15) };
+        if want {
             cast(b, i, s, None, me.pos);
             return;
         }
@@ -345,7 +350,8 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
         }
     }
     // 3. Hinder the most dangerous enemy who isn't hindered that way yet.
-    if r < 0.6 {
+    //    (Fighters who aren't mages seldom bother.)
+    if r < if is_mage { 0.6 } else { 0.12 } {
         for s in castable.iter().copied().filter(|&s| use_of(s) == Use::Hinder) {
             let pick = enemies.iter().copied().filter(|&j| !has_it(j, s) && in_range(j, s)).max_by(|&x, &y| b.fighters[x].might.total_cmp(&b.fighters[y].might));
             if let Some(j) = pick {
