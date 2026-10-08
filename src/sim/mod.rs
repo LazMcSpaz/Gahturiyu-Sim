@@ -8,7 +8,9 @@ pub mod names;
 pub mod person;
 pub mod race;
 pub mod rng;
+pub mod routes;
 pub mod settlement;
+pub mod terrain;
 pub mod world;
 pub mod worldgen;
 

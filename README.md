@@ -66,7 +66,24 @@ Hover over anyone or anything for details.
   can still pick them out. Buildings always stay true size.
 - The panel's **"Named so far"** count only goes up when something comes close.
 
-The ground is flat for now; real terrain is a later step.
+### The land
+
+- **The coast** runs down the west side, mostly low beaches with some stretches
+  of low sea cliff. Harbour towns only stand where there's a decent beach.
+- **Rolling hills** rise slowly inland.
+- **Mountains** wall in the north and east edges, with one big massif in the
+  middle of the map.
+- **The Qotiro plateau** in the south-east is a flat-topped, cliff-edged
+  tableland of dry scrub — their homeland.
+- **Roads** link every town to its nearest neighbours. They were found by
+  searching the land for the easiest walk, so they follow valleys, climb
+  escarpments where the slope eases, and go around mountains. Travellers use
+  them, and walk slower uphill and a little faster downhill (Tobler's hiking
+  rule), so the slope shapes how long every journey takes.
+- Your squad also slows on climbs. The sea is off-limits.
+
+In 3D, the land within a few kilometres is detailed and the rest is coarser
+out to the horizon. The map view shows the whole world as shaded relief.
 
 ## How it works, in plain words
 
@@ -99,7 +116,9 @@ same no matter how coarsely the world was being stepped or where your squad was.
 cargo test --release
 ```
 
-The important tests are in `tests/consistency.rs`. They run the same world
+The important tests are in `tests/consistency.rs`; `tests/terrain.rs` checks
+that every town can reach every other over dry land and that roads don't climb
+walls or cross mountain tops. They run the same world
 several ways — one-second steps vs one-hour steps, squad here vs squad in the
 far corner — and check that every journey, route and position comes out
 identical. They also check that details, once built, never change.
@@ -122,6 +141,9 @@ The numbers most worth tuning, all named constants:
 | Race temperaments, build, walking speed | `src/sim/race.rs` |
 | How busy the roads are, day vs night | `DEPARTURE_RATE`, `NIGHT_FACTOR` in `src/sim/world.rs` |
 | Band sizes and update rates | `src/sim/bands.rs` |
+| Where mountains, the plateau and cliffs are; how tall | `src/sim/terrain.rs` |
+| How roads are chosen (steepness limit, how many links per town) | `src/sim/routes.rs` |
+| Ground colours | `src/view/palette.rs` |
 | Name sounds per race | `src/sim/names.rs` |
 
 ## Layout
@@ -136,11 +158,14 @@ src/sim/      the simulation — no graphics, fully testable
   race.rs       the four races
   names.rs      per-race name generators
   geo.rs        positions and the coastline
+  terrain.rs    the height of the land, and walking speed on slopes
+  routes.rs     the road network and every town-to-town route
   rng.rs        deterministic randomness
 src/main.rs   the playtest window: input, timing, switching views
 src/view/     drawing only — never changes the world's rules
   scene.rs      the 3D view
   mesh.rs       mesh building with baked-in lighting
+  palette.rs    ground colours, shared by both views
   map.rs        the top-down map
   ui.rs         panel, tooltips, colours
 tests/        the consistency checks

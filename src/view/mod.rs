@@ -2,5 +2,6 @@
 
 pub mod map;
 pub mod mesh;
+pub mod palette;
 pub mod scene;
 pub mod ui;

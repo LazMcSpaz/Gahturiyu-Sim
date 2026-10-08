@@ -11,7 +11,7 @@ use macroquad::prelude::*;
 
 use gahturiyu_sim::sim::{geo::V2, worldgen};
 use view::{
-    map::{self, MapCam},
+    map::{self, MapCam, Relief},
     scene::{self, OrbitCam},
     ui::{self, describe, Picker, Shot, Ui, DIM, SPEEDS},
 };
@@ -44,10 +44,12 @@ async fn main() {
     let seed: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(1);
     let ui = Ui { font: load_ttf_font_from_bytes(include_bytes!("../assets/DejaVuSans.ttf")).expect("font") };
     let mut world = worldgen::generate(seed);
+    let relief = Relief::new(&world);
 
     let mut view = View::Scene;
     let mut map_cam = MapCam { centre: world.squad.pos, zoom: screen_width() / 7000.0 };
     let mut orbit = OrbitCam::new(world.squad.pos);
+    orbit.ground = world.terrain.surface(world.squad.pos);
     let mut follow = true;
     let mut speed_i = 2usize;
     let mut paused = false;
@@ -175,7 +177,7 @@ async fn main() {
                 if (p - mouse).length() < 6.0 {
                     let target = match view {
                         View::Map => Some(map_cam.to_world(mouse)),
-                        View::Scene => scene::ground_at(&orbit.camera(), mouse),
+                        View::Scene => scene::ground_at(&orbit.camera(), mouse, &world.terrain),
                     };
                     if let Some(t) = target {
                         world.order_squad(t);
@@ -203,13 +205,19 @@ async fn main() {
             map_cam.centre = world.squad.pos;
             orbit.target = world.squad.pos;
         }
+        // Keep the camera's pivot on the ground, easing so it doesn't jolt.
+        let g = world.terrain.surface(orbit.target);
+        orbit.ground += (g - orbit.ground) * (1.0 - (-8.0 * dt).exp());
+        if (g - orbit.ground).abs() > 60.0 {
+            orbit.ground = g;
+        }
 
         // ----------------------------------------------------------------- draw
         let mut pick = Picker::new(mouse);
         let t_draw = std::time::Instant::now();
         let name = match view {
             View::Map => {
-                map::draw(&ui, &map_cam, &world, rings, &mut pick);
+                map::draw(&ui, &map_cam, &world, rings, &mut pick, &relief);
                 "map"
             }
             View::Scene => {

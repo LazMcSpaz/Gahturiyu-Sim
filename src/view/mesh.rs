@@ -52,6 +52,11 @@ impl Builder {
         }
     }
 
+    /// Where the camera is (for sizing things by distance).
+    pub fn eye(&self) -> Vec3 {
+        self.eye
+    }
+
     /// Lit and fogged colour for a surface facing `n` at `p`.
     pub fn shade(&self, c: Color, n: Vec3, p: Vec3) -> Color {
         let lit = 0.40 + 0.60 * n.dot(self.sun).max(0.0) + 0.08 * n.y.max(0.0);
@@ -76,6 +81,21 @@ impl Builder {
         self.room(4);
         let i: Vec<u16> = (0..4).map(|k| self.v(p[k], c[k])).collect();
         self.cur.indices.extend_from_slice(&[i[0], i[1], i[2], i[0], i[2], i[3]]);
+    }
+
+    /// A convex polygon with a colour per corner, unlit (already shaded).
+    pub fn poly_raw(&mut self, p: &[Vec3], c: &[Color]) {
+        if p.len() < 3 {
+            return;
+        }
+        self.room(p.len());
+        let base = self.cur.vertices.len() as u16;
+        for k in 0..p.len() {
+            self.v(p[k], c[k]);
+        }
+        for k in 1..p.len() as u16 - 1 {
+            self.cur.indices.extend_from_slice(&[base, base + k, base + k + 1]);
+        }
     }
 
     fn face(&mut self, pts: &[Vec3], n: Vec3, col: Color) {

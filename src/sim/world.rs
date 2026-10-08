@@ -5,6 +5,8 @@ use std::collections::{HashMap, VecDeque};
 use super::bands::{BandMap, REFRESH};
 use super::geo::{self, V2};
 use super::group::{Group, GroupId, Kind, Leg};
+use super::routes::Routes;
+use super::terrain::{walk_factor, Terrain};
 use super::person::{Person, PersonId};
 use super::rng::{self, Rng};
 use super::settlement::{BuildingKind, Settlement, SettlementId};
@@ -61,6 +63,8 @@ pub struct World {
     pub next_group: GroupId,
     pub squad: Squad,
     pub bands: BandMap,
+    pub terrain: Terrain,
+    pub routes: Routes,
     /// The last whole game-hour whose departures have been decided.
     pub hour_done: i64,
     pub log: VecDeque<(f64, String)>,
@@ -81,6 +85,8 @@ impl World {
         groups: Vec<Group>,
         squad: Squad,
         start_time: f64,
+        terrain: Terrain,
+        routes: Routes,
     ) -> World {
         let n = people.len();
         let mut w = World {
@@ -91,6 +97,8 @@ impl World {
             next_group: groups.iter().map(|g| g.id + 1).max().unwrap_or(0),
             in_view_towns: vec![false; settlements.len()],
             bands: BandMap::new(squad.pos),
+            terrain,
+            routes,
             people,
             settlements,
             groups: Vec::new(),
@@ -115,7 +123,7 @@ impl World {
     }
 
     fn add_group(&mut self, mut g: Group) {
-        g.extend_to(self.time);
+        g.extend_to(self.time, &self.terrain);
         g.pos = g.position_at(self.time);
         g.last_update = self.time;
         g.band = self.bands.band_at(g.pos);
@@ -138,10 +146,21 @@ impl World {
     /// Advance the world by `dt` game seconds.
     pub fn step(&mut self, dt: f64) {
         // 1. The squad walks. It is always fully simulated.
+        //    Slower uphill, a touch quicker on a gentle descent.
         let to_go = self.squad.target.sub(self.squad.pos);
         let d = to_go.len();
-        let stride = (SQUAD_SPEED as f64 * dt) as f32;
-        self.squad.pos = if d <= stride { self.squad.target } else { self.squad.pos.add(to_go.scale(stride / d)) };
+        if d > 1e-3 {
+            let dir = to_go.scale(1.0 / d);
+            let ahead = self.squad.pos.add(dir.scale(4.0));
+            let grade = (self.terrain.height(ahead) - self.terrain.height(self.squad.pos)) / 4.0;
+            let stride = (SQUAD_SPEED as f64 * walk_factor(grade) as f64 * dt) as f32;
+            let next = if d <= stride { self.squad.target } else { self.squad.pos.add(dir.scale(stride)) };
+            if geo::is_land(next) {
+                self.squad.pos = next;
+            } else {
+                self.squad.target = self.squad.pos;
+            }
+        }
         self.bands.update(self.squad.pos);
 
         self.time += dt;
@@ -164,7 +183,7 @@ impl World {
         let t = self.time;
         for g in &mut self.groups {
             if t - g.last_update >= REFRESH[g.band as usize] {
-                g.extend_to(t);
+                g.extend_to(t, &self.terrain);
                 g.pos = g.position_at(t);
                 g.last_update = t;
                 g.band = self.bands.band_at(g.pos);
@@ -392,21 +411,39 @@ impl World {
         }
 
         let speed = members.iter().map(|&m| self.people[m as usize].race.walk_speed()).fold(f32::MAX, f32::min);
+        // Each leg follows the road between the two towns, from wherever the
+        // group is standing to a spot on the edge of the next town.
         let mut legs = Vec::new();
         let mut at = town.pos;
+        let mut from_town = s;
         let mut clock = start;
+        let road = |a: SettlementId, b: SettlementId, from: V2, to: V2| -> Vec<V2> {
+            let mut p = self.routes.between(a, b);
+            if p.len() < 2 {
+                return vec![from, to];
+            }
+            p[0] = from;
+            let last = p.len() - 1;
+            p[last] = to;
+            p
+        };
         for &d in &stops {
             let o = &self.settlements[d as usize];
             let ang = rng.f32() * std::f32::consts::TAU;
-            let to = o.pos.add(V2::new(ang.cos(), ang.sin()).scale(o.radius() * rng.range(0.5, 1.1)));
-            let arrive = clock + at.dist(to) as f64 / speed as f64;
-            legs.push(Leg { from: at, to, depart: clock, arrive, dest: Some(d) });
+            let mut to = o.pos.add(V2::new(ang.cos(), ang.sin()).scale(o.radius() * rng.range(0.35, 0.8)));
+            if !geo::is_land(to) {
+                to = o.pos;
+            }
+            let leg = Leg::along(road(from_town, d, at, to), clock, speed, Some(d), &self.terrain);
             let stay = HOUR * (2.0 + rng.f64() * (4.0 + 18.0 * (1.0 - lt.wanderlust as f64)));
-            clock = arrive + stay;
+            clock = leg.arrive + stay;
+            legs.push(leg);
             at = to;
+            from_town = d;
         }
-        let arrive = clock + at.dist(town.pos) as f64 / speed as f64;
-        legs.push(Leg { from: at, to: town.pos, depart: clock, arrive, dest: Some(s) });
+        let leg = Leg::along(road(from_town, s, at, home_pos), clock, speed, Some(s), &self.terrain);
+        let arrive = leg.arrive;
+        legs.push(leg);
 
         let id = self.next_group;
         self.next_group += 1;

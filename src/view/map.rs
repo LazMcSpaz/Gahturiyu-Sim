@@ -9,11 +9,49 @@ use gahturiyu_sim::sim::{
     World,
 };
 
+use super::palette;
 use super::ui::{race_color, with_alpha, Hover, Picker, Ui, TEXT};
 
-const LAND: Color = Color::new(0.16, 0.21, 0.17, 1.0);
-const SEA: Color = Color::new(0.10, 0.15, 0.19, 1.0);
 const SHORE: Color = Color::new(0.30, 0.36, 0.33, 1.0);
+/// Pixels along one side of the relief map texture.
+const RELIEF: usize = 1024;
+
+/// A shaded-relief picture of the whole world, made once at start-up.
+pub struct Relief {
+    tex: Texture2D,
+}
+
+impl Relief {
+    pub fn new(w: &World) -> Relief {
+        let t = &w.terrain;
+        let px = WORLD_SIZE / RELIEF as f32;
+        let mut bytes = vec![0u8; RELIEF * RELIEF * 4];
+        let sun = vec3(-0.45, 0.80, -0.35).normalize();
+        for j in 0..RELIEF {
+            for i in 0..RELIEF {
+                let p = V2::new((i as f32 + 0.5) * px, (j as f32 + 0.5) * px);
+                let c = if geo::is_land(p) {
+                    let h = t.height(p);
+                    let (nx, ny, nz) = t.normal(p, px);
+                    // Exaggerate relief a little so hills read from above.
+                    let n = vec3(nx * 1.6, ny, nz * 1.6).normalize();
+                    let lit = 0.45 + 0.75 * n.dot(sun).max(0.0);
+                    palette::scale(palette::ground(t, p, h, ny), lit)
+                } else {
+                    palette::sea(p)
+                };
+                let k = (j * RELIEF + i) * 4;
+                bytes[k] = (c.r.clamp(0.0, 1.0) * 255.0) as u8;
+                bytes[k + 1] = (c.g.clamp(0.0, 1.0) * 255.0) as u8;
+                bytes[k + 2] = (c.b.clamp(0.0, 1.0) * 255.0) as u8;
+                bytes[k + 3] = 255;
+            }
+        }
+        let tex = Texture2D::from_rgba8(RELIEF as u16, RELIEF as u16, &bytes);
+        tex.set_filter(FilterMode::Linear);
+        Relief { tex }
+    }
+}
 
 pub struct MapCam {
     pub centre: V2,
@@ -36,9 +74,19 @@ impl MapCam {
     }
 }
 
-pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker) {
-    clear_background(LAND);
-    draw_sea(cam);
+pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, relief: &Relief) {
+    clear_background(Color::new(0.03, 0.04, 0.04, 1.0));
+    let tl = cam.to_screen(V2::new(0.0, 0.0));
+    let size = WORLD_SIZE * cam.zoom;
+    draw_texture_ex(&relief.tex, tl.x, tl.y, WHITE, DrawTextureParams { dest_size: Some(vec2(size, size)), ..Default::default() });
+    draw_shore(cam);
+    let road_w = (cam.zoom * 6.0).clamp(1.5, 4.0);
+    for road in &w.routes.roads {
+        for seg in road.windows(2) {
+            let (a, b) = (cam.to_screen(seg[0]), cam.to_screen(seg[1]));
+            draw_line(a.x, a.y, b.x, b.y, road_w, palette::ROAD);
+        }
+    }
     if rings {
         let c = cam.to_screen(w.squad.pos);
         draw_circle(c.x, c.y, BAND1_RADIUS * cam.zoom, Color::new(1.0, 1.0, 1.0, 0.045));
@@ -100,7 +148,8 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker) {
     }
 }
 
-fn draw_sea(cam: &MapCam) {
+/// A crisp shoreline over the relief picture, which is blurry up close.
+fn draw_shore(cam: &MapCam) {
     let top = cam.to_world(vec2(0.0, 0.0)).y.max(0.0);
     let bottom = cam.to_world(vec2(0.0, screen_height())).y.min(WORLD_SIZE);
     let step = (3.0 / cam.zoom).max(10.0);
@@ -108,14 +157,7 @@ fn draw_sea(cam: &MapCam) {
     while y < bottom + step {
         let a = cam.to_screen(V2::new(geo::coast_x(y), y));
         let b = cam.to_screen(V2::new(geo::coast_x(y + step), y + step));
-        draw_rectangle(-10.0, a.y, a.x + 10.0, b.y - a.y + 1.0, SEA);
-        draw_line(a.x, a.y, b.x, b.y, 2.0, SHORE);
+        draw_line(a.x, a.y, b.x, b.y, 1.5, SHORE);
         y += step;
     }
-    let tl = cam.to_screen(V2::new(0.0, 0.0));
-    let br = cam.to_screen(V2::new(WORLD_SIZE, WORLD_SIZE));
-    let edge = Color::new(0.03, 0.04, 0.04, 1.0);
-    draw_rectangle(-10.0, -10.0, screen_width() + 20.0, tl.y + 10.0, edge);
-    draw_rectangle(-10.0, br.y, screen_width() + 20.0, screen_height(), edge);
-    draw_rectangle(br.x, -10.0, screen_width(), screen_height() + 20.0, edge);
 }

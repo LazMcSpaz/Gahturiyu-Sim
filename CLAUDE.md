@@ -25,6 +25,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
 5. **`might` changes only via `recompute_might()`**, called when gear or traits change.
 6. **`src/sim` has no graphics dependency.** The window reads the sim and sends
    orders (`order_squad`); it never contains world rules.
+7. **Anything that changes what happens lives in the sim.** Terrain and roads
+   decide travel times, so they are in `sim/terrain.rs` and `sim/routes.rs`,
+   built once from the seed. Leg timing comes from `Leg::along`, which charges
+   each stretch by its slope; keep using it so schedules stay analytic.
 
 ## Verifying visual changes
 
@@ -46,7 +50,13 @@ software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
   into vertex colours. Build everything through it.
 - Avoid `draw_line_3d` in bulk — each call is a separate draw (6 ms for a few
   hundred segments). Use ground ribbons.
-- The ground mesh is cached in `SceneCache` and keyed to a world-snapped grid.
+- The ground mesh is cached in `SceneCache` and keyed to a world-snapped grid:
+  a fine patch near the camera plus a coarse ring to the horizon.
+- Anything laid on or standing on the ground uses the cached `Grid::height`
+  (the drawn surface), not `Terrain::height` (the true surface) — between
+  coarse mesh vertices the two differ by tens of metres on mountainsides.
+- Thin ribbons are widened with distance from the camera, or they alias into
+  dashes when seen edge-on.
 
 ## Canon notes used so far
 
@@ -56,5 +66,6 @@ software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
 - Ṭaḍoro don't found towns or build; they lodge in others' homes, or wander and pitch a tent.
 - Buildings follow `architecture.md` (grown Roduro stone, Horaro stilts on Roduro
   pillars, quarried Qotiro steps, diaspora Qotiro hall in local dark stone).
-- The south-east inland is Qotiro country; elsewhere inland is mostly Roduro.
+- The south-east inland is Qotiro country — a raised arid plateau; elsewhere
+  inland is mostly Roduro. Mountains wall the north and east, plus one massif.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).

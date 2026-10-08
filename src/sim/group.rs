@@ -9,11 +9,16 @@
 //! once a game-minute, a group beside you sixty times a second, and both land in
 //! exactly the same place, because neither is accumulating its own steps. It is
 //! the same rule as the project's NPC routines: read the clock, set the state.
+//!
+//! A leg follows a path over the land, not a straight line. Each stretch of the
+//! path costs walking time according to its slope, so the schedule already
+//! knows that the climb out of the valley is slow and the road down is quick.
 
 use super::geo::{self, V2};
 use super::person::PersonId;
 use super::rng::Rng;
 use super::settlement::SettlementId;
+use super::terrain::Terrain;
 
 pub type GroupId = u32;
 
@@ -26,6 +31,60 @@ pub struct Leg {
     pub arrive: f64,
     /// The settlement at the end of this leg, if any.
     pub dest: Option<SettlementId>,
+    /// The way walked, from `from` to `to`.
+    pub path: Vec<V2>,
+    /// Walking effort (flat-ground metres) used up by the time each point of
+    /// `path` is reached. Time along the leg is proportional to this.
+    pub effort: Vec<f32>,
+}
+
+impl Leg {
+    /// A leg along `path`, leaving at `depart`, walked at `speed` m/s on flat
+    /// ground and slower or faster as the slope demands.
+    pub fn along(path: Vec<V2>, depart: f64, speed: f32, dest: Option<SettlementId>, terrain: &Terrain) -> Leg {
+        let mut effort = Vec::with_capacity(path.len());
+        let mut total = 0.0f32;
+        effort.push(0.0);
+        for w in path.windows(2) {
+            total += terrain.effort(w[0], w[1]);
+            effort.push(total);
+        }
+        Leg {
+            from: path[0],
+            to: *path.last().unwrap(),
+            depart,
+            arrive: depart + total as f64 / speed as f64,
+            dest,
+            path,
+            effort,
+        }
+    }
+
+    /// A straight walk from `a` to `b`, cut into short stretches so the
+    /// slope is felt along the way.
+    pub fn straight(a: V2, b: V2, depart: f64, speed: f32, dest: Option<SettlementId>, terrain: &Terrain) -> Leg {
+        let n = ((a.dist(b) / 150.0).ceil() as usize).max(1);
+        let path = (0..=n).map(|k| a.lerp(b, k as f32 / n as f32)).collect();
+        Leg::along(path, depart, speed, dest, terrain)
+    }
+
+    /// Standing still at `p` until `until`.
+    pub fn wait(p: V2, until: f64) -> Leg {
+        Leg { from: p, to: p, depart: 0.0, arrive: until, dest: None, path: vec![p, p], effort: vec![0.0, 0.0] }
+    }
+
+    fn point_at(&self, t: f64) -> V2 {
+        let span = (self.arrive - self.depart).max(1e-9);
+        let total = *self.effort.last().unwrap_or(&0.0);
+        if total <= 0.0 || self.path.len() < 2 {
+            return self.from.lerp(self.to, ((t - self.depart) / span) as f32);
+        }
+        let e = (((t - self.depart) / span) as f32 * total).clamp(0.0, total);
+        let k = self.effort.partition_point(|&x| x <= e).clamp(1, self.path.len() - 1);
+        let (e0, e1) = (self.effort[k - 1], self.effort[k]);
+        let f = if e1 > e0 { (e - e0) / (e1 - e0) } else { 0.0 };
+        self.path[k - 1].lerp(self.path[k], f)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,8 +131,7 @@ impl Group {
                 if t >= leg.arrive {
                     return leg.to;
                 }
-                let span = (leg.arrive - leg.depart).max(1e-9);
-                return leg.from.lerp(leg.to, ((t - leg.depart) / span) as f32);
+                return leg.point_at(t);
             }
         }
         first.from
@@ -91,7 +149,7 @@ impl Group {
     /// Wanderers write their schedule a leg at a time. Make sure it reaches at
     /// least time `t`. Purely a function of the seed and leg number, so it does
     /// not matter when this gets called.
-    pub fn extend_to(&mut self, t: f64) {
+    pub fn extend_to(&mut self, t: f64, terrain: &Terrain) {
         let Kind::Wanderer { rest_min, rest_max } = self.kind else { return };
         while self.legs.last().map(|l| l.arrive < t).unwrap_or(false) {
             let n = self.written;
@@ -99,18 +157,18 @@ impl Group {
             let mut rng = Rng::from_keys(&[self.seed, n, 0x5741_4E44]);
             let rest = rest_min + (rest_max - rest_min) * rng.f64();
             let mut to = last.to;
-            for _ in 0..12 {
+            for _ in 0..16 {
                 let ang = rng.f32() * std::f32::consts::TAU;
                 let dist = rng.range(1500.0, 5000.0);
                 let cand = geo::clamp_to_world(last.to.add(V2::new(ang.cos(), ang.sin()).scale(dist)), 300.0);
-                if geo::is_land(cand) && geo::inland(cand) > 200.0 {
+                // Somewhere on dry land that isn't a mountainside.
+                if geo::is_land(cand) && geo::inland(cand) > 200.0 && terrain.height(cand) < 380.0 && terrain.slope(cand) < 0.25 {
                     to = cand;
                     break;
                 }
             }
             let depart = last.arrive + rest;
-            let arrive = depart + last.to.dist(to) as f64 / self.speed as f64;
-            self.legs.push(Leg { from: last.to, to, depart, arrive, dest: None });
+            self.legs.push(Leg::straight(last.to, to, depart, self.speed, None, terrain));
             self.written += 1;
             if self.legs.len() > 3 {
                 self.legs.remove(0);

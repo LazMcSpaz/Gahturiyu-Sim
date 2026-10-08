@@ -8,6 +8,8 @@ use super::rng::{self, Rng};
 use super::settlement::{Settlement, SettlementId};
 use super::world::{Squad, World, HOUR};
 use super::names;
+use super::routes::Routes;
+use super::terrain::{self, Terrain};
 
 /// How many people live in the world, split evenly between the four races.
 pub const POPULATION: usize = 5_000;
@@ -20,7 +22,8 @@ pub const WANDERER_THRESHOLD: f32 = 0.85;
 
 pub fn generate(seed: u64) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
-    let mut settlements = place_settlements(&mut rng, seed);
+    let terrain = Terrain::generate(seed);
+    let mut settlements = place_settlements(&mut rng, seed, &terrain);
 
     // --- People ---------------------------------------------------------
     let mut people: Vec<Person> = Vec::with_capacity(POPULATION + 4);
@@ -92,9 +95,9 @@ pub fn generate(seed: u64) -> World {
         let p = &mut people[pid as usize];
         let mut wr = Rng::from_keys(&[p.seed, 0x5752_4E44]);
         let mut at = V2::new(WORLD_SIZE / 2.0, WORLD_SIZE / 2.0);
-        for _ in 0..50 {
+        for _ in 0..80 {
             let c = V2::new(wr.range(800.0, WORLD_SIZE - 800.0), wr.range(800.0, WORLD_SIZE - 800.0));
-            if geo::inland(c) > 400.0 {
+            if geo::inland(c) > 400.0 && terrain.height(c) < 380.0 && terrain.slope(c) < 0.25 {
                 at = c;
                 break;
             }
@@ -106,7 +109,7 @@ pub fn generate(seed: u64) -> World {
             seed: p.seed,
             members: vec![pid],
             kind: Kind::Wanderer { rest_min: HOUR * (1.0 + 4.0 * (1.0 - restless)), rest_max: HOUR * (6.0 + 14.0 * (1.0 - restless)) },
-            legs: vec![Leg { from: at, to: at, depart: 0.0, arrive: first_rest, dest: None }],
+            legs: vec![Leg::wait(at, first_rest)],
             speed: p.race.walk_speed(),
             ends: f64::INFINITY,
             written: 1,
@@ -116,8 +119,11 @@ pub fn generate(seed: u64) -> World {
         });
     }
 
+    // --- Roads between the towns ----------------------------------------
+    let routes = Routes::build(&terrain, &settlements);
+
     // Start at 06:00 on day 1.
-    World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR)
+    World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes)
 }
 
 /// How strongly a settlement draws people of a race. Everyone lives
@@ -141,7 +147,7 @@ fn affinity(race: Race, s: &Settlement) -> f32 {
     }
 }
 
-fn place_settlements(rng: &mut Rng, seed: u64) -> Vec<Settlement> {
+fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
     let mut out: Vec<Settlement> = Vec::new();
     let push = |out: &mut Vec<Settlement>, pos: V2, founders: Race, coastal: bool, rng: &mut Rng| {
         let id = out.len() as SettlementId;
@@ -161,8 +167,31 @@ fn place_settlements(rng: &mut Rng, seed: u64) -> Vec<Settlement> {
 
     // Coastal towns, spaced down the shore.
     for i in 0..COASTAL_TOWNS {
-        let y = ((i as f32 + 0.5) / COASTAL_TOWNS as f32 * WORLD_SIZE + rng.range(-800.0, 800.0)).clamp(900.0, WORLD_SIZE - 900.0);
-        let x = geo::coast_x(y) + rng.range(170.0, 300.0);
+        let y0 = ((i as f32 + 0.5) / COASTAL_TOWNS as f32 * WORLD_SIZE + rng.range(-800.0, 800.0)).clamp(900.0, WORLD_SIZE - 900.0);
+        let back = rng.range(170.0, 300.0);
+        // Slide along the shore to the nearest stretch of low, gentle beach:
+        // nobody builds a harbour town on a cliff or a mountainside.
+        let site = |y: f32| V2::new(geo::coast_x(y) + back, y);
+        let badness = |y: f32| {
+            let p = site(y);
+            terrain::cliff_mask(t.seed(), y) * 4.0 + t.slope(p) * 20.0 + (t.height(p) - 12.0).max(0.0) * 0.1 + t.mountains(p) * 10.0
+        };
+        // ...but stay well clear of the coastal towns already placed.
+        let crowded = |y: f32, out: &Vec<Settlement>| out.iter().any(|s| s.pos.dist(site(y)) < 2400.0);
+        let mut y = y0;
+        for k in 1..50 {
+            for dy in [k as f32 * 60.0, -(k as f32) * 60.0] {
+                let c = (y0 + dy).clamp(900.0, WORLD_SIZE - 900.0);
+                if !crowded(c, &out) && (crowded(y, &out) || badness(c) < badness(y)) {
+                    y = c;
+                }
+            }
+        }
+        // No decent shore anywhere near: this stretch gets no harbour.
+        if crowded(y, &out) || badness(y) > 2.0 {
+            continue;
+        }
+        let x = site(y).x;
         let founders = match rng.weighted(&[0.55, 0.30, 0.15]) {
             Some(0) => Race::Roduro,
             Some(1) => Race::Horaro,
@@ -177,6 +206,10 @@ fn place_settlements(rng: &mut Rng, seed: u64) -> Vec<Settlement> {
         tries += 1;
         let p = V2::new(rng.range(800.0, WORLD_SIZE - 800.0), rng.range(800.0, WORLD_SIZE - 800.0));
         if geo::inland(p) < 2200.0 || out.iter().any(|s| s.pos.dist(p) < 2700.0) {
+            continue;
+        }
+        // Flat, habitable ground: not up a mountain or on a slope.
+        if t.height(p) > 260.0 || t.slope(p) > 0.07 || t.mountains(p) > 0.25 || (t.plateau(p) > 0.05 && t.plateau(p) < 0.95) {
             continue;
         }
         let homeland = p.x > 11_500.0 && p.y > 10_500.0;
