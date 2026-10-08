@@ -95,6 +95,7 @@ pub fn draw_hud(ui: &Ui, w: &World, speed_i: usize, paused: bool, sim_ms: f64, d
         (String::new(), TEXT),
         (format!("{} people  ·  {} on the road", w.people.len() - w.squad.members.len(), w.on_road()), TEXT),
         (format!("Named so far: {}", w.stats.detailed), TEXT),
+        (format!("Light here: {}  ·  ambushes so far: {}", gahturiyu_sim::sim::stealth::light_word(w.light_at(w.squad.pos)), w.stats.ambushes), TEXT),
         (format!("Groups in band 1 / 2 / 3:  {} / {} / {}", w.stats.in_band[1], w.stats.in_band[2], w.stats.in_band[3]), TEXT),
         (format!("Simulation {:.2} ms  ·  drawing {:.1} ms  ·  {:.0} fps", sim_ms, draw_ms, get_fps()), DIM),
         (format!("View: {view}  (V to switch)"), DIM),
@@ -181,7 +182,16 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
                 DIM,
             ));
             if p.bandit {
-                out.push(("Bandit".into(), Color::new(0.95, 0.35, 0.3, 1.0)));
+                let state = match w.group_of[pid as usize] {
+                    _ if w.fighter(pid).is_some() => "fighting",
+                    Some(g) if w.has_noticed(g) => "has seen you",
+                    Some(g) if w.suspicion.iter().any(|((x, _), v)| *x == g && *v > 0.3) => "suspicious",
+                    _ => "unaware of you",
+                };
+                out.push((format!("Bandit  ·  {state}  ·  click to attack"), Color::new(0.95, 0.35, 0.3, 1.0)));
+            }
+            if p.in_squad && w.is_sneaking(pid) {
+                out.push((format!("Sneaking  ·  noise {:.1}  ·  visibility {:.0}%", w.noise_of(pid), w.visibility_of(pid) * 100.0), super::squadui::SNEAK));
             }
             if p.in_squad {
                 out.push(("Your squad".into(), TEXT));
@@ -304,6 +314,10 @@ pub struct Shot {
     pub camp: Option<usize>,
     /// `GAHT_WAIT=h`: let the world run h game hours before the first frame.
     pub wait: Option<f64>,
+    /// `GAHT_HOURS=h`: run h game hours first (coarsely).
+    pub hours: Option<f64>,
+    /// `GAHT_SNEAK=1`: the squad starts sneaking.
+    pub sneak: bool,
     /// `GAHT_SELECT=k`: select squad member k.
     pub select: Option<usize>,
     /// `GAHT_INV=k`: open squad member k's pack.
@@ -331,6 +345,8 @@ impl Shot {
             bandits: var("GAHT_BANDITS").and_then(|v| v.parse().ok()),
             camp: var("GAHT_CAMP").and_then(|v| v.parse().ok()),
             wait: var("GAHT_WAIT").and_then(|v| v.parse().ok()),
+            hours: var("GAHT_HOURS").and_then(|v| v.parse().ok()),
+            sneak: var("GAHT_SNEAK").is_some(),
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),

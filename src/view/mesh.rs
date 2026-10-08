@@ -17,6 +17,10 @@ pub struct Builder {
     sun: Vec3,
     eye: Vec3,
     fog: (f32, f32, Color),
+    /// Sunlight, 0 (night) to 1 (day).
+    day: f32,
+    /// Firelight: where, how far it reaches, how strong.
+    lamps: Vec<(Vec3, f32, f32)>,
 }
 
 fn empty() -> Mesh {
@@ -25,7 +29,14 @@ fn empty() -> Mesh {
 
 impl Builder {
     pub fn new(eye: Vec3, fog_start: f32, fog_end: f32, sky: Color) -> Builder {
-        Builder { done: Vec::new(), cur: empty(), sun: vec3(-0.45, 0.80, -0.35).normalize(), eye, fog: (fog_start, fog_end, sky) }
+        Builder { done: Vec::new(), cur: empty(), sun: vec3(-0.45, 0.80, -0.35).normalize(), eye, fog: (fog_start, fog_end, sky), day: 1.0, lamps: Vec::new() }
+    }
+
+    /// Light the scene for the time of day, with fires burning at `lamps`.
+    pub fn lit(mut self, day: f32, lamps: Vec<(Vec3, f32, f32)>) -> Builder {
+        self.day = day;
+        self.lamps = lamps;
+        self
     }
 
     pub fn draw(&self) {
@@ -59,8 +70,20 @@ impl Builder {
 
     /// Lit and fogged colour for a surface facing `n` at `p`.
     pub fn shade(&self, c: Color, n: Vec3, p: Vec3) -> Color {
-        let lit = 0.40 + 0.60 * n.dot(self.sun).max(0.0) + 0.08 * n.y.max(0.0);
-        self.fogged(Color::new(c.r * lit, c.g * lit, c.b * lit, c.a), p)
+        let sun = (0.40 + 0.60 * n.dot(self.sun).max(0.0) + 0.08 * n.y.max(0.0)) * (0.3 + 0.7 * self.day);
+        // Moonlight is bluish; firelight warm.
+        let cool = 1.0 - self.day;
+        let (mut r, mut g, mut b) = (sun * (1.0 - 0.25 * cool), sun * (1.0 - 0.12 * cool), sun);
+        for &(at, reach, power) in &self.lamps {
+            let d = at.distance(p);
+            if d < reach {
+                let k = power * (1.0 - d / reach).powi(2);
+                r += k;
+                g += k * 0.62;
+                b += k * 0.3;
+            }
+        }
+        self.fogged(Color::new((c.r * r).min(1.0), (c.g * g).min(1.0), (c.b * b).min(1.0), c.a), p)
     }
 
     /// Fog only — for things that glow.

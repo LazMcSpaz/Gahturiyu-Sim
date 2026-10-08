@@ -86,6 +86,17 @@ async fn main() {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
         }
+        if let Some(h) = s.hours {
+            let end = world.time + h * 3600.0;
+            while world.time < end {
+                world.step(60.0);
+            }
+        }
+        if s.sneak {
+            for m in world.squad.members.clone() {
+                world.set_sneaking(m, true);
+            }
+        }
         if let Some(k) = s.camp {
             if let Some(c) = world.camps.get(k) {
                 let at = c.pos.add(V2::new(70.0, 0.0));
@@ -172,6 +183,14 @@ async fn main() {
         if is_key_pressed(KeyCode::GraveAccent) || is_key_pressed(KeyCode::Escape) {
             sel = Selection::default();
             inv = None;
+        }
+        // Z: the selected sneak (or stop sneaking).
+        if is_key_pressed(KeyCode::Z) {
+            let who = sel.who(&world);
+            let on = !who.iter().all(|&m| world.is_sneaking(m));
+            for m in who {
+                world.set_sneaking(m, on);
+            }
         }
         if is_key_pressed(KeyCode::I) {
             inv = match inv {
@@ -350,8 +369,8 @@ async fn main() {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   I: pack   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
-            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   I: pack   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
+            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);
@@ -376,8 +395,9 @@ fn click_world(world: &mut gahturiyu_sim::sim::World, sel: &mut Selection, hover
             sel.pick(pid, shift);
             return;
         }
-        Some(ui::Hover::Person(pid)) if world.squad_battle().is_some() => {
-            if world.order_attack_with(&who, pid) {
+        Some(ui::Hover::Person(pid)) => {
+            // An enemy: go for them (starting a fight if there isn't one).
+            if world.attack(&who, pid) {
                 return;
             }
         }

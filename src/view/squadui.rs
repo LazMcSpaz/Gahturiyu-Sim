@@ -18,6 +18,7 @@ use super::ui::{bar_for, race_color, with_alpha, Ui, DIM, PANEL, TEXT};
 
 pub const GOLD: Color = Color::new(1.0, 0.85, 0.35, 1.0);
 const WARN: Color = Color::new(0.95, 0.55, 0.3, 1.0);
+pub const SNEAK: Color = Color::new(0.62, 0.70, 0.95, 1.0);
 
 /// Who orders go to. Empty means the whole squad.
 #[derive(Default, Clone)]
@@ -106,10 +107,15 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Color) {
     if w.pickups.iter().any(|pk| pk.who == pid) {
         return ("Fetching", TEXT);
     }
+    let sneaking = w.squad.sneaking[k];
     if w.squad.at[k].dist(w.squad.goal[k]) > 0.5 {
-        return ("Walking", TEXT);
+        return if sneaking { ("Sneaking", SNEAK) } else { ("Walking", TEXT) };
     }
-    ("Standing", DIM)
+    if sneaking {
+        ("Crouched", SNEAK)
+    } else {
+        ("Standing", DIM)
+    }
 }
 
 /// The cards along the bottom.
@@ -132,6 +138,15 @@ pub fn squad_bar(ui: &Ui, w: &World, sel: &Selection, click: Option<Click>) -> O
         let gear = p.kit();
         let load = gear.load(&p.stats);
         ui.text(st, r.x + 14.0, r.y + 37.0, 14, sc);
+        // How close to being noticed: an eye that opens.
+        let sus = w.suspicion_of(pid);
+        if sus > 0.02 {
+            let ex = r.x + 14.0 + ui.width(st, 14) + 16.0;
+            let ey = r.y + 32.0;
+            let c = if sus >= 1.0 { Color::new(0.95, 0.3, 0.25, 1.0) } else { Color::new(0.95, 0.8, 0.35, 1.0) };
+            draw_ellipse_lines(ex, ey, 8.0, 1.0 + 4.0 * sus, 0.0, 1.5, c);
+            draw_circle(ex, ey, 1.5 + 1.5 * sus, c);
+        }
         let l = format!("{:.0}/{:.0} kg", gear.weight(), gear.capacity(&p.stats));
         ui.text(&l, r.x + r.w - ui.width(&l, 13) - 8.0, r.y + 37.0, 13, if load > 1.0 { WARN } else { DIM });
 

@@ -98,6 +98,12 @@ pub struct World {
     pub npc_fights: Vec<NpcFight>,
     /// Groups whose plans are on hold while they fight.
     pub fighting_groups: HashSet<GroupId>,
+
+    // --- Stealth ------------------------------------------------------------
+    /// How suspicious each watching group is of each squad member (1 = noticed).
+    pub suspicion: HashMap<(GroupId, PersonId), f32>,
+    /// Watchers' meters have been run up to this time.
+    pub watch_done: f64,
 }
 
 impl World {
@@ -145,6 +151,8 @@ impl World {
             encounters: Vec::new(),
             npc_fights: Vec::new(),
             fighting_groups: HashSet::new(),
+            suspicion: HashMap::new(),
+            watch_done: start_time,
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;

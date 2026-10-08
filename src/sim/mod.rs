@@ -20,6 +20,7 @@ pub mod routes;
 pub mod settlement;
 pub mod squad;
 pub mod stats;
+pub mod stealth;
 pub mod terrain;
 pub mod world;
 pub mod worldgen;

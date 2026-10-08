@@ -25,7 +25,16 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
 5. **`might` changes only via `recompute_might()`**, called when gear or traits change.
 6. **`src/sim` has no graphics dependency.** The window reads the sim and sends
    orders (`order_squad`); it never contains world rules.
-7. **Anything that changes what happens lives in the sim.** Terrain and roads
+7. **World events run on one timeline.** Hour departures, ambushes and fight
+   endings are handled strictly in time order inside `World::step`
+   (`encounters.rs`). Ambushes are found from the schedules when legs are
+   written (two hours ahead), never by looking around each step. Fights away
+   from the squad use the full combat rules, run to the end the moment they
+   start — don't add a cruder far-band combat model; if one is ever needed for
+   speed, a test must show it agrees with the full one.
+   The one allowed exception to rule 1 is the player: when the squad's own
+   fights start depends on how often it is looked at (like its walking).
+8. **Anything that changes what happens lives in the sim.** Terrain and roads
    decide travel times, so they are in `sim/terrain.rs` and `sim/routes.rs`,
    built once from the seed. Leg timing comes from `Leg::along`, which charges
    each stretch by its slope; keep using it so schedules stay analytic.

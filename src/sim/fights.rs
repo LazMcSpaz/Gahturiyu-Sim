@@ -1,8 +1,8 @@
 //! Where fights meet the world: who starts one, who joins, and what is left
 //! afterwards.
 //!
-//! Hostile groups (bandits) jump anyone who comes within `AGGRO` metres of
-//! them — your squad included. A fight runs as a `Battle` until one side is
+//! Bandits attack your squad when they notice someone in it (see
+//! `stealth.rs`), and you can attack them first. A fight runs as a `Battle` until one side is
 //! down, dead or gone; then everything that happened in it is written back to
 //! the people involved: wounds (which heal over time), mana spent, skills
 //! trained, and the dead.
@@ -16,8 +16,6 @@ use super::rng::{self, Rng};
 use super::stats::{Calling, Skill, SKILLS};
 use super::world::World;
 
-/// Metres at which a hostile group notices someone and attacks.
-pub const AGGRO: f32 = 35.0;
 /// How long the fallen stay on the ground, game seconds.
 pub const CORPSE_TIME: f64 = 2.0 * 3600.0;
 
@@ -38,6 +36,12 @@ impl World {
 
     pub(super) fn fighter_pos(&self, pid: PersonId) -> Option<V2> {
         self.fighter(pid).map(|f| f.pos)
+    }
+
+    /// Not dead, not down, not already in a fight.
+    pub(super) fn fit_to_fight(&self, pid: PersonId) -> bool {
+        let p = &self.people[pid as usize];
+        !p.dead && !self.fighting.contains_key(&pid) && !super::body::knocked_out(&p.wounds.hp_at(&p.stats, self.time))
     }
 
     /// Squad members able to fight right now.
@@ -66,6 +70,44 @@ impl World {
             f.act = super::combat::Act::Idle;
             k += 1;
         }
+    }
+
+    /// Some of the squad go for someone. Mid-fight that's an order; otherwise
+    /// it starts a fight with them and their band (bandits only, for now). If
+    /// their band hasn't noticed the squad, they're caught unawares for a
+    /// moment — longer if everyone going in is sneaking.
+    pub fn attack(&mut self, who: &[PersonId], enemy: PersonId) -> bool {
+        if self.squad_battle().is_some() {
+            return self.order_attack_with(who, enemy);
+        }
+        let Some(gid) = self.group_of[enemy as usize] else { return false };
+        let Some(g) = self.group(gid) else { return false };
+        if !g.hostile || self.fighting_groups.contains(&gid) || !self.fit_to_fight(enemy) {
+            return false;
+        }
+        let them: Vec<PersonId> = g.members.iter().copied().filter(|&m| self.fit_to_fight(m)).collect();
+        let fit = self.squad_fit();
+        if fit.is_empty() || them.is_empty() {
+            return false;
+        }
+        let surprise = if self.has_noticed(gid) {
+            0.0
+        } else if who.iter().all(|&m| self.is_sneaking(m)) {
+            5.0
+        } else {
+            2.0
+        };
+        let t = self.time;
+        let id = self.start_battle(vec![(SQUAD_SIDE, fit), (1, them)], t);
+        self.fighting_groups.insert(gid);
+        if let Some(b) = self.battles.iter_mut().find(|b| b.id == id) {
+            for f in b.fighters.iter_mut().filter(|f| f.side != SQUAD_SIDE) {
+                f.aware_at = t + surprise;
+            }
+        }
+        let line = if surprise > 0.0 { "You fall on them before they know it." } else { "You attack." };
+        self.log.push_front((t, line.to_string()));
+        self.order_attack_with(who, enemy)
     }
 
     /// Tell the whole squad to go for one enemy.
@@ -151,29 +193,30 @@ impl World {
         let t = self.time;
         self.corpses.retain(|c| t - c.2 < CORPSE_TIME);
 
-        // Hostiles near the squad attack it, or join the fight it's in.
+        // Bandits who notice someone in the squad attack it, or join the
+        // fight it's already in.
+        let noticed = self.update_watchers();
         let squad_fit = self.squad_fit();
         if !squad_fit.is_empty() {
-            let current = self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied();
-            let squad_at: Vec<V2> = squad_fit.iter().map(|&m| self.person_pos(m)).collect();
-            let spotted: Vec<GroupId> = self
-                .groups
-                .iter()
-                .filter(|g| g.hostile && g.band == 1 && squad_at.iter().any(|p| g.pos.dist(*p) < AGGRO))
-                .filter(|g| g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
-                .map(|g| g.id)
-                .collect();
-            for gid in spotted {
-                let fresh: Vec<PersonId> = self.group(gid).unwrap().members.iter().copied().filter(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)).collect();
-                match current.or_else(|| self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied()) {
+            for (gid, when) in noticed {
+                let fresh: Vec<PersonId> = match self.group(gid) {
+                    Some(g) => g.members.iter().copied().filter(|m| self.fit_to_fight(*m)).collect(),
+                    None => continue,
+                };
+                if fresh.is_empty() {
+                    continue;
+                }
+                match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied() {
                     Some(bid) => self.join_battle(bid, 1, &fresh),
                     None => {
                         let line = "You're attacked!".to_string();
                         self.alerts.push(line.clone());
-                        self.log.push_front((t, line));
-                        self.start_battle(vec![(SQUAD_SIDE, squad_fit.clone()), (1, fresh)]);
+                        self.log.push_front((when, line));
+                        let fit = self.squad_fit();
+                        self.start_battle(vec![(SQUAD_SIDE, fit), (1, fresh)], when);
                     }
                 }
+                self.fighting_groups.insert(gid);
             }
         }
 
@@ -190,11 +233,11 @@ impl World {
         }
     }
 
-    fn start_battle(&mut self, sides: Vec<(Side, Vec<PersonId>)>) -> u32 {
+    fn start_battle(&mut self, sides: Vec<(Side, Vec<PersonId>)>, at: f64) -> u32 {
         let id = self.next_battle;
         self.next_battle += 1;
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
-        let mut b = Battle::new(id, seed, self.time, Vec::new(), Vec::new());
+        let mut b = Battle::new(id, seed, at, Vec::new(), Vec::new());
         self.battles.push(b.clone());
         for (side, who) in sides {
             self.add_fighters(&mut b, side, &who);
@@ -264,6 +307,9 @@ impl World {
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();
         for gid in touched {
+            self.fighting_groups.remove(&gid);
+            // They've had their fight; they'll need to spot you again.
+            self.suspicion.retain(|(g, _), _| *g != gid);
             let alive: Vec<PersonId> = self.group(gid).unwrap().members.iter().copied().filter(|m| !self.people[*m as usize].dead).collect();
             let gi = self.groups.iter().position(|g| g.id == gid).unwrap();
             if alive.is_empty() {

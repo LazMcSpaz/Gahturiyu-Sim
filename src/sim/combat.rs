@@ -25,6 +25,9 @@ use super::stats::{Attr, Skill, Stats};
 
 /// Length of one combat tick, game seconds.
 pub const DT: f64 = 0.1;
+/// Damage multiplier for hitting someone who hasn't noticed you (before the
+/// attacker's Sneak adds to it).
+pub const SNEAK_ATTACK: f32 = 2.0;
 /// A fight that drags on longer than this simply ends (everyone disengages).
 pub const MAX_LENGTH: f64 = 900.0;
 /// Body radius, metres: added to weapon reach.
@@ -89,6 +92,9 @@ pub struct Fighter {
     pub fleeing: bool,
     pub fled: bool,
     pub think_at: f64,
+    /// Until this time they haven't realised they're under attack: they
+    /// stand there, can't dodge or block, and take a sneak attack's damage.
+    pub aware_at: f64,
 
     /// Skill uses this fight, written back to the person afterwards.
     pub trained: [f32; super::stats::N_SKILLS],
@@ -150,9 +156,15 @@ impl Fighter {
             fleeing: false,
             fled: false,
             think_at: 0.0,
+            aware_at: 0.0,
             trained: [0.0; super::stats::N_SKILLS],
             damage_taken: 0.0,
         }
+    }
+
+    /// Caught unawares at time `t`.
+    pub fn unaware(&self, t: f64) -> bool {
+        t < self.aware_at
     }
 
     /// Can act at all: not down, dead or gone.
@@ -291,7 +303,7 @@ impl Battle {
 
         // Decide.
         for i in 0..n {
-            if self.fighters[i].active() && t >= self.fighters[i].think_at {
+            if self.fighters[i].active() && t >= self.fighters[i].think_at && !self.fighters[i].unaware(t) {
                 super::ai::think(self, i, &mut rng);
                 self.fighters[i].think_at = t + 0.3;
             }
@@ -441,7 +453,8 @@ impl Battle {
         let blind = 1.0 - blinded * 0.3;
         let skill = att.stats.skill(weapon.skill);
         let atk = (skill + att.stats.attr(Attr::Agility) * 0.25 + 10.0) * att.tired() * arm * blind;
-        let helpless = def.paralyzed();
+        let unaware = def.unaware(self.time);
+        let helpless = def.paralyzed() || unaware;
         let dodge = if helpless {
             -40.0
         } else {
@@ -501,10 +514,26 @@ impl Battle {
             }
         }
         let shield = self.fighters[d].has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
-        let dmg = (cut + blunt) * shield;
+        let mut dmg = (cut + blunt) * shield;
         self.fighters[a].train(weapon.skill, 1.0);
-        self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), dmg));
+        if unaware {
+            // A sneak attack: the better the sneak, the worse the wound.
+            let sneak = self.fighters[a].stats.skill(Skill::Sneak);
+            dmg *= SNEAK_ATTACK + sneak / 50.0;
+            self.fighters[a].train(Skill::Sneak, 3.0);
+            self.say(format!("{an} catches {dn} unawares: the {} ({:.0}).", part.name(), dmg));
+        } else {
+            self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), dmg));
+        }
         self.wound(d, part, dmg);
+    }
+
+    /// Everyone on a side realises they're under attack.
+    pub fn wake(&mut self, side: Side) {
+        let t = self.time;
+        for f in self.fighters.iter_mut().filter(|f| f.side == side && f.aware_at > t) {
+            f.aware_at = t;
+        }
     }
 
     /// Apply damage to a body part and see what it does.
@@ -512,6 +541,7 @@ impl Battle {
         if dmg <= 0.0 {
             return;
         }
+        self.wake(self.fighters[d].side);
         let f = &mut self.fighters[d];
         let was_ko = f.ko;
         f.hp[part as usize] -= dmg;
@@ -575,6 +605,7 @@ impl Battle {
             }
             Target::Other => {
                 let Some(j) = target else { return };
+                self.wake(self.fighters[j].side);
                 let tname = self.names[j].clone();
                 // Blind casters can only reach what's right in front of them.
                 let blind = self.fighters[i].has(StatusKind::Blinded).is_some();

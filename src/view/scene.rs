@@ -18,6 +18,7 @@ use gahturiyu_sim::sim::{
     race::Race,
     rng,
     settlement::{Building, BuildingKind},
+    stealth,
     terrain::Terrain,
     World,
 };
@@ -35,6 +36,7 @@ const TIMBER: Color = Color::new(0.36, 0.27, 0.18, 1.0);
 const GOLD: Color = Color::new(0.95, 0.76, 0.28, 1.0);
 const EMBER: Color = Color::new(1.0, 0.62, 0.26, 1.0);
 const TENT: Color = Color::new(0.62, 0.64, 0.74, 1.0);
+const NIGHT_SKY: Color = Color::new(0.04, 0.05, 0.10, 1.0);
 const CAMP_HIDE: Color = Color::new(0.42, 0.24, 0.18, 1.0);
 
 /// Height of a Horaro stilt-home deck above the water.
@@ -165,7 +167,7 @@ pub fn ground_at(cam: &Camera3D, s: Vec2, t: &Terrain) -> Option<V2> {
 /// moves a whole grid cell or zooms, so it is rebuilt only then.
 #[derive(Default)]
 pub struct SceneCache {
-    ground: Option<((i64, i64, u32, u32), Builder)>,
+    ground: Option<((i64, i64, u32, u32, u32), Builder)>,
     grid: Grid,
 }
 
@@ -206,7 +208,11 @@ impl Grid {
 }
 
 pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, cache: &mut SceneCache, sel: &Selection) {
-    clear_background(SKY);
+    // Time of day: the light level is rounded so the cached ground is only
+    // rebuilt a few dozen times through a dusk.
+    let day = (stealth::daylight(w.time) * 24.0).round() / 24.0;
+    let sky = Color::new(NIGHT_SKY.r + (SKY.r - NIGHT_SKY.r) * day, NIGHT_SKY.g + (SKY.g - NIGHT_SKY.g) * day, NIGHT_SKY.b + (SKY.b - NIGHT_SKY.b) * day, 1.0);
+    clear_background(sky);
     let cam = oc.camera();
     set_camera(&cam);
     let radius = oc.draw_radius();
@@ -221,12 +227,13 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
         (oc.target.y / coarse).round() as i64,
         radius.to_bits(),
         (oc.dist * oc.pitch.sin() / 25.0).round() as u32,
+        (day * 24.0) as u32,
     );
     if cache.ground.as_ref().map(|(k, _)| *k != key).unwrap_or(true) {
         // Ground fog is measured from above the target, not from the camera,
         // so turning the camera doesn't force a rebuild.
         let eye = vec3(oc.target.x, oc.ground + oc.dist * oc.pitch.sin(), oc.target.y);
-        let mut g = Builder::new(eye, radius * 0.45, far * 0.95, SKY);
+        let mut g = Builder::new(eye, radius * 0.45, far * 0.95, sky).lit(day, camp_lamps(w, &|p| t.surface(p)));
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
         // Fine patch: a whole number of coarse cells, so its edge meets the ring.
         let half_fine = ((radius / coarse).ceil().max(1.0)) * coarse;
@@ -242,7 +249,7 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
         g.draw();
     }
 
-    let mut b = Builder::new(cam.position, radius * 0.45, far * 0.95, SKY);
+    let mut b = Builder::new(cam.position, radius * 0.45, far * 0.95, sky).lit(day, camp_lamps(w, &on_ground));
 
     // Roads.
     let lw = (oc.dist / 90.0).max(3.0);
@@ -283,7 +290,7 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             continue;
         }
         if g.band == 1 {
-            if matches!(g.kind, Kind::Wanderer { .. }) && !g.is_moving(w.time) {
+            if matches!(g.kind, Kind::Wanderer { .. }) && !g.is_moving(w.time) && !g.hostile {
                 let r = w.people[g.members[0] as usize].seed;
                 let at = g.pos.add(V2::new(3.5, 2.0));
                 tent(&mut b, to3(at, on_ground(at)), k, r);
@@ -416,6 +423,14 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             }
         }
     }
+}
+
+/// Campfires as lights, at night.
+fn camp_lamps(w: &World, ground: &dyn Fn(V2) -> f32) -> Vec<(Vec3, f32, f32)> {
+    if stealth::daylight(w.time) > 0.95 {
+        return Vec::new();
+    }
+    w.camps.iter().map(|c| (to3(c.pos, ground(c.pos) + 1.5), 22.0, 0.9)).collect()
 }
 
 /// A flat strip laid over the land from `a` to `c`, cut into pieces no longer

@@ -33,6 +33,8 @@ pub struct Squad {
     pub pos: V2,
     /// The last place the whole squad was sent (for drawing).
     pub target: V2,
+    /// Who's sneaking (parallel to `members`).
+    pub sneaking: Vec<bool>,
 }
 
 /// Loose formation: the first stands on the spot, the rest in a spiral.
@@ -47,7 +49,8 @@ pub fn formation(k: usize) -> V2 {
 impl Squad {
     pub fn new(members: Vec<PersonId>, centre: V2) -> Squad {
         let at: Vec<V2> = (0..members.len()).map(|k| centre.add(formation(k))).collect();
-        Squad { goal: at.clone(), at, members, pos: centre, target: centre }
+        let n = members.len();
+        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n] }
     }
 
     pub fn index(&self, pid: PersonId) -> Option<usize> {
@@ -64,6 +67,7 @@ impl Squad {
                 self.members.remove(k);
                 self.at.remove(k);
                 self.goal.remove(k);
+                self.sneaking.remove(k);
             }
         }
     }
@@ -94,6 +98,13 @@ impl World {
         self.squad.pos = p;
         self.squad.target = p;
         self.bands.update(p);
+        // Everything gets re-banded from the new spot straight away.
+        let t = self.time;
+        for g in &mut self.groups {
+            g.pos = g.position_at(t);
+            g.band = self.bands.band_at(g.pos);
+            g.last_update = t;
+        }
     }
 
     /// Send the whole squad somewhere, in formation.
@@ -123,7 +134,8 @@ impl World {
         let stats = inventory::effective(&p.stats, &gear);
         let hp = p.wounds.hp_at(&p.stats, self.time);
         let bonus = gear.sum_effect(|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
-        SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(gear.load(&p.stats)) * (1.0 + bonus)
+        let sneak = if self.is_sneaking(pid) { super::stealth::SNEAK_PACE } else { 1.0 };
+        sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(gear.load(&p.stats)) * (1.0 + bonus)
     }
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).
