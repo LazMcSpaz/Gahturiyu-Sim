@@ -244,3 +244,63 @@ fn sleepers_are_caught_unawares() {
     let b = w.squad_battle().expect("attacked in their sleep");
     assert!(b.fighters.iter().filter(|f| f.side == 0).all(|f| f.unaware(b.start + 1.0)));
 }
+
+// ---- Healing follows condition -----------------------------------------
+
+use gahturiyu_sim::sim::condition::HungerStage as Stage;
+
+#[test]
+fn rested_and_fed_heals_fastest_marching_and_starving_hardly_at_all() {
+    let mut c = Condition::new(0.0);
+    c.activity = Activity::Sleeping;
+    c.shelter = Shelter::Indoors;
+    let best = c.heal_rate();
+    c.activity = Activity::Resting;
+    let resting = c.heal_rate();
+    c.activity = Activity::Walking;
+    let marching = c.heal_rate();
+    c.hunger = 90.0;
+    assert_eq!(c.stage(), Stage::Starving);
+    let starving_march = c.heal_rate();
+    assert!(best > resting && resting > marching);
+    assert!(starving_march < 0.01);
+}
+
+#[test]
+fn healing_comes_out_the_same_however_finely_stepped() {
+    // Wounded members; at fixed moments some lie down to sleep, some get up;
+    // one has no food and crosses the hunger stages along the way.
+    let make = || {
+        let mut w = worldgen::generate(4);
+        w.teleport_squad(w.squad.pos.add(V2::new(250.0, 0.0)));
+        let t = w.time;
+        for (i, m) in w.squad.members.clone().into_iter().enumerate() {
+            let p = &mut w.people[m as usize];
+            p.wounds.lost = [8.0 + i as f32, 40.0, 25.0, 5.0, 12.0, 0.0];
+            p.wounds.at = t;
+        }
+        let hungry = w.squad.members[2];
+        take_all_food(&mut w, hungry);
+        w
+    };
+    let script = |w: &mut World, step: f64| {
+        let all = w.squad.members.clone();
+        run(w, 3.0, step);
+        w.order_rest(&all[..2]);
+        run(w, 5.0, step);
+        w.order_rest(&all[..1]); // the first gets up again
+        w.order_rest(&all[2..]);
+        run(w, 40.0, step);
+    };
+    let (mut fine, mut coarse) = (make(), make());
+    script(&mut fine, 10.0);
+    script(&mut coarse, 1800.0);
+    for &m in &fine.squad.members.clone() {
+        let (lf, lc) = (fine.people[m as usize].wounds.lost_at(fine.time), coarse.people[m as usize].wounds.lost_at(coarse.time));
+        for k in 0..6 {
+            assert!((lf[k] - lc[k]).abs() < 1e-3, "member {m} part {k}: {} vs {}", lf[k], lc[k]);
+        }
+        assert!((fine.hunger_of(m).unwrap() - coarse.hunger_of(m).unwrap()).abs() < 1e-3);
+        assert!((fine.tired_of(m).unwrap() - coarse.tired_of(m).unwrap()).abs() < 1e-3);
+    }
+}

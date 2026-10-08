@@ -30,7 +30,12 @@
 //! indoors. Members sleep when ordered to rest and stopped; moving wakes them.
 //! Very tired members (75+) move slower and fight worse.
 //!
-//! Only your squad has a condition. Everyone else in the world gets by.
+//! **Healing** follows all this: asleep and fed heals fastest (a tent or a
+//! roof helps), standing about is ordinary, marching heals little, and hunger
+//! cuts it further — a starving marcher heals nothing at all.
+//!
+//! Only your squad has a condition. Everyone else in the world gets by, and
+//! heals at the plain constant rate.
 
 use super::body::{self, Part, Wounds, HEAL_PER_HOUR};
 use super::items::{item, ItemId, Kind};
@@ -79,6 +84,14 @@ pub const EXHAUSTED: f32 = 75.0;
 /// Pace and attribute multipliers when very tired.
 pub const EXHAUSTED_PACE: f32 = 0.8;
 pub const EXHAUSTED_FACTOR: f32 = 0.85;
+
+/// Healing speed (times `HEAL_PER_HOUR`) by what they're doing. Fed members
+/// asleep indoors heal fastest; walking heals little.
+pub const HEAL_SLEEP_OPEN: f32 = 1.5;
+pub const HEAL_SLEEP_TENT: f32 = 1.75;
+pub const HEAL_SLEEP_INDOORS: f32 = 2.0;
+pub const HEAL_RESTING: f32 = 1.0;
+pub const HEAL_WALKING: f32 = 0.3;
 
 /// Where someone is sleeping.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -261,9 +274,22 @@ impl Condition {
         f
     }
 
-    /// Healing per hour for this piece.
+    /// Healing per hour for this piece: how well they're resting, times how
+    /// well they're fed. (People outside the squad always heal at the plain
+    /// `HEAL_PER_HOUR` — see `body::Wounds`.)
     pub fn heal_rate(&self) -> f32 {
+        let rest = match self.activity {
+            Activity::Sleeping => match self.shelter {
+                Shelter::Open => HEAL_SLEEP_OPEN,
+                Shelter::Tent => HEAL_SLEEP_TENT,
+                Shelter::Indoors => HEAL_SLEEP_INDOORS,
+            },
+            Activity::Resting => HEAL_RESTING,
+            Activity::Walking => HEAL_WALKING,
+            Activity::Fighting => 0.0,
+        };
         HEAL_PER_HOUR
+            * rest
             * match self.stage() {
                 HungerStage::Fed => 1.0,
                 HungerStage::Hungry => 0.5,
