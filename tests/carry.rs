@@ -122,3 +122,31 @@ fn your_own_dead_can_be_carried_home() {
     let c = w.corpses.iter().find(|c| c.3 == b).unwrap();
     assert!(c.0.dist(dest) < 2.0);
 }
+
+#[test]
+fn carrying_is_slow_but_nobody_crawls() {
+    use gahturiyu_sim::sim::carry::CARRY_PACE_RANGE;
+    let mut w = out_in_the_open();
+    let (a, b) = (w.squad.members[0], w.squad.members[2]);
+    knock_out(&mut w, b);
+    let free = w.member_speed(a);
+    w.order_carry(a, b);
+    walk(&mut w, 20.0);
+    assert_eq!(w.carried_by(b), Some(a));
+    let pace = w.member_speed(a) / free;
+    assert!(pace >= CARRY_PACE_RANGE.0 - 1e-3 && pace <= CARRY_PACE_RANGE.1 + 1e-3, "carrying pace {pace}");
+    assert!(pace < 0.85, "a body still slows you: {pace}");
+}
+
+#[test]
+fn stronger_carriers_go_faster() {
+    let mut w = out_in_the_open();
+    let (a, b) = (w.squad.members[0], w.squad.members[2]);
+    knock_out(&mut w, b);
+    w.order_carry(a, b);
+    walk(&mut w, 20.0);
+    let weak = w.carry_pace(a);
+    let p = &mut w.people[a as usize];
+    p.stats.attrs[gahturiyu_sim::sim::stats::Attr::Strength as usize] += 30.0;
+    assert!(w.carry_pace(a) > weak, "{} vs {weak}", w.carry_pace(a));
+}

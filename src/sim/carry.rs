@@ -6,6 +6,11 @@
 //! carrier's load, so the usual overload slow-downs apply — most people can
 //! carry another person, but not quickly.
 //!
+//! Carrying a body has its own pace (`carry_pace`) rather than counting as
+//! ordinary overload: a strong carrier with a light body manages better than
+//! a weak one with a heavy one, but nobody crawls. The body still counts as
+//! load for stamina and hunger.
+//!
 //! A carrier can't fight: in a fight they can still be ordered to move, but
 //! they won't swing, cast or block until they put their burden down. If a
 //! carrier is knocked out, whoever they were carrying drops beside them.
@@ -20,6 +25,14 @@ use super::person::PersonId;
 use super::race::Race;
 use super::squad::REACH;
 use super::world::World;
+
+/// Pace while carrying someone, as a share of normal: for a carrier of
+/// average Strength (40) with a body of `CARRY_BODY` kg.
+pub const CARRY_PACE: f32 = 0.6;
+/// The body weight `CARRY_PACE` is set for, kg.
+pub const CARRY_BODY: f32 = 85.0;
+/// Carrying pace never goes outside these.
+pub const CARRY_PACE_RANGE: (f32, f32) = (0.3, 0.85);
 
 /// Rough body weight by people, kg (placeholders).
 pub fn body_weight(r: Race) -> f32 {
@@ -60,6 +73,18 @@ impl World {
             }
             None => 0.0,
         }
+    }
+
+    /// How much carrying someone slows this person: 1 if they carry nobody.
+    /// Stronger carriers and lighter bodies go faster.
+    pub fn carry_pace(&self, carrier: PersonId) -> f32 {
+        if self.carrying(carrier).is_none() {
+            return 1.0;
+        }
+        let p = &self.people[carrier as usize];
+        let strength = p.effective_stats().attr(super::stats::Attr::Strength);
+        let body = self.burden_weight(carrier).max(1.0);
+        (CARRY_PACE * (1.0 + (strength - 40.0) / 120.0) * (CARRY_BODY / body).sqrt()).clamp(CARRY_PACE_RANGE.0, CARRY_PACE_RANGE.1)
     }
 
     /// Can this person be picked up at all?

@@ -171,7 +171,9 @@ impl World {
         let bonus = gear.sum_effect(|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
         let sneak = if self.is_sneaking(pid) { super::stealth::SNEAK_PACE } else { 1.0 };
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
-        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(self.load_of(pid)) * (1.0 + bonus)
+        // Their own kit's weight as usual; a body they're carrying has its own pace.
+        let load = gear.load(&p.stats);
+        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(load) * self.carry_pace(pid) * (1.0 + bonus)
     }
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).

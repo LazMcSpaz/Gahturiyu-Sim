@@ -275,11 +275,8 @@ impl World {
             f.torch = self.torch_lit(pid);
             // Carrying someone: can't fight, and slow.
             if self.carrying(pid).is_some() {
-                let p = &self.people[pid as usize];
-                let gear = p.kit();
-                let (light, heavy) = (gear.load(&p.stats), self.load_of(pid));
                 f.burdened = true;
-                f.base_speed *= super::inventory::encumbrance_factor(heavy) / super::inventory::encumbrance_factor(light).max(0.01);
+                f.base_speed *= self.carry_pace(pid);
             }
             b.names.push(self.people[pid as usize].name().unwrap_or("someone").to_string());
             b.fighters.push(f);
