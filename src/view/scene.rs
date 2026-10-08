@@ -132,9 +132,9 @@ impl Grid {
 }
 
 pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: true, ..default() });
-    let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: true, ..default() });
-    let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: true, depth_bias: 50.0, ..default() });
+    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
+    let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
+    let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
     commands.insert_resource(Mats { lit, glow, flat });
 }
 
@@ -470,7 +470,17 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
-    // Rings and the order lines, laid on the land.
+    // Flames on lit torches.
+    for &m in &w.squad.members {
+        if w.torch_lit(m) && w.fighter(m).map(|f| !f.ko).unwrap_or(true) {
+            let f = torch_flame(w, m, k, &on_ground);
+            gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
+        }
+    }
+
+    // Rings and the order lines, laid on the land. At night each member
+    // gets a faint ring too, so the squad can always be made out.
+    let night = 1.0 - gahturiyu_sim::sim::stealth::daylight(w.time);
     let rw = (oc.dist / 260.0).max(0.12);
     let sq = w.squad.pos;
     for (i, &m) in w.squad.members.iter().enumerate() {
@@ -478,6 +488,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let picked = game.sel.shows(w, m);
         if picked {
             draped_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, 18, palette::GOLD, eye);
+        } else if night > 0.3 {
+            draped_ring(&mut fl, &on_ground, at, 1.0 * k, rw * 0.5, 16, palette::scale(palette::race_color(w.people[m as usize].race), 0.35 + 0.25 * night), eye);
         }
         let goal = w.squad.goal[i];
         if w.fighter(m).is_none() && at.dist(goal) > 1.5 {

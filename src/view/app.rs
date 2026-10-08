@@ -209,9 +209,12 @@ fn setup(mut commands: Commands) {
         Projection::Perspective(PerspectiveProjection { fov: FOV_DEG.to_radians(), near: 0.2, far: 30_000.0, ..default() }),
         Transform::from_xyz(0.0, 100.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
+        light::camera_bundle(),
     ));
     // The panels are drawn by a second camera on top.
-    commands.spawn((Camera2d, Camera { order: 1, clear_color: ClearColorConfig::None, ..default() }, PrimaryEguiContext));
+    // It shares the 3D camera's wide-range picture (so it draws on top of it
+    // rather than replacing it) and leaves its colours alone.
+    commands.spawn((Camera2d, Camera { order: 1, clear_color: ClearColorConfig::None, ..default() }, bevy::camera::Hdr, bevy::core_pipeline::tonemapping::Tonemapping::None, PrimaryEguiContext));
 }
 
 /// Keys and mouse: camera moves, and orders.
