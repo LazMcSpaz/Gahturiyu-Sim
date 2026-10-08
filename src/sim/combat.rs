@@ -639,6 +639,8 @@ impl Battle {
             dmg *= SNEAK_ATTACK + sneak / 50.0;
             self.fighters[a].train(Skill::Sneak, 3.0);
             self.say(format!("{an} catches {dn} unawares: the {} ({:.0}).", part.name(), dmg));
+        } else if shot {
+            self.say(format!("{an} shoots {dn} in the {} ({:.0}).", part.name(), dmg));
         } else {
             self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), dmg));
         }

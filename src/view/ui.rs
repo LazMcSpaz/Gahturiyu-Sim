@@ -393,6 +393,16 @@ pub struct Shot {
     pub craft: Option<usize>,
     /// `GAHT_TALK=1`: talk to the nearest townsperson.
     pub talk: bool,
+    /// `GAHT_STARVE=1`: the squad is starving (no food, hunger 92).
+    pub starve: bool,
+    /// `GAHT_EXHAUST=1`: the squad is exhausted and out of breath.
+    pub exhaust: bool,
+    /// `GAHT_CARRY=1`: member 2 is down and member 0 is carrying them.
+    pub carry: bool,
+    /// `GAHT_LIMB=1`: member 0 has lost their left arm.
+    pub limb: bool,
+    /// `GAHT_RANGED=1`: bandit archers open up from 25 m away.
+    pub ranged: bool,
     /// `GAHT_SELECT=k`: select squad member k.
     pub select: Option<usize>,
     /// `GAHT_INV=k`: open squad member k's pack.
@@ -425,6 +435,11 @@ impl Shot {
             enter: var("GAHT_ENTER").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
+            starve: var("GAHT_STARVE").is_some(),
+            exhaust: var("GAHT_EXHAUST").is_some(),
+            carry: var("GAHT_CARRY").is_some(),
+            limb: var("GAHT_LIMB").is_some(),
+            ranged: var("GAHT_RANGED").is_some(),
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),

@@ -77,7 +77,7 @@ pub struct Click {
 }
 
 const CARD_W: f32 = 210.0;
-const CARD_H: f32 = 62.0;
+const CARD_H: f32 = 100.0;
 const INV_W: f32 = 400.0;
 const ROW: f32 = 21.0;
 
@@ -181,7 +181,9 @@ pub fn squad_bar(ui: &Ui, w: &World, sel: &Selection, click: Option<Click>) -> O
             draw_ellipse_lines(ex, ey, 8.0, 1.0 + 4.0 * sus, 0.0, 1.5, c);
             draw_circle(ex, ey, 1.5 + 1.5 * sus, c);
         }
-        let l = format!("{:.0}/{:.0} kg", gear.weight(), gear.capacity(&p.stats));
+        let burden = w.burden_weight(pid);
+        let load = if burden > 0.0 { w.load_of(pid) } else { load };
+        let l = format!("{:.0}/{:.0} kg", gear.weight() + burden, gear.capacity(&p.stats));
         ui.text(&l, r.x + r.w - ui.width(&l, 13) - 8.0, r.y + 37.0, 13, if load > 1.0 { WARN } else { DIM });
 
         // Health, and mana for those with spells.
@@ -200,6 +202,49 @@ pub fn squad_bar(ui: &Ui, w: &World, sel: &Selection, click: Option<Click>) -> O
         if let Some(m) = mana {
             draw_rectangle(r.x + 14.0, r.y + 53.0, bw, 3.0, Color::new(0.0, 0.0, 0.0, 0.6));
             draw_rectangle(r.x + 14.0, r.y + 53.0, bw * m.clamp(0.0, 1.0), 3.0, Color::new(0.35, 0.55, 1.0, 1.0));
+        }
+
+        // Food, stamina and rest: three small bars (full = good).
+        let third = (bw - 16.0) / 3.0;
+        let bars = [
+            ("food", w.hunger_of(pid).map(|h| 1.0 - h / 100.0), Color::new(0.85, 0.6, 0.25, 1.0)),
+            ("stam", w.stamina_of(pid), Color::new(0.45, 0.8, 0.55, 1.0)),
+            ("rest", w.tired_of(pid).map(|t| 1.0 - t / 100.0), Color::new(0.65, 0.55, 0.95, 1.0)),
+        ];
+        // The labels turn into a warning when it matters.
+        let cond = p.cond.as_ref();
+        let hunger_word = cond.map(|c| match gahturiyu_sim::sim::condition::stage_of(c.hunger_at(w.time)) {
+            gahturiyu_sim::sim::condition::HungerStage::Fed => "food",
+            gahturiyu_sim::sim::condition::HungerStage::Hungry => "hungry",
+            gahturiyu_sim::sim::condition::HungerStage::Weak => "weak",
+            gahturiyu_sim::sim::condition::HungerStage::Starving => "starving",
+        });
+        let tired_word = cond.map(|c| if c.tired_at(w.time) >= gahturiyu_sim::sim::condition::EXHAUSTED { "worn out" } else { "rest" });
+        for (n, (label, v, col)) in bars.iter().enumerate() {
+            let Some(v) = v else { continue };
+            let x = r.x + 14.0 + n as f32 * (third + 8.0);
+            let word = match n {
+                0 => hunger_word.unwrap_or(label),
+                2 => tired_word.unwrap_or(label),
+                _ => label,
+            };
+            let warn = word != *label;
+            ui.text(word, x, r.y + 79.0, 11, if warn { WARN } else { DIM });
+            let bx = x;
+            let bwid = third;
+            draw_rectangle(bx, r.y + 62.0, bwid, 5.0, Color::new(0.0, 0.0, 0.0, 0.6));
+            // Low means trouble: the bar reddens below a quarter.
+            let c = if *v < 0.25 { Color::new(0.95, 0.35, 0.3, 1.0) } else { *col };
+            draw_rectangle(bx, r.y + 62.0, bwid * v.clamp(0.0, 1.0), 5.0, c);
+        }
+        // Who they're carrying, or who's carrying them.
+        let line = if let Some(c) = w.carrying(pid) {
+            Some(format!("Carrying {}", w.people[c as usize].name().unwrap_or("someone")))
+        } else {
+            w.carried_by(pid).map(|c| format!("Carried by {}", w.people[c as usize].name().unwrap_or("someone")))
+        };
+        if let Some(l) = line {
+            ui.text(&l, r.x + 14.0, r.y + 92.0, 12, GOLD);
         }
 
         if let Some(c) = click {

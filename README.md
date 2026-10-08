@@ -42,6 +42,9 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | Left-click something on the ground | Pick it up |
 | Left-click a door | Go in, or pick the lock if it's locked (needs a lockpick) |
 | Left-click a plant, rock or log | Gather it |
+| Left-click someone who's down | Nearest selected member goes and picks them up |
+| X | Selected members put down whoever they're carrying |
+| N | Selected members rest (they sleep where they stand); press again to get them up |
 | Z | Selected members sneak / stop sneaking |
 | I, or right-click a squad card | Pack and gear |
 | K | Crafting |
@@ -59,7 +62,13 @@ Hover over anyone or anything for details. A fight breaking out near you drops
 the speed to real time.
 
 In the **pack** panel: click something worn to take it off, click something in
-the pack to put it on (or drink it, for a potion), right-click to drop it.
+the pack to put it on (or drink or eat it), right-click to drop it. Equip the
+short bow from the pack to shoot (arrows stay in the pack).
+
+Each **squad card** shows health (and mana), then three small bars — food,
+stamina and rest — whose labels turn orange when there's trouble ("hungry",
+"starving", "worn out"), plus who they're carrying or who's carrying them, and
+any limb lost for good (−LA = left arm, and so on).
 
 ## Playing
 
@@ -74,6 +83,29 @@ the pack to put it on (or drink it, for a potion), right-click to drop it.
   knocks you out, and only a much worse beating kills. Wounds heal on their
   own over hours. Hits, dodges, blocks and spells train the skills used,
   Morrowind-style. Hurt fighters drink healing draughts if they have them.
+- **Food**: hunger climbs with the clock — faster on the move, under a heavy
+  load or when wounded, slower asleep. Members eat from their own pack when
+  hungry. Go without and they heal slower, then weaken, then waste until they
+  collapse (it never kills). Food is found in homes; berries and mussels can be
+  gathered.
+- **Stamina and sleep**: stamina drains on the march (more uphill and loaded)
+  and comes back standing still; a fight starts with what's left. Tiredness
+  builds over the day and only sleep clears it: in the open is slow, a tent
+  (the hunter carries one) is better, indoors is best. Worn-out members are
+  slower and weaker. Sleepers who are attacked take a few seconds to wake.
+- **Healing** depends on how they're doing: asleep and fed heals fastest,
+  marching heals little, starving heals nothing.
+- **Carrying**: knocked-out members no longer get left behind — send someone
+  to carry them. A body is heavy (they'll be badly overloaded and slow), and
+  a carrier can't fight until they put it down.
+- **Roads** are quicker than open ground (sand, rock and scrub are slower than
+  grass). Click somewhere far and the squad takes the roads if that's faster.
+- **Bows and crossbows** shoot from range and use up ammo; about half is found
+  again after a fight. Archers draw a hand weapon if someone gets close (or
+  back away if they have none). Some bandits are archers.
+- **Lost limbs**: an arm or leg battered badly enough is gone for good. No
+  shield or two-handed weapon without a left arm; a lost leg is a permanent
+  limp, two mean crawling.
 - **Magic** costs mana, takes a moment to cast and can fizzle (the mana is
   still spent). Scrolls cast once with no mana and never fizzle.
 - **Bandit camps** sit beside the roads, lit by a campfire. Their lookouts
@@ -213,6 +245,16 @@ The numbers most worth tuning, all named constants:
 | Locks, lockpicking, what's inside homes | `src/sim/buildings.rs` |
 | Recipes, stations, gathering | `src/sim/crafting.rs` |
 | Jobs and dialogue | `src/sim/quests.rs`, `src/sim/dialogue.rs` |
+| Hunger: how fast, stages, when they eat (`HUNGER_PER_HOUR`, `EAT_AT`, `HUNGRY`/`WEAK`/`STARVING`, `STARVE_DRAIN`) | `src/sim/condition.rs` |
+| Stamina and tiredness (`STAMINA_WALK`, `STAMINA_CLIMB`, `STAMINA_REST`, `TIRED_PER_HOUR`, `SLEEP_OPEN`/`TENT`/`INDOORS`, `EXHAUSTED`) | `src/sim/condition.rs` |
+| Healing by activity (`HEAL_SLEEP_*`, `HEAL_RESTING`, `HEAL_WALKING`; base `HEAL_PER_HOUR` in `body.rs`) | `src/sim/condition.rs` |
+| Food nourishment, tent, bows and ammo | `src/sim/items.rs` |
+| Body weights for carrying | `body_weight()` in `src/sim/carry.rs` |
+| Road speed and ground types (`ROAD_PACE`, `ROAD_HALF_WIDTH`, `Ground::pace`) | `src/sim/terrain.rs` |
+| When a trip goes by road (`ROAD_TRIP`) | `src/sim/buildings.rs` |
+| Archers: draw, stow and back-off distances (`ARCHER_DRAW`, `ARCHER_STOW`, `ARCHER_SPACE`) | `src/sim/combat.rs` |
+| Ammo found after a fight (`AMMO_FOUND`) | `src/sim/fights.rs` |
+| When a limb is lost (`LIMB_LOSS`) | `src/sim/body.rs` |
 | Name sounds per race | `src/sim/names.rs` |
 
 ## Layout
@@ -240,6 +282,8 @@ src/sim/      the simulation — no graphics, fully testable
   fights.rs     where fights meet the world (the squad's fights)
   encounters.rs bandit camps and ambushes on the world's timeline
   squad.rs      squad members, walking, picking things up
+  condition.rs  hunger, stamina, tiredness, sleep, and healing that follows them
+  carry.rs      carrying the downed
   stealth.rs    being seen and heard
   buildings.rs  doors, locks, interiors
   crafting.rs   recipes, stations, gathering, potions

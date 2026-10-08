@@ -34,7 +34,20 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    speed, a test must show it agrees with the full one.
    The one allowed exception to rule 1 is the player: when the squad's own
    fights start depends on how often it is looked at (like its walking).
-8. **Anything that changes what happens lives in the sim.** Terrain and roads
+8. **Condition is worked out in pieces.** A squad member's hunger, stamina,
+   tiredness and healing are stored as values at one moment plus what they're
+   doing; between changes everything moves at a steady rate. Every change
+   (start walking, sleep, eat, cross a hunger or tiredness stage, wounds
+   fully healed) *settles* the values and the wounds at that exact moment
+   and starts a new piece (`condition.rs`). Stage changes and meals are
+   found by solving for the moment they fall due, not by checking each
+   step. Don't tick these per step. (Climbing is the one by-the-metre cost,
+   because the squad's own walking is already step-by-step.) Everyone outside
+   the squad heals at the constant `HEAL_PER_HOUR`.
+9. **A stranger's kit and spells come from `kit_stats`**, their stats when
+   their kit was chosen, never from their current (trained) stats — otherwise
+   being met or not changes their might.
+10. **Anything that changes what happens lives in the sim.** Terrain and roads
    decide travel times, so they are in `sim/terrain.rs` and `sim/routes.rs`,
    built once from the seed. Leg timing comes from `Leg::along`, which charges
    each stretch by its slope; keep using it so schedules stay analytic.
@@ -55,7 +68,9 @@ squad's start, e.g. to put a town on the band edge). For the newer systems:
 k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 `GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`, `GAHT_DROP=k`
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
-`GAHT_TALK=1` (talk to the nearest local). Under Xvfb rendering is
+`GAHT_TALK=1` (talk to the nearest local), `GAHT_STARVE=1`, `GAHT_EXHAUST=1`,
+`GAHT_CARRY=1` (member 0 carrying a downed member 2), `GAHT_LIMB=1` (member 0
+loses the left arm), `GAHT_RANGED=1` (bandit archers open up). Under Xvfb rendering is
 software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
 
 ## Drawing notes
@@ -89,4 +104,8 @@ software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
   Rìthaduya) and night is "Hiyaḍote's hours" — placeholder flavour, not canon
   ties between races and gods.
 - Deaths are rare, Kenshi-style: a head or torso at zero knocks you out; only
-  falling to minus its maximum kills.
+  falling to minus its maximum kills. Limbs at minus their maximum are lost.
+- No diseases, no aging; starvation knocks out but never kills (this slice).
+- Tents are bought items anyone can carry (Laz's call); there's no shop yet,
+  so the squad's hunter starts with one.
+- The sea stays off-limits to the squad for now.

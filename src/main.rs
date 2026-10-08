@@ -111,6 +111,72 @@ async fn main() {
                 world.step(1.0);
             }
         }
+        if s.starve || s.exhaust || s.carry || s.limb || s.ranged {
+            // Out of town, where it's quiet.
+            world.teleport_squad(world.squad.pos.add(V2::new(260.0, 40.0)));
+            world.step(0.1);
+        }
+        if s.starve {
+            let t = world.time;
+            for m in world.squad.members.clone() {
+                let p = &mut world.people[m as usize];
+                if let Some(d) = p.detail.as_mut() {
+                    d.gear.bag.retain(|e| !matches!(gahturiyu_sim::sim::items::item(e.0).kind, gahturiyu_sim::sim::items::Kind::Food(_)));
+                }
+                if let Some(c) = p.cond.as_mut() {
+                    c.hunger = 92.0;
+                    c.at = t;
+                }
+            }
+            for _ in 0..240 {
+                world.step(60.0);
+            }
+        }
+        if s.exhaust {
+            let t = world.time;
+            for m in world.squad.members.clone() {
+                if let Some(c) = world.people[m as usize].cond.as_mut() {
+                    c.tired = 92.0;
+                    c.stamina = 4.0;
+                    c.at = t;
+                }
+            }
+            world.step(1.0);
+        }
+        if s.carry {
+            let (a, b) = (world.squad.members[0], world.squad.members[2]);
+            let t = world.time;
+            let p = &mut world.people[b as usize];
+            p.wounds.lost[1] = p.stats.max_hp(gahturiyu_sim::sim::body::Part::Torso) + 25.0;
+            p.wounds.at = t;
+            world.order_carry(a, b);
+            for _ in 0..120 {
+                world.step(0.5);
+            }
+            let to = world.person_pos(a).add(V2::new(-14.0, 10.0));
+            world.order_members(&[a], to);
+            for _ in 0..40 {
+                world.step(0.5);
+            }
+        }
+        if s.limb {
+            let m = world.squad.members[0];
+            let p = &mut world.people[m as usize];
+            let max = p.stats.max_hp(gahturiyu_sim::sim::body::Part::LeftArm);
+            p.wounds.lost[2] = max * (1.0 + gahturiyu_sim::sim::body::LIMB_LOSS);
+            p.wounds.missing[2] = true;
+        }
+        if s.ranged {
+            // Archers only: spawn a band and keep the bow-carriers.
+            let at = world.squad.pos.add(V2::new(25.0, 8.0));
+            world.spawn_bandits(at, 5, false);
+            for _ in 0..80 {
+                world.step(0.25);
+                if world.squad_battle().map(|b| b.fighters.iter().any(|f| f.shots > 0)).unwrap_or(false) {
+                    break;
+                }
+            }
+        }
         if s.talk {
             // Talk to the nearest townsperson, and ask a couple of things.
             let lead = world.squad.members[0];
