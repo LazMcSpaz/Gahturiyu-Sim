@@ -114,6 +114,18 @@ pub struct World {
     pub furnished: HashSet<super::buildings::DoorId>,
     /// What each town wants from you for crimes seen.
     pub bounty: HashMap<SettlementId, f32>,
+
+    // --- Crafting -----------------------------------------------------------
+    /// Workshops: where, and what kind.
+    pub stations: Vec<(V2, super::crafting::Station)>,
+    /// Things growing or lying about to gather.
+    pub nodes: Vec<super::crafting::Node>,
+    /// Who's on their way to gather what.
+    pub gathering: Vec<(PersonId, u32)>,
+    /// Jobs in progress.
+    pub crafting: Vec<super::crafting::Job>,
+    /// How many jobs each person has started (keys their rolls).
+    pub crafted_count: HashMap<PersonId, u64>,
 }
 
 impl World {
@@ -167,6 +179,11 @@ impl World {
             picking: Vec::new(),
             furnished: HashSet::new(),
             bounty: HashMap::new(),
+            stations: Vec::new(),
+            nodes: Vec::new(),
+            gathering: Vec::new(),
+            crafting: Vec::new(),
+            crafted_count: HashMap::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;

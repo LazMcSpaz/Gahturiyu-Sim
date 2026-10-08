@@ -16,7 +16,7 @@
 use super::body::{self, Part, PARTS};
 use super::geo::V2;
 use super::inventory::{self, Gear};
-use super::items::{item, ArmorDef, Effect, WeaponDef, FISTS};
+use super::items::{item, ArmorDef, Effect, ItemId, Kind, WeaponDef, FISTS};
 use super::magic::{self, Spell, Status, StatusKind, Target};
 use super::person::{Person, PersonId};
 use super::race::Race;
@@ -41,7 +41,10 @@ pub enum Act {
     Idle,
     Swing { target: usize, lands: f64 },
     Recover { until: f64 },
-    Cast { spell: Spell, target: Option<usize>, point: V2, done: f64 },
+    /// `scroll`: read from a scroll — no mana, can't fail.
+    Cast { spell: Spell, target: Option<usize>, point: V2, done: f64, scroll: bool },
+    /// Drinking a potion.
+    Drink { item: ItemId, done: f64 },
 }
 
 /// What the player (or a leader) has told someone to do.
@@ -92,6 +95,10 @@ pub struct Fighter {
     pub fleeing: bool,
     pub fled: bool,
     pub think_at: f64,
+    /// Potions and scrolls in their pack, and those used up this fight.
+    pub potions: Vec<ItemId>,
+    pub scrolls: Vec<ItemId>,
+    pub used: Vec<ItemId>,
     /// Until this time they haven't realised they're under attack: they
     /// stand there, can't dodge or block, and take a sneak attack's damage.
     pub aware_at: f64,
@@ -157,6 +164,9 @@ impl Fighter {
             fled: false,
             think_at: 0.0,
             aware_at: 0.0,
+            potions: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Potion(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
+            scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
+            used: Vec::new(),
             trained: [0.0; super::stats::N_SKILLS],
             damage_taken: 0.0,
         }
@@ -331,10 +341,16 @@ impl Battle {
                         self.fighters[i].act = Act::Idle;
                     }
                 }
-                Act::Cast { spell, target, point, done } => {
+                Act::Cast { spell, target, point, done, scroll } => {
                     if t >= done {
-                        self.resolve_cast(i, spell, target, point, &mut rng);
+                        self.resolve_cast(i, spell, target, point, scroll, &mut rng);
                         self.fighters[i].act = Act::Recover { until: t + 0.3 };
+                    }
+                }
+                Act::Drink { item: it, done } => {
+                    if t >= done {
+                        self.drink(i, it);
+                        self.fighters[i].act = Act::Idle;
                     }
                 }
                 Act::Idle => self.idle(i),
@@ -576,16 +592,54 @@ impl Battle {
         }
         f.mana -= d.cost;
         let time = d.cast_time * f.attack_time();
-        f.act = Act::Cast { spell, target, point, done: self.time + time as f64 };
+        f.act = Act::Cast { spell, target, point, done: self.time + time as f64, scroll: false };
         true
     }
 
-    fn resolve_cast(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2, rng: &mut Rng) {
+    /// Read a scroll: the spell goes off after a moment, no mana spent, no
+    /// chance of fizzling. The scroll is used up.
+    pub fn read_scroll(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2) -> bool {
+        let f = &mut self.fighters[i];
+        let Some(k) = f.scrolls.iter().position(|&s| matches!(item(s).kind, Kind::Scroll(x) if x == spell)) else { return false };
+        let it = f.scrolls.remove(k);
+        f.used.push(it);
+        f.act = Act::Cast { spell, target, point, done: self.time + 0.6, scroll: true };
+        let name = self.names[i].clone();
+        self.say(format!("{name} reads a scroll of {}.", spell.def().name.to_lowercase()));
+        true
+    }
+
+    /// Start drinking a potion from the pack.
+    pub fn begin_drink(&mut self, i: usize, it: ItemId) -> bool {
+        let f = &mut self.fighters[i];
+        let Some(k) = f.potions.iter().position(|&p| p == it) else { return false };
+        f.potions.remove(k);
+        f.used.push(it);
+        f.act = Act::Drink { item: it, done: self.time + 1.2 };
+        true
+    }
+
+    fn drink(&mut self, i: usize, it: ItemId) {
+        let Kind::Potion(pd) = item(it).kind else { return };
+        let name = self.names[i].clone();
+        let f = &mut self.fighters[i];
+        if pd.heal > 0.0 {
+            let stats = f.stats.clone();
+            super::crafting::mend(&mut f.hp, &stats, pd.heal);
+            if f.ko && !body::knocked_out(&f.hp) {
+                f.ko = false;
+            }
+        }
+        f.mana = (f.mana + pd.mana).min(f.max_mana);
+        self.say(format!("{name} drinks a {}.", item(it).name.to_lowercase()));
+    }
+
+    fn resolve_cast(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2, scroll: bool, rng: &mut Rng) {
         let (r_ok, r_resist, r_dmg) = (rng.f32(), rng.f32(), rng.f32());
         let d = spell.def();
         let caster = &self.fighters[i];
         let name = self.names[i].clone();
-        let chance = magic::success_chance(&caster.stats, spell, caster.tired());
+        let chance = if scroll { 1.0 } else { magic::success_chance(&caster.stats, spell, caster.tired()) };
         if r_ok > chance {
             let at = caster.pos;
             self.fighters[i].train(d.school, 0.4);

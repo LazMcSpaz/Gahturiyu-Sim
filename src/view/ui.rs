@@ -41,6 +41,10 @@ pub enum Hover {
     Item(u32),
     /// A building's door.
     Door((u16, u16)),
+    /// Something to gather.
+    Node(u32),
+    /// A workshop (index into `World::stations`).
+    Station(usize),
 }
 
 /// Collects things under the mouse and keeps the closest.
@@ -257,6 +261,27 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
                 out.push(("Click to go in.".into(), DIM));
             }
         }
+        Hover::Node(id) => {
+            let Some(n) = w.nodes.iter().find(|n| n.id == id) else { return out };
+            out.push((format!("{}  ×{}", items::item(n.item).name, n.amount), super::squadui::GOLD));
+            if n.ready(w.time) {
+                out.push(("Click to gather".into(), TEXT));
+            } else {
+                out.push((format!("Picked; grows back at {}", hhmm(n.picked_at.unwrap_or(0.0) + 24.0 * HOUR)), DIM));
+            }
+        }
+        Hover::Station(i) => {
+            let (_, st) = w.stations[i];
+            out.push((st.name().to_string(), super::squadui::GOLD));
+            let what = match st {
+                gahturiyu_sim::sim::crafting::Station::Forge => "Smithing: weapons, smelting ore; Armoring: iron pieces",
+                gahturiyu_sim::sim::crafting::Station::Bench => "Armoring: tanning, leather and hide pieces, bucklers",
+                gahturiyu_sim::sim::crafting::Station::Desk => "Inscription: scrolls",
+                gahturiyu_sim::sim::crafting::Station::AlchemyTable => "Alchemy: potions (a mortar and pestle works anywhere)",
+            };
+            out.push((what.into(), TEXT));
+            out.push(("Stand by it and press K".into(), DIM));
+        }
         Hover::Town(sid) => {
             let s = &w.settlements[sid as usize];
             out.push((s.name.clone(), race_color(s.founders)));
@@ -346,6 +371,8 @@ pub struct Shot {
     pub sneak: bool,
     /// `GAHT_ENTER=1`: the first squad member walks into the nearest home.
     pub enter: bool,
+    /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
+    pub craft: Option<usize>,
     /// `GAHT_SELECT=k`: select squad member k.
     pub select: Option<usize>,
     /// `GAHT_INV=k`: open squad member k's pack.
@@ -376,6 +403,7 @@ impl Shot {
             hours: var("GAHT_HOURS").and_then(|v| v.parse().ok()),
             sneak: var("GAHT_SNEAK").is_some(),
             enter: var("GAHT_ENTER").is_some(),
+            craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),

@@ -146,6 +146,7 @@ async fn main() {
     let mut last_hover: Option<ui::Hover> = None;
     let mut sel = Selection::default();
     let mut inv: Option<u32> = None;
+    let mut craft: Option<u32> = None;
     if let Some(s) = &shot {
         if let Some(k) = s.select {
             if let Some(&m) = world.squad.members.get(k) {
@@ -154,6 +155,9 @@ async fn main() {
         }
         if let Some(k) = s.inventory {
             inv = world.squad.members.get(k).copied();
+        }
+        if let Some(k) = s.craft {
+            craft = world.squad.members.get(k).copied();
         }
     }
 
@@ -188,12 +192,16 @@ async fn main() {
                     if inv.is_some() {
                         inv = Some(m);
                     }
+                    if craft.is_some() {
+                        craft = Some(m);
+                    }
                 }
             }
         }
         if is_key_pressed(KeyCode::GraveAccent) || is_key_pressed(KeyCode::Escape) {
             sel = Selection::default();
             inv = None;
+            craft = None;
         }
         // Z: the selected sneak (or stop sneaking).
         if is_key_pressed(KeyCode::Z) {
@@ -204,7 +212,15 @@ async fn main() {
             }
         }
         if is_key_pressed(KeyCode::I) {
+            craft = None;
             inv = match inv {
+                Some(_) => None,
+                None => sel.lead(&world),
+            };
+        }
+        if is_key_pressed(KeyCode::K) {
+            inv = None;
+            craft = match craft {
                 Some(_) => None,
                 None => sel.lead(&world),
             };
@@ -276,7 +292,7 @@ async fn main() {
         // Clicks on the squad panels are handled when they're drawn; a short
         // click anywhere else is an order.
         let mut ui_click: Option<Click> = None;
-        let on_panels = squadui::over(&world, mouse, inv);
+        let on_panels = squadui::over(&world, mouse, inv) || (craft.is_some() && squadui::over_craft(mouse));
         if is_mouse_button_pressed(MouseButton::Left) {
             press_at = Some(mouse);
         }
@@ -349,16 +365,33 @@ async fn main() {
         let mut actions = Vec::new();
         actions.extend(squadui::squad_bar(&ui, &world, &sel, ui_click));
         let mut item_tip = None;
+        if craft.map(|p| world.squad.index(p).is_none()).unwrap_or(false) {
+            craft = None;
+        }
         if let Some(pid) = inv {
             let (a, h) = squadui::inventory(&ui, &world, pid, mouse, ui_click);
             actions.extend(a);
             item_tip = h;
         }
+        if let Some(pid) = craft {
+            let (a, h) = squadui::crafting(&ui, &world, pid, mouse, ui_click);
+            actions.extend(a);
+            item_tip = item_tip.or(h);
+        }
         for a in actions {
             match a {
                 Action::Select(pid, add) => sel.pick(pid, add),
                 Action::OpenInventory(pid) => inv = if inv == Some(pid) { None } else { Some(pid) },
-                Action::CloseInventory => inv = None,
+                Action::CloseInventory => {
+                    inv = None;
+                    craft = None;
+                }
+                Action::Use(pid, it) => {
+                    world.use_item(pid, it);
+                }
+                Action::Craft(pid, r) => {
+                    let _ = world.start_craft(pid, r);
+                }
                 Action::Equip(pid, it) => {
                     world.equip(pid, it);
                 }
@@ -380,8 +413,8 @@ async fn main() {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
-            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
+            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);
@@ -432,6 +465,15 @@ fn click_world(world: &mut gahturiyu_sim::sim::World, sel: &mut Selection, hover
             if let Some(d) = world.door(id) {
                 world.order_members(&who, d.centre);
                 return;
+            }
+        }
+        Some(ui::Hover::Node(node)) => {
+            let pos = world.nodes.iter().find(|n| n.id == node).map(|n| n.pos);
+            if let Some(pos) = pos {
+                if let Some(f) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
+                    world.order_gather(f, node);
+                    return;
+                }
             }
         }
         Some(ui::Hover::Item(thing)) => {

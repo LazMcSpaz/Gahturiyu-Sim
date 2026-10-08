@@ -283,6 +283,12 @@ impl World {
                 }
             }
             p.stats.harden(f.damage_taken);
+            // Potions drunk and scrolls read are gone.
+            if let Some(d) = p.detail.as_mut() {
+                for &it in &f.used {
+                    d.gear.take(it);
+                }
+            }
             if f.dead {
                 p.dead = true;
                 killed += 1;

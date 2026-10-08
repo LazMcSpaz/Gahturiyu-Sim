@@ -90,6 +90,16 @@ pub fn generate(seed: u64) -> World {
         if picks > 0 {
             p.detail.as_mut().unwrap().gear.add(super::items::id("lockpick"), picks);
         }
+        // Something to make things with, to start.
+        let starter: &[(&str, u16)] = match calling {
+            Calling::Mage => &[("mortar_and_pestle", 1), ("kelp_frond", 4), ("ash_moss", 2), ("ghostcap", 2), ("salt_crystal", 1), ("reed_paper", 2), ("squid_ink", 2), ("healing_draught", 2)],
+            Calling::Hunter => &[("hide", 4), ("healing_draught", 1)],
+            _ if race == Race::Qotiro => &[("iron_ingot", 3), ("leather", 1), ("timber", 2), ("healing_draught", 1)],
+            _ => &[("healing_draught", 1)],
+        };
+        for &(k, n) in starter {
+            p.detail.as_mut().unwrap().gear.add(super::items::id(k), n);
+        }
         people.push(p);
         squad_ids.push(id);
     }
@@ -144,8 +154,9 @@ pub fn generate(seed: u64) -> World {
 
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
-    // Bandits by the roads.
+    // Bandits by the roads; workshops in town; things to gather.
     w.place_camps();
+    w.place_crafting();
     w
 }
 

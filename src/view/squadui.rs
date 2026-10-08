@@ -8,6 +8,7 @@ use macroquad::prelude::*;
 
 use gahturiyu_sim::sim::{
     body,
+    crafting::{success_chance, Cannot, RECIPES},
     inventory,
     items::{self, item, Effect, ItemId, Kind, Slot, SLOTS},
     person::PersonId,
@@ -63,6 +64,8 @@ pub enum Action {
     Unequip(PersonId, Slot),
     Equip(PersonId, ItemId),
     Drop(PersonId, ItemId),
+    Use(PersonId, ItemId),
+    Craft(PersonId, usize),
     CloseInventory,
 }
 
@@ -103,6 +106,15 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Color) {
     }
     if body::knocked_out(&p.wounds.hp_at(&p.stats, w.time)) {
         return ("Down", WARN);
+    }
+    if w.crafting.iter().any(|j| j.who == pid) {
+        return ("Crafting", GOLD);
+    }
+    if w.picking.iter().any(|pk| pk.who == pid) {
+        return ("Picking a lock", SNEAK);
+    }
+    if w.gathering.iter().any(|g| g.0 == pid) {
+        return ("Gathering", TEXT);
     }
     if w.pickups.iter().any(|pk| pk.who == pid) {
         return ("Fetching", TEXT);
@@ -160,6 +172,9 @@ pub fn squad_bar(ui: &Ui, w: &World, sel: &Selection, click: Option<Click>) -> O
         draw_rectangle(r.x + 14.0, r.y + 45.0, bw, 5.0, Color::new(0.0, 0.0, 0.0, 0.6));
         let hc = if down { WARN } else { Color::new(0.85 - vit * 0.6, 0.25 + vit * 0.6, 0.25, 1.0) };
         draw_rectangle(r.x + 14.0, r.y + 45.0, bw * vit.clamp(0.0, 1.0), 5.0, hc);
+        if let Some(f) = w.craft_progress(pid) {
+            draw_rectangle(r.x + 14.0, r.y + 40.0, bw * f, 2.0, GOLD);
+        }
         if let Some(m) = mana {
             draw_rectangle(r.x + 14.0, r.y + 53.0, bw, 3.0, Color::new(0.0, 0.0, 0.0, 0.6));
             draw_rectangle(r.x + 14.0, r.y + 53.0, bw * m.clamp(0.0, 1.0), 3.0, Color::new(0.35, 0.55, 1.0, 1.0));
@@ -256,10 +271,12 @@ pub fn inventory(ui: &Ui, w: &World, pid: PersonId, mouse: Vec2, click: Option<C
                 act = Some(Action::Drop(pid, i));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::Equip(pid, i));
+            } else if !locked && matches!(item(i).kind, Kind::Potion(_) | Kind::Scroll(_)) {
+                act = Some(Action::Use(pid, i));
             }
         }
     }
-    let hint = if locked { "In a fight: gear can't be changed until it's over." } else { "Click: take off / put on  ·  Right-click: drop" };
+    let hint = if locked { "In a fight: gear can't be changed until it's over." } else { "Click: take off / put on / drink  ·  Right-click: drop" };
     ui.text(hint, x, r.y + r.h - 12.0, 13, if locked { WARN } else { DIM });
     (act, hovered)
 }
@@ -283,6 +300,25 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Color)> {
         Kind::Shield(b) => out.push((format!("Off hand  ·  shield, blocks {:.0}%", b * 100.0), TEXT)),
         Kind::Pack(kg) => out.push((format!("Back  ·  pack, holds {kg:.0} kg more"), TEXT)),
         Kind::Trinket => out.push((format!("{}  ·  trinket", d.slot.name()), TEXT)),
+        Kind::Tool => out.push(("Tool".into(), TEXT)),
+        Kind::Material => {
+            let uses: Vec<&str> = RECIPES.iter().filter(|r| r.inputs.iter().any(|(k, _)| *k == d.key)).map(|r| item(items::id(r.output)).name).collect();
+            out.push(("Material".into(), TEXT));
+            if !uses.is_empty() {
+                out.push((format!("Used for: {}", uses.join(", ")), DIM));
+            }
+        }
+        Kind::Potion(p) => {
+            let mut what = Vec::new();
+            if p.heal > 0.0 {
+                what.push(format!("mends {:.0} health", p.heal));
+            }
+            if p.mana > 0.0 {
+                what.push(format!("restores {:.0} mana", p.mana));
+            }
+            out.push((format!("Potion: {}  ·  click in the pack to drink", what.join(", ")), TEXT));
+        }
+        Kind::Scroll(sp) => out.push((format!("Scroll: casts {} once, no mana, can't fail (read in a fight)", sp.def().name.to_lowercase()), TEXT)),
         #[allow(unreachable_patterns)]
         _ => {}
     }
@@ -315,7 +351,93 @@ pub fn ground_color(id: ItemId) -> Color {
         Kind::Shield(_) => Color::new(0.62, 0.48, 0.30, 1.0),
         Kind::Pack(_) => Color::new(0.70, 0.60, 0.42, 1.0),
         Kind::Trinket => GOLD,
+        Kind::Potion(_) => Color::new(0.85, 0.25, 0.3, 1.0),
+        Kind::Scroll(_) => Color::new(0.9, 0.86, 0.7, 1.0),
+        Kind::Material => Color::new(0.55, 0.62, 0.45, 1.0),
+        Kind::Tool => Color::new(0.5, 0.5, 0.55, 1.0),
         #[allow(unreachable_patterns)]
         _ => Color::new(0.8, 0.8, 0.7, 1.0),
     }
+}
+
+fn craft_rect() -> Rect {
+    let rows = RECIPES.len() as f32 + 4.0 + 3.0;
+    Rect::new(screen_width() - 600.0 - 12.0, 12.0, 600.0, (70.0 + rows * ROW).min(screen_height() - 130.0))
+}
+
+pub fn over_craft(mouse: Vec2) -> bool {
+    craft_rect().contains(mouse)
+}
+
+/// What a person can make: every recipe, with what's missing.
+pub fn crafting(ui: &Ui, w: &World, pid: PersonId, mouse: Vec2, click: Option<Click>) -> (Option<Action>, Option<ItemId>) {
+    let p = &w.people[pid as usize];
+    let r = craft_rect();
+    draw_rectangle(r.x, r.y, r.w, r.h, PANEL);
+    draw_rectangle(r.x, r.y, r.w, 4.0, GOLD);
+    let x = r.x + 14.0;
+    let mut y = r.y + 26.0;
+    let mut act = None;
+    let mut hovered = None;
+    ui.text(&format!("{}  ·  crafting", p.name().unwrap_or("?")), x, y, 17, GOLD);
+    let close = Rect::new(r.x + r.w - 26.0, r.y + 8.0, 18.0, 18.0);
+    ui.text("×", close.x + 3.0, close.y + 15.0, 18, if close.contains(mouse) { GOLD } else { DIM });
+    if click.map(|c| close.contains(c.at)).unwrap_or(false) {
+        act = Some(Action::CloseInventory);
+    }
+    y += 20.0;
+    let st = p.effective_stats();
+    ui.text(
+        &format!(
+            "Alchemy {:.0}  ·  Inscription {:.0}  ·  Smithing {:.0}  ·  Armoring {:.0}",
+            st.skill(gahturiyu_sim::sim::stats::Skill::Alchemy),
+            st.skill(gahturiyu_sim::sim::stats::Skill::Inscription),
+            st.skill(gahturiyu_sim::sim::stats::Skill::Smithing),
+            st.skill(gahturiyu_sim::sim::stats::Skill::Armoring)
+        ),
+        x,
+        y,
+        14,
+        DIM,
+    );
+    let mut last_skill = None;
+    for (i, rc) in RECIPES.iter().enumerate() {
+        if last_skill != Some(rc.skill) {
+            y += ROW + 2.0;
+            ui.text(rc.skill.name(), x, y, 15, TEXT);
+            last_skill = Some(rc.skill);
+        }
+        y += ROW;
+        if y > r.y + r.h - 30.0 {
+            break;
+        }
+        let row = Rect::new(r.x + 6.0, y - 15.0, r.w - 12.0, ROW);
+        let out = items::id(rc.output);
+        let ok = w.can_craft(pid, i);
+        if row.contains(mouse) {
+            draw_rectangle(row.x, row.y, row.w, row.h, with_alpha(GOLD, 0.12));
+            hovered = Some(out);
+        }
+        let col = if ok.is_ok() { TEXT } else { DIM };
+        ui.text(item(out).name, x + 8.0, y, 14, col);
+        let need: Vec<String> = rc.inputs.iter().map(|(k, n)| format!("{}/{} {}", w.count_of(pid, k).min(*n), n, item(items::id(k)).name.to_lowercase())).collect();
+        ui.text(&need.join(", "), x + 200.0, y, 13, col);
+        let why = match ok {
+            Ok(()) => format!("{:.0}%", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0),
+            Err(Cannot::NoStation(s)) => format!("at {}", match s {
+                gahturiyu_sim::sim::crafting::Station::Forge => "forge",
+                gahturiyu_sim::sim::crafting::Station::Bench => "bench",
+                gahturiyu_sim::sim::crafting::Station::Desk => "desk",
+                gahturiyu_sim::sim::crafting::Station::AlchemyTable => "table",
+            }),
+            Err(Cannot::Missing(..)) => String::new(),
+            Err(Cannot::Busy) => "busy".into(),
+        };
+        ui.text(&why, r.x + r.w - ui.width(&why, 13) - 14.0, y, 13, if ok.is_ok() { GOLD } else { WARN });
+        if ok.is_ok() && click.map(|c| row.contains(c.at) && !c.right).unwrap_or(false) {
+            act = Some(Action::Craft(pid, i));
+        }
+    }
+    ui.text("Click a recipe to make it. Stations stand round every town's hearth.", x, r.y + r.h - 12.0, 13, DIM);
+    (act, hovered)
 }

@@ -6,6 +6,7 @@ pub mod bands;
 pub mod body;
 pub mod buildings;
 pub mod combat;
+pub mod crafting;
 pub mod encounters;
 pub mod fights;
 pub mod geo;

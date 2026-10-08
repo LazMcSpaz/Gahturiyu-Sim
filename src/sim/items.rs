@@ -8,6 +8,7 @@
 //! carry effects that change their wearer's numbers, Morrowind-style.
 
 use super::body::Part;
+use super::magic::Spell;
 use super::stats::{Attr, Skill};
 
 pub type ItemId = u16;
@@ -116,6 +117,20 @@ pub enum Kind {
     Trinket,
     /// Used for a job, not worn: lockpicks, tools of a trade.
     Tool,
+    /// Something to make things from.
+    Material,
+    /// Drunk: mends wounds and/or restores mana.
+    Potion(PotionDef),
+    /// Read aloud: casts its spell once, with no mana and no chance of failing.
+    Scroll(Spell),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PotionDef {
+    /// Hit points mended, spread over the worst wounds first.
+    pub heal: f32,
+    /// Mana restored.
+    pub mana: f32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -152,6 +167,14 @@ const fn weapon(key: &'static str, name: &'static str, skill: Skill, cut: f32, b
 #[allow(clippy::too_many_arguments)]
 const fn armor(key: &'static str, name: &'static str, slot: Slot, covers: &'static [Part], coverage: f32, cut: f32, blunt: f32, dodge_penalty: f32, weight: f32, value: f32) -> ItemDef {
     ItemDef { key, name, slot, kind: Kind::Armor(ArmorDef { covers, coverage, cut, blunt, dodge_penalty }), weight, value, effects: &[] }
+}
+
+const fn material(key: &'static str, name: &'static str, weight: f32, value: f32) -> ItemDef {
+    ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Material, weight, value, effects: &[] }
+}
+
+const fn scroll(key: &'static str, name: &'static str, spell: Spell, value: f32) -> ItemDef {
+    ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Scroll(spell), weight: 0.05, value, effects: &[] }
 }
 
 const fn trinket(key: &'static str, name: &'static str, slot: Slot, weight: f32, value: f32, effects: &'static [Effect]) -> ItemDef {
@@ -193,6 +216,30 @@ pub static ITEMS: &[ItemDef] = &[
     ItemDef { key: "large_pack", name: "Large pack", slot: Slot::Back, kind: Kind::Pack(45.0), weight: 3.0, value: 90.0, effects: &[] },
     // --- Tools ----------------------------------------------------------------
     ItemDef { key: "lockpick", name: "Lockpick", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.05, value: 8.0, effects: &[] },
+    ItemDef { key: "mortar_and_pestle", name: "Mortar and pestle", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 25.0, effects: &[] },
+    // --- Materials ------------------------------------------------------------
+    //        key               name                weight value
+    material("kelp_frond", "Kelp frond", 0.2, 2.0),
+    material("ghostcap", "Ghostcap", 0.1, 4.0),
+    material("emberroot", "Emberroot", 0.2, 6.0),
+    material("salt_crystal", "Salt crystal", 0.3, 3.0),
+    material("ash_moss", "Ash moss", 0.1, 2.0),
+    material("storm_glass", "Storm glass", 0.4, 12.0),
+    material("reed_paper", "Reed paper", 0.05, 3.0),
+    material("squid_ink", "Squid ink", 0.2, 5.0),
+    material("iron_ore", "Iron ore", 3.0, 4.0),
+    material("iron_ingot", "Iron ingot", 2.0, 12.0),
+    material("hide", "Hide", 2.0, 6.0),
+    material("leather", "Leather", 1.0, 10.0),
+    material("timber", "Timber", 2.5, 3.0),
+    // --- Potions and scrolls --------------------------------------------------
+    ItemDef { key: "healing_draught", name: "Healing draught", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 25.0, mana: 0.0 }), weight: 0.3, value: 25.0, effects: &[] },
+    ItemDef { key: "greater_healing", name: "Greater healing draught", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 55.0, mana: 0.0 }), weight: 0.3, value: 70.0, effects: &[] },
+    ItemDef { key: "mana_tonic", name: "Mana tonic", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 0.0, mana: 40.0 }), weight: 0.3, value: 35.0, effects: &[] },
+    scroll("scroll_heal", "Scroll of healing", Spell::Heal, 40.0),
+    scroll("scroll_paralyze", "Scroll of paralysis", Spell::Paralyze, 60.0),
+    scroll("scroll_fireball", "Scroll of fireball", Spell::Fireball, 70.0),
+    scroll("scroll_lightning", "Scroll of lightning", Spell::LightningBolt, 60.0),
     // --- Enchanted pieces -------------------------------------------------
     trinket("ring_swiftness", "Ring of Swiftness", Slot::Ring, 0.1, 300.0, &[Effect::MoveSpeed(0.15), Effect::Attr(Attr::Agility, 5.0)]),
     trinket("ring_might", "Ring of the Ox", Slot::Ring, 0.1, 320.0, &[Effect::Attr(Attr::Strength, 12.0)]),

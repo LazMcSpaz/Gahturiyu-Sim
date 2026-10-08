@@ -18,6 +18,7 @@ use gahturiyu_sim::sim::{
     race::Race,
     rng,
     buildings::{door_of, Door, DoorId},
+    crafting::Station,
     settlement::{Building, BuildingKind},
     stealth,
     terrain::Terrain,
@@ -347,6 +348,58 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, CAMP_HIDE);
         }
     }
+    // Workshops round the hearths, and things to gather.
+    let mut spots: Vec<(Vec3, Hover)> = Vec::new();
+    for (i, &(p, st)) in w.stations.iter().enumerate() {
+        if p.dist(oc.target) > radius.min(500.0) {
+            continue;
+        }
+        let g = on_ground(p);
+        let base = to3(p, g);
+        let a = p.x * 0.13;
+        match st {
+            Station::Forge => {
+                b.block(base, 2.0, 1.6, 1.0, a, STONE);
+                b.column(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3, 0.3, 6, EMBER);
+                b.column(base + vec3(0.8, 0.0, 0.8), 0.25, 0.25, 0.8, 5, Color::new(0.25, 0.25, 0.27, 1.0));
+            }
+            Station::Bench => {
+                b.block(base, 2.2, 0.9, 0.9, a, TIMBER);
+                b.block(base + vec3(0.0, 0.9, 0.0), 0.8, 0.5, 0.15, a, Color::new(0.45, 0.3, 0.2, 1.0));
+            }
+            Station::Desk => {
+                b.block(base, 1.4, 0.8, 0.8, a, TIMBER);
+                b.block(base + vec3(0.0, 0.8, 0.0), 0.6, 0.4, 0.02, a, Color::new(0.9, 0.86, 0.72, 1.0));
+            }
+            Station::AlchemyTable => {
+                b.block(base, 1.6, 0.9, 0.85, a, TIMBER);
+                b.column(base + vec3(0.3, 0.85, 0.0), 0.15, 0.08, 0.35, 6, Color::new(0.4, 0.8, 0.6, 1.0));
+                b.column(base + vec3(-0.3, 0.85, 0.1), 0.12, 0.05, 0.3, 6, Color::new(0.85, 0.3, 0.35, 1.0));
+            }
+        }
+        spots.push((base + vec3(0.0, 1.3, 0.0), Hover::Station(i)));
+    }
+    for n in &w.nodes {
+        if n.pos.dist(oc.target) > radius.min(400.0) || !n.ready(w.time) {
+            continue;
+        }
+        let base = to3(n.pos, on_ground(n.pos));
+        let col = ground_color(n.item);
+        let key = gahturiyu_sim::sim::items::item(n.item).key;
+        let kk = k.min(4.0);
+        match key {
+            "iron_ore" | "storm_glass" | "salt_crystal" => b.dome(base, 0.9 * kk, 0.8 * kk, 0.7 * kk, 0.2, 0.0, n.id as u64, if key == "iron_ore" { Color::new(0.45, 0.35, 0.3, 1.0) } else if key == "storm_glass" { Color::new(0.6, 0.75, 0.95, 1.0) } else { Color::new(0.92, 0.9, 0.85, 1.0) }),
+            "timber" => b.block(base, 2.4 * kk, 0.4 * kk, 0.4 * kk, n.id as f32, TIMBER),
+            "emberroot" => b.column(base, 0.35 * kk, 0.05, 0.9 * kk, 5, Color::new(0.9, 0.45, 0.15, 1.0)),
+            "ghostcap" => {
+                b.column(base, 0.08 * kk, 0.08 * kk, 0.3 * kk, 4, Color::new(0.85, 0.85, 0.8, 1.0));
+                b.column(base + vec3(0.0, 0.3 * kk, 0.0), 0.3 * kk, 0.05, 0.15 * kk, 8, Color::new(0.8, 0.82, 0.9, 1.0));
+            }
+            "kelp_frond" => b.column(to3(n.pos, on_ground(n.pos).max(0.0)), 0.4 * kk, 0.1, 0.5 * kk, 5, Color::new(0.25, 0.45, 0.25, 1.0)),
+            _ => b.column(base, 0.6 * kk, 0.3 * kk, 0.2 * kk, 6, col),
+        }
+        spots.push((base + vec3(0.0, 0.8 * kk, 0.0), Hover::Node(n.id)));
+    }
     // Things lying about.
     let mut things: Vec<(Vec3, u32)> = Vec::new();
     for g in &w.ground {
@@ -416,6 +469,11 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
                     super::ui::draw_bar(s.x, s.y - 12.0, vit, mana, down);
                 }
             }
+        }
+    }
+    for (p, h) in spots {
+        if let Some(s) = project(&cam, p) {
+            pick.offer(s, 2.0, h);
         }
     }
     for (p, id) in doors {
