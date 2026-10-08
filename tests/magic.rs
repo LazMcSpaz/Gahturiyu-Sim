@@ -513,9 +513,7 @@ fn mages_teach_for_coin() {
     }).unwrap();
     w.people[teacher as usize].ensure_detail();
     let paralyze = spell("paralyze");
-    if !w.knows(teacher, paralyze) {
-        w.people[teacher as usize].detail.as_mut().unwrap().spells.push(paralyze);
-    }
+    w.people[teacher as usize].detail.as_mut().unwrap().spells = vec![paralyze];
     w.people[m as usize].detail.as_mut().unwrap().spells.retain(|&s| s != paralyze);
     w.people[teacher as usize].traits.sociability = 1.0;
     let at = w.person_pos(teacher);

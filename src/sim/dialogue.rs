@@ -225,7 +225,7 @@ impl World {
         let lessons = self.lessons(c.npc, c.with);
         if !lessons.is_empty() {
             if c.lessons {
-                t.extend(lessons.into_iter().take(4).map(Topic::Learn));
+                t.extend(lessons.into_iter().take(6).map(Topic::Learn));
             } else {
                 t.push(Topic::Lessons);
             }
@@ -419,7 +419,7 @@ impl World {
                 }
             }
             Topic::Lessons => {
-                let what: Vec<String> = self.lessons(c.npc, c.with).iter().take(4).map(|s| format!("{} ({} coin)", s.def().name.to_lowercase(), World::lesson_price(*s))).collect();
+                let what: Vec<String> = self.lessons(c.npc, c.with).iter().take(6).map(|s| format!("{} ({} coin)", s.def().name.to_lowercase(), World::lesson_price(*s))).collect();
                 format!("I could show you {}. It takes coin, mind — learning isn't free.", what.join(", "))
             }
             Topic::Learn(s) => {

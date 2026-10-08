@@ -669,11 +669,15 @@ impl World {
     pub fn lessons(&self, teacher: PersonId, learner: PersonId) -> Vec<Spell> {
         let mine = self.known_spells(learner);
         let st = self.people[learner as usize].effective_stats();
-        self.known_spells(teacher)
+        let mut v: Vec<Spell> = self
+            .known_spells(teacher)
             .into_iter()
             .filter(|s| s.def().style != Style::Felt && !mine.contains(s))
             .filter(|s| st.skill(s.def().skill()) >= s.def().min_skill * TAUGHT_SKILL)
-            .collect()
+            .collect();
+        // The most advanced first: that's what's worth paying for.
+        v.sort_by(|a, b| b.def().min_skill.total_cmp(&a.def().min_skill).then(a.cmp(b)));
+        v
     }
 
     /// The price of a lesson, in coin.
