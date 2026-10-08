@@ -258,7 +258,14 @@ impl World {
         for &pid in who {
             self.people[pid as usize].ensure_detail();
             let pos = self.person_pos(pid);
-            let f = Fighter::from_person(&self.people[pid as usize], side, pos, self.time);
+            let mut f = Fighter::from_person(&self.people[pid as usize], side, pos, self.time);
+            // Woken by the attack: a few seconds before they're on their feet.
+            if self.is_asleep(pid) {
+                f.aware_at = b.start + 3.0;
+            }
+            if let Some(k) = self.squad.index(pid) {
+                self.squad.resting[k] = false;
+            }
             b.names.push(self.people[pid as usize].name().unwrap_or("someone").to_string());
             b.fighters.push(f);
             self.fighting.insert(pid, b.id);
@@ -283,6 +290,7 @@ impl World {
                 }
             }
             p.stats.harden(f.damage_taken);
+            let (pid, fatigue) = (f.pid, f.fatigue);
             // Potions drunk and scrolls read are gone.
             if let Some(d) = p.detail.as_mut() {
                 for &it in &f.used {
@@ -301,6 +309,7 @@ impl World {
                 self.drop_everything(f.pid, f.pos);
             }
             self.people[f.pid as usize].recompute_might();
+            self.after_fight(pid, t, fatigue);
         }
         killed
     }

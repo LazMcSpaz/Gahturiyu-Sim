@@ -83,6 +83,9 @@ pub fn generate(seed: u64) -> World {
         p.specialize(calling, skills, budget);
         p.ensure_detail();
         // A few lockpicks for the light-fingered.
+        if calling == Calling::Hunter {
+            p.detail.as_mut().unwrap().gear.add(super::items::id("tent"), 1);
+        }
         let picks = match calling {
             Calling::Hunter => 6,
             Calling::Mage => 2,

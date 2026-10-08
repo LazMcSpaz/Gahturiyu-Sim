@@ -137,7 +137,8 @@ impl Fighter {
             pos,
             hp: p.wounds.hp_at(&p.stats, t),
             max_hp,
-            fatigue: stats.max_fatigue(),
+            // Squad members bring the stamina they have; everyone else is fresh.
+            fatigue: p.cond.as_ref().map(|c| c.stamina_at(t).min(stats.max_fatigue())).unwrap_or(stats.max_fatigue()),
             max_fatigue: stats.max_fatigue(),
             mana: p.mana_at(t),
             max_mana: p.max_mana(),

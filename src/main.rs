@@ -235,6 +235,11 @@ async fn main() {
                 world.set_sneaking(m, on);
             }
         }
+        // N: the selected rest (sleep where they stand), or get up again.
+        if is_key_pressed(KeyCode::N) {
+            let who = sel.who(&world);
+            world.order_rest(&who);
+        }
         if is_key_pressed(KeyCode::I) {
             craft = None;
             inv = match inv {
@@ -449,8 +454,8 @@ async fn main() {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   J: journal   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
-            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   J: journal   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   I: pack   K: craft   J: journal   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
+            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   I: pack   K: craft   J: journal   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);

@@ -90,6 +90,8 @@ fn hunger_and_meals_dont_depend_on_step_size() {
     for &m in &fine.squad.members.clone() {
         let (pf, pc) = (&fine.people[m as usize], &coarse.people[m as usize]);
         assert!((fine.hunger_of(m).unwrap() - coarse.hunger_of(m).unwrap()).abs() < 1e-3, "member {m} hunger");
+        assert!((fine.tired_of(m).unwrap() - coarse.tired_of(m).unwrap()).abs() < 1e-3, "member {m} tiredness");
+        assert!((fine.stamina_of(m).unwrap() - coarse.stamina_of(m).unwrap()).abs() < 1e-3, "member {m} stamina");
         assert_eq!(food_count(&fine, m), food_count(&coarse, m), "member {m} ate differently");
         let (lf, lc) = (pf.wounds.lost_at(fine.time), pc.wounds.lost_at(coarse.time));
         for k in 0..6 {
@@ -127,4 +129,118 @@ fn food_is_found_in_homes_and_on_the_land() {
     let w = worldgen::generate(1);
     let foods = w.nodes.iter().filter(|n| matches!(item(n.item).kind, Kind::Food(_))).count();
     assert!(foods > 20, "berries and mussels to gather: {foods}");
+}
+
+// ---- Stamina and tiredness ---------------------------------------------
+
+use gahturiyu_sim::sim::{
+    combat::Fighter,
+    condition::{Shelter, EXHAUSTED},
+    geo::V2,
+};
+
+#[test]
+fn walking_uses_stamina_and_standing_gets_it_back() {
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    let full = w.stamina_of(m).unwrap();
+    // A long walk.
+    let far = w.squad.pos.add(V2::new(0.0, 1500.0));
+    w.order_members(&[m], far);
+    run(&mut w, 0.25, 1.0);
+    let walked = w.stamina_of(m).unwrap();
+    assert!(walked < full - 0.02, "{full} -> {walked}");
+    // A fight now starts with what's left.
+    let f = Fighter::from_person(&w.people[m as usize], 0, V2::default(), w.time);
+    assert!((f.fatigue / f.max_fatigue - walked).abs() < 0.02);
+    // Standing still brings it back.
+    let here = w.squad.at[w.squad.index(m).unwrap()];
+    w.order_members(&[m], here);
+    run(&mut w, 0.5, 1.0);
+    assert!(w.stamina_of(m).unwrap() > 0.99);
+}
+
+#[test]
+fn climbs_and_loads_cost_more_stamina() {
+    let mut c = Condition::new(0.0);
+    let flat = c.climb_cost(100.0);
+    c.load = 1.5;
+    assert!(c.climb_cost(100.0) > flat * 1.5);
+    c.activity = Activity::Walking;
+    let loaded = c.stamina_rate();
+    c.load = 0.2;
+    assert!(loaded < c.stamina_rate(), "a heavy pack drains faster");
+}
+
+#[test]
+fn tiredness_builds_awake_and_only_sleep_clears_it() {
+    let mut w = worldgen::generate(1);
+    let m = mage(&w);
+    let start = w.tired_of(m).unwrap();
+    run(&mut w, 8.0, 60.0);
+    let awake = w.tired_of(m).unwrap();
+    assert!(awake > start + 30.0, "{start} -> {awake}");
+    w.order_rest(&[m]);
+    run(&mut w, 1.0, 60.0);
+    assert!(w.is_asleep(m));
+    assert!(w.tired_of(m).unwrap() < awake);
+    // Moving wakes them.
+    w.order_members(&[m], w.squad.pos.add(V2::new(20.0, 0.0)));
+    run(&mut w, 0.01, 1.0);
+    assert!(!w.is_asleep(m));
+}
+
+#[test]
+fn indoors_beats_a_tent_beats_the_open() {
+    let mut c = Condition::new(0.0);
+    c.tired = 80.0;
+    c.activity = Activity::Sleeping;
+    let rate = |c: &Condition| -c.tired_rate();
+    c.shelter = Shelter::Open;
+    let open = rate(&c);
+    c.shelter = Shelter::Tent;
+    let tent = rate(&c);
+    c.shelter = Shelter::Indoors;
+    assert!(rate(&c) > tent && tent > open);
+}
+
+#[test]
+fn the_tent_counts_when_someone_nearby_carries_it() {
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
+    let m = mage(&w);
+    assert_eq!(w.shelter_of(m), Shelter::Tent, "the hunter carries one");
+    for x in w.squad.members.clone() {
+        w.people[x as usize].detail.as_mut().unwrap().gear.bag.retain(|e| item(e.0).key != "tent");
+    }
+    assert_eq!(w.shelter_of(m), Shelter::Open);
+}
+
+#[test]
+fn the_exhausted_are_slower_and_weaker() {
+    let mut w = worldgen::generate(1);
+    let m = mage(&w);
+    let pace = w.member_speed(m);
+    let strength = w.people[m as usize].effective_stats().attr(Attr::Strength);
+    let t = w.time;
+    let c = w.people[m as usize].cond.as_mut().unwrap();
+    c.tired = EXHAUSTED + 5.0;
+    c.at = t;
+    assert!(w.member_speed(m) < pace * 0.85);
+    assert!(w.people[m as usize].effective_stats().attr(Attr::Strength) < strength * 0.9);
+}
+
+#[test]
+fn sleepers_are_caught_unawares() {
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
+    let who = w.squad.members.clone();
+    w.order_rest(&who);
+    run(&mut w, 0.05, 1.0);
+    assert!(who.iter().all(|&m| w.is_asleep(m)));
+    w.spawn_bandits(w.squad.pos.add(V2::new(3.0, 0.0)), 2, false);
+    w.step(0.25);
+    w.step(0.25);
+    let b = w.squad_battle().expect("attacked in their sleep");
+    assert!(b.fighters.iter().filter(|f| f.side == 0).all(|f| f.unaware(b.start + 1.0)));
 }

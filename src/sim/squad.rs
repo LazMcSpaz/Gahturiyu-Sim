@@ -43,6 +43,8 @@ pub struct Squad {
     pub route: Vec<Vec<V2>>,
     /// The building each member is in, if any.
     pub inside: Vec<Option<DoorId>>,
+    /// Ordered to rest (they sleep while stopped).
+    pub resting: Vec<bool>,
 }
 
 /// Loose formation: the first stands on the spot, the rest in a spiral.
@@ -58,7 +60,7 @@ impl Squad {
     pub fn new(members: Vec<PersonId>, centre: V2) -> Squad {
         let at: Vec<V2> = (0..members.len()).map(|k| centre.add(formation(k))).collect();
         let n = members.len();
-        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n], route: vec![Vec::new(); n], inside: vec![None; n] }
+        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n], route: vec![Vec::new(); n], inside: vec![None; n], resting: vec![false; n] }
     }
 
     pub fn index(&self, pid: PersonId) -> Option<usize> {
@@ -78,6 +80,7 @@ impl Squad {
                 self.sneaking.remove(k);
                 self.route.remove(k);
                 self.inside.remove(k);
+                self.resting.remove(k);
             }
         }
     }
@@ -144,6 +147,9 @@ impl World {
             self.pickups.retain(|p| p.who != pid);
             self.picking.retain(|p| p.who != pid);
             self.gathering.retain(|g| g.0 != pid);
+            if let Some(k) = self.squad.index(pid) {
+                self.squad.resting[k] = false;
+            }
             if self.want_talk.map(|w| w.0 == pid).unwrap_or(false) {
                 self.want_talk = None;
             }
@@ -163,7 +169,8 @@ impl World {
         let hp = p.wounds.hp_at(&p.stats, self.time);
         let bonus = gear.sum_effect(|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
         let sneak = if self.is_sneaking(pid) { super::stealth::SNEAK_PACE } else { 1.0 };
-        sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(gear.load(&p.stats)) * (1.0 + bonus)
+        let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
+        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(gear.load(&p.stats)) * (1.0 + bonus)
     }
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).
@@ -177,6 +184,9 @@ impl World {
                 Activity::Fighting
             } else if !down && self.squad.at[k].dist(self.squad.goal[k]) > 1e-3 {
                 Activity::Walking
+            } else if self.squad.resting[k] || down {
+                // Ordered to rest, or out cold: either way, they're asleep.
+                Activity::Sleeping
             } else {
                 Activity::Resting
             };
@@ -213,6 +223,8 @@ impl World {
             let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * dt) as f32;
             let next = if d <= stride { goal } else { at.add(dir.scale(stride)) };
             if geo::is_land(next) || self.building_at(next).is_some() {
+                let rise = self.terrain.height(next) - self.terrain.height(at);
+                self.climb(pid, rise);
                 self.squad.at[k] = next;
             } else {
                 self.squad.goal[k] = at;

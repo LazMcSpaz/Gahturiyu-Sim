@@ -107,6 +107,15 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Color) {
     if body::knocked_out(&p.wounds.hp_at(&p.stats, w.time)) {
         return ("Down", WARN);
     }
+    if w.is_asleep(pid) {
+        let c = w.people[pid as usize].cond.as_ref().unwrap();
+        let place = match c.shelter {
+            gahturiyu_sim::sim::condition::Shelter::Open => "Asleep (open)",
+            gahturiyu_sim::sim::condition::Shelter::Tent => "Asleep (tent)",
+            gahturiyu_sim::sim::condition::Shelter::Indoors => "Asleep (indoors)",
+        };
+        return (place, SNEAK);
+    }
     if w.crafting.iter().any(|j| j.who == pid) {
         return ("Crafting", GOLD);
     }
