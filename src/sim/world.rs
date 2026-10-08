@@ -161,6 +161,16 @@ pub struct World {
     pub torch_left: HashMap<PersonId, f64>,
     /// Torches set in the ground.
     pub standing: Vec<super::torch::StandingTorch>,
+
+    // --- Magic --------------------------------------------------------------
+    /// Rituals being performed.
+    pub rituals: Vec<super::casting::RitualJob>,
+    /// Rituals held ready, one per caster.
+    pub held: HashMap<PersonId, super::magic::Spell>,
+    /// Circles drawn on the ground for rituals.
+    pub circles: Vec<V2>,
+    /// How many spells each person has cast outside fights (keys their rolls).
+    pub cast_count: HashMap<PersonId, u64>,
 }
 
 impl World {
@@ -231,6 +241,10 @@ impl World {
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),
+            rituals: Vec::new(),
+            held: HashMap::new(),
+            circles: Vec::new(),
+            cast_count: HashMap::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -324,6 +338,7 @@ impl World {
         // 3b. Torches that have burnt down; fights: new ones that break out,
         //     and the ones in progress.
         self.update_torches();
+        self.update_rituals();
         self.update_battles();
         self.update_quests();
         self.update_conditions();

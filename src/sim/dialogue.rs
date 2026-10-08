@@ -40,6 +40,10 @@ pub enum Topic {
     /// You carry a letter for them.
     Letter(usize),
     PayBounty,
+    /// Ask what they could teach.
+    Lessons,
+    /// Pay to be taught this spell.
+    Learn(super::magic::Spell),
     Goodbye,
 }
 
@@ -56,7 +60,17 @@ impl Topic {
             Topic::Report(_) => "About that job...",
             Topic::Letter(_) => "A letter for you",
             Topic::PayBounty => "Pay my bounty",
+            Topic::Lessons => "Could you teach me?",
+            Topic::Learn(_) => "Teach me",
             Topic::Goodbye => "Goodbye",
+        }
+    }
+
+    /// What the button says.
+    pub fn text(self) -> String {
+        match self {
+            Topic::Learn(s) => format!("Teach me {} ({} coin)", s.def().name.to_lowercase(), World::lesson_price(s)),
+            t => t.label().to_string(),
         }
     }
 }
@@ -70,6 +84,9 @@ pub struct Conversation {
     pub lines: Vec<(bool, String)>,
     /// Whether work has been described (so "I'll do it" shows).
     pub offered: bool,
+    /// Whether they've said what they could teach (so the lessons show).
+    #[serde(default)]
+    pub lessons: bool,
 }
 
 impl World {
@@ -123,7 +140,7 @@ impl World {
             self.stats.detailed += 1;
         }
         let greeting = self.greeting(npc, who);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false, lessons: false });
     }
 
     pub fn end_talk(&mut self) {
@@ -201,6 +218,15 @@ impl World {
                 t.push(Topic::PayBounty);
             }
         }
+        // Mages teach what they know, for coin.
+        let lessons = self.lessons(c.npc, c.with);
+        if !lessons.is_empty() {
+            if c.lessons {
+                t.extend(lessons.into_iter().take(4).map(Topic::Learn));
+            } else {
+                t.push(Topic::Lessons);
+            }
+        }
         t.push(Topic::Goodbye);
         t
     }
@@ -221,7 +247,12 @@ impl World {
             self.talk = None;
             return;
         }
-        self.push_talk(false, topic.label().to_string());
+        self.push_talk(false, topic.text());
+        if topic == Topic::Lessons {
+            if let Some(c) = self.talk.as_mut() {
+                c.lessons = true;
+            }
+        }
         let answer = self.answer(&c, topic);
         self.push_talk(true, answer);
     }
@@ -384,6 +415,22 @@ impl World {
                     format!("You owe {owed}. You've got {have}. Come back when you can pay.")
                 }
             }
+            Topic::Lessons => {
+                let what: Vec<String> = self.lessons(c.npc, c.with).iter().take(4).map(|s| format!("{} ({} coin)", s.def().name.to_lowercase(), World::lesson_price(*s))).collect();
+                format!("I could show you {}. It takes coin, mind — learning isn't free.", what.join(", "))
+            }
+            Topic::Learn(s) => {
+                let price = World::lesson_price(s);
+                if self.learn_from(c.with, s) {
+                    let who = self.people[c.with as usize].name().unwrap_or("you").to_string();
+                    let t = self.time;
+                    self.log.push_front((t, format!("{who} learns {} for {price} coin.", s.def().name.to_lowercase())));
+                    self.log.truncate(14);
+                    format!("Watch closely, then. ... There — {} is yours now.", s.def().name.to_lowercase())
+                } else {
+                    format!("That's {price} coin, and you haven't got it.")
+                }
+            }
             Topic::Goodbye => String::new(),
         }
     }
@@ -410,6 +457,8 @@ fn topic_key(t: Topic) -> u64 {
         Topic::Letter(i) => 10_000 + i as u64,
         Topic::PayBounty => 8,
         Topic::Goodbye => 9,
+        Topic::Lessons => 10,
+        Topic::Learn(s) => 20_000 + s.0 as u64,
     }
 }
 

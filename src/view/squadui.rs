@@ -355,7 +355,7 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
                 act = Some(Action::Drop(pid, i));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::Equip(pid, i));
-            } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_)) {
+            } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_)) {
                 act = Some(Action::Use(pid, i));
             }
         }
@@ -398,6 +398,12 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Rgb)> {
             out.push(("Lights the ground round you at night; also makes you easy to see from far off".into(), DIM));
         }
         Kind::StandingTorch(h) => out.push((format!("Click in the pack to set it in the ground  ·  burns {h:.0} hours"), TEXT)),
+        Kind::Notes(key) | Kind::Text(key) => {
+            let sp = gahturiyu_sim::sim::magic::spell(key).def();
+            let need = sp.min_skill * gahturiyu_sim::sim::casting::READ_SKILL;
+            out.push((format!("Teaches {} ({} · {})  ·  click to read", sp.name, sp.style.name(), sp.domain.name()), TEXT));
+            out.push((format!("Needs {need:.0} {} to follow; kept after reading", sp.style.skill().name()), DIM));
+        }
         Kind::Material => {
             let uses: Vec<&str> = RECIPES.iter().filter(|r| r.inputs.iter().any(|(k, _)| *k == d.key)).map(|r| item(items::id(r.output)).name).collect();
             out.push(("Material".into(), TEXT));
@@ -430,7 +436,7 @@ pub fn ground_color(id: ItemId) -> Rgb {
         Kind::Pack(_) => [0.70, 0.60, 0.42],
         Kind::Trinket | Kind::Coin => GOLD,
         Kind::Potion => [0.85, 0.25, 0.3],
-        Kind::Scroll(_) | Kind::Errand => [0.9, 0.86, 0.7],
+        Kind::Scroll(_) | Kind::Errand | Kind::Notes(_) | Kind::Text(_) => [0.9, 0.86, 0.7],
         Kind::Material => [0.55, 0.62, 0.45],
         Kind::Tool => [0.5, 0.5, 0.55],
         Kind::Ammo => [0.6, 0.55, 0.45],
@@ -547,7 +553,9 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
         if hot {
             c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.15));
         }
-        c.text(t.label(), tx, ty, 15.0, if hot { GOLD } else { TEXT });
+        let label = t.text();
+        let fs = (15.0 * 186.0 / c.width(&label, 15.0).max(1.0)).clamp(10.0, 15.0);
+        c.text(&label, tx, ty, fs, if hot { GOLD } else { TEXT });
         if click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {
             chosen = Some(t);
         }

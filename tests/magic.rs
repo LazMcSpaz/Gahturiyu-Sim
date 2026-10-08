@@ -274,3 +274,267 @@ fn the_placeholder_spells_are_remapped() {
     check("barrier", "Barrier", Style::Structured, Domain::Warding);
     check("haste", "Haste", Style::Structured, Domain::Vital);
 }
+
+// ---- Rituals ---------------------------------------------------------------
+
+use gahturiyu_sim::sim::{items, settlement::BuildingKind, world::HOUR};
+
+fn squad_mage(w: &World) -> u32 {
+    *w.squad.members.iter().find(|&&m| w.people[m as usize].stats.calling == Calling::Mage).unwrap()
+}
+
+/// A fresh world with the squad standing by their town's hearth.
+fn at_the_hearth(seed: u64) -> (World, u32) {
+    let mut w = worldgen::generate(seed);
+    let s = w.settlements.iter().min_by(|a, b| a.pos.dist(w.squad.pos).total_cmp(&b.pos.dist(w.squad.pos))).unwrap();
+    let hearth = s.buildings.iter().find(|b| b.kind == BuildingKind::Hearth).unwrap().pos;
+    w.teleport_squad(hearth.add(V2::new(4.0, 0.0)));
+    let m = squad_mage(&w);
+    (w, m)
+}
+
+fn wait(w: &mut World, secs: f64, step: f64) {
+    let n = (secs / step).round() as usize;
+    for _ in 0..n {
+        w.step(step);
+    }
+}
+
+/// Perform Restore until it's held (failures backlash; the squad's mage
+/// usually manages in a couple of tries).
+fn perform_until_held(w: &mut World, m: u32, step: f64) {
+    let restore = spell("restore");
+    for _ in 0..12 {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        d.gear.add(items::id("ghostcap"), 2);
+        d.gear.add(items::id("kelp_frond"), 2);
+        w.perform(m, restore).expect("can perform");
+        wait(w, restore.def().rite.minutes as f64 * 60.0 + 30.0, step);
+        if w.held_ritual(m) == Some(restore) {
+            return;
+        }
+        // Let the backlash heal a little before trying again.
+        wait(w, 2.0 * HOUR, 60.0);
+    }
+    panic!("never held");
+}
+
+#[test]
+fn rituals_need_their_place_and_components_and_cant_be_cast_mid_fight() {
+    let restore = spell("restore");
+    assert_eq!(restore.def().style, Style::Ritual);
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    assert!(w.knows(m, restore), "the squad's mage knows Restore");
+    // Far from any hearth.
+    w.teleport_squad(w.squad.pos.add(V2::new(900.0, 900.0)));
+    assert!(w.perform(m, restore).unwrap_err().0.contains("hearth"));
+    let (mut w, m) = at_the_hearth(1);
+    w.people[m as usize].detail.as_mut().unwrap().gear.bag.retain(|e| items::item(e.0).key != "ghostcap");
+    assert!(w.perform(m, restore).unwrap_err().0.contains("ghostcap"));
+    // In a fight it can't be begun at all.
+    let mut b = duel(&mage(), &brute(2));
+    b.fighters[0].spells.push(restore);
+    assert!(!b.begin_cast(0, restore, None, V2::new(0.0, 0.0)));
+}
+
+#[test]
+fn a_finished_ritual_is_held_and_released_later() {
+    let (mut w, m) = at_the_hearth(1);
+    let before = w.squad_count(items::id("ghostcap"));
+    perform_until_held(&mut w, m, 1.0);
+    assert!(w.squad_count(items::id("ghostcap")) <= before, "components are used up");
+    // Hurt and tire the squad; the release mends all of it.
+    let t = w.time;
+    for &k in &w.squad.members.clone() {
+        let p = &mut w.people[k as usize];
+        let base = p.stats.clone();
+        let mut hp = p.wounds.hp_at(&base, t);
+        hp[1] -= 20.0;
+        hp[3] -= 15.0;
+        p.wounds.set(&base, &hp, t);
+    }
+    let tired_before = w.tired_of(m).unwrap();
+    w.release(m, None).unwrap();
+    assert_eq!(w.held_ritual(m), None);
+    for &k in &w.squad.members {
+        let p = &w.people[k as usize];
+        assert!(p.wounds.lost_at(w.time).iter().all(|&l| l < 0.5), "everyone's wounds are healed");
+    }
+    assert!(w.tired_of(m).unwrap() < tired_before.min(5.0), "and their tiredness is gone");
+}
+
+#[test]
+fn only_one_ritual_is_held_and_holding_drains_stamina() {
+    let (mut w, m) = at_the_hearth(1);
+    perform_until_held(&mut w, m, 1.0);
+    assert!(w.perform(m, spell("restore")).unwrap_err().0.contains("holding"));
+    // Walking with one held tires the legs faster than walking without.
+    let other = w.squad.members.iter().copied().find(|&x| x != m).unwrap();
+    let start = w.squad.pos;
+    w.order_squad(start.add(V2::new(400.0, 0.0)));
+    wait(&mut w, 5.0, 1.0);
+    let ca = w.people[m as usize].cond.clone().unwrap();
+    let cb = w.people[other as usize].cond.clone().unwrap();
+    assert!(ca.holding && !cb.holding);
+    assert!(ca.stamina_rate() < cb.stamina_rate() - 10.0, "{} vs {}", ca.stamina_rate(), cb.stamina_rate());
+}
+
+#[test]
+fn a_held_ritual_slips_away_in_sleep() {
+    let (mut w, m) = at_the_hearth(1);
+    perform_until_held(&mut w, m, 1.0);
+    w.order_rest(&[m]);
+    wait(&mut w, 5.0, 1.0);
+    assert!(w.is_asleep(m));
+    assert_eq!(w.held_ritual(m), None, "lost on sleeping");
+}
+
+#[test]
+fn walking_off_breaks_a_ritual_off() {
+    let (mut w, m) = at_the_hearth(1);
+    w.perform(m, spell("restore")).unwrap();
+    wait(&mut w, 60.0, 1.0);
+    assert!(w.ritual_progress(m).is_some());
+    let at = w.person_pos(m);
+    w.order_members(&[m], at.add(V2::new(20.0, 0.0)));
+    wait(&mut w, 5.0, 1.0);
+    assert!(w.ritual_progress(m).is_none());
+    wait(&mut w, 3600.0, 10.0);
+    assert_eq!(w.held_ritual(m), None);
+}
+
+#[test]
+fn a_failed_ritual_backlashes() {
+    let (mut w, m) = at_the_hearth(1);
+    // Barely able: most attempts fail.
+    w.people[m as usize].stats.set_skill(Skill::Ritual, 1.0);
+    w.people[m as usize].stats.set_attr(Attr::Willpower, 1.0);
+    let mut lashed = false;
+    for _ in 0..10 {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        d.gear.add(items::id("ghostcap"), 2);
+        d.gear.add(items::id("kelp_frond"), 2);
+        let hurt = |w: &World| w.people[m as usize].wounds.lost_at(w.time).iter().sum::<f32>();
+        let before = hurt(&w);
+        w.perform(m, spell("restore")).unwrap();
+        wait(&mut w, 41.0 * 60.0, 5.0);
+        if w.held_ritual(m).is_none() {
+            assert!(hurt(&w) > before + 5.0, "backlash hurts");
+            lashed = true;
+            break;
+        }
+        w.release(m, None).unwrap();
+    }
+    assert!(lashed);
+}
+
+#[test]
+fn rituals_finish_the_same_however_the_world_is_stepped() {
+    let run = |step: f64| {
+        let (mut w, m) = at_the_hearth(3);
+        w.perform(m, spell("restore")).unwrap();
+        wait(&mut w, 3.0 * HOUR, step);
+        let p = &w.people[m as usize];
+        (w.held_ritual(m), p.wounds.lost_at(w.time), p.cond.clone().unwrap().stamina_at(w.time), p.cond.clone().unwrap().tired_at(w.time))
+    };
+    let (a, b) = (run(1.0), run(37.0));
+    assert_eq!(a.0, b.0);
+    for k in 0..6 {
+        assert!((a.1[k] - b.1[k]).abs() < 0.01);
+    }
+    assert!((a.2 - b.2).abs() < 0.1, "stamina {} vs {}", a.2, b.2);
+    assert!((a.3 - b.3).abs() < 0.05, "tiredness {} vs {}", a.3, b.3);
+}
+
+#[test]
+fn a_held_ritual_can_be_released_mid_fight() {
+    let (mut w, m) = at_the_hearth(1);
+    perform_until_held(&mut w, m, 1.0);
+    let at = w.squad.pos.add(V2::new(18.0, 4.0));
+    w.spawn_bandits(at, 3, false);
+    while w.battles.is_empty() {
+        w.step(0.25);
+    }
+    assert_eq!(w.battles[0].fighters.iter().find(|f| f.pid == m).unwrap().held, Some(spell("restore")));
+    // Someone goes down; the mage lets the ritual go.
+    let b = &mut w.battles[0];
+    let i = b.fighters.iter().position(|f| f.pid != m && f.side == 0).unwrap();
+    let j = b.fighters.iter().position(|f| f.pid == m).unwrap();
+    b.hurt_whole(i, 200.0);
+    b.fighters[j].think_at = 0.0;
+    let mut released = false;
+    for _ in 0..400 {
+        if w.battles.is_empty() {
+            break;
+        }
+        w.step(0.1);
+        if w.battles.first().map(|b| b.log.iter().any(|l| l.1.contains("releases"))).unwrap_or(false) {
+            released = true;
+            break;
+        }
+    }
+    assert!(released, "the mage should let the ritual go");
+    while !w.battles.is_empty() {
+        w.step(0.5);
+    }
+    assert_eq!(w.held_ritual(m), None, "a released ritual is gone after the fight");
+}
+
+// ---- Learning ----------------------------------------------------------------
+
+#[test]
+fn notes_teach_structured_spells_to_those_who_can_follow_them() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    let fireball = spell("fireball");
+    w.people[m as usize].detail.as_mut().unwrap().spells.retain(|&s| s != fireball);
+    let brawler = w.squad.members[0];
+    for who in [m, brawler] {
+        w.people[who as usize].detail.as_mut().unwrap().gear.add(items::id("notes_fireball"), 1);
+    }
+    w.people[brawler as usize].stats.set_skill(Skill::Structured, 5.0);
+    assert!(!w.use_item(brawler, items::id("notes_fireball")), "too unskilled to follow them");
+    w.people[m as usize].stats.set_skill(Skill::Structured, 50.0);
+    assert!(w.use_item(m, items::id("notes_fireball")));
+    assert!(w.knows(m, fireball));
+    assert_eq!(w.squad_count(items::id("notes_fireball")), 2, "notes are kept");
+}
+
+#[test]
+fn mages_teach_for_coin() {
+    use gahturiyu_sim::sim::dialogue::Topic;
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    // A local mage who knows paralysis; the squad's mage doesn't.
+    let teacher = (0..w.people.len() as u32).find(|&p| {
+        let q = &w.people[p as usize];
+        !q.in_squad && !q.bandit && q.home.is_some() && q.stats.calling == Calling::Mage
+    }).unwrap();
+    w.people[teacher as usize].ensure_detail();
+    let paralyze = spell("paralyze");
+    if !w.knows(teacher, paralyze) {
+        w.people[teacher as usize].detail.as_mut().unwrap().spells.push(paralyze);
+    }
+    w.people[m as usize].detail.as_mut().unwrap().spells.retain(|&s| s != paralyze);
+    w.people[teacher as usize].traits.sociability = 1.0;
+    let at = w.person_pos(teacher);
+    w.teleport_squad(at.add(V2::new(1.5, 0.0)));
+    assert!(w.order_talk(m, teacher));
+    for _ in 0..200 {
+        if w.talk.is_some() {
+            break;
+        }
+        w.step(0.25);
+    }
+    assert!(w.talk.is_some());
+    assert!(w.topics().contains(&Topic::Lessons));
+    w.ask(Topic::Lessons);
+    assert!(w.topics().contains(&Topic::Learn(paralyze)));
+    let price = World::lesson_price(paralyze);
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("coin"), price);
+    let coin = w.squad_count(items::id("coin"));
+    w.ask(Topic::Learn(paralyze));
+    assert!(w.knows(m, paralyze));
+    assert_eq!(w.squad_count(items::id("coin")), coin - price);
+}

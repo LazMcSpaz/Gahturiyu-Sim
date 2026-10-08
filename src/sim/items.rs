@@ -112,6 +112,10 @@ pub enum Kind {
     /// Read aloud: casts the spell with this key once, with no energy and no
     /// chance of failing.
     Scroll(&'static str),
+    /// Notes on a structured spell (by key): read them to learn it.
+    Notes(&'static str),
+    /// A rare text on a ritual (by key): read it to learn it.
+    Text(&'static str),
     /// Shot from a ranged weapon; stacks in the pack.
     Ammo,
     /// Money.
@@ -187,6 +191,14 @@ const fn food(key: &'static str, name: &'static str, weight: f32, value: f32, no
 
 const fn scroll(key: &'static str, name: &'static str, spell: &'static str, value: f32) -> ItemDef {
     ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Scroll(spell), weight: 0.05, value, effects: &[] }
+}
+
+const fn notes(key: &'static str, name: &'static str, spell: &'static str, value: f32) -> ItemDef {
+    ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Notes(spell), weight: 0.1, value, effects: &[] }
+}
+
+const fn text(key: &'static str, name: &'static str, spell: &'static str, value: f32) -> ItemDef {
+    ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Text(spell), weight: 0.5, value, effects: &[] }
 }
 
 const fn potion(key: &'static str, name: &'static str, value: f32, effects: &'static [Effect]) -> ItemDef {
@@ -272,6 +284,14 @@ pub static ITEMS: &[ItemDef] = &[
     scroll("scroll_paralyze", "Scroll of paralysis", "paralyze", 60.0),
     scroll("scroll_fireball", "Scroll of fireball", "fireball", 70.0),
     scroll("scroll_lightning", "Scroll of lightning", "lightning_bolt", 60.0),
+    // --- Notes and texts: read to learn ------------------------------------
+    notes("notes_paralyze", "Notes on paralysis", "paralyze", 90.0),
+    notes("notes_fireball", "Notes on fireball", "fireball", 110.0),
+    notes("notes_lightning", "Notes on lightning", "lightning_bolt", 90.0),
+    notes("notes_blind", "Notes on blinding", "blind", 70.0),
+    notes("notes_barrier", "Notes on barriers", "barrier", 70.0),
+    notes("notes_haste", "Notes on haste", "haste", 80.0),
+    text("text_restore", "Rite of Restoring", "restore", 220.0),
     // --- Enchanted pieces -------------------------------------------------
     trinket("ring_swiftness", "Ring of Swiftness", Slot::Ring, 0.1, 300.0, &[worn(Does::MoveSpeed, 0.15), worn(Does::Attr(Attr::Agility), 5.0)]),
     trinket("ring_might", "Ring of the Ox", Slot::Ring, 0.1, 320.0, &[worn(Does::Attr(Attr::Strength), 12.0)]),

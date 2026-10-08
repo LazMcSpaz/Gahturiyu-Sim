@@ -137,6 +137,8 @@ pub struct Fighter {
     /// Tiredness from felt casting this fight, added to the squad member's
     /// own afterwards.
     pub tire: f32,
+    /// A ritual held ready, to be released (once) when it's wanted.
+    pub held: Option<Spell>,
     pub damage_taken: f32,
 }
 
@@ -216,6 +218,7 @@ impl Fighter {
             used: Vec::new(),
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
+            held: None,
             damage_taken: 0.0,
         }
     }
@@ -790,6 +793,16 @@ impl Battle {
         true
     }
 
+    /// Let a held ritual go: it works at once, and can't fail (the gamble
+    /// was in performing it).
+    pub fn release(&mut self, i: usize, target: Option<usize>, point: V2) -> bool {
+        let Some(spell) = self.fighters[i].held.take() else { return false };
+        self.fighters[i].act = Act::Cast { spell, target, point, done: self.time, scroll: true };
+        let name = self.names[i].clone();
+        self.say(format!("{name} releases the {}!", spell.def().name.to_lowercase()));
+        true
+    }
+
     /// Read a scroll: the spell goes off after a moment, no energy spent, no
     /// chance of fizzling. The scroll is used up.
     pub fn read_scroll(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2) -> bool {
@@ -970,6 +983,10 @@ impl Battle {
                 Does::Energy => {
                     let f = &mut self.fighters[j];
                     f.mana = (f.mana + e.power).min(f.max_mana);
+                }
+                Does::Rest => {
+                    let f = &mut self.fighters[j];
+                    f.fatigue = f.max_fatigue;
                 }
                 _ => {}
             },

@@ -24,7 +24,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::effects::{area, lasting, now, Does, Effect, Element, Reach};
+use super::effects::{area, lasting, now, Does, Effect, Element, Reach, Who};
 use super::stats::{Attr, Skill, Stats};
 
 /// What a spell works on. Tags for now (see the module notes).
@@ -98,6 +98,46 @@ pub enum Aim {
     Point,
 }
 
+/// Where a ritual has to be performed.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Place {
+    Anywhere,
+    /// Beside a town's hearth.
+    Hearth,
+    /// At a shrine. (For now the Qotiro temples and halls are the only holy
+    /// buildings in the world.)
+    Shrine,
+    /// Inside a drawn circle: drawing one adds `CIRCLE_MINUTES`, and it stays
+    /// on the ground for next time.
+    Circle,
+}
+
+impl Place {
+    pub fn name(self) -> &'static str {
+        match self {
+            Place::Anywhere => "anywhere",
+            Place::Hearth => "at a hearth",
+            Place::Shrine => "at a shrine",
+            Place::Circle => "in a drawn circle",
+        }
+    }
+}
+
+/// What a ritual takes beyond skill: time, blood, components, a place.
+#[derive(Clone, Copy, Debug)]
+pub struct Rite {
+    /// Game minutes to perform.
+    pub minutes: f32,
+    /// Health given (a wound spread over the body, healing like any other).
+    pub health: f32,
+    /// Used up whether it works or not: (item key, how many).
+    pub components: &'static [(&'static str, u16)],
+    pub place: Place,
+}
+
+/// Not a ritual.
+pub const NO_RITE: Rite = Rite { minutes: 0.0, health: 0.0, components: &[], place: Place::Anywhere };
+
 /// A spell: an index into `SPELLS`.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Spell(pub u16);
@@ -121,17 +161,33 @@ pub struct SpellDef {
     /// Style skill needed to have learned it at all.
     pub min_skill: f32,
     pub effects: &'static [Effect],
+    /// For rituals: what performing it takes.
+    pub rite: Rite,
 }
 
 #[allow(clippy::too_many_arguments)]
 const fn felt(key: &'static str, name: &'static str, domain: Domain, cost: f32, tire: f32, range: f32, aim: Aim, min_skill: f32, effects: &'static [Effect]) -> SpellDef {
-    SpellDef { key, name, style: Style::Felt, domain, cost, tire, cast_time: 0.0, range, aim, min_skill, effects }
+    SpellDef { key, name, style: Style::Felt, domain, cost, tire, cast_time: 0.0, range, aim, min_skill, effects, rite: NO_RITE }
 }
 
 #[allow(clippy::too_many_arguments)]
 const fn structured(key: &'static str, name: &'static str, domain: Domain, cost: f32, cast_time: f32, range: f32, aim: Aim, min_skill: f32, effects: &'static [Effect]) -> SpellDef {
-    SpellDef { key, name, style: Style::Structured, domain, cost, tire: 0.0, cast_time, range, aim, min_skill, effects }
+    SpellDef { key, name, style: Style::Structured, domain, cost, tire: 0.0, cast_time, range, aim, min_skill, effects, rite: NO_RITE }
 }
+
+/// A ritual: performed over minutes or hours (never mid-fight), then held
+/// ready and released when wanted. `range` and `aim` are for the release.
+#[allow(clippy::too_many_arguments)]
+const fn ritual(key: &'static str, name: &'static str, domain: Domain, rite: Rite, range: f32, aim: Aim, min_skill: f32, effects: &'static [Effect]) -> SpellDef {
+    SpellDef { key, name, style: Style::Ritual, domain, cost: 0.0, tire: 0.0, cast_time: 0.0, range, aim, min_skill, effects, rite }
+}
+
+const fn rite(minutes: f32, health: f32, components: &'static [(&'static str, u16)], place: Place) -> Rite {
+    Rite { minutes, health, components, place }
+}
+
+/// The whole squad, near enough.
+const SQUAD: Reach = Reach::Area { radius: 40.0, who: Who::Friends };
 
 use Aim::*;
 use Domain::*;
@@ -147,6 +203,8 @@ pub static SPELLS: &[SpellDef] = &[
     structured("haste", "Haste", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),
     //    key     name    domain cost tire  range aim     min
     felt("mend", "Mend", Vital, 8.0, 0.6, 10.0, Friend, 15.0, &[now(Does::Heal, 16.0, Reach::Target)]),
+    //      key        name       domain  rite: minutes health components                              place          range aim     min
+    ritual("restore", "Restore", Vital, rite(40.0, 0.0, &[("ghostcap", 2), ("kelp_frond", 2)], Place::Hearth), 0.0, Caster, 30.0, &[now(Does::Heal, 400.0, SQUAD), now(Does::Rest, 100.0, SQUAD)]),
 ];
 
 /// Look a spell up by its key. Panics on a typo, which is what tests want.
@@ -263,7 +321,7 @@ mod tests {
         for k in crate::sim::stats::MAGIC_SKILLS {
             s.set_skill(k, 40.0);
         }
-        assert_eq!(starting_spells(&s).len(), 7);
+        assert_eq!(starting_spells(&s).len(), 8);
     }
 
     #[test]

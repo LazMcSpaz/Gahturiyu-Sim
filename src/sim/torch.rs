@@ -278,7 +278,7 @@ impl World {
         out
     }
 
-    fn say(&mut self, t: f64, line: String) {
+    pub(super) fn say(&mut self, t: f64, line: String) {
         self.log.push_front((t, line));
         self.log.truncate(14);
     }

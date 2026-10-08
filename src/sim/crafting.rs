@@ -348,6 +348,9 @@ impl World {
         if let Kind::StandingTorch(_) = item(it).kind {
             return self.place_torch(who);
         }
+        if matches!(item(it).kind, Kind::Notes(_) | Kind::Text(_)) {
+            return self.read_lore(who, it);
+        }
         // A potion's own effects, or a scroll's spell (no energy, can't fail).
         let effects: &[super::effects::Effect] = match item(it).kind {
             Kind::Potion => item(it).effects,

@@ -49,6 +49,9 @@ pub enum Does {
     Heal,
     /// Restore energy (mana). Power: points.
     Energy,
+    /// Take tiredness away (out of a fight; points on the 0..100 scale) or
+    /// restore all stamina (in one).
+    Rest,
 
     // ---- While it lasts (or while worn) --------------------------------
     /// Power: points added.
@@ -99,7 +102,7 @@ impl Does {
 
     /// Has a meaning outside a fight (the rest only matter in one).
     pub fn works_outside_fights(self) -> bool {
-        matches!(self, Does::Heal | Does::Energy)
+        matches!(self, Does::Heal | Does::Energy | Does::Rest)
     }
 }
 
@@ -178,8 +181,10 @@ impl Effect {
         let pct = p * 100.0;
         let what = match self.does {
             Does::Damage(e) => format!("{p:.0} {} damage", e.name()),
+            Does::Heal if p >= 300.0 => "Heals every wound".to_string(),
             Does::Heal => format!("Heals {p:.0}"),
             Does::Energy => format!("Restores {p:.0} energy"),
+            Does::Rest => "Takes away tiredness".to_string(),
             Does::Attr(a) => format!("{p:+.0} {}", a.name()),
             Does::Skill(k) => format!("{p:+.0} {}", k.name()),
             Does::MaxEnergy => format!("{p:+.0} energy"),

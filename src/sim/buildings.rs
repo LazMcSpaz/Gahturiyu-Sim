@@ -355,11 +355,18 @@ impl World {
         ];
         let better: &[&str] = &["short_sword", "hide_coat", "war_pick", "spear", "buckler", "hide_leggings", "iron_helm"];
         let rare: &[&str] = &["ring_swiftness", "ring_might", "amulet_wellspring", "amulet_clear_mind", "ring_hearth", "seers_hood", "striders_boots", "duelists_gloves"];
+        // Notes on spells turn up now and then; rare texts on rituals in temples.
+        let lore: Vec<&str> = items::ITEMS.iter().filter(|d| matches!(d.kind, items::Kind::Notes(_))).map(|d| d.key).collect();
+        let texts: Vec<&str> = items::ITEMS.iter().filter(|d| matches!(d.kind, items::Kind::Text(_))).map(|d| d.key).collect();
         let n = 1 + r.below(3) + if b.kind == BuildingKind::QotiroTemple { 3 } else { 0 };
         let back = d.centre.sub(d.inside);
         for k in 0..n {
             let key = if r.chance(0.06) {
                 *r.pick(rare)
+            } else if b.kind == BuildingKind::QotiroTemple && !texts.is_empty() && r.chance(0.25) {
+                *r.pick(&texts)
+            } else if !lore.is_empty() && r.chance(0.05) {
+                *r.pick(&lore)
             } else if r.chance(0.3) {
                 *r.pick(better)
             } else {

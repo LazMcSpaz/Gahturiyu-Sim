@@ -151,11 +151,14 @@ pub struct Condition {
     pub load: f32,
     /// Carrying wounds during this piece.
     pub wounded: bool,
+    /// Holding a ritual ready (it drains stamina).
+    #[serde(default)]
+    pub holding: bool,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -164,9 +167,10 @@ impl Condition {
 
     /// Stamina change per hour in this piece (negative while walking).
     pub fn stamina_rate(&self) -> f32 {
+        let hold = if self.holding { super::casting::STAMINA_HOLD } else { 0.0 };
         match self.activity {
-            Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD),
-            Activity::Resting | Activity::Sleeping => STAMINA_REST,
+            Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
+            Activity::Resting | Activity::Sleeping => STAMINA_REST - hold,
             Activity::Fighting => 0.0, // the fight keeps its own count
         }
     }
@@ -330,6 +334,12 @@ impl World {
         (gear.weight() + self.burden_weight(pid)) / gear.capacity(&p.stats).max(1.0)
     }
 
+    /// Settle someone's condition and wounds at `t` and start a new piece
+    /// (for other systems that change something mid-piece).
+    pub(super) fn settle_condition(&mut self, pid: PersonId, t: f64) {
+        self.settle(pid, t);
+    }
+
     /// Settle someone's condition and wounds at `t` and start a new piece.
     fn settle(&mut self, pid: PersonId, t: f64) {
         let load = self.load_of(pid);
@@ -385,6 +395,9 @@ impl World {
         self.settle(pid, t);
         if let Some(c) = self.people[pid as usize].cond.as_mut() {
             c.activity = a;
+        }
+        if a == Activity::Sleeping {
+            self.drop_held_on_sleep(pid, t);
         }
     }
 
@@ -462,6 +475,10 @@ impl World {
                         }
                     }
                 }
+                // A ritual finishing.
+                if let Some(tr) = self.ritual_due(pid) {
+                    consider(Some(tr), Event::Ritual);
+                }
                 // Standing idle at night and tired: bed down.
                 if let Some(tb) = self.bed_time(pid, &c) {
                     consider(Some(tb), Event::Bed);
@@ -505,7 +522,9 @@ impl World {
                         let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
                         self.log.push_front((t, format!("{name} beds down for the night.")));
                         self.log.truncate(14);
+                        self.drop_held_on_sleep(pid, t);
                     }
+                    Event::Ritual => self.ritual_done(pid),
                     Event::Eat => {
                         let h = c.hunger_at(t);
                         if let Some(f) = self.food_for(pid, h) {
@@ -531,6 +550,7 @@ impl World {
             || self.carried_by(pid).is_some()
             || self.want_carry.iter().any(|w| w.0 == pid)
             || self.crafting.iter().any(|j| j.who == pid)
+            || self.rituals.iter().any(|j| j.who == pid)
             || self.picking.iter().any(|p| p.who == pid)
             || self.gathering.iter().any(|g| g.0 == pid)
             || self.pickups.iter().any(|p| p.who == pid)
@@ -617,6 +637,7 @@ enum Event {
     Eat,
     Wake,
     Bed,
+    Ritual,
 }
 
 /// Squad members left standing idle bed down by themselves at night: from

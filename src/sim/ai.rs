@@ -100,7 +100,7 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
             return;
         }
     }
-    if !me.spells.is_empty() || !me.scrolls.is_empty() {
+    if !me.spells.is_empty() || !me.scrolls.is_empty() || me.held.is_some() {
         try_spell(b, i, target, r_spell);
     }
 }
@@ -118,10 +118,13 @@ fn has_scroll(f: &super::combat::Fighter, s: Spell) -> bool {
     f.scrolls.iter().any(|&x| matches!(item(x).kind, Kind::Scroll(y) if y == key))
 }
 
-/// Cast from memory if there's energy for it, else read a scroll.
+/// Release it if it's the ritual held ready, cast it from memory if there's
+/// energy for it, else read a scroll.
 fn cast(b: &mut Battle, i: usize, s: Spell, target: Option<usize>, point: V2) {
     let f = &b.fighters[i];
-    if f.spells.contains(&s) && f.mana >= s.def().cost {
+    if f.held == Some(s) {
+        b.release(i, target, point);
+    } else if s.def().style != Style::Ritual && f.spells.contains(&s) && f.mana >= s.def().cost {
         b.begin_cast(i, s, target, point);
     } else {
         b.read_scroll(i, s, target, point);
@@ -202,7 +205,7 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
 /// Cast something useful, if anything is.
 fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     let me = b.fighters[i].clone();
-    let usable = |s: Spell| s.def().style != Style::Ritual && ((me.spells.contains(&s) && me.mana >= s.def().cost) || has_scroll(&me, s));
+    let usable = |s: Spell| me.held == Some(s) || (s.def().style != Style::Ritual && ((me.spells.contains(&s) && me.mana >= s.def().cost) || has_scroll(&me, s)));
     // Everything castable right now, by what it's for; strongest first.
     let mut castable: Vec<Spell> = all_spells().filter(|&s| usable(s)).collect();
     castable.sort_by(|a, c| strength(*c).total_cmp(&strength(*a)));
@@ -219,7 +222,8 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
 
     // 0. Mend a friend who is down or badly hurt (or yourself).
     if let Some(s) = first(Use::Mend) {
-        let range = s.def().range;
+        // (A spell that mends everyone round the caster reaches as far as its area.)
+        let range = s.def().range.max(s.def().radius());
         let patient = (0..b.fighters.len())
             .filter(|&k| !b.hostile(i, k) && !b.fighters[k].dead && !b.fighters[k].fled)
             .filter(|&k| me.pos.dist(b.fighters[k].pos) <= range)

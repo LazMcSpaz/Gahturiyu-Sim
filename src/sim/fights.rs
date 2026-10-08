@@ -273,6 +273,7 @@ impl World {
                 self.squad.resting[k] = false;
             }
             f.torch = self.torch_lit(pid);
+            f.held = self.held.get(&pid).copied();
             // Carrying someone: can't fight, and slow.
             if self.carrying(pid).is_some() {
                 f.burdened = true;
@@ -348,6 +349,10 @@ impl World {
                 self.drop_everything(f.pid, f.pos);
             }
             self.people[f.pid as usize].recompute_might();
+            // A held ritual let go in the fight is gone.
+            if f.held.is_none() && self.held.contains_key(&pid) {
+                self.set_holding(pid, t, None);
+            }
             self.after_fight(pid, t, fatigue, tire);
         }
         killed
