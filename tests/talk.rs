@@ -138,7 +138,7 @@ fn breaking_a_camp_is_noticed_and_paid() {
     // A squad of veterans walks into the camp.
     for m in w.squad.members.clone() {
         for k in SKILLS {
-            if w.people[m as usize].stats.skill(k) < 75.0 && matches!(k, Skill::Blunt | Skill::Spear | Skill::Blade | Skill::Dodge | Skill::Block | Skill::Destruction) {
+            if w.people[m as usize].stats.skill(k) < 75.0 && matches!(k, Skill::Blunt | Skill::Spear | Skill::Blade | Skill::Dodge | Skill::Block | Skill::Structured) {
                 w.people[m as usize].stats.set_skill(k, 75.0);
             }
         }

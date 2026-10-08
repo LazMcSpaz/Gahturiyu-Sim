@@ -307,7 +307,7 @@ pub static ITEMS: &[ItemDef] = &[
         kind: Kind::Armor(ArmorDef { covers: HEAD, coverage: 0.6, cut: 0.15, blunt: 0.10, dodge_penalty: 0.0 }),
         weight: 0.6,
         value: 240.0,
-        effects: &[Effect::ResistBlind(0.7), Effect::Skill(Skill::Illusion, 8.0)],
+        effects: &[Effect::ResistBlind(0.7), Effect::Skill(Skill::Structured, 8.0)],
     },
     ItemDef {
         key: "striders_boots",

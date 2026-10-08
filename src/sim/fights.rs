@@ -150,7 +150,7 @@ impl World {
             let mut p = Person::summary(id, seed, race, None);
             p.bandit = true;
             if with_mage && k == 0 {
-                p.specialize(Calling::Mage, &[(Skill::Destruction, 45.0), (Skill::Alteration, 35.0), (Skill::Illusion, 38.0)], 80.0);
+                p.specialize(Calling::Mage, &[(Skill::Structured, 45.0), (Skill::Felt, 30.0)], 80.0);
             } else if k % 3 == 1 {
                 // An archer.
                 p.specialize(Calling::Hunter, &[(Skill::Marksman, 40.0 + r.f32() * 15.0), (Skill::Dodge, 20.0)], 120.0 + r.f32() * 120.0);
@@ -305,7 +305,19 @@ impl World {
                 }
             }
             p.stats.harden(f.damage_taken);
-            let (pid, fatigue) = (f.pid, f.fatigue);
+            // Felt magic comes with use: new felt spells as the feel grows.
+            if let Some(d) = p.detail.as_mut() {
+                let new = super::magic::felt_reached(&p.stats, &d.spells);
+                d.spells.extend(new.iter().copied());
+                if p.in_squad {
+                    for sp in new {
+                        let line = format!("{} has a feel for {} now.", d.name, sp.def().name.to_lowercase());
+                        self.log.push_front((t, line));
+                    }
+                }
+            }
+            let p = &mut self.people[f.pid as usize];
+            let (pid, fatigue, tire) = (f.pid, f.fatigue, f.tire);
             // Potions drunk and scrolls read are gone; arrows loosed are gone
             // too, except the ones found again afterwards.
             if let Some(d) = p.detail.as_mut() {
@@ -336,7 +348,7 @@ impl World {
                 self.drop_everything(f.pid, f.pos);
             }
             self.people[f.pid as usize].recompute_might();
-            self.after_fight(pid, t, fatigue);
+            self.after_fight(pid, t, fatigue, tire);
         }
         killed
     }

@@ -73,7 +73,7 @@ pub fn generate(seed: u64) -> World {
         (Race::Roduro, Calling::Warrior, &[(Skill::Blunt, 58.0), (Skill::Block, 25.0), (Skill::Athletics, 25.0)], 420.0),
         (Race::Horaro, Calling::Hunter, &[(Skill::Spear, 42.0), (Skill::Dodge, 35.0), (Skill::Athletics, 30.0), (Skill::Sneak, 30.0), (Skill::Security, 35.0)], 260.0),
         (Race::Qotiro, Calling::Warrior, &[(Skill::Blunt, 55.0), (Skill::Block, 38.0)], 480.0),
-        (Race::Tadoro, Calling::Mage, &[(Skill::Destruction, 48.0), (Skill::Alteration, 42.0), (Skill::Illusion, 44.0), (Skill::Restoration, 40.0), (Skill::Dodge, 25.0)], 120.0),
+        (Race::Tadoro, Calling::Mage, &[(Skill::Structured, 50.0), (Skill::Felt, 38.0), (Skill::Ritual, 30.0), (Skill::Dodge, 25.0)], 120.0),
     ];
     for (i, &(race, calling, skills, budget)) in roles.iter().enumerate() {
         let id = people.len() as PersonId;

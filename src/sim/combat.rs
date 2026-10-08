@@ -19,7 +19,7 @@ use super::body::{self, Part, PARTS};
 use super::geo::V2;
 use super::inventory::{self, Gear};
 use super::items::{item, ArmorDef, Effect, ItemId, Kind, WeaponDef, FISTS};
-use super::magic::{self, Spell, Status, StatusKind, Target};
+use super::magic::{self, Spell, Status, StatusKind, Style, Target};
 use super::person::{Person, PersonId};
 use super::race::Race;
 use super::rng::Rng;
@@ -133,6 +133,9 @@ pub struct Fighter {
 
     /// Skill uses this fight, written back to the person afterwards.
     pub trained: [f32; super::stats::N_SKILLS],
+    /// Tiredness from felt casting this fight, added to the squad member's
+    /// own afterwards.
+    pub tire: f32,
     pub damage_taken: f32,
 }
 
@@ -214,6 +217,7 @@ impl Fighter {
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
             trained: [0.0; super::stats::N_SKILLS],
+            tire: 0.0,
             damage_taken: 0.0,
         }
     }
@@ -759,15 +763,19 @@ impl Battle {
 
     // ---- Spells -----------------------------------------------------------
 
-    /// Start casting. Mana is spent now, whether or not it works.
+    /// Start casting. Energy is spent now, whether or not it works. Felt
+    /// spells go off at once (this tick) and tire the caster a little;
+    /// structured ones take a second or two, and a solid hit spoils them.
+    /// Rituals can't be cast mid-fight at all.
     pub fn begin_cast(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2) -> bool {
         let d = spell.def();
         let f = &mut self.fighters[i];
-        if f.mana < d.cost || !f.spells.contains(&spell) {
+        if f.mana < d.cost || !f.spells.contains(&spell) || d.style == Style::Ritual {
             return false;
         }
         f.mana -= d.cost;
-        let time = d.cast_time * f.attack_time();
+        f.tire += d.tire;
+        let time = if d.style == Style::Felt { 0.0 } else { d.cast_time * f.attack_time() };
         f.act = Act::Cast { spell, target, point, done: self.time + time as f64, scroll: false };
         true
     }
@@ -818,12 +826,12 @@ impl Battle {
         let chance = if scroll { 1.0 } else { magic::success_chance(&caster.stats, spell, caster.tired()) };
         if r_ok > chance {
             let at = caster.pos;
-            self.fighters[i].train(d.school, 0.4);
+            self.fighters[i].train(d.skill(), 0.4);
             self.fx.push(Fx { kind: FxKind::Fizzle { at }, at: self.time });
             self.say(format!("{name}'s {} fizzles.", d.name.to_lowercase()));
             return;
         }
-        self.fighters[i].train(d.school, 1.5);
+        self.fighters[i].train(d.skill(), 1.5);
         let t = self.time;
         match d.target {
             Target::Caster => {
@@ -851,7 +859,7 @@ impl Battle {
                         // Armour is no help against lightning.
                         let resist = 1.0 - self.fighters[j].resist_elements;
                         let shield = self.fighters[j].has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
-                        let dmg = d.magnitude * (0.8 + r_dmg * 0.4) * resist * shield * (0.8 + self.fighters[i].stats.skill(Skill::Destruction) / 250.0);
+                        let dmg = d.magnitude * (0.8 + r_dmg * 0.4) * resist * shield * (0.8 + self.fighters[i].stats.skill(d.skill()) / 250.0);
                         self.say(format!("{name}'s lightning strikes {tname} ({dmg:.0})."));
                         self.wound(j, Part::Torso, dmg * 0.75);
                         self.wound(j, Part::Head, dmg * 0.25);
@@ -885,7 +893,7 @@ impl Battle {
                     self.say(format!("{name}'s heal falls short."));
                     return;
                 }
-                let mut left = d.magnitude * (0.8 + self.fighters[i].stats.skill(Skill::Restoration) / 200.0) * (0.9 + r_dmg * 0.2);
+                let mut left = d.magnitude * (0.8 + self.fighters[i].stats.skill(d.skill()) / 200.0) * (0.9 + r_dmg * 0.2);
                 // Worst wounds first: head and torso when someone is down,
                 // otherwise whatever is most hurt.
                 while left > 0.5 {
@@ -913,7 +921,7 @@ impl Battle {
                 // Fireball: everyone in the blast, friend or foe.
                 self.fx.push(Fx { kind: FxKind::Fireball { at: point, radius: d.radius }, at: t });
                 self.say(format!("{name}'s fireball bursts."));
-                let power = 0.8 + self.fighters[i].stats.skill(Skill::Destruction) / 250.0;
+                let power = 0.8 + self.fighters[i].stats.skill(d.skill()) / 250.0;
                 for j in 0..self.fighters.len() {
                     let f = &self.fighters[j];
                     if f.dead || f.fled {

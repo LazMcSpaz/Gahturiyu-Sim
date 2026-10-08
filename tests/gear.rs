@@ -23,7 +23,7 @@ fn brute(id: u32) -> Person {
 }
 
 fn mage() -> Person {
-    let mut p = person(1, Race::Tadoro, Calling::Mage, &[(Skill::Destruction, 100.0), (Skill::Illusion, 100.0)], 60.0);
+    let mut p = person(1, Race::Tadoro, Calling::Mage, &[(Skill::Structured, 100.0)], 60.0);
     p.stats.set_attr(Attr::Willpower, 100.0);
     p.mana = 5000.0;
     p

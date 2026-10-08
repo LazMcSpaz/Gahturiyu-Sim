@@ -598,13 +598,15 @@ impl World {
     }
 
     /// After a fight: carry on with the stamina it left them.
-    pub(super) fn after_fight(&mut self, pid: PersonId, t: f64, stamina: f32) {
+    /// Felt casting adds to tiredness too.
+    pub(super) fn after_fight(&mut self, pid: PersonId, t: f64, stamina: f32, tire: f32) {
         if self.people[pid as usize].cond.is_none() {
             return;
         }
         self.settle(pid, t);
         if let Some(c) = self.people[pid as usize].cond.as_mut() {
             c.stamina = stamina.clamp(0.0, c.max_stamina);
+            c.tired = (c.tired + tire).min(100.0);
         }
     }
 }

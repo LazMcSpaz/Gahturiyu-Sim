@@ -40,14 +40,15 @@ pub enum Skill {
     Block,
     Dodge,
     Athletics,
-    /// Fire and lightning.
-    Destruction,
-    /// Shaping the body and its surroundings: armour of force, speed.
-    Alteration,
-    /// The mind: blinding, holding still.
-    Illusion,
-    /// Mending flesh.
-    Restoration,
+    /// Magic by instinct: small, instant workings, castable mid-fight.
+    /// Grows only by use — there are no teachers of it.
+    Felt,
+    /// Magic by pattern: spells built in a second or two, learned from a
+    /// teacher or from notes.
+    Structured,
+    /// Magic by rite: large workings that take minutes to hours, paid for in
+    /// components or blood. Learned from a teacher or rare texts.
+    Ritual,
     /// Moving unseen and unheard.
     Sneak,
     /// Locks: picking them, and knowing how hard one is.
@@ -65,7 +66,7 @@ pub enum Skill {
 }
 
 /// How many skills there are.
-pub const N_SKILLS: usize = 18;
+pub const N_SKILLS: usize = 17;
 
 pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Blade,
@@ -75,10 +76,9 @@ pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Block,
     Skill::Dodge,
     Skill::Athletics,
-    Skill::Destruction,
-    Skill::Alteration,
-    Skill::Illusion,
-    Skill::Restoration,
+    Skill::Felt,
+    Skill::Structured,
+    Skill::Ritual,
     Skill::Sneak,
     Skill::Security,
     Skill::Alchemy,
@@ -98,10 +98,9 @@ impl Skill {
             Skill::Block => "Block",
             Skill::Dodge => "Dodge",
             Skill::Athletics => "Athletics",
-            Skill::Destruction => "Destruction",
-            Skill::Alteration => "Alteration",
-            Skill::Illusion => "Illusion",
-            Skill::Restoration => "Restoration",
+            Skill::Felt => "Felt magic",
+            Skill::Structured => "Structured magic",
+            Skill::Ritual => "Ritual magic",
             Skill::Sneak => "Sneak",
             Skill::Security => "Security",
             Skill::Alchemy => "Alchemy",
@@ -118,8 +117,8 @@ impl Skill {
             Skill::Blade | Skill::Dodge => Attr::Agility,
             Skill::Blunt | Skill::Spear | Skill::Unarmed => Attr::Strength,
             Skill::Block | Skill::Athletics => Attr::Toughness,
-            Skill::Destruction => Attr::Intellect,
-            Skill::Alteration | Skill::Illusion | Skill::Restoration => Attr::Willpower,
+            Skill::Felt | Skill::Ritual => Attr::Willpower,
+            Skill::Structured => Attr::Intellect,
             Skill::Sneak | Skill::Security | Skill::Marksman => Attr::Agility,
             Skill::Alchemy | Skill::Inscription => Attr::Intellect,
             Skill::Smithing | Skill::Armoring => Attr::Strength,
@@ -127,7 +126,7 @@ impl Skill {
     }
 
     pub fn is_magic(self) -> bool {
-        matches!(self, Skill::Destruction | Skill::Alteration | Skill::Illusion | Skill::Restoration)
+        matches!(self, Skill::Felt | Skill::Structured | Skill::Ritual)
     }
 }
 
@@ -149,6 +148,23 @@ impl Attr {
             Attr::Intellect => "INT",
             Attr::Willpower => "WIL",
         }
+    }
+}
+
+/// The three styles of magic, as skills.
+pub const MAGIC_SKILLS: [Skill; 3] = [Skill::Felt, Skill::Structured, Skill::Ritual];
+
+/// Skill points a mage's study puts into the styles, all told.
+pub const MAGE_STUDY: f32 = 72.0;
+
+/// Which style a people leans to (an index into `MAGIC_SKILLS`): Roduro and
+/// Horaro feel their way, Ṭaḍoro build, Qotiro perform rites. Only a lean —
+/// each person's own split varies widely.
+pub fn race_style(race: Race) -> usize {
+    match race {
+        Race::Roduro | Race::Horaro => 0,
+        Race::Tadoro => 1,
+        Race::Qotiro => 2,
     }
 }
 
@@ -262,17 +278,25 @@ impl Stats {
                 lift(Skill::Marksman, 22.0, &mut rng);
             }
             Calling::Mage => {
-                lift(Skill::Destruction, 26.0, &mut rng);
-                lift(Skill::Alteration, 22.0, &mut rng);
-                lift(Skill::Illusion, 22.0, &mut rng);
-                lift(Skill::Restoration, 20.0, &mut rng);
+                // How a mage's study splits between the three styles: their
+                // people tilt it, but each person goes their own way.
+                let mut w = [0.0f32; 3];
+                for x in w.iter_mut() {
+                    *x = 0.25 + rng.f32() * 1.5;
+                }
+                w[race_style(race)] += 0.55;
+                let sum: f32 = w.iter().sum();
+                for (k, style) in MAGIC_SKILLS.iter().enumerate() {
+                    lift(*style, MAGE_STUDY * w[k] / sum, &mut rng);
+                }
                 lift(Skill::Inscription, 14.0, &mut rng);
                 lift(Skill::Alchemy, 10.0, &mut rng);
                 lift(Skill::Dodge, 8.0, &mut rng);
                 attrs[Attr::Intellect as usize] += 6.0;
             }
         }
-        // Race habits.
+        // Race habits. Everyone has a little feel for their people's style.
+        lift(MAGIC_SKILLS[race_style(race)], 4.0, &mut rng);
         match race {
             Race::Roduro => lift(Skill::Blunt, 6.0, &mut rng),
             Race::Qotiro => lift(Skill::Spear, 8.0, &mut rng),
@@ -358,7 +382,7 @@ impl Stats {
     }
 
     pub fn best_magic(&self) -> f32 {
-        [Skill::Destruction, Skill::Alteration, Skill::Illusion, Skill::Restoration].iter().map(|&s| self.skill(s)).fold(0.0, f32::max)
+        MAGIC_SKILLS.iter().map(|&s| self.skill(s)).fold(0.0, f32::max)
     }
 }
 
@@ -399,6 +423,23 @@ mod tests {
         let late = s.skill(Skill::Blade) - 80.0;
         assert!(early > 5.0, "fifty swings taught almost nothing: {early}");
         assert!(late < early / 4.0, "mastery should come slowly ({late} vs {early})");
+    }
+
+    #[test]
+    fn mages_lean_to_their_peoples_style_but_vary() {
+        // Mages of each people: their leaning style is highest on average,
+        // yet plenty of them are strongest in another.
+        for r in ALL_RACES {
+            let mages: Vec<Stats> = (0..3000u64).map(|s| Stats::generate(r, &traits(), s)).filter(|s| s.calling == Calling::Mage).collect();
+            assert!(mages.len() > 40, "{r:?}: too few mages ({})", mages.len());
+            let avg = |k: Skill| mages.iter().map(|m| m.skill(k)).sum::<f32>() / mages.len() as f32;
+            let lean = MAGIC_SKILLS[race_style(r)];
+            for other in MAGIC_SKILLS.iter().filter(|&&k| k != lean) {
+                assert!(avg(lean) > avg(*other) + 3.0, "{r:?}: {lean:?} {} vs {other:?} {}", avg(lean), avg(*other));
+            }
+            let strayed = mages.iter().filter(|m| MAGIC_SKILLS.iter().any(|&k| k != lean && m.skill(k) > m.skill(lean))).count();
+            assert!(strayed * 6 > mages.len(), "{r:?}: only {strayed} of {} mages are best at another style", mages.len());
+        }
     }
 
     #[test]

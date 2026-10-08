@@ -77,7 +77,7 @@ fn fighting_trains_skills() {
     let after = fight_world(1, 3, 0.25);
     let gained = after.squad.members.iter().any(|&m| {
         let (a, b) = (&before.people[m as usize].stats, &after.people[m as usize].stats);
-        [Skill::Blunt, Skill::Spear, Skill::Dodge, Skill::Block, Skill::Destruction, Skill::Illusion, Skill::Alteration].iter().any(|&s| b.skill(s) > a.skill(s) + 0.05)
+        [Skill::Blunt, Skill::Spear, Skill::Dodge, Skill::Block, Skill::Felt, Skill::Structured].iter().any(|&s| b.skill(s) > a.skill(s) + 0.05)
     });
     assert!(gained, "nobody learned anything from the fight");
 }
@@ -105,7 +105,7 @@ fn total_hp(f: &Fighter) -> f32 {
 }
 
 fn mage() -> Person {
-    let mut p = person(1, Race::Tadoro, Calling::Mage, &[(Skill::Destruction, 100.0), (Skill::Alteration, 100.0), (Skill::Illusion, 100.0), (Skill::Restoration, 100.0)], 60.0);
+    let mut p = person(1, Race::Tadoro, Calling::Mage, &[(Skill::Structured, 100.0), (Skill::Felt, 100.0)], 60.0);
     p.stats.set_attr(gahturiyu_sim::sim::stats::Attr::Willpower, 100.0);
     p.mana = 500.0;
     p
@@ -304,7 +304,7 @@ fn better_armed_fighters_usually_win() {
 #[test]
 fn healing_mends_wounds_and_gets_the_downed_up() {
     let mut caster = mage();
-    caster.stats.set_skill(Skill::Restoration, 100.0);
+    caster.stats.set_skill(Skill::Felt, 100.0);
     caster.recompute_might();
     let mut b = duel(caster, brute(2), 3.0);
     // Make the second fighter a downed friend.

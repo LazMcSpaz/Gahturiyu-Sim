@@ -54,7 +54,8 @@ fn walking_up_by_day_gets_you_noticed() {
     let at = w.squad.pos.add(V2::new(28.0, 0.0));
     w.spawn_bandits(at, 3, false);
     watch(&mut w, 15.0);
-    assert!(w.squad_battle().is_some(), "bandits 28 m away at noon should spot you");
+    // (The fight may already be over.)
+    assert!(w.squad_battle().is_some() || w.alerts.iter().any(|a| a.contains("attacked")), "bandits 28 m away at noon should spot you");
 }
 
 #[test]
@@ -341,3 +342,4 @@ fn camps_spot_torch_bearers_from_further_at_night() {
     let near = Leg::along(vec![camp.add(V2::new(-600.0, 50.0)), camp.add(V2::new(600.0, 50.0))], 12.0 * HOUR, 1.3, None, &w.terrain);
     assert!(camp_sees(&near, camp).is_some());
 }
+
