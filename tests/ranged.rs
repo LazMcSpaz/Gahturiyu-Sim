@@ -142,3 +142,29 @@ fn camps_have_archers() {
         .count();
     assert!(archers >= 3, "{archers} archers in camps");
 }
+
+#[test]
+fn every_shot_leaves_an_arrow_to_draw() {
+    use gahturiyu_sim::sim::combat::FxKind;
+    let mut a = Fighter::from_person(&archer(1, false), 0, V2::new(0.0, 0.0), 0.0);
+    let mut d = Fighter::from_person(&target(2), 1, V2::new(22.0, 0.0), 0.0);
+    d.think_at = f64::INFINITY;
+    d.hp = [1e5; 6];
+    a.target = Some(1);
+    a.think_at = f64::INFINITY;
+    let mut b = battle(a, d);
+    for _ in 0..1200 {
+        b.tick();
+    }
+    let arrows: Vec<(V2, V2, bool)> = b.fx.iter().filter_map(|f| if let FxKind::Arrow { from, to, hit } = f.kind { Some((from, to, hit)) } else { None }).collect();
+    assert_eq!(arrows.len() as u16, b.fighters[0].shots, "one arrow per shot");
+    assert!(arrows.iter().any(|a| a.2) && arrows.iter().any(|a| !a.2), "some hit, some miss");
+    for (from, to, hit) in arrows {
+        assert!(from.dist(V2::default()) < 0.5);
+        if hit {
+            assert!(to.dist(V2::new(22.0, 0.0)) < 0.5, "hits land on the target");
+        } else {
+            assert!(to.x > 22.0, "misses come down past the target: {to:?}");
+        }
+    }
+}

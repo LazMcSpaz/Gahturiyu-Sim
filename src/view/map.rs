@@ -178,6 +178,14 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, re
                     let (a, b) = (cam.to_screen(from), cam.to_screen(to));
                     draw_line(a.x, a.y, b.x, b.y, 3.0, Color::new(0.85, 0.9, 1.0, 1.0 - age));
                 }
+                gahturiyu_sim::sim::combat::FxKind::Arrow { from, to, .. } => {
+                    let fly = from.dist(to) / 45.0;
+                    if age < fly {
+                        let u = age / fly;
+                        let (a, b) = (cam.to_screen(from.lerp(to, u)), cam.to_screen(from.lerp(to, (u + 0.08).min(1.0))));
+                        draw_line(a.x, a.y, b.x, b.y, 2.0, Color::new(0.95, 0.9, 0.75, 1.0));
+                    }
+                }
                 _ => {}
             }
         }

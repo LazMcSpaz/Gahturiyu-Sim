@@ -39,6 +39,10 @@ const TIMBER: Color = Color::new(0.36, 0.27, 0.18, 1.0);
 const GOLD: Color = Color::new(0.95, 0.76, 0.28, 1.0);
 const EMBER: Color = Color::new(1.0, 0.62, 0.26, 1.0);
 const TENT: Color = Color::new(0.62, 0.64, 0.74, 1.0);
+/// How fast an arrow is drawn flying, m/s (drawing only).
+const ARROW_SPEED: f32 = 45.0;
+/// How long a missed arrow lies on the ground, seconds (drawing only).
+const ARROW_LIES: f32 = 20.0;
 const NIGHT_SKY: Color = Color::new(0.04, 0.05, 0.10, 1.0);
 const CAMP_HIDE: Color = Color::new(0.42, 0.24, 0.18, 1.0);
 
@@ -444,6 +448,29 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
                 FxKind::Fizzle { at } => {
                     b.glow(to3(at, on_ground(at) + 2.2), 0.8, 0.8, 0.0, Color::new(0.6, 0.6, 0.7, 1.0));
                 }
+                FxKind::Arrow { .. } => {}
+            }
+        }
+    }
+
+    // Arrows in flight, and misses lying where they came down.
+    for battle in &w.battles {
+        for fx in &battle.fx {
+            if let FxKind::Arrow { from, to, hit } = fx.kind {
+                let age = (w.time - fx.at) as f32;
+                let len = from.dist(to).max(0.1);
+                let fly = len / ARROW_SPEED;
+                if age < 0.0 || age > fly + if hit { 0.0 } else { ARROW_LIES } {
+                    continue;
+                }
+                let u = (age / fly).min(1.0);
+                let p = from.lerp(to, u);
+                let arc = 4.0 * len * 0.05 * u * (1.0 - u);
+                let h = if u < 1.0 { on_ground(p) + 1.4 + arc - 0.4 * u } else { on_ground(p) + 0.05 };
+                let a = (to.y - from.y).atan2(to.x - from.x);
+                let kk = k.min(3.0);
+                b.block(to3(p, h), 0.9 * kk, 0.06 * kk, 0.06 * kk, a, Color::new(0.55, 0.42, 0.28, 1.0));
+                b.glow(to3(p.add(V2::new(a.cos(), a.sin()).scale(-0.45 * kk)), h + 0.03 * kk), 0.12 * kk, 0.12 * kk, a + 1.57, Color::new(0.9, 0.9, 0.85, 1.0));
             }
         }
     }

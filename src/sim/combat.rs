@@ -302,6 +302,10 @@ pub enum FxKind {
     Fireball { at: V2, radius: f32 },
     Bolt { from: V2, to: V2 },
     Fizzle { at: V2 },
+    /// An arrow or bolt in flight: loosed at `from`, coming down at `to`.
+    /// `hit` is whether it struck (or was blocked by) the target; a miss lands
+    /// a little past them and lies there.
+    Arrow { from: V2, to: V2, hit: bool },
 }
 
 /// A visual moment for the window to show.
@@ -570,6 +574,16 @@ impl Battle {
         let far = if shot { 1.0 - 0.35 * dist / weapon.range.max(1.0) } else { 1.0 };
         let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far;
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
+        if shot {
+            // Only for drawing. A miss comes down a few metres past the target,
+            // placed from dice already rolled so nothing else shifts.
+            let hit = r_hit <= p_hit;
+            let (from, at) = (att.pos, def.pos);
+            let dir = at.sub(from).scale(1.0 / dist.max(0.01));
+            let to = if hit { at } else { at.add(dir.scale(2.0 + r_part * 6.0)).add(V2::new(-dir.y, dir.x).scale((r_dmg - 0.5) * 3.0)) };
+            self.fx.push(Fx { kind: FxKind::Arrow { from, to, hit }, at: self.time });
+        }
+        let att = &self.fighters[a];
         let strength = att.stats.attr(Attr::Strength);
         self.fighters[a].fatigue -= 3.0 + weapon.windup * 4.0;
 
