@@ -1,36 +1,40 @@
-//! Making things: potions, scrolls, weapons and armour.
+//! Making things, the squad's way: at a station, from what's in the pack.
 //!
-//! Four crafts, each with its own skill and place to work:
+//! Seven crafts, each a skill with its own station:
 //!
-//! | Craft | Skill | Where |
+//! | Craft | Makes | Station |
 //! |---|---|---|
-//! | Potions | Alchemy | anywhere with a mortar and pestle, or at an alchemy table |
-//! | Scrolls | Inscription | a scribe's desk |
-//! | Weapons (and smelting) | Smithing | a forge |
-//! | Armour (and tanning) | Armoring | an armourer's bench (a forge for iron pieces) |
+//! | Handcraft | leather, cloth and wood: the shared basics | workbench |
+//! | Smithing | ingots, fire-metal weapons, glass, gold | forge |
+//! | Armoring | fire-metal armour and shields | forge, armourer's bench |
+//! | Weaving | reed, shell, fishskin and tentsilk; sealing with pitch | weaver's frame |
+//! | Tending | grown stone (days to months in the bed) | grower's bed |
+//! | Inscription | paper, ink, scrolls, manuals | scribe's desk |
+//! | Alchemy | potions | alchemy table, or a mortar and pestle anywhere |
 //!
-//! Every town has the four stations, set up in its workplaces (a workyard,
-//! healing house and letters house where services are combined, separate
-//! shops where they're split). The squad works them itself, so they're
-//! usable whether or not the town's crafter is at work. A recipe takes its
+//! A squad member can only work a craft they've taken up (from a crafter's
+//! lessons or a manual, `making.rs`); practice raises it from there. The
+//! same recipes are what the towns' crafters work from. A recipe takes its
 //! materials up front and some game time at the station; then a keyed roll
-//! against skill and difficulty decides whether it worked. A botched job
-//! gives half the materials back. Either way the skill improves (more for a
-//! success).
+//! against skill and difficulty decides whether it worked (a botched job
+//! gives half the materials back), and another sets the grade of a piece.
+//! Pieces carry the maker's mark. Stone grows only while its grower comes
+//! by the bed: each dawn they're away adds a day.
 //!
-//! Materials come from the land — kelp on the coast, emberroot and salt on
-//! the Qotiro plateau, ore and storm glass in the mountains, deadwood
-//! anywhere — and from what people keep at home. A picked spot grows back
-//! after a day.
+//! Stations are set up in the towns' workplaces and free to use. Materials
+//! come from merchants, and from the land — kelp on the coast, emberroot and
+//! salt on the Qotiro plateau, ore and storm glass in the mountains, deadwood
+//! anywhere. A picked spot grows back after a day.
 
 use serde::{Deserialize, Serialize};
 
 use super::geo::{self, V2};
 use super::items::{self, item, ItemId, Kind};
+use super::materials::{Craft, Grade, Material, Mark, Piece, MARK_SKILL};
 use super::person::PersonId;
 use super::rng::Rng;
 use super::stats::Skill;
-use super::world::{World, DAY};
+use super::world::{World, DAY, HOUR};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Station {
@@ -64,8 +68,12 @@ pub const STATIONS: [Station; 7] = [Station::Forge, Station::Bench, Station::Des
 
 /// How close to a station you must stand to use it, metres.
 pub const AT_STATION: f32 = 3.0;
+/// A grower must be this near their bed at dawn for the stone to have grown
+/// that day (they've been round to tend it).
+pub const TENDING_REACH: f32 = 200.0;
 
 pub struct Recipe {
+    /// An item key; for a piece (a weapon, armour), its form.
     pub output: &'static str,
     pub makes: u16,
     pub inputs: &'static [(&'static str, u16)],
@@ -73,41 +81,176 @@ pub struct Recipe {
     /// Skill at which it works about four times in five.
     pub difficulty: f32,
     pub station: Station,
-    /// Game seconds at the station.
+    /// Game seconds at the station (for the squad; a town's crafters work
+    /// in hours, see `npc_hours`).
     pub time: f64,
+    /// For a piece: what it's made of (`None`: the form's usual material).
+    pub main: Material,
+    pub second: Material,
 }
 
 const fn r(output: &'static str, makes: u16, inputs: &'static [(&'static str, u16)], skill: Skill, difficulty: f32, station: Station, time: f64) -> Recipe {
-    Recipe { output, makes, inputs, skill, difficulty, station, time }
+    Recipe { output, makes, inputs, skill, difficulty, station, time, main: M::None, second: M::None }
 }
 
+/// A piece in these materials.
+const fn p(form: &'static str, main: Material, second: Material, inputs: &'static [(&'static str, u16)], skill: Skill, difficulty: f32, station: Station, time: f64) -> Recipe {
+    Recipe { output: form, makes: 1, inputs, skill, difficulty, station, time, main, second }
+}
+
+use super::materials::Material as M;
+use Skill as K;
+use Station as S;
+
+/// Grown things take days at the bed.
+const D: f64 = DAY;
+
+/// Every recipe, for your squad and the towns' crafters alike. Grown stone
+/// is grown from rock feedstock and ash (and a seed crystal for Edgeglass);
+/// its times are growing times.
 pub static RECIPES: &[Recipe] = &[
+    // Smithing. (The knife stays first: tests look it up by name.)
+    p("knife", M::PlainIron, M::None, &[("iron_ingot", 1), ("leather", 1)], K::Smithing, 10.0, S::Forge, 90.0),
+    r("iron_ingot", 1, &[("iron_ore", 2), ("charcoal", 2)], K::Smithing, 5.0, S::Forge, 60.0),
+    r("bronze_ingot", 1, &[("iron_ore", 1), ("charcoal", 1)], K::Smithing, 5.0, S::Forge, 45.0),
+    p("hatchet", M::PlainIron, M::None, &[("iron_ingot", 1), ("timber", 1)], K::Smithing, 10.0, S::Forge, 90.0),
+    p("spear", M::Bronze, M::None, &[("bronze_ingot", 1), ("timber", 2)], K::Smithing, 15.0, S::Forge, 100.0),
+    p("short_sword", M::Bronze, M::None, &[("bronze_ingot", 2), ("leather", 1)], K::Smithing, 20.0, S::Forge, 120.0),
+    p("spear", M::Forgeiron, M::None, &[("iron_ingot", 1), ("timber", 2)], K::Smithing, 20.0, S::Forge, 120.0),
+    p("short_sword", M::Forgeiron, M::None, &[("iron_ingot", 2), ("leather", 1)], K::Smithing, 30.0, S::Forge, 150.0),
+    p("war_pick", M::Forgeiron, M::None, &[("iron_ingot", 3), ("timber", 1)], K::Smithing, 40.0, S::Forge, 180.0),
+    p("longsword", M::Forgeiron, M::None, &[("iron_ingot", 3), ("leather", 1)], K::Smithing, 50.0, S::Forge, 210.0),
+    p("crossbow", M::Forgeiron, M::None, &[("iron_ingot", 2), ("timber", 2)], K::Smithing, 45.0, S::Forge, 200.0),
+    // Two traditions: an Edgeglass edge (from a Tender) on a Forgeiron spine.
+    p("longsword", M::Edgeglass, M::Forgeiron, &[("edgeglass", 1), ("iron_ingot", 2), ("leather", 1)], K::Smithing, 65.0, S::Forge, 240.0),
+    r("sandglass_flask", 1, &[("sand", 2), ("charcoal", 1)], K::Smithing, 15.0, S::Forge, 60.0),
+    r("gold_ring", 1, &[("gold_nugget", 2)], K::Smithing, 30.0, S::Forge, 90.0),
+    // Armouring.
+    p("iron_helm", M::Bronze, M::None, &[("bronze_ingot", 2), ("leather", 1)], K::Armoring, 20.0, S::Forge, 120.0),
+    p("iron_helm", M::Forgeiron, M::None, &[("iron_ingot", 2), ("leather", 1)], K::Armoring, 35.0, S::Forge, 150.0),
+    p("sandstone_lamellar", M::Bronze, M::None, &[("bronze_ingot", 4), ("leather", 2)], K::Armoring, 30.0, S::Forge, 240.0),
+    p("scale_hauberk", M::Forgeiron, M::None, &[("iron_ingot", 6), ("leather", 2)], K::Armoring, 55.0, S::Forge, 300.0),
+    p("scale_greaves", M::Forgeiron, M::None, &[("iron_ingot", 3), ("leather", 1)], K::Armoring, 40.0, S::Forge, 180.0),
+    p("buckler", M::Bronze, M::None, &[("bronze_ingot", 1), ("timber", 2)], K::Armoring, 20.0, S::Bench, 120.0),
+    p("kite_shield", M::Forgeiron, M::None, &[("iron_ingot", 3), ("timber", 2)], K::Armoring, 40.0, S::Bench, 200.0),
+    // Leather, cloth and wood: the shared basics.
+    r("leather", 1, &[("hide", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    r("cloth", 1, &[("fibre", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    p("leather_cap", M::Leather, M::None, &[("leather", 1)], K::Handcraft, 8.0, S::Workbench, 60.0),
+    p("leather_gloves", M::Leather, M::None, &[("leather", 1)], K::Handcraft, 10.0, S::Workbench, 60.0),
+    p("boots", M::Leather, M::None, &[("leather", 2)], K::Handcraft, 10.0, S::Workbench, 90.0),
+    p("hide_coat", M::Leather, M::None, &[("leather", 3)], K::Handcraft, 20.0, S::Workbench, 120.0),
+    p("hide_leggings", M::Leather, M::None, &[("leather", 2)], K::Handcraft, 15.0, S::Workbench, 100.0),
+    p("cloth_shirt", M::Cloth, M::None, &[("cloth", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    p("trousers", M::Cloth, M::None, &[("cloth", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    p("padded_jacket", M::Cloth, M::None, &[("cloth", 4)], K::Handcraft, 15.0, S::Workbench, 120.0),
+    p("small_pack", M::Leather, M::None, &[("leather", 2)], K::Handcraft, 10.0, S::Workbench, 90.0),
+    p("large_pack", M::Leather, M::None, &[("leather", 4)], K::Handcraft, 25.0, S::Workbench, 150.0),
+    p("club", M::Wood, M::None, &[("timber", 1)], K::Handcraft, 3.0, S::Workbench, 40.0),
+    p("staff", M::Wood, M::None, &[("timber", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    p("spear", M::Wood, M::None, &[("timber", 2)], K::Handcraft, 8.0, S::Workbench, 60.0),
+    p("short_bow", M::Wood, M::None, &[("timber", 2), ("fibre", 1)], K::Handcraft, 20.0, S::Workbench, 120.0),
+    p("sling", M::Leather, M::None, &[("leather", 1)], K::Handcraft, 5.0, S::Workbench, 40.0),
+    p("buckler", M::Wood, M::None, &[("timber", 3)], K::Handcraft, 10.0, S::Workbench, 90.0),
+    r("torch", 2, &[("timber", 1), ("fibre", 1)], K::Handcraft, 2.0, S::Workbench, 30.0),
+    r("arrows", 10, &[("timber", 1)], K::Handcraft, 10.0, S::Workbench, 60.0),
+    r("sling_stones", 10, &[("rock", 1)], K::Handcraft, 2.0, S::Workbench, 30.0),
+    // Weaving and sealing: reed, shell, fishskin, tentsilk.
+    p("padded_jacket", M::Seareed, M::None, &[("seareed", 4), ("pitch", 1)], K::Weaving, 15.0, S::Loom, 120.0),
+    p("small_pack", M::Seareed, M::None, &[("seareed", 3), ("pitch", 1)], K::Weaving, 10.0, S::Loom, 90.0),
+    p("net", M::Seareed, M::None, &[("seareed", 4)], K::Weaving, 15.0, S::Loom, 120.0),
+    p("harpoon", M::Nacre, M::None, &[("nacre", 2), ("timber", 2)], K::Weaving, 25.0, S::Loom, 150.0),
+    p("trident", M::Nacre, M::None, &[("nacre", 3), ("timber", 2)], K::Weaving, 30.0, S::Loom, 150.0),
+    p("spear", M::Nacre, M::None, &[("nacre", 2), ("timber", 2)], K::Weaving, 25.0, S::Loom, 120.0),
+    p("knife", M::Nacre, M::None, &[("nacre", 1), ("fishskin", 1)], K::Weaving, 20.0, S::Loom, 90.0),
+    p("scale_hauberk", M::Nacre, M::Seareed, &[("nacre", 6), ("seareed", 3), ("pitch", 1)], K::Weaving, 45.0, S::Loom, 300.0),
+    // Two traditions: Nacre scales on a Slatewing frame.
+    p("scale_hauberk", M::Nacre, M::Slatewing, &[("nacre", 6), ("slatewing", 2)], K::Weaving, 60.0, S::Loom, 320.0),
+    p("hide_coat", M::Fishskin, M::None, &[("fishskin", 3)], K::Weaving, 20.0, S::Loom, 120.0),
+    p("boots", M::Fishskin, M::None, &[("fishskin", 2)], K::Weaving, 12.0, S::Loom, 90.0),
+    p("leather_cap", M::Fishskin, M::None, &[("fishskin", 1)], K::Weaving, 8.0, S::Loom, 60.0),
+    p("wraps", M::Tentsilk, M::None, &[("tentsilk", 2)], K::Weaving, 15.0, S::Loom, 90.0),
+    p("cloth_shirt", M::Tentsilk, M::None, &[("tentsilk", 2)], K::Weaving, 15.0, S::Loom, 90.0),
+    r("tent", 1, &[("tentsilk", 4)], K::Weaving, 20.0, S::Loom, 180.0),
+    r("pearl_necklace", 1, &[("pearl", 3), ("seareed", 1)], K::Weaving, 30.0, S::Loom, 120.0),
+    // Stone-tending: stock grown for the town (blanks), and pieces grown to
+    // shape, which are ordered.
+    r("hearthclay", 2, &[("clay", 2), ("ash", 1)], K::Tending, 5.0, S::GrowerBed, 4.0 * D),
+    r("ringstone", 1, &[("rock", 3), ("ash", 1)], K::Tending, 15.0, S::GrowerBed, 30.0 * D),
+    r("slatewing", 1, &[("rock", 2), ("ash", 1)], K::Tending, 25.0, S::GrowerBed, 21.0 * D),
+    r("edgeglass", 1, &[("edge_seed", 1), ("rock", 1), ("ash", 2)], K::Tending, 40.0, S::GrowerBed, 90.0 * D),
+    r("hearthclay_pot", 1, &[("clay", 1), ("ash", 1)], K::Tending, 3.0, S::GrowerBed, 4.0 * D),
+    p("stone_maul", M::Ringstone, M::None, &[("rock", 6), ("ash", 2), ("timber", 1)], K::Tending, 30.0, S::GrowerBed, 30.0 * D),
+    p("kite_shield", M::Ringstone, M::None, &[("rock", 8), ("ash", 3)], K::Tending, 35.0, S::GrowerBed, 30.0 * D),
+    p("iron_helm", M::Slatewing, M::None, &[("rock", 2), ("ash", 1), ("leather", 1)], K::Tending, 30.0, S::GrowerBed, 21.0 * D),
+    p("sandstone_lamellar", M::Slatewing, M::None, &[("rock", 6), ("ash", 3), ("leather", 2)], K::Tending, 45.0, S::GrowerBed, 21.0 * D),
+    p("scale_greaves", M::Slatewing, M::None, &[("rock", 4), ("ash", 2), ("leather", 1)], K::Tending, 35.0, S::GrowerBed, 21.0 * D),
+    p("knife", M::Edgeglass, M::None, &[("edge_seed", 1), ("ash", 2), ("leather", 1)], K::Tending, 40.0, S::GrowerBed, 90.0 * D),
+    p("short_sword", M::Edgeglass, M::None, &[("edge_seed", 2), ("ash", 3), ("leather", 1)], K::Tending, 50.0, S::GrowerBed, 90.0 * D),
+    p("spear", M::Edgeglass, M::None, &[("edge_seed", 1), ("ash", 2), ("timber", 2)], K::Tending, 45.0, S::GrowerBed, 90.0 * D),
+    // Paper, ink, scrolls and manuals.
+    r("reed_paper", 2, &[("seareed", 1)], K::Inscription, 5.0, S::Desk, 40.0),
+    r("squid_ink", 1, &[("ash", 1), ("ash_moss", 1)], K::Inscription, 8.0, S::Desk, 40.0),
+    r("scroll_heal", 1, &[("reed_paper", 1), ("squid_ink", 1), ("kelp_frond", 1)], K::Inscription, 20.0, S::Desk, 60.0),
+    r("scroll_lightning", 1, &[("reed_paper", 1), ("squid_ink", 1), ("storm_glass", 1)], K::Inscription, 35.0, S::Desk, 60.0),
+    r("scroll_paralyze", 1, &[("reed_paper", 1), ("squid_ink", 1), ("ghostcap", 2)], K::Inscription, 40.0, S::Desk, 60.0),
+    r("scroll_fireball", 1, &[("reed_paper", 1), ("squid_ink", 1), ("emberroot", 2)], K::Inscription, 45.0, S::Desk, 60.0),
+    r("manual_handcraft", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_smithing", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_armoring", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_tending", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_weaving", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_inscription", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_alchemy", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
     // Alchemy: a mortar and pestle in your pack does as well as the table.
-    r("healing_draught", 1, &[("kelp_frond", 2), ("ash_moss", 1)], Skill::Alchemy, 15.0, Station::AlchemyTable, 40.0),
-    r("mana_tonic", 1, &[("ghostcap", 2), ("salt_crystal", 1)], Skill::Alchemy, 25.0, Station::AlchemyTable, 40.0),
-    r("greater_healing", 1, &[("kelp_frond", 2), ("ghostcap", 1), ("salt_crystal", 1)], Skill::Alchemy, 45.0, Station::AlchemyTable, 60.0),
-    // Inscription.
-    r("scroll_heal", 1, &[("reed_paper", 1), ("squid_ink", 1), ("kelp_frond", 1)], Skill::Inscription, 20.0, Station::Desk, 60.0),
-    r("scroll_lightning", 1, &[("reed_paper", 1), ("squid_ink", 1), ("storm_glass", 1)], Skill::Inscription, 35.0, Station::Desk, 60.0),
-    r("scroll_paralyze", 1, &[("reed_paper", 1), ("squid_ink", 1), ("ghostcap", 2)], Skill::Inscription, 40.0, Station::Desk, 60.0),
-    r("scroll_fireball", 1, &[("reed_paper", 1), ("squid_ink", 1), ("emberroot", 2)], Skill::Inscription, 45.0, Station::Desk, 60.0),
-    // Smithing.
-    r("iron_ingot", 1, &[("iron_ore", 2)], Skill::Smithing, 5.0, Station::Forge, 60.0),
-    r("knife", 1, &[("iron_ingot", 1), ("leather", 1)], Skill::Smithing, 10.0, Station::Forge, 90.0),
-    r("spear", 1, &[("iron_ingot", 1), ("timber", 2)], Skill::Smithing, 20.0, Station::Forge, 120.0),
-    r("short_sword", 1, &[("iron_ingot", 2), ("leather", 1)], Skill::Smithing, 30.0, Station::Forge, 150.0),
-    r("war_pick", 1, &[("iron_ingot", 3), ("timber", 1)], Skill::Smithing, 40.0, Station::Forge, 180.0),
-    r("longsword", 1, &[("iron_ingot", 3), ("leather", 1)], Skill::Smithing, 50.0, Station::Forge, 210.0),
-    // Armoring.
-    r("leather", 1, &[("hide", 2)], Skill::Armoring, 5.0, Station::Bench, 60.0),
-    r("leather_cap", 1, &[("leather", 1)], Skill::Armoring, 8.0, Station::Bench, 60.0),
-    r("leather_gloves", 1, &[("leather", 1)], Skill::Armoring, 10.0, Station::Bench, 60.0),
-    r("boots", 1, &[("leather", 2)], Skill::Armoring, 10.0, Station::Bench, 90.0),
-    r("hide_coat", 1, &[("hide", 4)], Skill::Armoring, 20.0, Station::Bench, 120.0),
-    r("buckler", 1, &[("iron_ingot", 1), ("timber", 2)], Skill::Armoring, 25.0, Station::Bench, 120.0),
-    r("iron_helm", 1, &[("iron_ingot", 2), ("leather", 1)], Skill::Armoring, 35.0, Station::Forge, 150.0),
-    r("scale_hauberk", 1, &[("iron_ingot", 6), ("leather", 2)], Skill::Armoring, 55.0, Station::Forge, 300.0),
+    r("healing_draught", 1, &[("kelp_frond", 2), ("ash_moss", 1)], K::Alchemy, 15.0, S::AlchemyTable, 40.0),
+    r("mana_tonic", 1, &[("ghostcap", 2), ("salt_crystal", 1)], K::Alchemy, 25.0, S::AlchemyTable, 40.0),
+    r("greater_healing", 1, &[("kelp_frond", 2), ("ghostcap", 1), ("salt_crystal", 1)], K::Alchemy, 45.0, S::AlchemyTable, 60.0),
 ];
+
+/// How many beds one Tender keeps growing at once (a town's Tenders grow
+/// stock in parallel; your squad grows one thing at a time).
+pub const TENDER_BEDS: f32 = 40.0;
+
+impl Recipe {
+    pub fn craft(&self) -> Craft {
+        Craft::of_skill(self.skill).unwrap_or(Craft::Handcraft)
+    }
+
+    /// Does it make a piece (a weapon or armour that wears and carries a mark)?
+    pub fn is_piece(&self) -> bool {
+        items::FORMS.iter().any(|f| f.key == self.output)
+    }
+
+    /// Grown to shape: only ever made to order.
+    pub fn is_grown_piece(&self) -> bool {
+        self.skill == Skill::Tending && self.is_piece()
+    }
+
+    /// The item it makes at this grade.
+    pub fn item(&self, grade: Grade) -> ItemId {
+        let id = items::id(self.output);
+        if !self.is_piece() {
+            return id;
+        }
+        let main = if self.main == M::None { items::info(id).main } else { self.main };
+        items::variant(id, main, self.second, grade).unwrap_or(id)
+    }
+
+    /// Hours a town's crafter spends on it.
+    pub fn npc_hours(&self) -> f32 {
+        if self.skill == Skill::Tending {
+            (self.time / HOUR) as f32 / TENDER_BEDS
+        } else {
+            (self.time / 60.0) as f32
+        }
+    }
+
+    /// Does it seal what it makes? (Woven reed made with pitch.)
+    pub fn seals(&self) -> bool {
+        self.inputs.iter().any(|i| i.0 == "pitch")
+    }
+}
 
 /// Chance a job comes out right.
 pub fn success_chance(skill: f32, difficulty: f32) -> f32 {
@@ -122,6 +265,9 @@ pub struct Job {
     pub done_at: f64,
     /// Which job this is for them (keys the roll).
     pub n: u64,
+    /// Stone being grown: the bed it's in (it only grows while tended).
+    #[serde(default)]
+    pub bed: Option<V2>,
 }
 
 /// A spot where something can be gathered.
@@ -147,6 +293,8 @@ pub enum Cannot {
     Missing(&'static str, u16),
     NoStation(Station),
     Busy,
+    /// They haven't taken up the craft (a teacher or a manual first).
+    Unknown(Craft),
 }
 
 impl World {
@@ -254,8 +402,14 @@ impl World {
     /// Can this person make recipe `ri` where they stand?
     pub fn can_craft(&self, who: PersonId, ri: usize) -> Result<(), Cannot> {
         let rc = &RECIPES[ri];
-        if self.crafting.iter().any(|j| j.who == who) || self.fighting.contains_key(&who) {
+        // Stone grows on its own while tended, so it doesn't keep its
+        // grower from other work; one bed at a time, though.
+        let growing = |j: &Job| RECIPES[j.recipe].skill == Skill::Tending;
+        if self.crafting.iter().any(|j| j.who == who && growing(j) == (rc.skill == Skill::Tending)) || self.fighting.contains_key(&who) {
             return Err(Cannot::Busy);
+        }
+        if !self.knows_craft(who, rc.craft()) {
+            return Err(Cannot::Unknown(rc.craft()));
         }
         for &(k, n) in rc.inputs {
             if self.count_of(who, k) < n {
@@ -282,9 +436,10 @@ impl World {
             }
         }
         self.people[who as usize].recompute_might();
+        let bed = (rc.skill == Skill::Tending).then(|| self.station_near(self.person_pos(who), Station::GrowerBed)).flatten();
         let n = self.crafted_count.entry(who).or_insert(0);
         *n += 1;
-        let job = Job { who, recipe: ri, done_at: self.time + rc.time, n: *n };
+        let job = Job { who, recipe: ri, done_at: self.time + rc.time, n: *n, bed };
         self.crafting.push(job);
         Ok(())
     }
@@ -303,16 +458,24 @@ impl World {
             let rc = &RECIPES[j.recipe];
             let p = &self.people[j.who as usize];
             let skill = p.effective_stats().skill(rc.skill);
-            let roll = Rng::from_keys(&[self.seed, j.who as u64, j.n, 0x4352_4146]).f32();
+            let mut roll = Rng::from_keys(&[self.seed, j.who as u64, j.n, 0x4352_4146]);
             let name = p.name().unwrap_or("someone").to_string();
-            let ok = roll < success_chance(skill, rc.difficulty);
+            let ok = roll.f32() < success_chance(skill, rc.difficulty);
+            let grade = Grade::from(skill, 1.0, roll.f32());
+            let at = j.bed.unwrap_or_else(|| self.person_pos(j.who));
+            let town = self.town_at(at);
             let p = &mut self.people[j.who as usize];
             p.stats.exercise(rc.skill, if ok { 2.0 } else { 0.8 });
             let line = if ok {
+                let id = rc.item(grade);
                 if let Some(d) = p.detail.as_mut() {
-                    d.gear.add(items::id(rc.output), rc.makes);
+                    if rc.is_piece() {
+                        d.gear.add_piece(id, made_piece(id, j.who, town, skill, rc.seals(), j.done_at));
+                    } else {
+                        d.gear.add(id, rc.makes);
+                    }
                 }
-                format!("{name} makes {}.", item(items::id(rc.output)).name.to_lowercase())
+                format!("{name} makes {}.", item(id).name.to_lowercase())
             } else {
                 if let Some(d) = p.detail.as_mut() {
                     for &(k, n) in rc.inputs {
@@ -321,7 +484,7 @@ impl World {
                         }
                     }
                 }
-                format!("{name} botches the {}.", item(items::id(rc.output)).name.to_lowercase())
+                format!("{name} botches the {}.", item(rc.item(Grade::Common)).name.to_lowercase())
             };
             p.recompute_might();
             self.log.push_front((j.done_at, line));
@@ -329,9 +492,27 @@ impl World {
         }
     }
 
+    /// The town a spot is in or beside, if any.
+    pub fn town_at(&self, p: V2) -> Option<u16> {
+        self.settlements.iter().filter(|s| s.pos.dist(p) <= s.reach + 150.0).min_by(|a, b| a.pos.dist(p).total_cmp(&b.pos.dist(p))).map(|s| s.id)
+    }
+
+    /// At dawn: stone that went untended for a day grew no further.
+    pub(super) fn tend_beds(&mut self, t: f64) {
+        for k in 0..self.crafting.len() {
+            let j = self.crafting[k];
+            let Some(bed) = j.bed else { continue };
+            let here = self.squad.index(j.who).map(|i| self.squad.at[i].dist(bed) <= TENDING_REACH).unwrap_or(false);
+            if !here && j.done_at > t {
+                self.crafting[k].done_at += DAY;
+            }
+        }
+    }
+
     /// How far along someone's job is, 0..1.
     pub fn craft_progress(&self, who: PersonId) -> Option<f32> {
-        let j = self.crafting.iter().find(|j| j.who == who)?;
+        // Work at a station shows before stone growing in a bed.
+        let j = self.crafting.iter().filter(|j| j.who == who).min_by_key(|j| j.bed.is_some())?;
         let total = RECIPES[j.recipe].time;
         Some((1.0 - (j.done_at - self.time) / total).clamp(0.0, 1.0) as f32)
     }
@@ -355,6 +536,9 @@ impl World {
         }
         if matches!(item(it).kind, Kind::Notes(_) | Kind::Text(_)) {
             return self.read_lore(who, it);
+        }
+        if let Kind::Manual(_) = item(it).kind {
+            return self.study(who, it);
         }
         // A potion's own effects, or a scroll's spell (no energy, can't fail).
         let effects: &[super::effects::Effect] = match item(it).kind {
@@ -400,4 +584,14 @@ pub fn mend(hp: &mut [f32; 6], stats: &super::stats::Stats, mut amount: f32) {
         hp[i] += give;
         amount -= give;
     }
+}
+
+/// A newly made piece: full durability, the maker's mark (stamped when the
+/// work is fine or the maker skilled), sealed if pitch went into it.
+pub fn made_piece(id: ItemId, maker: PersonId, town: Option<u16>, skill: f32, sealed: bool, t: f64) -> Piece {
+    let grade = items::info(id).grade;
+    let mut pc = super::wear::fresh(id, t);
+    pc.mark = Some(Mark { maker, town, stamped: grade >= Grade::Fine || skill >= MARK_SKILL });
+    pc.sealed = sealed && items::info(id).main.def().rots;
+    pc
 }

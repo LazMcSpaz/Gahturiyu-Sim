@@ -32,6 +32,7 @@ fn fingerprint(w: &World) -> String {
     s += &sorted(&w.cast_count);
     s += &format!("{:?} {:?} {:?} {:?}\n", w.rituals, w.circles, w.boons, w.wards);
     s += &format!("{:?}\n{:?}\n", w.society, w.stations);
+    s += &format!("{:?} {:?} {:?}\n", w.crafting, w.orders, w.lessons);
     s
 }
 

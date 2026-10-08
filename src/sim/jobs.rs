@@ -145,18 +145,38 @@ impl Job {
         !matches!(self, Job::None | Job::Labourer | Job::Drifter)
     }
 
-    /// What one hour of this work adds to the town's stockpile.
-    pub fn yields(self) -> Option<(Good, f32)> {
-        Some(match self {
-            Job::Farmer => (Good::Grain, FARM_PER_HOUR),
-            Job::Fisher => (Good::Fish, FISH_PER_HOUR),
-            Job::KelpGatherer => (Good::Kelp, KELP_PER_HOUR),
-            Job::Forager => (Good::Game, 0.3),
-            Job::Woodcutter => (Good::Timber, 0.6),
-            Job::Boatwright => (Good::Wares, 0.12),
-            Job::Labourer => (Good::Stone, 0.15),
-            _ => return None,
-        })
+    /// What an hour of this work brings into the town's store, given what
+    /// the land round town offers (`src`, by good, 0..1) and whether it's
+    /// worked from the stilts. (Crafters and charcoal burners turn one thing
+    /// into another instead; see `making.rs`.)
+    pub fn gathers(self, src: &[f32], offshore: bool) -> Vec<(Good, f32)> {
+        let s = |g: Good| src.get(g.index()).copied().unwrap_or(0.0);
+        match self {
+            Job::Farmer => vec![(Good::Grain, FARM_PER_HOUR), (Good::Fibre, 0.12)],
+            Job::Fisher => {
+                if offshore {
+                    // Divers: the catch goes by the dawn boats; shell, pearl
+                    // and what lies on the seabed go into the store.
+                    vec![(Good::Fishskin, 0.06), (Good::Nacre, 0.05 * s(Good::Nacre)), (Good::Pearl, 0.004 * s(Good::Pearl)), (Good::Salvage, 0.015 * s(Good::Salvage))]
+                } else {
+                    vec![(Good::Fish, FISH_PER_HOUR), (Good::Fishskin, 0.06)]
+                }
+            }
+            Job::KelpGatherer => vec![(Good::Kelp, KELP_PER_HOUR), (Good::Seareed, 0.3 * s(Good::Seareed).max(0.3))],
+            Job::Forager => vec![(Good::Game, 0.3), (Good::Hides, 0.06), (Good::Herbs, 0.05), (Good::Tentsilk, 0.03 * s(Good::Tentsilk))],
+            // Woodcutters and quarriers split their hours over what the land offers.
+            Job::Woodcutter => {
+                let total: f32 = DIG.iter().map(|d| s(d.0)).sum();
+                if total <= 0.0 {
+                    return vec![(Good::Timber, 0.6)];
+                }
+                DIG.iter().filter(|d| s(d.0) > 0.0).map(|&(g, r)| (g, r * s(g) / total)).collect()
+            }
+            Job::Boatwright => vec![(Good::Wares, 0.12)],
+            Job::Labourer if offshore => vec![(Good::Kelp, KELP_PER_HOUR * 0.4)],
+            Job::Labourer => vec![(Good::Rock, 0.15 * s(Good::Rock).max(0.3)), (Good::Clay, 0.05 * s(Good::Clay))],
+            _ => vec![],
+        }
     }
 
     /// The service the squad can use while this worker is at work.
@@ -239,25 +259,102 @@ pub const KELP_PER_HOUR: f32 = 0.5;
 pub const MEALS_PER_COOK_HOUR: f32 = 5.5;
 /// Meal pots one runner carries out on a midday round, person-days.
 pub const POTS_PER_RUN: f32 = 30.0;
+/// What a woodcutter or quarrier brings in an hour of each, where the land
+/// offers it fully (their hours split by how much each is on offer).
+pub const DIG: [(Good, f32); 8] = [
+    (Good::Timber, 0.6),
+    (Good::Rock, 0.6),
+    (Good::Ore, 0.8),
+    (Good::Clay, 0.5),
+    (Good::Sand, 0.6),
+    (Good::Pitch, 0.15),
+    (Good::Gold, 0.02),
+    (Good::EdgeSeed, 0.01),
+];
 
 // --- Goods -------------------------------------------------------------------
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Good {
     Grain,
     Fish,
     Kelp,
     Game,
     Timber,
-    Stone,
+    /// Rock feedstock: building stone, and what the Tenders grow stone from.
+    Rock,
     Hides,
     Herbs,
-    /// Made things: tools, torches, draughts, fittings.
+    /// Made things sold by the piece: torches, draughts, pots, arrows.
     Wares,
+    // Raw materials (Part 2).
+    Ore,
+    Charcoal,
+    Ash,
+    Clay,
+    Sand,
+    Gold,
+    EdgeSeed,
+    Seareed,
+    Pitch,
+    Nacre,
+    Pearl,
+    Fishskin,
+    Salvage,
+    Tentsilk,
+    Fibre,
+    // Worked materials.
+    Leather,
+    Cloth,
+    /// Forgeiron ingots.
+    Ingots,
+    Bronze,
+    Paper,
+    Ink,
+    // Grown stone, from the Tenders' beds.
+    Ringstone,
+    Slatewing,
+    Edgeglass,
+    Hearthclay,
 }
 
-pub const N_GOODS: usize = 9;
-pub const GOODS: [Good; N_GOODS] = [Good::Grain, Good::Fish, Good::Kelp, Good::Game, Good::Timber, Good::Stone, Good::Hides, Good::Herbs, Good::Wares];
+pub const N_GOODS: usize = 34;
+pub const GOODS: [Good; N_GOODS] = [
+    Good::Grain,
+    Good::Fish,
+    Good::Kelp,
+    Good::Game,
+    Good::Timber,
+    Good::Rock,
+    Good::Hides,
+    Good::Herbs,
+    Good::Wares,
+    Good::Ore,
+    Good::Charcoal,
+    Good::Ash,
+    Good::Clay,
+    Good::Sand,
+    Good::Gold,
+    Good::EdgeSeed,
+    Good::Seareed,
+    Good::Pitch,
+    Good::Nacre,
+    Good::Pearl,
+    Good::Fishskin,
+    Good::Salvage,
+    Good::Tentsilk,
+    Good::Fibre,
+    Good::Leather,
+    Good::Cloth,
+    Good::Ingots,
+    Good::Bronze,
+    Good::Paper,
+    Good::Ink,
+    Good::Ringstone,
+    Good::Slatewing,
+    Good::Edgeglass,
+    Good::Hearthclay,
+];
 /// Food goods, in the order they're eaten (what spoils first, first).
 pub const FOODS: [Good; 4] = [Good::Kelp, Good::Fish, Good::Game, Good::Grain];
 
@@ -272,16 +369,41 @@ impl Good {
             Good::Kelp => "Kelp",
             Good::Game => "Game",
             Good::Timber => "Timber",
-            Good::Stone => "Stone",
+            Good::Rock => "Rock",
             Good::Hides => "Hides",
             Good::Herbs => "Herbs",
             Good::Wares => "Wares",
+            Good::Ore => "Ore",
+            Good::Charcoal => "Charcoal",
+            Good::Ash => "Ash",
+            Good::Clay => "Clay",
+            Good::Sand => "Sand",
+            Good::Gold => "Gold",
+            Good::EdgeSeed => "Edgeglass seed",
+            Good::Seareed => "Seareed",
+            Good::Pitch => "Pitch",
+            Good::Nacre => "Nacre",
+            Good::Pearl => "Pearls",
+            Good::Fishskin => "Fishskin",
+            Good::Salvage => "Salvage",
+            Good::Tentsilk => "Tentsilk",
+            Good::Fibre => "Fibre",
+            Good::Leather => "Leather",
+            Good::Cloth => "Cloth",
+            Good::Ingots => "Forgeiron ingots",
+            Good::Bronze => "Bronze",
+            Good::Paper => "Scrollpaper",
+            Good::Ink => "Ink",
+            Good::Ringstone => "Ringstone",
+            Good::Slatewing => "Slatewing",
+            Good::Edgeglass => "Edgeglass",
+            Good::Hearthclay => "Hearthclay",
         }
     }
     pub fn is_food(self) -> bool {
         FOODS.contains(&self)
     }
-    /// What a unit is worth, coin.
+    /// What a unit is worth, coin (for a material, what one of it is worth).
     pub fn value(self) -> f32 {
         match self {
             Good::Grain => 2.0,
@@ -289,10 +411,35 @@ impl Good {
             Good::Kelp => 1.5,
             Good::Game => 4.0,
             Good::Timber => 3.0,
-            Good::Stone => 2.0,
+            Good::Rock => 1.0,
             Good::Hides => 6.0,
             Good::Herbs => 3.0,
             Good::Wares => 10.0,
+            Good::Ore => 4.0,
+            Good::Charcoal => 2.0,
+            Good::Ash => 1.0,
+            Good::Clay => 1.0,
+            Good::Sand => 0.5,
+            Good::Gold => 45.0,
+            Good::EdgeSeed => 40.0,
+            Good::Seareed => 2.0,
+            Good::Pitch => 4.0,
+            Good::Nacre => 12.0,
+            Good::Pearl => 30.0,
+            Good::Fishskin => 4.0,
+            Good::Salvage => 8.0,
+            Good::Tentsilk => 10.0,
+            Good::Fibre => 1.5,
+            Good::Leather => 10.0,
+            Good::Cloth => 4.0,
+            Good::Ingots => 12.0,
+            Good::Bronze => 8.0,
+            Good::Paper => 3.0,
+            Good::Ink => 5.0,
+            Good::Ringstone => 12.0,
+            Good::Slatewing => 20.0,
+            Good::Edgeglass => 70.0,
+            Good::Hearthclay => 3.0,
         }
     }
     /// Share lost to spoiling each day.
@@ -302,6 +449,8 @@ impl Good {
             Good::Fish => 0.05,
             Good::Game => 0.04,
             Good::Grain => 0.02,
+            Good::Hides => 0.02,
+            Good::Seareed => 0.02,
             _ => 0.0,
         }
     }
@@ -313,18 +462,43 @@ impl Good {
             Good::Kelp => &["kelp_frond"],
             Good::Game => &["salted_meat", "wild_berries"],
             Good::Timber => &["timber"],
-            Good::Stone => &[],
-            Good::Hides => &["hide", "leather"],
-            Good::Herbs => &["ash_moss", "ghostcap", "salt_crystal"],
-            Good::Wares => &["torch", "healing_draught", "lockpick", "iron_ingot", "reed_paper", "squid_ink", "arrows"],
+            Good::Rock => &["rock"],
+            Good::Hides => &["hide"],
+            Good::Herbs => &["ash_moss", "ghostcap", "salt_crystal", "emberroot"],
+            Good::Wares => &["torch", "healing_draught", "mana_tonic", "lockpick", "arrows", "bolts", "sling_stones", "hearthclay_pot", "sandglass_flask"],
+            Good::Ore => &["iron_ore"],
+            Good::Charcoal => &["charcoal"],
+            Good::Ash => &["ash"],
+            Good::Clay => &["clay"],
+            Good::Sand => &["sand"],
+            Good::Gold => &["gold_nugget"],
+            Good::EdgeSeed => &["edge_seed"],
+            Good::Seareed => &["seareed"],
+            Good::Pitch => &["pitch"],
+            Good::Nacre => &["nacre"],
+            Good::Pearl => &["pearl"],
+            Good::Fishskin => &["fishskin"],
+            Good::Salvage => &["salvage"],
+            Good::Tentsilk => &["tentsilk"],
+            Good::Fibre => &["fibre"],
+            Good::Leather => &["leather"],
+            Good::Cloth => &["cloth"],
+            Good::Ingots => &["iron_ingot"],
+            Good::Bronze => &["bronze_ingot"],
+            Good::Paper => &["reed_paper"],
+            Good::Ink => &["squid_ink"],
+            Good::Ringstone => &["ringstone"],
+            Good::Slatewing => &["slatewing"],
+            Good::Edgeglass => &["edgeglass"],
+            Good::Hearthclay => &["hearthclay"],
         }
     }
     /// Which shop sells it, in towns where services are split.
     pub fn shelf(self) -> Shelf {
         match self {
             Good::Grain | Good::Fish | Good::Kelp | Good::Game => Shelf::Food,
-            Good::Timber | Good::Stone | Good::Hides | Good::Herbs => Shelf::Materials,
             Good::Wares => Shelf::Goods,
+            _ => Shelf::Materials,
         }
     }
 }
@@ -332,6 +506,29 @@ impl Good {
 /// The good a stocked item counts as, if any.
 pub fn good_of(key: &str) -> Option<Good> {
     GOODS.iter().copied().find(|g| g.items().contains(&key))
+}
+
+/// The good a material is traded as (for its price in a town).
+pub fn good_of_material(m: super::materials::Material) -> Option<Good> {
+    use super::materials::Material as M;
+    Some(match m {
+        M::None => return None,
+        M::PlainIron | M::Forgeiron => Good::Ingots,
+        M::Wood => Good::Timber,
+        M::Leather => Good::Leather,
+        M::Cloth => Good::Cloth,
+        M::Ringstone => Good::Ringstone,
+        M::Hearthclay => Good::Hearthclay,
+        M::Slatewing => Good::Slatewing,
+        M::Edgeglass => Good::Edgeglass,
+        M::Bronze => Good::Bronze,
+        M::Sandglass => Good::Sand,
+        M::Gold => Good::Gold,
+        M::Seareed => Good::Seareed,
+        M::Nacre => Good::Nacre,
+        M::Fishskin => Good::Fishskin,
+        M::Tentsilk => Good::Tentsilk,
+    })
 }
 
 // --- Places ------------------------------------------------------------------

@@ -78,6 +78,12 @@ impl Craft {
     pub fn of_skill(s: Skill) -> Option<Craft> {
         CRAFTS.iter().copied().find(|c| c.skill() == s)
     }
+    /// Can someone who works this craft mend what `other` makes? (Smiths and
+    /// armourers both work fire metals.)
+    pub fn mends(self, other: Craft) -> bool {
+        self == other || matches!((self, other), (Craft::Smithing, Craft::Armoring) | (Craft::Armoring, Craft::Smithing))
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Craft::Handcraft => "leather, cloth and woodwork",
@@ -166,7 +172,7 @@ pub static MATERIALS: [MatDef; 17] = [
     m("Wood", T::Shared, C::Handcraft, 0.7, 0.9, 0.0, 0.7, 0.9, 0.7, 90.0, 1.0, 0.2, true, false, 0.0, 0.6),
     m("Leather", T::Shared, C::Handcraft, 0.8, 0.8, 0.0, 1.0, 1.0, 1.0, 100.0, 1.0, 0.0, true, false, 0.0, 1.0),
     m("Cloth", T::Shared, C::Handcraft, 0.6, 0.6, 0.0, 1.0, 1.0, 1.0, 60.0, 1.0, 0.0, true, false, 0.0, 1.0),
-    m("Ringstone", T::Grown, C::Tending, 0.8, 1.3, 0.05, 1.0, 1.35, 1.3, 300.0, 0.6, 0.0, true, false, 120.0, 1.4),
+    m("Ringstone", T::Grown, C::Tending, 0.8, 1.3, 0.05, 1.0, 1.35, 1.3, 300.0, 0.6, 0.0, true, false, 30.0, 1.4),
     m("Hearthclay", T::Grown, C::Tending, 0.5, 0.8, 0.0, 0.6, 0.6, 1.0, 25.0, 1.0, 1.0, true, false, 4.0, 0.5),
     m("Slatewing", T::Grown, C::Tending, 1.0, 0.9, 0.05, 1.3, 0.75, 0.65, 160.0, 1.0, 1.4, true, false, 21.0, 1.6),
     m("Edgeglass", T::Grown, C::Tending, 1.4, 0.8, 0.0, 1.1, 0.6, 0.7, 400.0, 0.35, 0.6, false, false, 90.0, 2.6),
@@ -224,12 +230,12 @@ impl Grade {
     /// The grade a piece comes out at: the maker's skill (0–100), how well
     /// set up their station is (0 = makeshift, 1 = a proper one), and a roll.
     pub fn from(skill: f32, station: f32, roll: f32) -> Grade {
-        let score = skill / 100.0 + station * 0.1 + (roll - 0.5) * 0.5;
+        let score = skill / 100.0 + station * 0.1 + (roll - 0.5) * 0.4;
         if score < 0.2 {
             Grade::Crude
-        } else if score < 0.6 {
+        } else if score < 0.7 {
             Grade::Common
-        } else if score < 0.88 {
+        } else if score < 0.95 {
             Grade::Fine
         } else {
             Grade::Masterwork

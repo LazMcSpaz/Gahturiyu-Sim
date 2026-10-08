@@ -250,6 +250,7 @@ impl World {
         self.do_picking();
         self.do_gathering();
         self.do_crafting();
+        self.do_lessons();
         self.do_carrying();
         self.try_open_talk();
     }

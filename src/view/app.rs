@@ -848,6 +848,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::Unequip(pid, slot) => {
                 w.unequip(pid, slot);
             }
+            Action::Care(pid, slot) => {
+                w.care_for(pid, slot);
+            }
             Action::Drop(pid, it) => {
                 w.drop_item(pid, it);
             }

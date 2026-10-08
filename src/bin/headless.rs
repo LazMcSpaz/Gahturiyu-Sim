@@ -172,7 +172,7 @@ fn society(days: f64, seed: u64) {
         println!("  places: {}", tl.places.iter().map(|p| p.kind.name()).collect::<Vec<_>>().join(", "));
         println!(
             "  stock: {}  | prosperity {:.2}, purse {:.0}/{:.0}, treasury {:.0} (owed {:.0}), landed {:.0}",
-            GOODS.iter().map(|g| format!("{} {:.0}", g.name(), w.stock_now(ti as u16, *g))).collect::<Vec<_>>().join(", "),
+            GOODS.iter().filter(|g| w.stock_now(ti as u16, **g).abs() >= 0.5).map(|g| format!("{} {:.0}", g.name(), w.stock_now(ti as u16, *g))).collect::<Vec<_>>().join(", "),
             tl.prosperity,
             w.purse_now(ti as u16),
             tl.purse_cap,
@@ -180,5 +180,15 @@ fn society(days: f64, seed: u64) {
             tl.owed,
             tl.landed
         );
+        println!(
+            "  land offers: {}",
+            GOODS.iter().filter(|g| tl.sources[g.index()] > 0.05 && tl.sources[g.index()] < 1.0).map(|g| format!("{} {:.2}", g.name(), tl.sources[g.index()])).collect::<Vec<_>>().join(", ")
+        );
+        let mut shelf: BTreeMap<String, usize> = BTreeMap::new();
+        for s in &tl.shelf {
+            *shelf.entry(gahturiyu_sim::sim::items::item(s.item).name.to_string()).or_default() += 1;
+        }
+        println!("  shelf ({}): {}", tl.shelf.len(), shelf.iter().map(|(k, n)| format!("{k} ×{n}")).collect::<Vec<_>>().join(", "));
+        println!("  dearest: {}", w.dearest(ti as u16, 6).iter().map(|(g, f)| format!("{} ×{:.1}", g.name(), f)).collect::<Vec<_>>().join(", "));
     }
 }

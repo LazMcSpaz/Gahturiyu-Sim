@@ -12,14 +12,16 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::items;
+use super::crafting::RECIPES;
+use super::items::{self, SLOTS};
+use super::materials::Grade;
 use super::person::PersonId;
 use super::quests::{compass, QuestKind, Stage};
 use super::race::Race;
 use super::rng::Rng;
 use super::stats::Calling;
 use super::stealth;
-use super::world::{World, HOUR};
+use super::world::{World, DAY, HOUR};
 
 /// How close you must be to talk, metres.
 pub const TALK_RANGE: f32 = 3.5;
@@ -54,6 +56,17 @@ pub enum Topic {
     ToNote,
     /// A note for coin.
     ToCoin,
+    /// Pay this crafter to mend a squad member's piece: (whose, which slot in
+    /// `SLOTS`, price).
+    Mend(PersonId, u8, u16),
+    /// Pay a crafter to teach their craft, at this price.
+    CraftLesson(u16),
+    /// Ask a Tender what they'd grow to order.
+    Orders,
+    /// Order a grown piece: (recipe, price).
+    Order(u16, u16),
+    /// Collect an order (index into `World::orders`).
+    Collect(u16),
     Goodbye,
 }
 
@@ -77,6 +90,11 @@ impl Topic {
             Topic::Sell(..) => "Sell",
             Topic::ToNote => "Change coin for a note",
             Topic::ToCoin => "Change a note for coin",
+            Topic::Mend(..) => "Mend this",
+            Topic::CraftLesson(_) => "Teach me your trade",
+            Topic::Orders => "What could you grow for me?",
+            Topic::Order(..) => "Order",
+            Topic::Collect(_) => "Is my order ready?",
             Topic::Goodbye => "Goodbye",
         }
     }
@@ -109,9 +127,34 @@ pub struct Conversation {
     /// Whether their wares are laid out (so buying and selling show).
     #[serde(default)]
     pub trading: bool,
+    /// Whether a Tender has said what they'd grow (so the orders show).
+    #[serde(default)]
+    pub orders: bool,
 }
 
 impl World {
+    /// What a topic's button says, naming what it's about.
+    pub fn topic_text(&self, t: Topic) -> String {
+        match t {
+            Topic::Mend(owner, slot, p) => {
+                let what = self.people[owner as usize].detail.as_ref().and_then(|d| d.gear.in_slot(SLOTS[slot as usize])).map(|id| items::item(id).name.to_lowercase()).unwrap_or_default();
+                let whose = self.people[owner as usize].name().unwrap_or("?").to_string();
+                format!("Mend {whose}'s {what} ({p} coin)")
+            }
+            Topic::CraftLesson(p) => match self.talk.as_ref().and_then(|c| self.craft_lesson(c.npc, c.with)) {
+                Some((k, _, style)) => format!("Teach me {} — {} ({p} coin)", k.name(), style.name()),
+                None => format!("Teach me your trade ({p} coin)"),
+            },
+            Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
+            Topic::Collect(k) => match self.orders.get(k as usize) {
+                Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
+                Some(o) => format!("How's my {} coming on?", items::item(RECIPES[o.recipe as usize].item(Grade::Common)).name.to_lowercase()),
+                None => t.text(),
+            },
+            t => t.text(),
+        }
+    }
+
     /// How they feel about the squad, 0..100.
     pub fn disposition(&self, npc: PersonId, with: PersonId) -> f32 {
         let p = &self.people[npc as usize];
@@ -165,7 +208,7 @@ impl World {
             self.stats.detailed += 1;
         }
         let greeting = self.greeting(npc, who);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false, lessons: false, trading: false });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false, lessons: false, trading: false, orders: false });
     }
 
     pub fn end_talk(&mut self) {
@@ -265,6 +308,33 @@ impl World {
             t.push(Topic::ToNote);
             t.push(Topic::ToCoin);
         }
+        // Crafters at work mend what they know how to work, and teach their trade.
+        if let Some(craft) = self.life(c.npc).job.craft().filter(|_| self.at_work(c.npc, self.time)) {
+            let mut mends = Vec::new();
+            for &m in &self.squad.members {
+                for (k, &slot) in SLOTS.iter().enumerate() {
+                    let Some(id) = self.people[m as usize].detail.as_ref().and_then(|d| d.gear.in_slot(slot)) else { continue };
+                    if craft.mends(items::craft_of(id)) {
+                        if let Some(p) = self.mend_price(m, slot).filter(|_| items::repairable(id)) {
+                            mends.push(Topic::Mend(m, k as u8, p));
+                        }
+                    }
+                }
+            }
+            t.extend(mends.into_iter().take(4));
+            if let Some((_, price, _)) = self.craft_lesson(c.npc, c.with) {
+                t.push(Topic::CraftLesson(price));
+            }
+        }
+        // Tenders take orders for grown pieces.
+        if !self.order_options(c.npc).is_empty() {
+            if c.orders {
+                t.extend(self.order_options(c.npc).into_iter().take(8).map(|(ri, p)| Topic::Order(ri as u16, p)));
+            } else {
+                t.push(Topic::Orders);
+            }
+        }
+        t.extend(self.orders_with(c.npc).into_iter().map(|k| Topic::Collect(k as u16)));
         t.push(Topic::Goodbye);
         t
     }
@@ -285,7 +355,7 @@ impl World {
             self.talk = None;
             return;
         }
-        self.push_talk(false, topic.text());
+        self.push_talk(false, self.topic_text(topic));
         if topic == Topic::Lessons {
             if let Some(c) = self.talk.as_mut() {
                 c.lessons = true;
@@ -294,6 +364,11 @@ impl World {
         if topic == Topic::Trade {
             if let Some(c) = self.talk.as_mut() {
                 c.trading = true;
+            }
+        }
+        if topic == Topic::Orders {
+            if let Some(c) = self.talk.as_mut() {
+                c.orders = true;
             }
         }
         let answer = self.answer(&c, topic);
@@ -483,14 +558,14 @@ impl World {
                 }
             }
             Topic::Buy(it, price) => {
-                if self.buy(c.npc, it) {
+                if self.buy_at(c.npc, it, price) {
                     format!("{price} coin. There you are.")
                 } else {
                     "You haven't the coin for that — or I've none left.".into()
                 }
             }
             Topic::Sell(it, price) => {
-                if self.sell(c.npc, it) {
+                if self.sell_at(c.npc, it, price) {
                     format!("I'll give you {price} for the {}.", items::item(it).name.to_lowercase())
                 } else {
                     "I can't take that just now.".into()
@@ -520,6 +595,38 @@ impl World {
                     format!("Watch closely, then. ... There — {} is yours now.", s.def().name.to_lowercase())
                 } else {
                     format!("That's {price} coin, and you haven't got it.")
+                }
+            }
+            Topic::Mend(owner, slot, price) => match self.pay_to_mend(c.npc, owner, SLOTS[slot as usize]) {
+                Ok(()) => format!("There — good as it was. {price} coin."),
+                Err(e) => format!("I can't: {e}."),
+            },
+            Topic::CraftLesson(_) => {
+                let style = self.life(c.npc).habits.teaching;
+                match self.take_craft_lesson(c.npc, c.with) {
+                    Ok(k) => match style {
+                        super::culture::Teaching::Deep => format!("Sit. We'll go slowly — {} isn't learned in a hurry. A few hours, and you'll have the bones of it.", k.name()),
+                        super::culture::Teaching::Drilled => format!("Watch, then do it. Again. Again. That's {} drilled into you — it'll stick.", k.name()),
+                    },
+                    Err(e) => format!("Not now: {e}."),
+                }
+            }
+            Topic::Orders => "Stone takes its time. Pay half now, and come back when it's grown — I'll need to be here to tend it.".into(),
+            Topic::Order(ri, _) => match self.place_order(c.npc, ri as usize) {
+                Ok(k) => {
+                    let o = self.orders[k];
+                    format!("Done. It'll be ready in {:.0} days, if I'm here to tend it. {} coin now, {} when you collect.", (o.ready_at - self.time) / DAY, o.deposit, o.rest)
+                }
+                Err(e) => format!("I can't take that on: {e}."),
+            },
+            Topic::Collect(k) => {
+                if !self.order_ready(k as usize) {
+                    let o = self.orders[k as usize];
+                    return format!("Not yet. Give it {:.1} more days.", ((o.ready_at - self.time) / DAY).max(0.1));
+                }
+                match self.collect_order(k as usize) {
+                    Ok(id) => format!("Here it is — your {}. Mind how you treat it.", items::item(id).name.to_lowercase()),
+                    Err(e) => format!("Not just now: {e}."),
                 }
             }
             Topic::Goodbye => String::new(),
@@ -555,6 +662,11 @@ fn topic_key(t: Topic) -> u64 {
         Topic::Sell(it, _) => 40_000 + it as u64,
         Topic::ToNote => 12,
         Topic::ToCoin => 13,
+        Topic::Mend(m, k, _) => 50_000 + m as u64 * 16 + k as u64,
+        Topic::CraftLesson(_) => 14,
+        Topic::Orders => 15,
+        Topic::Order(ri, _) => 60_000 + ri as u64,
+        Topic::Collect(k) => 70_000 + k as u64,
     }
 }
 

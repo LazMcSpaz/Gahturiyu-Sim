@@ -11,7 +11,8 @@ use bevy_egui::egui::Color32;
 use gahturiyu_sim::sim::{
     body,
     condition::{self, HungerStage, Shelter},
-    crafting::{success_chance, Cannot, Station, RECIPES},
+    crafting::{success_chance, Cannot, RECIPES},
+    materials::{Craft, Grade, CRAFTS},
     dialogue::Topic,
     inventory,
     items::{self, item, ItemId, Kind, Slot, SLOTS},
@@ -84,6 +85,8 @@ pub enum Action {
     EquipEntry(PersonId, usize),
     OpenInventory(PersonId),
     Unequip(PersonId, Slot),
+    /// Seal a worn reed piece with pitch, or mend it yourself.
+    Care(PersonId, Slot),
     Drop(PersonId, ItemId),
     Use(PersonId, ItemId),
     Craft(PersonId, usize),
@@ -523,8 +526,8 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         if let Some(i) = it {
             let kg = format!("{:.1} kg", item(i).weight);
             c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
-            if !locked && clicked(rr).is_some() {
-                act = Some(Action::Unequip(pid, s));
+            if let Some(ck) = clicked(rr).filter(|_| !locked) {
+                act = Some(if ck.right { Action::Care(pid, s) } else { Action::Unequip(pid, s) });
             }
         }
     }
@@ -561,7 +564,7 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
             }
         }
     }
-    let hint = if locked { "In a fight: gear can't be changed until it's over." } else { "Click: take off / put on / use  ·  Right-click: drop  ·  T: torch" };
+    let hint = if locked { "In a fight: gear can't be changed until it's over." } else { "Click: take off / put on / use  ·  Right-click: drop, or seal/mend what's worn  ·  T: torch" };
     c.text(hint, x, r.y + r.h - 12.0, 13.0, if locked { WARN } else { DIM });
     (act, hovered, Some(r))
 }
@@ -665,15 +668,18 @@ pub fn ground_color(id: ItemId) -> Rgb {
     }
 }
 
-fn craft_rect(c: &Canvas) -> Bx {
-    let rows = RECIPES.len() as f32 + 4.0 + 3.0;
-    Bx::new(c.w - 600.0 - 12.0, 12.0, 600.0, (70.0 + rows * ROW).min(c.h - 130.0))
+fn craft_rect(c: &Canvas, rows: usize) -> Bx {
+    let rows = rows as f32 + 4.0 + 3.0;
+    Bx::new(c.w - 640.0 - 12.0, 12.0, 640.0, (90.0 + rows * ROW).min(c.h - 130.0))
 }
 
-/// What a person can make: every recipe, with what's missing.
+/// What a person can make: every recipe of the crafts they've taken up,
+/// with what's missing.
 pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option<Click>) -> (Option<Action>, Option<ItemId>, Bx) {
     let p = &w.people[pid as usize];
-    let r = craft_rect(c);
+    let shown: Vec<usize> = (0..RECIPES.len()).filter(|&i| w.knows_craft(pid, RECIPES[i].craft())).collect();
+    let crafts = shown.iter().map(|&i| RECIPES[i].skill).collect::<std::collections::BTreeSet<_>>().len();
+    let r = craft_rect(c, shown.len() + crafts);
     c.rect(r.x, r.y, r.w, r.h, PANEL);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 14.0;
@@ -688,21 +694,20 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
     }
     y += 20.0;
     let st = p.effective_stats();
-    c.text(
-        &format!(
-            "Alchemy {:.0}  ·  Inscription {:.0}  ·  Smithing {:.0}  ·  Armoring {:.0}",
-            st.skill(Skill::Alchemy),
-            st.skill(Skill::Inscription),
-            st.skill(Skill::Smithing),
-            st.skill(Skill::Armoring)
-        ),
-        x,
-        y,
-        14.0,
-        DIM,
-    );
+    let (known, unknown): (Vec<Craft>, Vec<Craft>) = CRAFTS.iter().copied().partition(|&k| w.knows_craft(pid, k));
+    let known_line = known.iter().map(|k| format!("{} {:.0}", k.skill().name(), st.skill(k.skill()))).collect::<Vec<_>>().join("  ·  ");
+    c.text(if known.is_empty() { "No crafts taken up yet." } else { &known_line }, x, y, 14.0, TEXT);
+    y += 18.0;
+    if !unknown.is_empty() {
+        c.text(&format!("To take up {}: a crafter's lessons or a manual.", unknown.iter().map(|k| k.skill().name()).collect::<Vec<_>>().join(", ")), x, y, 13.0, DIM);
+    }
+    if let Some((k, left)) = w.lesson_progress(pid) {
+        y += 18.0;
+        c.text(&format!("Learning {} — {:.1} h to go", k.name(), left), x, y, 13.0, GOLD);
+    }
     let mut last_skill = None;
-    for (i, rc) in RECIPES.iter().enumerate() {
+    for &i in &shown {
+        let rc = &RECIPES[i];
         if last_skill != Some(rc.skill) {
             y += ROW + 2.0;
             c.text(rc.skill.name(), x, y, 15.0, TEXT);
@@ -713,39 +718,31 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
             break;
         }
         let row = Bx::new(r.x + 6.0, y - 15.0, r.w - 12.0, ROW);
-        let out = items::id(rc.output);
+        let out = rc.item(Grade::Common);
         let ok = w.can_craft(pid, i);
         if row.contains(mouse) {
             c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.12));
             hovered = Some(out);
         }
         let col = if ok.is_ok() { TEXT } else { DIM };
-        c.text(item(out).name, x + 8.0, y, 14.0, col);
+        let name = if rc.makes > 1 { format!("{} ×{}", item(out).name, rc.makes) } else { item(out).name.to_string() };
+        c.text(&name, x + 8.0, y, 14.0, col);
         let need: Vec<String> = rc.inputs.iter().map(|(k, n)| format!("{}/{} {}", w.count_of(pid, k).min(*n), n, item(items::id(k)).name.to_lowercase())).collect();
-        c.text(&need.join(", "), x + 200.0, y, 13.0, col);
+        c.text(&need.join(", "), x + 230.0, y, 13.0, col);
         let why = match ok {
+            Ok(()) if rc.skill == Skill::Tending => format!("{:.0}% · {:.0} days", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0, rc.time / gahturiyu_sim::sim::world::DAY),
             Ok(()) => format!("{:.0}%", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0),
-            Err(Cannot::NoStation(s)) => format!(
-                "at {}",
-                match s {
-                    Station::Forge => "forge",
-                    Station::Bench => "bench",
-                    Station::Desk => "desk",
-                    Station::AlchemyTable => "table",
-                    Station::Loom => "frame",
-                    Station::Workbench => "workbench",
-                    Station::GrowerBed => "grower's bed",
-                }
-            ),
+            Err(Cannot::NoStation(s)) => format!("at the {}", s.name().to_lowercase()),
             Err(Cannot::Missing(..)) => String::new(),
             Err(Cannot::Busy) => "busy".into(),
+            Err(Cannot::Unknown(_)) => "learn first".into(),
         };
         c.text(&why, r.x + r.w - c.width(&why, 13.0) - 14.0, y, 13.0, if ok.is_ok() { GOLD } else { WARN });
         if ok.is_ok() && click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {
             act = Some(Action::Craft(pid, i));
         }
     }
-    c.text("Click a recipe to make it. Every town has the stations (P shows where).", x, r.y + r.h - 12.0, 13.0, DIM);
+    c.text("Click a recipe to make it. Stone grows only if you're by its bed each dawn.", x, r.y + r.h - 12.0, 13.0, DIM);
     (act, hovered, r)
 }
 
@@ -780,7 +777,7 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
         if hot {
             c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.15));
         }
-        let label = t.text();
+        let label = w.topic_text(t);
         let fs = (15.0 * 186.0 / c.width(&label, 15.0).max(1.0)).clamp(10.0, 15.0);
         c.text(&label, tx, ty, fs, if hot { GOLD } else { TEXT });
         if click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {

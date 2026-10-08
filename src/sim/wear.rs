@@ -28,7 +28,7 @@ pub const SELF_MEND: f32 = 1.2;
 
 impl World {
     /// A finished fight's wear, onto a squad member's gear.
-    pub(super) fn wear_gear(&mut self, f: &Fighter, t: f64) {
+    pub fn wear_gear(&mut self, f: &Fighter, t: f64) {
         let pid = f.pid;
         // (slot, blows, of which heavy blunt ones)
         let mut hits: Vec<(Slot, f32, f32)> = Vec::new();
@@ -108,7 +108,7 @@ impl World {
             return None;
         }
         let craft = items::craft_of(id);
-        self.settlements[town as usize].residents.iter().copied().find(|&p| self.life(p).job.craft() == Some(craft) && self.at_work(p, self.time))
+        self.settlements[town as usize].residents.iter().copied().find(|&p| self.life(p).job.craft().map(|k| k.mends(craft)).unwrap_or(false) && !self.people[p as usize].dead && self.at_work(p, self.time))
     }
 
     /// What a town's crafter asks to mend a piece worn in a slot.
@@ -128,7 +128,7 @@ impl World {
         if !items::repairable(id) {
             return Err("that can't be mended");
         }
-        if self.life(mender).job.craft() != Some(items::craft_of(id)) || !self.at_work(mender, self.time) {
+        if !self.life(mender).job.craft().map(|k| k.mends(items::craft_of(id))).unwrap_or(false) || !self.at_work(mender, self.time) {
             return Err("they don't work that");
         }
         let price = self.mend_price(pid, slot).ok_or("it isn't worn")?;
@@ -153,16 +153,19 @@ impl World {
             return Err("that can't be mended");
         }
         let craft = items::craft_of(id);
-        if !self.knows_craft(who, craft) {
+        let Some(know) = super::materials::CRAFTS.iter().copied().find(|&k| k.mends(craft) && self.knows_craft(who, k)) else {
             return Err("they don't know that craft");
-        }
+        };
         let at = self.person_pos(who);
-        if self.station_near(at, craft.station()).is_none() {
+        if self.station_near(at, craft.station()).is_none() && self.station_near(at, know.station()).is_none() {
             return Err("no station for it here");
         }
-        let skill = self.people[who as usize].effective_stats().skill(craft.skill());
+        if self.wear_of(owner, slot).map(|(l, m)| l >= m).unwrap_or(true) {
+            return Err("it isn't worn");
+        }
+        let skill = self.people[who as usize].effective_stats().skill(know.skill());
         self.restore(owner, slot, skill * SELF_MEND + 10.0);
-        self.people[who as usize].stats.exercise(craft.skill(), 1.0);
+        self.people[who as usize].stats.exercise(know.skill(), 1.0);
         Ok(())
     }
 
@@ -187,6 +190,25 @@ impl World {
             pc.settle(rots, t);
             pc.left = (pc.left + amount).min(most);
         }
+    }
+
+    /// Look after a worn piece: seal it if it's unsealed reed and there's
+    /// pitch, else mend it yourself if you know how and are at the station.
+    /// Says what happened in the log.
+    pub fn care_for(&mut self, pid: PersonId, slot: Slot) {
+        let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+        let Some(id) = self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.in_slot(slot)) else { return };
+        let what = item(id).name.to_lowercase();
+        let line = if self.seal(pid, slot) {
+            format!("{name} seals the {what} with pitch.")
+        } else {
+            match self.mend_myself(pid, pid, slot) {
+                Ok(()) => format!("{name} mends the {what}."),
+                Err(e) => format!("{name} can't mend the {what}: {e}."),
+            }
+        };
+        self.log.push_front((self.time, line));
+        self.log.truncate(14);
     }
 
     /// Seal a squad member's reed piece in a slot with pitch from the packs.

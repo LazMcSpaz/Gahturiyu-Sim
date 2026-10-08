@@ -79,7 +79,9 @@ fn smithing_needs_a_forge() {
     assert_eq!(w.can_craft(q, recipe("knife")), Ok(()));
     w.start_craft(q, recipe("knife")).unwrap();
     wait(&mut w, 100.0);
-    assert_eq!(w.count_of(q, "knife"), 1);
+    // A knife of some grade, unless it was botched.
+    let knives = w.people[q as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| items::info(e.0).form == items::id("knife")).count();
+    assert!(knives == 1 || w.log.iter().any(|l| l.1.contains("botches")));
 }
 
 #[test]

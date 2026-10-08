@@ -176,9 +176,9 @@ pub struct Profile {
     /// How much they take to each craft (by `Craft::index`: handcraft,
     /// smithing, armouring, tending, weaving, inscription, alchemy).
     pub crafts: [f32; 7],
-    /// How their teachers teach a craft: skill given, and price (×).
-    /// Deep and slow, or quick and drilled.
-    pub teaching: (f32, f32),
+    /// How their teachers lean to teach a craft: deep and slow, or quick
+    /// and drilled (weights).
+    pub teaching: [f32; 2],
 }
 
 /// Indexed by `Race::index()`: Roduro, Qotiro, Horaro, Ṭaḍoro.
@@ -194,7 +194,7 @@ pub const PROFILES: [Profile; 4] = [
         institution: Institution::TendersYard,
         jobs: &[(Job::StoneTender, 8.0), (Job::Farmer, 1.6), (Job::Woodcutter, 1.4), (Job::Fisher, 0.7), (Job::Exchanger, 0.4), (Job::Arbiter, 0.4)],
         crafts: [1.0, 0.15, 0.10, 1.0, 0.10, 0.20, 0.4],
-        teaching: (22.0, 1.4),
+        teaching: [0.8, 0.2],
     },
     // Qotiro: mess halls and hearth kitchens, bells and fixed shifts, tier blocks.
     Profile {
@@ -207,7 +207,7 @@ pub const PROFILES: [Profile; 4] = [
         institution: Institution::MessHall,
         jobs: &[(Job::Guard, 1.8), (Job::Cook, 1.6), (Job::Runner, 2.2), (Job::Smith, 2.2), (Job::Armourer, 2.2), (Job::Priest, 1.6), (Job::Official, 1.6), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Exchanger, 0.4)],
         crafts: [1.0, 1.0, 0.8, 0.10, 0.10, 0.3, 0.4],
-        teaching: (14.0, 0.8),
+        teaching: [0.15, 0.85],
     },
     // Horaro: shared decks, the tide, the whole village one family.
     Profile {
@@ -220,7 +220,7 @@ pub const PROFILES: [Profile; 4] = [
         institution: Institution::Deck,
         jobs: &[(Job::Fisher, 3.5), (Job::KelpGatherer, 3.5), (Job::Boatwright, 3.5), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Guard, 0.7)],
         crafts: [1.0, 0.10, 0.10, 0.10, 1.0, 0.2, 0.4],
-        teaching: (16.0, 1.0),
+        teaching: [0.5, 0.5],
     },
     // Ṭaḍoro: fed by their hosts (no cooking leaning of their own), the
     // stars, and lodging in others' homes.
@@ -234,7 +234,7 @@ pub const PROFILES: [Profile; 4] = [
         institution: Institution::LettersHouse,
         jobs: &[(Job::Exchanger, 8.0), (Job::Arbiter, 8.0), (Job::Teacher, 3.0), (Job::Scribe, 3.5), (Job::Merchant, 1.6), (Job::Caravaner, 1.8), (Job::Farmer, 0.5), (Job::StoneTender, 0.2), (Job::Guard, 0.7)],
         crafts: [1.0, 0.2, 0.1, 0.1, 0.4, 1.0, 0.6],
-        teaching: (18.0, 1.1),
+        teaching: [0.6, 0.4],
     },
 ];
 
@@ -379,6 +379,34 @@ pub struct Habits {
     pub own_rhythm: Option<Rhythm>,
     pub lodger: bool,
     pub evening: Evening,
+    /// How they teach their trade, if they have one to teach.
+    #[serde(default)]
+    pub teaching: Teaching,
+}
+
+/// How a crafter teaches: deep and slow (more skill a lesson, longer and
+/// dearer), or drilled (quick and cheap, less each time).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Teaching {
+    #[default]
+    Deep,
+    Drilled,
+}
+
+impl Teaching {
+    /// Skill a lesson gives, hours it takes, and its price (×).
+    pub fn lesson(self) -> (f32, f64, f32) {
+        match self {
+            Teaching::Deep => (22.0, 4.0, 1.4),
+            Teaching::Drilled => (14.0, 1.5, 0.8),
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Teaching::Deep => "slow and deep",
+            Teaching::Drilled => "quick drill",
+        }
+    }
 }
 
 impl Habits {
@@ -388,7 +416,9 @@ impl Habits {
         let own_rhythm = if r.chance(p.own_ways) { Some(RHYTHMS[r.weighted(&p.rhythm).unwrap_or(0)]) } else { None };
         let lodger = r.chance(p.lodger);
         let evening = EVENINGS[r.weighted(&p.evening).unwrap_or(3)];
-        Habits { own_rhythm, lodger, evening }
+        // Its own roll, so the habits above are what they always were.
+        let teaching = if Rng::from_keys(&[seed, 0x5445_4143]).f32() < p.teaching[0] / (p.teaching[0] + p.teaching[1]) { Teaching::Deep } else { Teaching::Drilled };
+        Habits { own_rhythm, lodger, evening, teaching }
     }
 }
 

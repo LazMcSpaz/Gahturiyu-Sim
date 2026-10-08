@@ -44,7 +44,8 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     let s = &w.settlements[town as usize];
     let tl = &w.society.towns[town as usize];
     let comms: Vec<u32> = std::iter::once(tl.shore).chain(tl.stilts).collect();
-    let h = 330.0 + comms.len() as f32 * 185.0;
+    let stocked = GOODS.iter().filter(|g| w.stock_now(town, **g) >= 0.5).count();
+    let h = 330.0 + 70.0 + comms.len() as f32 * 185.0 + ((stocked as f32 / 4.0).ceil() - 3.0).max(0.0) * 17.0;
     let r = Bx::new(c.w - W - 12.0, 12.0, W, h.min(c.h - 60.0));
     c.rect(r.x, r.y, r.w, r.h, PANEL);
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(s.founders)));
@@ -136,12 +137,25 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     c.text("In store", x, y, 15.0, TEXT);
     let money = format!("Prosperity {:.2}  ·  merchants' coin {:.0} / {:.0}", tl.prosperity, w.purse_now(town), tl.purse_cap);
     c.text(&money, r.x + r.w - c.width(&money, 13.0) - 14.0, y, 13.0, DIM);
-    for (i, g) in GOODS.iter().enumerate() {
-        let col = (i % 3) as f32;
-        let row = (i / 3) as f32;
-        c.text(&format!("{} {:.0}", g.name(), w.stock_now(town, *g)), x + col * 160.0, y + 20.0 + row * 17.0, 13.0, TEXT);
+    // What's in store, marked by its price here: dear (↑) or cheap (↓).
+    let mut i = 0;
+    for g in GOODS.iter().filter(|g| w.stock_now(town, **g) >= 0.5) {
+        let col = (i % 4) as f32;
+        let row = (i / 4) as f32;
+        let f = w.price_factor(town, *g);
+        let mark = if f >= 1.3 { " ↑" } else if f <= 0.7 { " ↓" } else { "" };
+        c.text(&format!("{} {:.0}{mark}", g.name(), w.stock_now(town, *g)), x + col * 140.0, y + 20.0 + row * 17.0, 12.0, if f >= 1.3 { WARN } else { TEXT });
+        i += 1;
     }
-    y += 20.0 + 3.0 * 17.0;
+    y += 20.0 + ((i as f32 / 4.0).ceil().max(3.0) - 1.0) * 17.0;
+    y += 17.0;
+    let offers: Vec<String> = GOODS.iter().filter(|g| { let v = w.source(town, **g); v > 0.05 && v < 1.0 }).map(|g| g.name().to_lowercase()).collect();
+    c.text(&format!("The land offers: {}", if offers.is_empty() { "nothing special".to_string() } else { offers.join(", ") }), x, y, 13.0, TEXT);
+    y += 17.0;
+    let crafters = tl.making.iter().filter(|m| m.rate > 0.0).count();
+    let marked = tl.shelf.iter().filter(|s| s.piece.and_then(|p| p.mark).map(|m| m.stamped).unwrap_or(false)).count();
+    c.text(&format!("On the shelf: {} made things ({} with a maker's mark)  ·  {} crafters at work now", tl.shelf.len(), marked, crafters), x, y, 13.0, TEXT);
+    y += 17.0;
     let treasury = format!("Treasury {:.0}{}  ·  taxes in at dawn, guards paid", tl.treasury, if tl.owed > 0.0 { format!(" (owes {:.0} in pay)", tl.owed) } else { String::new() });
     c.text(&treasury, x, y, 13.0, if tl.owed > 0.0 { WARN } else { TEXT });
     if s.coastal {

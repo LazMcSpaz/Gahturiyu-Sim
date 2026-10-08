@@ -181,8 +181,15 @@ pub struct TownLife {
     pub roads: u8,
     /// Which day of the market cycle is market day.
     pub market_day: u8,
-    /// Goods in store, as a running total plus this hour's rate.
-    pub stock: [Flow; N_GOODS],
+    /// Goods in store (by `Good::index`), as a running total plus this hour's rate.
+    pub stock: Vec<Flow>,
+    /// What the land round town offers, by good, 0..1 (worked out once from
+    /// the terrain).
+    pub sources: Vec<f32>,
+    /// What each crafter has in hand.
+    pub making: Vec<super::making::Making>,
+    /// Made things waiting to be sold (weapons, armour, scrolls...).
+    pub shelf: Vec<super::making::Shelved>,
     pub prosperity: f32,
     /// The merchants' coin: as of `purse_at`, refilling at `purse_rate` an hour up to `purse_cap`.
     pub purse: f32,
@@ -204,6 +211,8 @@ pub struct Society {
     pub households: Vec<Household>,
     /// When the hour now being worked began (the rates in every `Flow` are for it).
     pub rates_from: f64,
+    /// How known each maker is: their stamped work sold and passed on.
+    pub renown: std::collections::BTreeMap<PersonId, f32>,
 }
 
 /// A strong minority's share, and the cooking its institution brings, for
@@ -341,7 +350,10 @@ impl World {
                 on_road,
                 roads: roads as u8,
                 market_day: r.below(MARKET_EVERY as usize) as u8,
-                stock: [Flow::default(); N_GOODS],
+                stock: vec![Flow::default(); N_GOODS],
+                sources: vec![0.0; N_GOODS],
+                making: Vec::new(),
+                shelf: Vec::new(),
                 prosperity: 0.6,
                 purse: 0.0,
                 purse_at: self.time,
@@ -364,6 +376,7 @@ impl World {
             self.assign_jobs(ci, None);
         }
         for t in 0..self.settlements.len() {
+            self.society.towns[t].sources = self.town_sources(t as SettlementId);
             self.choose_gardeners(t as SettlementId);
             self.open_books(t as SettlementId);
         }

@@ -140,6 +140,10 @@ pub struct World {
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
     pub crafted_count: HashMap<PersonId, u64>,
+    /// Grown pieces ordered from Tenders.
+    pub orders: Vec<super::making::Order>,
+    /// Crafts being learned (from a teacher or a manual).
+    pub lessons: Vec<super::making::Lesson>,
 
     // --- Talk and work ------------------------------------------------------
     pub quests: Vec<super::quests::Quest>,
@@ -244,6 +248,8 @@ impl World {
             gathering: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
+            orders: Vec::new(),
+            lessons: Vec::new(),
             quests: Vec::new(),
             beaten_camps: HashSet::new(),
             regard: HashMap::new(),

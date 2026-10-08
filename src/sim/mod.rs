@@ -22,6 +22,7 @@ pub mod inventory;
 pub mod jobs;
 pub mod items;
 pub mod magic;
+pub mod making;
 pub mod materials;
 pub mod names;
 pub mod news;

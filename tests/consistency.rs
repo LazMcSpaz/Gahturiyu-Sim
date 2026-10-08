@@ -58,7 +58,11 @@ fn assert_same_history(a: &World, b: &World) {
         assert!(ta.owed == tb.owed && ta.prosperity == tb.prosperity && ta.purse_cap == tb.purse_cap && ta.purse_rate == tb.purse_rate && ta.landed == tb.landed, "a town's books differ");
         assert_eq!(ta.places, tb.places, "a town laid out its workplaces differently");
         assert_eq!(ta.gardens, tb.gardens, "a town's gardens are tended by someone else");
+        // The same crafters made the same things, at the same grades, with the same marks.
+        assert_eq!(ta.making, tb.making, "a town's crafters are at different work");
+        assert_eq!(ta.shelf, tb.shelf, "a town's shelf holds different things");
     }
+    assert_eq!(sa.renown, sb.renown, "makers are known differently");
     assert_eq!(sa.households, sb.households, "households formed differently");
     assert_eq!(a.stats.caravans, b.stats.caravans, "a different number of caravans");
 }
