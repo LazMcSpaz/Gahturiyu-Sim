@@ -1,140 +1,99 @@
-//! A small mesh builder with the lighting baked into vertex colours.
-//!
-//! macroquad draws 3D shapes unlit, so a cube is a flat silhouette. Instead,
-//! every face is shaded once, as it is built, by how squarely it faces the sun,
-//! and faded toward the sky colour with distance from the camera. Cheap, and
-//! enough to read form.
+//! A small mesh builder: boxes, columns, domes and flat strips, with a colour
+//! per vertex. Lighting is done by the renderer (sun, moon, fires), so the
+//! builder only records shape, facing and colour.
 
-use macroquad::models::Vertex;
-use macroquad::prelude::*;
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy::prelude::{vec3, Vec3};
 
-/// Indices are 16-bit, so a mesh is cut before it reaches this many vertices.
-const MAX_VERTS: usize = 40_000;
+use super::palette::{lin, Rgb};
 
+#[derive(Default)]
 pub struct Builder {
-    done: Vec<Mesh>,
-    cur: Mesh,
-    sun: Vec3,
-    eye: Vec3,
-    fog: (f32, f32, Color),
-    /// Sunlight, 0 (night) to 1 (day).
-    day: f32,
-    /// Firelight: where, how far it reaches, how strong.
-    lamps: Vec<(Vec3, f32, f32)>,
-}
-
-fn empty() -> Mesh {
-    Mesh { vertices: Vec::with_capacity(4096), indices: Vec::with_capacity(8192), texture: None }
+    pos: Vec<[f32; 3]>,
+    nrm: Vec<[f32; 3]>,
+    col: Vec<[f32; 4]>,
+    idx: Vec<u32>,
 }
 
 impl Builder {
-    pub fn new(eye: Vec3, fog_start: f32, fog_end: f32, sky: Color) -> Builder {
-        Builder { done: Vec::new(), cur: empty(), sun: vec3(-0.45, 0.80, -0.35).normalize(), eye, fog: (fog_start, fog_end, sky), day: 1.0, lamps: Vec::new() }
+    pub fn new() -> Builder {
+        Builder::default()
     }
 
-    /// Light the scene for the time of day, with fires burning at `lamps`.
-    pub fn lit(mut self, day: f32, lamps: Vec<(Vec3, f32, f32)>) -> Builder {
-        self.day = day;
-        self.lamps = lamps;
-        self
+    pub fn triangles(&self) -> usize {
+        self.idx.len() / 3
     }
 
-    pub fn draw(&self) {
-        for m in &self.done {
-            draw_mesh(m);
-        }
-        if !self.cur.indices.is_empty() {
-            draw_mesh(&self.cur);
-        }
+    pub fn is_empty(&self) -> bool {
+        self.idx.is_empty()
     }
 
-    pub fn finish(mut self) -> Builder {
-        if !self.cur.indices.is_empty() {
-            let m = std::mem::replace(&mut self.cur, empty());
-            self.done.push(m);
-        }
-        self
-    }
-
-    fn room(&mut self, n: usize) {
-        if self.cur.vertices.len() + n > MAX_VERTS {
-            let m = std::mem::replace(&mut self.cur, empty());
-            self.done.push(m);
-        }
-    }
-
-    /// Where the camera is (for sizing things by distance).
-    pub fn eye(&self) -> Vec3 {
-        self.eye
-    }
-
-    /// Lit and fogged colour for a surface facing `n` at `p`.
-    pub fn shade(&self, c: Color, n: Vec3, p: Vec3) -> Color {
-        let sun = (0.40 + 0.60 * n.dot(self.sun).max(0.0) + 0.08 * n.y.max(0.0)) * (0.3 + 0.7 * self.day);
-        // Moonlight is bluish; firelight warm.
-        let cool = 1.0 - self.day;
-        let (mut r, mut g, mut b) = (sun * (1.0 - 0.25 * cool), sun * (1.0 - 0.12 * cool), sun);
-        for &(at, reach, power) in &self.lamps {
-            let d = at.distance(p);
-            if d < reach {
-                let k = power * (1.0 - d / reach).powi(2);
-                r += k;
-                g += k * 0.62;
-                b += k * 0.3;
+    /// The finished mesh. An empty builder gives one invisible sliver, so the
+    /// renderer always has something to hold.
+    pub fn mesh(mut self) -> Mesh {
+        if self.idx.is_empty() {
+            for _ in 0..3 {
+                self.pos.push([0.0, -1e4, 0.0]);
+                self.nrm.push([0.0, 1.0, 0.0]);
+                self.col.push([0.0; 4]);
             }
+            self.idx.extend_from_slice(&[0, 1, 2]);
         }
-        self.fogged(Color::new((c.r * r).min(1.0), (c.g * g).min(1.0), (c.b * b).min(1.0), c.a), p)
+        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.pos)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.nrm)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.col)
+            .with_inserted_indices(Indices::U32(self.idx))
     }
 
-    /// Fog only — for things that glow.
-    pub fn fogged(&self, c: Color, p: Vec3) -> Color {
-        let (a, b, sky) = self.fog;
-        let t = ((p.distance(self.eye) - a) / (b - a)).clamp(0.0, 1.0);
-        Color::new(c.r + (sky.r - c.r) * t, c.g + (sky.g - c.g) * t, c.b + (sky.b - c.b) * t, c.a)
-    }
-
-    fn v(&mut self, p: Vec3, c: Color) -> u16 {
-        let i = self.cur.vertices.len() as u16;
-        self.cur.vertices.push(Vertex::new(p.x, p.y, p.z, 0.0, 0.0, c));
+    fn v(&mut self, p: Vec3, n: Vec3, c: [f32; 4]) -> u32 {
+        let i = self.pos.len() as u32;
+        self.pos.push(p.to_array());
+        self.nrm.push(n.to_array());
+        self.col.push(c);
         i
     }
 
-    /// A quad with a colour given per corner, unlit (already shaded by the caller).
-    pub fn quad_raw(&mut self, p: [Vec3; 4], c: [Color; 4]) {
-        self.room(4);
-        let i: Vec<u16> = (0..4).map(|k| self.v(p[k], c[k])).collect();
-        self.cur.indices.extend_from_slice(&[i[0], i[1], i[2], i[0], i[2], i[3]]);
+    /// A quad with a facing and a colour per corner (colours already linear).
+    pub fn quad_lin(&mut self, p: [Vec3; 4], n: [Vec3; 4], c: [[f32; 4]; 4]) {
+        let i: Vec<u32> = (0..4).map(|k| self.v(p[k], n[k], c[k])).collect();
+        self.idx.extend_from_slice(&[i[0], i[1], i[2], i[0], i[2], i[3]]);
     }
 
-    /// A convex polygon with a colour per corner, unlit (already shaded).
-    pub fn poly_raw(&mut self, p: &[Vec3], c: &[Color]) {
+    /// A flat quad of one colour facing `n`.
+    pub fn quad(&mut self, p: [Vec3; 4], n: Vec3, c: Rgb) {
+        let c = lin(c);
+        self.quad_lin(p, [n; 4], [c; 4]);
+    }
+
+    /// A convex polygon, a colour and facing per corner.
+    pub fn poly_lin(&mut self, p: &[Vec3], n: &[Vec3], c: &[[f32; 4]]) {
         if p.len() < 3 {
             return;
         }
-        self.room(p.len());
-        let base = self.cur.vertices.len() as u16;
+        let base = self.pos.len() as u32;
         for k in 0..p.len() {
-            self.v(p[k], c[k]);
+            self.v(p[k], n[k], c[k]);
         }
-        for k in 1..p.len() as u16 - 1 {
-            self.cur.indices.extend_from_slice(&[base, base + k, base + k + 1]);
+        for k in 1..p.len() as u32 - 1 {
+            self.idx.extend_from_slice(&[base, base + k, base + k + 1]);
         }
     }
 
-    fn face(&mut self, pts: &[Vec3], n: Vec3, col: Color) {
-        self.room(pts.len());
-        let s = self.shade(col, n, pts[0]);
-        let base = self.cur.vertices.len() as u16;
+    fn face(&mut self, pts: &[Vec3], n: Vec3, col: [f32; 4]) {
+        let base = self.pos.len() as u32;
         for &p in pts {
-            self.v(p, s);
+            self.v(p, n, col);
         }
-        for k in 1..pts.len() as u16 - 1 {
-            self.cur.indices.extend_from_slice(&[base, base + k, base + k + 1]);
+        for k in 1..pts.len() as u32 - 1 {
+            self.idx.extend_from_slice(&[base, base + k, base + k + 1]);
         }
     }
 
     /// A box sitting on `base`, turned `rot` radians about the vertical.
-    pub fn block(&mut self, base: Vec3, w: f32, d: f32, h: f32, rot: f32, col: Color) {
+    pub fn block(&mut self, base: Vec3, w: f32, d: f32, h: f32, rot: f32, col: Rgb) {
+        let col = lin(col);
         let (s, c) = rot.sin_cos();
         let ax = vec3(c, 0.0, s) * (w * 0.5);
         let az = vec3(-s, 0.0, c) * (d * 0.5);
@@ -149,8 +108,24 @@ impl Builder {
         self.face(&[p[0] + up, p[1] + up, p[2] + up, p[3] + up], Vec3::Y, col);
     }
 
+    /// A box between two points (a stick: a shaft, a pole), `t` thick.
+    pub fn stick(&mut self, a: Vec3, b: Vec3, t: f32, col: Rgb) {
+        let col = lin(col);
+        let d = (b - a).normalize_or_zero();
+        let side = if d.y.abs() > 0.9 { Vec3::X } else { Vec3::Y };
+        let u = d.cross(side).normalize_or_zero() * (t * 0.5);
+        let v = d.cross(u).normalize_or_zero() * (t * 0.5);
+        let ring = [u + v, u - v, -u - v, -u + v];
+        for k in 0..4 {
+            let (r0, r1) = (ring[k], ring[(k + 1) % 4]);
+            let n = (r0 + r1).normalize_or_zero();
+            self.face(&[a + r0, a + r1, b + r1, b + r0], n, col);
+        }
+    }
+
     /// An upright cylinder or cone frustum standing on `base`.
-    pub fn column(&mut self, base: Vec3, r0: f32, r1: f32, h: f32, sides: usize, col: Color) {
+    pub fn column(&mut self, base: Vec3, r0: f32, r1: f32, h: f32, sides: usize, col: Rgb) {
+        let col = lin(col);
         let ring = |r: f32, y: f32, k: usize| {
             let a = k as f32 / sides as f32 * std::f32::consts::TAU;
             base + vec3(a.cos() * r, y, a.sin() * r)
@@ -172,7 +147,7 @@ impl Builder {
     /// A smooth dome (a squashed half-ball) on `base`. `lump` roughens the
     /// surface, seeded, for grown stone. `bands` darkens alternating rings.
     #[allow(clippy::too_many_arguments)]
-    pub fn dome(&mut self, base: Vec3, rx: f32, rz: f32, h: f32, lump: f32, bands: f32, seed: u64, col: Color) {
+    pub fn dome(&mut self, base: Vec3, rx: f32, rz: f32, h: f32, lump: f32, bands: f32, seed: u64, col: Rgb) {
         let (rings, sides) = (6usize, 14usize);
         let noise = |i: usize, k: usize| -> f32 {
             let x = (seed ^ ((i as u64) << 20) ^ ((k % sides) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15);
@@ -188,21 +163,44 @@ impl Builder {
         };
         for i in 0..rings {
             let band = if bands > 0.0 && i % 2 == 1 { 1.0 - bands } else { 1.0 };
-            let c = Color::new(col.r * band, col.g * band, col.b * band, col.a);
+            let c = lin([col[0] * band, col[1] * band, col[2] * band]);
             for k in 0..sides {
                 let q = [point(i, k), point(i, k + 1), point(i + 1, k + 1), point(i + 1, k)];
-                let cols = [0, 1, 2, 3].map(|j| self.shade(c, q[j].1, q[j].0));
-                self.quad_raw([q[0].0, q[1].0, q[2].0, q[3].0], cols);
+                self.quad_lin([q[0].0, q[1].0, q[2].0, q[3].0], [q[0].1, q[1].1, q[2].1, q[3].1], [c; 4]);
             }
         }
     }
 
-    /// A small glowing patch (a lit window, embers): fogged but not shaded.
-    pub fn glow(&mut self, centre: Vec3, w: f32, h: f32, facing: f32, col: Color) {
+    /// A small upright patch (a lit window, embers), turned to face `facing`.
+    pub fn patch(&mut self, centre: Vec3, w: f32, h: f32, facing: f32, col: Rgb) {
         let (s, c) = facing.sin_cos();
         let right = vec3(-s, 0.0, c) * (w * 0.5);
         let up = vec3(0.0, h * 0.5, 0.0);
-        let k = self.fogged(col, centre);
-        self.quad_raw([centre - right - up, centre + right - up, centre + right + up, centre - right + up], [k; 4]);
+        let n = vec3(c, 0.0, s);
+        self.quad([centre - right - up, centre + right - up, centre + right + up, centre - right + up], n, col);
+    }
+
+    /// A flat ring lying on the ground surface `ground`, `n` pieces.
+    pub fn ring_on(&mut self, ground: &dyn Fn(f32, f32) -> f32, cx: f32, cz: f32, r: f32, width: f32, lift: f32, n: usize, col: Rgb) {
+        let c = lin(col);
+        for i in 0..n {
+            let a0 = i as f32 / n as f32 * std::f32::consts::TAU;
+            let a1 = (i + 1) as f32 / n as f32 * std::f32::consts::TAU;
+            let pts = [(a0, r - width * 0.5), (a0, r + width * 0.5), (a1, r + width * 0.5), (a1, r - width * 0.5)];
+            let v = pts.map(|(a, rr)| {
+                let (x, z) = (cx + a.cos() * rr, cz + a.sin() * rr);
+                vec3(x, ground(x, z) + lift, z)
+            });
+            self.quad_lin(v, [Vec3::Y; 4], [c; 4]);
+        }
+    }
+
+    /// Append another builder's geometry.
+    pub fn append(&mut self, o: Builder) {
+        let base = self.pos.len() as u32;
+        self.pos.extend(o.pos);
+        self.nrm.extend(o.nrm);
+        self.col.extend(o.col);
+        self.idx.extend(o.idx.into_iter().map(|i| i + base));
     }
 }

@@ -1,50 +1,47 @@
-//! The 3D view: an orbiting camera over the land around the squad.
+//! The 3D view: land, roads, towns, people and what they're doing, built from
+//! the simulation so the view can never disagree with it.
 //!
-//! Everything here is built from the simulation each frame (the ground is
-//! cached until the camera moves), so the view can never disagree with it.
+//! Three kinds of mesh, kept for different lengths of time:
+//! - the ground and roads, rebuilt only when the camera moves a whole grid
+//!   cell or zooms (`Ground`);
+//! - each town near the camera, rebuilt only when someone goes in or out of
+//!   one of its buildings (the walls are cut away round whoever is inside);
+//! - everything that moves (people, fights, things lying about, rings),
+//!   rebuilt every frame.
+//!
 //! Buildings are drawn at true size; people are true size up close and scaled
 //! up as the camera pulls back, so they stay visible the way units do in a
-//! strategy game.
+//! strategy game. Past a few hundred metres people are a plain shape, and
+//! groups beyond band 2 are a single marker.
 
-use macroquad::prelude::*;
+use std::collections::HashMap;
+
+use bevy::camera::visibility::NoFrustumCulling;
+use bevy::prelude::*;
 
 use gahturiyu_sim::sim::{
     bands::{BAND1_RADIUS, BAND2_RADIUS},
-    geo::{self, V2, WORLD_SIZE},
-    group::Kind,
-    combat::{FxKind, SQUAD_SIDE},
     body,
+    buildings::{door_of, Door},
+    combat::{FxKind, SQUAD_SIDE},
+    crafting::Station,
+    geo::{self, V2},
+    group::Kind as GroupKind,
+    items,
     magic::StatusKind,
     person::PersonId,
     race::Race,
     rng,
-    buildings::{door_of, Door, DoorId},
-    crafting::Station,
     settlement::{Building, BuildingKind},
-    stealth,
     terrain::Terrain,
     World,
 };
 
+use super::app::{Game, Hover, View};
+use super::cam::to3;
 use super::mesh::Builder;
-use super::palette;
-use super::squadui::{ground_color, Selection, GOLD as PICKED};
-use super::ui::{race_color, Hover, Picker, Ui, TEXT};
-
-const SKY: Color = Color::new(0.63, 0.69, 0.72, 1.0);
-const STONE: Color = Color::new(0.38, 0.39, 0.41, 1.0);
-const SANDSTONE: Color = Color::new(0.78, 0.63, 0.42, 1.0);
-const WEAVE: Color = Color::new(0.24, 0.21, 0.16, 1.0);
-const TIMBER: Color = Color::new(0.36, 0.27, 0.18, 1.0);
-const GOLD: Color = Color::new(0.95, 0.76, 0.28, 1.0);
-const EMBER: Color = Color::new(1.0, 0.62, 0.26, 1.0);
-const TENT: Color = Color::new(0.62, 0.64, 0.74, 1.0);
-/// How fast an arrow is drawn flying, m/s (drawing only).
-const ARROW_SPEED: f32 = 45.0;
-/// How long a missed arrow lies on the ground, seconds (drawing only).
-const ARROW_LIES: f32 = 20.0;
-const NIGHT_SKY: Color = Color::new(0.04, 0.05, 0.10, 1.0);
-const CAMP_HIDE: Color = Color::new(0.42, 0.24, 0.18, 1.0);
+use super::models::Models;
+use super::palette::{self, race_color, Rgb};
 
 /// Height of a Horaro stilt-home deck above the water.
 const DECK: f32 = 2.4;
@@ -52,137 +49,50 @@ const DECK: f32 = 2.4;
 const GROUND_CELLS: usize = 90;
 /// Cells across the coarse ring that carries the far land to the horizon.
 const FAR_CELLS: usize = 72;
+/// Beyond this distance from the camera, a person is a plain shape.
+pub const PERSON_SIMPLE: f32 = 260.0;
+/// How fast an arrow is drawn flying, m/s.
+pub const ARROW_SPEED: f32 = 45.0;
+/// How long a missed arrow lies on the ground, seconds.
+pub const ARROW_LIES: f32 = 20.0;
 
-pub struct OrbitCam {
-    /// The point the camera circles, on the ground (sim x, sim y).
-    pub target: V2,
-    /// Ground height under the target; kept up to date by the caller.
-    pub ground: f32,
-    pub yaw: f32,
-    pub pitch: f32,
-    /// Metres from target.
-    pub dist: f32,
+/// Materials: lit (sun, moon, fires), glowing (windows, embers, flames:
+/// shown at their own colour whatever the light), and flat markings on the
+/// ground (rings, order lines: unlit, so they read at night).
+#[derive(Resource)]
+pub struct Mats {
+    pub lit: Handle<StandardMaterial>,
+    pub glow: Handle<StandardMaterial>,
+    pub flat: Handle<StandardMaterial>,
 }
 
-impl OrbitCam {
-    pub fn new(target: V2) -> OrbitCam {
-        OrbitCam { target, ground: 0.0, yaw: 0.35, pitch: 0.48, dist: 110.0 }
-    }
+#[derive(Component)]
+pub struct GroundMesh;
+#[derive(Component)]
+pub struct Dynamic;
 
-    pub fn camera(&self) -> Camera3D {
-        let t = vec3(self.target.x, self.ground, self.target.y);
-        let off = vec3(self.pitch.cos() * self.yaw.cos(), self.pitch.sin(), self.pitch.cos() * self.yaw.sin()) * self.dist;
-        Camera3D {
-            position: t + off,
-            target: t,
-            up: Vec3::Y,
-            fovy: 50f32.to_radians(),
-            z_near: (self.dist * 0.01).clamp(0.2, 5.0),
-            z_far: self.far_radius() * 1.3 + self.dist,
-            ..Default::default()
-        }
-    }
-
-    /// How far out the detailed world (buildings, people) is drawn.
-    pub fn draw_radius(&self) -> f32 {
-        (self.dist * 5.0).clamp(900.0, 5500.0)
-    }
-
-    /// How far out land of any kind is drawn.
-    pub fn far_radius(&self) -> f32 {
-        (self.draw_radius() * 3.0).max(9000.0)
-    }
-
-    pub fn orbit(&mut self, dx: f32, dy: f32) {
-        self.yaw += dx * 0.006;
-        self.pitch = (self.pitch + dy * 0.004).clamp(0.08, 1.50);
-    }
-
-    pub fn zoom(&mut self, wheel: f32) {
-        self.dist = (self.dist * if wheel > 0.0 { 0.87 } else { 1.0 / 0.87 }).clamp(12.0, 4500.0);
-    }
-
-    /// Slide the target across the ground, relative to where the camera faces.
-    pub fn pan(&mut self, right: f32, forward: f32) {
-        let fwd = V2::new(-self.yaw.cos(), -self.yaw.sin());
-        let side = V2::new(-fwd.y, fwd.x);
-        let s = self.dist * 0.9;
-        let p = self.target.add(fwd.scale(forward * s)).add(side.scale(-right * s));
-        self.target = V2::new(p.x.clamp(0.0, WORLD_SIZE), p.y.clamp(0.0, WORLD_SIZE));
-    }
+#[derive(Resource, Default)]
+pub struct Scene3d {
+    ground_key: Option<(i64, i64, u32, u32)>,
+    ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
+    pub grid: Grid,
+    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
+    towns: HashMap<u16, Town>,
+    /// Triangles drawn by our own meshes last frame (for the readout).
+    pub triangles: usize,
 }
 
-fn to3(p: V2, h: f32) -> Vec3 {
-    vec3(p.x, h, p.y)
-}
-
-/// Screen position of a world point, or None if it is behind the camera.
-pub fn project(cam: &Camera3D, p: Vec3) -> Option<Vec2> {
-    let c = cam.matrix() * p.extend(1.0);
-    if c.w <= 0.0 {
-        return None;
-    }
-    let n = c.truncate() / c.w;
-    if n.z > 1.0 {
-        return None;
-    }
-    Some(vec2((n.x + 1.0) * 0.5 * screen_width(), (1.0 - n.y) * 0.5 * screen_height()))
-}
-
-/// The point on the land (or sea) under a screen position: march along the
-/// view ray until it dips below the surface, then home in.
-pub fn ground_at(cam: &Camera3D, s: Vec2, t: &Terrain) -> Option<V2> {
-    let inv = cam.matrix().inverse();
-    let nx = s.x / screen_width() * 2.0 - 1.0;
-    let ny = 1.0 - s.y / screen_height() * 2.0;
-    let a = inv * vec4(nx, ny, -1.0, 1.0);
-    let b = inv * vec4(nx, ny, 1.0, 1.0);
-    let (a, b) = (a.truncate() / a.w, b.truncate() / b.w);
-    let dir = (b - a).normalize();
-    let above = |p: Vec3| p.y - t.surface(V2::new(p.x, p.z));
-    let (mut lo, mut step) = (0.0f32, 2.0f32);
-    let mut prev = a;
-    for _ in 0..600 {
-        let hi = lo + step;
-        let p = a + dir * hi;
-        if above(p) < 0.0 {
-            // Bisect between the last point above and this one below.
-            let (mut l, mut h) = (lo, hi);
-            for _ in 0..20 {
-                let m = (l + h) * 0.5;
-                if above(a + dir * m) < 0.0 {
-                    h = m;
-                } else {
-                    l = m;
-                }
-            }
-            let q = a + dir * h;
-            return Some(V2::new(q.x, q.z));
-        }
-        prev = p;
-        lo = hi;
-        step *= 1.04;
-        if lo > 30_000.0 {
-            break;
-        }
-    }
-    let _ = prev;
-    None
-}
-
-/// Things kept between frames. The ground only changes when the camera
-/// moves a whole grid cell or zooms, so it is rebuilt only then.
-#[derive(Default)]
-pub struct SceneCache {
-    ground: Option<((i64, i64, u32, u32, u32), Builder)>,
-    grid: Grid,
+struct Town {
+    entities: Vec<Entity>,
+    occupied: Vec<u16>,
+    with_models: bool,
 }
 
 /// Where the ground mesh's vertices are, so things laid on the ground can
 /// follow the drawn surface exactly rather than the finer true terrain (which
 /// would leave them buried between vertices on steep slopes).
 #[derive(Default, Clone, Copy)]
-struct Grid {
+pub struct Grid {
     centre: V2,
     half_fine: f32,
     fine: f32,
@@ -193,7 +103,7 @@ struct Grid {
 impl Grid {
     /// Height of the drawn ground at `p`, matching how each cell is split
     /// into two triangles.
-    fn height(&self, t: &Terrain, p: V2) -> f32 {
+    pub fn height(&self, t: &Terrain, p: V2) -> f32 {
         if self.fine <= 0.0 {
             return t.surface(p);
         }
@@ -205,148 +115,239 @@ impl Grid {
         let (u, v) = (fx - i, fy - j);
         let corner = |di: f32, dj: f32| {
             let q = V2::new(x0 + (i + di) * step, y0 + (j + dj) * step);
-            if geo::inland(q) >= 0.0 { t.height(q).max(0.3) } else { 0.0 }
+            if geo::inland(q) >= 0.0 {
+                t.height(q).max(0.3)
+            } else {
+                0.0
+            }
         };
         let (a, b, c, d) = (corner(0.0, 0.0), corner(1.0, 0.0), corner(1.0, 1.0), corner(0.0, 1.0));
-        // Triangles (a, b, c) and (a, c, d), as the quads are built.
         let h = if u >= v { a + (b - a) * u + (c - b) * v } else { a + (c - d) * u + (d - a) * v };
-        if geo::inland(p) >= 0.0 { h } else { 0.0 }
+        if geo::inland(p) >= 0.0 {
+            h
+        } else {
+            0.0
+        }
     }
 }
 
-pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, cache: &mut SceneCache, sel: &Selection) {
-    // Time of day: the light level is rounded so the cached ground is only
-    // rebuilt a few dozen times through a dusk.
-    let day = (stealth::daylight(w.time) * 24.0).round() / 24.0;
-    let sky = Color::new(NIGHT_SKY.r + (SKY.r - NIGHT_SKY.r) * day, NIGHT_SKY.g + (SKY.g - NIGHT_SKY.g) * day, NIGHT_SKY.b + (SKY.b - NIGHT_SKY.b) * day, 1.0);
-    clear_background(sky);
-    let cam = oc.camera();
-    set_camera(&cam);
+pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: true, ..default() });
+    let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: true, ..default() });
+    let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: true, depth_bias: 50.0, ..default() });
+    commands.insert_resource(Mats { lit, glow, flat });
+}
+
+fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<StandardMaterial>, b: Builder, marker: impl Bundle) -> (Entity, Handle<Mesh>) {
+    let h = meshes.add(b.mesh());
+    let e = commands.spawn((Mesh3d(h.clone()), MeshMaterial3d(mat.clone()), Transform::default(), NoFrustumCulling, marker)).id();
+    (e, h)
+}
+
+/// Build what the 3D view shows this frame, and where things are on screen
+/// (for hovering, labels and health bars).
+#[allow(clippy::too_many_arguments)]
+pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, mats: Res<Mats>, models: Res<Models>, mut vis: Query<&mut Visibility, Or<(With<GroundMesh>, With<Dynamic>)>>) {
+    let game = &mut *game;
+    let scene = &mut *scene;
+    game.picks.clear();
+    game.labels.clear();
+    game.bars.clear();
+    let show = game.view == View::Scene;
+    for mut v in &mut vis {
+        *v = if show { Visibility::Inherited } else { Visibility::Hidden };
+    }
+    for t in scene.towns.values() {
+        for &e in &t.entities {
+            if let Ok(mut v) = vis.get_mut(e) {
+                *v = if show { Visibility::Inherited } else { Visibility::Hidden };
+            }
+        }
+    }
+    if !show {
+        // Towns hold their own entities; hide them by despawning (cheap to rebuild).
+        for (_, t) in scene.towns.drain() {
+            for e in t.entities {
+                commands.entity(e).despawn();
+            }
+        }
+        return;
+    }
+    let w = &game.world;
+    let oc = &game.orbit;
     let radius = oc.draw_radius();
     let far = oc.far_radius();
     let t = &w.terrain;
+    let mut tris = 0usize;
 
-    // The land, cached. Snap to a coarse grid so cells don't swim as the
-    // camera moves, and so the fine patch lines up with the far ring.
+    // ---- The land, cached ---------------------------------------------------
     let coarse = far * 2.0 / FAR_CELLS as f32;
-    let key = (
-        (oc.target.x / coarse).round() as i64,
-        (oc.target.y / coarse).round() as i64,
-        radius.to_bits(),
-        (oc.dist * oc.pitch.sin() / 25.0).round() as u32,
-        (day * 24.0) as u32,
-    );
-    if cache.ground.as_ref().map(|(k, _)| *k != key).unwrap_or(true) {
-        // Ground fog is measured from above the target, not from the camera,
-        // so turning the camera doesn't force a rebuild.
-        let eye = vec3(oc.target.x, oc.ground + oc.dist * oc.pitch.sin(), oc.target.y);
-        let mut g = Builder::new(eye, radius * 0.45, far * 0.95, sky).lit(day, camp_lamps(w, &|p| t.surface(p)));
+    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits(), (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
+    if scene.ground_key != Some(key) {
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
         // Fine patch: a whole number of coarse cells, so its edge meets the ring.
         let half_fine = ((radius / coarse).ceil().max(1.0)) * coarse;
         let fine = half_fine * 2.0 / GROUND_CELLS as f32;
+        let mut g = Builder::new();
         ground_patch(&mut g, t, centre, half_fine, fine, None);
         ground_patch(&mut g, t, centre, far, coarse, Some(half_fine));
-        cache.ground = Some((key, g.finish()));
-        cache.grid = Grid { centre, half_fine, fine, coarse, far };
-    }
-    let grid = cache.grid;
-    let on_ground = |p: V2| grid.height(t, p);
-    if let Some((_, g)) = &cache.ground {
-        g.draw();
-    }
-
-    let mut b = Builder::new(cam.position, radius * 0.45, far * 0.95, sky).lit(day, camp_lamps(w, &on_ground));
-
-    // Roads.
-    let lw = (oc.dist / 90.0).max(3.0);
-    for road in &w.routes.roads {
-        for seg in road.windows(2) {
-            if seg[0].dist(oc.target) > radius {
-                continue;
-            }
-            draped_ribbon(&mut b, &on_ground, seg[0], seg[1], lw, 0.3, palette::ROAD, (radius / 45.0).max(12.0));
-        }
-    }
-
-    // Towns.
-    let open = w.occupied();
-    let mut doors: Vec<(Vec3, DoorId)> = Vec::new();
-    let mut labels: Vec<(Vec3, String, u16)> = Vec::new();
-    for s in &w.settlements {
-        if s.pos.dist(oc.target) > radius + s.reach {
-            continue;
-        }
-        for (i, bd) in s.buildings.iter().enumerate() {
-            if bd.pos.dist(oc.target) < radius {
-                let id = (s.id, i as u16);
-                match door_of(s, i as u16) {
-                    // Someone's inside: cut the walls and roof away.
-                    Some(d) if open.contains(&id) => interior(&mut b, bd, &d, &on_ground),
-                    _ => building(&mut b, t, bd, &on_ground),
+        scene.grid = Grid { centre, half_fine, fine, coarse, far };
+        // Roads, laid over the land.
+        let grid = scene.grid;
+        let on_ground = |p: V2| grid.height(t, p);
+        let mut r = Builder::new();
+        let lw = 5.0f32.max(oc.dist / 90.0);
+        for road in &w.routes.roads {
+            for seg in road.windows(2) {
+                if seg[0].dist(oc.target) > radius * 1.5 {
+                    continue;
                 }
-                if let Some(d) = door_of(s, i as u16) {
-                    if d.outside.dist(oc.target) < 160.0 {
-                        doors.push((to3(d.outside, on_ground(d.outside) + 1.2), id));
+                draped_ribbon(&mut r, &on_ground, seg[0], seg[1], lw, 0.25, palette::ROAD, (radius / 45.0).max(10.0));
+            }
+        }
+        g.append(r);
+        match &scene.ground {
+            Some((h, _)) => {
+                if let Some(mut m) = meshes.get_mut(h) {
+                    *m = g.mesh();
+                }
+            }
+            None => {
+                let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, g, GroundMesh);
+                scene.ground = Some((h.clone(), h));
+            }
+        }
+        scene.ground_key = Some(key);
+    }
+    let grid = scene.grid;
+    let on_ground = |p: V2| grid.height(t, p);
+    let eye = oc.eye();
+
+    // ---- Towns, cached ------------------------------------------------------
+    let open = w.occupied();
+    let near: Vec<u16> = w.settlements.iter().filter(|s| s.pos.dist(oc.target) <= radius + s.reach).map(|s| s.id).collect();
+    scene.towns.retain(|id, town| {
+        let keep = near.contains(id);
+        if !keep {
+            for &e in &town.entities {
+                commands.entity(e).despawn();
+            }
+        }
+        keep
+    });
+    for &sid in &near {
+        let s = &w.settlements[sid as usize];
+        let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| open.contains(&(sid, *i))).collect();
+        let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.ready()).unwrap_or(true);
+        if fresh {
+            if let Some(old) = scene.towns.remove(&sid) {
+                for e in old.entities {
+                    commands.entity(e).despawn();
+                }
+            }
+            let mut lit = Builder::new();
+            let mut glow = Builder::new();
+            let mut ents = Vec::new();
+            for (i, bd) in s.buildings.iter().enumerate() {
+                match door_of(s, i as u16) {
+                    Some(d) if occupied.contains(&(i as u16)) => interior(&mut lit, &mut glow, bd, &d, &on_ground),
+                    _ => {
+                        if bd.kind == BuildingKind::RoduroHome && models.ready() {
+                            let ground = on_ground(bd.pos);
+                            let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
+                            ents.extend(models.spawn_roduro_home(&mut commands, to3(bd.pos, ground - sink), bd.rot, bd.size));
+                            window_glow(&mut glow, bd, ground, bd.size * 0.5);
+                        } else {
+                            building(&mut lit, &mut glow, t, bd, &on_ground);
+                        }
                     }
                 }
             }
+            ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
+            ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
+            scene.towns.insert(sid, Town { entities: ents, occupied, with_models: models.ready() });
         }
-        labels.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), s.name.clone(), s.id));
+        for (i, _) in s.buildings.iter().enumerate() {
+            if let Some(d) = door_of(s, i as u16) {
+                if d.outside.dist(oc.target) < 160.0 {
+                    game.picks.push((to3(d.outside, on_ground(d.outside) + 1.2), 0.0, Hover::Door((sid, i as u16))));
+                }
+            }
+        }
+        if s.pos.dist(oc.target) < radius * 1.1 {
+            game.labels.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), s.name.clone()));
+            game.picks.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), 20.0, Hover::Town(sid)));
+        }
     }
 
-    // People and groups.
+    // ---- Everything that moves, every frame ---------------------------------
+    let mut b = Builder::new();
+    let mut gl = Builder::new();
+    let mut fl = Builder::new();
     let k = (oc.dist / 220.0).max(1.0);
     let mut heads: Vec<(Vec3, PersonId)> = Vec::new();
     for s in &w.settlements {
         for pid in w.residents_in_band1(s.id) {
-            heads.push(person(&mut b, w, pid, k, &on_ground));
+            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
-    let mut markers: Vec<(Vec3, u32)> = Vec::new();
     for g in &w.groups {
         if g.pos.dist(oc.target) > radius {
             continue;
         }
-        if g.band == 1 {
-            if matches!(g.kind, Kind::Wanderer { .. }) && !g.is_moving(w.time) && !g.hostile {
-                let r = w.people[g.members[0] as usize].seed;
-                let at = g.pos.add(V2::new(3.5, 2.0));
-                tent(&mut b, to3(at, on_ground(at)), k, r);
+        let lead = w.people[g.members[0] as usize].race;
+        match g.band {
+            1 => {
+                if matches!(g.kind, GroupKind::Wanderer { .. }) && !g.is_moving(w.time) && !g.hostile {
+                    let r = w.people[g.members[0] as usize].seed;
+                    let at = g.pos.add(V2::new(3.5, 2.0));
+                    tent(&mut b, to3(at, on_ground(at)), k, r);
+                }
+                for &m in &g.members {
+                    heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+                }
             }
-            for &m in &g.members {
-                heads.push(person(&mut b, w, m, k, &on_ground));
+            2 => {
+                // A plain shape for each traveller, round where the group is.
+                let n = g.members.len();
+                for (j, &m) in g.members.iter().enumerate() {
+                    let a = j as f32 / n.max(1) as f32 * std::f32::consts::TAU;
+                    let off = if n > 1 { V2::new(a.cos(), a.sin()).scale(1.2 * k) } else { V2::default() };
+                    let at = g.pos.add(off);
+                    let r = w.people[m as usize].race;
+                    simple_person(&mut b, to3(at, on_ground(at) - 0.1), r, k);
+                }
+                game.picks.push((to3(g.pos, on_ground(g.pos) + 2.0 * k), 2.0, Hover::Group(g.id)));
             }
-        } else {
-            let lead = w.people[g.members[0] as usize].race;
-            let mk = (oc.dist / 120.0).max(2.0);
-            let base = to3(g.pos, on_ground(g.pos));
-            let n = g.members.len() as f32;
-            b.column(base, 0.25 * mk, 0.25 * mk, 3.0 * mk, 4, palette::scale(race_color(lead), 0.6));
-            b.column(base + vec3(0.0, 3.0 * mk, 0.0), (0.6 + 0.12 * n) * mk, 0.0, 1.3 * mk, 4, race_color(lead));
-            markers.push((base + vec3(0.0, 3.6 * mk, 0.0), g.id));
+            _ => {
+                let mk = (oc.dist / 120.0).max(2.0);
+                let base = to3(g.pos, on_ground(g.pos));
+                let n = g.members.len() as f32;
+                b.column(base, 0.25 * mk, 0.25 * mk, 3.0 * mk, 4, palette::scale(race_color(lead), 0.6));
+                b.column(base + vec3(0.0, 3.0 * mk, 0.0), (0.6 + 0.12 * n) * mk, 0.0, 1.3 * mk, 4, race_color(lead));
+                game.picks.push((base + vec3(0.0, 3.6 * mk, 0.0), 2.0, Hover::Group(g.id)));
+            }
         }
     }
     for &m in &w.squad.members {
-        heads.push(person(&mut b, w, m, k, &on_ground));
+        heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
     }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
-            heads.push(person(&mut b, w, pid, k, &on_ground));
+            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
-
     // The fallen.
     for &(at, race, _, pid) in &w.corpses {
         if w.carried_by(pid).is_some() {
-            heads.push(person(&mut b, w, pid, k, &on_ground));
+            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
             continue;
         }
         if at.dist(oc.target) < radius {
             heads.push((to3(at, on_ground(at) + 0.6), pid));
             let base = to3(at, on_ground(at) - 0.1);
-            b.block(base, 1.6 * k, 0.6 * k, 0.35 * k, at.x * 0.37, Color::new(0.35, 0.12, 0.10, 1.0));
+            b.block(base, 1.6 * k, 0.6 * k, 0.35 * k, at.x * 0.37, [0.35, 0.12, 0.10]);
             b.block(base + vec3(0.0, 0.3 * k, 0.0), 1.2 * k, 0.4 * k, 0.15 * k, at.x * 0.37, palette::scale(race_color(race), 0.5));
         }
     }
@@ -357,203 +358,216 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
         }
         let kk = k.min(4.0);
         let fire = to3(c.pos, on_ground(c.pos));
-        b.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, EMBER);
+        gl.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, palette::EMBER);
         for j in 0..3 {
             let a = j as f32 * 2.1 + c.group as f32;
             let at = c.pos.add(V2::new(a.cos(), a.sin()).scale(7.0 * kk));
-            b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, CAMP_HIDE);
+            b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, palette::CAMP_HIDE);
         }
     }
+    // Standing torches.
+    for st in &w.standing {
+        if st.pos.dist(oc.target) > radius || !st.burning(w.time) {
+            continue;
+        }
+        let base = to3(st.pos, on_ground(st.pos));
+        b.column(base, 0.07, 0.05, 1.8, 5, palette::TIMBER);
+        gl.column(base + vec3(0.0, 1.8, 0.0), 0.16, 0.02, 0.45, 6, palette::EMBER);
+    }
     // Workshops round the hearths, and things to gather.
-    let mut spots: Vec<(Vec3, Hover)> = Vec::new();
     for (i, &(p, st)) in w.stations.iter().enumerate() {
         if p.dist(oc.target) > radius.min(500.0) {
             continue;
         }
-        let g = on_ground(p);
-        let base = to3(p, g);
+        let base = to3(p, on_ground(p));
         let a = p.x * 0.13;
         match st {
             Station::Forge => {
-                b.block(base, 2.0, 1.6, 1.0, a, STONE);
-                b.column(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3, 0.3, 6, EMBER);
-                b.column(base + vec3(0.8, 0.0, 0.8), 0.25, 0.25, 0.8, 5, Color::new(0.25, 0.25, 0.27, 1.0));
+                b.block(base, 2.0, 1.6, 1.0, a, palette::STONE);
+                gl.column(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3, 0.3, 6, palette::EMBER);
+                b.column(base + vec3(0.8, 0.0, 0.8), 0.25, 0.25, 0.8, 5, [0.25, 0.25, 0.27]);
             }
             Station::Bench => {
-                b.block(base, 2.2, 0.9, 0.9, a, TIMBER);
-                b.block(base + vec3(0.0, 0.9, 0.0), 0.8, 0.5, 0.15, a, Color::new(0.45, 0.3, 0.2, 1.0));
+                b.block(base, 2.2, 0.9, 0.9, a, palette::TIMBER);
+                b.block(base + vec3(0.0, 0.9, 0.0), 0.8, 0.5, 0.15, a, [0.45, 0.3, 0.2]);
             }
             Station::Desk => {
-                b.block(base, 1.4, 0.8, 0.8, a, TIMBER);
-                b.block(base + vec3(0.0, 0.8, 0.0), 0.6, 0.4, 0.02, a, Color::new(0.9, 0.86, 0.72, 1.0));
+                b.block(base, 1.4, 0.8, 0.8, a, palette::TIMBER);
+                b.block(base + vec3(0.0, 0.8, 0.0), 0.6, 0.4, 0.02, a, [0.9, 0.86, 0.72]);
             }
             Station::AlchemyTable => {
-                b.block(base, 1.6, 0.9, 0.85, a, TIMBER);
-                b.column(base + vec3(0.3, 0.85, 0.0), 0.15, 0.08, 0.35, 6, Color::new(0.4, 0.8, 0.6, 1.0));
-                b.column(base + vec3(-0.3, 0.85, 0.1), 0.12, 0.05, 0.3, 6, Color::new(0.85, 0.3, 0.35, 1.0));
+                b.block(base, 1.6, 0.9, 0.85, a, palette::TIMBER);
+                b.column(base + vec3(0.3, 0.85, 0.0), 0.15, 0.08, 0.35, 6, [0.4, 0.8, 0.6]);
+                b.column(base + vec3(-0.3, 0.85, 0.1), 0.12, 0.05, 0.3, 6, [0.85, 0.3, 0.35]);
             }
         }
-        spots.push((base + vec3(0.0, 1.3, 0.0), Hover::Station(i)));
+        game.picks.push((base + vec3(0.0, 1.3, 0.0), 2.0, Hover::Station(i)));
     }
     for n in &w.nodes {
         if n.pos.dist(oc.target) > radius.min(400.0) || !n.ready(w.time) {
             continue;
         }
         let base = to3(n.pos, on_ground(n.pos));
-        let col = ground_color(n.item);
-        let key = gahturiyu_sim::sim::items::item(n.item).key;
+        let col = super::squadui::ground_color(n.item);
+        let key = items::item(n.item).key;
         let kk = k.min(4.0);
         match key {
-            "iron_ore" | "storm_glass" | "salt_crystal" => b.dome(base, 0.9 * kk, 0.8 * kk, 0.7 * kk, 0.2, 0.0, n.id as u64, if key == "iron_ore" { Color::new(0.45, 0.35, 0.3, 1.0) } else if key == "storm_glass" { Color::new(0.6, 0.75, 0.95, 1.0) } else { Color::new(0.92, 0.9, 0.85, 1.0) }),
-            "timber" => b.block(base, 2.4 * kk, 0.4 * kk, 0.4 * kk, n.id as f32, TIMBER),
-            "emberroot" => b.column(base, 0.35 * kk, 0.05, 0.9 * kk, 5, Color::new(0.9, 0.45, 0.15, 1.0)),
+            "iron_ore" | "storm_glass" | "salt_crystal" => b.dome(
+                base,
+                0.9 * kk,
+                0.8 * kk,
+                0.7 * kk,
+                0.2,
+                0.0,
+                n.id as u64,
+                if key == "iron_ore" {
+                    [0.45, 0.35, 0.3]
+                } else if key == "storm_glass" {
+                    [0.6, 0.75, 0.95]
+                } else {
+                    [0.92, 0.9, 0.85]
+                },
+            ),
+            "timber" => b.block(base, 2.4 * kk, 0.4 * kk, 0.4 * kk, n.id as f32, palette::TIMBER),
+            "emberroot" => b.column(base, 0.35 * kk, 0.05, 0.9 * kk, 5, [0.9, 0.45, 0.15]),
             "ghostcap" => {
-                b.column(base, 0.08 * kk, 0.08 * kk, 0.3 * kk, 4, Color::new(0.85, 0.85, 0.8, 1.0));
-                b.column(base + vec3(0.0, 0.3 * kk, 0.0), 0.3 * kk, 0.05, 0.15 * kk, 8, Color::new(0.8, 0.82, 0.9, 1.0));
+                b.column(base, 0.08 * kk, 0.08 * kk, 0.3 * kk, 4, [0.85, 0.85, 0.8]);
+                b.column(base + vec3(0.0, 0.3 * kk, 0.0), 0.3 * kk, 0.05, 0.15 * kk, 8, [0.8, 0.82, 0.9]);
             }
-            "kelp_frond" => b.column(to3(n.pos, on_ground(n.pos).max(0.0)), 0.4 * kk, 0.1, 0.5 * kk, 5, Color::new(0.25, 0.45, 0.25, 1.0)),
+            "kelp_frond" => b.column(to3(n.pos, on_ground(n.pos).max(0.0)), 0.4 * kk, 0.1, 0.5 * kk, 5, [0.25, 0.45, 0.25]),
             _ => b.column(base, 0.6 * kk, 0.3 * kk, 0.2 * kk, 6, col),
         }
-        spots.push((base + vec3(0.0, 0.8 * kk, 0.0), Hover::Node(n.id)));
+        game.picks.push((base + vec3(0.0, 0.8 * kk, 0.0), 2.0, Hover::Node(n.id)));
     }
     // Things lying about.
-    let mut things: Vec<(Vec3, u32)> = Vec::new();
     for g in &w.ground {
         if g.pos.dist(oc.target) < radius.min(600.0) {
             let base = to3(g.pos, on_ground(g.pos));
             let kk = k.min(6.0);
-            b.block(base, 0.55 * kk, 0.35 * kk, 0.22 * kk, g.id as f32 * 1.7, ground_color(g.item));
-            things.push((base + vec3(0.0, 0.3 * kk, 0.0), g.id));
+            b.block(base, 0.55 * kk, 0.35 * kk, 0.22 * kk, g.id as f32 * 1.7, super::squadui::ground_color(g.item));
+            game.picks.push((base + vec3(0.0, 0.3 * kk, 0.0), 4.0, Hover::Item(g.id)));
         }
     }
-    // Spell effects, briefly.
+    // Spell effects, briefly; arrows in flight, and misses lying where they fell.
     for battle in &w.battles {
         for fx in &battle.fx {
             let age = (w.time - fx.at) as f32;
-            if !(0.0..0.8).contains(&age) {
-                continue;
-            }
             match fx.kind {
-                FxKind::Fireball { at, radius } => {
+                FxKind::Fireball { at, radius } if (0.0..0.8).contains(&age) => {
                     let r = radius * (0.4 + age * 1.2);
-                    b.dome(to3(at, on_ground(at)), r, r, r * 0.8, 0.2, 0.0, 7, Color::new(1.0, 0.55 - age * 0.4, 0.15, 1.0));
+                    gl.dome(to3(at, on_ground(at)), r, r, r * 0.8, 0.2, 0.0, 7, [1.0, 0.55 - age * 0.4, 0.15]);
                 }
-                FxKind::Bolt { from, to } => {
+                FxKind::Bolt { from, to } if (0.0..0.8).contains(&age) => {
                     let (a, c) = (to3(from, on_ground(from) + 1.5), to3(to, on_ground(to) + 1.2));
-                    let side = vec3(-(c.z - a.z), 0.0, c.x - a.x).normalize_or_zero() * 0.25;
-                    let col = b.fogged(Color::new(0.85, 0.9, 1.0, 1.0), a);
-                    b.quad_raw([a - side, a + side, c + side, c - side], [col; 4]);
-                    b.quad_raw([a - vec3(0.0, 0.25, 0.0), a + vec3(0.0, 0.25, 0.0), c + vec3(0.0, 0.25, 0.0), c - vec3(0.0, 0.25, 0.0)], [col; 4]);
+                    gl.stick(a, c, 0.25, [0.85, 0.9, 1.0]);
                 }
-                FxKind::Fizzle { at } => {
-                    b.glow(to3(at, on_ground(at) + 2.2), 0.8, 0.8, 0.0, Color::new(0.6, 0.6, 0.7, 1.0));
+                FxKind::Fizzle { at } if (0.0..0.8).contains(&age) => {
+                    gl.patch(to3(at, on_ground(at) + 2.2), 0.8, 0.8, 0.0, [0.6, 0.6, 0.7]);
                 }
-                FxKind::Arrow { .. } => {}
+                FxKind::Arrow { from, to, hit } => arrow(&mut b, &on_ground, from, to, hit, age, k),
+                _ => {}
             }
         }
     }
 
-    // Arrows in flight, and misses lying where they came down.
-    for battle in &w.battles {
-        for fx in &battle.fx {
-            if let FxKind::Arrow { from, to, hit } = fx.kind {
-                let age = (w.time - fx.at) as f32;
-                let len = from.dist(to).max(0.1);
-                let fly = len / ARROW_SPEED;
-                if age < 0.0 || age > fly + if hit { 0.0 } else { ARROW_LIES } {
-                    continue;
-                }
-                let u = (age / fly).min(1.0);
-                let p = from.lerp(to, u);
-                let arc = 4.0 * len * 0.05 * u * (1.0 - u);
-                let h = if u < 1.0 { on_ground(p) + 1.4 + arc - 0.4 * u } else { on_ground(p) + 0.05 };
-                let a = (to.y - from.y).atan2(to.x - from.x);
-                let kk = k.min(3.0);
-                b.block(to3(p, h), 0.9 * kk, 0.06 * kk, 0.06 * kk, a, Color::new(0.55, 0.42, 0.28, 1.0));
-                b.glow(to3(p.add(V2::new(a.cos(), a.sin()).scale(-0.45 * kk)), h + 0.03 * kk), 0.12 * kk, 0.12 * kk, a + 1.57, Color::new(0.9, 0.9, 0.85, 1.0));
-            }
-        }
-    }
-
-    // Rings and the order line, draped over the land.
+    // Rings and the order lines, laid on the land.
     let rw = (oc.dist / 260.0).max(0.12);
     let sq = w.squad.pos;
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
-        let picked = sel.shows(w, m);
+        let picked = game.sel.shows(w, m);
         if picked {
-            draped_ring(&mut b, &on_ground, at, 1.2 * k, rw * 0.8, 18, PICKED);
+            draped_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, 18, palette::GOLD, eye);
         }
-        // Where each member is headed.
         let goal = w.squad.goal[i];
         if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
-            let col = if picked { PICKED } else { Color::new(0.95, 0.95, 0.95, 1.0) };
-            draped_ribbon(&mut b, &on_ground, at, goal, rw * 0.5, 0.4, col, 10.0);
-            draped_ring(&mut b, &on_ground, goal, 0.8 * k, rw * 0.6, 12, col);
+            let col = if picked { palette::GOLD } else { [0.95, 0.95, 0.95] };
+            draped_ribbon(&mut fl, &on_ground, at, goal, rw * 0.5, 0.4, col, 10.0);
+            draped_ring(&mut fl, &on_ground, goal, 0.8 * k, rw * 0.6, 12, col, eye);
         }
     }
-    if rings {
-        draped_ring(&mut b, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, Color::new(0.92, 0.94, 0.95, 1.0));
-        draped_ring(&mut b, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, Color::new(0.80, 0.84, 0.86, 1.0));
+    if game.rings {
+        draped_ring(&mut fl, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
+        draped_ring(&mut fl, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);
     }
-    b.finish().draw();
-
-    // Back to flat screen space for text and picking.
-    set_default_camera();
-    for (p, id) in heads {
-        if let Some(s) = project(&cam, p) {
-            pick.offer(s, 2.0, Hover::Person(id));
-            if let Some((vit, mana, down)) = super::ui::bar_for(w, id) {
-                if p.distance(cam.position) < 400.0 {
-                    super::ui::draw_bar(s.x, s.y - 12.0, vit, mana, down);
+    tris += b.triangles() + gl.triangles() + fl.triangles();
+    match &scene.dynamic {
+        Some((hb, hg, hf)) => {
+            for (h, m) in [(hb, b), (hg, gl), (hf, fl)] {
+                if let Some(mut x) = meshes.get_mut(h) {
+                    *x = m.mesh();
                 }
             }
         }
-    }
-    for (p, h) in spots {
-        if let Some(s) = project(&cam, p) {
-            pick.offer(s, 2.0, h);
+        None => {
+            let (_, hb) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, b, Dynamic);
+            let (_, hg) = spawn_mesh(&mut commands, &mut meshes, &mats.glow, gl, Dynamic);
+            let (_, hf) = spawn_mesh(&mut commands, &mut meshes, &mats.flat, fl, Dynamic);
+            scene.dynamic = Some((hb, hg, hf));
         }
     }
-    for (p, id) in doors {
-        if let Some(s) = project(&cam, p) {
-            pick.offer(s, 0.0, Hover::Door(id));
-        }
-    }
-    for (p, id) in things {
-        if let Some(s) = project(&cam, p) {
-            pick.offer(s, 4.0, Hover::Item(id));
-        }
-    }
-    for (p, id) in markers {
-        if let Some(s) = project(&cam, p) {
-            pick.offer(s, 2.0, Hover::Group(id));
-        }
-    }
-    for (p, name, id) in labels {
-        if let Some(q) = project(&cam, p) {
-            if p.distance(cam.position) < radius * 1.1 {
-                ui.centred(&name, q.x, q.y, 17, TEXT);
-                pick.offer(q, 20.0, Hover::Town(id));
+    scene.triangles = tris;
+
+    // Heads: where to hover people and hang their health bars.
+    for (p, id) in heads {
+        game.picks.push((p, 2.0, Hover::Person(id)));
+        if let Some((vit, mana, down)) = super::hud::bar_for(w, id) {
+            if p.distance(eye) < 400.0 {
+                game.bars.push((p, vit, mana, down));
             }
         }
     }
 }
 
+/// An arrow: flying from `from` to `to` (a short arc), then lying there for a
+/// while if it missed.
+fn arrow(b: &mut Builder, on_ground: &dyn Fn(V2) -> f32, from: V2, to: V2, hit: bool, age: f32, k: f32) {
+    let len = from.dist(to).max(0.1);
+    let fly = len / ARROW_SPEED;
+    if age < 0.0 || age > fly + if hit { 0.0 } else { ARROW_LIES } {
+        return;
+    }
+    let kk = k.min(3.0);
+    let shaft = 0.85 * kk;
+    let height = |u: f32| {
+        let p = from.lerp(to, u);
+        let lift = if hit { 1.3 } else { 1.4 * (1.0 - u) + 0.1 };
+        on_ground(p) + lift + 4.0 * len * 0.04 * u * (1.0 - u)
+    };
+    let u = (age / fly).min(1.0);
+    let dir = to.sub(from).scale(1.0 / len);
+    let (tip, tail) = if u < 1.0 {
+        // In the air, pointing along its flight.
+        let p = from.lerp(to, u);
+        let du = (0.02f32).min(1.0 - u).max(0.001);
+        let ahead = from.lerp(to, u + du);
+        let d3 = (to3(ahead, height(u + du)) - to3(p, height(u))).normalize_or_zero();
+        let tip = to3(p, height(u));
+        (tip, tip - d3 * shaft)
+    } else {
+        // Stuck in the ground at a slant.
+        let base = to3(to, on_ground(to));
+        let back = vec3(-dir.x, 0.0, -dir.y);
+        (base, base + (back * 0.8 + Vec3::Y * 0.5).normalize() * shaft)
+    };
+    b.stick(tail, tip, 0.05 * kk, [0.55, 0.42, 0.28]);
+    // Fletching, pale, at the tail.
+    let d = (tip - tail).normalize_or_zero();
+    b.stick(tail, tail + d * 0.18 * kk, 0.14 * kk, [0.9, 0.9, 0.85]);
+}
+
 /// A building seen from inside: floor, the stubs of its walls (with a gap at
 /// the door), and what's in it.
-fn interior(b: &mut Builder, bd: &Building, d: &Door, on_ground: &dyn Fn(V2) -> f32) {
+fn interior(b: &mut Builder, gl: &mut Builder, bd: &Building, d: &Door, on_ground: &dyn Fn(V2) -> f32) {
     let floor_h = on_ground(bd.pos);
     let base = to3(bd.pos, floor_h);
     let (wall, floor) = match bd.kind {
-        BuildingKind::RoduroHome | BuildingKind::QotiroHall => (STONE, Color::new(0.30, 0.28, 0.26, 1.0)),
-        _ => (SANDSTONE, Color::new(0.62, 0.52, 0.38, 1.0)),
+        BuildingKind::RoduroHome | BuildingKind::QotiroHall => (palette::STONE, [0.30, 0.28, 0.26]),
+        _ => (palette::SANDSTONE, [0.62, 0.52, 0.38]),
     };
     let r = d.radius;
     b.column(base - vec3(0.0, 0.25, 0.0), r, r, 0.3, 20, floor);
-    // A rug in the middle, warm against the stone.
-    b.column(base + vec3(0.0, 0.06, 0.0), r * 0.45, r * 0.45, 0.02, 14, Color::new(0.55, 0.22, 0.16, 1.0));
-    // Wall stubs round the edge, leaving the doorway.
+    b.column(base + vec3(0.0, 0.06, 0.0), r * 0.45, r * 0.45, 0.02, 14, [0.55, 0.22, 0.16]);
     let door_dir = d.outside.sub(d.centre);
     let door_a = door_dir.y.atan2(door_dir.x);
     let n = 22;
@@ -573,63 +587,54 @@ fn interior(b: &mut Builder, bd: &Building, d: &Door, on_ground: &dyn Fn(V2) -> 
     let back_a = back.y.atan2(back.x);
     let spot = |a: f32, f: f32| bd.pos.add(V2::new((back_a + a).cos(), (back_a + a).sin()).scale(r * f));
     let bed = spot(1.4 + r2.f32() * 0.3, 0.55);
-    b.block(to3(bed, floor_h), 2.0, 1.0, 0.5, back_a + 1.4, TIMBER);
-    b.block(to3(bed, floor_h + 0.5), 1.8, 0.9, 0.12, back_a + 1.4, Color::new(0.72, 0.68, 0.58, 1.0));
+    b.block(to3(bed, floor_h), 2.0, 1.0, 0.5, back_a + 1.4, palette::TIMBER);
+    b.block(to3(bed, floor_h + 0.5), 1.8, 0.9, 0.12, back_a + 1.4, [0.72, 0.68, 0.58]);
     let table = spot(-1.2 - r2.f32() * 0.3, 0.45);
-    b.block(to3(table, floor_h), 1.4, 0.9, 0.8, back_a, TIMBER);
+    b.block(to3(table, floor_h), 1.4, 0.9, 0.8, back_a, palette::TIMBER);
     let chest = spot(0.25, 0.68);
-    b.block(to3(chest, floor_h), 1.1, 0.6, 0.6, back_a, Color::new(0.45, 0.30, 0.16, 1.0));
+    b.block(to3(chest, floor_h), 1.1, 0.6, 0.6, back_a, [0.45, 0.30, 0.16]);
     let fire = spot(-0.35, 0.62);
-    b.column(to3(fire, floor_h), 0.5, 0.2, 0.4, 6, EMBER);
-}
-
-/// Campfires as lights, at night.
-fn camp_lamps(w: &World, ground: &dyn Fn(V2) -> f32) -> Vec<(Vec3, f32, f32)> {
-    if stealth::daylight(w.time) > 0.95 {
-        return Vec::new();
-    }
-    w.camps.iter().map(|c| (to3(c.pos, ground(c.pos) + 1.5), 22.0, 0.9)).collect()
+    gl.column(to3(fire, floor_h), 0.5, 0.2, 0.4, 6, palette::EMBER);
 }
 
 /// A flat strip laid over the land from `a` to `c`, cut into pieces no longer
 /// than `piece` metres so it follows the ground instead of cutting through it.
 #[allow(clippy::too_many_arguments)]
-fn draped_ribbon(b: &mut Builder, ground: &dyn Fn(V2) -> f32, a: V2, c: V2, width: f32, lift: f32, col: Color, piece: f32) {
+fn draped_ribbon(b: &mut Builder, ground: &dyn Fn(V2) -> f32, a: V2, c: V2, width: f32, lift: f32, col: Rgb, piece: f32) {
     let len = a.dist(c);
     if len < 1e-3 {
         return;
     }
     let d = c.sub(a).scale(1.0 / len);
-    let away = to3(a, ground(a)).distance(b.eye());
-    let side = V2::new(-d.y, d.x).scale(width.max(away * 0.005) * 0.5);
+    let side = V2::new(-d.y, d.x).scale(width * 0.5);
     let n = ((len / piece).ceil() as usize).max(1);
+    let lc = palette::lin(col);
     for i in 0..n {
         let p0 = a.lerp(c, i as f32 / n as f32);
         let p1 = a.lerp(c, (i + 1) as f32 / n as f32);
         let q = [p0.sub(side), p0.add(side), p1.add(side), p1.sub(side)];
         let v = q.map(|p| to3(p, ground(p) + lift));
-        let k = b.shade(col, Vec3::Y, v[0]);
-        b.quad_raw(v, [k; 4]);
+        b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
     }
 }
 
-fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, n: usize, col: Color) {
-    // Enough pieces that each is about one ground cell, so the ring hugs the land.
+/// A ring laid on the land. Far pieces are widened so they stay a pixel or
+/// two thick seen edge-on; otherwise the ring breaks into dashes.
+#[allow(clippy::too_many_arguments)]
+fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, n: usize, col: Rgb, eye: Vec3) {
     let n = n.max((r * std::f32::consts::TAU / 18.0) as usize).min(2400);
     let lift = 0.5 + r * 0.0008;
+    let lc = palette::lin(col);
     for i in 0..n {
         let a0 = i as f32 / n as f32 * std::f32::consts::TAU;
         let a1 = (i + 1) as f32 / n as f32 * std::f32::consts::TAU;
         let (u0, u1) = (V2::new(a0.cos(), a0.sin()), V2::new(a1.cos(), a1.sin()));
-        // Far pieces are widened so they stay at least a pixel or two thick
-        // when seen edge-on; otherwise the ring breaks into dashes.
         let mid = c.add(u0.scale(r));
-        let away = to3(mid, ground(mid)).distance(b.eye());
+        let away = to3(mid, ground(mid)).distance(eye);
         let width = width.max(away * 0.011);
         let q = [c.add(u0.scale(r - width * 0.5)), c.add(u0.scale(r + width * 0.5)), c.add(u1.scale(r + width * 0.5)), c.add(u1.scale(r - width * 0.5))];
         let v = q.map(|p| to3(p, ground(p) + lift));
-        let k = b.fogged(col, v[1]);
-        b.quad_raw(v, [k; 4]);
+        b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
     }
 }
 
@@ -639,16 +644,13 @@ fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width
 fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, hole: Option<f32>) {
     let cells = (half * 2.0 / step).round() as i64;
     let (x0, y0) = (centre.x - half, centre.y - half);
-    let vert = |b: &Builder, p: V2| -> (Vec3, Color) {
+    let vert = |p: V2| -> (Vec3, Vec3, [f32; 4]) {
         if geo::is_land(p) || geo::inland(p) >= 0.0 {
             let h = t.height(p).max(0.3);
             let (nx, ny, nz) = t.normal(p, step.max(15.0));
-            let n = vec3(nx, ny, nz);
-            let v = to3(p, h);
-            (v, b.shade(palette::ground(t, p, h, ny), n, v))
+            (to3(p, h), vec3(nx, ny, nz), palette::lin(palette::ground(t, p, h, ny)))
         } else {
-            let v = to3(p, 0.0);
-            (v, b.shade(palette::sea(p), Vec3::Y, v))
+            (to3(p, 0.0), Vec3::Y, palette::lin(palette::sea(p)))
         }
     };
     let skip = |xa: f32, xb: f32, ya: f32, yb: f32| -> bool {
@@ -666,28 +668,26 @@ fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, 
                 continue;
             }
             if xa >= ca.max(cb) || xb <= ca.min(cb) {
-                // Wholly land or wholly sea.
                 let ps = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
-                let vs = ps.map(|p| vert(b, p));
-                b.quad_raw(vs.map(|v| v.0), vs.map(|v| v.1));
+                let vs = ps.map(vert);
+                b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
             } else {
-                // The shore runs through: cut the cell along the coastline
-                // (straight across this row) into its sea part and land part.
+                // The shore runs through: cut the cell along the coastline.
                 let rect = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
                 let side = |p: V2| p.x - (ca + (cb - ca) * (p.y - ya) / (yb - ya));
-                let land = clip(&rect, |p| side(p));
+                let land = clip(&rect, side);
                 let sea = clip(&rect, |p| -side(p));
-                let vs: Vec<(Vec3, Color)> = sea.iter().map(|&p| (to3(p, 0.0), b.shade(palette::sea(p), Vec3::Y, to3(p, 0.0)))).collect();
-                b.poly_raw(&vs.iter().map(|v| v.0).collect::<Vec<_>>(), &vs.iter().map(|v| v.1).collect::<Vec<_>>());
-                let vs: Vec<(Vec3, Color)> = land.iter().map(|&p| vert(b, V2::new(p.x + 0.01, p.y))).collect();
-                b.poly_raw(&vs.iter().map(|v| v.0).collect::<Vec<_>>(), &vs.iter().map(|v| v.1).collect::<Vec<_>>());
+                let sp: Vec<Vec3> = sea.iter().map(|&p| to3(p, 0.0)).collect();
+                let sc: Vec<[f32; 4]> = sea.iter().map(|&p| palette::lin(palette::sea(p))).collect();
+                b.poly_lin(&sp, &vec![Vec3::Y; sp.len()], &sc);
+                let lv: Vec<(Vec3, Vec3, [f32; 4])> = land.iter().map(|&p| vert(V2::new(p.x + 0.01, p.y))).collect();
+                b.poly_lin(&lv.iter().map(|v| v.0).collect::<Vec<_>>(), &lv.iter().map(|v| v.1).collect::<Vec<_>>(), &lv.iter().map(|v| v.2).collect::<Vec<_>>());
             }
         }
     }
 }
 
-/// The part of a convex polygon where `f` is not negative (one pass of
-/// Sutherland–Hodgman clipping against a straight line).
+/// The part of a convex polygon where `f` is not negative.
 fn clip(poly: &[V2], f: impl Fn(V2) -> f32) -> Vec<V2> {
     let mut out = Vec::with_capacity(poly.len() + 1);
     for i in 0..poly.len() {
@@ -703,7 +703,15 @@ fn clip(poly: &[V2], f: impl Fn(V2) -> f32) -> Vec<V2> {
     out
 }
 
-fn building(b: &mut Builder, t: &Terrain, bd: &Building, on_ground: &dyn Fn(V2) -> f32) {
+/// The warm window on a Roduro home's hearth side, and its dark door.
+fn window_glow(gl: &mut Builder, bd: &Building, ground: f32, r: f32) {
+    let (sn, cs) = bd.rot.sin_cos();
+    let h = bd.size * 0.5;
+    let face = vec3(bd.pos.x, ground, bd.pos.y) + vec3(cs, 0.0, sn) * (r * 0.97);
+    gl.patch(face + vec3(0.0, h * 0.35, 0.0), 1.1, 0.8, bd.rot, palette::WINDOW);
+}
+
+fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_ground: &dyn Fn(V2) -> f32) {
     let ground = if bd.kind == BuildingKind::HoraroStilt { 0.0 } else { on_ground(bd.pos) };
     // Sink buildings a little so they sit into slopes rather than float.
     let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
@@ -716,122 +724,152 @@ fn building(b: &mut Builder, t: &Terrain, bd: &Building, on_ground: &dyn Fn(V2) 
             // Grown stone: a lumpy banded mound, sometimes with an upper
             // storey budding out of it, and a warm window facing the hearth.
             let h = bd.size * (0.42 + unit(1) * 0.18) + sink;
-            b.dome(base, r * (0.95 + unit(2) * 0.2), r * (0.85 + unit(3) * 0.2), h, 0.10, 0.10, s, STONE);
+            b.dome(base, r * (0.95 + unit(2) * 0.2), r * (0.85 + unit(3) * 0.2), h, 0.10, 0.10, s, palette::STONE);
             if bd.size > 9.5 {
                 let off = vec3(unit(4) - 0.5, 0.0, unit(5) - 0.5) * r * 0.6;
-                b.dome(base + off + vec3(0.0, h * 0.62, 0.0), r * 0.55, r * 0.5, h * 0.55, 0.12, 0.12, s ^ 7, STONE);
+                b.dome(base + off + vec3(0.0, h * 0.62, 0.0), r * 0.55, r * 0.5, h * 0.55, 0.12, 0.12, s ^ 7, palette::STONE);
             }
             let (sn, cs) = bd.rot.sin_cos();
             let face = vec3(base.x, ground, base.z) + vec3(cs, 0.0, sn) * (r * 0.97);
-            b.glow(face + vec3(0.0, h * 0.35, 0.0), 1.1, 0.8, bd.rot, EMBER);
-            b.glow(face + vec3(0.0, 1.0, 0.0) + vec3(-sn, 0.0, cs) * 1.4, 1.0, 2.0, bd.rot, Color::new(0.08, 0.07, 0.06, 1.0));
+            gl.patch(face + vec3(0.0, h * 0.35, 0.0), 1.1, 0.8, bd.rot, palette::WINDOW);
+            b.patch(face + vec3(0.0, 1.0, 0.0) + vec3(-sn, 0.0, cs) * 1.4, 1.0, 2.0, bd.rot, [0.08, 0.07, 0.06]);
         }
         BuildingKind::HoraroStilt => {
-            // Narrow grown-stone pillars out of the water, a timber deck, and a
-            // dark woven dome that bulges more on one side.
             let pillars = 5;
             for i in 0..pillars {
                 let a = i as f32 / pillars as f32 * std::f32::consts::TAU + bd.rot;
                 let p = base + vec3(a.cos(), 0.0, a.sin()) * (r * 0.55) + vec3(0.0, -2.0, 0.0);
-                b.column(p, 0.45, 0.35, DECK + 2.0, 6, STONE);
+                b.column(p, 0.45, 0.35, DECK + 2.0, 6, palette::STONE);
             }
-            b.column(base + vec3(0.0, DECK, 0.0), r * 0.95, r * 0.95, 0.3, 12, TIMBER);
+            b.column(base + vec3(0.0, DECK, 0.0), r * 0.95, r * 0.95, 0.3, 12, palette::TIMBER);
             let off = vec3(bd.rot.cos(), 0.0, bd.rot.sin()) * (r * 0.12);
-            b.dome(base + off + vec3(0.0, DECK + 0.3, 0.0), r * 0.62, r * 0.5, r * 0.62, 0.04, 0.0, s, WEAVE);
+            b.dome(base + off + vec3(0.0, DECK + 0.3, 0.0), r * 0.62, r * 0.5, r * 0.62, 0.04, 0.0, s, palette::WEAVE);
+            // A lamp in the doorway.
+            let (sn, cs) = bd.rot.sin_cos();
+            gl.patch(base + vec3(cs, 0.0, sn) * (r * 0.6) + vec3(0.0, DECK + 1.2, 0.0), 0.6, 0.6, bd.rot, palette::WINDOW);
         }
         BuildingKind::QotiroBlock => {
-            // Quarried and stepped: dense living quarters in sandstone.
             let tiers = 2 + (unit(1) * 1.5) as usize;
             let mut y = 0.0;
             let mut sz = bd.size;
             for tier in 0..tiers {
                 let h = 4.0 + unit(10 + tier as u64) * 1.5 + if tier == 0 { sink } else { 0.0 };
-                b.block(base + vec3(0.0, y, 0.0), sz, sz * 0.8, h, bd.rot, SANDSTONE);
+                b.block(base + vec3(0.0, y, 0.0), sz, sz * 0.8, h, bd.rot, palette::SANDSTONE);
+                // A lit slit window on each tier.
+                let (sn, cs) = bd.rot.sin_cos();
+                gl.patch(base + vec3(0.0, y + h * 0.55, 0.0) + vec3(cs, 0.0, sn) * (sz * 0.5 + 0.02), 0.5, 1.0, bd.rot, palette::WINDOW);
                 y += h;
                 sz *= 0.72;
             }
         }
         BuildingKind::QotiroTemple => {
-            // Three tiers: the wide market base, the living middle, and an
-            // open summit with a temple and its gold sun disc.
             let mut y = 0.0;
             for (f, h) in [(1.0, 7.0 + sink), (0.68, 8.0), (0.40, 3.0)] {
-                b.block(base + vec3(0.0, y, 0.0), bd.size * f, bd.size * f, h, bd.rot, SANDSTONE);
+                b.block(base + vec3(0.0, y, 0.0), bd.size * f, bd.size * f, h, bd.rot, palette::SANDSTONE);
                 y += h;
             }
-            b.block(base + vec3(0.0, y, 0.0), bd.size * 0.16, bd.size * 0.2, 6.0, bd.rot, SANDSTONE);
-            b.column(base + vec3(0.0, y + 6.0, 0.0), bd.size * 0.06, 0.0, 3.0, 8, GOLD);
-            b.glow(base + vec3(0.0, y + 9.5, 0.0), 2.6, 2.6, bd.rot, GOLD);
+            b.block(base + vec3(0.0, y, 0.0), bd.size * 0.16, bd.size * 0.2, 6.0, bd.rot, palette::SANDSTONE);
+            b.column(base + vec3(0.0, y + 6.0, 0.0), bd.size * 0.06, 0.0, 3.0, 8, palette::METAL_GOLD);
+            gl.patch(base + vec3(0.0, y + 9.5, 0.0), 2.6, 2.6, bd.rot, palette::METAL_GOLD);
         }
         BuildingKind::QotiroHall => {
-            // Away from home: two tiers in local dark stone, the gold crown kept.
-            b.block(base, bd.size, bd.size * 0.8, 4.5 + sink, bd.rot, STONE);
-            b.block(base + vec3(0.0, 4.5 + sink, 0.0), bd.size * 0.5, bd.size * 0.45, 3.0, bd.rot, STONE);
-            b.column(base + vec3(0.0, 7.5 + sink, 0.0), 0.9, 0.0, 2.2, 8, GOLD);
+            b.block(base, bd.size, bd.size * 0.8, 4.5 + sink, bd.rot, palette::STONE);
+            b.block(base + vec3(0.0, 4.5 + sink, 0.0), bd.size * 0.5, bd.size * 0.45, 3.0, bd.rot, palette::STONE);
+            b.column(base + vec3(0.0, 7.5 + sink, 0.0), 0.9, 0.0, 2.2, 8, palette::METAL_GOLD);
         }
         BuildingKind::Hearth => {
             let base = to3(bd.pos, ground);
             for i in 0..9 {
                 let a = i as f32 / 9.0 * std::f32::consts::TAU;
-                b.block(base + vec3(a.cos(), -0.2, a.sin()) * 2.4, 0.9, 0.7, 0.75, a, STONE);
+                b.block(base + vec3(a.cos(), -0.2, a.sin()) * 2.4, 0.9, 0.7, 0.75, a, palette::STONE);
             }
-            b.column(base + vec3(0.0, -0.2, 0.0), 1.4, 0.3, 1.4, 8, EMBER);
+            gl.column(base + vec3(0.0, -0.2, 0.0), 1.4, 0.3, 1.4, 8, palette::EMBER);
         }
     }
 }
 
+/// A plain upright shape for someone far off.
+fn simple_person(b: &mut Builder, base: Vec3, race: Race, k: f32) {
+    let (h, r) = body_size(race);
+    b.column(base, r * k, r * 0.6 * k, h * k, 4, race_color(race));
+}
+
+fn body_size(race: Race) -> (f32, f32) {
+    match race {
+        Race::Roduro => (1.35, 0.34), // short and stocky
+        Race::Qotiro => (1.80, 0.34), // tall, broad
+        Race::Horaro => (1.65, 0.27),
+        Race::Tadoro => (1.95, 0.22), // tall and lean
+    }
+}
+
 /// Draw one person; returns where their head is, for hover.
-fn person(b: &mut Builder, w: &World, pid: PersonId, k: f32, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
+#[allow(clippy::too_many_arguments)]
+fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
     let p = &w.people[pid as usize];
     let at = w.person_pos(pid);
     // Horaro at home on a stilt deck stand above the water.
     let floor = if geo::inland(at) < 0.0 { DECK + 0.3 } else { on_ground(at) };
-    let (h, r, skin) = match p.race {
-        Race::Roduro => (1.35, 0.34, Color::new(0.58, 0.47, 0.39, 1.0)), // short and stocky
-        Race::Qotiro => (1.80, 0.34, Color::new(0.56, 0.57, 0.59, 1.0)), // grey-skinned, broad
-        Race::Horaro => (1.65, 0.27, Color::new(0.36, 0.52, 0.78, 1.0)), // blue-skinned, hairless
-        Race::Tadoro => (1.95, 0.22, Color::new(0.80, 0.75, 0.72, 1.0)), // tall and lean
-    };
+    let (h, r) = body_size(p.race);
     let (h, r) = (h * k, r * k);
     let base = to3(at, floor - 0.1);
+    let far = base.distance(eye) > PERSON_SIMPLE * k.max(1.0);
     // Bandits and anyone you're fighting get a red mark at their feet.
     let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);
-    if foe {
-        draped_ring(b, on_ground, at, 0.9 * k, 0.18 * k, 14, Color::new(0.9, 0.2, 0.15, 1.0));
+    if foe && !far {
+        draped_ring(fl, on_ground, at, 0.9 * k, 0.18 * k, 14, [0.9, 0.2, 0.15], eye);
     }
     let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
     // Carried: across the carrier's shoulders.
     if w.carried_by(pid).is_some() {
         let rot = (p.seed % 628) as f32 / 100.0;
-        let lift = base + vec3(0.0, 1.35 * k, 0.0);
-        b.block(lift, h * 0.9, r * 1.6, r * 1.1, rot, palette::scale(race_color(p.race), 0.8));
+        let lift = base + vec3(0.0, 1.25 * k, 0.0);
+        b.block(lift, h * 0.85, r * 1.5, r * 1.1, rot, palette::scale(race_color(p.race), 0.8));
+        b.block(lift + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.45), r * 1.0, r * 1.0, r * 1.0, rot, palette::skin(p.race));
         return (lift + vec3(0.0, r * 1.5, 0.0), pid);
     }
     if down {
-        // Lying where they fell.
         let rot = (p.seed % 628) as f32 / 100.0;
         b.block(base, h, r * 2.0, r * 1.2, rot, palette::scale(race_color(p.race), 0.7));
+        b.block(base + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.55), r * 1.0, r * 1.1, r * 1.0, rot, palette::skin(p.race));
         return (base + vec3(0.0, r * 1.5, 0.0), pid);
+    }
+    if far {
+        b.column(base, r, r * 0.6, h, 4, race_color(p.race));
+        return (base + vec3(0.0, h, 0.0), pid);
     }
     b.column(base, r, r * 0.8, h * 0.8, 6, race_color(p.race));
     let head = base + vec3(0.0, h * 0.8, 0.0);
-    b.block(head, r * 1.1, r * 1.1, h * 0.2, 0.0, skin);
-    // A paralyzed or blinded fighter shows it.
+    b.block(head, r * 1.1, r * 1.1, h * 0.2, 0.0, palette::skin(p.race));
+    // A lit torch, held up beside them.
+    if w.torch_lit(pid) {
+        let hand = base + vec3(r * 1.3, h * 0.55, 0.0);
+        b.stick(hand, hand + vec3(0.05, 0.5 * k, 0.0), 0.06 * k, palette::TIMBER);
+    }
     if let Some(f) = w.fighter(pid) {
         if f.paralyzed() {
-            b.glow(head + vec3(0.0, h * 0.35, 0.0), r * 2.5, r * 0.6, 0.0, Color::new(0.7, 0.4, 1.0, 1.0));
+            b.patch(head + vec3(0.0, h * 0.35, 0.0), r * 2.5, r * 0.6, 0.0, [0.7, 0.4, 1.0]);
         }
         if f.has(StatusKind::MageArmor).is_some() {
-            draped_ring(b, on_ground, at, 1.3 * k, 0.12 * k, 16, Color::new(0.5, 0.75, 1.0, 1.0));
+            draped_ring(fl, on_ground, at, 1.3 * k, 0.12 * k, 16, [0.5, 0.75, 1.0], eye);
         }
     }
     (head + vec3(0.0, h * 0.2, 0.0), pid)
 }
 
+/// Where a lit torch's flame is, for someone holding one.
+pub fn torch_flame(w: &World, pid: PersonId, k: f32, on_ground: &dyn Fn(V2) -> f32) -> Vec3 {
+    let p = &w.people[pid as usize];
+    let at = w.person_pos(pid);
+    let (h, r) = body_size(p.race);
+    let base = to3(at, on_ground(at) - 0.1);
+    base + vec3(r * k * 1.3 + 0.05, h * k * 0.55 + 0.5 * k + 0.1, 0.0)
+}
+
 /// A Ṭaḍoro travelling tent: a taut cone of pale cloth around one pole.
 fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64) {
     let r = 2.2 * k.min(4.0);
-    b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5, 10, TENT);
+    b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5, 10, palette::TENT);
     let tilt = (seed % 7) as f32 * 0.1;
-    b.column(base + vec3(0.0, r * 1.5 - 0.2, 0.0), 0.06 * k, 0.04 * k, 0.6 * k + tilt, 4, TIMBER);
+    b.column(base + vec3(0.0, r * 1.5 - 0.2, 0.0), 0.06 * k, 0.04 * k, 0.6 * k + tilt, 4, palette::TIMBER);
 }

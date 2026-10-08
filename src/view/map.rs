@@ -1,119 +1,103 @@
-//! The top-down map.
+//! The top-down map, drawn flat over the window.
 
-use macroquad::prelude::*;
+use bevy::math::{vec2, Vec2, Vec3};
+use bevy_egui::egui::{self, Color32, ColorImage, Pos2, TextureHandle, TextureOptions};
 
 use gahturiyu_sim::sim::{
     bands::{BAND1_RADIUS, BAND2_RADIUS},
+    combat::{FxKind, SQUAD_SIDE},
     geo::{self, V2, WORLD_SIZE},
     race::Race,
     World,
 };
 
-use super::palette;
-use super::squadui::{ground_color, Selection, GOLD};
-use super::ui::{race_color, with_alpha, Hover, Picker, Ui, TEXT};
+use super::app::Hover;
+use super::cam::MapCam;
+use super::hud::Canvas;
+use super::palette::{self, eg, ega, race_color, GOLD, TEXT, WHITE};
+use super::squadui::{ground_color, Selection};
 
-const SHORE: Color = Color::new(0.30, 0.36, 0.33, 1.0);
-/// Pixels along one side of the relief map texture.
+const SHORE: [f32; 3] = [0.30, 0.36, 0.33];
+/// Pixels along one side of the relief map picture.
 const RELIEF: usize = 1024;
 
 /// A shaded-relief picture of the whole world, made once at start-up.
-pub struct Relief {
-    tex: Texture2D,
-}
-
-impl Relief {
-    pub fn new(w: &World) -> Relief {
-        let t = &w.terrain;
-        let px = WORLD_SIZE / RELIEF as f32;
-        let mut bytes = vec![0u8; RELIEF * RELIEF * 4];
-        let sun = vec3(-0.45, 0.80, -0.35).normalize();
-        for j in 0..RELIEF {
-            for i in 0..RELIEF {
-                let p = V2::new((i as f32 + 0.5) * px, (j as f32 + 0.5) * px);
-                let c = if geo::is_land(p) {
-                    let h = t.height(p);
-                    let (nx, ny, nz) = t.normal(p, px);
-                    // Exaggerate relief a little so hills read from above.
-                    let n = vec3(nx * 1.6, ny, nz * 1.6).normalize();
-                    let lit = 0.45 + 0.75 * n.dot(sun).max(0.0);
-                    palette::scale(palette::ground(t, p, h, ny), lit)
-                } else {
-                    palette::sea(p)
-                };
-                let k = (j * RELIEF + i) * 4;
-                bytes[k] = (c.r.clamp(0.0, 1.0) * 255.0) as u8;
-                bytes[k + 1] = (c.g.clamp(0.0, 1.0) * 255.0) as u8;
-                bytes[k + 2] = (c.b.clamp(0.0, 1.0) * 255.0) as u8;
-                bytes[k + 3] = 255;
-            }
+pub fn relief_image(w: &World) -> ColorImage {
+    let t = &w.terrain;
+    let px = WORLD_SIZE / RELIEF as f32;
+    let sun = Vec3::new(-0.45, 0.80, -0.35).normalize();
+    let mut pixels = Vec::with_capacity(RELIEF * RELIEF);
+    for j in 0..RELIEF {
+        for i in 0..RELIEF {
+            let p = V2::new((i as f32 + 0.5) * px, (j as f32 + 0.5) * px);
+            let c = if geo::is_land(p) {
+                let h = t.height(p);
+                let (nx, ny, nz) = t.normal(p, px);
+                let n = Vec3::new(nx * 1.6, ny, nz * 1.6).normalize();
+                let lit = 0.45 + 0.75 * n.dot(sun).max(0.0);
+                palette::scale(palette::ground(t, p, h, ny), lit)
+            } else {
+                palette::sea(p)
+            };
+            pixels.push(eg(c));
         }
-        let tex = Texture2D::from_rgba8(RELIEF as u16, RELIEF as u16, &bytes);
-        tex.set_filter(FilterMode::Linear);
-        Relief { tex }
     }
+    ColorImage::new([RELIEF, RELIEF], pixels)
 }
 
-pub struct MapCam {
-    pub centre: V2,
-    /// Pixels per metre.
-    pub zoom: f32,
+pub fn load_relief(ctx: &egui::Context, w: &World) -> TextureHandle {
+    ctx.load_texture("relief", relief_image(w), TextureOptions::LINEAR)
 }
 
-impl MapCam {
-    pub fn to_screen(&self, p: V2) -> Vec2 {
-        vec2((p.x - self.centre.x) * self.zoom + screen_width() / 2.0, (p.y - self.centre.y) * self.zoom + screen_height() / 2.0)
+/// Draw the map; returns things that can be hovered (screen point, slack).
+pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHandle, sel: &Selection) -> Vec<(Vec2, f32, Hover)> {
+    let size = vec2(c.w, c.h);
+    let mut picks = Vec::new();
+    let s = |p: V2| cam.to_screen(size, p);
+    c.rect(0.0, 0.0, c.w, c.h, eg([0.03, 0.04, 0.04]));
+    let tl = s(V2::new(0.0, 0.0));
+    let span = WORLD_SIZE * cam.zoom;
+    c.p.image(relief.id(), egui::Rect::from_min_size(Pos2::new(tl.x, tl.y), egui::vec2(span, span)), egui::Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+    // A crisp shoreline over the relief picture, which is blurry up close.
+    let top = cam.to_world(size, vec2(0.0, 0.0)).y.max(0.0);
+    let bottom = cam.to_world(size, vec2(0.0, c.h)).y.min(WORLD_SIZE);
+    let step = (3.0 / cam.zoom).max(10.0);
+    let mut y = top - step;
+    while y < bottom + step {
+        c.line(s(V2::new(geo::coast_x(y), y)), s(V2::new(geo::coast_x(y + step), y + step)), 1.5, eg(SHORE));
+        y += step;
     }
-    pub fn to_world(&self, s: Vec2) -> V2 {
-        V2::new((s.x - screen_width() / 2.0) / self.zoom + self.centre.x, (s.y - screen_height() / 2.0) / self.zoom + self.centre.y)
-    }
-    pub fn zoom_at(&mut self, mouse: Vec2, wheel: f32) {
-        let before = self.to_world(mouse);
-        self.zoom = (self.zoom * if wheel > 0.0 { 1.15 } else { 1.0 / 1.15 }).clamp(screen_width() / WORLD_SIZE / 1.2, 12.0);
-        let after = self.to_world(mouse);
-        self.centre = self.centre.add(before.sub(after));
-    }
-}
-
-pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, relief: &Relief, sel: &Selection) {
-    clear_background(Color::new(0.03, 0.04, 0.04, 1.0));
-    let tl = cam.to_screen(V2::new(0.0, 0.0));
-    let size = WORLD_SIZE * cam.zoom;
-    draw_texture_ex(&relief.tex, tl.x, tl.y, WHITE, DrawTextureParams { dest_size: Some(vec2(size, size)), ..Default::default() });
-    draw_shore(cam);
     let road_w = (cam.zoom * 6.0).clamp(1.5, 4.0);
     for road in &w.routes.roads {
         for seg in road.windows(2) {
-            let (a, b) = (cam.to_screen(seg[0]), cam.to_screen(seg[1]));
-            draw_line(a.x, a.y, b.x, b.y, road_w, palette::ROAD);
+            c.line(s(seg[0]), s(seg[1]), road_w, eg(palette::ROAD));
         }
     }
     if rings {
-        let c = cam.to_screen(w.squad.pos);
-        draw_circle(c.x, c.y, BAND1_RADIUS * cam.zoom, Color::new(1.0, 1.0, 1.0, 0.045));
-        draw_circle_lines(c.x, c.y, BAND1_RADIUS * cam.zoom, 1.5, Color::new(1.0, 1.0, 1.0, 0.45));
-        draw_circle_lines(c.x, c.y, BAND2_RADIUS * cam.zoom, 1.0, Color::new(1.0, 1.0, 1.0, 0.25));
+        let q = s(w.squad.pos);
+        c.circle(q.x, q.y, BAND1_RADIUS * cam.zoom, ega(WHITE, 0.045));
+        c.circle_lines(q.x, q.y, BAND1_RADIUS * cam.zoom, 1.5, ega(WHITE, 0.45));
+        c.circle_lines(q.x, q.y, BAND2_RADIUS * cam.zoom, 1.0, ega(WHITE, 0.25));
     }
     let dot = (cam.zoom * 1.2).clamp(2.0, 5.0);
 
-    for s in &w.settlements {
-        let p = cam.to_screen(s.pos);
-        let r = (s.radius() * cam.zoom).max(4.0);
-        draw_circle(p.x, p.y, r, with_alpha(race_color(s.founders), 0.22));
-        draw_circle_lines(p.x, p.y, r, 1.5, with_alpha(race_color(s.founders), 0.8));
-        if let Some(st) = s.stilts {
-            let q = cam.to_screen(st);
-            draw_circle(q.x, q.y, (60.0 * cam.zoom).max(2.5), with_alpha(race_color(Race::Horaro), 0.25));
+    for st in &w.settlements {
+        let p = s(st.pos);
+        let r = (st.radius() * cam.zoom).max(4.0);
+        c.circle(p.x, p.y, r, ega(race_color(st.founders), 0.22));
+        c.circle_lines(p.x, p.y, r, 1.5, ega(race_color(st.founders), 0.8));
+        if let Some(sp) = st.stilts {
+            let q = s(sp);
+            c.circle(q.x, q.y, (60.0 * cam.zoom).max(2.5), ega(race_color(Race::Horaro), 0.25));
         }
-        pick.offer(p, r.min(30.0) - 6.0, Hover::Town(s.id));
-        if cam.zoom > 0.06 || w.bands.band_at(s.pos) <= 2 {
-            ui.centred(&s.name, p.x, p.y - r - 6.0, 15, TEXT);
+        picks.push((p, r.min(30.0) - 6.0, Hover::Town(st.id)));
+        if cam.zoom > 0.06 || w.bands.band_at(st.pos) <= 2 {
+            c.centred(&st.name, p.x, p.y - r - 6.0, 15.0, TEXT);
         }
-        // Townsfolk exist as individuals only where they stand inside band 1.
-        for pid in w.residents_in_band1(s.id) {
-            let q = cam.to_screen(w.person_pos(pid));
-            draw_circle(q.x, q.y, dot, race_color(w.people[pid as usize].race));
-            pick.offer(q, 0.0, Hover::Person(pid));
+        for pid in w.residents_in_band1(st.id) {
+            let q = s(w.person_pos(pid));
+            c.circle(q.x, q.y, dot, eg(race_color(w.people[pid as usize].race)));
+            picks.push((q, 0.0, Hover::Person(pid)));
         }
     }
 
@@ -121,69 +105,70 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, re
         let lead = w.people[g.members[0] as usize].race;
         if g.band == 1 {
             for &m in &g.members {
-                let p = cam.to_screen(w.person_pos(m));
-                draw_circle(p.x, p.y, dot, race_color(w.people[m as usize].race));
-                draw_circle_lines(p.x, p.y, dot + 1.0, 1.0, with_alpha(WHITE, 0.5));
-                pick.offer(p, 0.0, Hover::Person(m));
+                let p = s(w.person_pos(m));
+                c.circle(p.x, p.y, dot, eg(race_color(w.people[m as usize].race)));
+                c.circle_lines(p.x, p.y, dot + 1.0, 1.0, ega(WHITE, 0.5));
+                picks.push((p, 0.0, Hover::Person(m)));
             }
         } else {
-            let p = cam.to_screen(g.pos);
+            let p = s(g.pos);
             let (r, a) = if g.band == 2 { (3.6, 0.95) } else { (2.4, 0.55) };
-            draw_circle(p.x, p.y, r + (g.members.len() as f32 - 1.0) * 0.35, with_alpha(race_color(lead), a));
-            pick.offer(p, 0.0, Hover::Group(g.id));
+            c.circle(p.x, p.y, r + (g.members.len() as f32 - 1.0) * 0.35, ega(race_color(lead), a));
+            picks.push((p, 0.0, Hover::Group(g.id)));
         }
     }
 
-    // Bandit camps.
-    for c in &w.camps {
-        let q = cam.to_screen(c.pos);
+    for cp in &w.camps {
+        let q = s(cp.pos);
         let k = (cam.zoom * 8.0).clamp(4.0, 9.0);
-        draw_triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y + k * 0.7), vec2(q.x + k, q.y + k * 0.7), Color::new(0.85, 0.22, 0.18, 0.9));
+        c.triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y + k * 0.7), vec2(q.x + k, q.y + k * 0.7), ega([0.85, 0.22, 0.18], 0.9));
         if cam.zoom > 0.15 {
-            ui.centred("bandits", q.x, q.y + k + 13.0, 13, Color::new(0.95, 0.5, 0.45, 1.0));
+            c.centred("bandits", q.x, q.y + k + 13.0, 13.0, [0.95, 0.5, 0.45]);
+        }
+    }
+    for st in &w.standing {
+        if st.burning(w.time) {
+            let q = s(st.pos);
+            c.circle(q.x, q.y, 3.0, eg(palette::EMBER));
         }
     }
     for &(at, _, _, _) in &w.corpses {
-        let q = cam.to_screen(at);
+        let q = s(at);
         let k = dot + 1.0;
-        draw_line(q.x - k, q.y - k, q.x + k, q.y + k, 2.0, Color::new(0.8, 0.2, 0.15, 1.0));
-        draw_line(q.x - k, q.y + k, q.x + k, q.y - k, 2.0, Color::new(0.8, 0.2, 0.15, 1.0));
+        let red = eg([0.8, 0.2, 0.15]);
+        c.line(vec2(q.x - k, q.y - k), vec2(q.x + k, q.y + k), 2.0, red);
+        c.line(vec2(q.x - k, q.y + k), vec2(q.x + k, q.y - k), 2.0, red);
     }
     for battle in &w.battles {
         for f in &battle.fighters {
             if f.dead || f.fled {
                 continue;
             }
-            let q = cam.to_screen(f.pos);
-            if f.side != gahturiyu_sim::sim::combat::SQUAD_SIDE {
-                draw_circle_lines(q.x, q.y, dot + 2.5, 1.5, Color::new(0.95, 0.25, 0.2, 1.0));
+            let q = s(f.pos);
+            if f.side != SQUAD_SIDE {
+                c.circle_lines(q.x, q.y, dot + 2.5, 1.5, eg([0.95, 0.25, 0.2]));
             }
-            if let Some((vit, mana, down)) = super::ui::bar_for(w, f.pid) {
+            if let Some((vit, mana, down)) = super::hud::bar_for(w, f.pid) {
                 if cam.zoom > 0.6 {
-                    super::ui::draw_bar(q.x, q.y - dot - 10.0, vit, mana, down);
+                    super::hud::draw_bar(c, q.x, q.y - dot - 10.0, vit, mana, down);
                 }
             }
         }
         for fx in &battle.fx {
             let age = (w.time - fx.at) as f32;
-            if !(0.0..0.8).contains(&age) {
-                continue;
-            }
             match fx.kind {
-                gahturiyu_sim::sim::combat::FxKind::Fireball { at, radius } => {
-                    let q = cam.to_screen(at);
-                    draw_circle(q.x, q.y, radius * cam.zoom * (0.5 + age), Color::new(1.0, 0.5, 0.1, 0.6 - age * 0.6));
+                FxKind::Fireball { at, radius } if (0.0..0.8).contains(&age) => {
+                    let q = s(at);
+                    c.circle(q.x, q.y, radius * cam.zoom * (0.5 + age), ega([1.0, 0.5, 0.1], 0.6 - age * 0.6));
                 }
-                gahturiyu_sim::sim::combat::FxKind::Bolt { from, to } => {
-                    let (a, b) = (cam.to_screen(from), cam.to_screen(to));
-                    draw_line(a.x, a.y, b.x, b.y, 3.0, Color::new(0.85, 0.9, 1.0, 1.0 - age));
+                FxKind::Bolt { from, to } if (0.0..0.8).contains(&age) => {
+                    c.line(s(from), s(to), 3.0, ega([0.85, 0.9, 1.0], 1.0 - age));
                 }
-                gahturiyu_sim::sim::combat::FxKind::Arrow { from, to, .. } => {
-                    let fly = from.dist(to) / 45.0;
-                    if age < fly {
+                FxKind::Arrow { from, to, .. } => {
+                    let fly = from.dist(to) / super::scene::ARROW_SPEED;
+                    if (0.0..fly).contains(&age) {
                         let u = age / fly;
-                        let (a, b) = (cam.to_screen(from.lerp(to, u)), cam.to_screen(from.lerp(to, (u + 0.08).min(1.0))));
-                        draw_line(a.x, a.y, b.x, b.y, 2.0, Color::new(0.95, 0.9, 0.75, 1.0));
+                        c.line(s(from.lerp(to, u)), s(from.lerp(to, (u + 0.08).min(1.0))), 2.0, eg([0.95, 0.9, 0.75]));
                     }
                 }
                 _ => {}
@@ -193,45 +178,35 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, re
 
     if cam.zoom > 0.6 {
         for g in &w.ground {
-            let q = cam.to_screen(g.pos);
+            let q = s(g.pos);
             let k = (cam.zoom * 0.25).clamp(2.0, 4.0);
-            draw_rectangle(q.x - k, q.y - k, k * 2.0, k * 2.0, ground_color(g.item));
-            pick.offer(q, 0.0, Hover::Item(g.id));
+            c.rect(q.x - k, q.y - k, k * 2.0, k * 2.0, eg(ground_color(g.item)));
+            picks.push((q, 0.0, Hover::Item(g.id)));
         }
     }
 
-    let sq = cam.to_screen(w.squad.pos);
-    draw_circle_lines(sq.x, sq.y, (14.0 * cam.zoom).max(9.0), 2.0, with_alpha(WHITE, 0.5));
+    let sq = s(w.squad.pos);
+    c.circle_lines(sq.x, sq.y, (14.0 * cam.zoom).max(9.0), 2.0, ega(WHITE, 0.5));
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
-        let p = cam.to_screen(at);
+        let p = s(at);
         let picked = sel.shows(w, m);
         let goal = w.squad.goal[i];
         if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
-            let g = cam.to_screen(goal);
+            let g = s(goal);
             let col = if picked { GOLD } else { WHITE };
-            draw_line(p.x, p.y, g.x, g.y, 1.0, with_alpha(col, 0.45));
-            draw_line(g.x - 4.0, g.y - 4.0, g.x + 4.0, g.y + 4.0, 1.5, col);
-            draw_line(g.x - 4.0, g.y + 4.0, g.x + 4.0, g.y - 4.0, 1.5, col);
+            c.line(p, g, 1.0, ega(col, 0.45));
+            c.line(vec2(g.x - 4.0, g.y - 4.0), vec2(g.x + 4.0, g.y + 4.0), 1.5, eg(col));
+            c.line(vec2(g.x - 4.0, g.y + 4.0), vec2(g.x + 4.0, g.y - 4.0), 1.5, eg(col));
         }
-        draw_circle(p.x, p.y, dot + 0.5, race_color(w.people[m as usize].race));
+        c.circle(p.x, p.y, dot + 0.5, eg(race_color(w.people[m as usize].race)));
+        if w.torch_lit(m) {
+            c.circle_lines(p.x, p.y, dot + 5.0, 1.0, ega(palette::EMBER, 0.8));
+        }
         if picked {
-            draw_circle_lines(p.x, p.y, dot + 3.0, 1.5, GOLD);
+            c.circle_lines(p.x, p.y, dot + 3.0, 1.5, eg(GOLD));
         }
-        pick.offer(p, 0.0, Hover::Person(m));
+        picks.push((p, 0.0, Hover::Person(m)));
     }
-}
-
-/// A crisp shoreline over the relief picture, which is blurry up close.
-fn draw_shore(cam: &MapCam) {
-    let top = cam.to_world(vec2(0.0, 0.0)).y.max(0.0);
-    let bottom = cam.to_world(vec2(0.0, screen_height())).y.min(WORLD_SIZE);
-    let step = (3.0 / cam.zoom).max(10.0);
-    let mut y = top - step;
-    while y < bottom + step {
-        let a = cam.to_screen(V2::new(geo::coast_x(y), y));
-        let b = cam.to_screen(V2::new(geo::coast_x(y + step), y + step));
-        draw_line(a.x, a.y, b.x, b.y, 1.5, SHORE);
-        y += step;
-    }
+    picks
 }
