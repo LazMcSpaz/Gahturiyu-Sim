@@ -96,6 +96,8 @@ pub enum Aim {
     Friend,
     /// A spot on the ground within range.
     Point,
+    /// Anyone within range, friend or foe.
+    Anyone,
 }
 
 /// Where a ritual has to be performed.
@@ -238,7 +240,12 @@ pub static SPELLS: &[SpellDef] = &[
     ritual("sustain", "Sustain", Vital, rite(30.0, 0.0, &[("salted_meat", 1), ("ghostcap", 1)], Place::Anywhere), 0.0, Caster, 35.0, &[lasting(Does::Sustain, 1.0, 24.0 * 3600.0, SQUAD)]),
     ritual("regrow", "Regrow", Vital, rite(180.0, 20.0, &[("storm_glass", 2), ("ghostcap", 4), ("emberroot", 2)], Place::Shrine), 3.0, Friend, 55.0, &[now(Does::Regrow, 1.0, Reach::Target)]),
     // ---- Warding ----------------------------------------------------------
+    felt("brace", "Brace", Warding, 5.0, 0.4, 0.0, Caster, 8.0, &[lasting(Does::Brace, 1.0, 30.0, Reach::Caster)]),
+    felt("tripwire", "Tripwire", Warding, 6.0, 0.4, 0.0, Caster, 12.0, &[lasting(Does::Tripwire, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 25.0 })]),
+    structured("resist", "Resist", Warding, 15.0, 1.2, 8.0, Friend, 20.0, &[lasting(Does::ResistElements, 0.5, 120.0, Reach::Target)]),
     structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
+    structured("dispel", "Dispel", Warding, 20.0, 1.4, 15.0, Anyone, 30.0, &[now(Does::Dispel, 1.0, Reach::Target)]),
+    ritual("sanctuary", "Sanctuary", Warding, rite(60.0, 0.0, &[("salt_crystal", 4)], Place::Circle), 0.0, Caster, 40.0, &[lasting(Does::Sanctuary, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 12.0 })]),
 ];
 
 /// Look a spell up by its key. Panics on a typo, which is what tests want.

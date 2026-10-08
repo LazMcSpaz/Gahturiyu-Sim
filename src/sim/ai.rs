@@ -158,6 +158,8 @@ enum Use {
     Summon,
     /// Gives back stamina.
     Breath,
+    /// Ends spells on someone.
+    Unravel,
     /// Damage over an area.
     Blast,
     /// Damage to one enemy.
@@ -175,6 +177,8 @@ fn use_of(s: Spell) -> Use {
         Use::Summon
     } else if has(&|x| x == Does::Stamina) {
         Use::Breath
+    } else if has(&|x| x == Does::Dispel) {
+        Use::Unravel
     } else if d.effects.iter().any(|e| matches!(e.does, Does::Damage(_)) && matches!(e.reach, Reach::Area { .. })) {
         Use::Blast
     } else if has(&|x| matches!(x, Does::Damage(_))) {
@@ -294,6 +298,25 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
             let dir = b.fighters[j].pos.sub(me.pos);
             let at = me.pos.add(dir.scale(2.5 / dir.len().max(0.01)));
             cast(b, i, s, None, at);
+            return;
+        }
+    }
+    // 1d. Unravel: send back an enemy's creature, strip an enemy's wards,
+    //     or free a friend from a hostile spell.
+    if let Some(s) = first(Use::Unravel) {
+        let range = s.def().range;
+        let pick = (0..b.fighters.len())
+            .filter(|&k| b.fighters[k].active() && me.pos.dist(b.fighters[k].pos) <= range)
+            .find(|&k| {
+                let f = &b.fighters[k];
+                if b.hostile(i, k) {
+                    (f.summon.is_some() && !f.is_decoy()) || f.statuses.iter().filter(|st| !st.does.harmful()).count() >= 2
+                } else {
+                    f.statuses.iter().any(|st| matches!(st.does, Does::Paralyze | Does::Blind | Does::Dominate))
+                }
+            });
+        if let Some(k) = pick {
+            cast(b, i, s, Some(k), b.fighters[k].pos);
             return;
         }
     }

@@ -97,6 +97,8 @@ pub enum Does {
     Stamina,
     /// Grow back a limb lost for good (the only cure).
     Regrow,
+    /// End every spell on them (a called-up creature is sent back).
+    Dispel,
     /// Light a torch (one carried, or a doused campfire).
     Kindle,
     /// Put out a torch, a standing torch or a campfire (for `DOUSE_HOURS`).
@@ -175,6 +177,13 @@ pub enum Does {
     Lighten,
     /// What they carry weighs this share more (and in a fight they're slower).
     Burden,
+    /// The next blow that would land is turned aside.
+    Brace,
+    /// Ground: an alarm that wakes sleepers inside when they're attacked.
+    Tripwire,
+    /// Ground: enemies can't step inside, and lookouts won't come for
+    /// anyone in it.
+    Sanctuary,
 }
 
 impl Does {
@@ -185,7 +194,7 @@ impl Does {
 
     /// Guards against harm (worth putting up when a fight reaches you).
     pub fn guards(self) -> bool {
-        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide | Does::Toughen)
+        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide | Does::Toughen | Does::Brace)
     }
 
     /// A lasting condition that a resist roll can stop, and what resists it.
@@ -202,7 +211,7 @@ impl Does {
     /// lasting effect that isn't an attack (it's kept as a blessing on them).
     pub fn works_outside_fights(self) -> bool {
         match self {
-            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse => true,
+            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel => true,
             Does::Summon(_) => false,
             d if d.harmful() => false,
             _ => true,
@@ -327,6 +336,10 @@ impl Effect {
             Does::Toughen => format!("Skin stops {pct:.0}% of cuts"),
             Does::Sustain => "No hunger or tiredness".to_string(),
             Does::Lighten => format!("Load {pct:.0}% lighter"),
+            Does::Dispel => "Ends every spell on them".to_string(),
+            Does::Brace => "Turns the next blow".to_string(),
+            Does::Tripwire => "Wakes sleepers when danger comes".to_string(),
+            Does::Sanctuary => "Enemies can't enter".to_string(),
             Does::Burden => format!("Load {pct:.0}% heavier"),
         };
         let how_long = match self.lasts {

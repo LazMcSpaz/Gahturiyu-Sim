@@ -369,6 +369,14 @@ impl World {
                 p.set_mana(m, t);
                 true
             }
+            Does::Dispel => {
+                let had = self.boons.iter().any(|b| b.pid == target && b.until > t);
+                self.boons.retain(|b| b.pid != target);
+                if self.people[target as usize].cond.is_some() {
+                    self.settle_condition(target, t);
+                }
+                had
+            }
             Does::Stamina => {
                 if self.people[target as usize].cond.is_none() {
                     return false;

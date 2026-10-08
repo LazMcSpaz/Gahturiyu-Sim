@@ -8,6 +8,7 @@
 //! trained, and the dead.
 
 use super::combat::{Battle, Fighter, Order, Side, SQUAD_SIDE};
+use super::effects::Does;
 use super::geo::V2;
 use super::group::{Group, GroupId, Kind, Leg};
 use super::person::{Person, PersonId};
@@ -211,6 +212,17 @@ impl World {
                 if fresh.is_empty() {
                     continue;
                 }
+                // A sanctuary: they won't come for anyone sheltering in it.
+                let open: Vec<PersonId> = squad_fit.iter().copied().filter(|&m| self.wards_at(Does::Sanctuary, self.person_pos(m)).next().is_none()).collect();
+                if open.is_empty() {
+                    // They hold off, but they'll be watching when you leave it.
+                    for (k, v) in self.suspicion.iter_mut() {
+                        if k.0 == gid {
+                            *v = v.min(0.9);
+                        }
+                    }
+                    continue;
+                }
                 match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied() {
                     Some(bid) => self.join_battle(bid, 1, &fresh),
                     None => {
@@ -218,7 +230,17 @@ impl World {
                         self.alerts.push(line.clone());
                         self.log.push_front((when, line));
                         let fit = self.squad_fit();
-                        self.start_battle(vec![(SQUAD_SIDE, fit), (1, fresh)], when);
+                        let id = self.start_battle(vec![(SQUAD_SIDE, fit), (1, fresh)], when);
+                        // A tripwire round them: sleepers are up at once.
+                        let tripped = self.squad.members.iter().any(|&m| self.wards_at(Does::Tripwire, self.person_pos(m)).next().is_some());
+                        if tripped {
+                            if let Some(b) = self.battles.iter_mut().find(|b| b.id == id) {
+                                for f in b.fighters.iter_mut().filter(|f| f.side == SQUAD_SIDE) {
+                                    f.aware_at = f.aware_at.min(when);
+                                }
+                            }
+                            self.log.push_front((when, "The tripwire sings — everyone's up!".to_string()));
+                        }
                     }
                 }
                 self.fighting_groups.insert(gid);

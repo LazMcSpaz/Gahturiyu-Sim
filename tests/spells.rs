@@ -445,3 +445,95 @@ fn regrow_restores_a_lost_limb() {
     cast_world(&mut w, m, spell("mend"), Some(other), None, |_| true);
     assert!(w.people[other as usize].wounds.missing[Part::RightLeg as usize]);
 }
+
+// ---- Warding --------------------------------------------------------------------
+
+#[test]
+fn brace_turns_one_blow() {
+    let mut b = fight(&[(brute(2), 1, V2::new(1.5, 0.0))]);
+    cast_until(&mut b, spell("brace"), None, V2::new(0.0, 0.0), |b| b.fighters[0].has(Does::Brace).is_some());
+    b.fighters[1].think_at = 0.0;
+    let full = hp(&b, 0);
+    let mut turned = false;
+    for _ in 0..200 {
+        b.tick();
+        if b.log.iter().any(|l| l.1.contains("brace turns")) {
+            turned = true;
+            break;
+        }
+    }
+    assert!(turned);
+    assert_eq!(hp(&b, 0), full, "that blow did nothing");
+    assert!(b.fighters[0].has(Does::Brace).is_none(), "and the brace is spent");
+}
+
+#[test]
+fn resist_halves_elemental_harm() {
+    let burn = |resist: bool| {
+        let mut b = fight(&[(brute(2), 0, V2::new(5.0, 0.0))]);
+        if resist {
+            cast_until(&mut b, spell("resist"), Some(1), V2::new(5.0, 0.0), |b| b.fighters[1].has(Does::ResistElements).is_some());
+        }
+        let before = hp(&b, 1);
+        cast_until(&mut b, spell("lightning_bolt"), Some(1), V2::new(5.0, 0.0), |b| hp(b, 1) < before);
+        before - hp(&b, 1)
+    };
+    let (bare, warded) = (burn(false), burn(true));
+    assert!((warded / bare - 0.5).abs() < 0.15, "{warded} vs {bare}");
+}
+
+#[test]
+fn dispel_unravels_spells_and_sends_creatures_back() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    b.fighters[1].statuses.push(gahturiyu_sim::sim::magic::Status { does: Does::Barrier, power: 0.5, until: 1e9 });
+    cast_until(&mut b, spell("dispel"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].statuses.is_empty());
+    b.fighters[1].held = None;
+    b.call_up(1, gahturiyu_sim::sim::effects::Summon::SpiritBeast, V2::new(8.0, 0.0), 1e9, 1.0);
+    let beast = b.fighters.len() - 1;
+    cast_until(&mut b, spell("dispel"), Some(beast), V2::new(8.0, 0.0), |b| b.fighters[beast].fled);
+}
+
+#[test]
+fn enemies_cant_step_into_a_sanctuary() {
+    let mut b = fight(&[(brute(2), 1, V2::new(20.0, 0.0))]);
+    cast_until(&mut b, spell("sanctuary"), None, V2::new(0.0, 0.0), |b| !b.zones.is_empty());
+    b.fighters[1].think_at = 0.0;
+    for _ in 0..200 {
+        b.tick();
+    }
+    assert!(b.fighters[1].pos.dist(V2::new(0.0, 0.0)) >= 11.9, "kept out: {:?}", b.fighters[1].pos);
+    assert!(hp(&b, 0) >= b.fighters[0].max_hp.iter().sum::<f32>() - 0.01);
+}
+
+#[test]
+fn a_tripwire_wakes_sleepers_and_a_sanctuary_keeps_lookouts_off() {
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    cast_world(&mut w, m, spell("tripwire"), None, None, |w| !w.wards.is_empty());
+    let who = w.squad.members.clone();
+    w.order_rest(&who);
+    for _ in 0..200 {
+        w.step(1.0);
+    }
+    assert!(who.iter().all(|&p| w.is_asleep(p)));
+    w.spawn_bandits(w.squad.pos.add(V2::new(3.0, 0.0)), 2, false);
+    w.step(0.25);
+    w.step(0.25);
+    let b = w.squad_battle().expect("attacked");
+    assert!(b.fighters.iter().filter(|f| f.side == 0).all(|f| f.aware_at <= b.start), "everyone's up");
+
+    // Sheltering in a sanctuary, lookouts that notice them hold off.
+    let mut w = worldgen::generate(7);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let camp = w.camps[0].pos;
+    w.teleport_squad(camp.add(V2::new(15.0, 0.0)));
+    w.held.insert(m, spell("sanctuary"));
+    w.release(m, None, None).unwrap();
+    for _ in 0..200 {
+        w.step(0.25);
+    }
+    assert!(w.battles.iter().all(|b| b.fighters.iter().all(|f| f.side != 0)), "no fight with the squad");
+}

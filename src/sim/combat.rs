@@ -670,6 +670,16 @@ impl Battle {
         }
     }
 
+    /// Move fighter `i` to `to`, unless that would take them into a
+    /// sanctuary held against them.
+    fn step_to(&mut self, i: usize, to: V2) {
+        let me = &self.fighters[i];
+        let barred = self.zones.iter().any(|z| z.does == Does::Sanctuary && z.until > self.time && z.side != me.side && to.dist(z.pos) < z.radius && me.pos.dist(z.pos) >= z.radius);
+        if !barred {
+            self.fighters[i].pos = to;
+        }
+    }
+
     /// Doing nothing in particular: carry out orders, chase the target, or run.
     fn idle(&mut self, i: usize) {
         let me = &self.fighters[i];
@@ -694,7 +704,7 @@ impl Battle {
                 }
                 None => V2::new(1.0, 0.0),
             };
-            self.fighters[i].pos = me.pos.add(away.scale(speed));
+            self.step_to(i, me.pos.add(away.scale(speed)));
             return;
         }
         if let Some(Order::MoveTo(p)) = me.order {
@@ -702,7 +712,7 @@ impl Battle {
             if d.len() < 0.6 {
                 self.fighters[i].order = None;
             } else {
-                self.fighters[i].pos = me.pos.add(d.scale(speed.min(d.len()) / d.len()));
+                self.step_to(i, me.pos.add(d.scale(speed.min(d.len()) / d.len())));
             }
             return;
         }
@@ -713,7 +723,7 @@ impl Battle {
                 let away = me.pos.sub(self.fighters[n].pos);
                 if away.len() < ARCHER_SPACE {
                     let step = speed * 0.8;
-                    self.fighters[i].pos = me.pos.add(away.scale(step / away.len().max(0.01)));
+                    self.step_to(i, me.pos.add(away.scale(step / away.len().max(0.01))));
                     return;
                 }
             }
@@ -724,7 +734,7 @@ impl Battle {
         let reach = me.attack_range();
         if dist > reach * 0.92 {
             let step = speed.min(dist - reach * 0.85).max(0.0);
-            self.fighters[i].pos = me.pos.add(d.scale(step / dist.max(0.01)));
+            self.step_to(i, me.pos.add(d.scale(step / dist.max(0.01))));
         } else if me.usable_weapon().is_some() && me.fatigue > 4.0 {
             let windup = me.weapon.windup * me.attack_time();
             self.fighters[i].act = Act::Swing { target: j, lands: self.time + windup as f64 };
@@ -822,6 +832,12 @@ impl Battle {
             if rng_line(r_dmg) {
                 self.say(format!("{dn} dodges {an}."));
             }
+            return;
+        }
+        // A brace turns the blow that would have landed, then it's spent.
+        if self.fighters[d].has(Does::Brace).is_some() {
+            self.fighters[d].statuses.retain(|s| s.does != Does::Brace);
+            self.say(format!("{dn}'s brace turns {an}'s blow."));
             return;
         }
         let def = &self.fighters[d];
@@ -1046,7 +1062,7 @@ impl Battle {
         let spell_name = d.name.to_lowercase();
         // Is what it's aimed at still there, and in reach?
         let (target, point) = match d.aim {
-            Aim::Foe | Aim::Friend => {
+            Aim::Foe | Aim::Friend | Aim::Anyone => {
                 let j = match (target, d.aim) {
                     (Some(j), _) => j,
                     (None, Aim::Friend) => i,
@@ -1238,6 +1254,19 @@ impl Battle {
                 Does::Stamina => {
                     let f = &mut self.fighters[j];
                     f.fatigue = (f.fatigue + e.power * src.skill).min(f.max_fatigue);
+                }
+                Does::Dispel => {
+                    let f = &mut self.fighters[j];
+                    if f.summon.is_some() {
+                        f.fled = true;
+                        self.say(format!("{tname} is sent back."));
+                    } else if !f.statuses.is_empty() {
+                        f.statuses.clear();
+                        if f.side != f.home {
+                            f.side = f.home;
+                        }
+                        self.say(format!("The spells on {tname} unravel."));
+                    }
                 }
                 Does::Regrow => {
                     let f = &mut self.fighters[j];
