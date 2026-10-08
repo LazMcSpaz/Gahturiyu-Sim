@@ -190,6 +190,8 @@ impl World {
         let watchers: Vec<(GroupId, V2)> = self
             .camps
             .iter()
+            // A camp licking its wounds after a fight doesn't go looking for another.
+            .filter(|c| c.ready_at <= self.time)
             .filter_map(|c| self.group(c.group).map(|g| (g, c.pos)))
             .filter(|(g, _)| g.band == 1 && !self.fighting_groups.contains(&g.id) && g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
             .map(|(g, _)| (g.id, g.position_at(self.time)))
