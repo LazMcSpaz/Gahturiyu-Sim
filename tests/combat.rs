@@ -62,7 +62,9 @@ fn fights_come_out_the_same_however_the_world_is_stepped() {
 #[test]
 fn wounds_heal_with_time() {
     let w = fight_world(1, 3, 0.25);
-    let p = w.people.iter().find(|p| !p.dead && p.wounds.is_hurt(w.time)).expect("someone hurt");
+    // Someone outside the squad: they heal at the plain constant rate (the
+    // squad's rate follows rest and food; see tests/condition.rs).
+    let p = w.people.iter().find(|p| !p.dead && !p.in_squad && p.wounds.is_hurt(w.time)).expect("someone hurt");
     let lost = p.wounds.lost_at(w.time).iter().cloned().fold(0.0, f32::max);
     let later = p.wounds.lost_at(w.time + 3600.0).iter().cloned().fold(0.0, f32::max);
     assert!((lost - later - HEAL_PER_HOUR).abs() < 0.01 || later == 0.0, "an hour should heal {HEAL_PER_HOUR} per part");
