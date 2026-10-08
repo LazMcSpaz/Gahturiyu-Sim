@@ -92,8 +92,19 @@ fn details_once_built_are_kept() {
     w.order_squad(start);
     w = run(w, 30.0, 5.0);
 
+    // Never rebuilt or rerolled. (Someone who fought a far-off fight may have
+    // used up arrows or potions meanwhile, but nothing else changes.)
     for (id, d) in seen {
-        assert_eq!(w.people[id as usize].detail.as_ref(), Some(&d), "person {id} changed while out of sight");
+        let now = w.people[id as usize].detail.as_ref().expect("details kept");
+        assert_eq!(now.name, d.name, "person {id} was renamed");
+        assert_eq!(now.spells, d.spells, "person {id}'s spells changed");
+        for s in gahturiyu_sim::sim::items::SLOTS {
+            assert_eq!(now.gear.in_slot(s), d.gear.in_slot(s), "person {id}'s gear changed while out of sight");
+        }
+        for (it, n) in &now.gear.bag {
+            let before = d.gear.bag.iter().find(|e| e.0 == *it).map(|e| e.1).unwrap_or(0);
+            assert!(*n <= before, "person {id} gained things while out of sight");
+        }
     }
 }
 

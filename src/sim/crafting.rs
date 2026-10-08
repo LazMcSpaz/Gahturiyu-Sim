@@ -348,24 +348,24 @@ impl World {
         if let Kind::StandingTorch(_) = item(it).kind {
             return self.place_torch(who);
         }
-        let (heal, mana) = match item(it).kind {
-            Kind::Potion(pd) => (pd.heal, pd.mana),
-            Kind::Scroll(super::magic::Spell::Heal) => (super::magic::Spell::Heal.def().magnitude, 0.0),
+        // A potion's own effects, or a scroll's spell (no energy, can't fail).
+        let effects: &[super::effects::Effect] = match item(it).kind {
+            Kind::Potion => item(it).effects,
+            Kind::Scroll(key) => {
+                let d = super::magic::spell(key).def();
+                if !d.works_outside_fights() {
+                    return false;
+                }
+                d.effects
+            }
             _ => return false,
         };
         let name = p.name().unwrap_or("someone").to_string();
+        self.people[who as usize].detail.as_mut().unwrap().gear.take(it);
+        for e in effects {
+            self.apply_effect(who, e, 1.0);
+        }
         let p = &mut self.people[who as usize];
-        p.detail.as_mut().unwrap().gear.take(it);
-        if heal > 0.0 {
-            let base = p.stats.clone();
-            let mut hp = p.wounds.hp_at(&base, t);
-            mend(&mut hp, &base, heal);
-            p.wounds.set(&base, &hp, t);
-        }
-        if mana > 0.0 {
-            let m = (p.mana_at(t) + mana).min(p.max_mana());
-            p.set_mana(m, t);
-        }
         p.recompute_might();
         self.log.push_front((t, format!("{name} uses the {}.", item(it).name.to_lowercase())));
         self.log.truncate(14);

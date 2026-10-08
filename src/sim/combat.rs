@@ -18,8 +18,9 @@ use serde::{Deserialize, Serialize};
 use super::body::{self, Part, PARTS};
 use super::geo::V2;
 use super::inventory::{self, Gear};
-use super::items::{item, ArmorDef, Effect, ItemId, Kind, WeaponDef, FISTS};
-use super::magic::{self, Spell, Status, StatusKind, Style, Target};
+use super::effects::{Does, Effect, Element, Lasts, Reach, Who};
+use super::items::{item, ArmorDef, ItemId, Kind, WeaponDef, FISTS};
+use super::magic::{self, Aim, Spell, Status, Style};
 use super::person::{Person, PersonId};
 use super::race::Race;
 use super::rng::Rng;
@@ -90,13 +91,9 @@ pub struct Fighter {
     pub shield: f32,
     pub armor: Vec<ArmorDef>,
     pub dodge_penalty: f32,
-    pub resist_paralysis: f32,
-    pub resist_blind: f32,
-    pub resist_elements: f32,
-    /// Strength of the wearer's spells by domain, and wards against others'
-    /// (from worn effects; see `magic::Domain`).
-    pub domain_power: [f32; 8],
-    pub domain_resist: [f32; 8],
+    /// Effects from what they wear: (what it does, how strong). Together with
+    /// `statuses`, read through `power`.
+    pub worn: Vec<(Does, f32)>,
     /// Running speed with no injuries or spells, m/s.
     pub base_speed: f32,
     pub spells: Vec<Spell>,
@@ -162,8 +159,7 @@ impl Fighter {
         }
         let armor: Vec<ArmorDef> = gear.equipped().filter_map(|id| item(id).armor().copied()).collect();
         let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum();
-        let sum = |f: &dyn Fn(&Effect) -> Option<f32>| gear.sum_effect(f);
-        let speed_bonus = sum(&|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
+        let speed_bonus = gear.worn(Does::MoveSpeed);
         let load = gear.load(&p.stats);
         let held = gear.weapon();
         let count = |key: &str| gear.bag.iter().filter(|e| item(e.0).key == key).map(|e| e.1).sum::<u16>();
@@ -192,11 +188,7 @@ impl Fighter {
             shield: gear.shield(),
             armor,
             dodge_penalty,
-            resist_paralysis: sum(&|e| if let Effect::ResistParalysis(v) = e { Some(*v) } else { None }).min(0.95),
-            resist_blind: sum(&|e| if let Effect::ResistBlind(v) = e { Some(*v) } else { None }).min(0.95),
-            resist_elements: sum(&|e| if let Effect::ResistElements(v) = e { Some(*v) } else { None }).min(0.9),
-            domain_power: super::magic::DOMAINS.map(|d| sum(&|e| if let Effect::DomainPower(x, v) = e { (*x == d).then_some(*v) } else { None })),
-            domain_resist: super::magic::DOMAINS.map(|d| sum(&|e| if let Effect::DomainResist(x, v) = e { (*x == d).then_some(*v) } else { None }).min(0.95)),
+            worn: gear.worn_effects().collect(),
             base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load),
             spells,
             boldness: p.traits.boldness,
@@ -219,7 +211,7 @@ impl Fighter {
             shots: 0,
             sidearm: if held.range > 0.0 { sidearm } else { None },
             stowed: None,
-            potions: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Potion(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
+            potions: gear.bag.iter().filter(|e| item(e.0).kind == Kind::Potion).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
             trained: [0.0; super::stats::N_SKILLS],
@@ -238,12 +230,24 @@ impl Fighter {
         !self.ko && !self.dead && !self.fled
     }
 
-    pub fn has(&self, k: StatusKind) -> Option<&Status> {
-        self.statuses.iter().find(|s| s.kind == k)
+    /// A lasting effect in force on them, if there is one.
+    pub fn has(&self, does: Does) -> Option<&Status> {
+        self.statuses.iter().find(|s| s.does == does)
+    }
+
+    /// How strongly something works on them: from what they wear plus any
+    /// spell in force.
+    pub fn power(&self, does: Does) -> f32 {
+        super::effects::total(self.worn.iter().copied(), does) + self.statuses.iter().filter(|s| s.does == does).map(|s| s.power).sum::<f32>()
+    }
+
+    /// Share of damage that gets past wards (Barrier and the like).
+    pub fn warded(&self) -> f32 {
+        (1.0 - self.power(Does::Barrier)).clamp(0.1, 1.0)
     }
 
     pub fn paralyzed(&self) -> bool {
-        self.has(StatusKind::Paralyzed).is_some()
+        self.has(Does::Paralyze).is_some()
     }
 
     /// 1 when fresh, down to 0.6 when spent.
@@ -252,7 +256,7 @@ impl Fighter {
     }
 
     pub fn haste(&self) -> f32 {
-        self.has(StatusKind::Hasted).map(|s| s.magnitude).unwrap_or(0.0)
+        self.power(Does::Haste)
     }
 
     pub fn speed(&self) -> f32 {
@@ -596,7 +600,7 @@ impl Battle {
         let att = &self.fighters[a];
         let def = &self.fighters[d];
         // Blindness: a swing in roughly the right direction, mostly missing.
-        let blinded = att.has(StatusKind::Blinded).map(|s| s.magnitude).unwrap_or(0.0);
+        let blinded = att.power(Does::Blind).min(1.0);
         let blind = 1.0 - blinded * 0.3;
         let skill = att.stats.skill(weapon.skill);
         let atk = (skill + att.stats.attr(Attr::Agility) * 0.25 + 10.0) * att.tired() * arm * blind;
@@ -685,7 +689,7 @@ impl Battle {
                 blunt *= 1.0 - layer.blunt;
             }
         }
-        let shield = self.fighters[d].has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
+        let shield = self.fighters[d].warded();
         let mut dmg = (cut + blunt) * shield;
         self.fighters[a].train(weapon.skill, 1.0);
         if unaware {
@@ -786,11 +790,12 @@ impl Battle {
         true
     }
 
-    /// Read a scroll: the spell goes off after a moment, no mana spent, no
+    /// Read a scroll: the spell goes off after a moment, no energy spent, no
     /// chance of fizzling. The scroll is used up.
     pub fn read_scroll(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2) -> bool {
+        let key = spell.def().key;
         let f = &mut self.fighters[i];
-        let Some(k) = f.scrolls.iter().position(|&s| matches!(item(s).kind, Kind::Scroll(x) if x == spell)) else { return false };
+        let Some(k) = f.scrolls.iter().position(|&s| matches!(item(s).kind, Kind::Scroll(x) if x == key)) else { return false };
         let it = f.scrolls.remove(k);
         f.used.push(it);
         f.act = Act::Cast { spell, target, point, done: self.time + 0.6, scroll: true };
@@ -810,18 +815,15 @@ impl Battle {
     }
 
     fn drink(&mut self, i: usize, it: ItemId) {
-        let Kind::Potion(pd) = item(it).kind else { return };
-        let name = self.names[i].clone();
-        let f = &mut self.fighters[i];
-        if pd.heal > 0.0 {
-            let stats = f.stats.clone();
-            super::crafting::mend(&mut f.hp, &stats, pd.heal);
-            if f.ko && !body::knocked_out(&f.hp) {
-                f.ko = false;
-            }
+        if item(it).kind != Kind::Potion {
+            return;
         }
-        f.mana = (f.mana + pd.mana).min(f.max_mana);
+        let name = self.names[i].clone();
         self.say(format!("{name} drinks a {}.", item(it).name.to_lowercase()));
+        let src = Source { by: i, spell: None, target: Some(i), point: self.fighters[i].pos, skill: 1.0, r_dmg: 0.5, r_resist: 1.0 };
+        for e in item(it).effects {
+            self.apply(&src, e);
+        }
     }
 
     fn resolve_cast(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2, scroll: bool, rng: &mut Rng) {
@@ -839,118 +841,177 @@ impl Battle {
         }
         self.fighters[i].train(d.skill(), 1.5);
         let t = self.time;
-        // Domain hooks: the caster's strength in this domain, each target's ward.
-        let dom = d.domain as usize;
-        let boost = 1.0 + self.fighters[i].domain_power[dom];
-        let ward = |f: &Fighter| 1.0 - f.domain_resist[dom];
-        match d.target {
-            Target::Caster => {
-                let kind = if spell == Spell::MageArmor { StatusKind::MageArmor } else { StatusKind::Hasted };
-                let f = &mut self.fighters[i];
-                f.statuses.retain(|s| s.kind != kind);
-                f.statuses.push(Status { kind, until: t + d.duration as f64, magnitude: d.magnitude });
-                self.say(format!("{name} casts {}.", d.name.to_lowercase()));
-            }
-            Target::Other => {
-                let Some(j) = target else { return };
-                self.wake(self.fighters[j].side);
-                let tname = self.names[j].clone();
+        let spell_name = d.name.to_lowercase();
+        // Is what it's aimed at still there, and in reach?
+        let (target, point) = match d.aim {
+            Aim::Foe | Aim::Friend => {
+                let j = match (target, d.aim) {
+                    (Some(j), _) => j,
+                    (None, Aim::Friend) => i,
+                    _ => return,
+                };
                 // Blind casters can only reach what's right in front of them.
-                let blind = self.fighters[i].has(StatusKind::Blinded).is_some();
+                let blind = self.fighters[i].has(Does::Blind).is_some() && d.aim == Aim::Foe;
                 let range = if blind { 5.0 } else { d.range };
-                if self.fighters[i].pos.dist(self.fighters[j].pos) > range + 1.0 || self.fighters[j].dead || self.fighters[j].fled {
-                    self.say(format!("{name}'s {} goes wide.", d.name.to_lowercase()));
+                let gone = self.fighters[j].dead || self.fighters[j].fled;
+                if self.fighters[i].pos.dist(self.fighters[j].pos) > range + 1.0 || gone {
+                    self.say(format!("{name}'s {spell_name} goes wide."));
                     return;
                 }
-                match spell {
-                    Spell::LightningBolt => {
-                        let from = self.fighters[i].pos;
-                        self.fx.push(Fx { kind: FxKind::Bolt { from, to: self.fighters[j].pos }, at: t });
-                        // Armour is no help against lightning.
-                        let resist = 1.0 - self.fighters[j].resist_elements;
-                        let shield = self.fighters[j].has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
-                        let dmg = d.magnitude * (0.8 + r_dmg * 0.4) * resist * shield * (0.8 + self.fighters[i].stats.skill(d.skill()) / 250.0) * boost * ward(&self.fighters[j]);
-                        self.say(format!("{name}'s lightning strikes {tname} ({dmg:.0})."));
-                        self.wound(j, Part::Torso, dmg * 0.75);
-                        self.wound(j, Part::Head, dmg * 0.25);
-                    }
-                    Spell::Paralyze | Spell::Blind => {
-                        let (kind, item_resist) = if spell == Spell::Paralyze {
-                            (StatusKind::Paralyzed, self.fighters[j].resist_paralysis)
-                        } else {
-                            (StatusKind::Blinded, self.fighters[j].resist_blind)
-                        };
-                        let resist = 1.0 - (1.0 - magic::willpower_resist(&self.fighters[j].stats)) * (1.0 - item_resist) * ward(&self.fighters[j]);
-                        if r_resist < resist {
-                            self.say(format!("{tname} shrugs off {name}'s {}.", d.name.to_lowercase()));
-                            return;
-                        }
-                        let f = &mut self.fighters[j];
-                        f.statuses.retain(|s| s.kind != kind);
-                        f.statuses.push(Status { kind, until: t + d.duration as f64, magnitude: d.magnitude });
-                        if kind == StatusKind::Paralyzed {
-                            f.act = Act::Idle;
-                        }
-                        self.say(format!("{name} {} {tname}.", if kind == StatusKind::Paralyzed { "paralyzes" } else { "blinds" }));
-                    }
-                    _ => {}
-                }
+                (Some(j), self.fighters[j].pos)
             }
-            Target::Ally => {
-                let j = target.unwrap_or(i);
-                let tname = self.names[j].clone();
-                if self.fighters[i].pos.dist(self.fighters[j].pos) > d.range + 1.0 || self.fighters[j].dead {
-                    self.say(format!("{name}'s heal falls short."));
-                    return;
+            Aim::Point => (target, point),
+            Aim::Caster => (Some(i), self.fighters[i].pos),
+        };
+        if d.harmful() {
+            if let Some(j) = target.filter(|&j| self.hostile(i, j)) {
+                self.wake(self.fighters[j].side);
+            }
+        }
+        // What it looks like.
+        let from = self.fighters[i].pos;
+        for e in d.effects {
+            match (e.does, e.reach) {
+                (Does::Damage(Element::Fire), Reach::Area { radius, .. }) => self.fx.push(Fx { kind: FxKind::Fireball { at: point, radius }, at: t }),
+                (Does::Damage(_), Reach::Target) => self.fx.push(Fx { kind: FxKind::Bolt { from, to: point }, at: t }),
+                _ => {}
+            }
+        }
+        let area_damage = d.effects.iter().any(|e| matches!(e.reach, Reach::Area { .. }) && matches!(e.does, Does::Damage(_)));
+        if area_damage {
+            self.say(format!("{name}'s {spell_name} bursts."));
+        } else if !d.harmful() {
+            match target.filter(|&j| j != i) {
+                Some(j) => {
+                    let tname = self.names[j].clone();
+                    self.say(format!("{name} casts {spell_name} on {tname}."));
                 }
-                let mut left = d.magnitude * (0.8 + self.fighters[i].stats.skill(d.skill()) / 200.0) * (0.9 + r_dmg * 0.2) * boost;
-                // Worst wounds first: head and torso when someone is down,
-                // otherwise whatever is most hurt.
-                while left > 0.5 {
+                None => self.say(format!("{name} casts {spell_name}.")),
+            }
+        }
+        let src = Source { by: i, spell: Some(spell), target, point, skill: magic::skill_power(&self.fighters[i].stats, spell), r_dmg, r_resist };
+        for e in d.effects {
+            self.apply(&src, e);
+        }
+    }
+
+    /// Carry out one effect from a spell or potion: find who it reaches,
+    /// then do it to each of them.
+    fn apply(&mut self, src: &Source, e: &Effect) {
+        let reached: Vec<(usize, f32)> = match e.reach {
+            Reach::Caster => vec![(src.by, 1.0)],
+            Reach::Target => src.target.map(|j| vec![(j, 1.0)]).unwrap_or_default(),
+            Reach::Area { radius, who } => (0..self.fighters.len())
+                .filter(|&j| !self.fighters[j].dead && !self.fighters[j].fled)
+                .filter(|&j| match who {
+                    Who::All => true,
+                    Who::Foes => self.hostile(src.by, j),
+                    Who::Friends => !self.hostile(src.by, j),
+                })
+                .filter_map(|j| {
+                    let d = self.fighters[j].pos.dist(src.point);
+                    (d <= radius).then_some((j, 1.0 - d / radius * 0.5))
+                })
+                .collect(),
+            Reach::Object | Reach::Ground { .. } => Vec::new(),
+        };
+        for (j, near) in reached {
+            self.affect(src, e, j, near);
+        }
+    }
+
+    /// What one effect does to one fighter. `near` is 1 at the middle of an
+    /// area, less towards its edge.
+    fn affect(&mut self, src: &Source, e: &Effect, j: usize, near: f32) {
+        let domain = src.spell.map(|s| s.def().domain);
+        let boost = domain.map(|d| 1.0 + self.fighters[src.by].power(Does::DomainPower(d))).unwrap_or(1.0);
+        let ward = domain.map(|d| (1.0 - self.fighters[j].power(Does::DomainResist(d))).max(0.05)).unwrap_or(1.0);
+        let name = self.names[src.by].clone();
+        let tname = self.names[j].clone();
+        let what = src.spell.map(|s| s.def().name.to_lowercase()).unwrap_or_default();
+        match e.lasts {
+            Lasts::Worn => {}
+            Lasts::Now => match e.does {
+                Does::Damage(el) => {
                     let f = &self.fighters[j];
-                    let worst = (0..6)
-                        .filter(|&k| f.hp[k] < f.max_hp[k])
-                        .max_by(|&a, &b| {
+                    let resist = (1.0 - f.power(Does::ResistElements).min(0.9)) * match el {
+                        // Armour helps a little against fire (it's mostly heat).
+                        Element::Fire => 1.0 - f.armor.iter().filter(|a| a.covers.contains(&Part::Torso)).map(|a| a.blunt * 0.3).fold(0.0, f32::max),
+                        Element::Lightning => 1.0,
+                    };
+                    let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * near * boost * ward * resist * f.warded();
+                    if matches!(e.reach, Reach::Target) {
+                        self.say(format!("{name}'s {what} strikes {tname} ({dmg:.0})."));
+                    }
+                    self.hurt_whole(j, dmg);
+                }
+                Does::Heal => {
+                    let mut left = e.power * src.skill * (0.9 + src.r_dmg * 0.2) * boost;
+                    // Worst wounds first: head and torso when someone is down,
+                    // otherwise whatever is most hurt.
+                    while left > 0.5 {
+                        let f = &self.fighters[j];
+                        let worst = (0..6).filter(|&k| f.hp[k] < f.max_hp[k]).max_by(|&a, &b| {
                             let need = |k: usize| (f.max_hp[k] - f.hp[k]) / f.max_hp[k] + if f.ko && k < 2 && f.hp[k] <= 0.0 { 10.0 } else { 0.0 };
                             need(a).total_cmp(&need(b))
                         });
-                    let Some(k) = worst else { break };
-                    let give = left.min(self.fighters[j].max_hp[k] - self.fighters[j].hp[k]).min(12.0);
-                    self.fighters[j].hp[k] += give;
-                    left -= give;
+                        let Some(k) = worst else { break };
+                        let give = left.min(self.fighters[j].max_hp[k] - self.fighters[j].hp[k]).min(12.0);
+                        self.fighters[j].hp[k] += give;
+                        left -= give;
+                    }
+                    let f = &mut self.fighters[j];
+                    if f.ko && !f.dead && !body::knocked_out(&f.hp) {
+                        f.ko = false;
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} gets back up."));
+                    }
                 }
-                self.say(format!("{name} heals {tname}."));
-                let f = &mut self.fighters[j];
-                if f.ko && !f.dead && !body::knocked_out(&f.hp) {
-                    f.ko = false;
-                    f.act = Act::Idle;
-                    self.say(format!("{tname} gets back up."));
+                Does::Energy => {
+                    let f = &mut self.fighters[j];
+                    f.mana = (f.mana + e.power).min(f.max_mana);
                 }
-            }
-            Target::Ground => {
-                // Fireball: everyone in the blast, friend or foe.
-                self.fx.push(Fx { kind: FxKind::Fireball { at: point, radius: d.radius }, at: t });
-                self.say(format!("{name}'s fireball bursts."));
-                let power = 0.8 + self.fighters[i].stats.skill(d.skill()) / 250.0;
-                for j in 0..self.fighters.len() {
+                _ => {}
+            },
+            Lasts::Secs(secs) => {
+                // Hostile spells can be thrown off: by will, by what they
+                // wear, by a ward against the domain.
+                if e.does.harmful() && self.hostile(src.by, j) {
                     let f = &self.fighters[j];
-                    if f.dead || f.fled {
-                        continue;
+                    let item_resist = e.does.resisted_by().map(|r| f.power(r).min(0.95)).unwrap_or(0.0);
+                    let resist = 1.0 - (1.0 - magic::willpower_resist(&f.stats)) * (1.0 - item_resist) * ward;
+                    if src.r_resist < resist {
+                        self.say(format!("{tname} shrugs off {name}'s {what}."));
+                        return;
                     }
-                    let dist = f.pos.dist(point);
-                    if dist > d.radius {
-                        continue;
+                }
+                let until = self.time + secs as f64;
+                let f = &mut self.fighters[j];
+                f.statuses.retain(|s| s.does != e.does);
+                f.statuses.push(Status { does: e.does, power: e.power, until });
+                match e.does {
+                    Does::Paralyze => {
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} is held fast."));
                     }
-                    // Armour helps a little against fire (it's mostly heat).
-                    let armour = f.armor.iter().filter(|a| a.covers.contains(&Part::Torso)).map(|a| a.blunt * 0.3).fold(0.0, f32::max);
-                    let shield = f.has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
-                    let dmg = d.magnitude * power * (1.0 - dist / d.radius * 0.5) * (0.8 + r_dmg * 0.4) * (1.0 - f.resist_elements) * (1.0 - armour) * shield * boost * ward(f);
-                    self.wound(j, Part::Torso, dmg * 0.5);
-                    self.wound(j, Part::LeftArm, dmg * 0.15);
-                    self.wound(j, Part::RightArm, dmg * 0.15);
-                    self.wound(j, Part::Head, dmg * 0.2);
+                    Does::Blind => self.say(format!("{tname} is blinded.")),
+                    _ => {}
                 }
             }
+        }
+    }
+
+    /// Damage spread over the whole body by where blows usually land. A big
+    /// enough total spoils a spell being cast.
+    pub fn hurt_whole(&mut self, j: usize, dmg: f32) {
+        if dmg <= 0.0 {
+            return;
+        }
+        if dmg > 6.0 && matches!(self.fighters[j].act, Act::Cast { .. }) {
+            self.fighters[j].act = Act::Recover { until: self.time + 0.4 };
+        }
+        for p in PARTS {
+            self.wound(j, p, dmg * p.hit_weight());
         }
     }
 
@@ -964,6 +1025,19 @@ impl Battle {
             None
         }
     }
+}
+
+/// Where an effect comes from: who, by which spell (none for a potion), aimed
+/// at whom or where, how strongly their skill drives it, and the dice
+/// already rolled for it.
+struct Source {
+    by: usize,
+    spell: Option<Spell>,
+    target: Option<usize>,
+    point: V2,
+    skill: f32,
+    r_dmg: f32,
+    r_resist: f32,
 }
 
 /// Only about half of misses and blocks are worth a line in the log.

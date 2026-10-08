@@ -6,7 +6,8 @@ use gahturiyu_sim::sim::{
     combat::{Act, Battle, Fighter},
     geo::V2,
     items,
-    magic::{Spell, StatusKind},
+    effects::Does,
+    magic::{spell, Spell},
     person::Person,
     race::Race,
     stats::{Calling, Skill},
@@ -136,9 +137,9 @@ fn cast_until(b: &mut Battle, spell: Spell, target: Option<usize>, point: V2, ch
 #[test]
 fn paralysis_stops_movement_and_attacks() {
     let mut b = duel(mage(), brute(2), 6.0);
-    b.fighters[1].resist_paralysis = 0.0;
+    b.fighters[1].worn.retain(|w| w.0 != Does::ResistParalysis);
     b.fighters[1].stats.set_attr(gahturiyu_sim::sim::stats::Attr::Willpower, 1.0);
-    cast_until(&mut b, Spell::Paralyze, Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].paralyzed());
+    cast_until(&mut b, spell("paralyze"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].paralyzed());
     let pos = b.fighters[1].pos;
     b.fighters[1].target = Some(0);
     for _ in 0..20 {
@@ -165,7 +166,7 @@ fn fireball_hurts_everyone_in_the_blast_including_friends() {
     b.names.push("Far".into());
     b.fighters[3].think_at = f64::INFINITY;
     let before: Vec<f32> = b.fighters.iter().map(total_hp).collect();
-    cast_until(&mut b, Spell::Fireball, Some(1), V2::new(12.0, 0.0), |b| total_hp(&b.fighters[1]) < before[1]);
+    cast_until(&mut b, spell("fireball"), Some(1), V2::new(12.0, 0.0), |b| total_hp(&b.fighters[1]) < before[1]);
     assert!(total_hp(&b.fighters[2]) < before[2], "the caster's friend in the blast should burn too");
     assert_eq!(total_hp(&b.fighters[3]), before[3], "someone outside the blast should be untouched");
 }
@@ -182,7 +183,7 @@ fn lightning_ignores_armour() {
         }
         let mut b = duel(mage(), target, 8.0);
         let before = total_hp(&b.fighters[1]);
-        cast_until(&mut b, Spell::LightningBolt, Some(1), V2::new(8.0, 0.0), |b| total_hp(&b.fighters[1]) < before);
+        cast_until(&mut b, spell("lightning_bolt"), Some(1), V2::new(8.0, 0.0), |b| total_hp(&b.fighters[1]) < before);
         before - total_hp(&b.fighters[1])
     };
     let (with, without) = (hit(true), hit(false));
@@ -195,7 +196,7 @@ fn blindness_makes_attacks_miss() {
         let mut b = duel(brute(2), brute(3), 1.0);
         b.fighters[1].hp = [1e6; 6];
         if blind {
-            b.fighters[0].statuses.push(gahturiyu_sim::sim::magic::Status { kind: StatusKind::Blinded, until: 1e9, magnitude: 0.65 });
+            b.fighters[0].statuses.push(gahturiyu_sim::sim::magic::Status { does: Does::Blind, until: 1e9, power: 0.65 });
         }
         b.fighters[0].target = Some(1);
         b.fighters[0].fatigue = 1e6;
@@ -215,8 +216,8 @@ fn mage_armor_takes_the_edge_off() {
         let mut b = duel(brute(2), mage(), 1.0);
         b.fighters[1].hp = [1e6; 6];
         if warded {
-            cast_inline(&mut b, 1, Spell::MageArmor);
-            assert!(b.fighters[1].has(StatusKind::MageArmor).is_some());
+            cast_inline(&mut b, 1, spell("mage_armor"));
+            assert!(b.fighters[1].has(Does::Barrier).is_some());
         }
         b.fighters[0].target = Some(1);
         b.fighters[0].fatigue = 1e6;
@@ -253,7 +254,7 @@ fn haste_makes_you_faster() {
     let mut b = duel(mage(), brute(2), 40.0);
     let slow = b.fighters[0].speed();
     let swing = b.fighters[0].attack_time();
-    cast_inline(&mut b, 0, Spell::Haste);
+    cast_inline(&mut b, 0, spell("haste"));
     assert!(b.fighters[0].speed() > slow * 1.3);
     assert!(b.fighters[0].attack_time() < swing);
 }
@@ -262,7 +263,7 @@ fn haste_makes_you_faster() {
 fn no_mana_no_spell() {
     let mut b = duel(mage(), brute(2), 8.0);
     b.fighters[0].mana = 5.0;
-    assert!(!b.begin_cast(0, Spell::Fireball, Some(1), V2::new(8.0, 0.0)));
+    assert!(!b.begin_cast(0, spell("fireball"), Some(1), V2::new(8.0, 0.0)));
     assert!((b.fighters[0].mana - 5.0).abs() < 1e-6);
 }
 
@@ -312,7 +313,7 @@ fn healing_mends_wounds_and_gets_the_downed_up() {
     b.fighters[1].hp[Part::Torso as usize] = -5.0;
     b.fighters[1].ko = true;
     let before = total_hp(&b.fighters[1]);
-    cast_until(&mut b, Spell::Heal, Some(1), V2::new(3.0, 0.0), |b| total_hp(&b.fighters[1]) > before);
+    cast_until(&mut b, spell("heal"), Some(1), V2::new(3.0, 0.0), |b| total_hp(&b.fighters[1]) > before);
     assert!(!b.fighters[1].ko, "a healed friend should get back up");
     assert!(b.fighters[1].hp[Part::Torso as usize] > 0.0);
 }

@@ -196,13 +196,13 @@ impl Person {
 
     pub fn max_mana(&self) -> f32 {
         let gear = self.kit();
-        let bonus = gear.sum_effect(|e| if let super::items::Effect::MaxMana(v) = e { Some(*v) } else { None });
+        let bonus = gear.worn(super::effects::Does::MaxEnergy);
         inventory::effective(&self.stats, &gear).max_mana(self.race) + bonus
     }
 
     /// Mana per game minute, including enchantments.
     pub fn mana_regen(&self) -> f32 {
-        MANA_REGEN + self.kit().sum_effect(|e| if let super::items::Effect::ManaRegen(v) = e { Some(*v) } else { None })
+        MANA_REGEN + self.kit().worn(super::effects::Does::EnergyRegen)
     }
 
     /// Mana available at time `t`.

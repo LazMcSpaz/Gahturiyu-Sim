@@ -28,7 +28,7 @@ use gahturiyu_sim::sim::{
     geo::{self, V2},
     group::Kind as GroupKind,
     items,
-    magic::StatusKind,
+    effects::Does,
     person::PersonId,
     race::Race,
     rng,
@@ -890,7 +890,7 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         if f.paralyzed() {
             b.patch(head + vec3(0.0, h * 0.35, 0.0), r * 2.5, r * 0.6, 0.0, [0.7, 0.4, 1.0]);
         }
-        if f.has(StatusKind::MageArmor).is_some() {
+        if f.has(Does::Barrier).is_some() {
             draped_ring(fl, on_ground, at, 1.3 * k, 0.12 * k, 16, [0.5, 0.75, 1.0], eye);
         }
     }

@@ -16,7 +16,7 @@ use super::condition::Activity;
 use super::buildings::DoorId;
 use super::geo::{self, V2};
 use super::inventory;
-use super::items::{item, Effect, ItemId, Slot};
+use super::items::{item, ItemId, Slot};
 use super::person::PersonId;
 use super::rng::Rng;
 use super::settlement::SettlementId;
@@ -174,7 +174,7 @@ impl World {
         let gear = p.kit();
         let stats = inventory::effective(&p.stats, &gear);
         let hp = p.wounds.hp_at(&p.stats, self.time);
-        let bonus = gear.sum_effect(|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
+        let bonus = gear.worn(super::effects::Does::MoveSpeed);
         let sneak = if self.is_sneaking(pid) { super::stealth::SNEAK_PACE } else { 1.0 };
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
         // Their own kit's weight as usual; a body they're carrying has its own pace.

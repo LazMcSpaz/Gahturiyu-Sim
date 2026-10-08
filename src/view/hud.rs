@@ -175,7 +175,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 }
             }
             let (hp, mana, statuses) = match w.fighter(pid) {
-                Some(f) => (f.hp, f.mana, f.statuses.iter().map(|s| format!("{:?}", s.kind)).collect::<Vec<_>>()),
+                Some(f) => (f.hp, f.mana, f.statuses.iter().map(|s| format!("{:?}", s.does)).collect::<Vec<_>>()),
                 None => (p.wounds.hp_at(&p.stats, w.time), p.mana_at(w.time), vec![]),
             };
             let missing = w.fighter(pid).map(|f| f.missing).unwrap_or(p.wounds.missing);

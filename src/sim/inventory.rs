@@ -7,7 +7,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::items::{self, item, Effect, ItemId, Kind, Slot, WeaponDef, FISTS, SLOTS};
+use super::effects::{Does, Lasts};
+use super::items::{self, item, ItemId, Kind, Slot, WeaponDef, FISTS, SLOTS};
 use super::race::Race;
 use super::rng::Rng;
 use super::stats::{Calling, Skill, Stats, ATTRS, SKILLS};
@@ -123,13 +124,14 @@ impl Gear {
         }
     }
 
-    /// Every effect from everything worn.
-    pub fn effects(&self) -> impl Iterator<Item = &'static Effect> + '_ {
-        self.equipped().flat_map(|id| item(id).effects.iter())
+    /// Every effect from everything worn: (what it does, how strong).
+    pub fn worn_effects(&self) -> impl Iterator<Item = (Does, f32)> + '_ {
+        self.equipped().flat_map(|id| item(id).effects.iter()).filter(|e| e.lasts == Lasts::Worn).map(|e| (e.does, e.power))
     }
 
-    pub fn sum_effect(&self, f: impl Fn(&Effect) -> Option<f32>) -> f32 {
-        self.effects().filter_map(|e| f(e)).sum()
+    /// The summed power of everything worn that does `does`.
+    pub fn worn(&self, does: Does) -> f32 {
+        super::effects::total(self.worn_effects(), does)
     }
 
     /// Kilograms, worn and carried.
@@ -145,7 +147,7 @@ impl Gear {
             Some(Kind::Pack(kg)) => kg,
             _ => 0.0,
         };
-        let extra = self.sum_effect(|e| if let Effect::Carry(kg) = e { Some(*kg) } else { None });
+        let extra = self.worn(Does::Carry);
         effective(stats, self).carry_capacity() + pack + extra
     }
 
@@ -163,13 +165,13 @@ impl Gear {
 /// Stats as they stand with gear on: enchantments added on top of the base.
 pub fn effective(base: &Stats, gear: &Gear) -> Stats {
     let mut s = base.clone();
-    for e in gear.effects() {
-        match *e {
-            Effect::Attr(a, v) => {
+    for (does, v) in gear.worn_effects() {
+        match does {
+            Does::Attr(a) => {
                 let cur = s.attr(a);
                 s.set_attr(a, cur + v);
             }
-            Effect::Skill(k, v) => {
+            Does::Skill(k) => {
                 let cur = s.skill(k);
                 s.set_skill(k, cur + v);
             }

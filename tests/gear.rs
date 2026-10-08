@@ -5,7 +5,8 @@ use gahturiyu_sim::sim::{
     combat::{Act, Battle, Fighter},
     geo::V2,
     items::{self, Slot},
-    magic::{Spell, StatusKind},
+    effects::Does,
+    magic::{spell, Spell},
     person::Person,
     race::Race,
     stats::{Attr, Calling, Skill},
@@ -44,7 +45,7 @@ fn duel(a: &Person, b: &Person) -> Battle {
 }
 
 /// Cast at fighter 1 `n` times; count how often the status took hold.
-fn stick_rate(target: &Person, spell: Spell, kind: StatusKind, n: usize) -> usize {
+fn stick_rate(target: &Person, spell: Spell, kind: Does, n: usize) -> usize {
     let mut b = duel(&mage(), target);
     b.fighters[1].stats.set_attr(Attr::Willpower, 1.0);
     let mut took = 0;
@@ -139,7 +140,7 @@ fn paralysis_resistance_works() {
     let plain = brute(6);
     let mut warded = brute(6);
     wear(&mut warded, "amulet_clear_mind");
-    let (a, b) = (stick_rate(&plain, Spell::Paralyze, StatusKind::Paralyzed, 60), stick_rate(&warded, Spell::Paralyze, StatusKind::Paralyzed, 60));
+    let (a, b) = (stick_rate(&plain, spell("paralyze"), Does::Paralyze, 60), stick_rate(&warded, spell("paralyze"), Does::Paralyze, 60));
     assert!(a >= 55, "unwarded should nearly always be held: {a}/60");
     assert!(b <= 35 && b >= 10, "a 60% ward should stop most: {b}/60");
 }
@@ -149,7 +150,7 @@ fn blindness_resistance_works() {
     let plain = brute(7);
     let mut hooded = brute(7);
     wear(&mut hooded, "seers_hood");
-    let (a, b) = (stick_rate(&plain, Spell::Blind, StatusKind::Blinded, 60), stick_rate(&hooded, Spell::Blind, StatusKind::Blinded, 60));
+    let (a, b) = (stick_rate(&plain, spell("blind"), Does::Blind, 60), stick_rate(&hooded, spell("blind"), Does::Blind, 60));
     assert!(a >= 55, "{a}/60");
     assert!(b <= 30, "a 70% ward should stop most: {b}/60");
 }
@@ -175,7 +176,7 @@ fn elemental_resistance_cuts_fire_and_lightning() {
         }
         panic!("never landed");
     };
-    for spell in [Spell::Fireball, Spell::LightningBolt] {
+    for spell in [spell("fireball"), spell("lightning_bolt")] {
         let (bare, ringed) = (burn(false, spell), burn(true, spell));
         assert!((ringed / bare - 0.6).abs() < 0.02, "{spell:?}: {ringed} vs {bare}");
     }

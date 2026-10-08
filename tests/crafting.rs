@@ -5,7 +5,7 @@ use gahturiyu_sim::sim::{
     crafting::{success_chance, Cannot, Station, RECIPES},
     geo::V2,
     items::{self, item, Kind},
-    magic::Spell,
+    magic::spell,
     person::Person,
     race::Race,
     stats::{Calling, Skill},
@@ -179,12 +179,12 @@ fn scrolls_cast_without_mana_and_never_fizzle() {
     a.mana = 0.0;
     a.spells.clear();
     let scroll = items::id("scroll_lightning");
-    assert!(matches!(item(scroll).kind, Kind::Scroll(Spell::LightningBolt)));
+    assert!(matches!(item(scroll).kind, Kind::Scroll("lightning_bolt")));
     a.scrolls.push(scroll);
     let b = fighter(2, 1, 12.0);
     let mut battle = Battle::new(0, 3, 0.0, vec![a, b], vec!["A".into(), "B".into()]);
     let hp: f32 = battle.fighters[1].hp.iter().sum();
-    assert!(battle.read_scroll(0, Spell::LightningBolt, Some(1), V2::new(12.0, 0.0)));
+    assert!(battle.read_scroll(0, spell("lightning_bolt"), Some(1), V2::new(12.0, 0.0)));
     for _ in 0..12 {
         battle.tick();
     }

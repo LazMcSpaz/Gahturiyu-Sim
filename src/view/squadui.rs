@@ -14,7 +14,7 @@ use gahturiyu_sim::sim::{
     crafting::{success_chance, Cannot, Station, RECIPES},
     dialogue::Topic,
     inventory,
-    items::{self, item, Effect, ItemId, Kind, Slot, SLOTS},
+    items::{self, item, ItemId, Kind, Slot, SLOTS},
     person::PersonId,
     quests::Stage,
     stats::Skill,
@@ -355,7 +355,7 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
                 act = Some(Action::Drop(pid, i));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::Equip(pid, i));
-            } else if !locked && matches!(item(i).kind, Kind::Potion(_) | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_)) {
+            } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_)) {
                 act = Some(Action::Use(pid, i));
             }
         }
@@ -405,39 +405,20 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Rgb)> {
                 out.push((format!("Used for: {}", uses.join(", ")), DIM));
             }
         }
-        Kind::Potion(p) => {
-            let mut what = Vec::new();
-            if p.heal > 0.0 {
-                what.push(format!("mends {:.0} health", p.heal));
+        Kind::Potion => out.push(("Potion  ·  click in the pack to drink".into(), TEXT)),
+        Kind::Scroll(key) => {
+            let sp = gahturiyu_sim::sim::magic::spell(key).def();
+            out.push((format!("Scroll: casts {} once, no energy, can't fail", sp.name.to_lowercase()), TEXT));
+            for e in sp.effects {
+                out.push((e.describe(), [0.65, 0.78, 1.0]));
             }
-            if p.mana > 0.0 {
-                what.push(format!("restores {:.0} mana", p.mana));
-            }
-            out.push((format!("Potion: {}  ·  click in the pack to drink", what.join(", ")), TEXT));
         }
-        Kind::Scroll(sp) => out.push((format!("Scroll: casts {} once, no mana, can't fail (read in a fight)", sp.def().name.to_lowercase()), TEXT)),
     }
     for e in d.effects {
-        out.push((effect_text(e), [0.65, 0.78, 1.0]));
+        out.push((e.describe(), [0.65, 0.78, 1.0]));
     }
     out.push((format!("{:.1} kg  ·  worth {:.0}", d.weight, d.value), DIM));
     out
-}
-
-pub fn effect_text(e: &Effect) -> String {
-    match *e {
-        Effect::Attr(a, v) => format!("{v:+.0} {}", a.name()),
-        Effect::Skill(k, v) => format!("{v:+.0} {}", k.name()),
-        Effect::MaxMana(v) => format!("{v:+.0} mana"),
-        Effect::ManaRegen(v) => format!("{v:+.1} mana a minute"),
-        Effect::Carry(v) => format!("{v:+.0} kg carrying"),
-        Effect::MoveSpeed(v) => format!("{:+.0}% speed", v * 100.0),
-        Effect::ResistParalysis(v) => format!("Resist paralysis {:.0}%", v * 100.0),
-        Effect::ResistBlind(v) => format!("Resist blindness {:.0}%", v * 100.0),
-        Effect::ResistElements(v) => format!("Resist fire and lightning {:.0}%", v * 100.0),
-        Effect::DomainPower(d, v) => format!("{:+.0}% {} magic", v * 100.0, d.name()),
-        Effect::DomainResist(d, v) => format!("Resist {} magic {:.0}%", d.name().to_lowercase(), v * 100.0),
-    }
 }
 
 /// Colour for a thing lying on the ground, by kind.
@@ -448,7 +429,7 @@ pub fn ground_color(id: ItemId) -> Rgb {
         Kind::Shield(_) => [0.62, 0.48, 0.30],
         Kind::Pack(_) => [0.70, 0.60, 0.42],
         Kind::Trinket | Kind::Coin => GOLD,
-        Kind::Potion(_) => [0.85, 0.25, 0.3],
+        Kind::Potion => [0.85, 0.25, 0.3],
         Kind::Scroll(_) | Kind::Errand => [0.9, 0.86, 0.7],
         Kind::Material => [0.55, 0.62, 0.45],
         Kind::Tool => [0.5, 0.5, 0.55],

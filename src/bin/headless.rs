@@ -86,7 +86,7 @@ fn fight(count: usize, seed: u64) {
             p.stats.calling.name(),
             p.might,
             d.gear.weapon_name(),
-            d.spells
+            d.spells.iter().map(|s| s.def().name).collect::<Vec<_>>()
         );
     }
     let at = w.squad.pos.add(V2::new(20.0, 0.0));
@@ -94,7 +94,7 @@ fn fight(count: usize, seed: u64) {
     for &m in &w.group(g).unwrap().members.clone() {
         let p = &w.people[m as usize];
         let d = p.detail.as_ref().unwrap();
-        println!("BANDIT {:<10} {:<7} {:<8} might {:>5.1}  {:<12} spells {:?}", d.name, p.race.name(), p.stats.calling.name(), p.might, d.gear.weapon_name(), d.spells);
+        println!("BANDIT {:<10} {:<7} {:<8} might {:>5.1}  {:<12} spells {:?}", d.name, p.race.name(), p.stats.calling.name(), p.might, d.gear.weapon_name(), d.spells.iter().map(|s| s.def().name).collect::<Vec<_>>());
     }
     let mut printed = 0;
     for _ in 0..20000 {

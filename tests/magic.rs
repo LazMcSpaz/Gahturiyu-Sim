@@ -2,8 +2,9 @@
 
 use gahturiyu_sim::sim::{
     combat::{Act, Battle, Fighter},
+    effects::Does,
     geo::V2,
-    magic::{Spell, Style},
+    magic::{spell, Style},
     person::Person,
     race::Race,
     stats::{Attr, Calling, Skill},
@@ -40,10 +41,10 @@ fn duel(a: &Person, b: &Person) -> Battle {
 #[test]
 fn felt_spells_go_off_at_once_and_tire_the_caster() {
     let mut b = duel(&mage(), &brute(2));
-    assert_eq!(Spell::Heal.def().style, Style::Felt);
+    assert_eq!(spell("heal").def().style, Style::Felt);
     b.fighters[0].hp[1] -= 30.0;
     let hurt = b.fighters[0].hp[1];
-    assert!(b.begin_cast(0, Spell::Heal, Some(0), V2::new(0.0, 0.0)));
+    assert!(b.begin_cast(0, spell("heal"), Some(0), V2::new(0.0, 0.0)));
     b.tick();
     assert!(!matches!(b.fighters[0].act, Act::Cast { .. }), "a felt spell shouldn't take a cast time");
     assert!(b.fighters[0].hp[1] > hurt, "it should have worked in the same moment");
@@ -52,7 +53,7 @@ fn felt_spells_go_off_at_once_and_tire_the_caster() {
 
 #[test]
 fn structured_spells_take_a_second_or_two_and_a_hit_spoils_them() {
-    for spell in [Spell::Fireball, Spell::LightningBolt, Spell::Paralyze, Spell::Blind, Spell::MageArmor, Spell::Haste] {
+    for spell in [spell("fireball"), spell("lightning_bolt"), spell("paralyze"), spell("blind"), spell("mage_armor"), spell("haste")] {
         let mut b = duel(&mage(), &brute(2));
         assert_eq!(spell.def().style, Style::Structured);
         assert!(b.begin_cast(0, spell, Some(1), V2::new(6.0, 0.0)));
@@ -76,7 +77,7 @@ fn felt_magic_rarely_fails() {
     for _ in 0..100 {
         b.fighters[0].hp[1] = b.fighters[0].max_hp[1] - 40.0;
         b.fighters[0].mana = 100.0;
-        assert!(b.begin_cast(0, Spell::Heal, Some(0), V2::new(0.0, 0.0)));
+        assert!(b.begin_cast(0, spell("heal"), Some(0), V2::new(0.0, 0.0)));
         b.tick();
         if b.fighters[0].hp[1] > b.fighters[0].max_hp[1] - 39.0 {
             worked += 1;
@@ -125,40 +126,40 @@ fn felt_spells_are_learned_by_using_the_style() {
     let (mut w, mage) = squad_fight(2);
     // Just short of mending; a fight's worth of felt casting gets them there.
     let p = &mut w.people[mage as usize];
-    p.stats.set_skill(Skill::Felt, Spell::Heal.def().min_skill - 0.5);
-    p.detail.as_mut().unwrap().spells.retain(|&s| s != Spell::Heal);
+    p.stats.set_skill(Skill::Felt, spell("heal").def().min_skill - 0.5);
+    p.detail.as_mut().unwrap().spells.retain(|&s| s != spell("heal"));
     let f = w.battles[0].fighters.iter_mut().find(|f| f.pid == mage).unwrap();
-    f.spells.retain(|&s| s != Spell::Heal);
+    f.spells.retain(|&s| s != spell("heal"));
     f.trained[Skill::Felt as usize] += 10.0;
     finish(&mut w);
     let p = &w.people[mage as usize];
-    assert!(p.stats.skill(Skill::Felt) >= Spell::Heal.def().min_skill);
-    assert!(p.detail.as_ref().unwrap().spells.contains(&Spell::Heal), "the feel for mending should have come");
+    assert!(p.stats.skill(Skill::Felt) >= spell("heal").def().min_skill);
+    assert!(p.detail.as_ref().unwrap().spells.contains(&spell("heal")), "the feel for mending should have come");
 }
 
 #[test]
 fn every_spell_has_a_domain() {
-    use gahturiyu_sim::sim::magic::{Domain, SPELLS};
-    for s in SPELLS {
+    use gahturiyu_sim::sim::magic::{all_spells, Domain};
+    for s in all_spells() {
         let _: Domain = s.def().domain;
     }
-    assert_eq!(Spell::Fireball.def().domain, Domain::Elemental);
-    assert_eq!(Spell::Paralyze.def().domain, Domain::Psychic);
-    assert_eq!(Spell::Blind.def().domain, Domain::Illusion);
-    assert_eq!(Spell::Heal.def().domain, Domain::Vital);
-    assert_eq!(Spell::MageArmor.def().domain, Domain::Warding);
+    assert_eq!(spell("fireball").def().domain, Domain::Elemental);
+    assert_eq!(spell("paralyze").def().domain, Domain::Psychic);
+    assert_eq!(spell("blind").def().domain, Domain::Illusion);
+    assert_eq!(spell("heal").def().domain, Domain::Vital);
+    assert_eq!(spell("mage_armor").def().domain, Domain::Warding);
 }
 
 /// Damage from one lightning bolt, with the caster's and target's domain
 /// numbers set. The same seed every time, so only the hooks differ.
 fn bolt(dom: gahturiyu_sim::sim::magic::Domain, power: f32, resist: f32) -> f32 {
     let mut b = duel(&mage(), &brute(2));
-    b.fighters[0].domain_power[dom as usize] = power;
-    b.fighters[1].domain_resist[dom as usize] = resist;
+    b.fighters[0].worn.push((Does::DomainPower(dom), power));
+    b.fighters[1].worn.push((Does::DomainResist(dom), resist));
     let before: f32 = b.fighters[1].hp.iter().sum();
     for _ in 0..40 {
         b.fighters[0].mana = 100.0;
-        assert!(b.begin_cast(0, Spell::LightningBolt, Some(1), V2::new(6.0, 0.0)));
+        assert!(b.begin_cast(0, spell("lightning_bolt"), Some(1), V2::new(6.0, 0.0)));
         while matches!(b.fighters[0].act, Act::Cast { .. }) {
             b.tick();
         }
@@ -178,4 +179,82 @@ fn domains_are_hooks_for_strength_and_wards() {
     assert!((bolt(Domain::Elemental, 0.0, 0.5) / plain - 0.5).abs() < 0.01, "a 50% elemental ward");
     // Another domain's numbers don't touch an elemental spell.
     assert!((bolt(Domain::Vital, 3.0, 0.9) - plain).abs() < 1e-3);
+}
+
+// ---- One shared effect list ------------------------------------------------
+
+#[test]
+fn the_enchanted_items_keep_their_bonuses() {
+    use gahturiyu_sim::sim::{effects::Lasts, items};
+    let expect: &[(&str, Does, f32)] = &[
+        ("ring_swiftness", Does::MoveSpeed, 0.15),
+        ("ring_swiftness", Does::Attr(Attr::Agility), 5.0),
+        ("ring_might", Does::Attr(Attr::Strength), 12.0),
+        ("amulet_wellspring", Does::MaxEnergy, 30.0),
+        ("amulet_wellspring", Does::EnergyRegen, 0.6),
+        ("amulet_clear_mind", Does::ResistParalysis, 0.6),
+        ("amulet_clear_mind", Does::Attr(Attr::Willpower), 6.0),
+        ("ring_hearth", Does::ResistElements, 0.4),
+        ("seers_hood", Does::ResistBlind, 0.7),
+        ("seers_hood", Does::Skill(Skill::Structured), 8.0),
+        ("striders_boots", Does::MoveSpeed, 0.20),
+        ("striders_boots", Does::Skill(Skill::Athletics), 10.0),
+        ("porters_belt_pack", Does::Carry, 20.0),
+        ("duelists_gloves", Does::Skill(Skill::Blade), 10.0),
+        ("duelists_gloves", Does::Skill(Skill::Block), 6.0),
+    ];
+    let mut enchanted = std::collections::HashSet::new();
+    for (key, does, power) in expect {
+        let e = items::item(items::id(key)).effects.iter().find(|e| e.does == *does).unwrap_or_else(|| panic!("{key} lost {does:?}"));
+        assert_eq!(e.power, *power, "{key}");
+        assert_eq!(e.lasts, Lasts::Worn);
+        enchanted.insert(*key);
+    }
+    assert_eq!(enchanted.len(), 9);
+    // Worn effects reach the wearer's numbers.
+    let mut p = brute(3);
+    let plain = p.effective_stats().attr(Attr::Strength);
+    let d = p.detail.as_mut().unwrap();
+    d.gear.add(items::id("ring_might"), 1);
+    d.gear.equip(items::id("ring_might")).unwrap();
+    assert!((p.effective_stats().attr(Attr::Strength) - plain - 12.0).abs() < 0.01);
+}
+
+#[test]
+fn potions_and_scrolls_say_what_they_do_with_the_same_effects() {
+    use gahturiyu_sim::sim::items::{self, Kind};
+    let heal = items::item(items::id("healing_draught"));
+    assert_eq!(heal.kind, Kind::Potion);
+    assert_eq!(heal.effects[0].does, Does::Heal);
+    assert_eq!(items::item(items::id("mana_tonic")).effects[0].does, Does::Energy);
+    // A scroll carries its spell, and the spell carries the effects.
+    let Kind::Scroll(key) = items::item(items::id("scroll_fireball")).kind else { panic!() };
+    assert_eq!(spell(key), spell("fireball"));
+    assert!(matches!(spell(key).def().effects[0].does, Does::Damage(_)));
+    // Every effect of every spell and item can describe itself.
+    for s in gahturiyu_sim::sim::magic::all_spells() {
+        for e in s.def().effects {
+            assert!(!e.describe().is_empty());
+        }
+    }
+}
+
+#[test]
+fn a_healing_scroll_works_on_the_road_but_an_attack_scroll_waits_for_a_fight() {
+    use gahturiyu_sim::sim::items;
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    let t = w.time;
+    let p = &mut w.people[m as usize];
+    let base = p.stats.clone();
+    let mut hp = p.wounds.hp_at(&base, t);
+    hp[1] -= 30.0;
+    p.wounds.set(&base, &hp, t);
+    let d = p.detail.as_mut().unwrap();
+    d.gear.add(items::id("scroll_heal"), 1);
+    d.gear.add(items::id("scroll_fireball"), 1);
+    let before = w.people[m as usize].wounds.hp_at(&base, t)[1];
+    assert!(w.use_item(m, items::id("scroll_heal")));
+    assert!(w.people[m as usize].wounds.hp_at(&base, t)[1] > before + 10.0);
+    assert!(!w.use_item(m, items::id("scroll_fireball")), "an attack scroll is for a fight");
 }

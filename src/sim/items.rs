@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::body::Part;
-use super::magic::Spell;
+use super::effects::{now, worn, Does, Effect, Reach};
 use super::stats::{Attr, Skill};
 
 pub type ItemId = u16;
@@ -94,31 +94,7 @@ pub struct ArmorDef {
     pub dodge_penalty: f32,
 }
 
-/// Changes an item makes to whoever has it equipped.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
-pub enum Effect {
-    Attr(Attr, f32),
-    Skill(Skill, f32),
-    MaxMana(f32),
-    /// Mana regained per game minute.
-    ManaRegen(f32),
-    /// Extra carrying capacity, kg.
-    Carry(f32),
-    /// Footspeed, as a fraction (0.1 = 10% faster).
-    MoveSpeed(f32),
-    /// Chance to shrug off paralysis outright.
-    ResistParalysis(f32),
-    /// Chance to shrug off blindness outright.
-    ResistBlind(f32),
-    /// Share of fire and lightning damage ignored.
-    ResistElements(f32),
-    /// Spells of this domain cast by the wearer are stronger by this share.
-    DomainPower(super::magic::Domain, f32),
-    /// Spells of this domain do this much less to the wearer.
-    DomainResist(super::magic::Domain, f32),
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Kind {
     Weapon(WeaponDef),
     Armor(ArmorDef),
@@ -131,10 +107,11 @@ pub enum Kind {
     Tool,
     /// Something to make things from.
     Material,
-    /// Drunk: mends wounds and/or restores mana.
-    Potion(PotionDef),
-    /// Read aloud: casts its spell once, with no mana and no chance of failing.
-    Scroll(Spell),
+    /// Drunk: its effects (`ItemDef::effects`) work on whoever drinks it.
+    Potion,
+    /// Read aloud: casts the spell with this key once, with no energy and no
+    /// chance of failing.
+    Scroll(&'static str),
     /// Shot from a ranged weapon; stacks in the pack.
     Ammo,
     /// Money.
@@ -149,14 +126,6 @@ pub enum Kind {
     StandingTorch(f32),
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
-pub struct PotionDef {
-    /// Hit points mended, spread over the worst wounds first.
-    pub heal: f32,
-    /// Mana restored.
-    pub mana: f32,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct ItemDef {
     pub key: &'static str,
@@ -167,6 +136,7 @@ pub struct ItemDef {
     pub weight: f32,
     /// What it would fetch, in coin; also how NPC kit is budgeted.
     pub value: f32,
+    /// What it does: while worn (enchantments), or when drunk (potions).
     pub effects: &'static [Effect],
 }
 
@@ -215,8 +185,12 @@ const fn food(key: &'static str, name: &'static str, weight: f32, value: f32, no
     ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Food(nourishment), weight, value, effects: &[] }
 }
 
-const fn scroll(key: &'static str, name: &'static str, spell: Spell, value: f32) -> ItemDef {
+const fn scroll(key: &'static str, name: &'static str, spell: &'static str, value: f32) -> ItemDef {
     ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Scroll(spell), weight: 0.05, value, effects: &[] }
+}
+
+const fn potion(key: &'static str, name: &'static str, value: f32, effects: &'static [Effect]) -> ItemDef {
+    ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Potion, weight: 0.3, value, effects }
 }
 
 const fn trinket(key: &'static str, name: &'static str, slot: Slot, weight: f32, value: f32, effects: &'static [Effect]) -> ItemDef {
@@ -291,19 +265,19 @@ pub static ITEMS: &[ItemDef] = &[
     ItemDef { key: "coin", name: "Coin", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.005, value: 1.0, effects: &[] },
     ItemDef { key: "sealed_letter", name: "Sealed letter", slot: Slot::MainHand, kind: Kind::Errand, weight: 0.02, value: 0.0, effects: &[] },
     // --- Potions and scrolls --------------------------------------------------
-    ItemDef { key: "healing_draught", name: "Healing draught", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 25.0, mana: 0.0 }), weight: 0.3, value: 25.0, effects: &[] },
-    ItemDef { key: "greater_healing", name: "Greater healing draught", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 55.0, mana: 0.0 }), weight: 0.3, value: 70.0, effects: &[] },
-    ItemDef { key: "mana_tonic", name: "Mana tonic", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 0.0, mana: 40.0 }), weight: 0.3, value: 35.0, effects: &[] },
-    scroll("scroll_heal", "Scroll of healing", Spell::Heal, 40.0),
-    scroll("scroll_paralyze", "Scroll of paralysis", Spell::Paralyze, 60.0),
-    scroll("scroll_fireball", "Scroll of fireball", Spell::Fireball, 70.0),
-    scroll("scroll_lightning", "Scroll of lightning", Spell::LightningBolt, 60.0),
+    potion("healing_draught", "Healing draught", 25.0, &[now(Does::Heal, 25.0, Reach::Caster)]),
+    potion("greater_healing", "Greater healing draught", 70.0, &[now(Does::Heal, 55.0, Reach::Caster)]),
+    potion("mana_tonic", "Mana tonic", 35.0, &[now(Does::Energy, 40.0, Reach::Caster)]),
+    scroll("scroll_heal", "Scroll of healing", "heal", 40.0),
+    scroll("scroll_paralyze", "Scroll of paralysis", "paralyze", 60.0),
+    scroll("scroll_fireball", "Scroll of fireball", "fireball", 70.0),
+    scroll("scroll_lightning", "Scroll of lightning", "lightning_bolt", 60.0),
     // --- Enchanted pieces -------------------------------------------------
-    trinket("ring_swiftness", "Ring of Swiftness", Slot::Ring, 0.1, 300.0, &[Effect::MoveSpeed(0.15), Effect::Attr(Attr::Agility, 5.0)]),
-    trinket("ring_might", "Ring of the Ox", Slot::Ring, 0.1, 320.0, &[Effect::Attr(Attr::Strength, 12.0)]),
-    trinket("amulet_wellspring", "Wellspring Amulet", Slot::Neck, 0.2, 350.0, &[Effect::MaxMana(30.0), Effect::ManaRegen(0.6)]),
-    trinket("amulet_clear_mind", "Amulet of the Clear Mind", Slot::Neck, 0.2, 280.0, &[Effect::ResistParalysis(0.6), Effect::Attr(Attr::Willpower, 6.0)]),
-    trinket("ring_hearth", "Hearthstone Ring", Slot::Ring, 0.1, 260.0, &[Effect::ResistElements(0.4)]),
+    trinket("ring_swiftness", "Ring of Swiftness", Slot::Ring, 0.1, 300.0, &[worn(Does::MoveSpeed, 0.15), worn(Does::Attr(Attr::Agility), 5.0)]),
+    trinket("ring_might", "Ring of the Ox", Slot::Ring, 0.1, 320.0, &[worn(Does::Attr(Attr::Strength), 12.0)]),
+    trinket("amulet_wellspring", "Wellspring Amulet", Slot::Neck, 0.2, 350.0, &[worn(Does::MaxEnergy, 30.0), worn(Does::EnergyRegen, 0.6)]),
+    trinket("amulet_clear_mind", "Amulet of the Clear Mind", Slot::Neck, 0.2, 280.0, &[worn(Does::ResistParalysis, 0.6), worn(Does::Attr(Attr::Willpower), 6.0)]),
+    trinket("ring_hearth", "Hearthstone Ring", Slot::Ring, 0.1, 260.0, &[worn(Does::ResistElements, 0.4)]),
     ItemDef {
         key: "seers_hood",
         name: "Seer's hood",
@@ -311,7 +285,7 @@ pub static ITEMS: &[ItemDef] = &[
         kind: Kind::Armor(ArmorDef { covers: HEAD, coverage: 0.6, cut: 0.15, blunt: 0.10, dodge_penalty: 0.0 }),
         weight: 0.6,
         value: 240.0,
-        effects: &[Effect::ResistBlind(0.7), Effect::Skill(Skill::Structured, 8.0)],
+        effects: &[worn(Does::ResistBlind, 0.7), worn(Does::Skill(Skill::Structured), 8.0)],
     },
     ItemDef {
         key: "striders_boots",
@@ -320,7 +294,7 @@ pub static ITEMS: &[ItemDef] = &[
         kind: Kind::Armor(ArmorDef { covers: LEGS, coverage: 0.30, cut: 0.20, blunt: 0.15, dodge_penalty: 0.0 }),
         weight: 1.0,
         value: 260.0,
-        effects: &[Effect::MoveSpeed(0.20), Effect::Skill(Skill::Athletics, 10.0)],
+        effects: &[worn(Does::MoveSpeed, 0.20), worn(Does::Skill(Skill::Athletics), 10.0)],
     },
     ItemDef {
         key: "porters_belt_pack",
@@ -329,7 +303,7 @@ pub static ITEMS: &[ItemDef] = &[
         kind: Kind::Pack(60.0),
         weight: 4.0,
         value: 200.0,
-        effects: &[Effect::Carry(20.0)],
+        effects: &[worn(Does::Carry, 20.0)],
     },
     ItemDef {
         key: "duelists_gloves",
@@ -338,7 +312,7 @@ pub static ITEMS: &[ItemDef] = &[
         kind: Kind::Armor(ArmorDef { covers: ARMS, coverage: 0.35, cut: 0.20, blunt: 0.15, dodge_penalty: 0.0 }),
         weight: 0.4,
         value: 230.0,
-        effects: &[Effect::Skill(Skill::Blade, 10.0), Effect::Skill(Skill::Block, 6.0)],
+        effects: &[worn(Does::Skill(Skill::Blade), 10.0), worn(Does::Skill(Skill::Block), 6.0)],
     },
 ];
 
