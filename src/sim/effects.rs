@@ -26,15 +26,29 @@ use super::stats::{Attr, Skill};
 pub enum Element {
     /// Burns. Armour helps a little (it's mostly heat).
     Fire,
+    /// Bites with cold. Armour helps a little.
+    Frost,
     /// Arcs straight through armour.
     Lightning,
+    /// Stone thrust up from the ground: hits the legs, and armour there helps.
+    Stone,
+    /// Rot: nothing wards it but a ward against its domain.
+    Rot,
 }
 
 impl Element {
+    /// Fire, frost and lightning are the elements that elemental wards stop.
+    pub fn elemental(self) -> bool {
+        matches!(self, Element::Fire | Element::Frost | Element::Lightning)
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Element::Fire => "fire",
+            Element::Frost => "frost",
             Element::Lightning => "lightning",
+            Element::Stone => "stone",
+            Element::Rot => "rot",
         }
     }
 }
@@ -52,6 +66,10 @@ pub enum Does {
     /// Take tiredness away (out of a fight; points on the 0..100 scale) or
     /// restore all stamina (in one).
     Rest,
+    /// Light a torch (one carried, or a doused campfire).
+    Kindle,
+    /// Put out a torch, a standing torch or a campfire (for `DOUSE_HOURS`).
+    Douse,
 
     // ---- While it lasts (or while worn) --------------------------------
     /// Power: points added.
@@ -83,12 +101,16 @@ pub enum Does {
     Barrier,
     /// Moves and attacks faster by this share.
     Haste,
+    /// Moves slower by this share, and attacks a little slower.
+    Slow,
+    /// Knocked off their feet: can't move or act, can't dodge or block.
+    KnockDown,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse)
     }
 
     /// A lasting condition that a resist roll can stop, and what resists it.
@@ -102,7 +124,7 @@ impl Does {
 
     /// Has a meaning outside a fight (the rest only matter in one).
     pub fn works_outside_fights(self) -> bool {
-        matches!(self, Does::Heal | Does::Energy | Does::Rest)
+        matches!(self, Does::Heal | Does::Energy | Does::Rest | Does::Kindle | Does::Douse)
     }
 }
 
@@ -200,6 +222,10 @@ impl Effect {
             Does::Blind => "Blinds".to_string(),
             Does::Barrier => format!("{pct:.0}% less damage taken"),
             Does::Haste => format!("{pct:.0}% faster"),
+            Does::Slow => format!("{pct:.0}% slower"),
+            Does::KnockDown => "Knocks down".to_string(),
+            Does::Kindle => "Lights a torch or fire".to_string(),
+            Does::Douse => "Puts out a torch or fire".to_string(),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),

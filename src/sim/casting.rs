@@ -99,9 +99,10 @@ impl World {
     // ---- Casting outside a fight ------------------------------------------
 
     /// Cast a felt or structured spell outside a fight (from the spell book).
-    /// `target` is who it's aimed at (a squad member), if anyone. Energy is
-    /// spent whether or not it works.
-    pub fn cast(&mut self, who: PersonId, s: Spell, target: Option<PersonId>) -> Result<(), Cannot> {
+    /// `target` is who it's aimed at (a squad member), if anyone; `point`
+    /// where, for spells aimed at a spot. Energy is spent whether or not it
+    /// works.
+    pub fn cast(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
         let d = s.def();
         if !self.knows(who, s) {
             return cannot("doesn't know that spell");
@@ -120,6 +121,11 @@ impl World {
         if mana < d.cost {
             return cannot("not enough energy");
         }
+        let from = self.person_pos(who);
+        let point = point.unwrap_or(target.map(|p| self.person_pos(p)).unwrap_or(from));
+        if from.dist(point) > d.range.max(2.0) + 1.0 {
+            return cannot("too far away");
+        }
         let p = &mut self.people[who as usize];
         p.set_mana(mana - d.cost, t);
         self.tire(who, d.tire);
@@ -135,8 +141,8 @@ impl World {
         }
         self.people[who as usize].stats.exercise(d.skill(), 1.5);
         let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s);
-        self.work_spell(who, s, target, skill);
         self.say(t, format!("{name} casts {}.", d.name.to_lowercase()));
+        self.work_spell(who, s, target, point, skill);
         Ok(())
     }
 
@@ -153,12 +159,76 @@ impl World {
     }
 
     /// Carry out a spell's effects (it's already been paid for and worked).
-    fn work_spell(&mut self, by: PersonId, s: Spell, target: Option<PersonId>, skill: f32) {
-        let point = self.person_pos(by);
+    fn work_spell(&mut self, by: PersonId, s: Spell, target: Option<PersonId>, point: V2, skill: f32) {
+        let point = if s.def().aim == magic::Aim::Caster { self.person_pos(by) } else { point };
         for e in s.def().effects {
+            if e.reach == Reach::Object {
+                self.affect_object(e, point);
+                continue;
+            }
             for pid in self.reached(by, e, target, point) {
                 self.apply_effect(pid, e, skill);
             }
+        }
+    }
+
+    /// An effect on a thing near `point`: a torch, a campfire.
+    fn affect_object(&mut self, e: &Effect, point: V2) -> bool {
+        let t = self.time;
+        const NEAR: f32 = 6.0;
+        match e.does {
+            Does::Douse => {
+                // The nearest flame: a torch in a squad member's hand, a
+                // standing torch, a campfire.
+                let mut best: Option<(f32, u8, usize)> = None;
+                let mut offer = |d: f32, kind: u8, i: usize| {
+                    if d <= NEAR && best.map(|b| d < b.0).unwrap_or(true) {
+                        best = Some((d, kind, i));
+                    }
+                };
+                for (k, &m) in self.squad.members.iter().enumerate() {
+                    if self.torch_lit(m) {
+                        offer(self.member_pos(k).dist(point), 0, k);
+                    }
+                }
+                for (i, st) in self.standing.iter().enumerate() {
+                    if st.burning(t) {
+                        offer(st.pos.dist(point), 1, i);
+                    }
+                }
+                for (i, c) in self.camps.iter().enumerate() {
+                    if t >= c.doused_until {
+                        offer(c.pos.dist(point), 2, i);
+                    }
+                }
+                match best {
+                    Some((_, 0, k)) => self.toggle_torch(self.squad.members[k]),
+                    Some((_, 1, i)) => {
+                        self.standing[i].out_at = t;
+                        self.say(t, "A standing torch hisses out.".to_string());
+                        true
+                    }
+                    Some((_, _, i)) => {
+                        self.camps[i].doused_until = t + super::torch::DOUSE_HOURS * super::world::HOUR;
+                        self.say(t, "A campfire hisses out.".to_string());
+                        true
+                    }
+                    None => false,
+                }
+            }
+            Does::Kindle => {
+                let member = self.squad.members.iter().enumerate().filter(|(k, &m)| !self.torch_lit(m) && self.member_pos(*k).dist(point) <= NEAR).min_by(|a, b| self.member_pos(a.0).dist(point).total_cmp(&self.member_pos(b.0).dist(point))).map(|(_, &m)| m);
+                if let Some(m) = member {
+                    return self.toggle_torch(m);
+                }
+                if let Some(i) = self.camps.iter().position(|c| t < c.doused_until && c.pos.dist(point) <= NEAR) {
+                    self.camps[i].doused_until = t;
+                    self.say(t, "A campfire roars back to life.".to_string());
+                    return true;
+                }
+                false
+            }
+            _ => false,
         }
     }
 
@@ -406,7 +476,7 @@ impl World {
 
     /// Let a held ritual go (outside a fight; in one, the fighter does it).
     /// `target` is who it's aimed at, if it needs anyone.
-    pub fn release(&mut self, who: PersonId, target: Option<PersonId>) -> Result<(), Cannot> {
+    pub fn release(&mut self, who: PersonId, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
         let Some(s) = self.held.get(&who).copied() else { return cannot("isn't holding a ritual") };
         if self.fighting.contains_key(&who) {
             return cannot("in a fight (it's released there)");
@@ -417,9 +487,10 @@ impl World {
         let t = self.time;
         self.set_holding(who, t, None);
         let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s);
-        self.work_spell(who, s, target, skill);
         let name = self.name_of(who);
         self.say(t, format!("{name} releases the {}.", s.def().name.to_lowercase()));
+        let point = point.unwrap_or(target.map(|p| self.person_pos(p)).unwrap_or(self.person_pos(who)));
+        self.work_spell(who, s, target, point, skill);
         Ok(())
     }
 

@@ -43,6 +43,8 @@ pub const STANDING_POWER: f32 = 0.8;
 pub const TORCH_SEEN: f32 = 220.0;
 /// Travellers on the road light torches when daylight falls below this.
 pub const TRAVEL_TORCH_DARK: f32 = 0.5;
+/// Hours a campfire stays out once doused.
+pub const DOUSE_HOURS: f64 = 3.0;
 /// Sneaking with a lit torch: you're still this visible (1 = not hidden at all).
 pub const TORCH_SNEAK: f32 = 0.9;
 
@@ -252,7 +254,7 @@ impl World {
 
     /// The same, as they were (or will be) at time `t`.
     pub fn fixed_lights_at(&self, t: f64) -> Vec<Light> {
-        let mut out: Vec<Light> = self.camps.iter().map(|c| Light { pos: c.pos, reach: 18.0, power: 0.7, flat: false }).collect();
+        let mut out: Vec<Light> = self.camps.iter().filter(|c| t >= c.doused_until).map(|c| Light { pos: c.pos, reach: 18.0, power: 0.7, flat: false }).collect();
         out.extend(self.settlements.iter().map(|s| Light { pos: s.pos, reach: s.reach + 10.0, power: 0.25, flat: true }));
         out.extend(self.standing.iter().filter(|s| s.burning(t)).map(|s| Light { pos: s.pos, reach: STANDING_REACH, power: STANDING_POWER, flat: false }));
         out

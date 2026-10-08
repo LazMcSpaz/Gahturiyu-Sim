@@ -242,7 +242,8 @@ fn sleepers_are_caught_unawares() {
     w.step(0.25);
     w.step(0.25);
     let b = w.squad_battle().expect("attacked in their sleep");
-    assert!(b.fighters.iter().filter(|f| f.side == 0).all(|f| f.unaware(b.start + 1.0)));
+    // They start the fight unaware (a blow — or a spark — wakes them early).
+    assert!(b.fighters.iter().filter(|f| f.side == 0).all(|f| f.aware_at > b.start));
 }
 
 // ---- Healing follows condition -----------------------------------------

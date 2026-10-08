@@ -355,7 +355,7 @@ fn a_finished_ritual_is_held_and_released_later() {
         p.wounds.set(&base, &hp, t);
     }
     let tired_before = w.tired_of(m).unwrap();
-    w.release(m, None).unwrap();
+    w.release(m, None, None).unwrap();
     assert_eq!(w.held_ritual(m), None);
     for &k in &w.squad.members {
         let p = &w.people[k as usize];
@@ -424,7 +424,7 @@ fn a_failed_ritual_backlashes() {
             lashed = true;
             break;
         }
-        w.release(m, None).unwrap();
+        w.release(m, None, None).unwrap();
     }
     assert!(lashed);
 }

@@ -262,29 +262,32 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
             }
         }
     }
-    // 4. Blast a knot of enemies, never with friends in it.
+    // 4. Blast a knot of enemies, never with friends in it (unless the
+    //    spell spares them).
     if let Some(s) = first(Use::Blast) {
         let radius = s.def().radius();
+        let spares_friends = s.def().effects.iter().all(|e| !matches!(e.reach, Reach::Area { who: super::effects::Who::All, .. }));
         for &j in &enemies {
-            let p = b.fighters[j].pos;
-            if !in_range(j, s) {
+            // Where the blast centres: on the caster for spells worked round them.
+            let p = if s.def().aim == Aim::Caster { me.pos } else { b.fighters[j].pos };
+            if s.def().aim != Aim::Caster && !in_range(j, s) {
                 continue;
             }
             let caught = enemies.iter().filter(|&&k| b.fighters[k].pos.dist(p) <= radius).count();
-            let friends = (0..b.fighters.len()).any(|k| !b.hostile(i, k) && !b.fighters[k].dead && b.fighters[k].pos.dist(p) <= radius + 0.8);
+            let friends = !spares_friends && (0..b.fighters.len()).any(|k| !b.hostile(i, k) && !b.fighters[k].dead && b.fighters[k].pos.dist(p) <= radius + 0.8);
             if caught >= 2 && !friends {
                 cast(b, i, s, Some(j), p);
                 return;
             }
         }
     }
-    // 5. Otherwise, strike the current target.
+    // 5. Otherwise, strike the current target. (Fighters who aren't mages
+    //    only throw a spell at someone still out of reach of their weapon.)
     if let Some(s) = first(Use::Strike) {
-        if is_mage || r < 0.3 {
-            if let Some(t) = target {
-                if in_range(t, s) {
-                    cast(b, i, s, Some(t), b.fighters[t].pos);
-                }
+        if let Some(t) = target {
+            let far = me.pos.dist(b.fighters[t].pos) > me.attack_range() * 1.5;
+            if (is_mage || (far && r < 0.3)) && in_range(t, s) {
+                cast(b, i, s, Some(t), b.fighters[t].pos);
             }
         }
     }

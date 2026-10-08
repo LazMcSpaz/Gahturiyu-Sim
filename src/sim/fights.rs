@@ -187,7 +187,7 @@ impl World {
             band: 3,
         };
         self.add_group(g);
-        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time });
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0 });
         self.scan_camp(self.camps.len() - 1);
         gid
     }
@@ -273,6 +273,7 @@ impl World {
                 self.squad.resting[k] = false;
             }
             f.torch = self.torch_lit(pid);
+            f.has_torch = self.torch_in_hand(pid).is_some();
             f.held = self.held.get(&pid).copied();
             // Carrying someone: can't fight, and slow.
             if self.carrying(pid).is_some() {
@@ -307,7 +308,10 @@ impl World {
             }
             p.stats.harden(f.damage_taken);
             // Felt magic comes with use: new felt spells as the feel grows.
-            if let Some(d) = p.detail.as_mut() {
+            // (Your squad only: everyone else's spells are fixed by their
+            // stats when their kit was chosen, so meeting them or not never
+            // changes what they can do.)
+            if let Some(d) = p.detail.as_mut().filter(|_| p.in_squad) {
                 let new = super::magic::felt_reached(&p.stats, &d.spells);
                 d.spells.extend(new.iter().copied());
                 if p.in_squad {

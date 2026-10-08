@@ -291,7 +291,10 @@ pub static ITEMS: &[ItemDef] = &[
     notes("notes_blind", "Notes on blinding", "blind", 70.0),
     notes("notes_barrier", "Notes on barriers", "barrier", 70.0),
     notes("notes_haste", "Notes on haste", "haste", 80.0),
+    notes("notes_stone_spikes", "Notes on stone spikes", "stone_spikes", 85.0),
     text("text_restore", "Rite of Restoring", "restore", 220.0),
+    text("text_firestorm", "Rite of the Firestorm", "firestorm", 260.0),
+    text("text_tremor", "Rite of the Shaking Ground", "tremor", 240.0),
     // --- Enchanted pieces -------------------------------------------------
     trinket("ring_swiftness", "Ring of Swiftness", Slot::Ring, 0.1, 300.0, &[worn(Does::MoveSpeed, 0.15), worn(Does::Attr(Attr::Agility), 5.0)]),
     trinket("ring_might", "Ring of the Ox", Slot::Ring, 0.1, 320.0, &[worn(Does::Attr(Attr::Strength), 12.0)]),

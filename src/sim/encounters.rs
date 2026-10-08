@@ -56,6 +56,9 @@ pub struct Camp {
     pub pos: V2,
     /// Not looking for trouble before this time.
     pub ready_at: f64,
+    /// The campfire is out until this time (doused by magic).
+    #[serde(default)]
+    pub doused_until: f64,
 }
 
 /// When a camp first sees someone walking this leg: within `CAMP_SIGHT`, or

@@ -194,17 +194,32 @@ use Domain::*;
 
 /// Every spell there is.
 pub static SPELLS: &[SpellDef] = &[
+    // ---- Elemental --------------------------------------------------------
+    //    key       name      domain     cost tire range aim    min
+    felt("spark", "Spark", Elemental, 5.0, 0.4, 12.0, Foe, 5.0, &[now(Does::Damage(Element::Fire), 7.0, Reach::Target)]),
+    felt("chill", "Chill", Elemental, 6.0, 0.5, 12.0, Foe, 12.0, &[now(Does::Damage(Element::Frost), 4.0, Reach::Target), lasting(Does::Slow, 0.35, 8.0, Reach::Target)]),
+    felt("kindle", "Kindle", Elemental, 3.0, 0.2, 15.0, Point, 3.0, &[now(Does::Kindle, 1.0, Reach::Object)]),
+    felt("douse", "Douse", Elemental, 4.0, 0.3, 15.0, Point, 6.0, &[now(Does::Douse, 1.0, Reach::Object)]),
     //          key               name              domain     cost cast  range aim     min
-    structured("paralyze", "Paralyze", Psychic, 25.0, 1.4, 15.0, Foe, 35.0, &[lasting(Does::Paralyze, 1.0, 6.0, Reach::Target)]),
     structured("fireball", "Fireball", Elemental, 30.0, 1.6, 20.0, Point, 40.0, &[now(Does::Damage(Element::Fire), 18.0, area(3.0))]),
     structured("lightning_bolt", "Lightning bolt", Elemental, 22.0, 1.2, 25.0, Foe, 30.0, &[now(Does::Damage(Element::Lightning), 22.0, Reach::Target)]),
+    structured("stone_spikes", "Stone spikes", Elemental, 24.0, 1.4, 15.0, Point, 32.0, &[now(Does::Damage(Element::Stone), 20.0, area(2.5))]),
+    //      key          name          domain     rite: minutes health components                       place           range aim    min
+    ritual("firestorm", "Firestorm", Elemental, rite(60.0, 10.0, &[("emberroot", 3)], Place::Circle), 25.0, Point, 45.0, &[now(Does::Damage(Element::Fire), 32.0, area(6.0))]),
+    ritual("tremor", "Tremor", Elemental, rite(45.0, 0.0, &[("salt_crystal", 2), ("iron_ore", 1)], Place::Anywhere), 0.0, Caster, 40.0, &[
+        now(Does::Damage(Element::Stone), 8.0, Reach::Area { radius: 9.0, who: Who::Foes }),
+        lasting(Does::KnockDown, 1.0, 4.0, Reach::Area { radius: 9.0, who: Who::Foes }),
+    ]),
+    // ---- Psychic ----------------------------------------------------------
+    structured("paralyze", "Paralyze", Psychic, 25.0, 1.4, 15.0, Foe, 35.0, &[lasting(Does::Paralyze, 1.0, 6.0, Reach::Target)]),
+    // ---- Illusion ---------------------------------------------------------
     structured("blind", "Blind", Illusion, 15.0, 1.0, 15.0, Foe, 25.0, &[lasting(Does::Blind, 0.65, 10.0, Reach::Target)]),
-    structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
-    structured("haste", "Haste", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),
-    //    key     name    domain cost tire  range aim     min
+    // ---- Vital ------------------------------------------------------------
     felt("mend", "Mend", Vital, 8.0, 0.6, 10.0, Friend, 15.0, &[now(Does::Heal, 16.0, Reach::Target)]),
-    //      key        name       domain  rite: minutes health components                              place          range aim     min
+    structured("haste", "Haste", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),
     ritual("restore", "Restore", Vital, rite(40.0, 0.0, &[("ghostcap", 2), ("kelp_frond", 2)], Place::Hearth), 0.0, Caster, 30.0, &[now(Does::Heal, 400.0, SQUAD), now(Does::Rest, 100.0, SQUAD)]),
+    // ---- Warding ----------------------------------------------------------
+    structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
 ];
 
 /// Look a spell up by its key. Panics on a typo, which is what tests want.
@@ -315,13 +330,13 @@ mod tests {
     fn spells_are_learned_from_skill() {
         let mut s = stats(Race::Roduro);
         for k in crate::sim::stats::MAGIC_SKILLS {
-            s.set_skill(k, 5.0);
+            s.set_skill(k, 2.0);
         }
         assert!(starting_spells(&s).is_empty());
         for k in crate::sim::stats::MAGIC_SKILLS {
             s.set_skill(k, 40.0);
         }
-        assert_eq!(starting_spells(&s).len(), 8);
+        assert_eq!(starting_spells(&s).len(), all_spells().filter(|x| x.def().min_skill <= 40.0).count());
     }
 
     #[test]
@@ -332,11 +347,12 @@ mod tests {
         let heal = spell("mend");
         assert!(success_chance(&s, heal, 1.0) > 0.85);
         assert!(success_chance(&s, heal, 1.0) > success_chance(&s, spell("fireball"), 1.0) + 0.3);
-        s.set_skill(Skill::Felt, 5.0);
+        s.set_skill(Skill::Felt, 2.0);
         assert!(felt_reached(&s, &[]).is_empty());
         s.set_skill(Skill::Felt, 30.0);
-        assert_eq!(felt_reached(&s, &[]), vec![heal]);
-        assert!(felt_reached(&s, &[heal]).is_empty());
+        let reached = felt_reached(&s, &[]);
+        assert!(reached.contains(&heal));
+        assert!(felt_reached(&s, &reached).is_empty());
     }
 
     #[test]

@@ -113,6 +113,9 @@ pub struct Fighter {
     pub burdened: bool,
     /// Holding a lit torch: lights the ground round them.
     pub torch: bool,
+    /// Has a torch in hand at all (lit or not), for kindling.
+    #[serde(default)]
+    pub has_torch: bool,
     /// Limbs lost for good (before or during this fight).
     pub missing: [bool; 6],
     /// Shots left for a ranged weapon, and shots loosed this fight.
@@ -208,6 +211,7 @@ impl Fighter {
             aware_at: 0.0,
             burdened: false,
             torch: false,
+            has_torch: false,
             missing: p.wounds.missing,
             ammo,
             shots: 0,
@@ -253,6 +257,21 @@ impl Fighter {
         self.has(Does::Paralyze).is_some()
     }
 
+    /// Held still or knocked flat: can't move, act, dodge or block.
+    pub fn helpless(&self) -> bool {
+        self.paralyzed() || self.has(Does::KnockDown).is_some()
+    }
+
+    /// An attribute with spells in force added.
+    pub fn attr(&self, a: Attr) -> f32 {
+        self.stats.attr(a) + self.power(Does::Attr(a))
+    }
+
+    /// A skill with spells in force added.
+    pub fn skill(&self, k: Skill) -> f32 {
+        self.stats.skill(k) + self.power(Does::Skill(k))
+    }
+
     /// 1 when fresh, down to 0.6 when spent.
     pub fn tired(&self) -> f32 {
         0.6 + 0.4 * (self.fatigue / self.max_fatigue.max(1.0)).clamp(0.0, 1.0)
@@ -263,15 +282,15 @@ impl Fighter {
     }
 
     pub fn speed(&self) -> f32 {
-        if self.paralyzed() || matches!(self.act, Act::Cast { .. }) {
+        if self.helpless() || matches!(self.act, Act::Cast { .. }) {
             return 0.0;
         }
-        self.base_speed * body::leg_factor(&self.hp) * (1.0 + self.haste()) * if self.fleeing { 1.1 } else { 1.0 }
+        self.base_speed * body::leg_factor(&self.hp) * (1.0 + self.haste()) * (1.0 - self.power(Does::Slow)).max(0.2) * if self.fleeing { 1.1 } else { 1.0 }
     }
 
     /// Multiplier on swing and recovery times.
     pub fn attack_time(&self) -> f32 {
-        ((1.25 - self.stats.attr(Attr::Agility) * 0.005) * (1.0 - self.haste() * 0.6)).clamp(0.5, 1.3)
+        ((1.25 - self.attr(Attr::Agility) * 0.005) * (1.0 - self.haste() * 0.6) * (1.0 + self.power(Does::Slow) * 0.5)).clamp(0.5, 1.6)
     }
 
     /// The weapon actually usable: a ruined (or lost) sword arm means fists
@@ -432,7 +451,7 @@ impl Battle {
             if !self.fighters[i].active() {
                 continue;
             }
-            if self.fighters[i].paralyzed() {
+            if self.fighters[i].helpless() {
                 self.fighters[i].act = Act::Idle;
                 continue;
             }
@@ -605,14 +624,14 @@ impl Battle {
         // Blindness: a swing in roughly the right direction, mostly missing.
         let blinded = att.power(Does::Blind).min(1.0);
         let blind = 1.0 - blinded * 0.3;
-        let skill = att.stats.skill(weapon.skill);
-        let atk = (skill + att.stats.attr(Attr::Agility) * 0.25 + 10.0) * att.tired() * arm * blind;
+        let skill = att.skill(weapon.skill);
+        let atk = (skill + att.attr(Attr::Agility) * 0.25 + 10.0) * att.tired() * arm * blind;
         let unaware = def.unaware(self.time);
-        let helpless = def.paralyzed() || unaware;
+        let helpless = def.helpless() || unaware;
         let dodge = if helpless {
             -40.0
         } else {
-            (def.stats.skill(Skill::Dodge) * 0.6 + def.stats.attr(Attr::Agility) * 0.25 - def.dodge_penalty * 100.0) * def.tired()
+            (def.skill(Skill::Dodge) * 0.6 + def.attr(Attr::Agility) * 0.25 - def.dodge_penalty * 100.0) * def.tired()
         };
         // Arrows are dodged less but lose accuracy with distance.
         let dodge = if shot { dodge * 0.5 } else { dodge };
@@ -632,7 +651,7 @@ impl Battle {
             self.fx.push(Fx { kind: FxKind::Arrow { from, to, hit }, at: self.time });
         }
         let att = &self.fighters[a];
-        let strength = att.stats.attr(Attr::Strength);
+        let strength = att.attr(Attr::Strength);
         self.fighters[a].fatigue -= 3.0 + weapon.windup * 4.0;
 
         if r_hit > p_hit {
@@ -652,7 +671,7 @@ impl Battle {
         } else {
             def.shield_up() * 100.0 + def.weapon.parry * 60.0
         };
-        let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.stats.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
+        let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
         let roll = 0.8 + r_dmg * 0.4;
         let skill_mult = 0.6 + skill * 0.006;
         // Strength puts weight behind a blow; a bowstring doesn't care.
@@ -697,7 +716,7 @@ impl Battle {
         self.fighters[a].train(weapon.skill, 1.0);
         if unaware {
             // A sneak attack: the better the sneak, the worse the wound.
-            let sneak = self.fighters[a].stats.skill(Skill::Sneak);
+            let sneak = self.fighters[a].skill(Skill::Sneak);
             dmg *= SNEAK_ATTACK + sneak / 50.0;
             self.fighters[a].train(Skill::Sneak, 3.0);
             self.say(format!("{an} catches {dn} unawares: the {} ({:.0}).", part.name(), dmg));
@@ -926,7 +945,13 @@ impl Battle {
                     (d <= radius).then_some((j, 1.0 - d / radius * 0.5))
                 })
                 .collect(),
-            Reach::Object | Reach::Ground { .. } => Vec::new(),
+            // A thing: whoever is aimed at, or nearest the spot (their torch).
+            Reach::Object => src
+                .target
+                .or_else(|| (0..self.fighters.len()).filter(|&j| !self.fighters[j].dead && !self.fighters[j].fled && self.fighters[j].pos.dist(src.point) <= 3.0).min_by(|&a, &b| self.fighters[a].pos.dist(src.point).total_cmp(&self.fighters[b].pos.dist(src.point))))
+                .map(|j| vec![(j, 1.0)])
+                .unwrap_or_default(),
+            Reach::Ground { .. } => Vec::new(),
         };
         for (j, near) in reached {
             self.affect(src, e, j, near);
@@ -947,16 +972,39 @@ impl Battle {
             Lasts::Now => match e.does {
                 Does::Damage(el) => {
                     let f = &self.fighters[j];
-                    let resist = (1.0 - f.power(Does::ResistElements).min(0.9)) * match el {
-                        // Armour helps a little against fire (it's mostly heat).
-                        Element::Fire => 1.0 - f.armor.iter().filter(|a| a.covers.contains(&Part::Torso)).map(|a| a.blunt * 0.3).fold(0.0, f32::max),
-                        Element::Lightning => 1.0,
-                    };
+                    let best = |part: Part, k: f32| 1.0 - f.armor.iter().filter(|a| a.covers.contains(&part)).map(|a| a.blunt * k).fold(0.0, f32::max);
+                    let elemental = if el.elemental() { 1.0 - f.power(Does::ResistElements).min(0.9) } else { 1.0 };
+                    let resist = elemental
+                        * match el {
+                            // Armour helps a little against fire and frost (it's
+                            // mostly heat and cold), properly against stone.
+                            Element::Fire => best(Part::Torso, 0.3),
+                            Element::Frost => best(Part::Torso, 0.2),
+                            Element::Stone => best(Part::LeftLeg, 1.0),
+                            Element::Lightning | Element::Rot => 1.0,
+                        };
                     let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * near * boost * ward * resist * f.warded();
                     if matches!(e.reach, Reach::Target) {
                         self.say(format!("{name}'s {what} strikes {tname} ({dmg:.0})."));
                     }
-                    self.hurt_whole(j, dmg);
+                    if el == Element::Stone {
+                        self.hurt_parts(j, dmg, &[Part::LeftLeg, Part::RightLeg]);
+                    } else {
+                        self.hurt_whole(j, dmg);
+                    }
+                }
+                Does::Kindle => {
+                    let f = &mut self.fighters[j];
+                    if f.has_torch && !f.torch {
+                        f.torch = true;
+                        self.say(format!("{tname}'s torch flares alight."));
+                    }
+                }
+                Does::Douse => {
+                    if self.fighters[j].torch {
+                        self.fighters[j].torch = false;
+                        self.say(format!("{tname}'s torch gutters out."));
+                    }
                 }
                 Does::Heal => {
                     let mut left = e.power * src.skill * (0.9 + src.r_dmg * 0.2) * boost;
@@ -1011,7 +1059,12 @@ impl Battle {
                         f.act = Act::Idle;
                         self.say(format!("{tname} is held fast."));
                     }
+                    Does::KnockDown => {
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} is thrown to the ground."));
+                    }
                     Does::Blind => self.say(format!("{tname} is blinded.")),
+                    Does::Slow => self.say(format!("{tname} slows.")),
                     _ => {}
                 }
             }
@@ -1021,14 +1074,20 @@ impl Battle {
     /// Damage spread over the whole body by where blows usually land. A big
     /// enough total spoils a spell being cast.
     pub fn hurt_whole(&mut self, j: usize, dmg: f32) {
+        self.hurt_parts(j, dmg, &PARTS);
+    }
+
+    /// Damage spread over some parts, by where blows usually land.
+    pub fn hurt_parts(&mut self, j: usize, dmg: f32, parts: &[Part]) {
         if dmg <= 0.0 {
             return;
         }
         if dmg > 6.0 && matches!(self.fighters[j].act, Act::Cast { .. }) {
             self.fighters[j].act = Act::Recover { until: self.time + 0.4 };
         }
-        for p in PARTS {
-            self.wound(j, p, dmg * p.hit_weight());
+        let total: f32 = parts.iter().map(|p| p.hit_weight()).sum();
+        for &p in parts {
+            self.wound(j, p, dmg * p.hit_weight() / total);
         }
     }
 
