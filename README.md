@@ -30,10 +30,6 @@ The first build downloads and compiles the Bevy engine and takes a while —
 starts in seconds. `cargo run --release -- 42` builds a different world from
 seed 42.
 
-(The old, plainer window is still there until this one has been checked
-against it: `cargo run --release --features old-window --bin gahturiyu-old`.
-It will be removed soon.)
-
 ### Controls
 
 The window opens in **3D**. Press **V** to flip to the top-down map and back.
@@ -56,6 +52,8 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | I, or right-click a squad card | Pack and gear |
 | K | Crafting |
 | J | Journal (jobs) |
+| O | Graphics settings |
+| F8 / F9 | Save / load (one quick-save slot) |
 | Right-drag, Q / E | Turn the camera (map: pan) |
 | Middle-drag, or WASD | Pan |
 | Mouse wheel | Zoom |
@@ -106,8 +104,12 @@ their torch is lit.
 - **Healing** depends on how they're doing: asleep and fed heals fastest,
   marching heals little, starving heals nothing.
 - **Carrying**: knocked-out members no longer get left behind — send someone
-  to carry them. A body is heavy (they'll be badly overloaded and slow), and
-  a carrier can't fight until they put it down.
+  to carry them. A carrier walks at about 60% pace (a strong one carrying a
+  light body faster, a weak one with a heavy body slower) and can't fight until
+  they put it down.
+- **Bedtime**: a member left standing idle after 22:00 who's fairly tired lies
+  down by themselves, and gets up at 06:00. Wake them with N and they stay up
+  until morning.
 - **Roads** are quicker than open ground (sand, rock and scrub are slower than
   grass). Click somewhere far and the squad takes the roads if that's faster.
 - **Bows and crossbows** shoot from range and use up ammo; about half is found
@@ -123,6 +125,8 @@ their torch is lit.
   A torch burns about four game hours, then the next one in the pack is lit.
   Put one out early and it keeps what's left. The hunter also carries two
   standing torches: set one in the ground to light an area for eight hours.
+  Travellers on the road light a torch after dark too, so bandit camps spot
+  them from much further off at night.
 - **Lost limbs**: an arm or leg battered badly enough is gone for good. No
   shield or two-handed weapon without a left arm; a lost leg is a permanent
   limp, two mean crawling.
@@ -136,13 +140,41 @@ their torch is lit.
 - **Doors** lock from 20:00 to 06:00. A picked lock stays open until the next
   night. Inside, the walls and roof are cut away; there are things to take,
   but they belong to someone. Being seen picking a lock or stealing earns a
-  bounty in that town (pay it off by talking to a local).
+  bounty in that town (pay it off by talking to a local). **Word travels**: a
+  traveller leaving a town that knows about your bounty may carry the news to
+  where they're going, so other towns hear of it over the following days.
+  Locals in any town that has heard treat you coldly, and you can pay it off
+  there too. The side panel says how many towns know.
 - **Crafting**: potions (anywhere with a mortar and pestle), scrolls (scribe's
   desk), weapons and armour (forge, armourer's bench). Every town has the four
   stations round its hearth. Materials grow or lie around the land and come
   back a day after you take them.
 - **Talking**: people answer from who they are and what's true right now. Some
   have work: break a bandit camp, fetch materials, carry a letter.
+
+### Saving
+
+F8 saves, F9 loads. There is one quick-save slot, `saves/quick.sav` in the repo
+folder (git ignores it). A save holds the world's seed plus everything that has
+changed since the world was made — every person, journey, fight in progress,
+what's lying on the ground, bounties and gossip. The land and roads aren't
+stored; they're rebuilt from the seed, which is why a save is only about 2 MB.
+A loaded world carries on exactly as it would have. When an update changes
+what's saved, older saves are refused with a message rather than loaded wrong.
+
+### Graphics settings
+
+Press O. Click a row to change it; it's remembered in `settings.txt` next to
+the assets folder (delete that file to reset). None of it changes what happens.
+
+| Setting | What it does |
+|---|---|
+| Shadows | off / low / medium / high: how far sun shadows reach |
+| Grass and trees | off / low (no grass, thinner woods) / medium (half the grass) / high |
+| Lights at once | 8 / 16 / 28 / 40 fires, torches and windows lighting the scene |
+| Glow | the soft halo round bright things at night |
+
+If the game runs slowly, try grass and trees on medium first, then shadows.
 
 ## What you are looking at
 
@@ -265,14 +297,18 @@ far corner, squad watching a roadside ambush vs far away — and check that ever
 journey, route, position, wound, death and ambush comes out identical. They
 also check that details, once built, never change. The other test files check
 each system does what it says: `combat.rs`, `gear.rs` (every enchantment),
-`squad.rs`, `stealth.rs`, `indoors.rs`, `crafting.rs`, `talk.rs`, `terrain.rs`.
+`squad.rs`, `stealth.rs`, `indoors.rs`, `crafting.rs`, `talk.rs`, `terrain.rs`,
+`condition.rs`, `carry.rs`, `news.rs`, and `save.rs` (a loaded world carries on
+exactly like the saved one, even mid-fight).
 
 ```
 cargo run --release --bin headless -- 3
 ```
 
 runs three game days with no window and prints what the world is doing and how
-long it took (a few seconds, stepping one game second at a time).
+long it took (a few seconds, stepping one game second at a time). With
+`GAHT_SAVE=some.sav` it saves the world at the end; start the window from it
+with `GAHT_LOAD=some.sav`.
 `headless fight 3` prints a squad-vs-bandits fight blow by blow.
 
 ## Dials
@@ -302,7 +338,10 @@ The numbers most worth tuning, all named constants:
 | Stamina and tiredness (`STAMINA_WALK`, `STAMINA_CLIMB`, `STAMINA_REST`, `TIRED_PER_HOUR`, `SLEEP_OPEN`/`TENT`/`INDOORS`, `EXHAUSTED`) | `src/sim/condition.rs` |
 | Healing by activity (`HEAL_SLEEP_*`, `HEAL_RESTING`, `HEAL_WALKING`; base `HEAL_PER_HOUR` in `body.rs`) | `src/sim/condition.rs` |
 | Food nourishment, tent, bows and ammo | `src/sim/items.rs` |
-| Body weights for carrying | `body_weight()` in `src/sim/carry.rs` |
+| Carrying: body weights, pace (`body_weight()`, `CARRY_PACE`, `CARRY_BODY`, `CARRY_PACE_RANGE`) | `src/sim/carry.rs` |
+| Bedtime (`BEDTIME`, `RISE`, `BED_TIRED`) | `src/sim/condition.rs` |
+| How readily bounty news travels (`NEWS_CHANCE`) | `src/sim/news.rs` |
+| How dark before travellers light torches (`TRAVEL_TORCH_DARK`) | `src/sim/torch.rs` |
 | Road speed and ground types (`ROAD_PACE`, `ROAD_HALF_WIDTH`, `Ground::pace`) | `src/sim/terrain.rs` |
 | When a trip goes by road (`ROAD_TRIP`) | `src/sim/buildings.rs` |
 | Archers: draw, stow and back-off distances (`ARCHER_DRAW`, `ARCHER_STOW`, `ARCHER_SPACE`) | `src/sim/combat.rs` |
@@ -322,6 +361,7 @@ Drawing only (these never change what happens):
 | Foliage density and woods (`GRASS_GRID`, `BUSH_GRID`, `TREE_GRID`, `WOOD_SCALE`, `TREE_LINE`), wind (`WIND_SWAY`) | `src/view/foliage.rs` |
 | Model detail switches (`MODEL_LOD1`, `MODEL_LOD2`, `MODEL_FADE`), model facing (`MODEL_YAW`) | `src/view/models.rs` |
 | When people turn into plain shapes (`PERSON_SIMPLE`), arrow flight (`ARROW_SPEED`, `ARROW_LIES`) | `src/view/scene.rs` |
+| What each graphics setting means (`foliage_density`, `shadow_reach`, `billboard_far`, `LAMP_STEPS`) | `src/view/settings.rs` |
 
 ## Layout
 
@@ -356,6 +396,8 @@ src/sim/      the simulation — no graphics, fully testable
   quests.rs     jobs
   dialogue.rs   conversations
   torch.rs      torches, and all light sources
+  news.rs       bounty news carried town to town
+  save.rs       saving and loading
 src/main.rs   starts the window
 src/view/     the window (Bevy) — drawing only, never changes the world's rules
   app.rs        the frame: keys and mouse, stepping the world, panels, screenshots
@@ -370,7 +412,8 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   hud.rs        side panel, hover descriptions, health bars
   squadui.rs    squad cards, pack, crafting, conversation, journal
   shot.rs       headless screenshots (the GAHT_ flags)
-src/old/      the old macroquad window, until it's removed
+  settings.rs   graphics settings (O)
+src/bin/headless.rs  the world with no window
 assets/       font, and models/ for GLB files
-tests/        the consistency checks
+tests/        the consistency checks, and one file per system
 ```

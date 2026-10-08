@@ -14,23 +14,11 @@ name = "gahturiyu"
 path = "src/main.rs"
 test = false
 
-# The old macroquad window, kept buildable until the Bevy one matches it:
-# cargo run --release --features old-window --bin gahturiyu-old
-[[bin]]
-name = "gahturiyu-old"
-path = "src/old/main.rs"
-required-features = ["old-window"]
-test = false
-
 [[bin]]
 name = "headless"
 path = "src/bin/headless.rs"
 
-[features]
-old-window = ["dep:macroquad"]
-
 [dependencies]
-macroquad = { version = "0.4", optional = true }
 bevy = { version = "=0.19.1", default-features = false, features = ["3d", "png", "tonemapping_luts", "default_font"] }
 bevy_egui = { version = "=0.42.0", default-features = false, features = ["render", "default_fonts"] }
 meshopt = "=0.6.2"

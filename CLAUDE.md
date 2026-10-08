@@ -59,6 +59,14 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    the fixed lights round them (`Battle::lights`) plus fighters' torches, so
    a far fight in the dark is fought in the same dark. Torches burn down by
    the clock (`Flame::out_at`), never per step.
+12. **Everything in `World` is saved.** New world state derives
+   `Serialize, Deserialize` (`sim/save.rs`); only what's rebuilt from the
+   seed (terrain, routes) is skipped. A fixed `&'static` name from a table
+   uses `save::Name` and the helpers there. Bump `save::FORMAT` whenever the
+   saved shape changes, and add the new state to `fingerprint` in
+   `tests/save.rs`. Nothing may depend on a `HashMap`'s order (a loaded map
+   iterates differently). The window's caches of the world reset when
+   `Game::loads` changes.
 
 ## Verifying visual changes
 
@@ -81,7 +89,8 @@ k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
 (members 0 and 1 light torches; the hunter sets a standing torch),
 `GAHT_DEBUG=1` (the detail readout), `GAHT_FOREST=1` (camera far out over the
-nearest big wood). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
+(start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package
 `mesa-vulkan-drivers`): about 5 fps, so the fps readout means nothing there.
@@ -116,6 +125,9 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   coarse mesh vertices the two differ by tens of metres on mountainsides.
 - Thin ribbons are widened with distance from the camera, or they alias into
   dashes when seen edge-on.
+- Graphics settings (`view/settings.rs`, key O) scale foliage density and
+  reach, shadow reach, the lamp count and bloom. Saved to `settings.txt`
+  (git-ignored). Bumping `Settings::version` makes foliage rebuild.
 - Lights (`view/light.rs`): sun and moon follow `stealth::daylight` and the
   hour; the sun casts shadows out to 3× the camera distance. Point lights are a
   pool of `MAX_LAMPS`, filled each frame with the nearest of
