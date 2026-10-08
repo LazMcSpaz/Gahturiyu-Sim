@@ -354,3 +354,94 @@ fn a_veil_hides_the_squad_from_lookouts() {
     w.step(7.0 * 3600.0);
     assert!(w.wards.is_empty());
 }
+
+// ---- Vital ---------------------------------------------------------------------
+
+#[test]
+fn second_wind_gives_back_stamina_in_a_fight_and_out() {
+    let mut b = fight(&[(brute(2), 1, V2::new(8.0, 0.0))]);
+    b.fighters[0].fatigue = 5.0;
+    cast_until(&mut b, spell("second_wind"), Some(0), V2::new(0.0, 0.0), |b| b.fighters[0].fatigue > 40.0);
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let t = w.time;
+    w.people[m as usize].cond.as_mut().unwrap().stamina = 10.0;
+    w.people[m as usize].cond.as_mut().unwrap().at = t;
+    cast_world(&mut w, m, spell("second_wind"), Some(m), None, |w| w.stamina_of(m).unwrap() > 0.4);
+}
+
+#[test]
+fn might_makes_them_stronger_and_able_to_carry_more() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let other = w.squad.members[0];
+    // Overloaded to start with.
+    w.people[other as usize].detail.as_mut().unwrap().gear.add(items::id("iron_ore"), 40);
+    let (load, pace) = (w.load_of(other), w.member_speed(other));
+    cast_world(&mut w, m, spell("might"), Some(other), None, |w| w.boon(other, Does::Carry) > 0.0);
+    assert!(w.load_of(other) < load - 0.1);
+    assert!(w.member_speed(other) > pace);
+    // In a fight it's strength.
+    let mut b = fight(&[(brute(2), 0, V2::new(2.0, 0.0))]);
+    let s = b.fighters[1].attr(Attr::Strength);
+    cast_until(&mut b, spell("might"), Some(1), V2::new(2.0, 0.0), |b| b.fighters[1].attr(Attr::Strength) > s + 10.0);
+}
+
+#[test]
+fn toughened_skin_takes_the_edge_off_blows() {
+    let hits = |tough: bool| {
+        let mut b = fight(&[(brute(2), 1, V2::new(1.5, 0.0))]);
+        if tough {
+            cast_until(&mut b, spell("toughen"), None, V2::new(0.0, 0.0), |b| b.fighters[0].has(Does::Toughen).is_some());
+        }
+        b.fighters[1].think_at = 0.0;
+        let before = hp(&b, 0);
+        for _ in 0..300 {
+            b.tick();
+        }
+        before - hp(&b, 0)
+    };
+    assert!(hits(true) < hits(false) * 0.9);
+}
+
+#[test]
+fn sustain_holds_off_hunger_and_tiredness_for_a_day() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    w.held.insert(m, spell("sustain"));
+    w.release(m, None, None).unwrap();
+    let all = w.squad.members.clone();
+    let before: Vec<(f32, f32)> = all.iter().map(|&k| (w.hunger_of(k).unwrap(), w.tired_of(k).unwrap())).collect();
+    for _ in 0..(10 * 60) {
+        w.step(60.0);
+    }
+    for (k, &p) in all.iter().enumerate() {
+        assert!((w.hunger_of(p).unwrap() - before[k].0).abs() < 0.5, "no hunger");
+        assert!(w.tired_of(p).unwrap() <= before[k].1 + 0.5, "no tiredness");
+    }
+    // A day later it's over, at that moment.
+    for _ in 0..(16 * 60) {
+        w.step(60.0);
+    }
+    assert!(w.hunger_of(all[0]).unwrap() > before[0].0 + 1.0, "hungry again");
+}
+
+#[test]
+fn regrow_restores_a_lost_limb() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let other = w.squad.members[0];
+    w.people[other as usize].wounds.missing[Part::LeftArm as usize] = true;
+    w.teleport_squad(w.squad.pos);
+    w.held.insert(m, spell("regrow"));
+    w.release(m, Some(other), None).unwrap();
+    assert!(!w.people[other as usize].wounds.missing[Part::LeftArm as usize]);
+    // It's the only way: Mend can't do it.
+    w.people[other as usize].wounds.missing[Part::RightLeg as usize] = true;
+    cast_world(&mut w, m, spell("mend"), Some(other), None, |_| true);
+    assert!(w.people[other as usize].wounds.missing[Part::RightLeg as usize]);
+}

@@ -154,11 +154,14 @@ pub struct Condition {
     /// Holding a ritual ready (it drains stamina).
     #[serde(default)]
     pub holding: bool,
+    /// Sustained by a spell: no hunger, and no tiredness building up.
+    #[serde(default)]
+    pub sustained: bool,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -186,6 +189,9 @@ impl Condition {
 
     /// Tiredness change per hour in this piece.
     pub fn tired_rate(&self) -> f32 {
+        if self.sustained && self.activity != Activity::Sleeping {
+            return 0.0;
+        }
         match self.activity {
             Activity::Sleeping => -match self.shelter {
                 Shelter::Open => SLEEP_OPEN,
@@ -226,6 +232,9 @@ impl Condition {
 
     /// Hunger gained per hour in this piece.
     pub fn hunger_rate(&self) -> f32 {
+        if self.sustained {
+            return 0.0;
+        }
         let mut r = HUNGER_PER_HOUR;
         r *= match self.activity {
             Activity::Walking | Activity::Fighting => HUNGER_WALKING,
@@ -329,9 +338,12 @@ fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats) {
 impl World {
     /// The squad member's load right now, as a share of what they can carry.
     pub fn load_of(&self, pid: PersonId) -> f32 {
-        let p = &self.people[pid as usize];
-        let gear = p.kit();
-        (gear.weight() + self.burden_weight(pid)) / gear.capacity(&p.stats).max(1.0)
+        self.load_at(pid, self.time)
+    }
+
+    /// The same at time `t` (spells on them count while they last).
+    pub fn load_at(&self, pid: PersonId, t: f64) -> f32 {
+        (self.kit_weight_at(pid, t) + self.burden_weight(pid)) / self.capacity_at(pid, t).max(1.0)
     }
 
     /// Settle someone's condition and wounds at `t` and start a new piece
@@ -342,7 +354,8 @@ impl World {
 
     /// Settle someone's condition and wounds at `t` and start a new piece.
     fn settle(&mut self, pid: PersonId, t: f64) {
-        let load = self.load_of(pid);
+        let load = self.load_at(pid, t);
+        let sustained = self.boon_at(pid, super::effects::Does::Sustain, t) > 0.0;
         let shelter = self.shelter_of(pid);
         let max_stamina = {
             let p = &self.people[pid as usize];
@@ -358,6 +371,7 @@ impl World {
         p.wounds.lost = lost;
         p.wounds.at = t;
         c.load = load;
+        c.sustained = sustained;
         c.wounded = lost.iter().any(|&l| l > 0.01);
         let c = c.clone();
         let stats = p.stats.clone();

@@ -156,6 +156,8 @@ enum Use {
     See,
     /// Calls up help.
     Summon,
+    /// Gives back stamina.
+    Breath,
     /// Damage over an area.
     Blast,
     /// Damage to one enemy.
@@ -171,6 +173,8 @@ fn use_of(s: Spell) -> Use {
         Use::Mend
     } else if has(&|x| matches!(x, Does::Summon(_))) {
         Use::Summon
+    } else if has(&|x| x == Does::Stamina) {
+        Use::Breath
     } else if d.effects.iter().any(|e| matches!(e.does, Does::Damage(_)) && matches!(e.reach, Reach::Area { .. })) {
         Use::Blast
     } else if has(&|x| matches!(x, Does::Damage(_))) {
@@ -255,6 +259,13 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
             .min_by(|&x, &y| b.fighters[x].vitality().total_cmp(&b.fighters[y].vitality()));
         if let Some(k) = patient {
             cast(b, i, s, Some(k), b.fighters[k].pos);
+            return;
+        }
+    }
+    // 0b. Winded: get your breath back.
+    if let Some(s) = first(Use::Breath) {
+        if me.fatigue < me.max_fatigue * 0.3 {
+            cast(b, i, s, Some(i), me.pos);
             return;
         }
     }

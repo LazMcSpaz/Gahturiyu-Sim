@@ -131,6 +131,20 @@ impl World {
         self.boons.iter().filter(|b| b.pid == pid && b.does == does && t < b.until).map(|b| b.power).sum()
     }
 
+    /// What someone's kit weighs at time `t`, with spells that lighten or
+    /// burden it.
+    pub fn kit_weight_at(&self, pid: PersonId, t: f64) -> f32 {
+        let w = self.people[pid as usize].kit().weight();
+        w * (1.0 - self.boon_at(pid, Does::Lighten, t)).max(0.2) * (1.0 + self.boon_at(pid, Does::Burden, t))
+    }
+
+    /// How much someone can carry at time `t`, with spells that strengthen
+    /// them or carry for them.
+    pub fn capacity_at(&self, pid: PersonId, t: f64) -> f32 {
+        let p = &self.people[pid as usize];
+        p.kit().capacity(&p.stats) + self.boon_at(pid, Does::Carry, t) + self.boon_at(pid, Does::Attr(super::stats::Attr::Strength), t) * 0.8
+    }
+
     /// Every boon on someone right now.
     pub fn boons_on(&self, pid: PersonId) -> Vec<Boon> {
         self.boons.iter().copied().filter(|b| b.pid == pid && self.time < b.until).collect()
@@ -355,6 +369,36 @@ impl World {
                 p.set_mana(m, t);
                 true
             }
+            Does::Stamina => {
+                if self.people[target as usize].cond.is_none() {
+                    return false;
+                }
+                self.settle_condition(target, t);
+                if let Some(c) = self.people[target as usize].cond.as_mut() {
+                    c.stamina = (c.stamina + e.power * skill).min(c.max_stamina);
+                }
+                true
+            }
+            Does::Regrow => {
+                let p = &mut self.people[target as usize];
+                let Some(k) = (0..6).find(|&k| p.wounds.missing[k]) else { return false };
+                if p.cond.is_some() {
+                    self.settle_condition(target, t);
+                }
+                let p = &mut self.people[target as usize];
+                let base = p.stats.clone();
+                let mut hp = p.wounds.hp_at(&base, t);
+                p.wounds.missing[k] = false;
+                hp[k] = 1.0;
+                p.wounds.set(&base, &hp, t);
+                p.recompute_might();
+                if p.cond.is_some() {
+                    self.settle_condition(target, t);
+                }
+                let name = self.name_of(target);
+                self.say(t, format!("{name}'s {} grows back.", super::body::PARTS[k].name()));
+                true
+            }
             Does::Rest => {
                 if self.people[target as usize].cond.is_none() {
                     return false;
@@ -566,6 +610,11 @@ impl World {
             return cannot("only of use in a fight");
         }
         let t = self.time;
+        if let Some(p) = target {
+            if s.def().aim == magic::Aim::Friend && self.person_pos(p).dist(self.person_pos(who)) > s.def().range + 1.0 {
+                return cannot("too far away");
+            }
+        }
         self.set_holding(who, t, None);
         let skill = magic::skill_power(&self.people[who as usize].effective_stats(), s);
         let name = self.name_of(who);

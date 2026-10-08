@@ -230,8 +230,13 @@ pub static SPELLS: &[SpellDef] = &[
     ritual("veil", "Veil", Illusion, rite(30.0, 0.0, &[("ash_moss", 3)], Place::Anywhere), 0.0, Caster, 35.0, &[lasting(Does::Veil, 1.0, 6.0 * 3600.0, Reach::Ground { radius: 30.0 })]),
     // ---- Vital ------------------------------------------------------------
     felt("mend", "Mend", Vital, 8.0, 0.6, 10.0, Friend, 15.0, &[now(Does::Heal, 16.0, Reach::Target)]),
+    felt("second_wind", "Second wind", Vital, 6.0, 0.6, 8.0, Friend, 10.0, &[now(Does::Stamina, 50.0, Reach::Target)]),
     structured("haste", "Haste", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),
+    structured("might", "Might", Vital, 20.0, 1.4, 8.0, Friend, 25.0, &[lasting(Does::Attr(Attr::Strength), 15.0, 600.0, Reach::Target), lasting(Does::Carry, 25.0, 600.0, Reach::Target)]),
+    structured("toughen", "Toughen", Vital, 18.0, 1.2, 0.0, Caster, 22.0, &[lasting(Does::Toughen, 0.25, 60.0, Reach::Caster)]),
     ritual("restore", "Restore", Vital, rite(40.0, 0.0, &[("ghostcap", 2), ("kelp_frond", 2)], Place::Hearth), 0.0, Caster, 30.0, &[now(Does::Heal, 400.0, SQUAD), now(Does::Rest, 100.0, SQUAD)]),
+    ritual("sustain", "Sustain", Vital, rite(30.0, 0.0, &[("salted_meat", 1), ("ghostcap", 1)], Place::Anywhere), 0.0, Caster, 35.0, &[lasting(Does::Sustain, 1.0, 24.0 * 3600.0, SQUAD)]),
+    ritual("regrow", "Regrow", Vital, rite(180.0, 20.0, &[("storm_glass", 2), ("ghostcap", 4), ("emberroot", 2)], Place::Shrine), 3.0, Friend, 55.0, &[now(Does::Regrow, 1.0, Reach::Target)]),
     // ---- Warding ----------------------------------------------------------
     structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
 ];

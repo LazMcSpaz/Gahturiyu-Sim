@@ -864,7 +864,13 @@ impl Battle {
             }
         }
         // Armour on that part: each layer that covers it may catch the blow.
+        // Toughened skin is one more layer, everywhere.
+        let skin = self.fighters[d].power(Does::Toughen).min(0.8);
+        let skin = ArmorDef { covers: &PARTS, coverage: 1.0, cut: skin, blunt: skin * 0.6, dodge_penalty: 0.0 };
         let mut layers: Vec<&ArmorDef> = self.fighters[d].armor.iter().filter(|a| a.covers.contains(&part)).collect();
+        if skin.cut > 0.0 {
+            layers.push(&skin);
+        }
         layers.sort_by(|x, y| y.cut.total_cmp(&x.cut));
         for (k, layer) in layers.iter().enumerate() {
             let r = if k == 0 { r_cover1 } else { r_cover2 };
@@ -1228,6 +1234,18 @@ impl Battle {
                 Does::Rest => {
                     let f = &mut self.fighters[j];
                     f.fatigue = f.max_fatigue;
+                }
+                Does::Stamina => {
+                    let f = &mut self.fighters[j];
+                    f.fatigue = (f.fatigue + e.power * src.skill).min(f.max_fatigue);
+                }
+                Does::Regrow => {
+                    let f = &mut self.fighters[j];
+                    if let Some(k) = (0..6).find(|&k| f.missing[k]) {
+                        f.missing[k] = false;
+                        f.hp[k] = 1.0;
+                        self.say(format!("{tname}'s {} grows back!", PARTS[k].name()));
+                    }
                 }
                 _ => {}
             },

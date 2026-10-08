@@ -93,6 +93,10 @@ pub enum Does {
     /// Take tiredness away (out of a fight; points on the 0..100 scale) or
     /// restore all stamina (in one).
     Rest,
+    /// Give back stamina. Power: points.
+    Stamina,
+    /// Grow back a limb lost for good (the only cure).
+    Regrow,
     /// Light a torch (one carried, or a doused campfire).
     Kindle,
     /// Put out a torch, a standing torch or a campfire (for `DOUSE_HOURS`).
@@ -162,17 +166,26 @@ pub enum Does {
     Disguise,
     /// Ground: those inside go unnoticed by passers-by and lookouts.
     Veil,
+    /// Skin as tough as light armour: stops this share of cut damage
+    /// (a little less of blunt), everywhere.
+    Toughen,
+    /// No hunger, and no tiredness building up.
+    Sustain,
+    /// What they carry weighs this share less.
+    Lighten,
+    /// What they carry weighs this share more (and in a fight they're slower).
+    Burden,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden)
     }
 
     /// Guards against harm (worth putting up when a fight reaches you).
     pub fn guards(self) -> bool {
-        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide)
+        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide | Does::Toughen)
     }
 
     /// A lasting condition that a resist roll can stop, and what resists it.
@@ -189,7 +202,7 @@ impl Does {
     /// lasting effect that isn't an attack (it's kept as a blessing on them).
     pub fn works_outside_fights(self) -> bool {
         match self {
-            Does::Heal | Does::Energy | Does::Rest | Does::Kindle | Does::Douse => true,
+            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse => true,
             Does::Summon(_) => false,
             d if d.harmful() => false,
             _ => true,
@@ -309,6 +322,12 @@ impl Effect {
             Does::Hide => format!("{pct:.0}% harder to see"),
             Does::Disguise => "Unrecognised".to_string(),
             Does::Veil => "Hidden from passers-by".to_string(),
+            Does::Stamina => format!("Restores {p:.0} stamina"),
+            Does::Regrow => "Regrows a lost limb".to_string(),
+            Does::Toughen => format!("Skin stops {pct:.0}% of cuts"),
+            Does::Sustain => "No hunger or tiredness".to_string(),
+            Does::Lighten => format!("Load {pct:.0}% lighter"),
+            Does::Burden => format!("Load {pct:.0}% heavier"),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),
