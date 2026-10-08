@@ -518,6 +518,9 @@ fn mages_teach_for_coin() {
     w.people[teacher as usize].detail.as_mut().unwrap().spells = vec![paralyze];
     w.people[m as usize].detail.as_mut().unwrap().spells.retain(|&s| s != paralyze);
     w.people[teacher as usize].traits.sociability = 1.0;
+    while w.is_indoors_asleep(teacher) {
+        w.step(60.0);
+    }
     let at = w.person_pos(teacher);
     w.teleport_squad(at.add(V2::new(1.5, 0.0)));
     assert!(w.order_talk(m, teacher));

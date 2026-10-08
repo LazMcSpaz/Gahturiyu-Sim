@@ -142,13 +142,6 @@ impl World {
 
     /// Workshops round every town's hearth, and things to gather across the land.
     pub(super) fn place_crafting(&mut self) {
-        for s in &self.settlements {
-            for (k, st) in STATIONS.iter().enumerate() {
-                let a = k as f32 / 4.0 * std::f32::consts::TAU + 0.4;
-                let p = s.pos.add(V2::new(a.cos(), a.sin()).scale(8.5));
-                self.stations.push((p, *st));
-            }
-        }
         let mut r = Rng::from_keys(&[self.seed, 0x4E4F_4445]);
         let size = geo::WORLD_SIZE;
         let mut id = 0;

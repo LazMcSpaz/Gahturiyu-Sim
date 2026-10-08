@@ -28,6 +28,10 @@ fn locals(w: &World) -> Vec<PersonId> {
 /// Stand next to someone and start talking.
 fn talk_to(w: &mut World, npc: PersonId) -> PersonId {
     let lead = w.squad.members[0];
+    // Nobody talks in their sleep.
+    while w.is_indoors_asleep(npc) {
+        w.step(60.0);
+    }
     let at = w.person_pos(npc);
     w.teleport_squad(at.add(V2::new(1.5, 0.0)));
     w.squad.at[0] = at.add(V2::new(1.0, 0.0));

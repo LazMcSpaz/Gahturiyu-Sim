@@ -275,6 +275,8 @@ pub static ITEMS: &[ItemDef] = &[
     ItemDef { key: "arrows", name: "Arrows", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.04, value: 1.0, effects: &[] },
     ItemDef { key: "bolts", name: "Crossbow bolts", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.06, value: 2.0, effects: &[] },
     ItemDef { key: "coin", name: "Coin", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.005, value: 1.0, effects: &[] },
+    // Fifty coin on Ṭaḍoro paper: next to nothing to carry, but as easily stolen or lost.
+    ItemDef { key: "note", name: "Note (50 coin)", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.001, value: 50.0, effects: &[] },
     ItemDef { key: "sealed_letter", name: "Sealed letter", slot: Slot::MainHand, kind: Kind::Errand, weight: 0.02, value: 0.0, effects: &[] },
     // --- Potions and scrolls --------------------------------------------------
     potion("healing_draught", "Healing draught", 25.0, &[now(Does::Heal, 25.0, Reach::Caster)]),

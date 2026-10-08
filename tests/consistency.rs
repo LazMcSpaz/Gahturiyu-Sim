@@ -43,6 +43,20 @@ fn assert_same_history(a: &World, b: &World) {
         }
         assert!((pa.might - pb.might).abs() < 1e-3, "person {} has a different might", pa.id);
     }
+    // Towns: the same customs, the same work, the same goods and money.
+    let (sa, sb) = (&a.society, &b.society);
+    assert_eq!(sa.lives, sb.lives, "someone's job or household differs");
+    for (ca, cb) in sa.communities.iter().zip(&sb.communities) {
+        assert_eq!(ca.customs, cb.customs, "a community chose different customs");
+        assert_eq!(ca.food, cb.food, "a community ate differently");
+    }
+    for (ta, tb) in sa.towns.iter().zip(&sb.towns) {
+        for (x, y) in ta.stock.iter().zip(&tb.stock) {
+            assert!((x.base - y.base).abs() < 1e-3 && (x.rate - y.rate).abs() < 1e-4, "a town's stockpile differs");
+        }
+        assert!((ta.treasury - tb.treasury).abs() < 1e-3 && (ta.purse - tb.purse).abs() < 1e-3 && ta.purse_at == tb.purse_at, "a town's money differs");
+    }
+    assert_eq!(a.stats.caravans, b.stats.caravans, "a different number of caravans");
 }
 
 #[test]

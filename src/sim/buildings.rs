@@ -324,6 +324,9 @@ impl World {
             .residents_in_band1(town)
             .into_iter()
             .map(|p| self.person_pos(p).dist(at))
+            // Sleepers only wake for what happens right beside them.
+            .zip(self.residents_in_band1(town).into_iter().map(|p| self.is_indoors_asleep(p)))
+            .map(|(d, asleep)| if asleep && d > 5.0 { f32::MAX } else { d })
             .fold(f32::MAX, f32::min);
         if closest > sight {
             return false;

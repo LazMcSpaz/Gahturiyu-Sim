@@ -44,6 +44,9 @@ pub struct Stats {
     pub journeys_started: usize,
     /// Bandit attacks anywhere in the world so far.
     pub ambushes: usize,
+    /// Caravans that have set out.
+    #[serde(default)]
+    pub caravans: usize,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -175,6 +178,10 @@ pub struct World {
     pub boons: Vec<super::casting::Boon>,
     /// Lasting spells on patches of ground outside fights.
     pub wards: Vec<super::casting::Ward>,
+
+    // --- Society --------------------------------------------------------------
+    /// Households, jobs, workplaces, customs, stockpiles and money.
+    pub society: super::society::Society,
 }
 
 impl World {
@@ -251,6 +258,7 @@ impl World {
             cast_count: HashMap::new(),
             boons: Vec::new(),
             wards: Vec::new(),
+            society: Default::default(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -307,23 +315,50 @@ impl World {
         // 2. Everything scheduled up to now, strictly in time order: each
         //    game-hour's departures (keyed by settlement and hour), ambushes
         //    and the ends of fights. So the step size never changes the order.
+        //    Caravans reaching market and getting home are on the same line.
         loop {
             let hour_t = (self.hour_done + 1) as f64 * HOUR;
             let ev = self.next_event().filter(|e| e.0 <= self.time && e.0 < hour_t);
-            if let Some((_, is_end, i)) = ev {
-                self.run_event(is_end, i);
-                continue;
+            let cargo = self.next_cargo().filter(|c| c.0 <= self.time && c.0 < hour_t);
+            match (ev, cargo) {
+                (Some(e), Some(c)) if c.0 < e.0 => {
+                    self.cargo_event(c.1, c.2, c.0);
+                    continue;
+                }
+                (Some((_, is_end, i)), _) => {
+                    self.run_event(is_end, i);
+                    continue;
+                }
+                (None, Some(c)) => {
+                    self.cargo_event(c.1, c.2, c.0);
+                    continue;
+                }
+                (None, None) => {}
             }
             if hour_t > self.time {
                 break;
             }
             self.hour_done += 1;
+            // The town's work, food and money for the hour (and at dawn, the day).
+            if !self.society.towns.is_empty() {
+                self.society_hour(self.hour_done);
+            }
             for s in 0..self.settlements.len() {
                 if let Some(g) = self.plan_departure(s as SettlementId, self.hour_done) {
                     let id = g.id;
                     self.add_group(g);
                     self.carry_news(id);
                     self.stats.journeys_started += 1;
+                }
+            }
+            if !self.society.towns.is_empty() {
+                for s in 0..self.settlements.len() {
+                    if let Some(g) = self.plan_caravan(s as SettlementId, self.hour_done) {
+                        let id = g.id;
+                        self.add_group(g);
+                        self.carry_news(id);
+                        self.stats.caravans += 1;
+                    }
                 }
             }
         }
@@ -496,6 +531,10 @@ impl World {
                 return g.pos.add(V2::new((i * 2.1 + 0.5).cos(), (i * 2.1 + 0.5).sin()).scale(spread * (0.6 + i * 0.35)));
             }
         }
+        // Townsfolk are wherever their day plan has them.
+        if p.home.is_some() && self.society.lives.get(pid as usize).map(|l| l.community.is_some()).unwrap_or(false) {
+            return self.routine_pos(pid, self.time);
+        }
         if let Some(h) = p.home {
             let s = &self.settlements[h as usize];
             // Around their own front door: on the deck for a stilt home, in
@@ -628,6 +667,7 @@ impl World {
             ends: arrive,
             written: 0,
             hostile: false,
+            cargo: None,
             pos: home_pos,
             last_update: start,
             band: 3,

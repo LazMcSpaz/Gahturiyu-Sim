@@ -183,6 +183,7 @@ impl World {
             ends: f64::INFINITY,
             written: 1,
             hostile: true,
+            cargo: None,
             pos: at,
             last_update: self.time,
             band: 3,

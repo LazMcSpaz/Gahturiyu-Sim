@@ -169,6 +169,7 @@ pub fn generate(seed: u64) -> World {
             ends: f64::INFINITY,
             written: 1,
             hostile: false,
+            cargo: None,
             pos: at,
             last_update: 0.0,
             band: 3,
@@ -182,6 +183,8 @@ pub fn generate(seed: u64) -> World {
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
     // Bandits by the roads; workshops in town; things to gather.
     w.place_camps();
+    // Customs, households, jobs and workplaces (crafting stations stand in those).
+    w.found_society();
     w.place_crafting();
     w
 }

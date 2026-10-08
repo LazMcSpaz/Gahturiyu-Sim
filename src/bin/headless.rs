@@ -1,6 +1,7 @@
 //! Run the world with no window and print what it is doing.
 //!
 //!     cargo run --release --bin headless -- [days] [seed]
+//!     cargo run --release --bin headless -- society [days] [seed]   (each town's customs, jobs, food and money)
 //!
 //! With `GAHT_SAVE=path`, the world is saved there at the end (the window
 //! can start from it with `GAHT_LOAD=path`).
@@ -11,6 +12,10 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|a| a == "society").unwrap_or(false) {
+        society(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3.0), args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1));
+        return;
+    }
     if args.get(1).map(|a| a == "fight").unwrap_or(false) {
         fight(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3), args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1));
         return;
@@ -115,5 +120,65 @@ fn fight(count: usize, seed: u64) {
         let p = &w.people[m as usize];
         let hp = p.wounds.hp_at(&p.stats, w.time);
         println!("{:<10} hp {:?} mana {:.0}", p.name().unwrap(), hp.map(|h| h.round()), p.mana_at(w.time));
+    }
+}
+
+/// Each town's customs, work, food and money, after some days.
+fn society(days: f64, seed: u64) {
+    use gahturiyu_sim::sim::jobs::{Job, GOODS};
+    use std::collections::BTreeMap;
+    let t0 = Instant::now();
+    let mut w = worldgen::generate(seed);
+    println!("world {seed} built in {:.1} ms", t0.elapsed().as_secs_f64() * 1000.0);
+    let t1 = Instant::now();
+    w.step(days * 24.0 * HOUR);
+    println!("{days} days run in {:.0} ms; {} caravans set out\n", t1.elapsed().as_secs_f64() * 1000.0, w.stats.caravans);
+    for (ti, s) in w.settlements.iter().enumerate() {
+        let tl = &w.society.towns[ti];
+        println!("{} ({} people, {}{})", s.name, s.residents.len(), if s.coastal { "coast" } else { "inland" }, if tl.on_road { format!(", {} roads meet", tl.roads) } else { format!(", {} roads", tl.roads) });
+        for ci in std::iter::once(tl.shore).chain(tl.stilts) {
+            let c = &w.society.communities[ci as usize];
+            let sh = c.blend.share;
+            println!(
+                "  {:<6} R{:.0}% Q{:.0}% H{:.0}% T{:.0}%  | {:?} · {:?} · {:?} · {:?}{}",
+                if c.stilts { "stilts" } else { "land" },
+                sh[0] * 100.0,
+                sh[1] * 100.0,
+                sh[2] * 100.0,
+                sh[3] * 100.0,
+                c.customs.cooking,
+                c.customs.rhythm,
+                c.customs.belonging,
+                c.customs.layout,
+                c.customs.institutions().map(|(_, i)| format!(" + {}", i.name())).collect::<String>()
+            );
+            let f = &c.food;
+            println!(
+                "         food {:.0}%  (gardens {:.0}% of {:.0}%, kitchens {:.0}% of {:.0}%, boats {:.0}% of {:.0}%)",
+                f.overall * 100.0,
+                f.suff[0] * 100.0,
+                f.share[0] * 100.0,
+                f.suff[1] * 100.0,
+                f.share[1] * 100.0,
+                f.suff[2] * 100.0,
+                f.share[2] * 100.0
+            );
+            let mut jobs: BTreeMap<Job, usize> = BTreeMap::new();
+            for p in w.members_of(ci) {
+                *jobs.entry(w.life(p).job).or_default() += 1;
+            }
+            println!("         {}", jobs.iter().map(|(j, n)| format!("{} {n}", j.name())).collect::<Vec<_>>().join(", "));
+        }
+        println!("  places: {}", tl.places.iter().map(|p| p.kind.name()).collect::<Vec<_>>().join(", "));
+        println!(
+            "  stock: {}  | prosperity {:.2}, purse {:.0}/{:.0}, treasury {:.0} (owed {:.0}), landed {:.0}",
+            GOODS.iter().map(|g| format!("{} {:.0}", g.name(), w.stock_now(ti as u16, *g))).collect::<Vec<_>>().join(", "),
+            tl.prosperity,
+            w.purse_now(ti as u16),
+            tl.purse_cap,
+            tl.treasury,
+            tl.owed,
+            tl.landed
+        );
     }
 }

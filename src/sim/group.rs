@@ -171,6 +171,9 @@ pub struct Group {
     pub written: u64,
     /// Bandits and the like: they attack anyone who isn't one of them.
     pub hostile: bool,
+    /// Goods a caravan is carrying.
+    #[serde(default)]
+    pub cargo: Option<super::economy::Cargo>,
 
     // --- Cached view, refreshed at the group's band rate ------------------
     pub pos: V2,

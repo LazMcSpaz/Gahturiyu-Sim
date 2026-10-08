@@ -44,6 +44,16 @@ pub enum Topic {
     Lessons,
     /// Pay to be taught this spell.
     Learn(super::magic::Spell),
+    /// See what a merchant has.
+    Trade,
+    /// Buy one of this, at this price.
+    Buy(items::ItemId, u16),
+    /// Sell one of this, at this price.
+    Sell(items::ItemId, u16),
+    /// Coin for a note, at the exchange.
+    ToNote,
+    /// A note for coin.
+    ToCoin,
     Goodbye,
 }
 
@@ -62,6 +72,11 @@ impl Topic {
             Topic::PayBounty => "Pay my bounty",
             Topic::Lessons => "Could you teach me?",
             Topic::Learn(_) => "Teach me",
+            Topic::Trade => "What have you got?",
+            Topic::Buy(..) => "Buy",
+            Topic::Sell(..) => "Sell",
+            Topic::ToNote => "Change coin for a note",
+            Topic::ToCoin => "Change a note for coin",
             Topic::Goodbye => "Goodbye",
         }
     }
@@ -70,6 +85,10 @@ impl Topic {
     pub fn text(self) -> String {
         match self {
             Topic::Learn(s) => format!("Teach me {} ({} coin)", s.def().name.to_lowercase(), World::lesson_price(s)),
+            Topic::Buy(it, p) => format!("Buy {} ({p} coin)", items::item(it).name.to_lowercase()),
+            Topic::Sell(it, p) => format!("Sell {} ({p} coin)", items::item(it).name.to_lowercase()),
+            Topic::ToNote => format!("Change {} coin for a note", super::economy::NOTE_VALUE + super::economy::EXCHANGE_FEE),
+            Topic::ToCoin => format!("Change a note for {} coin", super::economy::NOTE_VALUE - super::economy::EXCHANGE_FEE),
             t => t.label().to_string(),
         }
     }
@@ -87,6 +106,9 @@ pub struct Conversation {
     /// Whether they've said what they could teach (so the lessons show).
     #[serde(default)]
     pub lessons: bool,
+    /// Whether their wares are laid out (so buying and selling show).
+    #[serde(default)]
+    pub trading: bool,
 }
 
 impl World {
@@ -113,7 +135,7 @@ impl World {
     /// Send a squad member over to talk to someone.
     pub fn order_talk(&mut self, who: PersonId, npc: PersonId) -> bool {
         let p = &self.people[npc as usize];
-        if p.bandit || p.in_squad || p.dead {
+        if p.bandit || p.in_squad || p.dead || self.is_indoors_asleep(npc) {
             return false;
         }
         let Some(k) = self.squad.index(who) else { return false };
@@ -143,7 +165,7 @@ impl World {
             self.stats.detailed += 1;
         }
         let greeting = self.greeting(npc, who);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false, lessons: false });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false, lessons: false, trading: false });
     }
 
     pub fn end_talk(&mut self) {
@@ -230,6 +252,19 @@ impl World {
                 t.push(Topic::Lessons);
             }
         }
+        // Merchants at their stalls trade; exchangers at work change money.
+        if self.is_trading(c.npc) {
+            if c.trading {
+                t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
+                t.extend(self.sellable(c.npc).into_iter().take(5).map(|(it, p)| Topic::Sell(it, p)));
+            } else {
+                t.push(Topic::Trade);
+            }
+        }
+        if self.is_exchanging(c.npc) {
+            t.push(Topic::ToNote);
+            t.push(Topic::ToCoin);
+        }
         t.push(Topic::Goodbye);
         t
     }
@@ -254,6 +289,11 @@ impl World {
         if topic == Topic::Lessons {
             if let Some(c) = self.talk.as_mut() {
                 c.lessons = true;
+            }
+        }
+        if topic == Topic::Trade {
+            if let Some(c) = self.talk.as_mut() {
+                c.trading = true;
             }
         }
         let answer = self.answer(&c, topic);
@@ -281,6 +321,11 @@ impl World {
                     Race::Qotiro => "My people quarry their homes and forge their lives. Nothing is given; everything is made.",
                     Race::Tadoro => "I lodge here, for now. I keep notes on everything — the tides, the arguments, how long the bread lasts. Someone should.",
                 };
+                let job = self.life(c.npc).job;
+                if job != super::jobs::Job::None {
+                    let place = self.workplace_of(c.npc).map(|w| format!(", at the {}", w.kind.name().to_lowercase())).unwrap_or_default();
+                    return format!("{race} These days I'm a {}{place}.", job.name().to_lowercase());
+                }
                 let work = match p.stats.calling {
                     Calling::Warrior => " I've fought for coin, when there was coin to fight for.",
                     Calling::Hunter => " I hunt, mostly. The land feeds those who watch it.",
@@ -301,7 +346,15 @@ impl World {
                 } else {
                     ""
                 };
-                format!("{} — the {} founded it. {} of us live here, {} most of all.{shore}", t.name, t.founders.name(), t.residents.len(), most)
+                let ways = match self.community_of(c.npc) {
+                    Some(cm) => format!(
+                        " Here it's {}, and we keep {}.",
+                        cm.customs.cooking.name().to_lowercase(),
+                        cm.customs.rhythm.name().to_lowercase()
+                    ),
+                    None => String::new(),
+                };
+                format!("{} — the {} founded it. {} of us live here, {} most of all.{shore}{ways}", t.name, t.founders.name(), t.residents.len(), most)
             }
             Topic::Advice => [
                 "Travel by day if you can. Bandits by the road see you a long way off in the sun, but at night they mostly have to hear you.",
@@ -422,6 +475,41 @@ impl World {
                 let what: Vec<String> = self.lessons(c.npc, c.with).iter().take(6).map(|s| format!("{} ({} coin)", s.def().name.to_lowercase(), World::lesson_price(*s))).collect();
                 format!("I could show you {}. It takes coin, mind — learning isn't free.", what.join(", "))
             }
+            Topic::Trade => {
+                if self.for_sale(c.npc).is_empty() {
+                    "The shelves are bare, I'm afraid. Try again after the next market.".into()
+                } else {
+                    ["Have a look. Fair prices — the press doesn't lie.", "What'll it be?", "All stamped and counted. Take your time."][r.below(3)].into()
+                }
+            }
+            Topic::Buy(it, price) => {
+                if self.buy(c.npc, it) {
+                    format!("{price} coin. There you are.")
+                } else {
+                    "You haven't the coin for that — or I've none left.".into()
+                }
+            }
+            Topic::Sell(it, price) => {
+                if self.sell(c.npc, it) {
+                    format!("I'll give you {price} for the {}.", items::item(it).name.to_lowercase())
+                } else {
+                    "I can't take that just now.".into()
+                }
+            }
+            Topic::ToNote => {
+                if self.exchange(c.npc, true) {
+                    "One note, struck and sealed. Don't lose it — paper burns and blows away.".into()
+                } else {
+                    "That's not enough coin for a note.".into()
+                }
+            }
+            Topic::ToCoin => {
+                if self.exchange(c.npc, false) {
+                    "Coin for your note, less the house's share.".into()
+                } else {
+                    "You've no note to change.".into()
+                }
+            }
             Topic::Learn(s) => {
                 let price = World::lesson_price(s);
                 if self.learn_from(c.with, s) {
@@ -462,6 +550,11 @@ fn topic_key(t: Topic) -> u64 {
         Topic::Goodbye => 9,
         Topic::Lessons => 10,
         Topic::Learn(s) => 20_000 + s.0 as u64,
+        Topic::Trade => 11,
+        Topic::Buy(it, _) => 30_000 + it as u64,
+        Topic::Sell(it, _) => 40_000 + it as u64,
+        Topic::ToNote => 12,
+        Topic::ToCoin => 13,
     }
 }
 
