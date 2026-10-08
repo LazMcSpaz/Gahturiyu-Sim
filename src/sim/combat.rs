@@ -28,6 +28,12 @@ pub const DT: f64 = 0.1;
 /// Damage multiplier for hitting someone who hasn't noticed you (before the
 /// attacker's Sneak adds to it).
 pub const SNEAK_ATTACK: f32 = 2.0;
+/// An archer with no hand weapon backs away from anyone closer than this.
+pub const ARCHER_SPACE: f32 = 5.0;
+/// An archer with a hand weapon draws it when an enemy gets this close...
+pub const ARCHER_DRAW: f32 = 3.5;
+/// ...and goes back to the bow once they're this far off.
+pub const ARCHER_STOW: f32 = 9.0;
 /// A fight that drags on longer than this simply ends (everyone disengages).
 pub const MAX_LENGTH: f64 = 900.0;
 /// Body radius, metres: added to weapon reach.
@@ -97,6 +103,13 @@ pub struct Fighter {
     pub think_at: f64,
     /// Carrying someone: can move, can't fight or block.
     pub burdened: bool,
+    /// Shots left for a ranged weapon, and shots loosed this fight.
+    pub ammo: u16,
+    pub shots: u16,
+    /// A hand weapon in the pack to draw when enemies close in on an archer,
+    /// and the ranged weapon put away meanwhile.
+    pub sidearm: Option<(WeaponDef, &'static str)>,
+    pub stowed: Option<(WeaponDef, &'static str)>,
     /// Potions and scrolls in their pack, and those used up this fight.
     pub potions: Vec<ItemId>,
     pub scrolls: Vec<ItemId>,
@@ -132,6 +145,15 @@ impl Fighter {
         let sum = |f: &dyn Fn(&Effect) -> Option<f32>| gear.sum_effect(f);
         let speed_bonus = sum(&|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
         let load = gear.load(&p.stats);
+        let held = gear.weapon();
+        let count = |key: &str| gear.bag.iter().filter(|e| item(e.0).key == key).map(|e| e.1).sum::<u16>();
+        let ammo = held.ammo.map(count).unwrap_or(0);
+        // The best hand weapon in the pack, for an archer pressed close.
+        let sidearm = gear
+            .bag
+            .iter()
+            .filter_map(|e| item(e.0).weapon().filter(|w| w.range == 0.0).map(|w| (*w, item(e.0).name)))
+            .max_by(|a, b| (a.0.cut + a.0.blunt).total_cmp(&(b.0.cut + b.0.blunt)));
         Fighter {
             pid: p.id,
             side,
@@ -169,6 +191,10 @@ impl Fighter {
             think_at: 0.0,
             aware_at: 0.0,
             burdened: false,
+            ammo,
+            shots: 0,
+            sidearm: if held.range > 0.0 { sidearm } else { None },
+            stowed: None,
             potions: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Potion(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
@@ -229,6 +255,20 @@ impl Fighter {
 
     pub fn reach(&self) -> f32 {
         self.usable_weapon().map(|w| w.0.reach).unwrap_or(0.8) + BODY * 2.0
+    }
+
+    /// Holding a ranged weapon with something to shoot.
+    pub fn shooting(&self) -> bool {
+        self.weapon.range > 0.0 && self.ammo > 0 && self.usable_weapon().map(|w| w.1 >= 1.0).unwrap_or(false)
+    }
+
+    /// How far away they can attack from.
+    pub fn attack_range(&self) -> f32 {
+        if self.shooting() {
+            self.weapon.range
+        } else {
+            self.reach()
+        }
     }
 
     /// Share of vital health left, 0..1.
@@ -414,10 +454,21 @@ impl Battle {
             return;
         }
         let Some(j) = me.target else { return };
+        // An archer with no hand weapon backs away from anyone too close.
+        if me.shooting() && me.sidearm.is_none() {
+            if let Some(n) = self.nearest_enemy(i) {
+                let away = me.pos.sub(self.fighters[n].pos);
+                if away.len() < ARCHER_SPACE {
+                    let step = speed * 0.8;
+                    self.fighters[i].pos = me.pos.add(away.scale(step / away.len().max(0.01)));
+                    return;
+                }
+            }
+        }
         let them = &self.fighters[j];
         let d = them.pos.sub(me.pos);
         let dist = d.len();
-        let reach = me.reach();
+        let reach = me.attack_range();
         if dist > reach * 0.92 {
             let step = speed.min(dist - reach * 0.85).max(0.0);
             self.fighters[i].pos = me.pos.add(d.scale(step / dist.max(0.01)));
@@ -466,9 +517,19 @@ impl Battle {
         let att = &self.fighters[a];
         let def = &self.fighters[d];
         let Some((weapon, arm)) = att.usable_weapon() else { return };
-        if !def.active() || att.pos.dist(def.pos) > att.reach() * 1.3 {
+        let shot = att.shooting();
+        let dist = att.pos.dist(def.pos);
+        if !def.active() || dist > if shot { weapon.range * 1.05 } else { att.reach() * 1.3 } {
             return;
         }
+        // A bow without arrows (or swung up close with no hand weapon) is a club, and a poor one.
+        let weapon = if weapon.range > 0.0 && !shot { FISTS } else { weapon };
+        if shot {
+            self.fighters[a].ammo -= 1;
+            self.fighters[a].shots += 1;
+        }
+        let att = &self.fighters[a];
+        let def = &self.fighters[d];
         // Blindness: a swing in roughly the right direction, mostly missing.
         let blinded = att.has(StatusKind::Blinded).map(|s| s.magnitude).unwrap_or(0.0);
         let blind = 1.0 - blinded * 0.3;
@@ -481,7 +542,10 @@ impl Battle {
         } else {
             (def.stats.skill(Skill::Dodge) * 0.6 + def.stats.attr(Attr::Agility) * 0.25 - def.dodge_penalty * 100.0) * def.tired()
         };
-        let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7);
+        // Arrows are dodged less but lose accuracy with distance.
+        let dodge = if shot { dodge * 0.5 } else { dodge };
+        let far = if shot { 1.0 - 0.35 * dist / weapon.range.max(1.0) } else { 1.0 };
+        let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far;
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
         let strength = att.stats.attr(Attr::Strength);
         self.fighters[a].fatigue -= 3.0 + weapon.windup * 4.0;
@@ -495,12 +559,21 @@ impl Battle {
             return;
         }
         let def = &self.fighters[d];
-        let guard = if helpless || def.burdened { 0.0 } else { def.shield * 100.0 + def.weapon.parry * 60.0 };
+        // Only a shield stops an arrow.
+        let guard = if helpless || def.burdened {
+            0.0
+        } else if shot {
+            def.shield * 100.0
+        } else {
+            def.shield * 100.0 + def.weapon.parry * 60.0
+        };
         let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.stats.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
         let roll = 0.8 + r_dmg * 0.4;
         let skill_mult = 0.6 + skill * 0.006;
-        let mut cut = weapon.cut * (1.0 + strength * 0.006) * skill_mult * roll;
-        let mut blunt = weapon.blunt * (1.0 + strength * 0.010) * skill_mult * roll;
+        // Strength puts weight behind a blow; a bowstring doesn't care.
+        let pull = if shot { 0.0 } else { 1.0 };
+        let mut cut = weapon.cut * (1.0 + strength * 0.006 * pull) * skill_mult * roll;
+        let mut blunt = weapon.blunt * (1.0 + strength * 0.010 * pull) * skill_mult * roll;
 
         if r_block < p_block {
             self.fighters[d].train(Skill::Block, 1.0);
@@ -547,6 +620,27 @@ impl Battle {
             self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), dmg));
         }
         self.wound(d, part, dmg);
+    }
+
+    /// Switch between bow and hand weapon (takes a moment).
+    pub fn swap_weapon(&mut self, i: usize) {
+        let t = self.time;
+        let f = &mut self.fighters[i];
+        let current = (f.weapon, f.weapon_name);
+        let next = if let Some(st) = f.stowed.take() {
+            f.sidearm = Some(current);
+            st
+        } else if let Some(sa) = f.sidearm.take() {
+            f.stowed = Some(current);
+            sa
+        } else {
+            return;
+        };
+        f.weapon = next.0;
+        f.weapon_name = next.1;
+        f.act = Act::Recover { until: t + 0.8 };
+        let name = self.names[i].clone();
+        self.say(format!("{name} switches to the {}.", next.1.to_lowercase()));
     }
 
     /// Everyone on a side realises they're under attack.

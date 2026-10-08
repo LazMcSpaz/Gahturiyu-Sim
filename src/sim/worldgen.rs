@@ -84,7 +84,11 @@ pub fn generate(seed: u64) -> World {
         p.ensure_detail();
         // A few lockpicks for the light-fingered.
         if calling == Calling::Hunter {
-            p.detail.as_mut().unwrap().gear.add(super::items::id("tent"), 1);
+            let g = &mut p.detail.as_mut().unwrap().gear;
+            g.add(super::items::id("tent"), 1);
+            // A bow to try (in the pack; equip it to use it).
+            g.add(super::items::id("short_bow"), 1);
+            g.add(super::items::id("arrows"), 30);
         }
         let picks = match calling {
             Calling::Hunter => 6,

@@ -16,6 +16,8 @@ use super::rng::{self, Rng};
 use super::stats::{Calling, Skill, SKILLS};
 use super::world::World;
 
+/// Share of arrows and bolts found again after a fight.
+pub const AMMO_FOUND: f32 = 0.5;
 /// How long the fallen stay on the ground, game seconds.
 pub const CORPSE_TIME: f64 = 2.0 * 3600.0;
 
@@ -149,6 +151,9 @@ impl World {
             p.bandit = true;
             if with_mage && k == 0 {
                 p.specialize(Calling::Mage, &[(Skill::Destruction, 45.0), (Skill::Alteration, 35.0), (Skill::Illusion, 38.0)], 80.0);
+            } else if k % 3 == 1 {
+                // An archer.
+                p.specialize(Calling::Hunter, &[(Skill::Marksman, 40.0 + r.f32() * 15.0), (Skill::Dodge, 20.0)], 120.0 + r.f32() * 120.0);
             } else {
                 let main = *r.pick(&[Skill::Blade, Skill::Blunt, Skill::Spear]);
                 p.specialize(Calling::Warrior, &[(main, 30.0 + r.f32() * 18.0), (Skill::Dodge, 20.0), (Skill::Block, 18.0)], 90.0 + r.f32() * 220.0);
@@ -299,10 +304,22 @@ impl World {
             }
             p.stats.harden(f.damage_taken);
             let (pid, fatigue) = (f.pid, f.fatigue);
-            // Potions drunk and scrolls read are gone.
+            // Potions drunk and scrolls read are gone; arrows loosed are gone
+            // too, except the ones found again afterwards.
             if let Some(d) = p.detail.as_mut() {
                 for &it in &f.used {
                     d.gear.take(it);
+                }
+                let ammo = f.stowed.map(|w| w.0.ammo).unwrap_or(f.weapon.ammo);
+                if let (Some(key), true) = (ammo, f.shots > 0) {
+                    let id = super::items::id(key);
+                    for _ in 0..f.shots {
+                        d.gear.take(id);
+                    }
+                    let found = (0..f.shots).filter(|&k| Rng::from_keys(&[b.seed, f.pid as u64, k as u64, 0xA770]).f32() < AMMO_FOUND).count() as u16;
+                    if found > 0 {
+                        d.gear.add(id, found);
+                    }
                 }
             }
             if f.dead {

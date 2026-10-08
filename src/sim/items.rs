@@ -71,6 +71,10 @@ pub struct WeaponDef {
     pub two_handed: bool,
     /// How well it parries, 0..1 (a shield does this better).
     pub parry: f32,
+    /// Metres it shoots, for bows and the like (0 = a hand weapon).
+    pub range: f32,
+    /// What it shoots (an item key), for ranged weapons.
+    pub ammo: Option<&'static str>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -123,6 +127,8 @@ pub enum Kind {
     Potion(PotionDef),
     /// Read aloud: casts its spell once, with no mana and no chance of failing.
     Scroll(Spell),
+    /// Shot from a ranged weapon; stacks in the pack.
+    Ammo,
     /// Money.
     Coin,
     /// Eaten: takes this much off hunger (0–100).
@@ -163,7 +169,7 @@ const fn weapon(key: &'static str, name: &'static str, skill: Skill, cut: f32, b
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry }),
+        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, range: 0.0, ammo: None }),
         weight,
         value,
         effects: &[],
@@ -177,6 +183,20 @@ const fn armor(key: &'static str, name: &'static str, slot: Slot, covers: &'stat
 
 const fn material(key: &'static str, name: &'static str, weight: f32, value: f32) -> ItemDef {
     ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Material, weight, value, effects: &[] }
+}
+
+/// A bow or the like: `windup` is drawing and aiming, `recover` reloading.
+#[allow(clippy::too_many_arguments)]
+const fn ranged(key: &'static str, name: &'static str, cut: f32, blunt: f32, range: f32, windup: f32, recover: f32, ammo: &'static str, weight: f32, value: f32) -> ItemDef {
+    ItemDef {
+        key,
+        name,
+        slot: Slot::MainHand,
+        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, parry: 0.0, range, ammo: Some(ammo) }),
+        weight,
+        value,
+        effects: &[],
+    }
 }
 
 const fn food(key: &'static str, name: &'static str, weight: f32, value: f32, nourishment: f32) -> ItemDef {
@@ -204,6 +224,9 @@ pub static ITEMS: &[ItemDef] = &[
     weapon("spear", "Spear", Skill::Spear, 9.0, 3.0, 2.2, 0.55, 0.50, true, 0.20, 3.0, 50.0),
     weapon("harpoon", "Harpoon", Skill::Spear, 11.0, 2.0, 2.0, 0.55, 0.55, true, 0.15, 3.0, 70.0),
     weapon("glaive", "Glaive", Skill::Spear, 16.0, 4.0, 2.4, 0.80, 0.70, true, 0.25, 5.0, 180.0),
+    //      key            name         cut   blunt range windup reload ammo      wt   value
+    ranged("short_bow", "Short bow", 12.0, 0.0, 30.0, 0.8, 0.5, "arrows", 1.5, 60.0),
+    ranged("crossbow", "Crossbow", 18.0, 4.0, 38.0, 0.4, 2.6, "bolts", 5.0, 160.0),
     weapon("staff", "Staff", Skill::Blunt, 0.0, 7.0, 1.8, 0.50, 0.50, true, 0.30, 2.0, 20.0),
     // --- Body armour -----------------------------------------------------
     //     key               name                slot        covers cover  cut   blunt dodge  wt    value
@@ -249,6 +272,8 @@ pub static ITEMS: &[ItemDef] = &[
     food("salted_meat", "Salted meat", 0.5, 6.0, 40.0),
     food("wild_berries", "Wild berries", 0.1, 1.0, 8.0),
     food("mussels", "Mussels", 0.3, 2.0, 14.0),
+    ItemDef { key: "arrows", name: "Arrows", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.04, value: 1.0, effects: &[] },
+    ItemDef { key: "bolts", name: "Crossbow bolts", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.06, value: 2.0, effects: &[] },
     ItemDef { key: "coin", name: "Coin", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.005, value: 1.0, effects: &[] },
     ItemDef { key: "sealed_letter", name: "Sealed letter", slot: Slot::MainHand, kind: Kind::Errand, weight: 0.02, value: 0.0, effects: &[] },
     // --- Potions and scrolls --------------------------------------------------
@@ -333,4 +358,4 @@ impl ItemDef {
 }
 
 /// Bare hands, when nothing is held.
-pub const FISTS: WeaponDef = WeaponDef { skill: Skill::Unarmed, cut: 0.0, blunt: 4.0, reach: 0.8, windup: 0.35, recover: 0.35, two_handed: false, parry: 0.0 };
+pub const FISTS: WeaponDef = WeaponDef { skill: Skill::Unarmed, cut: 0.0, blunt: 4.0, reach: 0.8, windup: 0.35, recover: 0.35, two_handed: false, parry: 0.0, range: 0.0, ammo: None };

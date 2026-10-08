@@ -303,7 +303,11 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Color)> {
     match &d.kind {
         Kind::Weapon(wd) => {
             out.push((format!("{}  ·  {} weapon{}", d.slot.name(), wd.skill.name().to_lowercase(), if wd.two_handed { ", two-handed" } else { "" }), TEXT));
-            out.push((format!("Cut {:.0}  ·  Blunt {:.0}  ·  Reach {:.1} m  ·  Parry {:.0}%", wd.cut, wd.blunt, wd.reach, wd.parry * 100.0), DIM));
+            if wd.range > 0.0 {
+                out.push((format!("Cut {:.0}  ·  Blunt {:.0}  ·  Range {:.0} m  ·  shoots {}", wd.cut, wd.blunt, wd.range, wd.ammo.map(|k| item(items::id(k)).name.to_lowercase()).unwrap_or_default()), DIM));
+            } else {
+                out.push((format!("Cut {:.0}  ·  Blunt {:.0}  ·  Reach {:.1} m  ·  Parry {:.0}%", wd.cut, wd.blunt, wd.reach, wd.parry * 100.0), DIM));
+            }
         }
         Kind::Armor(a) => {
             out.push((format!("{}  ·  armour", d.slot.name()), TEXT));
@@ -317,6 +321,7 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Color)> {
         Kind::Trinket => out.push((format!("{}  ·  trinket", d.slot.name()), TEXT)),
         Kind::Tool => out.push(("Tool".into(), TEXT)),
         Kind::Coin => out.push(("Money".into(), TEXT)),
+        Kind::Ammo => out.push(("Ammunition: used up a shot at a time; about half is found again after a fight".into(), TEXT)),
         Kind::Food(n) => out.push((format!("Food: takes {n:.0} off hunger  ·  eaten when hungry, or click to eat"), TEXT)),
         Kind::Errand => out.push(("Someone else's: deliver it".into(), TEXT)),
         Kind::Material => {
@@ -374,6 +379,7 @@ pub fn ground_color(id: ItemId) -> Color {
         Kind::Material => Color::new(0.55, 0.62, 0.45, 1.0),
         Kind::Tool => Color::new(0.5, 0.5, 0.55, 1.0),
         Kind::Coin => GOLD,
+        Kind::Ammo => Color::new(0.6, 0.55, 0.45, 1.0),
         Kind::Food(_) => Color::new(0.75, 0.55, 0.35, 1.0),
         Kind::Errand => Color::new(0.9, 0.86, 0.7, 1.0),
         #[allow(unreachable_patterns)]

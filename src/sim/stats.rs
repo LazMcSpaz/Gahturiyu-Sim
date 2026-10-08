@@ -58,10 +58,12 @@ pub enum Skill {
     Smithing,
     /// Making armour.
     Armoring,
+    /// Bows and crossbows.
+    Marksman,
 }
 
 /// How many skills there are.
-pub const N_SKILLS: usize = 17;
+pub const N_SKILLS: usize = 18;
 
 pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Blade,
@@ -81,6 +83,7 @@ pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Inscription,
     Skill::Smithing,
     Skill::Armoring,
+    Skill::Marksman,
 ];
 
 impl Skill {
@@ -103,6 +106,7 @@ impl Skill {
             Skill::Inscription => "Inscription",
             Skill::Smithing => "Smithing",
             Skill::Armoring => "Armoring",
+            Skill::Marksman => "Marksman",
         }
     }
 
@@ -114,7 +118,7 @@ impl Skill {
             Skill::Block | Skill::Athletics => Attr::Toughness,
             Skill::Destruction => Attr::Intellect,
             Skill::Alteration | Skill::Illusion | Skill::Restoration => Attr::Willpower,
-            Skill::Sneak | Skill::Security => Attr::Agility,
+            Skill::Sneak | Skill::Security | Skill::Marksman => Attr::Agility,
             Skill::Alchemy | Skill::Inscription => Attr::Intellect,
             Skill::Smithing | Skill::Armoring => Attr::Strength,
         }
@@ -253,6 +257,7 @@ impl Stats {
                 lift(Skill::Dodge, 22.0, &mut rng);
                 lift(Skill::Athletics, 20.0, &mut rng);
                 lift(Skill::Blade, 10.0, &mut rng);
+                lift(Skill::Marksman, 22.0, &mut rng);
             }
             Calling::Mage => {
                 lift(Skill::Destruction, 26.0, &mut rng);

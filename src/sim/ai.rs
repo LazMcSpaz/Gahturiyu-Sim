@@ -9,7 +9,7 @@
 //! is there a spell worth casting right now? Movement and swinging then follow
 //! from the target in `Battle::idle`.
 
-use super::combat::{Act, Battle, Order, SQUAD_SIDE};
+use super::combat::{Act, Battle, Order, ARCHER_DRAW, ARCHER_STOW, SQUAD_SIDE};
 use super::geo::V2;
 use super::items::{item, ItemId, Kind, PotionDef};
 use super::magic::{Spell, StatusKind};
@@ -60,6 +60,21 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     };
     let target = ordered.or_else(|| choose_target(b, i, r_pick));
     b.fighters[i].target = target;
+
+    // Archers: hand weapon out when someone closes in (or the arrows run
+    // out), bow back out once there's room again.
+    let me = &b.fighters[i];
+    let near = b.nearest_enemy(i).map(|j| me.pos.dist(b.fighters[j].pos)).unwrap_or(f32::MAX);
+    if matches!(me.act, Act::Idle) {
+        if me.weapon.range > 0.0 && me.sidearm.is_some() && (near < ARCHER_DRAW || me.ammo == 0) {
+            b.swap_weapon(i);
+            return;
+        }
+        if me.stowed.is_some() && me.ammo > 0 && near > ARCHER_STOW {
+            b.swap_weapon(i);
+            return;
+        }
+    }
 
     let me = &b.fighters[i];
     if !matches!(me.act, Act::Idle) {

@@ -202,7 +202,7 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     buy(&mut g, "trousers", &mut left);
 
     // A weapon to suit their best skill, as good as the purse allows.
-    let best = [Skill::Blade, Skill::Blunt, Skill::Spear]
+    let best = [Skill::Blade, Skill::Blunt, Skill::Spear, Skill::Marksman]
         .into_iter()
         .max_by(|a, b| stats.skill(*a).total_cmp(&stats.skill(*b)))
         .unwrap();
@@ -211,6 +211,7 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     } else {
         match (best, race) {
             (Skill::Blade, _) => &["knife", "short_sword", "longsword"],
+            (Skill::Marksman, _) => &["short_bow", "crossbow"],
             (Skill::Blunt, Race::Roduro) => &["club", "stone_maul"],
             (Skill::Blunt, Race::Qotiro) => &["club", "war_pick"],
             (Skill::Blunt, _) => &["club", "war_pick"],
@@ -227,6 +228,13 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     }
     if let Some(k) = pick.or(if budget > 25.0 { Some(ladder[0]) } else { None }) {
         buy(&mut g, k, &mut left);
+        // A bow needs something to shoot, and a knife for when they close in.
+        if let Some(ammo) = g.weapon().ammo {
+            g.add(items::id(ammo), 24);
+            left -= 24.0 * item(items::id(ammo)).value;
+            g.add(items::id("knife"), 1);
+            left -= item(items::id("knife")).value;
+        }
     }
 
     // Then armour, most protective first, while money lasts.
