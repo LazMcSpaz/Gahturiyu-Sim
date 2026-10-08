@@ -314,6 +314,7 @@ fn a_decoy_draws_the_blows_then_fades() {
     let d = b.fighters.iter().position(|f| f.is_decoy()).unwrap();
     assert_eq!(b.fighters[d].side, 0);
     b.fighters[1].think_at = 0.0;
+    b.fighters[1].boldness = 1.0; // (so they don't simply run)
     b.tick();
     assert_eq!(b.fighters[1].target, Some(d), "the enemy goes for the decoy");
     for _ in 0..250 {
@@ -633,4 +634,80 @@ fn transmute_turns_materials_into_others() {
     w.held.insert(m, spell("transmute"));
     w.release(m, None, None).unwrap();
     assert_eq!(w.squad_count(items::id("iron_ingot")), ingots + 3);
+}
+
+// ---- Summoning -------------------------------------------------------------------
+
+#[test]
+fn a_wisp_lights_a_spot_and_a_scout_waits_there() {
+    let mut w = worldgen::generate(3);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    while gahturiyu_sim::sim::stealth::daylight(w.time) > 0.2 {
+        w.step(600.0);
+    }
+    let spot = w.person_pos(m).add(V2::new(12.0, 5.0));
+    let dark = w.light_at(spot);
+    cast_world(&mut w, m, spell("wisp"), None, Some(spot), |w| w.light_at(spot) > dark + 0.4);
+    let far = w.person_pos(m).add(V2::new(120.0, 0.0));
+    cast_world(&mut w, m, spell("scout"), None, Some(far), |w| w.wards.iter().any(|x| x.does == Does::Scout));
+    w.step(200.0);
+    assert!(!w.wards.iter().any(|x| x.does == Does::Scout), "gone after three minutes");
+}
+
+#[test]
+fn a_spirit_beast_fights_by_the_full_rules_then_fades() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    cast_until(&mut b, spell("spirit_beast"), None, V2::new(2.0, 0.0), |b| b.fighters.len() == 3);
+    let beast = 2;
+    assert_eq!(b.fighters[beast].side, 0);
+    assert!(!b.fighters[beast].is_person());
+    let before = hp(&b, 1);
+    for _ in 0..300 {
+        b.tick();
+    }
+    assert!(hp(&b, 1) < before, "it does harm with its claws");
+    for _ in 0..400 {
+        b.tick();
+    }
+    assert!(b.fighters[beast].fled || b.fighters[beast].ko || b.fighters[beast].dead, "the binding ran out");
+}
+
+#[test]
+fn a_pack_spirit_carries_for_hours() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let load = w.load_of(m);
+    cast_world(&mut w, m, spell("pack_spirit"), None, None, |w| w.boon(m, Does::Carry) > 0.0);
+    assert!(w.load_of(m) < load);
+}
+
+#[test]
+fn a_swarm_comes_in_numbers_and_only_to_a_fight() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    cast_until(&mut b, spell("swarm"), None, V2::new(5.0, 0.0), |b| b.fighters.len() > 2);
+    assert_eq!(b.fighters.iter().filter(|f| !f.is_person()).count(), 6);
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    w.held.insert(m, spell("swarm"));
+    assert!(w.release(m, None, None).is_err(), "nothing to fight here");
+}
+
+#[test]
+fn a_guardian_waits_and_joins_the_next_fight_nearby() {
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    w.held.insert(m, spell("guardian"));
+    w.release(m, None, None).unwrap();
+    assert_eq!(w.wards.len(), 1);
+    w.spawn_bandits(w.squad.pos.add(V2::new(15.0, 0.0)), 2, false);
+    while w.battles.is_empty() {
+        w.step(0.25);
+    }
+    let b = &w.battles[0];
+    assert!(b.fighters.iter().any(|f| f.side == 0 && f.summon.map(|s| s.kind == gahturiyu_sim::sim::effects::Summon::Guardian).unwrap_or(false)));
+    assert!(w.wards.is_empty(), "it only comes once");
 }

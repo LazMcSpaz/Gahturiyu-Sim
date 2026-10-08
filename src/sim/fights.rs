@@ -275,6 +275,17 @@ impl World {
         for w in self.wards.iter().filter(|w| w.until > at && w.pos.dist(centre) <= w.radius + 80.0) {
             b.zones.push(super::combat::Zone { does: w.does, pos: w.pos, radius: w.radius, power: w.power, until: w.until, side: SQUAD_SIDE, owner: w.owner, fresh: false });
         }
+        // A guardian left waiting near the fight comes into it (once).
+        let waiting: Vec<super::casting::Ward> = self.wards.iter().copied().filter(|w| matches!(w.does, Does::Summon(_)) && w.until > at && w.pos.dist(centre) <= w.radius).collect();
+        for w in waiting {
+            if let Does::Summon(kind) = w.does {
+                let owner = self.people.get(w.owner as usize).and_then(|p| p.name()).unwrap_or("Someone").to_string();
+                let race = self.people.get(w.owner as usize).map(|p| p.race).unwrap_or(super::race::Race::Roduro);
+                b.call_up_for(SQUAD_SIDE, race, &owner, kind, w.pos, w.until, w.power);
+            }
+            self.wards.retain(|x| *x != w);
+        }
+        b.zones.retain(|z| !matches!(z.does, Does::Summon(_)));
         let i = self.battles.iter().position(|x| x.id == id).unwrap();
         self.battles[i] = b;
         id

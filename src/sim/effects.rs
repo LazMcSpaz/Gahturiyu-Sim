@@ -197,6 +197,9 @@ pub enum Does {
     Enlarge,
     /// Their armour stops this share less.
     Rust,
+    /// Ground: a spirit at a spot the caster can see through (the window
+    /// can look from there).
+    Scout,
 }
 
 impl Does {
@@ -225,7 +228,9 @@ impl Does {
     pub fn works_outside_fights(self) -> bool {
         match self {
             Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel | Does::Unlock | Does::Transmute => true,
-            Does::Summon(_) => false,
+            // A guardian can wait on the ground for a fight; the rest only
+            // come to one.
+            Does::Summon(k) => k == Summon::Guardian,
             d if d.harmful() => false,
             _ => true,
         }
@@ -356,6 +361,7 @@ impl Effect {
             Does::Shrink => format!("{pct:.0}% smaller"),
             Does::Enlarge => format!("{pct:.0}% bigger"),
             Does::Rust => format!("Armour {pct:.0}% weaker"),
+            Does::Scout => "A spirit to see through".to_string(),
             Does::Brace => "Turns the next blow".to_string(),
             Does::Tripwire => "Wakes sleepers when danger comes".to_string(),
             Does::Sanctuary => "Enemies can't enter".to_string(),

@@ -1351,10 +1351,14 @@ impl Battle {
 
     /// Call up creatures for the side of fighter `by`, round `at`.
     pub fn call_up(&mut self, by: usize, kind: Summon, at: V2, until: f64, power: f32) {
-        let side = self.fighters[by].side;
-        let race = self.fighters[by].race;
+        let (side, race, owner) = (self.fighters[by].side, self.fighters[by].race, self.names[by].clone());
+        self.call_up_for(side, race, &owner, kind, at, until, power);
+    }
+
+    /// Call up creatures for a side (named for their caster), round `at`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn call_up_for(&mut self, side: Side, race: Race, owner: &str, kind: Summon, at: V2, until: f64, power: f32) {
         let count = creature(kind).count;
-        let owner = self.names[by].clone();
         for k in 0..count {
             let a = k as f32 / count as f32 * std::f32::consts::TAU;
             let off = if count > 1 { V2::new(a.cos(), a.sin()).scale(1.2) } else { V2::default() };
@@ -1363,8 +1367,7 @@ impl Battle {
             self.fighters.push(f);
             self.names.push(format!("{owner}'s {}", kind.name().to_lowercase()));
         }
-        let what = if count > 1 { format!("a {}", kind.name().to_lowercase()) } else { format!("a {}", kind.name().to_lowercase()) };
-        self.say(format!("{owner} calls up {what}."));
+        self.say(format!("{owner} calls up a {}.", kind.name().to_lowercase()));
     }
 
     /// Damage spread over the whole body by where blows usually land. A big

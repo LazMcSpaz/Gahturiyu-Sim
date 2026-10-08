@@ -250,6 +250,13 @@ pub static SPELLS: &[SpellDef] = &[
     structured("enlarge", "Enlarge", Alteration, 18.0, 1.3, 8.0, Friend, 25.0, &[lasting(Does::Enlarge, 0.3, 30.0, Reach::Target)]),
     structured("rust", "Rust", Alteration, 18.0, 1.2, 12.0, Foe, 22.0, &[lasting(Does::Rust, 0.5, 60.0, Reach::Target)]),
     ritual("transmute", "Transmute", Alteration, rite(30.0, 0.0, &[], Place::Circle), 0.0, Caster, 40.0, &[now(Does::Transmute, 5.0, Reach::Object)]),
+    // ---- Summoning --------------------------------------------------------
+    felt("wisp", "Wisp", Summoning, 4.0, 0.3, 20.0, Point, 5.0, &[lasting(Does::Glow, 0.6, 600.0, Reach::Ground { radius: 14.0 })]),
+    felt("scout", "Scout", Summoning, 6.0, 0.5, 150.0, Point, 12.0, &[lasting(Does::Scout, 1.0, 180.0, Reach::Ground { radius: 0.0 })]),
+    structured("spirit_beast", "Spirit beast", Summoning, 30.0, 2.0, 6.0, Point, 35.0, &[lasting(Does::Summon(Summon::SpiritBeast), 1.0, 60.0, Reach::Object)]),
+    structured("pack_spirit", "Pack spirit", Summoning, 15.0, 2.0, 0.0, Caster, 20.0, &[lasting(Does::Carry, 40.0, 4.0 * 3600.0, Reach::Caster)]),
+    ritual("guardian", "Guardian", Summoning, rite(45.0, 8.0, &[("iron_ingot", 1), ("salt_crystal", 2)], Place::Circle), 0.0, Caster, 45.0, &[lasting(Does::Summon(Summon::Guardian), 1.0, 8.0 * 3600.0, Reach::Ground { radius: 30.0 })]),
+    ritual("swarm", "Swarm", Summoning, rite(40.0, 12.0, &[("ash_moss", 2), ("kelp_frond", 2)], Place::Anywhere), 15.0, Point, 40.0, &[lasting(Does::Summon(Summon::Swarmling), 1.0, 30.0, Reach::Object)]),
     // ---- Warding ----------------------------------------------------------
     felt("brace", "Brace", Warding, 5.0, 0.4, 0.0, Caster, 8.0, &[lasting(Does::Brace, 1.0, 30.0, Reach::Caster)]),
     felt("tripwire", "Tripwire", Warding, 6.0, 0.4, 0.0, Caster, 12.0, &[lasting(Does::Tripwire, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 25.0 })]),

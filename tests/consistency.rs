@@ -133,3 +133,19 @@ fn a_roadside_fight_you_watch_is_the_one_you_would_have_missed() {
     assert_eq!(near.next_battle, near.stats.ambushes as u32, "the squad shouldn't have been in a fight itself");
     assert_same_history(&near, &far);
 }
+
+#[test]
+fn a_far_fight_with_a_mage_in_it_is_the_one_you_would_have_watched() {
+    // A band with a mage (who calls up help and casts) camped by a road; the
+    // squad near it in one run, far away in the other.
+    let camp_at = |w: &World| w.camps[1].pos.add(V2::new(30.0, 30.0));
+    let mut near = worldgen::generate(7);
+    let at = camp_at(&near);
+    near.spawn_bandits(at, 3, true);
+    near.teleport_squad(at.add(V2::new(170.0, 0.0)));
+    let mut far = worldgen::generate(7);
+    far.spawn_bandits(at, 3, true);
+    far.teleport_squad(V2::new(1_000.0, 20_000.0));
+    let (near, far) = (run(near, 30.0, 2.0), run(far, 30.0, 2.0));
+    assert_same_history(&near, &far);
+}
