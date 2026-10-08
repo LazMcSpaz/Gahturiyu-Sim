@@ -204,7 +204,12 @@ impl World {
 
     /// How much of a good a town would like to have in store.
     pub fn want_of(&self, town: SettlementId, g: Good) -> f32 {
-        self.keep_back(town, g) * 2.0
+        if g.is_food() {
+            // Food is wanted all together; any one kind is a share of it.
+            self.keep_back(town, g) / super::jobs::FOODS.len() as f32
+        } else {
+            self.keep_back(town, g)
+        }
     }
 
     /// A town's price for a good, as a share of its worth: dear where it's
