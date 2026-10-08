@@ -150,6 +150,7 @@ impl World {
             if let Some(k) = self.squad.index(pid) {
                 self.squad.resting[k] = false;
             }
+            self.want_carry.retain(|w| w.0 != pid);
             if self.want_talk.map(|w| w.0 == pid).unwrap_or(false) {
                 self.want_talk = None;
             }
@@ -170,7 +171,7 @@ impl World {
         let bonus = gear.sum_effect(|e| if let Effect::MoveSpeed(v) = e { Some(*v) } else { None });
         let sneak = if self.is_sneaking(pid) { super::stealth::SNEAK_PACE } else { 1.0 };
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
-        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(gear.load(&p.stats)) * (1.0 + bonus)
+        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(self.load_of(pid)) * (1.0 + bonus)
     }
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).
@@ -237,6 +238,7 @@ impl World {
         self.do_picking();
         self.do_gathering();
         self.do_crafting();
+        self.do_carrying();
         self.try_open_talk();
     }
 

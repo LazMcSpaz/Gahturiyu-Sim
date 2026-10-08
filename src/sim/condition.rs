@@ -319,7 +319,8 @@ impl World {
     /// The squad member's load right now, as a share of what they can carry.
     pub fn load_of(&self, pid: PersonId) -> f32 {
         let p = &self.people[pid as usize];
-        p.kit().load(&p.stats)
+        let gear = p.kit();
+        (gear.weight() + self.burden_weight(pid)) / gear.capacity(&p.stats).max(1.0)
     }
 
     /// Settle someone's condition and wounds at `t` and start a new piece.

@@ -199,6 +199,14 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
                 };
                 out.push((format!("Bandit  ·  {state}  ·  click to attack"), Color::new(0.95, 0.35, 0.3, 1.0)));
             }
+            if let Some(c) = w.carrying(pid) {
+                out.push((format!("Carrying {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
+            }
+            if let Some(c) = w.carried_by(pid) {
+                out.push((format!("Carried by {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
+            } else if body::knocked_out(&hp) && !p.dead {
+                out.push(("Down. Select someone and click to carry them.".into(), DIM));
+            }
             if p.in_squad && w.is_sneaking(pid) {
                 out.push((format!("Sneaking  ·  noise {:.1}  ·  visibility {:.0}%", w.noise_of(pid), w.visibility_of(pid) * 100.0), super::squadui::SNEAK));
             }

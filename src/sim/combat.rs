@@ -95,6 +95,8 @@ pub struct Fighter {
     pub fleeing: bool,
     pub fled: bool,
     pub think_at: f64,
+    /// Carrying someone: can move, can't fight or block.
+    pub burdened: bool,
     /// Potions and scrolls in their pack, and those used up this fight.
     pub potions: Vec<ItemId>,
     pub scrolls: Vec<ItemId>,
@@ -166,6 +168,7 @@ impl Fighter {
             fled: false,
             think_at: 0.0,
             aware_at: 0.0,
+            burdened: false,
             potions: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Potion(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
@@ -492,7 +495,7 @@ impl Battle {
             return;
         }
         let def = &self.fighters[d];
-        let guard = if helpless { 0.0 } else { def.shield * 100.0 + def.weapon.parry * 60.0 };
+        let guard = if helpless || def.burdened { 0.0 } else { def.shield * 100.0 + def.weapon.parry * 60.0 };
         let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.stats.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
         let roll = 0.8 + r_dmg * 0.4;
         let skill_mult = 0.6 + skill * 0.006;

@@ -13,6 +13,7 @@ use gahturiyu_sim::sim::{
     geo::{self, V2, WORLD_SIZE},
     group::Kind,
     combat::{FxKind, SQUAD_SIDE},
+    body,
     magic::StatusKind,
     person::PersonId,
     race::Race,
@@ -325,10 +326,21 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
     for &m in &w.squad.members {
         heads.push(person(&mut b, w, m, k, &on_ground));
     }
+    // Strangers being carried, or set down somewhere by the squad.
+    for &pid in w.carried.keys().chain(w.set_down.keys()) {
+        if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
+            heads.push(person(&mut b, w, pid, k, &on_ground));
+        }
+    }
 
     // The fallen.
-    for &(at, race, _, _) in &w.corpses {
+    for &(at, race, _, pid) in &w.corpses {
+        if w.carried_by(pid).is_some() {
+            heads.push(person(&mut b, w, pid, k, &on_ground));
+            continue;
+        }
         if at.dist(oc.target) < radius {
+            heads.push((to3(at, on_ground(at) + 0.6), pid));
             let base = to3(at, on_ground(at) - 0.1);
             b.block(base, 1.6 * k, 0.6 * k, 0.35 * k, at.x * 0.37, Color::new(0.35, 0.12, 0.10, 1.0));
             b.block(base + vec3(0.0, 0.3 * k, 0.0), 1.2 * k, 0.4 * k, 0.15 * k, at.x * 0.37, palette::scale(race_color(race), 0.5));
@@ -760,7 +772,14 @@ fn person(b: &mut Builder, w: &World, pid: PersonId, k: f32, on_ground: &dyn Fn(
     if foe {
         draped_ring(b, on_ground, at, 0.9 * k, 0.18 * k, 14, Color::new(0.9, 0.2, 0.15, 1.0));
     }
-    let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead;
+    let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
+    // Carried: across the carrier's shoulders.
+    if w.carried_by(pid).is_some() {
+        let rot = (p.seed % 628) as f32 / 100.0;
+        let lift = base + vec3(0.0, 1.35 * k, 0.0);
+        b.block(lift, h * 0.9, r * 1.6, r * 1.1, rot, palette::scale(race_color(p.race), 0.8));
+        return (lift + vec3(0.0, r * 1.5, 0.0), pid);
+    }
     if down {
         // Lying where they fell.
         let rot = (p.seed % 628) as f32 / 100.0;

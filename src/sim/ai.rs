@@ -40,6 +40,11 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
         }
     }
 
+    // Someone carrying a body only moves where they're told.
+    if me.burdened {
+        b.fighters[i].target = None;
+        return;
+    }
     // Orders come first.
     if let Some(Order::MoveTo(_)) = me.order {
         b.fighters[i].target = None;

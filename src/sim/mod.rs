@@ -5,6 +5,7 @@ pub mod ai;
 pub mod bands;
 pub mod body;
 pub mod buildings;
+pub mod carry;
 pub mod combat;
 pub mod condition;
 pub mod crafting;

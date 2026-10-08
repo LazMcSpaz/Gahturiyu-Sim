@@ -137,6 +137,14 @@ pub struct World {
     pub talk: Option<super::dialogue::Conversation>,
     /// A squad member on their way to talk to someone.
     pub want_talk: Option<(PersonId, PersonId)>,
+
+    // --- Carrying -----------------------------------------------------------
+    /// Who's being carried, and by whom.
+    pub carried: HashMap<PersonId, PersonId>,
+    /// Squad members on their way to pick someone up.
+    pub want_carry: Vec<(PersonId, PersonId)>,
+    /// Strangers set down somewhere, until they come round.
+    pub set_down: HashMap<PersonId, V2>,
 }
 
 impl World {
@@ -200,6 +208,9 @@ impl World {
             regard: HashMap::new(),
             talk: None,
             want_talk: None,
+            carried: HashMap::new(),
+            want_carry: Vec::new(),
+            set_down: HashMap::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -415,6 +426,12 @@ impl World {
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);
         if let Some(pos) = self.fighter_pos(pid) {
             return pos;
+        }
+        if let Some(&c) = self.carried.get(&pid) {
+            return self.person_pos(c);
+        }
+        if let Some(&at) = self.set_down.get(&pid) {
+            return at;
         }
         if p.in_squad {
             if let Some(k) = self.squad.index(pid) {

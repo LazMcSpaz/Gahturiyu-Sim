@@ -235,6 +235,12 @@ async fn main() {
                 world.set_sneaking(m, on);
             }
         }
+        // X: the selected put down whoever they're carrying.
+        if is_key_pressed(KeyCode::X) {
+            for m in sel.who(&world) {
+                world.put_down(m);
+            }
+        }
         // N: the selected rest (sleep where they stand), or get up again.
         if is_key_pressed(KeyCode::N) {
             let who = sel.who(&world);
@@ -454,8 +460,8 @@ async fn main() {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   I: pack   K: craft   J: journal   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
-            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   I: pack   K: craft   J: journal   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   X: put down   I: pack   K: craft   J: journal   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
+            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   X: put down   I: pack   K: craft   J: journal   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);
@@ -476,6 +482,16 @@ async fn main() {
 fn click_world(world: &mut gahturiyu_sim::sim::World, sel: &mut Selection, hover: Option<ui::Hover>, view: View, map_cam: &MapCam, orbit: &OrbitCam, mouse: Vec2, shift: bool) {
     let who = sel.who(world);
     match hover {
+        // Someone down (a squadmate, a stranger, one of your dead): the
+        // nearest selected member on their feet goes to carry them.
+        Some(ui::Hover::Person(pid)) if who.iter().any(|&m| world.can_carry(m, pid)) => {
+            let at = world.body_pos(pid);
+            let carrier = who.iter().copied().filter(|&m| world.can_carry(m, pid)).min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
+            if let Some(c) = carrier {
+                world.order_carry(c, pid);
+                return;
+            }
+        }
         Some(ui::Hover::Person(pid)) if world.squad.index(pid).is_some() => {
             sel.pick(pid, shift);
             return;

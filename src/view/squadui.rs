@@ -107,6 +107,12 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Color) {
     if body::knocked_out(&p.wounds.hp_at(&p.stats, w.time)) {
         return ("Down", WARN);
     }
+    if w.carried_by(pid).is_some() {
+        return ("Being carried", WARN);
+    }
+    if w.carrying(pid).is_some() {
+        return ("Carrying", GOLD);
+    }
     if w.is_asleep(pid) {
         let c = w.people[pid as usize].cond.as_ref().unwrap();
         let place = match c.shelter {
