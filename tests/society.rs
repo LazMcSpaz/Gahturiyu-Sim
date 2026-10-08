@@ -6,6 +6,7 @@ use gahturiyu_sim::sim::{
     jobs::{Job, Service},
     race::Race,
     routine::Doing,
+    society::DAWN,
     world::{DAY, HOUR},
     worldgen, World,
 };
@@ -114,8 +115,10 @@ fn a_service_closes_when_its_worker_dies() {
     assert!(w.service_open(t, Service::Healing));
     w.people[healer as usize].dead = true;
     assert!(!w.service_open(t, Service::Healing), "healing should close with the healer gone");
-    // Until someone takes up the work at dawn.
-    until_hour(&mut w, 5.5, 60.0);
+    // Until someone takes up the work at (the next) dawn.
+    run(&mut w, 1.0, 60.0);
+    assert!(!w.service_open(t, Service::Healing));
+    until_hour(&mut w, DAWN as f64 + 0.5, 60.0);
     let new = w.settlements[t as usize].residents.iter().copied().find(|&p| !w.people[p as usize].dead && w.life(p).job == Job::Healer);
     assert!(new.is_some(), "a labourer should have taken the post");
     assert_eq!(w.service_workers(t, Service::Healing), 1);
@@ -145,13 +148,13 @@ fn a_broken_food_path_leaves_the_town_short() {
     let fed = w.society.communities[ci as usize].food.suff[1];
     assert!(fed > 0.7, "the kitchens should be working: {fed}");
     // (Laid low just after dawn, before anyone can take their place.)
-    until_hour(&mut w, 5.5, HOUR / 4.0);
+    until_hour(&mut w, DAWN as f64 + 0.5, HOUR / 4.0);
     for &p in &w.settlements[town as usize].residents.clone() {
         if w.life(p).job == Job::Cook {
             w.people[p as usize].dead = true;
         }
     }
-    until_hour(&mut w, 5.2, HOUR / 4.0);
+    until_hour(&mut w, DAWN as f64 + 0.2, HOUR / 4.0);
     let starved = w.society.communities[ci as usize].food.suff[1];
     assert!(starved < fed - 0.4, "no cooks, no meals: {fed} -> {starved}");
 }

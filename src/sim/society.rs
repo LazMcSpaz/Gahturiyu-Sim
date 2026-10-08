@@ -26,7 +26,7 @@ use super::world::{World, DAY, HOUR};
 
 /// The hour of the day when the dawn boats land and the day's food, taxes and
 /// changes are settled.
-pub const DAWN: i64 = 5;
+pub const DAWN: i64 = 6;
 /// A town where this many roads meet counts as on the roads (and keeps an inn).
 pub const ROADS_MEET: usize = 5;
 /// Days in the week (rest days come round once a week).

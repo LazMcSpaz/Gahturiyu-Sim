@@ -30,6 +30,9 @@ use gahturiyu_sim::sim::{
     items,
     effects::{Does, Summon},
     person::PersonId,
+    routine::Doing,
+    society::Workplace,
+    jobs::{PlaceKind, Shelf},
     race::Race,
     rng,
     settlement::{Building, BuildingKind},
@@ -90,6 +93,8 @@ pub struct Scene3d {
 struct Town {
     entities: Vec<Entity>,
     occupied: Vec<u16>,
+    /// The workplaces as they were laid out when drawn.
+    layout: u64,
     with_models: bool,
     triangles: usize,
 }
@@ -255,7 +260,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for &sid in &near {
         let s = &w.settlements[sid as usize];
         let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| open.contains(&(sid, *i))).collect();
-        let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.ready()).unwrap_or(true);
+        let layout = w.society.towns.get(sid as usize).map(|tl| tl.places.iter().fold(tl.places.len() as u64, |h, p| h.rotate_left(5) ^ p.seed)).unwrap_or(0);
+        let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.ready() || tw.layout != layout).unwrap_or(true);
         if fresh {
             if let Some(old) = scene.towns.remove(&sid) {
                 for e in old.entities {
@@ -280,10 +286,15 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     }
                 }
             }
+            if let Some(tl) = w.society.towns.get(sid as usize) {
+                for wp in &tl.places {
+                    workplace(&mut lit, &mut glow, t, wp, &on_ground);
+                }
+            }
             let tris = lit.triangles() + glow.triangles();
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
-            scene.towns.insert(sid, Town { entities: ents, occupied, with_models: models.ready(), triangles: tris });
+            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.ready(), triangles: tris });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
@@ -306,6 +317,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let mut heads: Vec<(Vec3, PersonId)> = Vec::new();
     for s in &w.settlements {
         for pid in w.residents_in_band1(s.id) {
+            // Asleep indoors: out of sight.
+            if w.is_indoors_asleep(pid) {
+                continue;
+            }
             heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
@@ -877,6 +892,33 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         b.block(base + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.55), r * 1.0, r * 1.1, r * 1.0, rot, palette::skin(p.race));
         return (base + vec3(0.0, r * 1.5, 0.0), pid);
     }
+    // A meal runner's stack of pots; the dawn boat under its crew; divers
+    // in the water.
+    let doing = w.doing_now(pid).map(|d| d.0);
+    let diving = doing == Some(Doing::Work) && geo::inland(at) < 0.0 && w.workplace_of(pid).map(|p| p.kind.offshore()).unwrap_or(false);
+    let base = if diving { to3(at, -0.9) } else { base };
+    let base = if doing == Some(Doing::Ferry) {
+        let rot = (p.seed % 628) as f32 / 100.0;
+        let hull = to3(at, 0.05);
+        b.block(hull, 5.2 * k.min(3.0), 1.7 * k.min(3.0), 0.7, rot, palette::TIMBER);
+        b.block(hull + vec3(0.0, 0.7, 0.0), 1.2, 1.0, 0.5, rot + 0.3, [0.30, 0.42, 0.50]);
+        // A lantern on a pole at the bow (drawn only; it lights nothing).
+        let bow = hull + vec3(rot.cos(), 0.0, rot.sin()) * (2.3 * k.min(3.0));
+        b.stick(bow, bow + vec3(0.0, 2.0, 0.0), 0.08, palette::TIMBER);
+        fl.column(bow + vec3(0.0, 2.0, 0.0), 0.18, 0.12, 0.3, 6, palette::WINDOW);
+        hull + vec3(0.0, 0.6, 0.0)
+    } else {
+        base
+    };
+    if doing == Some(Doing::Run) {
+        // Stacked tiffin pots on the head, and a crate of them on each hip.
+        for i in 0..4 {
+            b.column(base + vec3(0.0, h + 0.02 + i as f32 * 0.3 * k, 0.0), 0.4 * k, 0.36 * k, 0.27 * k, 8, if i % 2 == 0 { [0.62, 0.40, 0.22] } else { palette::METAL_GOLD });
+        }
+        for side in [-1.0f32, 1.0] {
+            b.block(base + vec3(side * r * 1.6, h * 0.35, 0.0), 0.5 * k, 0.4 * k, 0.4 * k, 0.0, [0.55, 0.36, 0.22]);
+        }
+    }
     if far {
         b.column(base, r, r * 0.6, h, 4, race_color(p.race));
         return (base + vec3(0.0, h, 0.0), pid);
@@ -1052,4 +1094,210 @@ fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64) {
     b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5, 10, palette::TENT);
     let tilt = (seed % 7) as f32 * 0.1;
     b.column(base + vec3(0.0, r * 1.5 - 0.2, 0.0), 0.06 * k, 0.04 * k, 0.6 * k + tilt, 4, palette::TIMBER);
+}
+
+/// A workplace: fields in rows, stalls with awnings, a post, a dock — simple
+/// shapes to say what's done where.
+fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_ground: &dyn Fn(V2) -> f32) {
+    let k = wp.kind;
+    let size = k.size();
+    let wet = geo::inland(wp.pos) < 0.0;
+    let ground = if wet { 0.0 } else { on_ground(wp.pos) };
+    let sink = if wet { 0.0 } else { (t.slope(wp.pos) * size * 0.4).min(3.0) };
+    let base = to3(wp.pos, ground - sink);
+    let rot = wp.rot;
+    let (sn, cs) = rot.sin_cos();
+    let along = V2::new(cs, sn);
+    let across = V2::new(-sn, cs);
+    let u = |n: u64| (gahturiyu_sim::sim::rng::key(&[wp.seed, n]) >> 40) as f32 / (1u64 << 24) as f32;
+    let awning = |b: &mut Builder, at: Vec3, w: f32, col: Rgb, r: f32| {
+        b.block(at, w, w * 0.7, 1.0, r, palette::TIMBER);
+        for (dx, dz) in [(-0.45, -0.3), (0.45, -0.3), (-0.45, 0.3), (0.45, 0.3)] {
+            let (s2, c2) = r.sin_cos();
+            let off = vec3(c2 * dx * w - s2 * dz * w, 0.0, s2 * dx * w + c2 * dz * w);
+            b.stick(at + off, at + off + vec3(0.0, 2.4, 0.0), 0.12, palette::TIMBER);
+        }
+        b.block(at + vec3(0.0, 2.4, 0.0), w * 1.1, w * 0.85, 0.15, r, col);
+    };
+    let banner = |b: &mut Builder, at: Vec3, col: Rgb| {
+        b.stick(at, at + vec3(0.0, 4.5, 0.0), 0.15, palette::TIMBER);
+        b.patch(at + vec3(0.35, 3.6, 0.0), 0.6, 1.2, rot + 1.57, col);
+    };
+    match k {
+        PlaceKind::Fields => {
+            // Rows of crops, laid on the land.
+            let ripe = u(1);
+            let (a, c2) = (palette::mix([0.36, 0.50, 0.22], [0.66, 0.60, 0.30], ripe), [0.40, 0.33, 0.22]);
+            let rows = (size / 2.4) as i32;
+            for i in 0..rows {
+                let off = across.scale((i as f32 - rows as f32 * 0.5) * 2.4);
+                let p0 = wp.pos.add(off).sub(along.scale(size * 0.5));
+                let p1 = wp.pos.add(off).add(along.scale(size * 0.5));
+                draped_ribbon(b, on_ground, p0, p1, 1.5, 0.12, if i % 2 == 0 { a } else { c2 }, 6.0);
+            }
+        }
+        PlaceKind::Wilds => {
+            // A hunters' lean-to and a drying rack.
+            b.block(base, 3.0, 2.2, 1.6, rot, palette::WEAVE);
+            for i in 0..3 {
+                let p = base + vec3(cs, 0.0, sn) * (3.0 + i as f32 * 1.1);
+                b.stick(p, p + vec3(0.0, 1.8, 0.0), 0.1, palette::TIMBER);
+            }
+            b.stick(base + vec3(cs, 0.0, sn) * 3.0 + vec3(0.0, 1.7, 0.0), base + vec3(cs, 0.0, sn) * 5.2 + vec3(0.0, 1.7, 0.0), 0.08, palette::TIMBER);
+        }
+        PlaceKind::Woodlot => {
+            for i in 0..5 {
+                let p = base + vec3(-sn, 0.0, cs) * (i as f32 * 0.55);
+                b.stick(p - vec3(cs, 0.0, sn) * 2.0 + vec3(0.0, 0.3, 0.0), p + vec3(cs, 0.0, sn) * 2.0 + vec3(0.0, 0.3, 0.0), 0.5, palette::TIMBER);
+            }
+            for i in 0..4 {
+                let a = i as f32 * 1.7 + u(2) * 6.0;
+                b.block(base + vec3(a.cos(), 0.0, a.sin()) * 6.0, 1.6, 1.3, 1.0 + u(3 + i) * 0.8, a, palette::STONE);
+            }
+        }
+        PlaceKind::Dock => {
+            // Planks out over the water on posts.
+            let start = wp.pos.add(V2::new(2.0, 0.0));
+            let end = wp.pos.add(V2::new(-16.0, 0.0));
+            for i in 0..7 {
+                let p = start.lerp(end, i as f32 / 6.0);
+                b.column(to3(p, -1.5), 0.25, 0.25, 2.8, 5, palette::TIMBER);
+            }
+            b.block(to3(start.lerp(end, 0.5), 1.25), 18.0, 3.0, 0.2, 0.0, palette::TIMBER);
+        }
+        PlaceKind::DivePlatform | PlaceKind::Deck if wet => {
+            for i in 0..6 {
+                let a = i as f32 / 6.0 * std::f32::consts::TAU;
+                b.column(base + vec3(a.cos(), 0.0, a.sin()) * (size * 0.4) + vec3(0.0, -2.0, 0.0), 0.4, 0.3, DECK + 2.0, 6, palette::STONE);
+            }
+            b.column(base + vec3(0.0, DECK, 0.0), size * 0.55, size * 0.55, 0.3, 10, palette::TIMBER);
+            if k == PlaceKind::Deck {
+                // The village's cooking fire.
+                gl.column(base + vec3(0.0, DECK + 0.3, 0.0), 0.6, 0.2, 0.6, 6, palette::EMBER);
+                b.column(base + vec3(1.3, DECK + 0.3, 0.0), 0.5, 0.45, 0.6, 8, [0.45, 0.32, 0.22]);
+            } else {
+                // A ladder down to the water, and a rope frame.
+                b.stick(base + vec3(size * 0.55, DECK, 0.0), base + vec3(size * 0.6, -0.5, 0.0), 0.12, palette::TIMBER);
+                b.stick(base + vec3(-1.5, DECK, 0.0), base + vec3(-1.5, DECK + 3.0, 0.0), 0.15, palette::TIMBER);
+                b.stick(base + vec3(1.5, DECK, 0.0), base + vec3(1.5, DECK + 3.0, 0.0), 0.15, palette::TIMBER);
+                b.stick(base + vec3(-1.5, DECK + 3.0, 0.0), base + vec3(1.5, DECK + 3.0, 0.0), 0.12, palette::TIMBER);
+            }
+        }
+        PlaceKind::KelpBeds => {
+            for i in 0..14 {
+                let a = u(10 + i) * std::f32::consts::TAU;
+                let r = u(40 + i) * size * 0.5;
+                let p = base + vec3(a.cos(), 0.0, a.sin()) * r;
+                b.stick(p + vec3(0.0, -0.3, 0.0), p + vec3(0.0, 1.0, 0.0), 0.08, palette::TIMBER);
+                b.patch(p + vec3(0.0, 0.06, 0.0), 2.4, 1.0, a, [0.14, 0.26, 0.14]);
+            }
+        }
+        PlaceKind::Boatyard => {
+            // A hull turned over on trestles.
+            for dx in [-1.6f32, 1.6] {
+                b.block(base + vec3(cs, 0.0, sn) * dx, 0.3, 1.8, 1.0, rot, palette::TIMBER);
+            }
+            b.dome(base + vec3(0.0, 1.0, 0.0), 3.4, 1.1, 0.9, 0.02, 0.0, wp.seed, palette::TIMBER);
+        }
+        PlaceKind::Kitchen | PlaceKind::Deck => {
+            // An open-sided cookhouse: a roof on posts over a big fire and pots.
+            awning(b, base, 6.0, [0.42, 0.34, 0.26], rot);
+            gl.column(base + vec3(0.0, 1.0, 0.0), 0.8, 0.25, 0.7, 7, palette::EMBER);
+            for i in 0..3 {
+                let a = i as f32 * 2.1;
+                b.column(base + vec3(a.cos(), 1.0, a.sin()) * 1.8, 0.45, 0.4, 0.7, 8, [0.45, 0.32, 0.22]);
+            }
+        }
+        PlaceKind::MessHall | PlaceKind::Hall => {
+            b.block(base, size, size * 0.6, 4.0 + sink, rot, palette::SANDSTONE);
+            b.block(base + vec3(0.0, 4.0 + sink, 0.0), size * 1.05, size * 0.65, 0.4, rot, palette::TIMBER);
+            gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.5 + 0.02) + vec3(0.0, 2.0 + sink, 0.0), 1.6, 1.4, rot, palette::WINDOW);
+            if k == PlaceKind::Hall {
+                banner(b, base + vec3(cs, 0.0, sn) * (size * 0.5 + 1.0) + vec3(-sn, 0.0, cs) * 2.0, [0.65, 0.20, 0.18]);
+            }
+        }
+        PlaceKind::Market => {
+            for i in 0..5 {
+                let a = i as f32 / 5.0 * std::f32::consts::TAU + u(1);
+                let at = base + vec3(a.cos(), 0.0, a.sin()) * (size * 0.33);
+                let col = [[0.70, 0.28, 0.22], [0.25, 0.40, 0.62], [0.75, 0.58, 0.22], [0.40, 0.55, 0.30], [0.55, 0.30, 0.55]][i];
+                awning(b, at, 2.6, col, a + 1.57);
+            }
+        }
+        PlaceKind::Shop(shelf) => {
+            let col = match shelf {
+                Shelf::Food => [0.70, 0.28, 0.22],
+                Shelf::Materials => [0.25, 0.40, 0.62],
+                Shelf::Goods => [0.75, 0.58, 0.22],
+            };
+            b.block(base, size * 0.8, size * 0.6, 3.2 + sink, rot, palette::STONE);
+            awning(b, base + vec3(cs, 0.0, sn) * (size * 0.5), 2.8, col, rot + 1.57);
+        }
+        PlaceKind::Inn => {
+            b.block(base, size, size * 0.75, 4.0 + sink, rot, palette::STONE);
+            b.block(base + vec3(0.0, 4.0 + sink, 0.0), size * 0.85, size * 0.65, 3.2, rot, palette::TIMBER);
+            for side in [-1.0f32, 1.0] {
+                gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.5 + 0.02) + vec3(-sn, 0.0, cs) * (side * 2.5) + vec3(0.0, 2.2 + sink, 0.0), 1.0, 1.0, rot, palette::WINDOW);
+            }
+            banner(b, base + vec3(cs, 0.0, sn) * (size * 0.5 + 1.2), palette::METAL_GOLD);
+        }
+        PlaceKind::Shrine => {
+            b.block(base, 4.0, 4.0, 0.8 + sink, rot, palette::SANDSTONE);
+            b.column(base + vec3(0.0, 0.8 + sink, 0.0), 0.5, 0.3, 3.0, 8, palette::STONE);
+            gl.patch(base + vec3(0.0, 4.2 + sink, 0.0), 1.2, 1.2, rot, palette::METAL_GOLD);
+        }
+        PlaceKind::GuardPost => {
+            for (dx, dz) in [(-1.2, -1.2), (1.2, -1.2), (-1.2, 1.2), (1.2, 1.2)] {
+                b.stick(base + vec3(dx, 0.0, dz), base + vec3(dx, 5.0, dz), 0.25, palette::TIMBER);
+            }
+            b.block(base + vec3(0.0, 4.4, 0.0), 3.4, 3.4, 0.3, rot, palette::TIMBER);
+            b.column(base + vec3(0.0, 5.6, 0.0), 2.4, 0.0, 1.6, 4, palette::WEAVE);
+            banner(b, base + vec3(2.4, 0.0, 0.0), [0.65, 0.20, 0.18]);
+        }
+        PlaceKind::HealingHouse | PlaceKind::HealersHouse => {
+            b.block(base, size, size * 0.7, 3.6 + sink, rot, palette::STONE);
+            gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.5 + 0.02) + vec3(0.0, 2.0 + sink, 0.0), 1.0, 1.0, rot, [0.6, 1.0, 0.7]);
+            banner(b, base + vec3(cs, 0.0, sn) * (size * 0.5 + 1.0), [0.30, 0.65, 0.40]);
+        }
+        PlaceKind::TeachingHouse | PlaceKind::ExchangeHouse | PlaceKind::LettersHouse => {
+            b.block(base, size, size * 0.7, 3.8 + sink, rot, palette::STONE);
+            b.block(base + vec3(0.0, 3.8 + sink, 0.0), size * 0.6, size * 0.5, 2.4, rot, palette::TENT);
+            banner(b, base + vec3(cs, 0.0, sn) * (size * 0.5 + 1.0), [0.60, 0.70, 0.95]);
+            if k != PlaceKind::TeachingHouse {
+                gl.column(base + vec3(cs, 0.0, sn) * (size * 0.5 + 0.2) + vec3(0.0, 3.0 + sink, 0.0), 0.5, 0.5, 0.08, 10, palette::METAL_GOLD);
+            }
+        }
+        PlaceKind::TendersYard => {
+            for i in 0..5 {
+                let a = i as f32 / 5.0 * std::f32::consts::TAU;
+                b.dome(base + vec3(a.cos(), 0.0, a.sin()) * (size * 0.3), 1.2, 1.0, 1.0 + u(5 + i as u64) * 0.8, 0.1, 0.12, wp.seed ^ i as u64, palette::STONE);
+            }
+        }
+        PlaceKind::Workyard | PlaceKind::Forge | PlaceKind::Bench | PlaceKind::Desk | PlaceKind::AlchemyTable => {
+            if k == PlaceKind::Workyard {
+                // A fenced yard.
+                let half = size * 0.5;
+                let corners = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
+                for i in 0..4 {
+                    let (ax, az) = corners[i];
+                    let (bx, bz) = corners[(i + 1) % 4];
+                    let pa = wp.pos.add(along.scale(ax * half)).add(across.scale(az * half));
+                    let pb = wp.pos.add(along.scale(bx * half)).add(across.scale(bz * half));
+                    b.stick(to3(pa, on_ground(pa) + 0.8), to3(pb, on_ground(pb) + 0.8), 0.12, palette::TIMBER);
+                }
+                gl.column(base + vec3(-sn, 0.0, cs) * -2.0, 0.6, 0.3, 0.9, 6, palette::EMBER);
+            } else {
+                let col = if k == PlaceKind::Forge { palette::STONE } else { palette::SANDSTONE };
+                b.block(base, size * 0.8, size * 0.7, 3.0 + sink, rot, col);
+                if k == PlaceKind::Forge {
+                    b.block(base + vec3(-sn, 0.0, cs) * 1.5, 0.9, 0.9, 5.0 + sink, rot, palette::STONE);
+                    gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.4 + 0.02) + vec3(0.0, 1.2 + sink, 0.0), 1.2, 0.9, rot, palette::EMBER);
+                } else if k == PlaceKind::AlchemyTable {
+                    gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.4 + 0.02) + vec3(0.0, 1.8 + sink, 0.0), 0.8, 0.8, rot, [0.5, 1.0, 0.6]);
+                }
+            }
+        }
+        // (A land deck is drawn as a kitchen above; a wet one as a platform.)
+        PlaceKind::DivePlatform => {}
+    }
 }

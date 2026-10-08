@@ -94,7 +94,21 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         if cam.zoom > 0.06 || w.bands.band_at(st.pos) <= 2 {
             c.centred(&st.name, p.x, p.y - r - 6.0, 15.0, TEXT);
         }
+        // Workplaces, close up.
+        if cam.zoom > 0.35 {
+            if let Some(tl) = w.society.towns.get(st.id as usize) {
+                for wp in &tl.places {
+                    let q = s(wp.pos);
+                    let half = (wp.kind.size() * 0.5 * cam.zoom).max(2.0);
+                    let col = if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields { [0.45, 0.55, 0.25] } else { [0.62, 0.58, 0.50] };
+                    c.rect(q.x - half, q.y - half, half * 2.0, half * 2.0, ega(col, 0.45));
+                }
+            }
+        }
         for pid in w.residents_in_band1(st.id) {
+            if w.is_indoors_asleep(pid) {
+                continue;
+            }
             let q = s(w.person_pos(pid));
             c.circle(q.x, q.y, dot, eg(race_color(w.people[pid as usize].race)));
             picks.push((q, 0.0, Hover::Person(pid)));

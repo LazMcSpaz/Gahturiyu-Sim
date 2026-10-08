@@ -70,6 +70,11 @@ pub struct Shot {
     pub summon: bool,
     /// `GAHT_HELD=1`: the squad's mage holds a Restore ritual ready.
     pub held: bool,
+    /// `GAHT_TOWN=1`: open the town panel for the nearest town.
+    pub town: bool,
+    /// `GAHT_SOCIETY=runners|boats|tides`: go and watch the midday meal run,
+    /// the dawn boats, or a stilt village keeping tide hours.
+    pub society: Option<String>,
 }
 
 impl Shot {
@@ -113,8 +118,87 @@ impl Shot {
             book: var("GAHT_BOOK").and_then(|v| v.parse().ok()),
             summon: var("GAHT_SUMMON").is_some(),
             held: var("GAHT_HELD").is_some(),
+            town: var("GAHT_TOWN").is_some(),
+            society: var("GAHT_SOCIETY"),
             nudge: pair("GAHT_NUDGE"),
         })
+    }
+
+    /// Where the camera should look instead of at the squad, if anywhere.
+    pub fn focus(&self, world: &World) -> Option<V2> {
+        use gahturiyu_sim::sim::routine::Doing;
+        match self.society.as_deref()? {
+            "runners" | "boats" => {
+                let want = if self.society.as_deref() == Some("runners") { Doing::Run } else { Doing::Ferry };
+                let here = world.squad.pos;
+                let p = world.people.iter().map(|p| p.id).filter(|&p| world.doing_now(p).map(|d| d.0) == Some(want)).min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)))?;
+                Some(world.person_pos(p))
+            }
+            "tides" => {
+                let here = world.squad.pos;
+                let t = (0..world.society.towns.len()).filter(|&t| world.society.towns[t].stilts.is_some()).min_by(|&a, &b| world.settlements[a].pos.dist(here).total_cmp(&world.settlements[b].pos.dist(here)))?;
+                world.society.towns[t].places.iter().find(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::DivePlatform).map(|p| p.pos)
+            }
+            _ => None,
+        }
+    }
+
+    /// Set up one of the society scenes: step to the right moment and stand
+    /// the squad nearby.
+    fn society_scene(&self, world: &mut World, what: &str) {
+        use gahturiyu_sim::sim::{jobs::Job, routine::Doing, world::{DAY, HOUR}};
+        let step_to = |world: &mut World, t: f64| {
+            while world.time < t {
+                world.step(60.0f64.min(t - world.time).max(0.01));
+            }
+        };
+        match what {
+            "runners" => {
+                // A runner working today, in a town with a hearth kitchen.
+                let today = World::day_of(world.time);
+                let found = (today..today + 6).find_map(|d| {
+                    world.people.iter().map(|p| p.id).find_map(|p| {
+                        if world.life(p).job != Job::Runner {
+                            return None;
+                        }
+                        let plan = world.day_plan(p, d);
+                        let run = plan.segs().iter().position(|s| s.doing == Doing::Run)?;
+                        let at = d as f64 * DAY + (plan.segs[run].from as f64 + 0.4) * HOUR;
+                        (at > world.time).then_some((p, at))
+                    })
+                });
+                if let Some((p, at)) = found {
+                    step_to(world, at);
+                    let pos = world.person_pos(p);
+                    world.teleport_squad(pos.add(V2::new(30.0, 12.0)));
+                    world.step(0.1);
+                }
+            }
+            "boats" => {
+                let t = world.society.towns.iter().position(|tl| tl.stilts.is_some());
+                if let Some(t) = t {
+                    let next = World::day_of(world.time) as f64 * DAY + (gahturiyu_sim::sim::routine::BOAT_OUT as f64 + 0.35) * HOUR;
+                    let at = if next > world.time { next } else { next + DAY };
+                    step_to(world, at);
+                    let dock = world.society.towns[t].places.iter().find(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Dock).map(|p| p.pos);
+                    if let Some(d) = dock {
+                        world.teleport_squad(d.add(V2::new(18.0, 14.0)));
+                        world.step(0.1);
+                    }
+                }
+            }
+            "tides" => {
+                let t = world.society.towns.iter().position(|tl| tl.stilts.is_some());
+                if let Some(t) = t {
+                    let dock = world.society.towns[t].places.iter().find(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Dock).map(|p| p.pos);
+                    if let Some(d) = dock {
+                        world.teleport_squad(d.add(V2::new(20.0, 10.0)));
+                        world.step(0.1);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Set the world up for the picture: everything that changes the world
@@ -129,6 +213,9 @@ impl Shot {
             while world.time < end {
                 world.step(60.0);
             }
+        }
+        if let Some(what) = self.society.clone() {
+            self.society_scene(world, &what);
         }
         if self.sneak {
             for m in world.squad.members.clone() {

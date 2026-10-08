@@ -230,10 +230,16 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             }
             if p.in_squad {
                 out.push(("Your squad".into(), TEXT));
-            } else if let Some(g) = w.group_of[pid as usize].and_then(|g| w.group(g)) {
-                out.push((doing(w, g.id), DIM));
-            } else if let Some(home) = p.home {
-                out.push((format!("At home in {}", w.settlements[home as usize].name), DIM));
+            } else {
+                out.extend(work_lines(w, pid));
+                if let Some(g) = w.group_of[pid as usize].and_then(|g| w.group(g)) {
+                    out.push((doing(w, g.id), DIM));
+                } else if let Some(home) = p.home {
+                    match w.doing_now(pid) {
+                        Some((d, spot)) => out.push((format!("{} — {}", capital(d.word()), where_word(w, pid, spot, home)), GOLD)),
+                        None => out.push((format!("At home in {}", w.settlements[home as usize].name), DIM)),
+                    }
+                }
             }
         }
         Hover::Group(gid) => {
@@ -324,6 +330,11 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             out.push((format!("{} people, {} home right now", s.residents.len(), home), TEXT));
             for (r, n) in ALL_RACES.iter().zip(by) {
                 out.push((format!("   {} {}", r.name(), n), race_color(*r)));
+            }
+            if let Some(tl) = w.society.towns.get(sid as usize) {
+                let k = w.society.communities[tl.shore as usize].customs;
+                out.push((format!("{}  ·  {}", k.cooking.name(), k.rhythm.name()), TEXT));
+                out.push((format!("Fed {:.0}% yesterday  ·  click for the town panel", w.town_food(sid) * 100.0), DIM));
             }
         }
         Hover::Torch(i) => {
@@ -430,3 +441,61 @@ pub fn shadow(a: f32) -> Color32 {
     ega([0.0, 0.0, 0.0], a)
 }
 
+
+fn capital(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        None => String::new(),
+    }
+}
+
+/// Someone's work: what they do, where, and the hours they keep.
+fn work_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
+    use gahturiyu_sim::sim::jobs::Job;
+    let l = w.life(pid);
+    if l.job == Job::None {
+        return vec![];
+    }
+    let mut line = l.job.name().to_string();
+    if l.job == Job::Guard && l.shift == 1 {
+        line += " (night watch)";
+    }
+    if let Some(wp) = w.workplace_of(pid) {
+        line += &format!("  ·  {}", wp.kind.name());
+    }
+    if l.job == Job::StoneTender {
+        line += "  ·  rounds of the homes";
+    }
+    let mut extra = Vec::new();
+    if let Some(r) = l.habits.own_rhythm.filter(|&r| w.community_of(pid).map(|c| c.customs.rhythm != r).unwrap_or(true)) {
+        extra.push(format!("keeps {} whatever the town does", r.name().to_lowercase()));
+    }
+    if l.habits.lodger {
+        extra.push("lodges with a host household".to_string());
+    }
+    if w.gardener_of(pid).is_some() {
+        extra.push("tends the garden".to_string());
+    }
+    let mut out = vec![(line, TEXT)];
+    if !extra.is_empty() {
+        out.push((capital(&extra.join(", ")), DIM));
+    }
+    out
+}
+
+fn where_word(w: &World, pid: PersonId, spot: gahturiyu_sim::sim::routine::Spot, home: u16) -> String {
+    use gahturiyu_sim::sim::routine::Spot;
+    let town = &w.settlements[home as usize].name;
+    match spot {
+        Spot::Home => format!("home in {town}"),
+        Spot::Work => w.workplace_of(pid).map(|p| format!("the {}", p.kind.name().to_lowercase())).unwrap_or_else(|| town.clone()),
+        Spot::Place(i) => format!("the {}", w.society.towns[home as usize].places[i as usize].kind.name().to_lowercase()),
+        Spot::Hearth => "by the hearth".into(),
+        Spot::Visit(_) => "at a neighbour's".into(),
+        Spot::Garden => "the garden".into(),
+        Spot::Rounds => "going from home to home".into(),
+        Spot::Boat => "on the dawn boat".into(),
+        Spot::RunRound => "out to the fields and yards".into(),
+    }
+}

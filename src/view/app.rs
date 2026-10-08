@@ -64,6 +64,8 @@ pub struct Game {
     pub inv: Option<PersonId>,
     pub craft: Option<PersonId>,
     pub journal: bool,
+    /// The town panel (P, or click a town's name).
+    pub town: Option<u16>,
     /// The graphics settings panel (O).
     pub options: bool,
     /// Whose spell book is open (M).
@@ -126,6 +128,7 @@ pub fn run() {
         inv: None,
         craft: None,
         journal: false,
+        town: None,
         options: std::env::var("GAHT_SETTINGS").is_ok(),
         book: None,
         aim: None,
@@ -178,6 +181,15 @@ pub fn run() {
         game.inv = s.inventory.and_then(|k| game.world.squad.members.get(k).copied());
         game.craft = s.craft.and_then(|k| game.world.squad.members.get(k).copied());
         game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
+        if s.town {
+            let at = game.world.squad.pos;
+            game.town = game.world.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|t| t.id);
+        }
+        if let Some(p) = s.focus(&game.world) {
+            game.follow = false;
+            game.orbit.target = p;
+            game.orbit.ground = game.world.terrain.surface(p);
+        }
         if s.forest {
             if let Some(p) = super::foliage::biggest_wood_near(&game.world, game.world.squad.pos) {
                 game.follow = false;
@@ -362,6 +374,17 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     if keys.just_pressed(KeyCode::KeyJ) {
         game.journal = !game.journal;
+    }
+    // P: the town panel for the town nearest the camera.
+    if keys.just_pressed(KeyCode::KeyP) {
+        let at = match game.view {
+            View::Scene => game.orbit.target,
+            View::Map => w.squad.pos,
+        };
+        game.town = match game.town {
+            Some(_) => None,
+            None => w.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|s| s.id),
+        };
     }
     if keys.just_pressed(KeyCode::KeyO) {
         game.options = !game.options;
@@ -626,6 +649,10 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 return;
             }
         }
+        Some(Hover::Town(t)) => {
+            game.town = if game.town == Some(t) { None } else { Some(t) };
+            return;
+        }
         Some(Hover::Node(node)) => {
             let pos = world.nodes.iter().find(|n| n.id == node).map(|n| n.pos);
             if let Some(pos) = pos {
@@ -776,6 +803,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if game.journal {
         panels.push(squadui::journal(&c, w));
     }
+    if let Some(t) = game.town {
+        panels.push(super::townui::town_panel(&c, w, t));
+    }
     if game.book.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
         game.book = None;
     }
@@ -880,8 +910,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
+        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {

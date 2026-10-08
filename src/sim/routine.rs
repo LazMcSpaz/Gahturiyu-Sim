@@ -161,8 +161,8 @@ impl Plan {
 /// Length of a meal runner's midday round, hours.
 pub const RUN_HOURS: f32 = 1.5;
 /// When the dawn boat leaves the stilts and when it's back, hours.
-pub const BOAT_OUT: f32 = 4.25;
-pub const BOAT_BACK: f32 = 5.25;
+pub const BOAT_OUT: f32 = 5.4;
+pub const BOAT_BACK: f32 = 6.4;
 /// Usual bedtime, hours (individuals vary).
 pub const BED: f32 = 22.0;
 
@@ -505,7 +505,9 @@ impl World {
         };
         let place = |i: u16| -> V2 {
             let w = &tl.places[i as usize];
-            around(w.pos, 1.0, w.kind.size() * 0.4)
+            // Divers spread out in the water round their platform.
+            let spread = if w.kind == PlaceKind::DivePlatform { 1.4 } else { 0.4 };
+            around(w.pos, 1.0, w.kind.size() * spread)
         };
         match spot {
             Spot::Home => home(),
@@ -548,11 +550,12 @@ impl World {
             Spot::Boat => {
                 // Out from the stilts to the dock, unload, and back.
                 let from = tl.places.iter().find(|w| w.kind == PlaceKind::Deck && geo::inland(w.pos) < 0.0).or_else(|| tl.places.iter().find(|w| w.kind == PlaceKind::DivePlatform)).map(|w| w.pos).unwrap_or(s.pos);
-                let to = tl.places.iter().find(|w| w.kind == PlaceKind::Dock).map(|w| w.pos.add(V2::new(-6.0, 0.0))).unwrap_or(s.pos);
+                // Each boat pulls up at its own spot along the dock.
+                let to = tl.places.iter().find(|w| w.kind == PlaceKind::Dock).map(|w| w.pos.add(V2::new(-4.0 - 12.0 * u, 2.8 * if a.sin() > 0.0 { 1.0 } else { -1.0 }))).unwrap_or(s.pos);
                 let span = BOAT_BACK - BOAT_OUT;
                 let f = ((h - BOAT_OUT) / span).clamp(0.0, 1.0);
                 let leg = if f < 0.42 { f / 0.42 } else if f < 0.58 { 1.0 } else { 1.0 - (f - 0.58) / 0.42 };
-                from.lerp(to, leg).add(V2::new(0.0, (a.sin()) * 1.2))
+                from.add(V2::new(0.0, a.sin() * 8.0)).lerp(to, leg)
             }
             Spot::RunRound => {
                 // Kitchen → each out-of-town workplace → kitchen.
