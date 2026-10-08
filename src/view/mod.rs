@@ -10,5 +10,6 @@ pub mod mesh;
 pub mod models;
 pub mod palette;
 pub mod scene;
+pub mod settings;
 pub mod shot;
 pub mod squadui;

@@ -56,6 +56,7 @@ use super::mesh::Builder;
 use super::models::{Models, MODEL_LOD1, MODEL_LOD2};
 use super::palette::{self, Rgb};
 use super::scene::Scene3d;
+use super::settings::Settings;
 
 // ---- Placement ----------------------------------------------------------------
 
@@ -247,35 +248,35 @@ fn cell(w: &World, kind: u64, i: i64, j: i64, grid: f32) -> (V2, Rng) {
     (p, r)
 }
 
-fn grass_at(w: &World, p: V2, r: &mut Rng) -> bool {
+fn grass_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
     let Some(s) = spot(w, p) else { return false };
     if s.ground != Ground::Grass {
         return false;
     }
     let chance = 0.8 * (1.0 - s.arid) * smooth(0.75, 0.45, s.slope) * smooth(620.0, 460.0, s.h) * smooth(6.0, 22.0, s.shore) * (1.0 - 0.5 * wood(w, p));
-    r.f32() < chance
+    r.f32() < chance * density
 }
 
-fn bush_at(w: &World, p: V2, r: &mut Rng) -> bool {
+fn bush_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
     let Some(s) = spot(w, p) else { return false };
     if !matches!(s.ground, Ground::Grass | Ground::Scrub) {
         return false;
     }
     let wd = wood(w, p);
     let chance = (0.10 + 0.35 * wd * (1.0 - wd) * 4.0 * 0.5 + 0.25 * s.arid) * smooth(0.8, 0.5, s.slope) * smooth(720.0, 560.0, s.h) * smooth(6.0, 14.0, s.shore);
-    r.f32() < chance
+    r.f32() < chance * density
 }
 
 /// Whether a tree grows in this cell, and if so which kind (0 broadleaf,
 /// 1 conifer).
-fn tree_at(w: &World, p: V2, r: &mut Rng) -> Option<u8> {
+fn tree_at(w: &World, p: V2, r: &mut Rng, density: f32) -> Option<u8> {
     let s = spot(w, p)?;
     if !matches!(s.ground, Ground::Grass | Ground::Scrub) {
         return None;
     }
     let wd = wood(w, p);
     let chance = (0.85 * wd + 0.025) * (1.0 - 0.95 * s.arid) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore);
-    if r.f32() >= chance {
+    if r.f32() >= chance * density {
         return None;
     }
     // Conifers up the slopes, broadleaf below, mixed between.
@@ -422,12 +423,14 @@ impl Layer {
         }
     }
     /// How far from the camera (along the ground) this layer is kept.
-    fn reach(self) -> f32 {
+    fn reach(self, s: &Settings) -> f32 {
+        let (g, b, t) = s.foliage_density();
         match self {
-            Layer::Grass => GRASS_FADE.1,
-            Layer::Bush => BUSH_SIMPLE_END.1,
-            Layer::Tree => TREE_BLOB_END.1,
-            Layer::Far => BILLBOARD_FAR,
+            Layer::Grass if g > 0.0 => GRASS_FADE.1,
+            Layer::Bush if b > 0.0 => BUSH_SIMPLE_END.1,
+            Layer::Tree if t > 0.0 => TREE_BLOB_END.1,
+            Layer::Far if t > 0.0 => s.billboard_far(),
+            _ => 0.0,
         }
     }
 }
@@ -453,6 +456,10 @@ pub struct Foliage {
     billboard_mat: Handle<PlantMat>,
     /// Plants counted near the camera last frame, by what's drawn of them.
     pub counts: Counts,
+    /// How much of each kind grows (from the graphics settings), and which
+    /// version of the settings the loaded chunks were built for.
+    density: (f32, f32, f32),
+    settings_version: Option<u32>,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -541,9 +548,9 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
             let scale = 0.8 + r.f32() * 0.45;
             let variant = r.below(3);
             let grows = match layer {
-                Layer::Grass => grass_at(w, p, &mut r).then_some(0),
-                Layer::Bush => bush_at(w, p, &mut r).then_some(0),
-                Layer::Tree | Layer::Far => tree_at(w, p, &mut r),
+                Layer::Grass => grass_at(w, p, &mut r, f.density.0).then_some(0),
+                Layer::Bush => bush_at(w, p, &mut r, f.density.1).then_some(0),
+                Layer::Tree | Layer::Far => tree_at(w, p, &mut r, f.density.2),
             };
             let Some(sub) = grows else { continue };
             let at = to3(p, ground(p) - 0.05);
@@ -590,7 +597,17 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
 
 /// Load the chunks round the camera (nearest first, a few a frame) and drop
 /// the ones it has left behind.
-pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, scene: Res<Scene3d>, mut meshes: ResMut<Assets<Mesh>>) {
+pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, scene: Res<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, settings: Res<Settings>) {
+    // Settings changed: start again with the new amounts.
+    if f.settings_version != Some(settings.version) {
+        for (_, c) in f.chunks.drain() {
+            for e in c.entities {
+                commands.entity(e).despawn();
+            }
+        }
+        f.density = settings.foliage_density();
+        f.settings_version = Some(settings.version);
+    }
     let w = &game.world;
     let show = game.view == View::Scene;
     let eye = game.orbit.eye();
@@ -601,9 +618,9 @@ pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, s
     let over = |t0: &std::time::Instant| game.shot.is_none() && t0.elapsed().as_secs_f32() * 1000.0 > CHUNK_MS;
     let mut keep: HashMap<(Layer, i64, i64), ()> = HashMap::new();
     for layer in [Layer::Grass, Layer::Bush, Layer::Tree, Layer::Far] {
-        let reach = layer.reach();
-        // Too high above the ground for this layer to show at all?
-        if !show || above > reach {
+        let reach = layer.reach(&settings);
+        // Off, or too high above the ground for this layer to show at all?
+        if !show || reach <= 0.0 || above > reach {
             continue;
         }
         let flat = (reach * reach - above * above).max(0.0).sqrt();

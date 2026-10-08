@@ -110,6 +110,8 @@ pub fn update(
     mut moon: Query<&mut DirectionalLight, (With<Moon>, Without<Sun>)>,
     mut lamps: Query<(&Lamp, &mut PointLight, &mut Transform, &mut Visibility), (Without<Sun>, Without<Moon>)>,
     mut ambient: ResMut<GlobalAmbientLight>,
+    settings: Res<super::settings::Settings>,
+    mut bloom_on: Local<Option<bool>>,
     mut clear: ResMut<ClearColor>,
     cam: Query<Entity, With<MainCamera>>,
 ) {
@@ -123,8 +125,9 @@ pub fn update(
     let sky = palette::mix(palette::mix(NIGHT_SKY, SKY, day), palette::scale(DUSK_SKY, day.sqrt()), dusk * 0.85);
     clear.0 = palette::bevy(sky);
     // Shadows reach as far as the camera's view of the near scene.
-    let reach = (game.orbit.dist * 3.0).clamp(150.0, 1500.0);
+    let reach = (game.orbit.dist * 3.0).clamp(150.0, 1500.0) * settings.shadow_reach().max(0.1);
     for (mut s, mut tf, mut cascades) in &mut sun {
+        s.shadow_maps_enabled = settings.shadow_reach() > 0.0;
         if (cascades.bounds.last().copied().unwrap_or(0.0) - reach).abs() > reach * 0.2 {
             *cascades = CascadeShadowConfigBuilder { num_cascades: 3, minimum_distance: 0.5, maximum_distance: reach, first_cascade_far_bound: reach * 0.12, overlap_proportion: 0.2 }.build();
         }
@@ -146,6 +149,14 @@ pub fn update(
     let r = game.orbit.draw_radius();
     let far = game.orbit.far_radius();
     if let Ok(e) = cam.single() {
+        if *bloom_on != Some(settings.bloom) {
+            if settings.bloom {
+                commands.entity(e).insert(Bloom { intensity: 0.12, ..Bloom::NATURAL });
+            } else {
+                commands.entity(e).remove::<Bloom>();
+            }
+            *bloom_on = Some(settings.bloom);
+        }
         commands.entity(e).insert(DistanceFog {
             color: palette::bevy(sky),
             directional_light_color: palette::bevy(palette::scale(SUN_WARM, 0.5 * dusk)).with_alpha(0.6),
@@ -189,7 +200,7 @@ pub fn update(
     want.sort_by(|a, b| a.0.distance(game.orbit.look_at()).total_cmp(&b.0.distance(game.orbit.look_at())));
     let t = time.elapsed_secs();
     for (lamp, mut pl, mut tf, mut vis) in &mut lamps {
-        match want.get(lamp.0) {
+        match want.get(lamp.0).filter(|_| lamp.0 < settings.lamps) {
             Some(&(p, lumens, range, col, seed)) if lumens > 1.0 => {
                 // A cheap flicker: two slow waves and a quick one.
                 let f = 0.86 + 0.08 * (t * 7.3 + seed).sin() + 0.04 * (t * 13.1 + seed * 2.7).sin() + 0.02 * (t * 23.0 + seed).sin();

@@ -64,6 +64,8 @@ pub struct Game {
     pub inv: Option<PersonId>,
     pub craft: Option<PersonId>,
     pub journal: bool,
+    /// The graphics settings panel (O).
+    pub options: bool,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -106,6 +108,7 @@ pub fn run() {
         inv: None,
         craft: None,
         journal: false,
+        options: std::env::var("GAHT_SETTINGS").is_ok(),
         frame: 0,
         shot_at: None,
         sim_ms: 0.0,
@@ -190,6 +193,7 @@ pub fn run() {
         .add_plugins(EguiPlugin::default())
         .add_plugins(super::foliage::FoliagePlugin)
         .insert_resource(game)
+        .insert_resource(super::settings::Settings::load())
         .init_resource::<scene::Scene3d>()
         .init_resource::<models::Models>()
         .init_resource::<super::foliage::Foliage>()
@@ -308,6 +312,9 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     if keys.just_pressed(KeyCode::KeyJ) {
         game.journal = !game.journal;
+    }
+    if keys.just_pressed(KeyCode::KeyO) {
+        game.options = !game.options;
     }
     if keys.just_pressed(KeyCode::KeyK) {
         game.inv = None;
@@ -556,7 +563,8 @@ struct UiState {
 }
 
 /// The panels, labels, map and tooltips; clicks on panels become actions.
-fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>) -> Result {
+#[allow(clippy::too_many_arguments)]
+fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>, mut settings: ResMut<super::settings::Settings>) -> Result {
     let ctx = contexts.ctx_mut()?;
     if !st.fonts {
         let mut fonts = egui::FontDefinitions::default();
@@ -679,6 +687,13 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if game.debug {
         panels.push(Bx::from(super::foliage::draw_readout(&c, &game.orbit, &scene, &foliage, &models)));
     }
+    if game.options {
+        let mut s = settings.clone();
+        panels.push(super::settings::panel(&c, &mut s, game.mouse, click, game.frame_ms));
+        if s != *settings {
+            *settings = s;
+        }
+    }
 
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
@@ -691,8 +706,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
+        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     c.rect(0.0, size.y - 30.0, size.x, 30.0, hud::shadow(0.45));
     c.text(help, 14.0, size.y - 10.0, 15.0, super::palette::DIM);
