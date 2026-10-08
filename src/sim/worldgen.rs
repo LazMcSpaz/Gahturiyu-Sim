@@ -1,0 +1,165 @@
+//! Building a fresh world from a seed.
+
+use super::geo::{self, V2, WORLD_SIZE};
+use super::group::{Group, Kind, Leg};
+use super::person::{Person, PersonId};
+use super::race::{Race, ALL_RACES};
+use super::rng::{self, Rng};
+use super::settlement::{Settlement, SettlementId};
+use super::world::{Squad, World, HOUR};
+use super::names;
+
+/// How many people live in the world, split evenly between the four races.
+pub const POPULATION: usize = 5_000;
+/// Coastal towns, strung along the shore.
+pub const COASTAL_TOWNS: usize = 10;
+/// Upper limit on inland towns (fewer if they do not fit).
+pub const INLAND_TOWNS: usize = 20;
+/// Above this wanderlust a person belongs nowhere and roams.
+pub const WANDERER_THRESHOLD: f32 = 0.85;
+
+pub fn generate(seed: u64) -> World {
+    let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
+    let mut settlements = place_settlements(&mut rng, seed);
+
+    // --- People ---------------------------------------------------------
+    let mut people: Vec<Person> = Vec::with_capacity(POPULATION + 4);
+    let mut wanderers: Vec<PersonId> = Vec::new();
+    let per_race = POPULATION / ALL_RACES.len();
+    for (ri, &race) in ALL_RACES.iter().enumerate() {
+        let count = if ri == 0 { POPULATION - per_race * 3 } else { per_race };
+        for _ in 0..count {
+            let id = people.len() as PersonId;
+            let pseed = rng::key(&[seed, id as u64, 0x5045_4F50]);
+            let mut p = Person::summary(id, pseed, race, None);
+            if p.traits.wanderlust > WANDERER_THRESHOLD {
+                wanderers.push(id);
+            } else {
+                let mut hr = Rng::from_keys(&[pseed, 0x484F_4D45]);
+                let w: Vec<f32> = settlements.iter().map(|s| s.size * affinity(race, s)).collect();
+                let h = hr.weighted(&w).unwrap_or(0) as SettlementId;
+                p.home = Some(h);
+                settlements[h as usize].residents.push(id);
+            }
+            people.push(p);
+        }
+    }
+
+    // --- Your squad: one of each, because they live side by side ---------
+    let start_town = settlements
+        .iter()
+        .filter(|s| s.coastal && s.founders == Race::Roduro)
+        .max_by(|a, b| a.residents.len().cmp(&b.residents.len()))
+        .or(settlements.iter().max_by(|a, b| a.residents.len().cmp(&b.residents.len())))
+        .map(|s| s.id)
+        .unwrap_or(0);
+    let mut squad_ids = Vec::new();
+    for (i, &race) in [Race::Roduro, Race::Horaro, Race::Qotiro, Race::Tadoro].iter().enumerate() {
+        let id = people.len() as PersonId;
+        let mut p = Person::summary(id, rng::key(&[seed, 0x5351_5544, i as u64]), race, Some(start_town));
+        p.in_squad = true;
+        p.ensure_detail();
+        people.push(p);
+        squad_ids.push(id);
+    }
+    let st = &settlements[start_town as usize];
+    let squad_pos = st.pos.add(V2::new(st.radius() + 60.0, 30.0));
+    let squad = Squad { members: squad_ids, pos: squad_pos, target: squad_pos };
+
+    // --- Wanderers: each starts somewhere in the wild, resting ----------
+    let mut groups = Vec::new();
+    for (gi, &pid) in wanderers.iter().enumerate() {
+        let p = &mut people[pid as usize];
+        let mut wr = Rng::from_keys(&[p.seed, 0x5752_4E44]);
+        let mut at = V2::new(WORLD_SIZE / 2.0, WORLD_SIZE / 2.0);
+        for _ in 0..50 {
+            let c = V2::new(wr.range(800.0, WORLD_SIZE - 800.0), wr.range(800.0, WORLD_SIZE - 800.0));
+            if geo::inland(c) > 400.0 {
+                at = c;
+                break;
+            }
+        }
+        let first_rest = wr.f64() * 8.0 * HOUR;
+        let restless = p.traits.wanderlust as f64;
+        groups.push(Group {
+            id: gi as u32,
+            seed: p.seed,
+            members: vec![pid],
+            kind: Kind::Wanderer { rest_min: HOUR * (1.0 + 4.0 * (1.0 - restless)), rest_max: HOUR * (6.0 + 14.0 * (1.0 - restless)) },
+            legs: vec![Leg { from: at, to: at, depart: 0.0, arrive: first_rest, dest: None }],
+            speed: p.race.walk_speed(),
+            ends: f64::INFINITY,
+            written: 1,
+            pos: at,
+            last_update: 0.0,
+            band: 3,
+        });
+    }
+
+    // Start at 06:00 on day 1.
+    World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR)
+}
+
+/// How strongly a settlement draws people of a race. Everyone lives
+/// everywhere; this only tilts the odds.
+fn affinity(race: Race, s: &Settlement) -> f32 {
+    if race == s.founders {
+        return 9.0;
+    }
+    match race {
+        // The water people settle just off any coast, whoever owns the shore.
+        Race::Horaro => {
+            if s.coastal {
+                5.0
+            } else {
+                0.45
+            }
+        }
+        // The air people lodge in other peoples' towns rather than build their own.
+        Race::Tadoro => 1.3,
+        _ => 1.0,
+    }
+}
+
+fn place_settlements(rng: &mut Rng, seed: u64) -> Vec<Settlement> {
+    let mut out: Vec<Settlement> = Vec::new();
+    let push = |out: &mut Vec<Settlement>, pos: V2, founders: Race, coastal: bool, rng: &mut Rng| {
+        let id = out.len() as SettlementId;
+        out.push(Settlement {
+            id,
+            name: names::place_name(founders, rng::key(&[seed, id as u64, 0x544F_574E])),
+            pos,
+            founders,
+            coastal,
+            stilts: if coastal { Some(V2::new(geo::coast_x(pos.y) - 110.0, pos.y)) } else { None },
+            size: rng.f32().powi(2) * 1.8 + 0.35,
+            residents: Vec::new(),
+        });
+    };
+
+    // Coastal towns, spaced down the shore.
+    for i in 0..COASTAL_TOWNS {
+        let y = ((i as f32 + 0.5) / COASTAL_TOWNS as f32 * WORLD_SIZE + rng.range(-800.0, 800.0)).clamp(900.0, WORLD_SIZE - 900.0);
+        let x = geo::coast_x(y) + rng.range(450.0, 1000.0);
+        let founders = match rng.weighted(&[0.55, 0.30, 0.15]) {
+            Some(0) => Race::Roduro,
+            Some(1) => Race::Horaro,
+            _ => Race::Qotiro,
+        };
+        push(&mut out, V2::new(x, y), founders, true, rng);
+    }
+
+    // Inland towns. The south-east is Qotiro country; elsewhere mostly Roduro.
+    let mut tries = 0;
+    while out.len() < COASTAL_TOWNS + INLAND_TOWNS && tries < 5000 {
+        tries += 1;
+        let p = V2::new(rng.range(800.0, WORLD_SIZE - 800.0), rng.range(800.0, WORLD_SIZE - 800.0));
+        if geo::inland(p) < 2200.0 || out.iter().any(|s| s.pos.dist(p) < 2700.0) {
+            continue;
+        }
+        let homeland = p.x > 11_500.0 && p.y > 10_500.0;
+        let founders = if rng.chance(if homeland { 0.75 } else { 0.28 }) { Race::Qotiro } else { Race::Roduro };
+        push(&mut out, p, founders, false, rng);
+    }
+    out
+}

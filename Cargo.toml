@@ -1,0 +1,28 @@
+[package]
+name = "gahturiyu-sim"
+version = "0.1.0"
+edition = "2021"
+description = "Gahturiyu: a banded, always-alive world simulation with a plain playtest window"
+default-run = "gahturiyu"
+
+[lib]
+name = "gahturiyu_sim"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gahturiyu"
+path = "src/main.rs"
+
+[[bin]]
+name = "headless"
+path = "src/bin/headless.rs"
+
+[dependencies]
+macroquad = "0.4"
+
+[profile.dev]
+# The simulation is numeric; unoptimised Rust is painfully slow at it.
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

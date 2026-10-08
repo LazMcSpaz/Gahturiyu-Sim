@@ -1,197 +1,131 @@
-# Gahturiyu — settlement simulation
+# Gahturiyu Sim
 
-A seasonal simulation of a Roduro coastal settlement. It runs in a browser with
-no server. The map stays on screen; the chronicle under it records what happened
-each season, one fact per line.
+A Kenshi-style world for Gahturiyu, built simulation-first. Right now it is a
+21 × 21 km coast with 30 towns and 5,000 people who travel, visit and wander
+whether or not you are watching — plus a plain window to watch them in.
+
+There is no combat, trade or player interaction yet. This first slice proves the
+foundation: **the far-away world runs cheaply, the nearby world runs in full
+detail, and nothing changes or blinks when things cross between the two.**
 
 ## Running it
 
-Open `dist/gahturiyu.html`. That is the whole application — one file, no build
-needed to *use* it, works from `file://` or from GitHub Pages on a phone.
+One-time setup on Windows:
 
-## Working on it
+1. Install Rust from <https://rustup.rs>. If it asks to install the Visual Studio
+   C++ build tools, say yes.
+2. Clone this repo (GitHub Desktop is fine).
 
-```
-node build.js        # concatenate src/ into dist/gahturiyu.html
-node test/run.js     # headless: determinism, levers, hundred-year runs, chronicle
-node test/probe.js "console.log(sim(7, 200).hist.at(-1))"   # scratch
-node tools/probe.js                        # eleven seeds, 120 years, one line each, and what looks wrong
-node tools/probe.js --years 250 --every 80 # longer, with a time series per seed
-node tools/ab.js HEAD~1                    # the same sweep on another commit and on the working tree
-```
-
-There is no bundler and no dependency. `build.js` concatenates the files listed
-in `MANIFEST` in order and inlines them into `src/ui/index.html`. The files share
-one scope — they are deliberately **not** ES modules, because that would require
-a server and lose the open-the-file-on-your-phone property.
-
-Adding a file means adding it to `MANIFEST`.
-
-## Where it is going
-
-`docs/design.md` is the design for what the settlement is meant to become:
-standing held separately by each faction, buildings that keep growing for a
-century and change what they are as they do, trades learned from a master, the finer of
-which need a room only an old house has, offices that are sought rather than
-filled, relationships that drift because of where people spend their time, and
-an economy that stays under the floor and surfaces only when it pinches
-someone. Most of it is not built. Where the document and
-the code disagree, the code is behind.
-
-## The contract
+Then, in a terminal inside the repo folder:
 
 ```
-advance(state, input) -> new state
+cargo run --release
 ```
 
-Pure, given the seed. All state is plain JSON, every turn's randomness derives
-from `(seed, turn)`, and nothing is held outside the state object. Three things
-depend on this and will break quietly if it is violated:
+The first build downloads and compiles a few libraries and takes a minute or
+two. After that it starts in seconds. `cargo run --release -- 42` builds a
+different world from seed 42.
 
-- **rollback** — go back to any season
-- **branching** — change one decision and replay forward
-- **export** — a saved run is the seed plus your inputs, a few kilobytes, and it
-  rebuilds the world exactly
+### Controls
 
-If you add a system, it must read and write only `state`, and take its randomness
-only from the `r` passed to it.
+| | |
+|---|---|
+| Left-click | Send your squad there |
+| Right-drag, or WASD | Pan the map |
+| Mouse wheel | Zoom |
+| C | Snap back to following the squad |
+| Space | Pause |
+| 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s |
+| R | Show / hide the band rings |
+
+Hover over anyone or anything for details.
+
+## What you are looking at
+
+- **Colours are races.** Stone = Roduro, ember = Qotiro, sea blue = Horaro,
+  pale violet = Ṭaḍoro.
+- **Towns** are the large circles, tinted by who founded them. Every town is
+  mixed. Coastal towns have a Horaro stilt community just offshore (the blue
+  patch in the water).
+- **The rings around your squad are the bands.**
+  - Inside the inner ring (500 m) is **band 1**: everyone is drawn as a person
+    with a name, temperament and gear.
+  - Between the rings (out to 2.5 km) is **band 2**: travelling groups are one
+    dot each, updated every few game seconds.
+  - Beyond is **band 3**: groups are small faint dots, updated once a game-minute.
+- The panel's **"Named so far"** count only goes up when something comes close.
+  Walk somewhere new and watch it climb. Hover a far-off group and it will say
+  nobody in it has been named yet.
+
+## How it works, in plain words
+
+**Everyone exists, but cheaply.** Each person is a seed, a race, four temperament
+traits and one cached "might" score. That is all the far-away world reads.
+
+**Details appear only when needed, and then stay.** A name and gear are built
+from the seed the first time a person comes within band 1, chosen so they add up
+to the might score the world was already using. Once built they are kept forever.
+Someone you have met never comes back as a stranger.
+
+**Races set the average, not the person.** Each trait is drawn around the race's
+average with a wide spread. Most Roduro are homebodies; some are restless and
+travel far. Most Ṭaḍoro roam; some settle in a town.
+
+**Journeys are schedules.** When a group sets out, its whole trip is written
+down: leave at 09:12, reach the next town at 11:40, stay until evening, walk
+home. Its position at any moment is just looked up from the schedule. A group
+in band 3 is checked once a minute and a group beside you sixty times a second,
+and both are in exactly the right place. This is the same rule as the old NPC
+routine plan — read the clock, set the state.
+
+**Randomness is keyed, not rolled.** "Does anyone leave this town this hour?" is
+answered from the world seed plus that town plus that hour. So the answer is the
+same no matter how coarsely the world was being stepped or where your squad was.
+
+## Proving it
+
+```
+cargo test --release
+```
+
+The important tests are in `tests/consistency.rs`. They run the same world
+several ways — one-second steps vs one-hour steps, squad here vs squad in the
+far corner — and check that every journey, route and position comes out
+identical. They also check that details, once built, never change.
+
+```
+cargo run --release --bin headless -- 3
+```
+
+runs three game days with no window and prints what the world is doing and how
+long it took. Three days takes under a second.
+
+## Dials
+
+The numbers most worth tuning, all named constants:
+
+| What | Where |
+|---|---|
+| Population, town counts, who becomes a wanderer | `src/sim/worldgen.rs` |
+| Which races favour which towns | `affinity()` in `src/sim/worldgen.rs` |
+| Race temperaments, build, walking speed | `src/sim/race.rs` |
+| How busy the roads are, day vs night | `DEPARTURE_RATE`, `NIGHT_FACTOR` in `src/sim/world.rs` |
+| Band sizes and update rates | `src/sim/bands.rs` |
+| Name sounds per race | `src/sim/names.rs` |
 
 ## Layout
 
 ```
-src/engine/00-core.js       rng, cloning, the Gogìḍu name generator, terrain,
-                            quarters and walking distance, calendar
-src/engine/10-world.js      world creation, people, the event helper
-src/engine/15-turn.js       advance(), the levers, weather — the turn order lives here
-src/engine/20-economy.js    food, and what a household does when it has been short for years
-src/engine/30-stone.js      who will work your stone, teaching the gift, growth, quiet-season notes
-src/engine/40-society.js    birth and death, pairing between households, succession, splitting
-src/engine/45-offices.js    forms of government, the standing offices, boats and the guard
-src/engine/50-politics.js   memory, the shrine, claims, disputes, grudges
-src/engine/60-figures.js    promotion to named figure, what figures do, omens, bookkeeping
-src/render/chronicle.js     events -> the season's lines, and the map plate
-src/render/panels.js        cast and household panels, the map inspector
-src/ui/index.html           page shell and stylesheet, with the bundle slot
-src/ui/app.js               timeline, branches, sheet, map toggle, export/import
+src/sim/      the simulation — no graphics, fully testable
+  world.rs      the world and its step loop
+  worldgen.rs   building a world from a seed
+  group.rs      travelling groups and their schedules
+  person.rs     people: cheap summary + lazy details
+  bands.rs      chunk grid and band assignment
+  race.rs       the four races
+  names.rs      per-race name generators
+  geo.rs        positions and the coastline
+  rng.rs        deterministic randomness
+src/main.rs   the playtest window (reads the sim, never changes its rules)
+tests/        the consistency checks
 ```
-
-Turn order is in `advance()` and it matters — food runs before hardship, offices
-before the shrine, promotion before figures act.
-
-## The chronicle
-
-One line per thing that happened, in a fixed order: weather, then deaths and
-hardship, then stone and households, then quarrels and offices, then the shrine,
-then what the named figures did, then what the settlement still remembers. A
-season with nothing in it says so.
-
-Lines state what happened and what it changed. They do not imply, hint, or set a
-scene — if a grudge is the reason for something, the line says it is a grudge.
-`test/run.js` asserts this: `renderTurn` may only emit event lines and the
-one "nothing recorded" line, so connective prose cannot come back by accident.
-
-Routine business (most births, matches, households dividing, stone growing on
-schedule) is recorded at weight 1 and hidden. **Setup → Show everything** shows it.
-
-## The map
-
-The map is pinned above the chronicle and stays there while you scroll. **Hide
-map** collapses it and the choice is remembered in that browser.
-
-**Tap any tile** and it says whose it is, in the same words the chronicle uses —
-a house gives its household, who heads it, stores, standing as a rank, its
-tender and how far its stone has grown, any open quarrel, and the strongest
-thing still held against it. Open ground answers the only question that matters
-about it: will it take a house, and if not, why not. The shrine tile reports the
-shrine rather than the hillside under it.
-
-Tiles belonging to households named in the season just past are tinted, so the
-newest lines in the chronicle can be found on the map. Selecting a tile keeps it
-selected as seasons pass and the facts re-read each turn; founding or loading a
-different settlement clears it.
-
-Opening the inspector shrinks the map rather than growing the dock, so the
-chronicle keeps most of the screen. `tileFactsHTML` is pure — state and a tile
-id in, HTML out — and `test/run.js` calls it for all 1,040 tiles every run, so a
-tile that would throw or come back blank fails the build.
-
-## What is simulated
-
-**Ground is the scarce thing.** A house is grown from living stone over fifteen
-to twenty years, only certain hillside will take one, and they cannot be packed
-together. The map holds about thirty. Everything else follows from that.
-
-**The gift is taught, not born.** Aptitude is rare and cannot be taught into
-someone; the craft takes about a decade and most who begin do not finish. A
-tender chooses who to work for — weighing the walk, kinship, what a household is
-known for and what they hold against it — so whoever can build houses decides
-which households get to exist.
-
-**The settlement remembers.** Deeds attach to a household and fade over about
-sixty-five years. Reputation decides who is believed, who is ruled against, and
-whether anyone will marry into you.
-
-**Grudges look for an opening** rather than waiting for one. They withhold food,
-back the other side in a quarrel, and find reasons to be busy.
-
-**Offices hold chokepoints.** One of three forms of government is in play; every
-form has a captain of the guard, an arbiter and a boat-holder. Under a sole ruler
-the ruler appoints, and appoints their own. Most households fish from a hull they
-do not own.
-
-**The shrine decides whether rulings bind.** Kept, quarrels end in judgement.
-Neglected, they harden into feuds — and a feud between neighbours physically
-shuts the ground between them, so everyone else walks further.
-
-## Deploying
-
-GitHub Pages is served from Actions, not from a branch. `.github/workflows/pages.yml`
-checks out `main`, runs `node build.js`, runs the tests, and publishes the result — so
-what is live is always built from `src/`, never from a stale committed `dist/`.
-
-The page is published twice: at the site root, and at `dist/gahturiyu.html` so older
-links keep working.
-
-```
-https://lazmcspaz.github.io/Gahturiyu-Sim/
-```
-
-Pushing to `main` deploys. Run it by hand from the Actions tab (**Pages → Run workflow**)
-if you need to redeploy without a commit.
-
-## Finding out what the simulation is doing
-
-The suite says whether the rules hold. `tools/` says what a settlement looks
-like, which is the question that actually finds problems.
-
-- `tools/probe.js` runs a sweep of seeds in parallel and prints one line per
-  settlement — population, stone by stage, workshops, disrepair, crafts held
-  and lost, legitimacy, coin, chronicle volume and what dominates it, levies,
-  blocs, rulings — followed by anything `tools/measure.js` flags as worth a
-  look. `--years`, `--seeds`, `--pop`, `--gov`, `--storms N`, `--every N` for
-  a time series, `--json` to keep the numbers, `--cols` to pick columns.
-- `tools/ab.js <ref>` runs the same sweep against another commit (checked out
-  read-only into a temp dir) and against the working tree, side by side, with
-  means, movement and any flag that appeared or went away. This is the check
-  to run before believing a balance change did what you think.
-- `tools/measure.js` is the one place the readings are defined. Add a column
-  there and both tools have it.
-
-Runs are parallel across cores; eleven seeds over a hundred and twenty years
-is about forty seconds on four. The engine is deterministic, so a reading is
-reproducible from its seed.
-
-The test suite itself shares trajectories: one run per (seed, population,
-government), extended on demand and pre-warmed in worker threads, so a section
-that wants seed 20260910 at year thirty and another at year a hundred and
-twenty cost one run between them. Season-scoped caches inside the engine —
-who is alive, who has a workshop, who holds each craft, tile distances — are
-cleared before a state is kept. Every site that can change one of those
-answers mid-season clears its cache, and the change was verified bit-identical
-against the uncached engine over four hundred seasons on two seeds; the
-determinism tests keep it honest from here.
-
-`.github/workflows/ci.yml` runs the same build and tests on every branch and pull
-request, and fails if `dist/gahturiyu.html` was not rebuilt after a change to `src/` —
-the committed copy is what someone gets when they clone and open the file directly, so
-it has to stay current. Rebuild with `node build.js` and commit it alongside the source.
