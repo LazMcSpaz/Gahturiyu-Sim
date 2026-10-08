@@ -9,6 +9,8 @@
 //!
 //! Also here: what members do with things — equipping, dropping, picking up.
 
+use serde::{Deserialize, Serialize};
+
 use super::body;
 use super::condition::Activity;
 use super::buildings::DoorId;
@@ -26,7 +28,7 @@ pub const SQUAD_SPEED: f32 = 1.5;
 /// How close someone must be to pick something up, metres.
 pub const REACH: f32 = 1.8;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Squad {
     pub members: Vec<PersonId>,
     /// Where each member is (parallel to `members`).
@@ -91,14 +93,14 @@ impl Squad {
 }
 
 /// What someone has asked a squad member to do when they get there.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Pickup {
     pub who: PersonId,
     pub thing: u32,
 }
 
 /// Something lying on the ground.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct GroundItem {
     pub id: u32,
     pub item: ItemId,

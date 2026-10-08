@@ -8,6 +8,8 @@
 //! straight lines. Travellers then follow these routes instead of walking
 //! through mountains.
 
+use serde::{Deserialize, Serialize};
+
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
@@ -25,7 +27,7 @@ const ROAD_DISCOUNT: f32 = 0.5;
 /// Grades steeper than this can't be walked at all.
 const MAX_GRADE: f32 = 0.42;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Routes {
     /// Smoothed route between each pair of towns, stored once with the lower
     /// id first.

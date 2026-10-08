@@ -15,9 +15,11 @@
 //! | Enhanced speed | Alteration | Caster moves and attacks faster for a while |
 //! | Heal | Restoration | Mends an ally's (or your own) worst wounds; can get the downed back up |
 
+use serde::{Deserialize, Serialize};
+
 use super::stats::{Attr, Skill, Stats};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Spell {
     Paralyze,
     Fireball,
@@ -30,7 +32,7 @@ pub enum Spell {
 
 pub const SPELLS: [Spell; 7] = [Spell::Paralyze, Spell::Fireball, Spell::LightningBolt, Spell::Blind, Spell::MageArmor, Spell::Haste, Spell::Heal];
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Target {
     /// The caster.
     Caster,
@@ -95,7 +97,7 @@ pub fn willpower_resist(target: &Stats) -> f32 {
     (target.attr(Attr::Willpower) / 250.0).clamp(0.0, 0.4)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum StatusKind {
     Paralyzed,
     Blinded,
@@ -104,7 +106,7 @@ pub enum StatusKind {
 }
 
 /// A spell effect in force on someone.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Status {
     pub kind: StatusKind,
     pub until: f64,

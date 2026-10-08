@@ -7,6 +7,8 @@
 //! time the person comes close enough to matter — and from then on they are
 //! kept for good, so someone you have met never comes back as a stranger.
 
+use serde::{Deserialize, Serialize};
+
 use super::body::Wounds;
 use super::combat;
 use super::inventory::{self, Gear};
@@ -19,7 +21,7 @@ use super::stats::{Calling, Stats};
 
 pub type PersonId = u32;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Person {
     pub id: PersonId,
     /// Everything about this person that is not stored is derived from this.
@@ -55,7 +57,7 @@ pub struct Person {
     pub cond: Option<super::condition::Condition>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Detail {
     pub name: String,
     pub gear: Gear,

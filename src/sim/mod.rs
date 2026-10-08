@@ -24,6 +24,7 @@ pub mod quests;
 pub mod race;
 pub mod rng;
 pub mod routes;
+pub mod save;
 pub mod settlement;
 pub mod squad;
 pub mod stats;

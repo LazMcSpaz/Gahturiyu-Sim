@@ -20,6 +20,8 @@
 //! anywhere — and from what people keep at home. A picked spot grows back
 //! after a day.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::{self, V2};
 use super::items::{self, item, ItemId, Kind};
 use super::person::PersonId;
@@ -27,7 +29,7 @@ use super::rng::Rng;
 use super::stats::Skill;
 use super::world::{World, DAY};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Station {
     Forge,
     Bench,
@@ -101,7 +103,7 @@ pub fn success_chance(skill: f32, difficulty: f32) -> f32 {
 }
 
 /// Someone at work at a station.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Job {
     pub who: PersonId,
     pub recipe: usize,
@@ -111,7 +113,7 @@ pub struct Job {
 }
 
 /// A spot where something can be gathered.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Node {
     pub id: u32,
     pub pos: V2,

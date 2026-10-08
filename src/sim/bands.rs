@@ -12,6 +12,8 @@
 //! sounds. If the population grows by orders of magnitude, a coarse grid can
 //! go back in front of this to skip whole regions at once.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::V2;
 
 /// Outer edge of band 1, metres from the squad.
@@ -23,7 +25,7 @@ pub const BAND2_RADIUS: f32 = 2500.0;
 /// Band 1 is every step. These are the knobs that buy speed.
 pub const REFRESH: [f64; 4] = [0.0, 0.0, 5.0, 60.0];
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BandMap {
     centre: V2,
 }

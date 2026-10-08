@@ -9,6 +9,8 @@
 //! Hand-rolled on purpose: library RNGs are allowed to change their output
 //! between versions, and a world seed has to mean the same world forever.
 
+use serde::{Deserialize, Serialize};
+
 /// Mix a 64-bit value into a well-scrambled one (SplitMix64 finaliser).
 pub fn mix(mut z: u64) -> u64 {
     z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -26,7 +28,7 @@ pub fn key(parts: &[u64]) -> u64 {
     h
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Rng {
     state: u64,
 }

@@ -83,6 +83,8 @@ pub struct Scene3d {
     pub triangles: usize,
     pub ground_triangles: usize,
     pub town_triangles: usize,
+    /// Which loaded save the caches were built for (see `Game::loads`).
+    loads: u32,
 }
 
 struct Town {
@@ -154,6 +156,16 @@ fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<S
 pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, mats: Res<Mats>, models: Res<Models>, mut vis: Query<&mut Visibility, Or<(With<GroundMesh>, With<Dynamic>)>>) {
     let game = &mut *game;
     let scene = &mut *scene;
+    if scene.loads != game.loads {
+        // A save was loaded: the land and towns may be another world's.
+        scene.loads = game.loads;
+        scene.ground_key = None;
+        for (_, t) in scene.towns.drain() {
+            for e in t.entities {
+                commands.entity(e).despawn();
+            }
+        }
+    }
     game.picks.clear();
     game.labels.clear();
     game.bars.clear();

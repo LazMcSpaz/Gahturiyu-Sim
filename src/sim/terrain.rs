@@ -9,6 +9,8 @@
 //!
 //! The sea is at height 0. Land at the waterline sits just above it.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::{self, V2, WORLD_SIZE};
 use super::rng;
 
@@ -16,7 +18,7 @@ use super::rng;
 pub const CELL: f32 = 30.0;
 const N: usize = (WORLD_SIZE / CELL) as usize + 2;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Terrain {
     h: Vec<f32>,
     seed: u64,
@@ -25,7 +27,7 @@ pub struct Terrain {
 }
 
 /// What the ground underfoot is like. Each has a small effect on walking pace.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ground {
     Road,
     Grass,
@@ -65,7 +67,7 @@ const ROAD_CELL: f32 = 100.0;
 const RN: usize = (WORLD_SIZE / ROAD_CELL) as usize + 1;
 
 /// Road segments filed by grid cell, so "is this on a road?" is quick.
-#[derive(Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 struct RoadIndex {
     segs: Vec<(V2, V2)>,
     cells: Vec<Vec<u32>>,
@@ -265,6 +267,11 @@ fn raw_height(seed: u64, p: V2) -> f32 {
 }
 
 impl Terrain {
+    /// No land at all: a stand-in while a save is read.
+    pub fn empty() -> Terrain {
+        Terrain { h: Vec::new(), seed: 0, roads: RoadIndex::default() }
+    }
+
     pub fn generate(seed: u64) -> Terrain {
         let tseed = rng::key(&[seed, 0x5445_5252]);
         let mut h = vec![0.0f32; N * N];

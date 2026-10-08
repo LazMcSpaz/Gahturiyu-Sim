@@ -1,6 +1,9 @@
 //! Run the world with no window and print what it is doing.
 //!
 //!     cargo run --release --bin headless -- [days] [seed]
+//!
+//! With `GAHT_SAVE=path`, the world is saved there at the end (the window
+//! can start from it with `GAHT_LOAD=path`).
 
 use std::time::Instant;
 
@@ -51,6 +54,12 @@ fn main() {
                 w.stats.in_band[3],
                 w.stats.detailed
             );
+        }
+    }
+    if let Ok(p) = std::env::var("GAHT_SAVE") {
+        match w.save_to(std::path::Path::new(&p)) {
+            Ok(()) => println!("saved to {p}"),
+            Err(e) => println!("couldn't save to {p}: {e}"),
         }
     }
     let el = t1.elapsed().as_secs_f64();

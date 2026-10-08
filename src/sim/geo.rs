@@ -3,10 +3,12 @@
 //! The map is a square, `WORLD_SIZE` metres a side (about half of Kenshi).
 //! x runs west to east, y runs north to south. The sea is on the west.
 
+use serde::{Deserialize, Serialize};
+
 /// One side of the map, in metres.
 pub const WORLD_SIZE: f32 = 21_000.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 pub struct V2 {
     pub x: f32,
     pub y: f32,

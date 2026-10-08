@@ -164,10 +164,7 @@ pub fn generate(seed: u64) -> World {
     }
 
     // --- Roads between the towns ----------------------------------------
-    let mut routes = Routes::build(&terrain, &settlements);
-    let mut terrain = terrain;
-    terrain.set_roads(&routes.roads);
-    routes.build_network(&terrain);
+    let (terrain, routes) = land(terrain, &settlements);
 
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
@@ -175,6 +172,15 @@ pub fn generate(seed: u64) -> World {
     w.place_camps();
     w.place_crafting();
     w
+}
+
+/// The land and the roads between the towns: fixed by the seed and where
+/// the towns are, so a save doesn't store them.
+pub fn land(mut terrain: Terrain, settlements: &[Settlement]) -> (Terrain, Routes) {
+    let mut routes = Routes::build(&terrain, settlements);
+    terrain.set_roads(&routes.roads);
+    routes.build_network(&terrain);
+    (terrain, routes)
 }
 
 /// How strongly a settlement draws people of a race. Everyone lives

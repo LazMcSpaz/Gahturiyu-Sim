@@ -10,10 +10,12 @@
 //! numbers), drawn from their seed, race and temperament. The far-away world
 //! reads them only through the single `might` rating.
 
+use serde::{Deserialize, Serialize};
+
 use super::race::{Race, Traits};
 use super::rng::Rng;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Attr {
     /// Hitting power and how much can be carried.
     Strength,
@@ -29,7 +31,7 @@ pub enum Attr {
 
 pub const ATTRS: [Attr; 5] = [Attr::Strength, Attr::Agility, Attr::Toughness, Attr::Intellect, Attr::Willpower];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Skill {
     Blade,
     Blunt,
@@ -151,7 +153,7 @@ impl Attr {
 }
 
 /// What someone does with their life, which sets where their skills start.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Calling {
     /// Most people: a little of everything, mastery of nothing.
     Common,
@@ -171,7 +173,7 @@ impl Calling {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Stats {
     pub attrs: [f32; 5],
     pub skills: [f32; N_SKILLS],

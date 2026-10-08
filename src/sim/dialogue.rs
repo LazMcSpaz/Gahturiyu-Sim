@@ -10,6 +10,8 @@
 //! Lines are picked with rolls keyed to the person and topic, so asking the
 //! same person the same thing gets the same answer.
 
+use serde::{Deserialize, Serialize};
+
 use super::items;
 use super::person::PersonId;
 use super::quests::{compass, QuestKind, Stage};
@@ -22,7 +24,7 @@ use super::world::{World, HOUR};
 /// How close you must be to talk, metres.
 pub const TALK_RANGE: f32 = 3.5;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Topic {
     Background,
     ThisTown,
@@ -59,7 +61,7 @@ impl Topic {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Conversation {
     /// Who's talking for the squad.
     pub with: PersonId,

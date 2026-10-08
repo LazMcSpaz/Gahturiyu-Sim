@@ -7,13 +7,15 @@
 //! that land there, and takes a share off each kind of damage. Enchanted pieces
 //! carry effects that change their wearer's numbers, Morrowind-style.
 
+use serde::{Deserialize, Serialize};
+
 use super::body::Part;
 use super::magic::Spell;
 use super::stats::{Attr, Skill};
 
 pub type ItemId = u16;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Slot {
     MainHand,
     OffHand,
@@ -57,7 +59,7 @@ impl Slot {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct WeaponDef {
     pub skill: Skill,
     pub cut: f32,
@@ -74,11 +76,13 @@ pub struct WeaponDef {
     /// Metres it shoots, for bows and the like (0 = a hand weapon).
     pub range: f32,
     /// What it shoots (an item key), for ranged weapons.
-    pub ammo: Option<&'static str>,
+    #[serde(with = "super::save::opt_name")]
+    pub ammo: Option<super::save::Name>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct ArmorDef {
+    #[serde(with = "super::save::covers")]
     pub covers: &'static [Part],
     /// Chance a blow on a covered part meets the armour.
     pub coverage: f32,
@@ -91,7 +95,7 @@ pub struct ArmorDef {
 }
 
 /// Changes an item makes to whoever has it equipped.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Effect {
     Attr(Attr, f32),
     Skill(Skill, f32),
@@ -110,7 +114,7 @@ pub enum Effect {
     ResistElements(f32),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Kind {
     Weapon(WeaponDef),
     Armor(ArmorDef),
@@ -141,7 +145,7 @@ pub enum Kind {
     StandingTorch(f32),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct PotionDef {
     /// Hit points mended, spread over the worst wounds first.
     pub heal: f32,

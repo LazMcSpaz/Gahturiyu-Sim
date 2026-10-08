@@ -459,7 +459,7 @@ pub struct Foliage {
     /// How much of each kind grows (from the graphics settings), and which
     /// version of the settings the loaded chunks were built for.
     density: (f32, f32, f32),
-    settings_version: Option<u32>,
+    settings_version: Option<(u32, u32)>,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -598,15 +598,15 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
 /// Load the chunks round the camera (nearest first, a few a frame) and drop
 /// the ones it has left behind.
 pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, scene: Res<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, settings: Res<Settings>) {
-    // Settings changed: start again with the new amounts.
-    if f.settings_version != Some(settings.version) {
+    // Settings changed, or a save was loaded: start again.
+    if f.settings_version != Some((settings.version, game.loads)) {
         for (_, c) in f.chunks.drain() {
             for e in c.entities {
                 commands.entity(e).despawn();
             }
         }
         f.density = settings.foliage_density();
-        f.settings_version = Some(settings.version);
+        f.settings_version = Some((settings.version, game.loads));
     }
     let w = &game.world;
     let show = game.view == View::Scene;

@@ -66,6 +66,11 @@ pub struct Game {
     pub journal: bool,
     /// The graphics settings panel (O).
     pub options: bool,
+    /// How many times a save has been loaded (so cached drawing of the old
+    /// world is thrown away).
+    pub loads: u32,
+    /// A short message on screen ("Saved."), and when it appeared.
+    pub notice: Option<(String, std::time::Instant)>,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -91,7 +96,16 @@ pub struct Game {
 pub fn run() {
     let seed: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(1);
     let shot = Shot::from_env();
-    let mut world = worldgen::generate(seed);
+    // GAHT_LOAD=path starts from a save instead of a new world.
+    let loaded = std::env::var("GAHT_LOAD").ok().map(|p| World::load_from(std::path::Path::new(&p)));
+    let mut world = match loaded {
+        Some(Ok(w)) => w,
+        Some(Err(e)) => {
+            eprintln!("{e}; starting a new world");
+            worldgen::generate(seed)
+        }
+        None => worldgen::generate(seed),
+    };
     if let Some(s) = &shot {
         s.prepare(&mut world);
     }
@@ -109,6 +123,8 @@ pub fn run() {
         craft: None,
         journal: false,
         options: std::env::var("GAHT_SETTINGS").is_ok(),
+        loads: 0,
+        notice: None,
         frame: 0,
         shot_at: None,
         sim_ms: 0.0,
@@ -222,6 +238,27 @@ fn setup(mut commands: Commands) {
     commands.spawn((Camera2d, Camera { order: 1, clear_color: ClearColorConfig::None, ..default() }, bevy::camera::Hdr, bevy::core_pipeline::tonemapping::Tonemapping::None, PrimaryEguiContext));
 }
 
+/// Where F8 saves and F9 loads: `saves/quick.sav` beside `assets/`.
+pub fn quick_save() -> std::path::PathBuf {
+    let assets = models::assets_dir();
+    assets.parent().map(|p| p.to_path_buf()).unwrap_or_default().join("saves").join("quick.sav")
+}
+
+/// Put a loaded world in place of the current one, and forget anything the
+/// window was holding about the old one.
+fn swap_world(game: &mut Game, w: World) {
+    game.world = w;
+    game.loads += 1;
+    game.sel = Selection::default();
+    game.inv = None;
+    game.craft = None;
+    game.hover = None;
+    game.follow = true;
+    game.orbit.target = game.world.squad.pos;
+    game.orbit.ground = game.world.terrain.surface(game.world.squad.pos);
+    game.map_cam.centre = game.world.squad.pos;
+}
+
 /// Keys and mouse: camera moves, and orders.
 fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<ButtonInput<MouseButton>>, scroll: Res<AccumulatedMouseScroll>, window: Single<&Window, With<PrimaryWindow>>, time: Res<Time>) {
     let game = &mut *game;
@@ -315,6 +352,26 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     if keys.just_pressed(KeyCode::KeyO) {
         game.options = !game.options;
+    }
+    if keys.just_pressed(KeyCode::F8) {
+        let msg = match w.save_to(&quick_save()) {
+            Ok(()) => "Saved.".to_string(),
+            Err(e) => format!("Couldn't save: {e}"),
+        };
+        game.notice = Some((msg, std::time::Instant::now()));
+        return;
+    }
+    if keys.just_pressed(KeyCode::F9) {
+        let msg = match World::load_from(&quick_save()) {
+            Ok(loaded) => {
+                swap_world(game, loaded);
+                "Loaded.".to_string()
+            }
+            Err(gahturiyu_sim::sim::save::LoadError::Io(_)) => "No save yet (F8 saves).".to_string(),
+            Err(e) => format!("Couldn't load: {e}"),
+        };
+        game.notice = Some((msg, std::time::Instant::now()));
+        return;
     }
     if keys.just_pressed(KeyCode::KeyK) {
         game.inv = None;
@@ -559,6 +616,7 @@ impl Picker {
 #[derive(Default)]
 struct UiState {
     fonts: bool,
+    loads: u32,
     relief: Option<egui::TextureHandle>,
 }
 
@@ -574,6 +632,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         st.fonts = true;
     }
     let game = &mut *game;
+    if st.loads != game.loads {
+        st.loads = game.loads;
+        st.relief = None;
+    }
     let size = game.screen;
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("canvas")));
     let c = Canvas { p: painter, w: size.x, h: size.y };
@@ -706,11 +768,20 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
+        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   J: journal   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
+    if let Some((msg, at)) = &game.notice {
+        if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {
+            let wd = c.width(msg, 17.0) + 32.0;
+            c.rect((size.x - wd) / 2.0, 70.0, wd, 34.0, hud::shadow(0.7));
+            c.centred(msg, size.x / 2.0, 93.0, 17.0, super::palette::GOLD);
+        }
+    }
     c.rect(0.0, size.y - 30.0, size.x, 30.0, hud::shadow(0.45));
-    c.text(help, 14.0, size.y - 10.0, 15.0, super::palette::DIM);
+    // Shrink the help line to fit narrower windows.
+    let fit = (15.0 * (size.x - 28.0) / c.width(help, 15.0)).clamp(10.0, 15.0);
+    c.text(help, 14.0, size.y - 10.0, fit, super::palette::DIM);
     game.panels = panels;
     Ok(())
 }

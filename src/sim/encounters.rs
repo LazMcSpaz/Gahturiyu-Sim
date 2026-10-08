@@ -25,6 +25,8 @@
 //! Hours, ambushes and fight endings are handled strictly in time order, so
 //! however coarsely the world is stepped, events happen in the same order.
 
+use serde::{Deserialize, Serialize};
+
 use super::body;
 use super::combat::{Battle, Fighter, Side};
 use super::geo::{self, V2};
@@ -48,7 +50,7 @@ pub const CAMPS: usize = 10;
 const BANDIT_SIDE: Side = 1;
 const TRAVELLER_SIDE: Side = 2;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Camp {
     pub group: GroupId,
     pub pos: V2,
@@ -69,7 +71,7 @@ pub fn camp_sees(leg: &Leg, camp: V2) -> Option<f64> {
 }
 
 /// A traveller group coming within sight of a camp, worked out in advance.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Encounter {
     pub t: f64,
     pub camp: GroupId,
@@ -77,7 +79,7 @@ pub struct Encounter {
 }
 
 /// A fight away from the squad, already run to its end.
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NpcFight {
     pub id: u32,
     pub ends: f64,

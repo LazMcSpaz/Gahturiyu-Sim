@@ -5,7 +5,9 @@
 //! still produces adventurers and a restless people still produces homebodies.
 //! The four overlap far more than they differ — they live in the same towns.
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Race {
     Roduro,
     Qotiro,
@@ -16,7 +18,7 @@ pub enum Race {
 pub const ALL_RACES: [Race; 4] = [Race::Roduro, Race::Qotiro, Race::Horaro, Race::Tadoro];
 
 /// Per-person temperament, each 0..1.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Traits {
     /// Pull toward the road. Drives who leaves home, and how far they go.
     pub wanderlust: f32,

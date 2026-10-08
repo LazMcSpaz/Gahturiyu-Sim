@@ -5,12 +5,14 @@
 //! capacity you move freely; over it you slow down, and well over it you can
 //! barely move and fight badly. A pack raises the limit.
 
+use serde::{Deserialize, Serialize};
+
 use super::items::{self, item, Effect, ItemId, Kind, Slot, WeaponDef, FISTS, SLOTS};
 use super::race::Race;
 use super::rng::Rng;
 use super::stats::{Calling, Skill, Stats, ATTRS, SKILLS};
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Gear {
     slots: [Option<ItemId>; 10],
     /// Everything not worn: (item, how many).

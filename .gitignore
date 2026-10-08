@@ -2,3 +2,4 @@ target/
 *.png
 !assets/*.png
 settings.txt
+saves/

@@ -12,9 +12,11 @@
 //! clock rather than ticked, like journeys, so it costs nothing while nobody is
 //! looking and comes out the same however the world is stepped.
 
+use serde::{Deserialize, Serialize};
+
 use super::stats::Stats;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Part {
     Head,
     Torso,
@@ -74,7 +76,7 @@ impl Part {
 /// `condition.rs` rewrites `rate` (and `drain`, for starvation) each time
 /// their circumstances change, and settles `lost` at that moment, so healing
 /// is worked out piece by piece from the clock.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Wounds {
     pub lost: [f32; 6],
     /// When `lost` was last written.

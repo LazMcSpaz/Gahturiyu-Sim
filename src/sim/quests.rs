@@ -13,6 +13,8 @@
 //! so the same person always has the same request. Each person offers at
 //! most one job. Rewards are coin, sometimes with something useful.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::V2;
 use super::group::GroupId;
 use super::items::{self, ItemId};
@@ -20,14 +22,14 @@ use super::person::PersonId;
 use super::rng::Rng;
 use super::world::World;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QuestKind {
     ClearCamp { camp: GroupId, at: V2 },
     Fetch { item: ItemId, count: u16 },
     Deliver { to: PersonId },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     /// Taken on, not done yet.
     Active,
@@ -37,7 +39,7 @@ pub enum Stage {
     Done,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Quest {
     pub id: u32,
     pub giver: PersonId,

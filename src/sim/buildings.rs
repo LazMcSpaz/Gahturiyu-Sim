@@ -20,6 +20,8 @@
 //! belongings are laid out from the building's seed: a few things on the
 //! shelves and in the chest. They're owned; taking them is theft.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::V2;
 use super::items;
 use super::person::PersonId;
@@ -39,7 +41,7 @@ pub const PICK_TIME: f64 = 4.0;
 /// How close to the door you must stand to work the lock, metres.
 pub const AT_DOOR: f32 = 1.5;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Door {
     pub id: DoorId,
     /// Just outside the door.
@@ -92,7 +94,7 @@ pub fn is_night(t: f64) -> bool {
 }
 
 /// Someone at work on a lock.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Picking {
     pub who: PersonId,
     pub door: DoorId,

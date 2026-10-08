@@ -1,5 +1,7 @@
 //! The world, and the loop that moves it forward.
 
+use serde::{Deserialize, Serialize};
+
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::bands::{BandMap, REFRESH};
@@ -31,7 +33,7 @@ const LOG_LEN: usize = 14;
 pub const HOUR: f64 = 3600.0;
 pub const DAY: f64 = 24.0 * HOUR;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Stats {
     /// People whose name and gear have been built so far.
     pub detailed: usize,
@@ -44,7 +46,7 @@ pub struct Stats {
     pub ambushes: usize,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct World {
     pub seed: u64,
     /// Game seconds since the world began. Day 1 starts at 06:00.
@@ -56,11 +58,14 @@ pub struct World {
     pub group_of: Vec<Option<GroupId>>,
     pub settlements: Vec<Settlement>,
     pub groups: Vec<Group>,
+    #[serde(skip)]
     group_index: HashMap<GroupId, usize>,
     pub next_group: GroupId,
     pub squad: Squad,
     pub bands: BandMap,
+    #[serde(skip, default = "super::save::no_terrain")]
     pub terrain: Terrain,
+    #[serde(skip, default = "super::save::no_routes")]
     pub routes: Routes,
     /// The last whole game-hour whose departures have been decided.
     pub hour_done: i64,
@@ -251,6 +256,11 @@ impl World {
         self.group_index.insert(g.id, self.groups.len());
         self.groups.push(g);
         self.scan_legs(id, 0);
+    }
+
+    /// Rebuild the lookup from group id to place in `groups`.
+    pub(super) fn reindex(&mut self) {
+        self.group_index = self.groups.iter().enumerate().map(|(i, g)| (g.id, i)).collect();
     }
 
     pub fn group(&self, id: GroupId) -> Option<&Group> {

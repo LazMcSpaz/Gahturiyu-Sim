@@ -14,6 +14,8 @@
 //! path costs walking time according to its slope, so the schedule already
 //! knows that the climb out of the valley is slow and the road down is quick.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::{self, V2};
 use super::person::PersonId;
 use super::rng::Rng;
@@ -22,7 +24,7 @@ use super::terrain::Terrain;
 
 pub type GroupId = u32;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Leg {
     pub from: V2,
     pub to: V2,
@@ -143,7 +145,7 @@ impl Leg {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Kind {
     /// Out from home, a stay or two, and back. The schedule is complete from
     /// the moment it leaves.
@@ -153,7 +155,7 @@ pub enum Kind {
     Wanderer { rest_min: f64, rest_max: f64 },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Group {
     pub id: GroupId,
     pub seed: u64,

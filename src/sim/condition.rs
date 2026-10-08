@@ -36,11 +36,13 @@
 //!
 //! Only your squad has a condition. Everyone else in the world gets by, and
 //! heals at the plain constant rate.
-
+//!
 //! Bedding down: a squad member left standing idle at night (`BEDTIME` to
 //! `RISE`) and tired past `BED_TIRED` goes to sleep by themselves, at the
 //! moment all three are true (solved, not checked each step). Getting them
 //! up with N at night keeps them up until morning.
+
+use serde::{Deserialize, Serialize};
 
 use super::body::{self, Part, Wounds, HEAL_PER_HOUR};
 use super::items::{item, ItemId, Kind};
@@ -99,14 +101,14 @@ pub const HEAL_RESTING: f32 = 1.0;
 pub const HEAL_WALKING: f32 = 0.3;
 
 /// Where someone is sleeping.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shelter {
     Open,
     Tent,
     Indoors,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Activity {
     Resting,
     Walking,
@@ -114,7 +116,7 @@ pub enum Activity {
     Fighting,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HungerStage {
     Fed,
     Hungry,
@@ -135,7 +137,7 @@ pub fn stage_of(hunger: f32) -> HungerStage {
 }
 
 /// A squad member's condition, as of `at`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Condition {
     pub at: f64,
     pub hunger: f32,

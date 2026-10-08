@@ -8,6 +8,8 @@
 //! quarry stepped blocks (and keep one small temple wherever enough of them
 //! live away from home). Ṭaḍoro build nothing; they lodge with others.
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::{self, V2};
 use super::person::PersonId;
 use super::race::Race;
@@ -15,7 +17,7 @@ use super::rng::Rng;
 
 pub type SettlementId = u16;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildingKind {
     /// Grown dark stone, rounded and banded. One household.
     RoduroHome,
@@ -31,7 +33,7 @@ pub enum BuildingKind {
     Hearth,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Building {
     pub pos: V2,
     pub kind: BuildingKind,
@@ -42,7 +44,7 @@ pub struct Building {
     pub seed: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Settlement {
     pub id: SettlementId,
     pub name: String,

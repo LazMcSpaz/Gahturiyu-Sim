@@ -13,6 +13,8 @@
 //! do: swinging trains the weapon skill, dodging trains Dodge, being hit
 //! toughens you.
 
+use serde::{Deserialize, Serialize};
+
 use super::body::{self, Part, PARTS};
 use super::geo::V2;
 use super::inventory::{self, Gear};
@@ -46,7 +48,7 @@ const BODY: f32 = 0.45;
 pub type Side = u8;
 pub const SQUAD_SIDE: Side = 0;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Act {
     Idle,
     Swing { target: usize, lands: f64 },
@@ -58,7 +60,7 @@ pub enum Act {
 }
 
 /// What the player (or a leader) has told someone to do.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Order {
     /// Go here and don't stop to fight on the way.
     MoveTo(V2),
@@ -66,7 +68,7 @@ pub enum Order {
     Attack(usize),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Fighter {
     pub pid: PersonId,
     pub side: Side,
@@ -83,7 +85,8 @@ pub struct Fighter {
     /// With gear enchantments applied.
     pub stats: Stats,
     pub weapon: WeaponDef,
-    pub weapon_name: &'static str,
+    #[serde(with = "super::save::name")]
+    pub weapon_name: super::save::Name,
     pub shield: f32,
     pub armor: Vec<ArmorDef>,
     pub dodge_penalty: f32,
@@ -116,7 +119,9 @@ pub struct Fighter {
     pub shots: u16,
     /// A hand weapon in the pack to draw when enemies close in on an archer,
     /// and the ranged weapon put away meanwhile.
+    #[serde(with = "super::save::named_weapon")]
     pub sidearm: Option<(WeaponDef, &'static str)>,
+    #[serde(with = "super::save::named_weapon")]
     pub stowed: Option<(WeaponDef, &'static str)>,
     /// Potions and scrolls in their pack, and those used up this fight.
     pub potions: Vec<ItemId>,
@@ -304,7 +309,7 @@ impl Fighter {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum FxKind {
     Fireball { at: V2, radius: f32 },
     Bolt { from: V2, to: V2 },
@@ -316,13 +321,13 @@ pub enum FxKind {
 }
 
 /// A visual moment for the window to show.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Fx {
     pub kind: FxKind,
     pub at: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Battle {
     pub id: u32,
     pub seed: u64,

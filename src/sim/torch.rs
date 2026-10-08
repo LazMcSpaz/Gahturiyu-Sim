@@ -19,6 +19,8 @@
 //! torch keeps what's left of it for next time (while it stays in hand; a
 //! part-burnt stub taken out of the hand is thrown away).
 
+use serde::{Deserialize, Serialize};
+
 use super::geo::V2;
 use super::items::{self, item, Kind, Slot};
 use super::person::PersonId;
@@ -45,7 +47,7 @@ pub const TRAVEL_TORCH_DARK: f32 = 0.5;
 pub const TORCH_SNEAK: f32 = 0.9;
 
 /// A source of light.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Light {
     pub pos: V2,
     /// How far it reaches, metres.
@@ -90,14 +92,14 @@ pub fn light_from(t: f64, lights: &[Light], p: V2) -> f32 {
 }
 
 /// A torch burning in someone's hand.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Flame {
     pub lit_at: f64,
     pub out_at: f64,
 }
 
 /// A torch set in the ground.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct StandingTorch {
     pub pos: V2,
     pub lit_at: f64,
