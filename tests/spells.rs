@@ -808,3 +808,14 @@ fn preserved_bodies_lie_a_day_and_can_be_raised_in_the_next_fight() {
     let me = b.fighters.iter().position(|f| f.pid == m).unwrap();
     assert!(b.raisable(me, grave));
 }
+
+#[test]
+#[ignore]
+fn print_spell_list() {
+    use gahturiyu_sim::sim::magic::{all_spells, DOMAINS};
+    for d in DOMAINS {
+        let names: Vec<String> = all_spells().filter(|s| s.def().domain == d).map(|s| format!("{} ({})", s.def().name, &s.def().style.name()[..1])).collect();
+        println!("{}: {}", d.name(), names.join(", "));
+    }
+    println!("total {}", all_spells().count());
+}

@@ -67,6 +67,25 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    `tests/save.rs`. Nothing may depend on a `HashMap`'s order (a loaded map
    iterates differently). The window's caches of the world reset when
    `Game::loads` changes.
+13. **Magic is data.** Spells (`magic::SPELLS`), potions, scrolls and worn
+   items all describe themselves with `effects::Effect` (what it does, how
+   strong, how long, who or what it reaches). A new spell or item is a line
+   of data; a new *kind* of effect is a `Does` variant plus its rule in the
+   two appliers — `combat::Battle::affect` (fights) and
+   `World::apply_effect` / `affect_object` (`casting.rs`, everywhere else).
+   The fight AI (`ai.rs`) reads spells by their effects, never by name.
+   Lasting effects outside fights are boons (on people) and wards (on the
+   ground); they become statuses and zones in a fight and go back out
+   after. Anything that changes a squad member's condition (load, hunger,
+   tiredness) settles their condition when it starts and has its end on
+   the condition timeline. Summoned creatures and raised dead are fighters
+   whose `pid` is `combat::NOBODY`: never index `people` with a fighter's
+   pid without checking `is_person()`. Bodies brought into a fight to be
+   raised sit on `GRAVE_SIDE` and are never written back.
+14. **Meeting someone never changes what they can do.** Felt spells come
+   with use for the squad only; everyone else's spells are
+   `starting_spells(kit_stats, seed)` (all felt spells their feel reaches,
+   a seeded share of the rest), the same whether or not they've been met.
 
 ## Verifying visual changes
 
@@ -90,7 +109,10 @@ loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
 (members 0 and 1 light torches; the hunter sets a standing torch),
 `GAHT_DEBUG=1` (the detail readout), `GAHT_FOREST=1` (camera far out over the
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
-(start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+(start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
+`GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds
+Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
+beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package
 `mesa-vulkan-drivers`): about 5 fps, so the fps readout means nothing there.
@@ -171,3 +193,12 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
 - The sea stays off-limits to the squad for now.
 - Torches are ordinary bought/carried items anyone can use (no racial tie);
   the squad starts with two each and the hunter with two standing torches.
+- Magic follows the Project doc `claude/magic-system.md` (Laz's decisions):
+  three styles are the skills (Felt, Structured, Ritual), eight domains are
+  tags, magic is equally strong everywhere, no levitation, no diseases,
+  stone-tending is a craft not a spell, raised dead are mindless and
+  necromancy never brings back a fallen squadmate. "Energy" is the mana pool.
+- Shrines for rituals are the Qotiro temples and halls for now (placeholder
+  until shrines exist).
+- Skipped spells and why are listed in README (Magic). Far sight is skipped
+  because the map shows everything; it needs fog of war first.

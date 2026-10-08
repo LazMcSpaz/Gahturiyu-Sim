@@ -51,6 +51,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | T | Selected members light their torch, or put it out (takes one from the pack if needed) |
 | I, or right-click a squad card | Pack and gear |
 | K | Crafting |
+| M | Spell book (click a spell to use it; spells aimed at someone or somewhere then wait for a click in the world — right-click cancels) |
 | J | Journal (jobs) |
 | O | Graphics settings |
 | F8 / F9 | Save / load (one quick-save slot) |
@@ -72,17 +73,18 @@ the pack to put it on (or drink, eat or use it), right-click to drop it. Equip
 the short bow from the pack to shoot (arrows stay in the pack). Click a standing
 torch in the pack to set it in the ground.
 
-Each **squad card** shows health (and mana), then three small bars — food,
+Each **squad card** shows health (and energy, for casters), then three small bars — food,
 stamina and rest — whose labels turn orange when there's trouble ("hungry",
 "starving", "worn out"), plus who they're carrying or who's carrying them, and
 any limb lost for good (−LA = left arm, and so on). "torch" after a name means
-their torch is lit.
+their torch is lit. A violet diamond with "Holding …" means a ritual is held ready.
 
 ## Playing
 
 - **Your squad**: a Roduro brawler with a stone maul, a Horaro hunter with a
-  spear and lockpicks, a Qotiro shield-fighter, and a Ṭaḍoro mage (paralyze,
-  fireball, lightning, blind, mage armour, haste, heal) with a mortar and
+  spear and lockpicks, a Qotiro shield-fighter, and a Ṭaḍoro mage (every
+  felt spell their feel reaches, Fireball, Lightning bolt, Paralyze, Blind,
+  Barrier, Haste and some others, and the Restore ritual) with a mortar and
   pestle and some herbs. Each walks at their own pace: hills, a hurt leg or an
   overloaded pack all slow them down.
 - **Fights** are Kenshi-style: six body parts, each with its own health;
@@ -130,8 +132,8 @@ their torch is lit.
 - **Lost limbs**: an arm or leg battered badly enough is gone for good. No
   shield or two-handed weapon without a left arm; a lost leg is a permanent
   limp, two mean crawling.
-- **Magic** costs mana, takes a moment to cast and can fizzle (the mana is
-  still spent). Scrolls cast once with no mana and never fizzle.
+- **Magic**: see below. Scrolls cast their spell once with no energy and
+  never fizzle.
 - **Bandit camps** sit beside the roads, lit by a campfire. Their lookouts
   notice you by sight (worse in the dark, against someone sneaking) and by
   sound (louder when moving, fighting or in heavy armour). Once they notice,
@@ -151,6 +153,76 @@ their torch is lit.
   back a day after you take them.
 - **Talking**: people answer from who they are and what's true right now. Some
   have work: break a bandit camp, fetch materials, carry a letter.
+
+## Magic
+
+**Three styles are the magic skills.** Anyone can learn any of them; a
+person's people only tilts which they lean to (Roduro and Horaro feel their
+way, Ṭaḍoro build, Qotiro perform rites), and individuals vary widely.
+
+| | Felt | Structured | Ritual |
+|---|---|---|---|
+| How big | small | medium | large |
+| Casting | instant, even mid-fight | 1–2 seconds; a solid hit spoils it | minutes to hours, never mid-fight |
+| Costs | a little energy and a little tiredness | energy | components and/or blood (a wound that heals like any other) |
+| Failing | rarely | fizzles sometimes; the energy is spent anyway | backlash: components lost, the caster hurt |
+| Learning | comes by itself as the style is used | from a teacher or from notes | from a teacher or from rare texts |
+
+"Energy" is the mana pool (the blue bar).
+
+**Rituals** are performed standing still (walking off breaks it off; the
+components are gone either way). Some need a place: a town's **hearth**, a
+**shrine** (for now, the Qotiro temples and halls), or a **drawn circle**
+(drawing one adds 20 minutes; it stays on the ground for next time). A
+finished ritual is **held ready** — one at a time — and released whenever
+you like, mid-fight included, where it works at once. Holding one drains
+stamina, and one still held when its caster next sleeps slips away. The
+squad card shows a violet diamond and "Holding …" while one is held.
+
+**Learning**: felt spells come with use (your squad only). Notes teach a
+structured spell and rare texts a ritual, to anyone skilled enough to follow
+them; they're kept after reading. Notes turn up now and then in homes, ritual
+texts in Qotiro temples. Local mages teach what they know for coin ("Could
+you teach me?" in conversation). People you meet already know every felt
+spell their feel reaches and some of the structured spells and rituals their
+skill would let them follow.
+
+**Domains** sort spells by what they work on: Elemental, Psychic, Illusion,
+Vital, Warding, Alteration, Summoning, Necromancy. They have no rules of
+their own yet; items or blessings can strengthen a domain's spells or ward
+against them (nothing in the game does yet).
+
+**Summoned creatures and raised dead** are fighters like anyone else, on
+their caster's side, using all the same fight rules, until their binding
+runs out. The raised are mindless (they go for whoever is nearest), a body
+can only be raised once, and nothing raises one of the caster's own side —
+a fallen squadmate is never brought back.
+
+### The spells
+
+F = felt, S = structured, R = ritual.
+
+| Domain | Spells |
+|---|---|
+| Elemental | Spark (F, a little fire) · Chill (F, frost and a slow) · Kindle / Douse (F, light or put out a torch, standing torch or campfire — a doused campfire stays dark for 3 hours) · Fireball (S, burst that hits friend and foe) · Lightning bolt (S, ignores armour) · Stone spikes (S, hits only the legs) · Firestorm (R, a big burst) · Tremor (R, throws enemies round you to the ground) |
+| Psychic | Daze (F, they lose their next action) · Sense life (F, the living nearby shown through walls) · Nightsight (F) · Calm (S, won't fight until hit) · Fear (S, runs off for a while) · Paralyze (S) · Sway (S, +20 disposition in conversation) · Dominate (R, an enemy fights for you for 20 s) |
+| Illusion | Silent step (F) · Glow / Gloom (F, light or darkness round you — it counts for being seen) · Blind (S) · Hide (S, hard to see; enemies lose you beyond arm's reach) · Decoy (S, an illusion that draws the blows) · Disguise (S, half an hour unrecognised: bounties and crimes aren't laid on you) · Veil (R, hours unseen and unheard by lookouts) |
+| Vital | Mend (F) · Second wind (F, stamina) · Haste (S) · Might (S, strength and carrying) · Toughen (S, skin as light armour) · Restore (R, at a hearth: heals every wound and all tiredness of the squad) · Sustain (R, a day with no hunger or tiredness) · Regrow (R, at a shrine: a lost limb grows back — the only cure) |
+| Warding | Brace (F, turns the next blow) · Tripwire (F, round camp: sleepers wake at once if attacked) · Resist (S, half of elemental harm) · Barrier (S) · Dispel (S, ends every spell on someone; sends a creature back) · Sanctuary (R, enemies can't step in; lookouts won't come for you inside) |
+| Alteration | Lighten / Burden (F) · Shatter item (S, their weapon or shield breaks for good) · Unlock (S, a locked door opens until the next night) · Shrink / Enlarge (S) · Rust (S, their armour stops less) · Transmute (R, materials in the pack become others: ore to ingots, hide to leather, salt to storm glass, ash moss to ghostcap) |
+| Summoning | Wisp (F, a light at a spot) · Scout (F, a spirit at a spot up to 150 m off) · Spirit beast (S, fights for you for a minute) · Pack spirit (S, carries 40 kg for four hours) · Guardian (R, waits at a spot for hours and joins the next fight there) · Swarm (R, six small biters, in a fight) |
+| Necromancy | Drain (F, takes health into the caster) · Preserve (F, bodies don't rot for a day) · Wither (S, rots one limb) · Raise thrall (S, a body fights for you, mindless, for 45 s) · Grave call (R, every body round you rises) · Blight (R, a patch of rot that eats at everyone in it) |
+
+Not in yet, because what they work on doesn't exist: Far sight (the map
+already shows everything), Hold the Overgrowth (no Overgrowth yet), Mend item
+and Soften/Harden (items don't wear and walls can't break), Seal (nothing but
+your squad opens doors), Bind (no animals), Speak with dead (nothing records
+what the dead knew).
+
+The fight AI reads what a spell does from its effects (mend, ward, hinder,
+blast, strike, call up help, raise the dead), so new spells are used
+sensibly without new code. Mages cast freely; ordinary fighters mostly throw
+a spark at someone still out of reach.
 
 ### Saving
 
@@ -298,8 +370,9 @@ journey, route, position, wound, death and ambush comes out identical. They
 also check that details, once built, never change. The other test files check
 each system does what it says: `combat.rs`, `gear.rs` (every enchantment),
 `squad.rs`, `stealth.rs`, `indoors.rs`, `crafting.rs`, `talk.rs`, `terrain.rs`,
-`condition.rs`, `carry.rs`, `news.rs`, and `save.rs` (a loaded world carries on
-exactly like the saved one, even mid-fight).
+`condition.rs`, `carry.rs`, `news.rs`, `save.rs` (a loaded world carries on
+exactly like the saved one, even mid-fight), `magic.rs` (styles, costs,
+rituals, learning) and `spells.rs` (every spell does what it says).
 
 ```
 cargo run --release --bin headless -- 3
@@ -327,7 +400,12 @@ The numbers most worth tuning, all named constants:
 | Ground and building colours | `src/view/palette.rs` |
 | Stats, skills, how fast they train | `src/sim/stats.rs` |
 | Weapons, armour, enchantments, materials, potions, scrolls | `src/sim/items.rs` |
-| Spells | `src/sim/magic.rs` |
+| The spell list: style, domain, costs, aim, range, effects, ritual needs (`SPELLS`); how much of their skill's reach people know at the start (`KNOWN_SHARE`); success chances (`success_chance`) | `src/sim/magic.rs` |
+| What each kind of effect is and does (one list for spells, potions, scrolls, worn items) | `src/sim/effects.rs` |
+| A mage's study split and each people's leaning style (`MAGE_STUDY`, `race_style`) | `src/sim/stats.rs` |
+| Rituals and learning: places (`HEARTH_REACH`, `SHRINE_REACH`, `CIRCLE_MINUTES`), holding (`STAMINA_HOLD`), backlash (`BACKLASH`), reading and teaching (`READ_SKILL`, `TAUGHT_SKILL`, `lesson_price`), `TRANSMUTE`, `PRESERVE_HOURS` | `src/sim/casting.rs` |
+| Summoned creatures' strength and numbers (`creature`) | `src/sim/combat.rs` |
+| Magical light (`GLOW_REACH`, `GLOOM_REACH`), how long a doused campfire stays out (`DOUSE_HOURS`) | `src/sim/torch.rs` |
 | Hit chances, damage, sneak attacks | `src/sim/combat.rs` |
 | Bandit camps: how many, how far they see, rest between attacks | `src/sim/encounters.rs` |
 | Sight, hearing, light, sneaking | `src/sim/stealth.rs` |
@@ -382,7 +460,9 @@ src/sim/      the simulation — no graphics, fully testable
   body.rs       body parts and wounds that heal
   items.rs      the item catalogue
   inventory.rs  gear slots, packs, weight
-  magic.rs      spells
+  magic.rs      the spell list, styles, domains
+  effects.rs    the one effect list for spells, potions, scrolls and worn items
+  casting.rs    magic outside fights: casting, rituals, held rituals, boons, wards, learning
   combat.rs     a fight, tick by tick
   ai.rs         what fighters decide
   fights.rs     where fights meet the world (the squad's fights)
