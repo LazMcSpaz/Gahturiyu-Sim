@@ -717,32 +717,36 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
             act = Some(Action::Craft(pid, i));
         }
     }
-    c.text("Click a recipe to make it. Stations stand round every town's hearth.", x, r.y + r.h - 12.0, 13.0, DIM);
+    c.text("Click a recipe to make it. Every town has the stations (P shows where).", x, r.y + r.h - 12.0, 13.0, DIM);
     (act, hovered, r)
 }
 
-fn talk_rect(c: &Canvas) -> Bx {
+fn talk_rect(c: &Canvas, topics: usize) -> Bx {
     let w = 760.0f32.min(c.w - 24.0);
-    Bx::new((c.w - w) / 2.0, c.h - 30.0 - CARD_H - 20.0 - 380.0, w, 380.0)
+    let h = (80.0 + topics as f32 * 22.0).max(380.0).min(c.h - CARD_H - 80.0);
+    Bx::new((c.w - w) / 2.0, c.h - 30.0 - CARD_H - 20.0 - h, w, h)
 }
 
 /// The conversation: what's been said on the left, topics to ask on the right.
 pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option<Topic>, Option<Bx>) {
     let Some(cv) = w.talk.as_ref() else { return (None, None) };
-    let r = talk_rect(c);
+    let topics = w.topics();
+    let r = talk_rect(c, topics.len());
     let npc = &w.people[cv.npc as usize];
     c.rect(r.x, r.y, r.w, r.h, Color32::from_rgba_unmultiplied(13, 15, 18, 240));
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(npc.race)));
     let x = r.x + 16.0;
     let disp = w.disposition(cv.npc, cv.with);
-    c.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), npc.stats.calling.name()), x, r.y + 28.0, 18.0, race_color(npc.race));
+    let job = w.life(cv.npc).job;
+    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else { job.name().to_lowercase() };
+    c.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), what), x, r.y + 28.0, 18.0, race_color(npc.race));
     let d = format!("Disposition {disp:.0}");
     c.text(&d, r.x + r.w - c.width(&d, 14.0) - 16.0, r.y + 26.0, 14.0, if disp < 30.0 { WARN } else { DIM });
 
     let tx = r.x + r.w - 200.0;
     let mut ty = r.y + 60.0;
     let mut chosen = None;
-    for t in w.topics() {
+    for t in topics {
         let row = Bx::new(tx - 6.0, ty - 15.0, 190.0, 21.0);
         let hot = row.contains(mouse);
         if hot {

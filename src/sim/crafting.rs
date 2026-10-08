@@ -9,7 +9,10 @@
 //! | Weapons (and smelting) | Smithing | a forge |
 //! | Armour (and tanning) | Armoring | an armourer's bench (a forge for iron pieces) |
 //!
-//! Every town has the four stations round its hearth. A recipe takes its
+//! Every town has the four stations, set up in its workplaces (a workyard,
+//! healing house and letters house where services are combined, separate
+//! shops where they're split). The squad works them itself, so they're
+//! usable whether or not the town's crafter is at work. A recipe takes its
 //! materials up front and some game time at the station; then a keyed roll
 //! against skill and difficulty decides whether it worked. A botched job
 //! gives half the materials back. Either way the skill improves (more for a

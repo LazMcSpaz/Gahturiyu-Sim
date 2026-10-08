@@ -35,9 +35,11 @@ fn the_same_seed_gives_the_same_customs_and_routines_however_its_stepped() {
     }
     assert_eq!(a.society.lives, b.society.lives);
 
+    // Across several dawns (when towns tally, fill posts and may change).
     let (mut fine, mut coarse) = (a, b);
-    run(&mut fine, 40.0, 3.0);
-    run(&mut coarse, 40.0, HOUR);
+    run(&mut fine, 100.0, 6.0);
+    run(&mut coarse, 100.0, HOUR);
+    assert_eq!(fine.society.households, coarse.society.households);
     assert_eq!(fine.society.lives, coarse.society.lives);
     for (ca, cb) in fine.society.communities.iter().zip(&coarse.society.communities) {
         assert_eq!(ca.customs, cb.customs);

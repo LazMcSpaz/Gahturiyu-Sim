@@ -86,6 +86,23 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    with use for the squad only; everyone else's spells are
    `starting_spells(kit_stats, seed)` (all felt spells their feel reaches,
    a seeded share of the rest), the same whether or not they've been met.
+15. **Cultures are tendencies, not scripts.** Never write "Roduro towns do
+   X". Each people's leanings live in one data table (`culture::PROFILES`);
+   a community's customs are chosen from the head-count-weighted blend of
+   its residents' leanings (plus a seeded nudge) by one fixed roll per
+   community and custom, stored as state (`Community::customs`), and
+   re-chosen at dawn when the population has shifted enough. Systems read
+   the stored customs and people's own rolled habits (`Life::habits`) —
+   never `race` directly. A person's own habits lean toward their people's
+   profile but are rolled per person, like traits.
+16. **Town life is looked up from the clock.** A day plan is a pure function
+   of the person, their community's customs, the day and the hour
+   (`World::day_plan`); positions, who's at work and what's open are read
+   off it. The economy is settled on the world's timeline: each hour's
+   work is worked out from the plans at the top of the hour and added as a
+   rate (`society::Flow`), and the day's food, tax and changes are tallied
+   at `DAWN`. Caravan arrivals and homecomings are timeline events like
+   ambushes. Never step people through their day.
 
 ## Verifying visual changes
 
@@ -112,7 +129,13 @@ nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
 `GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds
 Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
-beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
+`GAHT_TOWN=1` (the town panel for the nearest town), `GAHT_TRADE=1` (trading
+with the nearest merchant at work), `GAHT_SOCIETY=runners|boats|tides` (go and
+watch the midday meal run, the dawn boats, or a stilt village; for tides
+compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the
+moment holds). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+`headless society [days] [seed]` prints every town's customs, jobs, food and money.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package
 `mesa-vulkan-drivers`): about 5 fps, so the fps readout means nothing there.
@@ -200,5 +223,14 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   necromancy never brings back a fallen squadmate. "Energy" is the mana pool.
 - Shrines for rituals are the Qotiro temples and halls for now (placeholder
   until shrines exist).
+- Society Part 1 follows the Project doc `claude/society-economy.md`
+  (Laz's decisions). English placeholder names only; no new place names.
+  A coastal town is two communities (land and the stilt village), each with
+  its own blend and customs. Ṭaḍoro have no cooking leaning (hosts feed
+  them). Dawn (the boats, the day's tally) is 06:00. One coin (struck by
+  Ṭaḍoro presses) plus 50-coin notes. Seasons only move seasonal working
+  hours (a placeholder 48-day year); daylight doesn't follow them yet.
+  Part 2 (materials and crafting) and Part 3 (government, law, bondage) are
+  not built: `set_withdrawn` and the treasury's unpaid pay are their hooks.
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.

@@ -20,6 +20,9 @@ pub use super::squad::{GroundItem, Pickup, Squad, SQUAD_SPEED};
 /// Departure pressure per unit of (wanderlust squared) per game hour. The main
 /// dial for how busy the roads are.
 pub const DEPARTURE_RATE: f32 = 0.014;
+/// How much less likely someone with a post (a shop, a kitchen, the watch)
+/// is to set out than someone without.
+pub const POST_TIES: f32 = 0.4;
 /// Share of the daytime departure rate that still happens at night.
 pub const NIGHT_FACTOR: f32 = 0.12;
 /// A group that leaves band 1 and comes back within this many game seconds is
@@ -571,7 +574,11 @@ impl World {
         if free.is_empty() {
             return None;
         }
-        let pull: Vec<f32> = free.iter().map(|&p| self.people[p as usize].traits.wanderlust.powi(2)).collect();
+        // Someone with a post to keep is less free to wander off.
+        let pull: Vec<f32> = free
+            .iter()
+            .map(|&p| self.people[p as usize].traits.wanderlust.powi(2) * if self.society.lives.get(p as usize).map(|l| l.job.is_post()).unwrap_or(false) { POST_TIES } else { 1.0 })
+            .collect();
         let pressure: f32 = pull.iter().sum::<f32>() * DEPARTURE_RATE * if day { 1.0 } else { NIGHT_FACTOR };
         if !rng.chance(1.0 - (-pressure).exp()) {
             return None;

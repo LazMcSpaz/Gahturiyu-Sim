@@ -280,15 +280,21 @@ impl World {
         let market = (day + tl.market_day as i64).rem_euclid(MARKET_EVERY) == 0 && !comm.stilts;
         let evening = self.evening_spot(pid);
         let garden = self.gardener_of(pid).is_some();
+        // A neighbour to call on today, perhaps: a few tries at a home on
+        // their own side of the water.
         let visit = {
-            let homes: Vec<u16> = self.settlements[town as usize]
-                .buildings
-                .iter()
-                .enumerate()
-                .filter(|(_, b)| (b.kind == BuildingKind::HoraroStilt) == comm.stilts && matches!(b.kind, BuildingKind::RoduroHome | BuildingKind::QotiroBlock | BuildingKind::HoraroStilt))
-                .map(|(i, _)| i as u16)
-                .collect();
-            (r.chance(0.3) && !homes.is_empty()).then(|| homes[r.below(homes.len())])
+            let bs = &self.settlements[town as usize].buildings;
+            let going = r.chance(0.3);
+            let mut found = None;
+            for _ in 0..4 {
+                let i = r.below(bs.len());
+                let b = &bs[i];
+                if (b.kind == BuildingKind::HoraroStilt) == comm.stilts && matches!(b.kind, BuildingKind::RoduroHome | BuildingKind::QotiroBlock | BuildingKind::HoraroStilt) && Some(i as u16) != p.dwelling {
+                    found = Some(i as u16);
+                    break;
+                }
+            }
+            found.filter(|_| going)
         };
         let bed = (BED + jitter * 2.0).clamp(20.5, 23.6);
         let rest = matches!(l.job, Job::Drifter | Job::None) || self.is_rest_day(pid, day, rhythm);
@@ -380,6 +386,12 @@ impl World {
             }
             Job::Merchant if market => we += 2.0,
             Job::Guard => (ws, we, meal) = (6.0, 18.0, 12.0),
+            // Runners keep the kitchen's day, whatever their own hours: the
+            // pots go out when the town eats.
+            Job::Runner => {
+                let m = self.community_meal(ci, day);
+                (ws, we, meal) = (m - 3.0, m + 4.5, m + 1.0);
+            }
             _ => {}
         }
         ws = ws.max(if crew { BOAT_BACK + 0.25 } else { 3.5 });
@@ -400,9 +412,11 @@ impl World {
         if l.job == Job::Runner {
             let m = self.community_meal(ci, day);
             let (a, b) = ((m - RUN_HOURS * 0.5).max(ws + 0.25), (m + RUN_HOURS * 0.5).min(we - 0.5));
-            plan.push(a, Doing::Run, Spot::RunRound);
-            plan.push(b, Doing::Meal, Spot::Work);
-            plan.push(b + 0.4, Doing::Work, Spot::Work);
+            if b > a + 0.25 {
+                plan.push(a, Doing::Run, Spot::RunRound);
+                plan.push(b, Doing::Meal, Spot::Work);
+                plan.push(b + 0.4, Doing::Work, Spot::Work);
+            }
         } else {
             let m = meal.clamp(ws + 0.5, we - 0.6);
             plan.push(m, Doing::Meal, Spot::Work);

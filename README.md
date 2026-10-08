@@ -6,7 +6,8 @@ whether or not you are watching — plus a window to watch them in, built
 with the Bevy game engine: sun and moon, firelight, woods and grass.
 
 Your squad of four can fight, sneak, pick locks, go indoors, gather and craft,
-talk to people and take on work. Bandit camps by the roads ambush travellers
+talk to people, trade and take on work. Every town has households, jobs and
+daily routines, kitchens and gardens, a stockpile, a treasury and caravans. Bandit camps by the roads ambush travellers
 across the whole map whether you're there or not. The foundation underneath:
 **the far-away world runs cheaply, the nearby world runs in full detail, and
 nothing that happens depends on how closely it was being watched.**
@@ -54,6 +55,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | M | Spell book (click a spell to use it; spells aimed at someone or somewhere then wait for a click in the world — right-click cancels) |
 | G | Look through a scout spirit (G again or C to come back) |
 | J | Journal (jobs) |
+| P, or click a town's name | Town panel: its people and customs, food, store, money, which services are open |
 | O | Graphics settings |
 | F8 / F9 | Save / load (one quick-save slot) |
 | Right-drag, Q / E | Turn the camera (map: pan) |
@@ -150,10 +152,105 @@ their torch is lit. A violet diamond with "Holding …" means a ritual is held r
   there too. The side panel says how many towns know.
 - **Crafting**: potions (anywhere with a mortar and pestle), scrolls (scribe's
   desk), weapons and armour (forge, armourer's bench). Every town has the four
-  stations round its hearth. Materials grow or lie around the land and come
+  stations, in its workyard, healing house and letters house or in separate
+  shops, depending on the town. Materials grow or lie around the land and come
   back a day after you take them.
 - **Talking**: people answer from who they are and what's true right now. Some
   have work: break a bandit camp, fetch materials, carry a letter.
+- **Towns live by the clock**: people sleep, walk to work, eat, work, spend
+  the evening at the hearth, the inn or the deck, and go to bed. A shop is
+  open only while its keeper is at work — at night, on their rest day, during
+  their meal, or if they've died, it's shut. **Trade** with a merchant at
+  their stall ("What have you got?"); **change money** with an exchanger. See
+  Society below.
+
+## Society
+
+**Cultures are tendencies, not scripts.** No town is told "you're Roduro, so
+you do this". Each people has a list of leanings (`src/sim/culture.rs`): who
+cooks, the rhythm of the day, who belongs together, where they like to spend
+the evening, what work draws them. A town's culture is the **blend** of its
+residents' leanings, weighted by how many of each live there, plus a small
+random nudge of its own. Each custom is then picked from the blend by **one
+fixed roll** per town. The roll never changes; the blend does — so a town
+keeps its ways while its people stay much the same, and drifts into new ones
+when enough people die, leave or move in (it takes stock each dawn). Each
+person also rolls a few habits of their own (keeping their own people's hours,
+lodging with a host, where they spend evenings).
+
+A coastal town is two communities: the town on land, and the stilt village
+offshore, each with its own blend and customs.
+
+The customs:
+
+- **Who cooks**: each household its own pot; a hearth kitchen whose cooks
+  feed the workers and whose **meal runners** carry stacked pots out to the
+  fields and yards at midday; or everyone eating together off a shared deck.
+  Ṭaḍoro have no leaning of their own here — their hosts feed them.
+- **Rhythm of the day**: **seasonal** hours (steady, sliding with the time of
+  year); **bells** (fixed shifts — everyone eats at the same bell, which makes
+  a town predictable); **tides** (work starts round low water, about fifty
+  minutes later each day, so a stilt village's day comes round in a
+  fortnight); or **irregular** (everyone their own hours).
+- **Who belongs together**: households by family line (one per home), tier
+  blocks (two homes to a household), one household for the whole village, or
+  everyone lodging on their own.
+- **Services**: in towns no one people dominates, services are **combined** —
+  one market square with stalls, one workyard with forge and armourer's bench,
+  one healing house, a letters house (exchange, letters, teaching). Towns
+  dominated by one people **split** them into separate shops and houses. It's
+  a smooth leaning, not a cut-off.
+- **Strong minorities** lean toward an institution of their own: a mess hall,
+  a cooking deck, a Tenders' yard, a letters house.
+
+**Jobs.** Everyone has one, chosen when the world is made from the town's open
+posts, weighted by their calling, temper and people's leanings: farmer, fisher
+and diver, forager and hunter, woodcutter and quarrier, Stone Tender (making
+rounds of the stone homes), cook, meal runner, merchant, caravaner, innkeeper,
+guard (day or night watch), official, priest, healer, teacher, exchanger,
+arbiter, labourer and porter, kelp gatherer, boatwright, and the four existing
+crafters (smith, armourer, alchemist, scribe). Restless people with nothing
+to do drift. When someone with a post dies or leaves, it stays empty until the
+next dawn, when a labourer takes it up. Every home on land has a garden,
+tended by whoever in the house has the lightest work (a lodger first, then the
+eldest).
+
+**Days.** Everyone's day is a plan read off the clock: wake, walk to work,
+eat at midday, work, garden, maybe the market (every fourth day is market
+day) or a neighbour's, then the evening, then bed. People rest one day in six
+(under bells, a third of a shift at a time). Guards on the night watch work
+18:00 to 06:00. At night people are indoors asleep — which makes them poor
+witnesses, and they can't be talked to.
+
+**Food** comes three ways, and the cooking custom decides how much each is
+leaned on: **gardens** feed their households; the **kitchens** cook from the
+town's stock (with cooks and runners, at a deck, or in each home's own pot);
+and the **dawn boats** bring the stilt village's catch ashore at first light.
+Every dawn the day before is tallied. A path that breaks — the cooks dead, the
+runners gone, the village withdrawn — leaves its share unmet, and the others
+don't cover for it. The town panel shows how well each path did.
+
+**Goods and money.** Work adds goods to the town's store at simple rates
+(grain from the fields, fish from the divers, timber, game, hides, stone,
+wares from the crafters); food slowly spoils. What's in store is what the
+merchants sell, and how well-stocked and well-fed a town is sets its
+**prosperity**, which sets how fast the merchants' coin refills after you've
+sold to them (what you and the caravans bring in can lift it above that
+level; it just won't refill past it). **Caravaners** carry a town's surplus to a town that wants it,
+on the same roads and journeys as everyone else; the goods arrive when they
+do, bandits who beat them take the lot, and the coin from the sale comes home
+with them. Hover a caravan to see what it carries.
+
+**One coin**, struck by the Ṭaḍoro's magical presses so it can't be faked;
+coins weigh something. **Notes** (50 coin on Ṭaḍoro paper) weigh next to
+nothing, but are as easily stolen or lost as anything else you carry.
+Exchangers in the larger towns swap one for the other, keeping a coin each
+time. Each dawn a town taxes its households into a **treasury** that pays its
+guards; when it can't, the pay owed is shown in red (Part 3 makes that matter).
+
+`cargo run --release --bin headless -- society 3` prints every town's customs,
+jobs, food, store and money after three days — the quickest way to see what
+the dials do.
 
 ## Magic
 
@@ -378,7 +475,8 @@ each system does what it says: `combat.rs`, `gear.rs` (every enchantment),
 `squad.rs`, `stealth.rs`, `indoors.rs`, `crafting.rs`, `talk.rs`, `terrain.rs`,
 `condition.rs`, `carry.rs`, `news.rs`, `save.rs` (a loaded world carries on
 exactly like the saved one, even mid-fight), `magic.rs` (styles, costs,
-rituals, learning) and `spells.rs` (every spell does what it says).
+rituals, learning), `spells.rs` (every spell does what it says) and
+`society.rs` (customs, routines, services, food paths, caravans, trade).
 
 ```
 cargo run --release --bin headless -- 3
@@ -417,7 +515,13 @@ The numbers most worth tuning, all named constants:
 | Sight, hearing, light, sneaking | `src/sim/stealth.rs` |
 | Locks, lockpicking, what's inside homes | `src/sim/buildings.rs` |
 | Recipes, stations, gathering | `src/sim/crafting.rs` |
-| Jobs and dialogue | `src/sim/quests.rs`, `src/sim/dialogue.rs` |
+| Errands and dialogue | `src/sim/quests.rs`, `src/sim/dialogue.rs` |
+| **Each people's leanings** (`PROFILES`: cooking, rhythm, belonging, evenings, keeping their own ways, lodging, their minority institution, job leanings); the town nudge (`NUDGE`, `SPLIT_NUDGE`); when a minority sets up its own (`MINORITY`); how big a shift re-blends a town (`BLEND_SHIFT`) | `src/sim/culture.rs` |
+| How many of each job a town wants (`posts_for`), and which places it keeps at what size (`places_wanted`); how each cooking custom leans on the food paths (`PATHS`); hours workers can be counted on (`expected_hours`); rest days and market days (`WEEK`, `MARKET_EVERY`); dawn (`DAWN`); roads for an inn (`ROADS_MEET`) | `src/sim/society.rs` |
+| Work rates (`FARM_PER_HOUR`, `FISH_PER_HOUR`, `KELP_PER_HOUR`, `MEALS_PER_COOK_HOUR`, `POTS_PER_RUN`, `Job::yields`), who gets the garden (`Job::lightness`), how well callings and tempers suit each job (`Job::fit`), goods' worth and spoiling | `src/sim/jobs.rs` |
+| Gardens, tax, guards' pay, the merchants' purse, trade prices, notes and the exchange fee, caravans (`GARDEN_FOOD`, `TAX_PER_HEAD`, `GUARD_WAGE`, `PURSE_PER_MERCHANT`, `PURSE_REFILL`, `BUY_MARKUP`, `SELL_SHARE`, `NOTE_VALUE`, `CARAVAN_CHANCE`, `CARGO_PER_HEAD`, `KEEP_DAYS`) | `src/sim/economy.rs` |
+| Working hours by rhythm, the night watch, the runners' round and the dawn boats (`work_hours`, `RUN_HOURS`, `BOAT_OUT`, `BOAT_BACK`, `BED`) | `src/sim/routine.rs` |
+| The tide and the season (`TIDE_PERIOD`, `YEAR_DAYS`, `SEASON_SWING`) | `src/sim/tide.rs` |
 | Hunger: how fast, stages, when they eat (`HUNGER_PER_HOUR`, `EAT_AT`, `HUNGRY`/`WEAK`/`STARVING`, `STARVE_DRAIN`) | `src/sim/condition.rs` |
 | Stamina and tiredness (`STAMINA_WALK`, `STAMINA_CLIMB`, `STAMINA_REST`, `TIRED_PER_HOUR`, `SLEEP_OPEN`/`TENT`/`INDOORS`, `EXHAUSTED`) | `src/sim/condition.rs` |
 | Healing by activity (`HEAL_SLEEP_*`, `HEAL_RESTING`, `HEAL_WALKING`; base `HEAL_PER_HOUR` in `body.rs`) | `src/sim/condition.rs` |
@@ -480,7 +584,13 @@ src/sim/      the simulation — no graphics, fully testable
   buildings.rs  doors, locks, interiors
   crafting.rs   recipes, stations, gathering, potions
   quests.rs     jobs
-  dialogue.rs   conversations
+  dialogue.rs   conversations (and trading)
+  culture.rs    each people's leanings, town blends, choosing customs
+  society.rs    communities, households, jobs, workplaces, gardens, dawn changes
+  routine.rs    day plans looked up from the clock; who's where; what's open
+  economy.rs    production, food paths, stock, prosperity, money, caravans, trade
+  jobs.rs       jobs, workplaces, goods and services as tables
+  tide.rs       the tide clock and the season
   torch.rs      torches, and all light sources
   news.rs       bounty news carried town to town
   save.rs       saving and loading
@@ -497,6 +607,7 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   map.rs        the top-down map
   hud.rs        side panel, hover descriptions, health bars
   squadui.rs    squad cards, pack, crafting, conversation, journal
+  townui.rs     the town panel (P)
   shot.rs       headless screenshots (the GAHT_ flags)
   settings.rs   graphics settings (O)
 src/bin/headless.rs  the world with no window

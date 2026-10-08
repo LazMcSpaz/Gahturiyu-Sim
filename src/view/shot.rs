@@ -72,6 +72,8 @@ pub struct Shot {
     pub held: bool,
     /// `GAHT_TOWN=1`: open the town panel for the nearest town.
     pub town: bool,
+    /// `GAHT_TRADE=1`: talk to the nearest merchant at work and look at their wares.
+    pub trade: bool,
     /// `GAHT_SOCIETY=runners|boats|tides`: go and watch the midday meal run,
     /// the dawn boats, or a stilt village keeping tide hours.
     pub society: Option<String>,
@@ -119,6 +121,7 @@ impl Shot {
             summon: var("GAHT_SUMMON").is_some(),
             held: var("GAHT_HELD").is_some(),
             town: var("GAHT_TOWN").is_some(),
+            trade: var("GAHT_TRADE").is_some(),
             society: var("GAHT_SOCIETY"),
             nudge: pair("GAHT_NUDGE"),
         })
@@ -365,6 +368,24 @@ impl Shot {
                 if world.topics().contains(&Topic::Work) {
                     world.ask(Topic::Work);
                 }
+            }
+        }
+        if self.trade {
+            let here = world.squad.pos;
+            let npc = world.people.iter().map(|p| p.id).filter(|&p| world.is_trading(p)).min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            if let Some(npc) = npc {
+                let lead = world.squad.members[0];
+                let at = world.person_pos(npc);
+                world.teleport_squad(at.add(V2::new(1.5, 0.0)));
+                world.squad.at[0] = at.add(V2::new(1.0, 0.0));
+                world.order_talk(lead, npc);
+                for _ in 0..20 {
+                    if world.talk.is_some() {
+                        break;
+                    }
+                    world.step(0.5);
+                }
+                world.ask(Topic::Trade);
             }
         }
         if self.enter {

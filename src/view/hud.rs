@@ -348,6 +348,16 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
 
 pub fn doing(w: &World, gid: u32) -> String {
     let Some(g) = w.group(gid) else { return String::new() };
+    let carrying = match &g.cargo {
+        Some(c) if c.robbed => "  ·  a caravan, robbed of its goods".to_string(),
+        Some(c) if c.delivered => format!("  ·  a caravan bringing {:.0} coin home", c.coin),
+        Some(c) => format!("  ·  a caravan carrying {:.0} {} to {}", c.amount, c.good.name().to_lowercase(), w.settlements[c.to as usize].name),
+        None => String::new(),
+    };
+    doing_on_road(w, g) + &carrying
+}
+
+fn doing_on_road(w: &World, g: &gahturiyu_sim::sim::group::Group) -> String {
     let t = w.time;
     let Some(leg) = g.current_leg(t) else { return String::new() };
     let at = |s: u16| w.settlements[s as usize].name.clone();

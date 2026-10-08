@@ -143,7 +143,7 @@ impl Flow {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Workplace {
     pub kind: PlaceKind,
     pub pos: V2,
@@ -151,7 +151,7 @@ pub struct Workplace {
     pub seed: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Household {
     pub community: u32,
     pub members: Vec<PersonId>,
@@ -402,12 +402,16 @@ impl World {
     fn form_households(&mut self, ci: u32) {
         let members: Vec<PersonId> = self.members_of(ci).collect();
         let belonging = self.society.communities[ci as usize].customs.belonging;
+        // Homes in order, so a tier block is two neighbouring homes.
+        let town = self.society.communities[ci as usize].town;
+        let homes: Vec<u16> = self.settlements[town as usize].buildings.iter().enumerate().filter(|(_, b)| matches!(b.kind, BuildingKind::RoduroHome | BuildingKind::QotiroBlock | BuildingKind::HoraroStilt)).map(|(i, _)| i as u16).collect();
+        let rank = |d: u16| homes.iter().position(|&h| h == d).unwrap_or(d as usize) as u64;
         let mut groups: Vec<(u64, Option<u16>, Vec<PersonId>)> = Vec::new();
         for &p in &members {
             let d = self.people[p as usize].dwelling;
             let key = match belonging {
                 Belonging::Lineage => d.map(|d| d as u64).unwrap_or(u64::MAX - p as u64),
-                Belonging::TierBlock => d.map(|d| (d as u64).saturating_sub(1) / 2).unwrap_or(u64::MAX - p as u64),
+                Belonging::TierBlock => d.map(|d| rank(d) / 2).unwrap_or(u64::MAX - p as u64),
                 Belonging::Village => 0,
                 Belonging::Lodging => p as u64,
             };
@@ -805,6 +809,15 @@ impl World {
                 }
             }
         }
+        // A stilt village always has someone to crew the dawn boat.
+        if self.society.communities[ci as usize].stilts {
+            let fishers: Vec<PersonId> = members.iter().copied().filter(|&p| self.society.lives[p as usize].job == Job::Fisher).collect();
+            if !fishers.iter().any(|&p| self.society.lives[p as usize].shift == 1) {
+                if let Some(&p) = fishers.first() {
+                    self.society.lives[p as usize].shift = 1;
+                }
+            }
+        }
         // Who works out of town.
         let tl = &self.society.towns[self.society.communities[ci as usize].town as usize];
         let away = members.iter().filter(|&&p| self.society.lives[p as usize].place.map(|i| tl.places[i as usize].kind.is_away()).unwrap_or(false)).count();
@@ -902,7 +915,7 @@ impl World {
                     } else {
                         "takes up new ways".to_string()
                     };
-                    self.log.push_front((self.time, format!("{place} {what}.")));
+                    self.log.push_front((day as f64 * DAY + DAWN as f64 * HOUR, format!("{place} {what}.")));
                     self.log.truncate(14);
                     if after.belonging != before.belonging {
                         regroup = true;
@@ -936,12 +949,12 @@ impl World {
             for (p, job) in self.assign_jobs(ci, Some(day)) {
                 if self.bands.band_at(self.settlements[t as usize].pos) <= 2 {
                     let who = self.name_of(p);
-                    self.log.push_front((self.time, format!("{who} takes up work as {} in {}.", job.name().to_lowercase(), self.settlements[t as usize].name)));
+                    self.log.push_front((day as f64 * DAY + DAWN as f64 * HOUR, format!("{who} takes up work as {} in {}.", job.name().to_lowercase(), self.settlements[t as usize].name)));
                     self.log.truncate(14);
                 }
             }
         }
-        if self.society.towns[t as usize].gardens.iter().any(|g| g.gardener.map(|p| self.people[p as usize].dead).unwrap_or(true)) {
+        if self.society.towns[t as usize].gardens.iter().any(|g| g.gardener.map(|p| self.people[p as usize].dead || self.people[p as usize].home != Some(t)).unwrap_or(true)) {
             self.choose_gardeners(t);
         }
     }
@@ -969,9 +982,13 @@ impl World {
         l.community = Some(shore);
         l.job = Job::Labourer;
         l.place = labour.first().copied();
-        l.household = None;
-        // Lodge with the household of the home they've moved into.
-        if let Some(h) = self.society.households.iter().position(|h| h.community == shore && dwelling.is_some() && h.home == dwelling) {
+        if let Some(old) = l.household.take() {
+            self.society.households[old as usize].members.retain(|&m| m != pid);
+        }
+        // Lodge with the household of the home they've moved into (or the
+        // one household, where everyone is one).
+        let one = self.society.communities[shore as usize].customs.belonging == Belonging::Village;
+        if let Some(h) = self.society.households.iter().position(|h| h.community == shore && ((dwelling.is_some() && h.home == dwelling) || one)) {
             self.society.households[h].members.push(pid);
             self.society.lives[pid as usize].household = Some(h as u32);
         } else {

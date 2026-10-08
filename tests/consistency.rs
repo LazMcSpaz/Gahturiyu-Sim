@@ -55,7 +55,11 @@ fn assert_same_history(a: &World, b: &World) {
             assert!((x.base - y.base).abs() < 1e-3 && (x.rate - y.rate).abs() < 1e-4, "a town's stockpile differs");
         }
         assert!((ta.treasury - tb.treasury).abs() < 1e-3 && (ta.purse - tb.purse).abs() < 1e-3 && ta.purse_at == tb.purse_at, "a town's money differs");
+        assert!(ta.owed == tb.owed && ta.prosperity == tb.prosperity && ta.purse_cap == tb.purse_cap && ta.purse_rate == tb.purse_rate && ta.landed == tb.landed, "a town's books differ");
+        assert_eq!(ta.places, tb.places, "a town laid out its workplaces differently");
+        assert_eq!(ta.gardens, tb.gardens, "a town's gardens are tended by someone else");
     }
+    assert_eq!(sa.households, sb.households, "households formed differently");
     assert_eq!(a.stats.caravans, b.stats.caravans, "a different number of caravans");
 }
 

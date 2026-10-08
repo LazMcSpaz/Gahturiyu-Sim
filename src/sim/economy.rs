@@ -61,6 +61,8 @@ pub const EXCHANGE_FEE: u16 = 1;
 pub const CARAVAN_CHANCE: f32 = 0.15;
 /// Goods one caravaner or porter carries.
 pub const CARGO_PER_HEAD: f32 = 40.0;
+/// Share of a good's worth a caravan gets for it at market.
+pub const CARAVAN_PRICE: f32 = 0.8;
 /// Days of food a town keeps back before it trades any away.
 pub const KEEP_DAYS: f32 = 3.0;
 
@@ -123,7 +125,7 @@ impl World {
             let mut work = Vec::new();
             for &p in &self.settlements[town].residents {
                 let pp = &self.people[p as usize];
-                if pp.dead || self.busy_until[p as usize] > t {
+                if pp.dead || self.busy_until[p as usize] > t || super::body::knocked_out(&pp.wounds.hp_at(&pp.stats, t)) {
                     continue;
                 }
                 let l = self.society.lives[p as usize];
@@ -142,6 +144,8 @@ impl World {
                     Job::Cook => self.society.communities[ci as usize].cooked.rate += worked * MEALS_PER_COOK_HOUR,
                     Job::Runner => self.society.communities[ci as usize].carried.rate += ran / RUN_HOURS * POTS_PER_RUN,
                     Job::Fisher if offshore => self.society.communities[ci as usize].catch.rate += worked * super::jobs::FISH_PER_HOUR,
+                    // Hands on the stilts pull kelp between other work.
+                    Job::Labourer if offshore => stock[Good::Kelp.index()] += worked * super::jobs::KELP_PER_HOUR * 0.4,
                     j => {
                         if let Some((g, r)) = j.yields() {
                             stock[g.index()] += worked * r;
@@ -190,7 +194,7 @@ impl World {
             let from_catch = catch.min(want);
             catch -= from_catch;
             let kitchens = from_catch + self.draw_food(town, want - from_catch);
-            let crew = self.members_of(si).any(|p| self.society.lives[p as usize].job == Job::Fisher);
+            let crew = self.members_of(si).any(|p| self.society.lives[p as usize].job == Job::Fisher && self.society.lives[p as usize].shift == 1);
             if !c.withdrawn && crew {
                 landed = catch;
             }
@@ -204,7 +208,9 @@ impl World {
             let need = self.members_of(si).count() as f32;
             let c = self.society.communities[si as usize].clone();
             let (share, home_part, runner_part) = food_plan(&c, !tl.gardens.is_empty(), tl.stilts.is_some());
-            let grown: f32 = tl.gardens.iter().map(|g| if g.gardener.map(|p| alive(self, p) && self.people[p as usize].home == Some(town)).unwrap_or(false) { GARDEN_FOOD } else { GARDEN_FOOD * GARDEN_WILD }).sum();
+            // Tended if the gardener is alive, still lives here and isn't away.
+            let tended = |w: &World, p: PersonId| alive(w, p) && w.people[p as usize].home == Some(town) && w.busy_until[p as usize] <= t;
+            let grown: f32 = tl.gardens.iter().map(|g| if g.gardener.map(|p| tended(self, p)).unwrap_or(false) { GARDEN_FOOD } else { GARDEN_FOOD * GARDEN_WILD }).sum();
             let gardens = grown.min(need * share[0]);
             let boats = landed.min(need * share[2]);
             {
@@ -338,6 +344,12 @@ impl World {
 
     // ---- Trading with the squad -------------------------------------------------
 
+    /// Who does the squad's trading: whoever is talking, else anyone standing.
+    fn trader(&self) -> Option<PersonId> {
+        let alive = |m: PersonId| !self.people[m as usize].dead;
+        self.talk.as_ref().map(|c| c.with).filter(|&m| alive(m) && self.squad.index(m).is_some()).or_else(|| self.squad.members.iter().copied().find(|&m| alive(m)))
+    }
+
     /// The town a merchant trades for and what they keep on their shelves, if
     /// they're at work.
     fn shelves(&self, npc: PersonId) -> Option<(SettlementId, Option<Shelf>)> {
@@ -366,8 +378,10 @@ impl World {
     /// What a merchant has for sale: (item, how many, price each).
     pub fn for_sale(&self, npc: PersonId) -> Vec<(ItemId, u16, u16)> {
         let Some((town, shelf)) = self.shelves(npc) else { return vec![] };
-        let mut out = Vec::new();
+        // One of each kind of thing first, then more of each.
+        let mut by_good: Vec<Vec<(ItemId, u16, u16)>> = Vec::new();
         for g in GOODS {
+            let mut out = Vec::new();
             if shelf.map(|s| s != g.shelf()).unwrap_or(false) {
                 continue;
             }
@@ -381,6 +395,11 @@ impl World {
                     out.push((it, n, (items::item(it).value * BUY_MARKUP).ceil().max(1.0) as u16));
                 }
             }
+            by_good.push(out);
+        }
+        let mut out = Vec::new();
+        for k in 0..by_good.iter().map(|v| v.len()).max().unwrap_or(0) {
+            out.extend(by_good.iter().filter_map(|v| v.get(k).copied()));
         }
         out
     }
@@ -411,7 +430,8 @@ impl World {
             return false;
         }
         let Some(good) = super::jobs::good_of(items::item(it).key) else { return false };
-        let Some(&buyer) = self.squad.members.iter().find(|&&m| !self.people[m as usize].dead) else { return false };
+        let Some(buyer) = self.trader() else { return false };
+        self.settle_condition(buyer, self.time);
         self.take_from_squad(items::id("coin"), price);
         self.society.towns[town as usize].stock[good.index()].base -= Self::units_of(good, it);
         self.spend_purse(town, price as f32);
@@ -426,7 +446,9 @@ impl World {
     pub fn sell(&mut self, npc: PersonId, it: ItemId) -> bool {
         let Some(price) = self.offer_for(npc, it) else { return false };
         let Some((town, _)) = self.shelves(npc) else { return false };
-        let Some(&seller) = self.squad.members.iter().find(|&&m| self.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == it && e.1 > 0)).unwrap_or(false)) else { return false };
+        let has = |w: &World, m: PersonId| w.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == it && e.1 > 0)).unwrap_or(false);
+        let Some(seller) = self.trader().filter(|&m| has(self, m)).or_else(|| self.squad.members.iter().copied().find(|&m| has(self, m))) else { return false };
+        self.settle_condition(seller, self.time);
         if let Some(d) = self.people[seller as usize].detail.as_mut() {
             d.gear.take(it);
             d.gear.add(items::id("coin"), price);
@@ -469,7 +491,8 @@ impl World {
             return false;
         }
         let (coin, note) = (items::id("coin"), items::id("note"));
-        let Some(&m) = self.squad.members.iter().find(|&&m| !self.people[m as usize].dead) else { return false };
+        let Some(m) = self.trader() else { return false };
+        self.settle_condition(m, self.time);
         if to_note {
             if self.squad_count(coin) < NOTE_VALUE + EXCHANGE_FEE {
                 return false;
@@ -620,15 +643,16 @@ impl World {
         let Some(mut c) = self.groups[gi].cargo.clone() else { return };
         match what {
             CargoDue::Arrive => {
-                // Sold to the merchants there, for what they can pay.
-                let worth = c.amount * c.good.value() * 0.8;
+                // Sold to the merchants there, as much as they can pay for;
+                // the rest goes home again.
+                let each = c.good.value() * CARAVAN_PRICE;
                 let tl = &mut self.society.towns[c.to as usize];
-                let pay = worth.min(purse_at(tl, t));
-                tl.purse = purse_at(tl, t) - pay;
+                let sold = c.amount.min(purse_at(tl, t) / each);
+                tl.purse = purse_at(tl, t) - sold * each;
                 tl.purse_at = t;
-                tl.stock[c.good.index()].base += c.amount;
-                c.coin = pay;
-                c.amount = 0.0;
+                tl.stock[c.good.index()].base += sold;
+                c.coin = sold * each;
+                c.amount -= sold;
                 c.delivered = true;
                 self.groups[gi].cargo = Some(c);
             }
