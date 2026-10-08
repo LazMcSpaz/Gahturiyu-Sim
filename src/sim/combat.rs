@@ -761,7 +761,8 @@ impl Battle {
     }
 
     pub fn winner(&self) -> Option<Side> {
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active()).map(|f| f.side).collect();
+        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.side).collect();
+        sides.sort();
         sides.dedup();
         if sides.len() == 1 {
             Some(sides[0])
@@ -776,8 +777,9 @@ fn rng_line(r: f32) -> bool {
     r < 0.5
 }
 
-/// One number for how dangerous someone is in a fight, used by the far bands
-/// in place of a blow-by-blow fight. Roughly: expected damage dealt per
+/// One number for how dangerous someone is in a fight. Fights themselves are
+/// always fought blow by blow; this is for decisions about them (do bandits
+/// attack? does a side lose its nerve?) and for summaries. Roughly: expected damage dealt per
 /// second against an average opponent, times how much punishment they can
 /// take, square-rooted so it adds up sensibly across a group — plus a share
 /// for magic.

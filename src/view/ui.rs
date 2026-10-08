@@ -373,6 +373,8 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
+    /// `GAHT_TALK=1`: talk to the nearest townsperson.
+    pub talk: bool,
     /// `GAHT_SELECT=k`: select squad member k.
     pub select: Option<usize>,
     /// `GAHT_INV=k`: open squad member k's pack.
@@ -404,6 +406,7 @@ impl Shot {
             sneak: var("GAHT_SNEAK").is_some(),
             enter: var("GAHT_ENTER").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
+            talk: var("GAHT_TALK").is_some(),
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),

@@ -301,6 +301,8 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Color)> {
         Kind::Pack(kg) => out.push((format!("Back  ·  pack, holds {kg:.0} kg more"), TEXT)),
         Kind::Trinket => out.push((format!("{}  ·  trinket", d.slot.name()), TEXT)),
         Kind::Tool => out.push(("Tool".into(), TEXT)),
+        Kind::Coin => out.push(("Money".into(), TEXT)),
+        Kind::Errand => out.push(("Someone else's: deliver it".into(), TEXT)),
         Kind::Material => {
             let uses: Vec<&str> = RECIPES.iter().filter(|r| r.inputs.iter().any(|(k, _)| *k == d.key)).map(|r| item(items::id(r.output)).name).collect();
             out.push(("Material".into(), TEXT));
@@ -355,6 +357,8 @@ pub fn ground_color(id: ItemId) -> Color {
         Kind::Scroll(_) => Color::new(0.9, 0.86, 0.7, 1.0),
         Kind::Material => Color::new(0.55, 0.62, 0.45, 1.0),
         Kind::Tool => Color::new(0.5, 0.5, 0.55, 1.0),
+        Kind::Coin => GOLD,
+        Kind::Errand => Color::new(0.9, 0.86, 0.7, 1.0),
         #[allow(unreachable_patterns)]
         _ => Color::new(0.8, 0.8, 0.7, 1.0),
     }
@@ -440,4 +444,101 @@ pub fn crafting(ui: &Ui, w: &World, pid: PersonId, mouse: Vec2, click: Option<Cl
     }
     ui.text("Click a recipe to make it. Stations stand round every town's hearth.", x, r.y + r.h - 12.0, 13, DIM);
     (act, hovered)
+}
+
+fn talk_rect() -> Rect {
+    let w = 760.0f32.min(screen_width() - 24.0);
+    Rect::new((screen_width() - w) / 2.0, screen_height() - 30.0 - CARD_H - 20.0 - 380.0, w, 380.0)
+}
+
+pub fn over_talk(mouse: Vec2) -> bool {
+    talk_rect().contains(mouse)
+}
+
+/// The conversation: what's been said on the left, topics to ask on the right.
+pub fn talk(ui: &Ui, w: &World, mouse: Vec2, click: Option<Click>) -> Option<gahturiyu_sim::sim::dialogue::Topic> {
+    let c = w.talk.as_ref()?;
+    let r = talk_rect();
+    let npc = &w.people[c.npc as usize];
+    draw_rectangle(r.x, r.y, r.w, r.h, Color::new(0.05, 0.06, 0.07, 0.94));
+    draw_rectangle(r.x, r.y, r.w, 4.0, race_color(npc.race));
+    let x = r.x + 16.0;
+    let disp = w.disposition(c.npc, c.with);
+    ui.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), npc.stats.calling.name()), x, r.y + 28.0, 18, race_color(npc.race));
+    let d = format!("Disposition {disp:.0}");
+    ui.text(&d, r.x + r.w - ui.width(&d, 14) - 16.0, r.y + 26.0, 14, if disp < 30.0 { WARN } else { DIM });
+
+    // Topics down the right.
+    let tx = r.x + r.w - 200.0;
+    let mut ty = r.y + 60.0;
+    let mut chosen = None;
+    for t in w.topics() {
+        let row = Rect::new(tx - 6.0, ty - 15.0, 190.0, 21.0);
+        let hot = row.contains(mouse);
+        if hot {
+            draw_rectangle(row.x, row.y, row.w, row.h, with_alpha(GOLD, 0.15));
+        }
+        ui.text(t.label(), tx, ty, 15, if hot { GOLD } else { TEXT });
+        if click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {
+            chosen = Some(t);
+        }
+        ty += 22.0;
+    }
+
+    // The conversation, newest at the bottom, wrapped to fit.
+    let width = tx - x - 24.0;
+    let mut rows: Vec<(String, Color)> = Vec::new();
+    for (theirs, line) in &c.lines {
+        let col = if *theirs { TEXT } else { GOLD };
+        let mut cur = String::new();
+        for word in line.split(' ') {
+            let next = if cur.is_empty() { word.to_string() } else { format!("{cur} {word}") };
+            if ui.width(&next, 15) > width && !cur.is_empty() {
+                rows.push((cur, col));
+                cur = word.to_string();
+            } else {
+                cur = next;
+            }
+        }
+        rows.push((cur, col));
+        rows.push((String::new(), col));
+    }
+    let max = ((r.h - 70.0) / 19.0) as usize;
+    let start = rows.len().saturating_sub(max);
+    let mut y = r.y + 60.0;
+    for (line, col) in &rows[start..] {
+        ui.text(line, x, y, 15, *col);
+        y += 19.0;
+    }
+    ui.text("Esc to leave", x, r.y + r.h - 10.0, 12, DIM);
+    chosen
+}
+
+fn journal_rect(w: &World) -> Rect {
+    let n = w.quests.len().max(1) as f32;
+    Rect::new(12.0, screen_height() - 30.0 - CARD_H - 30.0 - (60.0 + n * 22.0), 620.0, 50.0 + n * 22.0)
+}
+
+pub fn over_journal(w: &World, mouse: Vec2) -> bool {
+    journal_rect(w).contains(mouse)
+}
+
+/// Jobs taken on, and what each needs next.
+pub fn journal(ui: &Ui, w: &World) {
+    let r = journal_rect(w);
+    draw_rectangle(r.x, r.y, r.w, r.h, PANEL);
+    draw_rectangle(r.x, r.y, r.w, 4.0, GOLD);
+    ui.text("Journal", r.x + 14.0, r.y + 26.0, 17, GOLD);
+    if w.quests.is_empty() {
+        ui.text("No jobs yet. Ask people if they have any work.", r.x + 14.0, r.y + 48.0, 14, DIM);
+        return;
+    }
+    for (i, q) in w.quests.iter().enumerate() {
+        let col = match q.stage {
+            gahturiyu_sim::sim::quests::Stage::Done => DIM,
+            gahturiyu_sim::sim::quests::Stage::Report => GOLD,
+            _ => TEXT,
+        };
+        ui.text(&w.quest_line(q), r.x + 14.0, r.y + 48.0 + i as f32 * 22.0, 14, col);
+    }
 }

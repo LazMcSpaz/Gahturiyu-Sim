@@ -111,6 +111,27 @@ async fn main() {
                 world.step(1.0);
             }
         }
+        if s.talk {
+            // Talk to the nearest townsperson, and ask a couple of things.
+            let lead = world.squad.members[0];
+            let here = world.squad.pos;
+            let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();
+            let npc = world.residents_in_band1(town).into_iter().min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            if let Some(npc) = npc {
+                world.order_talk(lead, npc);
+                for _ in 0..240 {
+                    if world.talk.is_some() {
+                        break;
+                    }
+                    world.step(0.5);
+                }
+                world.ask(gahturiyu_sim::sim::dialogue::Topic::ThisTown);
+                world.ask(gahturiyu_sim::sim::dialogue::Topic::Bandits);
+                if world.topics().contains(&gahturiyu_sim::sim::dialogue::Topic::Work) {
+                    world.ask(gahturiyu_sim::sim::dialogue::Topic::Work);
+                }
+            }
+        }
         if s.enter {
             let m = world.squad.members[0];
             let here = world.squad.pos;
@@ -147,6 +168,7 @@ async fn main() {
     let mut sel = Selection::default();
     let mut inv: Option<u32> = None;
     let mut craft: Option<u32> = None;
+    let mut journal = false;
     if let Some(s) = &shot {
         if let Some(k) = s.select {
             if let Some(&m) = world.squad.members.get(k) {
@@ -198,7 +220,9 @@ async fn main() {
                 }
             }
         }
-        if is_key_pressed(KeyCode::GraveAccent) || is_key_pressed(KeyCode::Escape) {
+        if is_key_pressed(KeyCode::Escape) && world.talk.is_some() {
+            world.end_talk();
+        } else if is_key_pressed(KeyCode::GraveAccent) || is_key_pressed(KeyCode::Escape) {
             sel = Selection::default();
             inv = None;
             craft = None;
@@ -217,6 +241,9 @@ async fn main() {
                 Some(_) => None,
                 None => sel.lead(&world),
             };
+        }
+        if is_key_pressed(KeyCode::J) {
+            journal = !journal;
         }
         if is_key_pressed(KeyCode::K) {
             inv = None;
@@ -292,7 +319,7 @@ async fn main() {
         // Clicks on the squad panels are handled when they're drawn; a short
         // click anywhere else is an order.
         let mut ui_click: Option<Click> = None;
-        let on_panels = squadui::over(&world, mouse, inv) || (craft.is_some() && squadui::over_craft(mouse));
+        let on_panels = squadui::over(&world, mouse, inv) || (craft.is_some() && squadui::over_craft(mouse)) || (world.talk.is_some() && squadui::over_talk(mouse)) || (journal && squadui::over_journal(&world, mouse));
         if is_mouse_button_pressed(MouseButton::Left) {
             press_at = Some(mouse);
         }
@@ -319,7 +346,8 @@ async fn main() {
         }
 
         // ------------------------------------------------------------- simulate
-        if !paused {
+        // Time stands still while you talk, as in Morrowind.
+        if !paused && world.talk.is_none() {
             let t0 = std::time::Instant::now();
             let mut left = dt.min(0.1) as f64 * SPEEDS[speed_i].0;
             // Small steps keep the squad and nearby people smooth; the world
@@ -378,6 +406,14 @@ async fn main() {
             actions.extend(a);
             item_tip = item_tip.or(h);
         }
+        if journal {
+            squadui::journal(&ui, &world);
+        }
+        if world.talk.is_some() {
+            if let Some(t) = squadui::talk(&ui, &world, mouse, ui_click) {
+                world.ask(t);
+            }
+        }
         for a in actions {
             match a {
                 Action::Select(pid, add) => sel.pick(pid, add),
@@ -413,8 +449,8 @@ async fn main() {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
-            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
+            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   J: journal   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
+            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   I: pack   K: craft   J: journal   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);
@@ -443,6 +479,12 @@ fn click_world(world: &mut gahturiyu_sim::sim::World, sel: &mut Selection, hover
             // An enemy: go for them (starting a fight if there isn't one).
             if world.attack(&who, pid) {
                 return;
+            }
+            // Anyone else: go and talk to them.
+            if let Some(&lead) = who.first() {
+                if world.squad_battle().is_none() && world.order_talk(lead, pid) {
+                    return;
+                }
             }
         }
         Some(ui::Hover::Door(id)) => {

@@ -143,6 +143,9 @@ impl World {
             self.pickups.retain(|p| p.who != pid);
             self.picking.retain(|p| p.who != pid);
             self.gathering.retain(|g| g.0 != pid);
+            if self.want_talk.map(|w| w.0 == pid).unwrap_or(false) {
+                self.want_talk = None;
+            }
         }
         if blocked.is_some() {
             self.log.push_front((self.time, "The door is locked.".to_string()));
@@ -207,6 +210,7 @@ impl World {
         self.do_picking();
         self.do_gathering();
         self.do_crafting();
+        self.try_open_talk();
     }
 
     pub(super) fn recentre_squad(&mut self) {

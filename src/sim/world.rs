@@ -126,6 +126,17 @@ pub struct World {
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
     pub crafted_count: HashMap<PersonId, u64>,
+
+    // --- Talk and work ------------------------------------------------------
+    pub quests: Vec<super::quests::Quest>,
+    /// Camps your squad has beaten in a fight.
+    pub beaten_camps: HashSet<GroupId>,
+    /// Good turns remembered: added to that person's disposition.
+    pub regard: HashMap<PersonId, f32>,
+    /// The conversation open now, if any.
+    pub talk: Option<super::dialogue::Conversation>,
+    /// A squad member on their way to talk to someone.
+    pub want_talk: Option<(PersonId, PersonId)>,
 }
 
 impl World {
@@ -184,6 +195,11 @@ impl World {
             gathering: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
+            quests: Vec::new(),
+            beaten_camps: HashSet::new(),
+            regard: HashMap::new(),
+            talk: None,
+            want_talk: None,
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -269,6 +285,7 @@ impl World {
 
         // 3b. Fights: new ones that break out, and the ones in progress.
         self.update_battles();
+        self.update_quests();
 
         // 4. Journeys that are over dissolve; their people are home.
         //    Decided by the schedule, not by whether anyone looked.

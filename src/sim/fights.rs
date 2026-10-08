@@ -312,8 +312,12 @@ impl World {
 
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();
+        let squad_won = b.winner() == Some(SQUAD_SIDE);
         for gid in touched {
             self.fighting_groups.remove(&gid);
+            if squad_won && self.camps.iter().any(|c| c.group == gid) {
+                self.beaten_camps.insert(gid);
+            }
             // They've had their fight; they'll need to spot you again.
             self.suspicion.retain(|(g, _), _| *g != gid);
             let alive: Vec<PersonId> = self.group(gid).unwrap().members.iter().copied().filter(|m| !self.people[*m as usize].dead).collect();

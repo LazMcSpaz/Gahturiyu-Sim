@@ -123,6 +123,10 @@ pub enum Kind {
     Potion(PotionDef),
     /// Read aloud: casts its spell once, with no mana and no chance of failing.
     Scroll(Spell),
+    /// Money.
+    Coin,
+    /// Carried for someone else (a letter to deliver).
+    Errand,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -232,6 +236,8 @@ pub static ITEMS: &[ItemDef] = &[
     material("hide", "Hide", 2.0, 6.0),
     material("leather", "Leather", 1.0, 10.0),
     material("timber", "Timber", 2.5, 3.0),
+    ItemDef { key: "coin", name: "Coin", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.005, value: 1.0, effects: &[] },
+    ItemDef { key: "sealed_letter", name: "Sealed letter", slot: Slot::MainHand, kind: Kind::Errand, weight: 0.02, value: 0.0, effects: &[] },
     // --- Potions and scrolls --------------------------------------------------
     ItemDef { key: "healing_draught", name: "Healing draught", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 25.0, mana: 0.0 }), weight: 0.3, value: 25.0, effects: &[] },
     ItemDef { key: "greater_healing", name: "Greater healing draught", slot: Slot::MainHand, kind: Kind::Potion(PotionDef { heal: 55.0, mana: 0.0 }), weight: 0.3, value: 70.0, effects: &[] },
