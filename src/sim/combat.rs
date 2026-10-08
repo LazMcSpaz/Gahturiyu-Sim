@@ -182,6 +182,9 @@ pub struct Fighter {
     /// A corpse already raised (it can't be raised twice).
     #[serde(default)]
     pub raised: bool,
+    /// Gear shattered by a spell this fight (gone for good afterwards).
+    #[serde(default)]
+    pub broke: Vec<super::items::Slot>,
 }
 
 impl Fighter {
@@ -266,6 +269,7 @@ impl Fighter {
             damage_taken: 0.0,
             summon: None,
             raised: false,
+            broke: Vec::new(),
         }
     }
 
@@ -333,6 +337,7 @@ impl Fighter {
             damage_taken: 0.0,
             summon: Some(Summoned { kind, until, mindless: false }),
             raised: false,
+            broke: Vec::new(),
         }
     }
 
@@ -404,12 +409,13 @@ impl Fighter {
         if self.helpless() || matches!(self.act, Act::Cast { .. }) {
             return 0.0;
         }
-        self.base_speed * body::leg_factor(&self.hp) * (1.0 + self.haste()) * (1.0 - self.power(Does::Slow)).max(0.2) * if self.fleeing { 1.1 } else { 1.0 }
+        let drag = (1.0 - self.power(Does::Slow) - self.power(Does::Burden) * 0.6 - self.power(Does::Enlarge) * 0.2).max(0.2);
+        self.base_speed * body::leg_factor(&self.hp) * (1.0 + self.haste()) * drag * if self.fleeing { 1.1 } else { 1.0 }
     }
 
     /// Multiplier on swing and recovery times.
     pub fn attack_time(&self) -> f32 {
-        ((1.25 - self.attr(Attr::Agility) * 0.005) * (1.0 - self.haste() * 0.6) * (1.0 + self.power(Does::Slow) * 0.5)).clamp(0.5, 1.6)
+        ((1.25 - self.attr(Attr::Agility) * 0.005) * (1.0 - self.haste() * 0.6) * (1.0 + self.power(Does::Slow) * 0.5 + self.power(Does::Burden) * 0.3)).clamp(0.5, 1.6)
     }
 
     /// The weapon actually usable: a ruined (or lost) sword arm means fists
@@ -438,7 +444,12 @@ impl Fighter {
     }
 
     pub fn reach(&self) -> f32 {
-        self.usable_weapon().map(|w| w.0.reach).unwrap_or(0.8) + BODY * 2.0
+        (self.usable_weapon().map(|w| w.0.reach).unwrap_or(0.8) + BODY * 2.0) * (1.0 - self.power(Does::Shrink) * 0.5 + self.power(Does::Enlarge) * 0.5)
+    }
+
+    /// How hard their blows land for their size: shrunk softer, enlarged harder.
+    pub fn size(&self) -> f32 {
+        (1.0 - self.power(Does::Shrink) + self.power(Does::Enlarge)).max(0.2)
     }
 
     /// Holding a ranged weapon with something to shoot.
@@ -803,7 +814,7 @@ impl Battle {
         let dodge = if helpless {
             -40.0
         } else {
-            (def.skill(Skill::Dodge) * 0.6 + def.attr(Attr::Agility) * 0.25 - def.dodge_penalty * 100.0) * def.tired()
+            (def.skill(Skill::Dodge) * 0.6 + def.attr(Attr::Agility) * 0.25 - def.dodge_penalty * 100.0 + def.power(Does::Shrink) * 30.0 - def.power(Does::Enlarge) * 20.0) * def.tired()
         };
         // Arrows are dodged less but lose accuracy with distance.
         let dodge = if shot { dodge * 0.5 } else { dodge };
@@ -854,8 +865,9 @@ impl Battle {
         let skill_mult = 0.6 + skill * 0.006;
         // Strength puts weight behind a blow; a bowstring doesn't care.
         let pull = if shot { 0.0 } else { 1.0 };
-        let mut cut = weapon.cut * (1.0 + strength * 0.006 * pull) * skill_mult * roll;
-        let mut blunt = weapon.blunt * (1.0 + strength * 0.010 * pull) * skill_mult * roll;
+        let size = if shot { 1.0 } else { self.fighters[a].size() };
+        let mut cut = weapon.cut * (1.0 + strength * 0.006 * pull) * skill_mult * roll * size;
+        let mut blunt = weapon.blunt * (1.0 + strength * 0.010 * pull) * skill_mult * roll * size;
 
         if r_block < p_block {
             self.fighters[d].train(Skill::Block, 1.0);
@@ -888,11 +900,14 @@ impl Battle {
             layers.push(&skin);
         }
         layers.sort_by(|x, y| y.cut.total_cmp(&x.cut));
+        // Rusted armour stops less (skin doesn't rust).
+        let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
         for (k, layer) in layers.iter().enumerate() {
             let r = if k == 0 { r_cover1 } else { r_cover2 };
+            let worn = if std::ptr::eq(*layer, &skin) { 1.0 } else { rust };
             if r < layer.coverage {
-                cut *= 1.0 - layer.cut;
-                blunt *= 1.0 - layer.blunt;
+                cut *= 1.0 - layer.cut * worn;
+                blunt *= 1.0 - layer.blunt * worn;
             }
         }
         let shield = self.fighters[d].warded();
@@ -1078,7 +1093,7 @@ impl Battle {
                 }
                 (Some(j), self.fighters[j].pos)
             }
-            Aim::Point => (target, point),
+            Aim::Point | Aim::Door => (target, point),
             Aim::Caster => (Some(i), self.fighters[i].pos),
         };
         if d.harmful() {
@@ -1266,6 +1281,21 @@ impl Battle {
                             f.side = f.home;
                         }
                         self.say(format!("The spells on {tname} unravel."));
+                    }
+                }
+                Does::Shatter => {
+                    let f = &mut self.fighters[j];
+                    if f.weapon != FISTS && f.weapon_name != "bare hands" {
+                        let what = f.weapon_name.to_lowercase();
+                        f.weapon = FISTS;
+                        f.weapon_name = "bare hands";
+                        f.broke.push(super::items::Slot::MainHand);
+                        f.act = Act::Idle;
+                        self.say(format!("{tname}'s {what} shatters!"));
+                    } else if f.shield > 0.0 {
+                        f.shield = 0.0;
+                        f.broke.push(super::items::Slot::OffHand);
+                        self.say(format!("{tname}'s shield shatters!"));
                     }
                 }
                 Does::Regrow => {

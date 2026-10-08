@@ -27,6 +27,10 @@ use super::settlement::BuildingKind;
 use super::stats::Skill;
 use super::world::World;
 
+/// What Transmute turns into what: (material, how many, becomes, how many).
+/// Each lot is one row's worth, worked down the list.
+pub const TRANSMUTE: &[(&str, u16, &str, u16)] = &[("iron_ore", 1, "iron_ingot", 1), ("hide", 1, "leather", 1), ("salt_crystal", 3, "storm_glass", 1), ("ash_moss", 2, "ghostcap", 1)];
+
 /// Within this many metres of a hearth counts as "at the hearth".
 pub const HEARTH_REACH: f32 = 15.0;
 /// Within this many metres of a temple or hall counts as "at a shrine".
@@ -248,7 +252,7 @@ impl World {
         let point = if s.def().aim == magic::Aim::Caster { self.person_pos(by) } else { point };
         for e in s.def().effects {
             if e.reach == Reach::Object {
-                self.affect_object(e, point);
+                self.affect_object(by, e, point);
                 continue;
             }
             if let (Reach::Ground { radius }, Lasts::Secs(secs)) = (e.reach, e.lasts) {
@@ -263,10 +267,40 @@ impl World {
     }
 
     /// An effect on a thing near `point`: a torch, a campfire.
-    fn affect_object(&mut self, e: &Effect, point: V2) -> bool {
+    fn affect_object(&mut self, by: PersonId, e: &Effect, point: V2) -> bool {
         let t = self.time;
         const NEAR: f32 = 6.0;
         match e.does {
+            Does::Unlock => {
+                let Some(d) = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0).min_by(|a, b| a.outside.dist(point).total_cmp(&b.outside.dist(point))) else { return false };
+                self.picked.insert(d.id, super::buildings::night_of(t));
+                self.say(t, "A lock clicks open.".to_string());
+                true
+            }
+            Does::Transmute => {
+                let mut lots = e.power.round() as u32;
+                let mut made = Vec::new();
+                let Some(dd) = self.people[by as usize].detail.as_mut() else { return false };
+                for &(from, n, to, m) in TRANSMUTE {
+                    let (fi, ti) = (items::id(from), items::id(to));
+                    while lots > 0 && dd.gear.bag.iter().filter(|x| x.0 == fi).map(|x| x.1).sum::<u16>() >= n {
+                        for _ in 0..n {
+                            dd.gear.take(fi);
+                        }
+                        dd.gear.add(ti, m);
+                        lots -= 1;
+                        made.push(item(ti).name.to_lowercase());
+                    }
+                }
+                self.people[by as usize].recompute_might();
+                if made.is_empty() {
+                    return false;
+                }
+                made.dedup();
+                let name = self.name_of(by);
+                self.say(t, format!("Under {name}'s hands the materials change: {}.", made.join(", ")));
+                true
+            }
             Does::Douse => {
                 // The nearest flame: a torch in a squad member's hand, a
                 // standing torch, a campfire.

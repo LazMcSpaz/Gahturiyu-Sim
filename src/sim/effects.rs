@@ -99,6 +99,13 @@ pub enum Does {
     Regrow,
     /// End every spell on them (a called-up creature is sent back).
     Dispel,
+    /// Break the weapon in their hand (or their shield): it's gone for good.
+    Shatter,
+    /// Open a locked door (it stays open until the next night).
+    Unlock,
+    /// Turn materials in the caster's pack into others (`casting::TRANSMUTE`).
+    /// Power: how many lots.
+    Transmute,
     /// Light a torch (one carried, or a doused campfire).
     Kindle,
     /// Put out a torch, a standing torch or a campfire (for `DOUSE_HOURS`).
@@ -184,12 +191,18 @@ pub enum Does {
     /// Ground: enemies can't step inside, and lookouts won't come for
     /// anyone in it.
     Sanctuary,
+    /// Smaller: hits this share softer, reaches less, harder to hit.
+    Shrink,
+    /// Bigger: hits this share harder, reaches further, easier to hit, slower.
+    Enlarge,
+    /// Their armour stops this share less.
+    Rust,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust)
     }
 
     /// Guards against harm (worth putting up when a fight reaches you).
@@ -211,7 +224,7 @@ impl Does {
     /// lasting effect that isn't an attack (it's kept as a blessing on them).
     pub fn works_outside_fights(self) -> bool {
         match self {
-            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel => true,
+            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel | Does::Unlock | Does::Transmute => true,
             Does::Summon(_) => false,
             d if d.harmful() => false,
             _ => true,
@@ -337,6 +350,12 @@ impl Effect {
             Does::Sustain => "No hunger or tiredness".to_string(),
             Does::Lighten => format!("Load {pct:.0}% lighter"),
             Does::Dispel => "Ends every spell on them".to_string(),
+            Does::Shatter => "Shatters their weapon or shield".to_string(),
+            Does::Unlock => "Opens a locked door".to_string(),
+            Does::Transmute => "Turns one material into another".to_string(),
+            Does::Shrink => format!("{pct:.0}% smaller"),
+            Does::Enlarge => format!("{pct:.0}% bigger"),
+            Does::Rust => format!("Armour {pct:.0}% weaker"),
             Does::Brace => "Turns the next blow".to_string(),
             Does::Tripwire => "Wakes sleepers when danger comes".to_string(),
             Does::Sanctuary => "Enemies can't enter".to_string(),

@@ -98,6 +98,8 @@ pub enum Aim {
     Point,
     /// Anyone within range, friend or foe.
     Anyone,
+    /// A door within range.
+    Door,
 }
 
 /// Where a ritual has to be performed.
@@ -239,6 +241,15 @@ pub static SPELLS: &[SpellDef] = &[
     ritual("restore", "Restore", Vital, rite(40.0, 0.0, &[("ghostcap", 2), ("kelp_frond", 2)], Place::Hearth), 0.0, Caster, 30.0, &[now(Does::Heal, 400.0, SQUAD), now(Does::Rest, 100.0, SQUAD)]),
     ritual("sustain", "Sustain", Vital, rite(30.0, 0.0, &[("salted_meat", 1), ("ghostcap", 1)], Place::Anywhere), 0.0, Caster, 35.0, &[lasting(Does::Sustain, 1.0, 24.0 * 3600.0, SQUAD)]),
     ritual("regrow", "Regrow", Vital, rite(180.0, 20.0, &[("storm_glass", 2), ("ghostcap", 4), ("emberroot", 2)], Place::Shrine), 3.0, Friend, 55.0, &[now(Does::Regrow, 1.0, Reach::Target)]),
+    // ---- Alteration -------------------------------------------------------
+    felt("lighten", "Lighten", Alteration, 5.0, 0.4, 6.0, Friend, 6.0, &[lasting(Does::Lighten, 0.35, 3600.0, Reach::Target)]),
+    felt("burden", "Burden", Alteration, 6.0, 0.4, 10.0, Foe, 10.0, &[lasting(Does::Burden, 0.5, 20.0, Reach::Target)]),
+    structured("shatter", "Shatter item", Alteration, 25.0, 1.6, 10.0, Foe, 35.0, &[now(Does::Shatter, 1.0, Reach::Target)]),
+    structured("unlock", "Unlock", Alteration, 12.0, 1.5, 6.0, Door, 20.0, &[now(Does::Unlock, 1.0, Reach::Object)]),
+    structured("shrink", "Shrink", Alteration, 18.0, 1.3, 12.0, Foe, 25.0, &[lasting(Does::Shrink, 0.35, 20.0, Reach::Target)]),
+    structured("enlarge", "Enlarge", Alteration, 18.0, 1.3, 8.0, Friend, 25.0, &[lasting(Does::Enlarge, 0.3, 30.0, Reach::Target)]),
+    structured("rust", "Rust", Alteration, 18.0, 1.2, 12.0, Foe, 22.0, &[lasting(Does::Rust, 0.5, 60.0, Reach::Target)]),
+    ritual("transmute", "Transmute", Alteration, rite(30.0, 0.0, &[], Place::Circle), 0.0, Caster, 40.0, &[now(Does::Transmute, 5.0, Reach::Object)]),
     // ---- Warding ----------------------------------------------------------
     felt("brace", "Brace", Warding, 5.0, 0.4, 0.0, Caster, 8.0, &[lasting(Does::Brace, 1.0, 30.0, Reach::Caster)]),
     felt("tripwire", "Tripwire", Warding, 6.0, 0.4, 0.0, Caster, 12.0, &[lasting(Does::Tripwire, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 25.0 })]),

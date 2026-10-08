@@ -537,3 +537,100 @@ fn a_tripwire_wakes_sleepers_and_a_sanctuary_keeps_lookouts_off() {
     }
     assert!(w.battles.iter().all(|b| b.fighters.iter().all(|f| f.side != 0)), "no fight with the squad");
 }
+
+// ---- Alteration ------------------------------------------------------------------
+
+#[test]
+fn lighten_eases_a_load_and_burden_slows_a_foe() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let other = w.squad.members[0];
+    w.people[other as usize].detail.as_mut().unwrap().gear.add(items::id("iron_ore"), 20);
+    let load = w.load_of(other);
+    cast_world(&mut w, m, spell("lighten"), Some(other), None, |w| w.boon(other, Does::Lighten) > 0.0);
+    assert!(w.load_of(other) < load * 0.8);
+    let mut b = fight(&[(brute(2), 1, V2::new(8.0, 0.0))]);
+    let speed = b.fighters[1].speed();
+    cast_until(&mut b, spell("burden"), Some(1), V2::new(8.0, 0.0), |b| b.fighters[1].has(Does::Burden).is_some());
+    assert!(b.fighters[1].speed() < speed * 0.8);
+}
+
+#[test]
+fn shatter_breaks_their_weapon_for_good() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    assert_ne!(b.fighters[1].weapon_name, "bare hands");
+    cast_until(&mut b, spell("shatter"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].weapon_name == "bare hands");
+    assert_eq!(b.fighters[1].broke, vec![items::Slot::MainHand]);
+    // In the world, the broken thing is gone after the fight.
+    let mut w = worldgen::generate(2);
+    let victim = w.squad.members[0];
+    let held = w.people[victim as usize].detail.as_ref().unwrap().gear.in_slot(items::Slot::MainHand);
+    assert!(held.is_some());
+    w.spawn_bandits(w.squad.pos.add(V2::new(15.0, 0.0)), 1, false);
+    while w.battles.is_empty() {
+        w.step(0.25);
+    }
+    w.battles[0].fighters.iter_mut().find(|f| f.pid == victim).unwrap().broke.push(items::Slot::MainHand);
+    while !w.battles.is_empty() {
+        w.step(0.5);
+    }
+    let g = &w.people[victim as usize].detail.as_ref().unwrap().gear;
+    assert_eq!(g.in_slot(items::Slot::MainHand), None);
+    assert!(!g.bag.iter().any(|e| Some(e.0) == held), "not in the pack either");
+}
+
+#[test]
+fn unlock_opens_a_locked_door() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    while !gahturiyu_sim::sim::buildings::is_night(w.time) {
+        w.step(600.0);
+    }
+    let door = w.doors_near(w.squad.pos, 400.0).into_iter().find(|d| w.is_locked(d.id)).expect("a locked door");
+    w.teleport_squad(door.outside.add(V2::new(2.0, 0.0)));
+    cast_world(&mut w, m, spell("unlock"), None, Some(door.outside), |w| !w.is_locked(door.id));
+}
+
+#[test]
+fn shrink_softens_blows_and_enlarge_hardens_them() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0)), (brute(3), 0, V2::new(1.0, 0.0))]);
+    cast_until(&mut b, spell("shrink"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].has(Does::Shrink).is_some());
+    cast_until(&mut b, spell("enlarge"), Some(2), V2::new(1.0, 0.0), |b| b.fighters[2].has(Does::Enlarge).is_some());
+    assert!(b.fighters[1].size() < 0.7 && b.fighters[2].size() > 1.25);
+    assert!(b.fighters[2].reach() > b.fighters[1].reach());
+}
+
+#[test]
+fn rust_lets_more_through_their_armour() {
+    let taken = |rust: bool| {
+        let mut armoured = brute(2);
+        armoured.stats.set_skill(Skill::Dodge, 0.0);
+        let mut b = fight(&[(armoured, 1, V2::new(1.5, 0.0)), (brute(3), 0, V2::new(0.0, 1.0))]);
+        if rust {
+            cast_until(&mut b, spell("rust"), Some(1), V2::new(1.5, 0.0), |b| b.fighters[1].has(Does::Rust).is_some());
+        }
+        b.fighters[2].think_at = 0.0;
+        b.fighters[2].target = Some(1);
+        let before = hp(&b, 1);
+        for _ in 0..200 {
+            b.tick();
+        }
+        before - hp(&b, 1)
+    };
+    assert!(taken(true) > taken(false));
+}
+
+#[test]
+fn transmute_turns_materials_into_others() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let g = &mut w.people[m as usize].detail.as_mut().unwrap().gear;
+    g.add(items::id("iron_ore"), 3);
+    let ingots = w.squad_count(items::id("iron_ingot"));
+    w.held.insert(m, spell("transmute"));
+    w.release(m, None, None).unwrap();
+    assert_eq!(w.squad_count(items::id("iron_ingot")), ingots + 3);
+}

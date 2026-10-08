@@ -365,6 +365,10 @@ impl World {
                 for &it in &f.used {
                     d.gear.take(it);
                 }
+                // Shattered gear is gone.
+                for &slot in &f.broke {
+                    d.gear.discard(slot);
+                }
                 let ammo = f.stowed.map(|w| w.0.ammo).unwrap_or(f.weapon.ammo);
                 if let (Some(key), true) = (ammo, f.shots > 0) {
                     let id = super::items::id(key);
