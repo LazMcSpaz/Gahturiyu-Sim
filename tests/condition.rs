@@ -304,3 +304,67 @@ fn healing_comes_out_the_same_however_finely_stepped() {
         assert!((fine.tired_of(m).unwrap() - coarse.tired_of(m).unwrap()).abs() < 1e-3);
     }
 }
+
+// ---- Bedding down at night ----------------------------------------------------
+
+/// A world with the squad stood still out of town (day 1 starts at 06:00).
+fn idle_world() -> World {
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(gahturiyu_sim::sim::geo::V2::new(300.0, 0.0)));
+    w
+}
+
+#[test]
+fn idle_members_bed_down_at_night_on_their_own() {
+    let mut w = idle_world();
+    run(&mut w, 15.0, 60.0); // 21:00
+    assert!(w.squad.members.iter().all(|&m| !w.is_asleep(m)), "nobody's in bed before 22:00");
+    run(&mut w, 2.0, 60.0); // 23:00
+    assert!(w.squad.members.iter().all(|&m| w.is_asleep(m)), "everyone idle is asleep by 23:00");
+    // ...and up again rested in the morning.
+    run(&mut w, 10.0, 60.0); // 09:00
+    assert!(w.squad.members.iter().all(|&m| !w.is_asleep(m)), "up by morning");
+    // (In a tent they're rested by about 04:00 and get up then.)
+    for &m in &w.squad.members {
+        assert!(w.tired_of(m).unwrap() < 35.0, "rested: {:?}", w.tired_of(m));
+    }
+}
+
+#[test]
+fn bedtime_doesnt_depend_on_step_size() {
+    let times = |step: f64| {
+        let mut w = idle_world();
+        run(&mut w, 17.0, step);
+        let mut t: Vec<f64> = w.log.iter().filter(|l| l.1.contains("beds down")).map(|l| l.0).collect();
+        t.sort_by(|a, b| a.total_cmp(b));
+        t
+    };
+    let fine = times(5.0);
+    let coarse = times(900.0);
+    assert_eq!(fine.len(), 4);
+    assert_eq!(fine, coarse);
+}
+
+#[test]
+fn got_up_at_night_they_stay_up_until_morning() {
+    let mut w = idle_world();
+    run(&mut w, 17.0, 60.0); // 23:00, all asleep
+    let all = w.squad.members.clone();
+    w.order_rest(&all); // get up
+    run(&mut w, 1.0, 60.0);
+    assert!(all.iter().all(|&m| !w.is_asleep(m)), "kept up");
+    run(&mut w, 8.0, 60.0); // past 06:00 again: day, so no bedding down either
+    assert!(all.iter().all(|&m| !w.is_asleep(m)));
+}
+
+#[test]
+fn busy_members_dont_bed_down() {
+    let mut w = idle_world();
+    run(&mut w, 15.5, 60.0); // 21:30
+    let m = w.squad.members[0];
+    let far = w.person_pos(m).add(gahturiyu_sim::sim::geo::V2::new(6000.0, 0.0));
+    w.order_members(&[m], far);
+    run(&mut w, 1.0, 1.0); // past 22:00, still on the way
+    assert!(w.squad.at[0].dist(w.squad.goal[0]) > 1.0, "still walking");
+    assert!(!w.is_asleep(m), "walking, not sleeping");
+}

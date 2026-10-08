@@ -37,11 +37,16 @@
 //! Only your squad has a condition. Everyone else in the world gets by, and
 //! heals at the plain constant rate.
 
+//! Bedding down: a squad member left standing idle at night (`BEDTIME` to
+//! `RISE`) and tired past `BED_TIRED` goes to sleep by themselves, at the
+//! moment all three are true (solved, not checked each step). Getting them
+//! up with N at night keeps them up until morning.
+
 use super::body::{self, Part, Wounds, HEAL_PER_HOUR};
 use super::items::{item, ItemId, Kind};
 use super::person::PersonId;
 use super::stats::Stats;
-use super::world::{World, HOUR};
+use super::world::{World, DAY, HOUR};
 
 /// Hunger gained per game hour, resting.
 pub const HUNGER_PER_HOUR: f32 = 1.6;
@@ -455,6 +460,10 @@ impl World {
                         }
                     }
                 }
+                // Standing idle at night and tired: bed down.
+                if let Some(tb) = self.bed_time(pid, &c) {
+                    consider(Some(tb), Event::Bed);
+                }
                 // Time to eat, if there's food.
                 let hungry_now = c.hunger_at(now) >= EAT_AT;
                 if hungry_now && self.food_for(pid, c.hunger_at(now)).is_some() {
@@ -483,6 +492,18 @@ impl World {
                         self.log.push_front((t, format!("{name} wakes, rested.")));
                         self.log.truncate(14);
                     }
+                    Event::Bed => {
+                        self.settle(pid, t);
+                        if let Some(k) = self.squad.index(pid) {
+                            self.squad.resting[k] = true;
+                        }
+                        if let Some(c) = self.people[pid as usize].cond.as_mut() {
+                            c.activity = Activity::Sleeping;
+                        }
+                        let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+                        self.log.push_front((t, format!("{name} beds down for the night.")));
+                        self.log.truncate(14);
+                    }
                     Event::Eat => {
                         let h = c.hunger_at(t);
                         if let Some(f) = self.food_for(pid, h) {
@@ -494,6 +515,31 @@ impl World {
                 }
             }
         }
+    }
+
+    /// When a squad member standing idle would bed down by themselves: the
+    /// first moment that is night, after they're tired enough and after any
+    /// order keeping them up. None if they're busy.
+    fn bed_time(&self, pid: PersonId, c: &Condition) -> Option<f64> {
+        let k = self.squad.index(pid)?;
+        if c.activity != Activity::Resting || self.squad.resting[k] || self.fighting.contains_key(&pid) {
+            return None;
+        }
+        let busy = self.carrying(pid).is_some()
+            || self.carried_by(pid).is_some()
+            || self.want_carry.iter().any(|w| w.0 == pid)
+            || self.crafting.iter().any(|j| j.who == pid)
+            || self.picking.iter().any(|p| p.who == pid)
+            || self.gathering.iter().any(|g| g.0 == pid)
+            || self.pickups.iter().any(|p| p.who == pid)
+            || self.want_talk.map(|w| w.0 == pid).unwrap_or(false)
+            || self.talk.as_ref().map(|t| t.with == pid).unwrap_or(false);
+        if busy {
+            return None;
+        }
+        let start = c.at.max(self.squad.kept_up[k]);
+        let tired = if c.tired_at(start) >= BED_TIRED { start } else { c.tired_reaches(BED_TIRED)?.max(start) };
+        Some(night_from(tired))
     }
 
     /// For the window: hunger 0..100 now.
@@ -526,6 +572,10 @@ impl World {
             let Some(k) = self.squad.index(m) else { continue };
             if all_resting {
                 self.squad.resting[k] = false;
+                // Got up at night: they stay up until morning.
+                if is_night(self.time) {
+                    self.squad.kept_up[k] = next_rise(self.time);
+                }
             } else if !self.fighting.contains_key(&m) {
                 self.squad.resting[k] = true;
                 self.squad.goal[k] = self.squad.at[k];
@@ -562,6 +612,38 @@ enum Event {
     Stage,
     Eat,
     Wake,
+    Bed,
+}
+
+/// Squad members left standing idle bed down by themselves at night: from
+/// `BEDTIME` until `RISE` (hours of the day), once at least this tired.
+pub const BEDTIME: f64 = 22.0;
+pub const RISE: f64 = 6.0;
+pub const BED_TIRED: f32 = 35.0;
+
+fn is_night(t: f64) -> bool {
+    let h = t.rem_euclid(DAY) / HOUR;
+    h >= BEDTIME || h < RISE
+}
+
+/// The first moment at or after `t` that falls in the night.
+fn night_from(t: f64) -> f64 {
+    if is_night(t) {
+        return t;
+    }
+    let day0 = (t / DAY).floor() * DAY;
+    day0 + BEDTIME * HOUR
+}
+
+/// The next morning's `RISE` after `t`.
+pub fn next_rise(t: f64) -> f64 {
+    let day0 = (t / DAY).floor() * DAY;
+    let r = day0 + RISE * HOUR;
+    if r > t {
+        r
+    } else {
+        r + DAY
+    }
 }
 
 /// Knocked out from wasting (hunger) — used by tests and the window.

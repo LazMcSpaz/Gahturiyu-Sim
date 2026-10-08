@@ -43,8 +43,11 @@ pub struct Squad {
     pub route: Vec<Vec<V2>>,
     /// The building each member is in, if any.
     pub inside: Vec<Option<DoorId>>,
-    /// Ordered to rest (they sleep while stopped).
+    /// Ordered to rest, or bedded down for the night (they sleep while stopped).
     pub resting: Vec<bool>,
+    /// Got up during the night by order: they won't bed down again on their
+    /// own until this time.
+    pub kept_up: Vec<f64>,
 }
 
 /// Loose formation: the first stands on the spot, the rest in a spiral.
@@ -60,7 +63,7 @@ impl Squad {
     pub fn new(members: Vec<PersonId>, centre: V2) -> Squad {
         let at: Vec<V2> = (0..members.len()).map(|k| centre.add(formation(k))).collect();
         let n = members.len();
-        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n], route: vec![Vec::new(); n], inside: vec![None; n], resting: vec![false; n] }
+        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n], route: vec![Vec::new(); n], inside: vec![None; n], resting: vec![false; n], kept_up: vec![0.0; n] }
     }
 
     pub fn index(&self, pid: PersonId) -> Option<usize> {
@@ -81,6 +84,7 @@ impl Squad {
                 self.route.remove(k);
                 self.inside.remove(k);
                 self.resting.remove(k);
+                self.kept_up.remove(k);
             }
         }
     }
