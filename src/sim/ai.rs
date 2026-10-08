@@ -160,6 +160,8 @@ enum Use {
     Breath,
     /// Ends spells on someone.
     Unravel,
+    /// Raises the dead.
+    Raise,
     /// Damage over an area.
     Blast,
     /// Damage to one enemy.
@@ -179,9 +181,11 @@ fn use_of(s: Spell) -> Use {
         Use::Breath
     } else if has(&|x| x == Does::Dispel) {
         Use::Unravel
-    } else if d.effects.iter().any(|e| matches!(e.does, Does::Damage(_)) && matches!(e.reach, Reach::Area { .. })) {
+    } else if has(&|x| x == Does::Raise) {
+        Use::Raise
+    } else if d.effects.iter().any(|e| (matches!(e.does, Does::Damage(_)) && matches!(e.reach, Reach::Area { .. })) || e.does == Does::Blight) {
         Use::Blast
-    } else if has(&|x| matches!(x, Does::Damage(_))) {
+    } else if has(&|x| matches!(x, Does::Damage(_) | Does::Drain | Does::Wither)) {
         Use::Strike
     } else if d.aim == Aim::Foe && d.effects.iter().any(|e| e.does.harmful()) {
         Use::Hinder
@@ -320,6 +324,17 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
             return;
         }
     }
+    // 1e. Raise the enemy dead (one body, or every body round the caster).
+    if let Some(s) = first(Use::Raise) {
+        let reach = s.def().range.max(s.def().radius());
+        let bodies: Vec<usize> = (0..b.fighters.len()).filter(|&j| b.raisable(i, j) && me.pos.dist(b.fighters[j].pos) <= reach).collect();
+        let area = s.def().radius() > 0.0;
+        if (area && bodies.len() >= 2) || (!area && !bodies.is_empty()) {
+            let p = b.fighters[bodies[0]].pos;
+            cast(b, i, s, None, if area { me.pos } else { p });
+            return;
+        }
+    }
     // 2. Speed up to close a long gap.
     if let Some(s) = first(Use::Quicken).filter(|&s| !has_it(i, s)) {
         if let Some(t) = target.filter(|_| !is_mage) {
@@ -345,7 +360,7 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     //    spell spares them).
     if let Some(s) = first(Use::Blast) {
         let radius = s.def().radius();
-        let spares_friends = s.def().effects.iter().all(|e| !matches!(e.reach, Reach::Area { who: super::effects::Who::All, .. }));
+        let spares_friends = !s.def().effects.iter().any(|e| e.does.harmful() && matches!(e.reach, Reach::Area { who: super::effects::Who::All, .. } | Reach::Ground { .. }));
         for &j in &enemies {
             // Where the blast centres: on the caster for spells worked round them.
             let p = if s.def().aim == Aim::Caster { me.pos } else { b.fighters[j].pos };

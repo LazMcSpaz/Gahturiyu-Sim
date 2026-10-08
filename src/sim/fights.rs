@@ -275,6 +275,16 @@ impl World {
         for w in self.wards.iter().filter(|w| w.until > at && w.pos.dist(centre) <= w.radius + 80.0) {
             b.zones.push(super::combat::Zone { does: w.does, pos: w.pos, radius: w.radius, power: w.power, until: w.until, side: SQUAD_SIDE, owner: w.owner, fresh: false });
         }
+        // The dead lying nearby (not your own: they're never raised) are
+        // there to be raised.
+        let graves: Vec<(V2, PersonId)> = self.corpses.iter().filter(|c| c.0.dist(centre) <= 40.0 && !self.people[c.3 as usize].in_squad).map(|c| (c.0, c.3)).collect();
+        for (pos, pid) in graves {
+            let mut f = Fighter::from_person(&self.people[pid as usize], super::combat::GRAVE_SIDE, pos, at);
+            f.dead = true;
+            f.ko = true;
+            b.names.push(self.people[pid as usize].name().unwrap_or("someone").to_string());
+            b.fighters.push(f);
+        }
         // A guardian left waiting near the fight comes into it (once).
         let waiting: Vec<super::casting::Ward> = self.wards.iter().copied().filter(|w| matches!(w.does, Does::Summon(_)) && w.until > at && w.pos.dist(centre) <= w.radius).collect();
         for w in waiting {
@@ -339,7 +349,11 @@ impl World {
             self.wards.push(super::casting::Ward { does: z.does, pos: z.pos, radius: z.radius, power: z.power, until: z.until, owner: z.owner });
         }
         // (Called-up creatures and raised dead are nobody: nothing to write.)
-        for f in b.fighters.iter().filter(|f| f.is_person()) {
+        // A body raised and spent crumbles away.
+        for f in b.fighters.iter().filter(|f| f.home == super::combat::GRAVE_SIDE && f.raised) {
+            self.corpses.retain(|c| c.3 != f.pid);
+        }
+        for f in b.fighters.iter().filter(|f| f.is_person() && f.home != super::combat::GRAVE_SIDE) {
             self.fighting.remove(&f.pid);
             let p = &mut self.people[f.pid as usize];
             let base = p.stats.clone();

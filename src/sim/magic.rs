@@ -100,6 +100,8 @@ pub enum Aim {
     Anyone,
     /// A door within range.
     Door,
+    /// A body within range.
+    Corpse,
 }
 
 /// Where a ritual has to be performed.
@@ -257,6 +259,13 @@ pub static SPELLS: &[SpellDef] = &[
     structured("pack_spirit", "Pack spirit", Summoning, 15.0, 2.0, 0.0, Caster, 20.0, &[lasting(Does::Carry, 40.0, 4.0 * 3600.0, Reach::Caster)]),
     ritual("guardian", "Guardian", Summoning, rite(45.0, 8.0, &[("iron_ingot", 1), ("salt_crystal", 2)], Place::Circle), 0.0, Caster, 45.0, &[lasting(Does::Summon(Summon::Guardian), 1.0, 8.0 * 3600.0, Reach::Ground { radius: 30.0 })]),
     ritual("swarm", "Swarm", Summoning, rite(40.0, 12.0, &[("ash_moss", 2), ("kelp_frond", 2)], Place::Anywhere), 15.0, Point, 40.0, &[lasting(Does::Summon(Summon::Swarmling), 1.0, 30.0, Reach::Object)]),
+    // ---- Necromancy -------------------------------------------------------
+    felt("drain", "Drain", Necromancy, 6.0, 0.6, 6.0, Foe, 10.0, &[now(Does::Drain, 6.0, Reach::Target)]),
+    felt("preserve", "Preserve", Necromancy, 4.0, 0.3, 8.0, Point, 5.0, &[now(Does::Preserve, 1.0, Reach::Object)]),
+    structured("wither", "Wither", Necromancy, 22.0, 1.4, 10.0, Foe, 30.0, &[now(Does::Wither, 22.0, Reach::Target)]),
+    structured("raise_thrall", "Raise thrall", Necromancy, 28.0, 2.0, 10.0, Corpse, 35.0, &[lasting(Does::Raise, 1.0, 45.0, Reach::Object)]),
+    ritual("grave_call", "Grave call", Necromancy, rite(60.0, 15.0, &[("ash_moss", 2), ("salt_crystal", 2)], Place::Circle), 0.0, Caster, 50.0, &[lasting(Does::Raise, 1.0, 60.0, Reach::Area { radius: 20.0, who: Who::All })]),
+    ritual("blight", "Blight", Necromancy, rite(50.0, 10.0, &[("ghostcap", 3)], Place::Anywhere), 20.0, Point, 45.0, &[lasting(Does::Blight, 3.0, 30.0, Reach::Ground { radius: 6.0 })]),
     // ---- Warding ----------------------------------------------------------
     felt("brace", "Brace", Warding, 5.0, 0.4, 0.0, Caster, 8.0, &[lasting(Does::Brace, 1.0, 30.0, Reach::Caster)]),
     felt("tripwire", "Tripwire", Warding, 6.0, 0.4, 0.0, Caster, 12.0, &[lasting(Does::Tripwire, 1.0, 8.0 * 3600.0, Reach::Ground { radius: 25.0 })]),
@@ -294,7 +303,13 @@ impl SpellDef {
 
     /// Area of the first area effect, if any.
     pub fn radius(&self) -> f32 {
-        self.effects.iter().find_map(|e| if let Reach::Area { radius, .. } = e.reach { Some(radius) } else { None }).unwrap_or(0.0)
+        self.effects
+            .iter()
+            .find_map(|e| match e.reach {
+                Reach::Area { radius, .. } | Reach::Ground { radius } => Some(radius),
+                _ => None,
+            })
+            .unwrap_or(0.0)
     }
 
     /// Can be cast outside a fight (it does something there).

@@ -711,3 +711,100 @@ fn a_guardian_waits_and_joins_the_next_fight_nearby() {
     assert!(b.fighters.iter().any(|f| f.side == 0 && f.summon.map(|s| s.kind == gahturiyu_sim::sim::effects::Summon::Guardian).unwrap_or(false)));
     assert!(w.wards.is_empty(), "it only comes once");
 }
+
+// ---- Necromancy -----------------------------------------------------------------
+
+#[test]
+fn drain_takes_their_health_into_the_caster() {
+    let mut b = fight(&[(brute(2), 1, V2::new(4.0, 0.0))]);
+    b.fighters[0].hp[1] -= 20.0;
+    let (me, them) = (hp(&b, 0), hp(&b, 1));
+    cast_until(&mut b, spell("drain"), Some(1), V2::new(4.0, 0.0), |b| hp(b, 1) < them);
+    assert!(hp(&b, 0) > me, "the caster is mended");
+}
+
+#[test]
+fn wither_rots_one_limb() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    let before = b.fighters[1].hp;
+    cast_until(&mut b, spell("wither"), Some(1), V2::new(6.0, 0.0), |b| hp(b, 1) < before.iter().sum::<f32>());
+    let hit = (0..6).filter(|&k| b.fighters[1].hp[k] < before[k]).collect::<Vec<_>>();
+    assert_eq!(hit.len(), 1, "one limb only");
+    assert!(hit[0] >= 2, "a limb, not the head or torso");
+}
+
+#[test]
+fn the_dead_rise_mindless_but_never_your_own() {
+    let mut b = fight(&[(brute(2), 1, V2::new(4.0, 0.0)), (brute(3), 0, V2::new(-4.0, 0.0)), (brute(4), 1, V2::new(9.0, 0.0))]);
+    for j in [1, 2] {
+        b.fighters[j].dead = true;
+        b.fighters[j].ko = true;
+    }
+    assert!(!b.raisable(0, 2), "a fallen friend stays fallen");
+    cast_until(&mut b, spell("raise_thrall"), None, V2::new(4.0, 0.0), |b| b.fighters.len() > 4);
+    let thrall = b.fighters.len() - 1;
+    let f = &b.fighters[thrall];
+    assert_eq!(f.side, 0);
+    assert!(f.summon.unwrap().mindless && !f.is_person());
+    assert!(b.fighters[1].raised && b.fighters[1].dead, "the body is used, and still dead");
+    // Mindless: it goes for the nearest enemy.
+    b.tick();
+    assert_eq!(b.fighters[thrall].target, Some(3));
+    // Only one thrall from one body.
+    assert!(!b.raisable(0, 1));
+}
+
+#[test]
+fn grave_call_raises_every_body_round_the_caster() {
+    let mut b = fight(&[(brute(2), 1, V2::new(4.0, 0.0)), (brute(3), 1, V2::new(-6.0, 3.0)), (brute(4), 1, V2::new(30.0, 0.0)), (brute(5), 1, V2::new(12.0, 0.0))]);
+    for j in [1, 2, 3] {
+        b.fighters[j].dead = true;
+        b.fighters[j].ko = true;
+    }
+    cast_until(&mut b, spell("grave_call"), None, V2::new(0.0, 0.0), |b| b.fighters.len() > 5);
+    assert_eq!(b.fighters.iter().filter(|f| f.summon.is_some()).count(), 2, "both bodies within reach, not the far one");
+}
+
+#[test]
+fn blight_eats_at_everyone_in_it() {
+    let mut b = fight(&[(brute(2), 1, V2::new(10.0, 0.0)), (brute(3), 0, V2::new(11.0, 1.0)), (brute(4), 1, V2::new(30.0, 0.0))]);
+    let before: Vec<f32> = (0..4).map(|i| hp(&b, i)).collect();
+    cast_until(&mut b, spell("blight"), None, V2::new(10.0, 0.0), |b| !b.zones.is_empty());
+    for _ in 0..50 {
+        b.tick();
+    }
+    assert!(hp(&b, 1) < before[1] - 5.0 && hp(&b, 2) < before[2] - 5.0, "friend and foe");
+    assert_eq!(hp(&b, 3), before[3]);
+}
+
+#[test]
+fn preserved_bodies_lie_a_day_and_can_be_raised_in_the_next_fight() {
+    use gahturiyu_sim::sim::fights::CORPSE_TIME;
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    // A body by the squad (a stranger's).
+    let stranger = (0..w.people.len() as u32).find(|&p| !w.people[p as usize].in_squad && !w.people[p as usize].bandit).unwrap();
+    w.people[stranger as usize].dead = true;
+    w.people[stranger as usize].ensure_detail();
+    let at = w.squad.pos.add(V2::new(5.0, 0.0));
+    let t = w.time;
+    w.corpses.push((at, w.people[stranger as usize].race, t, stranger));
+    cast_world(&mut w, m, spell("preserve"), None, Some(at), |w| w.corpses[0].2 > t);
+    w.teleport_squad(w.squad.pos.add(V2::new(2000.0, 0.0)));
+    for _ in 0..((CORPSE_TIME * 3.0 / 600.0) as usize) {
+        w.step(600.0);
+    }
+    assert!(w.corpses.iter().any(|c| c.3 == stranger), "still there");
+    // Back by the body: when a fight starts, it's there to raise.
+    w.teleport_squad(at.add(V2::new(4.0, 0.0)));
+    w.spawn_bandits(w.squad.pos.add(V2::new(15.0, 0.0)), 1, false);
+    while w.battles.is_empty() {
+        w.step(0.25);
+    }
+    let b = &w.battles[0];
+    let grave = b.fighters.iter().position(|f| f.pid == stranger).expect("the body is in the fight");
+    let me = b.fighters.iter().position(|f| f.pid == m).unwrap();
+    assert!(b.raisable(me, grave));
+}

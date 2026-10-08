@@ -106,6 +106,16 @@ pub enum Does {
     /// Turn materials in the caster's pack into others (`casting::TRANSMUTE`).
     /// Power: how many lots.
     Transmute,
+    /// Rot their body and take the life into the caster: damage, and the
+    /// caster is mended by as much. Power: hit points.
+    Drain,
+    /// Rot one limb (the soundest). Power: hit points.
+    Wither,
+    /// Raise a corpse (not one of the caster's own side) as a mindless
+    /// thrall for as long as it lasts.
+    Raise,
+    /// Keep bodies from rotting away for a day.
+    Preserve,
     /// Light a torch (one carried, or a doused campfire).
     Kindle,
     /// Put out a torch, a standing torch or a campfire (for `DOUSE_HOURS`).
@@ -200,12 +210,14 @@ pub enum Does {
     /// Ground: a spirit at a spot the caster can see through (the window
     /// can look from there).
     Scout,
+    /// Ground: rot eats at everyone in it. Power: hit points a second.
+    Blight,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight)
     }
 
     /// Guards against harm (worth putting up when a fight reaches you).
@@ -227,7 +239,8 @@ impl Does {
     /// lasting effect that isn't an attack (it's kept as a blessing on them).
     pub fn works_outside_fights(self) -> bool {
         match self {
-            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel | Does::Unlock | Does::Transmute => true,
+            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel | Does::Unlock | Does::Transmute | Does::Preserve => true,
+            Does::Raise => false,
             // A guardian can wait on the ground for a fight; the rest only
             // come to one.
             Does::Summon(k) => k == Summon::Guardian,
@@ -362,6 +375,11 @@ impl Effect {
             Does::Enlarge => format!("{pct:.0}% bigger"),
             Does::Rust => format!("Armour {pct:.0}% weaker"),
             Does::Scout => "A spirit to see through".to_string(),
+            Does::Drain => format!("Drains {p:.0} health into the caster"),
+            Does::Wither => format!("Rots a limb ({p:.0})"),
+            Does::Raise => "Raises the dead to fight, mindless".to_string(),
+            Does::Preserve => "Keeps bodies from rotting for a day".to_string(),
+            Does::Blight => format!("Rot: {p:.0} a second"),
             Does::Brace => "Turns the next blow".to_string(),
             Does::Tripwire => "Wakes sleepers when danger comes".to_string(),
             Does::Sanctuary => "Enemies can't enter".to_string(),

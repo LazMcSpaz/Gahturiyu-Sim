@@ -49,6 +49,10 @@ const BODY: f32 = 0.45;
 pub type Side = u8;
 pub const SQUAD_SIDE: Side = 0;
 
+/// The side the already-dead lie on: bodies brought into a fight to be
+/// raised, belonging to no one.
+pub const GRAVE_SIDE: Side = 250;
+
 /// The "person" behind a fighter that isn't one: a summoned creature or a
 /// raised corpse.
 pub const NOBODY: PersonId = PersonId::MAX;
@@ -590,6 +594,17 @@ impl Battle {
             }
         }
         self.zones.retain(|z| z.until > t);
+        // Blight eats at everyone standing in it.
+        let blights: Vec<Zone> = self.zones.iter().copied().filter(|z| z.does == Does::Blight).collect();
+        for z in blights {
+            for j in 0..n {
+                let f = &self.fighters[j];
+                if !f.dead && !f.fled && f.pos.dist(z.pos) <= z.radius {
+                    let dmg = z.power * DT as f32 * f.warded();
+                    self.hurt_whole(j, dmg);
+                }
+            }
+        }
 
         // Spells wear off; breath and mana come back.
         for f in &mut self.fighters {
@@ -1093,7 +1108,7 @@ impl Battle {
                 }
                 (Some(j), self.fighters[j].pos)
             }
-            Aim::Point | Aim::Door => (target, point),
+            Aim::Point | Aim::Door | Aim::Corpse => (target, point),
             Aim::Caster => (Some(i), self.fighters[i].pos),
         };
         if d.harmful() {
@@ -1134,6 +1149,22 @@ impl Battle {
         let secs = if let Lasts::Secs(s) = e.lasts { s as f64 } else { 30.0 };
         if let Does::Summon(kind) = e.does {
             self.call_up(src.by, kind, src.point, self.time + secs, e.power * src.skill);
+            return;
+        }
+        // The dead: the nearest body to the spot, or every body in the area.
+        if e.does == Does::Raise {
+            let (near, radius) = match e.reach {
+                Reach::Area { radius, .. } => (false, radius),
+                _ => (true, 4.0),
+            };
+            let mut bodies: Vec<usize> = (0..self.fighters.len()).filter(|&j| self.raisable(src.by, j) && self.fighters[j].pos.dist(src.point) <= radius).collect();
+            bodies.sort_by(|&a, &b| self.fighters[a].pos.dist(src.point).total_cmp(&self.fighters[b].pos.dist(src.point)));
+            if near {
+                bodies.truncate(1);
+            }
+            for j in bodies {
+                self.raise(src.by, j, self.time + secs);
+            }
             return;
         }
         if let Reach::Ground { radius } = e.reach {
@@ -1237,25 +1268,23 @@ impl Battle {
                     }
                 }
                 Does::Heal => {
-                    let mut left = e.power * src.skill * (0.9 + src.r_dmg * 0.2) * boost;
                     // Worst wounds first: head and torso when someone is down,
                     // otherwise whatever is most hurt.
-                    while left > 0.5 {
-                        let f = &self.fighters[j];
-                        let worst = (0..6).filter(|&k| f.hp[k] < f.max_hp[k]).max_by(|&a, &b| {
-                            let need = |k: usize| (f.max_hp[k] - f.hp[k]) / f.max_hp[k] + if f.ko && k < 2 && f.hp[k] <= 0.0 { 10.0 } else { 0.0 };
-                            need(a).total_cmp(&need(b))
-                        });
-                        let Some(k) = worst else { break };
-                        let give = left.min(self.fighters[j].max_hp[k] - self.fighters[j].hp[k]).min(12.0);
-                        self.fighters[j].hp[k] += give;
-                        left -= give;
-                    }
-                    let f = &mut self.fighters[j];
-                    if f.ko && !f.dead && !body::knocked_out(&f.hp) {
-                        f.ko = false;
-                        f.act = Act::Idle;
-                        self.say(format!("{tname} gets back up."));
+                    self.mend_fighter(j, e.power * src.skill * (0.9 + src.r_dmg * 0.2) * boost);
+                }
+                Does::Drain => {
+                    let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * boost * ward * self.fighters[j].warded();
+                    self.say(format!("{name} drains {tname} ({dmg:.0})."));
+                    self.hurt_whole(j, dmg);
+                    self.mend_fighter(src.by, dmg);
+                }
+                Does::Wither => {
+                    let f = &self.fighters[j];
+                    let limb = [Part::LeftArm, Part::RightArm, Part::LeftLeg, Part::RightLeg].into_iter().filter(|p| !f.missing[*p as usize]).max_by(|a, b| f.hp[*a as usize].total_cmp(&f.hp[*b as usize]));
+                    if let Some(limb) = limb {
+                        let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * boost * ward;
+                        self.say(format!("{tname}'s {} withers ({dmg:.0}).", limb.name()));
+                        self.wound(j, limb, dmg);
                     }
                 }
                 Does::Energy => {
@@ -1346,6 +1375,80 @@ impl Battle {
                     _ => {}
                 }
             }
+        }
+    }
+
+    /// Can fighter `by` raise the body of fighter `j`? Only the real dead,
+    /// once, and never one of their own side: necromancy never brings back
+    /// a fallen friend.
+    pub fn raisable(&self, by: usize, j: usize) -> bool {
+        let f = &self.fighters[j];
+        f.dead && f.is_person() && !f.raised && f.home != self.fighters[by].home
+    }
+
+    /// Raise a body as a mindless thrall on `by`'s side.
+    pub fn raise(&mut self, by: usize, j: usize, until: f64) {
+        let side = self.fighters[by].side;
+        let t = self.time;
+        let mut f = self.fighters[j].clone();
+        self.fighters[j].raised = true;
+        f.pid = NOBODY;
+        f.side = side;
+        f.home = side;
+        f.dead = false;
+        f.ko = false;
+        f.fled = false;
+        f.fleeing = false;
+        for k in 0..6 {
+            if !f.missing[k] {
+                f.hp[k] = f.max_hp[k] * 0.6;
+            }
+        }
+        f.statuses.clear();
+        f.spells.clear();
+        f.potions.clear();
+        f.scrolls.clear();
+        f.used.clear();
+        f.held = None;
+        f.act = Act::Idle;
+        f.target = None;
+        f.order = None;
+        f.think_at = t;
+        f.aware_at = 0.0;
+        f.ammo = 0;
+        f.torch = false;
+        f.boldness = 1.0;
+        f.trained = [0.0; super::stats::N_SKILLS];
+        f.tire = 0.0;
+        f.damage_taken = 0.0;
+        f.broke.clear();
+        f.summon = Some(Summoned { kind: Summon::Thrall, until, mindless: true });
+        let name = format!("{} (raised)", self.names[j]);
+        self.fighters.push(f);
+        self.names.push(name.clone());
+        self.say(format!("{name} rises, empty-eyed."));
+    }
+
+    /// Mend fighter `j` by `amount`, worst wounds first; the downed may get up.
+    fn mend_fighter(&mut self, j: usize, amount: f32) {
+        let mut left = amount;
+        while left > 0.5 {
+            let f = &self.fighters[j];
+            let worst = (0..6).filter(|&k| f.hp[k] < f.max_hp[k] && !f.missing[k]).max_by(|&a, &b| {
+                let need = |k: usize| (f.max_hp[k] - f.hp[k]) / f.max_hp[k] + if f.ko && k < 2 && f.hp[k] <= 0.0 { 10.0 } else { 0.0 };
+                need(a).total_cmp(&need(b))
+            });
+            let Some(k) = worst else { break };
+            let give = left.min(self.fighters[j].max_hp[k] - self.fighters[j].hp[k]).min(12.0);
+            self.fighters[j].hp[k] += give;
+            left -= give;
+        }
+        let f = &mut self.fighters[j];
+        if f.ko && !f.dead && !body::knocked_out(&f.hp) {
+            f.ko = false;
+            f.act = Act::Idle;
+            let name = self.names[j].clone();
+            self.say(format!("{name} gets back up."));
         }
     }
 

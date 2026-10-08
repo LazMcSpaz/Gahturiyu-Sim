@@ -31,6 +31,9 @@ use super::world::World;
 /// Each lot is one row's worth, worked down the list.
 pub const TRANSMUTE: &[(&str, u16, &str, u16)] = &[("iron_ore", 1, "iron_ingot", 1), ("hide", 1, "leather", 1), ("salt_crystal", 3, "storm_glass", 1), ("ash_moss", 2, "ghostcap", 1)];
 
+/// Preserve keeps bodies from rotting for this many hours.
+pub const PRESERVE_HOURS: f64 = 24.0;
+
 /// Within this many metres of a hearth counts as "at the hearth".
 pub const HEARTH_REACH: f32 = 15.0;
 /// Within this many metres of a temple or hall counts as "at a shrine".
@@ -271,6 +274,17 @@ impl World {
         let t = self.time;
         const NEAR: f32 = 6.0;
         match e.does {
+            Does::Preserve => {
+                let mut any = false;
+                for c in self.corpses.iter_mut().filter(|c| c.0.dist(point) <= 4.0) {
+                    c.2 = c.2.max(t + PRESERVE_HOURS * super::world::HOUR - super::fights::CORPSE_TIME);
+                    any = true;
+                }
+                if any {
+                    self.say(t, "The bodies are kept from rotting.".to_string());
+                }
+                any
+            }
             Does::Unlock => {
                 let Some(d) = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0).min_by(|a, b| a.outside.dist(point).total_cmp(&b.outside.dist(point))) else { return false };
                 self.picked.insert(d.id, super::buildings::night_of(t));
