@@ -5,6 +5,9 @@
 //!    change what happens either.
 //! 3. Details, once built, are never rebuilt or changed.
 //! 4. Details are only built for what actually came close.
+//!
+//! "What happens" includes the world's own fights: bandits ambushing
+//! travellers far from the squad must come out the same either way.
 
 use gahturiyu_sim::sim::{geo::V2, world::HOUR, worldgen, World};
 
@@ -31,6 +34,15 @@ fn assert_same_history(a: &World, b: &World) {
     }
     assert_eq!(a.busy_until, b.busy_until);
     assert_eq!(a.group_of, b.group_of);
+    assert_eq!(a.stats.ambushes, b.stats.ambushes, "a different number of ambushes");
+    for (pa, pb) in a.people.iter().zip(&b.people) {
+        assert_eq!(pa.dead, pb.dead, "person {} died in one run only", pa.id);
+        let (la, lb) = (pa.wounds.lost_at(a.time), pb.wounds.lost_at(b.time));
+        for k in 0..6 {
+            assert!((la[k] - lb[k]).abs() < 1e-3, "person {} has different wounds", pa.id);
+        }
+        assert!((pa.might - pb.might).abs() < 1e-3, "person {} has a different might", pa.id);
+    }
 }
 
 #[test]
@@ -41,6 +53,7 @@ fn step_size_does_not_change_history() {
     assert_same_history(&fine, &coarse);
     assert_same_history(&fine, &lumpy);
     assert!(fine.stats.journeys_started > 50, "the world should actually be doing something");
+    assert!(fine.stats.ambushes > 5, "bandits should be busy: {}", fine.stats.ambushes);
 }
 
 #[test]
@@ -93,4 +106,18 @@ fn details_are_only_built_for_what_came_close() {
         w.people.len()
     );
     assert_eq!(detailed, w.stats.detailed, "the running count drifted from the truth");
+}
+
+#[test]
+fn a_roadside_fight_you_watch_is_the_one_you_would_have_missed() {
+    // Stand near a bandit camp (close enough to watch, too far to be jumped)
+    // in one run, and on the far side of the world in the other.
+    let mut near = worldgen::generate(7);
+    let camp = near.camps[0].pos;
+    near.teleport_squad(camp.add(V2::new(160.0, 0.0)));
+    let mut far = worldgen::generate(7);
+    far.teleport_squad(V2::new(1_000.0, 20_000.0));
+    let (near, far) = (run(near, 30.0, 2.0), run(far, 30.0, 2.0));
+    assert_eq!(near.next_battle, near.stats.ambushes as u32, "the squad shouldn't have been in a fight itself");
+    assert_same_history(&near, &far);
 }

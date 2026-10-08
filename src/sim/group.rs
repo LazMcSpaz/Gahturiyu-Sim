@@ -73,6 +73,62 @@ impl Leg {
         Leg { from: p, to: p, depart: 0.0, arrive: until, dest: None, path: vec![p, p], effort: vec![0.0, 0.0] }
     }
 
+    /// Standing still at `p` from `from` until `until`.
+    pub fn stay(p: V2, from: f64, until: f64) -> Leg {
+        Leg { from: p, to: p, depart: from, arrive: until, dest: None, path: vec![p, p], effort: vec![0.0, 0.0] }
+    }
+
+    /// This leg cut short at time `t`: same path and pace up to that moment,
+    /// ending wherever the walker was. Returns the cut leg and how far along
+    /// the path it got (index of the next point not reached).
+    pub fn cut_at(&self, t: f64) -> (Leg, usize) {
+        let total = *self.effort.last().unwrap_or(&0.0);
+        let span = (self.arrive - self.depart).max(1e-9);
+        let e = (((t - self.depart) / span) as f32 * total).clamp(0.0, total);
+        let k = self.effort.partition_point(|&x| x <= e).clamp(1, self.path.len() - 1);
+        let here = self.point_at(t);
+        let mut path = self.path[..k].to_vec();
+        let mut effort = self.effort[..k].to_vec();
+        path.push(here);
+        effort.push(e);
+        (Leg { from: self.from, to: here, depart: self.depart, arrive: t, dest: None, path, effort }, k)
+    }
+
+    /// When the walker first comes within `r` metres of `c` on this leg, if
+    /// they do. Exact: the path is straight between points and the pace is
+    /// steady along each stretch, so it's a line meeting a circle.
+    pub fn first_within(&self, c: V2, r: f32) -> Option<f64> {
+        let total = *self.effort.last().unwrap_or(&0.0);
+        if !self.arrive.is_finite() || total <= 0.0 || self.path.len() < 2 {
+            return None;
+        }
+        let span = self.arrive - self.depart;
+        for k in 1..self.path.len() {
+            let (a, b) = (self.path[k - 1], self.path[k]);
+            let d = b.sub(a);
+            let f = a.sub(c);
+            let (qa, qb, qc) = (d.x * d.x + d.y * d.y, 2.0 * (f.x * d.x + f.y * d.y), f.x * f.x + f.y * f.y - r * r);
+            let s = if qc <= 0.0 {
+                0.0
+            } else if qa < 1e-9 {
+                continue;
+            } else {
+                let disc = qb * qb - 4.0 * qa * qc;
+                if disc < 0.0 {
+                    continue;
+                }
+                let s = (-qb - disc.sqrt()) / (2.0 * qa);
+                if !(0.0..=1.0).contains(&s) {
+                    continue;
+                }
+                s
+            };
+            let e = self.effort[k - 1] + s * (self.effort[k] - self.effort[k - 1]);
+            return Some(self.depart + (e / total) as f64 * span);
+        }
+        None
+    }
+
     fn point_at(&self, t: f64) -> V2 {
         let span = (self.arrive - self.depart).max(1e-9);
         let total = *self.effort.last().unwrap_or(&0.0);
@@ -150,9 +206,10 @@ impl Group {
 
     /// Wanderers write their schedule a leg at a time. Make sure it reaches at
     /// least time `t`. Purely a function of the seed and leg number, so it does
-    /// not matter when this gets called.
-    pub fn extend_to(&mut self, t: f64, terrain: &Terrain) {
-        let Kind::Wanderer { rest_min, rest_max } = self.kind else { return };
+    /// not matter when this gets called. Returns how many legs were added.
+    pub fn extend_to(&mut self, t: f64, terrain: &Terrain) -> usize {
+        let Kind::Wanderer { rest_min, rest_max } = self.kind else { return 0 };
+        let mut added = 0;
         while self.legs.last().map(|l| l.arrive < t).unwrap_or(false) {
             let n = self.written;
             let last = self.legs.last().unwrap().clone();
@@ -172,9 +229,19 @@ impl Group {
             let depart = last.arrive + rest;
             self.legs.push(Leg::straight(last.to, to, depart, self.speed, None, terrain));
             self.written += 1;
-            if self.legs.len() > 3 {
-                self.legs.remove(0);
-            }
+            added += 1;
+        }
+        added
+    }
+
+    /// Forget a wanderer's legs that finished long ago. Depends only on `now`,
+    /// so calling it more or less often leaves the same legs in the end.
+    pub fn trim(&mut self, now: f64) {
+        if !matches!(self.kind, Kind::Wanderer { .. }) {
+            return;
+        }
+        while self.legs.len() > 2 && self.legs[1].depart <= now - 3600.0 {
+            self.legs.remove(0);
         }
     }
 }

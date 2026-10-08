@@ -96,10 +96,16 @@ pub struct Fighter {
 }
 
 impl Fighter {
-    /// Bring a person into a fight at `pos`. They must have details.
+    /// Bring a person into a fight at `pos`. Someone never met fights with
+    /// exactly the kit and spells they'd have if met: the same ones their
+    /// might was rated on.
     pub fn from_person(p: &Person, side: Side, pos: V2, t: f64) -> Fighter {
-        let d = p.detail.as_ref().expect("fighters need details");
-        let gear = &d.gear;
+        let kit = p.kit();
+        let gear = &kit;
+        let spells = match &p.detail {
+            Some(d) => d.spells.clone(),
+            None => super::magic::starting_spells(&p.stats),
+        };
         let stats = inventory::effective(&p.stats, gear);
         let mut max_hp = [0.0; 6];
         for (i, part) in PARTS.iter().enumerate() {
@@ -131,7 +137,7 @@ impl Fighter {
             resist_blind: sum(&|e| if let Effect::ResistBlind(v) = e { Some(*v) } else { None }).min(0.95),
             resist_elements: sum(&|e| if let Effect::ResistElements(v) = e { Some(*v) } else { None }).min(0.9),
             base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load),
-            spells: d.spells.clone(),
+            spells,
             boldness: p.traits.boldness,
             might: p.might,
             stats,

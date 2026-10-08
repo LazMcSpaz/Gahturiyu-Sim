@@ -86,6 +86,20 @@ async fn main() {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
         }
+        if let Some(k) = s.camp {
+            if let Some(c) = world.camps.get(k) {
+                let at = c.pos.add(V2::new(70.0, 0.0));
+                world.teleport_squad(at);
+            }
+        }
+        if let Some(h) = s.wait {
+            // Run until a fight is on nearby, or the time is up.
+            let end = world.time + h * 3600.0;
+            let near = |w: &gahturiyu_sim::sim::World| w.battles.iter().any(|b| b.fighters.iter().any(|f| f.pos.dist(w.squad.pos) < 300.0));
+            while world.time < end && !near(&world) {
+                world.step(1.0);
+            }
+        }
         if let Some(n) = s.bandits {
             let at = world.squad.pos.add(V2::new(14.0, 6.0));
             world.spawn_bandits(at, n, true);

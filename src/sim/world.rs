@@ -1,9 +1,10 @@
 //! The world, and the loop that moves it forward.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::bands::{BandMap, REFRESH};
 use super::combat::Battle;
+use super::encounters::{Camp, Encounter, NpcFight};
 use super::race::Race;
 use super::geo::{self, V2};
 use super::group::{Group, GroupId, Kind, Leg};
@@ -39,6 +40,8 @@ pub struct Stats {
     /// Groups currently in each band.
     pub in_band: [usize; 4],
     pub journeys_started: usize,
+    /// Bandit attacks anywhere in the world so far.
+    pub ambushes: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +89,15 @@ pub struct World {
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
+
+    // --- The world's own fights ---------------------------------------------
+    pub camps: Vec<Camp>,
+    /// Ambushes worked out from the schedules, waiting for their moment.
+    pub encounters: Vec<Encounter>,
+    /// Fights away from the squad, already decided, waiting for their end.
+    pub npc_fights: Vec<NpcFight>,
+    /// Groups whose plans are on hold while they fight.
+    pub fighting_groups: HashSet<GroupId>,
 }
 
 impl World {
@@ -129,6 +141,10 @@ impl World {
             pickups: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,
+            camps: Vec::new(),
+            encounters: Vec::new(),
+            npc_fights: Vec::new(),
+            fighting_groups: HashSet::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -142,7 +158,7 @@ impl World {
     }
 
     pub(super) fn add_group(&mut self, mut g: Group) {
-        g.extend_to(self.time, &self.terrain);
+        g.extend_to(self.time + super::encounters::LOOKAHEAD, &self.terrain);
         g.pos = g.position_at(self.time);
         g.last_update = self.time;
         g.band = self.bands.band_at(g.pos);
@@ -150,8 +166,10 @@ impl World {
             self.busy_until[m as usize] = g.ends;
             self.group_of[m as usize] = Some(g.id);
         }
+        let id = g.id;
         self.group_index.insert(g.id, self.groups.len());
         self.groups.push(g);
+        self.scan_legs(id, 0);
     }
 
     pub fn group(&self, id: GroupId) -> Option<&Group> {
@@ -160,17 +178,34 @@ impl World {
 
     /// Advance the world by `dt` game seconds.
     pub fn step(&mut self, dt: f64) {
+        // Long steps are taken an hour at a time, so travellers' plans are
+        // always written (and checked for ambushes) before they're walked.
+        let mut dt = dt;
+        while dt > HOUR {
+            self.step(HOUR);
+            dt -= HOUR;
+        }
         // 1. The squad walks, each member at their own pace. Always fully
         //    simulated. Members in a fight are moved by the fight instead.
         self.walk_squad(dt);
         self.bands.update(self.squad.pos);
 
         self.time += dt;
+        self.plan_ahead();
 
-        // 2. Departures, decided one game-hour at a time, in order. Keyed by
-        //    settlement and hour, so they never depend on the step size.
-        let now_hour = (self.time / HOUR).floor() as i64;
-        while self.hour_done < now_hour {
+        // 2. Everything scheduled up to now, strictly in time order: each
+        //    game-hour's departures (keyed by settlement and hour), ambushes
+        //    and the ends of fights. So the step size never changes the order.
+        loop {
+            let hour_t = (self.hour_done + 1) as f64 * HOUR;
+            let ev = self.next_event().filter(|e| e.0 <= self.time && e.0 < hour_t);
+            if let Some((_, is_end, i)) = ev {
+                self.run_event(is_end, i);
+                continue;
+            }
+            if hour_t > self.time {
+                break;
+            }
             self.hour_done += 1;
             for s in 0..self.settlements.len() {
                 if let Some(g) = self.plan_departure(s as SettlementId, self.hour_done) {
@@ -179,13 +214,13 @@ impl World {
                 }
             }
         }
+        self.plan_ahead();
 
         // 3. Refresh groups, each at its band's rate.
         self.stats.refreshed = [0; 4];
         let t = self.time;
         for g in &mut self.groups {
             if t - g.last_update >= REFRESH[g.band as usize] {
-                g.extend_to(t, &self.terrain);
                 g.pos = g.position_at(t);
                 g.last_update = t;
                 g.band = self.bands.band_at(g.pos);
@@ -366,7 +401,9 @@ impl World {
 
         let town = &self.settlements[s as usize];
         let home_pos = town.pos;
-        let free: Vec<PersonId> = town.residents.iter().copied().filter(|&p| self.busy_until[p as usize] <= start && !self.people[p as usize].dead).collect();
+        // Only people already back by the top of the hour: anything that
+        // happens later in the hour can't then change who was free.
+        let free: Vec<PersonId> = town.residents.iter().copied().filter(|&p| self.busy_until[p as usize] <= h as f64 * HOUR && !self.people[p as usize].dead).collect();
         if free.is_empty() {
             return None;
         }

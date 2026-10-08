@@ -134,6 +134,15 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, re
         }
     }
 
+    // Bandit camps.
+    for c in &w.camps {
+        let q = cam.to_screen(c.pos);
+        let k = (cam.zoom * 8.0).clamp(4.0, 9.0);
+        draw_triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y + k * 0.7), vec2(q.x + k, q.y + k * 0.7), Color::new(0.85, 0.22, 0.18, 0.9));
+        if cam.zoom > 0.15 {
+            ui.centred("bandits", q.x, q.y + k + 13.0, 13, Color::new(0.95, 0.5, 0.45, 1.0));
+        }
+    }
     for &(at, _, _, _) in &w.corpses {
         let q = cam.to_screen(at);
         let k = dot + 1.0;

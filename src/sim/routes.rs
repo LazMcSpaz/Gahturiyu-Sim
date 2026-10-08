@@ -154,7 +154,13 @@ impl Routes {
             }
             out.paths.insert((a, b), pts);
         }
-        out.roads.sort_by(|x, y| x[0].x.total_cmp(&y[0].x).then(x[0].y.total_cmp(&y[0].y)));
+        // A fixed order (the map above iterates in no particular one): by
+        // where each road starts, then where it ends.
+        let key = |r: &Vec<V2>| (r[0].x, r[0].y, r[r.len() - 1].x, r[r.len() - 1].y);
+        out.roads.sort_by(|x, y| {
+            let (a, b) = (key(x), key(y));
+            a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.total_cmp(&b.2)).then(a.3.total_cmp(&b.3))
+        });
         out
     }
 }

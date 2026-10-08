@@ -134,7 +134,10 @@ pub fn generate(seed: u64) -> World {
     let routes = Routes::build(&terrain, &settlements);
 
     // Start at 06:00 on day 1.
-    World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes)
+    let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
+    // Bandits by the roads.
+    w.place_camps();
+    w
 }
 
 /// How strongly a settlement draws people of a race. Everyone lives

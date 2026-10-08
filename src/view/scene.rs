@@ -35,6 +35,7 @@ const TIMBER: Color = Color::new(0.36, 0.27, 0.18, 1.0);
 const GOLD: Color = Color::new(0.95, 0.76, 0.28, 1.0);
 const EMBER: Color = Color::new(1.0, 0.62, 0.26, 1.0);
 const TENT: Color = Color::new(0.62, 0.64, 0.74, 1.0);
+const CAMP_HIDE: Color = Color::new(0.42, 0.24, 0.18, 1.0);
 
 /// Height of a Horaro stilt-home deck above the water.
 const DECK: f32 = 2.4;
@@ -310,6 +311,20 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             let base = to3(at, on_ground(at) - 0.1);
             b.block(base, 1.6 * k, 0.6 * k, 0.35 * k, at.x * 0.37, Color::new(0.35, 0.12, 0.10, 1.0));
             b.block(base + vec3(0.0, 0.3 * k, 0.0), 1.2 * k, 0.4 * k, 0.15 * k, at.x * 0.37, palette::scale(race_color(race), 0.5));
+        }
+    }
+    // Bandit camps: rough hide lean-tos round a fire.
+    for c in &w.camps {
+        if c.pos.dist(oc.target) > radius {
+            continue;
+        }
+        let kk = k.min(4.0);
+        let fire = to3(c.pos, on_ground(c.pos));
+        b.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, EMBER);
+        for j in 0..3 {
+            let a = j as f32 * 2.1 + c.group as f32;
+            let at = c.pos.add(V2::new(a.cos(), a.sin()).scale(7.0 * kk));
+            b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, CAMP_HIDE);
         }
     }
     // Things lying about.

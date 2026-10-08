@@ -300,6 +300,10 @@ pub struct Shot {
     pub nudge: Option<(f32, f32)>,
     /// `GAHT_BANDITS=n`: start with n bandits right next to the squad.
     pub bandits: Option<usize>,
+    /// `GAHT_CAMP=k`: start the squad 160 m from bandit camp k.
+    pub camp: Option<usize>,
+    /// `GAHT_WAIT=h`: let the world run h game hours before the first frame.
+    pub wait: Option<f64>,
     /// `GAHT_SELECT=k`: select squad member k.
     pub select: Option<usize>,
     /// `GAHT_INV=k`: open squad member k's pack.
@@ -325,6 +329,8 @@ impl Shot {
             pitch: var("GAHT_PITCH").and_then(|v| v.parse().ok()),
             yaw: var("GAHT_YAW").and_then(|v| v.parse().ok()),
             bandits: var("GAHT_BANDITS").and_then(|v| v.parse().ok()),
+            camp: var("GAHT_CAMP").and_then(|v| v.parse().ok()),
+            wait: var("GAHT_WAIT").and_then(|v| v.parse().ok()),
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),

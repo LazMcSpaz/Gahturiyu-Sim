@@ -87,9 +87,15 @@ impl World {
         any
     }
 
-    /// Put a band of bandits at `at`. One of them is a mage if asked. Returns
-    /// the new group. (For testing and for the world's own bandit camps.)
+    /// Put a band of bandits at `at`, met already (named and kitted). One of
+    /// them is a mage if asked. They make camp there. Returns the new group.
     pub fn spawn_bandits(&mut self, at: V2, count: usize, with_mage: bool) -> GroupId {
+        self.add_bandits(at, count, with_mage, true)
+    }
+
+    /// A bandit camp at `at`. `met` builds their details now (otherwise
+    /// that waits until someone comes close, like anyone else).
+    pub(super) fn add_bandits(&mut self, at: V2, count: usize, with_mage: bool, met: bool) -> GroupId {
         let tag = self.people.len() as u64;
         let mut members = Vec::new();
         for k in 0..count {
@@ -105,13 +111,15 @@ impl World {
                 let main = *r.pick(&[Skill::Blade, Skill::Blunt, Skill::Spear]);
                 p.specialize(Calling::Warrior, &[(main, 30.0 + r.f32() * 18.0), (Skill::Dodge, 20.0), (Skill::Block, 18.0)], 90.0 + r.f32() * 220.0);
             }
-            p.ensure_detail();
+            if met {
+                p.ensure_detail();
+                self.stats.detailed += 1;
+            }
             p.wounds.at = self.time;
             p.mana_at = self.time;
             self.people.push(p);
             self.busy_until.push(f64::INFINITY);
             self.group_of.push(None);
-            self.stats.detailed += 1;
             members.push(id);
         }
         let gid = self.next_group;
@@ -132,6 +140,8 @@ impl World {
             band: 3,
         };
         self.add_group(g);
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time });
+        self.scan_camp(self.camps.len() - 1);
         gid
     }
 
@@ -170,7 +180,10 @@ impl World {
         for b in &mut self.battles {
             b.advance_to(t);
         }
-        let (done, live): (Vec<Battle>, Vec<Battle>) = std::mem::take(&mut self.battles).into_iter().partition(|b| b.over);
+        // Fights away from the squad are only copies on show; their ends are
+        // handled on the timeline.
+        let npc: Vec<u32> = self.npc_fights.iter().map(|f| f.id).collect();
+        let (done, live): (Vec<Battle>, Vec<Battle>) = std::mem::take(&mut self.battles).into_iter().partition(|b| b.over && !npc.contains(&b.id));
         self.battles = live;
         for b in done {
             self.conclude(b);
@@ -209,8 +222,10 @@ impl World {
         }
     }
 
-    /// Write everything that happened in a finished fight back into the world.
-    fn conclude(&mut self, b: Battle) {
+    /// Write what a finished fight did to everyone in it back onto the people:
+    /// wounds, mana, skills trained, toughening, deaths (and the dead's
+    /// belongings onto the ground). Returns how many died.
+    pub(super) fn write_back(&mut self, b: &Battle) -> usize {
         let t = b.time;
         let mut killed = 0;
         for f in &b.fighters {
@@ -230,9 +245,21 @@ impl World {
                 killed += 1;
                 self.busy_until[f.pid as usize] = f64::INFINITY;
                 self.corpses.push((f.pos, p.race, t, f.pid));
+                // Their things stay where they fell, so they need to exist.
+                if p.ensure_detail() {
+                    self.stats.detailed += 1;
+                }
+                self.drop_everything(f.pid, f.pos);
             }
-            p.recompute_might();
+            self.people[f.pid as usize].recompute_might();
         }
+        killed
+    }
+
+    /// Write everything that happened in a finished fight back into the world.
+    fn conclude(&mut self, b: Battle) {
+        let t = b.time;
+        let killed = self.write_back(&b);
 
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();
@@ -241,13 +268,25 @@ impl World {
             let gi = self.groups.iter().position(|g| g.id == gid).unwrap();
             if alive.is_empty() {
                 self.groups[gi].ends = t;
+                self.camps.retain(|cp| cp.group != gid);
                 continue;
             }
             let c = alive.iter().filter_map(|m| b.index_of(*m)).map(|i| b.fighters[i].pos).fold(V2::default(), |a, p| a.add(p)).scale(1.0 / alive.len() as f32);
+            let camp = self.camps.iter().position(|cp| cp.group == gid);
             let g = &mut self.groups[gi];
             g.members = alive;
             if g.hostile {
-                g.legs = vec![Leg::wait(c, f64::INFINITY)];
+                match camp {
+                    // Back to camp to lick their wounds.
+                    Some(ci) => {
+                        let home = self.camps[ci].pos;
+                        let walk = Leg::straight(c, home, t, g.speed, None, &self.terrain);
+                        let at = walk.arrive;
+                        g.legs = vec![walk, Leg::stay(home, at, f64::INFINITY)];
+                        self.camps[ci].ready_at = at + super::encounters::CAMP_REST;
+                    }
+                    None => g.legs = vec![Leg::wait(c, f64::INFINITY)],
+                }
                 g.pos = c;
             }
         }
@@ -258,10 +297,6 @@ impl World {
                 self.squad.at[k] = f.pos;
                 self.squad.goal[k] = f.pos;
             }
-        }
-        // The dead drop everything they had, for whoever wants it.
-        for f in b.fighters.iter().filter(|f| f.dead) {
-            self.drop_everything(f.pid, f.pos);
         }
         let dead_squad: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| self.people[*m as usize].dead).collect();
         let people = &self.people;

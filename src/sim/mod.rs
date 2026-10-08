@@ -5,6 +5,7 @@ pub mod ai;
 pub mod bands;
 pub mod body;
 pub mod combat;
+pub mod encounters;
 pub mod fights;
 pub mod geo;
 pub mod group;
