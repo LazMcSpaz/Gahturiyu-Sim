@@ -32,6 +32,8 @@ use super::world::{World, DAY, HOUR};
 /// A door: the town, and the building's index in it.
 pub type DoorId = (SettlementId, u16);
 
+/// Trips longer than this (metres) consider the roads.
+pub const ROAD_TRIP: f32 = 600.0;
 /// Seconds per lockpicking attempt.
 pub const PICK_TIME: f64 = 4.0;
 /// How close to the door you must stand to work the lock, metres.
@@ -158,6 +160,42 @@ impl World {
             out.push(b);
         }
         (out, None)
+    }
+
+    /// The way to go a long way: along the roads if that's quicker overall
+    /// than striking out across country, else straight (round buildings and
+    /// through doors as usual). Short trips always go straight.
+    pub fn travel(&self, a: V2, b: V2) -> (Vec<V2>, Option<DoorId>) {
+        if a.dist(b) < ROAD_TRIP {
+            return self.route(a, b);
+        }
+        let (Some(na), Some(nb)) = (self.routes.nearest_node(a), self.routes.nearest_node(b)) else { return self.route(a, b) };
+        let cross = self.overland_effort(a, b);
+        let Some((road, along)) = self.routes.along_roads(na, nb) else { return self.route(a, b) };
+        let (ra, rb) = (self.routes.nodes[na as usize], self.routes.nodes[nb as usize]);
+        let by_road = self.overland_effort(a, ra) + along + self.overland_effort(rb, b);
+        if by_road >= cross {
+            return self.route(a, b);
+        }
+        let (mut path, _) = self.route(a, ra);
+        path.extend(road.iter().skip(1).copied());
+        let (tail, locked) = self.route(rb, b);
+        path.extend(tail);
+        (path, locked)
+    }
+
+    /// Walking effort straight across the land; the sea can't be crossed.
+    fn overland_effort(&self, a: V2, b: V2) -> f32 {
+        let n = ((a.dist(b) / 50.0).ceil() as usize).max(1);
+        let mut total = 0.0;
+        for k in 0..n {
+            let (p, q) = (a.lerp(b, k as f32 / n as f32), a.lerp(b, (k + 1) as f32 / n as f32));
+            if !super::geo::is_land(q) {
+                return f32::INFINITY;
+            }
+            total += self.terrain.effort(p, q);
+        }
+        total
     }
 
     /// Add corner points so the line `p`→`q` goes round buildings.

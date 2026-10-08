@@ -20,6 +20,100 @@ const N: usize = (WORLD_SIZE / CELL) as usize + 2;
 pub struct Terrain {
     h: Vec<f32>,
     seed: u64,
+    /// Where the roads run (set once the road network is built).
+    roads: RoadIndex,
+}
+
+/// What the ground underfoot is like. Each has a small effect on walking pace.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ground {
+    Road,
+    Grass,
+    Scrub,
+    Rock,
+    Sand,
+}
+
+impl Ground {
+    /// Walking pace on this ground, relative to grass.
+    pub fn pace(self) -> f32 {
+        match self {
+            Ground::Road => ROAD_PACE,
+            Ground::Grass => 1.0,
+            Ground::Scrub => 0.92,
+            Ground::Rock => 0.8,
+            Ground::Sand => 0.85,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Ground::Road => "road",
+            Ground::Grass => "grass",
+            Ground::Scrub => "scrub",
+            Ground::Rock => "rock",
+            Ground::Sand => "sand",
+        }
+    }
+}
+
+/// Walking pace on a road, relative to grass.
+pub const ROAD_PACE: f32 = 1.3;
+/// How far either side of a road's centre line still counts as road, metres.
+pub const ROAD_HALF_WIDTH: f32 = 6.0;
+const ROAD_CELL: f32 = 100.0;
+const RN: usize = (WORLD_SIZE / ROAD_CELL) as usize + 1;
+
+/// Road segments filed by grid cell, so "is this on a road?" is quick.
+#[derive(Clone, Debug, Default)]
+struct RoadIndex {
+    segs: Vec<(V2, V2)>,
+    cells: Vec<Vec<u32>>,
+}
+
+impl RoadIndex {
+    fn build(roads: &[Vec<V2>]) -> RoadIndex {
+        let mut idx = RoadIndex { segs: Vec::new(), cells: vec![Vec::new(); RN * RN] };
+        for road in roads {
+            for w in road.windows(2) {
+                let id = idx.segs.len() as u32;
+                idx.segs.push((w[0], w[1]));
+                let pad = ROAD_HALF_WIDTH + 1.0;
+                let (x0, x1) = (w[0].x.min(w[1].x) - pad, w[0].x.max(w[1].x) + pad);
+                let (y0, y1) = (w[0].y.min(w[1].y) - pad, w[0].y.max(w[1].y) + pad);
+                let cl = |v: f32| ((v / ROAD_CELL).floor().max(0.0) as usize).min(RN - 1);
+                for j in cl(y0)..=cl(y1) {
+                    for i in cl(x0)..=cl(x1) {
+                        idx.cells[j * RN + i].push(id);
+                    }
+                }
+            }
+        }
+        idx
+    }
+
+    fn near(&self, p: V2) -> bool {
+        if self.cells.is_empty() {
+            return false;
+        }
+        let i = ((p.x / ROAD_CELL).floor().max(0.0) as usize).min(RN - 1);
+        let j = ((p.y / ROAD_CELL).floor().max(0.0) as usize).min(RN - 1);
+        self.cells[j * RN + i].iter().any(|&k| {
+            let (a, b) = self.segs[k as usize];
+            seg_dist(a, b, p) <= ROAD_HALF_WIDTH
+        })
+    }
+}
+
+/// Distance from `c` to the segment `a`–`b`.
+pub fn seg_dist(a: V2, b: V2, c: V2) -> f32 {
+    let ab = b.sub(a);
+    let l2 = ab.x * ab.x + ab.y * ab.y;
+    if l2 < 1e-6 {
+        return a.dist(c);
+    }
+    let t = (((c.x - a.x) * ab.x + (c.y - a.y) * ab.y) / l2).clamp(0.0, 1.0);
+    a.lerp(b, t).dist(c)
 }
 
 // ---- Noise ------------------------------------------------------------------
@@ -179,7 +273,36 @@ impl Terrain {
                 h[j * N + i] = raw_height(tseed, V2::new(i as f32 * CELL, j as f32 * CELL));
             }
         }
-        Terrain { h, seed: tseed }
+        Terrain { h, seed: tseed, roads: RoadIndex::default() }
+    }
+
+    /// Lay the road network onto the land (done once, after the roads are
+    /// found). From then on roads count in walking times.
+    pub fn set_roads(&mut self, roads: &[Vec<V2>]) {
+        self.roads = RoadIndex::build(roads);
+    }
+
+    pub fn on_road(&self, p: V2) -> bool {
+        self.roads.near(p)
+    }
+
+    /// The ground underfoot, read off the land itself: road where a road
+    /// runs; sand along the shore; rock on steep slopes and high mountains;
+    /// scrub on the dry plateau and in patches elsewhere; grass otherwise.
+    pub fn ground(&self, p: V2) -> Ground {
+        if self.on_road(p) {
+            return Ground::Road;
+        }
+        if geo::inland(p) < 60.0 {
+            return Ground::Sand;
+        }
+        if self.slope(p) > 0.35 || self.mountains(p) > 0.55 {
+            return Ground::Rock;
+        }
+        if self.plateau(p) > 0.5 || noise(self.seed ^ 0x5C2B, p.x, p.y, 450.0) > 0.7 {
+            return Ground::Scrub;
+        }
+        Ground::Grass
     }
 
     pub fn seed(&self) -> u64 {
@@ -242,15 +365,16 @@ impl Terrain {
         (-dx / l, 1.0 / l, -dy / l)
     }
 
-    /// How walking-time cost compares to flat ground over a stretch: the
+    /// How walking-time cost compares to flat grass over a stretch: the
     /// stretch's length divided by Tobler's hiking speed (uphill slow, gentle
-    /// downhill slightly fast, steep downhill slow again).
+    /// downhill slightly fast, steep downhill slow again) and by the pace of
+    /// the ground at its middle (roads quick, rock and sand slow).
     pub fn effort(&self, a: V2, b: V2) -> f32 {
         let len = a.dist(b);
         if len < 1e-3 {
             return 0.0;
         }
-        len / walk_factor((self.height(b) - self.height(a)) / len)
+        len / (walk_factor((self.height(b) - self.height(a)) / len) * self.ground(a.lerp(b, 0.5)).pace())
     }
 }
 

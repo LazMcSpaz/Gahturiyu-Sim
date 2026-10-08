@@ -139,7 +139,7 @@ impl World {
             if let Some(k) = self.squad.index(pid) {
                 // Indoors there's no room for a formation.
                 let spot = if self.building_at(target).is_some() { target.add(formation(n).scale(0.3)) } else { target.add(formation(n)) };
-                let (path, locked) = self.route(self.member_pos(k), spot);
+                let (path, locked) = self.travel(self.member_pos(k), spot);
                 blocked = blocked.or(locked);
                 self.squad.goal[k] = *path.last().unwrap_or(&spot);
                 self.squad.route[k] = path;
@@ -221,7 +221,8 @@ impl World {
             let dir = to_go.scale(1.0 / d);
             let ahead = at.add(dir.scale(3.0));
             let grade = (self.terrain.height(ahead) - self.terrain.height(at)) / 3.0;
-            let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * dt) as f32;
+            let ground = self.terrain.ground(at).pace();
+            let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * ground as f64 * dt) as f32;
             let next = if d <= stride { goal } else { at.add(dir.scale(stride)) };
             if geo::is_land(next) || self.building_at(next).is_some() {
                 let rise = self.terrain.height(next) - self.terrain.height(at);

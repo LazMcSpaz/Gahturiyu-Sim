@@ -157,7 +157,10 @@ pub fn generate(seed: u64) -> World {
     }
 
     // --- Roads between the towns ----------------------------------------
-    let routes = Routes::build(&terrain, &settlements);
+    let mut routes = Routes::build(&terrain, &settlements);
+    let mut terrain = terrain;
+    terrain.set_roads(&routes.roads);
+    routes.build_network(&terrain);
 
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);

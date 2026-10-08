@@ -32,6 +32,11 @@ pub struct Person {
     /// What their kit is worth, in coin. The kit itself is built from this
     /// (and the seed) when details are made.
     pub budget: f32,
+    /// Their stats as they were when their kit was chosen. The kit is picked
+    /// from these, not from their stats now, so training a skill never
+    /// changes the kit a stranger is assumed to carry — whether or not
+    /// they've been met.
+    pub kit_stats: Stats,
     /// Cached fighting strength. The far bands only ever look at this number.
     /// Recomputed only when gear or stats change.
     pub might: f32,
@@ -73,6 +78,7 @@ impl Person {
             patience: draw(m.patience),
         };
         let stats = Stats::generate(race, &traits, seed);
+        let kit_stats = stats.clone();
         // What their kit is worth. Fighters spend on it; most people carry little.
         let luck = rng.f32().powf(1.6);
         let budget = match stats.calling {
@@ -90,6 +96,7 @@ impl Person {
             stats,
             budget,
             might: 0.0,
+            kit_stats,
             detail: None,
             in_squad: false,
             dwelling: None,
@@ -109,7 +116,7 @@ impl Person {
     pub fn kit(&self) -> Gear {
         match &self.detail {
             Some(d) => d.gear.clone(),
-            None => inventory::starting_kit(self.race, &self.stats, self.budget, self.seed),
+            None => inventory::starting_kit(self.race, &self.kit_stats, self.budget, self.seed),
         }
     }
 
@@ -123,8 +130,8 @@ impl Person {
         }
         self.detail = Some(Detail {
             name: names::person_name(self.race, self.seed),
-            gear: inventory::starting_kit(self.race, &self.stats, self.budget, self.seed),
-            spells: magic::starting_spells(&self.stats),
+            gear: inventory::starting_kit(self.race, &self.kit_stats, self.budget, self.seed),
+            spells: magic::starting_spells(&self.kit_stats),
         });
         self.recompute_might();
         true
@@ -135,7 +142,7 @@ impl Person {
         let gear = self.kit();
         let spells = match &self.detail {
             Some(d) => d.spells.clone(),
-            None => magic::starting_spells(&self.stats),
+            None => magic::starting_spells(&self.kit_stats),
         };
         self.might = combat::rating(self.race, &self.stats, &gear, &spells);
     }
@@ -156,6 +163,7 @@ impl Person {
             self.stats.set_attr(super::stats::Attr::Intellect, int.max(48.0));
         }
         self.budget = budget;
+        self.kit_stats = self.stats.clone();
         self.mana = self.max_mana();
         self.recompute_might();
     }

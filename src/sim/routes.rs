@@ -32,9 +32,89 @@ pub struct Routes {
     paths: HashMap<(SettlementId, SettlementId), Vec<V2>>,
     /// The roads worth drawing: the neighbour links the network grew from.
     pub roads: Vec<Vec<V2>>,
+    /// The roads as a network to find a way along: points, and for each the
+    /// points it joins with the walking effort between them.
+    pub nodes: Vec<V2>,
+    pub links: Vec<Vec<(u32, f32)>>,
 }
 
 impl Routes {
+    /// Turn the roads into a network (after they're laid on the land, so the
+    /// effort between points includes the road's own speed).
+    pub fn build_network(&mut self, terrain: &Terrain) {
+        let mut ids: HashMap<(i64, i64), u32> = HashMap::new();
+        let mut node = |p: V2, nodes: &mut Vec<V2>, links: &mut Vec<Vec<(u32, f32)>>| -> u32 {
+            // Points within a couple of metres are the same junction.
+            let key = ((p.x / 2.0).round() as i64, (p.y / 2.0).round() as i64);
+            *ids.entry(key).or_insert_with(|| {
+                nodes.push(p);
+                links.push(Vec::new());
+                (nodes.len() - 1) as u32
+            })
+        };
+        let (mut nodes, mut links) = (Vec::new(), Vec::new());
+        for road in &self.roads {
+            let mut prev: Option<(u32, V2)> = None;
+            for &p in road {
+                let id = node(p, &mut nodes, &mut links);
+                if let Some((q, qp)) = prev {
+                    if q != id {
+                        let (e1, e2) = (terrain.effort(qp, p), terrain.effort(p, qp));
+                        links[q as usize].push((id, e1));
+                        links[id as usize].push((q, e2));
+                    }
+                }
+                prev = Some((id, p));
+            }
+        }
+        self.nodes = nodes;
+        self.links = links;
+    }
+
+    /// The network point nearest `p`.
+    pub fn nearest_node(&self, p: V2) -> Option<u32> {
+        (0..self.nodes.len()).min_by(|&a, &b| self.nodes[a].dist(p).total_cmp(&self.nodes[b].dist(p))).map(|i| i as u32)
+    }
+
+    /// The least-effort way along the roads between two network points:
+    /// the points, and the total effort.
+    pub fn along_roads(&self, from: u32, to: u32) -> Option<(Vec<V2>, f32)> {
+        let n = self.nodes.len();
+        let mut best = vec![f32::INFINITY; n];
+        let mut prev = vec![u32::MAX; n];
+        let mut heap = BinaryHeap::new();
+        best[from as usize] = 0.0;
+        heap.push(Reverse((0u64, from)));
+        while let Some(Reverse((c, u))) = heap.pop() {
+            let cost = f32::from_bits(c as u32);
+            if cost > best[u as usize] {
+                continue;
+            }
+            if u == to {
+                break;
+            }
+            for &(v, e) in &self.links[u as usize] {
+                let nc = cost + e;
+                if nc < best[v as usize] {
+                    best[v as usize] = nc;
+                    prev[v as usize] = u;
+                    heap.push(Reverse((nc.to_bits() as u64, v)));
+                }
+            }
+        }
+        if !best[to as usize].is_finite() {
+            return None;
+        }
+        let mut path = vec![self.nodes[to as usize]];
+        let mut at = to;
+        while at != from {
+            at = prev[at as usize];
+            path.push(self.nodes[at as usize]);
+        }
+        path.reverse();
+        Some((path, best[to as usize]))
+    }
+
     /// The route from town `a` to town `b`, centre to centre.
     pub fn between(&self, a: SettlementId, b: SettlementId) -> Vec<V2> {
         if a < b {
