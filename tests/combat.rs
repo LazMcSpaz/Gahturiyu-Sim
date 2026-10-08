@@ -65,8 +65,9 @@ fn wounds_heal_with_time() {
     // Someone outside the squad: they heal at the plain constant rate (the
     // squad's rate follows rest and food; see tests/condition.rs).
     let p = w.people.iter().find(|p| !p.dead && !p.in_squad && p.wounds.is_hurt(w.time)).expect("someone hurt");
-    let lost = p.wounds.lost_at(w.time).iter().cloned().fold(0.0, f32::max);
-    let later = p.wounds.lost_at(w.time + 3600.0).iter().cloned().fold(0.0, f32::max);
+    // (Ignoring any limb lost for good: those never heal.)
+    let worst = |t: f64| p.wounds.lost_at(t).iter().enumerate().filter(|(i, _)| !p.wounds.missing[*i]).map(|(_, l)| *l).fold(0.0, f32::max);
+    let (lost, later) = (worst(w.time), worst(w.time + 3600.0));
     assert!((lost - later - HEAL_PER_HOUR).abs() < 0.01 || later == 0.0, "an hour should heal {HEAL_PER_HOUR} per part");
 }
 

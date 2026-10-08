@@ -158,6 +158,13 @@ pub fn squad_bar(ui: &Ui, w: &World, sel: &Selection, click: Option<Click>) -> O
             draw_rectangle_lines(r.x, r.y, r.w, r.h, 2.0, GOLD);
         }
         ui.text(p.name().unwrap_or("?"), r.x + 14.0, r.y + 19.0, 16, if chosen { GOLD } else { TEXT });
+        // Lost limbs, in red after the name.
+        let gone = p.wounds.lost_limbs();
+        if !gone.is_empty() {
+            let short: Vec<String> = gone.iter().map(|g| g.split(' ').map(|w| w[..1].to_uppercase()).collect::<String>()).collect();
+            let tag = format!("−{}", short.join(" −"));
+            ui.text(&tag, r.x + 18.0 + ui.width(p.name().unwrap_or("?"), 16), r.y + 19.0, 13, Color::new(0.95, 0.35, 0.3, 1.0));
+        }
         let key = format!("F{}", k + 1);
         ui.text(&key, r.x + r.w - ui.width(&key, 13) - 8.0, r.y + 17.0, 13, DIM);
 

@@ -103,6 +103,8 @@ pub struct Fighter {
     pub think_at: f64,
     /// Carrying someone: can move, can't fight or block.
     pub burdened: bool,
+    /// Limbs lost for good (before or during this fight).
+    pub missing: [bool; 6],
     /// Shots left for a ranged weapon, and shots loosed this fight.
     pub ammo: u16,
     pub shots: u16,
@@ -191,6 +193,7 @@ impl Fighter {
             think_at: 0.0,
             aware_at: 0.0,
             burdened: false,
+            missing: p.wounds.missing,
             ammo,
             shots: 0,
             sidearm: if held.range > 0.0 { sidearm } else { None },
@@ -242,14 +245,25 @@ impl Fighter {
         ((1.25 - self.stats.attr(Attr::Agility) * 0.005) * (1.0 - self.haste() * 0.6)).clamp(0.5, 1.3)
     }
 
-    /// The weapon actually usable: a ruined sword arm means fists from the
-    /// other hand; both arms ruined means no attack at all.
+    /// The weapon actually usable: a ruined (or lost) sword arm means fists
+    /// from the other hand; a two-handed weapon needs both arms; both arms
+    /// gone means no attack at all.
     pub fn usable_weapon(&self) -> Option<(WeaponDef, f32)> {
         let (l, r) = (self.hp[Part::LeftArm as usize] > 0.0, self.hp[Part::RightArm as usize] > 0.0);
         match (r, l) {
-            (true, _) => Some((self.weapon, 1.0)),
-            (false, true) => Some((FISTS, 0.6)),
+            (true, true) => Some((self.weapon, 1.0)),
+            (true, false) if !self.weapon.two_handed => Some((self.weapon, 1.0)),
+            (true, false) | (false, true) => Some((FISTS, 0.6)),
             _ => None,
+        }
+    }
+
+    /// Shield in use: only with a working left arm.
+    pub fn shield_up(&self) -> f32 {
+        if self.hp[Part::LeftArm as usize] > 0.0 {
+            self.shield
+        } else {
+            0.0
         }
     }
 
@@ -403,6 +417,15 @@ impl Battle {
         }
 
         self.separate();
+
+        // Nothing mends a lost limb (potions and healing spells included).
+        for f in &mut self.fighters {
+            for k in 0..6 {
+                if f.missing[k] {
+                    f.hp[k] = f.hp[k].min(-body::LIMB_LOSS * f.max_hp[k]);
+                }
+            }
+        }
 
         // Over when no two sides still standing are enemies, or it's dragged on.
         // People running away don't keep a fight going.
@@ -563,9 +586,9 @@ impl Battle {
         let guard = if helpless || def.burdened {
             0.0
         } else if shot {
-            def.shield * 100.0
+            def.shield_up() * 100.0
         } else {
-            def.shield * 100.0 + def.weapon.parry * 60.0
+            def.shield_up() * 100.0 + def.weapon.parry * 60.0
         };
         let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.stats.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
         let roll = 0.8 + r_dmg * 0.4;
@@ -652,7 +675,7 @@ impl Battle {
     }
 
     /// Apply damage to a body part and see what it does.
-    fn wound(&mut self, d: usize, part: Part, dmg: f32) {
+    pub fn wound(&mut self, d: usize, part: Part, dmg: f32) {
         if dmg <= 0.0 {
             return;
         }
@@ -677,6 +700,13 @@ impl Battle {
             self.say(format!("{name} goes down."));
         } else if self.fighters[d].hp[part as usize] <= 0.0 && self.fighters[d].hp[part as usize] + dmg > 0.0 && !part.vital() {
             self.say(format!("{name}'s {} is ruined.", part.name()));
+        }
+        // Battered far enough, a limb is gone for good.
+        let i = part as usize;
+        if part.is_limb() && !self.fighters[d].missing[i] && self.fighters[d].hp[i] <= -body::LIMB_LOSS * self.fighters[d].max_hp[i] {
+            self.fighters[d].missing[i] = true;
+            self.fighters[d].hp[i] = -body::LIMB_LOSS * self.fighters[d].max_hp[i];
+            self.say(format!("{name} loses the {}!", part.name()));
         }
     }
 

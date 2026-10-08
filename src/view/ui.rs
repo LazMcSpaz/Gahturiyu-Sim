@@ -176,9 +176,19 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
                 Some(f) => (f.hp, f.mana, f.statuses.iter().map(|s| format!("{:?}", s.kind)).collect::<Vec<_>>()),
                 None => (p.wounds.hp_at(&p.stats, w.time), p.mana_at(w.time), vec![]),
             };
-            let parts = PARTS.iter().enumerate().map(|(i, part)| format!("{} {:.0}/{:.0}", short_part(*part), hp[i], p.stats.max_hp(*part))).collect::<Vec<_>>().join("  ");
+            let missing = w.fighter(pid).map(|f| f.missing).unwrap_or(p.wounds.missing);
+            let parts = PARTS
+                .iter()
+                .enumerate()
+                .map(|(i, part)| if missing[i] { format!("{} lost", short_part(*part)) } else { format!("{} {:.0}/{:.0}", short_part(*part), hp[i], p.stats.max_hp(*part)) })
+                .collect::<Vec<_>>()
+                .join("  ");
             let ko = body::knocked_out(&hp);
             out.push((parts, if p.dead { Color::new(0.9, 0.3, 0.3, 1.0) } else if ko { Color::new(0.95, 0.6, 0.3, 1.0) } else { DIM }));
+            let gone: Vec<&str> = PARTS.iter().enumerate().filter(|(i, _)| missing[*i]).map(|(_, p)| p.name()).collect();
+            if !gone.is_empty() {
+                out.push((format!("Lost for good: {}", gone.join(", ")), Color::new(0.9, 0.35, 0.3, 1.0)));
+            }
             out.push((
                 format!(
                     "Mana {:.0}/{:.0}  ·  Might {:.0}{}{}",

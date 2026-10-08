@@ -264,6 +264,12 @@ impl World {
     /// Equip something from a person's pack. Changes their might.
     pub fn equip(&mut self, pid: PersonId, it: ItemId) -> bool {
         let p = &mut self.people[pid as usize];
+        // Without a left arm there's no holding a shield or a two-handed weapon.
+        let def = item(it);
+        let one_armed = p.wounds.missing[body::Part::LeftArm as usize] || p.wounds.missing[body::Part::RightArm as usize];
+        if one_armed && (def.slot == Slot::OffHand || def.weapon().map(|w| w.two_handed).unwrap_or(false)) {
+            return false;
+        }
         let Some(d) = p.detail.as_mut() else { return false };
         if d.gear.equip(it).is_err() {
             return false;

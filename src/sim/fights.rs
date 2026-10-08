@@ -296,6 +296,9 @@ impl World {
             let p = &mut self.people[f.pid as usize];
             let base = p.stats.clone();
             p.wounds.set(&base, &f.hp, t);
+            for k in 0..6 {
+                p.wounds.missing[k] |= f.missing[k];
+            }
             p.set_mana(f.mana, t);
             for (k, amt) in f.trained.iter().enumerate() {
                 if *amt > 0.0 {
