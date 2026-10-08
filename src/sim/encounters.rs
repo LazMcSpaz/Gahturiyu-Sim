@@ -56,6 +56,18 @@ pub struct Camp {
     pub ready_at: f64,
 }
 
+/// When a camp first sees someone walking this leg: within `CAMP_SIGHT`, or
+/// after dark (when travellers carry torches) within `torch::TORCH_SEEN`.
+pub fn camp_sees(leg: &Leg, camp: V2) -> Option<f64> {
+    use super::torch::{TORCH_SEEN, TRAVEL_TORCH_DARK};
+    let near = leg.first_within(camp, CAMP_SIGHT);
+    let far = leg.first_within(camp, TORCH_SEEN).filter(|&t| t >= leg.depart && t < leg.arrive && super::stealth::daylight(t) < TRAVEL_TORCH_DARK);
+    match (near, far) {
+        (Some(n), Some(f)) => Some(n.min(f)),
+        (n, f) => n.or(f),
+    }
+}
+
 /// A traveller group coming within sight of a camp, worked out in advance.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Encounter {
@@ -130,7 +142,7 @@ impl World {
         let mut found = Vec::new();
         for leg in &g.legs[from.min(g.legs.len())..] {
             for c in &self.camps {
-                if let Some(t) = leg.first_within(c.pos, CAMP_SIGHT) {
+                if let Some(t) = camp_sees(leg, c.pos) {
                     found.push(Encounter { t, camp: c.group, victim: gid });
                 }
             }
@@ -144,7 +156,7 @@ impl World {
         let mut found = Vec::new();
         for g in self.groups.iter().filter(|g| !g.hostile) {
             for leg in &g.legs {
-                if let Some(t) = leg.first_within(c.pos, CAMP_SIGHT) {
+                if let Some(t) = camp_sees(leg, c.pos) {
                     if t >= self.time {
                         found.push(Encounter { t, camp: c.group, victim: g.id });
                     }
@@ -224,7 +236,8 @@ impl World {
             return;
         }
         let at = vg.position_at(t);
-        if at.dist(camp.pos) > CAMP_SIGHT + 1.0 {
+        let sight = if self.group_torch_lit(vg, t) { super::torch::TORCH_SEEN } else { CAMP_SIGHT };
+        if at.dist(camp.pos) > sight + 1.0 {
             return; // the plan this was found on has since changed
         }
         let bandits: Vec<PersonId> = cg.members.iter().copied().filter(|&m| self.fit(m, t)).collect();
@@ -252,8 +265,12 @@ impl World {
             fighters.push(Fighter::from_person(&self.people[m as usize], BANDIT_SIDE, camp.pos.add(formation(k)), t));
             names.push(self.name_of(m));
         }
+        // Travellers caught at night have their torch lit (the leader carries it).
+        let lit = super::stealth::daylight(t) < super::torch::TRAVEL_TORCH_DARK;
         for (k, &m) in victims.iter().enumerate() {
-            fighters.push(Fighter::from_person(&self.people[m as usize], TRAVELLER_SIDE, at.add(formation(k)), t));
+            let mut f = Fighter::from_person(&self.people[m as usize], TRAVELLER_SIDE, at.add(formation(k)), t);
+            f.torch = lit && k == 0;
+            fighters.push(f);
             names.push(self.name_of(m));
         }
         let mut b = Battle::new(id, seed, t, fighters, names);

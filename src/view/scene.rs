@@ -312,6 +312,12 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 for &m in &g.members {
                     heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
                 }
+                // The leader's torch, after dark.
+                if w.group_torch_lit(g, w.time) {
+                    let f = torch_flame(w, g.members[0], k, &on_ground);
+                    b.stick(f - vec3(0.0, 0.55 * k, 0.0), f, 0.06 * k, palette::TIMBER);
+                    gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
+                }
             }
             2 => {
                 // A plain shape for each traveller, round where the group is.
@@ -324,6 +330,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     simple_person(&mut b, to3(at, on_ground(at) - 0.1), r, k);
                 }
                 game.picks.push((to3(g.pos, on_ground(g.pos) + 2.0 * k), 2.0, Hover::Group(g.id)));
+                if w.group_torch_lit(g, w.time) {
+                    gl.column(to3(g.pos, on_ground(g.pos) + 2.2 * k), 0.25 * k, 0.02, 0.6 * k, 6, palette::EMBER);
+                }
             }
             _ => {
                 let mk = (oc.dist / 120.0).max(2.0);

@@ -295,3 +295,49 @@ fn a_torch_put_out_keeps_what_is_left() {
 }
 
 
+
+// ---- Travellers' torches ------------------------------------------------------
+
+#[test]
+fn travellers_on_the_road_at_night_carry_lights() {
+    use gahturiyu_sim::sim::torch::TRAVEL_TORCH_DARK;
+    let mut w = worldgen::generate(1);
+    // Midday: nobody's torch is lit.
+    let mut t = 0.0;
+    while t < 6.0 * HOUR {
+        w.step(60.0);
+        t += 60.0;
+    }
+    assert!(w.groups.iter().all(|g| !w.group_torch_lit(g, w.time)));
+    // Late evening: everyone on the move has one.
+    while stealth::daylight(w.time) >= TRAVEL_TORCH_DARK || w.groups.iter().filter(|g| g.is_moving(w.time) && !g.hostile).count() == 0 {
+        w.step(60.0);
+    }
+    let moving: Vec<_> = w.groups.iter().filter(|g| g.is_moving(w.time) && !g.hostile && !w.fighting_groups.contains(&g.id)).collect();
+    assert!(!moving.is_empty());
+    assert!(moving.iter().all(|g| w.group_torch_lit(g, w.time)));
+    let lights = w.lights();
+    for g in moving {
+        let at = g.position_at(w.time);
+        assert!(lights.iter().any(|l| l.pos.dist(at) < 0.01), "a light where they walk");
+        assert!(w.light_at(at) > stealth::daylight(w.time) + 0.5, "and it lights the road");
+    }
+}
+
+#[test]
+fn camps_spot_torch_bearers_from_further_at_night() {
+    use gahturiyu_sim::sim::{encounters::{camp_sees, CAMP_SIGHT}, group::Leg, torch::TORCH_SEEN};
+    let w = worldgen::generate(1);
+    let camp = w.camps[0].pos;
+    // A straight walk passing the camp at 160 m: beyond plain sight, within a torch's.
+    let pass = (CAMP_SIGHT + TORCH_SEEN) / 2.0;
+    let (a, b) = (camp.add(V2::new(-600.0, pass)), camp.add(V2::new(600.0, pass)));
+    let at = |start: f64| Leg::along(vec![a, b], start, 1.3, None, &w.terrain);
+    let noon = Leg { ..at(12.0 * HOUR) };
+    let midnight = at(24.0 * HOUR);
+    assert!(camp_sees(&noon, camp).is_none(), "by day they'd pass unseen at {pass} m");
+    assert!(camp_sees(&midnight, camp).is_some(), "at night their torch gives them away");
+    // Close by, they're seen either way.
+    let near = Leg::along(vec![camp.add(V2::new(-600.0, 50.0)), camp.add(V2::new(600.0, 50.0))], 12.0 * HOUR, 1.3, None, &w.terrain);
+    assert!(camp_sees(&near, camp).is_some());
+}

@@ -9,6 +9,10 @@
 //! better in the dark. It also makes them a beacon: at night a torch can be
 //! seen from far further than a person, and no amount of creeping hides it.
 //!
+//! Travellers on the road light torches after dark (`TRAVEL_TORCH_DARK`), so
+//! night roads show moving lights, and bandit camps spot them from
+//! `TORCH_SEEN` away rather than `encounters::CAMP_SIGHT`.
+//!
 //! Torches burn down by the clock. A lit torch knows the moment it will go
 //! out; when that moment comes it is used up and, if there's another in the
 //! pack, the next one is lit from it at exactly that moment. Put out early, a
@@ -35,6 +39,8 @@ pub const STANDING_POWER: f32 = 0.8;
 /// How far a lit torch can be seen at full dark, metres. A person on their
 /// own, even in good light, is seen from `stealth::SIGHT`.
 pub const TORCH_SEEN: f32 = 220.0;
+/// Travellers on the road light torches when daylight falls below this.
+pub const TRAVEL_TORCH_DARK: f32 = 0.5;
 /// Sneaking with a lit torch: you're still this visible (1 = not hidden at all).
 pub const TORCH_SNEAK: f32 = 0.9;
 
@@ -250,9 +256,20 @@ impl World {
         out
     }
 
+    /// Is this travelling group carrying a lit torch at time `t`? Travellers
+    /// (not bandits) light one while they're on the move after dark.
+    pub fn group_torch_lit(&self, g: &super::group::Group, t: f64) -> bool {
+        !g.hostile && daylight(t) < TRAVEL_TORCH_DARK && g.is_moving(t) && !self.fighting_groups.contains(&g.id)
+    }
+
     /// Every light, including torches being carried.
     pub fn lights(&self) -> Vec<Light> {
         let mut out = self.fixed_lights();
+        // Travellers on the road at night.
+        let t = self.time;
+        if daylight(t) < TRAVEL_TORCH_DARK {
+            out.extend(self.groups.iter().filter(|g| self.group_torch_lit(g, t)).map(|g| Light { pos: g.position_at(t), reach: TORCH_REACH, power: TORCH_POWER, flat: false }));
+        }
         let mut held: Vec<PersonId> = self.torches.keys().copied().filter(|&p| self.torch_lit(p)).collect();
         held.sort_unstable();
         out.extend(held.into_iter().map(|p| Light { pos: self.person_pos(p), reach: TORCH_REACH, power: TORCH_POWER, flat: false }));
