@@ -2,7 +2,8 @@
 
 A Kenshi-style world for Gahturiyu, built simulation-first. Right now it is a
 21 × 21 km coast with 30 towns and 5,000 people who travel, visit and wander
-whether or not you are watching — plus a plain window to watch them in.
+whether or not you are watching — plus a window to watch them in, built
+with the Bevy game engine: sun and moon, firelight, woods and grass.
 
 Your squad of four can fight, sneak, pick locks, go indoors, gather and craft,
 talk to people and take on work. Bandit camps by the roads ambush travellers
@@ -24,9 +25,14 @@ Then, in a terminal inside the repo folder:
 cargo run --release
 ```
 
-The first build downloads and compiles a few libraries and takes a minute or
-two. After that it starts in seconds. `cargo run --release -- 42` builds a
-different world from seed 42.
+The first build downloads and compiles the Bevy engine and takes a while —
+10 to 20 minutes on a laptop. After that, rebuilds take under a minute and it
+starts in seconds. `cargo run --release -- 42` builds a different world from
+seed 42.
+
+(The old, plainer window is still there until this one has been checked
+against it: `cargo run --release --features old-window --bin gahturiyu-old`.
+It will be removed soon.)
 
 ### Controls
 
@@ -46,6 +52,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | X | Selected members put down whoever they're carrying |
 | N | Selected members rest (they sleep where they stand); press again to get them up |
 | Z | Selected members sneak / stop sneaking |
+| T | Selected members light their torch, or put it out (takes one from the pack if needed) |
 | I, or right-click a squad card | Pack and gear |
 | K | Crafting |
 | J | Journal (jobs) |
@@ -56,19 +63,22 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | Space | Pause |
 | 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s |
 | R | Show / hide the band rings |
+| L | Detail readout: what's drawn at what detail, and triangle counts |
 | B | (testing) Drop a band of bandits next to the squad |
 
 Hover over anyone or anything for details. A fight breaking out near you drops
 the speed to real time.
 
 In the **pack** panel: click something worn to take it off, click something in
-the pack to put it on (or drink or eat it), right-click to drop it. Equip the
-short bow from the pack to shoot (arrows stay in the pack).
+the pack to put it on (or drink, eat or use it), right-click to drop it. Equip
+the short bow from the pack to shoot (arrows stay in the pack). Click a standing
+torch in the pack to set it in the ground.
 
 Each **squad card** shows health (and mana), then three small bars — food,
 stamina and rest — whose labels turn orange when there's trouble ("hungry",
 "starving", "worn out"), plus who they're carrying or who's carrying them, and
-any limb lost for good (−LA = left arm, and so on).
+any limb lost for good (−LA = left arm, and so on). "torch" after a name means
+their torch is lit.
 
 ## Playing
 
@@ -102,7 +112,17 @@ any limb lost for good (−LA = left arm, and so on).
   grass). Click somewhere far and the squad takes the roads if that's faster.
 - **Bows and crossbows** shoot from range and use up ammo; about half is found
   again after a fight. Archers draw a hand weapon if someone gets close (or
-  back away if they have none). Some bandits are archers.
+  back away if they have none). Some bandits are archers. You can watch each
+  arrow fly; misses stick in the ground for a while.
+- **Light and dark**: the hour sets how light it is, and campfires, lit town
+  windows and torches add to it. In the dark you're harder to see — and harder
+  to hit, an arrow most of all.
+- **Torches** go in the off hand (everyone starts with two). A lit torch lights
+  the ground round you, so you see and shoot better at night — but it can be
+  seen from over 200 m away, and sneaking with one lit hides you hardly at all.
+  A torch burns about four game hours, then the next one in the pack is lit.
+  Put one out early and it keeps what's left. The hunter also carries two
+  standing torches: set one in the ground to light an area for eight hours.
 - **Lost limbs**: an arm or leg battered badly enough is gone for good. No
   shield or two-handed weapon without a left arm; a lost leg is a permanent
   limp, two mean crawling.
@@ -143,7 +163,19 @@ any limb lost for good (−LA = left arm, and so on).
     marker each, updated every few game seconds.
   - Beyond is **band 3**: groups updated once a game-minute.
 - In 3D, people are true size up close and drawn larger as you zoom out, so you
-  can still pick them out. Buildings always stay true size.
+  can still pick them out; far off they're a plain shape, and groups beyond
+  band 2 are a single marker. Buildings always stay true size.
+- **Day and night**: the sun crosses the sky with the game hour and casts
+  shadows; dawn and dusk are warm; night is dark blue with moonlight. Lit
+  windows, campfires and torches glow and light what's round them — the same
+  lights the simulation counts for who sees whom. At night each squad member
+  has a faint ring at their feet so you can always find them.
+- **Grass, bushes and trees** are decoration: they grow where the ground suits
+  (never on roads, in towns or on the dry plateau's bare rock) and sway in the
+  wind. They don't change anything that happens. Grass fades out by 80 m,
+  bushes by 300 m; trees turn into simpler shapes and then flat pictures with
+  distance so woods stay visible to the horizon. Press L to see how many of
+  each are being drawn.
 - The panel's **"Named so far"** count only goes up when something comes close.
 
 ### The land
@@ -164,6 +196,27 @@ any limb lost for good (−LA = left arm, and so on).
 
 In 3D, the land within a few kilometres is detailed and the rest is coarser
 out to the horizon. The map view shows the whole world as shaded relief.
+
+## Adding a model
+
+Models are GLB files from Blender or Meshy with standard materials (colour,
+normal, and one combined occlusion/roughness/metallic image). Put them in
+`assets/models/`, named by detail level:
+
+```
+assets/models/Roduro_Home_5k.glb    about 5,000 triangles, drawn up close
+assets/models/Roduro_Home_2k.glb    about 2,000, from 70 m
+assets/models/Roduro_Home_500.glb   about 500, from 220 m
+```
+
+Only the `_5k` file is needed — any missing lower version is made when the game
+starts by simplifying the one above it. The model should stand on its base and
+face +X (Blender's red arrow); it's scaled to each building's size, so units
+don't matter. Restart the game to pick it up. Press L to check it loaded: the
+readout says how many triangles each level has and which were made
+automatically. Until the file is there, Roduro homes are drawn as the built-in
+grown-stone domes. (More model slots — Qotiro blocks, Horaro stilts — are a
+line each in `src/view/models.rs` when you have them.)
 
 ## How it works, in plain words
 
@@ -235,7 +288,7 @@ The numbers most worth tuning, all named constants:
 | Band sizes and update rates | `src/sim/bands.rs` |
 | Where mountains, the plateau and cliffs are; how tall | `src/sim/terrain.rs` |
 | How roads are chosen (steepness limit, how many links per town) | `src/sim/routes.rs` |
-| Ground colours | `src/view/palette.rs` |
+| Ground and building colours | `src/view/palette.rs` |
 | Stats, skills, how fast they train | `src/sim/stats.rs` |
 | Weapons, armour, enchantments, materials, potions, scrolls | `src/sim/items.rs` |
 | Spells | `src/sim/magic.rs` |
@@ -256,6 +309,19 @@ The numbers most worth tuning, all named constants:
 | Ammo found after a fight (`AMMO_FOUND`) | `src/sim/fights.rs` |
 | When a limb is lost (`LIMB_LOSS`) | `src/sim/body.rs` |
 | Name sounds per race | `src/sim/names.rs` |
+| Torches: burn time, light, how far they're seen, sneaking with one (`TORCH_HOURS`, `STANDING_HOURS`, `TORCH_REACH`, `TORCH_POWER`, `TORCH_SEEN`, `TORCH_SNEAK`) | `src/sim/torch.rs` |
+| How much darkness spoils aim (`DARK_SHOT`, `DARK_BLOW`) | `src/sim/combat.rs` |
+
+Drawing only (these never change what happens):
+
+| What | Where |
+|---|---|
+| How dark night is (`NIGHT_BRIGHTNESS`); sun, moon and sky light (`SUN_LUX`, `MOON_LUX`, `DAY_AMBIENT`, `NIGHT_AMBIENT`) | `src/view/light.rs` |
+| Fire, torch and window light; how many point lights (`FIRE_LUMENS`, `WINDOW_LUMENS`, `MAX_LAMPS`) | `src/view/light.rs` |
+| Foliage distances (`GRASS_FADE`, `BUSH_FULL_END`, `BUSH_SIMPLE_END`, `TREE_FULL_END`, `TREE_BLOB_END`, `BILLBOARD_FAR`) | `src/view/foliage.rs` |
+| Foliage density and woods (`GRASS_GRID`, `BUSH_GRID`, `TREE_GRID`, `WOOD_SCALE`, `TREE_LINE`), wind (`WIND_SWAY`) | `src/view/foliage.rs` |
+| Model detail switches (`MODEL_LOD1`, `MODEL_LOD2`, `MODEL_FADE`), model facing (`MODEL_YAW`) | `src/view/models.rs` |
+| When people turn into plain shapes (`PERSON_SIMPLE`), arrow flight (`ARROW_SPEED`, `ARROW_LIES`) | `src/view/scene.rs` |
 
 ## Layout
 
@@ -289,13 +355,22 @@ src/sim/      the simulation — no graphics, fully testable
   crafting.rs   recipes, stations, gathering, potions
   quests.rs     jobs
   dialogue.rs   conversations
-src/main.rs   the playtest window: input, timing, switching views
-src/view/     drawing only — never changes the world's rules
-  scene.rs      the 3D view
-  mesh.rs       mesh building with baked-in lighting
-  palette.rs    ground colours, shared by both views
+  torch.rs      torches, and all light sources
+src/main.rs   starts the window
+src/view/     the window (Bevy) — drawing only, never changes the world's rules
+  app.rs        the frame: keys and mouse, stepping the world, panels, screenshots
+  cam.rs        the 3D camera and the map's pan and zoom
+  scene.rs      the 3D view: land, roads, towns, people, fights
+  light.rs      sun, moon, sky, fires, torches, lit windows
+  foliage.rs    grass, bushes and trees, and the detail readout
+  models.rs     GLB models and their detail levels
+  mesh.rs       building shapes in code
+  palette.rs    colours, shared by the 3D view, the map and the panels
   map.rs        the top-down map
-  ui.rs         panel, tooltips, colours
+  hud.rs        side panel, hover descriptions, health bars
   squadui.rs    squad cards, pack, crafting, conversation, journal
+  shot.rs       headless screenshots (the GAHT_ flags)
+src/old/      the old macroquad window, until it's removed
+assets/       font, and models/ for GLB files
 tests/        the consistency checks
 ```

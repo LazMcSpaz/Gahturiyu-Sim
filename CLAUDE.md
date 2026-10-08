@@ -24,7 +24,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    seed and the cached `might`; never rebuild or reroll an existing detail.
 5. **`might` changes only via `recompute_might()`**, called when gear or traits change.
 6. **`src/sim` has no graphics dependency.** The window reads the sim and sends
-   orders (`order_squad`); it never contains world rules.
+   orders (`order_squad`); it never contains world rules. Foliage, flicker,
+   arrow flight and wind are drawing only; light that changes who sees whom
+   (fires, windows, torches) comes from `World::lights` in `sim/torch.rs`, and
+   the window draws those same sources.
 7. **World events run on one timeline.** Hour departures, ambushes and fight
    endings are handled strictly in time order inside `World::step`
    (`encounters.rs`). Ambushes are found from the schedules when legs are
@@ -51,6 +54,11 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    decide travel times, so they are in `sim/terrain.rs` and `sim/routes.rs`,
    built once from the seed. Leg timing comes from `Leg::along`, which charges
    each stretch by its slope; keep using it so schedules stay analytic.
+11. **Light has one source of truth.** Outdoors it's `stealth::daylight(t)`;
+   everything else adds through `torch::Light` / `light_from`. Fights carry
+   the fixed lights round them (`Battle::lights`) plus fighters' torches, so
+   a far fight in the dark is fought in the same dark. Torches burn down by
+   the clock (`Flame::out_at`), never per step.
 
 ## Verifying visual changes
 
@@ -70,22 +78,62 @@ k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
 `GAHT_TALK=1` (talk to the nearest local), `GAHT_STARVE=1`, `GAHT_EXHAUST=1`,
 `GAHT_CARRY=1` (member 0 carrying a downed member 2), `GAHT_LIMB=1` (member 0
-loses the left arm), `GAHT_RANGED=1` (bandit archers open up). Under Xvfb rendering is
-software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
+loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
+(members 0 and 1 light torches; the hunter sets a standing torch),
+`GAHT_DEBUG=1` (the detail readout), `GAHT_FOREST=1` (camera far out over the
+nearest big wood). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+
+Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package
+`mesa-vulkan-drivers`): about 5 fps, so the fps readout means nothing there.
+Screenshots compile every shader before the first frame
+(`synchronous_pipeline_compilation`) and step the world at a fixed 1/30 s
+per frame, so a given flag set gives the same picture. The first Bevy build
+takes ~20 minutes on this container's 2 cores; later ones under a minute.
 
 ## Drawing notes
 
-- macroquad's 3D is unlit; `view/mesh.rs` bakes sun shading and distance fog
-  into vertex colours. Build everything through it.
-- Avoid `draw_line_3d` in bulk — each call is a separate draw (6 ms for a few
-  hundred segments). Use ground ribbons.
-- The ground mesh is cached in `SceneCache` and keyed to a world-snapped grid:
-  a fine patch near the camera plus a coarse ring to the horizon.
+- The window is Bevy 0.19.1 (pinned) with bevy_egui 0.42.0 for the panels.
+  The panels are drawn with egui's painter through `hud::Canvas`, in pixels
+  from the top left with text placed by its baseline (the old layout carried
+  over). Clicks on panels are hit-tested against the boxes drawn last frame.
+- Two cameras: the 3D one (order 0, HDR, bloom) and a 2D one on top for egui
+  (order 1, also HDR, no tonemapping, no clear). If the 2D camera isn't HDR
+  it paints its own black picture over the 3D one.
+- Meshes are built in code with `view/mesh.rs` (positions, facings, linear
+  vertex colours). Materials don't cull or flip facings (`cull_mode: None`,
+  `double_sided: false`): our meshes aren't consistently wound, so the facing
+  we give each vertex is what's lit.
+- Three materials in `scene::Mats`: `lit` (sun, moon, fires), `glow` (unlit;
+  brightened at night so windows and flames bloom), `flat` (unlit ground
+  markings: rings, order lines).
+- Three lifetimes: the ground and roads are rebuilt only when the camera
+  moves a coarse cell or zooms; each town near the camera is its own entity,
+  rebuilt only when someone goes in or out of a building; everything that
+  moves is one mesh rebuilt every frame. All three carry `NoFrustumCulling`
+  (their bounds change when rebuilt).
 - Anything laid on or standing on the ground uses the cached `Grid::height`
   (the drawn surface), not `Terrain::height` (the true surface) — between
   coarse mesh vertices the two differ by tens of metres on mountainsides.
 - Thin ribbons are widened with distance from the camera, or they alias into
   dashes when seen edge-on.
+- Lights (`view/light.rs`): sun and moon follow `stealth::daylight` and the
+  hour; the sun casts shadows out to 3× the camera distance. Point lights are a
+  pool of `MAX_LAMPS`, filled each frame with the nearest of
+  `World::lights()` plus a few lit windows; flicker uses real time (drawing
+  only). `NIGHT_BRIGHTNESS` is the one dial for how dark night is.
+- Detail levels use Bevy's `VisibilityRange` (distance from the camera, with
+  a dithered crossfade where two ranges overlap). Models: `models.rs`, levels
+  by file name, missing ones simplified with meshopt. Foliage: `foliage.rs`,
+  chunks round the camera, instanced (one mesh + one material per kind, many
+  entities). Far tree billboards are merged per 512 m chunk and turned to the
+  camera in the vertex shader.
+- Custom shading is one small vertex shader (`foliage.rs`, built from a Rust
+  string so its distances come from the named constants) added to
+  `StandardMaterial` through `ExtendedMaterial`: wind sway weighted by vertex
+  colour alpha, and billboard corners in UV_1. Shadows use the standard
+  shadow pass, so trees' shadows don't sway.
+- People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
+  traveller for band-2 groups, one marker beyond band 2.
 
 ## Canon notes used so far
 
@@ -109,3 +157,5 @@ software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
 - Tents are bought items anyone can carry (Laz's call); there's no shop yet,
   so the squad's hunter starts with one.
 - The sea stays off-limits to the squad for now.
+- Torches are ordinary bought/carried items anyone can use (no racial tie);
+  the squad starts with two each and the hunter with two standing torches.
