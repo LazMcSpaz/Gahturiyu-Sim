@@ -188,6 +188,7 @@ pub fn run() {
         )
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
+        .add_plugins(super::foliage::FoliagePlugin)
         .insert_resource(game)
         .init_resource::<scene::Scene3d>()
         .init_resource::<models::Models>()

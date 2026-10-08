@@ -20,7 +20,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::app::Hover;
-use super::palette::{self, eg, ega, race_color, Rgb, DIM, GOLD, RED, SNEAK, TEXT, WARN};
+use super::palette::{self, eg, ega, race_color, Rgb, DIM, GOLD, SNEAK, TEXT, WARN};
 
 pub const SPEEDS: [(f64, &str); 5] = [(1.0, "1×"), (10.0, "10×"), (60.0, "1 min/s"), (600.0, "10 min/s"), (3600.0, "1 hour/s")];
 pub const PANEL: Color32 = Color32::from_rgba_premultiplied(4, 6, 6, 219);
@@ -33,10 +33,6 @@ pub struct Canvas {
 
 pub fn r(x: f32, y: f32, w: f32, h: f32) -> Rect {
     Rect::from_min_size(Pos2::new(x, y), egui::vec2(w, h))
-}
-
-pub fn contains(rect: Rect, p: Vec2) -> bool {
-    rect.contains(Pos2::new(p.x, p.y))
 }
 
 fn font(size: f32) -> FontId {
@@ -430,4 +426,3 @@ pub fn shadow(a: f32) -> Color32 {
     ega([0.0, 0.0, 0.0], a)
 }
 
-pub const RED_C: Rgb = RED;

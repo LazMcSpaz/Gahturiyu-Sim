@@ -41,7 +41,6 @@ pub const TEXT: Rgb = [0.90, 0.91, 0.88];
 pub const DIM: Rgb = [0.62, 0.66, 0.63];
 pub const GOLD: Rgb = [1.0, 0.85, 0.35];
 pub const WARN: Rgb = [0.95, 0.55, 0.3];
-pub const RED: Rgb = [0.95, 0.35, 0.3];
 pub const SNEAK: Rgb = [0.62, 0.70, 0.95];
 pub const MANA: Rgb = [0.35, 0.55, 1.0];
 pub const WHITE: Rgb = [1.0, 1.0, 1.0];

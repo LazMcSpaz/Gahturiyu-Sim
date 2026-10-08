@@ -78,14 +78,18 @@ pub struct Scene3d {
     pub grid: Grid,
     dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
-    /// Triangles drawn by our own meshes last frame (for the readout).
+    /// Triangles in our own meshes (for the readout): what moves, the
+    /// ground and roads, and the towns.
     pub triangles: usize,
+    pub ground_triangles: usize,
+    pub town_triangles: usize,
 }
 
 struct Town {
     entities: Vec<Entity>,
     occupied: Vec<u16>,
     with_models: bool,
+    triangles: usize,
 }
 
 /// Where the ground mesh's vertices are, so things laid on the ground can
@@ -206,6 +210,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
         g.append(r);
+        scene.ground_triangles = g.triangles();
         match &scene.ground {
             Some((h, _)) => {
                 if let Some(mut m) = meshes.get_mut(h) {
@@ -263,9 +268,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     }
                 }
             }
+            let tris = lit.triangles() + glow.triangles();
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
-            scene.towns.insert(sid, Town { entities: ents, occupied, with_models: models.ready() });
+            scene.towns.insert(sid, Town { entities: ents, occupied, with_models: models.ready(), triangles: tris });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
@@ -519,6 +525,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     scene.triangles = tris;
+    scene.town_triangles = scene.towns.values().map(|t| t.triangles).sum();
 
     // Heads: where to hover people and hang their health bars.
     for (p, id) in heads {

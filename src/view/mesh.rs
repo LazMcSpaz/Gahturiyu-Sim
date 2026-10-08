@@ -180,21 +180,6 @@ impl Builder {
         self.quad([centre - right - up, centre + right - up, centre + right + up, centre - right + up], n, col);
     }
 
-    /// A flat ring lying on the ground surface `ground`, `n` pieces.
-    pub fn ring_on(&mut self, ground: &dyn Fn(f32, f32) -> f32, cx: f32, cz: f32, r: f32, width: f32, lift: f32, n: usize, col: Rgb) {
-        let c = lin(col);
-        for i in 0..n {
-            let a0 = i as f32 / n as f32 * std::f32::consts::TAU;
-            let a1 = (i + 1) as f32 / n as f32 * std::f32::consts::TAU;
-            let pts = [(a0, r - width * 0.5), (a0, r + width * 0.5), (a1, r + width * 0.5), (a1, r - width * 0.5)];
-            let v = pts.map(|(a, rr)| {
-                let (x, z) = (cx + a.cos() * rr, cz + a.sin() * rr);
-                vec3(x, ground(x, z) + lift, z)
-            });
-            self.quad_lin(v, [Vec3::Y; 4], [c; 4]);
-        }
-    }
-
     /// Append another builder's geometry.
     pub fn append(&mut self, o: Builder) {
         let base = self.pos.len() as u32;
