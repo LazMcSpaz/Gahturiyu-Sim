@@ -8,6 +8,10 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|a| a == "fight").unwrap_or(false) {
+        fight(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3), args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1));
+        return;
+    }
     let days: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(3.0);
     let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
 
@@ -57,4 +61,50 @@ fn main() {
         worst * 1000.0,
         w.stats.journeys_started
     );
+}
+
+/// Spawn bandits next to the squad and print the fight blow by blow.
+fn fight(count: usize, seed: u64) {
+    use gahturiyu_sim::sim::geo::V2;
+    let mut w = worldgen::generate(seed);
+    for &m in &w.squad.members.clone() {
+        let p = &w.people[m as usize];
+        let d = p.detail.as_ref().unwrap();
+        println!(
+            "SQUAD {:<10} {:<7} {:<8} might {:>5.1}  {:<12} spells {:?}",
+            d.name,
+            p.race.name(),
+            p.stats.calling.name(),
+            p.might,
+            d.gear.weapon_name(),
+            d.spells
+        );
+    }
+    let at = w.squad.pos.add(V2::new(20.0, 0.0));
+    let g = w.spawn_bandits(at, count, true);
+    for &m in &w.group(g).unwrap().members.clone() {
+        let p = &w.people[m as usize];
+        let d = p.detail.as_ref().unwrap();
+        println!("BANDIT {:<10} {:<7} {:<8} might {:>5.1}  {:<12} spells {:?}", d.name, p.race.name(), p.stats.calling.name(), p.might, d.gear.weapon_name(), d.spells);
+    }
+    let mut printed = 0;
+    for _ in 0..20000 {
+        w.step(0.1);
+        if let Some(b) = w.battles.first() {
+            for (t, l) in &b.log[printed.min(b.log.len())..] {
+                println!("  {:>6.1}s  {}", t - b.start, l);
+            }
+            printed = b.log.len();
+        } else if printed > 0 {
+            break;
+        }
+    }
+    for (t, l) in w.log.iter().take(4) {
+        println!("{} {}", t, l);
+    }
+    for &m in &w.squad.members.clone() {
+        let p = &w.people[m as usize];
+        let hp = p.wounds.hp_at(&p.stats, w.time);
+        println!("{:<10} hp {:?} mana {:.0}", p.name().unwrap(), hp.map(|h| h.round()), p.mana_at(w.time));
+    }
 }

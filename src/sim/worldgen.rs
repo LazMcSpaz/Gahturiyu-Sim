@@ -66,10 +66,20 @@ pub fn generate(seed: u64) -> World {
         .map(|s| s.id)
         .unwrap_or(0);
     let mut squad_ids = Vec::new();
-    for (i, &race) in [Race::Roduro, Race::Horaro, Race::Qotiro, Race::Tadoro].iter().enumerate() {
+    // A grown-stone brawler, a coast hunter, a Qotiro shield-fighter and a
+    // Ṭaḍoro mage: enough variety to see every part of a fight.
+    use super::stats::{Calling, Skill};
+    let roles: [(Race, Calling, &[(Skill, f32)], f32); 4] = [
+        (Race::Roduro, Calling::Warrior, &[(Skill::Blunt, 58.0), (Skill::Block, 25.0), (Skill::Athletics, 25.0)], 420.0),
+        (Race::Horaro, Calling::Hunter, &[(Skill::Spear, 42.0), (Skill::Dodge, 35.0), (Skill::Athletics, 30.0)], 260.0),
+        (Race::Qotiro, Calling::Warrior, &[(Skill::Blunt, 55.0), (Skill::Block, 38.0)], 480.0),
+        (Race::Tadoro, Calling::Mage, &[(Skill::Destruction, 48.0), (Skill::Alteration, 42.0), (Skill::Illusion, 44.0), (Skill::Restoration, 40.0), (Skill::Dodge, 25.0)], 120.0),
+    ];
+    for (i, &(race, calling, skills, budget)) in roles.iter().enumerate() {
         let id = people.len() as PersonId;
         let mut p = Person::summary(id, rng::key(&[seed, 0x5351_5544, i as u64]), race, Some(start_town));
         p.in_squad = true;
+        p.specialize(calling, skills, budget);
         p.ensure_detail();
         people.push(p);
         squad_ids.push(id);
@@ -113,6 +123,7 @@ pub fn generate(seed: u64) -> World {
             speed: p.race.walk_speed(),
             ends: f64::INFINITY,
             written: 1,
+            hostile: false,
             pos: at,
             last_update: 0.0,
             band: 3,

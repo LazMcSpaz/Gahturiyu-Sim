@@ -12,6 +12,8 @@ use gahturiyu_sim::sim::{
     bands::{BAND1_RADIUS, BAND2_RADIUS},
     geo::{self, V2, WORLD_SIZE},
     group::Kind,
+    combat::{FxKind, SQUAD_SIDE},
+    magic::StatusKind,
     person::PersonId,
     race::Race,
     rng,
@@ -301,6 +303,40 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
         heads.push(person(&mut b, w, m, k, &on_ground));
     }
 
+    // The fallen.
+    for &(at, race, _, _) in &w.corpses {
+        if at.dist(oc.target) < radius {
+            let base = to3(at, on_ground(at) - 0.1);
+            b.block(base, 1.6 * k, 0.6 * k, 0.35 * k, at.x * 0.37, Color::new(0.35, 0.12, 0.10, 1.0));
+            b.block(base + vec3(0.0, 0.3 * k, 0.0), 1.2 * k, 0.4 * k, 0.15 * k, at.x * 0.37, palette::scale(race_color(race), 0.5));
+        }
+    }
+    // Spell effects, briefly.
+    for battle in &w.battles {
+        for fx in &battle.fx {
+            let age = (w.time - fx.at) as f32;
+            if !(0.0..0.8).contains(&age) {
+                continue;
+            }
+            match fx.kind {
+                FxKind::Fireball { at, radius } => {
+                    let r = radius * (0.4 + age * 1.2);
+                    b.dome(to3(at, on_ground(at)), r, r, r * 0.8, 0.2, 0.0, 7, Color::new(1.0, 0.55 - age * 0.4, 0.15, 1.0));
+                }
+                FxKind::Bolt { from, to } => {
+                    let (a, c) = (to3(from, on_ground(from) + 1.5), to3(to, on_ground(to) + 1.2));
+                    let side = vec3(-(c.z - a.z), 0.0, c.x - a.x).normalize_or_zero() * 0.25;
+                    let col = b.fogged(Color::new(0.85, 0.9, 1.0, 1.0), a);
+                    b.quad_raw([a - side, a + side, c + side, c - side], [col; 4]);
+                    b.quad_raw([a - vec3(0.0, 0.25, 0.0), a + vec3(0.0, 0.25, 0.0), c + vec3(0.0, 0.25, 0.0), c - vec3(0.0, 0.25, 0.0)], [col; 4]);
+                }
+                FxKind::Fizzle { at } => {
+                    b.glow(to3(at, on_ground(at) + 2.2), 0.8, 0.8, 0.0, Color::new(0.6, 0.6, 0.7, 1.0));
+                }
+            }
+        }
+    }
+
     // Rings and the order line, draped over the land.
     let rw = (oc.dist / 260.0).max(0.12);
     let sq = w.squad.pos;
@@ -320,6 +356,11 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
     for (p, id) in heads {
         if let Some(s) = project(&cam, p) {
             pick.offer(s, 2.0, Hover::Person(id));
+            if let Some((vit, mana, down)) = super::ui::bar_for(w, id) {
+                if p.distance(cam.position) < 400.0 {
+                    super::ui::draw_bar(s.x, s.y - 12.0, vit, mana, down);
+                }
+            }
         }
     }
     for (p, id) in markers {
@@ -540,9 +581,30 @@ fn person(b: &mut Builder, w: &World, pid: PersonId, k: f32, on_ground: &dyn Fn(
     };
     let (h, r) = (h * k, r * k);
     let base = to3(at, floor - 0.1);
+    // Bandits and anyone you're fighting get a red mark at their feet.
+    let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);
+    if foe {
+        draped_ring(b, on_ground, at, 0.9 * k, 0.18 * k, 14, Color::new(0.9, 0.2, 0.15, 1.0));
+    }
+    let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead;
+    if down {
+        // Lying where they fell.
+        let rot = (p.seed % 628) as f32 / 100.0;
+        b.block(base, h, r * 2.0, r * 1.2, rot, palette::scale(race_color(p.race), 0.7));
+        return (base + vec3(0.0, r * 1.5, 0.0), pid);
+    }
     b.column(base, r, r * 0.8, h * 0.8, 6, race_color(p.race));
     let head = base + vec3(0.0, h * 0.8, 0.0);
     b.block(head, r * 1.1, r * 1.1, h * 0.2, 0.0, skin);
+    // A paralyzed or blinded fighter shows it.
+    if let Some(f) = w.fighter(pid) {
+        if f.paralyzed() {
+            b.glow(head + vec3(0.0, h * 0.35, 0.0), r * 2.5, r * 0.6, 0.0, Color::new(0.7, 0.4, 1.0, 1.0));
+        }
+        if f.has(StatusKind::MageArmor).is_some() {
+            draped_ring(b, on_ground, at, 1.3 * k, 0.12 * k, 16, Color::new(0.5, 0.75, 1.0, 1.0));
+        }
+    }
     (head + vec3(0.0, h * 0.2, 0.0), pid)
 }
 

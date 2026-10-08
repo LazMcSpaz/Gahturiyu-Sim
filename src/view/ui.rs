@@ -3,6 +3,9 @@
 use macroquad::prelude::*;
 
 use gahturiyu_sim::sim::{
+    body::{self, Part, PARTS},
+    items,
+    stats::{Attr, Skill, SKILLS},
     group::Kind,
     person::PersonId,
     race::{trait_word, Race, ALL_RACES},
@@ -98,6 +101,11 @@ pub fn draw_hud(ui: &Ui, w: &World, speed_i: usize, paused: bool, sim_ms: f64, d
     for r in ALL_RACES {
         lines.push((format!("●  {}  ({})", r.name(), r.element()), race_color(r)));
     }
+    let fight = battle_lines(w);
+    if !fight.is_empty() {
+        lines.push((String::new(), TEXT));
+        lines.extend(fight);
+    }
     lines.push((String::new(), TEXT));
     for (t, l) in w.log.iter().take(8) {
         lines.push((format!("{}  {}", hhmm(*t), l), DIM));
@@ -128,10 +136,51 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
                 ),
                 TEXT,
             ));
+            let st = p.effective_stats();
+            out.push((
+                format!(
+                    "{}  ·  STR {:.0}  AGI {:.0}  TOU {:.0}  INT {:.0}  WIL {:.0}",
+                    st.calling.name(),
+                    st.attr(Attr::Strength),
+                    st.attr(Attr::Agility),
+                    st.attr(Attr::Toughness),
+                    st.attr(Attr::Intellect),
+                    st.attr(Attr::Willpower)
+                ),
+                TEXT,
+            ));
+            let mut best: Vec<(Skill, f32)> = SKILLS.iter().map(|&k| (k, st.skill(k))).collect();
+            best.sort_by(|a, b| b.1.total_cmp(&a.1));
+            out.push((best.iter().take(4).map(|(k, v)| format!("{} {:.0}", k.name(), v)).collect::<Vec<_>>().join("  ·  "), DIM));
             if let Some(d) = &p.detail {
-                out.push((format!("Carries {}, wears {}", d.weapon.describe(p.race), d.armor.describe()), TEXT));
+                let worn: Vec<&str> = d.gear.equipped().filter(|&id| items::item(id).slot != items::Slot::MainHand).map(|id| items::item(id).name).collect();
+                out.push((format!("{}  ·  {}", d.gear.weapon_name(), worn.join(", ")), TEXT));
+                if !d.spells.is_empty() {
+                    out.push((format!("Spells: {}", d.spells.iter().map(|s| s.def().name).collect::<Vec<_>>().join(", ")), Color::new(0.65, 0.75, 1.0, 1.0)));
+                }
             }
-            out.push((format!("Might {:.0}", p.might), DIM));
+            // Body, now: from the fight if they're in one, else their wounds.
+            let (hp, mana, statuses) = match w.fighter(pid) {
+                Some(f) => (f.hp, f.mana, f.statuses.iter().map(|s| format!("{:?}", s.kind)).collect::<Vec<_>>()),
+                None => (p.wounds.hp_at(&p.stats, w.time), p.mana_at(w.time), vec![]),
+            };
+            let parts = PARTS.iter().enumerate().map(|(i, part)| format!("{} {:.0}/{:.0}", short_part(*part), hp[i], p.stats.max_hp(*part))).collect::<Vec<_>>().join("  ");
+            let ko = body::knocked_out(&hp);
+            out.push((parts, if p.dead { Color::new(0.9, 0.3, 0.3, 1.0) } else if ko { Color::new(0.95, 0.6, 0.3, 1.0) } else { DIM }));
+            out.push((
+                format!(
+                    "Mana {:.0}/{:.0}  ·  Might {:.0}{}{}",
+                    mana,
+                    p.max_mana(),
+                    p.might,
+                    if p.dead { "  ·  DEAD" } else if ko { "  ·  down" } else { "" },
+                    if statuses.is_empty() { String::new() } else { format!("  ·  {}", statuses.join(", ")) }
+                ),
+                DIM,
+            ));
+            if p.bandit {
+                out.push(("Bandit".into(), Color::new(0.95, 0.35, 0.3, 1.0)));
+            }
             if p.in_squad {
                 out.push(("Your squad".into(), TEXT));
             } else if let Some(g) = w.group_of[pid as usize].and_then(|g| w.group(g)) {
@@ -239,6 +288,8 @@ pub struct Shot {
     pub pitch: Option<f32>,
     pub yaw: Option<f32>,
     pub nudge: Option<(f32, f32)>,
+    /// `GAHT_BANDITS=n`: start with n bandits right next to the squad.
+    pub bandits: Option<usize>,
 }
 
 impl Shot {
@@ -257,10 +308,63 @@ impl Shot {
             view: var("GAHT_VIEW"),
             pitch: var("GAHT_PITCH").and_then(|v| v.parse().ok()),
             yaw: var("GAHT_YAW").and_then(|v| v.parse().ok()),
+            bandits: var("GAHT_BANDITS").and_then(|v| v.parse().ok()),
             nudge: var("GAHT_NUDGE").and_then(|v| {
                 let (x, y) = v.split_once(',')?;
                 Some((x.parse().ok()?, y.parse().ok()?))
             }),
         })
     }
+}
+
+fn short_part(p: Part) -> &'static str {
+    match p {
+        Part::Head => "Hd",
+        Part::Torso => "To",
+        Part::LeftArm => "LA",
+        Part::RightArm => "RA",
+        Part::LeftLeg => "LL",
+        Part::RightLeg => "RL",
+    }
+}
+
+/// Health (vital share), mana share and whether down, for anyone worth a bar:
+/// in a fight, or carrying wounds.
+pub fn bar_for(w: &World, pid: PersonId) -> Option<(f32, Option<f32>, bool)> {
+    let p = &w.people[pid as usize];
+    if p.dead {
+        return None;
+    }
+    if let Some(f) = w.fighter(pid) {
+        let mana = if f.spells.is_empty() { None } else { Some(f.mana / f.max_mana.max(1.0)) };
+        return Some((f.vitality(), mana, f.ko));
+    }
+    if !p.wounds.is_hurt(w.time) {
+        return None;
+    }
+    let hp = p.wounds.hp_at(&p.stats, w.time);
+    let vit = (hp[0].max(0.0) / p.stats.max_hp(Part::Head)).min(hp[1].max(0.0) / p.stats.max_hp(Part::Torso));
+    Some((vit, None, body::knocked_out(&hp)))
+}
+
+/// A small health bar (and mana bar under it) centred at x, sitting at y.
+pub fn draw_bar(x: f32, y: f32, vit: f32, mana: Option<f32>, down: bool) {
+    let w = 30.0;
+    draw_rectangle(x - w / 2.0 - 1.0, y - 1.0, w + 2.0, 6.0, Color::new(0.0, 0.0, 0.0, 0.7));
+    let c = if down { Color::new(0.9, 0.55, 0.2, 1.0) } else { Color::new(0.85 - vit * 0.6, 0.25 + vit * 0.6, 0.25, 1.0) };
+    draw_rectangle(x - w / 2.0, y, w * vit.clamp(0.0, 1.0), 4.0, c);
+    if let Some(m) = mana {
+        draw_rectangle(x - w / 2.0 - 1.0, y + 5.0, w + 2.0, 4.0, Color::new(0.0, 0.0, 0.0, 0.7));
+        draw_rectangle(x - w / 2.0, y + 6.0, w * m.clamp(0.0, 1.0), 2.0, Color::new(0.35, 0.55, 1.0, 1.0));
+    }
+}
+
+/// The squad's fight, as a few lines for the side panel.
+pub fn battle_lines(w: &World) -> Vec<(String, Color)> {
+    let Some(b) = w.squad_battle() else { return vec![] };
+    let mut out = vec![(format!("FIGHT  ·  {:.0}s", b.time - b.start), Color::new(0.95, 0.45, 0.35, 1.0))];
+    for (_, l) in b.log.iter().rev().take(7).collect::<Vec<_>>().into_iter().rev() {
+        out.push((l.clone(), DIM));
+    }
+    out
 }

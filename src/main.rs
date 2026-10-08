@@ -86,8 +86,13 @@ async fn main() {
             world.squad.target = world.squad.pos;
             world.step(0.001);
         }
+        if let Some(n) = s.bandits {
+            let at = world.squad.pos.add(V2::new(14.0, 6.0));
+            world.spawn_bandits(at, n, true);
+        }
     }
     let mut frame = 0u32;
+    let mut last_hover: Option<ui::Hover> = None;
 
     loop {
         frame += 1;
@@ -110,6 +115,12 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::R) {
             rings = !rings;
+        }
+        // Testing aid: B drops a band of bandits (with a mage) near the squad.
+        if is_key_pressed(KeyCode::B) {
+            let n = 2 + (world.time as usize % 3);
+            let at = world.squad.pos.add(V2::new(26.0, 12.0));
+            world.spawn_bandits(at, n, true);
         }
         if is_key_pressed(KeyCode::V) || is_key_pressed(KeyCode::Tab) {
             view = if view == View::Scene { View::Map } else { View::Scene };
@@ -174,7 +185,12 @@ async fn main() {
         }
         if is_mouse_button_released(MouseButton::Left) {
             if let Some(p) = press_at.take() {
-                if (p - mouse).length() < 6.0 {
+                // Clicking an enemy mid-fight sends the squad at them.
+                let attacked = match last_hover {
+                    Some(ui::Hover::Person(pid)) if world.squad_battle().is_some() => world.order_attack(pid),
+                    _ => false,
+                };
+                if (p - mouse).length() < 6.0 && !attacked {
                     let target = match view {
                         View::Map => Some(map_cam.to_world(mouse)),
                         View::Scene => scene::ground_at(&orbit.camera(), mouse, &world.terrain),
@@ -186,6 +202,13 @@ async fn main() {
             }
         }
         last_mouse = mouse;
+
+        // A fight breaking out near the squad drops the game to real time.
+        if !world.alerts.is_empty() {
+            world.alerts.clear();
+            speed_i = 0;
+            paused = false;
+        }
 
         // ------------------------------------------------------------- simulate
         if !paused {
@@ -227,12 +250,13 @@ async fn main() {
         };
         draw_ms = draw_ms * 0.9 + t_draw.elapsed().as_secs_f64() * 1000.0 * 0.1;
         ui::draw_hud(&ui, &world, speed_i, paused, sim_ms, draw_ms, name);
+        last_hover = pick.best.map(|(_, h)| h);
         if let Some((_, h)) = pick.best {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Left-click: move squad   Right-drag / Q E: turn   Middle-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   R: rings   V: map",
-            View::Map => "Left-click: move squad   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   R: rings   V: 3D",
+            View::Scene => "Left-click: move / attack   Right-drag / Q E: turn   Middle-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   R: rings   V: map   B: bandits",
+            View::Map => "Left-click: move / attack   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   R: rings   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);

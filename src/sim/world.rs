@@ -3,6 +3,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use super::bands::{BandMap, REFRESH};
+use super::combat::Battle;
+use super::race::Race;
 use super::geo::{self, V2};
 use super::group::{Group, GroupId, Kind, Leg};
 use super::routes::Routes;
@@ -75,6 +77,16 @@ pub struct World {
     in_view_towns: Vec<bool>,
     last_town_look: f64,
     looked_once: bool,
+
+    // --- Fights -------------------------------------------------------------
+    pub battles: Vec<Battle>,
+    pub next_battle: u32,
+    /// Which battle each fighting person is in.
+    pub fighting: HashMap<PersonId, u32>,
+    /// The fallen, for a while after a fight: where, who, and when.
+    pub corpses: Vec<(V2, Race, f64, PersonId)>,
+    /// Things the window should react to (a fight starting nearby).
+    pub alerts: Vec<String>,
 }
 
 impl World {
@@ -110,6 +122,11 @@ impl World {
             in_view_groups: HashMap::new(),
             last_town_look: 0.0,
             looked_once: false,
+            battles: Vec::new(),
+            next_battle: 0,
+            fighting: HashMap::new(),
+            corpses: Vec::new(),
+            alerts: Vec::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -122,7 +139,7 @@ impl World {
         w
     }
 
-    fn add_group(&mut self, mut g: Group) {
+    pub(super) fn add_group(&mut self, mut g: Group) {
         g.extend_to(self.time, &self.terrain);
         g.pos = g.position_at(self.time);
         g.last_update = self.time;
@@ -141,6 +158,7 @@ impl World {
 
     pub fn order_squad(&mut self, target: V2) {
         self.squad.target = geo::clamp_to_world(target, 50.0);
+        self.order_squad_in_battle(self.squad.target);
     }
 
     /// Advance the world by `dt` game seconds.
@@ -149,7 +167,7 @@ impl World {
         //    Slower uphill, a touch quicker on a gentle descent.
         let to_go = self.squad.target.sub(self.squad.pos);
         let d = to_go.len();
-        if d > 1e-3 {
+        if d > 1e-3 && self.squad_battle().is_none() {
             let dir = to_go.scale(1.0 / d);
             let ahead = self.squad.pos.add(dir.scale(4.0));
             let grade = (self.terrain.height(ahead) - self.terrain.height(self.squad.pos)) / 4.0;
@@ -190,6 +208,9 @@ impl World {
                 self.stats.refreshed[g.band as usize] += 1;
             }
         }
+
+        // 3b. Fights: new ones that break out, and the ones in progress.
+        self.update_battles();
 
         // 4. Journeys that are over dissolve; their people are home.
         //    Decided by the schedule, not by whether anyone looked.
@@ -306,7 +327,7 @@ impl World {
         town.residents
             .iter()
             .copied()
-            .filter(|&p| self.busy_until[p as usize] <= self.time && self.group_of[p as usize].is_none())
+            .filter(|&p| self.busy_until[p as usize] <= self.time && self.group_of[p as usize].is_none() && !self.people[p as usize].dead)
             .filter(|&p| self.bands.band_at(self.person_pos(p)) == 1)
             .collect()
     }
@@ -316,6 +337,9 @@ impl World {
     pub fn person_pos(&self, pid: PersonId) -> V2 {
         let p = &self.people[pid as usize];
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);
+        if let Some(pos) = self.fighter_pos(pid) {
+            return pos;
+        }
         if p.in_squad {
             let i = self.squad.members.iter().position(|&m| m == pid).unwrap_or(0) as f32;
             return self.squad.pos.add(V2::new((i * 2.4).cos(), (i * 2.4).sin()).scale(3.0 + i));
@@ -357,7 +381,7 @@ impl World {
 
         let town = &self.settlements[s as usize];
         let home_pos = town.pos;
-        let free: Vec<PersonId> = town.residents.iter().copied().filter(|&p| self.busy_until[p as usize] <= start).collect();
+        let free: Vec<PersonId> = town.residents.iter().copied().filter(|&p| self.busy_until[p as usize] <= start && !self.people[p as usize].dead).collect();
         if free.is_empty() {
             return None;
         }
@@ -456,6 +480,7 @@ impl World {
             speed,
             ends: arrive,
             written: 0,
+            hostile: false,
             pos: home_pos,
             last_update: start,
             band: 3,

@@ -111,6 +111,8 @@ pub struct Group {
     /// How many legs have ever been written (old wanderer legs get dropped,
     /// but the count keeps each new leg's random draw stable).
     pub written: u64,
+    /// Bandits and the like: they attack anyone who isn't one of them.
+    pub hostile: bool,
 
     // --- Cached view, refreshed at the group's band rate ------------------
     pub pos: V2,

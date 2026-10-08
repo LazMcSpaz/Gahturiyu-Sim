@@ -133,6 +133,46 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, re
         }
     }
 
+    for &(at, _, _, _) in &w.corpses {
+        let q = cam.to_screen(at);
+        let k = dot + 1.0;
+        draw_line(q.x - k, q.y - k, q.x + k, q.y + k, 2.0, Color::new(0.8, 0.2, 0.15, 1.0));
+        draw_line(q.x - k, q.y + k, q.x + k, q.y - k, 2.0, Color::new(0.8, 0.2, 0.15, 1.0));
+    }
+    for battle in &w.battles {
+        for f in &battle.fighters {
+            if f.dead || f.fled {
+                continue;
+            }
+            let q = cam.to_screen(f.pos);
+            if f.side != gahturiyu_sim::sim::combat::SQUAD_SIDE {
+                draw_circle_lines(q.x, q.y, dot + 2.5, 1.5, Color::new(0.95, 0.25, 0.2, 1.0));
+            }
+            if let Some((vit, mana, down)) = super::ui::bar_for(w, f.pid) {
+                if cam.zoom > 0.6 {
+                    super::ui::draw_bar(q.x, q.y - dot - 10.0, vit, mana, down);
+                }
+            }
+        }
+        for fx in &battle.fx {
+            let age = (w.time - fx.at) as f32;
+            if !(0.0..0.8).contains(&age) {
+                continue;
+            }
+            match fx.kind {
+                gahturiyu_sim::sim::combat::FxKind::Fireball { at, radius } => {
+                    let q = cam.to_screen(at);
+                    draw_circle(q.x, q.y, radius * cam.zoom * (0.5 + age), Color::new(1.0, 0.5, 0.1, 0.6 - age * 0.6));
+                }
+                gahturiyu_sim::sim::combat::FxKind::Bolt { from, to } => {
+                    let (a, b) = (cam.to_screen(from), cam.to_screen(to));
+                    draw_line(a.x, a.y, b.x, b.y, 3.0, Color::new(0.85, 0.9, 1.0, 1.0 - age));
+                }
+                _ => {}
+            }
+        }
+    }
+
     let sq = cam.to_screen(w.squad.pos);
     let tg = cam.to_screen(w.squad.target);
     if w.squad.pos.dist(w.squad.target) > 1.0 {
