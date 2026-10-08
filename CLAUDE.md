@@ -50,7 +50,12 @@ GAHT_SHOT=out.png GAHT_FRAMES=60 xvfb-run -a -s "-screen 0 1600x1000x24" ./targe
 Optional: `GAHT_VIEW=map`, `GAHT_ZOOM` (map px/m, or 3D camera distance in m),
 `GAHT_PITCH` / `GAHT_YAW` (3D camera, radians), `GAHT_SPEED=0..4`,
 `GAHT_HOVER=x,y` (fake mouse, for tooltips), `GAHT_NUDGE=dx,dy` (move the
-squad's start, e.g. to put a town on the band edge). Under Xvfb rendering is
+squad's start, e.g. to put a town on the band edge). For the newer systems:
+`GAHT_HOURS=h` (run h hours first), `GAHT_CAMP=k` (start 70 m from bandit camp
+k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
+`GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`, `GAHT_DROP=k`
+(member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
+`GAHT_TALK=1` (talk to the nearest local). Under Xvfb rendering is
 software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
 
 ## Drawing notes
@@ -78,3 +83,10 @@ software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
 - The south-east inland is Qotiro country — a raised arid plateau; elsewhere
   inland is mostly Roduro. Mountains wall the north and east, plus one massif.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).
+  Towns are mixed: founders count 2.5× in their own town, Horaro lean coastal
+  (Laz: very present on the coast but rarely the majority). Bandits are extra.
+- Farewells name gods from `pantheon.md` by people (Horahìda, Dodìṭo, Qotisho,
+  Rìthaduya) and night is "Hiyaḍote's hours" — placeholder flavour, not canon
+  ties between races and gods.
+- Deaths are rare, Kenshi-style: a head or torso at zero knocks you out; only
+  falling to minus its maximum kills.

@@ -163,16 +163,18 @@ pub fn generate(seed: u64) -> World {
 /// How strongly a settlement draws people of a race. Everyone lives
 /// everywhere; this only tilts the odds.
 fn affinity(race: Race, s: &Settlement) -> f32 {
-    if race == s.founders {
-        return 9.0;
-    }
-    match race {
-        // The water people settle just off any coast, whoever owns the shore.
+    // Founders are the biggest single group in their own town, usually, but
+    // every town is a mix (Laz, 2026-10-08: Horaro are very present on the
+    // coast but rarely the majority).
+    let founders = if race == s.founders { 2.5 } else { 1.0 };
+    founders * match race {
+        // The water people settle just off any coast, whoever owns the shore;
+        // a few live inland in land homes.
         Race::Horaro => {
             if s.coastal {
-                5.0
+                1.3
             } else {
-                0.45
+                0.75
             }
         }
         // The air people lodge in other peoples' towns rather than build their own.

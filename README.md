@@ -4,9 +4,11 @@ A Kenshi-style world for Gahturiyu, built simulation-first. Right now it is a
 21 × 21 km coast with 30 towns and 5,000 people who travel, visit and wander
 whether or not you are watching — plus a plain window to watch them in.
 
-There is no combat, trade or player interaction yet. This first slice proves the
-foundation: **the far-away world runs cheaply, the nearby world runs in full
-detail, and nothing changes or blinks when things cross between the two.**
+Your squad of four can fight, sneak, pick locks, go indoors, gather and craft,
+talk to people and take on work. Bandit camps by the roads ambush travellers
+across the whole map whether you're there or not. The foundation underneath:
+**the far-away world runs cheaply, the nearby world runs in full detail, and
+nothing that happens depends on how closely it was being watched.**
 
 ## Running it
 
@@ -30,19 +32,65 @@ different world from seed 42.
 
 The window opens in **3D**. Press **V** to flip to the top-down map and back.
 
-| | 3D view | Map |
-|---|---|---|
-| Left-click | Send your squad there | Send your squad there |
-| Right-drag | Turn the camera | Pan |
-| Q / E | Turn the camera | — |
-| Middle-drag, or WASD | Pan | Pan |
-| Mouse wheel | Zoom | Zoom |
-| C | Snap back to following the squad | same |
-| Space | Pause | same |
-| 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s | same |
-| R | Show / hide the band rings | same |
+| | |
+|---|---|
+| Left-click ground | Send the selected squad members there (everyone, if none selected) |
+| Left-click a squad member, or F1–F4 | Select them (hold Shift to add or remove) |
+| ` or Esc | Select everyone again (Esc also leaves a conversation) |
+| Left-click a bandit | Attack (a sneak attack if they haven't noticed you) |
+| Left-click anyone else | Walk over and talk to them |
+| Left-click something on the ground | Pick it up |
+| Left-click a door | Go in, or pick the lock if it's locked (needs a lockpick) |
+| Left-click a plant, rock or log | Gather it |
+| Z | Selected members sneak / stop sneaking |
+| I, or right-click a squad card | Pack and gear |
+| K | Crafting |
+| J | Journal (jobs) |
+| Right-drag, Q / E | Turn the camera (map: pan) |
+| Middle-drag, or WASD | Pan |
+| Mouse wheel | Zoom |
+| C | Snap back to following the squad |
+| Space | Pause |
+| 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s |
+| R | Show / hide the band rings |
+| B | (testing) Drop a band of bandits next to the squad |
 
-Hover over anyone or anything for details.
+Hover over anyone or anything for details. A fight breaking out near you drops
+the speed to real time.
+
+In the **pack** panel: click something worn to take it off, click something in
+the pack to put it on (or drink it, for a potion), right-click to drop it.
+
+## Playing
+
+- **Your squad**: a Roduro brawler with a stone maul, a Horaro hunter with a
+  spear and lockpicks, a Qotiro shield-fighter, and a Ṭaḍoro mage (paralyze,
+  fireball, lightning, blind, mage armour, haste, heal) with a mortar and
+  pestle and some herbs. Each walks at their own pace: hills, a hurt leg or an
+  overloaded pack all slow them down.
+- **Fights** are Kenshi-style: six body parts, each with its own health;
+  cuts and blunt blows; armour that covers some parts some of the time. A
+  ruined arm drops the weapon, a ruined leg slows you, a head or torso at zero
+  knocks you out, and only a much worse beating kills. Wounds heal on their
+  own over hours. Hits, dodges, blocks and spells train the skills used,
+  Morrowind-style. Hurt fighters drink healing draughts if they have them.
+- **Magic** costs mana, takes a moment to cast and can fizzle (the mana is
+  still spent). Scrolls cast once with no mana and never fizzle.
+- **Bandit camps** sit beside the roads, lit by a campfire. Their lookouts
+  notice you by sight (worse in the dark, against someone sneaking) and by
+  sound (louder when moving, fighting or in heavy armour). Once they notice,
+  they attack. They also attack travellers they think they can beat — all
+  across the map.
+- **Doors** lock from 20:00 to 06:00. A picked lock stays open until the next
+  night. Inside, the walls and roof are cut away; there are things to take,
+  but they belong to someone. Being seen picking a lock or stealing earns a
+  bounty in that town (pay it off by talking to a local).
+- **Crafting**: potions (anywhere with a mortar and pestle), scrolls (scribe's
+  desk), weapons and armour (forge, armourer's bench). Every town has the four
+  stations round its hearth. Materials grow or lie around the land and come
+  back a day after you take them.
+- **Talking**: people answer from who they are and what's true right now. Some
+  have work: break a bandit camp, fetch materials, carry a letter.
 
 ## What you are looking at
 
@@ -110,25 +158,37 @@ routine plan — read the clock, set the state.
 answered from the world seed plus that town plus that hour. So the answer is the
 same no matter how coarsely the world was being stepped or where your squad was.
 
+**Fights far away are the same fights.** When a traveller's route is planned
+(a couple of hours ahead), it's checked against every bandit camp: the exact
+moment the road brings them into sight is worked out like a line crossing a
+circle. Bandits weigh their combined might against the travellers' and decide
+whether to attack. If they do, the fight is run blow by blow on the same rules
+as your own fights, there and then — it takes well under a millisecond. Nearby,
+you watch a copy of it play out in real time; the outcome was already fixed.
+Survivors wait until they can stand, then head home. So walking closer never
+changes how a fight went.
+
 ## Proving it
 
 ```
 cargo test --release
 ```
 
-The important tests are in `tests/consistency.rs`; `tests/terrain.rs` checks
-that every town can reach every other over dry land and that roads don't climb
-walls or cross mountain tops. They run the same world
+The important tests are in `tests/consistency.rs`. They run the same world
 several ways — one-second steps vs one-hour steps, squad here vs squad in the
-far corner — and check that every journey, route and position comes out
-identical. They also check that details, once built, never change.
+far corner, squad watching a roadside ambush vs far away — and check that every
+journey, route, position, wound, death and ambush comes out identical. They
+also check that details, once built, never change. The other test files check
+each system does what it says: `combat.rs`, `gear.rs` (every enchantment),
+`squad.rs`, `stealth.rs`, `indoors.rs`, `crafting.rs`, `talk.rs`, `terrain.rs`.
 
 ```
 cargo run --release --bin headless -- 3
 ```
 
 runs three game days with no window and prints what the world is doing and how
-long it took. Three days takes under a second.
+long it took (a few seconds, stepping one game second at a time).
+`headless fight 3` prints a squad-vs-bandits fight blow by blow.
 
 ## Dials
 
@@ -144,6 +204,15 @@ The numbers most worth tuning, all named constants:
 | Where mountains, the plateau and cliffs are; how tall | `src/sim/terrain.rs` |
 | How roads are chosen (steepness limit, how many links per town) | `src/sim/routes.rs` |
 | Ground colours | `src/view/palette.rs` |
+| Stats, skills, how fast they train | `src/sim/stats.rs` |
+| Weapons, armour, enchantments, materials, potions, scrolls | `src/sim/items.rs` |
+| Spells | `src/sim/magic.rs` |
+| Hit chances, damage, sneak attacks | `src/sim/combat.rs` |
+| Bandit camps: how many, how far they see, rest between attacks | `src/sim/encounters.rs` |
+| Sight, hearing, light, sneaking | `src/sim/stealth.rs` |
+| Locks, lockpicking, what's inside homes | `src/sim/buildings.rs` |
+| Recipes, stations, gathering | `src/sim/crafting.rs` |
+| Jobs and dialogue | `src/sim/quests.rs`, `src/sim/dialogue.rs` |
 | Name sounds per race | `src/sim/names.rs` |
 
 ## Layout
@@ -161,6 +230,21 @@ src/sim/      the simulation — no graphics, fully testable
   terrain.rs    the height of the land, and walking speed on slopes
   routes.rs     the road network and every town-to-town route
   rng.rs        deterministic randomness
+  stats.rs      attributes, skills, callings
+  body.rs       body parts and wounds that heal
+  items.rs      the item catalogue
+  inventory.rs  gear slots, packs, weight
+  magic.rs      spells
+  combat.rs     a fight, tick by tick
+  ai.rs         what fighters decide
+  fights.rs     where fights meet the world (the squad's fights)
+  encounters.rs bandit camps and ambushes on the world's timeline
+  squad.rs      squad members, walking, picking things up
+  stealth.rs    being seen and heard
+  buildings.rs  doors, locks, interiors
+  crafting.rs   recipes, stations, gathering, potions
+  quests.rs     jobs
+  dialogue.rs   conversations
 src/main.rs   the playtest window: input, timing, switching views
 src/view/     drawing only — never changes the world's rules
   scene.rs      the 3D view
@@ -168,5 +252,6 @@ src/view/     drawing only — never changes the world's rules
   palette.rs    ground colours, shared by both views
   map.rs        the top-down map
   ui.rs         panel, tooltips, colours
+  squadui.rs    squad cards, pack, crafting, conversation, journal
 tests/        the consistency checks
 ```
