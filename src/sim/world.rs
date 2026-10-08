@@ -7,7 +7,7 @@ use super::geo::{self, V2};
 use super::group::{Group, GroupId, Kind, Leg};
 use super::person::{Person, PersonId};
 use super::rng::{self, Rng};
-use super::settlement::{Settlement, SettlementId};
+use super::settlement::{BuildingKind, Settlement, SettlementId};
 
 /// Departure pressure per unit of (wanderlust squared) per game hour. The main
 /// dial for how busy the roads are.
@@ -19,6 +19,8 @@ pub const SQUAD_SPEED: f32 = 1.5;
 /// A group that leaves band 1 and comes back within this many game seconds is
 /// not announced again.
 const ANNOUNCE_GAP: f64 = 3600.0;
+/// How often (game seconds) townsfolk are checked for coming into band 1.
+const TOWN_LOOK_EVERY: f64 = 3.0;
 /// How many lines of the event log to keep.
 const LOG_LEN: usize = 14;
 
@@ -67,6 +69,8 @@ pub struct World {
     /// the band is not announced over and over.
     in_view_groups: HashMap<GroupId, f64>,
     in_view_towns: Vec<bool>,
+    last_town_look: f64,
+    looked_once: bool,
 }
 
 impl World {
@@ -96,6 +100,8 @@ impl World {
             log: VecDeque::new(),
             stats: Stats::default(),
             in_view_groups: HashMap::new(),
+            last_town_look: 0.0,
+            looked_once: false,
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -171,7 +177,11 @@ impl World {
         if self.groups.iter().any(|g| t >= g.ends) {
             for g in self.groups.iter().filter(|g| t >= g.ends) {
                 for &m in &g.members {
-                    self.group_of[m as usize] = None;
+                    // They may already have set out again with a newer group
+                    // inside this same step; only clear this group's claim.
+                    if self.group_of[m as usize] == Some(g.id) {
+                        self.group_of[m as usize] = None;
+                    }
                 }
             }
             self.groups.retain(|g| t < g.ends);
@@ -209,22 +219,28 @@ impl World {
             self.push_log(line);
         }
 
+        // Townsfolk are banded one by one, by where each of them is standing.
+        // Checked a few times a game-minute: who gets *named* never changes
+        // what happens, so this needs no finer timing.
+        if t - self.last_town_look < TOWN_LOOK_EVERY && !self.in_view_towns.is_empty() && self.looked_once {
+            self.stats.detailed += made;
+            return;
+        }
+        self.last_town_look = t;
+        self.looked_once = true;
         for s in 0..self.settlements.len() {
-            let near = self.bands.band_at(self.settlements[s].pos) == 1
-                || self.settlements[s].stilts.map(|p| self.bands.band_at(p) == 1).unwrap_or(false);
-            if near {
-                for i in 0..self.settlements[s].residents.len() {
-                    let p = self.settlements[s].residents[i] as usize;
-                    if self.busy_until[p] <= t && self.people[p].ensure_detail() {
-                        made += 1;
-                    }
-                }
-                if !self.in_view_towns[s] {
-                    let line = format!("{} comes into view.", self.settlements[s].name);
-                    self.push_log(line);
+            let near = self.residents_in_band1(s as SettlementId);
+            for &p in &near {
+                if self.people[p as usize].ensure_detail() {
+                    made += 1;
                 }
             }
-            self.in_view_towns[s] = near;
+            let any = !near.is_empty();
+            if any && !self.in_view_towns[s] {
+                let line = format!("{} comes into view.", self.settlements[s].name);
+                self.push_log(line);
+            }
+            self.in_view_towns[s] = any;
         }
         self.stats.detailed += made;
     }
@@ -261,6 +277,21 @@ impl World {
         }
     }
 
+    /// Residents of a town who are at home and inside band 1 right now —
+    /// the ones who exist as individuals at this moment.
+    pub fn residents_in_band1(&self, s: SettlementId) -> Vec<PersonId> {
+        let town = &self.settlements[s as usize];
+        if !self.bands.touches_band1(town.pos, town.reach + 20.0) {
+            return Vec::new();
+        }
+        town.residents
+            .iter()
+            .copied()
+            .filter(|&p| self.busy_until[p as usize] <= self.time && self.group_of[p as usize].is_none())
+            .filter(|&p| self.bands.band_at(self.person_pos(p)) == 1)
+            .collect()
+    }
+
     /// Where a person stands right now, to the metre. Only meaningful for
     /// people close enough to be drawn individually.
     pub fn person_pos(&self, pid: PersonId) -> V2 {
@@ -279,17 +310,19 @@ impl World {
         }
         if let Some(h) = p.home {
             let s = &self.settlements[h as usize];
-            // Horaro in a coastal town live out on the stilts.
-            let (centre, radius) = match (p.race, s.stilts) {
-                (super::race::Race::Horaro, Some(st)) => (st, 70.0 + (s.residents.len() as f32).sqrt() * 2.0),
-                _ => (s.pos, s.radius()),
+            // Around their own front door: on the deck for a stilt home, in
+            // the yard for anything on land.
+            let (centre, near, far, drift) = match p.dwelling.map(|d| &s.buildings[d as usize]) {
+                Some(b) if b.kind == BuildingKind::HoraroStilt => (b.pos, b.size * 0.36, b.size * 0.44, 0.3),
+                Some(b) => (b.pos, b.size * 0.6 + 2.0, b.size * 0.6 + 12.0, 3.0),
+                None => (s.pos, 5.0, s.radius(), 5.0),
             };
             let a = r.f32() * std::f32::consts::TAU;
-            let rad = r.f32().sqrt() * radius;
+            let rad = r.range(near, far);
             // A slow drift, so a town is not a frozen photograph.
             let phase = r.f32() * 100.0;
             let tt = (self.time / 240.0) as f32 + phase;
-            let wobble = V2::new(tt.sin(), (tt * 0.7).cos()).scale(6.0);
+            let wobble = V2::new(tt.sin(), (tt * 0.7).cos()).scale(drift);
             return centre.add(V2::new(a.cos(), a.sin()).scale(rad)).add(wobble);
         }
         V2::default()

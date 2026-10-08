@@ -45,6 +45,15 @@ pub fn generate(seed: u64) -> World {
         }
     }
 
+    // --- Lay out each town from who ended up living there ---------------
+    for s in settlements.iter_mut() {
+        let races: Vec<Race> = s.residents.iter().map(|&p| people[p as usize].race).collect();
+        let homes = s.build(&races, seed);
+        for (&p, h) in s.residents.iter().zip(homes) {
+            people[p as usize].dwelling = Some(h);
+        }
+    }
+
     // --- Your squad: one of each, because they live side by side ---------
     let start_town = settlements
         .iter()
@@ -63,7 +72,18 @@ pub fn generate(seed: u64) -> World {
         squad_ids.push(id);
     }
     let st = &settlements[start_town as usize];
-    let squad_pos = st.pos.add(V2::new(st.radius() + 60.0, 30.0));
+    // A clear spot near the hearth, not inside somebody's house.
+    let mut squad_pos = st.pos.add(V2::new(14.0, 9.0));
+    'search: for ring in 1..40 {
+        for k in 0..12 {
+            let a = k as f32 / 12.0 * std::f32::consts::TAU + ring as f32;
+            let c = st.pos.add(V2::new(a.cos(), a.sin()).scale(6.0 + ring as f32 * 2.5));
+            if st.buildings.iter().skip(1).all(|b| b.pos.dist(c) > b.size * 0.65 + 5.0) && geo::inland(c) > 5.0 {
+                squad_pos = c;
+                break 'search;
+            }
+        }
+    }
     let squad = Squad { members: squad_ids, pos: squad_pos, target: squad_pos };
 
     // --- Wanderers: each starts somewhere in the wild, resting ----------
@@ -131,16 +151,18 @@ fn place_settlements(rng: &mut Rng, seed: u64) -> Vec<Settlement> {
             pos,
             founders,
             coastal,
-            stilts: if coastal { Some(V2::new(geo::coast_x(pos.y) - 110.0, pos.y)) } else { None },
+            stilts: if coastal { Some(V2::new(geo::coast_x(pos.y) - 70.0, pos.y)) } else { None },
             size: rng.f32().powi(2) * 1.8 + 0.35,
             residents: Vec::new(),
+            buildings: Vec::new(),
+            reach: 0.0,
         });
     };
 
     // Coastal towns, spaced down the shore.
     for i in 0..COASTAL_TOWNS {
         let y = ((i as f32 + 0.5) / COASTAL_TOWNS as f32 * WORLD_SIZE + rng.range(-800.0, 800.0)).clamp(900.0, WORLD_SIZE - 900.0);
-        let x = geo::coast_x(y) + rng.range(450.0, 1000.0);
+        let x = geo::coast_x(y) + rng.range(170.0, 300.0);
         let founders = match rng.weighted(&[0.55, 0.30, 0.15]) {
             Some(0) => Race::Roduro,
             Some(1) => Race::Horaro,

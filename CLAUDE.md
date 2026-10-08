@@ -31,17 +31,30 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
 The window can screenshot itself headlessly:
 
 ```
-GAHT_SHOT=out.png GAHT_FRAMES=200 GAHT_SPEED=4 GAHT_ZOOM=0.05 \
-  xvfb-run -a -s "-screen 0 1600x1000x24" ./target/release/gahturiyu
+GAHT_SHOT=out.png GAHT_FRAMES=60 xvfb-run -a -s "-screen 0 1600x1000x24" ./target/release/gahturiyu
 ```
 
-`GAHT_HOVER=x,y` fakes the mouse to check tooltips.
+Optional: `GAHT_VIEW=map`, `GAHT_ZOOM` (map px/m, or 3D camera distance in m),
+`GAHT_PITCH` / `GAHT_YAW` (3D camera, radians), `GAHT_SPEED=0..4`,
+`GAHT_HOVER=x,y` (fake mouse, for tooltips), `GAHT_NUDGE=dx,dy` (move the
+squad's start, e.g. to put a town on the band edge). Under Xvfb rendering is
+software, so the fps and "drawing ms" readouts are far worse than on a real GPU.
+
+## Drawing notes
+
+- macroquad's 3D is unlit; `view/mesh.rs` bakes sun shading and distance fog
+  into vertex colours. Build everything through it.
+- Avoid `draw_line_3d` in bulk — each call is a separate draw (6 ms for a few
+  hundred segments). Use ground ribbons.
+- The ground mesh is cached in `SceneCache` and keyed to a world-snapped grid.
 
 ## Canon notes used so far
 
 - Races coexist Elder Scrolls style: every town is mixed; race tilts trait
   averages with a wide spread per person.
 - Horaro live on stilts just off any coast, so every coastal town depends on them.
-- Ṭaḍoro don't found towns; they lodge in others' towns or wander.
+- Ṭaḍoro don't found towns or build; they lodge in others' homes, or wander and pitch a tent.
+- Buildings follow `architecture.md` (grown Roduro stone, Horaro stilts on Roduro
+  pillars, quarried Qotiro steps, diaspora Qotiro hall in local dark stone).
 - The south-east inland is Qotiro country; elsewhere inland is mostly Roduro.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).

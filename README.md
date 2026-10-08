@@ -28,15 +28,19 @@ different world from seed 42.
 
 ### Controls
 
-| | |
-|---|---|
-| Left-click | Send your squad there |
-| Right-drag, or WASD | Pan the map |
-| Mouse wheel | Zoom |
-| C | Snap back to following the squad |
-| Space | Pause |
-| 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s |
-| R | Show / hide the band rings |
+The window opens in **3D**. Press **V** to flip to the top-down map and back.
+
+| | 3D view | Map |
+|---|---|---|
+| Left-click | Send your squad there | Send your squad there |
+| Right-drag | Turn the camera | Pan |
+| Q / E | Turn the camera | — |
+| Middle-drag, or WASD | Pan | Pan |
+| Mouse wheel | Zoom | Zoom |
+| C | Snap back to following the squad | same |
+| Space | Pause | same |
+| 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s | same |
+| R | Show / hide the band rings | same |
 
 Hover over anyone or anything for details.
 
@@ -44,18 +48,25 @@ Hover over anyone or anything for details.
 
 - **Colours are races.** Stone = Roduro, ember = Qotiro, sea blue = Horaro,
   pale violet = Ṭaḍoro.
-- **Towns** are the large circles, tinted by who founded them. Every town is
-  mixed. Coastal towns have a Horaro stilt community just offshore (the blue
-  patch in the water).
+- **Towns** follow `architecture.md`: Roduro grow rounded, banded homes of dark
+  stone with a lit window; Qotiro towns are stepped sandstone blocks around a
+  three-tier temple; Qotiro living elsewhere keep one small dark-stone hall with
+  a gold crown; every coastal town has a Horaro stilt village just offshore —
+  woven domes on stone pillars with timber decks. Every town has a hearth at its
+  centre. Ṭaḍoro build nothing; a resting wanderer pitches a tent.
 - **The rings around your squad are the bands.**
-  - Inside the inner ring (500 m) is **band 1**: everyone is drawn as a person
-    with a name, temperament and gear.
+  - Inside the inner ring (500 m) is **band 1**: everyone is a person with a
+    name, temperament and gear. This is decided **person by person**, by where
+    each one stands, so the ring cuts through a town rather than switching the
+    whole town on or off.
   - Between the rings (out to 2.5 km) is **band 2**: travelling groups are one
-    dot each, updated every few game seconds.
-  - Beyond is **band 3**: groups are small faint dots, updated once a game-minute.
+    marker each, updated every few game seconds.
+  - Beyond is **band 3**: groups updated once a game-minute.
+- In 3D, people are true size up close and drawn larger as you zoom out, so you
+  can still pick them out. Buildings always stay true size.
 - The panel's **"Named so far"** count only goes up when something comes close.
-  Walk somewhere new and watch it climb. Hover a far-off group and it will say
-  nobody in it has been named yet.
+
+The ground is flat for now; real terrain is a later step.
 
 ## How it works, in plain words
 
@@ -121,11 +132,16 @@ src/sim/      the simulation — no graphics, fully testable
   worldgen.rs   building a world from a seed
   group.rs      travelling groups and their schedules
   person.rs     people: cheap summary + lazy details
-  bands.rs      chunk grid and band assignment
+  bands.rs      band assignment by distance from the squad
   race.rs       the four races
   names.rs      per-race name generators
   geo.rs        positions and the coastline
   rng.rs        deterministic randomness
-src/main.rs   the playtest window (reads the sim, never changes its rules)
+src/main.rs   the playtest window: input, timing, switching views
+src/view/     drawing only — never changes the world's rules
+  scene.rs      the 3D view
+  mesh.rs       mesh building with baked-in lighting
+  map.rs        the top-down map
+  ui.rs         panel, tooltips, colours
 tests/        the consistency checks
 ```

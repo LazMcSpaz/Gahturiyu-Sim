@@ -44,6 +44,17 @@ fn step_size_does_not_change_history() {
 }
 
 #[test]
+fn step_size_does_not_change_history_in_other_worlds() {
+    // The default world and one more, so a bug that hides in one seed's
+    // particular timing still gets caught.
+    for seed in [1, 23] {
+        let fine = run(worldgen::generate(seed), 30.0, 2.0);
+        let coarse = run(worldgen::generate(seed), 30.0, HOUR);
+        assert_same_history(&fine, &coarse);
+    }
+}
+
+#[test]
 fn the_squads_position_does_not_change_history() {
     let here = run(worldgen::generate(11), 36.0, 2.0);
     let mut elsewhere = worldgen::generate(11);

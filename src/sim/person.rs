@@ -29,6 +29,8 @@ pub struct Person {
     /// Built on first approach, then kept forever.
     pub detail: Option<Detail>,
     pub in_squad: bool,
+    /// Which building in their home town they live in.
+    pub dwelling: Option<u16>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -109,7 +111,7 @@ impl Person {
         // tend to be better armed; most people carry little.
         let gear_budget = (rng.f32().powf(1.6) * 14.0 + traits.boldness * 6.0).min(20.0);
         let might = base_might(race, &traits) + gear_budget;
-        Person { id, seed, race, home, traits, might, detail: None, in_squad: false }
+        Person { id, seed, race, home, traits, might, detail: None, in_squad: false, dwelling: None }
     }
 
     /// Build name and gear, if they do not exist yet. Gear is chosen to add up
