@@ -256,7 +256,8 @@ impl World {
             fighters.push(Fighter::from_person(&self.people[m as usize], TRAVELLER_SIDE, at.add(formation(k)), t));
             names.push(self.name_of(m));
         }
-        let b = Battle::new(id, seed, t, fighters, names);
+        let mut b = Battle::new(id, seed, t, fighters, names);
+        b.lights = Some(self.fixed_lights_at(t));
         for &m in bandits.iter().chain(&victims) {
             self.fighting.insert(m, id);
         }

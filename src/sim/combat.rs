@@ -28,6 +28,10 @@ pub const DT: f64 = 0.1;
 /// Damage multiplier for hitting someone who hasn't noticed you (before the
 /// attacker's Sneak adds to it).
 pub const SNEAK_ATTACK: f32 = 2.0;
+/// Chance to hit in pitch dark, as a share of in full light: shots, and
+/// blows up close (where you can at least make out a shape).
+pub const DARK_SHOT: f32 = 0.45;
+pub const DARK_BLOW: f32 = 0.85;
 /// An archer with no hand weapon backs away from anyone closer than this.
 pub const ARCHER_SPACE: f32 = 5.0;
 /// An archer with a hand weapon draws it when an enemy gets this close...
@@ -103,6 +107,8 @@ pub struct Fighter {
     pub think_at: f64,
     /// Carrying someone: can move, can't fight or block.
     pub burdened: bool,
+    /// Holding a lit torch: lights the ground round them.
+    pub torch: bool,
     /// Limbs lost for good (before or during this fight).
     pub missing: [bool; 6],
     /// Shots left for a ranged weapon, and shots loosed this fight.
@@ -193,6 +199,7 @@ impl Fighter {
             think_at: 0.0,
             aware_at: 0.0,
             burdened: false,
+            torch: false,
             missing: p.wounds.missing,
             ammo,
             shots: 0,
@@ -328,11 +335,27 @@ pub struct Battle {
     pub log: Vec<(f64, String)>,
     pub fx: Vec<Fx>,
     pub names: Vec<String>,
+    /// Lights that stay put round the fight (fires, town, standing torches).
+    /// `None`: fought in broad daylight (tests, mostly). With lights, the
+    /// sun follows the battle clock and fighters' torches are added.
+    pub lights: Option<Vec<super::torch::Light>>,
 }
 
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names }
+        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None }
+    }
+
+    /// How well lit a spot in the fight is, 0..1.
+    pub fn light_at(&self, p: V2) -> f32 {
+        let Some(fixed) = &self.lights else { return 1.0 };
+        let mut all = fixed.clone();
+        for f in &self.fighters {
+            if f.torch && !f.dead && !f.fled {
+                all.push(super::torch::Light { pos: f.pos, reach: super::torch::TORCH_REACH, power: super::torch::TORCH_POWER, flat: false });
+            }
+        }
+        super::torch::light_from(self.time, &all, p)
     }
 
     pub fn index_of(&self, pid: PersonId) -> Option<usize> {
@@ -572,7 +595,10 @@ impl Battle {
         // Arrows are dodged less but lose accuracy with distance.
         let dodge = if shot { dodge * 0.5 } else { dodge };
         let far = if shot { 1.0 - 0.35 * dist / weapon.range.max(1.0) } else { 1.0 };
-        let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far;
+        // In the dark it's hard to hit what you can't see, an arrow most of all.
+        let seen = self.light_at(def.pos);
+        let dark = if shot { DARK_SHOT + (1.0 - DARK_SHOT) * seen } else { DARK_BLOW + (1.0 - DARK_BLOW) * seen };
+        let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark;
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
         if shot {
             // Only for drawing. A miss comes down a few metres past the target,

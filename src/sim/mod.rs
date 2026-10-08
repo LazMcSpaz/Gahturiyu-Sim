@@ -26,6 +26,7 @@ pub mod routes;
 pub mod settlement;
 pub mod squad;
 pub mod stats;
+pub mod torch;
 pub mod stealth;
 pub mod terrain;
 pub mod world;

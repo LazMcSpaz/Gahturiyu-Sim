@@ -168,3 +168,32 @@ fn every_shot_leaves_an_arrow_to_draw() {
         }
     }
 }
+
+#[test]
+fn shooting_in_the_dark_misses_more_and_a_torch_helps() {
+    // The same shots at midnight in the open, at noon, and at midnight with
+    // the target holding a torch.
+    let hits = |start: f64, lit: Option<bool>| {
+        let mut a = Fighter::from_person(&archer(1, false), 0, V2::new(0.0, 0.0), start);
+        let mut d = Fighter::from_person(&target(2), 1, V2::new(22.0, 0.0), start);
+        d.think_at = f64::INFINITY;
+        d.hp = [1e5; 6];
+        a.target = Some(1);
+        a.think_at = f64::INFINITY;
+        a.ammo = 400;
+        d.torch = lit == Some(true);
+        let mut b = Battle::new(0, 11, start, vec![a, d], vec!["Archer".into(), "Target".into()]);
+        b.lights = lit.map(|_| Vec::new());
+        for _ in 0..3000 {
+            b.tick();
+        }
+        let shots = b.fighters[0].shots as f32;
+        b.fx.iter().filter(|f| matches!(f.kind, gahturiyu_sim::sim::combat::FxKind::Arrow { hit: true, .. })).count() as f32 / shots
+    };
+    let midnight = 24.0 * 3600.0;
+    let day = hits(midnight + 12.0 * 3600.0, Some(false));
+    let dark = hits(midnight, Some(false));
+    let torch = hits(midnight, Some(true));
+    assert!(dark < day * 0.7, "dark {dark} vs day {day}");
+    assert!(torch > dark * 1.3, "a torch on the target: {torch} vs {dark}");
+}

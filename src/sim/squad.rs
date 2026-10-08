@@ -263,13 +263,19 @@ impl World {
 
     /// Equip something from a person's pack. Changes their might.
     pub fn equip(&mut self, pid: PersonId, it: ItemId) -> bool {
-        let p = &mut self.people[pid as usize];
+        let p = &self.people[pid as usize];
         // Without a left arm there's no holding a shield or a two-handed weapon.
         let def = item(it);
         let one_armed = p.wounds.missing[body::Part::LeftArm as usize] || p.wounds.missing[body::Part::RightArm as usize];
         if one_armed && (def.slot == Slot::OffHand || def.weapon().map(|w| w.two_handed).unwrap_or(false)) {
             return false;
         }
+        // Whatever takes the off hand puts out a burning torch (thrown away).
+        let displaces_torch = def.slot == Slot::OffHand || def.weapon().map(|w| w.two_handed).unwrap_or(false);
+        if displaces_torch && self.torch_in_hand(pid).is_some() && (self.torches.contains_key(&pid) || self.torch_left.contains_key(&pid)) {
+            self.unequip(pid, Slot::OffHand);
+        }
+        let p = &mut self.people[pid as usize];
         let Some(d) = p.detail.as_mut() else { return false };
         if d.gear.equip(it).is_err() {
             return false;
@@ -279,6 +285,16 @@ impl World {
     }
 
     pub fn unequip(&mut self, pid: PersonId, slot: Slot) -> bool {
+        if slot == Slot::OffHand && self.torch_in_hand(pid).is_some() && (self.torches.contains_key(&pid) || self.torch_left.contains_key(&pid)) {
+            // A lit or part-burnt torch is thrown away, not packed.
+            self.torch_left_hand(pid);
+            let p = &mut self.people[pid as usize];
+            if let Some(d) = p.detail.as_mut() {
+                d.gear.discard(Slot::OffHand);
+            }
+            p.recompute_might();
+            return true;
+        }
         let p = &mut self.people[pid as usize];
         let Some(d) = p.detail.as_mut() else { return false };
         if d.gear.unequip(slot).is_none() {

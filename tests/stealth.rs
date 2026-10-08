@@ -170,3 +170,128 @@ fn attacking_unnoticed_bandits_catches_them_unawares() {
     let b = w.squad_battle().expect("a fight");
     assert!(b.fighters.iter().filter(|f| f.side != 0).all(|f| f.unaware(w.time)));
 }
+
+// ---- Torches ----------------------------------------------------------------
+
+/// Light the first squad member's torch (each starts with two in the pack).
+fn light_torch(w: &mut World) -> u32 {
+    let m = w.squad.members[0];
+    assert!(w.toggle_torch(m), "should light");
+    assert!(w.torch_lit(m));
+    m
+}
+
+#[test]
+fn a_torch_at_night_is_seen_from_far_away() {
+    // Without one: bandits 120 m off in the dark don't notice anyone.
+    let mut w = out_in_the_wild(18.0);
+    let g = w.spawn_bandits(w.squad.pos.add(V2::new(120.0, 0.0)), 3, false);
+    watch(&mut w, 30.0);
+    assert!(!w.has_noticed(g), "nobody should be seen at 120 m in the dark");
+    // With one lit, they do.
+    let mut w = out_in_the_wild(18.0);
+    let g = w.spawn_bandits(w.squad.pos.add(V2::new(120.0, 0.0)), 3, false);
+    let m = light_torch(&mut w);
+    watch(&mut w, 30.0);
+    assert!(w.has_noticed(g) || w.squad_battle().is_some(), "a torch at night should give them away");
+    assert!(w.suspicion_of(m) >= 1.0 || w.fighter(m).is_some());
+}
+
+#[test]
+fn a_torch_makes_no_difference_by_day() {
+    let mut w = out_in_the_wild(6.0); // noon
+    let g = w.spawn_bandits(w.squad.pos.add(V2::new(120.0, 0.0)), 3, false);
+    light_torch(&mut w);
+    watch(&mut w, 30.0);
+    assert!(!w.has_noticed(g), "at noon a torch is just a stick");
+}
+
+#[test]
+fn sneaking_with_a_lit_torch_is_close_to_useless() {
+    let mut w = out_in_the_wild(18.0);
+    for m in w.squad.members.clone() {
+        w.set_sneaking(m, true);
+    }
+    let m = light_torch(&mut w);
+    let at = w.squad.pos.add(V2::new(28.0, 0.0));
+    w.spawn_bandits(at, 3, false);
+    watch(&mut w, 5.0);
+    // The same spot and time without a torch goes unnoticed for 30 s (see
+    // `sneaking_at_night_gets_you_past`).
+    assert!(w.squad_battle().is_some() || w.suspicion_of(m) >= 1.0, "a sneaking torch-bearer is still seen");
+    assert!(w.visibility_of(m) > 0.5, "hardly hidden: {}", w.visibility_of(m));
+}
+
+#[test]
+fn a_standing_torch_lights_up_whoever_is_beside_it() {
+    let run = |torch: bool| {
+        let mut w = out_in_the_wild(18.0);
+        let has = |w: &World, m: u32| w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().any(|e| e.0 == items::id("standing_torch"));
+        let m = w.squad.members.iter().copied().find(|&m| has(&w, m)).expect("the squad's hunter carries standing torches");
+        for x in w.squad.members.clone() {
+            w.set_sneaking(x, true);
+        }
+        let dark = w.light_at(w.squad.pos);
+        if torch {
+            assert!(w.place_torch(m));
+            assert!(w.light_at(w.squad.pos) > dark + 0.5, "it lights the ground");
+        }
+        let g = w.spawn_bandits(w.squad.pos.add(V2::new(14.0, 0.0)), 3, false);
+        // (Checked soon: noticed, they attack, and the fight may be over in half a minute.)
+        watch(&mut w, 6.0);
+        w.has_noticed(g) || w.squad_battle().is_some()
+    };
+    assert!(!run(false), "sneaking in the dark at 14 m: unseen");
+    assert!(run(true), "sneaking beside a standing torch: seen");
+}
+
+#[test]
+fn torches_burn_down_by_the_clock() {
+    use gahturiyu_sim::sim::torch::TORCH_HOURS;
+    let burn = |step: f64| {
+        let mut w = out_in_the_wild(18.0);
+        let m = light_torch(&mut w);
+        let start = w.time;
+        let torches = |w: &World| w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| e.0 == items::id("torch")).map(|e| e.1).sum::<u16>() + w.torch_in_hand(m).map(|_| 1).unwrap_or(0);
+        assert_eq!(torches(&w), 2);
+        let mut seen = Vec::new();
+        while w.time < start + (2.0 * TORCH_HOURS as f64 + 1.0) * HOUR {
+            w.step(step);
+            seen.push((w.time, torches(&w), w.torch_lit(m)));
+        }
+        // Lit at every moment before 2 × burn time, out after; one torch per burn.
+        for &(t, n, lit) in &seen {
+            let burnt = ((t - start) / (TORCH_HOURS as f64 * HOUR)).floor() as u16;
+            assert_eq!(n, 2u16.saturating_sub(burnt), "at {:.2} h", (t - start) / HOUR);
+            assert_eq!(lit, burnt < 2, "at {:.2} h", (t - start) / HOUR);
+        }
+        // (Only the burn-outs: the log is short, and how many travellers get
+        // announced depends on how often the squad looks round.)
+        w.log.iter().filter(|l| l.1.contains("burns")).map(|l| l.0).collect::<Vec<_>>()
+    };
+    let fine = burn(7.0);
+    let coarse = burn(1800.0);
+    assert_eq!(fine, coarse, "burn-outs happen at the same moments whatever the step");
+}
+
+#[test]
+fn a_torch_put_out_keeps_what_is_left() {
+    let mut w = out_in_the_wild(18.0);
+    let m = light_torch(&mut w);
+    watch(&mut w, 0.0);
+    let mut t = 0.0;
+    while t < HOUR {
+        w.step(60.0);
+        t += 60.0;
+    }
+    w.toggle_torch(m);
+    assert!(!w.torch_lit(m));
+    let left = w.torch_hours_left(m).unwrap();
+    assert!((left - 3.0).abs() < 0.05, "{left}");
+    for _ in 0..120 {
+        w.step(60.0);
+    }
+    assert!((w.torch_hours_left(m).unwrap() - left).abs() < 1e-3, "an unlit torch doesn't burn");
+}
+
+

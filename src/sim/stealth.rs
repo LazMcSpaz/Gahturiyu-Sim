@@ -6,9 +6,11 @@
 //! notice.
 //!
 //! - **Seeing** reaches further in good light and against people who stand
-//!   out. Light comes from the sun (by hour), from campfires, and from lit
-//!   windows in town at night. Sneaking makes you a smaller, slower shape;
-//!   Sneak skill and Agility make that better.
+//!   out. Light comes from the sun (by hour), from campfires, from lit
+//!   windows in town at night, and from torches (see `torch`). Sneaking makes
+//!   you a smaller, slower shape; Sneak skill and Agility make that better.
+//!   A lit torch undoes most of that, and at night it can be seen from
+//!   `torch::TORCH_SEEN` away.
 //! - **Hearing** depends on how much noise you make: moving is louder than
 //!   standing, a fight is loudest, and armour clanks by its weight. Sneaking
 //!   softens your step, and Sneak skill softens it more. Town bustle covers
@@ -70,24 +72,11 @@ pub fn light_word(l: f32) -> &'static str {
 impl World {
     /// How well lit a spot is, 0..1.
     pub fn light_at(&self, p: V2) -> f32 {
-        let mut l = daylight(self.time);
-        if l >= 0.99 {
+        if daylight(self.time) >= 0.99 {
             return 1.0;
         }
-        for c in &self.camps {
-            let d = c.pos.dist(p);
-            if d < 18.0 {
-                l += 0.7 * (1.0 - d / 18.0);
-            }
-        }
-        // Lit windows: town is never quite dark.
-        for s in &self.settlements {
-            if s.pos.dist(p) < s.reach + 10.0 {
-                l += 0.25;
-                break;
-            }
-        }
-        l.min(1.0)
+        // Campfires, lit windows (town is never quite dark) and torches.
+        super::torch::light_from(self.time, &self.lights(), p)
     }
 
     /// Is someone on the squad sneaking?
@@ -132,7 +121,9 @@ impl World {
         let mut v = self.light_at(at);
         if self.squad.sneaking[k] {
             let s = self.people[pid as usize].effective_stats();
-            v *= (0.55 - s.skill(Skill::Sneak) / 250.0 - s.attr(Attr::Agility) / 700.0).max(0.08);
+            let hidden = (0.55 - s.skill(Skill::Sneak) / 250.0 - s.attr(Attr::Agility) / 700.0).max(0.08);
+            // There's no creeping about with a lit torch.
+            v *= if self.torch_lit(pid) { hidden.max(super::torch::TORCH_SNEAK) } else { hidden };
         }
         let moving = self.squad.at[k].dist(self.squad.goal[k]) > 0.3;
         if !moving {
@@ -164,7 +155,11 @@ impl World {
             return (100.0, true);
         }
         let sharp = self.alertness(watcher);
-        let sight = SIGHT * self.visibility_of(pid) * sharp;
+        let mut sight = SIGHT * self.visibility_of(pid) * sharp;
+        // A torch in the dark is a beacon.
+        if self.torch_lit(pid) {
+            sight = sight.max(super::torch::TORCH_SEEN * (1.0 - daylight(self.time)) * sharp);
+        }
         let in_town = self.settlements.iter().any(|s| s.pos.dist(at) < s.reach);
         let hearing = HEARING * self.noise_of(pid) * sharp * if in_town { 0.6 } else { 1.0 };
         let mut rate = 0.0;

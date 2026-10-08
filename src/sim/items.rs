@@ -135,6 +135,10 @@ pub enum Kind {
     Food(f32),
     /// Carried for someone else (a letter to deliver).
     Errand,
+    /// Held in the off hand and lit: burns this many hours (see `torch`).
+    Torch(f32),
+    /// Set in the ground and lit: burns this many hours.
+    StandingTorch(f32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -249,6 +253,8 @@ pub static ITEMS: &[ItemDef] = &[
     ItemDef { key: "large_pack", name: "Large pack", slot: Slot::Back, kind: Kind::Pack(45.0), weight: 3.0, value: 90.0, effects: &[] },
     // --- Tools ----------------------------------------------------------------
     ItemDef { key: "lockpick", name: "Lockpick", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.05, value: 8.0, effects: &[] },
+    ItemDef { key: "torch", name: "Torch", slot: Slot::OffHand, kind: Kind::Torch(super::torch::TORCH_HOURS), weight: 0.6, value: 4.0, effects: &[] },
+    ItemDef { key: "standing_torch", name: "Standing torch", slot: Slot::MainHand, kind: Kind::StandingTorch(super::torch::STANDING_HOURS), weight: 2.0, value: 10.0, effects: &[] },
     ItemDef { key: "tent", name: "Tent", slot: Slot::MainHand, kind: Kind::Tool, weight: 6.0, value: 60.0, effects: &[] },
     ItemDef { key: "mortar_and_pestle", name: "Mortar and pestle", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 25.0, effects: &[] },
     // --- Materials ------------------------------------------------------------
@@ -330,7 +336,7 @@ pub static ITEMS: &[ItemDef] = &[
 
 /// Can this be worn or held (rather than used up or crafted with)?
 pub fn equippable(id: ItemId) -> bool {
-    matches!(item(id).kind, Kind::Weapon(_) | Kind::Armor(_) | Kind::Shield(_) | Kind::Pack(_) | Kind::Trinket)
+    matches!(item(id).kind, Kind::Weapon(_) | Kind::Armor(_) | Kind::Shield(_) | Kind::Pack(_) | Kind::Trinket | Kind::Torch(_))
 }
 
 pub fn item(id: ItemId) -> &'static ItemDef {

@@ -145,6 +145,14 @@ pub struct World {
     pub want_carry: Vec<(PersonId, PersonId)>,
     /// Strangers set down somewhere, until they come round.
     pub set_down: HashMap<PersonId, V2>,
+
+    // --- Torches ------------------------------------------------------------
+    /// Torches burning in someone's hand.
+    pub torches: HashMap<PersonId, super::torch::Flame>,
+    /// Seconds left on a torch in hand that was put out early.
+    pub torch_left: HashMap<PersonId, f64>,
+    /// Torches set in the ground.
+    pub standing: Vec<super::torch::StandingTorch>,
 }
 
 impl World {
@@ -211,6 +219,9 @@ impl World {
             carried: HashMap::new(),
             want_carry: Vec::new(),
             set_down: HashMap::new(),
+            torches: HashMap::new(),
+            torch_left: HashMap::new(),
+            standing: Vec::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -294,7 +305,9 @@ impl World {
             }
         }
 
-        // 3b. Fights: new ones that break out, and the ones in progress.
+        // 3b. Torches that have burnt down; fights: new ones that break out,
+        //     and the ones in progress.
+        self.update_torches();
         self.update_battles();
         self.update_quests();
         self.update_conditions();

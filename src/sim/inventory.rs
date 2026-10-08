@@ -89,6 +89,11 @@ impl Gear {
         Ok(())
     }
 
+    /// Whatever is in a slot is used up (not put back in the pack).
+    pub fn discard(&mut self, s: Slot) -> Option<ItemId> {
+        self.slots[slot_index(s)].take()
+    }
+
     /// Take off whatever is in a slot and put it in the pack.
     pub fn unequip(&mut self, s: Slot) -> Option<ItemId> {
         let i = slot_index(s);

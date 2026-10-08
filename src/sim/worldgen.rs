@@ -89,6 +89,7 @@ pub fn generate(seed: u64) -> World {
             // A bow to try (in the pack; equip it to use it).
             g.add(super::items::id("short_bow"), 1);
             g.add(super::items::id("arrows"), 30);
+            g.add(super::items::id("standing_torch"), 2);
         }
         let picks = match calling {
             Calling::Hunter => 6,
@@ -101,6 +102,8 @@ pub fn generate(seed: u64) -> World {
         // A few days' food.
         p.detail.as_mut().unwrap().gear.add(super::items::id("flatbread"), 3);
         p.detail.as_mut().unwrap().gear.add(super::items::id("dried_fish"), 2);
+        // Light for the road.
+        p.detail.as_mut().unwrap().gear.add(super::items::id("torch"), 2);
         // Something to make things with, to start.
         let starter: &[(&str, u16)] = match calling {
             Calling::Mage => &[("mortar_and_pestle", 1), ("kelp_frond", 4), ("ash_moss", 2), ("ghostcap", 2), ("salt_crystal", 1), ("reed_paper", 2), ("squid_ink", 2), ("healing_draught", 2)],

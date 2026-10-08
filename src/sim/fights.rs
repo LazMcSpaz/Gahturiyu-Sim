@@ -243,6 +243,7 @@ impl World {
         self.next_battle += 1;
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
         let mut b = Battle::new(id, seed, at, Vec::new(), Vec::new());
+        b.lights = Some(self.fixed_lights());
         self.battles.push(b.clone());
         for (side, who) in sides {
             self.add_fighters(&mut b, side, &who);
@@ -271,6 +272,7 @@ impl World {
             if let Some(k) = self.squad.index(pid) {
                 self.squad.resting[k] = false;
             }
+            f.torch = self.torch_lit(pid);
             // Carrying someone: can't fight, and slow.
             if self.carrying(pid).is_some() {
                 let p = &self.people[pid as usize];

@@ -343,6 +343,9 @@ impl World {
         if let Kind::Food(_) = item(it).kind {
             return self.eat(who, it, t);
         }
+        if let Kind::StandingTorch(_) = item(it).kind {
+            return self.place_torch(who);
+        }
         let (heal, mana) = match item(it).kind {
             Kind::Potion(pd) => (pd.heal, pd.mana),
             Kind::Scroll(super::magic::Spell::Heal) => (super::magic::Spell::Heal.def().magnitude, 0.0),
