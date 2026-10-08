@@ -173,6 +173,12 @@ pub struct Profile {
     pub institution: Institution,
     /// Leanings toward particular work (multipliers; anything not listed is 1).
     pub jobs: &'static [(Job, f32)],
+    /// How much they take to each craft (by `Craft::index`: handcraft,
+    /// smithing, armouring, tending, weaving, inscription, alchemy).
+    pub crafts: [f32; 7],
+    /// How their teachers teach a craft: skill given, and price (×).
+    /// Deep and slow, or quick and drilled.
+    pub teaching: (f32, f32),
 }
 
 /// Indexed by `Race::index()`: Roduro, Qotiro, Horaro, Ṭaḍoro.
@@ -187,6 +193,8 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.02,
         institution: Institution::TendersYard,
         jobs: &[(Job::StoneTender, 8.0), (Job::Farmer, 1.6), (Job::Woodcutter, 1.4), (Job::Fisher, 0.7), (Job::Exchanger, 0.4), (Job::Arbiter, 0.4)],
+        crafts: [1.0, 0.15, 0.10, 1.0, 0.10, 0.20, 0.4],
+        teaching: (22.0, 1.4),
     },
     // Qotiro: mess halls and hearth kitchens, bells and fixed shifts, tier blocks.
     Profile {
@@ -198,6 +206,8 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.02,
         institution: Institution::MessHall,
         jobs: &[(Job::Guard, 1.8), (Job::Cook, 1.6), (Job::Runner, 2.2), (Job::Smith, 2.2), (Job::Armourer, 2.2), (Job::Priest, 1.6), (Job::Official, 1.6), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Exchanger, 0.4)],
+        crafts: [1.0, 1.0, 0.8, 0.10, 0.10, 0.3, 0.4],
+        teaching: (14.0, 0.8),
     },
     // Horaro: shared decks, the tide, the whole village one family.
     Profile {
@@ -209,6 +219,8 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.04,
         institution: Institution::Deck,
         jobs: &[(Job::Fisher, 3.5), (Job::KelpGatherer, 3.5), (Job::Boatwright, 3.5), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Guard, 0.7)],
+        crafts: [1.0, 0.10, 0.10, 0.10, 1.0, 0.2, 0.4],
+        teaching: (16.0, 1.0),
     },
     // Ṭaḍoro: fed by their hosts (no cooking leaning of their own), the
     // stars, and lodging in others' homes.
@@ -221,6 +233,8 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.85,
         institution: Institution::LettersHouse,
         jobs: &[(Job::Exchanger, 8.0), (Job::Arbiter, 8.0), (Job::Teacher, 3.0), (Job::Scribe, 3.5), (Job::Merchant, 1.6), (Job::Caravaner, 1.8), (Job::Farmer, 0.5), (Job::StoneTender, 0.2), (Job::Guard, 0.7)],
+        crafts: [1.0, 0.2, 0.1, 0.1, 0.4, 1.0, 0.6],
+        teaching: (18.0, 1.1),
     },
 ];
 
@@ -251,6 +265,9 @@ pub struct Blend {
     pub split: f32,
     /// Each people's leaning toward its own institution here, 0..1.
     pub minority: [f32; 4],
+    /// How much the community takes to each craft (by `Craft::index`).
+    #[serde(default)]
+    pub crafts: [f32; 7],
 }
 
 /// What a community has settled on.
@@ -315,6 +332,15 @@ impl Blend {
             belonging: mix(&share, |p| p.belonging, seed, key, 3),
             split,
             minority,
+            crafts: {
+                let mut c = [0.0; 7];
+                for (r, sh) in share.iter().enumerate() {
+                    for (k, x) in c.iter_mut().enumerate() {
+                        *x += sh * PROFILES[r].crafts[k];
+                    }
+                }
+                c
+            },
         }
     }
 

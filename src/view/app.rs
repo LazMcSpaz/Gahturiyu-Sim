@@ -842,8 +842,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::Craft(pid, r) => {
                 let _ = w.start_craft(pid, r);
             }
-            Action::Equip(pid, it) => {
-                w.equip(pid, it);
+            Action::EquipEntry(pid, k) => {
+                w.equip_entry(pid, k);
             }
             Action::Unequip(pid, slot) => {
                 w.unequip(pid, slot);

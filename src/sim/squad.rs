@@ -108,6 +108,9 @@ pub struct GroundItem {
     pub pos: V2,
     /// Whose it is, if anyone's: taking it is theft.
     pub owner: Option<SettlementId>,
+    /// A made piece's own wear and maker's mark.
+    #[serde(default)]
+    pub piece: Option<super::materials::Piece>,
 }
 
 impl World {
@@ -271,6 +274,17 @@ impl World {
 
     /// Equip something from a person's pack. Changes their might.
     pub fn equip(&mut self, pid: PersonId, it: ItemId) -> bool {
+        self.equip_from(pid, it, None)
+    }
+
+    /// Put on a particular thing from the pack (the `k`th entry): for one
+    /// made piece among several of the same kind.
+    pub fn equip_entry(&mut self, pid: PersonId, k: usize) -> bool {
+        let Some(it) = self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.bag.get(k)).map(|e| e.0) else { return false };
+        self.equip_from(pid, it, Some(k))
+    }
+
+    fn equip_from(&mut self, pid: PersonId, it: ItemId, entry: Option<usize>) -> bool {
         let p = &self.people[pid as usize];
         // Without a left arm there's no holding a shield or a two-handed weapon.
         let def = item(it);
@@ -285,7 +299,13 @@ impl World {
         }
         let p = &mut self.people[pid as usize];
         let Some(d) = p.detail.as_mut() else { return false };
-        if d.gear.equip(it).is_err() {
+        // (A torch put away above may have moved the pack's entries.)
+        let entry = entry.filter(|&k| d.gear.bag.get(k).map(|e| e.0 == it).unwrap_or(false));
+        let done = match entry {
+            Some(k) => d.gear.equip_entry(k),
+            None => d.gear.equip(it),
+        };
+        if done.is_err() {
             return false;
         }
         p.recompute_might();
@@ -317,19 +337,22 @@ impl World {
         let pos = self.person_pos(pid);
         let p = &mut self.people[pid as usize];
         let Some(d) = p.detail.as_mut() else { return false };
-        if !d.gear.take(it) {
+        let Some(piece) = d.gear.take_piece(it) else {
             return false;
-        }
+        };
         p.recompute_might();
         let jitter = V2::new(((self.next_ground_id * 37) % 7) as f32 * 0.15 - 0.45, ((self.next_ground_id * 53) % 5) as f32 * 0.2 - 0.4);
-        self.put_on_ground(it, 1, pos.add(jitter));
+        let g = self.put_on_ground(it, 1, pos.add(jitter));
+        if let Some(x) = self.ground.iter_mut().find(|x| x.id == g) {
+            x.piece = piece;
+        }
         true
     }
 
     pub fn put_on_ground(&mut self, it: ItemId, count: u16, pos: V2) -> u32 {
         let id = self.next_ground_id;
         self.next_ground_id += 1;
-        self.ground.push(GroundItem { id, item: it, count, pos, owner: None });
+        self.ground.push(GroundItem { id, item: it, count, pos, owner: None, piece: None });
         id
     }
 
@@ -375,7 +398,10 @@ impl World {
                     }
                 }
                 if let Some(d) = self.people[pk.who as usize].detail.as_mut() {
-                    d.gear.add(g.item, g.count);
+                    match g.piece {
+                        Some(piece) => d.gear.add_piece(g.item, piece),
+                        None => d.gear.add(g.item, g.count),
+                    }
                 }
                 self.people[pk.who as usize].recompute_might();
                 self.log.push_front((self.time, format!("{name} picks up {}.", item(g.item).name.to_lowercase())));
@@ -390,12 +416,15 @@ impl World {
     /// Everything someone had falls where they died.
     pub fn drop_everything(&mut self, pid: PersonId, at: V2) {
         let Some(d) = self.people[pid as usize].detail.as_mut() else { return };
-        let mut stuff: Vec<(ItemId, u16)> = d.gear.equipped().map(|i| (i, 1)).collect();
-        stuff.extend(d.gear.bag.iter().copied());
+        let mut stuff: Vec<(ItemId, u16, Option<super::materials::Piece>)> = super::items::SLOTS.iter().filter_map(|&s| d.gear.in_slot(s).map(|i| (i, 1, d.gear.piece(s).copied()))).collect();
+        stuff.extend(d.gear.bag.iter().map(|e| (e.0, e.1, e.2)));
         d.gear = inventory::Gear::default();
-        for (n, (it, c)) in stuff.into_iter().enumerate() {
+        for (n, (it, c, piece)) in stuff.into_iter().enumerate() {
             let off = V2::new((n as f32 * 2.1).cos(), (n as f32 * 2.1).sin()).scale(0.5 + n as f32 * 0.12);
-            self.put_on_ground(it, c, at.add(off));
+            let g = self.put_on_ground(it, c, at.add(off));
+            if let Some(x) = self.ground.iter_mut().find(|x| x.id == g) {
+                x.piece = piece;
+            }
         }
     }
 }

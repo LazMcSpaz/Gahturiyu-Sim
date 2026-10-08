@@ -314,7 +314,7 @@ impl World {
         for &pid in who {
             self.people[pid as usize].ensure_detail();
             let pos = self.person_pos(pid);
-            let mut f = Fighter::from_person(&self.people[pid as usize], side, pos, self.time);
+            let mut f = Fighter::from_person(&self.people[pid as usize], side, pos, b.time);
             // Woken by the attack: a few seconds before they're on their feet.
             if self.is_asleep(pid) {
                 f.aware_at = b.start + 3.0;
@@ -408,6 +408,12 @@ impl World {
                     }
                 }
             }
+            // Gear wears with use (your squad's: everyone else's is kept up
+            // at home, so what they carry is what they were rated on).
+            if self.people[f.pid as usize].in_squad && !f.dead {
+                self.wear_gear(f, t);
+            }
+            let p = &mut self.people[f.pid as usize];
             if f.dead {
                 p.dead = true;
                 killed += 1;

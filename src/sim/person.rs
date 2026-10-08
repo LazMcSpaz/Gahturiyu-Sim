@@ -62,6 +62,9 @@ pub struct Detail {
     pub name: String,
     pub gear: Gear,
     pub spells: Vec<Spell>,
+    /// Crafts they've taken up (squad: from a teacher or a manual).
+    #[serde(default)]
+    pub crafts: Vec<super::stats::Skill>,
 }
 
 /// Mana regained per game minute with no help from enchantments.
@@ -134,6 +137,7 @@ impl Person {
             name: names::person_name(self.race, self.seed),
             gear: inventory::starting_kit(self.race, &self.kit_stats, self.budget, self.seed),
             spells: magic::starting_spells(&self.kit_stats, self.seed),
+            crafts: Vec::new(),
         });
         self.recompute_might();
         true

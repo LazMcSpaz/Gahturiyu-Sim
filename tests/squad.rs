@@ -33,7 +33,7 @@ fn a_heavy_pack_slows_one_member_down() {
     let mut w = world();
     let (a, b) = (w.squad.members[0], w.squad.members[1]);
     let free = w.member_speed(a);
-    w.people[a as usize].detail.as_mut().unwrap().gear.add(items::id("scale_hauberk"), 6);
+    w.people[a as usize].detail.as_mut().unwrap().gear.add(items::id("scale_hauberk"), 10);
     let loaded = w.member_speed(a);
     assert!(loaded < free * 0.8, "{loaded} vs {free}");
 

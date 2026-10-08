@@ -22,6 +22,7 @@ pub mod inventory;
 pub mod jobs;
 pub mod items;
 pub mod magic;
+pub mod materials;
 pub mod names;
 pub mod news;
 pub mod person;
@@ -39,6 +40,7 @@ pub mod torch;
 pub mod stealth;
 pub mod terrain;
 pub mod tide;
+pub mod wear;
 pub mod world;
 pub mod worldgen;
 

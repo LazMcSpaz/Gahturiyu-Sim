@@ -63,10 +63,16 @@ pub enum Skill {
     Armoring,
     /// Bows and crossbows.
     Marksman,
+    /// Leather, cloth and wood: the shared basics.
+    Handcraft,
+    /// Growing stone.
+    Tending,
+    /// Reed, shell, fishskin and tentsilk; sealing with pitch.
+    Weaving,
 }
 
 /// How many skills there are.
-pub const N_SKILLS: usize = 17;
+pub const N_SKILLS: usize = 20;
 
 pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Blade,
@@ -86,6 +92,9 @@ pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Smithing,
     Skill::Armoring,
     Skill::Marksman,
+    Skill::Handcraft,
+    Skill::Tending,
+    Skill::Weaving,
 ];
 
 impl Skill {
@@ -108,6 +117,9 @@ impl Skill {
             Skill::Smithing => "Smithing",
             Skill::Armoring => "Armoring",
             Skill::Marksman => "Marksman",
+            Skill::Handcraft => "Handcraft",
+            Skill::Tending => "Stone-tending",
+            Skill::Weaving => "Weaving",
         }
     }
 
@@ -122,6 +134,8 @@ impl Skill {
             Skill::Sneak | Skill::Security | Skill::Marksman => Attr::Agility,
             Skill::Alchemy | Skill::Inscription => Attr::Intellect,
             Skill::Smithing | Skill::Armoring => Attr::Strength,
+            Skill::Handcraft | Skill::Weaving => Attr::Agility,
+            Skill::Tending => Attr::Willpower,
         }
     }
 
@@ -254,8 +268,14 @@ impl Stats {
         };
 
         let mut skills = [0.0f32; N_SKILLS];
-        for s in skills.iter_mut() {
+        // (The crafts added later draw from their own roll, so everyone's
+        // other numbers stay as they were.)
+        for s in skills.iter_mut().take(17) {
             *s = 4.0 + rng.f32() * 10.0;
+        }
+        let mut later = Rng::from_keys(&[seed, 0x4352_4146_54]);
+        for s in skills.iter_mut().skip(17) {
+            *s = 4.0 + later.f32() * 10.0;
         }
         let mut lift = |s: Skill, by: f32, rng: &mut Rng| {
             skills[s as usize] += by * (0.6 + rng.f32() * 0.8);

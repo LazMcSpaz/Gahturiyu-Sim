@@ -55,6 +55,8 @@ pub const GRAVE_SIDE: Side = 250;
 
 /// The "person" behind a fighter that isn't one: a summoned creature or a
 /// raised corpse.
+/// How long a net's tangle lasts, seconds.
+pub const ENTANGLE_SECS: f64 = 4.0;
 pub const NOBODY: PersonId = PersonId::MAX;
 
 /// A fighter that a spell called up.
@@ -189,6 +191,18 @@ pub struct Fighter {
     /// Gear shattered by a spell this fight (gone for good afterwards).
     #[serde(default)]
     pub broke: Vec<super::items::Slot>,
+    /// Which slot each piece of `armor` is worn in.
+    #[serde(default)]
+    pub armor_slots: Vec<super::items::Slot>,
+    /// Wear this fight, written back afterwards: blows struck with the
+    /// weapon, blows taken by the shield, and for each piece of armour the
+    /// blows it caught and how many of them were heavy blunt ones.
+    #[serde(default)]
+    pub weapon_wear: f32,
+    #[serde(default)]
+    pub shield_wear: f32,
+    #[serde(default)]
+    pub armor_wear: Vec<[f32; 2]>,
 }
 
 impl Fighter {
@@ -208,7 +222,9 @@ impl Fighter {
         for (i, part) in PARTS.iter().enumerate() {
             max_hp[i] = p.stats.max_hp(*part);
         }
-        let armor: Vec<ArmorDef> = gear.equipped().filter_map(|id| item(id).armor().copied()).collect();
+        let worn_armor: Vec<(super::items::Slot, ArmorDef)> = super::items::SLOTS.iter().filter_map(|&s| gear.in_slot(s).and_then(|id| item(id).armor().copied()).map(|a| (s, a))).collect();
+        let armor: Vec<ArmorDef> = worn_armor.iter().map(|x| x.1).collect();
+        let armor_slots: Vec<super::items::Slot> = worn_armor.iter().map(|x| x.0).collect();
         let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum();
         let speed_bonus = gear.worn(Does::MoveSpeed);
         let load = gear.load(&p.stats);
@@ -274,6 +290,10 @@ impl Fighter {
             summon: None,
             raised: false,
             broke: Vec::new(),
+            armor_wear: vec![[0.0; 2]; armor_slots.len()],
+            armor_slots: armor_slots,
+            weapon_wear: 0.0,
+            shield_wear: 0.0,
         }
     }
 
@@ -289,7 +309,7 @@ impl Fighter {
         for (i, part) in PARTS.iter().enumerate() {
             max_hp[i] = stats.max_hp(*part) * c.hp * power;
         }
-        let weapon = WeaponDef { skill: Skill::Unarmed, cut: c.cut * power, blunt: c.blunt * power, reach: c.reach, windup: 0.5, recover: 0.45, two_handed: false, parry: 0.0, range: 0.0, ammo: None };
+        let weapon = WeaponDef { skill: Skill::Unarmed, cut: c.cut * power, blunt: c.blunt * power, reach: c.reach, windup: 0.5, recover: 0.45, two_handed: false, parry: 0.0, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 };
         Fighter {
             pid: NOBODY,
             side,
@@ -342,6 +362,10 @@ impl Fighter {
             summon: Some(Summoned { kind, until, mindless: false }),
             raised: false,
             broke: Vec::new(),
+            armor_wear: Vec::new(),
+            armor_slots: Vec::new(),
+            weapon_wear: 0.0,
+            shield_wear: 0.0,
         }
     }
 
@@ -886,8 +910,13 @@ impl Battle {
         let size = if shot { 1.0 } else { self.fighters[a].size() };
         let mut cut = weapon.cut * (1.0 + strength * 0.006 * pull) * skill_mult * roll * size;
         let mut blunt = weapon.blunt * (1.0 + strength * 0.010 * pull) * skill_mult * roll * size;
+        // The weapon wears with every blow that connects (bowstrings less).
+        self.fighters[a].weapon_wear += if shot { 0.3 } else { 1.0 };
 
         if r_block < p_block {
+            if self.fighters[d].shield > 0.0 {
+                self.fighters[d].shield_wear += 1.0;
+            }
             self.fighters[d].train(Skill::Block, 1.0);
             self.fighters[d].fatigue -= (cut + blunt) * 0.4;
             self.fighters[a].train(weapon.skill, 0.5);
@@ -913,19 +942,31 @@ impl Battle {
         // Toughened skin is one more layer, everywhere.
         let skin = self.fighters[d].power(Does::Toughen).min(0.8);
         let skin = ArmorDef { covers: &PARTS, coverage: 1.0, cut: skin, blunt: skin * 0.6, dodge_penalty: 0.0 };
-        let mut layers: Vec<&ArmorDef> = self.fighters[d].armor.iter().filter(|a| a.covers.contains(&part)).collect();
+        // (Indices into the armour worn; None for the skin.)
+        let mut layers: Vec<(Option<usize>, ArmorDef)> = self.fighters[d].armor.iter().enumerate().filter(|(_, a)| a.covers.contains(&part)).map(|(i, a)| (Some(i), *a)).collect();
         if skin.cut > 0.0 {
-            layers.push(&skin);
+            layers.push((None, skin));
         }
-        layers.sort_by(|x, y| y.cut.total_cmp(&x.cut));
-        // Rusted armour stops less (skin doesn't rust).
+        layers.sort_by(|x, y| y.1.cut.total_cmp(&x.1.cut));
+        // Rusted armour stops less (skin doesn't rust); a heavy point gets
+        // through some of it.
         let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
-        for (k, layer) in layers.iter().enumerate() {
+        let through = 1.0 - weapon.pierce.clamp(0.0, 0.9);
+        let heavy = blunt > cut;
+        for (k, (which, layer)) in layers.iter().enumerate() {
             let r = if k == 0 { r_cover1 } else { r_cover2 };
-            let worn = if std::ptr::eq(*layer, &skin) { 1.0 } else { rust };
+            let worn = if which.is_none() { 1.0 } else { rust * through };
             if r < layer.coverage {
                 cut *= 1.0 - layer.cut * worn;
                 blunt *= 1.0 - layer.blunt * worn;
+                if let Some(i) = which {
+                    if let Some(w) = self.fighters[d].armor_wear.get_mut(*i) {
+                        w[0] += 1.0;
+                        if heavy {
+                            w[1] += 1.0;
+                        }
+                    }
+                }
             }
         }
         let shield = self.fighters[d].warded();
@@ -943,6 +984,12 @@ impl Battle {
             self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), dmg));
         }
         self.wound(d, part, dmg);
+        // A net tangles them up for a few seconds.
+        if weapon.entangle > 0.0 && (r_dmg * 7.31).fract() < weapon.entangle && !self.fighters[d].dead {
+            let until = self.time + ENTANGLE_SECS;
+            self.fighters[d].statuses.push(super::magic::Status { does: Does::Slow, power: 0.75, until });
+            self.say(format!("{an}'s net tangles {dn}."));
+        }
     }
 
     /// Switch between bow and hand weapon (takes a moment).

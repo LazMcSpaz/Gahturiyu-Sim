@@ -42,9 +42,19 @@ pub enum Job {
     Armourer,
     Alchemist,
     Scribe,
+    // Part 2: the other crafts.
+    /// Reed, shell, fishskin and tentsilk; sealing with pitch.
+    Weaver,
+    /// Hides into leather.
+    Tanner,
+    Leatherworker,
+    Tailor,
+    Woodworker,
+    /// Wood into charcoal (and ash).
+    CharcoalBurner,
 }
 
-pub const ALL_JOBS: [Job; 25] = [
+pub const ALL_JOBS: [Job; 31] = [
     Job::Farmer,
     Job::Fisher,
     Job::Forager,
@@ -70,6 +80,12 @@ pub const ALL_JOBS: [Job; 25] = [
     Job::Armourer,
     Job::Alchemist,
     Job::Scribe,
+    Job::Weaver,
+    Job::Tanner,
+    Job::Leatherworker,
+    Job::Tailor,
+    Job::Woodworker,
+    Job::CharcoalBurner,
 ];
 
 impl Job {
@@ -101,6 +117,12 @@ impl Job {
             Job::Armourer => "Armourer",
             Job::Alchemist => "Alchemist",
             Job::Scribe => "Scribe",
+            Job::Weaver => "Weaver and sealer",
+            Job::Tanner => "Tanner",
+            Job::Leatherworker => "Leatherworker",
+            Job::Tailor => "Tailor",
+            Job::Woodworker => "Woodworker",
+            Job::CharcoalBurner => "Charcoal burner",
         }
     }
 
@@ -112,7 +134,8 @@ impl Job {
             Job::Priest | Job::Merchant | Job::Healer | Job::Alchemist => 0.7,
             Job::Runner | Job::Cook | Job::Innkeeper | Job::StoneTender => 0.5,
             Job::KelpGatherer | Job::Labourer | Job::Caravaner => 0.35,
-            Job::Guard | Job::Boatwright | Job::Smith | Job::Armourer => 0.3,
+            Job::Guard | Job::Boatwright | Job::Smith | Job::Armourer | Job::CharcoalBurner | Job::Tanner => 0.3,
+            Job::Weaver | Job::Leatherworker | Job::Tailor | Job::Woodworker => 0.6,
             Job::Farmer | Job::Forager | Job::Fisher | Job::Woodcutter => 0.2,
         }
     }
@@ -130,7 +153,7 @@ impl Job {
             Job::KelpGatherer => (Good::Kelp, KELP_PER_HOUR),
             Job::Forager => (Good::Game, 0.3),
             Job::Woodcutter => (Good::Timber, 0.6),
-            Job::Boatwright | Job::Smith | Job::Armourer | Job::Alchemist | Job::Scribe => (Good::Wares, 0.12),
+            Job::Boatwright => (Good::Wares, 0.12),
             Job::Labourer => (Good::Stone, 0.15),
             _ => return None,
         })
@@ -152,6 +175,24 @@ impl Job {
             Job::Official | Job::Arbiter => Service::Hall,
             Job::Cook => Service::Meals,
             Job::Guard => Service::Watch,
+            Job::Weaver => Service::Weaving,
+            Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => Service::Basics,
+            Job::StoneTender => Service::Growing,
+            _ => return None,
+        })
+    }
+
+    /// The craft this job works (and can mend), if any.
+    pub fn craft(self) -> Option<super::materials::Craft> {
+        use super::materials::Craft as C;
+        Some(match self {
+            Job::Smith => C::Smithing,
+            Job::Armourer => C::Armoring,
+            Job::StoneTender => C::Tending,
+            Job::Weaver => C::Weaving,
+            Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => C::Handcraft,
+            Job::Scribe => C::Inscription,
+            Job::Alchemist => C::Alchemy,
             _ => return None,
         })
     }
@@ -346,6 +387,10 @@ pub enum PlaceKind {
     Bench,
     Desk,
     AlchemyTable,
+    /// Weaver's frames and a sealing pit (split towns).
+    WeaversShed,
+    /// Leather, cloth and wood (split towns).
+    Workshop,
 }
 
 impl PlaceKind {
@@ -380,6 +425,8 @@ impl PlaceKind {
             PlaceKind::Bench => "Armourer's shop",
             PlaceKind::Desk => "Scribe's room",
             PlaceKind::AlchemyTable => "Alchemist's shop",
+            PlaceKind::WeaversShed => "Weavers' shed",
+            PlaceKind::Workshop => "Workshop",
         }
     }
 
@@ -405,7 +452,10 @@ impl PlaceKind {
     /// Crafting stations set up here.
     pub fn stations(self) -> &'static [Station] {
         match self {
-            PlaceKind::Workyard => &[Station::Forge, Station::Bench],
+            PlaceKind::Workyard => &[Station::Forge, Station::Bench, Station::Loom, Station::Workbench, Station::GrowerBed],
+            PlaceKind::TendersYard => &[Station::GrowerBed],
+            PlaceKind::WeaversShed | PlaceKind::Boatyard => &[Station::Loom],
+            PlaceKind::Workshop => &[Station::Workbench],
             PlaceKind::Forge => &[Station::Forge],
             PlaceKind::Bench => &[Station::Bench],
             PlaceKind::HealingHouse | PlaceKind::AlchemyTable => &[Station::AlchemyTable],
@@ -436,9 +486,12 @@ pub enum Service {
     Hall,
     Meals,
     Watch,
+    Weaving,
+    Basics,
+    Growing,
 }
 
-pub const SERVICES: [Service; 13] = [
+pub const SERVICES: [Service; 16] = [
     Service::Trade,
     Service::Meals,
     Service::Lodging,
@@ -452,6 +505,9 @@ pub const SERVICES: [Service; 13] = [
     Service::Shrine,
     Service::Hall,
     Service::Watch,
+    Service::Weaving,
+    Service::Basics,
+    Service::Growing,
 ];
 
 impl Service {
@@ -470,6 +526,9 @@ impl Service {
             Service::Hall => "Hall",
             Service::Meals => "Kitchen",
             Service::Watch => "Watch",
+            Service::Weaving => "Weaving and sealing",
+            Service::Basics => "Leather, cloth, wood",
+            Service::Growing => "Grown goods",
         }
     }
 }

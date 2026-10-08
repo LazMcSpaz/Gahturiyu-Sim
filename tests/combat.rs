@@ -56,7 +56,7 @@ fn fights_come_out_the_same_however_the_world_is_stepped() {
         for k in 0..6 {
             assert!((ha[k] - hb[k]).abs() < 0.01, "person {} part {k}: {} vs {}", pa.id, ha[k], hb[k]);
         }
-        assert!((pa.mana_at(t) - pb.mana_at(t)).abs() < 0.01);
+        assert!((pa.mana_at(t) - pb.mana_at(t)).abs() < 0.01, "person {} mana {} vs {}", pa.id, pa.mana_at(t), pb.mana_at(t));
     }
 }
 

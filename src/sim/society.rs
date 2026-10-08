@@ -29,6 +29,8 @@ use super::world::{World, DAY, HOUR};
 pub const DAWN: i64 = 6;
 /// A town where this many roads meet counts as on the roads (and keeps an inn).
 pub const ROADS_MEET: usize = 5;
+/// People per crafter of a craft their community fully leans toward.
+pub const CRAFT_PER: f32 = 25.0;
 /// Days in the week (rest days come round once a week).
 pub const WEEK: i64 = 6;
 /// Market day comes round every this many days.
@@ -508,6 +510,11 @@ impl World {
             }
             out.push(P::Forge);
             out.push(P::Bench);
+            out.push(P::WeaversShed);
+            out.push(P::Workshop);
+            if !out.contains(&P::TendersYard) {
+                out.push(P::TendersYard);
+            }
         }
         if !out.iter().any(|k| k.stations().contains(&super::crafting::Station::Desk)) {
             out.push(P::Desk);
@@ -656,6 +663,9 @@ impl World {
                 Job::Teacher => matches!(k, P::TeachingHouse | P::LettersHouse),
                 Job::Exchanger => matches!(k, P::ExchangeHouse | P::LettersHouse),
                 Job::Scribe => matches!(k, P::Desk | P::LettersHouse),
+                Job::Weaver => if c.stilts { k == P::Boatyard } else { matches!(k, P::WeaversShed | P::Workyard) },
+                Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => !c.stilts && matches!(k, P::Workshop | P::Workyard),
+                Job::CharcoalBurner => !c.stilts && k == P::Woodlot,
                 Job::Alchemist => matches!(k, P::AlchemyTable | P::HealingHouse),
                 Job::Smith => matches!(k, P::Workyard | P::Forge),
                 Job::Armourer => matches!(k, P::Workyard | P::Bench),
@@ -711,7 +721,15 @@ impl World {
             Job::Priest if !c.stilts => 1 + n / 250,
             Job::Healer if !c.stilts => 1 + n / 250,
             Job::Teacher | Job::Exchanger if !c.stilts => 1,
-            Job::Scribe | Job::Alchemist | Job::Smith | Job::Armourer if !c.stilts && n >= 30 => 1,
+            Job::Alchemist if !c.stilts && n >= 30 => 1,
+            // Crafts by what the community leans toward: a town with few
+            // who know the forge may have no smith at all.
+            Job::Weaver => self.craft_posts(c, Job::Weaver, nf),
+            Job::Smith | Job::Armourer | Job::Scribe if !c.stilts => self.craft_posts(c, job, nf),
+            Job::Tanner | Job::Woodworker if !c.stilts && n >= 40 => 1,
+            Job::Leatherworker if !c.stilts => 1 + n / 150,
+            Job::Tailor if !c.stilts && n >= 60 => 1,
+            Job::CharcoalBurner if !c.stilts && n >= 60 && c.blend.crafts[super::materials::Craft::Smithing.index()] > 0.3 => 1,
             Job::StoneTender if !c.stilts => {
                 let stone = self.settlements[c.town as usize].buildings.iter().filter(|b| matches!(b.kind, BuildingKind::RoduroHome | BuildingKind::HoraroStilt)).count();
                 stone.div_ceil(14)
@@ -720,8 +738,13 @@ impl World {
         }
     }
 
+    fn craft_posts(&self, c: &Community, job: Job, n: f32) -> usize {
+        let craft = job.craft().expect("a craft job");
+        (n / CRAFT_PER * c.blend.crafts[craft.index()] + 0.5).floor() as usize
+    }
+
     /// The order posts are filled in: what a town can least do without first.
-    const POST_ORDER: [Job; 23] = [
+    const POST_ORDER: [Job; 29] = [
         Job::Guard,
         Job::Cook,
         Job::Farmer,
@@ -736,6 +759,12 @@ impl World {
         Job::Armourer,
         Job::Alchemist,
         Job::Scribe,
+        Job::Weaver,
+        Job::Leatherworker,
+        Job::Tanner,
+        Job::Woodworker,
+        Job::Tailor,
+        Job::CharcoalBurner,
         Job::Exchanger,
         Job::Teacher,
         Job::Arbiter,

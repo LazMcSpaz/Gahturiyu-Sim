@@ -442,6 +442,21 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 b.column(base + vec3(0.3, 0.85, 0.0), 0.15, 0.08, 0.35, 6, [0.4, 0.8, 0.6]);
                 b.column(base + vec3(-0.3, 0.85, 0.1), 0.12, 0.05, 0.3, 6, [0.85, 0.3, 0.35]);
             }
+            Station::Loom => {
+                for dx in [-0.9f32, 0.9] {
+                    b.stick(base + vec3(dx, 0.0, 0.0), base + vec3(dx, 1.8, 0.0), 0.1, palette::TIMBER);
+                }
+                b.block(base + vec3(0.0, 0.5, 0.0), 1.7, 0.08, 1.1, 0.0, [0.42, 0.48, 0.30]);
+                b.column(base + vec3(0.0, 0.0, 1.2), 0.5, 0.5, 0.35, 8, [0.12, 0.10, 0.08]);
+            }
+            Station::Workbench => {
+                b.block(base, 2.0, 0.9, 0.85, a, palette::TIMBER);
+                b.block(base + vec3(0.4, 0.85, 0.0), 0.7, 0.5, 0.06, a, [0.55, 0.38, 0.24]);
+            }
+            Station::GrowerBed => {
+                b.block(base, 2.4, 1.6, 0.35, a, palette::STONE);
+                b.dome(base + vec3(0.0, 0.35, 0.0), 0.6, 0.5, 0.5, 0.1, 0.12, 7, palette::STONE);
+            }
         }
         game.picks.push((base + vec3(0.0, 1.3, 0.0), 2.0, Hover::Station(i)));
     }
@@ -1273,7 +1288,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
                 b.dome(base + vec3(a.cos(), 0.0, a.sin()) * (size * 0.3), 1.2, 1.0, 1.0 + u(5 + i as u64) * 0.8, 0.1, 0.12, wp.seed ^ i as u64, palette::STONE);
             }
         }
-        PlaceKind::Workyard | PlaceKind::Forge | PlaceKind::Bench | PlaceKind::Desk | PlaceKind::AlchemyTable => {
+        PlaceKind::Workyard | PlaceKind::Forge | PlaceKind::Bench | PlaceKind::Desk | PlaceKind::AlchemyTable | PlaceKind::WeaversShed | PlaceKind::Workshop => {
             if k == PlaceKind::Workyard {
                 // A fenced yard.
                 let half = size * 0.5;

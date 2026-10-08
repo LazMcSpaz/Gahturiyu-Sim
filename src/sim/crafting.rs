@@ -38,6 +38,12 @@ pub enum Station {
     Bench,
     Desk,
     AlchemyTable,
+    /// Weaver's frame and sealing pit.
+    Loom,
+    /// Leather, cloth and wood.
+    Workbench,
+    /// Where stone is grown.
+    GrowerBed,
 }
 
 impl Station {
@@ -47,11 +53,14 @@ impl Station {
             Station::Bench => "Armourer's bench",
             Station::Desk => "Scribe's desk",
             Station::AlchemyTable => "Alchemy table",
+            Station::Loom => "Weaver's frame",
+            Station::Workbench => "Workbench",
+            Station::GrowerBed => "Grower's bed",
         }
     }
 }
 
-pub const STATIONS: [Station; 4] = [Station::Forge, Station::Bench, Station::Desk, Station::AlchemyTable];
+pub const STATIONS: [Station; 7] = [Station::Forge, Station::Bench, Station::Desk, Station::AlchemyTable, Station::Loom, Station::Workbench, Station::GrowerBed];
 
 /// How close to a station you must stand to use it, metres.
 pub const AT_STATION: f32 = 3.0;

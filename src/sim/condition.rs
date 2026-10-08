@@ -418,7 +418,7 @@ impl World {
     /// The best thing in someone's pack to eat now.
     fn food_for(&self, pid: PersonId, hunger: f32) -> Option<ItemId> {
         let d = self.people[pid as usize].detail.as_ref()?;
-        let foods: Vec<(ItemId, f32)> = d.gear.bag.iter().filter_map(|&(i, _)| if let Kind::Food(n) = item(i).kind { Some((i, n)) } else { None }).collect();
+        let foods: Vec<(ItemId, f32)> = d.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect();
         // The biggest meal that won't be wasted, else the smallest one there is.
         foods
             .iter()

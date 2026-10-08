@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::effects::{Does, Lasts};
 use super::items::{self, item, ItemId, Kind, Slot, WeaponDef, FISTS, SLOTS};
+use super::materials::Piece;
 use super::race::Race;
 use super::rng::Rng;
 use super::stats::{Calling, Skill, Stats, ATTRS, SKILLS};
@@ -16,9 +17,17 @@ use super::stats::{Calling, Skill, Stats, ATTRS, SKILLS};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Gear {
     slots: [Option<ItemId>; 10],
-    /// Everything not worn: (item, how many).
-    pub bag: Vec<(ItemId, u16)>,
+    /// The made pieces being worn, slot by slot (wear and maker's mark).
+    #[serde(default)]
+    pieces: [Option<Piece>; 10],
+    /// Everything not worn: (item, how many, and for a made piece its own
+    /// state — such pieces never stack).
+    pub bag: Vec<Entry>,
 }
+
+/// Some of one thing in the pack.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Entry(pub ItemId, pub u16, pub Option<Piece>);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EquipError {
@@ -42,23 +51,72 @@ impl Gear {
     }
 
     pub fn add(&mut self, id: ItemId, n: u16) {
-        if let Some(e) = self.bag.iter_mut().find(|e| e.0 == id) {
+        if n == 0 {
+            return;
+        }
+        if let Some(e) = self.bag.iter_mut().find(|e| e.0 == id && e.2.is_none()) {
             e.1 += n;
         } else {
-            self.bag.push((id, n));
+            self.bag.push(Entry(id, n, None));
         }
     }
 
+    /// Put one made piece in the pack, with its own wear and mark.
+    pub fn add_piece(&mut self, id: ItemId, piece: Piece) {
+        self.bag.push(Entry(id, 1, Some(piece)));
+    }
+
     pub fn take(&mut self, id: ItemId) -> bool {
-        if let Some(i) = self.bag.iter().position(|e| e.0 == id) {
-            self.bag[i].1 -= 1;
-            if self.bag[i].1 == 0 {
-                self.bag.remove(i);
-            }
-            true
-        } else {
-            false
+        self.take_piece(id).is_some()
+    }
+
+    /// Take one of something from the pack; for a made piece, its own state
+    /// comes with it (`Some(None)` for a plain one).
+    pub fn take_piece(&mut self, id: ItemId) -> Option<Option<Piece>> {
+        // Plain ones first, so a marked piece isn't spent by accident.
+        let i = self.bag.iter().position(|e| e.0 == id && e.2.is_none()).or_else(|| self.bag.iter().position(|e| e.0 == id))?;
+        let piece = self.bag[i].2;
+        self.bag[i].1 -= 1;
+        if self.bag[i].1 == 0 {
+            self.bag.remove(i);
         }
+        Some(piece)
+    }
+
+    /// Take the `k`th entry of the pack (as listed) whole: for picking a
+    /// particular piece.
+    pub fn take_entry(&mut self, k: usize) -> Option<(ItemId, Option<Piece>)> {
+        let e = *self.bag.get(k)?;
+        if e.1 > 1 {
+            self.bag[k].1 -= 1;
+        } else {
+            self.bag.remove(k);
+        }
+        Some((e.0, e.2))
+    }
+
+    /// The made piece worn in a slot, if it has its own state.
+    pub fn piece(&self, s: Slot) -> Option<&Piece> {
+        self.pieces[slot_index(s)].as_ref()
+    }
+
+    pub fn piece_mut(&mut self, s: Slot) -> Option<&mut Piece> {
+        self.pieces[slot_index(s)].as_mut()
+    }
+
+    /// Give whatever's worn in a slot its own state (full durability) if it
+    /// has none yet, and return it.
+    pub fn own_piece(&mut self, s: Slot, t: f64) -> Option<&mut Piece> {
+        let i = slot_index(s);
+        let id = self.slots[i]?;
+        let most = items::max_durability(id);
+        if most <= 0.0 {
+            return None;
+        }
+        if self.pieces[i].is_none() {
+            self.pieces[i] = Some(Piece::new(most, t));
+        }
+        self.pieces[i].as_mut()
     }
 
     /// Put something on straight from nowhere (for building NPC kit).
@@ -86,14 +144,45 @@ impl Gear {
         if two_handed {
             self.unequip(Slot::OffHand);
         }
-        self.take(id);
+        let piece = self.take_piece(id).flatten();
         self.unequip(def.slot);
         self.slots[slot_index(def.slot)] = Some(id);
+        self.pieces[slot_index(def.slot)] = piece;
         Ok(())
+    }
+
+    /// Put on the `k`th thing in the pack (a particular piece).
+    pub fn equip_entry(&mut self, k: usize) -> Result<(), EquipError> {
+        let Some(e) = self.bag.get(k).copied() else { return Err(EquipError::NotInBag) };
+        // Move it to the front of its kind so `equip` picks this one.
+        self.bag.remove(k);
+        self.bag.insert(0, e);
+        if e.2.is_some() {
+            // (take_piece prefers plain ones; take this piece directly.)
+            let def = item(e.0);
+            let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
+            if def.slot == Slot::OffHand {
+                if let Some(m) = self.in_slot(Slot::MainHand) {
+                    if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) {
+                        self.unequip(Slot::MainHand);
+                    }
+                }
+            }
+            if two_handed {
+                self.unequip(Slot::OffHand);
+            }
+            let (id, piece) = self.take_entry(0).unwrap();
+            self.unequip(def.slot);
+            self.slots[slot_index(def.slot)] = Some(id);
+            self.pieces[slot_index(def.slot)] = piece;
+            return Ok(());
+        }
+        self.equip(e.0)
     }
 
     /// Whatever is in a slot is used up (not put back in the pack).
     pub fn discard(&mut self, s: Slot) -> Option<ItemId> {
+        self.pieces[slot_index(s)] = None;
         self.slots[slot_index(s)].take()
     }
 
@@ -101,8 +190,12 @@ impl Gear {
     pub fn unequip(&mut self, s: Slot) -> Option<ItemId> {
         let i = slot_index(s);
         let it = self.slots[i].take();
+        let piece = self.pieces[i].take();
         if let Some(id) = it {
-            self.add(id, 1);
+            match piece {
+                Some(p) => self.add_piece(id, p),
+                None => self.add(id, 1),
+            }
         }
         it
     }
@@ -137,7 +230,7 @@ impl Gear {
     /// Kilograms, worn and carried.
     pub fn weight(&self) -> f32 {
         let worn: f32 = self.equipped().map(|id| item(id).weight).sum();
-        let packed: f32 = self.bag.iter().map(|(id, n)| item(*id).weight * *n as f32).sum();
+        let packed: f32 = self.bag.iter().map(|e| item(e.0).weight * e.1 as f32).sum();
         worn + packed
     }
 
@@ -158,7 +251,7 @@ impl Gear {
 
     /// Total value, coin.
     pub fn value(&self) -> f32 {
-        self.equipped().map(|id| item(id).value).sum::<f32>() + self.bag.iter().map(|(id, n)| item(*id).value * *n as f32).sum::<f32>()
+        self.equipped().map(|id| item(id).value).sum::<f32>() + self.bag.iter().map(|e| item(e.0).value * e.1 as f32).sum::<f32>()
     }
 }
 
@@ -273,7 +366,7 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         }
     }
     // Spare clothes don't travel; drop anything replaced.
-    g.bag.retain(|(id, _)| !matches!(item(*id).key, "cloth_shirt" | "trousers"));
+    g.bag.retain(|e| !matches!(item(e.0).key, "cloth_shirt" | "trousers"));
     g
 }
 

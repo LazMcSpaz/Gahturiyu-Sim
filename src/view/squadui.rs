@@ -80,9 +80,10 @@ impl Selection {
 
 pub enum Action {
     Select(PersonId, bool),
+    /// Put on the pack's `k`th entry.
+    EquipEntry(PersonId, usize),
     OpenInventory(PersonId),
     Unequip(PersonId, Slot),
-    Equip(PersonId, ItemId),
     Drop(PersonId, ItemId),
     Use(PersonId, ItemId),
     Craft(PersonId, usize),
@@ -510,6 +511,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         }
         c.text(s.name(), x + 8.0, y, 14.0, DIM);
         let mut name = it.map(|i| item(i).name.to_string()).unwrap_or("—".into());
+        if let (Some(i), Some(pc)) = (it, gear.piece(s)) {
+            name += &wear_word(w, i, pc);
+        }
         if it.map(|i| matches!(item(i).kind, Kind::Torch(_))).unwrap_or(false) {
             if let Some(h) = w.torch_hours_left(pid) {
                 name = format!("{name} ({}, {:.1} h)", if w.torch_lit(pid) { "lit" } else { "out" }, h);
@@ -530,7 +534,8 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         y += ROW;
         c.text("empty", x + 8.0, y, 14.0, DIM);
     }
-    for &(i, n) in &gear.bag {
+    for (k, e) in gear.bag.iter().enumerate() {
+        let (i, n) = (e.0, e.1);
         y += ROW;
         if y > r.y + r.h - 34.0 {
             c.text("…", x + 8.0, y, 14.0, DIM);
@@ -541,7 +546,8 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
             c.rect(rr.x, rr.y, rr.w, rr.h, ega(GOLD, 0.12));
             hovered = Some(i);
         }
-        let label = if n > 1 { format!("{}  ×{n}", item(i).name) } else { item(i).name.to_string() };
+        let worn = e.2.map(|pc| wear_word(w, i, &pc)).unwrap_or_default();
+        let label = if n > 1 { format!("{}  ×{n}", item(i).name) } else { format!("{}{worn}", item(i).name) };
         c.text(&label, x + 8.0, y, 14.0, TEXT);
         let kg = format!("{:.1} kg", item(i).weight * n as f32);
         c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
@@ -549,8 +555,8 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
             if ck.right {
                 act = Some(Action::Drop(pid, i));
             } else if !locked && items::equippable(i) {
-                act = Some(Action::Equip(pid, i));
-            } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_)) {
+                act = Some(Action::EquipEntry(pid, k));
+            } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_)) {
                 act = Some(Action::Use(pid, i));
             }
         }
@@ -560,10 +566,28 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
     (act, hovered, Some(r))
 }
 
+/// "  (63%)": how worn a made piece is, if it is.
+pub fn wear_word(w: &World, id: ItemId, pc: &gahturiyu_sim::sim::materials::Piece) -> String {
+    let most = items::max_durability(id);
+    if most <= 0.0 {
+        return String::new();
+    }
+    let left = pc.left_at(items::info(id).main.def().rots, w.time);
+    let mark = if pc.mark.map(|m| m.stamped).unwrap_or(false) { "  ◆" } else { "" };
+    let rot = if items::info(id).main.def().rots && !pc.sealed { ", unsealed" } else { "" };
+    format!("  ({:.0}%{rot}){mark}", (left / most * 100.0).clamp(0.0, 100.0))
+}
+
 /// A few lines describing an item.
 pub fn item_lines(id: ItemId) -> Vec<(String, Rgb)> {
     let d = item(id);
     let mut out = vec![(d.name.to_string(), GOLD)];
+    let made = items::info(id);
+    let most = items::max_durability(id);
+    if most > 0.0 {
+        let mend = if !items::repairable(id) { "can't be mended" } else { items::craft_of(id).name() };
+        out.push((format!("{} ({}){}  ·  {} grade  ·  lasts {:.0} blows  ·  {mend}", made.main.name(), made.main.def().tradition.name(), if made.second != gahturiyu_sim::sim::materials::Material::None { format!(" on {}", made.second.name()) } else { String::new() }, made.grade.name(), most), DIM));
+    }
     match &d.kind {
         Kind::Weapon(wd) => {
             out.push((format!("{}  ·  {} weapon{}", d.slot.name(), wd.skill.name().to_lowercase(), if wd.two_handed { ", two-handed" } else { "" }), TEXT));
@@ -607,6 +631,7 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Rgb)> {
             }
         }
         Kind::Potion => out.push(("Potion  ·  click in the pack to drink".into(), TEXT)),
+        Kind::Manual(s) => out.push((format!("A manual on {}  ·  click to read and take up the craft", s.name().to_lowercase()), TEXT)),
         Kind::Scroll(key) => {
             let sp = gahturiyu_sim::sim::magic::spell(key).def();
             out.push((format!("Scroll: casts {} once, no energy, can't fail", sp.name.to_lowercase()), TEXT));
@@ -631,7 +656,7 @@ pub fn ground_color(id: ItemId) -> Rgb {
         Kind::Pack(_) => [0.70, 0.60, 0.42],
         Kind::Trinket | Kind::Coin => GOLD,
         Kind::Potion => [0.85, 0.25, 0.3],
-        Kind::Scroll(_) | Kind::Errand | Kind::Notes(_) | Kind::Text(_) => [0.9, 0.86, 0.7],
+        Kind::Scroll(_) | Kind::Errand | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_) => [0.9, 0.86, 0.7],
         Kind::Material => [0.55, 0.62, 0.45],
         Kind::Tool => [0.5, 0.5, 0.55],
         Kind::Ammo => [0.6, 0.55, 0.45],
@@ -707,6 +732,9 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
                     Station::Bench => "bench",
                     Station::Desk => "desk",
                     Station::AlchemyTable => "table",
+                    Station::Loom => "frame",
+                    Station::Workbench => "workbench",
+                    Station::GrowerBed => "grower's bed",
                 }
             ),
             Err(Cannot::Missing(..)) => String::new(),

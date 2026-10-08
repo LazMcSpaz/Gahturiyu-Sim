@@ -106,6 +106,7 @@ impl World {
             c.catch.settle();
         }
         s.rates_from = t;
+        self.rot_gear(t);
         if h.rem_euclid(24) == DAWN {
             for town in 0..self.settlements.len() {
                 self.dawn(town as SettlementId, t);
@@ -468,9 +469,9 @@ impl World {
         let mut seen: Vec<ItemId> = Vec::new();
         for &m in &self.squad.members {
             if let Some(d) = &self.people[m as usize].detail {
-                for (it, _) in &d.gear.bag {
-                    if !seen.contains(it) {
-                        seen.push(*it);
+                for e in &d.gear.bag {
+                    if !seen.contains(&e.0) {
+                        seen.push(e.0);
                     }
                 }
             }

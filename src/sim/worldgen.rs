@@ -82,6 +82,33 @@ pub fn generate(seed: u64) -> World {
         p.cond = Some(super::condition::Condition::new(6.0 * HOUR));
         p.specialize(calling, skills, budget);
         p.ensure_detail();
+        // The squad starts in the shared basics: leather, cloth and simple
+        // weapons. The traditions' work is the step up.
+        {
+            let basics: &[&str] = match (race, calling) {
+                (_, Calling::Mage) => &["staff", "padded_jacket", "trousers", "boots"],
+                (_, Calling::Hunter) => &["spear", "hide_coat", "leather_cap", "hide_leggings", "boots", "small_pack"],
+                (Race::Qotiro, _) => &["hatchet", "buckler", "hide_coat", "leather_cap", "hide_leggings", "leather_gloves", "boots"],
+                _ => &["club", "hide_coat", "leather_cap", "hide_leggings", "boots", "small_pack"],
+            };
+            let d = p.detail.as_mut().unwrap();
+            d.gear = super::inventory::Gear::default();
+            for key in basics {
+                let id = super::items::id(key);
+                d.gear.add_piece(id, super::wear::fresh(id, 6.0 * HOUR));
+                let _ = d.gear.equip(id);
+            }
+            if calling == Calling::Hunter {
+                d.gear.add(super::items::id("knife"), 1);
+            }
+            // The crafts they've each taken up.
+            d.crafts = match (race, calling) {
+                (_, Calling::Mage) => vec![Skill::Alchemy, Skill::Inscription],
+                (_, Calling::Hunter) => vec![Skill::Handcraft],
+                (Race::Qotiro, _) => vec![Skill::Smithing, Skill::Armoring],
+                _ => vec![Skill::Tending],
+            };
+        }
         // The squad's mage knows the old six, and Restore.
         if calling == Calling::Mage {
             let d = p.detail.as_mut().unwrap();

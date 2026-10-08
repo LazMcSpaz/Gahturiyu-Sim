@@ -206,7 +206,7 @@ fn caravans_carry_real_cargo() {
             if let Some(c) = w.group(gid).and_then(|g| g.cargo.as_ref()) {
                 if c.delivered && !was {
                     seen_arrival = true;
-                    assert_eq!(c.amount, 0.0, "the goods stay at market");
+                    assert!(c.coin > 0.0 || c.amount > 0.0, "sold, or carried home unsold");
                 }
                 if c.robbed {
                     assert_eq!(c.amount + c.coin, 0.0, "robbed caravans keep nothing");

@@ -119,9 +119,9 @@ fn details_once_built_are_kept() {
         for s in gahturiyu_sim::sim::items::SLOTS {
             assert_eq!(now.gear.in_slot(s), d.gear.in_slot(s), "person {id}'s gear changed while out of sight");
         }
-        for (it, n) in &now.gear.bag {
-            let before = d.gear.bag.iter().find(|e| e.0 == *it).map(|e| e.1).unwrap_or(0);
-            assert!(*n <= before, "person {id} gained things while out of sight");
+        for e in &now.gear.bag {
+            let before = d.gear.bag.iter().find(|x| x.0 == e.0).map(|x| x.1).unwrap_or(0);
+            assert!(e.1 <= before, "person {id} gained things while out of sight");
         }
     }
 }

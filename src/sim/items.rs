@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use super::body::Part;
 use super::effects::{now, worn, Does, Effect, Reach};
+use super::materials::{Craft, Grade, Material, GRADES};
 use super::stats::{Attr, Skill};
 
 pub type ItemId = u16;
@@ -78,6 +79,13 @@ pub struct WeaponDef {
     /// What it shoots (an item key), for ranged weapons.
     #[serde(with = "super::save::opt_name")]
     pub ammo: Option<super::save::Name>,
+    /// Share of the target's armour it gets through (Forgeiron's weight and
+    /// point; Edgeglass has none).
+    #[serde(default)]
+    pub pierce: f32,
+    /// Chance a hit tangles the target up for a few seconds (nets).
+    #[serde(default)]
+    pub entangle: f32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -124,6 +132,8 @@ pub enum Kind {
     Food(f32),
     /// Carried for someone else (a letter to deliver).
     Errand,
+    /// A Ṭaḍoro manual on a craft: read it to take the craft up.
+    Manual(Skill),
     /// Held in the off hand and lit: burns this many hours (see `torch`).
     Torch(f32),
     /// Set in the ground and lit: burns this many hours.
@@ -155,7 +165,7 @@ const fn weapon(key: &'static str, name: &'static str, skill: Skill, cut: f32, b
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, range: 0.0, ammo: None }),
+        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 }),
         weight,
         value,
         effects: &[],
@@ -178,7 +188,7 @@ const fn ranged(key: &'static str, name: &'static str, cut: f32, blunt: f32, ran
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, parry: 0.0, range, ammo: Some(ammo) }),
+        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, parry: 0.0, range, ammo: Some(ammo), pierce: 0.0, entangle: 0.0 }),
         weight,
         value,
         effects: &[],
@@ -199,6 +209,10 @@ const fn notes(key: &'static str, name: &'static str, spell: &'static str, value
 
 const fn text(key: &'static str, name: &'static str, spell: &'static str, value: f32) -> ItemDef {
     ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Text(spell), weight: 0.5, value, effects: &[] }
+}
+
+const fn manual(key: &'static str, name: &'static str, skill: Skill) -> ItemDef {
+    ItemDef { key, name, slot: Slot::MainHand, kind: Kind::Manual(skill), weight: 0.6, value: 120.0, effects: &[] }
 }
 
 const fn potion(key: &'static str, name: &'static str, value: f32, effects: &'static [Effect]) -> ItemDef {
@@ -226,9 +240,22 @@ pub static ITEMS: &[ItemDef] = &[
     ranged("short_bow", "Short bow", 12.0, 0.0, 30.0, 0.8, 0.5, "arrows", 1.5, 60.0),
     ranged("crossbow", "Crossbow", 18.0, 4.0, 38.0, 0.4, 2.6, "bolts", 5.0, 160.0),
     weapon("staff", "Staff", Skill::Blunt, 0.0, 7.0, 1.8, 0.50, 0.50, true, 0.30, 2.0, 20.0),
+    weapon("hatchet", "Hatchet", Skill::Blade, 8.0, 4.0, 0.9, 0.45, 0.45, false, 0.05, 1.2, 14.0),
+    weapon("trident", "Trident", Skill::Spear, 12.0, 2.0, 2.1, 0.55, 0.55, true, 0.20, 3.2, 90.0),
+    ranged("sling", "Sling", 0.0, 9.0, 22.0, 0.6, 0.8, "sling_stones", 0.2, 8.0),
+    ItemDef {
+        key: "net",
+        name: "Weighted net",
+        slot: Slot::MainHand,
+        kind: Kind::Weapon(WeaponDef { skill: Skill::Spear, cut: 0.0, blunt: 2.0, reach: 2.4, windup: 0.8, recover: 0.9, two_handed: true, parry: 0.0, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.45 }),
+        weight: 2.5,
+        value: 35.0,
+        effects: &[],
+    },
     // --- Body armour -----------------------------------------------------
     //     key               name                slot        covers cover  cut   blunt dodge  wt    value
     armor("cloth_shirt", "Cloth shirt", Slot::Body, BODY, 0.90, 0.10, 0.10, 0.00, 1.0, 8.0),
+    armor("wraps", "Silk wraps", Slot::Body, BODY, 0.90, 0.22, 0.18, 0.00, 0.6, 70.0),
     armor("padded_jacket", "Padded jacket", Slot::Body, BODY, 0.90, 0.25, 0.30, 0.02, 4.0, 40.0),
     armor("hide_coat", "Hide coat", Slot::Body, BODY, 0.85, 0.35, 0.25, 0.04, 6.0, 70.0),
     armor("scale_hauberk", "Scale hauberk", Slot::Body, BODY, 0.85, 0.60, 0.30, 0.10, 14.0, 260.0),
@@ -266,6 +293,42 @@ pub static ITEMS: &[ItemDef] = &[
     material("hide", "Hide", 2.0, 6.0),
     material("leather", "Leather", 1.0, 10.0),
     material("timber", "Timber", 2.5, 3.0),
+    // Raw materials (each is also a good in a town's store).
+    material("rock", "Rock feedstock", 3.0, 1.0),
+    material("ash", "Ash", 0.5, 1.0),
+    material("edge_seed", "Edgeglass seed crystal", 0.2, 40.0),
+    material("clay", "Clay", 2.0, 1.0),
+    material("charcoal", "Charcoal", 1.0, 2.0),
+    material("sand", "Sand", 2.0, 0.5),
+    material("gold_nugget", "Gold", 0.3, 45.0),
+    material("seareed", "Seareed", 0.5, 2.0),
+    material("pitch", "Pitch", 0.8, 4.0),
+    material("nacre", "Nacre", 0.4, 12.0),
+    material("pearl", "Pearl", 0.05, 30.0),
+    material("fishskin", "Fishskin", 0.3, 4.0),
+    material("salvage", "Salvage", 2.0, 8.0),
+    material("tentsilk", "Tentsilk", 0.2, 10.0),
+    material("fibre", "Fibre", 0.5, 1.5),
+    material("cloth", "Cloth", 0.5, 4.0),
+    // Grown stock, from the Tenders' beds.
+    material("ringstone", "Ringstone block", 6.0, 12.0),
+    material("slatewing", "Slatewing sheet", 1.0, 20.0),
+    material("edgeglass", "Edgeglass blank", 0.6, 70.0),
+    material("hearthclay", "Hearthclay", 1.5, 3.0),
+    // Made for trade.
+    material("bronze_ingot", "Bronze ingot", 2.0, 8.0),
+    trinket("hearthclay_pot", "Hearthclay pot", Slot::MainHand, 1.2, 6.0, &[]),
+    trinket("sandglass_flask", "Sandglass flask", Slot::MainHand, 0.3, 12.0, &[]),
+    trinket("gold_ring", "Gold ring", Slot::Ring, 0.05, 90.0, &[]),
+    trinket("pearl_necklace", "Pearl necklace", Slot::Neck, 0.1, 140.0, &[]),
+    // Ṭaḍoro manuals: read one to take up a craft.
+    manual("manual_handcraft", "Manual of leather, cloth and wood", Skill::Handcraft),
+    manual("manual_smithing", "Manual of smithing", Skill::Smithing),
+    manual("manual_armoring", "Manual of armouring", Skill::Armoring),
+    manual("manual_tending", "Manual of stone-tending", Skill::Tending),
+    manual("manual_weaving", "Manual of weaving and sealing", Skill::Weaving),
+    manual("manual_inscription", "Manual of paper and ink", Skill::Inscription),
+    manual("manual_alchemy", "Manual of alchemy", Skill::Alchemy),
     // --- Food (placeholder names) ---------------------------------------------
     food("dried_fish", "Dried fish", 0.3, 4.0, 25.0),
     food("flatbread", "Flatbread", 0.4, 3.0, 30.0),
@@ -274,6 +337,7 @@ pub static ITEMS: &[ItemDef] = &[
     food("mussels", "Mussels", 0.3, 2.0, 14.0),
     ItemDef { key: "arrows", name: "Arrows", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.04, value: 1.0, effects: &[] },
     ItemDef { key: "bolts", name: "Crossbow bolts", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.06, value: 2.0, effects: &[] },
+    ItemDef { key: "sling_stones", name: "Sling stones", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.05, value: 0.2, effects: &[] },
     ItemDef { key: "coin", name: "Coin", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.005, value: 1.0, effects: &[] },
     // Fifty coin on Ṭaḍoro paper: next to nothing to carry, but as easily stolen or lost.
     ItemDef { key: "note", name: "Note (50 coin)", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.001, value: 50.0, effects: &[] },
@@ -376,12 +440,206 @@ pub fn equippable(id: ItemId) -> bool {
 }
 
 pub fn item(id: ItemId) -> &'static ItemDef {
-    &ITEMS[id as usize]
+    &catalogue().defs[id as usize]
 }
 
 /// Look an item up by its key. Panics on a typo, which is what tests want.
 pub fn id(key: &str) -> ItemId {
-    ITEMS.iter().position(|d| d.key == key).unwrap_or_else(|| panic!("no item called {key}")) as ItemId
+    *catalogue().by_key.get(key).unwrap_or_else(|| panic!("no item called {key}"))
+}
+
+/// What a catalogue entry is made of: its form (the plain item it's a version
+/// of), main and second material, and grade.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ItemInfo {
+    pub form: ItemId,
+    pub main: Material,
+    pub second: Material,
+    pub grade: Grade,
+}
+
+pub fn info(id: ItemId) -> &'static ItemInfo {
+    &catalogue().info[id as usize]
+}
+
+/// The version of `form` in these materials at this grade, if there is one.
+pub fn variant(form: ItemId, main: Material, second: Material, grade: Grade) -> Option<ItemId> {
+    catalogue().variants.get(&(form, main, second, grade)).copied()
+}
+
+/// How many blows it takes before it's worn out (0: it doesn't wear).
+pub fn max_durability(id: ItemId) -> f32 {
+    let i = info(id);
+    if i.main == Material::None || !equippable(id) || matches!(item(id).kind, Kind::Trinket | Kind::Torch(_)) {
+        return 0.0;
+    }
+    let d = i.main.def().durability;
+    let d = if i.second != Material::None { (d + i.second.def().durability) * 0.5 * 1.2 } else { d };
+    d * i.grade.durability()
+}
+
+/// Can it be mended at all?
+pub fn repairable(id: ItemId) -> bool {
+    let i = info(id);
+    i.main.def().repairable && (i.second == Material::None || i.second.def().repairable)
+}
+
+/// The craft that mends it (the main material's).
+pub fn craft_of(id: ItemId) -> Craft {
+    info(id).main.def().craft
+}
+
+pub fn catalogue() -> &'static Catalogue {
+    static CAT: std::sync::OnceLock<Catalogue> = std::sync::OnceLock::new();
+    CAT.get_or_init(Catalogue::build)
+}
+
+/// Every item there is: the plain table above, then every version of each
+/// form in each material and grade, worked out once.
+pub struct Catalogue {
+    pub defs: Vec<ItemDef>,
+    pub info: Vec<ItemInfo>,
+    by_key: std::collections::HashMap<&'static str, ItemId>,
+    variants: std::collections::HashMap<(ItemId, Material, Material, Grade), ItemId>,
+}
+
+/// A form: what it's usually made of, and what else it can be made of
+/// (main materials, and backing materials it can be made on).
+pub struct Form {
+    pub key: &'static str,
+    pub noun: &'static str,
+    pub usual: Material,
+    pub mains: &'static [Material],
+    pub seconds: &'static [Material],
+}
+
+use Material as M;
+
+const fn f(key: &'static str, noun: &'static str, usual: Material, mains: &'static [Material], seconds: &'static [Material]) -> Form {
+    Form { key, noun, usual, mains, seconds }
+}
+
+/// Each made form and its materials. Shared basics are in plain iron, wood,
+/// leather and cloth; the traditions' materials are the step up. A second
+/// material backs the main one (an Edgeglass edge on a Forgeiron spine,
+/// Nacre scales on a Slatewing frame); any listed pairing can turn up.
+pub static FORMS: &[Form] = &[
+    f("knife", "knife", M::PlainIron, &[M::PlainIron, M::Bronze, M::Forgeiron, M::Edgeglass, M::Nacre], &[]),
+    f("hatchet", "hatchet", M::PlainIron, &[M::PlainIron, M::Bronze, M::Forgeiron], &[]),
+    f("short_sword", "short blade", M::Bronze, &[M::Bronze, M::Forgeiron, M::Edgeglass, M::Nacre], &[M::Forgeiron]),
+    f("longsword", "sword", M::Forgeiron, &[M::Bronze, M::Forgeiron, M::Edgeglass], &[M::Forgeiron]),
+    f("club", "club", M::Wood, &[M::Wood], &[]),
+    f("war_pick", "war-pick", M::Forgeiron, &[M::Bronze, M::Forgeiron], &[]),
+    f("stone_maul", "maul", M::Ringstone, &[M::Ringstone, M::Forgeiron], &[]),
+    f("spear", "spear", M::Wood, &[M::Wood, M::Bronze, M::Forgeiron, M::Edgeglass, M::Nacre], &[]),
+    f("harpoon", "harpoon", M::Nacre, &[M::Nacre, M::Bronze, M::Forgeiron], &[]),
+    f("trident", "trident", M::Nacre, &[M::Nacre, M::Bronze, M::Forgeiron], &[]),
+    f("glaive", "glaive", M::Forgeiron, &[M::Forgeiron, M::Edgeglass], &[M::Forgeiron]),
+    f("net", "net", M::Seareed, &[M::Seareed], &[]),
+    f("staff", "staff", M::Wood, &[M::Wood], &[]),
+    f("short_bow", "bow", M::Wood, &[M::Wood], &[]),
+    f("crossbow", "crossbow", M::Forgeiron, &[M::Bronze, M::Forgeiron], &[]),
+    f("sling", "sling", M::Leather, &[M::Leather, M::Fishskin], &[]),
+    f("cloth_shirt", "shirt", M::Cloth, &[M::Cloth, M::Tentsilk], &[]),
+    f("padded_jacket", "padded jacket", M::Cloth, &[M::Cloth, M::Seareed], &[]),
+    f("wraps", "wraps", M::Tentsilk, &[M::Tentsilk, M::Cloth], &[]),
+    f("hide_coat", "jerkin", M::Leather, &[M::Leather, M::Fishskin], &[]),
+    f("scale_hauberk", "scale coat", M::Forgeiron, &[M::Forgeiron, M::Bronze, M::Nacre, M::Slatewing], &[M::Seareed, M::Slatewing, M::Leather]),
+    f("sandstone_lamellar", "plate cuirass", M::Bronze, &[M::Bronze, M::Forgeiron, M::Slatewing], &[]),
+    f("leather_cap", "cap", M::Leather, &[M::Leather, M::Fishskin], &[]),
+    f("iron_helm", "helm", M::Forgeiron, &[M::Bronze, M::Forgeiron, M::Slatewing], &[]),
+    f("trousers", "trousers", M::Cloth, &[M::Cloth], &[]),
+    f("hide_leggings", "leggings", M::Leather, &[M::Leather, M::Fishskin], &[]),
+    f("scale_greaves", "greaves", M::Forgeiron, &[M::Bronze, M::Forgeiron, M::Slatewing, M::Nacre], &[]),
+    f("leather_gloves", "bracers", M::Leather, &[M::Leather, M::Fishskin], &[]),
+    f("boots", "boots", M::Leather, &[M::Leather, M::Fishskin], &[]),
+    f("buckler", "buckler", M::Wood, &[M::Wood, M::Bronze, M::Nacre], &[]),
+    f("kite_shield", "shield", M::Forgeiron, &[M::Forgeiron, M::Ringstone, M::Bronze], &[]),
+    f("small_pack", "small pack", M::Leather, &[M::Leather, M::Seareed], &[]),
+    f("large_pack", "large pack", M::Leather, &[M::Leather, M::Seareed, M::Tentsilk], &[]),
+];
+
+fn leak(s: String) -> &'static str {
+    Box::leak(s.into_boxed_str())
+}
+
+impl Catalogue {
+    fn build() -> Catalogue {
+        let mut defs: Vec<ItemDef> = ITEMS.to_vec();
+        let mut info: Vec<ItemInfo> = (0..ITEMS.len())
+            .map(|i| {
+                let main = FORMS.iter().find(|f| f.key == ITEMS[i].key).map(|f| f.usual).unwrap_or(M::None);
+                ItemInfo { form: i as ItemId, main, second: M::None, grade: Grade::Common }
+            })
+            .collect();
+        let mut variants = std::collections::HashMap::new();
+        for form in FORMS {
+            let fid = ITEMS.iter().position(|d| d.key == form.key).unwrap_or_else(|| panic!("form {} has no item", form.key)) as ItemId;
+            let base = ITEMS[fid as usize];
+            // The plain version gets its usual material's point too.
+            if let Kind::Weapon(w) = &mut defs[fid as usize].kind {
+                w.pierce = form.usual.def().pierce;
+            }
+            for &main in form.mains {
+                for second in std::iter::once(M::None).chain(form.seconds.iter().copied()) {
+                    if second == main {
+                        continue;
+                    }
+                    for grade in GRADES {
+                        if main == form.usual && second == M::None && grade == Grade::Common {
+                            variants.insert((fid, main, second, grade), fid);
+                            continue;
+                        }
+                        let id = defs.len() as ItemId;
+                        defs.push(made(&base, form, main, second, grade));
+                        info.push(ItemInfo { form: fid, main, second, grade });
+                        variants.insert((fid, main, second, grade), id);
+                    }
+                }
+            }
+        }
+        let by_key = defs.iter().enumerate().map(|(i, d)| (d.key, i as ItemId)).collect();
+        Catalogue { defs, info, by_key, variants }
+    }
+}
+
+/// A form's numbers in other materials at another grade, scaled from its
+/// usual version.
+fn made(base: &ItemDef, form: &Form, main: Material, second: Material, grade: Grade) -> ItemDef {
+    let (u, a) = (form.usual.def(), main.def());
+    let b = if second == M::None { a } else { second.def() };
+    let mass = (a.mass + b.mass) * 0.5;
+    let density = (a.density + b.density) * 0.5;
+    let turn_blunt = (a.turn_blunt + b.turn_blunt) * 0.5;
+    let p = grade.power();
+    let kind = match base.kind {
+        Kind::Weapon(w) => Kind::Weapon(WeaponDef {
+            cut: w.cut * a.edge / u.edge * p,
+            blunt: w.blunt * mass / u.mass * p,
+            pierce: a.pierce.max(b.pierce),
+            ..w
+        }),
+        Kind::Armor(x) => Kind::Armor(ArmorDef {
+            cut: (x.cut * a.turn_cut / u.turn_cut * p).min(0.92),
+            blunt: (x.blunt * turn_blunt / u.turn_blunt * p).min(0.92),
+            dodge_penalty: x.dodge_penalty * density / u.density,
+            ..x
+        }),
+        Kind::Shield(s) => Kind::Shield((s * (a.turn_cut + turn_blunt) / (u.turn_cut + u.turn_blunt) * p).min(0.8)),
+        k => k,
+    };
+    let backing = if second == M::None { String::new() } else { format!(" on {}", second.name()) };
+    let grade_word = if grade == Grade::Common { String::new() } else { format!("{} ", grade.name()) };
+    let worth = a.worth + if second == M::None { 0.0 } else { b.worth * 0.3 };
+    ItemDef {
+        key: leak(format!("{}~{:?}~{:?}~{:?}", form.key, main, second, grade)),
+        name: leak(format!("{grade_word}{} {}{backing}", main.name(), form.noun)),
+        slot: base.slot,
+        kind,
+        weight: base.weight * density / u.density,
+        value: (base.value * worth / u.worth * grade.worth()).max(1.0),
+        effects: base.effects,
+    }
 }
 
 impl ItemDef {
@@ -400,4 +658,4 @@ impl ItemDef {
 }
 
 /// Bare hands, when nothing is held.
-pub const FISTS: WeaponDef = WeaponDef { skill: Skill::Unarmed, cut: 0.0, blunt: 4.0, reach: 0.8, windup: 0.35, recover: 0.35, two_handed: false, parry: 0.0, range: 0.0, ammo: None };
+pub const FISTS: WeaponDef = WeaponDef { skill: Skill::Unarmed, cut: 0.0, blunt: 4.0, reach: 0.8, windup: 0.35, recover: 0.35, two_handed: false, parry: 0.0, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 };
