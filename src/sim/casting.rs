@@ -45,6 +45,16 @@ pub const BACKLASH: f32 = 14.0;
 pub const READ_SKILL: f32 = 0.9;
 pub const TAUGHT_SKILL: f32 = 0.75;
 
+/// A lasting effect on someone outside a fight: a blessing (or curse) with
+/// an end time. Carried into fights as a status, and back out again.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Boon {
+    pub pid: PersonId,
+    pub does: Does,
+    pub power: f32,
+    pub until: f64,
+}
+
 /// A ritual being performed.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct RitualJob {
@@ -95,6 +105,46 @@ impl World {
         *n
     }
 
+
+    // ---- Lasting effects ----------------------------------------------------
+
+    /// How strongly something works on someone right now (boons only).
+    pub fn boon(&self, pid: PersonId, does: Does) -> f32 {
+        self.boon_at(pid, does, self.time)
+    }
+
+    /// The same at time `t` (a boon counts while `t` is before its end).
+    pub fn boon_at(&self, pid: PersonId, does: Does, t: f64) -> f32 {
+        self.boons.iter().filter(|b| b.pid == pid && b.does == does && t < b.until).map(|b| b.power).sum()
+    }
+
+    /// Every boon on someone right now.
+    pub fn boons_on(&self, pid: PersonId) -> Vec<Boon> {
+        self.boons.iter().copied().filter(|b| b.pid == pid && self.time < b.until).collect()
+    }
+
+    /// Put a lasting effect on someone (replacing the same kind). Their
+    /// condition starts a new piece here, so what it changes (load, hunger)
+    /// counts from exactly now.
+    pub(super) fn add_boon(&mut self, pid: PersonId, does: Does, power: f32, until: f64) {
+        let t = self.time;
+        self.boons.retain(|b| !(b.pid == pid && b.does == does));
+        self.boons.push(Boon { pid, does, power, until });
+        if self.people[pid as usize].cond.is_some() {
+            self.settle_condition(pid, t);
+        }
+    }
+
+    /// When the next of someone's boons runs out (for the condition timeline).
+    pub(super) fn boon_ends(&self, pid: PersonId) -> Vec<f64> {
+        self.boons.iter().filter(|b| b.pid == pid).map(|b| b.until).collect()
+    }
+
+    /// Forget boons that are over (anything that cares has seen them end).
+    pub(super) fn expire_boons(&mut self) {
+        let t = self.time;
+        self.boons.retain(|b| b.until > t);
+    }
 
     // ---- Casting outside a fight ------------------------------------------
 
@@ -250,8 +300,13 @@ impl World {
     /// it did anything.
     pub fn apply_effect(&mut self, target: PersonId, e: &Effect, skill: f32) -> bool {
         let t = self.time;
-        if e.lasts != Lasts::Now {
-            return false;
+        match e.lasts {
+            Lasts::Now => {}
+            Lasts::Secs(s) if e.does.works_outside_fights() => {
+                self.add_boon(target, e.does, e.power, t + s as f64);
+                return true;
+            }
+            _ => return false,
         }
         match e.does {
             Does::Heal => {

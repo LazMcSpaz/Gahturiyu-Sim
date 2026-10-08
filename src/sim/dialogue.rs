@@ -104,6 +104,8 @@ impl World {
             d -= self.bounty_known_in(h) / 4.0;
         }
         d += self.regard.get(&npc).copied().unwrap_or(0.0);
+        // A swaying word.
+        d += self.boon(with, super::effects::Does::Sway);
         d.clamp(0.0, 100.0)
     }
 

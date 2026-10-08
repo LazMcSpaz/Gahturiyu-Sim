@@ -70,6 +70,8 @@ pub enum Does {
     Kindle,
     /// Put out a torch, a standing torch or a campfire (for `DOUSE_HOURS`).
     Douse,
+    /// Lose the next action (whatever they were doing is spoilt).
+    Daze,
 
     // ---- While it lasts (or while worn) --------------------------------
     /// Power: points added.
@@ -105,12 +107,29 @@ pub enum Does {
     Slow,
     /// Knocked off their feet: can't move or act, can't dodge or block.
     KnockDown,
+    /// Won't attack anyone (a blow breaks it).
+    Calm,
+    /// Runs from the fight while it lasts.
+    Fear,
+    /// Fights for the caster's side while it lasts.
+    Dominate,
+    /// Sees in the dark (light counts as at least this).
+    Nightsight,
+    /// Senses living things nearby, through walls (shown by the window).
+    SenseLife,
+    /// Words land better: this much on everyone's disposition.
+    Sway,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate)
+    }
+
+    /// Guards against harm (worth putting up when a fight reaches you).
+    pub fn guards(self) -> bool {
+        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_))
     }
 
     /// A lasting condition that a resist roll can stop, and what resists it.
@@ -123,8 +142,14 @@ impl Does {
     }
 
     /// Has a meaning outside a fight (the rest only matter in one).
+    /// Anything done at once that has a meaning out in the world, and any
+    /// lasting effect that isn't an attack (it's kept as a blessing on them).
     pub fn works_outside_fights(self) -> bool {
-        matches!(self, Does::Heal | Does::Energy | Does::Rest | Does::Kindle | Does::Douse)
+        match self {
+            Does::Heal | Does::Energy | Does::Rest | Does::Kindle | Does::Douse => true,
+            d if d.harmful() => false,
+            _ => true,
+        }
     }
 }
 
@@ -226,6 +251,13 @@ impl Effect {
             Does::KnockDown => "Knocks down".to_string(),
             Does::Kindle => "Lights a torch or fire".to_string(),
             Does::Douse => "Puts out a torch or fire".to_string(),
+            Does::Daze => "Loses their next action".to_string(),
+            Does::Calm => "Won't fight (a blow breaks it)".to_string(),
+            Does::Fear => "Flees".to_string(),
+            Does::Dominate => "Fights for you".to_string(),
+            Does::Nightsight => "Sees in the dark".to_string(),
+            Does::SenseLife => "Senses the living through walls".to_string(),
+            Does::Sway => format!("{p:+.0} disposition"),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),

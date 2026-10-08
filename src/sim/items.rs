@@ -292,7 +292,11 @@ pub static ITEMS: &[ItemDef] = &[
     notes("notes_barrier", "Notes on barriers", "barrier", 70.0),
     notes("notes_haste", "Notes on haste", "haste", 80.0),
     notes("notes_stone_spikes", "Notes on stone spikes", "stone_spikes", 85.0),
+    notes("notes_calm", "Notes on calming", "calm", 70.0),
+    notes("notes_fear", "Notes on fear", "fear", 75.0),
+    notes("notes_sway", "Notes on persuasion", "sway", 60.0),
     text("text_restore", "Rite of Restoring", "restore", 220.0),
+    text("text_dominate", "Rite of Mastery", "dominate", 320.0),
     text("text_firestorm", "Rite of the Firestorm", "firestorm", 260.0),
     text("text_tremor", "Rite of the Shaking Ground", "tremor", 240.0),
     // --- Enchanted pieces -------------------------------------------------

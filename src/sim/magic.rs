@@ -211,7 +211,14 @@ pub static SPELLS: &[SpellDef] = &[
         lasting(Does::KnockDown, 1.0, 4.0, Reach::Area { radius: 9.0, who: Who::Foes }),
     ]),
     // ---- Psychic ----------------------------------------------------------
+    felt("daze", "Daze", Psychic, 6.0, 0.5, 10.0, Foe, 10.0, &[now(Does::Daze, 1.2, Reach::Target)]),
+    felt("sense_life", "Sense life", Psychic, 4.0, 0.3, 0.0, Caster, 12.0, &[lasting(Does::SenseLife, 60.0, 180.0, Reach::Caster)]),
+    felt("nightsight", "Nightsight", Psychic, 4.0, 0.3, 0.0, Caster, 10.0, &[lasting(Does::Nightsight, 0.75, 900.0, Reach::Caster)]),
+    structured("calm", "Calm", Psychic, 20.0, 1.2, 15.0, Foe, 28.0, &[lasting(Does::Calm, 1.0, 15.0, Reach::Target)]),
+    structured("fear", "Fear", Psychic, 20.0, 1.2, 15.0, Foe, 30.0, &[lasting(Does::Fear, 1.0, 10.0, Reach::Target)]),
     structured("paralyze", "Paralyze", Psychic, 25.0, 1.4, 15.0, Foe, 35.0, &[lasting(Does::Paralyze, 1.0, 6.0, Reach::Target)]),
+    structured("sway", "Sway", Psychic, 15.0, 1.5, 0.0, Caster, 20.0, &[lasting(Does::Sway, 20.0, 600.0, Reach::Caster)]),
+    ritual("dominate", "Dominate", Psychic, rite(60.0, 15.0, &[("storm_glass", 1)], Place::Circle), 12.0, Foe, 50.0, &[lasting(Does::Dominate, 1.0, 20.0, Reach::Target)]),
     // ---- Illusion ---------------------------------------------------------
     structured("blind", "Blind", Illusion, 15.0, 1.0, 15.0, Foe, 25.0, &[lasting(Does::Blind, 0.65, 10.0, Reach::Target)]),
     // ---- Vital ------------------------------------------------------------

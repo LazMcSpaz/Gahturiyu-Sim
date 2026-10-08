@@ -45,6 +45,11 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
         }
     }
 
+    // Calm: they stand there. Afraid: they run (see `Battle::idle`).
+    if me.has(Does::Calm).is_some() || me.has(Does::Fear).is_some() {
+        b.fighters[i].target = None;
+        return;
+    }
     // Someone carrying a body only moves where they're told.
     if me.burdened {
         b.fighters[i].target = None;
@@ -142,6 +147,8 @@ enum Use {
     Quicken,
     /// Hinders one enemy for a while.
     Hinder,
+    /// Lets the caster see in the dark.
+    See,
     /// Damage over an area.
     Blast,
     /// Damage to one enemy.
@@ -159,11 +166,13 @@ fn use_of(s: Spell) -> Use {
         Use::Blast
     } else if has(&|x| matches!(x, Does::Damage(_))) {
         Use::Strike
-    } else if d.aim == Aim::Foe && d.effects.iter().any(|e| e.does.harmful() && matches!(e.lasts, Lasts::Secs(_))) {
+    } else if d.aim == Aim::Foe && d.effects.iter().any(|e| e.does.harmful()) {
         Use::Hinder
     } else if d.aim == Aim::Caster && has(&|x| matches!(x, Does::Haste | Does::MoveSpeed)) {
         Use::Quicken
-    } else if d.aim == Aim::Caster && d.effects.iter().all(|e| !e.does.harmful() && matches!(e.lasts, Lasts::Secs(_))) {
+    } else if has(&|x| x == Does::Nightsight) {
+        Use::See
+    } else if d.aim == Aim::Caster && d.effects.iter().all(|e| e.does.guards() && matches!(e.lasts, Lasts::Secs(_))) {
         Use::Ward
     } else {
         Use::Other
@@ -239,6 +248,15 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
         if nearest < 6.0 || is_mage {
             cast(b, i, s, None, me.pos);
             return;
+        }
+    }
+    // 1b. In the dark, see.
+    if let Some(s) = first(Use::See).filter(|&s| !has_it(i, s)) {
+        if let Some(t) = target {
+            if b.light_at(b.fighters[t].pos) < 0.5 {
+                cast(b, i, s, None, me.pos);
+                return;
+            }
         }
     }
     // 2. Speed up to close a long gap.

@@ -479,6 +479,13 @@ impl World {
                 if let Some(tr) = self.ritual_due(pid) {
                     consider(Some(tr), Event::Ritual);
                 }
+                // A spell on them running out (it may have changed their load
+                // or needs).
+                for te in self.boon_ends(pid) {
+                    if te > c.at {
+                        consider(Some(te), Event::Stage);
+                    }
+                }
                 // Standing idle at night and tired: bed down.
                 if let Some(tb) = self.bed_time(pid, &c) {
                     consider(Some(tb), Event::Bed);

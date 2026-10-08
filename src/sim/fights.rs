@@ -275,6 +275,10 @@ impl World {
             f.torch = self.torch_lit(pid);
             f.has_torch = self.torch_in_hand(pid).is_some();
             f.held = self.held.get(&pid).copied();
+            // Spells on them come into the fight.
+            for bn in self.boons_on(pid) {
+                f.statuses.push(super::magic::Status { does: bn.does, power: bn.power, until: bn.until });
+            }
             // Carrying someone: can't fight, and slow.
             if self.carrying(pid).is_some() {
                 f.burdened = true;
@@ -353,6 +357,14 @@ impl World {
                 self.drop_everything(f.pid, f.pos);
             }
             self.people[f.pid as usize].recompute_might();
+            // Spells on a squad member go back out with them (including ones
+            // cast in the fight that haven't run out yet).
+            if self.squad.index(pid).is_some() {
+                self.boons.retain(|bn| bn.pid != pid);
+                for s in f.statuses.iter().filter(|s| s.until > t) {
+                    self.boons.push(super::casting::Boon { pid, does: s.does, power: s.power, until: s.until });
+                }
+            }
             // A held ritual let go in the fight is gone.
             if f.held.is_none() && self.held.contains_key(&pid) {
                 self.set_holding(pid, t, None);

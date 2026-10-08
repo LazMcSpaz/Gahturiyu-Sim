@@ -72,7 +72,10 @@ pub enum Order {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Fighter {
     pub pid: PersonId,
+    /// The side they're fighting for now (a spell can turn them).
     pub side: Side,
+    /// The side they came in on.
+    pub home: Side,
     pub race: Race,
     pub pos: V2,
     pub hp: [f32; 6],
@@ -178,6 +181,7 @@ impl Fighter {
         Fighter {
             pid: p.id,
             side,
+            home: side,
             race: p.race,
             pos,
             hp: p.wounds.hp_at(&p.stats, t),
@@ -431,6 +435,10 @@ impl Battle {
         // Spells wear off; breath and mana come back.
         for f in &mut self.fighters {
             f.statuses.retain(|s| s.until > t);
+            // A turned fighter goes back to their own side.
+            if f.side != f.home && f.has(Does::Dominate).is_none() {
+                f.side = f.home;
+            }
             if f.active() {
                 let resting = matches!(f.act, Act::Idle | Act::Recover { .. });
                 f.fatigue = (f.fatigue + if resting { 2.0 } else { 0.5 } * DT as f32).min(f.max_fatigue);
@@ -497,7 +505,8 @@ impl Battle {
 
         // Over when no two sides still standing are enemies, or it's dragged on.
         // People running away don't keep a fight going.
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.side).collect();
+        // (A fighter turned by a spell still counts for the side they came in on.)
+        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.home).collect();
         sides.sort();
         sides.dedup();
         if sides.len() <= 1 || t - self.start > MAX_LENGTH {
@@ -517,11 +526,16 @@ impl Battle {
     fn idle(&mut self, i: usize) {
         let me = &self.fighters[i];
         let speed = me.speed() * DT as f32;
-        if me.fleeing {
+        let afraid = me.has(Does::Fear).is_some();
+        if me.fleeing || afraid {
             let threat = self.nearest_enemy(i);
             let away = match threat {
                 Some(j) => {
                     let d = me.pos.sub(self.fighters[j].pos);
+                    // Fear only drives them off a way; real flight gets them out.
+                    if afraid && !me.fleeing && d.len() > 30.0 {
+                        return;
+                    }
                     if d.len() > 45.0 {
                         let name = self.names[i].clone();
                         self.fighters[i].fled = true;
@@ -637,7 +651,7 @@ impl Battle {
         let dodge = if shot { dodge * 0.5 } else { dodge };
         let far = if shot { 1.0 - 0.35 * dist / weapon.range.max(1.0) } else { 1.0 };
         // In the dark it's hard to hit what you can't see, an arrow most of all.
-        let seen = self.light_at(def.pos);
+        let seen = self.light_at(def.pos).max(att.power(Does::Nightsight).min(1.0));
         let dark = if shot { DARK_SHOT + (1.0 - DARK_SHOT) * seen } else { DARK_BLOW + (1.0 - DARK_BLOW) * seen };
         let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark;
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
@@ -764,6 +778,8 @@ impl Battle {
         }
         self.wake(self.fighters[d].side);
         let f = &mut self.fighters[d];
+        // A blow breaks a calm.
+        f.statuses.retain(|s| s.does != Does::Calm);
         let was_ko = f.ko;
         f.hp[part as usize] -= dmg;
         f.damage_taken += dmg;
@@ -967,6 +983,17 @@ impl Battle {
         let name = self.names[src.by].clone();
         let tname = self.names[j].clone();
         let what = src.spell.map(|s| s.def().name.to_lowercase()).unwrap_or_default();
+        // Hostile spells other than plain damage can be thrown off: by will,
+        // by what they wear, by a ward against the domain.
+        if e.does.harmful() && !matches!(e.does, Does::Damage(_)) && self.hostile(src.by, j) && e.lasts != Lasts::Worn {
+            let f = &self.fighters[j];
+            let item_resist = e.does.resisted_by().map(|r| f.power(r).min(0.95)).unwrap_or(0.0);
+            let resist = 1.0 - (1.0 - magic::willpower_resist(&f.stats)) * (1.0 - item_resist) * ward;
+            if src.r_resist < resist {
+                self.say(format!("{tname} shrugs off {name}'s {what}."));
+                return;
+            }
+        }
         match e.lasts {
             Lasts::Worn => {}
             Lasts::Now => match e.does {
@@ -999,6 +1026,13 @@ impl Battle {
                         f.torch = true;
                         self.say(format!("{tname}'s torch flares alight."));
                     }
+                }
+                Does::Daze => {
+                    let t = self.time;
+                    let f = &mut self.fighters[j];
+                    f.act = Act::Recover { until: t + e.power as f64 };
+                    f.think_at = f.think_at.max(t + e.power as f64);
+                    self.say(format!("{tname} reels, dazed."));
                 }
                 Does::Douse => {
                     if self.fighters[j].torch {
@@ -1039,17 +1073,6 @@ impl Battle {
                 _ => {}
             },
             Lasts::Secs(secs) => {
-                // Hostile spells can be thrown off: by will, by what they
-                // wear, by a ward against the domain.
-                if e.does.harmful() && self.hostile(src.by, j) {
-                    let f = &self.fighters[j];
-                    let item_resist = e.does.resisted_by().map(|r| f.power(r).min(0.95)).unwrap_or(0.0);
-                    let resist = 1.0 - (1.0 - magic::willpower_resist(&f.stats)) * (1.0 - item_resist) * ward;
-                    if src.r_resist < resist {
-                        self.say(format!("{tname} shrugs off {name}'s {what}."));
-                        return;
-                    }
-                }
                 let until = self.time + secs as f64;
                 let f = &mut self.fighters[j];
                 f.statuses.retain(|s| s.does != e.does);
@@ -1065,6 +1088,25 @@ impl Battle {
                     }
                     Does::Blind => self.say(format!("{tname} is blinded.")),
                     Does::Slow => self.say(format!("{tname} slows.")),
+                    Does::Calm => {
+                        f.target = None;
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} lowers their guard, calm."));
+                    }
+                    Does::Fear => {
+                        f.target = None;
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} breaks in terror."));
+                    }
+                    Does::Dominate => {
+                        let side = self.fighters[src.by].side;
+                        let f = &mut self.fighters[j];
+                        f.side = side;
+                        f.target = None;
+                        f.order = None;
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} falls under {name}'s will."));
+                    }
                     _ => {}
                 }
             }
@@ -1092,7 +1134,7 @@ impl Battle {
     }
 
     pub fn winner(&self) -> Option<Side> {
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.side).collect();
+        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.home).collect();
         sides.sort();
         sides.dedup();
         if sides.len() == 1 {

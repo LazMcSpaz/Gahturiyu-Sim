@@ -30,7 +30,7 @@ fn fingerprint(w: &World) -> String {
     s += &sorted(&w.suspicion);
     s += &sorted(&w.held);
     s += &sorted(&w.cast_count);
-    s += &format!("{:?} {:?}\n", w.rituals, w.circles);
+    s += &format!("{:?} {:?} {:?}\n", w.rituals, w.circles, w.boons);
     s
 }
 

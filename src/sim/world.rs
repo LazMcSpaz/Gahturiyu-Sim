@@ -171,6 +171,8 @@ pub struct World {
     pub circles: Vec<V2>,
     /// How many spells each person has cast outside fights (keys their rolls).
     pub cast_count: HashMap<PersonId, u64>,
+    /// Lasting spells on people outside fights.
+    pub boons: Vec<super::casting::Boon>,
 }
 
 impl World {
@@ -245,6 +247,7 @@ impl World {
             held: HashMap::new(),
             circles: Vec::new(),
             cast_count: HashMap::new(),
+            boons: Vec::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -342,6 +345,7 @@ impl World {
         self.update_battles();
         self.update_quests();
         self.update_conditions();
+        self.expire_boons();
 
         // 4. Journeys that are over dissolve; their people are home.
         //    Decided by the schedule, not by whether anyone looked.

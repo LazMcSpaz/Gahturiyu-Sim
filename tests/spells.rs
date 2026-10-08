@@ -185,3 +185,97 @@ fn douse_puts_out_a_campfire_and_kindle_lights_it_again() {
     cast_world(&mut w, m, spell("douse"), None, Some(at), |w| !w.torch_lit(other));
     let _ = items::id("torch");
 }
+
+// ---- Psychic ------------------------------------------------------------------
+
+#[test]
+fn daze_spoils_the_next_action() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    b.fighters[1].act = Act::Swing { target: 0, lands: 99.0 };
+    cast_until(&mut b, spell("daze"), Some(1), V2::new(6.0, 0.0), |b| matches!(b.fighters[1].act, Act::Recover { .. }));
+    assert!(b.fighters[1].think_at > b.time, "they lose a moment");
+}
+
+/// Let fighter `i` think for themselves from now.
+fn wake_up(b: &mut Battle, i: usize) {
+    b.fighters[i].think_at = 0.0;
+}
+
+#[test]
+fn calm_holds_them_off_until_a_blow_lands() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    cast_until(&mut b, spell("calm"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].has(Does::Calm).is_some());
+    wake_up(&mut b, 1);
+    let at = b.fighters[1].pos;
+    for _ in 0..30 {
+        b.tick();
+    }
+    assert!(b.fighters[1].pos.dist(at) < 0.5 && b.fighters[1].target.is_none(), "calm: they don't come on");
+    b.wound(1, Part::Torso, 3.0);
+    assert!(b.fighters[1].has(Does::Calm).is_none(), "a blow breaks it");
+}
+
+#[test]
+fn fear_drives_them_off() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    cast_until(&mut b, spell("fear"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].has(Does::Fear).is_some());
+    wake_up(&mut b, 1);
+    for _ in 0..40 {
+        b.tick();
+    }
+    assert!(b.fighters[1].pos.dist(b.fighters[0].pos) > 12.0, "they ran");
+    assert!(!b.fighters[1].fled, "but they'll be back");
+}
+
+#[test]
+fn a_dominated_enemy_fights_for_you_and_then_turns_back() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0)), (brute(3), 1, V2::new(8.0, 1.0))]);
+    cast_until(&mut b, spell("dominate"), Some(1), V2::new(6.0, 0.0), |b| b.fighters[1].side == 0);
+    assert!(b.hostile(1, 2), "now against their friend");
+    assert!(!b.hostile(0, 1));
+    // The fight isn't over while the turned one's own side still stands.
+    b.tick();
+    assert!(!b.over);
+    while b.fighters[1].has(Does::Dominate).is_some() {
+        b.tick();
+    }
+    b.tick();
+    assert_eq!(b.fighters[1].side, 1, "back to their own side");
+}
+
+#[test]
+fn spells_cast_on_the_road_last_and_come_into_a_fight() {
+    let mut w = worldgen::generate(2);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    cast_world(&mut w, m, spell("nightsight"), None, None, |w| w.boon(m, Does::Nightsight) > 0.0);
+    cast_world(&mut w, m, spell("sense_life"), None, None, |w| w.boon(m, Does::SenseLife) > 0.0);
+    // They run out by the clock.
+    w.step(200.0);
+    assert_eq!(w.boon(m, Does::SenseLife), 0.0, "three minutes");
+    assert!(w.boon(m, Does::Nightsight) > 0.0, "fifteen minutes");
+    // A fight: the spell is on them there too, and still on them after.
+    let at = w.squad.pos.add(V2::new(15.0, 0.0));
+    w.spawn_bandits(at, 1, false);
+    while w.battles.is_empty() {
+        w.step(0.25);
+    }
+    assert!(w.battles[0].fighters.iter().find(|f| f.pid == m).unwrap().has(Does::Nightsight).is_some());
+    while !w.battles.is_empty() {
+        w.step(0.5);
+    }
+    assert!(w.boon(m, Does::Nightsight) > 0.0);
+}
+
+#[test]
+fn sway_warms_people_to_you() {
+    use gahturiyu_sim::sim::dialogue::Topic;
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let npc = (0..w.people.len() as u32).find(|&p| !w.people[p as usize].in_squad && !w.people[p as usize].bandit && w.people[p as usize].home.is_some()).unwrap();
+    let before = w.disposition(npc, m);
+    cast_world(&mut w, m, spell("sway"), None, None, |w| w.boon(m, Does::Sway) > 0.0);
+    assert!(w.disposition(npc, m) >= (before + 19.0).min(100.0));
+    let _ = Topic::Goodbye;
+}
