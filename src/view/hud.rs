@@ -112,7 +112,9 @@ pub fn draw_hud(c: &Canvas, w: &World, speed_i: usize, paused: bool, sim_ms: f64
         lines.push((format!("●  {}  ({})", r.name(), r.element()), race_color(r)));
     }
     for (town, b) in &w.bounty {
-        lines.push((format!("Bounty in {}: {:.0}", w.settlements[*town as usize].name, b), [0.95, 0.45, 0.35]));
+        let heard = w.towns_heard(*town);
+        let spread = if heard > 1 { format!("  ·  word has reached {} towns", heard) } else { String::new() };
+        lines.push((format!("Bounty in {}: {:.0}{spread}", w.settlements[*town as usize].name, b), [0.95, 0.45, 0.35]));
     }
     let fight = battle_lines(w);
     if !fight.is_empty() {

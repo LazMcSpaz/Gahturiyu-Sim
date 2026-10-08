@@ -331,6 +331,7 @@ impl World {
 
     pub(super) fn crime(&mut self, town: SettlementId, amount: f32, line: String) {
         *self.bounty.entry(town).or_insert(0.0) += amount;
+        self.crime_known(town);
         let total = self.bounty[&town];
         self.log.push_front((self.time, format!("{line} Bounty in {}: {total:.0}.", self.settlements[town as usize].name)));
         self.log.truncate(14);

@@ -114,6 +114,9 @@ pub struct World {
     pub furnished: HashSet<super::buildings::DoorId>,
     /// What each town wants from you for crimes seen.
     pub bounty: HashMap<SettlementId, f32>,
+    /// Which towns have heard of which bounty, and from when:
+    /// (town that heard, town the bounty is owed in) → time (see `news`).
+    pub news: HashMap<(SettlementId, SettlementId), f64>,
 
     // --- Crafting -----------------------------------------------------------
     /// Workshops: where, and what kind.
@@ -206,6 +209,7 @@ impl World {
             picking: Vec::new(),
             furnished: HashSet::new(),
             bounty: HashMap::new(),
+            news: HashMap::new(),
             stations: Vec::new(),
             nodes: Vec::new(),
             gathering: Vec::new(),
@@ -286,7 +290,9 @@ impl World {
             self.hour_done += 1;
             for s in 0..self.settlements.len() {
                 if let Some(g) = self.plan_departure(s as SettlementId, self.hour_done) {
+                    let id = g.id;
                     self.add_group(g);
+                    self.carry_news(id);
                     self.stats.journeys_started += 1;
                 }
             }

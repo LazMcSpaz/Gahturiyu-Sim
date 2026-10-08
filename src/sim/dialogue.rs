@@ -82,7 +82,7 @@ impl World {
             d += 6.0; // the old alliance
         }
         if let Some(h) = p.home {
-            d -= self.bounty.get(&h).copied().unwrap_or(0.0) / 4.0;
+            d -= self.bounty_known_in(h) / 4.0;
         }
         d += self.regard.get(&npc).copied().unwrap_or(0.0);
         d.clamp(0.0, 100.0)
@@ -195,7 +195,7 @@ impl World {
             t.push(if c.offered { Topic::Accept } else { Topic::Work });
         }
         if let Some(h) = self.people[c.npc as usize].home {
-            if self.bounty.get(&h).copied().unwrap_or(0.0) > 0.0 {
+            if self.bounty_known_in(h) > 0.0 {
                 t.push(Topic::PayBounty);
             }
         }
@@ -287,8 +287,12 @@ impl World {
                     lines.push(format!("Folk coming in say there's a camp by the road {:.1} km {dir} of here.", d / 1000.0));
                 }
                 if let Some(h) = p.home {
-                    if self.bounty.get(&h).copied().unwrap_or(0.0) > 0.0 {
-                        lines.push("Someone's been at the locks round here. If I find out who...".into());
+                    for (origin, _) in self.bounties_known_in(h) {
+                        if origin == h {
+                            lines.push("Someone's been at the locks round here. If I find out who...".into());
+                        } else {
+                            lines.push(format!("Word from {} is there's thieves on the road. Keep your door shut.", self.settlements[origin as usize].name));
+                        }
                     }
                 }
                 lines.push("They say the Ṭaḍoro write down everything you tell them. Mind what you say.".into());
@@ -365,11 +369,14 @@ impl World {
             }
             Topic::PayBounty => {
                 let Some(h) = p.home else { return String::new() };
-                let owed = self.bounty.get(&h).copied().unwrap_or(0.0).ceil() as u16;
+                let known = self.bounties_known_in(h);
+                let owed = known.iter().map(|b| b.1).sum::<f32>().ceil() as u16;
                 let have = self.squad_count(items::id("coin"));
                 if have >= owed {
                     self.take_from_squad(items::id("coin"), owed);
-                    self.bounty.remove(&h);
+                    for (origin, _) in known {
+                        self.bounty_settled(origin);
+                    }
                     format!("{owed} coin. Consider the matter closed — this time.")
                 } else {
                     format!("You owe {owed}. You've got {have}. Come back when you can pay.")

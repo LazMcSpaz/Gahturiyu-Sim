@@ -18,6 +18,7 @@ pub mod inventory;
 pub mod items;
 pub mod magic;
 pub mod names;
+pub mod news;
 pub mod person;
 pub mod quests;
 pub mod race;
