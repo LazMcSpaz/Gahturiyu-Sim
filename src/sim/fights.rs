@@ -387,8 +387,11 @@ impl World {
             let p = &mut self.people[f.pid as usize];
             let (pid, fatigue, tire) = (f.pid, f.fatigue, f.tire);
             // Potions drunk and scrolls read are gone; arrows loosed are gone
-            // too, except the ones found again afterwards.
-            if let Some(d) = p.detail.as_mut() {
+            // too, except the ones found again afterwards. Your squad's only:
+            // everyone else restocks at home (like wear), so what someone
+            // carries never depends on whether they'd been met.
+            let squad = p.in_squad;
+            if let Some(d) = p.detail.as_mut().filter(|_| squad) {
                 for &it in &f.used {
                     d.gear.take(it);
                 }

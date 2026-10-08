@@ -910,8 +910,11 @@ impl Battle {
         let size = if shot { 1.0 } else { self.fighters[a].size() };
         let mut cut = weapon.cut * (1.0 + strength * 0.006 * pull) * skill_mult * roll * size;
         let mut blunt = weapon.blunt * (1.0 + strength * 0.010 * pull) * skill_mult * roll * size;
-        // The weapon wears with every blow that connects (bowstrings less).
-        self.fighters[a].weapon_wear += if shot { 0.3 } else { 1.0 };
+        // The weapon in the hand slot wears with every blow that connects
+        // (bowstrings less). An archer's pack sidearm doesn't count here.
+        if self.fighters[a].stowed.is_none() {
+            self.fighters[a].weapon_wear += if shot { 0.3 } else { 1.0 };
+        }
 
         if r_block < p_block {
             if self.fighters[d].shield > 0.0 {

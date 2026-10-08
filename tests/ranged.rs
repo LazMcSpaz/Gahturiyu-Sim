@@ -100,15 +100,22 @@ fn an_archer_without_a_hand_weapon_backs_off() {
 
 #[test]
 fn some_arrows_are_found_after_a_fight() {
-    // Bandit archers against the squad, in the world.
+    // Your hunter with a bow against bandits, in the world. (Strangers
+    // restock at home; it's your own quiver that empties.)
     for seed in 1..6 {
         let mut w = worldgen::generate(seed);
-        let at = w.squad.pos.add(V2::new(25.0, 0.0));
-        let g = w.spawn_bandits(at, 3, false);
-        let archer = w.group(g).unwrap().members[1];
+        let archer = *w.squad.members.iter().find(|&&m| w.people[m as usize].stats.calling == gahturiyu_sim::sim::stats::Calling::Hunter).unwrap();
+        {
+            let d = w.people[archer as usize].detail.as_mut().unwrap();
+            d.gear.add(items::id("short_bow"), 1);
+            d.gear.add(items::id("arrows"), 40);
+            d.gear.equip(items::id("short_bow")).unwrap();
+        }
+        w.people[archer as usize].recompute_might();
+        let at = w.squad.pos.add(V2::new(30.0, 0.0));
+        w.spawn_bandits(at, 3, false);
         let arrows = |w: &gahturiyu_sim::sim::World| w.people[archer as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| items::item(e.0).key == "arrows").map(|e| e.1).sum::<u16>();
         let before = arrows(&w);
-        assert!(before > 0, "the second bandit is an archer");
         let mut shots = 0;
         for _ in 0..4000 {
             w.step(0.5);

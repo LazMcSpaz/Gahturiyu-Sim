@@ -335,10 +335,21 @@ impl World {
 
     /// Drop one of something from a person's pack onto the ground at their feet.
     pub fn drop_item(&mut self, pid: PersonId, it: ItemId) -> bool {
+        let Some(k) = self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.bag.iter().position(|e| e.0 == it && e.2.is_none()).or_else(|| d.gear.bag.iter().position(|e| e.0 == it))) else {
+            return false;
+        };
+        self.drop_entry(pid, k)
+    }
+
+    /// Put down one of the `k`th thing in someone's pack (that very piece).
+    pub fn drop_entry(&mut self, pid: PersonId, k: usize) -> bool {
         let pos = self.person_pos(pid);
+        if self.squad.index(pid).is_some() {
+            self.settle_condition(pid, self.time);
+        }
         let p = &mut self.people[pid as usize];
         let Some(d) = p.detail.as_mut() else { return false };
-        let Some(piece) = d.gear.take_piece(it) else {
+        let Some((it, piece)) = d.gear.take_entry(k) else {
             return false;
         };
         p.recompute_might();

@@ -851,8 +851,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::Care(pid, slot) => {
                 w.care_for(pid, slot);
             }
-            Action::Drop(pid, it) => {
-                w.drop_item(pid, it);
+            Action::DropEntry(pid, k) => {
+                w.drop_entry(pid, k);
             }
             Action::CloseBook => game.book = None,
             Action::Spell(pid, s) => {

@@ -66,6 +66,8 @@ pub const CARGO_PER_HEAD: f32 = 40.0;
 pub const CARAVAN_PRICE: f32 = 0.8;
 /// Days of food a town keeps back before it trades any away.
 pub const KEEP_DAYS: f32 = 3.0;
+/// Coin's worth of each material a town keeps back, a head.
+pub const KEEP_COIN: f32 = 0.6;
 /// Kelp a garden takes as fertiliser each dawn, and what a full dressing adds.
 pub const KELP_PER_GARDEN: f32 = 0.3;
 pub const KELP_BOOST: f32 = 0.2;
@@ -468,7 +470,7 @@ impl World {
     pub fn offer(&self, npc: PersonId, it: ItemId, piece: Option<&super::materials::Piece>) -> Option<u16> {
         let (town, shelf) = self.shelves(npc)?;
         let def = items::item(it);
-        if matches!(def.kind, items::Kind::Coin | items::Kind::Errand) {
+        if matches!(def.kind, items::Kind::Coin | items::Kind::Errand) || piece.map(|p| p.left_at(items::info(it).main.def().rots, self.time) <= 0.0).unwrap_or(false) {
             return None;
         }
         let good = super::jobs::good_of(def.key);
@@ -621,7 +623,8 @@ impl World {
         if g.is_food() {
             need * KEEP_DAYS
         } else {
-            need * 0.15 + 10.0
+            // A store's worth of each, by value: few pearls, plenty of rock.
+            (need * KEEP_COIN / g.value()).clamp(3.0, 80.0)
         }
     }
 

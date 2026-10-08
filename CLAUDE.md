@@ -103,6 +103,19 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    rate (`society::Flow`), and the day's food, tax and changes are tallied
    at `DAWN`. Caravan arrivals and homecomings are timeline events like
    ambushes. Never step people through their day.
+17. **Making and prices follow the same clock.** Town crafters pick their
+   work at the top of the hour (one roll keyed to them and the hour, from
+   what the store holds and lacks), their hours settle on the hour, and the
+   finished thing goes to the store or the shelf (`making.rs`). One recipe
+   table (`crafting::RECIPES`) serves the squad and the towns. Prices are
+   worked out from the store when asked; anything on the world's timeline
+   (caravans, the dawn tally) passes the event's time
+   (`price_factor_at` / `worth_at`), never `self.time`. Wear is the squad's
+   alone, like hunger. Grown things only grow while tended: orders and the
+   squad's beds are checked at dawn, never per step.
+   Likewise what a fight uses up (potions, scrolls, arrows) leaves only the
+   squad's packs: strangers restock at home, so their kit never depends on
+   whether they'd been met.
 
 ## Verifying visual changes
 
@@ -232,5 +245,13 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   hours (a placeholder 48-day year); daylight doesn't follow them yet.
   Part 2 (materials and crafting) and Part 3 (government, law, bondage) are
   not built: `set_withdrawn` and the treasury's unpaid pay are their hooks.
+- Society Part 2 (materials and crafting) follows Laz's brief: placeholder
+  English names, no new place names. Its scope-downs (Laz asked to keep it
+  lean): stations are free to use (no rent); lessons and manual study run
+  while you carry on (no staying put); an order takes its feedstock from the
+  Tender's town store; only the squad's gear wears; caravans carry bulk goods,
+  not shelf pieces; pitch burning, paper and water, and fishskin's wet grip
+  aren't modelled (no fire or wet damage yet); each crafter teaches one way
+  (deep or drilled), rolled from their people's leaning.
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.

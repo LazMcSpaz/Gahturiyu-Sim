@@ -114,8 +114,8 @@ fn details_once_built_are_kept() {
     w.order_squad(start);
     w = run(w, 30.0, 5.0);
 
-    // Never rebuilt or rerolled. (Someone who fought a far-off fight may have
-    // used up arrows or potions meanwhile, but nothing else changes.)
+    // Never rebuilt or rerolled. (What strangers use up in a fight they
+    // restock at home, so their packs don't change either.)
     for (id, d) in seen {
         let now = w.people[id as usize].detail.as_ref().expect("details kept");
         assert_eq!(now.name, d.name, "person {id} was renamed");

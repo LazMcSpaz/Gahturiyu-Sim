@@ -334,7 +334,9 @@ impl World {
                 t.push(Topic::Orders);
             }
         }
-        t.extend(self.orders_with(c.npc).into_iter().map(|k| Topic::Collect(k as u16)));
+        if self.at_work(c.npc, self.time) {
+            t.extend(self.orders_with(c.npc).into_iter().map(|k| Topic::Collect(k as u16)));
+        }
         t.push(Topic::Goodbye);
         t
     }

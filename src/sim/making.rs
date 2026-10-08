@@ -276,7 +276,14 @@ impl World {
 
     /// Stock units one of an item counts as in its good.
     pub fn units_of(good: Good, it: ItemId) -> f32 {
-        (item(it).value / good.value()).max(1.0).ceil()
+        let u = item(it).value / good.value();
+        // Wares are counted by worth (a handful of sling stones is no torch);
+        // materials one to a unit or more.
+        if good == Good::Wares {
+            u.max(0.01)
+        } else {
+            u.max(1.0).ceil()
+        }
     }
 
     /// Has the town the materials for a recipe in store?
@@ -403,6 +410,8 @@ impl World {
     /// At dawn: the townsfolk buy the oldest few things off the shelf (the
     /// merchants take the coin; stamped work spreads its maker's name).
     pub(super) fn locals_buy(&mut self, town: SettlementId, t: f64) {
+        // Reed that's rotted through on the shelf is thrown out.
+        self.society.towns[town as usize].shelf.retain(|s| s.piece.map(|p| p.left_at(items::info(s.item).main.def().rots, t) > 0.0).unwrap_or(true));
         let n = LOCALS_BUY.min(self.society.towns[town as usize].shelf.len());
         let sold: Vec<Shelved> = self.society.towns[town as usize].shelf.drain(..n).collect();
         let coin: f32 = sold.iter().map(|s| self.worth_at(town, s.item, s.piece.as_ref(), t)).sum();
@@ -410,7 +419,8 @@ impl World {
             self.passed_on(s.piece.as_ref());
         }
         let tl = &mut self.society.towns[town as usize];
-        tl.purse = super::economy::purse_at(tl, t) + coin;
+        let now = super::economy::purse_at(tl, t);
+        tl.purse = (now + coin).min(tl.purse_cap.max(now));
         tl.purse_at = t;
     }
 
@@ -509,14 +519,23 @@ impl World {
         while k < self.orders.len() {
             let o = self.orders[k];
             let p = &self.people[o.tender as usize];
-            if p.dead {
+            // A Tender who's moved takes the bed with them.
+            if let Some(h) = p.home.filter(|&h| h != o.town && !p.dead) {
+                self.orders[k].town = h;
+                let what = item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase();
+                let to = self.settlements[h as usize].name.clone();
+                self.log.push_front((t, format!("The Tender growing your {what} has moved to {to}; collect it there.")));
+                self.log.truncate(14);
+            }
+            let p = &self.people[o.tender as usize];
+            if p.dead || p.home.is_none() {
                 let what = item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase();
                 self.log.push_front((t, format!("The Tender growing your {what} has died. The order is lost, and the deposit with it.")));
                 self.log.truncate(14);
                 self.orders.remove(k);
                 continue;
             }
-            let away = self.busy_until[o.tender as usize] > t || p.home != Some(o.town) || super::body::knocked_out(&p.wounds.hp_at(&p.stats, t));
+            let away = self.busy_until[o.tender as usize] > t || super::body::knocked_out(&p.wounds.hp_at(&p.stats, t));
             if away && o.ready_at > t {
                 self.orders[k].ready_at += DAY;
             }
@@ -529,7 +548,7 @@ impl World {
     /// A crafter at work offers to teach their trade: (craft, price, how they teach).
     pub fn craft_lesson(&self, teacher: PersonId, learner: PersonId) -> Option<(Craft, u16, Teaching)> {
         let craft = self.life(teacher).job.craft()?;
-        if !self.at_work(teacher, self.time) || self.people[learner as usize].stats.skill(craft.skill()) >= LESSON_CAP.min(self.work_skill(teacher, craft)) {
+        if self.lessons.iter().any(|l| l.who == learner) || !self.at_work(teacher, self.time) || self.people[learner as usize].stats.skill(craft.skill()) >= LESSON_CAP.min(self.work_skill(teacher, craft)) {
             return None;
         }
         let style = self.life(teacher).habits.teaching;

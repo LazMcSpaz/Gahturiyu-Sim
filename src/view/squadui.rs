@@ -85,9 +85,10 @@ pub enum Action {
     EquipEntry(PersonId, usize),
     OpenInventory(PersonId),
     Unequip(PersonId, Slot),
+    /// Put down this very entry in the pack.
+    DropEntry(PersonId, usize),
     /// Seal a worn reed piece with pitch, or mend it yourself.
     Care(PersonId, Slot),
-    Drop(PersonId, ItemId),
     Use(PersonId, ItemId),
     Craft(PersonId, usize),
     CloseInventory,
@@ -556,7 +557,7 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
         if let Some(ck) = clicked(rr) {
             if ck.right {
-                act = Some(Action::Drop(pid, i));
+                act = Some(Action::DropEntry(pid, k));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::EquipEntry(pid, k));
             } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_)) {
@@ -679,7 +680,7 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
     let p = &w.people[pid as usize];
     let shown: Vec<usize> = (0..RECIPES.len()).filter(|&i| w.knows_craft(pid, RECIPES[i].craft())).collect();
     let crafts = shown.iter().map(|&i| RECIPES[i].skill).collect::<std::collections::BTreeSet<_>>().len();
-    let r = craft_rect(c, shown.len() + crafts);
+    let r = craft_rect(c, shown.len() + crafts + 1);
     c.rect(r.x, r.y, r.w, r.h, PANEL);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 14.0;
@@ -699,7 +700,9 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
     c.text(if known.is_empty() { "No crafts taken up yet." } else { &known_line }, x, y, 14.0, TEXT);
     y += 18.0;
     if !unknown.is_empty() {
-        c.text(&format!("To take up {}: a crafter's lessons or a manual.", unknown.iter().map(|k| k.skill().name()).collect::<Vec<_>>().join(", ")), x, y, 13.0, DIM);
+        c.text("Not yet taken up (learn from a crafter at work, or a manual):", x, y, 13.0, DIM);
+        y += 16.0;
+        c.text(&unknown.iter().map(|k| k.skill().name()).collect::<Vec<_>>().join(", "), x + 8.0, y, 13.0, DIM);
     }
     if let Some((k, left)) = w.lesson_progress(pid) {
         y += 18.0;

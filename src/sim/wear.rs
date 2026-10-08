@@ -60,6 +60,9 @@ impl World {
 
     /// A piece worn to nothing is gone.
     fn break_piece(&mut self, pid: PersonId, slot: Slot, t: f64) {
+        // What they carry changes: settle their condition first (the squad
+        // is always stepped, so its clock is the world's).
+        self.settle_condition(pid, self.time);
         let p = &mut self.people[pid as usize];
         let Some(d) = p.detail.as_mut() else { return };
         let Some(id) = d.gear.discard(slot) else { return };
@@ -74,6 +77,10 @@ impl World {
     /// is gone. Checked on the hour.
     pub(super) fn rot_gear(&mut self, t: f64) {
         for m in self.squad.members.clone() {
+            let rots = |e: &super::inventory::Entry| items::info(e.0).main.def().rots && e.2.map(|pc| pc.left_at(true, t) <= 0.0).unwrap_or(false);
+            if self.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(rots)).unwrap_or(false) {
+                self.settle_condition(m, self.time);
+            }
             let Some(d) = self.people[m as usize].detail.as_mut() else { continue };
             let gone: Vec<Slot> = SLOTS.iter().copied().filter(|&s| d.gear.in_slot(s).map(|id| items::info(id).main.def().rots).unwrap_or(false) && d.gear.piece(s).map(|pc| pc.left_at(true, t) <= 0.0).unwrap_or(false)).collect();
             let rotted_bag = d.gear.bag.len();
@@ -139,7 +146,8 @@ impl World {
         if let Some(town) = self.people[mender as usize].home {
             let t = self.time;
             let tl = &mut self.society.towns[town as usize];
-            tl.purse = super::economy::purse_at(tl, t) + price as f32;
+            let now = super::economy::purse_at(tl, t);
+            tl.purse = (now + price as f32).min(tl.purse_cap.max(now));
             tl.purse_at = t;
         }
         self.restore(pid, slot, f32::MAX);

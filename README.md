@@ -84,8 +84,10 @@ their torch is lit. A violet diamond with "Holding …" means a ritual is held r
 
 ## Playing
 
-- **Your squad**: a Roduro brawler with a stone maul, a Horaro hunter with a
-  spear and lockpicks, a Qotiro shield-fighter, and a Ṭaḍoro mage (every
+- **Your squad**: a Roduro brawler with a club, a Horaro hunter with a
+  spear and lockpicks, a Qotiro fighter with hatchet and buckler, and a
+  Ṭaḍoro mage, all in the shared basics (leather, cloth, wood, plain iron) —
+  the traditions' work is something to buy, order or make. The mage has (every
   felt spell their feel reaches, Fireball, Lightning bolt, Paralyze, Blind,
   Barrier, Haste and some others, and the Restore ritual) with a mortar and
   pestle and some herbs. Each walks at their own pace: hills, a hurt leg or an
@@ -150,11 +152,19 @@ their torch is lit. A violet diamond with "Holding …" means a ritual is held r
   where they're going, so other towns hear of it over the following days.
   Locals in any town that has heard treat you coldly, and you can pay it off
   there too. The side panel says how many towns know.
-- **Crafting**: potions (anywhere with a mortar and pestle), scrolls (scribe's
-  desk), weapons and armour (forge, armourer's bench). Every town has the four
-  stations, in its workyard, healing house and letters house or in separate
-  shops, depending on the town. Materials grow or lie around the land and come
-  back a day after you take them.
+- **Crafting** (K): seven crafts, each with its own station in town —
+  leather, cloth and wood (workbench), smithing (forge), armouring (forge or
+  bench), weaving and sealing (weaver's frame), stone-tending (grower's bed),
+  paper, ink and scrolls (scribe's desk), alchemy (table, or a mortar and
+  pestle anywhere). Each member starts with a craft or two; to take up
+  another, pay a crafter at work to teach you ("Teach me your trade"), or
+  read a manual (slower, and it only gets you started). Practice does the
+  rest. What you make comes out crude, common, fine or masterwork, and
+  carries your mark. See Materials and crafting below.
+- **Wear**: your weapons and armour wear with every blow; at zero a piece
+  is gone. A crafter of the right trade mends it for coin, or right-click it
+  in the pack panel to mend it yourself (if you know the craft and are at its
+  station) — or to seal unsealed reed with pitch.
 - **Talking**: people answer from who they are and what's true right now. Some
   have work: break a bandit camp, fetch materials, carry a letter.
 - **Towns live by the clock**: people sleep, walk to work, eat, work, spend
@@ -208,8 +218,10 @@ posts, weighted by their calling, temper and people's leanings: farmer, fisher
 and diver, forager and hunter, woodcutter and quarrier, Stone Tender (making
 rounds of the stone homes), cook, meal runner, merchant, caravaner, innkeeper,
 guard (day or night watch), official, priest, healer, teacher, exchanger,
-arbiter, labourer and porter, kelp gatherer, boatwright, and the four existing
-crafters (smith, armourer, alchemist, scribe). Restless people with nothing
+arbiter, labourer and porter, kelp gatherer, boatwright, charcoal burner, and
+the crafters (smith, armourer, alchemist, scribe, weaver and sealer, tanner,
+leatherworker, tailor, woodworker). How many crafters of each kind a town has
+leans on how much its people take to each craft. Restless people with nothing
 to do drift. When someone with a post dies or leaves, it stays empty until the
 next dawn, when a labourer takes it up. Every home on land has a garden,
 tended by whoever in the house has the lightest work (a lodger first, then the
@@ -231,8 +243,8 @@ runners gone, the village withdrawn — leaves its share unmet, and the others
 don't cover for it. The town panel shows how well each path did.
 
 **Goods and money.** Work adds goods to the town's store at simple rates
-(grain from the fields, fish from the divers, timber, game, hides, stone,
-wares from the crafters); food slowly spoils. What's in store is what the
+(grain from the fields, fish from the divers, timber, game, hides, rock and
+ore, and the rest — see below); food slowly spoils. What's in store is what the
 merchants sell, and how well-stocked and well-fed a town is sets its
 **prosperity**, which sets how fast the merchants' coin refills after you've
 sold to them (what you and the caravans bring in can lift it above that
@@ -248,9 +260,64 @@ Exchangers in the larger towns swap one for the other, keeping a coin each
 time. Each dawn a town taxes its households into a **treasury** that pays its
 guards; when it can't, the pay owed is shown in red (Part 3 makes that matter).
 
+### Materials and crafting
+
+**What the land offers.** Each town looks at the land within a day's walk
+once, as the world is made: ore and rare veins (gold, Edgeglass seed
+crystals) toward the mountains and the plateau's edge, sand on the plateau,
+clay in the lowlands, tentsilk cocoons in the hills, and on the coast reed,
+pitch from the shore woods, shell and pearls, and whatever lies on the
+seabed. Its woodcutters and quarriers split their hours over what's there;
+farmers bring in fibre, hunters hides, divers shell and fishskin, kelp
+gatherers reed. A town without ore can only work iron if the caravans bring
+some. One thing feeds another: charcoal burners turn wood into charcoal and
+ash; forges need charcoal and give off ash; Stone Tenders grow stone from rock
+and ash; kelp from the store, dug into the gardens, makes them yield more.
+
+**Materials** (`src/sim/materials.rs`) each carry their traits: edge,
+weight behind a blow, how much armour they get through, how well they turn
+cuts and blows, weight, how long they last, whether they can be mended.
+Every tradition's are there: grown Roduro stone (Ringstone, Hearthclay,
+Slatewing, Edgeglass — keenest of all and slow to wear, but it can't be
+mended and shatters when spent), Qotiro fire-work (Bronze, Forgeiron — best
+against armour — Sandglass, gold), Horaro sea-work (Seareed, which rots
+unless sealed with pitch; Nacre; Fishskin), and Ṭaḍoro tentsilk. The shared
+basics (leather, cloth, wood, plain iron) are made anywhere. Nacre and
+Slatewing turn cuts but crack under heavy blows; nets entangle. A piece can
+pair a main material with a backing one: an Edgeglass edge on a Forgeiron
+spine, Nacre scales on a Slatewing frame — which needs both traditions'
+work in one town, or a caravan between two.
+
+**Town crafters** work from the same recipes as you. At the top of each
+hour, any with nothing in hand pick something to make from what the store
+holds and lacks; it's done when their hours add up. Materials go back to the
+store; weapons, armour, scrolls and manuals go on the town's **shelf**, where
+the merchants sell them and the townsfolk buy a few each dawn. Grade comes
+from the maker's skill, the station and a roll. A fine piece, or one by a
+skilled maker, is **stamped with their mark**; every piece records who made
+it and where. Stamped pieces sell for more, and more again as the maker's
+work gets around.
+
+**Prices follow each town's own store**: a good it has little of costs more
+there, one it has plenty of costs less (×0.5 to ×2.5, worked out when
+asked). Caravans carry what's cheap at home to where it's dear. The town
+panel marks dear goods with ↑ and cheap ones with ↓.
+
+**Orders.** Grown pieces (Slatewing helms and plates, Ringstone mauls and
+shields, Edgeglass blades) aren't on any shelf: ask a Stone Tender at work
+what they'd grow, pay half, and come back when it's ready — days for
+Hearthclay, three weeks for Slatewing, three months for Edgeglass. Stone
+grows only while it's tended: each dawn the Tender is away adds a day, and if
+the Tender dies the order and the deposit are lost.
+
+**Mending** needs someone who works the material: smiths and armourers for
+fire metals, weavers for reed and shell, Tenders for grown stone, any
+leather-, cloth- or woodworker for the basics. A town can only mend what its
+people know how to work.
+
 `cargo run --release --bin headless -- society 3` prints every town's customs,
-jobs, food, store and money after three days — the quickest way to see what
-the dials do.
+jobs, food, store, what the land offers, its shelf and its dearest goods after
+three days — the quickest way to see what the dials do.
 
 ## Magic
 
@@ -538,6 +605,13 @@ The numbers most worth tuning, all named constants:
 | Name sounds per race | `src/sim/names.rs` |
 | Torches: burn time, light, how far they're seen, sneaking with one (`TORCH_HOURS`, `STANDING_HOURS`, `TORCH_REACH`, `TORCH_POWER`, `TORCH_SEEN`, `TORCH_SNEAK`) | `src/sim/torch.rs` |
 | How much darkness spoils aim (`DARK_SHOT`, `DARK_BLOW`) | `src/sim/combat.rs` |
+| Materials' traits: edge, weight, piercing, turning cuts and blows, durability, wear, cracking, rot, growing days, worth (`MATERIALS`); grades (`Grade::from`, `power`, `durability`, `worth`), when a mark is stamped (`MARK_SKILL`), rot (`ROT_PER_DAY`) | `src/sim/materials.rs` |
+| Every recipe: inputs, skill, difficulty, station, time (`RECIPES`); how many beds a Tender grows at once (`TENDER_BEDS`) | `src/sim/crafting.rs` |
+| What the land offers each town and how far quarriers go (`town_sources`, `VEIN_REACH`); what a quarrier digs (`DIG`); what other gatherers bring in (`Job::gathers`) | `src/sim/making.rs`, `src/sim/jobs.rs` |
+| Prices: range (`PRICE_RANGE`), how much a town keeps (`KEEP_COIN`), mark and renown (`MARK_WORTH`, `RENOWN_WORTH`, `RENOWN_MAX`) | `src/sim/making.rs`, `src/sim/economy.rs` |
+| Shelf size, what locals buy (`SHELF_CAP`, `SHELF_EACH`, `LOCALS_BUY`); charcoal (`BURN_PER_HOUR`, `CHARCOAL_PER_TIMBER`, `ASH_PER_TIMBER`, `FORGE_ASH`); kelp in the gardens (`KELP_PER_GARDEN`, `KELP_BOOST`) | `src/sim/making.rs`, `src/sim/economy.rs` |
+| Lessons and manuals (`LESSON_PRICE`, `LESSON_CAP`, `MANUAL_GAIN`, `MANUAL_HOURS`, `MANUAL_CAP`; how each teaching style goes in `Teaching::lesson`); order deposit (`DEPOSIT`) | `src/sim/making.rs`, `src/sim/culture.rs` |
+| Mending prices (`MEND_PRICE`, `SELF_MEND`) | `src/sim/wear.rs` |
 
 Drawing only (these never change what happens):
 
@@ -582,7 +656,10 @@ src/sim/      the simulation — no graphics, fully testable
   carry.rs      carrying the downed
   stealth.rs    being seen and heard
   buildings.rs  doors, locks, interiors
-  crafting.rs   recipes, stations, gathering, potions
+  crafting.rs   recipes, stations, the squad's crafting, gathering, potions
+  materials.rs  materials and their traits, crafts, grades, marks, made pieces
+  making.rs     what the land gives, town crafters and their shelf, prices, orders, lessons
+  wear.rs       wear, breakage, rot, mending, sealing
   quests.rs     jobs
   dialogue.rs   conversations (and trading)
   culture.rs    each people's leanings, town blends, choosing customs
