@@ -293,8 +293,8 @@ mod tests {
 
     #[test]
     fn spells_are_read_by_what_they_do() {
-        assert_eq!(use_of(spell("heal")), Use::Mend);
-        assert_eq!(use_of(spell("mage_armor")), Use::Ward);
+        assert_eq!(use_of(spell("mend")), Use::Mend);
+        assert_eq!(use_of(spell("barrier")), Use::Ward);
         assert_eq!(use_of(spell("haste")), Use::Quicken);
         assert_eq!(use_of(spell("paralyze")), Use::Hinder);
         assert_eq!(use_of(spell("blind")), Use::Hinder);

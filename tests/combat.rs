@@ -211,12 +211,12 @@ fn blindness_makes_attacks_miss() {
 }
 
 #[test]
-fn mage_armor_takes_the_edge_off() {
+fn barrier_takes_the_edge_off() {
     let taken = |warded: bool| {
         let mut b = duel(brute(2), mage(), 1.0);
         b.fighters[1].hp = [1e6; 6];
         if warded {
-            cast_inline(&mut b, 1, spell("mage_armor"));
+            cast_inline(&mut b, 1, spell("barrier"));
             assert!(b.fighters[1].has(Does::Barrier).is_some());
         }
         b.fighters[0].target = Some(1);
@@ -313,7 +313,7 @@ fn healing_mends_wounds_and_gets_the_downed_up() {
     b.fighters[1].hp[Part::Torso as usize] = -5.0;
     b.fighters[1].ko = true;
     let before = total_hp(&b.fighters[1]);
-    cast_until(&mut b, spell("heal"), Some(1), V2::new(3.0, 0.0), |b| total_hp(&b.fighters[1]) > before);
+    cast_until(&mut b, spell("mend"), Some(1), V2::new(3.0, 0.0), |b| total_hp(&b.fighters[1]) > before);
     assert!(!b.fighters[1].ko, "a healed friend should get back up");
     assert!(b.fighters[1].hp[Part::Torso as usize] > 0.0);
 }

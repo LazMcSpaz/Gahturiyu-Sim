@@ -143,10 +143,10 @@ pub static SPELLS: &[SpellDef] = &[
     structured("fireball", "Fireball", Elemental, 30.0, 1.6, 20.0, Point, 40.0, &[now(Does::Damage(Element::Fire), 18.0, area(3.0))]),
     structured("lightning_bolt", "Lightning bolt", Elemental, 22.0, 1.2, 25.0, Foe, 30.0, &[now(Does::Damage(Element::Lightning), 22.0, Reach::Target)]),
     structured("blind", "Blind", Illusion, 15.0, 1.0, 15.0, Foe, 25.0, &[lasting(Does::Blind, 0.65, 10.0, Reach::Target)]),
-    structured("mage_armor", "Mage armor", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
-    structured("haste", "Enhanced speed", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),
+    structured("barrier", "Barrier", Warding, 18.0, 1.0, 0.0, Caster, 25.0, &[lasting(Does::Barrier, 0.4, 30.0, Reach::Caster)]),
+    structured("haste", "Haste", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),
     //    key     name    domain cost tire  range aim     min
-    felt("heal", "Heal", Vital, 8.0, 0.6, 10.0, Friend, 15.0, &[now(Does::Heal, 16.0, Reach::Target)]),
+    felt("mend", "Mend", Vital, 8.0, 0.6, 10.0, Friend, 15.0, &[now(Does::Heal, 16.0, Reach::Target)]),
 ];
 
 /// Look a spell up by its key. Panics on a typo, which is what tests want.
@@ -271,7 +271,7 @@ mod tests {
         let mut s = stats(Race::Roduro);
         s.set_skill(Skill::Felt, 20.0);
         s.set_skill(Skill::Structured, 20.0);
-        let heal = spell("heal");
+        let heal = spell("mend");
         assert!(success_chance(&s, heal, 1.0) > 0.85);
         assert!(success_chance(&s, heal, 1.0) > success_chance(&s, spell("fireball"), 1.0) + 0.3);
         s.set_skill(Skill::Felt, 5.0);

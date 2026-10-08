@@ -268,7 +268,7 @@ pub static ITEMS: &[ItemDef] = &[
     potion("healing_draught", "Healing draught", 25.0, &[now(Does::Heal, 25.0, Reach::Caster)]),
     potion("greater_healing", "Greater healing draught", 70.0, &[now(Does::Heal, 55.0, Reach::Caster)]),
     potion("mana_tonic", "Mana tonic", 35.0, &[now(Does::Energy, 40.0, Reach::Caster)]),
-    scroll("scroll_heal", "Scroll of healing", "heal", 40.0),
+    scroll("scroll_heal", "Scroll of mending", "mend", 40.0),
     scroll("scroll_paralyze", "Scroll of paralysis", "paralyze", 60.0),
     scroll("scroll_fireball", "Scroll of fireball", "fireball", 70.0),
     scroll("scroll_lightning", "Scroll of lightning", "lightning_bolt", 60.0),

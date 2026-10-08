@@ -41,10 +41,10 @@ fn duel(a: &Person, b: &Person) -> Battle {
 #[test]
 fn felt_spells_go_off_at_once_and_tire_the_caster() {
     let mut b = duel(&mage(), &brute(2));
-    assert_eq!(spell("heal").def().style, Style::Felt);
+    assert_eq!(spell("mend").def().style, Style::Felt);
     b.fighters[0].hp[1] -= 30.0;
     let hurt = b.fighters[0].hp[1];
-    assert!(b.begin_cast(0, spell("heal"), Some(0), V2::new(0.0, 0.0)));
+    assert!(b.begin_cast(0, spell("mend"), Some(0), V2::new(0.0, 0.0)));
     b.tick();
     assert!(!matches!(b.fighters[0].act, Act::Cast { .. }), "a felt spell shouldn't take a cast time");
     assert!(b.fighters[0].hp[1] > hurt, "it should have worked in the same moment");
@@ -53,7 +53,7 @@ fn felt_spells_go_off_at_once_and_tire_the_caster() {
 
 #[test]
 fn structured_spells_take_a_second_or_two_and_a_hit_spoils_them() {
-    for spell in [spell("fireball"), spell("lightning_bolt"), spell("paralyze"), spell("blind"), spell("mage_armor"), spell("haste")] {
+    for spell in [spell("fireball"), spell("lightning_bolt"), spell("paralyze"), spell("blind"), spell("barrier"), spell("haste")] {
         let mut b = duel(&mage(), &brute(2));
         assert_eq!(spell.def().style, Style::Structured);
         assert!(b.begin_cast(0, spell, Some(1), V2::new(6.0, 0.0)));
@@ -77,7 +77,7 @@ fn felt_magic_rarely_fails() {
     for _ in 0..100 {
         b.fighters[0].hp[1] = b.fighters[0].max_hp[1] - 40.0;
         b.fighters[0].mana = 100.0;
-        assert!(b.begin_cast(0, spell("heal"), Some(0), V2::new(0.0, 0.0)));
+        assert!(b.begin_cast(0, spell("mend"), Some(0), V2::new(0.0, 0.0)));
         b.tick();
         if b.fighters[0].hp[1] > b.fighters[0].max_hp[1] - 39.0 {
             worked += 1;
@@ -126,15 +126,15 @@ fn felt_spells_are_learned_by_using_the_style() {
     let (mut w, mage) = squad_fight(2);
     // Just short of mending; a fight's worth of felt casting gets them there.
     let p = &mut w.people[mage as usize];
-    p.stats.set_skill(Skill::Felt, spell("heal").def().min_skill - 0.5);
-    p.detail.as_mut().unwrap().spells.retain(|&s| s != spell("heal"));
+    p.stats.set_skill(Skill::Felt, spell("mend").def().min_skill - 0.5);
+    p.detail.as_mut().unwrap().spells.retain(|&s| s != spell("mend"));
     let f = w.battles[0].fighters.iter_mut().find(|f| f.pid == mage).unwrap();
-    f.spells.retain(|&s| s != spell("heal"));
+    f.spells.retain(|&s| s != spell("mend"));
     f.trained[Skill::Felt as usize] += 10.0;
     finish(&mut w);
     let p = &w.people[mage as usize];
-    assert!(p.stats.skill(Skill::Felt) >= spell("heal").def().min_skill);
-    assert!(p.detail.as_ref().unwrap().spells.contains(&spell("heal")), "the feel for mending should have come");
+    assert!(p.stats.skill(Skill::Felt) >= spell("mend").def().min_skill);
+    assert!(p.detail.as_ref().unwrap().spells.contains(&spell("mend")), "the feel for mending should have come");
 }
 
 #[test]
@@ -146,8 +146,8 @@ fn every_spell_has_a_domain() {
     assert_eq!(spell("fireball").def().domain, Domain::Elemental);
     assert_eq!(spell("paralyze").def().domain, Domain::Psychic);
     assert_eq!(spell("blind").def().domain, Domain::Illusion);
-    assert_eq!(spell("heal").def().domain, Domain::Vital);
-    assert_eq!(spell("mage_armor").def().domain, Domain::Warding);
+    assert_eq!(spell("mend").def().domain, Domain::Vital);
+    assert_eq!(spell("barrier").def().domain, Domain::Warding);
 }
 
 /// Damage from one lightning bolt, with the caster's and target's domain
@@ -257,4 +257,20 @@ fn a_healing_scroll_works_on_the_road_but_an_attack_scroll_waits_for_a_fight() {
     assert!(w.use_item(m, items::id("scroll_heal")));
     assert!(w.people[m as usize].wounds.hp_at(&base, t)[1] > before + 10.0);
     assert!(!w.use_item(m, items::id("scroll_fireball")), "an attack scroll is for a fight");
+}
+
+#[test]
+fn the_placeholder_spells_are_remapped() {
+    use gahturiyu_sim::sim::magic::Domain;
+    let check = |key: &str, name: &str, style: Style, domain: Domain| {
+        let d = spell(key).def();
+        assert_eq!((d.name, d.style, d.domain), (name, style, domain), "{key}");
+    };
+    check("fireball", "Fireball", Style::Structured, Domain::Elemental);
+    check("lightning_bolt", "Lightning bolt", Style::Structured, Domain::Elemental);
+    check("paralyze", "Paralyze", Style::Structured, Domain::Psychic);
+    check("blind", "Blind", Style::Structured, Domain::Illusion);
+    check("mend", "Mend", Style::Felt, Domain::Vital);
+    check("barrier", "Barrier", Style::Structured, Domain::Warding);
+    check("haste", "Haste", Style::Structured, Domain::Vital);
 }
