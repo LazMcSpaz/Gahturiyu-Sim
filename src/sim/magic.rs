@@ -10,6 +10,13 @@
 //! | Learned | by using the style | teacher or notes | teacher or rare texts |
 //!
 //! Energy is the mana pool. Casting trains the style used.
+//!
+//! Every spell also carries one of eight **domains** — what it works on.
+//! Domains have no rules of their own yet; they're tags for other things to
+//! hook into. Two hooks exist: `Effect::DomainPower` (an item or blessing
+//! that strengthens a domain's spells) and `Effect::DomainResist` (one that
+//! wards against them). A shrine boosting one domain, or a birth god's
+//! bonus, would add one of those.
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +28,36 @@ pub enum Style {
     Felt,
     Structured,
     Ritual,
+}
+
+/// What a spell works on. Tags for now (see the module notes).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Domain {
+    Elemental,
+    Psychic,
+    Illusion,
+    Vital,
+    Warding,
+    Alteration,
+    Summoning,
+    Necromancy,
+}
+
+pub const DOMAINS: [Domain; 8] = [Domain::Elemental, Domain::Psychic, Domain::Illusion, Domain::Vital, Domain::Warding, Domain::Alteration, Domain::Summoning, Domain::Necromancy];
+
+impl Domain {
+    pub fn name(self) -> &'static str {
+        match self {
+            Domain::Elemental => "Elemental",
+            Domain::Psychic => "Psychic",
+            Domain::Illusion => "Illusion",
+            Domain::Vital => "Vital",
+            Domain::Warding => "Warding",
+            Domain::Alteration => "Alteration",
+            Domain::Summoning => "Summoning",
+            Domain::Necromancy => "Necromancy",
+        }
+    }
 }
 
 impl Style {
@@ -70,6 +107,7 @@ pub enum Target {
 pub struct SpellDef {
     pub name: &'static str,
     pub style: Style,
+    pub domain: Domain,
     /// Energy (mana).
     pub cost: f32,
     /// Tiredness added (felt spells), 0..100 scale like the squad's own.
@@ -92,13 +130,13 @@ pub struct SpellDef {
 impl Spell {
     pub fn def(self) -> SpellDef {
         match self {
-            Spell::Paralyze => SpellDef { name: "Paralyze", style: Style::Structured, cost: 25.0, tire: 0.0, cast_time: 1.4, range: 15.0, target: Target::Other, min_skill: 35.0, duration: 6.0, magnitude: 1.0, radius: 0.0 },
-            Spell::Fireball => SpellDef { name: "Fireball", style: Style::Structured, cost: 30.0, tire: 0.0, cast_time: 1.6, range: 20.0, target: Target::Ground, min_skill: 40.0, duration: 0.0, magnitude: 18.0, radius: 3.0 },
-            Spell::LightningBolt => SpellDef { name: "Lightning bolt", style: Style::Structured, cost: 22.0, tire: 0.0, cast_time: 1.2, range: 25.0, target: Target::Other, min_skill: 30.0, duration: 0.0, magnitude: 22.0, radius: 0.0 },
-            Spell::Blind => SpellDef { name: "Blind", style: Style::Structured, cost: 15.0, tire: 0.0, cast_time: 1.0, range: 15.0, target: Target::Other, min_skill: 25.0, duration: 10.0, magnitude: 0.65, radius: 0.0 },
-            Spell::MageArmor => SpellDef { name: "Mage armor", style: Style::Structured, cost: 18.0, tire: 0.0, cast_time: 1.0, range: 0.0, target: Target::Caster, min_skill: 25.0, duration: 30.0, magnitude: 0.4, radius: 0.0 },
-            Spell::Heal => SpellDef { name: "Heal", style: Style::Felt, cost: 8.0, tire: 0.6, cast_time: 0.0, range: 10.0, target: Target::Ally, min_skill: 15.0, duration: 0.0, magnitude: 16.0, radius: 0.0 },
-            Spell::Haste => SpellDef { name: "Enhanced speed", style: Style::Structured, cost: 15.0, tire: 0.0, cast_time: 1.0, range: 0.0, target: Target::Caster, min_skill: 28.0, duration: 20.0, magnitude: 0.4, radius: 0.0 },
+            Spell::Paralyze => SpellDef { name: "Paralyze", style: Style::Structured, domain: Domain::Psychic, cost: 25.0, tire: 0.0, cast_time: 1.4, range: 15.0, target: Target::Other, min_skill: 35.0, duration: 6.0, magnitude: 1.0, radius: 0.0 },
+            Spell::Fireball => SpellDef { name: "Fireball", style: Style::Structured, domain: Domain::Elemental, cost: 30.0, tire: 0.0, cast_time: 1.6, range: 20.0, target: Target::Ground, min_skill: 40.0, duration: 0.0, magnitude: 18.0, radius: 3.0 },
+            Spell::LightningBolt => SpellDef { name: "Lightning bolt", style: Style::Structured, domain: Domain::Elemental, cost: 22.0, tire: 0.0, cast_time: 1.2, range: 25.0, target: Target::Other, min_skill: 30.0, duration: 0.0, magnitude: 22.0, radius: 0.0 },
+            Spell::Blind => SpellDef { name: "Blind", style: Style::Structured, domain: Domain::Illusion, cost: 15.0, tire: 0.0, cast_time: 1.0, range: 15.0, target: Target::Other, min_skill: 25.0, duration: 10.0, magnitude: 0.65, radius: 0.0 },
+            Spell::MageArmor => SpellDef { name: "Mage armor", style: Style::Structured, domain: Domain::Warding, cost: 18.0, tire: 0.0, cast_time: 1.0, range: 0.0, target: Target::Caster, min_skill: 25.0, duration: 30.0, magnitude: 0.4, radius: 0.0 },
+            Spell::Heal => SpellDef { name: "Heal", style: Style::Felt, domain: Domain::Vital, cost: 8.0, tire: 0.6, cast_time: 0.0, range: 10.0, target: Target::Ally, min_skill: 15.0, duration: 0.0, magnitude: 16.0, radius: 0.0 },
+            Spell::Haste => SpellDef { name: "Enhanced speed", style: Style::Structured, domain: Domain::Vital, cost: 15.0, tire: 0.0, cast_time: 1.0, range: 0.0, target: Target::Caster, min_skill: 28.0, duration: 20.0, magnitude: 0.4, radius: 0.0 },
         }
     }
 }

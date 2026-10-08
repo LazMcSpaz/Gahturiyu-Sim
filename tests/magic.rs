@@ -135,3 +135,47 @@ fn felt_spells_are_learned_by_using_the_style() {
     assert!(p.stats.skill(Skill::Felt) >= Spell::Heal.def().min_skill);
     assert!(p.detail.as_ref().unwrap().spells.contains(&Spell::Heal), "the feel for mending should have come");
 }
+
+#[test]
+fn every_spell_has_a_domain() {
+    use gahturiyu_sim::sim::magic::{Domain, SPELLS};
+    for s in SPELLS {
+        let _: Domain = s.def().domain;
+    }
+    assert_eq!(Spell::Fireball.def().domain, Domain::Elemental);
+    assert_eq!(Spell::Paralyze.def().domain, Domain::Psychic);
+    assert_eq!(Spell::Blind.def().domain, Domain::Illusion);
+    assert_eq!(Spell::Heal.def().domain, Domain::Vital);
+    assert_eq!(Spell::MageArmor.def().domain, Domain::Warding);
+}
+
+/// Damage from one lightning bolt, with the caster's and target's domain
+/// numbers set. The same seed every time, so only the hooks differ.
+fn bolt(dom: gahturiyu_sim::sim::magic::Domain, power: f32, resist: f32) -> f32 {
+    let mut b = duel(&mage(), &brute(2));
+    b.fighters[0].domain_power[dom as usize] = power;
+    b.fighters[1].domain_resist[dom as usize] = resist;
+    let before: f32 = b.fighters[1].hp.iter().sum();
+    for _ in 0..40 {
+        b.fighters[0].mana = 100.0;
+        assert!(b.begin_cast(0, Spell::LightningBolt, Some(1), V2::new(6.0, 0.0)));
+        while matches!(b.fighters[0].act, Act::Cast { .. }) {
+            b.tick();
+        }
+        let now: f32 = b.fighters[1].hp.iter().sum();
+        if now < before {
+            return before - now;
+        }
+    }
+    panic!("never hit");
+}
+
+#[test]
+fn domains_are_hooks_for_strength_and_wards() {
+    use gahturiyu_sim::sim::magic::Domain;
+    let plain = bolt(Domain::Elemental, 0.0, 0.0);
+    assert!((bolt(Domain::Elemental, 0.5, 0.0) / plain - 1.5).abs() < 0.01, "a +50% elemental boost");
+    assert!((bolt(Domain::Elemental, 0.0, 0.5) / plain - 0.5).abs() < 0.01, "a 50% elemental ward");
+    // Another domain's numbers don't touch an elemental spell.
+    assert!((bolt(Domain::Vital, 3.0, 0.9) - plain).abs() < 1e-3);
+}

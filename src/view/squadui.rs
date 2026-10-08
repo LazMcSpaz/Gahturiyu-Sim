@@ -435,6 +435,8 @@ pub fn effect_text(e: &Effect) -> String {
         Effect::ResistParalysis(v) => format!("Resist paralysis {:.0}%", v * 100.0),
         Effect::ResistBlind(v) => format!("Resist blindness {:.0}%", v * 100.0),
         Effect::ResistElements(v) => format!("Resist fire and lightning {:.0}%", v * 100.0),
+        Effect::DomainPower(d, v) => format!("{:+.0}% {} magic", v * 100.0, d.name()),
+        Effect::DomainResist(d, v) => format!("Resist {} magic {:.0}%", d.name().to_lowercase(), v * 100.0),
     }
 }
 

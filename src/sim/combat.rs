@@ -93,6 +93,10 @@ pub struct Fighter {
     pub resist_paralysis: f32,
     pub resist_blind: f32,
     pub resist_elements: f32,
+    /// Strength of the wearer's spells by domain, and wards against others'
+    /// (from worn effects; see `magic::Domain`).
+    pub domain_power: [f32; 8],
+    pub domain_resist: [f32; 8],
     /// Running speed with no injuries or spells, m/s.
     pub base_speed: f32,
     pub spells: Vec<Spell>,
@@ -191,6 +195,8 @@ impl Fighter {
             resist_paralysis: sum(&|e| if let Effect::ResistParalysis(v) = e { Some(*v) } else { None }).min(0.95),
             resist_blind: sum(&|e| if let Effect::ResistBlind(v) = e { Some(*v) } else { None }).min(0.95),
             resist_elements: sum(&|e| if let Effect::ResistElements(v) = e { Some(*v) } else { None }).min(0.9),
+            domain_power: super::magic::DOMAINS.map(|d| sum(&|e| if let Effect::DomainPower(x, v) = e { (*x == d).then_some(*v) } else { None })),
+            domain_resist: super::magic::DOMAINS.map(|d| sum(&|e| if let Effect::DomainResist(x, v) = e { (*x == d).then_some(*v) } else { None }).min(0.95)),
             base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load),
             spells,
             boldness: p.traits.boldness,
@@ -833,6 +839,10 @@ impl Battle {
         }
         self.fighters[i].train(d.skill(), 1.5);
         let t = self.time;
+        // Domain hooks: the caster's strength in this domain, each target's ward.
+        let dom = d.domain as usize;
+        let boost = 1.0 + self.fighters[i].domain_power[dom];
+        let ward = |f: &Fighter| 1.0 - f.domain_resist[dom];
         match d.target {
             Target::Caster => {
                 let kind = if spell == Spell::MageArmor { StatusKind::MageArmor } else { StatusKind::Hasted };
@@ -859,7 +869,7 @@ impl Battle {
                         // Armour is no help against lightning.
                         let resist = 1.0 - self.fighters[j].resist_elements;
                         let shield = self.fighters[j].has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
-                        let dmg = d.magnitude * (0.8 + r_dmg * 0.4) * resist * shield * (0.8 + self.fighters[i].stats.skill(d.skill()) / 250.0);
+                        let dmg = d.magnitude * (0.8 + r_dmg * 0.4) * resist * shield * (0.8 + self.fighters[i].stats.skill(d.skill()) / 250.0) * boost * ward(&self.fighters[j]);
                         self.say(format!("{name}'s lightning strikes {tname} ({dmg:.0})."));
                         self.wound(j, Part::Torso, dmg * 0.75);
                         self.wound(j, Part::Head, dmg * 0.25);
@@ -870,7 +880,7 @@ impl Battle {
                         } else {
                             (StatusKind::Blinded, self.fighters[j].resist_blind)
                         };
-                        let resist = 1.0 - (1.0 - magic::willpower_resist(&self.fighters[j].stats)) * (1.0 - item_resist);
+                        let resist = 1.0 - (1.0 - magic::willpower_resist(&self.fighters[j].stats)) * (1.0 - item_resist) * ward(&self.fighters[j]);
                         if r_resist < resist {
                             self.say(format!("{tname} shrugs off {name}'s {}.", d.name.to_lowercase()));
                             return;
@@ -893,7 +903,7 @@ impl Battle {
                     self.say(format!("{name}'s heal falls short."));
                     return;
                 }
-                let mut left = d.magnitude * (0.8 + self.fighters[i].stats.skill(d.skill()) / 200.0) * (0.9 + r_dmg * 0.2);
+                let mut left = d.magnitude * (0.8 + self.fighters[i].stats.skill(d.skill()) / 200.0) * (0.9 + r_dmg * 0.2) * boost;
                 // Worst wounds first: head and torso when someone is down,
                 // otherwise whatever is most hurt.
                 while left > 0.5 {
@@ -934,7 +944,7 @@ impl Battle {
                     // Armour helps a little against fire (it's mostly heat).
                     let armour = f.armor.iter().filter(|a| a.covers.contains(&Part::Torso)).map(|a| a.blunt * 0.3).fold(0.0, f32::max);
                     let shield = f.has(StatusKind::MageArmor).map(|s| 1.0 - s.magnitude).unwrap_or(1.0);
-                    let dmg = d.magnitude * power * (1.0 - dist / d.radius * 0.5) * (0.8 + r_dmg * 0.4) * (1.0 - f.resist_elements) * (1.0 - armour) * shield;
+                    let dmg = d.magnitude * power * (1.0 - dist / d.radius * 0.5) * (0.8 + r_dmg * 0.4) * (1.0 - f.resist_elements) * (1.0 - armour) * shield * boost * ward(f);
                     self.wound(j, Part::Torso, dmg * 0.5);
                     self.wound(j, Part::LeftArm, dmg * 0.15);
                     self.wound(j, Part::RightArm, dmg * 0.15);

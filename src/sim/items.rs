@@ -112,6 +112,10 @@ pub enum Effect {
     ResistBlind(f32),
     /// Share of fire and lightning damage ignored.
     ResistElements(f32),
+    /// Spells of this domain cast by the wearer are stronger by this share.
+    DomainPower(super::magic::Domain, f32),
+    /// Spells of this domain do this much less to the wearer.
+    DomainResist(super::magic::Domain, f32),
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
