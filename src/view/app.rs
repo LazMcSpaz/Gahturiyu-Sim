@@ -764,10 +764,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         game.book = None;
     }
     let mut spell_tip = None;
+    let mut book_left = game.mouse.x;
     if let Some(pid) = game.book {
         let (a, h, bx) = squadui::spell_book(&c, w, pid, game.mouse, click);
         actions.extend(a);
         spell_tip = h;
+        book_left = bx.x;
         panels.push(bx);
     }
     if w.talk.is_some() {
@@ -839,7 +841,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if let Some(s) = spell_tip {
         let lines = squadui::spell_lines(s);
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
-        c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
+        // Beside the book, not over it.
+        c.panel(&lines, book_left - wd - 10.0, game.mouse.y, 15.0);
     } else if let Some((_, s)) = game.aim {
         use gahturiyu_sim::sim::magic::Aim;
         let what = match s.def().aim {

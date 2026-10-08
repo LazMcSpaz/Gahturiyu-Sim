@@ -68,7 +68,9 @@ impl Canvas {
         let h = lines.len() as f32 * lh + 16.0;
         let x = x.min(self.w - w - 8.0).max(8.0);
         let y = y.min(self.h - h - 8.0).max(8.0);
-        self.rect(x, y, w, h, PANEL);
+        // Nearly opaque: tooltips often sit over other panels.
+        self.rect(x, y, w, h, Color32::from_rgba_premultiplied(4, 6, 6, 248));
+        self.rect_lines(x, y, w, h, 1.0, Color32::from_rgba_premultiplied(60, 60, 60, 200));
         for (i, (l, c)) in lines.iter().enumerate() {
             self.text(l, x + 12.0, y + 8.0 + lh * (i as f32 + 0.78), size, *c);
         }
