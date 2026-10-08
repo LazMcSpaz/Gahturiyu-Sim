@@ -24,7 +24,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::effects::{area, lasting, now, Does, Effect, Element, Reach, Who};
+use super::effects::{area, lasting, now, Does, Effect, Element, Reach, Summon, Who};
 use super::stats::{Attr, Skill, Stats};
 
 /// What a spell works on. Tags for now (see the module notes).
@@ -220,7 +220,14 @@ pub static SPELLS: &[SpellDef] = &[
     structured("sway", "Sway", Psychic, 15.0, 1.5, 0.0, Caster, 20.0, &[lasting(Does::Sway, 20.0, 600.0, Reach::Caster)]),
     ritual("dominate", "Dominate", Psychic, rite(60.0, 15.0, &[("storm_glass", 1)], Place::Circle), 12.0, Foe, 50.0, &[lasting(Does::Dominate, 1.0, 20.0, Reach::Target)]),
     // ---- Illusion ---------------------------------------------------------
+    felt("silent_step", "Silent step", Illusion, 4.0, 0.3, 0.0, Caster, 8.0, &[lasting(Does::Silent, 0.6, 300.0, Reach::Caster)]),
+    felt("glow", "Glow", Illusion, 3.0, 0.2, 0.0, Caster, 4.0, &[lasting(Does::Glow, 0.6, 600.0, Reach::Caster)]),
+    felt("gloom", "Gloom", Illusion, 4.0, 0.3, 0.0, Caster, 10.0, &[lasting(Does::Gloom, 0.5, 300.0, Reach::Caster)]),
     structured("blind", "Blind", Illusion, 15.0, 1.0, 15.0, Foe, 25.0, &[lasting(Does::Blind, 0.65, 10.0, Reach::Target)]),
+    structured("hide", "Hide", Illusion, 18.0, 1.5, 0.0, Caster, 28.0, &[lasting(Does::Hide, 0.7, 60.0, Reach::Caster)]),
+    structured("decoy", "Decoy", Illusion, 20.0, 1.2, 12.0, Point, 25.0, &[lasting(Does::Summon(Summon::Decoy), 1.0, 20.0, Reach::Object)]),
+    structured("disguise", "Disguise", Illusion, 20.0, 2.0, 0.0, Caster, 30.0, &[lasting(Does::Disguise, 1.0, 1800.0, Reach::Caster)]),
+    ritual("veil", "Veil", Illusion, rite(30.0, 0.0, &[("ash_moss", 3)], Place::Anywhere), 0.0, Caster, 35.0, &[lasting(Does::Veil, 1.0, 6.0 * 3600.0, Reach::Ground { radius: 30.0 })]),
     // ---- Vital ------------------------------------------------------------
     felt("mend", "Mend", Vital, 8.0, 0.6, 10.0, Friend, 15.0, &[now(Does::Heal, 16.0, Reach::Target)]),
     structured("haste", "Haste", Vital, 15.0, 1.0, 0.0, Caster, 28.0, &[lasting(Does::Haste, 0.4, 20.0, Reach::Caster)]),

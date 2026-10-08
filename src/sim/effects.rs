@@ -53,6 +53,33 @@ impl Element {
     }
 }
 
+/// Creatures a spell can call up (or raise) to fight on the caster's side.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Summon {
+    /// A spirit in a beast's shape: claws and speed.
+    SpiritBeast,
+    /// One of a swarm: small, quick, weak, many.
+    Swarmling,
+    /// An illusion of the caster: draws attacks, does nothing.
+    Decoy,
+    /// A heavy warden that holds a spot.
+    Guardian,
+    /// A corpse raised to fight, mindless.
+    Thrall,
+}
+
+impl Summon {
+    pub fn name(self) -> &'static str {
+        match self {
+            Summon::SpiritBeast => "Spirit beast",
+            Summon::Swarmling => "Swarm",
+            Summon::Decoy => "Decoy",
+            Summon::Guardian => "Guardian",
+            Summon::Thrall => "Thrall",
+        }
+    }
+}
+
 /// What an effect does.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Does {
@@ -72,6 +99,9 @@ pub enum Does {
     Douse,
     /// Lose the next action (whatever they were doing is spoilt).
     Daze,
+    /// Call up creatures to fight for the caster for as long as it lasts.
+    /// Power: how strong they are (1 = as made).
+    Summon(Summon),
 
     // ---- While it lasts (or while worn) --------------------------------
     /// Power: points added.
@@ -119,6 +149,19 @@ pub enum Does {
     SenseLife,
     /// Words land better: this much on everyone's disposition.
     Sway,
+    /// Steps make this share less noise.
+    Silent,
+    /// Gives off light round the bearer (or at a spot on the ground).
+    Glow,
+    /// Darkens the ground round the bearer.
+    Gloom,
+    /// This share harder to see; enemies lose track of them beyond arm's reach.
+    Hide,
+    /// Not recognised: no one counts your bounty against you, and crimes
+    /// seen aren't laid at your door.
+    Disguise,
+    /// Ground: those inside go unnoticed by passers-by and lookouts.
+    Veil,
 }
 
 impl Does {
@@ -129,7 +172,7 @@ impl Does {
 
     /// Guards against harm (worth putting up when a fight reaches you).
     pub fn guards(self) -> bool {
-        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_))
+        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide)
     }
 
     /// A lasting condition that a resist roll can stop, and what resists it.
@@ -147,6 +190,7 @@ impl Does {
     pub fn works_outside_fights(self) -> bool {
         match self {
             Does::Heal | Does::Energy | Does::Rest | Does::Kindle | Does::Douse => true,
+            Does::Summon(_) => false,
             d if d.harmful() => false,
             _ => true,
         }
@@ -258,6 +302,13 @@ impl Effect {
             Does::Nightsight => "Sees in the dark".to_string(),
             Does::SenseLife => "Senses the living through walls".to_string(),
             Does::Sway => format!("{p:+.0} disposition"),
+            Does::Summon(k) => format!("Calls up: {}", k.name().to_lowercase()),
+            Does::Silent => format!("{pct:.0}% quieter"),
+            Does::Glow => "Gives off light".to_string(),
+            Does::Gloom => "Darkens the ground round them".to_string(),
+            Does::Hide => format!("{pct:.0}% harder to see"),
+            Does::Disguise => "Unrecognised".to_string(),
+            Does::Veil => "Hidden from passers-by".to_string(),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),

@@ -111,6 +111,8 @@ impl World {
             let skill = p.effective_stats().skill(Skill::Sneak);
             n *= 0.4 * (1.0 - skill / 160.0);
         }
+        // Silent step.
+        n *= (1.0 - self.boon(pid, super::effects::Does::Silent)).max(0.0);
         n
     }
 
@@ -129,6 +131,8 @@ impl World {
         if !moving {
             v *= 0.75;
         }
+        // Hidden by a spell.
+        v *= (1.0 - self.boon(pid, super::effects::Does::Hide)).max(0.0);
         v
     }
 
@@ -153,6 +157,10 @@ impl World {
         let d = at.dist(from);
         if d < TOUCH {
             return (100.0, true);
+        }
+        // Inside a veil, lookouts see and hear nothing.
+        if self.wards_at(super::effects::Does::Veil, at).next().is_some() {
+            return (0.0, d < CREEP);
         }
         let sharp = self.alertness(watcher);
         let mut sight = SIGHT * self.visibility_of(pid) * sharp;

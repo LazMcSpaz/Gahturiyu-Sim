@@ -283,7 +283,7 @@ impl World {
                 let (r_ok, r_break) = (r.f32(), r.f32());
                 self.people[pk.who as usize].stats.exercise(Skill::Security, 1.0);
                 if self.witnessed(pk.who, d.outside, pk.door.0, &mut r) {
-                    self.crime(pk.door.0, 40.0, format!("{name} is seen picking a lock!"));
+                    self.crime(pk.who, pk.door.0, 40.0, format!("{name} is seen picking a lock!"));
                     finished = true;
                 } else if r_ok < self.pick_chance(pk.who, d.lock) {
                     self.picked.insert(pk.door, night_of(self.time));
@@ -331,7 +331,14 @@ impl World {
         roll < 0.6 * (1.0 - closest / sight.max(0.1)) + 0.2
     }
 
-    pub(super) fn crime(&mut self, town: SettlementId, amount: f32, line: String) {
+    pub(super) fn crime(&mut self, who: PersonId, town: SettlementId, amount: f32, line: String) {
+        // In disguise, no one knows whose crime it was.
+        if self.boon(who, super::effects::Does::Disguise) > 0.0 {
+            self.log.push_front((self.time, format!("{line} No one knows who it was.")));
+            self.log.truncate(14);
+            self.alerts.push(line);
+            return;
+        }
         *self.bounty.entry(town).or_insert(0.0) += amount;
         self.crime_known(town);
         let total = self.bounty[&town];

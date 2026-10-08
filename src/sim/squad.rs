@@ -371,7 +371,7 @@ impl World {
                 if let Some(town) = g.owner {
                     let mut r = Rng::from_keys(&[self.seed, pk.who as u64, g.id as u64, 0x5448_4546]);
                     if self.witnessed(pk.who, g.pos, town, &mut r) {
-                        self.crime(town, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"));
+                        self.crime(pk.who, town, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"));
                     }
                 }
                 if let Some(d) = self.people[pk.who as usize].detail.as_mut() {

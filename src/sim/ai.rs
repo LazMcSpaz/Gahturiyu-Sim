@@ -25,13 +25,18 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     // Draw the dice up front so every think consumes the same amount.
     let (r_flee, r_spell, r_pick) = (rng.f32(), rng.f32(), rng.f32());
     let me = &b.fighters[i];
-    if me.fleeing {
+    if me.fleeing || me.is_decoy() {
+        return;
+    }
+    // The mindless (raised dead) go for whoever is nearest, and that's all.
+    if me.summon.map(|s| s.mindless).unwrap_or(false) {
+        b.fighters[i].target = b.nearest_enemy(i);
         return;
     }
 
     // Nerve. Your squad only runs if told to; others may break when hurt,
     // or when their side is clearly losing.
-    if me.side != SQUAD_SIDE {
+    if me.side != SQUAD_SIDE && me.is_person() {
         let mine = b.fighters.iter().filter(|f| f.side == me.side && f.active()).map(|f| f.might).sum::<f32>();
         let theirs = b.fighters.iter().filter(|f| f.side != me.side && f.active()).map(|f| f.might).sum::<f32>();
         let losing = theirs > mine * 2.5;
@@ -149,6 +154,8 @@ enum Use {
     Hinder,
     /// Lets the caster see in the dark.
     See,
+    /// Calls up help.
+    Summon,
     /// Damage over an area.
     Blast,
     /// Damage to one enemy.
@@ -162,6 +169,8 @@ fn use_of(s: Spell) -> Use {
     let has = |f: &dyn Fn(Does) -> bool| d.effects.iter().any(|e| f(e.does));
     if has(&|x| x == Does::Heal) {
         Use::Mend
+    } else if has(&|x| matches!(x, Does::Summon(_))) {
+        Use::Summon
     } else if d.effects.iter().any(|e| matches!(e.does, Does::Damage(_)) && matches!(e.reach, Reach::Area { .. })) {
         Use::Blast
     } else if has(&|x| matches!(x, Does::Damage(_))) {
@@ -198,10 +207,16 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
         if them.fleeing {
             s += 30.0; // let runners go
         }
+        // An illusion is hard to ignore.
+        if them.is_decoy() {
+            s -= 6.0;
+        }
         s
     };
     let best = (0..b.fighters.len())
         .filter(|&j| b.hostile(i, j) && b.fighters[j].active())
+        // Someone hidden by a spell is lost beyond arm's reach.
+        .filter(|&j| b.fighters[j].has(Does::Hide).is_none() || me.pos.dist(b.fighters[j].pos) <= 4.0)
         // Don't chase a runner who's already got a head start.
         .filter(|&j| !(b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach() + 4.0))
         .min_by(|&x, &y| score(x).total_cmp(&score(y)))?;
@@ -257,6 +272,18 @@ fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
                 cast(b, i, s, None, me.pos);
                 return;
             }
+        }
+    }
+    // 1c. Call up help, if none of ours is about yet.
+    if let Some(s) = first(Use::Summon) {
+        let ours = b.fighters.iter().any(|f| f.summon.is_some() && f.side == me.side && f.active());
+        if !ours && nearest < 20.0 {
+            // A couple of metres towards the enemy.
+            let j = enemies.iter().copied().min_by(|&x, &y| me.pos.dist(b.fighters[x].pos).total_cmp(&me.pos.dist(b.fighters[y].pos))).unwrap();
+            let dir = b.fighters[j].pos.sub(me.pos);
+            let at = me.pos.add(dir.scale(2.5 / dir.len().max(0.01)));
+            cast(b, i, s, None, at);
+            return;
         }
     }
     // 2. Speed up to close a long gap.

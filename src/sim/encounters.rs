@@ -352,7 +352,7 @@ impl World {
             t + need as f64 / body::HEAL_PER_HOUR as f64 * HOUR
         };
         let centre = |side: Side, b: &Battle, w: &World| -> Option<V2> {
-            let alive: Vec<V2> = b.fighters.iter().filter(|x| x.side == side && !w.people[x.pid as usize].dead).map(|x| x.pos).collect();
+            let alive: Vec<V2> = b.fighters.iter().filter(|x| x.side == side && x.is_person() && !w.people[x.pid as usize].dead).map(|x| x.pos).collect();
             (!alive.is_empty()).then(|| alive.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / alive.len() as f32))
         };
 

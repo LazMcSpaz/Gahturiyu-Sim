@@ -43,6 +43,9 @@ pub const STANDING_POWER: f32 = 0.8;
 pub const TORCH_SEEN: f32 = 220.0;
 /// Travellers on the road light torches when daylight falls below this.
 pub const TRAVEL_TORCH_DARK: f32 = 0.5;
+/// How far magical light and darkness reach round whoever bears them, metres.
+pub const GLOW_REACH: f32 = 12.0;
+pub const GLOOM_REACH: f32 = 10.0;
 /// Hours a campfire stays out once doused.
 pub const DOUSE_HOURS: f64 = 3.0;
 /// Sneaking with a lit torch: you're still this visible (1 = not hidden at all).
@@ -90,7 +93,18 @@ pub fn light_from(t: f64, lights: &[Light], p: V2) -> f32 {
             l += v;
         }
     }
-    (l + flat).min(1.0)
+    (l + flat).clamp(0.0, 1.0)
+}
+
+/// Light from a spell: Glow lights the ground round its bearer (or a spot,
+/// `radius` across), Gloom darkens it. None for any other effect.
+pub fn spell_light(does: super::effects::Does, power: f32, pos: V2, radius: f32) -> Option<Light> {
+    use super::effects::Does;
+    match does {
+        Does::Glow => Some(Light { pos, reach: radius.max(GLOW_REACH), power, flat: false }),
+        Does::Gloom => Some(Light { pos, reach: GLOOM_REACH, power: -power, flat: false }),
+        _ => None,
+    }
 }
 
 /// A torch burning in someone's hand.
@@ -257,6 +271,8 @@ impl World {
         let mut out: Vec<Light> = self.camps.iter().filter(|c| t >= c.doused_until).map(|c| Light { pos: c.pos, reach: 18.0, power: 0.7, flat: false }).collect();
         out.extend(self.settlements.iter().map(|s| Light { pos: s.pos, reach: s.reach + 10.0, power: 0.25, flat: true }));
         out.extend(self.standing.iter().filter(|s| s.burning(t)).map(|s| Light { pos: s.pos, reach: STANDING_REACH, power: STANDING_POWER, flat: false }));
+        // Lights set on the ground by spells (a wisp).
+        out.extend(self.wards.iter().filter(|w| t < w.until).filter_map(|w| spell_light(w.does, w.power, w.pos, w.radius)));
         out
     }
 
@@ -277,6 +293,12 @@ impl World {
         let mut held: Vec<PersonId> = self.torches.keys().copied().filter(|&p| self.torch_lit(p)).collect();
         held.sort_unstable();
         out.extend(held.into_iter().map(|p| Light { pos: self.person_pos(p), reach: TORCH_REACH, power: TORCH_POWER, flat: false }));
+        // Glow and gloom on people, and lights set on the ground by spells.
+        for b in self.boons.iter().filter(|b| t < b.until) {
+            if let Some(l) = spell_light(b.does, b.power, self.person_pos(b.pid), 0.0) {
+                out.push(l);
+            }
+        }
         out
     }
 

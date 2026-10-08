@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use super::body::{self, Part, PARTS};
 use super::geo::V2;
 use super::inventory::{self, Gear};
-use super::effects::{Does, Effect, Element, Lasts, Reach, Who};
+use super::effects::{Does, Effect, Element, Lasts, Reach, Summon, Who};
 use super::items::{item, ArmorDef, ItemId, Kind, WeaponDef, FISTS};
 use super::magic::{self, Aim, Spell, Status, Style};
 use super::person::{Person, PersonId};
@@ -48,6 +48,36 @@ const BODY: f32 = 0.45;
 
 pub type Side = u8;
 pub const SQUAD_SIDE: Side = 0;
+
+/// The "person" behind a fighter that isn't one: a summoned creature or a
+/// raised corpse.
+pub const NOBODY: PersonId = PersonId::MAX;
+
+/// A fighter that a spell called up.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Summoned {
+    pub kind: Summon,
+    /// When the binding runs out and it fades.
+    pub until: f64,
+    /// Goes for the nearest enemy and nothing else.
+    pub mindless: bool,
+}
+
+/// A lasting spell worked on a patch of ground in a fight.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Zone {
+    pub does: Does,
+    pub pos: V2,
+    pub radius: f32,
+    pub power: f32,
+    pub until: f64,
+    /// Whose it is (friends of this side are spared what it does to foes).
+    pub side: Side,
+    /// Who worked it (`NOBODY` if no one in particular).
+    pub owner: PersonId,
+    /// Worked during this fight (rather than brought in from the world).
+    pub fresh: bool,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum Act {
@@ -146,6 +176,12 @@ pub struct Fighter {
     /// A ritual held ready, to be released (once) when it's wanted.
     pub held: Option<Spell>,
     pub damage_taken: f32,
+    /// Called up by a spell (not a person).
+    #[serde(default)]
+    pub summon: Option<Summoned>,
+    /// A corpse already raised (it can't be raised twice).
+    #[serde(default)]
+    pub raised: bool,
 }
 
 impl Fighter {
@@ -228,7 +264,86 @@ impl Fighter {
             tire: 0.0,
             held: None,
             damage_taken: 0.0,
+            summon: None,
+            raised: false,
         }
+    }
+
+    /// A creature called up by a spell, `power` times as strong as made.
+    pub fn creature(kind: Summon, side: Side, pos: V2, until: f64, power: f32, race: Race) -> Fighter {
+        let c = creature(kind);
+        let mut skills = [0.0; super::stats::N_SKILLS];
+        skills[Skill::Unarmed as usize] = c.skill;
+        skills[Skill::Dodge as usize] = c.dodge;
+        skills[Skill::Block as usize] = c.skill * 0.5;
+        let stats = Stats { attrs: [c.strength, 45.0, c.toughness, 10.0, 60.0], skills, calling: super::stats::Calling::Common };
+        let mut max_hp = [0.0; 6];
+        for (i, part) in PARTS.iter().enumerate() {
+            max_hp[i] = stats.max_hp(*part) * c.hp * power;
+        }
+        let weapon = WeaponDef { skill: Skill::Unarmed, cut: c.cut * power, blunt: c.blunt * power, reach: c.reach, windup: 0.5, recover: 0.45, two_handed: false, parry: 0.0, range: 0.0, ammo: None };
+        Fighter {
+            pid: NOBODY,
+            side,
+            home: side,
+            race,
+            pos,
+            hp: max_hp,
+            max_hp,
+            fatigue: 1000.0,
+            max_fatigue: 1000.0,
+            mana: 0.0,
+            max_mana: 0.0,
+            mana_regen: 0.0,
+            stats,
+            weapon,
+            weapon_name: c.attack,
+            shield: c.shield,
+            armor: Vec::new(),
+            dodge_penalty: 0.0,
+            worn: Vec::new(),
+            base_speed: c.speed,
+            spells: Vec::new(),
+            boldness: 1.0,
+            might: c.might * power,
+            act: Act::Idle,
+            target: None,
+            order: None,
+            statuses: Vec::new(),
+            ko: false,
+            dead: false,
+            fleeing: false,
+            fled: false,
+            think_at: 0.0,
+            burdened: false,
+            torch: false,
+            has_torch: false,
+            missing: [false; 6],
+            ammo: 0,
+            shots: 0,
+            sidearm: None,
+            stowed: None,
+            potions: Vec::new(),
+            scrolls: Vec::new(),
+            used: Vec::new(),
+            aware_at: 0.0,
+            trained: [0.0; super::stats::N_SKILLS],
+            tire: 0.0,
+            held: None,
+            damage_taken: 0.0,
+            summon: Some(Summoned { kind, until, mindless: false }),
+            raised: false,
+        }
+    }
+
+    /// A real person (not a summoned creature or a raised corpse).
+    pub fn is_person(&self) -> bool {
+        self.summon.is_none()
+    }
+
+    /// An illusion that only draws attacks.
+    pub fn is_decoy(&self) -> bool {
+        self.summon.map(|s| s.kind == Summon::Decoy).unwrap_or(false)
     }
 
     /// Caught unawares at time `t`.
@@ -301,6 +416,9 @@ impl Fighter {
     /// from the other hand; a two-handed weapon needs both arms; both arms
     /// gone means no attack at all.
     pub fn usable_weapon(&self) -> Option<(WeaponDef, f32)> {
+        if self.is_decoy() {
+            return None;
+        }
         let (l, r) = (self.hp[Part::LeftArm as usize] > 0.0, self.hp[Part::RightArm as usize] > 0.0);
         match (r, l) {
             (true, true) => Some((self.weapon, 1.0)),
@@ -384,11 +502,14 @@ pub struct Battle {
     /// `None`: fought in broad daylight (tests, mostly). With lights, the
     /// sun follows the battle clock and fighters' torches are added.
     pub lights: Option<Vec<super::torch::Light>>,
+    /// Lasting spells on patches of ground.
+    #[serde(default)]
+    pub zones: Vec<Zone>,
 }
 
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None }
+        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new() }
     }
 
     /// How well lit a spot in the fight is, 0..1.
@@ -396,8 +517,22 @@ impl Battle {
         let Some(fixed) = &self.lights else { return 1.0 };
         let mut all = fixed.clone();
         for f in &self.fighters {
-            if f.torch && !f.dead && !f.fled {
+            if f.dead || f.fled {
+                continue;
+            }
+            if f.torch {
                 all.push(super::torch::Light { pos: f.pos, reach: super::torch::TORCH_REACH, power: super::torch::TORCH_POWER, flat: false });
+            }
+            // Glow and gloom go with whoever bears them.
+            for s in &f.statuses {
+                if let Some(l) = super::torch::spell_light(s.does, s.power, f.pos, 0.0) {
+                    all.push(l);
+                }
+            }
+        }
+        for z in self.zones.iter().filter(|z| z.until > self.time) {
+            if let Some(l) = super::torch::spell_light(z.does, z.power, z.pos, z.radius) {
+                all.push(l);
             }
         }
         super::torch::light_from(self.time, &all, p)
@@ -431,6 +566,19 @@ impl Battle {
         let t = self.time;
         let mut rng = Rng::from_keys(&[self.seed, self.ticks, 0x4649_4748]);
         let n = self.fighters.len();
+
+        // Bindings run out: called-up creatures fade.
+        for i in 0..n {
+            let f = &self.fighters[i];
+            if let Some(s) = f.summon {
+                if s.until <= t && !f.fled && !f.dead {
+                    self.fighters[i].fled = true;
+                    let name = self.names[i].clone();
+                    self.say(format!("{name} fades away."));
+                }
+            }
+        }
+        self.zones.retain(|z| z.until > t);
 
         // Spells wear off; breath and mana come back.
         for f in &mut self.fighters {
@@ -506,7 +654,7 @@ impl Battle {
         // Over when no two sides still standing are enemies, or it's dragged on.
         // People running away don't keep a fight going.
         // (A fighter turned by a spell still counts for the side they came in on.)
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.home).collect();
+        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing && !f.is_decoy()).map(|f| f.home).collect();
         sides.sort();
         sides.dedup();
         if sides.len() <= 1 || t - self.start > MAX_LENGTH {
@@ -946,6 +1094,17 @@ impl Battle {
     /// Carry out one effect from a spell or potion: find who it reaches,
     /// then do it to each of them.
     fn apply(&mut self, src: &Source, e: &Effect) {
+        let secs = if let Lasts::Secs(s) = e.lasts { s as f64 } else { 30.0 };
+        if let Does::Summon(kind) = e.does {
+            self.call_up(src.by, kind, src.point, self.time + secs, e.power * src.skill);
+            return;
+        }
+        if let Reach::Ground { radius } = e.reach {
+            let side = self.fighters[src.by].side;
+            let owner = self.fighters[src.by].pid;
+            self.zones.push(Zone { does: e.does, pos: src.point, radius, power: e.power, until: self.time + secs, side, owner, fresh: true });
+            return;
+        }
         let reached: Vec<(usize, f32)> = match e.reach {
             Reach::Caster => vec![(src.by, 1.0)],
             Reach::Target => src.target.map(|j| vec![(j, 1.0)]).unwrap_or_default(),
@@ -1113,6 +1272,24 @@ impl Battle {
         }
     }
 
+    /// Call up creatures for the side of fighter `by`, round `at`.
+    pub fn call_up(&mut self, by: usize, kind: Summon, at: V2, until: f64, power: f32) {
+        let side = self.fighters[by].side;
+        let race = self.fighters[by].race;
+        let count = creature(kind).count;
+        let owner = self.names[by].clone();
+        for k in 0..count {
+            let a = k as f32 / count as f32 * std::f32::consts::TAU;
+            let off = if count > 1 { V2::new(a.cos(), a.sin()).scale(1.2) } else { V2::default() };
+            let mut f = Fighter::creature(kind, side, at.add(off), until, power, race);
+            f.think_at = self.time;
+            self.fighters.push(f);
+            self.names.push(format!("{owner}'s {}", kind.name().to_lowercase()));
+        }
+        let what = if count > 1 { format!("a {}", kind.name().to_lowercase()) } else { format!("a {}", kind.name().to_lowercase()) };
+        self.say(format!("{owner} calls up {what}."));
+    }
+
     /// Damage spread over the whole body by where blows usually land. A big
     /// enough total spoils a spell being cast.
     pub fn hurt_whole(&mut self, j: usize, dmg: f32) {
@@ -1134,7 +1311,7 @@ impl Battle {
     }
 
     pub fn winner(&self) -> Option<Side> {
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing).map(|f| f.home).collect();
+        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing && !f.is_decoy()).map(|f| f.home).collect();
         sides.sort();
         sides.dedup();
         if sides.len() == 1 {
@@ -1142,6 +1319,38 @@ impl Battle {
         } else {
             None
         }
+    }
+}
+
+/// What a called-up creature is like.
+pub struct Creature {
+    pub attack: &'static str,
+    /// Toughness (sets health on every part) and a further multiplier on it.
+    pub toughness: f32,
+    pub hp: f32,
+    pub strength: f32,
+    pub cut: f32,
+    pub blunt: f32,
+    pub reach: f32,
+    /// Running speed, m/s.
+    pub speed: f32,
+    pub skill: f32,
+    pub dodge: f32,
+    pub shield: f32,
+    /// How many come.
+    pub count: usize,
+    /// For the AI's sense of how dangerous it is.
+    pub might: f32,
+}
+
+/// The creatures spells call up. (Raised corpses are their own bodies.)
+pub fn creature(kind: Summon) -> Creature {
+    match kind {
+        Summon::SpiritBeast => Creature { attack: "claws", toughness: 45.0, hp: 1.0, strength: 50.0, cut: 9.0, blunt: 3.0, reach: 1.0, speed: 5.5, skill: 50.0, dodge: 35.0, shield: 0.0, count: 1, might: 35.0 },
+        Summon::Swarmling => Creature { attack: "bites", toughness: 5.0, hp: 0.35, strength: 15.0, cut: 3.0, blunt: 0.0, reach: 0.7, speed: 6.0, skill: 35.0, dodge: 40.0, shield: 0.0, count: 6, might: 8.0 },
+        Summon::Decoy => Creature { attack: "nothing", toughness: 1.0, hp: 0.2, strength: 1.0, cut: 0.0, blunt: 0.0, reach: 0.0, speed: 0.0, skill: 0.0, dodge: 0.0, shield: 0.0, count: 1, might: 20.0 },
+        Summon::Guardian => Creature { attack: "stone fists", toughness: 80.0, hp: 1.4, strength: 70.0, cut: 0.0, blunt: 14.0, reach: 1.6, speed: 3.0, skill: 55.0, dodge: 10.0, shield: 0.3, count: 1, might: 55.0 },
+        Summon::Thrall => Creature { attack: "hands", toughness: 30.0, hp: 1.0, strength: 40.0, cut: 0.0, blunt: 5.0, reach: 0.9, speed: 3.0, skill: 30.0, dodge: 0.0, shield: 0.0, count: 1, might: 20.0 },
     }
 }
 

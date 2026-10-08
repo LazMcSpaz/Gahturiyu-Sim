@@ -379,7 +379,7 @@ fn short_part(p: Part) -> &'static str {
 /// Health (vital share), mana share and whether down, for anyone worth a bar:
 /// in a fight, or carrying wounds.
 pub fn bar_for(w: &World, pid: PersonId) -> Option<(f32, Option<f32>, bool)> {
-    let p = &w.people[pid as usize];
+    let p = w.people.get(pid as usize)?;
     if p.dead {
         return None;
     }

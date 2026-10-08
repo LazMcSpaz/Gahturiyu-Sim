@@ -279,3 +279,78 @@ fn sway_warms_people_to_you() {
     assert!(w.disposition(npc, m) >= (before + 19.0).min(100.0));
     let _ = Topic::Goodbye;
 }
+
+// ---- Illusion -----------------------------------------------------------------
+
+#[test]
+fn silent_step_and_hide_and_glow_and_gloom() {
+    let mut w = worldgen::generate(3);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let noise = w.noise_of(m);
+    let seen = w.visibility_of(m);
+    cast_world(&mut w, m, spell("silent_step"), None, None, |w| w.boon(m, Does::Silent) > 0.0);
+    assert!(w.noise_of(m) < noise * 0.5);
+    cast_world(&mut w, m, spell("hide"), None, None, |w| w.boon(m, Does::Hide) > 0.0);
+    assert!(w.visibility_of(m) < seen * 0.5);
+    // At night: glow lights the ground round them; gloom darkens it.
+    while gahturiyu_sim::sim::stealth::daylight(w.time) > 0.2 {
+        w.step(600.0);
+    }
+    let at = w.person_pos(m).add(V2::new(30.0, 30.0));
+    w.teleport_squad(at);
+    let dark = w.light_at(w.person_pos(m));
+    cast_world(&mut w, m, spell("glow"), None, None, |w| w.boon(m, Does::Glow) > 0.0);
+    assert!(w.light_at(w.person_pos(m)) > dark + 0.4);
+    w.boons.retain(|b| b.does != Does::Glow);
+    cast_world(&mut w, m, spell("gloom"), None, None, |w| w.boon(m, Does::Gloom) > 0.0);
+    assert!(w.light_at(w.person_pos(m)) < dark + 0.01);
+}
+
+#[test]
+fn a_decoy_draws_the_blows_then_fades() {
+    let mut b = fight(&[(brute(2), 1, V2::new(6.0, 0.0))]);
+    cast_until(&mut b, spell("decoy"), None, V2::new(3.0, 0.0), |b| b.fighters.iter().any(|f| f.is_decoy()));
+    let d = b.fighters.iter().position(|f| f.is_decoy()).unwrap();
+    assert_eq!(b.fighters[d].side, 0);
+    b.fighters[1].think_at = 0.0;
+    b.tick();
+    assert_eq!(b.fighters[1].target, Some(d), "the enemy goes for the decoy");
+    for _ in 0..250 {
+        b.tick();
+    }
+    assert!(b.fighters[d].fled || b.fighters[d].ko, "gone after its time");
+}
+
+#[test]
+fn in_disguise_your_crimes_and_bounty_go_unrecognised() {
+    let mut w = worldgen::generate(1);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let home = w.people.iter().find(|p| !p.in_squad && !p.bandit && p.home.is_some()).unwrap();
+    let (npc, town) = (home.id, home.home.unwrap());
+    w.bounty.insert(town, 80.0);
+    let cold = w.disposition(npc, m);
+    cast_world(&mut w, m, spell("disguise"), None, None, |w| w.boon(m, Does::Disguise) > 0.0);
+    assert!(w.disposition(npc, m) > cold + 15.0, "they don't know who you are");
+}
+
+#[test]
+fn a_veil_hides_the_squad_from_lookouts() {
+    let mut w = worldgen::generate(7);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let camp = w.camps[0].pos;
+    w.teleport_squad(camp.add(V2::new(25.0, 0.0)));
+    let g = w.camps[0].group;
+    let (rate, _) = w.detect_rate(g, camp, m);
+    assert!(rate > 0.0);
+    w.held.insert(m, spell("veil"));
+    w.release(m, None, None).unwrap();
+    let (veiled, _) = w.detect_rate(g, camp, m);
+    assert_eq!(veiled, 0.0, "inside the veil, unseen and unheard");
+    // Hours later, by the clock, it lifts.
+    w.teleport_squad(camp.add(V2::new(3000.0, 0.0)));
+    w.step(7.0 * 3600.0);
+    assert!(w.wards.is_empty());
+}

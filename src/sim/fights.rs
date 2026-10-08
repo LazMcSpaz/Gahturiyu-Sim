@@ -248,6 +248,11 @@ impl World {
         for (side, who) in sides {
             self.add_fighters(&mut b, side, &who);
         }
+        // The squad's wards round the fight come into it.
+        let centre = self.squad.pos;
+        for w in self.wards.iter().filter(|w| w.until > at && w.pos.dist(centre) <= w.radius + 80.0) {
+            b.zones.push(super::combat::Zone { does: w.does, pos: w.pos, radius: w.radius, power: w.power, until: w.until, side: SQUAD_SIDE, owner: w.owner, fresh: false });
+        }
         let i = self.battles.iter().position(|x| x.id == id).unwrap();
         self.battles[i] = b;
         id
@@ -296,7 +301,12 @@ impl World {
     pub(super) fn write_back(&mut self, b: &Battle) -> usize {
         let t = b.time;
         let mut killed = 0;
-        for f in &b.fighters {
+        // Lasting spells the squad worked on the ground stay after the fight.
+        for z in b.zones.iter().filter(|z| z.fresh && z.side == SQUAD_SIDE && z.until > t) {
+            self.wards.push(super::casting::Ward { does: z.does, pos: z.pos, radius: z.radius, power: z.power, until: z.until, owner: z.owner });
+        }
+        // (Called-up creatures and raised dead are nobody: nothing to write.)
+        for f in b.fighters.iter().filter(|f| f.is_person()) {
             self.fighting.remove(&f.pid);
             let p = &mut self.people[f.pid as usize];
             let base = p.stats.clone();

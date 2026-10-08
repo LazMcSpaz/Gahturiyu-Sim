@@ -100,7 +100,8 @@ impl World {
         } else if matches!((p.race, you.race), (Race::Roduro, Race::Horaro) | (Race::Horaro, Race::Roduro)) {
             d += 6.0; // the old alliance
         }
-        if let Some(h) = p.home {
+        // (Not if they don't know who you are.)
+        if let Some(h) = p.home.filter(|_| self.boon(with, super::effects::Does::Disguise) <= 0.0) {
             d -= self.bounty_known_in(h) / 4.0;
         }
         d += self.regard.get(&npc).copied().unwrap_or(0.0);

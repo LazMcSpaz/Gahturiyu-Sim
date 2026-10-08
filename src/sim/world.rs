@@ -173,6 +173,8 @@ pub struct World {
     pub cast_count: HashMap<PersonId, u64>,
     /// Lasting spells on people outside fights.
     pub boons: Vec<super::casting::Boon>,
+    /// Lasting spells on patches of ground outside fights.
+    pub wards: Vec<super::casting::Ward>,
 }
 
 impl World {
@@ -248,6 +250,7 @@ impl World {
             circles: Vec::new(),
             cast_count: HashMap::new(),
             boons: Vec::new(),
+            wards: Vec::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;

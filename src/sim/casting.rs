@@ -55,6 +55,19 @@ pub struct Boon {
     pub until: f64,
 }
 
+/// A lasting spell on a patch of ground outside a fight (a veil, a ward, a
+/// light, a guardian waiting).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Ward {
+    pub does: Does,
+    pub pos: V2,
+    pub radius: f32,
+    pub power: f32,
+    pub until: f64,
+    /// Who worked it.
+    pub owner: PersonId,
+}
+
 /// A ritual being performed.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct RitualJob {
@@ -140,10 +153,18 @@ impl World {
         self.boons.iter().filter(|b| b.pid == pid).map(|b| b.until).collect()
     }
 
-    /// Forget boons that are over (anything that cares has seen them end).
+    /// Forget boons and wards that are over (anything that cares has seen
+    /// them end).
     pub(super) fn expire_boons(&mut self) {
         let t = self.time;
         self.boons.retain(|b| b.until > t);
+        self.wards.retain(|w| w.until > t);
+    }
+
+    /// The wards of a kind covering a spot right now.
+    pub fn wards_at(&self, does: Does, p: V2) -> impl Iterator<Item = &Ward> + '_ {
+        let t = self.time;
+        self.wards.iter().filter(move |w| w.does == does && t < w.until && w.pos.dist(p) <= w.radius)
     }
 
     // ---- Casting outside a fight ------------------------------------------
@@ -214,6 +235,11 @@ impl World {
         for e in s.def().effects {
             if e.reach == Reach::Object {
                 self.affect_object(e, point);
+                continue;
+            }
+            if let (Reach::Ground { radius }, Lasts::Secs(secs)) = (e.reach, e.lasts) {
+                let t = self.time;
+                self.wards.push(Ward { does: e.does, pos: point, radius, power: e.power, until: t + secs as f64, owner: by });
                 continue;
             }
             for pid in self.reached(by, e, target, point) {
