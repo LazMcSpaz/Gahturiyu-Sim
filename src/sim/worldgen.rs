@@ -79,6 +79,7 @@ pub fn generate(seed: u64) -> World {
         let id = people.len() as PersonId;
         let mut p = Person::summary(id, rng::key(&[seed, 0x5351_5544, i as u64]), race, Some(start_town));
         p.in_squad = true;
+        p.cond = Some(super::condition::Condition::new(6.0 * HOUR));
         p.specialize(calling, skills, budget);
         p.ensure_detail();
         // A few lockpicks for the light-fingered.
@@ -90,6 +91,9 @@ pub fn generate(seed: u64) -> World {
         if picks > 0 {
             p.detail.as_mut().unwrap().gear.add(super::items::id("lockpick"), picks);
         }
+        // A few days' food.
+        p.detail.as_mut().unwrap().gear.add(super::items::id("flatbread"), 3);
+        p.detail.as_mut().unwrap().gear.add(super::items::id("dried_fish"), 2);
         // Something to make things with, to start.
         let starter: &[(&str, u16)] = match calling {
             Calling::Mage => &[("mortar_and_pestle", 1), ("kelp_frond", 4), ("ash_moss", 2), ("ghostcap", 2), ("salt_crystal", 1), ("reed_paper", 2), ("squid_ink", 2), ("healing_draught", 2)],

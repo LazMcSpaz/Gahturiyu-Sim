@@ -46,6 +46,8 @@ pub struct Person {
     pub mana_at: f64,
     pub dead: bool,
     pub bandit: bool,
+    /// Hunger and the like — your squad only.
+    pub cond: Option<super::condition::Condition>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -96,6 +98,7 @@ impl Person {
             mana_at: 0.0,
             dead: false,
             bandit: false,
+            cond: None,
         };
         p.mana = p.max_mana();
         p.recompute_might();
@@ -161,9 +164,24 @@ impl Person {
         self.detail.as_ref().map(|d| d.name.as_str())
     }
 
-    /// Stats with gear enchantments applied.
+    /// Stats with gear enchantments applied, and weakened by hunger (squad only).
     pub fn effective_stats(&self) -> Stats {
-        inventory::effective(&self.stats, &self.kit())
+        let mut s = inventory::effective(&self.stats, &self.kit());
+        self.weaken(&mut s);
+        s
+    }
+
+    /// Lower attributes for how badly they're holding up.
+    pub fn weaken(&self, s: &mut Stats) {
+        if let Some(c) = &self.cond {
+            let f = c.attr_factor();
+            if f < 1.0 {
+                for a in super::stats::ATTRS {
+                    let v = s.attr(a);
+                    s.set_attr(a, v * f);
+                }
+            }
+        }
     }
 
     pub fn max_mana(&self) -> f32 {

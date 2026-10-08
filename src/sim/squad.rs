@@ -10,6 +10,7 @@
 //! Also here: what members do with things — equipping, dropping, picking up.
 
 use super::body;
+use super::condition::Activity;
 use super::buildings::DoorId;
 use super::geo::{self, V2};
 use super::inventory;
@@ -167,6 +168,20 @@ impl World {
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).
     pub(super) fn walk_squad(&mut self, dt: f64) {
+        // What each member is doing from now on (for hunger and the rest).
+        for k in 0..self.squad.members.len() {
+            let pid = self.squad.members[k];
+            let p = &self.people[pid as usize];
+            let down = p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, self.time));
+            let a = if self.fighting.contains_key(&pid) {
+                Activity::Fighting
+            } else if !down && self.squad.at[k].dist(self.squad.goal[k]) > 1e-3 {
+                Activity::Walking
+            } else {
+                Activity::Resting
+            };
+            self.set_activity(pid, a);
+        }
         for k in 0..self.squad.members.len() {
             let pid = self.squad.members[k];
             if self.fighting.contains_key(&pid) {

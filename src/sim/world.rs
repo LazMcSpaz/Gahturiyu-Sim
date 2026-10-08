@@ -286,6 +286,7 @@ impl World {
         // 3b. Fights: new ones that break out, and the ones in progress.
         self.update_battles();
         self.update_quests();
+        self.update_conditions();
 
         // 4. Journeys that are over dissolve; their people are home.
         //    Decided by the schedule, not by whether anyone looked.

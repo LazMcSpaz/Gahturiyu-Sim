@@ -6,6 +6,7 @@ pub mod bands;
 pub mod body;
 pub mod buildings;
 pub mod combat;
+pub mod condition;
 pub mod crafting;
 pub mod dialogue;
 pub mod encounters;

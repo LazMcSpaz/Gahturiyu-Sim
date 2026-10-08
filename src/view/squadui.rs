@@ -271,7 +271,7 @@ pub fn inventory(ui: &Ui, w: &World, pid: PersonId, mouse: Vec2, click: Option<C
                 act = Some(Action::Drop(pid, i));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::Equip(pid, i));
-            } else if !locked && matches!(item(i).kind, Kind::Potion(_) | Kind::Scroll(_)) {
+            } else if !locked && matches!(item(i).kind, Kind::Potion(_) | Kind::Scroll(_) | Kind::Food(_)) {
                 act = Some(Action::Use(pid, i));
             }
         }
@@ -302,6 +302,7 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Color)> {
         Kind::Trinket => out.push((format!("{}  ·  trinket", d.slot.name()), TEXT)),
         Kind::Tool => out.push(("Tool".into(), TEXT)),
         Kind::Coin => out.push(("Money".into(), TEXT)),
+        Kind::Food(n) => out.push((format!("Food: takes {n:.0} off hunger  ·  eaten when hungry, or click to eat"), TEXT)),
         Kind::Errand => out.push(("Someone else's: deliver it".into(), TEXT)),
         Kind::Material => {
             let uses: Vec<&str> = RECIPES.iter().filter(|r| r.inputs.iter().any(|(k, _)| *k == d.key)).map(|r| item(items::id(r.output)).name).collect();
@@ -358,6 +359,7 @@ pub fn ground_color(id: ItemId) -> Color {
         Kind::Material => Color::new(0.55, 0.62, 0.45, 1.0),
         Kind::Tool => Color::new(0.5, 0.5, 0.55, 1.0),
         Kind::Coin => GOLD,
+        Kind::Food(_) => Color::new(0.75, 0.55, 0.35, 1.0),
         Kind::Errand => Color::new(0.9, 0.86, 0.7, 1.0),
         #[allow(unreachable_patterns)]
         _ => Color::new(0.8, 0.8, 0.7, 1.0),

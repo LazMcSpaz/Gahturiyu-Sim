@@ -52,19 +52,45 @@ impl Part {
 /// Health lost per body part per game hour while resting outside a fight.
 pub const HEAL_PER_HOUR: f32 = 6.0;
 
-/// Damage carried on each part, as of a moment in time.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+/// Damage carried on each part, as of a moment in time, and how fast it's
+/// mending from then on.
+///
+/// Most people in the world heal at the constant `HEAL_PER_HOUR` (their
+/// lives aren't followed closely enough for anything finer — a deliberate
+/// simplification for now). Your squad's rate follows how they're doing:
+/// `condition.rs` rewrites `rate` (and `drain`, for starvation) each time
+/// their circumstances change, and settles `lost` at that moment, so healing
+/// is worked out piece by piece from the clock.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Wounds {
     pub lost: [f32; 6],
     /// When `lost` was last written.
     pub at: f64,
+    /// Health mended per part per hour from `at` on.
+    pub rate: f32,
+    /// Torso health wasting away per hour from `at` on (starvation).
+    pub drain: f32,
+    /// Wasting stops once torso damage reaches this (knocked out, not dead).
+    pub drain_cap: f32,
+}
+
+impl Default for Wounds {
+    fn default() -> Wounds {
+        Wounds { lost: [0.0; 6], at: 0.0, rate: HEAL_PER_HOUR, drain: 0.0, drain_cap: 0.0 }
+    }
 }
 
 impl Wounds {
-    /// Damage remaining on each part at time `t`, after natural healing.
+    /// Damage remaining on each part at time `t`, after healing (or wasting).
     pub fn lost_at(&self, t: f64) -> [f32; 6] {
-        let healed = (HEAL_PER_HOUR as f64 * ((t - self.at).max(0.0) / 3600.0)) as f32;
-        self.lost.map(|l| (l - healed).max(0.0))
+        let h = ((t - self.at).max(0.0) / 3600.0) as f32;
+        let healed = self.rate * h;
+        let mut out = self.lost.map(|l| (l - healed).max(0.0));
+        if self.drain > 0.0 {
+            let torso = Part::Torso as usize;
+            out[torso] = (self.lost[torso] + self.drain * h).min(self.drain_cap.max(self.lost[torso]));
+        }
+        out
     }
 
     /// Health on each part at time `t`.

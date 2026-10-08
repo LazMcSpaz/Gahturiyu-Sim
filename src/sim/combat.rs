@@ -119,7 +119,8 @@ impl Fighter {
             Some(d) => d.spells.clone(),
             None => super::magic::starting_spells(&p.stats),
         };
-        let stats = inventory::effective(&p.stats, gear);
+        let mut stats = inventory::effective(&p.stats, gear);
+        p.weaken(&mut stats);
         let mut max_hp = [0.0; 6];
         for (i, part) in PARTS.iter().enumerate() {
             max_hp[i] = p.stats.max_hp(*part);

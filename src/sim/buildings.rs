@@ -310,7 +310,7 @@ impl World {
         let mut r = Rng::from_keys(&[b.seed, 0x4655_524E]);
         let common: &[&str] = &[
             "cloth_shirt", "trousers", "knife", "club", "leather_cap", "boots", "small_pack", "lockpick", "padded_jacket", "leather_gloves", "hide", "reed_paper", "squid_ink", "timber",
-            "kelp_frond", "healing_draught", "iron_ingot", "leather",
+            "kelp_frond", "healing_draught", "iron_ingot", "leather", "flatbread", "dried_fish", "salted_meat", "flatbread",
         ];
         let better: &[&str] = &["short_sword", "hide_coat", "war_pick", "spear", "buckler", "hide_leggings", "iron_helm"];
         let rare: &[&str] = &["ring_swiftness", "ring_might", "amulet_wellspring", "amulet_clear_mind", "ring_hearth", "seers_hood", "striders_boots", "duelists_gloves"];

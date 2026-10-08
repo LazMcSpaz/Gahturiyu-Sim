@@ -159,7 +159,7 @@ impl World {
             let (h, mt, pl) = (self.terrain.height(p), self.terrain.mountains(p), self.terrain.plateau(p));
             let roll = r.f32();
             let key = if (-40.0..15.0).contains(&inland) {
-                if roll < 0.7 { "kelp_frond" } else { "salt_crystal" }
+                if roll < 0.5 { "kelp_frond" } else if roll < 0.8 { "mussels" } else { "salt_crystal" }
             } else if inland < 0.0 {
                 continue;
             } else if mt > 0.45 && h > 300.0 {
@@ -168,10 +168,12 @@ impl World {
                 if roll < 0.55 { "iron_ore" } else { "ash_moss" }
             } else if pl > 0.5 {
                 if roll < 0.6 { "emberroot" } else { "salt_crystal" }
-            } else if roll < 0.35 {
+            } else if roll < 0.3 {
                 "timber"
-            } else if roll < 0.6 {
+            } else if roll < 0.5 {
                 "ghostcap"
+            } else if roll < 0.62 {
+                "wild_berries"
             } else if roll < 0.75 {
                 "ash_moss"
             } else {
@@ -337,6 +339,9 @@ impl World {
         let Some(d) = p.detail.as_ref() else { return false };
         if !d.gear.bag.iter().any(|e| e.0 == it) || self.fighting.contains_key(&who) {
             return false;
+        }
+        if let Kind::Food(_) = item(it).kind {
+            return self.eat(who, it, t);
         }
         let (heal, mana) = match item(it).kind {
             Kind::Potion(pd) => (pd.heal, pd.mana),

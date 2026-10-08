@@ -82,7 +82,8 @@ fn details_once_built_are_kept() {
     let mut w = worldgen::generate(3);
     let start = w.squad.pos;
     w = run(w, 2.0, 1.0);
-    let seen: Vec<_> = w.people.iter().filter_map(|p| p.detail.clone().map(|d| (p.id, d))).collect();
+    // (Not the squad: they eat, pick things up and so on.)
+    let seen: Vec<_> = w.people.iter().filter(|p| !p.in_squad).filter_map(|p| p.detail.clone().map(|d| (p.id, d))).collect();
     assert!(!seen.is_empty());
 
     // Walk far away, wait, and come back.
