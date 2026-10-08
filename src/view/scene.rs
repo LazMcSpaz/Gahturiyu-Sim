@@ -24,6 +24,7 @@ use gahturiyu_sim::sim::{
 
 use super::mesh::Builder;
 use super::palette;
+use super::squadui::{ground_color, Selection, GOLD as PICKED};
 use super::ui::{race_color, Hover, Picker, Ui, TEXT};
 
 const SKY: Color = Color::new(0.63, 0.69, 0.72, 1.0);
@@ -203,7 +204,7 @@ impl Grid {
     }
 }
 
-pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, cache: &mut SceneCache) {
+pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, cache: &mut SceneCache, sel: &Selection) {
     clear_background(SKY);
     let cam = oc.camera();
     set_camera(&cam);
@@ -311,6 +312,16 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             b.block(base + vec3(0.0, 0.3 * k, 0.0), 1.2 * k, 0.4 * k, 0.15 * k, at.x * 0.37, palette::scale(race_color(race), 0.5));
         }
     }
+    // Things lying about.
+    let mut things: Vec<(Vec3, u32)> = Vec::new();
+    for g in &w.ground {
+        if g.pos.dist(oc.target) < radius.min(600.0) {
+            let base = to3(g.pos, on_ground(g.pos));
+            let kk = k.min(6.0);
+            b.block(base, 0.55 * kk, 0.35 * kk, 0.22 * kk, g.id as f32 * 1.7, ground_color(g.item));
+            things.push((base + vec3(0.0, 0.3 * kk, 0.0), g.id));
+        }
+    }
     // Spell effects, briefly.
     for battle in &w.battles {
         for fx in &battle.fx {
@@ -340,10 +351,19 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
     // Rings and the order line, draped over the land.
     let rw = (oc.dist / 260.0).max(0.12);
     let sq = w.squad.pos;
-    draped_ring(&mut b, &on_ground, sq, 6.0 * k, rw, 32, WHITE);
-    if sq.dist(w.squad.target) > 1.0 {
-        draped_ribbon(&mut b, &on_ground, sq, w.squad.target, rw * 0.7, 0.4, Color::new(0.95, 0.95, 0.95, 1.0), 10.0);
-        draped_ring(&mut b, &on_ground, w.squad.target, 2.5 * k, rw, 16, WHITE);
+    for (i, &m) in w.squad.members.iter().enumerate() {
+        let at = w.member_pos(i);
+        let picked = sel.shows(w, m);
+        if picked {
+            draped_ring(&mut b, &on_ground, at, 1.2 * k, rw * 0.8, 18, PICKED);
+        }
+        // Where each member is headed.
+        let goal = w.squad.goal[i];
+        if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
+            let col = if picked { PICKED } else { Color::new(0.95, 0.95, 0.95, 1.0) };
+            draped_ribbon(&mut b, &on_ground, at, goal, rw * 0.5, 0.4, col, 10.0);
+            draped_ring(&mut b, &on_ground, goal, 0.8 * k, rw * 0.6, 12, col);
+        }
     }
     if rings {
         draped_ring(&mut b, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, Color::new(0.92, 0.94, 0.95, 1.0));
@@ -361,6 +381,11 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
                     super::ui::draw_bar(s.x, s.y - 12.0, vit, mana, down);
                 }
             }
+        }
+    }
+    for (p, id) in things {
+        if let Some(s) = project(&cam, p) {
+            pick.offer(s, 4.0, Hover::Item(id));
         }
     }
     for (p, id) in markers {

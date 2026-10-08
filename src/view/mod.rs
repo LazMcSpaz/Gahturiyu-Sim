@@ -5,3 +5,4 @@ pub mod mesh;
 pub mod palette;
 pub mod scene;
 pub mod ui;
+pub mod squadui;

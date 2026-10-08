@@ -10,6 +10,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::palette;
+use super::squadui::{ground_color, Selection, GOLD};
 use super::ui::{race_color, with_alpha, Hover, Picker, Ui, TEXT};
 
 const SHORE: Color = Color::new(0.30, 0.36, 0.33, 1.0);
@@ -74,7 +75,7 @@ impl MapCam {
     }
 }
 
-pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, relief: &Relief) {
+pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, relief: &Relief, sel: &Selection) {
     clear_background(Color::new(0.03, 0.04, 0.04, 1.0));
     let tl = cam.to_screen(V2::new(0.0, 0.0));
     let size = WORLD_SIZE * cam.zoom;
@@ -173,17 +174,33 @@ pub fn draw(ui: &Ui, cam: &MapCam, w: &World, rings: bool, pick: &mut Picker, re
         }
     }
 
-    let sq = cam.to_screen(w.squad.pos);
-    let tg = cam.to_screen(w.squad.target);
-    if w.squad.pos.dist(w.squad.target) > 1.0 {
-        draw_line(sq.x, sq.y, tg.x, tg.y, 1.0, with_alpha(WHITE, 0.35));
-        draw_line(tg.x - 5.0, tg.y - 5.0, tg.x + 5.0, tg.y + 5.0, 2.0, WHITE);
-        draw_line(tg.x - 5.0, tg.y + 5.0, tg.x + 5.0, tg.y - 5.0, 2.0, WHITE);
+    if cam.zoom > 0.6 {
+        for g in &w.ground {
+            let q = cam.to_screen(g.pos);
+            let k = (cam.zoom * 0.25).clamp(2.0, 4.0);
+            draw_rectangle(q.x - k, q.y - k, k * 2.0, k * 2.0, ground_color(g.item));
+            pick.offer(q, 0.0, Hover::Item(g.id));
+        }
     }
-    draw_circle_lines(sq.x, sq.y, (14.0 * cam.zoom).max(9.0), 2.0, WHITE);
-    for &m in &w.squad.members {
-        let p = cam.to_screen(w.person_pos(m));
+
+    let sq = cam.to_screen(w.squad.pos);
+    draw_circle_lines(sq.x, sq.y, (14.0 * cam.zoom).max(9.0), 2.0, with_alpha(WHITE, 0.5));
+    for (i, &m) in w.squad.members.iter().enumerate() {
+        let at = w.member_pos(i);
+        let p = cam.to_screen(at);
+        let picked = sel.shows(w, m);
+        let goal = w.squad.goal[i];
+        if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
+            let g = cam.to_screen(goal);
+            let col = if picked { GOLD } else { WHITE };
+            draw_line(p.x, p.y, g.x, g.y, 1.0, with_alpha(col, 0.45));
+            draw_line(g.x - 4.0, g.y - 4.0, g.x + 4.0, g.y + 4.0, 1.5, col);
+            draw_line(g.x - 4.0, g.y + 4.0, g.x + 4.0, g.y - 4.0, 1.5, col);
+        }
         draw_circle(p.x, p.y, dot + 0.5, race_color(w.people[m as usize].race));
+        if picked {
+            draw_circle_lines(p.x, p.y, dot + 3.0, 1.5, GOLD);
+        }
         pick.offer(p, 0.0, Hover::Person(m));
     }
 }

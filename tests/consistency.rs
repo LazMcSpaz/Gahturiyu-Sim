@@ -59,8 +59,7 @@ fn the_squads_position_does_not_change_history() {
     let here = run(worldgen::generate(11), 36.0, 2.0);
     let mut elsewhere = worldgen::generate(11);
     // Teleport the squad to the far corner, so different groups are in each band.
-    elsewhere.squad.pos = V2::new(18_000.0, 18_000.0);
-    elsewhere.squad.target = elsewhere.squad.pos;
+    elsewhere.teleport_squad(V2::new(18_000.0, 18_000.0));
     let elsewhere = run(elsewhere, 36.0, 2.0);
     assert_same_history(&here, &elsewhere);
 }

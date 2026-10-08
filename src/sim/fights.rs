@@ -54,29 +54,37 @@ impl World {
             .collect()
     }
 
-    /// Tell the squad to move somewhere mid-fight (they stop attacking until
-    /// they get there).
-    pub(super) fn order_squad_in_battle(&mut self, target: V2) {
-        let Some(&id) = self.squad.members.iter().find_map(|m| self.fighting.get(m)) else { return };
-        let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { return };
-        let mut k = 0.0f32;
-        for f in b.fighters.iter_mut().filter(|f| f.side == SQUAD_SIDE && f.active()) {
-            let off = V2::new((k * 2.4).cos(), (k * 2.4).sin()).scale(if k == 0.0 { 0.0 } else { 1.6 + k * 0.4 });
-            f.order = Some(Order::MoveTo(target.add(off)));
+    /// Tell some squad members to move somewhere mid-fight (they stop
+    /// attacking until they get there).
+    pub(super) fn order_in_battle(&mut self, who: &[PersonId], target: V2) {
+        let mut k = 0usize;
+        for &pid in who {
+            let Some(&id) = self.fighting.get(&pid) else { continue };
+            let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { continue };
+            let Some(f) = b.fighters.iter_mut().find(|f| f.pid == pid && f.side == SQUAD_SIDE && f.active()) else { continue };
+            f.order = Some(Order::MoveTo(target.add(super::squad::formation(k))));
             f.act = super::combat::Act::Idle;
-            k += 1.0;
+            k += 1;
         }
     }
 
-    /// Tell the squad to go for one enemy.
+    /// Tell the whole squad to go for one enemy.
     pub fn order_attack(&mut self, enemy: PersonId) -> bool {
-        let Some(&id) = self.squad.members.iter().find_map(|m| self.fighting.get(m)) else { return false };
+        let all = self.squad.members.clone();
+        self.order_attack_with(&all, enemy)
+    }
+
+    /// Tell some squad members to go for one enemy.
+    pub fn order_attack_with(&mut self, who: &[PersonId], enemy: PersonId) -> bool {
+        let Some(&id) = self.fighting.get(&enemy) else { return false };
         let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { return false };
         let Some(j) = b.fighters.iter().position(|f| f.pid == enemy && f.side != SQUAD_SIDE) else { return false };
-        for f in b.fighters.iter_mut().filter(|f| f.side == SQUAD_SIDE && f.active()) {
+        let mut any = false;
+        for f in b.fighters.iter_mut().filter(|f| f.side == SQUAD_SIDE && f.active() && who.contains(&f.pid)) {
             f.order = Some(Order::Attack(j));
+            any = true;
         }
-        true
+        any
     }
 
     /// Put a band of bandits at `at`. One of them is a mage if asked. Returns
@@ -137,10 +145,11 @@ impl World {
         let squad_fit = self.squad_fit();
         if !squad_fit.is_empty() {
             let current = self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied();
+            let squad_at: Vec<V2> = squad_fit.iter().map(|&m| self.person_pos(m)).collect();
             let spotted: Vec<GroupId> = self
                 .groups
                 .iter()
-                .filter(|g| g.hostile && g.band == 1 && g.pos.dist(self.squad.pos) < AGGRO)
+                .filter(|g| g.hostile && g.band == 1 && squad_at.iter().any(|p| g.pos.dist(*p) < AGGRO))
                 .filter(|g| g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
                 .map(|g| g.id)
                 .collect();
@@ -243,15 +252,22 @@ impl World {
             }
         }
 
-        // The squad regroups on whoever is still on their feet.
-        let mine: Vec<V2> = b.fighters.iter().filter(|f| f.side == SQUAD_SIDE && !f.dead).map(|f| f.pos).collect();
-        if !mine.is_empty() {
-            let c = mine.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / mine.len() as f32);
-            self.squad.pos = c;
-            self.squad.target = c;
+        // Squad members carry on from where the fight left them.
+        for f in b.fighters.iter().filter(|f| f.side == SQUAD_SIDE && !f.dead) {
+            if let Some(k) = self.squad.index(f.pid) {
+                self.squad.at[k] = f.pos;
+                self.squad.goal[k] = f.pos;
+            }
+        }
+        // The dead drop everything they had, for whoever wants it.
+        for f in b.fighters.iter().filter(|f| f.dead) {
+            self.drop_everything(f.pid, f.pos);
         }
         let dead_squad: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| self.people[*m as usize].dead).collect();
-        self.squad.members.retain(|m| !self.people[*m as usize].dead);
+        let people = &self.people;
+        self.squad.retain(|m| !people[m as usize].dead);
+        self.pickups.retain(|p| !dead_squad.contains(&p.who));
+        self.recentre_squad();
         for m in dead_squad {
             let name = self.people[m as usize].name().unwrap_or("someone").to_string();
             self.log.push_front((t, format!("{name} of your squad has died.")));

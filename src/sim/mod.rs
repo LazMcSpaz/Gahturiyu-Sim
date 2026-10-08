@@ -17,6 +17,7 @@ pub mod race;
 pub mod rng;
 pub mod routes;
 pub mod settlement;
+pub mod squad;
 pub mod stats;
 pub mod terrain;
 pub mod world;

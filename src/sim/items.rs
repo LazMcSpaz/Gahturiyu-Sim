@@ -233,6 +233,11 @@ pub static ITEMS: &[ItemDef] = &[
     },
 ];
 
+/// Can this be worn or held (rather than used up or crafted with)?
+pub fn equippable(id: ItemId) -> bool {
+    matches!(item(id).kind, Kind::Weapon(_) | Kind::Armor(_) | Kind::Shield(_) | Kind::Pack(_) | Kind::Trinket)
+}
+
 pub fn item(id: ItemId) -> &'static ItemDef {
     &ITEMS[id as usize]
 }

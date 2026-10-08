@@ -8,18 +8,17 @@ use super::race::Race;
 use super::geo::{self, V2};
 use super::group::{Group, GroupId, Kind, Leg};
 use super::routes::Routes;
-use super::terrain::{walk_factor, Terrain};
+use super::terrain::Terrain;
 use super::person::{Person, PersonId};
 use super::rng::{self, Rng};
 use super::settlement::{BuildingKind, Settlement, SettlementId};
+pub use super::squad::{GroundItem, Pickup, Squad, SQUAD_SPEED};
 
 /// Departure pressure per unit of (wanderlust squared) per game hour. The main
 /// dial for how busy the roads are.
 pub const DEPARTURE_RATE: f32 = 0.014;
 /// Share of the daytime departure rate that still happens at night.
 pub const NIGHT_FACTOR: f32 = 0.12;
-/// The squad's walking pace, metres per second.
-pub const SQUAD_SPEED: f32 = 1.5;
 /// A group that leaves band 1 and comes back within this many game seconds is
 /// not announced again.
 const ANNOUNCE_GAP: f64 = 3600.0;
@@ -30,13 +29,6 @@ const LOG_LEN: usize = 14;
 
 pub const HOUR: f64 = 3600.0;
 pub const DAY: f64 = 24.0 * HOUR;
-
-#[derive(Clone, Debug)]
-pub struct Squad {
-    pub members: Vec<PersonId>,
-    pub pos: V2,
-    pub target: V2,
-}
 
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
@@ -87,6 +79,13 @@ pub struct World {
     pub corpses: Vec<(V2, Race, f64, PersonId)>,
     /// Things the window should react to (a fight starting nearby).
     pub alerts: Vec<String>,
+
+    // --- Things -------------------------------------------------------------
+    /// Squad members on their way to pick something up.
+    pub pickups: Vec<Pickup>,
+    /// Things lying on the ground.
+    pub ground: Vec<GroundItem>,
+    pub next_ground_id: u32,
 }
 
 impl World {
@@ -127,6 +126,9 @@ impl World {
             fighting: HashMap::new(),
             corpses: Vec::new(),
             alerts: Vec::new(),
+            pickups: Vec::new(),
+            ground: Vec::new(),
+            next_ground_id: 0,
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -156,29 +158,11 @@ impl World {
         self.group_index.get(&id).map(|&i| &self.groups[i])
     }
 
-    pub fn order_squad(&mut self, target: V2) {
-        self.squad.target = geo::clamp_to_world(target, 50.0);
-        self.order_squad_in_battle(self.squad.target);
-    }
-
     /// Advance the world by `dt` game seconds.
     pub fn step(&mut self, dt: f64) {
-        // 1. The squad walks. It is always fully simulated.
-        //    Slower uphill, a touch quicker on a gentle descent.
-        let to_go = self.squad.target.sub(self.squad.pos);
-        let d = to_go.len();
-        if d > 1e-3 && self.squad_battle().is_none() {
-            let dir = to_go.scale(1.0 / d);
-            let ahead = self.squad.pos.add(dir.scale(4.0));
-            let grade = (self.terrain.height(ahead) - self.terrain.height(self.squad.pos)) / 4.0;
-            let stride = (SQUAD_SPEED as f64 * walk_factor(grade) as f64 * dt) as f32;
-            let next = if d <= stride { self.squad.target } else { self.squad.pos.add(dir.scale(stride)) };
-            if geo::is_land(next) {
-                self.squad.pos = next;
-            } else {
-                self.squad.target = self.squad.pos;
-            }
-        }
+        // 1. The squad walks, each member at their own pace. Always fully
+        //    simulated. Members in a fight are moved by the fight instead.
+        self.walk_squad(dt);
         self.bands.update(self.squad.pos);
 
         self.time += dt;
@@ -341,8 +325,9 @@ impl World {
             return pos;
         }
         if p.in_squad {
-            let i = self.squad.members.iter().position(|&m| m == pid).unwrap_or(0) as f32;
-            return self.squad.pos.add(V2::new((i * 2.4).cos(), (i * 2.4).sin()).scale(3.0 + i));
+            if let Some(k) = self.squad.index(pid) {
+                return self.squad.at[k];
+            }
         }
         if let Some(gid) = self.group_of[pid as usize] {
             if let Some(g) = self.group(gid) {

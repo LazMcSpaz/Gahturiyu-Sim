@@ -37,6 +37,8 @@ pub enum Hover {
     Person(PersonId),
     Group(u32),
     Town(u16),
+    /// Something lying on the ground.
+    Item(u32),
 }
 
 /// Collects things under the mouse and keeps the closest.
@@ -211,6 +213,14 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
                 DIM,
             ));
         }
+        Hover::Item(gid) => {
+            let Some(g) = w.ground.iter().find(|g| g.id == gid) else { return out };
+            out = super::squadui::item_lines(g.item);
+            if g.count > 1 {
+                out[0].0 = format!("{}  ×{}", out[0].0, g.count);
+            }
+            out.push(("Click to pick up".into(), TEXT));
+        }
         Hover::Town(sid) => {
             let s = &w.settlements[sid as usize];
             out.push((s.name.clone(), race_color(s.founders)));
@@ -290,6 +300,12 @@ pub struct Shot {
     pub nudge: Option<(f32, f32)>,
     /// `GAHT_BANDITS=n`: start with n bandits right next to the squad.
     pub bandits: Option<usize>,
+    /// `GAHT_SELECT=k`: select squad member k.
+    pub select: Option<usize>,
+    /// `GAHT_INV=k`: open squad member k's pack.
+    pub inventory: Option<usize>,
+    /// `GAHT_DROP=k`: squad member k drops a few things (to see them on the ground).
+    pub drop: Option<usize>,
 }
 
 impl Shot {
@@ -309,6 +325,9 @@ impl Shot {
             pitch: var("GAHT_PITCH").and_then(|v| v.parse().ok()),
             yaw: var("GAHT_YAW").and_then(|v| v.parse().ok()),
             bandits: var("GAHT_BANDITS").and_then(|v| v.parse().ok()),
+            select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
+            inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
+            drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),
             nudge: var("GAHT_NUDGE").and_then(|v| {
                 let (x, y) = v.split_once(',')?;
                 Some((x.parse().ok()?, y.parse().ok()?))

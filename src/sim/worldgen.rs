@@ -97,7 +97,7 @@ pub fn generate(seed: u64) -> World {
             }
         }
     }
-    let squad = Squad { members: squad_ids, pos: squad_pos, target: squad_pos };
+    let squad = Squad::new(squad_ids, squad_pos);
 
     // --- Wanderers: each starts somewhere in the wild, resting ----------
     let mut groups = Vec::new();

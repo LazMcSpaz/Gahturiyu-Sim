@@ -13,6 +13,7 @@ use gahturiyu_sim::sim::{geo::V2, worldgen};
 use view::{
     map::{self, MapCam, Relief},
     scene::{self, OrbitCam},
+    squadui::{self, Action, Click, Selection},
     ui::{self, describe, Picker, Shot, Ui, DIM, SPEEDS},
 };
 
@@ -82,17 +83,43 @@ async fn main() {
             speed_i = sp;
         }
         if let Some((dx, dy)) = s.nudge {
-            world.squad.pos = world.squad.pos.add(V2::new(dx, dy));
-            world.squad.target = world.squad.pos;
+            world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
         }
         if let Some(n) = s.bandits {
             let at = world.squad.pos.add(V2::new(14.0, 6.0));
             world.spawn_bandits(at, n, true);
         }
+        if let Some(k) = s.drop {
+            if let Some(&m) = world.squad.members.get(k) {
+                use gahturiyu_sim::sim::items::Slot;
+                for slot in [Slot::MainHand, Slot::Body, Slot::Back] {
+                    let it = world.people[m as usize].detail.as_ref().and_then(|d| d.gear.in_slot(slot));
+                    if let Some(it) = it {
+                        world.unequip(m, slot);
+                        world.drop_item(m, it);
+                    }
+                }
+                // ...and walks off a little, so they're visible.
+                let to = world.person_pos(m).add(V2::new(-12.0, 8.0));
+                world.order_members(&[m], to);
+            }
+        }
     }
     let mut frame = 0u32;
     let mut last_hover: Option<ui::Hover> = None;
+    let mut sel = Selection::default();
+    let mut inv: Option<u32> = None;
+    if let Some(s) = &shot {
+        if let Some(k) = s.select {
+            if let Some(&m) = world.squad.members.get(k) {
+                sel.pick(m, false);
+            }
+        }
+        if let Some(k) = s.inventory {
+            inv = world.squad.members.get(k).copied();
+        }
+    }
 
     loop {
         frame += 1;
@@ -115,6 +142,28 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::R) {
             rings = !rings;
+        }
+        // Squad selection: F1–F4 pick one (Shift adds), ` or Esc picks everyone.
+        let shift = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
+        for (k, key) in [KeyCode::F1, KeyCode::F2, KeyCode::F3, KeyCode::F4, KeyCode::F5, KeyCode::F6].iter().enumerate() {
+            if is_key_pressed(*key) {
+                if let Some(&m) = world.squad.members.get(k) {
+                    sel.pick(m, shift);
+                    if inv.is_some() {
+                        inv = Some(m);
+                    }
+                }
+            }
+        }
+        if is_key_pressed(KeyCode::GraveAccent) || is_key_pressed(KeyCode::Escape) {
+            sel = Selection::default();
+            inv = None;
+        }
+        if is_key_pressed(KeyCode::I) {
+            inv = match inv {
+                Some(_) => None,
+                None => sel.lead(&world),
+            };
         }
         // Testing aid: B drops a band of bandits (with a mage) near the squad.
         if is_key_pressed(KeyCode::B) {
@@ -180,28 +229,27 @@ async fn main() {
                 }
             }
         }
+        // Clicks on the squad panels are handled when they're drawn; a short
+        // click anywhere else is an order.
+        let mut ui_click: Option<Click> = None;
+        let on_panels = squadui::over(&world, mouse, inv);
         if is_mouse_button_pressed(MouseButton::Left) {
             press_at = Some(mouse);
         }
+        if is_mouse_button_pressed(MouseButton::Right) && on_panels {
+            ui_click = Some(Click { at: mouse, right: true });
+        }
         if is_mouse_button_released(MouseButton::Left) {
             if let Some(p) = press_at.take() {
-                // Clicking an enemy mid-fight sends the squad at them.
-                let attacked = match last_hover {
-                    Some(ui::Hover::Person(pid)) if world.squad_battle().is_some() => world.order_attack(pid),
-                    _ => false,
-                };
-                if (p - mouse).length() < 6.0 && !attacked {
-                    let target = match view {
-                        View::Map => Some(map_cam.to_world(mouse)),
-                        View::Scene => scene::ground_at(&orbit.camera(), mouse, &world.terrain),
-                    };
-                    if let Some(t) = target {
-                        world.order_squad(t);
+                if (p - mouse).length() < 6.0 {
+                    if on_panels {
+                        ui_click = Some(Click { at: mouse, right: false });
+                    } else {
+                        click_world(&mut world, &mut sel, last_hover, view, &map_cam, &orbit, mouse, shift);
                     }
                 }
             }
-        }
-        last_mouse = mouse;
+        }        last_mouse = mouse;
 
         // A fight breaking out near the squad drops the game to real time.
         if !world.alerts.is_empty() {
@@ -240,23 +288,56 @@ async fn main() {
         let t_draw = std::time::Instant::now();
         let name = match view {
             View::Map => {
-                map::draw(&ui, &map_cam, &world, rings, &mut pick, &relief);
+                map::draw(&ui, &map_cam, &world, rings, &mut pick, &relief, &sel);
                 "map"
             }
             View::Scene => {
-                scene::draw(&ui, &orbit, &world, rings, &mut pick, &mut scene_cache);
+                scene::draw(&ui, &orbit, &world, rings, &mut pick, &mut scene_cache, &sel);
                 "3D"
             }
         };
         draw_ms = draw_ms * 0.9 + t_draw.elapsed().as_secs_f64() * 1000.0 * 0.1;
         ui::draw_hud(&ui, &world, speed_i, paused, sim_ms, draw_ms, name);
-        last_hover = pick.best.map(|(_, h)| h);
-        if let Some((_, h)) = pick.best {
+        // Squad cards and the inventory panel.
+        if inv.map(|p| world.squad.index(p).is_none()).unwrap_or(false) {
+            inv = None;
+        }
+        let mut actions = Vec::new();
+        actions.extend(squadui::squad_bar(&ui, &world, &sel, ui_click));
+        let mut item_tip = None;
+        if let Some(pid) = inv {
+            let (a, h) = squadui::inventory(&ui, &world, pid, mouse, ui_click);
+            actions.extend(a);
+            item_tip = h;
+        }
+        for a in actions {
+            match a {
+                Action::Select(pid, add) => sel.pick(pid, add),
+                Action::OpenInventory(pid) => inv = if inv == Some(pid) { None } else { Some(pid) },
+                Action::CloseInventory => inv = None,
+                Action::Equip(pid, it) => {
+                    world.equip(pid, it);
+                }
+                Action::Unequip(pid, slot) => {
+                    world.unequip(pid, slot);
+                }
+                Action::Drop(pid, it) => {
+                    world.drop_item(pid, it);
+                }
+            }
+        }
+
+        last_hover = if on_panels { None } else { pick.best.map(|(_, h)| h) };
+        if let Some(it) = item_tip {
+            let lines = squadui::item_lines(it);
+            let w = lines.iter().map(|(l, _)| ui.width(l, 15)).fold(0.0, f32::max) + 24.0;
+            ui.panel(&lines, mouse.x - w - 18.0, mouse.y, 15);
+        } else if let Some(h) = last_hover {
             ui.panel(&describe(&world, h), mouse.x + 18.0, mouse.y + 12.0, 16);
         }
         let help = match view {
-            View::Scene => "Left-click: move / attack   Right-drag / Q E: turn   Middle-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   R: rings   V: map   B: bandits",
-            View::Map => "Left-click: move / attack   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   R: rings   V: 3D   B: bandits",
+            View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   I: pack   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   B: bandits",
+            View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   I: pack   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
         };
         draw_rectangle(0.0, screen_height() - 30.0, screen_width(), 30.0, Color::new(0.0, 0.0, 0.0, 0.45));
         ui.text(help, 14.0, screen_height() - 10.0, 15, DIM);
@@ -268,5 +349,46 @@ async fn main() {
             }
         }
         next_frame().await;
+    }
+}
+
+/// A short left-click in the world: select a squad member, attack an enemy,
+/// pick something up, or walk there.
+#[allow(clippy::too_many_arguments)]
+fn click_world(world: &mut gahturiyu_sim::sim::World, sel: &mut Selection, hover: Option<ui::Hover>, view: View, map_cam: &MapCam, orbit: &OrbitCam, mouse: Vec2, shift: bool) {
+    let who = sel.who(world);
+    match hover {
+        Some(ui::Hover::Person(pid)) if world.squad.index(pid).is_some() => {
+            sel.pick(pid, shift);
+            return;
+        }
+        Some(ui::Hover::Person(pid)) if world.squad_battle().is_some() => {
+            if world.order_attack_with(&who, pid) {
+                return;
+            }
+        }
+        Some(ui::Hover::Item(thing)) => {
+            // Whoever's selected and closest goes for it.
+            let pos = world.ground.iter().find(|g| g.id == thing).map(|g| g.pos);
+            if let Some(pos) = pos {
+                let fetcher = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos)));
+                if let Some(f) = fetcher {
+                    world.order_pickup(f, thing);
+                    return;
+                }
+            }
+        }
+        _ => {}
+    }
+    let target = match view {
+        View::Map => Some(map_cam.to_world(mouse)),
+        View::Scene => scene::ground_at(&orbit.camera(), mouse, &world.terrain),
+    };
+    if let Some(t) = target {
+        if sel.is_all(world) {
+            world.order_squad(t);
+        } else {
+            world.order_members(&who, t);
+        }
     }
 }
