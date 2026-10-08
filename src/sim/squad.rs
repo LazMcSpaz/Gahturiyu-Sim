@@ -10,10 +10,13 @@
 //! Also here: what members do with things — equipping, dropping, picking up.
 
 use super::body;
+use super::buildings::DoorId;
 use super::geo::{self, V2};
 use super::inventory;
 use super::items::{item, Effect, ItemId, Slot};
 use super::person::PersonId;
+use super::rng::Rng;
+use super::settlement::SettlementId;
 use super::terrain::walk_factor;
 use super::world::World;
 
@@ -35,6 +38,10 @@ pub struct Squad {
     pub target: V2,
     /// Who's sneaking (parallel to `members`).
     pub sneaking: Vec<bool>,
+    /// Each member's way to their goal: corners round buildings, doors.
+    pub route: Vec<Vec<V2>>,
+    /// The building each member is in, if any.
+    pub inside: Vec<Option<DoorId>>,
 }
 
 /// Loose formation: the first stands on the spot, the rest in a spiral.
@@ -50,7 +57,7 @@ impl Squad {
     pub fn new(members: Vec<PersonId>, centre: V2) -> Squad {
         let at: Vec<V2> = (0..members.len()).map(|k| centre.add(formation(k))).collect();
         let n = members.len();
-        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n] }
+        Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n], route: vec![Vec::new(); n], inside: vec![None; n] }
     }
 
     pub fn index(&self, pid: PersonId) -> Option<usize> {
@@ -68,6 +75,8 @@ impl Squad {
                 self.at.remove(k);
                 self.goal.remove(k);
                 self.sneaking.remove(k);
+                self.route.remove(k);
+                self.inside.remove(k);
             }
         }
     }
@@ -87,6 +96,8 @@ pub struct GroundItem {
     pub item: ItemId,
     pub count: u16,
     pub pos: V2,
+    /// Whose it is, if anyone's: taking it is theft.
+    pub owner: Option<SettlementId>,
 }
 
 impl World {
@@ -95,6 +106,7 @@ impl World {
         let n = self.squad.members.len();
         self.squad.at = (0..n).map(|k| p.add(formation(k))).collect();
         self.squad.goal = self.squad.at.clone();
+        self.squad.route = vec![Vec::new(); n];
         self.squad.pos = p;
         self.squad.target = p;
         self.bands.update(p);
@@ -118,11 +130,22 @@ impl World {
     /// they stop fighting until they get there.
     pub fn order_members(&mut self, who: &[PersonId], target: V2) {
         let target = geo::clamp_to_world(target, 50.0);
+        let mut blocked = None;
         for (n, &pid) in who.iter().enumerate() {
             if let Some(k) = self.squad.index(pid) {
-                self.squad.goal[k] = target.add(formation(n));
+                // Indoors there's no room for a formation.
+                let spot = if self.building_at(target).is_some() { target.add(formation(n).scale(0.3)) } else { target.add(formation(n)) };
+                let (path, locked) = self.route(self.member_pos(k), spot);
+                blocked = blocked.or(locked);
+                self.squad.goal[k] = *path.last().unwrap_or(&spot);
+                self.squad.route[k] = path;
             }
             self.pickups.retain(|p| p.who != pid);
+            self.picking.retain(|p| p.who != pid);
+        }
+        if blocked.is_some() {
+            self.log.push_front((self.time, "The door is locked.".to_string()));
+            self.log.truncate(14);
         }
         self.order_in_battle(who, target);
     }
@@ -149,10 +172,20 @@ impl World {
             if p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, self.time)) {
                 continue;
             }
-            let (at, goal) = (self.squad.at[k], self.squad.goal[k]);
+            let at = self.squad.at[k];
+            // Next corner or door on the way, else the goal itself.
+            while let Some(&w) = self.squad.route[k].first() {
+                if at.dist(w) < 0.05 && self.squad.route[k].len() > 1 {
+                    self.squad.route[k].remove(0);
+                } else {
+                    break;
+                }
+            }
+            let goal = self.squad.route[k].first().copied().unwrap_or(self.squad.goal[k]);
             let to_go = goal.sub(at);
             let d = to_go.len();
             if d < 1e-3 {
+                self.squad.route[k].clear();
                 continue;
             }
             let dir = to_go.scale(1.0 / d);
@@ -160,14 +193,17 @@ impl World {
             let grade = (self.terrain.height(ahead) - self.terrain.height(at)) / 3.0;
             let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * dt) as f32;
             let next = if d <= stride { goal } else { at.add(dir.scale(stride)) };
-            if geo::is_land(next) {
+            if geo::is_land(next) || self.building_at(next).is_some() {
                 self.squad.at[k] = next;
             } else {
                 self.squad.goal[k] = at;
+                self.squad.route[k].clear();
             }
         }
         self.recentre_squad();
+        self.update_indoors();
         self.do_pickups();
+        self.do_picking();
     }
 
     pub(super) fn recentre_squad(&mut self) {
@@ -226,7 +262,7 @@ impl World {
     pub fn put_on_ground(&mut self, it: ItemId, count: u16, pos: V2) -> u32 {
         let id = self.next_ground_id;
         self.next_ground_id += 1;
-        self.ground.push(GroundItem { id, item: it, count, pos });
+        self.ground.push(GroundItem { id, item: it, count, pos, owner: None });
         id
     }
 
@@ -235,7 +271,12 @@ impl World {
         let Some(g) = self.ground.iter().find(|g| g.id == thing) else { return false };
         let pos = g.pos;
         if let Some(k) = self.squad.index(who) {
-            self.squad.goal[k] = pos;
+            let (path, locked) = self.route(self.member_pos(k), pos);
+            if locked.is_some() {
+                self.log.push_front((self.time, "The door is locked.".to_string()));
+            }
+            self.squad.goal[k] = *path.last().unwrap_or(&pos);
+            self.squad.route[k] = path;
         } else {
             return false;
         }
@@ -260,6 +301,12 @@ impl World {
             if self.squad.at[k].dist(self.ground[gi].pos) <= REACH {
                 let g = self.ground.remove(gi);
                 let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
+                if let Some(town) = g.owner {
+                    let mut r = Rng::from_keys(&[self.seed, pk.who as u64, g.id as u64, 0x5448_4546]);
+                    if self.witnessed(pk.who, g.pos, town, &mut r) {
+                        self.crime(town, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"));
+                    }
+                }
                 if let Some(d) = self.people[pk.who as usize].detail.as_mut() {
                     d.gear.add(g.item, g.count);
                 }

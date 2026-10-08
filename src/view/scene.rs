@@ -17,6 +17,7 @@ use gahturiyu_sim::sim::{
     person::PersonId,
     race::Race,
     rng,
+    buildings::{door_of, Door, DoorId},
     settlement::{Building, BuildingKind},
     stealth,
     terrain::Terrain,
@@ -263,14 +264,26 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
     }
 
     // Towns.
+    let open = w.occupied();
+    let mut doors: Vec<(Vec3, DoorId)> = Vec::new();
     let mut labels: Vec<(Vec3, String, u16)> = Vec::new();
     for s in &w.settlements {
         if s.pos.dist(oc.target) > radius + s.reach {
             continue;
         }
-        for bd in &s.buildings {
+        for (i, bd) in s.buildings.iter().enumerate() {
             if bd.pos.dist(oc.target) < radius {
-                building(&mut b, t, bd, &on_ground);
+                let id = (s.id, i as u16);
+                match door_of(s, i as u16) {
+                    // Someone's inside: cut the walls and roof away.
+                    Some(d) if open.contains(&id) => interior(&mut b, bd, &d, &on_ground),
+                    _ => building(&mut b, t, bd, &on_ground),
+                }
+                if let Some(d) = door_of(s, i as u16) {
+                    if d.outside.dist(oc.target) < 160.0 {
+                        doors.push((to3(d.outside, on_ground(d.outside) + 1.2), id));
+                    }
+                }
             }
         }
         labels.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), s.name.clone(), s.id));
@@ -405,6 +418,11 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             }
         }
     }
+    for (p, id) in doors {
+        if let Some(s) = project(&cam, p) {
+            pick.offer(s, 0.0, Hover::Door(id));
+        }
+    }
     for (p, id) in things {
         if let Some(s) = project(&cam, p) {
             pick.offer(s, 4.0, Hover::Item(id));
@@ -423,6 +441,49 @@ pub fn draw(ui: &Ui, oc: &OrbitCam, w: &World, rings: bool, pick: &mut Picker, c
             }
         }
     }
+}
+
+/// A building seen from inside: floor, the stubs of its walls (with a gap at
+/// the door), and what's in it.
+fn interior(b: &mut Builder, bd: &Building, d: &Door, on_ground: &dyn Fn(V2) -> f32) {
+    let floor_h = on_ground(bd.pos);
+    let base = to3(bd.pos, floor_h);
+    let (wall, floor) = match bd.kind {
+        BuildingKind::RoduroHome | BuildingKind::QotiroHall => (STONE, Color::new(0.30, 0.28, 0.26, 1.0)),
+        _ => (SANDSTONE, Color::new(0.62, 0.52, 0.38, 1.0)),
+    };
+    let r = d.radius;
+    b.column(base - vec3(0.0, 0.25, 0.0), r, r, 0.3, 20, floor);
+    // A rug in the middle, warm against the stone.
+    b.column(base + vec3(0.0, 0.06, 0.0), r * 0.45, r * 0.45, 0.02, 14, Color::new(0.55, 0.22, 0.16, 1.0));
+    // Wall stubs round the edge, leaving the doorway.
+    let door_dir = d.outside.sub(d.centre);
+    let door_a = door_dir.y.atan2(door_dir.x);
+    let n = 22;
+    for k in 0..n {
+        let a = k as f32 / n as f32 * std::f32::consts::TAU;
+        let gap = ((a - door_a + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI).abs();
+        if gap < 0.32 {
+            continue;
+        }
+        let p = bd.pos.add(V2::new(a.cos(), a.sin()).scale(r - 0.3));
+        let seg = r * std::f32::consts::TAU / n as f32 + 0.2;
+        b.block(to3(p, floor_h - 0.2), 0.6, seg, 1.3, a, wall);
+    }
+    // Furniture, laid out from the building's seed: bed, table, chest, hearth.
+    let mut r2 = rng::Rng::from_keys(&[bd.seed, 0x4655_524E]);
+    let back = d.centre.sub(d.inside);
+    let back_a = back.y.atan2(back.x);
+    let spot = |a: f32, f: f32| bd.pos.add(V2::new((back_a + a).cos(), (back_a + a).sin()).scale(r * f));
+    let bed = spot(1.4 + r2.f32() * 0.3, 0.55);
+    b.block(to3(bed, floor_h), 2.0, 1.0, 0.5, back_a + 1.4, TIMBER);
+    b.block(to3(bed, floor_h + 0.5), 1.8, 0.9, 0.12, back_a + 1.4, Color::new(0.72, 0.68, 0.58, 1.0));
+    let table = spot(-1.2 - r2.f32() * 0.3, 0.45);
+    b.block(to3(table, floor_h), 1.4, 0.9, 0.8, back_a, TIMBER);
+    let chest = spot(0.25, 0.68);
+    b.block(to3(chest, floor_h), 1.1, 0.6, 0.6, back_a, Color::new(0.45, 0.30, 0.16, 1.0));
+    let fire = spot(-0.35, 0.62);
+    b.column(to3(fire, floor_h), 0.5, 0.2, 0.4, 6, EMBER);
 }
 
 /// Campfires as lights, at night.

@@ -71,7 +71,7 @@ pub fn generate(seed: u64) -> World {
     use super::stats::{Calling, Skill};
     let roles: [(Race, Calling, &[(Skill, f32)], f32); 4] = [
         (Race::Roduro, Calling::Warrior, &[(Skill::Blunt, 58.0), (Skill::Block, 25.0), (Skill::Athletics, 25.0)], 420.0),
-        (Race::Horaro, Calling::Hunter, &[(Skill::Spear, 42.0), (Skill::Dodge, 35.0), (Skill::Athletics, 30.0)], 260.0),
+        (Race::Horaro, Calling::Hunter, &[(Skill::Spear, 42.0), (Skill::Dodge, 35.0), (Skill::Athletics, 30.0), (Skill::Sneak, 30.0), (Skill::Security, 35.0)], 260.0),
         (Race::Qotiro, Calling::Warrior, &[(Skill::Blunt, 55.0), (Skill::Block, 38.0)], 480.0),
         (Race::Tadoro, Calling::Mage, &[(Skill::Destruction, 48.0), (Skill::Alteration, 42.0), (Skill::Illusion, 44.0), (Skill::Restoration, 40.0), (Skill::Dodge, 25.0)], 120.0),
     ];
@@ -81,6 +81,15 @@ pub fn generate(seed: u64) -> World {
         p.in_squad = true;
         p.specialize(calling, skills, budget);
         p.ensure_detail();
+        // A few lockpicks for the light-fingered.
+        let picks = match calling {
+            Calling::Hunter => 6,
+            Calling::Mage => 2,
+            _ => 0,
+        };
+        if picks > 0 {
+            p.detail.as_mut().unwrap().gear.add(super::items::id("lockpick"), picks);
+        }
         people.push(p);
         squad_ids.push(id);
     }

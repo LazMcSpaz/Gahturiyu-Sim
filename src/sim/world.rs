@@ -104,6 +104,16 @@ pub struct World {
     pub suspicion: HashMap<(GroupId, PersonId), f32>,
     /// Watchers' meters have been run up to this time.
     pub watch_done: f64,
+
+    // --- Indoors ------------------------------------------------------------
+    /// Doors picked open, and the night they were picked on.
+    pub picked: HashMap<super::buildings::DoorId, i64>,
+    /// Squad members working on locks.
+    pub picking: Vec<super::buildings::Picking>,
+    /// Buildings whose belongings have been laid out.
+    pub furnished: HashSet<super::buildings::DoorId>,
+    /// What each town wants from you for crimes seen.
+    pub bounty: HashMap<SettlementId, f32>,
 }
 
 impl World {
@@ -153,6 +163,10 @@ impl World {
             fighting_groups: HashSet::new(),
             suspicion: HashMap::new(),
             watch_done: start_time,
+            picked: HashMap::new(),
+            picking: Vec::new(),
+            furnished: HashSet::new(),
+            bounty: HashMap::new(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;

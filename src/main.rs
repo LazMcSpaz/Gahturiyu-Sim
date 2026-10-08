@@ -111,6 +111,17 @@ async fn main() {
                 world.step(1.0);
             }
         }
+        if s.enter {
+            let m = world.squad.members[0];
+            let here = world.squad.pos;
+            let d = world.doors_near(here, 200.0).into_iter().filter(|d| !world.is_locked(d.id)).min_by(|a, b| a.centre.dist(here).total_cmp(&b.centre.dist(here)));
+            if let Some(d) = d {
+                world.order_members(&[m], d.centre);
+                for _ in 0..600 {
+                    world.step(0.5);
+                }
+            }
+        }
         if let Some(n) = s.bandits {
             let at = world.squad.pos.add(V2::new(14.0, 6.0));
             world.spawn_bandits(at, n, true);
@@ -398,6 +409,28 @@ fn click_world(world: &mut gahturiyu_sim::sim::World, sel: &mut Selection, hover
         Some(ui::Hover::Person(pid)) => {
             // An enemy: go for them (starting a fight if there isn't one).
             if world.attack(&who, pid) {
+                return;
+            }
+        }
+        Some(ui::Hover::Door(id)) => {
+            if world.is_locked(id) {
+                // The best lock-picker among the selected who has picks.
+                let pick = gahturiyu_sim::sim::items::id("lockpick");
+                let picker = who
+                    .iter()
+                    .copied()
+                    .filter(|&m| world.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == pick)).unwrap_or(false))
+                    .max_by(|&a, &b| world.pick_chance(a, 50.0).total_cmp(&world.pick_chance(b, 50.0)));
+                match picker {
+                    Some(p) => {
+                        world.order_pick(p, id);
+                    }
+                    None => world.log.push_front((world.time, "Nobody selected has a lockpick.".into())),
+                }
+                return;
+            }
+            if let Some(d) = world.door(id) {
+                world.order_members(&who, d.centre);
                 return;
             }
         }

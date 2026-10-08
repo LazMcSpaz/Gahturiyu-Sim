@@ -114,6 +114,8 @@ pub enum Kind {
     /// Extra capacity, kg.
     Pack(f32),
     Trinket,
+    /// Used for a job, not worn: lockpicks, tools of a trade.
+    Tool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -189,6 +191,8 @@ pub static ITEMS: &[ItemDef] = &[
     ItemDef { key: "kite_shield", name: "Kite shield", slot: Slot::OffHand, kind: Kind::Shield(0.55), weight: 6.0, value: 140.0, effects: &[] },
     ItemDef { key: "small_pack", name: "Small pack", slot: Slot::Back, kind: Kind::Pack(20.0), weight: 1.5, value: 30.0, effects: &[] },
     ItemDef { key: "large_pack", name: "Large pack", slot: Slot::Back, kind: Kind::Pack(45.0), weight: 3.0, value: 90.0, effects: &[] },
+    // --- Tools ----------------------------------------------------------------
+    ItemDef { key: "lockpick", name: "Lockpick", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.05, value: 8.0, effects: &[] },
     // --- Enchanted pieces -------------------------------------------------
     trinket("ring_swiftness", "Ring of Swiftness", Slot::Ring, 0.1, 300.0, &[Effect::MoveSpeed(0.15), Effect::Attr(Attr::Agility, 5.0)]),
     trinket("ring_might", "Ring of the Ox", Slot::Ring, 0.1, 320.0, &[Effect::Attr(Attr::Strength, 12.0)]),

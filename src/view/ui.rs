@@ -39,6 +39,8 @@ pub enum Hover {
     Town(u16),
     /// Something lying on the ground.
     Item(u32),
+    /// A building's door.
+    Door((u16, u16)),
 }
 
 /// Collects things under the mouse and keeps the closest.
@@ -103,6 +105,9 @@ pub fn draw_hud(ui: &Ui, w: &World, speed_i: usize, paused: bool, sim_ms: f64, d
     ];
     for r in ALL_RACES {
         lines.push((format!("●  {}  ({})", r.name(), r.element()), race_color(r)));
+    }
+    for (town, b) in &w.bounty {
+        lines.push((format!("Bounty in {}: {:.0}", w.settlements[*town as usize].name, b), Color::new(0.95, 0.45, 0.35, 1.0)));
     }
     let fight = battle_lines(w);
     if !fight.is_empty() {
@@ -231,6 +236,27 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Color)> {
             }
             out.push(("Click to pick up".into(), TEXT));
         }
+        Hover::Door(id) => {
+            let s = &w.settlements[id.0 as usize];
+            let Some(d) = gahturiyu_sim::sim::buildings::door_of(s, id.1) else { return out };
+            let kind = match s.buildings[id.1 as usize].kind {
+                gahturiyu_sim::sim::settlement::BuildingKind::RoduroHome => "A Roduro home",
+                gahturiyu_sim::sim::settlement::BuildingKind::QotiroBlock => "Qotiro living quarters",
+                gahturiyu_sim::sim::settlement::BuildingKind::QotiroTemple => "The temple-fortress",
+                gahturiyu_sim::sim::settlement::BuildingKind::QotiroHall => "The Qotiro hall",
+                _ => "A building",
+            };
+            out.push((format!("{kind}  ·  {}", s.name), TEXT));
+            if d.lock <= 0.0 {
+                out.push(("No lock.  Click to go in.".into(), DIM));
+            } else if w.is_locked(id) {
+                out.push((format!("Locked for the night  ·  lock {:.0}", d.lock), Color::new(0.95, 0.55, 0.3, 1.0)));
+                out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
+            } else {
+                out.push((format!("Open  ·  lock {:.0}, locked 20:00–06:00", d.lock), DIM));
+                out.push(("Click to go in.".into(), DIM));
+            }
+        }
         Hover::Town(sid) => {
             let s = &w.settlements[sid as usize];
             out.push((s.name.clone(), race_color(s.founders)));
@@ -318,6 +344,8 @@ pub struct Shot {
     pub hours: Option<f64>,
     /// `GAHT_SNEAK=1`: the squad starts sneaking.
     pub sneak: bool,
+    /// `GAHT_ENTER=1`: the first squad member walks into the nearest home.
+    pub enter: bool,
     /// `GAHT_SELECT=k`: select squad member k.
     pub select: Option<usize>,
     /// `GAHT_INV=k`: open squad member k's pack.
@@ -347,6 +375,7 @@ impl Shot {
             wait: var("GAHT_WAIT").and_then(|v| v.parse().ok()),
             hours: var("GAHT_HOURS").and_then(|v| v.parse().ok()),
             sneak: var("GAHT_SNEAK").is_some(),
+            enter: var("GAHT_ENTER").is_some(),
             select: var("GAHT_SELECT").and_then(|v| v.parse().ok()),
             inventory: var("GAHT_INV").and_then(|v| v.parse().ok()),
             drop: var("GAHT_DROP").and_then(|v| v.parse().ok()),
