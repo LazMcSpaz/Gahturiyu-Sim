@@ -417,7 +417,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             if w.is_indoors_asleep(pid) {
                 continue;
             }
-            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
     for g in &w.groups {
@@ -433,7 +433,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     tent(&mut b, to3(at, on_ground(at)), k, r);
                 }
                 for &m in &g.members {
-                    heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+                    heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
                 }
                 // The leader's torch, after dark.
                 if w.group_torch_lit(g, w.time) {
@@ -468,25 +468,25 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     for &m in &w.squad.members {
-        heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+        heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
     }
     // Squad members living at a base.
     for m in w.all_residents() {
         let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
         if here && w.person_pos(m).dist(oc.target) < radius {
-            heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
         }
     }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
-            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
     // The fallen.
     for &(at, race, _, pid) in &w.corpses {
         if w.carried_by(pid).is_some() {
-            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
             continue;
         }
         if at.dist(oc.target) < radius {
@@ -1071,7 +1071,7 @@ fn body_size(race: Race) -> (f32, f32) {
 
 /// Draw one person; returns where their head is, for hover.
 #[allow(clippy::too_many_arguments)]
-fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
+fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
     let p = &w.people[pid as usize];
     let at = w.person_pos(pid);
     // Horaro at home on a stilt deck stand above the water.
@@ -1093,6 +1093,16 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         b.block(lift, h * 0.85, r * 1.5, r * 1.1, rot, palette::scale(race_color(p.race), 0.8));
         b.block(lift + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.45), r * 1.0, r * 1.0, r * 1.0, rot, palette::skin(p.race));
         return (lift + vec3(0.0, r * 1.5, 0.0), pid);
+    }
+    // Asleep: lying down under a blanket (knocked out is drawn the same way
+    // but without it).
+    let asleep = !down && p.cond.as_ref().is_some_and(|c| c.activity == gahturiyu_sim::sim::condition::Activity::Sleeping);
+    if asleep {
+        let rot = (p.seed % 628) as f32 / 100.0;
+        b.block(base, h, r * 2.0, r * 1.2, rot, palette::scale(race_color(p.race), 0.7));
+        b.block(base + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.55), r * 1.0, r * 1.1, r * 1.0, rot, palette::skin(p.race));
+        b.block(base + vec3(0.0, r * 1.15, 0.0) - vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.08), h * 0.8, r * 2.3, r * 0.25, rot, [0.45, 0.42, 0.62]);
+        return (base + vec3(0.0, r * 1.5, 0.0), pid);
     }
     if down {
         let rot = (p.seed % 628) as f32 / 100.0;
@@ -1131,9 +1141,19 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         b.column(base, r, r * 0.6, h, 4, race_color(p.race));
         return (base + vec3(0.0, h, 0.0), pid);
     }
-    b.column(base, r, r * 0.8, h * 0.8, 6, race_color(p.race));
-    let head = base + vec3(0.0, h * 0.8, 0.0);
-    b.block(head, r * 1.1, r * 1.1, h * 0.2, 0.0, palette::skin(p.race));
+    // Sneaking: bent over, low, head forward.
+    let face = super::cues::facing(w, pid, at);
+    let fwd = vec3(face.cos(), 0.0, face.sin());
+    let crouch = w.squad.index(pid).is_some() && w.is_sneaking(pid);
+    let body = if crouch { h * 0.5 } else { h * 0.8 };
+    b.column(base, r, r * 0.8, body, 6, race_color(p.race));
+    let head = base + vec3(0.0, body, 0.0) + if crouch { fwd * (r * 0.9) } else { Vec3::ZERO };
+    b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::skin(p.race));
+    if crouch {
+        // A hunched back between hips and head.
+        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(race_color(p.race), 0.85));
+    }
+    super::cues::draw(b, gl, w, pid, base, if crouch { h * 0.75 } else { h }, r, face, k.min(2.0));
     // A lit torch, held up beside them.
     if w.torch_lit(pid) {
         let hand = base + vec3(r * 1.3, h * 0.55, 0.0);

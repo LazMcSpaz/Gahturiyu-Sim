@@ -5,6 +5,21 @@ and tweaks through conversation, not an editor. Explain game-dev terms plainly.
 World lore (races, languages, architecture, pantheon) lives in the claude.ai
 "Gahturiyu" Project, not in this repo.
 
+## Where we are (Laz, 2026-10-09)
+
+- **System freeze.** No new systems until the playable-MVP list is built
+  (visual feedback, looting, recruiting, a money grind, robbery on defeat,
+  placeholder buildings with interiors and containers, ruins and lairs,
+  progress messages). Base building Stage 4 (raids, law) waits.
+- **Every action the player orders has a visual cue** in the 3D view, not
+  only a HUD line: a swing shows an arc, an archer's weapon points out to
+  shoot and down to reload, a sneaker crouches, and so on. Placeholder
+  shapes are fine; no animation rigs needed. New actions come with their
+  cue.
+- **Placeholder art only for now.** The final building models (Roduro GLBs,
+  Horaro kit) stay switched off so the game's look doesn't mix; buildings
+  are simple shapes in a few distinct variants.
+
 ## Rules that keep the bands honest
 
 These are load-bearing. `tests/consistency.rs` enforces the first three.

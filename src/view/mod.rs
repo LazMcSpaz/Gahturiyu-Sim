@@ -4,6 +4,7 @@ pub mod animals;
 pub mod app;
 pub mod baseui;
 pub mod cam;
+pub mod cues;
 pub mod editor;
 pub mod foliage;
 pub mod hud;
