@@ -207,6 +207,7 @@ pub struct World {
     // --- Society --------------------------------------------------------------
     /// Households, jobs, workplaces, customs, stockpiles and money.
     pub society: super::society::Society,
+    pub animals: super::animals::Animals,
 }
 
 impl World {
@@ -293,6 +294,7 @@ impl World {
             boons: Vec::new(),
             wards: Vec::new(),
             society: Default::default(),
+            animals: Default::default(),
         };
         for &m in &w.squad.members.clone() {
             w.busy_until[m as usize] = f64::INFINITY;
@@ -352,6 +354,7 @@ impl World {
         //    Caravans reaching market and getting home are on the same line.
         loop {
             let hour_t = (self.hour_done + 1) as f64 * HOUR;
+            if self.animal_events(hour_t) { continue; }
             let ev = self.next_event().filter(|e| e.0 <= self.time && e.0 < hour_t);
             let cargo = self.next_cargo().filter(|c| c.0 <= self.time && c.0 < hour_t);
             match (ev, cargo) {

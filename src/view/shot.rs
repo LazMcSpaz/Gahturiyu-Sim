@@ -590,5 +590,6 @@ impl Shot {
                 world.order_members(&[m], to);
             }
         }
+        super::animals::prepare(world);
     }
 }

@@ -658,6 +658,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         draped_ring(&mut fl, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
         draped_ring(&mut fl, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);
     }
+    super::animals::draw(w, &mut b, &mut gl, &on_ground, oc.target, radius, k, eye);
     tris += b.triangles() + gl.triangles() + fl.triangles();
     match &scene.dynamic {
         Some((hb, hg, hf)) => {
