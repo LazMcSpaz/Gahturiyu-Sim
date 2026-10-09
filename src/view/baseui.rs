@@ -379,15 +379,21 @@ fn base_panel(c: &Canvas, w: &World, bid: BaseId, mouse: Vec2, click: Option<Cli
 
     // Residents.
     y += ROW + 6.0;
-    c.text("Living here", x, y, 15.0, TEXT);
+    let wages: u32 = b.residents.iter().filter_map(|r| r.hire.as_ref()).map(|h| h.wage as u32).sum();
+    if wages > 0 {
+        let coin = gahturiyu_sim::sim::items::id("coin");
+        c.text(&format!("Living here  ·  wages {wages} coin at each dawn (from the store's {} coin, then the squad's {})", b.count_in_store(coin), w.squad_count(coin)), x, y, 15.0, TEXT);
+    } else {
+        c.text("Living here", x, y, 15.0, TEXT);
+    }
     if b.residents.is_empty() {
         y += ROW;
-        c.text("Nobody. Leave a squad member here to work the base.", x + 8.0, y, 13.0, DIM);
+        c.text("Nobody. Leave a squad member here, or hire hands in town (talk to them).", x + 8.0, y, 13.0, DIM);
     }
     for res in &b.residents {
         y += ROW;
         let p = &w.people[res.who as usize];
-        c.text(p.name().unwrap_or("?"), x + 8.0, y, 14.0, TEXT);
+        c.text(p.name().unwrap_or("?"), x + 8.0, y, 14.0, if res.hire.is_some() { palette::SNEAK } else { TEXT });
         let jb = Bx::new(x + 140.0, y - 14.0, 96.0, 18.0);
         button(res.job.name(), &jb);
         if clicked(&jb) {
@@ -417,11 +423,16 @@ fn base_panel(c: &Canvas, w: &World, bid: BaseId, mouse: Vec2, click: Option<Cli
             doing = doing.replace("needs a recipe, its shed and materials", "needs its shed and materials");
         }
         let dx = if res.job == Job::Crafter { 402.0 } else { 244.0 };
-        let hunger = w.hunger_of(res.who).unwrap_or(0.0);
-        let tail = format!("{doing}{}hunger {hunger:.0}", if doing.is_empty() { "" } else { "  ·  " });
+        let state = match &res.hire {
+            Some(h) if !b.arrived(res.who) => format!("hired, on the way ({:.1} h)", (h.arrives - w.time) / 3600.0),
+            Some(h) => format!("{} a day  ·  loyalty {:.0}%{}", h.wage, h.loyalty * 100.0, if h.owed > 0 { format!("  ·  owed {}", h.owed) } else { String::new() }),
+            None => format!("hunger {:.0}", w.hunger_of(res.who).unwrap_or(0.0)),
+        };
+        let doing = if res.hire.as_ref().is_some_and(|_| !b.arrived(res.who)) { String::new() } else { doing };
+        let tail = format!("{doing}{}{state}", if doing.is_empty() { "" } else { "  ·  " });
         c.text(&tail, x + dx, y, 12.0, DIM);
         let pb = Bx::new(r.x + r.w - 82.0, y - 14.0, 68.0, 18.0);
-        button("Pick up", &pb);
+        button(if res.hire.is_some() { "Let go" } else { "Pick up" }, &pb);
         if clicked(&pb) {
             act = Some(BuildAction::PickUp(res.who));
         }

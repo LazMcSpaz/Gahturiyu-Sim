@@ -199,6 +199,12 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    and work in rounds with fixed ends on the same timeline (`start_cycle` /
    `finish_cycle`); a building's health is stored the same way (value at a
    moment plus a rate: rot, mending), and its fall or mend is solved for.
+   Hired hands are residents with a `Hire`: they leave their town's roll,
+   community and household (restored when they go home) and keep their
+   trade (`trade_of`, `work_skill`). Their wages, food, beds and loyalty
+   are tallied once a day at `DAWN` on the base's timeline (`base_dawn`),
+   paying from the base's coin then the squad's; quits and theft are keyed
+   rolls and are noted in the home town's history (gossip).
 
 ## Verifying visual changes
 
@@ -252,8 +258,8 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
-put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there
-and opens the Base tab a day later).
+put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,
+hires a hauler from town and opens the Base tab a day later).
 `GAHT_WEATHER=1` (the weather panel, F7; `folded` for its headline, `off` for none),
 `GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
 with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`

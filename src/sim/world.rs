@@ -575,6 +575,10 @@ impl World {
                 return at;
             }
         }
+        // A hired hand living at a base.
+        if let Some(at) = self.bases.iter().find_map(|b| b.spot(pid)) {
+            return at;
+        }
         if let Some(gid) = self.group_of[pid as usize] {
             if let Some(g) = self.group(gid) {
                 let i = g.members.iter().position(|&m| m == pid).unwrap_or(0) as f32;

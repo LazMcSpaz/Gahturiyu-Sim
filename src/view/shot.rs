@@ -666,6 +666,18 @@ fn demo_base(world: &mut World, living: bool) {
                         w.set_base_job(m[k], job);
                     }
                 }
+                // And a hand hired from the nearest town, paid from the squad's purse.
+                let squad_lead = w.squad.members[0];
+                if let Some(d) = w.people[squad_lead as usize].detail.as_mut() {
+                    d.gear.add(gahturiyu_sim::sim::items::id("coin"), 120);
+                }
+                let base_at = w.bases[i].at;
+                let hand = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).filter(|&p| w.hire_terms(p).is_some()).min_by(|&a, &b| w.person_pos(a).dist(base_at).total_cmp(&w.person_pos(b).dist(base_at)));
+                if let Some(h) = hand {
+                    if w.hire(h).is_ok() {
+                        w.set_base_job(h, Job::Hauler);
+                    }
+                }
                 let end = w.time + 30.0 * 3600.0;
                 while w.time < end {
                     w.step(120.0);

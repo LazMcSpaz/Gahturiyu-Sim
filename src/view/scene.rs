@@ -472,7 +472,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     // Squad members living at a base.
     for m in w.all_residents() {
-        if w.person_pos(m).dist(oc.target) < radius {
+        let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
+        if here && w.person_pos(m).dist(oc.target) < radius {
             heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
         }
     }
