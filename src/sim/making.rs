@@ -360,6 +360,9 @@ impl World {
                 }
             };
             self.society.towns[town as usize].making[k].rate = worked;
+            if let Some(m) = self.society.minds.get_mut(p as usize) {
+                m.had_work = true;
+            }
         }
     }
 

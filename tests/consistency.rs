@@ -67,7 +67,8 @@ fn assert_same_history(a: &World, b: &World) {
     assert_eq!(sa.renown, sb.renown, "makers are known differently");
     assert_eq!(a.bonds, b.bonds, "different bonds");
     assert_eq!(a.records, b.records, "a different public record");
-    assert_eq!(sa.households, sb.households, "households formed differently");
+    assert_eq!(sa.households, sb.households, "households formed (or spent) differently");
+    assert_eq!(sa.minds, sb.minds, "someone's work, needs, memories or knowledge differ");
     assert_eq!(a.stats.caravans, b.stats.caravans, "a different number of caravans");
 }
 

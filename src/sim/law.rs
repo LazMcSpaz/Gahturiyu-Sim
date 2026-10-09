@@ -625,7 +625,19 @@ impl World {
     pub fn revolt(&mut self, town: SettlementId, t: f64) {
         let gov = &mut self.society.towns[town as usize].gov;
         let out: Vec<PersonId> = gov.chambers.iter().flat_map(|c| c.holders.iter().chain(&c.administrators)).chain(&gov.councillors).copied().collect();
-        gov.fallen.extend(out);
+        gov.fallen.extend(out.iter().copied());
+        // Officials and priests thrown out lose their posts.
+        for &p in &out {
+            if matches!(self.society.lives[p as usize].job, Job::Official | Job::Priest) {
+                let job = self.society.lives[p as usize].job;
+                self.society.lives[p as usize].job = Job::None;
+                self.society.lives[p as usize].place = None;
+                if let Some(m) = self.society.minds.get_mut(p as usize) {
+                    m.lost = Some((job, super::lives::Loss::Revolt));
+                }
+            }
+        }
+        let gov = &mut self.society.towns[town as usize].gov;
         let n = gov.fallen.len();
         if n > 60 {
             gov.fallen.drain(..n - 60);

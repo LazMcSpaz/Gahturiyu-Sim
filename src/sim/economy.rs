@@ -121,7 +121,13 @@ impl World {
                 self.dawn(town as SettlementId, t);
             }
             for town in 0..self.settlements.len() {
+                self.dawn_lives(town as SettlementId, t);
+            }
+            for town in 0..self.settlements.len() {
                 self.dawn_law(town as SettlementId, t);
+            }
+            for town in 0..self.settlements.len() {
+                self.place_jobless(town as SettlementId);
             }
             self.shunned.retain(|s| s.2 > t);
             self.check_orders(t);

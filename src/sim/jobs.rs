@@ -140,6 +140,25 @@ impl Job {
         }
     }
 
+    /// What an hour of this work earns its household, coin (before the
+    /// town's prosperity scales it). Placeholders to tune.
+    pub fn pay(self) -> f32 {
+        match self {
+            Job::None | Job::Drifter => 0.0,
+            Job::Labourer | Job::Runner => 0.7,
+            Job::KelpGatherer | Job::CharcoalBurner => 0.9,
+            Job::Farmer | Job::Forager | Job::Cook => 1.0,
+            Job::Fisher | Job::Woodcutter | Job::Tanner => 1.1,
+            Job::Leatherworker | Job::Tailor | Job::Woodworker => 1.2,
+            Job::Weaver | Job::Boatwright => 1.3,
+            Job::Priest | Job::Teacher | Job::Scribe => 1.5,
+            Job::Guard | Job::Caravaner => 1.6,
+            Job::Smith | Job::Armourer | Job::Alchemist | Job::Healer | Job::Innkeeper | Job::StoneTender => 1.8,
+            Job::Official | Job::Arbiter => 2.0,
+            Job::Merchant | Job::Exchanger => 2.2,
+        }
+    }
+
     /// Someone whose loss leaves a gap a town fills from its labourers.
     pub fn is_post(self) -> bool {
         !matches!(self, Job::None | Job::Labourer | Job::Drifter)

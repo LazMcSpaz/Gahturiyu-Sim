@@ -258,6 +258,8 @@ pub struct Profile {
     pub justice: [f32; 4],
     /// What bondage may be (allowed, temporary, recorded).
     pub slavery: [f32; 3],
+    /// Where their honour tends to sit, 0..1 (each person rolls their own).
+    pub honour: f32,
 }
 
 /// Indexed by `Race::index()`: Roduro, Qotiro, Horaro, Ṭaḍoro.
@@ -277,6 +279,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [1.0, 0.0, 0.0],
         justice: [0.80, 0.10, 0.05, 0.05],
         slavery: [0.05, 0.85, 0.10],
+        honour: 0.65,
     },
     // Qotiro: mess halls and hearth kitchens, bells and fixed shifts, tier blocks.
     Profile {
@@ -293,6 +296,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [0.0, 1.0, 0.0],
         justice: [0.10, 0.80, 0.05, 0.05],
         slavery: [0.80, 0.15, 0.05],
+        honour: 0.7,
     },
     // Horaro: shared decks, the tide, the whole village one family.
     Profile {
@@ -309,6 +313,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [0.0, 0.0, 1.0],
         justice: [0.05, 0.05, 0.85, 0.05],
         slavery: [0.05, 0.85, 0.10],
+        honour: 0.55,
     },
     // Ṭaḍoro: fed by their hosts (no cooking leaning of their own), the
     // stars, and lodging in others' homes.
@@ -327,6 +332,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [0.0, 0.0, 0.0],
         justice: [0.10, 0.05, 0.05, 0.80],
         slavery: [0.0, 0.20, 0.80],
+        honour: 0.6,
     },
 ];
 
@@ -504,6 +510,11 @@ pub struct Habits {
     /// How they teach their trade, if they have one to teach.
     #[serde(default)]
     pub teaching: Teaching,
+    /// Honour, 0..1: how they act on a need or a grudge. Low picks covert,
+    /// unlawful ways (theft, sabotage, a hired beating); high picks open ones
+    /// (a claim at the hall, a duel, an open challenge).
+    #[serde(default)]
+    pub honour: f32,
 }
 
 /// How a crafter teaches: deep and slow (more skill a lesson, longer and
@@ -540,7 +551,8 @@ impl Habits {
         let evening = EVENINGS[r.weighted(&p.evening).unwrap_or(3)];
         // Its own roll, so the habits above are what they always were.
         let teaching = if Rng::from_keys(&[seed, 0x5445_4143]).f32() < p.teaching[0] / (p.teaching[0] + p.teaching[1]) { Teaching::Deep } else { Teaching::Drilled };
-        Habits { own_rhythm, lodger, evening, teaching }
+        let honour = (p.honour + 0.18 * Rng::from_keys(&[seed, 0x484F_4E52]).normal()).clamp(0.0, 1.0);
+        Habits { own_rhythm, lodger, evening, teaching, honour }
     }
 }
 

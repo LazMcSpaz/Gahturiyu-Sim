@@ -159,6 +159,12 @@ pub struct Household {
     pub members: Vec<PersonId>,
     /// The building they share, if one.
     pub home: Option<u16>,
+    /// Their money, and what they owe (`lives.rs`).
+    #[serde(default)]
+    pub purse: super::lives::Purse,
+    /// Households they're warm or cold toward (`memory.rs`), a few at most.
+    #[serde(default)]
+    pub feelings: Vec<super::memory::Feeling>,
 }
 
 /// A home's garden and who tends it.
@@ -216,6 +222,10 @@ pub struct Society {
     pub rates_from: f64,
     /// How known each maker is: their stamped work sold and passed on.
     pub renown: std::collections::BTreeMap<PersonId, f32>,
+    /// Each person's work, needs, memories and what they know (`lives.rs`),
+    /// by person id.
+    #[serde(default)]
+    pub minds: Vec<super::lives::Mind>,
 }
 
 /// A strong minority's share, and the cooking its institution brings, for
@@ -388,6 +398,12 @@ impl World {
             self.open_books(t as SettlementId);
         }
         self.place_stations();
+        self.society.minds = vec![Default::default(); self.people.len()];
+        // Each household starts with a few days' costs in hand, more or less.
+        for h in 0..self.society.households.len() {
+            let days = 2.0 + 10.0 * Rng::from_keys(&[self.seed, h as u64, 0x5055_5253]).f32();
+            self.society.households[h].purse.coin = self.daily_cost(h as u32) * days;
+        }
         let t0 = self.time;
         for t in 0..self.settlements.len() {
             self.form_government(t as SettlementId, t0);
@@ -416,6 +432,19 @@ impl World {
     /// Group every community into households by its custom (lodgers live
     /// with whoever's home they sleep in).
     pub(super) fn form_all_households(&mut self) {
+        // What each person's share of their old household's purse was comes
+        // with them into the new one (debts too, owed now to the hall).
+        let mut share: Vec<f32> = vec![0.0; self.people.len()];
+        for h in &self.society.households {
+            let n = h.members.len().max(1) as f32;
+            let net = (h.purse.coin - h.purse.debt()) / n;
+            for &m in &h.members {
+                if let Some(s) = share.get_mut(m as usize) {
+                    *s = net;
+                }
+            }
+        }
+        let had = !self.society.households.is_empty();
         self.society.households.clear();
         for l in &mut self.society.lives {
             l.household = None;
@@ -423,6 +452,23 @@ impl World {
         for ci in 0..self.society.communities.len() as u32 {
             self.form_households(ci);
         }
+        if had {
+            for h in 0..self.society.households.len() {
+                let net: f32 = self.society.households[h].members.iter().map(|&m| share.get(m as usize).copied().unwrap_or(0.0)).sum();
+                let town = self.society.communities[self.society.households[h].community as usize].town;
+                let p = &mut self.society.households[h].purse;
+                if net >= 0.0 {
+                    p.coin = net;
+                } else {
+                    p.debts.push(super::lives::Debt { to: super::lives::Creditor::Hall(town), amount: -net });
+                }
+            }
+        }
+    }
+
+    /// Where a community's labourers work.
+    pub(super) fn labour_places(&self, ci: u32) -> Vec<u16> {
+        self.places_for(ci, Job::Labourer)
     }
 
     fn form_households(&mut self, ci: u32) {
@@ -451,7 +497,7 @@ impl World {
             for &p in &mem {
                 self.society.lives[p as usize].household = Some(hi);
             }
-            self.society.households.push(Household { community: ci, members: mem, home: if belonging == Belonging::Village { None } else { home } });
+            self.society.households.push(Household { community: ci, members: mem, home: if belonging == Belonging::Village { None } else { home }, purse: Default::default(), feelings: Vec::new() });
         }
     }
 
@@ -814,7 +860,17 @@ impl World {
     pub(super) fn assign_jobs(&mut self, ci: u32, day: Option<i64>) -> Vec<(PersonId, Job)> {
         let members: Vec<PersonId> = self.members_of(ci).collect();
         let n = members.len();
-        let mut free: Vec<PersonId> = members.iter().copied().filter(|&p| if day.is_none() { true } else { matches!(self.society.lives[p as usize].job, Job::Labourer | Job::Drifter | Job::None) }).collect();
+        let mut free: Vec<PersonId> = members
+            .iter()
+            .copied()
+            .filter(|&p| {
+                if day.is_none() {
+                    return true;
+                }
+                let able = !matches!(self.mind(p).work, super::lives::Work::Injured | super::lives::Work::Bonded | super::lives::Work::Away);
+                able && !self.people[p as usize].in_squad && matches!(self.society.lives[p as usize].job, Job::Labourer | Job::Drifter | Job::None)
+            })
+            .collect();
         // Away share is worked out once jobs exist; at founding, estimate it.
         let mut taken = Vec::new();
         for job in Self::POST_ORDER {
@@ -838,7 +894,9 @@ impl World {
                     .map(|&p| {
                         let pp = &self.people[p as usize];
                         let lean = culture::profile(pp.race).jobs.iter().find(|j| j.0 == job).map(|j| j.1).unwrap_or(1.0);
-                        job.fit(pp.stats.calling, &pp.traits) * lean
+                        // The out-of-work are first to look.
+                        let looking = if day.is_some() && self.society.lives[p as usize].job == Job::None { 1.5 } else { 1.0 };
+                        job.fit(pp.stats.calling, &pp.traits) * lean * looking
                     })
                     .collect();
                 let Some(i) = r.weighted(&w) else { break };
@@ -1053,7 +1111,7 @@ impl World {
             self.society.lives[pid as usize].household = Some(h as u32);
         } else {
             let hi = self.society.households.len() as u32;
-            self.society.households.push(Household { community: shore, members: vec![pid], home: dwelling });
+            self.society.households.push(Household { community: shore, members: vec![pid], home: dwelling, purse: Default::default(), feelings: Vec::new() });
             self.society.lives[pid as usize].household = Some(hi);
         }
     }
