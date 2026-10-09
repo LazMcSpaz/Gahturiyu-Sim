@@ -2,6 +2,7 @@
 //! be tested, and be stepped as fast as the machine allows.
 
 pub mod ai;
+pub mod animals;
 pub mod bands;
 pub mod body;
 pub mod buildings;

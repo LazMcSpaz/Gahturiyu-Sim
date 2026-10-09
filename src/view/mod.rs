@@ -1,5 +1,6 @@
 //! The playtest window's pieces. Nothing in here changes how the world behaves.
 
+pub mod animals;
 pub mod app;
 pub mod cam;
 pub mod foliage;

@@ -132,6 +132,7 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         }
     }
 
+    super::animals::draw_map(c, cam, w);
     for cp in &w.camps {
         let q = s(cp.pos);
         let k = (cam.zoom * 8.0).clamp(4.0, 9.0);

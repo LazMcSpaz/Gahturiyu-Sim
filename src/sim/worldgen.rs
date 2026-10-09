@@ -186,6 +186,7 @@ pub fn generate(seed: u64) -> World {
     // Customs, households, jobs and workplaces (crafting stations stand in those).
     w.found_society();
     w.place_crafting();
+    w.place_animals();
     w
 }
 
