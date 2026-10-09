@@ -120,18 +120,31 @@ pub fn run() {
         }
         // A map authored for this seed (the land editor saves it). Screenshots
         // use the seed's own land unless GAHT_MAP is set.
-        None if shot.is_some() && std::env::var("GAHT_MAP").is_err() => worldgen::generate(seed),
         None => {
-            let path = map_path(seed);
-            match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
-                Ok((_, edits)) => worldgen::generate_with(seed, edits),
+            // The forged town (assets/towns/demo), then the map, unless a
+            // screenshot asks for the seed's own land.
+            let forge = match gahturiyu_sim::sim::forge::load(&forge_dir(), seed) {
+                Ok(f) => f,
                 Err(e) => {
-                    if path.exists() {
-                        eprintln!("couldn't read {}: {e}; starting from the seed's own land", path.display());
-                    }
-                    worldgen::generate(seed)
+                    eprintln!("couldn't read the forged town: {e}");
+                    None
                 }
-            }
+            };
+            let path = map_path(seed);
+            let edits = if shot.is_some() && std::env::var("GAHT_MAP").is_err() {
+                Default::default()
+            } else {
+                match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
+                    Ok((_, edits)) => edits,
+                    Err(e) => {
+                        if path.exists() {
+                            eprintln!("couldn't read {}: {e}; starting from the seed's own land", path.display());
+                        }
+                        Default::default()
+                    }
+                }
+            };
+            worldgen::generate_authored(seed, forge, edits)
         }
     };
     if let Some(s) = &shot {
@@ -299,7 +312,11 @@ fn setup(mut commands: Commands) {
     commands.spawn((Camera2d, Camera { order: 1, clear_color: ClearColorConfig::None, ..default() }, bevy::camera::Hdr, bevy::core_pipeline::tonemapping::Tonemapping::None, PrimaryEguiContext));
 }
 
-/// Where F8 saves and F9 loads: `saves/quick.sav` beside `assets/`.
+/// Where the town forge writes the demo town.
+pub fn forge_dir() -> std::path::PathBuf {
+    models::assets_dir().join("towns").join("demo")
+}
+
 /// Where the map for a seed is kept (beside the saves).
 pub fn map_path(seed: u64) -> std::path::PathBuf {
     let assets = models::assets_dir();

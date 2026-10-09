@@ -180,7 +180,7 @@ impl Land {
         a + (b - a) * ty
     }
 
-    fn cell_of(&self, p: V2) -> usize {
+    pub fn cell_of(&self, p: V2) -> usize {
         let i = (((p.x - self.x0) / self.cell).round().max(0.0) as usize).min(self.w - 1);
         let j = (((p.y - self.y0) / self.cell).round().max(0.0) as usize).min(self.h - 1);
         self.idx(i, j)
@@ -205,6 +205,61 @@ impl Land {
         for _ in 0..6 {
             self.slump();
         }
+        self.silt_hollows(3.0);
+    }
+
+    /// Hollows that would hold water have long since silted up to their
+    /// spill point (the shallow ones, up to `max` metres deep); deeper ones
+    /// stay as lochans.
+    pub fn silt_hollows(&mut self, max: f32) {
+        use std::cmp::Ordering;
+        use std::collections::BinaryHeap;
+        #[derive(PartialEq)]
+        struct Item(f32, u32);
+        impl Eq for Item {}
+        impl PartialOrd for Item {
+            fn partial_cmp(&self, o: &Self) -> Option<Ordering> {
+                Some(self.cmp(o))
+            }
+        }
+        impl Ord for Item {
+            fn cmp(&self, o: &Self) -> Ordering {
+                o.0.partial_cmp(&self.0).unwrap_or(Ordering::Equal)
+            }
+        }
+        let (w, h) = (self.w, self.h);
+        let n = w * h;
+        let mut filled = vec![f32::NAN; n];
+        let mut heap = BinaryHeap::new();
+        for k in 0..n {
+            let (i, j) = (k % w, k / w);
+            if self.sea[k] || i == 0 || j == 0 || i == w - 1 || j == h - 1 {
+                filled[k] = self.z[k];
+                heap.push(Item(self.z[k], k as u32));
+            }
+        }
+        while let Some(Item(lvl, k)) = heap.pop() {
+            let k = k as usize;
+            if filled[k] < lvl {
+                continue;
+            }
+            let (i, j) = (k % w, k / w);
+            if i == 0 || j == 0 || i >= w - 1 || j >= h - 1 {
+                continue;
+            }
+            for nb in [k - 1, k + 1, k - w, k + w] {
+                if filled[nb].is_nan() {
+                    filled[nb] = self.z[nb].max(lvl);
+                    heap.push(Item(filled[nb], nb as u32));
+                }
+            }
+        }
+        for k in 0..n {
+            if !self.sea[k] && filled[k].is_finite() && filled[k] > self.z[k] && filled[k] - self.z[k] <= max {
+                self.sediment[k] += filled[k] - self.z[k];
+                self.z[k] = filled[k] + 0.01;
+            }
+        }
     }
 
     // ---- The sea ------------------------------------------------------------
@@ -212,7 +267,7 @@ impl Land {
     /// How open to the swell a coastal cell is: 0 sheltered .. 1 open sea.
     /// Waves funnel down narrow inlets, so one long open line to the sea
     /// counts for a lot, not just the average openness.
-    fn exposure(&self, k: usize, swell_from_deg: f32) -> f32 {
+    pub fn exposure(&self, k: usize, swell_from_deg: f32) -> f32 {
         let (ci, cj) = ((k % self.w) as i32, (k / self.w) as i32);
         let reach = 60i32;
         let mut sum = 0.0;

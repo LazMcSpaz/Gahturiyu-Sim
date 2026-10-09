@@ -24,7 +24,7 @@ use super::world::World;
 const MAGIC: &[u8; 4] = b"GAHT";
 /// Bumped whenever what's saved changes shape; older saves are refused
 /// rather than misread.
-pub const FORMAT: u32 = 25;
+pub const FORMAT: u32 = 26;
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -67,7 +67,8 @@ impl World {
         }
         let mut w: World = bincode::deserialize(&bytes[8..]).map_err(|e| LoadError::Corrupt(e.to_string()))?;
         let edits = std::mem::take(&mut w.terrain.edits);
-        let (terrain, routes) = super::worldgen::land(Terrain::generate(w.seed).with_edits(edits), &w.settlements);
+        let authored = std::mem::take(&mut w.terrain.authored);
+        let (terrain, routes) = super::worldgen::land(Terrain::generate(w.seed).with_authored(authored).with_edits(edits), &w.settlements);
         w.terrain = terrain;
         w.routes = routes;
         w.reindex();
@@ -169,14 +170,14 @@ pub(crate) fn no_routes() -> Routes {
     Routes::default()
 }
 
-/// The land in a save: only its hand edits.
+/// The land in a save: only its hand edits and the authored land under them.
 pub fn ser_edits<S: Serializer>(t: &Terrain, s: S) -> Result<S::Ok, S::Error> {
-    t.edits.serialize(s)
+    (&t.edits, &t.authored).serialize(s)
 }
 
 /// The land back from a save: a stand-in carrying the edits, until the seed's
 /// land is rebuilt under them (`load_bytes`).
 pub fn de_edits<'de, D: Deserializer<'de>>(d: D) -> Result<Terrain, D::Error> {
-    let e = super::mapedit::MapEdits::deserialize(d)?;
-    Ok(Terrain::empty().with_edits(e))
+    let (e, a): (super::mapedit::MapEdits, super::mapedit::MapEdits) = Deserialize::deserialize(d)?;
+    Ok(Terrain::empty().with_edits(e).with_authored(a))
 }

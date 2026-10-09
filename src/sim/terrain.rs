@@ -27,6 +27,10 @@ pub struct Terrain {
     /// Hand edits on top of the seed's land (`mapedit.rs`).
     #[serde(default)]
     pub edits: super::mapedit::MapEdits,
+    /// Land authored by a tool (the town forge), under the hand edits: the
+    /// same layers, kept apart so the player's own map stays their own.
+    #[serde(default)]
+    pub authored: super::mapedit::MapEdits,
 }
 
 /// What the ground underfoot is like. Each has a small effect on walking pace.
@@ -285,7 +289,7 @@ fn raw_height(seed: u64, p: V2) -> f32 {
 impl Terrain {
     /// No land at all: a stand-in while a save is read.
     pub fn empty() -> Terrain {
-        Terrain { h: Vec::new(), seed: 0, roads: RoadIndex::default(), edits: Default::default() }
+        Terrain { h: Vec::new(), seed: 0, roads: RoadIndex::default(), edits: Default::default(), authored: Default::default() }
     }
 
     pub fn generate(seed: u64) -> Terrain {
@@ -296,13 +300,25 @@ impl Terrain {
                 h[j * N + i] = raw_height(tseed, V2::new(i as f32 * CELL, j as f32 * CELL));
             }
         }
-        Terrain { h, seed: tseed, roads: RoadIndex::default(), edits: Default::default() }
+        Terrain { h, seed: tseed, roads: RoadIndex::default(), edits: Default::default(), authored: Default::default() }
     }
 
     /// The same land with these hand edits on it.
     pub fn with_edits(mut self, edits: super::mapedit::MapEdits) -> Terrain {
         self.edits = edits;
         self
+    }
+
+    /// The same land with this authored land under the hand edits.
+    pub fn with_authored(mut self, authored: super::mapedit::MapEdits) -> Terrain {
+        self.authored = authored;
+        self
+    }
+
+    /// Below the sea: the land itself decides (authored bays and stacks
+    /// included), not the world's broad coastline.
+    pub fn is_sea(&self, p: V2) -> bool {
+        self.height(p) < 0.0
     }
 
     /// Lay the road network onto the land (done once, after the roads are
@@ -322,10 +338,12 @@ impl Terrain {
         if self.on_road(p) {
             return Ground::Road;
         }
-        // Ground painted by hand, laid on thickly enough.
-        if let Some((tex, w)) = self.edits.paint_at(p) {
-            if let (true, Some(t)) = (w >= 0.5, super::mapedit::TEXTURES.get(tex as usize)) {
-                return t.ground;
+        // Ground painted by hand (or authored), laid on thickly enough.
+        for layer in [&self.edits, &self.authored] {
+            if let Some((tex, w)) = layer.paint_at(p) {
+                if let (true, Some(t)) = (w >= 0.5, super::mapedit::TEXTURES.get(tex as usize)) {
+                    return t.ground;
+                }
             }
         }
         if geo::inland(p) < 60.0 {
@@ -363,7 +381,7 @@ impl Terrain {
     /// Ground height in metres at any point (sea floor below 0 offshore),
     /// hand edits included.
     pub fn height(&self, p: V2) -> f32 {
-        self.base_height(p) + self.edits.height.at(p)
+        self.base_height(p) + self.authored.height.at(p) + self.edits.height.at(p)
     }
 
     /// The land as the seed made it, before any hand edits.

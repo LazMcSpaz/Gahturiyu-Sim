@@ -28,6 +28,9 @@ pub struct Shot {
     pub bandits: Option<usize>,
     /// `GAHT_CAMP=k`: start the squad 70 m from bandit camp k.
     pub camp: Option<usize>,
+    /// `GAHT_FORGE=1`: start the squad at the forged town (between its
+    /// landing and the Eldest Home's site).
+    pub forge: bool,
     /// `GAHT_WAIT=h`: run until a fight is on nearby, at most h game hours.
     pub wait: Option<f64>,
     /// `GAHT_HOURS=h`: run h game hours first (coarsely).
@@ -121,6 +124,7 @@ impl Shot {
             yaw: var("GAHT_YAW").and_then(|v| v.parse().ok()),
             bandits: var("GAHT_BANDITS").and_then(|v| v.parse().ok()),
             camp: var("GAHT_CAMP").and_then(|v| v.parse().ok()),
+            forge: var("GAHT_FORGE").is_some(),
             wait: var("GAHT_WAIT").and_then(|v| v.parse().ok()),
             hours: var("GAHT_HOURS").and_then(|v| v.parse().ok()),
             sneak: var("GAHT_SNEAK").is_some(),
@@ -235,6 +239,12 @@ impl Shot {
     /// Set the world up for the picture: everything that changes the world
     /// (as opposed to the camera) happens here, before the first frame.
     pub fn prepare(&self, world: &mut World) {
+        if self.forge {
+            if let Some(c) = world.forge.as_ref().and_then(|f| f.centre()) {
+                world.teleport_squad(c);
+                world.step(0.001);
+            }
+        }
         if let Some((dx, dy)) = self.nudge {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);

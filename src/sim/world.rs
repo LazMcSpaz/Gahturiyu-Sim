@@ -74,6 +74,9 @@ pub struct World {
     pub terrain: Terrain,
     #[serde(skip, default = "super::save::no_routes")]
     pub routes: Routes,
+    /// A town authored by the forge, if one is loaded (`forge.rs`).
+    #[serde(default)]
+    pub forge: Option<super::forge::Town>,
     /// The last whole game-hour whose departures have been decided.
     pub hour_done: i64,
     pub log: VecDeque<(f64, String)>,
@@ -228,6 +231,7 @@ impl World {
             bands: BandMap::new(squad.pos),
             terrain,
             routes,
+            forge: None,
             people,
             settlements,
             groups: Vec::new(),

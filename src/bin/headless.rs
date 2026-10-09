@@ -252,11 +252,13 @@ fn society(days: f64, seed: u64) {
 /// what's printed matches what the window would show.
 fn world(seed: u64) -> gahturiyu_sim::sim::World {
     let path = gahturiyu_sim::sim::mapedit::MapEdits::path_for(seed);
-    match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
+    let forge = gahturiyu_sim::sim::forge::load(std::path::Path::new("assets/towns/demo"), seed).unwrap_or(None);
+    let edits = match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
         Ok((_, edits)) => {
             eprintln!("(on the map in {})", path.display());
-            worldgen::generate_with(seed, edits)
+            edits
         }
-        Err(_) => worldgen::generate(seed),
-    }
+        Err(_) => Default::default(),
+    };
+    worldgen::generate_authored(seed, forge, edits)
 }

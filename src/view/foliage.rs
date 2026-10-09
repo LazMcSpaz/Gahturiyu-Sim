@@ -231,7 +231,7 @@ struct Spot {
 fn spot(w: &World, p: V2) -> Option<Spot> {
     let t = &w.terrain;
     let shore = geo::inland(p);
-    if !geo::is_land(p) || shore < 6.0 {
+    if t.is_sea(p) || t.height(p) < 2.0 {
         return None;
     }
     let ground = t.ground(p);
@@ -738,7 +738,7 @@ pub fn biggest_wood_near(w: &World, p: V2) -> Option<V2> {
 /// as, and how many triangles that comes to.
 pub fn draw_readout(c: &Canvas, oc: &OrbitCam, scene: &Scene3d, f: &Foliage, models: &Models) -> egui::Rect {
     let n = f.counts;
-    let model_tris = models.roduro_home.as_ref().map(|m| format!("{} / {} / {}", m.triangles[0], m.triangles[1], m.triangles[2])).unwrap_or_else(|| "—".into());
+    let model_tris = models.models.get(super::models::RODURO_HOMES[0]).map(|m| format!("{} / {} / {}", m.triangles[0], m.triangles[1], m.triangles[2])).unwrap_or_else(|| "—".into());
     let lines = vec![
         ("Detail".to_string(), palette::GOLD),
         (format!("Camera {:.0} m from the squad", oc.dist), palette::TEXT),

@@ -1,0 +1,7 @@
+(
+    concept: 'A',
+    name: "Ledge town",
+    hook: "A long crack in the rock runs inland from the sea; the sea has cut a narrow inlet along it, and the layers dip so one wall benches into ledges. Homes would stack on the ledges, joined by stairs, with the harbour at the inlet\'s head.",
+    seed: 41,
+    world: 1,
+)

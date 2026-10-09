@@ -235,7 +235,7 @@ impl World {
             let ground = self.terrain.ground(at).pace();
             let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * ground as f64 * dt) as f32;
             let next = if d <= stride { goal } else { at.add(dir.scale(stride)) };
-            if geo::is_land(next) || self.building_at(next).is_some() {
+            if !self.terrain.is_sea(next) || self.building_at(next).is_some() {
                 let rise = self.terrain.height(next) - self.terrain.height(at);
                 self.climb(pid, rise);
                 self.squad.at[k] = next;

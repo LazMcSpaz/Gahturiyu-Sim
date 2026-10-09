@@ -67,19 +67,6 @@ impl Builder {
         self.quad_lin(p, [n; 4], [c; 4]);
     }
 
-    /// A convex polygon, a colour and facing per corner.
-    pub fn poly_lin(&mut self, p: &[Vec3], n: &[Vec3], c: &[[f32; 4]]) {
-        if p.len() < 3 {
-            return;
-        }
-        let base = self.pos.len() as u32;
-        for k in 0..p.len() {
-            self.v(p[k], n[k], c[k]);
-        }
-        for k in 1..p.len() as u32 - 1 {
-            self.idx.extend_from_slice(&[base, base + k, base + k + 1]);
-        }
-    }
 
     fn face(&mut self, pts: &[Vec3], n: Vec3, col: [f32; 4]) {
         let base = self.pos.len() as u32;

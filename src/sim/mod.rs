@@ -18,6 +18,7 @@ pub mod elements;
 pub mod encounters;
 pub mod few;
 pub mod fights;
+pub mod forge;
 pub mod geo;
 pub mod group;
 pub mod inventory;
