@@ -102,6 +102,8 @@ pub struct Game {
     pub barks: Vec<(PersonId, String, u32)>,
     /// The town's talk panel shows everything (as with the detail readout).
     pub town_all: bool,
+    /// The land editor (F10).
+    pub editor: super::editor::Editor,
     pub barked: std::collections::HashMap<PersonId, u32>,
 }
 
@@ -116,7 +118,11 @@ pub fn run() {
             eprintln!("{e}; starting a new world");
             worldgen::generate(seed)
         }
-        None => worldgen::generate(seed),
+        None => match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&gahturiyu_sim::sim::mapedit::MapEdits::path_for(seed)) {
+            // A map authored for this seed (the land editor saves it).
+            Ok((_, edits)) => worldgen::generate_with(seed, edits),
+            Err(_) => worldgen::generate(seed),
+        },
     };
     if let Some(s) = &shot {
         s.prepare(&mut world);
@@ -156,6 +162,7 @@ pub fn run() {
         bars: Vec::new(),
         barks: Vec::new(),
         town_all: false,
+        editor: Default::default(),
         barked: std::collections::HashMap::new(),
         shot: None,
         world,
@@ -195,6 +202,15 @@ pub fn run() {
         }
         if s.guard {
             game.journal = true;
+        }
+        if s.edit {
+            game.editor.on = true;
+            game.paused = true;
+            let at = game.world.squad.pos.add(V2::new(60.0, -70.0));
+            game.editor.cursor = Some(at);
+            game.editor.tool = super::editor::Tool::Paint(11);
+            game.follow = false;
+            game.orbit.target = at;
         }
         if s.town || s.feud {
             let at = game.world.squad.pos;
@@ -303,6 +319,25 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     game.mouse = mouse;
     let dt = time.delta_secs();
+    if keys.just_pressed(KeyCode::F10) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
+        super::editor::toggle(game);
+    }
+    if game.editor.on {
+        // Camera as usual; the brush instead of orders; the world stands still.
+        camera_input(game, &keys, &buttons, &scroll, mouse, dt);
+        if keys.just_pressed(KeyCode::KeyV) || keys.just_pressed(KeyCode::Tab) {
+            game.view = if game.view == View::Scene { View::Map } else { View::Scene };
+        }
+        let on_panels = game.panels.iter().any(|b| b.contains(mouse));
+        game.ui_click = None;
+        let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+        if buttons.just_released(MouseButton::Left) && on_panels {
+            game.ui_click = Some(Click { at: mouse, right: false, shift });
+        }
+        super::editor::input(game, &keys, &buttons, mouse, on_panels, dt, time.elapsed_secs());
+        game.last_mouse = mouse;
+        return;
+    }
     let w = &mut game.world;
 
     for (i, key) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5].iter().enumerate() {
@@ -470,6 +505,37 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         }
     }
 
+    camera_input(game, &keys, &buttons, &scroll, mouse, dt);
+    let on_panels = game.panels.iter().any(|b| b.contains(mouse));
+    // Clicks on the panels are handled when they're drawn; a short click
+    // anywhere else is an order.
+    game.ui_click = None;
+    if buttons.just_pressed(MouseButton::Left) {
+        game.press_at = Some(mouse);
+    }
+    if buttons.just_pressed(MouseButton::Right) && on_panels {
+        game.ui_click = Some(Click { at: mouse, right: true, shift });
+    }
+    // Right-click anywhere drops a spell that's waiting to be aimed.
+    if buttons.just_pressed(MouseButton::Right) && game.aim.is_some() {
+        game.aim = None;
+    }
+    if buttons.just_released(MouseButton::Left) {
+        if let Some(p) = game.press_at.take() {
+            if (p - mouse).length() < 6.0 {
+                if on_panels {
+                    game.ui_click = Some(Click { at: mouse, right: false, shift });
+                } else {
+                    click_world(game, mouse, shift);
+                }
+            }
+        }
+    }
+    game.last_mouse = mouse;
+}
+
+/// Turning, panning and zooming the camera (the same in the editor).
+fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput<MouseButton>, scroll: &AccumulatedMouseScroll, mouse: Vec2, dt: f32) {
     let d = mouse - game.last_mouse;
     let wheel = scroll.delta.y;
     let mut pan = (0.0f32, 0.0f32);
@@ -518,31 +584,6 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
     }
-    // Clicks on the panels are handled when they're drawn; a short click
-    // anywhere else is an order.
-    game.ui_click = None;
-    if buttons.just_pressed(MouseButton::Left) {
-        game.press_at = Some(mouse);
-    }
-    if buttons.just_pressed(MouseButton::Right) && on_panels {
-        game.ui_click = Some(Click { at: mouse, right: true, shift });
-    }
-    // Right-click anywhere drops a spell that's waiting to be aimed.
-    if buttons.just_pressed(MouseButton::Right) && game.aim.is_some() {
-        game.aim = None;
-    }
-    if buttons.just_released(MouseButton::Left) {
-        if let Some(p) = game.press_at.take() {
-            if (p - mouse).length() < 6.0 {
-                if on_panels {
-                    game.ui_click = Some(Click { at: mouse, right: false, shift });
-                } else {
-                    click_world(game, mouse, shift);
-                }
-            }
-        }
-    }
-    game.last_mouse = mouse;
 }
 
 /// Step the world by this frame's share of game time.
@@ -557,7 +598,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         game.paused = false;
     }
     // Time stands still while you talk, as in Morrowind.
-    if !game.paused && game.world.talk.is_none() {
+    if !game.paused && game.world.talk.is_none() && !game.editor.on {
         let t0 = std::time::Instant::now();
         // Screenshots run at a fixed pace so they don't depend on how fast
         // the machine draws.
@@ -756,6 +797,7 @@ struct UiState {
     fonts: bool,
     loads: u32,
     relief: Option<egui::TextureHandle>,
+    relief_version: u32,
 }
 
 /// The panels, labels, map and tooltips; clicks on panels become actions.
@@ -822,6 +864,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     c.centred(&format!("\u{201c}{line}\u{201d}"), q.x, q.y - 2.0, 15.0, super::palette::TEXT);
                 }
             }
+            if game.editor.on {
+                let project = |p: Vec3| game.orbit.project(&vp, size, p);
+                super::editor::draw_cursor(&c, game, &project);
+            }
             // Standing torches can be hovered too.
             for (i, s) in game.world.standing.iter().enumerate() {
                 let g = scene.grid.height(&game.world.terrain, s.pos);
@@ -834,6 +880,23 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     };
 
     // ---- Panels ---------------------------------------------------------------
+    if game.editor.on {
+        if game.view == View::Map {
+            if let Some(p) = game.editor.cursor {
+                let s = game.map_cam.to_screen(size, p);
+                c.circle_lines(s.x, s.y, game.editor.radius * game.map_cam.zoom, 2.0, super::palette::eg(super::palette::GOLD));
+            }
+        }
+        let click = game.ui_click.take();
+        let bx = super::editor::panel(&c, game, click);
+        game.panels = vec![bx];
+        // The map's picture follows the edits once a stroke is done.
+        if !game.editor.stroking && st.relief_version != game.world.terrain.edits.version {
+            st.relief_version = game.world.terrain.edits.version;
+            st.relief = None;
+        }
+        return Ok(());
+    }
     panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
     let w = &mut game.world;
     if game.inv.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
@@ -974,7 +1037,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits   F10: edit the land",
         View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     if let Some((msg, at)) = &game.notice {

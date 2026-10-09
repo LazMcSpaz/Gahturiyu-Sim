@@ -131,5 +131,29 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     c = mix(c, SNOW, smooth(640.0, 760.0, h) * smooth(0.78, 0.90, up) * 0.85);
     // Shingle along the waterline.
     c = mix(SHINGLE, c, d / 35.0);
+    // Ground painted by hand.
+    if let Some((k, w)) = t.edits.paint_at(p) {
+        c = mix(c, texture(k), w);
+    }
     scale(c, 0.9 + n2 * 0.18)
+}
+
+/// The colour of each paintable ground (`mapedit::TEXTURES`, in order).
+pub fn texture(k: u8) -> Rgb {
+    const T: [Rgb; 13] = [
+        [0.30, 0.42, 0.22], // grass
+        GRASS_DRY,
+        HEATH,
+        SCRUB,
+        [0.42, 0.33, 0.24], // dirt
+        [0.28, 0.23, 0.18], // mud
+        [0.80, 0.72, 0.52], // sand
+        SHINGLE,
+        [0.55, 0.53, 0.49], // gravel
+        ROCK,
+        SANDROCK,
+        SNOW,
+        [0.24, 0.36, 0.20], // moss
+    ];
+    T[(k as usize).min(T.len() - 1)]
 }

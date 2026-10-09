@@ -21,6 +21,13 @@ pub const INLAND_TOWNS: usize = 20;
 pub const WANDERER_THRESHOLD: f32 = 0.85;
 
 pub fn generate(seed: u64) -> World {
+    generate_with(seed, Default::default())
+}
+
+/// A world from a seed, with a map's hand edits on its land
+/// (`mapedit.rs`). Towns are placed from the land as the seed made it, so
+/// edits never move a town; roads, camps and workplaces follow the edited land.
+pub fn generate_with(seed: u64, edits: super::mapedit::MapEdits) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
     let terrain = Terrain::generate(seed);
     let mut settlements = place_settlements(&mut rng, seed, &terrain);
@@ -204,7 +211,7 @@ pub fn generate(seed: u64) -> World {
     }
 
     // --- Roads between the towns ----------------------------------------
-    let (terrain, routes) = land(terrain, &settlements);
+    let (terrain, routes) = land(terrain.with_edits(edits), &settlements);
 
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
@@ -219,6 +226,8 @@ pub fn generate(seed: u64) -> World {
 /// The land and the roads between the towns: fixed by the seed and where
 /// the towns are, so a save doesn't store them.
 pub fn land(mut terrain: Terrain, settlements: &[Settlement]) -> (Terrain, Routes) {
+    // (Found afresh: old roads don't count while the new ones are chosen.)
+    terrain.set_roads(&[]);
     let mut routes = Routes::build(&terrain, settlements);
     terrain.set_roads(&routes.roads);
     routes.build_network(&terrain);

@@ -268,7 +268,7 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
 const LW: f32 = 470.0;
 
 /// Wrap a line to a width, returning the lines.
-fn wrap(c: &Canvas, s: &str, size: f32, width: f32) -> Vec<String> {
+pub fn wrap(c: &Canvas, s: &str, size: f32, width: f32) -> Vec<String> {
     let mut out = Vec::new();
     let mut line = String::new();
     for word in s.split(' ') {

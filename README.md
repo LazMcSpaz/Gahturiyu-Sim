@@ -67,6 +67,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | R | Show / hide the band rings |
 | L | Detail readout: what's drawn at what detail, and triangle counts |
 | B | (testing) Drop a band of bandits next to the squad |
+| F10 | The land editor (see below); F10 or Esc to leave |
 
 Hover over anyone or anything for details. A fight breaking out near you drops
 the speed to real time.
@@ -81,6 +82,41 @@ stamina and rest — whose labels turn orange when there's trouble ("hungry",
 "starving", "worn out"), plus who they're carrying or who's carrying them, and
 any limb lost for good (−LA = left arm, and so on). "torch" after a name means
 their torch is lit. A violet diamond with "Holding …" means a ritual is held ready.
+
+### Editing the land (F10)
+
+The world stands still while you edit. Turn and zoom the camera as usual
+(right-drag, wheel, middle-drag or WASD); **left-drag** uses the brush. V
+switches to the map, where big strokes are easier. The panel on the right
+holds everything:
+
+- **Shape the land**: Raise, Lower, Smooth, Roughen, Flatten (to the height
+  where the stroke began), Set height (to a number you choose), Terrace (cut
+  into steps), **Ramp / path** (drag from one point to another: the land
+  between becomes an even slope, the brush's width across), and Restore
+  (back toward the land the seed made).
+- **Paint the ground**: grass, dry grass, heath, scrub, dirt, mud, sand,
+  shingle, gravel, rock, sandstone, snow, moss — and Unpaint. Painted ground
+  counts underfoot: mud and snow are slow going, dirt nearly as quick as grass.
+- **Plants**: more or fewer grass, brush and trees, or back to natural.
+  Plants still keep out of towns, roads and the sea.
+- **Rocks**: boulders, slabs, pillars, scree and outcrops, scattered by the
+  brush; Clear rocks takes them away.
+- **Brush**: size, strength and how soft its edge is (the outer ring is its
+  reach, the inner its full strength).
+
+Shift does the opposite (raise ↔ lower, smooth ↔ roughen, paint → unpaint,
+more ↔ fewer, rocks → clear). Ctrl-click picks up the height under the mouse
+(for Set height) or the paint (for painting). `[` `]` change the size, `-`
+`=` the strength. **Ctrl+Z** undoes a whole stroke (Ctrl+Y or Ctrl+Shift+Z
+redoes).
+
+**Save map** (Ctrl+S) writes `maps/seed-N.gmap`; every new game on that seed
+starts from it (towns stay where the seed put them; roads, camps and
+workplaces follow the edited land). Game saves (F8) carry the edits too.
+"Back to saved" puts the map back as last saved; "Clear all edits" (click
+twice) wipes everything, and can itself be undone. Leaving the editor finds
+the roads again if you changed the land's shape or ground.
 
 ## Playing
 
@@ -841,6 +877,7 @@ src/sim/      the simulation — no graphics, fully testable
   tide.rs       the tide clock and the season
   torch.rs      torches, and all light sources
   news.rs       bounty news carried town to town
+  mapedit.rs    hand edits to the land: layers, brushes, undo, map files
   save.rs       saving and loading
 src/main.rs   starts the window
 src/view/     the window (Bevy) — drawing only, never changes the world's rules
@@ -856,10 +893,12 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   hud.rs        side panel, hover descriptions, health bars
   squadui.rs    squad cards, pack, crafting, conversation, journal
   townui.rs     the town panel (P)
+  editor.rs     the land editor (F10): its panel, brush cursor and keys
   shot.rs       headless screenshots (the GAHT_ flags)
   settings.rs   graphics settings (O)
 src/bin/headless.rs  the world with no window
 assets/       font, and models/ for GLB files
+maps/         land edited by hand, one file per seed (the editor writes them)
 data/lines/   what people say, piece by piece (FORMAT.md explains)
 tests/        the consistency checks, and one file per system
 ```

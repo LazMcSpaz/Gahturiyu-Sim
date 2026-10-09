@@ -254,29 +254,32 @@ fn grass_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
         return false;
     }
     let chance = 0.8 * (1.0 - s.arid) * smooth(0.75, 0.45, s.slope) * smooth(620.0, 460.0, s.h) * smooth(6.0, 22.0, s.shore) * (1.0 - 0.5 * wood(w, p));
-    r.f32() < chance * density
+    let (m, add) = w.terrain.edits.plants_at(p)[0];
+    r.f32() < (chance * m + add * smooth(0.9, 0.6, s.slope)) * density
 }
 
 fn bush_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
     let Some(s) = spot(w, p) else { return false };
-    if !matches!(s.ground, Ground::Grass | Ground::Scrub) {
+    if !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
         return false;
     }
     let wd = wood(w, p);
     let chance = (0.10 + 0.35 * wd * (1.0 - wd) * 4.0 * 0.5 + 0.25 * s.arid) * smooth(0.8, 0.5, s.slope) * smooth(720.0, 560.0, s.h) * smooth(6.0, 14.0, s.shore);
-    r.f32() < chance * density
+    let (m, add) = w.terrain.edits.plants_at(p)[1];
+    r.f32() < (chance * m + add * smooth(0.9, 0.6, s.slope)) * density
 }
 
 /// Whether a tree grows in this cell, and if so which kind (0 broadleaf,
 /// 1 conifer).
 fn tree_at(w: &World, p: V2, r: &mut Rng, density: f32) -> Option<u8> {
     let s = spot(w, p)?;
-    if !matches!(s.ground, Ground::Grass | Ground::Scrub) {
+    if !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
         return None;
     }
     let wd = wood(w, p);
     let chance = (0.85 * wd + 0.025) * (1.0 - 0.95 * s.arid) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore);
-    if r.f32() >= chance * density {
+    let (m, add) = w.terrain.edits.plants_at(p)[2];
+    if r.f32() >= (chance * m + add * smooth(0.8, 0.5, s.slope)) * density {
         return None;
     }
     // Conifers up the slopes, broadleaf below, mixed between.
@@ -460,6 +463,8 @@ pub struct Foliage {
     /// version of the settings the loaded chunks were built for.
     density: (f32, f32, f32),
     settings_version: Option<(u32, u32)>,
+    /// The last land edit (by the editor's count) redrawn.
+    edits_seen: u32,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -607,6 +612,30 @@ pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, s
         }
         f.density = settings.foliage_density();
         f.settings_version = Some((settings.version, game.loads));
+    }
+    // Land edited by hand: the chunks it touched grow again.
+    let fresh: Vec<(V2, V2)> = game.editor.dirty.iter().filter(|d| d.0 > f.edits_seen).map(|d| d.1).collect();
+    if let Some(n) = game.editor.dirty.last().map(|d| d.0) {
+        f.edits_seen = f.edits_seen.max(n);
+    }
+    if !fresh.is_empty() {
+        let hit: Vec<(Layer, i64, i64)> = f
+            .chunks
+            .keys()
+            .filter(|(layer, i, j)| {
+                let s = layer.chunk();
+                let (x0, y0, x1, y1) = (*i as f32 * s, *j as f32 * s, (*i + 1) as f32 * s, (*j + 1) as f32 * s);
+                fresh.iter().any(|(a, b)| a.x <= x1 && b.x >= x0 && a.y <= y1 && b.y >= y0)
+            })
+            .copied()
+            .collect();
+        for k in hit {
+            if let Some(c) = f.chunks.remove(&k) {
+                for e in c.entities {
+                    commands.entity(e).despawn();
+                }
+            }
+        }
     }
     let w = &game.world;
     let show = game.view == View::Scene;

@@ -88,6 +88,11 @@ pub struct Scene3d {
     pub town_triangles: usize,
     /// Which loaded save the caches were built for (see `Game::loads`).
     loads: u32,
+    /// Which version of the land's hand edits the ground and towns were
+    /// built for, and the rocks drawn (with what they were built for).
+    edits: u32,
+    towns_edits: u32,
+    rocks: Option<(Handle<Mesh>, (i64, i64, u32))>,
 }
 
 struct Town {
@@ -165,6 +170,20 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         // A save was loaded: the land and towns may be another world's.
         scene.loads = game.loads;
         scene.ground_key = None;
+        for (_, t) in scene.towns.drain() {
+            for e in t.entities {
+                commands.entity(e).despawn();
+            }
+        }
+    }
+    // The land was edited: the ground now; the towns on it once the stroke is done.
+    let ev = game.world.terrain.edits.version;
+    if scene.edits != ev {
+        scene.edits = ev;
+        scene.ground_key = None;
+    }
+    if scene.towns_edits != ev && !game.editor.stroking {
+        scene.towns_edits = ev;
         for (_, t) in scene.towns.drain() {
             for e in t.entities {
                 commands.entity(e).despawn();
@@ -306,6 +325,28 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         if s.pos.dist(oc.target) < radius * 1.1 {
             game.labels.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), s.name.clone()));
             game.picks.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), 20.0, Hover::Town(sid)));
+        }
+    }
+
+    // ---- Rocks placed by hand, cached ----------------------------------------
+    let rock_key = ((oc.target.x / 100.0).round() as i64, (oc.target.y / 100.0).round() as i64, ev);
+    if scene.rocks.as_ref().map(|r| r.1) != Some(rock_key) {
+        let mut rb = Builder::new();
+        for k in w.terrain.edits.rocks.iter().filter(|k| k.pos.dist(oc.target) < radius * 1.3 + 50.0) {
+            rock(&mut rb, k, on_ground(k.pos), t.slope(k.pos));
+        }
+        match &scene.rocks {
+            Some((h, _)) => {
+                if let Some(mut m) = meshes.get_mut(h) {
+                    *m = rb.mesh();
+                }
+                let h = h.clone();
+                scene.rocks = Some((h, rock_key));
+            }
+            None => {
+                let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, rb, GroundMesh);
+                scene.rocks = Some((h, rock_key));
+            }
         }
     }
 
@@ -1347,5 +1388,77 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
         }
         // (A land deck is drawn as a kitchen above; a wet one as a platform.)
         PlaceKind::DivePlatform => {}
+    }
+}
+
+/// A rock placed by hand: faceted, lumpy stone of its kind, its shape fixed
+/// by its own seed.
+fn rock(b: &mut Builder, k: &gahturiyu_sim::sim::mapedit::Rock, ground: f32, slope: f32) {
+    let seed = k.seed as u64;
+    let n = |i: u64| -> f32 { ((seed ^ i.wrapping_mul(0x9E37_79B9_7F4A_7C15)).wrapping_mul(0xBF58_476D_1CE4_E5B9) >> 40) as f32 / (1u64 << 24) as f32 };
+    let tone = 0.8 + n(99) * 0.35;
+    let col = [0.46 * tone, 0.45 * tone, 0.42 * tone];
+    let s = k.size;
+    // (width, depth, height above ground, roughness) by kind:
+    // boulder, slab, pillar, scree, outcrop.
+    let (rx, rz, h, lump) = match k.kind {
+        0 => (s * 0.6, s * 0.5, s * 0.6, 0.35),
+        1 => (s * 0.75, s * 0.5, s * 0.25, 0.2),
+        2 => (s * 0.35, s * 0.3, s * 1.8, 0.25),
+        3 => (s * 0.5, s * 0.45, s * 0.4, 0.4),
+        _ => (s * 0.6, s * 0.45, s * 0.75, 0.45),
+    };
+    let base = vec3(k.pos.x, ground - (slope * s * 0.4).min(s * 0.3), k.pos.y);
+    let parts: Vec<(Vec3, f32, f32, f32, u64)> = match k.kind {
+        // Scree: a little heap of small stones.
+        3 => (0..5u64)
+            .map(|j| {
+                let a = n(j * 7 + 1) * std::f32::consts::TAU;
+                let d = n(j * 7 + 2) * s * 1.3;
+                let r = s * (0.3 + n(j * 7 + 3) * 0.4);
+                (vec3(a.cos() * d, 0.0, a.sin() * d), r, r * 0.85, r * 0.6, seed ^ j)
+            })
+            .collect(),
+        // An outcrop: a few big stones leaning together.
+        4 => (0..3u64)
+            .map(|j| {
+                let f = 0.6 + n(j * 5 + 3) * 0.5;
+                (vec3((n(j * 5 + 1) - 0.5) * rx, 0.0, (n(j * 5 + 2) - 0.5) * rz), rx * f, rz * f, h * (0.7 + n(j * 5 + 4) * 0.6), seed ^ (j + 11))
+            })
+            .collect(),
+        _ => vec![(Vec3::ZERO, rx, rz, h, seed)],
+    };
+    let (sn, cs) = k.rot.sin_cos();
+    for (off, rx, rz, h, sd) in parts {
+        stone(b, base + vec3(off.x * cs - off.z * sn, 0.0, off.x * sn + off.z * cs), rx, rz, h, lump, k.rot, sd, col);
+    }
+}
+
+/// One faceted stone: a lumpy ball, its lower part sunk in the ground,
+/// flat-shaded so its faces catch the light.
+#[allow(clippy::too_many_arguments)]
+fn stone(b: &mut Builder, centre: Vec3, rx: f32, rz: f32, h: f32, lump: f32, rot: f32, seed: u64, col: Rgb) {
+    let (rings, sides) = (5usize, 8usize);
+    let noise = |i: usize, k: usize| -> f32 {
+        let x = (seed ^ ((i as u64) << 20) ^ ((k % sides) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        ((x >> 40) as f32 / (1u64 << 24) as f32) - 0.5
+    };
+    let (sn, cs) = rot.sin_cos();
+    // Latitude from a little below the ground up to the top.
+    let point = |i: usize, k: usize| -> Vec3 {
+        let lat = -0.35 + i as f32 / rings as f32 * (std::f32::consts::FRAC_PI_2 + 0.35);
+        let lon = k as f32 / sides as f32 * std::f32::consts::TAU;
+        let bump = if i == rings { 1.0 } else { 1.0 + noise(i, k) * lump };
+        let (x, z) = (lat.cos() * lon.cos() * rx * bump, lat.cos() * lon.sin() * rz * bump);
+        centre + vec3(x * cs - z * sn, lat.sin() * h * (1.0 + noise(i + 7, k) * lump * 0.5), x * sn + z * cs)
+    };
+    for i in 0..rings {
+        for k in 0..sides {
+            let q = [point(i, k), point(i, k + 1), point(i + 1, k + 1), point(i + 1, k)];
+            let nrm = (q[2] - q[0]).cross(q[1] - q[3]).normalize_or_zero();
+            let nrm = if nrm.y < -0.2 { -nrm } else { nrm };
+            let shade = 0.88 + noise(i + 3, k + 5) * 0.25;
+            b.quad(q, nrm, [col[0] * shade, col[1] * shade, col[2] * shade]);
+        }
     }
 }

@@ -69,7 +69,8 @@ pub struct World {
     pub next_group: GroupId,
     pub squad: Squad,
     pub bands: BandMap,
-    #[serde(skip, default = "super::save::no_terrain")]
+    /// The land. Only its hand edits are saved; the rest comes from the seed.
+    #[serde(serialize_with = "super::save::ser_edits", deserialize_with = "super::save::de_edits")]
     pub terrain: Terrain,
     #[serde(skip, default = "super::save::no_routes")]
     pub routes: Routes,

@@ -24,6 +24,9 @@ pub struct Terrain {
     seed: u64,
     /// Where the roads run (set once the road network is built).
     roads: RoadIndex,
+    /// Hand edits on top of the seed's land (`mapedit.rs`).
+    #[serde(default)]
+    pub edits: super::mapedit::MapEdits,
 }
 
 /// What the ground underfoot is like. Each has a small effect on walking pace.
@@ -34,6 +37,11 @@ pub enum Ground {
     Scrub,
     Rock,
     Sand,
+    // Only where painted by hand:
+    Dirt,
+    Mud,
+    Gravel,
+    Snow,
 }
 
 impl Ground {
@@ -45,6 +53,10 @@ impl Ground {
             Ground::Scrub => 0.92,
             Ground::Rock => 0.8,
             Ground::Sand => 0.85,
+            Ground::Dirt => 0.97,
+            Ground::Mud => 0.7,
+            Ground::Gravel => 0.9,
+            Ground::Snow => 0.72,
         }
     }
 
@@ -55,6 +67,10 @@ impl Ground {
             Ground::Scrub => "scrub",
             Ground::Rock => "rock",
             Ground::Sand => "sand",
+            Ground::Dirt => "dirt",
+            Ground::Mud => "mud",
+            Ground::Gravel => "gravel",
+            Ground::Snow => "snow",
         }
     }
 }
@@ -269,7 +285,7 @@ fn raw_height(seed: u64, p: V2) -> f32 {
 impl Terrain {
     /// No land at all: a stand-in while a save is read.
     pub fn empty() -> Terrain {
-        Terrain { h: Vec::new(), seed: 0, roads: RoadIndex::default() }
+        Terrain { h: Vec::new(), seed: 0, roads: RoadIndex::default(), edits: Default::default() }
     }
 
     pub fn generate(seed: u64) -> Terrain {
@@ -280,7 +296,13 @@ impl Terrain {
                 h[j * N + i] = raw_height(tseed, V2::new(i as f32 * CELL, j as f32 * CELL));
             }
         }
-        Terrain { h, seed: tseed, roads: RoadIndex::default() }
+        Terrain { h, seed: tseed, roads: RoadIndex::default(), edits: Default::default() }
+    }
+
+    /// The same land with these hand edits on it.
+    pub fn with_edits(mut self, edits: super::mapedit::MapEdits) -> Terrain {
+        self.edits = edits;
+        self
     }
 
     /// Lay the road network onto the land (done once, after the roads are
@@ -299,6 +321,12 @@ impl Terrain {
     pub fn ground(&self, p: V2) -> Ground {
         if self.on_road(p) {
             return Ground::Road;
+        }
+        // Ground painted by hand, laid on thickly enough.
+        if let Some((tex, w)) = self.edits.paint_at(p) {
+            if w >= 0.5 {
+                return super::mapedit::TEXTURES[tex as usize].ground;
+            }
         }
         if geo::inland(p) < 60.0 {
             return Ground::Sand;
@@ -332,8 +360,14 @@ impl Terrain {
         self.h[j * N + i]
     }
 
-    /// Ground height in metres at any point (sea floor below 0 offshore).
+    /// Ground height in metres at any point (sea floor below 0 offshore),
+    /// hand edits included.
     pub fn height(&self, p: V2) -> f32 {
+        self.base_height(p) + self.edits.height.at(p)
+    }
+
+    /// The land as the seed made it, before any hand edits.
+    pub fn base_height(&self, p: V2) -> f32 {
         let (fx, fy) = (p.x / CELL, p.y / CELL);
         let (ix, iy) = (fx.floor(), fy.floor());
         let (tx, ty) = (fx - ix, fy - iy);

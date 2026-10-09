@@ -28,6 +28,7 @@ pub mod law;
 pub mod lives;
 pub mod items;
 pub mod magic;
+pub mod mapedit;
 pub mod making;
 pub mod materials;
 pub mod memory;

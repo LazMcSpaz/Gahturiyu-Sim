@@ -91,6 +91,10 @@ pub struct Shot {
     /// `GAHT_FEUD=1`: two households in the nearest town fall out and the
     /// world runs on; the town panel's debug readout shows how it went.
     pub feud: bool,
+    /// `GAHT_EDIT=1`: the land editor open, with a few strokes of each brush
+    /// made beside the squad (raised and terraced ground, painted snow, sand
+    /// and mud, more trees, rocks).
+    pub edit: bool,
     /// `GAHT_SOCIETY=runners|boats|tides`: go and watch the midday meal run,
     /// the dawn boats, or a stilt village keeping tide hours.
     pub society: Option<String>,
@@ -145,6 +149,7 @@ impl Shot {
             convo: var("GAHT_CONVO").is_some(),
             guard: var("GAHT_GUARD").is_some(),
             feud: var("GAHT_FEUD").is_some(),
+            edit: var("GAHT_EDIT").is_some(),
             society: var("GAHT_SOCIETY"),
             nudge: pair("GAHT_NUDGE"),
         })
@@ -523,6 +528,11 @@ impl Shot {
                     }
                 }
             }
+        }
+        if self.edit {
+            let at = super::editor::open_ground(world, world.squad.pos);
+            super::editor::demo(world, at);
+            world.teleport_squad(at.add(V2::new(-60.0, 70.0)));
         }
         if self.trade {
             let here = world.squad.pos;

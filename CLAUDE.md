@@ -52,7 +52,11 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    being met or not changes their might.
 10. **Anything that changes what happens lives in the sim.** Terrain and roads
    decide travel times, so they are in `sim/terrain.rs` and `sim/routes.rs`,
-   built once from the seed. Leg timing comes from `Leg::along`, which charges
+   built from the seed plus the map's hand edits (`sim/mapedit.rs`: height,
+   ground paint, plants, rocks — saved in map files and in every save; towns
+   are placed before edits apply, so edits never move a town). The land
+   editor (`view/editor.rs`, F10) calls the sim's brushes; it pauses the
+   world, and `refit_land` finds the roads again when it closes. Leg timing comes from `Leg::along`, which charges
    each stretch by its slope; keep using it so schedules stay analytic.
 11. **Light has one source of truth.** Outdoors it's `stealth::daylight(t)`;
    everything else adds through `torch::Light` / `light_from`. Fights carry
@@ -167,7 +171,8 @@ goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
 `GAHT_SHUN=1` (the nearest stilt village withdraws; runs past the next dawn), `GAHT_TRADE=1` (trading
 with the nearest merchant at work), `GAHT_CONVO=1` (a local robbed last night talks about it,
 assembled from `data/lines`), `GAHT_GUARD=1` (member 0 on a guard contract at a merchant's stall;
-the journal shows it), `GAHT_FEUD=1` (two households fall out over 16 days; the town panels show
+the journal shows it), `GAHT_EDIT=1` (the land editor open beside a few demo strokes: a terraced
+snow-capped hill, sand and mud, more trees, rocks), `GAHT_FEUD=1` (two households fall out over 16 days; the town panels show
 the log; slow to set up), `GAHT_SOCIETY=runners|boats|tides` (go and
 watch the midday meal run, the dawn boats, or a stilt village; for tides
 compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the

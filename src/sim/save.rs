@@ -2,7 +2,7 @@
 //!
 //! A save is the world's seed plus everything that has changed since the
 //! world was made from it. The land and the roads are rebuilt from the seed
-//! on load (they never change and are most of the size); everything else —
+//! (and the map's hand edits, which are saved) on load (they never change and are most of the size); everything else —
 //! people, groups and their schedules, fights in progress, the squad, what
 //! lies on the ground, bounties, news — is written out as it is.
 //!
@@ -24,7 +24,7 @@ use super::world::World;
 const MAGIC: &[u8; 4] = b"GAHT";
 /// Bumped whenever what's saved changes shape; older saves are refused
 /// rather than misread.
-pub const FORMAT: u32 = 24;
+pub const FORMAT: u32 = 25;
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -66,7 +66,8 @@ impl World {
             return Err(LoadError::OldFormat(v));
         }
         let mut w: World = bincode::deserialize(&bytes[8..]).map_err(|e| LoadError::Corrupt(e.to_string()))?;
-        let (terrain, routes) = super::worldgen::land(Terrain::generate(w.seed), &w.settlements);
+        let edits = std::mem::take(&mut w.terrain.edits);
+        let (terrain, routes) = super::worldgen::land(Terrain::generate(w.seed).with_edits(edits), &w.settlements);
         w.terrain = terrain;
         w.routes = routes;
         w.reindex();
@@ -164,9 +165,18 @@ pub(crate) mod named_weapon {
 }
 
 /// Stand-ins while loading; replaced from the seed straight after.
-pub(crate) fn no_terrain() -> Terrain {
-    Terrain::empty()
-}
 pub(crate) fn no_routes() -> Routes {
     Routes::default()
+}
+
+/// The land in a save: only its hand edits.
+pub fn ser_edits<S: Serializer>(t: &Terrain, s: S) -> Result<S::Ok, S::Error> {
+    t.edits.serialize(s)
+}
+
+/// The land back from a save: a stand-in carrying the edits, until the seed's
+/// land is rebuilt under them (`load_bytes`).
+pub fn de_edits<'de, D: Deserializer<'de>>(d: D) -> Result<Terrain, D::Error> {
+    let e = super::mapedit::MapEdits::deserialize(d)?;
+    Ok(Terrain::empty().with_edits(e))
 }
