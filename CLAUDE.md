@@ -170,6 +170,18 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    `herd.rs`; a caller on the timeline uses the `_at(t)` form. Animals read
    the Overgrowth only through `World::overgrowth(region)`.
 
+21. **Weather is looked up from the place and the time.** `weather_at(pos, t)`
+   is a pure function of the seed, the region and `t` (`sim/weather/`): never
+   tick it, never store it in `World`. Every number is in
+   `data/weather/climate.ron`. Regions have their own climates and share the
+   big weather, which reaches a place `lag(pos)` after the sea's edge.
+   Anything on the timeline that reads the weather passes the event's time.
+   What the weather does to people and things is `weather_effects(pos, t)`,
+   and unusual days are `omens(region, day)`: both looked up the same way. A
+   rule that reads them asks once per decision (a fight's start, a leg's
+   departure, an hour of a day plan). Nothing reads it yet
+   (`docs/weather-hooks.md` says where each piece is meant to connect).
+
 ## Verifying visual changes
 
 The window can screenshot itself headlessly:
@@ -220,6 +232,11 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 (go and look at the nearest of that species at an hour it's up, e.g.
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
+`GAHT_WEATHER=1` (the weather panel, F7; `folded` for its headline, `off` for none),
+`GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
+with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`
+(a lightning strike), `GAHT_WEATHER_TAB=effects`, `GAHT_WEATHER_QUALITY=off|low|medium|high`,
+`GAHT_WEATHER_COST=1`; more in `docs/weather-hooks.md`.
 `headless society [days] [seed]` prints every town's customs, jobs, food and money.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package

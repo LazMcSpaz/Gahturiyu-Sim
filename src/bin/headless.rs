@@ -2,6 +2,8 @@
 //!
 //!     cargo run --release --bin headless -- [days] [seed]
 //!     cargo run --release --bin headless -- society [days] [seed]   (each town's customs, jobs, food and money)
+//!     cargo run --release --bin headless -- weather [years] [seed]  (each region's weather added up over the years)
+//!     cargo run --release --bin headless -- omens [years] [seed]    (how often each omen comes, and the first of each)
 //!
 //! With `GAHT_SAVE=path`, the world is saved there at the end (the window
 //! can start from it with `GAHT_LOAD=path`).
@@ -14,6 +16,21 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(|a| a == "society").unwrap_or(false) {
         society(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3.0), args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1));
+        return;
+    }
+    if args.get(1).map(|a| a == "weather").unwrap_or(false) {
+        let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+        print!("{}", gahturiyu_sim::sim::weather::report::regions(&gahturiyu_sim::sim::terrain::Terrain::generate(seed)));
+        let years = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
+        print!("{}", gahturiyu_sim::sim::weather::report::yearly(seed, years));
+        let w = world(seed);
+        print!("{}", gahturiyu_sim::sim::weather::report::omen_table(&w.terrain, &w.landmarks(), seed, years.max(40)));
+        return;
+    }
+    if args.get(1).map(|a| a == "omens").unwrap_or(false) {
+        let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let w = world(seed);
+        print!("{}", gahturiyu_sim::sim::weather::report::omen_table(&w.terrain, &w.landmarks(), seed, args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100)));
         return;
     }
     if args.get(1).map(|a| a == "fight").unwrap_or(false) {

@@ -564,10 +564,10 @@ afterwards; a Ridgehound that is down or young can be tamed, then follows
 its owner, fights beside them, and leaves if starved.
 
 **Looking at it.** Hover any animal for species, what it's doing and
-whether it's wild or whose it is. `F7` opens the wildlife panel (the
+whether it's wild or whose it is. `F12` opens the wildlife panel (the
 region's numbers per species against what it holds, grazing pressure,
 Overgrowth, recent attacks). Debug keys: `H` hunt the nearest herd,
-`Y` tame, `U` take cocoons. `headless` output is unchanged.
+`Y` tame, `F11` take cocoons. `headless` output is unchanged.
 
 **Not built (on purpose):** herding and hunting as jobs, hides and meat as
 goods, prices, law about protected animals, riding, breeding lines,

@@ -11,6 +11,8 @@
 
 use gahturiyu_sim::sim::{geo::V2, world::HOUR, worldgen, World};
 
+mod weather;
+
 fn run(mut w: World, hours: f64, step: f64) -> World {
     let steps = (hours * HOUR / step).round() as usize;
     for _ in 0..steps {

@@ -7,7 +7,7 @@
 //! The shapes are deliberately plain — a few boxes and domes sized and
 //! coloured per species — until there is real art.
 //!
-//! Debug keys (shown under the wildlife panel): F7 the panel; H the squad
+//! Debug keys (shown under the wildlife panel): F12 the panel; H the squad
 //! sets about the nearest wild herd; Y tame the nearest Ridgehound that is
 //! down or young; U take cocoons from the nearest silk colony.
 
@@ -706,7 +706,7 @@ fn panel(c: &Canvas, w: &World, at: V2) -> egui::Rect {
         lines.push((line, DIM));
     }
     lines.push((String::new(), TEXT));
-    lines.push(("F7 this panel  ·  H hunt  ·  Y tame  ·  U take cocoons".to_string(), DIM));
+    lines.push(("F12 this panel  ·  H hunt  ·  Y tame  ·  F11 take cocoons".to_string(), DIM));
     c.panel(&lines, c.w - 470.0, 12.0, 14.0)
 }
 
@@ -719,7 +719,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
     }
     let ctx = c.p.ctx().clone();
     let pressed = |k: egui::Key| ctx.input(|i| i.key_pressed(k));
-    if pressed(egui::Key::F7) {
+    if pressed(egui::Key::F12) {
         PANEL.fetch_xor(true, Ordering::Relaxed);
     }
     let w = &mut game.world;
@@ -764,7 +764,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
         };
         game.notice = Some((said, std::time::Instant::now()));
     }
-    if pressed(egui::Key::U) {
+    if pressed(egui::Key::F11) {
         let near = w.animals.colonies.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|c| (c.id, c.pos));
         let said = match near {
             Some((id, pos)) => {

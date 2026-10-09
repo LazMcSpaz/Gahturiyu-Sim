@@ -233,7 +233,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     // small brush strokes show.
     // (And round a forged town, whose cliffs need it.)
     let editing = game.editor.on || w.forge.as_ref().and_then(|f| f.centre()).is_some_and(|c| c.dist(oc.target) < 900.0);
-    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits() ^ editing as u32, (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
+    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits() ^ editing as u32 ^ palette::snow_step().wrapping_mul(0x9E37), (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
     if scene.ground_key != Some(key) {
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
         // Fine patch: a whole number of coarse cells, so its edge meets the ring.

@@ -281,6 +281,7 @@ pub fn run() {
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
         .add_plugins(super::foliage::FoliagePlugin)
+        .add_plugins(super::weather::WeatherPlugin)
         .insert_resource(game)
         .insert_resource(super::settings::Settings::load())
         .init_resource::<scene::Scene3d>()
@@ -847,7 +848,7 @@ struct UiState {
 
 /// The panels, labels, map and tooltips; clicks on panels become actions.
 #[allow(clippy::too_many_arguments)]
-fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>, mut settings: ResMut<super::settings::Settings>) -> Result {
+fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>, mut settings: ResMut<super::settings::Settings>, mut weather: ResMut<super::weather::WeatherView>) -> Result {
     let ctx = contexts.ctx_mut()?;
     if !st.fonts {
         let mut fonts = egui::FontDefinitions::default();
@@ -876,6 +877,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             for (at, slack, h) in map::draw(&c, &game.map_cam, &game.world, game.rings, st.relief.as_ref().unwrap(), &game.sel) {
                 pick.offer(at, slack, h);
             }
+            super::weather::map_colours(&c, ctx, game, &mut weather);
             "map"
         }
         View::Scene => {
@@ -1055,6 +1057,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             *settings = s;
         }
     }
+    panels.extend(super::weather::panel(&c, game, &mut weather, click));
 
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
@@ -1086,7 +1089,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits   F10: edit the land",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits   F7: weather   F12: wildlife   F10: edit the land",
         View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     if let Some((msg, at)) = &game.notice {

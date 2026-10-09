@@ -1,0 +1,385 @@
+// The climate: what the weather tends to be, region by region and season by
+// season. Everything here is a dial; nothing in the code knows these numbers.
+// (Read by src/sim/weather/climate.rs; a test checks the file loads and that
+// the exposed coast comes out "mostly grey".)
+//
+// Lists of four are by season: [spring, summer, autumn, winter]. The year
+// slides smoothly between them.
+//
+//   clear / overcast   share of the time the sky is clear / fully grey
+//                      (the rest is broken cloud). Storms add more grey.
+//   rain               share of the grey time with rain falling (mostly drizzle)
+//   wind               usual wind speed, metres a second (10 is a stiff breeze,
+//                      17 a gale, 24 a full storm)
+//   storm_days         about how many days in 30 a storm passes over
+//   fog_mornings       about how many mornings in 30 start in thick fog
+//   mist_mornings      thinner mist on top of that
+//   temp               usual temperature, deg C, as if at sea level (it falls
+//                      with height: see `lapse` below)
+//   swing              how much warmer the afternoon is than the small hours
+//   thunder            share of storms that carry lightning
+//   fog_depth          how thick the fog layer is, metres above the lowest
+//                      ground round about (low = it pools in hollows and over
+//                      the water; hills stand clear of it)
+//   deep_fog           share of fogs that are ten times deeper (a whiteout)
+//   cloud_base         lowest and highest the cloud base sits, metres above the
+//                      sea; ground above the base is in hill fog
+//   wind_from          where the wind usually comes from, degrees (270 = west,
+//                      off the sea); it swings either side of this
+//   surf               how much the sea answers the wind here (1 = open water)
+//   ref_height         a typical height for this country, used by forecasts
+(
+    regions: [
+        (
+            name: "open sea",
+            clear:         [0.17, 0.22, 0.14, 0.11],
+            overcast:      [0.50, 0.42, 0.54, 0.60],
+            rain:          [0.45, 0.38, 0.50, 0.55],
+            wind:          [8.5, 7.0, 9.5, 10.5],
+            storm_days:    [3.4, 2.2, 4.2, 5.4],
+            fog_mornings:  [6.0, 8.5, 5.0, 3.0],
+            mist_mornings: [5.0, 6.0, 5.0, 4.0],
+            temp:          [9.0, 14.0, 11.5, 7.5],
+            swing:         [2.0, 2.5, 2.0, 1.5],
+            thunder:       [0.20, 0.45, 0.25, 0.12],
+            fog_depth: 40.0,
+            deep_fog: 0.20,
+            cloud_base: (250.0, 1400.0),
+            wind_from: 270.0,
+            surf: 1.15,
+            ref_height: 0.0,
+        ),
+        (
+            name: "exposed coast",
+            clear:         [0.17, 0.22, 0.15, 0.12],
+            overcast:      [0.50, 0.42, 0.54, 0.60],
+            rain:          [0.45, 0.38, 0.50, 0.55],
+            wind:          [7.5, 6.0, 8.5, 9.5],
+            storm_days:    [3.0, 2.0, 3.8, 4.8],
+            fog_mornings:  [6.0, 8.0, 5.0, 3.5],
+            mist_mornings: [5.0, 6.0, 5.0, 4.0],
+            temp:          [8.5, 14.5, 10.5, 6.0],
+            swing:         [5.0, 6.0, 4.0, 3.0],
+            thunder:       [0.20, 0.45, 0.25, 0.12],
+            fog_depth: 35.0,
+            deep_fog: 0.20,
+            cloud_base: (250.0, 1300.0),
+            wind_from: 270.0,
+            surf: 1.0,
+            ref_height: 15.0,
+        ),
+        (
+            name: "sheltered coast and lowland",
+            clear:         [0.20, 0.27, 0.17, 0.13],
+            overcast:      [0.38, 0.30, 0.42, 0.48],
+            rain:          [0.40, 0.33, 0.45, 0.50],
+            wind:          [5.5, 4.5, 6.0, 7.0],
+            storm_days:    [2.2, 1.5, 2.8, 3.6],
+            fog_mornings:  [5.0, 5.0, 6.0, 5.0],
+            mist_mornings: [6.0, 5.0, 7.0, 6.0],
+            temp:          [9.0, 16.0, 10.5, 5.0],
+            swing:         [7.0, 8.0, 6.0, 4.0],
+            thunder:       [0.20, 0.50, 0.25, 0.12],
+            fog_depth: 25.0,
+            deep_fog: 0.12,
+            cloud_base: (300.0, 1400.0),
+            wind_from: 265.0,
+            surf: 0.6,
+            ref_height: 40.0,
+        ),
+        (
+            name: "upland",
+            clear:         [0.18, 0.24, 0.15, 0.12],
+            overcast:      [0.42, 0.34, 0.47, 0.52],
+            rain:          [0.50, 0.42, 0.55, 0.60],
+            wind:          [7.0, 5.5, 8.0, 9.5],
+            storm_days:    [2.6, 1.8, 3.2, 4.2],
+            fog_mornings:  [4.0, 3.5, 5.5, 5.0],
+            mist_mornings: [6.0, 5.0, 7.0, 6.0],
+            temp:          [8.5, 15.5, 10.0, 3.5],
+            swing:         [7.0, 8.0, 6.0, 4.0],
+            thunder:       [0.22, 0.50, 0.25, 0.12],
+            fog_depth: 45.0,
+            deep_fog: 0.12,
+            cloud_base: (280.0, 1300.0),
+            wind_from: 265.0,
+            surf: 0.5,
+            ref_height: 170.0,
+        ),
+        (
+            name: "mountain",
+            clear:         [0.15, 0.22, 0.13, 0.10],
+            overcast:      [0.46, 0.38, 0.50, 0.56],
+            rain:          [0.55, 0.48, 0.60, 0.62],
+            wind:          [8.0, 6.5, 9.0, 10.5],
+            storm_days:    [3.2, 2.2, 4.0, 5.0],
+            fog_mornings:  [3.0, 2.5, 4.0, 4.0],
+            mist_mornings: [5.0, 4.0, 6.0, 5.0],
+            temp:          [7.5, 14.0, 9.0, 2.5],
+            swing:         [6.0, 7.0, 5.0, 3.5],
+            thunder:       [0.25, 0.55, 0.25, 0.13],
+            fog_depth: 60.0,
+            deep_fog: 0.15,
+            cloud_base: (260.0, 1200.0),
+            wind_from: 280.0,
+            surf: 0.5,
+            ref_height: 420.0,
+        ),
+        (
+            name: "plateau",
+            clear:         [0.45, 0.58, 0.40, 0.30],
+            overcast:      [0.16, 0.08, 0.20, 0.27],
+            rain:          [0.25, 0.15, 0.30, 0.35],
+            wind:          [6.0, 5.0, 6.5, 7.5],
+            storm_days:    [1.2, 1.5, 1.4, 1.5],
+            fog_mornings:  [1.0, 0.3, 1.5, 2.5],
+            mist_mornings: [2.0, 1.0, 3.0, 4.0],
+            temp:          [11.0, 19.0, 12.0, 5.0],
+            swing:         [11.0, 13.0, 10.0, 8.0],
+            thunder:       [0.35, 0.75, 0.35, 0.16],
+            fog_depth: 15.0,
+            deep_fog: 0.05,
+            cloud_base: (500.0, 1800.0),
+            wind_from: 250.0,
+            surf: 0.5,
+            ref_height: 160.0,
+        ),
+    ],
+
+    // ---- Where the regions lie ---------------------------------------------
+    borders: (
+        // Water further out than this is open sea (the stilt villages, just
+        // off the shore, get the coast's weather).
+        sea_from: 400.0,
+        // The exposed coast reaches this far inland from cliffs and headlands.
+        coast_reach: 1200.0,
+        // Ground above this (smoothed) is upland.
+        upland_from: 95.0,
+        // Regions fade into each other over about this many metres.
+        blend: 200.0,
+    ),
+
+    // ---- How the weather behaves -------------------------------------------
+    // Degrees C lost per metre climbed.
+    lapse: 0.0065,
+    // Rain turns to snow as the air nears this temperature (deg C).
+    snow_temp: 1.0,
+    // How far the temperature wanders from the usual over a few days (deg C).
+    temp_wander: 4.0,
+
+    // Background cloud, rain and wind change over about this many hours.
+    cloud_hours: 16.0,
+    rain_hours: 5.0,
+    wind_hours: 7.0,
+    // How much of the weather the regions share. At 0 every region goes its
+    // own way; at 1 they all turn grey, wet and windy together (each still as
+    // often, and as hard, as its own table says). Storms are always shared:
+    // one comes in over the whole country, and each region catches it or not.
+    shared: 0.75,
+    // Weather comes in off the sea: hours for it to cross the whole map, west
+    // to east. (0 = it changes everywhere at once.)
+    crossing_hours: 2.0,
+    // Spells of settled or unsettled weather last about this many days;
+    // `unsettled` is how strongly a bad spell raises the odds of rain and storms.
+    spell_days: 4.5,
+    unsettled: 0.8,
+    // The wind swings this many degrees either side of its usual quarter.
+    wind_swing: 65.0,
+    // Now and then the wind drops away to nothing over the whole country. A
+    // lull comes on over about `lull_days`; `lull_share` is the share of the
+    // time the wind is held to half or less, and at the bottom of a lull only
+    // `lull_floor` of the usual wind is left.
+    lull_days: 1.6,
+    lull_share: 0.025,
+    lull_floor: 0.04,
+
+    storms: (
+        // Hours: a storm builds, holds at its worst, then clears.
+        build: (3.0, 5.0),
+        hold: (3.0, 9.0),
+        clear: (3.0, 6.0),
+        // The wind gets up this many hours before the rain; the cloud darkens between.
+        wind_leads: 2.5,
+        cloud_leads: 1.5,
+        // Weakest and strongest a storm can be (1 = the worst there is).
+        strength: (0.55, 1.0),
+        // Wind in a full-strength storm, metres a second.
+        wind: 27.0,
+        // Degrees colder under a storm.
+        chill: 3.0,
+        // Lightning flashes a minute at the height of a thunderstorm.
+        flashes: 4.0,
+    ),
+
+    fog: (
+        // Hours of the day: fog starts to form, is thickest, and burns off.
+        forms: (1.0, 4.5),
+        thickens_over: (1.5, 3.0),
+        burns_off: (9.0, 12.0),
+        // Under a grey sky it hangs on until about this hour instead.
+        lingers_until: (14.0, 18.0),
+        fades_over: (1.0, 2.0),
+        // Fog wants wind below `calm` m/s and gives up above `breezy`.
+        calm: 3.5,
+        breezy: 10.0,
+        // How much likelier fog is on the morning after a storm.
+        after_storm: 1.5,
+        // How much fog stills the wind (0 = not at all).
+        stills_wind: 0.7,
+    ),
+
+    // ---- What you can see ---------------------------------------------------
+    sight: (
+        // Metres you can see on a clear day.
+        clear: 20000.0,
+        // ... in the thickest fog, the heaviest rain, the heaviest snow.
+        fog: 30.0,
+        rain: 300.0,
+        snow: 120.0,
+    ),
+
+    // ---- Wet ground and rough water -----------------------------------------
+    // Hours for wet ground to dry off, and how fast rain wets it.
+    dry_hours: 5.0,
+    wetting: 2.2,
+    // Wind (m/s) at which the sea is flat calm, and at which it is as rough as it gets.
+    sea_calm: 3.0,
+    sea_rough: 22.0,
+
+    // ---- Omens ---------------------------------------------------------------
+    // Unusual weather that people may read as a sign. How often each should
+    // come is its rarity; the bands are times in a year (the year is a
+    // placeholder 48 days). For the omens of the sky the count is for one
+    // region where the omen can happen (the average of those regions); for
+    // lightning on a landmark it is for the whole country. A test checks every
+    // omen stays inside its band.
+    omens: (
+        uncommon: (1.0, 4.0),
+        rare: (0.25, 1.0),
+        very_rare: (0.05, 0.25),
+
+        // Thunder in midwinter: a thunderstorm within this many days either
+        // side of midwinter.
+        winter_thunder: VeryRare,
+        midwinter_days: 5.0,
+        // Fog at noon in high summer: fog at least this thick (0..1) still
+        // lying at midday, within this many days either side of midsummer.
+        noon_fog: Rare,
+        noon_fog_thick: 0.6,
+        high_summer_days: 4.0,
+        // Snow down to the shore: snow falling at sea level (at least this
+        // hard, 0..1, for this many hours together), on the coast, the open
+        // sea or the lowland. Counted on the first day of a snowy spell.
+        shore_snow: VeryRare,
+        shore_snow_falls: 0.25,
+        shore_snow_hours: 3.0,
+        // Three storm days in a row (counted on the third).
+        storm_run: VeryRare,
+        storm_run_days: 3,
+        // A dead calm on the exposed coast or the open sea: wind under
+        // `calm_wind` m/s for `calm_hours` together, between 06:00 and 20:00.
+        dead_calm: Rare,
+        calm_wind: 1.5,
+        calm_hours: 6.0,
+        // Lightning striking a named landmark (a town, for now): a strike of at
+        // least this power (0.4..1) within this many metres of its centre.
+        landmark_strike: Uncommon,
+        strike_power: 0.55,
+        strike_reach: 150.0,
+    ),
+
+    // ---- What the weather does to people and things -----------------------------
+    // The numbers behind `weather_effects`. Nothing in the game reads the
+    // effects yet (docs/weather-hooks.md says where each belongs).
+    effects: (
+        // Sight: you see as far as usual while the air is clear to
+        // `sight_full` metres; below that, sight shrinks in step, down to
+        // `sight_least` of the usual. A storm's gloom takes `storm_gloom` off
+        // on top, and a moonless (overcast) night `dark_night`.
+        sight_full: 150.0,
+        sight_least: 0.08,
+        storm_gloom: 0.2,
+        dark_night: 0.3,
+        // Hearing lost in a downpour, in a full gale (lost between `quiet_wind`
+        // and `loud_wind` m/s), in heavy snow; never below `hearing_least`.
+        hearing_rain: 0.5,
+        hearing_wind: 0.45,
+        hearing_snow: 0.15,
+        quiet_wind: 5.0,
+        loud_wind: 24.0,
+        hearing_least: 0.2,
+        // Bows and thrown things: accuracy lost in the wind (between
+        // `steady_wind` and `wild_wind` m/s, gusts counted in), in a
+        // downpour, in heavy snow.
+        aim_wind: 0.55,
+        aim_rain: 0.2,
+        aim_snow: 0.15,
+        steady_wind: 4.0,
+        wild_wind: 24.0,
+        aim_least: 0.2,
+        // Travel on foot: speed lost on soaked ground, in lying snow, and in
+        // a gale (between `gale_from` and `gale_full` m/s) on open ground.
+        // `open_ground` is how exposed each region is, in region order: open
+        // sea, exposed coast, lowland, upland, mountain, plateau.
+        mud: 0.2,
+        deep_snow: 0.35,
+        gale_drag: 0.3,
+        gale_from: 14.0,
+        gale_full: 27.0,
+        open_ground: [1.0, 1.0, 0.45, 0.8, 1.0, 0.85],
+        // Slipping (0..1, for whoever knows the footing is rock or steps):
+        // on wet stone, on snow, and on ice (wet ground gone below freezing).
+        slip_wet: 0.35,
+        slip_snow: 0.45,
+        slip_ice: 0.9,
+        // Exposure: 0 at `comfort` deg C and above, 1 at `bitter` and below,
+        // by how cold it feels: each m/s of wind (up to `chill_wind`) takes
+        // `wind_chill` degrees off, and being rained on takes `wet_chill`.
+        comfort: 10.0,
+        bitter: -15.0,
+        wind_chill: 0.45,
+        chill_wind: 20.0,
+        wet_chill: 6.0,
+        // Fire: how much soaked ground, falling rain and lying snow hold a
+        // fire back (share lost), and how much a wind of `fanning_wind` m/s
+        // adds on dry ground.
+        fire_damp: 0.8,
+        fire_rain: 0.85,
+        fire_snow: 0.7,
+        fire_fanned: 1.5,
+        fanning_wind: 15.0,
+        fire_least: 0.03,
+        // Boats stay in when the sea is rougher than `boats_sea` (0..1), the
+        // wind stronger than `boats_wind` m/s, sight shorter than
+        // `boats_sight` metres, or lightning is about.
+        boats_sea: 0.55,
+        boats_wind: 14.0,
+        boats_sight: 150.0,
+        // Crops: growth by season [spring, summer, autumn, winter]; none at
+        // or below `frost` deg C, full from `mild` up; `dry_growth` of the
+        // usual on bone-dry ground, `drowned` of it in a downpour; none under snow.
+        growing: [1.0, 1.15, 0.6, 0.1],
+        frost: 0.0,
+        mild: 8.0,
+        dry_growth: 0.7,
+        drowned: 0.8,
+        // Outdoor work stops for rain harder than `work_rain` (0..1), wind over
+        // `work_wind` m/s, snow harder than `work_snow`, cold below
+        // `work_cold` deg C, sight under `work_sight` metres, or lightning.
+        work_rain: 0.55,
+        work_wind: 17.0,
+        work_snow: 0.3,
+        work_cold: -8.0,
+        work_sight: 40.0,
+        // Townsfolk heading indoors (a chance, 0..1): nobody for drizzle
+        // under `shrug_rain`, everybody from `drive_rain`; the same for wind
+        // (m/s) and for cold (deg C, falling); a storm drives everyone in.
+        shrug_rain: 0.15,
+        drive_rain: 0.7,
+        shrug_wind: 11.0,
+        drive_wind: 22.0,
+        shrug_cold: 0.0,
+        drive_cold: -12.0,
+        shelter_snow: 0.6,
+    ),
+)
