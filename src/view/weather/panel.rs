@@ -8,7 +8,9 @@ use gahturiyu_sim::sim::tide;
 use gahturiyu_sim::sim::weather::{self, Kind, Region, Weather, REGIONS};
 use gahturiyu_sim::sim::world::{DAY, HOUR};
 
-use super::{Stamp, WeatherView};
+use super::land::Stamp;
+use super::presets::Preset;
+use super::WeatherView;
 use crate::view::app::{Game, View};
 use crate::view::hud::{Canvas, PANEL};
 use crate::view::palette::{eg, ega, Rgb, DIM, GOLD, TEXT, WARN};
@@ -96,7 +98,8 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
         }
     };
     let at = V2::new(at.x.clamp(0.0, WORLD_SIZE), at.y.clamp(0.0, WORLD_SIZE));
-    let w = world.weather_at(at, t);
+    // What is being shown there: the real weather, or the forced kind.
+    let w = v.at(game, at);
     let shares = weather::mix(&world.terrain, at);
 
     // Folded up: just the headline. A click on the top of the panel folds and unfolds it.
@@ -149,7 +152,7 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     let strip_y = r.y + top + lines.len() as f32 * ROW + 36.0;
     let regions_y = strip_y + 88.0;
     let buttons_y = regions_y + REGIONS as f32 * ROW + 22.0;
-    let r = Bx::new(r.x, r.y, r.w, buttons_y + 2.0 * 28.0 + 26.0 - r.y);
+    let r = Bx::new(r.x, r.y, r.w, buttons_y + 4.0 * 28.0 + 44.0 - r.y);
 
     c.rect(r.x, r.y, r.w, r.h, PANEL);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
@@ -157,8 +160,12 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     let label = w.label();
     c.rect(r.x + 14.0, r.y + 36.0, 14.0, 14.0, eg(colour(w.kind)));
     c.text(label, r.x + 36.0, r.y + 49.0, 18.0, TEXT);
-    if v.ahead != 0.0 {
-        let s = looking(v.ahead);
+    let note = match (v.force, v.ahead != 0.0) {
+        (Some(p), _) => Some(format!("showing: {} (forced)", p.name())),
+        (None, true) => Some(looking(v.ahead)),
+        _ => None,
+    };
+    if let Some(s) = note {
         c.text(&s, r.x + r.w - c.width(&s, 14.0) - 14.0, r.y + 26.0, 14.0, WARN);
     }
     for (i, (l, col)) in lines.iter().enumerate() {
@@ -200,7 +207,8 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     c.text("Every region at this hour", r.x + 14.0, regions_y - 6.0, 14.0, DIM);
     for (i, &reg) in Region::ALL.iter().enumerate() {
         let y = regions_y + (i as f32 + 0.8) * ROW;
-        let rw = weather::weather_in(world.seed, reg, t);
+        let typical = weather::climate().of(reg).ref_height;
+        let rw = weather::localise(&v.skies[reg as usize], reg, typical, typical);
         c.rect(r.x + 14.0, y - 12.0, 12.0, 12.0, eg(colour(rw.kind)));
         c.text(reg.name(), r.x + 34.0, y, 14.0, if reg == w.region { GOLD } else { TEXT });
         c.text(rw.label(), r.x + 250.0, y, 14.0, TEXT);
@@ -226,6 +234,21 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     if click.map(|k| toggle.contains(k.at) && !k.right).unwrap_or(false) {
         v.overlay = !v.overlay;
     }
+    // ---- Showing a kind of weather on demand ------------------------------------------------
+    let force = Bx::new(r.x + 14.0, buttons_y + 60.0, W - 28.0, 24.0);
+    c.rect(force.x, force.y, force.w, force.h, ega(GOLD, if force.contains(game.mouse) { 0.2 } else { 0.08 }));
+    let shown = v.force.map(|p| p.name()).unwrap_or("the real weather");
+    c.text(&format!("Show: {shown}  (click or U for the next; right-click back)"), force.x + 8.0, force.y + 17.0, 14.0, if v.force.is_some() { WARN } else { TEXT });
+    if let Some(k) = click.filter(|k| force.contains(k.at)) {
+        v.force = Preset::step(v.force, k.right);
+    }
+    let much = Bx::new(r.x + 14.0, buttons_y + 90.0, W - 28.0, 24.0);
+    c.rect(much.x, much.y, much.w, much.h, ega(GOLD, if much.contains(game.mouse) { 0.2 } else { 0.08 }));
+    c.text(&format!("How much of it: {:.0}%  (click to change)", v.strength * 100.0), much.x + 8.0, much.y + 17.0, 14.0, if v.force.is_some() { TEXT } else { DIM });
+    if click.map(|k| much.contains(k.at) && !k.right).unwrap_or(false) {
+        v.strength = if v.strength > 0.99 { 0.25 } else { (v.strength + 0.25).min(1.0) };
+    }
+    c.text(&format!("Drawing the weather takes {:.2} ms a frame", v.cost_ms), r.x + 14.0, r.y + r.h - 28.0, 12.0, DIM);
     c.text("F7 closes  ·  click the top to fold  ·  on the map, point at a place to read it", r.x + 14.0, r.y + r.h - 10.0, 12.0, DIM);
 
     if let Some((k, h)) = tip {
@@ -271,7 +294,7 @@ pub fn map_colours(c: &Canvas, ctx: &egui::Context, game: &Game, v: &mut Weather
     let t = world.time + v.ahead * HOUR;
     let stamp: Stamp = (world.seed, game.loads, world.terrain.edits.version);
     let step = WORLD_SIZE / MAP as f32;
-    if v.land.as_ref().map(|l| l.0 != stamp).unwrap_or(true) {
+    if v.map.as_ref().map(|l| l.0 != stamp).unwrap_or(true) {
         let mut land = Vec::with_capacity(MAP * MAP);
         for j in 0..MAP {
             for i in 0..MAP {
@@ -293,13 +316,18 @@ pub fn map_colours(c: &Canvas, ctx: &egui::Context, game: &Game, v: &mut Weather
                 }
             }
         }
-        v.land = Some((stamp, land, borders));
+        v.map = Some((stamp, land, borders));
         v.picture = None;
     }
-    let tick = (t / 600.0).floor() as i64;
-    if v.picture.as_ref().map(|p| p.0 != stamp || p.1 != tick).unwrap_or(true) {
-        let land = &v.land.as_ref().unwrap().1;
-        let skies = weather::skies(world.seed, tick as f64 * 600.0);
+    // Redrawn every ten game minutes, or when the forced weather changes.
+    let forced = v.force.is_some();
+    let tick = match v.force {
+        Some(p) => p as i64 * 1000 + (v.strength * 100.0) as i64,
+        None => (t / 600.0).floor() as i64,
+    };
+    if v.picture.as_ref().map(|p| p.0 != stamp || p.1 != tick || p.2 != forced).unwrap_or(true) {
+        let land = &v.map.as_ref().unwrap().1;
+        let skies = if forced { v.skies } else { weather::skies(world.seed, tick as f64 * 600.0) };
         let px: Vec<Color32> = land
             .iter()
             .map(|(shares, height, low)| {
@@ -308,15 +336,15 @@ pub fn map_colours(c: &Canvas, ctx: &egui::Context, game: &Game, v: &mut Weather
             })
             .collect();
         let image = ColorImage::new([MAP, MAP], px);
-        v.picture = Some((stamp, tick, ctx.load_texture("weather-map", image, TextureOptions::NEAREST)));
+        v.picture = Some((stamp, tick, forced, ctx.load_texture("weather-map", image, TextureOptions::NEAREST)));
     }
     let size = vec2(c.w, c.h);
     let a: Vec2 = game.map_cam.to_screen(size, V2::new(0.0, 0.0));
     let b: Vec2 = game.map_cam.to_screen(size, V2::new(WORLD_SIZE, WORLD_SIZE));
-    let tex = &v.picture.as_ref().unwrap().2;
+    let tex = &v.picture.as_ref().unwrap().3;
     c.p.image(tex.id(), Rect::from_min_max(Pos2::new(a.x, a.y), Pos2::new(b.x, b.y)), Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)), Color32::WHITE);
     let ink = Color32::from_rgba_unmultiplied(14, 16, 20, 210);
-    for &(p, q) in &v.land.as_ref().unwrap().2 {
+    for &(p, q) in &v.map.as_ref().unwrap().2 {
         let (p, q) = (game.map_cam.to_screen(size, p), game.map_cam.to_screen(size, q));
         if (p.x.max(q.x) >= 0.0 && p.x.min(q.x) <= c.w) && (p.y.max(q.y) >= 0.0 && p.y.min(q.y) <= c.h) {
             c.line(p, q, 1.5, ink);

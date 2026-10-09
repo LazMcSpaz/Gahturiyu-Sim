@@ -59,10 +59,8 @@ pub fn skies(seed: u64, t: f64) -> [Sky; REGIONS] {
     Region::ALL.map(|r| sky(seed, r, t))
 }
 
-/// The weather at a spot whose region shares, height and fog floor are
-/// already known (`mix`, `Terrain::surface`, `floor`), from `skies`. Gives
-/// exactly what `weather_at` gives.
-pub fn weather_with(skies: &[Sky; REGIONS], shares: &Mix, height: f32, low: f32) -> Weather {
+/// The regions' skies mixed in the shares a spot belongs to each.
+pub fn blend(skies: &[Sky; REGIONS], shares: &Mix) -> Sky {
     let mut blended = Sky::default();
     for r in Region::ALL {
         let share = shares[r as usize];
@@ -70,7 +68,14 @@ pub fn weather_with(skies: &[Sky; REGIONS], shares: &Mix, height: f32, low: f32)
             blended.add(&skies[r as usize], share);
         }
     }
-    localise(&blended, strongest(shares), height, low)
+    blended
+}
+
+/// The weather at a spot whose region shares, height and fog floor are
+/// already known (`mix`, `Terrain::surface`, `floor`), from `skies`. Gives
+/// exactly what `weather_at` gives.
+pub fn weather_with(skies: &[Sky; REGIONS], shares: &Mix, height: f32, low: f32) -> Weather {
+    localise(&blend(skies, shares), strongest(shares), height, low)
 }
 
 /// A region's weather at a moment, at a typical spot in it (its usual
