@@ -144,6 +144,32 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    data in `data/lines/` (format in `data/lines/FORMAT.md`), chosen by
    conditions; the code gathers facts, it doesn't write lines.
 
+20. **Animals are looked up, not stepped.** A herd is a small record that
+   exists everywhere, whatever band it's in; its place is a pure function
+   of the clock (`Herd::round_pos`), its numbers a closed-form curve settled
+   at `DAWN` and on kills (`Herd::settle`), a pen's hunger and produce
+   piecewise from its last change (`Pen::now`). A region's population is
+   the sum of its herds — never keep a second count. Hunters find
+   travellers by laying the hour's rounds against the hour's schedules
+   (`watch_the_roads`), and `Notice`, `Strike` and `FrayEnd` are events on
+   the world's timeline, entered through the one call at the top of the
+   loop in `World::step` (`animal_events`). Far fights with animals use the
+   full fight rules, run to the end at once, and are filed in
+   `World::npc_fights` with `camp: NO_CAMP` so `finish_npc_fight` handles
+   the travellers. Every copy of a fight with animals in it is advanced
+   through `animals::advance_fray` and nowhere else (it applies animals'
+   nerve and death from outside the rules). Only the squad's own run-ins
+   depend on being looked at (`animals_by_the_squad`); what the squad
+   causes there (`Herd::away`, `met`, `Animals::near`) must never feed back
+   into far events — the hourly scan reads `round_pos`, which ignores them.
+   All numbers live in `animals::SPECIES` and the named constants beside
+   each system; no species is special-cased by name outside its data row
+   except where the scope asked for it (Silk Mother, Cragmaw, Briarback,
+   Bonepicker, Tidepicker's tide). Society reaches animals only through the
+   plain functions in `animals/hooks.rs`, `livestock.rs`, `region.rs` and
+   `herd.rs`; a caller on the timeline uses the `_at(t)` form. Animals read
+   the Overgrowth only through `World::overgrowth(region)`.
+
 ## Verifying visual changes
 
 The window can screenshot itself headlessly:
@@ -185,6 +211,15 @@ moment holds), `GAHT_FORGE=1` (start at the forged demo town; the land, homes
 and ways come from `assets/towns/demo`, written by
 `cargo run --release --bin town_forge -- step N`; `GAHT_NUDGE` moves the
 squad from there). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+`GAHT_ANIMALS=<scene>[,<scene>…]` — `hounds` (run on until a pack is
+stalking travellers at dusk, and stand beside it), `tide` (Tidepickers out
+at the next daylight low water), `silk` (a Silk Mother at home on her
+colony at midday), `bones` (a fight with a death in it, then wait for the
+Bonepickers), `pens` (the nearest town's livestock), `parade` (one of every
+species in a row), `panel` (open the wildlife panel), `see:<species key>`
+(go and look at the nearest of that species at an hour it's up, e.g.
+`see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
+`GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
 `headless society [days] [seed]` prints every town's customs, jobs, food and money.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package
@@ -241,6 +276,14 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   shadow pass, so trees' shadows don't sway.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
+
+- Animals are drawn by `view/animals.rs` into the per-frame mesh: block
+  shapes from the species' `Looks` (build, length, height, colour), a full
+  shape per animal near, one marker per herd beyond `PERSON_SIMPLE`-ish
+  distances, dots on the map. Pens get a fence ring. No new materials.
+- The animal hover and the wildlife panel are drawn there too (their own
+  small boxes on `hud::Canvas`), because `hud.rs` wasn't this branch's to
+  edit. Fold the hover into `Hover` when convenient.
 
 ## Canon notes used so far
 
@@ -311,3 +354,12 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   people's way of speaking (presentation only, not a world rule).
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.
+- Animals follow the Part 4 prompt (Laz): the species list and their roles
+  are his; English placeholder names are final for now; no real-world
+  animals. All numbers are first guesses in data tables.
+- The Overgrowth doesn't exist yet: a stored 0 per region behind
+  `World::overgrowth`. Briarbacks appear above 0.6.
+- Wild Turiyu carry a `protected` flag and nothing acts on it yet.
+- Taming works 60% of the time by a keyed roll until it's tied to a skill.
+- Hounds, hunting, taming and cocoon-taking have debug keys only; no real
+  orders or UI yet.

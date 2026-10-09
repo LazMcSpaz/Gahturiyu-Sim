@@ -503,6 +503,77 @@ the detail readout (L) it shows every job, event and storyline.
 jobs, food, store, what the land offers, its shelf and its dearest goods after
 three days — the quickest way to see what the dials do.
 
+### Animals
+
+The world has wildlife and livestock: about 2,000 wild animals in ~250
+herds and ~950 kept ones in ~95 pens on a new map. None of them is stepped
+through its day. English placeholder names; no real-world animals.
+
+**One table.** Every animal is a row in `animals::SPECIES`
+(`src/sim/animals/species.rs`): where it lives, group size, when it's up,
+what it eats, how it treats people, speed, its fight numbers, what a carcass
+gives, what it gives daily, how thick on the ground, how fast it breeds.
+Adding or retuning one is a data edit.
+
+- **Kept:** Turiyu (graze), Shellhen (eggs), Mossback (milk), Raftback
+  (oil; a floating platform), Plodder (carries 120 kg).
+- **Wild prey:** Wild Turiyu (flagged `protected`), Brushleaper,
+  Wallowback, Crag grazer, Dustrunner, Tidepicker (out at low tide),
+  Silkcrawler.
+- **Predators:** Ridgehound (packs; tameable), Chasm lurker and Mirejaw
+  (ambushers), Cragmaw (one beast, one territory), Silk Mother (guards a
+  colony), Bonepicker (carrion), Briarback (only where the Overgrowth
+  stands high).
+- **Sea:** Silverling, Slatefin, Ribbonback, Gulpjaw as stocks per coastal
+  region; Deepcoil as a "dive danger" number per spot.
+
+**Three levels of detail, one set of facts.** The map is cut into 1.5 km
+regions. Far away, wildlife is read as a number per species per region;
+nearer, as herds on their rounds; close up, as individual animals whose
+size, age and wounds come from the herd's seed. All three are the same
+herd records — the region's number is the sum of its herds — so nothing
+changes when you walk up.
+
+**Where a herd is comes from the clock.** Each has a home range and hours
+it's up (read off `stealth::daylight`, and the tide for Tidepickers). Its
+position at any moment is looked up, not walked.
+
+**Numbers grow by formula.** A herd grows toward what its ground can carry
+along an S-curve worked out in one go for any stretch of time (the
+"carrying capacity": the most the land feeds). Predators in the region slow
+prey and thin it; kills lower the count and it recovers on its own; a
+wiped-out herd is restocked from the region after a while.
+
+**Attacks are on the world's timeline.** Each game-hour every hunter's
+round is laid against every traveller's schedule. A pack that picks people
+up weighs them — its strength against theirs with a keyed roll, like a
+bandit camp — and either leaves them, or shadows them for a few minutes and
+strikes. The fight is fought at once under the ordinary rules and ended by
+the same code that ends a bandit ambush, so a pack attack on the far side
+of the map goes exactly as it would beside you. Packs go for the lone and
+weak; ambushers for small parties; a Cragmaw for anyone on its ground.
+
+**Livestock** live in pens by each town: an opaque owner number, a home
+spot, a feed store, hunger, and what they've produced, all worked out from
+the clock. Unfed animals get hungry over three days and give far less.
+
+**Also:** Silkcrawler colonies hang cocoons a Silk Mother guards (she
+leaves to hunt for a couple of hours a day); Bonepickers come down on a
+body by day and clear it in about an hour, so it can't be found or raised
+afterwards; a Ridgehound that is down or young can be tamed, then follows
+its owner, fights beside them, and leaves if starved.
+
+**Looking at it.** Hover any animal for species, what it's doing and
+whether it's wild or whose it is. `F7` opens the wildlife panel (the
+region's numbers per species against what it holds, grazing pressure,
+Overgrowth, recent attacks). Debug keys: `H` hunt the nearest herd,
+`Y` tame, `U` take cocoons. `headless` output is unchanged.
+
+**Not built (on purpose):** herding and hunting as jobs, hides and meat as
+goods, prices, law about protected animals, riding, breeding lines,
+fishing as something the squad does. The functions those will call exist
+(see `ANIMALS.md`/the hook list).
+
 ## Magic
 
 **Three styles are the magic skills.** Anyone can learn any of them; a
