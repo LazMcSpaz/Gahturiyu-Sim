@@ -1,0 +1,156 @@
+// The sounds of the First Speech, and how each of the four tongues wore
+// them down. Read by src/names/sound.rs; a word in any tongue is its First
+// Speech root run through these lists, top to bottom:
+//
+//   Roduro   = earth, then roduro          Horaro  = water, then horaro
+//   Qotiro   = earth, then qotiro          Ṭaḍoro  = water, then tadoro
+//
+// A step is either a plain change of one sound,
+//     Change("p", "h", Anywhere)      p becomes h
+// where the last part says where it happens (Anywhere, Start: only as the
+// first sound of the word, Inside: anywhere but first, LaterVowels: a vowel
+// that is not the word's first), or one of the named steps, each explained
+// where it is used. To change how a tongue sounds, change its list; the
+// tests then say which canon words no longer come out right.
+//
+// Spelling: `th` and `sh` are single sounds. `ʻ` is the catch in "uh-oh".
+// `ṭ ḍ` are t and d with the tongue curled back. `ì` is the i of "sit".
+(
+    // ---- The First Speech ---------------------------------------------------
+    // Every syllable is one consonant (or none, at the start of a word) and one
+    // vowel. The catch only ever sits between two vowels.
+    consonants: ["p", "t", "ṭ", "k", "q", "ʻ", "d", "ḍ", "g", "m", "n", "s", "th", "h", "r", "l", "w", "y"],
+    vowels: ["a", "e", "i", "ì", "o", "u"],
+
+    // ---- The Earth branch (the dry line): Roduro and Qotiro --------------------
+    // The lips gave way first: w hardened to g.
+    earth: [
+        Change("w", "g", Anywhere),
+    ],
+
+    // ---- Roduro: the old blood ------------------------------------------------
+    // Keeps the shape of every word and every vowel. Only the sounds made with
+    // the lips and the nose are gone, pulled back and down in the mouth.
+    roduro: [
+        Change("p", "h", Anywhere),
+        Change("k", "q", Anywhere),
+        Change("m", "ḍ", Anywhere),
+        Change("n", "ḍ", Anywhere),
+        Change("s", "sh", Anywhere),
+    ],
+
+    // ---- Qotiro: hardened and clipped ---------------------------------------------
+    qotiro: [
+        // Soft sounds harden.
+        Change("ʻ", "q", Anywhere),
+        Change("l", "r", Anywhere),
+        Change("y", "d", Anywhere),
+        Change("h", "x", Anywhere),
+        Change("s", "x", Anywhere),
+        Change("th", "t", Anywhere),
+        // In a long word that starts consonant-vowel-r-same vowel, the first
+        // vowel is swallowed: karaki -> kraki.
+        EchoVowel,
+        // The curled-back sounds turn into an r beside a plain t or d: tr-, dr-
+        // at the start of a word, -rt-, -rd- inside (no second r if one is close by).
+        RColour,
+        // Vowels after the first (which carries the stress) dull: e -> a, i -> e.
+        Change("e", "a", LaterVowels),
+        Change("i", "e", LaterVowels),
+        Change("ì", "e", Anywhere),
+        // The last vowel is lost, so words end hard. In a word left with one
+        // vowel, the lost one colours it: a becomes e before a lost e or i, and
+        // o before a lost o or u.
+        DropLastVowel,
+        // Two vowels left side by side: the second goes.
+        NoVowelPairs,
+        // In a word still three vowels long the second is lost too, where the
+        // consonants either side can stand together (one of them r, n or x first,
+        // or r second, or two stops ending in t or k): doruguna -> dorgun.
+        DropSecondVowel,
+        NoDoubles,
+        // d and g lose their voice before p, t, k, q or x.
+        Devoice,
+    ],
+
+    // ---- The Water branch (the moist line): Horaro and Ṭaḍoro ----------------------
+    // The harsh sounds soften: the catch and the throat-q fall silent, and the
+    // hard stops k, p and g turn to breath and glide.
+    water: [
+        Change("ʻ", "", Anywhere),
+        Change("q", "h", Start),
+        Change("q", "", Inside),
+        Change("k", "h", Anywhere),
+        Change("p", "f", Anywhere),
+        Change("g", "w", Anywhere),
+        Change("ì", "i", Anywhere),
+    ],
+
+    // ---- Horaro: liquid ------------------------------------------------------------
+    // Every stop left becomes one of l, n, w; every hiss becomes h.
+    horaro: [
+        Change("ṭ", "l", Anywhere),
+        Change("ḍ", "n", Anywhere),
+        Change("f", "w", Anywhere),
+        Change("t", "n", Anywhere),
+        Change("d", "l", Anywhere),
+        Change("s", "h", Anywhere),
+        Change("th", "h", Anywhere),
+        Change("y", "i", Anywhere),
+        // An h between two of the same vowel fades, leaving a long vowel: tiki -> nihi -> nii.
+        HFades,
+        // Never more than three vowels running (a w or an l steps in), and
+        // never three of the same.
+        VowelRun,
+    ],
+
+    // ---- Ṭaḍoro: breath --------------------------------------------------------------
+    // Fricatives and glides take over; the liquids and nose-sounds thin to y and w.
+    tadoro: [
+        Change("ṭ", "th", Anywhere),
+        Change("ḍ", "y", Anywhere),
+        Change("t", "s", Anywhere),
+        Change("d", "th", Anywhere),
+        Change("l", "y", Anywhere),
+        Change("n", "y", Anywhere),
+        Change("m", "w", Anywhere),
+        Change("r", "sh", Anywhere),
+        // A word of three or more syllables sheds its last vowel after h, th, s or sh.
+        ShedLastVowel,
+        // o is gone: it opens into au in a word's first syllable (before a
+        // consonant) and blurs to e everywhere else.
+        OpenO,
+        // Vowels left side by side glide together where they can (ai, au, ei,
+        // ae); otherwise a breath (h, between two the same) or a glide (y after
+        // i and e, w after the rest) comes between.
+        VowelsMeet,
+        // In the middle of a long word, a, o and u blur to e.
+        BlurMiddle,
+    ],
+
+    // ---- Borrowed words ----------------------------------------------------------------
+    // How Ṭaḍoro, which borrows the most, fits a neighbour's word to its own
+    // mouth. (A borrowed word skips the lists above: it starts from the
+    // lender's finished word.)
+    tadoro_borrows: [
+        Change("ʻ", "", Anywhere),
+        Change("ṭ", "th", Anywhere),
+        Change("ḍ", "th", Anywhere),
+        Change("q", "h", Anywhere),
+        Change("k", "h", Anywhere),
+        Change("x", "h", Anywhere),
+        Change("p", "f", Anywhere),
+        Change("t", "s", Anywhere),
+        Change("d", "th", Anywhere),
+        Change("g", "w", Anywhere),
+        Change("m", "w", Anywhere),
+        Change("n", "y", Anywhere),
+        Change("l", "y", Anywhere),
+        Change("r", "sh", Anywhere),
+        Change("ì", "i", Anywhere),
+        Change("o", "u", Anywhere),
+        // Consonants that touch are parted with an e.
+        PartClusters,
+        VowelsMeet,
+    ],
+)

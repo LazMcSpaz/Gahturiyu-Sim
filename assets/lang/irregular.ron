@@ -1,0 +1,10 @@
+// Words that do not follow their tongue's sound rules, each with its reason.
+// Read by src/names/mod.rs. An entry here wins over the rules.
+//
+//   root    the root's English key (roots.ron)
+//   tongue  the tongue the exception is in
+//   form    the word as it really is
+//   why     the reason
+[
+    (root: "death", tongue: Roduro, form: "ṭeyuʻoye", why: "Canon. The Roduro word is far longer than a root: the other tongues keep only the root's first part (ṭeyu), and Roduro's long form is taken as it stands."),
+]

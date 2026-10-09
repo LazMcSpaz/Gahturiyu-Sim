@@ -1,0 +1,166 @@
+// Everything that already had a name before the naming system: every
+// invented word found in the repo and in the project's lore documents
+// (pantheon.md, languages.md and the chat they were written in). Read by
+// src/names/mod.rs; the tests check that the sound rules regenerate every
+// Gogìḍu word a root is built on.
+//
+//   word      as it is written
+//   tongue    Some(Roduro) and so on; left out for an English name that has
+//             no native word yet (those get one in stage 3)
+//   kind      Word, Grammar, Phrase, God, People, Tongue, Place, Creature,
+//             Material, Job, Sample (an example of a tongue's sound, with no
+//             meaning), Other
+//   meaning   what it means or is
+//   source    where it comes from
+//   parts     the words it is built from, where recorded
+//
+// Nothing here may be renamed without asking Laz.
+//
+// NOT HERE: the rest of the Gogìḍu dictionary. The words below are the ones
+// quoted in the lore documents; the full dictionary Laz exported from the
+// language tool was not available when this was written.
+[
+
+    // ---- Gogìḍu (Roduro) words --------------------------------------------
+    (word: "gahì", tongue: Some(Roduro), kind: Word, meaning: "island", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "hotorì", tongue: Some(Roduro), kind: Word, meaning: "holy", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "gayugo", tongue: Some(Roduro), kind: Word, meaning: "beast", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "hora", tongue: Some(Roduro), kind: Word, meaning: "waterway", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "hohìda", tongue: Some(Roduro), kind: Word, meaning: "artery", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "ṭaḍo", tongue: Some(Roduro), kind: Word, meaning: "to turn, to twist (the wind-root)", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "dodì", tongue: Some(Roduro), kind: Word, meaning: "soil", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "ṭohuḍì", tongue: Some(Roduro), kind: Word, meaning: "strong", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "guʻe", tongue: Some(Roduro), kind: Word, meaning: "fruit", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "hiqì", tongue: Some(Roduro), kind: Word, meaning: "root, source", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "qoti", tongue: Some(Roduro), kind: Word, meaning: "spear, lance", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "sholu", tongue: Some(Roduro), kind: Word, meaning: "to injure", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "shiḍu", tongue: Some(Roduro), kind: Word, meaning: "aware", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "rerote", tongue: Some(Roduro), kind: Word, meaning: "to discover", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "redeqi", tongue: Some(Roduro), kind: Word, meaning: "passion", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "uʻo", tongue: Some(Roduro), kind: Word, meaning: "desire", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "gìhu", tongue: Some(Roduro), kind: Word, meaning: "code, law", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "qìgìdu", tongue: Some(Roduro), kind: Word, meaning: "tradition", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "qetho", tongue: Some(Roduro), kind: Word, meaning: "ray of light", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "riqu", tongue: Some(Roduro), kind: Word, meaning: "to begin", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "yaḍo", tongue: Some(Roduro), kind: Word, meaning: "night", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "ṭeyuʻoye", tongue: Some(Roduro), kind: Word, meaning: "death", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "ṭogi", tongue: Some(Roduro), kind: Word, meaning: "to innovate", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "tìʻa", tongue: Some(Roduro), kind: Word, meaning: "dream", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "shuthì", tongue: Some(Roduro), kind: Word, meaning: "benign", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "heli", tongue: Some(Roduro), kind: Word, meaning: "nasty", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "rìtha", tongue: Some(Roduro), kind: Word, meaning: "to migrate", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "duya", tongue: Some(Roduro), kind: Word, meaning: "support", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "quyìtu", tongue: Some(Roduro), kind: Word, meaning: "millennium", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "rodu", tongue: Some(Roduro), kind: Word, meaning: "earth, dirt", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "lìdì", tongue: Some(Roduro), kind: Word, meaning: "to hunt", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "hoya", tongue: Some(Roduro), kind: Word, meaning: "staff, crew", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "goru", tongue: Some(Roduro), kind: Word, meaning: "shade, hue", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "yohe", tongue: Some(Roduro), kind: Word, meaning: "to substitute", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "gotu", tongue: Some(Roduro), kind: Word, meaning: "to disappear", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "roʻì", tongue: Some(Roduro), kind: Word, meaning: "race (a people)", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "ola", tongue: Some(Roduro), kind: Word, meaning: "elf", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+
+    // ---- Gogìḍu grammar ------------------------------------------------------
+    (word: "yi", tongue: Some(Roduro), kind: Grammar, meaning: "of", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "qo", tongue: Some(Roduro), kind: Grammar, meaning: "the (one)", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "ro", tongue: Some(Roduro), kind: Grammar, meaning: "the (many); as an ending -ro, 'kind, people', from roʻì", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "hi-", tongue: Some(Roduro), kind: Grammar, meaning: "most, highest (put in front of a word); marks the three gods of the Trinity", source: "Gogìḍu dictionary, as quoted in pantheon.md"),
+    (word: "ga", tongue: Some(Roduro), kind: Grammar, meaning: "up, onward", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+
+    // ---- Gogìḍu phrases (the meanings of the single words are not recorded) -------
+    (word: "gahì yi qo hotorì gayugo", tongue: Some(Roduro), kind: Phrase, meaning: "island of the holy beast", source: "Gogìḍu dictionary, as quoted in the naming chat", parts: ["gahì", "yi", "qo", "hotorì", "gayugo"]),
+    (word: "ṭahì hìtushi", tongue: Some(Roduro), kind: Phrase, meaning: "astronomy", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+    (word: "qaya taḍoyì", tongue: Some(Roduro), kind: Phrase, meaning: "ice", source: "Gogìḍu dictionary, as quoted in the naming chat"),
+
+    // ---- Tongues, peoples and places ---------------------------------------------
+    (word: "Gogìḍu", tongue: Some(Roduro), kind: Tongue, meaning: "the Roduro tongue", source: "languages.md"),
+    (word: "Roduro", tongue: Some(Roduro), kind: People, meaning: "the Earth-kind", source: "languages.md", parts: ["rodu", "-ro"]),
+    (word: "Qotiro", tongue: Some(Roduro), kind: People, meaning: "the Fire-kind (the Roduro name for them)", source: "languages.md", parts: ["qoti", "-ro"]),
+    (word: "Horaro", tongue: Some(Roduro), kind: People, meaning: "the Water-kind (the Roduro name for them)", source: "languages.md", parts: ["hora", "-ro"]),
+    (word: "Ṭaḍoro", tongue: Some(Roduro), kind: People, meaning: "the Air-kind (the Roduro name for them)", source: "languages.md", parts: ["ṭaḍo", "-ro"]),
+    (word: "Gahturiyu", tongue: Some(Roduro), kind: Place, meaning: "the world and the game: 'island of the holy beast', worn down", source: "Gogìḍu dictionary, as quoted in the naming chat", parts: ["gahì", "hotorì", "gayugo"]),
+    (word: "Turiyu", tongue: Some(Roduro), kind: Creature, meaning: "the revered herd animal. Reads as the worn-down 'holy beast' inside Gahturiyu (my reading; not recorded anywhere)", source: "src/sim/animals/species.rs", parts: ["hotorì", "gayugo"]),
+
+    // ---- The gods (pantheon.md) -------------------------------------------------------
+    (word: "Hiro", tongue: Some(Roduro), kind: God, meaning: "the Trinity: 'the Highest Ones'", source: "pantheon.md", parts: ["hi-", "ro"]),
+    (word: "Qethoyaḍo", tongue: Some(Roduro), kind: God, meaning: "a poetic name for the Trinity: 'the Light-and-Dark'", source: "pantheon.md", parts: ["qetho", "yaḍo"]),
+    (word: "Hiqethoru", tongue: Some(Roduro), kind: God, meaning: "day and life: 'the Most Radiant' (Trinity)", source: "pantheon.md", parts: ["hi-", "qetho", "riqu"]),
+    (word: "Hiyaḍote", tongue: Some(Roduro), kind: God, meaning: "death and night: 'the Most Dark' (Trinity)", source: "pantheon.md", parts: ["hi-", "yaḍo", "ṭeyuʻoye"]),
+    (word: "Hiṭogiʻa", tongue: Some(Roduro), kind: God, meaning: "creation and inspiration: 'the Great Maker' (Trinity)", source: "pantheon.md", parts: ["hi-", "ṭogi", "tìʻa"]),
+    (word: "Horahìda", tongue: Some(Roduro), kind: God, meaning: "ocean and seas: 'the World's Artery'", source: "pantheon.md", parts: ["hora", "hohìda"]),
+    (word: "Ṭaḍohi", tongue: Some(Roduro), kind: God, meaning: "wind and weather: 'the Twisting One'", source: "pantheon.md", parts: ["ṭaḍo"]),
+    (word: "Dodìṭo", tongue: Some(Roduro), kind: God, meaning: "stone and mountains: 'the Enduring Earth'", source: "pantheon.md", parts: ["dodì", "ṭohuḍì"]),
+    (word: "Guʻehiqì", tongue: Some(Roduro), kind: God, meaning: "trees and plant life: 'Fruit-and-Root'", source: "pantheon.md", parts: ["guʻe", "hiqì"]),
+    (word: "Qotisho", tongue: Some(Roduro), kind: God, meaning: "fire and war: 'the Wounding Lance'", source: "pantheon.md", parts: ["qoti", "sholu"]),
+    (word: "Shiḍuro", tongue: Some(Roduro), kind: God, meaning: "knowledge and communication: 'the Knowing Revealer'", source: "pantheon.md", parts: ["shiḍu", "rerote"]),
+    (word: "Redeqiʻo", tongue: Some(Roduro), kind: God, meaning: "love and relationships: 'Passion-and-Longing'", source: "pantheon.md", parts: ["redeqi", "uʻo"]),
+    (word: "Gìhuqìdu", tongue: Some(Roduro), kind: God, meaning: "governance and order: 'Law-and-Tradition'", source: "pantheon.md", parts: ["gìhu", "qìgìdu"]),
+    (word: "Rìthaduya", tongue: Some(Roduro), kind: God, meaning: "travel and the journey of life: 'the Wayfarer's Stave'", source: "pantheon.md", parts: ["rìtha", "duya"]),
+    (word: "Quyìturo", tongue: Some(Roduro), kind: God, meaning: "time, ageing and decay: 'Millennium-into-Dust'", source: "pantheon.md", parts: ["quyìtu", "rodu"]),
+    (word: "Lìdìhoya", tongue: Some(Roduro), kind: God, meaning: "animals and the hunt: 'the Hunt-Band'", source: "pantheon.md", parts: ["lìdì", "hoya"]),
+    (word: "Yohyeʻ", tongue: Some(Roduro), kind: God, meaning: "confusion, illusion and delusion: 'the Dream-Swapper' (worn down from Yoheʻiʻa)", source: "pantheon.md", parts: ["yohe", "tìʻa"]),
+    (word: "Horaṭaḍo", tongue: Some(Roduro), kind: God, meaning: "coastal winds: 'the Sea-Twist'; child of Horahìda and Ṭaḍohi", source: "pantheon.md", parts: ["hora", "ṭaḍo"]),
+    (word: "Guʻedeqi", tongue: Some(Roduro), kind: God, meaning: "plants that protect and work with people: 'the Beloved Green'; child of Guʻehiqì and Redeqiʻo", source: "pantheon.md", parts: ["guʻe", "redeqi"]),
+    (word: "Qotihiqì", tongue: Some(Roduro), kind: God, meaning: "plants that work against people: 'the Barbed-Root'; child of Qotisho and Guʻehiqì. The Overgrowth is named for it", source: "pantheon.md", parts: ["qoti", "hiqì"]),
+
+    // ---- Names considered and set aside (kept so they are not reused by accident) ------
+    (word: "Guʻeshuthì", tongue: Some(Roduro), kind: Other, meaning: "alternate for Guʻedeqi: 'the Kindly Green'", source: "the naming chat"),
+    (word: "Qotisholu", tongue: Some(Roduro), kind: Other, meaning: "alternate for Qotihiqì: 'the Wounding Spear-Growth'", source: "the naming chat"),
+    (word: "Rìthago", tongue: Some(Roduro), kind: Other, meaning: "alternate for Rìthaduya: 'the Onward-Migrant'", source: "the naming chat"),
+    (word: "Lìdìgoru", tongue: Some(Roduro), kind: Other, meaning: "alternate for Lìdìhoya: 'the Hunter in Shadow'", source: "the naming chat"),
+    (word: "Gotuʻa", tongue: Some(Roduro), kind: Other, meaning: "alternate for Yohyeʻ: 'the Vanishing Dream'", source: "the naming chat"),
+    (word: "Yoheʻiʻa", tongue: Some(Roduro), kind: Other, meaning: "the full form Yohyeʻ is worn down from", source: "the naming chat"),
+    (word: "Rohi", tongue: Some(Roduro), kind: Other, meaning: "alternate for Hiro", source: "the naming chat"),
+    (word: "Riqutogi", tongue: Some(Roduro), kind: Other, meaning: "alternate name for the Trinity: 'the Beginning-Makers'", source: "the naming chat"),
+    (word: "Roduhiqì", tongue: Some(Roduro), kind: Other, meaning: "first name tried for the Earth-kind, replaced by Roduro", source: "the naming chat"),
+    (word: "Ṭaḍola", tongue: Some(Roduro), kind: Other, meaning: "first name tried for the Air-kind, replaced by Ṭaḍoro", source: "the naming chat"),
+    (word: "Qotigoru", tongue: Some(Roduro), kind: Other, meaning: "first name tried for the Fire-kind, replaced by Qotiro", source: "the naming chat"),
+    (word: "Horatìʻa", tongue: Some(Roduro), kind: Other, meaning: "first name tried for the Water-kind, replaced by Horaro", source: "the naming chat"),
+
+    // ---- Examples of how each tongue sounds (no meanings) ---------------------------------
+    (word: "Kraxt", tongue: Some(Qotiro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Dorgun", tongue: Some(Qotiro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Qethruk", tongue: Some(Qotiro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Moalanu", tongue: Some(Horaro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Wenaia", tongue: Some(Horaro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Liloma", tongue: Some(Horaro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Saeyih", tongue: Some(Tadoro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Fewai", tongue: Some(Tadoro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Hesuth", tongue: Some(Tadoro), kind: Sample, meaning: "a name-shape given as an example", source: "languages.md"),
+    (word: "Ḍalìqa", tongue: Some(Roduro), kind: Sample, meaning: "a given name used as an example", source: "the naming brief"),
+
+    // ---- English names with no native word yet (native names come in stage 3) ----------------
+    (word: "Shellhen", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Mossback", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Raftback", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Plodder", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Brushleaper", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Wallowback", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Crag grazer", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Dustrunner", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Tidepicker", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Silkcrawler", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Ridgehound", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Chasm lurker", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Mirejaw", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Cragmaw", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Silk Mother", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Bonepicker", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Briarback", kind: Creature, meaning: "a creature", source: "src/sim/animals/species.rs"),
+    (word: "Silverling", kind: Creature, meaning: "a fish or sea creature", source: "src/sim/animals/species.rs"),
+    (word: "Slatefin", kind: Creature, meaning: "a fish or sea creature", source: "src/sim/animals/species.rs"),
+    (word: "Ribbonback", kind: Creature, meaning: "a fish or sea creature", source: "src/sim/animals/species.rs"),
+    (word: "Gulpjaw", kind: Creature, meaning: "a fish or sea creature", source: "src/sim/animals/species.rs"),
+    (word: "Deepcoil", kind: Creature, meaning: "a fish or sea creature", source: "src/sim/animals/species.rs"),
+    (word: "Ringstone", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Forgeiron", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Slatewing", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Edgeglass", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Seareed", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Tentsilk", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Hearthclay", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Scrollpaper", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Nacre", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
+    (word: "Stone Tender", kind: Job, meaning: "one who tends grown stone homes", source: "src/sim/jobs.rs"),
+    (word: "the Overgrowth", kind: Other, meaning: "the hostile growth that takes hold of a region", source: "README.md"),
+]
