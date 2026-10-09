@@ -103,6 +103,8 @@ pub fn spell_light(does: super::effects::Does, power: f32, pos: V2, radius: f32)
     match does {
         Does::Glow => Some(Light { pos, reach: radius.max(GLOW_REACH), power, flat: false }),
         Does::Gloom => Some(Light { pos, reach: GLOOM_REACH, power: -power, flat: false }),
+        // Someone on fire lights the ground like a torch.
+        Does::Burning => Some(Light { pos, reach: TORCH_REACH, power: TORCH_POWER, flat: false }),
         _ => None,
     }
 }
@@ -166,6 +168,11 @@ impl World {
             self.torch_left.insert(pid, f.out_at - t);
             self.say(t, format!("{name} puts out the torch."));
             return true;
+        }
+        // Soaked through, nothing will light.
+        if self.boon(pid, super::effects::Does::Wet) > 0.0 {
+            self.say(t, format!("{name} is too wet to light a torch."));
+            return false;
         }
         if self.torch_in_hand(pid).is_none() {
             let spare = self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.bag.iter().map(|e| e.0).find(|&i| is_torch(i)));
@@ -297,6 +304,14 @@ impl World {
         for b in self.boons.iter().filter(|b| t < b.until) {
             if let Some(l) = spell_light(b.does, b.power, self.person_pos(b.pid), 0.0) {
                 out.push(l);
+            }
+        }
+        // Anyone on fire in a fight going on here.
+        for bt in &self.battles {
+            for f in bt.fighters.iter().filter(|f| !f.dead && !f.fled) {
+                if let Some(s) = f.has(super::effects::Does::Burning) {
+                    out.extend(spell_light(s.does, s.power, f.pos, 0.0));
+                }
             }
         }
         out

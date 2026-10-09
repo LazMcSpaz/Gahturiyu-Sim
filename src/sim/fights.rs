@@ -416,6 +416,10 @@ impl World {
             if self.people[f.pid as usize].in_squad && !f.dead {
                 self.wear_gear(f, t);
             }
+            // Paper they carried may have burned or been soaked through.
+            if self.people[f.pid as usize].in_squad && (f.burned > 0.0 || f.soaked) {
+                self.paper_spoils(f, b.seed, t);
+            }
             let p = &mut self.people[f.pid as usize];
             if f.dead {
                 p.dead = true;
@@ -436,7 +440,9 @@ impl World {
             // cast in the fight that haven't run out yet).
             if self.squad.index(pid).is_some() {
                 self.boons.retain(|bn| bn.pid != pid);
-                for s in f.statuses.iter().filter(|s| s.until > t) {
+                // (A fire on someone is put out when the fight's over; the
+                // cold goes too. Wetness stays until they dry.)
+                for s in f.statuses.iter().filter(|s| s.until > t && !matches!(s.does, Does::Burning | Does::Chilled | Does::Frozen)) {
                     self.boons.push(super::casting::Boon { pid, does: s.does, power: s.power, until: s.until });
                 }
             }

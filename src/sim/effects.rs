@@ -212,12 +212,21 @@ pub enum Does {
     Scout,
     /// Ground: rot eats at everyone in it. Power: hit points a second.
     Blight,
+    /// On fire: hurts every second, and gives off light (`elements.rs`).
+    /// Power: hit points a second.
+    Burning,
+    /// Soaked: can't burn, lightning and cold bite deeper, paper is ruined.
+    Wet,
+    /// Cold building up; enough of it freezes them. Power: how much.
+    Chilled,
+    /// Frozen stiff: can't move or act, and brittle armour cracks.
+    Frozen,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight | Does::Burning | Does::Wet | Does::Chilled | Does::Frozen)
     }
 
     /// Guards against harm (worth putting up when a fight reaches you).
@@ -384,6 +393,10 @@ impl Effect {
             Does::Tripwire => "Wakes sleepers when danger comes".to_string(),
             Does::Sanctuary => "Enemies can't enter".to_string(),
             Does::Burden => format!("Load {pct:.0}% heavier"),
+            Does::Burning => format!("Sets them burning ({p:.0} a second)"),
+            Does::Wet => "Soaks them (fire can't take; lightning and cold bite deeper)".to_string(),
+            Does::Chilled => "Chills them".to_string(),
+            Does::Frozen => "Freezes them stiff".to_string(),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),

@@ -14,6 +14,7 @@ pub mod culture;
 pub mod dialogue;
 pub mod economy;
 pub mod effects;
+pub mod elements;
 pub mod encounters;
 pub mod fights;
 pub mod geo;

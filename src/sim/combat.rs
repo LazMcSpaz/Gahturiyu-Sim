@@ -19,6 +19,7 @@ use super::body::{self, Part, PARTS};
 use super::geo::V2;
 use super::inventory::{self, Gear};
 use super::effects::{Does, Effect, Element, Lasts, Reach, Summon, Who};
+use super::elements;
 use super::items::{item, ArmorDef, ItemId, Kind, WeaponDef, FISTS};
 use super::magic::{self, Aim, Spell, Status, Style};
 use super::person::{Person, PersonId};
@@ -155,6 +156,14 @@ pub struct Fighter {
     /// Has a torch in hand at all (lit or not), for kindling.
     #[serde(default)]
     pub has_torch: bool,
+    /// Seconds spent burning this fight, whether they were soaked, and
+    /// whether they wear pitch-sealed gear (it catches).
+    #[serde(default)]
+    pub burned: f32,
+    #[serde(default)]
+    pub soaked: bool,
+    #[serde(default)]
+    pub pitch: bool,
     /// Limbs lost for good (before or during this fight).
     pub missing: [bool; 6],
     /// Shots left for a ranged weapon, and shots loosed this fight.
@@ -275,6 +284,9 @@ impl Fighter {
             burdened: false,
             torch: false,
             has_torch: false,
+            burned: 0.0,
+            soaked: false,
+            pitch: gear.pieces_sealed(),
             missing: p.wounds.missing,
             ammo,
             shots: 0,
@@ -346,6 +358,9 @@ impl Fighter {
             burdened: false,
             torch: false,
             has_torch: false,
+            burned: 0.0,
+            soaked: false,
+            pitch: false,
             missing: [false; 6],
             ammo: 0,
             shots: 0,
@@ -411,7 +426,7 @@ impl Fighter {
 
     /// Held still or knocked flat: can't move, act, dodge or block.
     pub fn helpless(&self) -> bool {
-        self.paralyzed() || self.has(Does::KnockDown).is_some()
+        self.paralyzed() || self.has(Does::KnockDown).is_some() || self.has(Does::Frozen).is_some()
     }
 
     /// An attribute with spells in force added.
@@ -631,6 +646,18 @@ impl Battle {
                     self.hurt_whole(j, dmg);
                 }
             }
+        }
+
+        // Whoever is on fire burns (and is counted, for what they carry).
+        for j in 0..n {
+            let f = &self.fighters[j];
+            if f.dead || f.fled {
+                continue;
+            }
+            let Some(burn) = f.has(Does::Burning).map(|s| s.power) else { continue };
+            let dmg = burn * DT as f32 * f.warded();
+            self.fighters[j].burned += DT as f32;
+            self.hurt_whole(j, dmg);
         }
 
         // Spells wear off; breath and mana come back.
@@ -955,7 +982,8 @@ impl Battle {
         // through some of it.
         let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
         let through = 1.0 - weapon.pierce.clamp(0.0, 0.9);
-        let heavy = blunt > cut;
+        // Frozen stiff, even a light blow cracks brittle things.
+        let heavy = blunt > cut || self.fighters[d].has(Does::Frozen).is_some();
         for (k, (which, layer)) in layers.iter().enumerate() {
             let r = if k == 0 { r_cover1 } else { r_cover2 };
             let worn = if which.is_none() { 1.0 } else { rust * through };
@@ -1256,6 +1284,74 @@ impl Battle {
         }
     }
 
+    /// Soak someone until `until`: any fire on them goes out.
+    fn soak(&mut self, j: usize, until: f64) {
+        let f = &mut self.fighters[j];
+        let was_burning = f.has(Does::Burning).is_some();
+        let until = f.has(Does::Wet).map(|s| s.until.max(until)).unwrap_or(until);
+        f.statuses.retain(|s| !matches!(s.does, Does::Wet | Does::Burning));
+        f.statuses.push(Status { does: Does::Wet, power: 1.0, until });
+        f.soaked = true;
+        if was_burning {
+            let tname = self.names[j].clone();
+            self.say(format!("The flames on {tname} hiss out."));
+        }
+    }
+
+    /// Fire, cold or lightning meets whatever's already on someone: returns
+    /// the hurt that lands, and leaves them burning, chilled or frozen
+    /// (`elements.rs`). `resist` is the share their wards let through.
+    fn element_hits(&mut self, j: usize, el: Element, dmg: f32, resist: f32) -> f32 {
+        let t = self.time;
+        let tname = self.names[j].clone();
+        let f = &mut self.fighters[j];
+        let wet = f.has(Does::Wet).is_some();
+        match el {
+            Element::Fire => {
+                if wet {
+                    f.statuses.retain(|s| s.does != Does::Wet);
+                    self.say(format!("Steam bursts from {tname}."));
+                    return dmg * elements::STEAM;
+                }
+                // Fire thaws the cold out of them, and sets them alight.
+                f.statuses.retain(|s| !matches!(s.does, Does::Chilled | Does::Frozen | Does::Burning));
+                f.statuses.push(Status { does: Does::Burning, power: elements::BURN_PER_SEC * resist, until: t + elements::BURN_SECS });
+                let pitch = f.pitch;
+                self.say(format!("{tname} catches fire!"));
+                if pitch {
+                    dmg * elements::PITCH_FIRE
+                } else {
+                    dmg
+                }
+            }
+            Element::Frost => {
+                let had_fire = f.has(Does::Burning).is_some();
+                f.statuses.retain(|s| s.does != Does::Burning);
+                let gain = dmg * if wet { elements::WET_CHILL } else { 1.0 };
+                let chill = f.power(Does::Chilled) + gain;
+                f.statuses.retain(|s| s.does != Does::Chilled);
+                if had_fire {
+                    self.say(format!("The flames on {tname} die in the cold."));
+                }
+                let f = &mut self.fighters[j];
+                if chill >= elements::FREEZE_AT {
+                    f.statuses.push(Status { does: Does::Frozen, power: 1.0, until: t + elements::FROZEN_SECS });
+                    f.act = Act::Idle;
+                    self.say(format!("{tname} freezes solid!"));
+                } else {
+                    f.statuses.push(Status { does: Does::Chilled, power: chill, until: t + elements::CHILL_SECS });
+                }
+                if wet {
+                    dmg * elements::WET_COLD
+                } else {
+                    dmg
+                }
+            }
+            Element::Lightning if wet => dmg * elements::WET_SHOCK,
+            _ => dmg,
+        }
+    }
+
     /// What one effect does to one fighter. `near` is 1 at the middle of an
     /// area, less towards its edge.
     fn affect(&mut self, src: &Source, e: &Effect, j: usize, near: f32) {
@@ -1267,7 +1363,7 @@ impl Battle {
         let what = src.spell.map(|s| s.def().name.to_lowercase()).unwrap_or_default();
         // Hostile spells other than plain damage can be thrown off: by will,
         // by what they wear, by a ward against the domain.
-        if e.does.harmful() && !matches!(e.does, Does::Damage(_)) && self.hostile(src.by, j) && e.lasts != Lasts::Worn {
+        if e.does.harmful() && !matches!(e.does, Does::Damage(_) | Does::Wet | Does::Burning | Does::Chilled | Does::Frozen) && self.hostile(src.by, j) && e.lasts != Lasts::Worn {
             let f = &self.fighters[j];
             let item_resist = e.does.resisted_by().map(|r| f.power(r).min(0.95)).unwrap_or(0.0);
             let resist = 1.0 - (1.0 - magic::willpower_resist(&f.stats)) * (1.0 - item_resist) * ward;
@@ -1293,6 +1389,7 @@ impl Battle {
                             Element::Lightning | Element::Rot => 1.0,
                         };
                     let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * near * boost * ward * resist * f.warded();
+                    let dmg = self.element_hits(j, el, dmg, elemental * ward);
                     if matches!(e.reach, Reach::Target) {
                         self.say(format!("{name}'s {what} strikes {tname} ({dmg:.0})."));
                     }
@@ -1304,7 +1401,7 @@ impl Battle {
                 }
                 Does::Kindle => {
                     let f = &mut self.fighters[j];
-                    if f.has_torch && !f.torch {
+                    if f.has_torch && !f.torch && f.has(Does::Wet).is_none() {
                         f.torch = true;
                         self.say(format!("{tname}'s torch flares alight."));
                     }
@@ -1321,6 +1418,7 @@ impl Battle {
                         self.fighters[j].torch = false;
                         self.say(format!("{tname}'s torch gutters out."));
                     }
+                    self.soak(j, self.time + elements::WET_SECS);
                 }
                 Does::Heal => {
                     // Worst wounds first: head and torso when someone is down,
@@ -1407,6 +1505,9 @@ impl Battle {
                         self.say(format!("{tname} is thrown to the ground."));
                     }
                     Does::Blind => self.say(format!("{tname} is blinded.")),
+                    Does::Wet => {
+                        self.soak(j, until);
+                    }
                     Does::Slow => self.say(format!("{tname} slows.")),
                     Does::Calm => {
                         f.target = None;

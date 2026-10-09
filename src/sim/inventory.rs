@@ -96,6 +96,11 @@ impl Gear {
     }
 
     /// The made piece worn in a slot, if it has its own state.
+    /// Is anything worn sealed with pitch (it catches fire)?
+    pub fn pieces_sealed(&self) -> bool {
+        self.pieces.iter().flatten().any(|p| p.sealed)
+    }
+
     pub fn piece(&self, s: Slot) -> Option<&Piece> {
         self.pieces[slot_index(s)].as_ref()
     }

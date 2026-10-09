@@ -253,5 +253,10 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   not shelf pieces; pitch burning, paper and water, and fishskin's wet grip
   aren't modelled (no fire or wet damage yet); each crafter teaches one way
   (deep or drilled), rolled from their people's leaning.
+- Fire, water and cold are lasting conditions in fights (`elements.rs`):
+  burning (hurts, gives light through `spell_light`), wet, chilled, frozen,
+  and their meetings. Laz asked for what's carried to be affected too: the
+  squad's paper burns or soaks, pitch-sealed gear scorches. Laz: "might be
+  too realistic — we can roll it back." No rain or wading yet.
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.

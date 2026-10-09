@@ -984,6 +984,24 @@ fn magic_scene(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, o
     let orb = |gl: &mut Builder, pos: V2, h: f32, r: f32, col: Rgb| {
         gl.dome(to3(pos, on_ground(pos) + h), r, r, r * 1.6, 0.0, 0.0, 3, col);
     };
+    // Fighters on fire, frozen or soaked (drawing only: the fire's light
+    // comes from the sim's own list of lights).
+    for battle in &w.battles {
+        for f in battle.fighters.iter().filter(|f| !f.dead && !f.fled && near(f.pos)) {
+            let g = on_ground(f.pos);
+            if f.has(Does::Burning).is_some() {
+                let flick = (battle.time * 9.0 + f.pos.x as f64).sin() as f32 * 0.08;
+                for (dx, dy, h, r) in [(0.0, 0.0, 1.1, 0.32), (0.18, 0.1, 1.5, 0.22), (-0.15, -0.12, 0.8, 0.25)] {
+                    gl.dome(to3(f.pos.add(V2::new(dx, dy)), g + h + flick), r, r, r * 2.2, 0.0, 0.0, 3, [1.0, 0.5, 0.12]);
+                }
+            }
+            if f.has(Does::Frozen).is_some() {
+                b.dome(to3(f.pos, g), 0.55, 0.55, 2.0, 0.0, 0.0, 4, [0.72, 0.86, 0.98]);
+            } else if f.has(Does::Wet).is_some() {
+                gl.dome(to3(f.pos, g + 2.0), 0.08, 0.08, 0.12, 0.0, 0.0, 2, [0.4, 0.6, 0.95]);
+            }
+        }
+    }
     for battle in &w.battles {
         for (i, f) in battle.fighters.iter().enumerate() {
             let Some(sm) = f.summon else { continue };

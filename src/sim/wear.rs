@@ -43,6 +43,21 @@ impl World {
                 hits.push((*s, w[0], w[1]));
             }
         }
+        // Pitch on what they wore caught when they burned: it scorches, and
+        // the seal burns away.
+        if f.burned > 0.0 {
+            for &slot in SLOTS.iter() {
+                let Some(d) = self.people[pid as usize].detail.as_mut() else { break };
+                if d.gear.piece(slot).map(|p| p.sealed).unwrap_or(false) {
+                    if let Some(pc) = d.gear.own_piece(slot, t) {
+                        pc.settle(true, t);
+                        pc.left -= f.burned * super::elements::PITCH_SCORCH;
+                        pc.sealed = false;
+                    }
+                    hits.push((slot, 0.0, 0.0));
+                }
+            }
+        }
         for (slot, blows, heavy) in hits {
             let Some(d) = self.people[pid as usize].detail.as_mut() else { return };
             let Some(id) = d.gear.in_slot(slot) else { continue };
@@ -56,6 +71,39 @@ impl World {
                 self.break_piece(pid, slot, t);
             }
         }
+    }
+
+    /// Paper a squad member carried through a fight may have burned or been
+    /// soaked through: each piece is a keyed roll.
+    pub fn paper_spoils(&mut self, f: &Fighter, seed: u64, t: f64) {
+        let pid = f.pid;
+        let keep = super::elements::paper_survives(f.burned, f.soaked);
+        let Some(d) = self.people[pid as usize].detail.as_mut() else { return };
+        let mut lost: Vec<ItemId> = Vec::new();
+        for (k, e) in d.gear.bag.iter_mut().enumerate() {
+            if !super::elements::is_paper(e.0) {
+                continue;
+            }
+            let mut left = e.1;
+            for u in 0..e.1 {
+                if super::rng::Rng::from_keys(&[seed, pid as u64, k as u64, u as u64, 0x5041_5045]).f32() >= keep {
+                    left -= 1;
+                    lost.push(e.0);
+                }
+            }
+            e.1 = left;
+        }
+        d.gear.bag.retain(|e| e.1 > 0);
+        if lost.is_empty() {
+            return;
+        }
+        let name = d.name.clone();
+        lost.dedup();
+        let how = if f.burned > 0.0 { "burned" } else { "soaked through" };
+        self.settle_condition(pid, self.time);
+        self.people[pid as usize].recompute_might();
+        self.log.push_front((t, format!("{name}'s {} {how}.", lost.iter().map(|&i| item(i).name.to_lowercase()).collect::<Vec<_>>().join(", "))));
+        self.log.truncate(14);
     }
 
     /// A piece worn to nothing is gone.

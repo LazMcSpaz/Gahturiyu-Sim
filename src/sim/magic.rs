@@ -206,6 +206,7 @@ pub static SPELLS: &[SpellDef] = &[
     felt("chill", "Chill", Elemental, 6.0, 0.5, 12.0, Foe, 12.0, &[now(Does::Damage(Element::Frost), 4.0, Reach::Target), lasting(Does::Slow, 0.35, 8.0, Reach::Target)]),
     felt("kindle", "Kindle", Elemental, 3.0, 0.2, 15.0, Point, 3.0, &[now(Does::Kindle, 1.0, Reach::Object)]),
     felt("douse", "Douse", Elemental, 4.0, 0.3, 15.0, Point, 6.0, &[now(Does::Douse, 1.0, Reach::Object)]),
+    felt("drench", "Drench", Elemental, 5.0, 0.4, 12.0, Foe, 14.0, &[lasting(Does::Wet, 1.0, 600.0, Reach::Target)]),
     //          key               name              domain     cost cast  range aim     min
     structured("fireball", "Fireball", Elemental, 30.0, 1.6, 20.0, Point, 40.0, &[now(Does::Damage(Element::Fire), 18.0, area(3.0))]),
     structured("lightning_bolt", "Lightning bolt", Elemental, 22.0, 1.2, 25.0, Foe, 30.0, &[now(Does::Damage(Element::Lightning), 22.0, Reach::Target)]),

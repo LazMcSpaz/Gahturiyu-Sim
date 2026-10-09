@@ -137,6 +137,15 @@ their torch is lit. A violet diamond with "Holding …" means a ritual is held r
 - **Lost limbs**: an arm or leg battered badly enough is gone for good. No
   shield or two-handed weapon without a left arm; a lost leg is a permanent
   limp, two mean crawling.
+- **Fire, water and cold** last: fire sets people burning (it hurts every
+  second and lights them up in the dark), water leaves them wet (Douse, or
+  the new Drench), cold builds a chill until they freeze stiff. They meet:
+  fire on the wet is steam, water or cold puts a fire out, the wet chill
+  twice as fast and take half again from lightning, fire thaws the frozen,
+  and brittle armour cracks on the frozen. Pitch-sealed gear catches (and
+  loses its seal). For your squad, paper in the pack — scrolls, notes,
+  manuals, banknotes, letters — can burn or be soaked through in a fight,
+  and someone wet can't light a torch until they dry (ten minutes).
 - **Magic**: see below. Scrolls cast their spell once with no energy and
   never fizzle.
 - **Bandit camps** sit beside the roads, lit by a campfire. Their lookouts
@@ -612,6 +621,7 @@ The numbers most worth tuning, all named constants:
 | Shelf size, what locals buy (`SHELF_CAP`, `SHELF_EACH`, `LOCALS_BUY`); charcoal (`BURN_PER_HOUR`, `CHARCOAL_PER_TIMBER`, `ASH_PER_TIMBER`, `FORGE_ASH`); kelp in the gardens (`KELP_PER_GARDEN`, `KELP_BOOST`) | `src/sim/making.rs`, `src/sim/economy.rs` |
 | Lessons and manuals (`LESSON_PRICE`, `LESSON_CAP`, `MANUAL_GAIN`, `MANUAL_HOURS`, `MANUAL_CAP`; how each teaching style goes in `Teaching::lesson`); order deposit (`DEPOSIT`) | `src/sim/making.rs`, `src/sim/culture.rs` |
 | Mending prices (`MEND_PRICE`, `SELF_MEND`) | `src/sim/wear.rs` |
+| Fire, water and cold: burn time and hurt, drying time, wet bonuses, freezing, steam, pitch, paper (`BURN_SECS`, `BURN_PER_SEC`, `WET_SECS`, `WET_SHOCK`, `WET_CHILL`, `WET_COLD`, `FREEZE_AT`, `FROZEN_SECS`, `STEAM`, `PITCH_FIRE`, `PITCH_SCORCH`, `PAPER_BURN`, `PAPER_SOAK`) | `src/sim/elements.rs` |
 
 Drawing only (these never change what happens):
 
@@ -659,7 +669,8 @@ src/sim/      the simulation — no graphics, fully testable
   crafting.rs   recipes, stations, the squad's crafting, gathering, potions
   materials.rs  materials and their traits, crafts, grades, marks, made pieces
   making.rs     what the land gives, town crafters and their shelf, prices, orders, lessons
-  wear.rs       wear, breakage, rot, mending, sealing
+  wear.rs       wear, breakage, rot, mending, sealing, paper spoiling
+  elements.rs   burning, wet, chilled and frozen: the dials and what's paper
   quests.rs     jobs
   dialogue.rs   conversations (and trading)
   culture.rs    each people's leanings, town blends, choosing customs
