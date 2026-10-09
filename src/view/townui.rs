@@ -203,7 +203,19 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
             format!("{} → {who}", m.name())
         })
         .collect();
-    c.text(&owners.join("  ·  "), x + 8.0, y, 12.0, DIM);
+    // (Wrapped to the panel's width.)
+    let mut line = String::new();
+    for o in owners {
+        let next = if line.is_empty() { o.clone() } else { format!("{line}  ·  {o}") };
+        if c.width(&next, 12.0) > r.w - 40.0 && !line.is_empty() {
+            c.text(&line, x + 8.0, y, 12.0, DIM);
+            y += 15.0;
+            line = o;
+        } else {
+            line = next;
+        }
+    }
+    c.text(&line, x + 8.0, y, 12.0, DIM);
     y += 17.0;
     let laws: Vec<String> = std::iter::once(tl.shore).chain(tl.stilts).map(|ci| {
         let cm = &w.society.communities[ci as usize];

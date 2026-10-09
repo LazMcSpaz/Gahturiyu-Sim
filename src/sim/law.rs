@@ -94,9 +94,11 @@ pub const U_FADE: f32 = 0.08;
 pub const U_RITE: f32 = 10.0;
 pub const U_SALE: f32 = 6.0;
 pub const U_ESCAPE: f32 = 2.0;
-/// Unrest at which the town rises, and what's left of it after.
+/// Unrest at which the town rises, what's left of it after, and how long the
+/// new rulers have before the town can rise again (days).
 pub const REVOLT_AT: f32 = 80.0;
 pub const REVOLT_LEFT: f32 = 0.5;
+pub const REVOLT_GRACE: f64 = 6.0;
 /// Townsfolk's disputes: chance of one a day (more as unrest grows).
 pub const DISPUTE_CHANCE: f32 = 0.25;
 /// Chance a fined townsperson can't pay and is bonded instead, and the term.
@@ -190,6 +192,16 @@ pub struct Government {
     pub sales_blocked: u32,
     /// The stilt village has withdrawn from the town until then.
     pub shunned_until: f64,
+    /// When the town last rose.
+    #[serde(default)]
+    pub last_revolt: Option<f64>,
+}
+
+impl Government {
+    /// Add to (or take from) unrest, kept within 0..100.
+    pub fn stir(&mut self, x: f32) {
+        self.unrest = (self.unrest + x).clamp(0.0, 100.0);
+    }
 }
 
 /// A bond: someone works for a holder until a set time (or for life).
@@ -247,6 +259,11 @@ impl Wrong {
             Wrong::Escape => "running from a bond",
         }
     }
+    /// So grave it's written down wherever arbiters reach, however it's judged.
+    pub fn always_recorded(self) -> bool {
+        matches!(self, Wrong::HarmArbiter | Wrong::Murder | Wrong::Desecration)
+    }
+
     /// Its weight on the public record.
     pub fn gravity(self) -> f32 {
         match self {
@@ -330,9 +347,9 @@ impl World {
     }
 
     /// Candidates for a chamber, best first.
-    fn candidates(&self, town: SettlementId, rule: Rule, admins: bool) -> Vec<PersonId> {
+    fn candidates(&self, town: SettlementId, rule: Rule, admins: bool, t: f64) -> Vec<PersonId> {
         let gov = self.government(town);
-        let here: Vec<PersonId> = self.living_here(town).into_iter().filter(|p| !gov.fallen.contains(p) && !self.is_bonded(*p, self.time)).collect();
+        let here: Vec<PersonId> = self.living_here(town).into_iter().filter(|p| !gov.fallen.contains(p) && !self.is_bonded(*p, t)).collect();
         let age = |p: PersonId| self.society.lives[p as usize].age;
         let race = |p: PersonId| self.people[p as usize].race;
         let mut out: Vec<(f32, PersonId)> = match rule {
@@ -369,8 +386,8 @@ impl World {
     }
 
     /// This season's speaker: the next in turn, passing over poor speakers.
-    fn speaker_for(&self, town: SettlementId, day: i64) -> Option<PersonId> {
-        let order = self.candidates(town, Rule::Speaker, false);
+    fn speaker_for(&self, town: SettlementId, day: i64, t: f64) -> Option<PersonId> {
+        let order = self.candidates(town, Rule::Speaker, false, t);
         if order.is_empty() {
             return None;
         }
@@ -431,6 +448,15 @@ impl World {
                 seats[r] += 1;
             }
         }
+        // Whoever still sits in a chamber that survives keeps their seat.
+        let old = self.government(town).chambers.clone();
+        let mut chambers = chambers;
+        for c in chambers.iter_mut() {
+            if let Some(o) = old.iter().find(|o| o.rule == c.rule) {
+                c.holders = o.holders.iter().copied().filter(|&p| self.seated(town, p)).collect();
+                c.administrators = o.administrators.iter().copied().filter(|&p| self.seated(town, p)).collect();
+            }
+        }
         let gov = &mut self.society.towns[town as usize].gov;
         gov.chambers = chambers;
         gov.council = council;
@@ -438,9 +464,6 @@ impl World {
         gov.councillors.clear();
         gov.matters = matters;
         gov.counted = counts;
-        if !tadoro {
-            gov.arbiter = None;
-        }
         self.fill_offices(town, t);
     }
 
@@ -456,12 +479,12 @@ impl World {
                 Rule::Speaker => {
                     // Your own speaker keeps the voice; otherwise the season's turn.
                     if !c.holders.iter().any(|&p| self.people[p as usize].in_squad) {
-                        c.holders = self.speaker_for(town, day).into_iter().collect();
+                        c.holders = self.speaker_for(town, day, t).into_iter().collect();
                     }
                 }
                 rule => {
                     let want = if rule == Rule::Elders { ELDERS } else { PRIESTESSES };
-                    for p in self.candidates(town, rule, false) {
+                    for p in self.candidates(town, rule, false, t) {
                         if c.holders.len() >= want {
                             break;
                         }
@@ -470,7 +493,7 @@ impl World {
                         }
                     }
                     if rule == Rule::Priestesses {
-                        for p in self.candidates(town, rule, true) {
+                        for p in self.candidates(town, rule, true, t) {
                             if c.administrators.len() >= ADMINISTRATORS {
                                 break;
                             }
@@ -564,12 +587,12 @@ impl World {
         let gov = self.government(town);
         let Some(ci) = gov.chambers.iter().position(|c| c.rule == Rule::Priestesses) else { return };
         if gov.arbiter.is_some() && Rng::from_keys(&[self.seed, town as u64, day as u64, 0x5354_4459]).f32() < ARBITER_STEADY {
-            self.society.towns[town as usize].gov.unrest += U_RITE * 0.25;
+            self.society.towns[town as usize].gov.stir(U_RITE * 0.25);
             self.say(t, format!("A bad omen in {name}; the arbiter rules it was no true sign."));
             return;
         }
         let gov = &mut self.society.towns[town as usize].gov;
-        gov.unrest = (gov.unrest + U_RITE).min(100.0);
+        gov.stir(U_RITE);
         if gov.chambers[ci].holders.is_empty() {
             return;
         }
@@ -592,7 +615,8 @@ impl World {
         let du = U_HUNGER * (1.0 - food).max(0.0) + U_UNPAID * (1.0 - paid) + U_CRIME * wrongs - if fed { U_CALM } else { 0.0 };
         gov.unrest = (gov.unrest * (1.0 - U_FADE) + du).clamp(0.0, 100.0);
         gov.wrongs = 0.0;
-        if gov.unrest >= REVOLT_AT {
+        let settled_in = gov.last_revolt.map(|r| t - r >= REVOLT_GRACE * DAY).unwrap_or(true);
+        if gov.unrest >= REVOLT_AT && settled_in {
             self.revolt(town, t);
         }
     }
@@ -613,6 +637,7 @@ impl World {
         gov.councillors.clear();
         gov.unrest *= REVOLT_LEFT;
         gov.revolts += 1;
+        gov.last_revolt = Some(t);
         self.fill_offices(town, t);
         let name = self.settlements[town as usize].name.clone();
         self.say(t, format!("{name} rises! Its rulers are thrown out: {} now.", self.rulers_words(town)));
@@ -763,15 +788,13 @@ impl World {
         // In a mixed town it's a sore point; a villager sold off wrongs the village.
         let mixed = self.government(town).chambers.len() >= 2;
         if roduro_debtor || mixed {
-            self.society.towns[town as usize].gov.unrest += U_SALE;
+            self.society.towns[town as usize].gov.stir(U_SALE);
         }
         let from_stilts = self.society.lives[b.who as usize].community.map(|c| self.society.communities[c as usize].stilts).unwrap_or(false);
         if from_stilts {
             self.wrong_village(town, t);
         }
-        if self.bands.band_at(self.settlements[town as usize].pos) <= 2 {
-            self.say(t, format!("A debtor in {name} is sold into slavery."));
-        }
+        let _ = name;
         Ok(())
     }
 
@@ -795,7 +818,7 @@ impl World {
                         self.bonds[k].until = t;
                         let holder_allows = b.holder.and_then(|h| self.society.lives[h as usize].community).map(|c| self.society.communities[c as usize].customs.slavery == Slavery::Allowed).unwrap_or(false);
                         if holder_allows {
-                            self.society.towns[town as usize].gov.unrest += U_ESCAPE;
+                            self.society.towns[town as usize].gov.stir(U_ESCAPE);
                         }
                     }
                 }
@@ -910,17 +933,19 @@ impl World {
         let t = self.time;
         self.add_standing(who, town, -fine / 4.0);
         self.society.towns[town as usize].gov.wrongs += 1.0;
-        if matches!(wrong, Wrong::HarmArbiter | Wrong::Murder | Wrong::Desecration) {
+        if wrong.always_recorded() {
             *self.records.entry(who).or_insert(0.0) += wrong.gravity();
         }
         let tl = &self.society.towns[town as usize];
         let paid = tl.owed <= 0.0;
         let on_watch = self.living_here(town).into_iter().any(|p| self.life(p).job == Job::Guard && self.at_work(p, t));
         let mut r = Rng::from_keys(&[self.seed, who as u64, (t / 60.0) as u64, 0x4152_5354]);
-        if !(on_watch && (paid || r.chance(0.3))) || self.is_bonded(who, t) {
+        let in_duel = self.duels.iter().any(|d| d.accused == who) || self.fighting.contains_key(&who);
+        if !(on_watch && (paid || r.chance(0.3))) || self.is_bonded(who, t) || in_duel {
             return false;
         }
-        // Arrested: judged by the custom of those wronged.
+        // Arrested: judged by the custom of those wronged (the town on land,
+        // where it happened).
         let custom = {
             let ci = self.society.towns[town as usize].shore;
             self.society.communities[ci as usize].customs.justice
@@ -934,7 +959,6 @@ impl World {
         let t = self.time;
         let name = self.name_of(who);
         let place = self.settlements[town as usize].name.clone();
-        self.bounty_settled(town);
         match custom {
             Justice::Elders => {
                 self.say(t, format!("{name} is judged by the elders of {place} for {}: a fine of {fine:.0}.", wrong.name()));
@@ -945,12 +969,17 @@ impl World {
                 self.start_duel(who, town, fine);
             }
             Justice::Shunning => {
-                let ci = self.society.towns[town as usize].stilts.unwrap_or(self.society.towns[town as usize].shore);
+                // Whichever community holds to shunning turns its back.
+                let tl = &self.society.towns[town as usize];
+                let ci = std::iter::once(tl.shore).chain(tl.stilts).find(|&c| self.society.communities[c as usize].customs.justice == Justice::Shunning).unwrap_or(tl.shore);
                 self.shunned.push((who, ci, t + SHUN_DAYS * DAY));
                 self.say(t, format!("{place} turns its back on {name} for {}: no one will trade with them.", wrong.name()));
             }
             Justice::Record => {
-                *self.records.entry(who).or_insert(0.0) += wrong.gravity();
+                // (The gravest are on the record already.)
+                if !wrong.always_recorded() {
+                    *self.records.entry(who).or_insert(0.0) += wrong.gravity();
+                }
                 self.say(t, format!("{name}'s {} in {place} is written into the record; it will follow them.", wrong.name()));
                 self.pay_or_bond(who, town, fine * 0.5);
             }
@@ -1027,7 +1056,10 @@ impl World {
         let theirs = self
             .living_here(town)
             .into_iter()
-            .filter(|&p| !self.fighting.contains_key(&p) && !self.is_bonded(p, t))
+            .filter(|&p| {
+                let pp = &self.people[p as usize];
+                !self.fighting.contains_key(&p) && !self.is_bonded(p, t) && self.busy_until[p as usize] <= t && self.group_of[p as usize].is_none() && !super::body::knocked_out(&pp.wounds.hp_at(&pp.stats, t))
+            })
             .max_by(|&a, &b| {
                 let guard = |p: PersonId| (self.life(p).job == Job::Guard) as u8;
                 guard(a).cmp(&guard(b)).then(self.people[a as usize].might.total_cmp(&self.people[b as usize].might)).then(b.cmp(&a))
@@ -1083,8 +1115,8 @@ impl World {
             };
             seen.push((f.pid, town, wrong));
         }
-        // The dead raised: Roduro dead lie beneath their homes.
-        for f in b.fighters.iter().filter(|f| f.raised && f.is_person()) {
+        // The dead raised by your side: Roduro dead lie beneath their homes.
+        for f in b.fighters.iter().filter(|f| f.raised && f.is_person() && f.raised_by == Some(SQUAD_SIDE)) {
             if self.people[f.pid as usize].race != Race::Roduro {
                 continue;
             }
@@ -1092,6 +1124,8 @@ impl World {
                 seen.push((f.pid, town, Wrong::Desecration));
             }
         }
+        // One charge per town: the gravest wrong, every fine together.
+        let mut charges: Vec<(SettlementId, Wrong, f32)> = Vec::new();
         for (_, town, wrong) in seen {
             let fine = match wrong {
                 Wrong::Assault => 60.0,
@@ -1100,6 +1134,17 @@ impl World {
                 Wrong::Desecration => 200.0,
                 _ => 40.0,
             };
+            match charges.iter_mut().find(|c| c.0 == town) {
+                Some(c) => {
+                    c.2 += fine;
+                    if wrong.gravity() > c.1.gravity() {
+                        c.1 = wrong;
+                    }
+                }
+                None => charges.push((town, wrong, fine)),
+            }
+        }
+        for (town, wrong, fine) in charges {
             let name = self.name_of(doer);
             self.crime_of(doer, town, wrong, fine, format!("{name}'s side is seen at {}!", wrong.name()));
         }
@@ -1122,7 +1167,7 @@ impl World {
         let parts: Vec<&str> = g.chambers.iter().map(|c| c.rule.name()).collect();
         let mut s = if parts.is_empty() { "a shared council".to_string() } else { parts.join(" and ") };
         if g.council && !parts.is_empty() {
-            s += ", sitting as a shared council";
+            s += ", in shared council";
         }
         if g.arbiter.is_some() {
             s += ", with a Ṭaḍoro arbiter";

@@ -116,6 +116,14 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    Likewise what a fight uses up (potions, scrolls, arrows) leaves only the
    squad's packs: strangers restock at home, so their kit never depends on
    whether they'd been met.
+18. **Law is settled at dawn.** Governments, rites, townsfolk's disputes,
+   bonds and unrest are worked out in `law::dawn_law` on the world's
+   timeline, with the dawn's time passed in (never `self.time`). A
+   townsperson's duel is fought out at once with the full combat rules
+   (like far fights). Bonds end by the clock (`Bond::until`). The squad's
+   own arrests and duels happen when its crimes are seen (the player
+   exception). Office eligibility reads race and sex directly — that's the
+   canon rule (Laz), not a culture leaning; everything else reads customs.
 
 ## Verifying visual changes
 
@@ -143,7 +151,9 @@ nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 `GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds
 Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
 beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
-`GAHT_TOWN=1` (the town panel for the nearest town), `GAHT_TRADE=1` (trading
+`GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
+goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
+`GAHT_SHUN=1` (the nearest stilt village withdraws; runs past the next dawn), `GAHT_TRADE=1` (trading
 with the nearest merchant at work), `GAHT_SOCIETY=runners|boats|tides` (go and
 watch the midday meal run, the dawn boats, or a stilt village; for tides
 compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the
@@ -243,8 +253,7 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   them). Dawn (the boats, the day's tally) is 06:00. One coin (struck by
   Ṭaḍoro presses) plus 50-coin notes. Seasons only move seasonal working
   hours (a placeholder 48-day year); daylight doesn't follow them yet.
-  Part 2 (materials and crafting) and Part 3 (government, law, bondage) are
-  not built: `set_withdrawn` and the treasury's unpaid pay are their hooks.
+  Parts 2 and 3 build on it (below).
 - Society Part 2 (materials and crafting) follows Laz's brief: placeholder
   English names, no new place names. Its scope-downs (Laz asked to keep it
   lean): stations are free to use (no rent); lessons and manual study run
@@ -258,5 +267,12 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   and their meetings. Laz asked for what's carried to be affected too: the
   squad's paper burns or soaks, pitch-sealed gear scorches. Laz: "might be
   too realistic — we can roll it back." No rain or wading yet.
+- Society Part 3 (government, law, bondage) follows Laz's brief and
+  `claude/society-economy.md`. Scope-downs: no leagues yet (they'd be led
+  as their largest town); bound townsfolk keep their job (their output isn't
+  routed to the holder); buying land is a standing step with no purchase yet;
+  carrying stolen goods is a `Wrong` with no detection yet; omens reported
+  or faked by others are a hook (`bad_omen`); fights in the street on a
+  revolt are left out; the squad can't hold bonded workers.
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.

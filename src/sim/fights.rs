@@ -224,7 +224,9 @@ impl World {
                     }
                     continue;
                 }
-                match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied() {
+                // (Not into a duel the law set: that's a fight of its own.)
+                let duels: Vec<u32> = self.duels.iter().map(|d| d.battle).collect();
+                match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied().filter(|b| !duels.contains(b)) {
                     Some(bid) => self.join_battle(bid, 1, &fresh),
                     None => {
                         let line = "You're attacked!".to_string();
@@ -486,8 +488,8 @@ impl World {
                 if f.dead {
                     f.dead = false;
                     f.ko = true;
-                    for x in f.hp.iter_mut() {
-                        *x = x.max(-0.5 * 10.0);
+                    for k in 0..6 {
+                        f.hp[k] = f.hp[k].max(-0.5 * f.max_hp[k]);
                     }
                 }
             }

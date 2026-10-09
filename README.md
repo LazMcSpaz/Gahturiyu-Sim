@@ -324,6 +324,65 @@ fire metals, weavers for reed and shell, Tenders for grown stone, any
 leather-, cloth- or woodworker for the basics. A town can only mend what its
 people know how to work.
 
+### Government, law and bondage
+
+**Who rules** comes out of the town's blend like its other customs. Each
+people leans toward its own form — Roduro toward an **elder circle** (the
+heads of the oldest households; a seat passes at death), Qotiro toward
+**priestesses** (Qotiro women at the summit, Qotiro men as administrators
+below), Horaro toward a **rotating speaker** (a villager each season; a poor
+one is passed over). Every form strong enough in the blend gets its own
+chamber; a stilt village always has its speaker. Where no form holds a clear
+majority the chambers sit as a **shared council**, seats by head-count, and a
+**Ṭaḍoro arbiter** breaks deadlocks (the Ṭaḍoro have no towns of their own,
+but arbiters wherever peoples meet). Each matter goes to the part that leans
+to it: land and inheritance to the elders, the sea to the speaker, rites and
+defence to the priestesses, records to the arbiter. So mixed towns get mixed
+governments without anyone listing them. The officeholders are real people,
+re-seated at dawn; when the people of a town shift a lot, the government is
+formed anew.
+
+**Rites.** Where priestesses rule there's a rite every six days. A hungry,
+unpaid or restless town holds them badly; a failed rite is a bad omen that
+brings the high priestess down — unless the arbiter rules the omen false.
+
+**Unrest** is tallied each dawn: hunger, an unpaid watch (and the crime an
+unwatched town gets), wrongs and failed rites raise it; full stomachs and a
+paid watch let it settle. At 80 the town **rises**: its rulers are thrown out
+and others take their seats.
+
+**Law.** Wrongs are judged by the wronged party's custom: **elder judgement**
+(a fine; what can't be paid is worked off as a temporary bond), **trial by
+duel** (fought to knockout with the full combat rules; champions allowed; the
+loser pays), **shunning** (the community won't deal with you; a stilt
+village wronged by its town withdraws its boats), or the **public record**
+(it follows you to every town with an arbiter). Where it's unclear, the
+arbiter rules. Townsfolk have their disputes too. If the watch is on hand
+(and paid) when your crime is seen, you're arrested and judged on the spot;
+otherwise it's a bounty, and the news travels with travellers as before.
+Assaulting townsfolk, killing them, harming an arbiter (very serious
+everywhere) and raising the Roduro dead in a town where the elders sit are
+all crimes.
+
+**Bondage** runs for a term, from the clock. Where slavery is allowed a bond
+can be sold on into slavery for life — except that Roduro law (wherever the
+elders sit) forbids selling a Roduro debtor into it. The bound can run; a
+stilt village that doesn't hold with slavery shelters them. A bound squad
+member can be bought out at the hall, or run (stray far from the town and
+you've run: a bounty and a mark on the record).
+
+**Standing.** Each squad member earns standing in each town — jobs done for
+its people, goods it lacks sold to it, debts paid, bandits beaten near it —
+and loses it to crimes. It opens the hall, then buying land or a house, then
+a voice in council. With a voice, someone of the right birth can take a post
+at the hall: elder (Roduro), priestess (a Qotiro woman), administrator (a
+Qotiro man), speaker (Horaro), arbiter (Ṭaḍoro). Hover a squad member to see
+their standing where they are.
+
+The town panel shows all of it: the form, who holds each seat, council
+seats, who owns which matters, unrest, the justice and bondage customs on
+land and on the stilts, the bound, and the last rite.
+
 `cargo run --release --bin headless -- society 3` prints every town's customs,
 jobs, food, store, what the land offers, its shelf and its dearest goods after
 three days — the quickest way to see what the dials do.
@@ -621,6 +680,10 @@ The numbers most worth tuning, all named constants:
 | Shelf size, what locals buy (`SHELF_CAP`, `SHELF_EACH`, `LOCALS_BUY`); charcoal (`BURN_PER_HOUR`, `CHARCOAL_PER_TIMBER`, `ASH_PER_TIMBER`, `FORGE_ASH`); kelp in the gardens (`KELP_PER_GARDEN`, `KELP_BOOST`) | `src/sim/making.rs`, `src/sim/economy.rs` |
 | Lessons and manuals (`LESSON_PRICE`, `LESSON_CAP`, `MANUAL_GAIN`, `MANUAL_HOURS`, `MANUAL_CAP`; how each teaching style goes in `Teaching::lesson`); order deposit (`DEPOSIT`) | `src/sim/making.rs`, `src/sim/culture.rs` |
 | Mending prices (`MEND_PRICE`, `SELF_MEND`) | `src/sim/wear.rs` |
+| Each people's leaning on government, justice and bondage (`ruling`, `justice`, `slavery` in `PROFILES`) | `src/sim/culture.rs` |
+| Government: when a form gets a chamber or a council (`CHAMBER_MIN`, `MAJORITY`, `COUNCIL_SEATS`, `ELDERS`, `PRIESTESSES`, `ADMINISTRATORS`, `GOV_SHIFT`, `SEASON_DAYS`, `POOR_SPEAKER`); rites (`RITE_EVERY`, `RITE_BASE`, `RITE_HUNGER`, `RITE_UNPAID`, `RITE_UNREST`, `ARBITER_STEADY`) | `src/sim/law.rs` |
+| Unrest and revolt (`U_HUNGER`, `U_UNPAID`, `U_CRIME`, `UNWATCHED_CRIME`, `U_CALM`, `U_FADE`, `U_RITE`, `U_SALE`, `U_ESCAPE`, `REVOLT_AT`, `REVOLT_LEFT`, `REVOLT_GRACE`) | `src/sim/law.rs` |
+| Disputes, bonds, sales, escapes, shunning (`DISPUTE_CHANCE`, `CANT_PAY`, `BOND_DAYS`, `BOND_DAY_VALUE`, `BOND_MAX_DAYS`, `SALE_CHANCE`, `ESCAPE_CHANCE`, `SHUN_DAYS`, `BOND_REACH`); standing steps (`HEARD`, `LAND`, `COUNCIL`, `RECORD_WEIGHT`) | `src/sim/law.rs` |
 | Fire, water and cold: burn time and hurt, drying time, wet bonuses, freezing, steam, pitch, paper (`BURN_SECS`, `BURN_PER_SEC`, `WET_SECS`, `WET_SHOCK`, `WET_CHILL`, `WET_COLD`, `FREEZE_AT`, `FROZEN_SECS`, `STEAM`, `PITCH_FIRE`, `PITCH_SCORCH`, `PAPER_BURN`, `PAPER_SOAK`) | `src/sim/elements.rs` |
 
 Drawing only (these never change what happens):
@@ -671,6 +734,7 @@ src/sim/      the simulation — no graphics, fully testable
   making.rs     what the land gives, town crafters and their shelf, prices, orders, lessons
   wear.rs       wear, breakage, rot, mending, sealing, paper spoiling
   elements.rs   burning, wet, chilled and frozen: the dials and what's paper
+  law.rs        government, rites, unrest and revolt, disputes and judgement, bonds, standing
   quests.rs     jobs
   dialogue.rs   conversations (and trading)
   culture.rs    each people's leanings, town blends, choosing customs

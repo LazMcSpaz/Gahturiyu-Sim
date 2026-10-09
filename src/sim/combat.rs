@@ -160,6 +160,9 @@ pub struct Fighter {
     /// whether they wear pitch-sealed gear (it catches).
     #[serde(default)]
     pub burned: f32,
+    /// A body raised in this fight: which side raised it.
+    #[serde(default)]
+    pub raised_by: Option<Side>,
     #[serde(default)]
     pub soaked: bool,
     #[serde(default)]
@@ -285,6 +288,7 @@ impl Fighter {
             torch: false,
             has_torch: false,
             burned: 0.0,
+            raised_by: None,
             soaked: false,
             pitch: gear.pieces_sealed(),
             missing: p.wounds.missing,
@@ -359,6 +363,7 @@ impl Fighter {
             torch: false,
             has_torch: false,
             burned: 0.0,
+            raised_by: None,
             soaked: false,
             pitch: false,
             missing: [false; 6],
@@ -1549,6 +1554,7 @@ impl Battle {
         let t = self.time;
         let mut f = self.fighters[j].clone();
         self.fighters[j].raised = true;
+        self.fighters[j].raised_by = Some(side);
         f.pid = NOBODY;
         f.side = side;
         f.home = side;
