@@ -45,7 +45,8 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     let tl = &w.society.towns[town as usize];
     let comms: Vec<u32> = std::iter::once(tl.shore).chain(tl.stilts).collect();
     let stocked = GOODS.iter().filter(|g| w.stock_now(town, **g) >= 0.5).count();
-    let h = 330.0 + 70.0 + comms.len() as f32 * 185.0 + ((stocked as f32 / 4.0).ceil() - 3.0).max(0.0) * 17.0;
+    let gov_rows = w.government(town).chambers.len() as f32 + 6.0;
+    let h = 330.0 + 70.0 + gov_rows * 17.0 + 30.0 + comms.len() as f32 * 185.0 + ((stocked as f32 / 4.0).ceil() - 3.0).max(0.0) * 17.0;
     let r = Bx::new(c.w - W - 12.0, 12.0, W, h.min(c.h - 60.0));
     c.rect(r.x, r.y, r.w, r.h, PANEL);
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(s.founders)));
@@ -162,6 +163,68 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
         y += 17.0;
         c.text(&format!("The dawn boats brought {:.0} ashore", tl.landed), x, y, 13.0, TEXT);
     }
+
+    // Who rules, and the law.
+    y += 26.0;
+    let g = w.government(town);
+    c.text("Government", x, y, 15.0, TEXT);
+    let unrest = format!("Unrest {:.0} / 100 (rises at {:.0}){}", g.unrest, gahturiyu_sim::sim::law::REVOLT_AT, if g.revolts > 0 { format!("  ·  {} revolts", g.revolts) } else { String::new() });
+    c.text(&unrest, r.x + r.w - c.width(&unrest, 13.0) - 14.0, y, 13.0, if g.unrest >= 50.0 { WARN } else { DIM });
+    y += 18.0;
+    c.text(&w.gov_words(town), x, y, 13.0, GOLD);
+    let name = |p: u32| w.people[p as usize].name().map(|n| n.to_string()).unwrap_or_else(|| gahturiyu_sim::sim::names::person_name(w.people[p as usize].race, w.people[p as usize].seed));
+    for ch in &g.chambers {
+        y += 17.0;
+        let mut line = format!("{}: {}", ch.rule.name(), if ch.holders.is_empty() { "no one".to_string() } else { ch.holders.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", ") });
+        if !ch.administrators.is_empty() {
+            line += &format!("  ·  administrators {}", ch.administrators.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", "));
+        }
+        c.text(&line, x + 8.0, y, 13.0, TEXT);
+    }
+    if g.council {
+        y += 17.0;
+        let seats: Vec<String> = ALL_RACES.iter().filter(|r| g.seats[r.index()] > 0).map(|r| format!("{} {}", r.name(), g.seats[r.index()])).collect();
+        c.text(&format!("Council seats: {}", seats.join(", ")), x + 8.0, y, 13.0, TEXT);
+    }
+    if let Some(a) = g.arbiter {
+        y += 17.0;
+        c.text(&format!("Arbiter: {}", name(a)), x + 8.0, y, 13.0, TEXT);
+    }
+    y += 17.0;
+    let owners: Vec<String> = g
+        .matters
+        .iter()
+        .map(|(m, o)| {
+            let who = match o {
+                gahturiyu_sim::sim::law::Owner::Chamber(r) => r.name().to_lowercase(),
+                gahturiyu_sim::sim::law::Owner::Council => "the council".into(),
+                gahturiyu_sim::sim::law::Owner::Arbiter => "the arbiter".into(),
+            };
+            format!("{} → {who}", m.name())
+        })
+        .collect();
+    c.text(&owners.join("  ·  "), x + 8.0, y, 12.0, DIM);
+    y += 17.0;
+    let laws: Vec<String> = std::iter::once(tl.shore).chain(tl.stilts).map(|ci| {
+        let cm = &w.society.communities[ci as usize];
+        format!("{}: {}, {}", if cm.stilts { "Stilts" } else { "Land" }, cm.customs.justice.name().to_lowercase(), cm.customs.slavery.name().to_lowercase())
+    }).collect();
+    c.text(&laws.join("  ·  "), x + 8.0, y, 13.0, TEXT);
+    let bonds = w.bonds.iter().filter(|b| b.town == town && b.until > w.time).count();
+    let slaves = w.bonds.iter().filter(|b| b.town == town && b.slave && b.until > w.time).count();
+    y += 17.0;
+    let rite = match g.last_rite {
+        Some((d, ok)) => format!("  ·  last rite day {d}: {}", if ok { "well held" } else { "failed" }),
+        None => String::new(),
+    };
+    let withdrawn = tl.stilts.map(|si| w.society.communities[si as usize].withdrawn).unwrap_or(false);
+    c.text(
+        &format!("{bonds} bound here ({slaves} for life){rite}{}", if withdrawn { "  ·  the stilt village has withdrawn" } else { "" }),
+        x + 8.0,
+        y,
+        13.0,
+        if withdrawn { WARN } else { TEXT },
+    );
 
     // Services, open now or not.
     y += 26.0;

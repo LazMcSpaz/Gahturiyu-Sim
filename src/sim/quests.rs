@@ -153,6 +153,10 @@ impl World {
         self.quests[qi].stage = Stage::Done;
         let giver = self.quests[qi].giver;
         *self.regard.entry(giver).or_insert(0.0) += 20.0;
+        // A favour done for a town raises your standing there.
+        if let Some(town) = self.people[giver as usize].home {
+            self.add_standing(who, town, 5.0);
+        }
     }
 
     /// One line saying what a job needs now, for the journal.

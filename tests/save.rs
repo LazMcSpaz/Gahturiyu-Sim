@@ -33,6 +33,7 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?} {:?} {:?}\n", w.rituals, w.circles, w.boons, w.wards);
     s += &format!("{:?}\n{:?}\n", w.society, w.stations);
     s += &format!("{:?} {:?} {:?}\n", w.crafting, w.orders, w.lessons);
+    s += &format!("{:?} {:?} {:?} {:?} {:?}\n", w.standing_in, w.records, w.bonds, w.duels, w.shunned);
     s
 }
 

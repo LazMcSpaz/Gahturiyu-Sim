@@ -190,5 +190,18 @@ fn society(days: f64, seed: u64) {
         }
         println!("  shelf ({}): {}", tl.shelf.len(), shelf.iter().map(|(k, n)| format!("{k} ×{n}")).collect::<Vec<_>>().join(", "));
         println!("  dearest: {}", w.dearest(ti as u16, 6).iter().map(|(g, f)| format!("{} ×{:.1}", g.name(), f)).collect::<Vec<_>>().join(", "));
+        let g = w.government(ti as u16);
+        let shore = &w.society.communities[tl.shore as usize].customs;
+        println!(
+            "  rule: {} | {} | unrest {:.0}, revolts {}, rite {:?}, justice {:?}, bondage {:?}, bonds here {}",
+            w.gov_words(ti as u16),
+            w.rulers_words(ti as u16),
+            g.unrest,
+            g.revolts,
+            g.last_rite,
+            shore.justice,
+            shore.slavery,
+            w.bonds.iter().filter(|b| b.town == ti as u16).map(|b| if b.slave { "slave" } else { "term" }).collect::<Vec<_>>().join(" ")
+        );
     }
 }

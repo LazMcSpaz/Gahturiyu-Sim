@@ -149,7 +149,7 @@ impl Job {
     /// the land round town offers (`src`, by good, 0..1) and whether it's
     /// worked from the stilts. (Crafters and charcoal burners turn one thing
     /// into another instead; see `making.rs`.)
-    pub fn gathers(self, src: &[f32], offshore: bool) -> Vec<(Good, f32)> {
+    pub fn gathers(self, src: &[f32], offshore: bool, at: Option<PlaceKind>) -> Vec<(Good, f32)> {
         let s = |g: Good| src.get(g.index()).copied().unwrap_or(0.0);
         match self {
             Job::Farmer => vec![(Good::Grain, FARM_PER_HOUR), (Good::Fibre, 0.12)],
@@ -165,12 +165,19 @@ impl Job {
             Job::KelpGatherer => vec![(Good::Kelp, KELP_PER_HOUR), (Good::Seareed, 0.3 * s(Good::Seareed).max(0.3))],
             Job::Forager => vec![(Good::Game, 0.3), (Good::Hides, 0.06), (Good::Herbs, 0.05), (Good::Tentsilk, 0.03 * s(Good::Tentsilk))],
             // Woodcutters and quarriers split their hours over what the land offers.
+            // (At the woodlot only wood and resin; at the mine only stone, ore
+            // and veins; with neither, whatever the land offers.)
             Job::Woodcutter => {
-                let total: f32 = DIG.iter().map(|d| s(d.0)).sum();
+                let here = |g: Good| match at {
+                    Some(PlaceKind::Woodlot) => matches!(g, Good::Timber | Good::Pitch),
+                    Some(PlaceKind::Quarry) => !matches!(g, Good::Timber | Good::Pitch),
+                    _ => true,
+                };
+                let total: f32 = DIG.iter().filter(|d| here(d.0)).map(|d| s(d.0)).sum();
                 if total <= 0.0 {
                     return vec![(Good::Timber, 0.6)];
                 }
-                DIG.iter().filter(|d| s(d.0) > 0.0).map(|&(g, r)| (g, r * s(g) / total)).collect()
+                DIG.iter().filter(|d| here(d.0) && s(d.0) > 0.0).map(|&(g, r)| (g, r * s(g) / total)).collect()
             }
             Job::Boatwright => vec![(Good::Wares, 0.12)],
             Job::Labourer if offshore => vec![(Good::Kelp, KELP_PER_HOUR * 0.4)],
@@ -588,6 +595,10 @@ pub enum PlaceKind {
     WeaversShed,
     /// Leather, cloth and wood (split towns).
     Workshop,
+    /// Mine and quarry face: rock, ore, clay, sand and rare veins.
+    Quarry,
+    /// Where wood is burned down to charcoal.
+    CharcoalPit,
 }
 
 impl PlaceKind {
@@ -595,7 +606,9 @@ impl PlaceKind {
         match self {
             PlaceKind::Fields => "Fields",
             PlaceKind::Wilds => "Hunting grounds",
-            PlaceKind::Woodlot => "Woodlot and quarry",
+            PlaceKind::Woodlot => "Woodlot",
+            PlaceKind::Quarry => "Mine and quarry",
+            PlaceKind::CharcoalPit => "Charcoal pit",
             PlaceKind::Dock => "Fishing dock",
             PlaceKind::DivePlatform => "Dive platform",
             PlaceKind::KelpBeds => "Kelp beds",
@@ -629,14 +642,15 @@ impl PlaceKind {
 
     /// Out of town: workers here eat what the runners bring.
     pub fn is_away(self) -> bool {
-        matches!(self, PlaceKind::Fields | PlaceKind::Wilds | PlaceKind::Woodlot | PlaceKind::Dock | PlaceKind::DivePlatform | PlaceKind::KelpBeds | PlaceKind::Boatyard)
+        matches!(self, PlaceKind::Fields | PlaceKind::Wilds | PlaceKind::Woodlot | PlaceKind::Quarry | PlaceKind::CharcoalPit | PlaceKind::Dock | PlaceKind::DivePlatform | PlaceKind::KelpBeds | PlaceKind::Boatyard)
     }
 
     /// Footprint, metres.
     pub fn size(self) -> f32 {
         match self {
             PlaceKind::Fields => 34.0,
-            PlaceKind::Wilds | PlaceKind::Woodlot => 22.0,
+            PlaceKind::Wilds | PlaceKind::Woodlot | PlaceKind::Quarry => 22.0,
+            PlaceKind::CharcoalPit => 12.0,
             PlaceKind::KelpBeds => 26.0,
             PlaceKind::Market | PlaceKind::Workyard => 16.0,
             PlaceKind::DivePlatform | PlaceKind::Deck | PlaceKind::Boatyard => 10.0,

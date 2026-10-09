@@ -144,6 +144,78 @@ impl Layout {
     }
 }
 
+/// A part of a town's government: who sits in it and how they're replaced.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Rule {
+    /// The heads of the oldest households; a seat passes at death.
+    Elders,
+    /// Priestesses at the summit, men administering below; a failed rite
+    /// brings the high priestess down.
+    Priestesses,
+    /// A villager speaks for a season, then the next; a poor one is skipped.
+    Speaker,
+}
+pub const RULES: [Rule; 3] = [Rule::Elders, Rule::Priestesses, Rule::Speaker];
+
+impl Rule {
+    pub fn name(self) -> &'static str {
+        match self {
+            Rule::Elders => "Elder circle",
+            Rule::Priestesses => "Priestesses",
+            Rule::Speaker => "Rotating speaker",
+        }
+    }
+}
+
+/// How a wrong is settled.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum Justice {
+    /// Elders judge: pay in coin or labour; serious cases, temporary bondage.
+    #[default]
+    Elders,
+    /// The parties fight it out (to knockout); the loser pays.
+    Duel,
+    /// The village withdraws from the offender.
+    Shunning,
+    /// It's written down, and follows them wherever arbiters reach.
+    Record,
+}
+pub const JUSTICES: [Justice; 4] = [Justice::Elders, Justice::Duel, Justice::Shunning, Justice::Record];
+
+impl Justice {
+    pub fn name(self) -> &'static str {
+        match self {
+            Justice::Elders => "Elder judgement",
+            Justice::Duel => "Trial by duel",
+            Justice::Shunning => "Shunning",
+            Justice::Record => "Public record",
+        }
+    }
+}
+
+/// What bondage may be.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum Slavery {
+    /// Slavery for life is allowed.
+    Allowed,
+    /// Only bondage for a set term, to pay off a debt or settle a dispute.
+    #[default]
+    Temporary,
+    /// Any bondage is written down and term-limited.
+    Recorded,
+}
+pub const SLAVERIES: [Slavery; 3] = [Slavery::Allowed, Slavery::Temporary, Slavery::Recorded];
+
+impl Slavery {
+    pub fn name(self) -> &'static str {
+        match self {
+            Slavery::Allowed => "Slavery allowed",
+            Slavery::Temporary => "Temporary bondage only",
+            Slavery::Recorded => "Bondage recorded and term-limited",
+        }
+    }
+}
+
 /// Where someone spends the evening, by preference.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Evening {
@@ -179,6 +251,13 @@ pub struct Profile {
     /// How their teachers lean to teach a craft: deep and slow, or quick
     /// and drilled (weights).
     pub teaching: [f32; 2],
+    /// Which part of a government they lean to set up (elders, priestesses,
+    /// speaker). All zero: they set up none of their own.
+    pub ruling: [f32; 3],
+    /// How they settle wrongs (elders, duel, shunning, record).
+    pub justice: [f32; 4],
+    /// What bondage may be (allowed, temporary, recorded).
+    pub slavery: [f32; 3],
 }
 
 /// Indexed by `Race::index()`: Roduro, Qotiro, Horaro, Ṭaḍoro.
@@ -195,6 +274,9 @@ pub const PROFILES: [Profile; 4] = [
         jobs: &[(Job::StoneTender, 8.0), (Job::Farmer, 1.6), (Job::Woodcutter, 1.4), (Job::Fisher, 0.7), (Job::Exchanger, 0.4), (Job::Arbiter, 0.4)],
         crafts: [1.0, 0.15, 0.10, 1.0, 0.10, 0.20, 0.4],
         teaching: [0.8, 0.2],
+        ruling: [1.0, 0.0, 0.0],
+        justice: [0.80, 0.10, 0.05, 0.05],
+        slavery: [0.05, 0.85, 0.10],
     },
     // Qotiro: mess halls and hearth kitchens, bells and fixed shifts, tier blocks.
     Profile {
@@ -208,6 +290,9 @@ pub const PROFILES: [Profile; 4] = [
         jobs: &[(Job::Guard, 1.8), (Job::Cook, 1.6), (Job::Runner, 2.2), (Job::Smith, 2.2), (Job::Armourer, 2.2), (Job::Priest, 1.6), (Job::Official, 1.6), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Exchanger, 0.4)],
         crafts: [1.0, 1.0, 0.8, 0.10, 0.10, 0.3, 0.4],
         teaching: [0.15, 0.85],
+        ruling: [0.0, 1.0, 0.0],
+        justice: [0.10, 0.80, 0.05, 0.05],
+        slavery: [0.80, 0.15, 0.05],
     },
     // Horaro: shared decks, the tide, the whole village one family.
     Profile {
@@ -221,6 +306,9 @@ pub const PROFILES: [Profile; 4] = [
         jobs: &[(Job::Fisher, 3.5), (Job::KelpGatherer, 3.5), (Job::Boatwright, 3.5), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Guard, 0.7)],
         crafts: [1.0, 0.10, 0.10, 0.10, 1.0, 0.2, 0.4],
         teaching: [0.5, 0.5],
+        ruling: [0.0, 0.0, 1.0],
+        justice: [0.05, 0.05, 0.85, 0.05],
+        slavery: [0.05, 0.85, 0.10],
     },
     // Ṭaḍoro: fed by their hosts (no cooking leaning of their own), the
     // stars, and lodging in others' homes.
@@ -235,6 +323,10 @@ pub const PROFILES: [Profile; 4] = [
         jobs: &[(Job::Exchanger, 8.0), (Job::Arbiter, 8.0), (Job::Teacher, 3.0), (Job::Scribe, 3.5), (Job::Merchant, 1.6), (Job::Caravaner, 1.8), (Job::Farmer, 0.5), (Job::StoneTender, 0.2), (Job::Guard, 0.7)],
         crafts: [1.0, 0.2, 0.1, 0.1, 0.4, 1.0, 0.6],
         teaching: [0.6, 0.4],
+        // No towns of their own: they serve as arbiters wherever peoples meet.
+        ruling: [0.0, 0.0, 0.0],
+        justice: [0.10, 0.05, 0.05, 0.80],
+        slavery: [0.0, 0.20, 0.80],
     },
 ];
 
@@ -268,6 +360,15 @@ pub struct Blend {
     /// How much the community takes to each craft (by `Craft::index`).
     #[serde(default)]
     pub crafts: [f32; 7],
+    /// Leaning toward each part of government (not normalised: a people with
+    /// no leaning adds nothing), toward each way of justice, and each rule
+    /// on bondage.
+    #[serde(default)]
+    pub ruling: [f32; 3],
+    #[serde(default)]
+    pub justice: [f32; 4],
+    #[serde(default)]
+    pub slavery: [f32; 3],
 }
 
 /// What a community has settled on.
@@ -279,6 +380,10 @@ pub struct Customs {
     pub layout: Layout,
     /// Which peoples have set up their own institution.
     pub own: [bool; 4],
+    #[serde(default)]
+    pub justice: Justice,
+    #[serde(default)]
+    pub slavery: Slavery,
 }
 
 impl Customs {
@@ -341,6 +446,21 @@ impl Blend {
                 }
                 c
             },
+            ruling: {
+                // Share-weighted, with the town's own nudge on each.
+                let mut w = [0.0f32; 3];
+                for (r, sh) in share.iter().enumerate() {
+                    for (k, x) in w.iter_mut().enumerate() {
+                        *x += sh * PROFILES[r].ruling[k];
+                    }
+                }
+                for (k, x) in w.iter_mut().enumerate() {
+                    *x *= (NUDGE * 0.5 * Rng::from_keys(&[seed, key, 7, k as u64, 0x4E55_4447]).normal()).exp();
+                }
+                w
+            },
+            justice: mix(&share, |p| p.justice, seed, key, 5),
+            slavery: mix(&share, |p| p.slavery, seed, key, 6),
         }
     }
 
@@ -368,6 +488,8 @@ impl Blend {
             belonging: BELONGINGS[pick(&self.belonging, roll(3))],
             layout: if roll(4) < self.split { Layout::Split } else { Layout::Combined },
             own,
+            justice: JUSTICES[pick(&self.justice, roll(5))],
+            slavery: SLAVERIES[pick(&self.slavery, roll(6))],
         }
     }
 }

@@ -303,6 +303,21 @@ impl World {
         id
     }
 
+    /// A duel the law has set: your champion against the town's, face to face.
+    pub(super) fn begin_duel(&mut self, ours: PersonId, theirs: PersonId, at: V2) -> u32 {
+        let t = self.time;
+        let id = self.start_battle(vec![(SQUAD_SIDE, vec![ours]), (1, vec![theirs])], t);
+        if let Some(b) = self.battles.iter_mut().find(|b| b.id == id) {
+            if let Some(i) = b.index_of(theirs) {
+                b.fighters[i].pos = at.add(V2::new(4.0, 0.0));
+            }
+            if let Some(i) = b.index_of(ours) {
+                b.fighters[i].pos = at;
+            }
+        }
+        id
+    }
+
     fn join_battle(&mut self, id: u32, side: Side, who: &[PersonId]) {
         let Some(i) = self.battles.iter().position(|b| b.id == id) else { return };
         let mut b = self.battles[i].clone();
@@ -463,7 +478,26 @@ impl World {
     /// Write everything that happened in a finished fight back into the world.
     fn conclude(&mut self, b: Battle) {
         let t = b.time;
+        // A duel to knockout: no one dies of it.
+        let duel = self.duels.iter().any(|d| d.battle == b.id);
+        let mut b = b;
+        if duel {
+            for f in b.fighters.iter_mut() {
+                if f.dead {
+                    f.dead = false;
+                    f.ko = true;
+                    for x in f.hp.iter_mut() {
+                        *x = x.max(-0.5 * 10.0);
+                    }
+                }
+            }
+        }
         let killed = self.write_back(&b);
+        if duel {
+            self.duel_over(&b);
+        } else {
+            self.fight_wrongs(&b);
+        }
 
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();

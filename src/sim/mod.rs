@@ -21,6 +21,7 @@ pub mod geo;
 pub mod group;
 pub mod inventory;
 pub mod jobs;
+pub mod law;
 pub mod items;
 pub mod magic;
 pub mod making;

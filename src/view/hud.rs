@@ -228,6 +228,29 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if p.in_squad && w.is_sneaking(pid) {
                 out.push((format!("Sneaking  ·  noise {:.1}  ·  visibility {:.0}%", w.noise_of(pid), w.visibility_of(pid) * 100.0), SNEAK));
             }
+            // Bound to work for someone, and for how long.
+            if let Some(b) = w.bond_of(pid) {
+                let place = &w.settlements[b.town as usize].name;
+                let line = if b.slave { format!("Enslaved in {place}") } else { format!("Bound to work in {place}  ·  {:.1} days left{}", (b.until - w.time) / 86400.0, if b.recorded { "  ·  recorded" } else { "" }) };
+                out.push((line, [0.95, 0.6, 0.3]));
+            }
+            // Your squad member's name in the town they're in.
+            if p.in_squad {
+                if let Some(town) = w.town_at(w.person_pos(pid)) {
+                    let s = w.standing(pid, town);
+                    let known = w.bounty_known_in(town);
+                    out.push((
+                        format!(
+                            "Standing in {} {:.0}: {}{}",
+                            w.settlements[town as usize].name,
+                            s,
+                            gahturiyu_sim::sim::World::standing_word(s),
+                            if known > 0.0 { format!("  ·  bounties known here {known:.0}") } else { String::new() }
+                        ),
+                        if known > 0.0 { [0.95, 0.6, 0.3] } else { DIM },
+                    ));
+                }
+            }
             if p.in_squad {
                 out.push(("Your squad".into(), TEXT));
             } else {

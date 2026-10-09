@@ -1183,9 +1183,24 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
                 let p = base + vec3(-sn, 0.0, cs) * (i as f32 * 0.55);
                 b.stick(p - vec3(cs, 0.0, sn) * 2.0 + vec3(0.0, 0.3, 0.0), p + vec3(cs, 0.0, sn) * 2.0 + vec3(0.0, 0.3, 0.0), 0.5, palette::TIMBER);
             }
-            for i in 0..4 {
-                let a = i as f32 * 1.7 + u(2) * 6.0;
-                b.block(base + vec3(a.cos(), 0.0, a.sin()) * 6.0, 1.6, 1.3, 1.0 + u(3 + i) * 0.8, a, palette::STONE);
+        }
+        PlaceKind::Quarry => {
+            // Cut blocks and a heap of spoil, with a timber hoist.
+            for i in 0..6 {
+                let a = i as f32 * 1.1 + u(2) * 6.0;
+                b.block(base + vec3(a.cos(), 0.0, a.sin()) * (4.0 + u(9 + i) * 3.0), 1.6, 1.3, 1.0 + u(3 + i) * 0.8, a, palette::STONE);
+            }
+            b.dome(base, 4.0, 3.5, 2.2, 0.0, 0.0, 6, [0.42, 0.38, 0.34]);
+            b.stick(base + vec3(4.0, 0.0, 0.0), base + vec3(4.0, 4.0, 0.0), 0.15, palette::TIMBER);
+            b.stick(base + vec3(4.0, 4.0, 0.0), base + vec3(1.5, 3.6, 0.0), 0.12, palette::TIMBER);
+        }
+        PlaceKind::CharcoalPit => {
+            // A turf-covered stack, smouldering.
+            b.dome(base, 2.6, 2.6, 1.8, 0.0, 0.0, 8, [0.25, 0.22, 0.18]);
+            gl.column(base + vec3(0.0, 1.7, 0.0), 0.25, 0.1, 0.4, 6, palette::EMBER);
+            for i in 0..3 {
+                let p = base + vec3(4.0, 0.0, -1.0 + i as f32);
+                b.stick(p - vec3(1.2, 0.0, 0.0) + vec3(0.0, 0.25, 0.0), p + vec3(1.2, 0.0, 0.0) + vec3(0.0, 0.25, 0.0), 0.25, palette::TIMBER);
             }
         }
         PlaceKind::Dock => {

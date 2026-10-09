@@ -67,6 +67,10 @@ pub enum Topic {
     Order(u16, u16),
     /// Collect an order (index into `World::orders`).
     Collect(u16),
+    /// Buy a squad member out of their bond, at this price.
+    BuyOut(PersonId, u16),
+    /// Take up a post in this town's government.
+    TakePost(super::law::Post),
     Goodbye,
 }
 
@@ -95,6 +99,8 @@ impl Topic {
             Topic::Orders => "What could you grow for me?",
             Topic::Order(..) => "Order",
             Topic::Collect(_) => "Is my order ready?",
+            Topic::BuyOut(..) => "Buy out a bond",
+            Topic::TakePost(_) => "Take up a post",
             Topic::Goodbye => "Goodbye",
         }
     }
@@ -145,6 +151,8 @@ impl World {
                 Some((k, _, style)) => format!("Teach me {} — {} ({p} coin)", k.name(), style.name()),
                 None => format!("Teach me your trade ({p} coin)"),
             },
+            Topic::BuyOut(m, p) => format!("Buy {} out of their bond ({p} coin)", self.people[m as usize].name().unwrap_or("?")),
+            Topic::TakePost(post) => format!("Take up the post of {}", post.name()),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
             Topic::Collect(k) => match self.orders.get(k as usize) {
                 Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
@@ -324,6 +332,26 @@ impl World {
             t.extend(mends.into_iter().take(4));
             if let Some((_, price, _)) = self.craft_lesson(c.npc, c.with) {
                 t.push(Topic::CraftLesson(price));
+            }
+        }
+        // At the hall: bonds bought out, posts taken up.
+        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter) && self.at_work(c.npc, self.time) {
+            if let Some(town) = self.people[c.npc as usize].home {
+                for &m in &self.squad.members {
+                    if let (Some(b), Some(p)) = (self.bond_of(m), self.buy_out_price(m)) {
+                        if b.town == town {
+                            t.push(Topic::BuyOut(m, p));
+                        }
+                    }
+                }
+                if self.standing(c.with, town) >= super::law::COUNCIL {
+                    use super::law::Post;
+                    for post in [Post::Elder, Post::Priestess, Post::Administrator, Post::Speaker, Post::Arbiter] {
+                        if self.eligible(c.with, post) {
+                            t.push(Topic::TakePost(post));
+                        }
+                    }
+                }
             }
         }
         // Tenders take orders for grown pieces.
@@ -542,6 +570,8 @@ impl World {
                     self.take_from_squad(items::id("coin"), owed);
                     for (origin, _) in known {
                         self.bounty_settled(origin);
+                        // Paying what's owed is remembered.
+                        self.add_standing(c.with, origin, 2.0);
                     }
                     format!("{owed} coin. Consider the matter closed — this time.")
                 } else {
@@ -631,6 +661,17 @@ impl World {
                     Err(e) => format!("Not just now: {e}."),
                 }
             }
+            Topic::BuyOut(m, _) => match self.buy_out(m) {
+                Ok(()) => "Paid in full. They're free to go.".into(),
+                Err(e) => format!("Not so fast: {e}."),
+            },
+            Topic::TakePost(post) => {
+                let Some(town) = p.home else { return String::new() };
+                match self.take_post(c.with, town, post) {
+                    Ok(()) => format!("Then it's settled: you sit as {} from today.", post.name()),
+                    Err(e) => format!("That can't be: {e}."),
+                }
+            }
             Topic::Goodbye => String::new(),
         }
     }
@@ -669,6 +710,8 @@ fn topic_key(t: Topic) -> u64 {
         Topic::Orders => 15,
         Topic::Order(ri, _) => 60_000 + ri as u64,
         Topic::Collect(k) => 70_000 + k as u64,
+        Topic::BuyOut(m, _) => 80_000 + m as u64,
+        Topic::TakePost(p) => 16 + p as u64,
     }
 }
 

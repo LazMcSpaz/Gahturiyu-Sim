@@ -145,6 +145,17 @@ pub struct World {
     /// Crafts being learned (from a teacher or a manual).
     pub lessons: Vec<super::making::Lesson>,
 
+    // --- Law ------------------------------------------------------------------
+    /// What each person has earned in each town (squad members, mostly).
+    pub standing_in: std::collections::BTreeMap<(PersonId, SettlementId), f32>,
+    /// The public record: wrongs written down, by person.
+    pub records: std::collections::BTreeMap<PersonId, f32>,
+    pub bonds: Vec<super::law::Bond>,
+    /// Duels the law has set, being fought.
+    pub duels: Vec<super::law::Duel>,
+    /// Who is shunned by which community, until when.
+    pub shunned: Vec<(PersonId, u32, f64)>,
+
     // --- Talk and work ------------------------------------------------------
     pub quests: Vec<super::quests::Quest>,
     /// Camps your squad has beaten in a fight.
@@ -250,6 +261,11 @@ impl World {
             crafted_count: HashMap::new(),
             orders: Vec::new(),
             lessons: Vec::new(),
+            standing_in: Default::default(),
+            records: Default::default(),
+            bonds: Vec::new(),
+            duels: Vec::new(),
+            shunned: Vec::new(),
             quests: Vec::new(),
             beaten_camps: HashSet::new(),
             regard: HashMap::new(),

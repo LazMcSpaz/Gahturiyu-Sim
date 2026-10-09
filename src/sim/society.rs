@@ -190,6 +190,9 @@ pub struct TownLife {
     pub making: Vec<super::making::Making>,
     /// Made things waiting to be sold (weapons, armour, scrolls...).
     pub shelf: Vec<super::making::Shelved>,
+    /// Who rules, and how the town is taking it.
+    #[serde(default)]
+    pub gov: super::law::Government,
     pub prosperity: f32,
     /// The merchants' coin: as of `purse_at`, refilling at `purse_rate` an hour up to `purse_cap`.
     pub purse: f32,
@@ -333,7 +336,7 @@ impl World {
                     stilts: offshore,
                     counted: [0; 4],
                     blend: Blend::default(),
-                    customs: Customs { cooking: Cooking::Household, rhythm: culture::Rhythm::Seasonal, belonging: Belonging::Lineage, layout: Layout::Combined, own: [false; 4] },
+                    customs: Customs { cooking: Cooking::Household, rhythm: culture::Rhythm::Seasonal, belonging: Belonging::Lineage, layout: Layout::Combined, own: [false; 4], justice: culture::Justice::Elders, slavery: culture::Slavery::Temporary },
                     food: Food::default(),
                     away: 0.0,
                     withdrawn: false,
@@ -354,6 +357,7 @@ impl World {
                 sources: vec![0.0; N_GOODS],
                 making: Vec::new(),
                 shelf: Vec::new(),
+                gov: Default::default(),
                 prosperity: 0.6,
                 purse: 0.0,
                 purse_at: self.time,
@@ -365,6 +369,10 @@ impl World {
             });
         }
         self.society = s;
+        // What the land offers decides some workplaces (a mine, a quarry).
+        for t in 0..self.settlements.len() {
+            self.society.towns[t].sources = self.town_sources(t as SettlementId);
+        }
         for ci in 0..self.society.communities.len() as u32 {
             self.reblend(ci);
         }
@@ -376,11 +384,14 @@ impl World {
             self.assign_jobs(ci, None);
         }
         for t in 0..self.settlements.len() {
-            self.society.towns[t].sources = self.town_sources(t as SettlementId);
             self.choose_gardeners(t as SettlementId);
             self.open_books(t as SettlementId);
         }
         self.place_stations();
+        let t0 = self.time;
+        for t in 0..self.settlements.len() {
+            self.form_government(t as SettlementId, t0);
+        }
         self.set_rates();
     }
 
@@ -470,6 +481,13 @@ impl World {
         out.push(P::Wilds);
         if n >= 40 {
             out.push(P::Woodlot);
+            out.push(P::CharcoalPit);
+            // A mine or quarry where the land gives stone or ore enough.
+            let tl = &self.society.towns[t as usize];
+            let dig: f32 = [super::jobs::Good::Rock, super::jobs::Good::Ore, super::jobs::Good::Clay, super::jobs::Good::Sand].iter().map(|g| tl.sources.get(g.index()).copied().unwrap_or(0.0)).sum();
+            if dig >= 0.4 {
+                out.push(P::Quarry);
+            }
         }
         if tl.stilts.is_some() {
             out.push(P::Dock);
@@ -574,7 +592,7 @@ impl World {
             let size = kind.size();
             let seed = r.next_u64();
             let pos = match kind {
-                PlaceKind::Fields | PlaceKind::Wilds | PlaceKind::Woodlot => {
+                PlaceKind::Fields | PlaceKind::Wilds | PlaceKind::Woodlot | PlaceKind::Quarry | PlaceKind::CharcoalPit => {
                     let base = town.reach.max(town.radius()) + if kind == PlaceKind::Fields { 18.0 } else { 55.0 };
                     let mut at = town.pos;
                     for k in 0..300 {
@@ -661,7 +679,7 @@ impl World {
             match job {
                 Job::Farmer => k == P::Fields,
                 Job::Forager => k == P::Wilds,
-                Job::Woodcutter => k == P::Woodlot,
+                Job::Woodcutter => matches!(k, P::Woodlot | P::Quarry),
                 Job::Fisher => if c.stilts { k == P::DivePlatform } else { k == P::Dock },
                 Job::KelpGatherer => c.stilts && k == P::KelpBeds,
                 Job::Boatwright => c.stilts && k == P::Boatyard,
@@ -678,7 +696,7 @@ impl World {
                 Job::Scribe => matches!(k, P::Desk | P::LettersHouse),
                 Job::Weaver => if c.stilts { k == P::Boatyard } else { matches!(k, P::WeaversShed | P::Workyard) },
                 Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => !c.stilts && matches!(k, P::Workshop | P::Workyard),
-                Job::CharcoalBurner => !c.stilts && k == P::Woodlot,
+                Job::CharcoalBurner => !c.stilts && k == P::CharcoalPit,
                 Job::Alchemist => matches!(k, P::AlchemyTable | P::HealingHouse),
                 Job::Smith => matches!(k, P::Workyard | P::Forge),
                 Job::Armourer => matches!(k, P::Workyard | P::Bench),

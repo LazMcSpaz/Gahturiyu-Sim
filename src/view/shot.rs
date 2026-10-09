@@ -70,8 +70,16 @@ pub struct Shot {
     pub summon: bool,
     /// `GAHT_HELD=1`: the squad's mage holds a Restore ritual ready.
     pub held: bool,
-    /// `GAHT_TOWN=1`: open the town panel for the nearest town.
+    /// `GAHT_TOWN=1`: open the town panel for the nearest town;
+    /// `GAHT_TOWN=roduro|qotiro|horaro|mixed`: go to the town most of that
+    /// people (or the most mixed) first.
     pub town: bool,
+    pub town_kind: Option<String>,
+    /// `GAHT_DUEL=1`: squad member 0 is judged by duel in the nearest town.
+    pub duel: bool,
+    /// `GAHT_SHUN=1`: the nearest coastal town's stilt village withdraws;
+    /// the world runs on past the next dawn.
+    pub shun: bool,
     /// `GAHT_TRADE=1`: talk to the nearest merchant at work and look at their wares.
     pub trade: bool,
     /// `GAHT_SOCIETY=runners|boats|tides`: go and watch the midday meal run,
@@ -121,6 +129,9 @@ impl Shot {
             summon: var("GAHT_SUMMON").is_some(),
             held: var("GAHT_HELD").is_some(),
             town: var("GAHT_TOWN").is_some(),
+            town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
+            duel: var("GAHT_DUEL").is_some(),
+            shun: var("GAHT_SHUN").is_some(),
             trade: var("GAHT_TRADE").is_some(),
             society: var("GAHT_SOCIETY"),
             nudge: pair("GAHT_NUDGE"),
@@ -219,6 +230,52 @@ impl Shot {
         }
         if let Some(what) = self.society.clone() {
             self.society_scene(world, &what);
+        }
+        if let Some(kind) = self.town_kind.clone() {
+            let n = world.settlements.len();
+            let share = |w: &World, t: usize, r: usize| {
+                let c = w.town_counts(t as u16);
+                c[r] as f32 / c.iter().sum::<u32>().max(1) as f32
+            };
+            let pick = match kind.as_str() {
+                "roduro" => (0..n).max_by(|&a, &b| share(world, a, 0).total_cmp(&share(world, b, 0))),
+                "qotiro" => (0..n).max_by(|&a, &b| share(world, a, 1).total_cmp(&share(world, b, 1))),
+                "horaro" => (0..n).max_by(|&a, &b| share(world, a, 2).total_cmp(&share(world, b, 2))),
+                _ => (0..n).min_by(|&a, &b| {
+                    let top = |t: usize| (0..4).map(|r| share(world, t, r)).fold(0.0, f32::max);
+                    top(a).total_cmp(&top(b))
+                }),
+            };
+            if let Some(t) = pick {
+                let at = world.settlements[t].pos.add(V2::new(25.0, 10.0));
+                world.teleport_squad(at);
+                world.step(0.001);
+            }
+        }
+        if self.shun {
+            let here = world.squad.pos;
+            if let Some(t) = world.settlements.iter().filter(|s| s.coastal).min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|s| s.id) {
+                let at = world.settlements[t as usize].pos.add(V2::new(25.0, 10.0));
+                world.teleport_squad(at);
+                let now = world.time;
+                world.wrong_village(t, now);
+                // On past the next dawn, when the boats don't come.
+                let day = gahturiyu_sim::sim::World::day_of(now);
+                let dawn = (day + 1) as f64 * 86400.0 + 7.0 * 3600.0;
+                while world.time < dawn {
+                    world.step(60.0);
+                }
+            }
+        }
+        if self.duel {
+            let here = world.squad.pos;
+            if let Some(t) = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|s| s.id) {
+                let m = world.squad.members[0];
+                world.judge(m, t, gahturiyu_sim::sim::law::Wrong::Theft, 40.0, gahturiyu_sim::sim::culture::Justice::Duel);
+                for _ in 0..40 {
+                    world.step(0.1);
+                }
+            }
         }
         if self.sneak {
             for m in world.squad.members.clone() {

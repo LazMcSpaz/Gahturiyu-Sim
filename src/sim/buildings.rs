@@ -283,7 +283,7 @@ impl World {
                 let (r_ok, r_break) = (r.f32(), r.f32());
                 self.people[pk.who as usize].stats.exercise(Skill::Security, 1.0);
                 if self.witnessed(pk.who, d.outside, pk.door.0, &mut r) {
-                    self.crime(pk.who, pk.door.0, 40.0, format!("{name} is seen picking a lock!"));
+                    self.crime_of(pk.who, pk.door.0, super::law::Wrong::Trespass, 40.0, format!("{name} is seen picking a lock!"));
                     finished = true;
                 } else if r_ok < self.pick_chance(pk.who, d.lock) {
                     self.picked.insert(pk.door, night_of(self.time));
@@ -335,6 +335,12 @@ impl World {
     }
 
     pub(super) fn crime(&mut self, who: PersonId, town: SettlementId, amount: f32, line: String) {
+        self.crime_of(who, town, super::law::Wrong::Theft, amount, line)
+    }
+
+    /// A wrong seen in a town: arrested and judged if the watch is on hand,
+    /// otherwise a bounty (whose news travels).
+    pub(super) fn crime_of(&mut self, who: PersonId, town: SettlementId, wrong: super::law::Wrong, amount: f32, line: String) {
         // In disguise, no one knows whose crime it was.
         if self.boon(who, super::effects::Does::Disguise) > 0.0 {
             self.log.push_front((self.time, format!("{line} No one knows who it was.")));
@@ -342,6 +348,12 @@ impl World {
             self.alerts.push(line);
             return;
         }
+        self.log.push_front((self.time, line.clone()));
+        if self.wrong_done(who, town, wrong, amount) {
+            self.alerts.push(line);
+            return;
+        }
+        self.log.pop_front();
         *self.bounty.entry(town).or_insert(0.0) += amount;
         self.crime_known(town);
         let total = self.bounty[&town];

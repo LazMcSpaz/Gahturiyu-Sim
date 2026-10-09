@@ -120,6 +120,10 @@ impl World {
             for town in 0..self.settlements.len() {
                 self.dawn(town as SettlementId, t);
             }
+            for town in 0..self.settlements.len() {
+                self.dawn_law(town as SettlementId, t);
+            }
+            self.shunned.retain(|s| s.2 > t);
             self.check_orders(t);
             self.tend_beds(t);
         }
@@ -161,7 +165,7 @@ impl World {
                     Job::Runner => self.society.communities[ci as usize].carried.rate += ran / RUN_HOURS * POTS_PER_RUN,
                     Job::Fisher if offshore => {
                         self.society.communities[ci as usize].catch.rate += worked * super::jobs::FISH_PER_HOUR;
-                        for (g, r) in Job::Fisher.gathers(&src, true) {
+                        for (g, r) in Job::Fisher.gathers(&src, true, None) {
                             stock[g.index()] += worked * r;
                         }
                     }
@@ -177,7 +181,8 @@ impl World {
                     }
                     j if j.craft().is_some() => crafters.push((p, j, worked)),
                     j => {
-                        for (g, r) in j.gathers(&src, offshore) {
+                        let at = l.place.and_then(|i| self.society.towns[town].places.get(i as usize)).map(|w| w.kind);
+                        for (g, r) in j.gathers(&src, offshore, at) {
                             stock[g.index()] += worked * r;
                         }
                     }
@@ -416,6 +421,12 @@ impl World {
             return None;
         }
         let town = self.people[npc as usize].home?;
+        // Shunned: their people won't trade with you.
+        if let (Some(ci), Some(me)) = (l.community, self.trader()) {
+            if self.shunned_by(me, ci) {
+                return None;
+            }
+        }
         let shelf = match self.workplace_of(npc).map(|w| w.kind) {
             Some(PlaceKind::Shop(s)) => Some(s),
             _ => None,
@@ -550,6 +561,12 @@ impl World {
             d.gear.add(items::id("coin"), price);
         }
         self.people[m as usize].recompute_might();
+        // Bringing a town what it lacks is a favour.
+        if let Some(g) = super::jobs::good_of(items::item(it).key) {
+            if self.price_factor(town, g) >= 1.3 {
+                self.add_standing(m, town, 0.5);
+            }
+        }
         let tl = &mut self.society.towns[town as usize];
         match super::jobs::good_of(items::item(it).key) {
             Some(g) => tl.stock[g.index()].base += Self::units_of(g, it),
