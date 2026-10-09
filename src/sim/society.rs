@@ -828,6 +828,7 @@ impl World {
                 Job::Weaver => if c.stilts { k == P::Boatyard } else { matches!(k, P::WeaversShed | P::Workyard) },
                 Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => !c.stilts && matches!(k, P::Workshop | P::Workyard),
                 Job::CharcoalBurner => !c.stilts && k == P::CharcoalPit,
+                Job::Carpenter | Job::Mason => !c.stilts && matches!(k, P::Workyard | P::Workshop),
                 Job::Alchemist => matches!(k, P::AlchemyTable | P::HealingHouse),
                 Job::Smith => matches!(k, P::Workyard | P::Forge),
                 Job::Armourer => matches!(k, P::Workyard | P::Bench),
@@ -889,6 +890,8 @@ impl World {
             Job::Weaver => self.craft_posts(c, Job::Weaver, nf),
             Job::Smith | Job::Armourer | Job::Scribe if !c.stilts => self.craft_posts(c, job, nf),
             Job::Tanner | Job::Woodworker if !c.stilts && n >= 40 => 1,
+            // Builders by the community's leaning, at least one in a town of size.
+            Job::Carpenter | Job::Mason if !c.stilts && n >= 40 => self.craft_posts(c, job, nf).max(1),
             Job::Leatherworker if !c.stilts => 1 + n / 150,
             Job::Tailor if !c.stilts && n >= 60 => 1,
             Job::CharcoalBurner if !c.stilts && n >= 60 && c.blend.crafts[super::materials::Craft::Smithing.index()] > 0.3 => 1,
@@ -906,7 +909,7 @@ impl World {
     }
 
     /// The order posts are filled in: what a town can least do without first.
-    pub(super) const POST_ORDER: [Job; 29] = [
+    pub(super) const POST_ORDER: [Job; 31] = [
         Job::Guard,
         Job::Cook,
         Job::Farmer,
@@ -927,6 +930,8 @@ impl World {
         Job::Woodworker,
         Job::Tailor,
         Job::CharcoalBurner,
+        Job::Carpenter,
+        Job::Mason,
         Job::Exchanger,
         Job::Teacher,
         Job::Arbiter,

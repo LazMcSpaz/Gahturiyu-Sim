@@ -157,6 +157,10 @@ fn breaking_a_camp_is_noticed_and_paid() {
         w.people[m as usize].recompute_might();
     }
     w.teleport_squad(at.add(V2::new(20.0, 0.0)));
+    // They go in (bandits don't always pick a fight with veterans).
+    let first = w.groups.iter().find(|g| g.id == camp).map(|g| g.members[0]).expect("the camp's band");
+    let all = w.squad.members.clone();
+    assert!(w.attack(&all, first), "the squad goes in");
     walk(&mut w, 600.0);
     assert!(w.beaten_camps.contains(&camp) || !w.camps.iter().any(|c| c.group == camp), "the camp should be beaten");
     assert_eq!(w.quests[0].stage, Stage::Report);

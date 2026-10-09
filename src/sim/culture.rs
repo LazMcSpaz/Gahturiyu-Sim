@@ -246,8 +246,9 @@ pub struct Profile {
     /// Leanings toward particular work (multipliers; anything not listed is 1).
     pub jobs: &'static [(Job, f32)],
     /// How much they take to each craft (by `Craft::index`: handcraft,
-    /// smithing, armouring, tending, weaving, inscription, alchemy).
-    pub crafts: [f32; 7],
+    /// smithing, armouring, tending, weaving, inscription, alchemy,
+    /// carpentry, masonry).
+    pub crafts: [f32; 9],
     /// How their teachers lean to teach a craft: deep and slow, or quick
     /// and drilled (weights).
     pub teaching: [f32; 2],
@@ -277,7 +278,7 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.02,
         institution: Institution::TendersYard,
         jobs: &[(Job::StoneTender, 8.0), (Job::Farmer, 1.6), (Job::Woodcutter, 1.4), (Job::Fisher, 0.7), (Job::Exchanger, 0.4), (Job::Arbiter, 0.4)],
-        crafts: [1.0, 0.15, 0.10, 1.0, 0.10, 0.20, 0.4],
+        crafts: [1.0, 0.15, 0.10, 1.0, 0.10, 0.20, 0.4, 0.4, 0.5],
         teaching: [0.8, 0.2],
         ruling: [1.0, 0.0, 0.0],
         justice: [0.80, 0.10, 0.05, 0.05],
@@ -295,7 +296,7 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.02,
         institution: Institution::MessHall,
         jobs: &[(Job::Guard, 1.8), (Job::Cook, 1.6), (Job::Runner, 2.2), (Job::Smith, 2.2), (Job::Armourer, 2.2), (Job::Priest, 1.6), (Job::Official, 1.6), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Exchanger, 0.4)],
-        crafts: [1.0, 1.0, 0.8, 0.10, 0.10, 0.3, 0.4],
+        crafts: [1.0, 1.0, 0.8, 0.10, 0.10, 0.3, 0.4, 0.3, 1.0],
         teaching: [0.15, 0.85],
         ruling: [0.0, 1.0, 0.0],
         justice: [0.10, 0.80, 0.05, 0.05],
@@ -313,7 +314,7 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.04,
         institution: Institution::Deck,
         jobs: &[(Job::Fisher, 3.5), (Job::KelpGatherer, 3.5), (Job::Boatwright, 3.5), (Job::Healer, 1.3), (Job::StoneTender, 0.3), (Job::Guard, 0.7)],
-        crafts: [1.0, 0.10, 0.10, 0.10, 1.0, 0.2, 0.4],
+        crafts: [1.0, 0.10, 0.10, 0.10, 1.0, 0.2, 0.4, 0.8, 0.1],
         teaching: [0.5, 0.5],
         ruling: [0.0, 0.0, 1.0],
         justice: [0.05, 0.05, 0.85, 0.05],
@@ -332,7 +333,7 @@ pub const PROFILES: [Profile; 4] = [
         lodger: 0.85,
         institution: Institution::LettersHouse,
         jobs: &[(Job::Exchanger, 8.0), (Job::Arbiter, 8.0), (Job::Teacher, 3.0), (Job::Scribe, 3.5), (Job::Merchant, 1.6), (Job::Caravaner, 1.8), (Job::Farmer, 0.5), (Job::StoneTender, 0.2), (Job::Guard, 0.7)],
-        crafts: [1.0, 0.2, 0.1, 0.1, 0.4, 1.0, 0.6],
+        crafts: [1.0, 0.2, 0.1, 0.1, 0.4, 1.0, 0.6, 0.1, 0.1],
         teaching: [0.6, 0.4],
         // No towns of their own: they serve as arbiters wherever peoples meet.
         ruling: [0.0, 0.0, 0.0],
@@ -372,7 +373,7 @@ pub struct Blend {
     pub minority: [f32; 4],
     /// How much the community takes to each craft (by `Craft::index`).
     #[serde(default)]
-    pub crafts: [f32; 7],
+    pub crafts: [f32; 9],
     /// Leaning toward each part of government (not normalised: a people with
     /// no leaning adds nothing), toward each way of justice, and each rule
     /// on bondage.
@@ -451,7 +452,7 @@ impl Blend {
             split,
             minority,
             crafts: {
-                let mut c = [0.0; 7];
+                let mut c = [0.0; 9];
                 for (r, sh) in share.iter().enumerate() {
                     for (k, x) in c.iter_mut().enumerate() {
                         *x += sh * PROFILES[r].crafts[k];

@@ -55,10 +55,14 @@ pub enum Craft {
     /// Paper, ink and scrolls.
     Inscription,
     Alchemy,
+    /// Timber building (huts, longhouses, palisades): bases, Part 7.
+    Carpentry,
+    /// Laid stone (rubble walls, wells, kitchens): bases, Part 7.
+    Masonry,
 }
 
-pub const CRAFTS: [Craft; 7] = [Craft::Handcraft, Craft::Smithing, Craft::Armoring, Craft::Tending, Craft::Weaving, Craft::Inscription, Craft::Alchemy];
-pub const N_CRAFTS: usize = 7;
+pub const CRAFTS: [Craft; 9] = [Craft::Handcraft, Craft::Smithing, Craft::Armoring, Craft::Tending, Craft::Weaving, Craft::Inscription, Craft::Alchemy, Craft::Carpentry, Craft::Masonry];
+pub const N_CRAFTS: usize = 9;
 
 impl Craft {
     pub fn index(self) -> usize {
@@ -73,6 +77,8 @@ impl Craft {
             Craft::Weaving => Skill::Weaving,
             Craft::Inscription => Skill::Inscription,
             Craft::Alchemy => Skill::Alchemy,
+            Craft::Carpentry => Skill::Carpentry,
+            Craft::Masonry => Skill::Masonry,
         }
     }
     pub fn of_skill(s: Skill) -> Option<Craft> {
@@ -93,6 +99,8 @@ impl Craft {
             Craft::Weaving => "weaving and sealing",
             Craft::Inscription => "paper, ink and scrolls",
             Craft::Alchemy => "alchemy",
+            Craft::Carpentry => "carpentry",
+            Craft::Masonry => "masonry",
         }
     }
 }

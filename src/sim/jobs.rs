@@ -52,9 +52,13 @@ pub enum Job {
     Woodworker,
     /// Wood into charcoal (and ash).
     CharcoalBurner,
+    /// Timber building; teaches carpentry (Part 7).
+    Carpenter,
+    /// Laid stone; teaches masonry (Part 7).
+    Mason,
 }
 
-pub const ALL_JOBS: [Job; 31] = [
+pub const ALL_JOBS: [Job; 33] = [
     Job::Farmer,
     Job::Fisher,
     Job::Forager,
@@ -86,6 +90,8 @@ pub const ALL_JOBS: [Job; 31] = [
     Job::Tailor,
     Job::Woodworker,
     Job::CharcoalBurner,
+    Job::Carpenter,
+    Job::Mason,
 ];
 
 impl Job {
@@ -123,6 +129,8 @@ impl Job {
             Job::Tailor => "Tailor",
             Job::Woodworker => "Woodworker",
             Job::CharcoalBurner => "Charcoal burner",
+            Job::Carpenter => "Carpenter",
+            Job::Mason => "Mason",
         }
     }
 
@@ -134,7 +142,7 @@ impl Job {
             Job::Priest | Job::Merchant | Job::Healer | Job::Alchemist => 0.7,
             Job::Runner | Job::Cook | Job::Innkeeper | Job::StoneTender => 0.5,
             Job::KelpGatherer | Job::Labourer | Job::Caravaner => 0.35,
-            Job::Guard | Job::Boatwright | Job::Smith | Job::Armourer | Job::CharcoalBurner | Job::Tanner => 0.3,
+            Job::Guard | Job::Boatwright | Job::Smith | Job::Armourer | Job::CharcoalBurner | Job::Tanner | Job::Carpenter | Job::Mason => 0.3,
             Job::Weaver | Job::Leatherworker | Job::Tailor | Job::Woodworker => 0.6,
             Job::Farmer | Job::Forager | Job::Fisher | Job::Woodcutter => 0.2,
         }
@@ -150,7 +158,7 @@ impl Job {
             Job::Farmer | Job::Forager | Job::Cook => 1.0,
             Job::Fisher | Job::Woodcutter | Job::Tanner => 1.1,
             Job::Leatherworker | Job::Tailor | Job::Woodworker => 1.2,
-            Job::Weaver | Job::Boatwright => 1.3,
+            Job::Weaver | Job::Boatwright | Job::Carpenter | Job::Mason => 1.3,
             Job::Priest | Job::Teacher | Job::Scribe => 1.5,
             Job::Guard | Job::Caravaner => 1.6,
             Job::Smith | Job::Armourer | Job::Alchemist | Job::Healer | Job::Innkeeper | Job::StoneTender => 1.8,
@@ -239,6 +247,8 @@ impl Job {
             Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => C::Handcraft,
             Job::Scribe => C::Inscription,
             Job::Alchemist => C::Alchemy,
+            Job::Carpenter => C::Carpentry,
+            Job::Mason => C::Masonry,
             _ => return None,
         })
     }

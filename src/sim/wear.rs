@@ -307,6 +307,8 @@ impl Craft {
             Craft::Weaving => S::Loom,
             Craft::Inscription => S::Desk,
             Craft::Alchemy => S::AlchemyTable,
+            // Building crafts mend nothing at a station: a workbench stands in.
+            Craft::Carpentry | Craft::Masonry => S::Workbench,
         }
     }
 }

@@ -202,6 +202,8 @@ pub static RECIPES: &[Recipe] = &[
     r("manual_weaving", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
     r("manual_inscription", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
     r("manual_alchemy", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_carpentry", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_masonry", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
     // Alchemy: a mortar and pestle in your pack does as well as the table.
     r("healing_draught", 1, &[("kelp_frond", 2), ("ash_moss", 1)], K::Alchemy, 15.0, S::AlchemyTable, 40.0),
     r("mana_tonic", 1, &[("ghostcap", 2), ("salt_crystal", 1)], K::Alchemy, 25.0, S::AlchemyTable, 40.0),

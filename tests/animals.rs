@@ -803,8 +803,11 @@ fn travellers_beaten_by_animals_are_not_robbed_and_a_called_off_stalk_comes_to_n
     let rec = w.animals.attacks.iter().find(|a| a.herd == maw && a.victim == Some(caravan)).expect("the Cragmaw's attack").clone();
     assert!(rec.animals_won, "a caravan beat a Cragmaw: {rec:?}");
     assert!(w.animals.herds[maw as usize].hunt.is_none());
-    // While it's fighting, nobody can set about it a second time.
-    assert!(w.herd_in_fray(maw));
+    // While it's fighting, nobody can set about it a second time. (A lone
+    // traveller can be finished in under a second: then it's already over.)
+    if !rec.over {
+        assert!(w.herd_in_fray(maw));
+    }
     let mut tries = 0;
     while !w.animals.attacks.iter().any(|a| a.battle == rec.battle && a.over) {
         w.step(30.0);

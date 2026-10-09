@@ -65,8 +65,11 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
         b.fighters[i].target = None;
         return;
     }
+    // An order to go for someone lapses once they've turned and run out of
+    // reach: chasing a runner who's as quick as you never ends.
+    let runaway = |j: usize| b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach() + 4.0;
     let ordered = match me.order {
-        Some(Order::Attack(j)) if b.fighters[j].active() => Some(j),
+        Some(Order::Attack(j)) if b.fighters[j].active() && !runaway(j) => Some(j),
         Some(Order::Attack(_)) => {
             b.fighters[i].order = None;
             None

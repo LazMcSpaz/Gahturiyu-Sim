@@ -329,6 +329,8 @@ pub static ITEMS: &[ItemDef] = &[
     manual("manual_weaving", "Manual of weaving and sealing", Skill::Weaving),
     manual("manual_inscription", "Manual of paper and ink", Skill::Inscription),
     manual("manual_alchemy", "Manual of alchemy", Skill::Alchemy),
+    manual("manual_carpentry", "Manual of carpentry", Skill::Carpentry),
+    manual("manual_masonry", "Manual of masonry", Skill::Masonry),
     // --- Food (placeholder names) ---------------------------------------------
     food("dried_fish", "Dried fish", 0.3, 4.0, 25.0),
     food("flatbread", "Flatbread", 0.4, 3.0, 30.0),
