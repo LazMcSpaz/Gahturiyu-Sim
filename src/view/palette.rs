@@ -25,6 +25,11 @@ const SANDROCK: Rgb = [0.74, 0.56, 0.36];
 pub const SEA: Rgb = [0.22, 0.32, 0.34];
 pub const SEA_DEEP: Rgb = [0.14, 0.22, 0.27];
 pub const ROAD: Rgb = [0.45, 0.36, 0.25];
+/// A forged town's paved lane, its stair treads and their risers.
+pub const COBBLES: Rgb = [0.40, 0.39, 0.37];
+pub const PATH: Rgb = [0.40, 0.34, 0.26];
+pub const STAIR: Rgb = [0.50, 0.48, 0.44];
+pub const STAIR_RISER: Rgb = [0.30, 0.29, 0.27];
 
 pub const STONE: Rgb = [0.38, 0.39, 0.41];
 pub const SANDSTONE: Rgb = [0.78, 0.63, 0.42];

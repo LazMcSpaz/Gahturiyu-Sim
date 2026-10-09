@@ -1,8 +1,8 @@
 //! A town authored by the town forge (`src/bin/town_forge`): its land as the
 //! editor's layers, and what each approved step placed on it. The forge
 //! writes `assets/towns/<name>/`; the game reads it when a world is made.
-//! Nothing here changes what happens yet: the homes are scenery until the
-//! town becomes a settlement (a later step).
+//! Nothing here changes what happens yet: the homes and ways are scenery
+//! until the town becomes a settlement (a later step).
 
 use super::geo::V2;
 use super::mapedit::MapEdits;
@@ -35,11 +35,46 @@ pub struct Founding {
     pub approach: Vec<V2>,
 }
 
+/// What a way is made of.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WayKind {
+    /// A paved lane: the spine and the busiest ways.
+    Cobbles,
+    /// A trodden earth path.
+    Dirt,
+    /// Carved stone stairs up a steep stretch.
+    Stairs,
+    /// A stone slab bridge over a stream.
+    Bridge,
+}
+
+/// One stretch of way, a line of points on the ground.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Way {
+    pub kind: WayKind,
+    pub pts: Vec<V2>,
+    /// Metres across.
+    pub width: f32,
+}
+
+impl Way {
+    pub fn length(&self) -> f32 {
+        self.pts.windows(2).map(|s| s[0].dist(s[1])).sum()
+    }
+}
+
+/// Step 4's record: the ways between the founding places.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Ways {
+    pub ways: Vec<Way>,
+}
+
 /// Everything the game keeps of a forged town.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Town {
     pub name: String,
     pub founding: Founding,
+    pub ways: Ways,
 }
 
 impl Town {
@@ -58,6 +93,7 @@ pub struct Forge {
 
 pub const LAND_FILE: &str = "land.gmap";
 pub const FOUNDING_FILE: &str = "step_3_founding.ron";
+pub const WAYS_FILE: &str = "step_4_ways.ron";
 
 /// Read a forged town from `assets/towns/<name>/`, if its land is for this
 /// world seed. Steps not yet written are simply absent.
@@ -74,6 +110,10 @@ pub fn load(dir: &Path, world_seed: u64) -> Result<Option<Forge>, String> {
         Ok(text) => ron::from_str(&text).map_err(|e| format!("{}: {e}", FOUNDING_FILE))?,
         Err(_) => Founding::default(),
     };
+    let ways = match std::fs::read_to_string(dir.join(WAYS_FILE)) {
+        Ok(text) => ron::from_str(&text).map_err(|e| format!("{}: {e}", WAYS_FILE))?,
+        Err(_) => Ways::default(),
+    };
     let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "forge".into());
-    Ok(Some(Forge { land, town: Town { name, founding } }))
+    Ok(Some(Forge { land, town: Town { name, founding, ways } }))
 }

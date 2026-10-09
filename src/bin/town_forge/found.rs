@@ -59,6 +59,8 @@ pub struct Founding {
 
 /// Steeper than this can't be walked (degrees).
 pub const WALK_MAX_DEG: f32 = 26.0;
+/// Steeper than this (rise per metre, tan 18°) gets stairs cut.
+pub const STAIR_GRADE: f32 = 0.3249;
 
 /// A route-finder over the land at `step` metres.
 pub struct Router<'a> {
@@ -70,6 +72,11 @@ pub struct Router<'a> {
     worn: Vec<f32>,
     /// The steepest grade allowed (degrees).
     pub max_deg: f32,
+    /// Extra cost per metre on stretches steep enough to need stairs
+    /// (cutting them is work; 1 = none).
+    pub stair_cost: f32,
+    /// Keep out of streams (wet feet): extra cost on stream cells.
+    pub avoid_wet: bool,
 }
 
 #[derive(PartialEq)]
@@ -89,7 +96,7 @@ impl Ord for Item {
 impl<'a> Router<'a> {
     pub fn new(land: &'a Land, step: usize) -> Router<'a> {
         let (w, h) = (land.w / step, land.h / step);
-        Router { land, step, w, h, worn: vec![0.0; w * h], max_deg: WALK_MAX_DEG }
+        Router { land, step, w, h, worn: vec![0.0; w * h], max_deg: WALK_MAX_DEG, stair_cost: 1.0, avoid_wet: false }
     }
 
     fn node(&self, p: V2) -> usize {
@@ -98,7 +105,7 @@ impl<'a> Router<'a> {
         j * self.w + i
     }
 
-    fn pos(&self, n: usize) -> V2 {
+    pub fn pos(&self, n: usize) -> V2 {
         V2::new(self.land.x0 + (n % self.w) as f32 * self.land.cell * self.step as f32, self.land.y0 + (n / self.w) as f32 * self.land.cell * self.step as f32)
     }
 
@@ -116,9 +123,8 @@ impl<'a> Router<'a> {
         dist[self.node(p)].is_finite()
     }
 
-    /// The cheapest walk from `a` to `b`, if there is one, and the steepest
-    /// grade along it (degrees).
-    pub fn route(&self, a: V2, b: V2) -> Option<(Vec<V2>, f32)> {
+    /// The cheapest walk from `a` to `b` as grid nodes, if there is one.
+    pub fn route_nodes(&self, a: V2, b: V2) -> Option<Vec<usize>> {
         let (sa, sb) = (self.node(a), self.node(b));
         let (dist, prev) = self.search(a, Some(sb));
         if !dist[sb].is_finite() {
@@ -132,6 +138,20 @@ impl<'a> Router<'a> {
             path.push(prev[last] as usize);
         }
         path.reverse();
+        Some(path)
+    }
+
+    /// Wear a route of nodes in.
+    pub fn wear_nodes(&mut self, path: &[usize]) {
+        for &k in path {
+            self.worn[k] = 1.0;
+        }
+    }
+
+    /// The cheapest walk from `a` to `b`, if there is one, and the steepest
+    /// grade along it (degrees).
+    pub fn route(&self, a: V2, b: V2) -> Option<(Vec<V2>, f32)> {
+        let path = self.route_nodes(a, b)?;
         let mut steepest: f32 = 0.0;
         for s in path.windows(2) {
             let len = self.pos(s[0]).dist(self.pos(s[1])).max(0.1);
@@ -182,7 +202,14 @@ impl<'a> Router<'a> {
                     continue;
                 }
                 // Climbing costs; a worn path is easier; rock underfoot is slower.
-                let rough = if self.land.kind(self.land.cell_of(self.pos(nk))) == Kind::Rock { 1.3 } else { 1.0 };
+                let cell = self.land.cell_of(self.pos(nk));
+                let mut rough = if self.land.kind(cell) == Kind::Rock { 1.3 } else { 1.0 };
+                if grade > STAIR_GRADE {
+                    rough *= self.stair_cost;
+                }
+                if self.avoid_wet {
+                    rough *= 1.0 + 3.0 * self.land.stream(cell);
+                }
                 let cost = len * (1.0 + 9.0 * grade * grade) * rough * (1.0 - 0.55 * self.worn[nk]);
                 let nd = d + cost;
                 if nd < dist[nk] {

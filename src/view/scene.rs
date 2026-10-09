@@ -368,6 +368,17 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 let sink = (t.slope(h.at) * 6.0).min(2.0);
                 scene.forge.extend(models.spawn(&mut commands, &h.model, to3(h.at, ground - sink), h.rot, 0.0));
             }
+            // The ways: lanes laid on the drawn ground, stairs cut as treads,
+            // slab bridges.
+            let on_ground = |p: V2| grid.height(t, p);
+            let mut wb = Builder::new();
+            for way in &town.ways.ways {
+                forge_way(&mut wb, &on_ground, way);
+            }
+            if !wb.is_empty() {
+                let (e, _) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, wb, GroundMesh);
+                scene.forge.push(e);
+            }
         }
     }
 
@@ -774,6 +785,120 @@ fn draped_ribbon(b: &mut Builder, ground: &dyn Fn(V2) -> f32, a: V2, c: V2, widt
         let v = q.map(|p| to3(p, ground(p) + lift));
         b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
     }
+}
+
+/// A strip laid over the land along a line of points, with mitred corners
+/// so it reads as one way rather than a row of plates. Each stretch is cut
+/// into pieces no longer than `piece` metres so it follows the ground.
+fn draped_strip(b: &mut Builder, ground: &dyn Fn(V2) -> f32, pts: &[V2], width: f32, lift: f32, col: Rgb, piece: f32) {
+    let pts: Vec<V2> = pts.iter().copied().fold(Vec::new(), |mut v: Vec<V2>, p| {
+        if v.last().is_none_or(|q| q.dist(p) > 0.05) {
+            v.push(p);
+        }
+        v
+    });
+    if pts.len() < 2 {
+        return;
+    }
+    let dir = |i: usize| pts[i + 1].sub(pts[i]).scale(1.0 / pts[i + 1].dist(pts[i]));
+    let n = pts.len();
+    // The side offset at each point: perpendicular to the mean of its two
+    // segments, lengthened so the strip keeps its width round the corner.
+    let mut side = Vec::with_capacity(n);
+    for i in 0..n {
+        let d = if i == 0 {
+            dir(0)
+        } else if i == n - 1 {
+            dir(n - 2)
+        } else {
+            let m = dir(i - 1).add(dir(i));
+            let l = m.len();
+            if l < 1e-3 { dir(i) } else { m.scale(1.0 / l) }
+        };
+        let perp = V2::new(-d.y, d.x);
+        let dot = if i == 0 || i == n - 1 { 1.0 } else { { let q = V2::new(-dir(i).y, dir(i).x); (perp.x * q.x + perp.y * q.y).max(0.5) } };
+        side.push(perp.scale(width * 0.5 / dot));
+    }
+    let lc = palette::lin(col);
+    for i in 0..n - 1 {
+        let (l0, r0, l1, r1) = (pts[i].sub(side[i]), pts[i].add(side[i]), pts[i + 1].sub(side[i + 1]), pts[i + 1].add(side[i + 1]));
+        let k = ((pts[i].dist(pts[i + 1]) / piece).ceil() as usize).max(1);
+        for j in 0..k {
+            let (t0, t1) = (j as f32 / k as f32, (j + 1) as f32 / k as f32);
+            let q = [l0.lerp(l1, t0), r0.lerp(r1, t0), r0.lerp(r1, t1), l0.lerp(l1, t1)];
+            let v = q.map(|p| to3(p, ground(p) + lift));
+            b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+        }
+    }
+}
+
+/// One stretch of a forged town's way, on the drawn ground.
+fn forge_way(b: &mut Builder, ground: &dyn Fn(V2) -> f32, way: &gahturiyu_sim::sim::forge::Way) {
+    use gahturiyu_sim::sim::forge::WayKind;
+    match way.kind {
+        WayKind::Cobbles | WayKind::Dirt => {
+            let col = if way.kind == WayKind::Cobbles { palette::COBBLES } else { palette::PATH };
+            draped_strip(b, ground, &way.pts, way.width, 0.12, col, 1.5);
+        }
+        WayKind::Stairs => {
+            // Treads of RISER rise, each a flat slab with a riser face below it,
+            // up (or down) the true ground.
+            const RISER: f32 = 0.18;
+            let (top, face) = (palette::lin(palette::STAIR), palette::lin(palette::STAIR_RISER));
+            for seg in way.pts.windows(2) {
+                let (a, c) = (seg[0], seg[1]);
+                let len = a.dist(c);
+                if len < 0.2 {
+                    continue;
+                }
+                let (za, zc) = (ground(a), ground(c));
+                let rise = zc - za;
+                let n = ((rise.abs() / RISER).ceil() as usize).max(1);
+                let d = c.sub(a).scale(1.0 / len);
+                let side = V2::new(-d.y, d.x).scale(way.width * 0.5);
+                for i in 0..n {
+                    let (t0, t1) = (i as f32 / n as f32, (i + 1) as f32 / n as f32);
+                    let (p0, p1) = (a.lerp(c, t0), a.lerp(c, t1));
+                    // The tread sits at the higher of its two ends' step heights.
+                    let z = za + rise * if rise >= 0.0 { t1 } else { t0 } + 0.06;
+                    let zlow = z - RISER;
+                    let q = [p0.sub(side), p0.add(side), p1.add(side), p1.sub(side)];
+                    b.quad_lin(q.map(|p| to3(p, z)), [Vec3::Y; 4], [top; 4]);
+                    // The riser: at the uphill edge when climbing, downhill edge when descending.
+                    let (e0, e1) = if rise >= 0.0 { (q[3], q[2]) } else { (q[1], q[0]) };
+                    let nrm = if rise >= 0.0 { to3(d.scale(-1.0), 0.0) } else { to3(d, 0.0) };
+                    b.quad_lin([to3(e0, zlow), to3(e1, zlow), to3(e1, z), to3(e0, z)], [nrm; 4], [face; 4]);
+                }
+            }
+        }
+        WayKind::Bridge => {
+            let (a, c) = (way.pts[0], *way.pts.last().unwrap());
+            let len = a.dist(c);
+            if len < 0.2 {
+                return;
+            }
+            let d = c.sub(a).scale(1.0 / len);
+            let side = V2::new(-d.y, d.x).scale(way.width * 0.5);
+            let (za, zc) = (ground(a) + 0.35, ground(c) + 0.35);
+            let (top, face) = (palette::lin(palette::STAIR), palette::lin(palette::STAIR_RISER));
+            let q = [a.sub(side), a.add(side), c.add(side), c.sub(side)];
+            let zq = [za, za, zc, zc];
+            // Deck, its two sides and its underside, and a low parapet each side.
+            b.quad_lin([to3(q[0], zq[0]), to3(q[1], zq[1]), to3(q[2], zq[2]), to3(q[3], zq[3])], [Vec3::Y; 4], [top; 4]);
+            b.quad_lin([to3(q[0], zq[0] - 0.5), to3(q[1], zq[1] - 0.5), to3(q[2], zq[2] - 0.5), to3(q[3], zq[3] - 0.5)], [Vec3::NEG_Y; 4], [face; 4]);
+            for (i, j) in [(0, 3), (1, 2)] {
+                let nrm = to3(q[i].sub(a).scale(1.0 / way.width.max(0.1)), 0.0);
+                b.quad_lin([to3(q[i], zq[i] - 0.5), to3(q[j], zq[j] - 0.5), to3(q[j], zq[j]), to3(q[i], zq[i])], [nrm; 4], [face; 4]);
+                let inner = [q[i].sub(nrm_v2(nrm).scale(0.3)), q[j].sub(nrm_v2(nrm).scale(0.3))];
+                b.quad_lin([to3(q[i], zq[i]), to3(q[j], zq[j]), to3(q[j], zq[j] + 0.6), to3(q[i], zq[i] + 0.6)], [nrm; 4], [face; 4]);
+                b.quad_lin([to3(inner[0], zq[i] + 0.6), to3(inner[1], zq[j] + 0.6), to3(q[j], zq[j] + 0.6), to3(q[i], zq[i] + 0.6)], [Vec3::Y; 4], [top; 4]);
+            }
+        }
+    }
+}
+
+fn nrm_v2(n: Vec3) -> V2 {
+    V2::new(n.x, n.z)
 }
 
 /// A ring laid on the land. Far pieces are widened so they stay a pixel or

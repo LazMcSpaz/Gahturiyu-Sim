@@ -181,9 +181,10 @@ snow-capped hill, sand and mud, more trees, rocks; screenshots ignore
 the log; slow to set up), `GAHT_SOCIETY=runners|boats|tides` (go and
 watch the midday meal run, the dawn boats, or a stilt village; for tides
 compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the
-moment holds), `GAHT_FORGE=1` (start at the forged demo town; the land and
-homes come from `assets/towns/demo`, written by
-`cargo run --release --bin town_forge -- step N`). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+moment holds), `GAHT_FORGE=1` (start at the forged demo town; the land, homes
+and ways come from `assets/towns/demo`, written by
+`cargo run --release --bin town_forge -- step N`; `GAHT_NUDGE` moves the
+squad from there). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
 `headless society [days] [seed]` prints every town's customs, jobs, food and money.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package

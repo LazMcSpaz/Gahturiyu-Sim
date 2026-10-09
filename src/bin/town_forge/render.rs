@@ -72,6 +72,44 @@ const HIDE: [f32; 3] = [0.66, 0.58, 0.66];
 const OCHRE: [f32; 3] = [0.72, 0.50, 0.30];
 const WOOD: [f32; 3] = [0.42, 0.31, 0.21];
 
+// ---- Ways on the ground ---------------------------------------------------
+
+/// Paint the ways into the field's ground colour, so the views show them.
+pub fn paint_ways(f: &mut Field, ways: &[gahturiyu_sim::sim::forge::Way]) {
+    use gahturiyu_sim::sim::forge::WayKind as K;
+    for w in ways {
+        let col = match w.kind {
+            K::Cobbles => [0.58, 0.56, 0.52],
+            K::Dirt => [0.50, 0.38, 0.24],
+            K::Stairs => [0.76, 0.73, 0.66],
+            K::Bridge => continue,
+        };
+        let half = w.width * 0.5 + f.cell * 0.4;
+        for s in w.pts.windows(2) {
+            let (a, b) = (s[0], s[1]);
+            let (lo_x, hi_x) = (a.x.min(b.x) - half, a.x.max(b.x) + half);
+            let (lo_y, hi_y) = (a.y.min(b.y) - half, a.y.max(b.y) + half);
+            let (i0, i1) = (((lo_x - f.x0) / f.cell).floor().max(0.0) as usize, (((hi_x - f.x0) / f.cell).ceil().max(0.0) as usize).min(f.w - 1));
+            let (j0, j1) = (((lo_y - f.y0) / f.cell).floor().max(0.0) as usize, (((hi_y - f.y0) / f.cell).ceil().max(0.0) as usize).min(f.h - 1));
+            let d = b.sub(a);
+            let len2 = d.x * d.x + d.y * d.y;
+            for j in j0..=j1 {
+                for i in i0..=i1 {
+                    let p = V2::new(f.x0 + i as f32 * f.cell, f.y0 + j as f32 * f.cell);
+                    let t = if len2 > 0.0 { ((p.x - a.x) * d.x + (p.y - a.y) * d.y) / len2 } else { 0.0 }.clamp(0.0, 1.0);
+                    let q = a.add(d.scale(t));
+                    if p.dist(q) <= half {
+                        let k = j * f.w + i;
+                        // Stairs: a tread line every other metre along.
+                        let shade = if w.kind == K::Stairs && ((t * a.dist(b)) / 0.8).floor() as i32 % 2 == 0 { 0.8 } else { 1.0 };
+                        f.albedo[k] = [col[0] * shade, col[1] * shade, col[2] * shade];
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---- Ground colour --------------------------------------------------------
 
 /// Colour every cell of the field from its height, slope and rockiness.

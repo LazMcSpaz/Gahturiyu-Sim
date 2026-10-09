@@ -16,6 +16,7 @@ mod geology;
 mod land;
 mod noise;
 mod render;
+mod ways;
 
 use canvas::{rgb, Canvas};
 use concepts::Concept;
@@ -95,6 +96,7 @@ fn main() {
         Some(1) => step1(&a),
         Some(2) => eprintln!("Step 2 (rock and ground detail) comes out of the weathering and is baked with Step 1."),
         Some(3) => step3(&a),
+        Some(4) => step4(&a),
         Some(n) => eprintln!("Step {n} isn't built yet: each step's tooling is built once the step before it is approved."),
         None => eprintln!("usage: town_forge step <n> [--seed N] [--world N] [--only A|B|C] [--fast]"),
     }
@@ -434,6 +436,81 @@ fn step3(a: &Args) {
         notes += &format!("{}. {}{} at {:.0} m up: {}.\n", i + 1, h.model, if h.eldest { " (the Eldest Home's site)" } else { "" }, land.height(h.at), h.why);
     }
     notes += &format!("\nSaved as `{TOWN_DIR}/step_3_founding.ron` (landing, water, the Eldest Home's site, homes with facing and model, footpaths, the approach). The game draws these homes on the land.\n");
+    std::fs::write(dir.join("notes.md"), notes).expect("save notes");
+    eprintln!("wrote {}", dir.display());
+}
+
+fn step4(a: &Args) {
+    use gahturiyu_sim::sim::forge::{self as fg, WayKind as K};
+    let dir = out_dir(4);
+    let terrain = gahturiyu_sim::sim::terrain::Terrain::generate(a.world);
+    let (c, _) = chosen(a);
+    let record: LandRecord = read_ron("step_1_land.ron").expect("Step 1 must be approved first (assets/towns/demo/step_1_land.ron)");
+    let founding: fg::Founding = read_ron("step_3_founding.ron").expect("Step 3 must be approved first (assets/towns/demo/step_3_founding.ron)");
+    eprintln!("concept {}: weathering", c.key);
+    let land = land::make(&terrain, record.seed, &c.site, c.centre);
+    let (laid, notes_ways) = ways::lay(&land, &founding, record.approach_from);
+    write_ron("step_4_ways.ron", &laid);
+
+    // Pictures: the ways painted on the land, homes and bridges as marks.
+    let mut f = land::field(&terrain, a.seed, &land, c.centre);
+    render::colour_ground(&mut f, a.seed);
+    let to_way = |w: &fg::Way| Way {
+        kind: match w.kind {
+            K::Cobbles => WayKind::Lane,
+            K::Dirt => WayKind::Road,
+            K::Stairs => WayKind::Stairs,
+            K::Bridge => WayKind::Lane,
+        },
+        pts: w.pts.clone(),
+    };
+    let drawn: Vec<Way> = laid.ways.iter().filter(|w| w.kind != K::Bridge).map(to_way).collect();
+    render::paint_ways(&mut f, &laid.ways);
+    let face = land::face_colour(&land);
+    let mut things: Vec<Thing> = founding.homes.iter().map(|h| {
+        let fp = found::footprint(&h.model);
+        Thing::Home { at: h.at, r: fp.wide * 0.5, eldest: h.eldest }
+    }).collect();
+    for w in laid.ways.iter().filter(|w| w.kind == K::Bridge) {
+        let (p, q) = (w.pts[0], *w.pts.last().unwrap());
+        things.push(Thing::Bridge { a: p, za: land.height(p) + 0.4, b: q, zb: land.height(q) + 0.4, sag: 0.0 });
+    }
+    let labels = vec![
+        (founding.landing, "Landing".to_string()),
+        (founding.spring, "Water".to_string()),
+        (founding.eldest_site.add(V2::new(0.0, -14.0)), "Eldest Home".to_string()),
+    ];
+    let mid = founding.landing.lerp(founding.eldest_site, 0.5);
+    let map = render::top_down(&f, &MapView { centre: mid, span: 360.0, px: 1000 }, &things, &drawn, &labels);
+    map.save(&dir.join("map.png")).expect("save");
+    let mut views = Vec::new();
+    if !a.fast {
+        // From the landing, looking up the spine; and from above.
+        let eldest = founding.homes.iter().find(|h| h.eldest).map(|h| h.at).unwrap_or(founding.eldest_site);
+        let up = eldest.sub(founding.landing);
+        let back = founding.landing.sub(up.scale(0.25));
+        let cams = [
+            ("landing", Cam { pos: back, z: land.height(back).max(0.0) + 2.0, look: eldest, pitch_deg: 6.0, fov_deg: 70.0, w: 1600, h: 760 }),
+            ("high", Cam { pos: V2::new(mid.x - 230.0, mid.y - 140.0), z: land.height(mid).max(0.0) + 130.0, look: mid, pitch_deg: -28.0, fov_deg: 50.0, w: 1600, h: 900 }),
+        ];
+        for (name, cam) in cams {
+            eprintln!("  view: {name}");
+            let img = render::view(&f, &cam, &things, &face);
+            img.save(&dir.join(format!("{name}.png"))).expect("save");
+            views.push((name, img));
+        }
+    }
+    sheet(&c, &map, &views, &dir.join("step_4.png"));
+    let mut notes = format!("# Step 4: ways ({}: {})\n\n", c.key, c.name);
+    for n in &notes_ways {
+        notes += &format!("- {n}\n");
+    }
+    notes += "\n## Stretches\n\n";
+    for (i, w) in laid.ways.iter().enumerate() {
+        let (p, q) = (w.pts[0], *w.pts.last().unwrap());
+        notes += &format!("{}. {:?}, {:.0} m, from {:.0} m up to {:.0} m up.\n", i + 1, w.kind, w.length(), land.height(p), land.height(q));
+    }
+    notes += &format!("\nSaved as `{TOWN_DIR}/step_4_ways.ron`. The game draws these ways on the land (cobbles, dirt, stairs cut as treads, slab bridges).\n");
     std::fs::write(dir.join("notes.md"), notes).expect("save notes");
     eprintln!("wrote {}", dir.display());
 }
