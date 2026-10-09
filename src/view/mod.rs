@@ -4,7 +4,6 @@ pub mod app;
 pub mod cam;
 pub mod editor;
 pub mod foliage;
-pub mod ground;
 pub mod hud;
 pub mod light;
 pub mod map;

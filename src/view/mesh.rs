@@ -8,37 +8,17 @@ use bevy::prelude::{vec3, Vec3};
 
 use super::palette::{lin, Rgb};
 
-/// How a builder lays a texture over what it makes: not at all (colour
-/// only), flat from above (ground: `metres` per repeat), or by each face's
-/// own facing (rocks: each vertex is projected along its normal's main axis,
-/// so no face is smeared).
-#[derive(Clone, Copy, Default, PartialEq)]
-pub enum UvMode {
-    #[default]
-    None,
-    Planar(f32),
-    ByFacing(f32),
-}
-
 #[derive(Default)]
 pub struct Builder {
     pos: Vec<[f32; 3]>,
     nrm: Vec<[f32; 3]>,
     col: Vec<[f32; 4]>,
-    uv: Vec<[f32; 2]>,
     idx: Vec<u32>,
-    uv_mode: UvMode,
 }
 
 impl Builder {
     pub fn new() -> Builder {
         Builder::default()
-    }
-
-    /// A builder whose mesh carries texture coordinates (and tangents, for
-    /// a normal map), laid as `mode` says.
-    pub fn textured(mode: UvMode) -> Builder {
-        Builder { uv_mode: mode, ..Default::default() }
     }
 
     pub fn triangles(&self) -> usize {
@@ -53,27 +33,18 @@ impl Builder {
     /// renderer always has something to hold.
     pub fn mesh(mut self) -> Mesh {
         if self.idx.is_empty() {
-            for k in 0..3 {
-                self.pos.push([k as f32 * 0.01, -1e4, 0.0]);
+            for _ in 0..3 {
+                self.pos.push([0.0, -1e4, 0.0]);
                 self.nrm.push([0.0, 1.0, 0.0]);
                 self.col.push([0.0; 4]);
-                self.uv.push([k as f32, 0.0]);
             }
             self.idx.extend_from_slice(&[0, 1, 2]);
         }
-        let textured = self.uv_mode != UvMode::None;
-        let mut m = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.pos)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.nrm)
             .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.col)
-            .with_inserted_indices(Indices::U32(self.idx));
-        if textured {
-            m.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uv);
-            // Tangents let the normal map work; a degenerate triangle or two
-            // can't stop the rest.
-            let _ = m.generate_tangents();
-        }
-        m
+            .with_inserted_indices(Indices::U32(self.idx))
     }
 
     fn v(&mut self, p: Vec3, n: Vec3, c: [f32; 4]) -> u32 {
@@ -81,21 +52,6 @@ impl Builder {
         self.pos.push(p.to_array());
         self.nrm.push(n.to_array());
         self.col.push(c);
-        match self.uv_mode {
-            UvMode::None => {}
-            UvMode::Planar(m) => self.uv.push([p.x / m, p.z / m]),
-            UvMode::ByFacing(m) => {
-                let a = n.abs();
-                let uv = if a.y >= a.x && a.y >= a.z {
-                    [p.x / m, p.z / m]
-                } else if a.x >= a.z {
-                    [p.z / m, -p.y / m]
-                } else {
-                    [p.x / m, -p.y / m]
-                };
-                self.uv.push(uv);
-            }
-        }
         i
     }
 
@@ -211,4 +167,12 @@ impl Builder {
         self.quad([centre - right - up, centre + right - up, centre + right + up, centre - right + up], n, col);
     }
 
+    /// Append another builder's geometry.
+    pub fn append(&mut self, o: Builder) {
+        let base = self.pos.len() as u32;
+        self.pos.extend(o.pos);
+        self.nrm.extend(o.nrm);
+        self.col.extend(o.col);
+        self.idx.extend(o.idx.into_iter().map(|i| i + base));
+    }
 }

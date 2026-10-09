@@ -44,8 +44,6 @@ use super::app::{Game, Hover, View};
 use super::cam::to3;
 use super::mesh::Builder;
 use super::models::Models;
-use bevy::shader::Shader;
-use super::mesh::UvMode;
 use super::palette::{self, race_color, Rgb};
 
 /// Height of a Horaro stilt-home deck above the water.
@@ -73,8 +71,6 @@ pub struct Mats {
     pub lit: Handle<StandardMaterial>,
     pub glow: Handle<StandardMaterial>,
     pub flat: Handle<StandardMaterial>,
-    /// The land's own material: grass and stone tiles mixed by rockiness (`ground.rs`).
-    pub ground: Handle<super::ground::GroundMat>,
 }
 
 #[derive(Component)]
@@ -85,8 +81,7 @@ pub struct Dynamic;
 #[derive(Resource, Default)]
 pub struct Scene3d {
     ground_key: Option<(i64, i64, u32, u32)>,
-    /// The drawn land: the textured land, and the plain part (sea, roads).
-    ground: Option<[Handle<Mesh>; 2]>,
+    ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
     pub grid: Grid,
     dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
@@ -157,18 +152,11 @@ impl Grid {
     }
 }
 
-pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>, mut grounds: ResMut<Assets<super::ground::GroundMat>>, mut shaders: ResMut<Assets<Shader>>, server: Res<AssetServer>) {
+pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
     let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
     let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
-    let ground = super::ground::material(&server, &mut grounds, &mut shaders);
-    commands.insert_resource(Mats { lit, glow, flat, ground });
-}
-
-fn spawn_ground(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<super::ground::GroundMat>, b: Builder) -> Handle<Mesh> {
-    let h = meshes.add(b.mesh());
-    commands.spawn((Mesh3d(h.clone()), MeshMaterial3d(mat.clone()), Transform::default(), NoFrustumCulling, GroundMesh));
-    h
+    commands.insert_resource(Mats { lit, glow, flat });
 }
 
 fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<StandardMaterial>, b: Builder, marker: impl Bundle) -> (Entity, Handle<Mesh>) {
@@ -253,37 +241,34 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let half_fine = ((reach / coarse).ceil().max(1.0)) * coarse;
         let cells = if editing { EDIT_CELLS } else { GROUND_CELLS };
         let fine = half_fine * 2.0 / cells as f32;
-        let mut g = Builder::textured(UvMode::Planar(super::ground::TILE_M));
-        let mut plain = Builder::new();
-        ground_patch(&mut g, &mut plain, t, centre, half_fine, fine, None);
-        ground_patch(&mut g, &mut plain, t, centre, far, coarse, Some(half_fine));
+        let mut g = Builder::new();
+        ground_patch(&mut g, t, centre, half_fine, fine, None);
+        ground_patch(&mut g, t, centre, far, coarse, Some(half_fine));
         scene.grid = Grid { centre, half_fine, fine, coarse, far };
         // Roads, laid over the land.
         let grid = scene.grid;
         let on_ground = |p: V2| grid.height(t, p);
+        let mut r = Builder::new();
+        let lw = 5.0f32.max(oc.dist / 90.0);
         for road in &w.routes.roads {
-            let lw = (6.0 + radius * 0.02).min(16.0);
             for seg in road.windows(2) {
                 if seg[0].dist(oc.target) > radius * 1.5 {
                     continue;
                 }
-                draped_ribbon(&mut plain, &on_ground, seg[0], seg[1], lw, 0.25, palette::ROAD, (radius / 45.0).max(10.0));
+                draped_ribbon(&mut r, &on_ground, seg[0], seg[1], lw, 0.25, palette::ROAD, (radius / 45.0).max(10.0));
             }
         }
-        scene.ground_triangles = g.triangles() + plain.triangles();
+        g.append(r);
+        scene.ground_triangles = g.triangles();
         match &scene.ground {
-            Some([hg, hp]) => {
-                if let Some(mut m) = meshes.get_mut(hg) {
+            Some((h, _)) => {
+                if let Some(mut m) = meshes.get_mut(h) {
                     *m = g.mesh();
-                }
-                if let Some(mut m) = meshes.get_mut(hp) {
-                    *m = plain.mesh();
                 }
             }
             None => {
-                let hg = spawn_ground(&mut commands, &mut meshes, &mats.ground, g);
-                let (_, hp) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, plain, GroundMesh);
-                scene.ground = Some([hg, hp]);
+                let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, g, GroundMesh);
+                scene.ground = Some((h.clone(), h));
             }
         }
         scene.ground_key = Some(key);
@@ -392,7 +377,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let rock_key = (scene.ground_key.unwrap_or_default(), w.terrain.edits.rocks_v, ((oc.target.x / 100.0).round() as i64, (oc.target.y / 100.0).round() as i64));
     if scene.rocks_key != Some(rock_key) && !(game.editor.stroking && scene.rocks_key.is_some_and(|k| k.1 == rock_key.1)) {
         scene.rocks_key = Some(rock_key);
-        let mut rb = Builder::textured(UvMode::ByFacing(super::ground::ROCK_TILE_M));
+        let mut rb = Builder::new();
         for k in w.terrain.edits.rocks.iter().chain(w.terrain.authored.rocks.iter()).filter(|k| k.pos.dist(oc.target) < radius * 1.3 + 50.0) {
             rock(&mut rb, k, on_ground(k.pos), t.slope(k.pos));
         }
@@ -403,7 +388,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 }
             }
             None => {
-                let h = spawn_ground(&mut commands, &mut meshes, &mats.ground, rb);
+                let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, rb, GroundMesh);
                 scene.rocks = Some(h);
             }
         }
@@ -813,9 +798,8 @@ fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width
 
 /// A square patch of land and sea centred on `centre`, `half` metres each
 /// way, in cells `step` wide. With `hole`, cells inside that half-width are
-/// skipped (the fine patch covers them). Land goes to the textured builder
-/// with its colour and rockiness per corner; the sea to the plain one.
-fn ground_patch(land: &mut Builder, plain: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, hole: Option<f32>) {
+/// skipped (the fine patch covers them).
+fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, hole: Option<f32>) {
     let cells = (half * 2.0 / step).round() as i64;
     let (x0, y0) = (centre.x - half, centre.y - half);
     // Land where the ground stands above the sea, water where it doesn't:
@@ -825,9 +809,9 @@ fn ground_patch(land: &mut Builder, plain: &mut Builder, t: &Terrain, centre: V2
         if h >= 0.0 {
             let h = h.max(0.3);
             let (nx, ny, nz) = t.normal(p, step.max(15.0));
-            (to3(p, h), vec3(nx, ny, nz), super::ground::vertex(palette::ground(t, p, h, ny), palette::rockiness(t, p, ny)))
+            (to3(p, h), vec3(nx, ny, nz), palette::lin(palette::ground(t, p, h, ny)))
         } else {
-            (to3(p, 0.0), Vec3::Y, super::ground::vertex(palette::sea(p), 0.0))
+            (to3(p, 0.0), Vec3::Y, palette::lin(palette::sea(p)))
         }
     };
     let skip = |xa: f32, xb: f32, ya: f32, yb: f32| -> bool {
@@ -845,14 +829,10 @@ fn ground_patch(land: &mut Builder, plain: &mut Builder, t: &Terrain, centre: V2
             }
             let ps = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
             let vs = ps.map(vert);
-            // A cell with any corner above water is land (its sea corners sit at 0).
-            let b = if ps.iter().any(|&p| t.height(p) >= 0.0) { &mut *land } else { &mut *plain };
             b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
         }
     }
 }
-
-
 
 
 /// The warm window on a Roduro home's hearth side, and its dark door.
@@ -1434,9 +1414,8 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
 fn rock(b: &mut Builder, k: &gahturiyu_sim::sim::mapedit::Rock, ground: f32, slope: f32) {
     let seed = k.seed as u64;
     let n = |i: u64| -> f32 { ((seed ^ i.wrapping_mul(0x9E37_79B9_7F4A_7C15)).wrapping_mul(0xBF58_476D_1CE4_E5B9) >> 40) as f32 / (1u64 << 24) as f32 };
-    // The stone tile carries the look; this is its colour and full rockiness.
     let tone = 0.8 + n(99) * 0.35;
-    let col = super::ground::vertex([0.50 * tone, 0.50 * tone, 0.48 * tone], 1.0);
+    let col = [0.46 * tone, 0.45 * tone, 0.42 * tone];
     let s = k.size;
     // (width, depth, height above ground, roughness) by kind:
     // boulder, slab, pillar, scree, outcrop.
@@ -1476,7 +1455,7 @@ fn rock(b: &mut Builder, k: &gahturiyu_sim::sim::mapedit::Rock, ground: f32, slo
 /// One faceted stone: a lumpy ball, its lower part sunk in the ground,
 /// flat-shaded so its faces catch the light.
 #[allow(clippy::too_many_arguments)]
-fn stone(b: &mut Builder, centre: Vec3, rx: f32, rz: f32, h: f32, lump: f32, rot: f32, seed: u64, col: [f32; 4]) {
+fn stone(b: &mut Builder, centre: Vec3, rx: f32, rz: f32, h: f32, lump: f32, rot: f32, seed: u64, col: Rgb) {
     let (rings, sides) = (5usize, 8usize);
     let noise = |i: usize, k: usize| -> f32 {
         let x = (seed ^ ((i as u64) << 20) ^ ((k % sides) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15);
@@ -1497,7 +1476,7 @@ fn stone(b: &mut Builder, centre: Vec3, rx: f32, rz: f32, h: f32, lump: f32, rot
             let nrm = (q[2] - q[0]).cross(q[1] - q[3]).normalize_or_zero();
             let nrm = if nrm.y < -0.2 { -nrm } else { nrm };
             let shade = 0.88 + noise(i + 3, k + 5) * 0.25;
-            b.quad_lin(q, [nrm; 4], [[col[0] * shade, col[1] * shade, col[2] * shade, 1.0]; 4]);
+            b.quad(q, nrm, [col[0] * shade, col[1] * shade, col[2] * shade]);
         }
     }
 }
