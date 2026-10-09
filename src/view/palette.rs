@@ -104,6 +104,33 @@ fn smooth(a: f32, b: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// The average colour of the stone and grass tiles cut from the Roduro
+/// buildings (`assets/textures/roduro_*.png`): what a vertex colour is
+/// divided by so that tile × tint comes out at the palette's colour.
+pub const STONE_TILE_MEAN: Rgb = [0.188, 0.192, 0.204];
+pub const GRASS_TILE_MEAN: Rgb = [0.290, 0.318, 0.149];
+
+/// How much bare rock shows at a point, 0 turf .. 1 rock: by steepness,
+/// by painted rock, gravel or shingle, and high up.
+pub fn rockiness(t: &Terrain, p: V2, up: f32) -> f32 {
+    let h = t.height(p);
+    let n2 = terrain::noise(t.seed() ^ 0xC1, p.x, p.y, 40.0);
+    let mut r = smooth(0.80, 0.58, up) * (0.7 + n2 * 0.5);
+    for layer in [&t.authored, &t.edits] {
+        if let Some((k, w)) = layer.paint_at(p) {
+            // Rock, sandstone, gravel, shingle; grass and moss cover it.
+            let painted = match k {
+                9 | 10 => 1.0,
+                8 | 7 => 0.7,
+                0 | 12 | 2 => -1.0,
+                _ => 0.0,
+            };
+            r = if painted >= 0.0 { r.max(painted * w) } else { r * (1.0 - w) };
+        }
+    }
+    r.max(smooth(380.0, 520.0, h)).clamp(0.0, 1.0)
+}
+
 /// Colour of the sea surface at a point.
 pub fn sea(p: V2) -> Rgb {
     mix(SEA, SEA_DEEP, -geo::inland(p) / 700.0)
