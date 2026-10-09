@@ -2691,10 +2691,13 @@ dependencies = [
 name = "gahturiyu-sim"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "bevy",
  "bevy_egui",
  "bincode",
+ "image",
  "meshopt",
+ "ron",
  "serde",
 ]
 
