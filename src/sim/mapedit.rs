@@ -40,8 +40,10 @@ pub const SCULPT_RATE: f32 = 12.0;
 /// How strongly each plant kind can be added (chance per spot, on top of
 /// what the land grows on its own).
 pub const PLANT_ADD: [f32; 3] = [0.8, 0.35, 0.9];
-/// Rocks placed per second per 100 m² of brush at full strength.
-pub const ROCK_RATE: f32 = 0.6;
+/// Rocks placed per second per 100 m² of brush at full strength, and the
+/// most one dab places.
+pub const ROCK_RATE: f32 = 0.3;
+pub const ROCKS_PER_DAB: usize = 40;
 
 /// The paintable ground textures (index 1..; 0 is "not painted").
 #[derive(Clone, Copy, Debug)]
@@ -219,9 +221,17 @@ pub struct MapEdits {
     /// much as can grow.
     pub plants: Layer<[u8; 3]>,
     pub rocks: Vec<Rock>,
-    /// Bumped on every change (the window rebuilds what it drew).
+    /// Bumped on every change (the window rebuilds what it drew): any change;
+    /// the land's shape or paint; the rocks.
     #[serde(skip)]
     pub version: u32,
+    #[serde(skip)]
+    pub ground_v: u32,
+    #[serde(skip)]
+    pub rocks_v: u32,
+    /// Dabs made (keys the brushes' rolls).
+    #[serde(skip)]
+    dabs: u32,
     #[serde(skip)]
     undo: Vec<Snapshot>,
     #[serde(skip)]
@@ -232,7 +242,7 @@ pub struct MapEdits {
 
 impl Default for MapEdits {
     fn default() -> Self {
-        MapEdits { height: Layer::new(0.0), paint: Layer::new(0), plants: Layer::new(PLANTS_NATURAL), rocks: Vec::new(), version: 0, undo: Vec::new(), redo: Vec::new(), stroke: None }
+        MapEdits { height: Layer::new(0.0), paint: Layer::new(0), plants: Layer::new(PLANTS_NATURAL), rocks: Vec::new(), version: 0, ground_v: 0, rocks_v: 0, dabs: 0, undo: Vec::new(), redo: Vec::new(), stroke: None }
     }
 }
 
@@ -357,7 +367,14 @@ impl MapEdits {
 
     /// The stroke is over.
     pub fn end_stroke(&mut self) {
-        if let Some(s) = self.stroke.take() {
+        if let Some(mut s) = self.stroke.take() {
+            // (What the stroke didn't in the end change isn't kept.)
+            s.height.retain(|(k, c)| *c != self.height.chunks[*k]);
+            s.paint.retain(|(k, c)| *c != self.paint.chunks[*k]);
+            s.plants.retain(|(k, c)| *c != self.plants.chunks[*k]);
+            if s.rocks.as_ref() == Some(&self.rocks) {
+                s.rocks = None;
+            }
             if s != Snapshot::default() {
                 self.undo.push(s);
                 if self.undo.len() > UNDO_DEPTH {
@@ -396,8 +413,19 @@ impl MapEdits {
         self.height.recount();
         self.paint.recount();
         self.plants.recount();
-        self.version = self.version.wrapping_add(1);
+        self.changed(true, true);
         back
+    }
+
+    /// Note a change: the land's shape or paint, the rocks, or only plants.
+    pub fn changed(&mut self, ground: bool, rocks: bool) {
+        self.version = self.version.wrapping_add(1);
+        if ground {
+            self.ground_v = self.ground_v.wrapping_add(1);
+        }
+        if rocks {
+            self.rocks_v = self.rocks_v.wrapping_add(1);
+        }
     }
 
     /// Take back the last stroke. True if there was one.
@@ -438,11 +466,9 @@ impl MapEdits {
         }
     }
     fn keep_rocks(&mut self) {
-        let rocks = self.rocks.clone();
-        if let Some(s) = self.stroke.as_mut() {
-            if s.rocks.is_none() {
-                s.rocks = Some(rocks);
-            }
+        if self.stroke.as_ref().is_some_and(|s| s.rocks.is_none()) {
+            let rocks = self.rocks.clone();
+            self.stroke.as_mut().unwrap().rocks = Some(rocks);
         }
     }
 
@@ -471,7 +497,7 @@ impl MapEdits {
         self.paint.recount();
         self.plants.recount();
         self.end_stroke();
-        self.version = self.version.wrapping_add(1);
+        self.changed(true, true);
     }
 
     // ---- Files -------------------------------------------------------------------
@@ -529,6 +555,7 @@ pub const MAP_FORMAT: u32 = 1;
 impl Terrain {
     /// Apply a dab. Returns the area it changed, if anything.
     pub fn dab(&mut self, d: Dab) -> Option<Dirty> {
+        self.edits.dabs = self.edits.dabs.wrapping_add(1);
         let r = d.radius.max(EDIT_CELL);
         let (lo, hi) = (V2::new(d.at.x - r, d.at.y - r), V2::new(d.at.x + r, d.at.y + r));
         let cells = |v: f32| (v / EDIT_CELL).floor() as i64;
@@ -553,8 +580,8 @@ impl Terrain {
                 self.edits.keep_rocks();
                 let area = std::f32::consts::PI * r * r / 100.0;
                 let want = area * ROCK_RATE * rate;
-                let mut g = Rng::from_keys(&[self.seed(), d.at.x.to_bits() as u64, d.at.y.to_bits() as u64, self.edits.version as u64, 0x524F_434B]);
-                let mut n = want.floor() as usize + g.chance(want.fract()) as usize;
+                let mut g = Rng::from_keys(&[self.seed(), d.at.x.to_bits() as u64, d.at.y.to_bits() as u64, self.edits.dabs as u64, 0x524F_434B]);
+                let mut n = (want.floor() as usize + g.chance(want.fract()) as usize).min(ROCKS_PER_DAB);
                 let mut placed = false;
                 while n > 0 {
                     n -= 1;
@@ -573,7 +600,9 @@ impl Terrain {
                     self.edits.rocks.push(Rock { pos: q, kind, size, rot: g.f32() * std::f32::consts::TAU, seed: g.next_u64() as u32 });
                     placed = true;
                 }
-                self.edits.version = self.edits.version.wrapping_add(1);
+                if placed {
+                    self.edits.changed(false, true);
+                }
                 return placed.then_some((lo, hi));
             }
             Brush::ClearRocks => {
@@ -581,10 +610,13 @@ impl Terrain {
                 if self.edits.rocks.iter().any(|k| weight(k.pos) > 0.0) {
                     self.edits.keep_rocks();
                 }
-                let mut g = Rng::from_keys(&[self.seed(), d.at.x.to_bits() as u64, self.edits.version as u64, 0x434C_5252]);
+                let mut g = Rng::from_keys(&[self.seed(), d.at.x.to_bits() as u64, self.edits.dabs as u64, 0x434C_5252]);
                 self.edits.rocks.retain(|k| !(weight(k.pos) > 0.0 && g.f32() < (rate * 4.0 * weight(k.pos)).min(1.0)));
-                self.edits.version = self.edits.version.wrapping_add(1);
-                return (self.edits.rocks.len() != before).then_some((lo, hi));
+                let gone = self.edits.rocks.len() != before;
+                if gone {
+                    self.edits.changed(false, true);
+                }
+                return gone.then_some((lo, hi));
             }
             _ => {}
         }
@@ -647,7 +679,12 @@ impl Terrain {
                     Brush::Paint(tex) => {
                         let v = self.edits.paint.get(i, j);
                         let (old_t, old_w) = (v >> 4, (v & 15) as f32);
-                        let gain = (k * 30.0).max(1.0);
+                        // Whole steps, the fraction by a roll (so strength,
+                        // soft edges and frame rate all count).
+                        let gain = steps(k * 30.0, hash01(self.edits.dabs as u64 ^ 0x5041, i, j));
+                        if gain == 0.0 {
+                            continue;
+                        }
                         let w2 = if old_t == tex + 1 { (old_w + gain).min(15.0) } else if old_w > gain { old_w - gain } else { gain.min(15.0) };
                         let t2 = if old_t == tex + 1 || old_w <= gain { tex + 1 } else { old_t };
                         self.edits.paint.set_raw(i, j, (t2 << 4) | (w2.round() as u8).min(15));
@@ -655,13 +692,13 @@ impl Terrain {
                     }
                     Brush::Unpaint => {
                         let v = self.edits.paint.get(i, j);
-                        let w2 = ((v & 15) as f32 - (k * 30.0).max(1.0)).max(0.0) as u8;
+                        let w2 = ((v & 15) as f32 - steps(k * 30.0, hash01(self.edits.dabs as u64 ^ 0x554E, i, j))).max(0.0) as u8;
                         self.edits.paint.set_raw(i, j, if w2 == 0 { 0 } else { (v & 0xF0) | w2 });
                         continue;
                     }
                     Brush::Plants { kind, less } => {
                         let mut v = self.edits.plants.get(i, j);
-                        let step = (k * 400.0).max(1.0);
+                        let step = steps(k * 400.0, hash01(self.edits.dabs as u64 ^ 0x504C, i, j));
                         let x = v[kind as usize] as f32 + if less { -step } else { step };
                         v[kind as usize] = x.clamp(0.0, 255.0) as u8;
                         self.edits.plants.set_raw(i, j, v);
@@ -670,8 +707,10 @@ impl Terrain {
                     Brush::NaturalPlants => {
                         let mut v = self.edits.plants.get(i, j);
                         for x in v.iter_mut() {
-                            let f = *x as f32 + (128.0 - *x as f32) * (k * 3.0).min(1.0);
-                            *x = if (f - 128.0).abs() < 2.0 { 128 } else { f.round() as u8 };
+                            // At least a step each time, so it gets all the way back.
+                            let d = (128.0 - *x as f32) * (k * 3.0).min(1.0);
+                            let d = if d.abs() < 1.0 { (128.0 - *x as f32).clamp(-1.0, 1.0) } else { d };
+                            *x = (*x as f32 + d).round().clamp(0.0, 255.0) as u8;
                         }
                         self.edits.plants.set_raw(i, j, v);
                         continue;
@@ -684,8 +723,12 @@ impl Terrain {
         for (i, j, v) in changes {
             self.edits.height.set_raw(i, j, if v.abs() < 1e-3 { 0.0 } else { v });
         }
-        self.edits.version = self.edits.version.wrapping_add(1);
-        Some((lo, hi))
+        // Plants change only what grows; anything else the ground.
+        let ground = !matches!(d.brush, Brush::Plants { .. } | Brush::NaturalPlants);
+        self.edits.changed(ground, false);
+        // (Slopes, and so rock and plants, reach a land cell past the brush.)
+        let pad = super::terrain::CELL;
+        Some((V2::new(lo.x - pad, lo.y - pad), V2::new(hi.x + pad, hi.y + pad)))
     }
 
     /// The seed's own land at an edit cell's corner.
@@ -730,9 +773,16 @@ impl Terrain {
         for (i, j, v) in changes {
             self.edits.height.set_raw(i, j, v);
         }
-        self.edits.version = self.edits.version.wrapping_add(1);
-        Some((lo, hi))
+        self.edits.changed(true, false);
+        let pad = super::terrain::CELL;
+        Some((V2::new(lo.x - pad, lo.y - pad), V2::new(hi.x + pad, hi.y + pad)))
     }
+}
+
+/// A fractional number of steps as whole ones: the fraction taken when the
+/// roll `r` (0..1) falls under it.
+fn steps(x: f32, r: f32) -> f32 {
+    x.floor() + if r < x.fract() { 1.0 } else { 0.0 }
 }
 
 fn smooth_step(x: f32, a: f32, b: f32) -> f32 {
@@ -748,5 +798,7 @@ impl super::world::World {
         let (t, r) = super::worldgen::land(t, &self.settlements);
         self.terrain = t;
         self.routes = r;
+        // (The roads are drawn into the ground.)
+        self.terrain.edits.changed(true, false);
     }
 }

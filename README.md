@@ -102,8 +102,9 @@ holds everything:
   Plants still keep out of towns, roads and the sea.
 - **Rocks**: boulders, slabs, pillars, scree and outcrops, scattered by the
   brush; Clear rocks takes them away.
-- **Brush**: size, strength and how soft its edge is (the outer ring is its
-  reach, the inner its full strength).
+- **Brush**: size (up to a kilometre across), strength and how soft its edge
+  is (the outer ring is its reach, the inner its full strength). While you
+  edit, the ground round the camera is drawn finer so small strokes show.
 
 Shift does the opposite (raise ↔ lower, smooth ↔ roughen, paint → unpaint,
 more ↔ fewer, rocks → clear). Ctrl-click picks up the height under the mouse
@@ -113,9 +114,10 @@ redoes).
 
 **Save map** (Ctrl+S) writes `maps/seed-N.gmap`; every new game on that seed
 starts from it (towns stay where the seed put them; roads, camps and
-workplaces follow the edited land). Game saves (F8) carry the edits too.
-"Back to saved" puts the map back as last saved; "Clear all edits" (click
-twice) wipes everything, and can itself be undone. Leaving the editor finds
+workplaces follow the edited land). It sits beside the saves, in `maps/` at
+the top of the repo. Game saves (F8) carry the edits too. "Back to saved"
+puts the map back as last saved and "Clear all edits" wipes everything (each
+asks you to click twice; Clear can itself be undone). Leaving the editor finds
 the roads again if you changed the land's shape or ground.
 
 ## Playing

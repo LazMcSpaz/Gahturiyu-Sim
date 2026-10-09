@@ -80,8 +80,11 @@ pub struct Editor {
     pub reshaped: bool,
     /// Edits not yet saved to the map file.
     pub unsaved: bool,
-    /// "Clear all" asked once; ask again to do it.
+    /// "Clear all" or "Back to saved" asked once; ask again to do it.
     confirm_clear: bool,
+    confirm_reload: bool,
+    /// Whether the world was paused before the editor opened.
+    was_paused: bool,
     pub status: String,
 }
 
@@ -106,6 +109,8 @@ impl Default for Editor {
             reshaped: false,
             unsaved: false,
             confirm_clear: false,
+            confirm_reload: false,
+            was_paused: false,
             status: String::new(),
         }
     }
@@ -159,23 +164,27 @@ pub fn toggle(game: &mut Game) {
         game.world.terrain.edits.end_stroke();
         e.stroking = false;
     }
+    e.ramp_from = None;
+    e.flush();
     e.on = !e.on;
     if e.on {
+        e.was_paused = game.paused;
         game.paused = true;
         e.status = "Editing the land. The world stands still.".into();
     } else {
         if e.reshaped {
             game.world.refit_land();
-            e.reshaped = false;
+            everything_changed(game);
+            game.editor.reshaped = false;
             game.notice = Some(("The roads are found again over the edited land.".into(), std::time::Instant::now()));
         }
-        game.paused = false;
+        game.paused = game.editor.was_paused;
     }
 }
 
 /// Save the edits to the map file for this world's seed.
 pub fn save_map(game: &mut Game) {
-    let path = MapEdits::path_for(game.world.seed);
+    let path = super::app::map_path(game.world.seed);
     game.editor.status = match game.world.terrain.edits.save_to(game.world.seed, &path) {
         Ok(()) => {
             game.editor.unsaved = false;
@@ -187,12 +196,15 @@ pub fn save_map(game: &mut Game) {
 
 /// Put back the map as last saved.
 fn reload_map(game: &mut Game) {
-    let path = MapEdits::path_for(game.world.seed);
+    let path = super::app::map_path(game.world.seed);
     match MapEdits::load_from(&path) {
         Ok((_, edits)) => {
-            let v = game.world.terrain.edits.version;
-            game.world.terrain.edits = edits;
-            game.world.terrain.edits.version = v.wrapping_add(1);
+            let old = std::mem::replace(&mut game.world.terrain.edits, edits);
+            let e = &mut game.world.terrain.edits;
+            e.version = old.version;
+            e.ground_v = old.ground_v;
+            e.rocks_v = old.rocks_v;
+            e.changed(true, true);
             everything_changed(game);
             game.editor.unsaved = false;
             game.editor.status = "Back to the map as saved.".into();
@@ -221,10 +233,12 @@ fn under(game: &Game, mouse: Vec2) -> Option<V2> {
 pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput<MouseButton>, mouse: Vec2, on_panels: bool, dt: f32, time: f32) {
     let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-    if ctrl && keys.just_pressed(KeyCode::KeyZ) {
+    // (Not mid-stroke: the stroke would be kept against the wrong land.)
+    let busy = game.editor.stroking;
+    if ctrl && keys.just_pressed(KeyCode::KeyZ) && !busy {
         if shift { redo(game) } else { undo(game) }
     }
-    if ctrl && keys.just_pressed(KeyCode::KeyY) {
+    if ctrl && keys.just_pressed(KeyCode::KeyY) && !busy {
         redo(game);
     }
     if ctrl && keys.just_pressed(KeyCode::KeyS) {
@@ -235,7 +249,7 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
         e.radius = (e.radius / 1.25).max(3.0);
     }
     if keys.just_pressed(KeyCode::BracketRight) {
-        e.radius = (e.radius * 1.25).min(2000.0);
+        e.radius = (e.radius * 1.25).min(MAX_RADIUS);
     }
     if keys.just_pressed(KeyCode::Minus) {
         e.strength = (e.strength - 0.1).max(0.05);
@@ -245,6 +259,12 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
     }
     let at = under(game, mouse);
     game.editor.cursor = at;
+    // A stroke ends when the button comes up, whatever else is held.
+    if game.editor.stroking && !buttons.pressed(MouseButton::Left) {
+        game.world.terrain.edits.end_stroke();
+        game.editor.stroking = false;
+        game.editor.flush();
+    }
     // Ctrl-click picks up what's under the brush: its height, or its paint.
     if ctrl && buttons.just_pressed(MouseButton::Left) && !on_panels {
         if let Some(p) = at {
@@ -272,7 +292,8 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
             game.editor.ramp_from = at;
         }
         if buttons.just_released(MouseButton::Left) {
-            if let (Some(a), Some(b)) = (game.editor.ramp_from.take(), at) {
+            let from = game.editor.ramp_from.take();
+            if let (Some(a), Some(b), false) = (from, at, on_panels) {
                 if a.dist(b) > 2.0 {
                     let (r, soft) = (game.editor.radius, game.editor.softness);
                     let t = &mut game.world.terrain;
@@ -339,6 +360,8 @@ fn redo(game: &mut Game) {
 // ---- Drawing ---------------------------------------------------------------------
 
 const W: f32 = 330.0;
+/// The biggest brush, metres across from the middle.
+const MAX_RADIUS: f32 = 500.0;
 const ROW: f32 = 21.0;
 
 /// A clickable button; true if clicked this frame.
@@ -442,7 +465,7 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
     y += ROW;
     let s = stepper(c, x, y, "Size", &format!("{:.0} m across", e.radius * 2.0), click);
     if s != 0 {
-        e.radius = if s > 0 { (e.radius * 1.25).min(2000.0) } else { (e.radius / 1.25).max(3.0) };
+        e.radius = if s > 0 { (e.radius * 1.25).min(MAX_RADIUS) } else { (e.radius / 1.25).max(3.0) };
     }
     y += ROW;
     let s = stepper(c, x, y, "Strength", &format!("{:.0}%", e.strength * 100.0), click);
@@ -469,7 +492,8 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
     let redo_hit = button(c, x + bw + 6.0, y, bw, if can_redo { "Redo" } else { "(redo)" }, false, click, None);
     let save_hit = button(c, x + 2.0 * (bw + 6.0), y, bw, "Save map", game.editor.unsaved, click, None);
     y += ROW;
-    let reload_hit = button(c, x, y, bw * 1.5 + 3.0, "Back to saved", false, click, None);
+    let reload_label = if game.editor.confirm_reload { "Sure? Click again" } else { "Back to saved" };
+    let reload_hit = button(c, x, y, bw * 1.5 + 3.0, reload_label, game.editor.confirm_reload, click, None);
     let clear_label = if game.editor.confirm_clear { "Sure? Click again" } else { "Clear all edits" };
     let clear_hit = button(c, x + bw * 1.5 + 9.0, y, bw * 1.5 + 3.0, clear_label, game.editor.confirm_clear, click, None);
     // What's under the brush, and how things stand.
@@ -511,7 +535,14 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
         save_map(game);
     }
     if reload_hit {
-        reload_map(game);
+        if game.editor.confirm_reload {
+            reload_map(game);
+            game.editor.confirm_reload = false;
+        } else {
+            game.editor.confirm_reload = true;
+        }
+    } else if click.is_some() {
+        game.editor.confirm_reload = false;
     }
     if clear_hit {
         if game.editor.confirm_clear {
@@ -531,16 +562,15 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
 
 /// The brush on the land: a ring where it reaches (and its soft edge), or a
 /// ramp's line.
-pub fn draw_cursor(c: &Canvas, game: &Game, project: &dyn Fn(Vec3) -> Option<Vec2>) {
+pub fn draw_cursor(c: &Canvas, game: &Game, project: &dyn Fn(Vec3) -> Option<Vec2>, drawn: &dyn Fn(V2) -> f32) {
     let e = &game.editor;
     let Some(p) = e.cursor else { return };
-    let t = &game.world.terrain;
     let ring = |r: f32, col: Color32, width: f32| {
         let pts: Vec<Option<Vec2>> = (0..=48)
             .map(|i| {
                 let a = i as f32 / 48.0 * std::f32::consts::TAU;
                 let q = p.add(V2::new(a.cos() * r, a.sin() * r));
-                project(vec3(q.x, t.surface(q) + 0.6, q.y))
+                project(vec3(q.x, drawn(q) + 0.6, q.y))
             })
             .collect();
         for w in pts.windows(2) {
@@ -559,7 +589,7 @@ pub fn draw_cursor(c: &Canvas, game: &Game, project: &dyn Fn(Vec3) -> Option<Vec
         let mut last = None;
         for i in 0..=n {
             let q = a.lerp(p, i as f32 / n as f32);
-            let s = project(vec3(q.x, t.surface(q) + 0.6, q.y));
+            let s = project(vec3(q.x, drawn(q) + 0.6, q.y));
             if let (Some(l), Some(s)) = (last, s) {
                 c.line(l, s, 3.0, eg(GOLD));
             }

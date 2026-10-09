@@ -24,7 +24,7 @@ fn main() {
     let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
 
     let t0 = Instant::now();
-    let mut w = worldgen::generate(seed);
+    let mut w = world(seed);
     println!("world {seed} built in {:.1} ms", t0.elapsed().as_secs_f64() * 1000.0);
     println!("{} settlements, {} people", w.settlements.len(), w.people.len());
     for s in &w.settlements {
@@ -80,7 +80,7 @@ fn main() {
 /// Spawn bandits next to the squad and print the fight blow by blow.
 fn fight(count: usize, seed: u64) {
     use gahturiyu_sim::sim::geo::V2;
-    let mut w = worldgen::generate(seed);
+    let mut w = world(seed);
     for &m in &w.squad.members.clone() {
         let p = &w.people[m as usize];
         let d = p.detail.as_ref().unwrap();
@@ -128,7 +128,7 @@ fn society(days: f64, seed: u64) {
     use gahturiyu_sim::sim::jobs::{Job, GOODS};
     use std::collections::BTreeMap;
     let t0 = Instant::now();
-    let mut w = worldgen::generate(seed);
+    let mut w = world(seed);
     println!("world {seed} built in {:.1} ms", t0.elapsed().as_secs_f64() * 1000.0);
     let t1 = Instant::now();
     w.step(days * 24.0 * HOUR);
@@ -238,5 +238,18 @@ fn society(days: f64, seed: u64) {
             shore.slavery,
             w.bonds.iter().filter(|b| b.town == ti as u16).map(|b| if b.slave { "slave" } else { "term" }).collect::<Vec<_>>().join(" ")
         );
+    }
+}
+
+/// A world from a seed, on its authored map if there is one (`maps/`), so
+/// what's printed matches what the window would show.
+fn world(seed: u64) -> gahturiyu_sim::sim::World {
+    let path = gahturiyu_sim::sim::mapedit::MapEdits::path_for(seed);
+    match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
+        Ok((_, edits)) => {
+            eprintln!("(on the map in {})", path.display());
+            worldgen::generate_with(seed, edits)
+        }
+        Err(_) => worldgen::generate(seed),
     }
 }

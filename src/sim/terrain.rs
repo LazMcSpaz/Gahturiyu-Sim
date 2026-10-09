@@ -324,8 +324,8 @@ impl Terrain {
         }
         // Ground painted by hand, laid on thickly enough.
         if let Some((tex, w)) = self.edits.paint_at(p) {
-            if w >= 0.5 {
-                return super::mapedit::TEXTURES[tex as usize].ground;
+            if let (true, Some(t)) = (w >= 0.5, super::mapedit::TEXTURES.get(tex as usize)) {
+                return t.ground;
             }
         }
         if geo::inland(p) < 60.0 {

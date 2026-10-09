@@ -118,11 +118,21 @@ pub fn run() {
             eprintln!("{e}; starting a new world");
             worldgen::generate(seed)
         }
-        None => match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&gahturiyu_sim::sim::mapedit::MapEdits::path_for(seed)) {
-            // A map authored for this seed (the land editor saves it).
-            Ok((_, edits)) => worldgen::generate_with(seed, edits),
-            Err(_) => worldgen::generate(seed),
-        },
+        // A map authored for this seed (the land editor saves it). Screenshots
+        // use the seed's own land unless GAHT_MAP is set.
+        None if shot.is_some() && std::env::var("GAHT_MAP").is_err() => worldgen::generate(seed),
+        None => {
+            let path = map_path(seed);
+            match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
+                Ok((_, edits)) => worldgen::generate_with(seed, edits),
+                Err(e) => {
+                    if path.exists() {
+                        eprintln!("couldn't read {}: {e}; starting from the seed's own land", path.display());
+                    }
+                    worldgen::generate(seed)
+                }
+            }
+        }
     };
     if let Some(s) = &shot {
         s.prepare(&mut world);
@@ -289,6 +299,12 @@ fn setup(mut commands: Commands) {
 }
 
 /// Where F8 saves and F9 loads: `saves/quick.sav` beside `assets/`.
+/// Where the map for a seed is kept (beside the saves).
+pub fn map_path(seed: u64) -> std::path::PathBuf {
+    let assets = models::assets_dir();
+    assets.parent().map(|p| p.to_path_buf()).unwrap_or_default().join(gahturiyu_sim::sim::mapedit::MapEdits::path_for(seed))
+}
+
 pub fn quick_save() -> std::path::PathBuf {
     let assets = models::assets_dir();
     assets.parent().map(|p| p.to_path_buf()).unwrap_or_default().join("saves").join("quick.sav")
@@ -321,6 +337,8 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     let dt = time.delta_secs();
     if keys.just_pressed(KeyCode::F10) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
         super::editor::toggle(game);
+        game.last_mouse = mouse;
+        return;
     }
     if game.editor.on {
         // Camera as usual; the brush instead of orders; the world stands still.
@@ -331,8 +349,16 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         let on_panels = game.panels.iter().any(|b| b.contains(mouse));
         game.ui_click = None;
         let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-        if buttons.just_released(MouseButton::Left) && on_panels {
-            game.ui_click = Some(Click { at: mouse, right: false, shift });
+        // A click on the panel is one that began there too (not a stroke
+        // let go over it).
+        if buttons.just_pressed(MouseButton::Left) {
+            game.press_at = Some(mouse);
+        }
+        if buttons.just_released(MouseButton::Left) {
+            let began_on = game.press_at.take().is_some_and(|p| game.panels.iter().any(|b| b.contains(p)));
+            if on_panels && began_on {
+                game.ui_click = Some(Click { at: mouse, right: false, shift });
+            }
         }
         super::editor::input(game, &keys, &buttons, mouse, on_panels, dt, time.elapsed_secs());
         game.last_mouse = mouse;
@@ -539,8 +565,10 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
     let d = mouse - game.last_mouse;
     let wheel = scroll.delta.y;
     let mut pan = (0.0f32, 0.0f32);
+    // (Not while Ctrl is down: Ctrl+S saves.)
+    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     for (k, dx, dy) in [(KeyCode::KeyW, 0.0, 1.0), (KeyCode::KeyS, 0.0, -1.0), (KeyCode::KeyA, -1.0, 0.0), (KeyCode::KeyD, 1.0, 0.0)] {
-        if keys.pressed(k) {
+        if keys.pressed(k) && !ctrl {
             pan.0 += dx;
             pan.1 += dy;
         }
@@ -866,7 +894,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             if game.editor.on {
                 let project = |p: Vec3| game.orbit.project(&vp, size, p);
-                super::editor::draw_cursor(&c, game, &project);
+                let grid = scene.grid;
+                let terrain = &game.world.terrain;
+                let drawn = |p: V2| grid.height(terrain, p);
+                super::editor::draw_cursor(&c, game, &project, &drawn);
             }
             // Standing torches can be hovered too.
             for (i, s) in game.world.standing.iter().enumerate() {

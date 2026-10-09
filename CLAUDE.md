@@ -172,7 +172,8 @@ goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
 with the nearest merchant at work), `GAHT_CONVO=1` (a local robbed last night talks about it,
 assembled from `data/lines`), `GAHT_GUARD=1` (member 0 on a guard contract at a merchant's stall;
 the journal shows it), `GAHT_EDIT=1` (the land editor open beside a few demo strokes: a terraced
-snow-capped hill, sand and mud, more trees, rocks), `GAHT_FEUD=1` (two households fall out over 16 days; the town panels show
+snow-capped hill, sand and mud, more trees, rocks; screenshots ignore
+`maps/` unless `GAHT_MAP=1`), `GAHT_FEUD=1` (two households fall out over 16 days; the town panels show
 the log; slow to set up), `GAHT_SOCIETY=runners|boats|tides` (go and
 watch the midday meal run, the dawn boats, or a stilt village; for tides
 compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the

@@ -153,3 +153,36 @@ fn no_edits_change_nothing() {
     }
     assert_eq!(a.society.households, b.society.households);
 }
+
+#[test]
+fn natural_plants_come_all_the_way_back_and_strength_counts() {
+    let mut w = worldgen::generate(1);
+    let p = spot(&w);
+    for _ in 0..30 {
+        w.terrain.dab(Dab { strength: 1.0, ..dab(Brush::Plants { kind: 2, less: false }, p, 20.0, 1.0 / 60.0) });
+    }
+    for _ in 0..600 {
+        w.terrain.dab(Dab { strength: 0.5, ..dab(Brush::NaturalPlants, p, 20.0, 1.0 / 60.0) });
+    }
+    assert_eq!(w.terrain.edits.plants_at(p)[2], (1.0, 0.0), "back to natural");
+    // Paint: a weak brush lays it on more slowly than a strong one.
+    let paint = |strength: f32| {
+        let mut w = worldgen::generate(1);
+        for _ in 0..20 {
+            w.terrain.dab(Dab { strength, ..dab(Brush::Paint(6), p, 20.0, 1.0 / 60.0) });
+        }
+        w.terrain.edits.paint_at(p).map(|x| x.1).unwrap_or(0.0)
+    };
+    assert!(paint(0.1) < paint(1.0), "{} vs {}", paint(0.1), paint(1.0));
+}
+
+#[test]
+fn a_stroke_that_changes_nothing_isnt_an_undo_step() {
+    let mut w = worldgen::generate(1);
+    let sea = V2::new(100.0, 10_000.0);
+    w.terrain.edits.begin_stroke();
+    w.terrain.dab(dab(Brush::Rocks(0), sea, 10.0, 0.01));
+    w.terrain.dab(dab(Brush::ClearRocks, sea, 10.0, 0.1));
+    w.terrain.edits.end_stroke();
+    assert!(!w.terrain.edits.can_undo());
+}

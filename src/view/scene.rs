@@ -50,6 +50,10 @@ use super::palette::{self, race_color, Rgb};
 const DECK: f32 = 2.4;
 /// Cells across the fine ground patch around the camera target.
 const GROUND_CELLS: usize = 90;
+/// In the land editor: how far round the camera the finer patch reaches, and
+/// cells across it.
+const EDIT_REACH: f32 = 300.0;
+const EDIT_CELLS: usize = 150;
 /// Cells across the coarse ring that carries the far land to the horizon.
 const FAR_CELLS: usize = 72;
 /// Beyond this distance from the camera, a person is a plain shape.
@@ -92,7 +96,8 @@ pub struct Scene3d {
     /// built for, and the rocks drawn (with what they were built for).
     edits: u32,
     towns_edits: u32,
-    rocks: Option<(Handle<Mesh>, (i64, i64, u32))>,
+    rocks: Option<Handle<Mesh>>,
+    rocks_key: Option<((i64, i64, u32, u32), u32, (i64, i64))>,
 }
 
 struct Town {
@@ -170,6 +175,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         // A save was loaded: the land and towns may be another world's.
         scene.loads = game.loads;
         scene.ground_key = None;
+        scene.rocks_key = None;
         for (_, t) in scene.towns.drain() {
             for e in t.entities {
                 commands.entity(e).despawn();
@@ -177,7 +183,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     // The land was edited: the ground now; the towns on it once the stroke is done.
-    let ev = game.world.terrain.edits.version;
+    let ev = game.world.terrain.edits.ground_v;
     if scene.edits != ev {
         scene.edits = ev;
         scene.ground_key = None;
@@ -222,12 +228,17 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
 
     // ---- The land, cached ---------------------------------------------------
     let coarse = far * 2.0 / FAR_CELLS as f32;
-    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits(), (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
+    // While the land is being edited, a finer patch round the camera, so
+    // small brush strokes show.
+    let editing = game.editor.on;
+    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits() ^ editing as u32, (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
     if scene.ground_key != Some(key) {
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
         // Fine patch: a whole number of coarse cells, so its edge meets the ring.
-        let half_fine = ((radius / coarse).ceil().max(1.0)) * coarse;
-        let fine = half_fine * 2.0 / GROUND_CELLS as f32;
+        let reach = if editing { radius.min(EDIT_REACH) } else { radius };
+        let half_fine = ((reach / coarse).ceil().max(1.0)) * coarse;
+        let cells = if editing { EDIT_CELLS } else { GROUND_CELLS };
+        let fine = half_fine * 2.0 / cells as f32;
         let mut g = Builder::new();
         ground_patch(&mut g, t, centre, half_fine, fine, None);
         ground_patch(&mut g, t, centre, far, coarse, Some(half_fine));
@@ -329,23 +340,24 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
 
     // ---- Rocks placed by hand, cached ----------------------------------------
-    let rock_key = ((oc.target.x / 100.0).round() as i64, (oc.target.y / 100.0).round() as i64, ev);
-    if scene.rocks.as_ref().map(|r| r.1) != Some(rock_key) {
+    // (Rebuilt when the rocks change, the ground under them is rebuilt, or
+    // the camera moves on.)
+    let rock_key = (scene.ground_key.unwrap_or_default(), w.terrain.edits.rocks_v, ((oc.target.x / 100.0).round() as i64, (oc.target.y / 100.0).round() as i64));
+    if scene.rocks_key != Some(rock_key) && !(game.editor.stroking && scene.rocks_key.is_some_and(|k| k.1 == rock_key.1)) {
+        scene.rocks_key = Some(rock_key);
         let mut rb = Builder::new();
         for k in w.terrain.edits.rocks.iter().filter(|k| k.pos.dist(oc.target) < radius * 1.3 + 50.0) {
             rock(&mut rb, k, on_ground(k.pos), t.slope(k.pos));
         }
         match &scene.rocks {
-            Some((h, _)) => {
+            Some(h) => {
                 if let Some(mut m) = meshes.get_mut(h) {
                     *m = rb.mesh();
                 }
-                let h = h.clone();
-                scene.rocks = Some((h, rock_key));
             }
             None => {
                 let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, rb, GroundMesh);
-                scene.rocks = Some((h, rock_key));
+                scene.rocks = Some(h);
             }
         }
     }

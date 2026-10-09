@@ -34,6 +34,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n{:?}\n", w.society, w.stations);
     s += &format!("{:?} {:?} {:?}\n", w.crafting, w.orders, w.lessons);
     s += &format!("{:?} {:?} {:?} {:?} {:?}\n", w.standing_in, w.records, w.bonds, w.duels, w.shunned);
+    // The land's hand edits.
+    s += &format!("{:?}\n", bincode::serialize(&w.terrain.edits).unwrap());
     s
 }
 
