@@ -103,35 +103,78 @@ pub const FEUD_UNREST: f32 = 4.0;
 // ---- State -----------------------------------------------------------------
 
 /// Who a memory is about.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Who {
     Person(PersonId),
     Household(u32),
     /// A town's criminal ring.
     Ring(SettlementId),
     /// Whoever it was: a wrong with no one to blame.
+    #[default]
     Someone,
 }
 
+impl Who {
+    /// Packed in 32 bits (for saving): the kind in the top two.
+    fn pack(self) -> u32 {
+        match self {
+            Who::Person(p) => p & 0x3FFF_FFFF,
+            Who::Household(h) => 1 << 30 | (h & 0x3FFF_FFFF),
+            Who::Ring(t) => 2 << 30 | t as u32,
+            Who::Someone => 3 << 30,
+        }
+    }
+
+    fn unpack(x: u32) -> Who {
+        let v = x & 0x3FFF_FFFF;
+        match x >> 30 {
+            0 => Who::Person(v),
+            1 => Who::Household(v),
+            2 => Who::Ring(v as SettlementId),
+            _ => Who::Someone,
+        }
+    }
+}
+
 /// Something someone remembers: who wronged or helped them, how, how much.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+/// (Kept small: 16 bytes, 10 saved.)
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
+#[serde(into = "PackedMemory", from = "PackedMemory")]
 pub struct Memory {
     pub about: Who,
     /// The last thing they did.
     pub deed: Deed,
     /// How much, when made: below 0 a wrong, above a good turn.
     pub amount: f32,
-    pub day: i32,
+    /// The day it was made (days since the world began).
+    pub day: u16,
     /// Only heard of, not done to them: an opinion, not a grievance.
-    #[serde(default)]
     pub heard: bool,
 }
 
+/// A memory as saved: who (packed), what, how much (in hundredths), when, heard.
+#[derive(Serialize, Deserialize, Clone, Copy)]
+struct PackedMemory(u32, u8, i16, u16, bool);
+
+impl From<Memory> for PackedMemory {
+    fn from(m: Memory) -> Self {
+        PackedMemory(m.about.pack(), m.deed as u8, (m.amount * 100.0).round() as i16, m.day, m.heard)
+    }
+}
+
+impl From<PackedMemory> for Memory {
+    fn from(p: PackedMemory) -> Self {
+        Memory { about: Who::unpack(p.0), deed: Deed::from_u8(p.1), amount: p.2 as f32 / 100.0, day: p.3, heard: p.4 }
+    }
+}
+
 impl Memory {
+    pub const NONE: Memory = Memory { about: Who::Someone, deed: Deed::Kindness, amount: 0.0, day: 0, heard: false };
+
     /// How strongly it's remembered on `day`, by someone this patient.
     pub fn strength(&self, day: i32, patience: f32) -> f32 {
         let rate = if self.amount < 0.0 { WRONG_FADE * (1.5 - patience) } else { HELP_FADE };
-        self.amount * (-rate * (day - self.day).max(0) as f32).exp()
+        self.amount * (-rate * (day - self.day as i32).max(0) as f32).exp()
     }
 }
 
@@ -207,16 +250,20 @@ impl World {
             Some(x) => {
                 x.amount = (x.strength(day, pat) + amount).clamp(-MOST, MOST);
                 x.deed = deed;
-                x.day = day;
+                x.day = day.max(0) as u16;
                 x.heard &= heard;
             }
             None => {
                 m.memories.retain(|x| x.strength(day, pat).abs() >= FORGOTTEN);
-                m.memories.push(Memory { about, deed, amount, day, heard });
-                if m.memories.len() > MEMORY_CAP {
+                if m.memories.len() >= MEMORY_CAP {
+                    // The faintest makes way, if this is stronger.
                     let k = (0..m.memories.len()).min_by(|&a, &b| m.memories[a].strength(day, pat).abs().total_cmp(&m.memories[b].strength(day, pat).abs())).unwrap();
+                    if m.memories[k].strength(day, pat).abs() > amount.abs() {
+                        return;
+                    }
                     m.memories.remove(k);
                 }
+                m.memories.push(Memory { about, deed, amount, day: day.max(0) as u16, heard });
             }
         }
         if heard {
@@ -353,7 +400,7 @@ impl World {
         let (hp, hq) = (self.society.lives[p as usize].household.unwrap(), self.society.lives[q as usize].household.unwrap());
         let warm = self.feeling(hp, hq).map(|f| f.warmth).unwrap_or(0.0);
         let mem = self.memory_of(p, Who::Person(q), day);
-        let needs = self.mind(p).needs;
+        let needs = self.mind(p).needs();
         let kind_w = 0.3 + tr.sociability * 0.5 + tr.patience * 0.3 + warm.max(0.0) * 0.8 + mem.max(0.0);
         let bad_w = 0.1 + (1.0 - tr.patience) * 0.35 + tr.boldness * 0.15 + needs[0] * 0.3 + needs[3] * 0.4 + (-warm).max(0.0) + (-mem).max(0.0);
         if r.f32() * (kind_w + bad_w) < kind_w {
@@ -496,7 +543,7 @@ impl World {
     fn act(&mut self, a: PersonId, b: PersonId, rung: u8, open: bool, town: SettlementId, t: f64, r: &mut Rng) -> Deed {
         let day = World::day_of(t) as i32;
         let (ha, hb) = (self.society.lives[a as usize].household.unwrap(), self.society.lives[b as usize].household.unwrap());
-        let found = open || r.chance(FOUND_OUT);
+        let found = open || rung == 1 || r.chance(FOUND_OUT);
         let deed = match (rung, open) {
             (1, _) => Deed::Avoid,
             (2, true) => {
@@ -531,7 +578,7 @@ impl World {
             }
             (3, false) => {
                 let cost = self.daily_cost(hb);
-                if self.mind(a).needs[0] > 0.3 || self.society.households[ha as usize].purse.coin < self.daily_cost(ha) * RESERVE_DAYS * 0.5 {
+                if self.mind(a).needs()[0] > 0.3 || self.society.households[ha as usize].purse.coin < self.daily_cost(ha) * RESERVE_DAYS * 0.5 {
                     let take = (cost * THEFT_DAYS).min(self.society.households[hb as usize].purse.coin.max(0.0));
                     self.society.households[hb as usize].purse.coin -= take;
                     self.society.households[ha as usize].purse.coin += take;

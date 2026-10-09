@@ -54,11 +54,11 @@ fn news_travels_with_travellers_and_violence_makes_folk_fearful() {
     let (town, a, b) = pair(&w);
     let t = w.time;
     let id = w.note(Deed::Feud, Some(a), Some(b), town, t, false);
-    let before: f32 = w.settlements[town as usize].residents.iter().map(|&p| w.mind(p).needs[2]).sum();
+    let before: f32 = w.settlements[town as usize].residents.iter().map(|&p| w.mind(p).needs()[2]).sum();
     run(&mut w, 12.0 * DAY);
     let away = w.knowers(id).into_iter().filter(|&p| w.people[p as usize].home.is_some_and(|h| h != town)).count();
     assert!(away > 0, "another town heard of it");
-    let after: f32 = w.settlements[town as usize].residents.iter().map(|&p| w.mind(p).needs[2]).sum();
+    let after: f32 = w.settlements[town as usize].residents.iter().map(|&p| w.mind(p).needs()[2]).sum();
     assert!(after > before, "the town feels less safe: {before} then {after}");
     // Nobody knows more than they can hold.
     assert!(w.society.minds.iter().all(|m| m.knows.len() <= history::KNOWS_CAP));

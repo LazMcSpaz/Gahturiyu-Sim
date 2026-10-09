@@ -16,6 +16,7 @@ pub mod economy;
 pub mod effects;
 pub mod elements;
 pub mod encounters;
+pub mod few;
 pub mod fights;
 pub mod geo;
 pub mod group;

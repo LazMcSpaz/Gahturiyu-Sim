@@ -61,7 +61,7 @@ fn a_household_whose_earner_is_laid_up_falls_into_debt() {
     assert!(w.why_not_working(p).unwrap().contains("laid up"));
     let purse = &w.society.households[h].purse;
     assert!(purse.debt() > 0.0, "and they're borrowing: {:?}", purse);
-    assert!(w.mind(p).needs[Need::Money as usize] > 0.1, "and worried about it");
+    assert!(w.mind(p).needs()[Need::Money as usize] > 0.1, "and worried about it");
     assert_eq!(w.household_need(h as u32).0, Need::Money);
 }
 

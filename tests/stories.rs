@@ -160,7 +160,7 @@ fn the_storyteller_keeps_it_calm() {
             assert!(w.stories_in(t).len() <= w.story_cap(t), "never past the cap");
         }
         for (p, m) in w.society.minds.iter().enumerate() {
-            if m.needs.iter().take(4).any(|&x| x > 0.2) {
+            if m.needs().iter().take(4).any(|&x| x > 0.2) {
                 needy.insert(p as u32);
             }
         }

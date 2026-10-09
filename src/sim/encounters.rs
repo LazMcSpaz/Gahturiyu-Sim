@@ -327,7 +327,7 @@ impl World {
         self.npc_fights.push(NpcFight { id, ends: result.time, result, camp: e.camp, victim: e.victim, was, dropped, cut: k });
     }
 
-    pub(super) fn name_of(&self, pid: PersonId) -> String {
+    pub fn name_of(&self, pid: PersonId) -> String {
         let p = &self.people[pid as usize];
         p.name().map(|s| s.to_string()).unwrap_or_else(|| names::person_name(p.race, p.seed))
     }

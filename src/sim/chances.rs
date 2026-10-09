@@ -231,7 +231,7 @@ impl World {
     // ---- Making them ---------------------------------------------------------
 
     /// Make an opportunity (none if the town has too many open). Returns its id.
-    pub(super) fn post_opp(&mut self, mut o: Opportunity, t: f64) -> Option<u32> {
+    pub fn post_opp(&mut self, mut o: Opportunity, t: f64) -> Option<u32> {
         let open = self.society.opps.iter().filter(|x| x.town == o.town && x.state == OppState::Open).count();
         if open >= OPEN_CAP {
             return None;
@@ -248,7 +248,7 @@ impl World {
     }
 
     /// A blank opportunity from `asker` in `town`.
-    pub(super) fn opp(&self, kind: Chance, asker: PersonId, town: SettlementId) -> Opportunity {
+    pub fn opp(&self, kind: Chance, asker: PersonId, town: SettlementId) -> Opportunity {
         Opportunity { id: 0, kind, giver: Giver::Person(asker), asker, town, target: None, place: None, reward: 0, favour: false, deadline: 0.0, legal: true, open: true, state: OppState::Open, taken_by: None, event: None, item: None, amount: 0.0, known: false, done: false }
     }
 
@@ -559,7 +559,7 @@ impl World {
                 if self.squad_count(coin) < price {
                     return format!("You haven't {price} coin.");
                 }
-                r.chance(0.5 + self.mind(npc).needs[0] * 0.5)
+                r.chance(0.5 + self.mind(npc).needs()[0] * 0.5)
             }
             Press::Threaten => r.chance((0.5 + you.min(1.5) * 0.3 - them.boldness * 0.5).clamp(0.05, 0.95)),
         };
@@ -772,7 +772,7 @@ impl World {
             .filter(|&p| {
                 let pp = &self.people[p as usize];
                 let m = self.mind(p);
-                !pp.dead && !pp.in_squad && !pp.bandit && (m.work == super::lives::Work::Jobless || m.needs[0] > 0.5 || m.needs[1] > 0.5) && pp.traits.boldness + pp.traits.wanderlust > 0.9
+                !pp.dead && !pp.in_squad && !pp.bandit && (m.work == super::lives::Work::Jobless || m.needs()[0] > 0.5 || m.needs()[1] > 0.5) && pp.traits.boldness + pp.traits.wanderlust > 0.9
             })
             .collect()
     }

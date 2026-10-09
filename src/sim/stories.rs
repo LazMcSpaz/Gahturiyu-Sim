@@ -255,7 +255,7 @@ impl World {
             let asks = 0.5 + l.habits.asks;
             let mut r = Rng::from_keys(&[self.seed, p as u64, day as u64, 0x4341_4E44]);
             // Crime.
-            let want = m.needs[Need::Money as usize].max(m.needs[Need::Hunger as usize]);
+            let want = m.needs()[Need::Money as usize].max(m.needs()[Need::Hunger as usize]);
             if honour < CRIME_HONOUR && tr.boldness >= CRIME_BOLD && want > 0.2 {
                 let drive = want * (0.5 + tr.boldness) * (1.2 - honour);
                 let owes = self.society.households[h as usize].purse.debts.iter().find_map(|d| match d.to {
@@ -279,7 +279,7 @@ impl World {
             if let Some(&(n, ev, hidden)) = robbed.get(&p) {
                 let trade = l.job.craft().is_some() || matches!(l.job, Job::Merchant | Job::Innkeeper);
                 let stolen = self.society.stolen.iter().find(|s| s.event == ev && !s.recovered).map(|s| s.thief);
-                let chance = if trade && (n >= 2 || m.needs[Need::Safety as usize] > 0.4) {
+                let chance = if trade && (n >= 2 || m.needs()[Need::Safety as usize] > 0.4) {
                     Some((Chance::Guard, None))
                 } else if let Some(thief) = stolen {
                     Some((Chance::Recover, Some(thief)))
@@ -317,7 +317,7 @@ impl World {
             // Bandits nearby.
             if let Some(c) = self.near_camp(town) {
                 let d = c.1;
-                let fear = m.needs[Need::Safety as usize] * 0.5 + (1.0 - d / 4000.0).max(0.0) * 0.4;
+                let fear = m.needs()[Need::Safety as usize] * 0.5 + (1.0 - d / 4000.0).max(0.0) * 0.4;
                 if r.chance(0.05) {
                     out.push(Candidate { who: p, plot: Plot::Ask { chance: Chance::ClearCamp { camp: c.0, at: c.2 }, target: None, event: None }, drive: fear * asks, prominence: 0.0 });
                 }

@@ -264,3 +264,95 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     let _ = Color32::TRANSPARENT;
     r
 }
+
+const LW: f32 = 470.0;
+
+/// Wrap a line to a width, returning the lines.
+fn wrap(c: &Canvas, s: &str, size: f32, width: f32) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut line = String::new();
+    for word in s.split(' ') {
+        let next = if line.is_empty() { word.to_string() } else { format!("{line} {word}") };
+        if c.width(&next, size) > width && !line.is_empty() {
+            out.push(line);
+            line = word.to_string();
+        } else {
+            line = next;
+        }
+    }
+    if !line.is_empty() {
+        out.push(line);
+    }
+    out
+}
+
+/// The town's talk, beside the town panel: what's happened lately, the
+/// ring's leader (once the squad knows), and work the squad has heard of.
+/// With the debug readout on, everything: every opportunity, event and
+/// live storyline.
+pub fn life_panel(c: &Canvas, w: &World, town: u16, debug: bool) -> Bx {
+    let mut rows: Vec<(String, Rgb, f32)> = Vec::new();
+    let head = |rows: &mut Vec<(String, Rgb, f32)>, s: &str| rows.push((s.to_string(), TEXT, 15.0));
+    let line = |w: &World, e: &gahturiyu_sim::sim::history::Event| {
+        let who = match (e.actor, e.hidden) {
+            (Some(a), false) => w.name_of(a),
+            _ => "Someone".into(),
+        };
+        let whom = e.victim.map(|v| w.name_of(v)).unwrap_or_default();
+        format!("Day {} {}  {} {} {}", (e.t / 86400.0).floor(), super::hud::hhmm(e.t), who, e.deed.words(), whom)
+    };
+    head(&mut rows, "Lately");
+    let shown: Vec<&gahturiyu_sim::sim::history::Event> = w.events(town).iter().rev().filter(|e| debug || (!e.hidden && e.severity >= 0.3)).take(if debug { 14 } else { 6 }).collect();
+    if shown.is_empty() {
+        rows.push(("Nothing much.".into(), DIM, 13.0));
+    }
+    for e in shown {
+        rows.push((line(w, e), if e.severity >= 0.5 { WARN } else { DIM }, 13.0));
+    }
+    if let Some(r) = w.ring(town) {
+        if r.found || debug {
+            head(&mut rows, "The ring");
+            let leader = r.leader.map(|l| w.name_of(l)).unwrap_or_else(|| "no one".into());
+            rows.push((format!("Led by {leader}{}", if debug { format!("  ·  {} members, purse {:.0}, heat {:.1}", r.members.len(), r.purse, r.heat) } else { String::new() }), GOLD, 13.0));
+            if debug {
+                if let Some((mv, d)) = r.last {
+                    rows.push((format!("Day {d}: {}", mv.words()), DIM, 13.0));
+                }
+            }
+        }
+    }
+    let opps: Vec<&gahturiyu_sim::sim::chances::Opportunity> = if debug { w.society.opps.iter().filter(|o| o.town == town).collect() } else { w.known_opps(town) };
+    head(&mut rows, if debug { "Opportunities (all)" } else { "Work you've heard of" });
+    if opps.is_empty() {
+        rows.push(("None.".into(), DIM, 13.0));
+    }
+    for o in opps {
+        rows.push((format!("{}: {}{}", w.name_of(o.asker), w.opp_line(o), if debug { format!("  [{:?}]", o.state) } else { String::new() }), if o.legal { TEXT } else { WARN }, 13.0));
+    }
+    if debug {
+        head(&mut rows, &format!("Storylines (cap {}, drama {:.2})", w.story_cap(town), w.drama(town)));
+        for s in w.society.stories.iter().filter(|s| s.town == town) {
+            rows.push((format!("{} {}{}", w.name_of(s.who), s.plot.words(), if s.waiting.is_some() { " (waiting on an outsider)" } else { "" }), DIM, 13.0));
+        }
+    }
+    // Lay out, wrapping.
+    let probe: Vec<(Vec<String>, Rgb, f32)> = rows.iter().map(|(s, col, size)| (wrap(c, s, *size, LW - 28.0), *col, *size)).collect();
+    let h: f32 = 24.0 + probe.iter().map(|(ls, _, size)| ls.len() as f32 * (size + 4.0) + if *size > 14.0 { 8.0 } else { 0.0 }).sum::<f32>();
+    let r = Bx::new(c.w - W - LW - 24.0, 12.0, LW, h.min(c.h - 60.0));
+    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    let x = r.x + 14.0;
+    let mut y = r.y + 10.0;
+    for (ls, col, size) in probe {
+        if size > 14.0 {
+            y += 8.0;
+        }
+        for l in ls {
+            y += size + 4.0;
+            if y > r.y + r.h - 4.0 {
+                return r;
+            }
+            c.text(&l, x, y, size, col);
+        }
+    }
+    r
+}

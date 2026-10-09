@@ -253,8 +253,13 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             }
             if p.in_squad {
                 out.push(("Your squad".into(), TEXT));
+                if let Some(c) = w.contract_of(pid) {
+                    let what = c.post.map(|j| format!("Working as {}", j.name().to_lowercase())).unwrap_or_else(|| "On guard".into());
+                    out.push((format!("{what} at the {} in {}, {:02.0}:00–{:02.0}:00  ·  {:.0} coin a day  ·  {} days paid", w.society.towns[c.town as usize].places[c.place as usize].kind.name().to_lowercase(), w.settlements[c.town as usize].name, c.hours.0, c.hours.1, c.pay, c.days_paid), GOLD));
+                }
             } else {
                 out.extend(work_lines(w, pid));
+                out.extend(life_lines(w, pid));
                 if let Some(g) = w.group_of[pid as usize].and_then(|g| w.group(g)) {
                     out.push((doing(w, g.id), DIM));
                 } else if let Some(home) = p.home {
@@ -487,6 +492,78 @@ fn capital(s: &str) -> String {
 }
 
 /// Someone's work: what they do, where, and the hours they keep.
+/// Their work status, what's on their mind, their honour, a grudge (if the
+/// squad has talked with them), and their household's money and feelings.
+fn life_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
+    let mut out = Vec::new();
+    if pid as usize >= w.society.minds.len() || w.people[pid as usize].bandit {
+        return out;
+    }
+    let l = w.life(pid);
+    if let Some(why) = w.why_not_working(pid) {
+        out.push((capital(&why), [0.95, 0.6, 0.3]));
+    }
+    let (need, v) = w.top_need(pid);
+    let honour = match l.habits.honour {
+        h if h < 0.35 => "little honour",
+        h if h > 0.7 => "a strong sense of honour",
+        _ => "an ordinary sense of honour",
+    };
+    let mind = if v > 0.25 { format!("Troubled by {} ({:.0}%)", need.name(), v * 100.0) } else { "Nothing much troubling them".to_string() };
+    out.push((format!("{mind}  ·  {honour}"), DIM));
+    // What the squad has learned by talking to them.
+    let talked = w.talk_said.iter().any(|s| s.0 == pid);
+    if talked {
+        let day = gahturiyu_sim::sim::World::day_of(w.time) as i32;
+        if let Some(g) = w.top_grudge(pid, day) {
+            let who = match g.about {
+                gahturiyu_sim::sim::memory::Who::Person(q) => w.name_of(q),
+                gahturiyu_sim::sim::memory::Who::Ring(_) => "the ring".into(),
+                _ => "whoever it was".into(),
+            };
+            out.push((format!("Holds a grudge against {who} ({})", g.deed.words().split(' ').next().unwrap_or("")), [0.95, 0.6, 0.3]));
+        }
+    }
+    // The household.
+    if let Some(h) = l.household {
+        let hh = &w.society.households[h as usize];
+        let pu = &hh.purse;
+        let debt = pu.debt();
+        let mut line = format!("Household of {}  ·  purse {:.0}", hh.members.iter().filter(|&&m| !w.people[m as usize].dead).count(), pu.coin);
+        if debt > 0.0 {
+            let to: Vec<String> = pu
+                .debts
+                .iter()
+                .map(|d| match d.to {
+                    gahturiyu_sim::sim::lives::Creditor::Household(o) => format!("{}'s household{}", w.society.households.get(o as usize).and_then(|x| x.members.first()).map(|&m| w.name_of(m)).unwrap_or_default(), if d.dodged { " (not paying)" } else { "" }),
+                    gahturiyu_sim::sim::lives::Creditor::Merchants(_) => "the merchants".into(),
+                    gahturiyu_sim::sim::lives::Creditor::Hall(_) => "the hall".into(),
+                })
+                .collect();
+            line += &format!("  ·  owes {:.0} to {}", debt, to.join(", "));
+        }
+        let (n, nv) = w.household_need(h);
+        if nv > 0.25 {
+            line += &format!("  ·  needs: {}", n.name());
+        }
+        out.push((line, DIM));
+        let feel: Vec<String> = hh
+            .feelings
+            .iter()
+            .filter(|f| f.warmth.abs() > 0.15)
+            .map(|f| {
+                let head = w.society.households.get(f.other as usize).and_then(|x| x.members.first()).map(|&m| w.name_of(m)).unwrap_or_default();
+                let stage = gahturiyu_sim::sim::memory::STAGES[f.stage as usize];
+                format!("{} toward {head}'s{}", if f.warmth > 0.0 { "warm" } else { "cold" }, if stage.is_empty() { String::new() } else { format!(" ({stage})") })
+            })
+            .collect();
+        if !feel.is_empty() {
+            out.push((capital(&feel.join(", ")), DIM));
+        }
+    }
+    out
+}
+
 fn work_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
     use gahturiyu_sim::sim::jobs::Job;
     let l = w.life(pid);

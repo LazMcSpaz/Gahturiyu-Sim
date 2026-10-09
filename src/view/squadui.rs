@@ -764,7 +764,7 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     c.rect(r.x, r.y, r.w, r.h, Color32::from_rgba_unmultiplied(13, 15, 18, 240));
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(npc.race)));
     let x = r.x + 16.0;
-    let disp = w.disposition(cv.npc, cv.with);
+    let disp = w.regard_of(cv.npc, cv.with);
     let job = w.life(cv.npc).job;
     let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else { job.name().to_lowercase() };
     c.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), what), x, r.y + 28.0, 18.0, race_color(npc.race));

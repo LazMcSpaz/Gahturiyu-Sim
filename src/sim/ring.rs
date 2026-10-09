@@ -198,7 +198,7 @@ impl World {
         let folk = &self.settlements[town as usize].residents;
         let tl = &self.society.towns[town as usize];
         let guard = folk.iter().copied().find(|&g| self.society.lives[g as usize].job == Job::Guard && !self.people[g as usize].dead && !r.bribed.contains(&g));
-        let desperate = folk.iter().copied().find(|&p| !r.members.contains(&p) && self.ring_material(p, town) && !self.in_story(p) && (self.mind(p).work == Work::Jobless || self.mind(p).needs[Need::Money as usize] > 0.5));
+        let desperate = folk.iter().copied().find(|&p| !r.members.contains(&p) && self.ring_material(p, town) && !self.in_story(p) && (self.mind(p).work == Work::Jobless || self.mind(p).needs()[Need::Money as usize] > 0.5));
         let merchant = folk.iter().copied().filter(|&p| self.society.lives[p as usize].job == Job::Merchant && !self.people[p as usize].dead).filter_map(|p| self.society.lives[p as usize].household).find(|h| !r.paying.contains(h));
         let loot = self.society.stolen.iter().any(|s| s.town == town && !s.fenced && !s.recovered);
         let moves = [

@@ -129,14 +129,26 @@ pub struct Mind {
     pub had_work: bool,
     /// The post they lost, and why, if they've lost one.
     pub lost: Option<(Job, Loss)>,
-    /// Money, hunger, safety, grievance, ambition: 0 (none) to 1 (pressing).
-    pub needs: [f32; 5],
+    /// Money, hunger, safety, grievance, ambition: 0 (none) to 255
+    /// (pressing); read them with `needs()`.
+    pub need: [u8; 5],
     /// Who wronged or helped them (`memory.rs`).
     #[serde(default)]
-    pub memories: Vec<super::memory::Memory>,
+    pub memories: super::few::Few<super::memory::Memory, { super::memory::MEMORY_CAP }>,
     /// World events they know of (`history.rs`).
     #[serde(default)]
-    pub knows: Vec<super::history::Known>,
+    pub knows: super::few::Few<super::history::Known, { super::history::KNOWS_CAP }>,
+}
+
+impl Mind {
+    /// Money, hunger, safety, grievance, ambition: 0 (none) to 1 (pressing).
+    pub fn needs(&self) -> [f32; 5] {
+        self.need.map(|x| x as f32 / 255.0)
+    }
+
+    pub fn set_need(&mut self, k: usize, v: f32) {
+        self.need[k] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    }
 }
 
 /// Why someone lost their post.
@@ -196,7 +208,7 @@ impl World {
     /// A person's work, needs, memories and knowledge. (People who came
     /// after the world was made — bandits — have an empty one.)
     pub fn mind(&self, p: PersonId) -> &super::lives::Mind {
-        static EMPTY: Mind = Mind { work: Work::Working, injured_days: 0, away_days: 0, idle_days: 0, had_work: false, lost: None, needs: [0.0; 5], memories: Vec::new(), knows: Vec::new() };
+        static EMPTY: Mind = Mind { work: Work::Working, injured_days: 0, away_days: 0, idle_days: 0, had_work: false, lost: None, need: [0; 5], memories: super::few::Few::new_with(super::memory::Memory::NONE), knows: super::few::Few::new_with(super::history::Known { id: 0 }) };
         self.society.minds.get(p as usize).unwrap_or(&EMPTY)
     }
 
@@ -230,7 +242,7 @@ impl World {
         let mut sum = [0.0f32; 5];
         let mut n: f32 = 0.0;
         for &m in hh.members.iter().filter(|&&m| !self.people[m as usize].dead) {
-            for (k, x) in self.mind(m).needs.iter().enumerate() {
+            for (k, x) in self.mind(m).needs().iter().enumerate() {
                 sum[k] += x;
             }
             n += 1.0;
@@ -241,7 +253,7 @@ impl World {
 
     /// A person's most pressing need.
     pub fn top_need(&self, p: PersonId) -> (Need, f32) {
-        let n = self.mind(p).needs;
+        let n = self.mind(p).needs();
         let k = (0..5).max_by(|&a, &b| n[a].total_cmp(&n[b]).then(b.cmp(&a))).unwrap_or(0);
         (NEEDS[k], n[k])
     }
@@ -543,8 +555,9 @@ impl World {
             let ambition = (tr.boldness * 0.6 + (1.0 - tr.patience) * 0.2 + tr.sociability * 0.15 - if placed { 0.3 } else { 0.0 }).clamp(0.0, 1.0);
             let target = [money, hunger, safety, grievance, ambition];
             let m = &mut self.society.minds[p as usize];
+            let now = m.needs();
             for k in 0..5 {
-                m.needs[k] += (target[k] - m.needs[k]) * NEED_RATE;
+                m.set_need(k, now[k] + (target[k] - now[k]) * NEED_RATE);
             }
         }
     }

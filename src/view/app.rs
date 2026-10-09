@@ -100,6 +100,8 @@ pub struct Game {
     /// Remarks townsfolk make as the squad goes by: (who, what, until frame),
     /// and when each may speak up again.
     pub barks: Vec<(PersonId, String, u32)>,
+    /// The town's talk panel shows everything (as with the detail readout).
+    pub town_all: bool,
     pub barked: std::collections::HashMap<PersonId, u32>,
 }
 
@@ -153,6 +155,7 @@ pub fn run() {
         labels: Vec::new(),
         bars: Vec::new(),
         barks: Vec::new(),
+        town_all: false,
         barked: std::collections::HashMap::new(),
         shot: None,
         world,
@@ -187,7 +190,13 @@ pub fn run() {
         game.inv = s.inventory.and_then(|k| game.world.squad.members.get(k).copied());
         game.craft = s.craft.and_then(|k| game.world.squad.members.get(k).copied());
         game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
-        if s.town {
+        if s.feud {
+            game.town_all = true;
+        }
+        if s.guard {
+            game.journal = true;
+        }
+        if s.town || s.feud {
             let at = game.world.squad.pos;
             game.town = game.world.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|t| t.id);
         }
@@ -856,6 +865,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     if let Some(t) = game.town {
         panels.push(super::townui::town_panel(&c, w, t));
+        panels.push(super::townui::life_panel(&c, w, t, game.debug || game.town_all));
     }
     if game.book.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
         game.book = None;

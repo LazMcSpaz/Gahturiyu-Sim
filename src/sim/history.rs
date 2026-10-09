@@ -62,9 +62,11 @@ pub const OPINION: f32 = 0.2;
 pub const DANGER: f32 = 0.8;
 
 /// What was done.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+#[repr(u8)]
 pub enum Deed {
     // Everyday dealings.
+    #[default]
     Kindness,
     Loan,
     Slight,
@@ -102,11 +104,20 @@ pub enum Deed {
     JobFailed,
 }
 
-/// An event someone knows of.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+/// An event someone knows of, by its number (which says which town's
+/// record it's in: the top bits).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 pub struct Known {
     pub id: u32,
-    pub town: SettlementId,
+}
+
+/// Bits of an event's number below the town's.
+pub const TOWN_SHIFT: u32 = 22;
+
+impl Known {
+    pub fn town(self) -> SettlementId {
+        (self.id >> TOWN_SHIFT) as SettlementId
+    }
 }
 
 /// News on the road: told in `town` at the first dawn after `at`.
@@ -117,7 +128,46 @@ pub struct Tiding {
     pub news: Known,
 }
 
+/// Every deed, in order (for reading a saved one back).
+pub const DEEDS: [Deed; 31] = [
+    Deed::Kindness,
+    Deed::Loan,
+    Deed::Slight,
+    Deed::WorkQuarrel,
+    Deed::DebtQuarrel,
+    Deed::TradeDispute,
+    Deed::Avoid,
+    Deed::PublicDispute,
+    Deed::Slander,
+    Deed::Claim,
+    Deed::Duel,
+    Deed::Shun,
+    Deed::Record,
+    Deed::Sabotage,
+    Deed::Theft,
+    Deed::Beating,
+    Deed::Brawl,
+    Deed::Feud,
+    Deed::Con,
+    Deed::DebtDodge,
+    Deed::Arrest,
+    Deed::Caught,
+    Deed::Extortion,
+    Deed::Recruited,
+    Deed::Fenced,
+    Deed::TurnedIn,
+    Deed::Bribe,
+    Deed::Killing,
+    Deed::Threat,
+    Deed::JobDone,
+    Deed::JobFailed,
+];
+
 impl Deed {
+    pub fn from_u8(x: u8) -> Deed {
+        DEEDS.get(x as usize).copied().unwrap_or(Deed::Kindness)
+    }
+
     /// Is it a wrong done to someone?
     pub fn is_wrong(self) -> bool {
         !matches!(self, Deed::Kindness | Deed::Loan | Deed::Avoid | Deed::JobDone | Deed::Recruited | Deed::Arrest | Deed::Caught)
@@ -256,7 +306,8 @@ impl World {
         if h.towns.len() <= town as usize {
             h.towns.resize(town as usize + 1, Vec::new());
         }
-        let id = h.next;
+        // Numbered within its town's record, the town in the top bits.
+        let id = ((town as u32) << TOWN_SHIFT) | (h.next & ((1 << TOWN_SHIFT) - 1));
         h.next += 1;
         let ev = &mut h.towns[town as usize];
         ev.push(Event { id, deed, actor, victim, town, t, severity: deed.severity(), hidden, witnesses: witnesses.clone() });
@@ -269,7 +320,7 @@ impl World {
             let k = ev.iter().position(|e| e.severity >= SERIOUS).unwrap();
             ev.remove(k);
         }
-        let news = Known { id, town };
+        let news = Known { id };
         let day = World::day_of(t) as i32;
         // The doer knows; so does the one it was done to.
         for p in actor.into_iter().chain(victim).chain(witnesses) {
@@ -285,13 +336,13 @@ impl World {
 
     /// An event someone knows of, if it's still on record.
     pub fn known_event(&self, k: Known) -> Option<&Event> {
-        let ev = self.events(k.town);
+        let ev = self.events(k.town());
         ev.binary_search_by_key(&k.id, |e| e.id).ok().map(|i| &ev[i])
     }
 
     /// An event by number, if it's still on record.
     pub fn event(&self, id: u32) -> Option<&Event> {
-        (0..self.society.history.towns.len() as SettlementId).find_map(|town| self.known_event(Known { id, town }))
+        self.known_event(Known { id })
     }
 
     /// Who knows of an event (by asking everyone; for tests and the debug view).
@@ -312,13 +363,17 @@ impl World {
         }
         let Some(e) = self.known_event(k) else { return false };
         let (deed, actor, victim, hidden, sev) = (e.deed, e.actor, e.victim, e.hidden, e.severity);
-        let mut knows = std::mem::take(&mut self.society.minds[p as usize].knows);
+        let mut knows = self.society.minds[p as usize].knows;
         knows.retain(|x| self.known_event(*x).is_some());
-        knows.push(k);
-        if knows.len() > KNOWS_CAP {
+        if knows.len() >= KNOWS_CAP {
+            // The least interesting makes way (unless it's this).
             let i = (0..knows.len()).min_by(|&a, &b| self.interest(knows[a], day).total_cmp(&self.interest(knows[b], day)).then(knows[a].id.cmp(&knows[b].id))).unwrap();
+            if self.interest(knows[i], day) > self.interest(k, day) {
+                return false;
+            }
             knows.remove(i);
         }
+        knows.push(k);
         self.society.minds[p as usize].knows = knows;
         if let (Some(a), false) = (actor, hidden) {
             let kin = |x: PersonId| self.society.lives.get(x as usize).and_then(|l| l.household);
@@ -335,7 +390,7 @@ impl World {
     /// they've heard of, the fresher the worse.
     pub fn known_danger(&self, p: PersonId, day: i32) -> f32 {
         let Some(home) = self.people[p as usize].home else { return 0.0 };
-        let d: f32 = self.mind(p).knows.iter().filter(|k| k.town == home).filter(|k| self.known_event(**k).is_some_and(|e| e.deed.is_danger())).map(|&k| self.interest(k, day)).sum();
+        let d: f32 = self.mind(p).knows.iter().filter(|k| k.town() == home).filter(|k| self.known_event(**k).is_some_and(|e| e.deed.is_danger())).map(|&k| self.interest(k, day)).sum();
         (d * DANGER).min(1.0)
     }
 
@@ -405,7 +460,7 @@ impl World {
         let mut from = home;
         for (dest, arrive) in legs {
             if dest != from {
-                let mut news: Vec<Known> = self.events(from).iter().filter(|e| e.severity >= TIDING_SEVERITY && e.t <= now).map(|e| Known { id: e.id, town: from }).collect();
+                let mut news: Vec<Known> = self.events(from).iter().filter(|e| e.severity >= TIDING_SEVERITY && e.t <= now).map(|e| Known { id: e.id }).collect();
                 news.sort_by(|a, b| self.interest(*b, day).total_cmp(&self.interest(*a, day)).then(a.id.cmp(&b.id)));
                 for k in news.into_iter().take(TIDINGS_PER_LEG) {
                     if Rng::from_keys(&[self.seed, gid as u64, k.id as u64, 0x5449_4445]).chance(TIDING_CHANCE) {

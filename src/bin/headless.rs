@@ -196,7 +196,7 @@ fn society(days: f64, seed: u64) {
             let count = |k: Work| folk.iter().filter(|&&p| w.mind(p).work == k).count();
             let hhs: Vec<usize> = (0..w.society.households.len()).filter(|&h| w.society.communities[w.society.households[h].community as usize].town == ti as u16).collect();
             let indebt = hhs.iter().filter(|&&h| w.society.households[h].purse.debt() > 0.0).count();
-            let mean = |k: usize| folk.iter().map(|&p| w.mind(p).needs[k]).sum::<f32>() / folk.len().max(1) as f32;
+            let mean = |k: usize| folk.iter().map(|&p| w.mind(p).needs()[k]).sum::<f32>() / folk.len().max(1) as f32;
             let coin: f32 = hhs.iter().map(|&h| w.society.households[h].purse.coin).sum::<f32>() / hhs.len().max(1) as f32;
             println!(
                 "  lives: working {} injured {} away {} jobless {} bound {} retired {} | households {} ({} in debt, mean purse {:.0}) | needs money {:.2} hunger {:.2} safety {:.2} grievance {:.2} ambition {:.2}",

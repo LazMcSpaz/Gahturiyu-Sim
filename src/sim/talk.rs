@@ -277,7 +277,7 @@ impl World {
             c(subject, 0.9, o.event, Some(o.id), o.target);
         }
         // What's been done to them, or for them.
-        for mem in &m.memories {
+        for mem in m.memories.iter() {
             let s = mem.strength(day, pat);
             let about = match mem.about {
                 Who::Person(p) => Some(p),
@@ -302,7 +302,7 @@ impl World {
             }
         }
         // Needs.
-        let n = m.needs;
+        let n = m.needs();
         if n[Need::Money as usize] > 0.35 {
             c(Subject::Money, n[Need::Money as usize], None, None, None);
         }
@@ -358,7 +358,7 @@ impl World {
         }
         f.tag(if l.habits.honour < 0.35 { "low_honour" } else if l.habits.honour > 0.7 { "high_honour" } else { "mid_honour" });
         let m = self.mind(npc);
-        let n = m.needs;
+        let n = m.needs();
         f.tag(if n[1] > 0.4 { "hungry" } else if n[0] > 0.4 { "worried" } else if n[2] > 0.4 { "afraid" } else { "content" });
         let h = (self.time.rem_euclid(DAY) / HOUR) as i32;
         f.tag(match h {

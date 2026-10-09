@@ -82,6 +82,15 @@ pub struct Shot {
     pub shun: bool,
     /// `GAHT_TRADE=1`: talk to the nearest merchant at work and look at their wares.
     pub trade: bool,
+    /// `GAHT_CONVO=1`: a local who was robbed last night talks about it
+    /// (a conversation put together from the dialogue pieces).
+    pub convo: bool,
+    /// `GAHT_GUARD=1`: squad member 0 on a guard contract, standing at a
+    /// merchant's stall in its hours.
+    pub guard: bool,
+    /// `GAHT_FEUD=1`: two households in the nearest town fall out and the
+    /// world runs on; the town panel's debug readout shows how it went.
+    pub feud: bool,
     /// `GAHT_SOCIETY=runners|boats|tides`: go and watch the midday meal run,
     /// the dawn boats, or a stilt village keeping tide hours.
     pub society: Option<String>,
@@ -133,6 +142,9 @@ impl Shot {
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
             trade: var("GAHT_TRADE").is_some(),
+            convo: var("GAHT_CONVO").is_some(),
+            guard: var("GAHT_GUARD").is_some(),
+            feud: var("GAHT_FEUD").is_some(),
             society: var("GAHT_SOCIETY"),
             nudge: pair("GAHT_NUDGE"),
         })
@@ -424,6 +436,91 @@ impl Shot {
                 world.ask(Topic::Bandits);
                 if world.topics().contains(&Topic::Work) {
                     world.ask(Topic::Work);
+                }
+            }
+        }
+        if self.convo {
+            use gahturiyu_sim::sim::{history::Deed, memory::Who};
+            let lead = world.squad.members[0];
+            let here = world.squad.pos;
+            let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();
+            let folk = world.residents_in_band1(town);
+            let near = folk.iter().copied().filter(|&p| !world.is_indoors_asleep(p)).min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            let thief = folk.iter().copied().find(|&p| Some(p) != near);
+            if let (Some(npc), Some(thief)) = (near, thief) {
+                let t = world.time - 10.0 * 3600.0;
+                world.note(Deed::Theft, Some(thief), Some(npc), town, t, true);
+                let day = World::day_of(world.time) as i32;
+                world.remember(npc, Who::Someone, Deed::Theft, -0.6, day);
+                world.order_talk(lead, npc);
+                for _ in 0..240 {
+                    if world.talk.is_some() {
+                        break;
+                    }
+                    world.step(0.5);
+                }
+                let opts = world.topics();
+                if let Some(t) = opts.iter().find(|t| matches!(t, Topic::Say(_))) {
+                    world.ask(*t);
+                }
+            }
+        }
+        if self.guard {
+            use gahturiyu_sim::sim::{chances::Chance, jobs::Job, world::{DAY, HOUR}};
+            let here = world.squad.pos;
+            let merchant = world.people.iter().map(|p| p.id).filter(|&p| world.life(p).job == Job::Merchant && world.life(p).place.is_some() && world.people[p as usize].home.is_some()).min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            if let Some(mer) = merchant {
+                let town = world.people[mer as usize].home.unwrap();
+                let mut o = world.opp(Chance::Guard, mer, town);
+                o.place = world.life(mer).place;
+                o.amount = 14.0;
+                o.reward = 56;
+                let t = world.time;
+                if let Some(id) = world.post_opp(o, t) {
+                    let m = world.squad.members[0];
+                    world.take_opportunity(id, m);
+                    // On to the next day's shift.
+                    let c = world.contract_of(m).unwrap().clone();
+                    let at = (c.first_day as f64) * DAY + (c.hours.0 as f64 + 1.0) * HOUR;
+                    while world.time < at - 300.0 {
+                        world.step(600.0f64.min(at - 300.0 - world.time).max(1.0));
+                    }
+                    let pos = world.contract_pos(&c);
+                    world.teleport_squad(pos.add(V2::new(25.0, 8.0)));
+                    // Until they've walked over to it.
+                    for _ in 0..900 {
+                        world.step(1.0);
+                        if world.member_pos(0).dist(pos) < gahturiyu_sim::sim::chances::AT_POST * 0.7 && world.time >= at {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if self.feud {
+            use gahturiyu_sim::sim::{history::Deed, memory::Who};
+            let here = world.squad.pos;
+            let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();
+            for tl in &mut world.society.towns {
+                tl.drama = 0.8;
+            }
+            // The two smallest households of the town.
+            let mut hhs: Vec<u32> = (0..world.society.households.len() as u32).filter(|&h| {
+                let hh = &world.society.households[h as usize];
+                world.society.communities[hh.community as usize].town == town && !hh.members.is_empty() && hh.members.iter().all(|&m| !world.people[m as usize].in_squad)
+            }).collect();
+            hhs.sort_by_key(|&h| (world.society.households[h as usize].members.len(), h));
+            if hhs.len() >= 2 {
+                let (a, b) = (hhs[0], hhs[1]);
+                let them = world.society.households[b as usize].members[0];
+                for _ in 0..16 {
+                    let day = World::day_of(world.time) as i32;
+                    for m in world.society.households[a as usize].members.clone() {
+                        world.remember(m, Who::Person(them), Deed::Slight, -0.25, day);
+                    }
+                    for _ in 0..24 {
+                        world.step(3600.0);
+                    }
                 }
             }
         }
