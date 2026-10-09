@@ -113,8 +113,25 @@ pub const CARD_H: f32 = 100.0;
 const INV_W: f32 = 400.0;
 const ROW: f32 = 21.0;
 
-fn card_rect(c: &Canvas, k: usize) -> Bx {
-    Bx::new(12.0 + k as f32 * (CARD_W + 8.0), c.h - 30.0 - CARD_H - 10.0, CARD_W, CARD_H)
+/// How much taller than one card the cards stand (more rows).
+fn cards_extra(c: &Canvas, n: usize) -> f32 {
+    card_rect(c, 0, n).y - card_rect(c, n.saturating_sub(1), n).y
+}
+
+/// The narrowest a card gets before the cards go onto a second row.
+const CARD_MIN_W: f32 = 150.0;
+
+/// Card `k` of `n`: narrowed to fit along the bottom, and if even that
+/// won't do, in rows (the first row on top).
+fn card_rect(c: &Canvas, k: usize, n: usize) -> Bx {
+    let room = c.w - 24.0 + 8.0;
+    let per_row = ((room / (CARD_MIN_W + 8.0)).floor() as usize).max(1);
+    let in_row = n.min(per_row).max(1);
+    let w = ((room / in_row as f32) - 8.0).clamp(CARD_MIN_W, CARD_W);
+    let rows = n.div_ceil(per_row).max(1);
+    let (row, col) = (k / per_row, k % per_row);
+    let bottom = c.h - 30.0 - CARD_H - 10.0;
+    Bx::new(12.0 + col as f32 * (w + 8.0), bottom - (rows - 1 - row) as f32 * (CARD_H + 8.0), w, CARD_H)
 }
 
 fn inv_rect(c: &Canvas, w: &World, pid: PersonId) -> Bx {
@@ -179,8 +196,9 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
 pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -> (Option<Action>, Vec<Bx>) {
     let mut act = None;
     let mut boxes = Vec::new();
+    let n = w.squad.members.len();
     for (k, &pid) in w.squad.members.iter().enumerate() {
-        let r = card_rect(c, k);
+        let r = card_rect(c, k, n);
         boxes.push(r);
         let p = &w.people[pid as usize];
         let chosen = sel.shows(w, pid);
@@ -203,8 +221,10 @@ pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -
         if w.torch_lit(pid) {
             c.text("torch", after, r.y + 19.0, 12.0, [1.0, 0.7, 0.35]);
         }
-        let key = format!("F{}", k + 1);
-        c.text(&key, r.x + r.w - c.width(&key, 13.0) - 8.0, r.y + 17.0, 13.0, DIM);
+        if k < 6 {
+            let key = format!("F{}", k + 1);
+            c.text(&key, r.x + r.w - c.width(&key, 13.0) - 8.0, r.y + 17.0, 13.0, DIM);
+        }
 
         let (st, sc) = status(w, pid, k);
         let gear = p.kit();
@@ -749,17 +769,18 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
     (act, hovered, r)
 }
 
-fn talk_rect(c: &Canvas, topics: usize) -> Bx {
+fn talk_rect(c: &Canvas, topics: usize, n: usize) -> Bx {
     let w = 760.0f32.min(c.w - 24.0);
-    let h = (80.0 + topics as f32 * 22.0).max(380.0).min(c.h - CARD_H - 80.0);
-    Bx::new((c.w - w) / 2.0, c.h - 30.0 - CARD_H - 20.0 - h, w, h)
+    let up = CARD_H + cards_extra(c, n);
+    let h = (80.0 + topics as f32 * 22.0).max(380.0).min(c.h - up - 80.0);
+    Bx::new((c.w - w) / 2.0, c.h - 30.0 - up - 20.0 - h, w, h)
 }
 
 /// The conversation: what's been said on the left, topics to ask on the right.
 pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option<Topic>, Option<Bx>) {
     let Some(cv) = w.talk.as_ref() else { return (None, None) };
     let topics = w.topics();
-    let r = talk_rect(c, topics.len());
+    let r = talk_rect(c, topics.len(), w.squad.members.len());
     let npc = &w.people[cv.npc as usize];
     c.rect(r.x, r.y, r.w, r.h, Color32::from_rgba_unmultiplied(13, 15, 18, 240));
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(npc.race)));
@@ -819,7 +840,8 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
 
 fn journal_rect(c: &Canvas, w: &World) -> Bx {
     let n = w.quests.len().max(1) as f32;
-    Bx::new(12.0, c.h - 30.0 - CARD_H - 30.0 - (60.0 + n * 22.0), 620.0, 50.0 + n * 22.0)
+    let up = CARD_H + cards_extra(c, w.squad.members.len());
+    Bx::new(12.0, c.h - 30.0 - up - 30.0 - (60.0 + n * 22.0), 620.0, 50.0 + n * 22.0)
 }
 
 /// Jobs taken on, and what each needs next.

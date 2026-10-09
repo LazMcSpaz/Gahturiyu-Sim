@@ -85,6 +85,10 @@ pub struct Shot {
     /// `GAHT_LOOT=1`: two bandits lie beaten beside the squad and member 0
     /// is going through the first one's things (the loot panel).
     pub loot: bool,
+    /// `GAHT_RECRUIT=n`: n willing townsfolk from the nearest town join the
+    /// squad (the squad's purse covers their fees); the last is asked in
+    /// conversation, which stays open.
+    pub recruit: Option<usize>,
     /// `GAHT_DUEL=1`: squad member 0 is judged by duel in the nearest town.
     pub duel: bool,
     /// `GAHT_SHUN=1`: the nearest coastal town's stilt village withdraws;
@@ -155,6 +159,7 @@ impl Shot {
             town: var("GAHT_TOWN").is_some(),
             build: var("GAHT_BUILD"),
             loot: var("GAHT_LOOT").is_some(),
+            recruit: var("GAHT_RECRUIT").and_then(|v| v.parse().ok()),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -481,6 +486,39 @@ impl Shot {
                 if world.topics().contains(&Topic::Work) {
                     world.ask(Topic::Work);
                 }
+            }
+        }
+        if let Some(n) = self.recruit {
+            let lead = world.squad.members[0];
+            let here = world.squad.pos;
+            let mut town = world.settlements.iter().map(|t| t.id).min_by(|&a, &b| world.settlements[a as usize].pos.dist(here).total_cmp(&world.settlements[b as usize].pos.dist(here))).unwrap();
+            for k in 0..n {
+                // The nearest town with anyone willing left.
+                let pick = |w: &World, town: u16| w.settlements[town as usize].residents.iter().copied().filter(|&p| w.join_terms(p).is_some()).min_by(|&a, &b| w.person_pos(a).dist(here).total_cmp(&w.person_pos(b).dist(here)));
+                if pick(&world, town).is_none() {
+                    let near = world.settlements.iter().filter(|t| pick(&world, t.id).is_some()).min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id);
+                    match near {
+                        Some(t) => town = t,
+                        None => break,
+                    }
+                }
+                let Some(npc) = pick(&world, town) else { break };
+                let fee = world.join_terms(npc).unwrap_or(0);
+                world.people[lead as usize].detail.as_mut().unwrap().gear.add(gahturiyu_sim::sim::items::id("coin"), fee);
+                world.teleport_squad(world.person_pos(npc).add(V2::new(2.0, 0.0)));
+                if k + 1 < n {
+                    let _ = world.recruit(npc, lead);
+                    continue;
+                }
+                world.order_talk(lead, npc);
+                for _ in 0..240 {
+                    if world.talk.is_some() {
+                        break;
+                    }
+                    world.step(0.5);
+                }
+                world.ask(Topic::Background);
+                world.ask(Topic::Join(fee));
             }
         }
         if self.convo {

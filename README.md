@@ -214,6 +214,10 @@ the roads again if you changed the land's shape or ground.
   goes through their things. A panel lists what they wear and carry: click
   a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
   carries the body off instead. Townsfolk aren't fair game.
+- **Recruiting**: some townsfolk are restless (their hover says so). Talk to
+  one and ask them to **come with us**: the out-of-work and the needy come
+  for nothing, others want a signing fee (paid to their household). They
+  leave their town for good and become a full squad member, up to ten.
 - **Wear**: your weapons and armour wear with every blow; at zero a piece
   is gone. A crafter of the right trade mends it for coin, or right-click it
   in the pack panel to mend it yourself (if you know the craft and are at its

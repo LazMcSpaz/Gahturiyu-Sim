@@ -85,6 +85,8 @@ pub enum Topic {
     QuitWork,
     /// Come and work at the squad's outpost, for this many coin a day.
     Hire(u16),
+    /// Join the squad, for this signing fee (0: for nothing).
+    Join(u16),
     Goodbye,
 }
 
@@ -123,6 +125,7 @@ impl Topic {
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
+            Topic::Join(_) => "Come with us",
             Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
         }
@@ -195,6 +198,8 @@ impl World {
             },
             Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
             Topic::Hire(wage) => format!("Come and work at my outpost ({wage} coin a day)"),
+            Topic::Join(0) => "Come with us — join the squad".into(),
+            Topic::Join(fee) => format!("Come with us — join the squad ({fee} coin to sign on)"),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
             Topic::Collect(k) => match self.orders.get(k as usize) {
                 Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
@@ -271,7 +276,7 @@ impl World {
     /// What can be asked right now.
     pub fn topics(&self) -> Vec<Topic> {
         let Some(c) = &self.talk else { return vec![] };
-        if c.refused || self.regard_of(c.npc, c.with) < super::talk::DISTRUST {
+        if c.refused || self.people[c.npc as usize].in_squad || self.regard_of(c.npc, c.with) < super::talk::DISTRUST {
             return vec![Topic::Goodbye];
         }
         // What the squad member can say about what's on their mind.
@@ -378,6 +383,10 @@ impl World {
         // the squad's outpost, for a wage.
         if let Some(wage) = self.hire_terms(c.npc) {
             t.push(Topic::Hire(wage));
+        }
+        // The restless may take to the road with the squad.
+        if let Some(fee) = self.join_terms(c.npc) {
+            t.push(Topic::Join(fee));
         }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
@@ -625,6 +634,11 @@ impl World {
                 }
                 Err(e) => format!("No — {e}."),
             },
+            Topic::Join(fee) => match self.recruit(c.npc, c.with) {
+                Ok(_) if fee > 0 => format!("{fee} coin to my household, and I'm yours. Where are we going?"),
+                Ok(_) => "Nothing keeps me here. I'll get my things — lead on.".into(),
+                Err(e) => format!("No — {e}."),
+            },
             Topic::Report(i) => {
                 let q = self.quests[i].clone();
                 match (q.kind, q.stage) {
@@ -807,6 +821,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::PostWork(j, _) => 31 + j as u64,
         Topic::QuitWork => 70,
         Topic::Hire(_) => 71,
+        Topic::Join(_) => 72,
         Topic::Say(o) => 80 + o as u64,
     }
 }

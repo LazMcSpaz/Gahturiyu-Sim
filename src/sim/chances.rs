@@ -800,18 +800,8 @@ impl World {
 
     // ---- Who'd join ------------------------------------------------------------
 
-    /// People in a town who'd join the squad if asked: out of work or
-    /// desperate, and bold enough to take to the road (for recruitment, later).
+    /// People in a town who'd join the squad if asked (`join_terms`).
     pub fn would_join(&self, town: SettlementId) -> Vec<PersonId> {
-        self.settlements[town as usize]
-            .residents
-            .iter()
-            .copied()
-            .filter(|&p| {
-                let pp = &self.people[p as usize];
-                let m = self.mind(p);
-                !pp.dead && !pp.in_squad && !pp.bandit && (m.work == super::lives::Work::Jobless || m.needs()[0] > 0.5 || m.needs()[1] > 0.5) && pp.traits.boldness + pp.traits.wanderlust > 0.9
-            })
-            .collect()
+        self.settlements[town as usize].residents.iter().copied().filter(|&p| self.join_terms(p).is_some()).collect()
     }
 }

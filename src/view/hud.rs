@@ -145,6 +145,11 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if w.can_loot(pid) {
                 out.push(("Beaten: click to go through their things (Shift-click to carry)".to_string(), GOLD));
             }
+            match w.join_terms(pid) {
+                Some(0) => out.push(("Restless: might join the squad if asked".to_string(), GOLD)),
+                Some(fee) => out.push((format!("Restless: might join the squad, for {fee} coin"), GOLD)),
+                None => {}
+            }
             let t = p.traits;
             out.push((
                 format!(
