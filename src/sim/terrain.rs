@@ -401,10 +401,11 @@ impl Terrain {
 
     /// Height on land, or 0 (the sea surface) offshore.
     pub fn surface(&self, p: V2) -> f32 {
-        if geo::is_land(p) {
-            self.height(p).max(0.3)
-        } else {
+        let h = self.height(p);
+        if h < 0.0 {
             0.0
+        } else {
+            h.max(0.3)
         }
     }
 

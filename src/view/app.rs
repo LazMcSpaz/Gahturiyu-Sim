@@ -281,6 +281,7 @@ pub fn run() {
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
         .add_plugins(super::foliage::FoliagePlugin)
+        .add_plugins(super::ground::GroundPlugin)
         .add_plugins(super::weather::WeatherPlugin)
         .insert_resource(game)
         .insert_resource(super::settings::Settings::load())

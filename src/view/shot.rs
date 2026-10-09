@@ -240,8 +240,8 @@ impl Shot {
     /// (as opposed to the camera) happens here, before the first frame.
     pub fn prepare(&self, world: &mut World) {
         if self.forge {
-            if let Some(c) = world.forge.as_ref().and_then(|f| f.centre()) {
-                world.teleport_squad(c);
+            if let Some(c) = world.forge.as_ref().and_then(|f| f.founding.homes.first().map(|h| h.at)) {
+                world.teleport_squad(c.add(V2::new(10.0, 6.0)));
                 world.step(0.001);
             }
         }
