@@ -15,3 +15,4 @@ pub mod settings;
 pub mod shot;
 pub mod squadui;
 pub mod townui;
+pub mod weather;

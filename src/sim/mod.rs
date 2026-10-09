@@ -53,6 +53,7 @@ pub mod stealth;
 pub mod terrain;
 pub mod tide;
 pub mod wear;
+pub mod weather;
 pub mod world;
 pub mod worldgen;
 

@@ -268,6 +268,7 @@ pub fn run() {
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
         .add_plugins(super::foliage::FoliagePlugin)
+        .add_plugins(super::weather::WeatherPlugin)
         .insert_resource(game)
         .insert_resource(super::settings::Settings::load())
         .init_resource::<scene::Scene3d>()
@@ -830,7 +831,7 @@ struct UiState {
 
 /// The panels, labels, map and tooltips; clicks on panels become actions.
 #[allow(clippy::too_many_arguments)]
-fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>, mut settings: ResMut<super::settings::Settings>) -> Result {
+fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>, mut settings: ResMut<super::settings::Settings>, mut weather: ResMut<super::weather::WeatherView>) -> Result {
     let ctx = contexts.ctx_mut()?;
     if !st.fonts {
         let mut fonts = egui::FontDefinitions::default();
@@ -859,6 +860,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             for (at, slack, h) in map::draw(&c, &game.map_cam, &game.world, game.rings, st.relief.as_ref().unwrap(), &game.sel) {
                 pick.offer(at, slack, h);
             }
+            super::weather::map_colours(&c, ctx, game, &mut weather);
             "map"
         }
         View::Scene => {
@@ -1038,6 +1040,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             *settings = s;
         }
     }
+    panels.extend(super::weather::panel(&c, game, &mut weather, click));
 
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
