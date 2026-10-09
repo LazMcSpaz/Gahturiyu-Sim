@@ -108,18 +108,14 @@ fn smooth(a: f32, b: f32, x: f32) -> f32 {
 /// buildings (`assets/textures/roduro_*.png`): what a vertex colour is
 /// divided by so that tile × tint comes out at the palette's colour.
 pub const STONE_TILE_MEAN: Rgb = [0.188, 0.192, 0.204];
-pub const GRASS_TILE_MEAN: Rgb = [0.322, 0.357, 0.137];
+pub const GRASS_TILE_MEAN: Rgb = [0.290, 0.318, 0.149];
 
 /// How much bare rock shows at a point, 0 turf .. 1 rock: by steepness,
 /// by painted rock, gravel or shingle, and high up.
 pub fn rockiness(t: &Terrain, p: V2, up: f32) -> f32 {
     let h = t.height(p);
     let n2 = terrain::noise(t.seed() ^ 0xC1, p.x, p.y, 40.0);
-    // Where the land was authored, the weathering decided what's bare
-    // (painted below); only the sheerest faces add to it. Elsewhere
-    // steepness has to stand in.
-    let authored = t.authored.height.at(p).abs() > 0.01;
-    let mut r = if authored { smooth(0.55, 0.35, up) } else { smooth(0.80, 0.58, up) * (0.7 + n2 * 0.5) };
+    let mut r = smooth(0.80, 0.58, up) * (0.7 + n2 * 0.5);
     for layer in [&t.authored, &t.edits] {
         if let Some((k, w)) = layer.paint_at(p) {
             // Rock, sandstone, gravel, shingle; grass and moss cover it.
@@ -154,11 +150,9 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     // The Qotiro plateau is arid scrub; its escarpments are bare sandstone.
     let arid = t.plateau(p);
     c = mix(c, mix(SCRUB, GRASS_DRY, n2 * 0.4), arid * 0.9);
-    // Bare rock where it's steep or high. Authored land is the buildings'
-    // own stone (the tile shows as itself, a touch weathered).
+    // Bare rock where it's steep or high.
     let steep = smooth(0.86, 0.66, up) * (0.75 + n1 * 0.5);
-    let authored = t.authored.height.at(p).abs() > 0.01;
-    let rock = if arid > 0.4 { SANDROCK } else if authored { scale(STONE_TILE_MEAN, 1.25) } else { ROCK };
+    let rock = if arid > 0.4 { SANDROCK } else { ROCK };
     c = mix(c, rock, steep.max(smooth(380.0, 520.0, h) * 0.85));
     // Snow on the high flats.
     c = mix(c, SNOW, smooth(640.0, 760.0, h) * smooth(0.78, 0.90, up) * 0.85);
@@ -170,8 +164,7 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     // Ground painted: authored first, then by hand on top.
     for layer in [&t.authored, &t.edits] {
         if let Some((k, w)) = layer.paint_at(p) {
-            let col = if authored && k == 9 { rock } else { texture(k) };
-            c = mix(c, col, w);
+            c = mix(c, texture(k), w);
         }
     }
     scale(c, 0.9 + n2 * 0.18)

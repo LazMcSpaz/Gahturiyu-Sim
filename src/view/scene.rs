@@ -1436,8 +1436,7 @@ fn rock(b: &mut Builder, k: &gahturiyu_sim::sim::mapedit::Rock, ground: f32, slo
     let n = |i: u64| -> f32 { ((seed ^ i.wrapping_mul(0x9E37_79B9_7F4A_7C15)).wrapping_mul(0xBF58_476D_1CE4_E5B9) >> 40) as f32 / (1u64 << 24) as f32 };
     // The stone tile carries the look; this is its colour and full rockiness.
     let tone = 0.8 + n(99) * 0.35;
-    let m = palette::STONE_TILE_MEAN;
-    let col = super::ground::vertex([m[0] * 1.25 * tone, m[1] * 1.25 * tone, m[2] * 1.2 * tone], 1.0);
+    let col = super::ground::vertex([0.50 * tone, 0.50 * tone, 0.48 * tone], 1.0);
     let s = k.size;
     // (width, depth, height above ground, roughness) by kind:
     // boulder, slab, pillar, scree, outcrop.
