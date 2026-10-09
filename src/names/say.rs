@@ -1,0 +1,181 @@
+//! Spelling and saying: the plain-letters fallback for a word, and an
+//! English pronunciation hint ("ho-rah-HIH-dah") for hover text.
+//!
+//! Each tongue has one spelling. Only the canon's own marks are used:
+//! `ṭ ḍ` (t and d with the tongue curled back), `ì` (the i of "sit"), and
+//! `ʻ` (the catch in "uh-oh"). `th` and `sh` are single sounds; Qotiro's
+//! `x` is the ch of "loch"; `q` is a k made far back in the throat.
+
+use super::grammar::{grammar, Stress};
+use super::sound::{is_vowel, sounds};
+use super::Tongue;
+
+/// A word in plain letters, for fonts and file names that can't take the
+/// marks: `ṭ ḍ ì` lose their marks and the catch becomes an apostrophe.
+pub fn ascii(word: &str) -> String {
+    word.chars()
+        .map(|c| match c {
+            'ṭ' => 't',
+            'Ṭ' => 'T',
+            'ḍ' => 'd',
+            'Ḍ' => 'D',
+            'ì' => 'i',
+            'Ì' => 'I',
+            'ʻ' => '\'',
+            c => c,
+        })
+        .collect()
+}
+
+/// The same with nothing but letters, for file names.
+pub fn file_name(word: &str) -> String {
+    ascii(word).chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_lowercase()
+}
+
+/// A word with its first letter made a capital (names).
+pub fn capital(word: &str) -> String {
+    let mut c = word.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        None => String::new(),
+    }
+}
+
+/// One syllable: the consonants before the vowel, the vowel (or vowels that
+/// are said as one), the consonants after.
+#[derive(Debug, Default, Clone)]
+struct Syllable {
+    onset: Vec<char>,
+    vowel: Vec<char>,
+    coda: Vec<char>,
+}
+
+/// Split a word into syllables.
+fn split(w: &[char], tongue: Tongue) -> Vec<Syllable> {
+    // Vowels said as one: Ṭaḍoro's glides. (Horaro's vowels each get their
+    // own beat, so a long vowel is simply said twice.)
+    let one = |a: char, b: char| tongue == Tongue::Tadoro && matches!((a, b), ('a', 'i') | ('a', 'u') | ('e', 'i') | ('a', 'e'));
+    let mut out: Vec<Syllable> = Vec::new();
+    let mut waiting: Vec<char> = Vec::new();
+    let mut i = 0;
+    while i < w.len() {
+        let c = w[i];
+        if is_vowel(c) {
+            let mut s = Syllable::default();
+            // Consonants since the last vowel: one starts this syllable (two, a
+            // stop and r, when three meet), the rest close the one before.
+            let keep = if out.is_empty() {
+                waiting.len()
+            } else if waiting.len() >= 3 && waiting[waiting.len() - 1] == 'r' && matches!(waiting[waiting.len() - 2], 'p' | 't' | 'k' | 'q' | 'd' | 'g') {
+                2
+            } else {
+                waiting.len().min(1)
+            };
+            let cut = waiting.len() - keep;
+            if let Some(prev) = out.last_mut() {
+                prev.coda.extend_from_slice(&waiting[..cut]);
+            }
+            s.onset = waiting[cut..].to_vec();
+            waiting.clear();
+            s.vowel.push(c);
+            if i + 1 < w.len() && is_vowel(w[i + 1]) && one(c, w[i + 1]) {
+                s.vowel.push(w[i + 1]);
+                i += 1;
+            }
+            out.push(s);
+        } else {
+            waiting.push(c);
+        }
+        i += 1;
+    }
+    match out.last_mut() {
+        Some(last) => last.coda.extend_from_slice(&waiting),
+        None => out.push(Syllable { onset: waiting, ..Default::default() }),
+    }
+    out
+}
+
+fn consonant(c: char) -> &'static str {
+    match c {
+        'q' => "k",
+        'x' => "kh",
+        'ṭ' => "t",
+        'ḍ' => "d",
+        'θ' => "th",
+        'š' => "sh",
+        // The catch is only a break between syllables.
+        'ʻ' => "",
+        'p' => "p",
+        't' => "t",
+        'k' => "k",
+        'd' => "d",
+        'g' => "g",
+        'm' => "m",
+        'n' => "n",
+        's' => "s",
+        'h' => "h",
+        'r' => "r",
+        'l' => "l",
+        'w' => "w",
+        'y' => "y",
+        'f' => "f",
+        _ => "",
+    }
+}
+
+/// `bare`: nothing before the vowel in its syllable.
+fn vowel(v: &[char], closed: bool, bare: bool) -> &'static str {
+    match (v, closed) {
+        // "eye" alone, but "sy", "wy" after a consonant ("seye" reads wrong).
+        (['a', 'i'], _) if bare => "eye",
+        (['a', 'i'], _) => "y",
+        (['a', 'u'], _) => "ow",
+        (['e', 'i'], _) => "ay",
+        (['a', 'e'], _) => "ah-eh",
+        (['a'], false) => "ah",
+        (['a'], true) => "a",
+        (['e'], false) => "eh",
+        (['e'], true) => "e",
+        (['i'], false) => "ee",
+        (['i'], true) => "i",
+        (['ì'], _) => "ih",
+        (['o'], false) => "oh",
+        (['o'], true) => "o",
+        (['u'], _) => "oo",
+        _ => "",
+    }
+}
+
+/// How to say a word of a tongue, in plain English letters, with the
+/// stressed syllable in capitals: `pronounce("horahìda", Roduro)` is
+/// "hoh-rah-HIH-dah". A name of several words is said word by word.
+pub fn pronounce(word: &str, tongue: Tongue) -> String {
+    word.split_whitespace().map(|w| pronounce_one(w, tongue)).collect::<Vec<_>>().join(" ")
+}
+
+fn pronounce_one(word: &str, tongue: Tongue) -> String {
+    let w = sounds(&word.to_lowercase());
+    let syl = split(&w, tongue);
+    let n = syl.len();
+    let stress = match if tongue == Tongue::First { Stress::NextToLast } else { grammar(tongue).stress } {
+        Stress::First => 0,
+        Stress::NextToLast => n.saturating_sub(2),
+        Stress::Last => n.saturating_sub(1),
+    };
+    let mut parts = Vec::with_capacity(n);
+    for (k, s) in syl.iter().enumerate() {
+        let mut p = String::new();
+        for &c in &s.onset {
+            p.push_str(consonant(c));
+        }
+        // The catch closes nothing: it is only the break before the next vowel.
+        let closed = s.coda.iter().any(|c| *c != 'ʻ');
+        p.push_str(vowel(&s.vowel, closed, s.onset.iter().all(|c| *c == 'ʻ')));
+        for &c in &s.coda {
+            p.push_str(consonant(c));
+        }
+        parts.push(if k == stress { p.to_uppercase() } else { p });
+    }
+    parts.retain(|p| !p.is_empty());
+    parts.join("-")
+}

@@ -228,7 +228,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | to count, to reckon | tipu | tihu | tip | niwu | sifu |
 | to judge, to weigh | waʻe | gaʻe | gaq | wae | wae |
 | to serve | tuli | tuli | tur | nuli | suyi |
-| to run | yira | yira | dir | iira | yisha |
+| to run | yira | yira | dir | ira | yisha |
 | to rest, to stay | noʻe | ḍoʻe | noq | noe | yehe |
 | to drink | inu | iḍu | in | inu | iyu |
 | to eat | kama | qaḍa | kam | hama | hawa |
@@ -284,7 +284,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | small | liʻi | liʻi | riq | lii | yihi |
 | strong (**canon**) | ṭopunì | ṭohuḍì | tropun | lowuni | thaufeyi |
 | soft, gentle | yalu | yalu | dor | ialu | yayu |
-| quiet | yito | yito | dit | iino | yise |
+| quiet | yito | yito | dit | ino | yise |
 | first, before | muʻa | ḍuʻa | muq | mua | wuwa |
 | last, behind | mura | ḍura | mur | mura | wusha |
 | long | leʻu | leʻu | req | leu | yeyu |
@@ -381,7 +381,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | offering, sacrifice | mapi | ḍahi | mep | mawi | wafi |
 | fate, lot | nipo | ḍiho | nip | niwo | yife |
 | soul | ṭaʻu | ṭaʻu | troq | lau | thau |
-| millennium, an age (**canon**) | kuyìtu | quyìtu | kudet | huiinu | huyis |
+| millennium, an age (**canon**) | kuyìtu | quyìtu | kudet | huinu | huyis |
 | artery (**canon**) | popìda | hohìda | poped | wowila | faufith |
 | support, prop (**canon**) | duya | duya | dud | luia | thuya |
 | tomb, grave | kuʻo | quʻo | kuq | huo | huwe |

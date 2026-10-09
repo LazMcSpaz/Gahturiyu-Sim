@@ -10,11 +10,20 @@
 //!    Qotiro's clipping makes.
 //! 5. It is all a plain function: the same answers every time, and
 //!    `docs/glossary.md` is exactly what the data says.
+//!
+//! Stage 2: putting words together, the sacred, and saying it.
+//!
+//! 6. The gods' canon names come back, and each wears down in every tongue.
+//! 7. The peoples: the Roduro row is the canon four; all sixteen names differ.
+//! 8. Compounds keep each tongue's shape, and Roduro's match the canon's.
+//! 9. Every word can be said and spelled in plain letters, the game's font
+//!    has every letter, and `docs/sacred.md` is what the data says.
 
 use std::collections::{BTreeMap, HashSet};
 
 use gahturiyu_sim::names::sound::{is_vowel, sounds};
-use gahturiyu_sim::names::{self, Field, Kind, Origin, Tongue};
+use gahturiyu_sim::names::grammar::Order;
+use gahturiyu_sim::names::{self, Affix, Field, Kind, Origin, Tongue};
 
 fn all(t: Tongue) -> Vec<(String, String)> {
     names::roots().iter().map(|r| (r.id.clone(), names::word(&r.id, t).unwrap())).collect()
@@ -222,4 +231,215 @@ fn it_is_all_a_plain_function() {
     // The glossary in docs/ is what the data says.
     let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/glossary.md")).expect("docs/glossary.md");
     assert!(written == names::glossary(), "docs/glossary.md is out of date: run `cargo run --release --bin lang -- glossary > docs/glossary.md`");
+}
+
+// ---- Stage 2 ---------------------------------------------------------------------
+
+/// A name or compound keeps to its tongue's sounds and shape.
+fn fits(word: &str, t: Tongue, what: &str) {
+    let w = word.to_lowercase();
+    match t {
+        Tongue::Roduro => {
+            only(&w, &["a", "e", "i", "ì", "o", "u", "g", "d", "ḍ", "t", "ṭ", "q", "h", "r", "l", "th", "sh", "y", "ʻ"], what);
+            let (most, closed) = shape(&w);
+            assert!(most <= 1 && !closed && !w.starts_with('ʻ'), "{what}: Roduro `{w}` is not open syllables");
+        }
+        Tongue::Qotiro => {
+            only(&w, &["a", "e", "i", "o", "u", "p", "t", "k", "q", "d", "g", "m", "n", "r", "x"], what);
+            assert!(shape(&w).0 <= 3, "{what}: Qotiro `{w}` piles up consonants");
+        }
+        Tongue::Horaro => {
+            only(&w, &["a", "e", "i", "o", "u", "l", "m", "n", "w", "r", "h"], what);
+            let (most, closed) = shape(&w);
+            assert!(most <= 1 && !closed, "{what}: Horaro `{w}` is not open syllables");
+            let s = sounds(&w);
+            assert!(!s.windows(4).any(|p| p.iter().all(|c| is_vowel(*c))), "{what}: Horaro `{w}` runs four vowels together");
+        }
+        Tongue::Tadoro => {
+            only(&w, &["a", "e", "i", "u", "h", "s", "sh", "th", "f", "w", "y"], what);
+            assert!(shape(&w).0 <= 1, "{what}: Ṭaḍoro `{w}` has consonants together");
+        }
+        Tongue::First => {}
+    }
+}
+
+#[test]
+fn the_gods_come_back_and_wear_down_in_every_tongue() {
+    let s = names::sacred();
+    // Every god in the inventory is here, under its canon name, and the other way round.
+    let canon: HashSet<&str> = names::canon().iter().filter(|c| c.kind == Kind::God).map(|c| c.word.as_str()).collect();
+    let here: HashSet<&str> = s.gods.iter().map(|g| g.canon.as_str()).collect();
+    assert_eq!(canon, here, "the gods in sacred.ron and in canon.ron differ");
+    assert_eq!(s.gods.len(), 20);
+    let mut english = HashSet::new();
+    for g in &s.gods {
+        // The Roduro name is the canon one: by the rules, or as a listed exception.
+        assert_eq!(g.name(Tongue::Roduro), g.canon, "{}", g.id);
+        assert!(names::well_formed(&g.first), "{}: `{}` is not a First Speech form", g.id, g.first);
+        if g.own.is_empty() {
+            assert_eq!(names::capital(&names::derive(&g.first, Tongue::Roduro)), g.canon);
+        }
+        assert!(english.insert(&g.english) && !g.domain.is_empty());
+        for r in &g.roots {
+            assert!(names::root(r).is_some(), "{} is built on `{r}`, which is no root", g.id);
+        }
+        for p in &g.parents {
+            assert!(names::god(p).is_some(), "{}'s parent `{p}`", g.id);
+        }
+        // Built on the roots it says: each root's First Speech form leaves its start in the name.
+        let first = names::root(&g.roots[0]).unwrap().first.clone();
+        let opening: String = first.chars().take(2).collect();
+        assert!(g.first.starts_with(&opening) || g.roots[0] == "most", "{}: `{}` does not begin with `{first}`", g.id, g.first);
+        for t in [Tongue::Qotiro, Tongue::Horaro, Tongue::Tadoro] {
+            fits(&g.name(t), t, &g.id);
+        }
+    }
+    // Children carry both parents.
+    for g in s.gods.iter().filter(|g| !g.parents.is_empty()) {
+        assert_eq!(g.parents.len(), 2);
+    }
+    // No two gods share a name in any tongue, and the Trinity's mark shows in every tongue.
+    for t in Tongue::SPOKEN {
+        let mut seen = HashSet::new();
+        for g in &s.gods {
+            assert!(seen.insert(g.name(t)), "{}: two gods are called {}", t.name(), g.name(t));
+        }
+        let mark = names::capital(&names::grammar(t).most.0);
+        for id in ["hiqethoru", "hiyadote", "hitogia"] {
+            assert!(names::god(id).unwrap().name(t).starts_with(&mark), "{}: {} lacks the mark of the highest", t.name(), id);
+        }
+    }
+    // The same god, four ways.
+    let g = names::god("horahida").unwrap();
+    assert_eq!(Tongue::SPOKEN.map(|t| g.name(t)), ["Horahìda", "Porped", "Worawila", "Faushefith"]);
+    // The elements and the sacred words exist in every tongue.
+    assert_eq!(s.elements.len(), 4);
+    for e in &s.elements {
+        assert!(names::root(&e.root).is_some());
+    }
+    for term in &s.terms {
+        for t in Tongue::SPOKEN {
+            let w = names::make(&term.made, t).unwrap_or_else(|| panic!("`{}` names a root that does not exist", term.id));
+            if term.id != "death" && term.id != "the_dead" {
+                fits(&w, t, &term.id);
+            }
+        }
+    }
+}
+
+#[test]
+fn what_each_people_calls_each_people() {
+    // The Roduro row is canon.
+    assert_eq!(Tongue::SPOKEN.map(|of| names::people_name(of, Tongue::Roduro).unwrap()), ["Roduro", "Qotiro", "Horaro", "Ṭaḍoro"]);
+    // What each calls itself.
+    assert_eq!(names::people_name(Tongue::Qotiro, Tongue::Qotiro).unwrap(), "Trokroq");
+    assert_eq!(names::people_name(Tongue::Horaro, Tongue::Horaro).unwrap(), "Roimawe");
+    assert_eq!(names::people_name(Tongue::Tadoro, Tongue::Tadoro).unwrap(), "Sheisae");
+    let mut seen = HashSet::new();
+    for by in Tongue::SPOKEN {
+        for of in Tongue::SPOKEN {
+            let n = names::people_name(of, by).unwrap();
+            fits(&n, by, "a people's name");
+            assert!(seen.insert(n.clone()), "two peoples are called {n}");
+            assert!(names::people_meaning(of, by).unwrap().ends_with("-kind"));
+            // Each speaker's own mark for "a people" is on every name in its row.
+            let (mark, _) = &names::grammar(by).kind;
+            assert!(n.to_lowercase().contains(mark.as_str()), "{n} lacks {}'s mark `{mark}`", by.name());
+        }
+    }
+    assert!(names::people_name(Tongue::First, Tongue::Roduro).is_none());
+}
+
+#[test]
+fn compounds_keep_each_tongues_shape() {
+    // Roduro's way of joining gives back the canon compounds it can.
+    let r = Tongue::Roduro;
+    assert_eq!(names::compound(r, "hora", "hohìda"), "horahìda");
+    assert_eq!(names::compound(r, "guʻe", "redeqi"), "guʻedeqi");
+    assert_eq!(names::compound(r, "guʻe", "hiqì"), "guʻehiqì");
+    assert_eq!(names::compound(r, "qoti", "hiqì"), "qotihiqì");
+    assert_eq!(names::compound(r, "lìdì", "hoya"), "lìdìhoya");
+    assert_eq!(names::compound(r, "rìtha", "duya"), "rìthaduya");
+    assert_eq!(names::compound(r, "hora", "ṭaḍo"), "horaṭaḍo");
+    assert_eq!(names::with(r, "rodu", Affix::Kind), "roduro");
+    assert_eq!(names::with(r, "qetho", Affix::Most), "hiqetho");
+    // Two vowels never touch in Roduro: the catch goes between.
+    assert_eq!(names::join(r, "guʻe", "ola"), "guʻeʻola");
+    // Qotiro lets consonants meet, to a point.
+    assert_eq!(names::join(Tongue::Qotiro, "qot", "roq"), "qotroq");
+    assert_eq!(names::join(Tongue::Qotiro, "dort", "trom"), "dortrom");
+    assert_eq!(names::join(Tongue::Qotiro, "xort", "kep"), "xortakep");
+    assert_eq!(names::join(Tongue::Qotiro, "rod", "tok"), "rottok");
+    // The Water tongues put the main word first.
+    assert_eq!(names::grammar(Tongue::Horaro).order, Order::HeadFirst);
+    assert_eq!(names::compound(Tongue::Horaro, "lano", "moa"), "moalano");
+    // A syllable said twice over the join is said once.
+    assert_eq!(names::compound(Tongue::Roduro, "ṭaḍo", "ḍoʻa"), "ṭaḍoʻa");
+    assert_eq!(names::join(Tongue::Tadoro, "hesuth", "sae"), "hesuthesae");
+    // Any two roots, any tongue: the compound still sounds like the tongue.
+    let roots = names::roots();
+    for t in Tongue::SPOKEN {
+        let g = names::grammar(t);
+        for (i, a) in roots.iter().enumerate().step_by(3) {
+            let b = &roots[(i * 7 + 11) % roots.len()];
+            let (wa, wb) = (names::word(&a.id, t).unwrap(), names::word(&b.id, t).unwrap());
+            if matches!(a.id.as_str(), "death") || matches!(b.id.as_str(), "death") {
+                continue;
+            }
+            let c = names::compound(t, &wa, &wb);
+            fits(&c, t, &format!("{} + {}", a.id, b.id));
+            let syllables = sounds(&c).iter().filter(|x| is_vowel(**x)).count();
+            let first = sounds(if g.order == Order::HeadLast { &wa } else { &wb }).iter().filter(|x| is_vowel(**x)).count();
+            assert!(syllables <= g.longest.max(first + 1) + 1, "{}: `{c}` ({} + {}) runs to {syllables} syllables", t.name(), a.id, b.id);
+            for affix in [Affix::Kind, Affix::Agent, Affix::Place, Affix::Small, Affix::Great] {
+                fits(&names::with(t, &wa, affix), t, &a.id);
+            }
+        }
+    }
+}
+
+#[test]
+fn every_word_can_be_said_and_spelled() {
+    // The hints the lore itself gives.
+    let r = Tongue::Roduro;
+    assert_eq!(names::pronounce("Qotisho", r), "koh-TEE-shoh");
+    assert_eq!(names::pronounce("Guʻehiqì", r), "goo-eh-HEE-kih");
+    assert_eq!(names::pronounce("Shiḍuro", r), "shee-DOO-roh");
+    assert_eq!(names::pronounce("Redeqiʻo", r), "reh-deh-KEE-oh");
+    assert_eq!(names::pronounce("Hiqethoru", r), "hee-keh-THOH-roo");
+    assert_eq!(names::pronounce("Ḍalìqa", r), "dah-LIH-kah");
+    assert_eq!(names::pronounce("Dorgun", Tongue::Qotiro), "DOR-goon");
+    assert_eq!(names::pronounce("Trokroq", Tongue::Qotiro), "TROK-rok");
+    assert_eq!(names::pronounce("Moalanu", Tongue::Horaro), "moh-ah-LAH-noo");
+    assert_eq!(names::pronounce("Hesuth", Tongue::Tadoro), "heh-SOOTH");
+    assert_eq!(names::pronounce("gahì yi qo hotorì gayugo", r), "GAH-hih YEE KOH hoh-TOH-rih gah-YOO-goh");
+    assert_eq!(names::ascii("Ṭaḍohi"), "Tadohi");
+    assert_eq!(names::ascii("Guʻehiqì"), "Gu'ehiqi");
+    assert_eq!(names::file_name("Guʻehiqì"), "guehiqi");
+
+    // Every word there is.
+    let mut all: Vec<(String, Tongue)> = Vec::new();
+    for t in Tongue::SPOKEN {
+        all.extend(names::roots().iter().map(|x| (names::word(&x.id, t).unwrap(), t)));
+        all.extend(names::sacred().gods.iter().map(|g| (g.name(t), t)));
+        all.extend(names::sacred().terms.iter().map(|x| (names::make(&x.made, t).unwrap(), t)));
+        all.extend(Tongue::SPOKEN.iter().map(|of| (names::people_name(*of, t).unwrap(), t)));
+    }
+    let font = ab_glyph::FontRef::try_from_slice(include_bytes!("../assets/DejaVuSans.ttf")).expect("the game's font");
+    for (w, t) in &all {
+        let hint = names::pronounce(w, *t);
+        assert!(!hint.is_empty() && hint.chars().all(|c| c.is_ascii_alphabetic() || c == '-'), "{}: `{w}` is said `{hint}`", t.name());
+        let loud = hint.split('-').filter(|p| p.chars().all(|c| c.is_ascii_uppercase())).count();
+        assert!(loud >= 1, "{}: `{w}` ({hint}) has no loud syllable", t.name());
+        assert!(names::ascii(w).is_ascii(), "`{w}` has no plain-letter spelling");
+        assert!(!names::file_name(w).is_empty());
+        // The game can draw it, capital and all.
+        for c in w.chars().chain(names::capital(w).chars()) {
+            assert!(ab_glyph::Font::glyph_id(&font, c).0 != 0, "the game's font has no `{c}` (in `{w}`)");
+        }
+    }
+    // Saying it is a plain function too.
+    assert_eq!(names::pronounce("horahìda", r), names::pronounce("Horahìda", r));
+    let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/sacred.md")).expect("docs/sacred.md");
+    assert!(written == names::sacred::tables(), "docs/sacred.md is out of date: run `cargo run --release --bin lang -- sacred > docs/sacred.md`");
 }

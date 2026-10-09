@@ -1,0 +1,99 @@
+// The sacred and the shared: the gods, the four elements, the words of
+// worship and rule, and what each people calls itself and the others.
+// Read by src/names/sacred.rs. docs/sacred.md is this, in every tongue.
+//
+// A word is `made` one of these ways:
+//   Root("sea")                  a root's own word
+//   Compound("god", "house")     the first describes the second: a house of a god
+//   With("judge", Agent)         a root with one of the tongue's endings
+//   First("porapìda")            a First Speech form, worn down by each tongue
+(
+    // ---- The gods -----------------------------------------------------------
+    // The gods are older than the split of the tongues, so each name is one
+    // First Speech form (`first`) that every tongue wore down its own way.
+    // The Roduro rules must give back the canon name (a test checks), except
+    // where `own` records a name that broke the rules.
+    //
+    //   english   the name shown first (the meaning pantheon.md gives)
+    //   roots     the roots it is built from, in order
+    gods: [
+        (id: "trinity", canon: "Hiro", english: "the Highest", domain: "the three above all: day, night and making", rank: Trinity, first: "hiro", roots: ["most", "kind"]),
+        // A poetic name for the three together.
+        (id: "light_and_dark", canon: "Qethoyaḍo", english: "the Light-and-Dark", domain: "the three above all, as poets name them", rank: Trinity, first: "kethoyamo", roots: ["light", "night"]),
+        (id: "hiqethoru", canon: "Hiqethoru", english: "the Most Radiant", domain: "day and life", rank: Trinity, first: "hikethoru", roots: ["most", "light", "begin"]),
+        (id: "hiyadote", canon: "Hiyaḍote", english: "the Most Dark", domain: "death and night", rank: Trinity, first: "hiyamote", roots: ["most", "night", "death"]),
+        (id: "hitogia", canon: "Hiṭogiʻa", english: "the Great Maker", domain: "creation and inspiration", rank: Trinity, first: "hiṭogiʻa", roots: ["most", "make", "dream"]),
+
+        (id: "horahida", canon: "Horahìda", english: "the World's Artery", domain: "ocean and seas", rank: Domain, first: "porapìda", roots: ["waterway", "artery"]),
+        (id: "tadohi", canon: "Ṭaḍohi", english: "the Twisting One", domain: "wind and weather", rank: Domain, first: "ṭanohi", roots: ["wind"]),
+        (id: "dodito", canon: "Dodìṭo", english: "the Enduring Earth", domain: "stone and mountains", rank: Domain, first: "dodìṭo", roots: ["soil", "strong"]),
+        (id: "guehiqi", canon: "Guʻehiqì", english: "Fruit-and-Root", domain: "trees and plant life", rank: Domain, first: "wuʻepikì", roots: ["fruit", "root"]),
+        (id: "qotisho", canon: "Qotisho", english: "the Wounding Lance", domain: "fire and war", rank: Domain, first: "qotiso", roots: ["spear", "injure"]),
+        (id: "shiduro", canon: "Shiḍuro", english: "the Knowing Revealer", domain: "knowledge and communication", rank: Domain, first: "sinuro", roots: ["aware", "discover"]),
+        (id: "redeqio", canon: "Redeqiʻo", english: "Passion-and-Longing", domain: "love and relationships", rank: Domain, first: "redekiʻo", roots: ["passion", "desire"]),
+        (id: "gihuqidu", canon: "Gìhuqìdu", english: "Law-and-Tradition", domain: "governance and order", rank: Domain, first: "gìpukìdu", roots: ["law", "tradition"]),
+        (id: "rithaduya", canon: "Rìthaduya", english: "the Wayfarer's Stave", domain: "travel and the journey of life", rank: Domain, first: "rìthaduya", roots: ["migrate", "support"]),
+        (id: "quyituro", canon: "Quyìturo", english: "Millennium-into-Dust", domain: "time, ageing and decay", rank: Domain, first: "kuyìturo", roots: ["age", "earth"]),
+        (id: "lidihoya", canon: "Lìdìhoya", english: "the Hunt-Band", domain: "animals and the hunt", rank: Domain, first: "lìdìpoya", roots: ["hunt", "staff"]),
+        // Worn down from Yoheʻiʻa: the one name that breaks Roduro's own shape.
+        (id: "yohye", canon: "Yohyeʻ", english: "the Dream-Swapper", domain: "confusion, illusion and delusion", rank: Domain, first: "yoheʻiʻa", roots: ["swap", "dream"], own: [(Roduro, "yohyeʻ")]),
+
+        (id: "horatado", canon: "Horaṭaḍo", english: "the Sea-Twist", domain: "coastal winds", rank: Child, first: "poraṭano", roots: ["waterway", "wind"], parents: ["horahida", "tadohi"]),
+        (id: "guedeqi", canon: "Guʻedeqi", english: "the Beloved Green", domain: "plants that protect and work with people", rank: Child, first: "wuʻedeki", roots: ["fruit", "passion"], parents: ["guehiqi", "redeqio"]),
+        (id: "qotihiqi", canon: "Qotihiqì", english: "the Barbed-Root", domain: "plants that work against people", rank: Child, first: "qotipikì", roots: ["spear", "root"], parents: ["qotisho", "guehiqi"]),
+    ],
+
+    // ---- The four elements -----------------------------------------------------
+    // (Earth is canon, rodu. Water, fire and air are new roots.)
+    elements: [
+        (id: "earth", english: "Earth", root: "earth"),
+        (id: "fire", english: "Fire", root: "fire"),
+        (id: "water", english: "Water", root: "water"),
+        (id: "air", english: "Air", root: "air"),
+    ],
+
+    // ---- The peoples ---------------------------------------------------------------
+    // What each people (the speaker) calls each of the four: its own word
+    // for the element named, with its own mark for "a people". The Roduro
+    // row is canon (Roduro, Qotiro, Horaro, Ṭaḍoro) and the rules must give
+    // it back. The canon Roduro names stay the names the game shows.
+    //
+    // The Roduro name the others by a likeness (the Fire-kind are "spear-kind",
+    // the Water-kind "waterway-kind", the Air-kind "twist-kind"); the other
+    // three name everyone by the element itself, except that all three call
+    // the Air-kind after the wind.
+    peoples: [
+        (speaker: Roduro, earth: "earth", fire: "spear", water: "waterway", air: "wind"),
+        (speaker: Qotiro, earth: "earth", fire: "fire", water: "water", air: "wind"),
+        (speaker: Horaro, earth: "earth", fire: "fire", water: "water", air: "wind"),
+        (speaker: Tadoro, earth: "earth", fire: "fire", water: "water", air: "air"),
+    ],
+
+    // ---- Words of worship and rule ------------------------------------------------------
+    terms: [
+        (id: "god", english: "god", made: Root("god")),
+        (id: "holy", english: "holy", made: Root("holy")),
+        (id: "rite", english: "rite", made: Root("rite")),
+        (id: "omen", english: "omen", made: Root("omen")),
+        (id: "offering", english: "offering", made: Root("offering")),
+        (id: "blessing", english: "blessing", made: Root("blessing")),
+        (id: "curse", english: "curse", made: Root("curse")),
+        (id: "vow", english: "vow", made: Root("vow")),
+        (id: "shrine", english: "shrine", made: Root("shrine")),
+        (id: "temple", english: "temple", made: Compound("god", "house")),
+        (id: "priestess", english: "priest, priestess", made: Root("priest")),
+        (id: "high_priestess", english: "high priestess", made: With("priest", Great)),
+        (id: "elder", english: "elder", made: Root("elder")),
+        (id: "speaker", english: "speaker", made: With("speak", Agent)),
+        (id: "arbiter", english: "arbiter", made: With("judge", Agent)),
+        (id: "ancestor", english: "ancestor", made: Root("ancestor")),
+        (id: "soul", english: "soul", made: Root("soul")),
+        (id: "spirit", english: "spirit, ghost", made: Root("spirit")),
+        (id: "fate", english: "fate", made: Root("fate")),
+        (id: "death", english: "death", made: Root("death")),
+        (id: "tomb", english: "tomb", made: Root("tomb")),
+        (id: "the_dead", english: "the dead", made: With("death", Kind)),
+        (id: "dream", english: "dream", made: Root("dream")),
+        (id: "holy_place", english: "holy place", made: With("holy", Place)),
+    ],
+)

@@ -68,9 +68,10 @@
         // consonants either side can stand together (one of them r, n or x first,
         // or r second, or two stops ending in t or k): doruguna -> dorgun.
         DropSecondVowel,
-        NoDoubles,
         // d and g lose their voice before p, t, k, q or x.
         Devoice,
+        // The same consonant twice running is said once.
+        NoDoubles,
     ],
 
     // ---- The Water branch (the moist line): Horaro and Ṭaḍoro ----------------------
@@ -96,6 +97,8 @@
         Change("d", "l", Anywhere),
         Change("s", "h", Anywhere),
         Change("th", "h", Anywhere),
+        // y melts into an i beside it, and is itself an i everywhere else.
+        YMelts,
         Change("y", "i", Anywhere),
         // An h between two of the same vowel fades, leaving a long vowel: tiki -> nihi -> nii.
         HFades,

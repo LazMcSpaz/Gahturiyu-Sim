@@ -11,10 +11,18 @@
 //!   is the one to use: it also knows the exceptions (`irregular.ron`) and
 //!   the borrowed words (`loans.ron`).
 //!
+//! - `grammar.rs`: putting words together (compounds, endings), tongue by tongue.
+//! - `sacred.rs`: the gods, the elements, the words of worship and rule, and
+//!   what each people calls the others, in every tongue.
+//! - `say.rs`: plain-letter spelling and English pronunciation hints.
+//!
 //! Everything here is a plain function of its inputs: no state, no randomness.
-//! (Stage 1 of the naming work: roots and sound rules. Compounds, people and
-//! places come next; `docs/naming.md` keeps the running account.)
+//! (Stages 1 and 2 of the naming work. Things, people and places come next;
+//! `docs/naming.md` keeps the running account.)
 
+pub mod grammar;
+pub mod sacred;
+pub mod say;
 pub mod sound;
 
 use std::collections::HashMap;
@@ -22,6 +30,9 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
+pub use grammar::{compound, grammar, join, with, Affix, Grammar};
+pub use sacred::{god, make, people_english, people_meaning, people_name, sacred, God, Made, Sacred};
+pub use say::{ascii, capital, file_name, pronounce};
 pub use sound::{At, Step};
 
 /// The First Speech and its four daughters.
@@ -165,6 +176,8 @@ struct Data {
     irregular: Vec<Irregular>,
     loans: Vec<Loan>,
     canon: Vec<Canon>,
+    grammar: Vec<Grammar>,
+    sacred: Sacred,
 }
 
 fn read<T: for<'de> Deserialize<'de>>(file: &str, text: &str) -> T {
@@ -183,6 +196,8 @@ fn data() -> &'static Data {
             irregular: read("irregular.ron", include_str!("../../assets/lang/irregular.ron")),
             loans: read("loans.ron", include_str!("../../assets/lang/loans.ron")),
             canon: read("canon.ron", include_str!("../../assets/lang/canon.ron")),
+            grammar: read("grammar.ron", include_str!("../../assets/lang/grammar.ron")),
+            sacred: read("sacred.ron", include_str!("../../assets/lang/sacred.ron")),
         }
     })
 }

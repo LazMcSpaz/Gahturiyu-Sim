@@ -33,6 +33,7 @@ pub enum Step {
     DropSecondVowel,
     NoDoubles,
     Devoice,
+    YMelts,
     HFades,
     VowelRun,
     ShedLastVowel,
@@ -188,6 +189,18 @@ fn apply(w: &mut Vec<char>, step: &Step) {
                     };
                 }
             }
+        }
+        Step::YMelts => {
+            let old = w.clone();
+            let mut out = Vec::with_capacity(old.len());
+            for (i, &c) in old.iter().enumerate() {
+                let beside_i = (i > 0 && old[i - 1] == 'i') || (i + 1 < old.len() && old[i + 1] == 'i');
+                if c == 'y' && beside_i {
+                    continue;
+                }
+                out.push(c);
+            }
+            *w = out;
         }
         Step::HFades => {
             let old = w.clone();
