@@ -97,6 +97,10 @@ pub struct Game {
     pub picks: Vec<(Vec3, f32, Hover)>,
     pub labels: Vec<(Vec3, String)>,
     pub bars: Vec<(Vec3, f32, Option<f32>, bool)>,
+    /// Remarks townsfolk make as the squad goes by: (who, what, until frame),
+    /// and when each may speak up again.
+    pub barks: Vec<(PersonId, String, u32)>,
+    pub barked: std::collections::HashMap<PersonId, u32>,
 }
 
 pub fn run() {
@@ -148,6 +152,8 @@ pub fn run() {
         picks: Vec::new(),
         labels: Vec::new(),
         bars: Vec::new(),
+        barks: Vec::new(),
+        barked: std::collections::HashMap::new(),
         shot: None,
         world,
     };
@@ -687,6 +693,40 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
     }
 }
 
+/// How near a squad member someone must be to bark, metres; how long a
+/// remark stays up and how long before the same person speaks up again,
+/// frames.
+const BARK_NEAR: f32 = 7.0;
+const BARK_FRAMES: u32 = 180;
+const BARK_AGAIN: u32 = 3600;
+
+/// Now and then, people near the squad with something strong on their mind
+/// say it (drawing only: barks change nothing in the world).
+fn update_barks(game: &mut Game) {
+    let f = game.frame;
+    game.barks.retain(|b| b.2 > f);
+    if f % 20 != 0 || game.world.talk.is_some() {
+        return;
+    }
+    let w = &game.world;
+    let Some(town) = w.settlements.iter().filter(|s| s.pos.dist(w.squad.pos) < 500.0).min_by(|a, b| a.pos.dist(w.squad.pos).total_cmp(&b.pos.dist(w.squad.pos))) else { return };
+    for (k, &m) in w.squad.members.iter().enumerate() {
+        let at = w.member_pos(k);
+        for &p in &town.residents {
+            if game.barks.len() >= 3 {
+                return;
+            }
+            if w.people[p as usize].dead || game.barked.get(&p).is_some_and(|&t| f < t) || !w.is_about(p, w.time) || w.person_pos(p).dist(at) > BARK_NEAR {
+                continue;
+            }
+            game.barked.insert(p, f + BARK_AGAIN);
+            if let Some(line) = w.bark(p, m) {
+                game.barks.push((p, line, f + BARK_FRAMES));
+            }
+        }
+    }
+}
+
 /// Collects things under the mouse and keeps the closest.
 struct Picker {
     mouse: Vec2,
@@ -760,6 +800,17 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     if p.distance(eye) < game.orbit.draw_radius() * 1.1 {
                         c.centred(name, q.x, q.y, 17.0, super::palette::TEXT);
                     }
+                }
+            }
+            // Townsfolk with something on their mind say so as the squad passes.
+            update_barks(game);
+            for (pid, line, _) in &game.barks {
+                let at = game.world.person_pos(*pid);
+                let g = scene.grid.height(&game.world.terrain, at);
+                if let Some(q) = game.orbit.project(&vp, size, to3(at, g + 2.4)) {
+                    let wd = c.width(line, 15.0) + 12.0;
+                    c.rect(q.x - wd / 2.0, q.y - 18.0, wd, 22.0, hud::shadow(0.6));
+                    c.centred(&format!("\u{201c}{line}\u{201d}"), q.x, q.y - 2.0, 15.0, super::palette::TEXT);
                 }
             }
             // Standing torches can be hovered too.

@@ -1,0 +1,7 @@
+# Fear for their safety. Placeholder set.
+topic | camp | The bandits by the road get bolder every week.
+topic | | It's not safe after dark any more.
+feeling | | Someone should do something.
+hook | wants_camp | Break that camp and you'll have {reward}.
+hook | |
+bark | | Keep your hand on your purse round here.

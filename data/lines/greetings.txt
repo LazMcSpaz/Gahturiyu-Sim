@@ -1,0 +1,18 @@
+# Greetings: the first thing someone says. See FORMAT.md.
+# slot | conditions | text | flags
+greeting | rain | Wet day for it.
+greeting | voice=qotiro | Speak. I'm busy.
+greeting | voice=roduro, stranger | You're not from here. What is it?
+greeting | voice=horaro | Come in out of the wind, friend.
+greeting | voice=tadoro | Ah, a new face. Tell me something I don't know. No? Then I'll tell you something.
+greeting | distrusts | I've nothing to say to your sort. | refuse
+greeting | distrusts, voice=qotiro | No. Go. | refuse
+# Placeholders, so nobody says the same thing twice running.
+greeting | | Yes?
+greeting | | What can I do for you?
+greeting | warm | Good to see you again.
+greeting | night | It's late. What is it?
+greeting | morning | Morning. Make it quick.
+greeting | voice=roduro, known | Well met again.
+greeting | voice=horaro, warm | Ho! Salt and fair weather to you.
+greeting | voice=tadoro, known | You again. Good — I'd a question for you.

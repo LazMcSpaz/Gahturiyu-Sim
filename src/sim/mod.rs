@@ -43,6 +43,7 @@ pub mod save;
 pub mod settlement;
 pub mod society;
 pub mod squad;
+pub mod talk;
 pub mod stories;
 pub mod stats;
 pub mod torch;

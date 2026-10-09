@@ -1,0 +1,5 @@
+# Something they've heard (gossip). Placeholder set.
+topic | | Have you heard? {actor} {deed} {victim}, {when}.
+topic | hidden | Someone {deed} {victim}, {when}. No one knows who.
+feeling | | People talk.
+hook | |

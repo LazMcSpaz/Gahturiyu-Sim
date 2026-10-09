@@ -1,0 +1,6 @@
+# Work they'd give an outsider. Placeholder set.
+topic | | There's something you could do for me.
+topic | unlawful | Not here. Somewhere quieter. I've something that needs doing.
+feeling | | I can't see to it myself.
+hook | has_offer | {offer}.
+bark | | I could use some help.

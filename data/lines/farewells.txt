@@ -1,0 +1,14 @@
+# Farewells: the last thing they say. See FORMAT.md.
+farewell | voice=qotiro | Go.
+farewell | voice=roduro | Mind the road.
+farewell | voice=horaro | The tide turns. Go well.
+farewell | voice=tadoro | Write if you learn anything.
+farewell | voice=horaro, warm | May Horahìda carry you.
+farewell | voice=roduro, warm | Dodìṭo keep you steady.
+farewell | voice=qotiro, warm | Go with Qotisho's fire.
+farewell | voice=tadoro, warm | Rìthaduya guide your road.
+# Placeholders.
+farewell | | Until next time.
+farewell | | Go on, then.
+farewell | warm | Come back soon.
+farewell | night | Mind the dark out there.

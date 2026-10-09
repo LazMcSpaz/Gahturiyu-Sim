@@ -1,0 +1,5 @@
+# Hunger. Placeholder set.
+topic | | There's not enough to go round. We eat last.
+feeling | | You can't work on an empty belly.
+hook | |
+bark | | When did I last eat properly?

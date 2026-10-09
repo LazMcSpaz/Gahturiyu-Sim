@@ -166,6 +166,9 @@ pub struct World {
     pub talk: Option<super::dialogue::Conversation>,
     /// A squad member on their way to talk to someone.
     pub want_talk: Option<(PersonId, PersonId)>,
+    /// Dialogue pieces said lately: (to whom, by whom, piece, when) (`talk.rs`).
+    #[serde(default)]
+    pub talk_said: Vec<(PersonId, PersonId, u16, f64)>,
 
     // --- Carrying -----------------------------------------------------------
     /// Who's being carried, and by whom.
@@ -271,6 +274,7 @@ impl World {
             regard: HashMap::new(),
             talk: None,
             want_talk: None,
+            talk_said: Vec::new(),
             carried: HashMap::new(),
             want_carry: Vec::new(),
             set_down: HashMap::new(),

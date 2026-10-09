@@ -1,0 +1,6 @@
+# The ring. Placeholder set.
+topic | extorted | They come round for their share every few days now.
+topic | | There are people in this town you don't cross.
+feeling | afraid | I'll not say their names.
+hook | |
+bark | | Mind who you talk to.

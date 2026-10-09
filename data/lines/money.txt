@@ -1,0 +1,8 @@
+# Money worries and debt. Placeholder set.
+topic | in_debt | We owe {debt} coin and it's not getting smaller.
+topic | | Money's tight. Tighter than it was.
+feeling | gentle | We'll manage. We always do.
+feeling | hot | Everything costs too much.
+hook | wants_debt | {target}'s household owes us {debt}. Get it out of them and I'll see you right.
+hook | |
+bark | | Not a coin to spare.

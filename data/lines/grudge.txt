@@ -1,0 +1,9 @@
+# Grudges and feuds with another household. Placeholder set.
+topic | feud | {relation} and the {target} household are at each other's throats.
+topic | | {target}'s lot. I won't say more than that.
+feeling | hot | One day they'll go too far.
+feeling | patient | We'll see how long they last.
+hook | revenge, low_honour | If {target} met with an accident, I'd be grateful. Very.
+hook | wants_help | Talk some sense into {target}, would you?
+hook | |
+bark | feud | Not them again.

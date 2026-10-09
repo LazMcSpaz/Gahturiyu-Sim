@@ -20,8 +20,8 @@ use super::quests::{compass, QuestKind, Stage};
 use super::race::Race;
 use super::rng::Rng;
 use super::stats::Calling;
-use super::stealth;
-use super::world::{World, DAY, HOUR};
+
+use super::world::{World, DAY};
 
 /// How close you must be to talk, metres.
 pub const TALK_RANGE: f32 = 3.5;
@@ -79,6 +79,8 @@ pub enum Topic {
     TakeJob(u32),
     /// Work a post that's going in town: (job, workplace).
     PostWork(super::jobs::Job, u16),
+    /// Say something about what's on their mind.
+    Say(super::talk::Opt),
     /// Give up the work you're doing here.
     QuitWork,
     Goodbye,
@@ -118,6 +120,7 @@ impl Topic {
             Topic::TakeJob(_) => "I'll take that job",
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
+            Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
         }
     }
@@ -153,6 +156,16 @@ pub struct Conversation {
     /// Whether a Tender has said what they'd grow (so the orders show).
     #[serde(default)]
     pub orders: bool,
+    /// What's on their mind (`talk.rs`), and which of it is being talked about.
+    #[serde(default)]
+    pub concerns: Vec<super::talk::Concern>,
+    #[serde(default)]
+    pub at: usize,
+    /// Every piece said in this talk, and whether they refused to talk.
+    #[serde(default)]
+    pub pieces: Vec<u16>,
+    #[serde(default)]
+    pub refused: bool,
 }
 
 impl World {
@@ -237,67 +250,26 @@ impl World {
         if self.people[npc as usize].ensure_detail() {
             self.stats.detailed += 1;
         }
-        let greeting = self.greeting(npc, who);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, greeting)], offered: false, lessons: false, trading: false, orders: false });
+        // What they say first is put together from what's on their mind.
+        let concerns = self.on_mind(npc);
+        let said = self.assemble_talk(npc, who, concerns.first(), true);
+        self.note_said(npc, who, &said.pieces);
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused });
     }
 
     pub fn end_talk(&mut self) {
         self.talk = None;
     }
 
-    fn greeting(&self, npc: PersonId, with: PersonId) -> String {
-        let p = &self.people[npc as usize];
-        let d = self.disposition(npc, with);
-        let night = stealth::daylight(self.time) < 0.5;
-        let mut r = Rng::from_keys(&[p.seed, (self.time / HOUR) as u64, 0x4752_4545]);
-        if d < 20.0 {
-            return ["I've nothing to say to the likes of you.", "Move along.", "Not you. Go away."][r.below(3)].to_string();
-        }
-        let warm = d > 60.0;
-        let base = match p.race {
-            Race::Roduro => {
-                if warm {
-                    "Well met. Mind the moss on the path, it's slick."
-                } else {
-                    "Hm. A traveller."
-                }
-            }
-            Race::Horaro => {
-                if warm {
-                    "Ho there! Salt and fair weather to you."
-                } else {
-                    "You're dripping nothing on my deck, so I suppose you can stay."
-                }
-            }
-            Race::Qotiro => {
-                if warm {
-                    "Speak plainly and I'll answer plainly."
-                } else {
-                    "State your business."
-                }
-            }
-            Race::Tadoro => {
-                if warm {
-                    "Oh — a new face. Do you mind if I write you down?"
-                } else {
-                    "I was in the middle of a thought."
-                }
-            }
-        };
-        if night {
-            format!("{base} It's late — Hiyaḍote's hours.")
-        } else {
-            base.to_string()
-        }
-    }
-
     /// What can be asked right now.
     pub fn topics(&self) -> Vec<Topic> {
         let Some(c) = &self.talk else { return vec![] };
-        let mut t = vec![Topic::Background, Topic::ThisTown, Topic::Advice, Topic::Rumours, Topic::Bandits];
-        if self.disposition(c.npc, c.with) < 20.0 {
+        if c.refused || self.regard_of(c.npc, c.with) < super::talk::DISTRUST {
             return vec![Topic::Goodbye];
         }
+        // What the squad member can say about what's on their mind.
+        let mut t: Vec<Topic> = self.options(c.npc, c.with, &c.concerns, c.at).into_iter().map(Topic::Say).collect();
+        t.extend([Topic::Background, Topic::ThisTown, Topic::Advice, Topic::Rumours, Topic::Bandits]);
         for (i, q) in self.quests.iter().enumerate() {
             if q.giver == c.npc && (q.stage == Stage::Report || matches!(q.kind, QuestKind::Fetch { .. }) && q.stage == Stage::Active) {
                 t.push(Topic::Report(i));
@@ -414,16 +386,22 @@ impl World {
     pub fn ask(&mut self, topic: Topic) {
         let Some(c) = self.talk.clone() else { return };
         if topic == Topic::Goodbye {
-            let p = &self.people[c.npc as usize];
-            let bye = match p.race {
-                Race::Horaro => "May Horahìda carry you.",
-                Race::Roduro => "Dodìṭo keep you steady.",
-                Race::Qotiro => "Go with Qotisho's fire.",
-                Race::Tadoro => "Rìthaduya guide your road.",
-            };
+            let bye = self.farewell(c.npc, c.with);
+            self.note_said(c.npc, c.with, &bye.pieces);
             self.push_talk(false, topic.label().to_string());
-            self.push_talk(true, bye.to_string());
+            self.push_talk(true, bye.text);
             self.talk = None;
+            return;
+        }
+        if let Topic::Say(opt) = topic {
+            self.push_talk(false, opt.label().to_string());
+            let answer = self.say_opt(c.npc, c.with, &c.concerns, c.at, opt);
+            if let Some(t) = self.talk.as_mut() {
+                if opt == super::talk::Opt::More {
+                    t.at += 1;
+                }
+            }
+            self.push_talk(true, answer);
             return;
         }
         self.push_talk(false, self.topic_text(topic));
@@ -513,6 +491,14 @@ impl World {
             ][r.below(7)]
             .to_string(),
             Topic::Rumours => {
+                // Something they've heard, if they've heard anything.
+                if let Some(news) = c.concerns.iter().find(|k| matches!(k.subject, super::talk::Subject::News | super::talk::Subject::Theft) && k.event.is_some()).copied() {
+                    let said = self.assemble_talk(c.npc, c.with, Some(&news), false);
+                    if !said.text.is_empty() {
+                        self.note_said(c.npc, c.with, &said.pieces);
+                        return said.text;
+                    }
+                }
                 let near = self.nearest_camp(p.home);
                 let mut lines = vec![];
                 if self.stats.ambushes > 0 {
@@ -586,6 +572,7 @@ impl World {
                 None => "Never mind.".into(),
             },
             Topic::Press(id, how) => self.press(id, c.with, c.npc, how),
+            Topic::Say(_) => String::new(),
             Topic::Board => {
                 let town = p.home.unwrap_or(0);
                 let ids = self.hall_board(town);
@@ -799,6 +786,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::TakeJob(id) => 1_000_000 + id as u64,
         Topic::PostWork(j, _) => 31 + j as u64,
         Topic::QuitWork => 70,
+        Topic::Say(o) => 80 + o as u64,
     }
 }
 

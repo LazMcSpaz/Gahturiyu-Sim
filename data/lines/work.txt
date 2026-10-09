@@ -1,0 +1,6 @@
+# Losing work. Placeholder set.
+topic | lost_post | I was {job} here until {why}.
+topic | | No work to be had. Not for me.
+feeling | | A body needs something to do.
+hook | |
+bark | | Anyone need a pair of hands?

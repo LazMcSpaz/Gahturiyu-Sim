@@ -1,0 +1,23 @@
+# Theft: something stolen from them, or a theft they've heard of. See FORMAT.md.
+topic | victim | Someone lifted {item} from my {workplace} {when}.
+topic | victim, repeated | That's {count} times this {span} someone's robbed me.
+topic | heard | {victim} was robbed {when}, they say. {item}, gone.
+topic | thief_known | Everyone knows it was {thief}.
+topic | thief_unknown, night | Came in the dark, whoever it was.
+topic | victim | I've been robbed. {item}, {when}.
+topic | heard | There's a thief about. {victim} lost {item} {when}.
+feeling | hot | If I catch them I'll break their hands.
+feeling | patient | It will be remembered. Everything is.
+feeling | gentle | Times are hard. Maybe they're hungry. Still.
+feeling | blames_watch | The watch hasn't been paid in weeks. What did we expect?
+feeling | blames_ring | That's the ring's doing, or they let it happen.
+feeling | | It's a bad business.
+hook | has_coin, wants_guard | If you've a strong arm, I'd pay {pay} a day to watch the shop. {days} days.
+hook | wants_item | Bring back my {item} and you'll have {reward}.
+hook | wants_find | Find out who did it and you'll have {reward}.
+hook | poor, wants_help | I can't pay. But I'd owe you, and I pay my debts.
+hook | revenge, low_honour | If something happened to {thief}, I wouldn't ask questions.
+hook | suspects_squad | Funny how this started when your lot came to town.
+hook | |
+bark | victim | Robbed, in my own {workplace}...
+bark | heard | Lock your doors tonight.
