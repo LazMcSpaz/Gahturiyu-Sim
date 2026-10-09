@@ -5,6 +5,7 @@ pub mod ai;
 pub mod animals;
 pub mod bands;
 pub mod base;
+pub mod baselife;
 pub mod body;
 pub mod buildings;
 pub mod carry;

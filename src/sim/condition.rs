@@ -381,9 +381,12 @@ impl World {
     /// Where a member would sleep right now: indoors, in a tent someone in
     /// the squad is carrying nearby, or in the open.
     pub fn shelter_of(&self, pid: PersonId) -> Shelter {
-        let Some(k) = self.squad.index(pid) else { return Shelter::Open };
+        let Some(k) = self.squad.index(pid) else { return self.base_bed(pid).unwrap_or(Shelter::Open) };
         if self.squad.inside[k].is_some() {
             return Shelter::Indoors;
+        }
+        if let Some(bed) = self.base_bed(pid) {
+            return bed;
         }
         let tent = super::items::id("tent");
         let here = self.squad.at[k];
@@ -417,6 +420,10 @@ impl World {
 
     /// The best thing in someone's pack to eat now.
     fn food_for(&self, pid: PersonId, hunger: f32) -> Option<ItemId> {
+        // Someone living at a base eats from its store.
+        if self.resident_of(pid).is_some() {
+            return self.base_food_for(pid, hunger);
+        }
         let d = self.people[pid as usize].detail.as_ref()?;
         let foods: Vec<(ItemId, f32)> = d.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect();
         // The biggest meal that won't be wasted, else the smallest one there is.
@@ -431,7 +438,8 @@ impl World {
     /// Eat something now (or at `t`): hunger drops by its nourishment.
     pub fn eat(&mut self, pid: PersonId, it: ItemId, t: f64) -> bool {
         let Kind::Food(n) = item(it).kind else { return false };
-        if !self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) {
+        let had = if self.resident_of(pid).is_some() { self.base_take_food(pid, it) } else { self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) };
+        if !had {
             return false;
         }
         self.settle(pid, t);
@@ -455,7 +463,9 @@ impl World {
     /// stage change and meal at the moment it falls due.
     pub(super) fn update_conditions(&mut self) {
         let now = self.time;
-        for pid in self.squad.members.clone() {
+        let mut everyone = self.squad.members.clone();
+        everyone.extend(self.all_residents());
+        for pid in everyone {
             // A fight rewrote their wounds: start a fresh piece from then.
             let (Some(c), w) = (self.people[pid as usize].cond.clone(), self.people[pid as usize].wounds) else { continue };
             if w.at > c.at && w.at <= now {
@@ -563,6 +573,14 @@ impl World {
     /// first moment that is night, after they're tired enough and after any
     /// order keeping them up. None if they're busy.
     fn bed_time(&self, pid: PersonId, c: &Condition) -> Option<f64> {
+        // Residents of a base bed down when they're tired and it's night.
+        if self.squad.index(pid).is_none() && self.resident_of(pid).is_some() {
+            if c.activity != Activity::Resting {
+                return None;
+            }
+            let tired = if c.tired_at(c.at) >= BED_TIRED { c.at } else { c.tired_reaches(BED_TIRED)?.max(c.at) };
+            return Some(night_from(tired));
+        }
         let k = self.squad.index(pid)?;
         if c.activity != Activity::Resting || self.squad.resting[k] || self.fighting.contains_key(&pid) {
             return None;

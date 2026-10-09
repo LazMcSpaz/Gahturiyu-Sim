@@ -309,6 +309,8 @@ pub static ITEMS: &[ItemDef] = &[
     material("salvage", "Salvage", 2.0, 8.0),
     material("tentsilk", "Tentsilk", 0.2, 10.0),
     material("fibre", "Fibre", 0.5, 1.5),
+    // Grown at an outpost's field plot; baked into flatbread.
+    material("grain", "Grain", 1.0, 1.0),
     material("cloth", "Cloth", 0.5, 4.0),
     // Grown stock, from the Tenders' beds.
     material("ringstone", "Ringstone block", 6.0, 12.0),

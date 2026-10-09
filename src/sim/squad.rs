@@ -68,6 +68,30 @@ impl Squad {
         Squad { goal: at.clone(), at, members, pos: centre, target: centre, sneaking: vec![false; n], route: vec![Vec::new(); n], inside: vec![None; n], resting: vec![false; n], kept_up: vec![0.0; n] }
     }
 
+    /// Take member `k` out of the travelling squad (left at a base).
+    pub fn remove(&mut self, k: usize) {
+        self.members.remove(k);
+        self.at.remove(k);
+        self.goal.remove(k);
+        self.sneaking.remove(k);
+        self.route.remove(k);
+        self.inside.remove(k);
+        self.resting.remove(k);
+        self.kept_up.remove(k);
+    }
+
+    /// Bring someone into the squad, standing at `at`.
+    pub fn add(&mut self, pid: PersonId, at: V2) {
+        self.members.push(pid);
+        self.at.push(at);
+        self.goal.push(at);
+        self.sneaking.push(false);
+        self.route.push(Vec::new());
+        self.inside.push(None);
+        self.resting.push(false);
+        self.kept_up.push(0.0);
+    }
+
     pub fn index(&self, pid: PersonId) -> Option<usize> {
         self.members.iter().position(|&m| m == pid)
     }

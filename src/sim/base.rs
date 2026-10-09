@@ -25,6 +25,7 @@ use super::items::{self, item, ItemId};
 use super::person::PersonId;
 use super::settlement::SettlementId;
 use super::stats::Skill;
+use super::baselife::{Job, Resident};
 use super::world::{World, HOUR};
 
 pub type BaseId = u32;
@@ -188,13 +189,16 @@ pub struct Site {
     /// When it will stand, at this rate (None while nobody works it or
     /// materials are short).
     pub done_at: Option<f64>,
+    /// Builder-hours each person has put in (they learn from it).
+    pub hands: Vec<(PersonId, f32)>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum State {
     Site(Site),
-    /// Up, since `since`.
-    Standing { hp: f32, since: f64 },
+    /// Up, since `since`. Its health was `hp` at `hp_at` and moves at
+    /// `rate` an hour from there (thatch rotting, builders mending).
+    Standing { hp: f32, since: f64, hp_at: f64, rate: f32 },
     /// Burned or broken (Stage 4).
     Ruin,
 }
@@ -214,7 +218,16 @@ pub struct Built {
     pub w: f32,
     pub state: State,
     pub placed: f64,
+    /// Its thatch sealed with pitch: it doesn't rot.
+    pub sealed: bool,
 }
+
+/// Unsealed reed thatch loses this share of a building's health a day.
+pub const ROT_PER_DAY: f32 = 0.01;
+/// Health a builder mends an hour (at middling pace).
+pub const MEND_PER_HOUR: f32 = 25.0;
+/// Builders with nothing to build mend what's fallen below this share.
+pub const MEND_BELOW: f32 = 0.9;
 
 impl Built {
     pub fn def(&self) -> &'static BuildingDef {
@@ -234,6 +247,22 @@ impl Built {
         match &self.state {
             State::Site(s) => Some(s),
             _ => None,
+        }
+    }
+    /// Does its roof rot (reed thatch, unsealed)?
+    pub fn rots(&self) -> bool {
+        !self.sealed && self.def().needs.iter().any(|(k, _)| *k == "seareed")
+    }
+    /// Health lost an hour to rot.
+    pub fn rot_rate(&self) -> f32 {
+        if self.rots() { self.def().hp * ROT_PER_DAY / 24.0 } else { 0.0 }
+    }
+    /// Health at `t`.
+    pub fn hp_at(&self, t: f64) -> f32 {
+        match self.state {
+            State::Standing { hp, hp_at, rate, .. } => (hp + rate * ((t - hp_at).max(0.0) / HOUR) as f32).clamp(0.0, self.def().hp),
+            State::Site(_) => self.def().hp * self.progress(t),
+            State::Ruin => 0.0,
         }
     }
     /// The footprint's four corners.
@@ -314,7 +343,12 @@ pub struct Base {
     /// Who was at the base the last time it was looked at, and which site
     /// each is building (by building id).
     pub present: Vec<PersonId>,
-    pub builders: Vec<(PersonId, u32)>,
+    /// (who, which building, their pace): on a site or mending.
+    pub builders: Vec<(PersonId, u32, f32)>,
+    /// Squad members left here, and their work.
+    pub residents: Vec<Resident>,
+    /// What's happened here, oldest first (capped at `BASE_LOG`).
+    pub log: Vec<(f64, String)>,
     /// Cached summary numbers, refreshed when something changes: what the
     /// base is worth (stored goods and buildings), and how well it's
     /// defended (walls, gates and towers standing).
@@ -411,14 +445,36 @@ impl Base {
         }
     }
 
-    /// Settle every site's labour at `t` (rates unchanged).
+    pub(super) fn settle_pub(&mut self, t: f64) {
+        self.settle(t);
+    }
+
+    /// Settle every site's labour and every building's health at `t`
+    /// (rates unchanged).
     fn settle(&mut self, t: f64) {
         for b in &mut self.buildings {
-            if let State::Site(s) = &mut b.state {
-                if t > s.since {
-                    s.labour += s.rate * ((t - s.since) / HOUR) as f32;
+            let max = b.def().hp;
+            match &mut b.state {
+                State::Site(s) => {
+                    if t > s.since {
+                        let h = ((t - s.since) / HOUR) as f32;
+                        s.labour += s.rate * h;
+                        for hand in self.builders.iter().filter(|x| x.1 == b.id) {
+                            match s.hands.iter_mut().find(|e| e.0 == hand.0) {
+                                Some(e) => e.1 += hand.2 * h,
+                                None => s.hands.push((hand.0, hand.2 * h)),
+                            }
+                        }
+                    }
+                    s.since = s.since.max(t);
                 }
-                s.since = s.since.max(t);
+                State::Standing { hp, hp_at, rate, .. } => {
+                    if t > *hp_at {
+                        *hp = (*hp + *rate * ((t - *hp_at) / HOUR) as f32).clamp(0.0, max);
+                        *hp_at = t;
+                    }
+                }
+                State::Ruin => {}
             }
         }
     }
@@ -623,8 +679,8 @@ impl World {
             None => Land::Wilds,
         };
         let name = format!("Outpost {}", id + 1);
-        let mut base = Base { id, name, owner: Owner::Squad, at, founded: self.time, land, buildings: Vec::new(), next_id: 0, store: Vec::new(), present: Vec::new(), builders: Vec::new(), wealth: 0.0, defence: 0.0 };
-        base.buildings.push(Built { id: 0, def: plan.def as u16, at, rot: 0.0, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: self.time, rate: 0.0, done_at: None }), placed: self.time });
+        let mut base = Base { id, name, owner: Owner::Squad, at, founded: self.time, land, buildings: Vec::new(), next_id: 0, store: Vec::new(), present: Vec::new(), builders: Vec::new(), residents: Vec::new(), log: Vec::new(), wealth: 0.0, defence: 0.0 };
+        base.buildings.push(Built { id: 0, def: plan.def as u16, at, rot: 0.0, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: self.time, rate: 0.0, done_at: None, hands: Vec::new() }), placed: self.time, sealed: false });
         base.next_id = 1;
         self.bases.push(base);
         self.say_base(id, format!("A camp marker is laid: {}.", self.bases.last().unwrap().name));
@@ -647,7 +703,7 @@ impl World {
         b.settle(t);
         let id = b.next_id;
         b.next_id += 1;
-        b.buildings.push(Built { id, def: plan.def as u16, at: plan.at, rot: plan.rot, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: t, rate: 0.0, done_at: None }), placed: t });
+        b.buildings.push(Built { id, def: plan.def as u16, at: plan.at, rot: plan.rot, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: t, rate: 0.0, done_at: None, hands: Vec::new() }), placed: t, sealed: false });
         self.base_changed(bid);
         Ok(id)
     }
@@ -756,8 +812,12 @@ impl World {
             }
             let Some(d) = self.people[m as usize].detail.as_mut() else { continue };
             for &id in &keys {
+                // What the sites still need goes straight to them; beyond
+                // that, as much as the store has room for.
+                let want: u16 = self.bases[i].buildings.iter().flat_map(|bl| bl.missing()).filter(|e| e.0 == id).map(|e| e.1).sum::<u16>().saturating_sub(self.bases[i].count_in_store(id));
+                let w = item(id).weight.max(0.01);
                 let mut n = 0u16;
-                while d.gear.take(id) {
+                while (n < want || self.bases[i].room_for(w * (n + 1 - want.min(n + 1)) as f32)) && d.gear.take(id) {
                     n += 1;
                 }
                 if n > 0 {
@@ -773,15 +833,15 @@ impl World {
         moved
     }
 
-    // ---- Construction on the clock ------------------------------------------------
+    // ---- Construction, mending and work on the clock -----------------------------
 
     /// Something at a base changed at `self.time`: settle, deliver from the
-    /// store, hand out the builders, and solve each site's finish again.
+    /// store, hand out the builders, start idle workers, and solve again.
     pub(super) fn base_changed(&mut self, bid: BaseId) {
         self.base_changed_at(bid, self.time);
     }
 
-    fn base_changed_at(&mut self, bid: BaseId, t: f64) {
+    pub(super) fn base_changed_at(&mut self, bid: BaseId, t: f64) {
         let Some(i) = self.base_index(bid) else { return };
         self.bases[i].settle(t);
         // Deliver: sites in the order they were placed take what they need.
@@ -800,47 +860,95 @@ impl World {
                 }
             }
         }
-        // Builders: each one present goes to the first site (in placing
-        // order) that has its materials and that they can build.
-        let present = self.bases[i].present.clone();
-        let mut builders: Vec<(PersonId, u32)> = Vec::new();
-        for &m in &present {
-            let site = self.bases[i].buildings.iter().find(|bl| bl.site().is_some() && bl.missing().is_empty() && self.can_build(m, bl.def as usize)).map(|bl| bl.id);
-            if let Some(id) = site {
-                builders.push((m, id));
+        // Builders: the squad at the base, and residents set to build. Each
+        // goes to the first site (in placing order) with its materials that
+        // they can build; with none, to mending the worst-kept building.
+        let mut hands: Vec<PersonId> = self.bases[i].present.clone();
+        hands.extend(self.bases[i].residents.iter().filter(|r| r.job == Job::Builder).map(|r| r.who));
+        let was_mending: Vec<u32> = self.bases[i].builders.iter().map(|h| h.1).filter(|&id| self.bases[i].building(id).is_some_and(|b| b.standing())).collect();
+        let mut builders: Vec<(PersonId, u32, f32)> = Vec::new();
+        for &m in &hands {
+            let b = &self.bases[i];
+            let site = b.buildings.iter().find(|bl| bl.site().is_some() && bl.missing().is_empty() && self.can_build(m, bl.def as usize)).map(|bl| bl.id);
+            let target = site.or_else(|| {
+                b.buildings
+                    .iter()
+                    .filter(|bl| bl.standing() && self.can_build(m, bl.def as usize))
+                    .filter(|bl| {
+                        let r = bl.hp_at(t) / bl.def().hp;
+                        r < MEND_BELOW || (was_mending.contains(&bl.id) && r < 0.999)
+                    })
+                    .min_by(|a, c| (a.hp_at(t) / a.def().hp).total_cmp(&(c.hp_at(t) / c.def().hp)))
+                    .map(|bl| bl.id)
+            });
+            if let Some(id) = target {
+                let d = b.building(id).unwrap().def();
+                let skill = d.skill.map(|s| self.people[m as usize].stats.skill(s)).unwrap_or(30.0);
+                builders.push((m, id, pace(skill)));
             }
         }
-        let paces: Vec<(u32, f32)> = builders
-            .iter()
-            .map(|&(m, id)| {
-                let d = self.bases[i].building(id).unwrap().def();
-                let skill = d.skill.map(|s| self.people[m as usize].stats.skill(s)).unwrap_or(30.0);
-                (id, pace(skill))
-            })
-            .collect();
         let b = &mut self.bases[i];
         b.builders = builders;
         for bl in &mut b.buildings {
             let total = bl.def().labour;
             let id = bl.id;
-            if let State::Site(s) = &mut bl.state {
-                s.rate = paces.iter().filter(|p| p.0 == id).map(|p| p.1).sum();
-                s.since = t;
-                s.done_at = (s.rate > 0.0).then(|| t + ((total - s.labour).max(0.0) / s.rate) as f64 * HOUR);
+            let on: f32 = b.builders.iter().filter(|h| h.1 == id).map(|h| h.2).sum();
+            let rot = bl.rot_rate();
+            match &mut bl.state {
+                State::Site(s) => {
+                    s.rate = on;
+                    s.since = t;
+                    s.done_at = (s.rate > 0.0).then(|| t + ((total - s.labour).max(0.0) / s.rate) as f64 * HOUR);
+                }
+                State::Standing { rate, hp_at, .. } => {
+                    *rate = on * MEND_PER_HOUR - rot;
+                    *hp_at = t;
+                }
+                State::Ruin => {}
             }
         }
-        b.summarise();
+        // Workers with nothing on their hands start their next round.
+        for r in 0..self.bases[i].residents.len() {
+            if self.bases[i].residents[r].cycle.is_none() {
+                self.start_cycle(i, r, t);
+            }
+        }
+        self.bases[i].summarise();
+        // Guards on watch add their strength.
+        let guards: f32 = self.bases[i].residents.iter().filter(|r| r.job == Job::Guard).map(|r| self.people[r.who as usize].might).sum();
+        self.bases[i].defence += guards;
     }
 
-    /// The next site to stand, anywhere: (when, base, building).
-    fn next_base_event(&self) -> Option<(f64, BaseId, u32)> {
-        let mut best: Option<(f64, BaseId, u32)> = None;
+    /// The next thing due at any base: (when, base, what).
+    fn next_base_event(&self) -> Option<(f64, BaseId, Due)> {
+        let mut best: Option<(f64, BaseId, Due)> = None;
+        let mut offer = |t: f64, b: BaseId, d: Due| {
+            if best.is_none_or(|x| t < x.0) {
+                best = Some((t, b, d));
+            }
+        };
         for b in &self.bases {
             for bl in &b.buildings {
-                if let Some(t) = bl.site().and_then(|s| s.done_at) {
-                    if best.is_none_or(|x| t < x.0) {
-                        best = Some((t, b.id, bl.id));
+                match bl.state {
+                    State::Site(ref s) => {
+                        if let Some(t) = s.done_at {
+                            offer(t, b.id, Due::Stands(bl.id));
+                        }
                     }
+                    State::Standing { hp, hp_at, rate, .. } => {
+                        let max = bl.def().hp;
+                        if rate < 0.0 {
+                            offer(hp_at + (hp / -rate) as f64 * HOUR, b.id, Due::Falls(bl.id));
+                        } else if rate > 0.0 && hp < max {
+                            offer(hp_at + ((max - hp) / rate) as f64 * HOUR, b.id, Due::Mended(bl.id));
+                        }
+                    }
+                    State::Ruin => {}
+                }
+            }
+            for r in &b.residents {
+                if let Some(c) = &r.cycle {
+                    offer(c.done_at, b.id, Due::Work(r.who));
                 }
             }
         }
@@ -848,21 +956,56 @@ impl World {
     }
 
     /// One base event due before `before` (and by now), on the world's
-    /// timeline: a site finished. True if one was handled.
+    /// timeline. True if one was handled.
     pub(super) fn base_events(&mut self, before: f64) -> bool {
-        let Some((t, bid, id)) = self.next_base_event().filter(|e| e.0 <= self.time && e.0 < before) else { return false };
+        let Some((t, bid, due)) = self.next_base_event().filter(|e| e.0 <= self.time && e.0 < before) else { return false };
         let i = self.base_index(bid).unwrap();
         self.bases[i].settle(t);
-        let k = self.bases[i].buildings.iter().position(|x| x.id == id).unwrap();
-        let bl = &mut self.bases[i].buildings[k];
-        let d = bl.def();
-        bl.state = State::Standing { hp: d.hp, since: t };
-        let (at, name) = (bl.at, d.name);
-        if let Some(st) = d.station {
-            self.stations.push((at, st));
+        match due {
+            Due::Stands(id) => {
+                let k = self.bases[i].buildings.iter().position(|x| x.id == id).unwrap();
+                let bl = &mut self.bases[i].buildings[k];
+                let d = bl.def();
+                // Whoever put the work in learns from it.
+                let hands = match &bl.state {
+                    State::Site(s) => s.hands.clone(),
+                    _ => Vec::new(),
+                };
+                bl.state = State::Standing { hp: d.hp, since: t, hp_at: t, rate: 0.0 };
+                let (at, name) = (bl.at, d.name);
+                if let (Some(sk), true) = (d.skill, d.labour > 0.0) {
+                    for (who, hours) in hands {
+                        self.people[who as usize].stats.exercise(sk, hours * PRACTICE);
+                    }
+                }
+                if let Some(st) = d.station {
+                    self.stations.push((at, st));
+                }
+                let bname = self.bases[i].name.clone();
+                self.base_note(bid, t, format!("{name} stands at {bname}."), true);
+            }
+            Due::Mended(id) => {
+                if let Some(bl) = self.bases[i].buildings.iter_mut().find(|x| x.id == id) {
+                    let max = bl.def().hp;
+                    if let State::Standing { hp, .. } = &mut bl.state {
+                        *hp = max;
+                    }
+                }
+            }
+            Due::Falls(id) => {
+                let Some(k) = self.bases[i].buildings.iter().position(|x| x.id == id) else { return true };
+                let bl = &mut self.bases[i].buildings[k];
+                bl.state = State::Ruin;
+                let (at, d) = (bl.at, bl.def());
+                if let Some(st) = d.station {
+                    if let Some(j) = self.stations.iter().position(|(p, s)| *s == st && p.dist(at) < 0.5) {
+                        self.stations.remove(j);
+                    }
+                }
+                self.base_note(bid, t, format!("The {} has fallen in: its thatch rotted.", d.name.to_lowercase()), true);
+            }
+            Due::Work(who) => self.finish_cycle(i, who, t),
         }
-        let bname = self.bases[i].name.clone();
-        self.say_base_at(bid, t, format!("{name} stands at {bname}."));
         self.base_changed_at(bid, t);
         true
     }
@@ -889,11 +1032,35 @@ impl World {
     }
 
     fn say_base(&mut self, bid: BaseId, line: String) {
-        self.say_base_at(bid, self.time, line);
+        self.base_note(bid, self.time, line, true);
     }
 
-    fn say_base_at(&mut self, _bid: BaseId, t: f64, line: String) {
-        self.log.push_front((t, line));
-        self.log.truncate(14);
+    /// A line in the base's own log (and, if `loud`, the journal).
+    pub(super) fn base_note(&mut self, bid: BaseId, t: f64, line: String, loud: bool) {
+        if let Some(i) = self.base_index(bid) {
+            let log = &mut self.bases[i].log;
+            log.push((t, line.clone()));
+            if log.len() > BASE_LOG {
+                log.remove(0);
+            }
+        }
+        if loud {
+            self.log.push_front((t, line));
+            self.log.truncate(14);
+        }
     }
 }
+
+/// Something due at a base.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Due {
+    Stands(u32),
+    Mended(u32),
+    Falls(u32),
+    Work(PersonId),
+}
+
+/// How much of a builder's hours become practice in the skill.
+pub const PRACTICE: f32 = 0.4;
+/// How many lines a base's log keeps.
+pub const BASE_LOG: usize = 40;

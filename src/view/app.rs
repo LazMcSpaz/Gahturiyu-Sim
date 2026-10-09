@@ -107,6 +107,8 @@ pub struct Game {
     pub barked: std::collections::HashMap<PersonId, u32>,
     /// The Build panel (B), and a building waiting to be put down.
     pub build: bool,
+    /// The Base tab of the Build panel rather than the list of buildings.
+    pub base_tab: bool,
     pub placing: Option<super::baseui::Placing>,
 }
 
@@ -191,6 +193,7 @@ pub fn run() {
         editor: Default::default(),
         barked: std::collections::HashMap::new(),
         build: false,
+        base_tab: false,
         placing: None,
         shot: None,
         world,
@@ -240,9 +243,13 @@ pub fn run() {
             game.follow = false;
             game.orbit.target = at;
         }
-        if s.build {
+        if let Some(what) = &s.build {
             game.build = true;
-            game.placing = Some(super::baseui::Placing { def: gahturiyu_sim::sim::base::def_index("hut"), ..Default::default() });
+            if what == "base" {
+                game.base_tab = true;
+            } else {
+                game.placing = Some(super::baseui::Placing { def: gahturiyu_sim::sim::base::def_index("hut"), ..Default::default() });
+            }
         }
         if s.town || s.feud {
             let at = game.world.squad.pos;
@@ -1070,7 +1077,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             View::Scene => game.orbit.target,
             View::Map => game.map_cam.centre,
         };
-        let (a, bx) = super::baseui::build_panel(&c, w, here, game.placing.as_ref().map(|p| p.def), game.mouse, click);
+        let (a, bx) = super::baseui::build_panel(&c, w, here, game.placing.as_ref().map(|p| p.def), game.base_tab, game.mouse, click);
         build_act = a;
         panels.push(bx);
     }
@@ -1111,6 +1118,45 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         Some(super::baseui::BuildAction::Close) => {
             game.build = false;
             game.placing = None;
+        }
+        Some(super::baseui::BuildAction::Tab(base)) => {
+            game.base_tab = base;
+            game.placing = None;
+        }
+        Some(super::baseui::BuildAction::Leave(m, b)) => {
+            if let Err(e) = w.leave_at_base(m, b) {
+                game.notice = Some((e.to_string(), std::time::Instant::now()));
+            }
+        }
+        Some(super::baseui::BuildAction::PickUp(m)) => {
+            if let Err(e) = w.pick_up(m) {
+                game.notice = Some((e.to_string(), std::time::Instant::now()));
+            }
+        }
+        Some(super::baseui::BuildAction::NextJob(m)) => {
+            use gahturiyu_sim::sim::baselife::JOBS;
+            if let Some((b, k)) = w.resident_of(m) {
+                let now = w.base(b).unwrap().residents[k].job;
+                let i = JOBS.iter().position(|&j| j == now).unwrap_or(0);
+                w.set_base_job(m, JOBS[(i + 1) % JOBS.len()]);
+            }
+        }
+        Some(super::baseui::BuildAction::NextRecipe(m)) => {
+            let options = w.base_recipes(m);
+            if let Some((b, k)) = w.resident_of(m) {
+                let now = w.base(b).unwrap().residents[k].recipe;
+                let next = match now.and_then(|r| options.iter().position(|&o| o == r)) {
+                    Some(i) if i + 1 < options.len() => Some(options[i + 1]),
+                    Some(_) => None,
+                    None => options.first().copied(),
+                };
+                w.set_base_recipe(m, next);
+            }
+        }
+        Some(super::baseui::BuildAction::Seal(b, id)) => {
+            if let Err(e) = w.seal_building(b, id) {
+                game.notice = Some((e.to_string(), std::time::Instant::now()));
+            }
         }
         None => {}
     }

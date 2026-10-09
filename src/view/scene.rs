@@ -470,6 +470,12 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for &m in &w.squad.members {
         heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
     }
+    // Squad members living at a base.
+    for m in w.all_residents() {
+        if w.person_pos(m).dist(oc.target) < radius {
+            heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+        }
+    }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {

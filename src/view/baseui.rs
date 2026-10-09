@@ -10,8 +10,12 @@ use bevy::math::{Vec2, Vec3};
 
 use gahturiyu_sim::sim::{
     base::{self, Bad, BaseId, Kind, Plan, State, BUILDINGS},
+    baselife::{round_place, Job},
+    crafting::RECIPES,
     geo::V2,
     items::item,
+    materials::Grade,
+    person::PersonId,
     World,
 };
 
@@ -41,6 +45,15 @@ pub enum BuildAction {
     Store(BaseId),
     Deconstruct(BaseId, u32),
     Close,
+    /// Switch between the Build and Base tabs.
+    Tab(bool),
+    Leave(PersonId, BaseId),
+    PickUp(PersonId),
+    /// The next job for a resident.
+    NextJob(PersonId),
+    /// The next recipe for a crafter.
+    NextRecipe(PersonId),
+    Seal(BaseId, u32),
 }
 
 /// The base nearest a point, if it's within reach of it.
@@ -52,8 +65,13 @@ const W: f32 = 700.0;
 const ROW: f32 = 19.0;
 
 /// The Build panel: the base here (if any), its sites, and what can be built.
-pub fn build_panel(c: &Canvas, w: &World, here: V2, placing: Option<usize>, mouse: Vec2, click: Option<Click>) -> (Option<BuildAction>, Bx) {
+pub fn build_panel(c: &Canvas, w: &World, here: V2, placing: Option<usize>, base_tab: bool, mouse: Vec2, click: Option<Click>) -> (Option<BuildAction>, Bx) {
     let bid = base_near(w, here);
+    if base_tab {
+        if let Some(b) = bid {
+            return base_panel(c, w, b, mouse, click);
+        }
+    }
     let rows = BUILDINGS.len() + 6 + bid.and_then(|b| w.base(b)).map(|b| b.buildings.iter().filter(|x| !x.standing()).count().min(8) + 4).unwrap_or(1);
     let h = (rows as f32 * ROW + 70.0).min(c.h - 140.0);
     let r = Bx::new(c.w - W - 14.0, 60.0, W, h);
@@ -64,6 +82,13 @@ pub fn build_panel(c: &Canvas, w: &World, here: V2, placing: Option<usize>, mous
     let mut act = None;
     let clicked = |b: &Bx| click.map(|k| b.contains(k.at) && !k.right).unwrap_or(false);
     c.text("Build", x, y, 17.0, GOLD);
+    if bid.is_some() {
+        let tab = Bx::new(x + 60.0, y - 16.0, 54.0, 20.0);
+        c.text("Base", tab.x + 8.0, y, 16.0, if tab.contains(mouse) { GOLD } else { DIM });
+        if clicked(&tab) {
+            act = Some(BuildAction::Tab(true));
+        }
+    }
     let close = Bx::new(r.x + r.w - 26.0, r.y + 8.0, 18.0, 18.0);
     c.text("×", close.x + 3.0, close.y + 15.0, 18.0, if close.contains(mouse) { GOLD } else { DIM });
     if clicked(&close) {
@@ -88,7 +113,7 @@ pub fn build_panel(c: &Canvas, w: &World, here: V2, placing: Option<usize>, mous
                 act = Some(BuildAction::Store(b.id));
             }
             y += ROW;
-            let at_work: Vec<String> = b.builders.iter().map(|(m, id)| format!("{} on the {}", w.people[*m as usize].name().unwrap_or("?"), b.building(*id).map(|x| x.def().name.to_lowercase()).unwrap_or_default())).collect();
+            let at_work: Vec<String> = b.builders.iter().map(|(m, id, _)| format!("{} on the {}", w.people[*m as usize].name().unwrap_or("?"), b.building(*id).map(|x| x.def().name.to_lowercase()).unwrap_or_default())).collect();
             c.text(&if at_work.is_empty() { "Nobody building.".to_string() } else { at_work.join("; ") }, x, y, 13.0, DIM);
             // Sites under way.
             for bl in b.buildings.iter().filter(|x| !x.standing()).take(8) {
@@ -314,4 +339,142 @@ pub fn draw(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, grou
             gl.stick(to3(s[0], ground(s[0]) + 0.3), to3(s[1], ground(s[1]) + 0.3), 0.15, GOLD);
         }
     }
+}
+
+/// The Base tab: who lives here and what they do, who of the squad could
+/// stay, the store, buildings that need care, and the log.
+fn base_panel(c: &Canvas, w: &World, bid: BaseId, mouse: Vec2, click: Option<Click>) -> (Option<BuildAction>, Bx) {
+    let b = w.base(bid).unwrap();
+    let care: Vec<&base::Built> = b.buildings.iter().filter(|x| x.standing() && (x.rots() || x.hp_at(w.time) < x.def().hp * 0.999)).collect();
+    let rows = 9 + b.residents.len() + b.present.len() + care.len().min(6) + 7;
+    let h = (rows as f32 * ROW + 60.0).min(c.h - 140.0);
+    let r = Bx::new(c.w - W - 14.0, 60.0, W, h);
+    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
+    let x = r.x + 14.0;
+    let mut y = r.y + 26.0;
+    let mut act = None;
+    let clicked = |b: &Bx| click.map(|k| b.contains(k.at) && !k.right).unwrap_or(false);
+    let button = |label: &str, bx: &Bx| {
+        c.rect(bx.x, bx.y, bx.w, bx.h, ega(GOLD, if bx.contains(mouse) { 0.3 } else { 0.15 }));
+        c.text(label, bx.x + 8.0, bx.y + 14.0, 13.0, GOLD);
+    };
+    let tab = Bx::new(x - 4.0, y - 16.0, 54.0, 20.0);
+    c.text("Build", x, y, 16.0, if tab.contains(mouse) { GOLD } else { DIM });
+    if clicked(&tab) {
+        act = Some(BuildAction::Tab(false));
+    }
+    c.text("Base", x + 64.0, y, 17.0, GOLD);
+    let close = Bx::new(r.x + r.w - 26.0, r.y + 8.0, 18.0, 18.0);
+    c.text("×", close.x + 3.0, close.y + 15.0, 18.0, if close.contains(mouse) { GOLD } else { DIM });
+    if clicked(&close) {
+        act = Some(BuildAction::Close);
+    }
+    y += 24.0;
+    let land = match b.land {
+        base::Land::Wilds => "the open wilds".to_string(),
+        base::Land::Unclaimed(s) => format!("{}'s land, no claim", w.settlements[s as usize].name),
+    };
+    c.text(&format!("{}  ·  {}  ·  {} beds  ·  store {:.0}/{:.0} kg  ·  worth {:.0}  ·  defence {:.0}", b.name, land, b.beds(), b.load(), b.capacity(), b.wealth, b.defence), x, y, 14.0, TEXT);
+
+    // Residents.
+    y += ROW + 6.0;
+    c.text("Living here", x, y, 15.0, TEXT);
+    if b.residents.is_empty() {
+        y += ROW;
+        c.text("Nobody. Leave a squad member here to work the base.", x + 8.0, y, 13.0, DIM);
+    }
+    for res in &b.residents {
+        y += ROW;
+        let p = &w.people[res.who as usize];
+        c.text(p.name().unwrap_or("?"), x + 8.0, y, 14.0, TEXT);
+        let jb = Bx::new(x + 140.0, y - 14.0, 96.0, 18.0);
+        button(res.job.name(), &jb);
+        if clicked(&jb) {
+            act = Some(BuildAction::NextJob(res.who));
+        }
+        let mut doing = match (&res.cycle, res.job) {
+            (Some(cy), _) => format!("at the {}, done in {:.1} h", round_place(b, cy), (cy.done_at - w.time) / 3600.0),
+            (None, Job::Builder) => match b.builders.iter().find(|h| h.0 == res.who).and_then(|h| b.building(h.1)) {
+                Some(bl) if bl.standing() => format!("mending the {}", bl.def().name.to_lowercase()),
+                Some(bl) => format!("building the {}", bl.def().name.to_lowercase()),
+                None => "nothing to build".to_string(),
+            },
+            (None, Job::Guard) => "on watch".to_string(),
+            (None, Job::Idle) => String::new(),
+            (None, Job::Farmer) => "needs a free field plot".to_string(),
+            (None, Job::Cook) => "needs the kitchen, grain and timber".to_string(),
+            (None, Job::Hauler) => "the store is full".to_string(),
+            (None, Job::Crafter) => "needs a recipe, its shed and materials".to_string(),
+        };
+        if res.job == Job::Crafter {
+            let rb = Bx::new(x + 244.0, y - 14.0, 150.0, 18.0);
+            let name = res.recipe.map(|ri| item(RECIPES[ri as usize].item(Grade::Common)).name.to_string()).unwrap_or_else(|| "pick a recipe".to_string());
+            button(&name, &rb);
+            if clicked(&rb) {
+                act = Some(BuildAction::NextRecipe(res.who));
+            }
+            doing = doing.replace("needs a recipe, its shed and materials", "needs its shed and materials");
+        }
+        let dx = if res.job == Job::Crafter { 402.0 } else { 244.0 };
+        let hunger = w.hunger_of(res.who).unwrap_or(0.0);
+        let tail = format!("{doing}{}hunger {hunger:.0}", if doing.is_empty() { "" } else { "  ·  " });
+        c.text(&tail, x + dx, y, 12.0, DIM);
+        let pb = Bx::new(r.x + r.w - 82.0, y - 14.0, 68.0, 18.0);
+        button("Pick up", &pb);
+        if clicked(&pb) {
+            act = Some(BuildAction::PickUp(res.who));
+        }
+    }
+    // The squad here.
+    if !b.present.is_empty() {
+        y += ROW + 6.0;
+        c.text("The squad here", x, y, 15.0, TEXT);
+        for &m in &b.present {
+            y += ROW;
+            c.text(w.people[m as usize].name().unwrap_or("?"), x + 8.0, y, 14.0, TEXT);
+            let doing = b.builders.iter().find(|h| h.0 == m).and_then(|h| b.building(h.1)).map(|bl| format!("{} the {}", if bl.standing() { "mending" } else { "building" }, bl.def().name.to_lowercase())).unwrap_or_default();
+            c.text(&doing, x + 140.0, y, 12.0, DIM);
+            let lb = Bx::new(r.x + r.w - 102.0, y - 14.0, 88.0, 18.0);
+            button("Leave here", &lb);
+            if clicked(&lb) {
+                act = Some(BuildAction::Leave(m, bid));
+            }
+        }
+    }
+    // Buildings needing care.
+    if !care.is_empty() {
+        y += ROW + 6.0;
+        c.text(&format!("Upkeep  ·  {} pitch in store", b.count_in_store(gahturiyu_sim::sim::items::id("pitch"))), x, y, 15.0, TEXT);
+        for bl in care.iter().take(6) {
+            y += ROW;
+            let pct = bl.hp_at(w.time) / bl.def().hp * 100.0;
+            let note = if bl.rots() { "thatch rotting (1% a day)" } else { "sealed" };
+            c.text(&format!("{}: {pct:.0}%  ·  {note}", bl.def().name), x + 8.0, y, 13.0, TEXT);
+            if bl.rots() {
+                let sb = Bx::new(r.x + r.w - 102.0, y - 14.0, 88.0, 18.0);
+                button("Seal (pitch)", &sb);
+                if clicked(&sb) {
+                    act = Some(BuildAction::Seal(bid, bl.id));
+                }
+            }
+        }
+    }
+    // The store.
+    y += ROW + 6.0;
+    c.text("Store", x, y, 15.0, TEXT);
+    y += ROW;
+    let store: Vec<String> = b.store.iter().map(|e| format!("{} {}", e.1, item(e.0).name.to_lowercase())).collect();
+    c.text(&if store.is_empty() { "empty".to_string() } else { store.join(", ") }, x + 8.0, y, 13.0, DIM);
+    // The log.
+    y += ROW + 6.0;
+    c.text("Lately", x, y, 15.0, TEXT);
+    for (t, line) in b.log.iter().rev().take(5) {
+        y += ROW;
+        if y > r.y + r.h - 6.0 {
+            break;
+        }
+        c.text(&format!("{}  {line}", super::hud::hhmm(*t)), x + 8.0, y, 13.0, DIM);
+    }
+    (act, r)
 }

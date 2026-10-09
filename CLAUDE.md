@@ -193,7 +193,12 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    (`base::BUILDINGS`, each with a `Method`, so culture methods are new
    lines); the window places them only through `check_place` /
    `place_building` / `place_wall`. A base keeps cached `wealth` and
-   `defence`, recomputed only on change.
+   `defence`, recomputed only on change. Squad members left at a base
+   (`baselife.rs`) leave `Squad` but stay `in_squad`: they keep their
+   condition timeline (eating from the base's store, sleeping in its beds)
+   and work in rounds with fixed ends on the same timeline (`start_cycle` /
+   `finish_cycle`); a building's health is stored the same way (value at a
+   moment plus a rate: rot, mending), and its fall or mend is solved for.
 
 ## Verifying visual changes
 
@@ -247,7 +252,8 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
-put the cursor with `GAHT_HOVER`).
+put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there
+and opens the Base tab a day later).
 `GAHT_WEATHER=1` (the weather panel, F7; `folded` for its headline, `off` for none),
 `GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
 with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`

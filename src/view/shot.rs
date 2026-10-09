@@ -81,7 +81,7 @@ pub struct Shot {
     /// `GAHT_BUILD=1`: a demo outpost in the wilds near the start (a hut and
     /// lean-to up, a palisade with a gate, more under way), the Build panel
     /// open and a hut's ghost on the cursor.
-    pub build: bool,
+    pub build: Option<String>,
     /// `GAHT_DUEL=1`: squad member 0 is judged by duel in the nearest town.
     pub duel: bool,
     /// `GAHT_SHUN=1`: the nearest coastal town's stilt village withdraws;
@@ -150,7 +150,7 @@ impl Shot {
             summon: var("GAHT_SUMMON").is_some(),
             held: var("GAHT_HELD").is_some(),
             town: var("GAHT_TOWN").is_some(),
-            build: var("GAHT_BUILD").is_some(),
+            build: var("GAHT_BUILD"),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -254,8 +254,8 @@ impl Shot {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
         }
-        if self.build {
-            demo_base(world);
+        if let Some(what) = self.build.clone() {
+            demo_base(world, what == "base");
         }
         if let Some(h) = self.hours {
             let end = world.time + h * 3600.0;
@@ -603,7 +603,7 @@ impl Shot {
 }
 
 /// Lay out a demo outpost near the squad (for `GAHT_BUILD`).
-fn demo_base(world: &mut World) {
+fn demo_base(world: &mut World, living: bool) {
     use gahturiyu_sim::sim::base::{def_index, Land, Plan, BUILDINGS};
     use gahturiyu_sim::sim::stats::Skill;
     let start = world.squad.pos;
@@ -641,7 +641,6 @@ fn demo_base(world: &mut World) {
                     d.gear.add(gahturiyu_sim::sim::items::id(k), n);
                 }
             }
-            w.store_materials(bid);
             for pl in layout {
                 let _ = w.place_building(pl);
             }
@@ -650,10 +649,27 @@ fn demo_base(world: &mut World) {
             if w.check_place(&mut g).is_ok() {
                 let _ = w.place_building(g);
             }
+            w.store_materials(bid);
             // A few hours' work.
             let end = w.time + 7.0 * 3600.0;
             while w.time < end {
                 w.step(60.0);
+            }
+            // Two of the squad stay on: a farmer and a builder, with food.
+            if living {
+                use gahturiyu_sim::sim::baselife::Job;
+                let i = w.bases.iter().position(|b| b.id == bid).unwrap();
+                w.bases[i].add_to_store(gahturiyu_sim::sim::items::id("flatbread"), 10);
+                let m = w.squad.members.clone();
+                for (k, job) in [(1usize, Job::Farmer), (2, Job::Builder)] {
+                    if w.leave_at_base(m[k], bid).is_ok() {
+                        w.set_base_job(m[k], job);
+                    }
+                }
+                let end = w.time + 30.0 * 3600.0;
+                while w.time < end {
+                    w.step(120.0);
+                }
             }
             *world = w;
             return;

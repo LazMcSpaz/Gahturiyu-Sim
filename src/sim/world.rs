@@ -571,6 +571,9 @@ impl World {
             if let Some(k) = self.squad.index(pid) {
                 return self.squad.at[k];
             }
+            if let Some(at) = self.bases.iter().find_map(|b| b.spot(pid)) {
+                return at;
+            }
         }
         if let Some(gid) = self.group_of[pid as usize] {
             if let Some(g) = self.group(gid) {

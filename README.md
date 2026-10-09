@@ -575,7 +575,7 @@ goods, prices, law about protected animals, riding, breeding lines,
 fishing as something the squad does. The functions those will call exist
 (see `ANIMALS.md`/the hook list).
 
-### Outposts (Part 7, stage 1)
+### Outposts (Part 7)
 
 The squad can found **outposts**, Kenshi style. Press **B** for the Build
 panel, pick **Camp marker** and click the ground: a fire ring founds the base.
@@ -611,6 +611,35 @@ something changes (someone arrives or leaves, materials come in, another site
 finishes): so the step size never changes when it stands.
 Deconstructing gives back a site's materials, or half of a standing
 building's. A work shed adds its station to the world, usable like a town's.
+
+**Learning to build.** Carpentry and masonry are crafts like the others:
+towns now have **carpenters** and **masons** (more of one or the other by
+who lives there) who teach them for coin, scribes write manuals of both, and
+building practises them (each builder learns from the hours they put in).
+
+**Living at a base (stage 2).** In the Build panel's **Base** tab, **Leave
+here** takes a squad member out of the travelling squad: they live at the
+base and work a job until you **Pick up** them again (someone from the squad
+has to be there to collect them). Jobs (click to change):
+- **Builder**: builds sites, and with nothing to build mends whatever's
+  fallen below 90%.
+- **Farmer**: a field plot gives 6 grain a day.
+- **Cook**: at the hearth kitchen, 2 grain and 1 timber of fuel make 3
+  flatbread every 2 hours.
+- **Crafter**: works a chosen recipe at a work shed from the store's
+  materials (click the recipe to change it); what they make carries their
+  mark.
+- **Hauler**: fetches 2 timber and 1 stone every 3 hours.
+- **Guard**: keeps watch (adds to the base's defence).
+Each round of work takes its inputs when it starts and puts its output in the
+store when it ends, at a fixed time; so a week away is the same as a week
+watched. Residents eat from the base's store and sleep in its beds (huts
+and longhouses indoors, a lean-to like a tent). The store holds 100 kg plus
+what buildings add (a hut's chest 60, a storehouse 600); materials a site
+still needs always go in. **Upkeep:** reed thatch rots, 1% of a building's
+health a day, unless sealed with pitch (Seal); a building that rots away
+falls in. The Base tab shows residents, the squad here, upkeep, the store
+and what's happened lately.
 
 Placeholder boxes for now (models come from the Blender session).
 
