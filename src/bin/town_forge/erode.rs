@@ -696,6 +696,17 @@ impl Land {
         if slope > 28.0 + 20.0 * hard || (slope > 22.0 && hard > 0.8) {
             return Kind::Rock;
         }
+        // Hard rock on a convex crown sheds its thin soil: outcrops in patches.
+        if hard > 0.72 && self.sediment[k] < 0.25 {
+            let (i, j) = (k % self.w, k / self.w);
+            if i >= 4 && j >= 4 && i + 4 < self.w && j + 4 < self.h {
+                let around = (self.z[k - 4] + self.z[k + 4] + self.z[k - 4 * self.w] + self.z[k + 4 * self.w]) * 0.25;
+                let convex = z - around;
+                if convex > 0.35 + (1.0 - hard) * 2.0 && slope > 6.0 {
+                    return Kind::Rock;
+                }
+            }
+        }
         Kind::Turf
     }
 
