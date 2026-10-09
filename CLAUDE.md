@@ -124,6 +124,17 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    own arrests and duels happen when its crimes are seen (the player
    exception). Office eligibility reads race and sex directly — that's the
    canon rule (Laz), not a culture leaning; everything else reads customs.
+19. **Lives are settled on the clock, and few people act.** Purses, work
+   status, needs, dealings, gossip, grudges' first rung, the ring's choice
+   and the storyteller all run at dawn (`lives.rs`, `memory.rs`,
+   `history.rs`, `ring.rs`, `stories.rs`), with the dawn's `t`; storylines
+   are acted out on the hour they were given (`story_hour`), never per
+   step. Only storylines the storyteller picks act — keep new behaviour a
+   kind of storyline, under its cap — and it never reads the squad's
+   position. Per-person lists are inline and capped (`few::Few`); keep a
+   person within about 200 bytes (`tests/budget.rs`). What people say is
+   data in `data/lines/` (format in `data/lines/FORMAT.md`), chosen by
+   conditions; the code gathers facts, it doesn't write lines.
 
 ## Verifying visual changes
 
@@ -154,7 +165,10 @@ beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
 goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
 `GAHT_SHUN=1` (the nearest stilt village withdraws; runs past the next dawn), `GAHT_TRADE=1` (trading
-with the nearest merchant at work), `GAHT_SOCIETY=runners|boats|tides` (go and
+with the nearest merchant at work), `GAHT_CONVO=1` (a local robbed last night talks about it,
+assembled from `data/lines`), `GAHT_GUARD=1` (member 0 on a guard contract at a merchant's stall;
+the journal shows it), `GAHT_FEUD=1` (two households fall out over 16 days; the town panels show
+the log; slow to set up), `GAHT_SOCIETY=runners|boats|tides` (go and
 watch the midday meal run, the dawn boats, or a stilt village; for tides
 compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the
 moment holds). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
@@ -274,5 +288,13 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   carrying stolen goods is a `Wrong` with no detection yet; omens reported
   or faked by others are a hook (`bad_omen`); fights in the street on a
   revolt are left out; the squad can't hold bonded workers.
+- Part 5 (emergent lives, opportunities, dialogue) follows Laz's brief. Money is
+  per household (a stilt village living as one shares a purse); squad members
+  keep their own coin. Scope-downs: escort and champion jobs exist as kinds but
+  aren't offered yet; no recruitment (only `would_join`); a ring can't be
+  "turned" yet; ring members are found out by finding out one of their deeds;
+  no weather, so the `rain` piece never fires; fencing pays ring and thief out
+  of the wider world (as caravans do). A dialogue "voice" is the speaker's
+  people's way of speaking (presentation only, not a world rule).
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.

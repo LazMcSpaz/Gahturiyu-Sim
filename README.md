@@ -357,7 +357,8 @@ duel** (fought to knockout with the full combat rules; champions allowed; the
 loser pays), **shunning** (the community won't deal with you; a stilt
 village wronged by its town withdraws its boats), or the **public record**
 (it follows you to every town with an arbiter). Where it's unclear, the
-arbiter rules. Townsfolk have their disputes too. If the watch is on hand
+arbiter rules. Townsfolk take their own disputes to a hearing when a grudge
+gets that far (below). If the watch is on hand
 (and paid) when your crime is seen, you're arrested and judged on the spot;
 otherwise it's a bounty, and the news travels with travellers as before.
 Assaulting townsfolk, killing them, harming an arbiter (very serious
@@ -382,6 +383,83 @@ their standing where they are.
 The town panel shows all of it: the form, who holds each seat, council
 seats, who owns which matters, unrest, the justice and bondage customs on
 land and on the stilts, the bound, and the last rite.
+
+### Lives, stories and talk
+
+People here have lives that cause things, and those things reach you as
+work and conversation rather than fixed quests.
+
+**Money is per household** (one purse; a stilt village living as one
+shares one). Each dawn settles the day before: members' pay for the hours
+they worked, at their trade's rate and the town's fortunes, less food,
+tax and upkeep. A comfortable household spends some of what's over at the
+market; one that runs dry borrows — from a household it likes, a well-off
+neighbour, or the merchants — and pays back when it can. **Work**: everyone
+is working, laid up, away, out of work, bound or retired. Posts are lost
+to a long injury, a long absence, a trade with nothing to work on for days,
+or a revolt; the jobless take posts going, or labour where there's room.
+**Needs** — money worry, hunger, fear for safety, grievance, ambition —
+drift each dawn toward where life puts them. **Honour**, a fifth habit,
+decides *how* someone acts: openly, or not.
+
+**Memory and grudges.** Everyone keeps a few memories (who wronged or
+helped them, how much, when; wrongs fade, slower for the patient), and
+each household a few feelings toward others. A few people each dawn had
+something happen with a workmate, someone at their evening spot or a
+neighbour: a kindness, a slight, a quarrel over work or a debt, a sale gone
+wrong. A household cold enough on another climbs a ladder: it turns its
+back; then a hearing (or slander); harm (a claim, a duel, a shunning or the
+record — or sabotage and theft); blows (an open fight, or a beating in the
+dark); a feud. The honourable act in the open; the rest covertly, and may
+never be found out.
+
+**History and gossip.** Each town keeps a record of what happened. People
+know a few events each: those involved and those who saw know at once;
+everyone else hears it at the inn, the hearth or the deck the next evening,
+from the sociable; travellers and caravans carry the notable news to other
+towns. Hearing of a wrong sours people on whoever did it; violence and
+theft at home make them afraid.
+
+**Who acts.** Most people plod along. Each dawn, each town's storyteller
+looks at the few with a strong drive and lets only some act — no more than
+a cap for the town's size and its **drama level** (low to start), favouring
+people who matter (officeholders, rich merchants, heads of big households,
+the ring), not three of one kind at once, and not the same kind again too
+soon. What they do plays out at its hour: a theft at night (whoever is
+about sees, by the light; a watch on duty arrests; the thief is judged by
+custom), a swindle on market hours, a debt left unpaid, a grudge's next
+step — or they look for help. Larger towns have a **criminal ring** of real
+people under a leader: it makes an example of outside thieves who work its
+streets, lies low when the watch is too keen, bribes unpaid guards, takes
+in the desperate, leans on merchants and fences stolen goods (made things
+keep their maker's mark).
+
+**Work you can do** comes out of all that: guard a robbed merchant's stall,
+get a stolen thing back, find out who did it, collect a debt, put a scare
+into someone, a quiet killing, bring back a runaway, break a bandit camp,
+fetch goods a crafter lacks, carry a letter. You hear of work by talking
+(lawful, open work is also posted at the hall where the town keeps
+records). **Guard work** is a contract: the member assigned goes to the
+place as its hours begin, is paid each dawn for a day they turned up, and
+catches anyone who tries it there. You can also take a post going in town,
+paid each dawn. Finishing, failing or being found out is remembered.
+
+**Talk** is put together from pieces in `data/lines/` (see
+`data/lines/FORMAT.md` to write more): what's on their mind decides what
+they talk about; their temper, honour, mood, people and how they feel about
+whoever's talking decide how. What you can say back depends on who you
+are — your standing, record, coin and how capable you look: ask more,
+offer help, tell the watch, talk them down, pay or threaten for what they
+know. People with something strong on their mind say so as you pass.
+
+Hover anyone to see their work, what's troubling them, their honour, a
+grudge (once you've talked with them) and their household's purse, debts
+and feelings. The town panel has a second panel beside it: what's happened
+lately, the ring's leader once you know it, and work you've heard of; with
+the detail readout (L) it shows every job, event and storyline.
+
+**What it costs:** about 200 bytes a person in memory (150 saved) and about
+2 µs a person a game day (`tests/budget.rs`).
 
 `cargo run --release --bin headless -- society 3` prints every town's customs,
 jobs, food, store, what the land offers, its shelf and its dearest goods after
@@ -611,7 +689,10 @@ each system does what it says: `combat.rs`, `gear.rs` (every enchantment),
 `condition.rs`, `carry.rs`, `news.rs`, `save.rs` (a loaded world carries on
 exactly like the saved one, even mid-fight), `magic.rs` (styles, costs,
 rituals, learning), `spells.rs` (every spell does what it says) and
-`society.rs` (customs, routines, services, food paths, caravans, trade).
+`society.rs` (customs, routines, services, food paths, caravans, trade),
+`lives.rs`, `ties.rs`, `gossip.rs`, `stories.rs`, `assembled.rs` and
+`budget.rs` (purses, grudges, gossip, the storyteller and the ring, guard
+contracts, assembled talk, and the cost per person).
 
 ```
 cargo run --release --bin headless -- 3
@@ -683,7 +764,14 @@ The numbers most worth tuning, all named constants:
 | Each people's leaning on government, justice and bondage (`ruling`, `justice`, `slavery` in `PROFILES`) | `src/sim/culture.rs` |
 | Government: when a form gets a chamber or a council (`CHAMBER_MIN`, `MAJORITY`, `COUNCIL_SEATS`, `ELDERS`, `PRIESTESSES`, `ADMINISTRATORS`, `GOV_SHIFT`, `SEASON_DAYS`, `POOR_SPEAKER`); rites (`RITE_EVERY`, `RITE_BASE`, `RITE_HUNGER`, `RITE_UNPAID`, `RITE_UNREST`, `ARBITER_STEADY`) | `src/sim/law.rs` |
 | Unrest and revolt (`U_HUNGER`, `U_UNPAID`, `U_CRIME`, `UNWATCHED_CRIME`, `U_CALM`, `U_FADE`, `U_RITE`, `U_SALE`, `U_ESCAPE`, `REVOLT_AT`, `REVOLT_LEFT`, `REVOLT_GRACE`) | `src/sim/law.rs` |
-| Disputes, bonds, sales, escapes, shunning (`DISPUTE_CHANCE`, `CANT_PAY`, `BOND_DAYS`, `BOND_DAY_VALUE`, `BOND_MAX_DAYS`, `SALE_CHANCE`, `ESCAPE_CHANCE`, `SHUN_DAYS`, `BOND_REACH`); standing steps (`HEARD`, `LAND`, `COUNCIL`, `RECORD_WEIGHT`) | `src/sim/law.rs` |
+| Purses, work and needs (`FOOD_COST`, `UPKEEP`, `RESERVE_DAYS`, `SPEND_SHARE`, `REPAY_SHARE`, `DEBT_LIMIT_DAYS`, `LEND_RESERVE_DAYS`, `SOUR_DEBT_DAYS`, `DEBT_SOUR`, `INJURED_SHARE`, `LONG_INJURY`, `LONG_AWAY`, `IDLE_DAYS`, `RETIRE_AGE`, `LABOUR_ROOM`, `NEED_RATE`); pay by trade (`Job::pay`); each people's honour and readiness to ask outsiders (`honour`, `asks` in `PROFILES`) | `src/sim/lives.rs`, `src/sim/jobs.rs`, `src/sim/culture.rs` |
+| Memories and grudges: how many, how fast they fade, dealings, the ladder (`MEMORY_CAP`, `FEELINGS_CAP`, `WRONG_FADE`, `HELP_FADE`, `FEEL_FADE`, `DEALING_CHANCE`, `KINDNESS`, `SLIGHT`, `QUARREL`, `RUNGS`, `ESCALATE_GAP`, `OPEN_AT`, `FOUND_OUT`, `HURT`) | `src/sim/memory.rs` |
+| History and gossip (`ORDINARY_KEPT`, `SERIOUS_KEPT`, `KNOWS_CAP`, `WITNESSES`, `GOSSIP_CHANCE`, `GOSSIP_REACH`, `NEWS_FADE`, `TIDING_CHANCE`, `OPINION`, `DANGER`) | `src/sim/history.rs` |
+| **The storyteller**: drama (`DRAMA_START`), caps (`CAP_BASE`, `CAP_PEOPLE`), who's driven enough (`DRIVE_AT`), prominence, variety, cooldowns; crime (`CRIME_HONOUR`, `CRIME_BOLD`, `THEFT_DAYS`, `SEE_BASE`, `SEE_LIGHT`, `REPORTS_AT`) | `src/sim/stories.rs` |
+| The ring (`RING_POP`, `RING_START`, `RING_MAX`, `FREELANCE_LIMIT`, `HEAT_*`, `EXTORT_DAYS`, `BRIBE`, `HIRE`) | `src/sim/ring.rs` |
+| Jobs and contracts (`OPEN_DAYS`, `JOB_DAYS`, `GUARD_DAYS`, `PRESENT_SHARE`, `MISSED_LIMIT`, `REWARD_SHARE`, `OPEN_CAP`, `THANKS`, `LET_DOWN`) | `src/sim/chances.rs` |
+| What people say: the pieces (`data/lines/*.txt`); how long before a line is said again (`RECENT`), when they refuse or warm (`DISTRUST`, `WARM`, `MEMORY_WEIGHT`), barks (`BARK_AT`) | `data/lines/`, `src/sim/talk.rs` |
+| Hearings, bonds, sales, escapes, shunning (`HEARING_UPHELD`, `CANT_PAY`, `BOND_DAYS`, `BOND_DAY_VALUE`, `BOND_MAX_DAYS`, `SALE_CHANCE`, `ESCAPE_CHANCE`, `SHUN_DAYS`, `BOND_REACH`); standing steps (`HEARD`, `LAND`, `COUNCIL`, `RECORD_WEIGHT`) | `src/sim/law.rs` |
 | Fire, water and cold: burn time and hurt, drying time, wet bonuses, freezing, steam, pitch, paper (`BURN_SECS`, `BURN_PER_SEC`, `WET_SECS`, `WET_SHOCK`, `WET_CHILL`, `WET_COLD`, `FREEZE_AT`, `FROZEN_SECS`, `STEAM`, `PITCH_FIRE`, `PITCH_SCORCH`, `PAPER_BURN`, `PAPER_SOAK`) | `src/sim/elements.rs` |
 
 Drawing only (these never change what happens):
@@ -734,8 +822,16 @@ src/sim/      the simulation — no graphics, fully testable
   making.rs     what the land gives, town crafters and their shelf, prices, orders, lessons
   wear.rs       wear, breakage, rot, mending, sealing, paper spoiling
   elements.rs   burning, wet, chilled and frozen: the dials and what's paper
-  law.rs        government, rites, unrest and revolt, disputes and judgement, bonds, standing
-  quests.rs     jobs
+  law.rs        government, rites, unrest and revolt, hearings and judgement, bonds, standing
+  quests.rs     the squad's journal
+  lives.rs      household purses, work status, needs
+  memory.rs     memories, household feelings, dealings, the grudge ladder
+  history.rs    each town's record of events; who knows what; gossip and news
+  stories.rs    the storyteller, storylines, townsfolk crime
+  ring.rs       the criminal ring
+  chances.rs    opportunities, contracts, pressing people, consequences
+  talk.rs       conversation assembled from data/lines
+  few.rs        short inline lists (per-person memory budget)
   dialogue.rs   conversations (and trading)
   culture.rs    each people's leanings, town blends, choosing customs
   society.rs    communities, households, jobs, workplaces, gardens, dawn changes
@@ -764,5 +860,6 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   settings.rs   graphics settings (O)
 src/bin/headless.rs  the world with no window
 assets/       font, and models/ for GLB files
+data/lines/   what people say, piece by piece (FORMAT.md explains)
 tests/        the consistency checks, and one file per system
 ```
