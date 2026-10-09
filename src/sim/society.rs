@@ -226,6 +226,9 @@ pub struct Society {
     /// by person id.
     #[serde(default)]
     pub minds: Vec<super::lives::Mind>,
+    /// What's happened in each town (`history.rs`).
+    #[serde(default)]
+    pub history: super::history::History,
 }
 
 /// A strong minority's share, and the cooking its institution brings, for

@@ -45,6 +45,10 @@ pub const REPAY_SHARE: f32 = 0.6;
 pub const DEBT_LIMIT_DAYS: f32 = 25.0;
 /// A neighbour lends only from what's past this many days of their own costs.
 pub const LEND_RESERVE_DAYS: f32 = 10.0;
+/// A household owed more than this many days of the debtor's costs, and not
+/// being paid back, sours on them by `DEBT_SOUR` a day.
+pub const SOUR_DEBT_DAYS: f32 = 2.0;
+pub const DEBT_SOUR: f32 = 0.04;
 /// Hurt this badly (share of all hit points lost), you can't work.
 pub const INJURED_SHARE: f32 = 0.4;
 /// Laid up this many dawns, your post goes to someone else; likewise away.
@@ -246,6 +250,7 @@ impl World {
     pub(super) fn dawn_lives(&mut self, town: SettlementId, t: f64) {
         self.work_status(town, t);
         self.settle_purses(town, t);
+        self.dawn_ties(town, t);
         self.settle_needs(town, t);
     }
 
@@ -397,6 +402,25 @@ impl World {
                 self.borrow(h, -coin, town, t);
             }
         }
+        // A neighbour owed money and not being paid sours on the debtor.
+        let day = World::day_of(t) as i32;
+        for &h in &hhs {
+            let cost = self.daily_cost(h);
+            if self.society.households[h as usize].purse.coin > cost * RESERVE_DAYS {
+                continue;
+            }
+            for d in self.society.households[h as usize].purse.debts.clone() {
+                let Creditor::Household(o) = d.to else { continue };
+                if d.amount < cost * SOUR_DEBT_DAYS {
+                    continue;
+                }
+                let lender = self.society.households.get(o as usize).and_then(|x| x.members.first().copied());
+                let debtor = self.society.households[h as usize].members.first().copied();
+                if let (Some(a), Some(b)) = (lender, debtor) {
+                    self.remember(a, super::memory::Who::Person(b), super::history::Deed::DebtQuarrel, -DEBT_SOUR, day);
+                }
+            }
+        }
         // What's spent at market goes to the merchants.
         let tl = &mut self.society.towns[town as usize];
         let now = super::economy::purse_at(tl, t);
@@ -429,6 +453,13 @@ impl World {
         let to = match lender {
             Some(o) => {
                 self.society.households[o as usize].purse.coin -= amount;
+                // Remembered kindly, the first time.
+                if !self.society.households[h as usize].purse.debts.iter().any(|d| d.to == Creditor::Household(o)) {
+                    let day = World::day_of(t) as i32;
+                    if let (Some(a), Some(b)) = (self.society.households[h as usize].members.first().copied(), self.society.households[o as usize].members.first().copied()) {
+                        self.remember(a, super::memory::Who::Person(b), super::history::Deed::Loan, super::memory::LOAN_THANKS, day);
+                    }
+                }
                 Creditor::Household(o)
             }
             None => {

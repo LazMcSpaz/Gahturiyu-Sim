@@ -203,6 +203,23 @@ fn society(days: f64, seed: u64) {
                 count(Work::Working), count(Work::Injured), count(Work::Away), count(Work::Jobless), count(Work::Bonded), count(Work::Retired),
                 hhs.len(), indebt, coin, mean(0), mean(1), mean(2), mean(3), mean(4)
             );
+            let mems: usize = folk.iter().map(|&p| w.mind(p).memories.len()).sum();
+            let mut stages = [0usize; 6];
+            for &h in &hhs {
+                for f in &w.society.households[h].feelings {
+                    stages[f.stage as usize] += 1;
+                }
+            }
+            let mut deeds: std::collections::BTreeMap<String, usize> = Default::default();
+            for e in w.events(ti as u16) {
+                *deeds.entry(format!("{:?}", e.deed)).or_default() += 1;
+            }
+            println!(
+                "  ties: memories {:.2}/person | feelings {} (avoid {} dispute {} harm {} blows {} feud {}) | events {}",
+                mems as f32 / folk.len().max(1) as f32,
+                stages.iter().sum::<usize>(), stages[1], stages[2], stages[3], stages[4], stages[5],
+                deeds.iter().map(|(k, n)| format!("{k} {n}")).collect::<Vec<_>>().join(", ")
+            );
         }
         let g = w.government(ti as u16);
         let shore = &w.society.communities[tl.shore as usize].customs;

@@ -31,7 +31,8 @@
 //! (a fine; a temporary bond if it can't be paid), a duel to knockout fought
 //! with the full combat rules, shunning (the village turns its back), or the
 //! public record (it follows the offender wherever arbiters reach). Townsfolk
-//! have their disputes too (one keyed roll a town a day).
+//! take their own disputes to a hearing when a grudge climbs that far
+//! (`memory.rs`).
 //!
 //! **Bondage** runs for a term, from the clock; where slavery is allowed a
 //! bond can be sold on into slavery — except that Roduro law (wherever the
@@ -99,8 +100,8 @@ pub const U_ESCAPE: f32 = 2.0;
 pub const REVOLT_AT: f32 = 80.0;
 pub const REVOLT_LEFT: f32 = 0.5;
 pub const REVOLT_GRACE: f64 = 6.0;
-/// Townsfolk's disputes: chance of one a day (more as unrest grows).
-pub const DISPUTE_CHANCE: f32 = 0.25;
+/// Chance a hearing finds for the one who brought it (where it isn't a duel).
+pub const HEARING_UPHELD: f32 = 0.65;
 /// Chance a fined townsperson can't pay and is bonded instead, and the term.
 pub const CANT_PAY: f32 = 0.4;
 pub const BOND_DAYS: (f32, f32) = (6.0, 24.0);
@@ -557,7 +558,6 @@ impl World {
         if self.government(town).chambers.iter().any(|c| c.rule == Rule::Priestesses) && day.rem_euclid(RITE_EVERY) == (town as i64).rem_euclid(RITE_EVERY) {
             self.hold_rite(town, t);
         }
-        self.dispute(town, t);
         self.settle_bonds(town, t);
         self.tally_unrest(town, t);
     }
@@ -657,36 +657,23 @@ impl World {
 
     // ---- Townsfolk's disputes ------------------------------------------------
 
-    /// The day's dispute in a town, if there is one: settled by the wronged
-    /// party's custom.
-    fn dispute(&mut self, town: SettlementId, t: f64) {
+    /// A dispute brought to a hearing by `wronged` against `offender` (a
+    /// grudge's second rung, `memory.rs`), settled by the wronged party's
+    /// custom. True if the offender lost.
+    pub(super) fn public_dispute(&mut self, offender: PersonId, wronged: PersonId, town: SettlementId, t: f64, r: &mut Rng) -> bool {
         let day = World::day_of(t);
-        let mut r = Rng::from_keys(&[self.seed, town as u64, day as u64, 0x4449_5350]);
-        let unrest = self.government(town).unrest;
-        if !r.chance(DISPUTE_CHANCE * (1.0 + unrest / 50.0)) {
-            return;
-        }
-        let folk: Vec<PersonId> = self.living_here(town).into_iter().filter(|&p| !self.people[p as usize].in_squad && !self.is_bonded(p, t) && self.busy_until[p as usize] <= t).collect();
-        if folk.len() < 2 {
-            return;
-        }
-        let offender = folk[r.below(folk.len())];
-        let wronged = folk[r.below(folk.len())];
-        if offender == wronged {
-            return;
-        }
         self.society.towns[town as usize].gov.wrongs += 1.0;
-        let custom = self.justice_for(town, wronged, &mut r);
+        let custom = self.justice_for(town, wronged, r);
         let lost = match custom {
-            Justice::Duel => self.npc_duel(offender, wronged, t, rng::key(&[self.seed, town as u64, day as u64, 0x4455_454C])),
-            _ => true,
+            Justice::Duel => self.npc_duel(offender, wronged, t, rng::key(&[self.seed, offender as u64, wronged as u64, day as u64, 0x4455_454C])),
+            _ => r.chance(HEARING_UPHELD),
         };
         if !lost {
-            return;
+            return false;
         }
         match custom {
             Justice::Elders | Justice::Duel => {
-                if r.chance(CANT_PAY) {
+                if r.chance(CANT_PAY) && !self.is_bonded(offender, t) {
                     let days = r.range(BOND_DAYS.0, BOND_DAYS.1) as f64;
                     let holder = self.head_of(wronged);
                     self.bond(offender, town, holder, t, t + days * DAY);
@@ -695,12 +682,13 @@ impl World {
             Justice::Shunning => {}
             Justice::Record => *self.records.entry(offender).or_insert(0.0) += 1.0,
         }
+        true
     }
 
     /// Whose law: the wronged party's community custom; where that's unclear
     /// (two ways nearly even) and an arbiter sits, the arbiter rules — which
     /// means the record.
-    fn justice_for(&self, town: SettlementId, wronged: PersonId, r: &mut Rng) -> Justice {
+    pub(super) fn justice_for(&self, town: SettlementId, wronged: PersonId, r: &mut Rng) -> Justice {
         let ci = self.society.lives[wronged as usize].community.unwrap_or(self.society.towns[town as usize].shore);
         let c = &self.society.communities[ci as usize];
         let mut w = c.blend.justice;
@@ -713,7 +701,7 @@ impl World {
 
     /// A duel between townsfolk, fought out at once with the full combat
     /// rules, to knockout. True if the offender lost.
-    fn npc_duel(&mut self, offender: PersonId, wronged: PersonId, t: f64, seed: u64) -> bool {
+    pub(super) fn npc_duel(&mut self, offender: PersonId, wronged: PersonId, t: f64, seed: u64) -> bool {
         let a = Fighter::from_person(&self.people[offender as usize], 0, super::geo::V2::new(0.0, 0.0), t);
         let b = Fighter::from_person(&self.people[wronged as usize], 1, super::geo::V2::new(3.0, 0.0), t);
         let mut battle = Battle::new(u32::MAX, seed, t, vec![a, b], vec![self.name_of(offender), self.name_of(wronged)]);
