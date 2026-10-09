@@ -62,7 +62,7 @@ pub const FEEL_FADE: f32 = 0.04;
 pub const FEUD_COOL: f32 = 0.3;
 /// Chance someone has a dealing worth remembering on a day (× 0.6 +
 /// sociability × 0.8).
-pub const DEALING_CHANCE: f32 = 0.05;
+pub const DEALING_CHANCE: f32 = 0.06;
 /// A household bigger than this is a village living as one: its members
 /// keep score of each other.
 pub const BIG_HOUSEHOLD: usize = 8;
@@ -74,7 +74,7 @@ pub const QUARREL: (f32, f32) = (-0.3, -0.25);
 pub const LOAN_THANKS: f32 = 0.15;
 /// Warmth below which a household takes each next rung of the ladder:
 /// avoid, dispute, harm, violence, feud.
-pub const RUNGS: [f32; 5] = [-0.2, -0.35, -0.5, -0.65, -0.8];
+pub const RUNGS: [f32; 5] = [-0.15, -0.3, -0.45, -0.6, -0.75];
 /// Days at least between rungs (and between acts in a feud).
 pub const ESCALATE_GAP: i32 = 3;
 /// Chance a day of taking the next rung (× 0.5 + boldness/2 + (1 − patience)/2).
@@ -120,6 +120,9 @@ pub struct Memory {
     /// How much, when made: below 0 a wrong, above a good turn.
     pub amount: f32,
     pub day: i32,
+    /// Only heard of, not done to them: an opinion, not a grievance.
+    #[serde(default)]
+    pub heard: bool,
 }
 
 impl Memory {
@@ -141,6 +144,19 @@ pub struct Feeling {
     pub since: i32,
 }
 
+/// Where people were yesterday, by community (see `World::venues`).
+pub struct Venues {
+    pub folk: Vec<PersonId>,
+    /// For each of `folk`: their workplace, evening spot and neighbourhood.
+    pub were: Vec<[Option<(u8, u32)>; 3]>,
+    /// Who was at each.
+    pub at: std::collections::BTreeMap<(u8, u32), Vec<PersonId>>,
+}
+pub const WORK: u8 = 0;
+pub const EVENING: u8 = 1;
+pub const VISIT: u8 = 2;
+pub const NEIGHBOURS: u8 = 4;
+
 pub const STAGES: [&str; 6] = ["", "avoiding them", "in dispute", "doing them harm", "come to blows", "in a feud"];
 
 // ---- Remembering ------------------------------------------------------------
@@ -157,16 +173,14 @@ impl World {
     }
 
     /// How aggrieved someone is, 0..1, from the wrongs they remember.
-    pub fn grievance_of(&self, p: PersonId) -> f32 {
-        let day = World::day_of(self.time) as i32;
+    pub fn grievance_of(&self, p: PersonId, day: i32) -> f32 {
         let pat = self.patience(p);
-        let bad: f32 = self.mind(p).memories.iter().map(|m| m.strength(day, pat)).filter(|&s| s < 0.0).map(|s| -s).sum();
+        let bad: f32 = self.mind(p).memories.iter().filter(|m| !m.heard).map(|m| m.strength(day, pat)).filter(|&s| s < 0.0).map(|s| -s).sum();
         (bad / 1.5).min(1.0)
     }
 
     /// The wrong someone remembers most, if any.
-    pub fn top_grudge(&self, p: PersonId) -> Option<Memory> {
-        let day = World::day_of(self.time) as i32;
+    pub fn top_grudge(&self, p: PersonId, day: i32) -> Option<Memory> {
         let pat = self.patience(p);
         self.mind(p).memories.iter().copied().filter(|m| m.strength(day, pat) < -0.1).min_by(|a, b| a.strength(day, pat).total_cmp(&b.strength(day, pat)))
     }
@@ -175,6 +189,13 @@ impl World {
     /// remembered of them; when the list is full the faintest goes. Their
     /// household feels a share of it toward the other's.
     pub fn remember(&mut self, p: PersonId, about: Who, deed: Deed, amount: f32, day: i32) {
+        self.remember_as(p, about, deed, amount, day, false);
+    }
+
+    /// Remember, or (`heard`) think less or more of someone from what's told
+    /// of them: an opinion, which isn't a grievance of one's own and doesn't
+    /// move the household.
+    pub fn remember_as(&mut self, p: PersonId, about: Who, deed: Deed, amount: f32, day: i32, heard: bool) {
         if p as usize >= self.society.minds.len() || self.people[p as usize].dead {
             return;
         }
@@ -185,15 +206,19 @@ impl World {
                 x.amount = (x.strength(day, pat) + amount).clamp(-MOST, MOST);
                 x.deed = deed;
                 x.day = day;
+                x.heard &= heard;
             }
             None => {
                 m.memories.retain(|x| x.strength(day, pat).abs() >= FORGOTTEN);
-                m.memories.push(Memory { about, deed, amount, day });
+                m.memories.push(Memory { about, deed, amount, day, heard });
                 if m.memories.len() > MEMORY_CAP {
                     let k = (0..m.memories.len()).min_by(|&a, &b| m.memories[a].strength(day, pat).abs().total_cmp(&m.memories[b].strength(day, pat).abs())).unwrap();
                     m.memories.remove(k);
                 }
             }
+        }
+        if heard {
+            return;
         }
         let other = match about {
             Who::Person(q) => self.society.lives.get(q as usize).and_then(|l| l.household),
@@ -244,7 +269,14 @@ impl World {
     /// The day before's dealings, the households' feelings cooling, and any
     /// grudge climbing a rung.
     pub(super) fn dawn_ties(&mut self, town: SettlementId, t: f64) {
-        self.dealings(town, t);
+        self.hear_tidings(town, t);
+        let tl = &self.society.towns[town as usize];
+        for ci in std::iter::once(tl.shore).chain(tl.stilts).collect::<Vec<_>>() {
+            let v = self.venues(ci, t);
+            // Last evening's talk first: it came before this dawn's doings.
+            self.gossip(&v, t);
+            self.dealings(&v, t);
+        }
         self.cool_feelings(town);
         self.escalate(town, t);
     }
@@ -253,60 +285,63 @@ impl World {
         (0..self.society.households.len() as u32).filter(|&h| self.society.communities[self.society.households[h as usize].community as usize].town == town).collect()
     }
 
+    /// Where a community's people were yesterday: at work, at the evening
+    /// spot, and which neighbourhood they live in.
+    pub(super) fn venues(&self, ci: u32, t: f64) -> Venues {
+        let yday = World::day_of(t) - 1;
+        let folk: Vec<PersonId> = self.members_of(ci).filter(|&p| !self.people[p as usize].in_squad && self.society.lives[p as usize].household.is_some() && self.busy_until[p as usize] <= t).collect();
+        let mut at: std::collections::BTreeMap<(u8, u32), Vec<PersonId>> = Default::default();
+        let mut were: Vec<[Option<(u8, u32)>; 3]> = Vec::with_capacity(folk.len());
+        for &p in &folk {
+            let l = self.society.lives[p as usize];
+            let plan = self.day_plan(p, yday);
+            let work = match (plan.work, l.place) {
+                (Some(_), Some(pl)) => Some((WORK, pl as u32)),
+                _ => None,
+            };
+            let eve = plan.segs().iter().find(|s| matches!(s.doing, Doing::Evening | Doing::Market)).and_then(|s| match s.spot {
+                Spot::Place(x) => Some((EVENING, x as u32)),
+                Spot::Hearth => Some((EVENING, u32::MAX)),
+                Spot::Visit(b) => Some((VISIT, b as u32)),
+                _ => None,
+            });
+            let home = self.society.households[l.household.unwrap() as usize].home.map(|b| (NEIGHBOURS, b as u32 / 3));
+            let w = [work, eve, home];
+            for v in w.iter().flatten() {
+                at.entry(*v).or_default().push(p);
+            }
+            were.push(w);
+        }
+        Venues { folk, were, at }
+    }
+
     /// Who met whom yesterday: workmates, those at the same evening spot,
     /// neighbours. A few of them had something worth remembering.
-    fn dealings(&mut self, town: SettlementId, t: f64) {
+    fn dealings(&mut self, v: &Venues, t: f64) {
         let today = World::day_of(t);
-        let yday = today - 1;
-        let tl = &self.society.towns[town as usize];
-        for ci in std::iter::once(tl.shore).chain(tl.stilts).collect::<Vec<_>>() {
-            let folk: Vec<PersonId> = self.members_of(ci).filter(|&p| !self.people[p as usize].in_squad && self.society.lives[p as usize].household.is_some() && self.busy_until[p as usize] <= t).collect();
-            // Where each was: (kind, which) — work, evening spot, neighbourhood.
-            let mut venues: std::collections::BTreeMap<(u8, u32), Vec<PersonId>> = Default::default();
-            let mut were: Vec<[Option<(u8, u32)>; 3]> = Vec::with_capacity(folk.len());
-            for &p in &folk {
-                let l = self.society.lives[p as usize];
-                let plan = self.day_plan(p, yday);
-                let work = match (plan.work, l.place) {
-                    (Some(_), Some(pl)) => Some((0u8, pl as u32)),
-                    _ => None,
-                };
-                let eve = plan.segs().iter().find(|s| matches!(s.doing, Doing::Evening | Doing::Market)).and_then(|s| match s.spot {
-                    Spot::Place(x) => Some((1u8, x as u32)),
-                    Spot::Hearth => Some((2, 0)),
-                    Spot::Visit(b) => Some((3, b as u32)),
-                    _ => None,
-                });
-                let home = self.society.households[l.household.unwrap() as usize].home.map(|b| (4u8, b as u32 / 3));
-                let w = [work, eve, home];
-                for v in w.iter().flatten() {
-                    venues.entry(*v).or_default().push(p);
-                }
-                were.push(w);
+        let (folk, were, venues) = (&v.folk, &v.were, &v.at);
+        for (i, &p) in folk.iter().enumerate() {
+            let tr = self.people[p as usize].traits;
+            let mut r = Rng::from_keys(&[self.seed, p as u64, today as u64, 0x4445_414C]);
+            if !r.chance(DEALING_CHANCE * (0.6 + tr.sociability * 0.8)) {
+                continue;
             }
-            for (i, &p) in folk.iter().enumerate() {
-                let tr = self.people[p as usize].traits;
-                let mut r = Rng::from_keys(&[self.seed, p as u64, today as u64, 0x4445_414C]);
-                if !r.chance(DEALING_CHANCE * (0.6 + tr.sociability * 0.8)) {
-                    continue;
-                }
-                let at: Vec<(u8, u32)> = were[i].iter().flatten().copied().collect();
-                if at.is_empty() {
-                    continue;
-                }
-                let v = at[r.below(at.len())];
-                let there = &venues[&v];
-                let q = there[r.below(there.len())];
-                let (hp, hq) = (self.society.lives[p as usize].household.unwrap(), self.society.lives[q as usize].household.unwrap());
-                // Close kin don't keep score; a big shared household (a whole
-                // village) does, person to person.
-                let big = self.society.households[hp as usize].members.len() > BIG_HOUSEHOLD;
-                // Those avoiding each other still work side by side.
-                if q == p || (hp == hq && !big) || (v.0 != 0 && self.avoiding(hp, hq)) {
-                    continue;
-                }
-                self.deal(p, q, v.0, &mut r, today as i32);
+            let at: Vec<(u8, u32)> = were[i].iter().flatten().copied().collect();
+            if at.is_empty() {
+                continue;
             }
+            let v = at[r.below(at.len())];
+            let there = &venues[&v];
+            let q = there[r.below(there.len())];
+            let (hp, hq) = (self.society.lives[p as usize].household.unwrap(), self.society.lives[q as usize].household.unwrap());
+            // Close kin don't keep score; a big shared household (a whole
+            // village) does, person to person.
+            let big = self.society.households[hp as usize].members.len() > BIG_HOUSEHOLD;
+            // Those avoiding each other still work side by side.
+            if q == p || (hp == hq && !big) || (v.0 != WORK && self.avoiding(hp, hq)) {
+                continue;
+            }
+            self.deal(p, q, v.0, &mut r, today as i32);
         }
     }
 
@@ -328,9 +363,9 @@ impl World {
         let trade = |w: &World, x: PersonId| w.society.lives[x as usize].job.craft().is_some() || matches!(w.society.lives[x as usize].job, super::jobs::Job::Merchant);
         let (deed, hurt) = if owes(self, hp, hq) || owes(self, hq, hp) {
             (Deed::DebtQuarrel, QUARREL)
-        } else if v == 0 {
+        } else if v == WORK {
             (Deed::WorkQuarrel, QUARREL)
-        } else if v == 1 && (trade(self, p) || trade(self, q)) {
+        } else if v == EVENING && (trade(self, p) || trade(self, q)) {
             (Deed::TradeDispute, QUARREL)
         } else {
             (Deed::Slight, SLIGHT)

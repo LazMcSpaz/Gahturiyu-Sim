@@ -96,6 +96,17 @@ fn step_size_does_not_change_history_in_other_worlds() {
 }
 
 #[test]
+fn lives_come_out_the_same_over_days_in_big_steps() {
+    // Purses, memories, grudges and gossip are settled at dawn: a world
+    // stepped six hours at a time must have the same lives as one stepped
+    // by the hour.
+    let fine = run(worldgen::generate(3), 6.0 * 24.0, HOUR);
+    let coarse = run(worldgen::generate(3), 6.0 * 24.0, 6.0 * HOUR);
+    assert_same_history(&fine, &coarse);
+    assert!(fine.society.minds.iter().any(|m| !m.memories.is_empty() && !m.knows.is_empty()));
+}
+
+#[test]
 fn the_squads_position_does_not_change_history() {
     let here = run(worldgen::generate(11), 36.0, 2.0);
     let mut elsewhere = worldgen::generate(11);

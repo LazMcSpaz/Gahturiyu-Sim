@@ -71,6 +71,7 @@ impl World {
     /// A group has just set out from home: if home had heard anything by the
     /// time they leave, their destination hears it when they get there.
     pub(super) fn carry_news(&mut self, gid: GroupId) {
+        self.carry_tidings(gid);
         if self.news.is_empty() {
             return;
         }

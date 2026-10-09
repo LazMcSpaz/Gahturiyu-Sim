@@ -136,7 +136,7 @@ pub struct Mind {
     pub memories: Vec<super::memory::Memory>,
     /// World events they know of (`history.rs`).
     #[serde(default)]
-    pub knows: Vec<u32>,
+    pub knows: Vec<super::history::Known>,
 }
 
 /// Why someone lost their post.
@@ -514,7 +514,7 @@ impl World {
     fn settle_needs(&mut self, town: SettlementId, t: f64) {
         let gov = self.government(town);
         let town_fear = (gov.unrest / 100.0 + gov.wrongs * 0.1).min(1.0);
-        let _ = t;
+        let day = World::day_of(t) as i32;
         for p in self.residents_alive(town) {
             let l = self.society.lives[p as usize];
             let fed = l.community.map(|c| self.society.communities[c as usize].food.overall).unwrap_or(1.0);
@@ -530,8 +530,8 @@ impl World {
             };
             // Hungry households eat last.
             let hunger = ((1.0 - fed) * if poor { 2.0 } else { 0.6 } + if poor { 0.3 } else { 0.0 }).min(1.0);
-            let safety = (town_fear + self.known_danger(p)).min(1.0);
-            let grievance = self.grievance_of(p);
+            let safety = (town_fear + self.known_danger(p, day)).min(1.0);
+            let grievance = self.grievance_of(p, day);
             let tr = self.people[p as usize].traits;
             let placed = l.job.pay() >= 1.8 || self.holds_office(p);
             let ambition = (tr.boldness * 0.6 + (1.0 - tr.patience) * 0.2 + tr.sociability * 0.15 - if placed { 0.3 } else { 0.0 }).clamp(0.0, 1.0);
