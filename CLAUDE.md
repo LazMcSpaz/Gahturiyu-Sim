@@ -5,6 +5,21 @@ and tweaks through conversation, not an editor. Explain game-dev terms plainly.
 World lore (races, languages, architecture, pantheon) lives in the claude.ai
 "Gahturiyu" Project, not in this repo.
 
+## Where we are (Laz, 2026-10-09)
+
+- **System freeze.** No new systems until the playable-MVP list is built
+  (visual feedback, looting, recruiting, a money grind, robbery on defeat,
+  placeholder buildings with interiors and containers, ruins and lairs,
+  progress messages). Base building Stage 4 (raids, law) waits.
+- **Every action the player orders has a visual cue** in the 3D view, not
+  only a HUD line: a swing shows an arc, an archer's weapon points out to
+  shoot and down to reload, a sneaker crouches, and so on. Placeholder
+  shapes are fine; no animation rigs needed. New actions come with their
+  cue.
+- **Placeholder art only for now.** The final building models (Roduro GLBs,
+  Horaro kit) stay switched off so the game's look doesn't mix; buildings
+  are simple shapes in a few distinct variants.
+
 ## Rules that keep the bands honest
 
 These are load-bearing. `tests/consistency.rs` enforces the first three.
@@ -199,6 +214,12 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    and work in rounds with fixed ends on the same timeline (`start_cycle` /
    `finish_cycle`); a building's health is stored the same way (value at a
    moment plus a rate: rot, mending), and its fall or mend is solved for.
+   Hired hands are residents with a `Hire`: they leave their town's roll,
+   community and household (restored when they go home) and keep their
+   trade (`trade_of`, `work_skill`). Their wages, food, beds and loyalty
+   are tallied once a day at `DAWN` on the base's timeline (`base_dawn`),
+   paying from the base's coin then the squad's; quits and theft are keyed
+   rolls and are noted in the home town's history (gossip).
 
 ## Verifying visual changes
 
@@ -250,10 +271,12 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 (go and look at the nearest of that species at an hour it's up, e.g.
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
+`GAHT_LOOT=1` (two bandits lie beaten beside the squad; member 0 goes through the
+first one's things: the loot panel).
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
-put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there
-and opens the Base tab a day later).
+put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,
+hires a hauler from town and opens the Base tab a day later).
 `GAHT_WEATHER=1` (the weather panel, F7; `folded` for its headline, `off` for none),
 `GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
 with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`

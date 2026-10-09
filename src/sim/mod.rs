@@ -31,6 +31,7 @@ pub mod jobs;
 pub mod law;
 pub mod lives;
 pub mod items;
+pub mod loot;
 pub mod magic;
 pub mod mapedit;
 pub mod making;

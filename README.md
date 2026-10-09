@@ -209,6 +209,11 @@ the roads again if you changed the land's shape or ground.
   read a manual (slower, and it only gets you started). Practice does the
   rest. What you make comes out crude, common, fine or masterwork, and
   carries your mark. See Materials and crafting below.
+- **Looting**: click a beaten foe (out cold or dead: bandits, or anyone
+  whose band attacked you) and the nearest selected member goes over and
+  goes through their things. A panel lists what they wear and carry: click
+  a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
+  carries the body off instead. Townsfolk aren't fair game.
 - **Wear**: your weapons and armour wear with every blow; at zero a piece
   is gone. A crafter of the right trade mends it for coin, or right-click it
   in the pack panel to mend it yourself (if you know the craft and are at its
@@ -640,6 +645,24 @@ still needs always go in. **Upkeep:** reed thatch rots, 1% of a building's
 health a day, unless sealed with pitch (Seal); a building that rots away
 falls in. The Base tab shows residents, the squad here, upkeep, the store
 and what's happened lately.
+
+**Hired hands (stage 3).** Talk to someone footloose in a town (a labourer
+or drifter, someone short of money or restless, or any carpenter or mason)
+and offer **Come and work at my outpost**: they ask a day's wage (more than
+their work at home pays). They really leave: their post, home and household
+lose them, and they walk out to your nearest base (the Base tab shows them
+on the way). There they take a job like a squad member. At each dawn:
+- **wages** come from the base's store of coin first, then the squad's purse,
+  and go home to their household; what can't be paid is owed;
+- they eat two meals' worth from the store, and take a bed if one is left
+  after the squad's own;
+- **loyalty** (starts 60%) rises a little on a good day and drops when
+  they're unpaid (-15%), unfed (-10%) or without a bed (-4%); below 20%
+  they quit and go home as a labourer. The less honourable may help
+  themselves to the store's dearest things on the way out (up to 20 kg),
+  and both the quarrel and the theft go into the town's gossip.
+**Let go** sends a hand home on good terms (paying what's owed if the squad
+can). Hands live through raids for loyalty in stage 4.
 
 Placeholder boxes for now (models come from the Blender session).
 

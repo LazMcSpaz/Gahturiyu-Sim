@@ -417,7 +417,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             if w.is_indoors_asleep(pid) {
                 continue;
             }
-            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
     for g in &w.groups {
@@ -433,7 +433,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     tent(&mut b, to3(at, on_ground(at)), k, r);
                 }
                 for &m in &g.members {
-                    heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+                    heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
                 }
                 // The leader's torch, after dark.
                 if w.group_torch_lit(g, w.time) {
@@ -468,24 +468,25 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     for &m in &w.squad.members {
-        heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+        heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
     }
     // Squad members living at a base.
     for m in w.all_residents() {
-        if w.person_pos(m).dist(oc.target) < radius {
-            heads.push(person(&mut b, &mut fl, w, m, k, eye, &on_ground));
+        let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
+        if here && w.person_pos(m).dist(oc.target) < radius {
+            heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
         }
     }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
-            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
     // The fallen.
     for &(at, race, _, pid) in &w.corpses {
         if w.carried_by(pid).is_some() {
-            heads.push(person(&mut b, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
             continue;
         }
         if at.dist(oc.target) < radius {
@@ -648,10 +649,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
         let picked = game.sel.shows(w, m);
+        let face = super::cues::facing(w, m, at);
         if picked {
-            draped_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, 18, palette::GOLD, eye);
-        } else if night > 0.3 {
-            draped_ring(&mut fl, &on_ground, at, 1.0 * k, rw * 0.5, 16, palette::scale(palette::race_color(w.people[m as usize].race), 0.35 + 0.25 * night), eye);
+            facing_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, face, palette::GOLD, eye, false);
+        } else {
+            // Barely there: enough to see which way they face.
+            let col = palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night);
+            facing_ring(&mut fl, &on_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
         }
         let goal = w.squad.goal[i];
         if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
@@ -909,10 +913,35 @@ fn nrm_v2(n: Vec3) -> V2 {
     V2::new(n.x, n.z)
 }
 
+/// A ring on the land with a pointed tip on its rim the way someone faces.
+#[allow(clippy::too_many_arguments)]
+fn facing_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, face: f32, col: Rgb, eye: Vec3, faint: bool) {
+    if faint {
+        ring_widened(b, ground, c, r, width, 18, col, eye, 0.003);
+    } else {
+        draped_ring(b, ground, c, r, width, 18, col, eye);
+    }
+    let f = V2::new(face.cos(), face.sin());
+    let side = V2::new(-f.y, f.x);
+    let w = if faint { r * 0.2 } else { (r * 0.38).max(width * 2.0) };
+    let tip = c.add(f.scale(r + w * 1.25));
+    let (l, rr) = (c.add(f.scale(r - width)).add(side.scale(w * 0.75)), c.add(f.scale(r - width)).sub(side.scale(w * 0.75)));
+    let lift = 0.55 + r * 0.0008;
+    let lc = palette::lin(col);
+    let v = [l, tip, tip, rr].map(|p| to3(p, ground(p) + lift));
+    b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+}
+
 /// A ring laid on the land. Far pieces are widened so they stay a pixel or
 /// two thick seen edge-on; otherwise the ring breaks into dashes.
 #[allow(clippy::too_many_arguments)]
 fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, n: usize, col: Rgb, eye: Vec3) {
+    ring_widened(b, ground, c, r, width, n, col, eye, 0.011);
+}
+
+/// A ring whose pieces are widened by `widen` per metre from the camera.
+#[allow(clippy::too_many_arguments)]
+fn ring_widened(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, n: usize, col: Rgb, eye: Vec3, widen: f32) {
     let n = n.max((r * std::f32::consts::TAU / 18.0) as usize).min(2400);
     let lift = 0.5 + r * 0.0008;
     let lc = palette::lin(col);
@@ -922,7 +951,7 @@ fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width
         let (u0, u1) = (V2::new(a0.cos(), a0.sin()), V2::new(a1.cos(), a1.sin()));
         let mid = c.add(u0.scale(r));
         let away = to3(mid, ground(mid)).distance(eye);
-        let width = width.max(away * 0.011);
+        let width = width.max(away * widen);
         let q = [c.add(u0.scale(r - width * 0.5)), c.add(u0.scale(r + width * 0.5)), c.add(u1.scale(r + width * 0.5)), c.add(u1.scale(r - width * 0.5))];
         let v = q.map(|p| to3(p, ground(p) + lift));
         b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
@@ -1070,7 +1099,7 @@ fn body_size(race: Race) -> (f32, f32) {
 
 /// Draw one person; returns where their head is, for hover.
 #[allow(clippy::too_many_arguments)]
-fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
+fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
     let p = &w.people[pid as usize];
     let at = w.person_pos(pid);
     // Horaro at home on a stilt deck stand above the water.
@@ -1082,7 +1111,8 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
     // Bandits and anyone you're fighting get a red mark at their feet.
     let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);
     if foe && !far {
-        draped_ring(fl, on_ground, at, 0.9 * k, 0.18 * k, 14, [0.9, 0.2, 0.15], eye);
+        // A faint red ring with a tip the way they face.
+        facing_ring(fl, on_ground, at, 0.9 * k, 0.04 * k, super::cues::facing(w, pid, at), [0.48, 0.16, 0.13], eye, true);
     }
     let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
     // Carried: across the carrier's shoulders.
@@ -1092,6 +1122,16 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         b.block(lift, h * 0.85, r * 1.5, r * 1.1, rot, palette::scale(race_color(p.race), 0.8));
         b.block(lift + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.45), r * 1.0, r * 1.0, r * 1.0, rot, palette::skin(p.race));
         return (lift + vec3(0.0, r * 1.5, 0.0), pid);
+    }
+    // Asleep: lying down under a blanket (knocked out is drawn the same way
+    // but without it).
+    let asleep = !down && p.cond.as_ref().is_some_and(|c| c.activity == gahturiyu_sim::sim::condition::Activity::Sleeping);
+    if asleep {
+        let rot = (p.seed % 628) as f32 / 100.0;
+        b.block(base, h, r * 2.0, r * 1.2, rot, palette::scale(race_color(p.race), 0.7));
+        b.block(base + vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.55), r * 1.0, r * 1.1, r * 1.0, rot, palette::skin(p.race));
+        b.block(base + vec3(0.0, r * 1.15, 0.0) - vec3(rot.cos(), 0.0, rot.sin()) * (h * 0.08), h * 0.8, r * 2.3, r * 0.25, rot, [0.45, 0.42, 0.62]);
+        return (base + vec3(0.0, r * 1.5, 0.0), pid);
     }
     if down {
         let rot = (p.seed % 628) as f32 / 100.0;
@@ -1130,9 +1170,19 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
         b.column(base, r, r * 0.6, h, 4, race_color(p.race));
         return (base + vec3(0.0, h, 0.0), pid);
     }
-    b.column(base, r, r * 0.8, h * 0.8, 6, race_color(p.race));
-    let head = base + vec3(0.0, h * 0.8, 0.0);
-    b.block(head, r * 1.1, r * 1.1, h * 0.2, 0.0, palette::skin(p.race));
+    // Sneaking: bent over, low, head forward.
+    let face = super::cues::facing(w, pid, at);
+    let fwd = vec3(face.cos(), 0.0, face.sin());
+    let crouch = w.squad.index(pid).is_some() && w.is_sneaking(pid);
+    let body = if crouch { h * 0.5 } else { h * 0.8 };
+    b.column(base, r, r * 0.8, body, 6, race_color(p.race));
+    let head = base + vec3(0.0, body, 0.0) + if crouch { fwd * (r * 0.9) } else { Vec3::ZERO };
+    b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::skin(p.race));
+    if crouch {
+        // A hunched back between hips and head.
+        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(race_color(p.race), 0.85));
+    }
+    super::cues::draw(b, gl, w, pid, base, if crouch { h * 0.75 } else { h }, r, face, k.min(2.0));
     // A lit torch, held up beside them.
     if w.torch_lit(pid) {
         let hand = base + vec3(r * 1.3, h * 0.55, 0.0);
@@ -1143,7 +1193,7 @@ fn person(b: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, e
             b.patch(head + vec3(0.0, h * 0.35, 0.0), r * 2.5, r * 0.6, 0.0, [0.7, 0.4, 1.0]);
         }
         if f.has(Does::Barrier).is_some() {
-            draped_ring(fl, on_ground, at, 1.3 * k, 0.12 * k, 16, [0.5, 0.75, 1.0], eye);
+            ring_widened(fl, on_ground, at, 1.3 * k, 0.06 * k, 16, [0.5, 0.75, 1.0], eye, 0.004);
         }
     }
     (head + vec3(0.0, h * 0.2, 0.0), pid)
@@ -1229,7 +1279,7 @@ fn magic_scene(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, o
             };
             // Whose it is: a ring at its feet, teal for yours, red for theirs.
             let mark = if f.side == SQUAD_SIDE { [0.45, 0.9, 0.85] } else { [0.9, 0.2, 0.15] };
-            draped_ring(fl, on_ground, f.pos, 0.9 * kk, 0.14 * kk, 14, mark, eye);
+            ring_widened(fl, on_ground, f.pos, 0.9 * kk, 0.06 * kk, 14, mark, eye, 0.004);
             if base.distance(eye) < 400.0 {
                 bars.push((base + vec3(0.0, top * kk, 0.0), f.vitality(), None, false));
             }

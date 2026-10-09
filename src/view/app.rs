@@ -803,6 +803,16 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
     let world = &mut game.world;
     let who = game.sel.who(world);
     match hover {
+        // A beaten foe: the nearest selected member goes through their things
+        // (Shift-click to carry them off instead).
+        Some(Hover::Person(pid)) if world.can_loot(pid) && !shift => {
+            let at = world.person_pos(pid);
+            let looter = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
+            if let Some(m) = looter {
+                world.order_loot(m, pid);
+                return;
+            }
+        }
         Some(Hover::Person(pid)) if who.iter().any(|&m| world.can_carry(m, pid)) => {
             let at = world.body_pos(pid);
             let carrier = who.iter().copied().filter(|&m| world.can_carry(m, pid)).min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
@@ -1096,6 +1106,18 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         spell_tip = h;
         book_left = bx.x;
         panels.push(bx);
+    }
+    let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, game.mouse, click);
+    panels.extend(loot_box);
+    match loot_act {
+        Some(super::lootui::LootAct::Take(m, body, what)) => {
+            w.take_loot(m, body, what);
+        }
+        Some(super::lootui::LootAct::TakeAll(m, body)) => {
+            w.take_all_loot(m, body);
+        }
+        Some(super::lootui::LootAct::Close(m)) => w.stop_looting(m),
+        None => {}
     }
     if w.talk.is_some() {
         let (t, bx) = squadui::talk(&c, w, game.mouse, click);

@@ -349,6 +349,8 @@ pub struct Base {
     pub residents: Vec<Resident>,
     /// What's happened here, oldest first (capped at `BASE_LOG`).
     pub log: Vec<(f64, String)>,
+    /// The last day whose dawn has been tallied here (wages, hands' food).
+    pub dawn_done: i64,
     /// Cached summary numbers, refreshed when something changes: what the
     /// base is worth (stored goods and buildings), and how well it's
     /// defended (walls, gates and towers standing).
@@ -413,6 +415,11 @@ impl Base {
 
     pub fn building(&self, id: u32) -> Option<&Built> {
         self.buildings.iter().find(|b| b.id == id)
+    }
+
+    /// Has this hired hand got here yet (their arrival handled)?
+    pub fn arrived(&self, who: PersonId) -> bool {
+        self.residents.iter().find(|r| r.who == who).is_some_and(|r| r.hire.as_ref().is_none_or(|h| r.since >= h.arrives))
     }
 
     pub fn beds(&self) -> u32 {
@@ -523,7 +530,8 @@ impl World {
             None => true,
             Some(s) => {
                 let p = &self.people[who as usize];
-                p.detail.as_ref().is_some_and(|x| x.crafts.contains(&s)) && p.stats.skill(s) >= d.min_skill
+                let knows = if p.in_squad { p.detail.as_ref().is_some_and(|x| x.crafts.contains(&s)) } else { super::materials::Craft::of_skill(s).is_some_and(|c| self.knows_craft(who, c)) };
+                knows && self.build_skill(who, s) >= d.min_skill
             }
         }
     }
@@ -679,7 +687,7 @@ impl World {
             None => Land::Wilds,
         };
         let name = format!("Outpost {}", id + 1);
-        let mut base = Base { id, name, owner: Owner::Squad, at, founded: self.time, land, buildings: Vec::new(), next_id: 0, store: Vec::new(), present: Vec::new(), builders: Vec::new(), residents: Vec::new(), log: Vec::new(), wealth: 0.0, defence: 0.0 };
+        let mut base = Base { id, name, owner: Owner::Squad, at, founded: self.time, land, buildings: Vec::new(), next_id: 0, store: Vec::new(), present: Vec::new(), builders: Vec::new(), residents: Vec::new(), log: Vec::new(), dawn_done: (self.time / super::world::DAY).floor() as i64, wealth: 0.0, defence: 0.0 };
         base.buildings.push(Built { id: 0, def: plan.def as u16, at, rot: 0.0, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: self.time, rate: 0.0, done_at: None, hands: Vec::new() }), placed: self.time, sealed: false });
         base.next_id = 1;
         self.bases.push(base);
@@ -864,7 +872,7 @@ impl World {
         // goes to the first site (in placing order) with its materials that
         // they can build; with none, to mending the worst-kept building.
         let mut hands: Vec<PersonId> = self.bases[i].present.clone();
-        hands.extend(self.bases[i].residents.iter().filter(|r| r.job == Job::Builder).map(|r| r.who));
+        hands.extend(self.bases[i].residents.iter().filter(|r| r.job == Job::Builder && self.bases[i].arrived(r.who)).map(|r| r.who));
         let was_mending: Vec<u32> = self.bases[i].builders.iter().map(|h| h.1).filter(|&id| self.bases[i].building(id).is_some_and(|b| b.standing())).collect();
         let mut builders: Vec<(PersonId, u32, f32)> = Vec::new();
         for &m in &hands {
@@ -883,7 +891,7 @@ impl World {
             });
             if let Some(id) = target {
                 let d = b.building(id).unwrap().def();
-                let skill = d.skill.map(|s| self.people[m as usize].stats.skill(s)).unwrap_or(30.0);
+                let skill = d.skill.map(|s| self.build_skill(m, s)).unwrap_or(30.0);
                 builders.push((m, id, pace(skill)));
             }
         }
@@ -950,6 +958,16 @@ impl World {
                 if let Some(c) = &r.cycle {
                     offer(c.done_at, b.id, Due::Work(r.who));
                 }
+                if let Some(h) = &r.hire {
+                    if !b.arrived(r.who) {
+                        offer(h.arrives, b.id, Due::Arrives(r.who));
+                    }
+                }
+            }
+            // The day's tally, once there are hands to pay.
+            if b.residents.iter().any(|r| r.hire.is_some()) {
+                let dawn = ((b.dawn_done + 1) * 24 + super::society::DAWN) as f64 * HOUR;
+                offer(dawn, b.id, Due::Dawn);
             }
         }
         best
@@ -1005,6 +1023,15 @@ impl World {
                 self.base_note(bid, t, format!("The {} has fallen in: its thatch rotted.", d.name.to_lowercase()), true);
             }
             Due::Work(who) => self.finish_cycle(i, who, t),
+            Due::Arrives(who) => {
+                if let Some(r) = self.bases[i].residents.iter_mut().find(|r| r.who == who) {
+                    r.since = t;
+                }
+                let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+                let bname = self.bases[i].name.clone();
+                self.base_note(bid, t, format!("{name} arrives at {bname}."), false);
+            }
+            Due::Dawn => self.base_dawn(i, t),
         }
         self.base_changed_at(bid, t);
         true
@@ -1058,6 +1085,10 @@ enum Due {
     Mended(u32),
     Falls(u32),
     Work(PersonId),
+    /// A hired hand reaches the base.
+    Arrives(PersonId),
+    /// The day's tally.
+    Dawn,
 }
 
 /// How much of a builder's hours become practice in the skill.

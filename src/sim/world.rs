@@ -80,6 +80,8 @@ pub struct World {
     /// The squad's outposts (`base.rs`).
     pub bases: Vec<super::base::Base>,
     pub next_base: u32,
+    /// Squad members going through a beaten foe's things (`loot.rs`).
+    pub looting: Vec<super::loot::Looting>,
     /// The last whole game-hour whose departures have been decided.
     pub hour_done: i64,
     pub log: VecDeque<(f64, String)>,
@@ -238,6 +240,7 @@ impl World {
             forge: None,
             bases: Vec::new(),
             next_base: 0,
+            looting: Vec::new(),
             people,
             settlements,
             groups: Vec::new(),
@@ -574,6 +577,10 @@ impl World {
             if let Some(at) = self.bases.iter().find_map(|b| b.spot(pid)) {
                 return at;
             }
+        }
+        // A hired hand living at a base.
+        if let Some(at) = self.bases.iter().find_map(|b| b.spot(pid)) {
+            return at;
         }
         if let Some(gid) = self.group_of[pid as usize] {
             if let Some(g) = self.group(gid) {

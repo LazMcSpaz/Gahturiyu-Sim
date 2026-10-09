@@ -232,7 +232,7 @@ impl World {
         if p.in_squad {
             p.detail.as_ref().map(|d| d.crafts.contains(&craft.skill())).unwrap_or(false)
         } else {
-            self.society.lives.get(who as usize).map(|l| l.job.craft() == Some(craft)).unwrap_or(false)
+            self.society.lives.get(who as usize).is_some() && self.trade_of(who).craft() == Some(craft)
         }
     }
 

@@ -272,7 +272,7 @@ impl World {
     /// it have made of them (rolled once from who they are).
     pub fn work_skill(&self, pid: PersonId, craft: Craft) -> f32 {
         let own = self.people[pid as usize].stats.skill(craft.skill());
-        if self.life(pid).job.craft() == Some(craft) && !self.people[pid as usize].in_squad {
+        if self.trade_of(pid).craft() == Some(craft) && !self.people[pid as usize].in_squad {
             own.max(25.0 + 45.0 * Rng::from_keys(&[self.seed, pid as u64, craft.index() as u64, 0x534B_494C]).f32())
         } else {
             own

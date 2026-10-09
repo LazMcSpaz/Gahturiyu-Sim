@@ -83,6 +83,8 @@ pub enum Topic {
     Say(super::talk::Opt),
     /// Give up the work you're doing here.
     QuitWork,
+    /// Come and work at the squad's outpost, for this many coin a day.
+    Hire(u16),
     Goodbye,
 }
 
@@ -120,6 +122,7 @@ impl Topic {
             Topic::TakeJob(_) => "I'll take that job",
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
+            Topic::Hire(_) => "Come and work at my outpost",
             Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
         }
@@ -191,6 +194,7 @@ impl World {
                 None => t.text(),
             },
             Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
+            Topic::Hire(wage) => format!("Come and work at my outpost ({wage} coin a day)"),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
             Topic::Collect(k) => match self.orders.get(k as usize) {
                 Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
@@ -369,6 +373,11 @@ impl World {
                     t.extend(self.vacant_posts(town).into_iter().take(2).map(|(j, pl)| Topic::PostWork(j, pl)));
                 }
             }
+        }
+        // Anyone footloose (or a carpenter or mason) may come and work at
+        // the squad's outpost, for a wage.
+        if let Some(wage) = self.hire_terms(c.npc) {
+            t.push(Topic::Hire(wage));
         }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
@@ -609,6 +618,13 @@ impl World {
                 self.quit_work(c.with);
                 "So be it.".into()
             }
+            Topic::Hire(wage) => match self.hire(c.npc) {
+                Ok(bid) => {
+                    let place = self.base(bid).map(|b| b.name.clone()).unwrap_or_default();
+                    format!("{wage} a day, a bed and my meals? Then I'll set out for {place} today. Pay me each dawn.")
+                }
+                Err(e) => format!("No — {e}."),
+            },
             Topic::Report(i) => {
                 let q = self.quests[i].clone();
                 match (q.kind, q.stage) {
@@ -790,6 +806,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::TakeJob(id) => 1_000_000 + id as u64,
         Topic::PostWork(j, _) => 31 + j as u64,
         Topic::QuitWork => 70,
+        Topic::Hire(_) => 71,
         Topic::Say(o) => 80 + o as u64,
     }
 }

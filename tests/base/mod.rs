@@ -323,3 +323,125 @@ fn the_store_has_only_so_much_room() {
     assert!(b.load() <= cap + 1e-3 && b.count_in_store(items::id("rock")) < 200, "{} kg in a store of {cap}", b.load());
     assert!(w.count_of(c, "rock") > 0, "the rest stays in the pack");
 }
+
+// ---- Stage 3: hired hands -----------------------------------------------------------
+
+/// Someone in a town who'd come and work at the base, nearest the base first.
+fn willing(w: &World) -> PersonId {
+    let mut best: Option<(f32, PersonId)> = None;
+    for s in &w.settlements {
+        for &p in &s.residents {
+            if w.hire_terms(p).is_some() {
+                let d = w.person_pos(p).dist(w.bases[0].at);
+                if best.is_none_or(|b| d < b.0) {
+                    best = Some((d, p));
+                }
+            }
+        }
+    }
+    best.expect("someone willing").1
+}
+
+fn coin(w: &mut World, who: PersonId, n: u16) {
+    w.people[who as usize].detail.as_mut().unwrap().gear.add(items::id("coin"), n);
+}
+
+#[test]
+fn a_hired_hand_really_leaves_town_and_comes_to_work() {
+    let (mut w, bid) = outpost();
+    let hand = willing(&w);
+    let town = w.people[hand as usize].home.unwrap();
+    w.hire(hand).expect("hired");
+    assert!(!w.settlements[town as usize].residents.contains(&hand), "gone from the town's roll");
+    assert!(w.society.lives[hand as usize].community.is_none() && w.society.lives[hand as usize].household.is_none());
+    w.set_base_job(hand, Job::Hauler);
+    let arrives = w.base(bid).unwrap().resident(hand).unwrap().hire.as_ref().unwrap().arrives;
+    assert!(arrives > w.time, "they have to walk there");
+    let hours = ((arrives - w.time) / HOUR).ceil() + 4.0;
+    let w = run_until(w, hours, 600.0);
+    assert!(w.base(bid).unwrap().arrived(hand));
+    assert!(w.base(bid).unwrap().log.iter().any(|l| l.1.contains("arrives")));
+}
+
+#[test]
+fn unpaid_hands_quit_and_go_home_paid_ones_stay() {
+    let (mut w, bid) = outpost();
+    let hand = willing(&w);
+    let town = w.people[hand as usize].home.unwrap();
+    // No coin anywhere: they go unpaid.
+    for m in w.squad.members.clone() {
+        let c = w.count_of(m, "coin");
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        for _ in 0..c {
+            d.gear.take(items::id("coin"));
+        }
+    }
+    let i = w.bases.iter().position(|b| b.id == bid).unwrap();
+    w.bases[i].add_to_store(items::id("flatbread"), 40);
+    let mut paid = w.clone();
+    w.hire(hand).unwrap();
+    let w = run_until(w, 5.0 * 24.0, 3600.0);
+    assert!(w.resident_of(hand).is_none(), "unpaid, they quit within five days");
+    assert!(w.settlements[town as usize].residents.contains(&hand), "and went home");
+    assert_eq!(w.society.lives[hand as usize].job, gahturiyu_sim::sim::jobs::Job::Labourer);
+    assert!(w.base(bid).unwrap().log.iter().any(|l| l.1.contains("quits")));
+    // The same hand, paid.
+    let m = paid.squad.members[0];
+    coin(&mut paid, m, 400);
+    let hh = paid.society.lives[hand as usize].household;
+    // Two of the squad's own come away, so there's a bed for the hand.
+    for _ in 0..2 {
+        let own = paid.base(bid).unwrap().residents[0].who;
+        paid.pick_up(own).unwrap();
+    }
+    let _ = hh;
+    paid.hire(hand).unwrap();
+    let paid = run_until(paid, 5.0 * 24.0, 3600.0);
+    let r = paid.base(bid).unwrap().resident(hand).expect("still there");
+    assert!(r.hire.as_ref().unwrap().loyalty > 0.6, "content: {}", r.hire.as_ref().unwrap().loyalty);
+    let h = r.hire.as_ref().unwrap();
+    let spent = 400 - paid.squad_count(items::id("coin"));
+    assert!(spent > 0 && spent % h.wage == 0 && h.owed == 0, "wages came out of the squad's purse, a day's at a time: {spent} at {} a day", h.wage);
+}
+
+#[test]
+fn a_dishonest_hand_helps_themselves_on_the_way_out() {
+    let (mut w, bid) = outpost();
+    let hand = willing(&w);
+    w.society.lives[hand as usize].habits.honour = 0.0;
+    for m in w.squad.members.clone() {
+        let c = w.count_of(m, "coin");
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        for _ in 0..c {
+            d.gear.take(items::id("coin"));
+        }
+    }
+    let i = w.bases.iter().position(|b| b.id == bid).unwrap();
+    w.bases[i].add_to_store(items::id("iron_ingot"), 3);
+    w.hire(hand).unwrap();
+    let w = run_until(w, 5.0 * 24.0, 3600.0);
+    assert!(w.resident_of(hand).is_none());
+    assert!(w.count_of(hand, "iron_ingot") > 0, "the ingots went with them");
+    assert!(w.base(bid).unwrap().log.iter().any(|l| l.1.contains("on the way out")));
+}
+
+#[test]
+fn a_week_with_hired_hands_is_the_same_watched_or_away() {
+    let (mut w, bid) = outpost();
+    let hand = willing(&w);
+    let m = w.squad.members[0];
+    coin(&mut w, m, 30);
+    w.hire(hand).unwrap();
+    w.set_base_job(hand, Job::Hauler);
+    let at = w.base(bid).unwrap().at;
+    let away = |mut w: World, d: f32| {
+        w.teleport_squad(at.add(V2::new(d, 0.0)));
+        w
+    };
+    let a = run_until(away(w.clone(), 3000.0), 7.0 * 24.0, 600.0);
+    let b = run_until(away(w.clone(), 200.0), 7.0 * 24.0, 60.0);
+    let c = run_until(away(w, 3000.0), 7.0 * 24.0, HOUR);
+    let loyal = |w: &World| format!("{:?} {:?} {}", w.base(bid).unwrap().residents.iter().map(|r| r.hire.as_ref().map(|h| (h.loyalty, h.owed))).collect::<Vec<_>>(), w.resident_of(hand), w.squad_count(items::id("coin")));
+    assert_eq!(snapshot(&a, bid) + &loyal(&a), snapshot(&b, bid) + &loyal(&b));
+    assert_eq!(snapshot(&a, bid) + &loyal(&a), snapshot(&c, bid) + &loyal(&c));
+}

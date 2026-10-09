@@ -71,6 +71,8 @@ pub struct Resident {
     /// Rounds worked so far (keys their rolls).
     pub n: u32,
     pub since: f64,
+    /// A townsperson hired for wages (None: one of the squad).
+    pub hire: Option<Hire>,
 }
 
 /// A round of work: when it ends, where, and for a crafter which recipe.
@@ -189,7 +191,7 @@ impl World {
         self.gathering.retain(|g| g.0 != who);
         let b = &mut self.bases[i];
         b.present.retain(|&m| m != who);
-        b.residents.push(Resident { who, job: Job::Idle, recipe: None, cycle: None, n: 0, since: t });
+        b.residents.push(Resident { who, job: Job::Idle, recipe: None, cycle: None, n: 0, since: t, hire: None });
         let (name, bname) = (self.people[who as usize].name().unwrap_or("someone").to_string(), self.bases[i].name.clone());
         self.base_note(bid, t, format!("{name} stays behind at {bname}."), true);
         self.base_changed(bid);
@@ -201,6 +203,9 @@ impl World {
     pub fn pick_up(&mut self, who: PersonId) -> Result<(), &'static str> {
         let Some((bid, k)) = self.resident_of(who) else { return Err("not living at a base") };
         let i = self.base_i(bid).unwrap();
+        if self.bases[i].residents[k].hire.is_some() {
+            return self.dismiss(who);
+        }
         if self.bases[i].present.is_empty() {
             return Err("nobody from the squad is there to collect them");
         }
@@ -214,6 +219,24 @@ impl World {
         let name = self.people[who as usize].name().unwrap_or("someone").to_string();
         let bname = self.bases[i].name.clone();
         self.base_note(bid, t, format!("{name} rejoins the squad at {bname}."), true);
+        self.base_changed(bid);
+        Ok(())
+    }
+
+    /// Let a hired hand go: they're paid what's owed (if there's coin) and
+    /// go home without bad blood.
+    pub fn dismiss(&mut self, who: PersonId) -> Result<(), &'static str> {
+        let Some((bid, k)) = self.resident_of(who) else { return Err("not living at a base") };
+        let i = self.base_i(bid).unwrap();
+        let Some(h) = self.bases[i].residents[k].hire.clone() else { return Err("one of the squad") };
+        let coin = items::id("coin");
+        let pay = self.squad_count(coin).min(h.owed);
+        self.take_from_squad(coin, pay);
+        if let Some(hh) = h.household {
+            self.society.households[hh as usize].purse.coin += pay as f32;
+        }
+        let t = self.time;
+        self.hand_leaves(i, who, t, "let go");
         self.base_changed(bid);
         Ok(())
     }
@@ -284,7 +307,7 @@ impl World {
     pub(super) fn start_cycle(&mut self, i: usize, r: usize, t: f64) {
         let res = self.bases[i].residents[r].clone();
         let who = res.who;
-        if self.people[who as usize].dead {
+        if self.people[who as usize].dead || self.on_the_way(i, r, t) {
             return;
         }
         let b = &self.bases[i];
@@ -358,7 +381,7 @@ impl World {
             Job::Crafter => {
                 let Some(ri) = c.recipe else { return };
                 let rc = &RECIPES[ri as usize];
-                let skill = self.people[who as usize].effective_stats().skill(rc.skill);
+                let skill = self.work_skill(who, rc.craft()).max(self.people[who as usize].effective_stats().skill(rc.skill));
                 let mut roll = Rng::from_keys(&[self.seed, who as u64, bid as u64, n as u64, 0x4241_5345]);
                 let ok = roll.f32() < success_chance(skill, rc.difficulty);
                 let grade = Grade::from(skill, 1.0, roll.f32());
@@ -444,5 +467,274 @@ pub fn round_place(b: &Base, c: &Cycle) -> String {
     match b.building(c.at) {
         Some(bl) => bl.def().name.to_lowercase(),
         None => "round about".to_string(),
+    }
+}
+
+// ---- Hired hands (stage 3) -----------------------------------------------------------
+
+/// What a townsperson hired to live and work at a base keeps.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Hire {
+    /// Coin a day, paid at dawn.
+    pub wage: u16,
+    /// 0..1: below `QUIT_AT` they leave.
+    pub loyalty: f32,
+    /// Where they came from, and what they were there (they go back to it).
+    pub town: super::settlement::SettlementId,
+    pub household: Option<u32>,
+    pub community: Option<u32>,
+    pub trade: super::jobs::Job,
+    /// When they reach the base (they walk from town).
+    pub arrives: f64,
+    /// Wages owed and not yet paid.
+    pub owed: u16,
+}
+
+/// Loyalty a hand starts with, and what moves it at each dawn.
+pub const LOYALTY_START: f32 = 0.6;
+pub const LOYALTY_CONTENT: f32 = 0.03;
+pub const LOYALTY_UNPAID: f32 = 0.15;
+pub const LOYALTY_UNFED: f32 = 0.10;
+pub const LOYALTY_NO_BED: f32 = 0.04;
+/// Below this they quit at dawn.
+pub const QUIT_AT: f32 = 0.2;
+/// What surviving a raid at the base (or being protected) adds (stage 4).
+pub const LOYALTY_HELD: f32 = 0.15;
+/// Nourishment a hand needs a day (from the store's food).
+pub const HAND_FOOD: f32 = 50.0;
+/// Walking pace of a hand going to a base, metres an hour.
+pub const HAND_WALK: f32 = 4000.0;
+/// The most a thief takes on the way out, kg.
+pub const THEFT_KG: f32 = 20.0;
+
+impl World {
+    /// Someone's trade: their job, or for a hired hand the one they left.
+    pub fn trade_of(&self, who: PersonId) -> super::jobs::Job {
+        let j = self.society.lives.get(who as usize).map(|l| l.job).unwrap_or(super::jobs::Job::None);
+        if j != super::jobs::Job::None {
+            return j;
+        }
+        self.bases.iter().flat_map(|b| b.residents.iter()).find(|r| r.who == who).and_then(|r| r.hire.as_ref()).map(|h| h.trade).unwrap_or(j)
+    }
+
+    /// How good someone is at a building skill: their own, or a hired
+    /// carpenter's or mason's years at it.
+    pub fn build_skill(&self, who: PersonId, s: super::stats::Skill) -> f32 {
+        match super::materials::Craft::of_skill(s) {
+            Some(c) => self.work_skill(who, c),
+            None => self.people[who as usize].stats.skill(s),
+        }
+    }
+
+    /// What this townsperson would ask a day to work at the squad's base,
+    /// if they'd come at all.
+    pub fn hire_terms(&self, npc: PersonId) -> Option<u16> {
+        let p = &self.people[npc as usize];
+        if p.dead || p.in_squad || p.bandit || self.group_of[npc as usize].is_some() || self.bases.is_empty() || self.resident_of(npc).is_some() {
+            return None;
+        }
+        let life = self.society.lives.get(npc as usize)?;
+        life.community?;
+        let m = self.mind(npc);
+        use super::jobs::Job as J;
+        let loose = matches!(life.job, J::Labourer | J::Drifter | J::None) || m.work == super::lives::Work::Jobless;
+        let builders = matches!(life.job, J::Carpenter | J::Mason);
+        let wants = m.needs()[0] > 0.4 || p.traits.wanderlust > 0.6;
+        if !(loose || builders || wants) || matches!(m.work, super::lives::Work::Bonded | super::lives::Work::Injured) {
+            return None;
+        }
+        // More than their work at home pays: they give up home and household.
+        Some(((life.job.pay().max(0.7) * 14.0).ceil() as u16).max(8))
+    }
+
+    /// The squad's base nearest a point.
+    fn nearest_base(&self, p: V2) -> Option<BaseId> {
+        self.bases.iter().min_by(|a, b| a.at.dist(p).total_cmp(&b.at.dist(p))).map(|b| b.id)
+    }
+
+    /// Hire a townsperson to live and work at the squad's nearest base. They
+    /// leave their post, home and household and walk out there.
+    pub fn hire(&mut self, npc: PersonId) -> Result<BaseId, &'static str> {
+        let wage = self.hire_terms(npc).ok_or("they won't come")?;
+        let at = self.person_pos(npc);
+        let bid = self.nearest_base(at).ok_or("you've no base")?;
+        let i = self.base_i(bid).unwrap();
+        let t = self.time;
+        let town = self.people[npc as usize].home.unwrap_or(0);
+        self.people[npc as usize].ensure_detail();
+        let life = &mut self.society.lives[npc as usize];
+        let (trade, household, community) = (life.job, life.household, life.community);
+        if trade.is_post() {
+            self.society.minds[npc as usize].lost = Some((trade, super::lives::Loss::Away));
+        }
+        life.job = super::jobs::Job::None;
+        life.place = None;
+        life.community = None;
+        life.household = None;
+        if let Some(h) = household {
+            self.society.households[h as usize].members.retain(|&m| m != npc);
+        }
+        self.settlements[town as usize].residents.retain(|&m| m != npc);
+        let arrives = t + (at.dist(self.bases[i].at) / HAND_WALK) as f64 * HOUR;
+        self.bases[i].residents.push(Resident { who: npc, job: Job::Idle, recipe: None, cycle: None, n: 0, since: t, hire: Some(Hire { wage, loyalty: LOYALTY_START, town, household, community, trade, arrives, owed: 0 }) });
+        let name = self.people[npc as usize].name().unwrap_or("someone").to_string();
+        let bname = self.bases[i].name.clone();
+        self.base_note(bid, t, format!("{name} is hired at {wage} coin a day, and sets out for {bname}."), true);
+        self.base_changed(bid);
+        Ok(bid)
+    }
+
+    /// Is this resident a hired hand still on the road?
+    fn on_the_way(&self, i: usize, r: usize, t: f64) -> bool {
+        self.bases[i].residents[r].hire.as_ref().is_some_and(|h| h.arrives > t)
+    }
+
+    /// A hand goes home: back to their town, household and community, as a
+    /// labourer (their old post has likely been filled).
+    fn hand_leaves(&mut self, i: usize, who: PersonId, t: f64, why: &str) {
+        let Some(k) = self.bases[i].residents.iter().position(|r| r.who == who) else { return };
+        let r = self.bases[i].residents.remove(k);
+        self.bases[i].builders.retain(|h| h.0 != who);
+        let Some(h) = r.hire else { return };
+        let life = &mut self.society.lives[who as usize];
+        life.job = super::jobs::Job::Labourer;
+        life.community = h.community;
+        life.household = h.household;
+        if let Some(hh) = h.household {
+            if !self.society.households[hh as usize].members.contains(&who) {
+                self.society.households[hh as usize].members.push(who);
+            }
+        }
+        if !self.settlements[h.town as usize].residents.contains(&who) {
+            self.settlements[h.town as usize].residents.push(who);
+        }
+        let bid = self.bases[i].id;
+        let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+        self.base_note(bid, t, format!("{name} quits and goes home: {why}."), true);
+    }
+
+    /// Hands who live through a raid at the base, or see the squad stand by
+    /// them, think better of it (stage 4 calls this).
+    #[allow(dead_code)]
+    pub(super) fn hands_held(&mut self, bid: BaseId, by: f32) {
+        let Some(i) = self.base_i(bid) else { return };
+        for r in &mut self.bases[i].residents {
+            if let Some(h) = r.hire.as_mut() {
+                h.loyalty = (h.loyalty + by).min(1.0);
+            }
+        }
+    }
+
+    /// Dawn at a base: wages, food and beds for the hired hands, loyalty,
+    /// and anyone who's had enough. On the world's timeline, at the dawn's `t`.
+    pub(super) fn base_dawn(&mut self, i: usize, t: f64) {
+        let bid = self.bases[i].id;
+        self.bases[i].dawn_done = (t / super::world::DAY).floor() as i64;
+        // Beds go to the squad's own first.
+        let beds = self.bases[i].beds() as usize;
+        let own = self.bases[i].residents.iter().filter(|r| r.hire.is_none()).count();
+        let mut bed_left = beds.saturating_sub(own);
+        let hands: Vec<PersonId> = self.bases[i].residents.iter().filter(|r| r.hire.as_ref().is_some_and(|h| h.arrives <= t)).map(|r| r.who).collect();
+        let coin = items::id("coin");
+        let mut quits: Vec<(PersonId, &'static str)> = Vec::new();
+        for who in hands {
+            let k = self.bases[i].residents.iter().position(|r| r.who == who).unwrap();
+            let wage = self.bases[i].residents[k].hire.as_ref().unwrap().wage;
+            let owed = self.bases[i].residents[k].hire.as_ref().unwrap().owed + wage;
+            // Pay: from the base's store, then the squad's purse.
+            let from_store = self.bases[i].count_in_store(coin).min(owed);
+            if from_store > 0 {
+                self.bases[i].take("coin", from_store);
+            }
+            let from_squad = self.squad_count(coin).min(owed - from_store);
+            if from_squad > 0 {
+                self.take_from_squad(coin, from_squad);
+            }
+            let unpaid = owed - from_store - from_squad;
+            // The pay goes home to their household.
+            if let Some(hh) = self.bases[i].residents[k].hire.as_ref().unwrap().household {
+                self.society.households[hh as usize].purse.coin += (from_store + from_squad) as f32;
+            }
+            // Food: two meals' worth from the store.
+            let mut fed = 0.0f32;
+            while fed < HAND_FOOD {
+                let pick = self.bases[i].store.iter().filter_map(|e| if let ItemKind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).max_by(|a, b| a.1.total_cmp(&b.1));
+                let Some((it, n)) = pick else { break };
+                self.bases[i].take(item(it).key, 1);
+                fed += n;
+            }
+            let bed = bed_left > 0;
+            bed_left = bed_left.saturating_sub(1);
+            let h = self.bases[i].residents[k].hire.as_mut().unwrap();
+            h.owed = unpaid;
+            let mut change = 0.0;
+            if unpaid > 0 {
+                change -= LOYALTY_UNPAID;
+            }
+            if fed < HAND_FOOD {
+                change -= LOYALTY_UNFED;
+            }
+            if !bed {
+                change -= LOYALTY_NO_BED;
+            }
+            if change == 0.0 {
+                change = LOYALTY_CONTENT;
+            }
+            h.loyalty = (h.loyalty + change).clamp(0.0, 1.0);
+            if h.loyalty < QUIT_AT {
+                quits.push((who, if unpaid > 0 { "not paid" } else if fed < HAND_FOOD { "not fed" } else { "nowhere to sleep" }));
+            }
+        }
+        for (who, why) in quits {
+            // The less honourable help themselves on the way out.
+            let honour = self.life(who).habits.honour;
+            let day = (t / super::world::DAY) as u64;
+            let mut roll = Rng::from_keys(&[self.seed, who as u64, bid as u64, day, 0x5155_4954]);
+            let town = self.bases[i].residents.iter().find(|r| r.who == who).and_then(|r| r.hire.as_ref()).map(|h| h.town).unwrap_or(0);
+            if roll.f32() < (0.5 - honour).max(0.0) * 1.5 {
+                let took = self.hand_steals(i, who);
+                if !took.is_empty() {
+                    let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+                    self.base_note(bid, t, format!("{name} took {} on the way out.", took.join(", ")), true);
+                    let victim = self.squad.members.first().copied();
+                    self.note(super::history::Deed::Theft, Some(who), victim, town, t, false);
+                }
+            }
+            let victim = self.squad.members.first().copied();
+            self.note(super::history::Deed::WorkQuarrel, Some(who), victim, town, t, false);
+            self.hand_leaves(i, who, t, why);
+        }
+    }
+
+    /// A hand quitting in bad blood takes the dearest things they can carry
+    /// from the store. What was taken, by name.
+    fn hand_steals(&mut self, i: usize, who: PersonId) -> Vec<String> {
+        let mut took = Vec::new();
+        let mut kg = 0.0;
+        loop {
+            let pick = self.bases[i].store.iter().enumerate().filter(|(_, e)| kg + item(e.0).weight <= THEFT_KG).max_by(|a, b| item(a.1 .0).value.total_cmp(&item(b.1 .0).value)).map(|(k, _)| k);
+            let Some(k) = pick else { break };
+            let e = self.bases[i].store[k];
+            kg += item(e.0).weight;
+            if e.1 > 1 {
+                self.bases[i].store[k].1 -= 1;
+            } else {
+                self.bases[i].store.remove(k);
+            }
+            if let Some(d) = self.people[who as usize].detail.as_mut() {
+                match e.2 {
+                    Some(pc) => d.gear.add_piece(e.0, pc),
+                    None => d.gear.add(e.0, 1),
+                }
+            }
+            let name = item(e.0).name.to_lowercase();
+            if !took.contains(&name) {
+                took.push(name);
+            }
+            if took.len() > 8 {
+                break;
+            }
+        }
+        took
     }
 }
