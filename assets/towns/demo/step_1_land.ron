@@ -1,0 +1,16 @@
+(
+    concept: 'A',
+    seed: 41,
+    world: 1,
+    approach_from: (
+        x: 3110.8035,
+        y: 4690.0,
+    ),
+    checks: [
+        ("Mountains and sea both in view on the approach", true, "the sea shows 730 m from the centre; both together 301 m out"),
+        ("A cliff band over 25 m", true, "highest sea cliff 56 m"),
+        ("Water drains to the sea", true, "7 hollows left holding water"),
+        ("The approach can be walked (under 26°)", true, "steepest grade 24°"),
+    ],
+    land_file: "land.gmap",
+)

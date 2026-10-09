@@ -53,6 +53,9 @@ pub const HORARO_DIR: &str = "horaro";
 pub const HORARO_KIT: &str = "horaro_kit.json";
 /// The assemblies a stilt home can be, and their weights.
 pub const STILT_HOMES: [(&str, u32); 3] = [("horaro_rock_home", 6), ("horaro_hull_on_roots", 2), ("horaro_twin_on_pillars", 2)];
+/// Whether the kit is used at all (Laz: not as it stands; the drawn stilt
+/// homes stay until the kit is right).
+pub const USE_HORARO_KIT: bool = false;
 
 type Parts = Vec<(Handle<Mesh>, Handle<StandardMaterial>)>;
 
@@ -197,7 +200,7 @@ pub fn start(mut models: ResMut<Models>, server: Res<AssetServer>) {
     }
     // The Horaro kit: its pieces, and how they go together.
     let kit_path = dir.join("models").join(HORARO_DIR).join(HORARO_KIT);
-    if let Ok(text) = std::fs::read_to_string(&kit_path) {
+    if let (true, Ok(text)) = (USE_HORARO_KIT, std::fs::read_to_string(&kit_path)) {
         match read_kit(&text) {
             Ok((pieces, assemblies)) => {
                 for id in pieces {

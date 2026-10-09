@@ -98,6 +98,9 @@ pub struct Scene3d {
     towns_edits: u32,
     rocks: Option<Handle<Mesh>>,
     rocks_key: Option<((i64, i64, u32, u32), u32, (i64, i64))>,
+    /// The forged town's homes, and which models and ground they were drawn with.
+    forge: Vec<Entity>,
+    forge_key: Option<(u32, (i64, i64, u32, u32))>,
 }
 
 struct Town {
@@ -137,18 +140,14 @@ impl Grid {
         let (u, v) = (fx - i, fy - j);
         let corner = |di: f32, dj: f32| {
             let q = V2::new(x0 + (i + di) * step, y0 + (j + dj) * step);
-            if geo::inland(q) >= 0.0 {
-                t.height(q).max(0.3)
-            } else {
-                0.0
-            }
+            t.height(q).max(0.0)
         };
         let (a, b, c, d) = (corner(0.0, 0.0), corner(1.0, 0.0), corner(1.0, 1.0), corner(0.0, 1.0));
         let h = if u >= v { a + (b - a) * u + (c - b) * v } else { a + (c - d) * u + (d - a) * v };
-        if geo::inland(p) >= 0.0 {
-            h
-        } else {
+        if t.is_sea(p) {
             0.0
+        } else {
+            h.max(0.3)
         }
     }
 }
@@ -177,6 +176,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         scene.loads = game.loads;
         scene.ground_key = None;
         scene.rocks_key = None;
+        scene.forge_key = None;
         for (_, t) in scene.towns.drain() {
             for e in t.entities {
                 commands.entity(e).despawn();
@@ -231,7 +231,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let coarse = far * 2.0 / FAR_CELLS as f32;
     // While the land is being edited, a finer patch round the camera, so
     // small brush strokes show.
-    let editing = game.editor.on;
+    // (And round a forged town, whose cliffs need it.)
+    let editing = game.editor.on || w.forge.as_ref().and_then(|f| f.centre()).is_some_and(|c| c.dist(oc.target) < 900.0);
     let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits() ^ editing as u32, (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
     if scene.ground_key != Some(key) {
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
@@ -315,7 +316,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                             (BuildingKind::RoduroHome, Some(name)) => {
                                 let ground = on_ground(bd.pos);
                                 let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
-                                ents.extend(models.spawn(&mut commands, name, to3(bd.pos, ground - sink), bd.rot, bd.size));
+                                // The models are in metres: a cottage is a cottage, a great house is bigger.
+                                ents.extend(models.spawn(&mut commands, name, to3(bd.pos, ground - sink), bd.rot, 0.0));
                                 window_glow(&mut glow, bd, ground, bd.size * 0.5);
                             }
                             (BuildingKind::HoraroStilt, Some(name)) => {
@@ -350,6 +352,25 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    // ---- The forged town's homes, cached ----------------------------------------
+    // Real models in metres, stood on the drawn ground; redrawn when a model
+    // loads or the ground under them is rebuilt.
+    let forge_key = (models.generation, scene.ground_key.unwrap_or_default());
+    if scene.forge_key != Some(forge_key) {
+        scene.forge_key = Some(forge_key);
+        for e in scene.forge.drain(..) {
+            commands.entity(e).despawn();
+        }
+        if let Some(town) = &w.forge {
+            let grid = scene.grid;
+            for h in &town.founding.homes {
+                let ground = grid.height(t, h.at);
+                let sink = (t.slope(h.at) * 6.0).min(2.0);
+                scene.forge.extend(models.spawn(&mut commands, &h.model, to3(h.at, ground - sink), h.rot, 0.0));
+            }
+        }
+    }
+
     // ---- Rocks placed by hand, cached ----------------------------------------
     // (Rebuilt when the rocks change, the ground under them is rebuilt, or
     // the camera moves on.)
@@ -357,7 +378,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     if scene.rocks_key != Some(rock_key) && !(game.editor.stroking && scene.rocks_key.is_some_and(|k| k.1 == rock_key.1)) {
         scene.rocks_key = Some(rock_key);
         let mut rb = Builder::new();
-        for k in w.terrain.edits.rocks.iter().filter(|k| k.pos.dist(oc.target) < radius * 1.3 + 50.0) {
+        for k in w.terrain.edits.rocks.iter().chain(w.terrain.authored.rocks.iter()).filter(|k| k.pos.dist(oc.target) < radius * 1.3 + 50.0) {
             rock(&mut rb, k, on_ground(k.pos), t.slope(k.pos));
         }
         match &scene.rocks {
@@ -781,9 +802,12 @@ fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width
 fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, hole: Option<f32>) {
     let cells = (half * 2.0 / step).round() as i64;
     let (x0, y0) = (centre.x - half, centre.y - half);
+    // Land where the ground stands above the sea, water where it doesn't:
+    // the land itself decides (an authored bay or stack included).
     let vert = |p: V2| -> (Vec3, Vec3, [f32; 4]) {
-        if geo::is_land(p) || geo::inland(p) >= 0.0 {
-            let h = t.height(p).max(0.3);
+        let h = t.height(p);
+        if h >= 0.0 {
+            let h = h.max(0.3);
             let (nx, ny, nz) = t.normal(p, step.max(15.0));
             (to3(p, h), vec3(nx, ny, nz), palette::lin(palette::ground(t, p, h, ny)))
         } else {
@@ -798,47 +822,18 @@ fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, 
     };
     for j in 0..cells {
         let (ya, yb) = (y0 + j as f32 * step, y0 + (j + 1) as f32 * step);
-        let (ca, cb) = (geo::coast_x(ya), geo::coast_x(yb));
         for i in 0..cells {
             let (xa, xb) = (x0 + i as f32 * step, x0 + (i + 1) as f32 * step);
             if skip(xa, xb, ya, yb) {
                 continue;
             }
-            if xa >= ca.max(cb) || xb <= ca.min(cb) {
-                let ps = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
-                let vs = ps.map(vert);
-                b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
-            } else {
-                // The shore runs through: cut the cell along the coastline.
-                let rect = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
-                let side = |p: V2| p.x - (ca + (cb - ca) * (p.y - ya) / (yb - ya));
-                let land = clip(&rect, side);
-                let sea = clip(&rect, |p| -side(p));
-                let sp: Vec<Vec3> = sea.iter().map(|&p| to3(p, 0.0)).collect();
-                let sc: Vec<[f32; 4]> = sea.iter().map(|&p| palette::lin(palette::sea(p))).collect();
-                b.poly_lin(&sp, &vec![Vec3::Y; sp.len()], &sc);
-                let lv: Vec<(Vec3, Vec3, [f32; 4])> = land.iter().map(|&p| vert(V2::new(p.x + 0.01, p.y))).collect();
-                b.poly_lin(&lv.iter().map(|v| v.0).collect::<Vec<_>>(), &lv.iter().map(|v| v.1).collect::<Vec<_>>(), &lv.iter().map(|v| v.2).collect::<Vec<_>>());
-            }
+            let ps = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
+            let vs = ps.map(vert);
+            b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
         }
     }
 }
 
-/// The part of a convex polygon where `f` is not negative.
-fn clip(poly: &[V2], f: impl Fn(V2) -> f32) -> Vec<V2> {
-    let mut out = Vec::with_capacity(poly.len() + 1);
-    for i in 0..poly.len() {
-        let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
-        let (fa, fb) = (f(a), f(b));
-        if fa >= 0.0 {
-            out.push(a);
-        }
-        if (fa >= 0.0) != (fb >= 0.0) {
-            out.push(a.lerp(b, fa / (fa - fb)));
-        }
-    }
-    out
-}
 
 /// The warm window on a Roduro home's hearth side, and its dark door.
 fn window_glow(gl: &mut Builder, bd: &Building, ground: f32, r: f32) {

@@ -231,7 +231,7 @@ struct Spot {
 fn spot(w: &World, p: V2) -> Option<Spot> {
     let t = &w.terrain;
     let shore = geo::inland(p);
-    if !geo::is_land(p) || shore < 6.0 {
+    if t.is_sea(p) || t.height(p) < 2.0 {
         return None;
     }
     let ground = t.ground(p);

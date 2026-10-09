@@ -56,7 +56,11 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    ground paint, plants, rocks — saved in map files and in every save; towns
    are placed before edits apply, so edits never move a town). The land
    editor (`view/editor.rs`, F10) calls the sim's brushes; it pauses the
-   world, and `refit_land` finds the roads again when it closes. Leg timing comes from `Leg::along`, which charges
+   world, and `refit_land` finds the roads again when it closes. Land
+   authored by the town forge (`assets/towns/demo/land.gmap`, the same
+   layers) sits under the player's edits as `Terrain::authored`; the sea
+   is wherever the land is below 0 (`Terrain::is_sea`), not the world's
+   broad coastline, so authored bays and stacks count. Leg timing comes from `Leg::along`, which charges
    each stretch by its slope; keep using it so schedules stay analytic.
 11. **Light has one source of truth.** Outdoors it's `stealth::daylight(t)`;
    everything else adds through `torch::Light` / `light_from`. Fights carry
@@ -177,7 +181,9 @@ snow-capped hill, sand and mud, more trees, rocks; screenshots ignore
 the log; slow to set up), `GAHT_SOCIETY=runners|boats|tides` (go and
 watch the midday meal run, the dawn boats, or a stilt village; for tides
 compare two days, e.g. `GAHT_HOURS=27` and `123`; add `GAHT_SPEED=0` so the
-moment holds). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
+moment holds), `GAHT_FORGE=1` (start at the forged demo town; the land and
+homes come from `assets/towns/demo`, written by
+`cargo run --release --bin town_forge -- step N`). Combine with `GAHT_HOURS=17` for night, `13.6` for dusk.
 `headless society [days] [seed]` prints every town's customs, jobs, food and money.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package

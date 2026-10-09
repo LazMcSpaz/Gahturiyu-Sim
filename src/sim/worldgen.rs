@@ -28,6 +28,12 @@ pub fn generate(seed: u64) -> World {
 /// (`mapedit.rs`). Towns are placed from the land as the seed made it, so
 /// edits never move a town; roads, camps and workplaces follow the edited land.
 pub fn generate_with(seed: u64, edits: super::mapedit::MapEdits) -> World {
+    generate_authored(seed, None, edits)
+}
+
+/// A world with a forged town's land (and its buildings) on it, under the
+/// map's hand edits.
+pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
     let terrain = Terrain::generate(seed);
     let mut settlements = place_settlements(&mut rng, seed, &terrain);
@@ -211,10 +217,15 @@ pub fn generate_with(seed: u64, edits: super::mapedit::MapEdits) -> World {
     }
 
     // --- Roads between the towns ----------------------------------------
-    let (terrain, routes) = land(terrain.with_edits(edits), &settlements);
+    let (authored, town) = match forge {
+        Some(f) => (f.land, Some(f.town)),
+        None => Default::default(),
+    };
+    let (terrain, routes) = land(terrain.with_authored(authored).with_edits(edits), &settlements);
 
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
+    w.forge = town;
     // Bandits by the roads; workshops in town; things to gather.
     w.place_camps();
     // Customs, households, jobs and workplaces (crafting stations stand in those).

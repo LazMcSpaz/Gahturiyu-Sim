@@ -129,11 +129,16 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     c = mix(c, rock, steep.max(smooth(380.0, 520.0, h) * 0.85));
     // Snow on the high flats.
     c = mix(c, SNOW, smooth(640.0, 760.0, h) * smooth(0.78, 0.90, up) * 0.85);
-    // Shingle along the waterline.
-    c = mix(SHINGLE, c, d / 35.0);
-    // Ground painted by hand.
-    if let Some((k, w)) = t.edits.paint_at(p) {
-        c = mix(c, texture(k), w);
+    // Shingle along the waterline: by height where the land was authored
+    // (its shore is wherever it meets the sea), by distance from the world's
+    // coastline elsewhere (that shore is nearly flat).
+    let shore = if t.authored.height.at(p).abs() > 0.01 { h / 3.0 } else { d / 35.0 };
+    c = mix(SHINGLE, c, shore);
+    // Ground painted: authored first, then by hand on top.
+    for layer in [&t.authored, &t.edits] {
+        if let Some((k, w)) = layer.paint_at(p) {
+            c = mix(c, texture(k), w);
+        }
     }
     scale(c, 0.9 + n2 * 0.18)
 }

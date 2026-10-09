@@ -124,9 +124,30 @@ impl<T: Copy + PartialEq> Layer<T> {
         self.any = true;
     }
 
+    /// Set cell (i, j) outright (tools that author land wholesale, not brushes).
+    pub fn set(&mut self, i: i64, j: i64, v: T) {
+        self.set_raw(i, j, v);
+    }
+
     /// Does anything differ from untouched?
     pub fn is_empty(&self) -> bool {
         !self.any
+    }
+
+    /// Take every cell `other` holds, on top of this layer's.
+    pub fn merge_from(&mut self, other: &Layer<T>) {
+        for (k, c) in other.chunks.iter().enumerate() {
+            if let Some(c) = c {
+                let fill = self.fill;
+                let mine = self.chunks[k].get_or_insert_with(|| vec![fill; CHUNK * CHUNK].into_boxed_slice());
+                for (m, &v) in mine.iter_mut().zip(c.iter()) {
+                    if v != other.fill {
+                        *m = v;
+                    }
+                }
+                self.any = true;
+            }
+        }
     }
 
     /// Chunks that hold something.
@@ -339,6 +360,35 @@ fn hash01(seed: u64, i: i64, j: i64) -> f32 {
 impl MapEdits {
     pub fn is_empty(&self) -> bool {
         self.height.is_empty() && self.paint.is_empty() && self.plants.is_empty() && self.rocks.is_empty()
+    }
+
+    /// Lay `other` under this: its heights add to these, its paint, plants
+    /// and rocks come in where this has none. (Authored land under the
+    /// player's own edits.)
+    pub fn under(&mut self, other: &MapEdits) {
+        let mut h = other.height.clone();
+        // Heights add: the player's edits are relative to the land they saw.
+        for (k, c) in self.height.chunks.iter().enumerate() {
+            if let Some(c) = c {
+                let fill = h.fill;
+                let base = h.chunks[k].get_or_insert_with(|| vec![fill; CHUNK * CHUNK].into_boxed_slice());
+                for (b, &v) in base.iter_mut().zip(c.iter()) {
+                    *b += v;
+                }
+                h.any = true;
+            }
+        }
+        self.height = h;
+        let mut paint = other.paint.clone();
+        paint.merge_from(&self.paint);
+        self.paint = paint;
+        let mut plants = other.plants.clone();
+        plants.merge_from(&self.plants);
+        self.plants = plants;
+        let mut rocks = other.rocks.clone();
+        rocks.extend(self.rocks.iter().copied());
+        self.rocks = rocks;
+        self.changed(true, true);
     }
 
     /// The painted texture at a point and how strongly (0..1), if any.
