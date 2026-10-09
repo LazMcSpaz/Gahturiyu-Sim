@@ -94,8 +94,10 @@ fn a_body_can_be_stripped_and_its_things_picked_up() {
     // Spawned well away, so they don't start a fight.
     let g = w.spawn_bandits(w.squad.pos.add(V2::new(400.0, 0.0)), 1, false);
     let victim = w.group(g).unwrap().members[0];
-    let carried = w.people[victim as usize].detail.as_ref().unwrap().gear.equipped().count();
-    assert!(carried >= 2);
+    let gear = &w.people[victim as usize].detail.as_ref().unwrap().gear;
+    assert!(gear.equipped().count() >= 2);
+    // What they wear, and what's in their pack (a bandit's purse among it).
+    let carried = gear.equipped().count() + gear.bag.len();
     w.drop_everything(victim, at);
     assert!(w.people[victim as usize].detail.as_ref().unwrap().gear.equipped().next().is_none());
     let near: Vec<u32> = w.ground.iter().filter(|g| g.pos.dist(at) < 3.0).map(|g| g.id).collect();

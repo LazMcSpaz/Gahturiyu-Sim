@@ -209,6 +209,11 @@ the roads again if you changed the land's shape or ground.
   read a manual (slower, and it only gets you started). Practice does the
   rest. What you make comes out crude, common, fine or masterwork, and
   carries your mark. See Materials and crafting below.
+- **Looting**: click a beaten foe (out cold or dead: bandits, or anyone
+  whose band attacked you) and the nearest selected member goes over and
+  goes through their things. A panel lists what they wear and carry: click
+  a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
+  carries the body off instead. Townsfolk aren't fair game.
 - **Wear**: your weapons and armour wear with every blow; at zero a piece
   is gone. A crafter of the right trade mends it for coin, or right-click it
   in the pack panel to mend it yourself (if you know the craft and are at its

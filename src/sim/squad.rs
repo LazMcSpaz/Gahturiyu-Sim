@@ -271,6 +271,7 @@ impl World {
         self.recentre_squad();
         self.update_indoors();
         self.do_pickups();
+        self.tidy_looting();
         self.do_picking();
         self.do_gathering();
         self.do_crafting();

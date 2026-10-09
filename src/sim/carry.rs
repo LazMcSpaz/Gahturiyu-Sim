@@ -45,7 +45,8 @@ pub fn body_weight(r: Race) -> f32 {
 }
 
 impl World {
-    fn is_down(&self, pid: PersonId) -> bool {
+    /// Is this person down (knocked out or dead)?
+    pub fn is_down(&self, pid: PersonId) -> bool {
         if let Some(f) = self.fighter(pid) {
             return f.ko || f.dead;
         }

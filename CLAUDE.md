@@ -271,6 +271,8 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 (go and look at the nearest of that species at an hour it's up, e.g.
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
+`GAHT_LOOT=1` (two bandits lie beaten beside the squad; member 0 goes through the
+first one's things: the loot panel).
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
 put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,

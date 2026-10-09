@@ -139,6 +139,13 @@ impl Person {
             spells: magic::starting_spells(&self.kit_stats, self.seed),
             crafts: Vec::new(),
         });
+        // Bandits carry a little coin, to be had by whoever beats them.
+        if self.bandit {
+            let purse = super::loot::bandit_purse(self.seed);
+            if let Some(d) = self.detail.as_mut() {
+                d.gear.add(super::items::id("coin"), purse);
+            }
+        }
         self.recompute_might();
         true
     }

@@ -82,6 +82,9 @@ pub struct Shot {
     /// lean-to up, a palisade with a gate, more under way), the Build panel
     /// open and a hut's ghost on the cursor.
     pub build: Option<String>,
+    /// `GAHT_LOOT=1`: two bandits lie beaten beside the squad and member 0
+    /// is going through the first one's things (the loot panel).
+    pub loot: bool,
     /// `GAHT_DUEL=1`: squad member 0 is judged by duel in the nearest town.
     pub duel: bool,
     /// `GAHT_SHUN=1`: the nearest coastal town's stilt village withdraws;
@@ -151,6 +154,7 @@ impl Shot {
             held: var("GAHT_HELD").is_some(),
             town: var("GAHT_TOWN").is_some(),
             build: var("GAHT_BUILD"),
+            loot: var("GAHT_LOOT").is_some(),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -253,6 +257,23 @@ impl Shot {
         if let Some((dx, dy)) = self.nudge {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
+        }
+        if self.loot {
+            let at = world.squad.pos.add(V2::new(2.5, 1.0));
+            let band = world.spawn_bandits(at, 2, false);
+            let foes = world.group(band).map(|g| g.members.clone()).unwrap_or_default();
+            let t = world.time;
+            for &f in &foes {
+                let p = &mut world.people[f as usize];
+                p.wounds.lost[1] = p.stats.max_hp(gahturiyu_sim::sim::body::Part::Torso) + 10.0;
+                p.wounds.at = t;
+            }
+            if let (Some(&m), Some(&f)) = (world.squad.members.first(), foes.first()) {
+                world.order_loot(m, f);
+            }
+            for _ in 0..200 {
+                world.step(0.05);
+            }
         }
         if let Some(what) = self.build.clone() {
             demo_base(world, what == "base");
