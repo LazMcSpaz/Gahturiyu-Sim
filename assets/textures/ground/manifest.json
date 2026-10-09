@@ -1,0 +1,93 @@
+{
+  "tiles": [
+    {
+      "name": "rock_a",
+      "metres": 3.0,
+      "colour": "rock_a.png",
+      "normal": "rock_a_n.png",
+      "roughness": "rock_a_r.png",
+      "ao": "rock_a_ao.png"
+    },
+    {
+      "name": "rock_b",
+      "metres": 3.0,
+      "colour": "rock_b.png",
+      "normal": "rock_b_n.png",
+      "roughness": "rock_b_r.png",
+      "ao": "rock_b_ao.png"
+    },
+    {
+      "name": "rock_wet",
+      "metres": 3.0,
+      "colour": "rock_wet.png",
+      "normal": "rock_wet_n.png",
+      "roughness": "rock_wet_r.png"
+    },
+    {
+      "name": "scree",
+      "metres": 2.0,
+      "colour": "scree.png",
+      "normal": "scree_n.png",
+      "roughness": "scree_r.png",
+      "ao": "scree_ao.png"
+    },
+    {
+      "name": "shingle",
+      "metres": 2.0,
+      "colour": "shingle.png",
+      "normal": "shingle_n.png",
+      "roughness": "shingle_r.png",
+      "ao": "shingle_ao.png"
+    },
+    {
+      "name": "cobbles",
+      "metres": 2.0,
+      "colour": "cobbles.png",
+      "normal": "cobbles_n.png",
+      "roughness": "cobbles_r.png",
+      "ao": "cobbles_ao.png"
+    },
+    {
+      "name": "stair",
+      "metres": 1.5,
+      "colour": "stair.png",
+      "normal": "stair_n.png",
+      "roughness": "stair_r.png"
+    },
+    {
+      "name": "turf_a",
+      "metres": 2.0,
+      "colour": "turf_a.png",
+      "normal": "turf_a_n.png",
+      "roughness": "turf_a_r.png"
+    },
+    {
+      "name": "turf_b",
+      "metres": 2.0,
+      "colour": "turf_b.png",
+      "normal": "turf_b_n.png",
+      "roughness": "turf_b_r.png"
+    },
+    {
+      "name": "moss",
+      "metres": 2.0,
+      "colour": "moss.png",
+      "normal": "moss_n.png",
+      "roughness": "moss_r.png"
+    },
+    {
+      "name": "heather",
+      "metres": 2.0,
+      "colour": "heather.png",
+      "normal": "heather_n.png",
+      "roughness": "heather_r.png"
+    },
+    {
+      "name": "dirt",
+      "metres": 2.0,
+      "colour": "dirt.png",
+      "normal": "dirt_n.png",
+      "roughness": "dirt_r.png"
+    }
+  ]
+}
