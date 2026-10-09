@@ -171,6 +171,14 @@
     cloud_hours: 16.0,
     rain_hours: 5.0,
     wind_hours: 7.0,
+    // How much of the weather the regions share. At 0 every region goes its
+    // own way; at 1 they all turn grey, wet and windy together (each still as
+    // often, and as hard, as its own table says). Storms are always shared:
+    // one comes in over the whole country, and each region catches it or not.
+    shared: 0.75,
+    // Weather comes in off the sea: hours for it to cross the whole map, west
+    // to east. (0 = it changes everywhere at once.)
+    crossing_hours: 2.0,
     // Spells of settled or unsettled weather last about this many days;
     // `unsettled` is how strongly a bad spell raises the odds of rain and storms.
     spell_days: 4.5,

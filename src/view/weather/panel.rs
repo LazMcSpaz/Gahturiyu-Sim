@@ -140,9 +140,9 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
         (format!("Wind {:.1} m/s, {}", w.wind, weather::quarter(w.wind_to)), format!("Gusts {:.0}%", w.gust * 100.0)),
         (format!("Fog {:.2} ({:.0} m deep here)", w.fog, w.fog_height), format!("Sight {}", weather::sight_words(w.visibility))),
         (format!("Temperature {:.1}°C", w.temperature), format!("Snowline {:.0} m", w.snowline)),
-        (format!("Wet ground {:.0}%", w.wetness * 100.0), format!("Ground here {:.0} m", world.terrain.surface(at))),
+        (format!("Wet ground {:.0}%", w.wetness * 100.0), format!("Snow lies above {:.0} m", w.snow_lies_above.max(0.0))),
         (format!("Storm {:.0}%", w.storm * 100.0), format!("Lightning {:.1} a minute", w.lightning)),
-        (format!("Sea {:.2} ({})", w.sea, sea_word(w.sea)), String::new()),
+        (format!("Sea {:.2} ({})", w.sea, sea_word(w.sea)), format!("Ground here {:.0} m", world.terrain.surface(at))),
     ];
     let numbers_at = lines.len();
     for _ in &numbers {
@@ -152,7 +152,7 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     let strip_y = r.y + top + lines.len() as f32 * ROW + 36.0;
     let regions_y = strip_y + 88.0;
     let buttons_y = regions_y + REGIONS as f32 * ROW + 22.0;
-    let r = Bx::new(r.x, r.y, r.w, buttons_y + 4.0 * 28.0 + 44.0 - r.y);
+    let r = Bx::new(r.x, r.y, r.w, buttons_y + 4.0 * 28.0 + 62.0 - r.y);
 
     c.rect(r.x, r.y, r.w, r.h, PANEL);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
@@ -179,12 +179,12 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
 
     // ---- The next 48 hours ---------------------------------------------------------
     let first = (t / HOUR).floor() as i64;
-    let key = (world.seed, w.region as u8, first);
+    let key = (world.seed, ((at.x / 200.0) as i64, (at.y / 200.0) as i64), first);
     if v.forecast.as_ref().map(|f| f.0 != key).unwrap_or(true) {
-        v.forecast = Some((key, world.forecast(w.region, first as f64 * HOUR, AHEAD)));
+        v.forecast = Some((key, world.forecast_at(at, first as f64 * HOUR, AHEAD)));
     }
     let hours = &v.forecast.as_ref().unwrap().1;
-    c.text(&format!("Next {AHEAD} hours over the {}", w.region.name()), r.x + 14.0, strip_y - 8.0, 14.0, DIM);
+    c.text(&format!("Next {AHEAD} hours here{}", if v.force.is_some() { " (the real weather)" } else { "" }), r.x + 14.0, strip_y - 8.0, 14.0, DIM);
     let cell = (W - 28.0) / AHEAD as f32;
     let mut tip = None;
     for (k, h) in hours.iter().enumerate() {
@@ -248,6 +248,14 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     if click.map(|k| much.contains(k.at) && !k.right).unwrap_or(false) {
         v.strength = if v.strength > 0.99 { 0.25 } else { (v.strength + 0.25).min(1.0) };
     }
+    // What would be heard (no sound files yet: these are the slots' volumes).
+    let mut heard: Vec<String> = v.sound.loudest().iter().map(|(s, vol)| format!("{} {:.0}%", s.name(), vol * 100.0)).collect();
+    if let Some((slot, when)) = v.sound.last.filter(|l| v.clock - l.1 < 4.0) {
+        let _ = when;
+        heard.push(format!("{}!", slot.name()));
+    }
+    let heard = if heard.is_empty() { "quiet".to_string() } else { heard.join("  ·  ") };
+    c.text(&format!("Sound slots{}: {heard}", if v.sound.muffled { " (indoors)" } else { "" }), r.x + 14.0, r.y + r.h - 46.0, 12.0, DIM);
     c.text(&format!("Drawing the weather takes {:.2} ms a frame", v.cost_ms), r.x + 14.0, r.y + r.h - 28.0, 12.0, DIM);
     c.text("F7 closes  ·  click the top to fold  ·  on the map, point at a place to read it", r.x + 14.0, r.y + r.h - 10.0, 12.0, DIM);
 
@@ -327,11 +335,23 @@ pub fn map_colours(c: &Canvas, ctx: &egui::Context, game: &Game, v: &mut Weather
     };
     if v.picture.as_ref().map(|p| p.0 != stamp || p.1 != tick || p.2 != forced).unwrap_or(true) {
         let land = &v.map.as_ref().unwrap().1;
-        let skies = if forced { v.skies } else { weather::skies(world.seed, tick as f64 * 600.0) };
+        // The weather reaches each column of the map a little later than the
+        // one to its west, so each column has its own skies.
+        // The weather reaches each part of the map a little later than the
+        // parts west of it: work the skies out for a run of delays, and give
+        // each texel the nearest.
+        const DELAYS: usize = 25;
+        let whole = (weather::climate().crossing_hours as f64 * HOUR).max(1.0);
+        let delays: Vec<_> = (0..DELAYS).map(|k| if forced { v.skies } else { weather::skies(world.seed, tick as f64 * 600.0, whole * k as f64 / (DELAYS - 1) as f64) }).collect();
+        let delay_of = |k: usize| {
+            let p = V2::new(((k % MAP) as f32 + 0.5) * step, ((k / MAP) as f32 + 0.5) * step);
+            ((weather::lag(p) / whole * (DELAYS - 1) as f64).round() as usize).min(DELAYS - 1)
+        };
         let px: Vec<Color32> = land
             .iter()
-            .map(|(shares, height, low)| {
-                let w: Weather = weather::weather_with(&skies, shares, *height, *low);
+            .enumerate()
+            .map(|(k, (shares, height, low))| {
+                let w: Weather = weather::weather_with(&delays[delay_of(k)], shares, *height, *low);
                 ega(colour(w.kind), 0.6)
             })
             .collect();

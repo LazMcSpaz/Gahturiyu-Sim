@@ -104,6 +104,26 @@ fn smooth(a: f32, b: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// The height above which snow lies on the ground, metres. 700 unless the
+/// weather says otherwise (`view/weather`); kept in 20 m steps so the ground
+/// is only redrawn when it has really moved.
+static SNOW_LINE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(45);
+
+/// (Can be below zero: snow right down to the shore.)
+pub fn snow_line() -> f32 {
+    (snow_step() as f32 - 10.0) * 20.0
+}
+
+/// The snow line as a whole number of steps: part of what the drawn ground
+/// is keyed by.
+pub fn snow_step() -> u32 {
+    SNOW_LINE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn set_snow_line(metres: f32) {
+    SNOW_LINE.store(((metres / 20.0).round() + 10.0).clamp(0.0, 500.0) as u32, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Colour of the sea surface at a point.
 pub fn sea(p: V2) -> Rgb {
     mix(SEA, SEA_DEEP, -geo::inland(p) / 700.0)
@@ -127,8 +147,9 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     let steep = smooth(0.86, 0.66, up) * (0.75 + n1 * 0.5);
     let rock = if arid > 0.4 { SANDROCK } else { ROCK };
     c = mix(c, rock, steep.max(smooth(380.0, 520.0, h) * 0.85));
-    // Snow on the high flats.
-    c = mix(c, SNOW, smooth(640.0, 760.0, h) * smooth(0.78, 0.90, up) * 0.85);
+    // Snow on the high flats, above the snow line (which the weather moves).
+    let line = snow_line();
+    c = mix(c, SNOW, smooth(line - 60.0, line + 60.0, h) * smooth(0.78, 0.90, up) * 0.85);
     // Shingle along the waterline: by height where the land was authored
     // (its shore is wherever it meets the sea), by distance from the world's
     // coastline elsewhere (that shore is nearly flat).

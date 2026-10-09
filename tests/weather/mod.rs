@@ -7,6 +7,9 @@
 //!    a few days a month and more in winter, thick fog on several mornings a
 //!    month and more in summer; snow in the mountains in winter, hardly ever
 //!    on the shore.
+//! 4. The country shares its big weather, and it comes in off the sea: a
+//!    storm on the coast is a storm at sea, and reaches the east later.
+//! 5. Lightning is looked up too: the same strikes however they are asked for.
 
 use gahturiyu_sim::sim::geo::{V2, WORLD_SIZE};
 use gahturiyu_sim::sim::terrain::Terrain;
@@ -50,8 +53,8 @@ fn weather_is_the_same_whatever_order_it_is_asked_in() {
     }
     // Asking about many places at once (the skies worked out first) gives the same answers.
     for &t in &times {
-        let skies = weather::skies(5, t);
         for &p in &spots() {
+            let skies = weather::skies(5, t, weather::lag(p));
             let quick = weather::weather_with(&skies, &weather::mix(&terrain, p), terrain.surface(p), weather::floor(&terrain, p));
             assert_eq!(quick, weather::weather_at(&terrain, 5, p, t));
         }
@@ -283,4 +286,126 @@ fn a_storm_brings_wind_first_then_rain_and_goes_dark() {
     // The ground stays wet for hours after the rain has gone.
     let later = at(storm.build + storm.hold + storm.clear + 3.0);
     assert!(later.wetness > 0.3 || later.rain > 0.03, "the ground should still be wet three hours on: {later:?}");
+}
+
+#[test]
+fn the_country_shares_its_big_weather() {
+    // Hour by hour for ten years, as the weather comes in off the sea.
+    let seed = 3;
+    let hours = 48 * 24 * 10;
+    let (mut coast_storm, mut sea_too, mut low_too) = (0, 0, 0);
+    let (mut dry_storm, mut sea_with_dry) = (0, 0);
+    let (mut a, mut b) = (Vec::with_capacity(hours), Vec::with_capacity(hours));
+    for h in 0..hours {
+        let t = h as f64 * HOUR;
+        let at = |r: Region| weather::sky(seed, r, t);
+        let (sea, coast, low, dry) = (at(Region::OpenSea), at(Region::ExposedCoast), at(Region::Lowland), at(Region::Plateau));
+        if coast.storm >= 0.5 {
+            coast_storm += 1;
+            sea_too += (sea.storm >= 0.3) as u32;
+            low_too += (low.storm >= 0.3) as u32;
+        }
+        if dry.storm >= 0.5 {
+            dry_storm += 1;
+            sea_with_dry += (sea.storm >= 0.3) as u32;
+        }
+        a.push(coast.cloud);
+        b.push(low.cloud);
+    }
+    assert!(coast_storm > 200, "there should be storms to compare");
+    // A storm on the coast is a storm at sea, and usually inland too.
+    assert!(sea_too as f32 > 0.85 * coast_storm as f32, "the sea shared {sea_too} of {coast_storm} coast storm hours");
+    assert!(low_too as f32 > 0.5 * coast_storm as f32, "the lowland shared {low_too} of {coast_storm} coast storm hours");
+    // The plateau gets few storms, and none that the sea did not have first.
+    assert!(dry_storm > 20 && (dry_storm as f32) < 0.6 * coast_storm as f32, "{dry_storm} plateau storm hours against {coast_storm} on the coast");
+    assert!(sea_with_dry as f32 > 0.85 * dry_storm as f32);
+    // Grey days are mostly grey for the coast and the country behind it alike.
+    let n = a.len() as f32;
+    let (ma, mb) = (a.iter().sum::<f32>() / n, b.iter().sum::<f32>() / n);
+    let cov: f32 = a.iter().zip(&b).map(|(x, y)| (x - ma) * (y - mb)).sum();
+    let (va, vb): (f32, f32) = (a.iter().map(|x| (x - ma).powi(2)).sum(), b.iter().map(|y| (y - mb).powi(2)).sum());
+    let together = cov / (va * vb).sqrt();
+    assert!(together > 0.6, "coast and lowland cloud move together only {together}");
+}
+
+#[test]
+fn weather_comes_in_off_the_sea() {
+    let hours = weather::climate().crossing_hours as f64;
+    // It reaches the east later than the west, everywhere, and takes about
+    // `crossing_hours` over the whole map.
+    for row in 0..20 {
+        let y = 500.0 + row as f32 * 1000.0;
+        let (west, mid, east) = (weather::lag(V2::new(500.0, y)), weather::lag(V2::new(10_000.0, y)), weather::lag(V2::new(20_500.0, y)));
+        assert!(west < mid && mid < east && west >= 0.0 && east <= hours * HOUR, "row {y}: {west} {mid} {east}");
+        assert!(east - west > 0.6 * hours * HOUR);
+    }
+    // What a place further east gets is what the sea's edge had that much earlier.
+    let behind = 1.3 * HOUR;
+    for k in 0..400 {
+        let t = k as f64 * 5.3 * HOUR;
+        for r in [Region::Lowland, Region::Mountain] {
+            let (here, there) = (weather::sky(4, r, t), weather::sky_at(4, r, t + behind, behind));
+            // (Bar the hair's breadth the season has moved on in the meantime.)
+            assert!((here.cloud - there.cloud).abs() < 0.02 && (here.storm - there.storm).abs() < 0.005 && (here.precip - there.precip).abs() < 0.02, "{}: the weather changed on its way in: {here:?} / {there:?}", r.name());
+        }
+    }
+    // So a storm peaks later inland: find a strong one and time it at two
+    // lowland places far apart, west and east.
+    let terrain = Terrain::generate(4);
+    let lowland: Vec<V2> = (0..40).map(|i| V2::new(3200.0 + i as f32 * 300.0, 10_400.0)).filter(|&p| weather::mix(&terrain, p)[Region::Lowland as usize] > 0.98).collect();
+    let (west, east) = (lowland[0], *lowland.last().unwrap());
+    assert!(east.x - west.x > 3000.0, "need two lowland places well apart");
+    let maker = Maker::new(4, Region::Lowland);
+    let storm = (2..3000).find_map(|d| maker.storm_on(d).filter(|s| s.strength > 0.8 && maker.storm_on(d - 1).is_none() && maker.storm_on(d + 1).is_none())).expect("a strong lowland storm");
+    let half_up = |p: V2| (0..600).map(|k| storm.start - 4.0 * HOUR + k as f64 * 60.0).find(|&t| weather::weather_at(&terrain, 4, p, t).storm > 0.4).expect("the storm should reach it");
+    let apart = half_up(east) - half_up(west);
+    let due = weather::lag(east) - weather::lag(west);
+    assert!(due > 600.0 && (apart - due).abs() < 180.0, "the storm reached the east {apart} s after the west; due {due} s");
+}
+
+#[test]
+fn lightning_strikes_are_the_same_however_they_are_asked_for() {
+    let terrain = Terrain::generate(6);
+    let maker = Maker::new(6, Region::OpenSea);
+    let storm = (2..3000).find_map(|d| maker.storm_on(d).filter(|s| s.thunder && s.strength > 0.8)).expect("a thunderstorm");
+    let (from, to) = (storm.start + storm.build as f64 * HOUR, storm.start + (storm.build + 1.5) as f64 * HOUR);
+    let all = weather::strikes(&terrain, 6, from, to);
+    assert!(all.len() > 10 && all.len() < 400, "{} strikes in an hour and a half of thunderstorm", all.len());
+    // In pieces, and asked for again: the same strikes.
+    let cut = from + 1234.5;
+    let mut pieces = weather::strikes(&terrain, 6, from, cut);
+    pieces.extend(weather::strikes(&terrain, 6, cut, to));
+    assert_eq!(all, pieces, "cutting the question in two changed the lightning");
+    assert_eq!(all, weather::strikes(&terrain, 6, from, to));
+    // Every strike lands in a thunderstorm, in time order, on the map.
+    for w in all.windows(2) {
+        assert!(w[0].t <= w[1].t);
+    }
+    for s in &all {
+        assert!(weather::weather_at(&terrain, 6, s.pos, s.t).lightning > 0.0, "lightning out of a sky with no thunder in it");
+        assert!((from..to).contains(&s.t) && s.pos.x >= 0.0 && s.pos.x <= WORLD_SIZE);
+    }
+    // No storm, no lightning: the day before a quiet spell.
+    let quiet = (5..3000).find(|&d| (d - 2..=d + 1).all(|k| Region::ALL.iter().all(|&r| Maker::new(6, r).storm_on(k).is_none()))).unwrap();
+    assert!(weather::strikes(&terrain, 6, quiet as f64 * DAY, (quiet + 1) as f64 * DAY).is_empty());
+}
+
+#[test]
+fn snow_lies_on_the_winter_hills() {
+    // Midwinter is three quarters of the way through the 48-day year.
+    let (mut winter, mut summer, mut shore) = (0, 0, 0);
+    for year in 0..20 {
+        for day in 0..6 {
+            let w = weather::weather_in(2, Region::Mountain, (year * 48 + 33 + day) as f64 * DAY + 12.0 * HOUR);
+            let s = weather::weather_in(2, Region::Mountain, (year * 48 + 9 + day) as f64 * DAY + 12.0 * HOUR);
+            let c = weather::weather_in(2, Region::ExposedCoast, (year * 48 + 33 + day) as f64 * DAY + 12.0 * HOUR);
+            winter += (weather::localise(&weather::sky(2, Region::Mountain, (year * 48 + 33 + day) as f64 * DAY), Region::Mountain, 700.0, 600.0).snow_cover > 0.5) as u32;
+            summer += (s.snow_lies_above < 900.0) as u32;
+            shore += (c.snow_cover > 0.5) as u32;
+            assert!(w.snow_lies_above < s.snow_lies_above, "snow should lie lower in winter");
+        }
+    }
+    assert!(winter > 90, "the high ground was white on only {winter} of 120 midwinter days");
+    assert_eq!(summer, 0, "snow on the summer tops");
+    assert!(shore <= 2, "the shore was white on {shore} of 120 midwinter days");
 }

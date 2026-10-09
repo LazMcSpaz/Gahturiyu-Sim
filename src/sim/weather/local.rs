@@ -142,6 +142,11 @@ pub struct Weather {
     pub snowline: f32,
     /// Height of the cloud base, metres above the sea.
     pub cloud_base: f32,
+    /// Snow lies on ground above this height (metres above the sea).
+    pub snow_lies_above: f32,
+    /// How much snow lies here, 0 none .. 1 a full cover. (Steep ground
+    /// sheds it; that is for whoever draws it.)
+    pub snow_cover: f32,
 }
 
 /// Bring a region's sky down to a spot `height` metres up, where the lowest
@@ -239,6 +244,8 @@ pub fn localise(sky: &Sky, region: Region, height: f32, floor: f32) -> Weather {
         sea: sky.sea,
         snowline,
         cloud_base: sky.cloud_base,
+        snow_lies_above: sky.snow_lying,
+        snow_cover: smooth(sky.snow_lying - 40.0, sky.snow_lying + 40.0, height),
     }
 }
 

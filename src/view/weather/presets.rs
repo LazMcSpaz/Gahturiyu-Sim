@@ -63,6 +63,8 @@ impl Preset {
         };
         k.wind_x = k.wind;
         k.wind_y = k.wind * 0.25;
+        // Snow lies where it is cold enough for it; in the snow preset, everywhere.
+        k.snow_lying = if self == Preset::Snow { -200.0 } else { (k.temp0 - 1.0) / 0.0065 };
         k
     }
 }

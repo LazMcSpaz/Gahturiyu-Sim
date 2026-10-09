@@ -10,7 +10,7 @@ use bevy::pbr::{DistanceFog, FogFalloff};
 use bevy::prelude::*;
 
 use gahturiyu_sim::sim::stealth;
-use gahturiyu_sim::sim::weather::Weather;
+use gahturiyu_sim::sim::weather::{Region, Weather};
 
 use super::WeatherView;
 use crate::view::app::{Game, MainCamera};
@@ -26,6 +26,9 @@ const NIGHT: Rgb = [0.02, 0.025, 0.035];
 /// The light that comes through cloud: cooler than the sun.
 const CLOUD_LIGHT: Rgb = [0.86, 0.90, 0.98];
 const SUN_WARM: Rgb = [1.0, 0.62, 0.38];
+const FLASH_SKY: Rgb = [0.78, 0.82, 0.95];
+/// Light a full lightning flash adds to everything, lux.
+const FLASH_LIGHT: f32 = 9000.0;
 
 /// How the light is scaled by a sky.
 #[derive(Clone, Copy, Debug)]
@@ -93,6 +96,13 @@ pub fn apply(
     let mut sky = palette::mix(rgb(clear.0), lit(GREY_SKY), l.grey);
     sky = palette::mix(sky, lit(STORM_SKY), here.storm * 0.85);
     sky = palette::mix(sky, lit(FOG_SKY), eye.fog * 0.9);
+    // Lightning: for an instant the whole sky is lit from inside the cloud,
+    // and everything under it stands out hard.
+    if v.flash > 0.0 {
+        sky = palette::mix(sky, FLASH_SKY, v.flash * 0.75);
+        ambient.brightness += FLASH_LIGHT * v.flash;
+        ambient.color = palette::bevy(palette::mix(rgb(ambient.color), [0.80, 0.86, 1.0], v.flash));
+    }
     clear.0 = palette::bevy(sky);
 
     // ---- Haze ----------------------------------------------------------------------
@@ -127,5 +137,11 @@ pub fn apply(
             m.reflectance = 0.2 + 0.3 * v.wet;
         }
     }
+
+    // ---- Snow on the ground ------------------------------------------------------------
+    // Where it lies: where the last days have been cold enough here, or in
+    // the mountains if they are colder (it is their tops that show).
+    let lying = here.snow_lies_above.min(v.skies[Region::Mountain as usize].snow_lying);
+    palette::set_snow_line(lying);
     v.spent += started.elapsed().as_secs_f32() * 1000.0;
 }

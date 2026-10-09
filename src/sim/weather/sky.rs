@@ -2,6 +2,12 @@
 //! region, before a particular spot's height and hollows are taken into
 //! account (`local.rs` does that).
 //!
+//! Weather comes in off the sea. The country shares its big weather: one
+//! set of slow curves and one run of storms for the whole world, which each
+//! region takes its own share of (`shared` in the climate file), and which
+//! reach places further east a little later (`lag`). So a storm darkens the
+//! sea, then the coast, then the hills; the plateau may miss it altogether.
+//!
 //! Three kinds of thing are laid over each other, all fixed by the world
 //! seed, the region and the time asked about:
 //!
@@ -26,7 +32,9 @@ use crate::sim::rng::{self, Rng};
 use crate::sim::world::{DAY, HOUR};
 
 /// Marks every weather roll, so none can coincide with another system's.
-const WEATHER: u64 = 0x5745_4154_4845;
+pub(super) const WEATHER: u64 = 0x5745_4154_4845;
+/// Stands in for a region in the keys of what the whole world shares.
+const WORLD: u64 = 99;
 
 const SPELL: u64 = 1;
 const CLOUD: u64 = 2;
@@ -69,6 +77,10 @@ pub struct Sky {
     pub sea: f32,
     /// How wet the ground is, 0..1.
     pub wetness: f32,
+    /// Snow lies on ground above this height (metres above the sea): where
+    /// the last few days have been cold enough, whatever is falling now.
+    /// Below zero means it lies everywhere.
+    pub snow_lying: f32,
 }
 
 impl Sky {
@@ -88,6 +100,7 @@ impl Sky {
         self.lightning += o.lightning * share;
         self.sea += o.sea * share;
         self.wetness += o.wetness * share;
+        self.snow_lying += o.snow_lying * share;
     }
 }
 
@@ -159,6 +172,77 @@ fn blend_cut(share: f32) -> f32 {
     }
 }
 
+/// Two even rolls mixed, `a` of the first and the rest of the second, are
+/// no longer even (they bunch in the middle). This is the share of the time
+/// such a mix is below `z`: putting the mix through it makes it even again.
+fn even_again(a: f32, z: f32) -> f32 {
+    let (hi, lo) = (a.max(1.0 - a), a.min(1.0 - a));
+    let z = z.clamp(0.0, 1.0);
+    if lo < 1e-4 {
+        z
+    } else if z < lo {
+        z * z / (2.0 * hi * lo)
+    } else if z <= hi {
+        (z - lo / 2.0) / hi
+    } else {
+        1.0 - (1.0 - z) * (1.0 - z) / (2.0 * hi * lo)
+    }
+}
+
+/// A storm coming in over the whole country on a day: its timing and its
+/// power, before any region has caught it (or not).
+struct Front {
+    start: f64,
+    build: f32,
+    hold: f32,
+    clear: f32,
+    /// 0 the weakest .. 1 the strongest.
+    power: f32,
+    /// Its place among storms for thunder: low means even regions where
+    /// thunder is rare will hear it.
+    thunder: f32,
+    /// How far it reaches: low means it covers the whole country, high
+    /// that only the stormiest regions get it.
+    reach: f32,
+    /// Storm days a month the stormiest region has at that time of year.
+    days: f32,
+}
+
+/// The storm that comes in on a day, if one does. `spell` is how unsettled
+/// the weather is (0..1).
+fn front(seed: u64, day: i64, spell: f32) -> Option<Front> {
+    let c = climate();
+    let s = &c.storms;
+    let phase = year_phase((day as f64 + 0.5) * DAY);
+    let days = c.regions.iter().map(|r| seasonal(&r.storm_days, phase)).fold(0.0, f32::max);
+    // A storm is at its worst for about this long, and so darkens this
+    // many calendar days on average.
+    let worst = (s.hold.0 + s.hold.1) / 2.0 + (s.build.0 + s.build.1 + s.clear.0 + s.clear.1) / 4.0;
+    let p = days / 30.0 * (1.0 + c.unsettled * (2.0 * spell - 1.0)) / (1.0 + worst / 24.0);
+    let mut r = Rng::from_keys(&[seed, WEATHER, WORLD, STORM, day as u64]);
+    if !r.chance(p.min(0.95)) {
+        return None;
+    }
+    let start = day as f64 * DAY + r.f64() * DAY;
+    let (build, hold, clear) = (lerp(s.build, r.f32()), lerp(s.hold, r.f32()), lerp(s.clear, r.f32()));
+    Some(Front { start, build, hold, clear, power: r.f32().powf(1.5), thunder: r.f32(), reach: r.f32(), days })
+}
+
+/// Whether any storm is over the country at some point between two moments
+/// (with a few hours to spare either side). A quick way to know there can
+/// be no lightning.
+pub(super) fn stormy_between(seed: u64, from: f64, to: f64) -> bool {
+    let c = climate();
+    let spare = (c.crossing_hours + c.storms.wind_leads + 1.0) as f64 * HOUR;
+    let longest = (c.storms.build.1 + c.storms.hold.1 + c.storms.clear.1) as f64 * HOUR;
+    let first = ((from - spare - longest) / DAY).floor() as i64;
+    let last = ((to + spare) / DAY).floor() as i64;
+    (first..=last).any(|day| {
+        let spell = even(rng::key(&[seed, WEATHER, WORLD, SPELL]), (day as f64 + 0.5) * DAY, c.spell_days as f64 * DAY);
+        front(seed, day, spell).map(|f| f.start - spare < to && f.start + longest + spare > from).unwrap_or(false)
+    })
+}
+
 fn lerp(r: (f32, f32), x: f32) -> f32 {
     r.0 + (r.1 - r.0) * x
 }
@@ -169,12 +253,37 @@ pub struct Maker {
     rc: &'static RegionClimate,
     seed: u64,
     region: Region,
+    /// How far behind the sea's edge the weather runs here, seconds.
+    lag: f64,
 }
 
 impl Maker {
+    /// For a region's weather as it comes in off the sea.
     pub fn new(seed: u64, region: Region) -> Maker {
+        Maker::lagging(seed, region, 0.0)
+    }
+
+    /// For a region's weather somewhere it arrives `lag` seconds later.
+    pub fn lagging(seed: u64, region: Region, lag: f64) -> Maker {
         let c = climate();
-        Maker { c, rc: c.of(region), seed, region }
+        Maker { c, rc: c.of(region), seed, region, lag }
+    }
+
+    /// A slow curve, 0..1, even over the year: part the whole world's, part
+    /// this region's own, read as it has drifted in to here.
+    fn curve(&self, what: u64, t: f64, period: f64, shared: f32) -> f32 {
+        let t = t - self.lag;
+        let own = if shared < 1.0 { even(self.key(what), t, period) } else { 0.0 };
+        if shared <= 0.0 {
+            return own;
+        }
+        let world = even(rng::key(&[self.seed, WEATHER, WORLD, what]), t, period);
+        even_again(shared, shared * world + (1.0 - shared) * own)
+    }
+
+    /// How much storm is on here at `t`.
+    fn storming(&self, storms: &[Option<Storm>], t: f64) -> f32 {
+        level(storms, t - self.lag)
     }
 
     fn key(&self, what: u64) -> u64 {
@@ -185,40 +294,39 @@ impl Maker {
         Rng::from_keys(&[self.seed, WEATHER, self.region as u64, what, day as u64])
     }
 
-    /// 0 in a settled spell, 1 in an unsettled one.
+    /// 0 in a settled spell, 1 in an unsettled one. The whole country is in
+    /// the same spell (unless the regions share nothing).
     fn spell(&self, t: f64) -> f32 {
-        even(self.key(SPELL), t, self.c.spell_days as f64 * DAY)
+        self.curve(SPELL, t, self.c.spell_days as f64 * DAY, if self.c.shared > 0.0 { 1.0 } else { 0.0 })
     }
 
-    /// The storm that starts on a day, if one does.
+    /// The storm that reaches this region from the front that comes in on a
+    /// day, if one comes and the region catches it. (Days here are counted
+    /// at the sea's edge; the storm arrives `lag` later.)
     pub fn storm_on(&self, day: i64) -> Option<Storm> {
-        let s = &self.c.storms;
         let mid = (day as f64 + 0.5) * DAY;
+        let spell = even(rng::key(&[self.seed, WEATHER, WORLD, SPELL]), mid, self.c.spell_days as f64 * DAY);
+        let f = front(self.seed, day, spell)?;
         let phase = year_phase(mid);
-        let days = seasonal(&self.rc.storm_days, phase).max(0.0) / 30.0;
-        let spell = 1.0 + self.c.unsettled * (2.0 * self.spell(mid) - 1.0);
-        // A storm is at its worst for about this long, and so darkens this
-        // many calendar days on average.
-        let worst = (s.hold.0 + s.hold.1) / 2.0 + (s.build.0 + s.build.1 + s.clear.0 + s.clear.1) / 4.0;
-        let p = days * spell / (1.0 + worst / 24.0);
+        // The stormiest region catches every front; the rest catch their
+        // share, the big ones more surely than the small. Mostly it is the
+        // front's own reach that settles it, so a storm that gets as far as
+        // the sheltered country has crossed the exposed country on its way.
+        let share = seasonal(&self.rc.storm_days, phase).max(0.0) / f.days.max(1e-3);
         let mut r = self.roll(STORM, day);
-        if !r.chance(p.min(0.95)) {
+        let reach = even_again(0.85, 0.85 * f.reach + 0.15 * r.f32());
+        if reach >= (share * (0.6 + 0.8 * f.power)).min(1.0) {
             return None;
         }
-        let start = day as f64 * DAY + r.f64() * DAY;
-        let build = lerp(s.build, r.f32());
-        let hold = lerp(s.hold, r.f32());
-        let clear = lerp(s.clear, r.f32());
-        let power = r.f32().powf(1.5);
-        let strength = lerp(s.strength, power);
-        let thunder = r.chance(seasonal(&self.rc.thunder, phase) * (0.6 + 0.8 * power));
-        Some(Storm { start, build, hold, clear, strength, thunder })
+        let strength = lerp(self.c.storms.strength, f.power) * (0.85 + 0.15 * r.f32());
+        let thunder = f.thunder < seasonal(&self.rc.thunder, phase) * (0.6 + 0.8 * f.power);
+        Some(Storm { start: f.start, build: f.build, hold: f.hold, clear: f.clear, strength, thunder })
     }
 
     /// The storms that could matter at any time this module looks at when
     /// asked about `t` (it looks back most of a day).
     fn storms_round(&self, t: f64) -> [Option<Storm>; 5] {
-        let day = (t / DAY).floor() as i64;
+        let day = ((t - self.lag) / DAY).floor() as i64;
         [self.storm_on(day - 3), self.storm_on(day - 2), self.storm_on(day - 1), self.storm_on(day), self.storm_on(day + 1)]
     }
 
@@ -227,7 +335,7 @@ impl Maker {
         let phase = year_phase(t);
         let clear = seasonal(&self.rc.clear, phase).clamp(0.01, 0.9);
         let grey = seasonal(&self.rc.overcast, phase).clamp(0.01, 0.98 - clear);
-        let u = even(self.key(CLOUD), t, self.c.cloud_hours as f64 * HOUR);
+        let u = self.curve(CLOUD, t, self.c.cloud_hours as f64 * HOUR, self.c.shared);
         if u < clear {
             0.25 * u / clear
         } else if u < 1.0 - grey {
@@ -239,7 +347,7 @@ impl Maker {
 
     /// The everyday wind speed, before storms and fog.
     fn wind_plain(&self, t: f64) -> f32 {
-        seasonal(&self.rc.wind, year_phase(t)).max(0.0) * (0.4 + 1.2 * even(self.key(WIND), t, self.c.wind_hours as f64 * HOUR))
+        seasonal(&self.rc.wind, year_phase(t)).max(0.0) * (0.4 + 1.2 * self.curve(WIND, t, self.c.wind_hours as f64 * HOUR, self.c.shared))
     }
 
     /// The fog or mist a day starts in, if any.
@@ -247,7 +355,7 @@ impl Maker {
         let f = &self.c.fog;
         let dawn = day as f64 * DAY + 5.0 * HOUR;
         let phase = year_phase(dawn);
-        let at = |t: f64| level(storms, t);
+        let at = |t: f64| self.storming(storms, t);
         // No fog in a storm; likelier on the morning after one.
         if at(dawn + self.c.storms.wind_leads as f64 * HOUR) > 0.25 {
             return None;
@@ -258,9 +366,13 @@ impl Maker {
         // How calm the morning is, as its place among all mornings (0 = the
         // calmest of the year), mixed with plain luck: fog comes on the
         // calmest mornings, as often as the table says.
-        let calm = even(self.key(WIND), dawn, self.c.wind_hours as f64 * HOUR);
+        let calm = self.curve(WIND, dawn, self.c.wind_hours as f64 * HOUR, self.c.shared);
         let mut r = self.roll(FOG, day);
-        let z = 0.6 * calm + 0.4 * r.f32() - 0.15 * f.after_storm * after;
+        // The luck is partly the whole country's too: a foggy morning on the
+        // coast is likely a misty one inland.
+        let ours = Rng::from_keys(&[self.seed, WEATHER, WORLD, FOG, day as u64]).f32();
+        let luck = even_again(self.c.shared, self.c.shared * ours + (1.0 - self.c.shared) * r.f32());
+        let z = 0.6 * calm + 0.4 * luck - 0.15 * f.after_storm * after;
         let peak = if z < blend_cut(thick) {
             0.78 + 0.22 * r.f32()
         } else if z < blend_cut(thick + mist) {
@@ -281,24 +393,24 @@ impl Maker {
     /// Cloud with the storms' share.
     fn cloud(&self, t: f64, storms: &[Option<Storm>]) -> f32 {
         let plain = self.cloud_plain(t);
-        plain + (1.0 - plain) * level(storms, t + self.c.storms.cloud_leads as f64 * HOUR)
+        plain + (1.0 - plain) * self.storming(storms, t + self.c.storms.cloud_leads as f64 * HOUR)
     }
 
     /// Rain or snow falling at `t`.
     fn precip(&self, t: f64, storms: &[Option<Storm>]) -> f32 {
         let gate = smooth(0.62, 0.8, self.cloud_plain(t));
         let share = (seasonal(&self.rc.rain, year_phase(t)) * (1.0 + 0.6 * self.c.unsettled * (2.0 * self.spell(t) - 1.0))).clamp(0.02, 0.95);
-        let u = even(self.key(RAIN), t, self.c.rain_hours as f64 * HOUR);
+        let u = self.curve(RAIN, t, self.c.rain_hours as f64 * HOUR, self.c.shared * 0.8);
         let ramp = ((u - (1.0 - share)) / share).max(0.0);
         let plain = gate * 0.55 * ramp.powf(2.2);
-        let squall = 0.8 + 0.2 * even(self.key(SQUALL), t, 0.7 * HOUR);
-        plain + (1.0 - plain) * level(storms, t).powf(1.2) * squall
+        let squall = 0.8 + 0.2 * self.curve(SQUALL, t, 0.7 * HOUR, 0.0);
+        plain + (1.0 - plain) * self.storming(storms, t).powf(1.2) * squall
     }
 
     /// Wind speed with the storms' share (but not yet stilled by fog).
     fn wind(&self, t: f64, storms: &[Option<Storm>]) -> f32 {
         let plain = self.wind_plain(t);
-        let s = level(storms, t + self.c.storms.wind_leads as f64 * HOUR);
+        let s = self.storming(storms, t + self.c.storms.wind_leads as f64 * HOUR);
         plain + s * (self.c.storms.wind.max(plain) - plain)
     }
 
@@ -309,9 +421,9 @@ impl Maker {
         let day = (t / DAY).floor() as i64;
         let hour = (t.rem_euclid(DAY) / HOUR) as f32;
 
-        let s_rain = level(&storms, t);
-        let s_cloud = level(&storms, t + c.storms.cloud_leads as f64 * HOUR);
-        let s_wind = level(&storms, t + c.storms.wind_leads as f64 * HOUR);
+        let s_rain = self.storming(&storms, t);
+        let s_cloud = self.storming(&storms, t + c.storms.cloud_leads as f64 * HOUR);
+        let s_wind = self.storming(&storms, t + c.storms.wind_leads as f64 * HOUR);
         let storm = 0.5 * s_rain + 0.3 * s_cloud + 0.2 * s_wind;
 
         let cloud = self.cloud(t, &storms);
@@ -332,22 +444,26 @@ impl Maker {
 
         // Which way it blows: from its usual quarter, swinging slowly, and
         // veering in a storm. Compass degrees, 0 = from the north.
-        let from = self.rc.wind_from + c.wind_swing * (2.0 * even(self.key(TURN), t, 30.0 * HOUR) - 1.0) + 25.0 * s_wind;
+        let from = self.rc.wind_from + c.wind_swing * (2.0 * self.curve(TURN, t, 30.0 * HOUR, c.shared) - 1.0) + 25.0 * s_wind;
         let to = (from + 180.0).to_radians();
         let (wind_x, wind_y) = (to.sin() * wind, -to.cos() * wind);
 
-        let base = lerp(self.rc.cloud_base, even(self.key(BASE), t, 11.0 * HOUR));
+        let base = lerp(self.rc.cloud_base, self.curve(BASE, t, 11.0 * HOUR, c.shared * 0.7));
         let cloud_base = base - 0.5 * (base - self.rc.cloud_base.0) * s_cloud;
 
         let phase = year_phase(t);
-        let wander = c.temp_wander * (2.0 * even(self.key(TEMP), t, 3.0 * DAY) - 1.0);
+        let wander = c.temp_wander * (2.0 * self.curve(TEMP, t, 3.0 * DAY, c.shared) - 1.0);
         let swing = seasonal(&self.rc.swing, phase) / 2.0 * (1.0 - 0.6 * cloud) * ((hour - 15.0) / 24.0 * std::f32::consts::TAU).cos();
-        let temp0 = seasonal(&self.rc.temp, phase) + wander + swing - c.storms.chill * s_cloud;
+        let usual = seasonal(&self.rc.temp, phase) + wander;
+        let temp0 = usual + swing - c.storms.chill * s_cloud;
+        // Snow lies where the days have been cold enough, hour by hour aside.
+        // (Below zero in a hard cold spell: it lies right down to the shore.)
+        let snow_lying = (usual - c.snow_temp) / c.lapse;
 
         let mut thunder = 0.0f32;
         for s in storms.iter().flatten() {
             if s.thunder {
-                thunder = thunder.max(s.at(t));
+                thunder = thunder.max(s.at(t - self.lag));
             }
         }
         let lightning = c.storms.flashes * thunder * thunder;
@@ -370,7 +486,7 @@ impl Maker {
         }
         let wetness = 1.0 - (-c.wetting * soaked).exp();
 
-        Sky { cloud, precip, wind, wind_x, wind_y, gust: (0.15 + 0.55 * s_wind + 0.1 * (blow / 15.0).min(1.0)).min(1.0), fog, fog_depth, cloud_base, temp0, storm, lightning, sea, wetness }
+        Sky { cloud, precip, wind, wind_x, wind_y, gust: (0.15 + 0.55 * s_wind + 0.1 * (blow / 15.0).min(1.0)).min(1.0), fog, fog_depth, cloud_base, temp0, storm, lightning, sea, wetness, snow_lying }
     }
 }
 
@@ -383,7 +499,12 @@ fn level(storms: &[Option<Storm>], t: f64) -> f32 {
     1.0 - calm
 }
 
-/// A region's weather at a moment.
+/// A region's weather at a moment, as it comes in off the sea.
 pub fn sky(seed: u64, region: Region, t: f64) -> Sky {
     Maker::new(seed, region).sky(t)
+}
+
+/// A region's weather at a moment, somewhere it arrives `lag` seconds later.
+pub fn sky_at(seed: u64, region: Region, t: f64, lag: f64) -> Sky {
+    Maker::lagging(seed, region, lag).sky(t)
 }

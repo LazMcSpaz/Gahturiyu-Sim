@@ -101,6 +101,8 @@ pub struct Climate {
     pub cloud_hours: f32,
     pub rain_hours: f32,
     pub wind_hours: f32,
+    pub shared: f32,
+    pub crossing_hours: f32,
     pub spell_days: f32,
     pub unsettled: f32,
     pub wind_swing: f32,

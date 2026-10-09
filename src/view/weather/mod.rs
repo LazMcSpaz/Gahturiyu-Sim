@@ -4,9 +4,11 @@
 //! - `observe` works out, once a frame, the weather being shown: every
 //!   region's sky, and the weather where the camera looks and at the
 //!   camera's own height. Everything else here reads that (`WeatherView`).
-//! - `look.rs`: light, sky colour, haze and wet surfaces.
+//! - `look.rs`: light, sky colour, haze, wet surfaces and the snow line.
 //! - `groundfog.rs`: the low fog that pools on water and in hollows.
-//! - `rain.rs`: rain round the camera.
+//! - `rain.rs`: rain and snow round the camera.
+//! - `lightning.rs`: flashes, bolts, and the thunder that follows.
+//! - `sound.rs`: the sound slots and how loud each is (no files yet).
 //! - `panel.rs`: the Weather panel (F7) and the map's weather colours.
 //! - `presets.rs`: forced weather (U cycles through the kinds; Shift+U back).
 //!
@@ -14,14 +16,17 @@
 //! headline; `off`: nothing, for use with the flags below),
 //! `GAHT_WEATHER_HOURS=h` looks h hours ahead (negative: back),
 //! `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
-//! forces a kind of weather and `GAHT_PRESET_STRENGTH=0..1` how much of it.
+//! forces a kind of weather and `GAHT_PRESET_STRENGTH=0..1` how much of it;
+//! `GAHT_FLASH=1` times a lightning strike for the picture.
 
 mod groundfog;
 mod land;
+mod lightning;
 mod look;
 mod panel;
 mod presets;
 mod rain;
+pub mod sound;
 
 use bevy::prelude::*;
 use bevy_egui::egui;
@@ -62,6 +67,13 @@ pub struct WeatherView {
     pub eye: Weather,
     /// How wet surfaces are drawn, 0..1. Materials may read this.
     pub wet: f32,
+    /// The wind this instant, gusts and all: the way it blows (x east, y
+    /// south) times its speed in metres a second. For anything that sways.
+    pub wind: Vec2,
+    /// A lightning flash lighting the scene, 0..1.
+    pub flash: f32,
+    /// The sound slots: how loud each loop is, and one-shots to start.
+    pub sound: sound::Mixer,
     /// Seconds for things that move (drawing only).
     pub clock: f64,
     /// Milliseconds a frame spent on weather drawing, smoothed.
@@ -69,8 +81,8 @@ pub struct WeatherView {
     spent: f32,
 
     land: LandGrid,
-    /// The forecast last worked out: (world seed, region, first hour) and its hours.
-    forecast: Option<((u64, u8, i64), Vec<Weather>)>,
+    /// The forecast last worked out: (world seed, about where, first hour) and its hours.
+    forecast: Option<((u64, (i64, i64), i64), Vec<Weather>)>,
     /// What is fixed about each texel of the map picture: its region shares,
     /// its height and its fog floor; and the lines between regions. Worked
     /// out once per world.
@@ -94,6 +106,9 @@ impl Default for WeatherView {
             here: calm,
             eye: calm,
             wet: 0.0,
+            wind: Vec2::ZERO,
+            flash: 0.0,
+            sound: sound::Mixer::default(),
             clock: 0.0,
             cost_ms: 0.0,
             spent: 0.0,
@@ -130,8 +145,8 @@ impl Plugin for WeatherPlugin {
             ..Default::default()
         };
         app.insert_resource(view);
-        app.add_systems(Startup, (groundfog::setup, rain::setup));
-        app.add_systems(Update, (keys, observe, look::apply, groundfog::update, rain::update).chain().after(super::light::update));
+        app.add_systems(Startup, (groundfog::setup, rain::setup, lightning::setup));
+        app.add_systems(Update, (keys, observe, lightning::update, look::apply, groundfog::update, rain::update).chain().after(super::light::update));
     }
 }
 
@@ -167,7 +182,9 @@ fn observe(game: Res<Game>, mut view: ResMut<WeatherView>, time: Res<Time>) {
     v.time = world.time + v.ahead * HOUR;
     v.skies = match v.force {
         Some(p) => [p.sky(v.strength); REGIONS],
-        None => weather::skies(world.seed, v.time),
+        // The weather as it has reached the spot the camera looks at. (Across the
+        // view it differs by minutes at most.)
+        None => weather::skies(world.seed, v.time, weather::lag(game.orbit.target)),
     };
     let at = game.orbit.target;
     v.here = v.at(&game, at);
@@ -175,5 +192,19 @@ fn observe(game: Res<Game>, mut view: ResMut<WeatherView>, time: Res<Time>) {
     let under = V2::new(eye.x, eye.z);
     let t = &world.terrain;
     v.eye = weather::weather_with(&v.skies, &v.land.mix(under), eye.y.max(t.surface(under)), weather::floor(t, under));
+    // The wind comes in gusts: a slow swell and a quicker flutter on top.
+    let c = v.clock as f32;
+    let gust = 1.0 + v.here.gust * (0.55 * (c * 0.83).sin() + 0.3 * (c * 2.1 + 1.0).sin() + 0.15 * (c * 5.3).sin());
+    v.wind = Vec2::new(v.here.wind_to.x, v.here.wind_to.y) * v.here.wind * gust.max(0.2);
+    // What the listener hears: under a roof if the camera is with a squad that
+    // has all gone indoors; the sea within half a mile; less from far overhead.
+    let squad = &world.squad;
+    let ears = sound::Ears {
+        indoors: game.follow && !squad.inside.is_empty() && squad.inside.iter().all(|d| d.is_some()),
+        by_sea: 1.0 - (gahturiyu_sim::sim::geo::inland(at).abs() / 800.0).clamp(0.0, 1.0),
+        closeness: 1.0 - 0.7 * ((game.orbit.dist - 150.0) / 1200.0).clamp(0.0, 1.0),
+    };
+    let heard = v.here;
+    v.sound.update(&heard, ears, v.clock);
     v.spent += started.elapsed().as_secs_f32() * 1000.0;
 }
