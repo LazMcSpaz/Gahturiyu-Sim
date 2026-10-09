@@ -3,10 +3,11 @@
 
 use crate::canvas::{rgb, Canvas, Rgb};
 use crate::field::Field;
-use crate::noise::{noise, smooth};
+use crate::noise::{fbm, noise, smooth};
 use gahturiyu_sim::sim::geo::V2;
 
-/// Something placed on the land in a sketch.
+/// Something placed on the land in a sketch (used from Step 3 on).
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Thing {
     /// A Roduro grown-stone home (`r` = footprint radius in metres).
@@ -25,6 +26,7 @@ pub enum Thing {
     Quay { a: V2, b: V2, w: f32 },
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum WayKind {
     /// A cobbled lane.
@@ -78,7 +80,7 @@ pub fn colour_ground(f: &mut Field, seed: u64) {
         let (x, y) = f.cell_pos(k);
         let h = f.z[k];
         let slope = f.slope(x, y);
-        f.albedo[k] = ground_colour(seed, x, y, h, slope, f.rock[k]);
+        f.albedo[k] = ground_colour(seed, x, y, h, slope, f.rock[k], f.kind[k]);
     }
 }
 
@@ -87,18 +89,26 @@ fn mixc(a: Rgb, b: Rgb, t: f32) -> Rgb {
     [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 }
 
-fn ground_colour(seed: u64, x: f32, y: f32, h: f32, slope: f32, rock: f32) -> Rgb {
-    if h < 0.0 {
-        // Sea floor: only seen through shallow water; the renderers tint it.
-        return mixc(rgb(150, 140, 112), rgb(70, 80, 78), smooth(0.0, 8.0, -h));
-    }
+fn ground_colour(seed: u64, x: f32, y: f32, h: f32, slope: f32, rock: f32, kind: u8) -> Rgb {
     let n1 = noise(seed ^ 0x6A55, x, y, 40.0);
     let n2 = noise(seed ^ 0x6A56, x, y, 9.0);
+    if h < 0.0 {
+        // Sea floor: only seen through shallow water; the renderers tint it.
+        let floor = if kind == 3 { rgb(160, 150, 125) } else { rgb(120, 118, 105) };
+        return mixc(floor, rgb(70, 80, 78), smooth(0.0, 8.0, -h));
+    }
+    match kind {
+        2 => return mixc(mixc(rgb(124, 116, 102), rgb(92, 88, 84), n2 * 0.8), rgb(104, 110, 80), smooth(0.6, 0.9, n1) * 0.3),
+        3 => return mixc(rgb(160, 152, 132), rgb(122, 118, 108), n2),
+        4 => return mixc(rgb(74, 74, 70), rgb(48, 54, 50), n2 * 0.6 + 0.3),
+        5 => return rgb(60, 92, 104),
+        _ => {}
+    }
     let moss = rgb(92, 112, 60);
     let grass = rgb(104, 118, 70);
     let heather = rgb(104, 82, 70);
     let mut c = mixc(grass, moss, n1);
-    c = mixc(c, heather, smooth(0.62, 0.8, noise(seed ^ 0x6A57, x, y, 70.0)) * 0.8);
+    c = mixc(c, heather, smooth(0.55, 0.85, fbm(seed ^ 0x6A57, x, y, 60.0, 3)) * 0.45);
     c = mixc(c, mixc(c, rgb(130, 128, 90), 0.5), n2 * 0.4);
     // Shingle and wet rock along the water's edge.
     let shore = 1.0 - smooth(1.2, 3.0, h);
@@ -300,69 +310,39 @@ const SUN: [f32; 3] = [-0.80, 0.30, 0.52];
 const SUN_COL: [f32; 3] = [1.08, 0.98, 0.84];
 const HAZE: [f32; 3] = [0.70, 0.76, 0.80];
 
-pub fn sea_view(f: &Field, cam: &Cam, things: &[Thing]) -> Canvas {
+/// Colour of bare rock at a point and height (strata), if the field knows it.
+pub type FaceFn<'a> = &'a (dyn Fn(V2, f32) -> Option<Rgb> + Sync);
+
+/// A picture from a camera: every pixel's ray is followed through the air
+/// until it meets the ground or the sea, and shaded there by the sun.
+pub fn view(f: &Field, cam: &Cam, things: &[Thing], face: FaceFn) -> Canvas {
     let (w, h) = (cam.w, cam.h);
     let mut c = Canvas::new(w, h, [0.0; 3]);
     let mut depth = vec![f32::INFINITY; w * h];
     let fwd = norm2(cam.look.sub(cam.pos));
     let right = V2::new(-fwd.y, fwd.x);
     let focal = (w as f32 * 0.5) / (cam.fov_deg.to_radians() * 0.5).tan();
-    let horizon = h as f32 * 0.5 + cam.pitch_deg.to_radians().tan() * focal;
+    let pitch = cam.pitch_deg.to_radians();
+    let horizon = h as f32 * 0.5 + pitch.tan() * focal;
     let sun = norm3(SUN);
-    // Sky: a pale gradient, brightest at the horizon.
-    for j in 0..h {
-        let t = ((horizon - j as f32) / h as f32).clamp(0.0, 1.0);
-        let sky = mixc(rgb(214, 216, 212), rgb(120, 148, 176), t.powf(0.7));
-        for i in 0..w {
-            c.px[j * w + i] = sky;
-        }
-    }
-    for i in 0..w {
-        let a = (i as f32 + 0.5 - w as f32 * 0.5) / focal;
-        let dir = fwd.add(right.scale(a));
-        let mut ybuf = h as f32;
-        let mut z = 3.0f32;
-        while z < 9000.0 && ybuf > 0.0 {
-            let p = cam.pos.add(dir.scale(z));
-            if !f.inside(p.x, p.y) {
-                break;
-            }
-            let g = f.height(p);
-            let top = g.max(0.0);
-            let sy = horizon - (top - cam.z) * focal / z;
-            if sy < ybuf {
-                let dist = z * (1.0 + a * a).sqrt();
-                let y0 = sy.max(0.0) as usize;
-                if g < 0.0 {
-                    let col = fog(water(f, p, g, dist, cam.z), dist);
-                    for j in y0..ybuf as usize {
-                        c.px[j * w + i] = col;
-                        depth[j * w + i] = z;
-                    }
-                } else {
-                    // A tall run is a rock face seen side-on: colour each row
-                    // by its own height (strata, turf lip), not just the top.
-                    let (col, lit) = land(f, p, g, sun);
-                    let face = ybuf - sy > 3.0 && f.slope(p.x, p.y) > 40.0;
-                    // Only the rim gets a lip of turf, not every sample up the face.
-                    let unit = dir.scale(1.0 / dir.len());
-                    let rim = f.height(p.add(unit.scale(4.0))) < g + 1.0;
-                    for j in y0..ybuf as usize {
-                        let base = if face {
-                            let hr = cam.z + (horizon - j as f32 - 0.5) * z / focal;
-                            cliff_face(col, if rim { g - hr } else { 99.0 }, hr, p)
-                        } else {
-                            col
-                        };
-                        c.px[j * w + i] = fog([base[0] * lit[0], base[1] * lit[1], base[2] * lit[2]], dist);
-                        depth[j * w + i] = z;
-                    }
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2);
+    let rows = h.div_ceil(threads);
+    std::thread::scope(|s| {
+        for (k, (pc, dc)) in c.px.chunks_mut(rows * w).zip(depth.chunks_mut(rows * w)).enumerate() {
+            s.spawn(move || {
+                for (n, (px, dp)) in pc.iter_mut().zip(dc.iter_mut()).enumerate() {
+                    let (i, j) = (n % w, k * rows + n / w);
+                    let a = (i as f32 + 0.5 - w as f32 * 0.5) / focal;
+                    let b = (horizon - j as f32 - 0.5) / focal;
+                    // Ray direction: forward, sideways, up.
+                    let dir2 = fwd.add(right.scale(a));
+                    let (col, d) = march(f, cam, dir2, b, sun, face, (j as f32 - horizon) / h as f32);
+                    *px = col;
+                    *dp = d;
                 }
-                ybuf = sy;
-            }
-            z += 0.15 + z * 0.0025;
+            });
         }
-    }
+    });
     // Buildings and bridges as clouds of small shaded points.
     let mut pts = Vec::new();
     for t in things {
@@ -380,8 +360,7 @@ pub fn sea_view(f: &Field, cam: &Cam, things: &[Thing]) -> Canvas {
         let size = (0.45 * focal / z).max(1.0);
         let lit = 0.42 + 0.75 * dot3(n, sun).max(0.0) * shadow(f, V2::new(p[0], p[1]), p[2] + 0.5, sun);
         let shaded = [col[0] * lit * SUN_COL[0], col[1] * lit * SUN_COL[1], col[2] * lit * SUN_COL[2]];
-        let dist = z;
-        let shaded = fog(shaded, dist);
+        let shaded = fog(shaded, z);
         let (x0, y0) = ((sx - size * 0.5).floor() as i32, (sy - size * 0.5).floor() as i32);
         let n = size.ceil() as i32;
         for jj in y0..y0 + n {
@@ -400,29 +379,86 @@ pub fn sea_view(f: &Field, cam: &Cam, things: &[Thing]) -> Canvas {
     c
 }
 
-/// The ground's colour and the light on it.
-fn land(f: &Field, p: V2, g: f32, sun: [f32; 3]) -> (Rgb, Rgb) {
-    let n = f.normal(p.x, p.y);
-    let lit = 0.40 + 0.80 * dot3(n, sun).max(0.0) * shadow(f, p, g + 0.3, sun);
-    (f.colour(p.x, p.y), [lit * SUN_COL[0], lit * SUN_COL[1], lit * SUN_COL[2]])
+/// Follow one ray; returns the colour and the forward distance of what it hit.
+fn march(f: &Field, cam: &Cam, dir2: V2, up: f32, sun: [f32; 3], face: FaceFn, sky_t: f32) -> (Rgb, f32) {
+    let sky = {
+        let t = (-sky_t).clamp(0.0, 1.0);
+        mixc(rgb(214, 216, 212), rgb(120, 148, 176), t.powf(0.7))
+    };
+    let mut t = 1.0f32;
+    let mut prev_t = t;
+    let mut prev_gap = 1.0f32;
+    let horiz = dir2.len();
+    while t < 9000.0 {
+        let p = cam.pos.add(dir2.scale(t));
+        let z = cam.z + up * t;
+        if !f.inside(p.x, p.y) {
+            return (sky, f32::INFINITY);
+        }
+        let g = f.height(p);
+        let ground = g.max(0.0); // the sea surface counts as ground
+        let gap = z - ground;
+        if gap < 0.0 {
+            // Crossed: pin the crossing down between the last two samples.
+            let (mut lo, mut hi) = (prev_t, t);
+            for _ in 0..6 {
+                let mid = (lo + hi) * 0.5;
+                let pm = cam.pos.add(dir2.scale(mid));
+                let zm = cam.z + up * mid;
+                if zm - f.height(pm).max(0.0) < 0.0 {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            let th = (lo + hi) * 0.5;
+            let ph = cam.pos.add(dir2.scale(th));
+            let zh = cam.z + up * th;
+            let dist = th * horiz;
+            let gh = f.height(ph);
+            let col = if gh < 0.05 && zh < 0.3 {
+                water(f, ph, gh, dist, cam.z)
+            } else {
+                let n = f.normal(ph.x, ph.y);
+                let base = surface_colour(f, ph, gh, n, face);
+                let lit = 0.36 + 0.84 * dot3(n, sun).max(0.0) * shadow(f, ph, gh + 0.4, sun);
+                // Faces turned from the sun still catch the sky.
+                let lit = lit + 0.12 * (n[2] * 0.5 + 0.5);
+                [base[0] * lit * SUN_COL[0], base[1] * lit * SUN_COL[1], base[2] * lit * SUN_COL[2]]
+            };
+            return (fog(col, dist), th);
+        }
+        prev_t = t;
+        prev_gap = gap;
+        // Step by how far above the ground we are (never more than a cell or so near by).
+        let step = (gap * 0.5).clamp(0.25, 0.8 + t * 0.004);
+        t += step;
+    }
+    let _ = prev_gap;
+    (sky, f32::INFINITY)
 }
 
-/// A cliff face row `below` metres under the top, at height `hr`: bands of
-/// rock, darker toward the sea, a lip of turf at the top.
-fn cliff_face(top: Rgb, below: f32, hr: f32, p: V2) -> Rgb {
-    let band = noise(0x5747, hr * 0.45, (p.x + p.y) * 0.02, 1.0);
-    let fine = noise(0x5748, hr * 2.0, (p.x - p.y) * 0.3, 1.0);
-    let rock = mixc(rgb(112, 108, 100), rgb(70, 68, 66), band * 0.8 + fine * 0.3);
-    let rock = mixc(rock, rgb(52, 56, 50), (1.0 - smooth(0.0, 5.0, hr)) * 0.7); // wet and weedy low down
-    let turf = mixc(top, rgb(86, 104, 58), 0.5);
-    mixc(rock, turf, 1.0 - smooth(0.6, 1.6, below))
+/// What the ground looks like here: the painted surface, or bare rock in
+/// layers where the face is steep.
+fn surface_colour(f: &Field, p: V2, g: f32, n: [f32; 3], face: FaceFn) -> Rgb {
+    let base = f.colour(p.x, p.y);
+    let steep = smooth(0.75, 0.5, n[2]); // 1 on faces steeper than ~60°
+    if steep <= 0.0 {
+        return base;
+    }
+    let rock = face(p, g).unwrap_or_else(|| {
+        let band = noise(0x5747, g * 0.45, (p.x + p.y) * 0.02, 1.0);
+        mixc(rgb(112, 108, 100), rgb(70, 68, 66), band * 0.8)
+    });
+    let rock = mixc(rock, rgb(52, 56, 50), (1.0 - smooth(0.0, 4.0, g)) * 0.6); // wet and weedy low down
+    mixc(base, rock, steep)
 }
 
 /// 0 in shadow, 1 in sun: march toward the sun over the field.
 fn shadow(f: &Field, p: V2, z: f32, sun: [f32; 3]) -> f32 {
     let hz = (sun[0] * sun[0] + sun[1] * sun[1]).sqrt();
     let (dx, dy, rise) = (sun[0] / hz, sun[1] / hz, sun[2] / hz);
-    let mut t = 2.0;
+    let mut t = 1.5;
     while t < 1500.0 {
         let q = V2::new(p.x + dx * t, p.y + dy * t);
         if !f.inside(q.x, q.y) {
@@ -431,7 +467,7 @@ fn shadow(f: &Field, p: V2, z: f32, sun: [f32; 3]) -> f32 {
         if f.height(q) > z + rise * t {
             return 0.0;
         }
-        t += 1.0 + t * 0.03;
+        t += 0.8 + t * 0.03;
     }
     1.0
 }
@@ -441,13 +477,13 @@ fn water(f: &Field, p: V2, g: f32, dist: f32, cam_z: f32) -> Rgb {
     let shallow = rgb(62, 104, 104);
     let mut c = mixc(shallow, deep, smooth(0.0, 10.0, -g));
     // The sea mirrors the sky more the flatter you look across it.
-    let graze = (cam_z / dist).atan();
+    let graze = (cam_z.max(0.5) / dist.max(1.0)).atan();
     let fres = 0.04 + 0.96 * (1.0 - graze.sin()).powi(5);
     c = mixc(c, rgb(190, 200, 204), fres * 0.65);
     // Surf where the water meets rock.
-    let foam = (1.0 - smooth(0.0, 1.6, -g)) * (0.55 + 0.45 * noise(0xF0A3, p.x, p.y, 3.0));
-    let near_cliff = (1.0 - smooth(0.0, 4.0, -g)) * smooth(30.0, 50.0, f.slope(p.x + 2.0, p.y));
-    mixc(c, rgb(236, 240, 238), foam.max(near_cliff * 0.7))
+    let foam = (1.0 - smooth(0.0, 0.7, -g)) * (0.3 + 0.7 * noise(0xF0A3, p.x, p.y, 3.0));
+    let near_cliff = (1.0 - smooth(0.4, 2.5, -g)) * smooth(30.0, 50.0, f.slope(p.x + 2.0, p.y).max(f.slope(p.x - 2.0, p.y)));
+    mixc(c, rgb(236, 240, 238), (foam.max(near_cliff * 0.8) * 0.85).min(1.0))
 }
 
 fn fog(c: Rgb, dist: f32) -> Rgb {
