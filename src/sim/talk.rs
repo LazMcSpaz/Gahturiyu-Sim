@@ -612,7 +612,9 @@ impl World {
             out.push(Opt::Help);
         }
         // A known thief can be reported, by someone the law will hear.
-        if ev.is_some_and(|e| !e.hidden && e.actor.is_some() && e.deed.is_wrong()) && clean && standing >= 0.0 {
+        // (Not twice: once they've been arrested for it, it's done.)
+        let answered = |e: &super::history::Event| self.events(e.town).iter().any(|x| x.deed == Deed::Arrest && x.victim == e.actor && x.t >= e.t);
+        if ev.is_some_and(|e| !e.hidden && e.actor.is_some() && e.deed.is_wrong() && !answered(e)) && clean && standing >= 0.0 {
             out.push(Opt::Report);
         }
         // A grudge can be talked down by someone they'd listen to.

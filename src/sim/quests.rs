@@ -86,6 +86,11 @@ impl World {
                 let gone = !self.camps.iter().any(|c| c.group == camp);
                 if gone || self.beaten_camps.contains(&camp) {
                     self.quests[i].stage = Stage::Report;
+                    if let Some(id) = self.quests[i].opp {
+                        if let Some(o) = self.society.opps.iter_mut().find(|o| o.id == id) {
+                            o.done = true;
+                        }
+                    }
                     let line = "The camp is broken. Time to report back.".to_string();
                     self.log.push_front((self.time, line));
                     self.log.truncate(14);

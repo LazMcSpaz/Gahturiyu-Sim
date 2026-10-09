@@ -267,7 +267,8 @@ impl World {
                 } else if tr.sociability > 0.6 && r.chance(0.4) {
                     self.mark_for(h, &mut r).map(|o| Plot::Con { household: o })
                 } else if has_merchant(self) && r.chance(0.5) {
-                    Some(Plot::Steal { merchant: Some(merchants[r.below(merchants.len())]), household: None })
+                    let m = merchants[r.below(merchants.len())];
+                    (self.society.lives[m as usize].household != Some(h)).then_some(Plot::Steal { merchant: Some(m), household: None })
                 } else {
                     self.mark_for(h, &mut r).map(|o| Plot::Steal { merchant: None, household: Some(o) })
                 };
@@ -324,7 +325,7 @@ impl World {
             }
             // A crafter with nothing to work on wants their goods.
             if m.idle_days >= 1 && l.job.craft().is_some() {
-                if let Some((g, f)) = self.dearest(town, 1).first().copied() {
+                if let Some((g, f)) = self.dearest_at(town, 1, t).first().copied() {
                     if f > 1.3 {
                         let item = super::items::id(g.items()[0]);
                         out.push(Candidate { who: p, plot: Plot::Ask { chance: Chance::Fetch { item, count: 3 }, target: None, event: None }, drive: (0.2 + 0.1 * m.idle_days as f32) * asks, prominence: 0.0 });
@@ -399,6 +400,10 @@ impl World {
     /// Each town's storyteller picks today's storylines.
     pub(super) fn dawn_stories(&mut self, town: SettlementId, t: f64) {
         let day = World::day_of(t);
+        // Runaways who've died, been bound again, or whose term is over aren't sought.
+        let today = (t / DAY) as f32;
+        let runaways = std::mem::take(&mut self.society.runaways);
+        self.society.runaways = runaways.into_iter().filter(|x| !self.people[x.0 as usize].dead && !self.is_bonded(x.0, t) && x.3 > today).collect();
         // Stories waiting on an opportunity end when it does.
         self.society.stories.retain(|s| match s.waiting {
             Some(id) => self.society.opps.iter().any(|o| o.id == id && matches!(o.state, OppState::Open | OppState::Taken)),
@@ -567,7 +572,7 @@ impl World {
             return;
         }
         // A squad member on guard there catches them outright.
-        if let Some(guard) = place.and_then(|pl| self.on_watch(town, pl)) {
+        if let Some(guard) = place.and_then(|pl| self.on_watch(town, pl, t)) {
             let ev = self.note_seen(Deed::Caught, Some(guard), Some(thief), town, t, false, vec![victim]);
             let _ = ev;
             self.remember(victim, Who::Person(guard), Deed::Caught, 0.4, day);
@@ -710,8 +715,8 @@ impl World {
                 cost * super::chances::KILL_DAYS
             }
             Chance::Runaway => {
-                let (_, _, _, days) = *self.society.runaways.iter().find(|x| Some(x.0) == target)?;
-                o.amount = days;
+                let (_, _, _, ends) = *self.society.runaways.iter().find(|x| Some(x.0) == target)?;
+                o.amount = (ends - (t / DAY) as f32).max(1.0);
                 cost * 3.0
             }
             Chance::ClearCamp { .. } => 120.0 + cost * 10.0,

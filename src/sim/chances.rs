@@ -38,6 +38,10 @@ use super::world::{World, DAY, HOUR};
 
 /// Days an opportunity stays open before it lapses, by kind (see `Chance::days`).
 pub const OPEN_DAYS: f64 = 6.0;
+/// Days to do a job once it's taken; and how long a job done but not
+/// reported back stays open before it's let go.
+pub const JOB_DAYS: f64 = 14.0;
+pub const REPORT_DAYS: f64 = 10.0;
 /// Guard work: days, and the day's pay as a share of the giver's daily costs.
 pub const GUARD_DAYS: u8 = 4;
 pub const GUARD_PAY: f32 = 0.6;
@@ -355,10 +359,13 @@ impl World {
         }
         let qid = self.quests.len() as u32;
         self.quests.push(Quest { id: qid, giver: o.asker, kind, stage: Stage::Active, coin: o.reward, bonus: None, opp: Some(id) });
+        let t = self.time;
         let o = self.opp_mut(id)?;
         o.state = OppState::Taken;
         o.taken_by = Some(who);
         o.known = true;
+        // The clock for the work starts now.
+        o.deadline = t + JOB_DAYS * DAY;
         Some(qid)
     }
 
@@ -417,12 +424,13 @@ impl World {
 
     /// Where a contract's place is.
     pub fn contract_pos(&self, c: &Contract) -> V2 {
-        self.society.towns[c.town as usize].places[c.place as usize].pos
+        // (A town laid out anew may have lost the place: then the town's middle.)
+        self.society.towns[c.town as usize].places.get(c.place as usize).map(|p| p.pos).unwrap_or(self.settlements[c.town as usize].pos)
     }
 
     /// Is a squad member on a contract at its place right now?
-    pub fn on_watch(&self, town: SettlementId, place: u16) -> Option<PersonId> {
-        let h = (self.time.rem_euclid(DAY) / HOUR) as f32;
+    pub fn on_watch(&self, town: SettlementId, place: u16, t: f64) -> Option<PersonId> {
+        let h = (t.rem_euclid(DAY) / HOUR) as f32;
         self.society.contracts.iter().find(|c| c.town == town && c.place == place && h >= c.hours.0 && h < c.hours.1 && self.squad.index(c.member).is_some_and(|k| self.member_pos(k).dist(self.contract_pos(c)) <= AT_POST)).map(|c| c.member)
     }
 
@@ -460,6 +468,14 @@ impl World {
         let mut i = 0;
         while i < self.society.contracts.len() {
             let c = self.society.contracts[i].clone();
+            if self.society.towns[c.town as usize].places.get(c.place as usize).is_none() {
+                // The town was laid out anew and the place is gone.
+                self.society.contracts.remove(i);
+                if let Some(id) = c.opp {
+                    self.fail_opp(id, t);
+                }
+                continue;
+            }
             let need = (c.hours.1 - c.hours.0) as f64 * HOUR * PRESENT_SHARE as f64;
             // The day being settled is yesterday's.
             let began = World::day_of(t) - 1 >= c.first_day;
@@ -485,11 +501,11 @@ impl World {
                     d.gear.add(coin, pay.round() as u16);
                 }
                 self.people[c.member as usize].recompute_might();
-                self.society.contracts[i].days_paid += 1;
+                self.society.contracts[i].days_paid = self.society.contracts[i].days_paid.saturating_add(1);
                 let name = self.name_of(c.member);
                 self.say(t, format!("{name} is paid {:.0} coin for a day's work.", pay.round()));
             } else {
-                self.society.contracts[i].missed += 1;
+                self.society.contracts[i].missed = self.society.contracts[i].missed.saturating_add(1);
                 if self.society.contracts[i].missed > MISSED_LIMIT {
                     ended = true;
                     if let Some(id) = c.opp {
@@ -607,15 +623,29 @@ impl World {
                 format!("It was {}. You didn't hear it from me.", actor.map(|a| self.name_of(a)).unwrap_or_default())
             }
             Chance::CollectDebt => {
-                let h = self.society.lives[npc as usize].household.unwrap();
-                let owed = o.amount.min(self.society.households[h as usize].purse.coin.max(0.0));
-                self.society.households[h as usize].purse.coin -= owed;
+                let Some(h) = self.society.lives[npc as usize].household else { return "Hm.".into() };
+                let paid = o.amount.min(self.society.households[h as usize].purse.coin.max(0.0));
+                if paid < 1.0 {
+                    return "I've nothing. Look for yourself.".into();
+                }
+                self.society.households[h as usize].purse.coin -= paid;
                 if let Some(ch) = self.society.lives.get(o.asker as usize).and_then(|l| l.household) {
-                    self.society.households[ch as usize].purse.coin += owed;
-                    self.society.households[h as usize].purse.debts.retain(|d| d.to != super::lives::Creditor::Household(ch));
+                    self.society.households[ch as usize].purse.coin += paid;
+                    let debts = &mut self.society.households[h as usize].purse.debts;
+                    if let Some(d) = debts.iter_mut().find(|d| d.to == super::lives::Creditor::Household(ch)) {
+                        d.amount -= paid;
+                        d.dodged = false;
+                    }
+                    debts.retain(|d| d.amount > 0.01);
+                }
+                if let Some(x) = self.opp_mut(id) {
+                    x.amount -= paid;
+                }
+                if o.amount - paid > 0.5 {
+                    return format!("Here — {paid:.0}. It's all there is. The rest when I have it.");
                 }
                 self.mark_done(id);
-                format!("Here — {owed:.0}. Tell them we're square.")
+                format!("Here — {paid:.0}. Tell them we're square.")
             }
             Chance::Intimidate => {
                 self.remember(npc, Who::Person(who), Deed::Threat, -0.3, day);
@@ -744,6 +774,12 @@ impl World {
     pub(super) fn dawn_opps(&mut self, t: f64) {
         for i in 0..self.society.opps.len() {
             let o = &self.society.opps[i];
+            // A killing whose target has died is done, whenever it was noticed.
+            if o.state == OppState::Taken && o.kind == Chance::Kill && o.target.is_some_and(|p| self.people[p as usize].dead) && !o.done {
+                let id = o.id;
+                self.mark_done(id);
+            }
+            let o = &self.society.opps[i];
             if o.deadline > t {
                 continue;
             }
@@ -753,6 +789,8 @@ impl World {
                     let id = o.id;
                     self.fail_opp(id, t);
                 }
+                // Done but never reported back: let it go.
+                OppState::Taken if o.done && o.deadline + REPORT_DAYS * DAY <= t => self.society.opps[i].state = OppState::Lapsed,
                 _ => {}
             }
         }

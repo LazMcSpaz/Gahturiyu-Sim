@@ -633,7 +633,12 @@ impl World {
 
     /// Goods a town lacks most, at its own prices (for the town panel).
     pub fn dearest(&self, town: SettlementId, n: usize) -> Vec<(Good, f32)> {
-        let mut v: Vec<(Good, f32)> = GOODS.iter().map(|&g| (g, self.price_factor(town, g))).collect();
+        self.dearest_at(town, n, self.time)
+    }
+
+    /// The same, at time `t` (for anything on the world's timeline).
+    pub fn dearest_at(&self, town: SettlementId, n: usize, t: f64) -> Vec<(Good, f32)> {
+        let mut v: Vec<(Good, f32)> = GOODS.iter().map(|&g| (g, self.price_factor_at(town, g, t))).collect();
         v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         v.truncate(n);
         v

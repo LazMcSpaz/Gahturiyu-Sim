@@ -73,6 +73,24 @@ fn a_loaded_world_carries_on_as_the_saved_one_would_have() {
 }
 
 #[test]
+fn lives_saved_after_some_days_carry_on_the_same() {
+    // Purses, memories, grudges, gossip, storylines, the ring and jobs all
+    // cross a few dawns before the save, and a few more after.
+    let mut w = worldgen::generate(1);
+    for tl in &mut w.society.towns {
+        tl.drama = 0.8;
+    }
+    run(&mut w, 4.0 * 24.0 * HOUR, HOUR);
+    let mut back = World::load_bytes(&w.save_bytes()).expect("loads");
+    assert_same(&w, &back);
+    for x in [&mut w, &mut back] {
+        run(x, 3.0 * 24.0 * HOUR, HOUR);
+    }
+    assert_same(&w, &back);
+    assert!(!w.society.stories.is_empty() || !w.society.opps.is_empty());
+}
+
+#[test]
 fn a_fight_saved_halfway_ends_the_same() {
     let mut w = worldgen::generate(7);
     let camp = w.camps[0].pos;

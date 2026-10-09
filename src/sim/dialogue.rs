@@ -166,6 +166,9 @@ pub struct Conversation {
     pub pieces: Vec<u16>,
     #[serde(default)]
     pub refused: bool,
+    /// What's been tried in this talk already: (option, which concern).
+    #[serde(default)]
+    pub tried: Vec<(super::talk::Opt, usize)>,
 }
 
 impl World {
@@ -254,7 +257,7 @@ impl World {
         let concerns = self.on_mind(npc);
         let said = self.assemble_talk(npc, who, concerns.first(), true);
         self.note_said(npc, who, &said.pieces);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new() });
     }
 
     pub fn end_talk(&mut self) {
@@ -268,7 +271,7 @@ impl World {
             return vec![Topic::Goodbye];
         }
         // What the squad member can say about what's on their mind.
-        let mut t: Vec<Topic> = self.options(c.npc, c.with, &c.concerns, c.at).into_iter().map(Topic::Say).collect();
+        let mut t: Vec<Topic> = self.options(c.npc, c.with, &c.concerns, c.at).into_iter().filter(|o| *o == super::talk::Opt::More || !c.tried.contains(&(*o, c.at))).map(Topic::Say).collect();
         t.extend([Topic::Background, Topic::ThisTown, Topic::Advice, Topic::Rumours, Topic::Bandits]);
         for (i, q) in self.quests.iter().enumerate() {
             if q.giver == c.npc && (q.stage == Stage::Report || matches!(q.kind, QuestKind::Fetch { .. }) && q.stage == Stage::Active) {
@@ -397,6 +400,7 @@ impl World {
             self.push_talk(false, opt.label().to_string());
             let answer = self.say_opt(c.npc, c.with, &c.concerns, c.at, opt);
             if let Some(t) = self.talk.as_mut() {
+                t.tried.push((opt, t.at));
                 if opt == super::talk::Opt::More {
                     t.at += 1;
                 }

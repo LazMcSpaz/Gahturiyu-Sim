@@ -293,7 +293,7 @@ impl World {
                 None
             } else if m.injured_days >= LONG_INJURY {
                 Some(Loss::Injury)
-            } else if m.away_days >= LONG_AWAY {
+            } else if m.away_days >= LONG_AWAY && l.job != Job::Caravaner {
                 Some(Loss::Away)
             } else if m.idle_days >= IDLE_DAYS {
                 Some(Loss::Idle)
@@ -377,12 +377,16 @@ impl World {
                 let job = self.society.lives[p as usize].job;
                 let hours = self.day_plan(p, day).hours_of(Doing::Work, 0.0, 24.0) + self.day_plan(p, day).hours_of(Doing::Run, 0.0, 24.0);
                 let pay = job.pay() * hours * scale * if job == Job::Guard { watch_paid } else { 1.0 };
-                let to = match self.bond_of(p).and_then(|b| b.holder).and_then(|hd| self.society.lives[hd as usize].household) {
+                let to = match self.bond_at(p, t).and_then(|b| b.holder).and_then(|hd| self.society.lives[hd as usize].household) {
                     Some(hh) if m.work == Work::Bonded => hh,
                     _ => h,
                 };
                 earned.push((to, pay));
             }
+        }
+        // A bound worker's pay to a holder in another town goes straight there.
+        for &(h, pay) in earned.iter().filter(|e| !hhs.contains(&e.0)) {
+            self.society.households[h as usize].purse.coin += pay;
         }
         for &h in &hhs {
             let income: f32 = earned.iter().filter(|e| e.0 == h).map(|e| e.1).sum();

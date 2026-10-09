@@ -738,7 +738,12 @@ impl World {
     }
 
     pub fn bond_of(&self, p: PersonId) -> Option<&Bond> {
-        self.bonds.iter().find(|b| b.who == p && b.until > self.time)
+        self.bond_at(p, self.time)
+    }
+
+    /// Someone's bond in force at `t`.
+    pub fn bond_at(&self, p: PersonId, t: f64) -> Option<&Bond> {
+        self.bonds.iter().find(|b| b.who == p && b.since <= t && b.until > t)
     }
 
     /// Bind someone for a term. Where bonds are recorded, the record says so.
@@ -817,7 +822,8 @@ impl World {
                     if self.society.communities[si as usize].customs.slavery != Slavery::Allowed {
                         // Their holder may want them back (`chances.rs`).
                         if let Some(holder) = b.holder.filter(|_| b.until > t + DAY) {
-                            let left = if b.slave { 30.0 } else { ((b.until - t) / DAY) as f32 };
+                            // (When their term would have ended: a slave's, a season on.)
+                            let left = if b.slave { (t / DAY) as f32 + 30.0 } else { (b.until / DAY) as f32 };
                             self.society.runaways.retain(|x| x.0 != b.who);
                             self.society.runaways.push((b.who, holder, town, left));
                             if self.society.runaways.len() > 100 {

@@ -137,7 +137,7 @@ impl Who {
 }
 
 /// Something someone remembers: who wronged or helped them, how, how much.
-/// (Kept small: 16 bytes, 10 saved.)
+/// (Kept small: 16 bytes, 12 saved.)
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(into = "PackedMemory", from = "PackedMemory")]
 pub struct Memory {
@@ -152,19 +152,19 @@ pub struct Memory {
     pub heard: bool,
 }
 
-/// A memory as saved: who (packed), what, how much (in hundredths), when, heard.
+/// A memory as saved: who (packed), what, how much, when, heard.
 #[derive(Serialize, Deserialize, Clone, Copy)]
-struct PackedMemory(u32, u8, i16, u16, bool);
+struct PackedMemory(u32, u8, f32, u16, bool);
 
 impl From<Memory> for PackedMemory {
     fn from(m: Memory) -> Self {
-        PackedMemory(m.about.pack(), m.deed as u8, (m.amount * 100.0).round() as i16, m.day, m.heard)
+        PackedMemory(m.about.pack(), m.deed as u8, m.amount, m.day, m.heard)
     }
 }
 
 impl From<PackedMemory> for Memory {
     fn from(p: PackedMemory) -> Self {
-        Memory { about: Who::unpack(p.0), deed: Deed::from_u8(p.1), amount: p.2 as f32 / 100.0, day: p.3, heard: p.4 }
+        Memory { about: Who::unpack(p.0), deed: Deed::from_u8(p.1), amount: p.2, day: p.3, heard: p.4 }
     }
 }
 
@@ -527,8 +527,17 @@ impl World {
             f.since = day;
         }
         if rung == 5 {
-            // A feud is both households'.
-            self.feel(o, h, 0.0, day);
+            // A feud is both households' (it takes the place of their mildest
+            // feeling if they've no room).
+            if self.feeling(o, h).is_none() {
+                let fs = &mut self.society.households[o as usize].feelings;
+                let new = Feeling { other: h, warmth: RUNGS[4], stage: 5, since: day };
+                if fs.len() < FEELINGS_CAP {
+                    fs.push(new);
+                } else if let Some(k) = (0..fs.len()).filter(|&k| fs[k].stage < 5).min_by(|&a, &b| fs[a].warmth.abs().total_cmp(&fs[b].warmth.abs())) {
+                    fs[k] = new;
+                }
+            }
             if let Some(f) = self.society.households[o as usize].feelings.iter_mut().find(|f| f.other == h) {
                 f.stage = 5;
                 f.warmth = f.warmth.min(RUNGS[4]);
@@ -605,7 +614,8 @@ impl World {
             }
             _ => Deed::Feud,
         };
-        if rung >= 2 && found {
+        // (A hearing counts its own wrong.)
+        if rung >= 2 && found && deed != Deed::PublicDispute {
             self.society.towns[town as usize].gov.wrongs += 1.0;
         }
         // The one it's done to remembers it — against whoever did it, if they know.

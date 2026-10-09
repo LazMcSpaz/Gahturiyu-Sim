@@ -255,7 +255,8 @@ pub struct Society {
     /// Stolen things, and where they are.
     #[serde(default)]
     pub stolen: Vec<super::chances::Stolen>,
-    /// Those who ran from a bond: (who, their holder, town, days of the term left).
+    /// Those who ran from a bond: (who, their holder, town, the day their term
+    /// would have ended).
     #[serde(default)]
     pub runaways: Vec<(PersonId, PersonId, SettlementId, f32)>,
     /// Criminal rings (`ring.rs`).
@@ -471,13 +472,38 @@ impl World {
     pub(super) fn form_all_households(&mut self) {
         // What each person's share of their old household's purse was comes
         // with them into the new one (debts too, owed now to the hall).
-        let mut share: Vec<f32> = vec![0.0; self.people.len()];
+        // (What other households owe them counts as theirs: those loans are
+        // owed to the hall from now on.)
+        let mut owed_to: Vec<f32> = vec![0.0; self.society.households.len()];
         for h in &self.society.households {
+            for d in &h.purse.debts {
+                if let super::lives::Creditor::Household(o) = d.to {
+                    if let Some(x) = owed_to.get_mut(o as usize) {
+                        *x += d.amount;
+                    }
+                }
+            }
+        }
+        let mut share: Vec<f32> = vec![0.0; self.people.len()];
+        for (k, h) in self.society.households.iter().enumerate() {
             let n = h.members.len().max(1) as f32;
-            let net = (h.purse.coin - h.purse.debt()) / n;
+            let net = (h.purse.coin - h.purse.debt() + owed_to[k]) / n;
             for &m in &h.members {
                 if let Some(s) = share.get_mut(m as usize) {
                     *s = net;
+                }
+            }
+        }
+        // Feelings are carried by people: each old household's, toward the
+        // household someone of the other's now lives in.
+        let mut felt: Vec<(PersonId, PersonId, super::memory::Feeling)> = Vec::new();
+        for h in &self.society.households {
+            for f in &h.feelings {
+                let rep = self.society.households.get(f.other as usize).and_then(|o| o.members.first().copied());
+                if let Some(rep) = rep {
+                    for &m in &h.members {
+                        felt.push((m, rep, *f));
+                    }
                 }
             }
         }
@@ -500,6 +526,28 @@ impl World {
                     p.debts.push(super::lives::Debt { to: super::lives::Creditor::Hall(town), amount: -net, dodged: false });
                 }
             }
+            for (m, rep, f) in felt {
+                let (Some(h), Some(o)) = (self.society.lives[m as usize].household, self.society.lives[rep as usize].household) else { continue };
+                if h == o {
+                    continue;
+                }
+                let fs = &mut self.society.households[h as usize].feelings;
+                match fs.iter().position(|x| x.other == o) {
+                    Some(k) => {
+                        if fs[k].warmth.abs() < f.warmth.abs() {
+                            fs[k] = super::memory::Feeling { other: o, ..f };
+                        }
+                    }
+                    None if fs.len() < super::memory::FEELINGS_CAP => fs.push(super::memory::Feeling { other: o, ..f }),
+                    None => {}
+                }
+            }
+            // Anything that named a household by its old number is let go.
+            for r in &mut self.society.rings {
+                r.paying.clear();
+            }
+            use super::stories::Plot;
+            self.society.stories.retain(|s| !matches!(s.plot, Plot::Grudge { .. } | Plot::Con { .. } | Plot::DodgeDebt { .. } | Plot::Steal { household: Some(_), .. } | Plot::Ring { mv: super::ring::Move::Extort { .. } }));
         }
     }
 
