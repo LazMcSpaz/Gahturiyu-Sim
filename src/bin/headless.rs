@@ -220,6 +220,10 @@ fn society(days: f64, seed: u64) {
                 stages.iter().sum::<usize>(), stages[1], stages[2], stages[3], stages[4], stages[5],
                 deeds.iter().map(|(k, n)| format!("{k} {n}")).collect::<Vec<_>>().join(", ")
             );
+            let live: Vec<String> = w.stories_in(ti as u16).iter().map(|s| format!("{:?}", s.plot).split(' ').next().unwrap_or("").to_string()).collect();
+            let opps: Vec<String> = w.society.opps.iter().filter(|o| o.town == ti as u16).map(|o| format!("{}:{:?}", o.kind.name(), o.state)).collect();
+            let ring = w.ring(ti as u16).map(|r| format!("ring of {} (purse {:.0}, heat {:.1}, last {:?})", r.members.len(), r.purse, r.heat, r.last.map(|l| l.0.words()))).unwrap_or_default();
+            println!("  stories: cap {} live [{}] | opps [{}] | {}", w.story_cap(ti as u16), live.join(" "), opps.join(", "), ring);
         }
         let g = w.government(ti as u16);
         let shore = &w.society.communities[tl.shore as usize].customs;

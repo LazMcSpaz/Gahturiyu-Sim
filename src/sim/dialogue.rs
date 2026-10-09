@@ -71,6 +71,16 @@ pub enum Topic {
     BuyOut(PersonId, u16),
     /// Take up a post in this town's government.
     TakePost(super::law::Post),
+    /// Press them about a job: (opportunity, how).
+    Press(u32, super::chances::Press),
+    /// What's posted at the hall.
+    Board,
+    /// Take a job posted at the hall.
+    TakeJob(u32),
+    /// Work a post that's going in town: (job, workplace).
+    PostWork(super::jobs::Job, u16),
+    /// Give up the work you're doing here.
+    QuitWork,
     Goodbye,
 }
 
@@ -101,6 +111,13 @@ impl Topic {
             Topic::Collect(_) => "Is my order ready?",
             Topic::BuyOut(..) => "Buy out a bond",
             Topic::TakePost(_) => "Take up a post",
+            Topic::Press(_, super::chances::Press::Ask) => "About that matter...",
+            Topic::Press(_, super::chances::Press::Pay) => "I'll make it worth your while.",
+            Topic::Press(_, super::chances::Press::Threaten) => "Tell me, or else.",
+            Topic::Board => "What's posted here?",
+            Topic::TakeJob(_) => "I'll take that job",
+            Topic::PostWork(..) => "I'm looking for work",
+            Topic::QuitWork => "I'm giving up this work",
             Topic::Goodbye => "Goodbye",
         }
     }
@@ -153,6 +170,11 @@ impl World {
             },
             Topic::BuyOut(m, p) => format!("Buy {} out of their bond ({p} coin)", self.people[m as usize].name().unwrap_or("?")),
             Topic::TakePost(post) => format!("Take up the post of {}", post.name()),
+            Topic::TakeJob(id) => match self.opportunity(id) {
+                Some(o) => format!("I'll take it: {}", self.opp_line(o)),
+                None => t.text(),
+            },
+            Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
             Topic::Collect(k) => match self.orders.get(k as usize) {
                 Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
@@ -354,6 +376,25 @@ impl World {
                 }
             }
         }
+        // Jobs the squad has taken that this person could move on.
+        for id in self.pressable(c.npc) {
+            use super::chances::Press;
+            t.extend([Topic::Press(id, Press::Ask), Topic::Press(id, Press::Pay), Topic::Press(id, Press::Threaten)]);
+        }
+        // At the hall: what's posted, and posts going.
+        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter) && self.at_work(c.npc, self.time) {
+            if let Some(town) = self.people[c.npc as usize].home {
+                if !self.hall_board(town).is_empty() {
+                    t.push(Topic::Board);
+                    t.extend(self.hall_board(town).into_iter().filter(|&id| self.opportunity(id).is_some_and(|o| o.known)).take(4).map(Topic::TakeJob));
+                }
+                if self.contract_of(c.with).is_some() {
+                    t.push(Topic::QuitWork);
+                } else {
+                    t.extend(self.vacant_posts(town).into_iter().take(2).map(|(j, pl)| Topic::PostWork(j, pl)));
+                }
+            }
+        }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
             if c.orders {
@@ -504,6 +545,10 @@ impl World {
                     if let Some(t) = self.talk.as_mut() {
                         t.offered = true;
                     }
+                    let npc = c.npc;
+                    if let Some(o) = self.society.opps.iter_mut().find(|o| o.asker == npc && o.state == super::chances::OppState::Open) {
+                        o.known = true;
+                    }
                     let extra = bonus.map(|b| format!(" — and {} besides", items::item(b).name.to_lowercase())).unwrap_or_default();
                     match kind {
                         QuestKind::ClearCamp { at, .. } => {
@@ -519,6 +564,10 @@ impl World {
                             let q = &self.people[to as usize];
                             let place = q.home.map(|h| self.settlements[h as usize].name.clone()).unwrap_or_default();
                             format!("Would you carry a letter to {} in {place}? Sealed, mind. {coin} coin when it's done — they'll pay you.", super::names::person_name(q.race, q.seed))
+                        }
+                        QuestKind::Job { opp } => {
+                            let line = self.opportunity(opp).map(|o| self.opp_line(o)).unwrap_or_default();
+                            format!("There's something. {}{}.", line[..1].to_uppercase(), &line[1..])
                         }
                     }
                 }
@@ -536,6 +585,39 @@ impl World {
                 }
                 None => "Never mind.".into(),
             },
+            Topic::Press(id, how) => self.press(id, c.with, c.npc, how),
+            Topic::Board => {
+                let town = p.home.unwrap_or(0);
+                let ids = self.hall_board(town);
+                for &id in &ids {
+                    if let Some(o) = self.society.opps.iter_mut().find(|o| o.id == id) {
+                        o.known = true;
+                    }
+                }
+                let lines: Vec<String> = ids.iter().filter_map(|&id| self.opportunity(id)).map(|o| format!("{} wants someone to {}", self.name_of(o.asker), self.opp_line(o))).collect();
+                format!("Posted here: {}.", lines.join("; "))
+            }
+            Topic::TakeJob(id) => match self.take_opportunity(id, c.with) {
+                Some(q) => {
+                    let line = self.quest_line(&self.quests[q as usize].clone());
+                    self.log.push_front((self.time, format!("New job: {line}")));
+                    self.log.truncate(14);
+                    "It's yours. Go and see them.".into()
+                }
+                None => "That's gone, I'm afraid.".into(),
+            },
+            Topic::PostWork(job, place) => {
+                let town = p.home.unwrap_or(0);
+                if self.take_post_work(c.with, town, job, place) {
+                    format!("Good. You'll work as {} from tomorrow's first light, 8 till 5. Paid each dawn.", job.name().to_lowercase())
+                } else {
+                    "You've work already.".into()
+                }
+            }
+            Topic::QuitWork => {
+                self.quit_work(c.with);
+                "So be it.".into()
+            }
             Topic::Report(i) => {
                 let q = self.quests[i].clone();
                 match (q.kind, q.stage) {
@@ -712,6 +794,11 @@ fn topic_key(t: Topic) -> u64 {
         Topic::Collect(k) => 70_000 + k as u64,
         Topic::BuyOut(m, _) => 80_000 + m as u64,
         Topic::TakePost(p) => 16 + p as u64,
+        Topic::Press(id, how) => 90_000 + id as u64 * 4 + how as u64,
+        Topic::Board => 30,
+        Topic::TakeJob(id) => 1_000_000 + id as u64,
+        Topic::PostWork(j, _) => 31 + j as u64,
+        Topic::QuitWork => 70,
     }
 }
 

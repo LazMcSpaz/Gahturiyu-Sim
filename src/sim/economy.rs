@@ -116,6 +116,8 @@ impl World {
             self.settle_making(town as SettlementId, t);
         }
         self.rot_gear(t);
+        // Storylines due this hour are acted out.
+        self.story_hour(h, t);
         if h.rem_euclid(24) == DAWN {
             for town in 0..self.settlements.len() {
                 self.dawn(town as SettlementId, t);
@@ -128,6 +130,13 @@ impl World {
             }
             for town in 0..self.settlements.len() {
                 self.place_jobless(town as SettlementId);
+            }
+            // Jobs and contracts, then each town's ring and storyteller.
+            self.dawn_opps(t);
+            self.dawn_contracts(t);
+            for town in 0..self.settlements.len() {
+                self.dawn_ring(town as SettlementId, t);
+                self.dawn_stories(town as SettlementId, t);
             }
             self.shunned.retain(|s| s.2 > t);
             self.check_orders(t);

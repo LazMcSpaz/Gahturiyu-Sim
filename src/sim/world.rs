@@ -407,6 +407,8 @@ impl World {
         self.update_rituals();
         self.update_battles();
         self.update_quests();
+        self.update_opps();
+        self.work_contracts(dt);
         self.update_conditions();
         self.expire_boons();
 

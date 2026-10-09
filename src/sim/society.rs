@@ -210,6 +210,16 @@ pub struct TownLife {
     pub owed: f32,
     /// The catch the dawn boats brought ashore last.
     pub landed: f32,
+    /// How eventful the town is: scales its storyteller (`stories.rs`).
+    #[serde(default = "drama_start")]
+    pub drama: f32,
+    /// When each kind of storyline last started here: (kind, day).
+    #[serde(default)]
+    pub cooldowns: Vec<(u8, i32)>,
+}
+
+fn drama_start() -> f32 {
+    super::stories::DRAMA_START
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -229,6 +239,28 @@ pub struct Society {
     /// What's happened in each town (`history.rs`).
     #[serde(default)]
     pub history: super::history::History,
+    /// Live storylines (`stories.rs`).
+    #[serde(default)]
+    pub stories: Vec<super::stories::Story>,
+    #[serde(default)]
+    pub next_story: u32,
+    /// Opportunities (`chances.rs`).
+    #[serde(default)]
+    pub opps: Vec<super::chances::Opportunity>,
+    #[serde(default)]
+    pub next_opp: u32,
+    /// Squad members' paid work in town.
+    #[serde(default)]
+    pub contracts: Vec<super::chances::Contract>,
+    /// Stolen things, and where they are.
+    #[serde(default)]
+    pub stolen: Vec<super::chances::Stolen>,
+    /// Those who ran from a bond: (who, their holder, town, days of the term left).
+    #[serde(default)]
+    pub runaways: Vec<(PersonId, PersonId, SettlementId, f32)>,
+    /// Criminal rings (`ring.rs`).
+    #[serde(default)]
+    pub rings: Vec<super::ring::Ring>,
 }
 
 /// A strong minority's share, and the cooking its institution brings, for
@@ -379,6 +411,8 @@ impl World {
                 treasury: 0.0,
                 owed: 0.0,
                 landed: 0.0,
+                drama: super::stories::DRAMA_START,
+                cooldowns: Vec::new(),
             });
         }
         self.society = s;
@@ -463,7 +497,7 @@ impl World {
                 if net >= 0.0 {
                     p.coin = net;
                 } else {
-                    p.debts.push(super::lives::Debt { to: super::lives::Creditor::Hall(town), amount: -net });
+                    p.debts.push(super::lives::Debt { to: super::lives::Creditor::Hall(town), amount: -net, dodged: false });
                 }
             }
         }
@@ -720,7 +754,7 @@ impl World {
     // ---- Jobs -----------------------------------------------------------------
 
     /// The workplaces in a town where a job is done, for a community.
-    fn places_for(&self, ci: u32, job: Job) -> Vec<u16> {
+    pub(super) fn places_for(&self, ci: u32, job: Job) -> Vec<u16> {
         use PlaceKind as P;
         let c = &self.society.communities[ci as usize];
         let tl = &self.society.towns[c.town as usize];
@@ -764,7 +798,7 @@ impl World {
     }
 
     /// How many of a job a community wants, given its size.
-    fn posts_for(&self, ci: u32, job: Job, n: usize) -> usize {
+    pub(super) fn posts_for(&self, ci: u32, job: Job, n: usize) -> usize {
         let c = &self.society.communities[ci as usize];
         let tl = &self.society.towns[c.town as usize];
         let nf = n as f32;
@@ -824,7 +858,7 @@ impl World {
     }
 
     /// The order posts are filled in: what a town can least do without first.
-    const POST_ORDER: [Job; 29] = [
+    pub(super) const POST_ORDER: [Job; 29] = [
         Job::Guard,
         Job::Cook,
         Job::Farmer,

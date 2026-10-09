@@ -815,6 +815,15 @@ impl World {
             if r.chance(ESCAPE_CHANCE) {
                 if let Some(si) = self.society.towns[town as usize].stilts {
                     if self.society.communities[si as usize].customs.slavery != Slavery::Allowed {
+                        // Their holder may want them back (`chances.rs`).
+                        if let Some(holder) = b.holder.filter(|_| b.until > t + DAY) {
+                            let left = if b.slave { 30.0 } else { ((b.until - t) / DAY) as f32 };
+                            self.society.runaways.retain(|x| x.0 != b.who);
+                            self.society.runaways.push((b.who, holder, town, left));
+                            if self.society.runaways.len() > 100 {
+                                self.society.runaways.remove(0);
+                            }
+                        }
                         self.bonds[k].until = t;
                         let holder_allows = b.holder.and_then(|h| self.society.lives[h as usize].community).map(|c| self.society.communities[c as usize].customs.slavery == Slavery::Allowed).unwrap_or(false);
                         if holder_allows {

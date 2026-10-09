@@ -1,17 +1,18 @@
-//! Basic quests: work people offer, and how it's tracked.
+//! The squad's journal: jobs taken on, and how they're tracked.
 //!
-//! Three kinds to start:
+//! Jobs come from people's lives: each is an opportunity (`chances.rs`)
+//! made by a storyline (`stories.rs`) — a crafter short of goods wants them
+//! fetched, someone with kin far off has a letter, a town troubled by a camp
+//! wants it broken, the robbed want a guard or their things back, and so on.
+//! The three older kinds keep their own tracking here:
 //!
-//! - **Clear a camp.** Someone wants the nearest bandit camp dealt with.
-//!   Done when your squad wins a fight against it (or it's wiped out).
-//! - **Fetch.** Bring them a few of something (materials, a potion).
-//!   Hand it over by talking to them with it in anyone's pack.
-//! - **Deliver.** Carry a sealed letter to someone in another town.
-//!   Done when you talk to them with the letter.
+//! - **Clear a camp.** Done when your squad wins a fight against it (or it's
+//!   wiped out).
+//! - **Fetch.** Hand it over by talking to them with it in anyone's pack.
+//! - **Deliver.** Carry a sealed letter; done when you talk to them with it.
 //!
-//! Who offers what is decided from their seed and their town's situation,
-//! so the same person always has the same request. Each person offers at
-//! most one job. Rewards are coin, sometimes with something useful.
+//! Everything else is a `Job` tracked on its opportunity. Rewards are coin
+//! from the giver's purse, or a favour owed.
 
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +20,7 @@ use super::geo::V2;
 use super::group::GroupId;
 use super::items::{self, ItemId};
 use super::person::PersonId;
-use super::rng::Rng;
+use super::chances::Chance;
 use super::world::World;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -27,6 +28,8 @@ pub enum QuestKind {
     ClearCamp { camp: GroupId, at: V2 },
     Fetch { item: ItemId, count: u16 },
     Deliver { to: PersonId },
+    /// Any other job, as an opportunity (`chances.rs`).
+    Job { opp: u32 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,59 +50,29 @@ pub struct Quest {
     pub stage: Stage,
     pub coin: u16,
     pub bonus: Option<ItemId>,
+    /// The opportunity it came from.
+    #[serde(default)]
+    pub opp: Option<u32>,
 }
 
 impl World {
-    /// The job this person would offer, if any. Pure: the same person always
-    /// asks for the same thing (unless the world has changed under them —
-    /// a camp gone, say).
+    /// The job this person would offer the squad, if any: their open
+    /// opportunity (`chances.rs`), made from what's going on in their life.
     pub fn quest_offer(&self, npc: PersonId) -> Option<(QuestKind, u16, Option<ItemId>)> {
-        let p = &self.people[npc as usize];
-        if p.bandit || p.in_squad || self.quests.iter().any(|q| q.giver == npc) {
-            return None;
-        }
-        let home = p.home?;
-        let town = &self.settlements[home as usize];
-        let mut r = Rng::from_keys(&[p.seed, 0x5155_4553]);
-        if !r.chance(0.35 + p.traits.sociability * 0.3) {
-            return None;
-        }
-        let roll = r.f32();
-        // A camp near enough to trouble them?
-        let camp = self.camps.iter().filter(|c| c.pos.dist(town.pos) < 4000.0).min_by(|a, b| a.pos.dist(town.pos).total_cmp(&b.pos.dist(town.pos)));
-        if let (Some(c), true) = (camp, roll < 0.35) {
-            let bonus = [items::id("ring_hearth"), items::id("amulet_clear_mind"), items::id("greater_healing")][r.below(3)];
-            return Some((QuestKind::ClearCamp { camp: c.group, at: c.pos }, 120 + r.below(80) as u16, Some(bonus)));
-        }
-        if roll < 0.7 {
-            let wants: &[(&str, u16)] = &[("kelp_frond", 4), ("iron_ore", 3), ("ash_moss", 3), ("healing_draught", 1), ("emberroot", 2), ("hide", 2), ("timber", 2)];
-            let (k, n) = wants[r.below(wants.len())];
-            let coin = (items::item(items::id(k)).value * n as f32 * 2.5) as u16 + 10;
-            return Some((QuestKind::Fetch { item: items::id(k), count: n }, coin, None));
-        }
-        // A letter for someone elsewhere.
-        let others: Vec<usize> = (0..self.settlements.len()).filter(|&s| s != home as usize && !self.settlements[s].residents.is_empty()).collect();
-        if others.is_empty() {
-            return None;
-        }
-        let s = &self.settlements[others[r.below(others.len())]];
-        let to = s.residents[r.below(s.residents.len())];
-        let far = s.pos.dist(town.pos);
-        Some((QuestKind::Deliver { to }, (20.0 + far / 150.0) as u16, None))
+        let o = self.open_offer(npc)?;
+        let kind = match o.kind {
+            Chance::ClearCamp { camp, at } => QuestKind::ClearCamp { camp, at },
+            Chance::Fetch { item, count } => QuestKind::Fetch { item, count },
+            Chance::Deliver { to } => QuestKind::Deliver { to },
+            _ => QuestKind::Job { opp: o.id },
+        };
+        Some((kind, o.reward, None))
     }
 
     /// Take on someone's job. A delivery hands `who` the letter.
     pub fn accept_quest(&mut self, npc: PersonId, who: PersonId) -> Option<u32> {
-        let (kind, coin, bonus) = self.quest_offer(npc)?;
-        let id = self.quests.len() as u32;
-        if let QuestKind::Deliver { to } = kind {
-            self.people[to as usize].ensure_detail();
-            if let Some(d) = self.people[who as usize].detail.as_mut() {
-                d.gear.add(items::id("sealed_letter"), 1);
-            }
-        }
-        self.quests.push(Quest { id, giver: npc, kind, stage: Stage::Active, coin, bonus });
-        Some(id)
+        let id = self.open_offer(npc)?.id;
+        self.take_opportunity(id, who)
     }
 
     /// Notice jobs that have been done out in the world.
@@ -151,6 +124,10 @@ impl World {
         }
         self.people[who as usize].recompute_might();
         self.quests[qi].stage = Stage::Done;
+        if let Some(opp) = self.quests[qi].opp {
+            let t = self.time;
+            self.finish_opp(opp, who, t);
+        }
         let giver = self.quests[qi].giver;
         *self.regard.entry(giver).or_insert(0.0) += 20.0;
         // A favour done for a town raises your standing there.
@@ -181,6 +158,10 @@ impl World {
                 let place = p.home.map(|h| self.settlements[h as usize].name.as_str()).unwrap_or("?");
                 format!("Take {giver}'s letter to {} in {place}.", p.name().unwrap_or("someone"))
             }
+            (QuestKind::Job { opp }, _) => match self.opportunity(*opp) {
+                Some(o) => format!("For {giver} of {town}: {}.", self.opp_line(o)),
+                None => format!("A job for {giver} of {town}."),
+            },
         }
     }
 }

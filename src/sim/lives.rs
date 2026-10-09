@@ -171,6 +171,9 @@ pub enum Creditor {
 pub struct Debt {
     pub to: Creditor,
     pub amount: f32,
+    /// They've stopped paying it.
+    #[serde(default)]
+    pub dodged: bool,
 }
 
 /// A household's money, as of the last dawn.
@@ -389,7 +392,8 @@ impl World {
             let coin = self.society.households[h as usize].purse.coin;
             if coin > reserve {
                 let over = coin - reserve;
-                let repay = (over * REPAY_SHARE).min(self.society.households[h as usize].purse.debt());
+                let owed: f32 = self.society.households[h as usize].purse.debts.iter().filter(|d| !d.dodged).map(|d| d.amount).sum();
+                let repay = (over * REPAY_SHARE).min(owed);
                 self.repay(h, repay, town, t);
                 let left = self.society.households[h as usize].purse.coin - reserve;
                 if left > 0.0 {
@@ -473,14 +477,16 @@ impl World {
         let debts = &mut self.society.households[h as usize].purse.debts;
         match debts.iter_mut().find(|d| d.to == to) {
             Some(d) => d.amount += amount,
-            None => debts.push(Debt { to, amount }),
+            None => debts.push(Debt { to, amount, dodged: false }),
         }
     }
 
     /// Pay back `amount` of a household's debts, oldest first.
     fn repay(&mut self, h: u32, mut amount: f32, town: SettlementId, t: f64) {
         while amount > 0.01 {
-            let Some(d) = self.society.households[h as usize].purse.debts.first().copied() else { break };
+            // (A debt they've stopped paying isn't paid.)
+            let Some(k) = self.society.households[h as usize].purse.debts.iter().position(|d| !d.dodged) else { break };
+            let d = self.society.households[h as usize].purse.debts[k];
             let pay = amount.min(d.amount);
             amount -= pay;
             self.society.households[h as usize].purse.coin -= pay;
@@ -502,9 +508,9 @@ impl World {
                 }
             }
             let debts = &mut self.society.households[h as usize].purse.debts;
-            debts[0].amount -= pay;
-            if debts[0].amount <= 0.01 {
-                debts.remove(0);
+            debts[k].amount -= pay;
+            if debts[k].amount <= 0.01 {
+                debts.remove(k);
             }
         }
         let _ = town;

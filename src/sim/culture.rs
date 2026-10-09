@@ -260,6 +260,9 @@ pub struct Profile {
     pub slavery: [f32; 3],
     /// Where their honour tends to sit, 0..1 (each person rolls their own).
     pub honour: f32,
+    /// How readily they'd ask an outsider for help, 0..1 (proud or insular
+    /// people ask less; each person rolls their own).
+    pub asks: f32,
 }
 
 /// Indexed by `Race::index()`: Roduro, Qotiro, Horaro, Ṭaḍoro.
@@ -280,6 +283,7 @@ pub const PROFILES: [Profile; 4] = [
         justice: [0.80, 0.10, 0.05, 0.05],
         slavery: [0.05, 0.85, 0.10],
         honour: 0.65,
+        asks: 0.45,
     },
     // Qotiro: mess halls and hearth kitchens, bells and fixed shifts, tier blocks.
     Profile {
@@ -297,6 +301,7 @@ pub const PROFILES: [Profile; 4] = [
         justice: [0.10, 0.80, 0.05, 0.05],
         slavery: [0.80, 0.15, 0.05],
         honour: 0.7,
+        asks: 0.3,
     },
     // Horaro: shared decks, the tide, the whole village one family.
     Profile {
@@ -314,6 +319,7 @@ pub const PROFILES: [Profile; 4] = [
         justice: [0.05, 0.05, 0.85, 0.05],
         slavery: [0.05, 0.85, 0.10],
         honour: 0.55,
+        asks: 0.35,
     },
     // Ṭaḍoro: fed by their hosts (no cooking leaning of their own), the
     // stars, and lodging in others' homes.
@@ -333,6 +339,7 @@ pub const PROFILES: [Profile; 4] = [
         justice: [0.10, 0.05, 0.05, 0.80],
         slavery: [0.0, 0.20, 0.80],
         honour: 0.6,
+        asks: 0.7,
     },
 ];
 
@@ -515,6 +522,9 @@ pub struct Habits {
     /// (a claim at the hall, a duel, an open challenge).
     #[serde(default)]
     pub honour: f32,
+    /// How readily they'd ask an outsider for help, 0..1.
+    #[serde(default)]
+    pub asks: f32,
 }
 
 /// How a crafter teaches: deep and slow (more skill a lesson, longer and
@@ -552,7 +562,8 @@ impl Habits {
         // Its own roll, so the habits above are what they always were.
         let teaching = if Rng::from_keys(&[seed, 0x5445_4143]).f32() < p.teaching[0] / (p.teaching[0] + p.teaching[1]) { Teaching::Deep } else { Teaching::Drilled };
         let honour = (p.honour + 0.18 * Rng::from_keys(&[seed, 0x484F_4E52]).normal()).clamp(0.0, 1.0);
-        Habits { own_rhythm, lodger, evening, teaching, honour }
+        let asks = (p.asks + 0.18 * Rng::from_keys(&[seed, 0x4153_4B53]).normal()).clamp(0.0, 1.0);
+        Habits { own_rhythm, lodger, evening, teaching, honour, asks }
     }
 }
 

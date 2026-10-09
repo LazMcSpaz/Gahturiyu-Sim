@@ -84,6 +84,22 @@ pub enum Deed {
     Beating,
     Brawl,
     Feud,
+    // Crime and the law.
+    Con,
+    DebtDodge,
+    Arrest,
+    /// A thief caught at a guarded place.
+    Caught,
+    Extortion,
+    Recruited,
+    Fenced,
+    TurnedIn,
+    Bribe,
+    Killing,
+    // Work done for others.
+    Threat,
+    JobDone,
+    JobFailed,
 }
 
 /// An event someone knows of.
@@ -104,19 +120,19 @@ pub struct Tiding {
 impl Deed {
     /// Is it a wrong done to someone?
     pub fn is_wrong(self) -> bool {
-        !matches!(self, Deed::Kindness | Deed::Loan | Deed::Avoid)
+        !matches!(self, Deed::Kindness | Deed::Loan | Deed::Avoid | Deed::JobDone | Deed::Recruited | Deed::Arrest | Deed::Caught)
     }
 
     /// Does it make the town feel less safe?
     pub fn is_danger(self) -> bool {
-        matches!(self, Deed::Theft | Deed::Sabotage | Deed::Beating | Deed::Brawl | Deed::Feud)
+        matches!(self, Deed::Theft | Deed::Sabotage | Deed::Beating | Deed::Brawl | Deed::Feud | Deed::Extortion | Deed::Killing | Deed::Con)
     }
 
     /// How many see it done.
     pub fn seen_by(self) -> usize {
         match self {
-            Deed::Kindness | Deed::Loan | Deed::Avoid => 0,
-            Deed::Slander | Deed::Sabotage | Deed::Theft | Deed::Beating => 1,
+            Deed::Kindness | Deed::Loan | Deed::Avoid | Deed::Extortion | Deed::Recruited | Deed::Fenced | Deed::TurnedIn | Deed::Bribe | Deed::JobDone | Deed::JobFailed | Deed::Con | Deed::DebtDodge => 0,
+            Deed::Slander | Deed::Sabotage | Deed::Theft | Deed::Beating | Deed::Killing | Deed::Threat => 1,
             _ => WITNESSES,
         }
     }
@@ -131,6 +147,13 @@ impl Deed {
             Deed::Theft | Deed::Duel => 0.5,
             Deed::Brawl | Deed::Beating => 0.7,
             Deed::Feud => 0.8,
+            Deed::Con | Deed::DebtDodge => 0.35,
+            Deed::Arrest | Deed::Caught => 0.4,
+            Deed::Extortion => 0.5,
+            Deed::Recruited | Deed::Fenced | Deed::JobDone | Deed::JobFailed => 0.1,
+            Deed::TurnedIn | Deed::Bribe => 0.4,
+            Deed::Killing => 1.0,
+            Deed::Threat => 0.3,
         }
     }
 
@@ -155,6 +178,19 @@ impl Deed {
             Deed::Beating => "had a beating given to",
             Deed::Brawl => "came to blows in the open with",
             Deed::Feud => "is in a feud with",
+            Deed::Con => "swindled",
+            Deed::DebtDodge => "won't pay what they owe",
+            Deed::Arrest => "arrested",
+            Deed::Caught => "caught a thief:",
+            Deed::Extortion => "squeezed money out of",
+            Deed::Recruited => "took into the ring",
+            Deed::Fenced => "sold on stolen goods for",
+            Deed::TurnedIn => "turned in to the watch",
+            Deed::Bribe => "bribed",
+            Deed::Killing => "killed",
+            Deed::Threat => "threatened",
+            Deed::JobDone => "did a job for",
+            Deed::JobFailed => "let down",
         }
     }
 }

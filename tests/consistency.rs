@@ -70,6 +70,10 @@ fn assert_same_history(a: &World, b: &World) {
     assert_eq!(sa.households, sb.households, "households formed (or spent) differently");
     assert_eq!(sa.minds, sb.minds, "someone's work, needs, memories or knowledge differ");
     assert_eq!(sa.history, sb.history, "the towns' histories differ");
+    assert_eq!(sa.stories, sb.stories, "storylines differ");
+    assert_eq!(sa.opps, sb.opps, "opportunities differ");
+    assert_eq!(sa.rings, sb.rings, "the rings differ");
+    assert_eq!(sa.stolen, sb.stolen, "stolen goods differ");
     assert_eq!(a.stats.caravans, b.stats.caravans, "a different number of caravans");
 }
 

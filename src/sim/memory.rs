@@ -20,7 +20,8 @@
 //!
 //! **Escalation.** A household that has gone cold enough on another climbs a
 //! ladder, one rung at a time and never faster than `ESCALATE_GAP`: it
-//! avoids them; takes it to a public dispute; does them harm; turns to
+//! avoids them (quietly, at dawn); and then — only when the town's
+//! storyteller lets it become a storyline (`stories.rs`) — takes it to a public dispute; does them harm; turns to
 //! violence; and at the top, a feud. Honour picks the branch at each rung —
 //! the honourable act in the open (a hearing judged by custom; a claim, a
 //! duel, a shunning or the record, whichever the wronged side's custom
@@ -77,7 +78,8 @@ pub const LOAN_THANKS: f32 = 0.15;
 pub const RUNGS: [f32; 5] = [-0.15, -0.3, -0.45, -0.6, -0.75];
 /// Days at least between rungs (and between acts in a feud).
 pub const ESCALATE_GAP: i32 = 3;
-/// Chance a day of taking the next rung (× 0.5 + boldness/2 + (1 − patience)/2).
+/// Chance a day of turning one's back (× 0.5 + boldness/2 + (1 − patience)/2);
+/// the rungs past that are storylines (`stories.rs`).
 pub const ESCALATE_CHANCE: f32 = 0.5;
 /// Honour at which the open and covert branches are even, and how wide the
 /// band where either can happen.
@@ -400,16 +402,42 @@ impl World {
         let day = World::day_of(t) as i32;
         for h in self.town_households(town) {
             for f in self.society.households[h as usize].feelings.clone() {
-                if (f.other as usize) >= self.society.households.len() || day - f.since < ESCALATE_GAP {
-                    continue;
+                if f.stage == 0 && f.warmth < RUNGS[0] && day - f.since >= ESCALATE_GAP && (f.other as usize) < self.society.households.len() {
+                    let Some((a, _)) = self.grudge_pair(h, f.other, day) else { continue };
+                    let tr = self.people[a as usize].traits;
+                    let mut r = Rng::from_keys(&[self.seed, h as u64, f.other as u64, day as u64, 0x434C_494D]);
+                    if r.chance(ESCALATE_CHANCE * (0.5 + tr.boldness * 0.5 + (1.0 - tr.patience) * 0.5)) {
+                        self.grudge_act(h, f.other, town, t);
+                    }
                 }
-                let next = (f.stage as usize).min(4);
-                if f.stage < 5 && f.warmth >= RUNGS[next] {
-                    continue;
-                }
-                self.grudge_step(h, f.other, town, t);
             }
         }
+    }
+
+    /// Grudges past their next rung beyond avoiding (for the storyteller):
+    /// (who'd act, the other household, their drive).
+    pub(super) fn grudge_candidates(&self, town: SettlementId, t: f64) -> Vec<(PersonId, u32, f32)> {
+        let day = World::day_of(t) as i32;
+        let mut out = Vec::new();
+        for h in self.town_households(town) {
+            for f in &self.society.households[h as usize].feelings {
+                if !self.grudge_due(f, day) || f.stage == 0 {
+                    continue;
+                }
+                let Some((a, _)) = self.grudge_pair(h, f.other, day) else { continue };
+                let tr = self.people[a as usize].traits;
+                out.push((a, f.other, 0.1 + -f.warmth * (0.5 + 0.25 * tr.boldness + 0.25 * (1.0 - tr.patience))));
+            }
+        }
+        out
+    }
+
+    /// Is a grudge ready for its next rung (or a feud for its next act)?
+    fn grudge_due(&self, f: &Feeling, day: i32) -> bool {
+        if (f.other as usize) >= self.society.households.len() || day - f.since < ESCALATE_GAP {
+            return false;
+        }
+        f.stage >= 5 || f.warmth < RUNGS[(f.stage as usize).min(4)]
     }
 
     /// The most aggrieved member of `h` against household `o`, and whom they blame.
@@ -431,15 +459,16 @@ impl World {
         best.map(|x| (x.1, x.2))
     }
 
-    /// Household `h` may take the next rung against `o` (or act again in a feud).
-    pub fn grudge_step(&mut self, h: u32, o: u32, town: SettlementId, t: f64) {
+    /// Household `h` takes the next rung against `o` (or acts again in a
+    /// feud), if the grudge is still that cold.
+    pub fn grudge_act(&mut self, h: u32, o: u32, town: SettlementId, t: f64) {
         let day = World::day_of(t) as i32;
-        let Some((a, b)) = self.grudge_pair(h, o, day) else { return };
-        let tr = self.people[a as usize].traits;
-        let mut r = Rng::from_keys(&[self.seed, h as u64, o as u64, day as u64, 0x434C_494D]);
-        if !r.chance(ESCALATE_CHANCE * (0.5 + tr.boldness * 0.5 + (1.0 - tr.patience) * 0.5)) {
+        let Some(f) = self.feeling(h, o) else { return };
+        if !(f.stage >= 5 || f.warmth < RUNGS[(f.stage as usize).min(4)]) {
             return;
         }
+        let Some((a, b)) = self.grudge_pair(h, o, day) else { return };
+        let mut r = Rng::from_keys(&[self.seed, h as u64, o as u64, day as u64, 0x4143_5447]);
         let stage = self.feeling(h, o).map(|f| f.stage).unwrap_or(0);
         // In a feud, acts of harm and violence go on.
         let rung = if stage >= 5 { 3 + r.below(2) as u8 } else { stage + 1 };

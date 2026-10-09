@@ -41,15 +41,23 @@ fn talk_to(w: &mut World, npc: PersonId) -> PersonId {
     lead
 }
 
-fn find_offer(w: &World, want: fn(&QuestKind) -> bool) -> PersonId {
-    for s in &w.settlements {
-        for &p in &s.residents {
-            if let Some((k, _, _)) = w.quest_offer(p) {
-                if want(&k) && w.busy_until[p as usize] <= w.time {
-                    return p;
+/// Someone offering that kind of job: jobs come from people's lives, so run
+/// the world (an eventful one) until someone does.
+fn find_offer(w: &mut World, want: fn(&QuestKind) -> bool) -> PersonId {
+    for tl in &mut w.society.towns {
+        tl.drama = 0.9;
+    }
+    for _ in 0..30 * 24 {
+        for s in &w.settlements {
+            for &p in &s.residents {
+                if let Some((k, _, _)) = w.quest_offer(p) {
+                    if want(&k) && w.busy_until[p as usize] <= w.time && !w.people[p as usize].dead {
+                        return p;
+                    }
                 }
             }
         }
+        w.step(3600.0);
     }
     panic!("nobody offers that");
 }
@@ -86,7 +94,7 @@ fn a_bounty_sours_people() {
 #[test]
 fn a_fetch_job_from_start_to_finish() {
     let mut w = worldgen::generate(1);
-    let npc = find_offer(&w, |k| matches!(k, QuestKind::Fetch { .. }));
+    let npc = find_offer(&mut w, |k| matches!(k, QuestKind::Fetch { .. }));
     let lead = talk_to(&mut w, npc);
     assert!(w.topics().contains(&Topic::Work));
     w.ask(Topic::Work);
@@ -114,7 +122,7 @@ fn a_fetch_job_from_start_to_finish() {
 #[test]
 fn a_letter_delivered() {
     let mut w = worldgen::generate(1);
-    let npc = find_offer(&w, |k| matches!(k, QuestKind::Deliver { .. }));
+    let npc = find_offer(&mut w, |k| matches!(k, QuestKind::Deliver { .. }));
     talk_to(&mut w, npc);
     w.ask(Topic::Work);
     w.ask(Topic::Accept);
@@ -133,7 +141,7 @@ fn a_letter_delivered() {
 #[test]
 fn breaking_a_camp_is_noticed_and_paid() {
     let mut w = worldgen::generate(1);
-    let npc = find_offer(&w, |k| matches!(k, QuestKind::ClearCamp { .. }));
+    let npc = find_offer(&mut w, |k| matches!(k, QuestKind::ClearCamp { .. }));
     talk_to(&mut w, npc);
     w.ask(Topic::Work);
     w.ask(Topic::Accept);
@@ -155,5 +163,6 @@ fn breaking_a_camp_is_noticed_and_paid() {
     talk_to(&mut w, npc);
     w.ask(Topic::Report(0));
     assert_eq!(w.quests[0].stage, Stage::Done);
-    assert!(w.squad_count(items::id("coin")) >= 120);
+    // Paid what was promised (or a favour owed, from someone who can't pay).
+    assert!(w.squad_count(items::id("coin")) >= w.quests[0].coin);
 }
