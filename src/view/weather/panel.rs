@@ -133,8 +133,43 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     for part in wrap(c, &w.describe(), W - 28.0, 15.0) {
         lines.push((part, TEXT));
     }
+    // ---- Omens for the day being looked at (always the real weather's) ----------
+    let day = (t / DAY).floor() as i64;
+    // (Worked out once for a region and a day: on a day of thunder it means
+    // looking through the whole day's lightning.)
+    let key = (world.seed, game.loads, (w.region as i64, (weather::lag(at) / 600.0) as i64), day);
+    if v.omens.as_ref().map(|o| o.0 != key).unwrap_or(true) {
+        v.omens = Some((key, world.omens_at(at, day)));
+    }
+    let omens = &v.omens.as_ref().unwrap().1;
+    if omens.is_empty() {
+        lines.push(("Omens today: none".to_string(), DIM));
+    }
+    for o in omens {
+        let secs = o.at.rem_euclid(DAY);
+        let said = format!("Omen ({}), {:02}:{:02}: {}", o.rarity.name(), (secs / HOUR) as i64, ((secs % HOUR) / 60.0) as i64, o.text);
+        for part in wrap(c, &said, W - 28.0, 15.0) {
+            lines.push((part, WARN));
+        }
+    }
+    // The line the two tabs sit on.
+    let tabs_at = lines.len();
     lines.push((String::new(), TEXT));
-    let numbers: [(String, String); 8] = [
+    let e = weather::effects_mixed(&w, &shares, t);
+    let yes_no = |ok: bool, yes: &str, no: &str| if ok { yes.to_string() } else { no.to_string() };
+    let numbers: [(String, String); 8] = if v.effects_tab {
+        [
+            (format!("Sight ×{:.2}", e.sight_mult), format!("Hearing ×{:.2}", e.hearing_mult)),
+            (format!("Aim with bows ×{:.2}", e.ranged_accuracy_mult), format!("Walking pace ×{:.2}", e.travel_speed_mult)),
+            (format!("Slipping on stone {:.0}%", e.slip_risk * 100.0), format!("Fire spreads ×{:.2}", e.fire_spread_mult)),
+            (format!("Cold and wet {:.0}%", e.exposure * 100.0), format!("Feels like {:.0}°C", e.feels_like)),
+            (format!("Boats: {}", yes_no(e.boats_can_sail, "put out", "stay in")), format!("Sea danger {:.0}%", e.sea_danger * 100.0)),
+            (format!("Crops grow ×{:.2}", e.crop_growth_mult), format!("Outdoor work: {}", yes_no(e.outdoor_work_ok, "goes on", "stops"))),
+            (format!("Folk heading indoors {:.0}%", e.shelter_seeking * 100.0), String::new()),
+            ("(Out in the open. Nothing in the game uses these yet.)".to_string(), String::new()),
+        ]
+    } else {
+        [
         (format!("Cloud {:.0}%", w.cloud * 100.0), format!("Cloud base {:.0} m", w.cloud_base)),
         (format!("Rain {:.2} ({})", w.rain, rain_word(w.rain)), format!("Snow {:.2}", w.snow)),
         (format!("Wind {:.1} m/s, {}", w.wind, weather::quarter(w.wind_to)), format!("Gusts {:.0}%", w.gust * 100.0)),
@@ -143,7 +178,8 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
         (format!("Wet ground {:.0}%", w.wetness * 100.0), format!("Snow lies above {:.0} m", w.snow_lies_above.max(0.0))),
         (format!("Storm {:.0}%", w.storm * 100.0), format!("Lightning {:.1} a minute", w.lightning)),
         (format!("Sea {:.2} ({})", w.sea, sea_word(w.sea)), format!("Ground here {:.0} m", world.terrain.surface(at))),
-    ];
+        ]
+    };
     let numbers_at = lines.len();
     for _ in &numbers {
         lines.push((String::new(), TEXT));
@@ -170,6 +206,16 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
     }
     for (i, (l, col)) in lines.iter().enumerate() {
         c.text(l, r.x + 14.0, r.y + top + (i as f32 + 0.8) * ROW, 15.0, *col);
+    }
+    // The two tabs: the weather's own numbers, or what it does.
+    for (i, name) in ["The weather", "What it does"].iter().enumerate() {
+        let b = Bx::new(r.x + 14.0 + i as f32 * 130.0, r.y + top + tabs_at as f32 * ROW - 1.0, 124.0, ROW);
+        let on = (i == 1) == v.effects_tab;
+        c.rect(b.x, b.y, b.w, b.h, ega(GOLD, if on { 0.3 } else if b.contains(game.mouse) { 0.18 } else { 0.08 }));
+        c.centred(name, b.x + b.w / 2.0, b.y + 15.0, 13.0, if on { GOLD } else { TEXT });
+        if click.map(|k| b.contains(k.at) && !k.right).unwrap_or(false) {
+            v.effects_tab = i == 1;
+        }
     }
     for (i, (a, b)) in numbers.iter().enumerate() {
         let y = r.y + top + ((numbers_at + i) as f32 + 0.8) * ROW;
@@ -249,14 +295,14 @@ pub fn panel(c: &Canvas, game: &Game, v: &mut WeatherView, click: Option<Click>)
         v.strength = if v.strength > 0.99 { 0.25 } else { (v.strength + 0.25).min(1.0) };
     }
     // What would be heard (no sound files yet: these are the slots' volumes).
-    let mut heard: Vec<String> = v.sound.loudest().iter().map(|(s, vol)| format!("{} {:.0}%", s.name(), vol * 100.0)).collect();
+    let mut heard: Vec<String> = v.sound.loudest().iter().take(3).map(|(s, vol)| format!("{} {:.0}%", s.name(), vol * 100.0)).collect();
     if let Some((slot, when)) = v.sound.last.filter(|l| v.clock - l.1 < 4.0) {
         let _ = when;
         heard.push(format!("{}!", slot.name()));
     }
     let heard = if heard.is_empty() { "quiet".to_string() } else { heard.join("  ·  ") };
     c.text(&format!("Sound slots{}: {heard}", if v.sound.muffled { " (indoors)" } else { "" }), r.x + 14.0, r.y + r.h - 46.0, 12.0, DIM);
-    c.text(&format!("Drawing the weather takes {:.2} ms a frame", v.cost_ms), r.x + 14.0, r.y + r.h - 28.0, 12.0, DIM);
+    c.text(&format!("Working out the weather's drawing takes {:.2} ms a frame (worst lately {:.2})", v.cost_ms, v.worst_ms), r.x + 14.0, r.y + r.h - 28.0, 12.0, DIM);
     c.text("F7 closes  ·  click the top to fold  ·  on the map, point at a place to read it", r.x + 14.0, r.y + r.h - 10.0, 12.0, DIM);
 
     if let Some((k, h)) = tip {

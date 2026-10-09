@@ -27,18 +27,28 @@
 //! weather at a moment; `local.rs` brings it down to a particular spot (colder
 //! with height, snow above the snowline, fog pooling in the hollows).
 //!
+//! Two more things are read off the weather, the same way: **omens**
+//! (`omens.rs`: unusual weather on a day, each with a rarity) and **effects**
+//! (`effects.rs`: what the weather at a spot does to sight, hearing, travel,
+//! boats, crops and the rest, as plain multipliers and flags).
+//!
 //! Nothing else in the simulation reads the weather yet. The hooks for that
-//! are plain functions here, for whoever wires them in.
+//! are plain functions here, for whoever wires them in
+//! (`docs/weather-hooks.md` says where each belongs).
 
 mod climate;
+mod effects;
 mod lightning;
 mod local;
 mod noise;
+mod omens;
 mod region;
 pub mod report;
 mod sky;
 
-pub use climate::{climate, seasonal, year_phase, Climate, RegionClimate};
+pub use climate::{climate, seasonal, year_phase, Climate, EffectNumbers, Rarity, RegionClimate};
+pub use effects::{crop_growth_over, effects_mixed, effects_of, weather_effects, Effects};
+pub use omens::{omens, omens_lagging, rates as omen_rates, strike_omens, strike_rate, typical as typical_rate, Landmark, Omen, OmenKind};
 pub use local::{localise, quarter, sight_words, wind_word, Kind, Weather, GALE, STORM_WIND, THICK_FOG};
 pub use region::{floor, mix, region_at, shore_exposure, strongest, Mix, Region, REGIONS};
 pub use lightning::{strikes, Strike};
@@ -61,6 +71,11 @@ pub fn lag(pos: V2) -> f64 {
 
 /// The weather at a spot at a moment. `seed` is the world's seed.
 pub fn weather_at(terrain: &Terrain, seed: u64, pos: V2, t: f64) -> Weather {
+    weather_and_shares(terrain, seed, pos, t).0
+}
+
+/// The weather at a spot, and how much the spot belongs to each region.
+pub(crate) fn weather_and_shares(terrain: &Terrain, seed: u64, pos: V2, t: f64) -> (Weather, Mix) {
     let shares = mix(terrain, pos);
     let behind = lag(pos);
     let mut blended = Sky::default();
@@ -70,7 +85,7 @@ pub fn weather_at(terrain: &Terrain, seed: u64, pos: V2, t: f64) -> Weather {
             blended.add(&sky_at(seed, r, t, behind), share);
         }
     }
-    localise(&blended, strongest(&shares), terrain.surface(pos), floor(terrain, pos))
+    (localise(&blended, strongest(&shares), terrain.surface(pos), floor(terrain, pos)), shares)
 }
 
 /// Every region's sky at a moment, in `Region::ALL` order, as the weather
@@ -148,5 +163,35 @@ impl World {
     /// The climate region a spot mostly belongs to.
     pub fn climate_region(&self, pos: V2) -> Region {
         region_at(&self.terrain, pos)
+    }
+
+    /// What the weather at a spot at a moment does to people and things
+    /// out of doors there.
+    pub fn weather_effects(&self, pos: V2, t: f64) -> Effects {
+        weather_effects(&self.terrain, self.seed, pos, t)
+    }
+
+    /// The named places lightning might strike: the towns, for now.
+    pub fn landmarks(&self) -> Vec<Landmark<'_>> {
+        self.settlements.iter().map(|s| Landmark { name: &s.name, pos: s.pos }).collect()
+    }
+
+    /// The omens in a region on a day (day 0 starts at time 0), in time
+    /// order: the omens of its sky, and lightning on any landmark in it.
+    pub fn omens(&self, region: Region, day: i64) -> Vec<Omen> {
+        self.omens_lagging(region, day, 0.0)
+    }
+
+    /// The omens seen from a spot on a day: those of its region, timed as
+    /// the weather reaches the spot.
+    pub fn omens_at(&self, pos: V2, day: i64) -> Vec<Omen> {
+        self.omens_lagging(region_at(&self.terrain, pos), day, lag(pos))
+    }
+
+    fn omens_lagging(&self, region: Region, day: i64, behind: f64) -> Vec<Omen> {
+        let mut all = omens_lagging(self.seed, region, day, behind);
+        all.extend(strike_omens(&self.terrain, self.seed, &self.landmarks(), day).into_iter().filter(|o| o.region == region));
+        all.sort_by(|a, b| a.at.total_cmp(&b.at));
+        all
     }
 }

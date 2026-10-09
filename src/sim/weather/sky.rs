@@ -46,6 +46,8 @@ const BASE: u64 = 7;
 const SQUALL: u64 = 8;
 const STORM: u64 = 9;
 const FOG: u64 = 10;
+// (11 is a lightning strike: `lightning.rs`.)
+const LULL: u64 = 12;
 
 /// The weather over a whole region at one moment.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -347,7 +349,18 @@ impl Maker {
 
     /// The everyday wind speed, before storms and fog.
     fn wind_plain(&self, t: f64) -> f32 {
-        seasonal(&self.rc.wind, year_phase(t)).max(0.0) * (0.4 + 1.2 * self.curve(WIND, t, self.c.wind_hours as f64 * HOUR, self.c.shared))
+        seasonal(&self.rc.wind, year_phase(t)).max(0.0) * (0.4 + 1.2 * self.curve(WIND, t, self.c.wind_hours as f64 * HOUR, self.c.shared)) * self.lull(t)
+    }
+
+    /// The share of the usual wind a lull leaves, 1 most of the time. Now
+    /// and then the wind drops away over the whole country at once.
+    fn lull(&self, t: f64) -> f32 {
+        let c = self.c;
+        if c.lull_share <= 0.0 {
+            return 1.0;
+        }
+        let low = self.curve(LULL, t, c.lull_days as f64 * DAY, 1.0);
+        c.lull_floor + (1.0 - c.lull_floor) * smooth(0.0, 2.0 * c.lull_share, low)
     }
 
     /// The fog or mist a day starts in, if any.
@@ -414,6 +427,53 @@ impl Maker {
         plain + s * (self.c.storms.wind.max(plain) - plain)
     }
 
+    /// How far behind the sea's edge the weather runs here, seconds.
+    pub fn lag(&self) -> f64 {
+        self.lag
+    }
+
+    /// The usual temperature for the time of year, deg C at sea level.
+    pub(super) fn warmth(&self, t: f64) -> f32 {
+        seasonal(&self.rc.temp, year_phase(t))
+    }
+
+    /// The wind at `t` before any fog stills it, metres a second.
+    pub(super) fn true_wind(&self, t: f64) -> f32 {
+        self.wind(t, &self.storms_round(t))
+    }
+
+    /// How far down a lull the wind is at `t`: 1 no lull, near 0 dead calm.
+    pub(super) fn lull_at(&self, t: f64) -> f32 {
+        self.lull(t)
+    }
+
+    /// The first moment of a day (midnight to midnight, here) that a storm
+    /// is on: a storm at half strength or more, or a gale blowing. Looked
+    /// for every half hour.
+    pub(super) fn storm_day(&self, day: i64) -> Option<f64> {
+        let storms = self.storms_round((day as f64 + 0.5) * DAY);
+        let near = storms.iter().flatten().any(|s| s.start + self.lag < (day + 1) as f64 * DAY + 3.0 * HOUR && s.end() + self.lag > day as f64 * DAY - 3.0 * HOUR);
+        // Without a storm about, only the windiest regions ever reach a gale.
+        if !near && seasonal(&self.rc.wind, year_phase((day as f64 + 0.5) * DAY)) * 1.6 < super::GALE {
+            return None;
+        }
+        let s = &self.c.storms;
+        (0..48).map(|k| day as f64 * DAY + k as f64 * 0.5 * HOUR).find(|&t| {
+            let on = 0.5 * self.storming(&storms, t) + 0.3 * self.storming(&storms, t + s.cloud_leads as f64 * HOUR) + 0.2 * self.storming(&storms, t + s.wind_leads as f64 * HOUR);
+            on >= 0.5 || self.wind(t, &storms) >= super::GALE
+        })
+    }
+
+    /// The thunderstorms that reach this region and could be on at some
+    /// point between two moments.
+    pub(super) fn thunderstorms(&self, from: f64, to: f64) -> Vec<Storm> {
+        let s = &self.c.storms;
+        let longest = (s.build.1 + s.hold.1 + s.clear.1) as f64 * HOUR;
+        let first = ((from - self.lag - longest) / DAY).floor() as i64 - 1;
+        let last = ((to - self.lag) / DAY).floor() as i64 + 1;
+        (first..=last).filter_map(|day| self.storm_on(day)).filter(|s| s.thunder).collect()
+    }
+
     /// The region's weather at `t`.
     pub fn sky(&self, t: f64) -> Sky {
         let c = self.c;
@@ -460,13 +520,7 @@ impl Maker {
         // (Below zero in a hard cold spell: it lies right down to the shore.)
         let snow_lying = (usual - c.snow_temp) / c.lapse;
 
-        let mut thunder = 0.0f32;
-        for s in storms.iter().flatten() {
-            if s.thunder {
-                thunder = thunder.max(s.at(t - self.lag));
-            }
-        }
-        let lightning = c.storms.flashes * thunder * thunder;
+        let lightning = flashes(storms.iter().flatten(), t - self.lag);
 
         // The sea answers the last few hours' wind, not just this minute's.
         let mut swell = 0.0;
@@ -488,6 +542,18 @@ impl Maker {
 
         Sky { cloud, precip, wind, wind_x, wind_y, gust: (0.15 + 0.55 * s_wind + 0.1 * (blow / 15.0).min(1.0)).min(1.0), fog, fog_depth, cloud_base, temp0, storm, lightning, sea, wetness, snow_lying }
     }
+}
+
+/// Lightning flashes a minute at `t` (a region's own time: `lag` taken
+/// off already) from whichever of `storms` carry thunder.
+pub(super) fn flashes<'a>(storms: impl Iterator<Item = &'a Storm>, t: f64) -> f32 {
+    let mut thunder = 0.0f32;
+    for s in storms {
+        if s.thunder {
+            thunder = thunder.max(s.at(t));
+        }
+    }
+    climate().storms.flashes * thunder * thunder
 }
 
 /// How much storm is on at `t`, all storms together, 0..1.

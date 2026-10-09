@@ -14,6 +14,7 @@ use gahturiyu_sim::sim::weather::{Region, Weather};
 
 use super::WeatherView;
 use crate::view::app::{Game, MainCamera};
+use crate::view::ground::GroundMat;
 use crate::view::light::{self, Moon, Sun};
 use crate::view::palette::{self, Rgb};
 use crate::view::scene::Mats;
@@ -66,6 +67,7 @@ pub fn apply(
     mut view: ResMut<WeatherView>,
     mats: Res<Mats>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut grounds: ResMut<Assets<GroundMat>>,
     mut sun: Query<&mut DirectionalLight, (With<Sun>, Without<Moon>)>,
     mut moon: Query<&mut DirectionalLight, (With<Moon>, Without<Sun>)>,
     mut ambient: ResMut<GlobalAmbientLight>,
@@ -135,6 +137,13 @@ pub fn apply(
             m.base_color = Color::linear_rgb(k, k, k);
             m.perceptual_roughness = 0.92 - 0.5 * v.wet;
             m.reflectance = 0.2 + 0.3 * v.wet;
+        }
+        // The land itself (its own material: `view/ground.rs`).
+        if let Some(mut m) = grounds.get_mut(&mats.ground) {
+            let k = 1.0 - 0.3 * v.wet;
+            m.base.base_color = Color::linear_rgb(k, k, k);
+            m.base.perceptual_roughness = 0.95 - 0.5 * v.wet;
+            m.base.reflectance = 0.15 + 0.3 * v.wet;
         }
     }
 

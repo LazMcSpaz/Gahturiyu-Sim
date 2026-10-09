@@ -182,7 +182,7 @@ pub fn update(game: Res<Game>, mut view: ResMut<WeatherView>, scene: Res<Scene3d
     v.flash = flash;
 
     let scene_view = game.view == View::Scene;
-    match showing.filter(|_| scene_view) {
+    match showing.filter(|_| scene_view && v.quality.bolts) {
         Some(s) => {
             if bolts.drawn != Some(s.seed) {
                 bolts.drawn = Some(s.seed);

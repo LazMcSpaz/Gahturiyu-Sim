@@ -91,6 +91,123 @@ pub struct Sight {
     pub snow: f32,
 }
 
+/// How often an omen comes.
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Rarity {
+    Uncommon,
+    Rare,
+    VeryRare,
+}
+
+impl Rarity {
+    pub fn name(self) -> &'static str {
+        match self {
+            Rarity::Uncommon => "uncommon",
+            Rarity::Rare => "rare",
+            Rarity::VeryRare => "very rare",
+        }
+    }
+}
+
+/// What counts as each omen, and how rare each is meant to be.
+#[derive(Deserialize, Clone, Debug)]
+pub struct Omens {
+    /// Times a year, fewest and most, for each rarity.
+    pub uncommon: (f32, f32),
+    pub rare: (f32, f32),
+    pub very_rare: (f32, f32),
+    pub winter_thunder: Rarity,
+    pub midwinter_days: f32,
+    pub noon_fog: Rarity,
+    pub noon_fog_thick: f32,
+    pub high_summer_days: f32,
+    pub shore_snow: Rarity,
+    pub shore_snow_falls: f32,
+    pub shore_snow_hours: f32,
+    pub storm_run: Rarity,
+    pub storm_run_days: u32,
+    pub dead_calm: Rarity,
+    pub calm_wind: f32,
+    pub calm_hours: f32,
+    pub landmark_strike: Rarity,
+    pub strike_power: f32,
+    pub strike_reach: f32,
+}
+
+impl Omens {
+    /// The band a rarity stands for: times a year, fewest and most.
+    pub fn band(&self, r: Rarity) -> (f32, f32) {
+        match r {
+            Rarity::Uncommon => self.uncommon,
+            Rarity::Rare => self.rare,
+            Rarity::VeryRare => self.very_rare,
+        }
+    }
+}
+
+/// The numbers behind `weather_effects` (each is explained in the data file).
+#[derive(Deserialize, Clone, Debug)]
+pub struct EffectNumbers {
+    pub sight_full: f32,
+    pub sight_least: f32,
+    pub storm_gloom: f32,
+    pub dark_night: f32,
+    pub hearing_rain: f32,
+    pub hearing_wind: f32,
+    pub hearing_snow: f32,
+    pub quiet_wind: f32,
+    pub loud_wind: f32,
+    pub hearing_least: f32,
+    pub aim_wind: f32,
+    pub aim_rain: f32,
+    pub aim_snow: f32,
+    pub steady_wind: f32,
+    pub wild_wind: f32,
+    pub aim_least: f32,
+    pub mud: f32,
+    pub deep_snow: f32,
+    pub gale_drag: f32,
+    pub gale_from: f32,
+    pub gale_full: f32,
+    /// By region, in `Region::ALL` order.
+    pub open_ground: Vec<f32>,
+    pub slip_wet: f32,
+    pub slip_snow: f32,
+    pub slip_ice: f32,
+    pub comfort: f32,
+    pub bitter: f32,
+    pub wind_chill: f32,
+    pub chill_wind: f32,
+    pub wet_chill: f32,
+    pub fire_damp: f32,
+    pub fire_rain: f32,
+    pub fire_snow: f32,
+    pub fire_fanned: f32,
+    pub fanning_wind: f32,
+    pub fire_least: f32,
+    pub boats_sea: f32,
+    pub boats_wind: f32,
+    pub boats_sight: f32,
+    #[serde(deserialize_with = "four")]
+    pub growing: BySeason,
+    pub frost: f32,
+    pub mild: f32,
+    pub dry_growth: f32,
+    pub drowned: f32,
+    pub work_rain: f32,
+    pub work_wind: f32,
+    pub work_snow: f32,
+    pub work_cold: f32,
+    pub work_sight: f32,
+    pub shrug_rain: f32,
+    pub drive_rain: f32,
+    pub shrug_wind: f32,
+    pub drive_wind: f32,
+    pub shrug_cold: f32,
+    pub drive_cold: f32,
+    pub shelter_snow: f32,
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Climate {
     pub regions: Vec<RegionClimate>,
@@ -106,6 +223,9 @@ pub struct Climate {
     pub spell_days: f32,
     pub unsettled: f32,
     pub wind_swing: f32,
+    pub lull_days: f32,
+    pub lull_share: f32,
+    pub lull_floor: f32,
     pub storms: Storms,
     pub fog: Fog,
     pub sight: Sight,
@@ -113,6 +233,8 @@ pub struct Climate {
     pub wetting: f32,
     pub sea_calm: f32,
     pub sea_rough: f32,
+    pub omens: Omens,
+    pub effects: EffectNumbers,
 }
 
 const TEXT: &str = include_str!("../../../data/weather/climate.ron");
@@ -122,6 +244,9 @@ pub fn parse(text: &str) -> Result<Climate, String> {
     let c: Climate = ron::from_str(text).map_err(|e| format!("data/weather/climate.ron: {e}"))?;
     if c.regions.len() != Region::ALL.len() {
         return Err(format!("data/weather/climate.ron: {} regions, expected {}", c.regions.len(), Region::ALL.len()));
+    }
+    if c.effects.open_ground.len() != Region::ALL.len() {
+        return Err(format!("data/weather/climate.ron: effects.open_ground has {} values, expected one for each of the {} regions", c.effects.open_ground.len(), Region::ALL.len()));
     }
     Ok(c)
 }

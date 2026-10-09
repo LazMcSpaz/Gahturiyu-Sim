@@ -143,7 +143,8 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> Fragment
     let wn = normalize(in.world_normal);
     let grass = triplanar(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, wp, wn, {tile:.2}) / GRASS_MEAN;
     let stone = triplanar(stone_tex, stone_samp, wp, wn, {rock_tile:.2} + ({tile:.2} - {rock_tile:.2}) * (1.0 - rocky)) / STONE_MEAN;
-    pbr_input.material.base_color = vec4<f32>(mix(grass, stone, rocky) * tint, 1.0);
+    // (The material's own colour is white unless the weather darkens it: wet ground.)
+    pbr_input.material.base_color = vec4<f32>(mix(grass, stone, rocky) * tint * pbr_bindings::material.base_color.rgb, 1.0);
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 #ifdef PREPASS_PIPELINE
     let out = deferred_output(in, pbr_input);

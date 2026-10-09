@@ -16,11 +16,9 @@ use bevy::prelude::*;
 use gahturiyu_sim::sim::rng::Rng;
 use gahturiyu_sim::sim::stealth;
 
-use super::WeatherView;
+use super::{Quality, WeatherView};
 use crate::view::app::{Game, View};
 
-/// Drops in the heaviest downpour.
-const DROPS: usize = 4200;
 /// The box of air, metres a side, centred on the camera.
 const BOX: f32 = 22.0;
 /// How fast rain falls, metres a second.
@@ -60,7 +58,7 @@ pub fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mater
     let mat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, alpha_mode: AlphaMode::Blend, cull_mode: None, double_sided: false, fog_enabled: false, ..default() });
     commands.spawn((Mesh3d(mesh.clone()), MeshMaterial3d(mat), Transform::default(), Visibility::Hidden, NotShadowCaster, NoFrustumCulling, RainMesh));
     let mut r = Rng::from_keys(&[0x5241_494E]);
-    let drops = (0..DROPS).map(|_| [r.f32(), r.f32(), r.f32(), r.f32(), r.f32()]).collect();
+    let drops = (0..Quality::MOST_DROPS).map(|_| [r.f32(), r.f32(), r.f32(), r.f32(), r.f32()]).collect();
     commands.insert_resource(Rain { mesh, drops, showing: false });
 }
 
@@ -73,7 +71,9 @@ pub fn update(game: Res<Game>, mut view: ResMut<WeatherView>, rain: Option<ResMu
     let Some(mut rain) = rain else { return };
     let started = std::time::Instant::now();
     let w = view.eye;
-    if game.view != View::Scene || (w.rain < 0.02 && w.snow < 0.02) {
+    // How many drops the heaviest fall has, by the graphics setting.
+    let most = view.quality.drops.min(rain.drops.len());
+    if game.view != View::Scene || most == 0 || (w.rain < 0.02 && w.snow < 0.02) {
         if rain.showing {
             rain.showing = false;
             for mut v in &mut vis {
@@ -82,8 +82,8 @@ pub fn update(game: Res<Game>, mut view: ResMut<WeatherView>, rain: Option<ResMu
         }
         return;
     }
-    let count = if w.rain < 0.02 { 0 } else { ((DROPS as f32 * w.rain.powf(0.8)) as usize).min(DROPS) };
-    let flakes = if w.snow < 0.02 { 0 } else { ((DROPS as f32 * w.snow.powf(0.7)) as usize).min(DROPS) };
+    let count = if w.rain < 0.02 { 0 } else { ((most as f32 * w.rain.powf(0.8)) as usize).min(most) };
+    let flakes = if w.snow < 0.02 { 0 } else { ((most as f32 * w.snow.powf(0.7)) as usize).min(most) };
     let eye = game.orbit.eye();
     let forward = (game.orbit.look_at() - eye).normalize_or_zero();
     let blow = Vec3::new(w.wind_to.x, 0.0, w.wind_to.y) * w.wind * 0.9;
@@ -126,7 +126,7 @@ pub fn update(game: Res<Game>, mut view: ResMut<WeatherView>, rain: Option<ResMu
     // Snow: the drops from the other end of the list, slow and wandering,
     // each a small soft square facing the camera.
     let white = [0.95 * shade, 0.96 * shade, 1.0 * shade];
-    for d in rain.drops.iter().rev().take(flakes) {
+    for d in rain.drops[..most].iter().rev().take(flakes) {
         let t = clock as f32;
         let drift = Vec3::new((t * 0.9 + d[4] * 31.0).sin(), 0.0, (t * 0.7 + d[3] * 17.0).cos()) * 0.6;
         let vel = Vec3::new(blow.x, -SNOW_FALL * (0.7 + 0.6 * d[3]), blow.z);

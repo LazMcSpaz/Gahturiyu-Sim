@@ -174,3 +174,43 @@ pub fn regions(terrain: &crate::sim::terrain::Terrain) -> String {
     }
     out
 }
+
+/// How often each omen comes, against the band it is meant to keep to.
+pub fn omen_table(terrain: &crate::sim::terrain::Terrain, landmarks: &[super::Landmark], seed: u64, years: i64) -> String {
+    use super::{omen_rates as rates, strike_rate, typical_rate as typical};
+    use super::OmenKind;
+    use std::fmt::Write;
+    let mut out = String::new();
+    let _ = writeln!(out, "\nOmens over {years} years, world {seed}: times a year (a typical region; then each region)");
+    let _ = writeln!(out, "  {:<28} {:<10} {:>11} {:>8}   sea  coast    low     up  mount plateau", "", "rarity", "band", "typical");
+    for (kind, by) in rates(seed, 0, years) {
+        let (lo, hi) = kind.band();
+        let (rate, each) = if kind == OmenKind::LandmarkStrike {
+            (strike_rate(terrain, seed, landmarks, 0, years), "  (whole country)".to_string())
+        } else {
+            (typical(kind, &by), Region::ALL.iter().map(|r| if kind.happens_in(*r) { format!("{:>6.2}", by[*r as usize]) } else { "     -".to_string() }).collect::<Vec<_>>().join(" "))
+        };
+        let mark = if rate < lo || rate > hi { "  OUT OF BAND" } else { "" };
+        let _ = writeln!(out, "  {:<28} {:<10} {:>4.2}..{:<5.2} {:>8.2}  {each}{mark}", kind.name(), kind.rarity().name(), lo, hi, rate);
+    }
+    // The first of each, so one can be gone and looked at.
+    let _ = writeln!(out, "\nThe first of each (day counted from 0; hour of the day):");
+    for kind in OmenKind::ALL {
+        let found = (0..years * YEAR_DAYS as i64).find_map(|day| {
+            if kind == OmenKind::LandmarkStrike {
+                super::strike_omens(terrain, seed, landmarks, day).into_iter().next()
+            } else {
+                Region::ALL.iter().find_map(|r| super::omens(seed, *r, day).into_iter().find(|o| o.kind == kind))
+            }
+        });
+        match found {
+            Some(o) => {
+                let _ = writeln!(out, "  day {:>4}, {:>5.2} h, {:<28} {}", (o.at / DAY).floor(), o.at.rem_euclid(DAY) / HOUR, o.region.name(), o.text);
+            }
+            None => {
+                let _ = writeln!(out, "  {}: none in {years} years", kind.name());
+            }
+        }
+    }
+    out
+}

@@ -10,10 +10,14 @@
 //! 4. The country shares its big weather, and it comes in off the sea: a
 //!    storm on the coast is a storm at sea, and reaches the east later.
 //! 5. Lightning is looked up too: the same strikes however they are asked for.
+//! 6. Omens are real weather, the same however asked, and each comes as
+//!    often as its rarity says.
+//! 7. What the weather does (`weather_effects`): nothing on a fine day, the
+//!    right things in fog, storm and frost; always within bounds.
 
 use gahturiyu_sim::sim::geo::{V2, WORLD_SIZE};
 use gahturiyu_sim::sim::terrain::Terrain;
-use gahturiyu_sim::sim::weather::{self, report, Kind, Maker, Region, Sky, Weather};
+use gahturiyu_sim::sim::weather::{self, report, Effects, Kind, Maker, OmenKind, Region, Sky, Weather};
 use gahturiyu_sim::sim::world::{DAY, HOUR};
 use gahturiyu_sim::sim::worldgen;
 
@@ -408,4 +412,234 @@ fn snow_lies_on_the_winter_hills() {
     assert!(winter > 90, "the high ground was white on only {winter} of 120 midwinter days");
     assert_eq!(summer, 0, "snow on the summer tops");
     assert!(shore <= 2, "the shore was white on {shore} of 120 midwinter days");
+}
+
+#[test]
+fn each_omen_comes_as_often_as_its_rarity_says() {
+    // The bands are in the climate file: times a year, for a typical region
+    // the omen can happen in (lightning on a landmark: the whole country).
+    let years = 150;
+    for seed in [1u64, 3] {
+        let world = worldgen::generate(seed);
+        let landmarks = world.landmarks();
+        assert!(landmarks.len() >= 5, "the towns are the landmarks");
+        for (kind, by_region) in weather::omen_rates(seed, 0, years) {
+            let rate = if kind == OmenKind::LandmarkStrike { weather::strike_rate(&world.terrain, seed, &landmarks, 0, years) } else { weather::typical_rate(kind, &by_region) };
+            let (least, most) = kind.band();
+            assert!(rate >= least && rate <= most, "world {seed}: {} came {rate:.2} times a year; it is {}, which means {least} to {most}", kind.name(), kind.rarity().name());
+            for r in Region::ALL {
+                assert!(kind.happens_in(r) || by_region[r as usize] == 0.0, "{} in the {}", kind.name(), r.name());
+            }
+        }
+    }
+    // The rarer the name, the rarer the band.
+    let o = &weather::climate().omens;
+    assert!(o.very_rare.1 <= o.rare.0 && o.rare.1 <= o.uncommon.0);
+}
+
+#[test]
+fn omens_are_real_weather_and_the_same_however_asked() {
+    let seed = 7;
+    let o = &weather::climate().omens;
+    let mut seen = std::collections::HashMap::new();
+    let days = 48 * 120;
+    let mut all = Vec::new();
+    for day in 0..days {
+        for r in Region::ALL {
+            let found = weather::omens(seed, r, day);
+            for w in found.windows(2) {
+                assert!(w[0].at <= w[1].at, "a day's omens come in time order");
+            }
+            for om in &found {
+                assert_eq!(om.rarity, om.kind.rarity());
+                assert_eq!(om.region, r);
+                assert!(om.at >= day as f64 * DAY && om.at < (day + 1) as f64 * DAY, "{} on day {day} is timed outside it", om.kind.name());
+                assert!(!om.text.is_empty());
+                let n = seen.entry(om.kind).or_insert(0usize);
+                *n += 1;
+                // Look hard at the first few of each kind.
+                if *n > 6 {
+                    continue;
+                }
+                let at = |t: f64| weather::weather_in(seed, r, t);
+                match om.kind {
+                    OmenKind::DeadCalm => {
+                        for k in 0..=(o.calm_hours * 2.0) as usize {
+                            let w = at(om.at + k as f64 * 0.5 * HOUR);
+                            assert!(w.wind < o.calm_wind, "a dead calm with a {} m/s wind", w.wind);
+                        }
+                    }
+                    OmenKind::NoonFog => {
+                        assert!(weather::sky(seed, r, om.at).fog >= o.noon_fog_thick);
+                        assert!(((om.at / HOUR).rem_euclid(24.0) - 12.0).abs() < 1e-6);
+                        assert_eq!(report::season_of(day), 1, "fog at noon in high summer, out of summer");
+                    }
+                    OmenKind::WinterThunder => {
+                        assert_eq!(report::season_of(day), 3, "thunder in midwinter, out of winter");
+                        let heard = (0..40).any(|k| at(om.at + k as f64 * 0.25 * HOUR).lightning > 0.05);
+                        assert!(heard, "thunder in midwinter with no lightning after it");
+                    }
+                    OmenKind::ShoreSnow => {
+                        let w = weather::localise(&weather::sky(seed, r, om.at), r, 0.0, 0.0);
+                        assert!(w.snow >= o.shore_snow_falls && w.temperature < 2.5, "snow on the shore at {} deg C", w.temperature);
+                    }
+                    OmenKind::StormRun => {
+                        for back in 0..o.storm_run_days as i64 {
+                            let stormy = (0..48).any(|k| {
+                                let w = at((day - back) as f64 * DAY + k as f64 * 0.5 * HOUR);
+                                w.storm >= 0.5 || w.wind >= weather::GALE * 0.95
+                            });
+                            assert!(stormy, "day {} of a run of storm days was quiet", day - back);
+                        }
+                    }
+                    OmenKind::LandmarkStrike => unreachable!("lightning on a landmark needs the land"),
+                }
+            }
+            all.push(found);
+        }
+    }
+    for kind in OmenKind::ALL {
+        if kind != OmenKind::LandmarkStrike {
+            assert!(seen.get(&kind).copied().unwrap_or(0) > 0, "{} never came in 120 years", kind.name());
+        }
+    }
+    // Asked again, backwards and in bits: the same omens.
+    let mut k = all.len();
+    for day in (0..days).rev().step_by(7) {
+        for r in Region::ALL.iter().rev() {
+            let _ = weather::omens(seed, Region::Plateau, day + 3);
+            k = (day as usize) * 6 + *r as usize;
+            assert_eq!(all[k], weather::omens(seed, *r, day));
+        }
+    }
+    assert!(k < all.len());
+    // The weather reaches the east later, and so do its omens.
+    let east = 1.5 * HOUR;
+    let later: usize = (0..days).map(|d| weather::omens_lagging(seed, Region::Mountain, d, east).len()).sum();
+    let sooner: usize = (0..days).map(|d| weather::omens(seed, Region::Mountain, d).len()).sum();
+    assert!((later as f32 - sooner as f32).abs() <= 0.2 * sooner as f32 + 3.0, "{sooner} omens at the sea's edge, {later} an hour and a half inland");
+}
+
+#[test]
+fn lightning_on_a_landmark_is_a_real_strike_on_a_real_town() {
+    let world = worldgen::generate(3);
+    let landmarks = world.landmarks();
+    let o = &weather::climate().omens;
+    let mut found = 0;
+    for day in 0..48 * 12 {
+        let omens = weather::strike_omens(&world.terrain, world.seed, &landmarks, day);
+        for om in &omens {
+            found += 1;
+            let (pos, k) = (om.pos.expect("a strike has a place"), om.landmark.expect("and a landmark"));
+            assert!(pos.dist(landmarks[k].pos) <= o.strike_reach);
+            assert!(om.text.contains(landmarks[k].name));
+            assert!(world.strikes(om.at - 1.0, om.at + 1.0).iter().any(|s| s.pos == pos && s.power >= o.strike_power), "no such strike");
+            assert!(world.weather_at(pos, om.at).lightning > 0.0);
+            // The town's own region hears of it; the others don't.
+            let home = world.climate_region(landmarks[k].pos);
+            assert_eq!(om.region, home);
+            assert!(world.omens(home, day).iter().any(|x| x.landmark == Some(k)));
+            assert!(world.omens_at(landmarks[k].pos, day).iter().any(|x| x.landmark == Some(k)) || weather::lag(landmarks[k].pos) > 0.0);
+            let other = Region::ALL.iter().copied().find(|r| *r != home).unwrap();
+            assert!(world.omens(other, day).iter().all(|x| x.landmark != Some(k)));
+        }
+        assert_eq!(omens, weather::strike_omens(&world.terrain, world.seed, &landmarks, day));
+    }
+    assert!(found >= 5, "only {found} towns struck in twelve years");
+}
+
+/// A sky built by hand, brought down to a spot at sea level.
+fn made(region: Region, sky: Sky) -> Weather {
+    weather::localise(&sky, region, 2.0, 0.0)
+}
+
+#[test]
+fn a_fine_day_changes_nothing_and_bad_weather_does() {
+    // Noon at midsummer (day 12 of the 48-day year) and at midwinter (day 36).
+    let (summer, winter) = (12.5 * DAY, 36.5 * DAY);
+    let fine = Sky { cloud: 0.1, wind: 3.0, wind_x: 3.0, temp0: 17.0, cloud_base: 2000.0, snow_lying: 2500.0, ..Sky::default() };
+    let e = weather::effects_of(&made(Region::Lowland, fine), summer);
+    assert!(e.sight_mult == 1.0 && e.hearing_mult == 1.0 && e.ranged_accuracy_mult == 1.0 && e.travel_speed_mult == 1.0, "a fine day changed something: {e:?}");
+    assert!(e.slip_risk == 0.0 && e.exposure == 0.0 && e.shelter_seeking == 0.0 && e.boats_can_sail && e.outdoor_work_ok && e.sea_danger < 0.2);
+    assert!(e.fire_spread_mult > 1.0 && e.fire_spread_mult < 1.3, "a light breeze on dry ground fans a fire a little: {}", e.fire_spread_mult);
+    assert!(e.crop_growth_mult > 0.6 && e.crop_growth_mult < 1.2);
+    let none = Effects::NONE;
+    assert!(none.sight_mult == 1.0 && none.boats_can_sail && none.outdoor_work_ok);
+
+    // Thick fog: you can't see, the boats stay in, but you hear as well as ever.
+    let fog = weather::effects_of(&made(Region::ExposedCoast, Sky { fog: 1.0, fog_depth: 60.0, ..fine }), summer);
+    assert!(fog.sight_mult < 0.25 && fog.hearing_mult == 1.0 && !fog.boats_can_sail && fog.sea_danger >= 0.5 && !fog.outdoor_work_ok, "{fog:?}");
+    // Mist is nothing like as bad.
+    let mist = weather::effects_of(&made(Region::ExposedCoast, Sky { fog: 0.4, fog_depth: 60.0, ..fine }), summer);
+    assert!(mist.sight_mult > fog.sight_mult && mist.boats_can_sail && mist.outdoor_work_ok);
+
+    // A thunderstorm on the coast: everything is worse.
+    let storm_sky = Sky { cloud: 1.0, precip: 0.9, wind: 26.0, wind_x: 26.0, gust: 0.8, temp0: 9.0, storm: 1.0, lightning: 3.0, sea: 1.0, wetness: 1.0, cloud_base: 300.0, snow_lying: 1200.0, ..Sky::default() };
+    let storm = weather::effects_of(&made(Region::ExposedCoast, storm_sky), summer);
+    assert!(storm.sight_mult < 0.9 && storm.hearing_mult < 0.4 && storm.ranged_accuracy_mult < 0.45 && storm.travel_speed_mult < 0.65, "{storm:?}");
+    assert!(storm.slip_risk > 0.3 && storm.exposure > 0.5 && storm.fire_spread_mult < 0.1 && !storm.boats_can_sail && storm.sea_danger > 0.9);
+    assert!(!storm.outdoor_work_ok && storm.shelter_seeking > 0.95);
+    // The same gale is easier going in the sheltered low country.
+    let sheltered = weather::effects_of(&made(Region::Lowland, storm_sky), summer);
+    assert!(sheltered.travel_speed_mult > storm.travel_speed_mult);
+
+    // Drizzle: people shrug it off and carry on.
+    let drizzle = weather::effects_of(&made(Region::ExposedCoast, Sky { cloud: 0.9, precip: 0.12, wetness: 0.4, wind: 6.0, wind_x: 6.0, temp0: 11.0, ..fine }), summer);
+    assert!(drizzle.outdoor_work_ok && drizzle.boats_can_sail && drizzle.shelter_seeking < 0.05 && drizzle.fire_spread_mult < 0.6, "{drizzle:?}");
+
+    // A dry gale fans fire; hard frost and lying snow stop the crops and the feet.
+    let dry_gale = weather::effects_of(&made(Region::Plateau, Sky { wind: 20.0, wind_x: 20.0, ..fine }), summer);
+    assert!(dry_gale.fire_spread_mult > 1.5 && dry_gale.ranged_accuracy_mult < 0.7);
+    let frost = weather::effects_of(&made(Region::Upland, Sky { cloud: 0.2, wind: 8.0, wind_x: 8.0, temp0: -6.0, wetness: 0.5, cloud_base: 2000.0, snow_lying: -300.0, ..Sky::default() }), winter);
+    assert!(frost.crop_growth_mult == 0.0 && frost.exposure > 0.7 && frost.slip_risk >= 0.4 && frost.travel_speed_mult < 0.7 && frost.feels_like < -6.0, "{frost:?}");
+    // Winter alone slows the crops, even on a mild damp day.
+    let mild = Sky { cloud: 0.6, wind: 4.0, wind_x: 4.0, temp0: 12.0, wetness: 0.4, cloud_base: 900.0, snow_lying: 2000.0, ..Sky::default() };
+    let (in_summer, in_winter) = (weather::effects_of(&made(Region::Lowland, mild), summer), weather::effects_of(&made(Region::Lowland, mild), winter));
+    assert!(in_winter.crop_growth_mult < 0.25 * in_summer.crop_growth_mult && in_summer.crop_growth_mult > 0.9);
+    // A clouded night is darker than a clear one; by day the cloud costs nothing.
+    let grey = Sky { cloud: 1.0, ..fine };
+    let midnight = 12.0 * DAY;
+    assert!(weather::effects_of(&made(Region::Lowland, grey), midnight).sight_mult < weather::effects_of(&made(Region::Lowland, fine), midnight).sight_mult);
+    assert_eq!(weather::effects_of(&made(Region::Lowland, grey), summer).sight_mult, 1.0);
+}
+
+#[test]
+fn what_the_weather_does_is_looked_up_and_stays_within_bounds() {
+    let terrain = Terrain::generate(2);
+    let (mut sailing, mut ashore, mut working, mut stopped) = (0, 0, 0, 0);
+    for &p in spots().iter() {
+        for k in 0..400 {
+            let t = k as f64 * 7.3 * HOUR;
+            let e = weather::weather_effects(&terrain, 2, p, t);
+            assert_eq!(e, weather::effects_of(&weather::weather_at(&terrain, 2, p, t), t).with_travel(e.travel_speed_mult), "worked out two ways");
+            for (name, v, most) in [
+                ("sight", e.sight_mult, 1.0),
+                ("hearing", e.hearing_mult, 1.0),
+                ("aim", e.ranged_accuracy_mult, 1.0),
+                ("travel", e.travel_speed_mult, 1.0),
+                ("slip", e.slip_risk, 1.0),
+                ("exposure", e.exposure, 1.0),
+                ("fire", e.fire_spread_mult, 2.0),
+                ("sea danger", e.sea_danger, 1.0),
+                ("crops", e.crop_growth_mult, 1.3),
+                ("shelter", e.shelter_seeking, 1.0),
+            ] {
+                assert!(v.is_finite() && (0.0..=most).contains(&v), "{name} is {v} at ({}, {}), hour {}", p.x, p.y, t / HOUR);
+            }
+            assert!(e.sight_mult > 0.0 && e.hearing_mult > 0.0 && e.ranged_accuracy_mult > 0.0 && e.travel_speed_mult > 0.3 && e.fire_spread_mult > 0.0);
+            assert_eq!(e.boats_can_sail, e.sea_danger < 0.5);
+            sailing += e.boats_can_sail as u32;
+            ashore += !e.boats_can_sail as u32;
+            working += e.outdoor_work_ok as u32;
+            stopped += !e.outdoor_work_ok as u32;
+        }
+    }
+    // Most days the boats go out and work goes on; some days not.
+    assert!(sailing > 3 * ashore && ashore > 0, "boats out {sailing} times, kept in {ashore}");
+    assert!(working > 4 * stopped && stopped > 0, "work went on {working} times, stopped {stopped}");
+    // A day's growth is the average of its hours.
+    let p = spots()[10];
+    let day = weather::crop_growth_over(&terrain, 2, p, 12.0 * DAY, 13.0 * DAY);
+    let hours: f32 = (0..24).map(|h| weather::weather_effects(&terrain, 2, p, 12.0 * DAY + (h as f64 + 0.5) * HOUR).crop_growth_mult).sum::<f32>() / 24.0;
+    assert!((day - hours).abs() < 1e-5);
 }
