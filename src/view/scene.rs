@@ -649,10 +649,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
         let picked = game.sel.shows(w, m);
+        let face = super::cues::facing(w, m, at);
         if picked {
-            draped_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, 18, palette::GOLD, eye);
-        } else if night > 0.3 {
-            draped_ring(&mut fl, &on_ground, at, 1.0 * k, rw * 0.5, 16, palette::scale(palette::race_color(w.people[m as usize].race), 0.35 + 0.25 * night), eye);
+            facing_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, face, palette::GOLD, eye, false);
+        } else {
+            // Barely there: enough to see which way they face.
+            let col = palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night);
+            facing_ring(&mut fl, &on_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
         }
         let goal = w.squad.goal[i];
         if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
@@ -910,10 +913,35 @@ fn nrm_v2(n: Vec3) -> V2 {
     V2::new(n.x, n.z)
 }
 
+/// A ring on the land with a pointed tip on its rim the way someone faces.
+#[allow(clippy::too_many_arguments)]
+fn facing_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, face: f32, col: Rgb, eye: Vec3, faint: bool) {
+    if faint {
+        ring_widened(b, ground, c, r, width, 18, col, eye, 0.003);
+    } else {
+        draped_ring(b, ground, c, r, width, 18, col, eye);
+    }
+    let f = V2::new(face.cos(), face.sin());
+    let side = V2::new(-f.y, f.x);
+    let w = if faint { r * 0.2 } else { (r * 0.38).max(width * 2.0) };
+    let tip = c.add(f.scale(r + w * 1.25));
+    let (l, rr) = (c.add(f.scale(r - width)).add(side.scale(w * 0.75)), c.add(f.scale(r - width)).sub(side.scale(w * 0.75)));
+    let lift = 0.55 + r * 0.0008;
+    let lc = palette::lin(col);
+    let v = [l, tip, tip, rr].map(|p| to3(p, ground(p) + lift));
+    b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+}
+
 /// A ring laid on the land. Far pieces are widened so they stay a pixel or
 /// two thick seen edge-on; otherwise the ring breaks into dashes.
 #[allow(clippy::too_many_arguments)]
 fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, n: usize, col: Rgb, eye: Vec3) {
+    ring_widened(b, ground, c, r, width, n, col, eye, 0.011);
+}
+
+/// A ring whose pieces are widened by `widen` per metre from the camera.
+#[allow(clippy::too_many_arguments)]
+fn ring_widened(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, n: usize, col: Rgb, eye: Vec3, widen: f32) {
     let n = n.max((r * std::f32::consts::TAU / 18.0) as usize).min(2400);
     let lift = 0.5 + r * 0.0008;
     let lc = palette::lin(col);
@@ -923,7 +951,7 @@ fn draped_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width
         let (u0, u1) = (V2::new(a0.cos(), a0.sin()), V2::new(a1.cos(), a1.sin()));
         let mid = c.add(u0.scale(r));
         let away = to3(mid, ground(mid)).distance(eye);
-        let width = width.max(away * 0.011);
+        let width = width.max(away * widen);
         let q = [c.add(u0.scale(r - width * 0.5)), c.add(u0.scale(r + width * 0.5)), c.add(u1.scale(r + width * 0.5)), c.add(u1.scale(r - width * 0.5))];
         let v = q.map(|p| to3(p, ground(p) + lift));
         b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
@@ -1083,7 +1111,8 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: P
     // Bandits and anyone you're fighting get a red mark at their feet.
     let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);
     if foe && !far {
-        draped_ring(fl, on_ground, at, 0.9 * k, 0.18 * k, 14, [0.9, 0.2, 0.15], eye);
+        // A faint red ring with a tip the way they face.
+        facing_ring(fl, on_ground, at, 0.9 * k, 0.04 * k, super::cues::facing(w, pid, at), [0.48, 0.16, 0.13], eye, true);
     }
     let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
     // Carried: across the carrier's shoulders.
@@ -1164,7 +1193,7 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: P
             b.patch(head + vec3(0.0, h * 0.35, 0.0), r * 2.5, r * 0.6, 0.0, [0.7, 0.4, 1.0]);
         }
         if f.has(Does::Barrier).is_some() {
-            draped_ring(fl, on_ground, at, 1.3 * k, 0.12 * k, 16, [0.5, 0.75, 1.0], eye);
+            ring_widened(fl, on_ground, at, 1.3 * k, 0.06 * k, 16, [0.5, 0.75, 1.0], eye, 0.004);
         }
     }
     (head + vec3(0.0, h * 0.2, 0.0), pid)
@@ -1250,7 +1279,7 @@ fn magic_scene(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, o
             };
             // Whose it is: a ring at its feet, teal for yours, red for theirs.
             let mark = if f.side == SQUAD_SIDE { [0.45, 0.9, 0.85] } else { [0.9, 0.2, 0.15] };
-            draped_ring(fl, on_ground, f.pos, 0.9 * kk, 0.14 * kk, 14, mark, eye);
+            ring_widened(fl, on_ground, f.pos, 0.9 * kk, 0.06 * kk, 14, mark, eye, 0.004);
             if base.distance(eye) < 400.0 {
                 bars.push((base + vec3(0.0, top * kk, 0.0), f.vitality(), None, false));
             }

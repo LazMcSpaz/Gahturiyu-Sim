@@ -301,7 +301,9 @@ fn a_pack_leaves_a_strong_squad_alone_but_falls_on_a_lone_survivor() {
     assert!(w.squad_battle().is_none(), "the pack went for four armed people");
     assert_eq!(w.animals.stats.attacks, w.animals.attacks.iter().filter(|a| a.victim.is_some()).count() as u32, "no attack on the squad should be on record");
 
-    // Three of them down: the pack closes on the one left standing.
+    // Three of them down: the pack closes on the one left standing. (Hungry
+    // again, whatever it has caught lately.)
+    w.animals.herds[pack as usize].ready_at = 0.0;
     let t = w.time;
     for &m in &w.squad.members.clone()[1..] {
         let p = &mut w.people[m as usize];

@@ -46,6 +46,10 @@ pub const ARCHER_STOW: f32 = 9.0;
 pub const MAX_LENGTH: f64 = 900.0;
 /// Body radius, metres: added to weapon reach.
 const BODY: f32 = 0.45;
+/// How far apart fighters on the same side keep, metres.
+const ALLY_SPACE: f32 = 1.4;
+/// Circling a target between blows, as a share of running pace.
+const CIRCLE_PACE: f32 = 0.35;
 
 pub type Side = u8;
 pub const SQUAD_SIDE: Side = 0;
@@ -707,6 +711,8 @@ impl Battle {
                 Act::Recover { until } => {
                     if t >= until {
                         self.fighters[i].act = Act::Idle;
+                    } else {
+                        self.circle(i);
                     }
                 }
                 Act::Cast { spell, target, point, done, scroll } => {
@@ -826,6 +832,31 @@ impl Battle {
         }
     }
 
+    /// Between blows, a fighter with a hand weapon steps round their target
+    /// at striking distance (each turning their own way), so a fight spreads
+    /// into rings rather than a pile.
+    fn circle(&mut self, i: usize) {
+        let me = &self.fighters[i];
+        let Some(j) = me.target else { return };
+        if me.shooting() || me.burdened || me.order.is_some_and(|o| matches!(o, Order::MoveTo(_))) || !self.fighters[j].active() {
+            return;
+        }
+        let them = self.fighters[j].pos;
+        let d = me.pos.sub(them);
+        let dist = d.len();
+        let reach = me.attack_range();
+        if dist < 0.05 || dist > reach * 1.3 {
+            return;
+        }
+        let way = if (me.pid as usize + i).is_multiple_of(2) { 1.0 } else { -1.0 };
+        let step = me.speed() * DT as f32 * CIRCLE_PACE;
+        let turn = way * step / dist.max(0.5);
+        let (s, c) = turn.sin_cos();
+        let keep = reach * 0.85;
+        let rotated = V2::new(d.x * c - d.y * s, d.x * s + d.y * c).scale(keep / dist);
+        self.step_to(i, them.add(rotated));
+    }
+
     pub fn nearest_enemy(&self, i: usize) -> Option<usize> {
         let me = &self.fighters[i];
         (0..self.fighters.len())
@@ -846,7 +877,9 @@ impl Battle {
                 }
                 let d = self.fighters[j].pos.sub(self.fighters[i].pos);
                 let l = d.len();
-                let min = BODY * 2.0;
+                // Friends keep a little more room, so a fight reads as
+                // pairs and rings, not a crowd.
+                let min = if self.fighters[i].side == self.fighters[j].side { ALLY_SPACE } else { BODY * 2.0 };
                 if l < min {
                     let push = if l < 1e-4 { V2::new(0.05 * (j as f32 - i as f32), 0.03) } else { d.scale((min - l) * 0.5 / l) };
                     self.fighters[i].pos = self.fighters[i].pos.sub(push);
