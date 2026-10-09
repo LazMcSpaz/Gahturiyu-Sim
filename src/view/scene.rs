@@ -105,7 +105,8 @@ struct Town {
     occupied: Vec<u16>,
     /// The workplaces as they were laid out when drawn.
     layout: u64,
-    with_models: bool,
+    /// Which set of loaded models it was drawn with.
+    with_models: u32,
     triangles: usize,
 }
 
@@ -291,7 +292,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let s = &w.settlements[sid as usize];
         let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| open.contains(&(sid, *i))).collect();
         let layout = w.society.towns.get(sid as usize).map(|tl| tl.places.iter().fold(tl.places.len() as u64, |h, p| h.rotate_left(5) ^ p.seed)).unwrap_or(0);
-        let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.ready() || tw.layout != layout).unwrap_or(true);
+        let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.generation || tw.layout != layout).unwrap_or(true);
         if fresh {
             if let Some(old) = scene.towns.remove(&sid) {
                 for e in old.entities {
@@ -305,13 +306,23 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 match door_of(s, i as u16) {
                     Some(d) if occupied.contains(&(i as u16)) => interior(&mut lit, &mut glow, bd, &d, &on_ground),
                     _ => {
-                        if bd.kind == BuildingKind::RoduroHome && models.ready() {
-                            let ground = on_ground(bd.pos);
-                            let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
-                            ents.extend(models.spawn_roduro_home(&mut commands, to3(bd.pos, ground - sink), bd.rot, bd.size));
-                            window_glow(&mut glow, bd, ground, bd.size * 0.5);
-                        } else {
-                            building(&mut lit, &mut glow, t, bd, &on_ground);
+                        let model = match bd.kind {
+                            BuildingKind::RoduroHome => models.roduro_kind(bd.seed, bd.size),
+                            BuildingKind::HoraroStilt => models.stilt_kind(bd.seed),
+                            _ => None,
+                        };
+                        match (bd.kind, model) {
+                            (BuildingKind::RoduroHome, Some(name)) => {
+                                let ground = on_ground(bd.pos);
+                                let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
+                                ents.extend(models.spawn(&mut commands, name, to3(bd.pos, ground - sink), bd.rot, bd.size));
+                                window_glow(&mut glow, bd, ground, bd.size * 0.5);
+                            }
+                            (BuildingKind::HoraroStilt, Some(name)) => {
+                                // The kit is in metres already; stood on the water line.
+                                ents.extend(models.spawn_assembly(&mut commands, name, to3(bd.pos, 0.0), bd.rot, 1.0));
+                            }
+                            _ => building(&mut lit, &mut glow, t, bd, &on_ground),
                         }
                     }
                 }
@@ -324,7 +335,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let tris = lit.triangles() + glow.triangles();
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
-            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.ready(), triangles: tris });
+            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
