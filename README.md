@@ -66,7 +66,8 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | 1 – 5 | Speed: real time, 10×, 1 minute/s, 10 minutes/s, 1 hour/s |
 | R | Show / hide the band rings |
 | L | Detail readout: what's drawn at what detail, and triangle counts |
-| B | (testing) Drop a band of bandits next to the squad |
+| B | The Build panel: found an outpost, place buildings, draw walls (Shift + wheel turns a building; Esc finishes a wall or stops placing) |
+| Shift+B | (testing) Drop a band of bandits next to the squad |
 | F10 | The land editor (see below); F10 or Esc to leave |
 
 Hover over anyone or anything for details. A fight breaking out near you drops
@@ -573,6 +574,45 @@ Overgrowth, recent attacks). Debug keys: `H` hunt the nearest herd,
 goods, prices, law about protected animals, riding, breeding lines,
 fishing as something the squad does. The functions those will call exist
 (see `ANIMALS.md`/the hook list).
+
+### Outposts (Part 7, stage 1)
+
+The squad can found **outposts**, Kenshi style. Press **B** for the Build
+panel, pick **Camp marker** and click the ground: a fire ring founds the base.
+Its reach starts at 40 m and grows 3 m per building (up to 120 m); buildings
+go anywhere inside it the ground allows. The ghost on the cursor is green
+where a building fits and red (with the reason) where it doesn't: too steep,
+in the water, on a road, on a town's buildings, in another building's way, or
+too far from the marker. Walls are drawn as a chain of clicks and cut into
+segments of 4 m or less; a gate snaps onto a wall segment, a watchtower onto
+a wall's corner.
+
+**Settler-style buildings** (one look for everyone for now: timber, rubble,
+thatch): lean-to, hut, longhouse, storehouse, hearth kitchen, well, field
+plot, animal pen, work sheds for each crafting station, palisade, rubble
+wall, gate, watchtower. Each is a line of data in `base::BUILDINGS`
+(materials, labour hours, footprint, health, wood or stone, value, beds,
+storage, the station it houses, and its build method).
+
+**Building is learned like a craft.** Two new skills: **Carpentry** (timber
+work) and **Masonry** (laid stone). Someone must have taken the skill up, and
+some buildings need a minimum level (longhouse, gate and tower: carpentry 20;
+rubble wall: masonry 10). The squad's hunter starts with carpentry; nobody
+starts with masonry (teachers and manuals come in stage 2). The panel greys
+out what nobody can build, and says why.
+
+**Construction runs on the clock.** A placed building is a site. It takes its
+materials from the base's store (**Store materials** moves timber, reed,
+stone, clay, pitch and ingots from the packs of everyone at the base), then
+labour. Everyone at the base who can build works on the first site they can,
+in the order placed, at `0.5 + skill/100` builder-hours an hour. The moment a
+site will stand is solved for, not counted down, and solved again only when
+something changes (someone arrives or leaves, materials come in, another site
+finishes): so the step size never changes when it stands.
+Deconstructing gives back a site's materials, or half of a standing
+building's. A work shed adds its station to the world, usable like a town's.
+
+Placeholder boxes for now (models come from the Blender session).
 
 ## Magic
 

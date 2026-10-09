@@ -78,6 +78,10 @@ pub struct Shot {
     /// people (or the most mixed) first.
     pub town: bool,
     pub town_kind: Option<String>,
+    /// `GAHT_BUILD=1`: a demo outpost in the wilds near the start (a hut and
+    /// lean-to up, a palisade with a gate, more under way), the Build panel
+    /// open and a hut's ghost on the cursor.
+    pub build: bool,
     /// `GAHT_DUEL=1`: squad member 0 is judged by duel in the nearest town.
     pub duel: bool,
     /// `GAHT_SHUN=1`: the nearest coastal town's stilt village withdraws;
@@ -146,6 +150,7 @@ impl Shot {
             summon: var("GAHT_SUMMON").is_some(),
             held: var("GAHT_HELD").is_some(),
             town: var("GAHT_TOWN").is_some(),
+            build: var("GAHT_BUILD").is_some(),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -248,6 +253,9 @@ impl Shot {
         if let Some((dx, dy)) = self.nudge {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
+        }
+        if self.build {
+            demo_base(world);
         }
         if let Some(h) = self.hours {
             let end = world.time + h * 3600.0;
@@ -592,4 +600,64 @@ impl Shot {
         }
         super::animals::prepare(world);
     }
+}
+
+/// Lay out a demo outpost near the squad (for `GAHT_BUILD`).
+fn demo_base(world: &mut World) {
+    use gahturiyu_sim::sim::base::{def_index, Land, Plan, BUILDINGS};
+    use gahturiyu_sim::sim::stats::Skill;
+    let start = world.squad.pos;
+    for ring in 0..60 {
+        for k in 0..12 {
+            let a = k as f32 / 12.0 * std::f32::consts::TAU;
+            let p = start.add(V2::new(a.cos(), a.sin()).scale(80.0 + ring as f32 * 30.0));
+            let mut w = world.clone();
+            let Ok(bid) = w.found_base(p) else { continue };
+            if w.base(bid).unwrap().land != Land::Wilds {
+                continue;
+            }
+            let plan = |key: &str, off: V2, rot: f32| Plan { def: def_index(key), at: p.add(off), rot, w: BUILDINGS[def_index(key)].w, replaces: None };
+            let layout = [plan("hut", V2::new(-9.0, 4.0), 0.0), plan("lean_to", V2::new(7.0, 5.0), 0.4), plan("hut", V2::new(-9.0, -6.0), 0.0), plan("field_plot", V2::new(10.0, -10.0), 0.0)];
+            if !layout.iter().all(|pl| w.check_place(&mut pl.clone()).is_ok()) {
+                continue;
+            }
+            let wall = [p.add(V2::new(-18.0, 14.0)), p.add(V2::new(18.0, 14.0))];
+            if !World::wall_plans(def_index("palisade"), &wall).into_iter().all(|mut q| w.check_place(&mut q).is_ok()) {
+                continue;
+            }
+            w.teleport_squad(p.add(V2::new(0.0, -2.0)));
+            // Everyone can lend a hand with timber.
+            let hunter = w.squad.members.iter().copied().find(|&m| w.people[m as usize].detail.as_ref().is_some_and(|d| d.crafts.contains(&Skill::Carpentry))).unwrap_or(w.squad.members[0]);
+            for &m in &w.squad.members.clone() {
+                if let Some(d) = w.people[m as usize].detail.as_mut() {
+                    if !d.crafts.contains(&Skill::Carpentry) {
+                        d.crafts.push(Skill::Carpentry);
+                    }
+                }
+            }
+            {
+                let d = w.people[hunter as usize].detail.as_mut().unwrap();
+                for (k, n) in [("timber", 60), ("seareed", 16), ("iron_ingot", 1)] {
+                    d.gear.add(gahturiyu_sim::sim::items::id(k), n);
+                }
+            }
+            w.store_materials(bid);
+            for pl in layout {
+                let _ = w.place_building(pl);
+            }
+            let _ = w.place_wall(def_index("palisade"), &wall);
+            let mut g = plan("gate", V2::new(0.0, 14.0), 0.0);
+            if w.check_place(&mut g).is_ok() {
+                let _ = w.place_building(g);
+            }
+            // A few hours' work.
+            let end = w.time + 7.0 * 3600.0;
+            while w.time < end {
+                w.step(60.0);
+            }
+            *world = w;
+            return;
+        }
+    }
+    eprintln!("GAHT_BUILD: nowhere to lay a demo base");
 }

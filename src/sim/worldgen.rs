@@ -117,7 +117,7 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
             // The crafts they've each taken up.
             d.crafts = match (race, calling) {
                 (_, Calling::Mage) => vec![Skill::Alchemy, Skill::Inscription],
-                (_, Calling::Hunter) => vec![Skill::Handcraft],
+                (_, Calling::Hunter) => vec![Skill::Handcraft, Skill::Carpentry],
                 (Race::Qotiro, _) => vec![Skill::Smithing, Skill::Armoring],
                 _ => vec![Skill::Tending],
             };

@@ -182,6 +182,19 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    departure, an hour of a day plan). Nothing reads it yet
    (`docs/weather-hooks.md` says where each piece is meant to connect).
 
+22. **Bases are built on the clock.** A construction site stores its labour
+   at one moment plus a rate (the builders on it now); its finish is solved
+   for (`Site::done_at`) and handled on the world's timeline
+   (`World::base_events`, one call in the event loop). Anything that changes
+   the rate (someone arriving or leaving, materials delivered, a site
+   finishing) settles the base at that moment and solves again
+   (`base_changed_at`). Who of the squad is at a base is checked at the start
+   of each step (the player exception, like walking). Buildings are data
+   (`base::BUILDINGS`, each with a `Method`, so culture methods are new
+   lines); the window places them only through `check_place` /
+   `place_building` / `place_wall`. A base keeps cached `wealth` and
+   `defence`, recomputed only on change.
+
 ## Verifying visual changes
 
 The window can screenshot itself headlessly:
@@ -232,6 +245,9 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 (go and look at the nearest of that species at an hour it's up, e.g.
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
+`GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
+a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
+put the cursor with `GAHT_HOVER`).
 `GAHT_WEATHER=1` (the weather panel, F7; `folded` for its headline, `off` for none),
 `GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
 with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`

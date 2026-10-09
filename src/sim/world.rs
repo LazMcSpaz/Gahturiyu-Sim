@@ -77,6 +77,9 @@ pub struct World {
     /// A town authored by the forge, if one is loaded (`forge.rs`).
     #[serde(default)]
     pub forge: Option<super::forge::Town>,
+    /// The squad's outposts (`base.rs`).
+    pub bases: Vec<super::base::Base>,
+    pub next_base: u32,
     /// The last whole game-hour whose departures have been decided.
     pub hour_done: i64,
     pub log: VecDeque<(f64, String)>,
@@ -233,6 +236,8 @@ impl World {
             terrain,
             routes,
             forge: None,
+            bases: Vec::new(),
+            next_base: 0,
             people,
             settlements,
             groups: Vec::new(),
@@ -340,6 +345,9 @@ impl World {
             self.step(HOUR);
             dt -= HOUR;
         }
+        // 0. Who of the squad is at each base, as of now (moved by an order,
+        //    or by last step's walking): a change settles the base's work.
+        self.refresh_bases();
         // 1. The squad walks, each member at their own pace. Always fully
         //    simulated. Members in a fight are moved by the fight instead.
         self.walk_squad(dt);
@@ -355,6 +363,7 @@ impl World {
         loop {
             let hour_t = (self.hour_done + 1) as f64 * HOUR;
             if self.animal_events(hour_t) { continue; }
+            if self.base_events(hour_t) { continue; }
             let ev = self.next_event().filter(|e| e.0 <= self.time && e.0 < hour_t);
             let cargo = self.next_cargo().filter(|c| c.0 <= self.time && c.0 < hour_t);
             match (ev, cargo) {

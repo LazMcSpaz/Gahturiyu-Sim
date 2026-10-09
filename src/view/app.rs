@@ -105,6 +105,9 @@ pub struct Game {
     /// The land editor (F10).
     pub editor: super::editor::Editor,
     pub barked: std::collections::HashMap<PersonId, u32>,
+    /// The Build panel (B), and a building waiting to be put down.
+    pub build: bool,
+    pub placing: Option<super::baseui::Placing>,
 }
 
 pub fn run() {
@@ -187,6 +190,8 @@ pub fn run() {
         town_all: false,
         editor: Default::default(),
         barked: std::collections::HashMap::new(),
+        build: false,
+        placing: None,
         shot: None,
         world,
     };
@@ -234,6 +239,10 @@ pub fn run() {
             game.editor.tool = super::editor::Tool::Paint(11);
             game.follow = false;
             game.orbit.target = at;
+        }
+        if s.build {
+            game.build = true;
+            game.placing = Some(super::baseui::Placing { def: gahturiyu_sim::sim::base::def_index("hut"), ..Default::default() });
         }
         if s.town || s.feud {
             let at = game.world.squad.pos;
@@ -337,6 +346,8 @@ fn swap_world(game: &mut Game, w: World) {
     game.inv = None;
     game.craft = None;
     game.hover = None;
+    game.build = false;
+    game.placing = None;
     game.follow = true;
     game.orbit.target = game.world.squad.pos;
     game.orbit.ground = game.world.terrain.surface(game.world.squad.pos);
@@ -419,7 +430,13 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
     }
-    if keys.just_pressed(KeyCode::Escape) && game.aim.is_some() {
+    if keys.just_pressed(KeyCode::Escape) && game.placing.is_some() {
+        // Finish a wall being drawn, or stop placing.
+        match game.placing.as_mut() {
+            Some(p) if !p.chain.is_empty() => p.chain.clear(),
+            _ => game.placing = None,
+        }
+    } else if keys.just_pressed(KeyCode::Escape) && game.aim.is_some() {
         game.aim = None;
     } else if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
         w.end_talk();
@@ -535,7 +552,14 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             None => game.sel.lead(w),
         };
     }
-    if keys.just_pressed(KeyCode::KeyB) {
+    // B: the Build panel. (Shift+B: bandits, for testing.)
+    if keys.just_pressed(KeyCode::KeyB) && !shift {
+        game.build = !game.build;
+        if !game.build {
+            game.placing = None;
+        }
+    }
+    if keys.just_pressed(KeyCode::KeyB) && shift {
         let n = 2 + (w.time as usize % 3);
         let at = w.squad.pos.add(V2::new(26.0, 12.0));
         w.spawn_bandits(at, n, true);
@@ -549,7 +573,28 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         }
     }
 
-    camera_input(game, &keys, &buttons, &scroll, mouse, dt);
+    // A building being placed: Shift + wheel turns it; its ghost follows
+    // the cursor.
+    let turning = game.placing.is_some() && shift && scroll.delta.y != 0.0;
+    if turning {
+        if let Some(p) = game.placing.as_mut() {
+            p.rot += scroll.delta.y.signum() * std::f32::consts::PI / 12.0;
+        }
+    }
+    if game.placing.is_some() {
+        let at = match game.view {
+            View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
+            View::Scene => game.orbit.ground_at(game.screen, mouse, &game.world.terrain),
+        };
+        let on_panels = game.panels.iter().any(|b| b.contains(mouse));
+        let mut p = game.placing.take().unwrap();
+        super::baseui::update_ghost(&game.world, &mut p, if on_panels { None } else { at });
+        game.placing = Some(p);
+    }
+
+    if !turning {
+        camera_input(game, &keys, &buttons, &scroll, mouse, dt);
+    }
     let on_panels = game.panels.iter().any(|b| b.contains(mouse));
     // Clicks on the panels are handled when they're drawn; a short click
     // anywhere else is an order.
@@ -681,9 +726,52 @@ fn camera(game: Res<Game>, mut cam: Query<(&mut Camera, &mut Transform, &mut Pro
     }
 }
 
+/// A click while a building is being placed: put it down (Shift keeps
+/// placing more of the same); for a wall, add the next point.
+fn place_click(game: &mut Game, shift: bool) {
+    use gahturiyu_sim::sim::base::{Kind, BUILDINGS};
+    let Some(mut p) = game.placing.take() else { return };
+    let d = &BUILDINGS[p.def];
+    let Some(&(plan, ok)) = p.ghost.last() else {
+        game.placing = Some(p);
+        return;
+    };
+    let w = &mut game.world;
+    let mut keep = shift;
+    let res = if d.kind == Kind::Wall {
+        keep = true;
+        match p.chain.last().copied() {
+            None => ok.map(|_| p.chain.push(plan.at)),
+            Some(last) => {
+                let to = p.cursor.unwrap_or(plan.at);
+                w.place_wall(p.def, &[last, to]).map(|_| p.chain.push(to))
+            }
+        }
+    } else if d.kind == Kind::Marker {
+        keep = false;
+        w.found_base(plan.at).map(|_| ())
+    } else {
+        w.place_building(plan).map(|_| ())
+    };
+    match res {
+        Ok(()) => {}
+        Err(e) => {
+            keep = true;
+            game.notice = Some((format!("{}: {}", d.name, e.why()), std::time::Instant::now()));
+        }
+    }
+    if keep {
+        game.placing = Some(p);
+    }
+}
+
 /// A short left-click in the world: select a squad member, attack an enemy,
 /// pick something up, or walk there.
 fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
+    if game.placing.is_some() {
+        place_click(game, shift);
+        return;
+    }
     let hover = game.hover;
     // Aiming a spell: whoever is under the mouse, and the spot.
     if let Some((who, s)) = game.aim.take() {
@@ -976,6 +1064,16 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if game.journal {
         panels.push(squadui::journal(&c, w));
     }
+    let mut build_act = None;
+    if game.build {
+        let here = match game.view {
+            View::Scene => game.orbit.target,
+            View::Map => game.map_cam.centre,
+        };
+        let (a, bx) = super::baseui::build_panel(&c, w, here, game.placing.as_ref().map(|p| p.def), game.mouse, click);
+        build_act = a;
+        panels.push(bx);
+    }
     if let Some(t) = game.town {
         panels.push(super::townui::town_panel(&c, w, t));
         panels.push(super::townui::life_panel(&c, w, t, game.debug || game.town_all));
@@ -998,6 +1096,23 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             w.ask(t);
         }
         panels.extend(bx);
+    }
+    match build_act {
+        Some(super::baseui::BuildAction::Pick(def)) => {
+            game.placing = Some(super::baseui::Placing { def, ..Default::default() });
+        }
+        Some(super::baseui::BuildAction::Store(b)) => {
+            let n = w.store_materials(b);
+            game.notice = Some((if n == 0 { "Nobody here carries building materials.".to_string() } else { format!("{n} building materials stored.") }, std::time::Instant::now()));
+        }
+        Some(super::baseui::BuildAction::Deconstruct(b, id)) => {
+            w.deconstruct(b, id);
+        }
+        Some(super::baseui::BuildAction::Close) => {
+            game.build = false;
+            game.placing = None;
+        }
+        None => {}
     }
     for a in actions {
         match a {
@@ -1062,6 +1177,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
     game.hover = if on_panels { None } else { pick.best.map(|(_, h)| h) };
+    if let (Some(p), false) = (&game.placing, on_panels) {
+        super::baseui::placing_hint(&c, p, game.mouse);
+    }
     if let Some(s) = spell_tip {
         let lines = squadui::spell_lines(s);
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
@@ -1089,7 +1207,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
     let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: bandits   F7: weather   F12: wildlife   F10: edit the land",
+        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land",
         View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
     };
     if let Some((msg, at)) = &game.notice {

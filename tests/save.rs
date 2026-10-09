@@ -39,6 +39,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n{:?}\n", bincode::serialize(&w.terrain.authored).unwrap(), w.forge);
     // Wildlife and livestock.
     s += &format!("{:?}\n", w.animals);
+    // The squad's outposts.
+    s += &format!("{:?} {}\n", w.bases, w.next_base);
     s
 }
 

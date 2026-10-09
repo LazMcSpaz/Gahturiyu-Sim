@@ -11,6 +11,7 @@
 
 use gahturiyu_sim::sim::{geo::V2, world::HOUR, worldgen, World};
 
+mod base;
 mod weather;
 
 fn run(mut w: World, hours: f64, step: f64) -> World {

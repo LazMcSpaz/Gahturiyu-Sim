@@ -69,10 +69,14 @@ pub enum Skill {
     Tending,
     /// Reed, shell, fishskin and tentsilk; sealing with pitch.
     Weaving,
+    /// Timber building: huts, longhouses, palisades, gates, towers.
+    Carpentry,
+    /// Laid stone: rubble walls, wells, kitchens, footings.
+    Masonry,
 }
 
 /// How many skills there are.
-pub const N_SKILLS: usize = 20;
+pub const N_SKILLS: usize = 22;
 
 pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Blade,
@@ -95,6 +99,8 @@ pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Handcraft,
     Skill::Tending,
     Skill::Weaving,
+    Skill::Carpentry,
+    Skill::Masonry,
 ];
 
 impl Skill {
@@ -120,6 +126,8 @@ impl Skill {
             Skill::Handcraft => "Handcraft",
             Skill::Tending => "Stone-tending",
             Skill::Weaving => "Weaving",
+            Skill::Carpentry => "Carpentry",
+            Skill::Masonry => "Masonry",
         }
     }
 
@@ -136,6 +144,8 @@ impl Skill {
             Skill::Smithing | Skill::Armoring => Attr::Strength,
             Skill::Handcraft | Skill::Weaving => Attr::Agility,
             Skill::Tending => Attr::Willpower,
+            Skill::Carpentry => Attr::Agility,
+            Skill::Masonry => Attr::Strength,
         }
     }
 
