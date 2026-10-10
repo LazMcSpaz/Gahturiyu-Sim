@@ -4,7 +4,7 @@
 //! out instead of silently missing.
 
 use gahturiyu_sim::sim::{
-    dialogue::{Topic, SELL_SHOWN, WORN_SHOWN},
+    dialogue::{Topic, SELL_PAGE, SELL_SHOWN, WORN_SHOWN},
     items::{self, ItemId, ITEMS},
     jobs::Job,
     person::PersonId,
@@ -90,15 +90,15 @@ fn a_big_sale_pays_less_each_and_the_button_says_what_it_comes_to() {
     // What the first one fetches is not what they all fetch: that was the
     // "(2 coin each)" that paid 54 for 50.
     assert!((total as u32) < first as u32 * count as u32 || count < w.squad_count(timber), "sixty don't fetch sixty times the first: {first} each, {total} for {count}");
-    if w.topics().contains(&Topic::SellRest) {
-        w.ask(Topic::SellRest);
-    }
-    let topic = w.topics().into_iter().find(|t| *t == Topic::SellAll(timber)).expect("timber is on the list");
+    // Sixty timber is one of the bigger lots: it's on the first page.
+    let topic = w.topics().into_iter().find(|t| *t == Topic::SellAll(timber)).expect("timber is on the first page");
     let label = w.topic_text(topic);
-    assert!(label.contains(&format!("({total} coin")), "{label}");
+    assert!(label.ends_with(&format!("— {total} coin")), "{label}");
     assert!(!label.contains("each"), "{label}");
     if count < w.squad_count(timber) {
-        assert!(label.contains(&format!("Sell {count} of ")) && label.contains("all they can take"), "{label}");
+        assert!(label.starts_with(&format!("Sell {count} of ")), "{label}");
+    } else {
+        assert!(label.starts_with(&format!("Sell all {count} × ")), "{label}");
     }
     let had = w.squad_count(coin);
     w.ask(topic);
@@ -110,7 +110,7 @@ fn the_sell_list_is_what_fetches_most_first_and_nothing_is_cut_off() {
     let (mut w, merchant) = market(3, items::id("timber"));
     let me = open_wares(&mut w, merchant);
     // One each of plenty of things this merchant takes.
-    let takes: Vec<ItemId> = (0..ITEMS.len() as ItemId).filter(|&it| w.squad_count(it) == 0 && w.offer(merchant, it, None).is_some()).take(SELL_SHOWN + 6).collect();
+    let takes: Vec<ItemId> = (0..ITEMS.len() as ItemId).filter(|&it| w.squad_count(it) == 0 && w.offer(merchant, it, None).is_some()).take(SELL_SHOWN + SELL_PAGE + 4).collect();
     assert!(takes.len() > SELL_SHOWN, "this merchant takes {} kinds", takes.len());
     for &it in &takes {
         give(&mut w, me, it, 1);
@@ -135,12 +135,30 @@ fn the_sell_list_is_what_fetches_most_first_and_nothing_is_cut_off() {
         _ => unreachable!(),
     };
     assert_eq!(top, kinds[0].0);
-    // The rest are a question away, and the question says how many.
-    let more = w.topics().into_iter().find(|t| *t == Topic::SellRest).expect("a way to see the rest");
-    assert!(w.topic_text(more).contains(&format!("({} more)", kinds.len() - SELL_SHOWN)), "{}", w.topic_text(more));
-    w.ask(more);
-    assert_eq!(selling(&w).len(), kinds.len(), "everything they'd take");
-    assert!(!w.topics().contains(&Topic::SellRest));
+    // The rest are a question away, a page at a time, and the question
+    // says how many are left.
+    let mut seen: Vec<Topic> = shown.clone();
+    let mut pages = 0;
+    while let Some(more) = w.topics().into_iter().find(|t| *t == Topic::SellRest) {
+        assert!(w.topic_text(more).contains(&format!("({} more)", kinds.len() - seen.len())), "{}", w.topic_text(more));
+        w.ask(more);
+        let page = selling(&w);
+        assert!(!page.is_empty() && page.len() <= SELL_PAGE);
+        assert!(!w.topics().iter().any(|t| matches!(t, Topic::Buy(..) | Topic::SellWorn(..))), "a later page is the sell list alone");
+        seen.extend(page);
+        pages += 1;
+        assert!(pages < 10);
+    }
+    assert!(pages >= 1);
+    assert_eq!(seen.len(), kinds.len(), "every kind they'd take is on some page");
+    for k in &kinds {
+        assert!(seen.iter().any(|t| matches!(t, Topic::Sell(it, _) | Topic::SellAll(it) if *it == k.0)), "{k:?}");
+    }
+    // And back to their wares.
+    assert!(w.topics().contains(&Topic::Trade));
+    w.ask(Topic::Trade);
+    assert_eq!(selling(&w), shown);
+    assert!(w.topics().iter().any(|t| matches!(t, Topic::Buy(..))));
 }
 
 #[test]
@@ -164,7 +182,11 @@ fn worn_things_are_pointed_out_not_left_off() {
     let Topic::SellWorn(it, who, price) = topics[0] else { unreachable!() };
     assert_eq!((it, who, price), worn[0]);
     let label = w.topic_text(topics[0]);
-    assert!(label.contains("take it off first") && label.contains(&format!("about {price} coin")), "{label}");
+    assert!(label.contains("worn: take it off to sell") && label.contains(&format!("~{price} coin")), "{label}");
+    // Labels stay short enough for the window's topic column.
+    for t in w.topics() {
+        assert!(w.topic_text(t).chars().count() <= 60, "{}", w.topic_text(t));
+    }
     // Asking changes nothing: it's still on, and no coin has moved.
     let coin = w.squad_count(items::id("coin"));
     let wearing: Vec<ItemId> = w.people[who as usize].detail.as_ref().unwrap().gear.equipped().collect();

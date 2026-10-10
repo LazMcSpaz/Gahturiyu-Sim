@@ -666,17 +666,20 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     let d = format!("Disposition {disp:.0}");
     c.text(&d, r.x + r.w - c.width(&d, 14.0) - 16.0, r.y + 26.0, 14.0, if disp < 30.0 { WARN } else { DIM });
 
-    let tx = r.x + r.w - 200.0;
+    // Trade lines are longer than questions ("Sell all 40 × iron ore — 44
+    // coin"), so the column widens while their wares are out.
+    let col = if cv.trading { 330.0 } else { 200.0 };
+    let tx = r.x + r.w - col;
     let mut ty = r.y + 60.0;
     let mut chosen = None;
     for t in topics {
-        let row = Bx::new(tx - 6.0, ty - 15.0, 190.0, 21.0);
+        let row = Bx::new(tx - 6.0, ty - 15.0, col - 10.0, 21.0);
         let hot = row.contains(mouse);
         if hot {
             c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.15));
         }
         let label = w.topic_text(t);
-        let fs = (15.0 * 186.0 / c.width(&label, 15.0).max(1.0)).clamp(10.0, 15.0);
+        let fs = (15.0 * (col - 14.0) / c.width(&label, 15.0).max(1.0)).clamp(10.0, 15.0);
         c.text(&label, tx, ty, fs, if hot { GOLD } else { TEXT });
         if click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {
             chosen = Some(t);

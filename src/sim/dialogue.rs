@@ -185,15 +185,19 @@ pub struct Conversation {
     /// What's been tried in this talk already: (option, which concern).
     #[serde(default)]
     pub tried: Vec<(super::talk::Opt, usize)>,
-    /// Whether everything they'd buy is listed, not just the dearest few.
+    /// Which page of what they'd buy is showing: 0 is their wares and the
+    /// few things that fetch most; later pages are the rest of the sell list.
     #[serde(default)]
-    pub sell_rest: bool,
+    pub sell_page: u8,
 }
 
 /// How many kinds of thing the sell list shows before "What else would you
 /// take?" (what fetches most first, so the best of the loot is never the
 /// part cut off).
 pub const SELL_SHOWN: usize = 10;
+/// How many kinds a later page of the sell list holds (what fits the talk
+/// panel with nothing else on it).
+pub const SELL_PAGE: usize = 18;
 /// How many worn things are pointed out as sellable.
 pub const WORN_SHOWN: usize = 3;
 
@@ -223,16 +227,20 @@ impl World {
                 // sale by sale, since the price of a good drops as they buy.
                 let (n, total) = self.talk.as_ref().map(|c| self.sell_all_quote(c.npc, it)).unwrap_or((0, 0));
                 let (have, name) = (self.squad_count(it), items::item(it).name.to_lowercase());
+                // (Kept short: the window's topic column is narrow.)
                 if n >= have {
-                    format!("Sell all {have} × {name} ({total} coin for the lot)")
+                    format!("Sell all {have} × {name} — {total} coin")
                 } else {
-                    format!("Sell {n} of {have} × {name} ({total} coin; all they can take)")
+                    format!("Sell {n} of {have} × {name} — {total} coin")
                 }
             }
-            Topic::SellWorn(it, m, p) => format!("Sell {} — {} has it on; take it off first (about {p} coin)", items::item(it).name.to_lowercase(), self.people[m as usize].name().unwrap_or("someone")),
+            Topic::SellWorn(it, _, p) => {
+                let name = items::item(it).name;
+                format!("{name} (worn: take it off to sell, ~{p} coin)")
+            }
             Topic::SellRest => {
-                let kinds = self.talk.as_ref().map(|c| self.sell_kinds(c.npc).len()).unwrap_or(0);
-                format!("What else would you take? ({} more)", kinds.saturating_sub(SELL_SHOWN))
+                let left = self.talk.as_ref().map(|c| self.sell_kinds(c.npc).len().saturating_sub(sell_seen(c.sell_page))).unwrap_or(0);
+                format!("What else would you take? ({left} more)")
             }
             Topic::Join(0) => "Come with us — join the squad".into(),
             Topic::Join(fee) => format!("Come with us — join the squad ({fee} coin to sign on)"),
@@ -302,7 +310,7 @@ impl World {
         let concerns = self.on_mind(npc);
         let said = self.assemble_talk(npc, who, concerns.first(), true);
         self.note_said(npc, who, &said.pieces);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_rest: false });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_page: 0 });
     }
 
     pub fn end_talk(&mut self) {
@@ -348,27 +356,38 @@ impl World {
         // Merchants at their stalls trade; exchangers at work change money.
         if self.is_trading(c.npc) {
             if c.trading {
-                t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
                 // One line per kind of thing (several of it sell together),
-                // what fetches most first; past the first few, the rest on
-                // asking.
+                // what fetches most first. The first page is their wares,
+                // the best of what you carry and what's being worn; the rest
+                // of the sell list comes a page at a time on asking.
                 let kinds = self.sell_kinds(c.npc);
-                let shown = if c.sell_rest { kinds.len() } else { SELL_SHOWN };
-                for &(it, p, _) in kinds.iter().take(shown) {
-                    t.push(if self.squad_count(it) > 1 { Topic::SellAll(it) } else { Topic::Sell(it, p) });
-                }
-                if kinds.len() > shown {
-                    t.push(Topic::SellRest);
-                }
-                // And what they'd buy off someone's back, so nobody wonders
-                // why the helm isn't on the list.
-                // (One line per kind of thing: three hide coats are one hint.)
-                let mut kinds_worn: Vec<items::ItemId> = Vec::new();
-                for (it, m, p) in self.worn_sellable(c.npc) {
-                    if kinds_worn.len() < WORN_SHOWN && !kinds_worn.contains(&it) {
-                        kinds_worn.push(it);
-                        t.push(Topic::SellWorn(it, m, p));
+                let page = if sell_seen(c.sell_page.saturating_sub(1)) < kinds.len() { c.sell_page } else { 0 };
+                let line = |&(it, p, _): &(items::ItemId, u16, u16)| if self.squad_count(it) > 1 { Topic::SellAll(it) } else { Topic::Sell(it, p) };
+                if page == 0 {
+                    t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
+                    t.extend(kinds.iter().take(SELL_SHOWN).map(line));
+                    if kinds.len() > SELL_SHOWN {
+                        t.push(Topic::SellRest);
                     }
+                    // And what they'd buy off someone's back, so nobody
+                    // wonders why the helm isn't on the list. (One line per
+                    // kind of thing: three hide coats are one hint.)
+                    let mut kinds_worn: Vec<items::ItemId> = Vec::new();
+                    for (it, m, p) in self.worn_sellable(c.npc) {
+                        if kinds_worn.len() < WORN_SHOWN && !kinds_worn.contains(&it) {
+                            kinds_worn.push(it);
+                            t.push(Topic::SellWorn(it, m, p));
+                        }
+                    }
+                } else {
+                    // A later page: nothing but the next of the sell list,
+                    // and the way back to their wares.
+                    t.clear();
+                    t.extend(kinds.iter().skip(sell_seen(page - 1)).take(SELL_PAGE).map(line));
+                    if kinds.len() > sell_seen(page) {
+                        t.push(Topic::SellRest);
+                    }
+                    t.push(Topic::Trade);
                 }
             } else {
                 t.push(Topic::Trade);
@@ -491,11 +510,12 @@ impl World {
         if topic == Topic::Trade {
             if let Some(c) = self.talk.as_mut() {
                 c.trading = true;
+                c.sell_page = 0;
             }
         }
         if topic == Topic::SellRest {
             if let Some(c) = self.talk.as_mut() {
-                c.sell_rest = true;
+                c.sell_page = c.sell_page.saturating_add(1);
             }
         }
         if topic == Topic::Orders {
@@ -939,4 +959,9 @@ impl World {
         kinds.sort_by(|a, b| b.2.cmp(&a.2).then(b.1.cmp(&a.1)).then(a.0.cmp(&b.0)));
         kinds
     }
+}
+
+/// How many kinds of the sell list have been shown by the end of this page.
+fn sell_seen(page: u8) -> usize {
+    SELL_SHOWN + page as usize * SELL_PAGE
 }
