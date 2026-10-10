@@ -808,7 +808,7 @@ fn work_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
     if l.job == Job::None {
         return vec![];
     }
-    let mut line = l.job.name().to_string();
+    let mut line = l.job.title(w.people[pid as usize].seed).to_string();
     if l.job == Job::Guard && l.shift == 1 {
         line += " (night watch)";
     }

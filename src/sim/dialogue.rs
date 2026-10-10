@@ -485,7 +485,7 @@ impl World {
                 let job = self.life(c.npc).job;
                 if job != super::jobs::Job::None {
                     let place = self.workplace_of(c.npc).map(|w| format!(", at the {}", w.kind.name().to_lowercase())).unwrap_or_default();
-                    return format!("{race} These days I'm a {}{place}.", job.name().to_lowercase());
+                    return format!("{race} These days I'm a {}{place}.", job.title(p.seed).to_lowercase());
                 }
                 let work = match p.stats.calling {
                     Calling::Warrior => " I've fought for coin, when there was coin to fight for.",

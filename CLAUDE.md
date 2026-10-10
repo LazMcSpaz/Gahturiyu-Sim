@@ -150,6 +150,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    victim), and a told crime sends a guard who is moved step by step and
    catches the thief (then `judge`) or loses them (then a bounty). Office eligibility reads race and sex directly — that's the
    canon rule (Laz), not a culture leaning; everything else reads customs.
+   Sex is one reading of the seed shared with the names (`law::woman`/`man`
+   are `sim::names::gender`), so a priestess always has a woman's name; a
+   Qotiro priest by trade is always a woman (canon, Laz), and `Job::title`
+   words the job for the person ("Priestess").
 19. **Lives are settled on the clock, and few people act.** Purses, work
    status, needs, dealings, gossip, grudges' first rung, the ring's choice
    and the storyteller all run at dawn (`lives.rs`, `memory.rs`,

@@ -300,9 +300,15 @@ impl Post {
     }
 }
 
-/// Is this person a woman? (Rolled once from who they are.)
+/// Is this person a woman? The same reading of who they are that their name
+/// is chosen by (`names::gender`), so a priestess always has a woman's name.
 pub fn woman(seed: u64) -> bool {
-    Rng::from_keys(&[seed, 0x5345_5821]).f32() < 0.5
+    super::names::gender(seed) == crate::names::Gender::Female
+}
+
+/// Is this person a man? (Neither, for the few whose name is for either.)
+pub fn man(seed: u64) -> bool {
+    super::names::gender(seed) == crate::names::Gender::Male
 }
 
 /// How old a home is, years (the older, the louder its elder's voice).
@@ -369,7 +375,7 @@ impl World {
             }
             Rule::Priestesses => here
                 .iter()
-                .filter(|&&p| race(p) == Race::Qotiro && woman(self.people[p as usize].seed) != admins)
+                .filter(|&&p| race(p) == Race::Qotiro && if admins { man(self.people[p as usize].seed) } else { woman(self.people[p as usize].seed) })
                 .map(|&p| {
                     let calling = matches!(self.life(p).job, Job::Priest | Job::Official);
                     ((calling as u8 as f32) * 1000.0 + age(p) as f32, p)
@@ -897,7 +903,7 @@ impl World {
         match post {
             Post::Elder => pp.race == Race::Roduro,
             Post::Priestess => pp.race == Race::Qotiro && woman(pp.seed),
-            Post::Administrator => pp.race == Race::Qotiro && !woman(pp.seed),
+            Post::Administrator => pp.race == Race::Qotiro && man(pp.seed),
             Post::Speaker => pp.race == Race::Horaro,
             Post::Arbiter => pp.race == Race::Tadoro,
         }

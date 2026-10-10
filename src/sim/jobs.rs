@@ -95,6 +95,15 @@ pub const ALL_JOBS: [Job; 33] = [
 ];
 
 impl Job {
+    /// What someone in this job is called: the job's name, worded for them
+    /// ("Priestess" for a woman).
+    pub fn title(self, seed: u64) -> &'static str {
+        match self {
+            Job::Priest if super::law::woman(seed) => "Priestess",
+            _ => self.name(),
+        }
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Job::None => "No trade",

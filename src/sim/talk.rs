@@ -348,7 +348,7 @@ impl World {
         f.tag(format!("you={}", voice(self.people[with as usize].race)));
         f.tag(format!("job={}", l.job.name().to_lowercase()));
         f.set("name", self.name_of(npc));
-        f.set("job", l.job.name().to_lowercase());
+        f.set("job", l.job.title(p.seed).to_lowercase());
         if tr.patience < 0.4 && tr.boldness > 0.5 {
             f.tag("hot");
         }

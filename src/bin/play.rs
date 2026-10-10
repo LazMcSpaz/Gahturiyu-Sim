@@ -384,7 +384,7 @@ fn nearby(w: &World) -> String {
             }
             seen_people.push(p);
             let pp = &w.people[p as usize];
-            let job = w.life(p).job.name();
+            let job = w.life(p).job.title(w.people[p as usize].seed);
             let mut tags = Vec::new();
             if w.is_trading(p) {
                 tags.push("trading at their stall".to_string());
@@ -546,7 +546,7 @@ fn fight(w: &World) -> String {
 fn talk_view(w: &World) -> String {
     let mut o = String::new();
     let Some(c) = &w.talk else { return o };
-    let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.name().to_lowercase());
+    let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.title(w.people[c.npc as usize].seed).to_lowercase());
     for (npc, l) in c.lines.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev() {
         let _ = writeln!(o, "  {} {l}", if *npc { "»" } else { "  you:" });
     }
