@@ -186,6 +186,10 @@ impl World {
 
     /// Send the whole squad somewhere, in formation.
     pub fn order_squad(&mut self, target: V2) {
+        // A place that isn't a number (NaN, infinity) is no place: ignored.
+        if !(target.x.is_finite() && target.y.is_finite()) {
+            return;
+        }
         let members = self.squad.members.clone();
         self.order_members(&members, target);
         self.squad.target = geo::clamp_to_world(target, 50.0);
@@ -194,6 +198,9 @@ impl World {
     /// Send some members somewhere, in formation among themselves. Mid-fight,
     /// they stop fighting until they get there.
     pub fn order_members(&mut self, who: &[PersonId], target: V2) {
+        if !(target.x.is_finite() && target.y.is_finite()) {
+            return;
+        }
         let target = geo::clamp_to_world(target, 50.0);
         // The bound work where they're put.
         let bound: Vec<PersonId> = who.iter().copied().filter(|&m| !self.free_to_order(m)).collect();
@@ -618,18 +625,46 @@ impl World {
         }
     }
 
-    /// How far a squad member has strayed from the middle of the others, if
-    /// that's more than `STRAY`. Nobody strays in a squad of one, and the
-    /// downed and the carried are where they are.
+    /// How far a squad member has strayed from the others, if that's more
+    /// than `STRAY`. "The others" are the biggest bunch of the squad
+    /// (members standing within `STRAY` of one another, chained): whoever
+    /// isn't in it has strayed, by the distance to its nearest member. One
+    /// far-off member doesn't make strays of the rest (NM-13). Nobody
+    /// strays in a squad of one.
     pub fn strayed(&self, pid: PersonId) -> Option<f32> {
         let k = self.squad.index(pid)?;
-        let others: Vec<V2> = (0..self.squad.members.len()).filter(|&j| j != k).map(|j| self.squad.at[j]).collect();
-        if others.is_empty() {
+        let n = self.squad.members.len();
+        if n < 2 {
             return None;
         }
-        let mid = others.iter().fold(V2::default(), |a, b| a.add(*b)).scale(1.0 / others.len() as f32);
-        let d = self.squad.at[k].dist(mid);
-        (d > STRAY).then_some(d)
+        // Bunches, by flood fill.
+        let mut bunch = vec![usize::MAX; n];
+        let mut sizes: Vec<usize> = Vec::new();
+        for start in 0..n {
+            if bunch[start] != usize::MAX {
+                continue;
+            }
+            let id = sizes.len();
+            let mut todo = vec![start];
+            bunch[start] = id;
+            let mut size = 0;
+            while let Some(i) = todo.pop() {
+                size += 1;
+                for j in 0..n {
+                    if bunch[j] == usize::MAX && self.squad.at[i].dist(self.squad.at[j]) <= STRAY {
+                        bunch[j] = id;
+                        todo.push(j);
+                    }
+                }
+            }
+            sizes.push(size);
+        }
+        // The biggest; of equals, the one with the earliest member.
+        let main = (0..sizes.len()).max_by(|&a, &b| sizes[a].cmp(&sizes[b]).then(b.cmp(&a)))?;
+        if bunch[k] == main {
+            return None;
+        }
+        (0..n).filter(|&j| bunch[j] == main).map(|j| self.squad.at[k].dist(self.squad.at[j])).min_by(|a, b| a.total_cmp(b))
     }
 
     /// The strongest healing potion in someone's pack.
@@ -654,6 +689,10 @@ impl World {
         }
         if self.healing_potion_of(giver).is_none() {
             return Err(format!("{} has no healing draught.", name(self, giver)));
+        }
+        // Not wasted on someone who isn't hurt.
+        if !self.people[patient as usize].wounds.is_hurt(self.time) {
+            return Err(format!("{} isn't hurt.", name(self, patient)));
         }
         self.dosing.retain(|d| d.0 != giver);
         if self.person_pos(giver).dist(self.person_pos(patient)) <= GIVE_REACH {

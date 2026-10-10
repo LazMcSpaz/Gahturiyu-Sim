@@ -290,6 +290,9 @@ impl World {
 
     /// Send a squad member over to talk to someone.
     pub fn order_talk(&mut self, who: PersonId, npc: PersonId) -> bool {
+        if !self.valid_person(npc) {
+            return false;
+        }
         let p = &self.people[npc as usize];
         if p.bandit || p.in_squad || p.dead || self.is_indoors_asleep(npc) || self.is_down(who) {
             return false;

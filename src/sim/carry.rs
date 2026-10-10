@@ -90,7 +90,7 @@ impl World {
 
     /// Can this person be picked up at all?
     pub fn can_carry(&self, carrier: PersonId, target: PersonId) -> bool {
-        if carrier == target || self.squad.index(carrier).is_none() || self.is_down(carrier) {
+        if !self.valid_person(target) || carrier == target || self.squad.index(carrier).is_none() || self.is_down(carrier) {
             return false;
         }
         if self.carrying(carrier).is_some() || self.carried.contains_key(&target) || self.carried.values().any(|&c| c == target) {

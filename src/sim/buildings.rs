@@ -490,8 +490,10 @@ impl World {
             while next <= self.time && !finished {
                 tries += 1;
                 let mut r = match pk.holder {
-                    None => Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, tries as u64, 0x5049_434B]),
-                    Some(s) => Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, s as u64, tries as u64, 0x5049_434B]),
+                    // Keyed on when this attempt ends (not on a count from 0), so
+                    // trying again after giving up is a fresh try, not a replay.
+                    None => Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, tries as u64, next.to_bits(), 0x5049_434B]),
+                    Some(s) => Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, s as u64, tries as u64, next.to_bits(), 0x5049_434B]),
                 };
                 let (r_ok, r_break) = (r.f32(), r.f32());
                 self.people[pk.who as usize].stats.exercise(Skill::Security, 1.0);

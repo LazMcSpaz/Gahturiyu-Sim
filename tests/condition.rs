@@ -145,9 +145,9 @@ fn walking_uses_stamina_and_standing_gets_it_back() {
     let m = w.squad.members[0];
     let full = w.stamina_of(m).unwrap();
     // A long walk.
-    let far = w.squad.pos.add(V2::new(0.0, 1500.0));
+    let far = w.squad.pos.add(V2::new(0.0, 5000.0));
     w.order_members(&[m], far);
-    run(&mut w, 0.25, 1.0);
+    run(&mut w, 0.5, 1.0);
     let walked = w.stamina_of(m).unwrap();
     assert!(walked < full - 0.02, "{full} -> {walked}");
     // A fight now starts with what's left.

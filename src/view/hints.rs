@@ -82,7 +82,7 @@ fn due(w: &World, id: &str) -> bool {
         "work" => w.deposits.iter().any(|d| near(d.pos, 400.0)),
         "fight" => w.squad_battle().is_some(),
         "loot" => w.squad_battle().is_none() && w.groups.iter().filter(|g| g.band <= 1).flat_map(|g| g.members.iter()).any(|&m| w.can_loot(m) && near(w.person_pos(m), 80.0)),
-        "full" => w.squad.members.iter().any(|&m| w.load_of(m) > 0.95),
+        "full" => w.squad.members.iter().any(|&m| w.pack_load_of(m) > 0.95),
         "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| condition::stage_of(h) != condition::HungerStage::Fed)),
         "night" => stealth::daylight(w.time) < 0.35,
         "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),

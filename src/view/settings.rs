@@ -1,5 +1,5 @@
-//! Graphics settings: how much the window draws. None of it changes the
-//! world. Press O for the panel; click a row to change it. Saved to
+//! Graphics and sound settings: how much the window draws, and how loud
+//! it plays. None of it changes the world. Press O for the panel; click a row to change it. Saved to
 //! `settings.txt` next to `assets/`, and read back when the game starts.
 
 use bevy::prelude::*;
@@ -38,6 +38,46 @@ impl Level {
     }
 }
 
+/// How loud the sounds are (`view/sound.rs`), all together.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Loudness {
+    Off,
+    Quiet,
+    Normal,
+    Loud,
+}
+
+impl Loudness {
+    fn name(self) -> &'static str {
+        match self {
+            Loudness::Off => "off",
+            Loudness::Quiet => "quiet",
+            Loudness::Normal => "normal",
+            Loudness::Loud => "loud",
+        }
+    }
+    fn parse(s: &str) -> Option<Loudness> {
+        [Loudness::Off, Loudness::Quiet, Loudness::Normal, Loudness::Loud].into_iter().find(|l| l.name() == s)
+    }
+    fn next(self) -> Loudness {
+        match self {
+            Loudness::Off => Loudness::Quiet,
+            Loudness::Quiet => Loudness::Normal,
+            Loudness::Normal => Loudness::Loud,
+            Loudness::Loud => Loudness::Off,
+        }
+    }
+    /// The master volume it stands for (1 = as the files are mixed).
+    pub fn gain(self) -> f32 {
+        match self {
+            Loudness::Off => 0.0,
+            Loudness::Quiet => 0.45,
+            Loudness::Normal => 1.0,
+            Loudness::Loud => 1.8,
+        }
+    }
+}
+
 /// Point lights at most, by setting.
 pub const LAMP_STEPS: [usize; 4] = [8, 16, 28, 40];
 
@@ -54,6 +94,8 @@ pub struct Settings {
     pub bloom: bool,
     /// Rain, snow and low fog (`view/weather`): off, low, medium, high.
     pub weather: Level,
+    /// How loud the sounds are.
+    pub sound: Loudness,
     /// Names of towns and things as the people around you say them, in
     /// their own tongue, rather than the common English ones.
     pub native_names: bool,
@@ -63,7 +105,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Settings {
-        Settings { shadows: Level::High, foliage: Level::High, lamps: 40, bloom: true, weather: Level::Medium, native_names: false, version: 0 }
+        Settings { shadows: Level::High, foliage: Level::High, lamps: 40, bloom: true, weather: Level::Medium, sound: Loudness::Normal, native_names: false, version: 0 }
     }
 }
 
@@ -85,6 +127,7 @@ impl Settings {
                 "lamps" => s.lamps = v.parse().unwrap_or(s.lamps),
                 "bloom" => s.bloom = v == "on",
                 "weather" => s.weather = Level::parse(v).unwrap_or(s.weather),
+                "sound" => s.sound = Loudness::parse(v).unwrap_or(s.sound),
                 "names" => s.native_names = v == "native",
                 _ => {}
             }
@@ -98,12 +141,13 @@ impl Settings {
 
     pub fn save(&self) {
         let text = format!(
-            "# Gahturiyu settings (drawing only; delete this file to reset)\nshadows = {}\nfoliage = {}\nlamps = {}\nbloom = {}\nweather = {}\nnames = {}\n",
+            "# Gahturiyu settings (drawing only; delete this file to reset)\nshadows = {}\nfoliage = {}\nlamps = {}\nbloom = {}\nweather = {}\nsound = {}\nnames = {}\n",
             self.shadows.name(),
             self.foliage.name(),
             self.lamps,
             if self.bloom { "on" } else { "off" },
             self.weather.name(),
+            self.sound.name(),
             if self.native_names { "native" } else { "english" }
         );
         let _ = std::fs::write(path(), text);
@@ -145,20 +189,22 @@ const ROW: f32 = 24.0;
 
 /// The settings panel. Returns its box; a click on a row changes it.
 pub fn panel(c: &Canvas, s: &mut Settings, mouse: Vec2, click: Option<Click>, frame_ms: f64) -> Bx {
-    let r = Bx::new((c.w - W) / 2.0, 120.0, W, 54.0 + 7.0 * ROW + 30.0);
+    let r = Bx::new((c.w - W) / 2.0, 120.0, W, 54.0 + 8.0 * ROW + 30.0);
     c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     c.text("Settings", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
     c.text(&format!("{:.0} fps", 1000.0 / frame_ms.max(0.1)), r.x + r.w - 70.0, r.y + 26.0, 14.0, DIM);
-    let rows: [(&str, String); 6] = [
+    let rows: [(&str, String); 7] = [
         ("Shadows", s.shadows.name().into()),
         ("Grass and trees", s.foliage.name().into()),
         ("Lights at once", s.lamps.to_string()),
         ("Glow", if s.bloom { "on".into() } else { "off".into() }),
         ("Rain, snow and fog", s.weather.name().into()),
+        ("Sound", s.sound.name().into()),
         ("Names", if s.native_names { "their own words".into() } else { "common English".into() }),
     ];
     let mut changed = false;
+    let mut sound = false;
     for (i, (label, value)) in rows.iter().enumerate() {
         let y = r.y + 54.0 + i as f32 * ROW;
         let row = Bx::new(r.x + 6.0, y - 16.0, r.w - 12.0, ROW);
@@ -175,9 +221,14 @@ pub fn panel(c: &Canvas, s: &mut Settings, mouse: Vec2, click: Option<Click>, fr
                 3 => s.bloom = !s.bloom,
                 4 => s.weather = s.weather.next(),
                 _ => {
-                    // Names change no drawing caches: saved, not rebuilt.
-                    s.native_names = !s.native_names;
-                    s.save();
+                    if i == 5 {
+                        s.sound = s.sound.next();
+                        sound = true;
+                    } else {
+                        // Names change no drawing caches: saved, not rebuilt.
+                        s.native_names = !s.native_names;
+                        s.save();
+                    }
                     continue;
                 }
             }
@@ -187,6 +238,9 @@ pub fn panel(c: &Canvas, s: &mut Settings, mouse: Vec2, click: Option<Click>, fr
     c.text("Click a row to change it  ·  O to close  ·  saved for next time", r.x + 14.0, r.y + r.h - 12.0, 12.0, DIM);
     if changed {
         s.version += 1;
+    }
+    // (Sound alone doesn't bump the version: nothing drawn has to rebuild.)
+    if changed || sound {
         s.save();
     }
     r

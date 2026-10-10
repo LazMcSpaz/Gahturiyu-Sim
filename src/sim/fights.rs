@@ -82,7 +82,7 @@ impl World {
     pub fn attack(&mut self, who: &[PersonId], enemy: PersonId) -> bool {
         let free: Vec<PersonId> = who.iter().copied().filter(|&m| self.free_to_order(m)).collect();
         let who = &free[..];
-        if who.is_empty() {
+        if who.is_empty() || !self.valid_person(enemy) {
             return false;
         }
         if self.squad_battle().is_some() {
