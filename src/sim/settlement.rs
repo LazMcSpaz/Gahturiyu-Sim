@@ -61,6 +61,13 @@ pub struct Settlement {
     pub buildings: Vec<Building>,
     /// Distance from `pos` that covers every building, stilts included.
     pub reach: f32,
+    /// Each building's variant, by its key in `layout::VARIANTS` (None for
+    /// none), chosen once from who lived there when the world was made
+    /// (`World::style_buildings`) and never changed. Saved by key, so adding
+    /// or reordering variants never re-skins a saved town. Read through
+    /// `layout::variant_in`.
+    #[serde(default, with = "super::save::opt_names")]
+    pub styles: Vec<Option<super::save::Name>>,
 }
 
 impl Settlement {

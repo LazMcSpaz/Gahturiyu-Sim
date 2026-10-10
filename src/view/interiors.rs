@@ -13,6 +13,16 @@
 //!   outline, the outer walls cut away low with a gap at the door, the inner
 //!   walls (with their doorways) from `Door::wall_pieces`, and every piece
 //!   of furniture as a few blocks.
+//! - **Beds follow the household** (`sleepers`): more residents than the
+//!   variant's beds and bedrolls means extra bedrolls (up to 8, 16 in
+//!   quarters), and a Ṭaḍoro lodger gets a corner (`tadoro_corner`): a bed
+//!   draped in faded violet and pale grey-blue cloth with a hanging flap, a
+//!   rug, parchment pinned on the nearest wall, papers, an ink pot, candles
+//!   and a leather satchel. Where every one of those stands is worked out in
+//!   the sim (`layout::sleeping_plan`), so nothing overlaps; this only draws.
+//! - **The floor is level** (`floor_height`): at the highest drawn ground
+//!   under the outline, its slab reaching below the lowest, with steps up
+//!   to the door; everything inside stands on it.
 //! - **Containers** (`containers`) are drawn every frame, so a lid opens
 //!   while someone goes through it and a picked lock loses its plate.
 //!
@@ -25,8 +35,9 @@ use gahturiyu_sim::sim::{
     containers::Owner,
     geo::V2,
     layout::{self, Furn, Holder, Shape, Variant},
+    race::Race,
     rng,
-    settlement::{Building, BuildingKind},
+    settlement::{BuildingKind, Settlement},
     terrain::Terrain,
     World,
 };
@@ -35,6 +46,7 @@ use super::app::Hover;
 use super::cam::to3;
 use super::mesh::Builder;
 use super::palette::{self, Rgb};
+use super::signs;
 
 /// Height of a Horaro stilt deck above what it stands on.
 const DECK: f32 = 2.4;
@@ -161,7 +173,7 @@ fn dome(b: &mut Builder, base: Vec3, rx: f32, rz: f32, h: f32, rot: f32, lump: f
 }
 
 /// A box of any turn: its centre and three half-extent axes.
-fn obox(b: &mut Builder, c: Vec3, ax: Vec3, ay: Vec3, az: Vec3, col: Rgb) {
+pub(super) fn obox(b: &mut Builder, c: Vec3, ax: Vec3, ay: Vec3, az: Vec3, col: Rgb) {
     for (axis, u, v) in [(ax, ay, az), (ay, az, ax), (az, ax, ay)] {
         for s in [-1.0f32, 1.0] {
             let n = (axis * s).normalize_or_zero();
@@ -172,7 +184,7 @@ fn obox(b: &mut Builder, c: Vec3, ax: Vec3, ay: Vec3, az: Vec3, col: Rgb) {
 }
 
 /// An upright disc (a sun disc) facing `facing` radians.
-fn disc(b: &mut Builder, c: Vec3, r: f32, facing: f32, col: Rgb) {
+pub(super) fn disc(b: &mut Builder, c: Vec3, r: f32, facing: f32, col: Rgb) {
     let n = vec3(facing.cos(), 0.0, facing.sin());
     let right = vec3(-facing.sin(), 0.0, facing.cos());
     let k = 14;
@@ -197,13 +209,15 @@ fn wall(b: &mut Builder, a: V2, c: V2, y: f32, t: f32, h: f32, col: Rgb) {
 
 // ---- Outside -------------------------------------------------------------------
 
-/// Draw a building from outside as its variant's placeholder. False if it
-/// has none (the hearth), so the caller draws it its own way.
-pub fn exterior(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_ground: &dyn Fn(V2) -> f32) -> bool {
+/// Draw building `i` of town `s` from outside as its variant's placeholder
+/// (the style stored for it, `layout::variant_in`). False if it has none
+/// (the hearth), so the caller draws it its own way.
+pub fn exterior(b: &mut Builder, gl: &mut Builder, t: &Terrain, s: &Settlement, i: u16, on_ground: &dyn Fn(V2) -> f32) -> bool {
+    let Some(bd) = s.buildings.get(i as usize) else { return false };
     if bd.kind == BuildingKind::Hearth {
         return false;
     }
-    let Some(v) = layout::variant_of(bd) else { return false };
+    let Some(v) = layout::variant_in(s, i) else { return false };
     let ground = on_ground(bd.pos);
     let sink = if bd.kind == BuildingKind::HoraroStilt { 0.0 } else { (t.slope(bd.pos) * bd.size * 0.6).min(4.0) };
     variant(b, gl, v, bd.pos, bd.rot, bd.size, bd.seed, ground, sink);
@@ -225,15 +239,17 @@ pub fn forge_home(b: &mut Builder, gl: &mut Builder, t: &Terrain, at: V2, rot: f
 pub fn variant(b: &mut Builder, gl: &mut Builder, v: &Variant, pos: V2, rot: f32, size: f32, seed: u64, ground: f32, sink: f32) {
     let f = Frame { c: pos, rot, hx: v.half.0 * size, hy: v.half.1 * size, y: ground - sink };
     let unit = |k: u64| (rng::key(&[seed, k]) >> 40) as f32 / (1u64 << 24) as f32;
+    let sign = signs::for_building(v);
     match v.kind {
-        BuildingKind::RoduroHome => roduro(b, gl, v, &f, size, seed, sink, &unit),
-        BuildingKind::QotiroBlock | BuildingKind::QotiroHall | BuildingKind::QotiroTemple => qotiro(b, gl, v, &f, size, sink),
+        BuildingKind::RoduroHome => roduro(b, gl, v, &f, size, seed, sink, &unit, sign),
+        BuildingKind::QotiroBlock | BuildingKind::QotiroHall | BuildingKind::QotiroTemple => qotiro(b, gl, v, &f, size, sink, sign),
         BuildingKind::HoraroStilt => horaro(b, gl, v, &f, seed),
         BuildingKind::Hearth => {}
     }
 }
 
-fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, seed: u64, sink: f32, unit: &dyn Fn(u64) -> f32) {
+#[allow(clippy::too_many_arguments)]
+fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, seed: u64, sink: f32, unit: &dyn Fn(u64) -> f32, sign: Option<signs::Picto>) {
     let col = palette::scale(palette::STONE, 0.92 + unit(9) * 0.14);
     let wall_h = 2.3 + sink;
     let dome_h = size * (0.26 + unit(1) * 0.06);
@@ -270,6 +286,15 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     let wx = (1.0 - wy * wy).sqrt();
     let wn = f.normal_at(wx, wy, true);
     gl.patch(f.at(wx, wy, sink + 1.6) + vec3(wn.cos(), 0.0, wn.sin()) * 0.06, 0.9, 0.7, wn, palette::WINDOW);
+    // A trade's sign: a board on brackets beside the door, on the side away
+    // from the window (past a trader's awning).
+    if let Some(p) = sign {
+        let off = if v.key == "roduro_trader" { 2.8 } else { 1.75 };
+        let sy = (dy - side_free * off / f.hy).clamp(-0.85, 0.85);
+        let sx = (1.0 - sy * sy).sqrt();
+        let n = f.normal_at(sx, sy, true);
+        signs::roduro_board(b, gl, p, f.at(sx, sy, sink + 2.6), n, door);
+    }
     // What the place is for, seen from outside.
     match v.key {
         "roduro_forge" => {
@@ -329,7 +354,7 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     }
 }
 
-fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, sink: f32) {
+fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, sink: f32, sign: Option<signs::Picto>) {
     // Island stone for every Qotiro building, not sandstone (Laz).
     let col = palette::QUARRIED;
     let cap = palette::scale(palette::QUARRIED, 1.25);
@@ -346,11 +371,22 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
         gl.patch(f.at(0.0, 0.0, y + 9.5), 2.6, 2.6, f.rot, palette::METAL_GOLD);
         let door = f.at(1.0, dy, sink + 1.8) + f.fwd() * 0.05;
         b.patch(door, 3.0, 3.6, f.rot, DOOR_DARK);
+        if let Some(p) = sign {
+            let side = if dy < -0.05 { -1.0 } else { 1.0 };
+            let sy = (dy + side * (1.5 + 0.35 + 1.3) / f.hy).clamp(-0.85, 0.85);
+            signs::qotiro_plaque(b, gl, p, f.at(1.0, sy, sink + 2.4), f.rot, 1.4, door);
+        }
         for s in [-1.0f32, 1.0] {
             gl.patch(f.at(1.0, s * 0.55, sink + 4.0) + f.fwd() * 0.05, 0.6, 1.4, f.rot, palette::WINDOW);
         }
         return;
     }
+    // A trade's plaque beside the door, toward the nearer corner; the slit
+    // windows keep clear of it.
+    let wide = if v.key == "qotiro_market" { 2.6 } else { 1.4 };
+    let plaque_side = if dy < -0.05 { -1.0 } else { 1.0 };
+    let plaque_off = wide * 0.5 + 0.35 + 0.9;
+    let by_plaque = |wy: f32| sign.is_some() && ((wy - dy) * plaque_side * f.hy) > 0.0 && ((wy - dy) * plaque_side * f.hy) < plaque_off + 1.1;
     // Tier heights (the first takes up the slope's sink) and how much each
     // steps in.
     let heights: Vec<f32> = match v.key {
@@ -402,7 +438,7 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
         let front_x = cx + s;
         for k in 0..n {
             let wy = ((k as f32 + 0.5) / n as f32 * 2.0 - 1.0) * s * 0.85;
-            if i == 0 && (wy - dy).abs() * f.hy < 1.3 {
+            if i == 0 && ((wy - dy).abs() * f.hy < 1.3 || by_plaque(wy)) {
                 continue;
             }
             gl.patch(f.at(front_x, wy, y + h * 0.58) + f.fwd() * 0.03, 0.4, 1.0, f.rot, palette::WINDOW);
@@ -411,9 +447,12 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     }
     let roof = y;
     // The door: a tall dark opening on the ground floor's front.
-    let wide = if v.key == "qotiro_market" { 2.6 } else { 1.4 };
     b.patch(f.at(dx, dy, sink + 1.2) + f.fwd() * 0.04, wide, 2.4, f.rot, DOOR_DARK);
     b.block(f.at(dx, dy, sink - 0.2) + f.fwd() * 0.5, 1.0, wide + 0.6, 0.35, f.rot, cap);
+    if let Some(p) = sign {
+        let sy = (dy + plaque_side * plaque_off / f.hy).clamp(-0.85, 0.85);
+        signs::qotiro_plaque(b, gl, p, f.at(1.0, sy, sink + 1.85), f.rot, 1.0, f.at(dx, dy, sink + 1.2));
+    }
     match v.key {
         "qotiro_workyard" => {
             // A chimney stack at the back, smoking hot, and a kiln in the yard.
@@ -541,19 +580,21 @@ fn horaro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, seed: u64) 
 
 /// A building seen from inside: floor, outer walls cut away low (a gap at the
 /// door), inner walls with their doorways, and the furniture.
-pub fn interior(b: &mut Builder, gl: &mut Builder, d: &Door, on_ground: &dyn Fn(V2) -> f32) {
+pub fn interior(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_ground: &dyn Fn(V2) -> f32) {
     let v = d.variant();
-    let floor = on_ground(d.centre);
+    let (floor, low) = floor_height(d, on_ground);
     let f = Frame { c: d.centre, rot: d.rot, hx: d.half.x, hy: d.half.y, y: floor };
     let (wall_col, floor_col, inner_col) = match v.kind {
         BuildingKind::RoduroHome => (palette::STONE, [0.30, 0.28, 0.26], [0.50, 0.50, 0.50]),
         _ => (palette::QUARRIED, [0.30, 0.28, 0.26], [0.45, 0.44, 0.43]),
     };
-    // The floor, a slab down into the ground.
+    // The floor: level at the highest ground under the outline, a slab
+    // reaching down below the lowest, so no ground shows through on a slope.
+    let deep = floor + 0.05 - (low - 0.3);
     if d.round {
-        drum(b, f.at(0.0, 0.0, -0.8), f.hx, f.hy, 0.85, 1.0, f.rot, 30, floor_col);
+        drum(b, to3(d.centre, low - 0.3), f.hx, f.hy, deep, 1.0, f.rot, 30, floor_col);
     } else {
-        b.block(f.at(0.0, 0.0, -0.8), f.hx * 2.0, f.hy * 2.0, 0.85, f.rot, floor_col);
+        b.block(to3(d.centre, low - 0.3), f.hx * 2.0, f.hy * 2.0, deep, f.rot, floor_col);
     }
     // Outer walls, cut away, with a gap where the door is.
     let face = d.outside.sub(f.dir().scale(1.2));
@@ -578,11 +619,22 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, d: &Door, on_ground: &dyn Fn(
         }
         ring.push(ring[0]);
     }
+    // (From below the lowest ground, so they meet it all the way round.)
     for seg in ring.windows(2) {
         if seg[0].lerp(seg[1], 0.5).dist(face) < gap {
             continue;
         }
-        wall(b, seg[0], seg[1], floor - 0.3, 0.34, CUT + 0.3, wall_col);
+        wall(b, seg[0], seg[1], low - 0.3, 0.34, floor + CUT - (low - 0.3), wall_col);
+    }
+    // Steps up to the door where the floor stands above the ground outside.
+    let rise = floor - on_ground(d.outside);
+    if rise > 0.12 {
+        let steps = ((rise / 0.3).ceil() as usize).clamp(1, 6);
+        for k in 0..steps {
+            let top = floor - rise * k as f32 / steps as f32;
+            let at = face.add(f.dir().scale(0.35 + 0.4 * k as f32));
+            b.block(to3(at, low - 0.3), 0.4, gap * 2.0 + 0.5, top - (low - 0.3), f.rot, palette::scale(wall_col, 0.9));
+        }
     }
     // The door frame: two posts and a lintel, so the way in reads.
     let across = f.side_v2();
@@ -611,6 +663,194 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, d: &Door, on_ground: &dyn Fn(
         let at = f.at(p.at.0, p.at.1, 0.05);
         furniture(b, gl, p.what, at, d.rot + p.rot, k);
     }
+    sleepers(b, gl, w, d, &f);
+}
+
+// ---- The floor's height ---------------------------------------------------------
+
+/// How far the floor's drawn surface stands over `floor_height` (the slab's
+/// top, where furniture and containers stand): people and things lying
+/// about indoors stand on it.
+pub const FLOOR_TOP: f32 = 0.05;
+
+/// The level a building's floor is drawn at, and the lowest drawn ground
+/// under its outline: the highest of the ground at its middle, round its
+/// outline and halfway out, so the floor never dips under the ground.
+/// Furniture, extra bedrolls, a lodger's corner and the containers all
+/// stand on it.
+pub fn floor_height(d: &Door, on_ground: &dyn Fn(V2) -> f32) -> (f32, f32) {
+    let mut pts = vec![d.centre];
+    let n = 16;
+    for k in 0..n {
+        let a = k as f32 / n as f32 * std::f32::consts::TAU;
+        let (x, y) = if d.round {
+            (a.cos(), a.sin())
+        } else {
+            // Round the box's edge: corners and points between.
+            let (c, s) = (a.cos(), a.sin());
+            let m = c.abs().max(s.abs());
+            (c / m, s / m)
+        };
+        pts.push(d.to_world((x, y)));
+        pts.push(d.to_world((x * 0.5, y * 0.5)));
+    }
+    let hs: Vec<f32> = pts.into_iter().map(on_ground).collect();
+    let hi = hs.iter().copied().fold(f32::MIN, f32::max);
+    let lo = hs.iter().copied().fold(f32::MAX, f32::min);
+    (hi, lo)
+}
+
+// ---- Beds for the household, and a lodger's corner ---------------------------
+
+const PARCHMENT: [Rgb; 3] = [[0.88, 0.83, 0.68], [0.82, 0.78, 0.64], [0.90, 0.86, 0.74]];
+const VIOLET: Rgb = [0.55, 0.50, 0.66];
+const LEATHER: Rgb = [0.42, 0.27, 0.15];
+
+fn lodges_here(w: &World, d: &Door) -> bool {
+    w.residents_of(d.id).iter().any(|&p| w.people[p as usize].race == Race::Tadoro)
+}
+
+/// A building's extra bedrolls and lodger's corner, as the sim lays them out.
+fn plan(w: &World, d: &Door) -> (Vec<(V2, f32)>, Option<layout::Corner>) {
+    layout::sleeping_plan(d, w.residents_of(d.id).len(), lodges_here(w, d))
+}
+
+/// Where a Ṭaḍoro lodger's corner is in this building, if one lodges here
+/// (for framing screenshots).
+pub fn lodger_corner(w: &World, d: &Door) -> Option<V2> {
+    plan(w, d).1.map(|c| c.at)
+}
+
+/// How many sleeping places are drawn in this building (for screenshots).
+pub fn sleeping_places(w: &World, d: &Door) -> usize {
+    let (extras, corner) = plan(w, d);
+    let own = d.variant().furniture.iter().filter(|p| matches!(p.what, Furn::Bed | Furn::Bedroll)).count();
+    own + extras.len() + corner.is_some_and(|c| c.on.is_none()) as usize
+}
+
+/// The extra bedrolls for residents beyond the variant's beds, and a Ṭaḍoro
+/// lodger's corner if one lives here (`layout::sleeping_plan`).
+fn sleepers(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, f: &Frame) {
+    let k0 = d.variant().furniture.len();
+    let (extras, corner) = plan(w, d);
+    for (i, &(at, rot)) in extras.iter().enumerate() {
+        furniture(b, gl, Furn::Bedroll, to3(at, f.y + 0.05), rot, k0 + i);
+    }
+    if let Some(c) = corner {
+        if c.on.is_none() {
+            furniture(b, gl, Furn::Bedroll, to3(c.at, f.y + 0.05), c.rot, k0 + extras.len());
+        }
+        tadoro_corner(b, gl, f, &c);
+    }
+}
+
+/// A Ṭaḍoro lodger's corner round one sleeping place, every piece where the
+/// layout put it: a rug, violet and grey-blue cloth draped over the bed with
+/// a flap down the room side, papers, ink and candles, a satchel, a cushion
+/// if there's room, parchment pinned on the wall and a lantern over it.
+fn tadoro_corner(b: &mut Builder, gl: &mut Builder, f: &Frame, c: &layout::Corner) {
+    let (bw, bd, _) = if c.bed { Furn::Bed.size() } else { Furn::Bedroll.size() };
+    let y0 = f.y + 0.05;
+    let q = Put::new(to3(c.at, y0), c.rot);
+    let flat = |b: &mut Builder, r: &layout::Rect, inset: f32, y: f32, h: f32, col: Rgb| {
+        if r.hw > inset && r.hd > inset {
+            b.block(to3(r.c, y0 + y), (r.hw - inset) * 2.0, (r.hd - inset) * 2.0, h, r.rot, col);
+        }
+    };
+    // A rug under it all: a violet border round a grey-blue field, a pale
+    // stripe down the middle.
+    flat(b, &c.rug, 0.0, 0.0, 0.02, palette::scale(VIOLET, 0.72));
+    flat(b, &c.rug, 0.12, 0.0, 0.026, palette::scale(palette::TENT, 0.8));
+    if c.rug.hw > 0.3 {
+        b.block(to3(c.rug.c, y0), (c.rug.hw - 0.25) * 2.0, 0.12, 0.032, c.rug.rot, palette::scale(LINEN, 0.9));
+    }
+    // The drape over the body (the pillow left clear), its flap down the
+    // room side to the floor, and a folded grey-blue blanket at the foot.
+    let (top, thick) = if c.bed { (0.46, 0.06) } else { (0.06, 0.1) };
+    let [u, wv] = c.drape.axes();
+    let rel = c.drape.c.sub(c.at);
+    let (mx, my) = (rel.x * u.x + rel.y * u.y, rel.x * wv.x + rel.y * wv.y);
+    let len = c.drape.hw * 2.0;
+    q.bx(b, mx, my - c.side * 0.02, top, len, c.drape.hd * 2.0 - 0.04, thick, VIOLET);
+    let flap_h = top + thick - 0.02;
+    let edge = my + c.side * (c.drape.hd - 0.02);
+    q.bx(b, mx, edge, 0.0, len * 0.95, 0.04, flap_h, palette::scale(VIOLET, 0.88));
+    q.bx(b, mx + len * 0.18, edge + c.side * 0.01, 0.0, len * 0.22, 0.04, flap_h * 0.85, palette::TENT);
+    q.bx(b, -bw * 0.5 + 0.28, 0.0, top + thick, 0.46, bd * 0.85, 0.1, palette::TENT);
+    // A bolster across the head.
+    let bolster = top + thick + 0.08;
+    b.stick(q.p(bw * 0.5 - 0.16, -bd * 0.45, bolster), q.p(bw * 0.5 - 0.16, bd * 0.45, bolster), 0.1, palette::scale(VIOLET, 1.2));
+    // A floor cushion.
+    if let Some(r) = c.cushion {
+        b.block(to3(r.c, y0), 0.5, 0.5, 0.14, r.rot, palette::scale(palette::TENT, 1.1));
+        b.block(to3(r.c, y0 + 0.14), 0.4, 0.4, 0.03, r.rot, palette::scale(VIOLET, 0.9));
+    }
+    // Papers in a little stack, an ink pot and quill, a dish of candles.
+    let [pu, pw] = c.papers.axes();
+    for (k, (dx, dz, rz)) in [(-0.03f32, -0.02f32, 0.0f32), (0.02, 0.02, 0.25), (-0.01, 0.0, -0.15)].into_iter().enumerate() {
+        let at = c.papers.c.add(pu.scale(dx)).add(pw.scale(dz));
+        b.block(to3(at, y0 + 0.03 * k as f32), 0.32, 0.24, 0.03, c.papers.rot + std::f32::consts::FRAC_PI_2 * (c.papers.hw < c.papers.hd) as u8 as f32 + rz, PARCHMENT[k]);
+    }
+    let pot = to3(c.ink.c, y0);
+    b.column(pot, 0.06, 0.045, 0.09, 8, [0.10, 0.10, 0.14]);
+    b.stick(pot + Vec3::Y * 0.06, pot + vec3(0.06, 0.3, 0.04), 0.02, [0.86, 0.84, 0.80]);
+    let candle = to3(c.candles.c, y0);
+    b.column(candle, 0.13, 0.13, 0.03, 10, palette::scale(LEATHER, 0.8));
+    for (dx, dz, h) in [(0.0f32, 0.0f32, 0.16f32), (0.07, 0.05, 0.11), (-0.05, 0.06, 0.08)] {
+        let at = candle + vec3(dx, 0.0, dz);
+        b.column(at + Vec3::Y * 0.03, 0.03, 0.03, h, 6, LINEN);
+        gl.column(at + Vec3::Y * (0.04 + h), 0.025, 0.0, 0.07, 5, palette::WINDOW);
+    }
+    // A leather satchel, its strap looped up.
+    let sat = to3(c.satchel.c, y0);
+    let srot = c.satchel.rot + if c.satchel.hw < c.satchel.hd { std::f32::consts::FRAC_PI_2 } else { 0.0 };
+    b.block(sat, 0.42, 0.18, 0.28, srot, LEATHER);
+    b.block(sat + Vec3::Y * 0.2, 0.44, 0.2, 0.09, srot, palette::scale(LEATHER, 0.82));
+    let ax = vec3(srot.cos(), 0.0, srot.sin()) * 0.17;
+    b.stick(sat - ax + Vec3::Y * 0.28, sat + Vec3::Y * 0.5, 0.03, palette::scale(LEATHER, 0.7));
+    b.stick(sat + Vec3::Y * 0.5, sat + ax + Vec3::Y * 0.28, 0.03, palette::scale(LEATHER, 0.7));
+    // Parchment pinned on the wall, each sheet on the wall's face.
+    for (k, ((p, inward), (dy, sw, sh))) in c.sheets.iter().zip([(0.02f32, 0.25f32, 0.35f32), (-0.04, 0.3, 0.24), (0.05, 0.22, 0.32)]).enumerate() {
+        let face = inward.y.atan2(inward.x);
+        let n3 = vec3(inward.x, 0.0, inward.y);
+        let at = to3(p.add(inward.scale(0.02 + 0.005 * k as f32)), f.y + c.up + dy);
+        b.patch(at, sw, sh, face, PARCHMENT[k]);
+        // A dark pin at the top.
+        b.block(at + Vec3::Y * (sh * 0.5 - 0.04) + n3 * 0.01, 0.025, 0.025, 0.025, face, [0.15, 0.12, 0.10]);
+        // Each sheet's a diagram: a dark circle (one with a cross through
+        // it and a dot), or lines of notes.
+        let ink = [0.12, 0.10, 0.12];
+        let r = sw.min(sh) * 0.36;
+        let mid = at - Vec3::Y * 0.01 + n3 * 0.006;
+        let right = vec3(-face.sin(), 0.0, face.cos());
+        if k != 2 {
+            disc(b, mid, r, face, ink);
+            disc(b, mid + n3 * 0.003, r * 0.8, face, PARCHMENT[k]);
+            if k == 1 {
+                obox(b, mid + n3 * 0.006, right * 0.006, Vec3::Y * r, n3 * 0.003, ink);
+                obox(b, mid + n3 * 0.006, right * r, Vec3::Y * 0.006, n3 * 0.003, ink);
+                disc(b, mid + n3 * 0.01 + right * (r * 0.45) + Vec3::Y * (r * 0.45), r * 0.16, face, ink);
+            }
+        } else {
+            for j in 0..4 {
+                let y = sh * 0.25 - j as f32 * sh * 0.15;
+                obox(b, mid + n3 * 0.003 + Vec3::Y * y, right * (sw * 0.32), Vec3::Y * 0.007, n3 * 0.003, ink);
+            }
+        }
+    }
+    // A small iron lantern hung from a bracket over the middle sheet: a
+    // second warm light over the corner.
+    let (hang, inward) = c.sheets[1];
+    let face = inward.y.atan2(inward.x);
+    let n3 = vec3(inward.x, 0.0, inward.y);
+    let root = to3(hang, f.y + c.up + 0.75);
+    let lamp = root + n3 * 0.3;
+    b.stick(root, lamp + n3 * 0.04, 0.025, IRON);
+    b.stick(lamp, lamp - Vec3::Y * 0.12, 0.012, IRON);
+    let body = lamp - Vec3::Y * 0.32;
+    b.block(body + Vec3::Y * 0.2, 0.2, 0.2, 0.04, face, IRON);
+    b.block(body - Vec3::Y * 0.02, 0.2, 0.2, 0.04, face, IRON);
+    gl.block(body + Vec3::Y * 0.02, 0.15, 0.15, 0.18, face, palette::WINDOW);
 }
 
 /// A placement: a spot on the floor and a turn.
@@ -794,7 +1034,7 @@ fn furniture(b: &mut Builder, gl: &mut Builder, what: Furn, base: Vec3, rot: f32
 /// The containers in a building someone is in, drawn every frame (lids open
 /// while being gone through), with a hover point for each.
 pub fn containers(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_ground: &dyn Fn(V2) -> f32, picks: &mut Vec<(Vec3, f32, Hover)>) {
-    let floor = on_ground(d.centre) + 0.05;
+    let floor = floor_height(d, on_ground).0 + 0.05;
     let open: Vec<_> = w.squad.members.iter().filter_map(|&m| w.searching_now(m)).collect();
     let mut any = false;
     for c in w.containers_in(d.id) {

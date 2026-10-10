@@ -94,6 +94,8 @@ impl World {
         let p = &mut self.people[npc as usize];
         p.in_squad = true;
         p.cond = Some(super::condition::Condition::new(t));
+        // Their home's chests may change hands.
+        self.refresh_container_owners();
         let (here, inside) = (self.squad.at[k], self.squad.inside[k]);
         let off = super::squad::formation(self.squad.members.len()).scale(0.4);
         self.squad.add(npc, here.add(off));

@@ -549,6 +549,8 @@ impl World {
             use super::stories::Plot;
             self.society.stories.retain(|s| !matches!(s.plot, Plot::Grudge { .. } | Plot::Con { .. } | Plot::DodgeDebt { .. } | Plot::Steal { household: Some(_), .. } | Plot::Ring { mv: super::ring::Move::Extort { .. } }));
         }
+        // Containers name their household by number: renumbered, so look again.
+        self.refresh_container_owners();
     }
 
     /// Where a community's labourers work.
@@ -1204,6 +1206,7 @@ impl World {
             self.society.households.push(Household { community: shore, members: vec![pid], home: dwelling, purse: Default::default(), feelings: Vec::new() });
             self.society.lives[pid as usize].household = Some(hi);
         }
+        self.refresh_container_owners();
     }
 
     /// Hook for Part 3: the stilt village off a town stops (or starts again)

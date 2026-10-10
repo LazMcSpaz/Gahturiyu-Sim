@@ -43,6 +43,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {}\n{:?}\n", w.bases, w.next_base, w.looting);
     // Containers in buildings, and locks being worked.
     s += &format!("{:?}\n{:?}\n", w.containers, w.picking);
+    // Each building's chosen style.
+    s += &format!("{:?}\n", w.settlements.iter().map(|s| &s.styles).collect::<Vec<_>>());
     s
 }
 
