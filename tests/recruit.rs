@@ -105,3 +105,41 @@ fn a_full_squad_takes_no_more() {
     let anyone = w.settlements.iter().flat_map(|s| &s.residents).any(|&p| w.join_terms(p).is_some());
     assert!(!anyone, "no room");
 }
+
+#[test]
+fn the_willing_are_listed_with_what_they_bring() {
+    let w = world();
+    let mut empty = Vec::new();
+    for s in &w.settlements {
+        let v = w.willing_in(s.id);
+        if v.is_empty() {
+            empty.push(s.name.clone());
+        }
+        for (p, fee) in v {
+            assert_eq!(w.join_terms(p), Some(fee));
+            let card = w.recruit_card(p);
+            assert!(card.starts_with("best at ") && card.matches(", ").count() >= 2 && card.contains(" · "), "{card}");
+        }
+    }
+    eprintln!("towns with nobody willing: {empty:?}");
+    assert!(empty.len() * 4 < w.settlements.len(), "most towns have someone willing");
+}
+
+#[test]
+fn someone_unwilling_says_so() {
+    let mut w = world();
+    let npc = w.settlements[0].residents.iter().copied().find(|&p| w.join_terms(p).is_none() && !w.is_indoors_asleep(p) && !w.people[p as usize].dead).unwrap();
+    let who = w.squad.members[0];
+    let at = w.person_pos(npc);
+    w.teleport_squad(at.add(gahturiyu_sim::sim::geo::V2::new(1.5, 0.0)));
+    w.squad.at[0] = at.add(gahturiyu_sim::sim::geo::V2::new(1.0, 0.0));
+    assert!(w.order_talk(who, npc));
+    for _ in 0..20 {
+        w.step(0.1);
+    }
+    assert!(w.topics().contains(&Topic::AskJoin));
+    w.ask(Topic::AskJoin);
+    let said = w.talk.as_ref().unwrap().lines.last().unwrap().1.clone();
+    assert_eq!(said, w.why_not_join(npc).unwrap());
+    assert!(w.squad.members.len() == 4 || !w.squad.members.contains(&npc));
+}

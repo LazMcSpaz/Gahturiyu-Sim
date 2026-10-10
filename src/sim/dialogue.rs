@@ -89,6 +89,9 @@ pub enum Topic {
     /// Sell every one of these the merchant will take.
     SellAll(items::ItemId),
     Goodbye,
+    /// Ask someone who won't come to join anyway: they say why not.
+    /// (Last, so saves made before it still read.)
+    AskJoin,
 }
 
 impl Topic {
@@ -126,7 +129,7 @@ impl Topic {
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
-            Topic::Join(_) => "Come with us",
+            Topic::Join(_) | Topic::AskJoin => "Come with us",
             Topic::SellAll(..) => "Sell all",
             Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
@@ -402,8 +405,11 @@ impl World {
             t.push(Topic::Hire(wage));
         }
         // The restless may take to the road with the squad.
-        if let Some(fee) = self.join_terms(c.npc) {
-            t.push(Topic::Join(fee));
+        // (Anyone else, asked, says why not in a line.)
+        match self.join_terms(c.npc) {
+            Some(fee) => t.push(Topic::Join(fee)),
+            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad => t.push(Topic::AskJoin),
+            None => {}
         }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
@@ -675,6 +681,7 @@ impl World {
                 }
                 Err(e) => format!("No — {e}."),
             },
+            Topic::AskJoin => self.why_not_join(c.npc).unwrap_or("Ask me properly.").to_string(),
             Topic::Join(fee) => match self.recruit(c.npc, c.with) {
                 Ok(_) if fee > 0 => format!("{fee} coin to my household, and I'm yours. Where are we going?"),
                 Ok(_) => "Nothing keeps me here. I'll get my things — lead on.".into(),
@@ -876,6 +883,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::QuitWork => 70,
         Topic::Hire(_) => 71,
         Topic::Join(_) => 72,
+        Topic::AskJoin => 73,
         Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::Say(o) => 80 + o as u64,
     }

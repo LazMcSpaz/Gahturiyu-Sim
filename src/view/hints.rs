@@ -22,7 +22,7 @@ const WRAP: usize = 74;
 /// The tips, in the order they're considered.
 const HINTS: &[(&str, &str)] = &[
     ("welcome", "Welcome. Left-click the ground to walk. Click a card along the bottom (or F1–F4) to choose who takes orders; ` picks everyone again. Hover over anything to see what it is."),
-    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked."),
+    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked (the town panel lists who, and their price)."),
     ("work", "Short of coin? Every town has a woodlot (and some a mine) nearby, marked by a post. Click it and the selected work until their packs are full."),
     ("fight", "A fight! Click an enemy to set the selected on them. Z sneaks; T lights a torch. The ring under each fighter points the way they face."),
     ("loot", "A beaten foe: click them and someone goes through their things. Bandits carry coin."),

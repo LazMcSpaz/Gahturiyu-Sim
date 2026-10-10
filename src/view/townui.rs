@@ -345,6 +345,22 @@ pub fn life_panel(c: &Canvas, w: &World, town: u16, debug: bool) -> Bx {
             rows.push((l, GOLD, 13.0));
         }
     }
+    // Who'd join the squad, for what, where they are and what they'd bring.
+    let willing = w.willing_in(town);
+    head(&mut rows, "Willing to join");
+    if willing.is_empty() {
+        rows.push(("No one here, for now.".into(), DIM, 13.0));
+    }
+    for (p, fee) in willing {
+        let price = if fee > 0 { format!("{fee} coin") } else { "for nothing".into() };
+        let at = if w.is_indoors_asleep(p) {
+            "asleep indoors".to_string()
+        } else {
+            let v = w.person_pos(p).sub(w.squad.pos);
+            format!("{:.0} m {} of you", v.len(), gahturiyu_sim::sim::quests::compass(v))
+        };
+        rows.push((format!("{} ({}), {price}, {at}: {}", w.name_of(p), w.life(p).job.name().to_lowercase(), w.recruit_card(p)), TEXT, 13.0));
+    }
     // Where the out-of-town work is, from the town's middle.
     head(&mut rows, "Out of town");
     let mid = w.settlements[town as usize].pos;
