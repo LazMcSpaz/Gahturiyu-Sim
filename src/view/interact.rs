@@ -46,6 +46,9 @@ pub enum Act {
     Examine,
     /// Walk somewhere sneaking.
     SneakTo(V2),
+    /// Give this squad member a healing draught (the nearest of the
+    /// selected who has one).
+    Dose(PersonId),
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -144,6 +147,11 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
             let p = &w.people[pid as usize];
             let name = p.name().unwrap_or("them");
             if w.squad.index(pid).is_some() {
+                // Down (or badly hurt) and someone has a draught: that first.
+                let hurt = w.is_down(pid) || super::hud::bar_for(w, pid).is_some_and(|b| b.0 < 0.5);
+                if hurt && w.squad.members.iter().any(|&m| m != pid && w.healing_potion_of(m).is_some()) {
+                    out.push(ch(format!("Give {name} a healing draught"), Act::Dose(pid)));
+                }
                 out.push(ch(format!("Select {name}"), Act::Select(pid)));
                 if who.iter().any(|&m| m != pid && w.can_carry(m, pid)) {
                     out.push(ch(format!("Carry {name}"), Act::Carry(pid)));
@@ -296,6 +304,16 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,
+        Act::Dose(p) => {
+            // The nearest of the selected with a draught; else anyone in the squad.
+            let at = w.person_pos(p);
+            let pick = |list: &[PersonId]| list.iter().copied().filter(|&m| m != p && !w.is_down(m) && w.healing_potion_of(m).is_some()).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at)));
+            let giver = pick(who).or_else(|| pick(&w.squad.members.clone()));
+            return Some(match giver.map(|g| w.order_dose(g, p)) {
+                Some(Ok(m)) | Some(Err(m)) => m,
+                None => "Nobody standing has a healing draught.".into(),
+            });
+        }
         Act::SneakTo(p) => {
             for &m in who {
                 w.set_sneaking(m, true);

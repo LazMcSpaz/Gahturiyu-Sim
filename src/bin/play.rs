@@ -53,6 +53,7 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
   give NAME N TO_NAME       hand pack entry N to another squad member standing near
+  dose GIVER PATIENT        GIVER gives PATIENT (downed, say) a healing draught
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
   craft NAME                what NAME could make here; `make NAME N` starts recipe N
   journal | map | town      jobs taken; towns and places; the nearest town's panel
@@ -982,6 +983,23 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
             o += &news(w, s);
             o += &pack(w, m);
+        }
+        "dose" => {
+            let (Some(g), Some(p)) = (member(w, arg(0)), member(w, arg(1))) else {
+                return "Usage: dose GIVER PATIENT (the giver hands the patient a healing draught)\n".into();
+            };
+            match w.order_dose(g, p) {
+                Ok(line) => {
+                    o += &format!("{line}\n");
+                    let mut n = 0;
+                    while !w.dosing.is_empty() && n < 2400 {
+                        w.step(0.25);
+                        n += 1;
+                    }
+                    o += &news(w, s);
+                }
+                Err(why) => o += &format!("Can't: {why}\n"),
+            }
         }
         "give" => {
             let (Some(m), Ok(k), Some(to)) = (member(w, arg(0)), arg(1).parse::<usize>(), member(w, arg(2))) else {

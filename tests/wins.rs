@@ -43,3 +43,32 @@ fn a_won_fight_leaves_bodies() {
     eprintln!("in all: {left} left behind, {ran} ran");
     assert!(left * 3 >= left + ran, "a good share of a beaten gang stays down: {left} left, {ran} ran");
 }
+
+#[test]
+fn the_downed_come_round_after_a_fight_even_with_the_gang_near() {
+    use gahturiyu_sim::sim::world::HOUR;
+    for seed in 1..=4 {
+        let mut w = worldgen::generate(seed);
+        let squad = w.squad.members.clone();
+        let band = w.spawn_bandits(w.squad.pos.add(V2::new(12.0, 0.0)), 4, false);
+        let foes = w.group(band).unwrap().members.clone();
+        assert!(w.attack(&squad, foes[0]));
+        let mut n = 0;
+        while w.squad_battle().is_some() && n < 40_000 {
+            w.step(0.1);
+            n += 1;
+        }
+        let down: Vec<u32> = w.squad.members.iter().copied().filter(|&m| w.is_down(m)).collect();
+        let end = w.time;
+        while w.time < end + 2.5 * HOUR {
+            w.step(30.0);
+        }
+        let still: Vec<u32> = down.iter().copied().filter(|&m| w.squad.index(m).is_some() && w.is_down(m)).collect();
+        eprintln!("seed {seed}: {} down after the fight, {} still down 2.5 h later", down.len(), still.len());
+        for &m in &still {
+            let p = &w.people[m as usize];
+            eprintln!("  {m}: hp {:?} rate {} rally {} drain {} cond {:?}", p.wounds.hp_at(&p.stats, w.time), p.wounds.rate, p.wounds.rally, p.wounds.drain, p.cond.as_ref().map(|c| (c.activity, c.hunger_at(w.time))));
+        }
+        assert!(still.is_empty(), "seed {seed}: still down");
+    }
+}

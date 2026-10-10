@@ -530,6 +530,10 @@ impl World {
         if !d.gear.bag.iter().any(|e| e.0 == it) {
             return Some(format!("There's no {name} in that pack."));
         }
+        if self.is_down(who) {
+            let n = p.name().unwrap_or("They");
+            return Some(format!("{n} is out cold and can't use anything; a squadmate can give them a healing draught."));
+        }
         if self.fighting.contains_key(&who) {
             return match item(it).kind {
                 Kind::Potion | Kind::Scroll(_) => None,
@@ -552,7 +556,7 @@ impl World {
         let t = self.time;
         let p = &self.people[who as usize];
         let Some(d) = p.detail.as_ref() else { return false };
-        if !d.gear.bag.iter().any(|e| e.0 == it) {
+        if !d.gear.bag.iter().any(|e| e.0 == it) || self.is_down(who) {
             return false;
         }
         // In a fight: drunk or read there and then, on your order.

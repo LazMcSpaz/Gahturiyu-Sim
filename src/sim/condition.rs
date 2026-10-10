@@ -382,6 +382,15 @@ impl World {
         apply_to_wounds(&c, &mut p.wounds, &stats);
     }
 
+    /// After what they're doing changed (just after a settle): their wounds
+    /// mend at the new rate from here on.
+    fn rate_wounds(&mut self, pid: PersonId) {
+        let p = &mut self.people[pid as usize];
+        let Some(c) = p.cond.clone() else { return };
+        let stats = p.stats.clone();
+        apply_to_wounds(&c, &mut p.wounds, &stats);
+    }
+
     /// Where a member would sleep right now: indoors, in a tent someone in
     /// the squad is carrying nearby, or in the open.
     pub fn shelter_of(&self, pid: PersonId) -> Shelter {
@@ -417,6 +426,7 @@ impl World {
         if let Some(c) = self.people[pid as usize].cond.as_mut() {
             c.activity = a;
         }
+        self.rate_wounds(pid);
         if a == Activity::Sleeping {
             self.drop_held_on_sleep(pid, t);
         }
@@ -537,6 +547,7 @@ impl World {
                         if let Some(c) = self.people[pid as usize].cond.as_mut() {
                             c.activity = Activity::Resting;
                         }
+                        self.rate_wounds(pid);
                         if let Some(k) = self.squad.index(pid) {
                             self.squad.resting[k] = false;
                         }
@@ -552,6 +563,7 @@ impl World {
                         if let Some(c) = self.people[pid as usize].cond.as_mut() {
                             c.activity = Activity::Sleeping;
                         }
+                        self.rate_wounds(pid);
                         let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
                         self.log.push_front((t, format!("{name} beds down for the night.")));
                         self.log.truncate(14);

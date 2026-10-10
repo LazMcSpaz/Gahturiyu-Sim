@@ -201,6 +201,7 @@ impl World {
                 self.squad.resting[k] = false;
             }
             self.want_carry.retain(|w| w.0 != pid);
+            self.dosing.retain(|d| d.0 != pid);
             if self.want_talk.map(|w| w.0 == pid).unwrap_or(false) {
                 self.want_talk = None;
             }
@@ -290,6 +291,7 @@ impl World {
         self.recentre_squad();
         self.update_indoors();
         self.do_pickups();
+        self.do_dosing();
         self.tidy_looting();
         self.do_picking();
         self.do_gathering();
@@ -484,6 +486,74 @@ impl World {
         self.log.push_front((t, line.clone()));
         self.log.truncate(14);
         Ok(line)
+    }
+
+    /// The strongest healing potion in someone's pack.
+    pub fn healing_potion_of(&self, who: PersonId) -> Option<ItemId> {
+        let d = self.people[who as usize].detail.as_ref()?;
+        let heal = |it: ItemId| item(it).effects.iter().filter(|e| e.does == super::effects::Does::Heal).map(|e| e.power).sum::<f32>();
+        d.gear.bag.iter().map(|e| e.0).filter(|&it| item(it).kind == super::items::Kind::Potion && heal(it) > 0.0).max_by(|a, b| heal(*a).total_cmp(&heal(*b)))
+    }
+
+    /// Have one squad member give another (downed, perhaps) a healing
+    /// draught from their own pack: at once if near, else they walk over.
+    pub fn order_dose(&mut self, giver: PersonId, patient: PersonId) -> Result<String, String> {
+        let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
+        if self.squad.index(giver).is_none() || self.squad.index(patient).is_none() {
+            return Err("Only between squad members.".into());
+        }
+        if self.is_down(giver) {
+            return Err(format!("{} is down too.", name(self, giver)));
+        }
+        if self.fighting.contains_key(&giver) {
+            return Err("Not in the middle of a fight.".into());
+        }
+        if self.healing_potion_of(giver).is_none() {
+            return Err(format!("{} has no healing draught.", name(self, giver)));
+        }
+        self.dosing.retain(|d| d.0 != giver);
+        if self.person_pos(giver).dist(self.person_pos(patient)) <= GIVE_REACH {
+            return Ok(self.dose_now(giver, patient));
+        }
+        let at = self.person_pos(patient);
+        self.order_members(&[giver], at);
+        self.dosing.push((giver, patient));
+        Ok(format!("{} goes over to {}.", name(self, giver), name(self, patient)))
+    }
+
+    fn dose_now(&mut self, giver: PersonId, patient: PersonId) -> String {
+        let Some(it) = self.healing_potion_of(giver) else { return "No draught left.".into() };
+        if let Some(d) = self.people[giver as usize].detail.as_mut() {
+            d.gear.take(it);
+        }
+        self.people[giver as usize].recompute_might();
+        for e in item(it).effects {
+            self.apply_effect(patient, e, 1.0);
+        }
+        let (g, p) = (self.name_of(giver), self.name_of(patient));
+        let up = !self.is_down(patient);
+        let line = format!("{g} gives {p} a {}{}", item(it).name.to_lowercase(), if up { "." } else { ": not enough to bring them round yet." });
+        self.log.push_front((self.time, line.clone()));
+        self.log.truncate(14);
+        line
+    }
+
+    /// Squad members on their way to dose someone: once near, they do.
+    pub(super) fn do_dosing(&mut self) {
+        let mut k = 0;
+        while k < self.dosing.len() {
+            let (g, p) = self.dosing[k];
+            if self.squad.index(g).is_none() || self.squad.index(p).is_none() || self.is_down(g) || self.healing_potion_of(g).is_none() {
+                self.dosing.remove(k);
+                continue;
+            }
+            if self.person_pos(g).dist(self.person_pos(p)) <= GIVE_REACH * 0.5 {
+                self.dosing.remove(k);
+                self.dose_now(g, p);
+                continue;
+            }
+            k += 1;
+        }
     }
 
     pub fn put_on_ground(&mut self, it: ItemId, count: u16, pos: V2) -> u32 {
