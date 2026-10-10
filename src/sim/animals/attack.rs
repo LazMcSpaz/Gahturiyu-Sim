@@ -541,9 +541,9 @@ impl World {
         if self.animals.attacks.len() > ATTACK_LOG {
             self.animals.attacks.remove(0);
         }
-        if self.bands.band_at(at) <= 2 {
-            let what = if slots.len() > 1 { format!("{}s fall", d.name) } else { format!("A {} falls", d.name) };
-            self.log.push_front((t, format!("{what} on travellers {:.0} m away.", at.dist(self.squad.pos))));
+        if self.in_plain_sight(at) {
+            let what = if slots.len() > 1 { format!("{} fall", d.plural()) } else { format!("A {} falls", d.name) };
+            self.log.push_front((t, format!("{what} on travellers to the {}.", super::super::quests::compass(at.sub(self.squad.pos)))));
             self.log.truncate(14);
         }
 

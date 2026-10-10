@@ -88,6 +88,7 @@ pub struct World {
     pub stats: Stats,
     /// Last time each group was in band 1, so one that hovers on the edge of
     /// the band is not announced over and over.
+    #[serde(serialize_with = "super::save::sorted_map")]
     in_view_groups: HashMap<GroupId, f64>,
     in_view_towns: Vec<bool>,
     last_town_look: f64,
@@ -97,6 +98,7 @@ pub struct World {
     pub battles: Vec<Battle>,
     pub next_battle: u32,
     /// Which battle each fighting person is in.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub fighting: HashMap<PersonId, u32>,
     /// The fallen, for a while after a fight: where, who, and when.
     pub corpses: Vec<(V2, Race, f64, PersonId)>,
@@ -117,16 +119,19 @@ pub struct World {
     /// Fights away from the squad, already decided, waiting for their end.
     pub npc_fights: Vec<NpcFight>,
     /// Groups whose plans are on hold while they fight.
+    #[serde(serialize_with = "super::save::sorted_set")]
     pub fighting_groups: HashSet<GroupId>,
 
     // --- Stealth ------------------------------------------------------------
     /// How suspicious each watching group is of each squad member (1 = noticed).
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub suspicion: HashMap<(GroupId, PersonId), f32>,
     /// Watchers' meters have been run up to this time.
     pub watch_done: f64,
 
     // --- Indoors ------------------------------------------------------------
     /// Doors picked open, and the night they were picked on.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub picked: HashMap<super::buildings::DoorId, i64>,
     /// Squad members working on locks.
     pub picking: Vec<super::buildings::Picking>,
@@ -134,13 +139,16 @@ pub struct World {
     #[serde(default)]
     pub rooms: Vec<super::care::Room>,
     /// Buildings whose belongings have been laid out.
+    #[serde(serialize_with = "super::save::sorted_set")]
     pub furnished: HashSet<super::buildings::DoorId>,
     /// Chests, crates, cupboards and barrels laid out so far (`containers.rs`).
     pub containers: super::containers::Containers,
     /// What each town wants from you for crimes seen.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub bounty: HashMap<SettlementId, f32>,
     /// Which towns have heard of which bounty, and from when:
     /// (town that heard, town the bounty is owed in) → time (see `news`).
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub news: HashMap<(SettlementId, SettlementId), f64>,
 
     // --- Crafting -----------------------------------------------------------
@@ -167,6 +175,7 @@ pub struct World {
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub crafted_count: HashMap<PersonId, u64>,
     /// Grown pieces ordered from Tenders.
     pub orders: Vec<super::making::Order>,
@@ -187,8 +196,10 @@ pub struct World {
     // --- Talk and work ------------------------------------------------------
     pub quests: Vec<super::quests::Quest>,
     /// Camps your squad has beaten in a fight.
+    #[serde(serialize_with = "super::save::sorted_set")]
     pub beaten_camps: HashSet<GroupId>,
     /// Good turns remembered: added to that person's disposition.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub regard: HashMap<PersonId, f32>,
     /// The conversation open now, if any.
     pub talk: Option<super::dialogue::Conversation>,
@@ -200,6 +211,7 @@ pub struct World {
 
     // --- Carrying -----------------------------------------------------------
     /// Who's being carried, and by whom.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub carried: HashMap<PersonId, PersonId>,
     /// Squad members on their way to pick someone up.
     pub want_carry: Vec<(PersonId, PersonId)>,
@@ -209,16 +221,22 @@ pub struct World {
     /// A squad member on their way to hand another something from their pack.
     pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub set_down: HashMap<PersonId, V2>,
     /// Things seen stolen that a town knows of: taken back if the thief is
     /// caught there (`law.rs`).
     #[serde(default)]
     pub hot: Vec<super::law::Hot>,
+    /// Who has talked with which squad member before: (them, the member).
+    #[serde(default)]
+    pub met: std::collections::BTreeSet<(PersonId, PersonId)>,
 
     // --- Torches ------------------------------------------------------------
     /// Torches burning in someone's hand.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub torches: HashMap<PersonId, super::torch::Flame>,
     /// Seconds left on a torch in hand that was put out early.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub torch_left: HashMap<PersonId, f64>,
     /// Torches set in the ground.
     pub standing: Vec<super::torch::StandingTorch>,
@@ -227,10 +245,12 @@ pub struct World {
     /// Rituals being performed.
     pub rituals: Vec<super::casting::RitualJob>,
     /// Rituals held ready, one per caster.
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub held: HashMap<PersonId, super::magic::Spell>,
     /// Circles drawn on the ground for rituals.
     pub circles: Vec<V2>,
     /// How many spells each person has cast outside fights (keys their rolls).
+    #[serde(serialize_with = "super::save::sorted_map")]
     pub cast_count: HashMap<PersonId, u64>,
     /// Lasting spells on people outside fights.
     pub boons: Vec<super::casting::Boon>,
@@ -333,6 +353,7 @@ impl World {
             want_carry: Vec::new(),
             set_down: HashMap::new(),
             hot: Vec::new(),
+            met: std::collections::BTreeSet::new(),
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),
@@ -520,9 +541,13 @@ impl World {
             }
         }
         self.in_view_groups.retain(|_, last| t - *last <= ANNOUNCE_GAP);
+        // Only a band that would fall on the squad is called out. Other
+        // parties on the road are there to be seen, not announced (NM-63).
         for id in entered {
-            let line = self.describe_group(id);
-            self.push_log(line);
+            if self.group(id).is_some_and(|g| g.hostile) {
+                let line = self.describe_group(id);
+                self.push_log(line);
+            }
         }
 
         // Townsfolk are banded one by one, by where each of them is standing.
@@ -541,14 +566,16 @@ impl World {
                     made += 1;
                 }
             }
-            let any = !near.is_empty();
-            if any && !self.in_view_towns[s] {
-                let line = format!("{} comes into view.", self.settlements[s].name);
-                self.push_log(line);
-            }
-            self.in_view_towns[s] = any;
+            // (No line when a town comes into view: it's there to be seen.)
+            self.in_view_towns[s] = !near.is_empty();
         }
         self.stats.detailed += made;
+    }
+
+    /// Could the squad see this spot: in sight, by the same reach a
+    /// witness has (`stealth::SIGHT`, more by day in the open)?
+    pub fn in_plain_sight(&self, at: V2) -> bool {
+        at.dist(self.squad.pos) <= super::stealth::SIGHT * 3.0
     }
 
     fn push_log(&mut self, line: String) {
@@ -582,7 +609,7 @@ impl World {
                             format!("bound for {}", self.settlements[d as usize].name)
                         }
                     })
-                    .unwrap_or_default();
+                    .unwrap_or_else(|| "on the road".into());
                 format!("{who}, {going}.")
             }
         }

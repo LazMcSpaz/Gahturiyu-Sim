@@ -2,13 +2,13 @@
 # One piece (line). See FORMAT.md. (News of a real theft or deed comes
 # first, from news.txt and theft.txt.)
 # Tags here (one is picked): ambushes, camp_near, bounty_here, bounty_road.
-# Slots: {count} (ambushes this season), {km} and {dir} (the nearest camp),
+# Slots: {km} and {dir} (the nearest camp),
 # {place} (the town a bounty was posted in).
-line | ambushes | Bandits have fallen on travellers {count} times since the season turned. People say the roads aren't what they used to be.
-line | ambushes, voice=roduro | {count} times this season, bandits have fallen on folk on the road. In my grandmother's day you could walk to the coast with your purse in your hand.
+line | ambushes | Bandits have been falling on travellers out on our roads. People say the roads aren't what they used to be.
+line | ambushes, voice=roduro | Bandits on the road again, they say. In my grandmother's day you could walk for a week with your purse in your hand.
 line | camp_near | People coming in say there's a camp by the road, about {km} km {dir} of here. I'd go round it, if I were you.
 line | camp_near, voice=horaro | The fishers say they can see smoke {km} km {dir} of here most mornings. That'll be the bandits' camp.
-line | bounty_here | Someone's been at the locks round here lately. If I find out who, the watch won't be the only one looking for them.
+line | bounty_here | There's been thieving round here lately. If I find out who, the watch won't be the only one looking for them.
 line | bounty_road | Word from {place} is there's a thief on the road. Keep your door shut at night.
 line | | Not much, I'm afraid. It's been quiet, and I like it that way.
 line | voice=tadoro | They say the Ṭaḍoro write down everything you tell them. Well, they're right. Mind what you say to me.

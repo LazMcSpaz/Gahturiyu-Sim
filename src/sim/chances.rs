@@ -437,7 +437,7 @@ impl World {
                     None if h < c.hours.0 => format!("shift today from {:02.0}:00", c.hours.0),
                     None => "shift over for today".to_string(),
                 };
-                format!("{name} {what} at the {place} in {}, {:02.0}:00–{:02.0}:00, {:.0} coin a day ({} days paid; {now}).", self.settlements[c.town as usize].name, c.hours.0, c.hours.1, c.pay, c.days_paid)
+                format!("{name} {what} at the {place} in {}, {:02.0}:00–{:02.0}:00, {:.0} coin a day ({} paid; {now}).", self.settlements[c.town as usize].name, c.hours.0, c.hours.1, c.pay, if c.days_paid == 1 { "a day".to_string() } else { format!("{} days", c.days_paid) })
             })
             .collect()
     }
@@ -552,7 +552,7 @@ impl World {
                 self.society.contracts[i].days_paid = self.society.contracts[i].days_paid.saturating_add(1);
                 let name = self.name_of(c.member);
                 let short = if pay + 0.5 < c.pay { format!(" (of the {:.0} owed: the purse ran short)", c.pay) } else { String::new() };
-                self.say(t, format!("{name} is paid {:.0} coin for a day's work{short}.", pay.round()));
+                self.say(t, format!("{name} is paid {:.0} coin{short}.", pay.round()));
             } else {
                 self.society.contracts[i].missed = self.society.contracts[i].missed.saturating_add(1);
                 if self.society.contracts[i].missed > MISSED_LIMIT {

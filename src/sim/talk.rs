@@ -263,6 +263,22 @@ fn walk_words(metres: f32) -> &'static str {
     }
 }
 
+/// A thing as it's said after "took": "a spear", "an iron helm", but
+/// "flatbread", "leather", "arrows".
+pub fn a_thing(it: items::ItemId) -> String {
+    let d = items::item(it);
+    let name = d.name.to_lowercase();
+    let counted = matches!(d.kind, items::Kind::Weapon(_) | items::Kind::Armor(_) | items::Kind::Shield(_) | items::Kind::Pack(_) | items::Kind::Trinket | items::Kind::Tool);
+    if !counted || name.ends_with('s') {
+        return name;
+    }
+    let an = name.starts_with(['a', 'e', 'i', 'o', 'u']);
+    format!("{} {name}", if an { "an" } else { "a" })
+}
+
+/// A debt under this isn't worth a lament, coin.
+pub const WORRYING_DEBT: f32 = 20.0;
+
 fn when(now: f64, t: f64) -> String {
     let days = ((now - t) / DAY).floor();
     let h = (t.rem_euclid(DAY) / HOUR) as i32;
@@ -403,16 +419,16 @@ impl World {
         });
         // The squad member.
         let town = p.home;
+        // Whether they've met (talked before): the first-meeting line once,
+        // and warmth only for someone they know (NM-62).
+        let met = self.met.contains(&(npc, with));
         let regard = self.regard_of(npc, with);
         if regard < DISTRUST {
             f.tag("distrusts");
-        } else if regard > WARM {
+        } else if regard > WARM && met {
             f.tag("warm");
         }
-        match town {
-            Some(t) if self.standing(with, t) >= super::law::HEARD => f.tag("known"),
-            _ => f.tag("stranger"),
-        }
+        f.tag(if met { "known" } else { "stranger" });
         if let Some(t) = town {
             f.set("town", self.settlements[t as usize].name.clone());
         }
@@ -468,9 +484,11 @@ impl World {
                 f.tag("heard");
             }
             if let Some(s) = self.society.stolen.iter().find(|s| s.event == e.id) {
-                f.set("item", items::item(s.item).name.to_lowercase());
+                f.set("item", a_thing(s.item));
             } else if e.deed == Deed::Theft {
                 f.set("item", "coin");
+            } else {
+                f.set("item", "what we had");
             }
             // Whom they blame.
             if let Some(t) = town {
@@ -517,7 +535,7 @@ impl World {
             Subject::Money => {
                 if let Some(h) = hh {
                     let d = self.society.households[h as usize].purse.debt();
-                    if d > 0.0 {
+                    if d >= WORRYING_DEBT {
                         f.tag("in_debt");
                         f.set("debt", format!("{d:.0}"));
                     }

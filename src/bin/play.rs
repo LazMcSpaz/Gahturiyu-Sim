@@ -78,8 +78,9 @@ struct Session {
     tips: Vec<String>,
     log_seen: f64,
     /// The news lines already shown (`line_key`), so each shows once
-    /// however it was stamped (NM-76).
-    seen: Vec<u64>,
+    /// however it was stamped (NM-76). None for a session written before
+    /// this was kept: then `log_seen` decides, once.
+    seen: Option<Vec<u64>>,
 }
 
 fn state_path(save: &Path) -> PathBuf {
@@ -95,7 +96,7 @@ fn load_session(save: &Path) -> Session {
             "selected" => s.selected = v.split(',').filter_map(|x| x.parse().ok()).collect(),
             "tips" => s.tips = v.split(',').filter(|x| !x.is_empty()).map(|x| x.to_string()).collect(),
             "log_seen" => s.log_seen = v.parse().unwrap_or(0.0),
-            "seen" => s.seen = v.split(',').filter_map(|x| x.parse().ok()).collect(),
+            "seen" => s.seen = Some(v.split(',').filter_map(|x| x.parse().ok()).collect()),
             _ => {}
         }
     }
@@ -104,8 +105,8 @@ fn load_session(save: &Path) -> Session {
 
 fn save_session(save: &Path, s: &Session) {
     let sel: Vec<String> = s.selected.iter().map(|p| p.to_string()).collect();
-    let seen: Vec<String> = s.seen.iter().map(|k| k.to_string()).collect();
-    let _ = std::fs::write(state_path(save), format!("selected={}\ntips={}\nlog_seen={}\nseen={}\n", sel.join(","), s.tips.join(","), s.log_seen, seen.join(",")));
+    let seen = s.seen.as_ref().map(|v| format!("seen={}\n", v.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(","))).unwrap_or_default();
+    let _ = std::fs::write(state_path(save), format!("selected={}\ntips={}\nlog_seen={}\n{seen}", sel.join(","), s.tips.join(","), s.log_seen));
 }
 
 fn main() {
@@ -126,7 +127,7 @@ fn main() {
         let w = gahturiyu_sim::sim::worldgen::generate(seed);
         let mut s = Session::default();
         s.log_seen = w.time;
-        s.seen = w.log.iter().map(|(t, l)| line_key(*t, l)).collect();
+        s.seen = Some(w.log.iter().map(|(t, l)| line_key(*t, l)).collect());
         w.save_to(&save).expect("save");
         save_session(&save, &s);
         println!("A new game (world {seed}). Your squad of {} stands in {}.\n", w.squad.members.len(), place_name(&w, w.squad.pos));
@@ -502,9 +503,9 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
                 None => {}
             }
             let tag = if tags.is_empty() { String::new() } else { format!(" [{}]", tags.join("; ")) };
-            // The willing first, with what they'd bring.
+            // (Closest first, as the heading says; the willing say what they'd bring.)
             match w.join_terms(p) {
-                Some(_) => folk.push((here.dist(at) - 1e6, format!("p{p}  {} — {} {}{tag} — {}\n        {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at), w.recruit_card(p)))),
+                Some(_) => folk.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}\n        {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at), w.recruit_card(p)))),
                 None => folk.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at)))),
             }
         }
@@ -677,8 +678,7 @@ fn news(w: &World, s: &mut Session) -> String {
     // which isn't the order they were written in, so they're told apart by
     // stamp and words, not by being later than the last one read. What was
     // just shown as an alert ("!! …") isn't said again here.
-    let by_time = s.seen.is_empty();
-    let mut fresh: Vec<&(f64, String)> = w.log.iter().rev().filter(|(t, l)| !w.alerts.iter().any(|a| a == l) && if by_time { *t > s.log_seen } else { !s.seen.contains(&line_key(*t, l)) }).collect();
+    let mut fresh: Vec<&(f64, String)> = w.log.iter().rev().filter(|(t, l)| !w.alerts.iter().any(|a| a == l) && match &s.seen { None => *t > s.log_seen, Some(seen) => !seen.contains(&line_key(*t, l)) }).collect();
     fresh.sort_by(|a, b| a.0.total_cmp(&b.0));
     if !fresh.is_empty() {
         let _ = writeln!(o, "News:");
@@ -686,7 +686,7 @@ fn news(w: &World, s: &mut Session) -> String {
             let _ = writeln!(o, "  {}  {l}", hhmm(*t));
         }
     }
-    s.seen = w.log.iter().map(|(t, l)| line_key(*t, l)).collect();
+    s.seen = Some(w.log.iter().map(|(t, l)| line_key(*t, l)).collect());
     s.log_seen = w.log.iter().map(|l| l.0).fold(s.log_seen, f64::max);
     o
 }
@@ -748,10 +748,21 @@ fn fight(w: &World) -> String {
     o
 }
 
+/// "1 minute passes", "5 minutes pass".
+fn minutes_pass(mins: f64) -> String {
+    let n = mins.max(0.0).round() as i64;
+    if n == 1 { "1 minute passes".into() } else { format!("{n} minutes pass") }
+}
+
 fn talk_view(w: &World) -> String {
     let mut o = String::new();
     let Some(c) = &w.talk else { return o };
-    let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.title(w.people[c.npc as usize].seed).to_lowercase());
+    // (Someone with no trade is just their people.)
+    let job = match w.life(c.npc).job {
+        gahturiyu_sim::sim::jobs::Job::None => String::new(),
+        j => format!(" {}", j.title(w.people[c.npc as usize].seed).to_lowercase()),
+    };
+    let _ = writeln!(o, "TALKING with {} ({}{job}):", name_of(w, c.npc), w.people[c.npc as usize].race.name());
     for (npc, l) in c.lines.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev() {
         let _ = writeln!(o, "  {} {}", if *npc { "»" } else { "  you:" }, gahturiyu_sim::sim::speech::plain(l));
     }
@@ -847,8 +858,7 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
             }
         }
     }
-    let mins = (w.time - start) / 60.0;
-    let mut o = format!("({:.0} minutes pass.)", mins.max(0.0));
+    let mut o = format!("({}.)", minutes_pass((w.time - start) / 60.0));
     if !why.is_empty() {
         o += " ";
         o += &why;
@@ -1000,7 +1010,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
             let mins = ((w.time - start) / 60.0).round();
             if mins >= 1.0 {
-                o += &format!("({mins:.0} minutes pass.)\n");
+                o += &format!("({}.)\n", minutes_pass(mins));
             }
             o += &if w.talk.is_some() { talk_view(w) } else { format!("{} couldn't get to them.\n", first_name(w, m)) };
         }
@@ -1484,7 +1494,9 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         "journal" => {
             let _ = writeln!(o, "Journal:");
             for q in &w.quests {
-                let _ = writeln!(o, "  [{:?}] {}", q.stage, w.quest_line(q));
+                // ("[Done] Done: …" says it twice.)
+                let line = w.quest_line(q);
+                let _ = writeln!(o, "  [{:?}] {}", q.stage, line.strip_prefix("Done: ").map(|l| { let mut c = l.chars(); c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default() }).unwrap_or(line));
             }
             for l in w.work_lines() {
                 let _ = writeln!(o, "  [Town work] {l}");
