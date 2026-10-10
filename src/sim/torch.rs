@@ -159,7 +159,7 @@ impl World {
     /// Light or put out a squad member's torch. With none in hand, one is
     /// taken from the pack (which puts away a shield or two-handed weapon).
     pub fn toggle_torch(&mut self, pid: PersonId) -> bool {
-        if self.squad.index(pid).is_none() || self.fighting.contains_key(&pid) {
+        if self.squad.index(pid).is_none() || self.fighting.contains_key(&pid) || !self.can_act(pid) {
             return false;
         }
         let t = self.time;

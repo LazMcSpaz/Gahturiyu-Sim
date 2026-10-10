@@ -177,6 +177,9 @@ fn attacking_unnoticed_bandits_catches_them_unawares() {
 /// Light the first squad member's torch (each starts with two in the pack).
 fn light_torch(w: &mut World) -> u32 {
     let m = w.squad.members[0];
+    // Up first, if they'd bedded down (the sleeping can't light one).
+    w.order_wake(&[m]);
+    w.step(1.0);
     assert!(w.toggle_torch(m), "should light");
     assert!(w.torch_lit(m));
     m

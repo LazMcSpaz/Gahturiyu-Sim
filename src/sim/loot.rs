@@ -98,11 +98,12 @@ impl World {
         if !self.can_loot(body) {
             return false;
         }
-        if self.squad.index(who).is_none() {
+        if self.squad.index(who).is_none() || self.is_down(who) {
             return false;
         }
         let pos = self.person_pos(body);
         self.send(who, pos);
+        self.rouse(who);
         self.looting.retain(|l| l.who != who);
         self.looting.push(Looting { who, from: Source::Body(body) });
         true
@@ -118,7 +119,7 @@ impl World {
             // A step in front of it, plus its own size.
             Source::Chest(_) => REACH * 1.2,
         };
-        (self.squad.at[k].dist(at) <= reach && self.source_ok(l.from)).then_some(l.from)
+        (self.squad.at[k].dist(at) <= reach && self.source_ok(l.from) && self.can_act(who)).then_some(l.from)
     }
 
     /// The body this member is standing over and going through, if any.

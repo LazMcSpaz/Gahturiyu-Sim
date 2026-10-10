@@ -616,7 +616,9 @@ impl World {
             || self.pickups.iter().any(|p| p.who == pid)
             || self.want_talk.map(|w| w.0 == pid).unwrap_or(false)
             || self.talk.as_ref().map(|t| t.with == pid).unwrap_or(false);
-        if busy {
+        // Nobody beds down by themselves while creeping about or with a camp
+        // watching them.
+        if busy || self.is_sneaking(pid) || self.suspicion.iter().any(|(&(_, m), &v)| m == pid && v > 0.0) {
             return None;
         }
         let start = c.at.max(self.squad.kept_up[k]);
@@ -729,7 +731,7 @@ pub const BEDTIME: f64 = 22.0;
 pub const RISE: f64 = 6.0;
 pub const BED_TIRED: f32 = 35.0;
 
-fn is_night(t: f64) -> bool {
+pub(super) fn is_night(t: f64) -> bool {
     let h = t.rem_euclid(DAY) / HOUR;
     h >= BEDTIME || h < RISE
 }
