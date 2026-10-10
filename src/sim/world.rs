@@ -130,6 +130,9 @@ pub struct World {
     pub picked: HashMap<super::buildings::DoorId, i64>,
     /// Squad members working on locks.
     pub picking: Vec<super::buildings::Picking>,
+    /// Beds paid for at inns (`care.rs`).
+    #[serde(default)]
+    pub rooms: Vec<super::care::Room>,
     /// Buildings whose belongings have been laid out.
     pub furnished: HashSet<super::buildings::DoorId>,
     /// Chests, crates, cupboards and barrels laid out so far (`containers.rs`).
@@ -291,6 +294,7 @@ impl World {
             watch_done: start_time,
             picked: HashMap::new(),
             picking: Vec::new(),
+            rooms: Vec::new(),
             furnished: HashSet::new(),
             containers: Default::default(),
             bounty: HashMap::new(),

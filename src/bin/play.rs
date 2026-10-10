@@ -453,6 +453,12 @@ fn nearby(w: &World, only: &str) -> String {
             }
         }
     }
+    // Stilt villages, out over the water.
+    for st in w.settlements.iter() {
+        if let Some(sp) = st.stilts.filter(|&sp| near(sp, 1500.0)) {
+            lines.push((here.dist(sp), format!("    the stilt village of {} — out over the water, {}", st.name, dist_dir(here, sp))));
+        }
+    }
     // Ruins and camps.
     for r in w.ruins.iter().filter(|r| near(r.pos, 400.0)) {
         let held = if w.ruin_held(r.id) { "guarded" } else { "unguarded" };
@@ -798,7 +804,16 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                             let name = first_name(w, m);
                             if w.is_down(m) { Some(format!("{name} is down")) } else if !w.free_to_order(m) { Some(format!("{name} is bound to work off a bond")) } else { None }
                         }).collect();
-                        o += &if why.is_empty() { "Nobody needs to move: they're already there.\n".to_string() } else { format!("Nobody moves: {}.\n", why.join("; ")) };
+                        o += &if !why.is_empty() {
+                            format!("Nobody moves: {}.\n", why.join("; "))
+                        } else if w.terrain.is_sea(t) {
+                            "That's the sea: the squad can't cross it.\n".to_string()
+                        } else {
+                            "Nobody needs to move: they're already there.\n".to_string()
+                        };
+                    }
+                    if moving && w.terrain.is_sea(t) && w.building_at(t).is_none() {
+                        o += "That's the sea: they'll stop at the water's edge.\n";
                     }
                     walk_then_look(w, s, &sel, &mut o);
                 }

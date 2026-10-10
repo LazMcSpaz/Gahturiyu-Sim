@@ -148,6 +148,7 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
             Shelter::Open => "Asleep (open)",
             Shelter::Tent => "Asleep (tent)",
             Shelter::Indoors => "Asleep (indoors)",
+            Shelter::Bed => "Asleep (a bed at the inn)",
         };
         return (place, SNEAK);
     }

@@ -8,6 +8,7 @@ pub mod base;
 pub mod baselife;
 pub mod body;
 pub mod buildings;
+pub mod care;
 pub mod carry;
 pub mod casting;
 pub mod combat;
