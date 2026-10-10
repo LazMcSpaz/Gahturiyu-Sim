@@ -282,6 +282,7 @@ impl World {
             }
         }
         self.hold_the_bound();
+        self.chase(dt);
         self.recentre_squad();
         self.update_indoors();
         self.do_pickups();
@@ -448,8 +449,8 @@ impl World {
                 let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
                 if let Some(town) = g.owner {
                     let mut r = Rng::from_keys(&[self.seed, pk.who as u64, g.id as u64, 0x5448_4546]);
-                    if self.witnessed(pk.who, g.pos, town, &mut r) {
-                        self.crime(pk.who, town, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"));
+                    if let Some(by) = self.witnessed(pk.who, g.pos, town, &mut r) {
+                        self.wrong_seen(pk.who, town, super::law::Wrong::Theft, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"), Some(by), Some(super::containers::Owner::Town(town)), g.pos);
                     }
                 }
                 if let Some(d) = self.people[pk.who as usize].detail.as_mut() {

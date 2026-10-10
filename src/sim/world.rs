@@ -157,6 +157,8 @@ pub struct World {
     pub levels: Vec<super::progress::Levels>,
     /// Spells ordered that wait on the caster (`casting.rs`).
     pub casts: Vec<super::casting::PendingCast>,
+    /// The watch after squad members for crimes told of (`pursuit.rs`).
+    pub pursuits: Vec<super::pursuit::Pursuit>,
     /// Ruins and lairs worth the walk (`ruins.rs`).
     pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
@@ -296,6 +298,7 @@ impl World {
             levels: Vec::new(),
             ruins: Vec::new(),
             casts: Vec::new(),
+            pursuits: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),
@@ -585,6 +588,9 @@ impl World {
         let p = &self.people[pid as usize];
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);
         if let Some(pos) = self.fighter_pos(pid) {
+            return pos;
+        }
+        if let Some(pos) = self.chase_pos(pid) {
             return pos;
         }
         if let Some(&c) = self.carried.get(&pid) {

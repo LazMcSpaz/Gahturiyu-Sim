@@ -75,6 +75,8 @@ pub struct Floaters {
     foes: HashMap<(u32, usize), f32>,
     pub list: Vec<Float>,
     loads: u32,
+    /// Chases seen so far: (guard, thief, set off yet).
+    chases: Vec<(PersonId, PersonId, bool)>,
 }
 
 fn pack(w: &World, pid: PersonId) -> Vec<(ItemId, u32)> {
@@ -197,6 +199,28 @@ impl Floaters {
             }
         }
         self.seen.retain(|m, _| w.squad.members.contains(m));
+
+        // A witness shouting for the watch; the guard setting off.
+        for p in &w.pursuits {
+            let off = p.pos.is_some();
+            match self.chases.iter().position(|c| c.0 == p.guard && c.1 == p.culprit) {
+                None => {
+                    if let Some(wi) = p.witness {
+                        self.add(Over::Person(wi), "Thief!".into(), SPOTTED, true);
+                    }
+                    if off {
+                        self.add(Over::Person(p.guard), "!".into(), SPOTTED, true);
+                    }
+                    self.chases.push((p.guard, p.culprit, off));
+                }
+                Some(i) if off && !self.chases[i].2 => {
+                    self.chases[i].2 = true;
+                    self.add(Over::Person(p.guard), "!".into(), SPOTTED, true);
+                }
+                _ => {}
+            }
+        }
+        self.chases.retain(|c| w.pursuits.iter().any(|p| p.guard == c.0 && p.culprit == c.1));
 
         // Everyone else in the squad's fight: their hurt and healing.
         let Some(b) = w.squad_battle() else {

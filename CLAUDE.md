@@ -144,8 +144,11 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    timeline, with the dawn's time passed in (never `self.time`). A
    townsperson's duel is fought out at once with the full combat rules
    (like far fights). Bonds end by the clock (`Bond::until`). The squad's
-   own arrests and duels happen when its crimes are seen (the player
-   exception). Office eligibility reads race and sex directly — that's the
+   own crimes are the player exception (`pursuit.rs`): a witness is found
+   when it's done (`spotter`), tells the watch or not by one keyed roll
+   (`report_chance`: friendship, scruples, the ring, bad blood with the
+   victim), and a told crime sends a guard who is moved step by step and
+   catches the thief (then `judge`) or loses them (then a bounty). Office eligibility reads race and sex directly — that's the
    canon rule (Laz), not a culture leaning; everything else reads customs.
 19. **Lives are settled on the clock, and few people act.** Purses, work
    status, needs, dealings, gossip, grudges' first rung, the ring's choice
@@ -272,6 +275,7 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
 `GAHT_DRAG=x,y` (a selection box held from there to the `GAHT_HOVER` point).
+`GAHT_CHASE=1` (member 0 seen stealing in a town with its watch out; the guard on their way).
 `GAHT_LOOT=1` (two bandits lie beaten beside the squad; member 0 goes through the
 first one's things: the loot panel).
 `GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`

@@ -131,6 +131,9 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     if !w.free_to_order(pid) {
         return ("Bound to work", WARN);
     }
+    if w.chased_by(pid).is_some() {
+        return ("The watch is after them", WARN);
+    }
     if w.carrying(pid).is_some() {
         return ("Carrying", GOLD);
     }

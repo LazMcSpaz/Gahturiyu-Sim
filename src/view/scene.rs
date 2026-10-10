@@ -437,6 +437,15 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
         }
     }
+    // The watch on a chase: a red ring under the guard, a fainter one under
+    // whoever they're after.
+    for p in &w.pursuits {
+        if let Some(g) = p.pos {
+            ring_widened(&mut fl, &on_ground, g, 0.85 * k, 0.09 * k, 18, [0.95, 0.18, 0.12], eye, 0.004);
+            let c = w.person_pos(p.culprit);
+            ring_widened(&mut fl, &on_ground, c, 1.25 * k, 0.05 * k, 22, [0.85, 0.25, 0.15], eye, 0.004);
+        }
+    }
     for g in &w.groups {
         if g.pos.dist(oc.target) > radius {
             continue;

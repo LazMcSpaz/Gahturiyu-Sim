@@ -396,6 +396,16 @@ pub fn tooltip(w: &World, h: Hover, who: &[PersonId], shift: bool, alt: bool) ->
     if long && !alt {
         lines.truncate(3);
     }
+    // The watch on a chase, and whoever they're after.
+    if let Hover::Person(p) = h {
+        let warn = [0.95, 0.38, 0.30];
+        if let Some(c) = w.pursuits.iter().find(|x| x.guard == p && x.pos.is_some()) {
+            lines.insert(1.min(lines.len()), (format!("Chasing {} for {}!", w.name_of(c.culprit), c.wrong.name()), warn));
+        }
+        if let Some(g) = w.chased_by(p) {
+            lines.insert(1.min(lines.len()), (format!("{} of the watch is after them", w.name_of(g)), warn));
+        }
+    }
     action_lines(&mut lines, choices(w, h, who, shift));
     if long && !alt {
         lines.push(("Hold Alt for more".into(), DIM));

@@ -943,34 +943,6 @@ impl World {
 
     // ---- The squad before the law ----------------------------------------------
 
-    /// A squad member's wrong is known in `town`. Guards on shift (if the
-    /// watch is paid) arrest and judge at once by the town's custom;
-    /// otherwise it stands as a bounty, and the news travels.
-    pub(super) fn wrong_done(&mut self, who: PersonId, town: SettlementId, wrong: Wrong, fine: f32) -> bool {
-        let t = self.time;
-        self.add_standing(who, town, -fine / 4.0);
-        self.society.towns[town as usize].gov.wrongs += 1.0;
-        if wrong.always_recorded() {
-            *self.records.entry(who).or_insert(0.0) += wrong.gravity();
-        }
-        let tl = &self.society.towns[town as usize];
-        let paid = tl.owed <= 0.0;
-        let on_watch = self.living_here(town).into_iter().any(|p| self.life(p).job == Job::Guard && self.at_work(p, t));
-        let mut r = Rng::from_keys(&[self.seed, who as u64, (t / 60.0) as u64, 0x4152_5354]);
-        let in_duel = self.duels.iter().any(|d| d.accused == who) || self.fighting.contains_key(&who);
-        if !(on_watch && (paid || r.chance(0.3))) || self.is_bonded(who, t) || in_duel {
-            return false;
-        }
-        // Arrested: judged by the custom of those wronged (the town on land,
-        // where it happened).
-        let custom = {
-            let ci = self.society.towns[town as usize].shore;
-            self.society.communities[ci as usize].customs.justice
-        };
-        self.judge(who, town, wrong, fine, custom);
-        true
-    }
-
     /// Judgement on a squad member.
     pub fn judge(&mut self, who: PersonId, town: SettlementId, wrong: Wrong, fine: f32, custom: Justice) {
         let t = self.time;
@@ -1198,7 +1170,8 @@ impl World {
         }
         for (town, wrong, fine) in charges {
             let name = self.name_of(doer);
-            self.crime_of(doer, town, wrong, fine, format!("{name}'s side is seen at {}!", wrong.name()));
+            let at = self.person_pos(doer);
+            self.wrong_seen(doer, town, wrong, fine, format!("{name}'s side is seen at {}!", wrong.name()), None, None, at);
         }
         // Bandits beaten by a town: it's grateful.
         if b.winner() == Some(SQUAD_SIDE) && b.fighters.iter().any(|f| f.is_person() && self.people[f.pid as usize].bandit) {

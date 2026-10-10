@@ -256,11 +256,11 @@ impl World {
     pub(super) fn took_from(&mut self, who: PersonId, id: ContainerId, worth: f32) {
         let Some(c) = self.containers.get_mut(&id) else { return };
         c.taken += 1;
-        let (n, at, what) = (c.taken, c.pos, c.what);
+        let (n, at, what, owner) = (c.taken, c.pos, c.what, c.owner);
         let mut r = Rng::from_keys(&[self.seed, who as u64, id.0 as u64, id.1 as u64, id.2 as u64, n as u64, 0x5448_4546]);
-        if self.witnessed(who, at, id.0, &mut r) {
+        if let Some(by) = self.witnessed(who, at, id.0, &mut r) {
             let name = self.people[who as usize].name().unwrap_or("someone").to_string();
-            self.crime(who, id.0, worth * 0.5 + 10.0, format!("{name} is seen stealing from a {}!", what.name()));
+            self.wrong_seen(who, id.0, super::law::Wrong::Theft, worth * 0.5 + 10.0, format!("{name} is seen stealing from a {}!", what.name()), Some(by), Some(owner), at);
         }
     }
 }
