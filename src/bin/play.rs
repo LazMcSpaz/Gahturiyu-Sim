@@ -40,6 +40,8 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   loot pID                  go through a beaten foe's things (nearest selected member)
   search kID                go through a container in a building (theft if it's not yours)
   take N | takeall          take a line (or everything) from what's being gone through
+  put N                     put the looter's pack entry N into the open container
+  spells [NAME]             what NAME can cast; `cast NAME N [pID | X,Y]` casts spell N
   pickup gID                pick something up off the ground
   gather nID                gather a plant, rock or log
   work dID                  the selected work a woodlot/mine until their packs are full
@@ -744,6 +746,58 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     n += 1;
                 }
                 o += &loot_view(w, looter);
+            }
+        }
+        "put" => {
+            let looter = w.looting.iter().map(|l| l.who).find(|&m| w.source_now(m).is_some());
+            match (looter, arg(0).parse::<usize>()) {
+                (Some(m), Ok(k)) => {
+                    o += if w.put_in(m, k) { "Put away.\n" } else { "Couldn't put that there.\n" };
+                    o += &loot_view(w, m);
+                }
+                (None, _) => o += "Nothing is open to put things in (use `search` first).\n",
+                _ => o += "Usage: put N (N from the looter's `pack`)\n",
+            }
+        }
+        "spells" => {
+            let Some(m) = member(w, arg(0)).or(Some(lead)) else { return "Who?\n".into() };
+            let p = &w.people[m as usize];
+            let energy = w.fighter(m).map(|f| f.mana).unwrap_or_else(|| p.mana_at(w.time));
+            let _ = writeln!(o, "{}'s spells (energy {:.0} / {:.0}):", name_of(w, m), energy, p.max_mana());
+            let known = w.known_spells(m);
+            if known.is_empty() {
+                o += "  none\n";
+            }
+            for (i, sp) in known.iter().enumerate() {
+                let d = sp.def();
+                let does: Vec<String> = d.effects.iter().map(|e| e.describe()).collect();
+                let _ = writeln!(o, "  {}. {} — {:?}, costs {:.0}, reach {:.0} m, aimed at {:?}: {}", i + 1, d.name, d.style, d.cost, d.range, d.aim, does.join("; "));
+            }
+        }
+        "cast" => {
+            let (Some(m), Ok(n)) = (member(w, arg(0)), arg(1).parse::<usize>()) else {
+                return "Usage: cast NAME N [pID | X,Y] (N from `spells NAME`)\n".into();
+            };
+            let Some(&sp) = w.known_spells(m).get(n.saturating_sub(1)) else { return "They don't know that one.\n".into() };
+            let t = arg(2);
+            let target = t.strip_prefix('p').and_then(|x| x.parse::<PersonId>().ok());
+            let point = match target {
+                Some(p) => Some(w.person_pos(p)),
+                None => t.split_once(',').and_then(|(x, y)| Some(V2::new(x.parse().ok()?, y.parse().ok()?))).or(Some(w.person_pos(m))),
+            };
+            match w.order_cast(m, sp, target, point) {
+                Ok(()) => {
+                    o += &format!("{} begins {}.\n", name_of(w, m), sp.def().name);
+                    // Let the walk and the casting play out a little.
+                    let mut k = 0;
+                    while !w.casts.is_empty() && k < 600 {
+                        w.step(0.25);
+                        k += 1;
+                    }
+                    w.step(2.0);
+                    o += &news(w, s);
+                }
+                Err(e) => o += &format!("Can't: {}\n", e.0),
             }
         }
         "take" | "takeall" => {
