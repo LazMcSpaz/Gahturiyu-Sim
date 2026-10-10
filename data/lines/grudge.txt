@@ -1,9 +1,13 @@
-# Grudges and feuds with another household. Placeholder set.
-topic | feud | {relation} and the {target} household are at each other's throats.
-topic | | {target}'s lot. I won't say more than that.
-feeling | hot | One day they'll go too far.
-feeling | patient | We'll see how long they last.
-hook | revenge, low_honour | If {target} met with an accident, I'd be grateful. Very.
-hook | wants_help | Talk some sense into {target}, would you?
+# Grudges between households. See FORMAT.md.
+topic | feud | {relation} and the {target} household are at each other's throats again. It's been going on for years.
+topic | feud, voice=roduro | {relation} and the {target} household haven't spoken since before the last rings grew on my walls. Now it's worse.
+topic | | {target}'s lot. I won't say more than that, not here.
+topic | voice=horaro | You know {target}? Then you know why I spit when they pass.
+feeling | hot | One day they'll go too far, and I'll be the one to answer it.
+feeling | patient | We'll see how long they last. Nothing lasts forever, not even them.
+feeling | voice=qotiro | They shamed us. A {w:shame} like that doesn't wash out.
+feeling | | It's an old wound. It doesn't heal, it just stops bleeding for a while.
+hook | revenge, low_honour | If {target} met with an accident, I'd be grateful. Very grateful.
+hook | wants_help | Talk some sense into {target}, would you? They won't listen to me.
 hook | |
 bark | feud | Not them again.

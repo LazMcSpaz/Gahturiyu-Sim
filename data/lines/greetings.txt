@@ -1,18 +1,33 @@
 # Greetings: the first thing someone says. See FORMAT.md.
 # slot | conditions | text | flags
-greeting | rain | Wet day for it.
-greeting | voice=qotiro | Speak. I'm busy.
-greeting | voice=roduro, stranger | You're not from here. What is it?
-greeting | voice=horaro | Come in out of the wind, friend.
+#
+# Each people greets in its own way, with a word or two of its own tongue
+# ({w:friend} is "friend" in the speaker's tongue; the player can hover it).
+greeting | voice=roduro | {W:peace} to you. Mind your feet, the paving here is still growing.
+greeting | voice=roduro, stranger | You're not from here, are you? Well, you're under our roof now, {w:guest}. What is it you want?
+greeting | voice=roduro, known | Ah, you again. Well met, {w:friend}. Come, sit a moment if you like.
+greeting | voice=roduro, warm | There you are! I was hoping you'd come by. {W:peace} to you, {w:friend}.
+greeting | voice=roduro, morning | Early, aren't you? The stone's still cold. Go on, then, what is it?
+greeting | voice=qotiro | Speak plainly. I have work waiting.
+greeting | voice=qotiro, stranger | I don't know you. Say who you are and what you want.
+greeting | voice=qotiro, known | You came back. Good. What do you need?
+greeting | voice=qotiro, warm | {W:sun} on your road. It's good to see a face I can trust.
+greeting | voice=qotiro, hot | If this is going to waste my time, say so now.
+greeting | voice=horaro | Come in out of the wind, {w:friend}. What brings you to me?
+greeting | voice=horaro, stranger | A new face! The {w:tide} brings all sorts. Welcome, welcome. What can I do for you?
+greeting | voice=horaro, warm | Ho! Salt and fair weather to you, {w:friend}. Sit, sit.
+greeting | voice=horaro, night | You're about late. The {w:moon}'s up, so it can't be good news. What is it?
 greeting | voice=tadoro | Ah, a new face. Tell me something I don't know. No? Then I'll tell you something.
-greeting | distrusts | I've nothing to say to your sort. | refuse
+greeting | voice=tadoro, known | You again! Good, I had a question saved up for you. But you first.
+greeting | voice=tadoro, warm | {W:friend}! Sit down, I've been writing all morning and my hand needs a rest.
+greeting | voice=tadoro, stranger | Hello, traveller. I'd ask where you've come from, but I'll guess instead, if you don't mind. I'm usually right.
+greeting | distrusts | I've nothing to say to your sort. Move along. | refuse
 greeting | distrusts, voice=qotiro | No. Go. | refuse
-# Placeholders, so nobody says the same thing twice running.
-greeting | | Yes?
-greeting | | What can I do for you?
-greeting | warm | Good to see you again.
-greeting | night | It's late. What is it?
-greeting | morning | Morning. Make it quick.
-greeting | voice=roduro, known | Well met again.
-greeting | voice=horaro, warm | Ho! Salt and fair weather to you.
-greeting | voice=tadoro, known | You again. Good — I'd a question for you.
+greeting | distrusts, voice=horaro | The {w:tide} can take you back where you came from. I'm not talking to you. | refuse
+# For anyone, when nothing more particular fits.
+greeting | | Yes? What can I do for you?
+greeting | | Hello. Are you lost, or looking for someone?
+greeting | warm | Good to see you again. Come in.
+greeting | night | It's late to be calling. What is it?
+greeting | morning | Morning. I've a long day ahead, so make it quick.
+greeting | rain | Wet day for it. Come under the eaves.

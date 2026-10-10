@@ -96,6 +96,9 @@ pub enum Action {
     CloseBook,
 }
 
+/// A word in someone's own tongue, in what they say.
+pub const NATIVE: Rgb = [0.62, 0.85, 0.80];
+
 /// Violet, for held rituals and other lingering magic.
 pub const RITUAL: Rgb = [0.78, 0.6, 1.0];
 
@@ -658,7 +661,7 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     let x = r.x + 16.0;
     let disp = w.regard_of(cv.npc, cv.with);
     let job = w.life(cv.npc).job;
-    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else { job.title(npc.seed).to_lowercase() };
+    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else if super::lexicon::native() { super::lexicon::thing(w, job.name()) } else { job.title(npc.seed).to_lowercase() };
     c.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), what), x, r.y + 28.0, 18.0, race_color(npc.race));
     let d = format!("Disposition {disp:.0}");
     c.text(&d, r.x + r.w - c.width(&d, 14.0) - 16.0, r.y + 26.0, 14.0, if disp < 30.0 { WARN } else { DIM });
@@ -682,28 +685,81 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     }
 
     let width = tx - x - 24.0;
-    let mut rows: Vec<(String, Rgb)> = Vec::new();
+    // Words wrapped into rows; a word in the speaker's own tongue keeps its
+    // meaning, to be shown when the mouse is over it.
+    type Word = (String, Option<String>);
+    let mut rows: Vec<(Vec<Word>, Rgb)> = Vec::new();
+    let space = c.width(" ", 15.0);
     for (theirs, line) in &cv.lines {
         let col = if *theirs { TEXT } else { GOLD };
-        let mut cur = String::new();
-        for word in line.split(' ') {
-            let next = if cur.is_empty() { word.to_string() } else { format!("{cur} {word}") };
-            if c.width(&next, 15.0) > width && !cur.is_empty() {
-                rows.push((cur, col));
-                cur = word.to_string();
-            } else {
-                cur = next;
+        let mut words: Vec<Word> = Vec::new();
+        for (text, meaning) in gahturiyu_sim::sim::speech::spans(line) {
+            match meaning {
+                // A native word may carry punctuation after it in the next run.
+                Some(m) => words.push((text, Some(m))),
+                None => {
+                    let mut first = true;
+                    for piece in text.split(' ') {
+                        // Punctuation straight after a native word sticks to it.
+                        if first && !piece.is_empty() && !text.starts_with(' ') {
+                            if let Some(last) = words.last_mut() {
+                                last.0.push_str(piece);
+                                first = false;
+                                continue;
+                            }
+                        }
+                        first = false;
+                        if !piece.is_empty() {
+                            words.push((piece.to_string(), None));
+                        }
+                    }
+                }
             }
         }
-        rows.push((cur, col));
-        rows.push((String::new(), col));
+        let mut row: Vec<Word> = Vec::new();
+        let mut used = 0.0;
+        for wd in words {
+            let ww = c.width(&wd.0, 15.0);
+            if used + ww > width && !row.is_empty() {
+                rows.push((std::mem::take(&mut row), col));
+                used = 0.0;
+            }
+            used += ww + space;
+            row.push(wd);
+        }
+        rows.push((row, col));
+        rows.push((Vec::new(), col));
     }
     let max = ((r.h - 70.0) / 19.0) as usize;
     let start = rows.len().saturating_sub(max);
     let mut y = r.y + 60.0;
-    for (line, col) in &rows[start..] {
-        c.text(line, x, y, 15.0, *col);
+    let mut gloss: Option<(String, f32, f32)> = None;
+    for (row, col) in &rows[start..] {
+        let mut wx = x;
+        for (word, meaning) in row {
+            let ww = c.width(word, 15.0);
+            match meaning {
+                Some(m) => {
+                    c.text(word, wx, y, 15.0, NATIVE);
+                    // A faint dotted line under it: there's more to see.
+                    let mut ux = wx;
+                    while ux < wx + ww {
+                        c.rect(ux, y + 3.0, 2.0, 1.0, ega(NATIVE, 0.7));
+                        ux += 4.0;
+                    }
+                    if Bx::new(wx, y - 15.0, ww, 19.0).contains(mouse) {
+                        gloss = Some((format!("{}: \u{201c}{m}\u{201d} in {}", word.trim_end_matches(|ch: char| !ch.is_alphanumeric() && ch != '\u{2bb}'), gahturiyu_sim::names::Tongue::from(npc.race).name()), wx, y));
+                    }
+                }
+                None => c.text(word, wx, y, 15.0, *col),
+            }
+            wx += ww + space;
+        }
         y += 19.0;
+    }
+    // The meaning of a word under the mouse, along the bottom of the panel.
+    if let Some((text, _, _)) = gloss {
+        c.text(&text, x + 110.0, r.y + r.h - 10.0, 14.0, NATIVE);
     }
     c.text("Esc to leave", x, r.y + r.h - 10.0, 12.0, DIM);
     (chosen, Some(r))

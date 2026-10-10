@@ -1010,7 +1010,7 @@ fn update_barks(game: &mut Game) {
             }
             game.barked.insert(p, f + BARK_AGAIN);
             if let Some(line) = w.bark(p, m) {
-                game.barks.push((p, line, f + BARK_FRAMES));
+                game.barks.push((p, gahturiyu_sim::sim::speech::plain(&line), f + BARK_FRAMES));
             }
         }
     }
@@ -1067,6 +1067,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         return Ok(());
     }
     let game = &mut *game;
+    super::lexicon::set_native(settings.native_names);
+    super::lexicon::refresh(&game.world, game.loads);
     if st.loads != game.loads {
         st.loads = game.loads;
         st.relief = None;

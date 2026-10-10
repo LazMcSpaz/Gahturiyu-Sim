@@ -1,4 +1,6 @@
-# A good turn remembered. Placeholder set.
-topic | | {target} helped us when nobody else would.
-feeling | | Good people, those.
+# A kindness remembered. See FORMAT.md.
+topic | | {target} helped us when nobody else would. I won't forget it.
+topic | voice=horaro | {target} stood by us when the nets came up empty. You don't forget a thing like that, {w:friend}.
+feeling | | Good people, those. There aren't so many of them.
+feeling | voice=roduro | A kindness is like a seed. You never know how big it will grow.
 hook | |

@@ -91,7 +91,7 @@ impl Subject {
 }
 
 /// The data files, compiled in.
-const FILES: [(&str, &str); 13] = [
+const FILES: [(&str, &str); 18] = [
     ("", include_str!("../../data/lines/greetings.txt")),
     ("", include_str!("../../data/lines/farewells.txt")),
     ("theft", include_str!("../../data/lines/theft.txt")),
@@ -105,6 +105,11 @@ const FILES: [(&str, &str); 13] = [
     ("job", include_str!("../../data/lines/job.txt")),
     ("news", include_str!("../../data/lines/news.txt")),
     ("ambition", include_str!("../../data/lines/ambition.txt")),
+    ("background", include_str!("../../data/lines/background.txt")),
+    ("town", include_str!("../../data/lines/town.txt")),
+    ("advice", include_str!("../../data/lines/advice.txt")),
+    ("rumours", include_str!("../../data/lines/rumours.txt")),
+    ("bandits", include_str!("../../data/lines/bandits.txt")),
 ];
 
 #[derive(Clone, Debug)]
@@ -207,6 +212,8 @@ pub struct Said {
 struct Facts {
     tags: BTreeSet<String>,
     slots: BTreeMap<&'static str, String>,
+    /// The speaker's tongue, for `{w:root}` words.
+    tongue: Option<crate::names::Tongue>,
 }
 
 impl Facts {
@@ -226,6 +233,12 @@ impl Facts {
             out.push_str(&rest[..a]);
             let Some(b) = rest[a..].find('}') else { break };
             let key = &rest[a + 1..a + b];
+            // A word in the speaker's own tongue.
+            if let (Some(root), Some(t)) = (key.strip_prefix("w:").or_else(|| key.strip_prefix("W:")), self.tongue) {
+                out.push_str(&super::speech::native_word(root, t, key.starts_with('W')));
+                rest = &rest[a + b + 1..];
+                continue;
+            }
             out.push_str(self.slots.get(key).map(|s| s.as_str()).unwrap_or(if matches!(key, "item" | "when" | "workplace" | "place" | "why" | "offer" | "span" | "count" | "pay" | "days" | "reward" | "debt" | "job" | "deed") { "" } else { "someone" }));
             rest = &rest[a + b + 1..];
         }
@@ -345,10 +358,16 @@ impl World {
             Race::Tadoro => "tadoro",
         };
         f.tag(format!("voice={}", voice(p.race)));
+        f.tongue = Some(p.race.into());
         f.tag(format!("you={}", voice(self.people[with as usize].race)));
         f.tag(format!("job={}", l.job.name().to_lowercase()));
         f.set("name", self.name_of(npc));
         f.set("job", l.job.title(p.seed).to_lowercase());
+        {
+            let j = l.job.title(p.seed).to_lowercase();
+            let an = if j.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
+            f.set("a_job", format!("{an} {j}"));
+        }
         if tr.patience < 0.4 && tr.boldness > 0.5 {
             f.tag("hot");
         }
@@ -555,6 +574,32 @@ impl World {
             if p.refuse {
                 said.refused = true;
                 break;
+            }
+        }
+        said.text = parts.join(" ");
+        said
+    }
+
+    /// Something said from one of the asked-about files (`background`,
+    /// `town`, `advice`, `rumours`, `bandits`): a piece for each slot in
+    /// turn, chosen as any other piece is, with the facts the asking code
+    /// gathered added as tags and slot values.
+    pub fn say_from(&self, npc: PersonId, with: PersonId, topic: &str, slots: &[&str], tags: &[String], values: &[(&'static str, String)]) -> Said {
+        let mut f = self.facts(npc, with, None);
+        for t in tags {
+            f.tag(t.clone());
+        }
+        for (k, v) in values {
+            f.set(k, v.clone());
+        }
+        let mut said = Said::default();
+        let mut parts = Vec::new();
+        for &slot in slots {
+            let Some(p) = self.pick(&f, topic, slot, npc, with, &said.pieces) else { continue };
+            said.pieces.push(p.id);
+            let text = f.fill(p.text);
+            if !text.is_empty() {
+                parts.push(text);
             }
         }
         said.text = parts.join(" ");

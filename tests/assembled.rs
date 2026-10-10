@@ -51,10 +51,10 @@ fn the_pieces_parse() {
     let p = talk::pieces();
     assert!(p.len() > 60);
     for x in p {
-        assert!(["greeting", "topic", "feeling", "hook", "farewell", "bark"].contains(&x.slot), "{x:?}");
+        assert!(["greeting", "topic", "feeling", "hook", "farewell", "bark", "origin", "work", "about", "folk", "ways", "line"].contains(&x.slot), "{x:?}");
     }
     // The theft set is there.
-    assert!(p.iter().any(|x| x.topic == "theft" && x.text.contains("lifted {item}")));
+    assert!(p.iter().any(|x| x.topic == "theft" && x.text.contains("took {item}")));
 }
 
 #[test]
@@ -124,4 +124,27 @@ fn the_same_world_says_the_same_things() {
         w.talk.as_ref().unwrap().lines[0].1.clone()
     };
     assert_eq!(say(), say());
+}
+
+/// Every word asked for in the lines (`{w:root}`) is a real root, and a
+/// native word comes through marked, with its meaning.
+#[test]
+fn native_words_in_the_lines_are_real() {
+    use gahturiyu_sim::names::{self, Tongue};
+    use gahturiyu_sim::sim::speech;
+    for x in talk::pieces() {
+        let mut rest = x.text;
+        while let Some(a) = rest.find("{w:").or_else(|| rest.find("{W:")) {
+            let b = rest[a..].find('}').unwrap();
+            let root = &rest[a + 3..a + b];
+            assert!(names::root(root).is_some(), "no root `{root}` in {x:?}");
+            rest = &rest[a + b + 1..];
+        }
+    }
+    let w = speech::native_word("friend", Tongue::Roduro, true);
+    assert_eq!(speech::plain(&format!("{w}, come in.")), "Oqe (friend), come in.");
+    assert_eq!(speech::bare(&format!("{w}, come in.")), "Oqe, come in.");
+    let s = speech::spans(&format!("Hello, {w}."));
+    assert_eq!(s.len(), 3);
+    assert_eq!(s[1], ("Oqe".to_string(), Some("friend".to_string())));
 }

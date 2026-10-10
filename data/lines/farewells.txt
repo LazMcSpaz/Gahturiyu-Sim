@@ -1,14 +1,18 @@
 # Farewells: the last thing they say. See FORMAT.md.
-farewell | voice=qotiro | Go.
-farewell | voice=roduro | Mind the road.
-farewell | voice=horaro | The tide turns. Go well.
-farewell | voice=tadoro | Write if you learn anything.
-farewell | voice=horaro, warm | May Horahìda carry you.
-farewell | voice=roduro, warm | Dodìṭo keep you steady.
-farewell | voice=qotiro, warm | Go with Qotisho's fire.
-farewell | voice=tadoro, warm | Rìthaduya guide your road.
-# Placeholders.
-farewell | | Until next time.
-farewell | | Go on, then.
-farewell | warm | Come back soon.
-farewell | night | Mind the dark out there.
+farewell | voice=roduro | Mind the road, and come back while the stone still remembers you.
+farewell | voice=roduro, warm | Dodìṭo keep you steady, {w:friend}.
+farewell | voice=roduro, night | Keep to the lit streets. The dark is long out there.
+farewell | voice=qotiro | Go, then. Do your work well.
+farewell | voice=qotiro, warm | Go with Qotisho's {w:fire}. Come back with your {w:honour} whole.
+farewell | voice=qotiro, cold | That's all.
+farewell | voice=horaro | The {w:tide} turns, and so must you. Go well.
+farewell | voice=horaro, warm | May Horahìda carry you, {w:friend}. Mind the deep places.
+farewell | voice=horaro, night | Mind your step in the dark. The water doesn't care who falls in.
+farewell | voice=tadoro | Write to me if you learn anything worth knowing. I'll read it twice.
+farewell | voice=tadoro, warm | Rìthaduya guide your road, {w:friend}. Come back with stories.
+farewell | voice=tadoro, night | Off you go. And mind the dark: it hides more than people think.
+# For anyone.
+farewell | | Until next time, then.
+farewell | | Go on, then. Take care of yourself.
+farewell | warm | Come back soon. I mean it.
+farewell | night | Mind yourself out there in the dark.

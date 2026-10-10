@@ -453,6 +453,11 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         Hover::Item(gid) => {
             let Some(g) = w.ground.iter().find(|g| g.id == gid) else { return out };
             out = super::squadui::item_lines(g.item);
+            let english = items::item(g.item).name;
+            out[0].0 = super::lexicon::thing(w, english);
+            if let Some(other) = super::lexicon::thing_other(w, english) {
+                out.insert(1, (other, DIM));
+            }
             if g.count > 1 {
                 out[0].0 = format!("{}  ×{}", out[0].0, g.count);
             }
@@ -590,7 +595,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         }
         Hover::Town(sid) => {
             let s = &w.settlements[sid as usize];
-            out.push((s.name.clone(), race_color(s.founders)));
+            out.push((super::lexicon::town(w, sid), race_color(s.founders)));
+            if let Some(other) = super::lexicon::town_other(w, sid) {
+                out.push((other, DIM));
+            }
             out.push((
                 format!("{} town, founded by the {}{}", if s.coastal { "Coastal" } else { "Inland" }, s.founders.name(), if s.coastal { ", Horaro stilts offshore" } else { "" }),
                 TEXT,
@@ -815,7 +823,7 @@ fn work_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
     if l.job == Job::None {
         return vec![];
     }
-    let mut line = l.job.title(w.people[pid as usize].seed).to_string();
+    let mut line = if super::lexicon::native() { super::lexicon::thing(w, l.job.name()) } else { l.job.title(w.people[pid as usize].seed).to_string() };
     if l.job == Job::Guard && l.shift == 1 {
         line += " (night watch)";
     }

@@ -1,6 +1,8 @@
-# Losing work. Placeholder set.
-topic | lost_post | I was {job} here until {why}.
-topic | | No work to be had. Not for me.
-feeling | | A body needs something to do.
+# Out of work. See FORMAT.md.
+topic | lost_post | I was {job} here until {why}. Now I'm not anything.
+topic | | There's no work to be had. Not for me, anyway.
+topic | voice=roduro | I used to carry stone for the Tenders. They've enough hands now, they say.
+feeling | | A body needs something to do with itself, or it goes sour.
+feeling | voice=tadoro | I could always move on. My people usually do. But I'd started to like it here.
 hook | |
-bark | | Anyone need a pair of hands?
+bark | | Does anyone need a pair of hands?

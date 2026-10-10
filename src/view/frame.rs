@@ -350,7 +350,7 @@ pub fn banner(c: &Canvas, w: &World) {
         .iter()
         .filter(|s| s.pos.dist(here) < s.radius() + 150.0)
         .min_by(|x, y| x.pos.dist(here).total_cmp(&y.pos.dist(here)))
-        .map(|s| s.name.clone())
+        .map(|s| super::lexicon::town(w, s.id))
         .or_else(|| w.ruins.iter().find(|r| r.found && r.pos.dist(here) < 200.0).map(|r| r.name(w)));
     if let Some(n) = name {
         c.styled_centred(&n.to_uppercase(), c.w / 2.0, 118.0, 21.0, a(TEXT, 0.95), Face::Title, 6.0);
@@ -564,7 +564,7 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
         .iter()
         .min_by(|x, y| x.pos.dist(w.squad.pos).total_cmp(&y.pos.dist(w.squad.pos)))
         .filter(|s| s.pos.dist(w.squad.pos) < s.radius() + 600.0)
-        .map(|s| s.name.to_uppercase())
+        .map(|s| super::lexicon::town(w, s.id).to_uppercase())
         .unwrap_or_else(|| "THE WILDS".into());
     c.styled_centred(&place, lx, c.h - 54.0, 12.0, a(TEXT, 0.85), Face::Title, 2.0);
     let row = c.h - 30.0;

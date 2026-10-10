@@ -366,7 +366,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
         if s.pos.dist(oc.target) < radius * 1.1 {
-            game.labels.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), s.name.clone()));
+            game.labels.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), super::lexicon::town(w, s.id)));
             game.picks.push((to3(s.pos, on_ground(s.pos) + 28.0 + s.radius() * 0.08), 20.0, Hover::Town(sid)));
         }
     }

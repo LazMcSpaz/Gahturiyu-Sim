@@ -1,7 +1,9 @@
-# Fear for their safety. Placeholder set.
-topic | camp | The bandits by the road get bolder every week.
-topic | | It's not safe after dark any more.
-feeling | | Someone should do something.
-hook | wants_camp | Break that camp and you'll have {reward}.
+# Safety on the roads. See FORMAT.md.
+topic | camp | The bandits by the road get bolder every week. They don't even wait for dark now.
+topic | | It isn't safe after dark any more. It used to be, when I was young.
+topic | voice=horaro | Even the fishers keep their boats close in now. Nobody wants to land anywhere lonely.
+feeling | | Someone should do something about it. Nobody ever does.
+feeling | voice=qotiro | If the watch had any {w:courage}, they'd have cleared them out already.
+hook | wants_camp | Break that camp and you'll have {reward}. I'll find the coin somehow.
 hook | |
 bark | | Keep your hand on your purse round here.

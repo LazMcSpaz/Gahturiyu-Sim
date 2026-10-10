@@ -548,7 +548,7 @@ fn talk_view(w: &World) -> String {
     let Some(c) = &w.talk else { return o };
     let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.title(w.people[c.npc as usize].seed).to_lowercase());
     for (npc, l) in c.lines.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev() {
-        let _ = writeln!(o, "  {} {l}", if *npc { "»" } else { "  you:" });
+        let _ = writeln!(o, "  {} {}", if *npc { "»" } else { "  you:" }, gahturiyu_sim::sim::speech::plain(l));
     }
     let _ = writeln!(o, "  Topics (say N):");
     for (i, t) in w.topics().iter().enumerate() {

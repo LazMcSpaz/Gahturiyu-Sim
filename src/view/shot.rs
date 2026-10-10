@@ -43,8 +43,10 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
-    /// `GAHT_TALK=1`: talk to the nearest townsperson.
+    /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
+    /// `horaro` or `tadoro`: the nearest of that people).
     pub talk: bool,
+    pub talk_to: Option<String>,
     /// `GAHT_STARVE=1`: the squad is starving (no food, hunger 92).
     pub starve: bool,
     /// `GAHT_EXHAUST=1`: the squad is exhausted and out of breath.
@@ -170,6 +172,7 @@ impl Shot {
             enter: var("GAHT_ENTER").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
+            talk_to: var("GAHT_TALK").filter(|v| v != "1"),
             starve: var("GAHT_STARVE").is_some(),
             exhaust: var("GAHT_EXHAUST").is_some(),
             carry: var("GAHT_CARRY").is_some(),
@@ -539,7 +542,12 @@ impl Shot {
             let lead = world.squad.members[0];
             let here = world.squad.pos;
             let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();
-            let npc = world.residents_in_band1(town).into_iter().min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            let want = self.talk_to.clone();
+            let npc = world
+                .residents_in_band1(town)
+                .into_iter()
+                .filter(|&p| want.as_deref().map(|w| world.people[p as usize].race.name().to_lowercase().replace('ṭ', "t").replace('ḍ', "d") == w).unwrap_or(true))
+                .min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
             if let Some(npc) = npc {
                 world.order_talk(lead, npc);
                 for _ in 0..240 {
@@ -548,6 +556,7 @@ impl Shot {
                     }
                     world.step(0.5);
                 }
+                world.ask(Topic::Background);
                 world.ask(Topic::ThisTown);
                 world.ask(Topic::Bandits);
                 if world.topics().contains(&Topic::Work) {
