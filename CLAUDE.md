@@ -315,6 +315,24 @@ Screenshots compile every shader before the first frame
 per frame, so a given flag set gives the same picture. The first Bevy build
 takes ~20 minutes on this container's 2 cores; later ones under a minute.
 
+## Voices (a tool, not a system)
+
+`tools/voice/` invents accents and makes spoken clips for NPC lines ahead of
+time (Python, not part of the game build; `tools/voice/README.md`).
+- Laz invents accents and speakers by ear in the panel
+  (`tools/voice/studio.bat`, or `python tools/voice/voice.py studio`). It
+  saves `accents.toml` (shared by a people or region) and `voices.toml`
+  (one speaker each). Those two files are his; don't edit them unasked.
+- An accent starts from a tongue's own habits (`tongues.toml`, derived from
+  the naming system's borrow rules) and is a setting of the knobs in
+  `sounds.toml`. Dials and emotions are numbers in `dials.toml`; invented
+  names are spelled out in `lexicon.txt`.
+- Claude can't hear: use `--check` (a listener model writes down what it
+  hears), `accents NAME` (prints the bent sounds) and `selftest`, and leave
+  how anything *sounds* to Laz.
+- The game plays no voices yet: wiring clips in waits for the system freeze
+  to lift.
+
 ## Drawing notes
 
 - The HUD follows Laz's mockup (2026-10-10): dark umber and brass, serif

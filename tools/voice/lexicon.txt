@@ -1,0 +1,16 @@
+# How to say words the voice engines can't guess: invented names, mostly.
+# word | sounds (International Phonetic Alphabet; ˈ goes before the stressed part)
+# From the pronunciation column of pantheon.md. Add a line whenever a name
+# comes out wrong. "ɹ" is the plain r; a voice's rules can roll or flick it.
+Horahìda | hoʊɹɑːhˈɪdɑː
+Dodìṭo | duːdˈɪtoʊ
+Qotisho | koʊtˈiːʃoʊ
+Rìthaduya | ɹɪθɑːdˈuːjɑː
+Hiyaḍote | hiːjɑːdˈoʊtɛ
+# The four peoples: stress on the second-to-last part (languages.md). Claude's reading; correct if wrong.
+Roduro | ɹoʊdˈuːɹoʊ
+Horaro | hoʊɹˈɑːɹoʊ
+Qotiro | koʊtˈiːɹoʊ
+Ṭaḍoro | tɑːdˈoʊɹoʊ
+Gahturiyu | ɡɑːtuːɹˈiːjuː
+Turiyu | tuːɹˈiːjuː

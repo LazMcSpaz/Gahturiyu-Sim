@@ -1,0 +1,588 @@
+# The first audition: a spread of voices to pick from by ear.
+# Make it with:  python tools/voice/voice.py sheet tools/voice/sheets/audition.toml -o tools/voice/out/audition
+
+title = "Gahturiyu voices: first audition"
+text = "Keep your hand on your purse round here. Mind the road."
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p247"
+label = "Scottish, Argyll — man"
+base = "vctk:p247"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p260"
+label = "Scottish, Orkney — man"
+base = "vctk:p260"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p234"
+label = "Scottish, West Dumfries — woman"
+base = "vctk:p234"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p245"
+label = "Irish, Dublin — man"
+base = "vctk:p245"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p298"
+label = "Irish, Tipperary — man"
+base = "vctk:p298"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p283"
+label = "Irish, Cork — woman"
+base = "vctk:p283"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p292"
+label = "Northern Irish, Belfast — man"
+base = "vctk:p292"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p238"
+label = "Northern Irish, Belfast — woman"
+base = "vctk:p238"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p253"
+label = "Welsh, Cardiff — woman"
+base = "vctk:p253"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p270"
+label = "English, Yorkshire — man"
+base = "vctk:p270"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p286"
+label = "English, Newcastle — man"
+base = "vctk:p286"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p227"
+label = "English, Cumbria — man"
+base = "vctk:p227"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p269"
+label = "English, Newcastle — woman"
+base = "vctk:p269"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p236"
+label = "English, Manchester — woman"
+base = "vctk:p236"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p256"
+label = "English, Birmingham — man"
+base = "vctk:p256"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p243"
+label = "English, London — man"
+base = "vctk:p243"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p239"
+label = "English, South-West — woman"
+base = "vctk:p239"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p311"
+label = "American, Iowa — man"
+base = "vctk:p311"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p345"
+label = "American, Florida — man"
+base = "vctk:p345"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p308"
+label = "American, Alabama — woman"
+base = "vctk:p308"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p316"
+label = "Canadian, Alberta — man"
+base = "vctk:p316"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p347"
+label = "South African — man"
+base = "vctk:p347"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p314"
+label = "South African — woman"
+base = "vctk:p314"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p326"
+label = "Australian — man"
+base = "vctk:p326"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p335"
+label = "New Zealand — woman"
+base = "vctk:p335"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p251"
+label = "Indian — man"
+base = "vctk:p251"
+
+[[item]]
+group = "1. Real regional accents (109 real speakers; these are a spread)"
+id = "real_p248"
+label = "Indian — woman"
+base = "vctk:p248"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_bm_george"
+label = "British — man, older"
+base = "kokoro:bm_george"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_bm_fable"
+label = "British — man"
+base = "kokoro:bm_fable"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_bf_emma"
+label = "British — woman"
+base = "kokoro:bf_emma"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_bf_isabella"
+label = "British — woman"
+base = "kokoro:bf_isabella"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_am_michael"
+label = "American — man"
+base = "kokoro:am_michael"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_am_onyx"
+label = "American — man, deep"
+base = "kokoro:am_onyx"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_af_heart"
+label = "American — woman"
+base = "kokoro:af_heart"
+
+[[item]]
+group = "2. Cleanest-sounding voices (American and British only)"
+id = "clean_af_bella"
+label = "American — woman"
+base = "kokoro:af_bella"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_em_alex"
+label = "Spanish-coloured — man"
+base = "kokoro:em_alex"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_ff_siwis"
+label = "French-coloured — woman"
+base = "kokoro:ff_siwis"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_im_nicola"
+label = "Italian-coloured — man"
+base = "kokoro:im_nicola"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_if_sara"
+label = "Italian-coloured — woman"
+base = "kokoro:if_sara"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_hm_omega"
+label = "Hindi-coloured — man"
+base = "kokoro:hm_omega"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_hf_alpha"
+label = "Hindi-coloured — woman"
+base = "kokoro:hf_alpha"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_jm_kumo"
+label = "Japanese-coloured — man"
+base = "kokoro:jm_kumo"
+
+[[item]]
+group = "3. Clean voices coloured by another language"
+id = "tint_pm_alex"
+label = "Portuguese-coloured — man"
+base = "kokoro:pm_alex"
+
+[[item]]
+group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
+id = "inv_rolled"
+label = "British + Italian mix, rolled r"
+base = "kokoro:bm_george*0.5+im_nicola*0.5"
+sounds = { r = "roll" }
+
+[[item]]
+group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
+id = "inv_scots_sounds"
+label = "British voice reading with Scottish sounds"
+base = "kokoro:bm_fable"
+reading = "en-gb-scotland"
+
+[[item]]
+group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
+id = "inv_hard"
+label = "American + Spanish mix, rolled r, hard th"
+base = "kokoro:am_onyx*0.5+em_alex*0.5"
+sounds = { r = "roll", th = "stop" }
+
+[[item]]
+group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
+id = "inv_soft"
+label = "British + French mix — woman"
+base = "kokoro:bf_emma*0.5+ff_siwis*0.5"
+
+[[item]]
+group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
+id = "inv_scot_rolled"
+label = "Real Scottish speaker, rolled r"
+base = "vctk:p247"
+sounds = { r = "roll" }
+
+[[item]]
+group = "5. The four ways of speaking, sketched with the dials only (same base accent; from languages.md)"
+id = "way_roduro"
+label = "Roduro: slow, low, heavy"
+base = "kokoro:bm_george"
+text = "You're not from here. What is it?"
+pitch = -2
+size = 1.1
+speed = 0.85
+pause = 1.4
+range = 0.8
+
+[[item]]
+group = "5. The four ways of speaking, sketched with the dials only (same base accent; from languages.md)"
+id = "way_qotiro"
+label = "Qotiro: clipped, hard, rolled r"
+base = "kokoro:am_onyx"
+text = "Speak. I'm busy."
+speed = 1.12
+pause = 0.7
+energy = 0.7
+range = 0.8
+sounds = { r = "roll" }
+
+[[item]]
+group = "5. The four ways of speaking, sketched with the dials only (same base accent; from languages.md)"
+id = "way_horaro"
+label = "Horaro: soft, flowing"
+base = "kokoro:bf_emma"
+text = "Come in out of the wind, friend."
+speed = 0.92
+pause = 1.2
+energy = -0.5
+breath = 0.2
+range = 1.2
+
+[[item]]
+group = "5. The four ways of speaking, sketched with the dials only (same base accent; from languages.md)"
+id = "way_tadoro"
+label = "Ṭaḍoro: light, quick, rising"
+base = "kokoro:bm_fable"
+text = "Ah, a new face. Tell me something I don't know."
+pitch = 2
+size = 0.93
+speed = 1.15
+lilt = 2
+breath = 0.25
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_plain"
+label = "No dials"
+base = "kokoro:bm_george"
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_pitch_lo"
+label = "pitch -4 (lower)"
+base = "kokoro:bm_george"
+pitch = -4
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_pitch_hi"
+label = "pitch +4 (higher)"
+base = "kokoro:bm_george"
+pitch = 4
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_size_big"
+label = "size 1.15 (bigger body)"
+base = "kokoro:bm_george"
+size = 1.15
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_size_small"
+label = "size 0.88 (smaller body)"
+base = "kokoro:bm_george"
+size = 0.88
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_big_low"
+label = "size 1.15 and pitch -3 (big and deep)"
+base = "kokoro:bm_george"
+size = 1.15
+pitch = -3
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_age"
+label = "age 0.8 (older)"
+base = "kokoro:bm_george"
+age = 0.8
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_rough"
+label = "rough 0.6 (gravel)"
+base = "kokoro:bm_george"
+rough = 0.6
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_breath"
+label = "breath 0.6 (airy)"
+base = "kokoro:bm_george"
+breath = 0.6
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_slow"
+label = "speed 0.8"
+base = "kokoro:bm_george"
+speed = 0.8
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_fast"
+label = "speed 1.25"
+base = "kokoro:bm_george"
+speed = 1.25
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_flat"
+label = "range 0.5 (flat)"
+base = "kokoro:bm_george"
+range = 0.5
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_lively"
+label = "range 1.5 (sing-song)"
+base = "kokoro:bm_george"
+range = 1.5
+
+[[item]]
+group = "6. The body and delivery dials, one at a time (same voice, same line)"
+id = "dial_pauses"
+label = "pause 2 (long gaps)"
+base = "kokoro:bm_george"
+pause = 2
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_plain"
+label = "no emotion — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_angry"
+label = "angry — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+emotion = "angry"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_stern"
+label = "stern — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+emotion = "stern"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_weary"
+label = "weary — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+emotion = "weary"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_warm"
+label = "warm — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+emotion = "warm"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_afraid"
+label = "afraid — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+emotion = "afraid"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_bm_george_sly"
+label = "sly — clean British man"
+base = "kokoro:bm_george"
+text = "I've nothing to say to your sort."
+emotion = "sly"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_plain"
+label = "no emotion — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_angry"
+label = "angry — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+emotion = "angry"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_stern"
+label = "stern — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+emotion = "stern"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_weary"
+label = "weary — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+emotion = "weary"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_warm"
+label = "warm — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+emotion = "warm"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_afraid"
+label = "afraid — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+emotion = "afraid"
+
+[[item]]
+group = "7. Emotions (bundles of the dials; one line, two voices)"
+id = "emo_p234_sly"
+label = "sly — real Scottish woman"
+base = "vctk:p234"
+text = "I've nothing to say to your sort."
+emotion = "sly"
+
+[[item]]
+group = "8. Invented names (is this how they're said?)"
+id = "name_horahida"
+label = "May Horahìda carry you."
+base = "kokoro:bm_george"
+text = "May Horahìda carry you."
+
+[[item]]
+group = "8. Invented names (is this how they're said?)"
+id = "name_dodito"
+label = "Dodìṭo keep you steady."
+base = "kokoro:bm_george"
+text = "Dodìṭo keep you steady."
+
+[[item]]
+group = "8. Invented names (is this how they're said?)"
+id = "name_qotisho"
+label = "Go with Qotisho's fire."
+base = "kokoro:bm_george"
+text = "Go with Qotisho's fire."
+
+[[item]]
+group = "8. Invented names (is this how they're said?)"
+id = "name_rithaduya"
+label = "Rìthaduya guide your road."
+base = "kokoro:bm_george"
+text = "Rìthaduya guide your road."
+
+[[item]]
+group = "8. Invented names (is this how they're said?)"
+id = "name_peoples"
+label = "Roduro, Horaro, Qotiro, Ṭaḍoro. Gahturiyu."
+base = "kokoro:bm_george"
+text = "Roduro, Horaro, Qotiro, Ṭaḍoro. Gahturiyu."
