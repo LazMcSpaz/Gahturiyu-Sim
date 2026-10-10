@@ -323,3 +323,11 @@ fn a_news_line_shows_once() {
     });
     assert!(g.run(&["look"]).contains("Another, in the same minute."));
 }
+
+/// NM-67: "1 minute passes", not "1 minutes pass".
+#[test]
+fn one_minute_passes() {
+    let g = Game::new("minute", 3);
+    assert!(g.run(&["wait", "1"]).contains("(1 minute passes.)"));
+    assert!(g.run(&["wait", "2"]).contains("(2 minutes pass.)"));
+}

@@ -24,6 +24,8 @@ use super::world::{World, DAY};
 
 /// How close you must be to talk, metres.
 pub const TALK_RANGE: f32 = 3.5;
+/// A camp this near is close enough for the roads' troubles to be local talk, metres.
+pub const HEARSAY_REACH: f32 = 6000.0;
 /// Further apart than this, a talk is over.
 pub const TALK_PARTED: f32 = 8.0;
 
@@ -329,6 +331,8 @@ impl World {
         let concerns = self.on_mind(npc);
         let said = self.assemble_talk(npc, who, concerns.first(), true);
         self.note_said(npc, who, &said.pieces);
+        // From now on they've met (the greeting above was the first-meeting one, if it was).
+        self.met.insert((npc, who));
         self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_page: 0 });
     }
 
@@ -675,9 +679,10 @@ impl World {
                 }
                 let mut tags = Vec::new();
                 let mut values: Vec<(&'static str, String)> = Vec::new();
-                if self.stats.ambushes > 0 {
+                // Trouble on the roads is talk where a camp is near enough for
+                // it to be their roads; nobody has a count (NM-64).
+                if self.stats.ambushes > 0 && self.nearest_camp(p.home).is_some_and(|c| c.0 <= HEARSAY_REACH) {
                     tags.push("ambushes".to_string());
-                    values.push(("count", self.stats.ambushes.to_string()));
                 }
                 if let Some((d, dir, _)) = self.nearest_camp(p.home) {
                     tags.push("camp_near".into());

@@ -591,3 +591,26 @@ fn nm27_notes_pay_with_change() {
     w.judge(m, town, law::Wrong::Theft, 10.0, Justice::Elders);
     assert_eq!((w.squad_has(coin), w.squad_has(note)), (6, 2));
 }
+
+/// N4 (Laz: B): only the thief is shunned, it shows on them, and what was
+/// stolen in the town doesn't sell there.
+#[test]
+fn n4_shunning_shows_and_stolen_goods_dont_sell_there() {
+    use gahturiyu_sim::sim::{inventory::Entry, items};
+    let mut w = worldgen::generate(1);
+    let (m, mate) = (w.squad.members[0], w.squad.members[1]);
+    let town = nearest_town(&w);
+    assert_eq!(w.shunned_in(m), None);
+    w.judge(m, town, law::Wrong::Theft, 20.0, Justice::Shunning);
+    assert_eq!(w.shunned_in(m), Some(town), "the thief shows as shunned there");
+    assert_eq!(w.shunned_in(mate), None, "and only the thief");
+    // What the town knows was stolen in it has no buyer there, whoever carries it.
+    let helm = items::id("iron_helm");
+    w.mark_hot(town, &[Entry(helm, 1, None)], None);
+    assert!(w.is_hot(town, helm));
+    let other = (town + 1) % w.settlements.len() as SettlementId;
+    assert!(!w.is_hot(other, helm), "elsewhere nobody knows");
+    // Six days on, the shunning is over.
+    run(&mut w, 6.5 * DAY);
+    assert_eq!(w.shunned_in(m), None);
+}

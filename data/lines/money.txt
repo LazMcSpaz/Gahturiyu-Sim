@@ -1,5 +1,5 @@
 # Money worries. See FORMAT.md.
-topic | in_debt | We owe {debt} coin, and it isn't getting any smaller, however hard we work.
+topic | in_debt | We owe more than we can pay, and it isn't getting any smaller, however hard we work.
 topic | | Money's tight. Tighter than it was last season, and that was bad enough.
 topic | voice=tadoro | I've been counting our coin. It doesn't take long these days.
 feeling | gentle | We'll manage. We always do, somehow.

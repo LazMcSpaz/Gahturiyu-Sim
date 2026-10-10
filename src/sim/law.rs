@@ -923,6 +923,12 @@ impl World {
         self.shunned.iter().any(|s| s.0 == p && s.1 == community && s.2 > self.time)
     }
 
+    /// The town that has turned its back on this squad member, if one has
+    /// (the one whose shunning runs longest).
+    pub fn shunned_in(&self, p: PersonId) -> Option<SettlementId> {
+        self.shunned.iter().filter(|s| s.0 == p && s.2 > self.time).max_by(|a, b| a.2.total_cmp(&b.2)).and_then(|s| self.society.communities.get(s.1 as usize)).map(|c| c.town)
+    }
+
     // ---- Standing and posts ------------------------------------------------------
 
     /// What someone has earned in a town, less what's on the public record
