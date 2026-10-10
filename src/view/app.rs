@@ -53,6 +53,14 @@ pub enum Hover {
     Deposit(u32),
     /// A ruin or lair.
     Ruin(u32),
+    /// A building (anywhere on it, not just its door).
+    Building((u16, u16)),
+    /// A piece of furniture in a building: (building, its place in the layout).
+    Furniture((u16, u16), u8),
+    /// A bandit camp (index into `World::camps`).
+    Camp(usize),
+    /// A town's workplace: (town, its place in the town's list).
+    Place(u16, u16),
     /// A chest, crate, cupboard or barrel in a building.
     Container(gahturiyu_sim::sim::containers::ContainerId),
 }
@@ -860,146 +868,29 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
         }
         return;
     }
+    // What a left-click does to the thing under the mouse: the first of its
+    // choices (`interact.rs`, which also names it in the tooltip).
     let world = &mut game.world;
     let who = game.sel.who(world);
-    match hover {
-        // A beaten foe: the nearest selected member goes through their things
-        // (Shift-click to carry them off instead).
-        Some(Hover::Person(pid)) if world.can_loot(pid) && !shift => {
-            let at = world.person_pos(pid);
-            let looter = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
-            if let Some(m) = looter {
-                world.order_loot(m, pid);
-                return;
-            }
-        }
-        Some(Hover::Person(pid)) if who.iter().any(|&m| world.can_carry(m, pid)) => {
-            let at = world.body_pos(pid);
-            let carrier = who.iter().copied().filter(|&m| world.can_carry(m, pid)).min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
-            if let Some(c) = carrier {
-                world.order_carry(c, pid);
-                return;
-            }
-        }
-        Some(Hover::Person(pid)) if world.squad.index(pid).is_some() => {
-            game.sel.pick(pid, shift);
-            return;
-        }
-        Some(Hover::Person(pid)) => {
-            if world.attack(&who, pid) {
-                return;
-            }
-            if let Some(&lead) = who.first() {
-                if world.squad_battle().is_none() && world.order_talk(lead, pid) {
-                    return;
+    let all = game.sel.is_all(world);
+    let first = match hover {
+        // A workplace or a camp is only named; clicking there walks there.
+        Some(Hover::Place(..)) | Some(Hover::Camp(_)) => None,
+        Some(h) => super::interact::choices(world, h, &who, shift).into_iter().find(|c| c.act != super::interact::Act::Examine),
+        None => game.wild.and_then(|s| super::interact::wild_choices(world, &s).into_iter().next()),
+    };
+    if let Some(c) = first {
+        use super::interact::Act;
+        match c.act {
+            Act::Select(pid) => game.sel.pick(pid, shift),
+            Act::TownPanel(t) => game.town = if game.town == Some(t) { None } else { Some(t) },
+            act => {
+                if let Some(msg) = super::interact::perform(world, &who, all, act) {
+                    game.notice = Some((msg, std::time::Instant::now()));
                 }
             }
         }
-        Some(Hover::Door(id)) => {
-            if world.is_locked(id) {
-                let pick = items::id("lockpick");
-                let picker = who
-                    .iter()
-                    .copied()
-                    .filter(|&m| world.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == pick)).unwrap_or(false))
-                    .max_by(|&a, &b| world.pick_chance(a, 50.0).total_cmp(&world.pick_chance(b, 50.0)));
-                match picker {
-                    Some(p) => {
-                        world.order_pick(p, id);
-                    }
-                    None => world.log.push_front((world.time, "Nobody selected has a lockpick.".into())),
-                }
-                return;
-            }
-            if let Some(d) = world.door(id) {
-                world.order_members(&who, d.centre);
-                return;
-            }
-        }
-        // A container: pick its lock (the selected member with a lockpick
-        // and the best chance), or the nearest selected member opens it.
-        Some(Hover::Container(id)) => {
-            if world.container_locked(id) {
-                let pick = items::id("lockpick");
-                let lock = world.container(id).map(|c| c.lock).unwrap_or(50.0);
-                let picker = who
-                    .iter()
-                    .copied()
-                    .filter(|&m| world.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == pick)).unwrap_or(false))
-                    .max_by(|&a, &b| world.pick_chance(a, lock).total_cmp(&world.pick_chance(b, lock)));
-                match picker {
-                    Some(p) => {
-                        world.order_pick_container(p, id);
-                    }
-                    None => world.log.push_front((world.time, "Nobody selected has a lockpick.".into())),
-                }
-                return;
-            }
-            if let Some(at) = world.container(id).map(|c| c.pos) {
-                if let Some(m) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at))) {
-                    world.order_search(m, id);
-                    return;
-                }
-            }
-        }
-        Some(Hover::Town(t)) => {
-            game.town = if game.town == Some(t) { None } else { Some(t) };
-            return;
-        }
-        Some(Hover::Node(node)) => {
-            let pos = world.nodes.iter().find(|n| n.id == node).map(|n| n.pos);
-            if let Some(pos) = pos {
-                if let Some(f) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
-                    world.order_gather(f, node);
-                    return;
-                }
-            }
-        }
-        Some(Hover::Deposit(id)) => {
-            let pos = world.deposit(id).map(|d| d.pos);
-            if let Some(pos) = pos {
-                // Everyone selected goes to work it.
-                let mut any = false;
-                for &m in &who {
-                    any |= world.order_labour(m, id);
-                }
-                if any {
-                    let _ = pos;
-                    return;
-                }
-            }
-        }
-        Some(Hover::Item(thing)) => {
-            let pos = world.ground.iter().find(|g| g.id == thing).map(|g| g.pos);
-            if let Some(pos) = pos {
-                if let Some(f) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
-                    world.order_pickup(f, thing);
-                    return;
-                }
-            }
-        }
-        None => {
-            use super::animals::Thing;
-            match game.wild.map(|s| s.thing) {
-                Some(Thing::Animal(h, _)) | Some(Thing::Herd(h)) => {
-                    if world.order_hunt(&who, h) {
-                        return;
-                    }
-                }
-                Some(Thing::Carcass(id)) => {
-                    let pos = world.animals.carcasses.iter().find(|c| c.id == id).map(|c| c.pos);
-                    if let Some(pos) = pos {
-                        if let Some(m) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
-                            if world.order_butcher(m, id) {
-                                return;
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        _ => {}
+        return;
     }
     let target = match game.view {
         View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
@@ -1473,6 +1364,42 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
     game.hover = if on_panels { None } else { pick.best.map(|(_, h)| h) };
+    // Under the mouse when nothing smaller is: a building, a piece of
+    // furniture, a camp, a workplace (shown if no animal is there either).
+    let ground_hover = if on_panels || game.hover.is_some() {
+        None
+    } else {
+        let gp = match game.view {
+            View::Map => Some(game.map_cam.to_world(game.screen, game.mouse)),
+            View::Scene => game.orbit.ground_at(game.screen, game.mouse, &game.world.terrain),
+        };
+        let on_ground = gp.and_then(|p| super::interact::ground_hover(&game.world, p));
+        // A building under the mouse, by its outline on screen (the ground
+        // behind a roof isn't the building): the one nearest its middle.
+        let mut building = None;
+        if game.view == View::Scene && !matches!(on_ground, Some(Hover::Furniture(..))) {
+            let vp = game.orbit.view_proj(size);
+            let mut best = f32::MAX;
+            for d in game.world.doors_near(game.orbit.target, game.orbit.draw_radius().min(400.0)) {
+                let g = scene.grid.height(&game.world.terrain, d.centre);
+                let mid = to3(d.centre, g + d.radius * 0.35);
+                let (Some(a), Some(b)) = (game.orbit.project(&vp, size, mid), game.orbit.project(&vp, size, mid + Vec3::new(d.radius * 0.8, 0.0, 0.0))) else { continue };
+                let r = (b - a).length().max(6.0);
+                let k = (game.mouse - a).length() / r;
+                if k < 1.0 && k < best {
+                    best = k;
+                    building = Some(Hover::Building(d.id));
+                }
+            }
+        }
+        match on_ground {
+            Some(Hover::Furniture(..)) => on_ground,
+            _ => building.or(on_ground),
+        }
+    };
+    let alt = ctx.input(|i| i.modifiers.alt) || (game.shot.is_some() && std::env::var("GAHT_ALT").is_ok());
+    let shift_held = ctx.input(|i| i.modifiers.shift);
+    let who_sel = game.sel.who(&game.world);
     if let (Some(p), false) = (&game.placing, on_panels) {
         super::baseui::placing_hint(&c, p, game.mouse);
     }
@@ -1499,9 +1426,37 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
         c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
     } else if let Some(h) = game.hover {
-        c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+        if game.aim.is_none() {
+            c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+        }
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
+    if game.hover.is_none() && game.wild.is_none() && game.aim.is_none() {
+        if let Some(h) = ground_hover {
+            game.hover = Some(h);
+            c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+        }
+    }
+    // Alt: a label on everything that can be hovered, as in Baldur's Gate 3.
+    if alt && game.view == View::Scene && game.aim.is_none() {
+        let vp = game.orbit.view_proj(size);
+        let mut n = 0;
+        for (p, _, h) in &game.picks {
+            if n > 90 || matches!(h, Hover::Group(_)) {
+                continue;
+            }
+            let Some(q) = game.orbit.project(&vp, size, *p) else { continue };
+            if q.x < 0.0 || q.y < 0.0 || q.x > size.x || q.y > size.y - super::frame::BOTTOM_CLEAR || panels.iter().any(|b| b.contains(q)) {
+                continue;
+            }
+            if let Some(name) = super::interact::short_name(&game.world, *h) {
+                let wd = c.width(&name, 13.0) + 10.0;
+                c.rect(q.x - wd / 2.0, q.y - 30.0, wd, 18.0, hud::shadow(0.6));
+                c.centred(&name, q.x, q.y - 16.0, 13.0, super::palette::TEXT);
+                n += 1;
+            }
+        }
+    }
     // Banners: the latest big news, fading after a few seconds.
     let mut by = 168.0;
     for (msg, at) in game.banners.iter().filter(|b| b.1.elapsed().as_secs_f32() < 8.0 || game.shot.is_some()) {

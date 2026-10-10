@@ -821,7 +821,11 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
             }
         }
         if let Some((_, s)) = best {
-            c.panel(&describe(w, &s), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            let mut lines: Vec<(String, Rgb)> = describe(w, &s).into_iter().filter(|(l, _)| !l.contains("Click")).collect();
+            super::interact::action_lines(&mut lines, super::interact::wild_choices(w, &s));
+            if game.aim.is_none() {
+                c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            }
             game.wild = Some(s);
         }
     }

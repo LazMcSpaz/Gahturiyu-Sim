@@ -464,6 +464,47 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 out.push(("Click to go in.".into(), DIM));
             }
         }
+        Hover::Building(id) => {
+            let st = &w.settlements[id.0 as usize];
+            let Some(d) = w.door(id) else { return out };
+            out.push((d.variant().name.to_string(), GOLD));
+            let owner = super::interiors::owner_text(w, w.belongs_to(id));
+            out.push((format!("{}  ·  belongs to {owner}", st.name), TEXT));
+            let lock = if d.lock <= 0.0 {
+                "No lock".to_string()
+            } else if w.is_locked(id) {
+                format!("Locked for the night (lock {:.0})", d.lock)
+            } else {
+                format!("Open by day; locked 20:00–06:00 (lock {:.0})", d.lock)
+            };
+            out.push((lock, if w.is_locked(id) { WARN } else { DIM }));
+            let inside = w.residents_in_band1(id.0).into_iter().filter(|&p| w.building_at(w.person_pos(p)).map(|x| x.id) == Some(id)).count();
+            if inside > 0 {
+                out.push((format!("{inside} inside"), DIM));
+            }
+        }
+        Hover::Furniture(id, k) => {
+            let Some(d) = w.door(id) else { return out };
+            let Some(p) = d.variant().furniture.get(k as usize) else { return out };
+            out.push((capital(p.what.name()), GOLD));
+            out.push((format!("In the {}", d.variant().name.to_lowercase()), DIM));
+        }
+        Hover::Camp(k) => {
+            out.push(("Bandit camp".to_string(), GOLD));
+            if let Some(c) = w.camps.get(k) {
+                let n = w.group(c.group).map(|g| g.members.iter().filter(|&&m| !w.people[m as usize].dead && !w.is_down(m)).count()).unwrap_or(0);
+                out.push((format!("{n} standing  ·  they watch the roads, and anyone who comes close"), WARN));
+                if w.is_warden(c.group) {
+                    out.push(("Wardens dug in at a ruin: harder than most".to_string(), WARN));
+                }
+            }
+        }
+        Hover::Place(t, k) => {
+            let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) else { return out };
+            out.push((p.kind.name().to_string(), GOLD));
+            let here = w.settlements[t as usize].residents.iter().filter(|&&q| w.workplace_of(q).is_some_and(|wp| wp.pos.dist(p.pos) < 1.0) && w.at_work(q, w.time)).count();
+            out.push((format!("{}  ·  {here} at work here now", w.settlements[t as usize].name), DIM));
+        }
         Hover::Container(id) => {
             let Some(k) = w.container(id) else { return out };
             out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, k.owner)), TEXT));

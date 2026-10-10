@@ -625,6 +625,17 @@ impl World {
         self.people[pid as usize].cond.as_ref().map(|c| c.activity == Activity::Sleeping).unwrap_or(false)
     }
 
+    /// Send a member to a bed (or any spot) to sleep there: they walk over
+    /// and bed down when they arrive.
+    pub fn order_sleep_at(&mut self, who: PersonId, at: super::geo::V2) {
+        self.order_members(&[who], at);
+        if let Some(k) = self.squad.index(who) {
+            if self.free_to_order(who) {
+                self.squad.resting[k] = true;
+            }
+        }
+    }
+
     /// Order some members to rest: they stop where they are and sleep. A
     /// second order (or any order to move) gets them up.
     pub fn order_rest(&mut self, who: &[PersonId]) {

@@ -13,6 +13,7 @@ pub mod light;
 pub mod lootui;
 pub mod hints;
 pub mod frame;
+pub mod interact;
 pub mod map;
 pub mod mesh;
 pub mod models;
