@@ -45,6 +45,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n{:?}\n", w.containers, w.picking);
     // Each building's chosen style.
     s += &format!("{:?}\n", w.settlements.iter().map(|s| &s.styles).collect::<Vec<_>>());
+    // Who slept in each building when the world was made (loose belongings follow it).
+    s += &format!("{:?}\n", w.settlements.iter().map(|s| &s.sleepers).collect::<Vec<_>>());
     s
 }
 

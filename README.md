@@ -782,7 +782,7 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
 - **Buildings are placeholder shapes for now**, in a few variants per people
   (a Roduro cottage, longhouse, stone-tender's workshop, maker's forge,
   trader's house, loom room, bench house or great house; Qotiro living quarters,
-  courtyard house, smiths' yard, bench yard, weave hall, market hall, mess hall;
+  courtyard house, smiths' yard, bench yard, weave hall, market hall;
   four kinds of stilt home).
   Workshops and shops show their trade outside: a forge's glowing chimney, a
   tender's beds, a trader's awning and counter, a kiln, market awnings. When

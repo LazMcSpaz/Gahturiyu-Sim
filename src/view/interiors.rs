@@ -7,8 +7,8 @@
 //!   (the island's dark stone, cut into blocks, never sandstone; a gold sun disc for the
 //!   island hall); Horaro stilt homes stand on stone pillars with a deck.
 //!   Workshops and shops show their trade outside (a forge's chimney, a
-//!   tender's beds, a trader's awning and counter, a potter's kiln, market
-//!   awnings, a mess hall's smoke vent).
+//!   tender's beds, a trader's awning and counter, a smiths' yard's
+//!   chimney and furnace, market awnings).
 //! - **Inside** (`interior`, when a squad member is in): the floor in the
 //!   outline, the outer walls cut away low with a gap at the door, the inner
 //!   walls (with their doorways) from `Door::wall_pieces`, and every piece
@@ -35,7 +35,6 @@ use gahturiyu_sim::sim::{
     containers::Owner,
     geo::V2,
     layout::{self, Furn, Holder, Shape, Variant},
-    race::Race,
     rng,
     settlement::{BuildingKind, Settlement},
     terrain::Terrain,
@@ -706,13 +705,10 @@ const PARCHMENT: [Rgb; 3] = [[0.88, 0.83, 0.68], [0.82, 0.78, 0.64], [0.90, 0.86
 const VIOLET: Rgb = [0.55, 0.50, 0.66];
 const LEATHER: Rgb = [0.42, 0.27, 0.15];
 
-fn lodges_here(w: &World, d: &Door) -> bool {
-    w.residents_of(d.id).iter().any(|&p| w.people[p as usize].race == Race::Tadoro)
-}
-
-/// A building's extra bedrolls and lodger's corner, as the sim lays them out.
+/// A building's extra bedrolls and lodger's corner, as the sim lays them out
+/// (`World::sleeping_plan`: clear of belongings already lying there).
 fn plan(w: &World, d: &Door) -> (Vec<(V2, f32)>, Option<layout::Corner>) {
-    layout::sleeping_plan(d, w.residents_of(d.id).len(), lodges_here(w, d))
+    w.sleeping_plan(d)
 }
 
 /// Where a Ṭaḍoro lodger's corner is in this building, if one lodges here

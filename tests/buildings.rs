@@ -833,9 +833,9 @@ fn plan_faults(w: &World, d: &Door) -> Vec<String> {
 /// (`layout::loose_spots`, as `World::furnish` lays them; `n` of them).
 fn loose_faults(w: &World, d: &Door, seed: u64, n: usize) -> Vec<String> {
     let key = d.variant().key;
-    let rs = w.residents_of(d.id);
-    let lodger = rs.iter().any(|&p| w.people[p as usize].race == Race::Tadoro);
-    let spots = layout::loose_spots(d, rs.len(), lodger, n, seed);
+    // Laid round those who lived there when the world was made (now, here).
+    let (residents, lodger) = w.first_sleepers(d.id);
+    let spots = layout::loose_spots(d, residents, lodger, n, seed);
     let mut out = Vec::new();
     if spots.len() != n {
         out.push(format!("{key} {:?}: {} spots for {n} things", d.id, spots.len()));
@@ -1301,4 +1301,112 @@ fn container_owners_follow_a_death() {
         assert_eq!(w.container(*id).unwrap().owner, Owner::Town(d.id.0));
         assert_eq!(Some(w.container(*id).unwrap().owner), w.container_owner(*id));
     }
+}
+
+// ---- Loose belongings and later households ------------------------------------
+
+/// Things lying loose in a building that belong to its town: what and where.
+fn lying_in(w: &World, d: &Door) -> Vec<(items::ItemId, V2)> {
+    let mut v: Vec<(items::ItemId, V2)> = w.ground.iter().filter(|g| g.owner == Some(d.id.0) && d.contains(g.pos)).map(|g| (g.item, g.pos)).collect();
+    v.sort_by(|a, b| a.1.x.total_cmp(&b.1.x).then(a.1.y.total_cmp(&b.1.y)));
+    v
+}
+
+/// What in a sleeping plan covers one of `lying` (on the floor), if anything.
+fn covers(d: &Door, plan: &(Vec<(V2, f32)>, Option<layout::Corner>), lying: &[V2]) -> Vec<String> {
+    let mut beds: Vec<(String, layout::Rect)> = plan.0.iter().enumerate().map(|(k, &(at, rot))| (format!("extra bedroll {k}"), layout::bedroll(at, rot))).collect();
+    if let Some(c) = &plan.1 {
+        beds.push(("lodger's bed".to_string(), c.bed_rect()));
+        // (The parchment hangs on the wall, over the floor.)
+        beds.extend(c.pieces().into_iter().filter(|p| p.0 != "parchment wall").map(|(n, r)| (format!("corner {n}"), r)));
+    }
+    let mut out = Vec::new();
+    for (j, &p) in lying.iter().enumerate() {
+        if layout::resting(d, p).is_some() {
+            continue;
+        }
+        let it = layout::Rect::new(p, d.rot, layout::LOOSE, layout::LOOSE);
+        for (name, r) in &beds {
+            if it.gap(r) < -0.02 {
+                out.push(format!("{} {:?}: {name} covers loose thing {j}", d.variant().key, d.id));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn loose_belongings_dont_depend_on_when_the_squad_first_comes_in() {
+    // Entered on the first morning.
+    let mut a = worldgen::generate(1);
+    until_hour(&mut a, 9.0);
+    let d = town_doors(&a).into_iter().find(|d| !a.residents_of(d.id).is_empty() && d.variant().kind != BuildingKind::QotiroTemple && layout::sleeping_plan(d, 12, false).0.len() >= 2).expect("a lived-in building with room for a crowd");
+    let first = a.first_sleepers(d.id);
+    let m = a.squad.members[0];
+    assert!(walk_in(&mut a, m, &d), "got in on day 0");
+    let laid_a = lying_in(&a, &d);
+    assert!(!laid_a.is_empty(), "something laid out");
+
+    // Entered after several dawns, once the household has changed: everyone
+    // who lived there has died and a crowd has moved in.
+    let mut b = worldgen::generate(1);
+    for _ in 0..(3 * 24 * 60) {
+        b.step(60.0);
+    }
+    until_hour(&mut b, 9.0);
+    for p in b.residents_of(d.id) {
+        b.people[p as usize].dead = true;
+    }
+    let town = &b.settlements[d.id.0 as usize];
+    let movers: Vec<PersonId> = town.residents.iter().copied().filter(|&p| !b.people[p as usize].dead && !b.people[p as usize].in_squad && b.people[p as usize].home == Some(d.id.0)).take(12).collect();
+    for &p in &movers {
+        b.people[p as usize].dwelling = Some(d.id.1);
+    }
+    b.refresh_owners_in(d.id);
+    let now = b.residents_of(d.id).len();
+    assert!(now != first.0, "the household changed ({now} now, {} at first)", first.0);
+    assert_eq!(b.first_sleepers(d.id), first, "who it was laid round is fixed");
+    let m = b.squad.members[0];
+    assert!(walk_in(&mut b, m, &d), "got in later");
+    let laid_b = lying_in(&b, &d);
+    assert_eq!(laid_a, laid_b, "the same things in the same spots");
+
+    // The beds now drawn for the new crowd keep clear of what lies there.
+    let plan = b.sleeping_plan(&d);
+    assert!(!plan.0.is_empty(), "the crowd gets extra bedrolls: {} {:?} {} now, {:?}", d.variant().key, d.id, now, laid_b);
+    eprintln!("{} {:?}: {} at first, {now} now; {} extra bedrolls, {} things lying", d.variant().key, d.id, first.0, plan.0.len(), laid_b.len());
+    let faults = covers(&d, &plan, &laid_b.iter().map(|x| x.1).collect::<Vec<_>>());
+    assert!(faults.is_empty(), "{}", faults.join("\n"));
+}
+
+#[test]
+fn extra_beds_never_cover_belongings_already_laid() {
+    let mut faults = Vec::new();
+    let (mut checked, mut extras) = (0, 0);
+    for seed in 1..=2u64 {
+        let w = worldgen::generate(seed);
+        for s in &w.settlements {
+            for i in 0..s.buildings.len() as u16 {
+                let Some(d) = door_of(s, i) else { continue };
+                let bd = &s.buildings[i as usize];
+                let n = if bd.kind == BuildingKind::QotiroTemple { 6 } else { 3 };
+                let (residents, lodger) = w.first_sleepers(d.id);
+                let lying: Vec<V2> = layout::loose_spots(&d, residents, lodger, n, bd.seed).into_iter().filter(|l| l.on.is_none()).map(|l| l.at).collect();
+                let avoid: Vec<layout::Rect> = lying.iter().map(|&p| layout::Rect::new(p, d.rot, layout::LOOSE, layout::LOOSE)).collect();
+                // However many come to live there later, with or without a lodger.
+                for crowd in [0, residents + 2, 20] {
+                    for lodger in [false, true] {
+                        let plan = layout::sleeping_plan_avoiding(&d, crowd, lodger, &avoid);
+                        extras += plan.0.len();
+                        checked += 1;
+                        for f in covers(&d, &plan, &lying) {
+                            faults.push(format!("seed {seed} ({crowd} living there, lodger {lodger}) {f}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    eprintln!("{checked} plans, {extras} extra bedrolls; {} faults", faults.len());
+    assert!(faults.is_empty(), "{} faults, first:\n{}", faults.len(), faults.iter().take(30).cloned().collect::<Vec<_>>().join("\n"));
 }

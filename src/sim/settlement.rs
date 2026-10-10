@@ -68,6 +68,13 @@ pub struct Settlement {
     /// `layout::variant_in`.
     #[serde(default, with = "super::save::opt_names")]
     pub styles: Vec<Option<super::save::Name>>,
+    /// Each building's head count and whether a Ṭaḍoro lodged there when
+    /// the world was made (`World::style_buildings`), never changed: where
+    /// its loose belongings lie is worked out against the beds laid for
+    /// them (`World::first_sleepers`), so it doesn't depend on when the
+    /// squad first walks in.
+    #[serde(default)]
+    pub sleepers: Vec<(u16, bool)>,
 }
 
 impl Settlement {

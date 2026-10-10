@@ -1375,6 +1375,11 @@ fn fit_corner(d: &Door, at: V2, rot: f32, bed: bool, taken: &[Rect], clear: &[Re
 /// round a fresh bedroll laid on free floor where it fits. None if the floor
 /// has no room at all.
 pub fn lodger_corner(d: &Door, extras: &[(V2, f32)]) -> Option<Corner> {
+    corner_avoiding(d, extras, &[])
+}
+
+/// `lodger_corner`, keeping clear of `avoid` too.
+fn corner_avoiding(d: &Door, extras: &[(V2, f32)], avoid: &[Rect]) -> Option<Corner> {
     let v = d.variant();
     let fp = footprints(d);
     let clear = keep_clear(d);
@@ -1389,7 +1394,7 @@ pub fn lodger_corner(d: &Door, extras: &[(V2, f32)]) -> Option<Corner> {
     places.sort_by(|a, z| z.0.dist(d.inside).total_cmp(&a.0.dist(d.inside)));
     let all: Vec<(Thing, Rect)> = fp.iter().copied().chain(extras.iter().enumerate().map(|(k, &(at, rot))| (Thing::Extra(k), bedroll(at, rot)))).collect();
     for (at, rot, bed, own) in places {
-        let taken: Vec<Rect> = all.iter().filter(|t| t.0 != own).map(|t| t.1).collect();
+        let taken: Vec<Rect> = all.iter().filter(|t| t.0 != own).map(|t| t.1).chain(avoid.iter().copied()).collect();
         if let Some(mut c) = fit_corner(d, at, rot, bed, &taken, &clear) {
             c.on = Some(own);
             return Some(c);
@@ -1397,7 +1402,7 @@ pub fn lodger_corner(d: &Door, extras: &[(V2, f32)]) -> Option<Corner> {
     }
     // A fresh bedroll for the lodger, where a whole corner fits round it:
     // with room round it if there's any, else squeezed in.
-    let taken: Vec<Rect> = all.iter().map(|t| t.1).collect();
+    let taken: Vec<Rect> = all.iter().map(|t| t.1).chain(avoid.iter().copied()).collect();
     let grid = floor_grid(d);
     for gap in [FRESH_GAP, CORNER_GAP] {
         for &(p, along, across) in &grid {
@@ -1422,20 +1427,27 @@ pub fn lodger_corner(d: &Door, extras: &[(V2, f32)]) -> Option<Corner> {
 /// building's own beds, or a fresh bedroll that then counts as one of the
 /// extras) and the extras are laid round it.
 pub fn sleeping_plan(d: &Door, residents: usize, lodger: bool) -> (Vec<(V2, f32)>, Option<Corner>) {
+    sleeping_plan_avoiding(d, residents, lodger, &[])
+}
+
+/// `sleeping_plan`, every bed and the corner also keeping clear of `avoid`
+/// (belongings already lying on the floor, `World::sleeping_plan`).
+pub fn sleeping_plan_avoiding(d: &Door, residents: usize, lodger: bool, avoid: &[Rect]) -> (Vec<(V2, f32)>, Option<Corner>) {
     let n = extras_wanted(d, residents);
-    let extras = extra_sleepers(d, n);
+    let extras = extras_avoiding(d, n, avoid);
     if !lodger {
         return (extras, None);
     }
-    if let Some(c) = lodger_corner(d, &extras) {
+    if let Some(c) = corner_avoiding(d, &extras, avoid) {
         return (extras, Some(c));
     }
-    match lodger_corner(d, &[]) {
+    match corner_avoiding(d, &[], avoid) {
         Some(c) => {
-            let mut avoid: Vec<Rect> = c.pieces().into_iter().map(|p| p.1).collect();
-            avoid.push(c.bed_rect());
+            let mut keep: Vec<Rect> = c.pieces().into_iter().map(|p| p.1).collect();
+            keep.push(c.bed_rect());
+            keep.extend(avoid.iter().copied());
             let n = if c.on.is_none() { n.saturating_sub(1) } else { n };
-            (extras_avoiding(d, n, &avoid), Some(c))
+            (extras_avoiding(d, n, &keep), Some(c))
         }
         None => (extras, None),
     }

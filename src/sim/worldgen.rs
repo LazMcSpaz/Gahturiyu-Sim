@@ -287,6 +287,7 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
             buildings: Vec::new(),
             reach: 0.0,
             styles: Vec::new(),
+            sleepers: Vec::new(),
         });
     };
 

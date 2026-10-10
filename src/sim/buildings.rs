@@ -194,13 +194,52 @@ impl World {
         for t in 0..self.settlements.len() {
             let n = self.settlements[t].buildings.len();
             let mut styles = Vec::with_capacity(n);
+            let mut sleepers = Vec::with_capacity(n);
             for i in 0..n as u16 {
+                sleepers.push(self.current_sleepers((t as SettlementId, i)));
                 let jobs: Vec<super::jobs::Job> = self.household_order((t as SettlementId, i)).into_iter().map(|p| self.life(p).job).collect();
                 let b = &self.settlements[t].buildings[i as usize];
                 styles.push(layout::style_for(b.kind, b.size, b.seed, &jobs).map(|v| v.key));
             }
             self.settlements[t].styles = styles;
+            self.settlements[t].sleepers = sleepers;
         }
+    }
+
+    /// How many live in a building now, and whether a Ṭaḍoro lodges there.
+    fn current_sleepers(&self, door: DoorId) -> (u16, bool) {
+        let rs = self.residents_of(door);
+        let lodger = rs.iter().any(|&p| self.people[p as usize].race == super::race::Race::Tadoro);
+        (rs.len() as u16, lodger)
+    }
+
+    /// The head count and lodger a building's loose belongings were laid
+    /// round: those living there when the world was made (or now, for a
+    /// world that never recorded them).
+    pub fn first_sleepers(&self, door: DoorId) -> (usize, bool) {
+        let rec = self.settlements.get(door.0 as usize).and_then(|s| s.sleepers.get(door.1 as usize).copied());
+        let (n, lodger) = rec.unwrap_or_else(|| self.current_sleepers(door));
+        (n as usize, lodger)
+    }
+
+    /// Where a building's extra bedrolls and a lodger's corner are laid for
+    /// those living there now (`layout::sleeping_plan`). While the household
+    /// is the one its belongings were laid round, that plan as it is (the
+    /// belongings already keep clear of it); once it has changed, the beds
+    /// are laid round the belongings lying loose on its floor, so a later
+    /// crowd never covers them.
+    pub fn sleeping_plan(&self, d: &Door) -> (Vec<(V2, f32)>, Option<layout::Corner>) {
+        let (n, lodger) = self.current_sleepers(d.id);
+        if (n as usize, lodger) == self.first_sleepers(d.id) {
+            return layout::sleeping_plan(d, n as usize, lodger);
+        }
+        let lying: Vec<layout::Rect> = self
+            .ground
+            .iter()
+            .filter(|g| g.owner == Some(d.id.0) && d.contains(g.pos) && layout::resting(d, g.pos).is_none())
+            .map(|g| layout::Rect::new(g.pos, d.rot, layout::LOOSE, layout::LOOSE))
+            .collect();
+        layout::sleeping_plan_avoiding(d, n as usize, lodger, &lying)
     }
 
     /// Everyone living in a building, head of house first: the eldest
@@ -533,9 +572,10 @@ impl World {
         let n = 1 + r.below(3) + if b.kind == BuildingKind::QotiroTemple { 3 } else { 0 };
         // On the shelves and tables or on free floor (`layout::loose_spots`),
         // from a roll of their own, so the same things turn up.
-        let rs = self.residents_of(d.id);
-        let lodger = rs.iter().any(|&p| self.people[p as usize].race == super::race::Race::Tadoro);
-        let spots = layout::loose_spots(&d, rs.len(), lodger, n, b.seed);
+        // Laid round the beds of those who lived there when the world was
+        // made, so the spots don't depend on when the squad first comes in.
+        let (residents, lodger) = self.first_sleepers(d.id);
+        let spots = layout::loose_spots(&d, residents, lodger, n, b.seed);
         for spot in spots {
             let key = if r.chance(0.06) {
                 *r.pick(rare)
