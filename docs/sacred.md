@@ -30,7 +30,7 @@ The Roduro names are canon (`pantheon.md`). The gods are older than the split of
 | the Knowing Revealer | knowledge and communication | Shiḍuro (*shee-DOO-roh*) | Xinur (*KHEE-noor*) | Hinuro (*hee-NOO-roh*) | Siyush (*see-YOOSH*) |
 | Passion-and-Longing | love and relationships | Redeqiʻo (*reh-deh-KEE-oh*) | Retkeq (*RET-kek*) | Relehio (*reh-leh-HEE-oh*) | Shethehiye (*sheh-theh-hee-YEH*) |
 | Law-and-Tradition | governance and order | Gìhuqìdu (*gih-hoo-KIH-doo*) | Gepked (*GEP-ked*) | Wiwuhilu (*wee-woo-HEE-loo*) | Wifehith (*wee-feh-HITH*) |
-| the Wayfarer's Stave | travel and the journey of life | Rìthaduya (*rih-thah-DOO-yah*) | Retadud (*REH-tah-dood*) | Rihaluia (*ree-hah-loo-EE-ah*) | Shithetheya (*shee-theh-theh-YAH*) |
+| the Wayfarer's Stave | travel and the journey of life | Rìthaduya (*rih-thah-DOO-yah*) | Retadud (*REH-tah-dood*) | Rihaluia (*ree-hah-loo-EE-ah*) | Shethetheya (*sheh-theh-theh-YAH*) |
 | Millennium-into-Dust | time, ageing and decay | Quyìturo (*koo-yih-TOO-roh*) | Kutur (*KOO-toor*) | Huinuro (*hoo-ee-NOO-roh*) | Huyisush (*hoo-yee-SOOSH*) |
 | the Hunt-Band | animals and the hunt | Lìdìhoya (*lih-dih-HOH-yah*) | Redepod (*REH-deh-pod*) | Liliwoia (*lee-lee-woh-EE-ah*) | Yithifeya (*yee-thee-feh-YAH*) |
 | the Dream-Swapper | confusion, illusion and delusion | Yohyeʻ (*YOH-yeh*) | Doxqeq (*DOKH-kek*) | Ioheia (*ee-oh-heh-EE-ah*) | Yauheiya (*yow-hay-YAH*) |
@@ -69,7 +69,7 @@ Read along a row: the speaker's names for all four. The Roduro row is canon, and
 |---|---|---|---|---|
 | god | atu (*AH-too*) | ot (*OT*) | anu (*AH-noo*) | asu (*ah-SOO*) |
 | holy | hotorì (*hoh-TOH-rih*) | potor (*POH-tor*) | wonori (*woh-NOH-ree*) | fausesh (*fow-SESH*) |
-| rite | qaqe (*KAH-keh*) | kak (*KAK*) | hahe (*HAH-heh*) | hahe (*hah-HEH*) |
+| rite | qashe (*KAH-sheh*) | kax (*KAKH*) | hahe (*HAH-heh*) | hase (*hah-SEH*) |
 | omen | toshu (*TOH-shoo*) | tox (*TOKH*) | nohu (*NOH-hoo*) | sausu (*sow-SOO*) |
 | offering | ḍahi (*DAH-hee*) | mep (*MEP*) | mawi (*MAH-wee*) | wafi (*wah-FEE*) |
 | blessing | ḍuqe (*DOO-keh*) | muk (*MOOK*) | muhe (*MOO-heh*) | wuhe (*woo-HEH*) |
@@ -85,7 +85,7 @@ Read along a row: the speaker's names for all four. The Roduro row is canon, and
 | ancestor | tuhuḍa (*too-HOO-dah*) | tupun (*TOO-poon*) | nuwuna (*noo-WOO-nah*) | sufeya (*soo-feh-YAH*) |
 | soul | ṭaʻu (*TAH-oo*) | troq (*TROK*) | lau (*LAH-oo*) | thau (*THOW*) |
 | spirit, ghost | shaʻi (*SHAH-ee*) | xeq (*KHEK*) | hai (*HAH-ee*) | sai (*SY*) |
-| fate | ḍiho (*DEE-hoh*) | nip (*NIP*) | niwo (*NEE-woh*) | yife (*yee-FEH*) |
+| fate | ḍìho (*DIH-hoh*) | nep (*NEP*) | niwo (*NEE-woh*) | yife (*yee-FEH*) |
 | death | ṭeyuʻoye (*teh-yoo-OH-yeh*) | tred (*TRED*) | leiu (*leh-EE-oo*) | theyu (*theh-YOO*) |
 | tomb | quʻo (*KOO-oh*) | kuq (*KOOK*) | huo (*HOO-oh*) | huwe (*hoo-WEH*) |
 | the dead | ṭeyuʻoyero (*teh-yoo-oh-YEH-roh*) | tredroq (*TRED-rok*) | roileiu (*roh-ee-leh-EE-oo*) | sheitheyu (*shay-theh-YOO*) |

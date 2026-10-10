@@ -1,0 +1,395 @@
+// The names of things: jobs, crafts, materials, items, buildings, creatures
+// and weather. Read by src/names/things.rs; the table it makes is
+// docs/things.md (`cargo run --release --bin lang -- things`).
+//
+//   english   the name the game shows. These are the game's own names
+//             (src/sim/jobs.rs, items.rs, materials.rs, base.rs, crafting.rs,
+//             animals/species.rs, weather/local.rs) and are never changed
+//             here. tests/names.rs checks every one of them has an entry.
+//   group     where it goes in the table.
+//   belongs   Roduro, Qotiro, Horaro or Tadoro when the thing is one people's
+//             own: its native name is in their tongue and everyone uses it.
+//             Left out when every people has the thing: then each tongue
+//             has its own word, built by the same recipe.
+//   made      the recipe for the native name, from root ids (roots.ron):
+//               stone             a root
+//               black+water       the first describes the second
+//               forge:agent       an ending: agent (one who), place, small,
+//                                 great, kind, most
+//               ring/swift        two words: "ring of swiftness"
+//               =Bronze           another thing's native name
+//               *turiyu           a First Speech form, worn down by each tongue
+//               @qotihiqi         a god, by id (sacred.ron)
+//   also      other English names the code uses for the same thing.
+//
+// The native names are never typed in. To change one, change its recipe.
+//
+// Who owns what follows the making traditions in src/sim/materials.rs
+// (grown = Roduro, fire-made = Qotiro, sea and shore = Horaro, written and
+// carried = Ṭaḍoro), architecture.md, and where a creature lives.
+[
+    // ==== Jobs (src/sim/jobs.rs, baselife.rs) ==================================
+    (english: "No trade", group: Job, made: "empty+hand"),
+    (english: "Farmer", group: Job, made: "plant:agent"),
+    (english: "Fisher and diver", group: Job, belongs: Some(Horaro), made: "dive:agent"),
+    (english: "Forager and hunter", group: Job, made: "hunt:agent"),
+    (english: "Woodcutter and quarrier", group: Job, made: "cut:agent"),
+    (english: "Stone Tender", group: Job, belongs: Some(Roduro), made: "tend:agent"),
+    (english: "Cook", group: Job, made: "cook:agent"),
+    (english: "Meal runner", group: Job, made: "run:agent"),
+    (english: "Merchant", group: Job, made: "trade:agent"),
+    (english: "Caravaner", group: Job, made: "road:agent"),
+    (english: "Innkeeper", group: Job, made: "guest+hold"),
+    (english: "Guard", group: Job, made: "guard:agent"),
+    (english: "Official", group: Job, made: "serve:agent"),
+    (english: "Priest", group: Job, made: "priest"),
+    (english: "Healer", group: Job, made: "heal:agent"),
+    (english: "Teacher", group: Job, belongs: Some(Tadoro), made: "teacher"),
+    (english: "Exchanger", group: Job, belongs: Some(Tadoro), made: "swap:agent"),
+    (english: "Arbiter", group: Job, made: "judge:agent"),
+    (english: "Labourer and porter", group: Job, made: "carry:agent", also: ["Hauler"]),
+    (english: "Drifter", group: Job, belongs: Some(Tadoro), made: "migrate:agent"),
+    (english: "Kelp gatherer", group: Job, belongs: Some(Horaro), made: "kelp:agent"),
+    (english: "Boatwright", group: Job, belongs: Some(Horaro), made: "boat:agent"),
+    (english: "Smith", group: Job, belongs: Some(Qotiro), made: "forge:agent"),
+    (english: "Armourer", group: Job, belongs: Some(Qotiro), made: "shield:agent"),
+    (english: "Alchemist", group: Job, belongs: Some(Tadoro), made: "brew:agent"),
+    (english: "Scribe", group: Job, belongs: Some(Tadoro), made: "write:agent"),
+    (english: "Weaver and sealer", group: Job, belongs: Some(Horaro), made: "weave:agent"),
+    (english: "Tanner", group: Job, made: "tan:agent"),
+    (english: "Leatherworker", group: Job, made: "hide:agent"),
+    (english: "Tailor", group: Job, made: "cloth:agent"),
+    (english: "Woodworker", group: Job, made: "carve:agent"),
+    (english: "Charcoal burner", group: Job, made: "burn:agent"),
+    (english: "Carpenter", group: Job, made: "timber:agent"),
+    (english: "Mason", group: Job, belongs: Some(Qotiro), made: "stone+build:agent"),
+    // At the squad's own base.
+    (english: "Builder", group: Job, made: "build:agent"),
+    (english: "Crafter", group: Job, made: "make:agent"),
+    (english: "Idle", group: Job, made: "rest:agent"),
+
+    // ==== Crafts (the making skills in src/sim/stats.rs, materials.rs) ===========
+    (english: "Stone-tending", group: Craft, belongs: Some(Roduro), made: "stone+tend"),
+    (english: "Smithing", group: Craft, belongs: Some(Qotiro), made: "forge+work"),
+    (english: "Armoring", group: Craft, belongs: Some(Qotiro), made: "shield+work", also: ["Armouring"]),
+    (english: "Masonry", group: Craft, belongs: Some(Qotiro), made: "stone+work"),
+    (english: "Weaving", group: Craft, belongs: Some(Horaro), made: "weave+work", also: ["Weaving and sealing"]),
+    (english: "Inscription", group: Craft, belongs: Some(Tadoro), made: "write+work", also: ["Paper, ink and scrolls"]),
+    (english: "Alchemy", group: Craft, belongs: Some(Tadoro), made: "brew+work"),
+    (english: "Handcraft", group: Craft, made: "hand+work", also: ["Leather, cloth and woodwork"]),
+    (english: "Carpentry", group: Craft, made: "timber+work"),
+
+    // ==== Materials and goods (materials.rs, the goods in jobs.rs, items.rs) =====
+    // Grown stone: Roduro.
+    (english: "Ringstone", group: Material, belongs: Some(Roduro), made: "ring+stone"),
+    (english: "Hearthclay", group: Material, belongs: Some(Roduro), made: "hearth+clay"),
+    (english: "Slatewing", group: Material, belongs: Some(Roduro), made: "rock+wing"),
+    (english: "Edgeglass", group: Material, belongs: Some(Roduro), made: "sharp+glass"),
+    (english: "Ringstone block", group: Material, belongs: Some(Roduro), made: "board/=Ringstone"),
+    (english: "Slatewing sheet", group: Material, belongs: Some(Roduro), made: "paper/=Slatewing"),
+    (english: "Edgeglass blank", group: Material, belongs: Some(Roduro), made: "board/=Edgeglass"),
+    (english: "Edgeglass seed", group: Material, belongs: Some(Roduro), made: "seed/=Edgeglass", also: ["Edgeglass seed crystal"]),
+    (english: "Rock feedstock", group: Material, belongs: Some(Roduro), made: "rock+food"),
+    // Fire-made: Qotiro.
+    (english: "Forgeiron", group: Material, belongs: Some(Qotiro), made: "forge+iron"),
+    (english: "Bronze", group: Material, belongs: Some(Qotiro), made: "gold+iron"),
+    (english: "Sandglass", group: Material, belongs: Some(Qotiro), made: "sand+glass"),
+    (english: "Gold", group: Material, belongs: Some(Qotiro), made: "sun+ore"),
+    (english: "Forgeiron ingots", group: Material, belongs: Some(Qotiro), made: "board/=Forgeiron"),
+    (english: "Bronze ingot", group: Material, belongs: Some(Qotiro), made: "board/=Bronze"),
+    // Sea and shore: Horaro.
+    (english: "Seareed", group: Material, belongs: Some(Horaro), made: "sea+reed"),
+    (english: "Nacre", group: Material, belongs: Some(Horaro), made: "bright+shell"),
+    (english: "Fishskin", group: Material, belongs: Some(Horaro), made: "fish+hide"),
+    (english: "Pearl", group: Material, belongs: Some(Horaro), made: "pearl", also: ["Pearls"]),
+    (english: "Salvage", group: Material, belongs: Some(Horaro), made: "deep+find"),
+    // Written and carried: Ṭaḍoro.
+    (english: "Tentsilk", group: Material, belongs: Some(Tadoro), made: "tent+silk"),
+    (english: "Scrollpaper", group: Material, belongs: Some(Tadoro), made: "write+paper"),
+    // Shared basics.
+    (english: "Plain iron", group: Material, made: "iron"),
+    (english: "Iron ore", group: Material, made: "iron+ore"),
+    (english: "Iron ingot", group: Material, made: "board/iron"),
+    (english: "Ore", group: Material, made: "ore"),
+    (english: "Timber", group: Material, made: "timber", also: ["Wood"]),
+    (english: "Rock", group: Material, made: "rock"),
+    (english: "Hide", group: Material, made: "hide", also: ["Hides"]),
+    (english: "Leather", group: Material, made: "tan+hide"),
+    (english: "Cloth", group: Material, made: "cloth"),
+    (english: "Fibre", group: Material, made: "grass+silk"),
+    (english: "Clay", group: Material, made: "clay"),
+    (english: "Sand", group: Material, made: "sand"),
+    (english: "Charcoal", group: Material, made: "black+timber"),
+    (english: "Ash", group: Material, made: "ember"),
+    (english: "Pitch", group: Material, made: "pitch"),
+    (english: "Ink", group: Material, made: "black+water"),
+    (english: "Reed paper", group: Material, made: "reed+paper"),
+    (english: "Salt crystal", group: Material, made: "salt+crystal"),
+    (english: "Wares", group: Material, made: "thing"),
+
+    // ==== Weapons (items.rs) ====================================================
+    // A made thing belongs to the people whose material it is usually made in
+    // (the `usual` material of its form in items.rs): Forgeiron and Bronze are
+    // Qotiro, Ringstone is Roduro, Nacre and Seareed are Horaro, Tentsilk is
+    // Ṭaḍoro. Things usually made in plain iron, wood, leather or cloth are shared.
+    (english: "Knife", group: Weapon, made: "knife"),
+    (english: "Short sword", group: Weapon, belongs: Some(Qotiro), made: "knife:great", also: ["Short blade"]),
+    (english: "Longsword", group: Weapon, belongs: Some(Qotiro), made: "long+knife", also: ["Sword"]),
+    (english: "Club", group: Weapon, made: "strike+branch"),
+    (english: "War-pick", group: Weapon, belongs: Some(Qotiro), made: "fight+horn"),
+    (english: "Stone maul", group: Weapon, belongs: Some(Roduro), made: "strike+stone", also: ["Maul"]),
+    (english: "Spear", group: Weapon, made: "spear"),
+    (english: "Harpoon", group: Weapon, belongs: Some(Horaro), made: "fish+spear"),
+    (english: "Glaive", group: Weapon, belongs: Some(Qotiro), made: "knife+staff"),
+    (english: "Short bow", group: Weapon, made: "bow", also: ["Bow"]),
+    (english: "Crossbow", group: Weapon, belongs: Some(Qotiro), made: "shut+bow"),
+    (english: "Staff", group: Weapon, made: "staff"),
+    (english: "Hatchet", group: Weapon, made: "branch+knife"),
+    (english: "Trident", group: Weapon, belongs: Some(Horaro), made: "three+spear"),
+    (english: "Sling", group: Weapon, made: "throw+rope"),
+    (english: "Weighted net", group: Weapon, belongs: Some(Horaro), made: "heavy+net"),
+    (english: "Arrows", group: Weapon, made: "bow+thorn"),
+    (english: "Crossbow bolts", group: Weapon, belongs: Some(Qotiro), made: "iron+thorn"),
+    (english: "Sling stones", group: Weapon, made: "throw+stone"),
+
+    // ==== Armour and clothing (items.rs) ========================================
+    // Built as "what it covers" + "what it is" (body-cloth, head-shield), with
+    // no material in the word, so the same word serves whatever it is made of.
+    (english: "Cloth shirt", group: Armour, made: "body+cloth", also: ["Shirt"]),
+    (english: "Silk wraps", group: Armour, belongs: Some(Tadoro), made: "body+bind", also: ["Wraps"]),
+    (english: "Padded jacket", group: Armour, made: "soft+shield"),
+    (english: "Hide coat", group: Armour, made: "body+hide", also: ["Jerkin"]),
+    (english: "Scale hauberk", group: Armour, belongs: Some(Qotiro), made: "body+scale", also: ["Scale coat"]),
+    (english: "Sandstone lamellar", group: Armour, belongs: Some(Qotiro), made: "body+shield", also: ["Plate cuirass"]),
+    (english: "Leather cap", group: Armour, made: "head+shell", also: ["Cap"]),
+    (english: "Iron helm", group: Armour, belongs: Some(Qotiro), made: "head+shield", also: ["Helm"]),
+    (english: "Trousers", group: Armour, made: "foot+cloth"),
+    (english: "Hide leggings", group: Armour, made: "foot+hide", also: ["Leggings"]),
+    (english: "Scale greaves", group: Armour, belongs: Some(Qotiro), made: "foot+scale", also: ["Greaves"]),
+    (english: "Leather gloves", group: Armour, made: "hand+hide", also: ["Bracers"]),
+    (english: "Boots", group: Armour, made: "foot+shell"),
+    (english: "Buckler", group: Armour, made: "hand+shield"),
+    (english: "Kite shield", group: Armour, belongs: Some(Qotiro), made: "long+shield", also: ["Shield"]),
+
+    // ==== Gear (items.rs) =======================================================
+    (english: "Small pack", group: Gear, made: "back+basket"),
+    (english: "Large pack", group: Gear, made: "carry+basket"),
+    (english: "Porter's frame pack", group: Gear, made: "board+basket"),
+    (english: "Lockpick", group: Gear, made: "shut+hook"),
+    (english: "Torch", group: Gear, made: "torch"),
+    (english: "Standing torch", group: Gear, made: "pillar+torch"),
+    (english: "Tent", group: Gear, made: "tent"),
+    (english: "Mortar and pestle", group: Gear, made: "break+pot"),
+    (english: "Storm glass", group: Gear, made: "storm+glass"),
+    (english: "Hearthclay pot", group: Gear, belongs: Some(Roduro), made: "pot/=Hearthclay"),
+    (english: "Sandglass flask", group: Gear, belongs: Some(Qotiro), made: "pot/=Sandglass"),
+    (english: "Gold ring", group: Gear, made: "gold+ring"),
+    (english: "Pearl necklace", group: Gear, belongs: Some(Horaro), made: "pearl+neck"),
+    // One coin, struck on Ṭaḍoro presses; they keep the exchange houses and carry the letters.
+    (english: "Coin", group: Gear, belongs: Some(Tadoro), made: "coin"),
+    (english: "Note (50 coin)", group: Gear, belongs: Some(Tadoro), made: "coin+paper"),
+    (english: "Sealed letter", group: Gear, belongs: Some(Tadoro), made: "shut+paper"),
+
+    // ==== Food, herbs and draughts (items.rs, the food goods) ====================
+    (english: "Grain", group: Food, made: "grain"),
+    (english: "Grain and greens", group: Food, made: "field+food"),
+    (english: "Fish", group: Food, made: "fish"),
+    (english: "Game", group: Food, made: "hunt+meat"),
+    (english: "Kelp", group: Food, made: "kelp"),
+    (english: "Herbs", group: Food, made: "herb"),
+    (english: "Dried fish", group: Food, made: "dry+fish"),
+    (english: "Flatbread", group: Food, made: "wide+bread"),
+    (english: "Salted meat", group: Food, made: "salt+meat"),
+    (english: "Wild berries", group: Food, made: "wild+fruit"),
+    (english: "Mussels", group: Food, made: "rock+shell"),
+    (english: "Kelp frond", group: Food, made: "kelp+leaf"),
+    (english: "Ghostcap", group: Food, made: "spirit+head"),
+    (english: "Emberroot", group: Food, made: "fire+root"),
+    (english: "Ash moss", group: Food, made: "ember+moss"),
+    (english: "Squid ink", group: Food, made: "deep+dye"),
+    (english: "Healing draught", group: Food, made: "heal+drink"),
+    (english: "Greater healing draught", group: Food, made: "whole+drink"),
+    (english: "Mana tonic", group: Food, made: "spirit+drink"),
+
+    // ==== Named treasures (items.rs) ============================================
+    (english: "Ring of Swiftness", group: Treasure, made: "ring/swift"),
+    (english: "Ring of the Ox", group: Treasure, made: "ring/grazer"),
+    (english: "Hearthstone Ring", group: Treasure, made: "ring/hearth"),
+    (english: "Wellspring Amulet", group: Treasure, made: "blessing/spring"),
+    (english: "Amulet of the Clear Mind", group: Treasure, made: "blessing/aware"),
+    (english: "Seer's hood", group: Treasure, made: "head+cloth/see:agent"),
+    (english: "Strider's boots", group: Treasure, made: "=Boots/walk:agent"),
+    (english: "Duelist's gloves", group: Treasure, made: "=Leather gloves/fight:agent"),
+
+    // ==== Books and writing (items.rs) ==========================================
+    // The head words. A spell's notes, rite or scroll is the head word and
+    // the spell's own name (spells are not named yet).
+    (english: "Manual", group: Book, made: "teach+paper"),
+    (english: "Notes", group: Book, made: "write+leaf"),
+    (english: "Rite", group: Book, made: "rite"),
+    (english: "Scroll", group: Book, made: "round+paper"),
+    (english: "Manual of leather, cloth and wood", group: Book, made: "=Manual/=Handcraft"),
+    (english: "Manual of smithing", group: Book, made: "=Manual/=Smithing"),
+    (english: "Manual of armouring", group: Book, made: "=Manual/=Armoring"),
+    (english: "Manual of stone-tending", group: Book, made: "=Manual/=Stone-tending"),
+    (english: "Manual of weaving and sealing", group: Book, made: "=Manual/=Weaving"),
+    (english: "Manual of paper and ink", group: Book, made: "=Manual/=Inscription"),
+    (english: "Manual of alchemy", group: Book, made: "=Manual/=Alchemy"),
+    (english: "Manual of carpentry", group: Book, made: "=Manual/=Carpentry"),
+    (english: "Manual of masonry", group: Book, made: "=Manual/=Masonry"),
+
+    // ==== Buildings and their parts (architecture.md, settlement.rs) =============
+    // The English names in this group are proposed: the code has only
+    // variant names (RoduroHome, HoraroStilt, QotiroBlock, ...).
+    (english: "Grown home", group: Architecture, belongs: Some(Roduro), made: "grow+house"),
+    (english: "Grown stone", group: Architecture, belongs: Some(Roduro), made: "grow+stone"),
+    (english: "Year-rings", group: Architecture, belongs: Some(Roduro), made: "year+ring"),
+    (english: "Fire pit", group: Architecture, belongs: Some(Roduro), made: "fire+pit"),
+    (english: "Stilt house", group: Architecture, belongs: Some(Horaro), made: "pillar+house"),
+    (english: "Stilt", group: Architecture, belongs: Some(Horaro), made: "sea+pillar"),
+    (english: "Deck", group: Architecture, belongs: Some(Horaro), made: "walk+board"),
+    (english: "Woven dome", group: Architecture, belongs: Some(Horaro), made: "weave+roof"),
+    (english: "Awning", group: Architecture, belongs: Some(Horaro), made: "cloth+roof"),
+    (english: "Stone dock", group: Architecture, belongs: Some(Horaro), made: "boat+ledge"),
+    (english: "Tier house", group: Architecture, belongs: Some(Qotiro), made: "stair+house"),
+    (english: "Temple", group: Architecture, belongs: Some(Qotiro), made: "god+house"),
+    (english: "Temple-fortress", group: Architecture, belongs: Some(Qotiro), made: "god+wall"),
+    (english: "Gatehouse", group: Architecture, belongs: Some(Qotiro), made: "guard+door"),
+    (english: "Sun-disc", group: Architecture, belongs: Some(Qotiro), made: "sun+ring"),
+    (english: "Scholar's tent", group: Architecture, belongs: Some(Tadoro), made: "silk+tent"),
+    (english: "Tent pole", group: Architecture, belongs: Some(Tadoro), made: "tent+pillar"),
+    (english: "Script panel", group: Architecture, belongs: Some(Tadoro), made: "write+cloth"),
+
+    // ==== Places in a town (the place kinds in jobs.rs) ==========================
+    (english: "Fields", group: TownPlace, made: "field"),
+    (english: "Hunting grounds", group: TownPlace, made: "hunt:place"),
+    (english: "Woodlot", group: TownPlace, made: "timber:place"),
+    (english: "Mine and quarry", group: TownPlace, made: "ore+pit"),
+    (english: "Charcoal pit", group: TownPlace, made: "burn+pit"),
+    (english: "Fishing dock", group: TownPlace, belongs: Some(Horaro), made: "fish_for:place"),
+    (english: "Dive platform", group: TownPlace, belongs: Some(Horaro), made: "dive:place"),
+    (english: "Kelp beds", group: TownPlace, belongs: Some(Horaro), made: "kelp+garden"),
+    (english: "Boatyard", group: TownPlace, belongs: Some(Horaro), made: "boat:place"),
+    (english: "Hearth kitchen", group: TownPlace, made: "cook+hearth"),
+    (english: "Mess hall", group: TownPlace, belongs: Some(Qotiro), made: "eat+hall"),
+    (english: "Cooking deck", group: TownPlace, belongs: Some(Horaro), made: "cook+board"),
+    (english: "Market square", group: TownPlace, made: "market"),
+    (english: "Food shop", group: TownPlace, made: "food+market"),
+    (english: "Materials shop", group: TownPlace, made: "work+market"),
+    (english: "Goods shop", group: TownPlace, made: "thing+market"),
+    (english: "Inn", group: TownPlace, made: "guest+house"),
+    (english: "Shrine", group: TownPlace, made: "shrine"),
+    (english: "Guard post", group: TownPlace, made: "guard:place"),
+    (english: "Hall", group: TownPlace, made: "hall"),
+    (english: "Healing house", group: TownPlace, made: "heal+house"),
+    (english: "Healer's house", group: TownPlace, made: "heal:place"),
+    (english: "Teaching house", group: TownPlace, belongs: Some(Tadoro), made: "teach+house"),
+    (english: "Exchange house", group: TownPlace, belongs: Some(Tadoro), made: "coin+house"),
+    (english: "Letters house", group: TownPlace, belongs: Some(Tadoro), made: "paper+house"),
+    (english: "Tenders' yard", group: TownPlace, belongs: Some(Roduro), made: "tend+garden"),
+    (english: "Workyard", group: TownPlace, made: "work:place"),
+    (english: "Smithy", group: TownPlace, belongs: Some(Qotiro), made: "forge:place"),
+    (english: "Armourer's shop", group: TownPlace, belongs: Some(Qotiro), made: "shield:place"),
+    (english: "Scribe's room", group: TownPlace, belongs: Some(Tadoro), made: "write:place"),
+    (english: "Alchemist's shop", group: TownPlace, belongs: Some(Tadoro), made: "brew:place"),
+    (english: "Weavers' shed", group: TownPlace, belongs: Some(Horaro), made: "weave:place"),
+    (english: "Workshop", group: TownPlace, made: "make:place"),
+
+    // ==== Work stations (crafting.rs) ===========================================
+    (english: "Forge", group: Station, belongs: Some(Qotiro), made: "forge+hearth"),
+    (english: "Armourer's bench", group: Station, belongs: Some(Qotiro), made: "shield+board"),
+    (english: "Scribe's desk", group: Station, belongs: Some(Tadoro), made: "write+board"),
+    (english: "Alchemy table", group: Station, belongs: Some(Tadoro), made: "brew+board"),
+    (english: "Weaver's frame", group: Station, belongs: Some(Horaro), made: "weave+pillar"),
+    (english: "Workbench", group: Station, made: "work+board"),
+    (english: "Grower's bed", group: Station, belongs: Some(Roduro), made: "grow+hollow"),
+
+    // ==== What the squad can build (base.rs) ====================================
+    (english: "Camp marker", group: BaseBuilding, made: "rest+pillar"),
+    (english: "Lean-to", group: BaseBuilding, made: "branch+roof"),
+    (english: "Hut", group: BaseBuilding, made: "house:small"),
+    (english: "Longhouse", group: BaseBuilding, made: "long+house"),
+    (english: "Storehouse", group: BaseBuilding, made: "hold+house"),
+    (english: "Well", group: BaseBuilding, made: "spring"),
+    (english: "Field plot", group: BaseBuilding, made: "field:small"),
+    (english: "Animal pen", group: BaseBuilding, made: "beast+wall"),
+    (english: "Work shed", group: BaseBuilding, made: "work+roof", also: ["Work shed: forge", "Work shed: armourer's bench", "Work shed: weaver's frame", "Work shed: workbench", "Work shed: scribe's desk", "Work shed: alchemy table"]),
+    (english: "Palisade", group: BaseBuilding, made: "timber+wall"),
+    (english: "Rubble wall", group: BaseBuilding, made: "stone+wall"),
+    (english: "Gate", group: BaseBuilding, made: "door:great"),
+    (english: "Watchtower", group: BaseBuilding, made: "guard+pillar"),
+
+    // ==== Creatures (animals/species.rs) ========================================
+    (english: "Turiyu", group: Creature, made: "*turiyu"),
+    (english: "Wild Turiyu", group: Creature, made: "*turiyu/wild"),
+    (english: "Shellhen", group: Creature, made: "shell+bird"),
+    (english: "Plodder", group: Creature, made: "heavy+foot"),
+    (english: "Mossback", group: Creature, belongs: Some(Roduro), made: "moss+back"),
+    (english: "Brushleaper", group: Creature, belongs: Some(Roduro), made: "heath+leap"),
+    (english: "Ridgehound", group: Creature, belongs: Some(Roduro), made: "ridge+hound"),
+    (english: "Crag grazer", group: Creature, belongs: Some(Roduro), made: "crag+grazer"),
+    (english: "Cragmaw", group: Creature, belongs: Some(Roduro), made: "crag+jaw"),
+    (english: "Wallowback", group: Creature, belongs: Some(Roduro), made: "mud+back"),
+    (english: "Mirejaw", group: Creature, belongs: Some(Roduro), made: "marsh+jaw"),
+    (english: "Dustrunner", group: Creature, belongs: Some(Qotiro), made: "sand+run:agent"),
+    (english: "Chasm lurker", group: Creature, belongs: Some(Qotiro), made: "gorge+wait:agent"),
+    (english: "Raftback", group: Creature, belongs: Some(Horaro), made: "boat+back"),
+    (english: "Tidepicker", group: Creature, belongs: Some(Horaro), made: "tide+crawler"),
+    (english: "Silkcrawler", group: Creature, belongs: Some(Tadoro), made: "silk+crawler"),
+    (english: "Silk Mother", group: Creature, belongs: Some(Tadoro), made: "silk+mother"),
+    (english: "Bonepicker", group: Creature, made: "bone+bird"),
+    (english: "Briarback", group: Creature, made: "thorn+back"),
+
+    // ==== Fish and the sea (animals/species.rs): the Horaro name them ============
+    (english: "Silverling", group: Fish, belongs: Some(Horaro), made: "bright:small"),
+    (english: "Slatefin", group: Fish, belongs: Some(Horaro), made: "grey+fish"),
+    (english: "Ribbonback", group: Fish, belongs: Some(Horaro), made: "silk+back"),
+    (english: "Gulpjaw", group: Fish, belongs: Some(Horaro), made: "wide+jaw"),
+    (english: "Deepcoil", group: Fish, belongs: Some(Horaro), made: "deep+eel"),
+
+    // ==== Weather (weather/local.rs) ============================================
+    (english: "clear", group: Weather, made: "bright+sky"),
+    (english: "broken cloud", group: Weather, made: "break+cloud"),
+    (english: "overcast", group: Weather, made: "grey+sky"),
+    (english: "drizzle", group: Weather, made: "soft+rain"),
+    (english: "rain", group: Weather, made: "rain"),
+    (english: "heavy rain", group: Weather, made: "heavy+rain"),
+    (english: "downpour", group: Weather, made: "rain:great"),
+    (english: "mist", group: Weather, made: "fog:small"),
+    (english: "sea mist", group: Weather, made: "sea+fog"),
+    (english: "fog", group: Weather, made: "fog"),
+    (english: "thick fog", group: Weather, made: "fog:great"),
+    (english: "hill fog", group: Weather, made: "hill+fog"),
+    (english: "gale", group: Weather, made: "wind:great"),
+    (english: "storm", group: Weather, made: "storm"),
+    (english: "thunderstorm", group: Weather, made: "thunder+storm"),
+    (english: "snow flurries", group: Weather, made: "snow:small"),
+    (english: "snow", group: Weather, made: "snow"),
+    (english: "heavy snow", group: Weather, made: "heavy+snow"),
+    (english: "blizzard", group: Weather, made: "snow+storm"),
+
+    // ==== Everyday things every people has =======================================
+    (english: "Bread", group: Everyday, made: "bread"),
+    (english: "Meat", group: Everyday, made: "meat"),
+    (english: "Salt", group: Everyday, made: "salt"),
+    (english: "Water", group: Everyday, made: "water"),
+    (english: "Fire", group: Everyday, made: "fire"),
+    (english: "Rope", group: Everyday, made: "rope"),
+    (english: "Pot", group: Everyday, made: "pot"),
+    (english: "Net", group: Everyday, made: "net"),
+    (english: "Basket", group: Everyday, made: "basket"),
+    (english: "Boat", group: Everyday, made: "boat"),
+    (english: "House", group: Everyday, made: "house"),
+    (english: "Hearth", group: Everyday, made: "hearth"),
+    (english: "Door", group: Everyday, made: "door"),
+    (english: "Wall", group: Everyday, made: "wall"),
+    (english: "Roof", group: Everyday, made: "roof"),
+    (english: "Road", group: Everyday, made: "road"),
+    (english: "Bridge", group: Everyday, made: "bridge"),
+    (english: "Town", group: Everyday, made: "town"),
+    (english: "The sea", group: Everyday, made: "sea"),
+
+    // ==== The world ============================================================
+    // The Overgrowth is named for Qotihiqì, the Barbed-Root (pantheon.md).
+    (english: "The Overgrowth", group: World, made: "grow/@qotihiqi"),
+]

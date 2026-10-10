@@ -32,7 +32,7 @@
         (id: "shiduro", canon: "Shiḍuro", english: "the Knowing Revealer", domain: "knowledge and communication", rank: Domain, first: "sinuro", roots: ["aware", "discover"]),
         (id: "redeqio", canon: "Redeqiʻo", english: "Passion-and-Longing", domain: "love and relationships", rank: Domain, first: "redekiʻo", roots: ["passion", "desire"]),
         (id: "gihuqidu", canon: "Gìhuqìdu", english: "Law-and-Tradition", domain: "governance and order", rank: Domain, first: "gìpukìdu", roots: ["law", "tradition"]),
-        (id: "rithaduya", canon: "Rìthaduya", english: "the Wayfarer's Stave", domain: "travel and the journey of life", rank: Domain, first: "rìthaduya", roots: ["migrate", "support"]),
+        (id: "rithaduya", canon: "Rìthaduya", english: "the Wayfarer's Stave", domain: "travel and the journey of life", rank: Domain, first: "rìthaduya", roots: ["migrate", "support"], own: [(Tadoro, "shethetheya")]),
         (id: "quyituro", canon: "Quyìturo", english: "Millennium-into-Dust", domain: "time, ageing and decay", rank: Domain, first: "kuyìturo", roots: ["age", "earth"]),
         (id: "lidihoya", canon: "Lìdìhoya", english: "the Hunt-Band", domain: "animals and the hunt", rank: Domain, first: "lìdìpoya", roots: ["hunt", "staff"]),
         // Worn down from Yoheʻiʻa: the one name that breaks Roduro's own shape.

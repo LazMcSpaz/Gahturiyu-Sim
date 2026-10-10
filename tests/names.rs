@@ -18,6 +18,15 @@
 //! 8. Compounds keep each tongue's shape, and Roduro's match the canon's.
 //! 9. Every word can be said and spelled in plain letters, the game's font
 //!    has every letter, and `docs/sacred.md` is what the data says.
+//!
+//! Stage 3: the names of things.
+//!
+//! 10. Everything the game names (jobs, goods, materials, crafts, items,
+//!     made forms, town places, stations, base buildings, creatures,
+//!     weather) has a native name.
+//! 11. Every native name keeps its tongue's sounds, is short enough to
+//!     say, and no two things share one; a thing made in one people's
+//!     material is that people's; `docs/things.md` is what the data says.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -442,4 +451,161 @@ fn every_word_can_be_said_and_spelled() {
     assert_eq!(names::pronounce("horahìda", r), names::pronounce("Horahìda", r));
     let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/sacred.md")).expect("docs/sacred.md");
     assert!(written == names::sacred::tables(), "docs/sacred.md is out of date: run `cargo run --release --bin lang -- sacred > docs/sacred.md`");
+}
+
+/// Every town place kind. (The match below stops compiling when one is added.)
+fn place_kinds() -> Vec<gahturiyu_sim::sim::jobs::PlaceKind> {
+    use gahturiyu_sim::sim::jobs::{PlaceKind as P, Shelf};
+    let all = vec![
+        P::Fields,
+        P::Wilds,
+        P::Woodlot,
+        P::Dock,
+        P::DivePlatform,
+        P::KelpBeds,
+        P::Boatyard,
+        P::Kitchen,
+        P::MessHall,
+        P::Deck,
+        P::Market,
+        P::Shop(Shelf::Food),
+        P::Shop(Shelf::Materials),
+        P::Shop(Shelf::Goods),
+        P::Inn,
+        P::Shrine,
+        P::GuardPost,
+        P::Hall,
+        P::HealingHouse,
+        P::HealersHouse,
+        P::TeachingHouse,
+        P::ExchangeHouse,
+        P::LettersHouse,
+        P::TendersYard,
+        P::Workyard,
+        P::Forge,
+        P::Bench,
+        P::Desk,
+        P::AlchemyTable,
+        P::WeaversShed,
+        P::Workshop,
+        P::Quarry,
+        P::CharcoalPit,
+    ];
+    for k in &all {
+        match k {
+            P::Fields | P::Wilds | P::Woodlot | P::Dock | P::DivePlatform | P::KelpBeds | P::Boatyard | P::Kitchen | P::MessHall | P::Deck | P::Market | P::Shop(_) | P::Inn | P::Shrine | P::GuardPost | P::Hall => {}
+            P::HealingHouse | P::HealersHouse | P::TeachingHouse | P::ExchangeHouse | P::LettersHouse | P::TendersYard | P::Workyard | P::Forge | P::Bench | P::Desk | P::AlchemyTable | P::WeaversShed | P::Workshop | P::Quarry | P::CharcoalPit => {}
+        }
+    }
+    all
+}
+
+#[test]
+fn everything_the_game_names_has_a_native_name() {
+    use gahturiyu_sim::sim::{animals, base, baselife, crafting, items, jobs, materials, weather};
+    let mut named: Vec<(&str, String)> = Vec::new();
+    named.extend(jobs::ALL_JOBS.iter().map(|j| ("job", j.name().to_string())));
+    named.extend(baselife::JOBS.iter().map(|j| ("base job", j.name().to_string())));
+    named.extend(jobs::GOODS.iter().map(|g| ("good", g.name().to_string())));
+    named.extend(place_kinds().iter().map(|k| ("town place", k.name().to_string())));
+    named.extend(materials::MATERIALS.iter().filter(|m| m.name != "Unmade").map(|m| ("material", m.name.to_string())));
+    named.extend(materials::CRAFTS.iter().flat_map(|c| [("craft", c.name().to_string()), ("craft skill", c.skill().name().to_string())]));
+    named.extend(crafting::STATIONS.iter().map(|s| ("station", s.name().to_string())));
+    named.extend(base::BUILDINGS.iter().map(|b| ("base building", b.name.to_string())));
+    named.extend(animals::SPECIES.iter().map(|s| ("creature", s.name.to_string())));
+    named.extend(weather::Kind::ALL.iter().map(|k| ("weather", k.label().to_string())));
+    named.extend(items::FORMS.iter().map(|f| ("made form", f.noun.to_string())));
+    // A spell's notes, rite or scroll is named for the spell, and spells are
+    // not named yet: only their head words are in the table.
+    named.extend(items::ITEMS.iter().filter(|i| !matches!(i.kind, items::Kind::Notes(_) | items::Kind::Text(_) | items::Kind::Scroll(_))).map(|i| ("item", i.name.to_string())));
+    for head in ["Notes", "Rite", "Scroll", "Manual"] {
+        named.push(("book", head.to_string()));
+    }
+    assert!(named.len() > 300, "the game's own lists came up short: {}", named.len());
+    let missing: Vec<String> = named.iter().filter(|(_, n)| names::thing(n).is_none()).map(|(what, n)| format!("{what} `{n}`")).collect();
+    assert!(missing.is_empty(), "no entry in assets/lang/things.ron for: {}", missing.join(", "));
+    for (_, n) in &named {
+        for t in Tongue::SPOKEN {
+            assert!(!names::native_name(n, t).unwrap().is_empty());
+        }
+    }
+
+    // A made thing is the people's whose material it is usually made in.
+    let tradition = |t: materials::Tradition| match t {
+        materials::Tradition::Grown => Some(Tongue::Roduro),
+        materials::Tradition::Fire => Some(Tongue::Qotiro),
+        materials::Tradition::Sea => Some(Tongue::Horaro),
+        materials::Tradition::Written => Some(Tongue::Tadoro),
+        materials::Tradition::Shared => None,
+    };
+    for m in materials::MATERIALS.iter().filter(|m| m.name != "Unmade") {
+        assert_eq!(names::thing(m.name).unwrap().belongs, tradition(m.tradition), "{} is {}", m.name, m.tradition.name());
+    }
+    // (By the item, not the bare noun: a "net" as a made form is the weighted net.)
+    for f in items::FORMS {
+        let item = items::ITEMS.iter().find(|i| i.key == f.key).unwrap_or_else(|| panic!("no item `{}`", f.key));
+        assert_eq!(names::thing(item.name).unwrap().belongs, tradition(f.usual.def().tradition), "a {} is usually made in {}", item.name, f.usual.name());
+    }
+}
+
+#[test]
+fn the_names_of_things_hold_together() {
+    for th in names::things() {
+        th.check().unwrap_or_else(|e| panic!("things.ron, {}: {e}", th.english));
+        assert!(!th.literal().is_empty(), "{} says nothing", th.english);
+        for t in Tongue::SPOKEN {
+            // Only the names that are shown: its own people's, or everyone's.
+            if th.belongs.is_some() && th.belongs != Some(t) {
+                continue;
+            }
+            let n = th.in_tongue(t);
+            for w in n.split(' ') {
+                fits(w, t, &th.english);
+            }
+            // Short enough to say: four beats a word (Horaro, all vowels, five).
+            let most = if t == Tongue::Horaro { 5 } else { 4 };
+            assert!(names::syllables(&n, t) <= most, "{}: {} `{n}` runs to {} beats", th.english, t.name(), names::syllables(&n, t));
+            assert_eq!(th.native(t), (t, n.clone()));
+            assert_eq!(names::native_name(&th.english, t).as_deref(), Some(n.as_str()));
+            let hint = names::pronounce(&n, t);
+            assert!(hint.chars().all(|c| c.is_ascii_alphabetic() || c == '-' || c == ' '), "{}: `{n}` is said `{hint}`", th.english);
+        }
+        // One people's thing is called the same whoever asks.
+        if let Some(owner) = th.belongs {
+            for t in Tongue::SPOKEN {
+                assert_eq!(th.native(t), (owner, th.in_tongue(owner)));
+            }
+        }
+    }
+    // Nothing reads as a rude word in English: no root, no sacred word, no thing.
+    assert_eq!(names::unfortunate("Kak"), Some("kak"));
+    assert_eq!(names::unfortunate("Heshitha"), Some("shit"));
+    assert_eq!(names::unfortunate("hiṭo yi goledoqo"), None);
+    for t in Tongue::SPOKEN {
+        let mut words: Vec<(String, String)> = names::roots().iter().map(|r| (r.id.clone(), names::word(&r.id, t).unwrap())).collect();
+        words.extend(names::sacred().gods.iter().map(|g| (g.english.clone(), g.name(t))));
+        words.extend(names::sacred().terms.iter().map(|x| ("a sacred word".to_string(), names::make(&x.made, t).unwrap())));
+        // (A thing's name as it is shown: its own people's, or everyone's.)
+        words.extend(names::things().iter().filter(|x| x.belongs.is_none() || x.belongs == Some(t)).map(|x| (x.english.clone(), x.in_tongue(t))));
+        for (what, w) in &words {
+            assert_eq!(names::unfortunate(w), None, "{}: `{w}` ({what}) reads badly in English", t.name());
+        }
+    }
+    // No two things share a name in any tongue.
+    for t in Tongue::SPOKEN {
+        let alike = names::things::clashes(t);
+        assert!(alike.is_empty(), "{}: these come out the same: {alike:?}", t.name());
+    }
+    // The canon holds: the revered beast keeps its name, the Overgrowth its god's.
+    assert_eq!(names::native_name("Turiyu", Tongue::Roduro).as_deref(), Some("turiyu"));
+    assert!(names::native_name("The Overgrowth", Tongue::Roduro).unwrap().ends_with("Qotihiqì"));
+    assert_eq!(names::thing("stone tender").unwrap().english, "Stone Tender");
+    assert_eq!(names::thing("Pearls").unwrap().english, "Pearl");
+    assert!(names::thing("no such thing").is_none());
+    assert_eq!(names::thing("Stone Tender").unwrap().literal(), "tend-er");
+    assert_eq!(names::thing("Ink").unwrap().literal(), "black-water");
+    assert_eq!(names::thing("Bronze ingot").unwrap().literal(), "board of gold-iron");
+
+    let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/things.md")).expect("docs/things.md");
+    assert!(written == names::things::tables(), "docs/things.md is out of date: run `cargo run --release --bin lang -- things > docs/things.md`");
 }

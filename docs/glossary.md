@@ -208,7 +208,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | to make something new (**canon**) | ṭogi | ṭogi | trog | lowi | thauwi |
 | to begin (**canon**) | riku | riqu | rik | rihu | shihu |
 | to discover (**canon**) | rerote | rerote | rerot | rerone | sheshes |
-| to migrate, to journey (**canon**) | rìtha | rìtha | ret | riha | shitha |
+| to migrate, to journey (**canon**) | rìtha | rìtha | ret | riha | *shetha* |
 | to fight | toqo | toqo | toq | noo | suh ‹Q› |
 | to cut | ṭeki | ṭeqi | trek | lehi | thehi |
 | to dig | quli | quli | qur | huli | huyi |
@@ -366,7 +366,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | Meaning | First Speech | Roduro | Qotiro | Horaro | Ṭaḍoro |
 |---|---|---|---|---|---|
 | god | atu | atu | ot | anu | asu |
-| rite, ceremony | kake | qaqe | kak | hahe | hahe |
+| rite, ceremony | kase | qashe | kax | hahe | hase |
 | omen, sign | tosu | toshu | tox | nohu | sausu |
 | death | ṭeyu | *ṭeyuʻoye* | tred | leiu | theyu |
 | ancestor | tupuna | tuhuḍa | tupun | nuwuna | sufeya |
@@ -379,10 +379,40 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | shrine, holy place | pepu | hehu | pep | wewu | fefu |
 | priest | kipu | qihu | kip | hiwu | hifu |
 | offering, sacrifice | mapi | ḍahi | mep | mawi | wafi |
-| fate, lot | nipo | ḍiho | nip | niwo | yife |
+| fate, lot | nìpo | ḍìho | nep | niwo | yife |
 | soul | ṭaʻu | ṭaʻu | troq | lau | thau |
 | millennium, an age (**canon**) | kuyìtu | quyìtu | kudet | huinu | huyis |
 | artery (**canon**) | popìda | hohìda | poped | wowila | faufith |
 | support, prop (**canon**) | duya | duya | dud | luia | thuya |
 | tomb, grave | kuʻo | quʻo | kuq | huo | huwe |
 | vow, oath | ati | ati | et | ani | asi |
+
+## Plants and animals
+
+| Meaning | First Speech | Roduro | Qotiro | Horaro | Ṭaḍoro |
+|---|---|---|---|---|---|
+| head | ṭiko | ṭiqo | trik | liho | thihe |
+| hand | ḍima | ḍiḍa | drim | nima | yiwa |
+| foot, leg | wuṭa | guṭa | gurt | wula | wutha |
+| body, trunk | sota | shota | xot | hona | sausa |
+| neck, throat | ḍeki | ḍeqi | drek | nehi | yehi |
+| scale, plate | seṭa | sheṭa | xert | hela | setha |
+
+## Materials and made things
+
+| Meaning | First Speech | Roduro | Qotiro | Horaro | Ṭaḍoro |
+|---|---|---|---|---|---|
+| shield, armour | taḍu | taḍu | tord | nanu | sayu |
+| bow | gusu | gushu | gux | wuu | wusu |
+| board, slab, block | piṭo | hiṭo | pirt | wilo | fithe |
+| paper, sheet | ṭepi | ṭehi | trep | lewi | thefi |
+| thing, goods | tegu | tegu | teg | newu | sewu |
+
+## Crafts and actions
+
+| Meaning | First Speech | Roduro | Qotiro | Horaro | Ṭaḍoro |
+|---|---|---|---|---|---|
+| to throw | ṭiru | ṭiru | trir | liru | thishu |
+| to leap | ḍepo | ḍeho | drep | newo | yefe |
+| to work; work | giṭa | giṭa | girt | wila | witha |
+| to shut, to lock | kuṭe | quṭe | kurt | hule | huthe |

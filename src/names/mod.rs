@@ -24,6 +24,7 @@ pub mod grammar;
 pub mod sacred;
 pub mod say;
 pub mod sound;
+pub mod things;
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -32,8 +33,9 @@ use serde::Deserialize;
 
 pub use grammar::{compound, grammar, join, with, Affix, Grammar};
 pub use sacred::{god, make, people_english, people_meaning, people_name, sacred, God, Made, Sacred};
-pub use say::{ascii, capital, file_name, pronounce};
+pub use say::{ascii, capital, file_name, pronounce, syllables};
 pub use sound::{At, Step};
+pub use things::{native_name, thing, things, Group, Thing};
 
 /// The First Speech and its four daughters.
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -178,6 +180,14 @@ struct Data {
     canon: Vec<Canon>,
     grammar: Vec<Grammar>,
     sacred: Sacred,
+    avoid: Avoid,
+}
+
+/// Words a name must not look like in English (`assets/lang/avoid.ron`).
+#[derive(Deserialize, Clone, Debug)]
+struct Avoid {
+    whole: Vec<String>,
+    inside: Vec<String>,
 }
 
 fn read<T: for<'de> Deserialize<'de>>(file: &str, text: &str) -> T {
@@ -198,6 +208,7 @@ fn data() -> &'static Data {
             canon: read("canon.ron", include_str!("../../assets/lang/canon.ron")),
             grammar: read("grammar.ron", include_str!("../../assets/lang/grammar.ron")),
             sacred: read("sacred.ron", include_str!("../../assets/lang/sacred.ron")),
+            avoid: read("avoid.ron", include_str!("../../assets/lang/avoid.ron")),
         }
     })
 }
@@ -301,6 +312,23 @@ pub fn origin(id: &str, tongue: Tongue) -> Origin {
     } else {
         Origin::Inherited
     }
+}
+
+/// The rude English word a name looks like, if it does: read in plain
+/// letters, as someone who doesn't know the tongue would. Each word of a
+/// name of several is looked at on its own.
+pub fn unfortunate(name: &str) -> Option<&'static str> {
+    let a = &data().avoid;
+    for w in name.split_whitespace() {
+        let plain: String = ascii(&w.to_lowercase()).chars().filter(|c| c.is_ascii_alphabetic()).collect();
+        if let Some(b) = a.whole.iter().find(|b| **b == plain) {
+            return Some(b);
+        }
+        if let Some(b) = a.inside.iter().find(|b| plain.contains(b.as_str())) {
+            return Some(b);
+        }
+    }
+    None
 }
 
 /// Whether a First Speech form is well made: (C)V syllables from the First

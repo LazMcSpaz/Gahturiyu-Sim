@@ -7,8 +7,9 @@
 //   field   the area of meaning it belongs to
 //   canon   the existing Roduro (Gogìḍu) word this root was worked backwards
 //           from. The Roduro sound rules must turn `first` back into exactly
-//           this (a test checks). Roots without it are new, and stand only
-//           until checked against the full Gogìḍu dictionary.
+//           this (a test checks). Roots without it were made new for this
+//           system. By Laz's decision (2026-10-09) they stand as the language:
+//           this list supersedes the old Gogìḍu dictionary.
 [
 
     // ---- Land and sea ------------------------------------------------
@@ -337,7 +338,7 @@
 
     // ---- The sacred --------------------------------------------------
     (id: "god", first: "atu", gloss: "god", field: Sacred),
-    (id: "rite", first: "kake", gloss: "rite, ceremony", field: Sacred),
+    (id: "rite", first: "kase", gloss: "rite, ceremony", field: Sacred),
     (id: "omen", first: "tosu", gloss: "omen, sign", field: Sacred),
     (id: "death", first: "ṭeyu", gloss: "death", field: Sacred),
     (id: "ancestor", first: "tupuna", gloss: "ancestor", field: Sacred),
@@ -350,11 +351,28 @@
     (id: "shrine", first: "pepu", gloss: "shrine, holy place", field: Sacred),
     (id: "priest", first: "kipu", gloss: "priest", field: Sacred),
     (id: "offering", first: "mapi", gloss: "offering, sacrifice", field: Sacred),
-    (id: "fate", first: "nipo", gloss: "fate, lot", field: Sacred),
+    (id: "fate", first: "nìpo", gloss: "fate, lot", field: Sacred),
     (id: "soul", first: "ṭaʻu", gloss: "soul", field: Sacred),
     (id: "age", first: "kuyìtu", gloss: "millennium, an age", field: Sacred, canon: Some("quyìtu")),
     (id: "artery", first: "popìda", gloss: "artery", field: Sacred, canon: Some("hohìda")),
     (id: "support", first: "duya", gloss: "support, prop", field: Sacred, canon: Some("duya")),
     (id: "tomb", first: "kuʻo", gloss: "tomb, grave", field: Sacred),
     (id: "vow", first: "ati", gloss: "vow, oath", field: Sacred),
+
+    // ---- Added for the things of stage 3 -------------------------------------
+    (id: "head", first: "ṭiko", gloss: "head", field: Animal),
+    (id: "hand", first: "ḍima", gloss: "hand", field: Animal),
+    (id: "foot", first: "wuṭa", gloss: "foot, leg", field: Animal),
+    (id: "body", first: "sota", gloss: "body, trunk", field: Animal),
+    (id: "neck", first: "ḍeki", gloss: "neck, throat", field: Animal),
+    (id: "scale", first: "seṭa", gloss: "scale, plate", field: Animal),
+    (id: "shield", first: "taḍu", gloss: "shield, armour", field: Material),
+    (id: "bow", first: "gusu", gloss: "bow", field: Material),
+    (id: "board", first: "piṭo", gloss: "board, slab, block", field: Material),
+    (id: "paper", first: "ṭepi", gloss: "paper, sheet", field: Material),
+    (id: "thing", first: "tegu", gloss: "thing, goods", field: Material),
+    (id: "throw", first: "ṭiru", gloss: "to throw", field: Craft),
+    (id: "leap", first: "ḍepo", gloss: "to leap", field: Craft),
+    (id: "work", first: "giṭa", gloss: "to work; work", field: Craft),
+    (id: "shut", first: "kuṭe", gloss: "to shut, to lock", field: Craft),
 ]

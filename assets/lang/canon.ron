@@ -16,9 +16,11 @@
 //
 // Nothing here may be renamed without asking Laz.
 //
-// NOT HERE: the rest of the Gogìḍu dictionary. The words below are the ones
-// quoted in the lore documents; the full dictionary Laz exported from the
-// language tool was not available when this was written.
+// NOT HERE: the rest of the old Gogìḍu dictionary. The words below are the
+// ones quoted in the lore documents. By Laz's decision (2026-10-09) the root
+// list in roots.ron stands as the language and supersedes that dictionary.
+// The English-only names at the end got their native words in stage 3
+// (things.ron).
 [
 
     // ---- Gogìḍu (Roduro) words --------------------------------------------

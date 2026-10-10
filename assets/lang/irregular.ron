@@ -7,4 +7,5 @@
 //   why     the reason
 [
     (root: "death", tongue: Roduro, form: "ṭeyuʻoye", why: "Canon. The Roduro word is far longer than a root: the other tongues keep only the root's first part (ṭeyu), and Roduro's long form is taken as it stands."),
+    (root: "migrate", tongue: Tadoro, form: "shetha", why: "The rules give shitha, which reads badly in English (avoid.ron). The vowel is opened; nothing else changes."),
 ]

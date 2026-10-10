@@ -95,6 +95,12 @@ fn split(w: &[char], tongue: Tongue) -> Vec<Syllable> {
     out
 }
 
+/// How many beats a word has in a tongue (Ṭaḍoro's glides count as one;
+/// each Horaro vowel is its own). For several words, the longest.
+pub fn syllables(word: &str, tongue: Tongue) -> usize {
+    word.split_whitespace().map(|w| split(&sounds(&w.to_lowercase()), tongue).len()).max().unwrap_or(0)
+}
+
 fn consonant(c: char) -> &'static str {
     match c {
         'q' => "k",

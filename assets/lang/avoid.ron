@@ -1,0 +1,24 @@
+// Words a name must not look like to someone reading English: rude words
+// and slurs, in the plain-letter spelling (no marks, no catch). Read by
+// src/names/mod.rs (`unfortunate`); the tests check every root, sacred word
+// and thing against it, and the name generators will too.
+//
+//   whole    a word may not be exactly one of these
+//   inside   a word may not contain one of these anywhere
+//
+// When a word trips this: change the root's First Speech form (roots.ron),
+// the thing's recipe (things.ron), or, for one tongue only, add an exception
+// to irregular.ron.
+(
+    whole: [
+        "ass", "arse", "tit", "tits", "dik", "dick", "cok", "cock", "kok", "kak", "kaka", "pis", "piss",
+        "poo", "poop", "fuk", "fuq", "fuck", "shit", "xit", "cum", "kum", "anus", "wank", "slut", "whore",
+        "hore", "nig", "fag", "rape", "sex", "puta", "pedo", "nazi", "kunt", "cunt", "turd", "tard", "twat",
+        "prik", "prick", "suk", "suck", "fart", "crap", "krap", "paki", "kike", "coon", "wog", "jap", "nip",
+        "dago", "puke", "pee", "butt", "boob", "homo", "dong", "wang", "hell", "damn", "sod", "git",
+    ],
+    inside: [
+        "fuk", "fuq", "fuck", "shit", "xit", "kunt", "cunt", "piss", "kaka", "anus", "nigg", "nige", "rape",
+        "turd", "poop", "wank", "slut", "whore", "nazi", "pedo", "twat",
+    ],
+)

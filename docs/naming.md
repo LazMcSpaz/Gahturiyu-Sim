@@ -1,10 +1,11 @@
 # Naming: words and names in the four tongues
 
 Second agent's work, branch `agent2/naming`. This file grows with each stage. This is
-the state after **stage 2**. Stage 1: canon inventory, First Speech roots, sound rules,
+the state after **stage 3**. Stage 1: canon inventory, First Speech roots, sound rules,
 cognate sets. Stage 2: how each tongue puts words together, the gods and the elements
 in all four tongues, what each people calls each people, the words of worship and
-rule, and spelling and pronunciation. Next: things, then people, then places.
+rule, and spelling and pronunciation. Stage 3: the names of things (jobs, crafts,
+materials, items, buildings, creatures, weather). Next: people, then places.
 
 **Nothing in the game uses this yet.** The game still makes names with
 `src/sim/names.rs` (random syllables in each tongue's sounds). The adapter that points
@@ -51,15 +52,16 @@ cargo run --release --bin lang -- clashes       roots that sound alike within a 
 
 `languages.md` and `pantheon.md` are not in the repo. Both were recovered in full from
 the chat they were written in (2026-07-29) and followed as written. `architecture.md`
-was not found; it is not needed until stage 3 (buildings).
+came from Laz for stage 3 and is followed for the buildings.
 
-**The full Gogìḍu dictionary was not available.** Laz gave the language tool's export
-to that chat as an attachment, which cannot be read back. The inventory therefore holds
-the Gogìḍu words that are *quoted* in the lore: 37 words, 5 bits of grammar, 3 phrases.
-Everything built on them is firm. The other 286 roots are new and **stand only until
-checked against the dictionary**: where the dictionary already has a word (for
-"stone", say), the root must be re-made from that word. That is a change to
-`roots.ron` only; the rules and the code don't move.
+**The roots here are the language now.** The old Gogìḍu dictionary (the language
+tool's export) could never be read back, so the inventory holds the Gogìḍu words that
+are *quoted* in the lore: 37 words, 5 bits of grammar, 3 phrases. Everything built on
+them is firm and is still checked by the tests. The other roots were made new for this
+system, and by Laz's decision (2026-10-09) they **stand as the language and supersede
+the old dictionary**: nothing is waiting to be checked against it. If an old word is
+ever wanted back, it is one line in `roots.ron` (give the root that word as its
+`canon`); the rules and the code don't move.
 
 `canon.ron` also lists: the 18 gods and the Trinity's two names (with the words each is
 built from), the four peoples, the tongue's name, Gahturiyu and Turiyu, the names
@@ -204,7 +206,7 @@ down past Roduro's rules, so the other tongues start from its full form, Yoheʻi
 | the World's Artery | Horahìda | Porped | Worawila | Faushefith |
 | the Enduring Earth | Dodìṭo | Dodert | Lolilo | Thauthith |
 | the Wounding Lance | Qotisho | Qotex | Honiho | Hausis |
-| the Wayfarer's Stave | Rìthaduya | Retadud | Rihaluia | Shithetheya |
+| the Wayfarer's Stave | Rìthaduya | Retadud | Rihaluia | Shethetheya |
 | the Most Radiant | Hiqethoru | Xiktor | Hihehoru | Hihethesh |
 
 - **English names shown first** are the meanings `pantheon.md` gives ("the World's
@@ -267,6 +269,115 @@ as "doh" elsewhere; here it is always "doh").
 **The font** (`assets/DejaVuSans.ttf`) has every letter used, capitals included. A
 test checks every word, god and people's name against it.
 
+## Stage 3: the names of things
+
+**The full table is `docs/things.md`** (311 things; made by
+`cargo run --release --bin lang -- things`). The list itself is
+`assets/lang/things.ron`.
+
+**How a thing gets its name.** Nobody types a native name in. Each entry is the
+English name the game already shows and a short *recipe* saying which roots the
+native name is built from; the tongue's own rules (stage 2) do the rest:
+
+| Recipe | Means | Example |
+|---|---|---|
+| `stone` | a root | Rock: Roduro *Ḍoqa* |
+| `black+water` | the first describes the second | Ink: Qotiro *Kemag* |
+| `forge:agent` | an ending: one who does it (also `place`, `small`, `great`) | Smith: Qotiro *Dortak* |
+| `board/=Bronze` | two words, "A of B"; `=` is another thing's name | Bronze ingot: *Pirt di trerged* |
+| `*turiyu` | an old First Speech name, worn down by each tongue | Turiyu: Qotiro *Tured* |
+| `@qotihiqi` | a god | the Overgrowth: *Quʻa yi Qotihiqì* |
+
+So changing a name means changing its recipe, and a change to a root or a sound rule
+flows through every name built on it.
+
+**Whose word it is.** Laz's rule: a thing has a native name in the tongue of the
+tradition it belongs to, and things every people has get all four.
+
+- **One people's thing** has one native name, in that people's tongue, and everyone
+  else uses that word. Ownership is not my opinion wherever the game already says:
+  a *material* belongs to its making tradition in `materials.rs` (grown = Roduro,
+  fire-made = Qotiro, sea and shore = Horaro, written and carried = Ṭaḍoro); a *made
+  thing* belongs to the people whose material it is usually made in (a longsword is
+  usually Forgeiron, so it is Qotiro; a harpoon is usually Nacre, so Horaro). A test
+  holds both. Buildings follow `architecture.md`; creatures follow where they live;
+  jobs and town places follow the craft they serve.
+- **Everything else** has a word in each tongue, built by the same recipe from that
+  tongue's own roots.
+
+A few from each people (the game shows the English; the native name sits under it):
+
+| English | Whose | Native name | Say it | Word for word |
+|---|---|---|---|---|
+| Stone Tender | Roduro | **Leḍaqe** | leh-DAH-keh | tend-er |
+| Ringstone | Roduro | **Goledoqo** | goh-leh-DOH-koh | ring-stone |
+| Grown home | Roduro | **Quʻahale** | koo-ah-HAH-leh | grow-house |
+| Ridgehound | Roduro | **Guriḍoro** | goo-ree-DOH-roh | ridge-hound |
+| Smith | Qotiro | **Dortak** | DOR-tak | forge-er |
+| Forgeiron | Qotiro | **Dortaged** | DOR-tah-ged | forge-iron |
+| Temple | Qotiro | **Otpar** | OT-par | god-house |
+| Dustrunner | Qotiro | **Xendirak** | KHEN-dee-rak | sand-run-er |
+| Fisher and diver | Horaro | **Henume** | heh-NOO-meh | dive-er |
+| Seareed | Horaro | **Ionomoa** | ee-oh-noh-MOH-ah | sea-reed |
+| Stilt house | Horaro | **Walewohu** | wah-leh-WOH-hoo | pillar-house |
+| Deepcoil | Horaro | **Hihonuwu** | hee-hoh-NOO-woo | deep-eel |
+| Scribe | Ṭaḍoro | **Hesefi** | heh-seh-FEE | write-er |
+| Tentsilk | Ṭaḍoro | **Sesafau** | seh-sah-FOW | tent-silk |
+| Scholar's tent | Ṭaḍoro | **Fauwase** | fow-wah-SEH | silk-tent |
+| Silk Mother | Ṭaḍoro | **Awasesa** | ah-wah-seh-SAH | silk-mother |
+
+And things everyone has:
+
+| English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
+|---|---|---|---|---|---|
+| Bread | Ḍiha | Mip | Miwa | Wifa | bread |
+| Boat | Goqa | Gok | Woha | Wauha | boat |
+| The sea | Ḍoʻa | Moq | Moa | Weya | sea |
+| Merchant | Tuquqe | Tukak | Henuu | Hesuhu | trade-er |
+| Inn | Ḍatihale | Metpar | Walemani | Fayewasi | guest-house |
+| Charcoal | Qeḍeqaho | Kemkop | Hawoheme | Hafehewe | black-timber |
+| Boots | Guṭaheqa | Gurtapek | Wehawula | Fehawutha | foot-shell |
+| thunderstorm | Ḍururogu | Drurkrog | Horowunuru | Haushewuyu | thunder-storm |
+
+**What is covered.** Every name in the game's own lists, checked by a test so a new
+job or item can't be added without a name: 37 jobs, 9 crafts, 41 materials and goods,
+19 weapons and their shot, 15 pieces of armour and clothing, 16 pieces of gear, 19
+foods, herbs and draughts, 8 named treasures, 13 books, 33 places in a town, 7 work
+stations, 13 things the squad can build, 19 creatures, 5 fish and sea beasts, 19
+kinds of weather, and 19 everyday things. Also 18 buildings and parts of buildings
+from `architecture.md`, and the Overgrowth (named for Qotihiqì, as `pantheon.md` says).
+
+**Left out, and why.**
+- **A spell's notes, rite or scroll** (43 items) is named for its spell, and spells
+  have no native names yet. The head words are in the table (*Notes*, *Rite*,
+  *Scroll*, *Manual*), ready for when they do.
+- **Made variants** ("Nacre helm", "Edgeglass spear") are a material and a form put
+  together. Both halves are in the table; armour and clothing are deliberately named
+  without a material in the word (*head-shield*, *body-cloth*) so the same word serves
+  whatever it is made of. Putting the two together is one small function, due with the
+  naming module in stage 5.
+- **Fighting and magic skills, services, grades** ("Blade", "Felt magic", "crude").
+  Not asked for; say if they should have words.
+
+**Three roots changed, one exception added.** Reading the whole table turned up words
+that look rude to an English reader. There is now a list of words to keep clear of
+(`assets/lang/avoid.ron`) and a test that holds every root, sacred word and thing to
+it; the people and place generators will use the same list.
+
+| Was | Now | Why |
+|---|---|---|
+| rite `kake` → Qotiro *Kak* | `kase` → *Kax* | reads as a rude word |
+| fate `nipo` → Qotiro *Nip* | `nìpo` → *Nep* | reads as a slur |
+| scale `sìṭa` → Roduro *Shìṭa* | `seṭa` → *Sheṭa* | reads as a rude word |
+| to journey (canon *rìtha*) → Ṭaḍoro *Shitha* | exception: *Shetha* | reads as a rude word; the canon Roduro word is untouched |
+
+The last one also touched one god's name **in Ṭaḍoro only**: the Wayfarer's Stave
+was *Shithetheya* and is now *Shethetheya*. The canon name, *Rìthaduya*, is unchanged.
+
+**Fifteen roots added** for things the list needed and the stock lacked: head, hand,
+foot, body, neck, scale, shield, bow, board, paper, thing, to throw, to leap, to work,
+to shut. 340 roots now, 38 of them canon.
+
 ## What the tests hold (`tests/names.rs`)
 
 - 300 to 400 roots, every area of meaning covered, every root a proper First Speech form.
@@ -292,8 +403,19 @@ Stage 2 adds:
 - **Every word can be said and spelled:** a hint with a loud syllable, a plain-letter
   form, and every letter in the game's font. `docs/sacred.md` matches the data.
 
-Not yet: the "guess the tongue from the sounds" check, the length, blocklist and
-lookalike checks. They belong to generated names (stages 4 and 5).
+Stage 3 adds:
+- **Everything the game names has a native name:** every job, good, material, craft,
+  item, made form, town place, station, base building, creature and kind of weather
+  in the code has an entry (over 300 names, read from the code's own lists).
+- **Whose it is follows the game:** a material's people is its making tradition; a
+  made thing's people is that of its usual material.
+- **Every name holds together:** it keeps its tongue's sounds, runs to four beats a
+  word at most (five in Horaro, which is all vowels), no two things share a name in
+  any tongue, and nothing reads as a rude word in English. `docs/things.md` matches
+  the data.
+
+Not yet: the "guess the tongue from the sounds" check and the lookalike check. They
+belong to generated names (stages 4 and 5).
 
 ## Decided without asking (veto any of these)
 
@@ -303,8 +425,9 @@ lookalike checks. They belong to generated names (stages 4 and 5).
    sound, change its list in `sounds.ron`.
 3. **Qotiro may have sound-alike roots**; the other three may not.
 4. **Ṭaḍoro has no `o`.**
-5. **All 286 new roots.** Where they echo a real language (`hale` house, `limu` kelp)
-   it is by choice, for a faint familiar ring; say if that should go.
+5. **All the new roots** (302 now). Where they echo a real language (`hale` house,
+   `limu` kelp) it is by choice, for a faint familiar ring; say if that should go.
+   (Laz, 2026-10-09: these stand as the language.)
 6. **Which words Ṭaḍoro borrowed**, and from whom.
 7. **Turiyu** is recorded as the worn-down "holy beast" inside Gahturiyu
    (`hotorì gayugo`). That is a reading, not something written down anywhere.
@@ -324,6 +447,29 @@ From stage 2:
 13. **The endings** for a doer, a place, little and great, and the name endings for
     men and women in each tongue.
 14. **Horaro `y`** melts into a neighbouring `i` (one small rule added to stage 1's list).
+
+From stage 3:
+
+15. **Everyone uses the owner's word for an owned thing**, unchanged (a Roduro says
+    *Dortaged* for Forgeiron). The alternative is each people bending it to their own
+    mouth, as Ṭaḍoro already does with its borrowed words.
+16. **Who owns what** where the game doesn't say: jobs, town places and creatures.
+    Notably Teacher, Scribe, Alchemist, Exchanger, Drifter, coin and letters are
+    Ṭaḍoro; Mason is Qotiro (the Roduro grow, they don't build); marsh, hill and
+    mountain beasts are Roduro; the plateau's are Qotiro; everything of the shore and
+    sea is Horaro; the silk spinners are Ṭaḍoro (Tentsilk is theirs).
+17. **A job is usually "one who does X" from a single root** (Tailor is "cloth-er",
+    Carpenter "timber-er"), to keep names to three or four beats. The English name
+    carries the detail ("Woodcutter and quarrier" is just *Ṭeqiqe*, "cutter").
+18. **Proposed English names for the buildings**, which the code only has as variant
+    names: Grown home, Stilt house, Tier house, Temple, Temple-fortress, Gatehouse,
+    Sun-disc, Scholar's tent, and the parts (Year-rings for the banding, Stilt, Deck,
+    Woven dome, Awning, Stone dock, Tent pole, Script panel). No existing English name
+    was changed; I found none that read as a placeholder.
+19. **Gold is "sun-ore" and Bronze "gold-iron"** in Qotiro; **the Overgrowth is "the
+    growth of Qotihiqì"**; **Turiyu** keeps its name and wears down in the other
+    tongues like a god's name (*Tured*, *Nuriu*, *Sushiyu*).
+20. **The three root changes and the Ṭaḍoro exception** above.
 
 ## Lines added to shared files
 
