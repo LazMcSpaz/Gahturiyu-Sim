@@ -598,11 +598,13 @@ body by day and clear it in about an hour, so it can't be found or raised
 afterwards; a Ridgehound that is down or young can be tamed, then follows
 its owner, fights beside them, and leaves if starved.
 
-**Looking at it.** Hover any animal for species, what it's doing and
-whether it's wild or whose it is. `F12` opens the wildlife panel (the
-region's numbers per species against what it holds, grazing pressure,
-Overgrowth, recent attacks). Debug keys: `H` hunt the nearest herd,
-`Y` tame, `F11` take cocoons. `headless` output is unchanged.
+**Looking at it.** Hover any animal for what it is and what it's doing
+(and whose, if it's kept). The counts, yields and rules of behaviour are
+the testing readout: with the detail switch (`L`) on, the hover shows
+them, `F12` opens the wildlife panel (the region's numbers per species
+against what it holds, grazing pressure, Overgrowth, recent attacks) and
+the testing keys work: `H` hunt the nearest herd, `Y` tame, `F11` take
+cocoons. `headless` output is unchanged.
 
 **Not built (on purpose):** herding and hunting as jobs, hides and meat as
 goods, prices, law about protected animals, riding, breeding lines,

@@ -82,7 +82,7 @@ impl World {
         best.map(|b| b.1)
     }
 
-    fn clear_of_towns(&self, p: V2, margin: f32) -> bool {
+    pub(super) fn clear_of_towns(&self, p: V2, margin: f32) -> bool {
         self.settlements.iter().all(|s| s.pos.dist(p) > s.radius() + margin)
     }
 
@@ -193,6 +193,7 @@ impl World {
 
         self.place_livestock();
         self.stock_the_sea();
+        self.overgrow_the_wilds();
 
         // How each herd grows from here, given who is hunting what.
         let t = self.time;

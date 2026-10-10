@@ -36,7 +36,7 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?} {:?}\n", w.crafting, w.orders, w.lessons);
     s += &format!("{:?} {:?} {:?} {:?} {:?}\n", w.standing_in, w.records, w.bonds, w.duels, w.shunned);
     // What towns know was stolen in them.
-    s += &format!("{:?}\n{:?}\n", w.hot, w.met);
+    s += &format!("{:?}\n{:?}\n{:?}\n", w.hot, w.met, w.unwelcome);
     // The land's hand edits, the authored land under them, and the forged town.
     s += &format!("{:?}\n", bincode::serialize(&w.terrain.edits).unwrap());
     s += &format!("{:?}\n{:?}\n", bincode::serialize(&w.terrain.authored).unwrap(), w.forge);

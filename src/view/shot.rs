@@ -547,11 +547,29 @@ impl Shot {
             let here = world.squad.pos;
             let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();
             let want = self.talk_to.clone();
-            let npc = world
-                .residents_in_band1(town)
-                .into_iter()
-                .filter(|&p| want.as_deref().map(|w| world.people[p as usize].race.name().to_lowercase().replace('ṭ', "t").replace('ḍ', "d") == w).unwrap_or(true))
-                .min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            // Someone who can be talked to: awake, and out of doors before
+            // someone indoors (RG-12: at dawn the nearest local is abed). If
+            // nobody is up yet, wait until someone is.
+            let pick = |world: &World| {
+                world
+                    .residents_in_band1(town)
+                    .into_iter()
+                    .filter(|&p| !world.people[p as usize].dead && !world.is_indoors_asleep(p))
+                    .filter(|&p| want.as_deref().map(|w| world.people[p as usize].race.name().to_lowercase().replace('ṭ', "t").replace('ḍ', "d") == w).unwrap_or(true))
+                    .min_by(|&a, &b| {
+                        let key = |p| (world.building_at(world.person_pos(p)).is_some(), world.person_pos(p).dist(here));
+                        let (ka, kb) = (key(a), key(b));
+                        ka.0.cmp(&kb.0).then(ka.1.total_cmp(&kb.1))
+                    })
+            };
+            let mut npc = pick(world);
+            for _ in 0..36 {
+                if npc.is_some() {
+                    break;
+                }
+                world.step(300.0);
+                npc = pick(world);
+            }
             if let Some(npc) = npc {
                 world.order_talk(lead, npc);
                 for _ in 0..240 {

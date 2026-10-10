@@ -362,6 +362,7 @@ impl World {
         self.do_crafting();
         self.do_lessons();
         self.check_runaways();
+        self.mind_the_guests();
         self.do_carrying();
         self.try_open_talk();
         self.close_parted_talk();

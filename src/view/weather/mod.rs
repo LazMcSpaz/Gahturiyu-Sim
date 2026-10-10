@@ -218,10 +218,12 @@ impl Plugin for WeatherPlugin {
 }
 
 fn keys(keys: Res<ButtonInput<KeyCode>>, mut view: ResMut<WeatherView>, mut game: ResMut<Game>) {
-    if keys.just_pressed(KeyCode::F7) {
+    // The weather panel and the forced weather are testing tools: their keys
+    // work with the detail readout (L) on (and still close what's open).
+    if keys.just_pressed(KeyCode::F7) && (game.debug || view.open) {
         view.open = !view.open;
     }
-    if keys.just_pressed(KeyCode::KeyU) && !game.editor.on {
+    if keys.just_pressed(KeyCode::KeyU) && !game.editor.on && (game.debug || view.force.is_some()) {
         let back = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
         view.force = Preset::step(view.force, back);
         let msg = match view.force {

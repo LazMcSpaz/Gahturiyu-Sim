@@ -147,6 +147,11 @@ fn main() {
     };
     let mut s = load_session(&save);
     s.selected.retain(|&p| w.squad.index(p).is_some());
+    // Nobody left to order or to look from (U-4): say so, whatever was asked.
+    if w.squad.members.is_empty() {
+        println!("Nobody is left of the squad. (`play {} new` starts again.)", save.display());
+        return;
+    }
     w.alerts.clear();
     let out = run(&mut w, &mut s, cmd, &rest, &save);
     // What matters most (a fight, an arrest, a robbery) first, set apart.
@@ -735,8 +740,31 @@ fn look_only(w: &mut World, s: &mut Session, only: &str) -> String {
     if w.talk.is_some() {
         o += &talk_view(w);
     }
+    o += &room(w, s);
     o += &nearby(w, focus(w, s), only);
     o
+}
+
+/// Whose home the member the tool looks from is standing in, and who of the
+/// house is there (N5): asleep inside, or up and about it.
+fn room(w: &World, s: &Session) -> String {
+    let m = s.selected.first().copied().filter(|&m| w.squad.index(m).is_some()).unwrap_or(w.squad.members[0]);
+    let Some(door) = w.squad.index(m).and_then(|k| w.squad.inside[k]) else { return String::new() };
+    if !w.others_home(m, door) {
+        return String::new();
+    }
+    let folk = w.residents_of(door);
+    let names = |v: Vec<PersonId>| v.iter().map(|&p| format!("{} (p{p})", first_name(w, p))).collect::<Vec<_>>().join(", ");
+    let asleep: Vec<PersonId> = folk.iter().copied().filter(|&p| w.is_indoors_asleep(p)).collect();
+    let up: Vec<PersonId> = folk.iter().copied().filter(|&p| w.host_at(door) == Some(p) || (!w.is_indoors_asleep(p) && w.person_pos(p).dist(w.person_pos(m)) < 15.0)).collect();
+    let mut o = format!("{} is in someone's home.", first_name(w, m));
+    if !asleep.is_empty() {
+        o += &format!(" Asleep here: {}.", names(asleep));
+    }
+    if !up.is_empty() {
+        o += &format!(" Up and about the house: {}.", names(up));
+    }
+    o + "\n"
 }
 
 fn fight(w: &World) -> String {
