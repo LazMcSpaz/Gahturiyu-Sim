@@ -1452,7 +1452,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 w.drop_entry(pid, k);
             }
             Action::GiveEntry(pid, k, to) => {
-                let msg = match w.give_entry(pid, k, to) {
+                let msg = match w.order_give(pid, k, to) {
                     Ok(m) | Err(m) => m,
                 };
                 game.notice = Some((msg, std::time::Instant::now()));
@@ -1591,7 +1591,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
     }
     if let Some(it) = item_tip {
-        let lines = squadui::item_lines(it);
+        let mut lines = squadui::item_lines(it);
+        // What a merchant here gives for it, beside the round "worth".
+        if let Some((p, town)) = game.world.sells_for(it, None) {
+            let name = &game.world.settlements[town as usize].name;
+            lines.push((if p > 0 { format!("Sells for about {p} in {name}") } else { format!("Nobody in {name} pays for it") }, super::palette::DIM));
+        }
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
         c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
     } else if let Some(h) = game.hover {

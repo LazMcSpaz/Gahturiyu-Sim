@@ -203,6 +203,8 @@ pub struct World {
     /// A squad member on their way to give another a healing draught: (giver, patient).
     #[serde(default)]
     pub dosing: Vec<(PersonId, PersonId)>,
+    /// A squad member on their way to hand another something from their pack.
+    pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
     pub set_down: HashMap<PersonId, V2>,
 
@@ -278,6 +280,7 @@ impl World {
             alerts: Vec::new(),
             pickups: Vec::new(),
             dosing: Vec::new(),
+            giving: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,
             camps: Vec::new(),

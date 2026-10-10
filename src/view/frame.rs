@@ -211,7 +211,15 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
             let (word, col) = match (held, w.fresh_level_up(pid)) {
                 (Some(s), _) => (format!("Holding {}", s.def().name.to_lowercase()), super::squadui::RITUAL),
                 (None, Some((what, v))) if word == "Standing" || word == "Walking" => (format!("{what} {v} ↑"), BRASS_LIGHT),
+                // Still sneaking keeps its full colour: it halves their pace,
+                // and it's easy to leave on.
+                _ if word == "Sneaking" || word == "Crouched" => (word.to_string(), col),
                 _ => (word.to_string(), palette::mix(col, DIM, 0.35)),
+            };
+            // Strayed from the others: say how far, in the warning colour.
+            let (word, col) = match w.strayed(pid) {
+                Some(d) if !down => (format!("{word} · {d:.0} m off"), palette::WARN),
+                _ => (word, col),
             };
             let sw = c.styled(&word, nx + nw + 9.0, cy - 8.0, 13.0, a(col, 1.0), Face::Italic, 0.0);
             // Being noticed: an eye that opens; a lit torch: a flame.
