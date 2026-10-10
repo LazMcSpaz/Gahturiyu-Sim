@@ -167,6 +167,17 @@ impl World {
     /// they stop fighting until they get there.
     pub fn order_members(&mut self, who: &[PersonId], target: V2) {
         let target = geo::clamp_to_world(target, 50.0);
+        // The bound work where they're put.
+        let bound: Vec<PersonId> = who.iter().copied().filter(|&m| !self.free_to_order(m)).collect();
+        for &m in &bound {
+            let line = format!("{} is bound to work off a bond and can't leave.", self.people[m as usize].name().unwrap_or("someone"));
+            if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+                self.log.push_front((self.time, line));
+                self.log.truncate(14);
+            }
+        }
+        let free: Vec<PersonId> = who.iter().copied().filter(|m| !bound.contains(m)).collect();
+        let who = &free[..];
         let mut blocked = None;
         for (n, &pid) in who.iter().enumerate() {
             if let Some(k) = self.squad.index(pid) {
@@ -269,6 +280,7 @@ impl World {
                 self.squad.route[k].clear();
             }
         }
+        self.hold_the_bound();
         self.recentre_squad();
         self.update_indoors();
         self.do_pickups();

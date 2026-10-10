@@ -96,6 +96,8 @@ pub struct Game {
     pub squad_collapsed: bool,
     /// The keys panel open.
     pub keys: bool,
+    /// Big news shown across the top: (what, since).
+    pub banners: Vec<(String, std::time::Instant)>,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -199,6 +201,7 @@ pub fn run() {
         wild: None,
         squad_collapsed: false,
         keys: false,
+        banners: Vec::new(),
         hints: {
             let mut h = super::hints::Hints::load(shot.is_none());
             if let Ok(id) = std::env::var("GAHT_HINT") {
@@ -740,7 +743,15 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     game.frame_ms = game.frame_ms * 0.9 + dt as f64 * 1000.0 * 0.1;
     // A fight breaking out near the squad drops the game to real time.
     if !game.world.alerts.is_empty() {
-        game.world.alerts.clear();
+        // Big news gets a banner across the top for a while.
+        for a in game.world.alerts.drain(..) {
+            game.banners.push((a, std::time::Instant::now()));
+        }
+        game.banners.retain(|b| b.1.elapsed().as_secs_f32() < 8.0);
+        let n = game.banners.len();
+        if n > 3 {
+            game.banners.drain(..n - 3);
+        }
         game.speed_i = 0;
         game.paused = false;
     }
@@ -1488,6 +1499,18 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
+    // Banners: the latest big news, fading after a few seconds.
+    let mut by = 168.0;
+    for (msg, at) in game.banners.iter().filter(|b| b.1.elapsed().as_secs_f32() < 8.0 || game.shot.is_some()) {
+        let age = at.elapsed().as_secs_f32();
+        let fade = if game.shot.is_some() { 1.0 } else { (1.0 - (age - 6.0) / 2.0).clamp(0.0, 1.0) };
+        let wd = (c.styled_width(msg, 17.0, hud::Face::Body, 0.0) + 48.0).min(size.x - 80.0);
+        let x = (size.x - wd) / 2.0;
+        c.frame_box(x, by, wd, 36.0);
+        c.diamond(x + 14.0, by + 18.0, 4.0, super::palette::ega(super::palette::BRASS_LIGHT, fade));
+        c.styled(msg, x + 28.0, by + 24.0, 17.0, super::palette::ega(super::palette::TEXT, fade), hud::Face::Body, 0.0);
+        by += 44.0;
+    }
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {
             let wd = c.width(msg, 17.0) + 32.0;

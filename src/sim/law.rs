@@ -755,7 +755,9 @@ impl World {
         if self.people[who as usize].in_squad {
             let name = self.name_of(who);
             let place = self.settlements[town as usize].name.clone();
-            self.say(t, format!("{name} is bound to work in {place} for {:.0} days.", (until - t) / DAY));
+            let line = format!("{name} is bound to work in {place} for {:.0} days: led off to work it off. An official there can sell you the bond.", (until - t) / DAY);
+            self.alerts.push(line.clone());
+            self.say(t, line);
         }
     }
 
@@ -1039,6 +1041,41 @@ impl World {
         let name = self.name_of(who);
         self.say(t, format!("{name} is bought out of their bond."));
         Ok(())
+    }
+
+    /// Where a bound squad member works off their bond: the town's hall,
+    /// else its guard post, else its hearth.
+    pub fn bound_spot(&self, town: SettlementId) -> super::geo::V2 {
+        use super::jobs::PlaceKind;
+        let tl = self.society.towns.get(town as usize);
+        tl.and_then(|tl| tl.places.iter().find(|p| p.kind == PlaceKind::Hall).or_else(|| tl.places.iter().find(|p| p.kind == PlaceKind::GuardPost)))
+            .map(|p| p.pos)
+            .unwrap_or(self.settlements[town as usize].pos)
+    }
+
+    /// Can the player give this squad member orders? Not while bound.
+    pub fn free_to_order(&self, m: PersonId) -> bool {
+        !self.is_bonded(m, self.time)
+    }
+
+    /// Bound squad members are kept at their work (the squad's step): they
+    /// go where the town puts them and stay there until the bond ends.
+    pub(super) fn hold_the_bound(&mut self) {
+        for k in 0..self.squad.members.len() {
+            let m = self.squad.members[k];
+            let Some(b) = self.bond_of(m).copied() else { continue };
+            if self.fighting.contains_key(&m) || self.is_down(m) {
+                continue;
+            }
+            let a = k as f32 * 2.3;
+            let spot = self.bound_spot(b.town).add(super::geo::V2::new(a.cos(), a.sin()).scale(4.0));
+            if self.squad.goal[k].dist(spot) > 2.0 {
+                let (path, _) = self.route(self.member_pos(k), spot);
+                self.squad.goal[k] = *path.last().unwrap_or(&spot);
+                self.squad.route[k] = path;
+                self.squad.resting[k] = false;
+            }
+        }
     }
 
     /// A bound squad member who strays too far from the town has run.

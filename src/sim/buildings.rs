@@ -425,21 +425,34 @@ impl World {
 
     /// Does anyone in town see this squad member at `at`? Uses the same
     /// light and sneaking rules as lookouts, with one keyed roll.
+    /// The chance a wrong done at `at` by `who` is seen by the townsfolk:
+    /// only by those who share the space (in the same building, or both out
+    /// of doors: walls hide you), the nearer the likelier, sleepers far less
+    /// (and only close by), and less still if you're sneaking in the dark. Shown before the deed; `witnessed` rolls against it.
+    pub fn catch_chance(&self, who: PersonId, at: V2, town: SettlementId) -> f32 {
+        let sight = stealth::SIGHT * 0.6 * self.visibility_of(who);
+        let room = self.building_at(at).map(|d| d.id);
+        let mut best = 0.0f32;
+        for p in self.residents_in_band1(town) {
+            let pos = self.person_pos(p);
+            if self.building_at(pos).map(|d| d.id) != room {
+                continue;
+            }
+            let d = pos.dist(at);
+            // A sleeper notices only close by, and seldom.
+            let asleep = self.is_indoors_asleep(p);
+            if d > sight || (asleep && d > 6.0) {
+                continue;
+            }
+            let c = (0.6 * (1.0 - d / sight.max(0.1)) + 0.2) * if asleep { 0.35 } else { 1.0 };
+            best = best.max(c);
+        }
+        best
+    }
+
     pub(super) fn witnessed(&self, who: PersonId, at: V2, town: SettlementId, r: &mut Rng) -> bool {
         let roll = r.f32();
-        let sight = stealth::SIGHT * 0.6 * self.visibility_of(who);
-        let closest = self
-            .residents_in_band1(town)
-            .into_iter()
-            .map(|p| self.person_pos(p).dist(at))
-            // Sleepers only wake for what happens right beside them.
-            .zip(self.residents_in_band1(town).into_iter().map(|p| self.is_indoors_asleep(p)))
-            .map(|(d, asleep)| if asleep && d > 5.0 { f32::MAX } else { d })
-            .fold(f32::MAX, f32::min);
-        if closest > sight {
-            return false;
-        }
-        roll < 0.6 * (1.0 - closest / sight.max(0.1)) + 0.2
+        roll < self.catch_chance(who, at, town)
     }
 
     pub(super) fn crime(&mut self, who: PersonId, town: SettlementId, amount: f32, line: String) {

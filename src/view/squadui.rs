@@ -128,6 +128,9 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     if w.carried_by(pid).is_some() {
         return ("Being carried", WARN);
     }
+    if !w.free_to_order(pid) {
+        return ("Bound to work", WARN);
+    }
     if w.carrying(pid).is_some() {
         return ("Carrying", GOLD);
     }

@@ -976,7 +976,10 @@ fn loot_view(w: &World, looter: PersonId) -> String {
     let Some(src) = w.source_now(looter) else { return "They couldn't get to it.\n".into() };
     let title = match src {
         Source::Body(b) => format!("{} goes through {}'s things", first_name(w, looter), name_of(w, b)),
-        Source::Chest(c) => format!("{} opens a {} (taking from it is theft if seen)", first_name(w, looter), w.container(c).map(|c| c.what.name()).unwrap_or("container")),
+        Source::Chest(c) => {
+            let at = w.container(c).map(|c| c.pos).unwrap_or(w.squad.pos);
+            format!("{} opens a {} (taking from it is theft: {:.0}% chance of being seen)", first_name(w, looter), w.container(c).map(|c| c.what.name()).unwrap_or("container"), w.catch_chance(looter, at, c.0) * 100.0)
+        }
     };
     let _ = writeln!(o, "{title}:");
     for (i, (r, it, n)) in w.contents(src).iter().enumerate() {

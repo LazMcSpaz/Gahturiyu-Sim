@@ -80,6 +80,11 @@ impl World {
     /// their band hasn't noticed the squad, they're caught unawares for a
     /// moment — longer if everyone going in is sneaking.
     pub fn attack(&mut self, who: &[PersonId], enemy: PersonId) -> bool {
+        let free: Vec<PersonId> = who.iter().copied().filter(|&m| self.free_to_order(m)).collect();
+        let who = &free[..];
+        if who.is_empty() {
+            return false;
+        }
         if self.squad_battle().is_some() {
             return self.order_attack_with(who, enemy);
         }
