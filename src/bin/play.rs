@@ -353,9 +353,16 @@ fn hud(w: &World, s: &Session) -> String {
         let sus = w.suspicion_of(m);
         let seen = if sus >= 1.0 { " SPOTTED" } else if sus > 0.3 { " being noticed" } else { "" };
         let lvl = w.fresh_level_up(m).map(|(a, v)| format!(" ({a} {v} ↑)")).unwrap_or_default();
+        // Strayed from the others, or left sneaking (half pace): both are
+        // easy to miss, so both are flagged.
+        let off = match w.strayed(m) {
+            Some(d) if !w.is_down(m) => format!(" [{d:.0} m from the others]"),
+            _ => String::new(),
+        };
+        let slow = if w.is_sneaking(m) && !w.is_down(m) { " [sneaking: half pace]" } else { "" };
         let _ = writeln!(
             o,
-            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}",
+            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}{off}{slow}",
             first_name(w, m),
             p.race.name(),
             status(w, m),
@@ -1034,8 +1041,19 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let (Some(m), Ok(k), Some(to)) = (member(w, arg(0)), arg(1).parse::<usize>(), member(w, arg(2))) else {
                 return "Usage: give NAME N TO_NAME (N from `pack NAME`)\n".into();
             };
-            match w.give_entry(m, k, to) {
-                Ok(line) => o += &format!("{line}\n"),
+            match w.order_give(m, k, to) {
+                Ok(line) => {
+                    o += &format!("{line}\n");
+                    // If they had to walk over, see it through.
+                    let mut n = 0;
+                    while !w.giving.is_empty() && n < 2400 {
+                        w.step(0.25);
+                        n += 1;
+                    }
+                    if n > 0 {
+                        o += &news(w, s);
+                    }
+                }
                 Err(why) => o += &format!("Can't: {why}\n"),
             }
             o += &pack(w, m);

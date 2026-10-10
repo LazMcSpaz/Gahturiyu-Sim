@@ -1452,7 +1452,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 w.drop_entry(pid, k);
             }
             Action::GiveEntry(pid, k, to) => {
-                let msg = match w.give_entry(pid, k, to) {
+                let msg = match w.order_give(pid, k, to) {
                     Ok(m) | Err(m) => m,
                 };
                 game.notice = Some((msg, std::time::Instant::now()));

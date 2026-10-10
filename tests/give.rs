@@ -82,3 +82,63 @@ fn a_squadmate_walks_over_and_gives_the_downed_a_draught() {
     assert_eq!(w.count_of(a, "healing_draught"), before - 1, "given");
     assert!(w.log.iter().any(|l| l.1.contains("gives") && l.1.contains("healing draught")), "{:?}", w.log);
 }
+
+#[test]
+fn a_squadmate_walks_over_to_hand_something_across() {
+    // Playtest 2: three of five gives failed because the two had drifted
+    // 47, 57 and 66 m apart. Now the giver walks over.
+    let mut w = worldgen::generate(1);
+    let (a, b) = (w.squad.members[0], w.squad.members[1]);
+    let bread = items::id("flatbread");
+    w.people[a as usize].detail.as_mut().unwrap().gear.add(bread, 4);
+    let k = w.people[a as usize].detail.as_ref().unwrap().gear.bag.iter().position(|e| e.0 == bread).unwrap();
+    let (had, stack) = (w.count_of(b, "flatbread"), w.count_of(a, "flatbread"));
+    let kb = w.squad.index(b).unwrap();
+    let far = w.squad.at[kb].add(V2::new(45.0, 0.0));
+    w.squad.at[kb] = far;
+    w.squad.goal[kb] = far;
+    let said = w.order_give(a, k, b).unwrap();
+    assert!(said.contains("walks over"), "{said}");
+    assert_eq!(w.count_of(b, "flatbread"), had, "not yet");
+    for _ in 0..4000 {
+        if w.giving.is_empty() {
+            break;
+        }
+        w.step(0.25);
+    }
+    assert!(w.giving.is_empty(), "they got there");
+    assert_eq!(w.count_of(b, "flatbread"), had + stack, "the whole stack, on arrival");
+    assert_eq!(w.count_of(a, "flatbread"), 0);
+    assert!(w.person_pos(a).dist(w.person_pos(b)) < 10.0);
+    // A new order for the giver calls a give off.
+    w.people[a as usize].detail.as_mut().unwrap().gear.add(bread, 2);
+    let k = w.people[a as usize].detail.as_ref().unwrap().gear.bag.iter().position(|e| e.0 == bread).unwrap();
+    let ka = w.squad.index(a).unwrap();
+    let off = w.squad.at[ka].add(V2::new(-50.0, 0.0));
+    w.squad.at[ka] = off;
+    w.squad.goal[ka] = off;
+    w.order_give(a, k, b).unwrap();
+    assert_eq!(w.giving.len(), 1);
+    let here = w.person_pos(a);
+    w.order_members(&[a], here);
+    assert!(w.giving.is_empty(), "walking somewhere else instead");
+}
+
+#[test]
+fn someone_who_has_strayed_is_flagged() {
+    let mut w = worldgen::generate(1);
+    assert!(w.squad.members.len() >= 3);
+    for &m in &w.squad.members.clone() {
+        assert_eq!(w.strayed(m), None, "the squad starts together");
+    }
+    let m = w.squad.members[1];
+    let k = w.squad.index(m).unwrap();
+    let off = w.squad.at[k].add(V2::new(60.0, 0.0));
+    w.squad.at[k] = off;
+    w.squad.goal[k] = off;
+    let d = w.strayed(m).expect("60 m off is strayed");
+    assert!(d > 50.0 && d < 70.0, "{d}");
+    for &other in w.squad.members.iter().filter(|&&x| x != m) {
+        assert_eq!(w.strayed(other), None, "the ones who stayed put haven't strayed");
+    }
+}
