@@ -783,6 +783,47 @@ pub fn phase(t: f64) -> Phase {
 /// (`tide::level`: −1 is dead low water).
 pub const LOW_WATER: f32 = -0.45;
 
+impl Species {
+    /// More than one of them. (A Turiyu's name doesn't take an s.)
+    pub fn plural(&self) -> String {
+        if self.name.ends_with("Turiyu") {
+            self.name.to_string()
+        } else {
+            format!("{}s", self.name)
+        }
+    }
+
+    /// "the Chasm lurker" for one, "the Brushleapers" for more (BL-73).
+    pub fn the(&self, n: usize) -> String {
+        if n == 1 {
+            format!("the {}", self.name)
+        } else {
+            format!("the {}", self.plural())
+        }
+    }
+
+    /// "a Cragmaw", "10 Tidepickers".
+    pub fn counted(&self, n: usize) -> String {
+        if n == 1 {
+            let an = matches!(self.name.chars().next(), Some('A' | 'E' | 'I' | 'O' | 'U'));
+            format!("{} {}", if an { "an" } else { "a" }, self.name)
+        } else {
+            format!("{n} {}", self.plural())
+        }
+    }
+
+    /// How much there is of one to cut up, against a middling beast (a
+    /// hand-sized Tidepicker is a tenth of the work of a Mossback: BL-57).
+    pub fn bulk(&self) -> f32 {
+        (self.looks.len / 2.0).clamp(0.1, 2.0)
+    }
+
+    /// The species of this name, if any.
+    pub fn named(name: &str) -> Option<&'static Species> {
+        SPECIES.iter().find(|s| s.name == name)
+    }
+}
+
 impl Active {
     /// Is a species with these hours up and about at time `t`?
     pub fn at(self, t: f64) -> bool {
