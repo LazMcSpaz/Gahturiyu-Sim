@@ -269,6 +269,7 @@ const TIPS: &[(&str, &str)] = &[
     ("hungry", "Someone's hungry. They eat from their pack when they need to: buy food from a merchant, or hunt (click a wild animal) and cut up what you kill."),
     ("night", "Night's coming. Press N to rest (a tent in someone's pack makes it a better sleep), or T for torches if you'd rather keep going."),
     ("beaten", "Beaten and robbed. Rest until you can stand (N), get some gear, and go and take it back from their camp."),
+    ("feel", "Felt spells come with use. As someone casts and fights, their feel for that kind of magic grows, and the spells within reach come to them on their own. Their spell book (M) shows what they know."),
 ];
 
 fn tip_due(w: &World, id: &str) -> bool {
@@ -283,6 +284,7 @@ fn tip_due(w: &World, id: &str) -> bool {
         "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| h >= 50.0)),
         "night" => gahturiyu_sim::sim::stealth::daylight(w.time) < 0.35,
         "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),
+        "feel" => w.log.iter().take(12).any(|l| w.time - l.0 < 3600.0 && (l.1.contains(" has a feel for ") || l.1.contains(" the feel of "))),
         _ => false,
     }
 }
