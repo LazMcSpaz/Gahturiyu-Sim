@@ -350,6 +350,11 @@ fn tip_due(w: &World, id: &str) -> bool {
 
 fn status(w: &World, pid: PersonId) -> String {
     let doing = doing(w, pid);
+    // A town has turned its back on them (N4).
+    let doing = match w.shunned_in(pid) {
+        Some(t) => format!("{doing}, shunned in {}", w.settlements[t as usize].name),
+        None => doing,
+    };
     // Bound to work in a town: where, and how long is left (NM-36).
     let Some(b) = w.bond_of(pid) else { return doing };
     let place = &w.settlements[b.town as usize].name;
