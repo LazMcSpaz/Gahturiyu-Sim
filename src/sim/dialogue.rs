@@ -296,7 +296,7 @@ impl World {
             return false;
         }
         let p = &self.people[npc as usize];
-        if p.bandit || p.in_squad || p.dead || self.is_indoors_asleep(npc) {
+        if p.bandit || p.in_squad || p.dead || self.is_indoors_asleep(npc) || self.is_down(who) {
             return false;
         }
         let Some(k) = self.squad.index(who) else { return false };
@@ -712,20 +712,25 @@ impl World {
                         o.known = true;
                     }
                     let extra = bonus.map(|b| format!(" — and {} besides", items::item(b).name.to_lowercase())).unwrap_or_default();
+                    // A favour: nothing to pay, and said so.
+                    let paid = coin > 0;
                     match kind {
                         QuestKind::ClearCamp { at, .. } => {
                             let v = at.sub(town.map(|t| t.pos).unwrap_or(at));
                             format!(
-                                "Those bandits {:.1} km {} of here have had my cousin twice. Break that camp and I'll pay {coin} coin{extra}.",
+                                "Those bandits {:.1} km {} of here have had my cousin twice. Break that camp and {}{extra}.",
                                 v.len() / 1000.0,
-                                compass(v)
+                                compass(v),
+                                if paid { format!("I'll pay {coin} coin") } else { "I'll owe you".to_string() }
                             )
                         }
-                        QuestKind::Fetch { item, count } => format!("I need {count} × {}. Bring them and there's {coin} coin in it.", items::item(item).name.to_lowercase()),
+                        QuestKind::Fetch { item, count } if paid => format!("I need {count} × {}. Bring them and there's {coin} coin in it.", items::item(item).name.to_lowercase()),
+                        QuestKind::Fetch { item, count } => format!("I need {count} × {}. I can't pay, but I'd owe you.", items::item(item).name.to_lowercase()),
                         QuestKind::Deliver { to } => {
                             let q = &self.people[to as usize];
                             let place = q.home.map(|h| self.settlements[h as usize].name.clone()).unwrap_or_default();
-                            format!("Would you carry a letter to {} in {place}? Sealed, mind. {coin} coin when it's done — they'll pay you.", super::names::person_name(q.race, q.seed))
+                            let pay = if paid { format!("{coin} coin when it's done; they'll pay you.") } else { "I can't pay, but I'd owe you.".to_string() };
+                            format!("Would you carry a letter to {} in {place}? Sealed, mind. {pay}", super::names::person_name(q.race, q.seed))
                         }
                         QuestKind::Job { opp } => {
                             let line = self.opportunity(opp).map(|o| self.opp_line(o)).unwrap_or_default();
@@ -811,13 +816,13 @@ impl World {
                 match (q.kind, q.stage) {
                     (_, Stage::Report) => {
                         self.reward(i, c.with);
-                        format!("You did it? Then here — {} coin, as promised.", q.coin)
+                        if q.coin > 0 { format!("You did it? Then here — {} coin, as promised.", q.coin) } else { "You did it? I won't forget it.".into() }
                     }
                     (QuestKind::Fetch { item, count }, Stage::Active) => {
                         if self.squad_count(item) >= count {
                             self.take_from_squad(item, count);
                             self.reward(i, c.with);
-                            format!("That's all of them. {} coin — fair's fair.", q.coin)
+                            if q.coin > 0 { format!("That's all of them. {} coin — fair's fair.", q.coin) } else { "That's all of them. I owe you.".into() }
                         } else {
                             format!("That's not {count}. Come back when it is.")
                         }
@@ -829,7 +834,7 @@ impl World {
                 self.take_from_squad(items::id("sealed_letter"), 1);
                 self.reward(i, c.with);
                 let from = self.people[self.quests[i].giver as usize].name().unwrap_or("someone").to_string();
-                format!("From {from}? At last. Here, for your trouble — {} coin.", self.quests[i].coin)
+                if self.quests[i].coin > 0 { format!("From {from}? At last. Here, for your trouble — {} coin.", self.quests[i].coin) } else { format!("From {from}? At last. Thank you.") }
             }
             Topic::PayBounty => {
                 let Some(h) = p.home else { return String::new() };

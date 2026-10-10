@@ -51,6 +51,9 @@ pub const PRESENT_SHARE: f32 = 0.5;
 pub const MISSED_LIMIT: u8 = 2;
 /// How near the place counts as being there, metres.
 pub const AT_POST: f32 = 14.0;
+/// A member further than this from their work at the start of a shift
+/// doesn't set off (metres).
+pub const WORK_REACH: f32 = 2500.0;
 /// A post's hours (from, to).
 pub const POST_HOURS: (f32, f32) = (8.0, 17.0);
 /// A hand hired by the day is paid this many times a townsperson's own rate.
@@ -59,6 +62,9 @@ pub const HIRED_RATE: f32 = 3.0;
 /// the least.
 pub const REWARD_SHARE: f32 = 0.4;
 pub const REWARD_MIN: u16 = 15;
+/// The most goods anyone asks a stranger to fetch for no pay (a favour
+/// owed), in coin's worth of the job.
+pub const FAVOUR_MAX: f32 = 30.0;
 /// Payment for scaring or killing someone, in days of the giver's costs.
 pub const INTIMIDATE_DAYS: f32 = 4.0;
 pub const KILL_DAYS: f32 = 12.0;
@@ -502,12 +508,50 @@ impl World {
             let here = self.member_pos(k);
             if here.dist(at) <= AT_POST {
                 self.society.contracts[i].present += dt;
-            } else if c.sent_day != day || (self.squad.route[k].is_empty() && self.squad.goal[k] == self.squad.at[k]) {
-                // (Up from their bedroll, if they'd lain down.)
-                self.send(c.member, at);
+            } else if c.sent_day != day {
+                // Once a shift: at its start they set off (up from their
+                // bedroll, if they'd lain down). After that, the player's
+                // orders stand.
                 self.society.contracts[i].sent_day = day;
+                let name = self.name_of(c.member);
+                let place = self.society.towns[c.town as usize].places.get(c.place as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_else(|| "town".into());
+                if here.dist(at) > WORK_REACH {
+                    self.say(self.time, format!("{name} is too far from the {place} to work today."));
+                    continue;
+                }
+                let (path, _) = self.travel(here, at);
+                if self.crosses_sea(here, &path) {
+                    self.say(self.time, format!("{name} can't find a way to the {place}."));
+                    continue;
+                }
+                self.send_along(c.member, path, at);
+                self.say(self.time, format!("{name} goes to work at the {place}."));
             }
         }
+    }
+
+    /// Set a member off along a way already found.
+    fn send_along(&mut self, who: PersonId, path: Vec<V2>, to: V2) {
+        let Some(k) = self.squad.index(who) else { return };
+        self.squad.goal[k] = *path.last().unwrap_or(&to);
+        self.squad.route[k] = path;
+        self.squad.resting[k] = false;
+    }
+
+    /// Does this way, from `from`, cross open water anywhere?
+    pub fn crosses_sea(&self, from: V2, path: &[V2]) -> bool {
+        let mut prev = from;
+        for &p in path {
+            let n = ((prev.dist(p) / 20.0).ceil() as usize).max(1);
+            for j in 1..=n {
+                let q = prev.lerp(p, j as f32 / n as f32);
+                if self.open_water(q) {
+                    return true;
+                }
+            }
+            prev = p;
+        }
+        false
     }
 
     /// At dawn: pay for yesterday's work, or count it missed; contracts end.

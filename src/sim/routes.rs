@@ -74,6 +74,20 @@ impl Routes {
     }
 
     /// The network point nearest `p`.
+    /// Is `p` on a road (within `half` metres of its line)? A road laid
+    /// along a low shore is walkable where the land dips under the water.
+    pub fn on_road(&self, p: V2, half: f32) -> bool {
+        self.roads.iter().any(|r| {
+            r.windows(2).any(|s| {
+                let (a, b) = (s[0], s[1]);
+                let ab = b.sub(a);
+                let l2 = (ab.x * ab.x + ab.y * ab.y).max(1e-6);
+                let t = (((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / l2).clamp(0.0, 1.0);
+                a.add(ab.scale(t)).dist(p) <= half
+            })
+        })
+    }
+
     pub fn nearest_node(&self, p: V2) -> Option<u32> {
         (0..self.nodes.len()).min_by(|&a, &b| self.nodes[a].dist(p).total_cmp(&self.nodes[b].dist(p))).map(|i| i as u32)
     }

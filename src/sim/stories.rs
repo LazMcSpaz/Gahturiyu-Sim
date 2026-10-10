@@ -729,6 +729,11 @@ impl World {
             Chance::Escort | Chance::Champion => return None,
         };
         let (reward, favour) = self.can_reward(who, want)?;
+        // Nobody asks for costly goods for nothing (round 3: three gold for
+        // a favour).
+        if favour && matches!(o.kind, Chance::Fetch { .. }) && want > super::chances::FAVOUR_MAX {
+            return None;
+        }
         o.reward = reward;
         o.favour = favour;
         self.post_opp(o, t)

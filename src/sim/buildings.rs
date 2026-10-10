@@ -36,6 +36,8 @@ pub type DoorId = (SettlementId, u16);
 
 /// Trips longer than this (metres) consider the roads.
 pub const ROAD_TRIP: f32 = 600.0;
+/// Half a road's width: on it, a low shore is walkable (metres).
+pub const ROAD_HALF: f32 = 4.0;
 /// Seconds per lockpicking attempt.
 pub const PICK_TIME: f64 = 4.0;
 /// How close to the door you must stand to work the lock, metres.
@@ -352,13 +354,21 @@ impl World {
         (path, locked)
     }
 
+    /// Open water the squad can't walk: the sea, less buildings standing in
+    /// it and roads along a low shore.
+    pub fn open_water(&self, p: V2) -> bool {
+        self.terrain.is_sea(p) && self.building_at(p).is_none() && !self.routes.on_road(p, ROAD_HALF)
+    }
+
     /// Walking effort straight across the land; the sea can't be crossed.
     fn overland_effort(&self, a: V2, b: V2) -> f32 {
         let n = ((a.dist(b) / 50.0).ceil() as usize).max(1);
         let mut total = 0.0;
         for k in 0..n {
             let (p, q) = (a.lerp(b, k as f32 / n as f32), a.lerp(b, (k + 1) as f32 / n as f32));
-            if !super::geo::is_land(q) {
+            // The sea is wherever the land is below the water, bays and
+            // inlets too (not the world's broad coastline).
+            if self.open_water(q) {
                 return f32::INFINITY;
             }
             total += self.terrain.effort(p, q);
@@ -408,6 +418,7 @@ impl World {
         self.pickups.retain(|p| p.who != who);
         self.picking.retain(|p| p.who != who);
         self.picking.push(Picking { who, door, tries: 0, next: None, holder: None });
+        self.rouse(who);
         true
     }
 
@@ -463,7 +474,7 @@ impl World {
                 (None, Some(d)) => (d.outside, d.lock),
                 (None, None) => continue,
             };
-            if self.squad.at[k].dist(spot) > AT_DOOR || self.fighting.contains_key(&pk.who) {
+            if self.squad.at[k].dist(spot) > AT_DOOR || self.fighting.contains_key(&pk.who) || !self.can_act(pk.who) {
                 continue;
             }
             let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();

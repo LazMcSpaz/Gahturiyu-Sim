@@ -213,7 +213,7 @@ impl World {
         }
         let free: Vec<PersonId> = who.iter().copied().filter(|m| !bound.contains(m)).collect();
         let who = &free[..];
-        if !who.is_empty() && self.terrain.is_sea(target) && self.building_at(target).is_none() {
+        if !who.is_empty() && self.open_water(target) {
             self.sea_stops();
         }
         let mut blocked = None;
@@ -231,9 +231,7 @@ impl World {
             self.gathering.retain(|g| g.0 != pid);
             self.stop_work(pid);
             self.casts.retain(|c| c.who != pid);
-            if let Some(k) = self.squad.index(pid) {
-                self.squad.resting[k] = false;
-            }
+            self.rouse(pid);
             self.want_carry.retain(|w| w.0 != pid);
             self.dosing.retain(|d| d.0 != pid);
             self.giving.retain(|g| g.from != pid);
@@ -311,8 +309,19 @@ impl World {
             let grade = (self.terrain.height(ahead) - self.terrain.height(at)) / 3.0;
             let ground = self.terrain.ground(at).pace();
             let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * ground as f64 * dt) as f32;
+            // Too much to carry: they can't take a step, and say so.
+            if self.load_of(pid) >= super::inventory::OVERLOAD_STOP {
+                self.squad.goal[k] = at;
+                self.squad.route[k].clear();
+                let line = format!("{} can't move under that load.", self.people[pid as usize].name().unwrap_or("Someone"));
+                if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+                    self.log.push_front((self.time, line));
+                    self.log.truncate(14);
+                }
+                continue;
+            }
             let next = if d <= stride { goal } else { at.add(dir.scale(stride)) };
-            if !self.terrain.is_sea(next) || self.building_at(next).is_some() {
+            if !self.open_water(next) {
                 let rise = self.terrain.height(next) - self.terrain.height(at);
                 self.climb(pid, rise);
                 self.squad.at[k] = next;
@@ -376,6 +385,23 @@ impl World {
 
     // ---- Things --------------------------------------------------------------
 
+    /// Ordered to do something: up from a rest, and at night kept up until
+    /// morning (as when woken), instead of bedding down when they stop.
+    pub(super) fn rouse(&mut self, pid: PersonId) {
+        if let Some(k) = self.squad.index(pid) {
+            self.squad.resting[k] = false;
+            if super::condition::is_night(self.time) {
+                self.squad.kept_up[k] = super::condition::next_rise(self.time);
+            }
+        }
+    }
+
+    /// Up and awake: able to do something where they stand. (The down and
+    /// the sleeping can't light torches, change gear, loot or search.)
+    pub fn can_act(&self, pid: PersonId) -> bool {
+        !self.is_down(pid) && !self.is_asleep(pid)
+    }
+
     /// Equip something from a person's pack. Changes their might.
     pub fn equip(&mut self, pid: PersonId, it: ItemId) -> bool {
         self.equip_from(pid, it, None)
@@ -389,6 +415,9 @@ impl World {
     }
 
     fn equip_from(&mut self, pid: PersonId, it: ItemId, entry: Option<usize>) -> bool {
+        if self.squad.index(pid).is_some() && !self.can_act(pid) {
+            return false;
+        }
         let p = &self.people[pid as usize];
         // Without a left arm there's no holding a shield or a two-handed weapon.
         let def = item(it);
@@ -429,6 +458,9 @@ impl World {
     }
 
     pub fn unequip(&mut self, pid: PersonId, slot: Slot) -> bool {
+        if self.squad.index(pid).is_some() && !self.can_act(pid) {
+            return false;
+        }
         if slot == Slot::OffHand && self.torch_in_hand(pid).is_some() && (self.torches.contains_key(&pid) || self.torch_left.contains_key(&pid)) {
             // A lit or part-burnt torch is thrown away, not packed.
             self.torch_left_hand(pid);
@@ -458,6 +490,9 @@ impl World {
 
     /// Put down one of the `k`th thing in someone's pack (that very piece).
     pub fn drop_entry(&mut self, pid: PersonId, k: usize) -> bool {
+        if self.squad.index(pid).is_some() && !self.can_act(pid) {
+            return false;
+        }
         let pos = self.person_pos(pid);
         if self.squad.index(pid).is_some() {
             self.settle_condition(pid, self.time);
@@ -725,6 +760,9 @@ impl World {
 
     /// Send a member to pick something up; they walk over and take it.
     pub fn order_pickup(&mut self, who: PersonId, thing: u32) -> bool {
+        if self.is_down(who) {
+            return false;
+        }
         let Some(g) = self.ground.iter().find(|g| g.id == thing) else { return false };
         let pos = g.pos;
         if let Some(k) = self.squad.index(who) {
@@ -737,6 +775,7 @@ impl World {
         } else {
             return false;
         }
+        self.rouse(who);
         self.pickups.retain(|p| p.who != who);
         self.pickups.push(Pickup { who, thing });
         self.do_pickups();
@@ -755,7 +794,7 @@ impl World {
                 done.push(n);
                 continue;
             };
-            if self.squad.at[k].dist(self.ground[gi].pos) <= REACH {
+            if self.squad.at[k].dist(self.ground[gi].pos) <= REACH && !self.is_down(pk.who) {
                 let g = self.ground.remove(gi);
                 let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
                 if let Some(town) = g.owner {
