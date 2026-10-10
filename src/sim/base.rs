@@ -159,6 +159,8 @@ pub const BASE_GAP: f32 = 250.0;
 pub const ROAD_CLEAR: f32 = 4.0;
 /// A gate or tower snaps to a wall within this distance of the cursor.
 pub const SNAP: f32 = 4.0;
+/// The narrowest wall piece a gate can take the place of, metres.
+pub const GATE_MIN: f32 = 2.0;
 /// Deconstructing a standing building gives back this share of its materials.
 pub const SALVAGE: f32 = 0.5;
 
@@ -265,6 +267,10 @@ impl Built {
             State::Ruin => 0.0,
         }
     }
+    /// A wall piece's two ends (its length, `w`, runs across its facing).
+    pub fn wall_ends(&self) -> [V2; 2] {
+        wall_ends(self.at, self.rot, self.w)
+    }
     /// The footprint's four corners.
     pub fn corners(&self) -> [V2; 4] {
         corners(self.at, self.rot, self.w, self.def().d)
@@ -289,6 +295,32 @@ impl Built {
             _ => 1.0,
         }
     }
+}
+
+/// The two ends of a wall piece laid at `at`, facing `rot`, `w` long.
+pub fn wall_ends(at: V2, rot: f32, w: f32) -> [V2; 2] {
+    let along = V2::new(-rot.sin(), rot.cos()).scale(w * 0.5);
+    [at.add(along), at.sub(along)]
+}
+
+/// Do two wall pieces meet end to end at a bend? (Pieces of one wall
+/// overlap a little where it turns a corner; that's a joint, not one wall
+/// built on another. Two pieces lying along each other are not a joint.)
+fn wall_joint(a: (V2, f32, f32), b: (V2, f32, f32), thick: f32) -> bool {
+    let (ea, eb) = (wall_ends(a.0, a.1, a.2), wall_ends(b.0, b.1, b.2));
+    for i in 0..2 {
+        for j in 0..2 {
+            if ea[i].dist(eb[j]) <= thick {
+                // From the shared end, which way does each run?
+                let (da, db) = (ea[1 - i].sub(ea[i]), eb[1 - j].sub(eb[j]));
+                let (la, lb) = ((da.x * da.x + da.y * da.y).sqrt(), (db.x * db.x + db.y * db.y).sqrt());
+                if la > 0.0 && lb > 0.0 && (da.x * db.x + da.y * db.y) / (la * lb) < 0.94 {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 /// A rectangle's corners: `w` across the facing, `d` along it.
@@ -561,7 +593,10 @@ impl World {
             let walls = base.buildings.iter().filter(|b| b.def().kind == Kind::Wall);
             match def.kind {
                 Kind::Gate => {
-                    let near = walls.filter(|b| b.w >= def.w - 0.01).min_by(|a, b| a.at.dist(plan.at).total_cmp(&b.at.dist(plan.at)));
+                    // It takes the place of one wall piece, and that piece's
+                    // width: any piece wide enough to walk through will do
+                    // (a wall's pieces run from 2 m to 4 m: NM-3).
+                    let near = walls.filter(|b| b.w >= GATE_MIN).min_by(|a, b| a.at.dist(plan.at).total_cmp(&b.at.dist(plan.at)));
                     match near {
                         Some(wl) if wl.at.dist(plan.at) <= SNAP => {
                             plan.at = wl.at;
@@ -575,8 +610,7 @@ impl World {
                 _ => {
                     let mut best: Option<(f32, V2)> = None;
                     for wl in walls {
-                        let f = V2::new(wl.rot.cos(), wl.rot.sin()).scale(wl.w * 0.5);
-                        for end in [wl.at.add(f), wl.at.sub(f)] {
+                        for end in wl.wall_ends() {
                             let d = end.dist(plan.at);
                             if d <= SNAP && best.is_none_or(|(bd, _)| d < bd) {
                                 best = Some((d, end));
@@ -666,6 +700,10 @@ impl World {
                     continue;
                 }
                 if def.kind == Kind::Wall && bl.def().kind == Kind::Tower {
+                    continue;
+                }
+                // A wall turning a corner (NM-2).
+                if def.kind == Kind::Wall && bl.def().kind == Kind::Wall && wall_joint((plan.at, plan.rot, plan.w), (bl.at, bl.rot, bl.w), def.d.max(bl.def().d)) {
                     continue;
                 }
                 if overlap(&poly, &bl.corners()) {
@@ -903,14 +941,18 @@ impl World {
             let on: f32 = b.builders.iter().filter(|h| h.1 == id).map(|h| h.2).sum();
             let rot = bl.rot_rate();
             match &mut bl.state {
+                // (A change handled late never moves a clock back: the
+                // labour and health counted so far are as of `since` and
+                // `hp_at`, wherever `t` is. NM-1.)
                 State::Site(s) => {
                     s.rate = on;
-                    s.since = t;
-                    s.done_at = (s.rate > 0.0).then(|| t + ((total - s.labour).max(0.0) / s.rate) as f64 * HOUR);
+                    s.since = s.since.max(t);
+                    let from = s.since;
+                    s.done_at = (s.rate > 0.0).then(|| from + ((total - s.labour).max(0.0) / s.rate) as f64 * HOUR);
                 }
                 State::Standing { rate, hp_at, .. } => {
                     *rate = on * MEND_PER_HOUR - rot;
-                    *hp_at = t;
+                    *hp_at = (*hp_at).max(t);
                 }
                 State::Ruin => {}
             }

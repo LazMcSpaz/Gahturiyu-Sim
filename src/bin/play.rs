@@ -304,7 +304,7 @@ fn tip_due(w: &World, id: &str) -> bool {
         "work" => w.deposits.iter().any(|d| near(d.pos, 400.0)),
         "fight" => w.squad_battle().is_some(),
         "loot" => w.squad_battle().is_none() && w.groups.iter().filter(|g| g.band <= 1).flat_map(|g| g.members.iter()).any(|&m| w.can_loot(m) && near(w.person_pos(m), 80.0)),
-        "full" => w.squad.members.iter().any(|&m| w.load_of(m) > 0.95),
+        "full" => w.squad.members.iter().any(|&m| w.pack_load_of(m) > 0.95),
         "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| h >= 50.0)),
         "night" => gahturiyu_sim::sim::stealth::daylight(w.time) < 0.35,
         "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),
@@ -401,7 +401,7 @@ fn hud(w: &World, s: &Session) -> String {
         let slow = if w.is_sneaking(m) && !w.is_down(m) { " [sneaking: half pace]" } else { "" };
         let _ = writeln!(
             o,
-            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}{off}{slow}",
+            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{}{hunger}{tired}{seen}{lvl}{off}{slow}",
             first_name(w, m),
             p.race.name(),
             status(w, m),
@@ -409,7 +409,9 @@ fn hud(w: &World, s: &Session) -> String {
             pct(if w.is_down(m) { health(w, m) } else { health(w, m).max(0.01) }),
             pct(w.stamina_of(m).unwrap_or(1.0)),
             w.kit_weight_at(m, w.time).max(0.0),
-            w.capacity_at(m, w.time)
+            w.capacity_at(m, w.time),
+            // Someone carried weighs on them too.
+            w.carrying(m).map(|c| format!(" + {}", first_name(w, c))).unwrap_or_default()
         );
     }
     if let Some(q) = w.quests.iter().find(|q| q.stage != Stage::Done) {
@@ -834,6 +836,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 };
                 (!dx.is_nan()).then(|| w.squad.pos.add(V2::new(dx * m, dy * m)))
             };
+            // Only real numbers make a place.
+            let target = target.filter(|t| t.x.is_finite() && t.y.is_finite());
             match target {
                 Some(t) => {
                     if s.selected.is_empty() {
@@ -996,7 +1000,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let target = person_arg(w, t);
             let point = match target {
                 Some(p) => Some(w.person_pos(p)),
-                None => t.split_once(',').and_then(|(x, y)| Some(V2::new(x.parse().ok()?, y.parse().ok()?))).or(Some(w.person_pos(m))),
+                None => t.split_once(',').and_then(|(x, y)| Some(V2::new(x.parse().ok()?, y.parse().ok()?))).filter(|p: &V2| p.x.is_finite() && p.y.is_finite()).or(Some(w.person_pos(m))),
             };
             match w.order_cast(m, sp, target, point) {
                 Ok(()) => {
@@ -1078,7 +1082,14 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         "enter" => {
             let id = arg(0).strip_prefix('b').unwrap_or("");
             let door = id.split_once('.').and_then(|(x, y)| Some((x.parse().ok()?, y.parse().ok()?)));
+            let is_in = |w: &World, m: PersonId, id| w.squad.index(m).is_some_and(|k| w.squad.inside[k] == Some(id));
+            let who_inside = |w: &World, id, name: &str| {
+                let inside: Vec<String> = sel.iter().copied().filter(|&m| is_in(w, m, id)).map(|m| first_name(w, m)).collect();
+                if inside.is_empty() { format!("Nobody got inside the {name}.\n") } else { format!("{} {} inside the {name}.\n", inside.join(", "), if inside.len() == 1 { "is" } else { "are" }) }
+            };
             match door.and_then(|d| w.door(d)) {
+                // Already in: nothing to pick or walk.
+                Some(d) if !sel.is_empty() && sel.iter().all(|&m| is_in(w, m, d.id)) => o += &format!("Already inside the {}.\n", d.variant().name),
                 Some(d) if w.is_locked(d.id) => {
                     let pick = items::id("lockpick");
                     let picker = sel.iter().copied().find(|&m| w.people[m as usize].detail.as_ref().is_some_and(|x| x.gear.bag.iter().any(|e| e.0 == pick)));
@@ -1086,6 +1097,12 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                         Some(m) => {
                             w.order_pick(m, d.id);
                             o += &pass(w, 5.0 * 60.0, None);
+                            // Picked: in they go.
+                            if !w.is_locked(d.id) && w.picking.iter().all(|p| p.who != m) {
+                                w.order_members(&sel, d.centre);
+                                o += &pass(w, 30.0 * 60.0, Some(&sel));
+                                o += &who_inside(w, d.id, d.variant().name);
+                            }
                             o += &look(w, s);
                         }
                         None => o += "It's locked, and nobody selected has a lockpick.\n",
@@ -1094,9 +1111,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 Some(d) => {
                     w.order_members(&sel, d.centre);
                     o += &pass(w, 30.0 * 60.0, Some(&sel));
-                    let name = d.variant().name;
-                    let inside: Vec<String> = sel.iter().copied().filter(|&m| w.squad.index(m).is_some_and(|k| w.squad.inside[k] == Some(d.id))).map(|m| first_name(w, m)).collect();
-                    o += &if inside.is_empty() { format!("Nobody got inside the {name}.\n") } else { format!("{} {} inside the {name}.\n", inside.join(", "), if inside.len() == 1 { "is" } else { "are" }) };
+                    o += &who_inside(w, d.id, d.variant().name);
                     o += &look(w, s);
                 }
                 None => o += "No such building.\n",
@@ -1421,8 +1436,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                             let _ = writeln!(o, "    p{p} {} — trading now", name_of(w, p));
                         }
                         Some(at) => {
-                            let day = if (at / DAY).floor() > (w.time / DAY).floor() { " tomorrow" } else { "" };
-                            let _ = writeln!(o, "    p{p} {} — at their stall from {}{day}", name_of(w, p), hhmm(at));
+                            let _ = writeln!(o, "    p{p} {} — at their stall from {}{}", name_of(w, p), hhmm(at), w.day_word(at));
                         }
                         None => {}
                     }

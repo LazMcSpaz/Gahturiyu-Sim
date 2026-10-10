@@ -138,8 +138,9 @@ impl Gear {
         if !self.bag.iter().any(|e| e.0 == id) {
             return Err(EquipError::NotInBag);
         }
-        // Coin is carried, not held (round 3: a coin in hand, and one short).
-        if def.kind == super::items::Kind::Coin {
+        // Only gear is worn or held: coin, food, materials, a tent and the
+        // like are carried (round 3: a coin in hand, and one short).
+        if !wearable(def.kind) {
             return Err(EquipError::WrongSlot);
         }
         let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
@@ -163,7 +164,7 @@ impl Gear {
     /// Put on the `k`th thing in the pack (a particular piece).
     pub fn equip_entry(&mut self, k: usize) -> Result<(), EquipError> {
         let Some(e) = self.bag.get(k).copied() else { return Err(EquipError::NotInBag) };
-        if item(e.0).kind == super::items::Kind::Coin {
+        if !wearable(item(e.0).kind) {
             return Err(EquipError::WrongSlot);
         }
         // Move it to the front of its kind so `equip` picks this one.
@@ -425,4 +426,10 @@ mod tests {
         assert!(rich.value() > poor.value() * 4.0, "{} vs {}", rich.value(), poor.value());
         assert_eq!(starting_kit(Race::Roduro, &s, 300.0, 9), starting_kit(Race::Roduro, &s, 300.0, 9));
     }
+}
+
+/// What can be worn or held: weapons, tools, shields, torches and wear.
+pub fn wearable(kind: super::items::Kind) -> bool {
+    use super::items::Kind as K;
+    matches!(kind, K::Weapon(_) | K::Armor(_) | K::Shield(_) | K::Pack(_) | K::Trinket | K::Tool | K::Torch(_))
 }

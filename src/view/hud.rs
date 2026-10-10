@@ -328,8 +328,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 if at <= w.time + 1.0 {
                     out.push(("Trading now".to_string(), GOLD));
                 } else {
-                    let day = if (at / 86400.0).floor() > (w.time / 86400.0).floor() { " tomorrow" } else { "" };
-                    out.push((format!("Merchant: at their stall from {}{day}", hhmm(at)), DIM));
+                    out.push((format!("Merchant: at their stall from {}{}", hhmm(at), w.day_word(at)), DIM));
                 }
             }
             match w.join_terms(pid) {

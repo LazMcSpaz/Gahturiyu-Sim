@@ -97,6 +97,8 @@ pub const COOK_OUT: u16 = 3;
 /// A hauler's round and what it brings: timber, then stone.
 pub const HAUL_HOURS: f64 = 3.0;
 pub const HAUL_YIELD: (u16, u16) = (2, 1);
+/// The share of a store a hauler leaves free for food.
+pub const HAUL_SPARE: f32 = 0.25;
 
 impl Base {
     /// How much the store can hold, kg.
@@ -209,9 +211,14 @@ impl World {
         if self.bases[i].present.is_empty() {
             return Err("nobody from the squad is there to collect them");
         }
+        // The travelling squad has its limit however people join it (NM-8).
+        if self.squad.members.len() >= super::recruit::MAX_SQUAD {
+            return Err("the squad is full");
+        }
         let t = self.time;
         let at = self.bases[i].spot(who).unwrap_or(self.bases[i].at);
-        // A round under way is dropped; its inputs are lost with it.
+        // A round under way is dropped; what went into it goes back.
+        self.drop_round(i, k);
         self.bases[i].residents.remove(k);
         self.bases[i].builders.retain(|h| h.0 != who);
         self.settle_condition(who, t);
@@ -230,7 +237,14 @@ impl World {
         let i = self.base_i(bid).unwrap();
         let Some(h) = self.bases[i].residents[k].hire.clone() else { return Err("one of the squad") };
         let coin = items::id("coin");
-        let pay = self.squad_count(coin).min(h.owed);
+        // What's owed from earlier dawns, and the part of today's wage for
+        // the hours since the last dawn (or since they got here): NM-6.
+        let t = self.time;
+        let dawn = super::society::DAWN as f64 * HOUR;
+        let last_dawn = ((t - dawn) / super::world::DAY).floor() * super::world::DAY + dawn;
+        let worked = ((t - last_dawn.max(h.arrives)) / super::world::DAY).clamp(0.0, 1.0) as f32;
+        let due = h.owed + (h.wage as f32 * worked).round() as u16;
+        let pay = self.squad_count(coin).min(due);
         self.take_from_squad(coin, pay);
         if let Some(hh) = h.household {
             self.society.households[hh as usize].purse.coin += pay as f32;
@@ -247,16 +261,38 @@ impl World {
         let i = self.base_i(bid).unwrap();
         let t = self.time;
         self.bases[i].settle_now(t);
-        let r = &mut self.bases[i].residents[k];
-        if r.job == job {
+        if self.bases[i].residents[k].job == job {
             return;
         }
+        // The round under way is dropped, and what went into it goes back
+        // to the store: changing someone's job costs nothing (NM-7).
+        self.drop_round(i, k);
+        let r = &mut self.bases[i].residents[k];
         r.job = job;
-        r.cycle = None;
         if job != Job::Crafter {
             r.recipe = None;
         }
         self.base_changed(bid);
+    }
+
+    /// Drop resident `k`'s round at base `i`, if one is under way: the grain
+    /// and timber of a bake, or a recipe's parts, go back into the store.
+    fn drop_round(&mut self, i: usize, k: usize) {
+        let Some(c) = self.bases[i].residents[k].cycle.take() else { return };
+        match self.bases[i].residents[k].job {
+            Job::Cook => {
+                self.bases[i].add_to_store(items::id("grain"), COOK_IN.0);
+                self.bases[i].add_to_store(items::id("timber"), COOK_IN.1);
+            }
+            Job::Crafter => {
+                if let Some(ri) = c.recipe {
+                    for &(key, n) in RECIPES[ri as usize].inputs {
+                        self.bases[i].add_to_store(items::id(key), n);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     /// The recipes a crafter could work at this base's sheds.
@@ -315,15 +351,20 @@ impl World {
             Job::Idle | Job::Builder | Job::Guard => None,
             Job::Farmer => b.free(Kind::Field, None, who).map(|id| (FARM_HOURS, id, None)),
             Job::Cook => {
-                let room = b.room_for(item(items::id("flatbread")).weight * COOK_OUT as f32);
+                // Room for the bread once the grain and timber have come out
+                // (a bake usually frees room: NM-5).
+                let freed = item(items::id("grain")).weight * COOK_IN.0 as f32 + item(items::id("timber")).weight * COOK_IN.1 as f32;
+                let room = b.room_for(item(items::id("flatbread")).weight * COOK_OUT as f32 - freed);
                 match b.free(Kind::Kitchen, None, who) {
                     Some(id) if room && b.count_in_store(items::id("grain")) >= COOK_IN.0 && b.count_in_store(items::id("timber")) >= COOK_IN.1 => Some((COOK_HOURS, id, None)),
                     _ => None,
                 }
             }
             Job::Hauler => {
+                // A hauler stops short of a full store, so there's room for
+                // the harvest and the baking (NM-5).
                 let kg = item(items::id("timber")).weight * HAUL_YIELD.0 as f32 + item(items::id("rock")).weight * HAUL_YIELD.1 as f32;
-                b.room_for(kg).then_some((HAUL_HOURS, u32::MAX, None))
+                b.room_for(kg + b.capacity() * HAUL_SPARE).then_some((HAUL_HOURS, u32::MAX, None))
             }
             Job::Crafter => res.recipe.and_then(|ri| {
                 let rc = &RECIPES[ri as usize];
@@ -577,6 +618,12 @@ impl World {
         self.settlements[town as usize].residents.retain(|&m| m != npc);
         self.refresh_container_owners();
         let arrives = t + (at.dist(self.bases[i].at) / HAND_WALK) as f64 * HOUR;
+        // With no hands until now, no dawn has been tallied here: the first
+        // is the next one, not every dawn since the base was founded (NM-1).
+        if !self.bases[i].residents.iter().any(|r| r.hire.is_some()) {
+            let last = ((t - super::society::DAWN as f64 * HOUR) / super::world::DAY).floor() as i64;
+            self.bases[i].dawn_done = self.bases[i].dawn_done.max(last);
+        }
         self.bases[i].residents.push(Resident { who: npc, job: Job::Idle, recipe: None, cycle: None, n: 0, since: t, hire: Some(Hire { wage, loyalty: LOYALTY_START, town, household, community, trade, arrives, owed: 0 }) });
         let name = self.people[npc as usize].name().unwrap_or("someone").to_string();
         let bname = self.bases[i].name.clone();
@@ -594,6 +641,7 @@ impl World {
     /// labourer (their old post has likely been filled).
     fn hand_leaves(&mut self, i: usize, who: PersonId, t: f64, why: &str) {
         let Some(k) = self.bases[i].residents.iter().position(|r| r.who == who) else { return };
+        self.drop_round(i, k);
         let r = self.bases[i].residents.remove(k);
         self.bases[i].builders.retain(|h| h.0 != who);
         let Some(h) = r.hire else { return };
