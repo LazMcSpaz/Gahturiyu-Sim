@@ -42,11 +42,16 @@ session that did the consolidation (the push was refused), so the hashes are rec
 | — | `agent2/weather` | Already in through step 1. | `72f790e` (9 Oct) | Part of step 1's run. | — |
 | — | `agent2/naming` | Already in through step 1. | `1c234c7` (10 Oct) | Part of step 1's run, including the 13 native names for the animal items. | — |
 | 2 | `claude/voice-tool` | Merge commit, pull request #1. Adds `tools/voice/` and a section in `CLAUDE.md`. No Rust source changes. | `e13461b` | Full suite on the merge result: 51 groups, 403 passed, 0 failed, 1 ignored (cloud container, Linux). | — |
-| 3 | `claude/mvp-buildings` | **Not merged yet.** Pull request #2. Conflicts with `main` in `CLAUDE.md`, `src/sim/save.rs`, `src/view/lootui.rs`. | — | — | Its agent merges `main` into the branch, runs the tests and pushes; then it is merged here. |
+| 3 | `claude/mvp-buildings` | Merge commit, pull request #2. Its agent first merged `main` into the branch and settled the conflicts there (`5ce4b5c`); the merge result is identical to that commit's files. `save::FORMAT` goes from 42 to 43. | `1698c7b` | Full suite on the merge result: 52 groups, 423 passed, 0 failed, 1 ignored (cloud container, Linux). | — |
+| 4 | `claude/voice-tool` (follow-up) | Merge commit for one more commit pushed after step 2 (tip `a486d73`). Four files under `tools/voice/` only. | `3b84c34` | Suite not re-run: the only files changed are under `tools/voice/`, which no test or Rust source reads (checked by diff and search). Step 3's run stands. | — |
+
+### Result
+
+Every branch that existed on 10 Oct 2026 is in `main` as of step 4. Branches for new work start from there.
 
 ### Still to do
 
-- Merge `claude/mvp-buildings` once its conflicts are settled on the branch.
-- Tag the result `consolidated-2026-10-10` and push the `pre-merge/...` tags (needs a session that is allowed to push tags).
-- GitHub's default branch is still `claude/repo-setup-x72er0`; switching it to `main` is Laz's call.
+- Tag the result `consolidated-2026-10-10` and push it with the `pre-merge/...` tags (needs a session that is allowed to push tags).
+- GitHub's default branch is still `claude/repo-setup-x72er0`. Laz has said to switch it to `main`; the session that did the consolidation was not allowed to change repository settings.
 - Not yet run on Windows. Every check above was on Linux.
+- The old branches are left in place. Deleting them is Laz's call.
