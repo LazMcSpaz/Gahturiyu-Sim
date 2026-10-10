@@ -353,7 +353,10 @@ impl World {
         if self.quest_offer(c.npc).is_some() {
             t.push(if c.offered { Topic::Accept } else { Topic::Work });
         }
-        if let Some(h) = self.people[c.npc as usize].home {
+        // A bounty is paid to the watch or the town's officials, not to
+        // whoever happens to be in the street.
+        let collects = matches!(self.life(c.npc).job, super::jobs::Job::Guard | super::jobs::Job::Official | super::jobs::Job::Arbiter);
+        if let Some(h) = self.people[c.npc as usize].home.filter(|_| collects) {
             if self.bounty_known_in(h) > 0.0 {
                 t.push(Topic::PayBounty);
             }
@@ -811,10 +814,10 @@ impl World {
                 let have = self.squad_count(items::id("coin"));
                 if have >= owed {
                     self.take_from_squad(items::id("coin"), owed);
+                    // It clears the matter; it earns nothing on top (running
+                    // and paying later mustn't beat standing to be judged).
                     for (origin, _) in known {
                         self.bounty_settled(origin);
-                        // Paying what's owed is remembered.
-                        self.add_standing(c.with, origin, 2.0);
                     }
                     format!("{owed} coin. Consider the matter closed — this time.")
                 } else {

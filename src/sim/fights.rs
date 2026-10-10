@@ -525,8 +525,15 @@ impl World {
                 // They beat the squad: they hold their ground again.
                 self.beaten_camps.remove(&gid);
             }
-            // They've had their fight; they'll need to spot you again.
+            // They've just fought the squad: they know it's there (no
+            // catching them unawares straight after; the meters drain as
+            // usual once the squad is out of sight).
             self.suspicion.retain(|(g, _), _| *g != gid);
+            for m in self.squad.members.clone() {
+                if !self.people[m as usize].dead {
+                    self.suspicion.insert((gid, m), 1.0);
+                }
+            }
             let alive: Vec<PersonId> = self.group(gid).unwrap().members.iter().copied().filter(|m| !self.people[*m as usize].dead).collect();
             let gi = self.groups.iter().position(|g| g.id == gid).unwrap();
             if alive.is_empty() {
@@ -534,7 +541,10 @@ impl World {
                 self.camps.retain(|cp| cp.group != gid);
                 continue;
             }
-            let c = alive.iter().filter_map(|m| b.index_of(*m)).map(|i| b.fighters[i].pos).fold(V2::default(), |a, p| a.add(p)).scale(1.0 / alive.len() as f32);
+            // The middle of those of them who were in the fight (some may
+            // never have joined it).
+            let fought: Vec<V2> = alive.iter().filter_map(|m| b.index_of(*m)).map(|i| b.fighters[i].pos).collect();
+            let c = if fought.is_empty() { self.group(gid).unwrap().position_at(t) } else { fought.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / fought.len() as f32) };
             let camp = self.camps.iter().position(|cp| cp.group == gid);
             let g = &mut self.groups[gi];
             g.members = alive;
@@ -562,6 +572,8 @@ impl World {
             if let Some(k) = self.squad.index(f.pid) {
                 self.squad.at[k] = f.pos;
                 self.squad.goal[k] = f.pos;
+                // The march they were on before the fight is over too.
+                self.squad.route[k].clear();
             }
         }
         // Beaten in a gang's own camp: they drag the downed out of it and
@@ -581,11 +593,6 @@ impl World {
         let _ = killed;
         let line = fight_summary(&b);
         self.log.push_front((t, line));
-        // Anyone down, won or lost: how they get up again.
-        let down = b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && f.ko && !f.dead).count();
-        if down > 0 && !self.squad.members.is_empty() {
-            self.log.push_front((t, "The downed will come round in an hour or two.".to_string()));
-        }
         self.log.truncate(14);
     }
 }

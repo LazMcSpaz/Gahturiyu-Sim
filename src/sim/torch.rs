@@ -169,6 +169,12 @@ impl World {
             self.say(t, format!("{name} puts out the torch."));
             return true;
         }
+        // Nobody lights one in their sleep (and going to sleep puts it out),
+        // so no torch burns, or is lit afresh, while its holder sleeps.
+        if self.is_asleep(pid) {
+            self.say(t, format!("{name} is asleep."));
+            return false;
+        }
         // Soaked through, nothing will light.
         if self.boon(pid, super::effects::Does::Wet) > 0.0 {
             self.say(t, format!("{name} is too wet to light a torch."));
@@ -225,6 +231,16 @@ impl World {
                 d.gear.take(it);
             }
             self.people[pid as usize].recompute_might();
+        }
+    }
+
+    /// Nobody sleeps with a lit torch in hand: going to sleep at `t` puts it
+    /// out, and what's left of it is kept for later.
+    pub(super) fn torch_out_for_sleep(&mut self, pid: PersonId, t: f64) {
+        if let Some(f) = self.torches.remove(&pid) {
+            if f.out_at > t {
+                self.torch_left.insert(pid, f.out_at - t);
+            }
         }
     }
 

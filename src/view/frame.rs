@@ -225,7 +225,7 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
             // Being noticed: an eye that opens; a lit torch: a flame.
             let mut ix = nx + nw + sw + 20.0;
             let sus = w.suspicion_of(pid);
-            if sus > 0.02 {
+            if sus > 0.02 && !down && !w.fighting.contains_key(&pid) {
                 let col = if sus >= 1.0 { a([0.95, 0.3, 0.25], 1.0) } else { a([0.95, 0.8, 0.35], 1.0) };
                 c.ellipse_lines(ix, cy - 13.0, 7.0, 1.0 + 3.5 * sus.min(1.0), 1.4, col);
                 c.circle(ix, cy - 13.0, 1.5 + 1.2 * sus.min(1.0), col);
