@@ -24,6 +24,8 @@ use super::stats::Calling;
 /// Below this share of health on head or torso, someone is too far gone to
 /// run: they fight on until they drop (so a won fight leaves bodies).
 pub const COLLAPSE: f32 = 0.22;
+/// The share of a squad caster's energy kept back for ordered casts.
+pub const RESERVE: f32 = 0.34;
 
 pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     // Draw the dice up front so every think consumes the same amount.
@@ -263,7 +265,13 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
 /// Cast something useful, if anything is.
 fn try_spell(b: &mut Battle, i: usize, target: Option<usize>, r: f32) {
     let me = b.fighters[i].clone();
-    let usable = |s: Spell| me.held == Some(s) || (s.def().style != Style::Ritual && ((me.spells.contains(&s) && me.mana >= s.def().cost) || has_scroll(&me, s)));
+    // Your squad's casters keep a reserve for what you order them to cast;
+    // left to themselves they don't spend below it (except to mend).
+    let reserve = if me.side == SQUAD_SIDE && me.is_person() { me.max_mana * RESERVE } else { 0.0 };
+    let own = |s: Spell| me.spells.contains(&s) && me.mana >= s.def().cost + if use_of(s) == Use::Mend { 0.0 } else { reserve };
+    // A scroll is the squad's to spend: you order those read.
+    let scroll = |s: Spell| has_scroll(&me, s) && me.side != SQUAD_SIDE;
+    let usable = |s: Spell| me.held == Some(s) || (s.def().style != Style::Ritual && (own(s) || scroll(s)));
     // Everything castable right now, by what it's for; strongest first.
     let mut castable: Vec<Spell> = all_spells().filter(|&s| usable(s)).collect();
     castable.sort_by(|a, c| strength(*c).total_cmp(&strength(*a)));

@@ -51,7 +51,7 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   carry pID | putdown       pick up a downed person / put them down
   sneak | rest | torch      toggle for the selected
   pack [NAME]               a member's gear and pack, with entry numbers
-  use NAME N | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N
+  use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
   give NAME N TO_NAME       hand pack entry N to another squad member standing near
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
   craft NAME                what NAME could make here; `make NAME N` starts recipe N
@@ -931,6 +931,34 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 return "Usage: use|equip|drop NAME N (N from `pack NAME`)\n".into();
             };
             let it = w.people[m as usize].detail.as_ref().and_then(|d| d.gear.bag.get(k)).map(|e| e.0);
+            // A scroll of a harmful spell: read at a target (it starts the fight).
+            if let (true, Some(it)) = (cmd == "use", it) {
+                if let items::Kind::Scroll(key) = item(it).kind {
+                    let sp = gahturiyu_sim::sim::magic::spell(key);
+                    if w.fighting.contains_key(&m) || !sp.def().works_outside_fights() {
+                        let t = arg(2);
+                        let target = t.strip_prefix('p').and_then(|x| x.parse::<PersonId>().ok());
+                        let point = match target {
+                            Some(p) => Some(w.person_pos(p)),
+                            None => t.split_once(',').and_then(|(x, y)| Some(V2::new(x.parse().ok()?, y.parse().ok()?))),
+                        };
+                        match w.order_read(m, it, target, point) {
+                            Ok(()) => {
+                                o += &format!("{} reads the scroll of {}.\n", name_of(w, m), sp.def().name.to_lowercase());
+                                let mut n = 0;
+                                while !w.casts.is_empty() && n < 600 {
+                                    w.step(0.25);
+                                    n += 1;
+                                }
+                                w.step(1.0);
+                                o += &news(w, s);
+                            }
+                            Err(e) => o += &format!("Can't: {} (usage: use NAME N pID)\n", e.0),
+                        }
+                        return o;
+                    }
+                }
+            }
             let ok = match (cmd, it) {
                 ("use", Some(it)) => w.use_item(m, it),
                 ("equip", Some(_)) => w.equip_entry(m, k),

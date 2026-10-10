@@ -104,6 +104,9 @@ pub struct PendingCast {
     pub spell: Spell,
     pub target: Option<PersonId>,
     pub point: Option<V2>,
+    /// Read from a scroll rather than cast.
+    #[serde(default)]
+    pub scroll: bool,
 }
 
 impl World {
@@ -241,11 +244,18 @@ impl World {
             if !self.attack(&[who], t) {
                 return cannot("can't get at them");
             }
-            self.casts.push(PendingCast { who, spell: s, target, point });
+            self.casts.push(PendingCast { who, spell: s, target, point, scroll: false });
             return Ok(());
         }
         if !d.works_outside_fights() {
-            return cannot("only of use in a fight");
+            // A harmful spell at enemies opens the fight with it.
+            let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
+            let Some(foe) = self.enemy_near(target, at, d.radius().max(3.0) + 3.0) else { return cannot("only of use in a fight: aim it at enemies") };
+            if !self.attack(&[who], foe) {
+                return cannot("can't get at them");
+            }
+            self.casts.push(PendingCast { who, spell: s, target: Some(foe), point: Some(at), scroll: false });
+            return Ok(());
         }
         let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
         if self.person_pos(who).dist(at) <= d.range.max(2.0) {
@@ -253,8 +263,91 @@ impl World {
         }
         // Too far: walk over and cast when in reach.
         self.order_members(&[who], at);
-        self.casts.push(PendingCast { who, spell: s, target, point });
+        self.casts.push(PendingCast { who, spell: s, target, point, scroll: false });
         Ok(())
+    }
+
+    /// A potion drunk or a scroll read in the middle of a fight, on the
+    /// player's order: the fighter does it now (a scroll aimed at a foe goes
+    /// at `target`, or the nearest enemy).
+    pub fn use_in_fight(&mut self, who: PersonId, it: super::items::ItemId, target: Option<PersonId>) -> Result<String, String> {
+        use super::items::{item, Kind};
+        let Some(&id) = self.fighting.get(&who) else { return Err("Not in a fight.".into()) };
+        let name = self.name_of(who);
+        let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { return Err("Not in a fight.".into()) };
+        let Some(i) = b.index_of(who) else { return Err("Not in a fight.".into()) };
+        if !b.fighters[i].active() {
+            return Err(format!("{name} is down."));
+        }
+        match item(it).kind {
+            Kind::Potion => {
+                if b.begin_drink(i, it) {
+                    Ok(format!("{name} drinks the {}.", item(it).name.to_lowercase()))
+                } else {
+                    Err(format!("{name} has no {} to hand in this fight.", item(it).name.to_lowercase()))
+                }
+            }
+            Kind::Scroll(key) => {
+                let sp = magic::spell(key);
+                let j = target.and_then(|p| b.index_of(p)).or_else(|| if sp.def().aim == magic::Aim::Foe || !sp.def().works_outside_fights() { b.nearest_enemy(i) } else { Some(i) });
+                let point = j.map(|j| b.fighters[j].pos).unwrap_or(b.fighters[i].pos);
+                if b.read_scroll(i, sp, j, point) {
+                    Ok(format!("{name} reads the scroll of {}.", sp.def().name.to_lowercase()))
+                } else {
+                    Err(format!("{name} has no such scroll to hand in this fight."))
+                }
+            }
+            _ => Err(format!("The {} can't be used in a fight.", item(it).name.to_lowercase())),
+        }
+    }
+
+    /// The scroll of this spell in someone's pack, if they carry one.
+    pub fn scroll_item(&self, who: PersonId, s: Spell) -> Option<super::items::ItemId> {
+        use super::items::{item, Kind};
+        let key = s.def().key;
+        self.people[who as usize].detail.as_ref()?.gear.bag.iter().map(|e| e.0).find(|&it| matches!(item(it).kind, Kind::Scroll(x) if x == key))
+    }
+
+    /// Read a scroll of a harmful spell at enemies: it starts the fight and
+    /// is read as it opens (in a fight already, it's read now).
+    pub fn order_read(&mut self, who: PersonId, it: super::items::ItemId, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        use super::items::{item, Kind};
+        let Kind::Scroll(key) = item(it).kind else { return cannot("that's not a scroll") };
+        let s = magic::spell(key);
+        if self.fighting.contains_key(&who) {
+            return self.use_in_fight(who, it, target).map(|_| ()).map_err(Cannot);
+        }
+        if s.def().works_outside_fights() {
+            return if self.use_item(who, it) { Ok(()) } else { cannot("can't read it now") };
+        }
+        if !self.free_to_order(who) {
+            return cannot("bound to work: can't leave it");
+        }
+        let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
+        let Some(foe) = self.enemy_near(target, at, s.def().radius().max(3.0) + 3.0) else { return cannot("read it at enemies") };
+        if !self.attack(&[who], foe) {
+            return cannot("can't get at them");
+        }
+        self.casts.retain(|c| c.who != who);
+        self.casts.push(PendingCast { who, spell: s, target: Some(foe), point: Some(at), scroll: true });
+        Ok(())
+    }
+
+    /// The enemy a harmful spell aimed at a spot would start a fight with:
+    /// the one aimed at, or the nearest enemy close to the spot.
+    pub fn enemy_near(&self, target: Option<PersonId>, at: V2, within: f32) -> Option<PersonId> {
+        if let Some(t) = target.filter(|&t| self.is_enemy(t)) {
+            return Some(t);
+        }
+        self.groups
+            .iter()
+            .filter(|g| g.band <= 1 && g.hostile)
+            .flat_map(|g| g.members.iter().copied())
+            .filter(|&p| self.is_enemy(p) && !self.is_down(p))
+            .map(|p| (p, self.person_pos(p).dist(at)))
+            .filter(|(_, d)| *d <= within)
+            .min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)))
+            .map(|(p, _)| p)
     }
 
     /// Someone the squad may fight: a bandit, or one of a hostile band.
@@ -275,12 +368,19 @@ impl World {
             };
             if self.fighting.contains_key(&c.who) {
                 self.casts.remove(k);
-                if let Err(e) = self.cast_in_fight(c.who, c.spell, c.target, c.point) {
+                if c.scroll {
+                    let it = self.scroll_item(c.who, c.spell);
+                    match it.map(|it| self.use_in_fight(c.who, it, c.target)) {
+                        Some(Ok(_)) => {}
+                        Some(Err(e)) => self.cast_failed(c.who, c.spell, &e),
+                        None => self.cast_failed(c.who, c.spell, "the scroll is gone"),
+                    }
+                } else if let Err(e) = self.cast_in_fight(c.who, c.spell, c.target, c.point) {
                     self.cast_failed(c.who, c.spell, &e.0);
                 }
                 continue;
             }
-            if c.spell.def().aim == magic::Aim::Foe {
+            if c.spell.def().aim == magic::Aim::Foe || !c.spell.def().works_outside_fights() {
                 // Waiting for the fight to open; it never did.
                 if self.squad_battle().is_none() && self.squad.at[i].dist(self.squad.goal[i]) < 0.5 {
                     self.casts.remove(k);

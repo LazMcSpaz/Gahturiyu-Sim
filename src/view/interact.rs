@@ -429,12 +429,12 @@ pub fn action_lines(lines: &mut Vec<(String, super::palette::Rgb)>, cs: Vec<Choi
 
 /// While aiming a spell: what a click on what's under the mouse would do,
 /// and whether it can be done.
-pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>) -> (String, bool) {
+pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>, scroll: bool) -> (String, bool) {
     use gahturiyu_sim::sim::magic::Aim;
     let d = s.def();
     let from = w.person_pos(who);
     let caster = w.people[who as usize].name().unwrap_or("They").to_string();
-    if w.people[who as usize].mana_at(w.time) < d.cost && !w.fighting.contains_key(&who) {
+    if !scroll && w.people[who as usize].mana_at(w.time) < d.cost && !w.fighting.contains_key(&who) {
         return (format!("{caster} hasn't the energy ({:.0} needed)", d.cost), false);
     }
     let reach = |at: V2| {
@@ -473,6 +473,7 @@ pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, 
             _ => ("Point at a door".into(), false),
         },
         Aim::Corpse => ("Click by a body".into(), true),
+        Aim::Point if !d.works_outside_fights() && !w.fighting.contains_key(&who) => ("Click by enemies: starts the fight".into(), true),
         Aim::Point => ("Click a spot".into(), true),
         Aim::Caster => ("Click anywhere".into(), true),
     }

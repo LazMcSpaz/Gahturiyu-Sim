@@ -90,6 +90,8 @@ pub struct Game {
     pub book: Option<PersonId>,
     /// A spell waiting for its target: the next click in the world aims it.
     pub aim: Option<(PersonId, gahturiyu_sim::sim::magic::Spell)>,
+    /// The scroll being aimed, when `aim` is a scroll's spell rather than a cast.
+    pub aim_scroll: Option<items::ItemId>,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
     pub loads: u32,
@@ -216,6 +218,7 @@ pub fn run() {
         options: std::env::var("GAHT_SETTINGS").is_ok(),
         book: None,
         aim: None,
+        aim_scroll: None,
         loads: 0,
         notice: None,
         wild: None,
@@ -529,6 +532,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         }
     } else if keys.just_pressed(KeyCode::Escape) && game.aim.is_some() {
         game.aim = None;
+        game.aim_scroll = None;
     } else if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
         w.end_talk();
     } else if keys.just_pressed(KeyCode::Backquote) || keys.just_pressed(KeyCode::Escape) {
@@ -699,6 +703,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     // Right-click anywhere drops a spell that's waiting to be aimed.
     if buttons.just_pressed(MouseButton::Right) && game.aim.is_some() {
         game.aim = None;
+        game.aim_scroll = None;
     } else if buttons.just_pressed(MouseButton::Right) && !on_panels {
         game.rpress_at = Some(mouse);
     }
@@ -929,7 +934,11 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
             (None, Some(Hover::Door(id))) => game.world.door(id).map(|d| d.outside),
             _ => point,
         };
-        if let Err(e) = game.world.order_cast(who, s, target, point) {
+        let res = match game.aim_scroll.take() {
+            Some(it) => game.world.order_read(who, it, target, point),
+            None => game.world.order_cast(who, s, target, point),
+        };
+        if let Err(e) = res {
             game.notice = Some((format!("{}: {}", s.def().name, e.0), std::time::Instant::now()));
         }
         return;
@@ -1411,6 +1420,13 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 game.inv = None;
                 game.craft = None;
             }
+            // A scroll of a harmful spell is aimed like the spell itself.
+            Action::Use(pid, it) if matches!(items::item(it).kind, items::Kind::Scroll(k) if !gahturiyu_sim::sim::magic::spell(k).def().works_outside_fights() || w.fighting.contains_key(&pid)) => {
+                if let items::Kind::Scroll(k) = items::item(it).kind {
+                    game.aim = Some((pid, gahturiyu_sim::sim::magic::spell(k)));
+                    game.aim_scroll = Some(it);
+                }
+            }
             Action::Use(pid, it) => {
                 let why = w.why_cant_use(pid, it);
                 if !w.use_item(pid, it) {
@@ -1451,6 +1467,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 let performing = d.style == Style::Ritual && !held;
                 if !performing && d.aim != Aim::Caster {
                     game.aim = Some((pid, s));
+                    game.aim_scroll = None;
                 } else if let Err(e) = w.use_spell(pid, s, None, None) {
                     game.notice = Some((format!("{}: {}", d.name, e.0), std::time::Instant::now()));
                 }
@@ -1566,7 +1583,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&lines, book_left - wd - 10.0, game.mouse.y, 15.0);
     } else if let Some((who, s)) = game.aim {
         // Aiming: what the click would do, and whether it can.
-        let (line, ok) = super::interact::aim_label(&game.world, who, s, game.hover);
+        let (line, ok) = super::interact::aim_label(&game.world, who, s, game.hover, game.aim_scroll.is_some());
         let lines = vec![(s.def().name.to_string(), super::palette::GOLD), (line, if ok { super::palette::BRASS_LIGHT } else { [0.95, 0.38, 0.30] }), ("Right-click or Esc to cancel".to_string(), super::palette::DIM)];
         c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
     }

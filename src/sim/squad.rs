@@ -373,6 +373,18 @@ impl World {
             return false;
         }
         p.recompute_might();
+        // A weapon they can barely use: say so (and what they're good with).
+        if let Some(wd) = def.weapon() {
+            let st = p.effective_stats();
+            let have = st.skill(wd.skill);
+            let best = [super::stats::Skill::Blade, super::stats::Skill::Blunt, super::stats::Skill::Spear].into_iter().filter(|&k| k != wd.skill).map(|k| (k, st.skill(k))).max_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((k, v)) = best.filter(|&(_, v)| v >= have + 20.0 && have < 35.0) {
+                let name = p.name().unwrap_or("They").to_string();
+                let line = format!("{name} has {} {have:.0}: they fight far better with {} weapons ({} {v:.0}).", wd.skill.name(), k.name().to_lowercase(), k.name());
+                self.log.push_front((self.time, line));
+                self.log.truncate(14);
+            }
+        }
         true
     }
 
