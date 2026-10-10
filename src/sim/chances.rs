@@ -406,10 +406,6 @@ impl World {
         let hours = POST_HOURS;
         let pay = self.post_wage(job) as f32;
         self.society.contracts.push(Contract { member: who, town, place, opp: None, post: Some(job), hours, pay, until: f64::INFINITY, present: 0.0, missed: 0, days_paid: 0, sent_day: day - 1, first_day: day + 1 });
-        let name = self.name_of(who);
-        let what = self.society.towns[town as usize].places.get(place as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_else(|| "town".into());
-        let line = format!("{name} takes work as {} at the {what} in {}: {pay:.0} coin a day, 8 till 5 from tomorrow.", job.name().to_lowercase(), self.settlements[town as usize].name);
-        self.say(self.time, line);
         true
     }
 
@@ -510,12 +506,6 @@ impl World {
                 // (Up from their bedroll, if they'd lain down.)
                 self.send(c.member, at);
                 self.society.contracts[i].sent_day = day;
-                if c.sent_day != day {
-                    let name = self.name_of(c.member);
-                    let place = self.society.towns[c.town as usize].places.get(c.place as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_else(|| "town".into());
-                    let line = format!("{name} sets off for the {place}: work till {:02.0}:00.", c.hours.1);
-                    self.say(self.time, line);
-                }
             }
         }
     }

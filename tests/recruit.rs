@@ -118,7 +118,7 @@ fn the_willing_are_listed_with_what_they_bring() {
         for (p, fee) in v {
             assert_eq!(w.join_terms(p), Some(fee));
             let card = w.recruit_card(p);
-            assert!(card.starts_with("best at ") && card.matches(", ").count() >= 2 && card.contains(" · "), "{card}");
+            assert!(card.starts_with("good at ") && !card.chars().any(|c| c.is_ascii_digit()) && card.matches(", ").count() >= 2 && card.contains(" · "), "{card}");
         }
     }
     eprintln!("towns with nobody willing: {empty:?}");

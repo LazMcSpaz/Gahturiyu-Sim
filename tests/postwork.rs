@@ -49,7 +49,6 @@ fn the_worker_walks_to_work_and_is_paid_the_wage_named() {
     assert!(w.squad.resting[k], "lying down");
     run_to(&mut w, c.first_day as f64 * DAY + 10.0 * HOUR);
     assert!(w.member_pos(k).dist(w.contract_pos(&c)) <= AT_POST, "at work by mid-morning");
-    assert!(w.log.iter().any(|(_, l)| l.contains("sets off for")), "the walk to work is in the news");
     assert!(w.work_lines().iter().any(|l| l.contains(&w.name_of(who)) && l.contains("coin a day")), "the journal names the worker and the wage");
     let coin0 = w.count_of(who, "coin");
     run_to(&mut w, (c.first_day + 1) as f64 * DAY + 6.5 * HOUR);

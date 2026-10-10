@@ -91,7 +91,8 @@ impl World {
         let p = &self.people[npc as usize];
         let mut best: Vec<(super::stats::Skill, f32)> = super::stats::SKILLS.iter().map(|&k| (k, p.stats.skill(k))).collect();
         best.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-        let skills: Vec<String> = best.iter().take(3).map(|(k, v)| format!("{} {:.0}", k.name(), v)).collect();
+        // In words, as they'd say it of themselves: no numbers on a stranger.
+        let skills: Vec<String> = best.iter().take(3).map(|(k, _)| k.name().to_lowercase()).collect();
         // Their kit as it is (or as they'd turn up with it, if never met).
         let kit = match &p.detail {
             Some(d) => d.gear.clone(),
@@ -103,7 +104,7 @@ impl World {
         let worn: Vec<String> = SLOTS.into_iter().filter(|s| !matches!(s, Slot::MainHand | Slot::OffHand)).filter_map(name).collect();
         let arms = if arms.is_empty() { "no weapon".to_string() } else { arms.join(" and ") };
         let worn = if worn.is_empty() { "nothing much".to_string() } else { worn.join(", ") };
-        format!("best at {} · {arms} · wears {worn}", skills.join(", "))
+        format!("good at {} · {arms} · wears {worn}", skills.join(", "))
     }
 
     /// Everyone in a town who'd come if asked: (who, fee), cheapest first.
