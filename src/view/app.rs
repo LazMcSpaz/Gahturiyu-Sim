@@ -1191,6 +1191,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         return Ok(());
     }
+    // L also shows everything about strangers on hover (for testing).
+    hud::set_see_all(game.debug);
     // The old side panel (counts, timings, races, the full log): with L.
     if game.debug {
         panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
