@@ -978,7 +978,10 @@ impl World {
                 self.society.communities[ci as usize].away = away as f32 / n.max(1) as f32;
             }
             let want = self.posts_for(ci, job, n);
-            let have = members.iter().filter(|&&p| self.society.lives[p as usize].job == job && day.is_some()).count();
+            // A squad member hired to the post holds it too.
+            let town = self.society.communities[ci as usize].town;
+            let hired = self.society.contracts.iter().filter(|c| c.town == town && c.post == Some(job) && day.is_some()).count();
+            let have = members.iter().filter(|&&p| self.society.lives[p as usize].job == job && day.is_some()).count() + hired;
             let mut r = Rng::from_keys(&[self.seed, ci as u64, job as u64, day.unwrap_or(-1) as u64, 0x4A4F_4253]);
             for k in have..want {
                 let w: Vec<f32> = free

@@ -131,10 +131,13 @@ fn keeping_quiet_means_nothing_follows() {
     for &f in &folk {
         w.regard.insert(f, 100.0);
         let at = w.person_pos(me);
+        let said = w.log.len() + w.alerts.len();
+        let last = w.log.front().cloned();
         w.wrong_seen(me, town, Wrong::Theft, 30.0, "Seen stealing!".into(), Some(f), None, at);
         if w.pursuits.is_empty() && w.bounty.is_empty() {
             quiet += 1;
-            assert!(w.log.front().unwrap().1.contains("says nothing"));
+            // Nothing comes of it, and nothing is said (BL-37).
+            assert!(w.log.front().cloned() == last && w.log.len() + w.alerts.len() == said, "{:?}", w.log.front());
         }
         w.pursuits.clear();
         w.bounty.clear();

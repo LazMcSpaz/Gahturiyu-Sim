@@ -423,25 +423,30 @@ impl World {
             plan.push(m + 0.5, working.0, working.1);
         }
         let mut h = we;
-        if garden {
+        // What's left of the evening fits before bed, or is let go: the walk
+        // home and the sleep always happen.
+        let fits = |h: f32, long: f32| h + long <= bed - 0.25;
+        if garden && fits(h, 1.25) {
             plan.push(h, Doing::Walking, Spot::Garden);
             plan.push(h + 0.25, Doing::Garden, Spot::Garden);
             h += 1.25;
         }
-        if market && r.chance(0.5) {
+        if market && r.chance(0.5) && fits(h, 1.25) {
             if let Some(m) = self.market_spot(town) {
                 plan.push(h, Doing::Walking, m);
                 plan.push(h + 0.25, Doing::Market, m);
                 h += 1.25;
             }
         }
-        if let Some(b) = visit.filter(|_| r.chance(0.4)) {
+        if let Some(b) = visit.filter(|_| r.chance(0.4)).filter(|_| fits(h, 1.5)) {
             plan.push(h, Doing::Walking, Spot::Visit(b));
             plan.push(h + 0.25, Doing::Visiting, Spot::Visit(b));
             h += 1.5;
         }
-        plan.push(h, Doing::Walking, evening);
-        plan.push(h + 0.25, Doing::Evening, evening);
+        if fits(h, 0.5) {
+            plan.push(h, Doing::Walking, evening);
+            plan.push(h + 0.25, Doing::Evening, evening);
+        }
         plan.push(bed - 0.25, Doing::Walking, Spot::Home);
         plan.push(bed, Doing::Asleep, Spot::Home);
         plan
@@ -477,9 +482,18 @@ impl World {
         matches!(plan.segs[plan.index_at(hours(t))].doing, Doing::Work | Doing::Rounds)
     }
 
-    /// Asleep in their own bed right now.
+    /// Asleep in their own bed right now (or, for a party on the road, in
+    /// a bed they've found for the night).
     pub fn is_indoors_asleep(&self, pid: PersonId) -> bool {
-        matches!(self.doing_now(pid), Some((Doing::Asleep, _)))
+        matches!(self.doing_now(pid), Some((Doing::Asleep, _))) || self.group_of.get(pid as usize).copied().flatten().and_then(|id| self.group(id)).is_some_and(|g| self.lodging(g))
+    }
+
+    /// A party on the road, stopped in a town at night: they've taken beds
+    /// (at the inn or with someone who'll have them), out of the street.
+    pub fn lodging(&self, g: &super::group::Group) -> bool {
+        let h = hours(self.time);
+        let at = g.position_at(self.time);
+        !g.hostile && !(6.0..21.5).contains(&h) && !g.is_moving(self.time) && self.settlements.iter().any(|s| s.pos.dist(at) < s.radius())
     }
 
     /// Is this service open in a town right now? (Someone who does it is at work.)

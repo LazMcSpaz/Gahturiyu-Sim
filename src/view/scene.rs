@@ -486,7 +486,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     for g in &w.groups {
-        if g.pos.dist(oc.target) > radius {
+        // Travellers in town at night have found beds indoors.
+        if g.pos.dist(oc.target) > radius || w.lodging(g) {
             continue;
         }
         let lead = w.people[g.members[0] as usize].race;

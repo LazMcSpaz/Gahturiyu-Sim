@@ -470,7 +470,7 @@ impl World {
                 if self.contract_of(c.with).is_some() {
                     t.push(Topic::QuitWork);
                 } else {
-                    t.extend(self.vacant_posts(town).into_iter().take(2).map(|(j, pl)| Topic::PostWork(j, pl)));
+                    t.extend(self.posts_for_member(town, c.with).into_iter().take(2).map(|(j, pl)| Topic::PostWork(j, pl)));
                 }
             }
         }
@@ -759,8 +759,10 @@ impl World {
                     let name = self.people[c.with as usize].name().unwrap_or("you").to_string();
                     let at = self.society.towns[town as usize].places.get(place as usize).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
                     format!("Good, {name}. You'll work as {}{at} from tomorrow, 8 till 5, for {} coin a day, paid each dawn.", job.name().to_lowercase(), self.post_wage(job))
-                } else {
+                } else if self.contract_of(c.with).is_some() {
                     "You've work already.".into()
+                } else {
+                    "That wants someone who knows the trade.".into()
                 }
             }
             Topic::QuitWork => {
