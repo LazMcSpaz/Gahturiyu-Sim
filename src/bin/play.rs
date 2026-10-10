@@ -58,6 +58,14 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
   craft NAME                what NAME could make here; `make NAME N` starts recipe N
   journal | map | town      jobs taken; towns and places; the nearest town's panel
+  build                     what can be built; `build camp` founds a base where the first selected member stands
+  build kit                 TESTERS ONLY, not part of the game: teaches building and hands over materials and coin
+  build KEY [DIR M] [DEG]   lay a building (a site) DIR M metres from that member, turned DEG degrees
+  build wall KEY DIR M [DIR M ..]   lay a wall from that member's spot along the legs given
+  base                      the bases: buildings, sites, store, who lives there, what's happened
+  base store | leave NAME | fetch NAME | job NAME JOB | recipe NAME [N] | seal ID | down ID
+                            put materials in the store; leave a member / fetch them (or let a hired hand go);
+                            set a resident's job or recipe; seal a roof with pitch; take a building down
   wait M                    let M minutes pass (stops early if a fight starts, someone goes down, or a talk opens)
   fight                     how the squad's fight is going (during a fight, `wait 1` moves it on)
   shot                      render a screenshot of the game window (slow: about a minute)";
@@ -1354,6 +1362,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 }
             }
         }
+        "build" => o += &build(w, lead, a),
+        "base" => o += &base_cmd(w, lead, a),
         "wait" => {
             let m: f64 = arg(0).parse().unwrap_or(10.0);
             o += &pass(w, m * 60.0, None);
@@ -1403,5 +1413,233 @@ fn loot_view(w: &World, looter: PersonId) -> String {
         let _ = writeln!(o, "  {}. {} × {}{}  (~{:.0} coin each)", i + 1, n, item(*it).name, if worn { " (worn)" } else { "" }, item(*it).value);
     }
     o += "  (take N, or takeall)\n";
+    o
+}
+
+// ---- Base building (the window's Build panel and Base tab) -------------------------
+
+fn dir_of(d: &str) -> Option<V2> {
+    Some(match d {
+        "n" | "north" => V2::new(0.0, -1.0),
+        "s" | "south" => V2::new(0.0, 1.0),
+        "e" | "east" => V2::new(1.0, 0.0),
+        "w" | "west" => V2::new(-1.0, 0.0),
+        "ne" => V2::new(0.707, -0.707),
+        "nw" => V2::new(-0.707, -0.707),
+        "se" => V2::new(0.707, 0.707),
+        "sw" => V2::new(-0.707, 0.707),
+        _ => return None,
+    })
+}
+
+fn metres(s: &str) -> Option<f32> {
+    s.parse::<f32>().ok().filter(|m| m.is_finite() && m.abs() <= 5000.0)
+}
+
+fn build(w: &mut World, lead: PersonId, a: &[&str]) -> String {
+    use gahturiyu_sim::sim::base::{def_index, Kind, Plan, BUILDINGS};
+    let arg = |i: usize| a.get(i).copied().unwrap_or("");
+    let here = w.person_pos(lead);
+    let mut o = String::new();
+    if arg(0).is_empty() {
+        o += "What can be built (`build KEY`; the builder has to stand at the base):\n";
+        for (i, d) in BUILDINGS.iter().enumerate() {
+            let needs: Vec<String> = d.needs.iter().map(|&(k, n)| format!("{n} {}", item(items::id(k)).name)).collect();
+            let who: Vec<String> = w.squad_builders(i).iter().map(|&m| first_name(w, m)).collect();
+            let _ = writeln!(o, "  {:<16} {} [{}] — {} — needs {}; {:.0} builder-hours; can build: {}", d.key, d.name, d.group, d.does, if needs.is_empty() { "nothing".into() } else { needs.join(", ") }, d.labour, if who.is_empty() { "nobody in the squad".into() } else { who.join(", ") });
+        }
+        return o;
+    }
+    if arg(0) == "kit" {
+        // For testers only (the window's GAHT_BUILD demo does the same): the
+        // squad is taught carpentry and masonry and the first selected
+        // member is handed materials and coin, so a base can be tried
+        // without days of gathering first.
+        use gahturiyu_sim::sim::stats::Skill;
+        for m in w.squad.members.clone() {
+            let p = &mut w.people[m as usize];
+            for sk in [Skill::Carpentry, Skill::Masonry] {
+                if let Some(d) = p.detail.as_mut() {
+                    if !d.crafts.contains(&sk) {
+                        d.crafts.push(sk);
+                    }
+                }
+                if p.stats.skill(sk) < 50.0 {
+                    p.stats.set_skill(sk, 50.0);
+                }
+            }
+        }
+        if let Some(d) = w.people[lead as usize].detail.as_mut() {
+            for (k, n) in [("timber", 80), ("rock", 50), ("seareed", 30), ("clay", 12), ("iron_ingot", 3), ("coin", 300), ("flatbread", 20), ("grain", 10)] {
+                d.gear.add(items::id(k), n);
+            }
+        }
+        w.people[lead as usize].recompute_might();
+        return format!("TESTERS' KIT (not part of the game): everyone knows carpentry and masonry; {} carries 80 timber, 50 rock, 30 seareed, 12 clay, 3 iron ingots, 300 coin, 20 flatbread and 10 grain.\n", first_name(w, lead));
+    }
+    if arg(0) == "camp" {
+        return match w.found_base(here) {
+            Ok(id) => format!("A camp marker is laid where {} stands: {}.\n", first_name(w, lead), w.base(id).map(|b| b.name.clone()).unwrap_or_default()),
+            Err(e) => format!("Can't found a base here: {}.\n", e.why()),
+        };
+    }
+    if arg(0) == "wall" {
+        let Some(def) = BUILDINGS.iter().position(|d| d.key == arg(1) && d.kind == Kind::Wall) else { return "Which wall? (`build wall palisade e 12 n 12`, or rubble_wall)\n".into() };
+        let mut pts = vec![here];
+        let mut k = 2;
+        while k + 1 < a.len() + 1 && !arg(k).is_empty() {
+            let (Some(d), Some(m)) = (dir_of(arg(k)), metres(arg(k + 1))) else { return "A wall's legs are a direction and metres each (`build wall palisade e 12 n 12`).\n".into() };
+            let last = *pts.last().unwrap();
+            pts.push(last.add(d.scale(m)));
+            k += 2;
+        }
+        let planned = World::wall_plans(def, &pts).len();
+        return match w.place_wall(def, &pts) {
+            Ok(ids) => format!("Laid {} of {} wall pieces (ids {}).\n", ids.len(), planned, ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(", ")),
+            Err(e) => format!("Can't lay that wall: {}.\n", e.why()),
+        };
+    }
+    let Some(def) = BUILDINGS.iter().position(|d| d.key == arg(0)) else { return format!("No building called `{}` (`build` lists them).\n", arg(0)) };
+    let (at, next) = match (dir_of(arg(1)), metres(arg(2))) {
+        (Some(d), Some(m)) => (here.add(d.scale(m)), 3),
+        _ => (here, 1),
+    };
+    let rot = arg(next).parse::<f32>().ok().filter(|r| r.is_finite()).unwrap_or(0.0).to_radians();
+    if def == def_index("camp_marker") {
+        return "Use `build camp`.\n".into();
+    }
+    match w.place_building(Plan { def, at, rot, w: BUILDINGS[def].w, replaces: None }) {
+        Ok(id) => format!("{} site laid (id {id}). `base` shows how it's coming on.\n", BUILDINGS[def].name),
+        Err(e) => format!("Can't put a {} there: {}.\n", BUILDINGS[def].name.to_lowercase(), e.why()),
+    }
+}
+
+fn base_cmd(w: &mut World, lead: PersonId, a: &[&str]) -> String {
+    use gahturiyu_sim::sim::baselife::{round_place, JOBS};
+    let arg = |i: usize| a.get(i).copied().unwrap_or("");
+    let here = w.person_pos(lead);
+    let mut o = String::new();
+    // A resident by first name (they aren't in the travelling squad).
+    let resident = |w: &World, n: &str| -> Option<PersonId> {
+        let n = strip(&n.to_lowercase());
+        w.bases.iter().flat_map(|b| b.residents.iter().map(|r| r.who)).find(|&p| !n.is_empty() && strip(&first_name(w, p).to_lowercase()).starts_with(&n))
+    };
+    let at_base = w.base_at(here);
+    match arg(0) {
+        "" => {
+            if w.bases.is_empty() {
+                return "No base yet. `build camp` founds one where the first selected member stands.\n".into();
+            }
+            for b in &w.bases {
+                let _ = writeln!(o, "{} — {} — camp marker {} — builds within {:.0} m", b.name, match b.land { gahturiyu_sim::sim::base::Land::Wilds => "in the wilds".to_string(), gahturiyu_sim::sim::base::Land::Unclaimed(s) => format!("on {}'s land", w.settlements[s as usize].name) }, dist_dir(here, b.at), b.reach());
+                o += " Buildings:\n";
+                for bl in &b.buildings {
+                    let what = if let Some(site) = bl.site() {
+                        let missing: Vec<String> = bl.missing().iter().map(|&(it, n)| format!("{n} {}", item(it).name)).collect();
+                        let when = match site.done_at {
+                            Some(t) => format!("stands in {:.1} h", (t - w.time) / HOUR),
+                            None if !missing.is_empty() => "waiting for materials".to_string(),
+                            None => "nobody is building it".to_string(),
+                        };
+                        format!("site, {:.0}% built, {}{}", bl.progress(w.time) * 100.0, when, if missing.is_empty() { String::new() } else { format!(" (still needs {})", missing.join(", ")) })
+                    } else if bl.standing() {
+                        format!("standing, {:.0}% sound{}", bl.hp_at(w.time) / bl.def().hp * 100.0, if bl.sealed { ", sealed" } else if bl.rots() { ", thatch rotting" } else { "" })
+                    } else {
+                        "a ruin".to_string()
+                    };
+                    let _ = writeln!(o, "  {:>3}  {} — {} — {}", bl.id, bl.def().name, what, dist_dir(here, bl.at));
+                }
+                let store: Vec<String> = b.store.iter().map(|e| format!("{} × {}", e.1, item(e.0).name)).collect();
+                let _ = writeln!(o, " Store ({:.0} of {:.0} kg): {}", b.load().max(0.0), b.capacity(), if store.is_empty() { "empty".into() } else { store.join(", ") });
+                let wages: u32 = b.residents.iter().filter_map(|r| r.hire.as_ref()).map(|h| h.wage as u32).sum();
+                let _ = writeln!(o, " Living here ({} beds){}:", b.beds(), if wages > 0 { format!(", wages {wages} coin at each dawn") } else { String::new() });
+                for r in &b.residents {
+                    let doing = match (&r.cycle, r.job) {
+                        (Some(cy), _) => format!("at the {}, done in {:.1} h", round_place(b, cy), (cy.done_at - w.time) / HOUR),
+                        (None, j) => format!("{} (nothing under way)", j.name().to_lowercase()),
+                    };
+                    let hire = match &r.hire {
+                        Some(h) if h.arrives > w.time => format!(" — hired, {} a day, on the way (here in {:.1} h)", h.wage, (h.arrives - w.time) / HOUR),
+                        Some(h) => format!(" — hired, {} a day, loyalty {:.0}%{}", h.wage, h.loyalty * 100.0, if h.owed > 0 { format!(", owed {}", h.owed) } else { String::new() }),
+                        None => " — one of yours".to_string(),
+                    };
+                    let _ = writeln!(o, "  {} — {} — {}{} — hunger {:.0}{}", first_name(w, r.who), r.job.name(), doing, hire, w.hunger_of(r.who).unwrap_or(0.0), if w.is_down(r.who) { " — DOWN" } else { "" });
+                }
+                if b.residents.is_empty() {
+                    o += "  nobody\n";
+                }
+                o += " Lately:\n";
+                for (t, line) in b.log.iter().rev().take(8) {
+                    let _ = writeln!(o, "  Day {}, {}  {line}", World::day_of(*t) + 1, hhmm(*t));
+                }
+            }
+        }
+        "store" => match at_base {
+            Some(bid) => {
+                let n = w.store_materials(bid);
+                let _ = writeln!(o, "{n} things put in the store.");
+            }
+            None => o += "Nobody selected is standing at a base.\n",
+        },
+        "leave" => match (member(w, arg(1)), at_base) {
+            (Some(m), Some(bid)) => match w.leave_at_base(m, bid) {
+                Ok(()) => { let _ = writeln!(o, "{} stays at the base.", first_name(w, m)); }
+                Err(e) => { let _ = writeln!(o, "Can't: {e}."); }
+            },
+            (None, _) => o += "Leave whom? (a squad member's first name)\n",
+            (_, None) => o += "Nobody selected is standing at a base.\n",
+        },
+        "fetch" => match resident(w, arg(1)) {
+            Some(p) => match w.pick_up(p) {
+                Ok(()) => { let _ = writeln!(o, "{} is with the squad again (a hired hand is let go).", first_name(w, p)); }
+                Err(e) => { let _ = writeln!(o, "Can't: {e}."); }
+            },
+            None => o += "Fetch whom? (the first name of someone living at a base)\n",
+        },
+        "job" => match (resident(w, arg(1)), JOBS.iter().copied().find(|j| j.name().eq_ignore_ascii_case(arg(2)))) {
+            (Some(p), Some(j)) => {
+                w.set_base_job(p, j);
+                let _ = writeln!(o, "{} is now: {}.", first_name(w, p), j.name());
+            }
+            _ => { let _ = writeln!(o, "`base job NAME JOB`: JOB is one of {}.", JOBS.iter().map(|j| j.name().to_lowercase()).collect::<Vec<_>>().join(", ")); }
+        },
+        "recipe" => match resident(w, arg(1)) {
+            Some(p) => {
+                let list = w.base_recipes(p);
+                match arg(2).parse::<usize>() {
+                    Ok(n) if n >= 1 && n <= list.len() => {
+                        w.set_base_recipe(p, Some(list[n - 1]));
+                        let _ = writeln!(o, "{} will make: {}.", first_name(w, p), gahturiyu_sim::sim::crafting::RECIPES[list[n - 1] as usize].output);
+                    }
+                    _ => {
+                        let _ = writeln!(o, "What {} could make here (`base recipe NAME N`):", first_name(w, p));
+                        for (k, &ri) in list.iter().enumerate() {
+                            let _ = writeln!(o, "  {}. {}", k + 1, gahturiyu_sim::sim::crafting::RECIPES[ri as usize].output);
+                        }
+                        if list.is_empty() {
+                            o += "  nothing\n";
+                        }
+                    }
+                }
+            }
+            None => o += "Whose recipe? (the first name of someone living at a base)\n",
+        },
+        "seal" | "down" => match (at_base, arg(1).parse::<u32>()) {
+            (Some(bid), Ok(id)) => {
+                if arg(0) == "seal" {
+                    match w.seal_building(bid, id) {
+                        Ok(()) => o += "Sealed.\n",
+                        Err(e) => { let _ = writeln!(o, "Can't: {e}."); }
+                    }
+                } else if w.deconstruct(bid, id) {
+                    o += "Taken down.\n";
+                } else {
+                    o += "Can't take that down.\n";
+                }
+            }
+            _ => o += "Stand at the base and give the building's number from `base`.\n",
+        },
+        _ => o += "`base`, or `base store | leave NAME | fetch NAME | job NAME JOB | recipe NAME [N] | seal ID | down ID`.\n",
+    }
     o
 }
