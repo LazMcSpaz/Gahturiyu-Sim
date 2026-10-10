@@ -505,6 +505,7 @@ pub const VARIANTS: &[Variant] = &[
         holders: &[h(Chest, -0.8, -0.5, Q), h(Cupboard, -0.85, 0.35, Q)],
     },
     // The island (diaspora) hall: Qotiro shape, local dark stone (`architecture.md`).
+    // Every Qotiro building is in that dark stone; no sandstone (Laz).
     Variant {
         key: "qotiro_island_hall",
         name: "Qotiro hall",

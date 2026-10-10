@@ -369,6 +369,8 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
 - Ṭaḍoro don't found towns or build; they lodge in others' homes, or wander and pitch a tent.
 - Buildings follow `architecture.md` (grown Roduro stone, Horaro stilts on Roduro
   pillars, quarried Qotiro steps, diaspora Qotiro hall in local dark stone).
+  Qotiro build in the island's dark stone everywhere, never sandstone (Laz,
+  2026-10-09): their stepped, quarried shape and gold sun discs set them apart.
 - The south-east inland is Qotiro country — a raised arid plateau; elsewhere
   inland is mostly Roduro. Mountains wall the north and east, plus one massif.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).

@@ -4,7 +4,7 @@
 //! - **Outside** (`exterior`): Roduro grown stone is a rounded drum under a
 //!   lumpy dome, sized by the variant's outline, with an upper bud for two
 //!   storeys; Qotiro quarried stone is stepped boxes, one tier a storey
-//!   (sandstone at home, local dark stone with a gold sun disc for the
+//!   (the island's dark stone, cut into blocks, never sandstone; a gold sun disc for the
 //!   island hall); Horaro stilt homes stand on stone pillars with a deck.
 //!   Workshops and shops show their trade outside (a forge's chimney, a
 //!   tender's beds, a trader's awning and counter, a potter's kiln, market
@@ -330,9 +330,9 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
 }
 
 fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, sink: f32) {
-    let hall = v.kind == BuildingKind::QotiroHall;
-    let col = if hall { DARK_STONE } else { palette::SANDSTONE };
-    let cap = if hall { palette::scale(DARK_STONE, 1.25) } else { palette::scale(palette::SANDSTONE, 1.1) };
+    // Island stone for every Qotiro building, not sandstone (Laz).
+    let col = palette::QUARRIED;
+    let cap = palette::scale(palette::QUARRIED, 1.25);
     let (dx, dy) = door_spot(v);
     if v.kind == BuildingKind::QotiroTemple {
         // The temple-fortress: three great steps, a tower and a gold crown.
@@ -379,7 +379,7 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
             for sy in [-1.0f32, 1.0] {
                 b.block(f.at(0.0, sy * (1.0 + inner) * 0.5, y), f.hx * 2.0 * inner, (1.0 - inner) * f.hy, h, f.rot, col);
             }
-            b.block(f.at(0.0, 0.0, y - 0.05), f.hx * 2.0 * inner, f.hy * 2.0 * inner, 0.1, f.rot, [0.55, 0.45, 0.32]);
+            b.block(f.at(0.0, 0.0, y - 0.05), f.hx * 2.0 * inner, f.hy * 2.0 * inner, 0.1, f.rot, palette::scale(palette::QUARRIED, 1.4));
             y += h;
             continue;
         }
@@ -547,8 +547,7 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, d: &Door, on_ground: &dyn Fn(
     let f = Frame { c: d.centre, rot: d.rot, hx: d.half.x, hy: d.half.y, y: floor };
     let (wall_col, floor_col, inner_col) = match v.kind {
         BuildingKind::RoduroHome => (palette::STONE, [0.30, 0.28, 0.26], [0.50, 0.50, 0.50]),
-        BuildingKind::QotiroHall => (DARK_STONE, [0.30, 0.28, 0.26], [0.45, 0.44, 0.43]),
-        _ => (palette::SANDSTONE, [0.58, 0.49, 0.36], [0.86, 0.76, 0.58]),
+        _ => (palette::QUARRIED, [0.30, 0.28, 0.26], [0.45, 0.44, 0.43]),
     };
     // The floor, a slab down into the ground.
     if d.round {

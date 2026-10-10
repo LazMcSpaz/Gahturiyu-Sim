@@ -1037,7 +1037,7 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_gr
             let mut sz = bd.size;
             for tier in 0..tiers {
                 let h = 4.0 + unit(10 + tier as u64) * 1.5 + if tier == 0 { sink } else { 0.0 };
-                b.block(base + vec3(0.0, y, 0.0), sz, sz * 0.8, h, bd.rot, palette::SANDSTONE);
+                b.block(base + vec3(0.0, y, 0.0), sz, sz * 0.8, h, bd.rot, palette::QUARRIED);
                 // A lit slit window on each tier.
                 let (sn, cs) = bd.rot.sin_cos();
                 gl.patch(base + vec3(0.0, y + h * 0.55, 0.0) + vec3(cs, 0.0, sn) * (sz * 0.5 + 0.02), 0.5, 1.0, bd.rot, palette::WINDOW);
@@ -1048,10 +1048,10 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_gr
         BuildingKind::QotiroTemple => {
             let mut y = 0.0;
             for (f, h) in [(1.0, 7.0 + sink), (0.68, 8.0), (0.40, 3.0)] {
-                b.block(base + vec3(0.0, y, 0.0), bd.size * f, bd.size * f, h, bd.rot, palette::SANDSTONE);
+                b.block(base + vec3(0.0, y, 0.0), bd.size * f, bd.size * f, h, bd.rot, palette::QUARRIED);
                 y += h;
             }
-            b.block(base + vec3(0.0, y, 0.0), bd.size * 0.16, bd.size * 0.2, 6.0, bd.rot, palette::SANDSTONE);
+            b.block(base + vec3(0.0, y, 0.0), bd.size * 0.16, bd.size * 0.2, 6.0, bd.rot, palette::QUARRIED);
             b.column(base + vec3(0.0, y + 6.0, 0.0), bd.size * 0.06, 0.0, 3.0, 8, palette::METAL_GOLD);
             gl.patch(base + vec3(0.0, y + 9.5, 0.0), 2.6, 2.6, bd.rot, palette::METAL_GOLD);
         }
@@ -1488,7 +1488,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
             }
         }
         PlaceKind::MessHall | PlaceKind::Hall => {
-            b.block(base, size, size * 0.6, 4.0 + sink, rot, palette::SANDSTONE);
+            b.block(base, size, size * 0.6, 4.0 + sink, rot, palette::QUARRIED);
             b.block(base + vec3(0.0, 4.0 + sink, 0.0), size * 1.05, size * 0.65, 0.4, rot, palette::TIMBER);
             gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.5 + 0.02) + vec3(0.0, 2.0 + sink, 0.0), 1.6, 1.4, rot, palette::WINDOW);
             if k == PlaceKind::Hall {
@@ -1521,7 +1521,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
             banner(b, base + vec3(cs, 0.0, sn) * (size * 0.5 + 1.2), palette::METAL_GOLD);
         }
         PlaceKind::Shrine => {
-            b.block(base, 4.0, 4.0, 0.8 + sink, rot, palette::SANDSTONE);
+            b.block(base, 4.0, 4.0, 0.8 + sink, rot, palette::QUARRIED);
             b.column(base + vec3(0.0, 0.8 + sink, 0.0), 0.5, 0.3, 3.0, 8, palette::STONE);
             gl.patch(base + vec3(0.0, 4.2 + sink, 0.0), 1.2, 1.2, rot, palette::METAL_GOLD);
         }
@@ -1566,7 +1566,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
                 }
                 gl.column(base + vec3(-sn, 0.0, cs) * -2.0, 0.6, 0.3, 0.9, 6, palette::EMBER);
             } else {
-                let col = if k == PlaceKind::Forge { palette::STONE } else { palette::SANDSTONE };
+                let col = if k == PlaceKind::Forge { palette::STONE } else { palette::QUARRIED };
                 b.block(base, size * 0.8, size * 0.7, 3.0 + sink, rot, col);
                 if k == PlaceKind::Forge {
                     b.block(base + vec3(-sn, 0.0, cs) * 1.5, 0.9, 0.9, 5.0 + sink, rot, palette::STONE);

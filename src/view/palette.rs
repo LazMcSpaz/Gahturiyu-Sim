@@ -32,7 +32,9 @@ pub const STAIR: Rgb = [0.50, 0.48, 0.44];
 pub const STAIR_RISER: Rgb = [0.30, 0.29, 0.27];
 
 pub const STONE: Rgb = [0.38, 0.39, 0.41];
-pub const SANDSTONE: Rgb = [0.78, 0.63, 0.42];
+/// Qotiro quarried stone: the island's dark coastal rock, cut into blocks
+/// (Laz: no sandstone for the Qotiro).
+pub const QUARRIED: Rgb = [0.27, 0.27, 0.29];
 pub const WEAVE: Rgb = [0.24, 0.21, 0.16];
 pub const TIMBER: Rgb = [0.36, 0.27, 0.18];
 pub const METAL_GOLD: Rgb = [0.95, 0.76, 0.28];
