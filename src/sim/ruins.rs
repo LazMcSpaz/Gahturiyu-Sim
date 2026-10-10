@@ -5,9 +5,11 @@
 //! left of those who came before. Each has a cache lying in it: coin and a
 //! few good things.
 //!
-//! Placed once from the seed at world-making; the caches are ordinary
-//! things on the ground (so picking them up is the usual click), and the
-//! wardens are an ordinary band. Placeholder English names.
+//! Placed once from the seed at world-making; the caches are containers out
+//! in the wild (`containers::WILD`): a ruin's is a locked chest and a crate
+//! with something to read, a lair's an old chest. They're nobody's, so
+//! taking is no crime, but the wardens hear the lid. The wardens are an
+//! ordinary band. Placeholder English names.
 
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +18,9 @@ use super::geo::{self, V2};
 use super::group::GroupId;
 use super::items;
 use super::rng::Rng;
-use super::squad::GroundItem;
+use super::containers::{Container, Owner, WILD};
+use super::inventory::Entry;
+use super::layout::Holder;
 use super::world::World;
 
 /// How many warded ruins, and lairs at most.
@@ -52,6 +56,12 @@ pub struct Ruin {
 const RUIN_GOODS: &[&str] = &["gold_ring", "pearl_necklace", "greater_healing", "mana_tonic", "scroll_fireball", "scroll_lightning", "notes_paralyze", "manual_smithing", "manual_alchemy", "longsword", "scale_hauberk", "iron_helm", "kite_shield", "large_pack", "crossbow"];
 /// What lies in a lair, left by those who came before (one is picked).
 const LAIR_GOODS: &[&str] = &["longsword", "glaive", "war_pick", "scale_greaves", "iron_helm", "healing_draught", "greater_healing", "gold_ring"];
+/// Something to read in a ruin's crate (one is picked).
+const READING: &[&str] = &["notes_paralyze", "manual_smithing", "manual_alchemy", "scroll_fireball", "scroll_lightning"];
+/// And something the wardens live on (one is picked, with how many).
+const SUPPLIES: &[(&str, u16)] = &[("flatbread", 4), ("dried_fish", 3), ("torch", 2), ("healing_draught", 1)];
+/// How hard a ruin's chest is to pick (between these).
+pub const CHEST_LOCK: (f32, f32) = (30.0, 60.0);
 
 /// Distance from a point to the nearest road.
 fn road_dist(w: &World, p: V2) -> f32 {
@@ -136,24 +146,37 @@ impl World {
         for (h, home) in beasts.into_iter().take(LAIRS) {
             out.push(Ruin { id: out.len() as u32, pos: home, kind: RuinKind::Lair(h), guards: None, found: false });
         }
-        // The caches.
+        // The caches: a ruin's in a locked chest the wardens keep, with a
+        // crate beside it holding something to read; a lair's in an old
+        // chest whose owner won't be back for it.
         for ru in &out {
             let mut rr = Rng::from_keys(&[self.seed, ru.id as u64, 0x4341_4348]);
             let (coin, goods, picks) = match ru.kind {
                 RuinKind::Ruin => (60 + rr.below(120) as u16, RUIN_GOODS, 2),
                 RuinKind::Lair(_) => (30 + rr.below(90) as u16, LAIR_GOODS, 1),
             };
-            let lay = |w: &mut World, key: &str, n: u16, k: usize| {
-                let a = k as f32 * 2.1 + ru.id as f32;
-                let pos = ru.pos.add(V2::new(a.cos(), a.sin()).scale(2.5 + k as f32 * 0.8));
-                let id = w.next_ground_id;
-                w.next_ground_id += 1;
-                w.ground.push(GroundItem { id, item: items::id(key), count: n, pos, owner: None, piece: None });
+            let mut chest: Vec<Entry> = vec![Entry(items::id("coin"), coin, None)];
+            for _ in 0..picks {
+                let it = items::id(goods[rr.below(goods.len())]);
+                match chest.iter_mut().find(|e| e.0 == it) {
+                    Some(e) => e.1 += 1,
+                    None => chest.push(Entry(it, 1, None)),
+                }
+            }
+            let rot = rr.f32() * std::f32::consts::TAU;
+            let at = |k: f32| ru.pos.add(V2::new(rot.cos(), rot.sin()).scale(1.6 * k));
+            let lock = match ru.kind {
+                RuinKind::Ruin => CHEST_LOCK.0 + rr.f32() * (CHEST_LOCK.1 - CHEST_LOCK.0),
+                RuinKind::Lair(_) => 0.0,
             };
-            lay(self, "coin", coin, 0);
-            for k in 0..picks {
-                let key = goods[rr.below(goods.len())];
-                lay(self, key, 1, k + 1);
+            let id = (WILD, ru.id as u16, 0);
+            self.containers.insert(id, Container { id, what: Holder::Chest, pos: at(1.0), rot, items: chest, lock, picked: false, owner: Owner::Nobody, taken: 0 });
+            if ru.kind == RuinKind::Ruin {
+                let mut crate_: Vec<Entry> = vec![Entry(items::id(READING[rr.below(READING.len())]), 1, None)];
+                let (k, n) = SUPPLIES[rr.below(SUPPLIES.len())];
+                crate_.push(Entry(items::id(k), n, None));
+                let id = (WILD, ru.id as u16, 1);
+                self.containers.insert(id, Container { id, what: Holder::Crate, pos: at(-1.0), rot: rot + 0.4, items: crate_, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0 });
             }
         }
         self.ruins = out;
@@ -202,16 +225,20 @@ impl World {
         }
     }
 
-    /// What's still lying in a ruin's cache.
+    /// How many things are still in a ruin's cache (its chest and crate).
     pub fn ruin_cache(&self, id: u32) -> usize {
-        let Some(ru) = self.ruins.get(id as usize) else { return 0 };
-        self.ground.iter().filter(|g| g.pos.dist(ru.pos) < 8.0).count()
+        self.ruin_containers(id).map(|c| c.items.len()).sum()
+    }
+
+    /// A ruin's (or lair's) cache: its chest, and a ruin's crate.
+    pub fn ruin_containers(&self, id: u32) -> impl Iterator<Item = &Container> {
+        self.containers.range((WILD, id as u16, 0)..=(WILD, id as u16, u8::MAX)).map(|(_, c)| c)
     }
 }
 
 /// Every key the caches can hold exists.
 pub fn check_tables() -> Result<(), String> {
-    for k in RUIN_GOODS.iter().chain(LAIR_GOODS) {
+    for k in RUIN_GOODS.iter().chain(LAIR_GOODS).chain(READING).chain(SUPPLIES.iter().map(|s| &s.0)) {
         if !items::catalogue_has(k) {
             return Err(k.to_string());
         }

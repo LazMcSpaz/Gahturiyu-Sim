@@ -442,7 +442,9 @@ impl World {
         let mut done = Vec::new();
         for n in 0..self.picking.len() {
             let pk = self.picking[n];
-            let (Some(k), Some(d)) = (self.squad.index(pk.who), self.door(pk.door)) else {
+            // (A chest out in the wild has no door: `containers::WILD`.)
+            let d = self.door(pk.door);
+            let Some(k) = self.squad.index(pk.who).filter(|_| d.is_some() || (pk.holder.is_some() && pk.door.0 == super::containers::WILD)) else {
                 done.push(n);
                 continue;
             };
@@ -456,9 +458,10 @@ impl World {
                 done.push(n);
                 continue;
             }
-            let (spot, lock) = match chest {
-                Some(c) => (self.container_stand(c).unwrap_or(d.inside), self.container(c).map(|c| c.lock).unwrap_or(0.0)),
-                None => (d.outside, d.lock),
+            let (spot, lock) = match (chest, d) {
+                (Some(c), _) => (self.container_stand(c).or(d.map(|d| d.inside)).unwrap_or(self.squad.at[k]), self.container(c).map(|c| c.lock).unwrap_or(0.0)),
+                (None, Some(d)) => (d.outside, d.lock),
+                (None, None) => continue,
             };
             if self.squad.at[k].dist(spot) > AT_DOOR || self.fighting.contains_key(&pk.who) {
                 continue;

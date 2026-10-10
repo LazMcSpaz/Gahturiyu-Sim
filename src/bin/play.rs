@@ -468,6 +468,13 @@ fn nearby(w: &World) -> String {
         let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
     }
+    // The caches in ruins and lairs close by.
+    for r in w.ruins.iter().filter(|r| near(r.pos, 60.0)) {
+        for c in w.ruin_containers(r.id) {
+            let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
+            lines.push((here.dist(c.pos), format!("k{}.{}.{}  a {} in the {}{lock}, {} things in it, nobody's — {}", c.id.0, c.id.1, c.id.2, c.what.name(), r.name(w).to_lowercase(), c.items.len(), dist_dir(here, c.pos))));
+        }
+    }
     if let Some(inside) = w.squad.inside.iter().flatten().next() {
         for c in w.containers_in(*inside) {
             let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };

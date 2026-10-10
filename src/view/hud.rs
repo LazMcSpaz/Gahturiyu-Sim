@@ -529,6 +529,14 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 if w.is_warden(c.group) {
                     out.push(("Wardens dug in at a ruin: harder than most".to_string(), WARN));
                 }
+                if n > 0 {
+                    if let Some(o) = odds_word(w, Foe::Band(c.group)) {
+                        out.push((format!("Taking them on: {}", o.words()), odds_colour(o)));
+                    }
+                }
+                if c.ready_at > w.time && n > 0 {
+                    out.push((format!("Resting after a fight until {}: they won't come looking, but they'll see anyone in their camp", hhmm(c.ready_at)), DIM));
+                }
             }
         }
         Hover::Place(t, k) => {
@@ -543,6 +551,8 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if w.container_locked(id) {
                 out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
+            } else if gahturiyu_sim::sim::containers::is_wild(id) {
+                out.push(("Click to open (nobody's: taking is no crime, but keepers nearby may hear)".into(), DIM));
             } else {
                 out.push(("Click to open (taking is theft)".into(), DIM));
             }
