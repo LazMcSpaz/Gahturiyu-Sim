@@ -287,7 +287,7 @@ const TIPS: &[(&str, &str)] = &[
     ("welcome", "Welcome. Left-click the ground to walk. Click a squad member to choose who takes orders. Hover over anything to see what it is."),
     ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked (`town` lists who, and their price)."),
     ("work", "Short of coin? Every town has a woodlot (and some a mine) nearby, marked by a post. Click it and the selected work until their packs are full."),
-    ("fight", "A fight! Click an enemy to set the selected on them. Z sneaks; T lights a torch."),
+    ("fight", "A fight! Click an enemy to set the selected on them."),
     ("loot", "A beaten foe: click them and someone goes through their things. Bandits carry coin."),
     ("full", "A full pack slows you down. Talk to a merchant (\"What have you got?\") and use Sell all."),
     ("hungry", "Someone's hungry. They eat from their pack when they need to: buy food from a merchant, or hunt (click a wild animal) and cut up what you kill."),
@@ -389,7 +389,7 @@ fn hud(w: &World, s: &Session) -> String {
         let mark = if s.selected.contains(&m) { "*" } else { " " };
         let hunger = w.hunger_of(m).map(|h| if h >= 80.0 { " STARVING" } else if h >= 65.0 { " weak with hunger" } else if h >= 50.0 { " hungry" } else { "" }).unwrap_or("");
         let tired = w.tired_of(m).map(|t| if t >= 80.0 { " worn out" } else { "" }).unwrap_or("");
-        let sus = w.suspicion_of(m);
+        let sus = if w.fighting.contains_key(&m) || w.is_down(m) { 0.0 } else { w.suspicion_of(m) };
         let seen = if sus >= 1.0 { " SPOTTED" } else if sus > 0.3 { " being noticed" } else { "" };
         let lvl = w.fresh_level_up(m).map(|(a, v)| format!(" ({a} {v} ↑)")).unwrap_or_default();
         // Strayed from the others, or left sneaking (half pace): both are
@@ -535,11 +535,22 @@ fn nearby(w: &World, only: &str) -> String {
             lines.push((here.dist(wp.pos), format!("w{ti}.{i}  {what} — {}", dist_dir(here, wp.pos))));
         }
     }
-    for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0) {
-        let at = w.herd_pos(h.id, w.time);
+    for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0 && !h.hidden(w.time)) {
+        // In a fight, they're where they're fighting, not on their round.
+        let fighting = w.herd_fight_pos(h.id);
+        let at = fighting.unwrap_or_else(|| w.herd_pos(h.id, w.time));
         if near(at, 250.0) {
             let n = h.alive(w.time);
-            lines.push((here.dist(at), format!("h{}  {} {} ({}) — {}", h.id, n, h.def().name, if h.def().yields.is_empty() { "nothing to take" } else { "huntable" }, dist_dir(here, at))));
+            let what = if fighting.is_some() {
+                "in the fight"
+            } else if (0..n).all(|j| h.down(j, w.time)) {
+                "lying beaten"
+            } else if h.def().yields.is_empty() {
+                "nothing to take"
+            } else {
+                "huntable"
+            };
+            lines.push((here.dist(at), format!("h{}  {} ({what}) — {}", h.id, h.def().counted(n), dist_dir(here, at))));
         }
     }
     for c in w.animals.carcasses.iter().filter(|c| c.gone_at > w.time && near(c.pos, 200.0)) {
@@ -658,6 +669,10 @@ fn fight(w: &World) -> String {
     let Some(b) = w.squad_battle() else { return "No fight going on.\n".into() };
     let _ = writeln!(o, "FIGHT:");
     for (i, f) in b.fighters.iter().enumerate() {
+        // A spent decoy or a fallen summoned beast is gone, not "down".
+        if !f.is_person() && (f.ko || f.dead) {
+            continue;
+        }
         let side = if f.home == SQUAD_SIDE { "yours" } else { "them " };
         let state = if f.dead {
             "dead"
@@ -1120,6 +1135,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     w.order_carry(m, p);
                     walk_then_look(w, s, &[m], &mut o);
                 }
+                None if p.is_some_and(|p| w.fighting.contains_key(&p)) || sel.iter().any(|m| w.fighting.contains_key(m)) => o += "Not while the fight is on.\n",
                 None => o += "Nobody selected can carry them.\n",
             }
         }

@@ -35,6 +35,10 @@ use super::settlement::SettlementId;
 use super::jobs::Job;
 use super::world::World;
 
+/// A bounty is the fine and half again: running and paying later costs
+/// more than standing to be judged.
+pub const BOUNTY_MARKUP: f32 = 1.5;
+
 /// How likely an ordinary witness is to tell the watch.
 pub const REPORT_BASE: f32 = 0.85;
 /// How fast a guard runs after a thief, m/s (the squad walks at 1.5).
@@ -227,7 +231,7 @@ impl World {
     /// the news of it sets off.
     pub(super) fn post_bounty(&mut self, who: PersonId, town: SettlementId, fine: f32, line: String) {
         let _ = who;
-        *self.bounty.entry(town).or_insert(0.0) += fine;
+        *self.bounty.entry(town).or_insert(0.0) += fine * BOUNTY_MARKUP;
         self.crime_known(town);
         let total = self.bounty[&town];
         let t = self.time;

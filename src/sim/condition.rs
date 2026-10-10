@@ -447,6 +447,7 @@ impl World {
         self.rate_wounds(pid);
         if a == Activity::Sleeping {
             self.drop_held_on_sleep(pid, t);
+            self.torch_out_for_sleep(pid, t);
         }
     }
 
@@ -591,6 +592,7 @@ impl World {
                         self.log.push_front((t, format!("{name} beds down for the night.")));
                         self.log.truncate(14);
                         self.drop_held_on_sleep(pid, t);
+                        self.torch_out_for_sleep(pid, t);
                     }
                     Event::Ritual => self.ritual_done(pid),
                     Event::Eat => {
