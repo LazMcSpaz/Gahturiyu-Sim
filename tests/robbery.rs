@@ -111,3 +111,64 @@ fn the_downed_come_round_within_a_couple_of_hours() {
     let hp = w.people[m as usize].wounds.hp_at(&w.people[m as usize].stats, w.time)[Part::Torso as usize];
     assert!(hp < max * 0.5, "not healed outright: {hp:.0} of {max:.0}");
 }
+
+/// Round 3 (Jo): beaten right beside the gang's camp, nobody given an order,
+/// and four of five lay at 0% for five and a half hours. The promise is "within
+/// an hour or two"; at least one should be up inside the first hour.
+#[test]
+fn beaten_beside_a_camp_someone_is_up_within_the_hour() {
+    use gahturiyu_sim::sim::world::HOUR;
+    for seed in 1..=4 {
+        let mut w = worldgen::generate(seed);
+        let squad = w.squad.members.clone();
+        for &m in &squad {
+            for k in SKILLS {
+                w.people[m as usize].stats.set_skill(k, 1.0);
+            }
+            w.people[m as usize].recompute_might();
+        }
+        // The camp 10 m off: the squad lies beside it after.
+        let at = w.squad.pos.add(V2::new(10.0, 0.0));
+        let band = w.spawn_bandits(at, 6, false);
+        let foes: Vec<u32> = w.group(band).unwrap().members.clone();
+        for &f in &foes {
+            w.people[f as usize].traits.boldness = 1.0;
+            for k in SKILLS {
+                w.people[f as usize].stats.set_skill(k, 70.0);
+            }
+            w.people[f as usize].recompute_might();
+        }
+        assert!(w.attack(&squad, foes[0]));
+        let mut n = 0;
+        while w.squad_battle().is_some() && n < 40_000 {
+            w.step(0.1);
+            n += 1;
+        }
+        assert!(w.squad_battle().is_none(), "seed {seed}: the fight ended");
+        let lost = w.log.iter().any(|l| l.1.starts_with("Beaten."));
+        let downed = squad.iter().filter(|&&m| w.is_down(m)).count();
+        eprintln!("seed {seed}: lost {lost}, {downed} down, fit {:?}", w.squad_fit());
+        assert!(lost && downed >= 2, "seed {seed}: the squad lost");
+        let ended = w.time;
+        let camp = w.camps.iter().find(|c| c.group == band).unwrap().pos;
+        let mut first_up = None;
+        while w.time < ended + 2.0 * HOUR {
+            w.step(30.0);
+            for &m in &squad {
+                if let Some(k) = w.squad.index(m) {
+                    assert!(w.member_pos(k).dist(camp) < 60.0, "seed {seed}: nobody moved them");
+                }
+            }
+            if first_up.is_none() && squad.iter().any(|&m| !w.people[m as usize].dead && !w.is_down(m)) {
+                first_up = Some(w.time);
+            }
+        }
+        let up = first_up.map(|t| (t - ended) / HOUR);
+        eprintln!("seed {seed}: first up after {up:?} h; still in a fight: {}", w.squad.members.iter().any(|m| w.fighting.contains_key(m)));
+        for &m in &squad {
+            let p = &w.people[m as usize];
+            eprintln!("  {m}: down {} rate {} rally {} activity {:?}", w.is_down(m), p.wounds.rate, p.wounds.rally, p.cond.as_ref().map(|c| c.activity));
+        }
+        assert!(up.is_some_and(|h| h <= 1.0), "seed {seed}: nobody up within the hour ({up:?})");
+    }
+}

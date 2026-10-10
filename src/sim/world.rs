@@ -510,6 +510,9 @@ impl World {
         self.in_view_groups.retain(|_, last| t - *last <= ANNOUNCE_GAP);
         for id in entered {
             let line = self.describe_group(id);
+            if self.group(id).is_some_and(|g| g.hostile) {
+                self.alerts.push(line.clone());
+            }
             self.push_log(line);
         }
 
@@ -552,6 +555,18 @@ impl World {
             Some(n) => format!("{} and {} other{}", n, g.members.len() - 1, if g.members.len() == 2 { "" } else { "s" }),
             None => format!("{} travellers", g.members.len()),
         };
+        // A band that would fall on you says so, with how a fight would go.
+        if g.hostile {
+            let what = if self.is_warden(id) {
+                "bandits dug in at a ruin"
+            } else if self.camp_of(id).is_some() {
+                "bandits from a camp"
+            } else {
+                "bandits"
+            };
+            let odds = self.reading_vs_group(id).odds();
+            return format!("{who}: {what}, in sight. {}", odds.sentence());
+        }
         match g.kind {
             Kind::Wanderer { .. } => format!("{who}, wandering, crosses your path."),
             Kind::Journey { home } => {

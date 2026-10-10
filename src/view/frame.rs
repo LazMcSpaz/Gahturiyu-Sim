@@ -277,7 +277,7 @@ fn news(w: &World) -> Vec<(String, bool)> {
         .filter(|(t, l)| w.time - t < 3.0 * HOUR && !quiet.iter().any(|q| l.contains(q)))
         .take(4)
         .map(|(_, l)| {
-            let bad = ["attack", "Beaten", "dies", "died", "theft", "Theft", "stole", "on you", "arrest", "bounty", "robbed", "falls"].iter().any(|k| l.contains(k));
+            let bad = ["attack", "Beaten", "dies", "died", "theft", "Theft", "stole", "on you", "arrest", "bounty", "robbed", "falls", "bandits"].iter().any(|k| l.contains(k));
             (l.trim_end_matches('.').to_string(), bad)
         })
         .collect()

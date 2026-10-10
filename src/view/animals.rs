@@ -557,6 +557,9 @@ pub fn describe(w: &World, s: &Seen) -> Vec<(String, Rgb)> {
         if d.protected {
             out.push(("Protected".to_string(), GOLD));
         }
+        if let Some(o) = super::hud::odds_word(w, super::hud::Foe::Herd(herd)) {
+            out.push((format!("{}: {}", if d.yields.is_empty() { "Going for it" } else { "Huntable" }, o.words()), super::hud::odds_colour(o)));
+        }
     };
     match s.thing {
         Thing::Animal(herd, slot) => {
