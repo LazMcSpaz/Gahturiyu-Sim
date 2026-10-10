@@ -130,7 +130,12 @@ fn main() {
     };
     let mut s = load_session(&save);
     s.selected.retain(|&p| w.squad.index(p).is_some());
+    w.alerts.clear();
     let out = run(&mut w, &mut s, cmd, &rest, &save);
+    // What matters most (a fight, an arrest, a robbery) first, set apart.
+    for a in w.alerts.drain(..) {
+        println!("!! {a}");
+    }
     print!("{out}");
     w.save_to(&save).expect("save");
     save_session(&save, &s);
@@ -758,13 +763,31 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     _ => o += "Can't go through that (is it locked, or not in a building you're in?).\n",
                 }
             } else {
-                let looter = w.looting.last().map(|l| l.who).unwrap_or(lead);
+                let looter = w.looting.last().map(|l| l.who).or_else(|| w.picking.last().map(|p| p.who)).unwrap_or(lead);
                 let mut n = 0;
-                while w.source_now(looter).is_none() && n < 2400 {
+                while w.source_now(looter).is_none() && n < 2400 && w.chased_by(looter).is_none() && w.free_to_order(looter) {
+                    // Still at a lock: keep going while they have picks.
+                    if w.looting.iter().all(|l| l.who != looter) && w.picking.iter().all(|p| p.who != looter) {
+                        break;
+                    }
                     w.step(0.25);
                     n += 1;
                 }
-                o += &loot_view(w, looter);
+                o += &news(w, s);
+                if w.source_now(looter).is_none() {
+                    let name = first_name(w, looter);
+                    if let Some(g) = w.chased_by(looter) {
+                        o += &format!("{name} was seen: {} of the watch is after them.\n", first_name(w, g));
+                    } else if !w.free_to_order(looter) {
+                        o += &format!("{name} was caught and is bound to work it off (see News).\n");
+                    } else if w.count_of(looter, "lockpick") == 0 && arg(0).starts_with('k') {
+                        o += &format!("{name} has no lockpicks left; the lock holds.\n");
+                    } else {
+                        o += &loot_view(w, looter);
+                    }
+                } else {
+                    o += &loot_view(w, looter);
+                }
             }
         }
         "put" => {
@@ -889,7 +912,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 }
                 Some(d) => {
                     w.order_members(&sel, d.centre);
-                    walk_then_look(w, s, &sel, &mut o);
+                    o += &pass(w, 30.0 * 60.0, Some(&sel));
+                    let name = d.variant().name;
+                    let inside: Vec<String> = sel.iter().copied().filter(|&m| w.squad.index(m).is_some_and(|k| w.squad.inside[k] == Some(d.id))).map(|m| first_name(w, m)).collect();
+                    o += &if inside.is_empty() { format!("Nobody got inside the {name}.\n") } else { format!("{} {} inside the {name}.\n", inside.join(", "), if inside.len() == 1 { "is" } else { "are" }) };
+                    o += &look(w, s);
                 }
                 None => o += "No such building.\n",
             }
@@ -979,7 +1006,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     ("use", Some(it)) => w.why_cant_use(m, it),
                     _ => None,
                 };
-                o += &format!("That didn't work{}.\n", why.map(|y| format!(": {y}")).unwrap_or_default());
+                o += &format!("That didn't work{}.\n", why.map(|y| format!(": {}", y.trim_end_matches('.'))).unwrap_or_default());
             }
             o += &news(w, s);
             o += &pack(w, m);

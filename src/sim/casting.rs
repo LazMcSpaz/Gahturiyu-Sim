@@ -772,6 +772,20 @@ impl World {
 
     // ---- Rituals ----------------------------------------------------------
 
+    /// ": the nearest is in Gogata, 1.2 km north-west" for the nearest
+    /// building of these kinds (empty if there's none).
+    fn nearest_kind(&self, kinds: &[BuildingKind], at: V2) -> String {
+        let best = self.settlements.iter().flat_map(|s| s.buildings.iter().map(move |b| (s, b))).filter(|(_, b)| kinds.contains(&b.kind)).min_by(|a, b| a.1.pos.dist(at).total_cmp(&b.1.pos.dist(at)));
+        match best {
+            Some((s, b)) => {
+                let d = b.pos.dist(at);
+                let how_far = if d >= 1000.0 { format!("{:.1} km", d / 1000.0) } else { format!("{d:.0} m") };
+                format!(": the nearest is in {}, {how_far} {}", s.name, super::quests::compass(b.pos.sub(at)))
+            }
+            None => String::new(),
+        }
+    }
+
     /// Is `at` a fit place for this ritual? Also says how many extra minutes
     /// drawing a circle would add.
     pub fn ritual_place(&self, place: Place, at: V2) -> Result<f32, Cannot> {
@@ -779,9 +793,9 @@ impl World {
         match place {
             Place::Anywhere => Ok(0.0),
             Place::Hearth if near(&[BuildingKind::Hearth], HEARTH_REACH) => Ok(0.0),
-            Place::Hearth => cannot("has to be done at a hearth"),
+            Place::Hearth => cannot(&format!("has to be done at a hearth{}", self.nearest_kind(&[BuildingKind::Hearth], at))),
             Place::Shrine if near(&[BuildingKind::QotiroTemple, BuildingKind::QotiroHall], SHRINE_REACH) => Ok(0.0),
-            Place::Shrine => cannot("has to be done at a shrine"),
+            Place::Shrine => cannot(&format!("has to be done at a shrine{}", self.nearest_kind(&[BuildingKind::QotiroTemple, BuildingKind::QotiroHall], at))),
             Place::Circle if self.circles.iter().any(|c| c.dist(at) <= CIRCLE_REUSE) => Ok(0.0),
             Place::Circle => Ok(CIRCLE_MINUTES),
         }

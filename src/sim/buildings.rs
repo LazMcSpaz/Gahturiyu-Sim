@@ -424,6 +424,7 @@ impl World {
                     self.log.push_front((next, format!("{name}'s lockpick snaps ({:.0}% a try at {}).", self.pick_chance(pk.who, lock) * 100.0, World::lock_word(lock))));
                     if !has_pick(self) {
                         self.log.push_front((next, format!("{name} has no lockpicks left; the lock holds.")));
+                        self.alerts.push(format!("{name} has no lockpicks left; the lock holds."));
                         finished = true;
                     }
                 }
