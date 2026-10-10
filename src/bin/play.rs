@@ -585,11 +585,22 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
             lines.push((here.dist(wp.pos), format!("w{ti}.{i}  {what} — {}", dist_dir(here, wp.pos))));
         }
     }
-    for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0) {
-        let at = w.herd_pos(h.id, w.time);
+    for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0 && !h.hidden(w.time)) {
+        // In a fight, they're where they're fighting, not on their round.
+        let fighting = w.herd_fight_pos(h.id);
+        let at = fighting.unwrap_or_else(|| w.herd_pos(h.id, w.time));
         if near(at, 250.0) {
             let n = h.alive(w.time);
-            lines.push((here.dist(at), format!("h{}  {} {} ({}) — {}", h.id, n, h.def().name, if h.def().yields.is_empty() { "nothing to take" } else { "huntable" }, dist_dir(here, at))));
+            let what = if fighting.is_some() {
+                "in the fight"
+            } else if (0..n).all(|j| h.down(j, w.time)) {
+                "lying beaten"
+            } else if h.def().yields.is_empty() {
+                "nothing to take"
+            } else {
+                "huntable"
+            };
+            lines.push((here.dist(at), format!("h{}  {} ({what}) — {}", h.id, h.def().counted(n), dist_dir(here, at))));
         }
     }
     for c in w.animals.carcasses.iter().filter(|c| c.gone_at > w.time && near(c.pos, 200.0)) {

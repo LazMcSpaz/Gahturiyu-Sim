@@ -384,6 +384,12 @@ impl Herd {
         self.def().active.at(t)
     }
 
+    /// Out of sight and out of reach just now: Tidepickers under the rocks
+    /// while the water is up. They can't be found or set upon (BL-28).
+    pub fn hidden(&self, t: f64) -> bool {
+        self.def().active == super::species::Active::LowTide && !self.active(t)
+    }
+
     /// A spot out in the home range for one stretch of the day.
     fn roam(&self, block: i64) -> V2 {
         let d = self.def();

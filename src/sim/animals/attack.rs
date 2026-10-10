@@ -84,6 +84,11 @@ pub const MAX_FIGHTERS: usize = 10;
 pub const CORNERED: usize = 4;
 /// Fight ticks between checks of animals' nerve (one second).
 const NERVE_TICKS: u64 = 10;
+/// Seconds of a fight before an animal weighs the odds and breaks off (it
+/// still runs when badly hurt).
+const NERVE_GRACE: u64 = 8;
+/// How close a hunter has to come to a herd lying beaten to finish it.
+pub const FINISH_REACH: f32 = 6.0;
 /// Chance, per check, that an animal with reason to run does.
 pub const FLEE_CHANCE: f32 = 0.35;
 /// How far a routed or startled herd runs, metres, and how long it stays
@@ -188,7 +193,8 @@ pub fn would_attack(sp: Sp, pack_might: f32, their_might: f32, their_count: usiz
     }
     match sp.def().toward {
         Toward::PackHunter => pack_might * (0.6 + 0.5 * roll) > their_might * PACK_CAUTION,
-        Toward::Ambusher => their_count <= AMBUSH_SMALL || roll < AMBUSH_BOLD,
+        // An ambusher leaves alone a party it would run from at once.
+        Toward::Ambusher => (their_count <= AMBUSH_SMALL || roll < AMBUSH_BOLD) && (sp.def().body.odds <= 0.0 || their_might <= pack_might * sp.def().body.odds),
         Toward::Territorial | Toward::Hostile => true,
         _ => false,
     }
@@ -252,7 +258,9 @@ fn nerve(b: &mut Battle, parts: &[FrayPart]) {
             let mine: f32 = b.fighters.iter().filter(|x| x.side == f.side && x.active()).map(|x| x.might).sum();
             let theirs: f32 = b.fighters.iter().filter(|x| x.side != f.side && x.active()).map(|x| x.might).sum();
             let hurt = d.body.nerve > 0.0 && f.vitality() < d.body.nerve;
-            let losing = d.body.odds > 0.0 && theirs > mine * d.body.odds;
+            // (Not in a fight's first moments: whatever has come to
+            // blows strikes before it thinks better of it.)
+            let losing = sec >= NERVE_GRACE && d.body.odds > 0.0 && theirs > mine * d.body.odds;
             (hurt || losing) && Rng::from_keys(&[b.seed, i as u64, sec, 0x4E45_5256]).f32() < FLEE_CHANCE
         };
         if run {
@@ -581,6 +589,8 @@ impl World {
         // down is left to get up again: see `finish_off`.
         let finish = fray.hunted && fray.squad_won;
         let mut lost = 0u32;
+        // Where the squad's people ended the fight (the middle of them).
+        let squad_at = self.squad.pos;
         for hid in herds {
             let mine: Vec<(u16, FrayPart, PartEnd)> = fray
                 .parts
@@ -627,10 +637,18 @@ impl World {
                 let until = (t + FEED_TIME).max(h.all_up_at(t) + 600.0);
                 h.away = Some(Away { from: site, to: site, depart: t, arrive: t, until });
             } else {
-                // Routed: off the way it came, and wary for a while.
+                // Routed: away from whoever set on it (for a far-off fight,
+                // off toward home), and wary for a while.
+                let ran: Vec<V2> = mine.iter().filter(|x| !x.2.dead).map(|x| x.2.pos).collect();
+                let from_them = (fray.ends.is_none() && !ran.is_empty()).then(|| ran.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / ran.len() as f32).sub(squad_at)).filter(|v| v.len() > 1.0);
                 let off = h.home.sub(fray.at);
-                let dir = if off.len() > 30.0 { off.scale(1.0 / off.len()) } else { V2::new(1.0, 0.0) };
-                let mut to = fray.at.add(dir.scale(FLEE_DIST.min(off.len().max(FLEE_DIST * 0.5))));
+                let dir = match from_them {
+                    Some(v) => v.scale(1.0 / v.len()),
+                    None if off.len() > 30.0 => off.scale(1.0 / off.len()),
+                    None => V2::new(1.0, 0.0),
+                };
+                let far = if from_them.is_some() { FLEE_DIST } else { FLEE_DIST.min(off.len().max(FLEE_DIST * 0.5)) };
+                let mut to = fray.at.add(dir.scale(far));
                 if !geo::is_land(to) {
                     to = h.home;
                 }
@@ -913,7 +931,7 @@ impl World {
         }
         let d = self.animals.herds[herd as usize].def();
         let n = self.animals.frays.last().map(|f| f.parts.len()).unwrap_or(1);
-        let line = if n > 1 { format!("{}s are on you!", d.name) } else { format!("A {} is on you!", d.name) };
+        let line = if n > 1 { format!("{} are on you!", d.plural()) } else { format!("A {} is on you!", d.name) };
         self.alerts.push(line.clone());
         self.log.push_front((t, line));
         self.log.truncate(14);
@@ -928,11 +946,35 @@ impl World {
     pub fn hunt(&mut self, who: &[PersonId], herd: u32) -> bool {
         let t = self.time;
         let Some(h) = self.animals.herds.get(herd as usize) else { return false };
-        if h.alive(t) == 0 || who.is_empty() {
+        if h.alive(t) == 0 || who.is_empty() || h.hidden(t) {
             return false;
         }
         let pos = self.herd_pos(herd, t);
         let near = who.iter().map(|&m| self.person_pos(m).dist(pos)).fold(f32::MAX, f32::min);
+        // Nothing left standing: there's no fight to be had, only beasts
+        // lying beaten. Whoever walks right up to them finishes them
+        // (BL-27).
+        let alive = h.alive(t);
+        if (0..alive).all(|j| h.down(j, t)) {
+            if self.herd_in_fray(herd) || near > FINISH_REACH + h.spread(t) {
+                return false;
+            }
+            let def = h.def();
+            let mut n = 0;
+            for j in (0..alive).rev() {
+                let h = &self.animals.herds[herd as usize];
+                let (sp, size, ident) = (h.sp, h.size(j, t), h.ident(j));
+                let at = self.animal_pos(herd, j, t);
+                self.animals.herds[herd as usize].remove(j, t);
+                self.leave_carcass(sp, size, at, t, rng::key(&[herd as u64, ident as u64]));
+                n += 1;
+            }
+            self.animals.stats.animals_killed += n;
+            self.animals.herds[herd as usize].away = None;
+            self.log.push_front((t, format!("You finish {}.", def.the(n as usize))));
+            self.log.truncate(14);
+            return true;
+        }
         if near > HUNT_REACH + h.spread(t) {
             return false;
         }
@@ -944,11 +986,11 @@ impl World {
         } else {
             reaction(h.def().toward)
         };
-        let name = h.def().name;
+        let them = h.def().the(h.alive(t));
         if self.squad_fray(herd, 0.0, surprise, true).is_none() {
             return false;
         }
-        let line = if surprise >= 5.0 { format!("You fall on the {name}s before they know it.") } else { format!("You go for the {name}s.") };
+        let line = if surprise >= 5.0 { format!("You fall on {them} before they know it.") } else { format!("You go for {them}.") };
         self.log.push_front((t, line));
         self.log.truncate(14);
         true
@@ -1081,6 +1123,24 @@ impl World {
     /// Is this animal of this herd in a fight right now?
     pub fn animal_fighting(&self, herd: u32, ident: u16) -> bool {
         self.animals.frays.iter().any(|f| f.parts.iter().any(|p| p.who == Who::Wild { herd, ident }))
+    }
+
+    /// Where a herd's animals are fighting, if they're in a fight on show:
+    /// the middle of those still in it.
+    pub fn herd_fight_pos(&self, herd: u32) -> Option<V2> {
+        let mut at: Vec<V2> = Vec::new();
+        for fr in &self.animals.frays {
+            let Some(b) = self.battle(fr.battle) else { continue };
+            for p in &fr.parts {
+                if !matches!(p.who, Who::Wild { herd: h, .. } if h == herd) {
+                    continue;
+                }
+                if let Some(f) = b.fighters.get(p.fighter as usize).filter(|f| !f.dead && !f.fled) {
+                    at.push(f.pos);
+                }
+            }
+        }
+        (!at.is_empty()).then(|| at.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / at.len() as f32))
     }
 
     /// Every animal in a fight near enough to be on show, for drawing.

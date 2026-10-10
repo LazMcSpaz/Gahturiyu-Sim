@@ -643,7 +643,32 @@ fn fight_summary(b: &Battle) -> String {
     let mut fled = Vec::new();
     let mut dead = Vec::new();
     let mut down = Vec::new();
+    // Wild animals, by kind: how many died, lie beaten, or ran (BL-34).
+    let mut beasts: Vec<(String, [usize; 3])> = Vec::new();
     for (i, f) in b.fighters.iter().enumerate() {
+        if f.home == super::animals::ANIMAL_SIDE {
+            let sp = super::animals::Species::named(&name(i));
+            // Prey beaten in a hunt the squad won is finished off there.
+            let finished = f.ko && b.winner() == Some(SQUAD_SIDE) && sp.is_some_and(|s| s.class == super::animals::Class::Prey);
+            let what = if f.dead || finished {
+                0
+            } else if f.ko {
+                1
+            } else if f.fled || f.fleeing {
+                2
+            } else {
+                continue;
+            };
+            match beasts.iter_mut().find(|e| e.0 == name(i)) {
+                Some(e) => e.1[what] += 1,
+                None => {
+                    let mut n = [0; 3];
+                    n[what] = 1;
+                    beasts.push((name(i), n));
+                }
+            }
+            continue;
+        }
         // Called-up creatures and decoys aren't anyone to go through.
         if f.home == super::combat::GRAVE_SIDE || f.summon.is_some() || f.is_decoy() {
             continue;
@@ -658,6 +683,18 @@ fn fight_summary(b: &Battle) -> String {
             beaten.push(name(i));
         } else if f.fled || f.fleeing {
             fled.push(name(i));
+        }
+    }
+    for (kind, n) in &beasts {
+        let say = |k: usize| super::animals::Species::named(kind).map(|s| s.counted(k)).unwrap_or_else(|| format!("{k} {kind}"));
+        if n[0] > 0 {
+            dead.push(say(n[0]));
+        }
+        if n[1] > 0 {
+            beaten.push(say(n[1]));
+        }
+        if n[2] > 0 {
+            fled.push(say(n[2]));
         }
     }
     let head = match b.winner() {
