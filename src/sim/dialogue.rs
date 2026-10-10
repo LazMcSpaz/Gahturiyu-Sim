@@ -98,6 +98,10 @@ pub enum Topic {
     /// Ask someone who won't come to join anyway: they say why not.
     /// (Last, so saves made before it still read.)
     AskJoin,
+    /// Have the healer see to the hurt, for this many coin.
+    Treat(u16),
+    /// Take beds at the inn for the night, for this many coin in all.
+    RentBeds(u16),
 }
 
 impl Topic {
@@ -136,6 +140,8 @@ impl Topic {
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
             Topic::Join(_) | Topic::AskJoin => "Come with us",
+            Topic::Treat(_) => "See to my people's wounds",
+            Topic::RentBeds(_) => "Beds for the night",
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
@@ -250,6 +256,8 @@ impl World {
             }
             Topic::Join(0) => "Come with us — join the squad".into(),
             Topic::Join(fee) => format!("Come with us — join the squad ({fee} coin to sign on)"),
+            Topic::Treat(p) => format!("See to my people's wounds ({p} coin)"),
+            Topic::RentBeds(p) => format!("Beds for the night ({p} coin)"),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
             Topic::Collect(k) => match self.orders.get(k as usize) {
                 Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
@@ -471,6 +479,13 @@ impl World {
             Some(fee) => t.push(Topic::Join(fee)),
             None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad => t.push(Topic::AskJoin),
             None => {}
+        }
+        // A healer at work sees to the hurt; an innkeeper lets beds.
+        if let Some((_, price)) = self.treat_terms(c.npc) {
+            t.push(Topic::Treat(price));
+        }
+        if let Some((_, price)) = self.bed_terms(c.npc) {
+            t.push(Topic::RentBeds(price));
         }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
@@ -749,6 +764,16 @@ impl World {
                 Err(e) => format!("No — {e}."),
             },
             Topic::AskJoin => self.why_not_join(c.npc).unwrap_or("Ask me properly.").to_string(),
+            Topic::Treat(price) => match self.treat(c.npc) {
+                Ok(who) if who.len() == 1 => format!("Hold still. ... There: cleaned and bound. {price} coin. Go easy on it for a day."),
+                Ok(_) => format!("One at a time, then. ... There: all of them cleaned and bound. {price} coin."),
+                Err(e) => format!("No — {e}."),
+            },
+            Topic::RentBeds(price) => match self.rent_beds(c.npc) {
+                Ok(who) if who.len() == 1 => format!("A bed till morning, {price} coin. Go on up."),
+                Ok(who) => format!("{} beds till morning, {price} coin. Go on up.", who.len()),
+                Err(e) => format!("No — {e}."),
+            },
             Topic::Join(fee) => match self.recruit(c.npc, c.with) {
                 Ok(_) if fee > 0 => format!("{fee} coin to my household, and I'm yours. Where are we going?"),
                 Ok(_) => "Nothing keeps me here. I'll get my things — lead on.".into(),
@@ -953,6 +978,8 @@ fn topic_key(t: Topic) -> u64 {
         Topic::Hire(_) => 71,
         Topic::Join(_) => 72,
         Topic::AskJoin => 73,
+        Topic::Treat(_) => 74,
+        Topic::RentBeds(_) => 75,
         Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::SellWorn(it, m, _) => 3_000_000 + ((it as u64) << 32) + m as u64,
         Topic::SellRest => 73,

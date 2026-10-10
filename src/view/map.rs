@@ -89,6 +89,12 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         if let Some(sp) = st.stilts {
             let q = s(sp);
             c.circle(q.x, q.y, (60.0 * cam.zoom).max(2.5), ega(race_color(Race::Horaro), 0.25));
+            c.circle_lines(q.x, q.y, (60.0 * cam.zoom).max(2.5), 1.0, ega(race_color(Race::Horaro), 0.7));
+            if cam.zoom > 0.12 {
+                let r = (60.0 * cam.zoom).max(2.5);
+                c.centred("stilt village", q.x + 1.0, q.y + r + 14.0, 13.0, [0.05, 0.05, 0.05]);
+                c.centred("stilt village", q.x, q.y + r + 13.0, 13.0, race_color(Race::Horaro));
+            }
         }
         picks.push((p, r.min(30.0) - 6.0, Hover::Town(st.id)));
         if cam.zoom > 0.06 || w.bands.band_at(st.pos) <= 2 {

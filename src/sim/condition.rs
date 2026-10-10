@@ -97,6 +97,7 @@ pub const EXHAUSTED_FACTOR: f32 = 0.85;
 pub const HEAL_SLEEP_OPEN: f32 = 1.5;
 pub const HEAL_SLEEP_TENT: f32 = 1.75;
 pub const HEAL_SLEEP_INDOORS: f32 = 2.0;
+pub const HEAL_SLEEP_BED: f32 = 3.0;
 pub const HEAL_RESTING: f32 = 1.0;
 pub const HEAL_WALKING: f32 = 0.3;
 
@@ -106,6 +107,8 @@ pub enum Shelter {
     Open,
     Tent,
     Indoors,
+    /// A bed paid for at an inn (`care.rs`).
+    Bed,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -196,7 +199,7 @@ impl Condition {
             Activity::Sleeping => -match self.shelter {
                 Shelter::Open => SLEEP_OPEN,
                 Shelter::Tent => SLEEP_TENT,
-                Shelter::Indoors => SLEEP_INDOORS,
+                Shelter::Indoors | Shelter::Bed => SLEEP_INDOORS,
             },
             Activity::Resting => TIRED_PER_HOUR,
             Activity::Walking => TIRED_PER_HOUR * 1.3,
@@ -303,6 +306,7 @@ impl Condition {
                 Shelter::Open => HEAL_SLEEP_OPEN,
                 Shelter::Tent => HEAL_SLEEP_TENT,
                 Shelter::Indoors => HEAL_SLEEP_INDOORS,
+                Shelter::Bed => HEAL_SLEEP_BED,
             },
             Activity::Resting => HEAL_RESTING,
             Activity::Walking => HEAL_WALKING,
@@ -395,6 +399,9 @@ impl World {
     /// the squad is carrying nearby, or in the open.
     pub fn shelter_of(&self, pid: PersonId) -> Shelter {
         let Some(k) = self.squad.index(pid) else { return self.base_bed(pid).unwrap_or(Shelter::Open) };
+        if self.in_rented_bed(pid, self.squad.at[k]) {
+            return Shelter::Bed;
+        }
         if self.squad.inside[k].is_some() {
             return Shelter::Indoors;
         }

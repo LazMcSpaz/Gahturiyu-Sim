@@ -175,6 +175,15 @@ impl World {
         }
     }
 
+    /// Said once, so a walk that ends at the water isn't a mystery.
+    fn sea_stops(&mut self) {
+        let line = "The water stops them: the squad can't cross the sea.".to_string();
+        if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+            self.log.push_front((self.time, line));
+            self.log.truncate(14);
+        }
+    }
+
     /// Send the whole squad somewhere, in formation.
     pub fn order_squad(&mut self, target: V2) {
         let members = self.squad.members.clone();
@@ -197,6 +206,9 @@ impl World {
         }
         let free: Vec<PersonId> = who.iter().copied().filter(|m| !bound.contains(m)).collect();
         let who = &free[..];
+        if !who.is_empty() && self.terrain.is_sea(target) && self.building_at(target).is_none() {
+            self.sea_stops();
+        }
         let mut blocked = None;
         for (n, &pid) in who.iter().enumerate() {
             if let Some(k) = self.squad.index(pid) {
@@ -300,6 +312,7 @@ impl World {
             } else {
                 self.squad.goal[k] = at;
                 self.squad.route[k].clear();
+                self.sea_stops();
             }
         }
         self.hold_the_bound();
