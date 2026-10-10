@@ -102,6 +102,13 @@ pub enum Deed {
     Threat,
     JobDone,
     JobFailed,
+    // What befalls a whole town (no doer; the "victim", if any, is whoever
+    // it fell on). Told on the roads like any other news, so the squad
+    // hears of it from people, with where it happened.
+    /// A rite failed and brought the high priestess down.
+    RiteFailed,
+    /// The town rose and threw its rulers out.
+    Rising,
 }
 
 /// An event someone knows of, by its number (which says which town's
@@ -129,7 +136,7 @@ pub struct Tiding {
 }
 
 /// Every deed, in order (for reading a saved one back).
-pub const DEEDS: [Deed; 31] = [
+pub const DEEDS: [Deed; 33] = [
     Deed::Kindness,
     Deed::Loan,
     Deed::Slight,
@@ -161,6 +168,8 @@ pub const DEEDS: [Deed; 31] = [
     Deed::Threat,
     Deed::JobDone,
     Deed::JobFailed,
+    Deed::RiteFailed,
+    Deed::Rising,
 ];
 
 impl Deed {
@@ -170,7 +179,12 @@ impl Deed {
 
     /// Is it a wrong done to someone?
     pub fn is_wrong(self) -> bool {
-        !matches!(self, Deed::Kindness | Deed::Loan | Deed::Avoid | Deed::JobDone | Deed::Recruited | Deed::Arrest | Deed::Caught)
+        !matches!(self, Deed::Kindness | Deed::Loan | Deed::Avoid | Deed::JobDone | Deed::Recruited | Deed::Arrest | Deed::Caught) && !self.of_town()
+    }
+
+    /// Something that befell a whole town, not one person's doing.
+    pub fn of_town(self) -> bool {
+        matches!(self, Deed::RiteFailed | Deed::Rising)
     }
 
     /// Does it make the town feel less safe?
@@ -204,6 +218,8 @@ impl Deed {
             Deed::TurnedIn | Deed::Bribe => 0.4,
             Deed::Killing => 1.0,
             Deed::Threat => 0.3,
+            Deed::RiteFailed => 0.8,
+            Deed::Rising => 1.0,
         }
     }
 
@@ -241,6 +257,9 @@ impl Deed {
             Deed::Threat => "threatened",
             Deed::JobDone => "did a job for",
             Deed::JobFailed => "let down",
+            // (Said through their own lines in `news.txt`, not this pattern.)
+            Deed::RiteFailed => "saw the rite fail under",
+            Deed::Rising => "rose against",
         }
     }
 }

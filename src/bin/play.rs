@@ -1171,7 +1171,20 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let here = w.squad.pos;
             let mut towns: Vec<_> = w.settlements.iter().collect();
             towns.sort_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
-            let _ = writeln!(o, "Towns, nearest first:");
+            // `map NAME` finds a town by name, however far (a town heard of
+            // in talk can be looked up); plain `map` lists the nearest.
+            let want = gahturiyu_sim::names::plain(&arg(0).to_lowercase());
+            if !want.is_empty() {
+                let found: Vec<_> = towns.iter().filter(|t| gahturiyu_sim::names::plain(&t.name.to_lowercase()).contains(&want)).collect();
+                if found.is_empty() {
+                    let _ = writeln!(o, "No town called that.");
+                }
+                for t in found {
+                    let _ = writeln!(o, "  t{}  {} ({} people) — {}", t.id, t.name, t.residents.len(), dist_dir(here, t.pos));
+                }
+                return o;
+            }
+            let _ = writeln!(o, "Towns, nearest first (`map NAME` finds one by name):");
             for t in towns.iter().take(12) {
                 let _ = writeln!(o, "  t{}  {} ({} people) — {}", t.id, t.name, t.residents.len(), dist_dir(here, t.pos));
             }
