@@ -284,7 +284,7 @@ on open ground near the squad; add `,open` to see them cut open). `GAHT_CUTAWAY=
 building near the camera drawn cut open). `GAHT_MODELS=1` (the final building models back on;
 off by default).
 `GAHT_SIGNS=1|roduro|qotiro` (frame the spot in the nearest town, or the most Roduro / Qotiro one,
-where the most trade signs stand: workshop boards, plaques and workplace signposts; add
+where the most signs stand: workplace signposts and service plaques; add
 `GAHT_HOURS=15` for night, `GAHT_ZOOM=60 GAHT_PITCH=0.6` for the usual town camera).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
@@ -365,11 +365,12 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   `tests/buildings.rs` checks nothing overlaps in every building. Floors are
   level at the highest ground under the outline (`interiors::floor_height`,
   cached per town rebuild); people and things indoors stand on it.
-- Trade buildings carry a sign beside the door and in-town workplaces a
-  signpost (`view/signs.rs`): one block pictogram per `layout::Sign`, a
-  timber board (Roduro) or dark plaque with a gold symbol (Qotiro), each
-  with an iron lantern. The picture comes from the variant alone; the door
-  hover names the keeper (`World::keeper`).
+- Signs are for players finding services (Laz): in-town workplaces carry a
+  signpost, and only buildings that are themselves service places
+  (`layout::serves`: the temple, the island hall) a sign by the door — a
+  dark plaque with a gold symbol and an iron lantern (`view/signs.rs`, one
+  block pictogram per `layout::Sign`). Trade homes hang none; the door hover
+  still names the trade and its keeper (`World::keeper`).
 
 - Animals are drawn by `view/animals.rs` into the per-frame mesh: block
   shapes from the species' `Looks` (build, length, height, colour), a full
@@ -395,7 +396,7 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   house (the eldest) has a trade; a Qotiro block if about a sixth of its
   residents share one; plain homes go by head count. Residents are whoever
   sleeps there (`dwelling`), not `Household::home`. It never changes after.
-  Signs and keepers use the same table (`layout::keeps`).
+  Keepers and trade marks use the same table (`layout::keeps`, `sign_of`).
 - The south-east inland is Qotiro country — a raised arid plateau; elsewhere
   inland is mostly Roduro. Mountains wall the north and east, plus one massif.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).

@@ -130,6 +130,14 @@ fn job_takes(job: Job, rc: &Recipe) -> bool {
     }
 }
 
+/// Is there any town recipe this trade could take up? Carpenters and masons
+/// have none yet (they build for bases), so idleness can't cost them a post
+/// until town recipes exist for them.
+pub fn has_town_work(job: Job) -> bool {
+    let Some(craft) = job.craft() else { return false };
+    RECIPES.iter().any(|rc| rc.skill == craft.skill() && !rc.is_grown_piece() && job_takes(job, rc))
+}
+
 impl World {
     // ---- Sources --------------------------------------------------------------
 

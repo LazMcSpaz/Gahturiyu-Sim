@@ -796,9 +796,12 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
   sized to the household (cottage, longhouse, great house). Crowded homes have
   extra bedrolls on the floor, a Ṭaḍoro lodger has their own corner (draped
   bed, rug, pinned notes, candles), each household in shared Qotiro quarters
-  owns its own room's chest, and crates hold the keeper's trade goods. Trade
-  buildings and workplaces carry a sign with a picture of the trade, lit by
-  a lantern at night; hovering a door names who keeps it.
+  owns its own room's chest, and crates hold the keeper's trade goods.
+  Hovering a door names the trade and who keeps it.
+- **Signs show where to go for services.** The inn, market, shops, guard
+  post, hall, healers, exchange, shrine and workshops each have a signpost
+  with a picture of what's there, and the temple and Qotiro hall a lit
+  plaque by the door. Homes, even a smith's, have no sign.
 - **The rings around your squad are the bands.**
   - Inside the inner ring (500 m) is **band 1**: everyone is a person with a
     name, temperament and gear. This is decided **person by person**, by where

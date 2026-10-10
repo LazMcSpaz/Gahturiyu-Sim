@@ -168,6 +168,14 @@ impl World {
                 let plan = self.day_plan(p, day);
                 let worked = plan.hours_of(Doing::Work, h0, h1);
                 let ran = plan.hours_of(Doing::Run, h0, h1);
+                // A crafter whose trade is done on rounds (a stone tender
+                // tending homes and orders) is at work: only the flag, so
+                // what they make and the rates don't change.
+                if l.job.craft().is_some() && plan.hours_of(Doing::Rounds, h0, h1) > 0.0 {
+                    if let Some(m) = self.society.minds.get_mut(p as usize) {
+                        m.had_work = true;
+                    }
+                }
                 work.push((p, l, worked, ran));
             }
             let src = self.society.towns[town].sources.clone();

@@ -691,6 +691,15 @@ pub enum Sign {
     Scroll,
 }
 
+/// Whether a building is itself a place people come to for a service, and
+/// so hangs a sign for players to find it (Laz: signs are for finding
+/// services). Only the temple and the island hall (the ritual shrines for
+/// now). A trade home doesn't: its trade is sold at the town's workplaces,
+/// which carry signposts. Its `sign_of` mark stays as its trade (hover, tests).
+pub fn serves(v: &Variant) -> bool {
+    matches!(v.key, "qotiro_temple" | "qotiro_island_hall")
+}
+
 /// The sign a building of this variant hangs: decided by the variant alone,
 /// never by who lives there. None for plain homes, quarters and stilts.
 pub fn sign_of(v: &Variant) -> Option<Sign> {

@@ -13,6 +13,10 @@
 //!   board hung from it, the symbol on both faces.
 //! - Who keeps a trade building (`keeper`), for the door's hover line.
 //!
+//! Only service places hang a building sign (`layout::serves`: the temple
+//! and the island hall); trade homes don't, since their trades are sold at
+//! the town's workplaces, whose signposts players look for.
+//!
 //! Drawing only: a building's sign is the sim's `layout::sign_of` (the
 //! variant alone) and its keeper the sim's `World::keeper`; nothing here
 //! changes the world.
@@ -131,12 +135,16 @@ impl Picto {
 /// Whether a building of this variant hangs a sign (the sim's own rule,
 /// `layout::sign_of`).
 pub fn signed(v: &Variant) -> bool {
-    layout::sign_of(v).is_some()
+    layout::serves(v) && layout::sign_of(v).is_some()
 }
 
 /// A building's symbol: the sim's `layout::sign_of`, decided by the variant
 /// alone, drawn as its pictogram. None: no sign.
 pub fn for_building(v: &Variant) -> Option<Picto> {
+    // Only real service places hang a sign (`layout::serves`); trade homes don't.
+    if !layout::serves(v) {
+        return None;
+    }
     Some(match layout::sign_of(v)? {
         Sign::Anvil => Picto::Anvil,
         Sign::Sprout => Picto::Sprout,

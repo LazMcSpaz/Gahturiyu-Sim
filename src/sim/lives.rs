@@ -284,10 +284,16 @@ impl World {
             let away = self.busy_until[p as usize] > t;
             let bonded = self.is_bonded(p, t);
             let l = self.society.lives[p as usize];
+            // The day just ended was theirs to rest (an irregular rhythm can
+            // give three in a row): no work then isn't idleness.
+            let idle = super::making::has_town_work(l.job) && !self.society.minds[p as usize].had_work && !hurt && !away;
+            let rested = idle && self.day_plan(p, World::day_of(t) - 1).rest;
             let m = &mut self.society.minds[p as usize];
             m.injured_days = if hurt { m.injured_days.saturating_add(1) } else { 0 };
             m.away_days = if away { m.away_days.saturating_add(1) } else { 0 };
-            m.idle_days = if l.job.craft().is_some() && !m.had_work && !hurt && !away { m.idle_days.saturating_add(1) } else { 0 };
+            // Only trades with town recipes can be idle: carpenters and masons
+            // keep their posts until town recipes exist for them.
+            m.idle_days = if rested { m.idle_days } else if idle { m.idle_days.saturating_add(1) } else { 0 };
             m.had_work = false;
             let loss = if !l.job.is_post() {
                 None
