@@ -104,6 +104,7 @@ ul.saved .none { color: var(--muted); border: 0; display: block; }
     <span id="status">Loading the voice engine…</span>
     <span class="sounds"><b>Plain</b><span id="s-plain"></span></span>
     <span class="sounds"><b>This accent</b><span id="s-bent"></span></span>
+    <span class="sounds"><b>Phrasing</b><span id="s-phrasing"></span></span>
     <span id="heard"></span>
   </div>
 </div></div>
@@ -169,9 +170,10 @@ ul.saved .none { color: var(--muted); border: 0; display: block; }
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const THICK = ["none", "a hint", "light", "medium", "thick", "native tongue only"];
-const DIAL_LABEL = { speed: "Speed", pause: "Pauses", range: "Pitch movement", lilt: "Line ending", pitch: "Pitch", energy: "Force", breath: "Breath", size: "Body size", age: "Age", rough: "Gravel" };
+const DIAL_LABEL = { speed: "Speed", stop: "Full stops", pause: "Commas", life: "Life", range: "Pitch movement", lilt: "Line ending", pitch: "Pitch", energy: "Force", breath: "Breath", size: "Body size", age: "Age", rough: "Gravel" };
 const DIAL_HELP = {
-  speed: "slow … fast", pause: "gaps at commas and full stops", range: "flat … sing-song", lilt: "falls … rises (semitones)",
+  speed: "slow … fast", stop: "how long a full stop lingers before the next sentence", pause: "gaps at commas (and, half as strongly, full stops)",
+  life: "0 = every sentence read the same way … 2 = pace and tune change a lot from sentence to sentence", range: "flat … sing-song", lilt: "falls … rises (semitones)",
   pitch: "lower … higher (semitones)", energy: "soft and close … loud and hard", breath: "air in the voice (it is added hiss; a little goes a long way)",
   size: "small … big chest and throat", age: "adds wobble, gravel and breath", rough: "gravel in the voice" };
 
@@ -208,6 +210,7 @@ async function speak(plain) {
     player.play().catch(() => {});
     $("s-plain").textContent = r.plain.join(" | ");
     $("s-bent").textContent = plain ? "(none: this is the plain reading)" : r.bent.join(" | ");
+    $("s-phrasing").textContent = r.phrasing || "";
     $("heard").textContent = r.heard != null ? "A listener caught " + Math.round(100 * (r.match ?? 0)) + "% of the words: “" + r.heard + "”" : "";
     status(r.seconds + " s clip, made in " + r.took + " s" + (r.pitch_hz ? ", pitch about " + r.pitch_hz + " Hz" : ""));
   } catch (e) { if (mine === seq) status(e.message, true); }

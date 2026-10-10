@@ -1,0 +1,86 @@
+# The same four lines said three ways, to judge the phrasing by ear: each
+# is a question and then an answer. "Before" clips come from the tool as it
+# was at commit 2a9ebb8 (one pass for the whole line); they aren't made here.
+# Make it with:  python tools/voice/voice.py sheet tools/voice/sheets/phrasing.toml -o tools/voice/out/phrasing
+
+title = "Phrasing: a question, then an answer"
+
+[[item]]
+id = "ph_roduro_now"
+group = "Roduro (Earth)"
+label = "After: said sentence by sentence"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+accent = "roduro_v1"
+text = "Lost? The road is behind you. It's not safe after dark any more."
+
+
+[[item]]
+id = "ph_roduro_more"
+group = "Roduro (Earth)"
+label = "After, more marked: longer stops, bigger changes"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+accent = "roduro_v1"
+text = "Lost? The road is behind you. It's not safe after dark any more."
+stop = 1.4
+life = 1.6
+
+
+[[item]]
+id = "ph_qotiro_now"
+group = "Qotiro (Fire)"
+label = "After: said sentence by sentence"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+accent = "qotiro_v1"
+text = "Is that a threat? I've buried better than you."
+
+
+[[item]]
+id = "ph_qotiro_more"
+group = "Qotiro (Fire)"
+label = "After, more marked: longer stops, bigger changes"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+accent = "qotiro_v1"
+text = "Is that a threat? I've buried better than you."
+stop = 1.4
+life = 1.6
+
+
+[[item]]
+id = "ph_horaro_now"
+group = "Horaro (Water)"
+label = "After: said sentence by sentence"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+accent = "horaro_v1"
+text = "Cold out there? Come in, friend. Sit by the fire."
+
+
+[[item]]
+id = "ph_horaro_more"
+group = "Horaro (Water)"
+label = "After, more marked: longer stops, bigger changes"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+accent = "horaro_v1"
+text = "Cold out there? Come in, friend. Sit by the fire."
+stop = 1.4
+life = 1.6
+
+
+[[item]]
+id = "ph_tadoro_now"
+group = "Ṭaḍoro (Air)"
+label = "After: said sentence by sentence"
+base = "kokoro:am_puck*0.6+bf_lily*0.4"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. No? Then I'll tell you something."
+
+
+[[item]]
+id = "ph_tadoro_more"
+group = "Ṭaḍoro (Air)"
+label = "After, more marked: longer stops, bigger changes"
+base = "kokoro:am_puck*0.6+bf_lily*0.4"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. No? Then I'll tell you something."
+stop = 1.4
+life = 1.6
+

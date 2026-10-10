@@ -9,9 +9,12 @@ breath = 0.0     # 0..1. Air in the voice.
 rough = 0.0      # 0..1. Gravel.
 tremor = 0.0     # 0..1. A slow shake in the pitch.
 speed = 1.0      # how fast they talk. 0.5..2.
-pause = 1.0      # how long the gaps at commas and full stops are.
+pause = 1.0      # how long the gaps at commas are (and, half as strongly, the stops between sentences).
+stop = 1.0       # how long a full stop lingers before the next sentence. 2 = twice as long.
+life = 1.0       # how much the pace and tune change from one sentence to the next (see [phrasing]).
+                 # 0 = every sentence read the same way; 1 = as set below; 2 = twice as marked.
 range = 1.0      # how much the pitch moves. Below 1 = flat, above 1 = sing-song.
-lilt = 0.0       # semitones the end of the line rises (+) or falls (-).
+lilt = 0.0       # semitones the end of every sentence rises (+) or falls (-).
 energy = 0.0     # -1 soft and close .. +1 loud and hard.
 variation = 1.0  # accent model only: how loose the reading is. 0 = the same every time.
 
@@ -25,7 +28,7 @@ speed = 0.88     # multiplied in
 range = 0.85     # multiplied in
 
 # Emotions are bundles of the dials above, at full strength.
-# speed, pause, range and size are multiplied in; everything else is added.
+# speed, pause, stop, life, range and size are multiplied in; everything else is added.
 # Use as  --emotion angry  or  --emotion angry:0.5  for half strength.
 [emotion.angry]
 pitch = 1.0
@@ -97,4 +100,79 @@ tremor_semitones = 0.5  # at tremor = 1
 rough_semitones = 0.6   # at rough = 1
 breath_mix = 0.5        # at breath = 1
 pause_min_seconds = 0.12   # a gap shorter than this isn't a pause (it's a consonant)
-sentence_gap_seconds = 0.25  # accent model: gap between sentences before the pause dial
+# The main engine keeps a different reading for every length of sentence, and
+# its readings for very short ones are quick and clipped. A sentence shorter
+# than this many sounds is read the way one this long would be: steadier, and
+# the same speaker from one sentence to the next.
+kokoro_steady_sounds = 30
+
+# How a line is phrased. Each sentence is spoken on its own, then given its
+# own pace, height and ending, and a real silence after it. (The engines read
+# a question and a statement with the same falling tune, and leave almost no
+# gap at a full stop; this is what puts both back.)
+# The life dial scales everything here except the silences; the stop dial
+# scales the silences.
+[phrasing]
+comma = 1.2            # gaps inside a sentence are stretched by this, before the pause dial
+wordless_gap = 0.35    # seconds added for a sentence that is only "…" or "—"
+step_down = 0.4        # each later sentence sits this many semitones lower than the one before...
+step_down_most = 1.2   # ...down to this much
+last_speed = 0.97      # the sentence that ends a line of several is said this much slower
+last_linger = 0.10     # and its last beat is held this much longer
+short_words = 3        # a sentence of this many words or fewer is "short"
+short_speed = 0.95     # short sentences are said slower: a short thing said with weight
+long_words = 8         # a sentence of this many words or more is "long"
+long_speed = 1.0       # long sentences can be made to move along (above 1); off for now
+beat_before_short = 1.2   # the stop before a short last sentence (the quip) is this much longer
+# No two sentences come out quite alike: each gets a small roll, fixed by the
+# line, the speaker and the take (so the same clip is the same every time).
+roll_speed = 0.04      # up to this share faster or slower
+roll_pitch = 0.5       # up to this many semitones higher or lower
+roll_range = 0.08      # up to this share more or less pitch movement
+roll_gap = 0.15        # up to this share longer or shorter stop
+tail_least = 0.22      # the "last beat" of a sentence is at least this many seconds...
+tail_most = 0.80       # ...and at most this many
+
+# One table per kind of sentence.
+#   gap     seconds of silence after it (before the stop and pause dials)
+#   speed   said this much faster (above 1) or slower
+#   lift    semitones the whole sentence sits higher (+) or lower (-)
+#   range   how much more (above 1) or less its pitch moves
+#   linger  how much longer its last beat is held (0.1 = a tenth longer)
+#   loud    decibels louder
+#   rise    if given, the ending is redrawn: from the last stressed beat the
+#           pitch moves this many semitones (+ up, - down). Left out, the
+#           engine's own ending (a fall) is kept.
+#   hold    0..1, how fully the redrawn ending replaces the engine's own
+
+[phrasing.kind.tell]        # a statement: "It's not safe after dark."
+gap = 0.50
+linger = 0.06
+
+[phrasing.kind.ask]         # a yes-or-no question: "Is it safe?" "You again?"
+gap = 0.42
+lift = 0.5
+rise = 5.0
+hold = 1.0
+linger = 0.08
+
+[phrasing.kind.ask_open]    # a what/who/where/why/how question, or an either-or: "What is it?"
+gap = 0.42
+lift = 1.0
+rise = 1.5
+hold = 0.9
+linger = 0.05
+
+[phrasing.kind.shout]       # ends in "!"
+gap = 0.36
+speed = 1.03
+lift = 1.0
+range = 1.2
+loud = 1.5
+linger = 0.03
+
+[phrasing.kind.trail]       # trails off: "Well..."
+gap = 0.65
+speed = 0.93
+range = 0.9
+linger = 0.30

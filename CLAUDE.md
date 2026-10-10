@@ -316,6 +316,10 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   the naming system's borrow rules) and is a setting of the knobs in
   `sounds.toml`. Dials and emotions are numbers in `dials.toml`; invented
   names are spelled out in `lexicon.txt`.
+- A line is spoken one sentence at a time: each sentence gets its own pace,
+  height and ending by its kind (statement, question, shout, trailing off)
+  and a real silence after it (`[phrasing]` in `dials.toml`; the `stop` and
+  `life` dials). The engines alone read questions and statements alike.
 - Claude can't hear: use `--check` (a listener model writes down what it
   hears), `accents NAME` (prints the bent sounds) and `selftest`, and leave
   how anything *sounds* to Laz.
