@@ -650,24 +650,36 @@ impl World {
         }
     }
 
-    /// Order some members to rest: they stop where they are and sleep. A
-    /// second order (or any order to move) gets them up.
+    /// Order some members to rest: they stop where they are and sleep.
+    /// (Getting up is its own order, `order_wake`; any order to move does too.)
     pub fn order_rest(&mut self, who: &[PersonId]) {
-        let all_resting = who.iter().all(|&m| self.squad.index(m).map(|k| self.squad.resting[k]).unwrap_or(true));
         for &m in who {
             let Some(k) = self.squad.index(m) else { continue };
-            if all_resting {
-                self.squad.resting[k] = false;
-                // Got up at night: they stay up until morning.
-                if is_night(self.time) {
-                    self.squad.kept_up[k] = next_rise(self.time);
-                }
-            } else if !self.fighting.contains_key(&m) {
+            if !self.fighting.contains_key(&m) {
                 self.squad.resting[k] = true;
                 self.squad.goal[k] = self.squad.at[k];
                 self.squad.route[k].clear();
             }
         }
+    }
+
+    /// Get some members up from resting. Got up at night, they stay up
+    /// until morning.
+    pub fn order_wake(&mut self, who: &[PersonId]) {
+        for &m in who {
+            let Some(k) = self.squad.index(m) else { continue };
+            if self.squad.resting[k] {
+                self.squad.resting[k] = false;
+                if is_night(self.time) {
+                    self.squad.kept_up[k] = next_rise(self.time);
+                }
+            }
+        }
+    }
+
+    /// Is anyone of these resting (or asleep on a rest order)?
+    pub fn any_resting(&self, who: &[PersonId]) -> bool {
+        who.iter().any(|&m| self.squad.index(m).is_some_and(|k| self.squad.resting[k]))
     }
 
     /// A walker climbing: stamina by the metre.

@@ -552,9 +552,14 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             w.put_down(m);
         }
     }
+    // N: rest, or, if any of the selected are resting, get them up.
     if keys.just_pressed(KeyCode::KeyN) {
         let who = game.sel.who(w);
-        w.order_rest(&who);
+        if w.any_resting(&who) {
+            w.order_wake(&who);
+        } else {
+            w.order_rest(&who);
+        }
     }
     // T: the selected light their torches (or put them out). With everyone
     // selected, only those already holding one, else the first who has one.
@@ -1251,7 +1256,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             FrameAct::Rest => {
                 let who = game.sel.who(w);
-                w.order_rest(&who);
+                if w.any_resting(&who) {
+                    w.order_wake(&who);
+                } else {
+                    w.order_rest(&who);
+                }
             }
             FrameAct::Toggle(b) => {
                 let lead = game.sel.lead(w);

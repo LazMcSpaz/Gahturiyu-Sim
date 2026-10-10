@@ -49,7 +49,8 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   butcher cID               the nearest selected cuts up a carcass
   enter bID                 walk into a building (picks the lock if locked and you have a lockpick)
   carry pID | putdown       pick up a downed person / put them down
-  sneak | rest | torch      toggle for the selected
+  sneak | torch             toggle for the selected
+  rest | wake               the selected lie down where they are, or get up
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
   give NAME N TO_NAME       hand pack entry N to another squad member standing near
@@ -981,7 +982,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         }
         "rest" => {
             w.order_rest(&sel);
-            o += "Rest order given (again to get them up).\n";
+            o += "Resting.\n";
+        }
+        "wake" => {
+            w.order_wake(&sel);
+            o += "Up.\n";
         }
         "torch" => {
             for &m in &sel {

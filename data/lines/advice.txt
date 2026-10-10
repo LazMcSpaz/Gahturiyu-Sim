@@ -1,5 +1,5 @@
 # Advice: "A little advice?" One piece (line). See FORMAT.md.
-line | | Travel by day if you can. The bandits by the road can see you coming in the sun, but at night they mostly have to hear you, and most people are louder than they think.
+line | | If you'd rather not be seen, travel by night. The bandits by the road can see you coming in the sun; at night they mostly have to hear you, and most people are louder than they think.
 line | | Heavy armour clanks. If you mean to creep about, leave the scale shirt at home.
 line | | Keep a healing draught in your pack. Keep two, if you're the sort who goes looking for trouble. And you look like the sort.
 line | | Lockpicks snap. Carry more than you think you'll need, and don't let anyone see you using them.
