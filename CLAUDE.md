@@ -304,6 +304,18 @@ Screenshots compile every shader before the first frame
 per frame, so a given flag set gives the same picture. The first Bevy build
 takes ~20 minutes on this container's 2 cores; later ones under a minute.
 
+## Voices (a tool, not a system)
+
+`tools/voice/` makes spoken clips for NPC lines ahead of time (Python, not
+part of the game build; `tools/voice/README.md`). Set up with
+`pip install -r tools/voice/requirements.txt` then
+`python tools/voice/voice.py setup`. Claude can't hear: use `--check` (a
+listener model writes down what it hears) and `selftest`, and leave how a
+voice *sounds* to Laz. The cast lives in `tools/voice/voices.toml`; dials
+and emotions are numbers in `tools/voice/dials.toml`; invented names are
+spelled out in `tools/voice/lexicon.txt`. The game plays no voices yet:
+wiring clips in waits for the system freeze to lift.
+
 ## Drawing notes
 
 - The window is Bevy 0.19.1 (pinned) with bevy_egui 0.42.0 for the panels.

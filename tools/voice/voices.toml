@@ -1,0 +1,12 @@
+# The game's cast of voices. Each [name] is one voice an NPC can have.
+# Empty until Laz has picked from the audition (sheets/audition.toml).
+#
+# [dockhand_m1]
+# base = "vctk:p247"        # engine:speaker. `voice.py voices` lists all 163.
+#                           # kokoro voices can be mixed: "kokoro:bm_george*0.6+am_onyx*0.4"
+# speaks = "roduro"         # optional: only voices lines tagged voice=roduro (plus untagged ones)
+# pitch = -2.0              # then any dials from dials.toml
+# size = 1.08
+# speed = 0.9
+# rules = ["tap"]           # optional sound swaps from dials.toml
+# accent = "en-gb"          # optional: which English the text is read as before the voice says it
