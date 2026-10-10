@@ -30,8 +30,8 @@ pub enum View {
 }
 
 /// Every key, by view (the Keys button shows them).
-pub const HELP_3D: &str = "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land";
-pub const HELP_MAP: &str = "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits";
+pub const HELP_3D: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land";
+pub const HELP_MAP: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits";
 
 /// Something the mouse can be over.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -112,6 +112,12 @@ pub struct Game {
     pub examine: Option<Hover>,
     /// Where the right button went down (a click, not a drag, opens the menu).
     pub rpress_at: Option<Vec2>,
+    /// Words floating over heads (picked up, hurt, spotted, better at).
+    pub floaters: super::floaters::Floaters,
+    /// Where each squad member was on screen last frame.
+    pub squad_screen: Vec<(PersonId, Vec2)>,
+    /// A box being dragged out with the left button, from here to the mouse.
+    pub drag: Option<Vec2>,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -219,6 +225,9 @@ pub fn run() {
         menu: None,
         examine: None,
         rpress_at: None,
+        floaters: Default::default(),
+        squad_screen: Vec::new(),
+        drag: None,
         hints: {
             let mut h = super::hints::Hints::load(shot.is_none());
             if let Ok(id) = std::env::var("GAHT_HINT") {
@@ -437,6 +446,9 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     let mut mouse = window.cursor_position().unwrap_or(game.last_mouse);
     if let Some(h) = game.shot.as_ref().and_then(|s| s.hover) {
         mouse = h;
+    }
+    if let Some(d) = game.shot.as_ref().and_then(|s| s.drag) {
+        game.drag = Some(d);
     }
     game.mouse = mouse;
     let dt = time.delta_secs();
@@ -703,7 +715,31 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
     }
+    // A left drag that began off the panels draws a box to select the squad
+    // members inside it (Shift adds them).
+    if buttons.pressed(MouseButton::Left) && game.drag.is_none() && game.aim.is_none() && game.placing.is_none() && game.menu.is_none() {
+        if let Some(p) = game.press_at {
+            if (p - mouse).length() >= 6.0 && !game.panels.iter().any(|b| b.contains(p)) {
+                game.drag = Some(p);
+            }
+        }
+    }
     if buttons.just_released(MouseButton::Left) {
+        if let Some(p) = game.drag.take() {
+            game.press_at = None;
+            let (a, b) = (p.min(mouse), p.max(mouse));
+            let inside: Vec<PersonId> = game.squad_screen.iter().filter(|(_, s)| s.x >= a.x && s.x <= b.x && s.y >= a.y && s.y <= b.y).map(|x| x.0).collect();
+            if !inside.is_empty() {
+                if !shift {
+                    game.sel = Selection::default();
+                }
+                for m in inside {
+                    if !game.sel.0.contains(&m) {
+                        game.sel.0.push(m);
+                    }
+                }
+            }
+        }
         if let Some(p) = game.press_at.take() {
             if (p - mouse).length() < 6.0 {
                 if game.menu.is_some() && !on_panels {
@@ -1091,6 +1127,39 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             "3D"
         }
     };
+
+    // ---- Over heads: floating words, and where each squad member is on screen
+    // (for drag-selecting) ------------------------------------------------------
+    {
+        let vp = game.orbit.view_proj(size);
+        let grid = scene.grid;
+        let (view, orbit, map_cam) = (game.view, &game.orbit, &game.map_cam);
+        let terrain = &game.world.terrain;
+        let place = |at: V2, up: f32| -> Option<Vec2> {
+            match view {
+                View::Map => Some(map_cam.to_screen(size, at) - Vec2::new(0.0, 8.0 + up * 4.0)),
+                View::Scene => orbit.project(&vp, size, to3(at, grid.height(terrain, at) + up)),
+            }
+        };
+        let mut on_screen = Vec::new();
+        for &m in &game.world.squad.members {
+            let at = game.world.fighter(m).map(|f| f.pos).unwrap_or_else(|| game.world.person_pos(m));
+            if let Some(s) = place(at, 1.0) {
+                on_screen.push((m, s));
+            }
+        }
+        // Screenshots step at a fixed pace, so the words do too.
+        let dt = if game.shot.is_some() { 1.0 / 30.0 } else { ctx.input(|i| i.stable_dt).min(0.1) };
+        game.floaters.update(&game.world, dt, game.loads);
+        game.floaters.draw(&c, &game.world, &|at| place(at, 2.6));
+        game.squad_screen = on_screen;
+        // The box being dragged out to select.
+        if let Some(p) = game.drag {
+            let (a, b) = (p.min(game.mouse), p.max(game.mouse));
+            c.rect(a.x, a.y, b.x - a.x, b.y - a.y, super::palette::ega(super::palette::GOLD, 0.08));
+            c.rect_lines(a.x, a.y, b.x - a.x, b.y - a.y, 1.5, super::palette::ega(super::palette::GOLD, 0.8));
+        }
+    }
 
     // ---- Panels ---------------------------------------------------------------
     if game.editor.on {

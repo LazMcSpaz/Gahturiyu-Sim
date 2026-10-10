@@ -271,6 +271,7 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 (go and look at the nearest of that species at an hour it's up, e.g.
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
+`GAHT_DRAG=x,y` (a selection box held from there to the `GAHT_HOVER` point).
 `GAHT_LOOT=1` (two bandits lie beaten beside the squad; member 0 goes through the
 first one's things: the loot panel).
 `GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`
@@ -362,6 +363,11 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   shadow pass, so trees' shadows don't sway.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
+
+- Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
+  healing, "?"/"!" as suspicion builds, a skill rising) come from comparing
+  the world with what the window saw last frame — drawing only. Left-drag
+  draws a box that selects the squad members inside it.
 
 - Buildings are placeholder shapes by variant (`view/interiors.rs`, from
   `sim/layout.rs`): outside in the town mesh; a building a squad member is

@@ -6,6 +6,7 @@ pub mod baseui;
 pub mod cam;
 pub mod cues;
 pub mod editor;
+pub mod floaters;
 pub mod foliage;
 pub mod hud;
 pub mod interiors;

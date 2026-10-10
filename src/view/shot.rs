@@ -18,6 +18,8 @@ pub struct Shot {
     pub path: String,
     pub frames: u32,
     pub hover: Option<Vec2>,
+    /// `GAHT_DRAG=x,y`: a selection box held from there to the `GAHT_HOVER` point.
+    pub drag: Option<Vec2>,
     pub zoom: Option<f32>,
     pub speed: Option<usize>,
     pub view: Option<String>,
@@ -145,6 +147,7 @@ impl Shot {
             path,
             frames: var("GAHT_FRAMES").and_then(|v| v.parse().ok()).unwrap_or(120),
             hover: pair("GAHT_HOVER").map(|(x, y)| vec2(x, y)),
+            drag: pair("GAHT_DRAG").map(|(x, y)| vec2(x, y)),
             zoom: var("GAHT_ZOOM").and_then(|v| v.parse().ok()),
             speed: var("GAHT_SPEED").and_then(|v| v.parse().ok()),
             view: var("GAHT_VIEW"),
