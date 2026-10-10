@@ -456,6 +456,14 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if g.count > 1 {
                 out[0].0 = format!("{}  ×{}", out[0].0, g.count);
             }
+            // Someone's: show the odds of being seen, as for a container.
+            if let Some(town) = g.owner {
+                let near = w.squad.members.iter().copied().min_by(|&a, &b| w.person_pos(a).dist(g.pos).total_cmp(&w.person_pos(b).dist(g.pos)));
+                if let Some(m) = near {
+                    let c = w.catch_chance(m, g.pos, town);
+                    out.push((if c <= 0.0 { "Someone's; nobody would see it taken from here".to_string() } else { format!("Someone's: taking it is theft, {:.0}% chance of being seen", c * 100.0) }, WARN));
+                }
+            }
             out.push(("Click to pick up".into(), TEXT));
         }
         Hover::Door(id) => {
@@ -466,7 +474,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if d.lock <= 0.0 {
                 out.push(("No lock.  Click to go in.".into(), DIM));
             } else if w.is_locked(id) {
-                out.push((format!("Locked for the night  ·  lock {:.0}", d.lock), WARN));
+                out.push((format!("Locked for the night: {}", w.lock_outlook(d.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
             } else {
                 out.push((format!("Open  ·  lock {:.0}, locked 20:00–06:00", d.lock), DIM));
@@ -518,7 +526,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             let Some(k) = w.container(id) else { return out };
             out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, k.owner)), TEXT));
             if w.container_locked(id) {
-                out.push((format!("Locked  ·  lock {:.0}", k.lock), WARN));
+                out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
             } else {
                 out.push(("Click to open (taking is theft)".into(), DIM));

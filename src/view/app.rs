@@ -932,6 +932,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
         let point = match (target, hover) {
             (Some(p), _) => Some(game.world.person_pos(p)),
             (None, Some(Hover::Door(id))) => game.world.door(id).map(|d| d.outside),
+            (None, Some(Hover::Container(id))) => game.world.container(id).map(|c| c.pos),
             _ => point,
         };
         let res = match game.aim_scroll.take() {

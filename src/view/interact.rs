@@ -466,11 +466,16 @@ pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, 
             None => ("Point at someone".into(), false),
         },
         Aim::Door => match h {
+            Some(Hover::Container(id)) => match w.container(id) {
+                Some(c) if w.container_locked(id) => (format!("Open the {}'s lock  ·  {}", c.what.name().to_lowercase(), reach(c.pos)), true),
+                Some(_) => ("That isn't locked".into(), false),
+                None => ("Point at a lock".into(), false),
+            },
             Some(Hover::Door(id)) | Some(Hover::Building(id)) => match w.door(id) {
                 Some(dd) => (format!("Cast on the door  ·  {}", reach(dd.outside)), true),
                 None => ("Point at a door".into(), false),
             },
-            _ => ("Point at a door".into(), false),
+            _ => ("Point at a locked door or chest".into(), false),
         },
         Aim::Corpse => ("Click by a body".into(), true),
         Aim::Point if !d.works_outside_fights() && !w.fighting.contains_key(&who) => ("Click by enemies: starts the fight".into(), true),

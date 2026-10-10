@@ -101,3 +101,48 @@ fn one_left_behind_doesnt_drag_the_squads_centre_away() {
     let k0 = w.squad.index(ms[0]).unwrap();
     assert!(w.squad.pos.dist(w.squad.at[k0]) < 30.0, "the centre stays with the bunch: {:.0} m off", w.squad.pos.dist(w.squad.at[k0]));
 }
+
+#[test]
+fn unlock_opens_a_chest_and_locks_read_clearly() {
+    use gahturiyu_sim::sim::{magic, World};
+    let mut w = worldgen::generate(1);
+    let me = w.squad.members[0];
+    let town = 2u16;
+    // Walk into buildings until one has a locked container.
+    let mut found = None;
+    for b in 0..w.settlements[town as usize].buildings.len() as u16 {
+        let Some(d) = w.door((town, b)) else { continue };
+        if w.is_locked(d.id) {
+            continue;
+        }
+        w.order_members(&[me], d.centre);
+        for _ in 0..800 {
+            w.step(0.25);
+        }
+        if let Some(c) = w.containers_in(d.id).find(|c| c.lock > 0.0).map(|c| (c.id, c.pos, c.lock)) {
+            found = Some(c);
+            break;
+        }
+    }
+    let (id, pos, lock) = found.expect("a locked container somewhere");
+    assert!(w.container_locked(id));
+    let words = w.lock_outlook(lock);
+    assert!(words.contains("% a try") && words.contains(World::lock_word(lock)), "{words}");
+    let un = magic::spell("unlock");
+    w.people[me as usize].detail.as_mut().unwrap().spells.push(un);
+    let t = w.time;
+    w.people[me as usize].set_mana(100.0, t);
+    // Keep casting until it takes (it can fizzle).
+    for _ in 0..20 {
+        let _ = w.order_cast(me, un, None, Some(pos));
+        for _ in 0..40 {
+            w.step(0.25);
+        }
+        if !w.container_locked(id) {
+            break;
+        }
+        let t = w.time;
+        w.people[me as usize].set_mana(100.0, t);
+    }
+    assert!(!w.container_locked(id), "Unlock opened it: {:?}", w.log.iter().take(4).collect::<Vec<_>>());
+}

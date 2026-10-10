@@ -438,7 +438,13 @@ fn nearby(w: &World) -> String {
         lines.push((here.dist(c.pos), format!("c{}  a {} carcass — {}", c.id, c.sp.def().name, dist_dir(here, c.pos))));
     }
     for g in w.ground.iter().filter(|g| near(g.pos, 60.0)) {
-        let whose = if g.owner.is_some() { " (someone's: taking it is theft)" } else { "" };
+        let whose = match g.owner {
+            Some(town) => {
+                let m = w.squad.members.iter().copied().min_by(|&a, &b| w.person_pos(a).dist(g.pos).total_cmp(&w.person_pos(b).dist(g.pos))).unwrap_or(w.squad.members[0]);
+                format!(" (someone's: taking it is theft, {:.0}% chance of being seen)", w.catch_chance(m, g.pos, town) * 100.0)
+            }
+            None => String::new(),
+        };
         lines.push((here.dist(g.pos), format!("g{}  {} × {} on the ground{whose} — {}", g.id, g.count, item(g.item).name, dist_dir(here, g.pos))));
     }
     for n in w.nodes.iter().filter(|n| near(n.pos, 120.0) && n.ready(w.time)) {
@@ -449,12 +455,12 @@ fn nearby(w: &World) -> String {
         let st = &w.settlements[d.id.0 as usize];
         let b = &st.buildings[d.id.1 as usize];
         let what = gahturiyu_sim::sim::layout::variant_of(b).map(|v| v.name.to_string()).unwrap_or_else(|| format!("{:?}", b.kind));
-        let lock = if w.is_locked(d.id) { " (locked)" } else { "" };
+        let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
     }
     if let Some(inside) = w.squad.inside.iter().flatten().next() {
         for c in w.containers_in(*inside) {
-            let lock = if c.lock > 0.0 && !c.picked { " (locked)" } else { "" };
+            let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
             lines.push((here.dist(c.pos), format!("k{}.{}.{}  a {}{lock} — {}", c.id.0, c.id.1, c.id.2, c.what.name(), dist_dir(here, c.pos))));
         }
     }

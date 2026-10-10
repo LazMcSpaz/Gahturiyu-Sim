@@ -569,10 +569,27 @@ impl World {
                 any
             }
             Does::Unlock => {
-                let Some(d) = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0).min_by(|a, b| a.outside.dist(point).total_cmp(&b.outside.dist(point))) else { return false };
-                self.picked.insert(d.id, super::buildings::night_of(t));
-                self.say(t, "A lock clicks open.".to_string());
-                true
+                // The nearest lock to the spot: a door's, or a chest's or cupboard's.
+                let door = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0 && self.is_locked(d.id)).map(|d| (d.outside.dist(point), d.id)).min_by(|a, b| a.0.total_cmp(&b.0));
+                let chest = self.containers.values().filter(|c| c.lock > 0.0 && !c.picked && c.pos.dist(point) <= 3.0).map(|c| (c.pos.dist(point), c.id)).min_by(|a, b| a.0.total_cmp(&b.0));
+                match (door, chest) {
+                    (_, Some((dc, c))) if door.map(|d| dc <= d.0).unwrap_or(true) => {
+                        if let Some(c) = self.containers.get_mut(&c) {
+                            c.picked = true;
+                        }
+                        self.say(t, format!("The {}'s lock clicks open.", self.containers[&c].what.name()));
+                        true
+                    }
+                    (Some((_, id)), _) => {
+                        self.picked.insert(id, super::buildings::night_of(t));
+                        self.say(t, "A lock clicks open.".to_string());
+                        true
+                    }
+                    _ => {
+                        self.say(t, "Unlock finds no lock there to open.".to_string());
+                        false
+                    }
+                }
             }
             Does::Transmute => {
                 let mut lots = e.power.round() as u32;

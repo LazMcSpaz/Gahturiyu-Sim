@@ -331,6 +331,26 @@ impl World {
     }
 
     /// Chance one attempt opens the lock.
+    /// How a lock reads to someone who knows locks.
+    pub fn lock_word(lock: f32) -> &'static str {
+        match lock {
+            l if l < 25.0 => "a simple lock",
+            l if l < 45.0 => "a fair lock",
+            l if l < 65.0 => "a hard lock",
+            _ => "a very hard lock",
+        }
+    }
+
+    /// A lock as the squad's best hand with locks sees it: how hard, their
+    /// chance each try, and the lockpicks they have.
+    pub fn lock_outlook(&self, lock: f32) -> String {
+        let best = self.squad.members.iter().copied().max_by(|&a, &b| self.pick_chance(a, lock).total_cmp(&self.pick_chance(b, lock)));
+        let Some(who) = best else { return World::lock_word(lock).to_string() };
+        let name = self.people[who as usize].name().unwrap_or("someone");
+        let picks = self.count_of(who, "lockpick");
+        format!("{} ({lock:.0}): {name} ~{:.0}% a try, {picks} lockpick{} (about 1 in 3 snaps on a miss)", World::lock_word(lock), self.pick_chance(who, lock) * 100.0, if picks == 1 { "" } else { "s" })
+    }
+
     pub fn pick_chance(&self, who: PersonId, lock: f32) -> f32 {
         let s = self.people[who as usize].effective_stats();
         (0.35 + (s.skill(Skill::Security) + s.attr(Attr::Agility) * 0.2 - lock) * 0.018).clamp(0.03, 0.95)
@@ -401,8 +421,9 @@ impl World {
                     if let Some(dd) = self.people[pk.who as usize].detail.as_mut() {
                         dd.gear.take(lockpick);
                     }
-                    self.log.push_front((next, format!("{name}'s lockpick snaps.")));
+                    self.log.push_front((next, format!("{name}'s lockpick snaps ({:.0}% a try at {}).", self.pick_chance(pk.who, lock) * 100.0, World::lock_word(lock))));
                     if !has_pick(self) {
+                        self.log.push_front((next, format!("{name} has no lockpicks left; the lock holds.")));
                         finished = true;
                     }
                 }
