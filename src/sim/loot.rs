@@ -196,6 +196,36 @@ impl World {
         true
     }
 
+    /// Put something from a member's pack (a whole stack, entry `k`) into the
+    /// container they have open. Not a crime, but what's put in someone
+    /// else's chest is theirs now (taking it back is taking from them).
+    pub fn put_in(&mut self, who: PersonId, k: usize) -> bool {
+        let Some(Source::Chest(c)) = self.source_now(who) else { return false };
+        let Some(d) = self.people[who as usize].detail.as_mut() else { return false };
+        if k >= d.gear.bag.len() {
+            return false;
+        }
+        let e = d.gear.bag.remove(k);
+        let Some(chest) = self.containers.get_mut(&c) else {
+            if let Some(d) = self.people[who as usize].detail.as_mut() {
+                d.gear.bag.insert(k, e);
+            }
+            return false;
+        };
+        match chest.items.iter_mut().find(|x| x.0 == e.0 && x.2.is_none() && e.2.is_none()) {
+            Some(x) => x.1 += e.1,
+            None => chest.items.push(e),
+        }
+        let what = chest.what.name();
+        self.people[who as usize].recompute_might();
+        self.settle_condition(who, self.time);
+        let a = self.people[who as usize].name().unwrap_or("someone").to_string();
+        let n = if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
+        self.log.push_front((self.time, format!("{a} puts {n} in the {what}.")));
+        self.log.truncate(14);
+        true
+    }
+
     /// Take everything off a body.
     pub fn take_all_loot(&mut self, who: PersonId, body: PersonId) -> usize {
         self.take_all_from(who, Source::Body(body))

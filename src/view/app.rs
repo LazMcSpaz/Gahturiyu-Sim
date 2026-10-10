@@ -1346,6 +1346,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         Some(super::lootui::LootAct::TakeAll(m, src)) => {
             w.take_all_from(m, src);
         }
+        Some(super::lootui::LootAct::Put(m, k)) => {
+            w.put_in(m, k);
+        }
         Some(super::lootui::LootAct::Close(m)) => w.stop_looting(m),
         None => {}
     }

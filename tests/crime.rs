@@ -54,3 +54,32 @@ fn the_bound_are_led_off_and_cant_be_ordered() {
     let k = w.squad.index(me).unwrap();
     assert!(w.squad.at[k].dist(far) < w.squad.at[k].dist(spot), "free to go");
 }
+
+#[test]
+fn things_can_be_put_in_a_container() {
+    use gahturiyu_sim::sim::loot::Source;
+    let mut w = worldgen::generate(1);
+    let me = w.squad.members[0];
+    let d = w.door((2, 3)).unwrap();
+    w.order_members(&[me], d.centre);
+    for _ in 0..600 {
+        w.step(0.25);
+    }
+    let id = w.containers_in(d.id).find(|c| c.lock == 0.0).map(|c| c.id).expect("an open container");
+    assert!(w.order_search(me, id));
+    for _ in 0..600 {
+        if w.source_now(me).is_some() {
+            break;
+        }
+        w.step(0.25);
+    }
+    assert_eq!(w.source_now(me), Some(Source::Chest(id)));
+    let before = w.contents(Source::Chest(id)).iter().map(|x| x.2 as u32).sum::<u32>();
+    let mine = w.people[me as usize].detail.as_ref().unwrap().gear.bag.len();
+    assert!(mine > 0);
+    assert!(w.put_in(me, 0));
+    let after = w.contents(Source::Chest(id)).iter().map(|x| x.2 as u32).sum::<u32>();
+    assert!(after > before, "it's in the container");
+    assert_eq!(w.people[me as usize].detail.as_ref().unwrap().gear.bag.len(), mine - 1);
+    assert!(w.bounty.is_empty(), "putting things in isn't a crime");
+}
