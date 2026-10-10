@@ -45,6 +45,8 @@ pub enum Hover {
     Station(usize),
     /// A standing torch (index into `World::standing`).
     Torch(usize),
+    /// A woodlot or mine the squad can work.
+    Deposit(u32),
 }
 
 /// Everything the window keeps between frames.
@@ -77,6 +79,9 @@ pub struct Game {
     pub loads: u32,
     /// A short message on screen ("Saved."), and when it appeared.
     pub notice: Option<(String, std::time::Instant)>,
+    /// The wild animal or carcass under the mouse last frame (found by
+    /// `animals::overlay`), for clicks: hunt it, or cut it up.
+    pub wild: Option<super::animals::Seen>,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -174,6 +179,7 @@ pub fn run() {
         aim: None,
         loads: 0,
         notice: None,
+        wild: None,
         frame: 0,
         shot_at: None,
         sim_ms: 0.0,
@@ -869,6 +875,20 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 }
             }
         }
+        Some(Hover::Deposit(id)) => {
+            let pos = world.deposit(id).map(|d| d.pos);
+            if let Some(pos) = pos {
+                // Everyone selected goes to work it.
+                let mut any = false;
+                for &m in &who {
+                    any |= world.order_labour(m, id);
+                }
+                if any {
+                    let _ = pos;
+                    return;
+                }
+            }
+        }
         Some(Hover::Item(thing)) => {
             let pos = world.ground.iter().find(|g| g.id == thing).map(|g| g.pos);
             if let Some(pos) = pos {
@@ -876,6 +896,27 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                     world.order_pickup(f, thing);
                     return;
                 }
+            }
+        }
+        None => {
+            use super::animals::Thing;
+            match game.wild.map(|s| s.thing) {
+                Some(Thing::Animal(h, _)) | Some(Thing::Herd(h)) => {
+                    if world.order_hunt(&who, h) {
+                        return;
+                    }
+                }
+                Some(Thing::Carcass(id)) => {
+                    let pos = world.animals.carcasses.iter().find(|c| c.id == id).map(|c| c.pos);
+                    if let Some(pos) = pos {
+                        if let Some(m) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
+                            if world.order_butcher(m, id) {
+                                return;
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
         }
         _ => {}

@@ -75,6 +75,8 @@ fn working(w: &World, pid: PersonId) -> bool {
         || w.picking.iter().any(|p| p.who == pid)
         || w.pickups.iter().any(|p| p.who == pid)
         || w.looting_now(pid).is_some()
+        || w.labouring(pid).is_some()
+        || w.butchering_now(pid)
         || w.bases.iter().any(|b| b.builders.iter().any(|h| h.0 == pid))
         || w.bases.iter().any(|b| b.residents.iter().any(|r| r.who == pid && r.cycle.is_some()))
 }

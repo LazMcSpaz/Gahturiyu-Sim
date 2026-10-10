@@ -181,6 +181,21 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     if w.pickups.iter().any(|pk| pk.who == pid) {
         return ("Fetching", TEXT);
     }
+    if let Some(d) = w.labouring(pid).and_then(|id| w.deposit(id)) {
+        return (if items::item(d.item).key == "timber" { "Chopping wood" } else { "Mining" }, GOLD);
+    }
+    if w.labour.iter().any(|l| l.who == pid) {
+        return ("Off to work", TEXT);
+    }
+    if w.butchering_now(pid) {
+        return ("Butchering", GOLD);
+    }
+    if w.chases.iter().any(|c| c.who.contains(&pid)) {
+        return ("Hunting", WARN);
+    }
+    if w.looting_now(pid).is_some() {
+        return ("Looting", GOLD);
+    }
     let sneaking = w.squad.sneaking[k];
     if w.squad.at[k].dist(w.squad.goal[k]) > 0.5 {
         return if sneaking { ("Sneaking", SNEAK) } else { ("Walking", TEXT) };

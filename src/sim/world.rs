@@ -145,6 +145,12 @@ pub struct World {
     pub nodes: Vec<super::crafting::Node>,
     /// Who's on their way to gather what.
     pub gathering: Vec<(PersonId, u32)>,
+    /// Town woodlots and mines the squad can work (`labour.rs`).
+    pub deposits: Vec<super::labour::Deposit>,
+    /// The squad's own at work: at deposits, cutting up carcasses, chasing herds.
+    pub labour: Vec<super::labour::Labour>,
+    pub butchering: Vec<super::labour::Butchering>,
+    pub chases: Vec<super::labour::Chase>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
@@ -274,6 +280,10 @@ impl World {
             stations: Vec::new(),
             nodes: Vec::new(),
             gathering: Vec::new(),
+            deposits: Vec::new(),
+            labour: Vec::new(),
+            butchering: Vec::new(),
+            chases: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),

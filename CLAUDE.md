@@ -273,6 +273,8 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
 `GAHT_LOOT=1` (two bandits lie beaten beside the squad; member 0 goes through the
 first one's things: the loot panel).
+`GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`
+for the nearest iron seam).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,

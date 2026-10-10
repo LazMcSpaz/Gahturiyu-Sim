@@ -637,6 +637,7 @@ pub fn describe(w: &World, s: &Seen) -> Vec<(String, Rgb)> {
             out.push((format!("{} carcass", d.name), GOLD));
             if !d.yields.is_empty() {
                 out.push((format!("Gives: {}", amounts(&gahturiyu_sim::sim::animals::h_yields(s.sp, s.size))), DIM));
+                out.push(("Click: the nearest selected cuts it up".to_string(), DIM));
             }
         }
         Thing::Flock => {
@@ -646,6 +647,9 @@ pub fn describe(w: &World, s: &Seen) -> Vec<(String, Rgb)> {
     }
     if matches!(s.thing, Thing::Animal(..) | Thing::Herd(_)) && !d.yields.is_empty() {
         out.push((format!("Gives: {}", amounts(d.yields)), DIM));
+    }
+    if matches!(s.thing, Thing::Animal(..) | Thing::Herd(_)) {
+        out.push(("Click: the selected go after them (sneak first to catch them unawares)".to_string(), DIM));
     }
     out
 }
@@ -787,6 +791,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
     let size = game.screen;
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
     // What's under the mouse, if the window's own hover found nothing.
+    game.wild = None;
     if game.hover.is_none() && !on_panels {
         let mut best: Option<(f32, Seen)> = None;
         match game.view {
@@ -817,6 +822,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
         }
         if let Some((_, s)) = best {
             c.panel(&describe(w, &s), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            game.wild = Some(s);
         }
     }
     if PANEL.load(Ordering::Relaxed) {

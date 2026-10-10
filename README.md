@@ -214,6 +214,12 @@ the roads again if you changed the land's shape or ground.
   goes through their things. A panel lists what they wear and carry: click
   a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
   carries the body off instead. Townsfolk aren't fair game.
+- **Making a living**: every town has a woodlot, and a mine where its land
+  has ore (some have a gold seam too). Click one and the selected work it,
+  a unit at a time, until their packs are full; it grows back by the day.
+  Click a wild animal to hunt it (sneak first to catch it unawares), and a
+  carcass to cut it up: raw meat to eat, hides and the rest to sell. At a
+  merchant, **Sell all** sells a whole stack at once.
 - **Recruiting**: some townsfolk are restless (their hover says so). Talk to
   one and ask them to **come with us**: the out-of-work and the needy come
   for nothing, others want a signing fee (paid to their household). They

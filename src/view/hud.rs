@@ -335,6 +335,17 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 out.push((format!("Picked; grows back at {}", hhmm(n.picked_at.unwrap_or(0.0) + 24.0 * HOUR)), DIM));
             }
         }
+        Hover::Deposit(id) => {
+            let Some(d) = w.deposit(id) else { return out };
+            let town = &w.settlements[d.town as usize].name;
+            out.push((format!("{} of {town}", d.face().name), GOLD));
+            let left = d.left_at(w.time).floor();
+            out.push((format!("{} × {} left (of {}); a unit {:.0} kg, worth about {:.0} coin", left, items::item(d.item).name.to_lowercase(), d.face().cap, items::item(d.item).weight, items::item(d.item).value), TEXT));
+            if let Some(h) = w.deposit_full_in(id) {
+                out.push((format!("Grows back: full again in {h:.0} h"), DIM));
+            }
+            out.push(("Click: the selected work it until their packs are full".into(), DIM));
+        }
         Hover::Station(i) => {
             let (_, st) = w.stations[i];
             use gahturiyu_sim::sim::crafting::Station as S;

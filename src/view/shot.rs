@@ -85,6 +85,9 @@ pub struct Shot {
     /// `GAHT_LOOT=1`: two bandits lie beaten beside the squad and member 0
     /// is going through the first one's things (the loot panel).
     pub loot: bool,
+    /// `GAHT_GRIND=1|mine`: two of the squad at work at the nearest town
+    /// woodlot (or iron seam).
+    pub grind: Option<String>,
     /// `GAHT_RECRUIT=n`: n willing townsfolk from the nearest town join the
     /// squad (the squad's purse covers their fees); the last is asked in
     /// conversation, which stays open.
@@ -160,6 +163,7 @@ impl Shot {
             build: var("GAHT_BUILD"),
             loot: var("GAHT_LOOT").is_some(),
             recruit: var("GAHT_RECRUIT").and_then(|v| v.parse().ok()),
+            grind: var("GAHT_GRIND"),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -262,6 +266,26 @@ impl Shot {
         if let Some((dx, dy)) = self.nudge {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
+        }
+        if let Some(g) = self.grind.as_deref() {
+            let want = gahturiyu_sim::sim::items::id(if g == "mine" { "iron_ore" } else { "timber" });
+            // Mid-morning, in good light.
+            while world.time < 10.0 * gahturiyu_sim::sim::world::HOUR {
+                world.step(60.0);
+            }
+            let here = world.squad.pos;
+            let d = world.deposits.iter().filter(|d| d.item == want).min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).copied();
+            if let Some(d) = d {
+                world.teleport_squad(d.pos.add(V2::new(7.0, 4.0)));
+                for k in 0..2.min(world.squad.members.len()) {
+                    let m = world.squad.members[k];
+                    world.order_labour(m, d.id);
+                }
+                let end = world.time + 600.0;
+                while world.time < end {
+                    world.step(0.5);
+                }
+            }
         }
         if self.loot {
             let at = world.squad.pos.add(V2::new(2.5, 1.0));

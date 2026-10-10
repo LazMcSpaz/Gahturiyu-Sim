@@ -599,6 +599,46 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         game.picks.push((base + vec3(0.0, 0.8 * kk, 0.0), 2.0, Hover::Node(n.id)));
     }
+    // Woodlots and mines the squad can work: the pile shows what's left.
+    for d in &w.deposits {
+        if d.pos.dist(oc.target) > radius.min(500.0) {
+            continue;
+        }
+        let base = to3(d.pos, on_ground(d.pos));
+        let kk = k.min(4.0);
+        let cap = d.face().cap as f32;
+        let full = (d.left_at(w.time) / cap).clamp(0.0, 1.0);
+        let key = items::item(d.item).key;
+        let n = (full * 6.0).ceil() as usize;
+        match key {
+            "timber" => {
+                // Stacked logs, a stump and an axe-post.
+                for i in 0..n {
+                    let (row, col) = (i / 3, i % 3);
+                    let p = base + vec3(0.0, (0.25 + row as f32 * 0.45) * kk, (col as f32 - 1.0 + row as f32 * 0.5) * 0.48 * kk);
+                    b.stick(p - vec3(1.3 * kk, 0.0, 0.0), p + vec3(1.3 * kk, 0.0, 0.0), 0.22 * kk, palette::TIMBER);
+                }
+                b.column(base + vec3(2.2 * kk, 0.0, 0.8 * kk), 0.35 * kk, 0.35 * kk, 0.5 * kk, 7, [0.45, 0.33, 0.2]);
+            }
+            _ => {
+                let col = if key == "gold_nugget" { [0.85, 0.7, 0.25] } else { [0.45, 0.32, 0.26] };
+                // A cut face and the chunks dug from it.
+                b.block(base + vec3(0.0, 0.0, -1.4 * kk), 2.6 * kk, 1.8 * kk, 0.8 * kk, 0.0, palette::STONE);
+                for i in 0..n {
+                    let a = i as f32 * 1.9 + d.id as f32;
+                    let p = base + vec3(a.cos(), 0.0, a.sin() * 0.6 + 0.4) * (0.5 + 0.18 * i as f32) * kk;
+                    b.dome(p, 0.45 * kk, 0.4 * kk, 0.35 * kk, 0.2, 0.0, d.id as u64 * 7 + i as u64, col);
+                }
+                if key == "gold_nugget" && n > 0 {
+                    gl.dome(base + vec3(0.0, 0.35 * kk, 0.3 * kk), 0.12 * kk, 0.12 * kk, 0.1 * kk, 0.0, 0.0, 3, [1.0, 0.85, 0.35]);
+                }
+            }
+        }
+        // A marker post, so it reads as something to click.
+        b.stick(base + vec3(-1.6 * kk, 0.0, 1.2 * kk), base + vec3(-1.6 * kk, 1.6 * kk, 1.2 * kk), 0.09 * kk, palette::TIMBER);
+        gl.block(base + vec3(-1.6 * kk, 1.6 * kk, 1.2 * kk), 0.35 * kk, 0.22 * kk, 0.05 * kk, 0.0, if key == "timber" { [0.55, 0.85, 0.45] } else { [0.95, 0.75, 0.35] });
+        game.picks.push((base + vec3(0.0, 0.8 * kk, 0.0), 3.0, Hover::Deposit(d.id)));
+    }
     // Things lying about.
     for g in &w.ground {
         if g.pos.dist(oc.target) < radius.min(600.0) {

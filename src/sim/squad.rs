@@ -180,6 +180,7 @@ impl World {
             self.pickups.retain(|p| p.who != pid);
             self.picking.retain(|p| p.who != pid);
             self.gathering.retain(|g| g.0 != pid);
+            self.stop_work(pid);
             if let Some(k) = self.squad.index(pid) {
                 self.squad.resting[k] = false;
             }
@@ -274,6 +275,7 @@ impl World {
         self.tidy_looting();
         self.do_picking();
         self.do_gathering();
+        self.do_labour();
         self.do_crafting();
         self.do_lessons();
         self.check_runaways();

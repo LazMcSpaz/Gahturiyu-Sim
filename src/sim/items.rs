@@ -293,6 +293,18 @@ pub static ITEMS: &[ItemDef] = &[
     material("hide", "Hide", 2.0, 6.0),
     material("leather", "Leather", 1.0, 10.0),
     material("timber", "Timber", 2.5, 3.0),
+    // What hunted animals give (placeholder names; `labour::YIELD_ITEMS`).
+    material("light_hide", "Light hide", 1.0, 3.0),
+    material("thick_hide", "Thick hide", 4.0, 14.0),
+    material("tough_skin", "Tough skin", 2.0, 8.0),
+    material("shell", "Shell", 0.5, 3.0),
+    material("horn_plate", "Horn plate", 1.5, 10.0),
+    material("teeth", "Teeth", 0.05, 1.0),
+    material("animal_oil", "Animal oil", 0.5, 3.0),
+    material("silk_gland", "Silk gland", 0.3, 40.0),
+    material("briar_heart", "Briar heart", 1.0, 80.0),
+    material("lurker_trophy", "Lurker trophy", 2.0, 120.0),
+    material("cragmaw_trophy", "Cragmaw trophy", 5.0, 300.0),
     // Raw materials (each is also a good in a town's store).
     material("rock", "Rock feedstock", 3.0, 1.0),
     material("ash", "Ash", 0.5, 1.0),
@@ -339,6 +351,8 @@ pub static ITEMS: &[ItemDef] = &[
     food("salted_meat", "Salted meat", 0.5, 6.0, 40.0),
     food("wild_berries", "Wild berries", 0.1, 1.0, 8.0),
     food("mussels", "Mussels", 0.3, 2.0, 14.0),
+    food("raw_meat", "Raw meat", 0.5, 2.0, 18.0),
+    food("egg", "Egg", 0.1, 1.0, 6.0),
     ItemDef { key: "arrows", name: "Arrows", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.04, value: 1.0, effects: &[] },
     ItemDef { key: "bolts", name: "Crossbow bolts", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.06, value: 2.0, effects: &[] },
     ItemDef { key: "sling_stones", name: "Sling stones", slot: Slot::MainHand, kind: Kind::Ammo, weight: 0.05, value: 0.2, effects: &[] },
@@ -448,6 +462,11 @@ pub fn item(id: ItemId) -> &'static ItemDef {
 }
 
 /// Look an item up by its key. Panics on a typo, which is what tests want.
+/// Is there an item by this key?
+pub fn catalogue_has(key: &str) -> bool {
+    catalogue().by_key.contains_key(key)
+}
+
 pub fn id(key: &str) -> ItemId {
     *catalogue().by_key.get(key).unwrap_or_else(|| panic!("no item called {key}"))
 }
