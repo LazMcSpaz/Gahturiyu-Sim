@@ -29,6 +29,21 @@ pub const SQUAD_SPEED: f32 = 1.5;
 pub const TOGETHER: f32 = 200.0;
 /// How near two squad members must stand to hand something over, m.
 pub const GIVE_REACH: f32 = 8.0;
+/// A squad member this far from the middle of the others has strayed: the
+/// squad list says so (playtest 2: three gives failed at 47, 57 and 66 m,
+/// and nobody had noticed the squad had spread out).
+pub const STRAY: f32 = 30.0;
+
+/// Something being carried over to a squadmate: the giver walks to them and
+/// hands over that stack. Kept by what it is, not where it sits in the
+/// pack, since the pack can change on the way (a meal eaten, say).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Give {
+    pub from: PersonId,
+    pub to: PersonId,
+    pub item: ItemId,
+    pub piece: Option<super::materials::Piece>,
+}
 /// How close someone must be to pick something up, metres.
 pub const REACH: f32 = 1.8;
 
@@ -160,6 +175,15 @@ impl World {
         }
     }
 
+    /// Said once, so a walk that ends at the water isn't a mystery.
+    fn sea_stops(&mut self) {
+        let line = "The water stops them: the squad can't cross the sea.".to_string();
+        if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+            self.log.push_front((self.time, line));
+            self.log.truncate(14);
+        }
+    }
+
     /// Send the whole squad somewhere, in formation.
     pub fn order_squad(&mut self, target: V2) {
         let members = self.squad.members.clone();
@@ -182,6 +206,9 @@ impl World {
         }
         let free: Vec<PersonId> = who.iter().copied().filter(|m| !bound.contains(m)).collect();
         let who = &free[..];
+        if !who.is_empty() && self.terrain.is_sea(target) && self.building_at(target).is_none() {
+            self.sea_stops();
+        }
         let mut blocked = None;
         for (n, &pid) in who.iter().enumerate() {
             if let Some(k) = self.squad.index(pid) {
@@ -202,6 +229,7 @@ impl World {
             }
             self.want_carry.retain(|w| w.0 != pid);
             self.dosing.retain(|d| d.0 != pid);
+            self.giving.retain(|g| g.from != pid);
             if self.want_talk.map(|w| w.0 == pid).unwrap_or(false) {
                 self.want_talk = None;
             }
@@ -284,6 +312,7 @@ impl World {
             } else {
                 self.squad.goal[k] = at;
                 self.squad.route[k].clear();
+                self.sea_stops();
             }
         }
         self.hold_the_bound();
@@ -292,6 +321,7 @@ impl World {
         self.update_indoors();
         self.do_pickups();
         self.do_dosing();
+        self.do_giving();
         self.tidy_looting();
         self.do_picking();
         self.do_gathering();
@@ -486,6 +516,85 @@ impl World {
         self.log.push_front((t, line.clone()));
         self.log.truncate(14);
         Ok(line)
+    }
+
+    /// Have one squad member hand another pack entry `k`: at once if they're
+    /// near, else the giver walks over and hands it across when they get
+    /// there (as `order_dose` does with a draught). Says why not, if not.
+    pub fn order_give(&mut self, from: PersonId, k: usize, to: PersonId) -> Result<String, String> {
+        let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
+        if self.squad.index(from).is_some() && self.squad.index(to).is_some() && from != to && self.person_pos(from).dist(self.person_pos(to)) > GIVE_REACH {
+            if self.fighting.contains_key(&from) || self.fighting.contains_key(&to) {
+                return Err("Not in the middle of a fight.".into());
+            }
+            if self.is_down(from) {
+                return Err(format!("{} is out cold.", name(self, from)));
+            }
+            if !self.free_to_order(from) {
+                return Err(format!("{} is bound to work off a bond and can't leave.", name(self, from)));
+            }
+            let Some(e) = self.people[from as usize].detail.as_ref().and_then(|x| x.gear.bag.get(k)).copied() else {
+                return Err("Nothing there.".into());
+            };
+            let d = self.person_pos(from).dist(self.person_pos(to));
+            let at = self.person_pos(to);
+            self.order_members(&[from], at);
+            self.giving.retain(|g| g.from != from);
+            self.giving.push(Give { from, to, item: e.0, piece: e.2 });
+            let what = item(e.0).name.to_lowercase();
+            return Ok(format!("{} walks over to {} ({d:.0} m) with the {what}.", name(self, from), name(self, to)));
+        }
+        self.giving.retain(|g| g.from != from);
+        self.give_entry(from, k, to)
+    }
+
+    /// Squad members on their way to hand something over: once near, they
+    /// do. If the one they're walking to has moved on, they follow.
+    pub(super) fn do_giving(&mut self) {
+        let mut n = 0;
+        while n < self.giving.len() {
+            let g = self.giving[n];
+            let (Some(kf), Some(_)) = (self.squad.index(g.from), self.squad.index(g.to)) else {
+                self.giving.remove(n);
+                continue;
+            };
+            let entry = self.people[g.from as usize].detail.as_ref().and_then(|d| d.gear.bag.iter().position(|e| e.0 == g.item && e.2 == g.piece));
+            let Some(k) = entry else {
+                self.giving.remove(n);
+                continue;
+            };
+            if self.is_down(g.from) || self.fighting.contains_key(&g.from) || self.fighting.contains_key(&g.to) {
+                self.giving.remove(n);
+                continue;
+            }
+            let there = self.person_pos(g.to);
+            if self.person_pos(g.from).dist(there) <= GIVE_REACH * 0.5 {
+                self.giving.remove(n);
+                let _ = self.give_entry(g.from, k, g.to);
+                continue;
+            }
+            // They've moved since: head for where they are now.
+            if self.squad.goal[kf].dist(there) > GIVE_REACH * 0.5 {
+                let (path, _) = self.travel(self.member_pos(kf), there);
+                self.squad.goal[kf] = *path.last().unwrap_or(&there);
+                self.squad.route[kf] = path;
+            }
+            n += 1;
+        }
+    }
+
+    /// How far a squad member has strayed from the middle of the others, if
+    /// that's more than `STRAY`. Nobody strays in a squad of one, and the
+    /// downed and the carried are where they are.
+    pub fn strayed(&self, pid: PersonId) -> Option<f32> {
+        let k = self.squad.index(pid)?;
+        let others: Vec<V2> = (0..self.squad.members.len()).filter(|&j| j != k).map(|j| self.squad.at[j]).collect();
+        if others.is_empty() {
+            return None;
+        }
+        let mid = others.iter().fold(V2::default(), |a, b| a.add(*b)).scale(1.0 / others.len() as f32);
+        let d = self.squad.at[k].dist(mid);
+        (d > STRAY).then_some(d)
     }
 
     /// The strongest healing potion in someone's pack.

@@ -81,24 +81,39 @@ impl World {
         if taken.is_empty() {
             return 0;
         }
-        // Shared out among the robbers (into their packs: they don't use it).
+        // The coin is shared out among the robbers' purses; the things go
+        // back to their camp's stash (or into their packs, if they keep no
+        // camp: they don't use it).
+        let stash = robbers.iter().find_map(|&r| self.group_of[r as usize]).and_then(|g| self.camps.iter().find(|c| c.group == g)).and_then(|c| c.stash).filter(|s| self.containers.contains_key(s));
         let mut coin = 0u32;
         let mut things: Vec<String> = Vec::new();
+        let mut stashed: Vec<Entry> = Vec::new();
         for (n, e) in taken.iter().enumerate() {
             let r = robbers[n % robbers.len()];
             if self.people[r as usize].ensure_detail() {
                 self.stats.detailed += 1;
             }
-            if let Some(d) = self.people[r as usize].detail.as_mut() {
-                match e.2 {
-                    Some(pc) => d.gear.add_piece(e.0, pc),
-                    None => d.gear.add(e.0, e.1),
+            match (stash, item(e.0).kind) {
+                (Some(_), k) if k != Kind::Coin => stashed.push(*e),
+                _ => {
+                    if let Some(d) = self.people[r as usize].detail.as_mut() {
+                        match e.2 {
+                            Some(pc) => d.gear.add_piece(e.0, pc),
+                            None => d.gear.add(e.0, e.1),
+                        }
+                    }
                 }
             }
             match item(e.0).kind {
                 Kind::Coin => coin += item(e.0).value as u32 * e.1 as u32,
                 _ => things.push(if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() }),
             }
+        }
+        if let Some(st) = stash {
+            self.put_into(st, &stashed);
+        }
+        for &r in &robbers {
+            self.people[r as usize].recompute_might();
         }
         let mut what = Vec::new();
         if coin > 0 {
@@ -109,8 +124,7 @@ impl World {
         if things.len() > shown {
             what.push(format!("{} other things", things.len() - shown));
         }
-        let camp = robbers.iter().find_map(|&r| self.group_of[r as usize]).is_some_and(|g| self.camps.iter().any(|c| c.group == g));
-        let home = if camp { " They'll have it back at their camp." } else { "" };
+        let home = if stash.is_some() && !stashed.is_empty() { " They'll have it back at their camp." } else { "" };
         let line = format!("Beaten. They go through your things and take {}.{home}", what.join(", "));
         self.alerts.push(line.clone());
         self.log.push_front((t, line));

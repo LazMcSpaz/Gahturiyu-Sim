@@ -194,7 +194,8 @@ impl World {
             band: 3,
         };
         self.add_group(g);
-        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0 });
+        let stash = Some(self.make_stash(at));
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash });
         self.scan_camp(self.camps.len() - 1);
         gid
     }
@@ -234,7 +235,8 @@ impl World {
                 match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied().filter(|b| !duels.contains(b)) {
                     Some(bid) => self.join_battle(bid, 1, &fresh),
                     None => {
-                        let line = "You're attacked!".to_string();
+                        let home = self.camps.iter().any(|c| c.group == gid && c.ready_at > when);
+                        let line = if home { "You're seen in their camp! They come for you." } else { "You're attacked!" }.to_string();
                         self.alerts.push(line.clone());
                         self.log.push_front((when, line));
                         let fit = self.squad_fit();
@@ -399,11 +401,8 @@ impl World {
             if let Some(d) = p.detail.as_mut().filter(|_| p.in_squad) {
                 let new = super::magic::felt_reached(&p.stats, &d.spells);
                 d.spells.extend(new.iter().copied());
-                if p.in_squad {
-                    for sp in new {
-                        let line = format!("{} has a feel for {} now.", d.name, sp.def().name.to_lowercase());
-                        self.log.push_front((t, line));
-                    }
+                if let Some(line) = super::magic::feel_line(&d.name, &new) {
+                    self.log.push_front((t, line));
                 }
             }
             let p = &mut self.people[f.pid as usize];
@@ -446,6 +445,7 @@ impl World {
             if f.dead {
                 p.dead = true;
                 killed += 1;
+                let home = p.home.zip(p.dwelling);
                 self.busy_until[f.pid as usize] = f64::INFINITY;
                 // A body raised and spent in the fight is gone.
                 if !f.raised {
@@ -456,6 +456,10 @@ impl World {
                     self.stats.detailed += 1;
                 }
                 self.drop_everything(f.pid, f.pos);
+                // Their home's things now belong to whoever's left there.
+                if let Some(door) = home {
+                    self.refresh_owners_in(door);
+                }
             }
             self.people[f.pid as usize].recompute_might();
             // Spells on a squad member go back out with them (including ones
@@ -513,10 +517,13 @@ impl World {
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();
         let squad_won = b.winner() == Some(SQUAD_SIDE);
-        for gid in touched {
+        for gid in touched.clone() {
             self.fighting_groups.remove(&gid);
             if squad_won && self.camps.iter().any(|c| c.group == gid) {
                 self.beaten_camps.insert(gid);
+            } else if b.winner().is_some() {
+                // They beat the squad: they hold their ground again.
+                self.beaten_camps.remove(&gid);
             }
             // They've had their fight; they'll need to spot you again.
             self.suspicion.retain(|(g, _), _| *g != gid);
@@ -557,6 +564,11 @@ impl World {
                 self.squad.goal[k] = f.pos;
             }
         }
+        // Beaten in a gang's own camp: they drag the downed out of it and
+        // leave them there (out of their ground, so the night's mercy holds).
+        if !squad_won {
+            self.out_of_their_camp(&b, &touched);
+        }
         let dead_squad: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| self.people[*m as usize].dead).collect();
         let people = &self.people;
         self.squad.retain(|m| !people[m as usize].dead);
@@ -572,13 +584,47 @@ impl World {
         // Anyone down, won or lost: how they get up again.
         let down = b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && f.ko && !f.dead).count();
         if down > 0 && !self.squad.members.is_empty() {
-            let mut line = "The downed come round within an hour or two. Resting (N) heals faster, a roof or a tent faster still; a squadmate can give them a healing draught.".to_string();
-            if b.winner().is_some_and(|s| s != SQUAD_SIDE) {
-                line += " The ones who beat you won't come looking again before dawn.";
-            }
-            self.log.push_front((t, line));
+            self.log.push_front((t, "The downed will come round in an hour or two.".to_string()));
         }
         self.log.truncate(14);
+    }
+}
+
+impl World {
+    /// The squad lay beaten inside the camp of one of the bands it fought:
+    /// each one down there is carried out to `DUMP_AT` from the camp's
+    /// middle, the way they came in. (The player exception: only the
+    /// squad's own fights.)
+    fn out_of_their_camp(&mut self, b: &Battle, bands: &[GroupId]) {
+        use super::encounters::{DUMP_AT, GUARD_RING};
+        let homes: Vec<V2> = self.camps.iter().filter(|c| bands.contains(&c.group) && self.group(c.group).is_some()).map(|c| c.pos).collect();
+        let mut moved = false;
+        for home in homes {
+            for f in b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && !f.dead) {
+                let Some(k) = self.squad.index(f.pid) else { continue };
+                let at = self.squad.at[k];
+                if at.dist(home) > GUARD_RING || !self.is_down(f.pid) {
+                    continue;
+                }
+                let away = at.sub(home);
+                let len = away.dist(V2::default());
+                let dir = if len > 0.5 {
+                    away.scale(1.0 / len)
+                } else {
+                    let a = Rng::from_keys(&[self.seed, b.id as u64, 0x4455_4D50]).f32() * std::f32::consts::TAU;
+                    V2::new(a.cos(), a.sin())
+                };
+                let to = home.add(dir.scale(DUMP_AT)).add(super::squad::formation(k).scale(0.5));
+                self.squad.at[k] = to;
+                self.squad.goal[k] = to;
+                self.squad.route[k].clear();
+                moved = true;
+            }
+        }
+        if moved {
+            self.recentre_squad();
+            self.log.push_front((b.time, "They drag you out of their camp and leave you there.".to_string()));
+        }
     }
 }
 
@@ -587,8 +633,7 @@ impl World {
 fn fight_summary(b: &Battle) -> String {
     let name = |i: usize| b.names.get(i).cloned().unwrap_or_else(|| "someone".into());
     let mut beaten = Vec::new();
-    let mut fled_whole = Vec::new();
-    let mut fled_hurt = Vec::new();
+    let mut fled = Vec::new();
     let mut dead = Vec::new();
     let mut down = Vec::new();
     for (i, f) in b.fighters.iter().enumerate() {
@@ -605,11 +650,11 @@ fn fight_summary(b: &Battle) -> String {
         } else if f.ko {
             beaten.push(name(i));
         } else if f.fled || f.fleeing {
-            if f.vitality() > 0.6 { fled_whole.push(name(i)) } else { fled_hurt.push(name(i)) }
+            fled.push(name(i));
         }
     }
     let head = match b.winner() {
-        Some(SQUAD_SIDE) if beaten.is_empty() && dead.is_empty() => "The fight is over: they broke and ran, leaving no one behind.",
+        Some(SQUAD_SIDE) if beaten.is_empty() && dead.is_empty() => "The fight is over: they ran.",
         Some(SQUAD_SIDE) => "The fight is over: you won.",
         Some(_) => "The fight is over: you lost.",
         None => "The fight is over: both sides broke off.",
@@ -617,19 +662,16 @@ fn fight_summary(b: &Battle) -> String {
     let list = |v: &[String]| if v.len() > 4 { format!("{} and {} more", v[..3].join(", "), v.len() - 3) } else { v.join(", ") };
     let mut out = head.to_string();
     if !beaten.is_empty() {
-        out += &format!(" Beaten (can be gone through): {}.", list(&beaten));
+        out += &format!(" Beaten: {}.", list(&beaten));
     }
     if !dead.is_empty() {
         out += &format!(" Dead: {}.", list(&dead));
     }
-    if !fled_hurt.is_empty() {
-        out += &format!(" Ran, badly hurt: {}.", list(&fled_hurt));
-    }
-    if !fled_whole.is_empty() {
-        out += &format!(" Ran, barely hurt: {}.", list(&fled_whole));
+    if !fled.is_empty() && !(beaten.is_empty() && dead.is_empty()) {
+        out += &format!(" Ran: {}.", list(&fled));
     }
     if !down.is_empty() {
-        out += &format!(" Down on your side: {}.", list(&down));
+        out += &format!(" Down: {}.", list(&down));
     }
     out
 }

@@ -130,6 +130,14 @@ fn job_takes(job: Job, rc: &Recipe) -> bool {
     }
 }
 
+/// Is there any town recipe this trade could take up? Carpenters and masons
+/// have none yet (they build for bases), so idleness can't cost them a post
+/// until town recipes exist for them.
+pub fn has_town_work(job: Job) -> bool {
+    let Some(craft) = job.craft() else { return false };
+    RECIPES.iter().any(|rc| rc.skill == craft.skill() && !rc.is_grown_piece() && job_takes(job, rc))
+}
+
 impl World {
     // ---- Sources --------------------------------------------------------------
 
@@ -220,8 +228,15 @@ impl World {
 
     /// The same, at a moment on the world's timeline.
     pub fn price_factor_at(&self, town: SettlementId, g: Good, t: f64) -> f32 {
+        self.price_factor_holding(town, g, t, self.society.towns[town as usize].stock[g.index()])
+    }
+
+    /// The same, were the town's stock of it this (so what a sale of several
+    /// comes to can be told before it's made: each one sold adds to the
+    /// stock and lowers the price of the next).
+    pub fn price_factor_holding(&self, town: SettlementId, g: Good, t: f64, stock: super::society::Flow) -> f32 {
         let want = self.want_of(town, g).max(1.0);
-        let have = self.society.towns[town as usize].stock[g.index()].at(self.society.rates_from, t).max(0.0);
+        let have = stock.at(self.society.rates_from, t).max(0.0);
         (want / (have + want * 0.25)).sqrt().clamp(PRICE_RANGE.0, PRICE_RANGE.1)
     }
 
@@ -233,10 +248,19 @@ impl World {
 
     /// The same, at a moment on the world's timeline.
     pub fn worth_at(&self, town: SettlementId, it: ItemId, piece: Option<&Piece>, t: f64) -> f32 {
+        self.worth_holding(town, it, piece, t, None)
+    }
+
+    /// The same, with the town's stock of the good it is taken as given
+    /// (`None`: as it stands).
+    pub fn worth_holding(&self, town: SettlementId, it: ItemId, piece: Option<&Piece>, t: f64, stock: Option<super::society::Flow>) -> f32 {
         let def = item(it);
         let mut v = def.value;
         if let Some(g) = good_of(def.key) {
-            v *= self.price_factor_at(town, g, t);
+            v *= match stock {
+                Some(s) => self.price_factor_holding(town, g, t, s),
+                None => self.price_factor_at(town, g, t),
+            };
         } else if let Some(g) = good_of_material(items::info(it).main) {
             // Made pieces: mostly the work, partly the material.
             v *= self.price_factor_at(town, g, t).sqrt();

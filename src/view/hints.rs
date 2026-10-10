@@ -22,7 +22,7 @@ const WRAP: usize = 74;
 /// The tips, in the order they're considered.
 const HINTS: &[(&str, &str)] = &[
     ("welcome", "Welcome. Left-click the ground to walk. Click a card along the bottom (or F1–F4) to choose who takes orders; ` picks everyone again. Hover over anything to see what it is."),
-    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked."),
+    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked (the town panel lists who, and their price)."),
     ("work", "Short of coin? Every town has a woodlot (and some a mine) nearby, marked by a post. Click it and the selected work until their packs are full."),
     ("fight", "A fight! Click an enemy to set the selected on them. Z sneaks; T lights a torch. The ring under each fighter points the way they face."),
     ("loot", "A beaten foe: click them and someone goes through their things. Bandits carry coin."),
@@ -30,6 +30,7 @@ const HINTS: &[(&str, &str)] = &[
     ("hungry", "Someone's hungry. They eat from their pack when they need to: buy food from a merchant, or hunt (click a wild animal) and cut up what you kill."),
     ("night", "Night's coming. Press N to rest (a tent in someone's pack makes it a better sleep), or T for torches if you'd rather keep going."),
     ("beaten", "Beaten and robbed. Rest until you can stand (N), get some gear, and go and take it back from their camp."),
+    ("feel", "Felt spells come with use. As someone casts and fights, their feel for that kind of magic grows, and the spells within reach come to them on their own. Their spell book (M) shows what they know."),
 ];
 
 pub struct Hints {
@@ -85,6 +86,7 @@ fn due(w: &World, id: &str) -> bool {
         "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| condition::stage_of(h) != condition::HungerStage::Fed)),
         "night" => stealth::daylight(w.time) < 0.35,
         "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),
+        "feel" => w.log.iter().take(12).any(|l| w.time - l.0 < 3600.0 && (l.1.contains(" has a feel for ") || l.1.contains(" the feel of "))),
         _ => false,
     }
 }

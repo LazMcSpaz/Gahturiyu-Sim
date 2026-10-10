@@ -1,6 +1,7 @@
-# Work they'd give an outsider. Placeholder set.
-topic | | There's something you could do for me.
-topic | unlawful | Not here. Somewhere quieter. I've something that needs doing.
-feeling | | I can't see to it myself.
+# Work they'd give the squad. See FORMAT.md.
+topic | | There's something you could do for me, if you're willing.
+topic | unlawful | Not here. Somewhere quieter. I've something that needs doing, and it's not the kind of thing you talk about in the street.
+topic | voice=qotiro | You look capable. I have work, if you can be trusted with it.
+feeling | | I can't see to it myself, or I would have already.
 hook | has_offer | {offer}.
-bark | | I could use some help.
+bark | | I could use some help, if anyone's asking.

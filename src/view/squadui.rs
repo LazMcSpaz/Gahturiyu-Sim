@@ -96,6 +96,9 @@ pub enum Action {
     CloseBook,
 }
 
+/// A word in someone's own tongue, in what they say.
+pub const NATIVE: Rgb = [0.62, 0.85, 0.80];
+
 /// Violet, for held rituals and other lingering magic.
 pub const RITUAL: Rgb = [0.78, 0.6, 1.0];
 
@@ -145,6 +148,7 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
             Shelter::Open => "Asleep (open)",
             Shelter::Tent => "Asleep (tent)",
             Shelter::Indoors => "Asleep (indoors)",
+            Shelter::Bed => "Asleep (a bed at the inn)",
         };
         return (place, SNEAK);
     }
@@ -626,7 +630,8 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
             Ok(()) if rc.skill == Skill::Tending => format!("{:.0}% · {:.0} days", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0, rc.time / gahturiyu_sim::sim::world::DAY),
             Ok(()) => format!("{:.0}%", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0),
             Err(Cannot::NoStation(s)) => format!("at the {}", s.name().to_lowercase()),
-            Err(Cannot::Missing(..)) => String::new(),
+            // Short of materials, and not where it's made either: say where.
+            Err(Cannot::Missing(..)) => w.craft_blockers(pid, i).iter().find_map(|b| if let Cannot::NoStation(s) = b { Some(format!("at the {}", s.name().to_lowercase())) } else { None }).unwrap_or_default(),
             Err(Cannot::Busy) => "busy".into(),
             Err(Cannot::Unknown(_)) => "learn first".into(),
         };
@@ -658,22 +663,25 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     let x = r.x + 16.0;
     let disp = w.regard_of(cv.npc, cv.with);
     let job = w.life(cv.npc).job;
-    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else { job.title(npc.seed).to_lowercase() };
+    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else if super::lexicon::native() { super::lexicon::thing(w, job.name()) } else { job.title(npc.seed).to_lowercase() };
     c.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), what), x, r.y + 28.0, 18.0, race_color(npc.race));
     let d = format!("Disposition {disp:.0}");
     c.text(&d, r.x + r.w - c.width(&d, 14.0) - 16.0, r.y + 26.0, 14.0, if disp < 30.0 { WARN } else { DIM });
 
-    let tx = r.x + r.w - 200.0;
+    // Trade lines are longer than questions ("Sell all 40 × iron ore — 44
+    // coin"), so the column widens while their wares are out.
+    let col = if cv.trading { 330.0 } else { 200.0 };
+    let tx = r.x + r.w - col;
     let mut ty = r.y + 60.0;
     let mut chosen = None;
     for t in topics {
-        let row = Bx::new(tx - 6.0, ty - 15.0, 190.0, 21.0);
+        let row = Bx::new(tx - 6.0, ty - 15.0, col - 10.0, 21.0);
         let hot = row.contains(mouse);
         if hot {
             c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.15));
         }
         let label = w.topic_text(t);
-        let fs = (15.0 * 186.0 / c.width(&label, 15.0).max(1.0)).clamp(10.0, 15.0);
+        let fs = (15.0 * (col - 14.0) / c.width(&label, 15.0).max(1.0)).clamp(10.0, 15.0);
         c.text(&label, tx, ty, fs, if hot { GOLD } else { TEXT });
         if click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {
             chosen = Some(t);
@@ -682,37 +690,91 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     }
 
     let width = tx - x - 24.0;
-    let mut rows: Vec<(String, Rgb)> = Vec::new();
+    // Words wrapped into rows; a word in the speaker's own tongue keeps its
+    // meaning, to be shown when the mouse is over it.
+    type Word = (String, Option<String>);
+    let mut rows: Vec<(Vec<Word>, Rgb)> = Vec::new();
+    let space = c.width(" ", 15.0);
     for (theirs, line) in &cv.lines {
         let col = if *theirs { TEXT } else { GOLD };
-        let mut cur = String::new();
-        for word in line.split(' ') {
-            let next = if cur.is_empty() { word.to_string() } else { format!("{cur} {word}") };
-            if c.width(&next, 15.0) > width && !cur.is_empty() {
-                rows.push((cur, col));
-                cur = word.to_string();
-            } else {
-                cur = next;
+        let mut words: Vec<Word> = Vec::new();
+        for (text, meaning) in gahturiyu_sim::sim::speech::spans(line) {
+            match meaning {
+                // A native word may carry punctuation after it in the next run.
+                Some(m) => words.push((text, Some(m))),
+                None => {
+                    let mut first = true;
+                    for piece in text.split(' ') {
+                        // Punctuation straight after a native word sticks to it.
+                        if first && !piece.is_empty() && !text.starts_with(' ') {
+                            if let Some(last) = words.last_mut() {
+                                last.0.push_str(piece);
+                                first = false;
+                                continue;
+                            }
+                        }
+                        first = false;
+                        if !piece.is_empty() {
+                            words.push((piece.to_string(), None));
+                        }
+                    }
+                }
             }
         }
-        rows.push((cur, col));
-        rows.push((String::new(), col));
+        let mut row: Vec<Word> = Vec::new();
+        let mut used = 0.0;
+        for wd in words {
+            let ww = c.width(&wd.0, 15.0);
+            if used + ww > width && !row.is_empty() {
+                rows.push((std::mem::take(&mut row), col));
+                used = 0.0;
+            }
+            used += ww + space;
+            row.push(wd);
+        }
+        rows.push((row, col));
+        rows.push((Vec::new(), col));
     }
     let max = ((r.h - 70.0) / 19.0) as usize;
     let start = rows.len().saturating_sub(max);
     let mut y = r.y + 60.0;
-    for (line, col) in &rows[start..] {
-        c.text(line, x, y, 15.0, *col);
+    let mut gloss: Option<(String, f32, f32)> = None;
+    for (row, col) in &rows[start..] {
+        let mut wx = x;
+        for (word, meaning) in row {
+            let ww = c.width(word, 15.0);
+            match meaning {
+                Some(m) => {
+                    c.text(word, wx, y, 15.0, NATIVE);
+                    // A faint dotted line under it: there's more to see.
+                    let mut ux = wx;
+                    while ux < wx + ww {
+                        c.rect(ux, y + 3.0, 2.0, 1.0, ega(NATIVE, 0.7));
+                        ux += 4.0;
+                    }
+                    if Bx::new(wx, y - 15.0, ww, 19.0).contains(mouse) {
+                        gloss = Some((format!("{}: \u{201c}{m}\u{201d} in {}", word.trim_end_matches(|ch: char| !ch.is_alphanumeric() && ch != '\u{2bb}'), gahturiyu_sim::names::Tongue::from(npc.race).name()), wx, y));
+                    }
+                }
+                None => c.text(word, wx, y, 15.0, *col),
+            }
+            wx += ww + space;
+        }
         y += 19.0;
+    }
+    // The meaning of a word under the mouse, along the bottom of the panel.
+    if let Some((text, _, _)) = gloss {
+        c.text(&text, x + 110.0, r.y + r.h - 10.0, 14.0, NATIVE);
     }
     c.text("Esc to leave", x, r.y + r.h - 10.0, 12.0, DIM);
     (chosen, Some(r))
 }
 
 fn journal_rect(c: &Canvas, w: &World) -> Bx {
-    let n = w.quests.len().max(1) as f32;
+    let n = (w.quests.len() + w.work_lines().len()).max(1) as f32;
     let up = super::frame::BOTTOM_CLEAR - 30.0;
-    Bx::new(12.0, c.h - 30.0 - up - 30.0 - (60.0 + n * 22.0), 620.0, 50.0 + n * 22.0)
+    let wide = if w.work_lines().is_empty() { 620.0 } else { 900.0f32.min(c.w - 24.0) };
+    Bx::new(12.0, c.h - 30.0 - up - 30.0 - (60.0 + n * 22.0), wide, 50.0 + n * 22.0)
 }
 
 /// Jobs taken on, and what each needs next.
@@ -721,9 +783,14 @@ pub fn journal(c: &Canvas, w: &World) -> Bx {
     c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     c.text("Journal", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
-    if w.quests.is_empty() {
+    let work = w.work_lines();
+    if w.quests.is_empty() && work.is_empty() {
         c.text("No jobs yet. Ask people if they have any work.", r.x + 14.0, r.y + 48.0, 14.0, DIM);
         return r;
+    }
+    // Town work first (who, where, the wage), then jobs.
+    for (i, l) in work.iter().enumerate() {
+        c.text(l, r.x + 14.0, r.y + 48.0 + i as f32 * 22.0, 13.0, GOLD);
     }
     for (i, q) in w.quests.iter().enumerate() {
         let col = match q.stage {
@@ -731,7 +798,7 @@ pub fn journal(c: &Canvas, w: &World) -> Bx {
             Stage::Report => GOLD,
             _ => TEXT,
         };
-        c.text(&w.quest_line(q), r.x + 14.0, r.y + 48.0 + i as f32 * 22.0, 14.0, col);
+        c.text(&w.quest_line(q), r.x + 14.0, r.y + 48.0 + (i + work.len()) as f32 * 22.0, 14.0, col);
     }
     r
 }

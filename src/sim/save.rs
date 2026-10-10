@@ -24,7 +24,7 @@ use super::world::World;
 const MAGIC: &[u8; 4] = b"GAHT";
 /// Bumped whenever what's saved changes shape; older saves are refused
 /// rather than misread.
-pub const FORMAT: u32 = 42;
+pub const FORMAT: u32 = 46;
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -142,6 +142,17 @@ pub(crate) mod opt_name {
     }
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<&'static str>, D::Error> {
         Option::<String>::deserialize(d).map(|o| o.map(keep_name))
+    }
+}
+
+/// A list of optional fixed names (a town's building styles, by key).
+pub(crate) mod opt_names {
+    use super::*;
+    pub fn serialize<S: Serializer>(v: &[Option<&'static str>], s: S) -> Result<S::Ok, S::Error> {
+        v.serialize(s)
+    }
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Option<&'static str>>, D::Error> {
+        Vec::<Option<String>>::deserialize(d).map(|v| v.into_iter().map(|o| o.map(keep_name)).collect())
     }
 }
 

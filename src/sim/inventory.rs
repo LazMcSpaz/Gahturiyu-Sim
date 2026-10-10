@@ -138,6 +138,10 @@ impl Gear {
         if !self.bag.iter().any(|e| e.0 == id) {
             return Err(EquipError::NotInBag);
         }
+        // Coin is carried, not held (round 3: a coin in hand, and one short).
+        if def.kind == super::items::Kind::Coin {
+            return Err(EquipError::WrongSlot);
+        }
         let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
         if def.slot == Slot::OffHand {
             if let Some(m) = self.in_slot(Slot::MainHand) {
@@ -159,6 +163,9 @@ impl Gear {
     /// Put on the `k`th thing in the pack (a particular piece).
     pub fn equip_entry(&mut self, k: usize) -> Result<(), EquipError> {
         let Some(e) = self.bag.get(k).copied() else { return Err(EquipError::NotInBag) };
+        if item(e.0).kind == super::items::Kind::Coin {
+            return Err(EquipError::WrongSlot);
+        }
         // Move it to the front of its kind so `equip` picks this one.
         self.bag.remove(k);
         self.bag.insert(0, e);

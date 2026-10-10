@@ -1,4 +1,6 @@
-# Wanting more. Placeholder set.
-topic | | I'll not be {job} all my life.
-feeling | | You have to make your own luck.
+# Wanting more. See FORMAT.md.
+topic | | I won't be {a_job} all my life. I've plans.
+topic | voice=qotiro | I mean to have my own forge one day, with my own mark on everything that comes out of it.
+topic | voice=horaro | One day I'll have my own boat. A good one, with a {w:pearl} set in the prow for {w:luck}.
+feeling | | You have to make your own {w:luck}. Nobody's going to hand it to you.
 hook | |

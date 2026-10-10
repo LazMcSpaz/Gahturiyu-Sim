@@ -43,8 +43,10 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
-    /// `GAHT_TALK=1`: talk to the nearest townsperson.
+    /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
+    /// `horaro` or `tadoro`: the nearest of that people).
     pub talk: bool,
+    pub talk_to: Option<String>,
     /// `GAHT_STARVE=1`: the squad is starving (no food, hunger 92).
     pub starve: bool,
     /// `GAHT_EXHAUST=1`: the squad is exhausted and out of breath.
@@ -123,7 +125,9 @@ pub struct Shot {
     /// the dawn boats, or a stilt village keeping tide hours.
     pub society: Option<String>,
     /// `GAHT_INTERIOR=1`: member 0 walks into the nearest open building with
-    /// containers (a workshop or shop if there is one) and opens one.
+    /// containers (a workshop or shop if there is one) and opens one;
+    /// `tadoro` / `crowded` / a variant's key pick the building differently
+    /// (`walk_in`).
     pub interior: bool,
     /// `GAHT_VARIANTS=1|roduro|qotiro|horaro[,open]`: every building variant
     /// (or one people's) laid out side by side on open ground near the squad.
@@ -131,6 +135,9 @@ pub struct Shot {
     /// `GAHT_CUTAWAY=1` (or `open` in `GAHT_VARIANTS`): every building near
     /// the camera drawn cut open.
     pub cutaway: bool,
+    /// `GAHT_SIGNS=1|roduro|qotiro`: frame the street in the nearest town
+    /// (or the most Roduro / Qotiro one) with the most trade signs together.
+    pub signs: Option<String>,
     /// Where the camera should look for the scene set up (target, distance,
     /// pitch, yaw), filled in by `prepare`.
     pub framing: std::sync::Mutex<Option<(V2, f32, f32, Option<f32>)>>,
@@ -165,6 +172,7 @@ impl Shot {
             enter: var("GAHT_ENTER").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
+            talk_to: var("GAHT_TALK").filter(|v| v != "1"),
             starve: var("GAHT_STARVE").is_some(),
             exhaust: var("GAHT_EXHAUST").is_some(),
             carry: var("GAHT_CARRY").is_some(),
@@ -199,6 +207,7 @@ impl Shot {
             interior: var("GAHT_INTERIOR").is_some(),
             cutaway: var("GAHT_CUTAWAY").is_some_and(|v| v != "0") || var("GAHT_VARIANTS").is_some_and(|v| v.split(',').any(|t| t == "open")),
             variants: var("GAHT_VARIANTS"),
+            signs: var("GAHT_SIGNS"),
             framing: std::sync::Mutex::new(None),
         })
     }
@@ -206,6 +215,10 @@ impl Shot {
     /// Where the camera should look instead of at the squad, if anywhere.
     pub fn focus(&self, world: &World) -> Option<V2> {
         use gahturiyu_sim::sim::routine::Doing;
+        // A ruin scene looks at the ruin (its chest and crate).
+        if let Some(k) = self.ruin {
+            return world.ruins.get(k).map(|r| r.pos);
+        }
         match self.society.as_deref()? {
             "runners" | "boats" => {
                 let want = if self.society.as_deref() == Some("runners") { Doing::Run } else { Doing::Ferry };
@@ -533,7 +546,12 @@ impl Shot {
             let lead = world.squad.members[0];
             let here = world.squad.pos;
             let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();
-            let npc = world.residents_in_band1(town).into_iter().min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            let want = self.talk_to.clone();
+            let npc = world
+                .residents_in_band1(town)
+                .into_iter()
+                .filter(|&p| want.as_deref().map(|w| world.people[p as usize].race.name().to_lowercase().replace('ṭ', "t").replace('ḍ', "d") == w).unwrap_or(true))
+                .min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
             if let Some(npc) = npc {
                 world.order_talk(lead, npc);
                 for _ in 0..240 {
@@ -542,6 +560,7 @@ impl Shot {
                     }
                     world.step(0.5);
                 }
+                world.ask(Topic::Background);
                 world.ask(Topic::ThisTown);
                 world.ask(Topic::Bandits);
                 if world.topics().contains(&Topic::Work) {
@@ -724,6 +743,9 @@ impl Shot {
         if self.interior {
             *self.framing.lock().unwrap() = walk_in(world);
         }
+        if let Some(which) = self.signs.clone() {
+            *self.framing.lock().unwrap() = signs_street(world, &which);
+        }
         super::animals::prepare(world);
     }
 }
@@ -734,27 +756,77 @@ impl Shot {
 fn walk_in(world: &mut World) -> Option<(V2, f32, f32, Option<f32>)> {
     use gahturiyu_sim::sim::buildings::door_of;
     use gahturiyu_sim::sim::layout::Use;
+    use gahturiyu_sim::sim::layout::Furn;
+    use gahturiyu_sim::sim::race::Race;
+    // `GAHT_INTERIOR=tadoro`: the nearest open building a Ṭaḍoro lodges in;
+    // `crowded`: the one with the most residents per sleeping place;
+    // `slope`: one on a slope, its floor about 1.5 m up (anywhere);
+    // a variant's key (e.g. `roduro_longhouse`): the nearest open building
+    // of that variant.
+    let mode = std::env::var("GAHT_INTERIOR").unwrap_or_default();
+    let want_key = gahturiyu_sim::sim::layout::by_key(&mode).map(|v| v.key);
     let m = *world.squad.members.first()?;
     let here = world.squad.pos;
     let mut best: Option<(f32, gahturiyu_sim::sim::buildings::Door)> = None;
     for s in &world.settlements {
-        if s.pos.dist(here) > 3000.0 {
+        // (`crowded` and `slope` look everywhere: overfull quarters are rare.)
+        if s.pos.dist(here) > 3000.0 && mode != "crowded" && mode != "slope" && want_key.is_none() {
             continue;
         }
         for i in 0..s.buildings.len() as u16 {
             let Some(d) = door_of(s, i) else { continue };
             let v = d.variant();
-            if v.holders.is_empty() || world.is_locked(d.id) {
+            if world.is_locked(d.id) || (v.holders.is_empty() && mode != "tadoro" && mode != "crowded") {
+                continue;
+            }
+            if want_key.is_some_and(|k| k != v.key) {
                 continue;
             }
             let trade = matches!(v.use_, Use::Workshop | Use::Shop);
-            let score = d.centre.dist(here) + if trade { 0.0 } else { 400.0 } + if v.walls.is_empty() { 200.0 } else { 0.0 };
+            let score = match mode.as_str() {
+                "tadoro" => {
+                    let lodger = world.residents_of(d.id).iter().any(|&p| world.people[p as usize].race == Race::Tadoro);
+                    if !lodger {
+                        continue;
+                    }
+                    d.centre.dist(here) + if v.walls.is_empty() { 300.0 } else { 0.0 }
+                }
+                "crowded" => {
+                    let beds = v.furniture.iter().filter(|p| matches!(p.what, Furn::Bed | Furn::Bedroll)).count().max(1);
+                    let extra = world.residents_of(d.id).len().saturating_sub(beds);
+                    if extra == 0 || v.furniture.is_empty() {
+                        continue;
+                    }
+                    // Living quarters, then homes, before workshops; then the
+                    // most extra sleepers (up to the 16 drawn), then nearest.
+                    let living = match v.use_ {
+                        Use::Quarters => 0.0,
+                        Use::Home => 10_000.0,
+                        _ => 20_000.0,
+                    };
+                    living - (extra.min(16) as f32) * 1000.0 + d.centre.dist(here) * 0.1
+                }
+                // `slope`: an open building on a slope (floor about 1.5 m over the lowest ground).
+                "slope" => {
+                    let (hi, lo) = super::interiors::floor_height(&d, &|p| world.terrain.height(p));
+                    d.centre.dist(here) * 0.00005 + (hi - lo - 1.5).abs()
+                }
+                _ if want_key.is_some() => d.centre.dist(here),
+                _ => d.centre.dist(here) + if trade { 0.0 } else { 400.0 } + if v.walls.is_empty() { 200.0 } else { 0.0 },
+            };
             if best.as_ref().is_none_or(|b| score < b.0) {
                 best = Some((score, d));
             }
         }
     }
     let (_, d) = best?;
+    if mode == "slope" {
+        let (hi, lo) = super::interiors::floor_height(&d, &|p| world.terrain.height(p));
+        eprintln!("slope: {} ({:?}), floor {:.2} m over the lowest ground", d.variant().key, d.id, hi - lo);
+    }
+    if mode == "crowded" {
+        eprintln!("crowded: {} ({:?}), {} residents, {} sleeping places drawn", d.variant().key, d.variant().use_, world.residents_of(d.id).len(), super::interiors::sleeping_places(world, &d));
+    }
     if d.centre.dist(here) > 120.0 {
         let out = d.outside.sub(d.centre);
         let out = out.scale(1.0 / out.len().max(0.01));
@@ -768,6 +840,11 @@ fn walk_in(world: &mut World) -> Option<(V2, f32, f32, Option<f32>)> {
         if world.squad.inside[k] == Some(d.id) && world.squad.route[k].is_empty() {
             break;
         }
+    }
+    // `tadoro`: no container opened; look close at the lodger's corner.
+    if mode == "tadoro" {
+        let corner = super::interiors::lodger_corner(world, &d).unwrap_or(d.centre);
+        return Some((corner.lerp(d.centre, 0.15), 8.0, 0.75, Some(d.rot + 0.5)));
     }
     // An unlocked container, chests and cupboards first, something in it.
     let pick = world
@@ -787,6 +864,47 @@ fn walk_in(world: &mut World) -> Option<(V2, f32, f32, Option<f32>)> {
     // Look from the front, down into the rooms.
     let yaw = d.rot + 0.5;
     Some((d.centre, 17.0, 0.78, Some(yaw)))
+}
+
+/// `GAHT_SIGNS`: the spot in a town where the most signs (trade buildings
+/// and workplaces) stand within 40 m of each other; the squad is moved off
+/// to one side. Returns the camera's framing, looking at the first
+/// building's front.
+fn signs_street(world: &mut World, which: &str) -> Option<(V2, f32, f32, Option<f32>)> {
+    use gahturiyu_sim::sim::layout::variant_in;
+    let here = world.squad.pos;
+    let n = world.settlements.len();
+    let share = |w: &World, t: usize, r: usize| {
+        let c = w.town_counts(t as u16);
+        c[r] as f32 / c.iter().sum::<u32>().max(1) as f32
+    };
+    let town = match which {
+        "roduro" => (0..n).max_by(|&a, &b| share(world, a, 0).total_cmp(&share(world, b, 0)))?,
+        "qotiro" => (0..n).max_by(|&a, &b| share(world, a, 1).total_cmp(&share(world, b, 1)))?,
+        _ => (0..n).min_by(|&a, &b| world.settlements[a].pos.dist(here).total_cmp(&world.settlements[b].pos.dist(here)))?,
+    };
+    let s = &world.settlements[town];
+    // Every sign: (where, the facing of the building it's on, if a building).
+    let mut sites: Vec<(V2, Option<f32>)> = (0..s.buildings.len() as u16)
+        .filter(|&i| variant_in(s, i).is_some_and(super::signs::signed))
+        .map(|i| (s.buildings[i as usize].pos, Some(s.buildings[i as usize].rot)))
+        .collect();
+    if let Some(tl) = world.society.towns.get(town) {
+        sites.extend(tl.places.iter().filter(|p| super::signs::for_place(p.kind).is_some()).map(|p| (p.pos, None)));
+    }
+    // Building signs count three times a signpost.
+    let near = |c: V2| sites.iter().filter(|o| o.0.dist(c) < 40.0).map(|o| if o.1.is_some() { 3 } else { 1 }).sum::<usize>();
+    let best = sites.iter().filter(|o| o.1.is_some()).max_by_key(|o| near(o.0)).or(sites.first())?;
+    let group: Vec<V2> = sites.iter().filter(|o| o.0.dist(best.0) < 40.0).map(|o| o.0).collect();
+    let mean = group.iter().fold(V2::new(0.0, 0.0), |a, &p| a.add(p)).scale(1.0 / group.len().max(1) as f32);
+    // Mostly on the best building (its front and sign in the middle of the
+    // picture), a little toward the rest.
+    let centre = best.0.lerp(mean, 0.3);
+    eprintln!("signs: town {town}, {} building signs, {} in view", sites.iter().filter(|o| o.1.is_some()).count(), group.len());
+    let yaw = best.1.unwrap_or(0.0);
+    world.teleport_squad(centre.add(V2::new(yaw.cos(), yaw.sin()).scale(-45.0)));
+    world.step(0.001);
+    Some((centre, 38.0, 0.6, Some(yaw)))
 }
 
 /// `GAHT_VARIANTS`: lay every building variant (or one people's) out in rows

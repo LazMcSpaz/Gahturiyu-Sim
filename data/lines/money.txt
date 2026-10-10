@@ -1,8 +1,11 @@
-# Money worries and debt. Placeholder set.
-topic | in_debt | We owe {debt} coin and it's not getting smaller.
-topic | | Money's tight. Tighter than it was.
-feeling | gentle | We'll manage. We always do.
-feeling | hot | Everything costs too much.
+# Money worries. See FORMAT.md.
+topic | in_debt | We owe {debt} coin, and it isn't getting any smaller, however hard we work.
+topic | | Money's tight. Tighter than it was last season, and that was bad enough.
+topic | voice=tadoro | I've been counting our coin. It doesn't take long these days.
+feeling | gentle | We'll manage. We always do, somehow.
+feeling | hot | Everything costs too much, and the ones who set the prices never go hungry.
+feeling | voice=roduro | My grandmother said a household lives by its {w:hearth}, not its purse. She never had to buy bread at these prices.
+feeling | | You learn to go without. It doesn't get easier.
 hook | wants_debt | {target}'s household owes us {debt}. Get it out of them and I'll see you right.
 hook | |
-bark | | Not a coin to spare.
+bark | | Not a coin to spare, not one.

@@ -211,7 +211,15 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
             let (word, col) = match (held, w.fresh_level_up(pid)) {
                 (Some(s), _) => (format!("Holding {}", s.def().name.to_lowercase()), super::squadui::RITUAL),
                 (None, Some((what, v))) if word == "Standing" || word == "Walking" => (format!("{what} {v} ↑"), BRASS_LIGHT),
+                // Still sneaking keeps its full colour: it halves their pace,
+                // and it's easy to leave on.
+                _ if word == "Sneaking" || word == "Crouched" => (word.to_string(), col),
                 _ => (word.to_string(), palette::mix(col, DIM, 0.35)),
+            };
+            // Strayed from the others: say how far, in the warning colour.
+            let (word, col) = match w.strayed(pid) {
+                Some(d) if !down => (format!("{word} · {d:.0} m off"), palette::WARN),
+                _ => (word, col),
             };
             let sw = c.styled(&word, nx + nw + 9.0, cy - 8.0, 13.0, a(col, 1.0), Face::Italic, 0.0);
             // Being noticed: an eye that opens; a lit torch: a flame.
@@ -277,7 +285,7 @@ fn news(w: &World) -> Vec<(String, bool)> {
         .filter(|(t, l)| w.time - t < 3.0 * HOUR && !quiet.iter().any(|q| l.contains(q)))
         .take(4)
         .map(|(_, l)| {
-            let bad = ["attack", "Beaten", "dies", "died", "theft", "Theft", "stole", "on you", "arrest", "bounty", "robbed", "falls"].iter().any(|k| l.contains(k));
+            let bad = ["attack", "Beaten", "dies", "died", "theft", "Theft", "stole", "on you", "arrest", "bounty", "robbed", "falls", "bandits"].iter().any(|k| l.contains(k));
             (l.trim_end_matches('.').to_string(), bad)
         })
         .collect()
@@ -350,7 +358,7 @@ pub fn banner(c: &Canvas, w: &World) {
         .iter()
         .filter(|s| s.pos.dist(here) < s.radius() + 150.0)
         .min_by(|x, y| x.pos.dist(here).total_cmp(&y.pos.dist(here)))
-        .map(|s| s.name.clone())
+        .map(|s| super::lexicon::town(w, s.id))
         .or_else(|| w.ruins.iter().find(|r| r.found && r.pos.dist(here) < 200.0).map(|r| r.name(w)));
     if let Some(n) = name {
         c.styled_centred(&n.to_uppercase(), c.w / 2.0, 118.0, 21.0, a(TEXT, 0.95), Face::Title, 6.0);
@@ -525,11 +533,12 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
         c.styled("ORDERS", ox, c.h - 118.0, 10.0, a(TEXT, 0.75), Face::Title, 2.5);
         let who = st.sel.who(w);
         let sneaking = !who.is_empty() && who.iter().all(|&m| w.is_sneaking(m));
-        let resting = !who.is_empty() && who.iter().all(|&m| w.squad.index(m).is_some_and(|k| w.squad.resting[k]));
+        // Anyone resting: the button gets them up.
+        let resting = w.any_resting(&who);
         let s = Bx::new(ox, c.h - 106.0, 112.0, 32.0);
         pill(c, s.x, s.y, s.w, s.h, "SNEAK", sneaking, true);
         let r = Bx::new(ox, c.h - 66.0, 112.0, 32.0);
-        pill(c, r.x, r.y, r.w, r.h, "REST", resting, false);
+        pill(c, r.x, r.y, r.w, r.h, if resting { "WAKE" } else { "REST" }, resting, false);
         if clicked(&s) {
             act = Some(FrameAct::Sneak);
         }
@@ -564,7 +573,7 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
         .iter()
         .min_by(|x, y| x.pos.dist(w.squad.pos).total_cmp(&y.pos.dist(w.squad.pos)))
         .filter(|s| s.pos.dist(w.squad.pos) < s.radius() + 600.0)
-        .map(|s| s.name.to_uppercase())
+        .map(|s| super::lexicon::town(w, s.id).to_uppercase())
         .unwrap_or_else(|| "THE WILDS".into());
     c.styled_centred(&place, lx, c.h - 54.0, 12.0, a(TEXT, 0.85), Face::Title, 2.0);
     let row = c.h - 30.0;

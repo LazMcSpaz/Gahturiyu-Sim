@@ -29,6 +29,7 @@ use super::buildings::{Door, DoorId};
 use super::geo::V2;
 use super::inventory::Entry;
 use super::items;
+use super::jobs::Job;
 use super::layout::{Holder, Use};
 use super::loot::{Looting, Source};
 use super::person::PersonId;
@@ -37,7 +38,38 @@ use super::settlement::SettlementId;
 use super::world::World;
 
 /// A container: its town, building, and slot in the building's layout.
+/// Out in the wild (a ruin's or a lair's cache) it's `(WILD, site, slot)`.
 pub type ContainerId = (SettlementId, u16, u8);
+
+/// The "town" of containers out in the wild: ruins and lairs, by their id.
+pub const WILD: SettlementId = SettlementId::MAX;
+
+/// Is this container out in the wild (nobody's; no town's eyes on it)?
+pub fn is_wild(id: ContainerId) -> bool {
+    id.0 == WILD
+}
+
+/// Bandit camps' stashes are numbered from here among the wild containers
+/// (ruins and lairs use their own ids, below it).
+pub const STASH_BASE: u16 = 0x8000;
+/// What a camp's stash holds to start with besides coin (one may be picked).
+pub const STASH_GOODS: &[&str] = &["dried_fish", "flatbread", "torch", "knife", "hide", "healing_draught", "leather_cap"];
+
+/// Is this a bandit camp's stash?
+pub fn is_stash(id: ContainerId) -> bool {
+    is_wild(id) && id.1 >= STASH_BASE
+}
+
+/// A new camp's stash: a little coin and maybe one thing off the road.
+/// One keyed roll per stash.
+pub fn stash_stock(seed: u64, n: u16) -> Vec<Entry> {
+    let mut r = Rng::from_keys(&[seed, n as u64, 0x5354_4153]);
+    let mut out = vec![Entry(items::id("coin"), 8 + r.below(33) as u16, None)];
+    if r.chance(0.6) {
+        out.push(Entry(items::id(STASH_GOODS[r.below(STASH_GOODS.len())]), 1, None));
+    }
+    out
+}
 
 /// Whose things they are.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -45,7 +77,15 @@ pub enum Owner {
     /// A household (index into `Society::households`).
     Household(u32),
     Town(SettlementId),
+    /// Nobody's: a cache in a ruin or a lair. Taking is no crime (though
+    /// whoever keeps the place may see you at it).
+    Nobody,
 }
+
+/// How much a gang's suspicion of someone jumps when they take something
+/// from the cache in its camp (capped short of noticing, so the watch's own
+/// meter decides it on its next look).
+pub const TAKE_NOISE: f32 = 0.35;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Container {
@@ -70,15 +110,27 @@ const FOOD: &[&str] = &["flatbread", "dried_fish", "salted_meat", "grain", "muss
 const STUFF: &[&str] = &["timber", "hide", "leather", "fibre", "clay", "seareed", "salt_crystal", "cloth"];
 const SMITH: &[&str] = &["iron_ingot", "iron_ore", "charcoal", "bronze_ingot", "iron_ore"];
 const TENDER: &[&str] = &["rock", "sand", "clay", "hearthclay", "ringstone"];
-const POTTER: &[&str] = &["clay", "hearthclay", "charcoal", "sand"];
+const BENCH: &[&str] = &["hide", "leather", "fibre", "cloth", "timber", "seareed"];
+const CLOTH: &[&str] = &["fibre", "cloth", "fibre", "seareed"];
+/// A benchworker's crates hold what the keeper's own trade works.
+const BENCH_STOCK: &[(Job, &[&str])] = &[
+    (Job::Tanner, &["hide", "leather", "hide", "salt_crystal"]),
+    (Job::Leatherworker, &["leather", "hide", "fibre"]),
+    (Job::Woodworker, &["timber", "timber", "fibre"]),
+    (Job::Carpenter, &["timber", "timber", "rock"]),
+    (Job::Boatwright, &["timber", "seareed", "fibre"]),
+    (Job::Mason, &["rock", "sand", "clay", "rock"]),
+];
 const CLOTHES: &[&str] = &["cloth_shirt", "trousers", "padded_jacket", "wraps", "boots", "leather_cap", "knife", "reed_paper", "squid_ink", "healing_draught", "torch", "lockpick"];
 const SHOP: &[&str] = &["cloth_shirt", "trousers", "boots", "leather_gloves", "small_pack", "torch", "healing_draught", "knife", "hatchet", "reed_paper"];
 const BETTER: &[&str] = &["short_sword", "hide_coat", "war_pick", "spear", "buckler", "hide_leggings", "iron_helm", "gold_ring", "pearl"];
 const RARE: &[&str] = &["ring_swiftness", "ring_might", "amulet_wellspring", "amulet_clear_mind", "ring_hearth", "seers_hood", "striders_boots", "duelists_gloves", "pearl_necklace"];
 
 /// What a container holds when first opened, and its lock. One keyed roll
-/// per container: world seed, town, building, slot.
-pub fn stock(seed: u64, id: ContainerId, what: Holder, use_: Use, variant: &str) -> (Vec<Entry>, f32) {
+/// per container: world seed, town, building, slot. A trade building's
+/// crates follow its variant, and a bench building's its keeper's trade
+/// (`World::keeper`).
+pub fn stock(seed: u64, id: ContainerId, what: Holder, use_: Use, variant: &str, keeper: Option<Job>) -> (Vec<Entry>, f32) {
     let mut r = Rng::from_keys(&[seed, id.0 as u64, id.1 as u64, id.2 as u64, 0x434F_4E54]);
     let mut out: Vec<Entry> = Vec::new();
     let add = |out: &mut Vec<Entry>, key: &str, n: u16| {
@@ -88,12 +140,12 @@ pub fn stock(seed: u64, id: ContainerId, what: Holder, use_: Use, variant: &str)
             None => out.push(Entry(it, n, None)),
         }
     };
-    let trade: &[&str] = if variant.contains("forge") || variant.contains("workyard") {
-        if r.chance(0.5) { SMITH } else { POTTER }
-    } else if variant.contains("tender") {
-        TENDER
-    } else {
-        STUFF
+    let trade: &[&str] = match variant {
+        "roduro_forge" | "qotiro_workyard" => SMITH,
+        "roduro_loomroom" | "qotiro_weavehall" => CLOTH,
+        "roduro_benchroom" | "qotiro_benchyard" => keeper.and_then(|j| BENCH_STOCK.iter().find(|b| b.0 == j)).map(|b| b.1).unwrap_or(BENCH),
+        "roduro_tender" => TENDER,
+        _ => STUFF,
     };
     let lock = match what {
         Holder::Barrel => {
@@ -107,6 +159,14 @@ pub fn stock(seed: u64, id: ContainerId, what: Holder, use_: Use, variant: &str)
             for _ in 0..1 + r.below(3) {
                 let k = *r.pick(trade);
                 add(&mut out, k, 1 + r.below(6) as u16);
+            }
+            0.0
+        }
+        // A mess hall's cupboard is its pantry.
+        Holder::Cupboard if variant.contains("mess") => {
+            for _ in 0..1 + r.below(3) {
+                let k = *r.pick(FOOD);
+                add(&mut out, k, 1 + r.below(5) as u16);
             }
             0.0
         }
@@ -152,29 +212,127 @@ impl World {
         d.variant().holders.iter().enumerate().map(|(k, s)| (k as u8, s.what, d.to_world(s.at), d.rot + s.rot)).collect()
     }
 
-    /// Whose a building's things are: the household living there, or the town.
-    pub fn belongs_to(&self, door: DoorId) -> Owner {
-        let town = door.0;
-        self.society
-            .households
+    /// The households with someone living in a building (indexes into
+    /// `Society::households`), in index order. Read from where people
+    /// sleep, not `Household::home`: a household can span several
+    /// buildings (a Qotiro tier block) or none (a village living as one).
+    pub fn households_in(&self, door: DoorId) -> Vec<u32> {
+        let mut hs: Vec<u32> = self.residents_of(door).into_iter().filter_map(|p| self.society.lives.get(p as usize).and_then(|l| l.household)).collect();
+        hs.sort_unstable();
+        hs.dedup();
+        hs
+    }
+
+    /// Everyone who lives in a building: the town's living residents who
+    /// sleep there (not those off with the squad), in the town's order.
+    pub fn residents_of(&self, door: DoorId) -> Vec<PersonId> {
+        let Some(s) = self.settlements.get(door.0 as usize) else { return Vec::new() };
+        s.residents
             .iter()
-            .position(|h| h.home == Some(door.1) && self.society.communities.get(h.community as usize).is_some_and(|c| c.town == town) && !h.members.is_empty())
-            .map(|i| Owner::Household(i as u32))
-            .unwrap_or(Owner::Town(town))
+            .copied()
+            .filter(|&p| {
+                let q = &self.people[p as usize];
+                q.dwelling == Some(door.1) && q.home == Some(door.0) && !q.dead && !q.in_squad
+            })
+            .collect()
+    }
+
+    /// Whose a building's things are: the (first) household living there,
+    /// or the town.
+    pub fn belongs_to(&self, door: DoorId) -> Owner {
+        self.households_in(door).first().map(|&h| Owner::Household(h)).unwrap_or(Owner::Town(door.0))
+    }
+
+    /// Whose one container is. Where several households share a building
+    /// (Qotiro quarters), each chest and cupboard is one household's, taken
+    /// in turn room by room; crates and barrels are the first household's
+    /// (shared stores). Nobody living there: the town's.
+    pub fn owner_of_slot(&self, door: DoorId, slot: u8, what: Holder) -> Owner {
+        let hs = self.households_in(door);
+        if hs.is_empty() {
+            return Owner::Town(door.0);
+        }
+        let private = matches!(what, Holder::Chest | Holder::Cupboard);
+        let Some(d) = self.door(door) else { return Owner::Household(hs[0]) };
+        if !private {
+            return Owner::Household(hs[0]);
+        }
+        // Count only the private containers before this one.
+        let k = d.variant().holders.iter().take(slot as usize).filter(|s| matches!(s.what, Holder::Chest | Holder::Cupboard)).count();
+        Owner::Household(hs[k % hs.len()])
     }
 
     /// Fill a building's containers the first time it's entered (those
     /// already laid out are left as they are).
     pub(super) fn stock_building(&mut self, d: Door) {
         let v = d.variant();
-        let owner = self.belongs_to(d.id);
         for (slot, what, pos, rot) in self.container_spots(&d) {
+            let owner = self.owner_of_slot(d.id, slot, what);
             let id = (d.id.0, d.id.1, slot);
             if self.containers.contains_key(&id) {
                 continue;
             }
-            let (items, lock) = stock(self.seed, id, what, v.use_, v.key);
+            let keeper = self.keeper(d.id).map(|p| self.life(p).job);
+            let (items, lock) = stock(self.seed, id, what, v.use_, v.key, keeper);
             self.containers.insert(id, Container { id, what, pos, rot, items, lock, picked: false, owner, taken: 0 });
+        }
+    }
+
+    /// Whose a container is now, worked out from who lives there now (the
+    /// stored `Container::owner` is kept in step with this whenever
+    /// households are re-formed or someone moves in).
+    pub fn container_owner(&self, id: ContainerId) -> Option<Owner> {
+        let c = self.containers.get(&id)?;
+        if is_wild(id) {
+            return Some(c.owner);
+        }
+        Some(self.owner_of_slot((id.0, id.1), id.2, c.what))
+    }
+
+    /// Bring every laid-out container's stored owner up to date (after
+    /// households are renumbered, or people move house).
+    pub(super) fn refresh_container_owners(&mut self) {
+        let ids: Vec<(ContainerId, Holder)> = self.containers.values().filter(|c| !is_wild(c.id)).map(|c| (c.id, c.what)).collect();
+        for (id, what) in ids {
+            let o = self.owner_of_slot((id.0, id.1), id.2, what);
+            if let Some(c) = self.containers.get_mut(&id) {
+                c.owner = o;
+            }
+        }
+    }
+
+    /// Bring the stored owners of one building's containers up to date
+    /// (someone living there has died or left).
+    pub fn refresh_owners_in(&mut self, door: DoorId) {
+        let ids: Vec<(ContainerId, Holder)> = self.containers_in(door).map(|c| (c.id, c.what)).collect();
+        for (id, what) in ids {
+            let o = self.owner_of_slot((id.0, id.1), id.2, what);
+            if let Some(c) = self.containers.get_mut(&id) {
+                c.owner = o;
+            }
+        }
+    }
+
+    /// Set up a new bandit camp's stash beside its fire (at world-making, or
+    /// when a band makes camp). Returns its id.
+    pub(super) fn make_stash(&mut self, at: V2) -> ContainerId {
+        let n = self.containers.range((WILD, STASH_BASE, 0)..=(WILD, u16::MAX, u8::MAX)).count() as u16;
+        let id = (WILD, STASH_BASE + n, 0);
+        let a = Rng::from_keys(&[self.seed, n as u64, 0x5354_5053]).f32() * std::f32::consts::TAU;
+        let pos = at.add(V2::new(a.cos(), a.sin()).scale(3.0));
+        let items = stash_stock(self.seed, n);
+        self.containers.insert(id, Container { id, what: Holder::Chest, pos, rot: a, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0 });
+        id
+    }
+
+    /// Put things into a container (stacks merge; made pieces keep theirs).
+    pub(super) fn put_into(&mut self, id: ContainerId, things: &[Entry]) {
+        let Some(c) = self.containers.get_mut(&id) else { return };
+        for e in things {
+            match c.items.iter_mut().find(|x| x.0 == e.0 && x.2.is_none() && e.2.is_none()) {
+                Some(x) => x.1 = x.1.saturating_add(e.1),
+                None => c.items.push(*e),
+            }
         }
     }
 
@@ -195,6 +353,11 @@ impl World {
     /// the middle of the room.
     pub fn container_stand(&self, id: ContainerId) -> Option<V2> {
         let c = self.containers.get(&id)?;
+        // Out in the wild: in front of it.
+        if is_wild(id) {
+            let side = V2::new(-c.rot.sin(), c.rot.cos());
+            return Some(c.pos.add(side.scale(0.9)));
+        }
         let d = self.door((id.0, id.1))?;
         let to = d.centre.sub(c.pos);
         let len = to.len();
@@ -257,6 +420,22 @@ impl World {
         let Some(c) = self.containers.get_mut(&id) else { return };
         c.taken += 1;
         let (n, at, what, owner) = (c.taken, c.pos, c.what, c.owner);
+        // A cache in the wild is nobody's: no crime. But a gang camped on it
+        // hears the lid (`TAKE_NOISE`).
+        if is_wild(id) {
+            let keepers: Vec<super::group::GroupId> = self
+                .camps
+                .iter()
+                .filter(|cp| cp.pos.dist(at) <= super::encounters::GUARD_RING)
+                .map(|cp| cp.group)
+                .filter(|&g| !self.beaten_camps.contains(&g) && self.group(g).is_some_and(|gr| gr.members.iter().any(|&m| self.fit_to_fight(m))))
+                .collect();
+            for g in keepers {
+                let meter = self.suspicion.entry((g, who)).or_insert(0.0);
+                *meter = (*meter + TAKE_NOISE).min(0.99);
+            }
+            return;
+        }
         let mut r = Rng::from_keys(&[self.seed, who as u64, id.0 as u64, id.1 as u64, id.2 as u64, n as u64, 0x5448_4546]);
         if let Some(by) = self.witnessed(who, at, id.0, &mut r) {
             let name = self.people[who as usize].name().unwrap_or("someone").to_string();

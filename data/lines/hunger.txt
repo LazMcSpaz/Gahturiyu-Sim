@@ -1,5 +1,8 @@
-# Hunger. Placeholder set.
-topic | | There's not enough to go round. We eat last.
-feeling | | You can't work on an empty belly.
+# Hunger in the household. See FORMAT.md.
+topic | | There isn't enough to go round. We feed the children first and eat whatever's left.
+topic | voice=horaro | The nets have come up thin all week. We're eating {w:kelp} soup again, and not much of it.
+topic | voice=roduro | The garden's not giving like it should. There's less {w:bread} on the table every week.
+feeling | | You can't work properly on an empty belly. Everyone knows that except the ones who've never tried.
+feeling | gentle | We'll get by. We always have, so far.
 hook | |
 bark | | When did I last eat properly?

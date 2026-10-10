@@ -575,6 +575,7 @@ impl World {
             self.society.households[h as usize].members.retain(|&m| m != npc);
         }
         self.settlements[town as usize].residents.retain(|&m| m != npc);
+        self.refresh_container_owners();
         let arrives = t + (at.dist(self.bases[i].at) / HAND_WALK) as f64 * HOUR;
         self.bases[i].residents.push(Resident { who: npc, job: Job::Idle, recipe: None, cycle: None, n: 0, since: t, hire: Some(Hire { wage, loyalty: LOYALTY_START, town, household, community, trade, arrives, owed: 0 }) });
         let name = self.people[npc as usize].name().unwrap_or("someone").to_string();
@@ -608,6 +609,7 @@ impl World {
         if !self.settlements[h.town as usize].residents.contains(&who) {
             self.settlements[h.town as usize].residents.push(who);
         }
+        self.refresh_container_owners();
         let bid = self.bases[i].id;
         let name = self.people[who as usize].name().unwrap_or("someone").to_string();
         self.base_note(bid, t, format!("{name} quits and goes home: {why}."), true);

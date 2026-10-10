@@ -557,9 +557,14 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             w.put_down(m);
         }
     }
+    // N: rest, or, if any of the selected are resting, get them up.
     if keys.just_pressed(KeyCode::KeyN) {
         let who = game.sel.who(w);
-        w.order_rest(&who);
+        if w.any_resting(&who) {
+            w.order_wake(&who);
+        } else {
+            w.order_rest(&who);
+        }
     }
     // T: the selected light their torches (or put them out). With everyone
     // selected, only those already holding one, else the first who has one.
@@ -1031,7 +1036,7 @@ fn update_barks(game: &mut Game) {
             }
             game.barked.insert(p, f + BARK_AGAIN);
             if let Some(line) = w.bark(p, m) {
-                game.barks.push((p, line, f + BARK_FRAMES));
+                game.barks.push((p, gahturiyu_sim::sim::speech::plain(&line), f + BARK_FRAMES));
             }
         }
     }
@@ -1088,6 +1093,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         return Ok(());
     }
     let game = &mut *game;
+    super::lexicon::set_native(settings.native_names);
+    super::lexicon::refresh(&game.world, game.loads);
     if st.loads != game.loads {
         st.loads = game.loads;
         st.relief = None;
@@ -1210,6 +1217,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         return Ok(());
     }
+    // L also shows everything about strangers on hover (for testing).
+    hud::set_see_all(game.debug);
     // The old side panel (counts, timings, races, the full log): with L.
     if game.debug {
         panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
@@ -1272,7 +1281,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             FrameAct::Rest => {
                 let who = game.sel.who(w);
-                w.order_rest(&who);
+                if w.any_resting(&who) {
+                    w.order_wake(&who);
+                } else {
+                    w.order_rest(&who);
+                }
             }
             FrameAct::Toggle(b) => {
                 let lead = game.sel.lead(w);
@@ -1481,7 +1494,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 w.drop_entry(pid, k);
             }
             Action::GiveEntry(pid, k, to) => {
-                let msg = match w.give_entry(pid, k, to) {
+                let msg = match w.order_give(pid, k, to) {
                     Ok(m) | Err(m) => m,
                 };
                 game.notice = Some((msg, std::time::Instant::now()));
@@ -1629,7 +1642,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
     }
     if let Some(it) = item_tip {
-        let lines = squadui::item_lines(it);
+        let mut lines = squadui::item_lines(it);
+        // What a merchant here gives for it, beside the round "worth".
+        if let Some((p, town)) = game.world.sells_for(it, None) {
+            let name = &game.world.settlements[town as usize].name;
+            lines.push((if p > 0 { format!("Sells for about {p} in {name}") } else { format!("Nobody in {name} pays for it") }, super::palette::DIM));
+        }
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
         c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
     } else if let Some(h) = game.hover {

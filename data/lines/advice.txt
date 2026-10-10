@@ -1,0 +1,20 @@
+# Advice: "A little advice?" One piece (line). See FORMAT.md.
+line | | If you'd rather not be seen, travel by night. The bandits by the road can see you coming in the sun; at night they mostly have to hear you, and most people are louder than they think.
+line | | Heavy armour clanks. If you mean to creep about, leave the scale shirt at home.
+line | | Keep a healing draught in your pack. Keep two, if you're the sort who goes looking for trouble. And you look like the sort.
+line | | Lockpicks snap. Carry more than you think you'll need, and don't let anyone see you using them.
+line | | Bandits only jump people they think they can beat. Look strong and travel together, and most of them will let you pass.
+line | | Doors are locked at night. In the day most folk don't mind you stepping in, so long as your hands stay empty.
+line | | If one of yours goes down, don't leave them lying in the open. Carry them somewhere safe, give them a draught, and let them rest.
+line | | Don't fight with a weapon you can't use. A good club in hands that know it beats a fine sword in hands that don't.
+line | voice=roduro | Be patient. Most trouble grows slowly, like {w:stone}, and you can see it coming if you stand still long enough to look.
+line | voice=roduro | Never sleep in the open if there's a roof to be had. Even a tent is better. The cold gets into the bones and stays there.
+line | voice=qotiro | Know what you're worth, and don't sell yourself for less. Merchants can smell it when you're desperate.
+line | voice=qotiro | Keep your {w:honour}. Coin comes and goes, but people remember what you did with it.
+line | voice=horaro | Watch the {w:tide}, even inland. Everything has a tide: markets, moods, bandits. Learn when it turns.
+line | voice=horaro | Never stand between a Horaro and the last fish of the day. That's not advice, that's just a warning.
+line | voice=tadoro | Write things down. Who owes you, who you owe, which roads are bad. Memory lies; {w:paper} doesn't.
+line | voice=tadoro | Ask the old ones about the roads. They've walked them longer than any map has existed.
+line | job=merchant | Buy where it's plenty and sell where it's scarce. That's the whole trade, and most people still get it backwards.
+line | job=guard | Don't steal in my town. I mean it kindly: somebody always sees, and most of them will tell me.
+line | job=healer | A wound tended early heals in half the time. Don't wait until you're falling down to rest.

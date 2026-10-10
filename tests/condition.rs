@@ -289,7 +289,7 @@ fn healing_comes_out_the_same_however_finely_stepped() {
         run(w, 3.0, step);
         w.order_rest(&all[..2]);
         run(w, 5.0, step);
-        w.order_rest(&all[..1]); // the first gets up again
+        w.order_wake(&all[..1]); // the first gets up again
         w.order_rest(&all[2..]);
         run(w, 40.0, step);
     };
@@ -351,7 +351,7 @@ fn got_up_at_night_they_stay_up_until_morning() {
     let mut w = idle_world();
     run(&mut w, 17.0, 60.0); // 23:00, all asleep
     let all = w.squad.members.clone();
-    w.order_rest(&all); // get up
+    w.order_wake(&all); // get up
     run(&mut w, 1.0, 60.0);
     assert!(all.iter().all(|&m| !w.is_asleep(m)), "kept up");
     run(&mut w, 8.0, 60.0); // past 06:00 again: day, so no bedding down either

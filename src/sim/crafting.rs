@@ -64,6 +64,23 @@ impl Station {
     }
 }
 
+impl Station {
+    /// The piece of furniture that is this station when it stands in
+    /// someone's workshop (`layout::Furn`). A scribe's desk and an alchemy
+    /// table have no furniture of their own yet.
+    pub fn furniture(self) -> Option<super::layout::Furn> {
+        use super::layout::Furn;
+        match self {
+            Station::Forge => Some(Furn::Forge),
+            Station::Bench => Some(Furn::Anvil),
+            Station::Loom => Some(Furn::Loom),
+            Station::Workbench => Some(Furn::Workbench),
+            Station::GrowerBed => Some(Furn::GrowerBed),
+            Station::Desk | Station::AlchemyTable => None,
+        }
+    }
+}
+
 pub const STATIONS: [Station; 7] = [Station::Forge, Station::Bench, Station::Desk, Station::AlchemyTable, Station::Loom, Station::Workbench, Station::GrowerBed];
 
 /// How close to a station you must stand to use it, metres.
@@ -299,6 +316,22 @@ pub enum Cannot {
     Unknown(Craft),
 }
 
+impl Cannot {
+    /// In plain words, for whoever is being told.
+    pub fn say(&self) -> String {
+        let a = |word: &str| if word.starts_with(['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U']) { "an" } else { "a" };
+        match *self {
+            Cannot::Missing(k, n) => format!("needs {n} × {}", item(items::id(k)).name.to_lowercase()),
+            Cannot::NoStation(s) => {
+                let name = s.name().to_lowercase();
+                format!("has to be done at {} {name}", a(&name))
+            }
+            Cannot::Busy => "they're busy with other work".into(),
+            Cannot::Unknown(c) => format!("they haven't taken up {}", c.skill().name().to_lowercase()),
+        }
+    }
+}
+
 impl World {
     // ---- Setting up ---------------------------------------------------------
 
@@ -391,9 +424,22 @@ impl World {
 
     // ---- Crafting -----------------------------------------------------------
 
-    /// The nearest station of a kind, if within reach of `p`.
+    /// The nearest station of a kind, if within reach of `p`: one standing in
+    /// a town's work place or at the squad's outpost, or the same thing as
+    /// furniture in the building `p` is inside (a smith's own forge is a
+    /// forge; both playtests stood in the "Maker's forge" and were told
+    /// there was none).
     pub fn station_near(&self, p: V2, kind: Station) -> Option<V2> {
-        self.stations.iter().filter(|(_, k)| *k == kind).map(|(s, _)| *s).find(|s| s.dist(p) <= AT_STATION)
+        self.stations.iter().filter(|(_, k)| *k == kind).map(|(s, _)| *s).find(|s| s.dist(p) <= AT_STATION).or_else(|| self.station_indoors(p, kind))
+    }
+
+    /// The building `p` is in, if its furniture includes this station. The
+    /// whole floor counts: a workshop is one room or two.
+    fn station_indoors(&self, p: V2, kind: Station) -> Option<V2> {
+        let furniture = kind.furniture()?;
+        let d = self.building_at(p)?;
+        let v = super::layout::variant_in(self.settlements.get(d.id.0 as usize)?, d.id.1)?;
+        v.furniture.iter().any(|pc| pc.what == furniture).then_some(d.centre)
     }
 
     pub fn count_of(&self, who: PersonId, key: &str) -> u16 {
@@ -401,29 +447,42 @@ impl World {
         self.people[who as usize].detail.as_ref().map(|d| d.gear.bag.iter().filter(|e| e.0 == id).map(|e| e.1).sum()).unwrap_or(0)
     }
 
-    /// Can this person make recipe `ri` where they stand?
+    /// Can this person make recipe `ri` where they stand? (The first thing
+    /// in the way, if not; `craft_blockers` has them all.)
     pub fn can_craft(&self, who: PersonId, ri: usize) -> Result<(), Cannot> {
+        match self.craft_blockers(who, ri).first() {
+            Some(&c) => Err(c),
+            None => Ok(()),
+        }
+    }
+
+    /// Everything in the way of this person making recipe `ri` where they
+    /// stand: every material they're short of and the station they're not
+    /// at, not just the first (the tester who was told "rock" and then,
+    /// with rock in hand, "ash").
+    pub fn craft_blockers(&self, who: PersonId, ri: usize) -> Vec<Cannot> {
         let rc = &RECIPES[ri];
+        let mut out = Vec::new();
         // Stone grows on its own while tended, so it doesn't keep its
         // grower from other work; one bed at a time, though.
         let growing = |j: &Job| RECIPES[j.recipe].skill == Skill::Tending;
         if self.crafting.iter().any(|j| j.who == who && growing(j) == (rc.skill == Skill::Tending)) || self.fighting.contains_key(&who) {
-            return Err(Cannot::Busy);
+            out.push(Cannot::Busy);
         }
         if !self.knows_craft(who, rc.craft()) {
-            return Err(Cannot::Unknown(rc.craft()));
+            out.push(Cannot::Unknown(rc.craft()));
         }
         for &(k, n) in rc.inputs {
             if self.count_of(who, k) < n {
-                return Err(Cannot::Missing(k, n));
+                out.push(Cannot::Missing(k, n));
             }
         }
         let at = self.person_pos(who);
         let portable = rc.station == Station::AlchemyTable && self.count_of(who, "mortar_and_pestle") > 0;
         if !portable && self.station_near(at, rc.station).is_none() {
-            return Err(Cannot::NoStation(rc.station));
+            out.push(Cannot::NoStation(rc.station));
         }
-        Ok(())
+        out
     }
 
     /// Start making something: materials go in now.

@@ -813,14 +813,27 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
   centre. Ṭaḍoro build nothing; a resting wanderer pitches a tent.
 - **Buildings are placeholder shapes for now**, in a few variants per people
   (a Roduro cottage, longhouse, stone-tender's workshop, maker's forge,
-  trader's house or great house; Qotiro living quarters, courtyard house,
-  smiths' and potters' yard, market hall, mess hall; four kinds of stilt home).
+  trader's house, loom room, bench house or great house; Qotiro living quarters,
+  courtyard house, smiths' yard, bench yard, weave hall, market hall;
+  four kinds of stilt home).
   Workshops and shops show their trade outside: a forge's glowing chimney, a
   tender's beds, a trader's awning and counter, a kiln, market awnings. When
   one of your squad steps in, the building is drawn cut open: its rooms,
   furniture and containers. Click a chest, crate, cupboard or barrel to open
   it (taking from it is theft if anyone sees) or to pick its lock. The final
   models are switched off; `GAHT_MODELS=1` turns them back on.
+- **Buildings match who lives in them.** A smith's household lives in a forge,
+  weavers by their looms, a tanner or mason over a workbench, a stone-tender
+  among grower's beds, a merchant in a trader's house; most homes are plain,
+  sized to the household (cottage, longhouse, great house). Crowded homes have
+  extra bedrolls on the floor, a Ṭaḍoro lodger has their own corner (draped
+  bed, rug, pinned notes, candles), each household in shared Qotiro quarters
+  owns its own room's chest, and crates hold the keeper's trade goods.
+  Hovering a door names the trade and who keeps it.
+- **Signs show where to go for services.** The inn, market, shops, guard
+  post, hall, healers, exchange, shrine and workshops each have a signpost
+  with a picture of what's there, and the temple and Qotiro hall a lit
+  plaque by the door. Homes, even a smith's, have no sign.
 - **The rings around your squad are the bands.**
   - Inside the inner ring (500 m) is **band 1**: everyone is a person with a
     name, temperament and gear. This is decided **person by person**, by where

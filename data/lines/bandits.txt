@@ -1,0 +1,10 @@
+# Bandits: "Any bandits about?" One piece (line). See FORMAT.md.
+# Tags here: camp_near (a camp within about 6 km), no_camp.
+# Slots: {count} (how many in the band), {km}, {dir}.
+line | camp_near | There's a band of {count} camped about {km} km {dir} of here, by the road. They pick off anyone who looks weak. Go in force, or go at night and go quietly.
+line | camp_near, voice=qotiro | {count} of them, {km} km {dir}, by the road. Cowards. They only fall on people who can't fight back. Show them you can.
+line | camp_near, voice=horaro | A crew of {count}, camped {km} km {dir} of here. The fishers row wide of that stretch of shore now. You'd be wise to walk wide of it too, {w:friend}.
+line | camp_near, voice=tadoro | {count} of them, at my last count, about {km} km {dir} of here. I've written down every traveller they've robbed. It's a long list.
+line | no_camp | None close, thank the gods. Not that I've heard, anyway.
+line | no_camp, voice=roduro | None nearby, thank Dodìṭo. Long may it last.
+line | no_camp, voice=horaro | Not near here. The {w:tide} has been kind to us this season.

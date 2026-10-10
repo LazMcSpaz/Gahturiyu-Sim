@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use gahturiyu_sim::sim::{
     combat::SQUAD_SIDE,
-    containers::ContainerId,
+    containers::{is_stash, ContainerId, WILD},
     dialogue::Topic,
     geo::V2,
     items::{self, item, SLOTS},
@@ -30,7 +30,7 @@ use gahturiyu_sim::sim::{
 
 const HELP: &str = "\
 Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
-  look                      the HUD and everything near the squad
+  look [places|people]      the HUD and everything near the squad (or just places, or just people)
   select NAME [NAME..]      who takes orders (`select all` for everyone)
   go ID | go X,Y | go DIR M move the selected (DIR: n ne e se s sw w nw; M metres)
   attack pID                set the selected on someone (a sneak attack if unseen)
@@ -49,7 +49,8 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   butcher cID               the nearest selected cuts up a carcass
   enter bID                 walk into a building (picks the lock if locked and you have a lockpick)
   carry pID | putdown       pick up a downed person / put them down
-  sneak | rest | torch      toggle for the selected
+  sneak | torch             toggle for the selected
+  rest | wake               the selected lie down where they are, or get up
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
   give NAME N TO_NAME       hand pack entry N to another squad member standing near
@@ -253,6 +254,10 @@ fn pos_of(w: &World, id: &str) -> Option<V2> {
             w.door((a.parse().ok()?, b.parse().ok()?)).map(|d| d.outside)
         }
         'k' => w.container(container_id(&rest)?).map(|c| c.pos),
+        'w' => {
+            let (a, b) = rest.split_once('.')?;
+            w.society.towns.get(a.parse::<usize>().ok()?)?.places.get(b.parse::<usize>().ok()?).map(|p| p.pos)
+        }
         _ => None,
     }
 }
@@ -261,7 +266,7 @@ fn pos_of(w: &World, id: &str) -> Option<V2> {
 
 const TIPS: &[(&str, &str)] = &[
     ("welcome", "Welcome. Left-click the ground to walk. Click a squad member to choose who takes orders. Hover over anything to see what it is."),
-    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked."),
+    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked (`town` lists who, and their price)."),
     ("work", "Short of coin? Every town has a woodlot (and some a mine) nearby, marked by a post. Click it and the selected work until their packs are full."),
     ("fight", "A fight! Click an enemy to set the selected on them. Z sneaks; T lights a torch."),
     ("loot", "A beaten foe: click them and someone goes through their things. Bandits carry coin."),
@@ -269,6 +274,7 @@ const TIPS: &[(&str, &str)] = &[
     ("hungry", "Someone's hungry. They eat from their pack when they need to: buy food from a merchant, or hunt (click a wild animal) and cut up what you kill."),
     ("night", "Night's coming. Press N to rest (a tent in someone's pack makes it a better sleep), or T for torches if you'd rather keep going."),
     ("beaten", "Beaten and robbed. Rest until you can stand (N), get some gear, and go and take it back from their camp."),
+    ("feel", "Felt spells come with use. As someone casts and fights, their feel for that kind of magic grows, and the spells within reach come to them on their own. Their spell book (M) shows what they know."),
 ];
 
 fn tip_due(w: &World, id: &str) -> bool {
@@ -283,6 +289,7 @@ fn tip_due(w: &World, id: &str) -> bool {
         "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| h >= 50.0)),
         "night" => gahturiyu_sim::sim::stealth::daylight(w.time) < 0.35,
         "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),
+        "feel" => w.log.iter().take(12).any(|l| w.time - l.0 < 3600.0 && (l.1.contains(" has a feel for ") || l.1.contains(" the feel of "))),
         _ => false,
     }
 }
@@ -317,6 +324,11 @@ fn status(w: &World, pid: PersonId) -> String {
         return "crafting".into();
     }
     let moving = w.squad.at[k].dist(w.squad.goal[k]) > 0.5;
+    match w.on_shift(pid) {
+        Some(true) => return "at work".into(),
+        Some(false) if moving => return "walking to work".into(),
+        _ => {}
+    }
     let sneak = w.is_sneaking(pid);
     match (moving, sneak) {
         (true, true) => "sneaking along".into(),
@@ -351,9 +363,16 @@ fn hud(w: &World, s: &Session) -> String {
         let sus = w.suspicion_of(m);
         let seen = if sus >= 1.0 { " SPOTTED" } else if sus > 0.3 { " being noticed" } else { "" };
         let lvl = w.fresh_level_up(m).map(|(a, v)| format!(" ({a} {v} ↑)")).unwrap_or_default();
+        // Strayed from the others, or left sneaking (half pace): both are
+        // easy to miss, so both are flagged.
+        let off = match w.strayed(m) {
+            Some(d) if !w.is_down(m) => format!(" [{d:.0} m from the others]"),
+            _ => String::new(),
+        };
+        let slow = if w.is_sneaking(m) && !w.is_down(m) { " [sneaking: half pace]" } else { "" };
         let _ = writeln!(
             o,
-            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}",
+            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}{off}{slow}",
             first_name(w, m),
             p.race.name(),
             status(w, m),
@@ -366,14 +385,20 @@ fn hud(w: &World, s: &Session) -> String {
     if let Some(q) = w.quests.iter().find(|q| q.stage != Stage::Done) {
         let _ = writeln!(o, "Tracked job: {}", w.quest_line(q));
     }
+    for l in w.work_lines() {
+        let _ = writeln!(o, "Town work: {l}");
+    }
     o
 }
 
-fn nearby(w: &World) -> String {
+/// What's near the squad: places and things first (all of them, up to a
+/// point), then people. `only`: "places" or "people" to list just those.
+fn nearby(w: &World, only: &str) -> String {
     let mut o = String::new();
     let here = w.squad.pos;
     let near = |p: V2, r: f32| here.dist(p) <= r;
     let mut lines: Vec<(f32, String)> = Vec::new();
+    let mut folk: Vec<(f32, String)> = Vec::new();
     // People: townsfolk about, travellers and bands close by.
     let mut seen_people: Vec<PersonId> = Vec::new();
     for st in w.settlements.iter().filter(|s| near(s.pos, s.radius() + 400.0)) {
@@ -395,7 +420,11 @@ fn nearby(w: &World) -> String {
                 None => {}
             }
             let tag = if tags.is_empty() { String::new() } else { format!(" [{}]", tags.join("; ")) };
-            lines.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at))));
+            // The willing first, with what they'd bring.
+            match w.join_terms(p) {
+                Some(_) => folk.push((here.dist(at) - 1e6, format!("p{p}  {} — {} {}{tag} — {}\n        {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at), w.recruit_card(p)))),
+                None => folk.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at)))),
+            }
         }
     }
     for g in w.groups.iter().filter(|g| g.band <= 1) {
@@ -415,7 +444,19 @@ fn nearby(w: &World) -> String {
             } else {
                 "traveller"
             };
-            lines.push((here.dist(at), format!("p{m}  {} — {} {what} — {}", name_of(w, m), pp.race.name(), dist_dir(here, at))));
+            // Foes and the beaten among the places: they matter more than chat.
+            let row = (here.dist(at), format!("p{m}  {} — {} {what} — {}", name_of(w, m), pp.race.name(), dist_dir(here, at)));
+            if what == "traveller" {
+                folk.push(row);
+            } else {
+                lines.push(row);
+            }
+        }
+    }
+    // Stilt villages, out over the water.
+    for st in w.settlements.iter() {
+        if let Some(sp) = st.stilts.filter(|&sp| near(sp, 1500.0)) {
+            lines.push((here.dist(sp), format!("    the stilt village of {} — out over the water, {}", st.name, dist_dir(here, sp))));
         }
     }
     // Ruins and camps.
@@ -430,8 +471,29 @@ fn nearby(w: &World) -> String {
     for d in w.deposits.iter().filter(|d| near(d.pos, 600.0)) {
         lines.push((
             here.dist(d.pos),
-            format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg worth ~{} coin — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, item(d.item).value, dist_dir(here, d.pos)),
+            format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg and fetches about {} coin in town (less each for a big lot) — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, w.fetches_in(d.town, d.item), dist_dir(here, d.pos)),
         ));
+    }
+    // Out-of-town workplaces (fields, hunting grounds, docks...); a woodlot or
+    // mine shows as its deposit above.
+    // (A town's many fields as one line: the nearest, and how many.)
+    for (ti, tl) in w.society.towns.iter().enumerate() {
+        let fields = tl.places.iter().filter(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).count();
+        let nearest_field = tl.places.iter().enumerate().filter(|(_, p)| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).min_by(|a, b| a.1.pos.dist(here).total_cmp(&b.1.pos.dist(here))).map(|(i, _)| i);
+        for (i, wp) in tl.places.iter().enumerate() {
+            if !wp.kind.is_away() || !near(wp.pos, 800.0) || w.deposits.iter().any(|d| d.pos.dist(wp.pos) < 15.0) {
+                continue;
+            }
+            let what = if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields {
+                if Some(i) != nearest_field {
+                    continue;
+                }
+                format!("Fields of {} (the nearest of {fields})", w.settlements[ti].name)
+            } else {
+                format!("{} of {}", wp.kind.name(), w.settlements[ti].name)
+            };
+            lines.push((here.dist(wp.pos), format!("w{ti}.{i}  {what} — {}", dist_dir(here, wp.pos))));
+        }
     }
     for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0) {
         let at = w.herd_pos(h.id, w.time);
@@ -460,9 +522,19 @@ fn nearby(w: &World) -> String {
     for d in w.doors_near(here, 45.0).into_iter().take(8) {
         let st = &w.settlements[d.id.0 as usize];
         let b = &st.buildings[d.id.1 as usize];
-        let what = gahturiyu_sim::sim::layout::variant_of(b).map(|v| v.name.to_string()).unwrap_or_else(|| format!("{:?}", b.kind));
+        // The building as it stands (its stored style), not its first roll:
+        // the two differ since buildings were matched to their people, and
+        // the first roll named a great house "Maker's forge".
+        let _ = b;
+        let what = d.variant().name.to_string();
         let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
+    }
+    // Containers out in the wild close by: ruins' caches, camps' stashes.
+    for c in w.containers.range((WILD, 0, 0)..=(WILD, u16::MAX, u8::MAX)).map(|(_, c)| c).filter(|c| near(c.pos, 60.0)) {
+        let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
+        let place = if is_stash(c.id) { "the bandits' stash".to_string() } else { format!("a {} in the {}", c.what.name(), w.ruins.get(c.id.1 as usize).map(|r| r.name(w).to_lowercase()).unwrap_or_else(|| "ruin".into())) };
+        lines.push((here.dist(c.pos), format!("k{}.{}.{}  {place}{lock}, {} things in it, nobody's — {}", c.id.0, c.id.1, c.id.2, c.items.len(), dist_dir(here, c.pos))));
     }
     if let Some(inside) = w.squad.inside.iter().flatten().next() {
         for c in w.containers_in(*inside) {
@@ -471,12 +543,29 @@ fn nearby(w: &World) -> String {
         }
     }
     lines.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let _ = writeln!(o, "Near you ({} things; closest first):", lines.len());
-    for (_, l) in lines.iter().take(40) {
-        let _ = writeln!(o, "  {l}");
+    folk.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let (most_places, most_folk) = match only {
+        "places" => (200, 0),
+        "people" => (0, 200),
+        _ => (30, 20),
+    };
+    if most_places > 0 {
+        let _ = writeln!(o, "Near you ({} places and things; closest first):", lines.len());
+        for (_, l) in lines.iter().take(most_places) {
+            let _ = writeln!(o, "  {l}");
+        }
+        if lines.len() > most_places {
+            let _ = writeln!(o, "  … and {} more further off (`look places` for all)", lines.len() - most_places);
+        }
     }
-    if lines.len() > 40 {
-        let _ = writeln!(o, "  … and {} more further off", lines.len() - 40);
+    if most_folk > 0 {
+        let _ = writeln!(o, "People about ({}; closest first):", folk.len());
+        for (_, l) in folk.iter().take(most_folk) {
+            let _ = writeln!(o, "  {l}");
+        }
+        if folk.len() > most_folk {
+            let _ = writeln!(o, "  … and {} more further off (`look people` for all)", folk.len() - most_folk);
+        }
     }
     o
 }
@@ -506,6 +595,10 @@ fn tips(w: &World, s: &mut Session) -> String {
 }
 
 fn look(w: &mut World, s: &mut Session) -> String {
+    look_only(w, s, "")
+}
+
+fn look_only(w: &mut World, s: &mut Session, only: &str) -> String {
     let mut o = hud(w, s);
     o += &news(w, s);
     o += &tips(w, s);
@@ -515,7 +608,7 @@ fn look(w: &mut World, s: &mut Session) -> String {
     if w.talk.is_some() {
         o += &talk_view(w);
     }
-    o += &nearby(w);
+    o += &nearby(w, only);
     o
 }
 
@@ -548,7 +641,10 @@ fn talk_view(w: &World) -> String {
     let Some(c) = &w.talk else { return o };
     let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.title(w.people[c.npc as usize].seed).to_lowercase());
     for (npc, l) in c.lines.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev() {
-        let _ = writeln!(o, "  {} {l}", if *npc { "»" } else { "  you:" });
+        let _ = writeln!(o, "  {} {}", if *npc { "»" } else { "  you:" }, gahturiyu_sim::sim::speech::plain(l));
+    }
+    if let Some(fee) = w.join_terms(c.npc) {
+        let _ = writeln!(o, "  (Would join{}: {}.)", if fee > 0 { format!(" for {fee} coin") } else { " for nothing".into() }, w.recruit_card(c.npc));
     }
     let _ = writeln!(o, "  Topics (say N):");
     for (i, t) in w.topics().iter().enumerate() {
@@ -563,9 +659,23 @@ fn pack(w: &World, m: PersonId) -> String {
     let Some(d) = p.detail.as_ref() else { return "nothing".into() };
     let _ = writeln!(o, "{} — carrying {:.1} of {:.0} kg", name_of(w, m), w.kit_weight_at(m, w.time), w.capacity_at(m, w.time));
     let _ = writeln!(o, " Worn:");
+    // What a thing does, where it does something (a ring, a potion).
+    let does = |it: items::ItemId| -> String {
+        let fx: Vec<String> = item(it).effects.iter().map(|e| e.describe()).collect();
+        if fx.is_empty() { String::new() } else { format!(" — {}", fx.join("; ")) }
+    };
+    // What it would fetch in the town the squad is standing in: the number
+    // a merchant there gives, not the round "worth".
+    let fetch = |it: items::ItemId, pc: Option<&gahturiyu_sim::sim::materials::Piece>| -> String {
+        match w.sells_for(it, pc) {
+            Some((p, town)) if p > 0 => format!("; sells for {p} in {}", w.settlements[town as usize].name),
+            Some((_, town)) => format!("; nobody in {} pays for it", w.settlements[town as usize].name),
+            None => String::new(),
+        }
+    };
     for s in SLOTS {
         if let Some(it) = d.gear.in_slot(s) {
-            let _ = writeln!(o, "   {:<10} {}", format!("{s:?}"), item(it).name);
+            let _ = writeln!(o, "   {:<10} {}{}  (worth ~{:.0}{})", format!("{s:?}"), item(it).name, does(it), item(it).value, fetch(it, d.gear.piece(s)));
         }
     }
     let _ = writeln!(o, " Pack:");
@@ -575,7 +685,7 @@ fn pack(w: &World, m: PersonId) -> String {
             items::Kind::Coin => "money".into(),
             _ => String::new(),
         };
-        let _ = writeln!(o, "   {k:>2}. {} × {} {}  (worth ~{:.0} each)", e.1, item(e.0).name, if kind.is_empty() { String::new() } else { format!("[{kind}]") }, item(e.0).value);
+        let _ = writeln!(o, "   {k:>2}. {} × {} {}{}  (worth ~{:.0} each{})", e.1, item(e.0).name, if kind.is_empty() { String::new() } else { format!("[{kind}]") }, does(e.0), item(e.0).value, fetch(e.0, e.2.as_ref()));
     }
     o
 }
@@ -611,6 +721,12 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
             why = "A conversation opens.".into();
             break;
         }
+        // (The window shows a band of bandits coming into sight in the news,
+        // in red: the tool stops on it, as a player would look up.)
+        if w.log.iter().take_while(|l| l.0 > start).any(|l| l.1.ends_with(": bandits.")) {
+            why = "Bandits in sight.".into();
+            break;
+        }
         if let Some(who) = until_still {
             let still = who.iter().all(|&m| w.squad.index(m).map(|k| w.squad.at[k].dist(w.squad.goal[k]) < 0.5).unwrap_or(true));
             if still {
@@ -641,7 +757,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         *o += &look(w, s);
     };
     match cmd {
-        "look" => o += &look(w, s),
+        "look" => o += &look_only(w, s, arg(0)),
         "select" => {
             if a.is_empty() || arg(0) == "all" {
                 s.selected.clear();
@@ -688,7 +804,16 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                             let name = first_name(w, m);
                             if w.is_down(m) { Some(format!("{name} is down")) } else if !w.free_to_order(m) { Some(format!("{name} is bound to work off a bond")) } else { None }
                         }).collect();
-                        o += &if why.is_empty() { "Nobody needs to move: they're already there.\n".to_string() } else { format!("Nobody moves: {}.\n", why.join("; ")) };
+                        o += &if !why.is_empty() {
+                            format!("Nobody moves: {}.\n", why.join("; "))
+                        } else if w.terrain.is_sea(t) {
+                            "That's the sea: the squad can't cross it.\n".to_string()
+                        } else {
+                            "Nobody needs to move: they're already there.\n".to_string()
+                        };
+                    }
+                    if moving && w.terrain.is_sea(t) && w.building_at(t).is_none() {
+                        o += "That's the sea: they'll stop at the water's edge.\n";
                     }
                     walk_then_look(w, s, &sel, &mut o);
                 }
@@ -946,7 +1071,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         }
         "rest" => {
             w.order_rest(&sel);
-            o += "Rest order given (again to get them up).\n";
+            o += "Resting.\n";
+        }
+        "wake" => {
+            w.order_wake(&sel);
+            o += "Up.\n";
         }
         "torch" => {
             for &m in &sel {
@@ -1032,8 +1161,19 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let (Some(m), Ok(k), Some(to)) = (member(w, arg(0)), arg(1).parse::<usize>(), member(w, arg(2))) else {
                 return "Usage: give NAME N TO_NAME (N from `pack NAME`)\n".into();
             };
-            match w.give_entry(m, k, to) {
-                Ok(line) => o += &format!("{line}\n"),
+            match w.order_give(m, k, to) {
+                Ok(line) => {
+                    o += &format!("{line}\n");
+                    // If they had to walk over, see it through.
+                    let mut n = 0;
+                    while !w.giving.is_empty() && n < 2400 {
+                        w.step(0.25);
+                        n += 1;
+                    }
+                    if n > 0 {
+                        o += &news(w, s);
+                    }
+                }
                 Err(why) => o += &format!("Can't: {why}\n"),
             }
             o += &pack(w, m);
@@ -1048,20 +1188,63 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         "craft" | "make" => {
             use gahturiyu_sim::sim::crafting::RECIPES;
             let Some(m) = member(w, arg(0)) else { return "Who?\n".into() };
+            let grade = gahturiyu_sim::sim::materials::Grade::Common;
+            let made = |i: usize| item(RECIPES[i].item(grade)).name.to_string();
             if cmd == "make" {
-                let n: usize = arg(1).parse().unwrap_or(0);
+                let n: usize = arg(1).parse().unwrap_or(usize::MAX);
+                if n >= RECIPES.len() {
+                    return "Usage: make NAME N (N from `craft NAME`)\n".into();
+                }
+                // Everything in the way at once, in plain words.
+                let stops = w.craft_blockers(m, n);
                 match w.start_craft(m, n) {
-                    Ok(()) => o += "Started.\n",
-                    Err(e) => o += &format!("Can't: {e:?}\n"),
+                    Ok(()) => {
+                        let r = &RECIPES[n];
+                        let used: Vec<String> = r.inputs.iter().map(|(k, c)| format!("{c} × {}", item(items::id(k)).name.to_lowercase())).collect();
+                        let hours = r.time / HOUR;
+                        let long = if hours >= 24.0 { format!("{:.0} days", hours / 24.0) } else if hours >= 1.0 { format!("{hours:.1} hours") } else { format!("{:.0} minutes", hours * 60.0) };
+                        o += &format!("{} starts on {}: {long}. Used {}.\n", first_name(w, m), made(n).to_lowercase(), if used.is_empty() { "nothing".to_string() } else { used.join(", ") });
+                    }
+                    Err(_) => o += &format!("Can't make {}: {}.\n", made(n).to_lowercase(), stops.iter().map(|c| c.say()).collect::<Vec<_>>().join("; ")),
                 }
             } else {
-                let _ = writeln!(o, "What {} could make (recipe number: result — what stops it):", first_name(w, m));
+                // As the window's craft panel has it: the crafts they've
+                // taken up, each thing with all it takes and what's in the
+                // way; the crafts they haven't, in one line. `craft NAME all`
+                // lists every recipe.
+                use gahturiyu_sim::sim::materials::CRAFTS;
+                let all = arg(1) == "all";
+                let st = w.people[m as usize].effective_stats();
+                let (known, unknown): (Vec<_>, Vec<_>) = CRAFTS.iter().copied().partition(|&k| w.knows_craft(m, k));
+                let _ = writeln!(o, "What {} can make (`make {} N`):", first_name(w, m), first_name(w, m));
+                let mut last = None;
                 for (i, r) in RECIPES.iter().enumerate() {
-                    let why = match w.can_craft(m, i) {
-                        Ok(()) => "ready".to_string(),
-                        Err(e) => format!("{e:?}"),
+                    if !all && !w.knows_craft(m, r.craft()) {
+                        continue;
+                    }
+                    if last != Some(r.skill) {
+                        let _ = writeln!(o, " {} ({:.0}):", r.skill.name(), st.skill(r.skill));
+                        last = Some(r.skill);
+                    }
+                    let takes: Vec<String> = r.inputs.iter().map(|(k, n)| format!("{}/{} {}", w.count_of(m, k).min(*n), n, item(items::id(k)).name.to_lowercase())).collect();
+                    let stops = w.craft_blockers(m, i);
+                    // The counts already say what's short; the rest is where
+                    // it's made and anything else in the way.
+                    let other: Vec<String> = stops.iter().filter(|c| !matches!(c, gahturiyu_sim::sim::crafting::Cannot::Missing(..))).map(|c| c.say()).collect();
+                    let state = if stops.is_empty() {
+                        format!("ready ({:.0}% to come out right)", gahturiyu_sim::sim::crafting::success_chance(st.skill(r.skill), r.difficulty) * 100.0)
+                    } else if other.is_empty() {
+                        "short of materials".to_string()
+                    } else {
+                        other.join("; ")
                     };
-                    let _ = writeln!(o, "  {i}. {} — {why}", item(r.item(gahturiyu_sim::sim::materials::Grade::Common)).name);
+                    let _ = writeln!(o, "  {i:>2}. {}{} — takes {} — {state}", made(i), if r.makes > 1 { format!(" ×{}", r.makes) } else { String::new() }, if takes.is_empty() { "nothing".to_string() } else { takes.join(", ") });
+                }
+                if !all && !unknown.is_empty() {
+                    let _ = writeln!(o, " Not taken up yet (a crafter at work or a manual teaches): {}. (`craft {} all` lists everything.)", unknown.iter().map(|k| k.skill().name()).collect::<Vec<_>>().join(", "), first_name(w, m));
+                }
+                if known.is_empty() && !all {
+                    o += " No crafts taken up yet.\n";
                 }
             }
         }
@@ -1070,7 +1253,10 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             for q in &w.quests {
                 let _ = writeln!(o, "  [{:?}] {}", q.stage, w.quest_line(q));
             }
-            if w.quests.is_empty() {
+            for l in w.work_lines() {
+                let _ = writeln!(o, "  [Town work] {l}");
+            }
+            if w.quests.is_empty() && w.society.contracts.is_empty() {
                 o += "  No jobs taken.\n";
             }
         }
@@ -1078,13 +1264,32 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let here = w.squad.pos;
             let mut towns: Vec<_> = w.settlements.iter().collect();
             towns.sort_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
-            let _ = writeln!(o, "Towns, nearest first:");
+            // `map NAME` finds a town by name, however far (a town heard of
+            // in talk can be looked up); plain `map` lists the nearest.
+            let want = gahturiyu_sim::names::plain(&arg(0).to_lowercase());
+            if !want.is_empty() {
+                let found: Vec<_> = towns.iter().filter(|t| gahturiyu_sim::names::plain(&t.name.to_lowercase()).contains(&want)).collect();
+                if found.is_empty() {
+                    let _ = writeln!(o, "No town called that.");
+                }
+                for t in found {
+                    let _ = writeln!(o, "  t{}  {} ({} people) — {}", t.id, t.name, t.residents.len(), dist_dir(here, t.pos));
+                }
+                return o;
+            }
+            let _ = writeln!(o, "Towns, nearest first (`map NAME` finds one by name):");
             for t in towns.iter().take(12) {
                 let _ = writeln!(o, "  t{}  {} ({} people) — {}", t.id, t.name, t.residents.len(), dist_dir(here, t.pos));
             }
             let _ = writeln!(o, "Ruins and lairs (diamonds on the map):");
             for r in &w.ruins {
                 let _ = writeln!(o, "  r{}  {}{} — {}", r.id, r.name(w), if w.ruin_held(r.id) { "" } else { " (unguarded)" }, dist_dir(here, r.pos));
+            }
+            let _ = writeln!(o, "Woodlots and mines, nearest first:");
+            let mut faces: Vec<_> = w.deposits.iter().collect();
+            faces.sort_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
+            for d in faces.iter().take(8) {
+                let _ = writeln!(o, "  d{}  {} of {} — {:.0} {} left — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), dist_dir(here, d.pos));
             }
             let _ = writeln!(o, "Bandit camps known (red triangles):");
             let mut camps: Vec<V2> = w.camps.iter().map(|c| c.pos).collect();
@@ -1103,6 +1308,37 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 }
                 let list: Vec<String> = jobs.iter().map(|(j, n)| format!("{j} {n}")).collect();
                 let _ = writeln!(o, "  Trades: {}", list.join(", "));
+                let tl = &w.society.towns[t.id as usize];
+                let _ = writeln!(o, "  Out of town:");
+                let fields = tl.places.iter().filter(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).count();
+                let mut field_shown = false;
+                for (i, wp) in tl.places.iter().enumerate().filter(|(_, p)| p.kind.is_away()) {
+                    if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields {
+                        if !field_shown {
+                            field_shown = true;
+                            let _ = writeln!(o, "    w{}.{i} Fields ({fields} plots round the town) — {}", t.id, dist_dir(here, wp.pos));
+                        }
+                        continue;
+                    }
+                    let face: Vec<String> = w.deposits.iter().filter(|d| d.pos.dist(wp.pos) < 15.0).map(|d| format!("d{} {} {:.0} {} left", d.id, d.face().name.to_lowercase(), d.left_at(w.time).floor(), item(d.item).name.to_lowercase())).collect();
+                    let face = if face.is_empty() { String::new() } else { format!(" ({})", face.join("; ")) };
+                    let _ = writeln!(o, "    w{}.{i} {}{face} — {}", t.id, wp.kind.name(), dist_dir(here, wp.pos));
+                }
+                let posts = w.vacant_posts(t.id);
+                if !posts.is_empty() {
+                    let _ = writeln!(o, "  Work going (ask an official or the hall):");
+                    for (job, pl) in posts {
+                        let at = tl.places.get(pl as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_default();
+                        let _ = writeln!(o, "    {} at the {at} — {} coin a day, 8 till 5", job.name(), w.post_wage(job));
+                    }
+                }
+                let willing = w.willing_in(t.id);
+                let _ = writeln!(o, "  Willing to join ({}):", willing.len());
+                for (p, fee) in willing {
+                    let price = if fee > 0 { format!("{fee} coin") } else { "for nothing".into() };
+                    let at = if w.is_indoors_asleep(p) { "asleep indoors".to_string() } else { dist_dir(here, w.person_pos(p)) };
+                    let _ = writeln!(o, "    p{p} {} ({}), {price} — {at}\n        {}", name_of(w, p), w.life(p).job.name().to_lowercase(), w.recruit_card(p));
+                }
                 let _ = writeln!(o, "  Merchants:");
                 for &p in &t.residents {
                     match w.trades_next(p) {

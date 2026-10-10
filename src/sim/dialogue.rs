@@ -19,7 +19,6 @@ use super::person::PersonId;
 use super::quests::{compass, QuestKind, Stage};
 use super::race::Race;
 use super::rng::Rng;
-use super::stats::Calling;
 
 use super::world::{World, DAY};
 
@@ -89,7 +88,20 @@ pub enum Topic {
     Join(u16),
     /// Sell every one of these the merchant will take.
     SellAll(items::ItemId),
+    /// Something a squad member has on that the merchant would buy: who's
+    /// wearing it and about what it would fetch. Asking only gets told to
+    /// take it off first.
+    SellWorn(items::ItemId, PersonId, u16),
+    /// Show everything the merchant would take, not just the dearest few.
+    SellRest,
     Goodbye,
+    /// Ask someone who won't come to join anyway: they say why not.
+    /// (Last, so saves made before it still read.)
+    AskJoin,
+    /// Have the healer see to the hurt, for this many coin.
+    Treat(u16),
+    /// Take beds at the inn for the night, for this many coin in all.
+    RentBeds(u16),
 }
 
 impl Topic {
@@ -127,8 +139,12 @@ impl Topic {
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
-            Topic::Join(_) => "Come with us",
+            Topic::Join(_) | Topic::AskJoin => "Come with us",
+            Topic::Treat(_) => "See to my people's wounds",
+            Topic::RentBeds(_) => "Beds for the night",
             Topic::SellAll(..) => "Sell all",
+            Topic::SellWorn(..) => "Sell what's being worn",
+            Topic::SellRest => "What else would you take?",
             Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
         }
@@ -178,7 +194,21 @@ pub struct Conversation {
     /// What's been tried in this talk already: (option, which concern).
     #[serde(default)]
     pub tried: Vec<(super::talk::Opt, usize)>,
+    /// Which page of what they'd buy is showing: 0 is their wares and the
+    /// few things that fetch most; later pages are the rest of the sell list.
+    #[serde(default)]
+    pub sell_page: u8,
 }
+
+/// How many kinds of thing the sell list shows before "What else would you
+/// take?" (what fetches most first, so the best of the loot is never the
+/// part cut off).
+pub const SELL_SHOWN: usize = 10;
+/// How many kinds a later page of the sell list holds (what fits the talk
+/// panel with nothing else on it).
+pub const SELL_PAGE: usize = 18;
+/// How many worn things are pointed out as sellable.
+pub const WORN_SHOWN: usize = 3;
 
 impl World {
     /// What a topic's button says, naming what it's about.
@@ -199,14 +229,35 @@ impl World {
                 Some(o) => format!("I'll take it: {}", self.opp_line(o)),
                 None => t.text(),
             },
-            Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
+            Topic::PostWork(job, place) => {
+                let at = self.talk.as_ref().and_then(|c| self.people[c.npc as usize].home).and_then(|h| self.society.towns[h as usize].places.get(place as usize)).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
+                format!("I'll work as {}{at} ({} coin a day, 8 till 5)", job.name().to_lowercase(), self.post_wage(job))
+            }
             Topic::Hire(wage) => format!("Come and work at my outpost ({wage} coin a day)"),
             Topic::SellAll(it) => {
-                let p = self.talk.as_ref().and_then(|c| self.sellable(c.npc).into_iter().find(|x| x.0 == it)).map(|x| x.1).unwrap_or(0);
-                format!("Sell all {} × {} ({p} coin each)", self.squad_count(it), items::item(it).name.to_lowercase())
+                // The coin on the button is the coin received: worked out
+                // sale by sale, since the price of a good drops as they buy.
+                let (n, total) = self.talk.as_ref().map(|c| self.sell_all_quote(c.npc, it)).unwrap_or((0, 0));
+                let (have, name) = (self.squad_count(it), items::item(it).name.to_lowercase());
+                // (Kept short: the window's topic column is narrow.)
+                if n >= have {
+                    format!("Sell all {have} × {name} — {total} coin")
+                } else {
+                    format!("Sell {n} of {have} × {name} — {total} coin")
+                }
+            }
+            Topic::SellWorn(it, _, p) => {
+                let name = items::item(it).name;
+                format!("{name} (worn: take it off to sell, ~{p} coin)")
+            }
+            Topic::SellRest => {
+                let left = self.talk.as_ref().map(|c| self.sell_kinds(c.npc).len().saturating_sub(sell_seen(c.sell_page))).unwrap_or(0);
+                format!("What else would you take? ({left} more)")
             }
             Topic::Join(0) => "Come with us — join the squad".into(),
             Topic::Join(fee) => format!("Come with us — join the squad ({fee} coin to sign on)"),
+            Topic::Treat(p) => format!("See to my people's wounds ({p} coin)"),
+            Topic::RentBeds(p) => format!("Beds for the night ({p} coin)"),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
             Topic::Collect(k) => match self.orders.get(k as usize) {
                 Some(o) if self.order_ready(k as usize) => format!("Collect my {} ({} coin owed)", items::item(RECIPES[o.recipe as usize].item(o.grade)).name.to_lowercase(), o.rest),
@@ -273,7 +324,7 @@ impl World {
         let concerns = self.on_mind(npc);
         let said = self.assemble_talk(npc, who, concerns.first(), true);
         self.note_said(npc, who, &said.pieces);
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new() });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_page: 0 });
     }
 
     pub fn end_talk(&mut self) {
@@ -319,15 +370,38 @@ impl World {
         // Merchants at their stalls trade; exchangers at work change money.
         if self.is_trading(c.npc) {
             if c.trading {
-                t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
-                // One line per kind of thing: several of it sell together.
-                let mut seen: Vec<items::ItemId> = Vec::new();
-                for (it, p) in self.sellable(c.npc) {
-                    if seen.contains(&it) || seen.len() >= 8 {
-                        continue;
+                // One line per kind of thing (several of it sell together),
+                // what fetches most first. The first page is their wares,
+                // the best of what you carry and what's being worn; the rest
+                // of the sell list comes a page at a time on asking.
+                let kinds = self.sell_kinds(c.npc);
+                let page = if sell_seen(c.sell_page.saturating_sub(1)) < kinds.len() { c.sell_page } else { 0 };
+                let line = |&(it, p, _): &(items::ItemId, u16, u16)| if self.squad_count(it) > 1 { Topic::SellAll(it) } else { Topic::Sell(it, p) };
+                if page == 0 {
+                    t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
+                    t.extend(kinds.iter().take(SELL_SHOWN).map(line));
+                    if kinds.len() > SELL_SHOWN {
+                        t.push(Topic::SellRest);
                     }
-                    seen.push(it);
-                    t.push(if self.squad_count(it) > 1 { Topic::SellAll(it) } else { Topic::Sell(it, p) });
+                    // And what they'd buy off someone's back, so nobody
+                    // wonders why the helm isn't on the list. (One line per
+                    // kind of thing: three hide coats are one hint.)
+                    let mut kinds_worn: Vec<items::ItemId> = Vec::new();
+                    for (it, m, p) in self.worn_sellable(c.npc) {
+                        if kinds_worn.len() < WORN_SHOWN && !kinds_worn.contains(&it) {
+                            kinds_worn.push(it);
+                            t.push(Topic::SellWorn(it, m, p));
+                        }
+                    }
+                } else {
+                    // A later page: nothing but the next of the sell list,
+                    // and the way back to their wares.
+                    t.clear();
+                    t.extend(kinds.iter().skip(sell_seen(page - 1)).take(SELL_PAGE).map(line));
+                    if kinds.len() > sell_seen(page) {
+                        t.push(Topic::SellRest);
+                    }
+                    t.push(Topic::Trade);
                 }
             } else {
                 t.push(Topic::Trade);
@@ -400,8 +474,18 @@ impl World {
             t.push(Topic::Hire(wage));
         }
         // The restless may take to the road with the squad.
-        if let Some(fee) = self.join_terms(c.npc) {
-            t.push(Topic::Join(fee));
+        // (Anyone else, asked, says why not in a line.)
+        match self.join_terms(c.npc) {
+            Some(fee) => t.push(Topic::Join(fee)),
+            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad => t.push(Topic::AskJoin),
+            None => {}
+        }
+        // A healer at work sees to the hurt; an innkeeper lets beds.
+        if let Some((_, price)) = self.treat_terms(c.npc) {
+            t.push(Topic::Treat(price));
+        }
+        if let Some((_, price)) = self.bed_terms(c.npc) {
+            t.push(Topic::RentBeds(price));
         }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
@@ -450,6 +534,12 @@ impl World {
         if topic == Topic::Trade {
             if let Some(c) = self.talk.as_mut() {
                 c.trading = true;
+                c.sell_page = 0;
+            }
+        }
+        if topic == Topic::SellRest {
+            if let Some(c) = self.talk.as_mut() {
+                c.sell_page = c.sell_page.saturating_add(1);
             }
         }
         if topic == Topic::Orders {
@@ -459,6 +549,18 @@ impl World {
         }
         let answer = self.answer(&c, topic);
         self.push_talk(true, answer);
+    }
+
+    /// A reply from one of the asked-about line files. Steady: the same
+    /// person gives the same answer to the same question (the pick is keyed
+    /// to them), and different people answer differently.
+    fn spoken(&mut self, c: &Conversation, topic: &str, slots: &[&str], tags: &[String], values: &[(&'static str, String)]) -> String {
+        let said = self.say_from(c.npc, c.with, topic, slots, tags, values);
+        if said.text.is_empty() {
+            "Hm. I've nothing to tell you about that.".into()
+        } else {
+            said.text
+        }
     }
 
     fn push_talk(&mut self, npc: bool, line: String) {
@@ -476,57 +578,65 @@ impl World {
         let town = p.home.map(|h| self.settlements[h as usize].clone());
         match topic {
             Topic::Background => {
-                let race = match p.race {
-                    Race::Roduro => "A Stone Tender began growing my house when I was small. It's grown up alongside me — see the bands? Same as mine.",
-                    Race::Horaro => "Born on the stilts, swimming before walking. The land-folk think we're strange for sleeping over the water. We think they're strange for not.",
-                    Race::Qotiro => "My people quarry their homes and forge their lives. Nothing is given; everything is made.",
-                    Race::Tadoro => "I lodge here, for now. I keep notes on everything — the tides, the arguments, how long the bread lasts. Someone should.",
-                };
                 let job = self.life(c.npc).job;
-                if job != super::jobs::Job::None {
-                    let place = self.workplace_of(c.npc).map(|w| format!(", at the {}", w.kind.name().to_lowercase())).unwrap_or_default();
-                    return format!("{race} These days I'm a {}{place}.", job.title(p.seed).to_lowercase());
+                let mut tags = vec![format!("calling={}", p.stats.calling.name().to_lowercase())];
+                let mut values: Vec<(&'static str, String)> = Vec::new();
+                if !matches!(job, super::jobs::Job::None | super::jobs::Job::Drifter) {
+                    tags.push("has_job".into());
+                    if let Some(w) = self.workplace_of(c.npc) {
+                        // Where it is from here, so it can be found.
+                        let v = w.pos.sub(self.person_pos(c.npc));
+                        let d = v.len();
+                        let way = if d < 40.0 { String::new() } else { format!(", {} m {} of here", ((d / 10.0).round() * 10.0) as u32, super::quests::compass(v)) };
+                        values.push(("place", format!(" at the {}{way}", w.kind.name().to_lowercase())));
+                    }
+                } else {
+                    tags.push("no_job".into());
                 }
-                let work = match p.stats.calling {
-                    Calling::Warrior => " I've fought for coin, when there was coin to fight for.",
-                    Calling::Hunter => " I hunt, mostly. The land feeds those who watch it.",
-                    Calling::Mage => " And I study the old arts, when no one's watching too closely.",
-                    Calling::Common => ["  I mend nets.", " I keep goats, and the goats keep me.", " I carry stone for the Tenders.", " I trade what I can."][r.below(4)],
-                };
-                format!("{race}{work}")
+                self.spoken(c, "background", &["origin", "work"], &tags, &values)
             }
             Topic::ThisTown => {
-                let Some(t) = town else { return "I don't belong anywhere in particular.".into() };
+                let Some(t) = town else { return self.spoken(c, "town", &["about"], &["no_town".into()], &[]) };
                 let mut counts = [0usize; 4];
                 for &m in &t.residents {
                     counts[self.people[m as usize].race.index()] += 1;
                 }
                 let most = super::race::ALL_RACES.iter().zip(counts).max_by_key(|(_, n)| *n).map(|(r, _)| r.name()).unwrap_or("?");
-                let shore = if t.coastal {
-                    " The Horaro live on their stilts just off the shore; without them, there'd be no fish and no trade by water."
-                } else {
-                    ""
-                };
-                let ways = match self.community_of(c.npc) {
-                    Some(cm) => format!(
-                        " Here it's {}, and we keep {}.",
-                        cm.customs.cooking.name().to_lowercase(),
-                        cm.customs.rhythm.name().to_lowercase()
-                    ),
-                    None => String::new(),
-                };
-                format!("{} — the {} founded it. {} of us live here, {} most of all.{shore}{ways}", t.name, t.founders.name(), t.residents.len(), most)
+                let mut tags = vec![if t.coastal { "coastal".to_string() } else { "inland".to_string() }];
+                // The town as the speaker's people say it (its English name on hover).
+                let said = super::names::town(self, t.id).map(|n| format!("\u{27e6}{}|{}\u{27e7}", n.in_tongue(p.race.into()), t.name)).unwrap_or_else(|| t.name.clone());
+                let mut values: Vec<(&'static str, String)> = vec![
+                    ("town", said),
+                    ("founders", t.founders.name().to_string()),
+                    ("count", t.residents.len().to_string()),
+                    ("most", most.to_string()),
+                ];
+                if let Some(cm) = self.community_of(c.npc) {
+                    tags.push("customs".into());
+                    use super::culture::{Cooking, Rhythm};
+                    values.push((
+                        "cooking",
+                        match cm.customs.cooking {
+                            Cooking::Household => "each household cooks for itself",
+                            Cooking::Hearth => "the hearth kitchen feeds everyone at work, and runners carry the pots out at midday",
+                            Cooking::Deck => "we all eat together on the deck",
+                        }
+                        .to_string(),
+                    ));
+                    values.push((
+                        "rhythm",
+                        match cm.customs.rhythm {
+                            Rhythm::Seasonal => "we work longer days in summer and shorter in winter",
+                            Rhythm::Bells => "the bells call the shifts",
+                            Rhythm::Tides => "our days follow the tides",
+                            Rhythm::Irregular => "everyone keeps their own hours",
+                        }
+                        .to_string(),
+                    ));
+                }
+                self.spoken(c, "town", &["about", "folk", "ways"], &tags, &values)
             }
-            Topic::Advice => [
-                "Travel by day if you can. Bandits by the road see you a long way off in the sun, but at night they mostly have to hear you.",
-                "Heavy armour clanks. If you mean to sneak, leave the scale shirt at home.",
-                "Keep a healing draught in your pack. Two, if you're the sort who goes looking for trouble.",
-                "Lockpicks snap. Carry more than you think you need — and don't let anyone see you use them.",
-                "A mortar and pestle weighs less than a dead friend. Learn to brew.",
-                "Bandits only jump people they think they can beat. Look strong, travel together.",
-                "Doors lock at night. By day, most folk don't mind you stepping in, so long as your hands stay empty.",
-            ][r.below(7)]
-            .to_string(),
+            Topic::Advice => self.spoken(c, "advice", &["line"], &[], &[]),
             Topic::Rumours => {
                 // Something they've heard, if they've heard anything.
                 if let Some(news) = c.concerns.iter().find(|k| matches!(k.subject, super::talk::Subject::News | super::talk::Subject::Theft) && k.event.is_some()).copied() {
@@ -536,32 +646,34 @@ impl World {
                         return said.text;
                     }
                 }
-                let near = self.nearest_camp(p.home);
-                let mut lines = vec![];
+                let mut tags = Vec::new();
+                let mut values: Vec<(&'static str, String)> = Vec::new();
                 if self.stats.ambushes > 0 {
-                    lines.push(format!("Bandits have fallen on travellers {} times since the season turned. People say the roads aren't what they were.", self.stats.ambushes));
+                    tags.push("ambushes".to_string());
+                    values.push(("count", self.stats.ambushes.to_string()));
                 }
-                if let Some((d, dir, _)) = near {
-                    lines.push(format!("Folk coming in say there's a camp by the road {:.1} km {dir} of here.", d / 1000.0));
+                if let Some((d, dir, _)) = self.nearest_camp(p.home) {
+                    tags.push("camp_near".into());
+                    values.push(("km", format!("{:.1}", d / 1000.0)));
+                    values.push(("dir", dir.to_string()));
                 }
                 if let Some(h) = p.home {
                     for (origin, _) in self.bounties_known_in(h) {
                         if origin == h {
-                            lines.push("Someone's been at the locks round here. If I find out who...".into());
+                            tags.push("bounty_here".into());
                         } else {
-                            lines.push(format!("Word from {} is there's thieves on the road. Keep your door shut.", self.settlements[origin as usize].name));
+                            tags.push("bounty_road".into());
+                            values.push(("place", self.settlements[origin as usize].name.clone()));
                         }
                     }
                 }
-                lines.push("They say the Ṭaḍoro write down everything you tell them. Mind what you say.".into());
-                lines.swap_remove(r.below(lines.len()))
+                // One of the things they could say, picked like any other piece.
+                let pick = if tags.is_empty() { None } else { Some(tags[r.below(tags.len())].clone()) };
+                self.spoken(c, "rumours", &["line"], &pick.into_iter().collect::<Vec<_>>(), &values)
             }
             Topic::Bandits => match self.nearest_camp(p.home) {
-                Some((d, dir, n)) if d < 6000.0 => format!(
-                    "There's a band of {n} camped about {:.1} km {dir} of here, by the road. They pick off anyone who looks weak. Go in force, or go at night and go quiet.",
-                    d / 1000.0
-                ),
-                _ => "None close, thank the gods. Not that I've heard.".into(),
+                Some((d, dir, n)) if d < 6000.0 => self.spoken(c, "bandits", &["line"], &["camp_near".into()], &[("count", n.to_string()), ("km", format!("{:.1}", d / 1000.0)), ("dir", dir.to_string())]),
+                _ => self.spoken(c, "bandits", &["line"], &["no_camp".into()], &[]),
             },
             Topic::Work => match self.quest_offer(c.npc) {
                 Some((kind, coin, bonus)) => {
@@ -633,7 +745,9 @@ impl World {
             Topic::PostWork(job, place) => {
                 let town = p.home.unwrap_or(0);
                 if self.take_post_work(c.with, town, job, place) {
-                    format!("Good. You'll work as {} from tomorrow's first light, 8 till 5. Paid each dawn.", job.name().to_lowercase())
+                    let name = self.people[c.with as usize].name().unwrap_or("you").to_string();
+                    let at = self.society.towns[town as usize].places.get(place as usize).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
+                    format!("Good, {name}. You'll work as {}{at} from tomorrow, 8 till 5, for {} coin a day, paid each dawn.", job.name().to_lowercase(), self.post_wage(job))
                 } else {
                     "You've work already.".into()
                 }
@@ -647,6 +761,17 @@ impl World {
                     let place = self.base(bid).map(|b| b.name.clone()).unwrap_or_default();
                     format!("{wage} a day, a bed and my meals? Then I'll set out for {place} today. Pay me each dawn.")
                 }
+                Err(e) => format!("No — {e}."),
+            },
+            Topic::AskJoin => self.why_not_join(c.npc).unwrap_or("Ask me properly.").to_string(),
+            Topic::Treat(price) => match self.treat(c.npc) {
+                Ok(who) if who.len() == 1 => format!("Hold still. ... There: cleaned and bound. {price} coin. Go easy on it for a day."),
+                Ok(_) => format!("One at a time, then. ... There: all of them cleaned and bound. {price} coin."),
+                Err(e) => format!("No — {e}."),
+            },
+            Topic::RentBeds(price) => match self.rent_beds(c.npc) {
+                Ok(who) if who.len() == 1 => format!("A bed till morning, {price} coin. Go on up."),
+                Ok(who) => format!("{} beds till morning, {price} coin. Go on up.", who.len()),
                 Err(e) => format!("No — {e}."),
             },
             Topic::Join(fee) => match self.recruit(c.npc, c.with) {
@@ -720,6 +845,8 @@ impl World {
                     _ => format!("{n} of them — {got} coin. Pleasure."),
                 }
             }
+            Topic::SellWorn(it, m, p) => format!("{} would have to take the {} off first. I'd give about {p} coin for it.", self.people[m as usize].name().unwrap_or("Your friend"), items::item(it).name.to_lowercase()),
+            Topic::SellRest => "Anything here, if the price suits you.".into(),
             Topic::Buy(it, price) => {
                 if self.buy_at(c.npc, it, price) {
                     format!("{price} coin. There you are.")
@@ -850,8 +977,35 @@ fn topic_key(t: Topic) -> u64 {
         Topic::QuitWork => 70,
         Topic::Hire(_) => 71,
         Topic::Join(_) => 72,
+        Topic::AskJoin => 73,
+        Topic::Treat(_) => 74,
+        Topic::RentBeds(_) => 75,
         Topic::SellAll(it) => 2_000_000 + it as u64,
+        Topic::SellWorn(it, m, _) => 3_000_000 + ((it as u64) << 32) + m as u64,
+        Topic::SellRest => 73,
         Topic::Say(o) => 80 + o as u64,
     }
 }
 
+
+impl World {
+    /// The kinds of thing the squad carries that this merchant would buy:
+    /// (item, the price of the first of it, what the lot would fetch), with
+    /// what fetches most first. By the lot, not the piece, so sixty timber
+    /// (the woodcutter's whole morning) doesn't sink under one torch.
+    pub fn sell_kinds(&self, npc: PersonId) -> Vec<(items::ItemId, u16, u16)> {
+        let mut kinds: Vec<(items::ItemId, u16, u16)> = Vec::new();
+        for (it, p) in self.sellable(npc) {
+            if !kinds.iter().any(|k| k.0 == it) {
+                kinds.push((it, p, self.sell_all_quote(npc, it).1));
+            }
+        }
+        kinds.sort_by(|a, b| b.2.cmp(&a.2).then(b.1.cmp(&a.1)).then(a.0.cmp(&b.0)));
+        kinds
+    }
+}
+
+/// How many kinds of the sell list have been shown by the end of this page.
+fn sell_seen(page: u8) -> usize {
+    SELL_SHOWN + page as usize * SELL_PAGE
+}

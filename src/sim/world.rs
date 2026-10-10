@@ -130,6 +130,9 @@ pub struct World {
     pub picked: HashMap<super::buildings::DoorId, i64>,
     /// Squad members working on locks.
     pub picking: Vec<super::buildings::Picking>,
+    /// Beds paid for at inns (`care.rs`).
+    #[serde(default)]
+    pub rooms: Vec<super::care::Room>,
     /// Buildings whose belongings have been laid out.
     pub furnished: HashSet<super::buildings::DoorId>,
     /// Chests, crates, cupboards and barrels laid out so far (`containers.rs`).
@@ -203,6 +206,8 @@ pub struct World {
     /// A squad member on their way to give another a healing draught: (giver, patient).
     #[serde(default)]
     pub dosing: Vec<(PersonId, PersonId)>,
+    /// A squad member on their way to hand another something from their pack.
+    pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
     pub set_down: HashMap<PersonId, V2>,
 
@@ -278,6 +283,7 @@ impl World {
             alerts: Vec::new(),
             pickups: Vec::new(),
             dosing: Vec::new(),
+            giving: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,
             camps: Vec::new(),
@@ -288,6 +294,7 @@ impl World {
             watch_done: start_time,
             picked: HashMap::new(),
             picking: Vec::new(),
+            rooms: Vec::new(),
             furnished: HashSet::new(),
             containers: Default::default(),
             bounty: HashMap::new(),
@@ -552,6 +559,11 @@ impl World {
             Some(n) => format!("{} and {} other{}", n, g.members.len() - 1, if g.members.len() == 2 { "" } else { "s" }),
             None => format!("{} travellers", g.members.len()),
         };
+        // A band that would fall on you is called what it is (how a fight
+        // would go is for the player to find out: hover, or `look`).
+        if g.hostile {
+            return format!("{who}: bandits.");
+        }
         match g.kind {
             Kind::Wanderer { .. } => format!("{who}, wandering, crosses your path."),
             Kind::Journey { home } => {

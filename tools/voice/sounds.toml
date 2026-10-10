@@ -92,6 +92,7 @@ help = "The k of keep and the g of go."
 [knob.k_g.variants]
 throaty = { label = "k from far back in the throat", map = { "k" = "q" } }
 breath = { label = "Melted to h and w", map = { "k" = "h", "ɡ" = "w" } }
+soft_g = { label = "Only g melted to w", map = { "ɡ" = "w" } }
 rasp = { label = "Rasped (loch)", map = { "k" = "x", "ɡ" = "ɣ" } }
 
 [knob.p_b]

@@ -1,23 +1,28 @@
 # Theft: something stolen from them, or a theft they've heard of. See FORMAT.md.
-topic | victim | Someone lifted {item} from my {workplace} {when}.
-topic | victim, repeated | That's {count} times this {span} someone's robbed me.
-topic | heard | {victim} was robbed {when}, they say. {item}, gone.
-topic | thief_known | Everyone knows it was {thief}.
-topic | thief_unknown, night | Came in the dark, whoever it was.
-topic | victim | I've been robbed. {item}, {when}.
-topic | heard | There's a thief about. {victim} lost {item} {when}.
-feeling | hot | If I catch them I'll break their hands.
-feeling | patient | It will be remembered. Everything is.
-feeling | gentle | Times are hard. Maybe they're hungry. Still.
-feeling | blames_watch | The watch hasn't been paid in weeks. What did we expect?
-feeling | blames_ring | That's the ring's doing, or they let it happen.
-feeling | | It's a bad business.
-hook | has_coin, wants_guard | If you've a strong arm, I'd pay {pay} a day to watch the shop. {days} days.
-hook | wants_item | Bring back my {item} and you'll have {reward}.
-hook | wants_find | Find out who did it and you'll have {reward}.
-hook | poor, wants_help | I can't pay. But I'd owe you, and I pay my debts.
-hook | revenge, low_honour | If something happened to {thief}, I wouldn't ask questions.
-hook | suspects_squad | Funny how this started when your lot came to town.
+topic | victim | Someone took {item} from my {workplace} {when}. Walked right in and took it.
+topic | victim | I've been robbed. They took {item} {when}, and I'd only turned my back for a moment.
+topic | victim, repeated | That's {count} times this {span} somebody has robbed me. {count} times! I'm starting to think they like me.
+topic | victim, night | Somebody got into my {workplace} {when} while I was asleep and took {item}. I didn't hear a thing.
+topic | heard | Did you hear? {victim} was robbed {when}. They took {item}, just like that.
+topic | heard | There's a thief about. {victim} lost {item} {when}, and nobody saw a thing.
+topic | heard, voice=tadoro | I wrote it down this morning: {victim}, {item}, {when}. It's going on my page with the others.
+topic | thief_known | Everyone knows it was {thief}. Nobody will say it to their face, that's all.
+topic | thief_unknown, night | Whoever it was came in the dark. Nobody saw their face.
+feeling | hot | If I catch them, I'll break their hands. Both of them.
+feeling | patient | It will be remembered. Everything is, in the end.
+feeling | gentle | Times are hard. Maybe they were hungry. It's still wrong, though.
+feeling | voice=roduro | You don't take from another's {w:hearth}. Even children know that.
+feeling | voice=qotiro | A thief has no {w:honour}. They'll learn what that costs here.
+feeling | voice=horaro | The {w:sea} takes enough from us without our neighbours helping.
+feeling | blames_watch | The watch hasn't been paid in weeks. What did anyone expect?
+feeling | blames_ring | That's the ring's doing, or they let it happen. Either way, they knew.
+feeling | | It's a bad business. You don't feel safe in your own home after something like that.
+hook | has_coin, wants_guard | If you've a strong arm, I'd pay {pay} coin a day for someone to watch the shop. {days} days, say.
+hook | wants_item | Bring back my {item} and you'll have {reward} for your trouble.
+hook | wants_find | Find out who did it and I'll give you {reward}. I just want to know.
+hook | poor, wants_help | I can't pay you. But I'd owe you, and I pay my debts.
+hook | revenge, low_honour | If something unpleasant happened to {thief}, I wouldn't ask any questions.
+hook | suspects_squad | Funny how all this started when your lot came to town, isn't it?
 hook | |
 bark | victim | Robbed, in my own {workplace}...
-bark | heard | Lock your doors tonight.
+bark | heard | Lock your doors tonight, everyone.

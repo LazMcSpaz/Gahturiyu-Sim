@@ -9,10 +9,12 @@
 #
 # Laz's rule (2026-10-10): an accent on a plain-speech line must leave the
 # words recognisable as the words on screen. So the four steps hold only
-# the habits that pass that test, thickest last. They were chosen by adding
-# one habit at a time, most telling first, and keeping it only while a
-# speech-to-text listener still caught about four words in five across
-# twelve of the game's lines (the level Laz marked "about right" by ear).
+# the habits that pass that test, thickest last. They were first chosen by
+# adding one habit at a time, most telling first, and keeping it only while
+# a speech-to-text listener still caught about four words in five across
+# twelve of the game's lines; then cut back to what Laz marked "about right"
+# by ear on the second ladder. The last step of some tongues is one gentle
+# habit past what he has approved, to find the edge.
 #
 # [tongue.native] is everything the tongue's rules say. It stops being plain
 # speech. Laz liked it as the sound of the native tongue; use it only for
@@ -40,18 +42,22 @@ delivery = { speed = 0.88, pause = 1.3, range = 0.85, pitch = -1.0 }
 sounds = { r = "flick", diphthongs = "pure" }
 
 [[roduro.step]]
-what = "the tongue curls back on t and d; k slips to the throat"
-sounds = { t_d = "curled", k_g = "throaty" }
+what = "k slips to the throat"
+sounds = { k_g = "throaty" }
 
 [[roduro.step]]
-what = "a catch between vowels; s becomes sh"
-sounds = { joins = "catch", s = "hush" }
+what = "inside words the tongue curls back on t and d"
+sounds = { t_d = "curled:light" }
 
 [[roduro.step]]
-what = "stress moves next to last; inside words w hardens and f turns to breath"
-sounds = { stress = "nextlast", w = "hard:light", f_v = "breath:light" }
+what = "the tongue curls back on every t and d"
+sounds = { t_d = "curled" }
 
-# Left out of the steps because the words stop being recognisable: the lips and the nose (p, b, m, n to h, g and a curled-back d), six vowels only, echo vowels on every word, parted consonants.
+# Left out of the steps. Laz marked these wrong by ear (second ladder): the
+# catch between vowels with s as sh, then stress next to last with w and f
+# changed inside words. The listener lost the words with: the lips and the
+# nose (p, b, m, n to h, g and a curled-back d), six vowels only, echo vowels
+# on every word, parted consonants.
 [roduro.native]
 sounds = { r = "flick", diphthongs = "split", t_d = "curled", k_g = "throaty", s = "hush", joins = "catch", stress = "nextlast", w = "hard", f_v = "breath", vowel_set = "six", endings = "echo", clusters = "part", p_b = "breath", m_n = "stopped" }
 
@@ -78,10 +84,13 @@ what = "the first beat is hit; day and go held steady; k from the throat"
 sounds = { stress = "first", diphthongs = "pure", k_g = "throaty" }
 
 [[qotiro.step]]
-what = "l turns to r, w hardens to g, y hardens inside words"
-sounds = { l = "r", w = "hard", y = "stop:light" }
+what = "inside words l turns to r"
+sounds = { l = "r:light" }
 
-# Left out of the steps because the words stop being recognisable: every hiss turned to the rasp, f to p, dulled vowels, weak last vowels dropped.
+# Left out of the steps. Laz marked this too thick by ear (second ladder):
+# l to r and w to g everywhere with y hardened inside words. The listener
+# lost the words with: every hiss turned to the rasp, f to p, dulled vowels,
+# weak last vowels dropped.
 [qotiro.native]
 sounds = { r = "roll", length = "clipped", stress = "first", th = "stop", h = "rasp", endings = "clipped", diphthongs = "pure", l = "r", w = "hard", y = "stop", f_v = "stop", vowel_set = "hard", s = "rasp" }
 
@@ -96,7 +105,7 @@ mix = "bf_emma*0.5+pf_dora*0.5"
 
 [[horaro.step]]
 what = "slow swells, held vowels, a gentle r"
-delivery = { speed = 0.92, pause = 1.15, range = 1.15, energy = -0.4, breath = 0.15 }
+delivery = { speed = 0.92, pause = 1.15, range = 1.15, energy = -0.4 }
 sounds = { r = "flick", length = "long" }
 
 [[horaro.step]]
@@ -104,14 +113,17 @@ what = "th melts to h; weak vowels round"
 sounds = { th = "breath", vowel_set = "round:light" }
 
 [[horaro.step]]
-what = "inside words, k and g melt to h and w, p and b to w"
-sounds = { k_g = "breath:light", p_b = "glide:light" }
+what = "inside words g melts to w, and p and b to w"
+sounds = { k_g = "soft_g:light", p_b = "glide:light" }
 
 [[horaro.step]]
 what = "y opens to ee; ch and j soften"
 sounds = { y = "vowel", ch_j = "soft" }
 
-# Left out of the steps because the words stop being recognisable: every hiss to h, t and d to n and l, f to w, echo vowels, parted consonants, vowels said twice.
+# Left out of the steps. Laz marked this too thick by ear (second ladder): k
+# melting to h inside words (luck stopped sounding like luck). The listener
+# lost the words with: every hiss to h, t and d to n and l, f to w, echo
+# vowels, parted consonants, vowels said twice.
 [horaro.native]
 sounds = { r = "flick", length = "drawn", th = "breath", s = "breath", k_g = "breath", p_b = "glide", vowel_set = "round", f_v = "glide", t_d = "liquid", y = "vowel", endings = "echo", clusters = "part", ch_j = "soft", stress = "nextlast" }
 
@@ -121,26 +133,36 @@ sounds = { r = "flick", length = "drawn", th = "breath", s = "breath", k_g = "br
 [tadoro]
 label = "Ṭaḍoro (Air)"
 reading = "en-gb"
-voices = ["af_nicole", "af_heart", "bf_lily", "bm_fable", "am_puck", "zf_xiaoxiao", "zm_yunxi", "ff_siwis", "af_sky"]
-mix = "bm_fable*0.6+af_nicole*0.4"
+# Laz heard noise on this tongue's clips. The first speaker (fable with the
+# whispery nicole) measured as the hissiest of the four, and the breath dial
+# added more, so the suggested speaker is now two clean voices and the
+# rhythm adds no breath. Whether that cures it is for his ears.
+voices = ["am_puck", "bf_lily", "af_heart", "af_sky", "zf_xiaoxiao", "zm_yunxi", "bm_fable", "ff_siwis"]
+mix = "am_puck*0.6+bf_lily*0.4"
 
 [[tadoro.step]]
-what = "quick, light, rising; weak vowels blur; the last beat is hit"
-delivery = { speed = 1.12, pause = 0.85, range = 1.1, lilt = 2.0, pitch = 1.0, breath = 0.3, energy = -0.2 }
-sounds = { vowel_set = "blur:light", stress = "last" }
+what = "quick, light, with a rising tune"
+delivery = { speed = 1.12, pause = 0.85, range = 1.1, lilt = 2.0, pitch = 1.0, energy = -0.2 }
 
 [[tadoro.step]]
-what = "r softens toward w; inside words l melts to y"
-sounds = { r = "soft", l = "glide:light" }
+what = "weak vowels blur toward uh"
+sounds = { vowel_set = "blur:light" }
 
 [[tadoro.step]]
-what = "k and g thin to h and w"
-sounds = { k_g = "breath" }
+what = "r softens toward w"
+sounds = { r = "soft" }
 
 [[tadoro.step]]
-what = "ch and j soften; inside words r is hissed like sh"
-sounds = { ch_j = "soft", r = "hiss:light" }
+what = "inside words l melts to y"
+sounds = { l = "glide:light" }
 
-# Left out of the steps because the words stop being recognisable: p, t and d thinned to f, s and th, nose sounds to w and y, the buzz gone, all vowels blurred, parted consonants.
+# This tongue is the furthest from plain speech (no stops, nose sounds, l or
+# r), so few of its swaps survive; its accent is mostly rhythm, tune and
+# vowels. Left out of the steps. Laz marked these wrong by ear (second
+# ladder): k and g thinned everywhere, then ch and j softened with r hissed
+# inside words. The listener lost the words with: the last beat hit in long
+# words (with blurred vowels the whole word turns to uh), k and g thinned
+# even only inside words, p, t and d thinned to f, s and th, nose sounds to
+# w and y, the buzz gone, all vowels blurred, parted consonants.
 [tadoro.native]
 sounds = { vowel_set = "blur", stress = "last", r = "hiss", l = "glide", k_g = "breath", p_b = "hiss", t_d = "hiss", m_n = "glide", voicing = "unvoiced", clusters = "part", ch_j = "soft" }

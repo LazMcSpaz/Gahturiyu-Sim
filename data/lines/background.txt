@@ -1,0 +1,33 @@
+# Background: "Tell me about yourself." Two pieces: where they come from
+# (origin), then what they do (work). See FORMAT.md.
+# Tags here: calling=warrior|hunter|mage|commoner, has_job, no_job.
+# Slots: {job} (what they do), {place} (where they work, if anywhere).
+
+# ---- Where they come from ----------------------------------------------
+origin | voice=roduro | When I was small, a Stone Tender began growing the house I live in. It has grown up beside me ever since. Look at the bands in the wall: one for every year, the same as mine.
+origin | voice=roduro | My family has lived on this {w:earth} longer than anyone can count. My grandmother's {w:hearth} is still warm; we have never let it go out.
+origin | voice=roduro | I was born under a roof my great-grandfather grew. We Roduro don't leave a place lightly. The {w:stone} remembers us, and we remember it.
+origin | voice=roduro, patient | I'm a slow sort of person, like my people. We grow things, houses and children and quarrels, and we wait to see what comes of them.
+origin | voice=qotiro | My people quarry their homes from the dark rock and forge their own lives. Nothing is given to us. Everything is made.
+origin | voice=qotiro | I was raised under the sun discs, where a child learns the {w:forge} before letters. A thing badly made is a {w:shame} on the hand that made it.
+origin | voice=qotiro, hot | You want my story? I work, I keep my word, and I don't ask anyone for anything. That's the whole of it.
+origin | voice=qotiro, patient | My mother told me that a person is like iron: worth what the {w:fire} has made of them, and no more.
+origin | voice=horaro | I was born on the stilts and swam before I walked. The land-folk think it's strange, sleeping over the water. We think it's strange that they don't.
+origin | voice=horaro | My mother's line has fished this shore for longer than the stilts have stood. The {w:sea} gives, and the {w:sea} takes. You learn not to argue with it.
+origin | voice=horaro, gentle | I grew up with the sound of the {w:tide} under the floor. I still can't sleep properly anywhere quiet.
+origin | voice=tadoro | I lodge here for now. I keep notes on everything: the tides, the arguments, how long the bread lasts. Somebody ought to.
+origin | voice=tadoro | My people don't build, we travel. I've slept in a hundred houses and under a hundred tents, and written something down in every one of them.
+origin | voice=tadoro, gentle | I came here for a season and stayed for three. People are kind here, mostly, and they talk a great deal, which suits me.
+
+# ---- What they do ----------------------------------------------------------
+work | has_job | These days I work as {a_job}{place}. It keeps food on the table.
+work | has_job, content | I work as {a_job}{place}, and I'm good at it, if I say so myself.
+work | has_job, worried | I work as {a_job}{place}, though it pays less every season.
+work | has_job, voice=qotiro | I am {a_job}{place}. I do it properly.
+work | has_job, voice=tadoro | For now I'm {a_job}{place}. Ask me again next year; it'll be something else.
+work | no_job, calling=warrior | I've fought for coin, when there was coin to fight for. Lately there hasn't been.
+work | no_job, calling=hunter | I hunt, mostly. The land feeds anyone who's patient enough to watch it.
+work | no_job, calling=mage | I study the old arts, when nobody is watching too closely.
+work | no_job, calling=commoner | I'm between work just now. I take whatever comes.
+work | no_job, calling=commoner, voice=horaro | I mend nets for whoever needs them. It's not much, but it's honest.
+work | no_job, calling=commoner, voice=roduro | I carry stone for the Tenders when they'll have me.
