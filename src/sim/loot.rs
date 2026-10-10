@@ -6,23 +6,38 @@
 //! Who can be looted: anyone down (out cold or dead) who was against you:
 //! bandits, and members of any group that fought the squad. Townsfolk aren't
 //! fair game (stealing from them is a crime the town's watch deals with).
+//!
+//! The same going-through serves containers in buildings (`containers.rs`):
+//! a `Looting` has a `Source`, a body or a chest, and taking from either goes
+//! through `take_from`. Taking from a container is theft (`took_from`).
 
 use serde::{Deserialize, Serialize};
 
+use super::containers::ContainerId;
 use super::inventory::Entry;
 use super::items::{self, item, Slot, SLOTS};
 use super::person::PersonId;
 use super::squad::REACH;
 use super::world::World;
 
-/// A squad member sent to go through someone's things.
+/// What's being gone through.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub enum Source {
+    /// A beaten foe.
+    Body(PersonId),
+    /// A container in a building.
+    Chest(ContainerId),
+}
+
+/// A squad member sent to go through someone's (or something's) things.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Looting {
     pub who: PersonId,
-    pub body: PersonId,
+    pub from: Source,
 }
 
 /// One thing on a body: worn in a slot, or in their pack (by entry index).
+/// In a container, everything is `Pack`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LootRef {
     Worn(Slot),
@@ -43,6 +58,21 @@ impl World {
         hostile && p.detail.is_some()
     }
 
+    /// Can this still be gone through (a body still down; a container open)?
+    fn source_ok(&self, src: Source) -> bool {
+        match src {
+            Source::Body(b) => self.can_loot(b),
+            Source::Chest(c) => self.container(c).is_some() && !self.container_locked(c),
+        }
+    }
+
+    fn source_pos(&self, src: Source) -> Option<super::geo::V2> {
+        match src {
+            Source::Body(b) => Some(self.person_pos(b)),
+            Source::Chest(c) => self.container(c).map(|c| c.pos),
+        }
+    }
+
     /// Send a squad member to go through a body's things.
     pub fn order_loot(&mut self, who: PersonId, body: PersonId) -> bool {
         if !self.can_loot(body) {
@@ -54,85 +84,143 @@ impl World {
         self.squad.goal[k] = *path.last().unwrap_or(&pos);
         self.squad.route[k] = path;
         self.looting.retain(|l| l.who != who);
-        self.looting.push(Looting { who, body });
+        self.looting.push(Looting { who, from: Source::Body(body) });
         true
+    }
+
+    /// What this member is standing at and going through, if anything.
+    pub fn source_now(&self, who: PersonId) -> Option<Source> {
+        let l = self.looting.iter().find(|l| l.who == who)?;
+        let k = self.squad.index(who)?;
+        let at = self.source_pos(l.from)?;
+        let reach = match l.from {
+            Source::Body(_) => REACH * 1.5,
+            // A step in front of it, plus its own size.
+            Source::Chest(_) => REACH * 1.2,
+        };
+        (self.squad.at[k].dist(at) <= reach && self.source_ok(l.from)).then_some(l.from)
     }
 
     /// The body this member is standing over and going through, if any.
     pub fn looting_now(&self, who: PersonId) -> Option<PersonId> {
-        let l = self.looting.iter().find(|l| l.who == who)?;
-        let k = self.squad.index(who)?;
-        (self.squad.at[k].dist(self.person_pos(l.body)) <= REACH * 1.5 && self.can_loot(l.body)).then_some(l.body)
+        match self.source_now(who)? {
+            Source::Body(b) => Some(b),
+            Source::Chest(_) => None,
+        }
     }
 
-    /// Stop going through a body (walked off, or done).
+    /// Stop going through a body or a container (walked off, or done).
     pub fn stop_looting(&mut self, who: PersonId) {
         self.looting.retain(|l| l.who != who);
     }
 
     /// Everything on a body: (where, item, how many).
     pub fn loot_of(&self, body: PersonId) -> Vec<(LootRef, items::ItemId, u16)> {
-        let Some(d) = self.people[body as usize].detail.as_ref() else { return Vec::new() };
-        let mut out: Vec<(LootRef, items::ItemId, u16)> = SLOTS.iter().filter_map(|&s| d.gear.in_slot(s).map(|it| (LootRef::Worn(s), it, 1))).collect();
-        out.extend(d.gear.bag.iter().enumerate().map(|(k, e)| (LootRef::Pack(k), e.0, e.1)));
-        out
+        self.contents(Source::Body(body))
+    }
+
+    /// Everything in a body's kit or a container: (where, item, how many).
+    pub fn contents(&self, src: Source) -> Vec<(LootRef, items::ItemId, u16)> {
+        match src {
+            Source::Body(body) => {
+                let Some(d) = self.people[body as usize].detail.as_ref() else { return Vec::new() };
+                let mut out: Vec<(LootRef, items::ItemId, u16)> = SLOTS.iter().filter_map(|&s| d.gear.in_slot(s).map(|it| (LootRef::Worn(s), it, 1))).collect();
+                out.extend(d.gear.bag.iter().enumerate().map(|(k, e)| (LootRef::Pack(k), e.0, e.1)));
+                out
+            }
+            Source::Chest(c) => self.container(c).map(|c| c.items.iter().enumerate().map(|(k, e)| (LootRef::Pack(k), e.0, e.1)).collect()).unwrap_or_default(),
+        }
     }
 
     /// Take one thing (a whole stack, from the pack) off a body.
     pub fn take_loot(&mut self, who: PersonId, body: PersonId, what: LootRef) -> bool {
-        if self.looting_now(who) != Some(body) {
+        self.take_from(who, Source::Body(body), what)
+    }
+
+    /// Take one thing (a whole stack) from a body or a container.
+    pub fn take_from(&mut self, who: PersonId, src: Source, what: LootRef) -> bool {
+        if self.source_now(who) != Some(src) {
             return false;
         }
-        let Some(d) = self.people[body as usize].detail.as_mut() else { return false };
-        let taken: Vec<Entry> = match what {
-            LootRef::Worn(s) => {
+        let taken: Vec<Entry> = match (src, what) {
+            (Source::Body(body), LootRef::Worn(s)) => {
+                let Some(d) = self.people[body as usize].detail.as_mut() else { return false };
                 let Some(it) = d.gear.in_slot(s) else { return false };
                 let piece = d.gear.piece(s).copied();
                 d.gear.discard(s);
                 vec![Entry(it, 1, piece)]
             }
-            LootRef::Pack(k) => {
+            (Source::Body(body), LootRef::Pack(k)) => {
+                let Some(d) = self.people[body as usize].detail.as_mut() else { return false };
                 if k >= d.gear.bag.len() {
                     return false;
                 }
                 vec![d.gear.bag.remove(k)]
             }
+            (Source::Chest(c), LootRef::Pack(k)) => {
+                let Some(c) = self.containers.get_mut(&c) else { return false };
+                if k >= c.items.len() {
+                    return false;
+                }
+                vec![c.items.remove(k)]
+            }
+            (Source::Chest(_), LootRef::Worn(_)) => return false,
         };
-        self.people[body as usize].recompute_might();
+        if let Source::Body(body) = src {
+            self.people[body as usize].recompute_might();
+        }
         let mut names = Vec::new();
+        let mut worth = 0.0;
         if let Some(dd) = self.people[who as usize].detail.as_mut() {
             for e in &taken {
                 match e.2 {
                     Some(pc) => dd.gear.add_piece(e.0, pc),
                     None => dd.gear.add(e.0, e.1),
                 }
+                worth += item(e.0).value * e.1 as f32;
                 names.push(if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() });
             }
         }
         self.people[who as usize].recompute_might();
         self.settle_condition(who, self.time);
-        let (a, b) = (self.people[who as usize].name().unwrap_or("someone").to_string(), self.people[body as usize].name().unwrap_or("them").to_string());
-        self.log.push_front((self.time, format!("{a} takes {} from {b}.", names.join(", "))));
+        let a = self.people[who as usize].name().unwrap_or("someone").to_string();
+        let from = match src {
+            Source::Body(b) => self.people[b as usize].name().unwrap_or("them").to_string(),
+            Source::Chest(c) => format!("a {}", self.container(c).map(|c| c.what.name()).unwrap_or("container")),
+        };
+        self.log.push_front((self.time, format!("{a} takes {} from {from}.", names.join(", "))));
         self.log.truncate(14);
+        if let Source::Chest(c) = src {
+            self.took_from(who, c, worth);
+        }
         true
     }
 
     /// Take everything off a body.
     pub fn take_all_loot(&mut self, who: PersonId, body: PersonId) -> usize {
+        self.take_all_from(who, Source::Body(body))
+    }
+
+    /// Take everything from a body or a container (stops if caught).
+    pub fn take_all_from(&mut self, who: PersonId, src: Source) -> usize {
         let mut n = 0;
-        while let Some(&(what, _, _)) = self.loot_of(body).first() {
-            if !self.take_loot(who, body, what) {
+        while let Some(&(what, _, _)) = self.contents(src).first() {
+            if !self.take_from(who, src, what) {
                 break;
             }
             n += 1;
+            // Caught in the act: arrested or chased off, either way it stops here.
+            if self.source_now(who) != Some(src) {
+                break;
+            }
         }
         n
     }
 
     /// Drop lootings whose looter has gone (left the squad, or the body
-    /// got up and walked off).
+    /// got up and walked off, or the container is gone).
     pub(super) fn tidy_looting(&mut self) {
-        let keep: Vec<Looting> = self.looting.iter().copied().filter(|l| self.squad.index(l.who).is_some() && self.can_loot(l.body)).collect();
+        let keep: Vec<Looting> = self.looting.iter().copied().filter(|l| self.squad.index(l.who).is_some() && self.source_ok(l.from)).collect();
         self.looting = keep;
     }
 }

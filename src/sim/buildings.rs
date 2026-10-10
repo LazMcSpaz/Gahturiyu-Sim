@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use super::geo::V2;
 use super::items;
+use super::layout;
 use super::person::PersonId;
 use super::rng::Rng;
 use super::settlement::{Building, BuildingKind, Settlement, SettlementId};
@@ -53,24 +54,101 @@ pub struct Door {
     pub radius: f32,
     /// 0 = no lock; otherwise how hard to pick, 1..100.
     pub lock: f32,
+    /// Which way the front faces (radians), and the outline's half depth
+    /// (front to back) and half width, metres (`layout.rs`).
+    #[serde(default)]
+    pub rot: f32,
+    #[serde(default)]
+    pub half: V2,
+    #[serde(default)]
+    pub round: bool,
+    /// Index into `layout::VARIANTS`.
+    #[serde(default)]
+    pub variant: u16,
+}
+
+impl Door {
+    pub fn variant(&self) -> &'static layout::Variant {
+        &layout::VARIANTS[self.variant as usize]
+    }
+
+    /// A layout point (`layout.rs` units) on the map.
+    pub fn to_world(&self, at: (f32, f32)) -> V2 {
+        let dir = V2::new(self.rot.cos(), self.rot.sin());
+        let side = V2::new(-dir.y, dir.x);
+        self.centre.add(dir.scale(at.0 * self.half.x)).add(side.scale(at.1 * self.half.y))
+    }
+
+    /// A point on the map in layout units.
+    pub fn to_local(&self, p: V2) -> (f32, f32) {
+        let d = p.sub(self.centre);
+        let (c, s) = (self.rot.cos(), self.rot.sin());
+        ((d.x * c + d.y * s) / self.half.x.max(1e-3), (-d.x * s + d.y * c) / self.half.y.max(1e-3))
+    }
+
+    /// Is `p` within the outer walls?
+    pub fn contains(&self, p: V2) -> bool {
+        if self.centre.dist(p) >= self.radius {
+            return false;
+        }
+        let (x, y) = self.to_local(p);
+        if self.round { x * x + y * y < 1.0 } else { x.abs() < 1.0 && y.abs() < 1.0 }
+    }
+
+    /// The inner walls on the map, split at their doorways: solid stretches.
+    pub fn wall_pieces(&self) -> Vec<(V2, V2)> {
+        let mut out = Vec::new();
+        for wl in self.variant().walls {
+            let (a, b) = (self.to_world(wl.a), self.to_world(wl.b));
+            match wl.gap {
+                None => out.push((a, b)),
+                Some(g) => {
+                    let len = a.dist(b).max(1e-3);
+                    let half = (layout::DOORWAY * 0.5 / len).min(0.45);
+                    out.push((a, a.lerp(b, (g - half).max(0.0))));
+                    out.push((a.lerp(b, (g + half).min(1.0)), b));
+                }
+            }
+        }
+        out
+    }
+
+    /// The middles of the doorways in its inner walls.
+    pub fn doorways(&self) -> Vec<V2> {
+        self.variant().walls.iter().filter_map(|wl| wl.gap.map(|g| self.to_world(wl.a).lerp(self.to_world(wl.b), g))).collect()
+    }
 }
 
 /// The door of a building, if it has one you can walk through. Stilt homes
 /// are reached by swimming and have none (yet); hearths aren't buildings.
+/// Its outline, door and rooms come from the building's variant (`layout.rs`).
 pub fn door_of(s: &Settlement, i: u16) -> Option<Door> {
     let b = s.buildings.get(i as usize)?;
-    let (radius, front) = match b.kind {
-        BuildingKind::RoduroHome => (b.size * 0.5, b.size * 0.5),
-        BuildingKind::QotiroBlock | BuildingKind::QotiroHall => (b.size * 0.48, b.size * 0.4),
-        BuildingKind::QotiroTemple => (b.size * 0.5, b.size * 0.5),
-        BuildingKind::HoraroStilt | BuildingKind::Hearth => return None,
-    };
+    if matches!(b.kind, BuildingKind::HoraroStilt | BuildingKind::Hearth) {
+        return None;
+    }
+    let v = layout::variant_of(b)?;
+    let half = V2::new(v.half.0 * b.size, v.half.1 * b.size);
+    let round = v.shape == layout::Shape::Round;
+    let radius = if round { half.x.max(half.y) } else { half.len() } + 0.05;
     let dir = V2::new(b.rot.cos(), b.rot.sin());
     let side = V2::new(-dir.y, dir.x);
-    // Roduro doors sit a little to one side of the window.
-    let shift = if b.kind == BuildingKind::RoduroHome { 1.4 } else { 0.0 };
-    let face = b.pos.add(dir.scale(front)).add(side.scale(shift));
-    Some(Door { id: (s.id, i), outside: face.add(dir.scale(1.2)), inside: face.sub(dir.scale(1.6)), centre: b.pos, radius, lock: lock_of(b) })
+    // The door's spot across the front, on the wall itself.
+    let across = v.door * half.y * 0.8;
+    let front = if round { half.x * (1.0 - (across / half.y).powi(2)).max(0.0).sqrt() } else { half.x };
+    let face = b.pos.add(dir.scale(front)).add(side.scale(across));
+    Some(Door {
+        id: (s.id, i),
+        outside: face.add(dir.scale(1.2)),
+        inside: face.sub(dir.scale(1.6)),
+        centre: b.pos,
+        radius,
+        lock: lock_of(b),
+        rot: b.rot,
+        half,
+        round,
+        variant: layout::index_of(v) as u16,
+    })
 }
 
 fn lock_of(b: &Building) -> f32 {
@@ -102,6 +180,9 @@ pub struct Picking {
     pub tries: u32,
     /// When the next attempt finishes (once they're at the door).
     pub next: Option<f64>,
+    /// A container in that building (by slot) instead of its door.
+    #[serde(default)]
+    pub holder: Option<u8>,
 }
 
 impl World {
@@ -126,7 +207,7 @@ impl World {
 
     /// The building whose walls enclose `p`, if any.
     pub fn building_at(&self, p: V2) -> Option<Door> {
-        self.doors_near(p, 0.0).into_iter().find(|d| d.centre.dist(p) < d.radius)
+        self.doors_near(p, 0.0).into_iter().find(|d| d.contains(p))
     }
 
     pub fn is_locked(&self, id: DoorId) -> bool {
@@ -141,12 +222,16 @@ impl World {
         let to_in = self.building_at(b);
         if let (Some(x), Some(y)) = (from_in, to_in) {
             if x.id == y.id {
-                return (vec![b], None);
+                let mut out = Vec::new();
+                rooms_between(&x, a, b, &mut out);
+                out.push(b);
+                return (out, None);
             }
         }
         let mut out = Vec::new();
         let mut cur = a;
         if let Some(d) = from_in {
+            rooms_between(&d, a, d.inside, &mut out);
             out.push(d.inside);
             out.push(d.outside);
             cur = d.outside;
@@ -159,6 +244,7 @@ impl World {
                 return (out, Some(d.id));
             }
             out.push(d.inside);
+            rooms_between(&d, d.inside, b, &mut out);
             out.push(b);
         }
         (out, None)
@@ -241,7 +327,7 @@ impl World {
         self.squad.route[k] = path;
         self.pickups.retain(|p| p.who != who);
         self.picking.retain(|p| p.who != who);
-        self.picking.push(Picking { who, door, tries: 0, next: None });
+        self.picking.push(Picking { who, door, tries: 0, next: None, holder: None });
         true
     }
 
@@ -260,11 +346,21 @@ impl World {
                 done.push(n);
                 continue;
             };
-            if !self.is_locked(pk.door) {
+            // A container's lock, or the door's.
+            let chest = pk.holder.map(|s| (pk.door.0, pk.door.1, s));
+            let locked = match chest {
+                Some(c) => self.container_locked(c),
+                None => self.is_locked(pk.door),
+            };
+            if !locked {
                 done.push(n);
                 continue;
             }
-            if self.squad.at[k].dist(d.outside) > AT_DOOR || self.fighting.contains_key(&pk.who) {
+            let (spot, lock) = match chest {
+                Some(c) => (self.container_stand(c).unwrap_or(d.inside), self.container(c).map(|c| c.lock).unwrap_or(0.0)),
+                None => (d.outside, d.lock),
+            };
+            if self.squad.at[k].dist(spot) > AT_DOOR || self.fighting.contains_key(&pk.who) {
                 continue;
             }
             let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
@@ -279,14 +375,26 @@ impl World {
             let mut finished = false;
             while next <= self.time && !finished {
                 tries += 1;
-                let mut r = Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, tries as u64, 0x5049_434B]);
+                let mut r = match pk.holder {
+                    None => Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, tries as u64, 0x5049_434B]),
+                    Some(s) => Rng::from_keys(&[self.seed, pk.who as u64, pk.door.0 as u64, pk.door.1 as u64, s as u64, tries as u64, 0x5049_434B]),
+                };
                 let (r_ok, r_break) = (r.f32(), r.f32());
                 self.people[pk.who as usize].stats.exercise(Skill::Security, 1.0);
-                if self.witnessed(pk.who, d.outside, pk.door.0, &mut r) {
+                if self.witnessed(pk.who, spot, pk.door.0, &mut r) {
                     self.crime_of(pk.who, pk.door.0, super::law::Wrong::Trespass, 40.0, format!("{name} is seen picking a lock!"));
                     finished = true;
-                } else if r_ok < self.pick_chance(pk.who, d.lock) {
-                    self.picked.insert(pk.door, night_of(self.time));
+                } else if r_ok < self.pick_chance(pk.who, lock) {
+                    match chest {
+                        Some(c) => {
+                            if let Some(c) = self.containers.get_mut(&c) {
+                                c.picked = true;
+                            }
+                        }
+                        None => {
+                            self.picked.insert(pk.door, night_of(self.time));
+                        }
+                    }
                     self.log.push_front((next, format!("{name} picks the lock.")));
                     finished = true;
                 } else if r_break < 0.3 {
@@ -411,6 +519,7 @@ impl World {
             self.squad.inside[k] = inside.map(|d| d.id);
             if let Some(d) = inside {
                 self.furnish(d);
+                self.stock_building(d);
             }
         }
     }
@@ -422,6 +531,36 @@ impl World {
         v.dedup();
         v
     }
+}
+
+/// Corner points to get from `a` to `b` inside a building without walking
+/// through its inner walls: through the doorway of each wall in the way.
+fn rooms_between(d: &Door, a: V2, b: V2, out: &mut Vec<V2>) {
+    let pieces = d.wall_pieces();
+    let ways = d.doorways();
+    let mut cur = a;
+    for _ in 0..4 {
+        if !pieces.iter().any(|&(p, q)| crosses(cur, b, p, q)) {
+            return;
+        }
+        // The doorway that gets us past the most walls in the way, nearest first.
+        let best = ways
+            .iter()
+            .copied()
+            .filter(|&g| g.dist(cur) > 0.3 && !pieces.iter().any(|&(p, q)| crosses(cur, g, p, q)))
+            .min_by(|x, y| (x.dist(cur) + x.dist(b)).total_cmp(&(y.dist(cur) + y.dist(b))));
+        let Some(g) = best else { return };
+        out.push(g);
+        cur = g;
+    }
+}
+
+/// Do segments `a`–`b` and `p`–`q` cross?
+fn crosses(a: V2, b: V2, p: V2, q: V2) -> bool {
+    let cross = |o: V2, x: V2, y: V2| (x.x - o.x) * (y.y - o.y) - (x.y - o.y) * (y.x - o.x);
+    let (d1, d2) = (cross(p, q, a), cross(p, q, b));
+    let (d3, d4) = (cross(a, b, p), cross(a, b, q));
+    d1 * d2 < 0.0 && d3 * d4 < 0.0
 }
 
 /// Distance from `c` to the segment `a`–`b`.

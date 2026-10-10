@@ -6,7 +6,8 @@
 //! - every ranged weapon is the same stick: pointed at the target while
 //!   aiming and loosing, pointed at the ground while reloading;
 //! - casting raises a glowing mote above the hand; drinking lifts a flask;
-//! - building, crafting and gathering bob a tool up and down;
+//! - building, crafting, gathering, picking a lock and going through a body
+//!   or a container bob a tool (a hand) up and down, facing what's worked;
 //! - sneaking crouches the figure (drawn in `scene::person`).
 //!
 //! Drawing only: everything here reads the sim's own states and times.
@@ -51,6 +52,14 @@ pub fn facing(w: &World, pid: PersonId, at: V2) -> f32 {
             }
         }
     }
+    // Going through a container, or picking its lock: facing it.
+    let chest = w.searching_now(pid).or_else(|| w.picking.iter().find(|p| p.who == pid).and_then(|p| p.holder.map(|s| (p.door.0, p.door.1, s))));
+    if let Some(c) = chest.and_then(|c| w.container(c)) {
+        let d = c.pos.sub(at);
+        if d.len() > 0.05 && w.squad.index(pid).is_none_or(|k| w.squad.route[k].is_empty()) {
+            return d.y.atan2(d.x);
+        }
+    }
     if let Some(k) = w.squad.index(pid) {
         let to = w.squad.route[k].first().copied().unwrap_or(w.squad.goal[k]);
         let d = to.sub(w.squad.at[k]);
@@ -74,7 +83,7 @@ fn working(w: &World, pid: PersonId) -> bool {
         || w.gathering.iter().any(|g| g.0 == pid)
         || w.picking.iter().any(|p| p.who == pid)
         || w.pickups.iter().any(|p| p.who == pid)
-        || w.looting_now(pid).is_some()
+        || w.source_now(pid).is_some()
         || w.bases.iter().any(|b| b.builders.iter().any(|h| h.0 == pid))
         || w.bases.iter().any(|b| b.residents.iter().any(|r| r.who == pid && r.cycle.is_some()))
 }

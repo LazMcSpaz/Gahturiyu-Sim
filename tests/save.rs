@@ -41,6 +41,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n", w.animals);
     // The squad's outposts.
     s += &format!("{:?} {}\n{:?}\n", w.bases, w.next_base, w.looting);
+    // Containers in buildings, and locks being worked.
+    s += &format!("{:?}\n{:?}\n", w.containers, w.picking);
     s
 }
 
