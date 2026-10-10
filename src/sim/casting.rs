@@ -485,6 +485,9 @@ impl World {
         if from.dist(point) > d.range.max(2.0) + 1.0 {
             return cannot("too far away");
         }
+        if d.effects.iter().any(|e| e.does == Does::Unlock && e.reach == Reach::Object) && self.lock_near(point).is_none() {
+            return cannot("no lock there");
+        }
         let p = &mut self.people[who as usize];
         p.set_mana(mana - d.cost, t);
         self.tire(who, d.tire);
@@ -495,7 +498,7 @@ impl World {
         let name = self.name_of(who);
         if roll > chance {
             self.people[who as usize].stats.exercise(d.skill(), 0.4);
-            self.say(t, format!("{name}'s {} fizzles ({:.0}% chance at their skill; the energy is spent).", d.name.to_lowercase(), chance * 100.0));
+            self.say(t, format!("{name}'s {} fizzles; the energy is spent.", d.name.to_lowercase()));
             return Ok(());
         }
         self.people[who as usize].stats.exercise(d.skill(), 1.5);
@@ -555,12 +558,33 @@ impl World {
             }
             if let (Reach::Ground { radius }, Lasts::Secs(secs)) = (e.reach, e.lasts) {
                 let t = self.time;
-                self.wards.push(Ward { does: e.does, pos: point, radius, power: e.power, until: t + secs as f64, owner: by });
+                // The same ward again on the same spot renews it rather
+                // than laying a second one on top.
+                let until = t + secs as f64;
+                match self.wards.iter_mut().find(|w| w.does == e.does && w.pos.dist(point) < w.radius.max(radius)) {
+                    Some(w) => {
+                        w.until = w.until.max(until);
+                        w.power = w.power.max(e.power);
+                    }
+                    None => self.wards.push(Ward { does: e.does, pos: point, radius, power: e.power, until, owner: by }),
+                }
                 continue;
             }
             for pid in self.reached(by, e, target, point) {
                 self.apply_effect(pid, e, skill);
             }
+        }
+    }
+
+    /// The nearest locked lock to a spot, in Unlock's reach: a door's, or a
+    /// chest's or cupboard's (the nearer of the two).
+    fn lock_near(&self, point: V2) -> Option<LockAt> {
+        let door = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0 && self.is_locked(d.id)).map(|d| (d.outside.dist(point), d.id)).min_by(|a, b| a.0.total_cmp(&b.0));
+        let chest = self.containers.values().filter(|c| c.lock > 0.0 && !c.picked && c.pos.dist(point) <= 3.0).map(|c| (c.pos.dist(point), c.id)).min_by(|a, b| a.0.total_cmp(&b.0));
+        match (door, chest) {
+            (_, Some((dc, c))) if door.map(|d| dc <= d.0).unwrap_or(true) => Some(LockAt::Chest(c)),
+            (Some((_, id)), _) => Some(LockAt::Door(id)),
+            _ => None,
         }
     }
 
@@ -581,23 +605,20 @@ impl World {
                 any
             }
             Does::Unlock => {
-                // The nearest lock to the spot: a door's, or a chest's or cupboard's.
-                let door = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0 && self.is_locked(d.id)).map(|d| (d.outside.dist(point), d.id)).min_by(|a, b| a.0.total_cmp(&b.0));
-                let chest = self.containers.values().filter(|c| c.lock > 0.0 && !c.picked && c.pos.dist(point) <= 3.0).map(|c| (c.pos.dist(point), c.id)).min_by(|a, b| a.0.total_cmp(&b.0));
-                match (door, chest) {
-                    (_, Some((dc, c))) if door.map(|d| dc <= d.0).unwrap_or(true) => {
+                match self.lock_near(point) {
+                    Some(LockAt::Chest(c)) => {
                         if let Some(c) = self.containers.get_mut(&c) {
                             c.picked = true;
                         }
                         self.say(t, format!("The {}'s lock clicks open.", self.containers[&c].what.name()));
                         true
                     }
-                    (Some((_, id)), _) => {
+                    Some(LockAt::Door(id)) => {
                         self.picked.insert(id, super::buildings::night_of(t));
                         self.say(t, "A lock clicks open.".to_string());
                         true
                     }
-                    _ => {
+                    None => {
                         self.say(t, "Unlock finds no lock there to open.".to_string());
                         false
                     }
@@ -1073,4 +1094,10 @@ impl World {
         p.recompute_might();
         true
     }
+}
+
+/// Where Unlock would open a lock.
+enum LockAt {
+    Door(super::buildings::DoorId),
+    Chest(super::containers::ContainerId),
 }

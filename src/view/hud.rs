@@ -740,7 +740,9 @@ pub fn bar_for(w: &World, pid: PersonId) -> Option<(f32, Option<f32>, bool)> {
         return None;
     }
     if let Some(f) = w.fighter(pid) {
-        let mana = if f.spells.is_empty() { None } else { Some(f.mana / f.max_mana.max(1.0)) };
+        // Energy is shown for the squad's own casters only: a stranger's
+        // reserve isn't something you could see.
+        let mana = if f.spells.is_empty() || !p.in_squad { None } else { Some(f.mana / f.max_mana.max(1.0)) };
         return Some((f.vitality(), mana, f.ko));
     }
     if !p.wounds.is_hurt(w.time) {

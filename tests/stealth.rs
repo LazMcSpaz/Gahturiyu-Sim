@@ -177,6 +177,13 @@ fn attacking_unnoticed_bandits_catches_them_unawares() {
 /// Light the first squad member's torch (each starts with two in the pack).
 fn light_torch(w: &mut World) -> u32 {
     let m = w.squad.members[0];
+    // Up and kept up (nobody sleeps with a lit torch, BL-45).
+    let all = w.squad.members.clone();
+    w.order_wake(&all);
+    for k in 0..w.squad.members.len() {
+        w.squad.kept_up[k] = f64::INFINITY;
+    }
+    w.step(1.0);
     assert!(w.toggle_torch(m), "should light");
     assert!(w.torch_lit(m));
     m
@@ -342,4 +349,5 @@ fn camps_spot_torch_bearers_from_further_at_night() {
     let near = Leg::along(vec![camp.add(V2::new(-600.0, 50.0)), camp.add(V2::new(600.0, 50.0))], 12.0 * HOUR, 1.3, None, &w.terrain);
     assert!(camp_sees(&near, camp).is_some());
 }
+
 
