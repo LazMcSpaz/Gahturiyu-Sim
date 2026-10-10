@@ -320,7 +320,7 @@ impl World {
 
     /// One line on an opportunity.
     pub fn opp_line(&self, o: &Opportunity) -> String {
-        let name = |p: Option<PersonId>| p.map(|p| self.name_of(p)).unwrap_or_else(|| "someone".into());
+        let name = |p: Option<PersonId>| p.map(|p| self.known_as(p)).unwrap_or_else(|| "someone".into());
         let pay = if o.favour { "a favour owed".to_string() } else { format!("{} coin", o.reward) };
         let what = match o.kind {
             Chance::Guard => format!("guard {}'s place for {} days, {:.0} coin a day", name(Some(o.asker)), GUARD_DAYS, o.amount),

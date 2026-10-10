@@ -734,6 +734,11 @@ impl World {
         if favour && matches!(o.kind, Chance::Fetch { .. }) && want > super::chances::FAVOUR_MAX {
             return None;
         }
+        // Nobody pays more to have a debt collected than the debt (NM-58).
+        let reward = if o.kind == Chance::CollectDebt { reward.min((o.amount * 0.8) as u16) } else { reward };
+        if o.kind == Chance::CollectDebt && !favour && reward < 3 {
+            return None;
+        }
         o.reward = reward;
         o.favour = favour;
         self.post_opp(o, t)

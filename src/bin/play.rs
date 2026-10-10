@@ -447,17 +447,9 @@ fn nearby(w: &World, only: &str) -> String {
             if w.is_trading(p) {
                 tags.push("trading at their stall".to_string());
             }
-            match w.join_terms(p) {
-                Some(0) => tags.push("restless: might join".into()),
-                Some(f) => tags.push(format!("restless: might join for {f} coin")),
-                None => {}
-            }
+            // (Who'd join is found out by asking them: B4.)
             let tag = if tags.is_empty() { String::new() } else { format!(" [{}]", tags.join("; ")) };
-            // The willing first, with what they'd bring.
-            match w.join_terms(p) {
-                Some(_) => folk.push((here.dist(at) - 1e6, format!("p{p}  {} — {} {}{tag} — {}\n        {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at), w.recruit_card(p)))),
-                None => folk.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at)))),
-            }
+            folk.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at))));
         }
     }
     for g in w.groups.iter().filter(|g| g.band <= 1) {
@@ -712,9 +704,6 @@ fn talk_view(w: &World) -> String {
     let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.title(w.people[c.npc as usize].seed).to_lowercase());
     for (npc, l) in c.lines.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev() {
         let _ = writeln!(o, "  {} {}", if *npc { "»" } else { "  you:" }, gahturiyu_sim::sim::speech::plain(l));
-    }
-    if let Some(fee) = w.join_terms(c.npc) {
-        let _ = writeln!(o, "  (Would join{}: {}.)", if fee > 0 { format!(" for {fee} coin") } else { " for nothing".into() }, w.recruit_card(c.npc));
     }
     let _ = writeln!(o, "  Topics (say N):");
     for (i, t) in w.topics().iter().enumerate() {
@@ -1465,13 +1454,6 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                         let at = tl.places.get(pl as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_default();
                         let _ = writeln!(o, "    {} at the {at} — {} coin a day, 8 till 5", job.name(), w.post_wage(job));
                     }
-                }
-                let willing = w.willing_in(t.id);
-                let _ = writeln!(o, "  Willing to join ({}):", willing.len());
-                for (p, fee) in willing {
-                    let price = if fee > 0 { format!("{fee} coin") } else { "for nothing".into() };
-                    let at = if w.is_indoors_asleep(p) { "asleep indoors".to_string() } else { dist_dir(here, w.person_pos(p)) };
-                    let _ = writeln!(o, "    p{p} {} ({}), {price} — {at}\n        {}", name_of(w, p), w.life(p).job.name().to_lowercase(), w.recruit_card(p));
                 }
                 let _ = writeln!(o, "  Merchants:");
                 for &p in &t.residents {

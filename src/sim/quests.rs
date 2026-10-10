@@ -20,6 +20,7 @@ use super::geo::V2;
 use super::group::GroupId;
 use super::items::{self, ItemId};
 use super::person::PersonId;
+use super::settlement::SettlementId;
 use super::chances::Chance;
 use super::world::World;
 
@@ -143,8 +144,9 @@ impl World {
 
     /// One line saying what a job needs now, for the journal.
     pub fn quest_line(&self, q: &Quest) -> String {
-        let giver = self.people[q.giver as usize].name().unwrap_or("someone");
-        let town = self.people[q.giver as usize].home.map(|h| self.settlements[h as usize].name.as_str()).unwrap_or("?");
+        let giver = self.known_as(q.giver);
+        let home = self.people[q.giver as usize].home;
+        let town = home.map(|h| format!("{}{}", self.settlements[h as usize].name, self.how_far(h))).unwrap_or_else(|| "?".into());
         match (&q.kind, q.stage) {
             (_, Stage::Done) => format!("Done: a job for {giver} of {town}."),
             (_, Stage::Report) => format!("Report back to {giver} in {town}."),
@@ -159,15 +161,36 @@ impl World {
                 self.squad_count(*item)
             ),
             (QuestKind::Deliver { to }, _) => {
-                let p = &self.people[*to as usize];
-                let place = p.home.map(|h| self.settlements[h as usize].name.as_str()).unwrap_or("?");
-                format!("Take {giver}'s letter to {} in {place}.", p.name().unwrap_or("someone"))
+                let place = self.people[*to as usize].home.map(|h| format!("{}{}", self.settlements[h as usize].name, self.how_far(h))).unwrap_or_else(|| "?".into());
+                format!("Take {giver}'s letter to {} in {place}.", self.known_as(*to))
             }
             (QuestKind::Job { opp }, _) => match self.opportunity(*opp) {
                 Some(o) => format!("For {giver} of {town}: {}.", self.opp_line(o)),
                 None => format!("A job for {giver} of {town}."),
             },
         }
+    }
+
+    /// Someone's name, with their trade when another in their town shares it.
+    pub fn known_as(&self, p: PersonId) -> String {
+        let me = &self.people[p as usize];
+        let name = me.name().unwrap_or("someone").to_string();
+        let Some(h) = me.home else { return name };
+        let twin = self.settlements[h as usize].residents.iter().any(|&o| o != p && self.people[o as usize].name() == me.name());
+        match self.society.lives.get(p as usize) {
+            Some(l) if twin => format!("{name} the {}", l.job.title(me.seed).to_lowercase()),
+            _ => name,
+        }
+    }
+
+    /// How far off a town is, if the squad isn't in it: " (3.2 km north)".
+    pub fn how_far(&self, town: SettlementId) -> String {
+        let s = &self.settlements[town as usize];
+        let v = s.pos.sub(self.squad.pos);
+        if v.len() <= s.radius() {
+            return String::new();
+        }
+        format!(" ({:.1} km {})", v.len() / 1000.0, compass(v))
     }
 }
 

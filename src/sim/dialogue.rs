@@ -470,7 +470,8 @@ impl World {
                 if self.contract_of(c.with).is_some() {
                     t.push(Topic::QuitWork);
                 } else {
-                    t.extend(self.posts_for_member(town, c.with).into_iter().take(2).map(|(j, pl)| Topic::PostWork(j, pl)));
+                    // (All of them, as the town panel lists them: NM-58.)
+                    t.extend(self.posts_for_member(town, c.with).into_iter().take(6).map(|(j, pl)| Topic::PostWork(j, pl)));
                 }
             }
         }

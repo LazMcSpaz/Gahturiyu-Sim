@@ -27,6 +27,24 @@ pub const FEE_HOURS: f32 = 40.0;
 /// nobody there will go off with them.
 pub const WARY_STANDING: f32 = -2.0;
 
+/// A recruit comes with little of their own (Laz, B3): nothing worth more
+/// than this, each, beyond coin. The rest stays with their household.
+pub const RECRUIT_KIT_MAX: f32 = 20.0;
+
+/// What a recruit takes on the road: their kit, less anything worth more than
+/// `RECRUIT_KIT_MAX` apiece.
+pub fn travelling_kit(gear: &super::inventory::Gear) -> super::inventory::Gear {
+    use super::items::{item, SLOTS};
+    let mut g = gear.clone();
+    for s in SLOTS {
+        if g.in_slot(s).is_some_and(|it| item(it).value > RECRUIT_KIT_MAX) {
+            g.discard(s);
+        }
+    }
+    g.bag.retain(|e| item(e.0).key == "coin" || item(e.0).value <= RECRUIT_KIT_MAX);
+    g
+}
+
 /// Flatbread a recruit brings with them: about two days' eating.
 pub const RECRUIT_BREAD: u16 = 3;
 
@@ -117,11 +135,12 @@ impl World {
         best.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         // In words, as they'd say it of themselves: no numbers on a stranger.
         let skills: Vec<String> = best.iter().take(3).map(|(k, _)| k.name().to_lowercase()).collect();
-        // Their kit as it is (or as they'd turn up with it, if never met).
-        let kit = match &p.detail {
+        // What they'd bring on the road (their kit, or as they'd turn up
+        // with it if never met), less the good things they'd leave at home.
+        let kit = travelling_kit(&match &p.detail {
             Some(d) => d.gear.clone(),
             None => super::inventory::starting_kit(p.race, &p.kit_stats, p.budget, p.seed),
-        };
+        });
         use super::items::{item, Slot, SLOTS};
         let name = |s: Slot| kit.in_slot(s).map(|it| item(it).name.to_lowercase());
         let arms: Vec<String> = [Slot::MainHand, Slot::OffHand].into_iter().filter_map(name).collect();
@@ -183,10 +202,13 @@ impl World {
         if let Some(v) = self.squad.inside.last_mut() {
             *v = inside;
         }
-        // They come with a couple of days' bread of their own.
+        // They come with little: the good things stay at home. And a couple
+        // of days' bread of their own.
         if let Some(d) = self.people[npc as usize].detail.as_mut() {
+            d.gear = travelling_kit(&d.gear);
             d.gear.add(items::id("flatbread"), RECRUIT_BREAD);
         }
+        self.people[npc as usize].recompute_might();
         self.settle_condition(npc, t);
         let name = self.people[npc as usize].name().unwrap_or("someone").to_string();
         let tname = self.settlements[town as usize].name.clone();
