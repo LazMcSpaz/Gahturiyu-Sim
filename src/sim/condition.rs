@@ -330,8 +330,12 @@ fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats) {
         w.drain = STARVE_DRAIN;
         // Wasting knocks you out but never kills: it stops just past zero.
         w.drain_cap = stats.max_hp(Part::Torso) + 1.0;
+        w.rally = 0.0;
     } else {
         w.drain = 0.0;
+        // Knocked down (not starved), they come round soon.
+        w.rally = if w.rate > 0.0 { body::RALLY_PER_HOUR } else { 0.0 };
+        w.rally_to = [Part::Head, Part::Torso].map(|p| stats.max_hp(p) * (1.0 - body::RALLY_WAKE));
     }
 }
 
@@ -521,10 +525,8 @@ impl World {
                 }
                 // Wounds all healed: hunger stops counting them.
                 if c.wounded {
-                    let lost = p.wounds.lost;
-                    let worst = lost.iter().cloned().fold(0.0f32, f32::max);
-                    if p.wounds.rate > 0.0 && p.wounds.drain == 0.0 {
-                        consider(Some(p.wounds.at + (worst / p.wounds.rate) as f64 * HOUR), Event::Stage);
+                    if let Some(hrs) = p.wounds.healed_in() {
+                        consider(Some(p.wounds.at + hrs as f64 * HOUR), Event::Stage);
                     }
                 }
                 let Some((t, e)) = next else { break };

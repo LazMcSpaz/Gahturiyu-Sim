@@ -537,7 +537,10 @@ impl World {
                         let walk = Leg::straight(c, home, t, g.speed, None, &self.terrain);
                         let at = walk.arrive;
                         g.legs = vec![walk, Leg::stay(home, at, f64::INFINITY)];
-                        self.camps[ci].ready_at = at + super::encounters::CAMP_REST;
+                        // After a fight with the squad, won or lost, they
+                        // stay home until the dawn after their rest: a beaten
+                        // squad gets the night to lick its wounds.
+                        self.camps[ci].ready_at = super::encounters::next_dawn(at + super::encounters::CAMP_REST);
                     }
                     None => g.legs = vec![Leg::wait(c, f64::INFINITY)],
                 }
@@ -561,8 +564,59 @@ impl World {
             let name = self.people[m as usize].name().unwrap_or("someone").to_string();
             self.log.push_front((t, format!("{name} of your squad has died.")));
         }
-        let line = if killed > 0 { format!("The fight is over. {killed} dead.") } else { "The fight is over.".to_string() };
+        let _ = killed;
+        let line = fight_summary(&b);
         self.log.push_front((t, line));
+        // Lost: the downed come round soon, and are told how to mend.
+        if b.winner().is_some_and(|s| s != SQUAD_SIDE) && !self.squad.members.is_empty() {
+            self.log.push_front((t, "Your people come round within an hour or two. Resting (N) heals; a roof or a tent heals faster. The ones who beat you won't come looking again before dawn.".to_string()));
+        }
         self.log.truncate(14);
     }
+}
+
+/// One line on how a fight with the squad in it ended: who won, who on the
+/// other side can be gone through, who ran, who's down on yours.
+fn fight_summary(b: &Battle) -> String {
+    let name = |i: usize| b.names.get(i).cloned().unwrap_or_else(|| "someone".into());
+    let head = match b.winner() {
+        Some(SQUAD_SIDE) => "The fight is over: you won.",
+        Some(_) => "The fight is over: you lost.",
+        None => "The fight is over: both sides broke off.",
+    };
+    let mut beaten = Vec::new();
+    let mut fled = Vec::new();
+    let mut dead = Vec::new();
+    let mut down = Vec::new();
+    for (i, f) in b.fighters.iter().enumerate() {
+        if f.home == super::combat::GRAVE_SIDE || (!f.is_person() && f.raised_by.is_some()) {
+            continue;
+        }
+        if f.home == SQUAD_SIDE {
+            if f.is_person() && (f.ko || f.dead) {
+                down.push(if f.dead { format!("{} (dead)", name(i)) } else { name(i) });
+            }
+        } else if f.dead {
+            dead.push(name(i));
+        } else if f.ko {
+            beaten.push(name(i));
+        } else if f.fled || f.fleeing {
+            fled.push(name(i));
+        }
+    }
+    let list = |v: &[String]| if v.len() > 4 { format!("{} and {} more", v[..3].join(", "), v.len() - 3) } else { v.join(", ") };
+    let mut out = head.to_string();
+    if !beaten.is_empty() {
+        out += &format!(" Beaten (can be gone through): {}.", list(&beaten));
+    }
+    if !dead.is_empty() {
+        out += &format!(" Dead: {}.", list(&dead));
+    }
+    if !fled.is_empty() {
+        out += &format!(" Ran: {}.", list(&fled));
+    }
+    if !down.is_empty() {
+        out += &format!(" Down on your side: {}.", list(&down));
+    }
+    out
 }

@@ -44,6 +44,12 @@ pub const CAMP_SIGHT: f32 = 110.0;
 pub const LOOKAHEAD: f64 = 2.0 * HOUR;
 /// How long a camp rests after a fight before it tries again.
 pub const CAMP_REST: f64 = 4.0 * HOUR;
+
+/// The first dawn (06:00) at or after `t`.
+pub fn next_dawn(t: f64) -> f64 {
+    let dawn = super::society::DAWN as f64 * HOUR;
+    ((t - dawn) / super::world::DAY).ceil() * super::world::DAY + dawn
+}
 /// Bandits camped across the world at the start.
 pub const CAMPS: usize = 10;
 

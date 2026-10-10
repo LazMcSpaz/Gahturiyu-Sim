@@ -89,11 +89,25 @@ pub struct Wounds {
     pub drain_cap: f32,
     /// Limbs lost for good. They never heal.
     pub missing: [bool; 6],
+    /// Extra mending per hour for the head and torso while they're below
+    /// `rally_to` (lost above it): a downed squad member comes round within
+    /// the hour or two, then heals at `rate` (`condition.rs`).
+    #[serde(default)]
+    pub rally: f32,
+    /// The damage on the head and torso at which the rally stops.
+    #[serde(default)]
+    pub rally_to: [f32; 2],
 }
+
+/// Extra mending per hour for a downed squad member's head and torso, until
+/// they're back on their feet.
+pub const RALLY_PER_HOUR: f32 = 24.0;
+/// The share of the head's and torso's health they come round with.
+pub const RALLY_WAKE: f32 = 0.15;
 
 impl Default for Wounds {
     fn default() -> Wounds {
-        Wounds { lost: [0.0; 6], at: 0.0, rate: HEAL_PER_HOUR, drain: 0.0, drain_cap: 0.0, missing: [false; 6] }
+        Wounds { lost: [0.0; 6], at: 0.0, rate: HEAL_PER_HOUR, drain: 0.0, drain_cap: 0.0, missing: [false; 6], rally: 0.0, rally_to: [0.0; 2] }
     }
 }
 
@@ -103,6 +117,17 @@ impl Wounds {
         let h = ((t - self.at).max(0.0) / 3600.0) as f32;
         let healed = self.rate * h;
         let mut out = self.lost.map(|l| (l - healed).max(0.0));
+        // The head and torso rally first, while the member is down.
+        if self.rally > 0.0 {
+            for (j, i) in [Part::Head as usize, Part::Torso as usize].into_iter().enumerate() {
+                let (l, to) = (self.lost[i], self.rally_to[j]);
+                if l > to {
+                    let fast = self.rate + self.rally;
+                    let t1 = (l - to) / fast;
+                    out[i] = if h <= t1 { l - fast * h } else { (to - self.rate * (h - t1)).max(0.0) };
+                }
+            }
+        }
         for i in 0..6 {
             if self.missing[i] {
                 out[i] = self.lost[i];
@@ -134,6 +159,28 @@ impl Wounds {
             self.lost[i] = (stats.max_hp(*p) - hp[i]).max(0.0);
         }
         self.at = t;
+    }
+
+    /// Hours from `at` until every wound that can heal has (with a rally
+    /// counted), if they're healing at all.
+    pub fn healed_in(&self) -> Option<f32> {
+        if self.rate <= 0.0 || self.drain > 0.0 {
+            return None;
+        }
+        let mut worst = 0.0f32;
+        for i in 0..6 {
+            if self.missing[i] {
+                continue;
+            }
+            let l = self.lost[i];
+            let j = if i == Part::Head as usize { Some(0) } else if i == Part::Torso as usize { Some(1) } else { None };
+            let hrs = match j {
+                Some(j) if self.rally > 0.0 && l > self.rally_to[j] => (l - self.rally_to[j]) / (self.rate + self.rally) + self.rally_to[j] / self.rate,
+                _ => l / self.rate,
+            };
+            worst = worst.max(hrs);
+        }
+        Some(worst)
     }
 
     pub fn is_hurt(&self, t: f64) -> bool {
