@@ -13,6 +13,12 @@ Add a row whenever a branch is merged.
 - Conflicts are settled on the feature branch, by its own agent, by merging `main` into it.
 - One merge, one full `cargo test --release`, one push.
 
+## After the consolidation
+
+| Date | Branch | How | Commit on `main` | Checked | Left open |
+|---|---|---|---|---|---|
+| 10 Oct 2026 | `claude/language-dialogue` (tip `756d071`) | Merge commit. Branched from `main` at `b0d2da9`; merged cleanly onto `be5862c`. No `save::FORMAT` or `Cargo.toml` change. | `b153782` | Full suite on the merge result: 52 groups, 424 passed, 0 failed, 1 ignored (cloud container, Linux). | Not yet seen in the window: the teal words, the hover meanings and the Names setting were checked by its own agent only. |
+
 ## Consolidation of 10 Oct 2026
 
 Before this, everyone worked on `claude/repo-setup-x72er0` and called it "main". The branch named
