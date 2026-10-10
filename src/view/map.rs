@@ -105,6 +105,40 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
                 }
             }
         }
+        // Out-of-town work marked with a sign and a name from middling zoom,
+        // so a woodlot or a mine can be found from the map.
+        if cam.zoom > 0.08 {
+            if let Some(tl) = w.society.towns.get(st.id as usize) {
+                use gahturiyu_sim::sim::jobs::PlaceKind as K;
+                for wp in tl.places.iter().filter(|p| matches!(p.kind, K::Woodlot | K::Quarry | K::Wilds | K::CharcoalPit)) {
+                    let q = s(wp.pos);
+                    let k = (cam.zoom * 10.0).clamp(6.0, 11.0);
+                    let (col, label) = match wp.kind {
+                        K::Woodlot => ([0.45, 0.78, 0.38], "woodlot"),
+                        K::Quarry => ([0.82, 0.78, 0.70], "mine"),
+                        K::Wilds => ([0.85, 0.68, 0.40], "hunting grounds"),
+                        _ => ([0.62, 0.56, 0.50], "charcoal pit"),
+                    };
+                    match wp.kind {
+                        // A tree: a triangle on a stem.
+                        K::Woodlot => {
+                            c.rect(q.x - 1.0, q.y, 2.0, k * 0.6, ega([0.4, 0.3, 0.2], 0.95));
+                            c.triangle(vec2(q.x, q.y - k), vec2(q.x - k * 0.7, q.y + k * 0.2), vec2(q.x + k * 0.7, q.y + k * 0.2), ega(col, 0.95));
+                        }
+                        // A mine: a square with a dark mouth.
+                        K::Quarry => {
+                            c.rect(q.x - k * 0.7, q.y - k * 0.7, k * 1.4, k * 1.4, ega(col, 0.95));
+                            c.rect(q.x - k * 0.3, q.y - k * 0.1, k * 0.6, k * 0.8, ega([0.1, 0.1, 0.1], 0.95));
+                        }
+                        _ => c.circle(q.x, q.y, k * 0.55, ega(col, 0.9)),
+                    }
+                    if cam.zoom > 0.12 {
+                        c.centred(label, q.x + 1.0, q.y + k + 14.0, 13.0, [0.05, 0.05, 0.05]);
+                        c.centred(label, q.x, q.y + k + 13.0, 13.0, col);
+                    }
+                }
+            }
+        }
         for pid in w.residents_in_band1(st.id) {
             if w.is_indoors_asleep(pid) {
                 continue;

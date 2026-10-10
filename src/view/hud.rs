@@ -459,6 +459,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 }
             } else {
                 out.extend(work_lines(w, pid));
+                if let Some(fee) = w.join_terms(pid) {
+                    let price = if fee > 0 { format!("for {fee} coin") } else { "for nothing".into() };
+                    out.push((format!("Would join the squad {price}: {}", w.recruit_card(pid)), GOLD));
+                }
                 out.extend(life_lines(w, pid));
                 if let Some(g) = w.group_of[pid as usize].and_then(|g| w.group(g)) {
                     out.push((doing(w, g.id), DIM));

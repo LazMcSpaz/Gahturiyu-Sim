@@ -30,7 +30,7 @@ use gahturiyu_sim::sim::{
 
 const HELP: &str = "\
 Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
-  look                      the HUD and everything near the squad
+  look [places|people]      the HUD and everything near the squad (or just places, or just people)
   select NAME [NAME..]      who takes orders (`select all` for everyone)
   go ID | go X,Y | go DIR M move the selected (DIR: n ne e se s sw w nw; M metres)
   attack pID                set the selected on someone (a sneak attack if unseen)
@@ -254,6 +254,10 @@ fn pos_of(w: &World, id: &str) -> Option<V2> {
             w.door((a.parse().ok()?, b.parse().ok()?)).map(|d| d.outside)
         }
         'k' => w.container(container_id(&rest)?).map(|c| c.pos),
+        'w' => {
+            let (a, b) = rest.split_once('.')?;
+            w.society.towns.get(a.parse::<usize>().ok()?)?.places.get(b.parse::<usize>().ok()?).map(|p| p.pos)
+        }
         _ => None,
     }
 }
@@ -262,7 +266,7 @@ fn pos_of(w: &World, id: &str) -> Option<V2> {
 
 const TIPS: &[(&str, &str)] = &[
     ("welcome", "Welcome. Left-click the ground to walk. Click a squad member to choose who takes orders. Hover over anything to see what it is."),
-    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked."),
+    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked (`town` lists who, and their price)."),
     ("work", "Short of coin? Every town has a woodlot (and some a mine) nearby, marked by a post. Click it and the selected work until their packs are full."),
     ("fight", "A fight! Click an enemy to set the selected on them. Z sneaks; T lights a torch."),
     ("loot", "A beaten foe: click them and someone goes through their things. Bandits carry coin."),
@@ -320,6 +324,11 @@ fn status(w: &World, pid: PersonId) -> String {
         return "crafting".into();
     }
     let moving = w.squad.at[k].dist(w.squad.goal[k]) > 0.5;
+    match w.on_shift(pid) {
+        Some(true) => return "at work".into(),
+        Some(false) if moving => return "walking to work".into(),
+        _ => {}
+    }
     let sneak = w.is_sneaking(pid);
     match (moving, sneak) {
         (true, true) => "sneaking along".into(),
@@ -376,14 +385,20 @@ fn hud(w: &World, s: &Session) -> String {
     if let Some(q) = w.quests.iter().find(|q| q.stage != Stage::Done) {
         let _ = writeln!(o, "Tracked job: {}", w.quest_line(q));
     }
+    for l in w.work_lines() {
+        let _ = writeln!(o, "Town work: {l}");
+    }
     o
 }
 
-fn nearby(w: &World) -> String {
+/// What's near the squad: places and things first (all of them, up to a
+/// point), then people. `only`: "places" or "people" to list just those.
+fn nearby(w: &World, only: &str) -> String {
     let mut o = String::new();
     let here = w.squad.pos;
     let near = |p: V2, r: f32| here.dist(p) <= r;
     let mut lines: Vec<(f32, String)> = Vec::new();
+    let mut folk: Vec<(f32, String)> = Vec::new();
     // People: townsfolk about, travellers and bands close by.
     let mut seen_people: Vec<PersonId> = Vec::new();
     for st in w.settlements.iter().filter(|s| near(s.pos, s.radius() + 400.0)) {
@@ -405,7 +420,11 @@ fn nearby(w: &World) -> String {
                 None => {}
             }
             let tag = if tags.is_empty() { String::new() } else { format!(" [{}]", tags.join("; ")) };
-            lines.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at))));
+            // The willing first, with what they'd bring.
+            match w.join_terms(p) {
+                Some(_) => folk.push((here.dist(at) - 1e6, format!("p{p}  {} — {} {}{tag} — {}\n        {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at), w.recruit_card(p)))),
+                None => folk.push((here.dist(at), format!("p{p}  {} — {} {}{tag} — {}", name_of(w, p), pp.race.name(), job.to_lowercase(), dist_dir(here, at)))),
+            }
         }
     }
     for g in w.groups.iter().filter(|g| g.band <= 1) {
@@ -425,7 +444,13 @@ fn nearby(w: &World) -> String {
             } else {
                 "traveller"
             };
-            lines.push((here.dist(at), format!("p{m}  {} — {} {what} — {}", name_of(w, m), pp.race.name(), dist_dir(here, at))));
+            // Foes and the beaten among the places: they matter more than chat.
+            let row = (here.dist(at), format!("p{m}  {} — {} {what} — {}", name_of(w, m), pp.race.name(), dist_dir(here, at)));
+            if what == "traveller" {
+                folk.push(row);
+            } else {
+                lines.push(row);
+            }
         }
     }
     // Ruins and camps.
@@ -442,6 +467,27 @@ fn nearby(w: &World) -> String {
             here.dist(d.pos),
             format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg and fetches about {} coin in town (less each for a big lot) — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, w.fetches_in(d.town, d.item), dist_dir(here, d.pos)),
         ));
+    }
+    // Out-of-town workplaces (fields, hunting grounds, docks...); a woodlot or
+    // mine shows as its deposit above.
+    // (A town's many fields as one line: the nearest, and how many.)
+    for (ti, tl) in w.society.towns.iter().enumerate() {
+        let fields = tl.places.iter().filter(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).count();
+        let nearest_field = tl.places.iter().enumerate().filter(|(_, p)| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).min_by(|a, b| a.1.pos.dist(here).total_cmp(&b.1.pos.dist(here))).map(|(i, _)| i);
+        for (i, wp) in tl.places.iter().enumerate() {
+            if !wp.kind.is_away() || !near(wp.pos, 800.0) || w.deposits.iter().any(|d| d.pos.dist(wp.pos) < 15.0) {
+                continue;
+            }
+            let what = if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields {
+                if Some(i) != nearest_field {
+                    continue;
+                }
+                format!("Fields of {} (the nearest of {fields})", w.settlements[ti].name)
+            } else {
+                format!("{} of {}", wp.kind.name(), w.settlements[ti].name)
+            };
+            lines.push((here.dist(wp.pos), format!("w{ti}.{i}  {what} — {}", dist_dir(here, wp.pos))));
+        }
     }
     for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0) {
         let at = w.herd_pos(h.id, w.time);
@@ -487,12 +533,29 @@ fn nearby(w: &World) -> String {
         }
     }
     lines.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let _ = writeln!(o, "Near you ({} things; closest first):", lines.len());
-    for (_, l) in lines.iter().take(40) {
-        let _ = writeln!(o, "  {l}");
+    folk.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let (most_places, most_folk) = match only {
+        "places" => (200, 0),
+        "people" => (0, 200),
+        _ => (30, 20),
+    };
+    if most_places > 0 {
+        let _ = writeln!(o, "Near you ({} places and things; closest first):", lines.len());
+        for (_, l) in lines.iter().take(most_places) {
+            let _ = writeln!(o, "  {l}");
+        }
+        if lines.len() > most_places {
+            let _ = writeln!(o, "  … and {} more further off (`look places` for all)", lines.len() - most_places);
+        }
     }
-    if lines.len() > 40 {
-        let _ = writeln!(o, "  … and {} more further off", lines.len() - 40);
+    if most_folk > 0 {
+        let _ = writeln!(o, "People about ({}; closest first):", folk.len());
+        for (_, l) in folk.iter().take(most_folk) {
+            let _ = writeln!(o, "  {l}");
+        }
+        if folk.len() > most_folk {
+            let _ = writeln!(o, "  … and {} more further off (`look people` for all)", folk.len() - most_folk);
+        }
     }
     o
 }
@@ -522,6 +585,10 @@ fn tips(w: &World, s: &mut Session) -> String {
 }
 
 fn look(w: &mut World, s: &mut Session) -> String {
+    look_only(w, s, "")
+}
+
+fn look_only(w: &mut World, s: &mut Session, only: &str) -> String {
     let mut o = hud(w, s);
     o += &news(w, s);
     o += &tips(w, s);
@@ -531,7 +598,7 @@ fn look(w: &mut World, s: &mut Session) -> String {
     if w.talk.is_some() {
         o += &talk_view(w);
     }
-    o += &nearby(w);
+    o += &nearby(w, only);
     o
 }
 
@@ -565,6 +632,9 @@ fn talk_view(w: &World) -> String {
     let _ = writeln!(o, "TALKING with {} ({} {}):", name_of(w, c.npc), w.people[c.npc as usize].race.name(), w.life(c.npc).job.title(w.people[c.npc as usize].seed).to_lowercase());
     for (npc, l) in c.lines.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev() {
         let _ = writeln!(o, "  {} {}", if *npc { "»" } else { "  you:" }, gahturiyu_sim::sim::speech::plain(l));
+    }
+    if let Some(fee) = w.join_terms(c.npc) {
+        let _ = writeln!(o, "  (Would join{}: {}.)", if fee > 0 { format!(" for {fee} coin") } else { " for nothing".into() }, w.recruit_card(c.npc));
     }
     let _ = writeln!(o, "  Topics (say N):");
     for (i, t) in w.topics().iter().enumerate() {
@@ -677,7 +747,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         *o += &look(w, s);
     };
     match cmd {
-        "look" => o += &look(w, s),
+        "look" => o += &look_only(w, s, arg(0)),
         "select" => {
             if a.is_empty() || arg(0) == "all" {
                 s.selected.clear();
@@ -1121,7 +1191,10 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             for q in &w.quests {
                 let _ = writeln!(o, "  [{:?}] {}", q.stage, w.quest_line(q));
             }
-            if w.quests.is_empty() {
+            for l in w.work_lines() {
+                let _ = writeln!(o, "  [Town work] {l}");
+            }
+            if w.quests.is_empty() && w.society.contracts.is_empty() {
                 o += "  No jobs taken.\n";
             }
         }
@@ -1136,6 +1209,12 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let _ = writeln!(o, "Ruins and lairs (diamonds on the map):");
             for r in &w.ruins {
                 let _ = writeln!(o, "  r{}  {}{} — {}", r.id, r.name(w), if w.ruin_held(r.id) { "" } else { " (unguarded)" }, dist_dir(here, r.pos));
+            }
+            let _ = writeln!(o, "Woodlots and mines, nearest first:");
+            let mut faces: Vec<_> = w.deposits.iter().collect();
+            faces.sort_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
+            for d in faces.iter().take(8) {
+                let _ = writeln!(o, "  d{}  {} of {} — {:.0} {} left — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), dist_dir(here, d.pos));
             }
             let _ = writeln!(o, "Bandit camps known (red triangles):");
             let mut camps: Vec<V2> = w.camps.iter().map(|c| c.pos).collect();
@@ -1154,6 +1233,37 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 }
                 let list: Vec<String> = jobs.iter().map(|(j, n)| format!("{j} {n}")).collect();
                 let _ = writeln!(o, "  Trades: {}", list.join(", "));
+                let tl = &w.society.towns[t.id as usize];
+                let _ = writeln!(o, "  Out of town:");
+                let fields = tl.places.iter().filter(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).count();
+                let mut field_shown = false;
+                for (i, wp) in tl.places.iter().enumerate().filter(|(_, p)| p.kind.is_away()) {
+                    if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields {
+                        if !field_shown {
+                            field_shown = true;
+                            let _ = writeln!(o, "    w{}.{i} Fields ({fields} plots round the town) — {}", t.id, dist_dir(here, wp.pos));
+                        }
+                        continue;
+                    }
+                    let face: Vec<String> = w.deposits.iter().filter(|d| d.pos.dist(wp.pos) < 15.0).map(|d| format!("d{} {} {:.0} {} left", d.id, d.face().name.to_lowercase(), d.left_at(w.time).floor(), item(d.item).name.to_lowercase())).collect();
+                    let face = if face.is_empty() { String::new() } else { format!(" ({})", face.join("; ")) };
+                    let _ = writeln!(o, "    w{}.{i} {}{face} — {}", t.id, wp.kind.name(), dist_dir(here, wp.pos));
+                }
+                let posts = w.vacant_posts(t.id);
+                if !posts.is_empty() {
+                    let _ = writeln!(o, "  Work going (ask an official or the hall):");
+                    for (job, pl) in posts {
+                        let at = tl.places.get(pl as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_default();
+                        let _ = writeln!(o, "    {} at the {at} — {} coin a day, 8 till 5", job.name(), w.post_wage(job));
+                    }
+                }
+                let willing = w.willing_in(t.id);
+                let _ = writeln!(o, "  Willing to join ({}):", willing.len());
+                for (p, fee) in willing {
+                    let price = if fee > 0 { format!("{fee} coin") } else { "for nothing".into() };
+                    let at = if w.is_indoors_asleep(p) { "asleep indoors".to_string() } else { dist_dir(here, w.person_pos(p)) };
+                    let _ = writeln!(o, "    p{p} {} ({}), {price} — {at}\n        {}", name_of(w, p), w.life(p).job.name().to_lowercase(), w.recruit_card(p));
+                }
                 let _ = writeln!(o, "  Merchants:");
                 for &p in &t.residents {
                     match w.trades_next(p) {

@@ -95,6 +95,9 @@ pub enum Topic {
     /// Show everything the merchant would take, not just the dearest few.
     SellRest,
     Goodbye,
+    /// Ask someone who won't come to join anyway: they say why not.
+    /// (Last, so saves made before it still read.)
+    AskJoin,
 }
 
 impl Topic {
@@ -132,7 +135,7 @@ impl Topic {
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
-            Topic::Join(_) => "Come with us",
+            Topic::Join(_) | Topic::AskJoin => "Come with us",
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
@@ -220,7 +223,10 @@ impl World {
                 Some(o) => format!("I'll take it: {}", self.opp_line(o)),
                 None => t.text(),
             },
-            Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
+            Topic::PostWork(job, place) => {
+                let at = self.talk.as_ref().and_then(|c| self.people[c.npc as usize].home).and_then(|h| self.society.towns[h as usize].places.get(place as usize)).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
+                format!("I'll work as {}{at} ({} coin a day, 8 till 5)", job.name().to_lowercase(), self.post_wage(job))
+            }
             Topic::Hire(wage) => format!("Come and work at my outpost ({wage} coin a day)"),
             Topic::SellAll(it) => {
                 // The coin on the button is the coin received: worked out
@@ -460,8 +466,11 @@ impl World {
             t.push(Topic::Hire(wage));
         }
         // The restless may take to the road with the squad.
-        if let Some(fee) = self.join_terms(c.npc) {
-            t.push(Topic::Join(fee));
+        // (Anyone else, asked, says why not in a line.)
+        match self.join_terms(c.npc) {
+            Some(fee) => t.push(Topic::Join(fee)),
+            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad => t.push(Topic::AskJoin),
+            None => {}
         }
         // Tenders take orders for grown pieces.
         if !self.order_options(c.npc).is_empty() {
@@ -560,7 +569,11 @@ impl World {
                 if !matches!(job, super::jobs::Job::None | super::jobs::Job::Drifter) {
                     tags.push("has_job".into());
                     if let Some(w) = self.workplace_of(c.npc) {
-                        values.push(("place", format!(" at the {}", w.kind.name().to_lowercase())));
+                        // Where it is from here, so it can be found.
+                        let v = w.pos.sub(self.person_pos(c.npc));
+                        let d = v.len();
+                        let way = if d < 40.0 { String::new() } else { format!(", {} m {} of here", ((d / 10.0).round() * 10.0) as u32, super::quests::compass(v)) };
+                        values.push(("place", format!(" at the {}{way}", w.kind.name().to_lowercase())));
                     }
                 } else {
                     tags.push("no_job".into());
@@ -717,7 +730,9 @@ impl World {
             Topic::PostWork(job, place) => {
                 let town = p.home.unwrap_or(0);
                 if self.take_post_work(c.with, town, job, place) {
-                    format!("Good. You'll work as {} from tomorrow's first light, 8 till 5. Paid each dawn.", job.name().to_lowercase())
+                    let name = self.people[c.with as usize].name().unwrap_or("you").to_string();
+                    let at = self.society.towns[town as usize].places.get(place as usize).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
+                    format!("Good, {name}. You'll work as {}{at} from tomorrow, 8 till 5, for {} coin a day, paid each dawn.", job.name().to_lowercase(), self.post_wage(job))
                 } else {
                     "You've work already.".into()
                 }
@@ -733,6 +748,7 @@ impl World {
                 }
                 Err(e) => format!("No — {e}."),
             },
+            Topic::AskJoin => self.why_not_join(c.npc).unwrap_or("Ask me properly.").to_string(),
             Topic::Join(fee) => match self.recruit(c.npc, c.with) {
                 Ok(_) if fee > 0 => format!("{fee} coin to my household, and I'm yours. Where are we going?"),
                 Ok(_) => "Nothing keeps me here. I'll get my things — lead on.".into(),
@@ -936,6 +952,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::QuitWork => 70,
         Topic::Hire(_) => 71,
         Topic::Join(_) => 72,
+        Topic::AskJoin => 73,
         Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::SellWorn(it, m, _) => 3_000_000 + ((it as u64) << 32) + m as u64,
         Topic::SellRest => 73,
