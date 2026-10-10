@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use gahturiyu_sim::sim::{
     bands::{BAND1_RADIUS, BAND2_RADIUS},
     body,
-    buildings::{door_of, Door},
+    buildings::door_of,
     combat::{FxKind, SQUAD_SIDE},
     crafting::Station,
     geo::{self, V2},
@@ -279,6 +279,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
 
     // ---- Towns, cached ------------------------------------------------------
     let open = w.occupied();
+    // Screenshots can show every building cut open (`GAHT_CUTAWAY`).
+    let cutaway = game.cutaway;
     let near: Vec<u16> = w.settlements.iter().filter(|s| s.pos.dist(oc.target) <= radius + s.reach).map(|s| s.id).collect();
     scene.towns.retain(|id, town| {
         let keep = near.contains(id);
@@ -291,7 +293,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     });
     for &sid in &near {
         let s = &w.settlements[sid as usize];
-        let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| open.contains(&(sid, *i))).collect();
+        let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| cutaway || open.contains(&(sid, *i))).collect();
         let layout = w.society.towns.get(sid as usize).map(|tl| tl.places.iter().fold(tl.places.len() as u64, |h, p| h.rotate_left(5) ^ p.seed)).unwrap_or(0);
         let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.generation || tw.layout != layout).unwrap_or(true);
         if fresh {
@@ -305,7 +307,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let mut ents = Vec::new();
             for (i, bd) in s.buildings.iter().enumerate() {
                 match door_of(s, i as u16) {
-                    Some(d) if occupied.contains(&(i as u16)) => interior(&mut lit, &mut glow, bd, &d, &on_ground),
+                    Some(d) if occupied.contains(&(i as u16)) => super::interiors::interior(&mut lit, &mut glow, &d, &on_ground),
                     _ => {
                         let model = match bd.kind {
                             BuildingKind::RoduroHome => models.roduro_kind(bd.seed, bd.size),
@@ -324,7 +326,12 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                                 // The kit is in metres already; stood on the water line.
                                 ents.extend(models.spawn_assembly(&mut commands, name, to3(bd.pos, 0.0), bd.rot, 1.0));
                             }
-                            _ => building(&mut lit, &mut glow, t, bd, &on_ground),
+                            // Placeholder shapes by variant (the hearth its own way).
+                            _ => {
+                                if !super::interiors::exterior(&mut lit, &mut glow, t, bd, &on_ground) {
+                                    building(&mut lit, &mut glow, t, bd, &on_ground);
+                                }
+                            }
                         }
                     }
                 }
@@ -363,14 +370,24 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         if let Some(town) = &w.forge {
             let grid = scene.grid;
+            let on_ground = |p: V2| grid.height(t, p);
+            // With the final models off (or one missing), placeholder shapes.
+            let (mut hb, mut hg) = (Builder::new(), Builder::new());
             for h in &town.founding.homes {
-                let ground = grid.height(t, h.at);
-                let sink = (t.slope(h.at) * 6.0).min(2.0);
-                scene.forge.extend(models.spawn(&mut commands, &h.model, to3(h.at, ground - sink), h.rot, 0.0));
+                if super::models::use_final_models() && models.has(&h.model) {
+                    let ground = grid.height(t, h.at);
+                    let sink = (t.slope(h.at) * 6.0).min(2.0);
+                    scene.forge.extend(models.spawn(&mut commands, &h.model, to3(h.at, ground - sink), h.rot, 0.0));
+                } else {
+                    super::interiors::forge_home(&mut hb, &mut hg, t, h.at, h.rot, h.eldest, &on_ground);
+                }
+            }
+            if !hb.is_empty() {
+                scene.forge.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, hb, GroundMesh).0);
+                scene.forge.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, hg, GroundMesh).0);
             }
             // The ways: lanes laid on the drawn ground, stairs cut as treads,
             // slab bridges.
-            let on_ground = |p: V2| grid.height(t, p);
             let mut wb = Builder::new();
             for way in &town.ways.ways {
                 forge_way(&mut wb, &on_ground, way);
@@ -709,6 +726,19 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    // Containers in buildings someone is in: drawn every frame, so a lid
+    // opens while it's gone through and a picked lock loses its plate.
+    for &sid in &near {
+        let s = &w.settlements[sid as usize];
+        for i in 0..s.buildings.len() as u16 {
+            if cutaway || open.contains(&(sid, i)) {
+                if let Some(d) = door_of(s, i) {
+                    super::interiors::containers(&mut b, &mut gl, w, &d, &on_ground, &mut game.picks);
+                }
+            }
+        }
+    }
+
     // ---- Magic on show ---------------------------------------------------
     magic_scene(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, k, eye, &mut game.bars);
 
@@ -814,47 +844,6 @@ fn arrow(b: &mut Builder, on_ground: &dyn Fn(V2) -> f32, from: V2, to: V2, hit: 
     // Fletching, pale, at the tail.
     let d = (tip - tail).normalize_or_zero();
     b.stick(tail, tail + d * 0.18 * kk, 0.14 * kk, [0.9, 0.9, 0.85]);
-}
-
-/// A building seen from inside: floor, the stubs of its walls (with a gap at
-/// the door), and what's in it.
-fn interior(b: &mut Builder, gl: &mut Builder, bd: &Building, d: &Door, on_ground: &dyn Fn(V2) -> f32) {
-    let floor_h = on_ground(bd.pos);
-    let base = to3(bd.pos, floor_h);
-    let (wall, floor) = match bd.kind {
-        BuildingKind::RoduroHome | BuildingKind::QotiroHall => (palette::STONE, [0.30, 0.28, 0.26]),
-        _ => (palette::SANDSTONE, [0.62, 0.52, 0.38]),
-    };
-    let r = d.radius;
-    b.column(base - vec3(0.0, 0.25, 0.0), r, r, 0.3, 20, floor);
-    b.column(base + vec3(0.0, 0.06, 0.0), r * 0.45, r * 0.45, 0.02, 14, [0.55, 0.22, 0.16]);
-    let door_dir = d.outside.sub(d.centre);
-    let door_a = door_dir.y.atan2(door_dir.x);
-    let n = 22;
-    for k in 0..n {
-        let a = k as f32 / n as f32 * std::f32::consts::TAU;
-        let gap = ((a - door_a + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI).abs();
-        if gap < 0.32 {
-            continue;
-        }
-        let p = bd.pos.add(V2::new(a.cos(), a.sin()).scale(r - 0.3));
-        let seg = r * std::f32::consts::TAU / n as f32 + 0.2;
-        b.block(to3(p, floor_h - 0.2), 0.6, seg, 1.3, a, wall);
-    }
-    // Furniture, laid out from the building's seed: bed, table, chest, hearth.
-    let mut r2 = rng::Rng::from_keys(&[bd.seed, 0x4655_524E]);
-    let back = d.centre.sub(d.inside);
-    let back_a = back.y.atan2(back.x);
-    let spot = |a: f32, f: f32| bd.pos.add(V2::new((back_a + a).cos(), (back_a + a).sin()).scale(r * f));
-    let bed = spot(1.4 + r2.f32() * 0.3, 0.55);
-    b.block(to3(bed, floor_h), 2.0, 1.0, 0.5, back_a + 1.4, palette::TIMBER);
-    b.block(to3(bed, floor_h + 0.5), 1.8, 0.9, 0.12, back_a + 1.4, [0.72, 0.68, 0.58]);
-    let table = spot(-1.2 - r2.f32() * 0.3, 0.45);
-    b.block(to3(table, floor_h), 1.4, 0.9, 0.8, back_a, palette::TIMBER);
-    let chest = spot(0.25, 0.68);
-    b.block(to3(chest, floor_h), 1.1, 0.6, 0.6, back_a, [0.45, 0.30, 0.16]);
-    let fire = spot(-0.35, 0.62);
-    gl.column(to3(fire, floor_h), 0.5, 0.2, 0.4, 6, palette::EMBER);
 }
 
 /// A flat strip laid over the land from `a` to `c`, cut into pieces no longer
@@ -1127,7 +1116,7 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_gr
             let mut sz = bd.size;
             for tier in 0..tiers {
                 let h = 4.0 + unit(10 + tier as u64) * 1.5 + if tier == 0 { sink } else { 0.0 };
-                b.block(base + vec3(0.0, y, 0.0), sz, sz * 0.8, h, bd.rot, palette::SANDSTONE);
+                b.block(base + vec3(0.0, y, 0.0), sz, sz * 0.8, h, bd.rot, palette::QUARRIED);
                 // A lit slit window on each tier.
                 let (sn, cs) = bd.rot.sin_cos();
                 gl.patch(base + vec3(0.0, y + h * 0.55, 0.0) + vec3(cs, 0.0, sn) * (sz * 0.5 + 0.02), 0.5, 1.0, bd.rot, palette::WINDOW);
@@ -1138,10 +1127,10 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_gr
         BuildingKind::QotiroTemple => {
             let mut y = 0.0;
             for (f, h) in [(1.0, 7.0 + sink), (0.68, 8.0), (0.40, 3.0)] {
-                b.block(base + vec3(0.0, y, 0.0), bd.size * f, bd.size * f, h, bd.rot, palette::SANDSTONE);
+                b.block(base + vec3(0.0, y, 0.0), bd.size * f, bd.size * f, h, bd.rot, palette::QUARRIED);
                 y += h;
             }
-            b.block(base + vec3(0.0, y, 0.0), bd.size * 0.16, bd.size * 0.2, 6.0, bd.rot, palette::SANDSTONE);
+            b.block(base + vec3(0.0, y, 0.0), bd.size * 0.16, bd.size * 0.2, 6.0, bd.rot, palette::QUARRIED);
             b.column(base + vec3(0.0, y + 6.0, 0.0), bd.size * 0.06, 0.0, 3.0, 8, palette::METAL_GOLD);
             gl.patch(base + vec3(0.0, y + 9.5, 0.0), 2.6, 2.6, bd.rot, palette::METAL_GOLD);
         }
@@ -1578,7 +1567,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
             }
         }
         PlaceKind::MessHall | PlaceKind::Hall => {
-            b.block(base, size, size * 0.6, 4.0 + sink, rot, palette::SANDSTONE);
+            b.block(base, size, size * 0.6, 4.0 + sink, rot, palette::QUARRIED);
             b.block(base + vec3(0.0, 4.0 + sink, 0.0), size * 1.05, size * 0.65, 0.4, rot, palette::TIMBER);
             gl.patch(base + vec3(cs, 0.0, sn) * (size * 0.5 + 0.02) + vec3(0.0, 2.0 + sink, 0.0), 1.6, 1.4, rot, palette::WINDOW);
             if k == PlaceKind::Hall {
@@ -1611,7 +1600,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
             banner(b, base + vec3(cs, 0.0, sn) * (size * 0.5 + 1.2), palette::METAL_GOLD);
         }
         PlaceKind::Shrine => {
-            b.block(base, 4.0, 4.0, 0.8 + sink, rot, palette::SANDSTONE);
+            b.block(base, 4.0, 4.0, 0.8 + sink, rot, palette::QUARRIED);
             b.column(base + vec3(0.0, 0.8 + sink, 0.0), 0.5, 0.3, 3.0, 8, palette::STONE);
             gl.patch(base + vec3(0.0, 4.2 + sink, 0.0), 1.2, 1.2, rot, palette::METAL_GOLD);
         }
@@ -1656,7 +1645,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
                 }
                 gl.column(base + vec3(-sn, 0.0, cs) * -2.0, 0.6, 0.3, 0.9, 6, palette::EMBER);
             } else {
-                let col = if k == PlaceKind::Forge { palette::STONE } else { palette::SANDSTONE };
+                let col = if k == PlaceKind::Forge { palette::STONE } else { palette::QUARRIED };
                 b.block(base, size * 0.8, size * 0.7, 3.0 + sink, rot, col);
                 if k == PlaceKind::Forge {
                     b.block(base + vec3(-sn, 0.0, cs) * 1.5, 0.9, 0.9, 5.0 + sink, rot, palette::STONE);

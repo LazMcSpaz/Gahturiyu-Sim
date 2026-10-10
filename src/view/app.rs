@@ -49,6 +49,8 @@ pub enum Hover {
     Deposit(u32),
     /// A ruin or lair.
     Ruin(u32),
+    /// A chest, crate, cupboard or barrel in a building.
+    Container(gahturiyu_sim::sim::containers::ContainerId),
 }
 
 /// Everything the window keeps between frames.
@@ -119,6 +121,9 @@ pub struct Game {
     /// The Base tab of the Build panel rather than the list of buildings.
     pub base_tab: bool,
     pub placing: Option<super::baseui::Placing>,
+    /// Draw every building near the camera cut open (screenshots only:
+    /// `GAHT_CUTAWAY`).
+    pub cutaway: bool,
 }
 
 pub fn run() {
@@ -212,6 +217,7 @@ pub fn run() {
         build: false,
         base_tab: false,
         placing: None,
+        cutaway: false,
         shot: None,
         world,
     };
@@ -276,6 +282,22 @@ pub fn run() {
             game.follow = false;
             game.orbit.target = p;
             game.orbit.ground = game.world.terrain.surface(p);
+        }
+        // Interiors and the variants row frame themselves.
+        game.cutaway = s.cutaway;
+        if let Some((at, dist, pitch, yaw)) = *s.framing.lock().unwrap() {
+            game.follow = false;
+            game.orbit.target = at;
+            game.orbit.ground = game.world.terrain.surface(at);
+            if s.zoom.is_none() {
+                game.orbit.dist = dist;
+            }
+            if s.pitch.is_none() {
+                game.orbit.pitch = pitch;
+            }
+            if let (None, Some(y)) = (s.yaw, yaw) {
+                game.orbit.yaw = y;
+            }
         }
         if s.forest {
             if let Some(p) = super::foliage::biggest_wood_near(&game.world, game.world.squad.pos) {
@@ -873,6 +895,32 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 return;
             }
         }
+        // A container: pick its lock (the selected member with a lockpick
+        // and the best chance), or the nearest selected member opens it.
+        Some(Hover::Container(id)) => {
+            if world.container_locked(id) {
+                let pick = items::id("lockpick");
+                let lock = world.container(id).map(|c| c.lock).unwrap_or(50.0);
+                let picker = who
+                    .iter()
+                    .copied()
+                    .filter(|&m| world.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == pick)).unwrap_or(false))
+                    .max_by(|&a, &b| world.pick_chance(a, lock).total_cmp(&world.pick_chance(b, lock)));
+                match picker {
+                    Some(p) => {
+                        world.order_pick_container(p, id);
+                    }
+                    None => world.log.push_front((world.time, "Nobody selected has a lockpick.".into())),
+                }
+                return;
+            }
+            if let Some(at) = world.container(id).map(|c| c.pos) {
+                if let Some(m) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at))) {
+                    world.order_search(m, id);
+                    return;
+                }
+            }
+        }
         Some(Hover::Town(t)) => {
             game.town = if game.town == Some(t) { None } else { Some(t) };
             return;
@@ -1163,11 +1211,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, game.mouse, click);
     panels.extend(loot_box);
     match loot_act {
-        Some(super::lootui::LootAct::Take(m, body, what)) => {
-            w.take_loot(m, body, what);
+        Some(super::lootui::LootAct::Take(m, src, what)) => {
+            w.take_from(m, src, what);
         }
-        Some(super::lootui::LootAct::TakeAll(m, body)) => {
-            w.take_all_loot(m, body);
+        Some(super::lootui::LootAct::TakeAll(m, src)) => {
+            w.take_all_from(m, src);
         }
         Some(super::lootui::LootAct::Close(m)) => w.stop_looting(m),
         None => {}

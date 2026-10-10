@@ -57,6 +57,14 @@ pub const STILT_HOMES: [(&str, u32); 3] = [("horaro_rock_home", 6), ("horaro_hul
 /// homes stay until the kit is right).
 pub const USE_HORARO_KIT: bool = false;
 
+/// Whether the final building models (the Roduro GLBs, the Horaro kit) are
+/// loaded at all. Off unless `GAHT_MODELS=1` (Laz: placeholder art only for
+/// now, so the look doesn't mix); every building is then drawn as its
+/// variant's placeholder shapes (`interiors.rs`).
+pub fn use_final_models() -> bool {
+    std::env::var("GAHT_MODELS").is_ok_and(|v| v != "0")
+}
+
 type Parts = Vec<(Handle<Mesh>, Handle<StandardMaterial>)>;
 
 /// One model, ready to place: its pieces at each detail level, and its size
@@ -189,6 +197,10 @@ pub fn assets_dir() -> std::path::PathBuf {
 
 /// Start loading whichever models and detail levels are there.
 pub fn start(mut models: ResMut<Models>, server: Res<AssetServer>) {
+    if !use_final_models() {
+        models.status = "final models off (GAHT_MODELS=1 turns them on); placeholder buildings".into();
+        return;
+    }
     let dir = assets_dir();
     for name in RODURO_HOMES {
         for (i, (suffix, _)) in MODEL_LEVELS.iter().enumerate() {

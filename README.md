@@ -797,6 +797,16 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
   a gold crown; every coastal town has a Horaro stilt village just offshore —
   woven domes on stone pillars with timber decks. Every town has a hearth at its
   centre. Ṭaḍoro build nothing; a resting wanderer pitches a tent.
+- **Buildings are placeholder shapes for now**, in a few variants per people
+  (a Roduro cottage, longhouse, stone-tender's workshop, maker's forge,
+  trader's house or great house; Qotiro living quarters, courtyard house,
+  smiths' and potters' yard, market hall, mess hall; four kinds of stilt home).
+  Workshops and shops show their trade outside: a forge's glowing chimney, a
+  tender's beds, a trader's awning and counter, a kiln, market awnings. When
+  one of your squad steps in, the building is drawn cut open: its rooms,
+  furniture and containers. Click a chest, crate, cupboard or barrel to open
+  it (taking from it is theft if anyone sees) or to pick its lock. The final
+  models are switched off; `GAHT_MODELS=1` turns them back on.
 - **The rings around your squad are the bands.**
   - Inside the inner ring (500 m) is **band 1**: everyone is a person with a
     name, temperament and gear. This is decided **person by person**, by where
@@ -858,7 +868,8 @@ face +X (Blender's red arrow); it's scaled to each building's size, so units
 don't matter. Restart the game to pick it up. Press L to check it loaded: the
 readout says how many triangles each level has and which were made
 automatically. Until the file is there, Roduro homes are drawn as the built-in
-grown-stone domes. (More model slots — Qotiro blocks, Horaro stilts — are a
+grown-stone domes. The models are only loaded when the game is started with
+`GAHT_MODELS=1` (placeholder art only for now). (More model slots — Qotiro blocks, Horaro stilts — are a
 line each in `src/view/models.rs` when you have them.)
 
 ## How it works, in plain words
@@ -1075,6 +1086,7 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   foliage.rs    grass, bushes and trees, and the detail readout
   models.rs     GLB models and their detail levels
   mesh.rs       building shapes in code
+  interiors.rs  placeholder buildings by variant: outside, cut open inside, containers
   palette.rs    colours, shared by the 3D view, the map and the panels
   map.rs        the top-down map
   hud.rs        side panel, hover descriptions, health bars

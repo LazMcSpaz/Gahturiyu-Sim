@@ -117,6 +117,18 @@ pub struct Shot {
     /// `GAHT_SOCIETY=runners|boats|tides`: go and watch the midday meal run,
     /// the dawn boats, or a stilt village keeping tide hours.
     pub society: Option<String>,
+    /// `GAHT_INTERIOR=1`: member 0 walks into the nearest open building with
+    /// containers (a workshop or shop if there is one) and opens one.
+    pub interior: bool,
+    /// `GAHT_VARIANTS=1|roduro|qotiro|horaro[,open]`: every building variant
+    /// (or one people's) laid out side by side on open ground near the squad.
+    pub variants: Option<String>,
+    /// `GAHT_CUTAWAY=1` (or `open` in `GAHT_VARIANTS`): every building near
+    /// the camera drawn cut open.
+    pub cutaway: bool,
+    /// Where the camera should look for the scene set up (target, distance,
+    /// pitch, yaw), filled in by `prepare`.
+    pub framing: std::sync::Mutex<Option<(V2, f32, f32, Option<f32>)>>,
 }
 
 impl Shot {
@@ -177,6 +189,10 @@ impl Shot {
             edit: var("GAHT_EDIT").is_some(),
             society: var("GAHT_SOCIETY"),
             nudge: pair("GAHT_NUDGE"),
+            interior: var("GAHT_INTERIOR").is_some(),
+            cutaway: var("GAHT_CUTAWAY").is_some_and(|v| v != "0") || var("GAHT_VARIANTS").is_some_and(|v| v.split(',').any(|t| t == "open")),
+            variants: var("GAHT_VARIANTS"),
+            framing: std::sync::Mutex::new(None),
         })
     }
 
@@ -692,8 +708,159 @@ impl Shot {
                 world.order_members(&[m], to);
             }
         }
+        if let Some(which) = self.variants.clone() {
+            *self.framing.lock().unwrap() = variants_row(world, &which, self.cutaway);
+        }
+        if self.interior {
+            *self.framing.lock().unwrap() = walk_in(world);
+        }
         super::animals::prepare(world);
     }
+}
+
+/// `GAHT_INTERIOR`: member 0 walks into the nearest building that's open
+/// and has containers (a workshop or shop if one is near), then opens an
+/// unlocked container there. Returns the camera's framing.
+fn walk_in(world: &mut World) -> Option<(V2, f32, f32, Option<f32>)> {
+    use gahturiyu_sim::sim::buildings::door_of;
+    use gahturiyu_sim::sim::layout::Use;
+    let m = *world.squad.members.first()?;
+    let here = world.squad.pos;
+    let mut best: Option<(f32, gahturiyu_sim::sim::buildings::Door)> = None;
+    for s in &world.settlements {
+        if s.pos.dist(here) > 3000.0 {
+            continue;
+        }
+        for i in 0..s.buildings.len() as u16 {
+            let Some(d) = door_of(s, i) else { continue };
+            let v = d.variant();
+            if v.holders.is_empty() || world.is_locked(d.id) {
+                continue;
+            }
+            let trade = matches!(v.use_, Use::Workshop | Use::Shop);
+            let score = d.centre.dist(here) + if trade { 0.0 } else { 400.0 } + if v.walls.is_empty() { 200.0 } else { 0.0 };
+            if best.as_ref().is_none_or(|b| score < b.0) {
+                best = Some((score, d));
+            }
+        }
+    }
+    let (_, d) = best?;
+    if d.centre.dist(here) > 120.0 {
+        let out = d.outside.sub(d.centre);
+        let out = out.scale(1.0 / out.len().max(0.01));
+        world.teleport_squad(d.outside.add(out.scale(6.0)));
+        world.step(0.001);
+    }
+    world.order_members(&[m], d.inside);
+    let k = world.squad.index(m)?;
+    for _ in 0..2000 {
+        world.step(0.1);
+        if world.squad.inside[k] == Some(d.id) && world.squad.route[k].is_empty() {
+            break;
+        }
+    }
+    // An unlocked container, chests and cupboards first, something in it.
+    let pick = world
+        .containers_in(d.id)
+        .filter(|c| !world.container_locked(c.id))
+        .min_by_key(|c| (c.items.is_empty(), !matches!(c.what, gahturiyu_sim::sim::layout::Holder::Chest | gahturiyu_sim::sim::layout::Holder::Cupboard), c.id))
+        .map(|c| c.id);
+    if let Some(id) = pick {
+        world.order_search(m, id);
+        for _ in 0..2000 {
+            world.step(0.1);
+            if world.searching_now(m) == Some(id) {
+                break;
+            }
+        }
+    }
+    // Look from the front, down into the rooms.
+    let yaw = d.rot + 0.5;
+    Some((d.centre, 17.0, 0.78, Some(yaw)))
+}
+
+/// `GAHT_VARIANTS`: lay every building variant (or one people's) out in rows
+/// on open ground near the squad, as buildings of the nearest town (a
+/// screenshot-only change to the world). Returns the camera's framing.
+fn variants_row(world: &mut World, which: &str, open: bool) -> Option<(V2, f32, f32, Option<f32>)> {
+    use gahturiyu_sim::sim::layout::{example_of, VARIANTS};
+    use gahturiyu_sim::sim::settlement::{Building, BuildingKind as K};
+    let tokens: Vec<&str> = which.split(',').map(|t| t.trim()).collect();
+    let want = |k: K| {
+        let any = !tokens.iter().any(|t| matches!(*t, "roduro" | "qotiro" | "horaro"));
+        any || match k {
+            K::RoduroHome => tokens.contains(&"roduro"),
+            K::QotiroBlock | K::QotiroTemple | K::QotiroHall => tokens.contains(&"qotiro"),
+            K::HoraroStilt => tokens.contains(&"horaro"),
+            K::Hearth => false,
+        }
+    };
+    let list: Vec<_> = VARIANTS.iter().filter(|v| want(v.kind)).collect();
+    if list.is_empty() {
+        return None;
+    }
+    // Rows facing the camera (+y), across the x axis.
+    let cols = if list.len() <= 6 { list.len() } else { list.len().div_ceil(list.len().div_ceil(6)) };
+    let gap = 6.0;
+    let mut placed: Vec<(V2, f32, &gahturiyu_sim::sim::layout::Variant, u64)> = Vec::new();
+    let mut y = 0.0f32;
+    let mut width = 0.0f32;
+    for row in list.chunks(cols) {
+        let sizes: Vec<(f32, u64)> = row.iter().map(|v| example_of(v)).collect();
+        let across: Vec<f32> = row.iter().zip(&sizes).map(|(v, s)| 2.0 * v.half.1 * s.0).collect();
+        let deep = row.iter().zip(&sizes).map(|(v, s)| 2.0 * v.half.0 * s.0).fold(0.0, f32::max);
+        let total: f32 = across.iter().sum::<f32>() + gap * (row.len() as f32 - 1.0);
+        width = width.max(total);
+        let mut x = -total * 0.5;
+        for ((v, s), a) in row.iter().zip(&sizes).zip(&across) {
+            placed.push((V2::new(x + a * 0.5, y - deep * 0.5), s.0, v, s.1));
+            x += a + gap;
+        }
+        y -= deep + gap * 1.5;
+    }
+    let depth = -y;
+    // Open, fairly flat land near the squad, clear of towns.
+    let t = &world.terrain;
+    let here = world.squad.pos;
+    let clear = |c: V2| -> bool {
+        let mut lo = f32::MAX;
+        let mut hi = f32::MIN;
+        for i in 0..=8 {
+            for j in 0..=5 {
+                let p = c.add(V2::new((i as f32 / 8.0 - 0.5) * (width + 20.0), 10.0 - j as f32 / 5.0 * (depth + 20.0)));
+                if t.is_sea(p) {
+                    return false;
+                }
+                let h = t.height(p);
+                lo = lo.min(h);
+                hi = hi.max(h);
+            }
+        }
+        let busy = world.settlements.iter().any(|s| s.buildings.iter().any(|b| (b.pos.x - c.x).abs() < width * 0.5 + 25.0 && b.pos.y < c.y + 25.0 && b.pos.y > c.y - depth - 25.0));
+        let squad = (here.x - c.x).abs() < width * 0.5 + 10.0 && here.y < c.y + 10.0 && here.y > c.y - depth - 10.0;
+        hi - lo < 3.0 && !busy && !squad
+    };
+    let mut origin = here.add(V2::new(0.0, 60.0));
+    'search: for r in 1..40 {
+        for k in 0..16 {
+            let a = k as f32 / 16.0 * std::f32::consts::TAU;
+            let c = here.add(V2::new(a.cos(), a.sin()).scale(r as f32 * 40.0));
+            if clear(c) {
+                origin = c;
+                break 'search;
+            }
+        }
+    }
+    let town = world.settlements.iter().min_by(|a, b| a.pos.dist(origin).total_cmp(&b.pos.dist(origin))).map(|s| s.id)?;
+    let s = &mut world.settlements[town as usize];
+    for (at, size, v, seed) in placed {
+        let pos = origin.add(at);
+        s.buildings.push(Building { pos, kind: v.kind, size, rot: std::f32::consts::FRAC_PI_2, seed });
+        s.reach = s.reach.max(pos.dist(s.pos) + size);
+    }
+    let centre = origin.add(V2::new(0.0, -depth * 0.5 + 4.0));
+    let dist = (width * 0.8).max(depth * 1.5) + 12.0;
+    Some((centre, dist, if open { 0.95 } else { 0.62 }, Some(std::f32::consts::FRAC_PI_2)))
 }
 
 /// Lay out a demo outpost near the squad (for `GAHT_BUILD`).

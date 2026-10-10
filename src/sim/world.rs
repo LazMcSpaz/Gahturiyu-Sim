@@ -132,6 +132,8 @@ pub struct World {
     pub picking: Vec<super::buildings::Picking>,
     /// Buildings whose belongings have been laid out.
     pub furnished: HashSet<super::buildings::DoorId>,
+    /// Chests, crates, cupboards and barrels laid out so far (`containers.rs`).
+    pub containers: super::containers::Containers,
     /// What each town wants from you for crimes seen.
     pub bounty: HashMap<SettlementId, f32>,
     /// Which towns have heard of which bounty, and from when:
@@ -279,6 +281,7 @@ impl World {
             picked: HashMap::new(),
             picking: Vec::new(),
             furnished: HashSet::new(),
+            containers: Default::default(),
             bounty: HashMap::new(),
             news: HashMap::new(),
             stations: Vec::new(),

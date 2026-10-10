@@ -307,15 +307,8 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         Hover::Door(id) => {
             let s = &w.settlements[id.0 as usize];
             let Some(d) = gahturiyu_sim::sim::buildings::door_of(s, id.1) else { return out };
-            use gahturiyu_sim::sim::settlement::BuildingKind as B;
-            let kind = match s.buildings[id.1 as usize].kind {
-                B::RoduroHome => "A Roduro home",
-                B::QotiroBlock => "Qotiro living quarters",
-                B::QotiroTemple => "The temple-fortress",
-                B::QotiroHall => "The Qotiro hall",
-                _ => "A building",
-            };
-            out.push((format!("{kind}  ·  {}", s.name), TEXT));
+            // The building's variant: "Maker's forge", "Market hall", ...
+            out.push((format!("{}  ·  {}", d.variant().name, s.name), TEXT));
             if d.lock <= 0.0 {
                 out.push(("No lock.  Click to go in.".into(), DIM));
             } else if w.is_locked(id) {
@@ -324,6 +317,16 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             } else {
                 out.push((format!("Open  ·  lock {:.0}, locked 20:00–06:00", d.lock), DIM));
                 out.push(("Click to go in.".into(), DIM));
+            }
+        }
+        Hover::Container(id) => {
+            let Some(k) = w.container(id) else { return out };
+            out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, k.owner)), TEXT));
+            if w.container_locked(id) {
+                out.push((format!("Locked  ·  lock {:.0}", k.lock), WARN));
+                out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
+            } else {
+                out.push(("Click to open (taking is theft)".into(), DIM));
             }
         }
         Hover::Node(id) => {

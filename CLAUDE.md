@@ -278,6 +278,12 @@ for the nearest iron seam).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,
 beaten; screenshots otherwise show none and never touch `hints.txt`).
+`GAHT_INTERIOR=1` (member 0 walks into the nearest open workshop or shop and opens a
+container: the cut-open rooms and the container panel; camera close unless `GAHT_ZOOM`/`GAHT_PITCH`).
+`GAHT_VARIANTS=1|roduro|qotiro|horaro` (every building variant, or one people's, in rows
+on open ground near the squad; add `,open` to see them cut open). `GAHT_CUTAWAY=1` (every
+building near the camera drawn cut open). `GAHT_MODELS=1` (the final building models back on;
+off by default).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
@@ -346,6 +352,12 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
 
+- Buildings are placeholder shapes by variant (`view/interiors.rs`, from
+  `sim/layout.rs`): outside in the town mesh; a building a squad member is
+  in is drawn cut open (floor, low walls, inner walls, furniture). Its
+  containers are drawn every frame (lids open while searched). The final
+  models load only with `GAHT_MODELS=1` (`models::use_final_models`).
+
 - Animals are drawn by `view/animals.rs` into the per-frame mesh: block
   shapes from the species' `Looks` (build, length, height, colour), a full
   shape per animal near, one marker per herd beyond `PERSON_SIMPLE`-ish
@@ -362,6 +374,8 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
 - Ṭaḍoro don't found towns or build; they lodge in others' homes, or wander and pitch a tent.
 - Buildings follow `architecture.md` (grown Roduro stone, Horaro stilts on Roduro
   pillars, quarried Qotiro steps, diaspora Qotiro hall in local dark stone).
+  Qotiro build in the island's dark stone everywhere, never sandstone (Laz,
+  2026-10-09): their stepped, quarried shape and gold sun discs set them apart.
 - The south-east inland is Qotiro country — a raised arid plateau; elsewhere
   inland is mostly Roduro. Mountains wall the north and east, plus one massif.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).
