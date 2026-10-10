@@ -224,7 +224,7 @@ Endings: a man's name ends in `-k`, `-t`, `-q`, `-x`; a woman's in `-n`, `-r`, `
 | **Dadort** | DAH-dort | loyal hammer | **Dapaq** | DAH-pak | dusk |
 | **Dapmut** | DAP-moot | dusk honour | **Daqat** | DAH-kat | branch |
 | **Ditiq** | DEE-tik | quiet | **Ditut** | DEE-toot | quiet hope |
-| **Dodok** | DOH-dok | pride | **Doq** | DOK | stone |
+| **Dodok** | DOH-dok | pride | **Doqot** | DOH-kot | stone |
 | **Doreq** | DOH-rek | soft sky | **Dorguq** | DOR-gook | soft fruit |
 | **Dortik** | DOR-tik | little hammer | **Dortoq** | DOR-tok | hammer |
 | **Droqok** | DROH-kok | patience | **Druruk** | DROO-rook | thunder |
@@ -246,54 +246,54 @@ Endings: a man's name ends in `-k`, `-t`, `-q`, `-x`; a woman's in `-n`, `-r`, `
 | **Krekik** | KREH-kik | little crag | **Krogox** | KROH-gokh | storm |
 | **Krogrek** | KROG-rek | great storm | **Krokpok** | KROK-pok | storm pillar |
 | **Krokqot** | KROK-kot | storm spear | **Maret** | MAH-ret | calm |
-| **Menput** | MEN-poot | moon wall | **Menuq** | MEH-nook | moon spring |
-| **Mex** | MEKH | sweet | **Mexaq** | MEH-khak | sweet air |
-| **Mexqix** | MEKH-kikh | sweet knife | **Mextreq** | MEKH-trek | sweet tree |
-| **Mokreq** | MOK-rek | far sky | **Mopot** | MOH-pot | cloud |
-| **Motoq** | MOH-tok | wisdom | **Muqdort** | MOOK-dort | first hammer |
-| **Muqot** | MOO-kot | first spear | **Muqpak** | MOOK-pak | first hall |
-| **Muqux** | MOO-kookh | first | **Mutnuq** | MOOT-nook | honoured spring |
-| **Mutqox** | MOOT-kokh | honoured brother | **Mutrok** | MOOT-rok | honoured fire |
-| **Mutuk** | MOO-took | honour | **Norik** | NOH-rik | little hound |
-| **Pakrek** | PAK-rek | great hall | **Paqax** | PAH-kakh | trust |
-| **Pegeq** | PEH-gek | wing | **Pek** | PEK | shell |
-| **Penex** | PEH-nekh | true | **Penoq** | PEH-nok | true friend |
-| **Peqek** | PEH-kek | pale | **Pikix** | PEE-kikh | root |
-| **Pokik** | POH-kik | little pillar | **Pontriq** | PON-trik | summer claw |
-| **Poqox** | POH-kokh | gift | **Potoroq** | POH-toh-rok | holy |
-| **Putrek** | POOT-rek | great wall | **Putux** | POO-tookh | wall |
-| **Puxat** | POO-khat | ember father | **Puxdoq** | POOKH-dok | ember stone |
-| **Puxdort** | POOKH-dort | ember hammer | **Puxkit** | POOKH-kit | ember lightning |
-| **Puxtik** | POOKH-tik | ember peak | **Qenek** | KEH-nek | pass |
-| **Qotat** | KOH-tat | spear father | **Qotox** | KOH-tokh | spear |
-| **Qotput** | KOT-poot | spear wall | **Qotqix** | KOT-kikh | spear knife |
-| **Qotrok** | KOT-rok | spear fire | **Qoxot** | KOH-khot | brother |
-| **Qoxrek** | KOKH-rek | great brother | **Ramaq** | RAH-mak | plain |
-| **Ramrek** | RAM-rek | great torch | **Raqnuq** | RAK-nook | day spring |
-| **Redik** | REH-dik | little hunter | **Reqrek** | REK-rek | great sky |
+| **Menmuk** | MEN-mook | moon blessing | **Menput** | MEN-poot | moon wall |
+| **Menuq** | MEH-nook | moon spring | **Mex** | MEKH | sweet |
+| **Mexaq** | MEH-khak | sweet air | **Mexqix** | MEKH-kikh | sweet knife |
+| **Mextreq** | MEKH-trek | sweet tree | **Mokreq** | MOK-rek | far sky |
+| **Mopot** | MOH-pot | cloud | **Motoq** | MOH-tok | wisdom |
+| **Muqdort** | MOOK-dort | first hammer | **Muqot** | MOO-kot | first spear |
+| **Muqpak** | MOOK-pak | first hall | **Muqux** | MOO-kookh | first |
+| **Mutnuq** | MOOT-nook | honoured spring | **Mutqox** | MOOT-kokh | honoured brother |
+| **Mutrok** | MOOT-rok | honoured fire | **Mutuk** | MOO-took | honour |
+| **Norik** | NOH-rik | little hound | **Pakrek** | PAK-rek | great hall |
+| **Paqax** | PAH-kakh | trust | **Pegeq** | PEH-gek | wing |
+| **Pek** | PEK | shell | **Penex** | PEH-nekh | true |
+| **Penoq** | PEH-nok | true friend | **Peqek** | PEH-kek | pale |
+| **Pikix** | PEE-kikh | root | **Pokik** | POH-kik | little pillar |
+| **Pontriq** | PON-trik | summer claw | **Poqox** | POH-kokh | gift |
+| **Potoroq** | POH-toh-rok | holy | **Putrek** | POOT-rek | great wall |
+| **Putux** | POO-tookh | wall | **Puxat** | POO-khat | ember father |
+| **Puxdoq** | POOKH-dok | ember stone | **Puxdort** | POOKH-dort | ember hammer |
+| **Puxkit** | POOKH-kit | ember lightning | **Puxtik** | POOKH-tik | ember peak |
+| **Qenek** | KEH-nek | pass | **Qotat** | KOH-tat | spear father |
+| **Qotox** | KOH-tokh | spear | **Qotput** | KOT-poot | spear wall |
+| **Qotqix** | KOT-kikh | spear knife | **Qotrok** | KOT-rok | spear fire |
+| **Qoxot** | KOH-khot | brother | **Qoxrek** | KOKH-rek | great brother |
+| **Ramaq** | RAH-mak | plain | **Ramrek** | RAM-rek | great torch |
+| **Raqnuq** | RAK-nook | day spring | **Redik** | REH-dik | little hunter |
+| **Reqrek** | REK-rek | great sky | **Ripoq** | REE-pok | dawn friend |
 | **Riqix** | REE-kikh | joy | **Rit** | RIT | bright |
 | **Ritdaq** | RIT-dak | bright branch | **Ritmoq** | RIT-mok | bright sea |
-| **Rodot** | ROH-dot | earth | **Rodrek** | ROD-rek | great earth |
-| **Roxgux** | ROKH-gookh | red bow | **Roxkrek** | ROKH-krek | red crag |
-| **Roxqot** | ROKH-kot | red spear | **Rupux** | ROO-pookh | valley |
-| **Ruqox** | ROO-kokh | high brother | **Ruqut** | ROO-koot | high |
-| **Ruqxuq** | ROOK-khook | high bone | **Tamax** | TAH-makh | child |
-| **Texet** | TEH-khet | whole | **Tikiq** | TEE-kik | peak |
-| **Timix** | TEE-mikh | seed | **Todik** | TOH-dik | little courage |
-| **Tonmut** | TON-moot | sun honour | **Tonpak** | TON-pak | sun hall |
-| **Tonqox** | TON-kokh | sun brother | **Tonrek** | TON-rek | great sun |
-| **Tordoq** | TOR-dok | shield | **Torox** | TOH-rokh | warden |
-| **Tortopox** | TOR-toh-pokh | south plateau | **Tortrok** | TOR-trok | south fire |
-| **Totkit** | TOT-kit | brave lightning | **Totpok** | TOT-pok | brave pillar |
-| **Totpux** | TOT-pookh | brave ember | **Tremek** | TREH-mek | east |
-| **Tremnuq** | TREM-nook | east spring | **Tremtik** | TREM-tik | east peak |
-| **Tremxaq** | TREM-khak | east air | **Tremxort** | TREM-khort | east star |
-| **Trergux** | TRER-gookh | golden bow | **Trermeq** | TRER-mek | golden flower |
-| **Trertriq** | TRER-trik | golden claw | **Trerxuq** | TRER-khook | golden bone |
-| **Triqit** | TREE-kit | claw | **Trok** | TROK | fire |
-| **Trokpak** | TROK-pak | fire hall | **Trokqix** | TROK-kikh | fire knife |
-| **Trokxuq** | TROK-khook | fire bone | **Tronok** | TROH-nok | wind |
-| **Tuq** | TOOK | old | **Xemeq** | KHEH-mek | grain |
+| **Rodrek** | ROD-rek | great earth | **Roxgux** | ROKH-gookh | red bow |
+| **Roxkrek** | ROKH-krek | red crag | **Roxqot** | ROKH-kot | red spear |
+| **Rupux** | ROO-pookh | valley | **Ruqox** | ROO-kokh | high brother |
+| **Ruqut** | ROO-koot | high | **Ruqxuq** | ROOK-khook | high bone |
+| **Tamax** | TAH-makh | child | **Texet** | TEH-khet | whole |
+| **Tikiq** | TEE-kik | peak | **Timix** | TEE-mikh | seed |
+| **Todik** | TOH-dik | little courage | **Tonmut** | TON-moot | sun honour |
+| **Tonpak** | TON-pak | sun hall | **Tonqox** | TON-kokh | sun brother |
+| **Tonrek** | TON-rek | great sun | **Tordoq** | TOR-dok | shield |
+| **Torox** | TOH-rokh | warden | **Tortopox** | TOR-toh-pokh | south plateau |
+| **Tortrok** | TOR-trok | south fire | **Totkit** | TOT-kit | brave lightning |
+| **Totpok** | TOT-pok | brave pillar | **Totpux** | TOT-pookh | brave ember |
+| **Tremek** | TREH-mek | east | **Tremnuq** | TREM-nook | east spring |
+| **Tremtik** | TREM-tik | east peak | **Tremxaq** | TREM-khak | east air |
+| **Tremxort** | TREM-khort | east star | **Trergux** | TRER-gookh | golden bow |
+| **Trermeq** | TRER-mek | golden flower | **Trertriq** | TRER-trik | golden claw |
+| **Trerxuq** | TRER-khook | golden bone | **Triqit** | TREE-kit | claw |
+| **Trok** | TROK | fire | **Trokpak** | TROK-pak | fire hall |
+| **Trokqix** | TROK-kikh | fire knife | **Trokxuq** | TROK-khook | fire bone |
+| **Tronok** | TROH-nok | wind | **Xemeq** | KHEH-mek | grain |
 | **Xeqex** | KHEH-kekh | spirit | **Xinkit** | KHIN-kit | knowing lightning |
 | **Xinpik** | KHIN-pik | knowing root | **Xinqix** | KHIN-kikh | knowing knife |
 | **Xirik** | KHEE-rik | stream | **Xoqmut** | KHOK-moot | young honour |
@@ -313,67 +313,67 @@ Endings: a man's name ends in `-k`, `-t`, `-q`, `-x`; a woman's in `-n`, `-r`, `
 | **Domdem** | DOM-dem | night song | **Domkon** | DOM-kon | night horn |
 | **Doqikim** | DOH-kee-kim | little stone | **Dorgeper** | DOR-geh-per | soft law |
 | **Dortam** | DOR-tam | soft child | **Dorter** | DOR-ter | soft peace |
-| **Drorom** | DROH-rom | rain | **Gar** | GAR | wave |
-| **Garekem** | GAH-reh-kem | great wave | **Gedrur** | GED-roor | iron thunder |
-| **Gepikin** | GEH-pee-kin | little law | **Getton** | GET-ton | iron sun |
-| **Gexem** | GEH-khem | island | **Girtopon** | GIR-toh-pon | green plateau |
-| **Gorder** | GOR-der | wild herb | **Goreken** | GOH-reh-ken | great ring |
-| **Gortrim** | GOR-trim | wild gate | **Gortron** | GOR-tron | wild wind |
-| **Kemder** | KEM-der | black herb | **Kemxen** | KEM-khen | black sand |
-| **Kenem** | KEH-nem | winter | **Kenkon** | KEN-kon | winter horn |
-| **Kentim** | KEN-tim | winter seed | **Kentron** | KEN-tron | winter wind |
-| **Kitikir** | KEE-tee-kir | little lightning | **Kitim** | KEE-tim | lightning |
-| **Kodor** | KOH-dor | sharp | **Kon** | KON | horn |
-| **Kotqen** | KOT-ken | sharp pass | **Krekem** | KREH-kem | crag |
-| **Krogdrur** | KROG-droor | storm thunder | **Krokqen** | KROK-ken | storm pass |
-| **Kroktor** | KROK-tor | storm warden | **Magam** | MAH-gam | water |
-| **Maretren** | MAH-ret-ren | calm passion | **Mener** | MEH-ner | moon |
-| **Menikir** | MEH-nee-kir | little moon | **Mentam** | MEN-tam | moon child |
-| **Meqen** | MEH-ken | flower | **Mexdom** | MEKH-dom | sweet night |
-| **Mextron** | MEKH-tron | sweet wind | **Moker** | MOH-ker | far frost |
-| **Mokpur** | MOK-poor | far hill | **Moktam** | MOK-tam | far child |
-| **Moktor** | MOK-tor | far warden | **Mokxem** | MOK-khem | far grain |
-| **Mopikim** | MOH-pee-kim | little cloud | **Moqom** | MOH-kom | sea |
-| **Mor** | MOR | pool | **Muqtir** | MOOK-tir | first sister |
-| **Muqton** | MOOK-ton | first sun | **Mutdem** | MOOT-dem | honoured song |
-| **Mutrim** | MOOT-rim | honoured gate | **Norom** | NOH-rom | hound |
-| **Oqon** | OH-kon | friend | **Paqikim** | PAH-kee-kim | little trust |
-| **Pengeper** | PEN-geh-per | true law | **Penker** | PEN-ker | true frost |
-| **Pentir** | PEN-tir | true sister | **Peqgar** | PEK-gar | pale wave |
-| **Peqmen** | PEK-men | pale moon | **Peqxem** | PEK-khem | pale grain |
-| **Peqxir** | PEK-khir | pale stream | **Pin** | PIN | white |
-| **Pingor** | PIN-gor | white ring | **Pokon** | POH-kon | pillar |
-| **Ponder** | PON-der | summer herb | **Ponor** | POH-nor | summer |
-| **Poqikir** | POH-kee-kir | little gift | **Potorer** | POH-toh-rer | holy passion |
-| **Potorgam** | POH-tor-gam | holy beast | **Pundom** | POON-dom | hidden night |
-| **Pundror** | POON-dror | hidden rain | **Punkon** | POON-kon | hidden horn |
-| **Punmor** | POON-mor | hidden pool | **Punur** | POO-noor | hidden |
-| **Purekem** | POO-reh-kem | great hill | **Purum** | POO-room | hill |
-| **Puxikir** | POO-khee-kir | little ember | **Puxun** | POO-khoon | ember |
-| **Qotxem** | KOT-khem | spear grain | **Ram** | RAM | torch |
-| **Raqikin** | RAH-kee-kin | little day | **Raqtam** | RAK-tam | day child |
-| **Raqter** | RAK-ter | day peace | **Redakan** | REH-dah-kan | passion |
-| **Reden** | REH-den | hunter | **Reqem** | REH-kem | sky |
-| **Ripgepem** | RIP-geh-pem | dawn law | **Ripim** | REE-pim | dawn |
-| **Ripram** | RIP-ram | dawn torch | **Riptor** | RIP-tor | dawn warden |
-| **Ritder** | RIT-der | bright herb | **Ritdror** | RIT-dror | bright rain |
-| **Ritgor** | RIT-gor | bright ring | **Roxnor** | ROKH-nor | red hound |
-| **Rupikim** | ROO-pee-kim | little valley | **Ruqnor** | ROOK-nor | high hound |
-| **Terem** | TEH-rem | peace | **Texar** | TEH-khar | whole mercy |
-| **Texpur** | TEKH-poor | whole hill | **Textrim** | TEKH-trim | whole gate |
-| **Tirikim** | TEE-ree-kim | little sister | **Tirim** | TEE-rim | sister |
-| **Todnor** | TOD-nor | brave hound | **Todom** | TOH-dom | courage |
-| **Tonqen** | TON-ken | sun pass | **Tontir** | TON-tir | sun sister |
-| **Topikir** | TOH-pee-kir | little plateau | **Topor** | TOH-por | plateau |
-| **Tortom** | TOR-tom | south | **Tottor** | TOT-tor | brave warden |
-| **Totxen** | TOT-khen | brave sand | **Tremqen** | TREM-ken | east pass |
-| **Tremxir** | TREM-khir | east stream | **Treqer** | TREH-ker | tree |
-| **Trerdrur** | TRER-droor | golden thunder | **Trerton** | TRER-ton | golden sun |
-| **Troktrim** | TROK-trim | fire gate | **Trokxen** | TROK-khen | fire sand |
-| **Tropun** | TROH-poon | strong | **Truqgar** | TROOK-gar | blue wave |
-| **Truqpur** | TROOK-poor | blue hill | **Truqun** | TROO-koon | blue |
-| **Tuqdror** | TOOK-dror | old rain | **Tuqgor** | TOOK-gor | old ring |
-| **Tuqtim** | TOOK-tim | old seed | **Tutur** | TOO-toor | hope |
+| **Drorom** | DROH-rom | rain | **Garekem** | GAH-reh-kem | great wave |
+| **Gedrur** | GED-roor | iron thunder | **Gepikin** | GEH-pee-kin | little law |
+| **Getton** | GET-ton | iron sun | **Gexem** | GEH-khem | island |
+| **Girtopon** | GIR-toh-pon | green plateau | **Gorder** | GOR-der | wild herb |
+| **Goreken** | GOH-reh-ken | great ring | **Gortrim** | GOR-trim | wild gate |
+| **Gortron** | GOR-tron | wild wind | **Kemder** | KEM-der | black herb |
+| **Kemxen** | KEM-khen | black sand | **Kenem** | KEH-nem | winter |
+| **Kenkon** | KEN-kon | winter horn | **Kentim** | KEN-tim | winter seed |
+| **Kentron** | KEN-tron | winter wind | **Kitikir** | KEE-tee-kir | little lightning |
+| **Kitim** | KEE-tim | lightning | **Kodor** | KOH-dor | sharp |
+| **Kon** | KON | horn | **Kotqen** | KOT-ken | sharp pass |
+| **Krekem** | KREH-kem | crag | **Krogdrur** | KROG-droor | storm thunder |
+| **Krokqen** | KROK-ken | storm pass | **Kroktor** | KROK-tor | storm warden |
+| **Magam** | MAH-gam | water | **Maretren** | MAH-ret-ren | calm passion |
+| **Mener** | MEH-ner | moon | **Menikir** | MEH-nee-kir | little moon |
+| **Mentam** | MEN-tam | moon child | **Meqen** | MEH-ken | flower |
+| **Mexdom** | MEKH-dom | sweet night | **Mextron** | MEKH-tron | sweet wind |
+| **Moker** | MOH-ker | far frost | **Mokpur** | MOK-poor | far hill |
+| **Moktam** | MOK-tam | far child | **Moktor** | MOK-tor | far warden |
+| **Mokxem** | MOK-khem | far grain | **Mopikim** | MOH-pee-kim | little cloud |
+| **Moqom** | MOH-kom | sea | **Mor** | MOR | pool |
+| **Muqtir** | MOOK-tir | first sister | **Muqton** | MOOK-ton | first sun |
+| **Mutdem** | MOOT-dem | honoured song | **Mutrim** | MOOT-rim | honoured gate |
+| **Norom** | NOH-rom | hound | **Oqon** | OH-kon | friend |
+| **Paqikim** | PAH-kee-kim | little trust | **Pengeper** | PEN-geh-per | true law |
+| **Penker** | PEN-ker | true frost | **Pentir** | PEN-tir | true sister |
+| **Peqgar** | PEK-gar | pale wave | **Peqmen** | PEK-men | pale moon |
+| **Peqxem** | PEK-khem | pale grain | **Peqxir** | PEK-khir | pale stream |
+| **Pin** | PIN | white | **Pingor** | PIN-gor | white ring |
+| **Pokon** | POH-kon | pillar | **Ponder** | PON-der | summer herb |
+| **Ponor** | POH-nor | summer | **Poqikir** | POH-kee-kir | little gift |
+| **Potorer** | POH-toh-rer | holy passion | **Potorgam** | POH-tor-gam | holy beast |
+| **Pundom** | POON-dom | hidden night | **Pundror** | POON-dror | hidden rain |
+| **Punkon** | POON-kon | hidden horn | **Punmor** | POON-mor | hidden pool |
+| **Punur** | POO-noor | hidden | **Purekem** | POO-reh-kem | great hill |
+| **Purum** | POO-room | hill | **Puxikir** | POO-khee-kir | little ember |
+| **Puxun** | POO-khoon | ember | **Qotxem** | KOT-khem | spear grain |
+| **Ram** | RAM | torch | **Raqikin** | RAH-kee-kin | little day |
+| **Raqtam** | RAK-tam | day child | **Raqter** | RAK-ter | day peace |
+| **Redakan** | REH-dah-kan | passion | **Reden** | REH-den | hunter |
+| **Reqem** | REH-kem | sky | **Ripgepem** | RIP-geh-pem | dawn law |
+| **Ripim** | REE-pim | dawn | **Ripram** | RIP-ram | dawn torch |
+| **Riptor** | RIP-tor | dawn warden | **Ritder** | RIT-der | bright herb |
+| **Ritdror** | RIT-dror | bright rain | **Ritgor** | RIT-gor | bright ring |
+| **Roxnor** | ROKH-nor | red hound | **Rupikim** | ROO-pee-kim | little valley |
+| **Ruqnor** | ROOK-nor | high hound | **Terem** | TEH-rem | peace |
+| **Texar** | TEH-khar | whole mercy | **Texpur** | TEKH-poor | whole hill |
+| **Textrim** | TEKH-trim | whole gate | **Tirikim** | TEE-ree-kim | little sister |
+| **Tirim** | TEE-rim | sister | **Todnor** | TOD-nor | brave hound |
+| **Todom** | TOH-dom | courage | **Tonqen** | TON-ken | sun pass |
+| **Tontir** | TON-tir | sun sister | **Topikir** | TOH-pee-kir | little plateau |
+| **Topor** | TOH-por | plateau | **Tortom** | TOR-tom | south |
+| **Tottor** | TOT-tor | brave warden | **Totxen** | TOT-khen | brave sand |
+| **Tremqen** | TREM-ken | east pass | **Tremxir** | TREM-khir | east stream |
+| **Treqer** | TREH-ker | tree | **Trerdrur** | TRER-droor | golden thunder |
+| **Trerton** | TRER-ton | golden sun | **Troktrim** | TROK-trim | fire gate |
+| **Trokxen** | TROK-khen | fire sand | **Tropun** | TROH-poon | strong |
+| **Truqgar** | TROOK-gar | blue wave | **Truqpur** | TROOK-poor | blue hill |
+| **Truqun** | TROO-koon | blue | **Tuqdror** | TOOK-dror | old rain |
+| **Tuqgor** | TOOK-gor | old ring | **Tuqtim** | TOOK-tim | old seed |
+| **Tuqum** | TOO-koom | old | **Tutur** | TOO-toor | hope |
 | **Xaqar** | KHAH-kar | air | **Xemikin** | KHEH-mee-kin | little grain |
 | **Xen** | KHEN | sand | **Xigin** | KHEE-gin | bird |
 | **Xinir** | KHEE-nir | knowing | **Xinmor** | KHIN-mor | knowing pool |
@@ -426,189 +426,192 @@ Endings: a man's name ends in `-u`, `-o`; a woman's in `-a`, `-ia`; a name for e
 
 | Name | Say it | Means | Name | Say it | Means |
 |---|---|---|---|---|---|
-| **Anilino** | ah-nee-LEE-noh | bright vow | **Aniruo** | ah-nee-ROO-oh | high vow |
-| **Aniwihu** | ah-nee-WEE-hoo | swift vow | **Aramahu** | ah-rah-MAH-hoo | far mercy |
-| **Aramuo** | ah-rah-MOO-oh | first mercy | **Aro** | AH-roh | mercy |
+| **Alou** | ah-LOH-oo | love | **Anilino** | ah-nee-LEE-noh | bright vow |
+| **Aniruo** | ah-nee-ROO-oh | high vow | **Aniwihu** | ah-nee-WEE-hoo | swift vow |
+| **Aramahu** | ah-rah-MAH-hoo | far mercy | **Aramuo** | ah-rah-MOO-oh | first mercy |
 | **Haewano** | hah-eh-WAH-noh | summer air | **Haiholu** | hah-ee-HOH-loo | star spirit |
 | **Haihoo** | hah-ee-HOH-oh | young spirit | **Hairiwu** | hah-ee-REE-woo | dawn spirit |
-| **Haiwenu** | hah-ee-WEH-noo | true spirit | **Henenolu** | heh-neh-NOH-loo | rain sand |
-| **Hewamawu** | heh-wah-MAH-woo | water gull | **Hewo** | HEH-woh | gull |
+| **Haiwenu** | hah-ee-WEH-noo | true spirit | **Hawiholo** | hah-wee-HOH-loh | star hearth |
+| **Henenolu** | heh-neh-NOH-loo | rain sand | **Hewamawu** | heh-wah-MAH-woo | water gull |
 | **Hiholuu** | hee-hoh-LOO-oo | blue eel | **Hihomomu** | hee-hoh-MOH-moo | pearl eel |
-| **Hilirohu** | hee-lee-ROH-hoo | red stream | **Hiru** | HEE-roo | frost |
-| **Hiwainu** | hee-wah-EE-noo | quiet snow | **Hiwanuu** | hee-wah-NOO-oo | old snow |
-| **Hiwihowo** | hee-wee-HOH-woh | grey bird | **Hiwinaho** | hee-wee-NAH-hoh | whole bird |
-| **Honowenu** | hoh-noh-WEH-noo | true horn | **Honu** | HOH-noo | horn |
-| **Hoo** | HOH-oh | young | **Horowo** | hoh-ROH-woh | storm |
+| **Hiliriwo** | hee-lee-REE-woh | dawn stream | **Hilirohu** | hee-lee-ROH-hoo | red stream |
+| **Hino** | HEE-noh | knowing | **Hiwainu** | hee-wah-EE-noo | quiet snow |
+| **Hiwanuu** | hee-wah-NOO-oo | old snow | **Hiwihowo** | hee-wee-HOH-woh | grey bird |
+| **Hiwinaho** | hee-wee-NAH-hoh | whole bird | **Honohowo** | hoh-noh-HOH-woh | grey horn |
+| **Honowenu** | hoh-noh-WEH-noo | true horn | **Howo** | HOH-woh | grey |
 | **Hunoheno** | hoo-noh-HEH-noh | winter hope | **Iamo** | ee-AH-moh | night |
-| **Iero** | ee-EH-roh | herb | **Laariwo** | lah-ah-REE-woh | dawn branch |
-| **Laemaho** | lah-eh-MAH-hoh | far day | **Laewihu** | lah-eh-WEE-hoo | swift day |
-| **Lahuhino** | lah-hoo-HEE-noh | knowing fire | **Lahuhoo** | lah-hoo-HOH-oh | young fire |
-| **Lailino** | lah-ee-LEE-noh | bright sky | **Laimomu** | lah-ee-MOH-moo | pearl sky |
-| **Laiweno** | lah-ee-WEH-noh | true sky | **Lamawihu** | lah-mah-WEE-hoo | swift torch |
-| **Lanomuo** | lah-noh-MOO-oh | first wind | **Laru** | LAH-roo | weaver |
-| **Launuo** | lah-oo-NOO-oh | old soul | **Lauwaro** | lah-oo-WAH-roh | wild soul |
-| **Lauwuno** | lah-oo-WOO-noh | hidden soul | **Lawinuu** | lah-wee-NOO-oo | old leaf |
-| **Lealao** | leh-ah-LAH-oh | day tree | **Leawano** | leh-ah-WAH-noh | summer tree |
-| **Leilimo** | leh-ee-LEE-moh | kelp tide | **Leiwiru** | leh-ee-WEE-roo | green tide |
-| **Liehuhu** | lee-eh-HOO-hoo | kindly joy | **Lieinu** | lee-eh-EE-noo | quiet joy |
-| **Lihihu** | lee-HEE-hoo | little eel | **Lihilo** | lee-HEE-loh | little stream |
-| **Lilahu** | lee-LAH-hoo | little fire | **Lilawo** | lee-LAH-woh | little leaf |
-| **Limawu** | lee-MAH-woo | little water | **Limeno** | lee-MEH-noh | little moon |
+| **Laariwo** | lah-ah-REE-woh | dawn branch | **Laemaho** | lah-eh-MAH-hoh | far day |
+| **Laewihu** | lah-eh-WEE-hoo | swift day | **Lahuhino** | lah-hoo-HEE-noh | knowing fire |
+| **Lahuhoo** | lah-hoo-HOH-oh | young fire | **Lailino** | lah-ee-LEE-noh | bright sky |
+| **Laimomu** | lah-ee-MOH-moo | pearl sky | **Laiweno** | lah-ee-WEH-noh | true sky |
+| **Lamawihu** | lah-mah-WEE-hoo | swift torch | **Lanolelu** | lah-noh-LEH-loo | golden wind |
+| **Lanomuo** | lah-noh-MOO-oh | first wind | **Launuo** | lah-oo-NOO-oh | old soul |
+| **Lauwaro** | lah-oo-WAH-roh | wild soul | **Lauwuno** | lah-oo-WOO-noh | hidden soul |
+| **Lawinuu** | lah-wee-NOO-oo | old leaf | **Lealao** | leh-ah-LAH-oh | day tree |
+| **Leawano** | leh-ah-WAH-noh | summer tree | **Leilimo** | leh-ee-LEE-moh | kelp tide |
+| **Leiwiru** | leh-ee-WEE-roo | green tide | **Liehuhu** | lee-eh-HOO-hoo | kindly joy |
+| **Lieinu** | lee-eh-EE-noo | quiet joy | **Lihihu** | lee-HEE-hoo | little eel |
+| **Lihilo** | lee-HEE-loh | little stream | **Lilahu** | lee-LAH-hoo | little fire |
+| **Lilawo** | lee-LAH-woh | little leaf | **Limawu** | lee-MAH-woo | little water |
+| **Limeno** | lee-MEH-noh | little moon | **Limu** | LEE-moo | kelp |
 | **Limuleo** | lee-moo-LEH-oh | tide kelp | **Limuworo** | lee-moo-WOH-roh | river kelp |
-| **Linemo** | lee-NEH-moh | little harbour | **Lino** | LEE-noh | bright |
-| **Linolo** | lee-NOH-loh | little rain | **Linulu** | lee-NOO-loo | little sea-stack |
-| **Liriwu** | lee-REE-woo | little dawn | **Liu** | LEE-oo | joy |
+| **Linemo** | lee-NEH-moh | little harbour | **Linolo** | lee-NOH-loh | little rain |
+| **Linulu** | lee-NOO-loo | little sea-stack | **Liriwu** | lee-REE-woo | little dawn |
 | **Liwalo** | lee-WAH-loh | little wave | **Liworo** | lee-WOH-roh | little river |
 | **Liwuo** | lee-WOO-oh | little foam | **Loohuhu** | loh-oh-HOO-hoo | kindly stone |
 | **Loowaro** | loh-oh-WAH-roh | wild stone | **Loowunu** | loh-oh-WOO-noo | hidden stone |
-| **Lowuno** | loh-WOO-noh | strong | **Luwelao** | loo-weh-LAH-oh | day valley |
-| **Luweruo** | loo-weh-ROO-oh | high valley | **Maihenu** | mah-ee-HEH-noo | winter flower |
+| **Lowuno** | loh-WOO-noh | strong | **Luweholo** | loo-weh-HOH-loh | star valley |
+| **Luwelao** | loo-weh-LAH-oh | day valley | **Luweruo** | loo-weh-ROO-oh | high valley |
+| **Luwo** | LOO-woh | valley | **Maihenu** | mah-ee-HEH-noo | winter flower |
 | **Mainahu** | mah-ee-NAH-hoo | whole flower | **Maiwunu** | mah-ee-WOO-noo | hidden flower |
-| **Manumaho** | mah-noo-MAH-hoh | far wisdom | **Mawenuwu** | mah-weh-NOO-woo | deep water |
-| **Mawo** | MAH-woh | water | **Menemoo** | meh-neh-MOH-oh | sea moon |
-| **Menewalu** | meh-neh-WAH-loo | wave moon | **Menewiru** | meh-neh-WEE-roo | green moon |
-| **Meohilu** | meh-oh-HEE-loo | west cove | **Meowuu** | meh-oh-WOO-oo | foam cove |
-| **Moanolu** | moh-ah-NOH-loo | rain sea | **Molawano** | moh-lah-WAH-noh | summer pool |
-| **Molo** | MOH-loh | pool | **Mowu** | MOH-woo | cloud |
+| **Manuhenu** | mah-noo-HEH-noo | winter wisdom | **Manumaho** | mah-noo-MAH-hoh | far wisdom |
+| **Mawenuwu** | mah-weh-NOO-woo | deep water | **Mawo** | MAH-woh | water |
+| **Menemoo** | meh-neh-MOH-oh | sea moon | **Menewalu** | meh-neh-WAH-loo | wave moon |
+| **Menewiru** | meh-neh-WEE-roo | green moon | **Meohilu** | meh-oh-HEE-loo | west cove |
+| **Meowuu** | meh-oh-WOO-oo | foam cove | **Moanolu** | moh-ah-NOH-loo | rain sea |
+| **Molawano** | moh-lah-WAH-noh | summer pool | **Mowu** | MOH-woo | cloud |
 | **Mowuhenu** | moh-woo-HEH-noo | winter cloud | **Mowumuo** | moh-woo-MOO-oh | first cloud |
-| **Mowuweu** | moh-woo-WEH-oo | pale cloud | **Munamahu** | moo-nah-MAH-hoo | far honour |
+| **Mowuweu** | moh-woo-WEH-oo | pale cloud | **Muhehinu** | moo-heh-HEE-noo | knowing blessing |
+| **Munamahu** | moo-nah-MAH-hoo | far honour | **Munariwo** | moo-nah-REE-woh | dawn honour |
 | **Munawano** | moo-nah-WAH-noh | summer honour | **Munu** | MOO-noo | honour |
-| **Naliwiru** | nah-lee-WEE-roo | green shore | **Nalu** | NAH-loo | shore |
-| **Namalau** | nah-mah-LAH-oo | day child | **Nemomeno** | neh-moh-MEH-noh | moon harbour |
-| **Nemu** | NEH-moo | harbour | **Niamuu** | nee-ah-MOO-oo | first dream |
-| **Nio** | NEE-oh | dream | **Noiwaru** | noh-ee-WAH-roo | wild patience |
+| **Naliwiru** | nah-lee-WEE-roo | green shore | **Namalau** | nah-mah-LAH-oo | day child |
+| **Nemomeno** | neh-moh-MEH-noh | moon harbour | **Nemu** | NEH-moo | harbour |
+| **Niamuu** | nee-ah-MOO-oo | first dream | **Nimo** | NEE-moh | seed |
+| **Niu** | NEE-oo | dream | **Noiwaru** | noh-ee-WAH-roo | wild patience |
 | **Noiwuno** | noh-ee-WOO-noh | hidden patience | **Nolilimo** | noh-lee-LEE-moh | kelp rain |
-| **Nolimou** | noh-lee-MOH-oo | sea rain | **Nou** | NOH-oo | patience |
-| **Nuho** | NOO-hoh | headland | **Nuhohilu** | noo-hoh-HEE-loo | west headland |
+| **Nolimou** | noh-lee-MOH-oo | sea rain | **Nolu** | NOH-loo | rain |
+| **Nonalelo** | noh-nah-LEH-loh | golden sun | **Nuhohilu** | noo-hoh-HEE-loo | west headland |
 | **Nuholuo** | noo-hoh-LOO-oh | blue headland | **Nuhomawo** | noo-hoh-MAH-woh | water headland |
 | **Nuiwunu** | noo-ee-WOO-noo | hidden spring | **Nulumeno** | noo-loo-MEH-noh | moon sea-stack |
 | **Numeleo** | noo-meh-LEH-oh | tide diver | **Nuwu** | NOO-woo | the deep |
 | **Nuwuwuu** | noo-woo-WOO-oo | foam the deep | **Rahenu** | rah-HEH-noo | great sand |
-| **Rahu** | RAH-hoo | reef | **Rahumomu** | rah-hoo-MOH-moo | pearl reef |
-| **Rahuworo** | rah-hoo-WOH-roh | river reef | **Ralaru** | rah-LAH-roo | great weaver |
-| **Ramomu** | rah-MOH-moo | great pearl | **Ranumu** | rah-NOO-moo | great diver |
-| **Rarolo** | rah-ROH-loh | great earth | **Rawoho** | rah-WOH-hoh | great boat |
-| **Riwamuo** | ree-wah-MOO-oh | first dawn | **Riwaweo** | ree-wah-WEH-oh | pale dawn |
-| **Riwawihu** | ree-wah-WEE-hoo | swift dawn | **Rolu** | ROH-loo | earth |
-| **Rolulau** | roh-loo-LAH-oo | day earth | **Ruo** | ROO-oh | high |
-| **Waanaho** | wah-ah-NAH-hoh | whole trust | **Walameho** | wah-lah-MEH-hoh | sweet wave |
-| **Walo** | WAH-loh | wave | **Wau** | WAH-oo | trust |
+| **Rahumomu** | rah-hoo-MOH-moo | pearl reef | **Rahuworo** | rah-hoo-WOH-roh | river reef |
+| **Ralaru** | rah-LAH-roo | great weaver | **Ramomu** | rah-MOH-moo | great pearl |
+| **Ranumu** | rah-NOO-moo | great diver | **Rarolo** | rah-ROH-loh | great earth |
+| **Rawoho** | rah-WOH-hoh | great boat | **Riwamuo** | ree-wah-MOO-oh | first dawn |
+| **Riwaweo** | ree-wah-WEH-oh | pale dawn | **Riwawihu** | ree-wah-WEE-hoo | swift dawn |
+| **Rolulau** | roh-loo-LAH-oo | day earth | **Waahuho** | wah-ah-HOO-hoh | kindly trust |
+| **Walameho** | wah-lah-MEH-hoh | sweet wave | **Wanu** | WAH-noo | summer |
 | **Wawaleo** | wah-wah-LEH-oh | tide bay | **Wawaluu** | wah-wah-LOO-oo | blue bay |
 | **Wehamehu** | weh-hah-MEH-hoo | sweet shell | **Wehanuwu** | weh-hah-NOO-woo | deep shell |
 | **Wehu** | WEH-hoo | shell | **Welamoo** | weh-lah-MOH-oh | sea sail |
 | **Weulao** | weh-oo-LAH-oh | day luck | **Weumomu** | weh-oo-MOH-moo | pearl luck |
 | **Weunuwo** | weh-oo-NOO-woh | deep luck | **Wewahowu** | weh-wah-HOH-woo | grey wing |
-| **Wiino** | wee-EE-noh | quiet root | **Winu** | WEE-noo | white |
+| **Wewalelu** | weh-wah-LEH-loo | golden wing | **Wiino** | wee-EE-noh | quiet root |
 | **Wiro** | WEE-roh | green | **Wohamawo** | woh-hah-MAH-woh | water boat |
 | **Woho** | WOH-hoh | boat | **Woihuho** | woh-ee-HOO-hoh | kindly gift |
 | **Woinuu** | woh-ee-NOO-oo | old gift | **Wolehowu** | woh-leh-HOH-woo | grey ring |
-| **Wolewenu** | woh-leh-WEH-noo | true ring | **Womu** | WOH-moo | marsh |
-| **Woramenu** | woh-rah-MEH-noo | moon river | **Wuehowu** | woo-eh-HOH-woo | grey fruit |
-| **Wueroho** | woo-eh-ROH-hoh | red fruit | **Wuewinu** | woo-eh-WEE-noo | white fruit |
+| **Wolenahu** | woh-leh-NAH-hoo | whole ring | **Wolewenu** | woh-leh-WEH-noo | true ring |
+| **Womu** | WOH-moo | marsh | **Woramenu** | woh-rah-MEH-noo | moon river |
+| **Wuehowu** | woo-eh-HOH-woo | grey fruit | **Wueroho** | woo-eh-ROH-hoh | red fruit |
+| **Wuewinu** | woo-eh-WEE-noo | white fruit | **Wuherohu** | woo-heh-ROH-hoo | red ember |
 | **Wuliriwo** | woo-lee-REE-woh | dawn hill | **Wuliweo** | woo-lee-WEH-oh | pale hill |
 
-### Horaro female names (153)
+### Horaro female names (160)
 
 | Name | Say it | Means | Name | Say it | Means |
 |---|---|---|---|---|---|
-| **Aloa** | ah-LOH-ah | love | **Amamena** | ah-mah-MEH-nah | moon mother |
-| **Amawara** | ah-mah-WAH-rah | wild mother | **Amawiha** | ah-mah-WEE-hah | swift mother |
-| **Amia** | ah-MEE-ah | mother | **Animaha** | ah-nee-MAH-hah | far vow |
-| **Arahina** | ah-rah-HEE-nah | knowing mercy | **Haehola** | hah-eh-HOH-lah | star air |
+| **Amamena** | ah-mah-MEH-nah | moon mother | **Amawara** | ah-mah-WAH-rah | wild mother |
+| **Amawiha** | ah-mah-WEE-hah | swift mother | **Amia** | ah-MEE-ah | mother |
+| **Animaha** | ah-nee-MAH-hah | far vow | **Arahina** | ah-rah-HEE-nah | knowing mercy |
 | **Haelela** | hah-eh-LEH-lah | golden air | **Haeroha** | hah-eh-ROH-hah | red air |
 | **Haia** | hah-EE-ah | spirit | **Hamiina** | hah-mee-EE-nah | quiet grain |
-| **Hawihola** | hah-wee-HOH-lah | star hearth | **Helia** | heh-LEE-ah | peace |
 | **Helomua** | heh-loh-MOO-ah | first peace | **Henehila** | heh-neh-HEE-lah | west sand |
-| **Henenuwa** | heh-neh-NOO-wah | deep sand | **Hewawira** | heh-wah-WEE-rah | green gull |
-| **Hihia** | hee-HEE-ah | eel | **Hihowora** | hee-hoh-WOH-rah | river eel |
-| **Hila** | HEE-lah | west | **Hiliwara** | hee-lee-WAH-rah | wild stream |
-| **Hiliwea** | hee-lee-WEH-ah | pale stream | **Hirilela** | hee-ree-LEH-lah | golden frost |
+| **Henemawa** | heh-neh-MAH-wah | water sand | **Henenuwa** | heh-neh-NOO-wah | deep sand |
+| **Henewua** | heh-neh-WOO-ah | foam sand | **Hewawira** | heh-wah-WEE-rah | green gull |
+| **Hewia** | heh-WEE-ah | gull | **Hihia** | hee-HEE-ah | eel |
+| **Hihowora** | hee-hoh-WOH-rah | river eel | **Hila** | HEE-lah | west |
+| **Hiliwara** | hee-lee-WAH-rah | wild stream | **Hirilela** | hee-ree-LEH-lah | golden frost |
 | **Hiriwina** | hee-ree-WEE-nah | white frost | **Hiwahoa** | hee-wah-HOH-ah | young snow |
-| **Hiwiina** | hee-wee-EE-nah | quiet bird | **Holiwina** | hoh-lee-WEE-nah | white star |
-| **Honohina** | hoh-noh-HEE-nah | knowing horn | **Hononaha** | hoh-noh-NAH-hah | whole horn |
-| **Honowiha** | hoh-noh-WEE-hah | swift horn | **Huha** | HOO-hah | kindly |
-| **Hunia** | hoo-NEE-ah | hope | **Iawa** | ee-AH-wah | dusk |
-| **Iema** | ee-EH-mah | song | **Laahena** | lah-ah-HEH-nah | winter branch |
-| **Laahola** | lah-ah-HOH-lah | star branch | **Laawara** | lah-ah-WAH-rah | wild branch |
-| **Laewora** | lah-eh-WOH-rah | river day | **Lahia** | lah-HEE-ah | fire |
-| **Lahunua** | lah-hoo-NOO-ah | old fire | **Laiila** | lah-ee-EE-lah | loyal |
-| **Laimaha** | lah-ee-MAH-hah | far sky | **Lamaroha** | lah-mah-ROH-hah | red torch |
-| **Lamawina** | lah-mah-WEE-nah | white torch | **Lanohena** | lah-noh-HEH-nah | winter wind |
-| **Lanohowa** | lah-noh-HOH-wah | grey wind | **Lawihoa** | lah-wee-HOH-ah | young leaf |
+| **Hiwaroha** | hee-wah-ROH-hah | red snow | **Hiwiina** | hee-wee-EE-nah | quiet bird |
+| **Holia** | hoh-LEE-ah | star | **Holiwina** | hoh-lee-WEE-nah | white star |
+| **Hononaha** | hoh-noh-NAH-hah | whole horn | **Honowiha** | hoh-noh-WEE-hah | swift horn |
+| **Hunia** | hoo-NEE-ah | hope | **Iema** | ee-EH-mah | song |
+| **Laahena** | lah-ah-HEH-nah | winter branch | **Laahola** | lah-ah-HOH-lah | star branch |
+| **Laawara** | lah-ah-WAH-rah | wild branch | **Laewora** | lah-eh-WOH-rah | river day |
+| **Lahunua** | lah-hoo-NOO-ah | old fire | **Laimaha** | lah-ee-MAH-hah | far sky |
+| **Lamawina** | lah-mah-WEE-nah | white torch | **Lanohowa** | lah-noh-HOH-wah | grey wind |
+| **Larilea** | lah-ree-LEH-ah | tide weaver | **Lawihoa** | lah-wee-HOH-ah | young leaf |
 | **Lawiwina** | lah-wee-WEE-nah | white leaf | **Leahina** | leh-ah-HEE-nah | knowing tree |
-| **Leinola** | leh-ee-NOH-lah | rain tide | **Liara** | lee-AH-rah | little mercy |
+| **Leimoa** | leh-ee-MOH-ah | sea tide | **Leinola** | leh-ee-NOH-lah | rain tide |
+| **Lela** | LEH-lah | golden | **Liara** | lee-AH-rah | little mercy |
 | **Liehola** | lee-eh-HOH-lah | star joy | **Liewena** | lee-eh-WEH-nah | true joy |
 | **Lihama** | lee-HAH-mah | little grain | **Liheha** | lee-HEH-hah | little light |
-| **Lihuna** | lee-HOO-nah | little hope | **Limea** | lee-MEH-ah | little cove |
+| **Lihuna** | lee-HOO-nah | little hope | **Liia** | lee-EE-ah | joy |
+| **Liiona** | lee-ee-OH-nah | little reed | **Limana** | lee-MAH-nah | little wisdom |
+| **Limea** | lee-MEH-ah | little cove | **Limiia** | lee-mee-EE-ah | little fish |
 | **Limola** | lee-MOH-lah | little pool | **Linima** | lee-NEE-mah | little seed |
-| **Linuha** | lee-NOO-hah | little headland | **Lioa** | lee-OH-ah | little friend |
-| **Liwawa** | lee-WAH-wah | little bay | **Loolina** | loh-oh-LEE-nah | bright stone |
-| **Lua** | LOO-ah | blue | **Luwehina** | loo-weh-HEE-nah | knowing valley |
-| **Luwelela** | loo-weh-LEH-lah | golden valley | **Maha** | MAH-hah | far |
+| **Linuha** | lee-NOO-hah | little headland | **Liwawa** | lee-WAH-wah | little bay |
+| **Liwoa** | lee-WOH-ah | little gift | **Loa** | LOH-ah | stone |
+| **Loolina** | loh-oh-LEE-nah | bright stone | **Luwehina** | loo-weh-HEE-nah | knowing valley |
 | **Maihuha** | mah-ee-HOO-hah | kindly flower | **Mawehila** | mah-weh-HEE-lah | west water |
-| **Mea** | MEH-ah | cove | **Meomeha** | meh-oh-MEH-hah | sweet cove |
+| **Mena** | MEH-nah | moon | **Meolua** | meh-oh-LOO-ah | blue cove |
+| **Meomeha** | meh-oh-MEH-hah | sweet cove | **Meowira** | meh-oh-WEE-rah | green cove |
 | **Mianola** | mee-ah-NOH-lah | rain fish | **Miawala** | mee-ah-WAH-lah | wave fish |
-| **Miaweha** | mee-ah-WEH-hah | shell fish | **Moia** | moh-EE-ah | sea |
+| **Moawora** | moh-ah-WOH-rah | river sea | **Moia** | moh-EE-ah | sea |
 | **Molarua** | moh-lah-ROO-ah | high pool | **Momiwala** | moh-mee-WAH-lah | wave pearl |
-| **Momiweha** | moh-mee-WEH-hah | shell pearl | **Muhehola** | moo-heh-HOH-lah | star blessing |
-| **Muhewana** | moo-heh-WAH-nah | summer blessing | **Muhia** | moo-HEE-ah | blessing |
-| **Nama** | NAH-mah | child | **Nemowua** | neh-moh-WOO-ah | foam harbour |
+| **Momiweha** | moh-mee-WEH-hah | shell pearl | **Momiwua** | moh-mee-WOO-ah | foam pearl |
+| **Muhehola** | moo-heh-HOH-lah | star blessing | **Muhewana** | moo-heh-WAH-nah | summer blessing |
+| **Muhia** | moo-HEE-ah | blessing | **Nalilua** | nah-lee-LOO-ah | blue shore |
+| **Nalimeha** | nah-lee-MEH-hah | sweet shore | **Nemowua** | neh-moh-WOO-ah | foam harbour |
 | **Niahoa** | nee-ah-HOH-ah | young dream | **Nianaha** | nee-ah-NAH-hah | whole dream |
-| **Niawora** | nee-ah-WOH-rah | river dream | **Nimuhowa** | nee-moo-HOH-wah | grey seed |
-| **Nimulela** | nee-moo-LEH-lah | golden seed | **Niralina** | nee-rah-LEE-nah | bright sister |
+| **Niawora** | nee-ah-WOH-rah | river dream | **Nimulela** | nee-moo-LEH-lah | golden seed |
+| **Niralea** | nee-rah-LEH-ah | tide sister | **Niralina** | nee-rah-LEE-nah | bright sister |
 | **Niranua** | nee-rah-NOO-ah | old sister | **Nirawuna** | nee-rah-WOO-nah | hidden sister |
 | **Niria** | nee-REE-ah | sister | **Noiina** | noh-ee-EE-nah | quiet patience |
-| **Noirua** | noh-ee-ROO-ah | high patience | **Nola** | NOH-lah | courage |
-| **Nolariwa** | noh-lah-REE-wah | dawn courage | **Nonaroha** | noh-nah-ROH-hah | red sun |
-| **Nuihina** | noo-ee-HEE-nah | knowing spring | **Nuiriwa** | noo-ee-REE-wah | dawn spring |
-| **Nuiwea** | noo-ee-WEH-ah | pale spring | **Nululua** | noo-loo-LOO-ah | blue sea-stack |
+| **Noirua** | noh-ee-ROO-ah | high patience | **Nona** | NOH-nah | sun |
+| **Nonaroha** | noh-nah-ROH-hah | red sun | **Nuihina** | noo-ee-HEE-nah | knowing spring |
+| **Nuiriwa** | noo-ee-REE-wah | dawn spring | **Nuiwea** | noo-ee-WEH-ah | pale spring |
+| **Nululua** | noo-loo-LOO-ah | blue sea-stack | **Nulumeha** | noo-loo-MEH-hah | sweet sea-stack |
 | **Nuluwora** | noo-loo-WOH-rah | river sea-stack | **Numia** | noo-MEE-ah | diver |
 | **Nuwumoma** | noo-woo-MOH-mah | pearl the deep | **Oelina** | oh-eh-LEE-nah | bright friend |
 | **Oewena** | oh-eh-WEH-nah | true friend | **Raama** | rah-AH-mah | great mother |
-| **Rahiwa** | rah-HEE-wah | great snow | **Rahuweha** | rah-hoo-WEH-hah | shell reef |
-| **Ralea** | rah-LEH-ah | great tree | **Ralima** | rah-LEE-mah | great kelp |
-| **Ranira** | rah-NEE-rah | great sister | **Rauwa** | rah-OO-wah | great net |
-| **Rawela** | rah-WEH-lah | great sail | **Rawoma** | rah-WOH-mah | great marsh |
-| **Rawuha** | rah-WOO-hah | great ember | **Roluwina** | roh-loo-WEE-nah | white earth |
-| **Uwelea** | oo-weh-LEH-ah | tide net | **Uwemeha** | oo-weh-MEH-hah | sweet net |
-| **Uwia** | oo-WEE-ah | net | **Waalina** | wah-ah-LEE-nah | bright trust |
-| **Waarua** | wah-ah-ROO-ah | high trust | **Waaweha** | wah-ah-WEH-hah | shell trust |
-| **Wahinaha** | wah-hee-NAH-hah | whole island | **Wahiroha** | wah-hee-ROH-hah | red island |
+| **Rahia** | rah-HEE-ah | reef | **Rahumoa** | rah-hoo-MOH-ah | sea reef |
+| **Rahuweha** | rah-hoo-WEH-hah | shell reef | **Ralea** | rah-LEH-ah | great tree |
+| **Ralima** | rah-LEE-mah | great kelp | **Ranira** | rah-NEE-rah | great sister |
+| **Rauwa** | rah-OO-wah | great net | **Rawela** | rah-WEH-lah | great sail |
+| **Rawoma** | rah-WOH-mah | great marsh | **Rawuha** | rah-WOO-hah | great ember |
+| **Roluwea** | roh-loo-WEH-ah | pale earth | **Roluwina** | roh-loo-WEE-nah | white earth |
+| **Ruia** | roo-EE-ah | high | **Uwelea** | oo-weh-LEH-ah | tide net |
+| **Uwemeha** | oo-weh-MEH-hah | sweet net | **Uwenola** | oo-weh-NOH-lah | rain net |
+| **Uwewala** | oo-weh-WAH-lah | wave net | **Uwia** | oo-WEE-ah | net |
+| **Waalina** | wah-ah-LEE-nah | bright trust | **Waarua** | wah-ah-ROO-ah | high trust |
+| **Waaweha** | wah-ah-WEH-hah | shell trust | **Wahinaha** | wah-hee-NAH-hah | whole island |
 | **Wahiwea** | wah-hee-WEH-ah | pale island | **Walawira** | wah-lah-WEE-rah | green wave |
-| **Wawia** | wah-WEE-ah | bay | **Welawala** | weh-lah-WAH-lah | wave sail |
-| **Wenia** | weh-NEE-ah | true | **Weuhuha** | weh-oo-HOO-hah | kindly luck |
+| **Wawia** | wah-WEE-ah | bay | **Wehamawa** | weh-hah-MAH-wah | water shell |
+| **Welawala** | weh-lah-WAH-lah | wave sail | **Weuweha** | weh-oo-WEH-hah | shell luck |
 | **Wewa** | WEH-wah | wing | **Wewahoa** | weh-wah-HOH-ah | young wing |
-| **Wewalela** | weh-wah-LEH-lah | golden wing | **Wewarua** | weh-wah-ROO-ah | high wing |
-| **Wiia** | wee-EE-ah | root | **Wiihena** | wee-ee-HEH-nah | winter root |
+| **Wewarua** | weh-wah-ROO-ah | high wing | **Wiihena** | wee-ee-HEH-nah | winter root |
 | **Wiihuha** | wee-ee-HOO-hah | kindly root | **Wiilala** | wee-ee-LAH-lah | soft root |
-| **Wohalima** | woh-hah-LEE-mah | kelp boat | **Wolewana** | woh-leh-WAH-nah | summer ring |
+| **Winia** | wee-NEE-ah | white | **Wohalima** | woh-hah-LEE-mah | kelp boat |
+| **Wohalua** | woh-hah-LOO-ah | blue boat | **Wolewana** | woh-leh-WAH-nah | summer ring |
 | **Womuwira** | woh-moo-WEE-rah | green marsh | **Womuwua** | woh-moo-WOO-ah | foam marsh |
 | **Wonora** | woh-NOH-rah | holy | **Wora** | WOH-rah | river |
-| **Worahila** | woh-rah-HEE-lah | west river | **Wuameha** | woo-ah-MEH-hah | sweet foam |
-| **Wuelaa** | woo-eh-LAH-ah | day fruit | **Wuhelela** | woo-heh-LEH-lah | golden ember |
-| **Wuheriwa** | woo-heh-REE-wah | dawn ember | **Wulia** | woo-LEE-ah | hill |
-| **Wuna** | WOO-nah | hidden |  | |  |
+| **Worahila** | woh-rah-HEE-lah | west river | **Worawua** | woh-rah-WOO-ah | foam river |
+| **Wuameha** | woo-ah-MEH-hah | sweet foam | **Wuanuwa** | woo-ah-NOO-wah | deep foam |
+| **Wuawira** | woo-ah-WEE-rah | green foam | **Wuelaa** | woo-eh-LAH-ah | day fruit |
+| **Wulia** | woo-LEE-ah | hill | **Wuna** | WOO-nah | hidden |
 
 ### Horaro either names (56)
 
 | Name | Say it | Means | Name | Say it | Means |
 |---|---|---|---|---|---|
-| **Ane** | AH-neh | vow | **Hae** | HAH-eh | air |
-| **Hami** | HAH-mee | grain | **Heni** | HEH-nee | sand |
-| **Hewamoe** | heh-wah-MOH-eh | sea gull | **Howi** | HOH-wee | grey |
-| **Iali** | ee-AH-lee | soft | **Ini** | EE-nee | quiet |
-| **Ione** | ee-OH-neh | reed | **Lai** | LAH-ee | sky |
-| **Larimawi** | lah-ree-MAH-wee | water weaver | **Larinuwe** | lah-ree-NOO-weh | deep weaver |
-| **Lariwui** | lah-ree-WOO-ee | foam weaver | **Leli** | LEH-lee | golden |
-| **Lilee** | lee-LEH-eh | little tide | **Limi** | LEE-mee | kelp |
-| **Limoe** | lee-MOH-eh | little sea | **Limunole** | lee-moo-NOH-leh | rain kelp |
-| **Linali** | lee-NAH-lee | little shore | **Luwe** | LOO-weh | valley |
-| **Malihe** | mah-LEE-heh | calm | **Mawewale** | mah-weh-WAH-leh | wave water |
-| **Mehi** | MEH-hee | sweet | **Mene** | MEH-neh | moon |
-| **Miamene** | mee-ah-MEH-neh | moon fish | **Mii** | MEE-ee | fish |
+| **Ane** | AH-neh | vow | **Hame** | HAH-meh | grain |
+| **Hewamoe** | heh-wah-MOH-eh | sea gull | **Hiri** | HEE-ree | frost |
+| **Horowe** | hoh-ROH-weh | storm | **Iale** | ee-AH-leh | soft |
+| **Iawi** | ee-AH-wee | dusk | **Iere** | ee-EH-reh | herb |
+| **Ini** | EE-nee | quiet | **Ione** | ee-OH-neh | reed |
+| **Laie** | lah-EE-eh | loyal | **Larimawi** | lah-ree-MAH-wee | water weaver |
+| **Larinuwe** | lah-ree-NOO-weh | deep weaver | **Lariwui** | lah-ree-WOO-ee | foam weaver |
+| **Lilee** | lee-LEH-eh | little tide | **Limoi** | lee-MOH-ee | little sea |
+| **Limunole** | lee-moo-NOH-leh | rain kelp | **Linali** | lee-NAH-lee | little shore |
+| **Lue** | LOO-eh | blue | **Malihe** | mah-LEE-heh | calm |
+| **Mawewale** | mah-weh-WAH-leh | wave water | **Mehi** | MEH-hee | sweet |
+| **Miamene** | mee-ah-MEH-neh | moon fish | **Mie** | MEE-eh | fish |
 | **Moahile** | moh-ah-HEE-leh | west sea | **Moalimi** | moh-ah-LEE-mee | kelp sea |
 | **Mome** | MOH-meh | pearl | **Momilei** | moh-mee-LEH-ee | tide pearl |
-| **Nalimawi** | nah-lee-MAH-wee | water shore | **Nalimoe** | nah-lee-MOH-eh | sea shore |
+| **Nahe** | NAH-heh | whole | **Nalimawi** | nah-lee-MAH-wee | water shore |
+| **Nalimoe** | nah-lee-MOH-eh | sea shore | **Nami** | NAH-mee | child |
 | **Nemomoe** | neh-moh-MOH-eh | sea harbour | **Nolinuwe** | noh-lee-NOO-weh | deep rain |
 | **Nule** | NOO-leh | sea-stack | **Numemeni** | noo-meh-MEH-nee | moon diver |
 | **Numewehi** | noo-meh-WEH-hee | shell diver | **Nuwulei** | noo-woo-LEH-ee | tide the deep |
@@ -618,9 +621,9 @@ Endings: a man's name ends in `-u`, `-o`; a woman's in `-a`, `-ia`; a name for e
 | **Walalimi** | wah-lah-LEE-mee | kelp wave | **Wawamehi** | wah-wah-MEH-hee | sweet bay |
 | **Wehalui** | weh-hah-LOO-ee | blue shell | **Wehawale** | weh-hah-WAH-leh | wave shell |
 | **Welanole** | weh-lah-NOH-leh | rain sail | **Wele** | WEH-leh | sail |
-| **Wohawue** | woh-hah-WOO-eh | foam boat | **Womumawi** | woh-moo-MAH-wee | water marsh |
-| **Woralui** | woh-rah-LOO-ee | blue river | **Wualime** | woo-ah-LEE-meh | kelp foam |
-| **Wuawehi** | woo-ah-WEH-hee | shell foam | **Wui** | WOO-ee | foam |
+| **Weni** | WEH-nee | true | **Wohawue** | woh-hah-WOO-eh | foam boat |
+| **Womumawi** | woh-moo-MAH-wee | water marsh | **Woralui** | woh-rah-LOO-ee | blue river |
+| **Wualime** | woo-ah-LEE-meh | kelp foam | **Wuawehi** | woo-ah-WEH-hee | shell foam |
 
 ## Ṭaḍoro
 
@@ -632,69 +635,69 @@ Endings: a man's name ends in `-th`, `-h`, `-s`; a woman's in `-ai`, `-a`, `-i`;
 |---|---|---|---|---|---|
 | **Aheh** | ah-HEH | learner | **Aheyaih** | ah-heh-YIGHH | sky learner |
 | **Ashas** | ah-SHAS | mercy | **Ashawuwath** | ah-shah-woo-WATH | first mercy |
-| **Ashayayus** | ah-shah-yah-YOOS | soft mercy | **Asiwayis** | ah-see-wah-YIS | calm vow |
-| **Ayeyahes** | ah-yeh-yah-HES | winter love | **Ayeyas** | ah-yeh-YAS | love |
+| **Ashayayus** | ah-shah-yah-YOOS | soft mercy | **Asith** | ah-SITH | vow |
+| **Asiwayis** | ah-see-wah-YIS | calm vow | **Ayeyahes** | ah-yeh-yah-HES | winter love |
 | **Ayeyasaus** | ah-yeh-yah-SOWS | star love | **Ayuyaes** | ah-yoo-YAH-EHS | day bridge |
 | **Eheth** | eh-HETH | friend | **Fahasasis** | fah-hah-sah-SIS | whole trust |
-| **Fahayawes** | fah-hah-yah-WES | night trust | **Fahayayuh** | fah-hah-yah-YOOH | soft trust |
-| **Fayus** | fah-YOOS | summer | **Fehafeyes** | feh-hah-feh-YES | true shell |
-| **Fehas** | feh-HAS | shell | **Fehawesis** | feh-hah-weh-SIS | sweet shell |
-| **Fehawuwath** | feh-hah-woo-WATH | first shell | **Fewafauseh** | feh-wah-fow-SEH | holy wing |
+| **Fahayawes** | fah-hah-yah-WES | night trust | **Fayus** | fah-YOOS | summer |
+| **Fehafeyes** | feh-hah-feh-YES | true shell | **Fehas** | feh-HAS | shell |
+| **Fehawesis** | feh-hah-weh-SIS | sweet shell | **Fewafauseh** | feh-wah-fow-SEH | holy wing |
 | **Fewafeyeth** | feh-wah-feh-YETH | true wing | **Fewasaufih** | feh-wah-sow-FIH | grey wing |
 | **Feyath** | feh-YATH | pale | **Fihiheyuh** | fee-hee-heh-YOOH | winter root |
 | **Fiyas** | fee-YAS | white | **Fusethawis** | foo-seh-thah-WIS | east ember |
-| **Fusewesih** | foo-seh-weh-SIH | sweet ember | **Fusewuwah** | foo-seh-woo-WAH | first ember |
-| **Fuwis** | foo-WIS | fog | **Fuwiyaes** | foo-wee-YAH-EHS | day fog |
-| **Fuyith** | foo-YITH | hill | **Fuyithawis** | foo-yee-thah-WIS | east hill |
-| **Fuyiyafes** | foo-yee-yah-FES | dusk hill | **Fuyiyisih** | foo-yee-yee-SIH | bright hill |
+| **Fusewuwah** | foo-seh-woo-WAH | first ember | **Fuwis** | foo-WIS | fog |
+| **Fuwiyaes** | foo-wee-YAH-EHS | day fog | **Fuyith** | foo-YITH | hill |
+| **Fuyithawis** | foo-yee-thah-WIS | east hill | **Fuyiyafes** | foo-yee-yah-FES | dusk hill |
+| **Fuyiyisih** | foo-yee-yee-SIH | bright hill | **Hafith** | hah-FITH | hearth |
 | **Hafiyafeh** | hah-fee-yah-FEH | dusk hearth | **Hauseh** | how-SEH | seer |
 | **Hauyeyiseh** | how-yeh-yee-SEH | quiet horn | **Hethewaufuh** | heh-theh-wow-FOOH | cloud light |
-| **Hewafeyas** | heh-wah-feh-YAS | pale gull | **Heyes** | heh-YES | pass |
+| **Hewafeyas** | heh-wah-feh-YAS | pale gull | **Hewah** | heh-WAH | gull |
+| **Heyes** | heh-YES | pass | **Heyuth** | heh-YOOTH | winter |
 | **Saewasuh** | sah-eh-wah-SOOH | wise air | **Sasih** | sah-SIH | whole |
 | **Sausuhethes** | sow-soo-heh-THES | light omen | **Sauyasuweh** | sow-yah-soo-WEH | old sun |
 | **Sawah** | sah-WAH | child | **Sawasasih** | sah-wah-sah-SIH | whole child |
-| **Sawifayuh** | sah-wee-fah-YOOH | summer grain | **Sawis** | sah-WIS | grain |
-| **Sawisasis** | sah-wee-sah-SIS | whole grain | **Sayasesas** | sah-yah-seh-SAS | silk word |
-| **Sefis** | seh-FIS | scribe | **Seyuh** | seh-YOOH | young |
-| **Shafahah** | shah-fah-HAH | great trust | **Shahayuh** | shah-hah-YOOH | great bridge |
-| **Shaseh** | shah-SEH | north | **Shausas** | show-SAS | red |
-| **Shauthuh** | show-THOOH | earth | **Shawahis** | shah-wah-HIS | great island |
-| **Shawaih** | shah-WYH | great flower | **Shawasus** | shah-wah-SOOS | great wisdom |
-| **Shawaweh** | shah-wah-WEH | great water | **Shayeyas** | shah-yeh-YAS | great name |
-| **Shayuwis** | shah-yoo-WIS | great spring | **Shifath** | shee-FATH | dawn |
-| **Shihuth** | shee-HOOTH | beginning | **Sifafeyeh** | see-fah-feh-YEH | true snow |
-| **Sifasuthih** | see-fah-soo-THIH | kindly snow | **Sifawuwah** | see-fah-woo-WAH | first snow |
-| **Siwih** | see-WIH | bird | **Siwiheyuh** | see-wee-heh-YOOH | winter bird |
-| **Siwisuweth** | see-wee-soo-WETH | old bird | **Siwiwesith** | see-wee-weh-SITH | sweet bird |
+| **Sawis** | sah-WIS | grain | **Sawisasis** | sah-wee-sah-SIS | whole grain |
+| **Sayasesas** | sah-yah-seh-SAS | silk word | **Sefis** | seh-FIS | scribe |
+| **Seyuh** | seh-YOOH | young | **Shafahah** | shah-fah-HAH | great trust |
+| **Shahayuh** | shah-hah-YOOH | great bridge | **Shaseh** | shah-SEH | north |
+| **Shausas** | show-SAS | red | **Shauthuh** | show-THOOH | earth |
+| **Shawahis** | shah-wah-HIS | great island | **Shawaih** | shah-WYH | great flower |
+| **Shawasus** | shah-wah-SOOS | great wisdom | **Shawaweh** | shah-wah-WEH | great water |
+| **Shayeyas** | shah-yeh-YAS | great name | **Shayuwis** | shah-yoo-WIS | great spring |
+| **Shifath** | shee-FATH | dawn | **Shihuth** | shee-HOOTH | beginning |
+| **Sifafeyeh** | see-fah-feh-YEH | true snow | **Sifasuthih** | see-fah-soo-THIH | kindly snow |
+| **Sifawuwah** | see-fah-woo-WAH | first snow | **Siwih** | see-WIH | bird |
+| **Siwiheyuh** | see-wee-heh-YOOH | winter bird | **Siwiwesith** | see-wee-weh-SITH | sweet bird |
 | **Siwufayuh** | see-woo-fah-YOOH | summer seed | **Siwuthayah** | see-woo-thah-YAH | loyal seed |
 | **Siwuwayis** | see-woo-wah-YIS | calm seed | **Siyafayus** | see-yah-fah-YOOS | summer dream |
 | **Siyah** | see-YAH | dream | **Siyashifah** | see-yah-shee-FAH | dawn dream |
-| **Siyayaweh** | see-yah-yah-WEH | night dream | **Siyitheyis** | see-yee-theh-YIS | golden stream |
-| **Siyiwayis** | see-yee-wah-YIS | calm stream | **Siyuth** | see-YOOTH | knowing |
-| **Suthih** | soo-THIH | kindly | **Thahuh** | thah-HOOH | fire |
+| **Siyitheyis** | see-yee-theh-YIS | golden stream | **Siyiwayis** | see-yee-wah-YIS | calm stream |
+| **Siyuth** | see-YOOTH | knowing | **Suthih** | soo-THIH | kindly |
+| **Thahayises** | thah-hah-yee-SES | quiet branch | **Thahuh** | thah-HOOH | fire |
 | **Thahuwesih** | thah-hoo-weh-SIH | sweet fire | **Thauhethes** | thow-heh-THES | light soul |
 | **Thayas** | thah-YAS | loyal | **Thayehetheh** | thah-yeh-heh-THEH | light wind |
-| **Thayeth** | thah-YETH | wind | **Thehethawih** | theh-heh-thah-WIH | east stone |
-| **Thehewayis** | theh-heh-wah-YIS | calm stone | **Theyah** | theh-YAH | tree |
-| **Theyayiseh** | theh-yah-yee-SEH | quiet tree | **Theyith** | theh-YITH | golden |
-| **Thuseh** | thoo-SEH | hope | **Thuwah** | thoo-WAH | blue |
+| **Thayeth** | thah-YETH | wind | **Thehes** | theh-HES | stone |
+| **Thehethawih** | theh-heh-thah-WIH | east stone | **Thehewayis** | theh-heh-wah-YIS | calm stone |
+| **Theyah** | theh-YAH | tree | **Theyayiseh** | theh-yah-yee-SEH | quiet tree |
+| **Theyith** | theh-YITH | golden | **Thuseh** | thoo-SEH | hope |
+| **Thuwah** | thoo-WAH | blue | **Waheth** | wah-HETH | far |
 | **Wahis** | wah-HIS | island | **Wahiwesih** | wah-hee-weh-SIH | sweet island |
 | **Wahiweyes** | wah-hee-weh-YES | moon island | **Wases** | wah-SES | twin |
-| **Wauyafeyes** | wow-yah-feh-YES | true pool | **Wauyah** | wow-YAH | pool |
-| **Wawesuwes** | wah-weh-soo-WES | old water | **Waweyisis** | wah-weh-yee-SIS | bright water |
-| **Wayafayus** | wah-yah-fah-YOOS | summer wave | **Wayas** | wah-YAS | wave |
-| **Wesis** | weh-SIS | sweet | **Weyashifah** | weh-yah-shee-FAH | dawn sea |
+| **Wauyafeyes** | wow-yah-feh-YES | true pool | **Wawesuwes** | wah-weh-soo-WES | old water |
+| **Waweyisis** | wah-weh-yee-SIS | bright water | **Wayafayus** | wah-yah-fah-YOOS | summer wave |
+| **Wayas** | wah-YAS | wave | **Wesis** | weh-SIS | sweet |
 | **Weyasuweh** | weh-yah-soo-WEH | old sea | **Weyawishis** | weh-yah-wee-SHIS | green sea |
 | **Weyeh** | weh-YEH | moon | **Weyetheyis** | weh-yeh-theh-YIS | golden moon |
 | **Wishis** | wee-SHIS | green | **Wuheheyuh** | woo-heh-heh-YOOH | winter blessing |
-| **Wusasuweth** | woo-sah-soo-WETH | old honour | **Wusawayih** | woo-sah-wah-YIH | calm honour |
-| **Wusayiseth** | woo-sah-yee-SETH | quiet honour | **Wusayisih** | woo-sah-yee-SIH | bright honour |
-| **Wuwath** | woo-WATH | first | **Wuwethayah** | woo-weh-thah-YAH | loyal fruit |
-| **Yafeh** | yah-FEH | dusk | **Yafesuthih** | yah-feh-soo-THIH | kindly dusk |
-| **Yafeyisith** | yah-feh-yee-SITH | bright dusk | **Yafisuweh** | yah-fee-soo-WEH | old leaf |
-| **Yafiyafes** | yah-fee-yah-FES | dusk leaf | **Yafiyayuh** | yah-fee-yah-YOOH | soft leaf |
-| **Yafiyiseh** | yah-fee-yee-SEH | quiet leaf | **Yawashifas** | yah-wah-shee-FAS | dawn torch |
-| **Yawawasheh** | yah-wah-wah-SHEH | wild torch | **Yawesaufis** | yah-weh-sow-FIS | grey night |
+| **Wuhes** | woo-HES | blessing | **Wusasuweth** | woo-sah-soo-WETH | old honour |
+| **Wusawayih** | woo-sah-wah-YIH | calm honour | **Wusayiseth** | woo-sah-yee-SETH | quiet honour |
+| **Wusayisih** | woo-sah-yee-SIH | bright honour | **Wuwath** | woo-WATH | first |
+| **Wuwethayah** | woo-weh-thah-YAH | loyal fruit | **Yafeh** | yah-FEH | dusk |
+| **Yafesuthih** | yah-feh-soo-THIH | kindly dusk | **Yafeyisith** | yah-feh-yee-SITH | bright dusk |
+| **Yafisuweh** | yah-fee-soo-WEH | old leaf | **Yafiyafes** | yah-fee-yah-FES | dusk leaf |
+| **Yafiyayuh** | yah-fee-yah-YOOH | soft leaf | **Yawas** | yah-WAS | torch |
+| **Yawashifas** | yah-wah-shee-FAS | dawn torch | **Yawawasheh** | yah-wah-wah-SHEH | wild torch |
+| **Yawawesith** | yah-wah-weh-SITH | sweet torch | **Yawesaufis** | yah-weh-sow-FIS | grey night |
 | **Yaweth** | yah-WETH | night | **Yawetheyis** | yah-weh-theh-YIS | golden night |
 | **Yawewishih** | yah-weh-wee-SHIH | green night | **Yaweyiseth** | yah-weh-yee-SETH | quiet night |
 | **Yayuh** | yah-YOOH | soft | **Yewis** | yeh-WIS | song |
@@ -719,80 +722,80 @@ Endings: a man's name ends in `-th`, `-h`, `-s`; a woman's in `-ai`, `-a`, `-i`;
 | **Asiyawi** | ah-see-yah-WEE | night vow | **Asiyaya** | ah-see-yah-YAH | soft vow |
 | **Ayuseya** | ah-yoo-seh-YAH | young bridge | **Eheheya** | eh-heh-heh-YAH | winter friend |
 | **Ehesauthi** | eh-heh-sow-THEE | star friend | **Eheyawa** | eh-heh-yah-WAH | night friend |
-| **Faha** | fah-HAH | trust | **Fausesha** | fow-seh-SHAH | holy |
-| **Fauwashuwi** | fow-wah-shoo-WEE | high tent | **Fauwawaufi** | fow-wah-wow-FEE | cloud tent |
-| **Fehafiya** | feh-hah-fee-YAH | white shell | **Feiwihi** | fay-wee-HEE | swift gift |
-| **Fewayafi** | feh-wah-yah-FEE | dusk wing | **Feyi** | feh-YEE | true |
-| **Fihi** | fee-HEE | root | **Fihisauthi** | fee-hee-sow-THEE | star root |
-| **Fihiyawa** | fee-hee-yah-WAH | night root | **Fiyeweya** | fee-yeh-weh-YAH | lucky wanderer |
-| **Fiyewiha** | fee-yeh-wee-HAH | swift wanderer | **Fiyeyi** | fee-yeh-YEE | day wanderer |
-| **Fusa** | foo-SAH | ember | **Fusefeyi** | foo-seh-feh-YEE | pale ember |
-| **Hafa** | hah-FAH | hearth | **Hafifaya** | hah-fee-fah-YAH | summer hearth |
-| **Hafiweya** | hah-fee-weh-YAH | moon hearth | **Hafiyawa** | hah-fee-yah-WAH | night hearth |
-| **Hausehethi** | how-seh-heh-THEE | light seer | **Hausesi** | how-seh-SEE | air seer |
-| **Hausethayai** | how-seh-thah-YIGH | wind seer | **Haushewai** | how-sheh-WY | storm |
+| **Fahafaya** | fah-hah-fah-YAH | summer trust | **Fahai** | fah-HY | trust |
+| **Fausesha** | fow-seh-SHAH | holy | **Fauwashuwi** | fow-wah-shoo-WEE | high tent |
+| **Fauwawaufi** | fow-wah-wow-FEE | cloud tent | **Fehafiya** | feh-hah-fee-YAH | white shell |
+| **Fehayaya** | feh-hah-yah-YAH | soft shell | **Feiwihi** | fay-wee-HEE | swift gift |
+| **Fewayafi** | feh-wah-yah-FEE | dusk wing | **Fiha** | fee-HAH | root |
+| **Fihisauthi** | fee-hee-sow-THEE | star root | **Fihiyawa** | fee-hee-yah-WAH | night root |
+| **Fiyeweya** | fee-yeh-weh-YAH | lucky wanderer | **Fiyewiha** | fee-yeh-wee-HAH | swift wanderer |
+| **Fiyeyi** | fee-yeh-YEE | day wanderer | **Fusa** | foo-SAH | ember |
+| **Fusefeyi** | foo-seh-feh-YEE | pale ember | **Fuseyawi** | foo-seh-yah-WEE | night ember |
+| **Hafifaya** | hah-fee-fah-YAH | summer hearth | **Hafiweya** | hah-fee-weh-YAH | moon hearth |
+| **Hafiyawa** | hah-fee-yah-WAH | night hearth | **Hausehethi** | how-seh-heh-THEE | light seer |
+| **Hausesi** | how-seh-SEE | air seer | **Hausethayai** | how-seh-thah-YIGH | wind seer |
 | **Hauyai** | how-YIGH | horn | **Hetheshuwi** | heh-theh-shoo-WEE | high light |
-| **Hetheweyi** | heh-theh-weh-YEE | moon light | **Hewa** | heh-WAH | gull |
-| **Hewashuwi** | heh-wah-shoo-WEE | high gull | **Heyefuya** | heh-yeh-foo-YAH | hidden pass |
-| **Heyeshasa** | heh-yeh-shah-SAH | north pass | **Heyesiyi** | heh-yeh-see-YEE | knowing pass |
-| **Hishai** | hee-SHY | frost | **Saefuyi** | sah-eh-foo-YEE | hidden air |
-| **Saewaha** | sah-eh-wah-HAH | far air | **Saiwasa** | sy-wah-SAH | wise spirit |
-| **Sathai** | sah-THY | road | **Sathufiya** | sah-thoo-fee-YAH | white road |
-| **Sathufuyi** | sah-thoo-foo-YEE | hidden road | **Sathuya** | sah-thoo-YAH | day road |
-| **Sausai** | sow-SY | omen | **Sausuthayi** | sow-soo-thah-YEE | wind omen |
-| **Sautha** | sow-THAH | courage | **Sauthifiyi** | sow-thee-fee-YEE | white star |
-| **Sauthishasi** | sow-thee-shah-SEE | north star | **Sauthithayi** | sow-thee-thah-YEE | wind star |
-| **Sauyi** | sow-YEE | sun | **Sawaheyi** | sah-wah-heh-YEE | winter child |
-| **Sawayafa** | sah-wah-yah-FAH | dusk child | **Sayai** | sah-YIGH | word |
-| **Sayashuwi** | sah-yah-shoo-WEE | high word | **Sayawasi** | sah-yah-wah-SEE | wise word |
-| **Sefisai** | seh-fee-SY | air scribe | **Sefiya** | seh-fee-YAH | sky scribe |
-| **Sesa** | seh-SAH | silk | **Sesafuya** | seh-sah-foo-YAH | hidden silk |
-| **Sesawasa** | seh-sah-wah-SAH | wise silk | **Sesaweya** | seh-sah-weh-YAH | lucky silk |
-| **Shafiha** | shah-fee-HAH | great root | **Shahewai** | shah-heh-WY | great gull |
-| **Shasefi** | shah-seh-FEE | great scribe | **Shawaufi** | shah-wow-FEE | great cloud |
-| **Sheshesa** | sheh-sheh-SAH | seeker | **Shethai** | sheh-THY | journey |
-| **Shethasasi** | sheh-thah-sah-SEE | whole journey | **Shethashuwi** | sheh-thah-shoo-WEE | high journey |
-| **Shethathayi** | sheh-thah-thah-YEE | wind journey | **Shihuhethai** | shee-hoo-heh-THY | light beginning |
-| **Shihusautha** | shee-hoo-sow-THAH | star beginning | **Shihuwaufi** | shee-hoo-wow-FEE | cloud beginning |
-| **Sifai** | see-FY | snow | **Sifathawi** | see-fah-thah-WEE | east snow |
-| **Siwa** | see-WAH | seed | **Siwuyafi** | see-woo-yah-FEE | dusk seed |
+| **Hetheweyi** | heh-theh-weh-YEE | moon light | **Hewashuwi** | heh-wah-shoo-WEE | high gull |
+| **Heyefuya** | heh-yeh-foo-YAH | hidden pass | **Heyeshasa** | heh-yeh-shah-SAH | north pass |
+| **Heyesiyi** | heh-yeh-see-YEE | knowing pass | **Hishai** | hee-SHY | frost |
+| **Saefuyi** | sah-eh-foo-YEE | hidden air | **Saewaha** | sah-eh-wah-HAH | far air |
+| **Saiwasa** | sy-wah-SAH | wise spirit | **Sathai** | sah-THY | road |
+| **Sathufiya** | sah-thoo-fee-YAH | white road | **Sathufuyi** | sah-thoo-foo-YEE | hidden road |
+| **Sathuya** | sah-thoo-YAH | day road | **Sausai** | sow-SY | omen |
+| **Sausuthayi** | sow-soo-thah-YEE | wind omen | **Sautha** | sow-THAH | courage |
+| **Sauthifiyi** | sow-thee-fee-YEE | white star | **Sauthishasi** | sow-thee-shah-SEE | north star |
+| **Sauthithayi** | sow-thee-thah-YEE | wind star | **Sauyi** | sow-YEE | sun |
+| **Sawaheyi** | sah-wah-heh-YEE | winter child | **Sawayafa** | sah-wah-yah-FAH | dusk child |
+| **Sayai** | sah-YIGH | word | **Sayashuwi** | sah-yah-shoo-WEE | high word |
+| **Sayawasi** | sah-yah-wah-SEE | wise word | **Sefisai** | seh-fee-SY | air scribe |
+| **Sefiya** | seh-fee-YAH | sky scribe | **Sesa** | seh-SAH | silk |
+| **Sesafuya** | seh-sah-foo-YAH | hidden silk | **Sesawasa** | seh-sah-wah-SAH | wise silk |
+| **Sesaweya** | seh-sah-weh-YAH | lucky silk | **Shafiha** | shah-fee-HAH | great root |
+| **Shahewai** | shah-heh-WY | great gull | **Shasefi** | shah-seh-FEE | great scribe |
+| **Shawaufi** | shah-wow-FEE | great cloud | **Sheshesa** | sheh-sheh-SAH | seeker |
+| **Shethai** | sheh-THY | journey | **Shethasasi** | sheh-thah-sah-SEE | whole journey |
+| **Shethashuwi** | sheh-thah-shoo-WEE | high journey | **Shethathayi** | sheh-thah-thah-YEE | wind journey |
+| **Shihuhethai** | shee-hoo-heh-THY | light beginning | **Shihusautha** | shee-hoo-sow-THAH | star beginning |
+| **Shihuwaufi** | shee-hoo-wow-FEE | cloud beginning | **Sifai** | see-FY | snow |
+| **Sifathawi** | see-fah-thah-WEE | east snow | **Siwa** | see-WAH | seed |
+| **Siwuyafi** | see-woo-yah-FEE | dusk seed | **Siyaweyi** | see-yah-weh-YEE | moon dream |
 | **Siyi** | see-YEE | stream | **Siyishasa** | see-yee-shah-SAH | north stream |
 | **Suwai** | soo-WY | old | **Thahi** | thah-HEE | branch |
 | **Thaufeyai** | thow-feh-YIGH | strong | **Thayeshasai** | thah-yeh-shah-SY | north wind |
-| **Thayeshuwi** | thah-yeh-shoo-WEE | high wind | **Theha** | theh-HAH | stone |
-| **Wahisasa** | wah-hee-sah-SAH | whole island | **Waisiya** | wy-see-YAH | knowing flower |
-| **Wasesai** | wah-seh-SY | air twin | **Wasesathai** | wah-seh-sah-THY | road twin |
-| **Wasewaufa** | wah-seh-wow-FAH | cloud twin | **Washai** | wah-SHY | wild |
-| **Wasi** | wah-SEE | guest | **Wasithayi** | wah-see-thah-YEE | wind guest |
-| **Wasuthayai** | wah-soo-thah-YIGH | wind wisdom | **Wasuwaufi** | wah-soo-wow-FEE | cloud wisdom |
-| **Wasuwihi** | wah-soo-wee-HEE | swift wisdom | **Waufai** | wow-FY | cloud |
-| **Waufufeyi** | wow-foo-feh-YEE | pale cloud | **Waufusesi** | wow-foo-seh-SEE | silk cloud |
-| **Wawai** | wah-WY | water | **Wawefiya** | wah-weh-fee-YAH | white water |
-| **Wayafiyi** | wah-yah-fee-YEE | white wave | **Wayathawa** | wah-yah-thah-WAH | east wave |
-| **Wehufiya** | weh-hoo-fee-YAH | white smoke | **Wehusesai** | weh-hoo-seh-SY | silk smoke |
-| **Wehuseya** | weh-hoo-seh-YAH | young smoke | **Weyai** | weh-YIGH | luck |
-| **Weyasautha** | weh-yah-sow-THAH | star sea | **Weyewesa** | weh-yeh-weh-SAH | sweet moon |
-| **Weyusatha** | weh-yoo-sah-THAH | road luck | **Weyusauthi** | weh-yoo-sow-THEE | star luck |
-| **Weyusesa** | weh-yoo-seh-SAH | silk luck | **Wuha** | woo-HAH | blessing |
+| **Thayeshuwi** | thah-yeh-shoo-WEE | high wind | **Wahisasa** | wah-hee-sah-SAH | whole island |
+| **Waisiya** | wy-see-YAH | knowing flower | **Wasesai** | wah-seh-SY | air twin |
+| **Wasesathai** | wah-seh-sah-THY | road twin | **Wasewaufa** | wah-seh-wow-FAH | cloud twin |
+| **Washai** | wah-SHY | wild | **Wasi** | wah-SEE | guest |
+| **Wasithayi** | wah-see-thah-YEE | wind guest | **Wasuthayai** | wah-soo-thah-YIGH | wind wisdom |
+| **Wasuwaufi** | wah-soo-wow-FEE | cloud wisdom | **Wasuwihi** | wah-soo-wee-HEE | swift wisdom |
+| **Waufai** | wow-FY | cloud | **Waufufeyi** | wow-foo-feh-YEE | pale cloud |
+| **Waufusesi** | wow-foo-seh-SEE | silk cloud | **Wawai** | wah-WY | water |
+| **Wawefiya** | wah-weh-fee-YAH | white water | **Wayafiyi** | wah-yah-fee-YEE | white wave |
+| **Wayathawa** | wah-yah-thah-WAH | east wave | **Wehufiya** | weh-hoo-fee-YAH | white smoke |
+| **Wehusesai** | weh-hoo-seh-SY | silk smoke | **Wehuseya** | weh-hoo-seh-YAH | young smoke |
+| **Weyai** | weh-YIGH | luck | **Weyasautha** | weh-yah-sow-THAH | star sea |
+| **Weyewesa** | weh-yeh-weh-SAH | sweet moon | **Weyusatha** | weh-yoo-sah-THAH | road luck |
+| **Weyusauthi** | weh-yoo-sow-THEE | star luck | **Weyusesa** | weh-yoo-seh-SAH | silk luck |
 | **Wuhewuwa** | woo-heh-woo-WAH | first blessing | **Wuheyaya** | woo-heh-yah-YAH | soft blessing |
 | **Wusai** | woo-SY | honour | **Yaesiya** | yah-eh-see-YAH | knowing day |
 | **Yaewahi** | yah-eh-wah-HEE | far day | **Yaeweyi** | yah-eh-weh-YEE | lucky day |
-| **Yafi** | yah-FEE | leaf | **Yaifeyi** | yigh-feh-YEE | pale sky |
-| **Yaisathi** | yigh-sah-THEE | road sky | **Yawayisa** | yah-wah-yee-SAH | bright torch |
-| **Yeiseyi** | yay-seh-YEE | young patience | **Yeisiya** | yay-see-YAH | knowing patience |
-| **Yewifaya** | yeh-wee-fah-YAH | summer song | **Yeya** | yeh-YAH | name |
-| **Yeyahetha** | yeh-yah-heh-THAH | light name | **Yeyasa** | yeh-yah-SAH | air name |
-| **Yeyawahi** | yeh-yah-wah-HEE | far name | **Yifa** | yee-FAH | fate |
-| **Yifefuyi** | yee-feh-foo-YEE | hidden fate | **Yifeweya** | yee-feh-weh-YAH | lucky fate |
-| **Yifeyai** | yee-feh-YIGH | day fate | **Yifuya** | yee-foo-YAH | little hill |
-| **Yihesai** | yee-heh-SY | air finder | **Yihethi** | yee-heh-THEE | little light |
-| **Yihewasa** | yee-heh-wah-SAH | wise finder | **Yiheyi** | yee-heh-YEE | little pass |
-| **Yisatha** | yee-sah-THAH | little road | **Yisausai** | yee-sow-SY | little omen |
-| **Yisawai** | yee-sah-WY | little child | **Yisaya** | yee-sah-YAH | little word |
-| **Yisesi** | yee-seh-SEE | little silk | **Yishetha** | yee-sheh-THAH | little journey |
-| **Yisiyi** | yee-see-YEE | little dream | **Yithaya** | yee-thah-YAH | little wind |
-| **Yiwasa** | yee-wah-SAH | little guest | **Yiyahi** | yee-yah-HEE | little learner |
-| **Yiyehai** | yee-yeh-HY | little friend | **Yiyifi** | yee-yee-FEE | little fate |
+| **Yafi** | yah-FEE | leaf | **Yafiwuwi** | yah-fee-woo-WEE | first leaf |
+| **Yaifeyi** | yigh-feh-YEE | pale sky | **Yaisathi** | yigh-sah-THEE | road sky |
+| **Yawayisa** | yah-wah-yee-SAH | bright torch | **Yeiseyi** | yay-seh-YEE | young patience |
+| **Yeisiya** | yay-see-YAH | knowing patience | **Yewifaya** | yeh-wee-fah-YAH | summer song |
+| **Yeya** | yeh-YAH | name | **Yeyahetha** | yeh-yah-heh-THAH | light name |
+| **Yeyasa** | yeh-yah-SAH | air name | **Yeyawahi** | yeh-yah-wah-HEE | far name |
+| **Yifa** | yee-FAH | fate | **Yifefuyi** | yee-feh-foo-YEE | hidden fate |
+| **Yifeweya** | yee-feh-weh-YAH | lucky fate | **Yifeyai** | yee-feh-YIGH | day fate |
+| **Yifuya** | yee-foo-YAH | little hill | **Yihesai** | yee-heh-SY | air finder |
+| **Yihethi** | yee-heh-THEE | little light | **Yihewasa** | yee-heh-wah-SAH | wise finder |
+| **Yiheyi** | yee-heh-YEE | little pass | **Yisatha** | yee-sah-THAH | little road |
+| **Yisausai** | yee-sow-SY | little omen | **Yisawai** | yee-sah-WY | little child |
+| **Yisaya** | yee-sah-YAH | little word | **Yisesi** | yee-seh-SEE | little silk |
+| **Yishetha** | yee-sheh-THAH | little journey | **Yisiyi** | yee-see-YEE | little dream |
+| **Yithaya** | yee-thah-YAH | little wind | **Yiwasa** | yee-wah-SAH | little guest |
+| **Yiyahi** | yee-yah-HEE | little learner | **Yiyehai** | yee-yeh-HY | little friend |
+| **Yiyesuwi** | yee-yeh-soo-WEE | old joy | **Yiyifi** | yee-yee-FEE | little fate |
 | **Yufefeyi** | yoo-feh-feh-YEE | pale valley | **Yufeshasa** | yoo-feh-shah-SAH | north valley |
 | **Yuwa** | yoo-WAH | spring | **Yuwiyaya** | yoo-wee-yah-YAH | soft spring |
 
@@ -801,31 +804,31 @@ Endings: a man's name ends in `-th`, `-h`, `-s`; a woman's in `-ai`, `-a`, `-i`;
 | Name | Say it | Means | Name | Say it | Means |
 |---|---|---|---|---|---|
 | **Ahese** | ah-heh-SEH | air learner | **Aheweyu** | ah-heh-weh-YOO | lucky learner |
-| **Ase** | ah-SEH | vow | **Ayush** | ah-YOOSH | bridge |
+| **Ayeyash** | ah-yeh-YASH | love | **Ayush** | ah-YOOSH | bridge |
 | **Ayusiyu** | ah-yoo-see-YOO | knowing bridge | **Fauwash** | fow-WASH | tent |
 | **Fauwaye** | fow-wah-YEH | sky tent | **Feifuyu** | fay-foo-YOO | hidden gift |
 | **Feisathu** | fay-sah-THOO | road gift | **Feiwahe** | fay-wah-HEH | far gift |
-| **Fewash** | feh-WASH | wing | **Fiye** | fee-YEH | wanderer |
-| **Fuwiwase** | foo-wee-wah-SEH | wise fog | **Fuwiweyu** | foo-wee-weh-YOO | lucky fog |
-| **Fuyash** | foo-YASH | hidden | **Hethe** | heh-THEH | light |
-| **Hewasesu** | heh-wah-seh-SOO | silk gull | **Heyu** | heh-YOO | winter |
-| **Saefeyu** | sah-eh-feh-YOO | pale air | **Saisathe** | sy-sah-THEH | road spirit |
-| **Saisiye** | sy-see-YEH | knowing spirit | **Saiwahu** | sy-wah-HOO | far spirit |
-| **Saufe** | sow-FEH | grey | **Sausuyu** | sow-soo-YOO | sky omen |
-| **Sauthish** | sow-THISH | star | **Sefiwihe** | seh-fee-wee-HEH | swift scribe |
-| **Shafiyu** | shah-fee-YOO | great wanderer | **Shafuwu** | shah-foo-WOO | great fog |
-| **Shahause** | shah-how-SEH | great seer | **Shasauthu** | shah-sow-THOO | great star |
-| **Shuwe** | shoo-WEH | high | **Thausathu** | thow-sah-THOO | road soul |
-| **Thauseye** | thow-seh-YEH | young soul | **Thauwahu** | thow-wah-HOO | far soul |
-| **Thawu** | thah-WOO | east | **Wahe** | wah-HEH | far |
+| **Fewash** | feh-WASH | wing | **Feyesh** | feh-YESH | true |
+| **Fiye** | fee-YEH | wanderer | **Fuwiwase** | foo-wee-wah-SEH | wise fog |
+| **Fuwiweyu** | foo-wee-weh-YOO | lucky fog | **Fuyash** | foo-YASH | hidden |
+| **Haushewush** | how-sheh-WOOSH | storm | **Hethe** | heh-THEH | light |
+| **Hewasesu** | heh-wah-seh-SOO | silk gull | **Saefeyu** | sah-eh-feh-YOO | pale air |
+| **Saisathe** | sy-sah-THEH | road spirit | **Saisiye** | sy-see-YEH | knowing spirit |
+| **Saiwahu** | sy-wah-HOO | far spirit | **Saufe** | sow-FEH | grey |
+| **Sausuyu** | sow-soo-YOO | sky omen | **Sauthish** | sow-THISH | star |
+| **Sefiwihe** | seh-fee-wee-HEH | swift scribe | **Shafiyu** | shah-fee-YOO | great wanderer |
+| **Shafuwu** | shah-foo-WOO | great fog | **Shahause** | shah-how-SEH | great seer |
+| **Shasauthu** | shah-sow-THOO | great star | **Shuwe** | shoo-WEH | high |
+| **Thausathu** | thow-sah-THOO | road soul | **Thauseye** | thow-seh-YEH | young soul |
+| **Thauwahu** | thow-wah-HOO | far soul | **Thawu** | thah-WOO | east |
 | **Waisese** | wy-seh-SEH | silk flower | **Waiseyu** | wy-seh-YOO | young flower |
 | **Wasiwihu** | wah-see-wee-HOO | swift guest | **Wasiye** | wah-see-YEH | sky guest |
 | **Wasush** | wah-SOOSH | wisdom | **Waufuye** | wow-foo-YEH | sky cloud |
-| **Wauyu** | wow-YOO | ring | **Wayithu** | wah-yee-THOO | calm |
-| **Wehu** | weh-HOO | smoke | **Wihesh** | wee-HESH | swift |
-| **Wuwesh** | woo-WESH | fruit | **Yaeshasu** | yah-eh-shah-SOO | north day |
-| **Yaiseye** | yigh-seh-YEH | young sky | **Yauyish** | yow-YISH | rain |
-| **Yawu** | yah-WOO | torch | **Yeiwaufe** | yay-wow-FEH | cloud patience |
+| **Wauyash** | wow-YASH | pool | **Wauyu** | wow-YOO | ring |
+| **Wayithu** | wah-yee-THOO | calm | **Wehush** | weh-HOOSH | smoke |
+| **Wihesh** | wee-HESH | swift | **Wuwesh** | woo-WESH | fruit |
+| **Yaeshasu** | yah-eh-shah-SOO | north day | **Yaiseye** | yigh-seh-YEH | young sky |
+| **Yauyish** | yow-YISH | rain | **Yeiwaufe** | yay-wow-FEH | cloud patience |
 | **Yeiwihu** | yay-wee-HOO | swift patience | **Yiwehe** | yee-weh-HEH | little smoke |
 | **Yiweyush** | yee-weh-YOOSH | little luck | **Yiyesh** | yee-YESH | joy |
 

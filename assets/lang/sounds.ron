@@ -156,4 +156,68 @@
         PartClusters,
         VowelsMeet,
     ],
+
+    // ---- Borrowing into the other three -------------------------------------------
+    // The same idea for the other tongues: a word taken from a neighbour is
+    // bent to the borrower's own sounds and shape, and no further. Used when
+    // someone speaks of another people's thing (a Roduro saying the Qotiro
+    // word for Forgeiron). The steps not explained above:
+    //   EndOnVowel    a word ending on a consonant gets an echo of its last vowel
+    //   CatchVowels   two vowels never touch: the catch goes between
+
+    // Roduro has no sounds of the lips or the nose, and only open syllables.
+    roduro_borrows: [
+        Change("p", "h", Anywhere),
+        Change("f", "h", Anywhere),
+        Change("k", "q", Anywhere),
+        Change("x", "h", Anywhere),
+        Change("m", "ḍ", Anywhere),
+        Change("n", "ḍ", Anywhere),
+        Change("w", "g", Anywhere),
+        Change("s", "sh", Anywhere),
+        PartClusters,
+        EndOnVowel,
+        CatchVowels,
+    ],
+    // Qotiro hardens everything and ends on a consonant.
+    qotiro_borrows: [
+        Change("ṭ", "t", Anywhere),
+        Change("ḍ", "d", Anywhere),
+        Change("ʻ", "q", Anywhere),
+        Change("l", "r", Anywhere),
+        Change("y", "d", Anywhere),
+        Change("h", "x", Anywhere),
+        Change("s", "x", Anywhere),
+        Change("sh", "x", Anywhere),
+        Change("th", "t", Anywhere),
+        Change("f", "p", Anywhere),
+        Change("w", "g", Anywhere),
+        Change("ì", "e", Anywhere),
+        NoVowelPairs,
+        DropLastVowel,
+        Devoice,
+        NoDoubles,
+    ],
+    // Horaro softens everything to liquids, nasals, w and h.
+    horaro_borrows: [
+        Change("ʻ", "", Anywhere),
+        Change("p", "w", Anywhere),
+        Change("f", "w", Anywhere),
+        Change("k", "h", Anywhere),
+        Change("q", "h", Anywhere),
+        Change("x", "h", Anywhere),
+        Change("g", "w", Anywhere),
+        Change("ṭ", "l", Anywhere),
+        Change("ḍ", "n", Anywhere),
+        Change("t", "n", Anywhere),
+        Change("d", "l", Anywhere),
+        Change("s", "h", Anywhere),
+        Change("sh", "h", Anywhere),
+        Change("th", "h", Anywhere),
+        Change("y", "i", Anywhere),
+        Change("ì", "i", Anywhere),
+        PartClusters,
+        EndOnVowel,
+        VowelRun,
+    ],
 )

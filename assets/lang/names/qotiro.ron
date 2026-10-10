@@ -10,7 +10,8 @@
 // The meaning is read off the recipe. `name` must be what the rules make of
 // `made` and `end`: a test checks, so after a change to a root or a sound
 // rule the list is brought back in step rather than drifting.
-// To drop a name, delete its line. No two names here are a letter apart.
+// To drop a name, delete its line. No two names here are a letter apart,
+// nor a letter from a name on another people's list.
 [
     // ---- Male (160) ----------------------------------------
     (name: "aroqox", gender: Male, made: "love", end: "x"),
@@ -24,7 +25,7 @@
     (name: "ditiq", gender: Male, made: "quiet", end: "q"),
     (name: "ditut", gender: Male, made: "quiet+hope", end: "t"),
     (name: "dodok", gender: Male, made: "pride", end: "k"),
-    (name: "doq", gender: Male, made: "stone", end: "q"),
+    (name: "doqot", gender: Male, made: "stone", end: "t"),
     (name: "doreq", gender: Male, made: "soft+sky", end: "q"),
     (name: "dorguq", gender: Male, made: "soft+fruit", end: "q"),
     (name: "dortik", gender: Male, made: "forge:small", end: "k"),
@@ -67,6 +68,7 @@
     (name: "krokpok", gender: Male, made: "storm+pillar", end: "k"),
     (name: "krokqot", gender: Male, made: "storm+spear", end: "t"),
     (name: "maret", gender: Male, made: "calm", end: "t"),
+    (name: "menmuk", gender: Male, made: "moon+blessing", end: "k"),
     (name: "menput", gender: Male, made: "moon+wall", end: "t"),
     (name: "menuq", gender: Male, made: "moon+spring", end: "q"),
     (name: "mex", gender: Male, made: "sweet", end: "x"),
@@ -117,11 +119,11 @@
     (name: "raqnuq", gender: Male, made: "day+spring", end: "q"),
     (name: "redik", gender: Male, made: "hunt:small", end: "k"),
     (name: "reqrek", gender: Male, made: "sky:great", end: "k"),
+    (name: "ripoq", gender: Male, made: "dawn+friend", end: "q"),
     (name: "riqix", gender: Male, made: "joy", end: "x"),
     (name: "rit", gender: Male, made: "bright", end: "t"),
     (name: "ritdaq", gender: Male, made: "bright+branch", end: "q"),
     (name: "ritmoq", gender: Male, made: "bright+sea", end: "q"),
-    (name: "rodot", gender: Male, made: "earth", end: "t"),
     (name: "rodrek", gender: Male, made: "earth:great", end: "k"),
     (name: "roxgux", gender: Male, made: "red+bow", end: "x"),
     (name: "roxkrek", gender: Male, made: "red+crag", end: "k"),
@@ -161,7 +163,6 @@
     (name: "trokqix", gender: Male, made: "fire+knife", end: "x"),
     (name: "trokxuq", gender: Male, made: "fire+bone", end: "q"),
     (name: "tronok", gender: Male, made: "wind", end: "k"),
-    (name: "tuq", gender: Male, made: "old", end: "q"),
     (name: "xemeq", gender: Male, made: "grain", end: "q"),
     (name: "xeqex", gender: Male, made: "spirit", end: "x"),
     (name: "xinkit", gender: Male, made: "aware+lightning", end: "t"),
@@ -193,7 +194,6 @@
     (name: "dortam", gender: Female, made: "soft+child", end: "m"),
     (name: "dorter", gender: Female, made: "soft+peace", end: "r"),
     (name: "drorom", gender: Female, made: "rain", end: "m"),
-    (name: "gar", gender: Female, made: "wave", end: "r"),
     (name: "garekem", gender: Female, made: "wave:great", end: "m"),
     (name: "gedrur", gender: Female, made: "iron+thunder", end: "r"),
     (name: "gepikin", gender: Female, made: "law:small", end: "n"),
@@ -313,6 +313,7 @@
     (name: "tuqdror", gender: Female, made: "old+rain", end: "r"),
     (name: "tuqgor", gender: Female, made: "old+ring", end: "r"),
     (name: "tuqtim", gender: Female, made: "old+seed", end: "m"),
+    (name: "tuqum", gender: Female, made: "old", end: "m"),
     (name: "tutur", gender: Female, made: "hope", end: "r"),
     (name: "xaqar", gender: Female, made: "air", end: "r"),
     (name: "xemikin", gender: Female, made: "grain:small", end: "n"),

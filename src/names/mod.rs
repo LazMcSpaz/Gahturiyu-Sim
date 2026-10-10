@@ -22,6 +22,7 @@
 
 pub mod grammar;
 pub mod people;
+pub mod places;
 pub mod sacred;
 pub mod say;
 pub mod sound;
@@ -34,9 +35,10 @@ use serde::Deserialize;
 
 pub use grammar::{compound, grammar, join, with, Affix, Grammar};
 pub use sacred::{god, make, people_english, people_meaning, people_name, sacred, God, Made, Sacred};
-pub use say::{ascii, capital, file_name, pronounce, syllables};
+pub use say::{ascii, capital, file_name, guess_tongue, pronounce, syllables};
 pub use sound::{At, Step};
-pub use people::{generate_person, generate_person_among, given_name, Context, Gender, Given, Listed, PersonName};
+pub use people::{generate_person, generate_person_among, given_name, listed_given, person_with_given, Context, Gender, Given, Listed, PersonName};
+pub use places::{generate_place, generate_place_with, Feature, Founding, PlaceName};
 pub use things::{native_name, thing, things, Group, Thing};
 
 /// The First Speech and its four daughters.
@@ -115,6 +117,9 @@ pub struct Sounds {
     pub horaro: Vec<Step>,
     pub tadoro: Vec<Step>,
     pub tadoro_borrows: Vec<Step>,
+    pub roduro_borrows: Vec<Step>,
+    pub qotiro_borrows: Vec<Step>,
+    pub horaro_borrows: Vec<Step>,
 }
 
 /// A word that does not follow its tongue's rules, and why.
@@ -273,14 +278,61 @@ pub fn derive(first: &str, tongue: Tongue) -> String {
     sound::spell(&w)
 }
 
-/// A word of one tongue fitted to another's mouth, as when it is borrowed.
-/// (Only Ṭaḍoro has borrowing rules so far; the others take a word as it is.)
+/// A word of one tongue fitted to another's mouth, as when it is borrowed:
+/// bent to the borrower's sounds and shape, and no further. A name of
+/// several words is bent word by word; capitals are kept.
 pub fn borrow(word: &str, into: Tongue) -> String {
-    let mut w = sound::sounds(word);
-    if into == Tongue::Tadoro {
-        sound::run(&mut w, &sounds().tadoro_borrows);
+    let s = sounds();
+    let steps = match into {
+        Tongue::Roduro => &s.roduro_borrows,
+        Tongue::Qotiro => &s.qotiro_borrows,
+        Tongue::Horaro => &s.horaro_borrows,
+        Tongue::Tadoro => &s.tadoro_borrows,
+        Tongue::First => return word.to_string(),
+    };
+    word.split(' ')
+        .map(|one| {
+            let mut w = sound::sounds(&one.to_lowercase());
+            sound::run(&mut w, steps);
+            let bent = sound::spell(&w);
+            if one.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                capital(&bent)
+            } else {
+                bent
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The name the game shows for a thing: its English name, whichever of its
+/// names it was asked for by ("Pearls" is "Pearl").
+pub fn display_name(thing: &str) -> Option<&'static str> {
+    things::thing(thing).map(|t| t.english.as_str())
+}
+
+/// What a speaker of a tongue calls a thing when they talk. Their own word
+/// if every people has the thing, or if it is their own people's. If it is
+/// another people's, that people's word, bent to the speaker's mouth (a
+/// Roduro says the Qotiro word for Forgeiron the Roduro way).
+pub fn name_in_speech(thing: &str, speaker: Tongue) -> Option<String> {
+    let t = things::thing(thing)?;
+    Some(match t.belongs {
+        Some(owner) if owner != speaker => borrow(&t.in_tongue(owner), speaker),
+        _ => t.in_tongue(speaker),
+    })
+}
+
+impl From<crate::sim::race::Race> for Tongue {
+    fn from(race: crate::sim::race::Race) -> Tongue {
+        use crate::sim::race::Race;
+        match race {
+            Race::Roduro => Tongue::Roduro,
+            Race::Qotiro => Tongue::Qotiro,
+            Race::Horaro => Tongue::Horaro,
+            Race::Tadoro => Tongue::Tadoro,
+        }
     }
-    sound::spell(&w)
 }
 
 /// A root's word in a tongue: the exception if there is one, the borrowed

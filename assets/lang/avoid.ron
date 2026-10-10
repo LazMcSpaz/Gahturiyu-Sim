@@ -33,6 +33,11 @@
         "menu", "emu", "euro", "mono", "memo", "limo", "lime", "rime", "hue", "woe", "hoe", "loo", "lee", "men",
         "man", "tut", "tod", "todd", "rode", "ride", "hide", "gate", "late", "rate", "dare", "gale", "tale",
         "aria", "arya", "momo", "duo", "goto", "yada", "aye",
+        // English place names that already mean something else.
+        "blackmarket", "whitehouse", "whitehall", "greenland", "iceland", "hollywood", "deadwood", "newmarket",
+        "woodstock", "moonshine", "sunset", "sunrise", "highway", "longhouse", "redneck", "blackhead", "whitehead",
+        "greenhouse", "lighthouse", "madhouse", "oldham", "starship", "stonehenge", "stonewall",
+        "treehouse", "birdhouse", "doghouse", "boathouse", "sandbank", "windmill", "moonwalk", "starfish",
         // Soft and open (Horaro could make these).
         "moana", "maui", "lilo", "nala", "mona", "lena", "nina", "mila", "hana", "lana", "lola", "luna", "nora",
         "mara", "maria", "mario", "luma", "lulu", "mimi", "nana", "mama", "nemo", "elmo", "helena", "elena",

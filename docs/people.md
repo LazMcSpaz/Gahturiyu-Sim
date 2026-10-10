@@ -31,74 +31,74 @@
 
 | Name as shown | Say it | In their own tongue | What the name hints at |
 |---|---|---|---|
-| **Topor Fifth Spear** | TOH-por | Topor Romqot | "Plateau". No deed yet: she is known by her place in the ranks. |
-| **Ramrek Spring-finder** | RAM-rek | Ramrek Nuqrekak | "Great torch". He earned the name by a deed, and the next deed will replace it. |
-| **Mutdem Hall-builder** | MOOT-dem | Mutdem Pakpatak | "Honoured song": what her parents wished for her. She earned the name by a deed, and the next deed will replace it. |
+| **Tortom Fifth Spear** | TOR-tom | Tortom Romqot | "South". No deed yet: she is known by her place in the ranks. |
+| **Ramaq Spring-finder** | RAH-mak | Ramaq Nuqrekak | "Plain". He earned the name by a deed, and the next deed will replace it. |
+| **Mutrim Hall-builder** | MOOT-rim | Mutrim Pakpatak | "Honoured gate": what her parents wished for her. She earned the name by a deed, and the next deed will replace it. |
 | **Etex Ore-finder** | EH-tekh | Etex Tokrekak | "Vow". He earned the name by a deed, and the next deed will replace it. |
 | **Peqnuqun Second Bow** | PEK-noo-koon | Peqnuqun Nidgux | "Pale spring". No deed yet: she is known by her place in the ranks. |
-| **Reqrek Torch-bearer** | REK-rek | Reqrek Ramkekak | "Great sky": a name kept in his line, handed down. He earned the name by a deed, and the next deed will replace it. |
+| **Redik Torch-bearer** | REH-dik | Redik Ramkekak | "Little hunter": a name kept in his line, handed down. He earned the name by a deed, and the next deed will replace it. |
 | **Xopmag Hound-hunter** | KHOP-mag | Xopmag Noredak | "Grey water". They earned the name by a deed, and the next deed will replace it. |
-| **Todom Spear-breaker** | TOH-dom | Todom Qotrapak | "Courage": what her parents wished for her. She earned the name by a deed, and the next deed will replace it. |
-| **Pikix Fourth Flame** | PEE-kikh | Pikix Potrok | "Root": a name kept in his line, handed down. No deed yet: he is known by his place in the ranks. |
-| **Troktrim Crag-runner** | TROK-trim | Troktrim Krekdirak | "Fire gate": a name kept in her line, handed down. She earned the name by a deed, and the next deed will replace it. |
+| **Tonqen Spear-breaker** | TON-ken | Tonqen Qotrapak | "Sun pass". She earned the name by a deed, and the next deed will replace it. |
+| **Peqek Fourth Flame** | PEH-kek | Peqek Potrok | "Pale": a name kept in his line, handed down. No deed yet: he is known by his place in the ranks. |
+| **Trokxen Crag-runner** | TROK-khen | Trokxen Krekdirak | "Fire sand": a name kept in her line, handed down. She earned the name by a deed, and the next deed will replace it. |
 | **Muqtopox Iron-breaker** | MOOK-toh-pokh | Muqtopox Gettrapak | "First plateau". He earned the name by a deed, and the next deed will replace it. |
-| **Redakan Spear-thrower** | REH-dah-kan | Redakan Qotrirak | "Passion": what her parents wished for her. She earned the name by a deed, and the next deed will replace it. |
+| **Reden Spear-thrower** | REH-den | Reden Qotrirak | "Hunter". She earned the name by a deed, and the next deed will replace it. |
 | **Gikrek Seventh Bow** | GIK-rek | Gikrek Kertagux | "Swift crag": a name kept in his line, handed down. No deed yet: he is known by his place in the ranks. |
 | **Ditorod Spear-bearer** | DEE-toh-rod | Ditorod Qotkekak | "Quiet warden". They earned the name by a deed, and the next deed will replace it. |
 | **Menpeg Wall-breaker** | MEN-peg | Menpeg Putrapak | "Moon wing": a name kept in her line, handed down. She earned the name by a deed, and the next deed will replace it. |
 | **Droqok Hearth-warden** | DROH-kok | Droqok Keptorak | "Patience": what his parents wished for him. He earned the name by a deed, and the next deed will replace it. |
 | **Xoptron Third Spear** | KHOP-tron | Xoptron Xurqot | "Grey wind". No deed yet: she is known by her place in the ranks. |
 | **Qoxrekex Iron-breaker** | KOKH-reh-kekh | Qoxrekex Gettrapak | "Great brother". He earned the name by a deed, and the next deed will replace it. |
-| **Kenkon Bone-breaker** | KEN-kon | Kenkon Xuqtrapak | "Winter horn": a name kept in her line, handed down. She earned the name by a deed, and the next deed will replace it. |
+| **Kentim Bone-breaker** | KEN-tim | Kentim Xuqtrapak | "Winter seed": a name kept in her line, handed down. She earned the name by a deed, and the next deed will replace it. |
 | **Mukug Spring-finder** | MOO-koog | Mukug Nuqrekak | "Blessing". He earned the name by a deed, and the next deed will replace it. |
 
 ## Horaro
 
 | Name as shown | Say it | In their own tongue | What the name hints at |
 |---|---|---|---|
-| **Larinuwe of Niralina's line** | lah-ree-NOO-weh | Larinuwe i hawe i Niralina | "Deep weaver". She counts her family through the mothers, back to Niralina. |
-| **Mene of Niralina's line** | MEH-neh | Mene i hawe i Niralina | "Moon": a child born under a full moon. He counts his family through the mothers, back to Niralina. |
-| **Ione of Niralina's line** | ee-OH-neh | Ione i hawe i Niralina | "Reed". She counts her family through the mothers, back to Niralina. |
-| **Wehu of Niralina's line** | WEH-hoo | Wehu i hawe i Niralina | "Shell". He counts his family through the mothers, back to Niralina. |
-| **Miaweha of the Moon Reef** | mee-ah-WEH-hah | Miaweha i Rahumene | "Shell fish". She was born by the water there, and is named for the place. |
-| **Ranemo of Limunole's line** | rah-NEH-moh | Ranemo i hawe i Limunole | "Great harbour". He counts his family through the mothers, back to Limunole. |
-| **Mene of the Shell Mouth** | MEH-neh | Mene i Awoweha | "Moon": a child born under a full moon. They were born by the water there, and are named for the place. |
-| **Nemowira of Limunole's line** | neh-moh-WEE-rah | Nemowira i hawe i Limunole | "Green harbour". She counts her family through the mothers, back to Limunole. |
-| **Haiwenu of Niralina's line** | hah-ee-WEH-noo | Haiwenu i hawe i Niralina | "True spirit". He counts his family through the mothers, back to Niralina. |
-| **Wawia of the Shell Mouth** | wah-WEE-ah | Wawia i Awoweha | "Bay". She was born by the water there, and is named for the place. |
-| **Wui of Niralina's line** | WOO-ee | Wui i hawe i Niralina | "Foam". He counts his family through the mothers, back to Niralina. |
+| **Larimawi of Iema's line** | lah-ree-MAH-wee | Larimawi i hawe i Iema | "Water weaver": named for her people's own element. She counts her family through the mothers, back to Iema. |
+| **Mie of Iema's line** | MEE-eh | Mie i hawe i Iema | "Fish". He counts his family through the mothers, back to Iema. |
+| **Ini of Iema's line** | EE-nee | Ini i hawe i Iema | "Quiet". She counts her family through the mothers, back to Iema. |
+| **Weulao of Iema's line** | weh-oo-LAH-oh | Weulao i hawe i Iema | "Day luck": a child born in broad day. He counts his family through the mothers, back to Iema. |
+| **Welawala of the Moon Reef** | weh-lah-WAH-lah | Welawala i Rahumene | "Wave sail". She was born by the water there, and is named for the place. |
+| **Ranemo of Linali's line** | rah-NEH-moh | Ranemo i hawe i Linali | "Great harbour". He counts his family through the mothers, back to Linali. |
+| **Mie of the Shell Mouth** | MEE-eh | Mie i Awoweha | "Fish". They were born by the water there, and are named for the place. |
+| **Nemowira of Linali's line** | neh-moh-WEE-rah | Nemowira i hawe i Linali | "Green harbour". She counts her family through the mothers, back to Linali. |
+| **Haiwenu of Womuwira's line** | hah-ee-WEH-noo | Haiwenu i hawe i Womuwira | "True spirit". He counts his family through the mothers, back to Womuwira. |
+| **Rawela of the Shell Mouth** | rah-WEH-lah | Rawela i Awoweha | "Great sail". She was born by the water there, and is named for the place. |
+| **Wuawehi of Womuwira's line** | woo-ah-WEH-hee | Wuawehi i hawe i Womuwira | "Shell foam". He counts his family through the mothers, back to Womuwira. |
 | **Raworia of the Shell Mouth** | rah-woh-REE-ah | Raworia i Awoweha | "Great river". She was born by the water there, and is named for the place. |
-| **Menemoo of Mehi's line** | meh-neh-MOH-oh | Menemoo i hawe i Mehi | "Sea moon": a name kept in his line, handed down. He counts his family through the mothers, back to Mehi. |
-| **Woralui of the Rain Cove** | woh-rah-LOO-ee | Woralui i Meonoli | "Blue river". They were born by the water there, and are named for the place. |
-| **Hiliwea of Mehi's line** | hee-lee-WEH-ah | Hiliwea i hawe i Mehi | "Pale stream". She counts her family through the mothers, back to Mehi. |
-| **Nulumeno of Mehi's line** | noo-loo-MEH-noh | Nulumeno i hawe i Mehi | "Moon sea-stack": a child born under a full moon. He counts his family through the mothers, back to Mehi. |
-| **Liwawa of the Rain Cove** | lee-WAH-wah | Liwawa i Meonoli | "Little bay". She was born by the water there, and is named for the place. |
-| **Wawaleo of Hiliwara's line** | wah-wah-LEH-oh | Wawaleo i hawe i Hiliwara | "Tide bay": a name kept in his line, handed down. He counts his family through the mothers, back to Hiliwara. |
-| **Hononaha of the Foam Stack** | hoh-noh-NAH-hah | Hononaha i Nuluwua | "Whole horn": a name kept in her line, handed down. She was born by the water there, and is named for the place. |
-| **Aniwihu of the Foam Stack** | ah-nee-WEE-hoo | Aniwihu i Nuluwua | "Swift vow". He was born by the water there, and is named for the place. |
+| **Mawo of Miamene's line** | MAH-woh | Mawo i hawe i Miamene | "Water": a name kept in his line, handed down. He counts his family through the mothers, back to Miamene. |
+| **Womumawi of the Rain Cove** | woh-moo-MAH-wee | Womumawi i Meonoli | "Water marsh": named for their people's own element. They were born by the water there, and are named for the place. |
+| **Nalilua of Miamene's line** | nah-lee-LOO-ah | Nalilua i hawe i Miamene | "Blue shore". She counts her family through the mothers, back to Miamene. |
+| **Nuhomawo of Miamene's line** | noo-hoh-MAH-woh | Nuhomawo i hawe i Miamene | "Water headland": named for his people's own element. He counts his family through the mothers, back to Miamene. |
+| **Ranira of the Rain Cove** | rah-NEE-rah | Ranira i Meonoli | "Great sister". She was born by the water there, and is named for the place. |
+| **Wehamehu of Wahinaha's line** | weh-hah-MEH-hoo | Wehamehu i hawe i Wahinaha | "Sweet shell": a name kept in his line, handed down. He counts his family through the mothers, back to Wahinaha. |
+| **Limana of the Foam Stack** | lee-MAH-nah | Limana i Nuluwua | "Little wisdom": a name kept in her line, handed down. She was born by the water there, and is named for the place. |
+| **Aniruo of the Foam Stack** | ah-nee-ROO-oh | Aniruo i Nuluwua | "High vow". He was born by the water there, and is named for the place. |
 
 ## Ṭaḍoro
 
 | Name as shown | Say it | In their own tongue | What the name hints at |
 |---|---|---|---|
-| **Fusefeyi, Saisathe's student** | foo-seh-feh-YEE | Fusefeyi heyahe yi Saisathe | "Pale ember". She learns from Saisathe; the name will change with the next teacher. |
-| **Wauyah, Yiyewith's student** | wow-YAH | Wauyah heyahe yi Yiyewith | "Pool". He learns from Yiyewith; the name will change with the next teacher. |
-| **Saiwahu, Eheheya's student** | sy-wah-HOO | Saiwahu heyahe yi Eheheya | "Far spirit". She learns from Eheheya; the name will change with the next teacher. |
-| **Shayuwis of the High Road** | shah-yoo-WIS | Shayuwis yi Sathushuwa | "Great spring". He came lately by that road; the name changes as he travels. |
-| **Yiheyi, Wauyu's student** | yee-heh-YEE | Yiheyi heyahe yi Wauyu | "Little pass": a name kept in her line, handed down. She learns from Wauyu; the name will change with the next teacher. |
+| **Fusa, Saefeyu's student** | foo-SAH | Fusa heyahe yi Saefeyu | "Ember". She learns from Saefeyu; the name will change with the next teacher. |
+| **Wawesuwes, Yiyewith's student** | wah-weh-soo-WES | Wawesuwes heyahe yi Yiyewith | "Old water". He learns from Yiyewith; the name will change with the next teacher. |
+| **Saisiye, Eheheya's student** | sy-see-YEH | Saisiye heyahe yi Eheheya | "Knowing spirit". She learns from Eheheya; the name will change with the next teacher. |
+| **Shifath of the High Road** | shee-FATH | Shifath yi Sathushuwa | "Dawn": a child born at dawn. He came lately by that road; the name changes as he travels. |
+| **Yisatha, Wauyash's student** | yee-sah-THAH | Yisatha heyahe yi Wauyash | "Little road": a name kept in her line, handed down. She learns from Wauyash; the name will change with the next teacher. |
 | **Fahayawes of the Star Road** | fah-hah-yah-WES | Fahayawes yi Sathusauthi | "Night trust": a child born by night. He came lately by that road; the name changes as he travels. |
-| **Wahe of the Star Road** | wah-HEH | Wahe yi Sathusauthi | "Far". They came lately by that road; the name changes as they travel. |
-| **Fusa of the South Road** | foo-SAH | Fusa yi Sathusauthe | "Ember". She came lately by that road; the name changes as she travels. |
-| **Fusethawis of the White Road** | foo-seh-thah-WIS | Fusethawis yi Sathufiya | "East ember". He came lately by that road; the name changes as he travels. |
-| **Shethathayi of the West Road** | sheh-thah-thah-YEE | Shethathayi yi Sathuhiye | "Wind journey": named for her people's own element. She came lately by that road; the name changes as she travels. |
+| **Thawu of the Star Road** | thah-WOO | Thawu yi Sathusauthi | "East". They came lately by that road; the name changes as they travel. |
+| **Fiyeyi of the South Road** | fee-yeh-YEE | Fiyeyi yi Sathusauthe | "Day wanderer": a child born in broad day. She came lately by that road; the name changes as she travels. |
+| **Fuwis of the White Road** | foo-WIS | Fuwis yi Sathufiya | "Fog". He came lately by that road; the name changes as he travels. |
+| **Shihuhethai of the West Road** | shee-hoo-heh-THY | Shihuhethai yi Sathuhiye | "Light beginning". She came lately by that road; the name changes as she travels. |
 | **Yisis of the White Road** | yee-SIS | Yisis yi Sathufiya | "Bright". He came lately by that road; the name changes as he travels. |
-| **Yifuya, Yeisiya's student** | yee-foo-YAH | Yifuya heyahe yi Yeisiya | "Little hill". She learns from Yeisiya; the name will change with the next teacher. |
-| **Shauthuh of the North Road** | show-THOOH | Shauthuh yi Sathushase | "Earth". He came lately by that road; the name changes as he travels. |
+| **Yihesai, Yewifaya's student** | yee-heh-SY | Yihesai heyahe yi Yewifaya | "Air finder": named for her people's own element. She learns from Yewifaya; the name will change with the next teacher. |
+| **Shawahis of the North Road** | shah-wah-HIS | Shawahis yi Sathushase | "Great island". He came lately by that road; the name changes as he travels. |
 | **Feifuyu of the Sea Road** | fay-foo-YOO | Feifuyu yi Sathuweya | "Hidden gift". They came lately by that road; the name changes as they travel. |
-| **Sefisai, Hewasesu's student** | seh-fee-SY | Sefisai heyahe yi Hewasesu | "Air scribe": a name kept in her line, handed down. She learns from Hewasesu; the name will change with the next teacher. |
-| **Sawisasis of the Salt Road** | sah-wee-sah-SIS | Sawisasis yi Sathusiha | "Whole grain". He came lately by that road; the name changes as he travels. |
-| **Fiyewiha of the Wind Road** | fee-yeh-wee-HAH | Fiyewiha yi Sathuthaye | "Swift wanderer". She came lately by that road; the name changes as she travels. |
-| **Shawahis of the Quiet Road** | shah-wah-HIS | Shawahis yi Sathuyise | "Great island". He came lately by that road; the name changes as he travels. |
-| **Sefiya, Ashawuwath's student** | seh-fee-YAH | Sefiya heyahe yi Ashawuwath | "Sky scribe": a name kept in her line, handed down. She learns from Ashawuwath; the name will change with the next teacher. |
-| **Shaseh of the Far Road** | shah-SEH | Shaseh yi Sathuwahe | "North". He came lately by that road; the name changes as he travels. |
+| **Sefiya, Haushewush's student** | seh-fee-YAH | Sefiya heyahe yi Haushewush | "Sky scribe": a name kept in her line, handed down. She learns from Haushewush; the name will change with the next teacher. |
+| **Sayasesas of the Salt Road** | sah-yah-seh-SAS | Sayasesas yi Sathusiha | "Silk word". He came lately by that road; the name changes as he travels. |
+| **Fiyeweya of the Wind Road** | fee-yeh-weh-YAH | Fiyeweya yi Sathuthaye | "Lucky wanderer": what her parents wished for her. She came lately by that road; the name changes as she travels. |
+| **Shawaih of the Quiet Road** | shah-WYH | Shawaih yi Sathuyise | "Great flower". He came lately by that road; the name changes as he travels. |
+| **Sesa, Ashawuwath's student** | seh-SAH | Sesa heyahe yi Ashawuwath | "Silk": a name kept in her line, handed down. She learns from Ashawuwath; the name will change with the next teacher. |
+| **Shausas of the Far Road** | show-SAS | Shausas yi Sathuwahe | "Red". He came lately by that road; the name changes as he travels. |
 

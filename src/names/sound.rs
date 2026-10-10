@@ -41,6 +41,8 @@ pub enum Step {
     VowelsMeet,
     BlurMiddle,
     PartClusters,
+    EndOnVowel,
+    CatchVowels,
 }
 
 /// Turn spelling into single sounds.
@@ -304,6 +306,24 @@ fn apply(w: &mut Vec<char>, step: &Step) {
             // A word may end on a breath, but not on a glide.
             if matches!(out.last(), Some('w') | Some('y') | Some('f')) {
                 out.push('e');
+            }
+            *w = out;
+        }
+        Step::EndOnVowel => {
+            // A word that ends on a consonant is given an echo of its last vowel.
+            if w.last().map(|c| !is_vowel(*c)).unwrap_or(false) {
+                let echo = w.iter().rev().find(|c| is_vowel(**c)).copied().unwrap_or('a');
+                w.push(echo);
+            }
+        }
+        Step::CatchVowels => {
+            // Two vowels never touch: the catch goes between.
+            let mut out: Vec<char> = Vec::with_capacity(w.len() + 2);
+            for &c in w.iter() {
+                if is_vowel(c) && out.last().map(|p| is_vowel(*p)).unwrap_or(false) {
+                    out.push('ʻ');
+                }
+                out.push(c);
             }
             *w = out;
         }

@@ -10,7 +10,8 @@
 // The meaning is read off the recipe. `name` must be what the rules make of
 // `made` and `end`: a test checks, so after a change to a root or a sound
 // rule the list is brought back in step rather than drifting.
-// To drop a name, delete its line. No two names here are a letter apart.
+// To drop a name, delete its line. No two names here are a letter apart,
+// nor a letter from a name on another people's list.
 [
     // ---- Male (160) ----------------------------------------
     (name: "aru", gender: Male, made: "mercy", end: "u"),

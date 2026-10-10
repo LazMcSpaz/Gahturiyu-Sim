@@ -1,16 +1,18 @@
 # Naming: words and names in the four tongues
 
-Second agent's work, branch `agent2/naming`. This file grows with each stage. This is
-the state after **stage 4**. Stage 1: canon inventory, First Speech roots, sound rules,
+Second agent's work, branch `agent2/naming`. This file grew with each stage. This is
+the state after **stage 5**, the last. Stage 1: canon inventory, First Speech roots, sound rules,
 cognate sets. Stage 2: how each tongue puts words together, the gods and the elements
 in all four tongues, what each people calls each people, the words of worship and
 rule, and spelling and pronunciation. Stage 3: the names of things (jobs, crafts,
 materials, items, buildings, creatures, weather). Stage 4: people (given names with
-meanings, bynames in each culture's shape). Next: places, and wiring it into the game.
+meanings, bynames in each culture's shape). Stage 5: places, words borrowed between
+peoples, the naming functions the game calls, and the game using them.
 
-**Nothing in the game uses this yet.** The game still makes names with
-`src/sim/names.rs` (random syllables in each tongue's sounds). The adapter that points
-those call sites here comes with the people and place generators (stages 4 and 5).
+**The game uses it now** for the two names it already kept: a person's given name and
+a town's name. Everything else (bynames, native names, what other peoples call a place,
+pronunciation, meanings) is worked out on request and is ready for the window and the
+dialogue to show; "Stage 5" below lists exactly what to call.
 
 ## The idea
 
@@ -398,7 +400,7 @@ name ending** that says who it is for:
 | Horaro | `-u -o` | `-a -ia` | `-i -e` | the last vowel gives way: *noli* (rain) → **Nolu**, **Nolia**, **Nole** |
 | Ṭaḍoro | `-th -h -s` | `-ai -a -i` | `-e -u -sh` | a breath follows the last vowel, a vowel takes its place: *weya* (sea) → **Weyath**, **Weyai**, **Weyash** |
 
-**The lists** hold, for each people, 160 names for men, 153 to 160 for women and 56
+**The lists** hold, for each people, 160 names for men, 160 for women and 56
 for either (the brief asked for 150, 150 and 50). Each line is the name, who it is
 for, its recipe and its ending; the meaning is read off the recipe ("patient ridge",
 "little wave", "moon weaver"). About a third are a single root, an eighth a root with
@@ -427,11 +429,13 @@ describes land, sea or sky; "father" and "brother" name no daughter, "mother" an
 (Moana, Yoda, Karen, Putin: `known` in `avoid.ron`) or a blunder ("Name", "Todo",
 "Male"); and **no two names on a people's list are one letter apart**.
 
-**Where a person's given name comes from** (`given_name`, `generate_person`):
-four in five take a name from the lists; one in five get a name newly made by the
-same rules from the same roots; and where a line is known, one in five carry one of
-the two names that line keeps for its sons or its daughters, so a family repeats
-names down the years.
+**Where a person's given name comes from.** The generator (`given_name`,
+`generate_person`) takes four names in five from the lists and makes one in five new
+by the same rules from the same roots; and where a line is known, one in five carry
+one of the two names that line keeps for its sons or its daughters, so a family
+repeats names down the years. **The game itself gives list names only** (stage 5): a
+name struck off a list is then gone from the game, and since no two listed names are
+a letter apart, no two neighbours can be.
 
 ### Bynames
 
@@ -443,9 +447,9 @@ The byname shows in English; the native form is kept beside it for hover.
 | Roduro | and the job, where there is one | the Tender | Leḍaqe | the job does |
 | Qotiro | a place in the ranks until the first deed | Third Spear | Xurqot | at the first deed |
 | Qotiro | then the deed | Iron-breaker · Hearth-warden | Gettrapak · Keptorak | at each new deed, which replaces it |
-| Horaro | the mother's line | of Niralina's line | i hawe i Niralina | never |
+| Horaro | the mother's line | of Iema's line | i hawe i Iema | never |
 | Horaro | or the sea-place they were born by | of the Kelp Reef | i Rahulimu | never |
-| Ṭaḍoro | the teacher | Saisathe's student | heyahe yi Saisathe | with each new teacher |
+| Ṭaḍoro | the teacher | Saefeyu's student | heyahe yi Saefeyu | with each new teacher |
 | Ṭaḍoro | or the road they came by | of the North Road | yi Sathushase | as they travel |
 
 So the name is a plain function of what is known about the person
@@ -458,10 +462,10 @@ A few as the game would show them (all twenty of each are in `docs/people.md`):
 |---|---|---|
 | **Theloʻoqa the Tender, of the Herb-Brow House** | Theloʻoqa Leḍaqe, yi Yeriṭiha | "Peaceful friend": what her parents wished for her. Her house is named for where it grew. She is the Tender there. |
 | **Qeḍutiḍe of the Bark-Hill House** | Qeḍutiḍe yi Thuhehuli | "Winter seed": a child born in winter. |
-| **Topor Fifth Spear** | Topor Romqot | "Plateau". No deed yet: she is known by her place in the ranks. |
+| **Tortom Fifth Spear** | Tortom Romqot | "South". No deed yet: she is known by her place in the ranks. |
 | **Droqok Hearth-warden** | Droqok Keptorak | "Patience": what his parents wished for him. He earned the name by a deed, and the next will replace it. |
-| **Mene of Niralina's line** | Mene i hawe i Niralina | "Moon": a child born under a full moon. He counts his family through the mothers, back to Niralina. |
-| **Liwawa of the Rain Cove** | Liwawa i Meonoli | "Little bay". She was born by the water there. |
+| **Larimawi of Iema's line** | Larimawi i hawe i Iema | "Water weaver": named for her people's own element. She counts her family through the mothers, back to Iema. |
+| **Welawala of the Moon Reef** | Welawala i Rahumene | "Wave sail". She was born by the water there. |
 
 **Neighbours.** `generate_person_among(…, taken)` names someone joining people already
 named: never the same whole name, never a given name one letter off a neighbour's.
@@ -481,6 +485,149 @@ town by town when the adapter goes in (stage 5).
   **Sesafauwa** (was *Sesafau*), Scholar's tent **Fauwasesa**. All still four beats or
   fewer. (It showed up because "Star Road" and "South Road" came out the same.)
 - The hint for a Ṭaḍoro `yai` is now "yigh" (it was "yy").
+
+## Stage 5: places, borrowing, and the game
+
+### Places
+
+**Thirty sample places are `docs/places.md`.** The data is `assets/lang/places.ron`.
+
+A place is handed in as **what the land is really like there** (its features,
+strongest first) and, if it has one, **what it was founded on**. Its name is two
+roots, the first describing the second, made once as a recipe and then said in each
+of the four tongues by that tongue's rules, and in English.
+
+- **Features** (23): cove, bay, headland, cliff, shore, river mouth, island, sea
+  stack, rocky hillside, hill, valley, hollow, ridge, mountain, peak, pass, plateau,
+  plain, wood, marsh, heath, spring, stream. Each has the words such a place is
+  called (a cove is a "cove", a "harbour", a "bay") and the things found there that
+  might name it (gulls, kelp, shells).
+- **The second part** is a word for the land, or (a town, three times in ten) a word
+  for what people made of it: town, market, hearth, hall, house.
+- **The first part** is something found at such a place, or the other thing the site
+  is (a wooded cove can be "Woodhaven"), or one of the namers' own favourites (Roduro:
+  old, deep, moss; Qotiro: red, sun, iron; Horaro: blue, calm, pearl; Ṭaḍoro: wind,
+  far, star). When the second part says nothing of the land ("-hall"), the first
+  part must.
+- **A founding element** takes the first part's place: a resource, a creature or an
+  event (any root: Kelpcove, Ironcrag, Battleacre); the founder ("Galu's House"); a
+  god ("Horahìda's Well", with each people using its own name for the god).
+- **English:** a town is one word (Stonebrow), a piece of the land two (Thunder
+  Peak). Each root has its English place-forms in the data ("valley" ends a name as
+  *-dale* or *-vale*, "mountain" as *-fell*). The same two roots always make the same
+  English name.
+- **The founders' form is the place's own name**; the other three are what the other
+  peoples call it. They are translations, not borrowings: each people says "wind
+  hearth" in its own words, so the names rhyme faintly across the map through the
+  shared roots.
+
+| What it is | Named by | Shown as | Its own name | Roduro | Qotiro | Horaro | Ṭaḍoro |
+|---|---|---|---|---|---|---|---|
+| a village on a windy hill | Roduro | **Windhearth** | Ṭaḍoqahi | **Ṭaḍoqahi** | Tronkep | Hawilano | Hafithaye |
+| a stilt village founded where kelp was first gathered | Horaro | **Kelpcove** | Meolimu | Liḍuḍeʻo | Rimeq | **Meolimu** | Weheyiwu |
+| a mining town under the mountains | Qotiro | **Ironcrag** | Getkrek | Geduraqi | **Getkrek** | Harahiwelu | Hashaheweth |
+| a hilltop where the stars are watched | Ṭaḍoro | **Star Hill** | Fuyisauthi | Shoṭihuli | Xortapur | Wuliholi | **Fuyisauthi** |
+| a river | Roduro | **Stone River** | Doqohora | **Doqohora** | Doqpor | Woraloo | Faushathehe |
+
+A name is refused and made again if it is already taken (in English or in any
+tongue) or a letter off a taken one, runs past five beats, is already a word of the
+tongue, or reads as something else in English (Blackmarket, Treehouse: `known` in
+`avoid.ron`).
+
+**Not done:** the demo town's name (its site isn't settled; when it is, add it to
+`samples` in `places.ron` or hand its features to `generate_place`). And the land's
+own features (rivers, peaks, bays) have a generator and samples but nothing in the
+game to name yet: the map has no named rivers or hills.
+
+### Borrowed words
+
+Laz, 2026-10-09: words can be borrowed where it fits. So when someone speaks of
+**another people's thing**, they use that people's word **bent to their own mouth**:
+the sounds their tongue lacks become the nearest it has, and the word takes their
+tongue's shape (Roduro and Horaro end it on a vowel, Qotiro clips it hard).
+
+| Thing | Whose | Its name | A Roduro says | A Qotiro says | A Horaro says | A Ṭaḍoro says |
+|---|---|---|---|---|---|---|
+| Forgeiron | Qotiro | Dortaged | Doretagede | *Dortaged* | Lorenawele | Thushesaweth |
+| Ringstone | Roduro | Goledoqo | *Goledoqo* | Goredoq | Woleloho | Wuyethuhu |
+| Seareed | Horaro | Ionomoa | Iʻoḍoḍoʻa | Inom | *Ionomoa* | Iyuyuwuwa |
+| Scribe | Ṭaḍoro | Hesefi | Heshehi | Xexep | Hehewi | *Hesefi* |
+
+The rules are four short lists in `sounds.ron` (`roduro_borrows` and so on), beside
+the one Ṭaḍoro already had. The name **shown** on hover is still the owner's true
+word; the bent form is for speech. Things every people has are not borrowed (each
+has its own word), and place names are translated, not borrowed.
+
+### The functions the game calls
+
+In `gahturiyu_sim::names`:
+
+| Function | Gives |
+|---|---|
+| `display_name(thing)` | the English name shown ("Pearls" → "Pearl") |
+| `native_name(thing, tongue)` | the native name for hover: the owner's word, or the asker's own if everyone has the thing |
+| `name_in_speech(thing, speaker)` | what a speaker of that tongue says: own word, or the owner's word bent |
+| `pronounce(word, tongue)` | "doh-koh-LEH-dah" |
+| `generate_person(tongue, gender, seed, &context)` | a `PersonName`: given name, meaning, how to say it, byname in English and native, job byname, what the name hints at |
+| `generate_place(features, culture, seed)` | a `PlaceName`: English, the name in all four tongues, whose it is, meaning, how to say it |
+| `generate_place_with(…, founding, town, …, taken)` | the same with a founding element, for a piece of the land, and keeping clear of places already named |
+| `guess_tongue(name)` | which tongue a name sounds like |
+| `Tongue::from(race)` | the tongue of one of the game's four peoples |
+
+All are plain functions of what is handed in: the same seed and context, the same name.
+
+### In the game (`src/sim/names.rs`)
+
+The game's old name file made names from random syllables. It is now a thin layer
+onto the naming system, and stores nothing new (so the save format is unchanged):
+
+- **`person_name(race, seed)`**, which the game already called everywhere, now gives
+  a given name off the lists. Same call, same five call sites, untouched.
+- **A town's kept name is its English name**, made from the land at its site
+  (`site_features` reads the terrain: the shape of the shore, cliff, mountain,
+  plateau, hill or hollow, slope, wood, marsh, heath). One line changed in
+  `worldgen.rs`. Seed 1 has, among others, Woodhaven (a wooded bay), Foamshore,
+  Hollowhall, Sandedge (on the plateau), Stormshaw.
+
+Ready, but **not yet shown anywhere** (the window and the dialogue are the other
+session's):
+
+| Call | Gives | Where it would go |
+|---|---|---|
+| `sim::names::who(&world, person)` | the whole `PersonName`: "Yaḍoqu the Woodcutter, of Ḍaʻi's House", its native form (*Yaḍoqu Ṭeqiqe, yi hale yi Ḍaʻi*), the meaning ("night rock"), the story | hover on a person; the first line of a talk; "my name means…" as an answer |
+| `sim::names::town(&world, id)` / `towns(&world)` | the town's own name, the three other peoples' names, meaning, how to say it | hover on a town name; the town panel's title; a speaker using their own people's name for it |
+| `names::native_name` / `pronounce` | native word and hint | hover on any item, job, building, creature |
+| `names::name_in_speech(thing, speaker.into())` | the word in the speaker's mouth | dialogue lines that name a thing |
+| `sim::names::site_features(&terrain, pos, coastal)` | what the land is at a spot | naming anything else placed on the map (camps, ruins, bases) |
+
+How `who` fills in what it knows: a **household** (a town and a dwelling) is one home
+and one line, so housemates share a house name and a Horaro household a mother's
+line; the **job** is the person's job; the **birthplace** is their home town.
+**Three stand-ins**, because the game doesn't hold these yet:
+
+- **Men, women, either** are read off the person's seed (`gender(seed)`: 48, 48 and 4
+  in a hundred). The game has no such notion, so a name's ending can disagree with a
+  role's wording (the town panel's "Priestesses" may list a man's name).
+- **Qotiro deeds and Ṭaḍoro teachers** are counted from the seed (a third have no
+  deed yet). Nothing counts real deeds; when something does, hand the count in as
+  `Context::turns`.
+- **A town's other names are worked out again from its site**, not kept. So a town
+  renamed by hand, or one from a save made before this, has only the name it has
+  (`town` gives `None`). Keeping the names would mean a new field on `Settlement`
+  and a save-format bump, which is not mine to make.
+
+### The brief's quality checks
+
+| Check | Held by |
+|---|---|
+| The rules regenerate the canon, or list an exception | `the_rules_regenerate_the_canon`, `the_gods_come_back…` |
+| Each tongue's sound rules hold | every word, thing, name, byname and place is put through the same `fits` check |
+| A name's tongue is told from its sounds 95 times in 100 | `a_names_tongue_can_be_told_from_its_sounds`: 97.1% (Roduro) to 100% (Qotiro) for people, 98.9% to 100% for places. The misses are short names made only of sounds two tongues share (Roduro *Hulo*, *Laho*) |
+| No duplicates in a people's lists | `the_given_name_lists_are_in_order` |
+| Names of three or four syllables, places up to five | the same, and `places_are_named_for_the_land` |
+| Nothing close to a well-known real name or a rude word | `avoid.ron`, checked on roots, sacred words, things, given names, bynames, places |
+| No lookalike pairs in a town | by construction (no two listed names a letter apart, in a tongue or across them) and checked on three whole worlds in `the_game_uses_the_names` |
+| The same seed and context give the same name | checked for people, places and whole worlds |
 
 ## What the tests hold (`tests/names.rs`)
 
@@ -532,7 +679,19 @@ Stage 4 adds:
   their tongue's sounds and no two different ones come out the same.
   `docs/names.md` and `docs/people.md` match the data.
 
-Not yet: the "guess the tongue from the sounds" check (stage 5, with places).
+Stage 5 adds:
+- **Borrowed words** keep to the borrower's sounds, for every owned thing as each of
+  the other three peoples says it.
+- **Places:** every kind of feature named by every people; one English word for a
+  town, two for a piece of the land; all four forms keep their tongue's sounds and
+  five beats; the same site and seed give the same name; founders, gods and founding
+  roots show in the name; sixty woods in a row never repeat a name in any tongue.
+- **The tongue-guesser** is right at least 95 times in 100 on people and on places.
+- **The game:** in three generated worlds every town's whole name comes back from
+  its kept one and no two towns share a name in any tongue; a person's given name is
+  the same before and after they are met, and matches `who`; housemates share a
+  house name; no two people in any town are a letter apart; a world made twice has
+  the same names. All 19 groups of naming tests and the whole suite pass.
 
 ## Decided without asking (veto any of these)
 
@@ -604,19 +763,47 @@ From stage 4:
 25. **"Either" names** are also given now and then (one in eight) to men and women.
 26. **The Qotiro exceptions and the Ṭaḍoro compound fix** above.
 
+From stage 5:
+
+27. **Place names are translated between peoples, things are borrowed.** A place name
+    says what the place is, so each people says it in its own words; a thing's name
+    is a label, so it travels as a sound.
+28. **The borrowing rules** for Roduro, Qotiro and Horaro. Qotiro's are harsh: it
+    drops the second of two vowels and the last vowel, so Seareed's *Ionomoa* becomes
+    *Inom*.
+29. **The game gives people list names only**, never newly made ones (see stage 4).
+30. **Towns get English names of one word** built from the site; which English ending
+    a root takes (-dale or -vale) goes by what it is joined to, not by chance.
+31. **Low, flat shore counts as marsh**, so coast towns are sometimes named for it
+    (Marshsands). The thresholds in `site_features` are easy to move.
+32. **The three stand-ins** above (gender from the seed, deeds from the seed, town
+    names not stored).
+33. **The lists were picked again** so that no name is a letter from a name on
+    another people's list (towns are mixed). 99 of the 1,504 names changed, 72 of
+    them Horaro; the counts are now 160, 160 and 56 for every people.
+
 ## Lines added to shared files
 
 | File | Line |
 |---|---|
 | `src/lib.rs` | `pub mod names;` (and one line of the comment above it) |
+| `src/sim/worldgen.rs` | one line: a new town's `name:` is `names::town_name(founders, seed, t, pos, coastal, out)` |
+| `src/sim/names.rs` | the whole file: the old random-syllable makers are gone and it is now the layer described in stage 5. `person_name(race, seed)` keeps its name and shape, so its five call sites are untouched. `place_name` is gone (its one caller was the line above). |
 
 `src/bin/lang.rs` is a new program; Cargo finds it by itself, so `Cargo.toml` is
-untouched. Nothing else outside `assets/lang/`, `src/names/`, `tests/names.rs` and
-`docs/` was changed.
+untouched. `save::FORMAT` is untouched: nothing new is stored. Nothing else outside
+`assets/lang/`, `src/names/`, `tests/names.rs` and `docs/` was changed.
+
+**Not brought up to date with main.** The branch last took in main at `64bb407`. Main
+has moved on since, and I was not permitted to merge it in again from this session,
+so the two shared files above were edited against the older main. Main's later
+changes to `worldgen.rs` are two lines elsewhere in the file, so the merge should be
+clean, but it has not been tried.
 
 Font: the game's font (`assets/DejaVuSans.ttf`) has every special letter used
 (`ṭ ḍ ì ʻ` and their capitals).
 
-For the adapter later: names are made today in `src/sim/names.rs`
-(`person_name(race, seed)`, `place_name(race, seed)`), called from `person.rs`,
-`worldgen.rs`, `carry.rs`, `encounters.rs`, `dialogue.rs` and `view/townui.rs`.
+The tool: `cargo run --release --bin lang -- world [seed]` prints a generated world's
+towns (the land at each, its own name, the other peoples' names) and a few residents'
+whole names; `lang guess` shows how the tongue-guesser does; `lang make <recipe>`
+tries a recipe in all four tongues.

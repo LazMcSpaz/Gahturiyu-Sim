@@ -201,6 +201,14 @@ fn loaded() -> &'static Loaded {
     })
 }
 
+/// Whether a tongue already has this word: a root's word, a built thing, a
+/// god, a people.
+pub(crate) fn is_word(tongue: Tongue, word: &str) -> bool {
+    let l = loaded();
+    let w = word.to_lowercase();
+    l.words[slot(tongue)].contains(&w) || l.root_words[slot(tongue)].contains_key(&w)
+}
+
 /// The hand-kept given names of a tongue.
 pub fn listed(tongue: Tongue) -> &'static [Listed] {
     &loaded().lists[slot(tongue)]
@@ -514,8 +522,8 @@ fn fresh(tongue: Tongue, gender: Gender, rng: &mut Rng) -> Option<Given> {
         if acceptable(tongue, &name, &made).is_err() {
             continue;
         }
-        // Never one letter off a name on the lists.
-        if listed(tongue).iter().any(|l| l.name != name && lookalike(&l.name, &name)) {
+        // Never one letter off a name on the lists, its own people's or another's.
+        if Tongue::SPOKEN.iter().any(|t| listed(*t).iter().any(|l| l.name != name && lookalike(&l.name, &name))) {
             continue;
         }
         return Some(Given { name: capital(&name), meaning: meaning(&made), made, listed: false });
@@ -562,8 +570,16 @@ pub fn given_name(tongue: Tongue, gender: Gender, seed: u64) -> Given {
 
 /// A name off the lists only (the founders of lines and houses, teachers:
 /// people only ever spoken of).
-fn listed_name(tongue: Tongue, gender: Gender, seed: u64) -> Given {
+pub(crate) fn listed_name(tongue: Tongue, gender: Gender, seed: u64) -> Given {
     from_list(tongue, gender, &mut Rng::from_keys(&[seed, TAG_GIVEN, 1]))
+}
+
+/// A given name off the hand-kept lists, never a newly made one. This is
+/// what the game gives people: so a name struck off a list is gone from the
+/// game, and (no two listed names being a letter apart, in one tongue or
+/// across them) no two neighbours can be mistaken for each other.
+pub fn listed_given(tongue: Tongue, gender: Gender, seed: u64) -> Given {
+    from_list(tongue, gender, &mut Rng::from_keys(&[seed, TAG_GIVEN]))
 }
 
 // ---- Bynames ----------------------------------------------------------------------
@@ -710,7 +726,8 @@ fn job_title(job: &str, tongue: Tongue) -> Option<(String, String)> {
         return None;
     }
     let short = d.short_jobs.iter().find(|s| s.0.eq_ignore_ascii_case(job)).map(|s| s.1.clone()).unwrap_or_else(|| th.english.clone());
-    Some((format!("the {short}"), capital(&th.native(tongue).1)))
+    // In their own tongue: their own word, or another people's bent to their mouth.
+    Some((format!("the {short}"), capital(&super::name_in_speech(&th.english, tongue).unwrap_or_default())))
 }
 
 /// Qotiro: a place in the ranks until the first deed, then the deed.
@@ -883,6 +900,16 @@ pub fn generate_person(tongue: Tongue, gender: Gender, seed: u64, ctx: &Context)
         Some(line) => listed_name(tongue, gender, rng::key(&[line, gender as u64, rng.below(KEPT_NAMES) as u64, TAG_KEPT])),
         None => given_name(tongue, gender, seed),
     };
+    dress(tongue, gender, seed, ctx, g, kept.is_some())
+}
+
+/// The whole name of someone whose given name is already settled (the game
+/// keeps each person's given name; the byname is worked out when asked for).
+pub fn person_with_given(tongue: Tongue, gender: Gender, seed: u64, ctx: &Context, given: Given) -> PersonName {
+    dress(tongue, gender, seed, ctx, given, false)
+}
+
+fn dress(tongue: Tongue, gender: Gender, seed: u64, ctx: &Context, g: Given, kept: bool) -> PersonName {
     let mut title = None;
     let by = match tongue {
         Tongue::Roduro | Tongue::First => {
@@ -893,7 +920,7 @@ pub fn generate_person(tongue: Tongue, gender: Gender, seed: u64, ctx: &Context)
         Tongue::Horaro => sea_line(seed, ctx, gender),
         Tongue::Tadoro => road(seed, ctx.turns, gender),
     };
-    let mut story = given_story(&g, tongue, gender, kept.is_some());
+    let mut story = given_story(&g, tongue, gender, kept);
     story.push(' ');
     story.push_str(&by.story);
     if let Some((t, _)) = &title {

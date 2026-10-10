@@ -40,6 +40,18 @@
 //!     home, deed, teacher or road changes the byname and not the given
 //!     name; neighbours' names are kept apart; `docs/names.md` and
 //!     `docs/people.md` are what the data says.
+//!
+//! Stage 5: places, borrowing, and the game.
+//!
+//! 15. A word borrowed from another people is bent to the borrower's
+//!     sounds; a speaker names another people's thing that way.
+//! 16. Places are named for the land: every kind of feature, in every
+//!     tongue, with an English name; founders and gods; nothing repeats.
+//! 17. A name's tongue can be told from its sounds alone, 95 times in 100.
+//! 18. The game uses the names: towns are named for their sites and can
+//!     give their own name and the other peoples' names back; people's
+//!     names are the same wherever they are asked for; in no town are two
+//!     people a letter apart; the same seed gives the same names.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -658,6 +670,13 @@ fn the_given_name_lists_are_in_order() {
         let recipes: HashSet<&str> = list.iter().map(|l| l.made.as_str()).collect();
         assert_eq!(recipes.len(), list.len(), "{}: a recipe is used twice", t.name());
     }
+    // Nor a letter from a name on another people's list: towns are mixed.
+    let all: Vec<(&str, &str)> = Tongue::SPOKEN.iter().flat_map(|t| people::listed(*t).iter().map(|l| (t.name(), l.name.as_str()))).collect();
+    for (i, a) in all.iter().enumerate() {
+        for b in &all[i + 1..] {
+            assert!(!names::lookalike(a.1, b.1), "{} `{}` and {} `{}` are a letter apart", a.0, a.1, b.0, b.1);
+        }
+    }
     // Father and brother name no daughter; mother and sister no son.
     for t in Tongue::SPOKEN {
         for l in people::listed(t) {
@@ -812,4 +831,235 @@ fn people_are_named_in_their_cultures_shape() {
     assert!(written == people::tables(), "docs/names.md is out of date: run `cargo run --release --bin lang -- names > docs/names.md`");
     let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/people.md")).expect("docs/people.md");
     assert!(written == people::samples(), "docs/people.md is out of date: run `cargo run --release --bin lang -- people > docs/people.md`");
+}
+
+#[test]
+fn borrowed_words_are_bent_to_the_borrowers_mouth() {
+    // Every people's own things, as each of the others would say them.
+    for th in names::things().iter().filter(|t| t.belongs.is_some()) {
+        let owner = th.belongs.unwrap();
+        for speaker in Tongue::SPOKEN {
+            let said = names::name_in_speech(&th.english, speaker).unwrap();
+            if speaker == owner {
+                assert_eq!(said, th.in_tongue(owner), "{}: its own people say it as it is", th.english);
+            } else {
+                for w in said.split(' ') {
+                    fits(w, speaker, &format!("{} as {} say it", th.english, speaker.name()));
+                }
+                assert!(names::syllables(&said, speaker) <= 7, "{}: `{said}` runs on", th.english);
+            }
+        }
+    }
+    // What everyone has, each calls by their own word.
+    for speaker in Tongue::SPOKEN {
+        assert_eq!(names::name_in_speech("Bread", speaker), names::word("bread", speaker));
+    }
+    // A Roduro has no sounds of the lips or the nose; a Qotiro word ends hard; and so on.
+    assert_eq!(names::borrow("dortaged", Tongue::Roduro), "doretagede");
+    assert_eq!(names::borrow("ionomoa", Tongue::Qotiro), "inom");
+    assert_eq!(names::borrow("goledoqo", Tongue::Horaro), "woleloho");
+    assert_eq!(names::borrow("Dortak", Tongue::Tadoro), names::capital(&names::borrow("dortak", Tongue::Tadoro)));
+    assert_eq!(names::borrow("pirt di dortaged", Tongue::Horaro).split(' ').count(), 3);
+    // The front door.
+    assert_eq!(names::display_name("pearls"), Some("Pearl"));
+    assert_eq!(names::display_name("no such thing"), None);
+    assert_eq!(names::native_name("Forgeiron", Tongue::Horaro).as_deref(), Some("dortaged"));
+    assert_eq!(names::name_in_speech("Forgeiron", Tongue::Qotiro).as_deref(), Some("dortaged"));
+    assert_ne!(names::name_in_speech("Forgeiron", Tongue::Horaro).as_deref(), Some("dortaged"));
+    assert!(names::name_in_speech("no such thing", Tongue::Roduro).is_none());
+}
+
+#[test]
+fn places_are_named_for_the_land() {
+    use names::places::{self, Feature, Founding};
+    // The data only uses roots there are.
+    for r in places::roots_used() {
+        assert!(names::root(r).is_some(), "assets/lang/places.ron: `{r}` is no root");
+    }
+    // Every kind of land, named by every people.
+    let mut english: HashSet<String> = HashSet::new();
+    for (k, f) in places::FEATURES.iter().enumerate() {
+        for culture in Tongue::SPOKEN {
+            for seed in 0..10u64 {
+                let seed = seed * 97 + k as u64;
+                let p = names::generate_place(&[*f], culture, seed);
+                assert_eq!(p, names::generate_place(&[*f], culture, seed), "the same site and seed, the same name");
+                assert_eq!(p.main, culture);
+                assert_eq!(p.name(), p.in_tongue(culture));
+                // A town is one English word, plain letters, a capital.
+                assert!(p.english.chars().all(|c| c.is_ascii_alphabetic()) && p.english.chars().next().unwrap().is_uppercase(), "`{}`", p.english);
+                assert!(p.english.len() >= 5 && p.english.len() <= 16, "`{}`", p.english);
+                assert_eq!(names::unfortunate(&p.english), None);
+                assert!(!p.meaning.is_empty() && !p.say.is_empty());
+                for t in Tongue::SPOKEN {
+                    let n = p.in_tongue(t);
+                    fits(n, t, &p.english);
+                    assert!(names::syllables(n, t) <= 5, "{}: `{n}` ({}) runs to {} beats", t.name(), p.english, names::syllables(n, t));
+                    assert_eq!(names::unfortunate(n), None, "`{n}` ({})", p.english);
+                    assert!(n.chars().next().unwrap().is_uppercase());
+                }
+                english.insert(p.english);
+            }
+        }
+    }
+    assert!(english.len() > 300, "only {} different names from 920 sites", english.len());
+
+    // The same two roots always make the same English name.
+    let mut by_meaning: BTreeMap<String, String> = BTreeMap::new();
+    for (k, f) in places::FEATURES.iter().enumerate() {
+        for seed in 0..40u64 {
+            let p = names::generate_place(&[*f], Tongue::Roduro, seed * 13 + k as u64);
+            if let Some(other) = by_meaning.insert(p.meaning.clone(), p.english.clone()) {
+                assert_eq!(other, p.english, "`{}` has two English names", p.meaning);
+            }
+        }
+    }
+
+    // A piece of the land is two English words.
+    let stack = names::generate_place_with(&[Feature::Stack], None, false, Tongue::Horaro, 5, &[]);
+    assert_eq!(stack.english.split(' ').count(), 2, "`{}`", stack.english);
+    // A resource, a creature or an event names the place.
+    let kelp = names::generate_place_with(&[Feature::Cove], Some(&Founding::Root("kelp".into())), true, Tongue::Horaro, 6, &[]);
+    assert!(kelp.english.starts_with("Kelp") && kelp.meaning.starts_with("kelp "), "{kelp:?}");
+    assert!(kelp.name().to_lowercase().contains("limu"), "{kelp:?}");
+    // A founder: their name stands in their own tongue and is bent in the others.
+    let founded = names::generate_place_with(&[Feature::Ridge], Some(&Founding::Founder(77)), true, Tongue::Qotiro, 21, &[]);
+    assert!(founded.english.contains("'s "), "{founded:?}");
+    let founder = founded.english.split("'s ").next().unwrap().to_string();
+    assert!(founded.name().ends_with(&founder), "{founded:?}");
+    for t in Tongue::SPOKEN {
+        for w in founded.in_tongue(t).split(' ') {
+            fits(w, t, &founded.english);
+        }
+    }
+    // A god: each people uses its own name for the god.
+    let holy = names::generate_place_with(&[Feature::Spring], Some(&Founding::God("horahida".into())), true, Tongue::Roduro, 15, &[]);
+    assert!(holy.english.starts_with("Horahìda's "), "{holy:?}");
+    assert!(holy.in_tongue(Tongue::Horaro).ends_with(&names::god("horahida").unwrap().name(Tongue::Horaro)));
+    // Never a name already taken, in English or in any tongue, nor a letter off one.
+    let mut taken: Vec<names::PlaceName> = Vec::new();
+    for seed in 0..60u64 {
+        let p = names::generate_place_with(&[Feature::Wood, Feature::Hill], None, true, Tongue::Roduro, seed, &taken);
+        for x in &taken {
+            assert!(!names::lookalike(&x.english, &p.english), "`{}` again", p.english);
+            for t in Tongue::SPOKEN {
+                assert_ne!(x.in_tongue(t), p.in_tongue(t), "{} and {} are both `{}`", x.english, p.english, p.in_tongue(t));
+            }
+        }
+        taken.push(p);
+    }
+    // The thirty samples are all different, and the doc is what the data says.
+    assert_eq!(places::samples().len(), 30);
+    let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/places.md")).expect("docs/places.md");
+    assert!(written == places::tables(), "docs/places.md is out of date: run `cargo run --release --bin lang -- places > docs/places.md`");
+    let shown: HashSet<&str> = written.lines().filter(|l| l.starts_with("| a ")).map(|l| l.split('|').nth(3).unwrap().trim()).collect();
+    assert_eq!(shown.len(), 30, "two sample places share a name");
+}
+
+#[test]
+fn a_names_tongue_can_be_told_from_its_sounds() {
+    use names::people::{self, Gender};
+    for t in Tongue::SPOKEN {
+        // People: the lists, and names as they are handed out.
+        let mut people_names: Vec<String> = people::listed(t).iter().map(|l| l.name.clone()).collect();
+        people_names.extend((0..1500u64).map(|s| names::given_name(t, Gender::ALL[(s % 3) as usize], s).name));
+        let right = people_names.iter().filter(|n| names::guess_tongue(n) == t).count();
+        let share = right as f32 / people_names.len() as f32;
+        assert!(share >= 0.95, "{}: only {:.1}% of people's names are told as theirs", t.name(), share * 100.0);
+        // Places, in the founders' own tongue.
+        let mut place_names: Vec<String> = Vec::new();
+        for (k, f) in names::places::FEATURES.iter().enumerate() {
+            for seed in 0..12u64 {
+                place_names.push(names::generate_place(&[*f], t, seed * 31 + k as u64).name().to_string());
+            }
+        }
+        let right = place_names.iter().filter(|n| names::guess_tongue(n) == t).count();
+        let share = right as f32 / place_names.len() as f32;
+        assert!(share >= 0.95, "{}: only {:.1}% of place names are told as theirs", t.name(), share * 100.0);
+    }
+    // The canon's own examples.
+    assert_eq!(names::guess_tongue("Gogìḍu"), Tongue::Roduro);
+    assert_eq!(names::guess_tongue("Dorgun"), Tongue::Qotiro);
+    assert_eq!(names::guess_tongue("Moalanu"), Tongue::Horaro);
+    assert_eq!(names::guess_tongue("Hesuth"), Tongue::Tadoro);
+}
+
+#[test]
+fn the_game_uses_the_names() {
+    use gahturiyu_sim::sim::{names as game, worldgen};
+    use names::Feature;
+    for seed in [1u64, 2, 3] {
+        let w = worldgen::generate(seed);
+        // ---- Towns: named for their sites, each different, and the whole name comes back.
+        let mut own: HashSet<String> = HashSet::new();
+        for s in &w.settlements {
+            assert!(s.name.chars().all(|c| c.is_ascii_alphabetic()), "seed {seed}: town `{}`", s.name);
+            for other in &w.settlements[..s.id as usize] {
+                assert!(!names::lookalike(&s.name, &other.name), "seed {seed}: towns `{}` and `{}`", s.name, other.name);
+            }
+            let features = game::site_features(&w.terrain, s.pos, s.coastal);
+            assert!(!features.is_empty());
+            if s.coastal {
+                assert!(features.iter().any(|f| matches!(f, Feature::Cove | Feature::Bay | Feature::Headland | Feature::Shore | Feature::Cliff)), "seed {seed}: {} is on the coast: {features:?}", s.name);
+            }
+            let p = game::town(&w, s.id).unwrap_or_else(|| panic!("seed {seed}: `{}` did not come back", s.name));
+            assert_eq!(p.english, s.name);
+            assert_eq!(p.main, Tongue::from(s.founders));
+            fits(p.name(), p.main, &s.name);
+            for t in Tongue::SPOKEN {
+                assert!(own.insert(format!("{} {}", t.name(), p.in_tongue(t))), "seed {seed}: two towns are called `{}` in {}", p.in_tongue(t), t.name());
+            }
+        }
+        assert_eq!(game::towns(&w).len(), w.settlements.len());
+        // A town renamed by hand keeps the name it was given, and has no other.
+        let mut renamed = w.clone();
+        renamed.settlements[0].name = "Somewhere".to_string();
+        assert!(game::town(&renamed, 0).is_none());
+        // ---- People: the given name is the same wherever it is asked for.
+        let mut world = w.clone();
+        for id in (0..world.people.len()).step_by(7) {
+            let (race, pseed) = (world.people[id].race, world.people[id].seed);
+            let given = game::person_name(race, pseed);
+            assert_eq!(given, game::person_name(race, pseed));
+            fits(&given, race.into(), &given);
+            let whole = game::who(&world, id as u32);
+            assert_eq!(whole.given, given);
+            assert!(!whole.byname.is_empty() && !whole.byname_native.is_empty() && !whole.story.is_empty());
+            assert!(whole.full().starts_with(&given));
+            // Meeting them (which builds their detail) changes nothing.
+            world.people[id].ensure_detail();
+            assert_eq!(world.people[id].name(), Some(given.as_str()));
+            assert_eq!(game::who(&world, id as u32), whole);
+        }
+        // ---- In no town are two people a letter apart; housemates share a house.
+        for s in &w.settlements {
+            let given: Vec<(u32, String)> = s.residents.iter().map(|id| (*id, game::person_name(w.people[*id as usize].race, w.people[*id as usize].seed))).collect();
+            for (i, a) in given.iter().enumerate() {
+                for b in &given[i + 1..] {
+                    assert!(a.1 == b.1 || !names::lookalike(&a.1, &b.1), "seed {seed}, {}: `{}` and `{}` live in one town", s.name, a.1, b.1);
+                }
+            }
+            let mut houses: BTreeMap<u16, String> = BTreeMap::new();
+            for id in s.residents.iter().filter(|id| w.people[**id as usize].race == gahturiyu_sim::sim::race::Race::Roduro).take(60) {
+                if let Some(d) = w.people[*id as usize].dwelling {
+                    let house = game::who(&w, *id).byname;
+                    assert!(house.ends_with("House"));
+                    assert_eq!(houses.entry(d).or_insert_with(|| house.clone()), &house, "seed {seed}, {}: one home, two house names", s.name);
+                }
+            }
+        }
+        // ---- The same seed, the same names.
+        let again = worldgen::generate(seed);
+        assert_eq!(w.settlements.iter().map(|s| &s.name).collect::<Vec<_>>(), again.settlements.iter().map(|s| &s.name).collect::<Vec<_>>());
+    }
+    // Men, women and either, in about the shares meant.
+    let (mut m, mut f, mut e) = (0, 0, 0);
+    for s in 0..5000u64 {
+        match game::gender(s) {
+            names::Gender::Male => m += 1,
+            names::Gender::Female => f += 1,
+            names::Gender::Either => e += 1,
+        }
+    }
+    assert!((2200..2600).contains(&m) && (2200..2600).contains(&f) && (120..300).contains(&e), "{m} {f} {e}");
 }

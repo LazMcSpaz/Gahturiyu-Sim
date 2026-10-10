@@ -190,3 +190,67 @@ fn pronounce_one(word: &str, tongue: Tongue) -> String {
     parts.retain(|p| !p.is_empty());
     parts.join("-")
 }
+
+/// Guess which tongue a name is in from its sounds alone: how likely each
+/// tongue's own words are to use these sounds, and to end the way it ends.
+/// (The measure is taken from the root list, so it moves with the rules.)
+pub fn guess_tongue(name: &str) -> Tongue {
+    use std::collections::HashMap;
+    use std::sync::OnceLock;
+    // For each tongue: how often each sound turns up, each sound ends a word,
+    // and each pair of neighbouring sounds turns up, in its own words.
+    struct Model {
+        sound: HashMap<char, f32>,
+        last: HashMap<char, f32>,
+        pair: HashMap<(char, char), f32>,
+        total: f32,
+        words: f32,
+        pairs: f32,
+    }
+    static M: OnceLock<Vec<Model>> = OnceLock::new();
+    let models = M.get_or_init(|| {
+        Tongue::SPOKEN
+            .iter()
+            .map(|t| {
+                let mut m = Model { sound: HashMap::new(), last: HashMap::new(), pair: HashMap::new(), total: 0.0, words: 0.0, pairs: 0.0 };
+                for r in super::roots() {
+                    let w = sounds(&super::word(&r.id, *t).unwrap_or_default());
+                    for c in &w {
+                        *m.sound.entry(*c).or_insert(0.0) += 1.0;
+                        m.total += 1.0;
+                    }
+                    for p in w.windows(2) {
+                        *m.pair.entry((p[0], p[1])).or_insert(0.0) += 1.0;
+                        m.pairs += 1.0;
+                    }
+                    if let Some(c) = w.last() {
+                        *m.last.entry(*c).or_insert(0.0) += 1.0;
+                        m.words += 1.0;
+                    }
+                }
+                m
+            })
+            .collect()
+    });
+    let mut best = (Tongue::Roduro, f32::NEG_INFINITY);
+    for (t, m) in Tongue::SPOKEN.iter().zip(models.iter()) {
+        let mut score = 0.0;
+        for word in name.split_whitespace() {
+            let w = sounds(&word.to_lowercase());
+            // A sound the tongue never uses all but rules it out.
+            for c in &w {
+                score += ((m.sound.get(c).copied().unwrap_or(0.0) + 0.02) / (m.total + 1.0)).ln();
+            }
+            for p in w.windows(2) {
+                score += 0.5 * ((m.pair.get(&(p[0], p[1])).copied().unwrap_or(0.0) + 0.5) / (m.pairs + 50.0)).ln();
+            }
+            if let Some(c) = w.last() {
+                score += ((m.last.get(c).copied().unwrap_or(0.0) + 0.05) / (m.words + 1.0)).ln();
+            }
+        }
+        if score > best.1 {
+            best = (*t, score);
+        }
+    }
+    best.0
+}
