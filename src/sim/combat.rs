@@ -1136,6 +1136,9 @@ impl Battle {
     /// Rituals can't be cast mid-fight at all.
     pub fn begin_cast(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2) -> bool {
         let d = spell.def();
+        if self.busy_with_hands(i) {
+            return false;
+        }
         let f = &mut self.fighters[i];
         if f.mana < d.cost || !f.spells.contains(&spell) || d.style == Style::Ritual {
             return false;
@@ -1162,6 +1165,9 @@ impl Battle {
     /// chance of fizzling. The scroll is used up.
     pub fn read_scroll(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2) -> bool {
         let key = spell.def().key;
+        if self.busy_with_hands(i) {
+            return false;
+        }
         let f = &mut self.fighters[i];
         let Some(k) = f.scrolls.iter().position(|&s| matches!(item(s).kind, Kind::Scroll(x) if x == key)) else { return false };
         let it = f.scrolls.remove(k);
@@ -1172,8 +1178,20 @@ impl Battle {
         true
     }
 
+    /// Mid-way through a cast or a drink: a second one waits rather than
+    /// throwing the first away (the draught, the energy, the scroll).
+    fn busy_with_hands(&self, i: usize) -> bool {
+        match self.fighters[i].act {
+            Act::Cast { done, .. } | Act::Drink { done, .. } => done > self.time,
+            _ => false,
+        }
+    }
+
     /// Start drinking a potion from the pack.
     pub fn begin_drink(&mut self, i: usize, it: ItemId) -> bool {
+        if self.busy_with_hands(i) {
+            return false;
+        }
         let f = &mut self.fighters[i];
         let Some(k) = f.potions.iter().position(|&p| p == it) else { return false };
         f.potions.remove(k);

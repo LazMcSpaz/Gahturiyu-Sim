@@ -77,6 +77,11 @@ impl World {
 
     /// Notice jobs that have been done out in the world.
     pub(super) fn update_quests(&mut self) {
+        // A camp stays beaten only until its gang has rested and is back on
+        // its feet (the camp's ready dawn); then it has to be beaten again.
+        let t = self.time;
+        let camps = &self.camps;
+        self.beaten_camps.retain(|g| camps.iter().any(|c| c.group == *g && c.ready_at > t));
         for i in 0..self.quests.len() {
             let q = &self.quests[i];
             if q.stage != Stage::Active {

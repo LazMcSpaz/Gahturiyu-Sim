@@ -82,9 +82,11 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
         b.fighters[i].target = None;
         return;
     }
-    // An order to go for someone lapses once they've turned and run out of
-    // reach: chasing a runner who's as quick as you never ends.
-    let runaway = |j: usize| b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach() + 4.0;
+    // An order to go for someone lapses once they've turned and run beyond
+    // arm's reach: a runner is a little quicker than a chaser, so a chase
+    // that hasn't landed a blow at once never will (it only drags the fight
+    // out to its time limit).
+    let runaway = |j: usize| b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach();
     let ordered = match me.order {
         Some(Order::Attack(j)) if b.fighters[j].active() && !runaway(j) => Some(j),
         Some(Order::Attack(_)) => {
@@ -254,7 +256,7 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
         // Someone hidden by a spell is lost beyond arm's reach.
         .filter(|&j| b.fighters[j].has(Does::Hide).is_none() || me.pos.dist(b.fighters[j].pos) <= 4.0)
         // Don't chase a runner who's already got a head start.
-        .filter(|&j| !(b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach() + 4.0))
+        .filter(|&j| !(b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach()))
         .min_by(|&x, &y| score(x).total_cmp(&score(y)))?;
     match me.target {
         Some(cur) if cur != best && b.fighters[cur].active() && !b.fighters[cur].fleeing && b.hostile(i, cur) && score(cur) < score(best) + 2.0 + jitter => Some(cur),

@@ -27,6 +27,7 @@ fn fingerprint(w: &World) -> String {
     s += &sorted(&w.torches);
     s += &sorted(&w.fighting);
     s += &sorted(&w.carried);
+    s += &sorted(&w.getting_up);
     s += &sorted(&w.suspicion);
     s += &sorted(&w.held);
     s += &sorted(&w.cast_count);
