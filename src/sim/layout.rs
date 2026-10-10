@@ -54,7 +54,9 @@ pub enum Use {
     Shrine,
 }
 
-/// A piece of furniture (drawn as blocks; it changes nothing).
+/// A piece of furniture, drawn as blocks. It changes nothing, except that a
+/// forge, anvil, loom, workbench or grower's bed is that work station for
+/// anyone standing in the building (`crafting::Station::furniture`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Furn {
     Bed,

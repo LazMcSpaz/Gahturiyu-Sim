@@ -1,7 +1,21 @@
 # News of a deed in town. See FORMAT.md.
-topic | | Have you heard? {actor} {deed} {victim}, {when}. The whole street's talking about it.
-topic | hidden | Somebody {deed} {victim}, {when}. Nobody knows who, or nobody's saying.
-topic | voice=tadoro | I have it on good authority (my own notes) that {actor} {deed} {victim}, {when}.
-feeling | | People talk. They always do.
-feeling | voice=roduro | It'll be in the stone for years, that. People here don't forget.
-hook | |
+topic | !of_town | Have you heard? {actor} {deed} {victim}, {when}. The whole street's talking about it.
+topic | hidden, !of_town | Somebody {deed} {victim}, {when}. Nobody knows who, or nobody's saying.
+topic | voice=tadoro, !of_town | I have it on good authority (my own notes) that {actor} {deed} {victim}, {when}.
+# News that came by the road from another town: `elsewhere`. {there} is the
+# town it happened in, {far} how long a walk it is from here ("a day's walk")
+# and {dir} which way, so the squad can go and see.
+topic | elsewhere, !of_town | Word came by the road from {there}: {actor} {deed} {victim}, {when}. That's {far} from here, to the {dir}.
+topic | elsewhere, hidden, !of_town | They say somebody {deed} {victim} over in {there}, {when}. Nobody knows who. That's {far} from here, to the {dir}.
+topic | elsewhere, voice=tadoro, !of_town | I had it from a traveller and wrote it down: in {there}, {far} to the {dir}, {actor} {deed} {victim}, {when}.
+# What befell a whole town (`of_town`): a failed rite (`rite`; {victim} is
+# the high priestess brought down), a rising (`rising`). Two of each, so a
+# second asking isn't word for word the first.
+topic | rite, !elsewhere | The rite failed, {when}. They brought the high priestess {victim} down for it. Ask anyone.
+topic | rite, !elsewhere | You'll not have heard: the omens went against us at the rite, {when}. {victim} was high priestess. She isn't now.
+topic | rite, elsewhere | Word's come by the road: the rite failed in {there}, {when}, and their high priestess {victim} was brought down. That's {far} from here, to the {dir}.
+topic | rite, elsewhere | They're saying the rite went wrong in {there}, {when}. {victim}, the high priestess, has fallen for it. {there} is {far} off, to the {dir}.
+topic | rising, !elsewhere | You've come at a time. The town rose, {when}, and threw its rulers out.
+topic | rising, !elsewhere | We rose, {when}. The old rulers are out. Don't ask me yet who's in.
+topic | rising, elsewhere | They say {there} rose against its rulers, {when}. That's {far} from here, to the {dir}. Travellers brought it.
+topic | rising, elsewhere | {there} has thrown its rulers out, {when}, if the road tells it true. It's {far} off, to the {dir}.

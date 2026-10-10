@@ -629,7 +629,8 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
             Ok(()) if rc.skill == Skill::Tending => format!("{:.0}% · {:.0} days", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0, rc.time / gahturiyu_sim::sim::world::DAY),
             Ok(()) => format!("{:.0}%", success_chance(st.skill(rc.skill), rc.difficulty) * 100.0),
             Err(Cannot::NoStation(s)) => format!("at the {}", s.name().to_lowercase()),
-            Err(Cannot::Missing(..)) => String::new(),
+            // Short of materials, and not where it's made either: say where.
+            Err(Cannot::Missing(..)) => w.craft_blockers(pid, i).iter().find_map(|b| if let Cannot::NoStation(s) = b { Some(format!("at the {}", s.name().to_lowercase())) } else { None }).unwrap_or_default(),
             Err(Cannot::Busy) => "busy".into(),
             Err(Cannot::Unknown(_)) => "learn first".into(),
         };

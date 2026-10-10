@@ -239,12 +239,27 @@ impl Facts {
                 rest = &rest[a + b + 1..];
                 continue;
             }
-            out.push_str(self.slots.get(key).map(|s| s.as_str()).unwrap_or(if matches!(key, "item" | "when" | "workplace" | "place" | "why" | "offer" | "span" | "count" | "pay" | "days" | "reward" | "debt" | "job" | "deed") { "" } else { "someone" }));
+            out.push_str(self.slots.get(key).map(|s| s.as_str()).unwrap_or(if matches!(key, "item" | "when" | "workplace" | "place" | "why" | "offer" | "span" | "count" | "pay" | "days" | "reward" | "debt" | "job" | "deed" | "there" | "far" | "dir") { "" } else { "someone" }));
             rest = &rest[a + b + 1..];
         }
         out.push_str(rest);
         // Tidy doubled spaces left by empty slots.
         out.split_whitespace().collect::<Vec<_>>().join(" ").replace(" ,", ",").replace(" .", ".")
+    }
+}
+
+/// Roughly how long a walk a distance is, as someone would say it.
+fn walk_words(metres: f32) -> &'static str {
+    // An unhurried traveller's pace, and about ten hours on the road a day.
+    let hours = metres / (super::squad::SQUAD_SPEED * 3600.0);
+    match hours {
+        h if h < 1.5 => "an hour's walk",
+        h if h < 4.0 => "a few hours' walk",
+        h if h < 7.0 => "half a day's walk",
+        h if h < 14.0 => "a day's walk",
+        h if h < 25.0 => "two days' walk",
+        h if h < 35.0 => "three days' walk",
+        _ => "many days' walk",
     }
 }
 
@@ -332,7 +347,7 @@ impl World {
             c(Subject::Ambition, 0.3, None, None, None);
         }
         // The best thing they've heard.
-        if let Some(k) = m.knows.iter().copied().filter(|k| self.known_event(*k).is_some_and(|e| e.victim != Some(npc) && e.actor != Some(npc) && e.deed.is_wrong())).max_by(|a, b| self.interest(*a, day).total_cmp(&self.interest(*b, day))) {
+        if let Some(k) = m.knows.iter().copied().filter(|k| self.known_event(*k).is_some_and(|e| e.victim != Some(npc) && e.actor != Some(npc) && (e.deed.is_wrong() || e.deed.of_town()))).max_by(|a, b| self.interest(*a, day).total_cmp(&self.interest(*b, day))) {
             let e = self.known_event(k).unwrap();
             let sub = if e.deed == Deed::Theft { Subject::Theft } else { Subject::News };
             c(sub, self.interest(k, day) + 0.2, Some(e.id), None, e.actor);
@@ -412,7 +427,28 @@ impl World {
             f.tag(if e.t.rem_euclid(DAY) / HOUR >= 20.0 || e.t.rem_euclid(DAY) / HOUR < 6.0 { "night" } else { "day" });
             f.set("victim", e.victim.map(|v| self.name_of(v)).unwrap_or_default());
             f.set("deed", e.deed.words());
-            if let (Some(a), false) = (e.actor, e.hidden) {
+            // Where it happened: so news from somewhere else can be followed
+            // there. Named, with roughly how far and which way from here.
+            let there = &self.settlements[e.town as usize];
+            f.set("there", there.name.clone());
+            if let Some(here) = town.filter(|&h| h != e.town) {
+                let from = self.settlements[here as usize].pos;
+                f.tag("elsewhere");
+                f.set("dir", super::quests::compass(there.pos.sub(from)));
+                f.set("far", walk_words(there.pos.dist(from)));
+            }
+            match e.deed {
+                Deed::RiteFailed => f.tag("rite"),
+                Deed::Rising => f.tag("rising"),
+                _ => {}
+            }
+            if e.deed.of_town() {
+                // (The lines for one person's deed to another don't fit.)
+                f.tag("of_town");
+            }
+            if e.deed.of_town() {
+                // Nobody's doing, and no secret: neither a culprit nor a mystery.
+            } else if let (Some(a), false) = (e.actor, e.hidden) {
                 f.set("actor", self.name_of(a));
                 f.set("thief", self.name_of(a));
                 f.tag("thief_known");

@@ -516,7 +516,11 @@ fn nearby(w: &World, only: &str) -> String {
     for d in w.doors_near(here, 45.0).into_iter().take(8) {
         let st = &w.settlements[d.id.0 as usize];
         let b = &st.buildings[d.id.1 as usize];
-        let what = gahturiyu_sim::sim::layout::variant_of(b).map(|v| v.name.to_string()).unwrap_or_else(|| format!("{:?}", b.kind));
+        // The building as it stands (its stored style), not its first roll:
+        // the two differ since buildings were matched to their people, and
+        // the first roll named a great house "Maker's forge".
+        let _ = b;
+        let what = d.variant().name.to_string();
         let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
     }
@@ -1169,20 +1173,63 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         "craft" | "make" => {
             use gahturiyu_sim::sim::crafting::RECIPES;
             let Some(m) = member(w, arg(0)) else { return "Who?\n".into() };
+            let grade = gahturiyu_sim::sim::materials::Grade::Common;
+            let made = |i: usize| item(RECIPES[i].item(grade)).name.to_string();
             if cmd == "make" {
-                let n: usize = arg(1).parse().unwrap_or(0);
+                let n: usize = arg(1).parse().unwrap_or(usize::MAX);
+                if n >= RECIPES.len() {
+                    return "Usage: make NAME N (N from `craft NAME`)\n".into();
+                }
+                // Everything in the way at once, in plain words.
+                let stops = w.craft_blockers(m, n);
                 match w.start_craft(m, n) {
-                    Ok(()) => o += "Started.\n",
-                    Err(e) => o += &format!("Can't: {e:?}\n"),
+                    Ok(()) => {
+                        let r = &RECIPES[n];
+                        let used: Vec<String> = r.inputs.iter().map(|(k, c)| format!("{c} × {}", item(items::id(k)).name.to_lowercase())).collect();
+                        let hours = r.time / HOUR;
+                        let long = if hours >= 24.0 { format!("{:.0} days", hours / 24.0) } else if hours >= 1.0 { format!("{hours:.1} hours") } else { format!("{:.0} minutes", hours * 60.0) };
+                        o += &format!("{} starts on {}: {long}. Used {}.\n", first_name(w, m), made(n).to_lowercase(), if used.is_empty() { "nothing".to_string() } else { used.join(", ") });
+                    }
+                    Err(_) => o += &format!("Can't make {}: {}.\n", made(n).to_lowercase(), stops.iter().map(|c| c.say()).collect::<Vec<_>>().join("; ")),
                 }
             } else {
-                let _ = writeln!(o, "What {} could make (recipe number: result — what stops it):", first_name(w, m));
+                // As the window's craft panel has it: the crafts they've
+                // taken up, each thing with all it takes and what's in the
+                // way; the crafts they haven't, in one line. `craft NAME all`
+                // lists every recipe.
+                use gahturiyu_sim::sim::materials::CRAFTS;
+                let all = arg(1) == "all";
+                let st = w.people[m as usize].effective_stats();
+                let (known, unknown): (Vec<_>, Vec<_>) = CRAFTS.iter().copied().partition(|&k| w.knows_craft(m, k));
+                let _ = writeln!(o, "What {} can make (`make {} N`):", first_name(w, m), first_name(w, m));
+                let mut last = None;
                 for (i, r) in RECIPES.iter().enumerate() {
-                    let why = match w.can_craft(m, i) {
-                        Ok(()) => "ready".to_string(),
-                        Err(e) => format!("{e:?}"),
+                    if !all && !w.knows_craft(m, r.craft()) {
+                        continue;
+                    }
+                    if last != Some(r.skill) {
+                        let _ = writeln!(o, " {} ({:.0}):", r.skill.name(), st.skill(r.skill));
+                        last = Some(r.skill);
+                    }
+                    let takes: Vec<String> = r.inputs.iter().map(|(k, n)| format!("{}/{} {}", w.count_of(m, k).min(*n), n, item(items::id(k)).name.to_lowercase())).collect();
+                    let stops = w.craft_blockers(m, i);
+                    // The counts already say what's short; the rest is where
+                    // it's made and anything else in the way.
+                    let other: Vec<String> = stops.iter().filter(|c| !matches!(c, gahturiyu_sim::sim::crafting::Cannot::Missing(..))).map(|c| c.say()).collect();
+                    let state = if stops.is_empty() {
+                        format!("ready ({:.0}% to come out right)", gahturiyu_sim::sim::crafting::success_chance(st.skill(r.skill), r.difficulty) * 100.0)
+                    } else if other.is_empty() {
+                        "short of materials".to_string()
+                    } else {
+                        other.join("; ")
                     };
-                    let _ = writeln!(o, "  {i}. {} — {why}", item(r.item(gahturiyu_sim::sim::materials::Grade::Common)).name);
+                    let _ = writeln!(o, "  {i:>2}. {}{} — takes {} — {state}", made(i), if r.makes > 1 { format!(" ×{}", r.makes) } else { String::new() }, if takes.is_empty() { "nothing".to_string() } else { takes.join(", ") });
+                }
+                if !all && !unknown.is_empty() {
+                    let _ = writeln!(o, " Not taken up yet (a crafter at work or a manual teaches): {}. (`craft {} all` lists everything.)", unknown.iter().map(|k| k.skill().name()).collect::<Vec<_>>().join(", "), first_name(w, m));
+                }
+                if known.is_empty() && !all {
+                    o += " No crafts taken up yet.\n";
                 }
             }
         }
@@ -1202,7 +1249,20 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let here = w.squad.pos;
             let mut towns: Vec<_> = w.settlements.iter().collect();
             towns.sort_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
-            let _ = writeln!(o, "Towns, nearest first:");
+            // `map NAME` finds a town by name, however far (a town heard of
+            // in talk can be looked up); plain `map` lists the nearest.
+            let want = gahturiyu_sim::names::plain(&arg(0).to_lowercase());
+            if !want.is_empty() {
+                let found: Vec<_> = towns.iter().filter(|t| gahturiyu_sim::names::plain(&t.name.to_lowercase()).contains(&want)).collect();
+                if found.is_empty() {
+                    let _ = writeln!(o, "No town called that.");
+                }
+                for t in found {
+                    let _ = writeln!(o, "  t{}  {} ({} people) — {}", t.id, t.name, t.residents.len(), dist_dir(here, t.pos));
+                }
+                return o;
+            }
+            let _ = writeln!(o, "Towns, nearest first (`map NAME` finds one by name):");
             for t in towns.iter().take(12) {
                 let _ = writeln!(o, "  t{}  {} ({} people) — {}", t.id, t.name, t.residents.len(), dist_dir(here, t.pos));
             }

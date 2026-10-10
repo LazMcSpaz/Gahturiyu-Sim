@@ -194,3 +194,95 @@ fn scrolls_cast_without_mana_and_never_fizzle() {
     assert!(battle.fighters[0].scrolls.is_empty());
     assert!(battle.fighters[0].mana < 0.5, "no mana spent (only a trickle regained)");
 }
+
+/// Every building of this style in the world, by its door.
+fn buildings_of(w: &World, key: &str) -> Vec<gahturiyu_sim::sim::buildings::Door> {
+    let mut out = Vec::new();
+    for (si, s) in w.settlements.iter().enumerate() {
+        for i in 0..s.buildings.len() as u16 {
+            if gahturiyu_sim::sim::layout::variant_in(s, i).is_some_and(|v| v.key == key) {
+                if let Some(d) = w.door((si as u16, i)) {
+                    out.push(d);
+                }
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn a_forge_indoors_is_a_forge() {
+    // Playtests 2 and 3: standing inside the building called "Maker's
+    // forge", with its forge in front of them, both testers were told there
+    // was no forge. A station is where its furniture is: in a town's work
+    // yard, or in the workshop someone keeps one in.
+    let w = worldgen::generate(34);
+    let forges: Vec<_> = ["roduro_forge", "qotiro_workyard"].iter().flat_map(|k| buildings_of(&w, k)).collect();
+    assert!(!forges.is_empty(), "world 34 has a forge building (the tester stood in one)");
+    for d in &forges {
+        assert!(w.station_near(d.inside, Station::Forge).is_some(), "a forge, just inside the door of {:?}", d.id);
+        assert!(w.station_near(d.centre, Station::Forge).is_some(), "and in the middle of the floor");
+        assert!(w.station_near(d.centre, Station::Workbench).is_some(), "its workbench too");
+        assert!(w.station_near(d.centre, Station::Loom).is_none(), "but it has no loom");
+        // Outside the door it's just a house.
+        let away = d.outside.add(d.outside.sub(d.centre).scale(2.0));
+        if w.building_at(away).is_none() && w.stations.iter().all(|s| s.0.dist(away) > 6.0) {
+            assert!(w.station_near(away, Station::Forge).is_none(), "not from the street");
+        }
+    }
+    // A weaver's house has the loom and not the forge.
+    for d in buildings_of(&w, "roduro_loomroom").iter().take(3) {
+        assert!(w.station_near(d.centre, Station::Loom).is_some());
+        assert!(w.station_near(d.centre, Station::Forge).is_none());
+    }
+    // A plain home is no workshop.
+    for d in buildings_of(&w, "roduro_cottage").iter().take(3) {
+        if w.stations.iter().all(|s| s.0.dist(d.centre) > 6.0) {
+            for st in gahturiyu_sim::sim::crafting::STATIONS {
+                assert!(w.station_near(d.centre, st).is_none(), "{st:?} in a cottage");
+            }
+        }
+    }
+}
+
+#[test]
+fn everything_in_the_way_of_a_recipe_is_said_at_once_and_in_plain_words() {
+    // Playtest 3: "rock" was missing; with rock in hand, "ash" was. And the
+    // reasons read `NoStation(Forge)` and `Missing("rock", 2)`.
+    let mut w = worldgen::generate(1);
+    let q = *w.squad.members.iter().find(|&&m| w.people[m as usize].race == Race::Qotiro).unwrap();
+    w.people[q as usize].stats.set_skill(Skill::Smithing, 50.0);
+    w.teleport_squad(w.squad.pos.add(V2::new(400.0, 0.0)));
+    let ingot = recipe("iron_ingot");
+    // Empty the pack of what it takes, so both materials are short.
+    for &(k, _) in RECIPES[ingot].inputs {
+        while w.count_of(q, k) > 0 {
+            w.people[q as usize].detail.as_mut().unwrap().gear.take(items::id(k));
+        }
+    }
+    let stops = w.craft_blockers(q, ingot);
+    let short: Vec<_> = stops.iter().filter(|c| matches!(c, Cannot::Missing(..))).collect();
+    assert_eq!(short.len(), RECIPES[ingot].inputs.len(), "every material they're short of: {stops:?}");
+    assert!(stops.contains(&Cannot::NoStation(Station::Forge)), "and the forge they're not at: {stops:?}");
+    // The first of them is what `can_craft` gives, as before.
+    assert_eq!(w.can_craft(q, ingot), Err(stops[0]));
+    // Plain words, no code.
+    for c in &stops {
+        let said = c.say();
+        assert!(!said.contains('(') && !said.contains('"') && !said.contains('_'), "{said}");
+    }
+    assert_eq!(Cannot::NoStation(Station::Forge).say(), "has to be done at a forge");
+    assert_eq!(Cannot::NoStation(Station::AlchemyTable).say(), "has to be done at an alchemy table");
+    assert_eq!(Cannot::Missing("iron_ore", 2).say(), "needs 2 × iron ore");
+    // With everything to hand and at a forge, nothing is in the way.
+    for &(k, n) in RECIPES[ingot].inputs {
+        w.people[q as usize].detail.as_mut().unwrap().gear.add(items::id(k), n);
+    }
+    let forge = w.stations.iter().find(|s| s.1 == Station::Forge).unwrap().0;
+    w.teleport_squad(forge);
+    let k = w.squad.index(q).unwrap();
+    w.squad.at[k] = forge;
+    w.squad.goal[k] = forge;
+    assert!(w.craft_blockers(q, ingot).is_empty(), "{:?}", w.craft_blockers(q, ingot));
+    assert_eq!(w.can_craft(q, ingot), Ok(()));
+}

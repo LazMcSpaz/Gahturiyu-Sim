@@ -49,6 +49,7 @@ use serde::{Deserialize, Serialize};
 
 use super::combat::{Battle, Fighter};
 use super::culture::{self, Blend, Justice, Rule, Slavery, RULES};
+use super::history::Deed;
 use super::jobs::Job;
 use super::person::PersonId;
 use super::race::Race;
@@ -93,6 +94,9 @@ pub const UNWATCHED_CRIME: f32 = 3.0;
 pub const U_CALM: f32 = 4.0;
 pub const U_FADE: f32 = 0.08;
 pub const U_RITE: f32 = 10.0;
+/// How far outside a town's edge the squad still counts as there for its
+/// news (metres).
+pub const TOWN_EARSHOT: f32 = 150.0;
 pub const U_SALE: f32 = 6.0;
 pub const U_ESCAPE: f32 = 2.0;
 /// Unrest at which the town rises, what's left of it after, and how long the
@@ -548,7 +552,8 @@ impl World {
             let after: Vec<Rule> = self.government(town).chambers.iter().map(|c| c.rule).collect();
             if before != after {
                 let name = self.settlements[town as usize].name.clone();
-                self.say(t, format!("{name} is governed anew: {}.", self.gov_words(town)));
+                let line = format!("{name} is governed anew: {}.", self.gov_words(town));
+                self.say_in(town, t, line);
             }
         } else {
             self.fill_offices(town, t);
@@ -584,6 +589,22 @@ impl World {
         }
     }
 
+    /// Is the squad in or beside this town? What happens to a town is only
+    /// written into the squad's own news when they're there to see it;
+    /// from further off it comes by the road, from people (`history.rs`
+    /// tidings, "Latest rumours"), days late and with where it happened.
+    pub fn squad_is_at(&self, town: SettlementId) -> bool {
+        let s = &self.settlements[town as usize];
+        s.pos.dist(self.squad.pos) <= s.radius() + TOWN_EARSHOT
+    }
+
+    /// A line of news about a town, for a squad that's there.
+    fn say_in(&mut self, town: SettlementId, t: f64, line: String) {
+        if self.squad_is_at(town) {
+            self.say(t, line);
+        }
+    }
+
     /// A bad omen — a failed rite, or (later) one reported or faked by
     /// others. An arbiter may rule it false; otherwise the high priestess
     /// falls and the next takes her place.
@@ -594,7 +615,7 @@ impl World {
         let Some(ci) = gov.chambers.iter().position(|c| c.rule == Rule::Priestesses) else { return };
         if gov.arbiter.is_some() && Rng::from_keys(&[self.seed, town as u64, day as u64, 0x5354_4459]).f32() < ARBITER_STEADY {
             self.society.towns[town as usize].gov.stir(U_RITE * 0.25);
-            self.say(t, format!("A bad omen in {name}; the arbiter rules it was no true sign."));
+            self.say_in(town, t, format!("A bad omen in {name}; the arbiter rules it was no true sign."));
             return;
         }
         let gov = &mut self.society.towns[town as usize].gov;
@@ -606,7 +627,8 @@ impl World {
         gov.fallen.push(fallen);
         let who = self.name_of(fallen);
         self.fill_offices(town, t);
-        self.say(t, format!("The rite fails in {name}. The high priestess {who} is brought down."));
+        self.note(Deed::RiteFailed, None, Some(fallen), town, t, false);
+        self.say_in(town, t, format!("The rite fails in {name}. The high priestess {who} is brought down."));
     }
 
     fn tally_unrest(&mut self, town: SettlementId, t: f64) {
@@ -658,7 +680,9 @@ impl World {
         gov.last_revolt = Some(t);
         self.fill_offices(town, t);
         let name = self.settlements[town as usize].name.clone();
-        self.say(t, format!("{name} rises! Its rulers are thrown out: {} now.", self.rulers_words(town)));
+        self.note(Deed::Rising, None, None, town, t, false);
+        let line = format!("{name} rises! Its rulers are thrown out: {} now.", self.rulers_words(town));
+        self.say_in(town, t, line);
     }
 
     // ---- Townsfolk's disputes ------------------------------------------------
@@ -860,7 +884,7 @@ impl World {
         let g = &mut self.society.towns[town as usize].gov;
         g.shunned_until = g.shunned_until.max(t + SHUN_DAYS * DAY);
         let name = self.settlements[town as usize].name.clone();
-        self.say(t, format!("The stilt village turns its back on {name}: no boats will come ashore."));
+        self.say_in(town, t, format!("The stilt village turns its back on {name}: no boats will come ashore."));
     }
 
     /// Is a squad member shunned by this community?

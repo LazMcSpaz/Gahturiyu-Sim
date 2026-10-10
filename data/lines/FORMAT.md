@@ -63,7 +63,7 @@ The topic: `topic=theft` etc., plus the topic's own tags:
 - grudge: `feud`, `revenge`, `wants_help`.
 - money: `in_debt`, `wants_debt`.  safety: `camp`, `wants_camp`.
 - work: `lost_post`.  ring: `extorted`.  job: `has_offer`, `unlawful`.
-- news: `hidden`.
+- news: `hidden`; `elsewhere` (it happened in another town: `{there}` is that town, `{far}` how long a walk away and `{dir}` which way); `of_town` (it befell a whole town and was nobody's doing), with `rite` or `rising` saying which.
 
 ## Their own words
 
