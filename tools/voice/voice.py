@@ -957,7 +957,7 @@ def cmd_accents(args) -> None:
         print("plain  " + " | ".join(plain))
         print("bent   " + " | ".join(bent))
         return
-    print("Tongues (use as NAME@1 to NAME@4, a hint to the full native mouth):")
+    print("Tongues (use as NAME@1 to NAME@4 for plain speech, NAME@native for words in that tongue):")
     for k, t in accents.TONGUES.items():
         print(f"  {k:10} {t['label']}")
     saved = accents.load_accents()
@@ -1056,7 +1056,7 @@ def cmd_selftest(args) -> None:
            f"{sum(len(accents.KNOBS[k]['variants']) for k in accents.ORDER)} settings of {len(accents.ORDER)} knobs")
     for tongue, t in accents.TONGUES.items():
         scores = []
-        for step in range(0, 5):
+        for step in range(0, accents.NATIVE + 1):
             v = voice_from({"base": "kokoro:" + t["mix"]})
             if step:
                 v.accent = accents.recipe(tongue, step)
@@ -1064,8 +1064,9 @@ def cmd_selftest(args) -> None:
                 v.reading = t["reading"]
             x, sr, _ = render(v, line)
             scores.append(hear(x, sr, line)["match"])
-        expect(f"{tongue} thins out by steps", scores[1] >= 0.8 and scores[4] < scores[1] - 0.2,
-               "listener's match at thickness 0 to 4: " + " ".join(f"{m:.2f}" for m in scores))
+        # Steps 1 to 4 must leave the words recognisable; the native mouth must not.
+        expect(f"{tongue} stays plain speech to step 4", min(scores[1:5]) >= 0.7 and scores[5] < min(scores[1:5]) - 0.2,
+               "listener's match, plain then steps 1 to 4 then native: " + " ".join(f"{m:.2f}" for m in scores))
     print("\n" + ("all passed" if not fails else f"{len(fails)} failed: {', '.join(fails)}"))
     sys.exit(1 if fails else 0)
 

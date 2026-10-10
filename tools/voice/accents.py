@@ -315,17 +315,28 @@ def bend(sounds_text: str, sounds: dict, reading: str = "en-us") -> str:
 # ---------------------------------------------------------------------------
 # Recipes: a tongue at a thickness, and accents kept on file.
 
+NATIVE = 5   # one past the last step: the tongue's whole mouth, not meant for plain speech
+
+
 def recipe(tongue: str, thickness: int) -> dict:
-    """A tongue's habits laid over each other up to a thickness (0 to 4)."""
+    """A tongue's habits laid over each other up to a thickness.
+
+    0 is plain speech; 1 to 4 are the steps that keep a line recognisable;
+    5 (NATIVE) is everything the tongue's own rules say, for native words.
+    """
     if tongue not in TONGUES:
         raise ValueError(f"no tongue {tongue!r}; have {', '.join(TONGUES)}")
     t = TONGUES[tongue]
-    acc = {"label": t["label"], "tongue": tongue, "thickness": int(thickness),
+    thickness = max(0, min(int(thickness), NATIVE))
+    acc = {"label": t["label"], "tongue": tongue, "thickness": thickness,
            "reading": t.get("reading", "en-us"), "sounds": {}, "delivery": {},
            "voices": list(t.get("voices", [])), "mix": t.get("mix", "")}
-    for step in t.get("step", [])[:max(0, int(thickness))]:
+    steps = t.get("step", [])
+    for step in steps[:min(thickness, len(steps))]:
         acc["sounds"].update(step.get("sounds", {}))
         acc["delivery"].update(step.get("delivery", {}))
+    if thickness >= NATIVE:
+        acc["sounds"] = dict(t.get("native", {}).get("sounds", acc["sounds"]))
     return acc
 
 
@@ -406,6 +417,6 @@ def find(name: str) -> dict:
         return saved[name]
     tongue, _, level = name.partition("@")
     if tongue in TONGUES:
-        return recipe(tongue, int(level) if level else 2)
+        return recipe(tongue, NATIVE if level == "native" else int(level) if level else 2)
     raise ValueError(f"no accent called {name!r}. Saved: {', '.join(saved) or '(none)'}; "
-                     f"tongues: {', '.join(t + '@1..4' for t in TONGUES)}")
+                     f"tongues: {', '.join(t + '@1..4' for t in TONGUES)} (or @native)")

@@ -31,9 +31,18 @@ this computer. On Mac or Linux: `tools/voice/studio.sh`.
 
 Each tongue has sounds it does not own. A speaker reaches for the nearest
 sound they do own, exactly as the naming system bends a borrowed word
-(`assets/lang/sounds.ron`, the `*_borrows` lists). `tongues.toml` lays each
-tongue's swaps, word shape, stress and rhythm out as four steps, from a hint
-to the full native mouth:
+(`assets/lang/sounds.ron`, the `*_borrows` lists). `tongues.toml` holds, for
+each tongue:
+
+- **Four steps for plain speech.** Laz's rule: an accent on an English line
+  must leave the words recognisable as the words on screen. The steps hold
+  only the habits that pass that test, thickest last. They were chosen by
+  adding one habit at a time and keeping it only while a speech-to-text
+  listener still caught about four words in five across twelve game lines,
+  which is the level Laz marked "about right" by ear.
+- **The native mouth** (`NAME@native`, the last stop of the panel's
+  thickness slider): everything the tongue's rules say. It stops being
+  plain speech; keep it for words in that tongue.
 
 | Tongue | Owns | Does not own | Shape and rhythm |
 |---|---|---|---|
@@ -99,7 +108,7 @@ Dials (all in `dials.toml`, with their numbers):
   above. They change how a line is delivered; they are not an actor's
   performance.
 - **Accent:** `--accent NAME` (a saved accent) or a tongue at a thickness
-  (`roduro@1` to `roduro@4`). Accents bend sounds the clean engine can say;
+  (`roduro@1` to `roduro@4`, or `roduro@native`). Accents bend sounds the clean engine can say;
   they are not meant for the real-accent engine.
 
 ## Invented names
@@ -116,8 +125,8 @@ pronounced; add a line whenever one comes out wrong.
 - `selftest` measures each dial against what it claims (pitch in
   semitones, throat size from the voice's resonances, speed from length),
   checks that every setting of every accent knob changes the sounds of a
-  line, and that each tongue gets further from plain speech step by step
-  (by the listener's count).
+  line, and that each tongue stays followable through step 4 and stops
+  being followable at its native mouth (by the listener's count).
 - Whether a voice *sounds right* is Laz's call, by ear.
 
 ## Rules this follows

@@ -117,10 +117,11 @@ ul.saved .none { color: var(--muted); border: 0; display: block; }
     <div class="tongues" id="tongues"></div>
     <div class="thick">
       <label for="thickness">Thickness</label>
-      <input type="range" id="thickness" min="0" max="4" step="1" value="0">
+      <input type="range" id="thickness" min="0" max="5" step="1" value="0">
       <output id="thick-out">none</output>
     </div>
-    <p class="note">Each step adds more of that tongue's own habits, from a hint to its full native mouth. Moving this resets the knobs below to that step; then change any of them.</p>
+    <p class="note" id="thick-what"></p>
+    <p class="note">Steps 1 to 4 add more of that tongue's own habits while the line stays recognisable. The last stop is the tongue's whole mouth, which stops being plain speech: keep it for words in their own language. Moving this resets the knobs below to that step; then change any of them.</p>
 
     <h3>Rhythm and tune</h3>
     <div id="delivery"></div>
@@ -167,7 +168,7 @@ ul.saved .none { color: var(--muted); border: 0; display: block; }
 <script>
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const THICK = ["none", "a hint", "light", "thick", "full native mouth"];
+const THICK = ["none", "a hint", "light", "medium", "thick", "native tongue only"];
 const DIAL_LABEL = { speed: "Speed", pause: "Pauses", range: "Pitch movement", lilt: "Line ending", pitch: "Pitch", energy: "Force", breath: "Breath", size: "Body size", age: "Age", rough: "Gravel" };
 const DIAL_HELP = {
   speed: "slow … fast", pause: "gaps at commas and full stops", range: "flat … sing-song", lilt: "falls … rises (semitones)",
@@ -207,7 +208,7 @@ async function speak(plain) {
     player.play().catch(() => {});
     $("s-plain").textContent = r.plain.join(" | ");
     $("s-bent").textContent = plain ? "(none: this is the plain reading)" : r.bent.join(" | ");
-    $("heard").textContent = r.heard != null ? "Listener heard: “" + r.heard + "”" : "";
+    $("heard").textContent = r.heard != null ? "A listener caught " + Math.round(100 * (r.match ?? 0)) + "% of the words: “" + r.heard + "”" : "";
     status(r.seconds + " s clip, made in " + r.took + " s" + (r.pitch_hz ? ", pitch about " + r.pitch_hz + " Hz" : ""));
   } catch (e) { if (mine === seq) status(e.message, true); }
 }
@@ -325,7 +326,7 @@ async function startFrom(tongue, thickness, takeVoices) {
     const r = await api("/api/recipe?tongue=" + encodeURIComponent(tongue) + "&thickness=" + thickness);
     S.accent = { label: r.label, tongue, thickness, reading: r.reading, sounds: r.sounds, delivery: r.delivery, voices: r.voices };
     if (takeVoices && r.mix) S.mix = parseMix(r.mix);
-    S.accentName = thickness ? tongue + "@" + thickness : "";
+    S.accentName = thickness ? tongue + "@" + (thickness >= 5 ? "native" : thickness) : "";
     changed(true);
   } catch (e) { status(e.message, true); }
 }
@@ -334,6 +335,8 @@ function paint() {
   for (const b of document.querySelectorAll(".tongue")) b.setAttribute("aria-pressed", String(b.dataset.t === (S.accent.tongue || "")));
   $("thickness").value = S.accent.thickness || 0;
   $("thick-out").textContent = S.accent.tongue ? THICK[S.accent.thickness || 0] + (S.accentName ? "" : ", then changed") : "none";
+  const steps = S.accent.tongue ? (META.tongues[S.accent.tongue].steps || []) : [], n = S.accent.thickness || 0;
+  $("thick-what").textContent = !S.accent.tongue ? "" : n >= 5 ? "This step adds: everything else the tongue's rules say." : n ? "This step adds: " + (steps[n - 1] || "") + "." : "";
   $("reading").value = S.accent.reading || "en-us";
   for (const p of painters) p();
   $("mix-note").textContent = S.accent.tongue ? "The suggested voices come from languages that already have this tongue's sounds, so they should say them more cleanly. Any voice can be mixed in." : "";
@@ -365,7 +368,7 @@ function lists() {
       $("sp-name").value = name;
       const acc = META.accents[sp.accent];
       if (acc) { S.accent = { label: acc.label || "", tongue: acc.tongue || "", thickness: acc.thickness || 0, reading: acc.reading || "en-us", sounds: { ...(acc.sounds || {}) }, delivery: { ...(acc.delivery || {}) }, voices: acc.voices || [] }; S.accentName = sp.accent; changed(true); }
-      else if (sp.accent && sp.accent.includes("@")) { const [t, n] = sp.accent.split("@"); await startFrom(t, +n, false); }
+      else if (sp.accent && sp.accent.includes("@")) { const [t, n] = sp.accent.split("@"); await startFrom(t, n === "native" ? 5 : +n, false); }
       else changed(true);
     });
     del.addEventListener("click", async () => { if (del.textContent === "Delete") { del.textContent = "Really delete?"; return; } await api("/api/delete_voice", { name }); await refresh(); });

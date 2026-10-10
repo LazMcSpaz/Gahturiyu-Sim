@@ -55,7 +55,8 @@ def meta() -> dict:
     return {
         "knobs": accents.knob_meta(),
         "tongues": {k: {"label": t["label"], "voices": t.get("voices", []), "mix": t.get("mix", ""),
-                        "reading": t.get("reading", "en-us")} for k, t in accents.TONGUES.items()},
+                        "reading": t.get("reading", "en-us"),
+                        "steps": [x.get("what", "") for x in t.get("step", [])]} for k, t in accents.TONGUES.items()},
         "ranges": RANGES, "accent_dials": ACCENT_DIALS, "body_dials": BODY_DIALS,
         "defaults": V.DEFAULTS, "multiplied": sorted(V.MULTIPLIED),
         "emotions": list(V.DIALS["emotion"]), "voices": raw, "lines": lines,
