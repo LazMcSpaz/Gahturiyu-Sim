@@ -5,6 +5,10 @@
 //
 //   whole    a word may not be exactly one of these
 //   inside   a word may not contain one of these anywhere
+//   known    well-known real names (people, places, brands, characters) a
+//            *person's or place's* name may not be, or be one letter away
+//            from when both are five letters or more. Only names that could
+//            turn up in one of the four tongues' sounds are worth listing.
 //
 // When a word trips this: change the root's First Speech form (roots.ron),
 // the thing's recipe (things.ron), or, for one tongue only, add an exception
@@ -20,5 +24,66 @@
     inside: [
         "fuk", "fuq", "fuck", "shit", "xit", "kunt", "cunt", "piss", "kaka", "anus", "nigg", "nige", "rape",
         "turd", "poop", "wank", "slut", "whore", "nazi", "pedo", "twat",
+    ],
+    known: [
+        // Words that would look like a mistake or a joke as someone's name.
+        "name", "none", "null", "nil", "user", "test", "todo", "temp", "error", "admin", "home", "male", "mole",
+        "more", "mine", "wine", "line", "lone", "wane", "hare", "hole", "wore", "were", "here", "hire", "role",
+        "rule", "lane", "mane", "mare", "mere", "mire", "lure", "lore", "alone", "arena", "aroma", "area", "aura",
+        "menu", "emu", "euro", "mono", "memo", "limo", "lime", "rime", "hue", "woe", "hoe", "loo", "lee", "men",
+        "man", "tut", "tod", "todd", "rode", "ride", "hide", "gate", "late", "rate", "dare", "gale", "tale",
+        "aria", "arya", "momo", "duo", "goto", "yada", "aye",
+        // Soft and open (Horaro could make these).
+        "moana", "maui", "lilo", "nala", "mona", "lena", "nina", "mila", "hana", "lana", "lola", "luna", "nora",
+        "mara", "maria", "mario", "luma", "lulu", "mimi", "nana", "mama", "nemo", "elmo", "helena", "elena",
+        "alana", "ilana", "leona", "leo", "lia", "leia", "lea", "mia", "maia", "mae", "emma", "ella", "anna",
+        "ana", "hanna", "nino", "reno", "rio", "roma", "romeo", "rome", "lima", "miami", "hawaii", "oahu",
+        "aloha", "ohana", "lanai", "enema", "urine", "lame", "wino", "mule", "anime", "marina", "melania",
+        "rihanna", "homie", "iowa", "ohio", "halo", "hello", "hula", "winona", "ramona", "amino", "mania",
+        "wario", "luigi", "ariel", "elie", "noa", "noe", "mali", "malia", "mariana", "amelia", "emilia",
+        "lorena", "lorna", "ilona", "milo", "nilo", "arlo", "orlo", "wilma", "willow", "manila", "warhol",
+        "moria", "narnia", "armani", "ramen", "merlin", "marlon", "marlow", "wren", "leno", "lilia", "liliana",
+        "aurelia", "aurora", "laura", "lauren", "lorelei", "eleanor", "wawa", "aiwa", "rama", "ramu", "lama",
+        "llama", "hera", "hero", "nero", "arno", "ronia", "naomi", "noemi", "naima", "raina", "reina", "rain",
+        // Deep and open (Roduro could make these).
+        "dora", "tara", "tori", "tito", "toto", "yoda", "yoshi", "dali", "gaga", "dido", "tata", "talia",
+        "thalia", "dalia", "dahlia", "delilah", "leila", "layla", "lila", "lili", "lego", "togo", "oreo",
+        "idaho", "tequila", "toyota", "godiva", "gouda", "heidi", "hugo", "theo", "thea", "leto", "lori",
+        "rita", "rhoda", "odie", "ali", "edie", "dory", "gaea", "gaia", "hades", "leah", "judah", "goro",
+        "yogi", "yoga", "rodeo", "radio", "gala", "adele", "della", "adela", "adelaide", "ida", "edith",
+        "tahiti", "hattie", "hetty", "dorothea", "dorothy", "thora", "tora", "toga", "gigi", "didi", "dede",
+        "daria", "dario", "dorado", "eldorado", "tirade", "delhi", "tahoe", "tulsa", "dallas", "giotto",
+        "galileo", "gilda", "greta", "gretel", "geralt", "gerald", "harold", "hilda", "tilda", "hagrid",
+        "shiloh", "sheila", "shelly", "shula", "sharia", "shari", "sherry", "shire", "shiro", "shadow", "shade",
+        "yuri", "yule", "yale", "yara", "tide", "rite", "data", "date", "dote", "rude", "hate", "herod",
+        // Hard and closed (Qotiro could make these).
+        "kirk", "dirk", "kurt", "drax", "tron", "marx", "mark", "mart", "kant", "kent", "karen", "kermit",
+        "korn", "turk", "trek", "duke", "mork", "dork", "nerd", "kook", "gook", "trump", "putin", "kim", "tom",
+        "tim", "dan", "don", "ron", "rod", "ken", "ted", "pat", "pam", "meg", "max", "rex", "tex", "dex", "nat",
+        "nan", "mom", "dad", "tad", "kat", "kit", "pip", "pop", "pup", "peg", "pig", "dog", "god", "rat", "pot",
+        "nut", "rot", "gut", "rum", "gin", "gondor", "mordor", "kraken", "dragon", "pokemon", "digimon",
+        "tintin", "martin", "morgan", "megan", "nixon", "xerox", "pixar", "matrix", "dexter", "peter", "tudor",
+        "tariq", "tarik", "omar", "kumar", "amir", "emir", "adam", "eden", "odin", "erik", "eric", "demon",
+        "daemon", "moron", "tampon", "kondom", "condom", "porn", "porno", "anton", "aaron", "aron", "arnok",
+        "konan", "conan", "kronk", "kong", "king", "queen", "prince", "pagan", "nomad", "kodak", "nokia",
+        "pepsi", "radar", "tudek", "derek", "darek", "dirak", "derrick", "patrik", "patrick", "petra", "petr",
+        "piotr", "ragnar", "ragnarok", "gandor", "gimp", "grim", "grip", "drip", "trap", "trip", "trod", "prod",
+        "prom", "pram", "prat", "prig", "dreg", "drag", "drug", "drunk", "punk", "pork", "gork", "grok", "orc",
+        "ork", "ogre", "troll", "trog", "tank", "nark", "narc", "damon", "ramon", "roman", "norman", "norm",
+        "mormon", "german", "trotter", "potter", "pitt", "kanter", "kramer", "kremer", "karter", "garrett",
+        "garak", "gorak", "dukat", "kirok", "kronos", "krang", "mekon", "megatron", "akira", "tetris", "tokyo",
+        "kyoto", "kioto", "tango", "kappa", "omega", "delta", "gamma", "okra", "oprah", "dante", "donna",
+        // Light and breathy (Ṭaḍoro could make these).
+        "seth", "sasha", "fifi", "susie", "susi", "wifi", "sushi", "shisha", "sissy", "sisi", "wuss", "wus",
+        "wussy", "hussy", "husy", "fussy", "faith", "heath", "esau", "aisha", "ayesha", "asha", "shia", "isis",
+        "issa", "sufi", "yusuf", "yusef", "hiawatha", "theseus", "wee", "weewee", "wiwi", "seuss", "hafsa",
+        "hesse", "esse", "isaiah", "yeshua", "yahweh", "shush", "sheesh", "hush", "wish", "fish", "wash",
+        "saw", "sew", "sue", "say", "sea", "see", "she", "hey", "hay", "hi", "yes", "yeah", "wife", "safe",
+        "thief", "sheath", "sweaty", "sassy", "sass", "eyes", "ease", "easy", "essay", "issue", "tissue",
+        "fuse", "fuss", "huff", "whiff", "wafer", "safeway", "huawei", "weiwei", "shai", "shay", "shea",
+        "seif", "saif", "yasha", "yeshi", "yusha", "hasha", "hafiz", "hafez", "haifa", "fath", "fatah",
+        "hathaway", "fay", "faye", "fae", "feisty", "shiff", "sethi", "satya", "suey", "suess", "sheesha",
+        "ashe", "ash", "ashy", "aiwass", "yaya", "yuyu", "hehe", "haha", "hihi", "huhu", "sayeth", "saith",
+        "wasp", "wisha", "eww", "ewe", "ewes", "use", "uses", "user", "wise", "whys", "ways", "sway", "swish",
     ],
 )

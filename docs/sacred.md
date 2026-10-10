@@ -73,7 +73,7 @@ Read along a row: the speaker's names for all four. The Roduro row is canon, and
 | omen | toshu (*TOH-shoo*) | tox (*TOKH*) | nohu (*NOH-hoo*) | sausu (*sow-SOO*) |
 | offering | ḍahi (*DAH-hee*) | mep (*MEP*) | mawi (*MAH-wee*) | wafi (*wah-FEE*) |
 | blessing | ḍuqe (*DOO-keh*) | muk (*MOOK*) | muhe (*MOO-heh*) | wuhe (*woo-HEH*) |
-| curse | qaqu (*KAH-koo*) | qoq (*KOK*) | hau (*HAH-oo*) | hau (*HOW*) |
+| curse | qaqu (*KAH-koo*) | qux (*KOOKH*) | hau (*HAH-oo*) | hau (*HOW*) |
 | vow | ati (*AH-tee*) | et (*ET*) | ani (*AH-nee*) | asi (*ah-SEE*) |
 | shrine | hehu (*HEH-hoo*) | pep (*PEP*) | wewu (*WEH-woo*) | fefu (*feh-FOO*) |
 | temple | atuhale (*ah-too-HAH-leh*) | otpar (*OT-par*) | waleanu (*wah-leh-AH-noo*) | fayeyasu (*fah-yeh-yah-SOO*) |

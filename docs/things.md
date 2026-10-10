@@ -38,7 +38,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Meal runner | Yiraqe | Dirak | Heira | Heyisha | run-er |
 | Merchant | Tuquqe | Tukak | Henuu | Hesuhu | trade-er |
 | Caravaner | Shaduqe | Xodak | Hehalu | Hesathu | road-er |
-| Innkeeper | Ḍatiqoḍi | Metkom | Homimani | Hauwiwa | guest-hold |
+| Innkeeper | Ḍatiqoḍi | Metkom | Homimani | Hauwiwasi | guest-hold |
 | Guard | Taroqe | Torak | Henaro | Hesashe | guard-er |
 | Official | Tuliqe | Turak | Henuli | Hesuyi | serve-er |
 | Priest | Qihu | Kip | Hiwu | Hifu | priest |
@@ -96,7 +96,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Fishskin | Horaro | **Walimia** | wah-lee-MEE-ah | fish-hide |
 | Pearl | Horaro | **Momi** | MOH-mee | pearl |
 | Salvage | Horaro | **Lihenuwu** | lee-heh-NOO-woo | deep-find |
-| Tentsilk | Ṭaḍoro | **Sesafau** | seh-sah-FOW | tent-silk |
+| Tentsilk | Ṭaḍoro | **Sesafauwa** | seh-sah-fow-WAH | tent-silk |
 | Scrollpaper | Ṭaḍoro | **Thefisefi** | theh-fee-seh-FEE | write-paper |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
@@ -110,14 +110,14 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Hide | Hali | Per | Wali | Fayi | hide |
 | Leather | Ilihali | Irper | Waliili | Fayihiyi | tan-hide |
 | Cloth | Taha | Tap | Nawa | Safa | cloth |
-| Fibre | Shogasheta | Xokxet | Henahowa | Sesasau | grass-silk |
+| Fibre | Shogasheta | Xokxet | Henahowa | Sesasauwa | grass-silk |
 | Clay | Loha | Rop | Lowa | Yaufa | clay |
 | Sand | Sheḍe | Xen | Hene | Seye | sand |
 | Charcoal | Qeḍeqaho | Kemkop | Hawoheme | Hafehewe | black-timber |
 | Ash | Hushe | Pux | Wuhe | Fuse | ember |
 | Pitch | Huqa | Puk | Wuha | Fuha | pitch |
 | Ink | Qeḍeḍage | Kemag | Maweheme | Wawehewe | black-water |
-| Reed paper | Yotoṭehi | Dotrep | Lewiiono | Thefiyau | reed-paper |
+| Reed paper | Yotoṭehi | Dotrep | Lewiiono | Thefiyause | reed-paper |
 | Salt crystal | Shiqaqiʻu | Xikiq | Hiuhiha | Hiyusiha | salt-crystal |
 | Wares | Tegu | Teg | Newu | Sewu | thing |
 
@@ -144,7 +144,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Short bow | Gushu | Gux | Wuu | Wusu | bow |
 | Staff | Hoya | Pod | Woia | Fauya | staff |
 | Hatchet | Daqaqishe | Daqix | Hihelaa | Hisethaha | branch-knife |
-| Sling | Ṭiruroḍa | Triron | Ronaliru | Shauyathi | throw-rope |
+| Sling | Ṭiruroḍa | Triron | Ronaliru | Shauyathishu | throw-rope |
 | Arrows | Gushuqishu | Guxkix | Hihuwuu | Hisuwusu | bow-thorn |
 | Sling stones | Ṭirudoqo | Trirdoq | Looliru | Thehethishu | throw-stone |
 
@@ -152,7 +152,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 | English | Whose | Native name | Say it | Word for word |
 |---|---|---|---|---|
-| Silk wraps | Ṭaḍoro | **Yisasau** | yee-sah-SOW | body-bind |
+| Silk wraps | Ṭaḍoro | **Yisasausa** | yee-sah-sow-SAH | body-bind |
 | Scale hauberk | Qotiro | **Xotxert** | KHOT-khert | body-scale |
 | Sandstone lamellar | Qotiro | **Xotord** | KHOH-tord | body-shield |
 | Iron helm | Qotiro | **Triktord** | TRIK-tord | head-shield |
@@ -161,9 +161,9 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
-| Cloth shirt | Shotaha | Xotap | Nawahona | Safasau | body-cloth |
+| Cloth shirt | Shotaha | Xotap | Nawahona | Safasausa | body-cloth |
 | Padded jacket | Yalutaḍu | Dortord | Nanuialu | Sayuyayu | soft-shield |
-| Hide coat | Shotahali | Xotper | Walihona | Fayisau | body-hide |
+| Hide coat | Shotahali | Xotper | Walihona | Fayisausa | body-hide |
 | Leather cap | Ṭiqoheqa | Trikpek | Wehaliho | Fehathihe | head-shell |
 | Trousers | Guṭataha | Gurtap | Nawawula | Safawutha | foot-cloth |
 | Hide leggings | Guṭahali | Gurtaper | Waliwula | Fayiwutha | foot-hide |
@@ -189,11 +189,11 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Porter's frame pack | Hiṭoqute | Pirtakut | Hunewilo | Husefithe | board-basket |
 | Lockpick | Quṭeḍata | Kurtamat | Manahule | Wasahuthe | shut-hook |
 | Torch | Laḍa | Ram | Lama | Yawa | torch |
-| Standing torch | Hoqulaḍa | Pokram | Lamawohu | Yawafau | pillar-torch |
+| Standing torch | Hoqulaḍa | Pokram | Lamawohu | Yawafauhu | pillar-torch |
 | Tent | Hoga | Pog | Wowa | Fauwa | tent |
 | Mortar and pestle | Ṭahaqulo | Trapkur | Hulolawa | Huyethafa | break-pot |
-| Storm glass | Qorogusha | Krokkex | Hehahorowu | Hesahau | storm-glass |
-| Gold ring | Ṭeligole | Trergor | Woleleli | Wauyethe | gold-ring |
+| Storm glass | Qorogusha | Krokkex | Hehahorowu | Hesahaushe | storm-glass |
+| Gold ring | Ṭeligole | Trergor | Woleleli | Wauyetheyi | gold-ring |
 
 ## Food, herbs and draughts
 
@@ -202,12 +202,12 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Grain | Shaḍi | Xem | Hami | Sawi | grain |
 | Grain and greens | Taleqeʻi | Tarkeq | Heinale | Heisaye | field-food |
 | Fish | Ḍiʻa | Miq | Mia | Wiya | fish |
-| Game | Lìdìdiʻa | Rediq | Lialili | Thiyayithi | hunt-meat |
+| Game | Lìdìdiʻa | Redix | Lialili | Thiyayithi | hunt-meat |
 | Kelp | Liḍu | Rim | Limu | Yiwu | kelp |
 | Herbs | Yeri | Der | Ieri | Yeshi | herb |
 | Dried fish | Ḍaqaḍiʻa | Maqmiq | Miamaa | Wiyawaha | dry-fish |
 | Flatbread | Lataḍiha | Ratmip | Miwalana | Wifayasa | wide-bread |
-| Salted meat | Shiqadiʻa | Xikdiq | Liahiha | Thiyasiha | salt-meat |
+| Salted meat | Shiqadiʻa | Xikdix | Liahiha | Thiyasiha | salt-meat |
 | Wild berries | Garoguʻe | Gorguq | Wuewaro | Wuwewashe | wild-fruit |
 | Mussels | Ḍoqaheqa | Drokpek | Wehanoha | Fehathuha | rock-shell |
 | Kelp frond | Liḍulahi | Rimrep | Lawilimu | Yafiyiwu | kelp-leaf |
@@ -215,7 +215,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Emberroot | Ṭaquhiqì | Trokpik | Wiilahu | Fihithahu | fire-root |
 | Ash moss | Husheṭuḍi | Puxtrum | Lumiwuhe | Thuwifuse | ember-moss |
 | Squid ink | Ḍuhutedu | Drupted | Nelunuwu | Sethuyufu | deep-dye |
-| Healing draught | Doḍiʻiḍu | Donin | Inuloni | Iyuthau | heal-drink |
+| Healing draught | Doḍiʻiḍu | Donin | Inuloni | Iyuthauyi | heal-drink |
 | Greater healing draught | Tashiʻiḍu | Texin | Inunahi | Iyusasi | whole-drink |
 | Mana tonic | Shaʻiʻiḍu | Xeqin | Inuhai | Iyusai | spirit-drink |
 
@@ -239,9 +239,9 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Manual | Aqoṭehi | Oktrep | Lewiaho | Thefiyahe | teach-paper |
 | Notes | Shehilahi | Xeprep | Lawihewi | Yafisefi | write-leaf |
 | Rite | Qashe | Kax | Hahe | Hase | rite |
-| Scroll | Hoṭiṭehi | Portrep | Lewiwoli | Thefifau | round-paper |
+| Scroll | Hoṭiṭehi | Portrep | Lewiwoli | Thefifauthi | round-paper |
 | Manual of leather, cloth and wood | Aqoṭehi yi ḍiḍagiṭa | Oktrep di drimgirt | Lewiaho i wilanima | Thefiyahe yi withayiwa | teach-paper of hand-work |
-| Manual of smithing | Aqoṭehi yi doṭagiṭa | Oktrep di dortagirt | Lewiaho i wilalola | Thefiyahe yi withathau | teach-paper of forge-work |
+| Manual of smithing | Aqoṭehi yi doṭagiṭa | Oktrep di dortagirt | Lewiaho i wilalola | Thefiyahe yi withathautha | teach-paper of forge-work |
 | Manual of armouring | Aqoṭehi yi taḍugiṭa | Oktrep di tordagirt | Lewiaho i wilananu | Thefiyahe yi withasayu | teach-paper of shield-work |
 | Manual of stone-tending | Aqoṭehi yi doqoleḍa | Oktrep di doqrem | Lewiaho i lemaloo | Thefiyahe yi yewathehe | teach-paper of stone-tend |
 | Manual of weaving and sealing | Aqoṭehi yi larigiṭa | Oktrep di rergirt | Lewiaho i wilalari | Thefiyahe yi withayashi | teach-paper of weave-work |
@@ -269,8 +269,8 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Temple-fortress | Qotiro | **Otput** | OT-poot | god-wall |
 | Gatehouse | Qotiro | **Tortrim** | TOR-trim | guard-door |
 | Sun-disc | Qotiro | **Tongor** | TON-gor | sun-ring |
-| Scholar's tent | Ṭaḍoro | **Fauwase** | fow-wah-SEH | silk-tent |
-| Tent pole | Ṭaḍoro | **Fauhufa** | fow-hoo-FAH | tent-pillar |
+| Scholar's tent | Ṭaḍoro | **Fauwasesa** | fow-wah-seh-SAH | silk-tent |
+| Tent pole | Ṭaḍoro | **Fauhufauwa** | fow-hoo-fow-WAH | tent-pillar |
 | Script panel | Ṭaḍoro | **Safasefi** | sah-fah-seh-FEE | write-cloth |
 
 ## Places in a town
@@ -298,8 +298,8 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Fields | Tale | Tar | Nale | Saye | field |
 | Hunting grounds | Lìdìla | Redar | Lalili | Yayithi | hunt-place |
 | Woodlot | Qahola | Kopar | Lahawo | Yahafe | timber-place |
-| Mine and quarry | Toqeqohu | Tokqop | Howunohe | Haufusa | ore-pit |
-| Charcoal pit | Tuhiqohu | Tupqop | Howunuwi | Haufusu | burn-pit |
+| Mine and quarry | Toqeqohu | Tokqop | Howunohe | Haufusauhe | ore-pit |
+| Charcoal pit | Tuhiqohu | Tupqop | Howunuwi | Haufusufi | burn-pit |
 | Hearth kitchen | Tuḍaqahi | Tunkep | Hawinuna | Hafisuya | cook-hearth |
 | Market square | Ḍiqa | Mik | Miha | Wiha | market |
 | Food shop | Qeʻiḍiqa | Keqmik | Mihahei | Wihahei | food-market |
@@ -309,7 +309,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Shrine | Hehu | Pep | Wewu | Fefu | shrine |
 | Guard post | Tarola | Torar | Lanaro | Yasashe | guard-place |
 | Hall | Haqe | Pak | Wahe | Fahe | hall |
-| Healing house | Doḍihale | Donpar | Waleloni | Fayethau | heal-house |
+| Healing house | Doḍihale | Donpar | Waleloni | Fayethauyi | heal-house |
 | Healer's house | Doḍila | Donar | Laloni | Yathauyi | heal-place |
 | Workyard | Giṭala | Girtar | Lawila | Yawitha | work-place |
 | Workshop | Ṭogila | Trogar | Lalowi | Yathauwi | make-place |
@@ -333,11 +333,11 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
-| Camp marker | Ḍoʻehoqu | Noqpok | Wohunoe | Fauhuye | rest-pillar |
+| Camp marker | Ḍoʻehoqu | Noqpok | Wohunoe | Fauhuyehe | rest-pillar |
 | Lean-to | Daqaʻahe | Daqap | Awelaa | Afethaha | branch-roof |
 | Hut | Haleli | Parik | Liwale | Yifaye | little house |
 | Longhouse | Leʻuhale | Reqpar | Waleleu | Fayeyeyu | long-house |
-| Storehouse | Qoḍihale | Kompar | Walehomi | Fayehau | hold-house |
+| Storehouse | Qoḍihale | Kompar | Walehomi | Fayehauwi | hold-house |
 | Well | Ḍuʻi | Nuq | Nui | Yuwi | spring |
 | Field plot | Taleli | Tarik | Linale | Yisaye | little field |
 | Animal pen | Gayugoti | Gadukput | Wuniwaiu | Fusiwaye | beast-wall |
@@ -345,7 +345,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Palisade | Qahohuti | Koput | Wunihawo | Fusihafe | timber-wall |
 | Rubble wall | Doqohuti | Doqput | Wuniloo | Fusithehe | stone-wall |
 | Gate | Ṭiḍora | Trimrek | Ralimo | Shathiwe | great door |
-| Watchtower | Tarohoqu | Torpok | Wohunaro | Fauhusa | guard-pillar |
+| Watchtower | Tarohoqu | Torpok | Wohunaro | Fauhusashe | guard-pillar |
 
 ## Creatures
 
@@ -370,7 +370,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Turiyu | Turiyu | Tured | Nuriu | Sushiyu | "turiyu" |
 | Wild Turiyu | Turiyu yi garo | Tured di gor | Nuriu i waro | Sushiyu yi washe | "turiyu" of wild |
 | Shellhen | Heqashigi | Pekxig | Hiwiweha | Siwifeha | shell-bird |
-| Plodder | Toḍeguṭa | Tomgurt | Wulanome | Wuthasau | heavy-foot |
+| Plodder | Toḍeguṭa | Tomgurt | Wulanome | Wuthasauwe | heavy-foot |
 | Bonepicker | Shuʻishigi | Xuqxig | Hiwihui | Siwisuwi | bone-bird |
 | Briarback | Qishutusha | Kixtux | Nuhahihu | Susahisu | thorn-back |
 
@@ -389,11 +389,11 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | clear | Litilaʻi | Ritreq | Lailini | Yaiyisi | bright-sky |
-| broken cloud | Ṭahaḍohu | Trapmop | Mowulawa | Waufutha | break-cloud |
-| overcast | Shohilaʻi | Xopreq | Laihowi | Yaisau | grey-sky |
-| drizzle | Yaluḍoli | Dordror | Noliialu | Yauyiya | soft-rain |
+| broken cloud | Ṭahaḍohu | Trapmop | Mowulawa | Waufuthafa | break-cloud |
+| overcast | Shohilaʻi | Xopreq | Laihowi | Yaisaufi | grey-sky |
+| drizzle | Yaluḍoli | Dordror | Noliialu | Yauyiyayu | soft-rain |
 | rain | Ḍoli | Dror | Noli | Yauyi | rain |
-| heavy rain | Toḍeḍoli | Tomdror | Nolinome | Yauyisa | heavy-rain |
+| heavy rain | Toḍeḍoli | Tomdror | Nolinome | Yauyisauwe | heavy-rain |
 | downpour | Ḍolira | Drorek | Ranoli | Shayauyi | great rain |
 | mist | Huḍili | Pumik | Liwumi | Yifuwi | little fog |
 | sea mist | Ḍoʻahuḍi | Moqpum | Wumimoa | Fuwiweya | sea-fog |
@@ -405,7 +405,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | thunderstorm | Ḍururogu | Drurkrog | Horowunuru | Haushewuyu | thunder-storm |
 | snow flurries | Shihali | Xipik | Lihiwa | Yisifa | little snow |
 | snow | Shiha | Xip | Hiwa | Sifa | snow |
-| heavy snow | Toḍeshiha | Tomxip | Hiwanome | Sifasau | heavy-snow |
+| heavy snow | Toḍeshiha | Tomxip | Hiwanome | Sifasauwe | heavy-snow |
 | blizzard | Shiharogu | Xipkrog | Horowuhiwa | Haushewusi | snow-storm |
 
 ## Everyday things
@@ -413,7 +413,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | Bread | Ḍiha | Mip | Miwa | Wifa | bread |
-| Meat | Diʻa | Diq | Lia | Thiya | meat |
+| Meat | Diʻa | Dix | Lia | Thiya | meat |
 | Salt | Shiqa | Xik | Hiha | Siha | salt |
 | Water | Ḍage | Mag | Mawe | Wawe | water |
 | Fire | Ṭaqu | Trok | Lahu | Thahu | fire |

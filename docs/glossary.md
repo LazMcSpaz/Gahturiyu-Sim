@@ -167,7 +167,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | pearl | momi | ḍoḍi | mom | momi | wauwi |
 | crystal | kiʻu | qiʻu | kiq | hiu | hiyu |
 | food | keʻi | qeʻi | keq | hei | hei |
-| meat | diʻa | diʻa | diq | lia | thiya |
+| meat | diʻa | diʻa | *dix* | lia | thiya |
 | bread | mipa | ḍiha | mip | miwa | wifa |
 | knife, blade | qise | qishe | qix | hihe | hise |
 | boat | woka | goqa | gok | woha | wauha |
@@ -262,7 +262,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | pillar, post | poku | hoqu | pok | wohu | fauhu |
 | hall | pake | haqe | pak | wahe | fahe |
 | sister | tira | tira | tir | nira | sisha |
-| brother | koqa | qoqa | koq | hoa | heya |
+| brother | koqa | qoqa | *qox* | hoa | heya |
 | husband, wife | pilu | hilu | pir | wilu | fiyu |
 | twin, pair | mase | ḍashe | max | mahe | wase |
 | teacher, source | kima | qiḍa | kim | hima | hiwa |
@@ -298,7 +298,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | true, right | peno | heḍo | pen | weno | feye |
 | swift | wike | giqe | gik | wihe | wihe |
 | heavy | tome | toḍe | tom | nome | sauwe |
-| sharp | koʻe | qoʻe | koq | hoe | hehe |
+| sharp | koʻe | qoʻe | *kod* | hoe | hehe |
 | hidden | puna | huḍa | pun | wuna | fuya |
 | far | mako | ḍaqo | mok | maho | wahe |
 | near | thadi | thadi | ted | hali | thathi |
@@ -375,7 +375,7 @@ Made from `assets/lang/` by `cargo run --release --bin lang -- glossary` (a test
 | code, law (**canon**) | gìpu | gìhu | gep | wiwu | wihu ‹R› |
 | tradition (**canon**) | kìgìdu | qìgìdu | keged | hiwilu | hiwithu ‹R› |
 | blessing | muke | ḍuqe | muk | muhe | wuhe |
-| curse | qaqu | qaqu | qoq | hau | hau |
+| curse | qaqu | qaqu | *qux* | hau | hau |
 | shrine, holy place | pepu | hehu | pep | wewu | fefu |
 | priest | kipu | qihu | kip | hiwu | hifu |
 | offering, sacrifice | mapi | ḍahi | mep | mawi | wafi |

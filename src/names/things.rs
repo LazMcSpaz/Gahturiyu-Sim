@@ -222,7 +222,7 @@ fn part_word(p: &Part, tongue: Tongue, depth: u8) -> Result<String, String> {
     }
 }
 
-fn build(made: &str, tongue: Tongue, depth: u8) -> Result<String, String> {
+pub(crate) fn build(made: &str, tongue: Tongue, depth: u8) -> Result<String, String> {
     let mut out = Vec::new();
     for w in parse(made)? {
         let mut word = part_word(&w.parts[0], tongue, depth)?;

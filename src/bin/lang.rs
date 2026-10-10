@@ -5,6 +5,9 @@
 //!     cargo run --release --bin lang -- things          (jobs, materials, items, buildings, creatures, weather; this is docs/things.md)
 //!     cargo run --release --bin lang -- things-clashes  (things whose native names come out alike)
 //!     cargo run --release --bin lang -- make <recipe> ..  (try a recipe from things.ron in every tongue)
+//!     cargo run --release --bin lang -- names           (the hand-kept given names; this is docs/names.md)
+//!     cargo run --release --bin lang -- people          (twenty sample people of each people; this is docs/people.md)
+//!     cargo run --release --bin lang -- name-candidates (every name the naming roots could make, for choosing the lists)
 //!     cargo run --release --bin lang -- cognates        (the sets shown in docs/naming.md)
 //!     cargo run --release --bin lang -- pronounce <tongue> <word> ..   (how to say a word)
 //!     cargo run --release --bin lang -- say <first> ..  (First Speech forms run through every tongue)
@@ -62,6 +65,16 @@ fn main() {
                 println!("| {} | {} | {} | {} | {} | {} |", r.gloss, r.first, w[0], w[1], w[2], w[3]);
             }
         }
+        Some("names") => print!("{}", names::people::tables()),
+        Some("people") => print!("{}", names::people::samples()),
+        Some("name-candidates") => {
+            // Every name each people's roots could make: name, gender, recipe, ending, beats.
+            for t in Tongue::SPOKEN {
+                for c in names::people::candidates(t) {
+                    println!("{}\t{}\t{}\t{}\t{}\t{}", t.name(), c.name, c.gender.word(), c.made, c.end, names::syllables(&c.name, t));
+                }
+            }
+        }
         Some("make") => {
             // lang make <recipe> ... : try a recipe out in every tongue.
             for made in &args[2..] {
@@ -88,6 +101,6 @@ fn main() {
                 println!("{}: {} sound-alike groups{}{}", t.name(), alike.len(), if alike.is_empty() { "" } else { ": " }, alike.join("; "));
             }
         }
-        _ => eprintln!("usage: lang glossary | sacred | things | things-clashes | make <recipe> ... | cognates | say <first speech form> ... | pronounce <tongue> <word> ... | clashes"),
+        _ => eprintln!("usage: lang glossary | sacred | things | things-clashes | make <recipe> ... | names | people | name-candidates | cognates | say <first speech form> ... | pronounce <tongue> <word> ... | clashes"),
     }
 }

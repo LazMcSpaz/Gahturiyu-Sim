@@ -94,35 +94,36 @@ pub fn grammar(tongue: Tongue) -> &'static Grammar {
     super::data().grammar.iter().find(|g| g.tongue == tongue).unwrap_or_else(|| panic!("assets/lang/grammar.ron has nothing for {tongue:?}"))
 }
 
-fn syllables(w: &[char]) -> usize {
-    w.iter().filter(|c| is_vowel(**c)).count()
+/// Where each beat's vowel sits in a word: (first sound, one past the last).
+/// A Ṭaḍoro glide (`ai au ei ae`) is one beat; everywhere else each vowel is.
+fn beats(w: &[char], tongue: Tongue) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < w.len() {
+        if is_vowel(w[i]) {
+            let glide = tongue == Tongue::Tadoro && i + 1 < w.len() && matches!((w[i], w[i + 1]), ('a', 'i') | ('a', 'u') | ('e', 'i') | ('a', 'e'));
+            let end = if glide { i + 2 } else { i + 1 };
+            out.push((i, end));
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+    out
 }
 
-/// Cut a word down to `n` syllables, keeping one end.
-fn cut(w: &[char], n: usize, keep: Keep) -> Vec<char> {
-    if syllables(w) <= n || n == 0 {
+/// Cut a word down to `n` beats, keeping one end.
+fn cut(w: &[char], n: usize, keep: Keep, tongue: Tongue) -> Vec<char> {
+    let at = beats(w, tongue);
+    if at.len() <= n || n == 0 {
         return w.to_vec();
     }
     match keep {
-        Keep::Start => {
-            // Up to and including the nth vowel.
-            let mut seen = 0;
-            let mut end = w.len();
-            for (i, c) in w.iter().enumerate() {
-                if is_vowel(*c) {
-                    seen += 1;
-                    if seen == n {
-                        end = i + 1;
-                        break;
-                    }
-                }
-            }
-            w[..end].to_vec()
-        }
+        // Up to and including the nth beat.
+        Keep::Start => w[..at[n - 1].1].to_vec(),
         Keep::End => {
-            // From the consonant that opens the nth vowel from the end.
-            let at: Vec<usize> = w.iter().enumerate().filter(|(_, c)| is_vowel(**c)).map(|(i, _)| i).collect();
-            let v = at[at.len() - n];
+            // From the consonant that opens the nth beat from the end.
+            let v = at[at.len() - n].0;
             let start = if v > 0 && !is_vowel(w[v - 1]) { v - 1 } else { v };
             w[start..].to_vec()
         }
@@ -193,8 +194,8 @@ pub fn compound(tongue: Tongue, describing: &str, main: &str) -> String {
         Order::HeadFirst => (main, describing),
     };
     let (a, b) = (sound::sounds(first), sound::sounds(second));
-    let room = g.longest.saturating_sub(syllables(&a)).max(1);
-    let b = cut(&b, room, g.keep);
+    let room = g.longest.saturating_sub(beats(&a, tongue).len()).max(1);
+    let b = cut(&b, room, g.keep, tongue);
     join(tongue, &sound::spell(&a), &sound::spell(&b))
 }
 

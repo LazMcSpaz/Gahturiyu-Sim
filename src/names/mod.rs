@@ -21,6 +21,7 @@
 //! `docs/naming.md` keeps the running account.)
 
 pub mod grammar;
+pub mod people;
 pub mod sacred;
 pub mod say;
 pub mod sound;
@@ -35,6 +36,7 @@ pub use grammar::{compound, grammar, join, with, Affix, Grammar};
 pub use sacred::{god, make, people_english, people_meaning, people_name, sacred, God, Made, Sacred};
 pub use say::{ascii, capital, file_name, pronounce, syllables};
 pub use sound::{At, Step};
+pub use people::{generate_person, generate_person_among, given_name, Context, Gender, Given, Listed, PersonName};
 pub use things::{native_name, thing, things, Group, Thing};
 
 /// The First Speech and its four daughters.
@@ -188,6 +190,7 @@ struct Data {
 struct Avoid {
     whole: Vec<String>,
     inside: Vec<String>,
+    known: Vec<String>,
 }
 
 fn read<T: for<'de> Deserialize<'de>>(file: &str, text: &str) -> T {
@@ -320,15 +323,49 @@ pub fn origin(id: &str, tongue: Tongue) -> Origin {
 pub fn unfortunate(name: &str) -> Option<&'static str> {
     let a = &data().avoid;
     for w in name.split_whitespace() {
-        let plain: String = ascii(&w.to_lowercase()).chars().filter(|c| c.is_ascii_alphabetic()).collect();
-        if let Some(b) = a.whole.iter().find(|b| **b == plain) {
-            return Some(b);
-        }
-        if let Some(b) = a.inside.iter().find(|b| plain.contains(b.as_str())) {
-            return Some(b);
+        // As it is written, and as it is said (`q` sounds as k).
+        let written = plain(w);
+        for plain in [written.replace('q', "k"), written] {
+            if let Some(b) = a.whole.iter().find(|b| **b == plain) {
+                return Some(b);
+            }
+            if let Some(b) = a.inside.iter().find(|b| plain.contains(b.as_str())) {
+                return Some(b);
+            }
         }
     }
     None
+}
+
+/// A name in plain small letters, as an English reader takes it in.
+pub fn plain(name: &str) -> String {
+    ascii(&name.to_lowercase()).chars().filter(|c| c.is_ascii_alphabetic()).collect()
+}
+
+/// Whether two names are the same or one letter apart (a letter changed,
+/// added or dropped), read in plain letters. Two such people in one town
+/// would be mixed up.
+pub fn lookalike(a: &str, b: &str) -> bool {
+    let (a, b): (Vec<char>, Vec<char>) = (plain(a).chars().collect(), plain(b).chars().collect());
+    let (short, long) = if a.len() <= b.len() { (&a, &b) } else { (&b, &a) };
+    if long.len() - short.len() > 1 {
+        return false;
+    }
+    let same = short.iter().zip(long.iter()).take_while(|(x, y)| x == y).count();
+    if long.len() == short.len() {
+        // At most one letter differs.
+        short[same..].iter().zip(long[same..].iter()).filter(|(x, y)| x != y).count() <= 1
+    } else {
+        // One letter added: the rest lines up after skipping it.
+        short[same..] == long[same + 1..]
+    }
+}
+
+/// The well-known real name a person's or place's name is, or is one letter
+/// away from (`known` in `assets/lang/avoid.ron`).
+pub fn familiar(name: &str) -> Option<&'static str> {
+    let p = plain(name);
+    data().avoid.known.iter().find(|k| **k == p || (p.len() >= 5 && k.len() >= 5 && lookalike(&p, k))).map(|k| k.as_str())
 }
 
 /// Whether a First Speech form is well made: (C)V syllables from the First

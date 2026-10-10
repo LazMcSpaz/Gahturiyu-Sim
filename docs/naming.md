@@ -1,11 +1,12 @@
 # Naming: words and names in the four tongues
 
 Second agent's work, branch `agent2/naming`. This file grows with each stage. This is
-the state after **stage 3**. Stage 1: canon inventory, First Speech roots, sound rules,
+the state after **stage 4**. Stage 1: canon inventory, First Speech roots, sound rules,
 cognate sets. Stage 2: how each tongue puts words together, the gods and the elements
 in all four tongues, what each people calls each people, the words of worship and
 rule, and spelling and pronunciation. Stage 3: the names of things (jobs, crafts,
-materials, items, buildings, creatures, weather). Next: people, then places.
+materials, items, buildings, creatures, weather). Stage 4: people (given names with
+meanings, bynames in each culture's shape). Next: places, and wiring it into the game.
 
 **Nothing in the game uses this yet.** The game still makes names with
 `src/sim/names.rs` (random syllables in each tongue's sounds). The adapter that points
@@ -378,6 +379,109 @@ was *Shithetheya* and is now *Shethetheya*. The canon name, *Rìthaduya*, is unc
 foot, body, neck, scale, shield, bow, board, paper, thing, to throw, to leap, to work,
 to shut. 340 roots now, 38 of them canon.
 
+## Stage 4: people
+
+**The lists are `docs/names.md`; twenty sample people of each people are
+`docs/people.md`.** The data is `assets/lang/names/` (the given names) and
+`assets/lang/people.ron` (what new names and bynames are made from).
+
+### Given names
+
+A given name is a native word with a meaning. It is built like a thing's name, from
+one or two roots (`stone`, `bright+stone`, `wave:small`), and then **finished with a
+name ending** that says who it is for:
+
+| Tongue | A man's name ends in | A woman's | Either | How the ending goes on |
+|---|---|---|---|---|
+| Roduro | `-o -u` | `-a -i` | `-e -ì` | the word's last vowel gives way: *doqo* (stone) → **Doqu**, **Doqa**, **Doqe** |
+| Qotiro | `-k -t -q -x` | `-n -r -m` | `-d -g` | a word already ending so stands as it is; otherwise an echo of its last vowel, then the ending: *trok* (fire) → **Trok**, **Trokon** |
+| Horaro | `-u -o` | `-a -ia` | `-i -e` | the last vowel gives way: *noli* (rain) → **Nolu**, **Nolia**, **Nole** |
+| Ṭaḍoro | `-th -h -s` | `-ai -a -i` | `-e -u -sh` | a breath follows the last vowel, a vowel takes its place: *weya* (sea) → **Weyath**, **Weyai**, **Weyash** |
+
+**The lists** hold, for each people, 160 names for men, 153 to 160 for women and 56
+for either (the brief asked for 150, 150 and 50). Each line is the name, who it is
+for, its recipe and its ending; the meaning is read off the recipe ("patient ridge",
+"little wave", "moon weaver"). About a third are a single root, an eighth a root with
+"little" or "great", the rest two roots. I chose the roots each people names from and
+the rules for which may go together; a script then took the names from everything
+those rules allow, keeping them varied (no root leads more than six names) and
+short. **To drop a name, delete its line.** A test holds every line to the rules, so a
+later change to a root or a sound rule can't leave the lists stale.
+
+What each people names children for (their own favourites are used twice as often as
+the shared stock of sky, season, virtue and kin):
+
+- **Roduro:** stone, rock, hill, ridge, ledge, root, moss, hearth, house, elders and
+  ancestors; patience, trust, peace.
+- **Qotiro:** fire, sun, iron, spear, shield, storm, thunder, gate and hall; honour,
+  courage, pride.
+- **Horaro:** sea, wave, tide, reef, pearl, kelp, gull, rain, moon; the mother.
+- **Ṭaḍoro:** wind, sky, cloud, star, road, silk; the word, the scribe, the seeker;
+  wisdom and luck.
+
+Rules a name keeps: two to four beats (one to three in Qotiro); not already a word
+of its tongue (but a child may be called plain "Stone"); no stammer; a colour only
+describes what can be seen ("red spear", never "green courage"); a direction only
+describes land, sea or sky; "father" and "brother" name no daughter, "mother" and
+"sister" no son; nothing that reads as a rude word, a well-known real name
+(Moana, Yoda, Karen, Putin: `known` in `avoid.ron`) or a blunder ("Name", "Todo",
+"Male"); and **no two names on a people's list are one letter apart**.
+
+**Where a person's given name comes from** (`given_name`, `generate_person`):
+four in five take a name from the lists; one in five get a name newly made by the
+same rules from the same roots; and where a line is known, one in five carry one of
+the two names that line keeps for its sons or its daughters, so a family repeats
+names down the years.
+
+### Bynames
+
+The byname shows in English; the native form is kept beside it for hover.
+
+| People | Byname | Example | In their own tongue | Changes when |
+|---|---|---|---|---|
+| Roduro | the house: its ring-count (an old house has many), or where it grew, or who it was first grown for | of the Ninth-Ring House · of the Moss-Ledge House · of Litiqa's House | yi Goshigole · yi Ṭuḍitiʻe · yi hale yi Litiqa | they move to another home (marriage, a home grown for them) |
+| Roduro | and the job, where there is one | the Tender | Leḍaqe | the job does |
+| Qotiro | a place in the ranks until the first deed | Third Spear | Xurqot | at the first deed |
+| Qotiro | then the deed | Iron-breaker · Hearth-warden | Gettrapak · Keptorak | at each new deed, which replaces it |
+| Horaro | the mother's line | of Niralina's line | i hawe i Niralina | never |
+| Horaro | or the sea-place they were born by | of the Kelp Reef | i Rahulimu | never |
+| Ṭaḍoro | the teacher | Saisathe's student | heyahe yi Saisathe | with each new teacher |
+| Ṭaḍoro | or the road they came by | of the North Road | yi Sathushase | as they travel |
+
+So the name is a plain function of what is known about the person
+(`Context`: line, home, job, birthplace, and how many times their life has turned).
+Hand in a new home or one more turn and the byname changes; the given name never does.
+
+A few as the game would show them (all twenty of each are in `docs/people.md`):
+
+| Name as shown | In their own tongue | What the name hints at |
+|---|---|---|
+| **Theloʻoqa the Tender, of the Herb-Brow House** | Theloʻoqa Leḍaqe, yi Yeriṭiha | "Peaceful friend": what her parents wished for her. Her house is named for where it grew. She is the Tender there. |
+| **Qeḍutiḍe of the Bark-Hill House** | Qeḍutiḍe yi Thuhehuli | "Winter seed": a child born in winter. |
+| **Topor Fifth Spear** | Topor Romqot | "Plateau". No deed yet: she is known by her place in the ranks. |
+| **Droqok Hearth-warden** | Droqok Keptorak | "Patience": what his parents wished for him. He earned the name by a deed, and the next will replace it. |
+| **Mene of Niralina's line** | Mene i hawe i Niralina | "Moon": a child born under a full moon. He counts his family through the mothers, back to Niralina. |
+| **Liwawa of the Rain Cove** | Liwawa i Meonoli | "Little bay". She was born by the water there. |
+
+**Neighbours.** `generate_person_among(…, taken)` names someone joining people already
+named: never the same whole name, never a given name one letter off a neighbour's.
+Sharing a given name is allowed (two Menes of different lines). The game will use it
+town by town when the adapter goes in (stage 5).
+
+### Fixed along the way
+
+- **Four Qotiro words** were said like rude English words once `q` is heard as `k`
+  (the check now reads a word both as written and as said): meat *diq* → **dix**,
+  brother *koq* → **qox**, sharp *koq* → **kod**, curse *qoq* → **qux**. These are
+  exceptions for Qotiro only (`irregular.ron`); the other tongues are untouched. Three
+  thing names moved with them (Meat, Game, Salted meat).
+- **Ṭaḍoro compounds were cutting their second word too early.** A glide (`au`, `ai`)
+  was being counted as two beats, so "tent-silk" lost the end of "tent". Counted
+  properly, 28 Ṭaḍoro thing names are one beat longer and whole: Tentsilk is
+  **Sesafauwa** (was *Sesafau*), Scholar's tent **Fauwasesa**. All still four beats or
+  fewer. (It showed up because "Star Road" and "South Road" came out the same.)
+- The hint for a Ṭaḍoro `yai` is now "yigh" (it was "yy").
+
 ## What the tests hold (`tests/names.rs`)
 
 - 300 to 400 roots, every area of meaning covered, every root a proper First Speech form.
@@ -414,8 +518,21 @@ Stage 3 adds:
   any tongue, and nothing reads as a rude word in English. `docs/things.md` matches
   the data.
 
-Not yet: the "guess the tongue from the sounds" check and the lookalike check. They
-belong to generated names (stages 4 and 5).
+Stage 4 adds:
+- **The given-name lists are in order:** at least 150, 150 and 50 in each tongue; each
+  name is exactly what the rules make of its recipe and ending; each keeps its
+  tongue's sounds and length; none twice, none a letter off another, none already a
+  word, a rude word or a well-known real name; no recipe twice.
+- **Name endings** go on each tongue's way.
+- **People get their culture's byname:** the right shape for each people, in English
+  and in their own tongue; the same seed and context give the same name; a deed
+  replaces a rank; a turn of the life never changes the given name; a house is shared
+  by those who live in it and a line hands names down; in a town of 400 nobody shares
+  a whole name or is a letter off a neighbour. All 600-odd possible bynames keep
+  their tongue's sounds and no two different ones come out the same.
+  `docs/names.md` and `docs/people.md` match the data.
+
+Not yet: the "guess the tongue from the sounds" check (stage 5, with places).
 
 ## Decided without asking (veto any of these)
 
@@ -470,6 +587,22 @@ From stage 3:
     growth of Qotihiqì"**; **Turiyu** keeps its name and wears down in the other
     tongues like a god's name (*Tured*, *Nuriu*, *Sushiyu*).
 20. **The three root changes and the Ṭaḍoro exception** above.
+
+From stage 4:
+
+21. **How a name ending goes on** in each tongue (the table above), and that a base
+    is given to one gender only on the lists (no Doqu beside Doqa: they are a letter
+    apart).
+22. **Which roots each people names children from**, and the rules for which go
+    together. The meanings are plain and sometimes odd ("day bark", "sweet knife"):
+    the lists are a first cut to prune, not a finished canon.
+23. **The byname details:** houses named for ring-count, place or founder; ranks as a
+    count and an arm ("Third Spear"); 42 deeds; sea-places and roads from short
+    lists; that Horaro bynames never change; that only Roduro carry a job byname.
+24. **One in five names is newly made, one in five (where the line is known) is a
+    name kept in the line.** Both are single numbers at the top of `people.rs`.
+25. **"Either" names** are also given now and then (one in eight) to men and women.
+26. **The Qotiro exceptions and the Ṭaḍoro compound fix** above.
 
 ## Lines added to shared files
 

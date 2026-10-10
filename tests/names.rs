@@ -27,6 +27,19 @@
 //! 11. Every native name keeps its tongue's sounds, is short enough to
 //!     say, and no two things share one; a thing made in one people's
 //!     material is that people's; `docs/things.md` is what the data says.
+//!
+//! Stage 4: people.
+//!
+//! 12. The hand-kept given names: at least 150 for men, 150 for women and
+//!     50 for either in each tongue; each is what the rules make of its
+//!     recipe; each keeps its tongue's sounds and length; none twice, none
+//!     a letter off another, none a word, a rude word or a well-known name.
+//! 13. Name endings go on the way each tongue does it.
+//! 14. People get their culture's shape of byname, in English and in their
+//!     own tongue; the same seed and context give the same name; a new
+//!     home, deed, teacher or road changes the byname and not the given
+//!     name; neighbours' names are kept apart; `docs/names.md` and
+//!     `docs/people.md` are what the data says.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -397,8 +410,9 @@ fn compounds_keep_each_tongues_shape() {
             }
             let c = names::compound(t, &wa, &wb);
             fits(&c, t, &format!("{} + {}", a.id, b.id));
-            let syllables = sounds(&c).iter().filter(|x| is_vowel(**x)).count();
-            let first = sounds(if g.order == Order::HeadLast { &wa } else { &wb }).iter().filter(|x| is_vowel(**x)).count();
+            // (Beats: a Ṭaḍoro glide is one.)
+            let syllables = names::syllables(&c, t);
+            let first = names::syllables(if g.order == Order::HeadLast { &wa } else { &wb }, t);
             assert!(syllables <= g.longest.max(first + 1) + 1, "{}: `{c}` ({} + {}) runs to {syllables} syllables", t.name(), a.id, b.id);
             for affix in [Affix::Kind, Affix::Agent, Affix::Place, Affix::Small, Affix::Great] {
                 fits(&names::with(t, &wa, affix), t, &a.id);
@@ -608,4 +622,194 @@ fn the_names_of_things_hold_together() {
 
     let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/things.md")).expect("docs/things.md");
     assert!(written == names::things::tables(), "docs/things.md is out of date: run `cargo run --release --bin lang -- things > docs/things.md`");
+}
+
+#[test]
+fn the_given_name_lists_are_in_order() {
+    use names::people::{self, Gender};
+    for t in Tongue::SPOKEN {
+        let list = people::listed(t);
+        for (gender, least) in [(Gender::Male, 150), (Gender::Female, 150), (Gender::Either, 50)] {
+            let n = list.iter().filter(|l| l.gender == gender).count();
+            assert!(n >= least, "{}: {n} {} names, {least} wanted", t.name(), gender.word());
+        }
+        let mut seen: HashSet<&str> = HashSet::new();
+        for l in list {
+            // What the rules make of the recipe, with one of the gender's endings.
+            assert!(people::endings(t, l.gender).contains(&l.end), "{}: `{}` ends in `{}`, which is not a {} ending", t.name(), l.name, l.end, l.gender.word());
+            assert_eq!(people::given(t, &l.made, &l.end).as_deref(), Some(l.name.as_str()), "{}: `{}` is not what `{}` + `{}` makes; fix the list", t.name(), l.name, l.made, l.end);
+            for root in l.made.split(':').next().unwrap().split('+') {
+                assert!(names::root(root).is_some(), "{}: `{}` is made from `{root}`, which is no root", t.name(), l.name);
+            }
+            people::acceptable(t, &l.name, &l.made).unwrap_or_else(|why| panic!("{}: `{}` won't do: {why}", t.name(), l.name));
+            fits(&l.name, t, &l.name);
+            assert!(!people::meaning(&l.made).is_empty());
+            assert!(seen.insert(&l.name), "{}: `{}` is listed twice", t.name(), l.name);
+            let hint = names::pronounce(&l.name, t);
+            assert!(hint.chars().any(|c| c.is_ascii_uppercase()), "`{}` is said `{hint}`", l.name);
+        }
+        // No two a letter apart: they would be mixed up in one town.
+        for (i, a) in list.iter().enumerate() {
+            for b in &list[i + 1..] {
+                assert!(!names::lookalike(&a.name, &b.name), "{}: `{}` and `{}` are a letter apart", t.name(), a.name, b.name);
+            }
+        }
+        // No recipe twice: a meaning belongs to one name.
+        let recipes: HashSet<&str> = list.iter().map(|l| l.made.as_str()).collect();
+        assert_eq!(recipes.len(), list.len(), "{}: a recipe is used twice", t.name());
+    }
+    // Father and brother name no daughter; mother and sister no son.
+    for t in Tongue::SPOKEN {
+        for l in people::listed(t) {
+            let has = |r: &str| l.made.split(':').next().unwrap().split('+').any(|x| x == r);
+            assert!(!(l.gender != Gender::Male && (has("father") || has("brother"))), "`{}`", l.name);
+            assert!(!(l.gender != Gender::Female && (has("mother") || has("sister"))), "`{}`", l.name);
+        }
+    }
+    // The helpers behind the checks.
+    assert!(names::lookalike("Doqu", "Doqa") && names::lookalike("Doqu", "Doqua") && names::lookalike("Doqu", "doqu"));
+    assert!(!names::lookalike("Doqu", "Daqa") && !names::lookalike("Doqu", "Doquli"));
+    assert_eq!(names::familiar("Moana"), Some("moana"));
+    assert_eq!(names::familiar("Moanu"), Some("moana"));
+    assert_eq!(names::familiar("Ṭoḍo"), Some("todo"));
+    assert_eq!(names::familiar("Litidoqu"), None);
+    assert_eq!(people::meaning("bright+stone"), "bright stone");
+    assert_eq!(people::meaning("patience+ridge"), "patient ridge");
+    assert_eq!(people::meaning("wave:small"), "little wave");
+    assert_eq!(people::meaning("sing"), "song");
+}
+
+#[test]
+fn name_endings_go_on_each_tongues_way() {
+    use names::people::finish;
+    // Roduro and Horaro: the last vowel gives way.
+    assert_eq!(finish(Tongue::Roduro, "doqo", "u"), "doqu");
+    assert_eq!(finish(Tongue::Roduro, "doqo", "a"), "doqa");
+    assert_eq!(finish(Tongue::Roduro, "moʻa", "ì"), "moʻì");
+    assert_eq!(finish(Tongue::Horaro, "noli", "ia"), "nolia");
+    assert_eq!(finish(Tongue::Horaro, "moa", "u"), "mou");
+    // Qotiro: as it is if it already ends so; otherwise an echo of the last vowel, then the ending.
+    assert_eq!(finish(Tongue::Qotiro, "trok", "k"), "trok");
+    assert_eq!(finish(Tongue::Qotiro, "trok", "n"), "trokon");
+    assert_eq!(finish(Tongue::Qotiro, "ged", "x"), "gedex");
+    assert_eq!(finish(Tongue::Qotiro, "gurt", "m"), "gurtum");
+    // Ṭaḍoro: a breath follows the last vowel; a vowel takes its place (a glide goes whole).
+    assert_eq!(finish(Tongue::Tadoro, "hesu", "th"), "hesuth");
+    assert_eq!(finish(Tongue::Tadoro, "weya", "ai"), "weyai");
+    assert_eq!(finish(Tongue::Tadoro, "thau", "i"), "thi");
+    assert_eq!(finish(Tongue::Tadoro, "weth", "s"), "wes");
+}
+
+#[test]
+fn people_are_named_in_their_cultures_shape() {
+    use names::people::{self, Context, Gender};
+    let ctx = |n: u64| Context { lineage: Some(100 + n / 5), home: Some(200 + n / 4), job: if n % 3 == 0 { Some("Stone Tender".to_string()) } else { None }, birthplace: Some(300 + n / 9), turns: (n % 3) as u32 };
+    for t in Tongue::SPOKEN {
+        let mut fresh = 0;
+        let mut town: Vec<names::PersonName> = Vec::new();
+        for n in 0..400u64 {
+            let gender = Gender::ALL[(n % 3) as usize];
+            let seed = gahturiyu_sim::sim::rng::key(&[n, t as u64, 77]);
+            let p = names::generate_person(t, gender, seed, &ctx(n));
+            // The same seed and context, the same name.
+            assert_eq!(p, names::generate_person(t, gender, seed, &ctx(n)));
+            // A native given name with a meaning and a way to say it.
+            fits(&p.given, t, &p.given);
+            assert!(!p.meaning.is_empty() && !p.say.is_empty() && !p.story.is_empty(), "{p:?}");
+            assert!(p.given.chars().next().unwrap().is_uppercase());
+            assert_eq!(names::unfortunate(&p.given), None);
+            assert_eq!(names::familiar(&p.given), None);
+            let beats = names::syllables(&p.given, t);
+            assert!(beats <= 4 && (beats >= 2 || t == Tongue::Qotiro), "`{}` has {beats} beats", p.given);
+            // The byname, in English and in their own tongue.
+            assert!(!p.byname.is_empty() && p.byname.is_ascii() || p.byname.contains('\''), "{:?}", p.byname);
+            for w in p.byname_native.split(' ') {
+                fits(w, t, &p.byname_native);
+                assert!(names::syllables(w, t) <= 5, "`{w}` in `{}` runs on", p.byname_native);
+            }
+            assert!(p.full().starts_with(&p.given) && p.full().ends_with(&p.byname));
+            assert!(p.full_native().starts_with(&p.given));
+            match t {
+                Tongue::Roduro => {
+                    assert!(p.byname.ends_with("House"), "{}", p.full());
+                    assert_eq!(p.title.is_some(), n % 3 == 0);
+                    if let Some((english, native)) = &p.title {
+                        assert_eq!(english, "the Tender");
+                        assert_eq!(native, "Leḍaqe");
+                        assert!(p.full().contains("the Tender, of "));
+                    }
+                }
+                Tongue::Qotiro => {
+                    assert!(p.title.is_none());
+                    let ranked = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth"].iter().any(|o| p.byname.starts_with(o));
+                    // A rank until the first deed; a deed ("X-er") after.
+                    assert_eq!(ranked && !p.byname.contains('-'), ctx(n).turns == 0, "{}", p.full());
+                }
+                Tongue::Horaro => assert!(p.byname.ends_with("'s line") || p.byname.starts_with("of the "), "{}", p.full()),
+                Tongue::Tadoro => assert!(p.byname.ends_with("'s student") || (p.byname.starts_with("of the ") && p.byname.ends_with(" Road")), "{}", p.full()),
+                Tongue::First => unreachable!(),
+            }
+            // A turn of the life changes the byname (Qotiro, Ṭaḍoro), never the given name.
+            let mut later = ctx(n);
+            later.turns += 1;
+            let q = names::generate_person(t, gender, seed, &later);
+            assert_eq!(q.given, p.given);
+            if t == Tongue::Qotiro && ctx(n).turns == 0 {
+                assert_ne!(q.byname, p.byname, "the first deed replaces the rank");
+            }
+            // A new home is a new house (nearly always: two houses can share a name).
+            if !names::people::listed(t).iter().any(|l| names::capital(&l.name) == p.given) {
+                fresh += 1;
+            }
+            // Joining a town: never the same whole name, never one letter off a neighbour.
+            let joined = names::generate_person_among(t, gender, seed, &ctx(n), &town);
+            for other in &town {
+                assert!(joined.full() != other.full(), "two of {}", joined.full());
+                assert!(joined.given == other.given || !names::lookalike(&joined.given, &other.given), "`{}` and `{}` in one town", joined.given, other.given);
+            }
+            town.push(joined);
+        }
+        // Most names are off the lists; some are newly made.
+        assert!((20..=140).contains(&fresh), "{}: {fresh} of 400 names newly made", t.name());
+        // A town has many different names.
+        let given: HashSet<&str> = town.iter().map(|p| p.given.as_str()).collect();
+        assert!(given.len() > 200, "{}: only {} different given names in 400", t.name(), given.len());
+    }
+
+    // People of one house share its name; people of one line can share a given name.
+    let home = Context { home: Some(9), ..Default::default() };
+    let a = names::generate_person(Tongue::Roduro, Gender::Male, 1, &home);
+    let b = names::generate_person(Tongue::Roduro, Gender::Female, 2, &home);
+    assert_eq!(a.byname, b.byname);
+    assert_ne!(a.byname, names::generate_person(Tongue::Roduro, Gender::Male, 1, &Context { home: Some(10), ..Default::default() }).byname);
+    let line = Context { lineage: Some(5), ..Default::default() };
+    let women: Vec<String> = (0..300).map(|s| names::generate_person(Tongue::Horaro, Gender::Female, s, &line)).map(|p| p.given).collect();
+    let most = women.iter().map(|w| women.iter().filter(|x| *x == w).count()).max().unwrap();
+    assert!(most >= 15, "a line keeps a few names and hands them down ({most})");
+    assert!(women.iter().collect::<HashSet<_>>().len() > 100);
+    // With nothing known, a name still comes.
+    for t in Tongue::SPOKEN {
+        let p = names::generate_person(t, Gender::Either, 3, &Context::default());
+        assert!(!p.full().is_empty() && !p.byname_native.is_empty());
+    }
+
+    // Every byname there can be: its own-tongue form keeps the tongue's sounds, and
+    // different bynames never come out the same.
+    let all = people::every_byname();
+    assert!(all.len() > 500, "{}", all.len());
+    let mut seen: BTreeMap<(&str, String), String> = BTreeMap::new();
+    for (t, english, native) in &all {
+        for w in native.split(' ') {
+            fits(w, *t, native);
+            assert_eq!(names::unfortunate(w), None, "`{native}` ({english})");
+        }
+        if let Some(other) = seen.insert((t.name(), native.clone()), english.clone()) {
+            assert_eq!(&other, english, "{}: `{native}` is both", t.name());
+        }
+    }
+
+    let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/names.md")).expect("docs/names.md");
+    assert!(written == people::tables(), "docs/names.md is out of date: run `cargo run --release --bin lang -- names > docs/names.md`");
+    let written = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/people.md")).expect("docs/people.md");
+    assert!(written == people::samples(), "docs/people.md is out of date: run `cargo run --release --bin lang -- people > docs/people.md`");
 }

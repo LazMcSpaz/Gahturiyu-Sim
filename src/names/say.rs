@@ -176,7 +176,12 @@ fn pronounce_one(word: &str, tongue: Tongue) -> String {
         }
         // The catch closes nothing: it is only the break before the next vowel.
         let closed = s.coda.iter().any(|c| *c != 'ʻ');
-        p.push_str(vowel(&s.vowel, closed, s.onset.iter().all(|c| *c == 'ʻ')));
+        // After a y the glide ai needs spelling out ("yigh", not "yy").
+        if s.onset.last() == Some(&'y') && s.vowel == ['a', 'i'] {
+            p.push_str("igh");
+        } else {
+            p.push_str(vowel(&s.vowel, closed, s.onset.iter().all(|c| *c == 'ʻ')));
+        }
         for &c in &s.coda {
             p.push_str(consonant(c));
         }
