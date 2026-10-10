@@ -25,6 +25,10 @@ use super::world::World;
 
 /// Walking pace on flat ground for a fit, unburdened member, m/s.
 pub const SQUAD_SPEED: f32 = 1.5;
+/// Squad members within this of each other count as one bunch, m.
+pub const TOGETHER: f32 = 200.0;
+/// How near two squad members must stand to hand something over, m.
+pub const GIVE_REACH: f32 = 8.0;
 /// How close someone must be to pick something up, metres.
 pub const REACH: f32 = 1.8;
 
@@ -304,9 +308,24 @@ impl World {
             .filter(|&k| !self.people[self.squad.members[k] as usize].dead)
             .map(|k| self.member_pos(k))
             .collect();
-        if !standing.is_empty() {
-            self.squad.pos = standing.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / standing.len() as f32);
+        if standing.is_empty() {
+            return;
         }
+        // The centre of the biggest bunch: one member left far behind (bound
+        // to work in a town, say) mustn't drag the squad's centre into the
+        // empty land between them.
+        let near = |a: V2| standing.iter().filter(|b| b.dist(a) <= TOGETHER).count();
+        let mut core = standing[0];
+        let mut most = 0;
+        for &p in &standing {
+            let n = near(p);
+            if n > most {
+                most = n;
+                core = p;
+            }
+        }
+        let bunch: Vec<V2> = standing.iter().copied().filter(|b| b.dist(core) <= TOGETHER).collect();
+        self.squad.pos = bunch.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / bunch.len() as f32);
     }
 
     /// Where squad member number `k` is: their fight position if fighting.
@@ -403,6 +422,56 @@ impl World {
             x.piece = piece;
         }
         true
+    }
+
+    /// Hand pack entry `k` (the whole stack) from one squad member to
+    /// another standing near. Says why not, if not.
+    pub fn give_entry(&mut self, from: PersonId, k: usize, to: PersonId) -> Result<String, String> {
+        let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
+        if from == to {
+            return Err("They already have it.".into());
+        }
+        if self.squad.index(from).is_none() || self.squad.index(to).is_none() {
+            return Err("Only to someone in the squad.".into());
+        }
+        if self.fighting.contains_key(&from) || self.fighting.contains_key(&to) {
+            return Err("Not in the middle of a fight.".into());
+        }
+        if body::knocked_out(&self.people[from as usize].wounds.hp_at(&self.people[from as usize].stats, self.time)) {
+            return Err(format!("{} is out cold.", name(self, from)));
+        }
+        let d = self.person_pos(from).dist(self.person_pos(to));
+        if d > GIVE_REACH {
+            return Err(format!("{} is {d:.0} m away; bring them within {GIVE_REACH:.0} m first.", name(self, to)));
+        }
+        let Some(e) = self.people[from as usize].detail.as_ref().and_then(|x| x.gear.bag.get(k)).copied() else {
+            return Err("Nothing there.".into());
+        };
+        let t = self.time;
+        self.settle_condition(from, t);
+        self.settle_condition(to, t);
+        if let Some(x) = self.people[from as usize].detail.as_mut() {
+            x.gear.bag.remove(k);
+        }
+        if self.people[to as usize].ensure_detail() {
+            self.stats.detailed += 1;
+        }
+        if let Some(x) = self.people[to as usize].detail.as_mut() {
+            match e.2 {
+                Some(pc) => x.gear.add_piece(e.0, pc),
+                None => x.gear.add(e.0, e.1),
+            }
+        }
+        self.people[from as usize].recompute_might();
+        self.people[to as usize].recompute_might();
+        // A new load, and maybe food for someone hungry: both start afresh.
+        self.settle_condition(from, t);
+        self.settle_condition(to, t);
+        let what = if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
+        let line = format!("{} gives {} {what}.", name(self, from), name(self, to));
+        self.log.push_front((t, line.clone()));
+        self.log.truncate(14);
+        Ok(line)
     }
 
     pub fn put_on_ground(&mut self, it: ItemId, count: u16, pos: V2) -> u32 {

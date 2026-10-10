@@ -1412,7 +1412,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 game.craft = None;
             }
             Action::Use(pid, it) => {
-                w.use_item(pid, it);
+                let why = w.why_cant_use(pid, it);
+                if !w.use_item(pid, it) {
+                    game.notice = Some((why.unwrap_or_else(|| "That can't be used just now.".into()), std::time::Instant::now()));
+                }
             }
             Action::Craft(pid, r) => {
                 let _ = w.start_craft(pid, r);
@@ -1428,6 +1431,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             Action::DropEntry(pid, k) => {
                 w.drop_entry(pid, k);
+            }
+            Action::GiveEntry(pid, k, to) => {
+                let msg = match w.give_entry(pid, k, to) {
+                    Ok(m) | Err(m) => m,
+                };
+                game.notice = Some((msg, std::time::Instant::now()));
             }
             Action::CloseBook => game.book = None,
             Action::Spell(pid, s) => {

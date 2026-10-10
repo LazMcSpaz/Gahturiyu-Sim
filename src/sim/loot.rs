@@ -58,6 +58,26 @@ impl World {
         hostile && p.detail.is_some()
     }
 
+    /// Why a body can't be gone through, in a line for the player.
+    pub fn why_cant_loot(&self, body: PersonId) -> String {
+        let p = &self.people[body as usize];
+        let name = p.name().unwrap_or("They").to_string();
+        if p.in_squad {
+            return format!("{name} is one of yours: use their pack.");
+        }
+        if self.fighting.contains_key(&body) {
+            return format!("{name} is still fighting.");
+        }
+        if !self.is_down(body) {
+            return format!("{name} isn't down: they're on their feet (beaten foes get up again after a while).");
+        }
+        let hostile = p.bandit || self.group_of[body as usize].and_then(|g| self.group(g)).is_some_and(|g| g.hostile);
+        if !hostile {
+            return format!("Only beaten enemies can be gone through; {name} isn't one.");
+        }
+        format!("There's nothing on {name}.")
+    }
+
     /// Can this still be gone through (a body still down; a container open)?
     fn source_ok(&self, src: Source) -> bool {
         match src {

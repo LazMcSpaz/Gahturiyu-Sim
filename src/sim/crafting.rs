@@ -521,6 +521,28 @@ impl World {
 
     // ---- Using things -------------------------------------------------------
 
+    /// Why `use_item` would refuse this, in a line for the player (None if
+    /// it wouldn't).
+    pub fn why_cant_use(&self, who: PersonId, it: ItemId) -> Option<String> {
+        let p = &self.people[who as usize];
+        let d = p.detail.as_ref()?;
+        let name = item(it).name.to_lowercase();
+        if !d.gear.bag.iter().any(|e| e.0 == it) {
+            return Some(format!("There's no {name} in that pack."));
+        }
+        if self.fighting.contains_key(&who) {
+            return Some("In a fight, potions and scrolls are used by the fighter as they see fit.".into());
+        }
+        match item(it).kind {
+            Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_) | Kind::Potion => None,
+            Kind::Scroll(key) => {
+                let sp = super::magic::spell(key).def();
+                (!sp.works_outside_fights()).then(|| format!("{} is for a fight: whoever carries the scroll reads it at a foe once a fight starts.", sp.name))
+            }
+            _ => Some(format!("The {name} isn't something to use; equip it, sell it, or craft with it.")),
+        }
+    }
+
     /// Drink a potion or read a scroll outside a fight. Returns false if it
     /// can't be used now (attack scrolls are for fights).
     pub fn use_item(&mut self, who: PersonId, it: ItemId) -> bool {

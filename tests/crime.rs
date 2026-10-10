@@ -83,3 +83,21 @@ fn things_can_be_put_in_a_container() {
     assert_eq!(w.people[me as usize].detail.as_ref().unwrap().gear.bag.len(), mine - 1);
     assert!(w.bounty.is_empty(), "putting things in isn't a crime");
 }
+
+#[test]
+fn one_left_behind_doesnt_drag_the_squads_centre_away() {
+    let mut w = worldgen::generate(12);
+    let ms = w.squad.members.clone();
+    let town = 1u16;
+    let far = w.settlements[town as usize].pos.add(V2::new(1500.0, 0.0));
+    w.teleport_squad(far);
+    let t = w.time;
+    // Bound in town for a while; the rest are out in the wilds.
+    w.bond(ms[1], town, None, t, t + 2.0 * DAY);
+    let k1 = w.squad.index(ms[1]).unwrap();
+    w.squad.at[k1] = w.bound_spot(town);
+    w.squad.goal[k1] = w.squad.at[k1];
+    w.step(0.5);
+    let k0 = w.squad.index(ms[0]).unwrap();
+    assert!(w.squad.pos.dist(w.squad.at[k0]) < 30.0, "the centre stays with the bunch: {:.0} m off", w.squad.pos.dist(w.squad.at[k0]));
+}

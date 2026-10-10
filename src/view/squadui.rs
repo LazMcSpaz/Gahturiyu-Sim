@@ -84,6 +84,8 @@ pub enum Action {
     Unequip(PersonId, Slot),
     /// Put down this very entry in the pack.
     DropEntry(PersonId, usize),
+    /// Hand this entry to another squad member.
+    GiveEntry(PersonId, usize, PersonId),
     /// Seal a worn reed piece with pitch, or mend it yourself.
     Care(PersonId, Slot),
     Use(PersonId, ItemId),
@@ -420,6 +422,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         y += ROW;
         c.text("empty", x + 8.0, y, 14.0, DIM);
     }
+    // Shift-click hands a thing to the nearest squadmate.
+    let here = w.person_pos(pid);
+    let mate = w.squad.members.iter().copied().filter(|&m| m != pid).min_by(|&a, &b| w.person_pos(a).dist(here).total_cmp(&w.person_pos(b).dist(here)));
     for (k, e) in gear.bag.iter().enumerate() {
         let (i, n) = (e.0, e.1);
         y += ROW;
@@ -438,7 +443,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         let kg = format!("{:.1} kg", item(i).weight * n as f32);
         c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
         if let Some(ck) = clicked(rr) {
-            if ck.right {
+            if ck.shift && !ck.right && !locked && mate.is_some() {
+                act = Some(Action::GiveEntry(pid, k, mate.unwrap()));
+            } else if ck.right {
                 act = Some(Action::DropEntry(pid, k));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::EquipEntry(pid, k));
@@ -447,8 +454,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
             }
         }
     }
-    let hint = if locked { "In a fight: gear can't be changed until it's over." } else { "Click: take off / put on / use  ·  Right-click: drop, or seal/mend what's worn  ·  T: torch" };
-    c.text(hint, x, r.y + r.h - 12.0, 13.0, if locked { WARN } else { DIM });
+    let give = mate.map(|m| format!("  ·  Shift-click: give to {}", w.people[m as usize].name().unwrap_or("?"))).unwrap_or_default();
+    let hint = if locked { "In a fight: gear can't be changed until it's over.".to_string() } else { format!("Click: take off / put on / use  ·  Right-click: drop, or seal/mend what's worn{give}") };
+    c.text(&hint, x, r.y + r.h - 12.0, 13.0, if locked { WARN } else { DIM });
     (act, hovered, Some(r))
 }
 

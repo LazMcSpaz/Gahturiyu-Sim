@@ -1204,7 +1204,7 @@ impl Battle {
             let at = caster.pos;
             self.fighters[i].train(d.skill(), 0.4);
             self.fx.push(Fx { kind: FxKind::Fizzle { at }, at: self.time });
-            self.say(format!("{name}'s {} fizzles.", d.name.to_lowercase()));
+            self.say(format!("{name}'s {} fizzles ({:.0}% chance).", d.name.to_lowercase(), chance * 100.0));
             return;
         }
         self.fighters[i].train(d.skill(), 1.5);

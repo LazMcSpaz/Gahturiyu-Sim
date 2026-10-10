@@ -52,6 +52,7 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   sneak | rest | torch      toggle for the selected
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N
+  give NAME N TO_NAME       hand pack entry N to another squad member standing near
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
   craft NAME                what NAME could make here; `make NAME N` starts recipe N
   journal | map | town      jobs taken; towns and places; the nearest town's panel
@@ -669,6 +670,14 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     } else {
                         w.order_members(&sel, t);
                     }
+                    let moving = sel.iter().any(|&m| w.squad.index(m).is_some_and(|k| w.squad.at[k].dist(w.squad.goal[k]) > 1.0));
+                    if !moving {
+                        let why: Vec<String> = sel.iter().filter_map(|&m| {
+                            let name = first_name(w, m);
+                            if w.is_down(m) { Some(format!("{name} is down")) } else if !w.free_to_order(m) { Some(format!("{name} is bound to work off a bond")) } else { None }
+                        }).collect();
+                        o += &if why.is_empty() { "Nobody needs to move: they're already there.\n".to_string() } else { format!("Nobody moves: {}.\n", why.join("; ")) };
+                    }
                     walk_then_look(w, s, &sel, &mut o);
                 }
                 None => o += "Go where? (an id from `look`, X,Y, or a direction and metres)\n",
@@ -737,7 +746,10 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 })
             };
             if !ok {
-                o += "Can't go through that.\n";
+                match (cmd, arg(0).trim_start_matches('p').parse::<PersonId>()) {
+                    ("loot", Ok(p)) if (p as usize) < w.people.len() => o += &format!("Can't: {}\n", w.why_cant_loot(p)),
+                    _ => o += "Can't go through that (is it locked, or not in a building you're in?).\n",
+                }
             } else {
                 let looter = w.looting.last().map(|l| l.who).unwrap_or(lead);
                 let mut n = 0;
@@ -925,8 +937,26 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 ("drop", Some(_)) => w.drop_entry(m, k),
                 _ => false,
             };
-            o += if ok { "Done.\n" } else { "That didn't work.\n" };
+            if ok {
+                o += "Done.\n";
+            } else {
+                let why = match (cmd, it) {
+                    ("use", Some(it)) => w.why_cant_use(m, it),
+                    _ => None,
+                };
+                o += &format!("That didn't work{}.\n", why.map(|y| format!(": {y}")).unwrap_or_default());
+            }
             o += &news(w, s);
+            o += &pack(w, m);
+        }
+        "give" => {
+            let (Some(m), Ok(k), Some(to)) = (member(w, arg(0)), arg(1).parse::<usize>(), member(w, arg(2))) else {
+                return "Usage: give NAME N TO_NAME (N from `pack NAME`)\n".into();
+            };
+            match w.give_entry(m, k, to) {
+                Ok(line) => o += &format!("{line}\n"),
+                Err(why) => o += &format!("Can't: {why}\n"),
+            }
             o += &pack(w, m);
         }
         "unequip" => {
@@ -994,8 +1024,19 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 }
                 let list: Vec<String> = jobs.iter().map(|(j, n)| format!("{j} {n}")).collect();
                 let _ = writeln!(o, "  Trades: {}", list.join(", "));
-                let merchants: Vec<String> = t.residents.iter().filter(|&&p| w.is_trading(p)).map(|&p| format!("p{p} {}", name_of(w, p))).collect();
-                let _ = writeln!(o, "  Trading right now: {}", if merchants.is_empty() { "nobody (merchants keep day hours)".into() } else { merchants.join(", ") });
+                let _ = writeln!(o, "  Merchants:");
+                for &p in &t.residents {
+                    match w.trades_next(p) {
+                        Some(at) if at <= w.time + 1.0 => {
+                            let _ = writeln!(o, "    p{p} {} — trading now", name_of(w, p));
+                        }
+                        Some(at) => {
+                            let day = if (at / DAY).floor() > (w.time / DAY).floor() { " tomorrow" } else { "" };
+                            let _ = writeln!(o, "    p{p} {} — at their stall from {}{day}", name_of(w, p), hhmm(at));
+                        }
+                        None => {}
+                    }
+                }
             }
         }
         "wait" => {
@@ -1027,7 +1068,13 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
 
 fn loot_view(w: &World, looter: PersonId) -> String {
     let mut o = String::new();
-    let Some(src) = w.source_now(looter) else { return "They couldn't get to it.\n".into() };
+    let Some(src) = w.source_now(looter) else {
+        let why = match w.looting.iter().find(|l| l.who == looter).map(|l| l.from) {
+            Some(Source::Body(b)) if !w.can_loot(b) => w.why_cant_loot(b),
+            _ => "they couldn't reach it in time (it may be behind a wall or a locked door)".into(),
+        };
+        return format!("They couldn't get to it: {why}\n");
+    };
     let title = match src {
         Source::Body(b) => format!("{} goes through {}'s things", first_name(w, looter), name_of(w, b)),
         Source::Chest(c) => {

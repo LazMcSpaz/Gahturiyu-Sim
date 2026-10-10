@@ -290,6 +290,15 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if w.can_loot(pid) {
                 out.push(("Beaten: click to go through their things (Shift-click to carry)".to_string(), GOLD));
             }
+            // A merchant: open now, or when.
+            if let Some(at) = w.trades_next(pid) {
+                if at <= w.time + 1.0 {
+                    out.push(("Trading now".to_string(), GOLD));
+                } else {
+                    let day = if (at / 86400.0).floor() > (w.time / 86400.0).floor() { " tomorrow" } else { "" };
+                    out.push((format!("Merchant: at their stall from {}{day}", hhmm(at)), DIM));
+                }
+            }
             match w.join_terms(pid) {
                 Some(0) => out.push(("Restless: might join the squad if asked".to_string(), GOLD)),
                 Some(fee) => out.push((format!("Restless: might join the squad, for {fee} coin"), GOLD)),

@@ -383,7 +383,7 @@ impl World {
         let name = self.name_of(who);
         if roll > chance {
             self.people[who as usize].stats.exercise(d.skill(), 0.4);
-            self.say(t, format!("{name}'s {} fizzles.", d.name.to_lowercase()));
+            self.say(t, format!("{name}'s {} fizzles ({:.0}% chance at their skill; the energy is spent).", d.name.to_lowercase(), chance * 100.0));
             return Ok(());
         }
         self.people[who as usize].stats.exercise(d.skill(), 1.5);
