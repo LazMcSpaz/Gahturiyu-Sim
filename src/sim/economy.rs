@@ -458,20 +458,32 @@ impl World {
     }
 
     /// When a merchant is next at their stall (now, if they are), looking up
-    /// to two days ahead in their day plans.
+    /// to a week ahead in their day plans (past days off).
     pub fn trades_next(&self, npc: PersonId) -> Option<f64> {
         if self.life(npc).job != Job::Merchant {
             return None;
         }
         let step = 15.0 * 60.0;
         let mut t = self.time;
-        while t < self.time + 2.0 * super::world::DAY {
+        while t < self.time + 7.0 * super::world::DAY {
             if self.at_work(npc, t) {
                 return Some(t);
             }
             t = (t / step).floor() * step + step;
         }
         None
+    }
+
+    /// Which day a later time falls on, said plainly: "" for today,
+    /// " tomorrow", " the day after tomorrow", " in 4 days".
+    pub fn day_word(&self, t: f64) -> String {
+        let days = World::day_of(t) - World::day_of(self.time);
+        match days {
+            i64::MIN..=0 => String::new(),
+            1 => " tomorrow".into(),
+            2 => " the day after tomorrow".into(),
+            n => format!(" in {n} days"),
+        }
     }
 
     /// Is this person a merchant, at their stall now?

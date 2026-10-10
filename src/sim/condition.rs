@@ -99,6 +99,8 @@ pub const HEAL_SLEEP_TENT: f32 = 1.75;
 pub const HEAL_SLEEP_INDOORS: f32 = 2.0;
 pub const HEAL_SLEEP_BED: f32 = 3.0;
 pub const HEAL_RESTING: f32 = 1.0;
+/// Lain down with nothing to sleep off, a member is up again after this long.
+pub const NAP_HOURS: f64 = 0.33;
 pub const HEAL_WALKING: f32 = 0.3;
 
 /// Where someone is sleeping.
@@ -349,6 +351,12 @@ impl World {
         self.load_at(pid, self.time)
     }
 
+    /// Their pack and gear alone (not someone they're carrying), as a share
+    /// of what they can carry.
+    pub fn pack_load_of(&self, pid: PersonId) -> f32 {
+        self.kit_weight_at(pid, self.time) / self.capacity_at(pid, self.time).max(1.0)
+    }
+
     /// The same at time `t` (spells on them count while they last).
     pub fn load_at(&self, pid: PersonId, t: f64) -> f32 {
         (self.kit_weight_at(pid, t) + self.burden_weight(pid)) / self.capacity_at(pid, t).max(1.0)
@@ -373,8 +381,11 @@ impl World {
         let Some(c) = p.cond.as_mut() else { return };
         c.settle(t);
         c.shelter = shelter;
+        // Full stays full when the pool's size changes (a fresh member's
+        // placeholder pool, or new gear).
+        let was_full = c.stamina >= c.max_stamina - 1e-3 && (max_stamina - c.max_stamina).abs() > 1e-3;
         c.max_stamina = max_stamina;
-        c.stamina = c.stamina.min(c.max_stamina);
+        c.stamina = if was_full { c.max_stamina } else { c.stamina.min(c.max_stamina) };
         let lost = p.wounds.lost_at(t);
         p.wounds.lost = lost;
         p.wounds.at = t;
@@ -514,7 +525,15 @@ impl World {
                 consider(c.rested_by(EXHAUSTED), Event::Stage);
                 // Fully rested: wake up (unless they're out cold then).
                 if c.activity == Activity::Sleeping {
-                    if let Some(tw) = c.rested_by(0.5) {
+                    // Lain down with nothing to sleep off: up after a short nap,
+                    // or once their wounds have mended if they're hurt.
+                    let tw = c.rested_by(0.5).or_else(|| {
+                        (c.tired <= 0.5).then(|| match p.wounds.healed_in() {
+                            Some(h) if c.wounded => p.wounds.at + h as f64 * HOUR + 1.0,
+                            _ => c.at + NAP_HOURS * HOUR,
+                        })
+                    });
+                    if let Some(tw) = tw {
                         if !body::knocked_out(&p.wounds.hp_at(&p.stats, tw)) {
                             consider(Some(tw), Event::Wake);
                         }
