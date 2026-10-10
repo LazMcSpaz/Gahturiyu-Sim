@@ -1,0 +1,153 @@
+// How people are named. Read by src/names/people.rs.
+//
+// A given name is built from one or two roots (roots.ron) and finished with
+// one of its tongue's name endings (grammar.ron: male, female, either). The
+// hand-kept lists of given names are in assets/lang/names/; this file holds
+// what the *generator* draws on when it makes a new one, and everything
+// bynames are made from.
+//
+//   means     what a root means inside a name, where its id reads oddly
+//             ("sing" names a child "song").
+//   shared    roots any people may name a child from:
+//               heads   what a child is named as (stone, hope, dawn)
+//               firsts  what describes it (bright, quiet, winter)
+//   peoples   each people's own favourites, drawn on twice as often as the
+//             shared ones: its element, its country, its work, its virtues.
+//   men, women
+//             roots that only name a man (father, brother) or a woman.
+//   plain     firsts that only describe things you can see and touch
+//             (a colour never describes a virtue: no "green courage").
+//
+// Bynames (one shape per culture; the English is what the game shows):
+//   short_jobs   a job's name as a byname, where the job's own name is too
+//                long ("the Fisher", not "the Fisher and diver").
+//   houses       Roduro: "of the Ninth-Ring House", "of the Moss-Ledge House",
+//                "of Doqu's House". A grown home shows its age in its rings.
+//   deeds        Qotiro: (what, did what to it, the English). "Iron-breaker".
+//   ranks        Qotiro, before the first deed: "Third Blade".
+//   sea_places   Horaro: "of the Kelp Reef".
+//   roads        Ṭaḍoro: "of the North Road".
+(
+    means: [
+        ("sing", "song"), ("speak", "word"), ("tend", "keeper"), ("grow", "grower"), ("walk", "wanderer"),
+        ("migrate", "journey"), ("teach", "learner"), ("write", "scribe"), ("see", "seer"),
+        ("discover", "seeker"), ("find", "finder"), ("forge", "hammer"), ("guard", "warden"),
+        ("dive", "diver"), ("weave", "weaver"), ("aware", "knowing"), ("benign", "kindly"),
+        ("new", "young"), ("light", "light"), ("loyal", "loyal"), ("gold", "golden"), ("ember", "ember"),
+        ("spring", "spring"), ("grazer", "grazer"), ("line", "line"), ("teacher", "teacher"),
+        ("waterway", "river"), ("sail", "sail"), ("hunt", "hunter"), ("give", "gift"), ("begin", "beginning"),
+        ("door", "gate"), ("stack", "sea-stack"), ("deep", "the deep"),
+    ],
+    // What a root means when it describes the next one ("patience" + "ridge" is "patient ridge").
+    means_first: [
+        ("patience", "patient"), ("trust", "steadfast"), ("peace", "peaceful"), ("honour", "honoured"),
+        ("courage", "brave"), ("wisdom", "wise"), ("luck", "lucky"), ("deep", "deep"), ("gold", "golden"),
+        ("new", "young"), ("first", "first"), ("aware", "knowing"), ("benign", "kindly"),
+    ],
+
+    shared: (
+        heads: [
+            "star", "moon", "sun", "dawn", "dusk", "day", "night", "rain", "snow", "frost", "storm",
+            "tree", "leaf", "flower", "seed", "root", "fruit", "bird", "child", "friend",
+            "hope", "joy", "peace", "trust", "mercy", "courage", "honour", "wisdom", "love", "luck", "patience",
+            "blessing", "dream", "vow", "spirit", "soul", "light", "sing", "ring", "torch", "hearth",
+            "spring", "stream", "hill", "stone", "island", "wing", "horn", "shell", "herb", "grain",
+            "branch", "pool", "valley", "ember", "cloud", "wind", "wave", "fire", "water", "earth", "air",
+            "sky", "sea", "give",
+        ],
+        firsts: [
+            "bright", "quiet", "strong", "soft", "true", "swift", "old", "new", "high", "holy", "whole",
+            "sweet", "wild", "hidden", "far", "first", "white", "red", "gold", "grey", "green", "blue", "pale",
+            "dawn", "dusk", "night", "day", "winter", "summer", "moon", "star", "loyal", "benign", "aware", "calm",
+        ],
+    ),
+
+    men: ["father", "brother"],
+    women: ["mother", "sister"],
+
+    plain: ["white", "red", "gold", "grey", "green", "blue", "pale", "black", "brown", "sweet", "wet", "dry", "sharp", "heavy", "wide", "long"],
+
+    peoples: [
+        (
+            tongue: Roduro,
+            heads: [
+                "rock", "soil", "slope", "cliff", "ledge", "crag", "mountain", "cave", "field", "forest", "heath",
+                "peak", "ridge", "hollow", "bank", "moss", "grass", "bark", "vine", "house", "garden", "elder",
+                "ancestor", "grazer", "hound", "crystal", "staff", "tend", "grow", "guest", "pillar",
+            ],
+            firsts: ["earth", "stone", "moss", "hill", "deep", "rock", "root", "hearth", "patience", "trust", "peace", "north", "brown", "tree", "ring", "rain"],
+        ),
+        (
+            tongue: Qotiro,
+            heads: [
+                "iron", "spear", "knife", "shield", "bow", "sand", "plateau", "plain", "peak", "pass", "lightning",
+                "thunder", "claw", "bone", "beast", "hound", "hunt", "forge", "guard", "law", "pride", "passion",
+                "pillar", "wall", "door", "hall", "brother", "sister", "father", "crag",
+            ],
+            firsts: ["fire", "sun", "iron", "sharp", "red", "gold", "first", "high", "strong", "swift", "honour", "courage", "east", "south", "ember", "spear", "black", "storm"],
+        ),
+        (
+            tongue: Horaro,
+            heads: [
+                "shore", "sand", "bay", "cove", "reef", "stack", "deep", "headland", "tide", "foam", "harbour",
+                "kelp", "reed", "fish", "gull", "eel", "pearl", "boat", "net", "sail", "dive", "marsh", "mother",
+                "sister", "weave", "waterway",
+            ],
+            firsts: ["sea", "water", "waterway", "wave", "tide", "rain", "moon", "pearl", "deep", "calm", "blue", "green", "soft", "sweet", "west", "foam", "shell", "kelp"],
+        ),
+        (
+            tongue: Tadoro,
+            heads: [
+                "smoke", "fog", "road", "pass", "bridge", "silk", "write", "speak", "teach",
+                "walk", "migrate", "guest", "tent", "omen", "fate", "name", "see", "discover", "find", "twin", "gull", "begin",
+            ],
+            firsts: ["wind", "air", "sky", "cloud", "star", "light", "far", "new", "swift", "aware", "hidden", "white", "pale", "north", "east", "high", "wisdom", "luck", "silk", "road"],
+        ),
+    ],
+
+    // ---- Bynames ------------------------------------------------------------------
+
+    short_jobs: [
+        ("Fisher and diver", "Diver"), ("Forager and hunter", "Hunter"), ("Woodcutter and quarrier", "Woodcutter"),
+        ("Stone Tender", "Tender"), ("Labourer and porter", "Porter"), ("Weaver and sealer", "Weaver"),
+        ("Meal runner", "Runner"), ("Kelp gatherer", "Gatherer"), ("Charcoal burner", "Burner"),
+    ],
+    // Jobs nobody is called after.
+    no_byname: ["No trade", "Idle", "Drifter", "Hauler", "Crafter", "Builder"],
+
+    houses: (
+        // The count of rings: an old house has many.
+        rings: ["three", "four", "five", "six", "seven", "eight", "nine", "ten", "hundred"],
+        // "Moss-Ledge House": what grows on or stands by it, and where it stands.
+        marks: ["moss", "vine", "grass", "thorn", "tree", "spring", "rain", "frost", "gull", "smoke", "ember", "moon", "star", "herb", "bark", "wind"],
+        sites: ["ledge", "slope", "cliff", "crag", "hollow", "hill", "bank", "ridge", "brow", "stream", "field", "forest", "shore", "cave"],
+    ),
+
+    deeds: [
+        ("iron", "break", "Iron-breaker"), ("stone", "break", "Stone-breaker"), ("shield", "break", "Shield-breaker"),
+        ("spear", "break", "Spear-breaker"), ("wall", "break", "Wall-breaker"), ("bone", "break", "Bone-breaker"),
+        ("door", "hold", "Gate-holder"), ("pass", "hold", "Pass-holder"), ("wall", "guard", "Wall-warden"),
+        ("hearth", "guard", "Hearth-warden"), ("road", "guard", "Road-warden"), ("law", "hold", "Law-keeper"),
+        ("vow", "hold", "Oath-keeper"), ("storm", "walk", "Storm-walker"), ("night", "walk", "Night-walker"),
+        ("sand", "walk", "Sand-walker"), ("fire", "walk", "Fire-walker"), ("beast", "hunt", "Beast-hunter"),
+        ("hound", "hunt", "Hound-hunter"), ("thunder", "strike", "Thunder-striker"), ("first", "strike", "First-striker"),
+        ("spear", "carry", "Spear-bearer"), ("torch", "carry", "Torch-bearer"), ("shield", "carry", "Shield-bearer"),
+        ("fire", "bind", "Fire-binder"), ("beast", "bind", "Beast-binder"), ("ore", "find", "Ore-finder"),
+        ("spring", "find", "Spring-finder"), ("road", "find", "Way-finder"), ("far", "see", "Far-seer"),
+        ("horn", "cut", "Horn-cutter"), ("rope", "cut", "Rope-cutter"), ("gorge", "leap", "Gorge-leaper"),
+        ("wall", "leap", "Wall-leaper"), ("spear", "throw", "Spear-thrower"), ("ember", "carry", "Ember-bearer"),
+        ("crag", "run", "Crag-runner"), ("dawn", "run", "Dawn-runner"), ("sun", "serve", "Sun-servant"),
+        ("hall", "build", "Hall-builder"), ("stair", "build", "Stair-builder"), ("curse", "break", "Curse-breaker"),
+    ],
+    ranks: (
+        counts: ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"],
+        arms: [("knife", "Blade"), ("spear", "Spear"), ("shield", "Shield"), ("fire", "Flame"), ("horn", "Horn"), ("door", "Gate"), ("forge", "Hammer"), ("bow", "Bow")],
+    ),
+
+    sea_places: (
+        marks: ["kelp", "pearl", "gull", "foam", "moon", "deep", "calm", "shell", "eel", "rain", "far", "blue", "green", "white", "reed", "salt", "storm", "star", "old", "quiet", "long", "red"],
+        sites: ["reef", "bay", "cove", "shore", "stack", "island", "harbour", "pool", "headland", "sand", "mouth"],
+    ),
+
+    roads: ["north", "south", "east", "west", "high", "far", "long", "old", "wind", "star", "dawn", "dusk", "hill", "salt", "silk", "sea", "stone", "rain", "quiet", "white"],
+)

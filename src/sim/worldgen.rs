@@ -277,7 +277,7 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
         let id = out.len() as SettlementId;
         out.push(Settlement {
             id,
-            name: names::place_name(founders, rng::key(&[seed, id as u64, 0x544F_574E])),
+            name: names::town_name(founders, seed, t, pos, coastal, out),
             pos,
             founders,
             coastal,
