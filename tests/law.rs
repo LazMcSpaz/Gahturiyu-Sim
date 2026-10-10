@@ -3,6 +3,7 @@
 use gahturiyu_sim::sim::{
     culture::{Justice, Rule, Slavery},
     law::{self, Post},
+    person::PersonId,
     race::Race,
     settlement::SettlementId,
     world::{DAY, HOUR},
@@ -225,4 +226,79 @@ fn a_duel_is_fought_out_and_the_loser_pays() {
     }
     assert!(w.duels.is_empty(), "settled");
     assert!(!w.people[m as usize].dead, "no one dies of a duel");
+}
+
+// ---- The fixes after the bug hunt ----------------------------------------------------------
+
+fn give_coin(w: &mut World, who: PersonId, n: u16) {
+    w.people[who as usize].detail.as_mut().unwrap().gear.add(gahturiyu_sim::sim::items::id("coin"), n);
+}
+
+fn strip_coin(w: &mut World) {
+    let coin = gahturiyu_sim::sim::items::id("coin");
+    for m in w.squad.members.clone() {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        while d.gear.take(coin) {}
+    }
+    assert_eq!(w.squad_count(coin), 0);
+}
+
+/// NM-38: the sum named is the sum taken, and what's taken is said.
+#[test]
+fn nm38_a_fine_says_what_was_taken() {
+    let coin = gahturiyu_sim::sim::items::id("coin");
+    // Enough coin: "a fine of 12" takes 12, not 11.
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    strip_coin(&mut w);
+    give_coin(&mut w, m, 100);
+    w.judge(m, 0, law::Wrong::Theft, 11.6, Justice::Elders);
+    assert_eq!(w.squad_count(coin), 88);
+    assert!(w.log.iter().any(|l| l.1.contains("a fine of 12.")), "{:?}", w.log);
+    assert!(w.log.iter().any(|l| l.1.ends_with("pays the fine: 12 coin.")), "{:?}", w.log);
+    assert!(!w.is_bonded(m, w.time));
+    // Part of it: said, with what's left.
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    strip_coin(&mut w);
+    give_coin(&mut w, m, 18);
+    w.judge(m, 0, law::Wrong::Theft, 75.0, Justice::Elders);
+    assert_eq!(w.squad_count(coin), 0);
+    assert!(w.log.iter().any(|l| l.1.contains("pays 18 of the 75 coin")), "{:?}", w.log);
+    assert!(w.is_bonded(m, w.time));
+    // None of it.
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    strip_coin(&mut w);
+    w.judge(m, 0, law::Wrong::Theft, 40.0, Justice::Elders);
+    assert!(w.log.iter().any(|l| l.1.contains("can't pay the 40 coin")), "{:?}", w.log);
+    // By the record: half the fine, and the sum is named.
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    strip_coin(&mut w);
+    give_coin(&mut w, m, 50);
+    w.judge(m, 0, law::Wrong::Theft, 13.0, Justice::Record);
+    let taken = 50 - w.squad_count(coin);
+    assert!(taken == 6 || taken == 7, "{taken}");
+    assert!(w.log.iter().any(|l| l.1.ends_with(&format!("pays the fine: {taken} coin."))), "{:?}", w.log);
+}
+
+/// NM-30: an arrest wakes the accused, and nobody asleep is sent to fight.
+#[test]
+fn nm30_nobody_sleeps_through_an_arrest_or_fights_a_duel_asleep() {
+    let mut w = worldgen::generate(1);
+    let all = w.squad.members.clone();
+    w.order_rest(&all);
+    for _ in 0..20 {
+        w.step(30.0);
+    }
+    assert!(all.iter().all(|&m| w.is_asleep(m)), "everyone is asleep");
+    let m = all[2];
+    let t = w.settlements.iter().min_by(|a, b| a.pos.dist(w.squad.pos).total_cmp(&b.pos.dist(w.squad.pos))).unwrap().id;
+    w.judge(m, t, law::Wrong::Theft, 30.0, Justice::Duel);
+    assert!(!w.is_asleep(m), "the accused is up");
+    assert_eq!(w.duels.len(), 1);
+    let b = w.battle(w.duels[0].battle).expect("the duel is on");
+    let ours: Vec<PersonId> = b.fighters.iter().filter(|f| f.side == gahturiyu_sim::sim::combat::SQUAD_SIDE).map(|f| f.pid).collect();
+    assert_eq!(ours, vec![m], "with the others asleep, the accused fights their own duel");
 }

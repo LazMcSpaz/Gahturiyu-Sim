@@ -600,6 +600,13 @@ impl World {
 
     /// Where a person stands right now, to the metre. Only meaningful for
     /// people close enough to be drawn individually.
+    /// Is this the number of someone in the world? Orders that name a
+    /// person check it first: a number from an old list, or a mistyped one,
+    /// is refused rather than looked up.
+    pub fn valid_person(&self, pid: PersonId) -> bool {
+        (pid as usize) < self.people.len()
+    }
+
     pub fn person_pos(&self, pid: PersonId) -> V2 {
         let p = &self.people[pid as usize];
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);

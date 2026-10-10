@@ -208,6 +208,9 @@ impl World {
     /// cast, a ritual is begun, or one held ready is released. `target` is
     /// who it's aimed at, `point` where.
     pub fn use_spell(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        if target.is_some_and(|t| !self.valid_person(t)) {
+            return cannot("nobody there");
+        }
         if self.fighting.contains_key(&who) {
             return self.cast_in_fight(who, s, target, point);
         }
@@ -222,6 +225,9 @@ impl World {
     /// aimed at an enemy starts the fight and is cast as it opens; anything
     /// else out of reach has the caster walk into range first, then cast.
     pub fn order_cast(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        if target.is_some_and(|t| !self.valid_person(t)) {
+            return cannot("nobody there");
+        }
         self.casts.retain(|c| c.who != who);
         let d = s.def();
         if self.fighting.contains_key(&who) || d.style == Style::Ritual {
@@ -272,6 +278,9 @@ impl World {
     /// at `target`, or the nearest enemy).
     pub fn use_in_fight(&mut self, who: PersonId, it: super::items::ItemId, target: Option<PersonId>) -> Result<String, String> {
         use super::items::{item, Kind};
+        if target.is_some_and(|t| !self.valid_person(t)) {
+            return Err("Nobody there.".into());
+        }
         let Some(&id) = self.fighting.get(&who) else { return Err("Not in a fight.".into()) };
         let name = self.name_of(who);
         let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { return Err("Not in a fight.".into()) };
@@ -313,6 +322,9 @@ impl World {
     pub fn order_read(&mut self, who: PersonId, it: super::items::ItemId, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
         use super::items::{item, Kind};
         let Kind::Scroll(key) = item(it).kind else { return cannot("that's not a scroll") };
+        if target.is_some_and(|t| !self.valid_person(t)) {
+            return cannot("nobody there");
+        }
         let s = magic::spell(key);
         if self.fighting.contains_key(&who) {
             return self.use_in_fight(who, it, target).map(|_| ()).map_err(Cannot);

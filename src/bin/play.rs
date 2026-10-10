@@ -225,6 +225,17 @@ fn parse_id(s: &str) -> Option<(char, String)> {
     Some((k, c.as_str().to_string()))
 }
 
+/// The number after an id's letter: `p12` asked for as a 'p' gives 12; an
+/// id of another kind (`x12`, `g12`) or no letter at all is refused.
+fn id_num<T: std::str::FromStr>(s: &str, letter: char) -> Option<T> {
+    s.strip_prefix(letter)?.parse().ok()
+}
+
+/// A person named as `pN` who is in the world.
+fn person_arg(w: &World, s: &str) -> Option<PersonId> {
+    id_num::<PersonId>(s, 'p').filter(|&p| w.valid_person(p))
+}
+
 fn container_id(s: &str) -> Option<ContainerId> {
     let parts: Vec<&str> = s.split('.').collect();
     if parts.len() != 3 {
@@ -304,6 +315,9 @@ fn tip_due(w: &World, id: &str) -> bool {
 
 fn status(w: &World, pid: PersonId) -> String {
     let k = w.squad.index(pid).unwrap_or(0);
+    if let Some(c) = w.carried_by(pid) {
+        return format!("carried by {}", first_name(w, c));
+    }
     if w.is_down(pid) {
         return "down".into();
     }
@@ -312,9 +326,6 @@ fn status(w: &World, pid: PersonId) -> String {
     }
     if w.is_asleep(pid) {
         return "asleep".into();
-    }
-    if w.carried_by(pid).is_some() {
-        return "being carried".into();
     }
     if let Some(c) = w.carrying(pid) {
         return format!("carrying {}", first_name(w, c));
@@ -358,8 +369,18 @@ fn health(w: &World, pid: PersonId) -> f32 {
 
 fn hud(w: &World, s: &Session) -> String {
     let mut o = String::new();
+    // The word follows the light, not the clock.
     let tod = w.time.rem_euclid(DAY) / HOUR;
-    let light = if (6.0..18.0).contains(&tod) { "day" } else { "night" };
+    let sun = gahturiyu_sim::sim::stealth::daylight(w.time);
+    let light = if sun >= 0.6 {
+        "day"
+    } else if sun < 0.35 {
+        "night"
+    } else if tod < 12.0 {
+        "dawn"
+    } else {
+        "dusk"
+    };
     let _ = writeln!(o, "== {} ({light}) · {} ==", w.clock(), place_name(w));
     let coin: u32 = w.squad.members.iter().map(|&m| w.count_of(m, "coin") as u32 + 50 * w.count_of(m, "note") as u32).sum();
     let _ = writeln!(o, "Squad ({} members, {} coin between them){}:", w.squad.members.len(), coin, if s.selected.is_empty() { "" } else { " — selected marked *" });
@@ -384,9 +405,10 @@ fn hud(w: &World, s: &Session) -> String {
             first_name(w, m),
             p.race.name(),
             status(w, m),
-            pct(health(w, m)),
+            // Anyone on their feet has something left.
+            pct(if w.is_down(m) { health(w, m) } else { health(w, m).max(0.01) }),
             pct(w.stamina_of(m).unwrap_or(1.0)),
-            w.kit_weight_at(m, w.time),
+            w.kit_weight_at(m, w.time).max(0.0),
             w.capacity_at(m, w.time)
         );
     }
@@ -436,6 +458,14 @@ fn nearby(w: &World, only: &str) -> String {
         }
     }
     for g in w.groups.iter().filter(|g| g.band <= 1) {
+        // A band of bandits in sight but not yet close: one line for where
+        // they are (who and how many is for when they're near).
+        if g.hostile {
+            let nearest = g.members.iter().filter(|&&m| !w.people[m as usize].dead && !w.is_down(m)).map(|&m| w.person_pos(m)).min_by(|a, b| here.dist(*a).total_cmp(&here.dist(*b)));
+            if let Some(at) = nearest.filter(|&at| !near(at, 150.0)) {
+                lines.push((here.dist(at), format!("    bandits in sight — {}", dist_dir(here, at))));
+            }
+        }
         for &m in &g.members {
             let at = w.person_pos(m);
             if !near(at, 150.0) || seen_people.contains(&m) || w.people[m as usize].dead {
@@ -580,7 +610,8 @@ fn nearby(w: &World, only: &str) -> String {
 
 fn news(w: &World, s: &mut Session) -> String {
     let mut o = String::new();
-    let fresh: Vec<&(f64, String)> = w.log.iter().filter(|(t, _)| *t > s.log_seen).collect();
+    // What was just shown as an alert ("!! …") isn't said again here.
+    let fresh: Vec<&(f64, String)> = w.log.iter().filter(|(t, l)| *t > s.log_seen && !w.alerts.iter().any(|a| a == l)).collect();
     if !fresh.is_empty() {
         let _ = writeln!(o, "News:");
         for (t, l) in fresh.iter().rev() {
@@ -675,7 +706,7 @@ fn pack(w: &World, m: PersonId) -> String {
     // What it would fetch in the town the squad is standing in: the number
     // a merchant there gives, not the round "worth".
     let fetch = |it: items::ItemId, pc: Option<&gahturiyu_sim::sim::materials::Piece>| -> String {
-        match w.sells_for(it, pc) {
+        match w.sells_for_held(m, it, pc) {
             Some((p, town)) if p > 0 => format!("; sells for {p} in {}", w.settlements[town as usize].name),
             Some((_, town)) => format!("; nobody in {} pays for it", w.settlements[town as usize].name),
             None => String::new(),
@@ -829,7 +860,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "attack" => {
-            let p = arg(0).trim_start_matches('p').parse::<PersonId>().ok();
+            let p = person_arg(w, arg(0));
             match p {
                 Some(p) if w.attack(&sel, p) => {
                     o += "You go in.\n";
@@ -840,7 +871,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "talk" => {
-            let p = arg(0).trim_start_matches('p').parse::<PersonId>().ok();
+            let p = person_arg(w, arg(0));
             match p {
                 Some(p) if w.order_talk(lead, p) => {
                     o += &pass(w, 10.0 * 60.0, None);
@@ -874,13 +905,13 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         }
         "loot" | "search" => {
             let ok = if cmd == "loot" {
-                let p = arg(0).trim_start_matches('p').parse::<PersonId>().ok();
+                let p = person_arg(w, arg(0));
                 p.is_some_and(|p| {
                     let m = nearest(w, w.person_pos(p));
                     w.order_loot(m, p)
                 })
             } else {
-                container_id(arg(0).trim_start_matches('k')).is_some_and(|c| {
+                arg(0).strip_prefix('k').and_then(container_id).is_some_and(|c| {
                     let at = w.container(c).map(|c| c.pos).unwrap_or(w.squad.pos);
                     let m = nearest(w, at);
                     if w.container_locked(c) {
@@ -891,8 +922,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 })
             };
             if !ok {
-                match (cmd, arg(0).trim_start_matches('p').parse::<PersonId>()) {
-                    ("loot", Ok(p)) if (p as usize) < w.people.len() => o += &format!("Can't: {}\n", w.why_cant_loot(p)),
+                match (cmd, person_arg(w, arg(0))) {
+                    ("loot", Some(p)) => o += &format!("Can't: {}\n", w.why_cant_loot(p)),
                     _ => o += "Can't go through that (is it locked, or not in a building you're in?).\n",
                 }
             } else {
@@ -955,7 +986,10 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             };
             let Some(&sp) = w.known_spells(m).get(n.saturating_sub(1)) else { return "They don't know that one.\n".into() };
             let t = arg(2);
-            let target = t.strip_prefix('p').and_then(|x| x.parse::<PersonId>().ok());
+            if t.starts_with('p') && person_arg(w, t).is_none() {
+                return "Can't: nobody there.\n".into();
+            }
+            let target = person_arg(w, t);
             let point = match target {
                 Some(p) => Some(w.person_pos(p)),
                 None => t.split_once(',').and_then(|(x, y)| Some(V2::new(x.parse().ok()?, y.parse().ok()?))).or(Some(w.person_pos(m))),
@@ -998,8 +1032,18 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         }
         "pickup" | "gather" | "work" | "butcher" => {
             let id = arg(0);
+            // Each takes its own kind of id (g: on the ground, n: a plant or
+            // rock, d: a woodlot or mine, c: a carcass).
+            let letter = match cmd {
+                "pickup" => 'g',
+                "gather" => 'n',
+                "work" => 'd',
+                _ => 'c',
+            };
+            let Some(num) = id_num::<u32>(id, letter) else {
+                return format!("`{cmd}` takes a {letter} id from `look` (like {letter}3).\n");
+            };
             let at = pos_of(w, id).unwrap_or(w.squad.pos);
-            let num: u32 = id.get(1..).and_then(|x| x.parse().ok()).unwrap_or(u32::MAX);
             let ok = match cmd {
                 "pickup" => w.order_pickup(nearest(w, at), num),
                 "gather" => w.order_gather(nearest(w, at), num),
@@ -1019,7 +1063,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "hunt" => {
-            let h: u32 = arg(0).trim_start_matches('h').parse().unwrap_or(u32::MAX);
+            let h: u32 = id_num(arg(0), 'h').unwrap_or(u32::MAX);
             if w.order_hunt(&sel, h) {
                 o += &pass(w, 15.0 * 60.0, None);
                 o += &look(w, s);
@@ -1028,7 +1072,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "enter" => {
-            let id = arg(0).trim_start_matches('b');
+            let id = arg(0).strip_prefix('b').unwrap_or("");
             let door = id.split_once('.').and_then(|(x, y)| Some((x.parse().ok()?, y.parse().ok()?)));
             match door.and_then(|d| w.door(d)) {
                 Some(d) if w.is_locked(d.id) => {
@@ -1055,7 +1099,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "carry" => {
-            let p = arg(0).trim_start_matches('p').parse::<PersonId>().ok();
+            let p = person_arg(w, arg(0));
             match p.and_then(|p| sel.iter().copied().find(|&m| w.can_carry(m, p)).map(|m| (m, p))) {
                 Some((m, p)) => {
                     w.order_carry(m, p);
@@ -1065,10 +1109,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "putdown" => {
+            let mut any = false;
             for m in sel.clone() {
-                w.put_down(m);
+                any |= w.put_down(m);
             }
-            o += "Put down.\n";
+            o += if any { "Put down.\n" } else { "Nobody selected is carrying anyone.\n" };
         }
         "sneak" => {
             let on = !sel.iter().all(|&m| w.is_sneaking(m));
@@ -1086,12 +1131,26 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             o += "Up.\n";
         }
         "torch" => {
+            let (mut lit, mut out) = (0, 0);
             for &m in &sel {
                 if w.torch_in_hand(m).is_some() || w.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| item(e.0).key == "torch")) {
-                    w.toggle_torch(m);
+                    let had = w.torch_in_hand(m).is_some();
+                    if w.toggle_torch(m) {
+                        if had {
+                            out += 1;
+                        } else {
+                            lit += 1;
+                        }
+                    }
                 }
             }
-            o += "Torches toggled.\n";
+            o += &match (lit, out) {
+                (0, 0) if w.squad_battle().is_some() => "Not while fighting.\n".to_string(),
+                (0, 0) => "Nobody selected has a torch to light.\n".to_string(),
+                (l, 0) => format!("{l} torch{} lit.\n", if l == 1 { "" } else { "es" }),
+                (0, x) => format!("{x} torch{} put out.\n", if x == 1 { "" } else { "es" }),
+                (l, x) => format!("{l} lit, {x} put out.\n"),
+            };
         }
         "pack" => {
             let m = if a.is_empty() { lead } else { member(w, arg(0)).unwrap_or(lead) };
@@ -1108,7 +1167,10 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     let sp = gahturiyu_sim::sim::magic::spell(key);
                     if w.fighting.contains_key(&m) || !sp.def().works_outside_fights() {
                         let t = arg(2);
-                        let target = t.strip_prefix('p').and_then(|x| x.parse::<PersonId>().ok());
+                        if t.starts_with('p') && person_arg(w, t).is_none() {
+                            return "Can't: nobody there.\n".into();
+                        }
+                        let target = person_arg(w, t);
                         let point = match target {
                             Some(p) => Some(w.person_pos(p)),
                             None => t.split_once(',').and_then(|(x, y)| Some(V2::new(x.parse().ok()?, y.parse().ok()?))),
@@ -1365,7 +1427,14 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         "build" => o += &build(w, lead, a),
         "base" => o += &base_cmd(w, lead, a),
         "wait" => {
-            let m: f64 = arg(0).parse().unwrap_or(10.0);
+            // A whole number of minutes, a week at most.
+            const MOST: f64 = 7.0 * 24.0 * 60.0;
+            let Some(m) = arg(0).parse::<f64>().ok().filter(|m| m.is_finite() && *m >= 1.0 && m.fract() == 0.0) else {
+                return "Usage: wait M (whole minutes, 1 to 10080: a week at most)\n".into();
+            };
+            if m > MOST {
+                return "That's too long: a week (10080 minutes) at most.\n".into();
+            }
             o += &pass(w, m * 60.0, None);
             o += &look(w, s);
         }
