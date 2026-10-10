@@ -399,11 +399,8 @@ impl World {
             if let Some(d) = p.detail.as_mut().filter(|_| p.in_squad) {
                 let new = super::magic::felt_reached(&p.stats, &d.spells);
                 d.spells.extend(new.iter().copied());
-                if p.in_squad {
-                    for sp in new {
-                        let line = format!("{} has a feel for {} now.", d.name, sp.def().name.to_lowercase());
-                        self.log.push_front((t, line));
-                    }
+                if let Some(line) = super::magic::feel_line(&d.name, &new) {
+                    self.log.push_front((t, line));
                 }
             }
             let p = &mut self.people[f.pid as usize];

@@ -519,6 +519,14 @@ impl World {
 
     /// What a merchant would pay for this (worn, marked...) thing.
     pub fn offer(&self, npc: PersonId, it: ItemId, piece: Option<&super::materials::Piece>) -> Option<u16> {
+        let (town, _) = self.shelves(npc)?;
+        self.offer_holding(npc, it, piece, None, self.purse_now(town))
+    }
+
+    /// The same, with the town's stock of the good and its purse taken as
+    /// given: what they'd pay for the next one partway through a sale of
+    /// several.
+    fn offer_holding(&self, npc: PersonId, it: ItemId, piece: Option<&super::materials::Piece>, stock: Option<Flow>, purse: f32) -> Option<u16> {
         let (town, shelf) = self.shelves(npc)?;
         let def = items::item(it);
         if matches!(def.kind, items::Kind::Coin | items::Kind::Errand) || piece.map(|p| p.left_at(items::info(it).main.def().rots, self.time) <= 0.0).unwrap_or(false) {
@@ -531,8 +539,78 @@ impl World {
             // Anything else goes to the goods shop.
             (Some(s), None) => s == Shelf::Goods,
         };
-        let price = (self.worth_in(town, it, piece) * SELL_SHARE).floor() as u16;
-        (takes && price > 0 && self.purse_now(town) >= price as f32).then_some(price)
+        let price = (self.worth_holding(town, it, piece, self.time, stock) * SELL_SHARE).floor() as u16;
+        (takes && price > 0 && purse >= price as f32).then_some(price)
+    }
+
+    /// What selling every one of these the merchant will take would come
+    /// to, right now: (how many they'd take, coin for the lot). A good's
+    /// price falls as the town's stock of it grows, and a merchant pays out
+    /// of the town's purse, so fifty of something rarely fetch fifty times
+    /// the price of one. Worked out sale by sale, the way `Topic::SellAll`
+    /// carries it out, so the number on the button is the coin received.
+    pub fn sell_all_quote(&self, npc: PersonId, it: ItemId) -> (u16, u16) {
+        let Some((town, _)) = self.shelves(npc) else { return (0, 0) };
+        let good = super::jobs::good_of(items::item(it).key);
+        let mut stock = good.map(|g| self.society.towns[town as usize].stock[g.index()]);
+        // Every one of them the squad carries, in the order they're offered.
+        let mut units: Vec<Option<super::materials::Piece>> = Vec::new();
+        for &m in &self.squad.members {
+            if let Some(d) = &self.people[m as usize].detail {
+                for e in d.gear.bag.iter().filter(|e| e.0 == it) {
+                    units.extend(std::iter::repeat(e.2).take(e.1 as usize));
+                }
+            }
+        }
+        let (mut purse, mut n, mut total) = (self.purse_now(town), 0u16, 0u32);
+        // The first that would sell sets the price, as in `sell`.
+        while let Some((k, price)) = units.iter().enumerate().find_map(|(k, pc)| self.offer_holding(npc, it, pc.as_ref(), stock, purse).map(|p| (k, p))) {
+            units.remove(k);
+            if let (Some(s), Some(g)) = (stock.as_mut(), good) {
+                s.base += Self::units_of(g, it);
+            }
+            purse = (purse - price as f32).max(0.0);
+            n += 1;
+            total += price as u32;
+        }
+        (n, total.min(u16::MAX as u32) as u16)
+    }
+
+    /// What something would fetch in the town the squad is standing in (a
+    /// merchant's price for one of it there, whether or not one is at their
+    /// stall just now), and which town. `None` out in the wilds.
+    pub fn sells_for(&self, it: ItemId, piece: Option<&super::materials::Piece>) -> Option<(u16, SettlementId)> {
+        let town = (0..self.settlements.len()).filter(|&k| self.settlements[k].pos.dist(self.squad.pos) <= self.settlements[k].radius() + 60.0).min_by(|&a, &b| self.settlements[a].pos.dist(self.squad.pos).total_cmp(&self.settlements[b].pos.dist(self.squad.pos)))? as SettlementId;
+        if matches!(items::item(it).kind, items::Kind::Coin | items::Kind::Errand) {
+            return None;
+        }
+        Some(((self.worth_in(town, it, piece) * SELL_SHARE).floor() as u16, town))
+    }
+
+    /// What one of something fetches from a merchant in this town just now.
+    /// (The first of a lot: each one sold lowers the price of the next.)
+    pub fn fetches_in(&self, town: SettlementId, it: ItemId) -> u16 {
+        (self.worth_in(town, it, None) * SELL_SHARE).floor() as u16
+    }
+
+    /// Things squad members are wearing that this merchant would buy if
+    /// they took them off: (item, who has it on, about what it would fetch),
+    /// dearest first.
+    pub fn worn_sellable(&self, npc: PersonId) -> Vec<(ItemId, PersonId, u16)> {
+        let mut out = Vec::new();
+        for &m in &self.squad.members {
+            if let Some(d) = &self.people[m as usize].detail {
+                for s in super::items::SLOTS {
+                    if let Some(it) = d.gear.in_slot(s) {
+                        if let Some(p) = self.offer(npc, it, d.gear.piece(s)) {
+                            out.push((it, m, p));
+                        }
+                    }
+                }
+            }
+        }
+        out.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)).then(a.1.cmp(&b.1)));
+        out
     }
 
     /// The squad buys one of something, at the first price it's offered at.
