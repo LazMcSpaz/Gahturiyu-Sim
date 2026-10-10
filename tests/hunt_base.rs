@@ -1,7 +1,6 @@
-//! The bug hunt, naming session's part: base building. Each test states what
-//! should happen; the ones marked `#[ignore = "NM-…"]` fail today and show
-//! the bug of that number in the Project doc `claude/bugs-naming.md`.
-//! Run one with `cargo test --release --test hunt_base -- --ignored NAME`.
+//! Base building, from the bug hunt (naming session). Each test states what
+//! should happen; `nmN_…` failed before the fix for bug NM-N in the Project
+//! doc `claude/bugs-naming.md`.
 
 use gahturiyu_sim::sim::{
     base::{self, def_index, Plan, BUILDINGS},
@@ -153,7 +152,6 @@ fn coin(w: &mut World, who: PersonId, n: u16) {
 // ---- Probes ---------------------------------------------------------------------
 
 #[test]
-#[ignore = "NM-1"]
 fn nm1_a_hut_placed_days_after_founding_takes_its_full_time_whoever_is_hired() {
     // Found a base, wait three days, lay a hut with its builder standing by,
     // then hire a hand. Hiring should change nothing about the hut.
@@ -177,7 +175,6 @@ fn nm1_a_hut_placed_days_after_founding_takes_its_full_time_whoever_is_hired() {
 }
 
 #[test]
-#[ignore = "NM-2"]
 fn nm2_a_wall_can_turn_a_corner() {
     let (mut w, bid, _) = with_base(1);
     let a = w.base(bid).unwrap().at.add(V2::new(-12.0, 18.0));
@@ -190,7 +187,6 @@ fn nm2_a_wall_can_turn_a_corner() {
 }
 
 #[test]
-#[ignore = "NM-3"]
 fn nm3_a_gate_fits_a_ten_metre_wall() {
     let (mut w, bid, _) = with_base(1);
     let a = w.base(bid).unwrap().at.add(V2::new(-12.0, 18.0));
@@ -215,7 +211,6 @@ fn nm3_a_gate_fits_a_ten_metre_wall() {
 }
 
 #[test]
-#[ignore = "NM-4"]
 fn nm4_someone_left_at_a_base_eats_the_bread_in_their_own_pack() {
     let (mut w, bid) = built(1);
     let m = w.squad.members[1];
@@ -231,7 +226,6 @@ fn nm4_someone_left_at_a_base_eats_the_bread_in_their_own_pack() {
 }
 
 #[test]
-#[ignore = "NM-5"]
 fn nm5_a_farmer_a_cook_and_a_hauler_keep_themselves_fed_for_a_fortnight() {
     let (w, bid) = outpost(12);
     let w = run(w, 14.0 * 24.0, 600.0);
@@ -243,7 +237,6 @@ fn nm5_a_farmer_a_cook_and_a_hauler_keep_themselves_fed_for_a_fortnight() {
 }
 
 #[test]
-#[ignore = "NM-6"]
 fn nm6_a_day_s_work_is_paid_for_even_if_the_hand_is_let_go_before_dawn() {
     let (mut w, bid) = outpost(40);
     let lead = w.squad.members[0];
@@ -269,7 +262,6 @@ fn nm6_a_day_s_work_is_paid_for_even_if_the_hand_is_let_go_before_dawn() {
 }
 
 #[test]
-#[ignore = "NM-7"]
 fn nm7_stepping_someone_s_job_round_past_cook_uses_nothing_up() {
     let (mut w, bid) = outpost(12);
     let i = w.bases.iter().position(|b| b.id == bid).unwrap();
@@ -288,7 +280,6 @@ fn nm7_stepping_someone_s_job_round_past_cook_uses_nothing_up() {
 }
 
 #[test]
-#[ignore = "NM-8"]
 fn nm8_the_travelling_squad_never_exceeds_ten() {
     use gahturiyu_sim::sim::recruit::MAX_SQUAD;
     let (mut w, bid) = built(1);
@@ -348,4 +339,119 @@ fn a_tight_larder_is_shared_out_the_same_however_time_is_stepped() {
     let a = run(w.clone(), 72.0, 60.0);
     let b = run(w, 72.0, 3600.0);
     assert_eq!(snap(&a, bid), snap(&b, bid), "minute steps against hour steps");
+}
+
+// ---- More of the same, written with the fixes ----------------------------------------
+
+/// NM-3: any wall long enough to walk through takes a gate.
+#[test]
+fn a_gate_fits_walls_of_every_length() {
+    for len in [4.0f32, 5.0, 8.0, 9.0, 10.0, 12.0, 16.0, 30.0] {
+        let (mut w, bid, _) = with_base(1);
+        let a = w.base(bid).unwrap().at.add(V2::new(-15.0, 18.0));
+        let def = def_index("palisade");
+        let ids = w.place_wall(def, &[a, a.add(V2::new(len, 0.0))]).expect("the wall is laid");
+        let gate = def_index("gate");
+        let mut plan = Plan { def: gate, at: a.add(V2::new(len * 0.5, 0.3)), rot: 0.0, w: BUILDINGS[gate].w, replaces: None };
+        let ok = w.check_place(&mut plan);
+        assert!(ok.is_ok(), "a gate on a {len} m palisade: {ok:?}");
+        assert!(plan.replaces.is_some_and(|id| ids.contains(&id)), "it takes the place of a piece of that wall");
+        let id = w.place_building(plan).expect("the gate is laid");
+        let b = w.base(bid).unwrap();
+        assert_eq!(b.buildings.iter().filter(|x| x.def().key == "palisade").count(), ids.len() - 1);
+        assert!(b.building(id).is_some());
+    }
+}
+
+/// NM-2: a yard can be walled right round, and a wall can't be laid on a wall.
+#[test]
+fn a_yard_can_be_walled_right_round() {
+    let (mut w, bid, _) = with_base(1);
+    let a = w.base(bid).unwrap().at.add(V2::new(-6.0, 14.0));
+    let pts = [a, a.add(V2::new(12.0, 0.0)), a.add(V2::new(12.0, 12.0)), a.add(V2::new(0.0, 12.0)), a];
+    let def = def_index("palisade");
+    let plans = World::wall_plans(def, &pts);
+    assert_eq!(plans.len(), 12);
+    let ids = w.place_wall(def, &pts).expect("the wall is laid");
+    assert_eq!(ids.len(), 12, "all four sides, corners and the closing piece too");
+    // The same wall again is refused whole: every piece lies on one already there.
+    assert!(w.place_wall(def, &pts).is_err(), "a wall can't be laid along a wall");
+    // And a sharp bend still counts as a corner.
+    let b = a.add(V2::new(-14.0, 0.0));
+    let ids = w.place_wall(def, &[b, b.add(V2::new(8.0, 0.0)), b.add(V2::new(2.0, 6.0))]).expect("a sharp corner");
+    assert_eq!(ids.len(), World::wall_plans(def, &[b, b.add(V2::new(8.0, 0.0)), b.add(V2::new(2.0, 6.0))]).len());
+}
+
+/// Found while fixing NM-2: a tower snapped to a point beside the wall's
+/// middle, not to its end.
+#[test]
+fn a_tower_snaps_to_the_end_of_a_wall() {
+    let (mut w, bid, _) = with_base(1);
+    let a = w.base(bid).unwrap().at.add(V2::new(-6.0, 14.0));
+    let end = a.add(V2::new(12.0, 0.0));
+    let def = def_index("palisade");
+    w.place_wall(def, &[a, end]).expect("the wall is laid");
+    let tower = def_index("watchtower");
+    for (near, want) in [(end.add(V2::new(1.0, 0.8)), end), (a.add(V2::new(-0.7, -0.9)), a)] {
+        let mut plan = Plan { def: tower, at: near, rot: 0.0, w: BUILDINGS[tower].w, replaces: None };
+        let ok = w.check_place(&mut plan);
+        assert!(ok.is_ok(), "{ok:?}");
+        assert!(plan.at.dist(want) < 0.05, "the tower sits on the wall's end: {:?} against {want:?}", plan.at);
+    }
+}
+
+/// NM-7, the other half: letting someone go or fetching them mid-bake gives
+/// the grain and timber back as well.
+#[test]
+fn a_round_dropped_gives_back_what_went_into_it() {
+    let (mut w, bid) = outpost(12);
+    let i = w.bases.iter().position(|b| b.id == bid).unwrap();
+    w.bases[i].add_to_store(items::id("grain"), 10);
+    let cook = w.base(bid).unwrap().residents[1].who;
+    // Idle and back to cook, so a bake starts now with the new grain.
+    w.set_base_job(cook, Job::Idle);
+    let (grain, timber) = (stored(&w, bid, "grain"), stored(&w, bid, "timber"));
+    w.set_base_job(cook, Job::Cook);
+    assert!(w.base(bid).unwrap().resident(cook).unwrap().cycle.is_some(), "the bake is on");
+    assert!(stored(&w, bid, "grain") < grain, "its grain is in the oven");
+    let at = w.base(bid).unwrap().at;
+    w.teleport_squad(at);
+    w.step(1.0);
+    w.pick_up(cook).expect("fetched");
+    assert_eq!((stored(&w, bid, "grain"), stored(&w, bid, "timber")), (grain, timber), "fetching the cook mid-bake loses nothing");
+}
+
+/// NM-6, in numbers: a hand let go is paid for the part of the day worked,
+/// and one let go on arrival is paid nothing.
+#[test]
+fn a_hand_let_go_is_paid_for_the_hours_worked() {
+    let (mut w, bid) = outpost(40);
+    let lead = w.squad.members[0];
+    coin(&mut w, lead, 300);
+    let hand = willing(&w);
+    let wage = w.hire_terms(hand).expect("terms");
+    w.hire(hand).expect("hired");
+    let arrives = w.base(bid).unwrap().resident(hand).unwrap().hire.as_ref().unwrap().arrives;
+    let walk = (arrives - w.time) / HOUR + 0.02;
+    let mut w = run(w, walk, 600.0);
+    let at = w.base(bid).unwrap().at;
+    w.teleport_squad(at);
+    w.step(1.0);
+    // Six hours' work, not across a dawn.
+    let dawn = 6.0 * HOUR;
+    let to_dawn = DAY - (w.time - dawn).rem_euclid(DAY);
+    if to_dawn < 7.0 * HOUR {
+        w = run(w, to_dawn / HOUR + 0.1, 600.0);
+    }
+    let owed = w.base(bid).unwrap().resident(hand).unwrap().hire.as_ref().unwrap().owed;
+    let before = w.squad_count(items::id("coin"));
+    let start = w.time.max(arrives);
+    w = run(w, 6.0, 600.0);
+    let last_dawn = ((w.time - dawn) / DAY).floor() * DAY + dawn;
+    let hours = (w.time - last_dawn.max(start.min(arrives.max(last_dawn)))) / HOUR;
+    w.dismiss(hand).expect("let go");
+    let paid = before - w.squad_count(items::id("coin"));
+    let want = owed + (wage as f64 * (hours / 24.0).clamp(0.0, 1.0)).round() as u16;
+    assert!(paid > 0 && (paid as i32 - want as i32).abs() <= 1, "paid {paid} for about {hours:.1} h at {wage} a day (wanted about {want})");
+    assert!(paid < wage, "not a whole day's wage");
 }
