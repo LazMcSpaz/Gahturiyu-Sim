@@ -517,10 +517,8 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
         Hover::Group(_) => return None,
         Hover::Town(t) => w.settlements.get(t as usize)?.name.clone(),
         Hover::Item(g) => item(w.ground.iter().find(|x| x.id == g)?.item).name.to_string(),
-        Hover::Door(id) | Hover::Building(id) => {
-            let b = &w.settlements.get(id.0 as usize)?.buildings[id.1 as usize];
-            gahturiyu_sim::sim::layout::variant_of(b).map(|v| v.name.to_string()).unwrap_or_else(|| "Building".into())
-        }
+        // The building as it stands (its stored style), as the hover has it.
+        Hover::Door(id) | Hover::Building(id) => w.door(id).map(|d| d.variant().name.to_string()).unwrap_or_else(|| "Building".into()),
         Hover::Node(n) => item(w.nodes.iter().find(|x| x.id == n)?.item).name.to_string(),
         Hover::Station(i) => w.stations.get(i)?.1.name().to_string(),
         Hover::Torch(_) => "Standing torch".into(),
