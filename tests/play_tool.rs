@@ -331,3 +331,19 @@ fn one_minute_passes() {
     assert!(g.run(&["wait", "1"]).contains("(1 minute passes.)"));
     assert!(g.run(&["wait", "2"]).contains("(2 minutes pass.)"));
 }
+
+/// U-4: with nobody left of the squad, every command says so instead of crashing.
+#[test]
+fn an_empty_squad_is_said_not_crashed_on() {
+    let g = Game::new("nobody", 3);
+    g.edit(|w| {
+        for m in w.squad.members.clone() {
+            w.people[m as usize].dead = true;
+        }
+        w.squad.retain(|_| false);
+    });
+    for cmd in [vec!["look"], vec!["go", "n", "10"], vec!["talk", "p1"], vec!["pack"], vec!["wait", "5"], vec!["town"], vec!["map"], vec!["rest"]] {
+        let out = g.run(&cmd);
+        assert!(out.contains("Nobody is left of the squad."), "{cmd:?}: {out}");
+    }
+}

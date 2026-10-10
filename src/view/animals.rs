@@ -545,7 +545,91 @@ fn amounts(list: &[(&'static str, f32)]) -> String {
 }
 
 /// What the hover box says about something.
-pub fn describe(w: &World, s: &Seen) -> Vec<(String, Rgb)> {
+/// What's under the mouse, as someone standing there would put it: what it
+/// is and what it's doing. The counts, yields and rules of behaviour are the
+/// testing readout (`all`, with L on).
+pub fn describe(w: &World, s: &Seen, all: bool) -> Vec<(String, Rgb)> {
+    if all {
+        return describe_all(w, s);
+    }
+    let t = w.time;
+    let d = s.sp.def();
+    let mut out: Vec<(String, Rgb)> = Vec::new();
+    let first_up = |s: &str| {
+        let mut c = s.chars();
+        c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+    };
+    match s.thing {
+        Thing::Animal(herd, slot) => {
+            let m = w.animals.herds[herd as usize].member(slot, t);
+            out.push((if m.young { format!("Young {}", d.name.to_lowercase()) } else { d.name.to_string() }, GOLD));
+            if m.down {
+                out.push(("Knocked out".to_string(), WARN));
+            } else {
+                out.push((first_up(w.herd_doing(herd)), TEXT));
+                if m.hurt {
+                    out.push(("Hurt".to_string(), WARN));
+                }
+            }
+        }
+        Thing::Herd(herd) => {
+            out.push((d.plural(), GOLD));
+            out.push((first_up(w.herd_doing(herd)), TEXT));
+        }
+        Thing::Kept(pen, _) => {
+            let p = &w.animals.pens[pen as usize];
+            out.push((d.name.to_string(), GOLD));
+            if let Some(town) = p.town {
+                out.push((format!("Kept by {}", w.settlements[town as usize].name), TEXT));
+            }
+            let hunger = p.now(t).hunger;
+            if hunger >= 0.5 {
+                out.push((if hunger < 0.85 { "Hungry" } else { "Starving" }.to_string(), WARN));
+            }
+        }
+        Thing::Led(k) => {
+            out.push((d.name.to_string(), GOLD));
+            let who = w.people[w.animals.led[k].leader as usize].name().unwrap_or("someone");
+            out.push((format!("Following {who}"), TEXT));
+        }
+        Thing::Hound(id) => {
+            out.push(("Ridgehound".to_string(), GOLD));
+            if let Some(h) = w.tamed().into_iter().find(|h| h.id == id) {
+                let who = w.people[h.owner as usize].name().unwrap_or("someone");
+                out.push((format!("Follows {who}"), TEXT));
+                if h.hunger_at(t) > 0.7 {
+                    out.push(("Hungry".to_string(), WARN));
+                }
+            }
+        }
+        Thing::Fighting(k) => {
+            out.push((d.name.to_string(), GOLD));
+            if let Some(f) = w.animals_fighting().get(k) {
+                out.push((if f.down { "Down" } else if f.fleeing { "Running" } else { "Fighting" }.to_string(), TEXT));
+            }
+        }
+        Thing::Colony(id) => {
+            out.push(("Silk colony".to_string(), GOLD));
+            out.push((if w.cocoons(id) > 0 { "Cocoons hanging" } else { "No cocoons yet" }.to_string(), TEXT));
+            let c = &w.animals.colonies[id as usize];
+            if w.animals.herds[c.mother as usize].alive(t) > 0 && w.mother_guarding(id) {
+                out.push(("The Silk Mother is here".to_string(), WARN));
+            }
+        }
+        Thing::Carcass(_) => out.push((format!("{} carcass", d.name), GOLD)),
+        Thing::Flock => {
+            out.push(("Bonepickers".to_string(), GOLD));
+            out.push(("Picking a body clean".to_string(), TEXT));
+        }
+    }
+    if d.protected && matches!(s.thing, Thing::Animal(..) | Thing::Herd(_)) {
+        out.push(("Protected".to_string(), GOLD));
+    }
+    out
+}
+
+/// Everything about it (the testing readout).
+fn describe_all(w: &World, s: &Seen) -> Vec<(String, Rgb)> {
     let t = w.time;
     let d = s.sp.def();
     let mut out: Vec<(String, Rgb)> = Vec::new();
@@ -631,7 +715,7 @@ pub fn describe(w: &World, s: &Seen) -> Vec<(String, Rgb)> {
                 "The Silk Mother is away"
             };
             out.push((mother.to_string(), if w.mother_guarding(id) { WARN } else { TEXT }));
-            out.push(("Take cocoons: U".to_string(), DIM));
+            out.push(("Take cocoons: F11".to_string(), DIM));
         }
         Thing::Carcass(_) => {
             out.push((format!("{} carcass", d.name), GOLD));
@@ -710,7 +794,7 @@ fn panel(c: &Canvas, w: &World, at: V2) -> egui::Rect {
         lines.push((line, DIM));
     }
     lines.push((String::new(), TEXT));
-    lines.push(("F12 this panel  ·  H hunt  ·  Y tame  ·  F11 take cocoons".to_string(), DIM));
+    lines.push(("With L on: F12 this panel  ·  H hunt  ·  Y tame  ·  F11 take cocoons".to_string(), DIM));
     c.panel(&lines, c.w - 470.0, 12.0, 14.0)
 }
 
@@ -723,12 +807,15 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
     }
     let ctx = c.p.ctx().clone();
     let pressed = |k: egui::Key| ctx.input(|i| i.key_pressed(k));
-    if pressed(egui::Key::F12) {
+    // The wildlife panel and the keys under it are testing tools: they work
+    // with the detail readout (L) on (and F12 still closes an open panel).
+    let testing = game.debug;
+    if pressed(egui::Key::F12) && (testing || PANEL.load(Ordering::Relaxed)) {
         PANEL.fetch_xor(true, Ordering::Relaxed);
     }
     let w = &mut game.world;
     let here = w.squad.pos;
-    if pressed(egui::Key::H) {
+    if testing && pressed(egui::Key::H) {
         let who = game.sel.who(w);
         let said = match w.herd_near(here, 90.0) {
             Some(h) if w.hunt(&who, h) => None,
@@ -739,7 +826,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
             game.notice = Some((s.to_string(), std::time::Instant::now()));
         }
     }
-    if pressed(egui::Key::Y) {
+    if testing && pressed(egui::Key::Y) {
         let t = w.time;
         let mut best: Option<(f32, u32, usize, u32)> = None;
         for h in &w.animals.herds {
@@ -768,7 +855,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
         };
         game.notice = Some((said, std::time::Instant::now()));
     }
-    if pressed(egui::Key::F11) {
+    if testing && pressed(egui::Key::F11) {
         let near = w.animals.colonies.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|c| (c.id, c.pos));
         let said = match near {
             Some((id, pos)) => {
@@ -821,7 +908,7 @@ pub fn overlay(c: &Canvas, game: &mut Game, scene: &super::scene::Scene3d, panel
             }
         }
         if let Some((_, s)) = best {
-            let mut lines: Vec<(String, Rgb)> = describe(w, &s).into_iter().filter(|(l, _)| !l.contains("Click")).collect();
+            let mut lines: Vec<(String, Rgb)> = describe(w, &s, testing).into_iter().filter(|(l, _)| !l.contains("Click")).collect();
             super::interact::action_lines(&mut lines, super::interact::wild_choices(w, &s));
             if game.aim.is_none() {
                 c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);

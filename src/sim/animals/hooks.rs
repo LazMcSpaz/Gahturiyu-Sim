@@ -19,6 +19,12 @@ use super::species::{Active, Sp};
 pub const BRIAR_THRESHOLD: f32 = 0.6;
 /// Groups of Briarbacks per whole step of Overgrowth above the threshold.
 pub const BRIAR_GROUPS: f32 = 8.0;
+/// A stand-in until the Overgrowth is its own system (Laz, N3): this many
+/// wild regions start overgrown, at this level, so Briarbacks can be met.
+pub const OVERGROWN_REGIONS: usize = 3;
+pub const OVERGROWN_LEVEL: f32 = 0.7;
+/// A region counts as wild for that when no town stands this near its middle, metres.
+pub const OVERGROWN_FROM_TOWNS: f32 = 2500.0;
 /// Grazing pressure from one Turiyu (a region with a hundred grazes at 1.0).
 pub const GRAZE_PER_HEAD: f32 = 0.01;
 /// The most cocoons a colony hangs, and how many a full colony spins a day.
@@ -149,6 +155,24 @@ impl World {
     /// The same at a given moment (for callers on the world's timeline).
     pub fn grazing_pressure_at(&self, r: RegionId, t: f64) -> f32 {
         (self.population_at(r, Sp::WildTuriyu, t) + self.turiyu_at_pasture(r, t)).max(0.0) * GRAZE_PER_HEAD + 0.0
+    }
+
+    /// The stand-in Overgrowth of a new world: a few regions of wild land,
+    /// far from any town and from where the squad starts, with nothing
+    /// grazing them, picked by the world's seed. Briarbacks follow at once.
+    pub(super) fn overgrow_the_wilds(&mut self) {
+        let (seed, t) = (self.seed, self.time);
+        let mut wild: Vec<(u64, RegionId)> = (0..self.animals.regions.len() as RegionId)
+            .filter(|&r| {
+                let c = region_centre(r);
+                geo::is_land(c) && geo::inland(c) > 200.0 && self.clear_of_towns(c, OVERGROWN_FROM_TOWNS) && c.dist(self.squad.pos) > OVERGROWN_FROM_TOWNS && self.grazing_pressure_at(r, t) <= 0.0
+            })
+            .map(|r| (rng::key(&[seed, r as u64, 0x0BE2_6207]), r))
+            .collect();
+        wild.sort();
+        for (_, r) in wild.into_iter().take(OVERGROWN_REGIONS) {
+            self.set_overgrowth_at(r, OVERGROWN_LEVEL, t);
+        }
     }
 
     /// Briarbacks in a region follow its Overgrowth: above the threshold
