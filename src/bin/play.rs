@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use gahturiyu_sim::sim::{
     combat::SQUAD_SIDE,
-    containers::ContainerId,
+    containers::{is_stash, ContainerId, WILD},
     dialogue::Topic,
     geo::V2,
     items::{self, item, SLOTS},
@@ -420,15 +420,11 @@ fn nearby(w: &World) -> String {
     }
     // Ruins and camps.
     for r in w.ruins.iter().filter(|r| near(r.pos, 400.0)) {
-        let held = match w.reading_vs_ruin(r.id) {
-            Some(rd) => format!("guarded ({})", rd.odds().words()),
-            None => "unguarded".to_string(),
-        };
+        let held = if w.ruin_held(r.id) { "guarded" } else { "unguarded" };
         lines.push((here.dist(r.pos), format!("r{}  {} — {held}, {} things lying inside — {}", r.id, r.name(w), w.ruin_cache(r.id), dist_dir(here, r.pos))));
     }
     for c in w.camps.iter().filter(|c| near(c.pos, 300.0)) {
-        let odds = w.reading_vs_group(c.group).odds().words();
-        lines.push((here.dist(c.pos), format!("    a bandit camp ({odds}) — {}", dist_dir(here, c.pos))));
+        lines.push((here.dist(c.pos), format!("    a bandit camp — {}", dist_dir(here, c.pos))));
     }
     // Work, game, things.
     for d in w.deposits.iter().filter(|d| near(d.pos, 600.0)) {
@@ -441,7 +437,7 @@ fn nearby(w: &World) -> String {
         let at = w.herd_pos(h.id, w.time);
         if near(at, 250.0) {
             let n = h.alive(w.time);
-            lines.push((here.dist(at), format!("h{}  {} {} ({}) — {}", h.id, n, h.def().name, format!("{}; {}", if h.def().yields.is_empty() { "nothing to take" } else { "huntable" }, w.reading_vs_herd(h.id).odds().words()), dist_dir(here, at))));
+            lines.push((here.dist(at), format!("h{}  {} {} ({}) — {}", h.id, n, h.def().name, if h.def().yields.is_empty() { "nothing to take" } else { "huntable" }, dist_dir(here, at))));
         }
     }
     for c in w.animals.carcasses.iter().filter(|c| c.gone_at > w.time && near(c.pos, 200.0)) {
@@ -468,12 +464,11 @@ fn nearby(w: &World) -> String {
         let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
     }
-    // The caches in ruins and lairs close by.
-    for r in w.ruins.iter().filter(|r| near(r.pos, 60.0)) {
-        for c in w.ruin_containers(r.id) {
-            let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
-            lines.push((here.dist(c.pos), format!("k{}.{}.{}  a {} in the {}{lock}, {} things in it, nobody's — {}", c.id.0, c.id.1, c.id.2, c.what.name(), r.name(w).to_lowercase(), c.items.len(), dist_dir(here, c.pos))));
-        }
+    // Containers out in the wild close by: ruins' caches, camps' stashes.
+    for c in w.containers.range((WILD, 0, 0)..=(WILD, u16::MAX, u8::MAX)).map(|(_, c)| c).filter(|c| near(c.pos, 60.0)) {
+        let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
+        let place = if is_stash(c.id) { "the bandits' stash".to_string() } else { format!("a {} in the {}", c.what.name(), w.ruins.get(c.id.1 as usize).map(|r| r.name(w).to_lowercase()).unwrap_or_else(|| "ruin".into())) };
+        lines.push((here.dist(c.pos), format!("k{}.{}.{}  {place}{lock}, {} things in it, nobody's — {}", c.id.0, c.id.1, c.id.2, c.items.len(), dist_dir(here, c.pos))));
     }
     if let Some(inside) = w.squad.inside.iter().flatten().next() {
         for c in w.containers_in(*inside) {
@@ -601,7 +596,6 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
     let fighting = w.squad_battle().is_some();
     let down: Vec<bool> = w.squad.members.iter().map(|&m| w.is_down(m)).collect();
     let talking = w.talk.is_some();
-    let warned = w.alerts.len();
     let mut why = String::new();
     while w.time < start + secs {
         let busy = w.squad_battle().is_some() || w.squad.members.iter().enumerate().any(|(k, _)| w.squad.at[k].dist(w.squad.goal[k]) > 0.5);
@@ -623,7 +617,9 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
             why = "A conversation opens.".into();
             break;
         }
-        if w.alerts.len() > warned && w.alerts[warned..].iter().any(|a| a.contains(": bandits")) {
+        // (The window shows a band of bandits coming into sight in the news,
+        // in red: the tool stops on it, as a player would look up.)
+        if w.log.iter().take_while(|l| l.0 > start).any(|l| l.1.ends_with(": bandits.")) {
             why = "Bandits in sight.".into();
             break;
         }

@@ -374,9 +374,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                     _ => "unaware of you",
                 };
                 out.push((format!("Bandit  ·  {state}  ·  click to attack"), [0.95, 0.35, 0.3]));
-                if let Some(o) = w.group_of[pid as usize].and_then(|g| odds_word(w, Foe::Band(g))) {
-                    out.push((format!("Their band: {}", o.words()), odds_colour(o)));
-                }
             }
             if let Some(c) = w.carrying(pid) {
                 out.push((format!("Carrying {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
@@ -529,14 +526,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 if w.is_warden(c.group) {
                     out.push(("Wardens dug in at a ruin: harder than most".to_string(), WARN));
                 }
-                if n > 0 {
-                    if let Some(o) = odds_word(w, Foe::Band(c.group)) {
-                        out.push((format!("Taking them on: {}", o.words()), odds_colour(o)));
-                    }
-                }
-                if c.ready_at > w.time && n > 0 {
-                    out.push((format!("Resting after a fight until {}: they won't come looking, but they'll see anyone in their camp", hhmm(c.ready_at)), DIM));
-                }
             }
         }
         Hover::Place(t, k) => {
@@ -547,7 +536,11 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         }
         Hover::Container(id) => {
             let Some(k) = w.container(id) else { return out };
-            out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
+            if gahturiyu_sim::sim::containers::is_stash(id) {
+                out.push(("The bandits' stash".to_string(), TEXT));
+            } else {
+                out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
+            }
             if w.container_locked(id) {
                 out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
@@ -576,9 +569,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 _ => "Nobody guards it now",
             };
             out.push((line.to_string(), if held { WARN } else { TEXT }));
-            if let Some(o) = odds_word(w, Foe::Ruin(id)) {
-                out.push((format!("Taking them on: {}", o.words()), odds_colour(o)));
-            }
             let n = w.ruin_cache(id);
             out.push((if n > 0 { format!("{n} things lying inside") } else { "Picked clean".to_string() }, DIM));
         }
@@ -879,51 +869,5 @@ fn where_word(w: &World, pid: PersonId, spot: gahturiyu_sim::sim::routine::Spot,
         Spot::Rounds => "going from home to home".into(),
         Spot::Boat => "on the dawn boat".into(),
         Spot::RunRound => "out to the fields and yards".into(),
-    }
-}
-
-/// Whose fighting strength a reading is of (`danger.rs`).
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Foe {
-    Band(u32),
-    Herd(u32),
-    Ruin(u32),
-}
-
-/// How a fight with them would go, as a plain word. A reading rehearses the
-/// fight a few times, so it's kept for a game minute rather than worked out
-/// every frame (drawing only; the sim's answer for that moment).
-pub fn odds_word(w: &World, foe: Foe) -> Option<gahturiyu_sim::sim::danger::Odds> {
-    use std::sync::Mutex;
-    static KEPT: Mutex<Vec<(u8, u32, i64, Option<gahturiyu_sim::sim::danger::Odds>)>> = Mutex::new(Vec::new());
-    let (kind, id) = match foe {
-        Foe::Band(g) => (0u8, g),
-        Foe::Herd(h) => (1, h),
-        Foe::Ruin(r) => (2, r),
-    };
-    let minute = (w.time / 60.0).floor() as i64;
-    if let Ok(k) = KEPT.lock() {
-        if let Some(x) = k.iter().find(|x| x.0 == kind && x.1 == id && x.2 == minute) {
-            return x.3;
-        }
-    }
-    let odds = match foe {
-        Foe::Band(g) => Some(w.reading_vs_group(g).odds()),
-        Foe::Herd(h) => Some(w.reading_vs_herd(h).odds()),
-        Foe::Ruin(r) => w.reading_vs_ruin(r).map(|r| r.odds()),
-    };
-    if let Ok(mut k) = KEPT.lock() {
-        k.retain(|x| x.2 == minute && !(x.0 == kind && x.1 == id));
-        k.push((kind, id, minute, odds));
-    }
-    odds
-}
-
-/// The colour for a reading: warning for a fight you'd likely lose.
-pub fn odds_colour(o: gahturiyu_sim::sim::danger::Odds) -> Rgb {
-    use gahturiyu_sim::sim::danger::Odds;
-    match o {
-        Odds::Easy | Odds::Fair => TEXT,
-        Odds::Risky | Odds::Beyond => WARN,
     }
 }

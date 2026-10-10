@@ -71,6 +71,10 @@ pub struct Camp {
     /// The campfire is out until this time (doused by magic).
     #[serde(default)]
     pub doused_until: f64,
+    /// Their stash: a chest by the fire where what they rob is kept
+    /// (`containers::stash_id`).
+    #[serde(default)]
+    pub stash: Option<super::containers::ContainerId>,
 }
 
 /// When a camp first sees someone walking this leg: within `CAMP_SIGHT`, or

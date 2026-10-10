@@ -97,7 +97,7 @@ pub const PACK_CLOSE: f32 = 45.0;
 /// Going quietly, the squad is noticed at this share of the usual distance.
 pub const SNEAK_HALVES: f32 = 0.5;
 /// Seconds a herd takes to react when set upon, by how it behaves.
-pub(crate) fn reaction(toward: Toward) -> f64 {
+fn reaction(toward: Toward) -> f64 {
     match toward {
         Toward::Calm => 4.0,
         Toward::Outruns => 0.8,
@@ -198,7 +198,7 @@ pub fn would_attack(sp: Sp, pack_might: f32, their_might: f32, their_count: usiz
 /// rules don't know about animals put right after every tick, and their
 /// nerve checked once a second of fight-time. Every copy of such a fight
 /// goes through here and nowhere else.
-pub(crate) fn advance_fray(b: &mut Battle, parts: &[FrayPart], to: f64) {
+pub(super) fn advance_fray(b: &mut Battle, parts: &[FrayPart], to: f64) {
     while !b.over && b.time + DT <= to + 1e-9 {
         b.tick();
         if b.over {

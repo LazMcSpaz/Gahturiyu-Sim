@@ -1048,17 +1048,17 @@ pub fn containers(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_gro
     }
 }
 
-/// The caches out in the wild (ruins and lairs) near the camera, on the
-/// ground: drawn every frame like the ones indoors, with a hover point each.
+/// The containers out in the wild (ruins' and lairs' caches, bandit camps'
+/// stashes) near the camera, on the ground: drawn every frame like the ones
+/// indoors, with a hover point each.
 pub fn wild_containers(b: &mut Builder, gl: &mut Builder, w: &World, on_ground: &dyn Fn(V2) -> f32, near: V2, radius: f32, picks: &mut Vec<(Vec3, f32, Hover)>) {
     use gahturiyu_sim::sim::containers::WILD;
     let open: Vec<_> = w.squad.members.iter().filter_map(|&m| w.searching_now(m)).collect();
-    for ru in w.ruins.iter().filter(|r| r.pos.dist(near) <= radius) {
-        for c in w.containers.range((WILD, ru.id as u16, 0)..=(WILD, ru.id as u16, u8::MAX)).map(|(_, c)| c) {
-            let base = to3(c.pos, on_ground(c.pos));
-            holder(b, gl, c.what, base, c.rot, ru.pos.sub(c.pos), w.container_locked(c.id), open.contains(&c.id), !c.items.is_empty());
-            picks.push((base + Vec3::Y * (c.what.size().2 + 0.15), 2.0, Hover::Container(c.id)));
-        }
+    for c in w.containers.range((WILD, 0, 0)..=(WILD, u16::MAX, u8::MAX)).map(|(_, c)| c).filter(|c| c.pos.dist(near) <= radius) {
+        let base = to3(c.pos, on_ground(c.pos));
+        let front = V2::new(-c.rot.sin(), c.rot.cos());
+        holder(b, gl, c.what, base, c.rot, front, w.container_locked(c.id), open.contains(&c.id), !c.items.is_empty());
+        picks.push((base + Vec3::Y * (c.what.size().2 + 0.15), 2.0, Hover::Container(c.id)));
     }
 }
 

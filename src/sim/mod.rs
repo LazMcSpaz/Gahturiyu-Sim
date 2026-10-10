@@ -15,7 +15,6 @@ pub mod containers;
 pub mod condition;
 pub mod crafting;
 pub mod culture;
-pub mod danger;
 pub mod dialogue;
 pub mod economy;
 pub mod effects;

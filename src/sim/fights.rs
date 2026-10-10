@@ -194,7 +194,8 @@ impl World {
             band: 3,
         };
         self.add_group(g);
-        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0 });
+        let stash = Some(self.make_stash(at));
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash });
         self.scan_camp(self.camps.len() - 1);
         gid
     }
@@ -588,7 +589,7 @@ impl World {
         if down > 0 && !self.squad.members.is_empty() {
             let mut line = "The downed come round within an hour or two. Resting (N) heals faster, a roof or a tent faster still; a squadmate can give them a healing draught.".to_string();
             if b.winner().is_some_and(|s| s != SQUAD_SIDE) {
-                line += " The ones who beat you won't come looking again before dawn, but they'll see anyone who walks into their camp.";
+                line += " The ones who beat you won't come looking again before dawn.";
             }
             self.log.push_front((t, line));
         }

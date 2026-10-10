@@ -49,6 +49,28 @@ pub fn is_wild(id: ContainerId) -> bool {
     id.0 == WILD
 }
 
+/// Bandit camps' stashes are numbered from here among the wild containers
+/// (ruins and lairs use their own ids, below it).
+pub const STASH_BASE: u16 = 0x8000;
+/// What a camp's stash holds to start with besides coin (one may be picked).
+pub const STASH_GOODS: &[&str] = &["dried_fish", "flatbread", "torch", "knife", "hide", "healing_draught", "leather_cap"];
+
+/// Is this a bandit camp's stash?
+pub fn is_stash(id: ContainerId) -> bool {
+    is_wild(id) && id.1 >= STASH_BASE
+}
+
+/// A new camp's stash: a little coin and maybe one thing off the road.
+/// One keyed roll per stash.
+pub fn stash_stock(seed: u64, n: u16) -> Vec<Entry> {
+    let mut r = Rng::from_keys(&[seed, n as u64, 0x5354_4153]);
+    let mut out = vec![Entry(items::id("coin"), 8 + r.below(33) as u16, None)];
+    if r.chance(0.6) {
+        out.push(Entry(items::id(STASH_GOODS[r.below(STASH_GOODS.len())]), 1, None));
+    }
+    out
+}
+
 /// Whose things they are.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Owner {
@@ -287,6 +309,29 @@ impl World {
             let o = self.owner_of_slot((id.0, id.1), id.2, what);
             if let Some(c) = self.containers.get_mut(&id) {
                 c.owner = o;
+            }
+        }
+    }
+
+    /// Set up a new bandit camp's stash beside its fire (at world-making, or
+    /// when a band makes camp). Returns its id.
+    pub(super) fn make_stash(&mut self, at: V2) -> ContainerId {
+        let n = self.containers.range((WILD, STASH_BASE, 0)..=(WILD, u16::MAX, u8::MAX)).count() as u16;
+        let id = (WILD, STASH_BASE + n, 0);
+        let a = Rng::from_keys(&[self.seed, n as u64, 0x5354_5053]).f32() * std::f32::consts::TAU;
+        let pos = at.add(V2::new(a.cos(), a.sin()).scale(3.0));
+        let items = stash_stock(self.seed, n);
+        self.containers.insert(id, Container { id, what: Holder::Chest, pos, rot: a, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0 });
+        id
+    }
+
+    /// Put things into a container (stacks merge; made pieces keep theirs).
+    pub(super) fn put_into(&mut self, id: ContainerId, things: &[Entry]) {
+        let Some(c) = self.containers.get_mut(&id) else { return };
+        for e in things {
+            match c.items.iter_mut().find(|x| x.0 == e.0 && x.2.is_none() && e.2.is_none()) {
+                Some(x) => x.1 = x.1.saturating_add(e.1),
+                None => c.items.push(*e),
             }
         }
     }

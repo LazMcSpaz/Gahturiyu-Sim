@@ -238,7 +238,7 @@ impl World {
 
 /// Every key the caches can hold exists.
 pub fn check_tables() -> Result<(), String> {
-    for k in RUIN_GOODS.iter().chain(LAIR_GOODS).chain(READING).chain(SUPPLIES.iter().map(|s| &s.0)) {
+    for k in RUIN_GOODS.iter().chain(LAIR_GOODS).chain(READING).chain(SUPPLIES.iter().map(|s| &s.0)).chain(super::containers::STASH_GOODS) {
         if !items::catalogue_has(k) {
             return Err(k.to_string());
         }
