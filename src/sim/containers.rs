@@ -368,7 +368,7 @@ impl World {
     /// Send a squad member to open a container and go through it. Locked
     /// ones have to be picked first.
     pub fn order_search(&mut self, who: PersonId, id: ContainerId) -> bool {
-        if self.container_locked(id) {
+        if self.container_locked(id) || self.is_down(who) {
             return false;
         }
         let (Some(k), Some(stand)) = (self.squad.index(who), self.container_stand(id)) else { return false };
@@ -384,6 +384,7 @@ impl World {
         self.picking.retain(|p| p.who != who);
         self.looting.retain(|l| l.who != who);
         self.looting.push(Looting { who, from: Source::Chest(id) });
+        self.rouse(who);
         true
     }
 
@@ -403,6 +404,7 @@ impl World {
         self.looting.retain(|l| l.who != who);
         self.picking.retain(|p| p.who != who);
         self.picking.push(super::buildings::Picking { who, door: (id.0, id.1), tries: 0, next: None, holder: Some(id.2) });
+        self.rouse(who);
         true
     }
 

@@ -18,6 +18,9 @@ use super::stats::{Calling, Skill, SKILLS};
 use super::world::World;
 
 /// Share of arrows and bolts found again after a fight.
+/// How far off someone can be and still be gone for: about as far as
+/// they could be made out and closed on.
+pub const ATTACK_REACH: f32 = 150.0;
 pub const AMMO_FOUND: f32 = 0.5;
 /// How long the fallen stay on the ground, game seconds.
 pub const CORPSE_TIME: f64 = 2.0 * 3600.0;
@@ -91,6 +94,12 @@ impl World {
         let Some(gid) = self.group_of[enemy as usize] else { return false };
         let Some(g) = self.group(gid) else { return false };
         if !g.hostile || self.fighting_groups.contains(&gid) || !self.fit_to_fight(enemy) {
+            return false;
+        }
+        // Only someone the squad could actually get at: not a bandit at a
+        // camp kilometres off.
+        let there = self.person_pos(enemy);
+        if who.iter().all(|&m| self.person_pos(m).dist(there) > ATTACK_REACH) {
             return false;
         }
         let them: Vec<PersonId> = g.members.iter().copied().filter(|&m| self.fit_to_fight(m)).collect();
@@ -382,6 +391,10 @@ impl World {
         for f in b.fighters.iter().filter(|f| f.is_person() && f.home != super::combat::GRAVE_SIDE) {
             self.fighting.remove(&f.pid);
             let p = &mut self.people[f.pid as usize];
+            // Toughened by the blows first, so the wounds are measured
+            // against the body they now have: someone out cold stays out
+            // cold (hardening after would lift them back over the line).
+            p.stats.harden(f.damage_taken);
             let base = p.stats.clone();
             p.wounds.set(&base, &f.hp, t);
             for k in 0..6 {
@@ -393,7 +406,6 @@ impl World {
                     p.stats.exercise(SKILLS[k], *amt);
                 }
             }
-            p.stats.harden(f.damage_taken);
             // Felt magic comes with use: new felt spells as the feel grows.
             // (Your squad only: everyone else's spells are fixed by their
             // stats when their kit was chosen, so meeting them or not never
@@ -545,6 +557,15 @@ impl World {
             // never have joined it).
             let fought: Vec<V2> = alive.iter().filter_map(|m| b.index_of(*m)).map(|i| b.fighters[i].pos).collect();
             let c = if fought.is_empty() { self.group(gid).unwrap().position_at(t) } else { fought.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / fought.len() as f32) };
+            // Those of them out cold are left where they fell (they can be
+            // gone through, or carried); they walk back when they come round.
+            if self.groups[gi].hostile {
+                for &m in &alive {
+                    if let Some(i) = b.index_of(m).filter(|&i| b.fighters[i].ko && !b.fighters[i].dead) {
+                        self.set_down.insert(m, b.fighters[i].pos);
+                    }
+                }
+            }
             let camp = self.camps.iter().position(|cp| cp.group == gid);
             let g = &mut self.groups[gi];
             g.members = alive;

@@ -290,14 +290,19 @@ pub fn effective(base: &Stats, gear: &Gear) -> Stats {
 
 /// Speed multiplier from carrying too much.
 pub fn encumbrance_factor(load: f32) -> f32 {
+    // Full pace up to the limit, a quarter at twice it, and nothing at
+    // three times it: past that they can't move at all.
     if load <= 1.0 {
         1.0
     } else if load <= 2.0 {
-        (1.0 - (load - 1.0) * 0.75).max(0.25)
+        1.0 - (load - 1.0) * 0.75
     } else {
-        0.1
+        (0.25 * (OVERLOAD_STOP - load)).max(0.0)
     }
 }
+
+/// At this many times what they can carry, nobody can move.
+pub const OVERLOAD_STOP: f32 = 3.0;
 
 /// Starting kit for someone, spending roughly `budget` coin according to
 /// their calling, best skill and people. Pure function of its inputs, so the

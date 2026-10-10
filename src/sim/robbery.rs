@@ -45,6 +45,7 @@ impl World {
         let victims: Vec<PersonId> = b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && !f.dead && self.squad.index(f.pid).is_some()).map(|f| f.pid).collect();
         let t = b.time;
         let mut taken: Vec<Entry> = Vec::new();
+        let mut torch_gone: Vec<PersonId> = Vec::new();
         for &v in &victims {
             let roll = |what: u64| Rng::from_keys(&[self.seed, b.id as u64, v as u64, what, 0x524F_4242]).f32();
             let Some(d) = self.people[v as usize].detail.as_mut() else { continue };
@@ -73,10 +74,19 @@ impl World {
                     let piece = d.gear.piece(s).copied();
                     d.gear.discard(s);
                     taken.push(Entry(it, 1, piece));
+                    if s == Slot::OffHand {
+                        torch_gone.push(v);
+                    }
                 }
             }
             self.people[v as usize].recompute_might();
             self.settle_condition(v, t.max(self.people[v as usize].cond.as_ref().map(|c| c.at).unwrap_or(t)));
+        }
+        // A torch taken from someone's hand is out of their hand: its flame
+        // (and any stub kept for later) goes with it.
+        for v in torch_gone {
+            self.torches.remove(&v);
+            self.torch_left.remove(&v);
         }
         if taken.is_empty() {
             return 0;
