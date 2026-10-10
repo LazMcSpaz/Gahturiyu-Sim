@@ -178,3 +178,24 @@ fn breaking_a_camp_is_noticed_and_paid() {
     // Paid what was promised (or a favour owed, from someone who can't pay).
     assert!(w.squad_count(items::id("coin")) >= w.quests[0].coin);
 }
+
+/// NM-54: a talk ends when the two part; nothing is said or sold at a distance.
+#[test]
+fn a_talk_ends_when_the_two_part() {
+    let mut w = worldgen::generate(1);
+    w.step(3.0 * 3600.0);
+    let npc = locals(&w).into_iter().find(|&p| !w.is_indoors_asleep(p) && !w.people[p as usize].dead && w.building_at(w.person_pos(p)).is_none()).expect("someone out of doors");
+    let lead = talk_to(&mut w, npc);
+    // Standing with them, it stays open.
+    walk(&mut w, 3.0);
+    assert!(w.talk.is_some(), "still talking");
+    assert!(w.topics().len() > 1);
+    // Walk off: it's over, and nothing can be asked.
+    let k = w.squad.index(lead).unwrap();
+    let away = w.squad.at[k].add(V2::new(60.0, 0.0));
+    w.order_members(&[lead], away);
+    walk(&mut w, 60.0);
+    assert!(w.squad.at[k].dist(w.person_pos(npc)) > 20.0, "they parted");
+    assert!(w.talk.is_none(), "the talk is over once they've parted");
+    assert!(w.topics().is_empty());
+}

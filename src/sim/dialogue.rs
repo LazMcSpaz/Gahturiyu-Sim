@@ -24,6 +24,8 @@ use super::world::{World, DAY};
 
 /// How close you must be to talk, metres.
 pub const TALK_RANGE: f32 = 3.5;
+/// Further apart than this, a talk is over.
+pub const TALK_PARTED: f32 = 8.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Topic {
@@ -334,6 +336,19 @@ impl World {
         self.talk = None;
     }
 
+    /// A talk ends when the two part, or when either can't go on (NM-54):
+    /// nothing is said, sold or agreed at a distance.
+    pub(super) fn close_parted_talk(&mut self) {
+        let Some((with, npc)) = self.talk.as_ref().map(|c| (c.with, c.npc)) else { return };
+        let apart = match self.squad.index(with) {
+            Some(k) => self.member_pos(k).dist(self.person_pos(npc)) > TALK_PARTED,
+            None => true,
+        };
+        if apart || self.is_down(with) || self.people[npc as usize].dead || self.is_indoors_asleep(npc) {
+            self.talk = None;
+        }
+    }
+
     /// What can be asked right now.
     pub fn topics(&self) -> Vec<Topic> {
         let Some(c) = &self.talk else { return vec![] };
@@ -435,8 +450,9 @@ impl World {
                 t.push(Topic::CraftLesson(price));
             }
         }
-        // At the hall: bonds bought out, posts taken up.
-        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter) && self.at_work(c.npc, self.time) {
+        // A bond is bought out from any official, arbiter or guard of the
+        // town that holds it, wherever they are met (NM-37).
+        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter | super::jobs::Job::Guard) {
             if let Some(town) = self.people[c.npc as usize].home {
                 for &m in &self.squad.members {
                     if let (Some(b), Some(p)) = (self.bond_of(m), self.buy_out_price(m)) {
@@ -445,6 +461,11 @@ impl World {
                         }
                     }
                 }
+            }
+        }
+        // At the hall: posts taken up.
+        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter) && self.at_work(c.npc, self.time) {
+            if let Some(town) = self.people[c.npc as usize].home {
                 if self.standing(c.with, town) >= super::law::COUNCIL {
                     use super::law::Post;
                     for post in [Post::Elder, Post::Priestess, Post::Administrator, Post::Speaker, Post::Arbiter] {

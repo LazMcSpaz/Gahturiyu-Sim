@@ -494,7 +494,8 @@ impl World {
             f.set("workplace", "house");
         }
         if let Some(a) = c.about {
-            f.set("target", self.name_of(a));
+            // Said to their face, it's "you" (NM-56).
+            f.set("target", if a == with { "You".to_string() } else { self.name_of(a) });
             let rel = match (self.society.lives.get(a as usize).and_then(|x| x.household), hh) {
                 (Some(x), Some(y)) if x == y => "my household",
                 _ => "my neighbour",
@@ -695,7 +696,8 @@ impl World {
         // A known thief can be reported, by someone the law will hear.
         // (Not twice: once they've been arrested for it, it's done.)
         let answered = |e: &super::history::Event| self.events(e.town).iter().any(|x| x.deed == Deed::Arrest && x.victim == e.actor && x.t >= e.t);
-        if ev.is_some_and(|e| !e.hidden && e.actor.is_some() && e.deed.is_wrong() && !answered(e)) && clean && standing >= 0.0 {
+        // (To the watch of the town it happened in: NM-56.)
+        if ev.is_some_and(|e| !e.hidden && e.actor.is_some() && e.deed.is_wrong() && !answered(e) && Some(e.town) == town) && clean && standing >= 0.0 {
             out.push(Opt::Report);
         }
         // A grudge can be talked down by someone they'd listen to.
@@ -749,7 +751,12 @@ impl World {
                     let mut jr = Rng::from_keys(&[self.seed, a as u64, day as u64, 0x5245_5054]);
                     self.public_dispute(a, v, town, t, &mut jr);
                 }
-                self.remember(npc, Who::Person(with), Deed::Kindness, 0.3, day);
+                // Thanks come from the one wronged, or their household; not
+                // from whoever passed the story on.
+                let wronged = e.victim.is_some_and(|v| v == npc || (self.society.lives[v as usize].household.is_some() && self.society.lives[v as usize].household == self.society.lives[npc as usize].household));
+                if wronged {
+                    self.remember(npc, Who::Person(with), Deed::Kindness, 0.3, day);
+                }
                 self.remember(a, Who::Person(with), Deed::TurnedIn, -0.5, day);
                 self.add_standing(with, town, 1.0);
                 "Good. Let them answer for it.".into()

@@ -99,6 +99,10 @@ impl World {
         if self.fighting.contains_key(&target) || self.fighting.contains_key(&carrier) {
             return false;
         }
+        // Someone a town holds to work isn't carried off from it (NM-35).
+        if self.is_bonded(target, self.time) {
+            return false;
+        }
         let p = &self.people[target as usize];
         // Dead strangers are left where they lie; your own dead you can bring home.
         if p.dead {

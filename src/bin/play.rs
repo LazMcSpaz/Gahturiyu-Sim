@@ -77,6 +77,9 @@ struct Session {
     selected: Vec<PersonId>,
     tips: Vec<String>,
     log_seen: f64,
+    /// The news lines already shown (`line_key`), so each shows once
+    /// however it was stamped (NM-76).
+    seen: Vec<u64>,
 }
 
 fn state_path(save: &Path) -> PathBuf {
@@ -92,6 +95,7 @@ fn load_session(save: &Path) -> Session {
             "selected" => s.selected = v.split(',').filter_map(|x| x.parse().ok()).collect(),
             "tips" => s.tips = v.split(',').filter(|x| !x.is_empty()).map(|x| x.to_string()).collect(),
             "log_seen" => s.log_seen = v.parse().unwrap_or(0.0),
+            "seen" => s.seen = v.split(',').filter_map(|x| x.parse().ok()).collect(),
             _ => {}
         }
     }
@@ -100,7 +104,8 @@ fn load_session(save: &Path) -> Session {
 
 fn save_session(save: &Path, s: &Session) {
     let sel: Vec<String> = s.selected.iter().map(|p| p.to_string()).collect();
-    let _ = std::fs::write(state_path(save), format!("selected={}\ntips={}\nlog_seen={}\n", sel.join(","), s.tips.join(","), s.log_seen));
+    let seen: Vec<String> = s.seen.iter().map(|k| k.to_string()).collect();
+    let _ = std::fs::write(state_path(save), format!("selected={}\ntips={}\nlog_seen={}\nseen={}\n", sel.join(","), s.tips.join(","), s.log_seen, seen.join(",")));
 }
 
 fn main() {
@@ -121,9 +126,10 @@ fn main() {
         let w = gahturiyu_sim::sim::worldgen::generate(seed);
         let mut s = Session::default();
         s.log_seen = w.time;
+        s.seen = w.log.iter().map(|(t, l)| line_key(*t, l)).collect();
         w.save_to(&save).expect("save");
         save_session(&save, &s);
-        println!("A new game (world {seed}). Your squad of {} stands in {}.\n", w.squad.members.len(), place_name(&w));
+        println!("A new game (world {seed}). Your squad of {} stands in {}.\n", w.squad.members.len(), place_name(&w, w.squad.pos));
         let mut w = w;
         println!("{}", look(&mut w, &mut s));
         w.save_to(&save).expect("save");
@@ -169,6 +175,10 @@ fn first_name(w: &World, p: PersonId) -> String {
 }
 
 fn member(w: &World, n: &str) -> Option<PersonId> {
+    // No name is nobody, not the first member (NM-69).
+    if strip(n).is_empty() {
+        return None;
+    }
     let n = n.to_lowercase();
     w.squad.members.iter().copied().find(|&m| {
         let f = first_name(w, m).to_lowercase();
@@ -200,8 +210,32 @@ fn dist_dir(from: V2, to: V2) -> String {
     }
 }
 
-fn place_name(w: &World) -> String {
-    let here = w.squad.pos;
+/// Where the tool looks from: the first selected member, or the squad's
+/// middle when everyone takes orders (NM-74).
+fn focus(w: &World, s: &Session) -> V2 {
+    s.selected.first().filter(|&&m| w.squad.index(m).is_some()).map(|&m| w.person_pos(m)).unwrap_or(w.squad.pos)
+}
+
+/// Why this member can't take an order just now, if they can't (NM-72).
+fn unable(w: &World, m: PersonId) -> Option<String> {
+    let name = first_name(w, m);
+    if w.is_down(m) {
+        Some(format!("{name} is down"))
+    } else {
+        w.bond_of(m).map(|b| format!("{name} is bound in {}", w.settlements[b.town as usize].name))
+    }
+}
+
+/// One news line, by when it is stamped and what it says.
+fn line_key(t: f64, l: &str) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in t.to_bits().to_le_bytes().iter().chain(l.as_bytes()) {
+        h = (h ^ *b as u64).wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
+fn place_name(w: &World, here: V2) -> String {
     w.settlements
         .iter()
         .filter(|s| s.pos.dist(here) < s.radius() + 300.0)
@@ -314,6 +348,23 @@ fn tip_due(w: &World, id: &str) -> bool {
 }
 
 fn status(w: &World, pid: PersonId) -> String {
+    let doing = doing(w, pid);
+    // Bound to work in a town: where, and how long is left (NM-36).
+    let Some(b) = w.bond_of(pid) else { return doing };
+    let place = &w.settlements[b.town as usize].name;
+    let held = match w.bond_days_left(pid) {
+        Some(1) => format!("bound in {place}, a day left"),
+        Some(n) => format!("bound in {place}, {n} days left"),
+        None => format!("held in {place}"),
+    };
+    if matches!(doing.as_str(), "standing" | "walking" | "walking to work" | "at work") {
+        held
+    } else {
+        format!("{held}, {doing}")
+    }
+}
+
+fn doing(w: &World, pid: PersonId) -> String {
     let k = w.squad.index(pid).unwrap_or(0);
     if let Some(c) = w.carried_by(pid) {
         return format!("carried by {}", first_name(w, c));
@@ -381,7 +432,7 @@ fn hud(w: &World, s: &Session) -> String {
     } else {
         "dusk"
     };
-    let _ = writeln!(o, "== {} ({light}) · {} ==", w.clock(), place_name(w));
+    let _ = writeln!(o, "== {} ({light}) · {} ==", w.clock(), place_name(w, focus(w, s)));
     let coin: u32 = w.squad.members.iter().map(|&m| w.count_of(m, "coin") as u32 + 50 * w.count_of(m, "note") as u32).sum();
     let _ = writeln!(o, "Squad ({} members, {} coin between them){}:", w.squad.members.len(), coin, if s.selected.is_empty() { "" } else { " — selected marked *" });
     for &m in &w.squad.members {
@@ -425,9 +476,8 @@ fn hud(w: &World, s: &Session) -> String {
 
 /// What's near the squad: places and things first (all of them, up to a
 /// point), then people. `only`: "places" or "people" to list just those.
-fn nearby(w: &World, only: &str) -> String {
+fn nearby(w: &World, here: V2, only: &str) -> String {
     let mut o = String::new();
-    let here = w.squad.pos;
     let near = |p: V2, r: f32| here.dist(p) <= r;
     let mut lines: Vec<(f32, String)> = Vec::new();
     let mut folk: Vec<(f32, String)> = Vec::new();
@@ -612,15 +662,21 @@ fn nearby(w: &World, only: &str) -> String {
 
 fn news(w: &World, s: &mut Session) -> String {
     let mut o = String::new();
-    // What was just shown as an alert ("!! …") isn't said again here.
-    let fresh: Vec<&(f64, String)> = w.log.iter().filter(|(t, l)| *t > s.log_seen && !w.alerts.iter().any(|a| a == l)).collect();
+    // Each line once (NM-76): lines are stamped with when the thing happened,
+    // which isn't the order they were written in, so they're told apart by
+    // stamp and words, not by being later than the last one read. What was
+    // just shown as an alert ("!! …") isn't said again here.
+    let by_time = s.seen.is_empty();
+    let mut fresh: Vec<&(f64, String)> = w.log.iter().rev().filter(|(t, l)| !w.alerts.iter().any(|a| a == l) && if by_time { *t > s.log_seen } else { !s.seen.contains(&line_key(*t, l)) }).collect();
+    fresh.sort_by(|a, b| a.0.total_cmp(&b.0));
     if !fresh.is_empty() {
         let _ = writeln!(o, "News:");
-        for (t, l) in fresh.iter().rev() {
+        for (t, l) in fresh {
             let _ = writeln!(o, "  {}  {l}", hhmm(*t));
         }
     }
-    s.log_seen = w.log.front().map(|l| l.0).unwrap_or(s.log_seen).max(s.log_seen);
+    s.seen = w.log.iter().map(|(t, l)| line_key(*t, l)).collect();
+    s.log_seen = w.log.iter().map(|l| l.0).fold(s.log_seen, f64::max);
     o
 }
 
@@ -649,7 +705,7 @@ fn look_only(w: &mut World, s: &mut Session, only: &str) -> String {
     if w.talk.is_some() {
         o += &talk_view(w);
     }
-    o += &nearby(w, only);
+    o += &nearby(w, focus(w, s), only);
     o
 }
 
@@ -773,7 +829,8 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
             break;
         }
         if let Some(who) = until_still {
-            let still = who.iter().all(|&m| w.squad.index(m).map(|k| w.squad.at[k].dist(w.squad.goal[k]) < 0.5).unwrap_or(true));
+            // (Nobody waits for someone who can't move: NM-72.)
+            let still = who.iter().all(|&m| unable(w, m).is_some() || w.squad.index(m).map(|k| w.squad.at[k].dist(w.squad.goal[k]) < 0.5).unwrap_or(true));
             if still {
                 break;
             }
@@ -790,12 +847,31 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
 
 // ---- Commands -----------------------------------------------------------------------------
 
+/// Further than this from everyone ordered, someone isn't "here" to be
+/// talked to (the lists in `look` reach 70 m).
+const TALK_FAR: f32 = 150.0;
+
 fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> String {
-    let sel = who(w, s);
+    let mut o = String::new();
+    let mut sel = who(w, s);
+    // An order goes to those who can take it, and is refused at once, with
+    // the reason, when none of them can (NM-72): not the downed, not the bound.
+    const ORDERS: &[&str] = &["go", "attack", "talk", "loot", "search", "pickup", "gather", "work", "butcher", "hunt", "enter", "carry", "sneak", "rest", "torch"];
+    if ORDERS.contains(&cmd) {
+        let why: Vec<String> = sel.iter().filter_map(|&m| unable(w, m)).collect();
+        sel.retain(|&m| unable(w, m).is_none());
+        if sel.is_empty() {
+            return format!("Nobody can: {}.\n", why.join("; "));
+        }
+        // (Said only when they were picked by name.)
+        if !why.is_empty() && !s.selected.is_empty() {
+            o += &format!("({}.)\n", why.join("; "));
+        }
+    }
+    let sel = sel;
     let lead = sel.first().copied().unwrap_or(w.squad.members[0]);
     let nearest = |w: &World, at: V2| sel.iter().copied().min_by(|&x, &y| w.person_pos(x).dist(at).total_cmp(&w.person_pos(y).dist(at))).unwrap_or(lead);
     let arg = |i: usize| a.get(i).copied().unwrap_or("");
-    let mut o = String::new();
     // Most orders walk someone somewhere: let the world run till they're there.
     let walk_then_look = |w: &mut World, s: &mut Session, who: &[PersonId], o: &mut String| {
         *o += &pass(w, 30.0 * 60.0, Some(who));
@@ -834,7 +910,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     "sw" => (-0.707, 0.707),
                     _ => (f32::NAN, 0.0),
                 };
-                (!dx.is_nan()).then(|| w.squad.pos.add(V2::new(dx * m, dy * m)))
+                // Measured from whoever is ordered (NM-16).
+                (!dx.is_nan()).then(|| focus(w, s).add(V2::new(dx * m, dy * m)))
             };
             // Only real numbers make a place.
             let target = target.filter(|t| t.x.is_finite() && t.y.is_finite());
@@ -879,14 +956,42 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "talk" => {
-            let p = person_arg(w, arg(0));
-            match p {
-                Some(p) if w.order_talk(lead, p) => {
-                    o += &pass(w, 10.0 * 60.0, None);
-                    o += &if w.talk.is_some() { talk_view(w) } else { "They're not talking (or you couldn't reach them).\n".into() };
-                }
-                _ => o += "Can't talk to them.\n",
+            let Some(p) = person_arg(w, arg(0)) else { return "Can't talk to them.\n".into() };
+            // Already talking with them: as quick as the first time (NM-73).
+            if w.talk.as_ref().is_some_and(|c| c.npc == p) {
+                return talk_view(w);
             }
+            let at = w.person_pos(p);
+            // Whoever of those ordered is nearest goes, not always the first.
+            let m = nearest(w, at);
+            let them = &w.people[p as usize];
+            if them.dead || w.is_down(p) {
+                return "They're in no state to talk.\n".into();
+            }
+            if w.is_indoors_asleep(p) {
+                return "They're abed.\n".into();
+            }
+            if w.person_pos(m).dist(at) > TALK_FAR {
+                return "They aren't here.\n".into();
+            }
+            // One talk at a time: leave the other first, and say so.
+            if let Some(other) = w.talk.as_ref().map(|c| c.npc) {
+                w.ask(Topic::Goodbye);
+                w.end_talk();
+                o += &format!("You take your leave of {}.\n", first_name(w, other));
+            }
+            if !w.order_talk(m, p) {
+                return o + "Can't talk to them.\n";
+            }
+            let start = w.time;
+            while w.talk.as_ref().map(|c| c.npc) != Some(p) && w.time < start + 10.0 * 60.0 && w.squad_battle().is_none() {
+                w.step(0.25);
+            }
+            let mins = ((w.time - start) / 60.0).round();
+            if mins >= 1.0 {
+                o += &format!("({mins:.0} minutes pass.)\n");
+            }
+            o += &if w.talk.is_some() { talk_view(w) } else { format!("{} couldn't get to them.\n", first_name(w, m)) };
         }
         "say" => {
             let n: usize = arg(0).parse().unwrap_or(0);
@@ -974,7 +1079,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "spells" => {
-            let Some(m) = member(w, arg(0)).or(Some(lead)) else { return "Who?\n".into() };
+            let m = match (a.is_empty(), member(w, arg(0))) {
+                (true, _) => lead,
+                (false, Some(m)) => m,
+                (false, None) => return format!("Nobody in the squad is called {}.\n", arg(0)),
+            };
             let p = &w.people[m as usize];
             let energy = w.fighter(m).map(|f| f.mana).unwrap_or_else(|| p.mana_at(w.time));
             let _ = writeln!(o, "{}'s spells (energy {:.0} / {:.0}):", name_of(w, m), energy, p.max_mana());
@@ -989,10 +1098,10 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "cast" => {
-            let (Some(m), Ok(n)) = (member(w, arg(0)), arg(1).parse::<usize>()) else {
+            let (Some(m), Some(n)) = (member(w, arg(0)), arg(1).parse::<usize>().ok().filter(|&n| n >= 1)) else {
                 return "Usage: cast NAME N [pID | X,Y] (N from `spells NAME`)\n".into();
             };
-            let Some(&sp) = w.known_spells(m).get(n.saturating_sub(1)) else { return "They don't know that one.\n".into() };
+            let Some(&sp) = w.known_spells(m).get(n - 1) else { return "They don't know that one.\n".into() };
             let t = arg(2);
             if t.starts_with('p') && person_arg(w, t).is_none() {
                 return "Can't: nobody there.\n".into();
@@ -1025,8 +1134,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                         let n = w.take_all_from(m, src);
                         o += &format!("Took {n} lots.\n");
                     } else {
-                        let n: usize = arg(0).parse().unwrap_or(0);
-                        let what = w.contents(src).get(n.saturating_sub(1)).map(|x| x.0);
+                        // A line from the list, by its number (NM-69).
+                        let Some(n) = arg(0).parse::<usize>().ok().filter(|&n| n >= 1) else {
+                            return format!("Usage: take N (a line of the list below), or takeall\n{}", loot_view(w, m));
+                        };
+                        let what = w.contents(src).get(n - 1).map(|x| x.0);
                         match what {
                             Some(r) if w.take_from(m, src, r) => o += "Taken.\n",
                             _ => o += "Couldn't take that.\n",
@@ -1147,8 +1259,22 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             o += "Resting.\n";
         }
         "wake" => {
-            w.order_wake(&sel);
-            o += "Up.\n";
+            // Only those resting or asleep get up; the downed stay down, and
+            // it says so (NM-72).
+            let down: Vec<String> = sel.iter().filter(|&&m| w.is_down(m)).map(|&m| first_name(w, m)).collect();
+            let up: Vec<PersonId> = sel.iter().copied().filter(|&m| !w.is_down(m) && (w.is_asleep(m) || w.squad.index(m).is_some_and(|k| w.squad.resting[k]))).collect();
+            w.order_wake(&up);
+            let is = |n: usize| if n == 1 { "is" } else { "are" };
+            if !up.is_empty() {
+                let names: Vec<String> = up.iter().map(|&m| first_name(w, m)).collect();
+                o += &format!("{} {} up.\n", names.join(", "), is(names.len()));
+            }
+            if !down.is_empty() {
+                o += &format!("{} {} down, and can't be woken.\n", down.join(", "), is(down.len()));
+            }
+            if up.is_empty() && down.is_empty() {
+                o += "Nobody selected is resting.\n";
+            }
         }
         "torch" => {
             let (mut lit, mut out) = (0, 0);
@@ -1173,7 +1299,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             };
         }
         "pack" => {
-            let m = if a.is_empty() { lead } else { member(w, arg(0)).unwrap_or(lead) };
+            let m = match (a.is_empty(), member(w, arg(0))) {
+                (true, _) => lead,
+                (false, Some(m)) => m,
+                (false, None) => return format!("Nobody in the squad is called {}.\n", arg(0)),
+            };
             o += &pack(w, m);
         }
         "use" | "equip" | "drop" => {
@@ -1269,7 +1399,9 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             o += &pack(w, m);
         }
         "unequip" => {
-            let Some(m) = member(w, arg(0)) else { return "Who?\n".into() };
+            let (Some(m), false) = (member(w, arg(0)), arg(1).is_empty()) else {
+                return "Usage: unequip NAME SLOT (a slot as `pack NAME` names it, like head or mainhand)\n".into();
+            };
             let slot = SLOTS.iter().copied().find(|s| format!("{s:?}").to_lowercase().starts_with(&arg(1).to_lowercase()));
             let ok = slot.is_some_and(|s| w.unequip(m, s));
             o += if ok { "Taken off.\n" } else { "Nothing there.\n" };
@@ -1351,7 +1483,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "map" => {
-            let here = w.squad.pos;
+            let here = focus(w, s);
             let mut towns: Vec<_> = w.settlements.iter().collect();
             towns.sort_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
             // `map NAME` finds a town by name, however far (a town heard of
@@ -1389,7 +1521,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "town" => {
-            let here = w.squad.pos;
+            let here = focus(w, s);
             if let Some(t) = w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))) {
                 let _ = writeln!(o, "{} — {} people, {}", t.name, t.residents.len(), dist_dir(here, t.pos));
                 let mut jobs: std::collections::BTreeMap<&str, usize> = Default::default();
