@@ -439,7 +439,7 @@ fn nearby(w: &World) -> String {
     for d in w.deposits.iter().filter(|d| near(d.pos, 600.0)) {
         lines.push((
             here.dist(d.pos),
-            format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg worth ~{} coin — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, item(d.item).value, dist_dir(here, d.pos)),
+            format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg and fetches about {} coin in town (less each for a big lot) — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, w.fetches_in(d.town, d.item), dist_dir(here, d.pos)),
         ));
     }
     for h in w.animals.herds.iter().filter(|h| h.alive(w.time) > 0) {
@@ -572,9 +572,23 @@ fn pack(w: &World, m: PersonId) -> String {
     let Some(d) = p.detail.as_ref() else { return "nothing".into() };
     let _ = writeln!(o, "{} — carrying {:.1} of {:.0} kg", name_of(w, m), w.kit_weight_at(m, w.time), w.capacity_at(m, w.time));
     let _ = writeln!(o, " Worn:");
+    // What a thing does, where it does something (a ring, a potion).
+    let does = |it: items::ItemId| -> String {
+        let fx: Vec<String> = item(it).effects.iter().map(|e| e.describe()).collect();
+        if fx.is_empty() { String::new() } else { format!(" — {}", fx.join("; ")) }
+    };
+    // What it would fetch in the town the squad is standing in: the number
+    // a merchant there gives, not the round "worth".
+    let fetch = |it: items::ItemId, pc: Option<&gahturiyu_sim::sim::materials::Piece>| -> String {
+        match w.sells_for(it, pc) {
+            Some((p, town)) if p > 0 => format!("; sells for {p} in {}", w.settlements[town as usize].name),
+            Some((_, town)) => format!("; nobody in {} pays for it", w.settlements[town as usize].name),
+            None => String::new(),
+        }
+    };
     for s in SLOTS {
         if let Some(it) = d.gear.in_slot(s) {
-            let _ = writeln!(o, "   {:<10} {}", format!("{s:?}"), item(it).name);
+            let _ = writeln!(o, "   {:<10} {}{}  (worth ~{:.0}{})", format!("{s:?}"), item(it).name, does(it), item(it).value, fetch(it, d.gear.piece(s)));
         }
     }
     let _ = writeln!(o, " Pack:");
@@ -584,7 +598,7 @@ fn pack(w: &World, m: PersonId) -> String {
             items::Kind::Coin => "money".into(),
             _ => String::new(),
         };
-        let _ = writeln!(o, "   {k:>2}. {} × {} {}  (worth ~{:.0} each)", e.1, item(e.0).name, if kind.is_empty() { String::new() } else { format!("[{kind}]") }, item(e.0).value);
+        let _ = writeln!(o, "   {k:>2}. {} × {} {}{}  (worth ~{:.0} each{})", e.1, item(e.0).name, if kind.is_empty() { String::new() } else { format!("[{kind}]") }, does(e.0), item(e.0).value, fetch(e.0, e.2.as_ref()));
     }
     o
 }
