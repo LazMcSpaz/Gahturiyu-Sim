@@ -126,7 +126,8 @@ fn some_arrows_are_found_after_a_fight() {
                 break;
             }
         }
-        if shots < 4 {
+        // (A lost fight means the bandits took the quiver: no count to make.)
+        if shots < 4 || w.log.iter().any(|l| l.1.starts_with("Beaten.")) {
             continue;
         }
         let after = arrows(&w);

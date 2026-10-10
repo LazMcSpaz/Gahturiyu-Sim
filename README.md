@@ -214,6 +214,9 @@ the roads again if you changed the land's shape or ground.
   goes through their things. A panel lists what they wear and carry: click
   a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
   carries the body off instead. Townsfolk aren't fair game.
+- **Losing**: bandits who beat the squad go through the downed and take
+  every coin and a good share of the rest (weapons, armour, pack), then
+  carry it home to their camp. Beat them later and loot it back.
 - **Making a living**: every town has a woodlot, and a mine where its land
   has ore (some have a gold seam too). Click one and the selected work it,
   a unit at a time, until their packs are full; it grows back by the day.

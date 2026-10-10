@@ -499,6 +499,8 @@ impl World {
             self.duel_over(&b);
         } else {
             self.fight_wrongs(&b);
+            // Beaten by bandits: they rob the downed.
+            self.rob_the_beaten(&b);
         }
 
         // Survivors' groups settle where the fight left them; wiped-out groups end.

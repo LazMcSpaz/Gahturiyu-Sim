@@ -34,6 +34,7 @@ pub mod items;
 pub mod loot;
 pub mod recruit;
 pub mod labour;
+pub mod robbery;
 pub mod magic;
 pub mod mapedit;
 pub mod making;
