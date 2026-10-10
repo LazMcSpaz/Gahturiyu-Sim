@@ -441,25 +441,22 @@ impl World {
 
     /// The best thing in someone's pack to eat now.
     fn food_for(&self, pid: PersonId, hunger: f32) -> Option<ItemId> {
-        // Someone living at a base eats from its store.
-        if self.resident_of(pid).is_some() {
+        let foods: Vec<(ItemId, f32)> = self.people[pid as usize].detail.as_ref().map(|d| d.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect()).unwrap_or_default();
+        // The biggest meal that won't be wasted, else the smallest one there is.
+        let own = foods.iter().filter(|f| f.1 <= hunger).max_by(|a, b| a.1.total_cmp(&b.1)).or_else(|| foods.iter().min_by(|a, b| a.1.total_cmp(&b.1))).map(|f| f.0);
+        // Someone living at a base eats what they carry first, then from
+        // its store (NM-4).
+        if own.is_none() && self.resident_of(pid).is_some() {
             return self.base_food_for(pid, hunger);
         }
-        let d = self.people[pid as usize].detail.as_ref()?;
-        let foods: Vec<(ItemId, f32)> = d.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect();
-        // The biggest meal that won't be wasted, else the smallest one there is.
-        foods
-            .iter()
-            .filter(|f| f.1 <= hunger)
-            .max_by(|a, b| a.1.total_cmp(&b.1))
-            .or_else(|| foods.iter().min_by(|a, b| a.1.total_cmp(&b.1)))
-            .map(|f| f.0)
+        own
     }
 
     /// Eat something now (or at `t`): hunger drops by its nourishment.
     pub fn eat(&mut self, pid: PersonId, it: ItemId, t: f64) -> bool {
         let Kind::Food(n) = item(it).kind else { return false };
-        let had = if self.resident_of(pid).is_some() { self.base_take_food(pid, it) } else { self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) };
+        // From their own pack; a base's resident with none of it, from the store.
+        let had = self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) || (self.resident_of(pid).is_some() && self.base_take_food(pid, it));
         if !had {
             return false;
         }
