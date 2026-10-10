@@ -287,7 +287,7 @@ first one's things: the loot panel).
 for the nearest iron seam).
 `GAHT_MENU=1` (the right-click menu for whatever is under `GAHT_HOVER`).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
-`GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k; ruins come first, then lairs).
+`GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,
 beaten; screenshots otherwise show none and never touch `hints.txt`).
 `GAHT_INTERIOR=1|tadoro|crowded|slope|<variant key>` (member 0 walks into the nearest open workshop or

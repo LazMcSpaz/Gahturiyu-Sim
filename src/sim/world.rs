@@ -559,6 +559,11 @@ impl World {
             Some(n) => format!("{} and {} other{}", n, g.members.len() - 1, if g.members.len() == 2 { "" } else { "s" }),
             None => format!("{} travellers", g.members.len()),
         };
+        // A band that would fall on you is called what it is (how a fight
+        // would go is for the player to find out: hover, or `look`).
+        if g.hostile {
+            return format!("{who}: bandits.");
+        }
         match g.kind {
             Kind::Wanderer { .. } => format!("{who}, wandering, crosses your path."),
             Kind::Journey { home } => {

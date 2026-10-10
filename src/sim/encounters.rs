@@ -44,6 +44,12 @@ pub const CAMP_SIGHT: f32 = 110.0;
 pub const LOOKAHEAD: f64 = 2.0 * HOUR;
 /// How long a camp rests after a fight before it tries again.
 pub const CAMP_REST: f64 = 4.0 * HOUR;
+/// A camp's own ground, metres from its middle. Resting after a fight, a
+/// gang doesn't go looking for anyone, but it still sees who walks in here
+/// (and its pile lies inside it).
+pub const GUARD_RING: f32 = 20.0;
+/// Where a gang leaves the beaten it finds lying in its camp, metres out.
+pub const DUMP_AT: f32 = 35.0;
 
 /// The first dawn (06:00) at or after `t`.
 pub fn next_dawn(t: f64) -> f64 {
@@ -65,6 +71,10 @@ pub struct Camp {
     /// The campfire is out until this time (doused by magic).
     #[serde(default)]
     pub doused_until: f64,
+    /// Their stash: a chest by the fire where what they rob is kept
+    /// (`containers::stash_id`).
+    #[serde(default)]
+    pub stash: Option<super::containers::ContainerId>,
 }
 
 /// When a camp first sees someone walking this leg: within `CAMP_SIGHT`, or

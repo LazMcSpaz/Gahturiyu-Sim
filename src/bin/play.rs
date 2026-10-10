@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use gahturiyu_sim::sim::{
     combat::SQUAD_SIDE,
-    containers::ContainerId,
+    containers::{is_stash, ContainerId, WILD},
     dialogue::Topic,
     geo::V2,
     items::{self, item, SLOTS},
@@ -525,6 +525,12 @@ fn nearby(w: &World, only: &str) -> String {
         let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
     }
+    // Containers out in the wild close by: ruins' caches, camps' stashes.
+    for c in w.containers.range((WILD, 0, 0)..=(WILD, u16::MAX, u8::MAX)).map(|(_, c)| c).filter(|c| near(c.pos, 60.0)) {
+        let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
+        let place = if is_stash(c.id) { "the bandits' stash".to_string() } else { format!("a {} in the {}", c.what.name(), w.ruins.get(c.id.1 as usize).map(|r| r.name(w).to_lowercase()).unwrap_or_else(|| "ruin".into())) };
+        lines.push((here.dist(c.pos), format!("k{}.{}.{}  {place}{lock}, {} things in it, nobody's — {}", c.id.0, c.id.1, c.id.2, c.items.len(), dist_dir(here, c.pos))));
+    }
     if let Some(inside) = w.squad.inside.iter().flatten().next() {
         for c in w.containers_in(*inside) {
             let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
@@ -708,6 +714,12 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
         }
         if !talking && w.talk.is_some() {
             why = "A conversation opens.".into();
+            break;
+        }
+        // (The window shows a band of bandits coming into sight in the news,
+        // in red: the tool stops on it, as a player would look up.)
+        if w.log.iter().take_while(|l| l.0 > start).any(|l| l.1.ends_with(": bandits.")) {
+            why = "Bandits in sight.".into();
             break;
         }
         if let Some(who) = until_still {

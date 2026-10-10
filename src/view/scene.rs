@@ -779,6 +779,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    // The caches in ruins and lairs, likewise.
+    super::interiors::wild_containers(&mut b, &mut gl, w, &on_ground, oc.target, radius.min(400.0), &mut game.picks);
     // Containers in buildings someone is in: drawn every frame, so a lid
     // opens while it's gone through and a picked lock loses its plate.
     for &sid in &near {

@@ -67,7 +67,9 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
     if let Source::Chest(id) = src {
         let at = w.container(id).map(|k| k.pos).unwrap_or(w.squad.pos);
         let p = w.catch_chance(who, at, id.0);
-        let (line, col) = if p <= 0.0 { ("Nobody can see you here: taking is unseen.".to_string(), [0.55, 0.80, 0.45]) } else { (format!("Taking is theft: {:.0}% chance each time that someone sees.", p * 100.0), WARN) };
+        let (line, col) = if gahturiyu_sim::sim::containers::is_wild(id) {
+            ("Nobody's now: taking is no crime. Anyone keeping the place may hear the lid.".to_string(), [0.55, 0.80, 0.45])
+        } else if p <= 0.0 { ("Nobody can see you here: taking is unseen.".to_string(), [0.55, 0.80, 0.45]) } else { (format!("Taking is theft: {:.0}% chance each time that someone sees.", p * 100.0), WARN) };
         c.styled(&line, x0, y, 14.0, eg(col), Face::Italic, 0.0);
         y += 6.0;
     }

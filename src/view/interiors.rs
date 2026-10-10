@@ -1048,6 +1048,20 @@ pub fn containers(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_gro
     }
 }
 
+/// The containers out in the wild (ruins' and lairs' caches, bandit camps'
+/// stashes) near the camera, on the ground: drawn every frame like the ones
+/// indoors, with a hover point each.
+pub fn wild_containers(b: &mut Builder, gl: &mut Builder, w: &World, on_ground: &dyn Fn(V2) -> f32, near: V2, radius: f32, picks: &mut Vec<(Vec3, f32, Hover)>) {
+    use gahturiyu_sim::sim::containers::WILD;
+    let open: Vec<_> = w.squad.members.iter().filter_map(|&m| w.searching_now(m)).collect();
+    for c in w.containers.range((WILD, 0, 0)..=(WILD, u16::MAX, u8::MAX)).map(|(_, c)| c).filter(|c| c.pos.dist(near) <= radius) {
+        let base = to3(c.pos, on_ground(c.pos));
+        let front = V2::new(-c.rot.sin(), c.rot.cos());
+        holder(b, gl, c.what, base, c.rot, front, w.container_locked(c.id), open.contains(&c.id), !c.items.is_empty());
+        picks.push((base + Vec3::Y * (c.what.size().2 + 0.15), 2.0, Hover::Container(c.id)));
+    }
+}
+
 /// One container. Its front is the long side toward `toward` (the room).
 #[allow(clippy::too_many_arguments)]
 fn holder(b: &mut Builder, gl: &mut Builder, what: Holder, base: Vec3, rot: f32, toward: V2, locked: bool, open: bool, full: bool) {
@@ -1170,5 +1184,6 @@ pub fn owner_text(w: &World, owner: Owner) -> String {
             }
         }
         Owner::Town(t) => format!("the town of {}", w.settlements.get(t as usize).map(|s| s.name.as_str()).unwrap_or("?")),
+        Owner::Nobody => "nobody now".to_string(),
     }
 }
