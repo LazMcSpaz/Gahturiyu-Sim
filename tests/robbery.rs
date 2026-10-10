@@ -172,3 +172,65 @@ fn beaten_beside_a_camp_someone_is_up_within_the_hour() {
         assert!(up.is_some_and(|h| h <= 1.0), "seed {seed}: nobody up within the hour ({up:?})");
     }
 }
+
+/// Beat a feeble squad with a strong band right by its camp (world 1).
+/// Returns the world, the band and the camp's middle.
+fn beaten_by_a_camp() -> (World, u32, V2) {
+    let mut w = worldgen::generate(1);
+    let squad = w.squad.members.clone();
+    for &m in &squad {
+        for k in SKILLS {
+            w.people[m as usize].stats.set_skill(k, 1.0);
+        }
+        w.people[m as usize].recompute_might();
+    }
+    let at = w.squad.pos.add(V2::new(10.0, 0.0));
+    let band = w.spawn_bandits(at, 6, false);
+    let foes: Vec<u32> = w.group(band).unwrap().members.clone();
+    for &f in &foes {
+        w.people[f as usize].traits.boldness = 1.0;
+        for k in SKILLS {
+            w.people[f as usize].stats.set_skill(k, 70.0);
+        }
+        w.people[f as usize].recompute_might();
+    }
+    assert!(w.attack(&squad, foes[0]));
+    let mut n = 0;
+    while w.squad_battle().is_some() && n < 40_000 {
+        w.step(0.1);
+        n += 1;
+    }
+    assert!(w.squad_fit().is_empty(), "the squad lost");
+    (w, band, at)
+}
+
+/// Round 3 (Jo): one member on half health walked into the camp in daylight
+/// with five bandits there and took their things. Resting after its win, a
+/// gang still sees who walks onto its own ground.
+#[test]
+fn a_resting_gang_still_guards_its_camp() {
+    use gahturiyu_sim::sim::encounters::{DUMP_AT, GUARD_RING};
+    let (mut w, band, camp) = beaten_by_a_camp();
+    // Nobody is left lying in their camp.
+    for &m in &w.squad.members {
+        let k = w.squad.index(m).unwrap();
+        assert!(w.member_pos(k).dist(camp) > GUARD_RING, "dragged out of the camp");
+        assert!(w.member_pos(k).dist(camp) < DUMP_AT + 5.0, "but not far");
+    }
+    assert!(w.log.iter().any(|l| l.1.starts_with("They drag you out")), "{:?}", w.log);
+    // Someone comes round and goes in for the pile.
+    let ended = w.time;
+    while w.squad_fit().is_empty() && w.time < ended + 3.0 * 3600.0 {
+        w.step(30.0);
+    }
+    let up = w.squad_fit()[0];
+    let ready = w.camps.iter().find(|c| c.group == band).unwrap().ready_at;
+    assert!(ready > w.time, "the gang is resting");
+    w.order_members(&[up], camp);
+    let went = w.time;
+    while w.squad_battle().is_none() && w.time < went + 600.0 {
+        w.step(0.5);
+    }
+    assert!(w.squad_battle().is_some(), "walking into the camp starts a fight");
+    assert!(w.log.iter().any(|l| l.1.starts_with("You're seen in their camp")), "{:?}", w.log);
+}
