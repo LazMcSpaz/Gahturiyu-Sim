@@ -11,6 +11,7 @@ pub mod foliage;
 pub mod hud;
 pub mod interiors;
 pub mod light;
+pub mod lexicon;
 pub mod lootui;
 pub mod hints;
 pub mod frame;

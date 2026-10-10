@@ -92,7 +92,7 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         }
         picks.push((p, r.min(30.0) - 6.0, Hover::Town(st.id)));
         if cam.zoom > 0.06 || w.bands.band_at(st.pos) <= 2 {
-            c.centred(&st.name, p.x, p.y - r - 6.0, 15.0, TEXT);
+            c.centred(&super::lexicon::town(w, st.id), p.x, p.y - r - 6.0, 15.0, TEXT);
         }
         // Workplaces, close up.
         if cam.zoom > 0.35 {

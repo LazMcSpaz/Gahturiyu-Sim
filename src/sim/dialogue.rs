@@ -19,7 +19,6 @@ use super::person::PersonId;
 use super::quests::{compass, QuestKind, Stage};
 use super::race::Race;
 use super::rng::Rng;
-use super::stats::Calling;
 
 use super::world::{World, DAY};
 
@@ -461,6 +460,18 @@ impl World {
         self.push_talk(true, answer);
     }
 
+    /// A reply from one of the asked-about line files. Steady: the same
+    /// person gives the same answer to the same question (the pick is keyed
+    /// to them), and different people answer differently.
+    fn spoken(&mut self, c: &Conversation, topic: &str, slots: &[&str], tags: &[String], values: &[(&'static str, String)]) -> String {
+        let said = self.say_from(c.npc, c.with, topic, slots, tags, values);
+        if said.text.is_empty() {
+            "Hm. I've nothing to tell you about that.".into()
+        } else {
+            said.text
+        }
+    }
+
     fn push_talk(&mut self, npc: bool, line: String) {
         if let Some(c) = self.talk.as_mut() {
             c.lines.push((npc, line));
@@ -476,57 +487,61 @@ impl World {
         let town = p.home.map(|h| self.settlements[h as usize].clone());
         match topic {
             Topic::Background => {
-                let race = match p.race {
-                    Race::Roduro => "A Stone Tender began growing my house when I was small. It's grown up alongside me — see the bands? Same as mine.",
-                    Race::Horaro => "Born on the stilts, swimming before walking. The land-folk think we're strange for sleeping over the water. We think they're strange for not.",
-                    Race::Qotiro => "My people quarry their homes and forge their lives. Nothing is given; everything is made.",
-                    Race::Tadoro => "I lodge here, for now. I keep notes on everything — the tides, the arguments, how long the bread lasts. Someone should.",
-                };
                 let job = self.life(c.npc).job;
-                if job != super::jobs::Job::None {
-                    let place = self.workplace_of(c.npc).map(|w| format!(", at the {}", w.kind.name().to_lowercase())).unwrap_or_default();
-                    return format!("{race} These days I'm a {}{place}.", job.title(p.seed).to_lowercase());
+                let mut tags = vec![format!("calling={}", p.stats.calling.name().to_lowercase())];
+                let mut values: Vec<(&'static str, String)> = Vec::new();
+                if !matches!(job, super::jobs::Job::None | super::jobs::Job::Drifter) {
+                    tags.push("has_job".into());
+                    if let Some(w) = self.workplace_of(c.npc) {
+                        values.push(("place", format!(" at the {}", w.kind.name().to_lowercase())));
+                    }
+                } else {
+                    tags.push("no_job".into());
                 }
-                let work = match p.stats.calling {
-                    Calling::Warrior => " I've fought for coin, when there was coin to fight for.",
-                    Calling::Hunter => " I hunt, mostly. The land feeds those who watch it.",
-                    Calling::Mage => " And I study the old arts, when no one's watching too closely.",
-                    Calling::Common => ["  I mend nets.", " I keep goats, and the goats keep me.", " I carry stone for the Tenders.", " I trade what I can."][r.below(4)],
-                };
-                format!("{race}{work}")
+                self.spoken(c, "background", &["origin", "work"], &tags, &values)
             }
             Topic::ThisTown => {
-                let Some(t) = town else { return "I don't belong anywhere in particular.".into() };
+                let Some(t) = town else { return self.spoken(c, "town", &["about"], &["no_town".into()], &[]) };
                 let mut counts = [0usize; 4];
                 for &m in &t.residents {
                     counts[self.people[m as usize].race.index()] += 1;
                 }
                 let most = super::race::ALL_RACES.iter().zip(counts).max_by_key(|(_, n)| *n).map(|(r, _)| r.name()).unwrap_or("?");
-                let shore = if t.coastal {
-                    " The Horaro live on their stilts just off the shore; without them, there'd be no fish and no trade by water."
-                } else {
-                    ""
-                };
-                let ways = match self.community_of(c.npc) {
-                    Some(cm) => format!(
-                        " Here it's {}, and we keep {}.",
-                        cm.customs.cooking.name().to_lowercase(),
-                        cm.customs.rhythm.name().to_lowercase()
-                    ),
-                    None => String::new(),
-                };
-                format!("{} — the {} founded it. {} of us live here, {} most of all.{shore}{ways}", t.name, t.founders.name(), t.residents.len(), most)
+                let mut tags = vec![if t.coastal { "coastal".to_string() } else { "inland".to_string() }];
+                // The town as the speaker's people say it (its English name on hover).
+                let said = super::names::town(self, t.id).map(|n| format!("\u{27e6}{}|{}\u{27e7}", n.in_tongue(p.race.into()), t.name)).unwrap_or_else(|| t.name.clone());
+                let mut values: Vec<(&'static str, String)> = vec![
+                    ("town", said),
+                    ("founders", t.founders.name().to_string()),
+                    ("count", t.residents.len().to_string()),
+                    ("most", most.to_string()),
+                ];
+                if let Some(cm) = self.community_of(c.npc) {
+                    tags.push("customs".into());
+                    use super::culture::{Cooking, Rhythm};
+                    values.push((
+                        "cooking",
+                        match cm.customs.cooking {
+                            Cooking::Household => "each household cooks for itself",
+                            Cooking::Hearth => "the hearth kitchen feeds everyone at work, and runners carry the pots out at midday",
+                            Cooking::Deck => "we all eat together on the deck",
+                        }
+                        .to_string(),
+                    ));
+                    values.push((
+                        "rhythm",
+                        match cm.customs.rhythm {
+                            Rhythm::Seasonal => "we work longer days in summer and shorter in winter",
+                            Rhythm::Bells => "the bells call the shifts",
+                            Rhythm::Tides => "our days follow the tides",
+                            Rhythm::Irregular => "everyone keeps their own hours",
+                        }
+                        .to_string(),
+                    ));
+                }
+                self.spoken(c, "town", &["about", "folk", "ways"], &tags, &values)
             }
-            Topic::Advice => [
-                "Travel by day if you can. Bandits by the road see you a long way off in the sun, but at night they mostly have to hear you.",
-                "Heavy armour clanks. If you mean to sneak, leave the scale shirt at home.",
-                "Keep a healing draught in your pack. Two, if you're the sort who goes looking for trouble.",
-                "Lockpicks snap. Carry more than you think you need — and don't let anyone see you use them.",
-                "A mortar and pestle weighs less than a dead friend. Learn to brew.",
-                "Bandits only jump people they think they can beat. Look strong, travel together.",
-                "Doors lock at night. By day, most folk don't mind you stepping in, so long as your hands stay empty.",
-            ][r.below(7)]
-            .to_string(),
+            Topic::Advice => self.spoken(c, "advice", &["line"], &[], &[]),
             Topic::Rumours => {
                 // Something they've heard, if they've heard anything.
                 if let Some(news) = c.concerns.iter().find(|k| matches!(k.subject, super::talk::Subject::News | super::talk::Subject::Theft) && k.event.is_some()).copied() {
@@ -536,32 +551,34 @@ impl World {
                         return said.text;
                     }
                 }
-                let near = self.nearest_camp(p.home);
-                let mut lines = vec![];
+                let mut tags = Vec::new();
+                let mut values: Vec<(&'static str, String)> = Vec::new();
                 if self.stats.ambushes > 0 {
-                    lines.push(format!("Bandits have fallen on travellers {} times since the season turned. People say the roads aren't what they were.", self.stats.ambushes));
+                    tags.push("ambushes".to_string());
+                    values.push(("count", self.stats.ambushes.to_string()));
                 }
-                if let Some((d, dir, _)) = near {
-                    lines.push(format!("Folk coming in say there's a camp by the road {:.1} km {dir} of here.", d / 1000.0));
+                if let Some((d, dir, _)) = self.nearest_camp(p.home) {
+                    tags.push("camp_near".into());
+                    values.push(("km", format!("{:.1}", d / 1000.0)));
+                    values.push(("dir", dir.to_string()));
                 }
                 if let Some(h) = p.home {
                     for (origin, _) in self.bounties_known_in(h) {
                         if origin == h {
-                            lines.push("Someone's been at the locks round here. If I find out who...".into());
+                            tags.push("bounty_here".into());
                         } else {
-                            lines.push(format!("Word from {} is there's thieves on the road. Keep your door shut.", self.settlements[origin as usize].name));
+                            tags.push("bounty_road".into());
+                            values.push(("place", self.settlements[origin as usize].name.clone()));
                         }
                     }
                 }
-                lines.push("They say the Ṭaḍoro write down everything you tell them. Mind what you say.".into());
-                lines.swap_remove(r.below(lines.len()))
+                // One of the things they could say, picked like any other piece.
+                let pick = if tags.is_empty() { None } else { Some(tags[r.below(tags.len())].clone()) };
+                self.spoken(c, "rumours", &["line"], &pick.into_iter().collect::<Vec<_>>(), &values)
             }
             Topic::Bandits => match self.nearest_camp(p.home) {
-                Some((d, dir, n)) if d < 6000.0 => format!(
-                    "There's a band of {n} camped about {:.1} km {dir} of here, by the road. They pick off anyone who looks weak. Go in force, or go at night and go quiet.",
-                    d / 1000.0
-                ),
-                _ => "None close, thank the gods. Not that I've heard.".into(),
+                Some((d, dir, n)) if d < 6000.0 => self.spoken(c, "bandits", &["line"], &["camp_near".into()], &[("count", n.to_string()), ("km", format!("{:.1}", d / 1000.0)), ("dir", dir.to_string())]),
+                _ => self.spoken(c, "bandits", &["line"], &["no_camp".into()], &[]),
             },
             Topic::Work => match self.quest_offer(c.npc) {
                 Some((kind, coin, bonus)) => {

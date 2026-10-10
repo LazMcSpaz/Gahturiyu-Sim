@@ -244,7 +244,8 @@ squad's start, e.g. to put a town on the band edge). For the newer systems:
 k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 `GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`, `GAHT_DROP=k`
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
-`GAHT_TALK=1` (talk to the nearest local), `GAHT_STARVE=1`, `GAHT_EXHAUST=1`,
+`GAHT_TALK=1` (talk to the nearest local; `GAHT_TALK=roduro|qotiro|horaro|tadoro` the nearest of that people),
+`GAHT_NAMES=native|english` (the Names setting), `GAHT_STARVE=1`, `GAHT_EXHAUST=1`,
 `GAHT_CARRY=1` (member 0 carrying a downed member 2), `GAHT_LIMB=1` (member 0
 loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
 (members 0 and 1 light torches; the hunter sets a standing torch),
@@ -389,6 +390,14 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   shadow pass, so trees' shadows don't sway.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
+
+- Names (`view/lexicon.rs`, the O panel's "Names" row): towns, jobs and
+  items in common English, or as the people around you say them (the
+  nearest town's founders' tongue). Tooltips give the other form. In
+  dialogue, `{w:root}` in `data/lines/` puts in the speaker's own word,
+  marked `⟦native|meaning⟧` (`sim/speech.rs`); the talk panel draws it in
+  `NATIVE` with a dotted underline and gives its meaning along the bottom
+  when the mouse is over it. Text that can't hover uses `speech::plain`.
 
 - Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
   healing, "?"/"!" as suspicion builds, a skill rising) come from comparing

@@ -1,5 +1,7 @@
-# Something they've heard (gossip). Placeholder set.
-topic | | Have you heard? {actor} {deed} {victim}, {when}.
-topic | hidden | Someone {deed} {victim}, {when}. No one knows who.
-feeling | | People talk.
+# News of a deed in town. See FORMAT.md.
+topic | | Have you heard? {actor} {deed} {victim}, {when}. The whole street's talking about it.
+topic | hidden | Somebody {deed} {victim}, {when}. Nobody knows who, or nobody's saying.
+topic | voice=tadoro | I have it on good authority (my own notes) that {actor} {deed} {victim}, {when}.
+feeling | | People talk. They always do.
+feeling | voice=roduro | It'll be in the stone for years, that. People here don't forget.
 hook | |

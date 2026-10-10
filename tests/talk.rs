@@ -73,7 +73,9 @@ fn answers_are_steady_and_greetings_happen() {
     let again = w.talk.as_ref().unwrap().lines.last().unwrap().1.clone();
     assert_eq!(first, again);
     w.ask(Topic::ThisTown);
-    assert!(w.talk.as_ref().unwrap().lines.last().unwrap().1.contains("founded"));
+    // They name their town (in their own tongue, its English name alongside).
+    let home = w.people[npc as usize].home.unwrap();
+    assert!(w.talk.as_ref().unwrap().lines.last().unwrap().1.contains(&w.settlements[home as usize].name));
     w.ask(Topic::Goodbye);
     assert!(w.talk.is_none());
 }

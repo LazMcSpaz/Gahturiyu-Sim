@@ -10,6 +10,10 @@ pieces of text in these files. Edit them freely; no code changes needed
 - One file per **topic** someone can have on their mind: `theft.txt`,
   `grudge.txt`, `money.txt`, `hunger.txt`, `safety.txt`, `work.txt`,
   `ring.txt`, `kindness.txt`, `job.txt`, `news.txt`, `ambition.txt`.
+- One file per thing the squad can **ask about**: `background.txt` ("tell
+  me about yourself"), `town.txt`, `advice.txt`, `rumours.txt`,
+  `bandits.txt`. Each says at its top which slots it uses and which extra
+  tags and slot values it gets.
 
 ## A line
 
@@ -61,9 +65,24 @@ The topic: `topic=theft` etc., plus the topic's own tags:
 - work: `lost_post`.  ring: `extorted`.  job: `has_offer`, `unlawful`.
 - news: `hidden`.
 
+## Their own words
+
+`{w:friend}` puts in the speaker's own word for a root from
+`assets/lang/roots.ron` (a Roduro says *oqe*, a Horaro *oe*); `{W:friend}`
+capitalises it, to start a sentence. In the game the word stands out and
+shows its meaning when the mouse is over it. Use them the way a local
+would: a greeting, a blessing, a word for something that matters to their
+people (hearth, tide, honour, stone). One or two in a line is plenty.
+`cargo run --release --bin lang -- make friend tide` shows the words.
+
+Write lines as people speak: whole sentences, with the little words left
+in. Not "Robbed. {item}, {when}." but "I've been robbed. They took {item}
+{when}." Don't give a line facts the game doesn't know (a cousin, last
+winter, a named cove): the tags and slots are what's true.
+
 ## Slots
 
-`{name}` (speaker), `{town}`, `{item}`, `{when}` ("last night", "two days
+`{name}` (speaker), `{job}` ("merchant", "priestess"), `{a_job}` ("a merchant"), `{town}`, `{item}`, `{when}` ("last night", "two days
 ago"), `{workplace}`, `{place}`, `{thief}`, `{victim}`, `{actor}`,
 `{deed}`, `{count}`, `{span}` ("week"), `{pay}`, `{days}`, `{reward}`,
 `{target}` (the other person or household), `{relation}` ("my neighbour",

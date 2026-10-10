@@ -1,6 +1,7 @@
-# The ring. Placeholder set.
-topic | extorted | They come round for their share every few days now.
-topic | | There are people in this town you don't cross.
-feeling | afraid | I'll not say their names.
+# The town's criminal ring. See FORMAT.md.
+topic | extorted | They come round for their share every few days now. Smile, pay, and don't ask questions.
+topic | | There are people in this town you don't cross. You'll learn who, if you stay long enough.
+feeling | afraid | I won't say their names. Not out loud.
+feeling | voice=qotiro | They have no {w:honour}, and they know it. That's what makes them dangerous.
 hook | |
-bark | | Mind who you talk to.
+bark | | Mind who you talk to round here.

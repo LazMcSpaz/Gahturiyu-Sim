@@ -1,0 +1,23 @@
+# This town: "Tell me about this town." Three pieces: about (what the
+# place is), folk (who lives here), ways (how they do things). See FORMAT.md.
+# Tags here: coastal, inland, customs, no_town.
+# Slots: {town}, {founders} (the people who founded it), {count} (how many
+# live here), {most} (the people most of them are), {cooking} and {rhythm}
+# (clauses: "each household cooks for itself", "the bells call the shifts").
+
+about | no_town | I don't belong anywhere in particular. Wherever I put my tent down, that's home for the night.
+about | | This is {town}. The {founders} founded it, long before my time.
+about | voice=roduro | This is {town}. The {founders} grew the first houses here, and some of them are still standing, still growing.
+about | voice=qotiro | {town}. The {founders} cut the first stones here. It has stood ever since, which is more than most places can say.
+about | voice=horaro | This is {town}, {w:friend}. The {founders} founded it, but ask anyone on the stilts and they'll tell you the shore was ours first.
+about | voice=tadoro | {town}. The {founders} founded it; I only write about it. I've three pages on it so far, and the bread alone could fill a fourth.
+
+folk | | About {count} of us live here, {most} more than any.
+folk | voice=horaro, coastal | About {count} of us, {most} mostly. Out on the water are the stilts: without us there'd be no fish and no trade by sea, and the land-folk know it.
+folk | coastal | About {count} of us live here, {most} more than any. The Horaro keep to their stilts just off the shore; without them there'd be no fish here at all.
+folk | voice=tadoro | {count} people, at my last count, {most} more than any. I counted twice to be sure.
+
+ways | customs | Here {cooking}, and {rhythm}.
+ways | customs, voice=roduro | Here {cooking}, and {rhythm}. It's the way the {w:elder} taught us, and their elders before them.
+ways | customs, voice=tadoro | Here {cooking}, and {rhythm}. You get used to it, the way you get used to anything.
+ways | |
