@@ -3,3 +3,39 @@
 # (sounds.toml lists the knobs) and the rhythm and melody of the speech.
 # The panel rewrites this file when an accent is saved; notes added by hand
 # are not kept.
+
+[roduro_v1]
+label = "Roduro: step 1 of its tongue's ladder, picked by ear on 2026-10-10"
+tongue = "roduro"
+thickness = 1
+reading = "en-us"
+voices = ["hm_omega", "hm_psi", "hf_alpha", "hf_beta", "im_nicola", "jm_kumo", "bm_george", "am_onyx", "bf_emma"]
+sounds = { r = "flick", diphthongs = "pure" }
+delivery = { speed = 0.88, pause = 1.3, range = 0.85, pitch = -1.0 }
+
+[qotiro_v1]
+label = "Qotiro: step 3 of its tongue's ladder, picked by ear on 2026-10-10"
+tongue = "qotiro"
+thickness = 3
+reading = "en-us"
+voices = ["em_alex", "em_santa", "ef_dora", "im_nicola", "if_sara", "am_fenrir", "am_onyx", "bm_lewis", "af_kore"]
+sounds = { r = "roll", length = "clipped", th = "stop", h = "rasp", endings = "hard", stress = "first", diphthongs = "pure", k_g = "throaty" }
+delivery = { speed = 1.08, pause = 0.75, range = 0.8, energy = 0.5, lilt = -1.0 }
+
+[horaro_v1]
+label = "Horaro: step 3 of its tongue's ladder, picked by ear on 2026-10-10"
+tongue = "horaro"
+thickness = 3
+reading = "en-gb"
+voices = ["pf_dora", "pm_alex", "ff_siwis", "jf_alpha", "jm_kumo", "bf_emma", "bf_isabella", "bm_daniel", "af_nicole"]
+sounds = { r = "flick", length = "long", th = "breath:light", vowel_set = "round:light", k_g = "soft_g:light", p_b = "glide:light" }
+delivery = { speed = 0.92, pause = 1.15, range = 1.15, energy = -0.4 }
+
+[tadoro_v1]
+label = "Ṭaḍoro: step 2 of its tongue's ladder, picked by ear on 2026-10-10"
+tongue = "tadoro"
+thickness = 2
+reading = "en-gb"
+voices = ["am_puck", "bf_lily", "af_heart", "af_sky", "zf_xiaoxiao", "zm_yunxi", "bm_fable", "ff_siwis"]
+sounds = { vowel_set = "blur:light" }
+delivery = { speed = 1.12, pause = 0.85, range = 1.1, lilt = 2.0, pitch = 1.0, energy = -0.2 }

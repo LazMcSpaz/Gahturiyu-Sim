@@ -109,8 +109,8 @@ delivery = { speed = 0.92, pause = 1.15, range = 1.15, energy = -0.4 }
 sounds = { r = "flick", length = "long" }
 
 [[horaro.step]]
-what = "th melts to h; weak vowels round"
-sounds = { th = "breath", vowel_set = "round:light" }
+what = "inside words th melts to h; weak vowels round"
+sounds = { th = "breath:light", vowel_set = "round:light" }
 
 [[horaro.step]]
 what = "inside words g melts to w, and p and b to w"
