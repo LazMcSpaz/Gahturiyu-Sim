@@ -203,7 +203,9 @@ impl World {
             .collect();
         let members: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)).collect();
         // Rates don't change much within one step; work them out once.
-        let ticks = (last - first + 1).min(400) as f32;
+        // (However long the step: a cap here would make a long step count
+        // for less than the same time in short ones.)
+        let ticks = (last - first + 1) as f32;
         let mut noticed = Vec::new();
         for &(gid, from, resting) in &watchers {
             let mut when = None;
@@ -212,10 +214,14 @@ impl World {
                     Some(home) if self.person_pos(m).dist(home) > super::encounters::GUARD_RING => (0.0, false),
                     _ => self.detect_rate(gid, from, m),
                 };
+                // Sneak is learned by creeping about unseen, not by crouching
+                // still (or sleeping) beside a camp.
+                let creeping = self.squad.index(m).is_some_and(|k| self.squad.at[k].dist(self.squad.goal[k]) > 0.5) && !self.is_asleep(m) && !self.is_down(m);
                 let meter = self.suspicion.entry((gid, m)).or_insert(0.0);
                 let before = *meter;
                 if rate > 0.0 {
-                    *meter += rate * TICK as f32 * ticks;
+                    // Full is full: a meter never banks more than "seen".
+                    *meter = (*meter + rate * TICK as f32 * ticks).min(1.0);
                 } else {
                     *meter = (*meter - 0.15 * TICK as f32 * ticks).max(0.0);
                 }
@@ -225,7 +231,7 @@ impl World {
                     let t = (first + need - 1) as f64 * TICK;
                     when = Some(when.map_or(t, |w: f64| w.min(t)));
                 }
-                if near && *meter < 1.0 && self.is_sneaking(m) {
+                if near && *meter < 1.0 && self.is_sneaking(m) && creeping {
                     self.people[m as usize].stats.exercise(Skill::Sneak, 0.05 * TICK as f32 * ticks);
                 }
             }

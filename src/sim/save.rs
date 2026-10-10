@@ -24,7 +24,7 @@ use super::world::World;
 const MAGIC: &[u8; 4] = b"GAHT";
 /// Bumped whenever what's saved changes shape; older saves are refused
 /// rather than misread.
-pub const FORMAT: u32 = 46;
+pub const FORMAT: u32 = 49;
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -90,6 +90,25 @@ impl World {
         std::fs::File::open(path).and_then(|mut f| f.read_to_end(&mut bytes)).map_err(LoadError::Io)?;
         World::load_bytes(&bytes)
     }
+}
+
+// --- The same world, the same bytes -------------------------------------------
+//
+// A hash map or set comes out in whatever order it happens to hold its
+// entries, which differs from one run to the next. Saved in key order, two
+// worlds that are the same save to the same bytes (NM-79). The bytes are
+// laid out as before, so nothing changes for loading.
+
+pub fn sorted_map<K: Ord + Serialize, V: Serialize, S: serde::Serializer>(m: &std::collections::HashMap<K, V>, s: S) -> Result<S::Ok, S::Error> {
+    let mut v: Vec<(&K, &V)> = m.iter().collect();
+    v.sort_by(|a, b| a.0.cmp(b.0));
+    s.collect_map(v)
+}
+
+pub fn sorted_set<K: Ord + Serialize, S: serde::Serializer>(m: &std::collections::HashSet<K>, s: S) -> Result<S::Ok, S::Error> {
+    let mut v: Vec<&K> = m.iter().collect();
+    v.sort();
+    s.collect_seq(v)
 }
 
 // --- Fixed names and tables ------------------------------------------------

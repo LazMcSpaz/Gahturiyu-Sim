@@ -66,6 +66,8 @@ impl World {
     pub(super) fn bounty_settled(&mut self, origin: SettlementId) {
         self.bounty.remove(&origin);
         self.news.retain(|k, _| k.1 != origin);
+        // What was stolen there is settled with it (`law.rs`).
+        self.hot.retain(|h| h.town != origin);
     }
 
     /// A group has just set out from home: if home had heard anything by the

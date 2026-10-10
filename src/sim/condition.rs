@@ -463,14 +463,15 @@ impl World {
         if own.is_none() && self.resident_of(pid).is_some() {
             return self.base_food_for(pid, hunger);
         }
-        own
+        // A town feeds those it holds to work (NM-34).
+        own.or_else(|| self.bound_food_for(pid))
     }
 
     /// Eat something now (or at `t`): hunger drops by its nourishment.
     pub fn eat(&mut self, pid: PersonId, it: ItemId, t: f64) -> bool {
         let Kind::Food(n) = item(it).kind else { return false };
         // From their own pack; a base's resident with none of it, from the store.
-        let had = self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) || (self.resident_of(pid).is_some() && self.base_take_food(pid, it));
+        let had = self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) || (self.resident_of(pid).is_some() && self.base_take_food(pid, it)) || self.bound_take_food(pid, it);
         if !had {
             return false;
         }

@@ -78,6 +78,11 @@ impl World {
 
     /// Notice jobs that have been done out in the world.
     pub(super) fn update_quests(&mut self) {
+        // A camp stays beaten only until its gang has rested and is back on
+        // its feet (the camp's ready dawn); then it has to be beaten again.
+        let t = self.time;
+        let camps = &self.camps;
+        self.beaten_camps.retain(|g| camps.iter().any(|c| c.group == *g && c.ready_at > t));
         for i in 0..self.quests.len() {
             let q = &self.quests[i];
             if q.stage != Stage::Active {
@@ -100,13 +105,41 @@ impl World {
         }
     }
 
-    /// How many of an item the whole squad carries.
+    /// How many of an item the whole squad carries. Money is coin and notes
+    /// together: a note pays as fifty coin anywhere coin is asked for (NM-27).
     pub fn squad_count(&self, it: ItemId) -> u16 {
+        let n = self.squad_has(it);
+        if it == items::id("coin") {
+            n.saturating_add(self.squad_has(items::id("note")).saturating_mul(super::economy::NOTE_VALUE))
+        } else {
+            n
+        }
+    }
+
+    /// How many of exactly this the squad carries (coin without the notes).
+    pub fn squad_has(&self, it: ItemId) -> u16 {
         self.squad.members.iter().filter_map(|&m| self.people[m as usize].detail.as_ref()).map(|d| d.gear.bag.iter().filter(|e| e.0 == it).map(|e| e.1).sum::<u16>()).sum()
     }
 
-    /// Take `n` of an item from whoever in the squad has them.
-    pub(super) fn take_from_squad(&mut self, it: ItemId, mut n: u16) {
+    /// Take `n` of an item from whoever in the squad has them. Short of
+    /// coin, a note is broken: the change stays with whoever held it.
+    pub(super) fn take_from_squad(&mut self, it: ItemId, n: u16) {
+        let mut n = self.take_plain(it, n);
+        if it != items::id("coin") {
+            return;
+        }
+        let note = items::id("note");
+        while n > 0 {
+            let Some(m) = self.squad.members.clone().into_iter().find(|&m| self.people[m as usize].detail.as_mut().is_some_and(|d| d.gear.take(note))) else { break };
+            if let Some(d) = self.people[m as usize].detail.as_mut() {
+                d.gear.add(it, super::economy::NOTE_VALUE);
+            }
+            n = self.take_plain(it, n);
+        }
+    }
+
+    /// Take up to `n` of exactly this item; returns how many are still to find.
+    fn take_plain(&mut self, it: ItemId, mut n: u16) -> u16 {
         for m in self.squad.members.clone() {
             while n > 0 {
                 let took = self.people[m as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false);
@@ -117,6 +150,7 @@ impl World {
             }
             self.people[m as usize].recompute_might();
         }
+        n
     }
 
     /// Pay out a finished job to `who`.

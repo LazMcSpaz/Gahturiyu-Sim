@@ -257,7 +257,10 @@ impl World {
                 // This one's gone.
                 let p = &mut self.people[pid as usize];
                 let next = p.detail.as_mut().and_then(|d| {
-                    d.gear.discard(Slot::OffHand);
+                    // Only a torch burns away: whatever else is in that hand stays.
+                    if d.gear.in_slot(Slot::OffHand).is_some_and(is_torch) {
+                        d.gear.discard(Slot::OffHand);
+                    }
                     let spare = d.gear.bag.iter().map(|e| e.0).find(|&i| is_torch(i))?;
                     d.gear.equip(spare).ok().map(|_| spare)
                 });

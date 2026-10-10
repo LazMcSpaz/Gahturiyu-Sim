@@ -1163,13 +1163,9 @@ impl World {
                 self.society.lives[p as usize].job = Job::None;
                 self.society.lives[p as usize].place = None;
             }
-            for (p, job) in self.assign_jobs(ci, Some(day)) {
-                if self.bands.band_at(self.settlements[t as usize].pos) <= 2 {
-                    let who = self.name_of(p);
-                    self.log.push_front((day as f64 * DAY + DAWN as f64 * HOUR, format!("{who} takes up work as {} in {}.", job.name().to_lowercase(), self.settlements[t as usize].name)));
-                    self.log.truncate(14);
-                }
-            }
+            // (Who takes which post at dawn isn't news to the squad: the
+            // town panel and the people themselves say it. NM-63.)
+            self.assign_jobs(ci, Some(day));
         }
         if self.society.towns[t as usize].gardens.iter().any(|g| g.gardener.map(|p| self.people[p as usize].dead || self.people[p as usize].home != Some(t)).unwrap_or(true)) {
             self.choose_gardeners(t);

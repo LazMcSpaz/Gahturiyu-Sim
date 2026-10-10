@@ -178,3 +178,92 @@ fn breaking_a_camp_is_noticed_and_paid() {
     // Paid what was promised (or a favour owed, from someone who can't pay).
     assert!(w.squad_count(items::id("coin")) >= w.quests[0].coin);
 }
+
+/// NM-54: a talk ends when the two part; nothing is said or sold at a distance.
+#[test]
+fn a_talk_ends_when_the_two_part() {
+    let mut w = worldgen::generate(1);
+    w.step(3.0 * 3600.0);
+    let npc = locals(&w).into_iter().find(|&p| !w.is_indoors_asleep(p) && !w.people[p as usize].dead && w.building_at(w.person_pos(p)).is_none()).expect("someone out of doors");
+    let lead = talk_to(&mut w, npc);
+    // Standing with them, it stays open.
+    walk(&mut w, 3.0);
+    assert!(w.talk.is_some(), "still talking");
+    assert!(w.topics().len() > 1);
+    // Walk off: it's over, and nothing can be asked.
+    let k = w.squad.index(lead).unwrap();
+    let away = w.squad.at[k].add(V2::new(60.0, 0.0));
+    w.order_members(&[lead], away);
+    walk(&mut w, 60.0);
+    assert!(w.squad.at[k].dist(w.person_pos(npc)) > 20.0, "they parted");
+    assert!(w.talk.is_none(), "the talk is over once they've parted");
+    assert!(w.topics().is_empty());
+}
+
+/// NM-62: the first-meeting greeting once; "you again" and warmth only for
+/// someone they've talked with before.
+#[test]
+fn greetings_follow_whether_you_have_met() {
+    use gahturiyu_sim::sim::talk;
+    let mut w = worldgen::generate(1);
+    w.step(3.0 * 3600.0);
+    let lead = w.squad.members[0];
+    // The local who thinks best of the lead on sight (sociable, the same people).
+    let npc = locals(&w)
+        .into_iter()
+        .filter(|&p| !w.people[p as usize].dead && !w.is_indoors_asleep(p))
+        .max_by(|&a, &b| w.regard_of(a, lead).total_cmp(&w.regard_of(b, lead)))
+        .unwrap();
+    w.regard.insert(npc, 40.0);
+    assert!(w.regard_of(npc, lead) > talk::WARM, "well disposed from the start: {:.0}", w.regard_of(npc, lead));
+    let musts = |w: &World| -> Vec<&'static str> {
+        let said = &w.talk.as_ref().unwrap().pieces;
+        talk::pieces().iter().filter(|p| said.contains(&p.id)).flat_map(|p| p.must.clone()).collect()
+    };
+    assert!(!w.met.contains(&(npc, lead)));
+    talk_to(&mut w, npc);
+    let first = musts(&w);
+    assert!(!first.contains(&"warm") && !first.contains(&"known"), "a first meeting isn't greeted as a friend: {first:?}: {}", w.talk.as_ref().unwrap().lines[0].1);
+    assert!(w.met.contains(&(npc, lead)));
+    w.ask(Topic::Goodbye);
+    talk_to(&mut w, npc);
+    let second = musts(&w);
+    assert!(!second.contains(&"stranger"), "met before: {second:?}: {}", w.talk.as_ref().unwrap().lines[0].1);
+    // Someone else of the squad is still a stranger to them.
+    assert!(!w.met.contains(&(npc, w.squad.members[1])));
+}
+
+/// NM-64, NM-67: hearsay has no count; a thing taken is named as it's said.
+#[test]
+fn rumours_have_no_count_and_things_taken_read_right() {
+    use gahturiyu_sim::sim::talk;
+    for p in talk::pieces() {
+        assert!(p.topic != "rumours" || !p.text.contains("{count}"), "{}", p.text);
+        assert!(p.topic != "money" || !p.text.contains("We owe {debt} coin"), "{}", p.text);
+    }
+    assert_eq!(talk::a_thing(items::id("spear")), "a spear");
+    assert_eq!(talk::a_thing(items::id("iron_helm")), "an iron helm");
+    assert_eq!(talk::a_thing(items::id("flatbread")), "flatbread");
+    assert_eq!(talk::a_thing(items::id("arrows")), "arrows");
+}
+
+/// NM-63 = BL-36: two days standing in town, and the news holds nothing the
+/// squad couldn't see or wouldn't miss.
+#[test]
+fn the_news_isnt_crowded_with_passers_by() {
+    let mut w = worldgen::generate(1);
+    let mut all: Vec<String> = Vec::new();
+    for _ in 0..2 * 24 * 6 {
+        w.step(600.0);
+        for l in w.log.iter() {
+            if !all.contains(&l.1) {
+                all.push(l.1.clone());
+            }
+        }
+    }
+    for l in &all {
+        for no in ["bound for", "heading home", "crosses your path", "comes into view", "takes up work as", " m away", "for a day's work"] {
+            assert!(!l.contains(no), "pushed at the squad: {l}");
+        }
+    }
+}

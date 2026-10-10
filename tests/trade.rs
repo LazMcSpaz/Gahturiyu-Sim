@@ -221,3 +221,22 @@ fn what_something_sells_for_here_is_what_a_merchant_here_pays() {
     w.squad.pos = far;
     assert_eq!(w.sells_for_held(me, draught, None), Some((here, town)));
 }
+
+/// NM-24, N4 (Laz: B): a merchant won't buy what their own town knows was
+/// stolen in it; a merchant elsewhere will.
+#[test]
+fn stolen_goods_have_no_buyer_in_the_town_they_were_taken_in() {
+    use gahturiyu_sim::sim::inventory::Entry;
+    let helm = items::id("iron_helm");
+    let (mut w, merchant) = market(1, helm);
+    let town = w.people[merchant as usize].home.unwrap();
+    assert!(w.offer(merchant, helm, None).is_some(), "bought, before anything is known");
+    w.mark_hot(town, &[Entry(helm, 1, None)], None);
+    assert_eq!(w.offer(merchant, helm, None), None, "not once the town knows one was stolen");
+    let me = w.squad.members[0];
+    give(&mut w, me, helm, 1);
+    assert!(!w.sellable(merchant).iter().any(|x| x.0 == helm), "and it isn't on the list of what they'd take");
+    // A merchant of another town knows nothing of it.
+    let elsewhere = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).find(|&p| w.life(p).job == Job::Merchant && w.people[p as usize].home != Some(town) && w.at_work(p, w.time) && w.offer(p, helm, None).is_some());
+    assert!(elsewhere.is_some(), "it still sells somewhere else");
+}

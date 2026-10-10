@@ -48,8 +48,11 @@
 use serde::{Deserialize, Serialize};
 
 use super::combat::{Battle, Fighter};
+use super::containers::ContainerId;
 use super::culture::{self, Blend, Justice, Rule, Slavery, RULES};
 use super::history::Deed;
+use super::inventory::Entry;
+use super::items::{self, ItemId};
 use super::jobs::Job;
 use super::person::PersonId;
 use super::race::Race;
@@ -129,6 +132,21 @@ pub const RECORD_WEIGHT: f32 = 5.0;
 pub const BOND_REACH: f32 = 150.0;
 /// The longest a duel goes on, seconds.
 pub const DUEL_SECS: f64 = 180.0;
+/// How far apart a duel's two fighters start, metres: far enough that it
+/// can be watched (and that the first blow isn't the last).
+pub const DUEL_GAP: f32 = 12.0;
+/// A town doesn't send out a champion more hurt than this (share of health).
+pub const CHAMPION_FIT: f32 = 0.6;
+/// Squad members this near someone arrested are searched with them, metres.
+pub const SEARCH_REACH: f32 = 30.0;
+/// What running from a bond adds to the price of the days still owed.
+pub const RUN_PRICE: f32 = 60.0;
+/// The most stolen things a town keeps track of.
+pub const HOT_MAX: usize = 64;
+/// What a town gives someone it holds to work, when they have no food of
+/// their own, and how much of its stock a meal is.
+pub const BOUND_MEAL: &str = "flatbread";
+pub const BOUND_MEAL_UNITS: f32 = 0.5;
 
 // ---- State -----------------------------------------------------------------
 
@@ -222,6 +240,18 @@ pub struct Bond {
     pub since: f64,
     /// Free from then (infinite for a slave).
     pub until: f64,
+}
+
+/// Something seen stolen, that the town it was taken in knows of: it goes
+/// back when one of the squad is caught there, and no merchant there will
+/// buy it meanwhile.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Hot {
+    pub town: SettlementId,
+    pub item: ItemId,
+    pub n: u16,
+    /// The chest it came out of, if it came out of one.
+    pub from: Option<ContainerId>,
 }
 
 /// A duel the law set, being fought now.
@@ -785,7 +815,8 @@ impl World {
         if self.people[who as usize].in_squad {
             let name = self.name_of(who);
             let place = self.settlements[town as usize].name.clone();
-            let line = format!("{name} is bound to work in {place} for {:.0} days: led off to work it off. An official there can sell you the bond.", (until - t) / DAY);
+            let days = ((until - t) / DAY).ceil() as i64;
+            let line = if days <= 1 { format!("{name} is bound to work in {place} for a day.") } else { format!("{name} is bound to work in {place} for {days} days.") };
             self.alerts.push(line.clone());
             self.say(t, line);
         }
@@ -892,6 +923,12 @@ impl World {
         self.shunned.iter().any(|s| s.0 == p && s.1 == community && s.2 > self.time)
     }
 
+    /// The town that has turned its back on this squad member, if one has
+    /// (the one whose shunning runs longest).
+    pub fn shunned_in(&self, p: PersonId) -> Option<SettlementId> {
+        self.shunned.iter().filter(|s| s.0 == p && s.2 > self.time).max_by(|a, b| a.2.total_cmp(&b.2)).and_then(|s| self.society.communities.get(s.1 as usize)).map(|c| c.town)
+    }
+
     // ---- Standing and posts ------------------------------------------------------
 
     /// What someone has earned in a town, less what's on the public record
@@ -977,8 +1014,18 @@ impl World {
     pub fn judge(&mut self, who: PersonId, town: SettlementId, wrong: Wrong, fine: f32, custom: Justice) {
         let t = self.time;
         let name = self.name_of(who);
+        // What was seen stolen here goes back; the worth of what can't be
+        // found is on top of the fine (NM-24).
+        let gone = self.take_hot_back(who, town);
         // Whole coin from here on: the sum named is the sum taken (NM-38).
-        let fine = fine.round().max(1.0);
+        let fine = fine.round().max(1.0) + gone.round();
+        // What the town already held against the squad is called in with
+        // it (NM-29).
+        let owed = self.bounty.get(&town).copied().unwrap_or(0.0).round().max(0.0);
+        if owed > 0.0 {
+            self.bounty_settled(town);
+        }
+        let with_owed = if owed > 0.0 { format!(", and the {owed:.0} already owed: {:.0} in all", fine + owed) } else { String::new() };
         // Nobody sleeps through their own arrest (NM-30).
         if self.is_asleep(who) && !self.is_down(who) {
             self.order_wake(&[who]);
@@ -987,12 +1034,20 @@ impl World {
         let place = self.settlements[town as usize].name.clone();
         match custom {
             Justice::Elders => {
-                self.say(t, format!("{name} is judged by the elders of {place} for {}: a fine of {fine:.0}.", wrong.name()));
-                self.pay_or_bond(who, town, fine);
+                self.say(t, format!("{name} is judged by the elders of {place} for {}: a fine of {fine:.0}{with_owed}.", wrong.name()));
+                self.pay_or_bond(who, town, fine + owed);
             }
             Justice::Duel => {
+                // What was owed is paid now if it can be; what can't rides
+                // on the duel.
+                let coin = items::id("coin");
+                let pay = (self.squad_count(coin) as f32).min(owed).floor();
+                if pay >= 1.0 {
+                    self.take_from_squad(coin, pay as u16);
+                    self.say(t, format!("{name} pays the {pay:.0} coin already owed in {place}."));
+                }
                 self.say(t, format!("{name} must answer for {} by duel in {place}.", wrong.name()));
-                self.start_duel(who, town, fine);
+                self.start_duel(who, town, fine + (owed - pay));
             }
             Justice::Shunning => {
                 // Whichever community holds to shunning turns its back.
@@ -1000,6 +1055,10 @@ impl World {
                 let ci = std::iter::once(tl.shore).chain(tl.stilts).find(|&c| self.society.communities[c as usize].customs.justice == Justice::Shunning).unwrap_or(tl.shore);
                 self.shunned.push((who, ci, t + SHUN_DAYS * DAY));
                 self.say(t, format!("{place} turns its back on {name} for {}: no one will trade with them.", wrong.name()));
+                // (Shunning asks no fine; what was owed or is missing still is.)
+                if owed + gone.round() >= 1.0 {
+                    self.pay_or_bond(who, town, owed + gone.round());
+                }
             }
             Justice::Record => {
                 // (The gravest are on the record already.)
@@ -1007,7 +1066,9 @@ impl World {
                     *self.records.entry(who).or_insert(0.0) += wrong.gravity();
                 }
                 self.say(t, format!("{name}'s {} in {place} is written into the record; it will follow them.", wrong.name()));
-                self.pay_or_bond(who, town, (fine * 0.5).round().max(1.0));
+                // (Half the fine; what's missing or was owed in full.)
+                let half = ((fine - gone.round()) * 0.5).round().max(1.0) + gone.round();
+                self.pay_or_bond(who, town, half + owed);
             }
         }
     }
@@ -1032,7 +1093,8 @@ impl World {
             },
         );
         if short >= 1.0 {
-            let days = (short / BOND_DAY_VALUE).clamp(1.0, BOND_MAX_DAYS) as f64;
+            // Whole days, so "for 2 days" is two days (NM-36).
+            let days = (short / BOND_DAY_VALUE).ceil().clamp(1.0, BOND_MAX_DAYS) as f64;
             let t = self.time;
             self.bond(who, town, None, t, t + days * DAY);
         }
@@ -1056,12 +1118,155 @@ impl World {
         }
         self.take_from_squad(coin, price);
         let t = self.time;
-        for b in self.bonds.iter_mut().filter(|b| b.who == who && b.until > t) {
-            b.until = t;
-        }
+        self.bonds.retain(|b| b.who != who);
         let name = self.name_of(who);
         self.say(t, format!("{name} is bought out of their bond."));
         Ok(())
+    }
+
+    /// A squad member's bond has run its term: say so, at the moment it
+    /// ended, and let it go (NM-36).
+    fn bonds_end(&mut self) {
+        let t = self.time;
+        let over = |w: &World, b: &Bond| b.until <= t && w.people[b.who as usize].in_squad;
+        let done: Vec<Bond> = self.bonds.iter().copied().filter(|b| over(self, b)).collect();
+        if done.is_empty() {
+            return;
+        }
+        self.bonds.retain(|b| !done.contains(b));
+        for b in done {
+            let line = format!("{}'s bond in {} is worked off.", self.name_of(b.who), self.settlements[b.town as usize].name);
+            self.alerts.push(line.clone());
+            self.say(b.until, line);
+        }
+    }
+
+    /// Whole days left of a squad member's bond (none for a slave's).
+    pub fn bond_days_left(&self, who: PersonId) -> Option<i64> {
+        let b = self.bond_of(who)?;
+        (!b.slave).then(|| ((b.until - self.time) / DAY).ceil().max(1.0) as i64)
+    }
+
+    /// What a town gives someone it holds to work who has no food of their
+    /// own (NM-34): bread, while it has any food in store.
+    pub(super) fn bound_food_for(&self, who: PersonId) -> Option<ItemId> {
+        let b = self.bond_of(who)?;
+        let tl = self.society.towns.get(b.town as usize)?;
+        super::jobs::FOODS.iter().any(|g| tl.stock[g.index()].base >= BOUND_MEAL_UNITS).then(|| items::id(BOUND_MEAL))
+    }
+
+    /// The meal itself comes out of the town's store.
+    pub(super) fn bound_take_food(&mut self, who: PersonId, it: ItemId) -> bool {
+        if it != items::id(BOUND_MEAL) {
+            return false;
+        }
+        let Some(town) = self.bond_of(who).map(|b| b.town) else { return false };
+        let Some(tl) = self.society.towns.get_mut(town as usize) else { return false };
+        let Some(g) = super::jobs::FOODS.iter().find(|g| tl.stock[g.index()].base >= BOUND_MEAL_UNITS) else { return false };
+        tl.stock[g.index()].base -= BOUND_MEAL_UNITS;
+        true
+    }
+
+    // ---- What was seen stolen ----------------------------------------------------
+
+    /// Wrongs a town has been told of since dawn (none out in the wild):
+    /// read before and after `wrong_seen` to learn whether it was told.
+    pub(super) fn wrongs_in(&self, town: SettlementId) -> f32 {
+        self.society.towns.get(town as usize).map(|t| t.gov.wrongs).unwrap_or(0.0)
+    }
+
+    /// A theft the town was told of: it knows what went.
+    pub fn mark_hot(&mut self, town: SettlementId, things: &[Entry], from: Option<ContainerId>) {
+        for e in things {
+            match self.hot.iter_mut().find(|h| h.town == town && h.item == e.0 && h.from == from) {
+                Some(h) => h.n = h.n.saturating_add(e.1),
+                None => self.hot.push(Hot { town, item: e.0, n: e.1, from }),
+            }
+        }
+        let n = self.hot.len();
+        if n > HOT_MAX {
+            self.hot.drain(..n - HOT_MAX);
+        }
+    }
+
+    /// Does this town know one of these as stolen?
+    pub fn is_hot(&self, town: SettlementId, it: ItemId) -> bool {
+        self.hot.iter().any(|h| h.town == town && h.item == it && h.n > 0)
+    }
+
+    /// The town whose stolen thing this is, if a town knows one as stolen.
+    pub(super) fn hot_owner(&self, it: ItemId) -> Option<SettlementId> {
+        self.hot.iter().find(|h| h.item == it && h.n > 0).map(|h| h.town)
+    }
+
+    /// One of them is back with its owner (put down in that town).
+    pub(super) fn hot_less(&mut self, town: SettlementId, it: ItemId) {
+        if let Some(h) = self.hot.iter_mut().find(|h| h.town == town && h.item == it && h.n > 0) {
+            h.n -= 1;
+        }
+        self.hot.retain(|h| h.n > 0);
+    }
+
+    /// One of something from a squad member: out of the pack, or (`worn`)
+    /// off their back.
+    fn take_one(&mut self, m: PersonId, it: ItemId, worn: bool) -> Option<Option<super::materials::Piece>> {
+        let d = self.people[m as usize].detail.as_mut()?;
+        if !worn {
+            return d.gear.take_piece(it);
+        }
+        let s = items::SLOTS.into_iter().find(|&s| d.gear.in_slot(s) == Some(it))?;
+        let piece = d.gear.piece(s).copied();
+        d.gear.discard(s);
+        Some(piece)
+    }
+
+    /// Someone of the squad is caught in a town that knows what was stolen:
+    /// it is taken back from them and from squad members standing near (into
+    /// the chest it came from, if it came from one). Returns the worth of
+    /// what couldn't be found.
+    fn take_hot_back(&mut self, who: PersonId, town: SettlementId) -> f32 {
+        let known: Vec<Hot> = self.hot.iter().copied().filter(|h| h.town == town).collect();
+        if known.is_empty() {
+            return 0.0;
+        }
+        self.hot.retain(|h| h.town != town);
+        let (t, at) = (self.time, self.person_pos(who));
+        let mut holders = vec![who];
+        holders.extend(self.squad.members.iter().copied().filter(|&m| m != who && self.person_pos(m).dist(at) <= SEARCH_REACH));
+        let (mut back, mut gone): (Vec<(ItemId, u16)>, f32) = (Vec::new(), 0.0);
+        for h in known {
+            // Out of everyone's packs first; only then what someone has on.
+            let mut got = 0u16;
+            for worn in [false, true] {
+                for &m in &holders {
+                    while got < h.n {
+                        let Some(piece) = self.take_one(m, h.item, worn) else { break };
+                        got += 1;
+                        if let Some(c) = h.from {
+                            self.put_into(c, &[Entry(h.item, 1, piece)]);
+                        }
+                    }
+                }
+            }
+            if got > 0 {
+                match back.iter_mut().find(|x| x.0 == h.item) {
+                    Some(x) => x.1 += got,
+                    None => back.push((h.item, got)),
+                }
+            }
+            gone += items::item(h.item).value * (h.n - got) as f32;
+        }
+        for m in holders {
+            self.people[m as usize].recompute_might();
+            self.settle_condition(m, t);
+        }
+        if !back.is_empty() {
+            let names: Vec<String> = back.iter().map(|&(it, n)| if n > 1 { format!("{n} {}", items::item(it).name.to_lowercase()) } else { items::item(it).name.to_lowercase() }).collect();
+            let line = format!("The watch takes back what was stolen: {}.", names.join(", "));
+            self.alerts.push(line.clone());
+            self.say(t, line);
+        }
+        gone
     }
 
     /// Where a bound squad member works off their bond: the town's hall,
@@ -1082,6 +1287,7 @@ impl World {
     /// Bound squad members are kept at their work (the squad's step): they
     /// go where the town puts them and stay there until the bond ends.
     pub(super) fn hold_the_bound(&mut self) {
+        self.bonds_end();
         for k in 0..self.squad.members.len() {
             let m = self.squad.members[k];
             let Some(b) = self.bond_of(m).copied() else { continue };
@@ -1106,12 +1312,13 @@ impl World {
             let Some(b) = self.bond_of(m).copied() else { continue };
             let s = &self.settlements[b.town as usize];
             if self.person_pos(m).dist(s.pos) > s.reach + BOND_REACH {
-                for x in self.bonds.iter_mut().filter(|x| x.who == m && x.until > t) {
-                    x.until = t;
-                }
+                // Running costs more than staying: the days still owed, and
+                // more for running (NM-35).
+                let left = self.buy_out_price(m).unwrap_or(0) as f32;
                 let name = self.name_of(m);
                 self.say(t, format!("{name} has run from their bond in {}.", s.name));
-                *self.bounty.entry(b.town).or_insert(0.0) += 60.0;
+                self.bonds.retain(|x| x.who != m);
+                *self.bounty.entry(b.town).or_insert(0.0) += left + RUN_PRICE;
                 self.crime_known(b.town);
                 self.add_standing(m, b.town, -15.0);
                 *self.records.entry(m).or_insert(0.0) += Wrong::Escape.gravity();
@@ -1119,31 +1326,56 @@ impl World {
         }
     }
 
-    /// The town's champion and yours meet: the duel is fought where the
-    /// accused stands, with the full combat rules, to knockout.
+    /// The accused and the town's champion meet: the duel is fought where
+    /// the accused stands, with the full combat rules, to knockout.
     fn start_duel(&mut self, accused: PersonId, town: SettlementId, fine: f32) {
         let t = self.time;
-        // Champions are allowed: the strongest of the squad standing near.
         let at = self.person_pos(accused);
-        // (Not someone asleep: NM-30.)
-        let ours = self.squad_fit().into_iter().filter(|&m| self.person_pos(m).dist(at) < 30.0 && (m == accused || !self.is_asleep(m))).max_by(|&a, &b| self.people[a as usize].might.total_cmp(&self.people[b as usize].might).then(b.cmp(&a))).unwrap_or(accused);
+        let might = |w: &World, p: PersonId| w.people[p as usize].might;
+        // The accused answers for themselves. Only if they can't stand does
+        // the strongest of the squad standing near, and awake, step in
+        // (NM-31, NM-30).
+        let fit = self.squad_fit();
+        let ours = if fit.contains(&accused) {
+            Some(accused)
+        } else {
+            fit.into_iter().filter(|&m| self.person_pos(m).dist(at) < SEARCH_REACH && !self.is_asleep(m) && !self.is_bonded(m, t)).max_by(|&a, &b| might(self, a).total_cmp(&might(self, b)).then(b.cmp(&a)))
+        };
+        // The town sends someone fit: a guard on watch before one off it,
+        // someone up before someone abed, then the strongest.
         let theirs = self
             .living_here(town)
             .into_iter()
-            .filter(|&p| {
-                let pp = &self.people[p as usize];
-                !self.fighting.contains_key(&p) && !self.is_bonded(p, t) && self.busy_until[p as usize] <= t && self.group_of[p as usize].is_none() && !super::body::knocked_out(&pp.wounds.hp_at(&pp.stats, t))
-            })
+            .filter(|&p| !self.fighting.contains_key(&p) && !self.is_bonded(p, t) && self.busy_until[p as usize] <= t && self.group_of[p as usize].is_none() && self.health_share(p, t) >= CHAMPION_FIT)
             .max_by(|&a, &b| {
-                let guard = |p: PersonId| (self.life(p).job == Job::Guard) as u8;
-                guard(a).cmp(&guard(b)).then(self.people[a as usize].might.total_cmp(&self.people[b as usize].might)).then(b.cmp(&a))
+                let key = |p: PersonId| {
+                    let guard = self.life(p).job == Job::Guard;
+                    ((guard && self.at_work(p, t)) as u8, guard as u8, !self.is_indoors_asleep(p) as u8)
+                };
+                key(a).cmp(&key(b)).then(might(self, a).total_cmp(&might(self, b))).then(b.cmp(&a))
             });
-        let Some(theirs) = theirs else {
+        let (Some(ours), Some(theirs)) = (ours, theirs) else {
             self.pay_or_bond(accused, town, fine);
             return;
         };
+        // They start apart, the champion on the side they came from.
+        let from = self.person_pos(theirs).sub(at);
+        let dir = if from.len() > 0.5 { from.scale(1.0 / from.len()) } else { super::geo::V2::new(1.0, 0.0) };
         let id = self.begin_duel(ours, theirs, at);
+        if let Some(b) = self.battles.iter_mut().find(|b| b.id == id) {
+            if let Some(i) = b.index_of(theirs) {
+                b.fighters[i].pos = at.add(dir.scale(DUEL_GAP));
+            }
+        }
         self.duels.push(Duel { battle: id, accused, town, fine });
+    }
+
+    /// How whole someone is, 0..1: the worse of head and body.
+    pub fn health_share(&self, p: PersonId, t: f64) -> f32 {
+        use super::body::Part;
+        let pp = &self.people[p as usize];
+        let hp = pp.wounds.hp_at(&pp.stats, t);
+        (hp[0].max(0.0) / pp.stats.max_hp(Part::Head)).min(hp[1].max(0.0) / pp.stats.max_hp(Part::Torso))
     }
 
     /// A duel has ended: the loser pays.
@@ -1151,6 +1383,13 @@ impl World {
         let Some(k) = self.duels.iter().position(|d| d.battle == b.id) else { return };
         let d = self.duels.remove(k);
         let won = b.winner() == Some(super::combat::SQUAD_SIDE);
+        // A beaten champion lies where they fell until they come round
+        // (NM-32), not back at their post.
+        for f in b.fighters.iter().filter(|f| f.is_person() && f.home != super::combat::SQUAD_SIDE && !f.active()) {
+            if !self.people[f.pid as usize].in_squad {
+                self.set_down.insert(f.pid, f.pos);
+            }
+        }
         let name = self.name_of(d.accused);
         let t = b.time;
         if won {

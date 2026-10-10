@@ -116,6 +116,14 @@ fn creeping_near_watchers_trains_sneak() {
     }
     let before = w.people[m as usize].stats.skill(Skill::Sneak);
     w.spawn_bandits(w.squad.pos.add(V2::new(40.0, 0.0)), 2, false);
+    // Creeping past them, awake (crouching still teaches nothing, BL-6).
+    let all = w.squad.members.clone();
+    w.order_wake(&all);
+    for k in 0..all.len() {
+        w.squad.kept_up[k] = f64::INFINITY;
+    }
+    let past = w.squad.pos.add(V2::new(0.0, 60.0));
+    w.order_squad(past);
     watch(&mut w, 120.0);
     assert!(w.squad_battle().is_none());
     assert!(w.people[m as usize].stats.skill(Skill::Sneak) > before + 0.05);

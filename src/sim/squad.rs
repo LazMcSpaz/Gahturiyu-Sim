@@ -364,6 +364,7 @@ impl World {
         self.check_runaways();
         self.do_carrying();
         self.try_open_talk();
+        self.close_parted_talk();
     }
 
     pub(super) fn recentre_squad(&mut self) {
@@ -519,8 +520,19 @@ impl World {
         p.recompute_might();
         let jitter = V2::new(((self.next_ground_id * 37) % 7) as f32 * 0.15 - 0.45, ((self.next_ground_id * 53) % 5) as f32 * 0.2 - 0.4);
         let g = self.put_on_ground(it, 1, pos.add(jitter));
+        // What a town knows as stolen is still its owner's when put down;
+        // put down in that town, it's back with them (NM-24).
+        let hot = if self.squad.index(pid).is_some() { self.hot_owner(it) } else { None };
+        if let Some(town) = hot {
+            if self.town_at(pos) == Some(town) {
+                self.hot_less(town, it);
+            }
+        }
         if let Some(x) = self.ground.iter_mut().find(|x| x.id == g) {
             x.piece = piece;
+            if hot.is_some() {
+                x.owner = hot;
+            }
         }
         true
     }
@@ -803,7 +815,11 @@ impl World {
                 if let Some(town) = g.owner {
                     let mut r = Rng::from_keys(&[self.seed, pk.who as u64, g.id as u64, 0x5448_4546]);
                     if let Some(by) = self.witnessed(pk.who, g.pos, town, &mut r) {
+                        let before = self.wrongs_in(town);
                         self.wrong_seen(pk.who, town, super::law::Wrong::Theft, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"), Some(by), Some(super::containers::Owner::Town(town)), g.pos);
+                        if self.wrongs_in(town) > before {
+                            self.mark_hot(town, &[super::inventory::Entry(g.item, g.count, g.piece)], None);
+                        }
                     }
                 }
                 if let Some(d) = self.people[pk.who as usize].detail.as_mut() {

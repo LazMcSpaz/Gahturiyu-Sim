@@ -333,8 +333,10 @@ impl World {
         self.camps[ci].ready_at = f64::INFINITY;
         self.stats.ambushes += 1;
 
-        if self.bands.band_at(at) <= 2 {
-            let line = format!("Bandits fall on travellers {:.0} m away.", at.dist(self.squad.pos));
+        // Said only when the squad could see it, and as they'd see it: which
+        // way, not how many metres (NM-63).
+        if self.in_plain_sight(at) {
+            let line = format!("Bandits fall on travellers to the {}.", super::quests::compass(at.sub(self.squad.pos)));
             self.log.push_front((t, line));
             self.log.truncate(14);
         }
@@ -444,9 +446,9 @@ impl World {
             }
         }
 
-        if self.bands.band_at(f.result.fighters.first().map(|x| x.pos).unwrap_or_default()) <= 2 {
-            let line = if killed > 0 { format!("The roadside fight is over. {killed} dead.") } else { "The roadside fight is over.".to_string() };
-            self.log.push_front((t, line));
+        if self.in_plain_sight(f.result.fighters.first().map(|x| x.pos).unwrap_or_default()) {
+            let _ = killed;
+            self.log.push_front((t, "The roadside fight is over.".to_string()));
             self.log.truncate(14);
         }
     }

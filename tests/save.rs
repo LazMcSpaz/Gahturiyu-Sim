@@ -27,6 +27,7 @@ fn fingerprint(w: &World) -> String {
     s += &sorted(&w.torches);
     s += &sorted(&w.fighting);
     s += &sorted(&w.carried);
+    s += &sorted(&w.getting_up);
     s += &sorted(&w.suspicion);
     s += &sorted(&w.held);
     s += &sorted(&w.cast_count);
@@ -34,6 +35,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n{:?}\n", w.society, w.stations);
     s += &format!("{:?} {:?} {:?}\n", w.crafting, w.orders, w.lessons);
     s += &format!("{:?} {:?} {:?} {:?} {:?}\n", w.standing_in, w.records, w.bonds, w.duels, w.shunned);
+    // What towns know was stolen in them.
+    s += &format!("{:?}\n{:?}\n", w.hot, w.met);
     // The land's hand edits, the authored land under them, and the forged town.
     s += &format!("{:?}\n", bincode::serialize(&w.terrain.edits).unwrap());
     s += &format!("{:?}\n{:?}\n", bincode::serialize(&w.terrain.authored).unwrap(), w.forge);
@@ -159,4 +162,33 @@ fn saves_round_trip_through_a_file_and_refuse_strangers() {
     cut.truncate(cut.len() / 2);
     assert!(matches!(World::load_bytes(&cut), Err(LoadError::Corrupt(_))));
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// NM-79: the same world saves to the same bytes, whatever order its hash
+/// maps happen to hold their entries in.
+#[test]
+fn the_same_world_saves_to_the_same_bytes() {
+    let make = || {
+        let mut w = worldgen::generate(3);
+        let towns = w.settlements.len() as u32;
+        for k in 0..40u32 {
+            w.bounty.insert((k % towns) as u16, k as f32);
+            w.regard.insert(k * 7, 1.0);
+            w.cast_count.insert(k * 3, 2);
+            w.furnished.insert((0, k as u16));
+            w.picked.insert((1, k as u16), k as i64);
+        }
+        for _ in 0..6 {
+            w.step(600.0);
+        }
+        w.save_bytes()
+    };
+    let (a, b) = (make(), make());
+    assert_eq!(a.len(), b.len());
+    let differ = a.iter().zip(&b).filter(|(x, y)| x != y).count();
+    assert_eq!(differ, 0, "two identical worlds differ in {differ} bytes of {}", a.len());
+    // And it loads as before.
+    let back = World::load_bytes(&a).expect("it loads");
+    assert_eq!(back.bounty.len(), World::load_bytes(&b).unwrap().bounty.len());
+    assert_eq!(back.save_bytes(), a, "saved again after loading, the same bytes");
 }

@@ -425,8 +425,17 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             // Bound to work for someone, and for how long.
             if let Some(b) = w.bond_of(pid) {
                 let place = &w.settlements[b.town as usize].name;
-                let line = if b.slave { format!("Enslaved in {place}") } else { format!("Bound to work in {place}  ·  {:.1} days left{}", (b.until - w.time) / 86400.0, if b.recorded { "  ·  recorded" } else { "" }) };
+                let left = match w.bond_days_left(pid) {
+                    Some(1) => "a day left".to_string(),
+                    Some(n) => format!("{n} days left"),
+                    None => String::new(),
+                };
+                let line = if b.slave { format!("Enslaved in {place}") } else { format!("Bound to work in {place}  ·  {left}{}", if b.recorded { "  ·  recorded" } else { "" }) };
                 out.push((line, [0.95, 0.6, 0.3]));
+            }
+            // A town has turned its back on them (N4).
+            if let Some(t) = w.shunned_in(pid) {
+                out.push((format!("Shunned in {}", w.settlements[t as usize].name), [0.95, 0.6, 0.3]));
             }
             // Your squad member's name in the town they're in.
             if p.in_squad {

@@ -152,3 +152,47 @@ fn native_words_in_the_lines_are_real() {
     assert_eq!(s.len(), 3);
     assert_eq!(s[1], ("Oqe".to_string(), Some("friend".to_string())));
 }
+
+/// NM-56: telling the watch is for the town it happened in; thanks come
+/// from the one wronged, and are said as "you".
+#[test]
+fn thanks_for_telling_the_watch_come_from_the_wronged_and_say_you() {
+    use gahturiyu_sim::sim::talk::Concern;
+    let setup = || {
+        let mut w = worldgen::generate(1);
+        let here = w.squad.pos;
+        let town = w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap().id;
+        let res = w.settlements[town as usize].residents.clone();
+        let (victim, thief) = (res[4], res[9]);
+        let house = |w: &World, p: PersonId| w.society.lives[p as usize].household;
+        let bystander = res.iter().copied().find(|&p| p != victim && p != thief && !w.people[p as usize].dead && house(&w, p) != house(&w, victim) && house(&w, p) != house(&w, thief)).unwrap();
+        let t = w.time - 3600.0;
+        let ev = w.note(Deed::Theft, Some(thief), Some(victim), town, t, false);
+        (w, town, victim, bystander, ev)
+    };
+    let about = |ev: u32| Concern { subject: Subject::Theft, score: 1.0, event: Some(ev), opp: None, about: None };
+    let thanks = |w: &World, npc: PersonId, lead: PersonId| w.on_mind(npc).into_iter().find(|c| c.subject == Subject::Kindness && c.about == Some(lead));
+
+    // Someone who only heard of it: can send you to the watch, but owes you nothing.
+    let (mut w, town, _, bystander, ev) = setup();
+    let lead = w.squad.members[0];
+    assert!(w.options(bystander, lead, &[about(ev)], 0).contains(&Opt::Report));
+    // (A theft in another town isn't this town's watch's to hear.)
+    let other = (town + 1) % w.settlements.len() as u16;
+    let o = w.settlements[other as usize].residents.clone();
+    let t = w.time - 3600.0;
+    let there = w.note(Deed::Theft, Some(o[3]), Some(o[5]), other, t, false);
+    assert!(!w.options(bystander, lead, &[about(there)], 0).contains(&Opt::Report), "a theft elsewhere isn't this watch's");
+    assert_eq!(w.say_opt(bystander, lead, &[about(ev)], 0, Opt::Report), "Good. Let them answer for it.");
+    assert!(thanks(&w, bystander, lead).is_none(), "no thanks from someone it never touched");
+
+    // The one robbed: remembers it, and says so to your face as "you".
+    let (mut w, _, victim, _, ev) = setup();
+    let lead = w.squad.members[0];
+    assert_eq!(w.say_opt(victim, lead, &[about(ev)], 0, Opt::Report), "Good. Let them answer for it.");
+    let c = thanks(&w, victim, lead).expect("the one robbed remembers the help");
+    let name = w.people[lead as usize].name().unwrap().to_string();
+    let lines = vec![w.assemble_talk(victim, lead, Some(&c), false).text];
+    assert!(lines.iter().all(|l| !l.contains(&name)), "named to their own face: {lines:?}");
+    assert!(lines.iter().any(|l| l.contains("You ")), "{lines:?}");
+}

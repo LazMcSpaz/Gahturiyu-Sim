@@ -463,7 +463,7 @@ impl World {
                     None if h < c.hours.0 => format!("shift today from {:02.0}:00", c.hours.0),
                     None => "shift over for today".to_string(),
                 };
-                format!("{name} {what} at the {place} in {}, {:02.0}:00–{:02.0}:00, {:.0} coin a day ({} days paid; {now}).", self.settlements[c.town as usize].name, c.hours.0, c.hours.1, c.pay, c.days_paid)
+                format!("{name} {what} at the {place} in {}, {:02.0}:00–{:02.0}:00, {:.0} coin a day ({} paid; {now}).", self.settlements[c.town as usize].name, c.hours.0, c.hours.1, c.pay, if c.days_paid == 1 { "a day".to_string() } else { format!("{} days", c.days_paid) })
             })
             .collect()
     }
@@ -618,9 +618,9 @@ impl World {
                     d.gear.add(coin, pay.round() as u16);
                 }
                 self.people[c.member as usize].recompute_might();
-                let what = if c.present >= need { "a day's work" } else { "part of a day's work" };
+                let what = if c.present >= need { "" } else { " for part of a day's work" };
                 let short = if pay + 0.5 < owed { format!(" (of the {:.0} owed: the purse ran short)", owed) } else { String::new() };
-                self.say(t, format!("{name} is paid {:.0} coin for {what}{short}.", pay.round()));
+                self.say(t, format!("{name} is paid {:.0} coin{what}{short}.", pay.round()));
             }
             if !began {
                 // Not started yet.

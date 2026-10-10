@@ -24,6 +24,10 @@ use super::world::{World, DAY};
 
 /// How close you must be to talk, metres.
 pub const TALK_RANGE: f32 = 3.5;
+/// A camp this near is close enough for the roads' troubles to be local talk, metres.
+pub const HEARSAY_REACH: f32 = 6000.0;
+/// Further apart than this, a talk is over.
+pub const TALK_PARTED: f32 = 8.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Topic {
@@ -327,11 +331,26 @@ impl World {
         let concerns = self.on_mind(npc);
         let said = self.assemble_talk(npc, who, concerns.first(), true);
         self.note_said(npc, who, &said.pieces);
+        // From now on they've met (the greeting above was the first-meeting one, if it was).
+        self.met.insert((npc, who));
         self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_page: 0 });
     }
 
     pub fn end_talk(&mut self) {
         self.talk = None;
+    }
+
+    /// A talk ends when the two part, or when either can't go on (NM-54):
+    /// nothing is said, sold or agreed at a distance.
+    pub(super) fn close_parted_talk(&mut self) {
+        let Some((with, npc)) = self.talk.as_ref().map(|c| (c.with, c.npc)) else { return };
+        let apart = match self.squad.index(with) {
+            Some(k) => self.member_pos(k).dist(self.person_pos(npc)) > TALK_PARTED,
+            None => true,
+        };
+        if apart || self.is_down(with) || self.people[npc as usize].dead || self.is_indoors_asleep(npc) {
+            self.talk = None;
+        }
     }
 
     /// What can be asked right now.
@@ -435,8 +454,9 @@ impl World {
                 t.push(Topic::CraftLesson(price));
             }
         }
-        // At the hall: bonds bought out, posts taken up.
-        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter) && self.at_work(c.npc, self.time) {
+        // A bond is bought out from any official, arbiter or guard of the
+        // town that holds it, wherever they are met (NM-37).
+        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter | super::jobs::Job::Guard) {
             if let Some(town) = self.people[c.npc as usize].home {
                 for &m in &self.squad.members {
                     if let (Some(b), Some(p)) = (self.bond_of(m), self.buy_out_price(m)) {
@@ -445,6 +465,11 @@ impl World {
                         }
                     }
                 }
+            }
+        }
+        // At the hall: posts taken up.
+        if matches!(self.life(c.npc).job, super::jobs::Job::Official | super::jobs::Job::Arbiter) && self.at_work(c.npc, self.time) {
+            if let Some(town) = self.people[c.npc as usize].home {
                 if self.standing(c.with, town) >= super::law::COUNCIL {
                     use super::law::Post;
                     for post in [Post::Elder, Post::Priestess, Post::Administrator, Post::Speaker, Post::Arbiter] {
@@ -655,9 +680,10 @@ impl World {
                 }
                 let mut tags = Vec::new();
                 let mut values: Vec<(&'static str, String)> = Vec::new();
-                if self.stats.ambushes > 0 {
+                // Trouble on the roads is talk where a camp is near enough for
+                // it to be their roads; nobody has a count (NM-64).
+                if self.stats.ambushes > 0 && self.nearest_camp(p.home).is_some_and(|c| c.0 <= HEARSAY_REACH) {
                     tags.push("ambushes".to_string());
-                    values.push(("count", self.stats.ambushes.to_string()));
                 }
                 if let Some((d, dir, _)) = self.nearest_camp(p.home) {
                     tags.push("camp_near".into());
