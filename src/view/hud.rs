@@ -331,11 +331,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                     out.push((format!("Merchant: at their stall from {}{}", hhmm(at), w.day_word(at)), DIM));
                 }
             }
-            match w.join_terms(pid) {
-                Some(0) => out.push(("Restless: might join the squad if asked".to_string(), GOLD)),
-                Some(fee) => out.push((format!("Restless: might join the squad, for {fee} coin"), GOLD)),
-                None => {}
-            }
             // A stranger: only what shows.
             if !p.in_squad && !see_all() {
                 stranger_lines(w, pid, &mut out);

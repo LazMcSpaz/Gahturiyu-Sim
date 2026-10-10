@@ -320,7 +320,7 @@ impl World {
 
     /// One line on an opportunity.
     pub fn opp_line(&self, o: &Opportunity) -> String {
-        let name = |p: Option<PersonId>| p.map(|p| self.name_of(p)).unwrap_or_else(|| "someone".into());
+        let name = |p: Option<PersonId>| p.map(|p| self.known_as(p)).unwrap_or_else(|| "someone".into());
         let pay = if o.favour { "a favour owed".to_string() } else { format!("{} coin", o.reward) };
         let what = match o.kind {
             Chance::Guard => format!("guard {}'s place for {} days, {:.0} coin a day", name(Some(o.asker)), GUARD_DAYS, o.amount),
@@ -618,9 +618,9 @@ impl World {
                     d.gear.add(coin, pay.round() as u16);
                 }
                 self.people[c.member as usize].recompute_might();
-                let what = if c.present >= need { "a day's work" } else { "part of a day's work" };
+                let what = if c.present >= need { "" } else { " for part of a day's work" };
                 let short = if pay + 0.5 < owed { format!(" (of the {:.0} owed: the purse ran short)", owed) } else { String::new() };
-                self.say(t, format!("{name} is paid {:.0} coin for {what}{short}.", pay.round()));
+                self.say(t, format!("{name} is paid {:.0} coin{what}{short}.", pay.round()));
             }
             if !began {
                 // Not started yet.
