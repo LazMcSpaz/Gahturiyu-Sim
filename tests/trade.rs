@@ -210,4 +210,14 @@ fn what_something_sells_for_here_is_what_a_merchant_here_pays() {
     if w.settlements.iter().all(|s| s.pos.dist(far) > s.radius() + 60.0) {
         assert_eq!(w.sells_for(draught, None), None);
     }
+    // NM-18: what a member's own things fetch goes by where that member
+    // stands. One of them still at the stall is quoted the town's price
+    // though the squad's middle is far out in the wilds.
+    let me = w.squad.members[0];
+    let at = w.person_pos(merchant);
+    let k = w.squad.index(me).unwrap();
+    w.squad.at[k] = at;
+    w.squad.goal[k] = at;
+    w.squad.pos = far;
+    assert_eq!(w.sells_for_held(me, draught, None), Some((here, town)));
 }

@@ -583,18 +583,46 @@ impl World {
         }
     }
 
-    /// How far a squad member has strayed from the middle of the others, if
-    /// that's more than `STRAY`. Nobody strays in a squad of one, and the
-    /// downed and the carried are where they are.
+    /// How far a squad member has strayed from the others, if that's more
+    /// than `STRAY`. "The others" are the biggest bunch of the squad
+    /// (members standing within `STRAY` of one another, chained): whoever
+    /// isn't in it has strayed, by the distance to its nearest member. One
+    /// far-off member doesn't make strays of the rest (NM-13). Nobody
+    /// strays in a squad of one.
     pub fn strayed(&self, pid: PersonId) -> Option<f32> {
         let k = self.squad.index(pid)?;
-        let others: Vec<V2> = (0..self.squad.members.len()).filter(|&j| j != k).map(|j| self.squad.at[j]).collect();
-        if others.is_empty() {
+        let n = self.squad.members.len();
+        if n < 2 {
             return None;
         }
-        let mid = others.iter().fold(V2::default(), |a, b| a.add(*b)).scale(1.0 / others.len() as f32);
-        let d = self.squad.at[k].dist(mid);
-        (d > STRAY).then_some(d)
+        // Bunches, by flood fill.
+        let mut bunch = vec![usize::MAX; n];
+        let mut sizes: Vec<usize> = Vec::new();
+        for start in 0..n {
+            if bunch[start] != usize::MAX {
+                continue;
+            }
+            let id = sizes.len();
+            let mut todo = vec![start];
+            bunch[start] = id;
+            let mut size = 0;
+            while let Some(i) = todo.pop() {
+                size += 1;
+                for j in 0..n {
+                    if bunch[j] == usize::MAX && self.squad.at[i].dist(self.squad.at[j]) <= STRAY {
+                        bunch[j] = id;
+                        todo.push(j);
+                    }
+                }
+            }
+            sizes.push(size);
+        }
+        // The biggest; of equals, the one with the earliest member.
+        let main = (0..sizes.len()).max_by(|&a, &b| sizes[a].cmp(&sizes[b]).then(b.cmp(&a)))?;
+        if bunch[k] == main {
+            return None;
+        }
+        (0..n).filter(|&j| bunch[j] == main).map(|j| self.squad.at[k].dist(self.squad.at[j])).min_by(|a, b| a.total_cmp(b))
     }
 
     /// The strongest healing potion in someone's pack.

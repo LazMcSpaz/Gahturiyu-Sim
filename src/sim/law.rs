@@ -977,6 +977,13 @@ impl World {
     pub fn judge(&mut self, who: PersonId, town: SettlementId, wrong: Wrong, fine: f32, custom: Justice) {
         let t = self.time;
         let name = self.name_of(who);
+        // Whole coin from here on: the sum named is the sum taken (NM-38).
+        let fine = fine.round().max(1.0);
+        // Nobody sleeps through their own arrest (NM-30).
+        if self.is_asleep(who) && !self.is_down(who) {
+            self.order_wake(&[who]);
+            self.set_activity(who, super::condition::Activity::Resting);
+        }
         let place = self.settlements[town as usize].name.clone();
         match custom {
             Justice::Elders => {
@@ -1000,7 +1007,7 @@ impl World {
                     *self.records.entry(who).or_insert(0.0) += wrong.gravity();
                 }
                 self.say(t, format!("{name}'s {} in {place} is written into the record; it will follow them.", wrong.name()));
-                self.pay_or_bond(who, town, fine * 0.5);
+                self.pay_or_bond(who, town, (fine * 0.5).round().max(1.0));
             }
         }
     }
@@ -1012,6 +1019,18 @@ impl World {
         let pay = have.min(fine).floor();
         self.take_from_squad(coin, pay as u16);
         let short = fine - pay;
+        // Say what was taken, and what is still owed (NM-38).
+        let (name, t) = (self.name_of(who), self.time);
+        self.say(
+            t,
+            if short < 1.0 {
+                format!("{name} pays the fine: {pay:.0} coin.")
+            } else if pay >= 1.0 {
+                format!("{name} pays {pay:.0} of the {fine:.0} coin; the rest is to be worked off.")
+            } else {
+                format!("{name} can't pay the {fine:.0} coin; it is to be worked off.")
+            },
+        );
         if short >= 1.0 {
             let days = (short / BOND_DAY_VALUE).clamp(1.0, BOND_MAX_DAYS) as f64;
             let t = self.time;
@@ -1106,7 +1125,8 @@ impl World {
         let t = self.time;
         // Champions are allowed: the strongest of the squad standing near.
         let at = self.person_pos(accused);
-        let ours = self.squad_fit().into_iter().filter(|&m| self.person_pos(m).dist(at) < 30.0).max_by(|&a, &b| self.people[a as usize].might.total_cmp(&self.people[b as usize].might).then(b.cmp(&a))).unwrap_or(accused);
+        // (Not someone asleep: NM-30.)
+        let ours = self.squad_fit().into_iter().filter(|&m| self.person_pos(m).dist(at) < 30.0 && (m == accused || !self.is_asleep(m))).max_by(|&a, &b| self.people[a as usize].might.total_cmp(&self.people[b as usize].might).then(b.cmp(&a))).unwrap_or(accused);
         let theirs = self
             .living_here(town)
             .into_iter()
@@ -1137,8 +1157,9 @@ impl World {
             self.say(t, format!("{name}'s side wins the duel; the matter is closed."));
             self.add_standing(d.accused, d.town, 2.0);
         } else {
-            self.say(t, format!("{name}'s side loses the duel, and must pay {:.0}.", d.fine * 1.5));
-            self.pay_or_bond(d.accused, d.town, d.fine * 1.5);
+            let owed = (d.fine * 1.5).round();
+            self.say(t, format!("{name}'s side loses the duel, and must pay {owed:.0}."));
+            self.pay_or_bond(d.accused, d.town, owed);
         }
     }
 
