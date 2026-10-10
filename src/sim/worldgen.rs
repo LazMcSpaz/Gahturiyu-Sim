@@ -233,6 +233,7 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     w.place_crafting();
     w.place_deposits();
     w.place_animals();
+    w.place_ruins();
     w
 }
 

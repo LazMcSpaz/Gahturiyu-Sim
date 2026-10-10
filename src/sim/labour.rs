@@ -174,9 +174,14 @@ impl World {
         self.chases.retain(|c| !c.who.is_empty());
     }
 
-    fn send(&mut self, who: PersonId, to: V2) -> bool {
+    /// Send a member to a spot: by the way round buildings, or straight
+    /// there if that way stops short of it.
+    pub(super) fn send(&mut self, who: PersonId, to: V2) -> bool {
         let Some(k) = self.squad.index(who) else { return false };
-        let (path, _) = self.route(self.member_pos(k), to);
+        let (mut path, _) = self.route(self.member_pos(k), to);
+        if path.last().is_some_and(|e| e.dist(to) > REACH) {
+            path.push(to);
+        }
         self.squad.goal[k] = *path.last().unwrap_or(&to);
         self.squad.route[k] = path;
         self.squad.resting[k] = false;

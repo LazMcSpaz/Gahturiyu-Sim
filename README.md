@@ -214,6 +214,10 @@ the roads again if you changed the land's shape or ground.
   goes through their things. A panel lists what they wear and carry: click
   a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
   carries the body off instead. Townsfolk aren't fair game.
+- **Ruins and lairs**: a handful of places off the roads (diamonds on the
+  map). Old ruins are held by wardens, a hard band dug in; lairs are the
+  homes of the great beasts. Each has a cache of coin and good things
+  lying inside.
 - **Progress and tips**: when someone reaches a new level in a skill or
   attribute, the log says so and their card shows it for a while. Short
   tips turn up the first time they're useful (first town, first fight, a

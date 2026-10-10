@@ -98,6 +98,7 @@ fn a_body_can_be_stripped_and_its_things_picked_up() {
     assert!(gear.equipped().count() >= 2);
     // What they wear, and what's in their pack (a bandit's purse among it).
     let carried = gear.equipped().count() + gear.bag.len();
+    let lying = w.ground.len();
     w.drop_everything(victim, at);
     assert!(w.people[victim as usize].detail.as_ref().unwrap().gear.equipped().next().is_none());
     let near: Vec<u32> = w.ground.iter().filter(|g| g.pos.dist(at) < 3.0).map(|g| g.id).collect();
@@ -107,5 +108,5 @@ fn a_body_can_be_stripped_and_its_things_picked_up() {
     for _ in 0..60 {
         w.step(0.5);
     }
-    assert_eq!(w.ground.len(), carried - 1);
+    assert_eq!(w.ground.len(), lying + carried - 1);
 }

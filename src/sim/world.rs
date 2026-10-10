@@ -153,6 +153,8 @@ pub struct World {
     pub chases: Vec<super::labour::Chase>,
     /// Each squad member's levels as last announced (`progress.rs`).
     pub levels: Vec<super::progress::Levels>,
+    /// Ruins and lairs worth the walk (`ruins.rs`).
+    pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
@@ -287,6 +289,7 @@ impl World {
             butchering: Vec::new(),
             chases: Vec::new(),
             levels: Vec::new(),
+            ruins: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),

@@ -146,7 +146,8 @@ impl World {
         }
         let mut found = Vec::new();
         for leg in &g.legs[from.min(g.legs.len())..] {
-            for c in &self.camps {
+            // (A ruin's wardens keep to their ruin: they guard, they don't raid.)
+            for c in self.camps.iter().filter(|c| !self.is_warden(c.group)) {
                 if let Some(t) = camp_sees(leg, c.pos) {
                     found.push(Encounter { t, camp: c.group, victim: gid });
                 }
@@ -158,6 +159,9 @@ impl World {
     /// A new camp checks every leg already planned.
     pub(super) fn scan_camp(&mut self, ci: usize) {
         let c = self.camps[ci].clone();
+        if self.is_warden(c.group) {
+            return;
+        }
         let mut found = Vec::new();
         for g in self.groups.iter().filter(|g| !g.hostile) {
             for leg in &g.legs {

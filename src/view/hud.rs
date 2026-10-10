@@ -335,6 +335,19 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 out.push((format!("Picked; grows back at {}", hhmm(n.picked_at.unwrap_or(0.0) + 24.0 * HOUR)), DIM));
             }
         }
+        Hover::Ruin(id) => {
+            let Some(ru) = w.ruins.get(id as usize) else { return out };
+            out.push((ru.name(w), GOLD));
+            let held = w.ruin_held(id);
+            let line = match ru.kind {
+                gahturiyu_sim::sim::ruins::RuinKind::Ruin if held => "Held by wardens: a hard band, dug in",
+                gahturiyu_sim::sim::ruins::RuinKind::Lair(_) if held => "Its owner is about",
+                _ => "Nobody guards it now",
+            };
+            out.push((line.to_string(), if held { WARN } else { TEXT }));
+            let n = w.ruin_cache(id);
+            out.push((if n > 0 { format!("{n} things lying inside") } else { "Picked clean".to_string() }, DIM));
+        }
         Hover::Deposit(id) => {
             let Some(d) = w.deposit(id) else { return out };
             let town = &w.settlements[d.town as usize].name;

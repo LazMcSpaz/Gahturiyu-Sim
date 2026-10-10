@@ -276,6 +276,7 @@ impl World {
         self.do_picking();
         self.do_gathering();
         self.do_labour();
+        self.find_ruins();
         self.do_crafting();
         self.do_lessons();
         self.check_runaways();

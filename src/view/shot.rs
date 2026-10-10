@@ -85,6 +85,8 @@ pub struct Shot {
     /// `GAHT_LOOT=1`: two bandits lie beaten beside the squad and member 0
     /// is going through the first one's things (the loot panel).
     pub loot: bool,
+    /// `GAHT_RUIN=k`: midday, the squad 45 m from ruin (or lair) k.
+    pub ruin: Option<usize>,
     /// `GAHT_GRIND=1|mine`: two of the squad at work at the nearest town
     /// woodlot (or iron seam).
     pub grind: Option<String>,
@@ -164,6 +166,7 @@ impl Shot {
             loot: var("GAHT_LOOT").is_some(),
             recruit: var("GAHT_RECRUIT").and_then(|v| v.parse().ok()),
             grind: var("GAHT_GRIND"),
+            ruin: var("GAHT_RUIN").and_then(|v| v.parse().ok()),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -266,6 +269,14 @@ impl Shot {
         if let Some((dx, dy)) = self.nudge {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
+        }
+        if let Some(k) = self.ruin {
+            while world.time < 12.0 * gahturiyu_sim::sim::world::HOUR {
+                world.step(60.0);
+            }
+            if let Some(r) = world.ruins.get(k).map(|r| r.pos) {
+                world.teleport_squad(r.add(V2::new(45.0, 20.0)));
+            }
         }
         if let Some(g) = self.grind.as_deref() {
             let want = gahturiyu_sim::sim::items::id(if g == "mine" { "iron_ore" } else { "timber" });

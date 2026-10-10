@@ -48,11 +48,11 @@ impl World {
         if !self.can_loot(body) {
             return false;
         }
-        let Some(k) = self.squad.index(who) else { return false };
+        if self.squad.index(who).is_none() {
+            return false;
+        }
         let pos = self.person_pos(body);
-        let (path, _) = self.route(self.member_pos(k), pos);
-        self.squad.goal[k] = *path.last().unwrap_or(&pos);
-        self.squad.route[k] = path;
+        self.send(who, pos);
         self.looting.retain(|l| l.who != who);
         self.looting.push(Looting { who, body });
         true
@@ -134,6 +134,15 @@ impl World {
     pub(super) fn tidy_looting(&mut self) {
         let keep: Vec<Looting> = self.looting.iter().copied().filter(|l| self.squad.index(l.who).is_some() && self.can_loot(l.body)).collect();
         self.looting = keep;
+        // A body that has been moved (or settled where its band left it):
+        // the looter goes on to where it is now.
+        for l in self.looting.clone() {
+            let Some(k) = self.squad.index(l.who) else { continue };
+            let at = self.person_pos(l.body);
+            if self.squad.goal[k].dist(at) > REACH && self.squad.at[k].dist(self.squad.goal[k]) < 1e-3 {
+                self.send(l.who, at);
+            }
+        }
     }
 }
 

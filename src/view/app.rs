@@ -47,6 +47,8 @@ pub enum Hover {
     Torch(usize),
     /// A woodlot or mine the squad can work.
     Deposit(u32),
+    /// A ruin or lair.
+    Ruin(u32),
 }
 
 /// Everything the window keeps between frames.

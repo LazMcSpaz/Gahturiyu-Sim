@@ -162,6 +162,12 @@ fn breaking_a_camp_is_noticed_and_paid() {
     let all = w.squad.members.clone();
     assert!(w.attack(&all, first), "the squad goes in");
     walk(&mut w, 600.0);
+    // (A long fight, or one others joined: let it finish.)
+    let mut n = 0;
+    while w.squad_battle().is_some() && n < 6000 {
+        w.step(0.5);
+        n += 1;
+    }
     assert!(w.beaten_camps.contains(&camp) || !w.camps.iter().any(|c| c.group == camp), "the camp should be beaten");
     assert_eq!(w.quests[0].stage, Stage::Report);
     talk_to(&mut w, npc);

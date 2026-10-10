@@ -810,7 +810,7 @@ impl World {
     /// Distance, direction and size of the bandit camp nearest a town.
     fn nearest_camp(&self, home: Option<u16>) -> Option<(f32, &'static str, usize)> {
         let from = home.map(|h| self.settlements[h as usize].pos).unwrap_or(self.squad.pos);
-        let c = self.camps.iter().min_by(|a, b| a.pos.dist(from).total_cmp(&b.pos.dist(from)))?;
+        let c = self.camps.iter().filter(|c| !self.is_warden(c.group)).min_by(|a, b| a.pos.dist(from).total_cmp(&b.pos.dist(from)))?;
         let n = self.group(c.group).map(|g| g.members.iter().filter(|&&m| !self.people[m as usize].dead).count()).unwrap_or(0);
         Some((c.pos.dist(from), compass(c.pos.sub(from)), n))
     }

@@ -510,6 +510,45 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, palette::CAMP_HIDE);
         }
     }
+    // Ruins (broken walls round a floor) and lairs (a rock arch and bones).
+    for ru in &w.ruins {
+        if ru.pos.dist(oc.target) > radius.min(900.0) {
+            continue;
+        }
+        let kk = k.min(4.0);
+        let base = to3(ru.pos, on_ground(ru.pos));
+        let rr = |i: u64| ((ru.id as u64 * 977 + i * 131) % 100) as f32 / 100.0;
+        match ru.kind {
+            gahturiyu_sim::sim::ruins::RuinKind::Ruin => {
+                b.block(base - vec3(0.0, 0.05, 0.0), 16.0 * kk, 0.15 * kk, 12.0 * kk, 0.3, [0.52, 0.5, 0.46]);
+                for i in 0..14 {
+                    let a = i as f32 / 14.0 * std::f32::consts::TAU;
+                    let at = ru.pos.add(V2::new(a.cos() * 9.0, a.sin() * 7.0).scale(kk));
+                    let tall = 0.4 + rr(i) * 3.2;
+                    if rr(i + 40) < 0.25 {
+                        continue; // a gap in the wall
+                    }
+                    b.block(to3(at, on_ground(at)), 3.6 * kk, tall * kk, 0.9 * kk, a + std::f32::consts::FRAC_PI_2, [0.6, 0.58, 0.53]);
+                }
+                // Two columns, one standing, one fallen.
+                b.column(base + vec3(2.0, 0.0, 1.0) * kk, 0.55 * kk, 0.5 * kk, 4.2 * kk, 8, [0.68, 0.66, 0.6]);
+                let f0 = base + vec3(-3.0, 0.4, -1.5) * kk;
+                b.stick(f0, f0 + vec3(3.8, 0.0, 1.2) * kk, 0.5 * kk, [0.68, 0.66, 0.6]);
+            }
+            gahturiyu_sim::sim::ruins::RuinKind::Lair(_) => {
+                // A rock arch over a dark mouth.
+                b.dome(base + vec3(0.0, 0.0, -3.0) * kk, 6.0 * kk, 4.5 * kk, 4.0 * kk, 0.3, 0.1, ru.id as u64, [0.38, 0.35, 0.33]);
+                b.block(base + vec3(0.0, 0.0, -0.4) * kk, 2.6 * kk, 2.2 * kk, 0.3 * kk, 0.0, [0.08, 0.07, 0.07]);
+                for i in 0..10 {
+                    let a = rr(i) * std::f32::consts::TAU;
+                    let at = ru.pos.add(V2::new(a.cos(), a.sin()).scale((2.0 + rr(i + 9) * 6.0) * kk));
+                    let p0 = to3(at, on_ground(at) + 0.1);
+                    b.stick(p0, p0 + vec3(a.sin(), 0.0, -a.cos()) * (1.1 * kk), 0.14 * kk, [0.7, 0.62, 0.45]);
+                }
+            }
+        }
+        game.picks.push((base + vec3(0.0, 2.5 * kk, 0.0), 6.0, Hover::Ruin(ru.id)));
+    }
     // Standing torches.
     for st in &w.standing {
         if st.pos.dist(oc.target) > radius || !st.burning(w.time) {
