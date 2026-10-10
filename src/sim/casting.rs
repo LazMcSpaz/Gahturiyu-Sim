@@ -96,6 +96,19 @@ fn cannot<T>(s: impl Into<String>) -> Result<T, Cannot> {
     Err(Cannot(s.into()))
 }
 
+/// A spell the player ordered that waits on the caster: to get in range,
+/// or for the fight it opens to begin.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct PendingCast {
+    pub who: PersonId,
+    pub spell: Spell,
+    pub target: Option<PersonId>,
+    pub point: Option<V2>,
+    /// Read from a scroll rather than cast.
+    #[serde(default)]
+    pub scroll: bool,
+}
+
 impl World {
     // ---- Who knows what ---------------------------------------------------
 
@@ -205,6 +218,204 @@ impl World {
         }
     }
 
+    /// The player's order to cast, as in Baldur's Gate 3: a harmful spell
+    /// aimed at an enemy starts the fight and is cast as it opens; anything
+    /// else out of reach has the caster walk into range first, then cast.
+    pub fn order_cast(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        self.casts.retain(|c| c.who != who);
+        let d = s.def();
+        if self.fighting.contains_key(&who) || d.style == Style::Ritual {
+            return self.use_spell(who, s, target, point);
+        }
+        if !self.free_to_order(who) {
+            return cannot("bound to work: can't leave it");
+        }
+        if !self.knows(who, s) {
+            return cannot("doesn't know that spell");
+        }
+        if self.people[who as usize].mana_at(self.time) < d.cost {
+            return cannot("not enough energy");
+        }
+        if d.aim == magic::Aim::Foe {
+            let Some(t) = target else { return cannot("aim it at an enemy") };
+            if !self.is_enemy(t) {
+                return cannot("not an enemy");
+            }
+            if !self.attack(&[who], t) {
+                return cannot("can't get at them");
+            }
+            self.casts.push(PendingCast { who, spell: s, target, point, scroll: false });
+            return Ok(());
+        }
+        if !d.works_outside_fights() {
+            // A harmful spell at enemies opens the fight with it.
+            let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
+            let Some(foe) = self.enemy_near(target, at, d.radius().max(3.0) + 3.0) else { return cannot("only of use in a fight: aim it at enemies") };
+            if !self.attack(&[who], foe) {
+                return cannot("can't get at them");
+            }
+            self.casts.push(PendingCast { who, spell: s, target: Some(foe), point: Some(at), scroll: false });
+            return Ok(());
+        }
+        let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
+        if self.person_pos(who).dist(at) <= d.range.max(2.0) {
+            return self.cast(who, s, target, point);
+        }
+        // Too far: walk over and cast when in reach.
+        self.order_members(&[who], at);
+        self.casts.push(PendingCast { who, spell: s, target, point, scroll: false });
+        Ok(())
+    }
+
+    /// A potion drunk or a scroll read in the middle of a fight, on the
+    /// player's order: the fighter does it now (a scroll aimed at a foe goes
+    /// at `target`, or the nearest enemy).
+    pub fn use_in_fight(&mut self, who: PersonId, it: super::items::ItemId, target: Option<PersonId>) -> Result<String, String> {
+        use super::items::{item, Kind};
+        let Some(&id) = self.fighting.get(&who) else { return Err("Not in a fight.".into()) };
+        let name = self.name_of(who);
+        let Some(b) = self.battles.iter_mut().find(|b| b.id == id) else { return Err("Not in a fight.".into()) };
+        let Some(i) = b.index_of(who) else { return Err("Not in a fight.".into()) };
+        if !b.fighters[i].active() {
+            return Err(format!("{name} is down."));
+        }
+        match item(it).kind {
+            Kind::Potion => {
+                if b.begin_drink(i, it) {
+                    Ok(format!("{name} drinks the {}.", item(it).name.to_lowercase()))
+                } else {
+                    Err(format!("{name} has no {} to hand in this fight.", item(it).name.to_lowercase()))
+                }
+            }
+            Kind::Scroll(key) => {
+                let sp = magic::spell(key);
+                let j = target.and_then(|p| b.index_of(p)).or_else(|| if sp.def().aim == magic::Aim::Foe || !sp.def().works_outside_fights() { b.nearest_enemy(i) } else { Some(i) });
+                let point = j.map(|j| b.fighters[j].pos).unwrap_or(b.fighters[i].pos);
+                if b.read_scroll(i, sp, j, point) {
+                    Ok(format!("{name} reads the scroll of {}.", sp.def().name.to_lowercase()))
+                } else {
+                    Err(format!("{name} has no such scroll to hand in this fight."))
+                }
+            }
+            _ => Err(format!("The {} can't be used in a fight.", item(it).name.to_lowercase())),
+        }
+    }
+
+    /// The scroll of this spell in someone's pack, if they carry one.
+    pub fn scroll_item(&self, who: PersonId, s: Spell) -> Option<super::items::ItemId> {
+        use super::items::{item, Kind};
+        let key = s.def().key;
+        self.people[who as usize].detail.as_ref()?.gear.bag.iter().map(|e| e.0).find(|&it| matches!(item(it).kind, Kind::Scroll(x) if x == key))
+    }
+
+    /// Read a scroll of a harmful spell at enemies: it starts the fight and
+    /// is read as it opens (in a fight already, it's read now).
+    pub fn order_read(&mut self, who: PersonId, it: super::items::ItemId, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        use super::items::{item, Kind};
+        let Kind::Scroll(key) = item(it).kind else { return cannot("that's not a scroll") };
+        let s = magic::spell(key);
+        if self.fighting.contains_key(&who) {
+            return self.use_in_fight(who, it, target).map(|_| ()).map_err(Cannot);
+        }
+        if s.def().works_outside_fights() {
+            return if self.use_item(who, it) { Ok(()) } else { cannot("can't read it now") };
+        }
+        if !self.free_to_order(who) {
+            return cannot("bound to work: can't leave it");
+        }
+        let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
+        let Some(foe) = self.enemy_near(target, at, s.def().radius().max(3.0) + 3.0) else { return cannot("read it at enemies") };
+        if !self.attack(&[who], foe) {
+            return cannot("can't get at them");
+        }
+        self.casts.retain(|c| c.who != who);
+        self.casts.push(PendingCast { who, spell: s, target: Some(foe), point: Some(at), scroll: true });
+        Ok(())
+    }
+
+    /// The enemy a harmful spell aimed at a spot would start a fight with:
+    /// the one aimed at, or the nearest enemy close to the spot.
+    pub fn enemy_near(&self, target: Option<PersonId>, at: V2, within: f32) -> Option<PersonId> {
+        if let Some(t) = target.filter(|&t| self.is_enemy(t)) {
+            return Some(t);
+        }
+        self.groups
+            .iter()
+            .filter(|g| g.band <= 1 && g.hostile)
+            .flat_map(|g| g.members.iter().copied())
+            .filter(|&p| self.is_enemy(p) && !self.is_down(p))
+            .map(|p| (p, self.person_pos(p).dist(at)))
+            .filter(|(_, d)| *d <= within)
+            .min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)))
+            .map(|(p, _)| p)
+    }
+
+    /// Someone the squad may fight: a bandit, or one of a hostile band.
+    pub fn is_enemy(&self, p: PersonId) -> bool {
+        let pp = &self.people[p as usize];
+        !pp.in_squad && !pp.dead && (pp.bandit || self.group_of[p as usize].and_then(|g| self.group(g)).is_some_and(|g| g.hostile))
+    }
+
+    /// Casts waiting on the caster getting there, or on the fight opening
+    /// (the squad's step).
+    pub(super) fn do_casts(&mut self) {
+        let mut k = 0;
+        while k < self.casts.len() {
+            let c = self.casts[k];
+            let Some(i) = self.squad.index(c.who) else {
+                self.casts.remove(k);
+                continue;
+            };
+            if self.fighting.contains_key(&c.who) {
+                self.casts.remove(k);
+                if c.scroll {
+                    let it = self.scroll_item(c.who, c.spell);
+                    match it.map(|it| self.use_in_fight(c.who, it, c.target)) {
+                        Some(Ok(_)) => {}
+                        Some(Err(e)) => self.cast_failed(c.who, c.spell, &e),
+                        None => self.cast_failed(c.who, c.spell, "the scroll is gone"),
+                    }
+                } else if let Err(e) = self.cast_in_fight(c.who, c.spell, c.target, c.point) {
+                    self.cast_failed(c.who, c.spell, &e.0);
+                }
+                continue;
+            }
+            if c.spell.def().aim == magic::Aim::Foe || !c.spell.def().works_outside_fights() {
+                // Waiting for the fight to open; it never did.
+                if self.squad_battle().is_none() && self.squad.at[i].dist(self.squad.goal[i]) < 0.5 {
+                    self.casts.remove(k);
+                    continue;
+                }
+                k += 1;
+                continue;
+            }
+            let at = c.point.or(c.target.map(|p| self.person_pos(p))).unwrap_or(self.squad.at[i]);
+            if self.squad.at[i].dist(at) <= c.spell.def().range.max(2.0) {
+                self.casts.remove(k);
+                self.squad.goal[i] = self.squad.at[i];
+                self.squad.route[i].clear();
+                if let Err(e) = self.cast(c.who, c.spell, c.target, c.point) {
+                    self.cast_failed(c.who, c.spell, &e.0);
+                }
+                continue;
+            }
+            // A moving target: follow it.
+            if self.squad.goal[i].dist(at) > 3.0 {
+                let (path, _) = self.route(self.member_pos(i), at);
+                self.squad.goal[i] = *path.last().unwrap_or(&at);
+                self.squad.route[i] = path;
+            }
+            k += 1;
+        }
+    }
+
+    fn cast_failed(&mut self, who: PersonId, s: Spell, why: &str) {
+        let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+        let line = format!("{name} can't cast {}: {why}.", s.def().name.to_lowercase());
+        self.log.push_front((self.time, line));
+        self.log.truncate(14);
+    }
+
     /// A squad member in a fight casts a spell (or releases the ritual they
     /// hold) on the player's order.
     pub fn cast_in_fight(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
@@ -272,7 +483,7 @@ impl World {
         let name = self.name_of(who);
         if roll > chance {
             self.people[who as usize].stats.exercise(d.skill(), 0.4);
-            self.say(t, format!("{name}'s {} fizzles.", d.name.to_lowercase()));
+            self.say(t, format!("{name}'s {} fizzles ({:.0}% chance at their skill; the energy is spent).", d.name.to_lowercase(), chance * 100.0));
             return Ok(());
         }
         self.people[who as usize].stats.exercise(d.skill(), 1.5);
@@ -358,10 +569,27 @@ impl World {
                 any
             }
             Does::Unlock => {
-                let Some(d) = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0).min_by(|a, b| a.outside.dist(point).total_cmp(&b.outside.dist(point))) else { return false };
-                self.picked.insert(d.id, super::buildings::night_of(t));
-                self.say(t, "A lock clicks open.".to_string());
-                true
+                // The nearest lock to the spot: a door's, or a chest's or cupboard's.
+                let door = self.doors_near(point, 3.0).into_iter().filter(|d| d.lock > 0.0 && self.is_locked(d.id)).map(|d| (d.outside.dist(point), d.id)).min_by(|a, b| a.0.total_cmp(&b.0));
+                let chest = self.containers.values().filter(|c| c.lock > 0.0 && !c.picked && c.pos.dist(point) <= 3.0).map(|c| (c.pos.dist(point), c.id)).min_by(|a, b| a.0.total_cmp(&b.0));
+                match (door, chest) {
+                    (_, Some((dc, c))) if door.map(|d| dc <= d.0).unwrap_or(true) => {
+                        if let Some(c) = self.containers.get_mut(&c) {
+                            c.picked = true;
+                        }
+                        self.say(t, format!("The {}'s lock clicks open.", self.containers[&c].what.name()));
+                        true
+                    }
+                    (Some((_, id)), _) => {
+                        self.picked.insert(id, super::buildings::night_of(t));
+                        self.say(t, "A lock clicks open.".to_string());
+                        true
+                    }
+                    _ => {
+                        self.say(t, "Unlock finds no lock there to open.".to_string());
+                        false
+                    }
+                }
             }
             Does::Transmute => {
                 let mut lots = e.power.round() as u32;
@@ -544,6 +772,20 @@ impl World {
 
     // ---- Rituals ----------------------------------------------------------
 
+    /// ": the nearest is in Gogata, 1.2 km north-west" for the nearest
+    /// building of these kinds (empty if there's none).
+    fn nearest_kind(&self, kinds: &[BuildingKind], at: V2) -> String {
+        let best = self.settlements.iter().flat_map(|s| s.buildings.iter().map(move |b| (s, b))).filter(|(_, b)| kinds.contains(&b.kind)).min_by(|a, b| a.1.pos.dist(at).total_cmp(&b.1.pos.dist(at)));
+        match best {
+            Some((s, b)) => {
+                let d = b.pos.dist(at);
+                let how_far = if d >= 1000.0 { format!("{:.1} km", d / 1000.0) } else { format!("{d:.0} m") };
+                format!(": the nearest is in {}, {how_far} {}", s.name, super::quests::compass(b.pos.sub(at)))
+            }
+            None => String::new(),
+        }
+    }
+
     /// Is `at` a fit place for this ritual? Also says how many extra minutes
     /// drawing a circle would add.
     pub fn ritual_place(&self, place: Place, at: V2) -> Result<f32, Cannot> {
@@ -551,9 +793,9 @@ impl World {
         match place {
             Place::Anywhere => Ok(0.0),
             Place::Hearth if near(&[BuildingKind::Hearth], HEARTH_REACH) => Ok(0.0),
-            Place::Hearth => cannot("has to be done at a hearth"),
+            Place::Hearth => cannot(&format!("has to be done at a hearth{}", self.nearest_kind(&[BuildingKind::Hearth], at))),
             Place::Shrine if near(&[BuildingKind::QotiroTemple, BuildingKind::QotiroHall], SHRINE_REACH) => Ok(0.0),
-            Place::Shrine => cannot("has to be done at a shrine"),
+            Place::Shrine => cannot(&format!("has to be done at a shrine{}", self.nearest_kind(&[BuildingKind::QotiroTemple, BuildingKind::QotiroHall], at))),
             Place::Circle if self.circles.iter().any(|c| c.dist(at) <= CIRCLE_REUSE) => Ok(0.0),
             Place::Circle => Ok(CIRCLE_MINUTES),
         }

@@ -145,5 +145,9 @@ fn a_home_has_things_inside_and_they_belong_to_someone() {
         walk(&mut w, 10.0);
         more += 1;
     }
-    assert!(!w.bounty.is_empty(), "nobody saw a thing?");
+    if w.catch_chance(m, d.centre, d.id.0) > 0.0 {
+        assert!(!w.bounty.is_empty(), "nobody saw a thing?");
+    } else {
+        assert!(w.bounty.is_empty(), "seen through walls");
+    }
 }

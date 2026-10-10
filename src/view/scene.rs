@@ -476,6 +476,15 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
         }
     }
+    // The watch on a chase: a red ring under the guard, a fainter one under
+    // whoever they're after.
+    for p in &w.pursuits {
+        if let Some(g) = p.pos {
+            ring_widened(&mut fl, &on_ground, g, 0.85 * k, 0.09 * k, 18, [0.95, 0.18, 0.12], eye, 0.004);
+            let c = w.person_pos(p.culprit);
+            ring_widened(&mut fl, &on_ground, c, 1.25 * k, 0.05 * k, 22, [0.85, 0.25, 0.15], eye, 0.004);
+        }
+    }
     for g in &w.groups {
         if g.pos.dist(oc.target) > radius {
             continue;
@@ -567,6 +576,45 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, palette::CAMP_HIDE);
         }
     }
+    // Ruins (broken walls round a floor) and lairs (a rock arch and bones).
+    for ru in &w.ruins {
+        if ru.pos.dist(oc.target) > radius.min(900.0) {
+            continue;
+        }
+        let kk = k.min(4.0);
+        let base = to3(ru.pos, on_ground(ru.pos));
+        let rr = |i: u64| ((ru.id as u64 * 977 + i * 131) % 100) as f32 / 100.0;
+        match ru.kind {
+            gahturiyu_sim::sim::ruins::RuinKind::Ruin => {
+                b.block(base - vec3(0.0, 0.05, 0.0), 16.0 * kk, 0.15 * kk, 12.0 * kk, 0.3, [0.52, 0.5, 0.46]);
+                for i in 0..14 {
+                    let a = i as f32 / 14.0 * std::f32::consts::TAU;
+                    let at = ru.pos.add(V2::new(a.cos() * 9.0, a.sin() * 7.0).scale(kk));
+                    let tall = 0.4 + rr(i) * 3.2;
+                    if rr(i + 40) < 0.25 {
+                        continue; // a gap in the wall
+                    }
+                    b.block(to3(at, on_ground(at)), 3.6 * kk, tall * kk, 0.9 * kk, a + std::f32::consts::FRAC_PI_2, [0.6, 0.58, 0.53]);
+                }
+                // Two columns, one standing, one fallen.
+                b.column(base + vec3(2.0, 0.0, 1.0) * kk, 0.55 * kk, 0.5 * kk, 4.2 * kk, 8, [0.68, 0.66, 0.6]);
+                let f0 = base + vec3(-3.0, 0.4, -1.5) * kk;
+                b.stick(f0, f0 + vec3(3.8, 0.0, 1.2) * kk, 0.5 * kk, [0.68, 0.66, 0.6]);
+            }
+            gahturiyu_sim::sim::ruins::RuinKind::Lair(_) => {
+                // A rock arch over a dark mouth.
+                b.dome(base + vec3(0.0, 0.0, -3.0) * kk, 6.0 * kk, 4.5 * kk, 4.0 * kk, 0.3, 0.1, ru.id as u64, [0.38, 0.35, 0.33]);
+                b.block(base + vec3(0.0, 0.0, -0.4) * kk, 2.6 * kk, 2.2 * kk, 0.3 * kk, 0.0, [0.08, 0.07, 0.07]);
+                for i in 0..10 {
+                    let a = rr(i) * std::f32::consts::TAU;
+                    let at = ru.pos.add(V2::new(a.cos(), a.sin()).scale((2.0 + rr(i + 9) * 6.0) * kk));
+                    let p0 = to3(at, on_ground(at) + 0.1);
+                    b.stick(p0, p0 + vec3(a.sin(), 0.0, -a.cos()) * (1.1 * kk), 0.14 * kk, [0.7, 0.62, 0.45]);
+                }
+            }
+        }
+        game.picks.push((base + vec3(0.0, 2.5 * kk, 0.0), 6.0, Hover::Ruin(ru.id)));
+    }
     // Standing torches.
     for st in &w.standing {
         if st.pos.dist(oc.target) > radius || !st.burning(w.time) {
@@ -656,6 +704,46 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         game.picks.push((base + vec3(0.0, 0.8 * kk, 0.0), 2.0, Hover::Node(n.id)));
     }
+    // Woodlots and mines the squad can work: the pile shows what's left.
+    for d in &w.deposits {
+        if d.pos.dist(oc.target) > radius.min(500.0) {
+            continue;
+        }
+        let base = to3(d.pos, on_ground(d.pos));
+        let kk = k.min(4.0);
+        let cap = d.face().cap as f32;
+        let full = (d.left_at(w.time) / cap).clamp(0.0, 1.0);
+        let key = items::item(d.item).key;
+        let n = (full * 6.0).ceil() as usize;
+        match key {
+            "timber" => {
+                // Stacked logs, a stump and an axe-post.
+                for i in 0..n {
+                    let (row, col) = (i / 3, i % 3);
+                    let p = base + vec3(0.0, (0.25 + row as f32 * 0.45) * kk, (col as f32 - 1.0 + row as f32 * 0.5) * 0.48 * kk);
+                    b.stick(p - vec3(1.3 * kk, 0.0, 0.0), p + vec3(1.3 * kk, 0.0, 0.0), 0.22 * kk, palette::TIMBER);
+                }
+                b.column(base + vec3(2.2 * kk, 0.0, 0.8 * kk), 0.35 * kk, 0.35 * kk, 0.5 * kk, 7, [0.45, 0.33, 0.2]);
+            }
+            _ => {
+                let col = if key == "gold_nugget" { [0.85, 0.7, 0.25] } else { [0.45, 0.32, 0.26] };
+                // A cut face and the chunks dug from it.
+                b.block(base + vec3(0.0, 0.0, -1.4 * kk), 2.6 * kk, 1.8 * kk, 0.8 * kk, 0.0, palette::STONE);
+                for i in 0..n {
+                    let a = i as f32 * 1.9 + d.id as f32;
+                    let p = base + vec3(a.cos(), 0.0, a.sin() * 0.6 + 0.4) * (0.5 + 0.18 * i as f32) * kk;
+                    b.dome(p, 0.45 * kk, 0.4 * kk, 0.35 * kk, 0.2, 0.0, d.id as u64 * 7 + i as u64, col);
+                }
+                if key == "gold_nugget" && n > 0 {
+                    gl.dome(base + vec3(0.0, 0.35 * kk, 0.3 * kk), 0.12 * kk, 0.12 * kk, 0.1 * kk, 0.0, 0.0, 3, [1.0, 0.85, 0.35]);
+                }
+            }
+        }
+        // A marker post, so it reads as something to click.
+        b.stick(base + vec3(-1.6 * kk, 0.0, 1.2 * kk), base + vec3(-1.6 * kk, 1.6 * kk, 1.2 * kk), 0.09 * kk, palette::TIMBER);
+        gl.block(base + vec3(-1.6 * kk, 1.6 * kk, 1.2 * kk), 0.35 * kk, 0.22 * kk, 0.05 * kk, 0.0, if key == "timber" { [0.55, 0.85, 0.45] } else { [0.95, 0.75, 0.35] });
+        game.picks.push((base + vec3(0.0, 0.8 * kk, 0.0), 3.0, Hover::Deposit(d.id)));
+    }
     // Things lying about.
     for g in &w.ground {
         if g.pos.dist(oc.target) < radius.min(600.0) {
@@ -740,6 +828,19 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             draped_ribbon(&mut fl, &stand, at, goal, rw * 0.5, 0.4, col, 10.0);
             let inner = floor_at(goal);
             draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), goal, 0.8 * k, rw * 0.6, 12, col, eye);
+        }
+    }
+    // Aiming a spell: how far it reaches, and who's in its sights.
+    if let Some((who, s)) = game.aim {
+        if let Some(ki) = w.squad.index(who) {
+            let at = w.member_pos(ki);
+            let range = s.def().range.max(2.0);
+            draped_ring(&mut fl, &on_ground, at, range, rw * 0.7, 96, super::squadui::RITUAL, eye);
+            if let Some(Hover::Person(p)) = game.hover {
+                let tp = w.person_pos(p);
+                let col = if tp.dist(at) <= range { super::squadui::RITUAL } else { [0.95, 0.45, 0.30] };
+                draped_ring(&mut fl, &on_ground, tp, 1.3 * k, rw * 0.9, 24, col, eye);
+            }
         }
     }
     if game.rings {

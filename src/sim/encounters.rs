@@ -44,6 +44,12 @@ pub const CAMP_SIGHT: f32 = 110.0;
 pub const LOOKAHEAD: f64 = 2.0 * HOUR;
 /// How long a camp rests after a fight before it tries again.
 pub const CAMP_REST: f64 = 4.0 * HOUR;
+
+/// The first dawn (06:00) at or after `t`.
+pub fn next_dawn(t: f64) -> f64 {
+    let dawn = super::society::DAWN as f64 * HOUR;
+    ((t - dawn) / super::world::DAY).ceil() * super::world::DAY + dawn
+}
 /// Bandits camped across the world at the start.
 pub const CAMPS: usize = 10;
 
@@ -146,7 +152,8 @@ impl World {
         }
         let mut found = Vec::new();
         for leg in &g.legs[from.min(g.legs.len())..] {
-            for c in &self.camps {
+            // (A ruin's wardens keep to their ruin: they guard, they don't raid.)
+            for c in self.camps.iter().filter(|c| !self.is_warden(c.group)) {
                 if let Some(t) = camp_sees(leg, c.pos) {
                     found.push(Encounter { t, camp: c.group, victim: gid });
                 }
@@ -158,6 +165,9 @@ impl World {
     /// A new camp checks every leg already planned.
     pub(super) fn scan_camp(&mut self, ci: usize) {
         let c = self.camps[ci].clone();
+        if self.is_warden(c.group) {
+            return;
+        }
         let mut found = Vec::new();
         for g in self.groups.iter().filter(|g| !g.hostile) {
             for leg in &g.legs {

@@ -29,6 +29,10 @@ pub enum View {
     Map,
 }
 
+/// Every key, by view (the Keys button shows them).
+pub const HELP_3D: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land";
+pub const HELP_MAP: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits";
+
 /// Something the mouse can be over.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Hover {
@@ -45,6 +49,18 @@ pub enum Hover {
     Station(usize),
     /// A standing torch (index into `World::standing`).
     Torch(usize),
+    /// A woodlot or mine the squad can work.
+    Deposit(u32),
+    /// A ruin or lair.
+    Ruin(u32),
+    /// A building (anywhere on it, not just its door).
+    Building((u16, u16)),
+    /// A piece of furniture in a building: (building, its place in the layout).
+    Furniture((u16, u16), u8),
+    /// A bandit camp (index into `World::camps`).
+    Camp(usize),
+    /// A town's workplace: (town, its place in the town's list).
+    Place(u16, u16),
     /// A chest, crate, cupboard or barrel in a building.
     Container(gahturiyu_sim::sim::containers::ContainerId),
 }
@@ -74,11 +90,36 @@ pub struct Game {
     pub book: Option<PersonId>,
     /// A spell waiting for its target: the next click in the world aims it.
     pub aim: Option<(PersonId, gahturiyu_sim::sim::magic::Spell)>,
+    /// The scroll being aimed, when `aim` is a scroll's spell rather than a cast.
+    pub aim_scroll: Option<items::ItemId>,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
     pub loads: u32,
     /// A short message on screen ("Saved."), and when it appeared.
     pub notice: Option<(String, std::time::Instant)>,
+    /// The wild animal or carcass under the mouse last frame (found by
+    /// `animals::overlay`), for clicks: hunt it, or cut it up.
+    pub wild: Option<super::animals::Seen>,
+    /// First-hour tips.
+    pub hints: super::hints::Hints,
+    /// The squad list folded to its portraits.
+    pub squad_collapsed: bool,
+    /// The keys panel open.
+    pub keys: bool,
+    /// Big news shown across the top: (what, since).
+    pub banners: Vec<(String, std::time::Instant)>,
+    /// The right-click menu, while open.
+    pub menu: Option<super::interact::Menu>,
+    /// A thing pinned with Examine: its long description stays up.
+    pub examine: Option<Hover>,
+    /// Where the right button went down (a click, not a drag, opens the menu).
+    pub rpress_at: Option<Vec2>,
+    /// Words floating over heads (picked up, hurt, spotted, better at).
+    pub floaters: super::floaters::Floaters,
+    /// Where each squad member was on screen last frame.
+    pub squad_screen: Vec<(PersonId, Vec2)>,
+    /// A box being dragged out with the left button, from here to the mouse.
+    pub drag: Option<Vec2>,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -177,8 +218,26 @@ pub fn run() {
         options: std::env::var("GAHT_SETTINGS").is_ok(),
         book: None,
         aim: None,
+        aim_scroll: None,
         loads: 0,
         notice: None,
+        wild: None,
+        squad_collapsed: false,
+        keys: false,
+        banners: Vec::new(),
+        menu: None,
+        examine: None,
+        rpress_at: None,
+        floaters: Default::default(),
+        squad_screen: Vec::new(),
+        drag: None,
+        hints: {
+            let mut h = super::hints::Hints::load(shot.is_none());
+            if let Ok(id) = std::env::var("GAHT_HINT") {
+                h.force(&id);
+            }
+            h
+        },
         frame: 0,
         shot_at: None,
         sim_ms: 0.0,
@@ -391,6 +450,9 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     if let Some(h) = game.shot.as_ref().and_then(|s| s.hover) {
         mouse = h;
     }
+    if let Some(d) = game.shot.as_ref().and_then(|s| s.drag) {
+        game.drag = Some(d);
+    }
     game.mouse = mouse;
     let dt = time.delta_secs();
     if keys.just_pressed(KeyCode::F10) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
@@ -459,7 +521,10 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
     }
-    if keys.just_pressed(KeyCode::Escape) && game.placing.is_some() {
+    if keys.just_pressed(KeyCode::Escape) && (game.menu.is_some() || game.examine.is_some()) {
+        game.menu = None;
+        game.examine = None;
+    } else if keys.just_pressed(KeyCode::Escape) && game.placing.is_some() {
         // Finish a wall being drawn, or stop placing.
         match game.placing.as_mut() {
             Some(p) if !p.chain.is_empty() => p.chain.clear(),
@@ -467,6 +532,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         }
     } else if keys.just_pressed(KeyCode::Escape) && game.aim.is_some() {
         game.aim = None;
+        game.aim_scroll = None;
     } else if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
         w.end_talk();
     } else if keys.just_pressed(KeyCode::Backquote) || keys.just_pressed(KeyCode::Escape) {
@@ -637,11 +703,54 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     // Right-click anywhere drops a spell that's waiting to be aimed.
     if buttons.just_pressed(MouseButton::Right) && game.aim.is_some() {
         game.aim = None;
+        game.aim_scroll = None;
+    } else if buttons.just_pressed(MouseButton::Right) && !on_panels {
+        game.rpress_at = Some(mouse);
+    }
+    // A right-click (not a drag, which turns the camera) opens the menu of
+    // everything that can be done with what's under the mouse.
+    if buttons.just_released(MouseButton::Right) {
+        if let Some(p) = game.rpress_at.take() {
+            if (p - mouse).length() < 6.0 && !on_panels {
+                let ground = match game.view {
+                    View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
+                    View::Scene => game.orbit.ground_at(game.screen, mouse, &game.world.terrain),
+                };
+                game.menu = Some(super::interact::Menu { at: mouse, hover: game.hover, wild: if game.hover.is_none() { game.wild } else { None }, ground });
+            }
+        }
+    }
+    // A left drag that began off the panels draws a box to select the squad
+    // members inside it (Shift adds them).
+    if buttons.pressed(MouseButton::Left) && game.drag.is_none() && game.aim.is_none() && game.placing.is_none() && game.menu.is_none() {
+        if let Some(p) = game.press_at {
+            if (p - mouse).length() >= 6.0 && !game.panels.iter().any(|b| b.contains(p)) {
+                game.drag = Some(p);
+            }
+        }
     }
     if buttons.just_released(MouseButton::Left) {
+        if let Some(p) = game.drag.take() {
+            game.press_at = None;
+            let (a, b) = (p.min(mouse), p.max(mouse));
+            let inside: Vec<PersonId> = game.squad_screen.iter().filter(|(_, s)| s.x >= a.x && s.x <= b.x && s.y >= a.y && s.y <= b.y).map(|x| x.0).collect();
+            if !inside.is_empty() {
+                if !shift {
+                    game.sel = Selection::default();
+                }
+                for m in inside {
+                    if !game.sel.0.contains(&m) {
+                        game.sel.0.push(m);
+                    }
+                }
+            }
+        }
         if let Some(p) = game.press_at.take() {
             if (p - mouse).length() < 6.0 {
-                if on_panels {
+                if game.menu.is_some() && !on_panels {
+                    // A click away from an open menu just closes it.
+                    game.menu = None;
+                } else if on_panels {
                     game.ui_click = Some(Click { at: mouse, right: false, shift });
                 } else {
                     click_world(game, mouse, shift);
@@ -713,7 +822,15 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     game.frame_ms = game.frame_ms * 0.9 + dt as f64 * 1000.0 * 0.1;
     // A fight breaking out near the squad drops the game to real time.
     if !game.world.alerts.is_empty() {
-        game.world.alerts.clear();
+        // Big news gets a banner across the top for a while.
+        for a in game.world.alerts.drain(..) {
+            game.banners.push((a, std::time::Instant::now()));
+        }
+        game.banners.retain(|b| b.1.elapsed().as_secs_f32() < 8.0);
+        let n = game.banners.len();
+        if n > 3 {
+            game.banners.drain(..n - 3);
+        }
         game.speed_i = 0;
         game.paused = false;
     }
@@ -815,118 +932,41 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
         let point = match (target, hover) {
             (Some(p), _) => Some(game.world.person_pos(p)),
             (None, Some(Hover::Door(id))) => game.world.door(id).map(|d| d.outside),
+            (None, Some(Hover::Container(id))) => game.world.container(id).map(|c| c.pos),
             _ => point,
         };
-        if let Err(e) = game.world.use_spell(who, s, target, point) {
+        let res = match game.aim_scroll.take() {
+            Some(it) => game.world.order_read(who, it, target, point),
+            None => game.world.order_cast(who, s, target, point),
+        };
+        if let Err(e) = res {
             game.notice = Some((format!("{}: {}", s.def().name, e.0), std::time::Instant::now()));
         }
         return;
     }
+    // What a left-click does to the thing under the mouse: the first of its
+    // choices (`interact.rs`, which also names it in the tooltip).
     let world = &mut game.world;
     let who = game.sel.who(world);
-    match hover {
-        // A beaten foe: the nearest selected member goes through their things
-        // (Shift-click to carry them off instead).
-        Some(Hover::Person(pid)) if world.can_loot(pid) && !shift => {
-            let at = world.person_pos(pid);
-            let looter = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
-            if let Some(m) = looter {
-                world.order_loot(m, pid);
-                return;
-            }
-        }
-        Some(Hover::Person(pid)) if who.iter().any(|&m| world.can_carry(m, pid)) => {
-            let at = world.body_pos(pid);
-            let carrier = who.iter().copied().filter(|&m| world.can_carry(m, pid)).min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at)));
-            if let Some(c) = carrier {
-                world.order_carry(c, pid);
-                return;
-            }
-        }
-        Some(Hover::Person(pid)) if world.squad.index(pid).is_some() => {
-            game.sel.pick(pid, shift);
-            return;
-        }
-        Some(Hover::Person(pid)) => {
-            if world.attack(&who, pid) {
-                return;
-            }
-            if let Some(&lead) = who.first() {
-                if world.squad_battle().is_none() && world.order_talk(lead, pid) {
-                    return;
+    let all = game.sel.is_all(world);
+    let first = match hover {
+        // A workplace or a camp is only named; clicking there walks there.
+        Some(Hover::Place(..)) | Some(Hover::Camp(_)) => None,
+        Some(h) => super::interact::choices(world, h, &who, shift).into_iter().find(|c| c.act != super::interact::Act::Examine),
+        None => game.wild.and_then(|s| super::interact::wild_choices(world, &s).into_iter().next()),
+    };
+    if let Some(c) = first {
+        use super::interact::Act;
+        match c.act {
+            Act::Select(pid) => game.sel.pick(pid, shift),
+            Act::TownPanel(t) => game.town = if game.town == Some(t) { None } else { Some(t) },
+            act => {
+                if let Some(msg) = super::interact::perform(world, &who, all, act) {
+                    game.notice = Some((msg, std::time::Instant::now()));
                 }
             }
         }
-        Some(Hover::Door(id)) => {
-            if world.is_locked(id) {
-                let pick = items::id("lockpick");
-                let picker = who
-                    .iter()
-                    .copied()
-                    .filter(|&m| world.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == pick)).unwrap_or(false))
-                    .max_by(|&a, &b| world.pick_chance(a, 50.0).total_cmp(&world.pick_chance(b, 50.0)));
-                match picker {
-                    Some(p) => {
-                        world.order_pick(p, id);
-                    }
-                    None => world.log.push_front((world.time, "Nobody selected has a lockpick.".into())),
-                }
-                return;
-            }
-            if let Some(d) = world.door(id) {
-                world.order_members(&who, d.centre);
-                return;
-            }
-        }
-        // A container: pick its lock (the selected member with a lockpick
-        // and the best chance), or the nearest selected member opens it.
-        Some(Hover::Container(id)) => {
-            if world.container_locked(id) {
-                let pick = items::id("lockpick");
-                let lock = world.container(id).map(|c| c.lock).unwrap_or(50.0);
-                let picker = who
-                    .iter()
-                    .copied()
-                    .filter(|&m| world.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == pick)).unwrap_or(false))
-                    .max_by(|&a, &b| world.pick_chance(a, lock).total_cmp(&world.pick_chance(b, lock)));
-                match picker {
-                    Some(p) => {
-                        world.order_pick_container(p, id);
-                    }
-                    None => world.log.push_front((world.time, "Nobody selected has a lockpick.".into())),
-                }
-                return;
-            }
-            if let Some(at) = world.container(id).map(|c| c.pos) {
-                if let Some(m) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(at).total_cmp(&world.person_pos(b).dist(at))) {
-                    world.order_search(m, id);
-                    return;
-                }
-            }
-        }
-        Some(Hover::Town(t)) => {
-            game.town = if game.town == Some(t) { None } else { Some(t) };
-            return;
-        }
-        Some(Hover::Node(node)) => {
-            let pos = world.nodes.iter().find(|n| n.id == node).map(|n| n.pos);
-            if let Some(pos) = pos {
-                if let Some(f) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
-                    world.order_gather(f, node);
-                    return;
-                }
-            }
-        }
-        Some(Hover::Item(thing)) => {
-            let pos = world.ground.iter().find(|g| g.id == thing).map(|g| g.pos);
-            if let Some(pos) = pos {
-                if let Some(f) = who.iter().copied().min_by(|&a, &b| world.person_pos(a).dist(pos).total_cmp(&world.person_pos(b).dist(pos))) {
-                    world.order_pickup(f, thing);
-                    return;
-                }
-            }
-        }
-        _ => {}
+        return;
     }
     let target = match game.view {
         View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
@@ -1005,10 +1045,26 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     let ctx = contexts.ctx_mut()?;
     if !st.fonts {
         let mut fonts = egui::FontDefinitions::default();
-        fonts.font_data.insert("dejavu".into(), std::sync::Arc::new(egui::FontData::from_static(include_bytes!("../../assets/DejaVuSans.ttf"))));
-        fonts.families.get_mut(&egui::FontFamily::Proportional).unwrap().insert(0, "dejavu".into());
+        let mut add = |name: &str, bytes: &'static [u8]| {
+            fonts.font_data.insert(name.into(), std::sync::Arc::new(egui::FontData::from_static(bytes)));
+        };
+        add("dejavu", include_bytes!("../../assets/DejaVuSans.ttf"));
+        // The HUD's serif faces (SIL Open Font License, `assets/fonts`).
+        add("alegreya", include_bytes!("../../assets/fonts/Alegreya.ttf"));
+        add("alegreya_italic", include_bytes!("../../assets/fonts/Alegreya-Italic.ttf"));
+        add("alegreya_sc", include_bytes!("../../assets/fonts/AlegreyaSC-Bold.ttf"));
+        add("cinzel", include_bytes!("../../assets/fonts/Cinzel.ttf"));
+        let prop = fonts.families.get_mut(&egui::FontFamily::Proportional).unwrap();
+        prop.insert(0, "dejavu".into());
+        prop.insert(0, "alegreya".into());
+        // Each face falls back to Alegreya, then DejaVu, for anything it lacks.
+        for (family, first) in [("title", "cinzel"), ("caps", "alegreya_sc"), ("italic", "alegreya_italic")] {
+            fonts.families.insert(egui::FontFamily::Name(family.into()), vec![first.into(), "alegreya".into(), "dejavu".into()]);
+        }
         ctx.set_fonts(fonts);
         st.fonts = true;
+        // (The new faces only exist from the next frame.)
+        return Ok(());
     }
     let game = &mut *game;
     if st.loads != game.loads {
@@ -1082,6 +1138,39 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
     };
 
+    // ---- Over heads: floating words, and where each squad member is on screen
+    // (for drag-selecting) ------------------------------------------------------
+    {
+        let vp = game.orbit.view_proj(size);
+        let grid = scene.grid;
+        let (view, orbit, map_cam) = (game.view, &game.orbit, &game.map_cam);
+        let terrain = &game.world.terrain;
+        let place = |at: V2, up: f32| -> Option<Vec2> {
+            match view {
+                View::Map => Some(map_cam.to_screen(size, at) - Vec2::new(0.0, 8.0 + up * 4.0)),
+                View::Scene => orbit.project(&vp, size, to3(at, grid.height(terrain, at) + up)),
+            }
+        };
+        let mut on_screen = Vec::new();
+        for &m in &game.world.squad.members {
+            let at = game.world.fighter(m).map(|f| f.pos).unwrap_or_else(|| game.world.person_pos(m));
+            if let Some(s) = place(at, 1.0) {
+                on_screen.push((m, s));
+            }
+        }
+        // Screenshots step at a fixed pace, so the words do too.
+        let dt = if game.shot.is_some() { 1.0 / 30.0 } else { ctx.input(|i| i.stable_dt).min(0.1) };
+        game.floaters.update(&game.world, dt, game.loads);
+        game.floaters.draw(&c, &game.world, &|at| place(at, 2.6));
+        game.squad_screen = on_screen;
+        // The box being dragged out to select.
+        if let Some(p) = game.drag {
+            let (a, b) = (p.min(game.mouse), p.max(game.mouse));
+            c.rect(a.x, a.y, b.x - a.x, b.y - a.y, super::palette::ega(super::palette::GOLD, 0.08));
+            c.rect_lines(a.x, a.y, b.x - a.x, b.y - a.y, 1.5, super::palette::ega(super::palette::GOLD, 0.8));
+        }
+    }
+
     // ---- Panels ---------------------------------------------------------------
     if game.editor.on {
         if game.view == View::Map {
@@ -1100,7 +1189,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         return Ok(());
     }
-    panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
+    // The old side panel (counts, timings, races, the full log): with L.
+    if game.debug {
+        panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
+    }
     let w = &mut game.world;
     if game.inv.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
         game.inv = None;
@@ -1110,9 +1202,98 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     let click = game.ui_click.take();
     let mut actions = Vec::new();
-    let (a, boxes) = squadui::squad_bar(&c, w, &game.sel, click);
-    actions.extend(a);
+    // The frame: the squad, the tracked job, the place, the bottom band.
+    let mut open = Vec::new();
+    use super::frame::{Button, FrameAct};
+    for (on, b) in [(game.inv.is_some(), Button::Pack), (game.craft.is_some(), Button::Craft), (game.book.is_some(), Button::Spells), (game.journal, Button::Journal), (game.town.is_some(), Button::Town), (game.build, Button::Build), (game.view == View::Map, Button::Map), (game.keys, Button::Keys)] {
+        if on {
+            open.push(b);
+        }
+    }
+    let fs = super::frame::FrameState { sel: &game.sel, speed_i: game.speed_i, paused: game.paused, collapsed: game.squad_collapsed, open };
+    if game.view == View::Scene {
+        super::frame::banner(&c, w);
+    }
+    let (list_act, boxes) = super::frame::squad_list(&c, w, &fs, click);
     panels.extend(boxes);
+    if !fs.right_busy() && w.talk.is_none() {
+        panels.extend(super::frame::tracked(&c, w));
+    }
+    let (bottom_act, boxes) = super::frame::bottom(&c, w, &fs, click);
+    panels.extend(boxes);
+    if game.keys {
+        panels.push(super::frame::keys_panel(&c, game.view == View::Map));
+    }
+    for fa in [list_act, bottom_act].into_iter().flatten() {
+        match fa {
+            FrameAct::Select(pid, add) => game.sel.pick(pid, add),
+            FrameAct::Pack(pid) => {
+                game.book = None;
+                game.craft = None;
+                game.inv = if game.inv == Some(pid) { None } else { Some(pid) };
+            }
+            FrameAct::Collapse => game.squad_collapsed = !game.squad_collapsed,
+            FrameAct::Pause => game.paused = !game.paused,
+            FrameAct::Speed(i) => {
+                game.speed_i = i;
+                game.paused = false;
+            }
+            FrameAct::Sneak => {
+                let who = game.sel.who(w);
+                let on = !who.iter().all(|&m| w.is_sneaking(m));
+                for m in who {
+                    w.set_sneaking(m, on);
+                }
+            }
+            FrameAct::Rest => {
+                let who = game.sel.who(w);
+                w.order_rest(&who);
+            }
+            FrameAct::Toggle(b) => {
+                let lead = game.sel.lead(w);
+                match b {
+                    Button::Pack => {
+                        game.craft = None;
+                        game.book = None;
+                        game.inv = if game.inv.is_some() { None } else { lead };
+                    }
+                    Button::Craft => {
+                        game.inv = None;
+                        game.book = None;
+                        game.craft = if game.craft.is_some() { None } else { lead };
+                    }
+                    Button::Spells => {
+                        game.inv = None;
+                        game.craft = None;
+                        game.book = if game.book.is_some() { None } else { lead };
+                    }
+                    Button::Journal => game.journal = !game.journal,
+                    Button::Town => {
+                        let at = w.squad.pos;
+                        game.town = match game.town {
+                            Some(_) => None,
+                            None => w.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|s| s.id),
+                        };
+                    }
+                    Button::Build => {
+                        game.build = !game.build;
+                        if !game.build {
+                            game.placing = None;
+                        }
+                    }
+                    Button::Map => {
+                        game.view = if game.view == View::Scene { View::Map } else { View::Scene };
+                        if game.view == View::Map {
+                            game.map_cam.centre = game.orbit.target;
+                        } else {
+                            game.orbit.target = game.map_cam.centre;
+                        }
+                    }
+                    Button::Keys => game.keys = !game.keys,
+                }
+            }
+        }
+    }
     let mut item_tip = None;
     if let Some(pid) = game.inv {
         let (a, h, bx) = squadui::inventory(&c, w, pid, game.mouse, click);
@@ -1155,6 +1336,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         book_left = bx.x;
         panels.push(bx);
     }
+    panels.extend(super::hints::show(&c, &mut game.hints, w, click));
     let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, game.mouse, click);
     panels.extend(loot_box);
     match loot_act {
@@ -1163,6 +1345,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         Some(super::lootui::LootAct::TakeAll(m, src)) => {
             w.take_all_from(m, src);
+        }
+        Some(super::lootui::LootAct::Put(m, k)) => {
+            w.put_in(m, k);
         }
         Some(super::lootui::LootAct::Close(m)) => w.stop_looting(m),
         None => {}
@@ -1232,17 +1417,22 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     for a in actions {
         match a {
-            Action::Select(pid, add) => game.sel.pick(pid, add),
-            Action::OpenInventory(pid) => {
-                game.book = None;
-                game.inv = if game.inv == Some(pid) { None } else { Some(pid) };
-            }
             Action::CloseInventory => {
                 game.inv = None;
                 game.craft = None;
             }
+            // A scroll of a harmful spell is aimed like the spell itself.
+            Action::Use(pid, it) if matches!(items::item(it).kind, items::Kind::Scroll(k) if !gahturiyu_sim::sim::magic::spell(k).def().works_outside_fights() || w.fighting.contains_key(&pid)) => {
+                if let items::Kind::Scroll(k) = items::item(it).kind {
+                    game.aim = Some((pid, gahturiyu_sim::sim::magic::spell(k)));
+                    game.aim_scroll = Some(it);
+                }
+            }
             Action::Use(pid, it) => {
-                w.use_item(pid, it);
+                let why = w.why_cant_use(pid, it);
+                if !w.use_item(pid, it) {
+                    game.notice = Some((why.unwrap_or_else(|| "That can't be used just now.".into()), std::time::Instant::now()));
+                }
             }
             Action::Craft(pid, r) => {
                 let _ = w.start_craft(pid, r);
@@ -1259,6 +1449,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::DropEntry(pid, k) => {
                 w.drop_entry(pid, k);
             }
+            Action::GiveEntry(pid, k, to) => {
+                let msg = match w.give_entry(pid, k, to) {
+                    Ok(m) | Err(m) => m,
+                };
+                game.notice = Some((msg, std::time::Instant::now()));
+            }
             Action::CloseBook => game.book = None,
             Action::Spell(pid, s) => {
                 use gahturiyu_sim::sim::magic::{Aim, Style};
@@ -1272,6 +1468,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 let performing = d.style == Style::Ritual && !held;
                 if !performing && d.aim != Aim::Caster {
                     game.aim = Some((pid, s));
+                    game.aim_scroll = None;
                 } else if let Err(e) = w.use_spell(pid, s, None, None) {
                     game.notice = Some((format!("{}: {}", d.name, e.0), std::time::Instant::now()));
                 }
@@ -1290,9 +1487,93 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     panels.extend(super::weather::panel(&c, game, &mut weather, click));
 
+    // (Screenshots: `GAHT_MENU=1` right-clicks at the fake mouse.)
+    if game.shot.is_some() && game.frame == 20 && std::env::var("GAHT_MENU").is_ok() {
+        let ground = game.orbit.ground_at(game.screen, game.mouse, &game.world.terrain);
+        game.menu = Some(super::interact::Menu { at: game.mouse, hover: game.hover, wild: game.wild, ground });
+    }
+    // The right-click menu, and anything pinned with Examine.
+    if let Some(m) = game.menu {
+        let who = game.sel.who(&game.world);
+        let all = game.sel.is_all(&game.world);
+        let (picked, bx) = super::interact::draw_menu(&c, &game.world, &m, &who, game.mouse, click);
+        panels.push(bx);
+        if let Some(act) = picked {
+            use super::interact::Act;
+            game.menu = None;
+            match act {
+                Act::Examine => game.examine = m.hover,
+                Act::Select(pid) => game.sel.pick(pid, false),
+                Act::TownPanel(t) => game.town = Some(t),
+                Act::SneakTo(p) => {
+                    for &x in &who {
+                        game.world.set_sneaking(x, true);
+                    }
+                    let _ = super::interact::perform(&mut game.world, &who, all, Act::Walk(p));
+                }
+                act => {
+                    if let Some(msg) = super::interact::perform(&mut game.world, &who, all, act) {
+                        game.notice = Some((msg, std::time::Instant::now()));
+                    }
+                }
+            }
+        }
+    }
+    if let Some(h) = game.examine {
+        let mut lines = hud::describe(&game.world, h);
+        lines.retain(|(l, _)| !l.to_lowercase().contains("click"));
+        if let Some(f) = lines.first_mut() {
+            f.1 = super::palette::GOLD;
+        }
+        lines.push(("Esc or click × to close".into(), super::palette::DIM));
+        let r = Bx::from(c.panel(&lines, size.x - 520.0, 200.0, 15.0));
+        let close = Bx::new(r.x + r.w - 24.0, r.y + 6.0, 18.0, 18.0);
+        c.text("×", close.x + 3.0, close.y + 15.0, 18.0, super::palette::DIM);
+        if click.is_some_and(|k| close.contains(k.at)) {
+            game.examine = None;
+        }
+        panels.push(r);
+    }
+
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
     game.hover = if on_panels { None } else { pick.best.map(|(_, h)| h) };
+    // Under the mouse when nothing smaller is: a building, a piece of
+    // furniture, a camp, a workplace (shown if no animal is there either).
+    let ground_hover = if on_panels || game.hover.is_some() {
+        None
+    } else {
+        let gp = match game.view {
+            View::Map => Some(game.map_cam.to_world(game.screen, game.mouse)),
+            View::Scene => game.orbit.ground_at(game.screen, game.mouse, &game.world.terrain),
+        };
+        let on_ground = gp.and_then(|p| super::interact::ground_hover(&game.world, p));
+        // A building under the mouse, by its outline on screen (the ground
+        // behind a roof isn't the building): the one nearest its middle.
+        let mut building = None;
+        if game.view == View::Scene && !matches!(on_ground, Some(Hover::Furniture(..))) {
+            let vp = game.orbit.view_proj(size);
+            let mut best = f32::MAX;
+            for d in game.world.doors_near(game.orbit.target, game.orbit.draw_radius().min(400.0)) {
+                let g = scene.grid.height(&game.world.terrain, d.centre);
+                let mid = to3(d.centre, g + d.radius * 0.35);
+                let (Some(a), Some(b)) = (game.orbit.project(&vp, size, mid), game.orbit.project(&vp, size, mid + Vec3::new(d.radius * 0.8, 0.0, 0.0))) else { continue };
+                let r = (b - a).length().max(6.0);
+                let k = (game.mouse - a).length() / r;
+                if k < 1.0 && k < best {
+                    best = k;
+                    building = Some(Hover::Building(d.id));
+                }
+            }
+        }
+        match on_ground {
+            Some(Hover::Furniture(..)) => on_ground,
+            _ => building.or(on_ground),
+        }
+    };
+    let alt = ctx.input(|i| i.modifiers.alt) || (game.shot.is_some() && std::env::var("GAHT_ALT").is_ok());
+    let shift_held = ctx.input(|i| i.modifiers.shift);
+    let who_sel = game.sel.who(&game.world);
     if let (Some(p), false) = (&game.placing, on_panels) {
         super::baseui::placing_hint(&c, p, game.mouse);
     }
@@ -1301,42 +1582,67 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
         // Beside the book, not over it.
         c.panel(&lines, book_left - wd - 10.0, game.mouse.y, 15.0);
-    } else if let Some((_, s)) = game.aim {
-        use gahturiyu_sim::sim::magic::Aim;
-        let what = match s.def().aim {
-            Aim::Foe => "click an enemy",
-            Aim::Friend => "click a friend (or themselves)",
-            Aim::Anyone => "click someone",
-            Aim::Door => "click a door",
-            Aim::Corpse => "click by a body",
-            _ => "click a spot",
-        };
-        let t = format!("{}: {what}  ·  right-click to cancel", s.def().name);
-        c.text(&t, game.mouse.x + 18.0, game.mouse.y - 8.0, 15.0, squadui::RITUAL);
+    } else if let Some((who, s)) = game.aim {
+        // Aiming: what the click would do, and whether it can.
+        let (line, ok) = super::interact::aim_label(&game.world, who, s, game.hover, game.aim_scroll.is_some());
+        let lines = vec![(s.def().name.to_string(), super::palette::GOLD), (line, if ok { super::palette::BRASS_LIGHT } else { [0.95, 0.38, 0.30] }), ("Right-click or Esc to cancel".to_string(), super::palette::DIM)];
+        c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
     }
     if let Some(it) = item_tip {
         let lines = squadui::item_lines(it);
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
         c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
     } else if let Some(h) = game.hover {
-        c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+        if game.aim.is_none() {
+            c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+        }
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
-    let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
-    };
+    if game.hover.is_none() && game.wild.is_none() && game.aim.is_none() {
+        if let Some(h) = ground_hover {
+            game.hover = Some(h);
+            c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+        }
+    }
+    // Alt: a label on everything that can be hovered, as in Baldur's Gate 3.
+    if alt && game.view == View::Scene && game.aim.is_none() {
+        let vp = game.orbit.view_proj(size);
+        let mut n = 0;
+        for (p, _, h) in &game.picks {
+            if n > 90 || matches!(h, Hover::Group(_)) {
+                continue;
+            }
+            let Some(q) = game.orbit.project(&vp, size, *p) else { continue };
+            if q.x < 0.0 || q.y < 0.0 || q.x > size.x || q.y > size.y - super::frame::BOTTOM_CLEAR || panels.iter().any(|b| b.contains(q)) {
+                continue;
+            }
+            if let Some(name) = super::interact::short_name(&game.world, *h) {
+                let wd = c.width(&name, 13.0) + 10.0;
+                c.rect(q.x - wd / 2.0, q.y - 30.0, wd, 18.0, hud::shadow(0.6));
+                c.centred(&name, q.x, q.y - 16.0, 13.0, super::palette::TEXT);
+                n += 1;
+            }
+        }
+    }
+    // Banners: the latest big news, fading after a few seconds.
+    let mut by = 168.0;
+    for (msg, at) in game.banners.iter().filter(|b| b.1.elapsed().as_secs_f32() < 8.0 || game.shot.is_some()) {
+        let age = at.elapsed().as_secs_f32();
+        let fade = if game.shot.is_some() { 1.0 } else { (1.0 - (age - 6.0) / 2.0).clamp(0.0, 1.0) };
+        let wd = (c.styled_width(msg, 17.0, hud::Face::Body, 0.0) + 48.0).min(size.x - 80.0);
+        let x = (size.x - wd) / 2.0;
+        c.frame_box(x, by, wd, 36.0);
+        c.diamond(x + 14.0, by + 18.0, 4.0, super::palette::ega(super::palette::BRASS_LIGHT, fade));
+        c.styled(msg, x + 28.0, by + 24.0, 17.0, super::palette::ega(super::palette::TEXT, fade), hud::Face::Body, 0.0);
+        by += 44.0;
+    }
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {
             let wd = c.width(msg, 17.0) + 32.0;
-            c.rect((size.x - wd) / 2.0, 70.0, wd, 34.0, hud::shadow(0.7));
-            c.centred(msg, size.x / 2.0, 93.0, 17.0, super::palette::GOLD);
+            c.rect((size.x - wd) / 2.0, 130.0, wd, 34.0, hud::shadow(0.7));
+            c.centred(msg, size.x / 2.0, 153.0, 17.0, super::palette::GOLD);
         }
     }
-    c.rect(0.0, size.y - 30.0, size.x, 30.0, hud::shadow(0.45));
-    // Shrink the help line to fit narrower windows.
-    let fit = (15.0 * (size.x - 28.0) / c.width(help, 15.0)).clamp(10.0, 15.0);
-    c.text(help, 14.0, size.y - 10.0, fit, super::palette::DIM);
     game.panels = panels;
     Ok(())
 }

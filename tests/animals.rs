@@ -304,15 +304,21 @@ fn a_pack_leaves_a_strong_squad_alone_but_falls_on_a_lone_survivor() {
     // Three of them down: the pack closes on the one left standing. (Hungry
     // again, whatever it has caught lately.)
     w.animals.herds[pack as usize].ready_at = 0.0;
-    let t = w.time;
-    for &m in &w.squad.members.clone()[1..] {
-        let p = &mut w.people[m as usize];
-        p.wounds.lost[1] = p.stats.max_hp(gahturiyu_sim::sim::body::Part::Torso) + 30.0;
-        p.wounds.at = t;
-    }
+    // (Downed squad members come round within the hour or two, so they're
+    // knocked down afresh each hour.)
+    let down = |w: &mut World| {
+        let t = w.time;
+        for &m in &w.squad.members.clone()[1..] {
+            let p = &mut w.people[m as usize];
+            p.wounds.lost[1] = p.stats.max_hp(gahturiyu_sim::sim::body::Part::Torso) + 30.0;
+            p.wounds.at = t;
+        }
+    };
+    down(&mut w);
     assert_eq!(w.squad_fit().len(), 1);
     let mut attacked = false;
     'night: for _ in 0..5 {
+        down(&mut w);
         // (Its nerve is rolled afresh each hour.)
         let lone = [w.squad.members[0]];
         let roll_ok = (0..=10).any(|k| w.herd_would_attack(pack, &lone, k as f32 / 10.0));

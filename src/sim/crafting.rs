@@ -521,14 +521,47 @@ impl World {
 
     // ---- Using things -------------------------------------------------------
 
+    /// Why `use_item` would refuse this, in a line for the player (None if
+    /// it wouldn't).
+    pub fn why_cant_use(&self, who: PersonId, it: ItemId) -> Option<String> {
+        let p = &self.people[who as usize];
+        let d = p.detail.as_ref()?;
+        let name = item(it).name.to_lowercase();
+        if !d.gear.bag.iter().any(|e| e.0 == it) {
+            return Some(format!("There's no {name} in that pack."));
+        }
+        if self.is_down(who) {
+            let n = p.name().unwrap_or("They");
+            return Some(format!("{n} is out cold and can't use anything; a squadmate can give them a healing draught."));
+        }
+        if self.fighting.contains_key(&who) {
+            return match item(it).kind {
+                Kind::Potion | Kind::Scroll(_) => None,
+                _ => Some(format!("The {name} can't be used in a fight.")),
+            };
+        }
+        match item(it).kind {
+            Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_) | Kind::Potion => None,
+            Kind::Scroll(key) => {
+                let sp = super::magic::spell(key).def();
+                (!sp.works_outside_fights()).then(|| format!("{} is for a fight: read it at an enemy to start one (or once one's on).", sp.name))
+            }
+            _ => Some(format!("The {name} isn't something to use; equip it, sell it, or craft with it.")),
+        }
+    }
+
     /// Drink a potion or read a scroll outside a fight. Returns false if it
     /// can't be used now (attack scrolls are for fights).
     pub fn use_item(&mut self, who: PersonId, it: ItemId) -> bool {
         let t = self.time;
         let p = &self.people[who as usize];
         let Some(d) = p.detail.as_ref() else { return false };
-        if !d.gear.bag.iter().any(|e| e.0 == it) || self.fighting.contains_key(&who) {
+        if !d.gear.bag.iter().any(|e| e.0 == it) || self.is_down(who) {
             return false;
+        }
+        // In a fight: drunk or read there and then, on your order.
+        if self.fighting.contains_key(&who) {
+            return self.use_in_fight(who, it, None).is_ok();
         }
         if let Kind::Food(_) = item(it).kind {
             return self.eat(who, it, t);

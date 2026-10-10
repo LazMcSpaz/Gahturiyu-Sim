@@ -20,7 +20,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::cam::to3;
-use super::hud::{Canvas, PANEL};
+use super::hud::Canvas;
 use super::mesh::Builder;
 use super::palette::{self, eg, ega, Rgb, DIM, GOLD, TEXT, WARN};
 use super::squadui::{Bx, Click};
@@ -75,7 +75,7 @@ pub fn build_panel(c: &Canvas, w: &World, here: V2, placing: Option<usize>, base
     let rows = BUILDINGS.len() + 6 + bid.and_then(|b| w.base(b)).map(|b| b.buildings.iter().filter(|x| !x.standing()).count().min(8) + 4).unwrap_or(1);
     let h = (rows as f32 * ROW + 70.0).min(c.h - 140.0);
     let r = Bx::new(c.w - W - 14.0, 60.0, W, h);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 14.0;
     let mut y = r.y + 26.0;
@@ -349,7 +349,7 @@ fn base_panel(c: &Canvas, w: &World, bid: BaseId, mouse: Vec2, click: Option<Cli
     let rows = 9 + b.residents.len() + b.present.len() + care.len().min(6) + 7;
     let h = (rows as f32 * ROW + 60.0).min(c.h - 140.0);
     let r = Bx::new(c.w - W - 14.0, 60.0, W, h);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 14.0;
     let mut y = r.y + 26.0;

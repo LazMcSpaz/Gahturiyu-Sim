@@ -1,0 +1,9 @@
+# The game's cast of voices. Each [name] is one speaker an NPC can have:
+# an accent (accents.toml, or a tongue at a thickness such as "roduro@2"),
+# a raw voice or a mix of them, and that speaker's own body.
+# The panel (`voice.py studio`) rewrites this file when a speaker is saved;
+# notes added by hand are not kept.
+#
+#   base = "kokoro:bm_george*0.6+hm_omega*0.4"   `voice.py voices` lists them all
+#   speaks = "roduro"   optional: only voices lines tagged voice=roduro (and untagged ones)
+#   pitch, size, age, rough ...   any dial from dials.toml

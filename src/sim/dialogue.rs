@@ -87,6 +87,8 @@ pub enum Topic {
     Hire(u16),
     /// Join the squad, for this signing fee (0: for nothing).
     Join(u16),
+    /// Sell every one of these the merchant will take.
+    SellAll(items::ItemId),
     Goodbye,
 }
 
@@ -126,6 +128,7 @@ impl Topic {
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
             Topic::Join(_) => "Come with us",
+            Topic::SellAll(..) => "Sell all",
             Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
         }
@@ -198,6 +201,10 @@ impl World {
             },
             Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
             Topic::Hire(wage) => format!("Come and work at my outpost ({wage} coin a day)"),
+            Topic::SellAll(it) => {
+                let p = self.talk.as_ref().and_then(|c| self.sellable(c.npc).into_iter().find(|x| x.0 == it)).map(|x| x.1).unwrap_or(0);
+                format!("Sell all {} × {} ({p} coin each)", self.squad_count(it), items::item(it).name.to_lowercase())
+            }
             Topic::Join(0) => "Come with us — join the squad".into(),
             Topic::Join(fee) => format!("Come with us — join the squad ({fee} coin to sign on)"),
             Topic::Order(ri, p) => format!("Grow me a {} ({p} coin, half now; {:.0} days)", items::item(RECIPES[ri as usize].item(Grade::Common)).name.to_lowercase(), RECIPES[ri as usize].time / DAY),
@@ -313,7 +320,15 @@ impl World {
         if self.is_trading(c.npc) {
             if c.trading {
                 t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
-                t.extend(self.sellable(c.npc).into_iter().take(5).map(|(it, p)| Topic::Sell(it, p)));
+                // One line per kind of thing: several of it sell together.
+                let mut seen: Vec<items::ItemId> = Vec::new();
+                for (it, p) in self.sellable(c.npc) {
+                    if seen.contains(&it) || seen.len() >= 8 {
+                        continue;
+                    }
+                    seen.push(it);
+                    t.push(if self.squad_count(it) > 1 { Topic::SellAll(it) } else { Topic::Sell(it, p) });
+                }
             } else {
                 t.push(Topic::Trade);
             }
@@ -470,7 +485,7 @@ impl World {
                 let job = self.life(c.npc).job;
                 if job != super::jobs::Job::None {
                     let place = self.workplace_of(c.npc).map(|w| format!(", at the {}", w.kind.name().to_lowercase())).unwrap_or_default();
-                    return format!("{race} These days I'm a {}{place}.", job.name().to_lowercase());
+                    return format!("{race} These days I'm a {}{place}.", job.title(p.seed).to_lowercase());
                 }
                 let work = match p.stats.calling {
                     Calling::Warrior => " I've fought for coin, when there was coin to fight for.",
@@ -692,6 +707,19 @@ impl World {
                     ["Have a look. Fair prices — the press doesn't lie.", "What'll it be?", "All stamped and counted. Take your time."][r.below(3)].into()
                 }
             }
+            Topic::SellAll(it) => {
+                let before = self.squad_count(items::id("coin"));
+                let mut n = 0;
+                while self.sell(c.npc, it) {
+                    n += 1;
+                }
+                let got = self.squad_count(items::id("coin")).saturating_sub(before);
+                match n {
+                    0 => "I can't take any more of that.".into(),
+                    _ if self.squad_count(it) > 0 => format!("{n} of them, {got} coin. That's all I can take for now."),
+                    _ => format!("{n} of them — {got} coin. Pleasure."),
+                }
+            }
             Topic::Buy(it, price) => {
                 if self.buy_at(c.npc, it, price) {
                     format!("{price} coin. There you are.")
@@ -782,7 +810,7 @@ impl World {
     /// Distance, direction and size of the bandit camp nearest a town.
     fn nearest_camp(&self, home: Option<u16>) -> Option<(f32, &'static str, usize)> {
         let from = home.map(|h| self.settlements[h as usize].pos).unwrap_or(self.squad.pos);
-        let c = self.camps.iter().min_by(|a, b| a.pos.dist(from).total_cmp(&b.pos.dist(from)))?;
+        let c = self.camps.iter().filter(|c| !self.is_warden(c.group)).min_by(|a, b| a.pos.dist(from).total_cmp(&b.pos.dist(from)))?;
         let n = self.group(c.group).map(|g| g.members.iter().filter(|&&m| !self.people[m as usize].dead).count()).unwrap_or(0);
         Some((c.pos.dist(from), compass(c.pos.sub(from)), n))
     }
@@ -822,6 +850,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::QuitWork => 70,
         Topic::Hire(_) => 71,
         Topic::Join(_) => 72,
+        Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::Say(o) => 80 + o as u64,
     }
 }

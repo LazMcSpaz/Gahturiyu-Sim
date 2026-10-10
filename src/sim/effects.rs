@@ -378,7 +378,7 @@ impl Effect {
             Does::Lighten => format!("Load {pct:.0}% lighter"),
             Does::Dispel => "Ends every spell on them".to_string(),
             Does::Shatter => "Shatters their weapon or shield".to_string(),
-            Does::Unlock => "Opens a locked door".to_string(),
+            Does::Unlock => "Opens a lock (a door, a chest)".to_string(),
             Does::Transmute => "Turns one material into another".to_string(),
             Does::Shrink => format!("{pct:.0}% smaller"),
             Does::Enlarge => format!("{pct:.0}% bigger"),

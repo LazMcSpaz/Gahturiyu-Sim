@@ -16,7 +16,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::app::{Game, View};
-use super::hud::{Canvas, PANEL};
+use super::hud::Canvas;
 use super::palette::{self, eg, ega, Rgb, DIM, GOLD, TEXT, WARN};
 use super::squadui::{Bx, Click};
 
@@ -394,7 +394,7 @@ fn stepper(c: &Canvas, x: f32, y: f32, label: &str, value: &str, click: Option<C
 pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
     let h = 700.0f32.min(c.h - 24.0);
     let r = Bx::new(c.w - W - 12.0, 12.0, W, h);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 12.0;
     let mut y = r.y + 28.0;

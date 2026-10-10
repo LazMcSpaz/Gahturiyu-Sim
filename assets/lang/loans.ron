@@ -1,0 +1,22 @@
+// Words one tongue borrowed from another instead of inheriting them from the
+// First Speech. Read by src/names/mod.rs. A borrowed word starts from the
+// lender's finished word and is fitted to the borrower's sounds (the
+// `..._borrows` list in sounds.ron).
+//
+// Ṭaḍoro borrows the most: the Air-kind found no towns and lodge in other
+// peoples' homes, so the words for what their hosts make and keep are their
+// hosts' words.
+//
+//   root   the root's English key (roots.ron)
+//   into   the tongue that borrowed it
+//   from   the tongue it was borrowed from
+//   why    the reason
+[
+    (root: "mountain", into: Tadoro, from: Roduro, why: "The Roduro hold the hills; wanderers learned the mountains' names from them."),
+    (root: "rock", into: Tadoro, from: Roduro, why: "Stone is Roduro business."),
+    (root: "town", into: Tadoro, from: Roduro, why: "The Air-kind found no towns of their own."),
+    (root: "law", into: Tadoro, from: Roduro, why: "A lodger lives under the host's law."),
+    (root: "tradition", into: Tadoro, from: Roduro, why: "Goes with law."),
+    (root: "iron", into: Tadoro, from: Qotiro, why: "Iron is bought from Qotiro forges."),
+    (root: "fight", into: Tadoro, from: Qotiro, why: "The word of the duelling yards."),
+]

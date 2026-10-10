@@ -1,0 +1,161 @@
+// How places are named. Read by src/names/places.rs; sample places are in
+// docs/places.md (`cargo run --release --bin lang -- places`).
+//
+// A place's name is two roots, the first describing the second, the same
+// way a thing's name is built. It is made once as a recipe ("stone+brow")
+// and then said in each of the four tongues by that tongue's own rules, and
+// in English ("Stonebrow"). What goes into it comes from the place itself:
+//
+//   features   what the land is like there. For each kind of feature:
+//                heads   the words such a place is called (a cove is a
+//                        "cove", a "harbour", a "bay")
+//                marks   what is found at such a place and might name it
+//                        (gulls, kelp, shells)
+//   steads     words for a place people have settled (town, market, hearth,
+//              hall). A town is named either for the land ("Stonebrow") or
+//              for what people made of it ("Kelpmeet").
+//   shared     marks any people might use anywhere (old, high, grey, storm).
+//   peoples    each people's own favourite marks.
+//   english    how a root reads in an English place name, where its id
+//              would not do: (root, as the first part, as the last part: one
+//              or more to choose from). "valley" ends a name as "dale".
+//   samples    the sample places in docs/places.md: (what it is, the land,
+//              who named it, a founding element if any, a seed).
+//
+// A founding element, where a place has one, takes the place of the mark:
+// a resource or a creature or an event (any root), the founder, or a god.
+(
+    features: [
+        (feature: Cove, heads: ["cove", "harbour", "bay"], marks: ["gull", "kelp", "shell", "calm", "foam", "boat", "net", "pearl", "eel", "salt"]),
+        (feature: Bay, heads: ["bay", "harbour", "shore"], marks: ["gull", "wave", "tide", "sail", "moon", "wide", "long", "calm", "boat"]),
+        (feature: Headland, heads: ["headland", "brow", "crag"], marks: ["wind", "storm", "gull", "far", "high", "foam", "torch", "long"]),
+        (feature: Cliff, heads: ["cliff", "brow", "crag", "ledge"], marks: ["gull", "wind", "high", "white", "red", "grey", "bird", "thorn"]),
+        (feature: Shore, heads: ["shore", "sand", "bank"], marks: ["shell", "kelp", "tide", "salt", "foam", "long", "white", "gull"]),
+        (feature: RiverMouth, heads: ["mouth", "ford", "bank"], marks: ["reed", "eel", "fish", "mud", "tide", "wide", "salt"]),
+        (feature: Island, heads: ["island"], marks: ["gull", "far", "storm", "shell", "holy", "fog"]),
+        (feature: Stack, heads: ["stack", "crag"], marks: ["gull", "storm", "foam", "bird", "black", "old"]),
+        (feature: Hillside, heads: ["slope", "brow", "bank", "ledge"], marks: ["stone", "moss", "thorn", "grass", "herb", "grazer", "wind", "sun", "rain"]),
+        (feature: Hill, heads: ["hill", "brow", "ridge"], marks: ["wind", "grass", "grazer", "star", "sun", "round", "high", "green"]),
+        (feature: Valley, heads: ["valley", "hollow", "gorge"], marks: ["stream", "tree", "deep", "green", "quiet", "fog", "herb", "long"]),
+        (feature: Hollow, heads: ["hollow", "pit", "pool"], marks: ["moss", "fog", "hidden", "deep", "quiet", "spring", "tree"]),
+        (feature: Ridge, heads: ["ridge", "crag", "brow"], marks: ["wind", "long", "hound", "stone", "cloud", "high", "grey"]),
+        (feature: Mountain, heads: ["mountain", "crag", "peak"], marks: ["snow", "cloud", "frost", "thunder", "high", "white", "grey", "ore", "iron"]),
+        (feature: Peak, heads: ["peak", "crag"], marks: ["snow", "cloud", "star", "thunder", "high", "white"]),
+        (feature: Pass, heads: ["pass", "door", "gorge"], marks: ["wind", "snow", "high", "storm", "far", "hound"]),
+        (feature: Plateau, heads: ["plateau", "plain", "brow"], marks: ["sun", "sand", "red", "gold", "wide", "wind", "horn", "ember", "dry"]),
+        (feature: Plain, heads: ["plain", "field"], marks: ["grass", "grain", "grazer", "wide", "long", "wind", "gold", "green"]),
+        (feature: Wood, heads: ["forest"], marks: ["tree", "bark", "branch", "moss", "leaf", "hound", "bird", "old", "dark", "green"]),
+        (feature: Marsh, heads: ["marsh", "pool"], marks: ["reed", "mud", "fog", "eel", "bird", "black", "quiet"]),
+        (feature: Heath, heads: ["heath", "field"], marks: ["thorn", "wind", "herb", "grazer", "brown", "hound", "wide"]),
+        (feature: Spring, heads: ["spring", "pool"], marks: ["sweet", "holy", "winter", "stone", "hidden"]),
+        (feature: Stream, heads: ["stream", "waterway", "ford"], marks: ["stone", "swift", "white", "quiet", "reed", "fish"]),
+    ],
+
+    steads: ["town", "market", "hearth", "hall", "house"],
+
+    shared: ["old", "new", "high", "long", "white", "grey", "red", "green", "black", "quiet", "wind", "storm", "rain", "frost", "moon", "star", "sun", "dawn", "dusk"],
+
+    peoples: [
+        (tongue: Roduro, marks: ["old", "deep", "grey", "moss", "stone", "hearth", "ring", "root", "quiet"]),
+        (tongue: Qotiro, marks: ["red", "sun", "iron", "high", "spear", "ember", "gold", "horn", "fire"]),
+        (tongue: Horaro, marks: ["blue", "calm", "moon", "pearl", "rain", "tide", "wave", "soft"]),
+        (tongue: Tadoro, marks: ["wind", "far", "star", "white", "road", "cloud", "silk", "new"]),
+    ],
+
+    english: [
+        ("crag", "Crag", ["crag", "scar"]),
+        ("cliff", "Cliff", ["cliff", "scar"]),
+        ("brow", "Brow", ["brow", "edge"]),
+        ("ledge", "Ledge", ["ledge", "shelf"]),
+        ("slope", "Slope", ["side", "bank"]),
+        ("bank", "Bank", ["bank"]),
+        ("hill", "Hill", ["hill", "how"]),
+        ("ridge", "Ridge", ["ridge", "rigg"]),
+        ("peak", "Peak", ["peak", "pike"]),
+        ("mountain", "Fell", ["fell", "mount"]),
+        ("valley", "Dale", ["dale", "vale"]),
+        ("hollow", "Hollow", ["hollow", "combe"]),
+        ("gorge", "Cleft", ["gill", "cleft"]),
+        ("pit", "Pit", ["pit", "delf"]),
+        ("pass", "Gap", ["gap", "pass"]),
+        ("plateau", "Table", ["table", "flat"]),
+        ("plain", "Plain", ["lea", "flat"]),
+        ("field", "Field", ["field", "acre"]),
+        ("forest", "Wood", ["wood", "shaw"]),
+        ("heath", "Heath", ["heath", "moor"]),
+        ("marsh", "Marsh", ["marsh", "mire", "fen"]),
+        ("pool", "Mere", ["mere", "pool"]),
+        ("spring", "Well", ["well", "spring"]),
+        ("stream", "Brook", ["brook", "beck", "burn"]),
+        ("waterway", "River", ["water"]),
+        ("ford", "Ford", ["ford"]),
+        ("road", "Way", ["way", "road"]),
+        ("shore", "Shore", ["shore", "strand"]),
+        ("sand", "Sand", ["sands"]),
+        ("reef", "Reef", ["reef", "skerry"]),
+        ("island", "Isle", ["holm", "isle"]),
+        ("headland", "Ness", ["ness", "head", "point"]),
+        ("harbour", "Haven", ["haven", "port"]),
+        ("deep", "Deep", ["deeps"]),
+        ("town", "Town", ["ton", "stead", "wick"]),
+        ("market", "Market", ["meet", "market"]),
+        ("house", "House", ["ham"]),
+        ("garden", "Garden", ["garth", "garden"]),
+        ("door", "Gate", ["gate"]),
+        ("grazer", "Herd", ["herd"]),
+        ("fog", "Mist", ["mist"]),
+        ("flower", "Bloom", ["bloom"]),
+        ("quiet", "Still", ["still"]),
+        ("brown", "Dun", ["dun"]),
+        ("torch", "Lamp", ["lamp"]),
+        ("spirit", "Ghost", ["ghost"]),
+        ("vow", "Oath", ["oath"]),
+        ("fight", "Battle", ["battle"]),
+        ("winter", "Winter", ["winter"]),
+        ("timber", "Timber", ["timber"]),
+        ("tree", "Tree", ["tree"]),
+        ("gold", "Gold", ["gold"]),
+        ("hidden", "Hidden", ["hide"]),
+        ("holy", "Holy", ["holy"]),
+        ("dry", "Dry", ["dry"]),
+        ("far", "Far", ["far"]),
+    ],
+
+    samples: [
+        // The coast, where the first towns are: Roduro on the hillside, Horaro on the water.
+        (what: "a harbour town in a wooded cove", features: [Cove, Wood], culture: Roduro, town: true, seed: 1),
+        (what: "a town on a rocky hillside above the shore", features: [Hillside, Shore], culture: Roduro, town: true, seed: 2),
+        (what: "a town under a sea cliff", features: [Cliff, Shore], culture: Roduro, town: true, seed: 3),
+        (what: "a stilt village in a quiet bay", features: [Bay], culture: Horaro, town: true, seed: 4),
+        (what: "a stilt village off a long beach", features: [Shore], culture: Horaro, town: true, seed: 5),
+        (what: "a stilt village founded where kelp was first gathered", features: [Cove], culture: Horaro, town: true, founding: Some(Root("kelp")), seed: 6),
+        (what: "a fishing town on a headland", features: [Headland], culture: Horaro, town: true, seed: 7),
+        (what: "a town at a river mouth", features: [RiverMouth, Marsh], culture: Roduro, town: true, seed: 8),
+        // Inland Roduro country.
+        (what: "a village in a wooded valley", features: [Valley, Wood], culture: Roduro, town: true, seed: 9),
+        (what: "a village on a windy hill", features: [Hill], culture: Roduro, town: true, seed: 10),
+        (what: "a village on the heath", features: [Heath], culture: Roduro, town: true, seed: 11),
+        (what: "a village in a hollow by a marsh", features: [Hollow, Marsh], culture: Roduro, town: true, seed: 12),
+        (what: "a farming village on the plain", features: [Plain], culture: Roduro, town: true, seed: 13),
+        (what: "a village named for the house that founded it", features: [Hillside], culture: Roduro, town: true, founding: Some(Founder(41)), seed: 14),
+        (what: "a village with a shrine to the World's Artery", features: [Spring, Valley], culture: Roduro, town: true, founding: Some(God("horahida")), seed: 15),
+        // The Qotiro plateau and the mountains.
+        (what: "a temple-fortress on the plateau", features: [Plateau], culture: Qotiro, town: true, seed: 16),
+        (what: "a town on the plateau's edge", features: [Plateau, Cliff], culture: Qotiro, town: true, seed: 17),
+        (what: "a mining town under the mountains", features: [Mountain], culture: Qotiro, town: true, founding: Some(Root("iron")), seed: 18),
+        (what: "a fort holding a pass", features: [Pass, Mountain], culture: Qotiro, town: true, seed: 19),
+        (what: "a town named for a battle", features: [Plain], culture: Qotiro, town: true, founding: Some(Root("fight")), seed: 20),
+        (what: "a town named for its founder", features: [Ridge], culture: Qotiro, town: true, founding: Some(Founder(77)), seed: 21),
+        // What the wanderers call places.
+        (what: "a camp ground on a high road", features: [Pass], culture: Tadoro, town: false, seed: 22),
+        (what: "a hilltop where the stars are watched", features: [Hill], culture: Tadoro, town: false, founding: Some(Root("star")), seed: 23),
+        // The land itself.
+        (what: "a river", features: [Stream], culture: Roduro, town: false, seed: 24),
+        (what: "a mountain", features: [Peak], culture: Qotiro, town: false, seed: 25),
+        (what: "a sea stack", features: [Stack], culture: Horaro, town: false, seed: 26),
+        (what: "a bay", features: [Bay], culture: Horaro, town: false, seed: 27),
+        (what: "a wood", features: [Wood], culture: Roduro, town: false, seed: 28),
+        (what: "a marsh", features: [Marsh], culture: Roduro, town: false, seed: 29),
+        (what: "a mountain pass", features: [Pass], culture: Roduro, town: false, seed: 30),
+    ],
+)

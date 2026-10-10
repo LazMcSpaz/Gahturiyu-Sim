@@ -141,6 +141,17 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
             c.centred("bandits", q.x, q.y + k + 13.0, 13.0, [0.95, 0.5, 0.45]);
         }
     }
+    for ru in &w.ruins {
+        let q = s(ru.pos);
+        let k = (cam.zoom * 8.0).clamp(4.0, 9.0);
+        let held = w.ruin_held(ru.id);
+        let col = if held { [0.85, 0.7, 0.35] } else { [0.6, 0.6, 0.6] };
+        c.triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y), vec2(q.x + k, q.y), ega(col, 0.95));
+        c.triangle(vec2(q.x, q.y + k), vec2(q.x - k, q.y), vec2(q.x + k, q.y), ega(col, 0.95));
+        if cam.zoom > 0.15 {
+            c.centred(&ru.name(w).to_lowercase(), q.x, q.y + k + 13.0, 13.0, col);
+        }
+    }
     for st in &w.standing {
         if st.burning(w.time) {
             let q = s(st.pos);

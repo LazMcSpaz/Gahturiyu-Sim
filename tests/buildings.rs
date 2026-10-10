@@ -182,9 +182,16 @@ fn taking_from_a_container_is_theft_when_seen() {
         walk(&mut w, 2.0);
     }
     let seen = w.alerts.iter().any(|a| a.contains("seen stealing"));
-    eprintln!("takes {takes}, bounty {:?}, seen {seen}", w.bounty);
-    assert!(seen, "nobody saw a thing in a busy town at noon?");
-    assert!(!w.bounty.is_empty() || w.log.iter().any(|l| l.1.contains("seen stealing")), "a seen theft is a crime");
+    let chance = w.catch_chance(m, w.container(id).unwrap().pos, id.0);
+    eprintln!("takes {takes}, bounty {:?}, seen {seen}, chance {chance}", w.bounty);
+    if chance > 0.0 {
+        // Someone shares the room: sooner or later they see it.
+        assert!(seen, "nobody saw a thing with someone watching?");
+        assert!(!w.bounty.is_empty() || w.log.iter().any(|l| l.1.contains("seen stealing")), "a seen theft is a crime");
+    } else {
+        // Nobody inside: walls hide you, however busy the street.
+        assert!(!seen, "seen through walls");
+    }
     assert_eq!(w.container(id).unwrap().taken as usize, takes, "every take is counted");
 }
 

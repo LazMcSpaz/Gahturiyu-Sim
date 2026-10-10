@@ -1,0 +1,100 @@
+# Every number the voice tool uses. Edit freely; nothing here needs a code change.
+
+# What each dial is when you don't set it.
+[defaults]
+pitch = 0.0      # semitones higher (+) or lower (-). 12 = one octave.
+size = 1.0       # body size. Above 1 = bigger chest and throat (deeper, heavier); below 1 = smaller.
+age = 0.0        # 0..1. Adds wobble, roughness and breath, and slows a little (see [age]).
+breath = 0.0     # 0..1. Air in the voice.
+rough = 0.0      # 0..1. Gravel.
+tremor = 0.0     # 0..1. A slow shake in the pitch.
+speed = 1.0      # how fast they talk. 0.5..2.
+pause = 1.0      # how long the gaps at commas and full stops are.
+range = 1.0      # how much the pitch moves. Below 1 = flat, above 1 = sing-song.
+lilt = 0.0       # semitones the end of the line rises (+) or falls (-).
+energy = 0.0     # -1 soft and close .. +1 loud and hard.
+variation = 1.0  # accent model only: how loose the reading is. 0 = the same every time.
+
+# What "age = 1" adds on top of the other dials (scaled by the age you set).
+[age]
+tremor = 0.7
+rough = 0.5
+breath = 0.25
+energy = -0.2
+speed = 0.88     # multiplied in
+range = 0.85     # multiplied in
+
+# Emotions are bundles of the dials above, at full strength.
+# speed, pause, range and size are multiplied in; everything else is added.
+# Use as  --emotion angry  or  --emotion angry:0.5  for half strength.
+[emotion.angry]
+pitch = 1.0
+range = 1.35
+speed = 1.08
+pause = 0.8
+energy = 0.8
+rough = 0.25
+lilt = -1.5
+
+[emotion.stern]
+pitch = -1.0
+range = 0.6
+speed = 0.92
+pause = 1.2
+energy = 0.2
+lilt = -2.0
+
+[emotion.weary]
+pitch = -1.5
+range = 0.65
+speed = 0.85
+pause = 1.4
+energy = -0.6
+breath = 0.3
+lilt = -2.5
+
+[emotion.warm]
+pitch = 1.5
+range = 1.3
+speed = 1.04
+energy = 0.3
+lilt = 1.0
+
+[emotion.afraid]
+pitch = 2.5
+range = 0.85
+speed = 1.15
+pause = 0.9
+energy = -0.2
+breath = 0.35
+tremor = 0.6
+
+[emotion.sly]
+pitch = -0.5
+range = 0.8
+speed = 0.9
+energy = -0.5
+breath = 0.4
+
+# How a line's tags (data/lines) pick an emotion when a batch is voiced.
+# The first tag found, top to bottom, wins.
+[line_emotion]
+distrusts = "stern:0.8"
+afraid = "afraid:0.7"
+hot = "angry:0.6"
+warm = "warm:0.7"
+hungry = "weary:0.7"
+worried = "weary:0.4"
+cold = "stern:0.5"
+
+# Numbers behind the dials and the clean-up. Rarely worth touching.
+[engine]
+level_db = -20.0        # how loud a finished clip is (average, dB below full)
+energy_level_db = 3.0   # how much louder energy = 1 is
+energy_tilt_db = 5.0    # how much brighter energy = 1 is
+tremor_hz = 5.5
+tremor_semitones = 0.5  # at tremor = 1
+rough_semitones = 0.6   # at rough = 1
+breath_mix = 0.5        # at breath = 1
+pause_min_seconds = 0.12   # a gap shorter than this isn't a pause (it's a consonant)
+sentence_gap_seconds = 0.25  # accent model: gap between sentences before the pause dial

@@ -1,0 +1,225 @@
+# The accent knobs: every way the voice tool can bend how a line is said.
+#
+# A line is first read as plain English and turned into its sounds. Each knob
+# below then changes one family of sounds. An accent is a setting for every
+# knob (accents.toml); the four tongues' starting points are in tongues.toml.
+#
+# A knob is set to a variant, at one of two strengths:
+#   "roll"         everywhere
+#   "roll:light"   everywhere except the first sound of a word (which carries
+#                  most of what makes a word recognisable)
+# Symbols are the International Phonetic Alphabet, the ones the voice engine
+# knows. "ɹ" is the plain English r, "ɡ" the g of "go", "j" the y of "yes".
+
+# The order the knobs are shown in.
+order = [
+  "r", "l", "th", "s", "h", "ch_j", "t_d", "k_g", "p_b", "f_v", "m_n", "w", "y", "voicing",
+  "vowel_set", "diphthongs", "length",
+  "endings", "clusters", "joins", "stress",
+]
+
+# ---------------------------------------------------------------- consonants
+
+[knob.r]
+label = "R"
+group = "Consonants"
+help = "The r of road and carry."
+[knob.r.variants]
+flick = { label = "Flicked once", map = { "ɹ" = "ɾ" } }
+roll = { label = "Rolled", map = { "ɹ" = "r" } }
+growl = { label = "Growled in the throat", map = { "ɹ" = "ʁ" } }
+soft = { label = "Soft, like a w", map = { "ɹ" = "w" } }
+hiss = { label = "Hissed, like sh", map = { "ɹ" = "ʃ" } }
+silent = { label = "Silent", map = { "ɹ" = "" } }
+
+[knob.l]
+label = "L"
+group = "Consonants"
+help = "The l of lock and well."
+[knob.l.variants]
+r = { label = "Turned to r", map = { "l" = "ɹ" }, then = "r" }   # then follows the R knob
+glide = { label = "Melted to y", map = { "l" = "j" } }
+w = { label = "Melted to w", map = { "l" = "w" } }
+
+[knob.th]
+label = "TH"
+group = "Consonants"
+help = "The th of thin and the th of the."
+[knob.th.variants]
+stop = { label = "t and d", map = { "θ" = "t", "ð" = "d" } }
+hiss = { label = "s and z", map = { "θ" = "s", "ð" = "z" } }
+breath = { label = "h", map = { "θ" = "h", "ð" = "h" } }
+lip = { label = "f and v", map = { "θ" = "f", "ð" = "v" } }
+
+[knob.s]
+label = "S, Z, SH"
+group = "Consonants"
+help = "The hissing sounds: speak, busy, ship."
+[knob.s.variants]
+hush = { label = "All sh", map = { "s" = "ʃ", "z" = "ʒ" } }
+rasp = { label = "Rasp in the throat (loch)", map = { "s" = "x", "z" = "x", "ʃ" = "x", "ʒ" = "x" } }
+breath = { label = "Breath (h)", map = { "s" = "h", "z" = "h", "ʃ" = "h", "ʒ" = "h" } }
+
+[knob.h]
+label = "H"
+group = "Consonants"
+help = "The h of hand and here."
+[knob.h.variants]
+rasp = { label = "Rasp in the throat (loch)", map = { "h" = "x" } }
+silent = { label = "Silent", map = { "h" = "" } }
+
+[knob.ch_j]
+label = "CH, J"
+group = "Consonants"
+help = "The ch of church and the j of judge."
+[knob.ch_j.variants]
+soft = { label = "sh and zh", map = { "tʃ" = "ʃ", "dʒ" = "ʒ" } }
+hard = { label = "t and d", map = { "tʃ" = "t", "dʒ" = "d" } }
+
+[knob.t_d]
+label = "T, D"
+group = "Consonants"
+help = "The t of tide and the d of door."
+[knob.t_d.variants]
+curled = { label = "Tongue curled back", map = { "t" = "ʈ", "d" = "ɖ" } }
+liquid = { label = "Melted to n and l", map = { "t" = "n", "d" = "l" } }
+hiss = { label = "Thinned to s and th", map = { "t" = "s", "d" = "θ" } }
+
+[knob.k_g]
+label = "K, G"
+group = "Consonants"
+help = "The k of keep and the g of go."
+[knob.k_g.variants]
+throaty = { label = "k from far back in the throat", map = { "k" = "q" } }
+breath = { label = "Melted to h and w", map = { "k" = "h", "ɡ" = "w" } }
+rasp = { label = "Rasped (loch)", map = { "k" = "x", "ɡ" = "ɣ" } }
+
+[knob.p_b]
+label = "P, B"
+group = "Consonants"
+help = "The lip sounds of purse and busy."
+[knob.p_b.variants]
+breath = { label = "Pulled back: h and g", map = { "p" = "h", "b" = "ɡ" } }
+hiss = { label = "Blown: f and v", map = { "p" = "f", "b" = "v" } }
+glide = { label = "Melted to w", map = { "p" = "w", "b" = "w" } }
+hard = { label = "Both p", map = { "b" = "p" } }
+
+[knob.f_v]
+label = "F, V"
+group = "Consonants"
+help = "The f of friend and the v of over."
+[knob.f_v.variants]
+breath = { label = "h", map = { "f" = "h", "v" = "h" } }
+stop = { label = "p and b", map = { "f" = "p", "v" = "b" } }
+glide = { label = "w", map = { "f" = "w", "v" = "w" } }
+
+[knob.m_n]
+label = "M, N, NG"
+group = "Consonants"
+help = "The nose sounds of mind and morning."
+[knob.m_n.variants]
+stopped = { label = "Blocked: a curled-back d", map = { "m" = "ɖ", "n" = "ɖ", "ŋ" = "ɡ" } }
+glide = { label = "Thinned to w and y", map = { "m" = "w", "n" = "j", "ŋ" = "w" } }
+
+[knob.w]
+label = "W"
+group = "Consonants"
+help = "The w of wind and well."
+[knob.w.variants]
+hard = { label = "Hardened to g", map = { "w" = "ɡ" } }
+v = { label = "Said as v", map = { "w" = "v" } }
+
+[knob.y]
+label = "Y"
+group = "Consonants"
+help = "The y of you and yes."
+[knob.y.variants]
+stop = { label = "Hardened to d", map = { "j" = "d" } }
+vowel = { label = "Opened to ee", map = { "j" = "i" } }
+
+[knob.voicing]
+label = "Buzzing sounds"
+group = "Consonants"
+help = "The buzzed z, v and zh, and the th of the."
+[knob.voicing.variants]
+unvoiced = { label = "Unbuzzed: s, f, sh, th", map = { "z" = "s", "v" = "f", "ʒ" = "ʃ", "ð" = "θ" } }
+
+# -------------------------------------------------------------------- vowels
+# For vowels, light means "only vowels that carry no stress".
+
+[knob.vowel_set]
+label = "Vowel set"
+group = "Vowels"
+help = "Which vowels the speaker owns. English has about twenty; the tongues have five or six."
+[knob.vowel_set.variants.six]
+label = "Six plain vowels (a e i ì o u)"
+any = { "æ" = "a", "ʌ" = "a", "ɐ" = "a", "ɑ" = "a", "ɛ" = "e", "ɜ" = "e", "ᵻ" = "ɪ", "ɒ" = "o", "ɔ" = "o", "ʊ" = "u" }
+unstressed = { "ə" = "a" }
+[knob.vowel_set.variants.hard]
+label = "Short and hard (a o u lead)"
+any = { "æ" = "a", "ʌ" = "a", "ɐ" = "a", "ɑ" = "a", "ɜ" = "o", "ᵻ" = "e", "ɪ" = "e", "ɒ" = "o", "ɔ" = "o", "ʊ" = "u" }
+unstressed = { "ə" = "a", "ɛ" = "a", "i" = "e" }
+[knob.vowel_set.variants.round]
+label = "Round and warm"
+any = { "ɪ" = "i", "ᵻ" = "i", "æ" = "ɑ", "ʌ" = "ɔ", "ɜ" = "ɔ" }
+unstressed = { "ə" = "ɔ" }
+[knob.vowel_set.variants.blur]
+label = "Blurred to uh, o opened to ow"
+first = { "ɒ" = "aʊ", "ɔ" = "aʊ" }       # o in a word's first beat
+later = { "ɒ" = "ɛ", "ɔ" = "ɛ", "oʊ" = "ɛ", "əʊ" = "ɛ" }
+unstressed = { "æ" = "ə", "ʌ" = "ə", "ɐ" = "ə", "ɑ" = "ə", "ɛ" = "ə", "ɪ" = "ə", "ᵻ" = "ə", "ʊ" = "ə", "ɒ" = "ə", "ɔ" = "ə" }
+
+[knob.diphthongs]
+label = "Gliding vowels"
+group = "Vowels"
+help = "Vowels that slide from one sound to another: day, go, mind, round."
+levels = false
+[knob.diphthongs.variants]
+pure = { label = "day and go held steady", map = { "eɪ" = "eː", "oʊ" = "oː", "əʊ" = "oː" } }
+split = { label = "Every glide split into two beats" }
+
+[knob.length]
+label = "Vowel length"
+group = "Vowels"
+help = "How long vowels are held."
+levels = false
+[knob.length.variants]
+clipped = { label = "Clipped short" }
+long = { label = "Stressed vowels held" }
+drawn = { label = "Drawn out, said twice" }
+
+# ---------------------------------------------------------------- word shape
+
+[knob.endings]
+label = "Word endings"
+group = "Word shape"
+help = "What happens when a word ends on a consonant. Light: only before a pause."
+[knob.endings.variants]
+hard = { label = "Ends hardened (d to t, z to s)" }
+clipped = { label = "Hardened, and a weak last vowel dropped" }
+echo = { label = "An echo vowel added" }
+open = { label = "Last consonant dropped" }
+
+[knob.clusters]
+label = "Consonants together"
+group = "Word shape"
+help = "Consonants side by side, as in straps and hand. Light: only three or more together."
+[knob.clusters.variants]
+part = { label = "Parted with a small vowel" }
+
+[knob.joins]
+label = "Vowels meeting"
+group = "Word shape"
+help = "Two vowels side by side. Light: inside words. Full: also before a word that starts with a vowel."
+[knob.joins.variants]
+catch = { label = "A catch between them (uh-oh)" }
+
+[knob.stress]
+label = "Stress"
+group = "Word shape"
+help = "Which beat of a word is hit hardest. Light: only words of three beats or more."
+[knob.stress.variants]
+first = { label = "First beat" }
+nextlast = { label = "Next-to-last beat" }
+last = { label = "Last beat" }
+even = { label = "No beat stands out" }

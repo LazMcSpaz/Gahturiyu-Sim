@@ -144,9 +144,16 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    timeline, with the dawn's time passed in (never `self.time`). A
    townsperson's duel is fought out at once with the full combat rules
    (like far fights). Bonds end by the clock (`Bond::until`). The squad's
-   own arrests and duels happen when its crimes are seen (the player
-   exception). Office eligibility reads race and sex directly — that's the
+   own crimes are the player exception (`pursuit.rs`): a witness is found
+   when it's done (`spotter`), tells the watch or not by one keyed roll
+   (`report_chance`: friendship, scruples, the ring, bad blood with the
+   victim), and a told crime sends a guard who is moved step by step and
+   catches the thief (then `judge`) or loses them (then a bounty). Office eligibility reads race and sex directly — that's the
    canon rule (Laz), not a culture leaning; everything else reads customs.
+   Sex is one reading of the seed shared with the names (`law::woman`/`man`
+   are `sim::names::gender`), so a priestess always has a woman's name; a
+   Qotiro priest by trade is always a woman (canon, Laz), and `Job::title`
+   words the job for the person ("Priestess").
 19. **Lives are settled on the clock, and few people act.** Purses, work
    status, needs, dealings, gossip, grudges' first rung, the ring's choice
    and the storyteller all run at dawn (`lives.rs`, `memory.rs`,
@@ -271,8 +278,17 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 (go and look at the nearest of that species at an hour it's up, e.g.
 `see:wallowback`, `see:cragmaw`). Combine with `GAHT_ZOOM`/`GAHT_PITCH`,
 `GAHT_SPEED=0` so the moment holds, and `GAHT_VIEW=map` for the map dots.
+`GAHT_DRAG=x,y` (a selection box held from there to the `GAHT_HOVER` point).
+`GAHT_CHASE=1` (member 0 seen stealing in a town with its watch out; the guard on their way).
 `GAHT_LOOT=1` (two bandits lie beaten beside the squad; member 0 goes through the
 first one's things: the loot panel).
+`GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`
+for the nearest iron seam).
+`GAHT_MENU=1` (the right-click menu for whatever is under `GAHT_HOVER`).
+`GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
+`GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k; ruins come first, then lairs).
+`GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,
+beaten; screenshots otherwise show none and never touch `hints.txt`).
 `GAHT_INTERIOR=1|tadoro|crowded|slope|<variant key>` (member 0 walks into the nearest open workshop or
 shop and opens a container: the cut-open rooms and the container panel; camera close unless
 `GAHT_ZOOM`/`GAHT_PITCH`. `tadoro`: a building a Ṭaḍoro lodges in, framed on their corner;
@@ -306,8 +322,35 @@ Screenshots compile every shader before the first frame
 per frame, so a given flag set gives the same picture. The first Bevy build
 takes ~20 minutes on this container's 2 cores; later ones under a minute.
 
+## Voices (a tool, not a system)
+
+`tools/voice/` invents accents and makes spoken clips for NPC lines ahead of
+time (Python, not part of the game build; `tools/voice/README.md`).
+- Laz invents accents and speakers by ear in the panel
+  (`tools/voice/studio.bat`, or `python tools/voice/voice.py studio`). It
+  saves `accents.toml` (shared by a people or region) and `voices.toml`
+  (one speaker each). Those two files are his; don't edit them unasked.
+- An accent starts from a tongue's own habits (`tongues.toml`, derived from
+  the naming system's borrow rules) and is a setting of the knobs in
+  `sounds.toml`. Dials and emotions are numbers in `dials.toml`; invented
+  names are spelled out in `lexicon.txt`.
+- Claude can't hear: use `--check` (a listener model writes down what it
+  hears), `accents NAME` (prints the bent sounds) and `selftest`, and leave
+  how anything *sounds* to Laz.
+- The game plays no voices yet: wiring clips in waits for the system freeze
+  to lift.
+
 ## Drawing notes
 
+- The HUD follows Laz's mockup (2026-10-10): dark umber and brass, serif
+  type (Alegreya for text, Alegreya SC for names, Cinzel for headings, in
+  `assets/fonts`, OFL; `hud::Face`). `view/frame.rs` draws the squad list
+  (top left), the tracked job and news (top right), the place name, and the
+  bottom band (buttons, the lead member's plate with a body showing each
+  part's wounds, orders, day and hour, speed, a north-up little map). Every
+  panel's ground is `Canvas::frame_box`; a tooltip whose first line is
+  `GOLD` gets it as a Cinzel title. The old side panel (counts, timings,
+  full log) shows with L; the keys list is the Keys button.
 - The window is Bevy 0.19.1 (pinned) with bevy_egui 0.42.0 for the panels.
   The panels are drawn with egui's painter through `hud::Canvas`, in pixels
   from the top left with text placed by its baseline (the old layout carried
@@ -353,6 +396,11 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
   shadow pass, so trees' shadows don't sway.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
+
+- Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
+  healing, "?"/"!" as suspicion builds, a skill rising) come from comparing
+  the world with what the window saw last frame — drawing only. Left-drag
+  draws a box that selects the squad members inside it.
 
 - Buildings are placeholder shapes by variant (`view/interiors.rs`, from
   `sim/layout.rs`): outside in the town mesh; a building a squad member is

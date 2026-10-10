@@ -233,7 +233,9 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     // Each building's look, from the trades of who lives there (fixed from now on).
     w.style_buildings();
     w.place_crafting();
+    w.place_deposits();
     w.place_animals();
+    w.place_ruins();
     w
 }
 
@@ -277,7 +279,7 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
         let id = out.len() as SettlementId;
         out.push(Settlement {
             id,
-            name: names::place_name(founders, rng::key(&[seed, id as u64, 0x544F_574E])),
+            name: names::town_name(founders, seed, t, pos, coastal, out),
             pos,
             founders,
             coastal,

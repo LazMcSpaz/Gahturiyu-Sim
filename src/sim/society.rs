@@ -985,6 +985,10 @@ impl World {
                     .iter()
                     .map(|&p| {
                         let pp = &self.people[p as usize];
+                        // Canon (Laz): Qotiro priests are priestesses, always women.
+                        if job == Job::Priest && pp.race == super::race::Race::Qotiro && !super::law::woman(pp.seed) {
+                            return 0.0;
+                        }
                         let lean = culture::profile(pp.race).jobs.iter().find(|j| j.0 == job).map(|j| j.1).unwrap_or(1.0);
                         // The out-of-work are first to look.
                         let looking = if day.is_some() && self.society.lives[p as usize].job == Job::None { 1.5 } else { 1.0 };

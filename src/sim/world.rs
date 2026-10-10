@@ -147,6 +147,20 @@ pub struct World {
     pub nodes: Vec<super::crafting::Node>,
     /// Who's on their way to gather what.
     pub gathering: Vec<(PersonId, u32)>,
+    /// Town woodlots and mines the squad can work (`labour.rs`).
+    pub deposits: Vec<super::labour::Deposit>,
+    /// The squad's own at work: at deposits, cutting up carcasses, chasing herds.
+    pub labour: Vec<super::labour::Labour>,
+    pub butchering: Vec<super::labour::Butchering>,
+    pub chases: Vec<super::labour::Chase>,
+    /// Each squad member's levels as last announced (`progress.rs`).
+    pub levels: Vec<super::progress::Levels>,
+    /// Spells ordered that wait on the caster (`casting.rs`).
+    pub casts: Vec<super::casting::PendingCast>,
+    /// The watch after squad members for crimes told of (`pursuit.rs`).
+    pub pursuits: Vec<super::pursuit::Pursuit>,
+    /// Ruins and lairs worth the walk (`ruins.rs`).
+    pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
@@ -186,6 +200,9 @@ pub struct World {
     pub carried: HashMap<PersonId, PersonId>,
     /// Squad members on their way to pick someone up.
     pub want_carry: Vec<(PersonId, PersonId)>,
+    /// A squad member on their way to give another a healing draught: (giver, patient).
+    #[serde(default)]
+    pub dosing: Vec<(PersonId, PersonId)>,
     /// Strangers set down somewhere, until they come round.
     pub set_down: HashMap<PersonId, V2>,
 
@@ -260,6 +277,7 @@ impl World {
             corpses: Vec::new(),
             alerts: Vec::new(),
             pickups: Vec::new(),
+            dosing: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,
             camps: Vec::new(),
@@ -277,6 +295,14 @@ impl World {
             stations: Vec::new(),
             nodes: Vec::new(),
             gathering: Vec::new(),
+            deposits: Vec::new(),
+            labour: Vec::new(),
+            butchering: Vec::new(),
+            chases: Vec::new(),
+            levels: Vec::new(),
+            ruins: Vec::new(),
+            casts: Vec::new(),
+            pursuits: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),
@@ -456,6 +482,7 @@ impl World {
         }
 
         self.observe();
+        self.note_progress();
     }
 
     /// Whatever is close enough to matter gets its details built, and stays
@@ -565,6 +592,9 @@ impl World {
         let p = &self.people[pid as usize];
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);
         if let Some(pos) = self.fighter_pos(pid) {
+            return pos;
+        }
+        if let Some(pos) = self.chase_pos(pid) {
             return pos;
         }
         if let Some(&c) = self.carried.get(&pid) {

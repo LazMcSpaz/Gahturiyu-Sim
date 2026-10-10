@@ -330,8 +330,12 @@ fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats) {
         w.drain = STARVE_DRAIN;
         // Wasting knocks you out but never kills: it stops just past zero.
         w.drain_cap = stats.max_hp(Part::Torso) + 1.0;
+        w.rally = 0.0;
     } else {
         w.drain = 0.0;
+        // Knocked down (not starved), they come round soon.
+        w.rally = if w.rate > 0.0 { body::RALLY_PER_HOUR } else { 0.0 };
+        w.rally_to = [Part::Head, Part::Torso].map(|p| stats.max_hp(p) * (1.0 - body::RALLY_WAKE));
     }
 }
 
@@ -378,6 +382,15 @@ impl World {
         apply_to_wounds(&c, &mut p.wounds, &stats);
     }
 
+    /// After what they're doing changed (just after a settle): their wounds
+    /// mend at the new rate from here on.
+    fn rate_wounds(&mut self, pid: PersonId) {
+        let p = &mut self.people[pid as usize];
+        let Some(c) = p.cond.clone() else { return };
+        let stats = p.stats.clone();
+        apply_to_wounds(&c, &mut p.wounds, &stats);
+    }
+
     /// Where a member would sleep right now: indoors, in a tent someone in
     /// the squad is carrying nearby, or in the open.
     pub fn shelter_of(&self, pid: PersonId) -> Shelter {
@@ -413,6 +426,7 @@ impl World {
         if let Some(c) = self.people[pid as usize].cond.as_mut() {
             c.activity = a;
         }
+        self.rate_wounds(pid);
         if a == Activity::Sleeping {
             self.drop_held_on_sleep(pid, t);
         }
@@ -521,10 +535,8 @@ impl World {
                 }
                 // Wounds all healed: hunger stops counting them.
                 if c.wounded {
-                    let lost = p.wounds.lost;
-                    let worst = lost.iter().cloned().fold(0.0f32, f32::max);
-                    if p.wounds.rate > 0.0 && p.wounds.drain == 0.0 {
-                        consider(Some(p.wounds.at + (worst / p.wounds.rate) as f64 * HOUR), Event::Stage);
+                    if let Some(hrs) = p.wounds.healed_in() {
+                        consider(Some(p.wounds.at + hrs as f64 * HOUR), Event::Stage);
                     }
                 }
                 let Some((t, e)) = next else { break };
@@ -535,6 +547,7 @@ impl World {
                         if let Some(c) = self.people[pid as usize].cond.as_mut() {
                             c.activity = Activity::Resting;
                         }
+                        self.rate_wounds(pid);
                         if let Some(k) = self.squad.index(pid) {
                             self.squad.resting[k] = false;
                         }
@@ -550,6 +563,7 @@ impl World {
                         if let Some(c) = self.people[pid as usize].cond.as_mut() {
                             c.activity = Activity::Sleeping;
                         }
+                        self.rate_wounds(pid);
                         let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
                         self.log.push_front((t, format!("{name} beds down for the night.")));
                         self.log.truncate(14);
@@ -623,6 +637,17 @@ impl World {
 
     pub fn is_asleep(&self, pid: PersonId) -> bool {
         self.people[pid as usize].cond.as_ref().map(|c| c.activity == Activity::Sleeping).unwrap_or(false)
+    }
+
+    /// Send a member to a bed (or any spot) to sleep there: they walk over
+    /// and bed down when they arrive.
+    pub fn order_sleep_at(&mut self, who: PersonId, at: super::geo::V2) {
+        self.order_members(&[who], at);
+        if let Some(k) = self.squad.index(who) {
+            if self.free_to_order(who) {
+                self.squad.resting[k] = true;
+            }
+        }
     }
 
     /// Order some members to rest: they stop where they are and sleep. A

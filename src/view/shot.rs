@@ -18,6 +18,8 @@ pub struct Shot {
     pub path: String,
     pub frames: u32,
     pub hover: Option<Vec2>,
+    /// `GAHT_DRAG=x,y`: a selection box held from there to the `GAHT_HOVER` point.
+    pub drag: Option<Vec2>,
     pub zoom: Option<f32>,
     pub speed: Option<usize>,
     pub view: Option<String>,
@@ -85,6 +87,14 @@ pub struct Shot {
     /// `GAHT_LOOT=1`: two bandits lie beaten beside the squad and member 0
     /// is going through the first one's things (the loot panel).
     pub loot: bool,
+    /// `GAHT_CHASE=1`: mid-morning in a town with its watch out, member 0 is
+    /// seen stealing, it's told, and the guard is on their way.
+    pub chase: bool,
+    /// `GAHT_RUIN=k`: midday, the squad 45 m from ruin (or lair) k.
+    pub ruin: Option<usize>,
+    /// `GAHT_GRIND=1|mine`: two of the squad at work at the nearest town
+    /// woodlot (or iron seam).
+    pub grind: Option<String>,
     /// `GAHT_RECRUIT=n`: n willing townsfolk from the nearest town join the
     /// squad (the squad's purse covers their fees); the last is asked in
     /// conversation, which stays open.
@@ -145,6 +155,7 @@ impl Shot {
             path,
             frames: var("GAHT_FRAMES").and_then(|v| v.parse().ok()).unwrap_or(120),
             hover: pair("GAHT_HOVER").map(|(x, y)| vec2(x, y)),
+            drag: pair("GAHT_DRAG").map(|(x, y)| vec2(x, y)),
             zoom: var("GAHT_ZOOM").and_then(|v| v.parse().ok()),
             speed: var("GAHT_SPEED").and_then(|v| v.parse().ok()),
             view: var("GAHT_VIEW"),
@@ -176,7 +187,10 @@ impl Shot {
             town: var("GAHT_TOWN").is_some(),
             build: var("GAHT_BUILD"),
             loot: var("GAHT_LOOT").is_some(),
+            chase: var("GAHT_CHASE").is_some(),
             recruit: var("GAHT_RECRUIT").and_then(|v| v.parse().ok()),
+            grind: var("GAHT_GRIND"),
+            ruin: var("GAHT_RUIN").and_then(|v| v.parse().ok()),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -284,6 +298,37 @@ impl Shot {
         if let Some((dx, dy)) = self.nudge {
             world.teleport_squad(world.squad.pos.add(V2::new(dx, dy)));
             world.step(0.001);
+        }
+        if let Some(k) = self.ruin {
+            while world.time < 12.0 * gahturiyu_sim::sim::world::HOUR {
+                world.step(60.0);
+            }
+            if let Some(r) = world.ruins.get(k).map(|r| r.pos) {
+                world.teleport_squad(r.add(V2::new(45.0, 20.0)));
+            }
+        }
+        if let Some(g) = self.grind.as_deref() {
+            let want = gahturiyu_sim::sim::items::id(if g == "mine" { "iron_ore" } else { "timber" });
+            // Mid-morning, in good light.
+            while world.time < 10.0 * gahturiyu_sim::sim::world::HOUR {
+                world.step(60.0);
+            }
+            let here = world.squad.pos;
+            let d = world.deposits.iter().filter(|d| d.item == want).min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).copied();
+            if let Some(d) = d {
+                world.teleport_squad(d.pos.add(V2::new(7.0, 4.0)));
+                for k in 0..2.min(world.squad.members.len()) {
+                    let m = world.squad.members[k];
+                    world.order_labour(m, d.id);
+                }
+                let end = world.time + 600.0;
+                while world.time < end {
+                    world.step(0.5);
+                }
+            }
+        }
+        if self.chase {
+            chase_demo(world);
         }
         if self.loot {
             let at = world.squad.pos.add(V2::new(2.5, 1.0));
@@ -1019,4 +1064,50 @@ fn demo_base(world: &mut World, living: bool) {
         }
     }
     eprintln!("GAHT_BUILD: nowhere to lay a demo base");
+}
+
+/// Member 0 seen stealing in a town with its watch out, the theft told, and
+/// the guard set off after them.
+fn chase_demo(world: &mut World) {
+    use gahturiyu_sim::sim::{containers::Owner, jobs::Job, law::Wrong};
+    while world.time < 10.0 * gahturiyu_sim::sim::world::HOUR {
+        world.step(60.0);
+    }
+    let t = world.time;
+    let near = world.squad.pos;
+    let Some(town) = world
+        .settlements
+        .iter()
+        .filter(|s| s.residents.iter().any(|&p| !world.people[p as usize].dead && world.life(p).job == Job::Guard && world.at_work(p, t)) && s.residents.len() > 40)
+        .min_by(|a, b| a.pos.dist(near).total_cmp(&b.pos.dist(near)))
+        .map(|s| s.id)
+    else {
+        return;
+    };
+    world.teleport_squad(world.settlements[town as usize].pos);
+    world.step(0.5);
+    let me = world.squad.members[0];
+    let folk: Vec<_> = world.residents_in_band1(town).into_iter().filter(|&p| world.building_at(world.person_pos(p)).is_none() && world.life(p).job != Job::Guard).collect();
+    for f in folk {
+        let Some(h) = world.life(f).household else { continue };
+        let at = world.person_pos(f).add(V2::new(2.0, 0.0));
+        world.teleport_squad(at.add(V2::new(4.0, 3.0)));
+        if let Some(k) = world.squad.index(me) {
+            world.squad.at[k] = at;
+            world.squad.goal[k] = at;
+            world.squad.route[k].clear();
+        }
+        world.wrong_seen(me, town, Wrong::Theft, 30.0, "Seen stealing!".into(), Some(f), Some(Owner::Household(h)), at);
+        if !world.pursuits.is_empty() {
+            break;
+        }
+    }
+    // Until the guard is close.
+    for _ in 0..4000 {
+        let near = world.pursuits.first().and_then(|p| p.pos).is_some_and(|g| g.dist(world.person_pos(me)) < 9.0);
+        if world.pursuits.is_empty() || near {
+            break;
+        }
+        world.step(0.1);
+    }
 }

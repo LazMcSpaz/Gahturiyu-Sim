@@ -25,6 +25,10 @@ use super::world::World;
 
 /// Walking pace on flat ground for a fit, unburdened member, m/s.
 pub const SQUAD_SPEED: f32 = 1.5;
+/// Squad members within this of each other count as one bunch, m.
+pub const TOGETHER: f32 = 200.0;
+/// How near two squad members must stand to hand something over, m.
+pub const GIVE_REACH: f32 = 8.0;
 /// How close someone must be to pick something up, metres.
 pub const REACH: f32 = 1.8;
 
@@ -167,6 +171,17 @@ impl World {
     /// they stop fighting until they get there.
     pub fn order_members(&mut self, who: &[PersonId], target: V2) {
         let target = geo::clamp_to_world(target, 50.0);
+        // The bound work where they're put.
+        let bound: Vec<PersonId> = who.iter().copied().filter(|&m| !self.free_to_order(m)).collect();
+        for &m in &bound {
+            let line = format!("{} is bound to work off a bond and can't leave.", self.people[m as usize].name().unwrap_or("someone"));
+            if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+                self.log.push_front((self.time, line));
+                self.log.truncate(14);
+            }
+        }
+        let free: Vec<PersonId> = who.iter().copied().filter(|m| !bound.contains(m)).collect();
+        let who = &free[..];
         let mut blocked = None;
         for (n, &pid) in who.iter().enumerate() {
             if let Some(k) = self.squad.index(pid) {
@@ -180,10 +195,13 @@ impl World {
             self.pickups.retain(|p| p.who != pid);
             self.picking.retain(|p| p.who != pid);
             self.gathering.retain(|g| g.0 != pid);
+            self.stop_work(pid);
+            self.casts.retain(|c| c.who != pid);
             if let Some(k) = self.squad.index(pid) {
                 self.squad.resting[k] = false;
             }
             self.want_carry.retain(|w| w.0 != pid);
+            self.dosing.retain(|d| d.0 != pid);
             if self.want_talk.map(|w| w.0 == pid).unwrap_or(false) {
                 self.want_talk = None;
             }
@@ -268,12 +286,18 @@ impl World {
                 self.squad.route[k].clear();
             }
         }
+        self.hold_the_bound();
+        self.chase(dt);
         self.recentre_squad();
         self.update_indoors();
         self.do_pickups();
+        self.do_dosing();
         self.tidy_looting();
         self.do_picking();
         self.do_gathering();
+        self.do_labour();
+        self.do_casts();
+        self.find_ruins();
         self.do_crafting();
         self.do_lessons();
         self.check_runaways();
@@ -286,9 +310,24 @@ impl World {
             .filter(|&k| !self.people[self.squad.members[k] as usize].dead)
             .map(|k| self.member_pos(k))
             .collect();
-        if !standing.is_empty() {
-            self.squad.pos = standing.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / standing.len() as f32);
+        if standing.is_empty() {
+            return;
         }
+        // The centre of the biggest bunch: one member left far behind (bound
+        // to work in a town, say) mustn't drag the squad's centre into the
+        // empty land between them.
+        let near = |a: V2| standing.iter().filter(|b| b.dist(a) <= TOGETHER).count();
+        let mut core = standing[0];
+        let mut most = 0;
+        for &p in &standing {
+            let n = near(p);
+            if n > most {
+                most = n;
+                core = p;
+            }
+        }
+        let bunch: Vec<V2> = standing.iter().copied().filter(|b| b.dist(core) <= TOGETHER).collect();
+        self.squad.pos = bunch.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / bunch.len() as f32);
     }
 
     /// Where squad member number `k` is: their fight position if fighting.
@@ -336,6 +375,18 @@ impl World {
             return false;
         }
         p.recompute_might();
+        // A weapon they can barely use: say so (and what they're good with).
+        if let Some(wd) = def.weapon() {
+            let st = p.effective_stats();
+            let have = st.skill(wd.skill);
+            let best = [super::stats::Skill::Blade, super::stats::Skill::Blunt, super::stats::Skill::Spear].into_iter().filter(|&k| k != wd.skill).map(|k| (k, st.skill(k))).max_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((k, v)) = best.filter(|&(_, v)| v >= have + 20.0 && have < 35.0) {
+                let name = p.name().unwrap_or("They").to_string();
+                let line = format!("{name} has {} {have:.0}: they fight far better with {} weapons ({} {v:.0}).", wd.skill.name(), k.name().to_lowercase(), k.name());
+                self.log.push_front((self.time, line));
+                self.log.truncate(14);
+            }
+        }
         true
     }
 
@@ -387,6 +438,124 @@ impl World {
         true
     }
 
+    /// Hand pack entry `k` (the whole stack) from one squad member to
+    /// another standing near. Says why not, if not.
+    pub fn give_entry(&mut self, from: PersonId, k: usize, to: PersonId) -> Result<String, String> {
+        let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
+        if from == to {
+            return Err("They already have it.".into());
+        }
+        if self.squad.index(from).is_none() || self.squad.index(to).is_none() {
+            return Err("Only to someone in the squad.".into());
+        }
+        if self.fighting.contains_key(&from) || self.fighting.contains_key(&to) {
+            return Err("Not in the middle of a fight.".into());
+        }
+        if body::knocked_out(&self.people[from as usize].wounds.hp_at(&self.people[from as usize].stats, self.time)) {
+            return Err(format!("{} is out cold.", name(self, from)));
+        }
+        let d = self.person_pos(from).dist(self.person_pos(to));
+        if d > GIVE_REACH {
+            return Err(format!("{} is {d:.0} m away; bring them within {GIVE_REACH:.0} m first.", name(self, to)));
+        }
+        let Some(e) = self.people[from as usize].detail.as_ref().and_then(|x| x.gear.bag.get(k)).copied() else {
+            return Err("Nothing there.".into());
+        };
+        let t = self.time;
+        self.settle_condition(from, t);
+        self.settle_condition(to, t);
+        if let Some(x) = self.people[from as usize].detail.as_mut() {
+            x.gear.bag.remove(k);
+        }
+        if self.people[to as usize].ensure_detail() {
+            self.stats.detailed += 1;
+        }
+        if let Some(x) = self.people[to as usize].detail.as_mut() {
+            match e.2 {
+                Some(pc) => x.gear.add_piece(e.0, pc),
+                None => x.gear.add(e.0, e.1),
+            }
+        }
+        self.people[from as usize].recompute_might();
+        self.people[to as usize].recompute_might();
+        // A new load, and maybe food for someone hungry: both start afresh.
+        self.settle_condition(from, t);
+        self.settle_condition(to, t);
+        let what = if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
+        let line = format!("{} gives {} {what}.", name(self, from), name(self, to));
+        self.log.push_front((t, line.clone()));
+        self.log.truncate(14);
+        Ok(line)
+    }
+
+    /// The strongest healing potion in someone's pack.
+    pub fn healing_potion_of(&self, who: PersonId) -> Option<ItemId> {
+        let d = self.people[who as usize].detail.as_ref()?;
+        let heal = |it: ItemId| item(it).effects.iter().filter(|e| e.does == super::effects::Does::Heal).map(|e| e.power).sum::<f32>();
+        d.gear.bag.iter().map(|e| e.0).filter(|&it| item(it).kind == super::items::Kind::Potion && heal(it) > 0.0).max_by(|a, b| heal(*a).total_cmp(&heal(*b)))
+    }
+
+    /// Have one squad member give another (downed, perhaps) a healing
+    /// draught from their own pack: at once if near, else they walk over.
+    pub fn order_dose(&mut self, giver: PersonId, patient: PersonId) -> Result<String, String> {
+        let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
+        if self.squad.index(giver).is_none() || self.squad.index(patient).is_none() {
+            return Err("Only between squad members.".into());
+        }
+        if self.is_down(giver) {
+            return Err(format!("{} is down too.", name(self, giver)));
+        }
+        if self.fighting.contains_key(&giver) {
+            return Err("Not in the middle of a fight.".into());
+        }
+        if self.healing_potion_of(giver).is_none() {
+            return Err(format!("{} has no healing draught.", name(self, giver)));
+        }
+        self.dosing.retain(|d| d.0 != giver);
+        if self.person_pos(giver).dist(self.person_pos(patient)) <= GIVE_REACH {
+            return Ok(self.dose_now(giver, patient));
+        }
+        let at = self.person_pos(patient);
+        self.order_members(&[giver], at);
+        self.dosing.push((giver, patient));
+        Ok(format!("{} goes over to {}.", name(self, giver), name(self, patient)))
+    }
+
+    fn dose_now(&mut self, giver: PersonId, patient: PersonId) -> String {
+        let Some(it) = self.healing_potion_of(giver) else { return "No draught left.".into() };
+        if let Some(d) = self.people[giver as usize].detail.as_mut() {
+            d.gear.take(it);
+        }
+        self.people[giver as usize].recompute_might();
+        for e in item(it).effects {
+            self.apply_effect(patient, e, 1.0);
+        }
+        let (g, p) = (self.name_of(giver), self.name_of(patient));
+        let up = !self.is_down(patient);
+        let line = format!("{g} gives {p} a {}{}", item(it).name.to_lowercase(), if up { "." } else { ": not enough to bring them round yet." });
+        self.log.push_front((self.time, line.clone()));
+        self.log.truncate(14);
+        line
+    }
+
+    /// Squad members on their way to dose someone: once near, they do.
+    pub(super) fn do_dosing(&mut self) {
+        let mut k = 0;
+        while k < self.dosing.len() {
+            let (g, p) = self.dosing[k];
+            if self.squad.index(g).is_none() || self.squad.index(p).is_none() || self.is_down(g) || self.healing_potion_of(g).is_none() {
+                self.dosing.remove(k);
+                continue;
+            }
+            if self.person_pos(g).dist(self.person_pos(p)) <= GIVE_REACH * 0.5 {
+                self.dosing.remove(k);
+                self.dose_now(g, p);
+                continue;
+            }
+            k += 1;
+        }
+    }
+
     pub fn put_on_ground(&mut self, it: ItemId, count: u16, pos: V2) -> u32 {
         let id = self.next_ground_id;
         self.next_ground_id += 1;
@@ -431,8 +600,8 @@ impl World {
                 let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
                 if let Some(town) = g.owner {
                     let mut r = Rng::from_keys(&[self.seed, pk.who as u64, g.id as u64, 0x5448_4546]);
-                    if self.witnessed(pk.who, g.pos, town, &mut r) {
-                        self.crime(pk.who, town, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"));
+                    if let Some(by) = self.witnessed(pk.who, g.pos, town, &mut r) {
+                        self.wrong_seen(pk.who, town, super::law::Wrong::Theft, item(g.item).value * 0.5 + 10.0, format!("{name} is seen stealing!"), Some(by), Some(super::containers::Owner::Town(town)), g.pos);
                     }
                 }
                 if let Some(d) = self.people[pk.who as usize].detail.as_mut() {

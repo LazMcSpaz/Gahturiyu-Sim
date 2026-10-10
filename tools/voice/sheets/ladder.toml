@@ -1,0 +1,326 @@
+# The accent ladder: each tongue from plain speech through the four steps that keep a line recognisable.
+# Both lines were picked so that every step changes something you can hear in them.
+# Make it with:  python tools/voice/voice.py sheet tools/voice/sheets/ladder.toml -o tools/voice/out/ladder
+
+title = "Gahturiyu accents grown from the tongues"
+text = "You have to make your own luck."
+
+[[item]]
+id = "roduro2_own_0"
+group = "Roduro (Earth)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "It will be remembered. Everything is."
+reading = "en-us"
+
+[[item]]
+id = "roduro2_own_1"
+group = "Roduro (Earth)"
+label = "Step 1 adds: the rhythm, the flicked r, steady vowels"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "It will be remembered. Everything is."
+accent = "roduro@1"
+
+[[item]]
+id = "roduro2_own_2"
+group = "Roduro (Earth)"
+label = "Step 2 adds: the tongue curls back on t and d; k slips to the throat"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "It will be remembered. Everything is."
+accent = "roduro@2"
+
+[[item]]
+id = "roduro2_own_3"
+group = "Roduro (Earth)"
+label = "Step 3 adds: a catch between vowels; s becomes sh"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "It will be remembered. Everything is."
+accent = "roduro@3"
+
+[[item]]
+id = "roduro2_own_4"
+group = "Roduro (Earth)"
+label = "Step 4 adds: stress moves next to last; inside words w hardens and f turns to breath"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "It will be remembered. Everything is."
+accent = "roduro@4"
+
+[[item]]
+id = "roduro2_common_0"
+group = "Roduro (Earth)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "You have to make your own luck."
+reading = "en-us"
+
+[[item]]
+id = "roduro2_common_1"
+group = "Roduro (Earth)"
+label = "Step 1 adds: the rhythm, the flicked r, steady vowels"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "You have to make your own luck."
+accent = "roduro@1"
+
+[[item]]
+id = "roduro2_common_2"
+group = "Roduro (Earth)"
+label = "Step 2 adds: the tongue curls back on t and d; k slips to the throat"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "You have to make your own luck."
+accent = "roduro@2"
+
+[[item]]
+id = "roduro2_common_3"
+group = "Roduro (Earth)"
+label = "Step 3 adds: a catch between vowels; s becomes sh"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "You have to make your own luck."
+accent = "roduro@3"
+
+[[item]]
+id = "roduro2_common_4"
+group = "Roduro (Earth)"
+label = "Step 4 adds: stress moves next to last; inside words w hardens and f turns to breath"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+text = "You have to make your own luck."
+accent = "roduro@4"
+
+[[item]]
+id = "qotiro2_own_0"
+group = "Qotiro (Fire)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "If I catch them I'll break their hands."
+reading = "en-us"
+
+[[item]]
+id = "qotiro2_own_1"
+group = "Qotiro (Fire)"
+label = "Step 1 adds: clipped and forward; the rolled r; short vowels"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "If I catch them I'll break their hands."
+accent = "qotiro@1"
+
+[[item]]
+id = "qotiro2_own_2"
+group = "Qotiro (Fire)"
+label = "Step 2 adds: th is t and d, h rasps, words end hard"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "If I catch them I'll break their hands."
+accent = "qotiro@2"
+
+[[item]]
+id = "qotiro2_own_3"
+group = "Qotiro (Fire)"
+label = "Step 3 adds: the first beat is hit; day and go held steady; k from the throat"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "If I catch them I'll break their hands."
+accent = "qotiro@3"
+
+[[item]]
+id = "qotiro2_own_4"
+group = "Qotiro (Fire)"
+label = "Step 4 adds: l turns to r, w hardens to g, y hardens inside words"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "If I catch them I'll break their hands."
+accent = "qotiro@4"
+
+[[item]]
+id = "qotiro2_common_0"
+group = "Qotiro (Fire)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "You have to make your own luck."
+reading = "en-us"
+
+[[item]]
+id = "qotiro2_common_1"
+group = "Qotiro (Fire)"
+label = "Step 1 adds: clipped and forward; the rolled r; short vowels"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "You have to make your own luck."
+accent = "qotiro@1"
+
+[[item]]
+id = "qotiro2_common_2"
+group = "Qotiro (Fire)"
+label = "Step 2 adds: th is t and d, h rasps, words end hard"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "You have to make your own luck."
+accent = "qotiro@2"
+
+[[item]]
+id = "qotiro2_common_3"
+group = "Qotiro (Fire)"
+label = "Step 3 adds: the first beat is hit; day and go held steady; k from the throat"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "You have to make your own luck."
+accent = "qotiro@3"
+
+[[item]]
+id = "qotiro2_common_4"
+group = "Qotiro (Fire)"
+label = "Step 4 adds: l turns to r, w hardens to g, y hardens inside words"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+text = "You have to make your own luck."
+accent = "qotiro@4"
+
+[[item]]
+id = "horaro2_own_0"
+group = "Horaro (Water)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "Good to see you again."
+reading = "en-gb"
+
+[[item]]
+id = "horaro2_own_1"
+group = "Horaro (Water)"
+label = "Step 1 adds: slow swells, held vowels, a gentle r"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "Good to see you again."
+accent = "horaro@1"
+
+[[item]]
+id = "horaro2_own_2"
+group = "Horaro (Water)"
+label = "Step 2 adds: th melts to h; weak vowels round"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "Good to see you again."
+accent = "horaro@2"
+
+[[item]]
+id = "horaro2_own_3"
+group = "Horaro (Water)"
+label = "Step 3 adds: inside words, k and g melt to h and w, p and b to w"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "Good to see you again."
+accent = "horaro@3"
+
+[[item]]
+id = "horaro2_own_4"
+group = "Horaro (Water)"
+label = "Step 4 adds: y opens to ee; ch and j soften"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "Good to see you again."
+accent = "horaro@4"
+
+[[item]]
+id = "horaro2_common_0"
+group = "Horaro (Water)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "You have to make your own luck."
+reading = "en-gb"
+
+[[item]]
+id = "horaro2_common_1"
+group = "Horaro (Water)"
+label = "Step 1 adds: slow swells, held vowels, a gentle r"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "You have to make your own luck."
+accent = "horaro@1"
+
+[[item]]
+id = "horaro2_common_2"
+group = "Horaro (Water)"
+label = "Step 2 adds: th melts to h; weak vowels round"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "You have to make your own luck."
+accent = "horaro@2"
+
+[[item]]
+id = "horaro2_common_3"
+group = "Horaro (Water)"
+label = "Step 3 adds: inside words, k and g melt to h and w, p and b to w"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "You have to make your own luck."
+accent = "horaro@3"
+
+[[item]]
+id = "horaro2_common_4"
+group = "Horaro (Water)"
+label = "Step 4 adds: y opens to ee; ch and j soften"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+text = "You have to make your own luck."
+accent = "horaro@4"
+
+[[item]]
+id = "tadoro2_own_0"
+group = "Ṭaḍoro (Air)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "Came in the dark, whoever it was."
+reading = "en-gb"
+
+[[item]]
+id = "tadoro2_own_1"
+group = "Ṭaḍoro (Air)"
+label = "Step 1 adds: quick, light, rising; weak vowels blur; the last beat is hit"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "Came in the dark, whoever it was."
+accent = "tadoro@1"
+
+[[item]]
+id = "tadoro2_own_2"
+group = "Ṭaḍoro (Air)"
+label = "Step 2 adds: r softens toward w; inside words l melts to y"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "Came in the dark, whoever it was."
+accent = "tadoro@2"
+
+[[item]]
+id = "tadoro2_own_3"
+group = "Ṭaḍoro (Air)"
+label = "Step 3 adds: k and g thin to h and w"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "Came in the dark, whoever it was."
+accent = "tadoro@3"
+
+[[item]]
+id = "tadoro2_own_4"
+group = "Ṭaḍoro (Air)"
+label = "Step 4 adds: ch and j soften; inside words r is hissed like sh"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "Came in the dark, whoever it was."
+accent = "tadoro@4"
+
+[[item]]
+id = "tadoro2_common_0"
+group = "Ṭaḍoro (Air)"
+label = "Plain: the same speaker with no accent"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "You have to make your own luck."
+reading = "en-gb"
+
+[[item]]
+id = "tadoro2_common_1"
+group = "Ṭaḍoro (Air)"
+label = "Step 1 adds: quick, light, rising; weak vowels blur; the last beat is hit"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "You have to make your own luck."
+accent = "tadoro@1"
+
+[[item]]
+id = "tadoro2_common_2"
+group = "Ṭaḍoro (Air)"
+label = "Step 2 adds: r softens toward w; inside words l melts to y"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "You have to make your own luck."
+accent = "tadoro@2"
+
+[[item]]
+id = "tadoro2_common_3"
+group = "Ṭaḍoro (Air)"
+label = "Step 3 adds: k and g thin to h and w"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "You have to make your own luck."
+accent = "tadoro@3"
+
+[[item]]
+id = "tadoro2_common_4"
+group = "Ṭaḍoro (Air)"
+label = "Step 4 adds: ch and j soften; inside words r is hissed like sh"
+base = "kokoro:bm_fable*0.6+af_nicole*0.4"
+text = "You have to make your own luck."
+accent = "tadoro@4"

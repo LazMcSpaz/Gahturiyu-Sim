@@ -58,6 +58,26 @@ impl World {
         hostile && p.detail.is_some()
     }
 
+    /// Why a body can't be gone through, in a line for the player.
+    pub fn why_cant_loot(&self, body: PersonId) -> String {
+        let p = &self.people[body as usize];
+        let name = p.name().unwrap_or("They").to_string();
+        if p.in_squad {
+            return format!("{name} is one of yours: use their pack.");
+        }
+        if self.fighting.contains_key(&body) {
+            return format!("{name} is still fighting.");
+        }
+        if !self.is_down(body) {
+            return format!("{name} isn't down: they're on their feet (beaten foes get up again after a while).");
+        }
+        let hostile = p.bandit || self.group_of[body as usize].and_then(|g| self.group(g)).is_some_and(|g| g.hostile);
+        if !hostile {
+            return format!("Only beaten enemies can be gone through; {name} isn't one.");
+        }
+        format!("There's nothing on {name}.")
+    }
+
     /// Can this still be gone through (a body still down; a container open)?
     fn source_ok(&self, src: Source) -> bool {
         match src {
@@ -78,11 +98,11 @@ impl World {
         if !self.can_loot(body) {
             return false;
         }
-        let Some(k) = self.squad.index(who) else { return false };
+        if self.squad.index(who).is_none() {
+            return false;
+        }
         let pos = self.person_pos(body);
-        let (path, _) = self.route(self.member_pos(k), pos);
-        self.squad.goal[k] = *path.last().unwrap_or(&pos);
-        self.squad.route[k] = path;
+        self.send(who, pos);
         self.looting.retain(|l| l.who != who);
         self.looting.push(Looting { who, from: Source::Body(body) });
         true
@@ -196,6 +216,36 @@ impl World {
         true
     }
 
+    /// Put something from a member's pack (a whole stack, entry `k`) into the
+    /// container they have open. Not a crime, but what's put in someone
+    /// else's chest is theirs now (taking it back is taking from them).
+    pub fn put_in(&mut self, who: PersonId, k: usize) -> bool {
+        let Some(Source::Chest(c)) = self.source_now(who) else { return false };
+        let Some(d) = self.people[who as usize].detail.as_mut() else { return false };
+        if k >= d.gear.bag.len() {
+            return false;
+        }
+        let e = d.gear.bag.remove(k);
+        let Some(chest) = self.containers.get_mut(&c) else {
+            if let Some(d) = self.people[who as usize].detail.as_mut() {
+                d.gear.bag.insert(k, e);
+            }
+            return false;
+        };
+        match chest.items.iter_mut().find(|x| x.0 == e.0 && x.2.is_none() && e.2.is_none()) {
+            Some(x) => x.1 += e.1,
+            None => chest.items.push(e),
+        }
+        let what = chest.what.name();
+        self.people[who as usize].recompute_might();
+        self.settle_condition(who, self.time);
+        let a = self.people[who as usize].name().unwrap_or("someone").to_string();
+        let n = if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
+        self.log.push_front((self.time, format!("{a} puts {n} in the {what}.")));
+        self.log.truncate(14);
+        true
+    }
+
     /// Take everything off a body.
     pub fn take_all_loot(&mut self, who: PersonId, body: PersonId) -> usize {
         self.take_all_from(who, Source::Body(body))
@@ -222,6 +272,15 @@ impl World {
     pub(super) fn tidy_looting(&mut self) {
         let keep: Vec<Looting> = self.looting.iter().copied().filter(|l| self.squad.index(l.who).is_some() && self.source_ok(l.from)).collect();
         self.looting = keep;
+        // A body that has been moved (or settled where its band left it):
+        // the looter goes on to where it is now.
+        for l in self.looting.clone() {
+            let (Some(k), Source::Body(body)) = (self.squad.index(l.who), l.from) else { continue };
+            let at = self.person_pos(body);
+            if self.squad.goal[k].dist(at) > REACH && self.squad.at[k].dist(self.squad.goal[k]) < 1e-3 {
+                self.send(l.who, at);
+            }
+        }
     }
 }
 

@@ -23,7 +23,7 @@ use super::app::Hover;
 use super::palette::{self, eg, ega, race_color, Rgb, DIM, GOLD, SNEAK, TEXT, WARN};
 
 pub const SPEEDS: [(f64, &str); 5] = [(1.0, "1×"), (10.0, "10×"), (60.0, "1 min/s"), (600.0, "10 min/s"), (3600.0, "1 hour/s")];
-pub const PANEL: Color32 = Color32::from_rgba_premultiplied(4, 6, 6, 219);
+pub const PANEL: Color32 = Color32::from_rgba_premultiplied(16, 15, 11, 228);
 
 pub struct Canvas {
     pub p: egui::Painter,
@@ -36,7 +36,27 @@ pub fn r(x: f32, y: f32, w: f32, h: f32) -> Rect {
 }
 
 fn font(size: f32) -> FontId {
-    FontId::proportional(size * 0.92)
+    FontId::proportional(size * 1.02)
+}
+
+/// The HUD's typefaces (`app.rs` loads them): `Body` is Alegreya (the
+/// default for all panel text), `Title` Cinzel for headings and place names,
+/// `Caps` Alegreya small caps for names, `Italic` for asides and states.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Face {
+    Body,
+    Title,
+    Caps,
+    Italic,
+}
+
+pub fn face(f: Face, size: f32) -> FontId {
+    match f {
+        Face::Body => font(size),
+        Face::Title => FontId::new(size, egui::FontFamily::Name("title".into())),
+        Face::Caps => FontId::new(size * 1.04, egui::FontFamily::Name("caps".into())),
+        Face::Italic => FontId::new(size * 1.02, egui::FontFamily::Name("italic".into())),
+    }
 }
 
 impl Canvas {
@@ -63,16 +83,26 @@ impl Canvas {
     }
     /// A dark box of lines; returns where it went.
     pub fn panel(&self, lines: &[(String, Rgb)], x: f32, y: f32, size: f32) -> Rect {
+        // A gold first line is a title: set in capitals, spaced out.
+        let titled = lines.first().is_some_and(|l| l.1 == GOLD);
         let lh = size * 1.35;
-        let w = lines.iter().map(|(l, _)| self.width(l, size)).fold(0.0, f32::max) + 24.0;
-        let h = lines.len() as f32 * lh + 16.0;
+        let tw = |l: &str| if titled { self.styled_width(&l.to_uppercase(), size, Face::Title, 1.5) } else { self.width(l, size) };
+        let w = lines.iter().enumerate().map(|(i, (l, _))| if i == 0 { tw(l) } else { self.width(l, size) }).fold(0.0, f32::max) + 32.0;
+        let h = lines.len() as f32 * lh + 20.0;
         let x = x.min(self.w - w - 8.0).max(8.0);
         let y = y.min(self.h - h - 8.0).max(8.0);
         // Nearly opaque: tooltips often sit over other panels.
-        self.rect(x, y, w, h, Color32::from_rgba_premultiplied(4, 6, 6, 248));
-        self.rect_lines(x, y, w, h, 1.0, Color32::from_rgba_premultiplied(60, 60, 60, 200));
+        self.grad(x, y, w, h, Color32::from_rgba_premultiplied(24, 22, 16, 246), Color32::from_rgba_premultiplied(12, 11, 8, 246), false);
+        let gold = eg(palette::BRASS);
+        self.rule(x - 6.0, x + w + 6.0, y, 1.5, gold);
+        self.rule(x - 6.0, x + w + 6.0, y + h, 1.5, gold);
         for (i, (l, c)) in lines.iter().enumerate() {
-            self.text(l, x + 12.0, y + 8.0 + lh * (i as f32 + 0.78), size, *c);
+            let by = y + 10.0 + lh * (i as f32 + 0.78);
+            if i == 0 && titled {
+                self.styled(&l.to_uppercase(), x + 16.0, by, size, eg(*c), Face::Title, 1.5);
+            } else {
+                self.text(l, x + 16.0, by, size, *c);
+            }
         }
         r(x, y, w, h)
     }
@@ -87,6 +117,121 @@ impl Canvas {
     }
     pub fn triangle(&self, a: Vec2, b: Vec2, c: Vec2, col: Color32) {
         self.p.add(Shape::convex_polygon(vec![Pos2::new(a.x, a.y), Pos2::new(b.x, b.y), Pos2::new(c.x, c.y)], col, Stroke::NONE));
+    }
+    /// Text in one of the HUD's faces, with extra space between letters;
+    /// baseline at `y`. Returns its width.
+    pub fn styled(&self, s: &str, x: f32, y: f32, size: f32, c: Color32, f: Face, spacing: f32) -> f32 {
+        let g = self.galley(s, size, c, f, spacing);
+        let w = g.size().x;
+        self.p.galley(Pos2::new(x, y - size * 0.86), g, c);
+        w
+    }
+    /// As `styled`, right-aligned to `x`.
+    pub fn styled_right(&self, s: &str, x: f32, y: f32, size: f32, c: Color32, f: Face, spacing: f32) -> f32 {
+        let w = self.styled_width(s, size, f, spacing);
+        self.styled(s, x - w, y, size, c, f, spacing)
+    }
+    /// As `styled`, centred on `x`, with a soft shadow.
+    pub fn styled_centred(&self, s: &str, x: f32, y: f32, size: f32, c: Color32, f: Face, spacing: f32) {
+        let w = self.styled_width(s, size, f, spacing);
+        self.styled(s, x - w / 2.0 + 1.0, y + 1.5, size, Color32::from_black_alpha(170), f, spacing);
+        self.styled(s, x - w / 2.0, y, size, c, f, spacing);
+    }
+    pub fn styled_width(&self, s: &str, size: f32, f: Face, spacing: f32) -> f32 {
+        self.galley(s, size, Color32::WHITE, f, spacing).size().x
+    }
+    fn galley(&self, s: &str, size: f32, c: Color32, f: Face, spacing: f32) -> std::sync::Arc<egui::Galley> {
+        let mut job = egui::text::LayoutJob::default();
+        job.append(s, 0.0, egui::TextFormat { font_id: face(f, size), color: c, extra_letter_spacing: spacing, ..Default::default() });
+        self.p.layout_job(job)
+    }
+    /// A filled shape (convex or not: it's fanned from its first point).
+    pub fn poly(&self, pts: &[Vec2], c: Color32) {
+        if pts.len() < 3 {
+            return;
+        }
+        let mut m = egui::Mesh::default();
+        for p in pts {
+            m.colored_vertex(Pos2::new(p.x, p.y), c);
+        }
+        for i in 1..pts.len() as u32 - 1 {
+            m.add_triangle(0, i, i + 1);
+        }
+        self.p.add(Shape::mesh(m));
+    }
+    pub fn poly_lines(&self, pts: &[Vec2], t: f32, c: Color32, closed: bool) {
+        let v: Vec<Pos2> = pts.iter().map(|p| Pos2::new(p.x, p.y)).collect();
+        if closed {
+            self.p.add(Shape::closed_line(v, Stroke::new(t, c)));
+        } else {
+            self.p.add(Shape::line(v, Stroke::new(t, c)));
+        }
+    }
+    /// A box shaded from one colour to another, left to right or top to bottom.
+    pub fn grad(&self, x: f32, y: f32, w: f32, h: f32, a: Color32, b: Color32, across: bool) {
+        let mut m = egui::Mesh::default();
+        let (tl, tr, br, bl) = if across { (a, b, b, a) } else { (a, a, b, b) };
+        m.colored_vertex(Pos2::new(x, y), tl);
+        m.colored_vertex(Pos2::new(x + w, y), tr);
+        m.colored_vertex(Pos2::new(x + w, y + h), br);
+        m.colored_vertex(Pos2::new(x, y + h), bl);
+        m.add_triangle(0, 1, 2);
+        m.add_triangle(0, 2, 3);
+        self.p.add(Shape::mesh(m));
+    }
+    /// A panel's ground: dark umber, shaded, ruled in brass top and bottom.
+    pub fn frame_box(&self, x: f32, y: f32, w: f32, h: f32) {
+        self.grad(x, y, w, h, Color32::from_rgba_unmultiplied(30, 27, 20, 238), Color32::from_rgba_unmultiplied(14, 13, 10, 242), false);
+        let brass = eg(palette::BRASS);
+        self.rule(x - 8.0, x + w + 8.0, y, 1.6, brass);
+        self.rule(x - 8.0, x + w + 8.0, y + h, 1.6, brass);
+        let side = Color32::from_rgba_unmultiplied(110, 85, 45, 90);
+        self.line(Vec2::new(x, y + 6.0), Vec2::new(x, y + h - 6.0), 1.0, side);
+        self.line(Vec2::new(x + w, y + 6.0), Vec2::new(x + w, y + h - 6.0), 1.0, side);
+    }
+    /// A box shaded with a colour at each corner (top left, top right,
+    /// bottom right, bottom left).
+    pub fn grad4(&self, x: f32, y: f32, w: f32, h: f32, tl: Color32, tr: Color32, br: Color32, bl: Color32) {
+        let mut m = egui::Mesh::default();
+        m.colored_vertex(Pos2::new(x, y), tl);
+        m.colored_vertex(Pos2::new(x + w, y), tr);
+        m.colored_vertex(Pos2::new(x + w, y + h), br);
+        m.colored_vertex(Pos2::new(x, y + h), bl);
+        m.add_triangle(0, 1, 2);
+        m.add_triangle(0, 2, 3);
+        self.p.add(Shape::mesh(m));
+    }
+    /// A thin rule that fades in from nothing at both ends.
+    pub fn rule(&self, x0: f32, x1: f32, y: f32, t: f32, c: Color32) {
+        let mid = (x0 + x1) / 2.0;
+        let clear = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 0);
+        self.grad(x0, y - t / 2.0, mid - x0, t, clear, c, true);
+        self.grad(mid, y - t / 2.0, x1 - mid, t, c, clear, true);
+    }
+    /// A rule fading in from the left only.
+    pub fn rule_in(&self, x0: f32, x1: f32, y: f32, t: f32, c: Color32, from_left: bool) {
+        let clear = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 0);
+        if from_left {
+            self.grad(x0, y - t / 2.0, x1 - x0, t, clear, c, true);
+        } else {
+            self.grad(x0, y - t / 2.0, x1 - x0, t, c, clear, true);
+        }
+    }
+    /// A small diamond (the HUD's bullet and bar end).
+    pub fn diamond(&self, x: f32, y: f32, r: f32, c: Color32) {
+        self.poly(&[Vec2::new(x, y - r), Vec2::new(x + r, y), Vec2::new(x, y + r), Vec2::new(x - r, y)], c);
+    }
+    pub fn diamond_lines(&self, x: f32, y: f32, r: f32, t: f32, c: Color32) {
+        self.poly_lines(&[Vec2::new(x, y - r), Vec2::new(x + r, y), Vec2::new(x, y + r), Vec2::new(x - r, y)], t, c, true);
+    }
+    /// An arc of a circle, angles in radians (0 = right, clockwise on screen).
+    pub fn arc(&self, x: f32, y: f32, rad: f32, a0: f32, a1: f32, t: f32, c: Color32) {
+        let n = ((a1 - a0).abs() * rad / 4.0).ceil().max(4.0) as usize;
+        let pts: Vec<Pos2> = (0..=n).map(|i| {
+            let a = a0 + (a1 - a0) * i as f32 / n as f32;
+            Pos2::new(x + a.cos() * rad, y + a.sin() * rad)
+        }).collect();
+        self.p.add(Shape::line(pts, Stroke::new(t, c)));
     }
     pub fn ellipse_lines(&self, x: f32, y: f32, rx: f32, ry: f32, t: f32, c: Color32) {
         let pts: Vec<Pos2> = (0..24).map(|i| {
@@ -144,6 +289,15 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             out.push((format!("{}  ·  {}", name, p.race.name()), race_color(p.race)));
             if w.can_loot(pid) {
                 out.push(("Beaten: click to go through their things (Shift-click to carry)".to_string(), GOLD));
+            }
+            // A merchant: open now, or when.
+            if let Some(at) = w.trades_next(pid) {
+                if at <= w.time + 1.0 {
+                    out.push(("Trading now".to_string(), GOLD));
+                } else {
+                    let day = if (at / 86400.0).floor() > (w.time / 86400.0).floor() { " tomorrow" } else { "" };
+                    out.push((format!("Merchant: at their stall from {}{day}", hhmm(at)), DIM));
+                }
             }
             match w.join_terms(pid) {
                 Some(0) => out.push(("Restless: might join the squad if asked".to_string(), GOLD)),
@@ -302,6 +456,14 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if g.count > 1 {
                 out[0].0 = format!("{}  ×{}", out[0].0, g.count);
             }
+            // Someone's: show the odds of being seen, as for a container.
+            if let Some(town) = g.owner {
+                let near = w.squad.members.iter().copied().min_by(|&a, &b| w.person_pos(a).dist(g.pos).total_cmp(&w.person_pos(b).dist(g.pos)));
+                if let Some(m) = near {
+                    let c = w.catch_chance(m, g.pos, town);
+                    out.push((if c <= 0.0 { "Someone's; nobody would see it taken from here".to_string() } else { format!("Someone's: taking it is theft, {:.0}% chance of being seen", c * 100.0) }, WARN));
+                }
+            }
             out.push(("Click to pick up".into(), TEXT));
         }
         Hover::Door(id) => {
@@ -319,18 +481,59 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if d.lock <= 0.0 {
                 out.push(("No lock.  Click to go in.".into(), DIM));
             } else if w.is_locked(id) {
-                out.push((format!("Locked for the night  ·  lock {:.0}", d.lock), WARN));
+                out.push((format!("Locked for the night: {}", w.lock_outlook(d.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
             } else {
                 out.push((format!("Open  ·  lock {:.0}, locked 20:00–06:00", d.lock), DIM));
                 out.push(("Click to go in.".into(), DIM));
             }
         }
+        Hover::Building(id) => {
+            let st = &w.settlements[id.0 as usize];
+            let Some(d) = w.door(id) else { return out };
+            out.push((d.variant().name.to_string(), GOLD));
+            let owner = super::interiors::owner_text(w, w.belongs_to(id));
+            out.push((format!("{}  ·  belongs to {owner}", st.name), TEXT));
+            let lock = if d.lock <= 0.0 {
+                "No lock".to_string()
+            } else if w.is_locked(id) {
+                format!("Locked for the night (lock {:.0})", d.lock)
+            } else {
+                format!("Open by day; locked 20:00–06:00 (lock {:.0})", d.lock)
+            };
+            out.push((lock, if w.is_locked(id) { WARN } else { DIM }));
+            let inside = w.residents_in_band1(id.0).into_iter().filter(|&p| w.building_at(w.person_pos(p)).map(|x| x.id) == Some(id)).count();
+            if inside > 0 {
+                out.push((format!("{inside} inside"), DIM));
+            }
+        }
+        Hover::Furniture(id, k) => {
+            let Some(d) = w.door(id) else { return out };
+            let Some(p) = d.variant().furniture.get(k as usize) else { return out };
+            out.push((capital(p.what.name()), GOLD));
+            out.push((format!("In the {}", d.variant().name.to_lowercase()), DIM));
+        }
+        Hover::Camp(k) => {
+            out.push(("Bandit camp".to_string(), GOLD));
+            if let Some(c) = w.camps.get(k) {
+                let n = w.group(c.group).map(|g| g.members.iter().filter(|&&m| !w.people[m as usize].dead && !w.is_down(m)).count()).unwrap_or(0);
+                out.push((format!("{n} standing  ·  they watch the roads, and anyone who comes close"), WARN));
+                if w.is_warden(c.group) {
+                    out.push(("Wardens dug in at a ruin: harder than most".to_string(), WARN));
+                }
+            }
+        }
+        Hover::Place(t, k) => {
+            let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) else { return out };
+            out.push((p.kind.name().to_string(), GOLD));
+            let here = w.settlements[t as usize].residents.iter().filter(|&&q| w.workplace_of(q).is_some_and(|wp| wp.pos.dist(p.pos) < 1.0) && w.at_work(q, w.time)).count();
+            out.push((format!("{}  ·  {here} at work here now", w.settlements[t as usize].name), DIM));
+        }
         Hover::Container(id) => {
             let Some(k) = w.container(id) else { return out };
             out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
             if w.container_locked(id) {
-                out.push((format!("Locked  ·  lock {:.0}", k.lock), WARN));
+                out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
             } else {
                 out.push(("Click to open (taking is theft)".into(), DIM));
@@ -344,6 +547,30 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             } else {
                 out.push((format!("Picked; grows back at {}", hhmm(n.picked_at.unwrap_or(0.0) + 24.0 * HOUR)), DIM));
             }
+        }
+        Hover::Ruin(id) => {
+            let Some(ru) = w.ruins.get(id as usize) else { return out };
+            out.push((ru.name(w), GOLD));
+            let held = w.ruin_held(id);
+            let line = match ru.kind {
+                gahturiyu_sim::sim::ruins::RuinKind::Ruin if held => "Held by wardens: a hard band, dug in",
+                gahturiyu_sim::sim::ruins::RuinKind::Lair(_) if held => "Its owner is about",
+                _ => "Nobody guards it now",
+            };
+            out.push((line.to_string(), if held { WARN } else { TEXT }));
+            let n = w.ruin_cache(id);
+            out.push((if n > 0 { format!("{n} things lying inside") } else { "Picked clean".to_string() }, DIM));
+        }
+        Hover::Deposit(id) => {
+            let Some(d) = w.deposit(id) else { return out };
+            let town = &w.settlements[d.town as usize].name;
+            out.push((format!("{} of {town}", d.face().name), GOLD));
+            let left = d.left_at(w.time).floor();
+            out.push((format!("{} × {} left (of {}); a unit {:.0} kg, worth about {:.0} coin", left, items::item(d.item).name.to_lowercase(), d.face().cap, items::item(d.item).weight, items::item(d.item).value), TEXT));
+            if let Some(h) = w.deposit_full_in(id) {
+                out.push((format!("Grows back: full again in {h:.0} h"), DIM));
+            }
+            out.push(("Click: the selected work it until their packs are full".into(), DIM));
         }
         Hover::Station(i) => {
             let (_, st) = w.stations[i];
@@ -588,7 +815,7 @@ fn work_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
     if l.job == Job::None {
         return vec![];
     }
-    let mut line = l.job.name().to_string();
+    let mut line = l.job.title(w.people[pid as usize].seed).to_string();
     if l.job == Job::Guard && l.shift == 1 {
         line += " (night watch)";
     }

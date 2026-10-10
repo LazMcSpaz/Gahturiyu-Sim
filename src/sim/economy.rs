@@ -457,6 +457,23 @@ impl World {
         Some((town, shelf))
     }
 
+    /// When a merchant is next at their stall (now, if they are), looking up
+    /// to two days ahead in their day plans.
+    pub fn trades_next(&self, npc: PersonId) -> Option<f64> {
+        if self.life(npc).job != Job::Merchant {
+            return None;
+        }
+        let step = 15.0 * 60.0;
+        let mut t = self.time;
+        while t < self.time + 2.0 * super::world::DAY {
+            if self.at_work(npc, t) {
+                return Some(t);
+            }
+            t = (t / step).floor() * step + step;
+        }
+        None
+    }
+
     /// Is this person a merchant, at their stall now?
     pub fn is_trading(&self, npc: PersonId) -> bool {
         self.shelves(npc).is_some()

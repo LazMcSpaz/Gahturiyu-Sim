@@ -30,7 +30,8 @@ fn a_beaten_bandit_can_be_stripped() {
         n += 1;
     }
     assert!(w.squad_battle().is_none(), "the fight ended");
-    let body = *foes.iter().find(|&&f| w.can_loot(f)).expect("a beaten bandit to loot");
+    // (One lying on land: the sea is off-limits to the squad.)
+    let body = *foes.iter().find(|&&f| w.can_loot(f) && !w.terrain.is_sea(w.person_pos(f))).expect("a beaten bandit to loot");
     let looter = w.squad_fit()[0];
     let coin_before = w.count_of(looter, "coin");
     let had = w.loot_of(body).len();

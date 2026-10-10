@@ -1,0 +1,93 @@
+// The little grammar that naming needs, tongue by tongue: how two words
+// are put together, the endings that make a place, a doer, a people and so
+// on, how a given name ends for a man or a woman, and where the stress falls.
+// Read by src/names/grammar.rs.
+//
+//   order     HeadLast: the describing word comes first ("earth-kind": rodu + ro).
+//             HeadFirst: the main word comes first ("kind of water": roi + mawe).
+//   longest   a compound is kept to this many syllables: the second word is
+//             cut short to fit.
+//   keep      which end of that second word is kept when it is cut.
+//   stress    which syllable is said hardest (for the pronunciation hints).
+//   affixes   each is (the form, Before or After the word).
+//               kind   a people            agent  one who does it
+//               place  where it is         small  a little one
+//               great  a great one         most   the highest (the Trinity's mark)
+//   of        the small word for "of, belonging to" between two words.
+//   male, female, either
+//             how a given name may end (stage 4 uses these). PROPOSED: Laz approves.
+//
+// The affixes come from roots where they can: `kind` is the root for a
+// people (roʻì) in each tongue, `small` is the root for small (liʻi), `great`
+// the root for great (raki), `most` and `of` are Roduro's own hi- and yi.
+// `agent` (First Speech ke) and `place` (la) are new.
+[
+    (
+        tongue: Roduro,
+        order: HeadLast,
+        longest: 4,
+        keep: End,
+        stress: NextToLast,
+        kind: ("ro", After),
+        agent: ("qe", After),
+        place: ("la", After),
+        small: ("li", After),
+        great: ("ra", After),
+        most: ("hi", Before),
+        of: "yi",
+        male: ["o", "u"],
+        female: ["a", "i"],
+        either: ["e", "ì"],
+    ),
+    (
+        tongue: Qotiro,
+        order: HeadLast,
+        longest: 3,
+        keep: Start,
+        stress: First,
+        kind: ("roq", After),
+        agent: ("ak", After),
+        place: ("ar", After),
+        small: ("ik", After),
+        great: ("rek", After),
+        most: ("xi", Before),
+        of: "di",
+        male: ["k", "t", "q", "x"],
+        female: ["n", "r", "m"],
+        either: ["d", "g"],
+    ),
+    (
+        tongue: Horaro,
+        order: HeadFirst,
+        longest: 5,
+        keep: Start,
+        stress: NextToLast,
+        kind: ("roi", Before),
+        agent: ("he", Before),
+        place: ("la", Before),
+        small: ("li", Before),
+        great: ("ra", Before),
+        most: ("hi", Before),
+        of: "i",
+        male: ["u", "o"],
+        female: ["a", "ia"],
+        either: ["i", "e"],
+    ),
+    (
+        tongue: Tadoro,
+        order: HeadFirst,
+        longest: 4,
+        keep: Start,
+        stress: Last,
+        kind: ("shei", Before),
+        agent: ("he", Before),
+        place: ("ya", Before),
+        small: ("yi", Before),
+        great: ("sha", Before),
+        most: ("hi", Before),
+        of: "yi",
+        male: ["th", "h", "s"],
+        female: ["ai", "a", "i"],
+        either: ["e", "u", "sh"],
+    ),
+]

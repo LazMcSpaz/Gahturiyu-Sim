@@ -6,11 +6,10 @@
 //! is, and a click on them comes back as an `Action` for the app to carry out.
 
 use bevy::math::Vec2;
-use bevy_egui::egui::Color32;
 
 use gahturiyu_sim::sim::{
     body,
-    condition::{self, HungerStage, Shelter},
+    condition::Shelter,
     crafting::{success_chance, Cannot, RECIPES},
     materials::{Craft, Grade, CRAFTS},
     dialogue::Topic,
@@ -23,7 +22,7 @@ use gahturiyu_sim::sim::{
     World,
 };
 
-use super::hud::{bar_for, health_color, Canvas, PANEL};
+use super::hud::Canvas;
 use super::palette::{eg, ega, race_color, Rgb, DIM, GOLD, MANA, SNEAK, TEXT, WARN};
 
 /// A box on screen, pixels from the top left.
@@ -80,13 +79,13 @@ impl Selection {
 }
 
 pub enum Action {
-    Select(PersonId, bool),
     /// Put on the pack's `k`th entry.
     EquipEntry(PersonId, usize),
-    OpenInventory(PersonId),
     Unequip(PersonId, Slot),
     /// Put down this very entry in the pack.
     DropEntry(PersonId, usize),
+    /// Hand this entry to another squad member.
+    GiveEntry(PersonId, usize, PersonId),
     /// Seal a worn reed piece with pitch, or mend it yourself.
     Care(PersonId, Slot),
     Use(PersonId, ItemId),
@@ -108,31 +107,8 @@ pub struct Click {
     pub shift: bool,
 }
 
-const CARD_W: f32 = 210.0;
-pub const CARD_H: f32 = 100.0;
 const INV_W: f32 = 400.0;
 const ROW: f32 = 21.0;
-
-/// How much taller than one card the cards stand (more rows).
-fn cards_extra(c: &Canvas, n: usize) -> f32 {
-    card_rect(c, 0, n).y - card_rect(c, n.saturating_sub(1), n).y
-}
-
-/// The narrowest a card gets before the cards go onto a second row.
-const CARD_MIN_W: f32 = 150.0;
-
-/// Card `k` of `n`: narrowed to fit along the bottom, and if even that
-/// won't do, in rows (the first row on top).
-fn card_rect(c: &Canvas, k: usize, n: usize) -> Bx {
-    let room = c.w - 24.0 + 8.0;
-    let per_row = ((room / (CARD_MIN_W + 8.0)).floor() as usize).max(1);
-    let in_row = n.min(per_row).max(1);
-    let w = ((room / in_row as f32) - 8.0).clamp(CARD_MIN_W, CARD_W);
-    let rows = n.div_ceil(per_row).max(1);
-    let (row, col) = (k / per_row, k % per_row);
-    let bottom = c.h - 30.0 - CARD_H - 10.0;
-    Bx::new(12.0 + col as f32 * (w + 8.0), bottom - (rows - 1 - row) as f32 * (CARD_H + 8.0), w, CARD_H)
-}
 
 fn inv_rect(c: &Canvas, w: &World, pid: PersonId) -> Bx {
     let bag = w.people[pid as usize].detail.as_ref().map(|d| d.gear.bag.len()).unwrap_or(0);
@@ -140,7 +116,7 @@ fn inv_rect(c: &Canvas, w: &World, pid: PersonId) -> Bx {
     Bx::new(c.w - INV_W - 12.0, 12.0, INV_W, h.min(c.h - 130.0))
 }
 
-fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
+pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     let p = &w.people[pid as usize];
     if let Some(f) = w.fighter(pid) {
         if f.ko {
@@ -153,6 +129,12 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     }
     if w.carried_by(pid).is_some() {
         return ("Being carried", WARN);
+    }
+    if !w.free_to_order(pid) {
+        return ("Bound to work", WARN);
+    }
+    if w.chased_by(pid).is_some() {
+        return ("The watch is after them", WARN);
     }
     if w.carrying(pid).is_some() {
         return ("Carrying", GOLD);
@@ -181,6 +163,21 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     if w.pickups.iter().any(|pk| pk.who == pid) {
         return ("Fetching", TEXT);
     }
+    if let Some(d) = w.labouring(pid).and_then(|id| w.deposit(id)) {
+        return (if items::item(d.item).key == "timber" { "Chopping wood" } else { "Mining" }, GOLD);
+    }
+    if w.labour.iter().any(|l| l.who == pid) {
+        return ("Off to work", TEXT);
+    }
+    if w.butchering_now(pid) {
+        return ("Butchering", GOLD);
+    }
+    if w.chases.iter().any(|c| c.who.contains(&pid)) {
+        return ("Hunting", WARN);
+    }
+    if w.looting_now(pid).is_some() {
+        return ("Looting", GOLD);
+    }
     let sneaking = w.squad.sneaking[k];
     if w.squad.at[k].dist(w.squad.goal[k]) > 0.5 {
         return if sneaking { ("Sneaking", SNEAK) } else { ("Walking", TEXT) };
@@ -190,139 +187,6 @@ fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     } else {
         ("Standing", DIM)
     }
-}
-
-/// The cards along the bottom. Returns a click's action and the cards' boxes.
-pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -> (Option<Action>, Vec<Bx>) {
-    let mut act = None;
-    let mut boxes = Vec::new();
-    let n = w.squad.members.len();
-    for (k, &pid) in w.squad.members.iter().enumerate() {
-        let r = card_rect(c, k, n);
-        boxes.push(r);
-        let p = &w.people[pid as usize];
-        let chosen = sel.shows(w, pid);
-        c.rect(r.x, r.y, r.w, r.h, PANEL);
-        c.rect(r.x, r.y, 5.0, r.h, eg(race_color(p.race)));
-        if chosen {
-            c.rect_lines(r.x, r.y, r.w, r.h, 2.0, eg(GOLD));
-        }
-        let name = p.name().unwrap_or("?");
-        c.text(name, r.x + 14.0, r.y + 19.0, 16.0, if chosen { GOLD } else { TEXT });
-        // Lost limbs, in red after the name; a lit torch after that.
-        let mut after = r.x + 18.0 + c.width(name, 16.0);
-        let gone = p.wounds.lost_limbs();
-        if !gone.is_empty() {
-            let short: Vec<String> = gone.iter().map(|g| g.split(' ').map(|w| w[..1].to_uppercase()).collect::<String>()).collect();
-            let tag = format!("−{}", short.join(" −"));
-            c.text(&tag, after, r.y + 19.0, 13.0, [0.95, 0.35, 0.3]);
-            after += c.width(&tag, 13.0) + 6.0;
-        }
-        if w.torch_lit(pid) {
-            c.text("torch", after, r.y + 19.0, 12.0, [1.0, 0.7, 0.35]);
-        }
-        if k < 6 {
-            let key = format!("F{}", k + 1);
-            c.text(&key, r.x + r.w - c.width(&key, 13.0) - 8.0, r.y + 17.0, 13.0, DIM);
-        }
-
-        let (st, sc) = status(w, pid, k);
-        let gear = p.kit();
-        let load = gear.load(&p.stats);
-        c.text(st, r.x + 14.0, r.y + 37.0, 14.0, sc);
-        // How close to being noticed: an eye that opens.
-        let sus = w.suspicion_of(pid);
-        if sus > 0.02 {
-            let ex = r.x + 14.0 + c.width(st, 14.0) + 16.0;
-            let ey = r.y + 32.0;
-            let col = if sus >= 1.0 { eg([0.95, 0.3, 0.25]) } else { eg([0.95, 0.8, 0.35]) };
-            c.ellipse_lines(ex, ey, 8.0, 1.0 + 4.0 * sus, 1.5, col);
-            c.circle(ex, ey, 1.5 + 1.5 * sus, col);
-        }
-        let burden = w.burden_weight(pid);
-        let _ = load;
-        let load = w.load_of(pid);
-        let l = format!("{:.0}/{:.0} kg", w.kit_weight_at(pid, w.time) + burden, w.capacity_at(pid, w.time));
-        c.text(&l, r.x + r.w - c.width(&l, 13.0) - 8.0, r.y + 37.0, 13.0, if load > 1.0 { WARN } else { DIM });
-
-        // Health, and mana for those with spells.
-        let (vit, mana, down) = bar_for(w, pid).unwrap_or((1.0, None, false));
-        let mana = mana.or_else(|| {
-            let d = p.detail.as_ref()?;
-            (!d.spells.is_empty()).then(|| p.mana_at(w.time) / p.max_mana().max(1.0))
-        });
-        let bw = r.w - 22.0;
-        c.rect(r.x + 14.0, r.y + 45.0, bw, 5.0, Color32::from_black_alpha(153));
-        c.rect(r.x + 14.0, r.y + 45.0, bw * vit.clamp(0.0, 1.0), 5.0, if down { eg(WARN) } else { health_color(vit, false) });
-        if let Some(f) = w.craft_progress(pid) {
-            c.rect(r.x + 14.0, r.y + 40.0, bw * f, 2.0, eg(GOLD));
-        }
-        if let Some((_, f)) = w.ritual_progress(pid) {
-            c.rect(r.x + 14.0, r.y + 40.0, bw * f, 2.0, eg(RITUAL));
-        }
-        if let Some(m) = mana {
-            c.rect(r.x + 14.0, r.y + 53.0, bw, 3.0, Color32::from_black_alpha(153));
-            c.rect(r.x + 14.0, r.y + 53.0, bw * m.clamp(0.0, 1.0), 3.0, eg(MANA));
-        }
-
-        // Food, stamina and rest: three small bars (full = good).
-        let third = (bw - 16.0) / 3.0;
-        let bars = [
-            ("food", w.hunger_of(pid).map(|h| 1.0 - h / 100.0), [0.85, 0.6, 0.25]),
-            ("stam", w.stamina_of(pid), [0.45, 0.8, 0.55]),
-            ("rest", w.tired_of(pid).map(|t| 1.0 - t / 100.0), [0.65, 0.55, 0.95]),
-        ];
-        let cond = p.cond.as_ref();
-        let hunger_word = cond.map(|cd| match condition::stage_of(cd.hunger_at(w.time)) {
-            HungerStage::Fed => "food",
-            HungerStage::Hungry => "hungry",
-            HungerStage::Weak => "weak",
-            HungerStage::Starving => "starving",
-        });
-        let tired_word = cond.map(|cd| if cd.tired_at(w.time) >= condition::EXHAUSTED { "worn out" } else { "rest" });
-        for (n, (label, v, col)) in bars.iter().enumerate() {
-            let Some(v) = v else { continue };
-            let x = r.x + 14.0 + n as f32 * (third + 8.0);
-            let word = match n {
-                0 => hunger_word.unwrap_or(label),
-                2 => tired_word.unwrap_or(label),
-                _ => label,
-            };
-            let warn = word != *label;
-            c.text(word, x, r.y + 79.0, 11.0, if warn { WARN } else { DIM });
-            c.rect(x, r.y + 62.0, third, 5.0, Color32::from_black_alpha(153));
-            let bc = if *v < 0.25 { [0.95, 0.35, 0.3] } else { *col };
-            c.rect(x, r.y + 62.0, third * v.clamp(0.0, 1.0), 5.0, eg(bc));
-        }
-        let line = if let Some(cp) = w.carrying(pid) {
-            Some(format!("Carrying {}", w.people[cp as usize].name().unwrap_or("someone")))
-        } else {
-            w.carried_by(pid).map(|cp| format!("Carried by {}", w.people[cp as usize].name().unwrap_or("someone")))
-        };
-        // A ritual held ready (in a fight, until it's let go).
-        let held = match w.fighter(pid) {
-            Some(f) => f.held,
-            None => w.held_ritual(pid),
-        };
-        if let Some(l) = line {
-            c.text(&l, r.x + 14.0, r.y + 92.0, 12.0, GOLD);
-        } else if let Some(s) = held {
-            let x = r.x + 14.0;
-            let y = r.y + 88.0;
-            // A small diamond, then what's held.
-            c.rect(x + 1.0, y - 4.0, 7.0, 7.0, eg(RITUAL));
-            c.text(&format!("Holding {}", s.def().name), x + 13.0, y + 4.0, 12.0, RITUAL);
-        } else if let Some((s, f)) = w.ritual_progress(pid) {
-            c.text(&format!("{} ritual  {:.0}%", s.def().name, f * 100.0), r.x + 14.0, r.y + 92.0, 12.0, RITUAL);
-        }
-
-        if let Some(ck) = click {
-            if r.contains(ck.at) {
-                act = Some(if ck.right { Action::OpenInventory(pid) } else { Action::Select(pid, ck.shift) });
-            }
-        }
-    }
-    (act, boxes)
 }
 
 const BOOK_COL: f32 = 340.0;
@@ -342,7 +206,7 @@ pub fn spell_book(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Opti
     let right = structured.len().max(1) + ritual.len().max(1) + 3;
     let rows = left.max(right);
     let r = Bx::new(c.w - BOOK_COL * 2.0 - 12.0, 12.0, BOOK_COL * 2.0, (82.0 + rows as f32 * BOOK_ROW).min(c.h - 140.0));
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(RITUAL));
     let mut act = None;
     let mut hovered = None;
@@ -499,7 +363,7 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
     let p = &w.people[pid as usize];
     let Some(d) = p.detail.as_ref() else { return (None, None, None) };
     let r = inv_rect(c, w, pid);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(p.race)));
     let mut act = None;
     let mut hovered = None;
@@ -558,6 +422,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         y += ROW;
         c.text("empty", x + 8.0, y, 14.0, DIM);
     }
+    // Shift-click hands a thing to the nearest squadmate.
+    let here = w.person_pos(pid);
+    let mate = w.squad.members.iter().copied().filter(|&m| m != pid).min_by(|&a, &b| w.person_pos(a).dist(here).total_cmp(&w.person_pos(b).dist(here)));
     for (k, e) in gear.bag.iter().enumerate() {
         let (i, n) = (e.0, e.1);
         y += ROW;
@@ -576,7 +443,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
         let kg = format!("{:.1} kg", item(i).weight * n as f32);
         c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
         if let Some(ck) = clicked(rr) {
-            if ck.right {
+            if ck.shift && !ck.right && !locked && mate.is_some() {
+                act = Some(Action::GiveEntry(pid, k, mate.unwrap()));
+            } else if ck.right {
                 act = Some(Action::DropEntry(pid, k));
             } else if !locked && items::equippable(i) {
                 act = Some(Action::EquipEntry(pid, k));
@@ -585,8 +454,9 @@ pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Optio
             }
         }
     }
-    let hint = if locked { "In a fight: gear can't be changed until it's over." } else { "Click: take off / put on / use  ·  Right-click: drop, or seal/mend what's worn  ·  T: torch" };
-    c.text(hint, x, r.y + r.h - 12.0, 13.0, if locked { WARN } else { DIM });
+    let give = mate.map(|m| format!("  ·  Shift-click: give to {}", w.people[m as usize].name().unwrap_or("?"))).unwrap_or_default();
+    let hint = if locked { "In a fight: gear can't be changed until it's over.".to_string() } else { format!("Click: take off / put on / use  ·  Right-click: drop, or seal/mend what's worn{give}") };
+    c.text(&hint, x, r.y + r.h - 12.0, 13.0, if locked { WARN } else { DIM });
     (act, hovered, Some(r))
 }
 
@@ -701,7 +571,7 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
     let shown: Vec<usize> = (0..RECIPES.len()).filter(|&i| w.knows_craft(pid, RECIPES[i].craft())).collect();
     let crafts = shown.iter().map(|&i| RECIPES[i].skill).collect::<std::collections::BTreeSet<_>>().len();
     let r = craft_rect(c, shown.len() + crafts + 1);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 14.0;
     let mut y = r.y + 26.0;
@@ -771,7 +641,8 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
 
 fn talk_rect(c: &Canvas, topics: usize, n: usize) -> Bx {
     let w = 760.0f32.min(c.w - 24.0);
-    let up = CARD_H + cards_extra(c, n);
+    let _ = n;
+    let up = super::frame::BOTTOM_CLEAR - 50.0;
     let h = (80.0 + topics as f32 * 22.0).max(380.0).min(c.h - up - 80.0);
     Bx::new((c.w - w) / 2.0, c.h - 30.0 - up - 20.0 - h, w, h)
 }
@@ -782,12 +653,12 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
     let topics = w.topics();
     let r = talk_rect(c, topics.len(), w.squad.members.len());
     let npc = &w.people[cv.npc as usize];
-    c.rect(r.x, r.y, r.w, r.h, Color32::from_rgba_unmultiplied(13, 15, 18, 240));
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(npc.race)));
     let x = r.x + 16.0;
     let disp = w.regard_of(cv.npc, cv.with);
     let job = w.life(cv.npc).job;
-    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else { job.name().to_lowercase() };
+    let what = if job == gahturiyu_sim::sim::jobs::Job::None { npc.stats.calling.name().to_string() } else { job.title(npc.seed).to_lowercase() };
     c.text(&format!("{}  ·  {} {}", npc.name().unwrap_or("?"), npc.race.name(), what), x, r.y + 28.0, 18.0, race_color(npc.race));
     let d = format!("Disposition {disp:.0}");
     c.text(&d, r.x + r.w - c.width(&d, 14.0) - 16.0, r.y + 26.0, 14.0, if disp < 30.0 { WARN } else { DIM });
@@ -840,14 +711,14 @@ pub fn talk(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option
 
 fn journal_rect(c: &Canvas, w: &World) -> Bx {
     let n = w.quests.len().max(1) as f32;
-    let up = CARD_H + cards_extra(c, w.squad.members.len());
+    let up = super::frame::BOTTOM_CLEAR - 30.0;
     Bx::new(12.0, c.h - 30.0 - up - 30.0 - (60.0 + n * 22.0), 620.0, 50.0 + n * 22.0)
 }
 
 /// Jobs taken on, and what each needs next.
 pub fn journal(c: &Canvas, w: &World) -> Bx {
     let r = journal_rect(c, w);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     c.text("Journal", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
     if w.quests.is_empty() {

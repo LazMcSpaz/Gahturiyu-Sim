@@ -12,7 +12,7 @@ use gahturiyu_sim::sim::{
     tide, World,
 };
 
-use super::hud::{Canvas, PANEL};
+use super::hud::Canvas;
 use super::palette::{eg, ega, race_color, Rgb, DIM, GOLD, TEXT, WARN};
 use super::squadui::Bx;
 
@@ -48,7 +48,7 @@ pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     let gov_rows = w.government(town).chambers.len() as f32 + 6.0;
     let h = 330.0 + 70.0 + gov_rows * 17.0 + 30.0 + comms.len() as f32 * 185.0 + ((stocked as f32 / 4.0).ceil() - 3.0).max(0.0) * 17.0;
     let r = Bx::new(c.w - W - 12.0, 12.0, W, h.min(c.h - 60.0));
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(race_color(s.founders)));
     let x = r.x + 14.0;
     let mut y = r.y + 28.0;
@@ -339,7 +339,7 @@ pub fn life_panel(c: &Canvas, w: &World, town: u16, debug: bool) -> Bx {
     let probe: Vec<(Vec<String>, Rgb, f32)> = rows.iter().map(|(s, col, size)| (wrap(c, s, *size, LW - 28.0), *col, *size)).collect();
     let h: f32 = 24.0 + probe.iter().map(|(ls, _, size)| ls.len() as f32 * (size + 4.0) + if *size > 14.0 { 8.0 } else { 0.0 }).sum::<f32>();
     let r = Bx::new(c.w - W - LW - 24.0, 12.0, LW, h.min(c.h - 60.0));
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     let x = r.x + 14.0;
     let mut y = r.y + 10.0;
     for (ls, col, size) in probe {

@@ -300,9 +300,15 @@ impl Post {
     }
 }
 
-/// Is this person a woman? (Rolled once from who they are.)
+/// Is this person a woman? The same reading of who they are that their name
+/// is chosen by (`names::gender`), so a priestess always has a woman's name.
 pub fn woman(seed: u64) -> bool {
-    Rng::from_keys(&[seed, 0x5345_5821]).f32() < 0.5
+    super::names::gender(seed) == crate::names::Gender::Female
+}
+
+/// Is this person a man? (Neither, for the few whose name is for either.)
+pub fn man(seed: u64) -> bool {
+    super::names::gender(seed) == crate::names::Gender::Male
 }
 
 /// How old a home is, years (the older, the louder its elder's voice).
@@ -369,7 +375,7 @@ impl World {
             }
             Rule::Priestesses => here
                 .iter()
-                .filter(|&&p| race(p) == Race::Qotiro && woman(self.people[p as usize].seed) != admins)
+                .filter(|&&p| race(p) == Race::Qotiro && if admins { man(self.people[p as usize].seed) } else { woman(self.people[p as usize].seed) })
                 .map(|&p| {
                     let calling = matches!(self.life(p).job, Job::Priest | Job::Official);
                     ((calling as u8 as f32) * 1000.0 + age(p) as f32, p)
@@ -755,7 +761,9 @@ impl World {
         if self.people[who as usize].in_squad {
             let name = self.name_of(who);
             let place = self.settlements[town as usize].name.clone();
-            self.say(t, format!("{name} is bound to work in {place} for {:.0} days.", (until - t) / DAY));
+            let line = format!("{name} is bound to work in {place} for {:.0} days: led off to work it off. An official there can sell you the bond.", (until - t) / DAY);
+            self.alerts.push(line.clone());
+            self.say(t, line);
         }
     }
 
@@ -895,7 +903,7 @@ impl World {
         match post {
             Post::Elder => pp.race == Race::Roduro,
             Post::Priestess => pp.race == Race::Qotiro && woman(pp.seed),
-            Post::Administrator => pp.race == Race::Qotiro && !woman(pp.seed),
+            Post::Administrator => pp.race == Race::Qotiro && man(pp.seed),
             Post::Speaker => pp.race == Race::Horaro,
             Post::Arbiter => pp.race == Race::Tadoro,
         }
@@ -940,34 +948,6 @@ impl World {
     }
 
     // ---- The squad before the law ----------------------------------------------
-
-    /// A squad member's wrong is known in `town`. Guards on shift (if the
-    /// watch is paid) arrest and judge at once by the town's custom;
-    /// otherwise it stands as a bounty, and the news travels.
-    pub(super) fn wrong_done(&mut self, who: PersonId, town: SettlementId, wrong: Wrong, fine: f32) -> bool {
-        let t = self.time;
-        self.add_standing(who, town, -fine / 4.0);
-        self.society.towns[town as usize].gov.wrongs += 1.0;
-        if wrong.always_recorded() {
-            *self.records.entry(who).or_insert(0.0) += wrong.gravity();
-        }
-        let tl = &self.society.towns[town as usize];
-        let paid = tl.owed <= 0.0;
-        let on_watch = self.living_here(town).into_iter().any(|p| self.life(p).job == Job::Guard && self.at_work(p, t));
-        let mut r = Rng::from_keys(&[self.seed, who as u64, (t / 60.0) as u64, 0x4152_5354]);
-        let in_duel = self.duels.iter().any(|d| d.accused == who) || self.fighting.contains_key(&who);
-        if !(on_watch && (paid || r.chance(0.3))) || self.is_bonded(who, t) || in_duel {
-            return false;
-        }
-        // Arrested: judged by the custom of those wronged (the town on land,
-        // where it happened).
-        let custom = {
-            let ci = self.society.towns[town as usize].shore;
-            self.society.communities[ci as usize].customs.justice
-        };
-        self.judge(who, town, wrong, fine, custom);
-        true
-    }
 
     /// Judgement on a squad member.
     pub fn judge(&mut self, who: PersonId, town: SettlementId, wrong: Wrong, fine: f32, custom: Justice) {
@@ -1039,6 +1019,41 @@ impl World {
         let name = self.name_of(who);
         self.say(t, format!("{name} is bought out of their bond."));
         Ok(())
+    }
+
+    /// Where a bound squad member works off their bond: the town's hall,
+    /// else its guard post, else its hearth.
+    pub fn bound_spot(&self, town: SettlementId) -> super::geo::V2 {
+        use super::jobs::PlaceKind;
+        let tl = self.society.towns.get(town as usize);
+        tl.and_then(|tl| tl.places.iter().find(|p| p.kind == PlaceKind::Hall).or_else(|| tl.places.iter().find(|p| p.kind == PlaceKind::GuardPost)))
+            .map(|p| p.pos)
+            .unwrap_or(self.settlements[town as usize].pos)
+    }
+
+    /// Can the player give this squad member orders? Not while bound.
+    pub fn free_to_order(&self, m: PersonId) -> bool {
+        !self.is_bonded(m, self.time)
+    }
+
+    /// Bound squad members are kept at their work (the squad's step): they
+    /// go where the town puts them and stay there until the bond ends.
+    pub(super) fn hold_the_bound(&mut self) {
+        for k in 0..self.squad.members.len() {
+            let m = self.squad.members[k];
+            let Some(b) = self.bond_of(m).copied() else { continue };
+            if self.fighting.contains_key(&m) || self.is_down(m) {
+                continue;
+            }
+            let a = k as f32 * 2.3;
+            let spot = self.bound_spot(b.town).add(super::geo::V2::new(a.cos(), a.sin()).scale(4.0));
+            if self.squad.goal[k].dist(spot) > 2.0 {
+                let (path, _) = self.route(self.member_pos(k), spot);
+                self.squad.goal[k] = *path.last().unwrap_or(&spot);
+                self.squad.route[k] = path;
+                self.squad.resting[k] = false;
+            }
+        }
     }
 
     /// A bound squad member who strays too far from the town has run.
@@ -1161,7 +1176,8 @@ impl World {
         }
         for (town, wrong, fine) in charges {
             let name = self.name_of(doer);
-            self.crime_of(doer, town, wrong, fine, format!("{name}'s side is seen at {}!", wrong.name()));
+            let at = self.person_pos(doer);
+            self.wrong_seen(doer, town, wrong, fine, format!("{name}'s side is seen at {}!", wrong.name()), None, None, at);
         }
         // Bandits beaten by a town: it's grateful.
         if b.winner() == Some(SQUAD_SIDE) && b.fighters.iter().any(|f| f.is_person() && self.people[f.pid as usize].bandit) {

@@ -23,6 +23,9 @@ pub const FEE_SHARE: f32 = 0.05;
 /// A signing fee is this many hours of their work's pay.
 pub const FEE_HOURS: f32 = 40.0;
 
+/// Flatbread a recruit brings with them: about two days' eating.
+pub const RECRUIT_BREAD: u16 = 3;
+
 impl World {
     /// Would this person join the squad if asked, and for what fee (0: for
     /// nothing)? `None`: they won't, or can't.
@@ -101,6 +104,10 @@ impl World {
         self.squad.add(npc, here.add(off));
         if let Some(v) = self.squad.inside.last_mut() {
             *v = inside;
+        }
+        // They come with a couple of days' bread of their own.
+        if let Some(d) = self.people[npc as usize].detail.as_mut() {
+            d.gear.add(items::id("flatbread"), RECRUIT_BREAD);
         }
         self.settle_condition(npc, t);
         let name = self.people[npc as usize].name().unwrap_or("someone").to_string();

@@ -383,7 +383,8 @@ impl World {
     /// The nearest bandit camp within reach of a town: (camp, distance, where).
     fn near_camp(&self, town: SettlementId) -> Option<(super::group::GroupId, f32, super::geo::V2)> {
         let at = self.settlements[town as usize].pos;
-        self.camps.iter().map(|c| (c.group, c.pos.dist(at), c.pos)).filter(|c| c.1 < 4000.0).min_by(|a, b| a.1.total_cmp(&b.1))
+        // (Not a ruin's wardens: they keep to their ruin, out of the town's way.)
+        self.camps.iter().filter(|c| !self.is_warden(c.group)).map(|c| (c.group, c.pos.dist(at), c.pos)).filter(|c| c.1 < 4000.0).min_by(|a, b| a.1.total_cmp(&b.1))
     }
 
     /// Someone in another town this person would write to (a fixed pick

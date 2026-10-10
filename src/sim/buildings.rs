@@ -29,7 +29,6 @@ use super::person::PersonId;
 use super::rng::Rng;
 use super::settlement::{Building, BuildingKind, Settlement, SettlementId};
 use super::stats::{Attr, Skill};
-use super::stealth;
 use super::world::{World, DAY, HOUR};
 
 /// A door: the town, and the building's index in it.
@@ -413,6 +412,26 @@ impl World {
     }
 
     /// Chance one attempt opens the lock.
+    /// How a lock reads to someone who knows locks.
+    pub fn lock_word(lock: f32) -> &'static str {
+        match lock {
+            l if l < 25.0 => "a simple lock",
+            l if l < 45.0 => "a fair lock",
+            l if l < 65.0 => "a hard lock",
+            _ => "a very hard lock",
+        }
+    }
+
+    /// A lock as the squad's best hand with locks sees it: how hard, their
+    /// chance each try, and the lockpicks they have.
+    pub fn lock_outlook(&self, lock: f32) -> String {
+        let best = self.squad.members.iter().copied().max_by(|&a, &b| self.pick_chance(a, lock).total_cmp(&self.pick_chance(b, lock)));
+        let Some(who) = best else { return World::lock_word(lock).to_string() };
+        let name = self.people[who as usize].name().unwrap_or("someone");
+        let picks = self.count_of(who, "lockpick");
+        format!("{} ({lock:.0}): {name} ~{:.0}% a try, {picks} lockpick{} (about 1 in 3 snaps on a miss)", World::lock_word(lock), self.pick_chance(who, lock) * 100.0, if picks == 1 { "" } else { "s" })
+    }
+
     pub fn pick_chance(&self, who: PersonId, lock: f32) -> f32 {
         let s = self.people[who as usize].effective_stats();
         (0.35 + (s.skill(Skill::Security) + s.attr(Attr::Agility) * 0.2 - lock) * 0.018).clamp(0.03, 0.95)
@@ -462,8 +481,9 @@ impl World {
                 };
                 let (r_ok, r_break) = (r.f32(), r.f32());
                 self.people[pk.who as usize].stats.exercise(Skill::Security, 1.0);
-                if self.witnessed(pk.who, spot, pk.door.0, &mut r) {
-                    self.crime_of(pk.who, pk.door.0, super::law::Wrong::Trespass, 40.0, format!("{name} is seen picking a lock!"));
+                if let Some(by) = self.witnessed(pk.who, spot, pk.door.0, &mut r) {
+                    let owner = self.belongs_to(pk.door);
+                    self.wrong_seen(pk.who, pk.door.0, super::law::Wrong::Trespass, 40.0, format!("{name} is seen picking a lock!"), Some(by), Some(owner), spot);
                     finished = true;
                 } else if r_ok < self.pick_chance(pk.who, lock) {
                     match chest {
@@ -482,8 +502,10 @@ impl World {
                     if let Some(dd) = self.people[pk.who as usize].detail.as_mut() {
                         dd.gear.take(lockpick);
                     }
-                    self.log.push_front((next, format!("{name}'s lockpick snaps.")));
+                    self.log.push_front((next, format!("{name}'s lockpick snaps ({:.0}% a try at {}).", self.pick_chance(pk.who, lock) * 100.0, World::lock_word(lock))));
                     if !has_pick(self) {
+                        self.log.push_front((next, format!("{name} has no lockpicks left; the lock holds.")));
+                        self.alerts.push(format!("{name} has no lockpicks left; the lock holds."));
                         finished = true;
                     }
                 }
@@ -504,51 +526,21 @@ impl World {
 
     // ---- Witnesses and bounties ---------------------------------------------
 
-    /// Does anyone in town see this squad member at `at`? Uses the same
-    /// light and sneaking rules as lookouts, with one keyed roll.
-    pub(super) fn witnessed(&self, who: PersonId, at: V2, town: SettlementId, r: &mut Rng) -> bool {
+    /// The chance a wrong done at `at` by `who` is seen by the townsfolk:
+    /// only by those who share the space (in the same building, or both out
+    /// of doors: walls hide you), the nearer the likelier, sleepers far less
+    /// (and only close by), and less still if you're sneaking in the dark.
+    /// Shown before the deed; `witnessed` rolls against it. (Whether the one
+    /// who sees it tells the watch is another matter: `pursuit.rs`.)
+    pub fn catch_chance(&self, who: PersonId, at: V2, town: SettlementId) -> f32 {
+        self.spotter(who, at, town).0
+    }
+
+    /// One keyed roll: who saw it, if anyone.
+    pub(super) fn witnessed(&self, who: PersonId, at: V2, town: SettlementId, r: &mut Rng) -> Option<PersonId> {
         let roll = r.f32();
-        let sight = stealth::SIGHT * 0.6 * self.visibility_of(who);
-        let closest = self
-            .residents_in_band1(town)
-            .into_iter()
-            .map(|p| self.person_pos(p).dist(at))
-            // Sleepers only wake for what happens right beside them.
-            .zip(self.residents_in_band1(town).into_iter().map(|p| self.is_indoors_asleep(p)))
-            .map(|(d, asleep)| if asleep && d > 5.0 { f32::MAX } else { d })
-            .fold(f32::MAX, f32::min);
-        if closest > sight {
-            return false;
-        }
-        roll < 0.6 * (1.0 - closest / sight.max(0.1)) + 0.2
-    }
-
-    pub(super) fn crime(&mut self, who: PersonId, town: SettlementId, amount: f32, line: String) {
-        self.crime_of(who, town, super::law::Wrong::Theft, amount, line)
-    }
-
-    /// A wrong seen in a town: arrested and judged if the watch is on hand,
-    /// otherwise a bounty (whose news travels).
-    pub(super) fn crime_of(&mut self, who: PersonId, town: SettlementId, wrong: super::law::Wrong, amount: f32, line: String) {
-        // In disguise, no one knows whose crime it was.
-        if self.boon(who, super::effects::Does::Disguise) > 0.0 {
-            self.log.push_front((self.time, format!("{line} No one knows who it was.")));
-            self.log.truncate(14);
-            self.alerts.push(line);
-            return;
-        }
-        self.log.push_front((self.time, line.clone()));
-        if self.wrong_done(who, town, wrong, amount) {
-            self.alerts.push(line);
-            return;
-        }
-        self.log.pop_front();
-        *self.bounty.entry(town).or_insert(0.0) += amount;
-        self.crime_known(town);
-        let total = self.bounty[&town];
-        self.log.push_front((self.time, format!("{line} Bounty in {}: {total:.0}.", self.settlements[town as usize].name)));
-        self.log.truncate(14);
-        self.alerts.push(line);
+        let (chance, by) = self.spotter(who, at, town);
+        if roll < chance { by } else { None }
     }
 
     // ---- What's inside ------------------------------------------------------
