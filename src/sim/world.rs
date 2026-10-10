@@ -210,6 +210,10 @@ pub struct World {
     pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
     pub set_down: HashMap<PersonId, V2>,
+    /// Things seen stolen that a town knows of: taken back if the thief is
+    /// caught there (`law.rs`).
+    #[serde(default)]
+    pub hot: Vec<super::law::Hot>,
 
     // --- Torches ------------------------------------------------------------
     /// Torches burning in someone's hand.
@@ -328,6 +332,7 @@ impl World {
             carried: HashMap::new(),
             want_carry: Vec::new(),
             set_down: HashMap::new(),
+            hot: Vec::new(),
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),
@@ -598,8 +603,6 @@ impl World {
             .collect()
     }
 
-    /// Where a person stands right now, to the metre. Only meaningful for
-    /// people close enough to be drawn individually.
     /// Is this the number of someone in the world? Orders that name a
     /// person check it first: a number from an old list, or a mistyped one,
     /// is refused rather than looked up.
@@ -607,6 +610,8 @@ impl World {
         (pid as usize) < self.people.len()
     }
 
+    /// Where a person stands right now, to the metre. Only meaningful for
+    /// people close enough to be drawn individually.
     pub fn person_pos(&self, pid: PersonId) -> V2 {
         let p = &self.people[pid as usize];
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);

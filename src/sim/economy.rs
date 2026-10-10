@@ -532,6 +532,10 @@ impl World {
     /// What a merchant would pay for this (worn, marked...) thing.
     pub fn offer(&self, npc: PersonId, it: ItemId, piece: Option<&super::materials::Piece>) -> Option<u16> {
         let (town, _) = self.shelves(npc)?;
+        // No merchant buys what their own town knows as stolen (NM-24).
+        if self.is_hot(town, it) {
+            return None;
+        }
         self.offer_holding(npc, it, piece, None, self.purse_now(town))
     }
 
@@ -751,7 +755,8 @@ impl World {
         let Some(m) = self.trader() else { return false };
         self.settle_condition(m, self.time);
         if to_note {
-            if self.squad_count(coin) < NOTE_VALUE + EXCHANGE_FEE {
+            // (Coin in hand: a note isn't broken to buy a note.)
+            if self.squad_has(coin) < NOTE_VALUE + EXCHANGE_FEE {
                 return false;
             }
             self.take_from_squad(coin, NOTE_VALUE + EXCHANGE_FEE);

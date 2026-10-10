@@ -214,7 +214,12 @@ impl World {
         self.log.push_front((self.time, format!("{a} takes {} from {from}.", names.join(", "))));
         self.log.truncate(14);
         if let Source::Chest(c) = src {
+            let before = self.wrongs_in(c.0);
             self.took_from(who, c, worth);
+            // Told to the watch: the town knows what went (NM-24).
+            if self.wrongs_in(c.0) > before {
+                self.mark_hot(c.0, &taken, Some(c));
+            }
         }
         true
     }
