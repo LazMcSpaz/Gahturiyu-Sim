@@ -773,6 +773,19 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             draped_ring(&mut fl, &on_ground, goal, 0.8 * k, rw * 0.6, 12, col, eye);
         }
     }
+    // Aiming a spell: how far it reaches, and who's in its sights.
+    if let Some((who, s)) = game.aim {
+        if let Some(ki) = w.squad.index(who) {
+            let at = w.member_pos(ki);
+            let range = s.def().range.max(2.0);
+            draped_ring(&mut fl, &on_ground, at, range, rw * 0.7, 96, super::squadui::RITUAL, eye);
+            if let Some(Hover::Person(p)) = game.hover {
+                let tp = w.person_pos(p);
+                let col = if tp.dist(at) <= range { super::squadui::RITUAL } else { [0.95, 0.45, 0.30] };
+                draped_ring(&mut fl, &on_ground, tp, 1.3 * k, rw * 0.9, 24, col, eye);
+            }
+        }
+    }
     if game.rings {
         draped_ring(&mut fl, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
         draped_ring(&mut fl, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);

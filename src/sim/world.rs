@@ -155,6 +155,8 @@ pub struct World {
     pub chases: Vec<super::labour::Chase>,
     /// Each squad member's levels as last announced (`progress.rs`).
     pub levels: Vec<super::progress::Levels>,
+    /// Spells ordered that wait on the caster (`casting.rs`).
+    pub casts: Vec<super::casting::PendingCast>,
     /// Ruins and lairs worth the walk (`ruins.rs`).
     pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
@@ -293,6 +295,7 @@ impl World {
             chases: Vec::new(),
             levels: Vec::new(),
             ruins: Vec::new(),
+            casts: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),

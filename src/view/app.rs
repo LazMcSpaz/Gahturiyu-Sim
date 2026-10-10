@@ -893,7 +893,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
             (None, Some(Hover::Door(id))) => game.world.door(id).map(|d| d.outside),
             _ => point,
         };
-        if let Err(e) = game.world.use_spell(who, s, target, point) {
+        if let Err(e) = game.world.order_cast(who, s, target, point) {
             game.notice = Some((format!("{}: {}", s.def().name, e.0), std::time::Instant::now()));
         }
         return;
@@ -1486,18 +1486,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         let wd = lines.iter().map(|(l, _)| c.width(l, 15.0)).fold(0.0, f32::max) + 24.0;
         // Beside the book, not over it.
         c.panel(&lines, book_left - wd - 10.0, game.mouse.y, 15.0);
-    } else if let Some((_, s)) = game.aim {
-        use gahturiyu_sim::sim::magic::Aim;
-        let what = match s.def().aim {
-            Aim::Foe => "click an enemy",
-            Aim::Friend => "click a friend (or themselves)",
-            Aim::Anyone => "click someone",
-            Aim::Door => "click a door",
-            Aim::Corpse => "click by a body",
-            _ => "click a spot",
-        };
-        let t = format!("{}: {what}  ·  right-click to cancel", s.def().name);
-        c.text(&t, game.mouse.x + 18.0, game.mouse.y - 8.0, 15.0, squadui::RITUAL);
+    } else if let Some((who, s)) = game.aim {
+        // Aiming: what the click would do, and whether it can.
+        let (line, ok) = super::interact::aim_label(&game.world, who, s, game.hover);
+        let lines = vec![(s.def().name.to_string(), super::palette::GOLD), (line, if ok { super::palette::BRASS_LIGHT } else { [0.95, 0.38, 0.30] }), ("Right-click or Esc to cancel".to_string(), super::palette::DIM)];
+        c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
     }
     if let Some(it) = item_tip {
         let lines = squadui::item_lines(it);

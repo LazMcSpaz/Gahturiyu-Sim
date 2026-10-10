@@ -417,6 +417,57 @@ pub fn action_lines(lines: &mut Vec<(String, super::palette::Rgb)>, cs: Vec<Choi
     }
 }
 
+/// While aiming a spell: what a click on what's under the mouse would do,
+/// and whether it can be done.
+pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>) -> (String, bool) {
+    use gahturiyu_sim::sim::magic::Aim;
+    let d = s.def();
+    let from = w.person_pos(who);
+    let caster = w.people[who as usize].name().unwrap_or("They").to_string();
+    if w.people[who as usize].mana_at(w.time) < d.cost && !w.fighting.contains_key(&who) {
+        return (format!("{caster} hasn't the energy ({:.0} needed)", d.cost), false);
+    }
+    let reach = |at: V2| {
+        let dist = from.dist(at);
+        if dist <= d.range.max(2.0) {
+            format!("{:.0} m: in range", dist)
+        } else {
+            format!("{:.0} m: {caster} will walk closer first", dist)
+        }
+    };
+    let person = match h {
+        Some(Hover::Person(p)) => Some(p),
+        Some(Hover::Group(g)) => w.group(g).and_then(|g| g.members.first().copied()),
+        _ => None,
+    };
+    match d.aim {
+        Aim::Foe => match person {
+            Some(p) if w.is_enemy(p) => (format!("Cast on {}  ·  {}", w.people[p as usize].name().unwrap_or("them"), if w.fighting.contains_key(&who) { reach(w.person_pos(p)) } else { "starts the fight".into() }), true),
+            Some(p) => (format!("{} isn't an enemy", w.people[p as usize].name().unwrap_or("They")), false),
+            None => ("Point at an enemy".into(), false),
+        },
+        Aim::Friend => match person {
+            Some(p) if w.people[p as usize].in_squad => (format!("Cast on {}  ·  {}", w.people[p as usize].name().unwrap_or("them"), reach(w.person_pos(p))), true),
+            Some(_) => ("Only on your squad".into(), false),
+            None => ("Point at one of your squad".into(), false),
+        },
+        Aim::Anyone => match person {
+            Some(p) => (format!("Cast on {}  ·  {}", w.people[p as usize].name().unwrap_or("them"), reach(w.person_pos(p))), true),
+            None => ("Point at someone".into(), false),
+        },
+        Aim::Door => match h {
+            Some(Hover::Door(id)) | Some(Hover::Building(id)) => match w.door(id) {
+                Some(dd) => (format!("Cast on the door  ·  {}", reach(dd.outside)), true),
+                None => ("Point at a door".into(), false),
+            },
+            _ => ("Point at a door".into(), false),
+        },
+        Aim::Corpse => ("Click by a body".into(), true),
+        Aim::Point => ("Click a spot".into(), true),
+        Aim::Caster => ("Click anywhere".into(), true),
+    }
+}
+
 /// A short name for anything hoverable (Alt's labels).
 pub fn short_name(w: &World, h: Hover) -> Option<String> {
     Some(match h {

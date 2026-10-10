@@ -96,6 +96,16 @@ fn cannot<T>(s: impl Into<String>) -> Result<T, Cannot> {
     Err(Cannot(s.into()))
 }
 
+/// A spell the player ordered that waits on the caster: to get in range,
+/// or for the fight it opens to begin.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct PendingCast {
+    pub who: PersonId,
+    pub spell: Spell,
+    pub target: Option<PersonId>,
+    pub point: Option<V2>,
+}
+
 impl World {
     // ---- Who knows what ---------------------------------------------------
 
@@ -203,6 +213,107 @@ impl World {
             Style::Ritual => self.perform(who, s),
             _ => self.cast(who, s, target, point),
         }
+    }
+
+    /// The player's order to cast, as in Baldur's Gate 3: a harmful spell
+    /// aimed at an enemy starts the fight and is cast as it opens; anything
+    /// else out of reach has the caster walk into range first, then cast.
+    pub fn order_cast(&mut self, who: PersonId, s: Spell, target: Option<PersonId>, point: Option<V2>) -> Result<(), Cannot> {
+        self.casts.retain(|c| c.who != who);
+        let d = s.def();
+        if self.fighting.contains_key(&who) || d.style == Style::Ritual {
+            return self.use_spell(who, s, target, point);
+        }
+        if !self.free_to_order(who) {
+            return cannot("bound to work: can't leave it");
+        }
+        if !self.knows(who, s) {
+            return cannot("doesn't know that spell");
+        }
+        if self.people[who as usize].mana_at(self.time) < d.cost {
+            return cannot("not enough energy");
+        }
+        if d.aim == magic::Aim::Foe {
+            let Some(t) = target else { return cannot("aim it at an enemy") };
+            if !self.is_enemy(t) {
+                return cannot("not an enemy");
+            }
+            if !self.attack(&[who], t) {
+                return cannot("can't get at them");
+            }
+            self.casts.push(PendingCast { who, spell: s, target, point });
+            return Ok(());
+        }
+        if !d.works_outside_fights() {
+            return cannot("only of use in a fight");
+        }
+        let at = point.or(target.map(|p| self.person_pos(p))).unwrap_or(self.person_pos(who));
+        if self.person_pos(who).dist(at) <= d.range.max(2.0) {
+            return self.cast(who, s, target, point);
+        }
+        // Too far: walk over and cast when in reach.
+        self.order_members(&[who], at);
+        self.casts.push(PendingCast { who, spell: s, target, point });
+        Ok(())
+    }
+
+    /// Someone the squad may fight: a bandit, or one of a hostile band.
+    pub fn is_enemy(&self, p: PersonId) -> bool {
+        let pp = &self.people[p as usize];
+        !pp.in_squad && !pp.dead && (pp.bandit || self.group_of[p as usize].and_then(|g| self.group(g)).is_some_and(|g| g.hostile))
+    }
+
+    /// Casts waiting on the caster getting there, or on the fight opening
+    /// (the squad's step).
+    pub(super) fn do_casts(&mut self) {
+        let mut k = 0;
+        while k < self.casts.len() {
+            let c = self.casts[k];
+            let Some(i) = self.squad.index(c.who) else {
+                self.casts.remove(k);
+                continue;
+            };
+            if self.fighting.contains_key(&c.who) {
+                self.casts.remove(k);
+                if let Err(e) = self.cast_in_fight(c.who, c.spell, c.target, c.point) {
+                    self.cast_failed(c.who, c.spell, &e.0);
+                }
+                continue;
+            }
+            if c.spell.def().aim == magic::Aim::Foe {
+                // Waiting for the fight to open; it never did.
+                if self.squad_battle().is_none() && self.squad.at[i].dist(self.squad.goal[i]) < 0.5 {
+                    self.casts.remove(k);
+                    continue;
+                }
+                k += 1;
+                continue;
+            }
+            let at = c.point.or(c.target.map(|p| self.person_pos(p))).unwrap_or(self.squad.at[i]);
+            if self.squad.at[i].dist(at) <= c.spell.def().range.max(2.0) {
+                self.casts.remove(k);
+                self.squad.goal[i] = self.squad.at[i];
+                self.squad.route[i].clear();
+                if let Err(e) = self.cast(c.who, c.spell, c.target, c.point) {
+                    self.cast_failed(c.who, c.spell, &e.0);
+                }
+                continue;
+            }
+            // A moving target: follow it.
+            if self.squad.goal[i].dist(at) > 3.0 {
+                let (path, _) = self.route(self.member_pos(i), at);
+                self.squad.goal[i] = *path.last().unwrap_or(&at);
+                self.squad.route[i] = path;
+            }
+            k += 1;
+        }
+    }
+
+    fn cast_failed(&mut self, who: PersonId, s: Spell, why: &str) {
+        let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+        let line = format!("{name} can't cast {}: {why}.", s.def().name.to_lowercase());
+        self.log.push_front((self.time, line));
+        self.log.truncate(14);
     }
 
     /// A squad member in a fight casts a spell (or releases the ritual they
