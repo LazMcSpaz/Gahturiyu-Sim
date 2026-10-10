@@ -51,6 +51,10 @@ pub const PRESENT_SHARE: f32 = 0.5;
 pub const MISSED_LIMIT: u8 = 2;
 /// How near the place counts as being there, metres.
 pub const AT_POST: f32 = 14.0;
+/// A post's hours (from, to).
+pub const POST_HOURS: (f32, f32) = (8.0, 17.0);
+/// A hand hired by the day is paid this many times a townsperson's own rate.
+pub const HIRED_RATE: f32 = 3.0;
 /// Rewards: share of what's at stake (a stolen thing's worth, a debt), and
 /// the least.
 pub const REWARD_SHARE: f32 = 0.4;
@@ -399,10 +403,59 @@ impl World {
             return false;
         }
         let day = World::day_of(self.time);
-        let hours = (8.0, 17.0);
-        let pay = job.pay() * (hours.1 - hours.0);
+        let hours = POST_HOURS;
+        let pay = self.post_wage(job) as f32;
         self.society.contracts.push(Contract { member: who, town, place, opp: None, post: Some(job), hours, pay, until: f64::INFINITY, present: 0.0, missed: 0, days_paid: 0, sent_day: day - 1, first_day: day + 1 });
+        let name = self.name_of(who);
+        let what = self.society.towns[town as usize].places.get(place as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_else(|| "town".into());
+        let line = format!("{name} takes work as {} at the {what} in {}: {pay:.0} coin a day, 8 till 5 from tomorrow.", job.name().to_lowercase(), self.settlements[town as usize].name);
+        self.say(self.time, line);
         true
+    }
+
+    /// What a squad member is paid for a day at a post (named before it's
+    /// taken). A hand hired by the day from outside is paid for the work, not
+    /// as kin sharing the household pot: a few times a townsperson's own
+    /// hourly rate, so a day's work stands beside a few hours at a woodlot.
+    pub fn post_wage(&self, job: Job) -> u16 {
+        (job.pay().max(0.7) * (POST_HOURS.1 - POST_HOURS.0) * HIRED_RATE).round() as u16
+    }
+
+    /// The squad's town work, a line each, naming the worker: where, the
+    /// hours, the wage and how it's going.
+    pub fn work_lines(&self) -> Vec<String> {
+        let day = World::day_of(self.time);
+        let h = (self.time.rem_euclid(DAY) / HOUR) as f32;
+        self.society
+            .contracts
+            .iter()
+            .filter(|c| self.squad.index(c.member).is_some())
+            .map(|c| {
+                let name = self.name_of(c.member);
+                let what = c.post.map(|j| format!("works as {}", j.name().to_lowercase())).unwrap_or_else(|| "stands guard".into());
+                let place = self.society.towns[c.town as usize].places.get(c.place as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_else(|| "town".into());
+                let now = match self.on_shift(c.member) {
+                    Some(true) => "at work now".to_string(),
+                    Some(false) => "should be there now".to_string(),
+                    None if day < c.first_day => "starts tomorrow".to_string(),
+                    None if h < c.hours.0 => format!("shift today from {:02.0}:00", c.hours.0),
+                    None => "shift over for today".to_string(),
+                };
+                format!("{name} {what} at the {place} in {}, {:02.0}:00–{:02.0}:00, {:.0} coin a day ({} days paid; {now}).", self.settlements[c.town as usize].name, c.hours.0, c.hours.1, c.pay, c.days_paid)
+            })
+            .collect()
+    }
+
+    /// In a squad member's working hours: are they at the place (true) or
+    /// not there yet (false)? None outside their hours, or with no work.
+    pub fn on_shift(&self, who: PersonId) -> Option<bool> {
+        let c = self.contract_of(who)?;
+        let h = (self.time.rem_euclid(DAY) / HOUR) as f32;
+        if World::day_of(self.time) < c.first_day || h < c.hours.0 || h >= c.hours.1 || self.time >= c.until {
+            return None;
+        }
+        let k = self.squad.index(who)?;
+        Some(self.member_pos(k).dist(self.contract_pos(c)) <= AT_POST)
     }
 
     /// Give up a post or contract.
@@ -454,10 +507,15 @@ impl World {
             if here.dist(at) <= AT_POST {
                 self.society.contracts[i].present += dt;
             } else if c.sent_day != day || (self.squad.route[k].is_empty() && self.squad.goal[k] == self.squad.at[k]) {
-                let (path, _) = self.route(here, at);
-                self.squad.goal[k] = *path.last().unwrap_or(&at);
-                self.squad.route[k] = path;
+                // (Up from their bedroll, if they'd lain down.)
+                self.send(c.member, at);
                 self.society.contracts[i].sent_day = day;
+                if c.sent_day != day {
+                    let name = self.name_of(c.member);
+                    let place = self.society.towns[c.town as usize].places.get(c.place as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_else(|| "town".into());
+                    let line = format!("{name} sets off for the {place}: work till {:02.0}:00.", c.hours.1);
+                    self.say(self.time, line);
+                }
             }
         }
     }
@@ -503,7 +561,8 @@ impl World {
                 self.people[c.member as usize].recompute_might();
                 self.society.contracts[i].days_paid = self.society.contracts[i].days_paid.saturating_add(1);
                 let name = self.name_of(c.member);
-                self.say(t, format!("{name} is paid {:.0} coin for a day's work.", pay.round()));
+                let short = if pay + 0.5 < c.pay { format!(" (of the {:.0} owed: the purse ran short)", c.pay) } else { String::new() };
+                self.say(t, format!("{name} is paid {:.0} coin for a day's work{short}.", pay.round()));
             } else {
                 self.society.contracts[i].missed = self.society.contracts[i].missed.saturating_add(1);
                 if self.society.contracts[i].missed > MISSED_LIMIT {

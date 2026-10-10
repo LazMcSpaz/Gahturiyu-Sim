@@ -198,7 +198,10 @@ impl World {
                 Some(o) => format!("I'll take it: {}", self.opp_line(o)),
                 None => t.text(),
             },
-            Topic::PostWork(job, _) => format!("I'll work as {} here", job.name().to_lowercase()),
+            Topic::PostWork(job, place) => {
+                let at = self.talk.as_ref().and_then(|c| self.people[c.npc as usize].home).and_then(|h| self.society.towns[h as usize].places.get(place as usize)).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
+                format!("I'll work as {}{at} ({} coin a day, 8 till 5)", job.name().to_lowercase(), self.post_wage(job))
+            }
             Topic::Hire(wage) => format!("Come and work at my outpost ({wage} coin a day)"),
             Topic::SellAll(it) => {
                 let p = self.talk.as_ref().and_then(|c| self.sellable(c.npc).into_iter().find(|x| x.0 == it)).map(|x| x.1).unwrap_or(0);
@@ -493,7 +496,11 @@ impl World {
                 if !matches!(job, super::jobs::Job::None | super::jobs::Job::Drifter) {
                     tags.push("has_job".into());
                     if let Some(w) = self.workplace_of(c.npc) {
-                        values.push(("place", format!(" at the {}", w.kind.name().to_lowercase())));
+                        // Where it is from here, so it can be found.
+                        let v = w.pos.sub(self.person_pos(c.npc));
+                        let d = v.len();
+                        let way = if d < 40.0 { String::new() } else { format!(", {} m {} of here", ((d / 10.0).round() * 10.0) as u32, super::quests::compass(v)) };
+                        values.push(("place", format!(" at the {}{way}", w.kind.name().to_lowercase())));
                     }
                 } else {
                     tags.push("no_job".into());
@@ -650,7 +657,9 @@ impl World {
             Topic::PostWork(job, place) => {
                 let town = p.home.unwrap_or(0);
                 if self.take_post_work(c.with, town, job, place) {
-                    format!("Good. You'll work as {} from tomorrow's first light, 8 till 5. Paid each dawn.", job.name().to_lowercase())
+                    let name = self.people[c.with as usize].name().unwrap_or("you").to_string();
+                    let at = self.society.towns[town as usize].places.get(place as usize).map(|p| format!(" at the {}", p.kind.name().to_lowercase())).unwrap_or_default();
+                    format!("Good, {name}. You'll work as {}{at} from tomorrow, 8 till 5, for {} coin a day, paid each dawn.", job.name().to_lowercase(), self.post_wage(job))
                 } else {
                     "You've work already.".into()
                 }

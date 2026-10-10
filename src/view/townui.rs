@@ -329,6 +329,42 @@ pub fn life_panel(c: &Canvas, w: &World, town: u16, debug: bool) -> Bx {
     for o in opps {
         rows.push((format!("{}: {}{}", w.name_of(o.asker), w.opp_line(o), if debug { format!("  [{:?}]", o.state) } else { String::new() }), if o.legal { TEXT } else { WARN }, 13.0));
     }
+    // Town work a squad member could take, and the wage.
+    let posts = w.vacant_posts(town);
+    if !posts.is_empty() {
+        head(&mut rows, "Town work going (ask an official)");
+        for (job, pl) in posts {
+            let at = w.society.towns[town as usize].places.get(pl as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_default();
+            rows.push((format!("{} at the {at}: {} coin a day, 8 till 5", job.name(), w.post_wage(job)), TEXT, 13.0));
+        }
+    }
+    let ours: Vec<String> = w.society.contracts.iter().filter(|c| w.squad.index(c.member).is_some()).zip(w.work_lines()).filter(|(c, _)| c.town == town).map(|(_, l)| l).collect();
+    if !ours.is_empty() {
+        head(&mut rows, "Your people at work here");
+        for l in ours {
+            rows.push((l, GOLD, 13.0));
+        }
+    }
+    // Where the out-of-town work is, from the town's middle.
+    head(&mut rows, "Out of town");
+    let mid = w.settlements[town as usize].pos;
+    let tl = &w.society.towns[town as usize];
+    let fields = tl.places.iter().filter(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).count();
+    let mut field_shown = false;
+    for wp in tl.places.iter().filter(|p| p.kind.is_away()) {
+        if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields {
+            if field_shown {
+                continue;
+            }
+            field_shown = true;
+        }
+        let v = wp.pos.sub(mid);
+        let left: Vec<String> = w.deposits.iter().filter(|d| d.pos.dist(wp.pos) < 15.0).map(|d| format!("{:.0} {} left", d.left_at(w.time).floor(), gahturiyu_sim::sim::items::item(d.item).name.to_lowercase())).collect();
+        let name = if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields { format!("Fields ({fields} plots)") } else { wp.kind.name().to_string() };
+        let note = if left.is_empty() { String::new() } else { format!(" — {}", left.join(", ")) };
+        let col = if left.is_empty() { DIM } else { TEXT };
+        rows.push((format!("{name}: {:.0} m {}{note}", v.len(), gahturiyu_sim::sim::quests::compass(v)), col, 13.0));
+    }
     if debug {
         head(&mut rows, &format!("Storylines (cap {}, drama {:.2})", w.story_cap(town), w.drama(town)));
         for s in w.society.stories.iter().filter(|s| s.town == town) {
