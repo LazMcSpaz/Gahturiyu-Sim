@@ -280,6 +280,39 @@ pub fn hhmm(secs: f64) -> String {
     format!("{:02}:{:02}", (s / HOUR) as i64, ((s % HOUR) / 60.0) as i64)
 }
 
+/// Whether hovers show everything about strangers (the L readout, for
+/// testing). Otherwise a stranger shows only what you could see or would
+/// know of them (Laz: a game, not a simulator): who they're with, their
+/// people and trade, what they wear and carry, roughly how they are.
+static SEE_ALL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_see_all(on: bool) {
+    SEE_ALL.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn see_all() -> bool {
+    SEE_ALL.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// How someone looks, in a word, from their wounds.
+fn condition_word(hp: &[f32; 6], max: &[f32; 6], dead: bool) -> Option<&'static str> {
+    if dead {
+        return Some("Dead");
+    }
+    if body::knocked_out(hp) {
+        return Some("Down");
+    }
+    let (h, m) = hp.iter().zip(max).fold((0.0, 0.0), |a, (h, m)| (a.0 + h.max(0.0), a.1 + m));
+    let share = if m > 0.0 { h / m } else { 1.0 };
+    if share < 0.5 {
+        Some("Badly hurt")
+    } else if share < 0.9 {
+        Some("Hurt")
+    } else {
+        None
+    }
+}
+
 pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
     let mut out: Vec<(String, Rgb)> = Vec::new();
     match h {
@@ -303,6 +336,11 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 Some(0) => out.push(("Restless: might join the squad if asked".to_string(), GOLD)),
                 Some(fee) => out.push((format!("Restless: might join the squad, for {fee} coin"), GOLD)),
                 None => {}
+            }
+            // A stranger: only what shows.
+            if !p.in_squad && !see_all() {
+                stranger_lines(w, pid, &mut out);
+                return out;
             }
             let t = p.traits;
             out.push((
@@ -442,13 +480,15 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             let who = if g.members.len() == 1 { "1 traveller".to_string() } else { format!("{} travellers", g.members.len()) };
             out.push((format!("{who}  ({})", mix.join(", ")), race_color(w.people[g.members[0] as usize].race)));
             out.push((doing(w, gid), TEXT));
-            let might: f32 = g.members.iter().map(|&m| w.people[m as usize].might).sum();
-            out.push((format!("Combined might {:.0}", might), DIM));
-            let named = g.members.iter().filter(|&&m| w.people[m as usize].detail.is_some()).count();
-            out.push((
-                format!("Band {}  ·  {}", g.band, if named == 0 { "nobody here has been named yet".to_string() } else { format!("{named} of {} named", g.members.len()) }),
-                DIM,
-            ));
+            if see_all() {
+                let might: f32 = g.members.iter().map(|&m| w.people[m as usize].might).sum();
+                out.push((format!("Combined might {:.0}", might), DIM));
+                let named = g.members.iter().filter(|&&m| w.people[m as usize].detail.is_some()).count();
+                out.push((
+                    format!("Band {}  ·  {}", g.band, if named == 0 { "nobody here has been named yet".to_string() } else { format!("{named} of {} named", g.members.len()) }),
+                    DIM,
+                ));
+            }
         }
         Hover::Item(gid) => {
             let Some(g) = w.ground.iter().find(|g| g.id == gid) else { return out };
@@ -524,7 +564,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 let n = w.group(c.group).map(|g| g.members.iter().filter(|&&m| !w.people[m as usize].dead && !w.is_down(m)).count()).unwrap_or(0);
                 out.push((format!("{n} standing  ·  they watch the roads, and anyone who comes close"), WARN));
                 if w.is_warden(c.group) {
-                    out.push(("Wardens dug in at a ruin: harder than most".to_string(), WARN));
+                    out.push(("Dug in at a ruin".to_string(), WARN));
                 }
             }
         }
@@ -753,6 +793,79 @@ fn capital(s: &str) -> String {
 /// Someone's work: what they do, where, and the hours they keep.
 /// Their work status, what's on their mind, their honour, a grudge (if the
 /// squad has talked with them), and their household's money and feelings.
+/// What a stranger shows: who they're with, what they do, what they wear
+/// and carry, and how they look. (Their nature, skills, purse and needs are
+/// theirs to keep; you learn some by talking.)
+fn stranger_lines(w: &World, pid: PersonId, out: &mut Vec<(String, Rgb)>) {
+    let p = &w.people[pid as usize];
+    if p.bandit {
+        out.push(("Bandit  ·  click to attack".to_string(), [0.95, 0.35, 0.3]));
+    }
+    out.extend(work_lines(w, pid));
+    if let Some(d) = &p.detail {
+        let worn: Vec<String> = d.gear.equipped().filter(|&id| items::item(id).slot != items::Slot::MainHand).map(|id| items::item(id).name.to_lowercase()).collect();
+        let weapon = d.gear.weapon_name();
+        let mut line = if worn.is_empty() { String::new() } else { format!("Wearing {}", worn.join(", ")) };
+        if weapon != "bare hands" {
+            line = if line.is_empty() { format!("Carries a {}", weapon.to_lowercase()) } else { format!("{line}; carries a {}", weapon.to_lowercase()) };
+        }
+        if !line.is_empty() {
+            out.push((line, TEXT));
+        }
+    }
+    let (hp, missing) = match w.fighter(pid) {
+        Some(f) => (f.hp, f.missing),
+        None => (p.wounds.hp_at(&p.stats, w.time), p.wounds.missing),
+    };
+    let max: [f32; 6] = std::array::from_fn(|i| p.stats.max_hp(PARTS[i]));
+    if let Some(c) = condition_word(&hp, &max, p.dead) {
+        out.push((c.to_string(), [0.95, 0.6, 0.3]));
+    }
+    let gone: Vec<&str> = PARTS.iter().enumerate().filter(|(i, _)| missing[*i]).map(|(_, p)| p.name()).collect();
+    if !gone.is_empty() {
+        out.push((format!("Missing the {}", gone.join(", ")), [0.95, 0.6, 0.3]));
+    }
+    if let Some(c) = w.carrying(pid) {
+        out.push((format!("Carrying {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
+    }
+    if let Some(c) = w.carried_by(pid) {
+        out.push((format!("Carried by {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
+    } else if body::knocked_out(&hp) && !p.dead {
+        out.push(("Select someone and click to carry them.".into(), DIM));
+    }
+    if let Some(b) = w.bond_of(pid) {
+        let place = &w.settlements[b.town as usize].name;
+        out.push((if b.slave { format!("Enslaved in {place}") } else { format!("Bound to work in {place}") }, [0.95, 0.6, 0.3]));
+    }
+    // What talking to them has turned up.
+    if pid as usize >= w.society.minds.len() || p.bandit {
+        // (Bandits and the like aren't in the town's lists.)
+    } else {
+        if let Some(why) = w.why_not_working(pid) {
+            out.push((capital(&why), DIM));
+        }
+        if w.talk_said.iter().any(|s| s.0 == pid) {
+            let day = gahturiyu_sim::sim::World::day_of(w.time) as i32;
+            if let Some(g) = w.top_grudge(pid, day) {
+                let who = match g.about {
+                    gahturiyu_sim::sim::memory::Who::Person(q) => w.name_of(q),
+                    gahturiyu_sim::sim::memory::Who::Ring(_) => "the ring".into(),
+                    _ => "whoever it was".into(),
+                };
+                out.push((format!("Holds a grudge against {who}"), [0.95, 0.6, 0.3]));
+            }
+        }
+    }
+    if let Some(g) = w.group_of[pid as usize].and_then(|g| w.group(g)) {
+        out.push((doing(w, g.id), DIM));
+    } else if let Some(home) = p.home {
+        match w.doing_now(pid) {
+            Some((d, spot)) => out.push((format!("{} — {}", capital(d.word()), where_word(w, pid, spot, home)), GOLD)),
+            None => out.push((format!("At home in {}", w.settlements[home as usize].name), DIM)),
+        }
+    }
+}
+
 fn life_lines(w: &World, pid: PersonId) -> Vec<(String, Rgb)> {
     let mut out = Vec::new();
     if pid as usize >= w.society.minds.len() || w.people[pid as usize].bandit {

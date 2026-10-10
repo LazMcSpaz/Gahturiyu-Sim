@@ -533,11 +533,12 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
         c.styled("ORDERS", ox, c.h - 118.0, 10.0, a(TEXT, 0.75), Face::Title, 2.5);
         let who = st.sel.who(w);
         let sneaking = !who.is_empty() && who.iter().all(|&m| w.is_sneaking(m));
-        let resting = !who.is_empty() && who.iter().all(|&m| w.squad.index(m).is_some_and(|k| w.squad.resting[k]));
+        // Anyone resting: the button gets them up.
+        let resting = w.any_resting(&who);
         let s = Bx::new(ox, c.h - 106.0, 112.0, 32.0);
         pill(c, s.x, s.y, s.w, s.h, "SNEAK", sneaking, true);
         let r = Bx::new(ox, c.h - 66.0, 112.0, 32.0);
-        pill(c, r.x, r.y, r.w, r.h, "REST", resting, false);
+        pill(c, r.x, r.y, r.w, r.h, if resting { "WAKE" } else { "REST" }, resting, false);
         if clicked(&s) {
             act = Some(FrameAct::Sneak);
         }
