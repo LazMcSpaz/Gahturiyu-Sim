@@ -1644,7 +1644,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if let Some(it) = item_tip {
         let mut lines = squadui::item_lines(it);
         // What a merchant here gives for it, beside the round "worth".
-        if let Some((p, town)) = game.world.sells_for(it, None) {
+        if let Some((p, town)) = game.inv.map_or_else(|| game.world.sells_for(it, None), |m| game.world.sells_for_held(m, it, None)) {
             let name = &game.world.settlements[town as usize].name;
             lines.push((if p > 0 { format!("Sells for about {p} in {name}") } else { format!("Nobody in {name} pays for it") }, super::palette::DIM));
         }

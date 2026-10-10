@@ -141,4 +141,21 @@ fn someone_who_has_strayed_is_flagged() {
     for &other in w.squad.members.iter().filter(|&&x| x != m) {
         assert_eq!(w.strayed(other), None, "the ones who stayed put haven't strayed");
     }
+    // NM-13: one member a long way off is the stray, not everyone else.
+    let far = w.squad.at[k].add(V2::new(400.0, 0.0));
+    w.squad.at[k] = far;
+    w.squad.goal[k] = far;
+    let d = w.strayed(m).expect("460 m off is strayed");
+    assert!(d > 440.0 && d < 470.0, "{d}");
+    for &other in w.squad.members.iter().filter(|&&x| x != m) {
+        assert_eq!(w.strayed(other), None, "one far member doesn't make strays of the rest");
+    }
+    // Two and two: the pair with the earliest member is "the others".
+    if w.squad.members.len() == 4 {
+        let j = w.squad.index(w.squad.members[3]).unwrap();
+        w.squad.at[j] = far;
+        w.squad.goal[j] = far;
+        assert_eq!(w.strayed(w.squad.members[0]), None);
+        assert!(w.strayed(w.squad.members[3]).is_some() && w.strayed(m).is_some());
+    }
 }

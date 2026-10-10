@@ -50,6 +50,9 @@ pub const BANDIT_PURSE: u64 = 40;
 impl World {
     /// Can the squad go through this person's things?
     pub fn can_loot(&self, body: PersonId) -> bool {
+        if !self.valid_person(body) {
+            return false;
+        }
         let p = &self.people[body as usize];
         if p.in_squad || self.fighting.contains_key(&body) || !self.is_down(body) {
             return false;
