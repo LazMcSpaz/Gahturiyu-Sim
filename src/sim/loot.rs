@@ -122,7 +122,12 @@ impl World {
             // A step in front of it, plus its own size.
             Source::Chest(_) => REACH * 1.2,
         };
-        (self.squad.at[k].dist(at) <= reach && self.source_ok(l.from) && self.can_act(who)).then_some(l.from)
+        // A chest in a building is reached from inside it, not through a wall.
+        let same_room = match l.from {
+            Source::Chest(c) => c.0 == u16::MAX || self.squad.inside[k] == Some((c.0, c.1)),
+            Source::Body(_) => true,
+        };
+        (self.squad.at[k].dist(at) <= reach && same_room && self.source_ok(l.from) && self.can_act(who)).then_some(l.from)
     }
 
     /// The body this member is standing over and going through, if any.
@@ -279,7 +284,17 @@ impl World {
     /// Drop lootings whose looter has gone (left the squad, or the body
     /// got up and walked off, or the container is gone).
     pub(super) fn tidy_looting(&mut self) {
-        let keep: Vec<Looting> = self.looting.iter().copied().filter(|l| self.squad.index(l.who).is_some() && self.source_ok(l.from)).collect();
+        // Gone, or sent somewhere else: the going-through is over.
+        let keep: Vec<Looting> = self
+            .looting
+            .iter()
+            .copied()
+            .filter(|l| {
+                let Some(k) = self.squad.index(l.who) else { return false };
+                let walked_off = matches!(l.from, Source::Chest(_)) && self.source_pos(l.from).is_some_and(|at| self.squad.goal[k].dist(at) > REACH * 3.0);
+                self.source_ok(l.from) && !walked_off
+            })
+            .collect();
         self.looting = keep;
         // A body that has been moved (or settled where its band left it):
         // the looter goes on to where it is now.

@@ -368,6 +368,15 @@ impl World {
             let sub = if e.deed == Deed::Theft { Subject::Theft } else { Subject::News };
             c(sub, self.interest(k, day) + 0.2, Some(e.id), None, e.actor);
         }
+        // A hidden wrong the squad is asking about, by someone they're close
+        // to: it weighs on them (and can be bought or forced out of them).
+        for o in self.society.opps.iter().filter(|o| o.kind == Chance::FindOut && o.state == OppState::Taken && !o.done) {
+            if let Some(e) = o.event.and_then(|e| self.event(e)) {
+                if e.hidden && e.victim != Some(npc) && e.actor.is_some_and(|a| self.knows_culprit(npc, a)) {
+                    c(Subject::Theft, 0.8, Some(e.id), None, None);
+                }
+            }
+        }
         out.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.subject.cmp(&b.subject)));
         // One of each subject.
         let mut seen = BTreeSet::new();
@@ -723,7 +732,8 @@ impl World {
             out.push(Opt::Persuade);
         }
         // What they know of a hidden deed can be bought or forced.
-        if ev.is_some_and(|e| e.hidden) {
+        // (Not from whoever it was done to: they'd have said.)
+        if ev.is_some_and(|e| e.hidden && e.victim != Some(npc)) {
             if self.squad_count(items::id("coin")) >= 10 {
                 out.push(Opt::Bribe);
             }
@@ -790,17 +800,19 @@ impl World {
                 }
             }
             Opt::Bribe | Opt::Threaten => {
-                if opt == Opt::Bribe {
-                    self.take_from_squad(items::id("coin"), 10);
-                    if let Some(h) = self.society.lives[npc as usize].household {
-                        self.society.households[h as usize].purse.coin += 10.0;
-                    }
-                } else {
+                if opt == Opt::Threaten {
                     self.remember(npc, Who::Person(with), Deed::Threat, -0.4, day);
                 }
                 let e = c.event.and_then(|e| self.event(e)).cloned();
                 let knows = e.as_ref().and_then(|e| e.actor).is_some_and(|a| self.knows_culprit(npc, a));
                 let gives = if opt == Opt::Bribe { r.chance(0.6) } else { r.chance((0.4 + self.people[with as usize].might / 200.0 - self.people[npc as usize].traits.boldness * 0.4).clamp(0.05, 0.9)) };
+                // The coin changes hands only for what they tell.
+                if opt == Opt::Bribe && knows && gives && e.is_some() {
+                    self.take_from_squad(items::id("coin"), 10);
+                    if let Some(h) = self.society.lives[npc as usize].household {
+                        self.society.households[h as usize].purse.coin += 10.0;
+                    }
+                }
                 match (knows && gives, e) {
                     (true, Some(e)) => {
                         let a = e.actor.unwrap();
@@ -818,6 +830,7 @@ impl World {
                         }
                         format!("It was {}. You didn't hear it from me.", self.name_of(a))
                     }
+                    _ if opt == Opt::Bribe && knows => "Keep your money.".into(),
                     _ => "I don't know anything about it.".into(),
                 }
             }

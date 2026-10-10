@@ -127,7 +127,8 @@ fn unlock_opens_a_chest_and_locks_read_clearly() {
     let (id, pos, lock) = found.expect("a locked container somewhere");
     assert!(w.container_locked(id));
     let words = w.lock_outlook(lock);
-    assert!(words.contains("% a try") && words.contains(World::lock_word(lock)), "{words}");
+    // In words, no odds (BL-37).
+    assert!(!words.contains('%') && words.contains(World::lock_word(lock)), "{words}");
     let un = magic::spell("unlock");
     w.people[me as usize].detail.as_mut().unwrap().spells.push(un);
     let t = w.time;

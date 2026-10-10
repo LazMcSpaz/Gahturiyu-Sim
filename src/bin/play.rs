@@ -54,6 +54,7 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
   give NAME N TO_NAME       hand pack entry N to another squad member standing near
+  dismiss NAME              send a member away; they stay in the town they're in
   dose GIVER PATIENT        GIVER gives PATIENT (downed, say) a healing draught
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
   craft NAME                what NAME could make here; `make NAME N` starts recipe N
@@ -526,7 +527,7 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
         }
         for &m in &g.members {
             let at = w.person_pos(m);
-            if !near(at, 150.0) || seen_people.contains(&m) || w.people[m as usize].dead {
+            if !near(at, 150.0) || seen_people.contains(&m) || w.people[m as usize].dead || w.is_indoors_asleep(m) {
                 continue;
             }
             seen_people.push(m);
@@ -540,9 +541,13 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
             } else {
                 "traveller"
             };
+            // A traveller goes by their trade, as they do in talk.
+            let trade = w.society.lives.get(m as usize).map(|l| l.job.title(pp.seed).to_lowercase()).unwrap_or_default();
+            let folk_row = what == "traveller";
+            let what = if what == "traveller" && !trade.is_empty() { trade.as_str() } else { what };
             // Foes and the beaten among the places: they matter more than chat.
             let row = (here.dist(at), format!("p{m}  {} — {} {what} — {}", name_of(w, m), pp.race.name(), dist_dir(here, at)));
-            if what == "traveller" {
+            if folk_row {
                 folk.push(row);
             } else {
                 lines.push(row);
@@ -577,7 +582,14 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
         let fields = tl.places.iter().filter(|p| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).count();
         let nearest_field = tl.places.iter().enumerate().filter(|(_, p)| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields).min_by(|a, b| a.1.pos.dist(here).total_cmp(&b.1.pos.dist(here))).map(|(i, _)| i);
         for (i, wp) in tl.places.iter().enumerate() {
-            if !wp.kind.is_away() || !near(wp.pos, 800.0) || w.deposits.iter().any(|d| d.pos.dist(wp.pos) < 15.0) {
+            // In town: the hall, stalls, shops and benches close by.
+            if !wp.kind.is_away() {
+                if near(wp.pos, 60.0) {
+                    lines.push((here.dist(wp.pos), format!("w{ti}.{i}  the {} — {}", wp.kind.name().to_lowercase(), dist_dir(here, wp.pos))));
+                }
+                continue;
+            }
+            if !near(wp.pos, 800.0) || w.deposits.iter().any(|d| d.pos.dist(wp.pos) < 15.0) {
                 continue;
             }
             let what = if wp.kind == gahturiyu_sim::sim::jobs::PlaceKind::Fields {
@@ -612,7 +624,9 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
     for c in w.animals.carcasses.iter().filter(|c| c.gone_at > w.time && near(c.pos, 200.0)) {
         lines.push((here.dist(c.pos), format!("c{}  a {} carcass — {}", c.id, c.sp.def().name, dist_dir(here, c.pos))));
     }
-    for g in w.ground.iter().filter(|g| near(g.pos, 60.0)) {
+    // Things indoors are seen from indoors.
+    let seen_from_here = |p: V2| w.building_at(p).is_none_or(|b| w.squad.inside.iter().any(|i| *i == Some(b.id)));
+    for g in w.ground.iter().filter(|g| near(g.pos, 60.0) && seen_from_here(g.pos)) {
         let whose = match g.owner {
             Some(town) => {
                 let m = w.squad.members.iter().copied().min_by(|&a, &b| w.person_pos(a).dist(g.pos).total_cmp(&w.person_pos(b).dist(g.pos))).unwrap_or(w.squad.members[0]);
@@ -1043,19 +1057,26 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             o += "You take your leave.\n";
         }
         "loot" | "search" => {
+            let chest = if cmd == "search" { arg(0).strip_prefix('k').and_then(container_id) } else { None };
+            let mut sent = None;
             let ok = if cmd == "loot" {
                 let p = person_arg(w, arg(0));
                 p.is_some_and(|p| {
                     let m = nearest(w, w.person_pos(p));
+                    sent = Some(m);
                     w.order_loot(m, p)
                 })
             } else {
-                arg(0).strip_prefix('k').and_then(container_id).is_some_and(|c| {
+                chest.is_some_and(|c| {
                     let at = w.container(c).map(|c| c.pos).unwrap_or(w.squad.pos);
-                    let m = nearest(w, at);
                     if w.container_locked(c) {
+                        // Whoever selected has picks (the nearest of them).
+                        let m = sel.iter().copied().filter(|&m| w.count_of(m, "lockpick") > 0).min_by(|&x, &y| w.person_pos(x).dist(at).total_cmp(&w.person_pos(y).dist(at))).unwrap_or_else(|| nearest(w, at));
+                        sent = Some(m);
                         w.order_pick_container(m, c)
                     } else {
+                        let m = nearest(w, at);
+                        sent = Some(m);
                         w.order_search(m, c)
                     }
                 })
@@ -1066,12 +1087,16 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     _ => o += "Can't go through that (is it locked, or not in a building you're in?).\n",
                 }
             } else {
-                let looter = w.looting.last().map(|l| l.who).or_else(|| w.picking.last().map(|p| p.who)).unwrap_or(lead);
+                let looter = sent.unwrap_or(lead);
                 let mut n = 0;
                 while w.source_now(looter).is_none() && n < 2400 && w.chased_by(looter).is_none() && w.free_to_order(looter) {
                     // Still at a lock: keep going while they have picks.
                     if w.looting.iter().all(|l| l.who != looter) && w.picking.iter().all(|p| p.who != looter) {
-                        break;
+                        // Picked: now open it.
+                        match chest {
+                            Some(c) if !w.container_locked(c) && w.order_search(looter, c) => {}
+                            _ => break,
+                        }
                     }
                     w.step(0.25);
                     n += 1;
@@ -1083,8 +1108,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                         o += &format!("{name} was seen: {} of the watch is after them.\n", first_name(w, g));
                     } else if !w.free_to_order(looter) {
                         o += &format!("{name} was caught and is bound to work it off (see News).\n");
-                    } else if w.count_of(looter, "lockpick") == 0 && arg(0).starts_with('k') {
-                        o += &format!("{name} has no lockpicks left; the lock holds.\n");
+                    } else if chest.is_some_and(|c| w.container_locked(c)) {
+                        o += &if w.count_of(looter, "lockpick") == 0 { format!("{name} has no lockpicks; the lock holds.\n") } else { format!("{name} couldn't get the lock open.\n") };
                     } else {
                         o += &loot_view(w, looter);
                     }
@@ -1094,7 +1119,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "put" => {
-            let looter = w.looting.iter().map(|l| l.who).find(|&m| w.source_now(m).is_some());
+            // The selected member's own, before anyone else's.
+            let looter = sel.iter().copied().find(|&m| w.source_now(m).is_some()).or_else(|| w.looting.iter().map(|l| l.who).find(|&m| w.source_now(m).is_some()));
             match (looter, arg(0).parse::<usize>()) {
                 (Some(m), Ok(k)) => {
                     o += if w.put_in(m, k) { "Put away.\n" } else { "Couldn't put that there.\n" };
@@ -1153,7 +1179,8 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             }
         }
         "take" | "takeall" => {
-            let looter = w.looting.iter().map(|l| l.who).find(|&m| w.source_now(m).is_some());
+            // The selected member's own, before anyone else's.
+            let looter = sel.iter().copied().find(|&m| w.source_now(m).is_some()).or_else(|| w.looting.iter().map(|l| l.who).find(|&m| w.source_now(m).is_some()));
             match looter.and_then(|m| w.source_now(m).map(|src| (m, src))) {
                 Some((m, src)) => {
                     if cmd == "takeall" {
@@ -1401,6 +1428,12 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                     o += &news(w, s);
                 }
                 Err(why) => o += &format!("Can't: {why}\n"),
+            }
+        }
+        "dismiss" => {
+            let Some(m) = member(w, arg(0)) else { return "Usage: dismiss NAME (they stay in the town they're in)\n".into() };
+            match w.send_away(m) {
+                Ok(line) | Err(line) => o += &format!("{line}\n"),
             }
         }
         "give" => {

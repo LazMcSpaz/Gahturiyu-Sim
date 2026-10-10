@@ -163,9 +163,8 @@ impl World {
         if let Some(wi) = witness {
             let mut r = Rng::from_keys(&[self.seed, wi as u64, who as u64, (t / 60.0) as u64, 0x5445_4C4C]);
             if r.f32() >= self.report_chance(wi, who, owner) {
-                let name = self.name_of(wi);
-                self.say(t, format!("{line} {name} saw it, but says nothing."));
-                self.alerts.push(format!("{line} {name} saw it, but says nothing."));
+                // They keep it to themselves: nothing comes of it, so
+                // nothing is heard of it.
                 return;
             }
         }

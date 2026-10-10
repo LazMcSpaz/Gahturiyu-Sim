@@ -56,6 +56,8 @@ pub const AT_POST: f32 = 14.0;
 pub const WORK_REACH: f32 = 2500.0;
 /// A post's hours (from, to).
 pub const POST_HOURS: (f32, f32) = (8.0, 17.0);
+/// The skill a trade's post wants of a hand from outside.
+pub const POST_SKILL: f32 = 20.0;
 /// A hand hired by the day is paid this many times a townsperson's own rate.
 pub const HIRED_RATE: f32 = 3.0;
 /// Rewards: share of what's at stake (a stolen thing's worth, a debt), and
@@ -402,10 +404,28 @@ impl World {
         out
     }
 
+    /// The posts going that this member could do: a trade wants someone who
+    /// knows it; anyone can labour.
+    pub fn posts_for_member(&self, town: SettlementId, who: PersonId) -> Vec<(Job, u16)> {
+        let mut out: Vec<(Job, u16)> = self.vacant_posts(town).into_iter().filter(|&(j, _)| self.fit_for_post(who, j)).collect();
+        if out.is_empty() {
+            let ci = self.society.towns[town as usize].shore;
+            if let Some(&pl) = self.labour_places(ci).first() {
+                out.push((Job::Labourer, pl));
+            }
+        }
+        out
+    }
+
+    /// Does this member know the trade a post works?
+    pub fn fit_for_post(&self, who: PersonId, job: Job) -> bool {
+        job.craft().is_none_or(|c| self.work_skill(who, c) >= POST_SKILL)
+    }
+
     /// A squad member takes up a post going in town, paid by the day from the
     /// treasury (or the merchants, for labour).
     pub fn take_post_work(&mut self, who: PersonId, town: SettlementId, job: Job, place: u16) -> bool {
-        if !self.people[who as usize].in_squad || self.society.contracts.iter().any(|c| c.member == who) {
+        if !self.people[who as usize].in_squad || self.society.contracts.iter().any(|c| c.member == who) || !self.fit_for_post(who, job) {
             return false;
         }
         let day = World::day_of(self.time);
@@ -568,23 +588,28 @@ impl World {
                 }
                 continue;
             }
-            let need = (c.hours.1 - c.hours.0) as f64 * HOUR * PRESENT_SHARE as f64;
+            let shift = (c.hours.1 - c.hours.0) as f64 * HOUR;
+            let need = shift * PRESENT_SHARE as f64;
             // The day being settled is yesterday's.
             let began = World::day_of(t) - 1 >= c.first_day;
             let mut ended = false;
-            if !began {
-                // Not started yet.
-            } else if c.present >= need {
+            let name = self.name_of(c.member);
+            let place = self.society.towns[c.town as usize].places[c.place as usize].kind.name().to_lowercase();
+            let town = self.settlements[c.town as usize].name.clone();
+            // Paid for the hours put in.
+            let share = (c.present / shift).clamp(0.0, 1.0) as f32;
+            if began && share > 0.0 {
+                let owed = c.pay * share;
                 // Paid from the giver's purse (guard work) or the hall (a post).
                 let pay = match c.opp.and_then(|id| self.opportunity(id)).and_then(|o| self.society.lives.get(o.asker as usize)).and_then(|l| l.household) {
                     Some(hh) => {
-                        let p = c.pay.min(self.society.households[hh as usize].purse.coin.max(0.0));
+                        let p = owed.min(self.society.households[hh as usize].purse.coin.max(0.0));
                         self.society.households[hh as usize].purse.coin -= p;
                         p
                     }
                     None => {
                         let tl = &mut self.society.towns[c.town as usize];
-                        let p = c.pay.min(tl.treasury.max(0.0));
+                        let p = owed.min(tl.treasury.max(0.0));
                         tl.treasury -= p;
                         p
                     }
@@ -593,17 +618,26 @@ impl World {
                     d.gear.add(coin, pay.round() as u16);
                 }
                 self.people[c.member as usize].recompute_might();
+                let what = if c.present >= need { "a day's work" } else { "part of a day's work" };
+                let short = if pay + 0.5 < owed { format!(" (of the {:.0} owed: the purse ran short)", owed) } else { String::new() };
+                self.say(t, format!("{name} is paid {:.0} coin for {what}{short}.", pay.round()));
+            }
+            if !began {
+                // Not started yet.
+            } else if c.present >= need {
                 self.society.contracts[i].days_paid = self.society.contracts[i].days_paid.saturating_add(1);
-                let name = self.name_of(c.member);
-                let short = if pay + 0.5 < c.pay { format!(" (of the {:.0} owed: the purse ran short)", c.pay) } else { String::new() };
-                self.say(t, format!("{name} is paid {:.0} coin{short}.", pay.round()));
+                self.society.contracts[i].missed = 0;
             } else {
-                self.society.contracts[i].missed = self.society.contracts[i].missed.saturating_add(1);
-                if self.society.contracts[i].missed > MISSED_LIMIT {
+                let missed = self.society.contracts[i].missed.saturating_add(1);
+                self.society.contracts[i].missed = missed;
+                if missed > MISSED_LIMIT {
                     ended = true;
                     if let Some(id) = c.opp {
                         self.fail_opp(id, t);
                     }
+                    self.say(t, format!("{name} has lost the work at the {place} in {town}: too many days missed."));
+                } else if share == 0.0 {
+                    self.say(t, format!("{name} didn't come to work at the {place} in {town} yesterday."));
                 }
             }
             self.society.contracts[i].present = 0.0;

@@ -177,7 +177,8 @@ fn tiredness_builds_awake_and_only_sleep_clears_it() {
     let mut w = worldgen::generate(1);
     let m = mage(&w);
     let start = w.tired_of(m).unwrap();
-    run(&mut w, 8.0, 60.0);
+    // (Standing about tires slower than a march: BL-49.)
+    run(&mut w, 10.0, 60.0);
     let awake = w.tired_of(m).unwrap();
     assert!(awake > start + 30.0, "{start} -> {awake}");
     w.order_rest(&[m]);

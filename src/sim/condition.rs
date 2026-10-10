@@ -82,6 +82,8 @@ pub const WINDED: f32 = 0.1;
 
 /// Tiredness gained per hour awake (walking and fighting tire more).
 pub const TIRED_PER_HOUR: f32 = 5.0;
+/// Standing about tires slower: an idle day in town is no march.
+pub const STAND_TIRED: f32 = 3.5;
 /// Tiredness slept off per hour: in the open, in a tent, indoors.
 pub const SLEEP_OPEN: f32 = 9.0;
 pub const SLEEP_TENT: f32 = 15.0;
@@ -203,7 +205,7 @@ impl Condition {
                 Shelter::Tent => SLEEP_TENT,
                 Shelter::Indoors | Shelter::Bed => SLEEP_INDOORS,
             },
-            Activity::Resting => TIRED_PER_HOUR,
+            Activity::Resting => STAND_TIRED,
             Activity::Walking => TIRED_PER_HOUR * 1.3,
             Activity::Fighting => TIRED_PER_HOUR * 1.5,
         }

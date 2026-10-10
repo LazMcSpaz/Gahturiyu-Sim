@@ -321,6 +321,21 @@ impl World {
                 continue;
             }
             let next = if d <= stride { goal } else { at.add(dir.scale(stride)) };
+            // A door that locked since the walk was planned stops them at it.
+            // (Going in, that is: a walk that only clips a corner goes on.)
+            if let Some(d) = self.building_at(next) {
+                let going_in = self.building_at(self.squad.goal[k]).is_some_and(|x| x.id == d.id) || self.squad.route[k].iter().any(|p| p.dist(d.inside) < 0.5);
+                if going_in && self.building_at(at).map(|x| x.id) != Some(d.id) && self.is_locked(d.id) {
+                    self.squad.goal[k] = at;
+                    self.squad.route[k].clear();
+                    let line = "The door is locked.".to_string();
+                    if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+                        self.log.push_front((self.time, line));
+                        self.log.truncate(14);
+                    }
+                    continue;
+                }
+            }
             if !self.open_water(next) {
                 let rise = self.terrain.height(next) - self.terrain.height(at);
                 self.climb(pid, rise);

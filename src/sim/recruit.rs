@@ -23,6 +23,10 @@ pub const FEE_SHARE: f32 = 0.05;
 /// A signing fee is this many hours of their work's pay.
 pub const FEE_HOURS: f32 = 40.0;
 
+/// A squad member's standing in a town below this (caught at something):
+/// nobody there will go off with them.
+pub const WARY_STANDING: f32 = -2.0;
+
 /// Flatbread a recruit brings with them: about two days' eating.
 pub const RECRUIT_BREAD: u16 = 3;
 
@@ -49,6 +53,12 @@ impl World {
         if matches!(m.work, Work::Bonded | Work::Injured) {
             return None;
         }
+        // The watch, the shrine and anyone waiting on the squad to do a job
+        // for them stay put; and nobody goes off with people the town has
+        // caught at wrongdoing, or who have wronged them.
+        if self.wary_of_squad(npc) || matches!(life.job, super::jobs::Job::Guard | super::jobs::Job::Priest) || self.society.opps.iter().any(|o| o.asker == npc && o.state == super::chances::OppState::Taken && !o.done) {
+            return None;
+        }
         // A fixed roll per person (like a trait), weighed by how restless they
         // are, so every people has some who'd go, the restless more.
         let restless = (p.traits.boldness + p.traits.wanderlust - RESTLESS_FLOOR).clamp(0.0, 1.2);
@@ -58,6 +68,14 @@ impl World {
             return (roll < FREE_SHARE * restless).then_some(0);
         }
         (roll < FEE_SHARE * restless).then(|| (life.job.pay().max(0.7) * FEE_HOURS).ceil() as u16)
+    }
+
+    /// Has the squad a name for trouble in this person's town (a bounty, or
+    /// caught at something), or done them a wrong they remember?
+    pub fn wary_of_squad(&self, npc: PersonId) -> bool {
+        let Some(town) = self.people[npc as usize].home else { return false };
+        let day = World::day_of(self.time) as i32;
+        self.bounty_known_in(town) > 0.0 || self.squad.members.iter().any(|&m| self.standing(m, town) < WARY_STANDING || self.memory_of(npc, super::memory::Who::Person(m), day) < -0.3)
     }
 
     /// Why someone won't come, in a line of their own (`None` if they would).
@@ -73,8 +91,14 @@ impl World {
         if self.is_bonded(npc, t) {
             return Some("I'm bound here till my debt's worked off. I can't go anywhere.");
         }
-        if self.holds_office(npc) {
+        if self.holds_office(npc) || matches!(self.society.lives.get(npc as usize).map(|l| l.job), Some(super::jobs::Job::Guard | super::jobs::Job::Priest)) {
             return Some("The town needs me where I am. No.");
+        }
+        if self.wary_of_squad(npc) {
+            return Some("Go with you lot? After what's been going on? No.");
+        }
+        if self.society.opps.iter().any(|o| o.asker == npc && o.state == super::chances::OppState::Taken && !o.done) {
+            return Some("You've a job to do for me first.");
         }
         let restless = p.traits.boldness + p.traits.wanderlust;
         let jobless = matches!(self.society.lives.get(npc as usize).map(|l| l.job), Some(super::jobs::Job::None | super::jobs::Job::Drifter));
@@ -169,5 +193,47 @@ impl World {
         self.log.push_front((t, format!("{name} of {tname} joins the squad.")));
         self.log.truncate(14);
         Ok(fee)
+    }
+}
+
+impl World {
+    /// Send a squad member away: they stay in the town they're standing in,
+    /// looking for a living there. Says why not, if not.
+    pub fn send_away(&mut self, who: PersonId) -> Result<String, String> {
+        let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+        let Some(k) = self.squad.index(who) else { return Err(format!("{name} isn't one of you.")) };
+        if self.squad.members.len() <= 1 {
+            return Err("There'd be nobody left.".into());
+        }
+        if self.is_down(who) || self.carried_by(who).is_some() || self.carrying(who).is_some() || self.fighting.contains_key(&who) || !self.free_to_order(who) {
+            return Err(format!("Not now: {name} can't go anywhere."));
+        }
+        let at = self.member_pos(k);
+        let Some(town) = self.settlements.iter().filter(|s| s.pos.dist(at) < s.radius() + 50.0).min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|s| s.id) else {
+            return Err(format!("Not out here: {name} would part ways in a town."));
+        };
+        self.quit_work(who);
+        self.looting.retain(|l| l.who != who);
+        self.picking.retain(|p| p.who != who);
+        self.pickups.retain(|p| p.who != who);
+        self.giving.retain(|g| g.from != who && g.to != who);
+        self.squad.retain(|m| m != who);
+        let ci = self.society.towns[town as usize].shore;
+        let p = &mut self.people[who as usize];
+        p.in_squad = false;
+        p.cond = None;
+        p.home = Some(town);
+        let life = &mut self.society.lives[who as usize];
+        life.job = super::jobs::Job::None;
+        life.place = None;
+        life.household = None;
+        life.community = Some(ci);
+        self.settlements[town as usize].residents.push(who);
+        self.refresh_container_owners();
+        let t = self.time;
+        let line = format!("{name} leaves the squad and stays in {}.", self.settlements[town as usize].name);
+        self.log.push_front((t, line.clone()));
+        self.log.truncate(14);
+        Ok(line)
     }
 }

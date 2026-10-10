@@ -104,15 +104,19 @@ fn what_you_can_say_depends_on_who_you_are() {
     let npc = robbed(&mut w);
     let lead = talk_to(&mut w, npc);
     let c = w.talk.as_ref().unwrap().clone();
-    // A hidden theft: what they know can be bought, if you've the coin.
+    // The one robbed has nothing to sell about it (NM-57)...
+    assert!(!w.options(npc, lead, &c.concerns, 0).contains(&Opt::Bribe));
+    // ...but what someone else knows of a hidden theft can be bought, if
+    // you've the coin.
+    let other = w.people[npc as usize].home.map(|t| w.settlements[t as usize].residents[12]).unwrap();
     let coin = gahturiyu_sim::sim::items::id("coin");
     let has = w.squad_count(coin) >= 10;
-    assert_eq!(w.options(npc, lead, &c.concerns, 0).contains(&Opt::Bribe), has);
+    assert_eq!(w.options(other, lead, &c.concerns, 0).contains(&Opt::Bribe), has);
     // Threats need someone who looks able to carry them out.
     w.people[lead as usize].might = 10.0;
-    assert!(!w.options(npc, lead, &c.concerns, 0).contains(&Opt::Threaten));
+    assert!(!w.options(other, lead, &c.concerns, 0).contains(&Opt::Threaten));
     w.people[lead as usize].might = 90.0;
-    assert!(w.options(npc, lead, &c.concerns, 0).contains(&Opt::Threaten));
+    assert!(w.options(other, lead, &c.concerns, 0).contains(&Opt::Threaten));
 }
 
 #[test]
