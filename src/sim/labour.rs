@@ -84,6 +84,9 @@ pub const YIELD_ITEMS: &[(&str, &str, f32)] = &[
 
 /// Minutes to cut up a carcass, per unit of the animal's size.
 pub const BUTCHER_MINUTES: f32 = 15.0;
+/// A second butcher sent to a carcass someone is on goes to another one
+/// within this distance, metres.
+pub const NEXT_CARCASS: f32 = 40.0;
 /// How far the hunted herd may move before the hunters' way is found again.
 pub const CHASE_SLACK: f32 = 15.0;
 
@@ -308,6 +311,24 @@ impl World {
         if self.squad.index(who).is_none() || c.sp.def().yields.is_empty() {
             return false;
         }
+        // Someone else is on it already: take the nearest carcass nobody
+        // has, if there's one close by; else say so (BL-56).
+        let (mut carcass, mut at) = (carcass, at);
+        if let Some(other) = self.butchering.iter().find(|b| b.carcass == carcass && b.who != who).map(|b| b.who) {
+            let taken: Vec<u32> = self.butchering.iter().filter(|b| b.who != who).map(|b| b.carcass).collect();
+            let next = self.animals.carcasses.iter().filter(|x| x.gone_at > self.time && !taken.contains(&x.id) && !x.sp.def().yields.is_empty() && x.pos.dist(at) <= NEXT_CARCASS).min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at)).then(a.id.cmp(&b.id))).map(|x| (x.id, x.pos));
+            match next {
+                Some((id, p)) => {
+                    carcass = id;
+                    at = p;
+                }
+                None => {
+                    let name = self.people[other as usize].name().unwrap_or("Someone").to_string();
+                    self.work_note(self.time, format!("{name} is already cutting that one up."));
+                    return false;
+                }
+            }
+        }
         self.stop_work(who);
         self.send(who, at);
         self.butchering.push(Butchering { who, carcass, done: None });
@@ -324,7 +345,12 @@ impl World {
         while k < self.butchering.len() {
             let b = self.butchering[k];
             let Some(c) = self.animals.carcasses.iter().find(|c| c.id == b.carcass && c.gone_at > now).cloned() else {
+                // Gone before they were done with it (BL-35).
                 self.butchering.remove(k);
+                if self.squad.index(b.who).is_some() {
+                    let name = self.people[b.who as usize].name().unwrap_or("Someone").to_string();
+                    self.work_note(now, format!("{name} finds the carcass picked clean."));
+                }
                 continue;
             };
             let Some(i) = self.squad.index(b.who) else {
@@ -335,7 +361,8 @@ impl World {
                 k += 1;
                 continue;
             }
-            let done = b.done.unwrap_or(now + (BUTCHER_MINUTES * c.size.clamp(0.3, 4.0)) as f64 * 60.0);
+            // By how big the animal is, and how grown.
+            let done = b.done.unwrap_or(now + (BUTCHER_MINUTES * c.sp.def().bulk() * c.size.clamp(0.3, 4.0)) as f64 * 60.0);
             if done > now {
                 self.butchering[k].done = Some(done);
                 k += 1;
@@ -372,7 +399,7 @@ impl World {
     pub fn order_hunt(&mut self, who: &[PersonId], herd: u32) -> bool {
         let t = self.time;
         let Some(h) = self.animals.herds.get(herd as usize) else { return false };
-        if h.alive(t) == 0 || who.is_empty() || self.squad_battle().is_some() {
+        if h.alive(t) == 0 || who.is_empty() || self.squad_battle().is_some() || h.hidden(t) {
             return false;
         }
         if self.hunt(who, herd) {
@@ -384,8 +411,9 @@ impl World {
             self.send(m, aim);
         }
         self.chases.push(Chase { who: who.to_vec(), herd, aim });
-        let name = self.animals.herds[herd as usize].def().name;
-        self.work_note(t, format!("You go after the {name}s."));
+        let h = &self.animals.herds[herd as usize];
+        let them = h.def().the(h.alive(t));
+        self.work_note(t, format!("You go after {them}."));
         true
     }
 

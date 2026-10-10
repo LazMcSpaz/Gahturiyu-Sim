@@ -832,3 +832,236 @@ fn travellers_beaten_by_animals_are_not_robbed_and_a_called_off_stalk_comes_to_n
     }
     assert_eq!(w.animals.stats.people_killed as usize, w.animals.attacks.iter().map(|a| a.people_killed as usize).sum::<usize>());
 }
+
+// ---- The fixes after the bug hunt (BL-…: the buildings agent's list) ---------------------------
+
+/// The squad sneaks up on a flock of Dustrunners from the east and hunts
+/// it to the end. Returns the world, the herd, where the flock stood, and
+/// how many there were before.
+fn dustrunner_hunt() -> (World, u32, V2, usize) {
+    let mut w = worldgen::generate(8);
+    step_to(&mut w, 9.0 * HOUR);
+    let t = w.time;
+    let herd = w.animals.herds.iter().filter(|h| h.sp == Sp::Dustrunner && h.alive(t) >= 6).min_by_key(|h| h.id).expect("a Dustrunner flock").id;
+    let who = w.squad.members.clone();
+    for &m in &who {
+        w.set_sneaking(m, true);
+    }
+    let at = w.herd_pos(herd, t);
+    w.teleport_squad(at.add(V2::new(3.0, 0.0)));
+    let before = w.animals.herds[herd as usize].alive(t);
+    assert!(w.hunt(&who, herd));
+    for _ in 0..6000 {
+        w.step(0.2);
+        if w.squad_battle().is_none() {
+            break;
+        }
+    }
+    assert!(w.squad_battle().is_none(), "the hunt never ended");
+    (w, herd, at, before)
+}
+
+/// BL-73: one animal is "the Chasm lurker"; a Turiyu takes no s.
+#[test]
+fn bl73_animals_are_named_by_how_many_there_are() {
+    assert_eq!(Sp::ChasmLurker.def().the(1), "the Chasm lurker");
+    assert_eq!(Sp::ChasmLurker.def().the(3), "the Chasm lurkers");
+    assert_eq!(Sp::WildTuriyu.def().the(5), "the Wild Turiyu");
+    assert_eq!(Sp::Tidepicker.def().counted(10), "10 Tidepickers");
+    assert_eq!(Sp::Cragmaw.def().counted(1), "a Cragmaw");
+    assert_eq!(Species::named("Silk Mother").map(|s| s.sp), Some(Sp::SilkMother));
+}
+
+/// BL-28: Tidepickers are under the rocks at high water.
+#[test]
+fn bl28_tidepickers_cant_be_hunted_at_high_tide() {
+    let mut w = worldgen::generate(1);
+    let herd = w.animals.herds.iter().find(|h| h.sp == Sp::Tidepicker && h.alive(0.0) >= 5).expect("Tidepickers").id;
+    // A moment of high water, then one of low.
+    let mut t = w.time;
+    while w.animals.herds[herd as usize].active(t) {
+        t += 600.0;
+    }
+    step_to(&mut w, t + 1.0);
+    let who = w.squad.members.clone();
+    let at = w.herd_pos(herd, w.time);
+    w.teleport_squad(at.add(V2::new(2.0, 0.0)));
+    assert!(w.animals.herds[herd as usize].hidden(w.time));
+    assert!(!w.hunt(&who, herd), "nothing to set upon while the water is up");
+    assert!(!w.order_hunt(&who, herd));
+    let mut t = w.time;
+    while !w.animals.herds[herd as usize].active(t) {
+        t += 600.0;
+    }
+    step_to(&mut w, t + 1.0);
+    let at = w.herd_pos(herd, w.time);
+    w.teleport_squad(at.add(V2::new(2.0, 0.0)));
+    assert!(!w.animals.herds[herd as usize].hidden(w.time));
+    assert!(w.hunt(&who, herd), "out on the rocks at low water they can be hunted");
+    // Nothing else hides.
+    assert!(w.animals.herds.iter().filter(|h| h.sp != Sp::Tidepicker).all(|h| !h.hidden(w.time)));
+}
+
+/// BL-57: small game is quick to cut up.
+#[test]
+fn bl57_a_small_animal_is_quick_to_cut_up() {
+    assert!(Sp::Tidepicker.def().bulk() <= 0.15);
+    assert!(Sp::Mossback.def().bulk() >= 1.0);
+    let (mut w, _, at, _) = dustrunner_hunt();
+    let c = w.carcasses_near(at, 400.0).first().map(|c| (c.id, c.pos, c.sp, c.size)).expect("a carcass");
+    let who = w.squad.members[0];
+    w.teleport_squad(c.1);
+    assert!(w.order_butcher(who, c.0));
+    let start = w.time;
+    let want = (gahturiyu_sim::sim::labour::BUTCHER_MINUTES * c.2.def().bulk() * c.3.clamp(0.3, 4.0)) as f64 * 60.0;
+    assert!(want < 10.0 * 60.0, "a Dustrunner takes under ten minutes: {want}");
+    for _ in 0..4000 {
+        w.step(1.0);
+        if !w.butchering_now(who) && w.time > start + 5.0 {
+            break;
+        }
+    }
+    assert!((w.time - start - want).abs() < 30.0, "took {:.0} s, wanted about {want:.0}", w.time - start);
+    assert!(w.carcasses_near(at, 400.0).iter().all(|x| x.id != c.0), "it's cut up");
+}
+
+/// BL-56: a second butcher goes to the next carcass, or is told why not.
+#[test]
+fn bl56_two_butchers_dont_share_a_carcass() {
+    let (mut w, _, at, _) = dustrunner_hunt();
+    let lying: Vec<(u32, V2)> = w.carcasses_near(at, 400.0).iter().map(|c| (c.id, c.pos)).collect();
+    assert!(!lying.is_empty());
+    let (a, b) = (w.squad.members[0], w.squad.members[1]);
+    w.teleport_squad(lying[0].1);
+    assert!(w.order_butcher(a, lying[0].0));
+    let near_another = lying.iter().skip(1).any(|c| c.1.dist(lying[0].1) <= gahturiyu_sim::sim::labour::NEXT_CARCASS);
+    let ok = w.order_butcher(b, lying[0].0);
+    assert_eq!(ok, near_another, "the second goes to another carcass if there's one near");
+    let jobs: Vec<(u32, u32)> = w.butchering.iter().map(|j| (j.who, j.carcass)).collect();
+    if ok {
+        let mine = jobs.iter().find(|j| j.0 == b).expect("the second has a job").1;
+        assert_ne!(mine, lying[0].0, "and it's not the first one's carcass");
+    } else {
+        assert!(jobs.iter().all(|j| j.0 != b));
+        assert!(w.log.iter().any(|l| l.1.contains("is already cutting that one up")), "{:?}", w.log);
+    }
+}
+
+/// BL-35: a carcass picked clean under the knife is said so.
+#[test]
+fn bl35_a_carcass_gone_before_it_was_cut_up_is_said() {
+    let (mut w, _, at, _) = dustrunner_hunt();
+    let c = w.carcasses_near(at, 400.0).first().map(|c| (c.id, c.pos)).expect("a carcass");
+    let who = w.squad.members[0];
+    w.teleport_squad(c.1.add(V2::new(30.0, 0.0)));
+    assert!(w.order_butcher(who, c.0));
+    // The birds finish it before the butcher gets there.
+    let now = w.time;
+    for x in w.animals.carcasses.iter_mut().filter(|x| x.id == c.0) {
+        x.gone_at = now + 1.0;
+    }
+    for _ in 0..30 {
+        w.step(1.0);
+    }
+    assert!(w.butchering.iter().all(|j| j.who != who));
+    assert!(w.log.iter().any(|l| l.1.contains("finds the carcass picked clean")), "{:?}", w.log);
+}
+
+/// BL-34: a won hunt says what was killed.
+#[test]
+fn bl34_a_hunt_s_end_says_what_was_killed() {
+    let (w, herd, _, before) = dustrunner_hunt();
+    let killed = before - w.animals.herds[herd as usize].alive(w.time);
+    assert!(killed > 0);
+    let line = w.log.iter().find(|l| l.1.starts_with("The fight is over")).map(|l| l.1.clone()).expect("a summary");
+    assert!(line.contains(&format!("Dead: {}", Sp::Dustrunner.def().counted(killed))), "{line} ({killed} killed)");
+    assert!(!line.contains("they ran."), "{line}");
+}
+
+/// BL-58: routed prey runs away from the hunters, not past them.
+#[test]
+fn bl58_routed_prey_runs_away_from_the_hunters() {
+    let (w, herd, at, _) = dustrunner_hunt();
+    let h = &w.animals.herds[herd as usize];
+    assert!(h.alive(w.time) > 0, "some of the flock got away");
+    // The squad came at them from the east: they go west.
+    let away = h.away.expect("they ran");
+    assert!(away.to.x < at.x - 20.0 || !gahturiyu_sim::sim::geo::is_land(at.add(V2::new(-60.0, 0.0))), "the flock ran to {:?}, from {at:?}, with the squad to the east", away.to);
+}
+
+/// BL-27: a beast left lying beaten can be finished by hunting it.
+#[test]
+fn bl27_a_beaten_beast_can_be_finished() {
+    let mut w = worldgen::generate(8);
+    step_to(&mut w, 9.0 * HOUR);
+    let t = w.time;
+    let herd = w.animals.herds.iter().find(|h| h.sp == Sp::Cragmaw && h.alive(t) == 1).expect("a Cragmaw").id;
+    let max = max_hp(Sp::Cragmaw, w.animals.herds[herd as usize].size(0, t));
+    w.animals.herds[herd as usize].set_hurt(0, [0.0, max[1] + 5.0, 0.0, 0.0, 0.0, 0.0], t);
+    assert!(w.animals.herds[herd as usize].down(0, t));
+    let who = w.squad.members.clone();
+    let at = w.animal_pos(herd, 0, t);
+    // From across the clearing: nothing yet (and no fight with a beast that's out cold).
+    w.teleport_squad(at.add(V2::new(30.0, 0.0)));
+    assert!(!w.hunt(&who, herd));
+    assert!(w.squad_battle().is_none());
+    // Ordered, they walk up and finish it.
+    assert!(w.order_hunt(&who, herd));
+    for _ in 0..600 {
+        w.step(0.5);
+        if w.animals.herds[herd as usize].alive(w.time) == 0 {
+            break;
+        }
+    }
+    assert_eq!(w.animals.herds[herd as usize].alive(w.time), 0, "the Cragmaw is finished");
+    assert!(w.squad_battle().is_none(), "without a fight");
+    assert_eq!(w.carcasses_near(at, 30.0).len(), 1, "and lies there to be cut up");
+    assert!(w.log.iter().any(|l| l.1 == "You finish the Cragmaw."), "{:?}", w.log);
+}
+
+/// BL-26: an ambusher leaves alone a party it would run from at once.
+#[test]
+fn bl26_an_ambusher_weighs_the_party() {
+    let d = Sp::ChasmLurker.def();
+    let mine = d.body.might;
+    assert!(d.body.odds > 0.0);
+    // Four strong travellers: left alone, whatever the roll.
+    for roll in [0.0, 0.2, 0.9] {
+        assert!(!would_attack(Sp::ChasmLurker, mine, mine * d.body.odds * 1.5, 4, roll));
+    }
+    // One weak one: taken.
+    assert!(would_attack(Sp::ChasmLurker, mine, mine * 0.5, 1, 0.9));
+    // A party it can handle is still a matter of boldness when it's big.
+    assert!(would_attack(Sp::ChasmLurker, mine, mine * 2.0, 4, 0.0));
+}
+
+/// BL-25: a hound eats raw meat from its owner's pack, and stays.
+#[test]
+fn bl25_a_hound_eats_from_its_owner_s_pack() {
+    let meat = gahturiyu_sim::sim::items::id("raw_meat");
+    let tame = |w: &mut World| {
+        let owner = w.squad.members[0];
+        let t = w.time;
+        w.animals.hounds.push(Hound { id: 1, owner, seed: 7, size: 1.0, hurt: Hurt { lost: [0.0; 6], at: t }, hunger: 0.3, fed_at: t, tamed_at: t, gone: false });
+        owner
+    };
+    // With meat in the pack: fed each dawn, still there after a week.
+    let mut w = worldgen::generate(7);
+    let owner = tame(&mut w);
+    w.people[owner as usize].detail.as_mut().unwrap().gear.add(meat, 10);
+    // (The squad needs to eat too, to stay in the squad's shape.)
+    for m in w.squad.members.clone() {
+        w.people[m as usize].detail.as_mut().unwrap().gear.add(gahturiyu_sim::sim::items::id("flatbread"), 40);
+    }
+    let had = w.count_of(owner, "raw_meat");
+    let w = run(w, 7.0 * 24.0, HOUR);
+    assert_eq!(w.tamed().len(), 1, "a fed hound stays");
+    let left = w.count_of(owner, "raw_meat");
+    assert!(left < had && left > 0, "it ate {} of {had} pieces in a week", had - left);
+    assert!(w.hound_hunger(1).unwrap() < 0.8);
+    // With none: gone within the week, as before.
+    let mut w = worldgen::generate(7);
+    tame(&mut w);
+    let w = run(w, 7.0 * 24.0, HOUR);
+    assert!(w.tamed().is_empty(), "an unfed hound leaves");
+}

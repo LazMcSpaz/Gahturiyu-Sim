@@ -36,6 +36,8 @@ pub const HUNGER_LOSS: f32 = 0.8;
 pub const PEN_HISTORY: usize = 24;
 /// How hungry a tamed hound gets in a day with nothing to eat (1 = starving).
 pub const HOUND_HUNGER_PER_DAY: f32 = 0.5;
+/// Days of a hound's hunger one piece of raw meat stills.
+pub const HOUND_MEAL: f32 = 1.0;
 /// Days a hound stays with an owner who lets it starve.
 pub const HOUND_LEAVES_DAYS: f64 = 2.0;
 /// How much weaker a starving hound's bite is.
@@ -470,6 +472,23 @@ impl World {
     /// Hounds whose owner is dead, or who've been left to starve, go back
     /// to the wild (the dawn stock-take).
     pub(super) fn settle_hounds(&mut self, t: f64) {
+        // A hungry hound eats raw meat out of its owner's pack, a piece for
+        // each day it has gone short (BL-25).
+        let meat = super::super::items::id("raw_meat");
+        for k in 0..self.animals.hounds.len() {
+            let (id, owner, gone) = (self.animals.hounds[k].id, self.animals.hounds[k].owner, self.animals.hounds[k].gone);
+            if gone || self.people[owner as usize].dead || !self.people[owner as usize].in_squad {
+                continue;
+            }
+            let mut ate = 0;
+            while self.animals.hounds[k].hunger_at(t) >= HOUND_HUNGER_PER_DAY * 0.5 && self.people[owner as usize].detail.as_mut().is_some_and(|d| d.gear.take(meat)) {
+                self.feed_hound(id, HOUND_MEAL);
+                ate += 1;
+            }
+            if ate > 0 {
+                self.people[owner as usize].recompute_might();
+            }
+        }
         let people = &self.people;
         let mut left = Vec::new();
         for h in self.animals.hounds.iter_mut().filter(|h| !h.gone) {
