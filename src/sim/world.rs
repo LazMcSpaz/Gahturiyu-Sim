@@ -19,6 +19,8 @@ pub use super::squad::{GroundItem, Pickup, Squad, SQUAD_SPEED};
 
 /// Departure pressure per unit of (wanderlust squared) per game hour. The main
 /// dial for how busy the roads are.
+/// How fast someone who came round away from their band walks back to it, m/s.
+pub const WALK_BACK: f32 = 1.2;
 pub const DEPARTURE_RATE: f32 = 0.014;
 /// How much less likely someone with a post (a shop, a kitchen, the watch)
 /// is to set out than someone without.
@@ -214,6 +216,10 @@ pub struct World {
     /// caught there (`law.rs`).
     #[serde(default)]
     pub hot: Vec<super::law::Hot>,
+    /// Strangers who came round away from their band, walking back to it:
+    /// where they got up, and when (their place is looked up from the clock).
+    #[serde(default)]
+    pub getting_up: HashMap<PersonId, (V2, f64)>,
 
     // --- Torches ------------------------------------------------------------
     /// Torches burning in someone's hand.
@@ -333,6 +339,7 @@ impl World {
             want_carry: Vec::new(),
             set_down: HashMap::new(),
             hot: Vec::new(),
+            getting_up: HashMap::new(),
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),
@@ -643,7 +650,16 @@ impl World {
             if let Some(g) = self.group(gid) {
                 let i = g.members.iter().position(|&m| m == pid).unwrap_or(0) as f32;
                 let spread = if g.is_moving(self.time) { 2.5 } else { 7.0 };
-                return g.pos.add(V2::new((i * 2.1 + 0.5).cos(), (i * 2.1 + 0.5).sin()).scale(spread * (0.6 + i * 0.35)));
+                let with_band = g.pos.add(V2::new((i * 2.1 + 0.5).cos(), (i * 2.1 + 0.5).sin()).scale(spread * (0.6 + i * 0.35)));
+                // Got up somewhere else: walking back to the band.
+                if let Some(&(from, since)) = self.getting_up.get(&pid) {
+                    let gap = with_band.sub(from);
+                    let walked = (self.time - since).max(0.0) as f32 * WALK_BACK;
+                    if walked < gap.len() {
+                        return from.add(gap.scale(walked / gap.len().max(0.01)));
+                    }
+                }
+                return with_band;
             }
         }
         // Townsfolk are wherever their day plan has them.

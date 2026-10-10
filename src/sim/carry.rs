@@ -232,10 +232,27 @@ impl World {
                 c.2 = t; // a carried body isn't left to rot
             }
         }
-        // Strangers who've come round get up and go back to what they were doing.
-        let up: Vec<PersonId> = self.set_down.keys().copied().filter(|&p| !self.is_down(p)).collect();
+        // Strangers who've come round get up and go back to what they were
+        // doing: one with a band walks back to it from where they lay.
+        let mut up: Vec<PersonId> = self.set_down.keys().copied().filter(|&p| !self.is_down(p)).collect();
+        up.sort_unstable();
+        let t = self.time;
         for p in up {
-            self.set_down.remove(&p);
+            if let Some(at) = self.set_down.remove(&p) {
+                if self.group_of[p as usize].and_then(|g| self.group(g)).is_some() {
+                    self.getting_up.insert(p, (at, t));
+                }
+            }
+        }
+        // Back with their band (or the band is gone): done walking.
+        let mut back: Vec<PersonId> = self.getting_up.keys().copied().collect();
+        back.sort_unstable();
+        for p in back {
+            let (from, since) = self.getting_up[&p];
+            let band = self.group_of[p as usize].and_then(|g| self.group(g)).map(|g| g.pos);
+            if band.is_none_or(|b| (t - since) as f32 * super::world::WALK_BACK >= b.dist(from) + 10.0) {
+                self.getting_up.remove(&p);
+            }
         }
     }
 }
