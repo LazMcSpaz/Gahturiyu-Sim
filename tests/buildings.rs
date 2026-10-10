@@ -1059,6 +1059,7 @@ fn container_owners_follow_renumbered_households() {
                 assert!(hh.members.iter().any(|&p| w.people[p as usize].dwelling == Some(d.id.1)), "owner lives there");
             }
             Owner::Town(x) => assert_eq!(*x, t),
+            Owner::Nobody => panic!("a town's container is somebody's"),
         }
     }
 }

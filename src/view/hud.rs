@@ -536,10 +536,16 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         }
         Hover::Container(id) => {
             let Some(k) = w.container(id) else { return out };
-            out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
+            if gahturiyu_sim::sim::containers::is_stash(id) {
+                out.push(("The bandits' stash".to_string(), TEXT));
+            } else {
+                out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
+            }
             if w.container_locked(id) {
                 out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
+            } else if gahturiyu_sim::sim::containers::is_wild(id) {
+                out.push(("Click to open (nobody's: taking is no crime, but keepers nearby may hear)".into(), DIM));
             } else {
                 out.push(("Click to open (taking is theft)".into(), DIM));
             }

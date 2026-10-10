@@ -190,23 +190,28 @@ impl World {
             return Vec::new();
         }
         // Who's watching: camps close enough to matter and not busy fighting.
-        let watchers: Vec<(GroupId, V2)> = self
+        // A camp licking its wounds after a fight doesn't go looking for
+        // another, but still sees who walks into its own ground, unless the
+        // squad beat it (then the squad holds the field till they've rested).
+        let watchers: Vec<(GroupId, V2, Option<V2>)> = self
             .camps
             .iter()
-            // A camp licking its wounds after a fight doesn't go looking for another.
-            .filter(|c| c.ready_at <= self.time)
-            .filter_map(|c| self.group(c.group).map(|g| (g, c.pos)))
-            .filter(|(g, _)| g.band == 1 && !self.fighting_groups.contains(&g.id) && g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
-            .map(|(g, _)| (g.id, g.position_at(self.time)))
+            .filter(|c| c.ready_at <= self.time || !self.beaten_camps.contains(&c.group))
+            .filter_map(|c| self.group(c.group).map(|g| (g, c.pos, c.ready_at > self.time)))
+            .filter(|(g, _, _)| g.band == 1 && !self.fighting_groups.contains(&g.id) && g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
+            .map(|(g, home, resting)| (g.id, g.position_at(self.time), resting.then_some(home)))
             .collect();
         let members: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)).collect();
         // Rates don't change much within one step; work them out once.
         let ticks = (last - first + 1).min(400) as f32;
         let mut noticed = Vec::new();
-        for &(gid, from) in &watchers {
+        for &(gid, from, resting) in &watchers {
             let mut when = None;
             for &m in &members {
-                let (rate, near) = self.detect_rate(gid, from, m);
+                let (rate, near) = match resting {
+                    Some(home) if self.person_pos(m).dist(home) > super::encounters::GUARD_RING => (0.0, false),
+                    _ => self.detect_rate(gid, from, m),
+                };
                 let meter = self.suspicion.entry((gid, m)).or_insert(0.0);
                 let before = *meter;
                 if rate > 0.0 {

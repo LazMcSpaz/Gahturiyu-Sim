@@ -76,6 +76,10 @@ impl World {
     /// `at`, and how likely. Walls hide: only those in the same building (or
     /// both outside) count; sleepers notice only close by, and seldom.
     pub fn spotter(&self, who: PersonId, at: V2, town: SettlementId) -> (f32, Option<PersonId>) {
+        // No town's eyes out in the wild.
+        if town == super::containers::WILD {
+            return (0.0, None);
+        }
         let sight = super::stealth::SIGHT * 0.6 * self.visibility_of(who);
         let room = self.building_at(at).map(|d| d.id);
         let mut best = (0.0f32, None);

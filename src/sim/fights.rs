@@ -194,7 +194,8 @@ impl World {
             band: 3,
         };
         self.add_group(g);
-        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0 });
+        let stash = Some(self.make_stash(at));
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash });
         self.scan_camp(self.camps.len() - 1);
         gid
     }
@@ -234,7 +235,8 @@ impl World {
                 match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied().filter(|b| !duels.contains(b)) {
                     Some(bid) => self.join_battle(bid, 1, &fresh),
                     None => {
-                        let line = "You're attacked!".to_string();
+                        let home = self.camps.iter().any(|c| c.group == gid && c.ready_at > when);
+                        let line = if home { "You're seen in their camp! They come for you." } else { "You're attacked!" }.to_string();
                         self.alerts.push(line.clone());
                         self.log.push_front((when, line));
                         let fit = self.squad_fit();
@@ -515,10 +517,13 @@ impl World {
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();
         let squad_won = b.winner() == Some(SQUAD_SIDE);
-        for gid in touched {
+        for gid in touched.clone() {
             self.fighting_groups.remove(&gid);
             if squad_won && self.camps.iter().any(|c| c.group == gid) {
                 self.beaten_camps.insert(gid);
+            } else if b.winner().is_some() {
+                // They beat the squad: they hold their ground again.
+                self.beaten_camps.remove(&gid);
             }
             // They've had their fight; they'll need to spot you again.
             self.suspicion.retain(|(g, _), _| *g != gid);
@@ -559,6 +564,11 @@ impl World {
                 self.squad.goal[k] = f.pos;
             }
         }
+        // Beaten in a gang's own camp: they drag the downed out of it and
+        // leave them there (out of their ground, so the night's mercy holds).
+        if !squad_won {
+            self.out_of_their_camp(&b, &touched);
+        }
         let dead_squad: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| self.people[*m as usize].dead).collect();
         let people = &self.people;
         self.squad.retain(|m| !people[m as usize].dead);
@@ -581,6 +591,44 @@ impl World {
             self.log.push_front((t, line));
         }
         self.log.truncate(14);
+    }
+}
+
+impl World {
+    /// The squad lay beaten inside the camp of one of the bands it fought:
+    /// each one down there is carried out to `DUMP_AT` from the camp's
+    /// middle, the way they came in. (The player exception: only the
+    /// squad's own fights.)
+    fn out_of_their_camp(&mut self, b: &Battle, bands: &[GroupId]) {
+        use super::encounters::{DUMP_AT, GUARD_RING};
+        let homes: Vec<V2> = self.camps.iter().filter(|c| bands.contains(&c.group) && self.group(c.group).is_some()).map(|c| c.pos).collect();
+        let mut moved = false;
+        for home in homes {
+            for f in b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && !f.dead) {
+                let Some(k) = self.squad.index(f.pid) else { continue };
+                let at = self.squad.at[k];
+                if at.dist(home) > GUARD_RING || !self.is_down(f.pid) {
+                    continue;
+                }
+                let away = at.sub(home);
+                let len = away.dist(V2::default());
+                let dir = if len > 0.5 {
+                    away.scale(1.0 / len)
+                } else {
+                    let a = Rng::from_keys(&[self.seed, b.id as u64, 0x4455_4D50]).f32() * std::f32::consts::TAU;
+                    V2::new(a.cos(), a.sin())
+                };
+                let to = home.add(dir.scale(DUMP_AT)).add(super::squad::formation(k).scale(0.5));
+                self.squad.at[k] = to;
+                self.squad.goal[k] = to;
+                self.squad.route[k].clear();
+                moved = true;
+            }
+        }
+        if moved {
+            self.recentre_squad();
+            self.log.push_front((b.time, "They drag you out of their camp and leave you there.".to_string()));
+        }
     }
 }
 

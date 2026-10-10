@@ -215,6 +215,10 @@ impl Shot {
     /// Where the camera should look instead of at the squad, if anywhere.
     pub fn focus(&self, world: &World) -> Option<V2> {
         use gahturiyu_sim::sim::routine::Doing;
+        // A ruin scene looks at the ruin (its chest and crate).
+        if let Some(k) = self.ruin {
+            return world.ruins.get(k).map(|r| r.pos);
+        }
         match self.society.as_deref()? {
             "runners" | "boats" => {
                 let want = if self.society.as_deref() == Some("runners") { Doing::Run } else { Doing::Ferry };
