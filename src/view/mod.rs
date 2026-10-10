@@ -21,6 +21,7 @@ pub mod models;
 pub mod palette;
 pub mod scene;
 pub mod settings;
+pub mod sound;
 pub mod shot;
 pub mod squadui;
 pub mod townui;

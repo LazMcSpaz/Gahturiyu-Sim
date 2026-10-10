@@ -28,7 +28,7 @@ const FLASK: Rgb = [0.85, 0.35, 0.30];
 /// How long after a blow lands its arc still shows, seconds.
 const ARC_AFTER: f64 = 0.2;
 /// The share of a swing's wind-up the arc sweeps through.
-const ARC_SHARE: f64 = 0.5;
+pub const ARC_SHARE: f64 = 0.5;
 
 /// Which way someone faces, radians (sim convention): at their target in a
 /// fight, along their way if walking, else as they happen to stand.

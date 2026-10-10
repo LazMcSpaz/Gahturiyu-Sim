@@ -23,7 +23,7 @@ name = "town_forge"
 path = "src/bin/town_forge/main.rs"
 
 [dependencies]
-bevy = { version = "=0.19.1", default-features = false, features = ["3d", "png", "tonemapping_luts", "default_font"] }
+bevy = { version = "=0.19.1", default-features = false, features = ["3d", "png", "tonemapping_luts", "default_font", "audio"] }
 bevy_egui = { version = "=0.42.0", default-features = false, features = ["render", "default_fonts"] }
 meshopt = "=0.6.2"
 serde = { version = "1", features = ["derive"] }

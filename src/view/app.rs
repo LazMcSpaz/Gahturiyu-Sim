@@ -156,6 +156,8 @@ pub struct Game {
     /// Draw every building near the camera cut open (screenshots only:
     /// `GAHT_CUTAWAY`).
     pub cutaway: bool,
+    /// Sounds asked for this frame (`sound.rs` plays them).
+    pub sounds: super::sound::Queue,
 }
 
 pub fn run() {
@@ -260,6 +262,7 @@ pub fn run() {
         base_tab: false,
         placing: None,
         cutaway: false,
+        sounds: Default::default(),
         shot: None,
         world,
     };
@@ -359,22 +362,23 @@ pub fn run() {
     // aren't missing whatever was still being prepared.
     let synchronous = shot.is_some();
     game.shot = shot;
+    let plugins = DefaultPlugins
+        .set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Gahturiyu".into(),
+                resolution: WindowResolution::new(1600, 1000),
+                present_mode: PresentMode::AutoVsync,
+                ..default()
+            }),
+            ..default()
+        })
+        .set(AssetPlugin { file_path: models::assets_dir().to_string_lossy().into_owned(), ..default() })
+        .set(bevy::render::RenderPlugin { synchronous_pipeline_compilation: synchronous, ..default() });
+    // Screenshots are silent: no sound device is even opened.
+    let plugins = if synchronous { plugins.disable::<bevy::audio::AudioPlugin>() } else { plugins };
 
     App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "Gahturiyu".into(),
-                        resolution: WindowResolution::new(1600, 1000),
-                        present_mode: PresentMode::AutoVsync,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .set(AssetPlugin { file_path: models::assets_dir().to_string_lossy().into_owned(), ..default() })
-                .set(bevy::render::RenderPlugin { synchronous_pipeline_compilation: synchronous, ..default() }),
-        )
+        .add_plugins(plugins)
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
         .add_plugins(super::foliage::FoliagePlugin)
@@ -384,9 +388,10 @@ pub fn run() {
         .init_resource::<scene::Scene3d>()
         .init_resource::<models::Models>()
         .init_resource::<super::foliage::Foliage>()
+        .init_resource::<super::sound::Sfx>()
         .insert_resource(ClearColor(Color::srgb(0.63, 0.69, 0.72)))
         .add_systems(Startup, (setup, scene::setup, light::setup, models::start, super::foliage::setup))
-        .add_systems(Update, (input, simulate, camera, light::update, models::finish, scene::update, super::foliage::update, screenshot).chain())
+        .add_systems(Update, (input, simulate, camera, light::update, models::finish, scene::update, super::foliage::update, super::sound::update, screenshot).chain())
         .add_systems(EguiPrimaryContextPass, ui)
         .run();
 }
@@ -940,6 +945,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
             None => game.world.order_cast(who, s, target, point),
         };
         if let Err(e) = res {
+            game.sounds.ui("ui_cant");
             game.notice = Some((format!("{}: {}", s.def().name, e.0), std::time::Instant::now()));
         }
         return;
@@ -957,12 +963,26 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
     };
     if let Some(c) = first {
         use super::interact::Act;
+        // A locked door or chest with no lockpick among the selected: they
+        // only walk up to it.
+        let locked = match hover {
+            Some(Hover::Door(id)) => world.is_locked(id),
+            Some(Hover::Container(id)) => world.container_locked(id),
+            _ => false,
+        };
         match c.act {
             Act::Select(pid) => game.sel.pick(pid, shift),
             Act::TownPanel(t) => game.town = if game.town == Some(t) { None } else { Some(t) },
             act => {
                 if let Some(msg) = super::interact::perform(world, &who, all, act) {
+                    if !matches!(act, Act::Dose(_)) {
+                        game.sounds.ui("ui_cant");
+                    }
                     game.notice = Some((msg, std::time::Instant::now()));
+                } else if locked && matches!(act, Act::Walk(_)) {
+                    game.sounds.ui("ui_cant");
+                } else if matches!(act, Act::Walk(_)) {
+                    game.sounds.ui("ui_order");
                 }
             }
         }
@@ -979,6 +999,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
         } else {
             world.order_members(&who, t);
         }
+        game.sounds.ui("ui_order");
     }
 }
 
@@ -1225,6 +1246,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         panels.push(super::frame::keys_panel(&c, game.view == View::Map));
     }
     for fa in [list_act, bottom_act].into_iter().flatten() {
+        // (A pick in the squad list sounds as the selection changes.)
+        if !matches!(fa, FrameAct::Select(..)) {
+            game.sounds.ui("ui_press");
+        }
         match fa {
             FrameAct::Select(pid, add) => game.sel.pick(pid, add),
             FrameAct::Pack(pid) => {
@@ -1342,9 +1367,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     match loot_act {
         Some(super::lootui::LootAct::Take(m, src, what)) => {
             w.take_from(m, src, what);
+            game.sounds.ui("take_item");
         }
         Some(super::lootui::LootAct::TakeAll(m, src)) => {
             w.take_all_from(m, src);
+            game.sounds.ui("take_item");
         }
         Some(super::lootui::LootAct::Put(m, k)) => {
             w.put_in(m, k);
@@ -1355,6 +1382,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if w.talk.is_some() {
         let (t, bx) = squadui::talk(&c, w, game.mouse, click);
         if let Some(t) = t {
+            use gahturiyu_sim::sim::dialogue::Topic;
+            let coins = matches!(t, Topic::Trade | Topic::Buy(..) | Topic::Sell(..) | Topic::SellAll(..));
+            game.sounds.ui(if coins { "coins" } else { "ui_press" });
             w.ask(t);
         }
         panels.extend(bx);
@@ -1431,6 +1461,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::Use(pid, it) => {
                 let why = w.why_cant_use(pid, it);
                 if !w.use_item(pid, it) {
+                    game.sounds.ui("ui_cant");
                     game.notice = Some((why.unwrap_or_else(|| "That can't be used just now.".into()), std::time::Instant::now()));
                 }
             }
@@ -1470,6 +1501,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     game.aim = Some((pid, s));
                     game.aim_scroll = None;
                 } else if let Err(e) = w.use_spell(pid, s, None, None) {
+                    game.sounds.ui("ui_cant");
                     game.notice = Some((format!("{}: {}", d.name, e.0), std::time::Instant::now()));
                 }
             }
@@ -1483,6 +1515,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         panels.push(super::settings::panel(&c, &mut s, game.mouse, click, game.frame_ms));
         if s != *settings {
             *settings = s;
+            game.sounds.ui("ui_press");
         }
     }
     panels.extend(super::weather::panel(&c, game, &mut weather, click));
@@ -1510,10 +1543,17 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                         game.world.set_sneaking(x, true);
                     }
                     let _ = super::interact::perform(&mut game.world, &who, all, Act::Walk(p));
+                    game.sounds.ui("ui_order");
                 }
                 act => {
                     if let Some(msg) = super::interact::perform(&mut game.world, &who, all, act) {
+                        // (A draught handed over says so too; that isn't a failure.)
+                        if !matches!(act, Act::Dose(_)) {
+                            game.sounds.ui("ui_cant");
+                        }
                         game.notice = Some((msg, std::time::Instant::now()));
+                    } else if matches!(act, Act::Walk(_)) {
+                        game.sounds.ui("ui_order");
                     }
                 }
             }

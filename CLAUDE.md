@@ -395,6 +395,17 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   the world with what the window saw last frame — drawing only. Left-drag
   draws a box that selects the squad members inside it.
 
+- Sound (`view/sound.rs`, drawing only): our own placeholder effects in
+  `assets/sounds` (`manifest.json` lists name, file and group: interface,
+  screens, world), made by `tools/sounds/make_sounds.py`. Ask with
+  `game.sounds.ui(name)` / `.at(name, pos)` (base name; a take `_1..3` is
+  picked at random); `sound::update` plays the queue, adds panel, selection
+  and nearby-fight sounds by comparing with last frame, and rate-limits each
+  name to once per 50 ms. World sounds fade with distance from a listener
+  near the camera's focus, silent beyond 120 m. The O panel's Sound row is
+  the master volume (`settings.txt`). Screenshots are silent (the audio
+  plugin is off with `GAHT_SHOT`).
+
 - Buildings are placeholder shapes by variant (`view/interiors.rs`, from
   `sim/layout.rs`): outside in the town mesh; a building a squad member is
   in is drawn cut open (floor, low walls, inner walls, furniture). Its

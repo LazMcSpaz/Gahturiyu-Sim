@@ -56,7 +56,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | G | Look through a scout spirit (G again or C to come back) |
 | J | Journal (jobs) |
 | P, or click a town's name | Town panel: its people and customs, food, store, money, which services are open |
-| O | Graphics settings |
+| O | Graphics and sound settings |
 | F8 / F9 | Save / load (one quick-save slot) |
 | Right-drag, Q / E | Turn the camera (map: pan) |
 | Middle-drag, or WASD | Pan |
@@ -780,7 +780,7 @@ stored; they're rebuilt from the seed, which is why a save is only about 2 MB.
 A loaded world carries on exactly as it would have. When an update changes
 what's saved, older saves are refused with a message rather than loaded wrong.
 
-### Graphics settings
+### Graphics and sound settings
 
 Press O. Click a row to change it; it's remembered in `settings.txt` next to
 the assets folder (delete that file to reset). None of it changes what happens.
@@ -791,6 +791,13 @@ the assets folder (delete that file to reset). None of it changes what happens.
 | Grass and trees | off / low (no grass, thinner woods) / medium (half the grass) / high |
 | Lights at once | 8 / 16 / 28 / 40 fires, torches and windows lighting the scene |
 | Glow | the soft halo round bright things at night |
+| Rain, snow and fog | off / low / medium / high |
+| Sound | off / quiet / normal / loud: how loud the sound effects are |
+
+The sounds are placeholders we made ourselves (`assets/sounds`, made by
+`tools/sounds/make_sounds.py`): clicks and panels, coins when trading, chest
+lids and picking things up, and blows, arrows, spells and falls in fights near
+the camera. Nothing extra to install; with no speakers it simply stays quiet.
 
 If the game runs slowly, try grass and trees on medium first, then shadows.
 
@@ -1102,7 +1109,8 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   townui.rs     the town panel (P)
   editor.rs     the land editor (F10): its panel, brush cursor and keys
   shot.rs       headless screenshots (the GAHT_ flags)
-  settings.rs   graphics settings (O)
+  settings.rs   graphics and sound settings (O)
+  sound.rs      sound effects: what plays when (drawing only)
 src/bin/headless.rs  the world with no window
 assets/       font, and models/ for GLB files
 maps/         land edited by hand, one file per seed (the editor writes them)

@@ -1,0 +1,452 @@
+[
+  {
+    "name": "ui_hover",
+    "file": "ui_hover.ogg",
+    "seconds": 0.035,
+    "peak_db": -24.0,
+    "rms_db": -40.86,
+    "group": "interface",
+    "description": "Softest tick as the mouse passes over a button.",
+    "recipe": "3 ms band-passed noise click plus a 2.3 kHz ping, very quiet."
+  },
+  {
+    "name": "ui_press_1",
+    "file": "ui_press_1.ogg",
+    "seconds": 0.075,
+    "peak_db": -18.0,
+    "rms_db": -32.67,
+    "group": "interface",
+    "description": "Button pressed: a soft woody/brass click.",
+    "recipe": "Noise click plus damped 680/1550 Hz wood modes and faint inharmonic brass partials, detuned per take."
+  },
+  {
+    "name": "ui_press_2",
+    "file": "ui_press_2.ogg",
+    "seconds": 0.075,
+    "peak_db": -18.0,
+    "rms_db": -34.31,
+    "group": "interface",
+    "description": "Button pressed: a soft woody/brass click.",
+    "recipe": "Noise click plus damped 680/1550 Hz wood modes and faint inharmonic brass partials, detuned per take."
+  },
+  {
+    "name": "ui_press_3",
+    "file": "ui_press_3.ogg",
+    "seconds": 0.075,
+    "peak_db": -18.0,
+    "rms_db": -35.44,
+    "group": "interface",
+    "description": "Button pressed: a soft woody/brass click.",
+    "recipe": "Noise click plus damped 680/1550 Hz wood modes and faint inharmonic brass partials, detuned per take."
+  },
+  {
+    "name": "ui_release",
+    "file": "ui_release.ogg",
+    "seconds": 0.055,
+    "peak_db": -20.0,
+    "rms_db": -36.14,
+    "group": "interface",
+    "description": "Button released: a lighter, higher click.",
+    "recipe": "The press recipe pitched up ~22%, shorter and quieter."
+  },
+  {
+    "name": "ui_open",
+    "file": "ui_open.ogg",
+    "seconds": 0.2,
+    "peak_db": -18.0,
+    "rms_db": -33.14,
+    "group": "interface",
+    "description": "Panel opening: a short soft paper/cloth swish.",
+    "recipe": "Noise through a band-pass sweeping 600 to 2600 Hz under a smooth hump."
+  },
+  {
+    "name": "ui_close",
+    "file": "ui_close.ogg",
+    "seconds": 0.15,
+    "peak_db": -18.0,
+    "rms_db": -32.58,
+    "group": "interface",
+    "description": "Panel closing: a shorter downward swish.",
+    "recipe": "Noise through a band-pass sweeping 2200 down to 650 Hz, front-weighted."
+  },
+  {
+    "name": "ui_cant",
+    "file": "ui_cant.ogg",
+    "seconds": 0.18,
+    "peak_db": -18.0,
+    "rms_db": -30.27,
+    "group": "interface",
+    "description": "Action not possible: two quick dull low thuds.",
+    "recipe": "Two pitch-dropping low sines (170 to 120 Hz) with low-passed noise puffs, 85 ms apart, low-passed at 1.2 kHz."
+  },
+  {
+    "name": "ui_select",
+    "file": "ui_select.ogg",
+    "seconds": 0.15,
+    "peak_db": -18.0,
+    "rms_db": -32.31,
+    "group": "interface",
+    "description": "Squad member selected: a small bright brass tink.",
+    "recipe": "Bell-like inharmonic partials on 1.9 kHz (x1, 2.32, 4.07) with a soft attack."
+  },
+  {
+    "name": "ui_order_1",
+    "file": "ui_order_1.ogg",
+    "seconds": 0.12,
+    "peak_db": -18.0,
+    "rms_db": -29.01,
+    "group": "interface",
+    "description": "Move order given: a soft low thup.",
+    "recipe": "Sine dropping 190 to 95 Hz plus a low-passed noise puff, detuned per take."
+  },
+  {
+    "name": "ui_order_2",
+    "file": "ui_order_2.ogg",
+    "seconds": 0.12,
+    "peak_db": -18.0,
+    "rms_db": -30.11,
+    "group": "interface",
+    "description": "Move order given: a soft low thup.",
+    "recipe": "Sine dropping 190 to 95 Hz plus a low-passed noise puff, detuned per take."
+  },
+  {
+    "name": "ui_order_3",
+    "file": "ui_order_3.ogg",
+    "seconds": 0.12,
+    "peak_db": -18.0,
+    "rms_db": -29.74,
+    "group": "interface",
+    "description": "Move order given: a soft low thup.",
+    "recipe": "Sine dropping 190 to 95 Hz plus a low-passed noise puff, detuned per take."
+  },
+  {
+    "name": "talk_open",
+    "file": "talk_open.ogg",
+    "seconds": 0.3,
+    "peak_db": -17.0,
+    "rms_db": -30.4,
+    "group": "screens",
+    "description": "Conversation opens: a very soft breath/rustle.",
+    "recipe": "Broad noise band sweeping 700 to 1300 Hz plus sparse rustle grains."
+  },
+  {
+    "name": "coins_1",
+    "file": "coins_1.ogg",
+    "seconds": 0.4,
+    "peak_db": -14.0,
+    "rms_db": -29.69,
+    "group": "screens",
+    "description": "Trade screen opens (trade_open): coins clinking onto wood.",
+    "recipe": "5-7 coin strikes (4 inharmonic modes each, random pitch) settling faster and quieter, over wooden taps."
+  },
+  {
+    "name": "coins_2",
+    "file": "coins_2.ogg",
+    "seconds": 0.4,
+    "peak_db": -14.0,
+    "rms_db": -28.66,
+    "group": "screens",
+    "description": "Trade screen opens (trade_open): coins clinking onto wood.",
+    "recipe": "5-7 coin strikes (4 inharmonic modes each, random pitch) settling faster and quieter, over wooden taps."
+  },
+  {
+    "name": "coins_3",
+    "file": "coins_3.ogg",
+    "seconds": 0.4,
+    "peak_db": -14.0,
+    "rms_db": -28.89,
+    "group": "screens",
+    "description": "Trade screen opens (trade_open): coins clinking onto wood.",
+    "recipe": "5-7 coin strikes (4 inharmonic modes each, random pitch) settling faster and quieter, over wooden taps."
+  },
+  {
+    "name": "coin_single",
+    "file": "coin_single.ogg",
+    "seconds": 0.15,
+    "peak_db": -14.0,
+    "rms_db": -30.25,
+    "group": "screens",
+    "description": "One coin set down.",
+    "recipe": "One coin strike on a wood tap with a small bounce."
+  },
+  {
+    "name": "pack_open",
+    "file": "pack_open.ogg",
+    "seconds": 0.3,
+    "peak_db": -14.0,
+    "rms_db": -27.3,
+    "group": "screens",
+    "description": "Pack opens: leather creak then a buckle clink.",
+    "recipe": "Friction grains through 380/860/1500 Hz resonators, then a small metal clink."
+  },
+  {
+    "name": "craft_open",
+    "file": "craft_open.ogg",
+    "seconds": 0.4,
+    "peak_db": -14.0,
+    "rms_db": -27.72,
+    "group": "screens",
+    "description": "Crafting opens: tools set on a bench.",
+    "recipe": "Four metal strikes at different pitches, each with a wooden thump."
+  },
+  {
+    "name": "lid_open",
+    "file": "lid_open.ogg",
+    "seconds": 0.6,
+    "peak_db": -14.0,
+    "rms_db": -34.15,
+    "group": "screens",
+    "description": "Chest lid creaking open.",
+    "recipe": "Stick-slip pulse train (35 to 90 per second) ringing wooden resonators at 420/950/1700 Hz."
+  },
+  {
+    "name": "lid_close",
+    "file": "lid_close.ogg",
+    "seconds": 0.25,
+    "peak_db": -14.0,
+    "rms_db": -30.17,
+    "group": "screens",
+    "description": "Wooden lid thump shut.",
+    "recipe": "Low sine thud (120 to 75 Hz), wood modes and a small rattle."
+  },
+  {
+    "name": "take_item_1",
+    "file": "take_item_1.ogg",
+    "seconds": 0.15,
+    "peak_db": -14.0,
+    "rms_db": -27.4,
+    "group": "screens",
+    "description": "Picking something up: a soft cloth/leather shuffle.",
+    "recipe": "Short swept noise band plus rustle grains, timing varied per take."
+  },
+  {
+    "name": "take_item_2",
+    "file": "take_item_2.ogg",
+    "seconds": 0.15,
+    "peak_db": -14.0,
+    "rms_db": -27.41,
+    "group": "screens",
+    "description": "Picking something up: a soft cloth/leather shuffle.",
+    "recipe": "Short swept noise band plus rustle grains, timing varied per take."
+  },
+  {
+    "name": "take_item_3",
+    "file": "take_item_3.ogg",
+    "seconds": 0.15,
+    "peak_db": -14.0,
+    "rms_db": -28.07,
+    "group": "screens",
+    "description": "Picking something up: a soft cloth/leather shuffle.",
+    "recipe": "Short swept noise band plus rustle grains, timing varied per take."
+  },
+  {
+    "name": "page_turn",
+    "file": "page_turn.ogg",
+    "seconds": 0.35,
+    "peak_db": -14.0,
+    "rms_db": -28.68,
+    "group": "screens",
+    "description": "A page turning (journal, spell book).",
+    "recipe": "Rising noise band with crinkle grains and a soft low flap at the end."
+  },
+  {
+    "name": "step_dirt_1",
+    "file": "step_dirt_1.ogg",
+    "seconds": 0.12,
+    "peak_db": -10.0,
+    "rms_db": -24.6,
+    "group": "world",
+    "description": "Footstep on earth.",
+    "recipe": "Heel and toe: low-passed noise thuds with gritty grains on top."
+  },
+  {
+    "name": "step_dirt_2",
+    "file": "step_dirt_2.ogg",
+    "seconds": 0.12,
+    "peak_db": -10.0,
+    "rms_db": -24.55,
+    "group": "world",
+    "description": "Footstep on earth.",
+    "recipe": "Heel and toe: low-passed noise thuds with gritty grains on top."
+  },
+  {
+    "name": "step_dirt_3",
+    "file": "step_dirt_3.ogg",
+    "seconds": 0.12,
+    "peak_db": -10.0,
+    "rms_db": -27.38,
+    "group": "world",
+    "description": "Footstep on earth.",
+    "recipe": "Heel and toe: low-passed noise thuds with gritty grains on top."
+  },
+  {
+    "name": "step_stone_1",
+    "file": "step_stone_1.ogg",
+    "seconds": 0.1,
+    "peak_db": -10.0,
+    "rms_db": -27.16,
+    "group": "world",
+    "description": "Footstep on stone.",
+    "recipe": "Heel and toe: sharp band-passed clicks with a small low body and scuff."
+  },
+  {
+    "name": "step_stone_2",
+    "file": "step_stone_2.ogg",
+    "seconds": 0.1,
+    "peak_db": -10.0,
+    "rms_db": -26.49,
+    "group": "world",
+    "description": "Footstep on stone.",
+    "recipe": "Heel and toe: sharp band-passed clicks with a small low body and scuff."
+  },
+  {
+    "name": "step_stone_3",
+    "file": "step_stone_3.ogg",
+    "seconds": 0.1,
+    "peak_db": -10.0,
+    "rms_db": -27.28,
+    "group": "world",
+    "description": "Footstep on stone.",
+    "recipe": "Heel and toe: sharp band-passed clicks with a small low body and scuff."
+  },
+  {
+    "name": "swing_1",
+    "file": "swing_1.ogg",
+    "seconds": 0.25,
+    "peak_db": -10.0,
+    "rms_db": -27.67,
+    "group": "world",
+    "description": "A weapon swishing through the air.",
+    "recipe": "Noise through a band-pass that rises to ~1.5 kHz and falls, under a bell envelope."
+  },
+  {
+    "name": "swing_2",
+    "file": "swing_2.ogg",
+    "seconds": 0.25,
+    "peak_db": -10.0,
+    "rms_db": -24.11,
+    "group": "world",
+    "description": "A weapon swishing through the air.",
+    "recipe": "Noise through a band-pass that rises to ~1.5 kHz and falls, under a bell envelope."
+  },
+  {
+    "name": "swing_3",
+    "file": "swing_3.ogg",
+    "seconds": 0.25,
+    "peak_db": -10.0,
+    "rms_db": -25.18,
+    "group": "world",
+    "description": "A weapon swishing through the air.",
+    "recipe": "Noise through a band-pass that rises to ~1.5 kHz and falls, under a bell envelope."
+  },
+  {
+    "name": "hit_flesh_1",
+    "file": "hit_flesh_1.ogg",
+    "seconds": 0.15,
+    "peak_db": -10.0,
+    "rms_db": -22.24,
+    "group": "world",
+    "description": "A blow landing: a muffled thud.",
+    "recipe": "Sine dropping 95 to 55 Hz, low-passed noise mass and a faint slap."
+  },
+  {
+    "name": "hit_flesh_2",
+    "file": "hit_flesh_2.ogg",
+    "seconds": 0.15,
+    "peak_db": -10.0,
+    "rms_db": -22.91,
+    "group": "world",
+    "description": "A blow landing: a muffled thud.",
+    "recipe": "Sine dropping 95 to 55 Hz, low-passed noise mass and a faint slap."
+  },
+  {
+    "name": "hit_flesh_3",
+    "file": "hit_flesh_3.ogg",
+    "seconds": 0.15,
+    "peak_db": -10.0,
+    "rms_db": -22.42,
+    "group": "world",
+    "description": "A blow landing: a muffled thud.",
+    "recipe": "Sine dropping 95 to 55 Hz, low-passed noise mass and a faint slap."
+  },
+  {
+    "name": "hit_block_1",
+    "file": "hit_block_1.ogg",
+    "seconds": 0.15,
+    "peak_db": -10.0,
+    "rms_db": -26.95,
+    "group": "world",
+    "description": "A blow blocked: a wood/metal knock.",
+    "recipe": "Wood modes (450/1120 Hz) plus quieter inharmonic metal partials and a click."
+  },
+  {
+    "name": "hit_block_2",
+    "file": "hit_block_2.ogg",
+    "seconds": 0.15,
+    "peak_db": -10.0,
+    "rms_db": -28.12,
+    "group": "world",
+    "description": "A blow blocked: a wood/metal knock.",
+    "recipe": "Wood modes (450/1120 Hz) plus quieter inharmonic metal partials and a click."
+  },
+  {
+    "name": "hit_block_3",
+    "file": "hit_block_3.ogg",
+    "seconds": 0.15,
+    "peak_db": -10.0,
+    "rms_db": -28.99,
+    "group": "world",
+    "description": "A blow blocked: a wood/metal knock.",
+    "recipe": "Wood modes (450/1120 Hz) plus quieter inharmonic metal partials and a click."
+  },
+  {
+    "name": "bow_release",
+    "file": "bow_release.ogg",
+    "seconds": 0.3,
+    "peak_db": -10.0,
+    "rms_db": -29.29,
+    "group": "world",
+    "description": "A bowstring twang.",
+    "recipe": "Karplus-Strong plucked string at 98 Hz, heavily damped, plus a falling swish and a wood knock."
+  },
+  {
+    "name": "cast",
+    "file": "cast.ogg",
+    "seconds": 0.6,
+    "peak_db": -10.0,
+    "rms_db": -24.81,
+    "group": "world",
+    "description": "A spell starting: a soft rising shimmer.",
+    "recipe": "Detuned sine partials gliding 420 to 640 Hz with vibrato, light FM and airy rising noise, swelling in."
+  },
+  {
+    "name": "door_open",
+    "file": "door_open.ogg",
+    "seconds": 0.7,
+    "peak_db": -10.0,
+    "rms_db": -28.77,
+    "group": "world",
+    "description": "A wooden door: latch, then a creak.",
+    "recipe": "Two metal latch clicks, then a slow stick-slip creak through 230/560/1150 Hz resonators."
+  },
+  {
+    "name": "knock_down",
+    "file": "knock_down.ogg",
+    "seconds": 0.4,
+    "peak_db": -10.0,
+    "rms_db": -22.85,
+    "group": "world",
+    "description": "Someone falling: a heavy body thud.",
+    "recipe": "Sine dropping 72 to 42 Hz with low noise mass, two smaller follow-up impacts and faint gear rattle."
+  },
+  {
+    "name": "fire_loop",
+    "file": "fire_loop.ogg",
+    "seconds": 4.0,
+    "peak_db": -20.0,
+    "rms_db": -35.19,
+    "group": "world",
+    "description": "Quiet crackling fire, seamless 4 s loop.",
+    "recipe": "Breathing brown-noise roar, faint hiss, random crackles and pops; tail cross-faded into the head."
+  }
+]
