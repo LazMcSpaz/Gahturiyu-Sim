@@ -20,6 +20,8 @@ pub const TAKE_PACK: f32 = 0.7;
 /// Chance they take the weapon in hand, and each other worn piece.
 pub const TAKE_WEAPON: f32 = 0.6;
 pub const TAKE_WORN: f32 = 0.35;
+/// Chance someone who runs from the squad drops something on the way.
+pub const DROP_ON_FLIGHT: f32 = 0.45;
 
 impl World {
     /// After a fight the squad lost to bandits (or anyone hostile): the
@@ -114,5 +116,43 @@ impl World {
         self.log.push_front((t, line));
         self.log.truncate(14);
         taken.len()
+    }
+
+    /// After a fight with the squad: some of those who ran dropped something
+    /// as they went (their purse, or a thing from their pack), where they
+    /// were when they got away. Keyed to the fight and the runner.
+    pub(super) fn runners_drop(&mut self, b: &Battle) {
+        let mut lines = Vec::new();
+        for f in b.fighters.iter().filter(|f| f.home != SQUAD_SIDE && f.home != super::combat::GRAVE_SIDE && f.is_person() && f.fled && !f.dead) {
+            let pid = f.pid;
+            let hostile = self.people[pid as usize].bandit || self.group_of[pid as usize].and_then(|g| self.group(g)).is_some_and(|g| g.hostile);
+            if !hostile {
+                continue;
+            }
+            let mut r = Rng::from_keys(&[self.seed, b.id as u64, pid as u64, 0x4452_4F50]);
+            if r.f32() >= DROP_ON_FLIGHT {
+                continue;
+            }
+            let pick = r.f32();
+            let Some(d) = self.people[pid as usize].detail.as_mut() else { continue };
+            if d.gear.bag.is_empty() {
+                continue;
+            }
+            // Their purse if they have one, else something from the pack.
+            let k = d.gear.bag.iter().position(|e| item(e.0).kind == Kind::Coin).unwrap_or(((pick * d.gear.bag.len() as f32) as usize).min(d.gear.bag.len() - 1));
+            let e = d.gear.bag.remove(k);
+            self.people[pid as usize].recompute_might();
+            let g = self.put_on_ground(e.0, e.1, f.pos);
+            if let Some(x) = self.ground.iter_mut().find(|x| x.id == g) {
+                x.piece = e.2;
+            }
+            let what = if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
+            lines.push(format!("{} drops {what} as they run", self.name_of(pid)));
+        }
+        if !lines.is_empty() {
+            let t = b.time;
+            self.log.push_front((t, format!("{}. It lies where they dropped it.", lines.join("; "))));
+            self.log.truncate(14);
+        }
     }
 }

@@ -21,6 +21,10 @@ use super::magic::{all_spells, Aim, Spell, Style};
 use super::rng::Rng;
 use super::stats::Calling;
 
+/// Below this share of health on head or torso, someone is too far gone to
+/// run: they fight on until they drop (so a won fight leaves bodies).
+pub const COLLAPSE: f32 = 0.22;
+
 pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     // Draw the dice up front so every think consumes the same amount.
     let (r_flee, r_spell, r_pick) = (rng.f32(), rng.f32(), rng.f32());
@@ -39,9 +43,20 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     if me.side != SQUAD_SIDE && me.is_person() {
         let mine = b.fighters.iter().filter(|f| f.side == me.side && f.active()).map(|f| f.might).sum::<f32>();
         let theirs = b.fighters.iter().filter(|f| f.side != me.side && f.active()).map(|f| f.might).sum::<f32>();
-        let losing = theirs > mine * 2.5;
-        let hurt = me.vitality() < 0.35;
-        if (hurt || losing) && r_flee < (1.0 - me.boldness) * if hurt && losing { 0.6 } else { 0.25 } {
+        let vit = me.vitality();
+        // Too badly hurt to get away: they fight on until they drop.
+        let spent = vit < COLLAPSE;
+        // A friend running doesn't send the fresh off too: only the hurt, or
+        // everyone when it's hopeless.
+        let losing = theirs > mine * 2.5 && (vit < 0.75 || theirs > mine * 5.0);
+        let hurt = vit < 0.35;
+        // Whether they're one to run is settled once for the fight (one roll
+        // keyed to the fight and the fighter), not re-rolled every think,
+        // or everyone hurt would run sooner or later.
+        let nerve = Rng::from_keys(&[b.seed, i as u64, 0x4E45_5256]).f32();
+        let _ = r_flee;
+        let gives = (1.0 - me.boldness) * if hurt && losing { 0.9 } else if hurt { 0.6 } else { 0.4 };
+        if !spent && (hurt || losing) && nerve < gives {
             b.fighters[i].fleeing = true;
             b.fighters[i].order = None;
             let name = b.names[i].clone();

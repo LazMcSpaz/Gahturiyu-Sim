@@ -506,6 +506,8 @@ impl World {
             self.fight_wrongs(&b);
             // Beaten by bandits: they rob the downed.
             self.rob_the_beaten(&b);
+            // Runners may drop something on the way.
+            self.runners_drop(&b);
         }
 
         // Survivors' groups settle where the fight left them; wiped-out groups end.
@@ -567,9 +569,14 @@ impl World {
         let _ = killed;
         let line = fight_summary(&b);
         self.log.push_front((t, line));
-        // Lost: the downed come round soon, and are told how to mend.
-        if b.winner().is_some_and(|s| s != SQUAD_SIDE) && !self.squad.members.is_empty() {
-            self.log.push_front((t, "Your people come round within an hour or two. Resting (N) heals; a roof or a tent heals faster. The ones who beat you won't come looking again before dawn.".to_string()));
+        // Anyone down, won or lost: how they get up again.
+        let down = b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && f.ko && !f.dead).count();
+        if down > 0 && !self.squad.members.is_empty() {
+            let mut line = "The downed come round within an hour or two. Resting (N) heals faster, a roof or a tent faster still; a squadmate can give them a healing draught.".to_string();
+            if b.winner().is_some_and(|s| s != SQUAD_SIDE) {
+                line += " The ones who beat you won't come looking again before dawn.";
+            }
+            self.log.push_front((t, line));
         }
         self.log.truncate(14);
     }
@@ -579,17 +586,14 @@ impl World {
 /// other side can be gone through, who ran, who's down on yours.
 fn fight_summary(b: &Battle) -> String {
     let name = |i: usize| b.names.get(i).cloned().unwrap_or_else(|| "someone".into());
-    let head = match b.winner() {
-        Some(SQUAD_SIDE) => "The fight is over: you won.",
-        Some(_) => "The fight is over: you lost.",
-        None => "The fight is over: both sides broke off.",
-    };
     let mut beaten = Vec::new();
-    let mut fled = Vec::new();
+    let mut fled_whole = Vec::new();
+    let mut fled_hurt = Vec::new();
     let mut dead = Vec::new();
     let mut down = Vec::new();
     for (i, f) in b.fighters.iter().enumerate() {
-        if f.home == super::combat::GRAVE_SIDE || (!f.is_person() && f.raised_by.is_some()) {
+        // Called-up creatures and decoys aren't anyone to go through.
+        if f.home == super::combat::GRAVE_SIDE || f.summon.is_some() || f.is_decoy() {
             continue;
         }
         if f.home == SQUAD_SIDE {
@@ -601,9 +605,15 @@ fn fight_summary(b: &Battle) -> String {
         } else if f.ko {
             beaten.push(name(i));
         } else if f.fled || f.fleeing {
-            fled.push(name(i));
+            if f.vitality() > 0.6 { fled_whole.push(name(i)) } else { fled_hurt.push(name(i)) }
         }
     }
+    let head = match b.winner() {
+        Some(SQUAD_SIDE) if beaten.is_empty() && dead.is_empty() => "The fight is over: they broke and ran, leaving no one behind.",
+        Some(SQUAD_SIDE) => "The fight is over: you won.",
+        Some(_) => "The fight is over: you lost.",
+        None => "The fight is over: both sides broke off.",
+    };
     let list = |v: &[String]| if v.len() > 4 { format!("{} and {} more", v[..3].join(", "), v.len() - 3) } else { v.join(", ") };
     let mut out = head.to_string();
     if !beaten.is_empty() {
@@ -612,8 +622,11 @@ fn fight_summary(b: &Battle) -> String {
     if !dead.is_empty() {
         out += &format!(" Dead: {}.", list(&dead));
     }
-    if !fled.is_empty() {
-        out += &format!(" Ran: {}.", list(&fled));
+    if !fled_hurt.is_empty() {
+        out += &format!(" Ran, badly hurt: {}.", list(&fled_hurt));
+    }
+    if !fled_whole.is_empty() {
+        out += &format!(" Ran, barely hurt: {}.", list(&fled_whole));
     }
     if !down.is_empty() {
         out += &format!(" Down on your side: {}.", list(&down));
