@@ -129,7 +129,7 @@ pub fn show(c: &Canvas, h: &mut Hints, w: &World, click: Option<Click>) -> Optio
     lines.push(("Click to put this away.".to_string(), DIM));
     let size = 15.0;
     let width = lines.iter().map(|(l, _)| c.width(l, size)).fold(0.0, f32::max) + 24.0;
-    let r = Bx::from(c.panel(&lines, (c.w - width) / 2.0, 60.0, size));
+    let r = Bx::from(c.panel(&lines, (c.w - width) / 2.0, 150.0, size));
     if let Some(ck) = click {
         if r.contains(ck.at) {
             h.done(i);

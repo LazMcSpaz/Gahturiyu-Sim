@@ -114,6 +114,16 @@ impl World {
                 }
                 pp.recompute_might();
             }
+            // Everyone has a line in the society's lists (the camps' bandits
+            // got theirs when society was founded; these come after).
+            while self.society.lives.len() < self.people.len() {
+                let p = &self.people[self.society.lives.len()];
+                let l = super::society::Life::new(p.race, p.seed);
+                self.society.lives.push(l);
+            }
+            while self.society.minds.len() < self.people.len() {
+                self.society.minds.push(Default::default());
+            }
             // (The camp's first look at the roads found its raids; wardens don't raid.)
             self.encounters.retain(|e| e.camp != gid);
             out.push(Ruin { id: out.len() as u32, pos: at, kind: RuinKind::Ruin, guards: Some(gid), found: false });

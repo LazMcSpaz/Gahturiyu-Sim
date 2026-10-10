@@ -43,10 +43,18 @@ pub const WINDOW: Rgb = [1.0, 0.70, 0.36];
 pub const TENT: Rgb = [0.62, 0.64, 0.74];
 pub const CAMP_HIDE: Rgb = [0.42, 0.24, 0.18];
 
-// Panels.
-pub const TEXT: Rgb = [0.90, 0.91, 0.88];
-pub const DIM: Rgb = [0.62, 0.66, 0.63];
-pub const GOLD: Rgb = [1.0, 0.85, 0.35];
+// Panels: cream text on dark umber, with brass.
+pub const TEXT: Rgb = [0.93, 0.89, 0.80];
+pub const DIM: Rgb = [0.70, 0.66, 0.57];
+pub const GOLD: Rgb = [0.95, 0.80, 0.45];
+/// The HUD's brass: rules, rings, diamonds.
+pub const BRASS: Rgb = [0.80, 0.64, 0.36];
+pub const BRASS_LIGHT: Rgb = [0.98, 0.84, 0.52];
+pub const BRASS_DARK: Rgb = [0.42, 0.32, 0.17];
+/// Health, stamina and load in the HUD's bars.
+pub const BAR_HEALTH: Rgb = [0.56, 0.76, 0.34];
+pub const BAR_STAMINA: Rgb = [0.88, 0.64, 0.26];
+pub const BAR_LOW: Rgb = [0.82, 0.36, 0.24];
 pub const WARN: Rgb = [0.95, 0.55, 0.3];
 pub const SNEAK: Rgb = [0.62, 0.70, 0.95];
 pub const MANA: Rgb = [0.35, 0.55, 1.0];

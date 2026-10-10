@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-use super::hud::{Canvas, PANEL};
+use super::hud::Canvas;
 use super::palette::{eg, ega, DIM, GOLD, TEXT};
 use super::squadui::{Bx, Click};
 
@@ -137,7 +137,7 @@ const ROW: f32 = 24.0;
 /// The settings panel. Returns its box; a click on a row changes it.
 pub fn panel(c: &Canvas, s: &mut Settings, mouse: Vec2, click: Option<Click>, frame_ms: f64) -> Bx {
     let r = Bx::new((c.w - W) / 2.0, 120.0, W, 54.0 + 6.0 * ROW + 30.0);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     c.text("Graphics", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
     c.text(&format!("{:.0} fps", 1000.0 / frame_ms.max(0.1)), r.x + r.w - 70.0, r.y + 26.0, 14.0, DIM);

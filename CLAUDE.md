@@ -306,6 +306,15 @@ takes ~20 minutes on this container's 2 cores; later ones under a minute.
 
 ## Drawing notes
 
+- The HUD follows Laz's mockup (2026-10-10): dark umber and brass, serif
+  type (Alegreya for text, Alegreya SC for names, Cinzel for headings, in
+  `assets/fonts`, OFL; `hud::Face`). `view/frame.rs` draws the squad list
+  (top left), the tracked job and news (top right), the place name, and the
+  bottom band (buttons, the lead member's plate with a body showing each
+  part's wounds, orders, day and hour, speed, a north-up little map). Every
+  panel's ground is `Canvas::frame_box`; a tooltip whose first line is
+  `GOLD` gets it as a Cinzel title. The old side panel (counts, timings,
+  full log) shows with L; the keys list is the Keys button.
 - The window is Bevy 0.19.1 (pinned) with bevy_egui 0.42.0 for the panels.
   The panels are drawn with egui's painter through `hud::Canvas`, in pixels
   from the top left with text placed by its baseline (the old layout carried

@@ -50,7 +50,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | N | Selected members rest (they sleep where they stand); press again to get them up |
 | Z | Selected members sneak / stop sneaking |
 | T | Selected members light their torch, or put it out (takes one from the pack if needed) |
-| I, or right-click a squad card | Pack and gear |
+| I, or right-click someone in the squad list | Pack and gear |
 | K | Crafting |
 | M | Spell book (click a spell to use it; spells aimed at someone or somewhere then wait for a click in the world — right-click cancels) |
 | G | Look through a scout spirit (G again or C to come back) |
@@ -78,11 +78,18 @@ the pack to put it on (or drink, eat or use it), right-click to drop it. Equip
 the short bow from the pack to shoot (arrows stay in the pack). Click a standing
 torch in the pack to set it in the ground.
 
-Each **squad card** shows health (and energy, for casters), then three small bars — food,
-stamina and rest — whose labels turn orange when there's trouble ("hungry",
-"starving", "worn out"), plus who they're carrying or who's carrying them, and
-any limb lost for good (−LA = left arm, and so on). "torch" after a name means
-their torch is lit. A violet diamond with "Holding …" means a ritual is held ready.
+**The HUD.** Top left, the **squad**: a portrait, name and state per member,
+with health (green) and stamina (gold; energy, blue, for casters). Click to
+select, Shift-click to add, right-click for the pack; the ‹ button folds the
+list to portraits. An eye means someone's being noticed, a flame a lit torch, a
+gold "↑" a new level. Top right, the **job you're tracking** (where and how
+far) and the latest news. Along the bottom: buttons for the pack, crafting,
+spells, journal, town, building, the map and the **keys** list; the lead
+member's plate (health, stamina, load, a little body coloured by each part's
+wounds, with grey for a lost limb, and the Sneak and Rest orders); the day
+and hour (sun or moon on its arc), the speed (pause and five speeds), and a
+north-up little map (click it for the big one). L shows the old detail panel
+with the full log.
 
 ### Editing the land (F10)
 
@@ -219,7 +226,7 @@ the roads again if you changed the land's shape or ground.
   homes of the great beasts. Each has a cache of coin and good things
   lying inside.
 - **Progress and tips**: when someone reaches a new level in a skill or
-  attribute, the log says so and their card shows it for a while. Short
+  attribute, the log says so and the squad list shows it for a while. Short
   tips turn up the first time they're useful (first town, first fight, a
   full pack, nightfall...); click one to put it away. Delete `hints.txt`
   to see them all again.
@@ -711,7 +718,7 @@ components are gone either way). Some need a place: a town's **hearth**, a
 finished ritual is **held ready** — one at a time — and released whenever
 you like, mid-fight included, where it works at once. Holding one drains
 stamina, and one still held when its caster next sleeps slips away. The
-squad card shows a violet diamond and "Holding …" while one is held.
+the caster's state reads "Holding …" while one is held.
 
 **Learning**: felt spells come with use (your squad only). Notes teach a
 structured spell and rare texts a ritual, to anyone skilled enough to follow
@@ -1090,7 +1097,8 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   palette.rs    colours, shared by the 3D view, the map and the panels
   map.rs        the top-down map
   hud.rs        side panel, hover descriptions, health bars
-  squadui.rs    squad cards, pack, crafting, conversation, journal
+  frame.rs      the HUD frame: squad list, tracked job, bottom band, little map
+  squadui.rs    pack, crafting, conversation, journal
   townui.rs     the town panel (P)
   editor.rs     the land editor (F10): its panel, brush cursor and keys
   shot.rs       headless screenshots (the GAHT_ flags)

@@ -11,7 +11,7 @@ use gahturiyu_sim::sim::{
     World,
 };
 
-use super::hud::{Canvas, PANEL};
+use super::hud::Canvas;
 use super::palette::{eg, ega, DIM, GOLD, TEXT, WARN};
 use super::squadui::{Bx, Click};
 
@@ -32,7 +32,7 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
     let chest = matches!(src, Source::Chest(_));
     let rows = things.len().clamp(1, 22) + 4 + chest as usize;
     let r = Bx::new(c.w * 0.5 - W * 0.5, 120.0, W, rows as f32 * ROW + 40.0);
-    c.rect(r.x, r.y, r.w, r.h, PANEL);
+    c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let clicked = |b: &Bx| click.map(|k| b.contains(k.at) && !k.right).unwrap_or(false);
     let x = r.x + 14.0;

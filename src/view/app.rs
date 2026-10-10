@@ -29,6 +29,10 @@ pub enum View {
     Map,
 }
 
+/// Every key, by view (the Keys button shows them).
+pub const HELP_3D: &str = "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land";
+pub const HELP_MAP: &str = "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits";
+
 /// Something the mouse can be over.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Hover {
@@ -88,6 +92,10 @@ pub struct Game {
     pub wild: Option<super::animals::Seen>,
     /// First-hour tips.
     pub hints: super::hints::Hints,
+    /// The squad list folded to its portraits.
+    pub squad_collapsed: bool,
+    /// The keys panel open.
+    pub keys: bool,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -189,6 +197,8 @@ pub fn run() {
         loads: 0,
         notice: None,
         wild: None,
+        squad_collapsed: false,
+        keys: false,
         hints: {
             let mut h = super::hints::Hints::load(shot.is_none());
             if let Ok(id) = std::env::var("GAHT_HINT") {
@@ -1057,10 +1067,26 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     let ctx = contexts.ctx_mut()?;
     if !st.fonts {
         let mut fonts = egui::FontDefinitions::default();
-        fonts.font_data.insert("dejavu".into(), std::sync::Arc::new(egui::FontData::from_static(include_bytes!("../../assets/DejaVuSans.ttf"))));
-        fonts.families.get_mut(&egui::FontFamily::Proportional).unwrap().insert(0, "dejavu".into());
+        let mut add = |name: &str, bytes: &'static [u8]| {
+            fonts.font_data.insert(name.into(), std::sync::Arc::new(egui::FontData::from_static(bytes)));
+        };
+        add("dejavu", include_bytes!("../../assets/DejaVuSans.ttf"));
+        // The HUD's serif faces (SIL Open Font License, `assets/fonts`).
+        add("alegreya", include_bytes!("../../assets/fonts/Alegreya.ttf"));
+        add("alegreya_italic", include_bytes!("../../assets/fonts/Alegreya-Italic.ttf"));
+        add("alegreya_sc", include_bytes!("../../assets/fonts/AlegreyaSC-Bold.ttf"));
+        add("cinzel", include_bytes!("../../assets/fonts/Cinzel.ttf"));
+        let prop = fonts.families.get_mut(&egui::FontFamily::Proportional).unwrap();
+        prop.insert(0, "dejavu".into());
+        prop.insert(0, "alegreya".into());
+        // Each face falls back to Alegreya, then DejaVu, for anything it lacks.
+        for (family, first) in [("title", "cinzel"), ("caps", "alegreya_sc"), ("italic", "alegreya_italic")] {
+            fonts.families.insert(egui::FontFamily::Name(family.into()), vec![first.into(), "alegreya".into(), "dejavu".into()]);
+        }
         ctx.set_fonts(fonts);
         st.fonts = true;
+        // (The new faces only exist from the next frame.)
+        return Ok(());
     }
     let game = &mut *game;
     if st.loads != game.loads {
@@ -1152,7 +1178,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         return Ok(());
     }
-    panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
+    // The old side panel (counts, timings, races, the full log): with L.
+    if game.debug {
+        panels.push(Bx::from(hud::draw_hud(&c, &game.world, game.speed_i, game.paused, game.sim_ms, game.frame_ms, view_name)));
+    }
     let w = &mut game.world;
     if game.inv.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
         game.inv = None;
@@ -1162,9 +1191,98 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     let click = game.ui_click.take();
     let mut actions = Vec::new();
-    let (a, boxes) = squadui::squad_bar(&c, w, &game.sel, click);
-    actions.extend(a);
+    // The frame: the squad, the tracked job, the place, the bottom band.
+    let mut open = Vec::new();
+    use super::frame::{Button, FrameAct};
+    for (on, b) in [(game.inv.is_some(), Button::Pack), (game.craft.is_some(), Button::Craft), (game.book.is_some(), Button::Spells), (game.journal, Button::Journal), (game.town.is_some(), Button::Town), (game.build, Button::Build), (game.view == View::Map, Button::Map), (game.keys, Button::Keys)] {
+        if on {
+            open.push(b);
+        }
+    }
+    let fs = super::frame::FrameState { sel: &game.sel, speed_i: game.speed_i, paused: game.paused, collapsed: game.squad_collapsed, open };
+    if game.view == View::Scene {
+        super::frame::banner(&c, w);
+    }
+    let (list_act, boxes) = super::frame::squad_list(&c, w, &fs, click);
     panels.extend(boxes);
+    if !fs.right_busy() && w.talk.is_none() {
+        panels.extend(super::frame::tracked(&c, w));
+    }
+    let (bottom_act, boxes) = super::frame::bottom(&c, w, &fs, click);
+    panels.extend(boxes);
+    if game.keys {
+        panels.push(super::frame::keys_panel(&c, game.view == View::Map));
+    }
+    for fa in [list_act, bottom_act].into_iter().flatten() {
+        match fa {
+            FrameAct::Select(pid, add) => game.sel.pick(pid, add),
+            FrameAct::Pack(pid) => {
+                game.book = None;
+                game.craft = None;
+                game.inv = if game.inv == Some(pid) { None } else { Some(pid) };
+            }
+            FrameAct::Collapse => game.squad_collapsed = !game.squad_collapsed,
+            FrameAct::Pause => game.paused = !game.paused,
+            FrameAct::Speed(i) => {
+                game.speed_i = i;
+                game.paused = false;
+            }
+            FrameAct::Sneak => {
+                let who = game.sel.who(w);
+                let on = !who.iter().all(|&m| w.is_sneaking(m));
+                for m in who {
+                    w.set_sneaking(m, on);
+                }
+            }
+            FrameAct::Rest => {
+                let who = game.sel.who(w);
+                w.order_rest(&who);
+            }
+            FrameAct::Toggle(b) => {
+                let lead = game.sel.lead(w);
+                match b {
+                    Button::Pack => {
+                        game.craft = None;
+                        game.book = None;
+                        game.inv = if game.inv.is_some() { None } else { lead };
+                    }
+                    Button::Craft => {
+                        game.inv = None;
+                        game.book = None;
+                        game.craft = if game.craft.is_some() { None } else { lead };
+                    }
+                    Button::Spells => {
+                        game.inv = None;
+                        game.craft = None;
+                        game.book = if game.book.is_some() { None } else { lead };
+                    }
+                    Button::Journal => game.journal = !game.journal,
+                    Button::Town => {
+                        let at = w.squad.pos;
+                        game.town = match game.town {
+                            Some(_) => None,
+                            None => w.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|s| s.id),
+                        };
+                    }
+                    Button::Build => {
+                        game.build = !game.build;
+                        if !game.build {
+                            game.placing = None;
+                        }
+                    }
+                    Button::Map => {
+                        game.view = if game.view == View::Scene { View::Map } else { View::Scene };
+                        if game.view == View::Map {
+                            game.map_cam.centre = game.orbit.target;
+                        } else {
+                            game.orbit.target = game.map_cam.centre;
+                        }
+                    }
+                    Button::Keys => game.keys = !game.keys,
+                }
+            }
+        }
+    }
     let mut item_tip = None;
     if let Some(pid) = game.inv {
         let (a, h, bx) = squadui::inventory(&c, w, pid, game.mouse, click);
@@ -1285,11 +1403,6 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     for a in actions {
         match a {
-            Action::Select(pid, add) => game.sel.pick(pid, add),
-            Action::OpenInventory(pid) => {
-                game.book = None;
-                game.inv = if game.inv == Some(pid) { None } else { Some(pid) };
-            }
             Action::CloseInventory => {
                 game.inv = None;
                 game.craft = None;
@@ -1375,21 +1488,13 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&hud::describe(&game.world, h), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
-    let help = match game.view {
-        View::Scene => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F7: weather   F12: wildlife   F10: edit the land",
-        View::Map => "Click: move / attack / pick up / select   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits",
-    };
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {
             let wd = c.width(msg, 17.0) + 32.0;
-            c.rect((size.x - wd) / 2.0, 70.0, wd, 34.0, hud::shadow(0.7));
-            c.centred(msg, size.x / 2.0, 93.0, 17.0, super::palette::GOLD);
+            c.rect((size.x - wd) / 2.0, 130.0, wd, 34.0, hud::shadow(0.7));
+            c.centred(msg, size.x / 2.0, 153.0, 17.0, super::palette::GOLD);
         }
     }
-    c.rect(0.0, size.y - 30.0, size.x, 30.0, hud::shadow(0.45));
-    // Shrink the help line to fit narrower windows.
-    let fit = (15.0 * (size.x - 28.0) / c.width(help, 15.0)).clamp(10.0, 15.0);
-    c.text(help, 14.0, size.y - 10.0, fit, super::palette::DIM);
     game.panels = panels;
     Ok(())
 }
