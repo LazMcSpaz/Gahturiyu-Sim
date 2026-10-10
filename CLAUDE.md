@@ -275,6 +275,7 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 first one's things: the loot panel).
 `GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`
 for the nearest iron seam).
+`GAHT_MENU=1` (the right-click menu for whatever is under `GAHT_HOVER`).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,

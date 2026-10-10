@@ -44,6 +44,66 @@ pub enum Act {
     TownPanel(u16),
     /// Pin the long description (what holding Alt shows).
     Examine,
+    /// Walk somewhere sneaking.
+    SneakTo(V2),
+}
+
+/// An open right-click menu: where it was opened, and what was there.
+#[derive(Clone, Copy)]
+pub struct Menu {
+    pub at: bevy::math::Vec2,
+    pub hover: Option<Hover>,
+    pub wild: Option<Seen>,
+    pub ground: Option<V2>,
+}
+
+/// The menu's choices: the thing's, or for bare ground, where to go.
+pub fn menu_choices(w: &World, m: &Menu, who: &[PersonId]) -> (String, Vec<Choice>) {
+    if let Some(h) = m.hover {
+        let title = short_name(w, h).unwrap_or_else(|| "This".into());
+        return (title, choices(w, h, who, false));
+    }
+    if let Some(s) = m.wild {
+        let title = match s.thing {
+            Thing::Carcass(_) => format!("{} carcass", s.sp.def().name),
+            _ => s.sp.def().name.to_string(),
+        };
+        return (title, wild_choices(w, &s));
+    }
+    match m.ground {
+        Some(p) => ("Here".into(), vec![ch("Walk here", Act::Walk(p)), ch("Sneak here", Act::SneakTo(p))]),
+        None => ("Nothing here".into(), Vec::new()),
+    }
+}
+
+/// Draw the right-click menu; returns the choice clicked and its box.
+pub fn draw_menu(c: &super::hud::Canvas, w: &World, m: &Menu, who: &[PersonId], mouse: bevy::math::Vec2, click: Option<super::squadui::Click>) -> (Option<Act>, super::squadui::Bx) {
+    use super::hud::Face;
+    use super::palette::{eg, ega, BRASS, BRASS_LIGHT, TEXT};
+    let (title, cs) = menu_choices(w, m, who);
+    let row = 26.0;
+    let wd = cs.iter().map(|x| c.styled_width(&x.label, 15.0, Face::Body, 0.0)).fold(c.styled_width(&title.to_uppercase(), 13.0, Face::Title, 2.0), f32::max) + 40.0;
+    let h = 40.0 + cs.len() as f32 * row;
+    let x = m.at.x.min(c.w - wd - 8.0).max(8.0);
+    let y = m.at.y.min(c.h - h - 8.0).max(8.0);
+    c.frame_box(x, y, wd, h);
+    c.styled(&title.to_uppercase(), x + 16.0, y + 24.0, 13.0, eg(BRASS_LIGHT), Face::Title, 2.0);
+    let mut picked = None;
+    for (i, x_) in cs.iter().enumerate() {
+        let ry = y + 34.0 + i as f32 * row;
+        let b = super::squadui::Bx::new(x + 4.0, ry, wd - 8.0, row);
+        let hot = b.contains(mouse);
+        if hot {
+            c.rect(b.x, b.y, b.w, b.h, ega(BRASS, 0.25));
+        }
+        c.diamond(x + 16.0, ry + row / 2.0, 3.5, ega(if x_.crime { [0.95, 0.38, 0.30] } else { BRASS_LIGHT }, if hot { 1.0 } else { 0.7 }));
+        let col = if x_.crime { [0.98, 0.52, 0.42] } else { TEXT };
+        c.styled(&x_.label, x + 28.0, ry + 18.0, 15.0, eg(col), Face::Body, 0.0);
+        if click.is_some_and(|k| !k.right && b.contains(k.at)) {
+            picked = Some(x_.act);
+        }
+    }
+    (picked, super::squadui::Bx::new(x, y, wd, h))
 }
 
 pub struct Choice {
@@ -236,6 +296,17 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,
+        Act::SneakTo(p) => {
+            for &m in who {
+                w.set_sneaking(m, true);
+            }
+            if all {
+                w.order_squad(p);
+            } else {
+                w.order_members(who, p);
+            }
+            true
+        }
         Act::Attack(p) => w.attack(who, p),
         Act::Talk(p) => {
             let lead = who.first().copied();

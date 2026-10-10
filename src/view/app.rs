@@ -106,6 +106,12 @@ pub struct Game {
     pub keys: bool,
     /// Big news shown across the top: (what, since).
     pub banners: Vec<(String, std::time::Instant)>,
+    /// The right-click menu, while open.
+    pub menu: Option<super::interact::Menu>,
+    /// A thing pinned with Examine: its long description stays up.
+    pub examine: Option<Hover>,
+    /// Where the right button went down (a click, not a drag, opens the menu).
+    pub rpress_at: Option<Vec2>,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -210,6 +216,9 @@ pub fn run() {
         squad_collapsed: false,
         keys: false,
         banners: Vec::new(),
+        menu: None,
+        examine: None,
+        rpress_at: None,
         hints: {
             let mut h = super::hints::Hints::load(shot.is_none());
             if let Ok(id) = std::env::var("GAHT_HINT") {
@@ -497,7 +506,10 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
     }
-    if keys.just_pressed(KeyCode::Escape) && game.placing.is_some() {
+    if keys.just_pressed(KeyCode::Escape) && (game.menu.is_some() || game.examine.is_some()) {
+        game.menu = None;
+        game.examine = None;
+    } else if keys.just_pressed(KeyCode::Escape) && game.placing.is_some() {
         // Finish a wall being drawn, or stop placing.
         match game.placing.as_mut() {
             Some(p) if !p.chain.is_empty() => p.chain.clear(),
@@ -675,11 +687,29 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     // Right-click anywhere drops a spell that's waiting to be aimed.
     if buttons.just_pressed(MouseButton::Right) && game.aim.is_some() {
         game.aim = None;
+    } else if buttons.just_pressed(MouseButton::Right) && !on_panels {
+        game.rpress_at = Some(mouse);
+    }
+    // A right-click (not a drag, which turns the camera) opens the menu of
+    // everything that can be done with what's under the mouse.
+    if buttons.just_released(MouseButton::Right) {
+        if let Some(p) = game.rpress_at.take() {
+            if (p - mouse).length() < 6.0 && !on_panels {
+                let ground = match game.view {
+                    View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
+                    View::Scene => game.orbit.ground_at(game.screen, mouse, &game.world.terrain),
+                };
+                game.menu = Some(super::interact::Menu { at: mouse, hover: game.hover, wild: if game.hover.is_none() { game.wild } else { None }, ground });
+            }
+        }
     }
     if buttons.just_released(MouseButton::Left) {
         if let Some(p) = game.press_at.take() {
             if (p - mouse).length() < 6.0 {
-                if on_panels {
+                if game.menu.is_some() && !on_panels {
+                    // A click away from an open menu just closes it.
+                    game.menu = None;
+                } else if on_panels {
                     game.ui_click = Some(Click { at: mouse, right: false, shift });
                 } else {
                     click_world(game, mouse, shift);
@@ -1360,6 +1390,54 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
     }
     panels.extend(super::weather::panel(&c, game, &mut weather, click));
+
+    // (Screenshots: `GAHT_MENU=1` right-clicks at the fake mouse.)
+    if game.shot.is_some() && game.frame == 20 && std::env::var("GAHT_MENU").is_ok() {
+        let ground = game.orbit.ground_at(game.screen, game.mouse, &game.world.terrain);
+        game.menu = Some(super::interact::Menu { at: game.mouse, hover: game.hover, wild: game.wild, ground });
+    }
+    // The right-click menu, and anything pinned with Examine.
+    if let Some(m) = game.menu {
+        let who = game.sel.who(&game.world);
+        let all = game.sel.is_all(&game.world);
+        let (picked, bx) = super::interact::draw_menu(&c, &game.world, &m, &who, game.mouse, click);
+        panels.push(bx);
+        if let Some(act) = picked {
+            use super::interact::Act;
+            game.menu = None;
+            match act {
+                Act::Examine => game.examine = m.hover,
+                Act::Select(pid) => game.sel.pick(pid, false),
+                Act::TownPanel(t) => game.town = Some(t),
+                Act::SneakTo(p) => {
+                    for &x in &who {
+                        game.world.set_sneaking(x, true);
+                    }
+                    let _ = super::interact::perform(&mut game.world, &who, all, Act::Walk(p));
+                }
+                act => {
+                    if let Some(msg) = super::interact::perform(&mut game.world, &who, all, act) {
+                        game.notice = Some((msg, std::time::Instant::now()));
+                    }
+                }
+            }
+        }
+    }
+    if let Some(h) = game.examine {
+        let mut lines = hud::describe(&game.world, h);
+        lines.retain(|(l, _)| !l.to_lowercase().contains("click"));
+        if let Some(f) = lines.first_mut() {
+            f.1 = super::palette::GOLD;
+        }
+        lines.push(("Esc or click × to close".into(), super::palette::DIM));
+        let r = Bx::from(c.panel(&lines, size.x - 520.0, 200.0, 15.0));
+        let close = Bx::new(r.x + r.w - 24.0, r.y + 6.0, 18.0, 18.0);
+        c.text("×", close.x + 3.0, close.y + 15.0, 18.0, super::palette::DIM);
+        if click.is_some_and(|k| close.contains(k.at)) {
+            game.examine = None;
+        }
+        panels.push(r);
+    }
 
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
