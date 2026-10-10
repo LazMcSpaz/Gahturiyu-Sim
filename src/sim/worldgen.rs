@@ -230,6 +230,8 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     w.place_camps();
     // Customs, households, jobs and workplaces (crafting stations stand in those).
     w.found_society();
+    // Each building's look, from the trades of who lives there (fixed from now on).
+    w.style_buildings();
     w.place_crafting();
     w.place_deposits();
     w.place_animals();
@@ -286,6 +288,8 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
             residents: Vec::new(),
             buildings: Vec::new(),
             reach: 0.0,
+            styles: Vec::new(),
+            sleepers: Vec::new(),
         });
     };
 

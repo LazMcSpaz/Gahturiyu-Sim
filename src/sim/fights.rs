@@ -446,6 +446,7 @@ impl World {
             if f.dead {
                 p.dead = true;
                 killed += 1;
+                let home = p.home.zip(p.dwelling);
                 self.busy_until[f.pid as usize] = f64::INFINITY;
                 // A body raised and spent in the fight is gone.
                 if !f.raised {
@@ -456,6 +457,10 @@ impl World {
                     self.stats.detailed += 1;
                 }
                 self.drop_everything(f.pid, f.pos);
+                // Their home's things now belong to whoever's left there.
+                if let Some(door) = home {
+                    self.refresh_owners_in(door);
+                }
             }
             self.people[f.pid as usize].recompute_might();
             // Spells on a squad member go back out with them (including ones

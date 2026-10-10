@@ -51,7 +51,7 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
             (name.to_string(), if w.people[body as usize].dead { "dead".to_string() } else { "out cold".to_string() })
         }
         Source::Chest(id) => match w.container(id) {
-            Some(k) => (format!("A {}", k.what.name()), super::interiors::owner_text(w, k.owner)),
+            Some(k) => (format!("A {}", k.what.name()), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))),
             None => ("A container".into(), String::new()),
         },
     };

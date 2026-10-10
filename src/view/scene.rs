@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use gahturiyu_sim::sim::{
     bands::{BAND1_RADIUS, BAND2_RADIUS},
     body,
-    buildings::door_of,
+    buildings::{door_of, Door},
     combat::{FxKind, SQUAD_SIDE},
     crafting::Station,
     geo::{self, V2},
@@ -111,6 +111,11 @@ struct Town {
     /// Which set of loaded models it was drawn with.
     with_models: u32,
     triangles: usize,
+    /// Each building's door (None for none) and floor level as drawn
+    /// (`interiors::floor_height`), worked out when the town is rebuilt, so
+    /// people and things inside stand on it without asking the sim each frame.
+    doors: Vec<Option<Door>>,
+    floors: Vec<f32>,
 }
 
 /// Where the ground mesh's vertices are, so things laid on the ground can
@@ -250,12 +255,17 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let on_ground = |p: V2| grid.height(t, p);
         let mut r = Builder::new();
         let lw = 5.0f32.max(oc.dist / 90.0);
+        // Never across a building's floor: the ribbon is cut away inside
+        // every town building's outline (the floor is barely above the ground).
+        let outlines = doors_around(w, oc.target, radius * 1.5 + 200.0);
+        let roads = Clip { ground: &on_ground, outlines: &outlines };
         for road in &w.routes.roads {
             for seg in road.windows(2) {
                 if seg[0].dist(oc.target) > radius * 1.5 {
                     continue;
                 }
-                draped_ribbon(&mut r, &on_ground, seg[0], seg[1], lw, 0.25, palette::ROAD, (radius / 45.0).max(10.0));
+                let piece = (radius / 45.0).max(10.0);
+                draped_ribbon_clipped(&mut r, &roads, seg[0], seg[1], lw, 0.25, palette::ROAD, piece);
             }
         }
         g.append(r);
@@ -307,7 +317,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let mut ents = Vec::new();
             for (i, bd) in s.buildings.iter().enumerate() {
                 match door_of(s, i as u16) {
-                    Some(d) if occupied.contains(&(i as u16)) => super::interiors::interior(&mut lit, &mut glow, &d, &on_ground),
+                    Some(d) if occupied.contains(&(i as u16)) => super::interiors::interior(&mut lit, &mut glow, w, &d, &on_ground),
                     _ => {
                         let model = match bd.kind {
                             BuildingKind::RoduroHome => models.roduro_kind(bd.seed, bd.size),
@@ -328,7 +338,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                             }
                             // Placeholder shapes by variant (the hearth its own way).
                             _ => {
-                                if !super::interiors::exterior(&mut lit, &mut glow, t, bd, &on_ground) {
+                                if !super::interiors::exterior(&mut lit, &mut glow, t, s, i as u16, &on_ground) {
                                     building(&mut lit, &mut glow, t, bd, &on_ground);
                                 }
                             }
@@ -338,13 +348,15 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
             if let Some(tl) = w.society.towns.get(sid as usize) {
                 for wp in &tl.places {
-                    workplace(&mut lit, &mut glow, t, wp, &on_ground);
+                    workplace(&mut lit, &mut glow, t, w, wp, &on_ground);
                 }
             }
             let tris = lit.triangles() + glow.triangles();
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
-            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris });
+            let doors: Vec<Option<Door>> = (0..s.buildings.len() as u16).map(|i| door_of(s, i)).collect();
+            let floors = doors.iter().map(|d| d.map(|d| super::interiors::floor_height(&d, &on_ground).0).unwrap_or(f32::MIN)).collect();
+            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
@@ -389,8 +401,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             // The ways: lanes laid on the drawn ground, stairs cut as treads,
             // slab bridges.
             let mut wb = Builder::new();
+            let outlines = town.centre().map(|c| doors_around(w, c, 1500.0)).unwrap_or_default();
+            let clip = Clip { ground: &on_ground, outlines: &outlines };
             for way in &town.ways.ways {
-                forge_way(&mut wb, &on_ground, way);
+                forge_way(&mut wb, &clip, way);
             }
             if !wb.is_empty() {
                 let (e, _) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, wb, GroundMesh);
@@ -423,6 +437,31 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
 
     // ---- Everything that moves, every frame ---------------------------------
+    // Inside a building, people and things stand on its floor (cached with
+    // the town), not the ground under it.
+    // The building enclosing a point (as `World::building_at` finds it) and
+    // its floor, from the doors cached with each town drawn; worked out on
+    // the spot only for a town not drawn.
+    let towns = &scene.towns;
+    let inside = |p: V2| -> Option<(Door, f32)> {
+        for s in w.settlements.iter().filter(|s| s.pos.dist(p) < s.reach) {
+            match towns.get(&s.id) {
+                Some(tw) => {
+                    if let Some((d, &f)) = tw.doors.iter().zip(&tw.floors).find_map(|(d, f)| d.filter(|d| d.contains(p)).map(|d| (d, f))) {
+                        return Some((d, f));
+                    }
+                }
+                None => {
+                    if let Some(d) = (0..s.buildings.len() as u16).filter_map(|i| door_of(s, i)).find(|d| d.contains(p)) {
+                        return Some((d, super::interiors::floor_height(&d, &on_ground).0));
+                    }
+                }
+            }
+        }
+        None
+    };
+    let floor_at = |p: V2| inside(p).map(|(_, f)| f + super::interiors::FLOOR_TOP);
+    let stand = |p: V2| floor_at(p).unwrap_or_else(|| on_ground(p));
     let mut b = Builder::new();
     let mut gl = Builder::new();
     let mut fl = Builder::new();
@@ -434,7 +473,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             if w.is_indoors_asleep(pid) {
                 continue;
             }
-            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
         }
     }
     // The watch on a chase: a red ring under the guard, a fainter one under
@@ -459,11 +498,11 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     tent(&mut b, to3(at, on_ground(at)), k, r);
                 }
                 for &m in &g.members {
-                    heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
+                    heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &floor_at, &on_ground));
                 }
                 // The leader's torch, after dark.
                 if w.group_torch_lit(g, w.time) {
-                    let f = torch_flame(w, g.members[0], k, &on_ground);
+                    let f = torch_flame(w, g.members[0], k, &stand);
                     b.stick(f - vec3(0.0, 0.55 * k, 0.0), f, 0.06 * k, palette::TIMBER);
                     gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
                 }
@@ -476,7 +515,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     let off = if n > 1 { V2::new(a.cos(), a.sin()).scale(1.2 * k) } else { V2::default() };
                     let at = g.pos.add(off);
                     let r = w.people[m as usize].race;
-                    simple_person(&mut b, to3(at, on_ground(at) - 0.1), r, k);
+                    simple_person(&mut b, to3(at, stand(at) - 0.1), r, k);
                 }
                 game.picks.push((to3(g.pos, on_ground(g.pos) + 2.0 * k), 2.0, Hover::Group(g.id)));
                 if w.group_torch_lit(g, w.time) {
@@ -494,30 +533,31 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     for &m in &w.squad.members {
-        heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
+        heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &floor_at, &on_ground));
     }
     // Squad members living at a base.
     for m in w.all_residents() {
         let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
         if here && w.person_pos(m).dist(oc.target) < radius {
-            heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &floor_at, &on_ground));
         }
     }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
-            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
         }
     }
     // The fallen.
     for &(at, race, _, pid) in &w.corpses {
         if w.carried_by(pid).is_some() {
-            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
             continue;
         }
         if at.dist(oc.target) < radius {
-            heads.push((to3(at, on_ground(at) + 0.6), pid));
-            let base = to3(at, on_ground(at) - 0.1);
+            let floor = stand(at);
+            heads.push((to3(at, floor + 0.6), pid));
+            let base = to3(at, floor - 0.1);
             b.block(base, 1.6 * k, 0.6 * k, 0.35 * k, at.x * 0.37, [0.35, 0.12, 0.10]);
             b.block(base + vec3(0.0, 0.3 * k, 0.0), 1.2 * k, 0.4 * k, 0.15 * k, at.x * 0.37, palette::scale(race_color(race), 0.5));
         }
@@ -580,7 +620,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         if st.pos.dist(oc.target) > radius || !st.burning(w.time) {
             continue;
         }
-        let base = to3(st.pos, on_ground(st.pos));
+        let base = to3(st.pos, stand(st.pos));
         b.column(base, 0.07, 0.05, 1.8, 5, palette::TIMBER);
         gl.column(base + vec3(0.0, 1.8, 0.0), 0.16, 0.02, 0.45, 6, palette::EMBER);
     }
@@ -707,9 +747,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     // Things lying about.
     for g in &w.ground {
         if g.pos.dist(oc.target) < radius.min(600.0) {
-            let base = to3(g.pos, on_ground(g.pos));
+            // Indoors: on the floor, or on the shelves or a table it lies on.
+            let indoors = inside(g.pos);
+            let on = indoors.and_then(|(d, _)| gahturiyu_sim::sim::layout::resting(&d, g.pos));
+            let floor = indoors.map_or_else(|| on_ground(g.pos), |(_, f)| f + super::interiors::FLOOR_TOP);
+            let base = to3(g.pos, floor + on.map_or(0.0, |o| o.0));
             let kk = k.min(6.0);
-            b.block(base, 0.55 * kk, 0.35 * kk, 0.22 * kk, g.id as f32 * 1.7, super::squadui::ground_color(g.item));
+            b.block(base, 0.55 * kk, 0.35 * kk, 0.22 * kk, on.map_or(g.id as f32 * 1.7, |o| o.1), super::squadui::ground_color(g.item));
             game.picks.push((base + vec3(0.0, 0.3 * kk, 0.0), 4.0, Hover::Item(g.id)));
         }
     }
@@ -754,7 +798,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     // Flames on lit torches.
     for &m in &w.squad.members {
         if w.torch_lit(m) && w.fighter(m).map(|f| !f.ko).unwrap_or(true) {
-            let f = torch_flame(w, m, k, &on_ground);
+            let f = torch_flame(w, m, k, &stand);
             gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
         }
     }
@@ -768,18 +812,22 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let at = w.member_pos(i);
         let picked = game.sel.shows(w, m);
         let face = super::cues::facing(w, m, at);
+        // Indoors, laid on the floor.
+        let inner = floor_at(at);
+        let ring_ground = |p: V2| inner.unwrap_or_else(|| on_ground(p));
         if picked {
-            facing_ring(&mut fl, &on_ground, at, 1.2 * k, rw * 0.8, face, palette::GOLD, eye, false);
+            facing_ring(&mut fl, &ring_ground, at, 1.2 * k, rw * 0.8, face, palette::GOLD, eye, false);
         } else {
             // Barely there: enough to see which way they face.
             let col = palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night);
-            facing_ring(&mut fl, &on_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
+            facing_ring(&mut fl, &ring_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
         }
         let goal = w.squad.goal[i];
         if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
             let col = if picked { palette::GOLD } else { [0.95, 0.95, 0.95] };
-            draped_ribbon(&mut fl, &on_ground, at, goal, rw * 0.5, 0.4, col, 10.0);
-            draped_ring(&mut fl, &on_ground, goal, 0.8 * k, rw * 0.6, 12, col, eye);
+            draped_ribbon(&mut fl, &stand, at, goal, rw * 0.5, 0.4, col, 10.0);
+            let inner = floor_at(goal);
+            draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), goal, 0.8 * k, rw * 0.6, 12, col, eye);
         }
     }
     // Aiming a spell: how far it reaches, and who's in its sights.
@@ -889,10 +937,74 @@ fn draped_ribbon(b: &mut Builder, ground: &dyn Fn(V2) -> f32, a: V2, c: V2, widt
     }
 }
 
+/// The ground a strip is laid on, and the building outlines it is cut away
+/// inside (roads and ways never run across a floor).
+struct Clip<'a> {
+    ground: &'a dyn Fn(V2) -> f32,
+    outlines: &'a [Door],
+}
+
+/// How fine a strip is cut where it meets a building's outline, metres.
+const CLIP_CELL: f32 = 0.4;
+
+/// The doors of every town building within `reach` of `c`.
+fn doors_around(w: &World, c: V2, reach: f32) -> Vec<Door> {
+    w.settlements.iter().filter(|s| s.pos.dist(c) < reach + s.reach).flat_map(|s| (0..s.buildings.len() as u16).filter_map(move |i| door_of(s, i))).collect()
+}
+
+impl Clip<'_> {
+    /// Lay the quad `q` (corners in order round it) `lift` over the ground;
+    /// where it meets a building, as small cells, leaving out any cell that
+    /// touches the inside of an outline.
+    fn quad(&self, b: &mut Builder, q: [V2; 4], lift: f32, lc: [f32; 4]) {
+        let mid = q[0].add(q[1]).add(q[2]).add(q[3]).scale(0.25);
+        let reach = q.iter().map(|p| p.dist(mid)).fold(0.0, f32::max);
+        let near: Vec<&Door> = self.outlines.iter().filter(|d| d.centre.dist(mid) < d.radius + reach).collect();
+        let lay = |b: &mut Builder, c: [V2; 4]| b.quad_lin(c.map(|p| to3(p, (self.ground)(p) + lift)), [Vec3::Y; 4], [lc; 4]);
+        if near.is_empty() {
+            lay(b, q);
+            return;
+        }
+        // q[0]→q[1] across, q[0]→q[3] along.
+        let nu = ((q[0].dist(q[1]) / CLIP_CELL).ceil() as usize).max(1);
+        let nv = ((q[0].dist(q[3]) / CLIP_CELL).ceil() as usize).max(1);
+        let at = |u: f32, v: f32| q[0].lerp(q[1], u).lerp(q[3].lerp(q[2], u), v);
+        for j in 0..nv {
+            for i in 0..nu {
+                let (u0, u1, v0, v1) = (i as f32 / nu as f32, (i + 1) as f32 / nu as f32, j as f32 / nv as f32, (j + 1) as f32 / nv as f32);
+                let c = [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)];
+                let centre = at((u0 + u1) * 0.5, (v0 + v1) * 0.5);
+                if near.iter().any(|d| c.iter().chain(std::iter::once(&centre)).any(|&p| d.contains(p))) {
+                    continue;
+                }
+                lay(b, c);
+            }
+        }
+    }
+}
+
+/// `draped_ribbon`, cut away inside building outlines.
+#[allow(clippy::too_many_arguments)]
+fn draped_ribbon_clipped(b: &mut Builder, clip: &Clip, a: V2, c: V2, width: f32, lift: f32, col: Rgb, piece: f32) {
+    let len = a.dist(c);
+    if len < 1e-3 {
+        return;
+    }
+    let d = c.sub(a).scale(1.0 / len);
+    let side = V2::new(-d.y, d.x).scale(width * 0.5);
+    let n = ((len / piece).ceil() as usize).max(1);
+    let lc = palette::lin(col);
+    for i in 0..n {
+        let p0 = a.lerp(c, i as f32 / n as f32);
+        let p1 = a.lerp(c, (i + 1) as f32 / n as f32);
+        clip.quad(b, [p0.sub(side), p0.add(side), p1.add(side), p1.sub(side)], lift, lc);
+    }
+}
+
 /// A strip laid over the land along a line of points, with mitred corners
 /// so it reads as one way rather than a row of plates. Each stretch is cut
 /// into pieces no longer than `piece` metres so it follows the ground.
-fn draped_strip(b: &mut Builder, ground: &dyn Fn(V2) -> f32, pts: &[V2], width: f32, lift: f32, col: Rgb, piece: f32) {
+fn draped_strip(b: &mut Builder, clip: &Clip, pts: &[V2], width: f32, lift: f32, col: Rgb, piece: f32) {
     let pts: Vec<V2> = pts.iter().copied().fold(Vec::new(), |mut v: Vec<V2>, p| {
         if v.last().is_none_or(|q| q.dist(p) > 0.05) {
             v.push(p);
@@ -927,20 +1039,19 @@ fn draped_strip(b: &mut Builder, ground: &dyn Fn(V2) -> f32, pts: &[V2], width: 
         let k = ((pts[i].dist(pts[i + 1]) / piece).ceil() as usize).max(1);
         for j in 0..k {
             let (t0, t1) = (j as f32 / k as f32, (j + 1) as f32 / k as f32);
-            let q = [l0.lerp(l1, t0), r0.lerp(r1, t0), r0.lerp(r1, t1), l0.lerp(l1, t1)];
-            let v = q.map(|p| to3(p, ground(p) + lift));
-            b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+            clip.quad(b, [l0.lerp(l1, t0), r0.lerp(r1, t0), r0.lerp(r1, t1), l0.lerp(l1, t1)], lift, lc);
         }
     }
 }
 
 /// One stretch of a forged town's way, on the drawn ground.
-fn forge_way(b: &mut Builder, ground: &dyn Fn(V2) -> f32, way: &gahturiyu_sim::sim::forge::Way) {
+fn forge_way(b: &mut Builder, clip: &Clip, way: &gahturiyu_sim::sim::forge::Way) {
+    let ground = clip.ground;
     use gahturiyu_sim::sim::forge::WayKind;
     match way.kind {
         WayKind::Cobbles | WayKind::Dirt => {
             let col = if way.kind == WayKind::Cobbles { palette::COBBLES } else { palette::PATH };
-            draped_strip(b, ground, &way.pts, way.width, 0.12, col, 1.5);
+            draped_strip(b, clip, &way.pts, way.width, 0.12, col, 1.5);
         }
         WayKind::Stairs => {
             // Treads of RISER rise, each a flat slab with a riser face below it,
@@ -1189,9 +1300,12 @@ fn body_size(race: Race) -> (f32, f32) {
 
 /// Draw one person; returns where their head is, for hover.
 #[allow(clippy::too_many_arguments)]
-fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, on_ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
+fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, floor_at: &dyn Fn(V2) -> Option<f32>, ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
     let p = &w.people[pid as usize];
     let at = w.person_pos(pid);
+    // Indoors, they and their rings stand on the floor (looked up once).
+    let inner = floor_at(at);
+    let on_ground = &|q: V2| inner.unwrap_or_else(|| ground(q));
     // Horaro at home on a stilt deck stand above the water.
     let floor = if geo::inland(at) < 0.0 { DECK + 0.3 } else { on_ground(at) };
     let (h, r) = body_size(p.race);
@@ -1463,7 +1577,7 @@ fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64) {
 
 /// A workplace: fields in rows, stalls with awnings, a post, a dock — simple
 /// shapes to say what's done where.
-fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_ground: &dyn Fn(V2) -> f32) {
+fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, on_ground: &dyn Fn(V2) -> f32) {
     let k = wp.kind;
     let size = k.size();
     let wet = geo::inland(wp.pos) < 0.0;
@@ -1679,6 +1793,25 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, wp: &Workplace, on_
         }
         // (A land deck is drawn as a kitchen above; a wet one as a platform.)
         PlaceKind::DivePlatform => {}
+    }
+    // A signpost out front, to one side, saying what's done here: the first
+    // of a few spots round the place where neither the post nor its board
+    // stands in a building.
+    if let Some(p) = super::signs::for_place(k) {
+        let doors = w.doors_near(wp.pos, size + 8.0);
+        let clear = |at: V2, face: f32| {
+            let r = V2::new(-face.sin(), face.cos());
+            [0.0f32, 1.2, 2.4].iter().all(|&o| {
+                let q = at.add(r.scale(o));
+                doors.iter().all(|d| !d.contains(q) && !d.contains(q.add(V2::new(0.6, 0.0))) && !d.contains(q.add(V2::new(-0.6, 0.0))) && !d.contains(q.add(V2::new(0.0, 0.6))) && !d.contains(q.add(V2::new(0.0, -0.6))))
+            })
+        };
+        let front = size * 0.5 + 2.0;
+        // (out along, out across, which way the board hangs)
+        let spots = [(front, -size * 0.35, rot), (front, size * 0.35, rot + std::f32::consts::PI), (-front, -size * 0.35, rot), (-front, size * 0.35, rot + std::f32::consts::PI), (front + 3.0, -size * 0.35, rot), (front + 3.0, size * 0.35, rot + std::f32::consts::PI)];
+        let pick = spots.iter().map(|&(a, c, f)| (wp.pos.add(along.scale(a)).add(across.scale(c)), f)).find(|&(at, f)| clear(at, f));
+        let (at, face) = pick.unwrap_or((wp.pos.add(along.scale(front)).add(across.scale(-size * 0.35)), rot));
+        super::signs::signpost(b, gl, p, to3(at, on_ground(at)), face);
     }
 }
 

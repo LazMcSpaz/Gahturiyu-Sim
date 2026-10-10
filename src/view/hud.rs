@@ -469,8 +469,15 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         Hover::Door(id) => {
             let s = &w.settlements[id.0 as usize];
             let Some(d) = gahturiyu_sim::sim::buildings::door_of(s, id.1) else { return out };
-            // The building's variant: "Maker's forge", "Market hall", ...
-            out.push((format!("{}  ·  {}", d.variant().name, s.name), TEXT));
+            // What it is, by trade and who keeps it ("Maker's forge · kept by
+            // Ana, smith"), or just its variant ("Grown cottage").
+            match super::signs::keeper(w, id) {
+                Some(_) => {
+                    out.push((super::signs::building_title(w, id).unwrap_or_else(|| d.variant().name.to_string()), TEXT));
+                    out.push((s.name.clone(), DIM));
+                }
+                None => out.push((format!("{}  ·  {}", d.variant().name, s.name), TEXT)),
+            }
             if d.lock <= 0.0 {
                 out.push(("No lock.  Click to go in.".into(), DIM));
             } else if w.is_locked(id) {
@@ -524,7 +531,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
         }
         Hover::Container(id) => {
             let Some(k) = w.container(id) else { return out };
-            out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, k.owner)), TEXT));
+            out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
             if w.container_locked(id) {
                 out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
                 out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));

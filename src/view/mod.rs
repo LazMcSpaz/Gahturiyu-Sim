@@ -22,6 +22,7 @@ pub mod palette;
 pub mod scene;
 pub mod settings;
 pub mod shot;
+pub mod signs;
 pub mod squadui;
 pub mod townui;
 pub mod weather;

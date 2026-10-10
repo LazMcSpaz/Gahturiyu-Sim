@@ -289,12 +289,19 @@ for the nearest iron seam).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,
 beaten; screenshots otherwise show none and never touch `hints.txt`).
-`GAHT_INTERIOR=1` (member 0 walks into the nearest open workshop or shop and opens a
-container: the cut-open rooms and the container panel; camera close unless `GAHT_ZOOM`/`GAHT_PITCH`).
+`GAHT_INTERIOR=1|tadoro|crowded|slope|<variant key>` (member 0 walks into the nearest open workshop or
+shop and opens a container: the cut-open rooms and the container panel; camera close unless
+`GAHT_ZOOM`/`GAHT_PITCH`. `tadoro`: a building a Ṭaḍoro lodges in, framed on their corner;
+`crowded`: the most residents per sleeping place (extra bedrolls); `slope`: a building whose
+floor stands well above the ground on one side; a variant key such as `roduro_benchroom`:
+the nearest open building of that variant).
 `GAHT_VARIANTS=1|roduro|qotiro|horaro` (every building variant, or one people's, in rows
 on open ground near the squad; add `,open` to see them cut open). `GAHT_CUTAWAY=1` (every
 building near the camera drawn cut open). `GAHT_MODELS=1` (the final building models back on;
 off by default).
+`GAHT_SIGNS=1|roduro|qotiro` (frame the spot in the nearest town, or the most Roduro / Qotiro one,
+where the most signs stand: workplace signposts and service plaques; add
+`GAHT_HOURS=15` for night, `GAHT_ZOOM=60 GAHT_PITCH=0.6` for the usual town camera).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
@@ -400,6 +407,18 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   in is drawn cut open (floor, low walls, inner walls, furniture). Its
   containers are drawn every frame (lids open while searched). The final
   models load only with `GAHT_MODELS=1` (`models::use_final_models`).
+- What stands in a room is placed by pure geometry in `sim/layout.rs`
+  (`footprints`, `sleeping_plan` for extra bedrolls and the Ṭaḍoro lodger's
+  corner, `loose_spots` for belongings); the window only draws it, and
+  `tests/buildings.rs` checks nothing overlaps in every building. Floors are
+  level at the highest ground under the outline (`interiors::floor_height`,
+  cached per town rebuild); people and things indoors stand on it.
+- Signs are for players finding services (Laz): in-town workplaces carry a
+  signpost, and only buildings that are themselves service places
+  (`layout::serves`: the temple, the island hall) a sign by the door — a
+  dark plaque with a gold symbol and an iron lantern (`view/signs.rs`, one
+  block pictogram per `layout::Sign`). Trade homes hang none; the door hover
+  still names the trade and its keeper (`World::keeper`).
 
 - Animals are drawn by `view/animals.rs` into the per-frame mesh: block
   shapes from the species' `Looks` (build, length, height, colour), a full
@@ -419,6 +438,13 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   pillars, quarried Qotiro steps, diaspora Qotiro hall in local dark stone).
   Qotiro build in the island's dark stone everywhere, never sandstone (Laz,
   2026-10-09): their stepped, quarried shape and gold sun discs set them apart.
+- A building's variant is chosen once, at world creation, from who lives
+  there (`World::style_buildings`, `layout::TRADE_STYLES`, stored by key in
+  `Settlement::styles`): a Roduro home is a workshop only if its head of
+  house (the eldest) has a trade; a Qotiro block if about a sixth of its
+  residents share one; plain homes go by head count. Residents are whoever
+  sleeps there (`dwelling`), not `Household::home`. It never changes after.
+  Keepers and trade marks use the same table (`layout::keeps`, `sign_of`).
 - The south-east inland is Qotiro country — a raised arid plateau; elsewhere
   inland is mostly Roduro. Mountains wall the north and east, plus one massif.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).
