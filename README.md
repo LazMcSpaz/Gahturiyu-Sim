@@ -214,6 +214,11 @@ the roads again if you changed the land's shape or ground.
   goes through their things. A panel lists what they wear and carry: click
   a line to take it, or **Take all**. Bandits carry a little coin. Shift-click
   carries the body off instead. Townsfolk aren't fair game.
+- **Progress and tips**: when someone reaches a new level in a skill or
+  attribute, the log says so and their card shows it for a while. Short
+  tips turn up the first time they're useful (first town, first fight, a
+  full pack, nightfall...); click one to put it away. Delete `hints.txt`
+  to see them all again.
 - **Losing**: bandits who beat the squad go through the downed and take
   every coin and a good share of the rest (weapons, armour, pack), then
   carry it home to their camp. Beat them later and loot it back.

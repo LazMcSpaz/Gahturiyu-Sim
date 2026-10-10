@@ -151,6 +151,8 @@ pub struct World {
     pub labour: Vec<super::labour::Labour>,
     pub butchering: Vec<super::labour::Butchering>,
     pub chases: Vec<super::labour::Chase>,
+    /// Each squad member's levels as last announced (`progress.rs`).
+    pub levels: Vec<super::progress::Levels>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
     /// How many jobs each person has started (keys their rolls).
@@ -284,6 +286,7 @@ impl World {
             labour: Vec::new(),
             butchering: Vec::new(),
             chases: Vec::new(),
+            levels: Vec::new(),
             crafting: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),
@@ -463,6 +466,7 @@ impl World {
         }
 
         self.observe();
+        self.note_progress();
     }
 
     /// Whatever is close enough to matter gets its details built, and stays

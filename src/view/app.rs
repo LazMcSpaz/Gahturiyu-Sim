@@ -82,6 +82,8 @@ pub struct Game {
     /// The wild animal or carcass under the mouse last frame (found by
     /// `animals::overlay`), for clicks: hunt it, or cut it up.
     pub wild: Option<super::animals::Seen>,
+    /// First-hour tips.
+    pub hints: super::hints::Hints,
     pub shot: Option<Shot>,
     pub frame: u32,
     pub shot_at: Option<u32>,
@@ -180,6 +182,13 @@ pub fn run() {
         loads: 0,
         notice: None,
         wild: None,
+        hints: {
+            let mut h = super::hints::Hints::load(shot.is_none());
+            if let Ok(id) = std::env::var("GAHT_HINT") {
+                h.force(&id);
+            }
+            h
+        },
         frame: 0,
         shot_at: None,
         sim_ms: 0.0,
@@ -1148,6 +1157,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         book_left = bx.x;
         panels.push(bx);
     }
+    panels.extend(super::hints::show(&c, &mut game.hints, w, click));
     let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, game.mouse, click);
     panels.extend(loot_box);
     match loot_act {

@@ -275,6 +275,8 @@ species in a row), `panel` (open the wildlife panel), `see:<species key>`
 first one's things: the loot panel).
 `GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`
 for the nearest iron seam).
+`GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,
+beaten; screenshots otherwise show none and never touch `hints.txt`).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,

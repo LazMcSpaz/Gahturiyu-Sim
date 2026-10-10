@@ -10,6 +10,7 @@ pub mod foliage;
 pub mod hud;
 pub mod light;
 pub mod lootui;
+pub mod hints;
 pub mod map;
 pub mod mesh;
 pub mod models;

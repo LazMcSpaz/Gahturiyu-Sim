@@ -329,6 +329,8 @@ pub fn squad_bar(c: &Canvas, w: &World, sel: &Selection, click: Option<Click>) -
             c.text(&format!("Holding {}", s.def().name), x + 13.0, y + 4.0, 12.0, RITUAL);
         } else if let Some((s, f)) = w.ritual_progress(pid) {
             c.text(&format!("{} ritual  {:.0}%", s.def().name, f * 100.0), r.x + 14.0, r.y + 92.0, 12.0, RITUAL);
+        } else if let Some((what, v)) = w.fresh_level_up(pid) {
+            c.text(&format!("{what} {v} ↑"), r.x + 14.0, r.y + 92.0, 12.0, GOLD);
         }
 
         if let Some(ck) = click {

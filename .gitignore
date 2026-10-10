@@ -3,5 +3,6 @@ target/
 !assets/*.png
 !assets/textures/**/*.png
 settings.txt
+hints.txt
 saves/
 town_forge_out/
