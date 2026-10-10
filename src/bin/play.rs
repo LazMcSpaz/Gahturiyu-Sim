@@ -273,6 +273,7 @@ const TIPS: &[(&str, &str)] = &[
     ("hungry", "Someone's hungry. They eat from their pack when they need to: buy food from a merchant, or hunt (click a wild animal) and cut up what you kill."),
     ("night", "Night's coming. Press N to rest (a tent in someone's pack makes it a better sleep), or T for torches if you'd rather keep going."),
     ("beaten", "Beaten and robbed. Rest until you can stand (N), get some gear, and go and take it back from their camp."),
+    ("feel", "Felt spells come with use. As someone casts and fights, their feel for that kind of magic grows, and the spells within reach come to them on their own. Their spell book (M) shows what they know."),
 ];
 
 fn tip_due(w: &World, id: &str) -> bool {
@@ -287,6 +288,7 @@ fn tip_due(w: &World, id: &str) -> bool {
         "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| h >= 50.0)),
         "night" => gahturiyu_sim::sim::stealth::daylight(w.time) < 0.35,
         "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),
+        "feel" => w.log.iter().take(12).any(|l| w.time - l.0 < 3600.0 && (l.1.contains(" has a feel for ") || l.1.contains(" the feel of "))),
         _ => false,
     }
 }
@@ -360,9 +362,16 @@ fn hud(w: &World, s: &Session) -> String {
         let sus = w.suspicion_of(m);
         let seen = if sus >= 1.0 { " SPOTTED" } else if sus > 0.3 { " being noticed" } else { "" };
         let lvl = w.fresh_level_up(m).map(|(a, v)| format!(" ({a} {v} ↑)")).unwrap_or_default();
+        // Strayed from the others, or left sneaking (half pace): both are
+        // easy to miss, so both are flagged.
+        let off = match w.strayed(m) {
+            Some(d) if !w.is_down(m) => format!(" [{d:.0} m from the others]"),
+            _ => String::new(),
+        };
+        let slow = if w.is_sneaking(m) && !w.is_down(m) { " [sneaking: half pace]" } else { "" };
         let _ = writeln!(
             o,
-            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}",
+            " {mark}{:<10} {:<8} {:<22} health {:>4} stamina {:>4} load {:.0}/{:.0} kg{hunger}{tired}{seen}{lvl}{off}{slow}",
             first_name(w, m),
             p.race.name(),
             status(w, m),
@@ -455,7 +464,7 @@ fn nearby(w: &World, only: &str) -> String {
     for d in w.deposits.iter().filter(|d| near(d.pos, 600.0)) {
         lines.push((
             here.dist(d.pos),
-            format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg worth ~{} coin — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, item(d.item).value, dist_dir(here, d.pos)),
+            format!("d{}  {} of {} — {:.0} {} left; a unit is {} kg and fetches about {} coin in town (less each for a big lot) — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), item(d.item).weight, w.fetches_in(d.town, d.item), dist_dir(here, d.pos)),
         ));
     }
     // Out-of-town workplaces (fields, hunting grounds, docks...); a woodlot or
@@ -633,9 +642,23 @@ fn pack(w: &World, m: PersonId) -> String {
     let Some(d) = p.detail.as_ref() else { return "nothing".into() };
     let _ = writeln!(o, "{} — carrying {:.1} of {:.0} kg", name_of(w, m), w.kit_weight_at(m, w.time), w.capacity_at(m, w.time));
     let _ = writeln!(o, " Worn:");
+    // What a thing does, where it does something (a ring, a potion).
+    let does = |it: items::ItemId| -> String {
+        let fx: Vec<String> = item(it).effects.iter().map(|e| e.describe()).collect();
+        if fx.is_empty() { String::new() } else { format!(" — {}", fx.join("; ")) }
+    };
+    // What it would fetch in the town the squad is standing in: the number
+    // a merchant there gives, not the round "worth".
+    let fetch = |it: items::ItemId, pc: Option<&gahturiyu_sim::sim::materials::Piece>| -> String {
+        match w.sells_for(it, pc) {
+            Some((p, town)) if p > 0 => format!("; sells for {p} in {}", w.settlements[town as usize].name),
+            Some((_, town)) => format!("; nobody in {} pays for it", w.settlements[town as usize].name),
+            None => String::new(),
+        }
+    };
     for s in SLOTS {
         if let Some(it) = d.gear.in_slot(s) {
-            let _ = writeln!(o, "   {:<10} {}", format!("{s:?}"), item(it).name);
+            let _ = writeln!(o, "   {:<10} {}{}  (worth ~{:.0}{})", format!("{s:?}"), item(it).name, does(it), item(it).value, fetch(it, d.gear.piece(s)));
         }
     }
     let _ = writeln!(o, " Pack:");
@@ -645,7 +668,7 @@ fn pack(w: &World, m: PersonId) -> String {
             items::Kind::Coin => "money".into(),
             _ => String::new(),
         };
-        let _ = writeln!(o, "   {k:>2}. {} × {} {}  (worth ~{:.0} each)", e.1, item(e.0).name, if kind.is_empty() { String::new() } else { format!("[{kind}]") }, item(e.0).value);
+        let _ = writeln!(o, "   {k:>2}. {} × {} {}{}  (worth ~{:.0} each{})", e.1, item(e.0).name, if kind.is_empty() { String::new() } else { format!("[{kind}]") }, does(e.0), item(e.0).value, fetch(e.0, e.2.as_ref()));
     }
     o
 }
@@ -1102,8 +1125,19 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let (Some(m), Ok(k), Some(to)) = (member(w, arg(0)), arg(1).parse::<usize>(), member(w, arg(2))) else {
                 return "Usage: give NAME N TO_NAME (N from `pack NAME`)\n".into();
             };
-            match w.give_entry(m, k, to) {
-                Ok(line) => o += &format!("{line}\n"),
+            match w.order_give(m, k, to) {
+                Ok(line) => {
+                    o += &format!("{line}\n");
+                    // If they had to walk over, see it through.
+                    let mut n = 0;
+                    while !w.giving.is_empty() && n < 2400 {
+                        w.step(0.25);
+                        n += 1;
+                    }
+                    if n > 0 {
+                        o += &news(w, s);
+                    }
+                }
                 Err(why) => o += &format!("Can't: {why}\n"),
             }
             o += &pack(w, m);

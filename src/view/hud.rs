@@ -575,7 +575,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             let town = &w.settlements[d.town as usize].name;
             out.push((format!("{} of {town}", d.face().name), GOLD));
             let left = d.left_at(w.time).floor();
-            out.push((format!("{} × {} left (of {}); a unit {:.0} kg, worth about {:.0} coin", left, items::item(d.item).name.to_lowercase(), d.face().cap, items::item(d.item).weight, items::item(d.item).value), TEXT));
+            out.push((format!("{} × {} left (of {}); a unit {:.0} kg, fetches about {} coin in {town} (less each for a big lot)", left, items::item(d.item).name.to_lowercase(), d.face().cap, items::item(d.item).weight, w.fetches_in(d.town, d.item)), TEXT));
             if let Some(h) = w.deposit_full_in(id) {
                 out.push((format!("Grows back: full again in {h:.0} h"), DIM));
             }

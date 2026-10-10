@@ -140,6 +140,34 @@ fn felt_spells_are_learned_by_using_the_style() {
 }
 
 #[test]
+fn several_new_felt_spells_are_one_line_of_news() {
+    use gahturiyu_sim::sim::magic::{all_spells, feel_line, Style};
+    // The line itself: nothing, one spell, several.
+    let felt: Vec<_> = all_spells().filter(|s| s.def().style == Style::Felt).collect();
+    assert!(felt.len() >= 3);
+    assert_eq!(feel_line("Drerg", &[]), None);
+    let one = feel_line("Drerg", &felt[..1]).unwrap();
+    assert_eq!(one, format!("Drerg has a feel for {} now.", felt[0].def().name.to_lowercase()));
+    let three = feel_line("Drerg", &felt[..3]).unwrap();
+    assert!(three.starts_with("Drerg has picked up the feel of 3 spells: "), "{three}");
+    for s in &felt[..3] {
+        assert!(three.contains(&s.def().name.to_lowercase()), "{three}");
+    }
+    // And in a fight: someone who comes out of it with several new felt
+    // spells gets one line, not one per spell.
+    let (mut w, mage) = squad_fight(2);
+    let name = w.people[mage as usize].detail.as_ref().unwrap().name.clone();
+    let p = &mut w.people[mage as usize];
+    let top = felt.iter().map(|s| s.def().min_skill).fold(0.0f32, f32::max);
+    p.stats.set_skill(Skill::Felt, top + 1.0);
+    p.detail.as_mut().unwrap().spells.retain(|s| s.def().style != Style::Felt);
+    finish(&mut w);
+    let lines: Vec<&String> = w.log.iter().map(|l| &l.1).filter(|l| l.starts_with(&name) && l.contains(" feel ")).collect();
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains(&format!("the feel of {} spells", felt.len())), "{lines:?}");
+}
+
+#[test]
 fn every_spell_has_a_domain() {
     use gahturiyu_sim::sim::magic::{all_spells, Domain};
     for s in all_spells() {

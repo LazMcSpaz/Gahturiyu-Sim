@@ -515,8 +515,8 @@ impl World {
         }
         d.spells.extend(new.iter().copied());
         let name = d.name.clone();
-        for sp in new {
-            self.say(t, format!("{name} has a feel for {} now.", sp.def().name.to_lowercase()));
+        if let Some(line) = magic::feel_line(&name, &new) {
+            self.say(t, line);
         }
         self.people[pid as usize].recompute_might();
     }

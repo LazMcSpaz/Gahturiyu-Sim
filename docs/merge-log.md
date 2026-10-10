@@ -18,6 +18,8 @@ Add a row whenever a branch is merged.
 | Date | Branch | How | Commit on `main` | Checked | Left open |
 |---|---|---|---|---|---|
 | 10 Oct 2026 | `claude/language-dialogue` (tip `756d071`) | Merge commit. Branched from `main` at `b0d2da9`; merged cleanly onto `be5862c`. No `save::FORMAT` or `Cargo.toml` change. | `b153782` | Full suite on the merge result: 52 groups, 424 passed, 0 failed, 1 ignored (cloud container, Linux). | Not yet seen in the window: the teal words, the hover meanings and the Names setting were checked by its own agent only. |
+| 10 Oct 2026 | `agent2/trade-squad` (tip `2f1c25e`) | Merge commit. Branched from `main` at `6dd0da1`, which had not moved. Playtest items 6, 10 and 11. `save::FORMAT` goes from 43 to 44. | `0a094ce` | Full suite on the branch tip, whose files are identical to the merge result: 53 groups, 432 passed, 0 failed, 1 ignored (cloud container, Linux). The sell list, the walk-over give and the stray flags were also tried by hand in the text play tool. | Not yet seen in the window. Purchases still land in the pack of whoever is talking. |
+| 10 Oct 2026 | `agent2/trade-squad` (follow-up, tip `53576e1`) | Merge commit. Shorter trade labels, a wider topic column while trading, and the rest of the sell list a page at a time. No further save change. | `291f628` | Full suite on the branch tip (same code as the merge result): 53 groups, 432 passed, 0 failed, 1 ignored. The first page of the trade panel was checked in a headless screenshot of the window, before and after. | The later pages of the sell list have not been seen in the window. |
 
 ## Consolidation of 10 Oct 2026
 

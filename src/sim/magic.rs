@@ -339,6 +339,18 @@ pub fn felt_reached(stats: &Stats, known: &[Spell]) -> Vec<Spell> {
     all_spells().filter(|s| s.def().style == Style::Felt && !known.contains(s) && stats.skill(Skill::Felt) >= s.def().min_skill).collect()
 }
 
+/// The news line for felt spells that have just come to someone: one line
+/// per person, however many came at once (six separate lines after one
+/// fight read as noise).
+pub fn feel_line(name: &str, new: &[Spell]) -> Option<String> {
+    let names: Vec<String> = new.iter().map(|s| s.def().name.to_lowercase()).collect();
+    match names.as_slice() {
+        [] => None,
+        [one] => Some(format!("{name} has a feel for {one} now.")),
+        [rest @ .., last] => Some(format!("{name} has picked up the feel of {} spells: {} and {last}.", names.len(), rest.join(", "))),
+    }
+}
+
 /// Chance a cast goes off, 0..1. `tired` is the fatigue factor (1 = fresh).
 /// Felt magic rarely fails; structured magic fails more the harder the
 /// spell; rituals are a gamble for the unskilled.
