@@ -1,0 +1,106 @@
+# Where each people's accent starts: its own tongue's habits, carried into
+# plain speech.
+#
+# Each tongue has sounds it does not own. A speaker reaches for the nearest
+# sound they do own, exactly as the naming system bends a borrowed word
+# (assets/lang/sounds.ron, the *_borrows lists, on the naming branch). Those
+# swaps, the tongue's word shape and its stress (assets/lang/grammar.ron), and
+# its rhythm (languages.md) are laid out here as four steps, from a hint to
+# the full native mouth. Step 4 is everything the tongue's rules say and is
+# barely plain speech any more; the steps before it are Claude's ordering,
+# the gentlest and most telling habits first.
+#
+# A step only lists what it changes; thickness 3 is steps 1 to 3 laid over
+# each other. Knobs and their variants are in sounds.toml.
+#
+# reading: "en-us" keeps the r after a vowel (purse, here), "en-gb" drops it.
+# voices: raw voices whose own language already has this tongue's sounds, so
+# they are likelier to say them well. Chosen by reasoning, not by ear.
+
+# ---------------------------------------------------------------------- Roduro
+# Owns: t ṭ q ʻ d ḍ g sh th h r l y, six vowels. No lip sounds, no nose sounds.
+# Every beat is one consonant and one vowel. Stress next to last. Slow, low.
+[roduro]
+label = "Roduro (Earth)"
+reading = "en-us"
+voices = ["hm_omega", "hm_psi", "hf_alpha", "hf_beta", "im_nicola", "jm_kumo", "bm_george", "am_onyx", "bf_emma"]
+mix = "bm_george*0.5+hm_omega*0.5"
+
+[[roduro.step]]   # 1: the rhythm, the flicked r, steady vowels
+delivery = { speed = 0.88, pause = 1.3, range = 0.85, pitch = -1.0 }
+sounds = { r = "flick", diphthongs = "pure" }
+
+[[roduro.step]]   # 2: the tongue curls back; k slips to the throat; the catch
+sounds = { t_d = "curled", k_g = "throaty:light", s = "hush:light", joins = "catch:light", stress = "nextlast:light" }
+
+[[roduro.step]]   # 3: s is sh; the lips begin to go; words want to end open
+sounds = { k_g = "throaty", s = "hush", w = "hard:light", f_v = "breath:light", vowel_set = "six:light", endings = "echo:light", clusters = "part:light" }
+
+[[roduro.step]]   # 4: no lips, no nose, every beat open
+sounds = { p_b = "breath", f_v = "breath", w = "hard", m_n = "stopped", vowel_set = "six", diphthongs = "split", endings = "echo", clusters = "part", joins = "catch", stress = "nextlast" }
+
+# ---------------------------------------------------------------------- Qotiro
+# Owns: p t k q d g m n x r. No l, y, h, s, sh, th, f, w. Words close on hard
+# consonants and stack them. Stress first. Short hard vowels. Clipped.
+[qotiro]
+label = "Qotiro (Fire)"
+reading = "en-us"
+voices = ["em_alex", "em_santa", "ef_dora", "im_nicola", "if_sara", "am_fenrir", "am_onyx", "bm_lewis", "af_kore"]
+mix = "am_fenrir*0.5+em_alex*0.5"
+
+[[qotiro.step]]   # 1: clipped and forward; the rolled r; short vowels
+delivery = { speed = 1.08, pause = 0.75, range = 0.8, energy = 0.5, lilt = -1.0 }
+sounds = { r = "roll", length = "clipped", stress = "first:light" }
+
+[[qotiro.step]]   # 2: th is t, h rasps, words end hard
+sounds = { th = "stop", h = "rasp", endings = "hard", diphthongs = "pure" }
+
+[[qotiro.step]]   # 3: l turns to r; w, y and f harden; later vowels dull
+sounds = { l = "r:light", w = "hard:light", y = "stop:light", f_v = "stop:light", vowel_set = "hard:light", stress = "first" }
+
+[[qotiro.step]]   # 4: every hiss is the rasp; nothing soft is left
+sounds = { s = "rasp", l = "r", w = "hard", y = "stop", f_v = "stop", vowel_set = "hard", endings = "clipped" }
+
+# ---------------------------------------------------------------------- Horaro
+# Owns: l m n w r h and long vowels. No stops at all, no hisses. Open,
+# vowel-heavy beats. Stress next to last, soft and drawn out.
+[horaro]
+label = "Horaro (Water)"
+reading = "en-gb"
+voices = ["pf_dora", "pm_alex", "ff_siwis", "jf_alpha", "jm_kumo", "bf_emma", "bf_isabella", "bm_daniel", "af_nicole"]
+mix = "bf_emma*0.5+pf_dora*0.5"
+
+[[horaro.step]]   # 1: slow swells, held vowels, a gentle r
+delivery = { speed = 0.92, pause = 1.15, range = 1.15, energy = -0.4, breath = 0.15 }
+sounds = { r = "flick", length = "long" }
+
+[[horaro.step]]   # 2: inside words, hisses and hard stops begin to melt
+sounds = { th = "breath:light", s = "breath:light", k_g = "breath:light", p_b = "glide:light", vowel_set = "round:light" }
+
+[[horaro.step]]   # 3: th and f are gone; t and d melt; words open out
+sounds = { th = "breath", f_v = "glide", t_d = "liquid:light", y = "vowel", length = "drawn", endings = "echo:light", clusters = "part:light" }
+
+[[horaro.step]]   # 4: only l m n w r h and vowels remain
+sounds = { s = "breath", k_g = "breath", p_b = "glide", t_d = "liquid", ch_j = "soft", vowel_set = "round", endings = "echo", clusters = "part", stress = "nextlast" }
+
+# ---------------------------------------------------------------------- Ṭaḍoro
+# Owns: f h s sh th w y, and gliding vowels. No stops, no nose sounds, no l,
+# no r. Vowels blur toward "uh". Stress last, rising. Quick, light, breathy.
+[tadoro]
+label = "Ṭaḍoro (Air)"
+reading = "en-gb"
+voices = ["af_nicole", "af_heart", "bf_lily", "bm_fable", "am_puck", "zf_xiaoxiao", "zm_yunxi", "ff_siwis", "af_sky"]
+mix = "bm_fable*0.6+af_nicole*0.4"
+
+[[tadoro.step]]   # 1: quick, light, rising; weak vowels blur
+delivery = { speed = 1.12, pause = 0.85, range = 1.1, lilt = 2.0, pitch = 1.0, breath = 0.3, energy = -0.2 }
+sounds = { vowel_set = "blur:light", stress = "last:light" }
+
+[[tadoro.step]]   # 2: inside words, hard sounds thin to breath
+sounds = { r = "soft:light", l = "glide:light", k_g = "breath:light", p_b = "hiss:light", t_d = "hiss:light" }
+
+[[tadoro.step]]   # 3: the nose sounds thin; stacked consonants part; buzz goes
+sounds = { r = "hiss:light", m_n = "glide:light", voicing = "unvoiced:light", clusters = "part:light", stress = "last" }
+
+[[tadoro.step]]   # 4: only breath and glides remain
+sounds = { r = "hiss", l = "glide", k_g = "breath", p_b = "hiss", t_d = "hiss", m_n = "glide", ch_j = "soft", voicing = "unvoiced", vowel_set = "blur", clusters = "part" }

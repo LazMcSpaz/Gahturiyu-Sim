@@ -76,14 +76,6 @@ speed = 0.9
 energy = -0.5
 breath = 0.4
 
-# Sound swaps, applied to the sounds of a line before it's spoken.
-# Use in a voice as  rules = ["trill"].
-# Symbols are the International Phonetic Alphabet; "ɹ" is the plain English r.
-[rules]
-trill = [["ɹ", "r"]]             # rolled r
-tap = [["ɹ", "ɾ"]]               # a single flick of an r
-hard_th = [["θ", "t"], ["ð", "d"]]  # "th" becomes t and d
-
 # How a line's tags (data/lines) pick an emotion when a batch is voiced.
 # The first tag found, top to bottom, wins.
 [line_emotion]

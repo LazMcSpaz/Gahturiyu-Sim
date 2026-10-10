@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accent Workbench</title>
+<style>
+/* Layout: a sticky strip with the test line and Play; under it two columns, the accent (shared by a people) and the speaker (one person). */
+:root {
+  --bg: #eceeeb; --surface: #f7f8f5; --ink: #1c2422; --muted: #5a6763; --line: #d2d8d3;
+  --accent: #1e6c62; --on-fill: #f7f8f5; --warn: #9a3b1f;
+  --roduro: #85561f; --qotiro: #b0412a; --horaro: #2a699c; --tadoro: #71569f;
+  --display: "Gentium Book Plus", "Gentium Plus", "Charis SIL", Georgia, "Times New Roman", serif;
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141a19; --surface: #1b2322; --ink: #e3e9e6; --muted: #93a29e; --line: #2b3735;
+    --accent: #5fc2b2; --on-fill: #141a19; --warn: #ee8166;
+    --roduro: #d49c58; --qotiro: #ee8166; --horaro: #72b3e6; --tadoro: #b89de8;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--ui); }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.strip { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 2px solid var(--ink); padding: 12px 20px; }
+.strip .in { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; }
+h1 { font: 700 22px/1 var(--display); margin: 0; }
+.line { display: flex; gap: 8px; min-width: 0; }
+.line input { flex: 1 1 auto; min-width: 0; font: italic 17px/1.3 var(--display); padding: 7px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.line select { flex: 0 1 190px; min-width: 0; }
+.go { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 12px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.main { background: var(--accent); border-color: var(--accent); color: var(--on-fill); font-weight: 600; padding-inline: 18px; }
+.btn.small { padding: 3px 9px; font-size: 13px; }
+.btn[disabled] { opacity: .45; cursor: default; }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; max-width: 100%; }
+.status { grid-column: 1 / -1; display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline; font-size: 13px; color: var(--muted); min-height: 20px; }
+.status .err { color: var(--warn); font-weight: 600; }
+.sounds { font: 13px/1.5 var(--mono); overflow-wrap: anywhere; }
+.sounds b { font: 600 12px var(--ui); color: var(--muted); margin-right: 6px; }
+
+main { max-width: 1280px; margin: 0 auto; padding: 20px 20px 80px; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } .strip .in { grid-template-columns: minmax(0, 1fr); } }
+section > h2 { font: 700 20px/1.2 var(--display); margin: 0 0 4px; }
+section > p.lead { margin: 0 0 14px; color: var(--muted); max-width: 60ch; }
+h3 { font: 600 12px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+
+.tongues { display: flex; flex-wrap: wrap; gap: 8px; }
+.tongue { border: 1.5px solid var(--c); color: var(--c); background: transparent; border-radius: 999px; padding: 5px 14px; font: 16px/1.3 var(--display); }
+.tongue[aria-pressed="true"] { background: var(--c); color: var(--on-fill); }
+.t-roduro { --c: var(--roduro); } .t-qotiro { --c: var(--qotiro); } .t-horaro { --c: var(--horaro); } .t-tadoro { --c: var(--tadoro); } .t-none { --c: var(--muted); font: 500 14px/1.5 var(--ui); }
+.thick { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px; gap: 12px; align-items: center; margin-top: 12px; }
+.thick output { color: var(--muted); }
+
+.row { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 5px 0; }
+.row label { font-weight: 600; }
+.row .help { grid-column: 2 / -1; font-size: 12px; color: var(--muted); margin-top: -4px; }
+.row.on label { color: var(--accent); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 5px 10px; font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-fill); }
+.seg[data-off="true"] { opacity: .35; pointer-events: none; }
+.slide { display: grid; grid-template-columns: 110px minmax(0, 1fr) 58px; gap: 10px; align-items: center; padding: 5px 0; }
+.slide label { font-weight: 600; }
+.slide small { grid-column: 2 / -1; color: var(--muted); font-size: 12px; margin-top: -4px; }
+.slide output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.slide.on label, .slide.on output { color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.mix { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 10px; align-items: center; padding: 4px 0; }
+.mix output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.keep { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; margin-top: 6px; }
+.keep input, .one input { min-width: 0; padding: 6px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.one { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin-top: 6px; }
+ul.saved { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+ul.saved li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+ul.saved code { font: 12px var(--mono); color: var(--muted); }
+ul.saved .none { color: var(--muted); border: 0; display: block; }
+.note { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="strip"><div class="in">
+  <h1>Accent workbench</h1>
+  <div class="line">
+    <input id="text" type="text" value="Keep your hand on your purse round here. Mind the road." aria-label="The line to say">
+    <select id="lines" aria-label="Pick a line from the game"><option value="">Lines from the game…</option></select>
+  </div>
+  <div class="go">
+    <button class="btn main" id="play">Play</button>
+    <button class="btn" id="plain" title="The same speaker with no accent at all">Plain</button>
+    <button class="btn" id="again" disabled title="The clip from before your last change">Before</button>
+    <label><input type="checkbox" id="auto" checked> play on every change</label>
+  </div>
+  <div class="status">
+    <span id="status">Loading the voice engine…</span>
+    <span class="sounds"><b>Plain</b><span id="s-plain"></span></span>
+    <span class="sounds"><b>This accent</b><span id="s-bent"></span></span>
+    <span id="heard"></span>
+  </div>
+</div></div>
+
+<main>
+  <section id="accent">
+    <h2>The accent</h2>
+    <p class="lead">Shared by a people or a region. It is how plain speech gets bent: which sounds are swapped, how words are shaped, and the rhythm and tune.</p>
+
+    <h3>Start from a tongue</h3>
+    <div class="tongues" id="tongues"></div>
+    <div class="thick">
+      <label for="thickness">Thickness</label>
+      <input type="range" id="thickness" min="0" max="4" step="1" value="0">
+      <output id="thick-out">none</output>
+    </div>
+    <p class="note">Each step adds more of that tongue's own habits, from a hint to its full native mouth. Moving this resets the knobs below to that step; then change any of them.</p>
+
+    <h3>Rhythm and tune</h3>
+    <div id="delivery"></div>
+    <div class="row"><label for="reading">R after a vowel</label>
+      <select id="reading"><option value="en-us">Kept (purse, here, door)</option><option value="en-gb">Dropped (puhs, heeuh, daw)</option></select><span></span></div>
+
+    <div id="knobs"></div>
+
+    <h3>Keep this accent</h3>
+    <div class="keep">
+      <input id="acc-name" type="text" placeholder="name, e.g. roduro_coast" aria-label="Accent name">
+      <input id="acc-label" type="text" placeholder="what it is, in a few words" aria-label="Accent description">
+      <button class="btn" id="acc-save">Save accent</button>
+    </div>
+    <ul class="saved" id="acc-list"></ul>
+  </section>
+
+  <section id="speaker">
+    <h2>The speaker</h2>
+    <p class="lead">One person with that accent: whose raw voice they have, and their own body.</p>
+
+    <h3>Raw voice (mix up to three)</h3>
+    <div id="mix"></div>
+    <p class="note" id="mix-note"></p>
+
+    <h3>Body</h3>
+    <div id="body"></div>
+
+    <h3>Try a mood</h3>
+    <div class="row"><label for="emotion">Mood</label><select id="emotion"><option value="">None</option></select><span></span></div>
+    <div class="row"><label for="listen">Listener</label>
+      <label style="font-weight:400"><input type="checkbox" id="listen"> write down what a speech-to-text model hears</label><span></span></div>
+
+    <h3>Keep this speaker</h3>
+    <div class="one">
+      <input id="sp-name" type="text" placeholder="name, e.g. roduro_m1" aria-label="Speaker name">
+      <button class="btn" id="sp-save">Save speaker</button><span></span>
+    </div>
+    <p class="note">A speaker points at a saved accent, so save the accent first.</p>
+    <ul class="saved" id="sp-list"></ul>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const THICK = ["none", "a hint", "light", "thick", "full native mouth"];
+const DIAL_LABEL = { speed: "Speed", pause: "Pauses", range: "Pitch movement", lilt: "Line ending", pitch: "Pitch", energy: "Force", breath: "Breath", size: "Body size", age: "Age", rough: "Gravel" };
+const DIAL_HELP = {
+  speed: "slow … fast", pause: "gaps at commas and full stops", range: "flat … sing-song", lilt: "falls … rises (semitones)",
+  pitch: "lower … higher (semitones)", energy: "soft and close … loud and hard", breath: "air in the voice",
+  size: "small … big chest and throat", age: "adds wobble, gravel and breath", rough: "gravel in the voice" };
+
+let META = null;
+const S = {
+  accent: { label: "", tongue: "", thickness: 0, reading: "en-us", sounds: {}, delivery: {}, voices: [] },
+  accentName: "",          // the saved accent (or tongue@n) these knobs still match exactly
+  mix: [{ voice: "bm_george", weight: 1 }, { voice: "", weight: 0 }, { voice: "", weight: 0 }],
+  dials: {}, emotion: "",
+};
+let now = null, before = null, seq = 0, timer = null;
+const player = new Audio();
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json().catch(() => ({ error: "the panel's helper gave no answer" }));
+  if (!r.ok) throw new Error(j.error || "something went wrong");
+  return j;
+}
+function status(text, bad) { const s = $("status"); s.textContent = text; s.className = bad ? "err" : ""; }
+
+// ---- speaking
+function request(plain) {
+  return { text: $("text").value, accent: S.accent, mix: S.mix, dials: S.dials, emotion: S.emotion, listen: $("listen").checked, plain: !!plain };
+}
+async function speak(plain) {
+  const mine = ++seq;
+  status("Speaking…");
+  try {
+    const r = await api("/api/say", request(plain));
+    if (mine !== seq) return;                      // a newer change is already on its way
+    if (!plain) { before = now; now = r.wav; $("again").disabled = !before; }
+    player.src = "data:audio/wav;base64," + r.wav;
+    player.play().catch(() => {});
+    $("s-plain").textContent = r.plain.join(" | ");
+    $("s-bent").textContent = plain ? "(none: this is the plain reading)" : r.bent.join(" | ");
+    $("heard").textContent = r.heard != null ? "Listener heard: “" + r.heard + "”" : "";
+    status(r.seconds + " s clip, made in " + r.took + " s" + (r.pitch_hz ? ", pitch about " + r.pitch_hz + " Hz" : ""));
+  } catch (e) { if (mine === seq) status(e.message, true); }
+}
+function changed(keepName) {
+  if (!keepName) S.accentName = "";
+  paint();
+  if ($("auto").checked) { clearTimeout(timer); timer = setTimeout(() => speak(false), 350); }
+}
+
+// ---- building the controls
+function slider(host, key, get, set) {
+  const [lo, hi, step] = META.ranges[key];
+  const row = el("div", "slide");
+  const id = host.id + "-" + key;
+  const lab = el("label", "", DIAL_LABEL[key] || key); lab.htmlFor = id;
+  const input = el("input"); input.type = "range"; input.id = id; input.min = lo; input.max = hi; input.step = step;
+  const out = el("output");
+  input.addEventListener("input", () => { set(parseFloat(input.value)); changed(host.id === "body"); });
+  input.addEventListener("dblclick", () => { set(META.defaults[key]); changed(host.id === "body"); });
+  row.append(lab, input, out, el("small", "", DIAL_HELP[key] || ""));
+  host.append(row);
+  return () => { const v = get(); input.value = v; out.textContent = (+v).toFixed(2).replace(/\.?0+$/, ""); row.classList.toggle("on", Math.abs(v - META.defaults[key]) > 1e-6); };
+}
+const painters = [];
+function build() {
+  // tongues
+  const t = $("tongues");
+  for (const [id, tg] of Object.entries(META.tongues)) {
+    const b = el("button", "tongue t-" + id, tg.label); b.dataset.t = id;
+    b.addEventListener("click", () => startFrom(id, Math.max(1, S.accent.tongue === id ? S.accent.thickness : 2), true));
+    t.append(b);
+  }
+  const none = el("button", "tongue t-none", "No accent"); none.dataset.t = "";
+  none.addEventListener("click", () => { S.accent = { label: "", tongue: "", thickness: 0, reading: "en-us", sounds: {}, delivery: {}, voices: [] }; changed(); });
+  t.append(none);
+  $("thickness").addEventListener("input", () => { if (S.accent.tongue) startFrom(S.accent.tongue, +$("thickness").value, false); else { $("thickness").value = 0; status("Pick a tongue first; thickness is how much of that tongue comes through.", true); } });
+
+  // rhythm sliders live in the accent; body sliders in the speaker
+  for (const k of META.accent_dials) painters.push(slider($("delivery"), k, () => S.accent.delivery[k] ?? META.defaults[k], v => { S.accent.delivery[k] = v; }));
+  for (const k of META.body_dials) painters.push(slider($("body"), k, () => S.dials[k] ?? META.defaults[k], v => { S.dials[k] = v; }));
+  $("reading").addEventListener("change", () => { S.accent.reading = $("reading").value; changed(); });
+
+  // sound knobs
+  let group = null, host = $("knobs");
+  for (const k of META.knobs) {
+    if (k.group !== group) { group = k.group; host.append(el("h3", "", group)); }
+    const row = el("div", "row");
+    const lab = el("label", "", k.label); lab.htmlFor = "knob-" + k.id;
+    const sel = el("select"); sel.id = "knob-" + k.id;
+    sel.append(new Option("Plain English", ""));
+    for (const v of k.variants) sel.append(new Option(v.label, v.id));
+    const seg = el("div", "seg");
+    const light = el("button", "", "Light"), full = el("button", "", "Full");
+    light.title = "Everywhere except the first sound of a word (for vowels: only where there is no stress)";
+    seg.append(light, full);
+    if (!k.levels) seg.hidden = true;
+    const read = () => { const [name, lvl] = (S.accent.sounds[k.id] || "").split(":"); return [name || "", lvl === "light"]; };
+    const write = (name, isLight) => { if (name) S.accent.sounds[k.id] = name + (isLight && k.levels ? ":light" : ""); else delete S.accent.sounds[k.id]; changed(); };
+    sel.addEventListener("change", () => write(sel.value, read()[1]));
+    light.addEventListener("click", () => write(read()[0], true));
+    full.addEventListener("click", () => write(read()[0], false));
+    row.append(lab, sel, seg, el("div", "help", k.help));
+    host.append(row);
+    painters.push(() => { const [name, isLight] = read(); sel.value = name; row.classList.toggle("on", !!name); seg.dataset.off = String(!name);
+      light.setAttribute("aria-pressed", String(!!name && isLight)); full.setAttribute("aria-pressed", String(!!name && !isLight)); });
+  }
+
+  // raw voice mix
+  for (let i = 0; i < 3; i++) {
+    const row = el("div", "mix");
+    const sel = el("select"); sel.id = "mix-voice-" + i; sel.setAttribute("aria-label", "Raw voice " + (i + 1));
+    const w = el("input"); w.type = "range"; w.min = 0; w.max = 1; w.step = 0.05; w.id = "mix-weight-" + i; w.setAttribute("aria-label", "How much of raw voice " + (i + 1));
+    const out = el("output");
+    sel.addEventListener("change", () => { S.mix[i].voice = sel.value; if (sel.value && !S.mix[i].weight) S.mix[i].weight = 0.5; changed(true); });
+    w.addEventListener("input", () => { S.mix[i].weight = parseFloat(w.value); changed(true); });
+    row.append(sel, w, out); $("mix").append(row);
+    painters.push(() => {
+      const suggested = S.accent.voices && S.accent.voices.length ? S.accent.voices : [];
+      const key = suggested.join(",");
+      if (sel.dataset.key !== key) {              // rebuild the list only when the suggestions change
+        sel.dataset.key = key; sel.textContent = ""; sel.append(new Option(i ? "(none)" : "(pick one)", ""));
+        const name = v => v.id.slice(3) + " · " + v.kind + " " + v.sex;
+        if (suggested.length) { const g = el("optgroup"); g.label = "Suggested for this tongue"; for (const id of suggested) { const v = META.voices.find(x => x.id === id); if (v) g.append(new Option(name(v), v.id)); } sel.append(g); }
+        const kinds = [...new Set(META.voices.map(v => v.kind))];
+        for (const kind of kinds) { const g = el("optgroup"); g.label = kind; for (const v of META.voices.filter(v => v.kind === kind)) g.append(new Option(name(v), v.id)); sel.append(g); }
+      }
+      sel.value = S.mix[i].voice; w.value = S.mix[i].weight;
+      const total = S.mix.reduce((a, m) => a + (m.voice ? m.weight : 0), 0);
+      out.textContent = S.mix[i].voice && total ? Math.round(100 * S.mix[i].weight / total) + "%" : "";
+    });
+  }
+  for (const e of META.emotions) $("emotion").append(new Option(e, e));
+  $("emotion").addEventListener("change", () => { S.emotion = $("emotion").value; changed(true); });
+  for (const l of META.lines) $("lines").append(new Option(l, l));
+  $("lines").addEventListener("change", () => { if ($("lines").value) { $("text").value = $("lines").value; $("lines").value = ""; changed(true); } });
+  $("text").addEventListener("change", () => changed(true));
+  $("listen").disabled = !META.ears;
+  if (!META.ears) $("listen").parentElement.append(" (not installed: run setup without --studio)");
+  $("listen").addEventListener("change", () => changed(true));
+  $("play").addEventListener("click", () => speak(false));
+  $("plain").addEventListener("click", () => speak(true));
+  $("again").addEventListener("click", () => { if (before) { player.src = "data:audio/wav;base64," + before; player.play().catch(() => {}); } });
+  document.addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName)) { e.preventDefault(); speak(false); } });
+  $("acc-save").addEventListener("click", saveAccent);
+  $("sp-save").addEventListener("click", saveSpeaker);
+}
+
+function parseMix(text) {
+  const parts = text.split("+").map(p => { const [voice, w] = p.split("*"); return { voice: voice.trim(), weight: w ? parseFloat(w) : 1 }; });
+  while (parts.length < 3) parts.push({ voice: "", weight: 0 });
+  return parts.slice(0, 3);
+}
+async function startFrom(tongue, thickness, takeVoices) {
+  try {
+    const r = await api("/api/recipe?tongue=" + encodeURIComponent(tongue) + "&thickness=" + thickness);
+    S.accent = { label: r.label, tongue, thickness, reading: r.reading, sounds: r.sounds, delivery: r.delivery, voices: r.voices };
+    if (takeVoices && r.mix) S.mix = parseMix(r.mix);
+    S.accentName = thickness ? tongue + "@" + thickness : "";
+    changed(true);
+  } catch (e) { status(e.message, true); }
+}
+
+function paint() {
+  for (const b of document.querySelectorAll(".tongue")) b.setAttribute("aria-pressed", String(b.dataset.t === (S.accent.tongue || "")));
+  $("thickness").value = S.accent.thickness || 0;
+  $("thick-out").textContent = S.accent.tongue ? THICK[S.accent.thickness || 0] + (S.accentName ? "" : ", then changed") : "none";
+  $("reading").value = S.accent.reading || "en-us";
+  for (const p of painters) p();
+  $("mix-note").textContent = S.accent.tongue ? "The suggested voices come from languages that already have this tongue's sounds, so they should say them more cleanly. Any voice can be mixed in." : "";
+  lists();
+}
+function lists() {
+  const a = $("acc-list"); a.textContent = "";
+  const names = Object.keys(META.accents);
+  if (!names.length) a.append(el("li", "none", "No saved accents yet."));
+  for (const name of names) {
+    const acc = META.accents[name], li = el("li");
+    const what = el("div"); what.append(el("b", "", acc.label || name), document.createTextNode(" "), el("code", "", name));
+    const load = el("button", "btn small", "Load"), del = el("button", "btn small", "Delete");
+    load.addEventListener("click", () => { S.accent = { label: acc.label || "", tongue: acc.tongue || "", thickness: acc.thickness || 0, reading: acc.reading || "en-us", sounds: { ...(acc.sounds || {}) }, delivery: { ...(acc.delivery || {}) }, voices: acc.voices || [] }; S.accentName = name; $("acc-name").value = name; $("acc-label").value = acc.label || ""; changed(true); });
+    del.addEventListener("click", async () => { if (del.textContent === "Delete") { del.textContent = "Really delete?"; return; } await api("/api/delete_accent", { name }); await refresh(); });
+    li.append(what, load, del); a.append(li);
+  }
+  const s = $("sp-list"); s.textContent = "";
+  const cast = Object.keys(META.cast);
+  if (!cast.length) s.append(el("li", "none", "No saved speakers yet."));
+  for (const name of cast) {
+    const sp = META.cast[name], li = el("li");
+    const what = el("div"); what.append(el("b", "", name), document.createTextNode(" "), el("code", "", (sp.accent || "no accent") + " · " + (sp.base || "").replace("kokoro:", "")));
+    const load = el("button", "btn small", "Load"), del = el("button", "btn small", "Delete");
+    load.addEventListener("click", async () => {
+      if (!(sp.base || "").startsWith("kokoro:")) return status("That speaker uses the real-accent engine, which the panel doesn't drive.", true);
+      S.mix = parseMix(sp.base.slice(7)); S.dials = {};
+      for (const k of META.body_dials) if (sp[k] != null) S.dials[k] = sp[k];
+      $("sp-name").value = name;
+      const acc = META.accents[sp.accent];
+      if (acc) { S.accent = { label: acc.label || "", tongue: acc.tongue || "", thickness: acc.thickness || 0, reading: acc.reading || "en-us", sounds: { ...(acc.sounds || {}) }, delivery: { ...(acc.delivery || {}) }, voices: acc.voices || [] }; S.accentName = sp.accent; changed(true); }
+      else if (sp.accent && sp.accent.includes("@")) { const [t, n] = sp.accent.split("@"); await startFrom(t, +n, false); }
+      else changed(true);
+    });
+    del.addEventListener("click", async () => { if (del.textContent === "Delete") { del.textContent = "Really delete?"; return; } await api("/api/delete_voice", { name }); await refresh(); });
+    li.append(what, load, del); s.append(li);
+  }
+}
+async function refresh() { const m = await api("/api/meta"); META.accents = m.accents; META.cast = m.cast; lists(); }
+async function saveAccent() {
+  const name = $("acc-name").value.trim();
+  try {
+    await api("/api/save_accent", { name, accent: { ...S.accent, label: $("acc-label").value.trim() || name } });
+    S.accentName = name; await refresh(); paint(); status("Saved the accent “" + name + "”.");
+  } catch (e) { status(e.message, true); }
+}
+async function saveSpeaker() {
+  const name = $("sp-name").value.trim();
+  try {
+    await api("/api/save_voice", { name, accent_name: S.accentName, mix: S.mix, dials: S.dials, speaks: S.accent.tongue || "" });
+    await refresh(); status("Saved the speaker “" + name + "”.");
+  } catch (e) { status(e.message, true); }
+}
+
+(async () => {
+  try { META = await api("/api/meta"); } catch (e) { return status("The panel's helper isn't answering. Is `voice.py studio` still running?", true); }
+  build(); paint(); status("Ready. Pick a tongue, or press Play.");
+})();
+</script>
+</body>
+</html>

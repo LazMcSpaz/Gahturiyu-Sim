@@ -37,6 +37,9 @@ from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import accents  # noqa: E402  (the accent knobs; beside this file)
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 MODELS = Path(os.environ.get("GAHT_VOICE_MODELS", HERE / "models"))
@@ -73,9 +76,12 @@ KOKORO_ACCENTS = {
 }
 
 
+class Problem(Exception):
+    """Something the person asking can fix; the message says what."""
+
+
 def die(msg: str) -> None:
-    print(f"voice: {msg}", file=sys.stderr)
-    sys.exit(1)
+    raise Problem(msg)
 
 
 def sha256(path: Path) -> str:
@@ -90,7 +96,9 @@ def cmd_setup(args) -> None:
     """Fetch the models (about 520 MB down, 850 MB on disk)."""
     MODELS.mkdir(parents=True, exist_ok=True)
     for group, name, url, want, proof in DOWNLOADS:
-        if group == "ears" and args.no_ears:
+        if group == "ears" and (args.no_ears or args.studio):
+            continue
+        if args.studio and not name.startswith(("kokoro", "voices")):
             continue
         if (MODELS / proof).exists():
             print(f"have   {proof}")
@@ -174,24 +182,36 @@ def load_vctk() -> dict:
 class Voice:
     engine: str = "kokoro"
     base: str = "bm_george"
-    accent: str = ""          # how the text is turned into sounds: en-us, en-gb, en-gb-scotland ...
-    rules: list = field(default_factory=list)
+    reading: str = ""         # which English the text is read as first: en-us, en-gb, en-gb-scotland ...
+    accent: dict = field(default_factory=dict)   # how the sounds are then bent, and the rhythm (accents.py)
     dials: dict = field(default_factory=lambda: dict(DEFAULTS))
     name: str = ""
 
     def describe(self) -> str:
         changed = {k: v for k, v in self.dials.items() if v != DEFAULTS[k]}
         bits = [f"{self.engine}:{self.base}"]
-        if self.accent:
-            bits.append(f"accent={self.accent}")
-        if self.rules:
-            bits.append("rules=" + "+".join(self.rules))
+        if self.accent.get("name"):
+            bits.append(f"accent={self.accent['name']}")
+        elif self.accent.get("sounds"):
+            bits.append("sounds=" + ",".join(f"{k}:{v}" for k, v in self.accent["sounds"].items()))
+        if self.reading:
+            bits.append(f"reading={self.reading}")
         bits += [f"{k}={round(v, 3)}" for k, v in changed.items()]
         return " ".join(bits)
 
 
+def accent_named(name: str) -> dict:
+    """A saved accent, or a tongue at a thickness ("qotiro@2")."""
+    try:
+        acc = dict(accents.find(name))
+    except ValueError as e:
+        die(str(e))
+    acc["name"] = name
+    return acc
+
+
 def voice_from(spec: dict, name: str = "") -> Voice:
-    """Build a voice from a table: base = "engine:speaker", then any dials."""
+    """Build a voice from a table: base = "engine:speaker", an accent, then any dials."""
     v = Voice(name=name)
     spec = dict(spec)
     base = spec.pop("base", None)
@@ -201,11 +221,20 @@ def voice_from(spec: dict, name: str = "") -> Voice:
         v.engine, v.base = base.split(":", 1)
     if v.engine not in ("kokoro", "vctk"):
         die(f"unknown engine {v.engine!r} (kokoro or vctk)")
-    v.accent = spec.pop("accent", "")
-    v.rules = list(spec.pop("rules", []))
-    for r in v.rules:
-        if r not in DIALS["rules"]:
-            die(f"unknown rule {r!r}; dials.toml has {', '.join(DIALS['rules'])}")
+    v.reading = spec.pop("reading", "")
+    if "accent" in spec:
+        v.accent = accent_named(spec.pop("accent"))
+    if "sounds" in spec or "delivery" in spec:   # an accent written out in place
+        v.accent = {**v.accent, "sounds": {**v.accent.get("sounds", {}), **spec.pop("sounds", {})},
+                    "delivery": {**v.accent.get("delivery", {}), **spec.pop("delivery", {})}}
+        v.accent.pop("name", None)
+    try:
+        accents.check(v.accent.get("sounds", {}))
+    except ValueError as e:
+        die(str(e))
+    for k in v.accent.get("delivery", {}):
+        if k not in DEFAULTS:
+            die(f"unknown dial {k!r} in the accent; the dials are {', '.join(DEFAULTS)}")
     for k, val in spec.items():
         if k in DEFAULTS:
             v.dials[k] = float(val)
@@ -214,7 +243,7 @@ def voice_from(spec: dict, name: str = "") -> Voice:
     return v
 
 
-def resolve_voice(arg: str, sets: list) -> Voice:
+def resolve_voice(arg: str, sets: list, accent: str | None = None) -> Voice:
     """--voice is a name from voices.toml, or a raw base like vctk:p247."""
     if ":" in arg:
         v = voice_from({"base": arg}, name=arg)
@@ -223,14 +252,14 @@ def resolve_voice(arg: str, sets: list) -> Voice:
         if arg not in profiles:
             die(f"no voice called {arg!r} in voices.toml. Have: {', '.join(profiles) or '(none yet)'}")
         v = voice_from(profiles[arg], name=arg)
+    if accent:
+        v.accent = accent_named(accent)
     for s in sets or []:
         if "=" not in s:
             die(f"--set wants dial=value, got {s!r}")
         k, val = s.split("=", 1)
-        if k == "accent":
-            v.accent = val
-        elif k == "rules":
-            v.rules = [r for r in val.split("+") if r]
+        if k == "reading":
+            v.reading = val
         elif k in DEFAULTS:
             v.dials[k] = float(val)
         else:
@@ -238,8 +267,8 @@ def resolve_voice(arg: str, sets: list) -> Voice:
     return v
 
 
-def with_emotion(dials: dict, emotion: str | None) -> dict:
-    """Fold an emotion ("angry" or "angry:0.5") and the age dial into plain dials."""
+def with_emotion(dials: dict, emotion: str | None, delivery: dict | None = None) -> dict:
+    """Fold an accent's rhythm, an emotion ("angry" or "angry:0.5") and the age dial into plain dials."""
     d = dict(dials)
 
     def fold_in(bundle: dict, strength: float) -> None:
@@ -249,6 +278,8 @@ def with_emotion(dials: dict, emotion: str | None) -> dict:
             else:
                 d[k] += float(val) * strength
 
+    if delivery:
+        fold_in(delivery, 1.0)
     if emotion:
         name, _, s = emotion.partition(":")
         if name not in DIALS["emotion"]:
@@ -289,7 +320,7 @@ def espeak(lang: str):
     return _backends[lang]
 
 
-def to_sounds(text: str, accent: str, rules: list, lexicon: dict) -> list:
+def to_sounds(text: str, accent: str, lexicon: dict) -> list:
     """The line as one string of sounds per sentence."""
     sentences = [s for s in SENTENCE_END.split(text.strip()) if s.strip()]
     out = []
@@ -322,11 +353,7 @@ def to_sounds(text: str, accent: str, rules: list, lexicon: dict) -> list:
             else:
                 piece = chunk  # only spaces and marks
             sounds += piece
-        sounds = " ".join(sounds.split())
-        for rule in rules:
-            for a, b in DIALS["rules"][rule]:
-                sounds = sounds.replace(a, b)
-        out.append(sounds)
+        out.append(" ".join(sounds.split()))
     return out
 
 
@@ -618,19 +645,34 @@ def seed_for(*keys) -> int:
     return int.from_bytes(h[:4], "little") & 0x7FFFFFFF
 
 
-def render(v: Voice, text: str, emotion: str | None = None, take: int = 0):
-    """One line, one voice: (samples, sample rate, the sounds it was read from)."""
-    d = with_emotion(v.dials, emotion)
+def reading_of(v: Voice) -> str:
+    if v.reading:
+        return v.reading
+    if v.accent.get("reading"):
+        return v.accent["reading"]
     if v.engine == "kokoro":
-        accent = v.accent or KOKORO_ACCENTS.get(v.base[:1], ("", "en-us"))[1]
-    else:
-        accent = v.accent or vctk_meta()["espeak"]["voice"]
-    sounds = to_sounds(text, accent, v.rules, load_lexicon())
+        return KOKORO_ACCENTS.get(v.base[:1], ("", "en-us"))[1]
+    return vctk_meta()["espeak"]["voice"]
+
+
+def sounds_of(v: Voice, text: str) -> tuple:
+    """The line's sounds as plain English reads them, and as this voice's accent bends them."""
+    reading = reading_of(v)
+    plain = to_sounds(text, reading, load_lexicon())
+    knobs = v.accent.get("sounds") or {}
+    bent = [accents.bend(s, knobs, reading) for s in plain] if knobs else list(plain)
+    return plain, bent
+
+
+def render(v: Voice, text: str, emotion: str | None = None, take: int = 0):
+    """One line, one voice: (samples, sample rate, the sounds it was said with)."""
+    d = with_emotion(v.dials, emotion, v.accent.get("delivery"))
+    _, sounds = sounds_of(v, text)
     if not sounds:
         die("there's no text to say")
     # Keyed by who is speaking and what they say, not by the dials: turning a
     # dial changes that one thing and leaves the reading itself alone.
-    seed = seed_for(v.engine, v.base, accent, "+".join(v.rules), text, take)
+    seed = seed_for(v.engine, v.base, reading_of(v), text, take)
     rng = np.random.default_rng(seed)
     x, sr = (speak_kokoro if v.engine == "kokoro" else speak_vctk)(v, sounds, d, seed)
     x = trim(x, sr)
@@ -751,7 +793,7 @@ def report(x, sr, text, check: bool) -> dict:
 
 
 def cmd_say(args) -> None:
-    v = resolve_voice(args.voice, args.set)
+    v = resolve_voice(args.voice, args.set, args.accent)
     x, sr, sounds = render(v, args.text, args.emotion, args.take)
     out = Path(args.out)
     save(out, x, sr)
@@ -891,6 +933,39 @@ def cmd_batch(args) -> None:
     print(f"\n{len(rows)} clips listed in {manifest}" + (f"; {bad} the listener misheard" if bad else ""))
 
 
+def cmd_studio(args) -> None:
+    """Open the panel of knobs and sliders."""
+    need("kokoro-v1.0.onnx")
+    import studio
+    studio.serve(args.port, not args.no_browser)
+
+
+def cmd_accents(args) -> None:
+    """List the tongues and saved accents, or show what one does to a line."""
+    if args.name:
+        acc = accent_named(args.name)
+        v = voice_from({"base": "kokoro:bm_george"})
+        v.accent = acc
+        plain, bent = sounds_of(v, args.text)
+        print(f"{args.name}: reads as {reading_of(v)}")
+        for k, val in acc.get("sounds", {}).items():
+            name, light = accents.setting(val)
+            spec = accents.KNOBS[k]
+            print(f"  {spec['label']:22} {spec['variants'][name]['label']}{'  (light)' if light else ''}")
+        for k, val in acc.get("delivery", {}).items():
+            print(f"  {k:22} {val}")
+        print("plain  " + " | ".join(plain))
+        print("bent   " + " | ".join(bent))
+        return
+    print("Tongues (use as NAME@1 to NAME@4, a hint to the full native mouth):")
+    for k, t in accents.TONGUES.items():
+        print(f"  {k:10} {t['label']}")
+    saved = accents.load_accents()
+    print("\nSaved accents (accents.toml):" + ("" if saved else " none yet"))
+    for k, a in saved.items():
+        print(f"  {k:20} {a.get('label', '')}")
+
+
 def cmd_selftest(args) -> None:
     """Does each dial do what it says? Measured, not listened to."""
     import parselmouth
@@ -961,6 +1036,36 @@ def cmd_selftest(args) -> None:
         x, _ = clip(base, age=1.0)
         h = hear(x, sr, line)
         expect(f"{base} age 1 still clear", h["match"] >= 0.8, f"heard {h['heard']!r}")
+    # Accent knobs. Every setting of every knob must change the sounds of a
+    # line that has its sounds in it; every tongue must get further from plain
+    # speech with each step, by the listener's count.
+    probe = ("She sells thick leather straps by the judge's church. Your brother will carry "
+             "the heavy water over. A young boy thought of pure joy, going home again tonight. "
+             "Nothing happens without a reason, usually. Perhaps nobody is always behind, "
+             "I remember. Tomorrow is good.")
+    for reading in ("en-us", "en-gb"):
+        plain = to_sounds(probe, reading, {})
+        for k in accents.ORDER:
+            for name in accents.KNOBS[k]["variants"]:
+                levels = ["", ":light"] if accents.KNOBS[k].get("levels", True) else [""]
+                for lvl in levels:
+                    bent = [accents.bend(x, {k: name + lvl}, reading) for x in plain]
+                    if bent == plain:
+                        expect(f"knob {k}={name}{lvl} ({reading})", False, "changed nothing")
+    expect("every accent knob changes the sounds", not any(f.startswith("knob ") for f in fails),
+           f"{sum(len(accents.KNOBS[k]['variants']) for k in accents.ORDER)} settings of {len(accents.ORDER)} knobs")
+    for tongue, t in accents.TONGUES.items():
+        scores = []
+        for step in range(0, 5):
+            v = voice_from({"base": "kokoro:" + t["mix"]})
+            if step:
+                v.accent = accents.recipe(tongue, step)
+            else:
+                v.reading = t["reading"]
+            x, sr, _ = render(v, line)
+            scores.append(hear(x, sr, line)["match"])
+        expect(f"{tongue} thins out by steps", scores[1] >= 0.8 and scores[4] < scores[1] - 0.2,
+               "listener's match at thickness 0 to 4: " + " ".join(f"{m:.2f}" for m in scores))
     print("\n" + ("all passed" if not fails else f"{len(fails)} failed: {', '.join(fails)}"))
     sys.exit(1 if fails else 0)
 
@@ -971,6 +1076,7 @@ def main() -> None:
 
     s = sub.add_parser("setup", help="download the voice models")
     s.add_argument("--no-ears", action="store_true", help="skip the listener model used by --check")
+    s.add_argument("--studio", action="store_true", help="only what the panel needs (about 350 MB)")
     s.set_defaults(fn=cmd_setup)
 
     s = sub.add_parser("voices", help="list every speaker and named voice")
@@ -981,6 +1087,7 @@ def main() -> None:
     s = sub.add_parser("say", help="one line, one voice, one clip")
     s.add_argument("text")
     s.add_argument("--voice", required=True, help="a name from voices.toml, or kokoro:NAME / vctk:pNNN")
+    s.add_argument("--accent", help="a saved accent, or a tongue at a thickness: roduro@2, qotiro@3 ...")
     s.add_argument("--emotion", help="angry, stern, weary, warm, afraid, sly; add :0.5 for half strength")
     s.add_argument("--set", nargs="*", metavar="DIAL=VALUE", help="e.g. pitch=-2 size=1.1 speed=0.9")
     s.add_argument("--take", type=int, default=0, help="a different reading of the same line")
@@ -1010,11 +1117,25 @@ def main() -> None:
     s.add_argument("--no-check", action="store_true")
     s.set_defaults(fn=cmd_batch)
 
+    s = sub.add_parser("studio", help="open the panel of knobs and sliders for inventing accents")
+    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--no-browser", action="store_true", help="don't open the page, just serve it")
+    s.set_defaults(fn=cmd_studio)
+
+    s = sub.add_parser("accents", help="list tongues and saved accents, or show what one does to a line")
+    s.add_argument("name", nargs="?", help="a saved accent, or a tongue at a thickness such as horaro@2")
+    s.add_argument("--text", default="Keep your hand on your purse round here. Mind the road.")
+    s.set_defaults(fn=cmd_accents)
+
     s = sub.add_parser("selftest", help="measure that each dial does what it says")
     s.set_defaults(fn=cmd_selftest)
 
     args = ap.parse_args()
-    args.fn(args)
+    try:
+        args.fn(args)
+    except Problem as e:
+        print(f"voice: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

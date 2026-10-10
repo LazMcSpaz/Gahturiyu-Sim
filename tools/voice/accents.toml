@@ -1,0 +1,5 @@
+# Accents made in the panel (`voice.py studio`). One [name] per accent.
+# An accent is shared by many speakers: it holds how sounds are bent
+# (sounds.toml lists the knobs) and the rhythm and melody of the speech.
+# The panel rewrites this file when an accent is saved; notes added by hand
+# are not kept.

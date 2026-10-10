@@ -1,25 +1,72 @@
 # The voice tool
 
-Turns a line of text into a spoken clip for an NPC. It runs ahead of time
-on a developer's machine (or in a Claude session) and writes sound files;
-nothing here runs inside the game, and the game doesn't play voices yet.
+Two jobs, in order:
 
-Free, offline once set up, and the voices may be used in a sold game
+1. **Invent accents and speakers** in a panel of knobs and sliders, by ear.
+2. **Make the spoken clips** for NPC lines with the speakers that were kept.
+
+It runs ahead of time on a developer's machine (or in a Claude session) and
+writes sound files; nothing here runs inside the game, and the game doesn't
+play voices yet. Free, offline once set up, and usable in a sold game
 (licences at the bottom).
+
+## The panel
+
+On Windows, double-click `tools\voice\studio.bat`. The first run sets
+itself up (Python 3.11 or newer must be installed; about 350 MB of voice
+models are fetched once), then a page opens in the browser. It only serves
+this computer. On Mac or Linux: `tools/voice/studio.sh`.
+
+- **The accent** (left) is shared by a people or a region. Start from a
+  tongue and a thickness, then turn any knob: which sounds are swapped, how
+  words are shaped, the rhythm and tune.
+- **The speaker** (right) is one person with that accent: a raw voice or a
+  mix of up to three, and their own body (pitch, size, age, gravel).
+- Every change is spoken straight away. **Plain** plays the same speaker
+  with no accent; **Before** replays the clip from before the last change.
+- **Save accent** writes `accents.toml`; **Save speaker** writes
+  `voices.toml`. Commit those two files: they are the game's accents and cast.
+
+### Where the accents come from
+
+Each tongue has sounds it does not own. A speaker reaches for the nearest
+sound they do own, exactly as the naming system bends a borrowed word
+(`assets/lang/sounds.ron`, the `*_borrows` lists). `tongues.toml` lays each
+tongue's swaps, word shape, stress and rhythm out as four steps, from a hint
+to the full native mouth:
+
+| Tongue | Owns | Does not own | Shape and rhythm |
+|---|---|---|---|
+| Roduro | t, curled-back t and d, throaty k, the catch, d, g, sh, th, h, r, l, y | lip sounds, nose sounds | one consonant and one vowel per beat; stress next to last; slow, low |
+| Qotiro | p, t, k, throaty k, d, g, m, n, a rasp, rolled r | l, y, h, s, sh, th, f, w | consonants stacked, hard endings; first beat hit; short vowels |
+| Horaro | l, m, n, w, gentle r, h, long vowels | every hard stop and hiss | open, vowel-heavy; soft drawn-out stress |
+| Ṭaḍoro | f, h, s, sh, th, w, y, gliding vowels | hard stops, nose sounds, l, r | weak vowels blur; last beat rises; quick, breathy |
+
+`sounds.toml` is the list of knobs (21 of them, each with its settings).
+A knob set to "light" spares the first sound of each word, which is what
+keeps a word recognisable.
+
+Raw voices are suggested per tongue from languages that already have that
+tongue's sounds (a Spanish-trained voice already rolls its r; a
+Hindi-trained one already curls its t and d back). That choice was made by
+reasoning, not by ear.
 
 ## Set up (once per machine or session)
 
 ```
 pip install -r tools/voice/requirements.txt
 python tools/voice/voice.py setup        # about 520 MB down, into tools/voice/models (not in git)
-python tools/voice/voice.py selftest     # measures that every dial does what it says
+python tools/voice/voice.py selftest     # measures that every dial and knob does what it says
 ```
 
 ## Use
 
 ```
-python tools/voice/voice.py voices --accent scottish
-python tools/voice/voice.py say "Mind the road." --voice vctk:p247 --emotion weary --set pitch=-2 --check -o out.ogg
+python tools/voice/voice.py studio                      # the panel
+python tools/voice/voice.py accents                     # tongues and saved accents
+python tools/voice/voice.py accents qotiro@2            # what an accent does to a line, as sounds
+python tools/voice/voice.py say "Mind the road." --voice kokoro:bm_george --accent roduro@2 --check -o out.ogg
+python tools/voice/voice.py say "Mind the road." --voice vctk:p247 --emotion weary --set pitch=-2 -o out.ogg
 python tools/voice/voice.py sheet tools/voice/sheets/audition.toml -o tools/voice/out/audition
 python tools/voice/voice.py batch --voices dockhand_m1,fishwife_f1
 ```
@@ -51,9 +98,9 @@ Dials (all in `dials.toml`, with their numbers):
   with a strength (`--emotion angry:0.5`). These are bundles of the dials
   above. They change how a line is delivered; they are not an actor's
   performance.
-- **Sound swaps:** `rules = ["trill"]` rolls every r, and so on.
-- **Accent of the reading:** `accent = "en-gb-scotland"` reads the text
-  with another English's sounds before the voice says it.
+- **Accent:** `--accent NAME` (a saved accent) or a tongue at a thickness
+  (`roduro@1` to `roduro@4`). Accents bend sounds the clean engine can say;
+  they are not meant for the real-accent engine.
 
 ## Invented names
 
@@ -67,7 +114,10 @@ pronounced; add a line whenever one comes out wrong.
   strong accents and invented names trip it.
 - Every clip reports its length, loudness and pitch.
 - `selftest` measures each dial against what it claims (pitch in
-  semitones, throat size from the voice's resonances, speed from length).
+  semitones, throat size from the voice's resonances, speed from length),
+  checks that every setting of every accent knob changes the sounds of a
+  line, and that each tongue gets further from plain speech step by step
+  (by the listener's count).
 - Whether a voice *sounds right* is Laz's call, by ear.
 
 ## Rules this follows
@@ -75,7 +125,9 @@ pronounced; add a line whenever one comes out wrong.
 - A clip is the same every time it's made from the same voice, text and
   take; turning a dial changes that one thing and keeps the reading.
   `--take 1` gives a different reading.
-- All numbers are data (`dials.toml`); voices are data (`voices.toml`).
+- All numbers are data (`dials.toml`); knobs are data (`sounds.toml`); each
+  tongue's habits are data (`tongues.toml`); accents and speakers are data
+  (`accents.toml`, `voices.toml`).
 - A voice is presentation only. Nothing in the sim reads it.
 
 ## Licences

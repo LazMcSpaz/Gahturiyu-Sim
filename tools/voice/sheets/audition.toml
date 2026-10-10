@@ -267,21 +267,21 @@ group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
 id = "inv_rolled"
 label = "British + Italian mix, rolled r"
 base = "kokoro:bm_george*0.5+im_nicola*0.5"
-rules = ["trill"]
+sounds = { r = "roll" }
 
 [[item]]
 group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
 id = "inv_scots_sounds"
 label = "British voice reading with Scottish sounds"
 base = "kokoro:bm_fable"
-accent = "en-gb-scotland"
+reading = "en-gb-scotland"
 
 [[item]]
 group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
 id = "inv_hard"
 label = "American + Spanish mix, rolled r, hard th"
 base = "kokoro:am_onyx*0.5+em_alex*0.5"
-rules = ["trill", "hard_th"]
+sounds = { r = "roll", th = "stop" }
 
 [[item]]
 group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
@@ -294,7 +294,7 @@ group = "4. Invented accents (mixed voices and swapped sounds; experimental)"
 id = "inv_scot_rolled"
 label = "Real Scottish speaker, rolled r"
 base = "vctk:p247"
-rules = ["trill"]
+sounds = { r = "roll" }
 
 [[item]]
 group = "5. The four ways of speaking, sketched with the dials only (same base accent; from languages.md)"
@@ -318,7 +318,7 @@ speed = 1.12
 pause = 0.7
 energy = 0.7
 range = 0.8
-rules = ["trill"]
+sounds = { r = "roll" }
 
 [[item]]
 group = "5. The four ways of speaking, sketched with the dials only (same base accent; from languages.md)"
