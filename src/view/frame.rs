@@ -27,6 +27,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::hud::{bar_for, Canvas, Face};
+use super::kit;
 use super::palette::{self, ega, race_color, Rgb, BAR_HEALTH, BAR_LOW, BAR_STAMINA, BRASS, BRASS_DARK, BRASS_LIGHT, DIM, TEXT};
 use super::squadui::{Bx, Click, Selection};
 
@@ -171,10 +172,13 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
         c.rule_in(120.0, 290.0, hy, 1.2, a(BRASS, 0.9), false);
     }
     let bx = if st.collapsed { 70.0 } else { 312.0 };
-    c.circle(bx, hy, 11.0, a(BRASS_DARK, 1.0));
-    c.circle_lines(bx, hy, 11.0, 1.5, a(BRASS, 1.0));
-    c.styled_centred(if st.collapsed { "›" } else { "‹" }, bx, hy + 5.0, 16.0, a(BRASS_LIGHT, 1.0), Face::Body, 0.0);
     let toggle = Bx::new(bx - 12.0, hy - 12.0, 24.0, 24.0);
+    let tl = kit::look(&toggle);
+    let hy = hy + kit::nudge(tl);
+    c.circle(bx, hy, 11.0, a(if tl.held { PLATE_DARK } else { BRASS_DARK }, 1.0));
+    c.circle_lines(bx, hy, 11.0, 1.5, a(if tl.hot { BRASS_LIGHT } else { BRASS }, 1.0));
+    c.styled_centred(if st.collapsed { "›" } else { "‹" }, bx, hy + 5.0, 16.0, a(BRASS_LIGHT, 1.0), Face::Body, 0.0);
+    kit::round(c, bx, hy, 11.0, tl);
     boxes.push(toggle);
     if click.is_some_and(|ck| toggle.contains(ck.at)) {
         act = Some(FrameAct::Collapse);
@@ -191,6 +195,13 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
         let cy = y0 + row_h / 2.0;
         let p = &w.people[pid as usize];
         let chosen = st.sel.shows(w, pid);
+        let r = Bx::new(0.0, y0, wide, row_h);
+        let rl = kit::look(&r);
+        if rl.hot && !chosen {
+            // Under the mouse: a lighter band than a chosen one.
+            c.grad(0.0, y0 + 3.0, wide, row_h - 6.0, a(BRASS, if rl.held { 0.10 } else { 0.18 }), a(BRASS, 0.0), true);
+            c.rule_in(0.0, wide * 0.7, y0 + 3.0, 0.8, a(BRASS_LIGHT, 0.35), false);
+        }
         if chosen {
             c.grad(0.0, y0 + 3.0, wide, row_h - 6.0, a(BRASS, 0.32), a(BRASS, 0.0), true);
             c.rule_in(0.0, wide, y0 + 3.0, 1.0, a(BRASS_LIGHT, 0.55), false);
@@ -239,7 +250,9 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
             let second = mana.or_else(|| w.stamina_of(pid)).unwrap_or(1.0);
             bar(c, nx - 4.0, cy + 18.0, bw, 4.0, second, if mana.is_some() { palette::MANA } else { BAR_STAMINA }, false);
         }
-        let r = Bx::new(0.0, y0, wide, row_h);
+        if rl.flash > 0.0 {
+            c.grad(0.0, y0 + 3.0, wide, row_h - 6.0, a(BRASS_LIGHT, 0.30 * rl.flash), a(BRASS_LIGHT, 0.0), true);
+        }
         boxes.push(r);
         if let Some(ck) = click {
             if r.contains(ck.at) && act.is_none() {
@@ -416,12 +429,24 @@ fn icon(c: &Canvas, b: Button, x: f32, y: f32, col: Color32) {
 
 /// A pill-shaped order button.
 fn pill(c: &Canvas, x: f32, y: f32, w: f32, h: f32, label: &str, on: bool, eye: bool) {
+    let l = kit::look(&Bx::new(x, y, w, h));
+    let y = y + kit::nudge(l);
     let r = h / 2.0;
-    let fill = if on { a(BRASS, 0.55) } else { a([0.11, 0.10, 0.075], 0.95) };
+    if l.hot && !l.held {
+        c.rect(x + r, y - 3.0, w - h, h + 6.0, a([1.0, 0.85, 0.5], 0.10));
+        c.circle(x + r, y + r, r + 3.0, a([1.0, 0.85, 0.5], 0.10));
+        c.circle(x + w - r, y + r, r + 3.0, a([1.0, 0.85, 0.5], 0.10));
+    }
+    let fill = match (on, l.held, l.hot) {
+        (_, true, _) => a([0.06, 0.05, 0.04], 0.98),
+        (true, _, _) => a(BRASS, if l.hot { 0.7 } else { 0.55 }),
+        (false, _, true) => a([0.20, 0.17, 0.12], 0.95),
+        _ => a([0.11, 0.10, 0.075], 0.95),
+    };
     c.rect(x + r, y, w - h, h, fill);
     c.circle(x + r, y + r, r, fill);
     c.circle(x + w - r, y + r, r, fill);
-    let edge = a(if on { BRASS_LIGHT } else { BRASS }, 1.0);
+    let edge = a(if on || l.hot { BRASS_LIGHT } else { BRASS }, 1.0);
     c.arc(x + r, y + r, r, std::f32::consts::FRAC_PI_2, 3.0 * std::f32::consts::FRAC_PI_2, 1.3, edge);
     c.arc(x + w - r, y + r, r, -std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2, 1.3, edge);
     c.line(vec2(x + r, y), vec2(x + w - r, y), 1.3, edge);
@@ -436,7 +461,12 @@ fn pill(c: &Canvas, x: f32, y: f32, w: f32, h: f32, label: &str, on: bool, eye: 
         c.circle(ix, iy, r * 0.32, edge);
         c.circle(ix + 3.0, iy - 2.0, r * 0.28, fill);
     }
-    c.styled(label, x + h + 6.0, y + r + 5.0, 13.0, a(TEXT, 0.95), Face::Title, 2.0);
+    c.styled(label, x + h + 6.0, y + r + 5.0, 13.0, a(if l.hot { BRASS_LIGHT } else { TEXT }, 0.95), Face::Title, 2.0);
+    if l.flash > 0.0 {
+        c.rect(x + r, y, w - h, h, a([1.0, 0.95, 0.75], 0.3 * l.flash));
+        c.circle(x + r, y + r, r, a([1.0, 0.95, 0.75], 0.3 * l.flash));
+        c.circle(x + w - r, y + r, r, a([1.0, 0.95, 0.75], 0.3 * l.flash));
+    }
 }
 
 /// One part of the little body, coloured by how it's holding up.
@@ -483,15 +513,18 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
     // Round buttons on the left.
     for (i, (b, name)) in BUTTONS.iter().enumerate() {
         let x = 42.0 + i as f32 * 56.0;
-        let y = c.h - 52.0;
+        let r = Bx::new(x - 22.0, c.h - 74.0, 44.0, 58.0);
+        let l = kit::look(&r);
+        let y = c.h - 52.0 + kit::nudge(l);
         let on = st.open.contains(b);
         c.circle(x, y, 21.0, a([0.05, 0.045, 0.035], 0.85));
-        c.circle(x, y, 19.0, a(if on { BRASS_DARK } else { [0.17, 0.15, 0.11] }, 1.0));
-        c.circle_lines(x, y, 19.0, 2.0, a(if on { BRASS_LIGHT } else { BRASS }, 1.0));
+        let fill = if l.held { [0.08, 0.07, 0.05] } else if on { BRASS_DARK } else if l.hot { [0.24, 0.21, 0.15] } else { [0.17, 0.15, 0.11] };
+        c.circle(x, y, 19.0, a(fill, 1.0));
+        c.circle_lines(x, y, 19.0, 2.0, a(if on || l.hot { BRASS_LIGHT } else { BRASS }, 1.0));
         c.circle_lines(x, y, 15.5, 0.8, a(BRASS_DARK, 1.0));
-        icon(c, *b, x, y, a(if on { BRASS_LIGHT } else { BRASS }, 1.0));
-        c.styled_centred(&name.to_uppercase(), x, c.h - 14.0, 10.0, a(TEXT, 0.85), Face::Title, 1.2);
-        let r = Bx::new(x - 22.0, y - 22.0, 44.0, 58.0);
+        icon(c, *b, x, y, a(if on || l.hot { BRASS_LIGHT } else { BRASS }, 1.0));
+        kit::round(c, x, y, 19.0, l);
+        c.styled_centred(&name.to_uppercase(), x, c.h - 14.0, 10.0, a(if l.hot { BRASS_LIGHT } else { TEXT }, 0.85), Face::Title, 1.2);
         if clicked(&r) {
             act = Some(FrameAct::Toggle(*b));
         }
@@ -578,23 +611,36 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
     c.styled_centred(&place, lx, c.h - 54.0, 12.0, a(TEXT, 0.85), Face::Title, 2.0);
     let row = c.h - 30.0;
     let px = lx - 58.0;
-    c.circle(px, row, 11.0, a(if st.paused { BRASS } else { BRASS_DARK }, 1.0));
-    c.circle_lines(px, row, 11.0, 1.4, a(BRASS_LIGHT, 1.0));
-    c.rect(px - 4.0, row - 5.0, 2.5, 10.0, a(if st.paused { PLATE_DARK } else { BRASS_LIGHT }, 1.0));
-    c.rect(px + 1.5, row - 5.0, 2.5, 10.0, a(if st.paused { PLATE_DARK } else { BRASS_LIGHT }, 1.0));
     let pb = Bx::new(px - 12.0, row - 12.0, 24.0, 24.0);
+    let pl = kit::look(&pb);
+    {
+        let row = row + kit::nudge(pl);
+        c.circle(px, row, 11.0, a(if pl.held { PLATE_DARK } else if st.paused { BRASS } else { BRASS_DARK }, 1.0));
+        c.circle_lines(px, row, 11.0, 1.4, a(BRASS_LIGHT, 1.0));
+        c.rect(px - 4.0, row - 5.0, 2.5, 10.0, a(if st.paused { PLATE_DARK } else { BRASS_LIGHT }, 1.0));
+        c.rect(px + 1.5, row - 5.0, 2.5, 10.0, a(if st.paused { PLATE_DARK } else { BRASS_LIGHT }, 1.0));
+        kit::round(c, px, row, 11.0, pl);
+    }
     if clicked(&pb) {
         act = Some(FrameAct::Pause);
     }
     for i in 0..5 {
         let x = px + 28.0 + i as f32 * 24.0;
+        let b = Bx::new(x - 11.0, row - 11.0, 22.0, 22.0);
+        let l = kit::look(&b);
+        let row = row + kit::nudge(l);
+        if l.hot && !l.held {
+            c.diamond(x, row, 10.0, a([1.0, 0.85, 0.5], 0.16));
+        }
         if !st.paused && i <= st.speed_i {
             c.diamond(x, row, 6.0, a(BRASS_LIGHT, 1.0));
         } else {
-            c.diamond(x, row, 6.0, a(PLATE_DARK, 1.0));
-            c.diamond_lines(x, row, 6.0, 1.2, a(BRASS, 1.0));
+            c.diamond(x, row, 6.0, a(if l.held { [0.05, 0.04, 0.03] } else { PLATE_DARK }, 1.0));
+            c.diamond_lines(x, row, 6.0, 1.2, a(if l.hot { BRASS_LIGHT } else { BRASS }, 1.0));
         }
-        let b = Bx::new(x - 11.0, row - 11.0, 22.0, 22.0);
+        if l.flash > 0.0 {
+            c.diamond(x, row, 6.0 + (1.0 - l.flash) * 6.0, a([1.0, 0.95, 0.75], 0.4 * l.flash));
+        }
         if clicked(&b) {
             act = Some(FrameAct::Speed(i));
         }

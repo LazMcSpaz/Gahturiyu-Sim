@@ -97,8 +97,7 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
     for (i, (what, it, n)) in things.iter().take(LINES).enumerate() {
         let yy = top + (i + 1) as f32 * ROW;
         let row = Bx::new(x0 - 6.0, yy - 15.0, col_w + 6.0, ROW);
-        if row.contains(mouse) {
-            c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.14));
+        if super::kit::row(c, &row, false).hot {
             c.styled_right("take ›", x0 + col_w, yy, 12.0, eg(GOLD), Face::Italic, 0.0);
         } else {
             let worn = if matches!(what, LootRef::Worn(_)) { "worn · " } else { "" };
@@ -114,8 +113,7 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
     for (i, (k, it, n)) in mine.iter().take(LINES).enumerate() {
         let yy = top + (i + 1) as f32 * ROW;
         let row = Bx::new(x1 - 6.0, yy - 15.0, col_w + 6.0, ROW);
-        if chest && row.contains(mouse) {
-            c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.14));
+        if chest && super::kit::row(c, &row, false).hot {
             c.styled_right("‹ put in", x1 + col_w, yy, 12.0, eg(GOLD), Face::Italic, 0.0);
         } else {
             c.styled_right(&format!("{:.1} kg", item(*it).weight * *n as f32), x1 + col_w, yy, 12.0, eg(DIM), Face::Body, 0.0);
@@ -129,13 +127,9 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
     // Buttons.
     let by = r.y + r.h - 30.0;
     let all = Bx::new(x0, by - 16.0, 120.0, 24.0);
-    c.rect(all.x, all.y, all.w, all.h, ega(BRASS, if all.contains(mouse) { 0.45 } else { 0.22 }));
-    c.rect_lines(all.x, all.y, all.w, all.h, 1.0, eg(BRASS));
-    c.styled("TAKE ALL", all.x + 22.0, all.y + 17.0, 12.0, eg(BRASS_LIGHT), Face::Title, 2.0);
+    super::kit::button(c, &all, "TAKE ALL", super::kit::Kind::Primary, !things.is_empty());
     if clicked(&all) && !things.is_empty() {
         act = Some(LootAct::TakeAll(who, src));
     }
-    let hint = if chest { "Click a line to move it across" } else { "Click a line to take it" };
-    c.styled_right(hint, r.x + r.w - 18.0, by, 13.0, eg(DIM), Face::Italic, 0.0);
     (act, Some(r))
 }
