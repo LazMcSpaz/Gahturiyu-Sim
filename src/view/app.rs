@@ -29,9 +29,13 @@ pub enum View {
     Map,
 }
 
+/// How quickly a second click must follow the first to count as a double
+/// click, in seconds.
+const DOUBLE_CLICK: f32 = 0.4;
+
 /// Every key, by view (the Keys button shows them).
-pub const HELP_3D: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: map   L: detail   B: build   F10: edit the land";
-pub const HELP_MAP: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow   Space: pause   1–5: speed   V: 3D   B: bandits";
+pub const HELP_3D: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow (one picked: lock on)   Double-click a portrait: go to them   Space: pause   1–5: speed   Enter: deal / take all / make   Esc: close / game menu   V: map   L: detail   B: build   F10: edit the land";
+pub const HELP_MAP: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow (one picked: lock on)   Double-click a portrait: go to them   Space: pause   1–5: speed   Enter: deal / take all / make   Esc: close / game menu   V: 3D   B: bandits";
 
 /// Something the mouse can be over.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -73,6 +77,11 @@ pub struct Game {
     pub orbit: OrbitCam,
     pub map_cam: MapCam,
     pub follow: bool,
+    /// While following: the squad member the camera is locked on to, or the
+    /// squad as a whole (None). Laz's P7 and P8.
+    pub follow_who: Option<PersonId>,
+    /// The last portrait clicked and when (twice quickly centres on them).
+    pub last_pick: Option<(PersonId, std::time::Instant)>,
     pub speed_i: usize,
     pub paused: bool,
     pub rings: bool,
@@ -176,7 +185,9 @@ pub struct Game {
     /// How each figure drawn is walking and facing (UI-9; drawing only).
     pub gaits: super::gait::Gaits,
     /// What the mouse rests on and since when (the long tooltip waits, UI-4).
-    pub resting: Option<(Hover, std::time::Instant)>,
+    /// (And where the mouse was: moving it more than `pointer::STILL` px
+    /// starts the wait again, P5.)
+    pub resting: Option<(Hover, std::time::Instant, Vec2)>,
     pub labels: Vec<(Vec3, String)>,
     pub bars: Vec<(Vec3, f32, Option<f32>, bool)>,
     /// Remarks townsfolk make as the squad goes by: (who, what, until frame),
@@ -202,6 +213,42 @@ pub struct Game {
     pub cutaway: bool,
     /// Sounds asked for this frame (`sound.rs` plays them).
     pub sounds: super::sound::Queue,
+    /// Whose stats sheet is open.
+    pub stats: Option<PersonId>,
+    /// The game menu (Escape with nothing open); the world waits while it's up.
+    pub game_menu: Option<super::screens::GameMenu>,
+    /// Which screen is open (`screens.rs`: one at a time).
+    pub screens: super::screens::Screens,
+    /// Quit chosen in the game menu (the window closes at the end of the frame).
+    pub quit: bool,
+}
+
+/// A new world for `seed`: the forged town (assets/towns/demo) and the
+/// seed's map from the land editor, unless `own_land` asks for the seed's
+/// own land (screenshots).
+fn fresh_world(seed: u64, own_land: bool) -> World {
+    let forge = match gahturiyu_sim::sim::forge::load(&forge_dir(), seed) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("couldn't read the forged town: {e}");
+            None
+        }
+    };
+    let path = map_path(seed);
+    let edits = if own_land {
+        Default::default()
+    } else {
+        match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
+            Ok((_, edits)) => edits,
+            Err(e) => {
+                if path.exists() {
+                    eprintln!("couldn't read {}: {e}; starting from the seed's own land", path.display());
+                }
+                Default::default()
+            }
+        }
+    };
+    worldgen::generate_authored(seed, forge, edits)
 }
 
 pub fn run() {
@@ -217,32 +264,7 @@ pub fn run() {
         }
         // A map authored for this seed (the land editor saves it). Screenshots
         // use the seed's own land unless GAHT_MAP is set.
-        None => {
-            // The forged town (assets/towns/demo), then the map, unless a
-            // screenshot asks for the seed's own land.
-            let forge = match gahturiyu_sim::sim::forge::load(&forge_dir(), seed) {
-                Ok(f) => f,
-                Err(e) => {
-                    eprintln!("couldn't read the forged town: {e}");
-                    None
-                }
-            };
-            let path = map_path(seed);
-            let edits = if shot.is_some() && std::env::var("GAHT_MAP").is_err() {
-                Default::default()
-            } else {
-                match gahturiyu_sim::sim::mapedit::MapEdits::load_from(&path) {
-                    Ok((_, edits)) => edits,
-                    Err(e) => {
-                        if path.exists() {
-                            eprintln!("couldn't read {}: {e}; starting from the seed's own land", path.display());
-                        }
-                        Default::default()
-                    }
-                }
-            };
-            worldgen::generate_authored(seed, forge, edits)
-        }
+        None => fresh_world(seed, shot.is_some() && std::env::var("GAHT_MAP").is_err()),
     };
     if let Some(s) = &shot {
         s.prepare(&mut world);
@@ -252,7 +274,9 @@ pub fn run() {
         map_cam: MapCam { centre: world.squad.pos, zoom: 1600.0 / 7000.0 },
         orbit: OrbitCam::new(world.squad.pos),
         follow: true,
-        speed_i: 2,
+        follow_who: None,
+        last_pick: None,
+        speed_i: 0,
         paused: false,
         rings: true,
         debug: false,
@@ -328,6 +352,10 @@ pub fn run() {
         placing: None,
         cutaway: false,
         sounds: Default::default(),
+        stats: None,
+        game_menu: None,
+        screens: Default::default(),
+        quit: false,
         shot: None,
         world,
     };
@@ -379,6 +407,18 @@ pub fn run() {
             }
         }
         game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
+        // `GAHT_STATS=k`: member k's sheet. `GAHT_GAMEMENU=1`: the game menu
+        // (`quit` or `new` for its question).
+        game.stats = std::env::var("GAHT_STATS").ok().and_then(|v| v.parse::<usize>().ok()).and_then(|k| game.world.squad.members.get(k).copied());
+        if let Ok(v) = std::env::var("GAHT_GAMEMENU") {
+            use super::screens::{GameMenu, MenuAct};
+            let confirm = match v.as_str() {
+                "quit" => Some(MenuAct::Quit),
+                "new" => Some(MenuAct::NewGame),
+                _ => None,
+            };
+            game.game_menu = Some(GameMenu { confirm });
+        }
         if s.feud {
             game.town_all = true;
         }
@@ -537,14 +577,60 @@ pub fn quick_save() -> std::path::PathBuf {
     assets.parent().map(|p| p.to_path_buf()).unwrap_or_default().join("saves").join("quick.sav")
 }
 
+/// The town panel: open for the town the squad is in or beside, or say
+/// there's none. Out in the wilds it doesn't show a town far away (Laz's
+/// P15). (A town far off can still be opened from the right-click menu or
+/// the map.)
+fn toggle_town(game: &mut Game) {
+    if game.town.is_some() {
+        game.town = None;
+        return;
+    }
+    game.town = game.world.town_at(game.world.squad.pos);
+    if game.town.is_none() {
+        game.notice = Some(("No town here: you're out in the wilds.".to_string(), std::time::Instant::now()));
+    }
+}
+
+fn quick_save_now(game: &mut Game) {
+    let msg = match game.world.save_to(&quick_save()) {
+        Ok(()) => "Saved.".to_string(),
+        Err(e) => format!("Couldn't save: {e}"),
+    };
+    game.notice = Some((msg, std::time::Instant::now()));
+}
+
+fn quick_load_now(game: &mut Game) {
+    let msg = match World::load_from(&quick_save()) {
+        Ok(loaded) => {
+            swap_world(game, loaded);
+            "Loaded.".to_string()
+        }
+        Err(gahturiyu_sim::sim::save::LoadError::Io(_)) => "No save yet (F8 saves).".to_string(),
+        Err(e) => format!("Couldn't load: {e}"),
+    };
+    game.notice = Some((msg, std::time::Instant::now()));
+}
+
 /// Put a loaded world in place of the current one, and forget anything the
 /// window was holding about the old one.
 fn swap_world(game: &mut Game, w: World) {
     game.world = w;
     game.loads += 1;
     game.sel = Selection::default();
+    game.follow_who = None;
     game.inv = None;
     game.craft = None;
+    game.book = None;
+    game.stats = None;
+    game.town = None;
+    game.journal = false;
+    game.talking = None;
+    game.parting = None;
+    game.trading = None;
+    game.aim = None;
+    game.menu = None;
+    game.examine = None;
     game.hover = None;
     game.build = false;
     game.placing = None;
@@ -614,19 +700,29 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
     }
-    // (At the trade table Space is Deal: taken up where the screen is drawn.)
-    if keys.just_pressed(KeyCode::Space) {
+    // Space only ever controls time (Laz's P11). (Not while the game menu
+    // is up: the world waits for it anyway.)
+    if keys.just_pressed(KeyCode::Space) && game.game_menu.is_none() {
+        game.paused = !game.paused;
+    }
+    // Enter does what the open screen is for: Deal at the trade table (taken
+    // up where the screen is drawn), Take all when going through something,
+    // Make at a bench (below).
+    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
         if game.trading.is_some() {
             game.space_deal = true;
         } else if super::lootui::open_loot(w).is_some() {
-            // (Going through something, Space is Take all.)
             game.space_take = true;
-        } else {
-            game.paused = !game.paused;
         }
     }
+    // C: follow. With one member picked out, the camera locks on to them;
+    // otherwise it follows the squad.
     if keys.just_pressed(KeyCode::KeyC) || keys.just_pressed(KeyCode::KeyF) {
         game.follow = true;
+        game.follow_who = match game.sel.0.as_slice() {
+            [one] if w.squad.index(*one).is_some() => Some(*one),
+            _ => None,
+        };
     }
     if keys.just_pressed(KeyCode::KeyR) {
         game.rings = !game.rings;
@@ -670,10 +766,14 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         w.end_talk();
     } else if keys.just_pressed(KeyCode::Escape) && game.parting.is_some() {
         game.parting = None;
-    } else if keys.just_pressed(KeyCode::Backquote) || keys.just_pressed(KeyCode::Escape) {
+    } else if keys.just_pressed(KeyCode::Escape) {
+        // Close whatever screen is open, or bring up the game menu.
+        super::screens::escape(game);
+    }
+    let w = &mut game.world;
+    // `: everyone.
+    if keys.just_pressed(KeyCode::Backquote) {
         game.sel = Selection::default();
-        game.inv = None;
-        game.craft = None;
     }
     if keys.just_pressed(KeyCode::KeyZ) {
         let who = game.sel.who(w);
@@ -721,38 +821,20 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     if keys.just_pressed(KeyCode::KeyJ) {
         game.journal = !game.journal;
     }
-    // P: the town panel for the town nearest the camera.
+    // P: the town panel for the town the squad is in.
     if keys.just_pressed(KeyCode::KeyP) {
-        let at = match game.view {
-            View::Scene => game.orbit.target,
-            View::Map => w.squad.pos,
-        };
-        game.town = match game.town {
-            Some(_) => None,
-            None => w.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|s| s.id),
-        };
+        toggle_town(game);
     }
+    let w = &mut game.world;
     if keys.just_pressed(KeyCode::KeyO) {
         game.options = !game.options;
     }
     if keys.just_pressed(KeyCode::F8) {
-        let msg = match w.save_to(&quick_save()) {
-            Ok(()) => "Saved.".to_string(),
-            Err(e) => format!("Couldn't save: {e}"),
-        };
-        game.notice = Some((msg, std::time::Instant::now()));
+        quick_save_now(game);
         return;
     }
     if keys.just_pressed(KeyCode::F9) {
-        let msg = match World::load_from(&quick_save()) {
-            Ok(loaded) => {
-                swap_world(game, loaded);
-                "Loaded.".to_string()
-            }
-            Err(gahturiyu_sim::sim::save::LoadError::Io(_)) => "No save yet (F8 saves).".to_string(),
-            Err(e) => format!("Couldn't load: {e}"),
-        };
-        game.notice = Some((msg, std::time::Instant::now()));
+        quick_load_now(game);
         return;
     }
     if keys.just_pressed(KeyCode::KeyK) {
@@ -764,7 +846,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         };
     }
     // At a bench's screen: Enter makes what's shown, by whoever is shown.
-    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
+    if (keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)) && game.trading.is_none() {
         if let Some(m) = game.making.clone() {
             let rows = w.making_list(&m.bench);
             if let Some(ri) = super::makeui::shown(&rows, m.pick) {
@@ -974,7 +1056,9 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
                 game.follow = false;
             }
             if pan != (0.0, 0.0) {
-                game.orbit.pan(pan.0 * dt, pan.1 * dt);
+                // (`pan` takes "right" the way a drag moves the ground, so
+                // the keys go the other way: A pans left, D right. P9.)
+                game.orbit.pan(-pan.0 * dt, pan.1 * dt);
                 game.follow = false;
             }
             if keys.pressed(KeyCode::KeyQ) {
@@ -1008,7 +1092,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     }
     // Time stands still while you talk, as in Morrowind (and once the
     // squad is gone).
-    if !game.paused && game.world.talk.is_none() && !game.editor.on && !game.world.squad.members.is_empty() {
+    if !game.paused && game.game_menu.is_none() && game.world.talk.is_none() && !game.editor.on && !game.world.squad.members.is_empty() {
         let t0 = std::time::Instant::now();
         // Screenshots run at a fixed pace so they don't depend on how fast
         // the machine draws.
@@ -1022,14 +1106,23 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         }
         game.sim_ms = game.sim_ms * 0.9 + t0.elapsed().as_secs_f64() * 1000.0 * 0.1;
     }
-    if game.follow {
-        game.map_cam.centre = game.world.squad.pos;
+    // Locked on to someone who's left the squad: back to the squad.
+    if game.follow_who.is_some_and(|p| game.world.squad.index(p).is_none()) {
+        game.follow_who = None;
     }
-    // The 3D camera glides: after the squad when following, and to the
-    // distance and tilt it's been sent to (UI-11).
+    let followed = match game.follow_who {
+        Some(p) => game.world.fighter(p).map(|f| f.pos).unwrap_or_else(|| game.world.person_pos(p)),
+        None => game.world.squad.pos,
+    };
+    if game.follow {
+        game.map_cam.centre = followed;
+    }
+    // The 3D camera glides: after the squad (or the member it's locked on
+    // to) when following, and to the distance and tilt it's been sent to
+    // (UI-11).
     {
         let snap = game.shot.is_some() || game.frame < 2;
-        let to = game.follow.then_some(game.world.squad.pos);
+        let to = game.follow.then_some(followed);
         let mut g = game.glide.unwrap_or(super::feel::Glide::of(&game.orbit));
         g.step(&mut game.orbit, to, dt, snap);
         game.glide = Some(g);
@@ -1106,8 +1199,8 @@ fn place_click(game: &mut Game, shift: bool) {
 /// The mouse has rested on `h` long enough for its long tooltip (or Alt is
 /// held, or it's a screenshot); restarts the wait when `h` changes (UI-4).
 fn tip_due(game: &mut Game, h: Hover, alt: bool) -> bool {
-    if game.resting.is_none_or(|r| r.0 != h) {
-        game.resting = Some((h, std::time::Instant::now()));
+    if game.resting.is_none_or(|r| r.0 != h || (r.2 - game.mouse).length() > super::pointer::STILL) {
+        game.resting = Some((h, std::time::Instant::now(), game.mouse));
     }
     // (Screenshots show the tooltip, or with `GAHT_PLATE=1` the name plate.)
     if game.shot.is_some() {
@@ -1510,6 +1603,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         return Ok(());
     }
+    // One screen at a time (what the keys opened this frame wins).
+    super::screens::settle(game);
     // L also shows everything about strangers on hover (for testing).
     hud::set_see_all(game.debug);
     // The old side panel (counts, timings, races, the full log): with L.
@@ -1528,7 +1623,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     // The frame: the squad, the tracked job, the place, the bottom band.
     let mut open = Vec::new();
     use super::frame::{Button, FrameAct};
-    for (on, b) in [(game.inv.is_some(), Button::Pack), (game.craft.is_some(), Button::Craft), (game.book.is_some(), Button::Spells), (game.journal, Button::Journal), (game.town.is_some(), Button::Town), (game.build, Button::Build), (game.view == View::Map, Button::Map), (game.keys, Button::Keys)] {
+    for (on, b) in [(game.inv.is_some(), Button::Pack), (game.craft.is_some(), Button::Craft), (game.book.is_some(), Button::Spells), (game.journal, Button::Journal), (game.town.is_some(), Button::Town), (game.build, Button::Build), (game.view == View::Map, Button::Map), (game.stats.is_some(), Button::Stats)] {
         if on {
             open.push(b);
         }
@@ -1541,6 +1636,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         super::frame::banner(&c, w);
     }
     let (mut list_act, mut bottom_act) = (None, None);
+    let mut town_button = false;
     if !close_up {
         let (act, boxes) = super::frame::squad_list(&c, w, &fs, click);
         list_act = act;
@@ -1563,7 +1659,19 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             game.sounds.ui("ui_press");
         }
         match fa {
-            FrameAct::Select(pid, add) => game.sel.pick(pid, add),
+            FrameAct::Select(pid, add) => {
+                game.sel.pick(pid, add);
+                // Twice quickly on a portrait: the camera goes to them and
+                // stays with them (P8).
+                let again = game.last_pick.is_some_and(|(p, t)| p == pid && t.elapsed().as_secs_f32() < DOUBLE_CLICK);
+                if again && !add {
+                    game.follow = true;
+                    game.follow_who = Some(pid);
+                    game.last_pick = None;
+                } else {
+                    game.last_pick = Some((pid, std::time::Instant::now()));
+                }
+            }
             FrameAct::Pack(pid) => {
                 game.book = None;
                 game.craft = None;
@@ -1609,13 +1717,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                         game.book = if game.book.is_some() { None } else { lead };
                     }
                     Button::Journal => game.journal = !game.journal,
-                    Button::Town => {
-                        let at = w.squad.pos;
-                        game.town = match game.town {
-                            Some(_) => None,
-                            None => w.settlements.iter().min_by(|a, b| a.pos.dist(at).total_cmp(&b.pos.dist(at))).map(|s| s.id),
-                        };
-                    }
+                    Button::Town => town_button = true,
                     Button::Build => {
                         game.build = !game.build;
                         if !game.build {
@@ -1630,12 +1732,25 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                             game.orbit.target = game.map_cam.centre;
                         }
                     }
-                    Button::Keys => game.keys = !game.keys,
+                    Button::Stats => game.stats = if game.stats.is_some() { None } else { lead },
                 }
             }
         }
     }
+    if town_button {
+        toggle_town(game);
+    }
+    let w = &mut game.world;
     let mut item_tip = None;
+    if let Some(pid) = game.stats.filter(|&p| w.squad.index(p).is_some()) {
+        let at = game.slides.begin(&c);
+        let (a, bx) = super::statsui::sheet(&c, w, pid, click);
+        game.slides.end(&c, "stats", at);
+        panels.push(bx);
+        if let Some(super::statsui::StatsAct::Close) = a {
+            game.stats = None;
+        }
+    }
     if let Some(pid) = game.inv.filter(|&p| w.squad.index(p).is_some()) {
         let at = game.slides.begin(&c);
         let (a, bx) = super::packui::pack(&c, w, &mut game.pack, pid, game.mouse, game.left_held, click);
@@ -2180,6 +2295,32 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         panels.push(r);
     }
 
+    // The game menu, over everything else.
+    if let Some(mut m) = game.game_menu {
+        let (picked, bx) = super::screens::draw_menu(&c, &mut m, click, size);
+        game.game_menu = Some(m);
+        panels.push(bx);
+        if let Some(act) = picked {
+            use super::screens::MenuAct;
+            game.sounds.ui("ui_press");
+            game.game_menu = None;
+            match act {
+                MenuAct::Resume => {}
+                MenuAct::Settings => game.options = true,
+                MenuAct::Keys => game.keys = true,
+                MenuAct::Save => quick_save_now(game),
+                MenuAct::Load => quick_load_now(game),
+                MenuAct::NewGame => {
+                    let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(1);
+                    swap_world(game, fresh_world(seed, true));
+                    game.notice = Some((format!("A new world (seed {seed})."), std::time::Instant::now()));
+                }
+                MenuAct::Quit => game.quit = true,
+            }
+        }
+    }
+    // A screen opened from a panel this frame closes the others.
+    super::screens::settle(game);
     // Panels just closed fade where they were (under the tooltips).
     game.slides.finish(&c);
 
@@ -2340,6 +2481,10 @@ impl From<egui::Rect> for Bx {
 /// Save a screenshot at the asked-for frame, then quit once it's on disk.
 fn screenshot(mut commands: Commands, mut game: ResMut<Game>, mut exit: MessageWriter<AppExit>) {
     game.frame += 1;
+    if game.quit {
+        exit.write(AppExit::Success);
+        return;
+    }
     let Some(s) = &game.shot else { return };
     let path = s.path.clone();
     let frames = s.frames;

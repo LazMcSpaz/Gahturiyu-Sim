@@ -200,7 +200,7 @@ struct Fought {
 struct Seen {
     first: bool,
     loads: u32,
-    panels: [bool; 9],
+    panels: [bool; 11],
     loot: Option<bool>,
     sel: Vec<gahturiyu_sim::sim::person::PersonId>,
     fights: HashMap<(u32, usize), Fought>,
@@ -223,6 +223,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut sfx: ResMut<Sf
         (game.options, "ui_open"),
         (game.build, "ui_open"),
         (game.keys, "ui_open"),
+        (game.stats.is_some(), "page_turn"),
+        (game.game_menu.is_some(), "ui_open"),
         (w.talk.is_some(), "talk_open"),
     ];
     // The loot window: a chest's lid, or a body's things.

@@ -2,7 +2,7 @@
 //! after Baldur's Gate 3): a small box beside the thing on screen, not a
 //! big panel in the middle. Its name, whose it is (in red when taking is
 //! theft, with the odds of being seen, which Laz keeps), a short list to
-//! click from, and Take all (Space). A chest the squad can also put things
+//! click from, and Take all (Enter). A chest the squad can also put things
 //! in has a Put in tab, which lists the pack of whoever is at it.
 //!
 //! Drawing only: what's clicked goes back to `app.rs` as a `LootAct`.
@@ -55,7 +55,7 @@ pub fn loot_spot(w: &World, src: Source) -> gahturiyu_sim::sim::geo::V2 {
 }
 
 /// The box, beside `at` (the thing on screen, if it's in view; else the
-/// middle). `putting`: the Put in tab is showing. `take_key`: Space was
+/// middle). `putting`: the Put in tab is showing. `take_key`: Enter was
 /// pressed (Take all).
 pub fn loot_panel(c: &Canvas, w: &World, at: Option<Vec2>, putting: bool, take_key: bool, click: Option<Click>) -> (Option<LootAct>, Option<Bx>) {
     let Some((who, src)) = open_loot(w) else { return (None, None) };

@@ -56,8 +56,11 @@ impl Selection {
     pub fn is_all(&self, w: &World) -> bool {
         self.who(w).len() == w.squad.members.len()
     }
+    /// Picked out by the player. (Everyone picked one by one shows as
+    /// everyone picked, not as nobody: Laz's P6, where Shift-clicking the
+    /// fourth member seemed to drop them all.)
     pub fn shows(&self, w: &World, pid: PersonId) -> bool {
-        !self.is_all(w) && self.0.contains(&pid)
+        w.squad.index(pid).is_some() && self.0.contains(&pid)
     }
     pub fn lead(&self, w: &World) -> Option<PersonId> {
         self.who(w).first().copied()
