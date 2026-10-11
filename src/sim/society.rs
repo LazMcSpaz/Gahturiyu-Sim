@@ -831,12 +831,8 @@ impl World {
         self.stations.clear();
         for tl in &self.society.towns {
             for p in &tl.places {
-                let n = p.kind.stations().len();
-                for (k, &st) in p.kind.stations().iter().enumerate() {
-                    let off = if n > 1 { (k as f32 - (n - 1) as f32 * 0.5) * 4.0 } else { 0.0 };
-                    let side = V2::new(-p.rot.sin(), p.rot.cos());
-                    self.stations.push((p.pos.add(side.scale(off)), st));
-                }
+                // (Side by side across the place: `solid::station_spots`.)
+                self.stations.extend(super::solid::station_spots(p));
             }
         }
         // The squad's own work sheds at its outposts stay (U-13).
