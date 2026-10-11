@@ -22,11 +22,11 @@ says which branch takes each. Items marked *decision* wait for Laz's answer befo
 | P14 | Menus | The speed settings are too severe: from the third (1 min/s) up, things happen almost instantly. *decision* | desktop |
 | P15 | Menus | The town panel shows town information even out in the wilds. | desktop |
 | P16 | Magic | No feedback when casting beyond the energy going down. Casting is silent. Needs a visual cue and a sound. | cloud A (`fix/play-magic`) |
-| P17 | Magic | The spells window stayed the same after switching to another member. It should follow the selection. | cloud A |
+| P17 | Magic | The spells window stayed the same after switching to another member. It should follow the selection. | desktop (comes with P10) |
 | P18 | Magic | Douse wouldn't let him pick any torch or fire. | cloud A |
 | P19 | Magic | Spells can target objects; doors have health and can be broken. *decision* | cloud A |
-| P20 | Magic | Anyone under a magic effect (squad or not) shows it, e.g. an icon. | cloud A |
-| P21 | Walking | He walked through a fence and through the hall. | cloud B (`fix/play-walking`) |
+| P20 | Magic | Anyone under a magic effect (squad or not) shows it, e.g. an icon. | cloud A (after `fix/solid-world` stage 1) |
+| P21 | Walking | He walked through a fence and through the hall. | cloud B (`fix/solid-world`) |
 | P22 | Walking | Clicking to walk up to a trader's counter left him stuck inside it. | cloud B |
 | P23 | Fights | Enemies shouldn't always chase so far. Past a point some let you run and go back to help their group. | cloud C (`fix/play-fights-talk`) |
 | P24 | Fights | Bandits are just called "bandit". Personal names like everyone else's are confusing. | cloud C |
@@ -42,3 +42,13 @@ says which branch takes each. Items marked *decision* wait for Laz's answer befo
 - P25: how slow healing should be.
 
 Answers go here as they come.
+
+Laz said "go" on 11 Oct without changing the suggestions, so these were built as suggested and
+can be changed: P14 speeds 1×, 2×, 5×, 15×, 60× (the game starts at 1×); P13 Escape with nothing
+open brings up a game menu (Resume, Settings, Keys, Save, Load, New game, Quit); P12 a stats sheet
+per member (the Stats button, which replaced Keys in the bottom band; Keys moved to the menu).
+P19's breakable doors wait. P25 is cloud C's to measure and propose.
+
+Laz also asked (11 Oct) that the fundamentals be fixed rather than the cases: walking through
+solid things became one shared list of solid things and one way of finding a path
+(`fix/solid-world`), which clicking (P2–P4) and spell targets (P18, P19) build on.

@@ -265,11 +265,6 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                 out.push(ch("Walk there", Act::Walk(ru.pos)));
             }
         }
-        Hover::Camp(k) => {
-            if let Some(c) = w.camps.get(k) {
-                out.push(ch("Walk there (they'll see you)", Act::Walk(c.pos)));
-            }
-        }
         Hover::Place(t, k) => {
             if let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) {
                 out.push(ch(format!("Walk to the {}", p.kind.name().to_lowercase()), Act::Walk(p.pos)));
@@ -549,7 +544,6 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
             }
         }
         Hover::Furniture(id, k) => w.door(id)?.variant().furniture.get(k as usize)?.what.name().to_string(),
-        Hover::Camp(_) => "Bandit camp".into(),
         Hover::Place(t, k) => w.society.towns.get(t as usize)?.places.get(k as usize)?.kind.name().to_string(),
     })
 }
@@ -589,7 +583,7 @@ pub fn floor_under(w: &World, ray: (bevy::math::Vec3, bevy::math::Vec3), floor: 
 }
 
 /// What's on the ground under the mouse when nothing smaller is: a piece of
-/// furniture, a building, a camp, a workplace. On the floor of a building
+/// furniture, a building, a workplace. On the floor of a building
 /// the squad is in, nothing: a click there walks to the spot (UI-10).
 pub fn ground_hover(w: &World, at: V2) -> Option<Hover> {
     for d in w.doors_near(at, 2.0) {
@@ -608,9 +602,8 @@ pub fn ground_hover(w: &World, at: V2) -> Option<Hover> {
         }
         return Some(Hover::Building(d.id));
     }
-    if let Some(k) = w.camps.iter().position(|c| c.pos.dist(at) < 14.0) {
-        return Some(Hover::Camp(k));
-    }
+    // (A bandit camp isn't one thing to click: its people, its stash and,
+    // later, its tents are picked one by one. Laz's P4.)
     for st in w.settlements.iter().filter(|s| s.pos.dist(at) < s.radius() + 500.0) {
         if let Some(tl) = w.society.towns.get(st.id as usize) {
             if let Some(k) = tl.places.iter().position(|p| p.pos.dist(at) < p.kind.size() * 0.5) {
