@@ -324,7 +324,7 @@ fn trade(days: f64, seed: u64) {
     }
     let towns = w.settlements.len();
     println!("{} lots on offer to carry somewhere near, from {} towns.", routes.len(), towns);
-    for (buy, sell) in [(BUY_MARKUP, SELL_SHARE), (1.2, 0.65), (1.2, 0.7), (1.15, 0.75), (1.1, 0.8)] {
+    for (buy, sell) in [(BUY_MARKUP, SELL_SHARE), (1.25, 0.6), (1.2, 0.7), (1.1, 0.8)] {
         let cost = |r: &(items::ItemId, usize, usize, f32, Vec<f32>, f32)| (r.3 * buy).ceil().max(1.0) * LOT as f32;
         let take = |r: &(items::ItemId, usize, usize, f32, Vec<f32>, f32)| r.4.iter().map(|x| (x * sell).floor()).sum::<f32>();
         let mut paying: Vec<&(items::ItemId, usize, usize, f32, Vec<f32>, f32)> = routes.iter().filter(|r| take(r) > cost(r)).collect();

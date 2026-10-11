@@ -57,7 +57,7 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   dismiss NAME              send a member away; they stay in the town they're in
   dose GIVER PATIENT        GIVER gives PATIENT (downed, say) a healing draught
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
-  craft NAME                what NAME could make here; `make NAME N` starts recipe N
+  craft NAME                what NAME could make here; `make NAME N [HOW MANY]` starts recipe N
   journal | map | town      jobs taken; towns and places; the nearest town's panel
   build                     what can be built; `build camp` founds a base where the first selected member stands
   build kit                 TESTERS ONLY, not part of the game: teaches building and hands over materials and coin
@@ -1499,17 +1499,18 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             if cmd == "make" {
                 let n: usize = arg(1).parse().unwrap_or(usize::MAX);
                 if n >= RECIPES.len() {
-                    return "Usage: make NAME N (N from `craft NAME`)\n".into();
+                    return "Usage: make NAME N [HOW MANY] (N from `craft NAME`)\n".into();
                 }
+                let count: u16 = arg(2).parse().unwrap_or(1).clamp(1, 20);
                 // Everything in the way at once, in plain words.
                 let stops = w.craft_blockers(m, n);
-                match w.start_craft(m, n) {
+                match w.make(m, n, count) {
                     Ok(()) => {
                         let r = &RECIPES[n];
                         let used: Vec<String> = r.inputs.iter().map(|(k, c)| format!("{c} × {}", item(items::id(k)).name.to_lowercase())).collect();
                         let hours = r.time / HOUR;
                         let long = if hours >= 24.0 { format!("{:.0} days", hours / 24.0) } else if hours >= 1.0 { format!("{hours:.1} hours") } else { format!("{:.0} minutes", hours * 60.0) };
-                        o += &format!("{} starts on {}: {long}. Used {}.\n", first_name(w, m), made(n).to_lowercase(), if used.is_empty() { "nothing".to_string() } else { used.join(", ") });
+                        o += &format!("{} starts on {}: {long}{}. Used {}.\n", first_name(w, m), made(n).to_lowercase(), if count > 1 { format!(" each, {count} in a row") } else { String::new() }, if used.is_empty() { "nothing".to_string() } else { used.join(", ") });
                     }
                     Err(_) => o += &format!("Can't make {}: {}.\n", made(n).to_lowercase(), stops.iter().map(|c| c.say()).collect::<Vec<_>>().join("; ")),
                 }

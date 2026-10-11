@@ -37,6 +37,8 @@ pub enum Act {
     Gather(u32),
     PickUp(u32),
     Work(u32),
+    /// Go to a station (a forge, a bench) and open its making screen.
+    Make(V2),
     Hunt(u32),
     Butcher(u32),
     /// Walk to a bed and sleep in it.
@@ -209,6 +211,10 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
             if matches!(p.what, Furn::Bed | Furn::Bedroll) {
                 out.push(ch(format!("Sleep in the {}", p.what.name()), Act::Sleep(at)));
             }
+            // A forge, anvil, loom or bench in someone's workshop is a station.
+            if let Some(st) = gahturiyu_sim::sim::crafting::STATIONS.iter().find(|s| s.furniture() == Some(p.what)) {
+                out.push(ch(format!("Work at the {}", st.name().to_lowercase()), Act::Make(at)));
+            }
             out.push(ch(format!("Walk to the {}", p.what.name()), Act::Walk(at)));
         }
         Hover::Container(id) => {
@@ -244,7 +250,11 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                 out.push(ch("Walk there", Act::Walk(dp.pos)));
             }
         }
-        Hover::Station(i) => out.push(ch("Walk to it", Act::Walk(w.stations[i].0))),
+        Hover::Station(i) => {
+            let (at, st) = w.stations[i];
+            out.push(ch(format!("Work at the {}", st.name().to_lowercase()), Act::Make(at)));
+            out.push(ch("Walk to it", Act::Walk(at)));
+        }
         Hover::Torch(i) => {
             if let Some(t) = w.standing.get(i) {
                 out.push(ch("Walk to it", Act::Walk(t.pos)));
@@ -302,6 +312,11 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             } else {
                 w.order_members(who, p);
             }
+            true
+        }
+        // (The window opens the making screen; here they only go there.)
+        Act::Make(p) => {
+            w.order_members(who, p);
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,

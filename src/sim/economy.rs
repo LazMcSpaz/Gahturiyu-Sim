@@ -62,8 +62,11 @@ pub const TREASURY_SPEND: f32 = 0.15;
 pub const GRAIN_SEASON_DAYS: f32 = 10.0;
 pub const GRAIN_GLUT_SPOIL: f32 = 0.1;
 /// Merchants sell at this share over value, and buy at this share of it.
-pub const BUY_MARKUP: f32 = 1.25;
-pub const SELL_SHARE: f32 = 0.6;
+/// Close enough together that the difference between two towns' prices can
+/// be worth a walk (Laz, N7: buying low and selling high should make
+/// money); `headless trade` counts the routes that pay.
+pub const BUY_MARKUP: f32 = 1.15;
+pub const SELL_SHARE: f32 = 0.75;
 /// A note is worth this many coin; the exchange keeps this many per swap.
 pub const NOTE_VALUE: u16 = 50;
 pub const EXCHANGE_FEE: u16 = 1;

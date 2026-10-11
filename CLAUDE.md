@@ -242,7 +242,9 @@ Optional: `GAHT_VIEW=map`, `GAHT_ZOOM` (map px/m, or 3D camera distance in m),
 squad's start, e.g. to put a town on the band edge). For the newer systems:
 `GAHT_HOURS=h` (run h hours first), `GAHT_CAMP=k` (start 70 m from bandit camp
 k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
-`GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`, `GAHT_DROP=k`
+`GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`,
+`GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar` (the squad at the nearest such station
+with the craft and some materials, its making screen open), `GAHT_DROP=k`
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
 `GAHT_TALK=1` (talk to the nearest local; `GAHT_TALK=roduro|qotiro|horaro|tadoro` the nearest of that people),
 `GAHT_NAMES=native|english` (the Names setting), `GAHT_STARVE=1`, `GAHT_EXHAUST=1`,
@@ -540,6 +542,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   there until it's settled (Laz, N4).
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.
+- Trade (Laz, N7): buying low in one town and selling high in the next
+  should make money, so merchants sell at 115% of a thing's worth and buy at
+  75% (`economy::BUY_MARKUP`, `SELL_SHARE`; `headless trade` counts the
+  routes that pay). The squad doesn't run caravans of its own. Being hired
+  to guard a caravan is wanted but not built (after the freeze).
+- Making is done at the station (`view/makeui.rs`, mockup 4): the screen is
+  a view of `crafting::making_list` and `makers`; a maker draws on the packs
+  of squad members standing with them (`craft_givers`); skill at a thing is
+  shown in words (`crafting::Hand`), never as a chance.
 - Animals follow the Part 4 prompt (Laz): the species list and their roles
   are his; English placeholder names are final for now; no real-world
   animals. All numbers are first guesses in data tables.
