@@ -260,7 +260,7 @@ beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
 goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
 `GAHT_SHUN=1` (the nearest stilt village withdraws; runs past the next dawn), `GAHT_TRADE=1` (trading
-with the nearest merchant at work), `GAHT_CONVO=1` (a local robbed last night talks about it,
+with the nearest merchant at work; `GAHT_TRADE=table` lays a few things on the table first), `GAHT_CONVO=1` (a local robbed last night talks about it,
 assembled from `data/lines`), `GAHT_GUARD=1` (member 0 on a guard contract at a merchant's stall;
 the journal shows it), `GAHT_EDIT=1` (the land editor open beside a few demo strokes: a terraced
 snow-capped hill, sand and mud, more trees, rocks; screenshots ignore
@@ -479,7 +479,7 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   ties between races and gods.
 - Deaths are rare, Kenshi-style: a head or torso at zero knocks you out; only
   falling to minus its maximum kills. Limbs at minus their maximum are lost.
-- No diseases, no aging; starvation knocks out but never kills (this slice).
+- No diseases, no aging; starvation knocks a squad member out, then, if nobody feeds them, kills them (Laz, 10 Oct, B2; slowly: a couple of days past collapsing).
 - Tents are bought items anyone can carry (Laz's call); there's no shop yet,
   so the squad's hunter starts with one.
 - The sea stays off-limits to the squad for now.
@@ -547,6 +547,12 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   75% (`economy::BUY_MARKUP`, `SELL_SHARE`; `headless trade` counts the
   routes that pay). The squad doesn't run caravans of its own. Being hired
   to guard a caravan is wanted but not built (after the freeze).
+- Trade is across a table (`view/tradeui.rs`, mockup 2): the window keeps
+  what's laid on it (`economy::Table`) and shows `World::deal_quote`, which
+  works the table through on a copy of the world exactly as `deal_table`
+  will, so the sums shown are the coin that changes hands. Deal is all or
+  nothing (`economy::NoDeal` says why not). A merchant's purse is a word
+  (`purse_words`), never a number.
 - Making is done at the station (`view/makeui.rs`, mockup 4): the screen is
   a view of `crafting::making_list` and `makers`; a maker draws on the packs
   of squad members standing with them (`craft_givers`); skill at a thing is

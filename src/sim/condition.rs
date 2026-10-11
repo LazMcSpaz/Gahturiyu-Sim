@@ -58,6 +58,8 @@ pub const HUNGER_SLEEPING: f32 = 0.7;
 pub const HUNGER_WOUNDED: f32 = 1.25;
 /// Extra hunger per unit of load above half capacity.
 pub const HUNGER_LOAD: f32 = 0.6;
+/// A squadmate this close shares their food with one who has none, metres.
+pub const SHARE_REACH: f32 = 40.0;
 /// Members eat when hunger reaches this, if they have food.
 pub const EAT_AT: f32 = 35.0;
 /// Stage thresholds.
@@ -67,18 +69,23 @@ pub const STARVING: f32 = 85.0;
 /// Attribute multiplier when weak from hunger.
 pub const WEAK_FACTOR: f32 = 0.85;
 /// Torso health lost per hour while starving.
-pub const STARVE_DRAIN: f32 = 3.0;
+pub const STARVE_DRAIN: f32 = 2.0;
 
 /// Stamina used per hour walking on the flat, unburdened.
 pub const STAMINA_WALK: f32 = 12.0;
 /// Stamina used per metre climbed (times the load surcharge).
 pub const STAMINA_CLIMB: f32 = 0.25;
-/// Stamina regained per hour standing still or asleep.
-pub const STAMINA_REST: f32 = 300.0;
+/// Stamina regained per hour standing still or asleep: about an hour to
+/// get it all back (Laz, B5).
+pub const STAMINA_REST: f32 = 100.0;
 /// Extra stamina use per unit of load above half capacity.
 pub const STAMINA_LOAD: f32 = 1.5;
-/// Below this share of stamina, walkers slow down.
-pub const WINDED: f32 = 0.1;
+/// Below this share of stamina they're winded: slower on their feet, down
+/// to `WINDED_PACE` when it's all gone, and weaker at what they do.
+pub const WINDED: f32 = 0.3;
+pub const WINDED_PACE: f32 = 0.5;
+/// Attribute multiplier while winded.
+pub const WINDED_FACTOR: f32 = 0.85;
 
 /// Tiredness gained per hour awake (walking and fighting tire more).
 pub const TIRED_PER_HOUR: f32 = 5.0;
@@ -283,6 +290,11 @@ impl Condition {
     /// Multiplier on attributes from how they're holding up.
     pub fn attr_factor(&self) -> f32 {
         let mut f = 1.0;
+        // (Read at the last settle; crossing `WINDED` is a step on the
+        // timeline, so the stored value is on the right side of it.)
+        if self.winded() {
+            f *= WINDED_FACTOR;
+        }
         if self.stage() >= HungerStage::Weak {
             f *= WEAK_FACTOR;
         }
@@ -295,10 +307,28 @@ impl Condition {
     /// Multiplier on walking pace from tiredness and lack of breath.
     pub fn pace_factor(&self, t: f64) -> f32 {
         let mut f = if self.exhausted() { EXHAUSTED_PACE } else { 1.0 };
-        if self.stamina_at(t) < self.max_stamina * WINDED {
-            f *= 0.7;
+        // Slower as breath runs out, to half pace with none left.
+        let share = self.stamina_at(t) / self.max_stamina.max(1.0);
+        if share < WINDED {
+            f *= WINDED_PACE + (1.0 - WINDED_PACE) * share / WINDED;
         }
         f
+    }
+
+    /// Out of breath (as of the last settle).
+    pub fn winded(&self) -> bool {
+        self.stamina < self.max_stamina * WINDED - 1e-3
+    }
+
+    /// When stamina next crosses the winded line, either way.
+    pub fn winded_turns(&self) -> Option<f64> {
+        let line = self.max_stamina * WINDED;
+        let r = self.stamina_rate();
+        let gap = line - self.stamina;
+        if r == 0.0 || gap.abs() < 1e-3 || gap.signum() != r.signum() {
+            return None;
+        }
+        Some(self.at + (gap / r) as f64 * HOUR)
     }
 
     /// Healing per hour for this piece: how well they're resting, times how
@@ -332,12 +362,14 @@ fn hours(from: f64, to: f64) -> f32 {
 }
 
 /// Apply a condition's healing (and wasting) to someone's wounds from now on.
-fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats) {
+fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats, can_die: bool) {
     w.rate = c.heal_rate();
     if c.stage() == HungerStage::Starving {
         w.drain = STARVE_DRAIN;
-        // Wasting knocks you out but never kills: it stops just past zero.
-        w.drain_cap = stats.max_hp(Part::Torso) + 1.0;
+        // Wasting knocks a squad member out, then kills them (Laz, B2),
+        // slowly enough to be seen coming; anyone else it stops just past
+        // knocked out.
+        w.drain_cap = if can_die { 2.0 * stats.max_hp(Part::Torso) } else { stats.max_hp(Part::Torso) + 1.0 };
         w.rally = 0.0;
     } else {
         w.drain = 0.0;
@@ -396,7 +428,7 @@ impl World {
         c.wounded = lost.iter().any(|&l| l > 0.01);
         let c = c.clone();
         let stats = p.stats.clone();
-        apply_to_wounds(&c, &mut p.wounds, &stats);
+        apply_to_wounds(&c, &mut p.wounds, &stats, p.in_squad);
     }
 
     /// After what they're doing changed (just after a settle): their wounds
@@ -405,7 +437,7 @@ impl World {
         let p = &mut self.people[pid as usize];
         let Some(c) = p.cond.clone() else { return };
         let stats = p.stats.clone();
-        apply_to_wounds(&c, &mut p.wounds, &stats);
+        apply_to_wounds(&c, &mut p.wounds, &stats, p.in_squad);
     }
 
     /// Where a member would sleep right now: indoors, in a tent someone in
@@ -464,7 +496,26 @@ impl World {
             return self.base_food_for(pid, hunger);
         }
         // A town feeds those it holds to work (NM-34).
-        own.or_else(|| self.bound_food_for(pid))
+        own.or_else(|| self.bound_food_for(pid)).or_else(|| self.shared_food_for(pid, hunger).map(|(_, it)| it))
+    }
+
+    /// With nothing of their own, a squadmate close by shares theirs (RG-21):
+    /// (who, what). The nearest with food, within `SHARE_REACH`.
+    fn shared_food_for(&self, pid: PersonId, hunger: f32) -> Option<(PersonId, ItemId)> {
+        let k = self.squad.index(pid)?;
+        let here = self.member_pos(k);
+        let (_, giver) = self
+            .squad
+            .members
+            .iter()
+            .enumerate()
+            .filter(|&(j, &m)| m != pid && !self.people[m as usize].dead && self.member_pos(j).dist(here) <= SHARE_REACH)
+            .filter(|&(_, &m)| self.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| matches!(item(e.0).kind, Kind::Food(_)))))
+            .map(|(j, &m)| (self.member_pos(j).dist(here), m))
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))?;
+        let foods: Vec<(ItemId, f32)> = self.people[giver as usize].detail.as_ref()?.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect();
+        let it = foods.iter().filter(|f| f.1 <= hunger).max_by(|a, b| a.1.total_cmp(&b.1)).or_else(|| foods.iter().min_by(|a, b| a.1.total_cmp(&b.1)))?.0;
+        Some((giver, it))
     }
 
     /// Eat something now (or at `t`): hunger drops by its nourishment.
@@ -472,7 +523,18 @@ impl World {
         let Kind::Food(n) = item(it).kind else { return false };
         // From their own pack; a base's resident with none of it, from the store.
         let had = self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) || (self.resident_of(pid).is_some() && self.base_take_food(pid, it)) || self.bound_take_food(pid, it);
+        // Or a squadmate close by hands some over.
+        let mut shared_by = None;
         if !had {
+            let hunger = self.people[pid as usize].cond.as_ref().map(|c| c.hunger_at(t)).unwrap_or(0.0);
+            if let Some((giver, _)) = self.shared_food_for(pid, hunger).filter(|&(_, x)| x == it) {
+                if self.people[giver as usize].detail.as_mut().is_some_and(|d| d.gear.take(it)) {
+                    self.people[giver as usize].recompute_might();
+                    shared_by = Some(giver);
+                }
+            }
+        }
+        if !had && shared_by.is_none() {
             return false;
         }
         self.settle(pid, t);
@@ -483,13 +545,17 @@ impl World {
         let c = p.cond.clone();
         let stats = p.stats.clone();
         if let Some(c) = c {
-            apply_to_wounds(&c, &mut p.wounds, &stats);
+            apply_to_wounds(&c, &mut p.wounds, &stats, p.in_squad);
         }
         p.recompute_might();
         let name = p.name().unwrap_or("someone").to_string();
+        let line = match shared_by {
+            Some(g) => format!("{} shares some {} with {name}.", self.people[g as usize].name().unwrap_or("Someone"), item(it).name.to_lowercase()),
+            None => format!("{name} eats some {}.", item(it).name.to_lowercase()),
+        };
         // (Those left at a base eat unremarked.)
         if self.squad.index(pid).is_some() {
-            self.log.push_front((t, format!("{name} eats some {}.", item(it).name.to_lowercase())));
+            self.log.push_front((t, line));
             self.log.truncate(14);
         }
         true
@@ -526,6 +592,7 @@ impl World {
                     consider(c.hunger_reaches(level), Event::Stage);
                 }
                 consider(c.tired_reaches(EXHAUSTED), Event::Stage);
+                consider(c.winded_turns(), Event::Stage);
                 consider(c.rested_by(EXHAUSTED), Event::Stage);
                 // Fully rested: wake up (unless they're out cold then).
                 if c.activity == Activity::Sleeping {
@@ -563,6 +630,14 @@ impl World {
                 if hungry_now && self.food_for(pid, c.hunger_at(now)).is_some() {
                     consider(Some(c.hunger_reaches(EAT_AT).unwrap_or(c.at)), Event::Eat);
                 }
+                // Starved to death, when the wasting runs its course (B2).
+                if p.in_squad && p.wounds.drain > 0.0 {
+                    let cap = 2.0 * p.stats.max_hp(Part::Torso);
+                    if p.wounds.drain_cap >= cap - 1e-3 {
+                        let left = (cap - p.wounds.lost[Part::Torso as usize]).max(0.0);
+                        consider(Some(p.wounds.at + (left / p.wounds.drain) as f64 * HOUR), Event::Starved);
+                    }
+                }
                 // Wounds all healed: hunger stops counting them.
                 if c.wounded {
                     if let Some(hrs) = p.wounds.healed_in() {
@@ -571,7 +646,26 @@ impl World {
                 }
                 let Some((t, e)) = next else { break };
                 match e {
-                    Event::Stage => self.settle(pid, t),
+                    Event::Stage => {
+                        let was = c.stage();
+                        self.settle(pid, t);
+                        // One line when someone starts starving, before
+                        // anyone goes down.
+                        let now_starving = self.people[pid as usize].cond.as_ref().is_some_and(|c| c.stage() == HungerStage::Starving);
+                        if was != HungerStage::Starving && now_starving && self.squad.index(pid).is_some() {
+                            let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+                            self.log.push_front((t, format!("{name} is starving.")));
+                            self.log.truncate(14);
+                        }
+                    }
+                    Event::Starved => {
+                        self.settle(pid, t);
+                        let p = &self.people[pid as usize];
+                        if body::dead(&p.wounds.hp_at(&p.stats, t), &p.stats) {
+                            self.starved_to_death(pid, t);
+                            break;
+                        }
+                    }
                     Event::Wake => {
                         self.settle(pid, t);
                         if let Some(c) = self.people[pid as usize].cond.as_mut() {
@@ -733,6 +827,38 @@ impl World {
 
     /// After a fight: carry on with the stamina it left them.
     /// Felt casting adds to tiredness too.
+    /// A squad member starved to death: they fall where they stand, their
+    /// things with them, and they're gone from the squad.
+    fn starved_to_death(&mut self, pid: PersonId, t: f64) {
+        let Some(k) = self.squad.index(pid) else { return };
+        let at = self.member_pos(k);
+        let race = self.people[pid as usize].race;
+        self.quit_work(pid);
+        self.people[pid as usize].dead = true;
+        self.busy_until[pid as usize] = f64::INFINITY;
+        self.corpses.push((at, race, t, pid));
+        if self.people[pid as usize].ensure_detail() {
+            self.stats.detailed += 1;
+        }
+        self.drop_everything(pid, at);
+        self.carried.retain(|&p, &mut c| p != pid && c != pid);
+        self.looting.retain(|l| l.who != pid);
+        self.picking.retain(|p| p.who != pid);
+        self.pickups.retain(|p| p.who != pid);
+        self.giving.retain(|g| g.from != pid && g.to != pid);
+        self.boons.retain(|b| b.pid != pid);
+        self.torches.remove(&pid);
+        if self.held.contains_key(&pid) {
+            self.set_holding(pid, t, None);
+        }
+        self.squad.retain(|m| m != pid);
+        self.recentre_squad();
+        self.people[pid as usize].recompute_might();
+        let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+        self.log.push_front((t, format!("{name} has starved to death.")));
+        self.log.truncate(14);
+    }
+
     pub(super) fn after_fight(&mut self, pid: PersonId, t: f64, stamina: f32, tire: f32) {
         if self.people[pid as usize].cond.is_none() {
             return;
@@ -748,6 +874,7 @@ impl World {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Event {
     Stage,
+    Starved,
     Eat,
     Wake,
     Bed,

@@ -37,9 +37,10 @@ fn a_heavy_pack_slows_one_member_down() {
     let loaded = w.member_speed(a);
     assert!(loaded < free * 0.8, "{loaded} vs {free}");
 
-    // Walk both the same distance; the loaded one falls behind.
-    let target = w.squad.pos.add(V2::new(60.0, 0.0));
-    w.order_members(&[a, b], target);
+    // Walk both the same distance, each their own way (sent together, they'd
+    // keep to the slower one's pace: BL-47); the loaded one falls behind.
+    w.order_members(&[a], w.squad.at[0].add(V2::new(60.0, 0.0)));
+    w.order_members(&[b], w.squad.at[1].add(V2::new(-60.0, 0.0)));
     walk(&mut w, 20.0);
     let ka = w.squad.index(a).unwrap();
     let kb = w.squad.index(b).unwrap();

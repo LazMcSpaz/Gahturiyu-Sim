@@ -913,8 +913,9 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         game.speed_i = 0;
         game.paused = false;
     }
-    // Time stands still while you talk, as in Morrowind.
-    if !game.paused && game.world.talk.is_none() && !game.editor.on {
+    // Time stands still while you talk, as in Morrowind (and once the
+    // squad is gone).
+    if !game.paused && game.world.talk.is_none() && !game.editor.on && !game.world.squad.members.is_empty() {
         let t0 = std::time::Instant::now();
         // Screenshots run at a fixed pace so they don't depend on how fast
         // the machine draws.
@@ -1949,6 +1950,16 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.diamond(x + 14.0, by + 18.0, 4.0, super::palette::ega(super::palette::BRASS_LIGHT, fade));
         c.styled(msg, x + 28.0, by + 24.0, 17.0, super::palette::ega(super::palette::TEXT, fade), hud::Face::Body, 0.0);
         by += 44.0;
+    }
+    // Everyone dead: the end of this game (B2).
+    if game.world.squad.members.is_empty() {
+        let (a, b) = ("Your squad is gone.", "F9 loads your last save.");
+        let wd = c.width(a, 22.0).max(c.width(b, 17.0)) + 64.0;
+        let x = (size.x - wd) / 2.0;
+        let y = size.y / 2.0 - 50.0;
+        c.frame_box(x, y, wd, 90.0);
+        c.centred(a, size.x / 2.0, y + 40.0, 22.0, super::palette::GOLD);
+        c.centred(b, size.x / 2.0, y + 70.0, 17.0, super::palette::TEXT);
     }
     if let Some((msg, at)) = &game.notice {
         if at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {

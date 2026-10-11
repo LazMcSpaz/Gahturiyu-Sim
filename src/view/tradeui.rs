@@ -30,7 +30,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::hud::{Canvas, Face};
-use super::palette::{eg, ega, race_color, Rgb, BRASS, BRASS_LIGHT, TEXT};
+use super::palette::{eg, ega, Rgb, BRASS, BRASS_LIGHT, TEXT};
 use super::squadui::{Bx, Click};
 
 /// The trade screen while it's open.
@@ -96,6 +96,11 @@ fn they(seed: u64) -> (&'static str, &'static str, &'static str) {
     }
 }
 
+/// A thing's name as the Names setting has it (RG-18).
+fn named(w: &World, it: ItemId) -> String {
+    super::lexicon::thing(w, item(it).name)
+}
+
 /// The lists' real scroll positions, after drawing.
 pub type Scrolls = [f32; 2];
 
@@ -140,9 +145,12 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         let rad = if on { 27.0 } else { 22.0 };
         let cx = px + 27.0;
         let cy = top + 46.0;
-        let fade = if near { 1.0 } else { 0.38 };
-        c.circle(cx, cy, rad - 2.0, ega(race_color(p.race), 0.85 * fade));
-        c.circle_lines(cx, cy, rad, if on { 2.0 } else { 1.0 }, if on { eg(HEAD) } else { ega(BRASS, 0.5 * fade) });
+        let fade: f32 = if near { 1.0 } else { 0.38 };
+        // The same painted bust as the squad list's; those too far, dimmed.
+        super::frame::portrait(c, cx, cy, rad - 3.0, p.race, p.seed, false, if on { 3.0 } else { 1.5 });
+        if !near {
+            c.circle(cx, cy, rad + 1.0, ega(DARK, 0.6));
+        }
         let name = p.name().unwrap_or("?");
         let short = name.split(' ').next().unwrap_or(name);
         let nw = c.styled_width(short, 14.0, Face::Caps, 0.0);
@@ -202,7 +210,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         }
         c.rect(bx.x + 6.0, bx.y + bx.h - 1.0, bx.w - 12.0, 1.0, ega(BRASS, 0.08));
         let fade = if sells { 1.0 } else { 0.5 };
-        let label = if n > 1 { format!("{} ×{n}", item(it).name) } else { item(it).name.to_string() };
+        let label = if n > 1 { format!("{} ×{n}", named(w, it)) } else { named(w, it) };
         let lw = c.styled(&label, bx.x + 12.0, yy + 22.0, 19.0, ega(if hot { BRIGHT } else { TEXT }, fade), Face::Body, 0.0);
         if worn {
             c.styled("worn", bx.x + 20.0 + lw, yy + 22.0, 15.0, ega(FAINT, 0.9), Face::Italic, 0.0);
@@ -246,11 +254,10 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
     // ---- The merchant's side -------------------------------------------------------
     let rx = x0 + SIDE_W + GAP + TABLE_W + GAP;
     side(rx);
-    c.circle(rx + 53.0, top + 53.0, 33.0, ega(race_color(them.race), 0.85));
-    c.circle_lines(rx + 53.0, top + 53.0, 35.0, 2.0, eg(BRASS));
+    super::frame::portrait(c, rx + 53.0, top + 53.0, 32.0, them.race, them.seed, false, 3.0);
     let their_name = them.name().unwrap_or("?");
     c.styled(their_name.split(' ').next().unwrap_or(their_name), rx + 104.0, top + 50.0, 26.0, eg(BRASS_LIGHT), Face::Caps, 0.0);
-    let job = w.life(npc).job.title(them.seed).to_lowercase();
+    let job = if super::lexicon::native() { super::lexicon::thing(w, w.life(npc).job.name()) } else { w.life(npc).job.title(them.seed).to_lowercase() };
     c.styled(&format!("{} · {job}", them.race.name()), rx + 104.0, top + 74.0, 16.0, eg(SUB), Face::Italic, 0.0);
     let purse = w.purse_words(npc);
     let pw = c.styled_width(purse, 13.0, Face::Body, 0.0);
@@ -285,7 +292,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
             c.grad(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.22), ega(BRASS, 0.04), true);
         }
         c.rect(bx.x + 6.0, bx.y + bx.h - 1.0, bx.w - 12.0, 1.0, ega(BRASS, 0.08));
-        let lw = c.styled(item(it).name, bx.x + 12.0, yy + 22.0, 19.0, eg(if hot { BRIGHT } else { TEXT }), Face::Body, 0.0);
+        let lw = c.styled(&named(w, it), bx.x + 12.0, yy + 22.0, 19.0, eg(if hot { BRIGHT } else { TEXT }), Face::Body, 0.0);
         let cw = c.styled(&format!("×{n}"), bx.x + 20.0 + lw, yy + 22.0, 15.0, eg(FAINT), Face::Body, 0.0);
         if laid > 0 {
             c.styled(&format!("{laid} on the table"), bx.x + 30.0 + lw + cw, yy + 22.0, 15.0, eg(HEAD), Face::Italic, 0.0);
@@ -350,7 +357,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         }
         *y += h + 12.0;
     };
-    let name_n = |it: ItemId, n: u16| if n > 1 { format!("{} ×{n}", item(it).name) } else { item(it).name.to_string() };
+    let name_n = |it: ItemId, n: u16| if n > 1 { format!("{} ×{n}", named(w, it)) } else { named(w, it) };
     let gives: Vec<(String, Option<u32>)> = t.table.give.iter().enumerate().map(|(k, g)| (name_n(g.1, g.2), coin_of_give(k))).collect();
     let gets: Vec<(String, Option<u32>)> = t.table.get.iter().enumerate().map(|(k, g)| (name_n(g.0, g.1), coin_of_get(k))).collect();
     pile("You give", quote.map(|q| q.given()), gives, true, &mut y, &mut act);
@@ -402,6 +409,8 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         act = Some(TradeAct::Close);
     }
     let fy = top + side_h + 30.0;
+    // The squad bar underneath is bright; the foot of the screen covers it.
+    c.rect(0.0, fy - 26.0, c.w, c.h - fy + 26.0, eg(DARK));
     let mut fx = c.w / 2.0 - 440.0;
     arrow(c, fx, fy, true, eg(GOOD));
     arrow(c, fx + 16.0, fy, false, eg(GOOD));
