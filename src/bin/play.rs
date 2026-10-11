@@ -815,6 +815,10 @@ fn talk_view(w: &World) -> String {
     for (i, t) in w.topics().iter().enumerate() {
         let _ = writeln!(o, "    {}. {}", i + 1, w.topic_text(*t));
     }
+    // What can't be asked just now, and why.
+    for (t, why) in w.locked_topics() {
+        let _ = writeln!(o, "    -  {} ({why})", t.label());
+    }
     o
 }
 
@@ -1061,8 +1065,12 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             let t = w.topics();
             match n.checked_sub(1).and_then(|i| t.get(i)).copied() {
                 Some(topic) => {
-                    w.ask(topic);
+                    let said = w.ask(topic);
                     if topic == Topic::Goodbye {
+                        // Their parting words, then away.
+                        if let Some(bye) = said {
+                            o += &format!("  » {}\n", gahturiyu_sim::sim::speech::plain(&bye));
+                        }
                         o += "You take your leave.\n";
                         w.end_talk();
                     } else {

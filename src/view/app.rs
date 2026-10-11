@@ -103,6 +103,13 @@ pub struct Game {
     pub trade_last: Option<(std::time::Instant, bool, items::ItemId)>,
     /// Space was pressed at the table (Deal).
     pub space_deal: bool,
+    /// The talk screen (`talkui.rs`): what's been asked in this talk; their
+    /// parting words, held a moment after it; a number key just pressed;
+    /// and where the camera was before it came in close.
+    pub talking: Option<super::talkui::Talking>,
+    pub parting: Option<super::talkui::Parting>,
+    pub talk_key: Option<usize>,
+    pub talk_cam: Option<super::talkui::TalkCam>,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
     pub loads: u32,
@@ -237,6 +244,10 @@ pub fn run() {
         trade_quoted: None,
         trade_last: None,
         space_deal: false,
+        talking: None,
+        parting: None,
+        talk_key: None,
+        talk_cam: None,
         loads: 0,
         notice: None,
         wild: None,
@@ -525,10 +536,17 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     let w = &mut game.world;
 
-    for (i, key) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5].iter().enumerate() {
+    // In a talk the number keys answer (time stands still there anyway);
+    // otherwise 1 to 5 set the pace.
+    let answering = w.talk.as_ref().is_some_and(|c| !c.trading || c.refused);
+    for (i, key) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9].iter().enumerate() {
         if keys.just_pressed(*key) {
-            game.speed_i = i;
-            game.paused = false;
+            if answering {
+                game.talk_key = Some(i + 1);
+            } else if i < 5 {
+                game.speed_i = i;
+                game.paused = false;
+            }
         }
     }
     // (At the trade table Space is Deal: taken up where the screen is drawn.)
@@ -582,6 +600,8 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         w.stop_trading();
     } else if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
         w.end_talk();
+    } else if keys.just_pressed(KeyCode::Escape) && game.parting.is_some() {
+        game.parting = None;
     } else if keys.just_pressed(KeyCode::Backquote) || keys.just_pressed(KeyCode::Escape) {
         game.sel = Selection::default();
         game.inv = None;
@@ -763,11 +783,13 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         }
     }
     // The wheel at the trade table runs the list under the mouse (the pack
-    // on the left, the stall on the right).
+    // on the left, the stall on the right); in a talk, the replies.
     if scroll.delta.y != 0.0 {
         if let Some(t) = game.trading.as_mut() {
             let k = if mouse.x < window.width() / 2.0 { 0 } else { 1 };
             t.scroll[k] = (t.scroll[k] - scroll.delta.y * 32.0).max(0.0);
+        } else if let Some(t) = game.talking.as_mut() {
+            t.scroll = (t.scroll - scroll.delta.y * 34.0).max(0.0);
         }
     }
     // Clicks on the panels are handled when they're drawn; a short click
@@ -932,6 +954,15 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     if game.follow {
         game.map_cam.centre = game.world.squad.pos;
         game.orbit.target = game.world.squad.pos;
+    }
+    // Talking: the camera comes in low beside the two, and goes back after.
+    if game.view == View::Scene {
+        let w = &game.world;
+        let pair = w.talk.as_ref().map(|c| (c.with, c.npc)).or(game.parting.as_ref().map(|p| (p.with, p.npc)));
+        let spots = pair.map(|(a, b)| (w.person_pos(a), w.person_pos(b)));
+        let snap = game.shot.is_some();
+        let cost = |eye: V2, mid: V2| pair.map(|p| super::talkui::sight_cost(w, p, eye, mid)).unwrap_or(0.0);
+        super::talkui::aim(&mut game.orbit, &mut game.talk_cam, spots, &cost, game.follow, dt, snap);
     }
     // Keep the camera's pivot on the ground, easing so it doesn't jolt.
     let g = game.world.terrain.surface(game.orbit.target);
@@ -1319,16 +1350,24 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
     }
     let fs = super::frame::FrameState { sel: &game.sel, speed_i: game.speed_i, paused: game.paused, collapsed: game.squad_collapsed, open };
-    if game.view == View::Scene {
+    // Close in on a talk, the frame folds away (the talk screen is the
+    // whole window); at the trade table too.
+    let close_up = w.talk.is_some() || game.parting.is_some();
+    if game.view == View::Scene && !close_up {
         super::frame::banner(&c, w);
     }
-    let (list_act, boxes) = super::frame::squad_list(&c, w, &fs, click);
-    panels.extend(boxes);
-    if !fs.right_busy() && w.talk.is_none() {
-        panels.extend(super::frame::tracked(&c, w));
+    let (mut list_act, mut bottom_act) = (None, None);
+    if !close_up {
+        let (act, boxes) = super::frame::squad_list(&c, w, &fs, click);
+        list_act = act;
+        panels.extend(boxes);
+        if !fs.right_busy() {
+            panels.extend(super::frame::tracked(&c, w));
+        }
+        let (act, boxes) = super::frame::bottom(&c, w, &fs, click);
+        bottom_act = act;
+        panels.extend(boxes);
     }
-    let (bottom_act, boxes) = super::frame::bottom(&c, w, &fs, click);
-    panels.extend(boxes);
     if game.keys {
         panels.push(super::frame::keys_panel(&c, game.view == View::Map));
     }
@@ -1628,15 +1667,47 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     } else {
         game.trading = None;
         game.space_deal = false;
-        if w.talk.is_some() {
-            let (t, bx) = squadui::talk(&c, w, game.mouse, click);
-            if let Some(t) = t {
-                use gahturiyu_sim::sim::dialogue::Topic;
-                let coins = matches!(t, Topic::Trade | Topic::Buy(..) | Topic::Sell(..) | Topic::SellAll(..));
-                game.sounds.ui(if coins { "coins" } else { "ui_press" });
-                w.ask(t);
+        // Parting words stay up a moment, then the screen lets go.
+        if game.parting.as_ref().is_some_and(|p| w.talk.is_some() || p.since.elapsed().as_secs_f32() > super::talkui::PARTING_SECS) {
+            game.parting = None;
+        }
+        let key = game.talk_key.take();
+        if let Some(pair) = w.talk.as_ref().map(|cv| (cv.with, cv.npc)) {
+            // A new talk starts with nothing asked.
+            if game.talking.as_ref().is_none_or(|t| t.pair != pair) {
+                game.talking = Some(super::talkui::Talking { pair, ..Default::default() });
             }
-            panels.extend(bx);
+        } else {
+            game.talking = None;
+        }
+        if w.talk.is_some() || game.parting.is_some() {
+            use super::talkui::TalkAct;
+            use gahturiyu_sim::sim::dialogue::Topic;
+            let st = game.talking.clone().unwrap_or_default();
+            let (a, bx, scroll) = super::talkui::talk(&c, w, &st, game.parting.as_ref(), game.mouse, click, key);
+            if let Some(t) = game.talking.as_mut() {
+                t.scroll = scroll;
+            }
+            panels.push(bx);
+            match a {
+                Some(TalkAct::Ask(t)) => {
+                    let coins = matches!(t, Topic::Trade | Topic::Buy(..) | Topic::Sell(..) | Topic::SellAll(..));
+                    game.sounds.ui(if coins { "coins" } else { "ui_press" });
+                    let (with, npc) = st.pair;
+                    let said = w.ask(t);
+                    if let Some(tk) = game.talking.as_mut() {
+                        tk.asked.push(t);
+                        tk.scroll = 0.0;
+                    }
+                    // A goodbye ends the talk there and then: their last
+                    // words are held on the screen for a moment.
+                    if let (None, Some(line)) = (w.talk.as_ref(), said) {
+                        game.parting = Some(super::talkui::Parting { with, npc, line, since: std::time::Instant::now() });
+                    }
+                }
+                Some(TalkAct::Done) => game.parting = None,
+                None => {}
+            }
         }
     }
     match build_act {

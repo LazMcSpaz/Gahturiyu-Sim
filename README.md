@@ -42,6 +42,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | ` or Esc | Select everyone again (Esc also leaves a conversation) |
 | Left-click a bandit | Attack (a sneak attack if they haven't noticed you) |
 | Left-click anyone else | Walk over and talk to them |
+| In a talk: 1–9, or click a reply | Say it (the wheel runs a long list; Q and E look round; Esc leaves) |
 | Left-click something on the ground | Pick it up |
 | Left-click a door | Go in, or pick the lock if it's locked (needs a lockpick) |
 | Left-click a plant, rock or log | Gather it |
@@ -544,6 +545,15 @@ whoever's talking decide how. What you can say back depends on who you
 are — your standing, record, coin and how capable you look: ask more,
 offer help, tell the watch, talk them down, pay or threaten for what they
 know. People with something strong on their mind say so as you pass.
+
+In the window a talk is close up: the camera comes in low beside the two
+of you (and goes back after), the town and the place are named along the
+top, what's been said runs up a column at the side, and at the foot of the
+screen are who is speaking, their line, and your replies, numbered. Gold
+replies do something (take a job, pay, press someone); ones you've asked
+already go dim; a reply that can't be asked just now stays in the list with
+the plain reason beside it ("She isn't at her stall."). How someone feels
+about you shows in what they say; there is no number for it.
 
 Hover anyone to see their work, what's troubling them, their honour, a
 grudge (once you've talked with them) and their household's purse, debts
@@ -1147,9 +1157,10 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   map.rs        the top-down map
   hud.rs        side panel, hover descriptions, health bars
   frame.rs      the HUD frame: squad list, tracked job, bottom band, little map
-  squadui.rs    pack, crafting, conversation, journal
+  squadui.rs    pack, crafting, journal
   makeui.rs     the making screen at a station
   tradeui.rs    the trade table
+  talkui.rs     talking, close up (and the camera's move in)
   townui.rs     the town panel (P)
   editor.rs     the land editor (F10): its panel, brush cursor and keys
   shot.rs       headless screenshots (the GAHT_ flags)

@@ -28,5 +28,6 @@ pub mod shot;
 pub mod signs;
 pub mod squadui;
 pub mod townui;
+pub mod talkui;
 pub mod tradeui;
 pub mod weather;

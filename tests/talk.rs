@@ -80,6 +80,25 @@ fn answers_are_steady_and_greetings_happen() {
     assert!(w.talk.is_none());
 }
 
+/// UI-Talk: asking hands back what they said (their parting words are
+/// nowhere else, since a goodbye ends the talk), and what the squad's one
+/// says goes into the talk as speech, not as a menu word.
+#[test]
+fn asking_hands_back_the_answer_and_the_parting_words() {
+    let mut w = worldgen::generate(1);
+    let npc = locals(&w)[3];
+    talk_to(&mut w, npc);
+    let said = w.ask(Topic::Advice).expect("an answer");
+    let lines = w.talk.as_ref().unwrap().lines.clone();
+    assert_eq!(said, lines.last().unwrap().1);
+    let mine = &lines[lines.len() - 2];
+    assert!(!mine.0 && mine.1.ends_with('?'), "asked aloud: {:?}", mine.1);
+    let bye = w.ask(Topic::Goodbye).expect("parting words");
+    assert!(!bye.is_empty());
+    assert!(w.talk.is_none());
+    assert!(w.ask(Topic::Advice).is_none(), "nothing is asked with no talk open");
+}
+
 #[test]
 fn a_bounty_sours_people() {
     let mut w = worldgen::generate(1);
