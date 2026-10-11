@@ -29,6 +29,9 @@ use super::stats::{Attr, Skill, Stats};
 
 /// Length of one combat tick, game seconds.
 pub const DT: f64 = 0.1;
+/// Breath back per second in a fight: standing off, and in the thick of it.
+pub const FIGHT_BREATH_REST: f32 = 0.4;
+pub const FIGHT_BREATH: f32 = 0.1;
 /// Damage multiplier for hitting someone who hasn't noticed you (before the
 /// attacker's Sneak adds to it).
 pub const SNEAK_ATTACK: f32 = 2.0;
@@ -678,7 +681,9 @@ impl Battle {
             }
             if f.active() {
                 let resting = matches!(f.act, Act::Idle | Act::Recover { .. });
-                f.fatigue = (f.fatigue + if resting { 2.0 } else { 0.5 } * DT as f32).min(f.max_fatigue);
+                // Breath comes back slowly in a fight (B5): a few minutes'
+                // standing off to get it all back.
+                f.fatigue = (f.fatigue + (if resting { FIGHT_BREATH_REST } else { FIGHT_BREATH }) * DT as f32).min(f.max_fatigue);
                 f.mana = (f.mana + f.mana_regen * DT as f32).min(f.max_mana);
             }
         }

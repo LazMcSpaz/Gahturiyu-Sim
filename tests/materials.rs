@@ -271,6 +271,10 @@ fn a_grown_order_is_ready_on_time_and_dies_with_its_tender() {
     let mut w = worldgen::generate(1);
     let m = w.squad.members[0];
     give(&mut w, m, "coin", 2000);
+    // Three weeks' wait: enough to eat (starving kills now, B2).
+    for &k in &w.squad.members.clone() {
+        give(&mut w, k, "salted_meat", 40);
+    }
     let tenders: Vec<u32> = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).filter(|&p| w.life(p).job == Job::StoneTender).collect();
     let (a, b) = (tenders[0], *tenders.iter().find(|&&p| w.people[p as usize].home != w.people[tenders[0] as usize].home).unwrap());
     for t in [a, b] {

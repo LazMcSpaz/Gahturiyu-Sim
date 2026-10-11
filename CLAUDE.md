@@ -475,7 +475,7 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   ties between races and gods.
 - Deaths are rare, Kenshi-style: a head or torso at zero knocks you out; only
   falling to minus its maximum kills. Limbs at minus their maximum are lost.
-- No diseases, no aging; starvation knocks out but never kills (this slice).
+- No diseases, no aging; starvation knocks a squad member out, then, if nobody feeds them, kills them (Laz, 10 Oct, B2; slowly: a couple of days past collapsing).
 - Tents are bought items anyone can carry (Laz's call); there's no shop yet,
   so the squad's hunter starts with one.
 - The sea stays off-limits to the squad for now.

@@ -52,6 +52,15 @@ pub const PURSE_PER_MERCHANT: f32 = 160.0;
 pub const PURSE_REFILL: f32 = 6.0;
 /// Stock worth this much coin a head counts as a well-stocked town.
 pub const STOCK_PER_HEAD: f32 = 20.0;
+/// A treasury keeps this many days of its running costs (guards' pay and
+/// the tax it raises); a share of anything over is spent each dawn on the
+/// town's poorest households: help, and work for them (Laz, B6).
+pub const TREASURY_KEEP_DAYS: f32 = 14.0;
+pub const TREASURY_SPEND: f32 = 0.15;
+/// Grain beyond this many days' eating for the town (a unit a head a day)
+/// is a glut: what's over spoils this much faster a day.
+pub const GRAIN_SEASON_DAYS: f32 = 10.0;
+pub const GRAIN_GLUT_SPOIL: f32 = 0.1;
 /// Merchants sell at this share over value, and buy at this share of it.
 pub const BUY_MARKUP: f32 = 1.25;
 pub const SELL_SHARE: f32 = 0.6;
@@ -317,6 +326,30 @@ impl World {
         let paid = owed.min(tlm.treasury);
         tlm.treasury -= paid;
         tlm.owed = owed - paid;
+        // Spare coin goes back out: a share of what's over a few weeks' keep,
+        // to the poorest households (B6).
+        let keep = (guards as f32 * GUARD_WAGE + heads as f32 * TAX_PER_HEAD) * TREASURY_KEEP_DAYS;
+        let spend = if tlm.treasury > keep { (tlm.treasury - keep) * TREASURY_SPEND } else { 0.0 };
+        tlm.treasury -= spend;
+        // A glut of grain goes off faster.
+        let grain = &mut tlm.stock[Good::Grain.index()];
+        let season = heads as f32 * GRAIN_SEASON_DAYS;
+        if grain.base > season {
+            grain.base -= (grain.base - season) * GRAIN_GLUT_SPOIL;
+        }
+        if spend > 0.0 {
+            let ours: Vec<u32> = std::iter::once(tl.shore).chain(tl.stilts).collect();
+            let mut poor: Vec<u32> = (0..self.society.households.len() as u32).filter(|&h| ours.contains(&self.society.households[h as usize].community) && !self.society.households[h as usize].members.is_empty()).collect();
+            poor.sort_by(|&a, &b| self.society.households[a as usize].purse.coin.total_cmp(&self.society.households[b as usize].purse.coin).then(a.cmp(&b)));
+            poor.truncate(3);
+            if !poor.is_empty() {
+                let each = spend / poor.len() as f32;
+                for h in poor {
+                    self.society.households[h as usize].purse.coin += each;
+                }
+            }
+        }
+        let tlm = &mut self.society.towns[town as usize];
 
         // Prosperity, and the merchants' coin.
         tlm.prosperity = (0.5 * food + 0.5 * (value / (heads.max(1) as f32 * STOCK_PER_HEAD)).min(1.5)).clamp(0.0, 1.5);

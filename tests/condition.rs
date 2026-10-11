@@ -101,7 +101,7 @@ fn hunger_and_meals_dont_depend_on_step_size() {
 }
 
 #[test]
-fn going_hungry_weakens_then_wastes_but_never_kills() {
+fn going_hungry_weakens_then_wastes_and_the_fed_come_round() {
     let mut w = worldgen::generate(1);
     let m = mage(&w);
     take_all_food(&mut w, m);
@@ -116,7 +116,8 @@ fn going_hungry_weakens_then_wastes_but_never_kills() {
     assert_eq!(p.cond.as_ref().unwrap().stage(), HungerStage::Starving);
     let hp = p.wounds.hp_at(&p.stats, w.time);
     assert!(body::knocked_out(&hp), "should have collapsed: torso {}", hp[1]);
-    assert!(!body::dead(&hp, &p.stats) && !p.dead, "starving never kills");
+    // (Starving kills in the end, B2, but slowly: not yet.)
+    assert!(!body::dead(&hp, &p.stats) && !p.dead, "dead too soon");
     // Fed again, they come round.
     w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("salted_meat"), 3);
     run(&mut w, 30.0, 120.0);

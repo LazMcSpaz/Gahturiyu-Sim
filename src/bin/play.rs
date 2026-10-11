@@ -148,6 +148,11 @@ fn main() {
     let mut s = load_session(&save);
     s.selected.retain(|&p| w.squad.index(p).is_some());
     w.alerts.clear();
+    // Everyone in the squad is dead: that's the end of this game.
+    if w.squad.members.is_empty() {
+        println!("Your squad is gone. Start again with `new SEED`.");
+        return;
+    }
     let out = run(&mut w, &mut s, cmd, &rest, &save);
     // What matters most (a fight, an arrest, a robbery) first, set apart.
     for a in w.alerts.drain(..) {

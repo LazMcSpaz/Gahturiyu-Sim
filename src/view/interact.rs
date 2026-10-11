@@ -140,8 +140,9 @@ fn odds(p: f32) -> String {
 /// The choices for a thing under the mouse, the left-click one first.
 /// `shift` swaps a beaten foe's default to carrying them.
 pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice> {
-    let lead = who.first().copied().unwrap_or(w.squad.members[0]);
     let mut out = Vec::new();
+    // (Nobody left to order: no choices.)
+    let Some(lead) = who.first().copied().or(w.squad.members.first().copied()) else { return out };
     match h {
         Hover::Person(pid) => {
             let p = &w.people[pid as usize];
