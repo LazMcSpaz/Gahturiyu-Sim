@@ -651,6 +651,20 @@ impl World {
         }
     }
 
+    /// Where `spot_pos` has someone, moved to where they can stand (out of
+    /// a workplace's block, off a table, out from between packed beds:
+    /// `free_spot`): the spot they idle on and walk from and to, and how
+    /// far they may drift from it. Spots that move along (rounds, the
+    /// watch, the boats, the runs) and spots out on the water are as they
+    /// are.
+    fn stand_pos(&self, pid: PersonId, spot: Spot, asleep: bool, h: f32, day: i64) -> (V2, f32) {
+        let p = self.spot_pos(pid, spot, asleep, h, day);
+        if matches!(spot, Spot::Rounds | Spot::Watch | Spot::Boat | Spot::RunRound) || self.terrain.is_sea(p) || self.open_water(p) {
+            return (p, f32::MAX);
+        }
+        self.free_spot_room(p)
+    }
+
     /// Where a resident who is at home in town stands at `t`, by their plan.
     pub(super) fn routine_pos(&self, pid: PersonId, t: f64) -> V2 {
         let day = World::day_of(t);
@@ -676,8 +690,8 @@ impl World {
             // (The night watch is still walking when its shift ends: they
             // set off for home from where the walk has them then.)
             let left_at = if prev.spot == Spot::Watch { seg.from } else { prev.from };
-            let a = self.spot_pos(pid, prev.spot, prev.doing == Doing::Asleep, left_at, day);
-            let b = self.spot_pos(pid, next.spot, next.doing == Doing::Asleep, next.from, day);
+            let a = self.stand_pos(pid, prev.spot, prev.doing == Doing::Asleep, left_at, day).0;
+            let b = self.stand_pos(pid, next.spot, next.doing == Doing::Asleep, next.from, day).0;
             let f = ((h - seg.from) / (plan.end_of(i) - seg.from).max(0.01)).clamp(0.0, 1.0);
             // Round buildings and in and out by the doors (#171), as the
             // squad walks; out on the water (the stilts), straight.
@@ -688,6 +702,9 @@ impl World {
             way.extend(self.route_keyed(a, b, true).0);
             return along(&way, f);
         }
-        self.spot_pos(pid, seg.spot, seg.doing == Doing::Asleep, h, day).add(wobble)
+        let (at, room) = self.stand_pos(pid, seg.spot, seg.doing == Doing::Asleep, h, day);
+        // (Drifting only as far as there's room round them.)
+        let far = wobble.len();
+        at.add(if far > room { wobble.scale(room / far) } else { wobble })
     }
 }

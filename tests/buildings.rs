@@ -406,7 +406,9 @@ fn every_variant_can_be_walked_into() {
         // The ways in.
         let (path, locked) = w.route(d.outside, d.centre);
         assert_eq!(locked, None, "{}: open by day", v.key);
-        check_path(&d, d.outside, &path, d.centre, &format!("{} to the middle", v.key));
+        // (To the nearest spot to the middle a walker gets to: the middle
+        // itself may be in a table, or boxed in between beds.)
+        check_path(&d, d.outside, &path, w.free_spot(d.centre), &format!("{} to the middle", v.key));
         // Walk in for real: through the door, and the containers are laid out.
         let dir = V2::new(rot.cos(), rot.sin());
         w.teleport_squad(d.outside.add(dir.scale(10.0)));
@@ -756,6 +758,68 @@ fn everything_stands_inside_the_walls() {
         }
     }
     assert!(faults.is_empty(), "{}", faults.join("\n"));
+}
+
+/// What can't be got to in a variant's rooms at a size, for a walker going
+/// in by the door (`walk.rs`): a container with nowhere within reach to
+/// stand that a way gets to, or a piece of furniture with nowhere beside it.
+fn out_of_reach(v: &'static layout::Variant, size: f32) -> Vec<String> {
+    use gahturiyu_sim::sim::{
+        buildings::door_with,
+        solid::{can_stand_in, enclosure, stand_by_in, things_of_building, Solids, BODY},
+        squad::REACH,
+        walk::Floor,
+    };
+    let d = door_with((0, 0), &Building { pos: V2::new(0.0, 0.0), kind: v.kind, size, rot: 0.7, seed: 1 }, v);
+    let sets = vec![std::sync::Arc::new(Solids::new(things_of_building(&d)))];
+    let Some(th) = enclosure(&sets, d.centre) else { return vec![format!("{} at {size} m: no room", v.key)] };
+    let Some(floor) = Floor::of(&sets, &th, BODY) else { return vec![format!("{} at {size} m: no way in", v.key)] };
+    let mut out = Vec::new();
+    for (what, r) in layout::footprints(&d) {
+        match what {
+            layout::Thing::Container(k) => {
+                let c = d.to_world(v.holders[k].at);
+                if stand_by_in(&sets, c, c, REACH, BODY).is_none() {
+                    out.push(format!("{} at {size} m: nowhere to stand to open the {} (slot {k})", v.key, v.holders[k].what.name()));
+                }
+            }
+            layout::Thing::Furniture(k) if !matches!(v.furniture[k].what, layout::Furn::Bedroll | layout::Furn::Screen) => {
+                // Anywhere a hand's breadth off its edge, all the way round.
+                let cs = r.grow(BODY + 0.08).corners();
+                let beside = (0..4).any(|i| {
+                    let (a, b) = (cs[i], cs[(i + 1) % 4]);
+                    let n = (a.dist(b) / 0.1).ceil().max(1.0) as usize;
+                    (0..n).map(|j| a.lerp(b, j as f32 / n as f32)).any(|q| can_stand_in(&sets, q, BODY) && enclosure(&sets, q).map(|t| t.id) == Some(th.id) && floor.gets_to(q))
+                });
+                if !beside {
+                    out.push(format!("{} at {size} m: nowhere to stand beside the {} ({k})", v.key, v.furniture[k].what.name()));
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Every container can be opened and every piece of furniture walked up to,
+/// in every variant, at sizes half a metre apart over all its buildings come
+/// in (Laz, 11 Oct: rooms are laid out so nothing is boxed in).
+#[test]
+fn everything_in_a_room_can_be_got_to() {
+    let mut faults = Vec::new();
+    for v in VARIANTS.iter().filter(|v| v.kind != BuildingKind::HoraroStilt && (!v.holders.is_empty() || !v.furniture.is_empty())) {
+        let [lo, hi] = real_sizes(v);
+        let mut size = lo;
+        loop {
+            faults.extend(out_of_reach(v, size));
+            if size >= hi {
+                break;
+            }
+            size = (size + 0.5).min(hi);
+        }
+    }
+    assert!(faults.is_empty(), "{}", faults.join("
+"));
 }
 
 // ---- Nothing in a room overlaps, as drawn ---------------------------------------

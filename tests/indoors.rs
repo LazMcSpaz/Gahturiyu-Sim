@@ -59,7 +59,9 @@ fn walking_past_goes_round_buildings() {
     for p in path {
         for k in 0..=20 {
             let q = prev.lerp(p, k as f32 / 20.0);
-            assert!(q.dist(d.centre) > d.radius - 0.2, "the path cuts through a wall");
+            // (By its real outline: the way keeps a walker's width off its
+            // walls, well inside the circle round its corners.)
+            assert!(!d.contains(q), "the path cuts through a wall at {q:?}");
         }
         prev = p;
     }

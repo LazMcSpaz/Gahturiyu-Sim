@@ -66,6 +66,7 @@ pub mod talk;
 pub mod stories;
 pub mod stats;
 pub mod torch;
+pub mod walk;
 pub mod stealth;
 pub mod terrain;
 pub mod tide;

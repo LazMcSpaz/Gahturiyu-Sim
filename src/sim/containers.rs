@@ -359,19 +359,21 @@ impl World {
     }
 
     /// Where someone stands to open a container: a step in from it, toward
-    /// the middle of the room.
+    /// the middle of the room; or, if that's boxed in (beds packed round
+    /// it), the nearest spot within reach that a way gets to.
     pub fn container_stand(&self, id: ContainerId) -> Option<V2> {
         let c = self.containers.get(&id)?;
         // Out in the wild: in front of it.
-        if is_wild(id) {
-            let side = V2::new(-c.rot.sin(), c.rot.cos());
-            return Some(c.pos.add(side.scale(0.9)));
-        }
-        let d = self.door((id.0, id.1))?;
-        let to = d.centre.sub(c.pos);
-        let len = to.len();
-        let dir = if len > 0.5 { to.scale(1.0 / len) } else { V2::new(c.rot.cos(), c.rot.sin()) };
-        Some(c.pos.add(dir.scale(0.9)))
+        let front = if is_wild(id) {
+            c.pos.add(V2::new(-c.rot.sin(), c.rot.cos()).scale(0.9))
+        } else {
+            let d = self.door((id.0, id.1))?;
+            let to = d.centre.sub(c.pos);
+            let len = to.len();
+            let dir = if len > 0.5 { to.scale(1.0 / len) } else { V2::new(c.rot.cos(), c.rot.sin()) };
+            c.pos.add(dir.scale(0.9))
+        };
+        Some(self.stand_by(front, c.pos, super::squad::REACH).unwrap_or(front))
     }
 
     /// Send a squad member to open a container and go through it. Locked

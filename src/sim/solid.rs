@@ -47,7 +47,8 @@
 //! - `World::way_clear(a, b, body)`: can a walker go straight from `a` to
 //!   `b`? Walls stop it except at their opening.
 //! - `World::free_spot(p)`: `p`, or the nearest spot beside whatever `p` is
-//!   inside (a walk to a counter ends beside it).
+//!   inside (a walk to a counter ends beside it); indoors, one the way in
+//!   by the door gets to.
 //! - `World::enclosure_at(p)`: the building, pen or yard whose wall is round `p`.
 //!
 //! **How it's kept.** The list is a pure function of the world (nothing new
@@ -400,6 +401,32 @@ impl Shape {
         }
     }
 
+    /// How far `p` is inside the shape's edge (negative: outside). Never
+    /// more than the truth.
+    pub fn margin(&self, p: V2) -> f32 {
+        let (x, y) = self.local(p);
+        match self {
+            Shape::Box(r) => (r.hw - x.abs()).min(r.hd - y.abs()),
+            Shape::Round { rx, ry, .. } => (1.0 - ((x / rx.max(1e-3)).powi(2) + (y / ry.max(1e-3)).powi(2)).sqrt()) * rx.min(*ry),
+        }
+    }
+
+    /// `p`, or if it's outside the shape, the nearest spot just inside it.
+    pub fn pulled_in(&self, p: V2) -> V2 {
+        if self.contains(p) {
+            return p;
+        }
+        let (x, y) = self.local(p);
+        let (c, rot, x, y) = match *self {
+            Shape::Box(r) => (r.c, r.rot, x.clamp(-(r.hw - 0.02).max(0.0), (r.hw - 0.02).max(0.0)), y.clamp(-(r.hd - 0.02).max(0.0), (r.hd - 0.02).max(0.0))),
+            Shape::Round { c, rot, rx, ry } => {
+                let k = 0.98 / ((x / rx.max(1e-3)).powi(2) + (y / ry.max(1e-3)).powi(2)).sqrt().max(1e-3);
+                (c, rot, x * k, y * k)
+            }
+        };
+        c.add(unit(rot).scale(x)).add(unit(rot + std::f32::consts::FRAC_PI_2).scale(y))
+    }
+
     /// Its outline as corners: a box's four; for a round thing, twelve
     /// flat sides drawn just outside the curve, so nothing inside the
     /// outline is ever outside the thing.
@@ -487,6 +514,29 @@ impl Thing {
     /// The opening in its wall, if it's hollow and has one.
     pub fn way(&self) -> Option<Way> {
         self.hollow.and_then(|h| h.way)
+    }
+
+    /// The thing's whole outline as one block: what a walk that isn't going
+    /// in has to go round. A fence's is the line of its posts (up to
+    /// `MAX_CORNERS` of them; a bigger pen's is drawn just outside them).
+    pub fn hull(&self) -> Poly {
+        match (self.hollow, self.shape) {
+            (Some(h), Shape::Round { .. }) if h.wall < 0.2 => {
+                let n = (h.spans as usize).max(8);
+                if n <= MAX_CORNERS {
+                    Poly::new(&self.shape.ring(n, 1.0))
+                } else {
+                    Poly::new(&self.shape.ring(MAX_CORNERS, 1.0 / (std::f32::consts::PI / MAX_CORNERS as f32).cos()))
+                }
+            }
+            _ => self.shape.outline(),
+        }
+    }
+
+    /// The ground inside a hollow thing where a walker `body` wide can
+    /// stand: its outline, in by its wall and the walker's width.
+    pub fn floor(&self, body: f32) -> Shape {
+        self.shape.grown(-(self.hollow.map(|h| h.wall).unwrap_or(0.0) + body))
     }
 
     /// A hollow thing's wall as solid stretches, the opening left out.
@@ -600,7 +650,7 @@ impl Solids {
             }
             let mut put = |part: Part, poly: Poly, room: Option<Id>| s.pieces.push(Piece { thing: k as u32, part, poly, room });
             if th.hollow.is_some() {
-                put(Part::Hull, s.outlines[k], th.within);
+                put(Part::Hull, th.hull(), th.within);
                 for w in th.walls() {
                     put(Part::Wall, Poly::new(&w.corners()), Some(th.id));
                 }
@@ -688,6 +738,46 @@ pub struct Cache(Mutex<Kept>);
 struct Kept {
     towns: Vec<Option<(u64, Arc<Solids>)>>,
     wild: Option<(u64, Arc<Solids>)>,
+    /// Ways already found (`walk.rs`), by their two ends, each with the
+    /// mark of the lists it was found among.
+    ways: HashMap<[u32; 4], (u64, Arc<super::walk::Found>)>,
+    /// Spots to stand already found (`World::free_spot`, `stand_by`), by
+    /// what was asked, each with the room round it (`free_spot` only) and
+    /// the mark of the lists it was found among.
+    spots: HashMap<[u32; 5], (u64, Option<V2>, f32)>,
+}
+
+/// Most ways (and, apart, spots) kept before the lot is dropped and found
+/// afresh as asked for.
+const WAYS_KEPT: usize = 40_000;
+
+impl Cache {
+    /// A way kept for these two ends, found among lists with this mark.
+    pub(super) fn way(&self, ends: [u32; 4], mark: u64) -> Option<Arc<super::walk::Found>> {
+        let kept = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        kept.ways.get(&ends).filter(|w| w.0 == mark).map(|w| w.1.clone())
+    }
+
+    pub(super) fn keep_way(&self, ends: [u32; 4], mark: u64, way: Arc<super::walk::Found>) {
+        let mut kept = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if kept.ways.len() >= WAYS_KEPT {
+            kept.ways.clear();
+        }
+        kept.ways.insert(ends, (mark, way));
+    }
+
+    fn spot(&self, key: [u32; 5], mark: u64) -> Option<(Option<V2>, f32)> {
+        let kept = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        kept.spots.get(&key).filter(|s| s.0 == mark).map(|s| (s.1, s.2))
+    }
+
+    fn keep_spot(&self, key: [u32; 5], mark: u64, spot: Option<V2>, room: f32) {
+        let mut kept = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if kept.spots.len() >= WAYS_KEPT {
+            kept.spots.clear();
+        }
+        kept.spots.insert(key, (mark, spot, room));
+    }
 }
 
 impl Clone for Cache {
@@ -774,44 +864,67 @@ impl World {
 
     /// The list for one town, as it stands now.
     pub fn town_solids(&self, t: SettlementId) -> Arc<Solids> {
+        self.town_solids_marked(t).1
+    }
+
+    fn town_solids_marked(&self, t: SettlementId) -> (u64, Arc<Solids>) {
         let m = self.town_mark(t);
-        let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
-        if kept.towns.len() <= t as usize {
-            kept.towns.resize(t as usize + 1, None);
-        }
-        if let Some((have, s)) = &kept.towns[t as usize] {
-            if *have == m {
-                return s.clone();
+        {
+            let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
+            if kept.towns.len() <= t as usize {
+                kept.towns.resize(t as usize + 1, None);
+            }
+            if let Some((have, s)) = &kept.towns[t as usize] {
+                if *have == m {
+                    return (m, s.clone());
+                }
             }
         }
         let s = Arc::new(Solids::new(self.things_of_town(t)));
+        let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
         kept.towns[t as usize] = Some((m, s.clone()));
-        s
+        (m, s)
     }
 
     /// The list for everything outside the towns, as it stands now.
     pub fn wild_solids(&self) -> Arc<Solids> {
+        self.wild_solids_marked().1
+    }
+
+    fn wild_solids_marked(&self) -> (u64, Arc<Solids>) {
         let m = self.wild_mark();
-        let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((have, s)) = &kept.wild {
-            if *have == m {
-                return s.clone();
+        {
+            let kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((have, s)) = &kept.wild {
+                if *have == m {
+                    return (m, s.clone());
+                }
             }
         }
         let s = Arc::new(Solids::new(self.things_of_wild()));
+        let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
         kept.wild = Some((m, s.clone()));
-        s
+        (m, s)
     }
 
     /// Every list with something within `within` of `p`.
     pub fn solid_sets(&self, p: V2, within: f32) -> Vec<Arc<Solids>> {
-        let mut out = vec![self.wild_solids()];
+        self.solid_sets_marked(p, within).0
+    }
+
+    /// `solid_sets`, with one mark for the lot: it changes when anything
+    /// any of them was built from does.
+    pub fn solid_sets_marked(&self, p: V2, within: f32) -> (Vec<Arc<Solids>>, u64) {
+        let (mut all, wild) = self.wild_solids_marked();
+        let mut out = vec![wild];
         for s in &self.settlements {
             if s.pos.dist(p) < s.reach + within + 30.0 {
-                out.push(self.town_solids(s.id));
+                let (m, set) = self.town_solids_marked(s.id);
+                all = mark(all ^ m, s.id as u64);
+                out.push(set);
             }
         }
-        out
+        (out, all)
     }
 }
 
@@ -824,6 +937,30 @@ pub fn shell_of(d: &Door) -> Shape {
     } else {
         Shape::Box(Rect::new(d.centre, d.rot, d.half.x * 2.0, d.half.y * 2.0))
     }
+}
+
+/// A stretch of inner wall as it stands: cut off where it meets a round
+/// building's outer wall (None if none of it is inside).
+pub fn inner_wall(d: &Door, r: Rect) -> Option<Rect> {
+    if !d.round {
+        return Some(r);
+    }
+    let [u, _] = r.axes();
+    let (a, z) = (r.c.sub(u.scale(r.hw)), r.c.add(u.scale(r.hw)));
+    // Where along it (0 at `a`, 1 at `z`) it is inside the outline.
+    let (pa, pz) = (d.to_local(a), d.to_local(z));
+    let (dx, dy) = (pz.0 - pa.0, pz.1 - pa.1);
+    let (qa, qb, qc) = (dx * dx + dy * dy, 2.0 * (pa.0 * dx + pa.1 * dy), pa.0 * pa.0 + pa.1 * pa.1 - 1.0);
+    let disc = qb * qb - 4.0 * qa * qc;
+    if qa < 1e-9 || disc <= 0.0 {
+        return (qc < 0.0).then_some(r);
+    }
+    let (t0, t1) = (((-qb - disc.sqrt()) / (2.0 * qa)).max(0.0), ((-qb + disc.sqrt()) / (2.0 * qa)).min(1.0));
+    if t1 - t0 < 1e-3 {
+        return None;
+    }
+    let (a2, z2) = (a.lerp(z, t0), a.lerp(z, t1));
+    Some(Rect::new(a2.lerp(z2, 0.5), r.rot, a2.dist(z2), r.hd * 2.0))
 }
 
 /// The doorway in a building's outer wall: `inside` is the first step past
@@ -1014,6 +1151,38 @@ fn forge_home_shape(h: &super::forge::Home) -> Option<Shape> {
     Some(Shape::Round { c: h.at, rot: h.rot, rx: v.half.0 * size, ry: v.half.1 * size })
 }
 
+/// Every physical thing of a building with a door: its outer walls with the
+/// doorway, the door, its inner walls, furniture and containers. A pure
+/// function of the door (`buildings::door_of`, `door_with`).
+pub fn things_of_building(d: &Door) -> Vec<Thing> {
+    let (t, i) = d.id;
+    let id = Id::Building(t, i);
+    let v = d.variant();
+    let way = doorway_of(d);
+    let mut out = Vec::new();
+    out.push(Thing::solid(id, What::Building, shell_of(d), v.storeys as f32 * 3.0).hollowed(layout::WALL_IN, if d.round { 16 } else { 4 }, Some(way)));
+    out.push(Thing::solid(Id::Door(t, i), What::Door, Shape::Box(Rect::new(way.at.sub(unit(d.rot).scale(layout::WALL_IN * 0.5)), d.rot, layout::WALL_IN, DOOR)), 2.0).open().inside(id));
+    for (what, r) in layout::footprints(d) {
+        out.push(match what {
+            layout::Thing::Furniture(k) => {
+                let f = v.furniture[k].what;
+                let th = Thing::solid(Id::Furniture(t, i, k as u8), What::Furniture(f), Shape::Box(r), f.size().2).inside(id);
+                // A bedroll lies flat; a hanging screen is pushed aside.
+                if matches!(f, Furn::Bedroll | Furn::Screen) { th.open() } else { th }
+            }
+            layout::Thing::Container(k) => Thing::solid(Id::Container(t, i, k as u8), What::Container(v.holders[k].what), Shape::Box(r), v.holders[k].what.size().2).inside(id),
+            // (In a round building an inner wall is written out to the
+            // outline's corners: it ends at the outer wall.)
+            layout::Thing::Wall(k) => match inner_wall(d, r) {
+                Some(r) => Thing::solid(Id::InnerWall(t, i, k as u8), What::Wall, Shape::Box(r), 2.6).inside(id),
+                None => continue,
+            },
+            layout::Thing::Extra(_) => continue,
+        });
+    }
+    out
+}
+
 impl World {
     /// Every physical thing of one town: its buildings and what's in them,
     /// and its workplaces.
@@ -1038,23 +1207,7 @@ impl World {
                 }
                 continue;
             };
-            let v = d.variant();
-            let way = doorway_of(&d);
-            out.push(Thing::solid(id, What::Building, shell_of(&d), v.storeys as f32 * 3.0).hollowed(layout::WALL_IN, if d.round { 16 } else { 4 }, Some(way)));
-            out.push(Thing::solid(Id::Door(t, i), What::Door, Shape::Box(Rect::new(way.at.sub(unit(d.rot).scale(layout::WALL_IN * 0.5)), d.rot, layout::WALL_IN, DOOR)), 2.0).open().inside(id));
-            for (what, r) in layout::footprints(&d) {
-                out.push(match what {
-                    layout::Thing::Furniture(k) => {
-                        let f = v.furniture[k].what;
-                        let th = Thing::solid(Id::Furniture(t, i, k as u8), What::Furniture(f), Shape::Box(r), f.size().2).inside(id);
-                        // A bedroll lies flat; a hanging screen is pushed aside.
-                        if matches!(f, Furn::Bedroll | Furn::Screen) { th.open() } else { th }
-                    }
-                    layout::Thing::Container(k) => Thing::solid(Id::Container(t, i, k as u8), What::Container(v.holders[k].what), Shape::Box(r), v.holders[k].what.size().2).inside(id),
-                    layout::Thing::Wall(k) => Thing::solid(Id::InnerWall(t, i, k as u8), What::Wall, Shape::Box(r), 2.6).inside(id),
-                    layout::Thing::Extra(_) => continue,
-                });
-            }
+            out.extend(things_of_building(&d));
         }
         let Some(tl) = self.society.towns.get(t as usize) else { return out };
         for (j, wp) in tl.places.iter().enumerate() {
@@ -1264,15 +1417,15 @@ impl World {
     /// The hollow thing (a building, a pen, a fenced yard) whose wall is
     /// round `p`: the smallest, if one stands inside another.
     pub fn enclosure_at(&self, p: V2) -> Option<Thing> {
-        let mut best: Option<Thing> = None;
-        for set in self.solid_sets(p, 0.0) {
-            for t in set.things_near(p, 0.0) {
-                if t.hollow.is_some() && t.shape.contains(p) && best.is_none_or(|b| t.shape.reach() < b.shape.reach()) {
-                    best = Some(*t);
-                }
-            }
-        }
-        best
+        enclosure(&self.solid_sets(p, 0.0), p)
+    }
+
+    /// Can a walker `body` wide stand at `p`? Out of doors: clear of every
+    /// solid thing, a hollow one taken whole. Inside a hollow thing: on its
+    /// floor (a walker's width in from its wall) and clear of what stands
+    /// in it. The way-finder goes by the same rule (`walk.rs`).
+    pub fn can_stand(&self, p: V2, body: f32) -> bool {
+        can_stand_in(&self.solid_sets(p, body), p, body)
     }
 
     /// The thing a walker `body` wide can't stand at `p` for, if any.
@@ -1292,27 +1445,177 @@ impl World {
     }
 
     /// `p`, or the nearest spot beside whatever `p` is inside, where a
-    /// walker can stand. (A spot hemmed in on every side is given up on
-    /// after a few tries: the nearest clear spot on a widening ring.)
+    /// walker can stand (`can_stand`). (A spot hemmed in on every side is
+    /// given up on after a few tries: the nearest clear spot on a widening
+    /// ring. A spot inside a building stays inside it, one outside stays out.
+    /// Indoors it must also be one a way in by the door gets to: a spot boxed
+    /// in between beds and a chest is swapped for the nearest that isn't.)
     pub fn free_spot(&self, p: V2) -> V2 {
-        let sets = self.solid_sets(p, 8.0);
-        let blocker = |q: V2| sets.iter().find_map(|set| set.blocker_at(q, BODY).map(|pc| pc.poly));
-        let mut q = p;
-        for _ in 0..6 {
-            match blocker(q) {
-                None => return q,
-                Some(poly) => q = poly.pushed_out(q, BODY + 0.02),
+        self.spot_kept(p, None).0.unwrap_or(p)
+    }
+
+    /// `free_spot`, and how far (up to `ROOM_MOST`) a walker standing there
+    /// could step any way and still stand: how much a figure idling there
+    /// may drift.
+    pub fn free_spot_room(&self, p: V2) -> (V2, f32) {
+        let (s, room) = self.spot_kept(p, None);
+        (s.unwrap_or(p), room)
+    }
+
+    /// Like `free_spot`, but only a spot within `within` of `near` will do
+    /// (where to stand to open a chest that has beds packed round it).
+    /// None: there's no such spot.
+    pub fn stand_by(&self, p: V2, near: V2, within: f32) -> Option<V2> {
+        self.spot_kept(p, Some((near, within))).0
+    }
+
+    /// `free_spot` (with its room) or `stand_by`, kept (`Cache`) until what
+    /// stands near `p` changes.
+    fn spot_kept(&self, p: V2, near: Option<(V2, f32)>) -> (Option<V2>, f32) {
+        let (sets, mark) = self.solid_sets_marked(p, 10.0);
+        let (n, r) = near.unwrap_or((p, f32::INFINITY));
+        let key = [p.x.to_bits(), p.y.to_bits(), n.x.to_bits(), n.y.to_bits(), r.to_bits()];
+        if let Some(s) = self.solid_cache.spot(key, mark) {
+            return s;
+        }
+        let s = match near {
+            None => {
+                let s = free_spot_in(&sets, p, BODY);
+                (Some(s), room_at(&sets, s, BODY))
+            }
+            Some((n, r)) => (stand_by_in(&sets, p, n, r, BODY), 0.0),
+        };
+        self.solid_cache.keep_spot(key, mark, s.0, s.1);
+        s
+    }
+}
+
+/// The hollow thing whose wall is round `p`, if any: the smallest.
+pub fn enclosure(sets: &[Arc<Solids>], p: V2) -> Option<Thing> {
+    let mut best: Option<Thing> = None;
+    for set in sets {
+        for t in set.things_near(p, 0.0) {
+            if t.hollow.is_some() && t.blocks && t.shape.contains(p) && best.is_none_or(|b| t.shape.reach() < b.shape.reach()) {
+                best = Some(*t);
             }
         }
-        for ring in 1..=16 {
-            let r = ring as f32 * 0.5;
-            for k in 0..16 {
-                let c = p.add(unit(k as f32 / 16.0 * std::f32::consts::TAU).scale(r));
-                if blocker(c).is_none() {
-                    return c;
+    }
+    best
+}
+
+/// `World::can_stand`, among these lists.
+pub fn can_stand_in(sets: &[Arc<Solids>], p: V2, body: f32) -> bool {
+    better_spot(sets, p, body).is_none()
+}
+
+/// If a walker can't stand at `p`, a spot one step nearer to where they
+/// can: out of the thing `p` is in, or in off a wall. None: `p` is fine.
+fn better_spot(sets: &[Arc<Solids>], p: V2, body: f32) -> Option<V2> {
+    let within = enclosure(sets, p);
+    if let Some(th) = &within {
+        let floor = th.floor(body);
+        if !floor.contains(p) {
+            return Some(floor.pulled_in(p));
+        }
+    }
+    let room = within.map(|t| t.id);
+    for set in sets {
+        // (The first in the list, so the same spot is always moved the same way.)
+        let mut hit: Option<u32> = None;
+        set.cells(V2::new(p.x - body, p.y - body), V2::new(p.x + body, p.y + body), |c| {
+            for &k in &c.1 {
+                let pc = &set.pieces[k as usize];
+                let counts = match room {
+                    None => pc.room.is_none() && pc.part != Part::Wall,
+                    Some(r) => pc.room == Some(r) && pc.part == Part::Body,
+                };
+                if counts && pc.poly.contains(p, body - HAIR) && hit.is_none_or(|h| k < h) {
+                    hit = Some(k);
                 }
             }
+        });
+        if let Some(k) = hit {
+            return Some(set.pieces[k as usize].poly.pushed_out(p, body + 0.02));
         }
-        p
     }
+    None
+}
+
+/// `World::free_spot`, among these lists.
+pub fn free_spot_in(sets: &[Arc<Solids>], p: V2, body: f32) -> V2 {
+    spot_where(sets, p, body, None).unwrap_or_else(|q| q)
+}
+
+/// Most room round a spot that `World::free_spot_room` looks for, metres.
+pub const ROOM_MOST: f32 = 3.0;
+
+/// How far a walker `body` wide standing at `p` could step any way and
+/// still stand (`can_stand`), up to `ROOM_MOST`: 0 if they can't stand
+/// there. (Measured from each thing's edges, so never more than the truth.)
+pub fn room_at(sets: &[Arc<Solids>], p: V2, body: f32) -> f32 {
+    let within = enclosure(sets, p);
+    let mut room = ROOM_MOST;
+    if let Some(th) = &within {
+        room = room.min(th.floor(body).margin(p));
+    }
+    let id = within.map(|t| t.id);
+    // (Far enough out that a thing's sharp corner, nearer by its edges than
+    // by a straight line, is still looked at.)
+    let r = (ROOM_MOST + body) * 1.5;
+    for set in sets {
+        for pc in set.pieces_in(V2::new(p.x - r, p.y - r), V2::new(p.x + r, p.y + r), 0.0) {
+            let counts = match id {
+                None => pc.room.is_none() && pc.part != Part::Wall,
+                Some(i) => pc.room == Some(i) && pc.part == Part::Body,
+            };
+            if counts {
+                room = room.min(pc.poly.depth(p) - body);
+            }
+        }
+    }
+    room.max(0.0)
+}
+
+/// `World::stand_by`, among these lists.
+pub fn stand_by_in(sets: &[Arc<Solids>], p: V2, near: V2, within: f32, body: f32) -> Option<V2> {
+    spot_where(sets, p, body, Some((near, within))).ok()
+}
+
+/// The nearest spot to `p` a walker can stand on and, indoors, that a way
+/// in by the door gets to (and within `near.1` of `near.0`, if given).
+/// Not found: the best tried (`free_spot`'s last resort).
+fn spot_where(sets: &[Arc<Solids>], p: V2, body: f32, near: Option<(V2, f32)>) -> Result<V2, V2> {
+    let home = enclosure(sets, p);
+    let home_id = home.map(|t| t.id);
+    // Indoors, a spot must also be one the way in gets to (`walk::Floor`).
+    let floor = home.as_ref().and_then(|th| super::walk::Floor::of(sets, th, body));
+    let close = |q: V2| near.is_none_or(|(n, r)| q.dist(n) <= r);
+    let fine = |q: V2| close(q) && enclosure(sets, q).map(|t| t.id) == home_id && floor.as_ref().is_none_or(|f| f.gets_to(q));
+    let mut q = p;
+    for _ in 0..8 {
+        match better_spot(sets, q, body) {
+            None if fine(q) => return Ok(q),
+            None => break,
+            Some(next) => q = next,
+        }
+    }
+    // (No further out than could still be near enough.)
+    let reach = near.map(|(n, r)| p.dist(n) + r).unwrap_or(f32::MAX);
+    // (Near a given spot, the rings are finer and closer: a chest's only
+    // standing room may be a narrow strip beside it.)
+    let (step, gap) = if near.is_some() { (0.15, 0.1) } else { (0.4, f32::MAX) };
+    for ring in 1..=(9.6 / step) as usize {
+        let r = ring as f32 * step;
+        if r > reach {
+            break;
+        }
+        let n = ((r * std::f32::consts::TAU / gap).ceil() as usize).max(16);
+        for k in 0..n {
+            let c = p.add(unit(k as f32 / n as f32 * std::f32::consts::TAU).scale(r));
+            if better_spot(sets, c, body).is_none() && fine(c) {
+                return Ok(c);
+            }
+        }
+    }
+    Err(q)
 }
