@@ -95,6 +95,14 @@ pub struct Game {
     pub aim: Option<(PersonId, gahturiyu_sim::sim::magic::Spell)>,
     /// The scroll being aimed, when `aim` is a scroll's spell rather than a cast.
     pub aim_scroll: Option<items::ItemId>,
+    /// The trade screen, while a merchant's wares are out (`tradeui.rs`):
+    /// what's on the table; when its sums were last worked out; and the
+    /// last line clicked (twice quickly trades that one thing at once).
+    pub trading: Option<super::tradeui::Trading>,
+    pub trade_quoted: Option<std::time::Instant>,
+    pub trade_last: Option<(std::time::Instant, bool, items::ItemId)>,
+    /// Space was pressed at the table (Deal).
+    pub space_deal: bool,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
     pub loads: u32,
@@ -225,6 +233,10 @@ pub fn run() {
         book: None,
         aim: None,
         aim_scroll: None,
+        trading: None,
+        trade_quoted: None,
+        trade_last: None,
+        space_deal: false,
         loads: 0,
         notice: None,
         wild: None,
@@ -301,6 +313,21 @@ pub fn run() {
         game.craft = s.craft.and_then(|k| game.world.squad.members.get(k).copied());
         if s.make.is_some() {
             game.craft = game.world.squad.members.first().copied();
+        }
+        if s.trade_table {
+            // Two of the first thing the merchant would take, and one each
+            // of their first two wares.
+            let w = &game.world;
+            if let Some(cv) = w.talk.as_ref() {
+                let mut table = gahturiyu_sim::sim::economy::Table::default();
+                if let Some(e) = w.people[cv.with as usize].detail.as_ref().and_then(|d| d.gear.bag.iter().find(|e| w.offer(cv.npc, e.0, e.2.as_ref()).is_some())) {
+                    table.give.push((cv.with, e.0, e.1.min(2)));
+                }
+                for x in w.for_sale(cv.npc).iter().take(2) {
+                    table.get.push((x.0, 1));
+                }
+                game.trading = Some(super::tradeui::Trading { table, ..Default::default() });
+            }
         }
         game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
         if s.feud {
@@ -504,8 +531,13 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             game.paused = false;
         }
     }
+    // (At the trade table Space is Deal: taken up where the screen is drawn.)
     if keys.just_pressed(KeyCode::Space) {
-        game.paused = !game.paused;
+        if game.trading.is_some() {
+            game.space_deal = true;
+        } else {
+            game.paused = !game.paused;
+        }
     }
     if keys.just_pressed(KeyCode::KeyC) || keys.just_pressed(KeyCode::KeyF) {
         game.follow = true;
@@ -545,6 +577,9 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     } else if keys.just_pressed(KeyCode::Escape) && game.aim.is_some() {
         game.aim = None;
         game.aim_scroll = None;
+    } else if keys.just_pressed(KeyCode::Escape) && w.talk.as_ref().is_some_and(|c| c.trading) {
+        // Away from the table, back to the talk.
+        w.stop_trading();
     } else if keys.just_pressed(KeyCode::Escape) && w.talk.is_some() {
         w.end_talk();
     } else if keys.just_pressed(KeyCode::Backquote) || keys.just_pressed(KeyCode::Escape) {
@@ -725,6 +760,14 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     if on_panels && scroll.delta.y != 0.0 {
         if let Some(m) = game.making.as_mut() {
             m.scroll = (m.scroll - scroll.delta.y * 46.0).max(0.0);
+        }
+    }
+    // The wheel at the trade table runs the list under the mouse (the pack
+    // on the left, the stall on the right).
+    if scroll.delta.y != 0.0 {
+        if let Some(t) = game.trading.as_mut() {
+            let k = if mouse.x < window.width() / 2.0 { 0 } else { 1 };
+            t.scroll[k] = (t.scroll[k] - scroll.delta.y * 32.0).max(0.0);
         }
     }
     // Clicks on the panels are handled when they're drawn; a short click
@@ -1483,15 +1526,118 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         Some(super::lootui::LootAct::Close(m)) => w.stop_looting(m),
         None => {}
     }
-    if w.talk.is_some() {
-        let (t, bx) = squadui::talk(&c, w, game.mouse, click);
-        if let Some(t) = t {
-            use gahturiyu_sim::sim::dialogue::Topic;
-            let coins = matches!(t, Topic::Trade | Topic::Buy(..) | Topic::Sell(..) | Topic::SellAll(..));
-            game.sounds.ui(if coins { "coins" } else { "ui_press" });
-            w.ask(t);
+    // A merchant's wares out: the trade table takes the talk's place.
+    let at_table = w.talk.as_ref().filter(|c| c.trading && !c.refused).map(|c| c.npc);
+    if let Some(npc) = at_table {
+        use super::tradeui::TradeAct;
+        let now = std::time::Instant::now();
+        let st = game.trading.get_or_insert_with(Default::default);
+        // The sums, worked out afresh when the table changes and now and then
+        // (prices move with the hour).
+        if st.quote.is_none() || game.trade_quoted.is_none_or(|t| now.duration_since(t).as_secs_f32() > 2.0) {
+            st.quote = Some(w.deal_quote(npc, &st.table));
+            game.trade_quoted = Some(now);
         }
-        panels.extend(bx);
+        let (a, bx, scrolls) = super::tradeui::trade(&c, w, st, game.mouse, click);
+        st.scroll = scrolls;
+        panels.push(bx);
+        let twice = |last: &Option<(std::time::Instant, bool, items::ItemId)>, giving: bool, it: items::ItemId| last.is_some_and(|l| l.1 == giving && l.2 == it && now.duration_since(l.0).as_secs_f32() < 0.35);
+        let deal_key = game.space_deal;
+        game.space_deal = false;
+        match a.or(if deal_key { Some(TradeAct::Deal) } else { None }) {
+            Some(TradeAct::Close) => {
+                w.stop_trading();
+                game.trading = None;
+                game.sounds.ui("ui_close");
+            }
+            Some(TradeAct::Member(m)) => {
+                st.member = Some(m);
+                game.sounds.ui("ui_press");
+            }
+            Some(TradeAct::Give(who, it)) => {
+                if twice(&game.trade_last, true, it) {
+                    // The one just laid comes back off, and is sold on the spot.
+                    if let Some(k) = st.table.give.iter().position(|g| g.0 == who && g.1 == it) {
+                        st.table.give[k].2 -= 1;
+                        if st.table.give[k].2 == 0 {
+                            st.table.give.remove(k);
+                        }
+                    }
+                    game.sounds.ui(if w.sell_from(npc, who, it).is_some() { "coins" } else { "ui_cant" });
+                    game.trade_last = None;
+                } else {
+                    let have = w.count_of(who, items::item(it).key);
+                    st.table.add_give(who, it, have);
+                    game.trade_last = Some((now, true, it));
+                    game.sounds.ui("ui_press");
+                }
+                st.quote = None;
+            }
+            Some(TradeAct::Get(it)) => {
+                if twice(&game.trade_last, false, it) {
+                    if let Some(k) = st.table.get.iter().position(|g| g.0 == it) {
+                        st.table.get[k].1 -= 1;
+                        if st.table.get[k].1 == 0 {
+                            st.table.get.remove(k);
+                        }
+                    }
+                    game.sounds.ui(if w.buy(npc, it) { "coins" } else { "ui_cant" });
+                    game.trade_last = None;
+                } else {
+                    let stock = w.for_sale(npc).iter().find(|x| x.0 == it).map(|x| x.1).unwrap_or(0);
+                    st.table.add_get(it, stock);
+                    game.trade_last = Some((now, false, it));
+                    game.sounds.ui("ui_press");
+                }
+                st.quote = None;
+            }
+            Some(TradeAct::Back(giving, k)) => {
+                if giving {
+                    if let Some(g) = st.table.give.get_mut(k) {
+                        g.2 -= 1;
+                        if g.2 == 0 {
+                            st.table.give.remove(k);
+                        }
+                    }
+                } else if let Some(g) = st.table.get.get_mut(k) {
+                    g.1 -= 1;
+                    if g.1 == 0 {
+                        st.table.get.remove(k);
+                    }
+                }
+                st.quote = None;
+                game.sounds.ui("ui_press");
+            }
+            Some(TradeAct::Clear) => {
+                st.table = Default::default();
+                st.quote = None;
+                game.sounds.ui("ui_press");
+            }
+            Some(TradeAct::Deal) => {
+                let done = w.deal_table(npc, &st.table);
+                if done.stuck.is_none() {
+                    st.table = Default::default();
+                    game.sounds.ui("coins");
+                } else {
+                    game.sounds.ui("ui_cant");
+                }
+                st.quote = None;
+            }
+            None => {}
+        }
+    } else {
+        game.trading = None;
+        game.space_deal = false;
+        if w.talk.is_some() {
+            let (t, bx) = squadui::talk(&c, w, game.mouse, click);
+            if let Some(t) = t {
+                use gahturiyu_sim::sim::dialogue::Topic;
+                let coins = matches!(t, Topic::Trade | Topic::Buy(..) | Topic::Sell(..) | Topic::SellAll(..));
+                game.sounds.ui(if coins { "coins" } else { "ui_press" });
+                w.ask(t);
+            }
+            panels.extend(bx);
+        }
     }
     match build_act {
         Some(super::baseui::BuildAction::Pick(def)) => {

@@ -67,6 +67,88 @@ pub const GRAIN_GLUT_SPOIL: f32 = 0.1;
 /// money); `headless trade` counts the routes that pay.
 pub const BUY_MARKUP: f32 = 1.15;
 pub const SELL_SHARE: f32 = 0.75;
+/// What's laid on the table between the squad and a merchant: what the
+/// squad gives (from whose pack, what, how many) and what it takes.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Table {
+    pub give: Vec<(PersonId, ItemId, u16)>,
+    pub get: Vec<(ItemId, u16)>,
+}
+
+impl Table {
+    pub fn is_empty(&self) -> bool {
+        self.give.is_empty() && self.get.is_empty()
+    }
+
+    /// One more of a member's thing onto the table (up to `most`).
+    pub fn add_give(&mut self, who: PersonId, it: ItemId, most: u16) {
+        match self.give.iter_mut().find(|g| g.0 == who && g.1 == it) {
+            Some(g) => g.2 = (g.2 + 1).min(most),
+            None if most > 0 => self.give.push((who, it, 1)),
+            None => {}
+        }
+    }
+
+    /// One more of the merchant's things onto the table (up to `most`).
+    pub fn add_get(&mut self, it: ItemId, most: u16) {
+        match self.get.iter_mut().find(|g| g.0 == it) {
+            Some(g) => g.1 = (g.1 + 1).min(most),
+            None if most > 0 => self.get.push((it, 1)),
+            None => {}
+        }
+    }
+}
+
+/// How a table goes, or would go.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Deal {
+    /// (whose, what, how many sold, coin for them).
+    pub gives: Vec<(PersonId, ItemId, u16, u32)>,
+    /// (what, how many, coin for them).
+    pub gets: Vec<(ItemId, u16, u32)>,
+    /// What stops it, if anything does.
+    pub stuck: Option<NoDeal>,
+}
+
+impl Deal {
+    pub fn given(&self) -> u32 {
+        self.gives.iter().map(|g| g.3).sum()
+    }
+    pub fn got(&self) -> u32 {
+        self.gets.iter().map(|g| g.2).sum()
+    }
+    /// Coin to the squad when it's done (negative: the squad pays).
+    pub fn balance(&self) -> i64 {
+        self.given() as i64 - self.got() as i64
+    }
+}
+
+/// Why a table can't go through as laid.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NoDeal {
+    Empty,
+    /// The merchant's purse won't cover what the squad is giving.
+    TheyCantPay,
+    /// The squad is this many coin short.
+    YouCantPay(u16),
+    TheyWontTake(ItemId),
+    /// The merchant has no more of it.
+    Gone(ItemId),
+}
+
+impl NoDeal {
+    /// For the Deal button, in the merchant's terms.
+    pub fn say(&self, they: &str) -> String {
+        match *self {
+            NoDeal::Empty => "Nothing on the table.".to_string(),
+            NoDeal::TheyCantPay => format!("{they} can't afford that."),
+            NoDeal::YouCantPay(n) => format!("You're {n} coin short."),
+            NoDeal::TheyWontTake(it) => format!("{they} won't take any more {}.", items::item(it).name.to_lowercase()),
+            NoDeal::Gone(it) => format!("{they} hasn't that much {}.", items::item(it).name.to_lowercase()),
+        }
+    }
+}
+
 /// A note is worth this many coin; the exchange keeps this many per swap.
 pub const NOTE_VALUE: u16 = 50;
 pub const EXCHANGE_FEE: u16 = 1;
@@ -742,6 +824,13 @@ impl World {
             }
         }
         let Some((m, k)) = seller else { return false };
+        self.sell_entry(npc, town, m, k, price)
+    }
+
+    /// One of pack entry `k` of member `m` goes to the merchant for `price`.
+    fn sell_entry(&mut self, npc: PersonId, town: SettlementId, m: PersonId, k: usize, price: u16) -> bool {
+        let _ = npc;
+        let Some(it) = self.people[m as usize].detail.as_ref().and_then(|d| d.gear.bag.get(k)).map(|e| e.0) else { return false };
         self.settle_condition(m, self.time);
         let Some((_, piece)) = self.people[m as usize].detail.as_mut().and_then(|d| d.gear.take_entry(k)) else { return false };
         if let Some(d) = self.people[m as usize].detail.as_mut() {
@@ -763,6 +852,132 @@ impl World {
         self.passed_on(piece.as_ref());
         self.spend_purse(town, -(price as f32));
         true
+    }
+
+    // ---- The table: several things at once ------------------------------------
+
+    /// One of `it` from this member's own pack goes to the merchant, at what
+    /// they offer for it now. What it fetched, if it sold.
+    pub fn sell_from(&mut self, npc: PersonId, who: PersonId, it: ItemId) -> Option<u16> {
+        let (town, _) = self.shelves(npc)?;
+        if !self.at_hand().contains(&who) {
+            return None;
+        }
+        let (k, price) = self.people[who as usize].detail.as_ref()?.gear.bag.iter().enumerate().find_map(|(k, e)| if e.0 == it && e.1 > 0 { self.offer(npc, it, e.2.as_ref()).map(|p| (k, p)) } else { None })?;
+        self.sell_entry(npc, town, who, k, price).then_some(price)
+    }
+
+    /// How a table laid between the squad and a merchant would go, without
+    /// doing it: worked out by doing exactly what `deal_table` does on a copy of
+    /// the world, so the coin it names is the coin that would change hands
+    /// (prices move as each thing is sold and bought, and a purse runs out).
+    pub fn deal_quote(&self, npc: PersonId, table: &Table) -> Deal {
+        let mut copy = self.clone();
+        copy.deal_through(npc, table)
+    }
+
+    /// Carry a table out, if all of it can be: everything the squad gives is
+    /// sold first, then everything it takes is bought. Nothing happens
+    /// unless the whole table would go through.
+    pub fn deal_table(&mut self, npc: PersonId, table: &Table) -> Deal {
+        let quote = self.deal_quote(npc, table);
+        if quote.stuck.is_some() {
+            return quote;
+        }
+        self.deal_through(npc, table)
+    }
+
+    /// The table, thing by thing (it stops where it sticks).
+    fn deal_through(&mut self, npc: PersonId, table: &Table) -> Deal {
+        let mut d = Deal::default();
+        if table.give.is_empty() && table.get.is_empty() {
+            d.stuck = Some(NoDeal::Empty);
+            return d;
+        }
+        for &(who, it, n) in &table.give {
+            let (mut sold, mut coin) = (0u16, 0u32);
+            for _ in 0..n {
+                match self.sell_from(npc, who, it) {
+                    Some(p) => {
+                        sold += 1;
+                        coin += p as u32;
+                    }
+                    None => break,
+                }
+            }
+            d.gives.push((who, it, sold, coin));
+            if sold < n && d.stuck.is_none() {
+                // They'd take it with coin enough: it's the purse. Else they've no use for more.
+                d.stuck = Some(if self.offer_holding_any(npc, it).is_some() { NoDeal::TheyCantPay } else { NoDeal::TheyWontTake(it) });
+            }
+        }
+        // (What couldn't be paid for still counts toward the sum shown, at
+        // the price it stood at.)
+        let mut unpaid = 0u32;
+        for &(it, n) in &table.get {
+            let (mut got, mut coin) = (0u16, 0u32);
+            for _ in 0..n {
+                let Some(&(_, _, price)) = self.for_sale(npc).iter().find(|x| x.0 == it) else {
+                    if d.stuck.is_none() {
+                        d.stuck = Some(NoDeal::Gone(it));
+                    }
+                    break;
+                };
+                if d.stuck.is_some() || !self.buy_at(npc, it, price) {
+                    if d.stuck.is_none() {
+                        d.stuck = Some(NoDeal::YouCantPay(0));
+                    }
+                    unpaid += price as u32;
+                }
+                got += 1;
+                coin += price as u32;
+            }
+            d.gets.push((it, got, coin));
+        }
+        if let Some(NoDeal::YouCantPay(_)) = d.stuck {
+            let have = self.squad_count(items::id("coin")) as u32;
+            d.stuck = Some(NoDeal::YouCantPay(unpaid.saturating_sub(have).min(u16::MAX as u32) as u16));
+        }
+        d
+    }
+
+    /// Would the merchant take this at all, purse aside? (For telling "they
+    /// can't pay" from "they don't want it".)
+    fn offer_holding_any(&self, npc: PersonId, it: ItemId) -> Option<u16> {
+        self.offer_holding(npc, it, None, None, f32::MAX)
+    }
+
+    /// How full a merchant's purse looks (their town's, which they pay from):
+    /// in words, never a number.
+    pub fn purse_words(&self, npc: PersonId) -> &'static str {
+        let purse = self.shelves(npc).map(|(t, _)| self.purse_now(t)).unwrap_or(0.0);
+        if purse >= 120.0 {
+            "heavy purse"
+        } else if purse >= 40.0 {
+            "fair purse"
+        } else if purse >= 5.0 {
+            "light purse"
+        } else {
+            "empty purse"
+        }
+    }
+
+    /// Whether a thing is cheap or dear in this merchant's town against what
+    /// it usually fetches: above 1 dear (they pay well for it and charge
+    /// well for it), below 1 cheap. 1 for what has no going rate.
+    pub fn going_rate(&self, npc: PersonId, it: ItemId) -> f32 {
+        let Some((town, _)) = self.shelves(npc) else { return 1.0 };
+        match super::jobs::good_of(items::item(it).key) {
+            Some(g) => self.price_factor(town, g),
+            None => 1.0,
+        }
+    }
+
+    /// The squad stops looking at a merchant's wares (the talk goes on).
+    pub fn stop_trading(&mut self) {
+        if let Some(c) = self.talk.as_mut() {
+            c.trading = false;
+        }
     }
 
     /// Things the squad carries that this merchant would buy, with the price.
