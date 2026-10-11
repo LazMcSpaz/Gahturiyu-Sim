@@ -195,6 +195,53 @@ fn taking_from_a_container_is_theft_when_seen() {
     assert_eq!(w.container(id).unwrap().taken as usize, takes, "every take is counted");
 }
 
+/// NM-25: "take all" stops the moment someone sees it: one grab, one
+/// sighting, one charge, and the rest stays in the chest.
+#[test]
+fn nm25_take_all_stops_when_seen() {
+    let mut shown = false;
+    'worlds: for seed in 1..5u64 {
+        let mut w = worldgen::generate(seed);
+        until_hour(&mut w, 12.0);
+        let m = w.squad.members[0];
+        // A few unlocked containers, busiest part of town first, until one
+        // has someone in the room.
+        let mut tried = 0;
+        for d in town_doors(&w) {
+            let v = d.variant();
+            let Some(slot) = (0..v.holders.len()).find(|&s| stock(w.seed, (d.id.0, d.id.1, s as u8), v.holders[s].what, v.use_, v.key, keeper_job(&w, d.id)).1 == 0.0) else { continue };
+            let id = (d.id.0, d.id.1, slot as u8);
+            tried += 1;
+            if tried > 6 {
+                break;
+            }
+            if !walk_in(&mut w, m, &d) || !w.order_search(m, id) || !reach(&mut w, m, id) {
+                continue;
+            }
+            let at = w.container(id).unwrap().pos;
+            if w.catch_chance(m, at, id.0) < 0.2 {
+                continue;
+            }
+            // Plenty to take, so being seen part-way is all but certain.
+            w.containers.get_mut(&id).unwrap().items = (0..60).map(|_| Entry(items::id("knife"), 1, None)).collect();
+            let sightings = |w: &World| w.log.iter().filter(|l| l.1.contains("seen stealing")).count();
+            let before = sightings(&w);
+            let took = w.take_all_from(m, Source::Chest(id));
+            let seen = sightings(&w) - before;
+            let left = w.container(id).map(|c| c.items.len()).unwrap_or(0);
+            eprintln!("seed {seed}: took {took}, sightings {seen}, left {left}");
+            assert!(seen <= 1, "seed {seed}: one grab was seen {seen} times");
+            if seen == 1 {
+                assert!(left > 0, "seed {seed}: seen, and still took the lot");
+                assert_eq!(took + left, 60);
+                shown = true;
+                break 'worlds;
+            }
+        }
+    }
+    assert!(shown, "no watched container in four worlds to show it on");
+}
+
 #[test]
 fn locked_containers_must_be_picked() {
     let mut w = worldgen::generate(1);

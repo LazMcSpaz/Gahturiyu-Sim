@@ -735,6 +735,9 @@ impl World {
         if n < 2 {
             return None;
         }
+        // Where each stands now: in a fight, where the fight has them
+        // (BL-67: not where they stood when it began).
+        let at: Vec<V2> = (0..n).map(|i| self.fighter(self.squad.members[i]).map(|f| f.pos).unwrap_or(self.squad.at[i])).collect();
         // Bunches, by flood fill.
         let mut bunch = vec![usize::MAX; n];
         let mut sizes: Vec<usize> = Vec::new();
@@ -749,7 +752,7 @@ impl World {
             while let Some(i) = todo.pop() {
                 size += 1;
                 for j in 0..n {
-                    if bunch[j] == usize::MAX && self.squad.at[i].dist(self.squad.at[j]) <= STRAY {
+                    if bunch[j] == usize::MAX && at[i].dist(at[j]) <= STRAY {
                         bunch[j] = id;
                         todo.push(j);
                     }
@@ -762,7 +765,7 @@ impl World {
         if bunch[k] == main {
             return None;
         }
-        (0..n).filter(|&j| bunch[j] == main).map(|j| self.squad.at[k].dist(self.squad.at[j])).min_by(|a, b| a.total_cmp(b))
+        (0..n).filter(|&j| bunch[j] == main).map(|j| at[k].dist(at[j])).min_by(|a, b| a.total_cmp(b))
     }
 
     /// The strongest healing potion in someone's pack.

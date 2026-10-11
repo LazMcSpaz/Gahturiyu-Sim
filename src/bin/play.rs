@@ -489,6 +489,9 @@ fn hud(w: &World, s: &Session) -> String {
     for l in w.work_lines() {
         let _ = writeln!(o, "Town work: {l}");
     }
+    for l in w.wanted_lines() {
+        let _ = writeln!(o, "{l}");
+    }
     o
 }
 
@@ -568,7 +571,8 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
         let held = if w.ruin_held(r.id) { "guarded" } else { "unguarded" };
         lines.push((here.dist(r.pos), format!("r{}  {} — {held}, {} things lying inside — {}", r.id, r.name(w), w.ruin_cache(r.id), dist_dir(here, r.pos))));
     }
-    for c in w.camps.iter().filter(|c| near(c.pos, 300.0)) {
+    // (A ruin's wardens are the ruin's guard, not a camp of their own: BL-71.)
+    for c in w.camps.iter().filter(|c| near(c.pos, 300.0) && !w.is_warden(c.group)) {
         lines.push((here.dist(c.pos), format!("    a bandit camp — {}", dist_dir(here, c.pos))));
     }
     // Work, game, things.
@@ -1576,6 +1580,9 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
             if w.quests.is_empty() && w.society.contracts.is_empty() {
                 o += "  No jobs taken.\n";
             }
+            for l in w.wanted_lines() {
+                let _ = writeln!(o, "  {l}");
+            }
         }
         "map" => {
             let here = focus(w, s);
@@ -1609,7 +1616,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
                 let _ = writeln!(o, "  d{}  {} of {} — {:.0} {} left — {}", d.id, d.face().name, w.settlements[d.town as usize].name, d.left_at(w.time).floor(), item(d.item).name.to_lowercase(), dist_dir(here, d.pos));
             }
             let _ = writeln!(o, "Bandit camps known (red triangles):");
-            let mut camps: Vec<V2> = w.camps.iter().map(|c| c.pos).collect();
+            let mut camps: Vec<V2> = w.camps.iter().filter(|c| !w.is_warden(c.group)).map(|c| c.pos).collect();
             camps.sort_by(|a, b| a.dist(here).total_cmp(&b.dist(here)));
             for c in camps.iter().take(6) {
                 let _ = writeln!(o, "  a camp — {}", dist_dir(here, *c));

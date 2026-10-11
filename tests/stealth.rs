@@ -213,6 +213,29 @@ fn a_torch_at_night_is_seen_from_far_away() {
     assert!(w.suspicion_of(m) >= 1.0 || w.fighter(m).is_some());
 }
 
+/// BL-31: a camp resting after a fight looks no further than its own
+/// ground, but it isn't blind to a lit torch out in the dark.
+#[test]
+fn bl31_a_resting_camp_still_sees_a_torch_at_night() {
+    let resting = |w: &mut World| {
+        let g = w.spawn_bandits(w.squad.pos.add(V2::new(60.0, 0.0)), 3, false);
+        let until = w.time + 6.0 * HOUR;
+        w.camps.iter_mut().find(|c| c.group == g).expect("a camp").ready_at = until;
+        g
+    };
+    // In the dark with no light, 60 m from a resting camp: nothing.
+    let mut w = out_in_the_wild(18.0);
+    let g = resting(&mut w);
+    watch(&mut w, 30.0);
+    assert!(!w.has_noticed(g) && w.squad_battle().is_none(), "unseen in the dark beyond their ground");
+    // The same with a torch lit: seen.
+    let mut w = out_in_the_wild(18.0);
+    let g = resting(&mut w);
+    let m = light_torch(&mut w);
+    watch(&mut w, 30.0);
+    assert!(w.has_noticed(g) || w.squad_battle().is_some() || w.suspicion_of(m) >= 1.0, "a torch 60 m from a resting camp goes unseen: {}", w.suspicion_of(m));
+}
+
 #[test]
 fn a_torch_makes_no_difference_by_day() {
     let mut w = out_in_the_wild(6.0); // noon

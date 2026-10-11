@@ -111,3 +111,25 @@ fn a_body_can_be_stripped_and_its_things_picked_up() {
     }
     assert_eq!(w.ground.len(), lying + carried - 1);
 }
+
+/// BL-67: in a fight, "N m from the others" goes by where the fight has
+/// each member, not where they stood when it began.
+#[test]
+fn bl67_strayed_goes_by_where_the_fight_has_them() {
+    let mut w = world();
+    let squad = w.squad.members.clone();
+    let at = w.squad.pos.add(V2::new(10.0, 0.0));
+    let band = w.spawn_bandits(at, 3, false);
+    let foe = w.group(band).unwrap().members[0];
+    assert!(w.attack(&squad, foe));
+    assert!(w.squad_battle().is_some());
+    assert!(squad.iter().all(|&m| w.strayed(m).is_none()), "together as it starts");
+    // One of them is drawn 90 m off by the fight.
+    let m = squad[1];
+    let b = w.battles.iter_mut().find(|b| b.fighters.iter().any(|f| f.pid == m)).unwrap();
+    let f = b.fighters.iter_mut().find(|f| f.pid == m).unwrap();
+    f.pos = f.pos.add(V2::new(0.0, 90.0));
+    let off = w.strayed(m).expect("drawn 90 m off, they've strayed");
+    assert!((off - 90.0).abs() < 25.0, "{off}");
+    assert!(squad.iter().filter(|&&x| x != m).all(|&x| w.strayed(x).is_none()), "the rest haven't");
+}

@@ -235,7 +235,26 @@ impl World {
         let total = self.bounty[&town];
         let t = self.time;
         self.say(t, format!("{line} Bounty in {}: {total:.0}.", self.settlements[town as usize].name));
-        self.alerts.push(line);
+        // Nobody came running, but it isn't over (NM-28).
+        self.alerts.push(format!("{line} The watch will hear of it."));
+    }
+
+    /// What the squad is wanted for, town by town, for the journal (NM-28):
+    /// what's owed where a crime was seen and nobody was held for it.
+    pub fn wanted_lines(&self) -> Vec<String> {
+        let mut towns: Vec<SettlementId> = self.bounty.iter().filter(|b| *b.1 >= 1.0).map(|b| *b.0).collect();
+        towns.sort_unstable();
+        towns.into_iter().map(|t| format!("Wanted in {}: {:.0} coin owed.", self.settlements[t as usize].name, self.bounty[&t])).collect()
+    }
+
+    /// What's held against this squad member and not yet answered: the
+    /// charges the watch is after them for, and what the squad is wanted
+    /// for. (It only ever grows by being seen at something.)
+    pub fn charge_on(&self, who: PersonId) -> f32 {
+        // (Summed in a fixed order: a hash map's own order isn't one.)
+        let mut owed: Vec<f32> = self.bounty.values().copied().collect();
+        owed.sort_by(f32::total_cmp);
+        self.pursuits.iter().filter(|p| p.culprit == who).map(|p| p.fine).sum::<f32>() + owed.iter().sum::<f32>()
     }
 
     /// Where a guard on a chase is, if they're on one and have set off.

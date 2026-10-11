@@ -863,3 +863,36 @@ fn felt_spells_come_from_casting_on_the_road_too() {
     }
     assert!(w.knows(m, spell("silent_step")));
 }
+
+/// BL-54: a spell ordered at someone out of its reach mid-fight isn't
+/// thrown away ("goes wide", the energy gone): it's refused, and nothing is
+/// spent. In reach, it's cast.
+#[test]
+fn bl54_a_spell_at_someone_out_of_reach_mid_fight_is_refused() {
+    let mut w = worldgen::generate(2);
+    let m = squad_mage(&w);
+    knows_all(&mut w, m);
+    let squad = w.squad.members.clone();
+    let at = w.squad.pos.add(V2::new(12.0, 0.0));
+    let g = w.spawn_bandits(at, 1, false);
+    let foe = w.group(g).unwrap().members[0];
+    assert!(w.attack(&squad, foe));
+    let spark = spell("spark");
+    let reach = spark.def().range;
+    let place = |w: &mut World, off: f32| {
+        let b = w.battles.iter_mut().find(|b| b.fighters.iter().any(|f| f.pid == m)).unwrap();
+        let me = b.fighters.iter().find(|f| f.pid == m).unwrap().pos;
+        b.fighters.iter_mut().find(|f| f.pid == foe).unwrap().pos = me.add(V2::new(off, 0.0));
+    };
+    let mana = |w: &World| w.fighter(m).unwrap().mana;
+    // Well out of reach.
+    place(&mut w, reach + 20.0);
+    let before = mana(&w);
+    let said = w.cast_in_fight(m, spark, Some(foe), None).expect_err("refused out of reach");
+    assert_eq!(said.0, "too far off");
+    assert_eq!(mana(&w), before, "no energy spent");
+    // In reach.
+    place(&mut w, reach * 0.5);
+    w.cast_in_fight(m, spark, Some(foe), None).unwrap_or_else(|e| panic!("in reach: {}", e.0));
+    assert!(mana(&w) < before, "cast, and paid for");
+}
