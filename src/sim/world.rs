@@ -258,6 +258,16 @@ pub struct World {
     pub torch_left: HashMap<PersonId, f64>,
     /// Torches set in the ground.
     pub standing: Vec<super::torch::StandingTorch>,
+    /// Fires put out by magic (a town's hearth, a workyard's or charcoal
+    /// pit's fire: the solid list's fires), and until when. A bandit camp's
+    /// is `Camp::doused_until`.
+    pub doused: Vec<(super::solid::Id, f64)>,
+    /// The last few spells cast outside fights, newest last, for the window
+    /// to show (drawing only, so not saved), and how many there have been.
+    #[serde(skip)]
+    pub cast_marks: Vec<super::casting::CastMark>,
+    #[serde(skip)]
+    pub cast_seq: u64,
 
     // --- Magic --------------------------------------------------------------
     /// Rituals being performed.
@@ -380,6 +390,9 @@ impl World {
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),
+            doused: Vec::new(),
+            cast_marks: Vec::new(),
+            cast_seq: 0,
             rituals: Vec::new(),
             held: HashMap::new(),
             circles: Vec::new(),

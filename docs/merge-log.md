@@ -102,6 +102,14 @@ session that did the consolidation (the push was refused), so the hashes are rec
 
 Every branch that existed on 10 Oct 2026 is in `main` as of step 4. Branches for new work start from there.
 
+### After the consolidation (11 Oct)
+
+| Branch | How | Commit on `main` | Checked |
+|---|---|---|---|
+| `fix/play-ui` (primary) | Merge commits, several times through the day | `1df41f7`, `4c97152`, `c0c6146` | Full suite on Windows before each. |
+| `fix/solid-world` stage 1 (cloud B) | Made from `d2cb42f`; `main` had moved but the merge was clean, so the primary merged it and tested the result | `d4237fd` | 77 groups, 626 passed, 0 failed, 16 ignored (Windows). |
+| `fix/play-fights-talk` (cloud C) | The primary merged `main` into it, bumped `save::FORMAT` to 57 for `Battle::ground`, and merged in the session's own earlier sync | `877e09f` | 78 groups, 631 passed, 0 failed, 16 ignored (Windows). |
+
 ### Still to do
 
 - Done: the `pre-merge/2026-10-10/...` tags (pushed from Laz's PC, 10 Oct) and `consolidated-2026-10-10` on `be5862c` (pushed 11 Oct).

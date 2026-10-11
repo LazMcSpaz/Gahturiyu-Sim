@@ -458,8 +458,9 @@ pub fn action_lines(lines: &mut Vec<(String, super::palette::Rgb)>, cs: Vec<Choi
 
 /// While aiming a spell: what a click on what's under the mouse would do,
 /// and whether it can be done.
-pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>, scroll: bool) -> (String, bool) {
+pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>, scroll: bool, ground: Option<V2>) -> (String, bool) {
     use gahturiyu_sim::sim::magic::Aim;
+    use gahturiyu_sim::sim::effects::Does;
     let d = s.def();
     let from = w.person_pos(who);
     let caster = w.people[who as usize].name().unwrap_or("They").to_string();
@@ -508,6 +509,21 @@ pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, 
         },
         Aim::Corpse => ("Click by a body".into(), true),
         Aim::Point if !d.works_outside_fights() && !w.fighting.contains_key(&who) => ("Click by enemies: starts the fight".into(), true),
+        // Douse and Kindle: which flame it will reach (P18).
+        Aim::Point if d.effects.iter().any(|e| matches!(e.does, Does::Douse | Does::Kindle)) => {
+            let douse = d.effects.iter().any(|e| e.does == Does::Douse);
+            let at = match h {
+                Some(Hover::Person(p)) => Some(w.person_pos(p)),
+                Some(Hover::Torch(i)) => w.standing.get(i).map(|s| s.pos),
+                _ => ground,
+            };
+            let Some(at) = at else { return ("Point at a fire or torch".into(), false) };
+            match w.flames_near(at, gahturiyu_sim::sim::torch::FLAME_REACH).into_iter().find(|f| f.2 == douse) {
+                Some((f, pos, _)) => (format!("{} {}  ·  {}", if douse { "Put out" } else { "Light" }, w.flame_name(f), reach(pos)), true),
+                None if douse => ("No fire or torch burning here".into(), false),
+                None => ("Nothing here to light".into(), false),
+            }
+        }
         Aim::Point => ("Click a spot".into(), true),
         Aim::Caster => ("Click anywhere".into(), true),
     }
