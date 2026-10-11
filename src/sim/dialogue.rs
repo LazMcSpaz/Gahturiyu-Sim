@@ -899,15 +899,20 @@ impl World {
             Topic::Report(i) => {
                 let q = self.quests[i].clone();
                 match (q.kind, q.stage) {
+                    // Something to get back: only with it in hand (U-8).
+                    (QuestKind::Job { opp }, Stage::Report) if self.opportunity(opp).is_some_and(|o| o.kind == super::chances::Chance::Recover && o.item.is_some_and(|it| self.squad_has(it) == 0)) => "You haven't got it with you.".into(),
                     (_, Stage::Report) => {
                         self.reward(i, c.with);
-                        if q.coin > 0 { format!("You did it? Then here — {} coin, as promised.", q.coin) } else { "You did it? I won't forget it.".into() }
+                        // (What they could pay: U-10.)
+                        let paid = self.quests[i].coin;
+                        if paid > 0 { format!("You did it? Then here — {paid} coin, as promised.") } else { "You did it? I won't forget it.".into() }
                     }
                     (QuestKind::Fetch { item, count }, Stage::Active) => {
                         if self.squad_count(item) >= count {
                             self.take_from_squad(item, count);
                             self.reward(i, c.with);
-                            if q.coin > 0 { format!("That's all of them. {} coin — fair's fair.", q.coin) } else { "That's all of them. I owe you.".into() }
+                            let paid = self.quests[i].coin;
+                            if paid > 0 { format!("That's all of them. {paid} coin — fair's fair.") } else { "That's all of them. I owe you.".into() }
                         } else {
                             format!("That's not {count}. Come back when it is.")
                         }

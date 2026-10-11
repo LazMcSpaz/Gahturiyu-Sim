@@ -799,6 +799,14 @@ impl World {
                 }
             }
         }
+        // The squad's own work sheds at its outposts stay (U-13).
+        for b in &self.bases {
+            for bl in &b.buildings {
+                if let (super::base::State::Standing { .. }, Some(st)) = (&bl.state, bl.def().station) {
+                    self.stations.push((bl.at, st));
+                }
+            }
+        }
     }
 
     // ---- Jobs -----------------------------------------------------------------
