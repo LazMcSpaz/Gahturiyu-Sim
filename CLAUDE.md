@@ -340,6 +340,35 @@ Screenshots compile every shader before the first frame
 per frame, so a given flag set gives the same picture. The first Bevy build
 takes ~20 minutes on this container's 2 cores; later ones under a minute.
 
+On Laz's Windows PC (RTX 2070 SUPER, Vulkan) no Xvfb is needed: the same
+flags, then the exe. It opens a real window on his screen for a few seconds
+and closes itself once the PNG is written. From Git Bash:
+
+```
+GAHT_SHOT=out.png GAHT_FRAMES=60 ./target/release/gahturiyu.exe
+```
+
+(In PowerShell, `$env:GAHT_SHOT` stays set for later commands; use Git Bash or
+clear it.) The play tool's `shot` command still calls `xvfb-run`, so it works
+only in the cloud.
+
+## Laz's PC (the primary's machine)
+
+- `C:\Users\Laz PC\Repos\Gahturiyu-Sim` always holds `main`, built: Laz launches
+  `target\release\gahturiyu.exe` from there. Don't switch it to another branch.
+- Other branches go in git worktrees beside it
+  (`C:\Users\Laz PC\Repos\Gahturiyu-Sim-wt\<branch>`), all sharing one build
+  folder (`CARGO_TARGET_DIR=C:\Users\Laz PC\Repos\gaht-target`) so the slow
+  first Bevy build happens once, and never overwriting the exe Laz plays.
+  While he has the game open, Windows locks that exe and any build into the
+  main clone's own `target` fails ("Access is denied"): run tests with
+  `--target-dir` set to the shared folder, and never close his game.
+- The clone has `core.autocrlf false` in its own config (Git for Windows
+  turns it on system-wide): with CRLF checkouts the generated-docs checks in
+  `tests/names.rs` fail on a byte compare.
+- Times on this PC (Ryzen 7 3700X, 16 threads): a release build after a
+  change about 1 minute; the full `cargo test --release` about 7½ minutes.
+
 ## Voices (a tool, not a system)
 
 `tools/voice/` invents accents and makes spoken clips for NPC lines ahead of
