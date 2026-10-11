@@ -322,3 +322,52 @@ fn all_of_a_merchants_wares_can_be_reached_food_first() {
     w.ask(Topic::Trade);
     assert_eq!(buys(&w).len(), BUY_SHOWN);
 }
+
+/// N7 (fix #52, RG-3): buying low in one town and selling high in the next
+/// makes money somewhere on the map, in more than one kind of goods; and
+/// never on the spot (bought and sold back in the same town, it loses).
+#[test]
+fn n7_buying_low_and_selling_high_pays_between_some_towns() {
+    use std::collections::BTreeSet;
+    const NEAR: f32 = 6000.0;
+    let mut w = worldgen::generate(1);
+    // The second morning: the first dawn's tally has set the stocks.
+    for _ in 0..(24 + 11) * 2 {
+        w.step(HOUR / 2.0);
+    }
+    let towns: Vec<(u16, gahturiyu_sim::sim::geo::V2)> = w.settlements.iter().map(|s| (s.id, s.pos)).collect();
+    let (mut from, mut goods): (BTreeSet<u16>, BTreeSet<ItemId>) = (BTreeSet::new(), BTreeSet::new());
+    let mut best = 0.0f32;
+    for &(a, at) in &towns {
+        // What the town's merchants have out.
+        let mut wares: Vec<(ItemId, u16, u16)> = Vec::new();
+        for &p in &w.settlements[a as usize].residents {
+            if w.life(p).job == Job::Merchant {
+                for x in w.for_sale(p) {
+                    if !wares.iter().any(|y| y.0 == x.0) {
+                        wares.push(x);
+                    }
+                }
+            }
+        }
+        for (it, _, price) in wares {
+            // On the spot it never pays.
+            assert!(w.fetches_in(a, it) < price, "{} bought and sold back in one town gains", items::item(it).name);
+            for &(b, bt) in &towns {
+                if b == a || bt.dist(at) > NEAR {
+                    continue;
+                }
+                let gets = w.fetches_in(b, it);
+                if gets > price {
+                    from.insert(a);
+                    goods.insert(it);
+                    best = best.max(gets as f32 / price as f32);
+                }
+            }
+        }
+    }
+    println!("{} of {} towns sell something worth carrying to a town within {} km; {} kinds of thing; the best fetches {best:.2} times its price", from.len(), towns.len(), NEAR / 1000.0, goods.len());
+    assert!(from.len() >= 3, "only {} towns have a route that pays", from.len());
+    assert!(goods.len() >= 2, "only {} kinds of thing are worth carrying", goods.len());
+    assert!(best < 3.0, "something fetches {best:.1} times its price a walk away");
+}
