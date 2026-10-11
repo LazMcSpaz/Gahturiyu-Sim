@@ -101,16 +101,11 @@ pub const EXHAUSTED: f32 = 75.0;
 pub const EXHAUSTED_PACE: f32 = 0.8;
 pub const EXHAUSTED_FACTOR: f32 = 0.85;
 
-/// Healing speed (times `HEAL_PER_HOUR`) by what they're doing. Fed members
-/// asleep indoors heal fastest; walking heals little.
-pub const HEAL_SLEEP_OPEN: f32 = 1.5;
-pub const HEAL_SLEEP_TENT: f32 = 1.75;
-pub const HEAL_SLEEP_INDOORS: f32 = 2.0;
-pub const HEAL_SLEEP_BED: f32 = 3.0;
-pub const HEAL_RESTING: f32 = 1.0;
+/// Healing speed by what they're doing and how fed: every healing rate is
+/// in `body.rs` (P25), named here as before.
+pub use super::body::{HEAL_RESTING, HEAL_SLEEP_BED, HEAL_SLEEP_INDOORS, HEAL_SLEEP_OPEN, HEAL_SLEEP_TENT, HEAL_WALKING};
 /// Lain down with nothing to sleep off, a member is up again after this long.
 pub const NAP_HOURS: f64 = 0.33;
-pub const HEAL_WALKING: f32 = 0.3;
 
 /// Where someone is sleeping.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -349,10 +344,10 @@ impl Condition {
         HEAL_PER_HOUR
             * rest
             * match self.stage() {
-                HungerStage::Fed => 1.0,
-                HungerStage::Hungry => 0.5,
-                HungerStage::Weak => 0.25,
-                HungerStage::Starving => 0.0,
+                HungerStage::Fed => body::HEAL_FED,
+                HungerStage::Hungry => body::HEAL_HUNGRY,
+                HungerStage::Weak => body::HEAL_WEAK,
+                HungerStage::Starving => body::HEAL_STARVING,
             }
     }
 }

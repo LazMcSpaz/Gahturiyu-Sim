@@ -61,7 +61,8 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    found by solving for the moment they fall due, not by checking each
    step. Don't tick these per step. (Climbing is the one by-the-metre cost,
    because the squad's own walking is already step-by-step.) Everyone outside
-   the squad heals at the constant `HEAL_PER_HOUR`.
+   the squad heals at the constant `HEAL_PER_HOUR`. Every healing rate (and
+   the healer's share) lives in one block in `body.rs` (P25).
 9. **A stranger's kit and spells come from `kit_stats`**, their stats when
    their kit was chosen, never from their current (trained) stats — otherwise
    being met or not changes their might.

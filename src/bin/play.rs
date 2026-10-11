@@ -180,7 +180,8 @@ fn who(w: &World, s: &Session) -> Vec<PersonId> {
 }
 
 fn name_of(w: &World, p: PersonId) -> String {
-    w.people[p as usize].name().map(|s| s.to_string()).unwrap_or_else(|| format!("someone ({})", w.people[p as usize].race.name()))
+    // What the squad knows them as (P24): a bandit is "Bandit".
+    w.called(p).unwrap_or_else(|| format!("someone ({})", w.people[p as usize].race.name()))
 }
 
 fn first_name(w: &World, p: PersonId) -> String {

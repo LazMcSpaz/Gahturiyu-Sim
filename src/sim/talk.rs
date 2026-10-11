@@ -91,7 +91,7 @@ impl Subject {
 }
 
 /// The data files, compiled in.
-const FILES: [(&str, &str); 19] = [
+const FILES: [(&str, &str); 21] = [
     ("", include_str!("../../data/lines/greetings.txt")),
     ("", include_str!("../../data/lines/farewells.txt")),
     ("theft", include_str!("../../data/lines/theft.txt")),
@@ -110,6 +110,8 @@ const FILES: [(&str, &str); 19] = [
     ("advice", include_str!("../../data/lines/advice.txt")),
     ("rumours", include_str!("../../data/lines/rumours.txt")),
     ("bandits", include_str!("../../data/lines/bandits.txt")),
+    ("around", include_str!("../../data/lines/around.txt")),
+    ("headed", include_str!("../../data/lines/headed.txt")),
     ("squad", include_str!("../../data/lines/squad.txt")),
 ];
 
@@ -469,6 +471,16 @@ impl World {
         f.tag(if met { "known" } else { "stranger" });
         if let Some(t) = town {
             f.set("town", self.settlements[t as usize].name.clone());
+        }
+        // Where the talk is (P26): lines can say so.
+        let s = self.situation(npc);
+        f.tag(format!("place={}", s.place.key()));
+        f.tag(if s.place.town().is_some() { "in_town" } else { "out_here" });
+        if s.home_here {
+            f.tag("home_here");
+        }
+        if s.travelling {
+            f.tag("travelling");
         }
         let hh = l.household;
         let coin = hh.map(|h| self.society.households[h as usize].purse.coin - self.daily_cost(h) * 3.0).unwrap_or(0.0);

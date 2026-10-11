@@ -12,8 +12,14 @@ pieces of text in these files. Edit them freely; no code changes needed
   `ring.txt`, `kindness.txt`, `job.txt`, `news.txt`, `ambition.txt`.
 - One file per thing the squad can **ask about**: `background.txt` ("tell
   me about yourself"), `town.txt`, `advice.txt`, `rumours.txt`,
-  `bandits.txt`. Each says at its top which slots it uses and which extra
-  tags and slot values it gets.
+  `bandits.txt`, `headed.txt` ("where are you headed?"), `around.txt`
+  ("what's out this way?"). Each says at its top which slots it uses and
+  which extra tags and slot values it gets.
+- What can be asked depends on where the talk is and who with (the code
+  decides, `World::small_talk`): "what's this town like" only of someone
+  in their own town; "where are you headed" of someone on the road with
+  others; "what's out this way" out of town; "heard anything" of those in a
+  town or on the road.
 - `squad.txt` — what your own squad says out loud when they notice
   something (slot `remark`, one `about=` tag; the list is at its top).
 
@@ -56,7 +62,11 @@ Who they're talking to:
 - `suspects_squad` — trouble started about when the squad came to town.
 
 When and where: `morning`, `day`, `evening`, `night`, `rain` (no weather
-yet, so never true).
+yet, so never true). Where the talk is: `place=town`, `place=outskirts`,
+`place=road`, `place=wilds`, `place=camp`, `place=base`, `place=ruin`,
+`place=water`; `in_town` (a town or its outskirts) or `out_here`
+(anywhere else); `home_here` (it's their own town); `travelling` (on the
+road with others).
 
 The topic: `topic=theft` etc., plus the topic's own tags:
 - theft: `victim`, `repeated`, `heard`, `thief_known`, `thief_unknown`,

@@ -346,7 +346,7 @@ impl World {
             let mut f = Fighter::from_person(&self.people[pid as usize], super::combat::GRAVE_SIDE, pos, at);
             f.dead = true;
             f.ko = true;
-            b.names.push(self.people[pid as usize].name().unwrap_or("someone").to_string());
+            b.names.push(self.called(pid).unwrap_or_else(|| "someone".to_string()));
             b.fighters.push(f);
         }
         // A guardian left waiting near the fight comes into it (once).
@@ -411,7 +411,7 @@ impl World {
                 f.burdened = true;
                 f.base_speed *= self.carry_pace(pid);
             }
-            b.names.push(self.people[pid as usize].name().unwrap_or("someone").to_string());
+            b.names.push(self.called(pid).unwrap_or_else(|| "someone".to_string()));
             b.fighters.push(f);
             self.fighting.insert(pid, b.id);
         }

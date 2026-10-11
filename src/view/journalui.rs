@@ -43,7 +43,7 @@ pub enum JournalAct {
 
 /// A job's short title, what to do, and where it points.
 pub fn job_card(w: &World, q: &Quest) -> (String, String, Option<V2>) {
-    let giver = w.people[q.giver as usize].name().unwrap_or("someone").to_string();
+    let giver = w.name_of(q.giver);
     let at_giver = Some(w.person_pos(q.giver));
     let line = w.quest_line(q).trim_end_matches('.').to_string();
     match (&q.kind, q.stage) {
