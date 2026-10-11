@@ -25,6 +25,16 @@ impl Builder {
         self.idx.len() / 3
     }
 
+    /// How many corners so far (for `points_since`).
+    pub fn mark(&self) -> usize {
+        self.pos.len()
+    }
+
+    /// The corners added since `mark` (to outline what was just drawn).
+    pub fn points_since(&self, mark: usize) -> Vec<Vec3> {
+        self.pos[mark.min(self.pos.len())..].iter().map(|p| Vec3::from(*p)).collect()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.idx.is_empty()
     }

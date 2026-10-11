@@ -44,7 +44,7 @@ pub fn mark_for(w: &World, hover: Option<Hover>, wild: Option<&Seen>, ground: Op
     }
     let first = match (hover, wild) {
         // A workplace or a camp is only named; a click walks there.
-        (Some(Hover::Place(..)) | Some(Hover::Camp(_)), _) => return Some((Mark::Walk, false)),
+        (Some(Hover::Place(..)), _) => return Some((Mark::Walk, false)),
         (Some(h), _) => interact::choices(w, h, who, shift).into_iter().find(|c| c.act != Act::Examine),
         (None, Some(s)) => interact::wild_choices(w, s).into_iter().next(),
         (None, None) => {
@@ -152,7 +152,6 @@ pub fn spot_of(w: &World, h: Hover) -> Option<(V2, f32)> {
         Hover::Station(i) => (w.stations.get(i)?.0, 1.0),
         Hover::Torch(i) => (w.standing.get(i)?.pos, 0.6),
         Hover::Ruin(r) => (w.ruins.get(r as usize)?.pos, 6.0),
-        Hover::Camp(k) => (w.camps.get(k)?.pos, 12.0),
         Hover::Place(t, k) => {
             let p = w.society.towns.get(t as usize)?.places.get(k as usize)?;
             (p.pos, p.kind.size() * 0.5)

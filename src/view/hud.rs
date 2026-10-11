@@ -550,10 +550,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             out.push((capital(p.what.name()), GOLD));
             out.push((format!("In the {}", d.variant().name.to_lowercase()), DIM));
         }
-        Hover::Camp(k) => {
-            let _ = k;
-            out.push(("A camp".to_string(), GOLD));
-        }
         Hover::Place(t, k) => {
             let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) else { return out };
             out.push((format!("{}'s {}", w.settlements[t as usize].name, p.kind.name().to_lowercase()), GOLD));
