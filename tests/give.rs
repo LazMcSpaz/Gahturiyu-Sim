@@ -160,28 +160,49 @@ fn someone_who_has_strayed_is_flagged() {
     }
 }
 
-/// N1, item 4: a tent isn't "used". Asked to, the game says how it works
-/// (it goes up when the squad beds down), and those who sleep near whoever
-/// carries it sleep under it.
+/// N1, item 4: a tent isn't "used". Asked to, the game says how it works.
+/// Since Laz's 11 Oct notes it's pitched where it's wanted (ten minutes), up
+/// to three lie down in it, and it's packed up again.
 #[test]
-fn n1_a_tent_needs_no_pitching() {
+fn n1_a_tent_is_pitched_then_slept_in() {
+    use gahturiyu_sim::sim::bedding::{BedKind, IN_TENT, PITCH_SECS};
     use gahturiyu_sim::sim::condition::Shelter;
     let mut w = worldgen::generate(1);
     let tent = items::id("tent");
     let carrier = w.squad.members.iter().copied().find(|&m| w.count_of(m, "tent") > 0).expect("the hunter starts with a tent");
     let why = w.why_cant_use(carrier, tent).expect("a tent isn't used up");
-    assert!(why.contains("beds down") && !why.contains("isn't something to use"), "{why}");
-    // Out in the open, away from any roof, the squad beds down.
+    assert!(why.contains("Pitch it") && !why.contains("isn't something to use"), "{why}");
+    // Out in the open, away from any roof: pitch it, wait, lie down in it.
     let out = w.squad.pos.add(V2::new(600.0, 0.0));
     w.teleport_squad(out);
+    let at = w.person_pos(carrier).add(V2::new(2.0, 0.0));
+    w.order_lay(carrier, BedKind::Tent, at, false).unwrap();
+    for _ in 0..((PITCH_SECS + 120.0) / 10.0) as usize {
+        w.step(10.0);
+    }
+    let id = w.beds.iter().find(|b| b.kind == BedKind::Tent).expect("pitched").id;
+    assert_eq!(w.count_of(carrier, "tent"), 0, "out of the pack");
     let all = w.squad.members.clone();
-    w.order_rest(&all);
+    for &m in all.iter().take(IN_TENT) {
+        w.order_sleep_in(m, id).unwrap();
+    }
+    assert!(w.order_sleep_in(all[IN_TENT], id).is_err(), "it holds {IN_TENT}");
     for _ in 0..60 {
         w.step(10.0);
     }
-    for &m in &all {
+    for &m in all.iter().take(IN_TENT) {
         let c = w.people[m as usize].cond.as_ref().unwrap();
         assert!(w.is_asleep(m), "{} is asleep", w.name_of(m));
         assert_eq!(c.shelter, Shelter::Tent, "{} sleeps under the tent", w.name_of(m));
     }
+    // Packed up again, it's back in a pack.
+    for &m in all.iter().take(IN_TENT) {
+        w.order_wake(&[m]);
+    }
+    w.step(1.0);
+    w.order_pack(carrier, id).unwrap();
+    for _ in 0..60 {
+        w.step(2.0);
+    }
+    assert!(w.beds.is_empty() && w.count_of(carrier, "tent") == 1, "packed up");
 }

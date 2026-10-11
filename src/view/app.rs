@@ -34,8 +34,8 @@ pub enum View {
 const DOUBLE_CLICK: f32 = 0.4;
 
 /// Every key, by view (the Keys button shows them).
-pub const HELP_3D: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow (one picked: lock on)   Double-click a portrait: go to them   Space: pause   1–5: speed   Enter: deal / take all / make   Esc: close / game menu   V: map   L: detail   B: build   F10: edit the land";
-pub const HELP_MAP: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: rest   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow (one picked: lock on)   Double-click a portrait: go to them   Space: pause   1–5: speed   Enter: deal / take all / make   Esc: close / game menu   V: 3D   B: bandits";
+pub const HELP_3D: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: get up   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / Q E: turn   Middle / WASD: pan   Wheel: zoom   C: follow (one picked: lock on)   Double-click a portrait: go to them   Space: pause   1–5: speed   Enter: deal / take all / make   Esc: close / game menu   V: map   L: detail   B: build   F10: edit the land";
+pub const HELP_MAP: &str = "Click: move / attack / pick up / select   Right-click: everything you can do   Drag: box-select   Alt: show names   F1–F4: select (Shift adds)   `: all   Z: sneak   N: get up   T: torch   X: put down   I: pack   K: craft   M: spells   G: scout   J: journal   P: town   O: graphics   F8 / F9: save / load   Right-drag / WASD: pan   Wheel: zoom   C: follow (one picked: lock on)   Double-click a portrait: go to them   Space: pause   1–5: speed   Enter: deal / take all / make   Esc: close / game menu   V: 3D   B: bandits";
 
 /// Something the mouse can be over.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -65,6 +65,8 @@ pub enum Hover {
     Place(u16, u16),
     /// A chest, crate, cupboard or barrel in a building.
     Container(gahturiyu_sim::sim::containers::ContainerId),
+    /// A bedroll laid out or a tent pitched by the squad (`Bedding::id`).
+    Bedding(u32),
 }
 
 /// Everything the window keeps between frames.
@@ -789,13 +791,12 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             w.put_down(m);
         }
     }
-    // N: rest, or, if any of the selected are resting, get them up.
+    // N: get up (any of the selected lying down). Lying down is done by
+    // clicking a bed, a bedroll or a tent (Laz, 11 Oct): there's no rest key.
     if keys.just_pressed(KeyCode::KeyN) {
         let who = game.sel.who(w);
         if w.any_resting(&who) {
             w.order_wake(&who);
-        } else {
-            w.order_rest(&who);
         }
     }
     // T: the selected light their torches (or put them out). With everyone
@@ -1565,6 +1566,14 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     pick.offer(q, 2.0, Hover::Torch(i));
                 }
             }
+            // Bedrolls and tents the squad has laid out.
+            for bd in &game.world.beds {
+                let g = scene.grid.height(&game.world.terrain, bd.pos);
+                let up = if bd.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { 1.6 } else { 0.3 };
+                if let Some(q) = game.orbit.project(&vp, size, to3(bd.pos, g + up)) {
+                    pick.offer(q, if bd.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { 6.0 } else { 3.0 }, Hover::Bedding(bd.id));
+                }
+            }
             "3D"
         }
     };
@@ -1709,11 +1718,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             FrameAct::Rest => {
                 let who = game.sel.who(w);
-                if w.any_resting(&who) {
-                    w.order_wake(&who);
-                } else {
-                    w.order_rest(&who);
-                }
+                w.order_wake(&who);
             }
             FrameAct::Toggle(b) => {
                 let lead = game.sel.lead(w);

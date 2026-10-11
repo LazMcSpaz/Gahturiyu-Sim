@@ -277,6 +277,7 @@ pub static ITEMS: &[ItemDef] = &[
     ItemDef { key: "torch", name: "Torch", slot: Slot::OffHand, kind: Kind::Torch(super::torch::TORCH_HOURS), weight: 0.6, value: 4.0, effects: &[] },
     ItemDef { key: "standing_torch", name: "Standing torch", slot: Slot::MainHand, kind: Kind::StandingTorch(super::torch::STANDING_HOURS), weight: 2.0, value: 10.0, effects: &[] },
     ItemDef { key: "tent", name: "Tent", slot: Slot::MainHand, kind: Kind::Tool, weight: 6.0, value: 60.0, effects: &[] },
+    ItemDef { key: "bedroll", name: "Bedroll", slot: Slot::MainHand, kind: Kind::Tool, weight: 2.0, value: 10.0, effects: &[] },
     ItemDef { key: "mortar_and_pestle", name: "Mortar and pestle", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 25.0, effects: &[] },
     // --- Materials ------------------------------------------------------------
     //        key               name                weight value

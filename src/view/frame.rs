@@ -575,12 +575,16 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
         let resting = w.any_resting(&who);
         let s = Bx::new(ox, c.h - 106.0, 112.0, 32.0);
         pill(c, s.x, s.y, s.w, s.h, "SNEAK", sneaking, true);
+        // (No rest button: lying down is clicking a bed, bedroll or tent.
+        // While anyone picked is lying down, a button gets them up.)
         let r = Bx::new(ox, c.h - 66.0, 112.0, 32.0);
-        pill(c, r.x, r.y, r.w, r.h, if resting { "WAKE" } else { "REST" }, resting, false);
+        if resting {
+            pill(c, r.x, r.y, r.w, r.h, "WAKE", true, false);
+        }
         if clicked(&s) {
             act = Some(FrameAct::Sneak);
         }
-        if clicked(&r) {
+        if resting && clicked(&r) {
             act = Some(FrameAct::Rest);
         }
     }

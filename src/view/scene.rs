@@ -550,12 +550,24 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         if spot.dist(oc.target) > radius {
             continue;
         }
-        let seed = match id {
-            solid::Id::Tent(m) => w.people[m as usize].seed,
-            solid::Id::GroupTent(g) => w.group(g).map(|x| w.people[x.members[0] as usize].seed).unwrap_or(0),
-            _ => 0,
+        let (seed, up) = match id {
+            solid::Id::Tent(n) => (n as u64 * 0x9E37, w.bedding(n).map(|x| x.up(w.time)).unwrap_or(1.0)),
+            solid::Id::GroupTent(g) => (w.group(g).map(|x| w.people[x.members[0] as usize].seed).unwrap_or(0), 1.0),
+            _ => (0, 1.0),
         };
-        tent(&mut b, to3(spot, on_ground(spot)), k, seed);
+        tent(&mut b, to3(spot, on_ground(spot)), k, seed, up);
+    }
+    // Bedrolls laid out by the squad: a rolled-out blanket on the ground
+    // (unrolling as it's laid).
+    for bd in w.beds.iter().filter(|x| x.kind == gahturiyu_sim::sim::bedding::BedKind::Bedroll) {
+        if bd.pos.dist(oc.target) > radius {
+            continue;
+        }
+        let up = bd.up(w.time);
+        let g = stand(bd.pos);
+        let len = 0.5 + 1.5 * up;
+        b.block(to3(bd.pos, g - 0.02), len, 0.85, 0.12, bd.rot, palette::BEDROLL);
+        b.block(to3(bd.pos, g + 0.08) + vec3(bd.rot.cos(), 0.0, bd.rot.sin()) * (len * 0.5 - 0.2), 0.35, 0.8, 0.12, bd.rot, palette::scale(palette::BEDROLL, 1.3));
     }
     for g in &w.groups {
         // Travellers in town at night have found beds indoors.
@@ -1864,9 +1876,11 @@ pub fn torch_flame(w: &World, pid: PersonId, k: f32, on_ground: &dyn Fn(V2) -> f
 }
 
 /// A Ṭaḍoro travelling tent: a taut cone of pale cloth around one pole.
-fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64) {
+fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64, up: f32) {
     let r = 2.2 * k.min(4.0);
-    b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5, 10, palette::TENT);
+    // (Being pitched: the cloth rises with the pole.)
+    let up = up.clamp(0.08, 1.0);
+    b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5 * up, 10, palette::TENT);
     let tilt = (seed % 7) as f32 * 0.1;
     b.column(base + vec3(0.0, r * 1.5 - 0.2, 0.0), 0.06 * k, 0.04 * k, 0.6 * k + tilt, 4, palette::TIMBER);
 }

@@ -114,6 +114,8 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
             if calling == Calling::Hunter {
                 d.gear.add(super::items::id("knife"), 1);
             }
+            // Everyone carries a bedroll: nobody sleeps on the bare ground.
+            d.gear.add(super::items::id("bedroll"), 1);
             // The crafts they've each taken up.
             d.crafts = match (race, calling) {
                 (_, Calling::Mage) => vec![Skill::Alchemy, Skill::Inscription],

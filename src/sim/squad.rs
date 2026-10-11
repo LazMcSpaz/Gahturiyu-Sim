@@ -375,6 +375,7 @@ impl World {
         self.recentre_squad();
         self.update_indoors();
         self.do_pickups();
+        self.do_bed_jobs();
         self.do_dosing();
         self.do_giving();
         self.tidy_looting();

@@ -211,15 +211,21 @@ fn indoors_beats_a_tent_beats_the_open() {
 }
 
 #[test]
-fn the_tent_counts_when_someone_nearby_carries_it() {
+fn a_tent_counts_once_it_is_pitched_and_not_before() {
+    use gahturiyu_sim::sim::bedding::{BedKind, PITCH_SECS};
     let mut w = worldgen::generate(1);
     w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
     let m = mage(&w);
-    assert_eq!(w.shelter_of(m), Shelter::Tent, "the hunter carries one");
-    for x in w.squad.members.clone() {
-        w.people[x as usize].detail.as_mut().unwrap().gear.bag.retain(|e| item(e.0).key != "tent");
-    }
-    assert_eq!(w.shelter_of(m), Shelter::Open);
+    // Carried, it's no shelter (Laz, 11 Oct: no tent going up by itself).
+    assert_eq!(w.shelter_of(m), Shelter::Open, "a tent in a pack shelters nobody");
+    let hunter = w.squad.members.iter().copied().find(|&x| w.can_lay(x, BedKind::Tent)).expect("the hunter carries one");
+    let at = w.person_pos(m);
+    w.order_lay(hunter, BedKind::Tent, at, false).unwrap();
+    run(&mut w, 60.0 / HOUR, 1.0);
+    assert!(!w.beds.is_empty(), "pitched where it was wanted");
+    assert_eq!(w.shelter_of(m), Shelter::Open, "not up yet");
+    run(&mut w, PITCH_SECS / HOUR, 10.0);
+    assert_eq!(w.shelter_of(m), Shelter::Tent, "up now");
 }
 
 #[test]
@@ -314,11 +320,25 @@ fn healing_comes_out_the_same_however_finely_stepped() {
 
 // ---- Bedding down at night ----------------------------------------------------
 
-/// A world with the squad stood still out of town (day 1 starts at 06:00).
+/// A world with the squad stood still out of town (day 1 starts at 06:00),
+/// each with their bedroll laid out at their feet (nobody beds down on the
+/// bare ground).
 fn idle_world() -> World {
     let mut w = worldgen::generate(1);
     w.teleport_squad(w.squad.pos.add(gahturiyu_sim::sim::geo::V2::new(300.0, 0.0)));
+    for m in w.squad.members.clone() {
+        let at = w.person_pos(m);
+        w.order_lay(m, gahturiyu_sim::sim::bedding::BedKind::Bedroll, at, false).unwrap();
+    }
     w
+}
+
+#[test]
+fn nobody_beds_down_on_the_bare_ground() {
+    let mut w = worldgen::generate(1);
+    w.teleport_squad(w.squad.pos.add(gahturiyu_sim::sim::geo::V2::new(300.0, 0.0)));
+    run(&mut w, 17.0, 60.0); // 23:00
+    assert!(w.squad.members.iter().all(|&m| !w.is_asleep(m)), "with nothing laid out, nobody lies down by themselves");
 }
 
 #[test]
