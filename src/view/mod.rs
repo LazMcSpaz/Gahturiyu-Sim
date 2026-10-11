@@ -10,6 +10,7 @@ pub mod floaters;
 pub mod foliage;
 pub mod hud;
 pub mod interiors;
+pub mod kit;
 pub mod light;
 pub mod lexicon;
 pub mod lootui;

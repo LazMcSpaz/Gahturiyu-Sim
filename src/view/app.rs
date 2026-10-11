@@ -504,6 +504,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         game.drag = Some(d);
     }
     game.mouse = mouse;
+    super::kit::input(mouse, buttons.just_pressed(MouseButton::Left), buttons.just_released(MouseButton::Left), time.elapsed_secs());
     let dt = time.delta_secs();
     if keys.just_pressed(KeyCode::F10) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
         super::editor::toggle(game);
