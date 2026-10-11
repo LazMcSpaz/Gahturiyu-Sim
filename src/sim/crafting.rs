@@ -599,6 +599,10 @@ impl World {
                 _ => Some(format!("The {name} can't be used in a fight.")),
             };
         }
+        // A tent needs no pitching: it goes up when the squad beds down.
+        if item(it).key == "tent" {
+            return Some("The tent goes up when the squad beds down: whoever sleeps near it sleeps under it.".to_string());
+        }
         match item(it).kind {
             Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_) | Kind::Potion => None,
             Kind::Scroll(key) => {

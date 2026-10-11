@@ -1,7 +1,15 @@
 # Background: "Tell me about yourself." Two pieces: where they come from
 # (origin), then what they do (work). See FORMAT.md.
-# Tags here: calling=warrior|hunter|mage|commoner, has_job, no_job.
+# Tags here: calling=warrior|hunter|mage|commoner, has_job, no_job; and how
+# they live: young / old, alone / big_house (their household), stilts (they
+# live out over the water), founders / guests (whether their people made the
+# town), wanderer / settled.
 # Slots: {job} (what they do), {place} (where they work, if anywhere).
+#
+# Most lines have two conditions, so they weigh the same and each person's
+# fixed roll picks among the ones that fit them; asked again, they tell
+# another. Don't give a line a fact the game doesn't know (where someone was
+# born, a relative by name).
 
 # ---- Where they come from ----------------------------------------------
 origin | voice=roduro | When I was small, a Stone Tender began growing the house I live in. It has grown up beside me ever since. Look at the bands in the wall: one for every year, the same as mine.
@@ -12,18 +20,68 @@ origin | voice=qotiro | My people quarry their homes from the dark rock and forg
 origin | voice=qotiro | I was raised under the sun discs, where a child learns the {w:forge} before letters. A thing badly made is a {w:shame} on the hand that made it.
 origin | voice=qotiro, hot | You want my story? I work, I keep my word, and I don't ask anyone for anything. That's the whole of it.
 origin | voice=qotiro, patient | My mother told me that a person is like iron: worth what the {w:fire} has made of them, and no more.
-origin | voice=horaro | I was born on the stilts and swam before I walked. The land-folk think it's strange, sleeping over the water. We think it's strange that they don't.
-origin | voice=horaro | My mother's line has fished this shore for longer than the stilts have stood. The {w:sea} gives, and the {w:sea} takes. You learn not to argue with it.
-origin | voice=horaro, gentle | I grew up with the sound of the {w:tide} under the floor. I still can't sleep properly anywhere quiet.
+origin | voice=horaro, stilts | I was born on the stilts and swam before I walked. The land-folk think it's strange, sleeping over the water. We think it's strange that they don't.
+origin | voice=horaro, stilts | My mother's line has fished this shore for longer than the stilts have stood. The {w:sea} gives, and the {w:sea} takes. You learn not to argue with it.
+origin | voice=horaro, stilts | I grew up with the sound of the {w:tide} under the floor. I still can't sleep properly anywhere quiet.
 origin | voice=tadoro | I lodge here for now. I keep notes on everything: the tides, the arguments, how long the bread lasts. Somebody ought to.
 origin | voice=tadoro | My people don't build, we travel. I've slept in a hundred houses and under a hundred tents, and written something down in every one of them.
 origin | voice=tadoro, gentle | I came here for a season and stayed for three. People are kind here, mostly, and they talk a great deal, which suits me.
+# By how they live.
+origin | voice=roduro, founders | My people grew this town out of the ground, one wall at a time. I only tend what they started.
+origin | voice=roduro, guests | This isn't Roduro {w:stone}, and it shows. But a {w:hearth} is a {w:hearth}, and mine is here.
+origin | voice=roduro, old | I've more years behind me than most. A Roduro doesn't count them; the bands in the {w:wall} do that.
+origin | voice=roduro, young | I'm young yet, by my people's counting. Ask the old ones for stories. All I have is plans.
+origin | voice=roduro, big_house | There are a lot of us under one {w:roof}. You learn patience, or you learn to shout.
+origin | voice=roduro, alone | Mine's a quiet {w:house}. Just me and the walls, and the walls don't argue.
+origin | voice=roduro, wanderer | They say a Roduro never leaves. I think about leaving most days. Don't tell my {w:hearth}.
+origin | voice=roduro, settled | I'll be here till they lay me in the {w:earth}, and glad of it. Why would anyone want to be anywhere else?
+origin | voice=qotiro, founders | My people cut this town from the {w:rock}. Every step you've climbed here, somebody's hands made.
+origin | voice=qotiro, guests | This town isn't Qotiro work. No matter. Work is the same everywhere, and I do mine.
+origin | voice=qotiro, old | I've been at it longer than you've been alive. My hands know the work better than my head does now.
+origin | voice=qotiro, young | I've still to prove myself. Ask me in ten years what I've made.
+origin | voice=qotiro, big_house | My {w:house} is full, and every one of them works. That's as it should be.
+origin | voice=qotiro, alone | I live alone. What's done in my {w:house} is done properly, because I did it.
+origin | voice=qotiro, wanderer | I don't mean to stay in one town all my life. There's too much I haven't seen made.
+origin | voice=qotiro, settled | I know every {w:stone} of this place and what it cost. I've no wish to learn another.
+origin | voice=horaro, !stilts | We Horaro belong to the water, but there's a living on dry land too. I go down to the {w:sea} when I can.
+origin | voice=horaro, !stilts | Horaro, yes, though I live with my feet dry. You get used to it. Mostly.
+origin | voice=horaro, old | I've seen more {w:tide}s than I could count, and I did try, once.
+origin | voice=horaro, young | I've not seen much yet. But I can hold my breath longer than anyone my age, so there's that.
+origin | voice=horaro, big_house | We're a crowd at home. Somebody's always singing, and somebody's always telling them to stop.
+origin | voice=horaro, alone | I keep my own company. The {w:sea} is talk enough.
+origin | voice=horaro, wanderer | I'd follow the coast to its end if I could. Somebody must know what's round the last {w:headland}.
+origin | voice=horaro, settled | Where would I go? Everything I need comes in on the {w:tide}.
+origin | voice=tadoro, old | I've been writing things down for more years than most people here have been alive. I've run out of shelves twice.
+origin | voice=tadoro, young | I haven't travelled far yet. Give me time. I've a long list of places.
+origin | voice=tadoro, big_house | I lodge with a full {w:house}. They feed me, and I tell them what the rest of the world is up to. Each of us thinks we've the better of it.
+origin | voice=tadoro, alone | I've a corner to myself and a lamp. A Ṭaḍoro doesn't need more.
+origin | voice=tadoro, wanderer | I won't be here long. I never am. Ask me where I'm going and I'll say I don't know yet, which is the best part.
+origin | voice=tadoro, settled | I meant to move on years ago. I keep finding one more thing here worth writing down.
+origin | voice=tadoro, wanderer | I count places the way other people count coin. I'm not rich yet.
+origin | voice=tadoro, guests | I'm a guest here, like every Ṭaḍoro everywhere. We pay for our bed in news, and I always have some.
+origin | voice=tadoro, guests | Nothing here is mine but my notes. That's how my people like it: light enough to leave.
+origin | voice=roduro, settled | I've never been further than a day's walk from my own {w:door}, and I've never wanted to.
+origin | voice=roduro, founders | This town is Roduro to its roots, and so am I. Ask the {w:stone}; it knows my family.
+origin | voice=roduro, guests | My people didn't grow this place. We'd have done the walls differently. Don't tell them I said so.
+origin | voice=qotiro, founders | This is a Qotiro town, and it shows in the work. I try to be worth the {w:stone} I stand on.
+origin | voice=qotiro, guests | My people didn't raise this town, and you can tell. Still, a job done well looks the same anywhere.
+# For anyone.
+origin | old, poor | I've worked all my life and I've little to show for it but my hands. They're good hands, though.
+origin | young, poor | There's not much to tell yet, and less in my purse. Both will change.
+origin | low_honour, wanderer | You'll hear things about me. Some of them are even true. I don't stay anywhere long enough to mind.
+origin | high_honour, old | I've kept my word all my life. It's cost me, some years. I'd do it again.
 
 # ---- What they do ----------------------------------------------------------
 work | has_job | These days I work as {a_job}{place}. It keeps food on the table.
 work | has_job, content | I work as {a_job}{place}, and I'm good at it, if I say so myself.
 work | has_job, worried | I work as {a_job}{place}, though it pays less every season.
 work | has_job, voice=qotiro | I am {a_job}{place}. I do it properly.
+work | has_job, old | I've been {a_job}{place} longer than I care to count.
+work | has_job, young | I'm {a_job}{place}. Still learning it, if I'm honest.
+work | has_job, poor | I'm {a_job}{place}. It doesn't pay what it should.
+work | has_job, hot | I'm {a_job}{place}. The best they've got, whatever they tell you.
+work | has_job, gentle | I'm {a_job}{place}. Come by sometime, I like the company.
+work | has_job, wanderer | I'm {a_job}{place}, for now. I've never held to one thing long.
 work | has_job, voice=tadoro | For now I'm {a_job}{place}. Ask me again next year; it'll be something else.
 work | no_job, calling=warrior | I've fought for coin, when there was coin to fight for. Lately there hasn't been.
 work | no_job, calling=hunter | I hunt, mostly. The land feeds anyone who's patient enough to watch it.

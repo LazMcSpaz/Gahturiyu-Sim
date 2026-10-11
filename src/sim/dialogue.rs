@@ -225,6 +225,12 @@ pub const SELL_PAGE: usize = 18;
 /// How many worn things are pointed out as sellable.
 pub const WORN_SHOWN: usize = 3;
 
+/// A life story's "young" and "old" (there's no ageing: these only colour
+/// what someone says of themselves), and how many make a full house.
+pub const STORY_YOUNG: u8 = 28;
+pub const STORY_OLD: u8 = 58;
+pub const STORY_FULL_HOUSE: usize = 5;
+
 impl World {
     /// What a topic's button says, naming what it's about.
     pub fn topic_text(&self, t: Topic) -> String {
@@ -621,6 +627,56 @@ impl World {
     /// A reply from one of the asked-about line files. Steady: the same
     /// person gives the same answer to the same question (the pick is keyed
     /// to them), and different people answer differently.
+    /// What someone's account of themselves can draw on, beyond their
+    /// people, temper and mood (`talk.rs` has those): the tags and slot
+    /// values for `data/lines/background.txt`. Nothing here is rolled; it is
+    /// all read off who they are and how they live.
+    pub fn life_story_facts(&self, npc: PersonId) -> (Vec<String>, Vec<(&'static str, String)>) {
+        let p = &self.people[npc as usize];
+        let life = self.life(npc);
+        let mut tags = vec![format!("calling={}", p.stats.calling.name().to_lowercase())];
+        let mut values: Vec<(&'static str, String)> = Vec::new();
+        if !matches!(life.job, super::jobs::Job::None | super::jobs::Job::Drifter) {
+            tags.push("has_job".into());
+            if let Some(w) = self.workplace_of(npc) {
+                // Where it is from here, so it can be found.
+                let v = w.pos.sub(self.person_pos(npc));
+                let d = v.len();
+                let way = if d < 40.0 { String::new() } else { format!(", {} m {} of here", ((d / 10.0).round() * 10.0) as u32, super::quests::compass(v)) };
+                values.push(("place", format!(" at the {}{way}", w.kind.name().to_lowercase())));
+            }
+        } else {
+            tags.push("no_job".into());
+        }
+        // Their years.
+        if life.age < STORY_YOUNG {
+            tags.push("young".into());
+        } else if life.age > STORY_OLD {
+            tags.push("old".into());
+        }
+        // Their house: alone in it, or one of many.
+        match life.household.map(|h| self.society.households[h as usize].members.len()) {
+            Some(1) => tags.push("alone".into()),
+            Some(n) if n >= STORY_FULL_HOUSE => tags.push("big_house".into()),
+            _ => {}
+        }
+        // Out over the water, or on the land.
+        if life.community.is_some_and(|k| self.society.communities[k as usize].stilts) {
+            tags.push("stilts".into());
+        }
+        // Whether their people made the town they live in.
+        if let Some(t) = p.home {
+            tags.push(if self.settlements[t as usize].founders == p.race { "founders" } else { "guests" }.into());
+        }
+        // Itchy feet, or roots.
+        if p.traits.wanderlust > 0.6 {
+            tags.push("wanderer".into());
+        } else if p.traits.wanderlust < 0.3 {
+            tags.push("settled".into());
+        }
+        (tags, values)
+    }
+
     fn spoken(&mut self, c: &Conversation, topic: &str, slots: &[&str], tags: &[String], values: &[(&'static str, String)]) -> String {
         let said = self.say_from(c.npc, c.with, topic, slots, tags, values);
         if said.text.is_empty() {
@@ -645,21 +701,7 @@ impl World {
         let town = p.home.map(|h| self.settlements[h as usize].clone());
         match topic {
             Topic::Background => {
-                let job = self.life(c.npc).job;
-                let mut tags = vec![format!("calling={}", p.stats.calling.name().to_lowercase())];
-                let mut values: Vec<(&'static str, String)> = Vec::new();
-                if !matches!(job, super::jobs::Job::None | super::jobs::Job::Drifter) {
-                    tags.push("has_job".into());
-                    if let Some(w) = self.workplace_of(c.npc) {
-                        // Where it is from here, so it can be found.
-                        let v = w.pos.sub(self.person_pos(c.npc));
-                        let d = v.len();
-                        let way = if d < 40.0 { String::new() } else { format!(", {} m {} of here", ((d / 10.0).round() * 10.0) as u32, super::quests::compass(v)) };
-                        values.push(("place", format!(" at the {}{way}", w.kind.name().to_lowercase())));
-                    }
-                } else {
-                    tags.push("no_job".into());
-                }
+                let (tags, values) = self.life_story_facts(c.npc);
                 self.spoken(c, "background", &["origin", "work"], &tags, &values)
             }
             Topic::ThisTown => {
