@@ -371,3 +371,95 @@ fn n7_buying_low_and_selling_high_pays_between_some_towns() {
     assert!(goods.len() >= 2, "only {} kinds of thing are worth carrying", goods.len());
     assert!(best < 3.0, "something fetches {best:.1} times its price a walk away");
 }
+
+// ---- The trade table (#169 UI-Trade): several things at once, and what it says is what happens ----
+
+#[test]
+fn the_table_says_what_changes_hands() {
+    use gahturiyu_sim::sim::economy::Table;
+    let coin = items::id("coin");
+    let timber = items::id("timber");
+    let (mut w, merchant) = market(3, timber);
+    let me = open_wares(&mut w, merchant);
+    give(&mut w, me, timber, 12);
+    give(&mut w, me, coin, 60);
+    // Something of theirs to take as well, that isn't what's being sold.
+    let wares = w.for_sale(merchant);
+    let (want, stock, _) = *wares.iter().find(|x| x.0 != timber).expect("they sell something else");
+    let take = stock.min(2);
+    let table = Table { give: vec![(me, timber, 8)], get: vec![(want, take)] };
+    let (had_coin, had_timber, had_want) = (w.squad_count(coin), w.count_of(me, "timber"), w.squad_count(want));
+    let stamp = format!("{:?}{:?}", w.people[me as usize].detail.as_ref().unwrap().gear.bag, w.society.towns[w.people[merchant as usize].home.unwrap() as usize].stock);
+    // Asking what it would come to changes nothing.
+    let quote = w.deal_quote(merchant, &table);
+    assert_eq!(stamp, format!("{:?}{:?}", w.people[me as usize].detail.as_ref().unwrap().gear.bag, w.society.towns[w.people[merchant as usize].home.unwrap() as usize].stock));
+    assert!(quote.stuck.is_none(), "{:?}", quote.stuck);
+    assert_eq!((quote.gives[0].2, quote.gets[0].1), (8, take));
+    assert!(quote.given() > 0 && quote.got() > 0);
+    // Eight sold one after another fetch less than eight times the first.
+    assert!(quote.given() <= w.offer(merchant, timber, None).unwrap() as u32 * 8);
+    // Done, it is exactly that.
+    let done = w.deal_table(merchant, &table);
+    assert_eq!(done, quote, "the deal is the quote");
+    assert_eq!(w.squad_count(coin) as i64 - had_coin as i64, quote.balance(), "the coin that changed hands is the sum on the table");
+    assert_eq!(w.count_of(me, "timber"), had_timber - 8);
+    assert_eq!(w.squad_count(want), had_want + take);
+}
+
+#[test]
+fn a_table_that_cant_go_through_changes_nothing_and_says_why() {
+    use gahturiyu_sim::sim::economy::{NoDeal, Table};
+    let coin = items::id("coin");
+    let timber = items::id("timber");
+    let (mut w, merchant) = market(3, timber);
+    let me = open_wares(&mut w, merchant);
+    // No coin at hand, and things asked for.
+    for m in w.squad.members.clone() {
+        while w.people[m as usize].detail.as_mut().unwrap().gear.take(coin) {}
+        while w.people[m as usize].detail.as_mut().unwrap().gear.take(items::id("note")) {}
+    }
+    let wares = w.for_sale(merchant);
+    let (want, stock, price) = *wares.iter().max_by_key(|x| x.2).unwrap();
+    let table = Table { give: Vec::new(), get: vec![(want, stock.min(2))] };
+    let bag = format!("{:?}", w.people[me as usize].detail.as_ref().unwrap().gear.bag);
+    let done = w.deal_table(merchant, &table);
+    match done.stuck {
+        Some(NoDeal::YouCantPay(short)) => assert!(short >= price, "short by {short}, one costs {price}"),
+        other => panic!("it should stick on the coin: {other:?}"),
+    }
+    assert_eq!(bag, format!("{:?}", w.people[me as usize].detail.as_ref().unwrap().gear.bag), "nothing changed hands");
+    assert!(!done.stuck.unwrap().say("She").is_empty());
+    // More than their purse covers: it sticks on their side, and nothing is sold.
+    let town = w.people[merchant as usize].home.unwrap() as usize;
+    let one = w.offer(merchant, timber, None).expect("they take timber") as f32;
+    w.society.towns[town].purse = one * 2.5;
+    w.society.towns[town].purse_at = w.time;
+    give(&mut w, me, timber, 6);
+    let had = w.count_of(me, "timber");
+    let table = Table { give: vec![(me, timber, 6)], get: Vec::new() };
+    let done = w.deal_table(merchant, &table);
+    assert_eq!(done.stuck, Some(NoDeal::TheyCantPay), "a purse of {} against six at about {one}", one * 2.5);
+    assert_eq!(w.count_of(me, "timber"), had, "none of it went");
+    assert!(matches!(w.purse_words(merchant), "light purse" | "empty purse" | "fair purse"));
+    // An empty table is no deal.
+    assert_eq!(w.deal_table(merchant, &Table::default()).stuck, Some(NoDeal::Empty));
+    // The merchant's purse is told in a word.
+    assert!(w.purse_words(merchant).ends_with("purse") && !w.purse_words(merchant).chars().any(|c| c.is_ascii_digit()));
+}
+
+#[test]
+fn one_of_a_thing_is_sold_from_the_pack_it_was_clicked_in() {
+    let timber = items::id("timber");
+    let (mut w, merchant) = market(3, timber);
+    let me = open_wares(&mut w, merchant);
+    let other = w.squad.members[1];
+    give(&mut w, me, timber, 3);
+    give(&mut w, other, timber, 3);
+    let (mine, theirs) = (w.count_of(me, "timber"), w.count_of(other, "timber"));
+    let got = w.sell_from(merchant, other, timber).expect("sold");
+    assert!(got > 0);
+    assert_eq!((w.count_of(me, "timber"), w.count_of(other, "timber")), (mine, theirs - 1));
+    // Away from the table, the screen's state goes with it.
+    w.stop_trading();
+    assert!(w.talk.as_ref().is_some_and(|c| !c.trading));
+}

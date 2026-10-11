@@ -266,8 +266,15 @@ the roads again if you changed the land's shape or ground.
   the evening at the hearth, the inn or the deck, and go to bed. A shop is
   open only while its keeper is at work — at night, on their rest day, during
   their meal, or if they've died, it's shut. **Trade** with a merchant at
-  their stall ("What have you got?"); **change money** with an exchanger. See
-  Society below.
+  their stall ("What have you got?"): their wares come out across a table,
+  your side on the left and theirs on the right. Click a thing to lay one on
+  the table (again for another; click it on the table to take one back), and
+  the table says what it all comes to and who owes whom; **Deal** (or Space)
+  does all of it or none, and says why not. Clicking a thing twice quickly
+  trades that one at once. A small arrow by a price marks one well over or
+  under what the thing usually fetches: green is good for you, red is poor.
+  Esc goes back to the talk. **Change money** with an exchanger. See Society
+  below.
 
 ## Society
 
@@ -1141,6 +1148,8 @@ src/view/     the window (Bevy) — drawing only, never changes the world's rule
   hud.rs        side panel, hover descriptions, health bars
   frame.rs      the HUD frame: squad list, tracked job, bottom band, little map
   squadui.rs    pack, crafting, conversation, journal
+  makeui.rs     the making screen at a station
+  tradeui.rs    the trade table
   townui.rs     the town panel (P)
   editor.rs     the land editor (F10): its panel, brush cursor and keys
   shot.rs       headless screenshots (the GAHT_ flags)
