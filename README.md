@@ -669,10 +669,17 @@ has to be there to collect them). Jobs (click to change):
 - **Guard**: keeps watch (adds to the base's defence).
 Each round of work takes its inputs when it starts and puts its output in the
 store when it ends, at a fixed time; so a week away is the same as a week
-watched. Residents eat from the base's store and sleep in its beds (huts
+watched. Those who live at a base keep hours: a round starts between 06:00
+and 20:00 (one begun in time is seen through), and their building stops for
+the night. The squad's own, standing at the base, build whenever they're
+awake. Residents eat from the base's store and sleep in its beds (huts
 and longhouses indoors, a lean-to like a tent). The store holds 100 kg plus
 what buildings add (a hut's chest 60, a storehouse 600); materials a site
-still needs always go in. **Upkeep:** reed thatch rots, 1% of a building's
+still needs always go in. **Open** (beside Store) has someone at the base go
+through it like a chest: click a thing to take it out, click something in
+their pack to put it in (food for the hands, pitch for the roofs, coin for
+wages), as far as there's room. What happens at a base while the squad is
+away is written in the base's own log (Lately), not the news. **Upkeep:** reed thatch rots, 1% of a building's
 health a day, unless sealed with pitch (Seal); a building that rots away
 falls in. The Base tab shows residents, the squad here, upkeep, the store
 and what's happened lately.

@@ -268,11 +268,12 @@ fn nm7_stepping_someone_s_job_round_past_cook_uses_nothing_up() {
     w.bases[i].add_to_store(items::id("grain"), 10);
     let farmer = w.base(bid).unwrap().residents[0].who;
     w.step(1.0);
-    let (grain, timber) = (stored(&w, bid, "grain"), stored(&w, bid, "timber"));
-    // Free the kitchen: the cook becomes idle, then the farmer is clicked
-    // round the jobs (the window's only control is "next job").
+    // Free the kitchen: the cook becomes idle (a bake under way gives its
+    // grain and timber back), then the farmer is clicked round the jobs
+    // (the window's only control is "next job").
     let cook = w.base(bid).unwrap().residents[1].who;
     w.set_base_job(cook, Job::Idle);
+    let (grain, timber) = (stored(&w, bid, "grain"), stored(&w, bid, "timber"));
     for job in [Job::Cook, Job::Crafter, Job::Hauler] {
         w.set_base_job(farmer, job);
     }
@@ -454,4 +455,198 @@ fn a_hand_let_go_is_paid_for_the_hours_worked() {
     let want = owed + (wage as f64 * (hours / 24.0).clamp(0.0, 1.0)).round() as u16;
     assert!(paid > 0 && (paid as i32 - want as i32).abs() <= 1, "paid {paid} for about {hours:.1} h at {wage} a day (wanted about {want})");
     assert!(paid < wage, "not a whole day's wage");
+}
+
+// ---- Read in the code during the hunt, shown here, then fixed (U-15 to U-19) --------
+
+/// U-15: nobody walks out on a seat in their town's government, or on a
+/// ring, to work at an outpost.
+#[test]
+fn u15_office_holders_and_ring_members_wont_hire_out() {
+    use gahturiyu_sim::sim::ring::Ring;
+    let (mut w, _bid) = built(1);
+    let p = willing(&w);
+    let town = w.people[p as usize].home.unwrap();
+    w.society.rings.push(Ring { town, leader: None, members: vec![p], purse: 0.0, heat: 0.0, bribed: Vec::new(), paying: Vec::new(), found: false, reckoned: 0.0, last: None });
+    assert!(w.hire_terms(p).is_none(), "someone in a ring doesn't hire out");
+    w.society.rings.pop();
+    assert!(w.hire_terms(p).is_some(), "out of it, they would");
+    // An office holder with itchy feet keeps their seat.
+    let holder = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).find(|&q| w.holds_office(q) && !w.people[q as usize].dead && !w.people[q as usize].in_squad).expect("someone holds an office");
+    w.people[holder as usize].traits.wanderlust = 0.95;
+    assert!(w.hire_terms(holder).is_none(), "an office holder doesn't hire out");
+}
+
+/// U-16: what a base keeps can be added to and taken out: food for the
+/// hands, pitch for the roofs, and whatever was made there.
+#[test]
+fn u16_a_base_s_store_takes_things_in_and_gives_them_out() {
+    use gahturiyu_sim::sim::loot::Source;
+    let (mut w, bid) = built(1);
+    let m = w.squad.members[0];
+    let (bread, pitch) = (items::id("flatbread"), items::id("pitch"));
+    let had = (stored(&w, bid, "flatbread"), stored(&w, bid, "pitch"));
+    {
+        let g = &mut w.people[m as usize].detail.as_mut().unwrap().gear;
+        g.add(bread, 6);
+        g.add(pitch, 2);
+    }
+    assert!(w.base(bid).unwrap().room_for(10.0), "room in the store for this");
+    let in_pack = |w: &World, it| w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| e.0 == it).map(|e| e.1).sum::<u16>();
+    let entry = |w: &World, it| w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().position(|e| e.0 == it).unwrap();
+    // In: someone at the base goes through its store and puts things in.
+    assert!(w.order_store(m, bid), "someone at the base can go through its store");
+    assert_eq!(w.source_now(m), Some(Source::Store(bid)));
+    let before = in_pack(&w, bread);
+    assert!(w.put_in(m, entry(&w, bread)), "bread goes in");
+    assert!(w.put_in(m, entry(&w, pitch)), "pitch goes in");
+    assert_eq!(stored(&w, bid, "flatbread"), had.0 + before);
+    assert_eq!(stored(&w, bid, "pitch"), had.1 + 2);
+    assert_eq!(in_pack(&w, bread), 0);
+    // So a roof can be sealed.
+    let roof = w.base(bid).unwrap().buildings.iter().find(|b| b.standing() && b.rots()).expect("a thatched roof").id;
+    w.seal_building(bid, roof).expect("sealed with the pitch that was put in");
+    assert_eq!(stored(&w, bid, "pitch"), had.1 + 1);
+    // Out: a whole lot at a time, no crime in it.
+    let what = w.contents(Source::Store(bid)).into_iter().find(|x| x.1 == bread).unwrap().0;
+    let wrongs = w.bounty.clone();
+    assert!(w.take_from(m, Source::Store(bid), what), "bread comes out");
+    assert_eq!(stored(&w, bid, "flatbread"), 0);
+    assert_eq!(in_pack(&w, bread), had.0 + before);
+    assert_eq!(w.bounty, wrongs, "one's own store is no theft");
+    // Not from afar.
+    let far = w.base(bid).unwrap().at.add(V2::new(400.0, 0.0));
+    w.teleport_squad(far);
+    w.step(1.0);
+    assert!(w.source_now(m).is_none(), "walked off, the store is shut to them");
+    assert!(!w.order_store(m, bid), "nobody goes through a store from 400 m off");
+}
+
+/// U-17: those who live at a base keep hours (a round begun by 20:00 is
+/// seen through, none starts in the night), and nobody of the squad builds
+/// in their sleep.
+#[test]
+fn u17_work_at_a_base_keeps_hours() {
+    let (mut w, bid) = outpost(60);
+    let i = w.bases.iter().position(|b| b.id == bid).unwrap();
+    // Plenty to do: grain and timber for the cook, room for the hauler.
+    w.bases[i].add_to_store(items::id("grain"), 40);
+    let mut last: Vec<(PersonId, f64)> = Vec::new();
+    let (mut by_day, mut by_night) = (0, Vec::new());
+    for _ in 0..3 * 24 * 6 {
+        w.step(600.0);
+        for r in &w.base(bid).unwrap().residents {
+            let Some(c) = &r.cycle else { continue };
+            let seen = last.iter().position(|x| x.0 == r.who);
+            if seen.is_none_or(|k| last[k].1 != c.done_at) {
+                // It began some time in the last ten minutes.
+                let h = w.time.rem_euclid(DAY) / HOUR;
+                if (20.25..24.0).contains(&h) || h < 5.9 {
+                    by_night.push((r.job, h));
+                } else {
+                    by_day += 1;
+                }
+                match seen {
+                    Some(k) => last[k].1 = c.done_at,
+                    None => last.push((r.who, c.done_at)),
+                }
+            }
+        }
+    }
+    assert!(by_day >= 6, "work goes on by day: {by_day} rounds begun");
+    assert!(by_night.is_empty(), "rounds begun in the night: {by_night:?}");
+    // The squad, at the base with a site waiting: whoever is asleep isn't building.
+    let at = w.base(bid).unwrap().at;
+    w.teleport_squad(at.add(V2::new(0.0, -6.0)));
+    w.step(1.0);
+    for key in ["hut", "hut", "lean_to"] {
+        place_near(&mut w, bid, key);
+    }
+    let lead = w.squad.members[0];
+    supply(&mut w, lead, bid, &[("timber", 30), ("rock", 20), ("seareed", 12), ("clay", 12)]);
+    let (mut slept, mut built_awake) = (false, false);
+    // (Who is at a base is looked at as each step begins, so someone who
+    // dropped off during a step is counted out from the next one.)
+    let mut asleep_before: Vec<PersonId> = Vec::new();
+    for _ in 0..36 * 6 {
+        w.step(600.0);
+        let b = w.base(bid).unwrap();
+        let mut asleep_now = Vec::new();
+        for &m in &b.present {
+            if w.is_asleep(m) {
+                slept = true;
+                asleep_now.push(m);
+                assert!(!asleep_before.contains(&m) || !b.builders.iter().any(|h| h.0 == m), "{} is building in their sleep", w.name_of(m));
+            } else if b.builders.iter().any(|h| h.0 == m) {
+                built_awake = true;
+            }
+        }
+        asleep_before = asleep_now;
+    }
+    assert!(slept, "someone of the squad slept at the base in a day and a half");
+    let stands = w.base(bid).unwrap().buildings.iter().filter(|b| b.standing()).count();
+    assert!(built_awake || stands >= 6, "awake, they build");
+}
+
+/// U-18: a town's fields, market, yards and pens are its ground: nothing of
+/// the squad's can be laid on them.
+#[test]
+fn u18_nothing_is_built_on_a_town_s_working_ground() {
+    use gahturiyu_sim::sim::base::Bad;
+    let w = worldgen::generate(1);
+    let def = def_index("camp_marker");
+    let (mut refused, mut other) = (0, 0);
+    let mut spots: Vec<(String, V2)> = Vec::new();
+    for tl in &w.society.towns {
+        spots.extend(tl.places.iter().map(|p| (format!("{:?}", p.kind), p.pos)));
+    }
+    spots.extend(w.animals.pens.iter().filter(|p| p.town.is_some()).map(|p| ("a pen".to_string(), p.home)));
+    for (what, at) in &spots {
+        let mut plan = Plan { def, at: *at, rot: 0.0, w: BUILDINGS[def].w, replaces: None };
+        match w.check_place(&mut plan) {
+            Err(Bad::Town) => refused += 1,
+            Err(_) => other += 1,
+            Ok(_) => panic!("a camp can be laid on {what} at {at:?}"),
+        }
+    }
+    assert!(refused >= 20, "{refused} of {} spots refused as a town's ground ({other} for the ground itself)", spots.len());
+    // Open country is still free.
+    let (_, bid, _) = with_base(1);
+    let _ = bid;
+}
+
+/// U-19: what happens at a base while the squad is far off stays in the
+/// base's own log until they're back to read it; it isn't news.
+#[test]
+fn u19_a_base_far_away_makes_no_news() {
+    let (mut w, bid) = outpost(60);
+    let m = w.squad.members.clone();
+    // Someone left to build, a site with its materials, and the squad gone.
+    let builder = m[0];
+    place_near(&mut w, bid, "lean_to");
+    supply(&mut w, builder, bid, &[("timber", 30), ("rock", 10), ("seareed", 10), ("clay", 10)]);
+    // (The hauler turns builder.)
+    let hauler = w.base(bid).unwrap().residents.iter().find(|r| r.job == Job::Hauler).unwrap().who;
+    w.set_base_job(hauler, Job::Builder);
+    let left: Vec<String> = w.base(bid).unwrap().residents.iter().map(|r| w.name_of(r.who)).collect();
+    let bname = w.base(bid).unwrap().name.clone();
+    let before = w.base(bid).unwrap().log.len();
+    let far = w.base(bid).unwrap().at.add(V2::new(3000.0, 0.0));
+    w.teleport_squad(far);
+    w.step(1.0);
+    let from = w.time;
+    let mut news: Vec<String> = Vec::new();
+    for _ in 0..3 * 24 * 6 {
+        w.step(600.0);
+        for l in w.log.iter().filter(|l| l.0 >= from) {
+            if !news.contains(&l.1) {
+                news.push(l.1.clone());
+            }
+        }
+    }
+    let log = &w.base(bid).unwrap().log;
+    assert!(log.len() > before, "things happened there");
+    assert!(log.iter().any(|l| l.1.contains("stands at")), "the lean-to was finished: {:?}", log.iter().map(|l| &l.1).collect::<Vec<_>>());
+    let leaked: Vec<&String> = news.iter().filter(|l| l.contains(&bname) || left.iter().any(|n| l.starts_with(n.as_str()))).collect();
+    assert!(leaked.is_empty(), "news from a base 3 km off: {leaked:?}");
 }

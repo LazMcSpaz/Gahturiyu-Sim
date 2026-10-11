@@ -226,7 +226,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut sfx: ResMut<Sf
         (w.talk.is_some(), "talk_open"),
     ];
     // The loot window: a chest's lid, or a body's things.
-    let loot = w.squad.members.iter().find_map(|&m| w.source_now(m)).map(|s| matches!(s, Source::Chest(_)));
+    let loot = w.squad.members.iter().find_map(|&m| w.source_now(m)).map(|s| matches!(s, Source::Chest(_) | Source::Store(_)));
     let sel = game.sel.who(w);
     let seen = &mut sfx.seen;
     let fresh = !seen.first || seen.loads != game.loads;

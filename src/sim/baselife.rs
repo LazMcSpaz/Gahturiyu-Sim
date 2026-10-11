@@ -343,7 +343,9 @@ impl World {
     pub(super) fn start_cycle(&mut self, i: usize, r: usize, t: f64) {
         let res = self.bases[i].residents[r].clone();
         let who = res.who;
-        if self.people[who as usize].dead || self.on_the_way(i, r, t) {
+        // A round starts in working hours, by someone on their feet (one
+        // begun in time is seen through): U-17.
+        if !self.fit_to_work(who, t) || self.on_the_way(i, r, t) || !super::base::work_hours(t) {
             return;
         }
         let b = &self.bases[i];
@@ -576,6 +578,11 @@ impl World {
         }
         let life = self.society.lives.get(npc as usize)?;
         life.community?;
+        // Nobody walks out on a bond, a seat in the town's government or a
+        // ring (as with joining the squad: U-15).
+        if self.is_bonded(npc, self.time) || self.holds_office(npc) || self.society.rings.iter().any(|r| r.leader == Some(npc) || r.members.contains(&npc)) {
+            return None;
+        }
         let m = self.mind(npc);
         use super::jobs::Job as J;
         let loose = matches!(life.job, J::Labourer | J::Drifter | J::None) || m.work == super::lives::Work::Jobless;
@@ -627,7 +634,10 @@ impl World {
         self.bases[i].residents.push(Resident { who: npc, job: Job::Idle, recipe: None, cycle: None, n: 0, since: t, hire: Some(Hire { wage, loyalty: LOYALTY_START, town, household, community, trade, arrives, owed: 0 }) });
         let name = self.people[npc as usize].name().unwrap_or("someone").to_string();
         let bname = self.bases[i].name.clone();
-        self.base_note(bid, t, format!("{name} is hired at {wage} coin a day, and sets out for {bname}."), true);
+        // (Said where the squad is, which is where the bargain was struck.)
+        let line = format!("{name} is hired at {wage} coin a day, and sets out for {bname}.");
+        self.base_note(bid, t, line.clone(), false);
+        self.tell(t, line);
         self.base_changed(bid);
         Ok(bid)
     }

@@ -312,8 +312,8 @@ pub fn run() {
             game.orbit.target = at;
         }
         if let Some(what) = &s.build {
-            game.build = true;
-            if what == "base" {
+            game.build = what != "store";
+            if what == "base" || what == "store" {
                 game.base_tab = true;
             } else {
                 game.placing = Some(super::baseui::Placing { def: gahturiyu_sim::sim::base::def_index("hut"), ..Default::default() });
@@ -1454,6 +1454,19 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         Some(super::baseui::BuildAction::Seal(b, id)) => {
             if let Err(e) = w.seal_building(b, id) {
                 game.notice = Some((e.to_string(), std::time::Instant::now()));
+            }
+        }
+        Some(super::baseui::BuildAction::OpenStore(b)) => {
+            // Whoever is selected and here, else whoever is here.
+            let here: Vec<_> = w.base(b).map(|x| x.present.clone()).unwrap_or_default();
+            let sel = game.sel.who(w);
+            let who = sel.iter().copied().find(|m| here.contains(m)).or_else(|| here.first().copied());
+            if who.is_some_and(|m| w.order_store(m, b)) {
+                // The store takes the panel's place (B brings it back).
+                game.build = false;
+                game.placing = None;
+            } else {
+                game.notice = Some(("Nobody here can see to the store.".to_string(), std::time::Instant::now()));
             }
         }
         None => {}

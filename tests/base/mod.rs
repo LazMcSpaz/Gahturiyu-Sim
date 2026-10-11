@@ -90,7 +90,11 @@ fn construction_finishes_at_the_same_moment_whatever_the_step() {
     let b = run_until(w.clone(), hours as f64 + 1.0, 97.0);
     let c2 = run_until(w, hours as f64 + 1.0, HOUR);
     let (ta, tb, tc) = (stood(&a, bid, hut).expect("stands (1 s steps)"), stood(&b, bid, hut).expect("stands (97 s steps)"), stood(&c2, bid, hut).expect("stands (hour steps)"));
-    assert!((ta - expect).abs() < 1e-3 && (tb - expect).abs() < 1e-3 && (tc - expect).abs() < 1e-3, "stood at {ta} / {tb} / {tc}, expected {expect}");
+    // The same moment whatever the step, to the last digit; and within a
+    // blink of the one worked out when the site was laid (a change of shift
+    // in between settles the labour so far, which rounds it by milliseconds).
+    assert!(ta == tb && tb == tc, "stood at {ta} / {tb} / {tc}");
+    assert!((ta - expect).abs() < 0.05, "stood at {ta}, expected {expect}");
 }
 
 #[test]

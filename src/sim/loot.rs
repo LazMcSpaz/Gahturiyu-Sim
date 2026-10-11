@@ -27,6 +27,9 @@ pub enum Source {
     Body(PersonId),
     /// A container in a building.
     Chest(ContainerId),
+    /// The store of one of the squad's own bases: the squad's to fill and
+    /// to take from.
+    Store(super::base::BaseId),
 }
 
 /// A squad member sent to go through someone's (or something's) things.
@@ -86,6 +89,7 @@ impl World {
         match src {
             Source::Body(b) => self.can_loot(b),
             Source::Chest(c) => self.container(c).is_some() && !self.container_locked(c),
+            Source::Store(b) => self.base(b).is_some(),
         }
     }
 
@@ -93,7 +97,23 @@ impl World {
         match src {
             Source::Body(b) => Some(self.person_pos(b)),
             Source::Chest(c) => self.container(c).map(|c| c.pos),
+            Source::Store(b) => self.base(b).map(|b| b.at),
         }
+    }
+
+    /// Have a squad member at one of the squad's bases go through its
+    /// store: what's in it can be taken, and what they carry put in
+    /// (`take_from`, `put_in`). False if they aren't there, or can't.
+    pub fn order_store(&mut self, who: PersonId, bid: super::base::BaseId) -> bool {
+        let (Some(k), Some(b)) = (self.squad.index(who), self.base(bid)) else { return false };
+        if !self.can_act(who) || self.squad.at[k].dist(b.at) > b.reach() {
+            return false;
+        }
+        self.pickups.retain(|p| p.who != who);
+        self.picking.retain(|p| p.who != who);
+        self.looting.retain(|l| l.who != who);
+        self.looting.push(Looting { who, from: Source::Store(bid) });
+        true
     }
 
     /// Send a squad member to go through a body's things.
@@ -121,11 +141,13 @@ impl World {
             Source::Body(_) => REACH * 1.5,
             // A step in front of it, plus its own size.
             Source::Chest(_) => REACH * 1.2,
+            // Anywhere at the base.
+            Source::Store(b) => self.base(b).map(|b| b.reach()).unwrap_or(0.0),
         };
         // A chest in a building is reached from inside it, not through a wall.
         let same_room = match l.from {
             Source::Chest(c) => c.0 == u16::MAX || self.squad.inside[k] == Some((c.0, c.1)),
-            Source::Body(_) => true,
+            Source::Body(_) | Source::Store(_) => true,
         };
         (self.squad.at[k].dist(at) <= reach && same_room && self.source_ok(l.from) && self.can_act(who)).then_some(l.from)
     }
@@ -134,7 +156,7 @@ impl World {
     pub fn looting_now(&self, who: PersonId) -> Option<PersonId> {
         match self.source_now(who)? {
             Source::Body(b) => Some(b),
-            Source::Chest(_) => None,
+            Source::Chest(_) | Source::Store(_) => None,
         }
     }
 
@@ -158,6 +180,7 @@ impl World {
                 out
             }
             Source::Chest(c) => self.container(c).map(|c| c.items.iter().enumerate().map(|(k, e)| (LootRef::Pack(k), e.0, e.1)).collect()).unwrap_or_default(),
+            Source::Store(b) => self.base(b).map(|b| b.store.iter().enumerate().map(|(k, e)| (LootRef::Pack(k), e.0, e.1)).collect()).unwrap_or_default(),
         }
     }
 
@@ -193,7 +216,17 @@ impl World {
                 }
                 vec![c.items.remove(k)]
             }
-            (Source::Chest(_), LootRef::Worn(_)) => return false,
+            (Source::Store(b), LootRef::Pack(k)) => {
+                // What's kept there is as of now before any of it goes.
+                let t = self.time;
+                let Some(i) = self.bases.iter().position(|x| x.id == b) else { return false };
+                self.bases[i].settle_now(t);
+                if k >= self.bases[i].store.len() {
+                    return false;
+                }
+                vec![self.bases[i].store.remove(k)]
+            }
+            (Source::Chest(_) | Source::Store(_), LootRef::Worn(_)) => return false,
         };
         if let Source::Body(body) = src {
             self.people[body as usize].recompute_might();
@@ -216,9 +249,14 @@ impl World {
         let from = match src {
             Source::Body(b) => self.people[b as usize].name().unwrap_or("them").to_string(),
             Source::Chest(c) => format!("a {}", self.container(c).map(|c| c.what.name()).unwrap_or("container")),
+            Source::Store(_) => "the store".to_string(),
         };
         self.log.push_front((self.time, format!("{a} takes {} from {from}.", names.join(", "))));
         self.log.truncate(14);
+        // The base works with what's left (a cook without grain stops).
+        if let Source::Store(b) = src {
+            self.base_changed(b);
+        }
         if let Source::Chest(c) = src {
             let before = self.wrongs_in(c.0);
             self.took_from(who, c, worth);
@@ -234,7 +272,11 @@ impl World {
     /// container they have open. Not a crime, but what's put in someone
     /// else's chest is theirs now (taking it back is taking from them).
     pub fn put_in(&mut self, who: PersonId, k: usize) -> bool {
-        let Some(Source::Chest(c)) = self.source_now(who) else { return false };
+        let c = match self.source_now(who) {
+            Some(Source::Chest(c)) => c,
+            Some(Source::Store(b)) => return self.put_in_store(who, b, k),
+            _ => return false,
+        };
         let Some(d) = self.people[who as usize].detail.as_mut() else { return false };
         if k >= d.gear.bag.len() {
             return false;
@@ -257,6 +299,41 @@ impl World {
         let n = if e.1 > 1 { format!("{} × {}", e.1, item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
         self.log.push_front((self.time, format!("{a} puts {n} in the {what}.")));
         self.log.truncate(14);
+        true
+    }
+
+    /// Put something from a member's pack (entry `k`) into a base's store:
+    /// as many of the stack as there's room for.
+    fn put_in_store(&mut self, who: PersonId, bid: super::base::BaseId, k: usize) -> bool {
+        let t = self.time;
+        let Some(i) = self.bases.iter().position(|x| x.id == bid) else { return false };
+        let Some(e) = self.people[who as usize].detail.as_ref().and_then(|d| d.gear.bag.get(k).copied()) else { return false };
+        self.bases[i].settle_now(t);
+        let each = item(e.0).weight.max(0.001);
+        let room = ((self.bases[i].capacity() - self.bases[i].load() + 1e-3) / each).floor().max(0.0);
+        let n = (room.min(u16::MAX as f32) as u16).min(e.1);
+        let a = self.people[who as usize].name().unwrap_or("someone").to_string();
+        if n == 0 {
+            self.log.push_front((t, format!("The store has no room for {}.", item(e.0).name.to_lowercase())));
+            self.log.truncate(14);
+            return false;
+        }
+        let d = self.people[who as usize].detail.as_mut().unwrap();
+        if n == e.1 {
+            d.gear.bag.remove(k);
+        } else {
+            d.gear.bag[k].1 -= n;
+        }
+        match e.2 {
+            Some(pc) => self.bases[i].store.push(Entry(e.0, 1, Some(pc))),
+            None => self.bases[i].add_to_store(e.0, n),
+        }
+        self.people[who as usize].recompute_might();
+        self.settle_condition(who, t);
+        let what = if n > 1 { format!("{n} × {}", item(e.0).name.to_lowercase()) } else { item(e.0).name.to_lowercase() };
+        self.log.push_front((t, format!("{a} puts {what} in the store.")));
+        self.log.truncate(14);
+        self.base_changed(bid);
         true
     }
 
