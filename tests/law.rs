@@ -766,3 +766,25 @@ fn u12_the_arbiters_post_is_taken_once() {
     assert_eq!(w.government(town).arbiter, Some(m));
     assert_eq!(w.take_post(m, town, Post::Arbiter), Err("already holds it"));
 }
+
+/// NM-55: a fine is paid by the one judged and those standing with them, not
+/// from the purse of a squadmate a long way off.
+#[test]
+fn nm55_a_fine_is_paid_by_those_who_are_there() {
+    use gahturiyu_sim::sim::geo::V2;
+    let coin = gahturiyu_sim::sim::items::id("coin");
+    let mut w = worldgen::generate(1);
+    let (m, far) = (w.squad.members[0], w.squad.members[3]);
+    let town = nearest_town(&w);
+    strip_coin(&mut w);
+    give_coin(&mut w, m, 10);
+    give_coin(&mut w, far, 500);
+    let k = w.squad.index(far).unwrap();
+    w.squad.at[k] = w.squad.at[k].add(V2::new(400.0, 0.0));
+    w.squad.goal[k] = w.squad.at[k];
+    w.judge(m, town, law::Wrong::Theft, 40.0, Justice::Elders);
+    let left = w.people[far as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| e.0 == coin).map(|e| e.1).sum::<u16>();
+    assert_eq!(left, 500, "the far purse wasn't touched");
+    assert!(said(&w, "pays 10 of the 40 coin"), "{:?}", w.log);
+    assert!(w.is_bonded(m, w.time), "the rest is worked off");
+}
