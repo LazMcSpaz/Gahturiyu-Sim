@@ -306,6 +306,120 @@ impl Node {
     }
 }
 
+/// More of one thing for someone to make, after the one they're on.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct More {
+    pub who: PersonId,
+    pub recipe: usize,
+    pub left: u16,
+}
+
+/// How near each other those making something together stand, metres:
+/// what the maker lacks, anyone of the squad this close hands over.
+pub const BENCH_SHARE: f32 = 8.0;
+/// Squad members this near a bench are named on its screen (as too far to
+/// work at it, if they aren't at it), metres.
+pub const BENCH_NEAR: f32 = 80.0;
+/// A thing is beyond someone's hand when it would come out less often than this.
+pub const BEYOND: f32 = 0.2;
+
+/// A place to make things, as the making screen shows it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bench {
+    pub station: Station,
+    /// Where it stands (a mortar and pestle: where its carrier stands).
+    pub at: V2,
+    /// What and where it is ("Maker's forge, Woodhaven").
+    pub place: String,
+    /// Carried, not standing anywhere: a mortar and pestle.
+    pub carried_by: Option<PersonId>,
+}
+
+/// How a thing on a bench's list stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Standing {
+    /// Someone at the bench can make it now.
+    Ready,
+    /// Something is wanting: a material, or anyone at the bench to do it.
+    Short,
+    /// Nobody here is good enough for it to come out more than now and then.
+    Beyond,
+}
+
+/// One thing a bench can make.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MakeRow {
+    pub recipe: usize,
+    pub standing: Standing,
+    /// (what, how many those at the bench have between them, how many it takes).
+    pub parts: Vec<(ItemId, u16, u16)>,
+    /// The best hand for it of those at the bench and free.
+    pub best: Option<PersonId>,
+}
+
+/// How good a hand someone is at a thing: in words, never a number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Hand {
+    OutOfDepth,
+    New,
+    Knows,
+    Steady,
+}
+
+impl Hand {
+    pub fn of(chance: f32) -> Hand {
+        if chance >= 0.8 {
+            Hand::Steady
+        } else if chance >= 0.5 {
+            Hand::Knows
+        } else if chance >= BEYOND {
+            Hand::New
+        } else {
+            Hand::OutOfDepth
+        }
+    }
+
+    pub fn words(self) -> &'static str {
+        match self {
+            Hand::Steady => "a steady hand at this",
+            Hand::Knows => "knows the work",
+            Hand::New => "new to it",
+            Hand::OutOfDepth => "out of their depth",
+        }
+    }
+}
+
+/// Someone who could make a thing at a bench.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Maker {
+    pub who: PersonId,
+    pub hand: Hand,
+    /// Standing at the bench (if not, they're near but too far to work).
+    pub at_bench: bool,
+    /// At other work.
+    pub busy: bool,
+}
+
+/// A job's length in words: "a minute or two", "about 20 minutes",
+/// "about 2½ hours", "about 3 days".
+pub fn time_words(secs: f64) -> String {
+    let mins = secs / 60.0;
+    if secs >= 1.5 * DAY {
+        format!("about {:.0} days", secs / DAY)
+    } else if mins < 3.5 {
+        "a minute or two".to_string()
+    } else if mins < 50.0 {
+        format!("about {:.0} minutes", ((mins / 5.0).round() * 5.0).max(5.0))
+    } else {
+        let halves = (secs / HOUR * 2.0).round() as u32;
+        match (halves / 2, halves % 2) {
+            (0, _) | (1, 0) => "about an hour".to_string(),
+            (h, 0) => format!("about {h} hours"),
+            (h, _) => format!("about {h}½ hours"),
+        }
+    }
+}
+
 /// Why a recipe can't be made right now.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Cannot {
@@ -442,6 +556,133 @@ impl World {
         v.furniture.iter().any(|pc| pc.what == furniture).then_some(d.centre)
     }
 
+    // ---- Working together at a bench ---------------------------------------
+
+    /// Whose packs a job draws on: the maker's own first, then those of the
+    /// squad standing with them who are up (a townsperson has only their own).
+    pub fn craft_givers(&self, who: PersonId) -> Vec<PersonId> {
+        let mut out = vec![who];
+        if self.squad.index(who).is_some() {
+            let at = self.person_pos(who);
+            out.extend(self.squad.members.iter().copied().filter(|&m| m != who && self.can_act(m) && self.person_pos(m).dist(at) <= BENCH_SHARE));
+        }
+        out
+    }
+
+    /// How many of something a job by `who` could draw on.
+    pub fn craft_stock(&self, who: PersonId, key: &str) -> u16 {
+        self.craft_givers(who).iter().map(|&g| self.count_of(g, key)).sum()
+    }
+
+    /// What and where a station is, for its screen's heading.
+    fn bench_place(&self, at: V2, station: Station) -> String {
+        // In a building: the building's own name.
+        if let Some(d) = self.building_at(at) {
+            let town = self.settlements.get(d.id.0 as usize).map(|s| s.name.clone()).unwrap_or_default();
+            return format!("{}, {town}", d.variant().name);
+        }
+        // At one of the squad's bases: the shed.
+        if let Some(b) = self.bases.iter().find(|b| b.buildings.iter().any(|bl| bl.standing() && bl.def().station == Some(station) && bl.at.dist(at) < 1.0)) {
+            let shed = b.buildings.iter().find(|bl| bl.standing() && bl.def().station == Some(station) && bl.at.dist(at) < 1.0).map(|bl| bl.def().name).unwrap_or("Work shed");
+            return format!("{shed}, {}", b.name);
+        }
+        // A town's workplace.
+        let near = self.settlements.iter().zip(self.society.towns.iter()).flat_map(|(s, tl)| tl.places.iter().map(move |p| (s, p))).filter(|(_, p)| p.pos.dist(at) <= p.kind.size()).min_by(|a, b| a.1.pos.dist(at).total_cmp(&b.1.pos.dist(at)));
+        match near {
+            Some((s, p)) => format!("{}, {}", p.kind.name(), s.name),
+            None => match self.town_at(at) {
+                Some(t) => self.settlements[t as usize].name.clone(),
+                None => String::new(),
+            },
+        }
+    }
+
+    /// The bench at or beside a spot, if there's one: a station standing
+    /// within reach, or the one in the building the spot is in.
+    pub fn bench_at(&self, p: V2) -> Option<Bench> {
+        let open = self.stations.iter().filter(|(s, _)| s.dist(p) <= AT_STATION).min_by(|a, b| a.0.dist(p).total_cmp(&b.0.dist(p))).map(|&(s, k)| (s, k));
+        let (at, station) = open.or_else(|| STATIONS.iter().find_map(|&k| self.station_indoors(p, k).map(|c| (c, k))))?;
+        Some(Bench { station, at, place: self.bench_place(at, station), carried_by: None })
+    }
+
+    /// The bench a squad member could work at where they stand: the one
+    /// they're at, else the mortar and pestle in their pack.
+    pub fn bench_for(&self, who: PersonId) -> Option<Bench> {
+        let at = self.person_pos(who);
+        self.bench_at(at).or_else(|| (self.count_of(who, "mortar_and_pestle") > 0).then(|| Bench { station: Station::AlchemyTable, at, place: "Mortar and pestle".to_string(), carried_by: Some(who) }))
+    }
+
+    /// Is this squad member at that bench (and up)?
+    pub fn at_bench(&self, who: PersonId, b: &Bench) -> bool {
+        if !self.can_act(who) || self.squad.index(who).is_none() {
+            return false;
+        }
+        let at = self.person_pos(who);
+        match b.carried_by {
+            Some(c) => who == c || at.dist(self.person_pos(c)) <= BENCH_SHARE,
+            None => self.station_near(at, b.station).is_some_and(|s| s.dist(b.at) < 1.0),
+        }
+    }
+
+    /// Those of the squad at a bench.
+    pub fn bench_hands(&self, b: &Bench) -> Vec<PersonId> {
+        self.squad.members.iter().copied().filter(|&m| self.at_bench(m, b)).collect()
+    }
+
+    /// How often a thing would come out for someone.
+    pub fn craft_chance(&self, who: PersonId, ri: usize) -> f32 {
+        let rc = &RECIPES[ri];
+        success_chance(self.people[who as usize].effective_stats().skill(rc.skill), rc.difficulty)
+    }
+
+    /// Who of the squad could make this at that bench: those who've taken
+    /// up the craft and are at it or near, the likeliest first (at the
+    /// bench and free before the rest).
+    pub fn makers(&self, b: &Bench, ri: usize) -> Vec<Maker> {
+        let rc = &RECIPES[ri];
+        let mut out: Vec<(f32, Maker)> = self
+            .squad
+            .members
+            .iter()
+            .copied()
+            .filter(|&m| self.knows_craft(m, rc.craft()) && !self.people[m as usize].dead && self.person_pos(m).dist(b.at) <= BENCH_NEAR)
+            .map(|m| {
+                let chance = self.craft_chance(m, ri);
+                let busy = self.craft_blockers(m, ri).contains(&Cannot::Busy);
+                (chance, Maker { who: m, hand: Hand::of(chance), at_bench: self.at_bench(m, b), busy })
+            })
+            .collect();
+        out.sort_by(|x, y| (y.1.at_bench && !y.1.busy).cmp(&(x.1.at_bench && !x.1.busy)).then(y.0.total_cmp(&x.0)).then(x.1.who.cmp(&y.1.who)));
+        out.into_iter().map(|x| x.1).collect()
+    }
+
+    /// What a bench can make, as its screen lists it: every recipe of the
+    /// station that someone of the squad there or near has the craft for
+    /// (in the recipes' order, which keeps each craft together).
+    pub fn making_list(&self, b: &Bench) -> Vec<MakeRow> {
+        let hands = self.bench_hands(b);
+        (0..RECIPES.len())
+            .filter(|&ri| RECIPES[ri].station == b.station)
+            .filter_map(|ri| {
+                let rc = &RECIPES[ri];
+                let makers = self.makers(b, ri);
+                if makers.is_empty() {
+                    return None;
+                }
+                let parts: Vec<(ItemId, u16, u16)> = rc.inputs.iter().map(|&(k, n)| (items::id(k), hands.iter().map(|&h| self.count_of(h, k)).sum(), n)).collect();
+                let best = makers.iter().find(|m| m.at_bench && !m.busy).map(|m| m.who);
+                let standing = if makers.iter().all(|m| m.hand == Hand::OutOfDepth) {
+                    Standing::Beyond
+                } else if best.is_some_and(|w| self.can_craft(w, ri).is_ok()) {
+                    Standing::Ready
+                } else {
+                    Standing::Short
+                };
+                Some(MakeRow { recipe: ri, standing, parts, best })
+            })
+            .collect()
+    }
+
     pub fn count_of(&self, who: PersonId, key: &str) -> u16 {
         let id = items::id(key);
         self.people[who as usize].detail.as_ref().map(|d| d.gear.bag.iter().filter(|e| e.0 == id).map(|e| e.1).sum()).unwrap_or(0)
@@ -473,12 +714,13 @@ impl World {
             out.push(Cannot::Unknown(rc.craft()));
         }
         for &(k, n) in rc.inputs {
-            if self.count_of(who, k) < n {
+            if self.craft_stock(who, k) < n {
                 out.push(Cannot::Missing(k, n));
             }
         }
         let at = self.person_pos(who);
-        let portable = rc.station == Station::AlchemyTable && self.count_of(who, "mortar_and_pestle") > 0;
+        // (A mortar and pestle in the maker's pack, or a squadmate's beside them.)
+        let portable = rc.station == Station::AlchemyTable && self.craft_stock(who, "mortar_and_pestle") > 0;
         if !portable && self.station_near(at, rc.station).is_none() {
             out.push(Cannot::NoStation(rc.station));
         }
@@ -487,35 +729,80 @@ impl World {
 
     /// Start making something: materials go in now.
     pub fn start_craft(&mut self, who: PersonId, ri: usize) -> Result<(), Cannot> {
+        self.start_craft_at(who, ri, self.time)
+    }
+
+    /// Make `count` of something, one after another: the first starts now,
+    /// each of the rest the moment the one before is done, for as long as
+    /// the materials and the bench are there.
+    pub fn make(&mut self, who: PersonId, ri: usize, count: u16) -> Result<(), Cannot> {
+        self.start_craft(who, ri)?;
+        self.making_more.retain(|m| m.who != who);
+        if count > 1 {
+            self.making_more.push(More { who, recipe: ri, left: count - 1 });
+        }
+        Ok(())
+    }
+
+    /// Start a job as of `t` (now, or the moment the one before it ended).
+    fn start_craft_at(&mut self, who: PersonId, ri: usize, t: f64) -> Result<(), Cannot> {
         self.can_craft(who, ri)?;
         let rc = &RECIPES[ri];
-        if let Some(d) = self.people[who as usize].detail.as_mut() {
-            for &(k, n) in rc.inputs {
-                for _ in 0..n {
-                    d.gear.take(items::id(k));
+        // The maker's own first, then from whoever stands at the bench with them.
+        let givers = self.craft_givers(who);
+        for &(k, n) in rc.inputs {
+            let id = items::id(k);
+            let mut left = n;
+            for &g in &givers {
+                let Some(d) = self.people[g as usize].detail.as_mut() else { continue };
+                while left > 0 && d.gear.take(id) {
+                    left -= 1;
                 }
             }
         }
-        self.people[who as usize].recompute_might();
+        for &g in &givers {
+            self.people[g as usize].recompute_might();
+        }
         let bed = (rc.skill == Skill::Tending).then(|| self.station_near(self.person_pos(who), Station::GrowerBed)).flatten();
         let n = self.crafted_count.entry(who).or_insert(0);
         *n += 1;
-        let job = Job { who, recipe: ri, done_at: self.time + rc.time, n: *n, bed };
+        let job = Job { who, recipe: ri, done_at: t + rc.time, n: *n, bed };
         self.crafting.push(job);
         Ok(())
     }
 
     pub(super) fn do_crafting(&mut self) {
-        let mut done = Vec::new();
-        for (i, j) in self.crafting.iter().enumerate() {
-            if self.time >= j.done_at {
-                done.push((i, *j));
+        // Each job that has fallen due, earliest first; one that was to be
+        // followed by more of the same starts the next at the moment it
+        // ended (so a run of three ends when it should, however time is
+        // stepped).
+        for _ in 0..256 {
+            let Some(i) = (0..self.crafting.len()).filter(|&i| self.time >= self.crafting[i].done_at).min_by(|&a, &b| self.crafting[a].done_at.total_cmp(&self.crafting[b].done_at).then(a.cmp(&b))) else { break };
+            let j = self.crafting.remove(i);
+            self.finish_job(j);
+            let Some(k) = self.making_more.iter().position(|m| m.who == j.who && m.recipe == j.recipe) else { continue };
+            match self.start_craft_at(j.who, j.recipe, j.done_at) {
+                Ok(()) => {
+                    self.making_more[k].left -= 1;
+                    if self.making_more[k].left == 0 {
+                        self.making_more.remove(k);
+                    }
+                }
+                Err(why) => {
+                    self.making_more.remove(k);
+                    if let Cannot::Missing(key, _) = why {
+                        let name = self.people[j.who as usize].name().unwrap_or("someone").to_string();
+                        self.log.push_front((j.done_at, format!("{name} has no more {} to work with.", item(items::id(key)).name.to_lowercase())));
+                        self.log.truncate(14);
+                    }
+                }
             }
         }
-        for &(i, _) in done.iter().rev() {
-            self.crafting.remove(i);
-        }
-        for (_, j) in done {
+    }
+
+    /// A job's time is up: what came of it.
+    fn finish_job(&mut self, j: Job) {
+        {
             let rc = &RECIPES[j.recipe];
             let p = &self.people[j.who as usize];
             let skill = p.effective_stats().skill(rc.skill);

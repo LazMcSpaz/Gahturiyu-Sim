@@ -13,6 +13,7 @@ pub mod interiors;
 pub mod light;
 pub mod lexicon;
 pub mod lootui;
+pub mod makeui;
 pub mod hints;
 pub mod frame;
 pub mod interact;

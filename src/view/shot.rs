@@ -43,6 +43,11 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
+    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar`: the squad at
+    /// the nearest such station with things to make and the craft for it
+    /// (member 0 practised, member 1 new to it and carrying some of the
+    /// materials, member 2 a little way off), its making screen open.
+    pub make: Option<String>,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people).
     pub talk: bool,
@@ -173,6 +178,7 @@ impl Shot {
             hours: var("GAHT_HOURS").and_then(|v| v.parse().ok()),
             sneak: var("GAHT_SNEAK").is_some(),
             enter: var("GAHT_ENTER").is_some(),
+            make: var("GAHT_MAKE"),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
@@ -383,6 +389,9 @@ impl Shot {
             for _ in 0..60 {
                 world.step(10.0);
             }
+        }
+        if let Some(what) = self.make.clone() {
+            make_scene(world, &what);
         }
         if let Some(what) = self.society.clone() {
             self.society_scene(world, &what);
@@ -1028,6 +1037,64 @@ fn variants_row(world: &mut World, which: &str, open: bool) -> Option<(V2, f32, 
     let centre = origin.add(V2::new(0.0, -depth * 0.5 + 4.0));
     let dist = (width * 0.8).max(depth * 1.5) + 12.0;
     Some((centre, dist, if open { 0.95 } else { 0.62 }, Some(std::f32::consts::FRAC_PI_2)))
+}
+
+/// The squad at a station with work for it (for `GAHT_MAKE`).
+fn make_scene(world: &mut World, what: &str) {
+    use gahturiyu_sim::sim::crafting::{Station, RECIPES};
+    use gahturiyu_sim::sim::items;
+    let station = match what {
+        "bench" => Station::Bench,
+        "loom" => Station::Loom,
+        "workbench" => Station::Workbench,
+        "desk" => Station::Desk,
+        "bed" => Station::GrowerBed,
+        "mortar" => Station::AlchemyTable,
+        _ => Station::Forge,
+    };
+    let here = world.squad.pos;
+    let m = world.squad.members.clone();
+    if what != "mortar" {
+        let Some(at) = world.stations.iter().filter(|(_, k)| *k == station).map(|(p, _)| *p).min_by(|a, b| a.dist(here).total_cmp(&b.dist(here))) else {
+            eprintln!("GAHT_MAKE: no {what} in this world");
+            return;
+        };
+        world.teleport_squad(at.add(V2::new(1.2, 0.8)));
+        // One of them a little way off: named on the screen as too far.
+        if let Some(k) = m.get(2).and_then(|&p| world.squad.index(p)) {
+            let off = at.add(V2::new(22.0, 6.0));
+            world.squad.at[k] = off;
+            world.squad.goal[k] = off;
+        }
+    }
+    let recipes: Vec<usize> = (0..RECIPES.len()).filter(|&i| RECIPES[i].station == station).collect();
+    for (j, &p) in m.iter().take(3).enumerate() {
+        let person = &mut world.people[p as usize];
+        for &i in &recipes {
+            let sk = RECIPES[i].skill;
+            if let Some(d) = person.detail.as_mut() {
+                if !d.crafts.contains(&sk) {
+                    d.crafts.push(sk);
+                }
+            }
+            person.stats.set_skill(sk, [42.0, 12.0, 30.0][j]);
+        }
+    }
+    // Materials for the first few things, shared between two packs.
+    for (n, &i) in recipes.iter().take(4).enumerate() {
+        for &(k, need) in RECIPES[i].inputs {
+            let to = m[if n % 2 == 0 { 0 } else { 1.min(m.len() - 1) }];
+            if let Some(d) = world.people[to as usize].detail.as_mut() {
+                d.gear.add(items::id(k), need);
+            }
+        }
+    }
+    if what == "mortar" {
+        if let Some(d) = world.people[m[0] as usize].detail.as_mut() {
+            d.gear.add(items::id("mortar_and_pestle"), 1);
+        }
+    }
+    world.step(1.0);
 }
 
 /// Lay out a demo outpost near the squad (for `GAHT_BUILD`).

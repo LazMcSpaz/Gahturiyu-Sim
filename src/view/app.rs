@@ -81,6 +81,9 @@ pub struct Game {
     pub sel: Selection,
     pub inv: Option<PersonId>,
     pub craft: Option<PersonId>,
+    /// The making screen, while whoever `craft` follows stands at a bench
+    /// (`makeui.rs`): what's picked on it.
+    pub making: Option<super::makeui::Making>,
     pub journal: bool,
     /// The town panel (P, or click a town's name).
     pub town: Option<u16>,
@@ -215,6 +218,7 @@ pub fn run() {
         sel: Selection::default(),
         inv: None,
         craft: None,
+        making: None,
         journal: false,
         town: None,
         options: std::env::var("GAHT_SETTINGS").is_ok(),
@@ -295,6 +299,9 @@ pub fn run() {
         }
         game.inv = s.inventory.and_then(|k| game.world.squad.members.get(k).copied());
         game.craft = s.craft.and_then(|k| game.world.squad.members.get(k).copied());
+        if s.make.is_some() {
+            game.craft = game.world.squad.members.first().copied();
+        }
         game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
         if s.feud {
             game.town_all = true;
@@ -633,6 +640,19 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             None => game.sel.lead(w),
         };
     }
+    // At a bench's screen: Enter makes what's shown, by whoever is shown.
+    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
+        if let Some(m) = game.making.clone() {
+            let rows = w.making_list(&m.bench);
+            if let Some(ri) = super::makeui::shown(&rows, m.pick) {
+                let who = super::makeui::maker(&w.makers(&m.bench, ri), m.who);
+                match who.map(|p| w.make(p, ri, m.n.clamp(1, super::makeui::MOST))) {
+                    Some(Ok(())) => game.sounds.ui("ui_press"),
+                    _ => game.sounds.ui("ui_cant"),
+                }
+            }
+        }
+    }
     // Look through a scout spirit (G again, or C, to come back).
     if keys.just_pressed(KeyCode::KeyG) {
         let t = w.time;
@@ -701,6 +721,12 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         camera_input(game, &keys, &buttons, &scroll, mouse, dt);
     }
     let on_panels = game.panels.iter().any(|b| b.contains(mouse));
+    // The wheel over the making screen runs its list up and down.
+    if on_panels && scroll.delta.y != 0.0 {
+        if let Some(m) = game.making.as_mut() {
+            m.scroll = (m.scroll - scroll.delta.y * 46.0).max(0.0);
+        }
+    }
     // Clicks on the panels are handled when they're drawn; a short click
     // anywhere else is an order.
     game.ui_click = None;
@@ -978,6 +1004,14 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
         match c.act {
             Act::Select(pid) => game.sel.pick(pid, shift),
             Act::TownPanel(t) => game.town = if game.town == Some(t) { None } else { Some(t) },
+            // To a station: they go, and its screen opens once someone is there.
+            Act::Make(p) => {
+                let _ = super::interact::perform(world, &who, all, Act::Make(p));
+                game.sounds.ui("ui_order");
+                game.inv = None;
+                game.book = None;
+                game.craft = game.sel.lead(world);
+            }
             act => {
                 if let Some(msg) = super::interact::perform(world, &who, all, act) {
                     if !matches!(act, Act::Dose(_)) {
@@ -1339,11 +1373,67 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         item_tip = h;
         panels.extend(bx);
     }
-    if let Some(pid) = game.craft {
-        let (a, h, bx) = squadui::crafting(&c, w, pid, game.mouse, click);
-        actions.extend(a);
-        item_tip = item_tip.or(h);
-        panels.push(bx);
+    // Making: at a bench (or with a mortar in the pack) it's the bench's own
+    // screen; anywhere else, what that member knows how to make and where.
+    let mut make_act = None;
+    match game.craft.and_then(|pid| w.bench_for(pid).map(|b| (pid, b))) {
+        Some((_, bench)) => {
+            let same = game.making.as_ref().is_some_and(|m| m.bench.station == bench.station && m.bench.carried_by == bench.carried_by && (bench.carried_by.is_some() || m.bench.at.dist(bench.at) < 1.0));
+            if same {
+                // (A carried mortar moves with its carrier.)
+                game.making.as_mut().unwrap().bench = bench;
+            } else {
+                game.making = Some(super::makeui::Making::at(bench));
+            }
+            let (a, bx, scroll) = super::makeui::making(&c, w, game.making.as_ref().unwrap(), game.mouse, click);
+            game.making.as_mut().unwrap().scroll = scroll;
+            make_act = a;
+            panels.push(bx);
+        }
+        None => {
+            game.making = None;
+            if let Some(pid) = game.craft {
+                let (a, h, bx) = squadui::crafting(&c, w, pid, game.mouse, click);
+                actions.extend(a);
+                item_tip = item_tip.or(h);
+                panels.push(bx);
+            }
+        }
+    }
+    if let Some(a) = make_act {
+        use super::makeui::MakeAct;
+        match a {
+            MakeAct::Close => {
+                game.craft = None;
+                game.making = None;
+            }
+            MakeAct::Pick(ri) => {
+                if let Some(m) = game.making.as_mut() {
+                    m.pick = Some(ri);
+                    m.n = 1;
+                }
+                game.sounds.ui("ui_press");
+            }
+            MakeAct::Who(p) => {
+                if let Some(m) = game.making.as_mut() {
+                    m.who = Some(p);
+                }
+                game.sounds.ui("ui_press");
+            }
+            MakeAct::Count(n) => {
+                if let Some(m) = game.making.as_mut() {
+                    m.n = n;
+                }
+                game.sounds.ui("ui_press");
+            }
+            MakeAct::Make(p, ri, n) => match w.make(p, ri, n) {
+                Ok(()) => game.sounds.ui("ui_press"),
+                Err(why) => {
+                    game.sounds.ui("ui_cant");
+                    game.notice = Some((format!("Can't: {}.", why.say()), std::time::Instant::now()));
+                }
+            },
+        }
     }
     if game.journal {
         panels.push(squadui::journal(&c, w));
@@ -1564,6 +1654,13 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 Act::Examine => game.examine = m.hover,
                 Act::Select(pid) => game.sel.pick(pid, false),
                 Act::TownPanel(t) => game.town = Some(t),
+                Act::Make(p) => {
+                    let _ = super::interact::perform(&mut game.world, &who, all, Act::Make(p));
+                    game.sounds.ui("ui_order");
+                    game.inv = None;
+                    game.book = None;
+                    game.craft = game.sel.lead(&game.world);
+                }
                 Act::SneakTo(p) => {
                     for &x in &who {
                         game.world.set_sneaking(x, true);

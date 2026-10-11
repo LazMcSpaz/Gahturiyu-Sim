@@ -216,6 +216,19 @@ the roads again if you changed the land's shape or ground.
   read a manual (slower, and it only gets you started). Practice does the
   rest. What you make comes out crude, common, fine or masterwork, and
   carries your mark. See Materials and crafting below.
+  **Making is done at the station.** Click a forge, bench, frame, desk or
+  bed (**Work at the forge**), or press K while standing at one, and its
+  own screen opens: on the left what that station makes for whoever of the
+  squad is there, by craft (bright: can be made now; dim with the gap in
+  red: short of something; dimmer: beyond anyone's hand yet; crafts nobody
+  near has taken up aren't listed). On the right the chosen thing: its
+  parts as have / need, counted across the packs of everyone standing at
+  the bench (within 8 m of the maker, who gives first), how long it takes,
+  who would make it (in words: "a steady hand at this", "new to it"), and a
+  count beside **Make**: several are made one after another, each begun the
+  moment the last is done, for as long as the materials last. Enter makes,
+  Esc closes. Away from any station K still shows what that member knows
+  how to make and where.
 - **Looting**: click a beaten foe (out cold or dead: bandits, or anyone
   whose band attacked you) and the nearest selected member goes over and
   goes through their things. A panel lists what they wear and carry: click

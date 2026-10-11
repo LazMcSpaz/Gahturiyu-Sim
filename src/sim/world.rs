@@ -176,6 +176,9 @@ pub struct World {
     pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
+    /// More of the same to make once the one under way is done.
+    #[serde(default)]
+    pub making_more: Vec<super::crafting::More>,
     /// How many jobs each person has started (keys their rolls).
     #[serde(serialize_with = "super::save::sorted_map")]
     pub crafted_count: HashMap<PersonId, u64>,
@@ -345,6 +348,7 @@ impl World {
             casts: Vec::new(),
             pursuits: Vec::new(),
             crafting: Vec::new(),
+            making_more: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),
             lessons: Vec::new(),
