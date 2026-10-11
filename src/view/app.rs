@@ -558,6 +558,9 @@ fn setup(mut commands: Commands) {
         Transform::from_xyz(0.0, 100.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
         light::camera_bundle(),
+        // The scene's depth, for the outlines to tell what's behind a wall
+        // (`outline.rs`).
+        bevy::core_pipeline::prepass::DepthPrepass,
     ));
     // The panels are drawn by a second camera on top.
     // It shares the 3D camera's wide-range picture (so it draws on top of it

@@ -32,6 +32,41 @@ pub const LINE_PX: f32 = 1.6;
 pub const LINE_ALPHA: f32 = 0.9;
 
 const SHADER: Handle<Shader> = uuid_handle!("2f6a9d3e-41c7-4b0e-8d5a-7e1c9b3f6a20");
+const MASK_SHADER: Handle<Shader> = uuid_handle!("8c41e2a7-5d3b-4f19-a6e0-2b7d9c4f1e83");
+
+/// The shapes as the mask camera draws them: their outline colour, and in
+/// alpha their depth (so the edge layer can tell what's behind a wall).
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, Default)]
+pub struct MaskMat {}
+
+impl Material for MaskMat {
+    fn fragment_shader() -> ShaderRef {
+        MASK_SHADER.into()
+    }
+    fn enable_prepass() -> bool {
+        false
+    }
+    fn enable_shadows() -> bool {
+        false
+    }
+    fn specialize(_: &MaterialPipeline, descriptor: &mut RenderPipelineDescriptor, _: &MeshVertexBufferLayoutRef, _: MaterialPipelineKey<Self>) -> Result<(), SpecializedMeshPipelineError> {
+        descriptor.primitive.cull_mode = None;
+        Ok(())
+    }
+}
+
+const MASK_SOURCE: &str = r#"
+#import bevy_pbr::forward_io::VertexOutput
+
+@fragment
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    var c = vec3<f32>(1.0);
+#ifdef VERTEX_COLORS
+    c = in.color.rgb;
+#endif
+    return vec4<f32>(c, max(in.position.z, 1e-7));
+}
+"#;
 
 /// The full-screen layer that traces the edges.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
@@ -72,6 +107,7 @@ impl Material for EdgeMat {
 
 const SOURCE: &str = r#"
 #import bevy_pbr::forward_io::Vertex
+#import bevy_pbr::prepass_utils
 
 struct Out {
     @builtin(position) pos: vec4<f32>,
@@ -95,36 +131,57 @@ fn vertex(v: Vertex) -> Out {
     return o;
 }
 
+// Where something of the scene stands in front of a shape, its line is
+// faint (Laz: an outline behind a wall dims). The mask holds each shape's
+// depth in its alpha; the main camera's depth prepass holds the scene's.
+// (Reversed depth: bigger is nearer.)
+fn seen(at: vec2<f32>, depth: f32) -> bool {
+#ifdef DEPTH_PREPASS
+    let scene = prepass_utils::prepass_depth(vec4<f32>(at, 0.0, 0.0), 0u);
+    return depth >= scene * 0.996 - 1e-6;
+#else
+    return true;
+#endif
+}
+
 @fragment
 fn fragment(in: Out) -> @location(0) vec4<f32> {
-    let here = textureSampleLevel(mask, mask_sampler, in.uv, 0.0);
-    if (here.a > 0.5) {
+    let size = vec2<i32>(textureDimensions(mask));
+    let px = vec2<i32>(in.pos.xy);
+    let here = textureLoad(mask, clamp(px, vec2<i32>(0), size - 1), 0);
+    if (here.a > 0.0) {
         discard;
     }
-    let texel = params.v.xy;
     let reach = params.v.z;
     // Look round the pixel at two distances: a shape within the near ring
     // gives the full line, one only in the far ring a softer edge to it.
     var col = vec3<f32>(0.0);
     var cover = 0.0;
+    var front = false;
     for (var i = 0; i < 12; i = i + 1) {
         let a = f32(i) * 0.5235988;
         let d = vec2<f32>(cos(a), sin(a));
-        let near = textureSampleLevel(mask, mask_sampler, in.uv + d * texel * reach * 0.6, 0.0);
-        if (near.a > 0.5 && cover < 1.0) {
+        let n_at = in.pos.xy + d * reach * 0.6;
+        let near = textureLoad(mask, clamp(vec2<i32>(n_at), vec2<i32>(0), size - 1), 0);
+        if (near.a > 0.0 && cover < 1.0) {
             col = near.rgb;
             cover = 1.0;
+            front = front || seen(n_at, near.a);
         }
-        let far = textureSampleLevel(mask, mask_sampler, in.uv + d * texel * reach * 1.25, 0.0);
-        if (far.a > 0.5 && cover < 0.45) {
+        let f_at = in.pos.xy + d * reach * 1.25;
+        let far = textureLoad(mask, clamp(vec2<i32>(f_at), vec2<i32>(0), size - 1), 0);
+        if (far.a > 0.0 && cover < 0.45) {
             col = far.rgb;
             cover = 0.45;
+            front = front || seen(f_at, far.a);
         }
     }
     if (cover <= 0.0) {
         discard;
     }
-    return vec4<f32>(col * 1.6, cover * params.v.w);
+    // Behind something: the same line, faint.
+    let k = select(0.32, 1.0, front);
+    return vec4<f32>(col * 1.6, cover * params.v.w * k);
 }
 "#;
 
@@ -146,19 +203,22 @@ pub struct OutlinePlugin;
 impl Plugin for OutlinePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(MaterialPlugin::<EdgeMat>::default());
+        app.add_plugins(MaterialPlugin::<MaskMat>::default());
         app.add_systems(Startup, setup);
         app.add_systems(Update, follow.after(super::app::camera));
     }
 }
 
 fn mask_image(size: UVec2) -> Image {
-    let mut img = Image::new_target_texture(size.x.max(1), size.y.max(1), TextureFormat::Rgba8UnormSrgb, None);
+    // (A float picture: its alpha carries depth.)
+    let mut img = Image::new_target_texture(size.x.max(1), size.y.max(1), TextureFormat::Rgba16Float, None);
     img.asset_usage = RenderAssetUsages::RENDER_WORLD;
     img
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>, mut meshes: ResMut<Assets<Mesh>>, mut mats: ResMut<Assets<StandardMaterial>>, mut edges: ResMut<Assets<EdgeMat>>, mut shaders: ResMut<Assets<Shader>>, window: Query<&Window, With<PrimaryWindow>>) {
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>, mut meshes: ResMut<Assets<Mesh>>, mut mats: ResMut<Assets<MaskMat>>, mut edges: ResMut<Assets<EdgeMat>>, mut shaders: ResMut<Assets<Shader>>, window: Query<&Window, With<PrimaryWindow>>) {
     let _ = shaders.insert(&SHADER, Shader::from_wgsl(SOURCE, "outline_edges.wgsl"));
+    let _ = shaders.insert(&MASK_SHADER, Shader::from_wgsl(MASK_SOURCE, "outline_mask.wgsl"));
     let size = window.single().map(|w| UVec2::new(w.physical_width(), w.physical_height())).unwrap_or(UVec2::new(1600, 1000));
     let image = images.add(mask_image(size));
     // The camera that draws only the shapes to outline.
@@ -168,6 +228,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>, mut meshes: 
         RenderTarget::Image(ImageRenderTarget { handle: image.clone(), scale_factor: 1.0 }),
         Projection::Perspective(PerspectiveProjection { fov: super::cam::FOV_DEG.to_radians(), ..default() }),
         Tonemapping::None,
+        bevy::camera::Hdr,
         Msaa::Off,
         RenderLayers::layer(MASK_LAYER),
         Transform::default(),
@@ -175,7 +236,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>, mut meshes: 
     ));
     // The shapes, one mesh rebuilt each frame (`scene.rs`), flat colour.
     let mesh = meshes.add(super::mesh::Builder::new().mesh());
-    let flat = mats.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, ..default() });
+    let flat = mats.add(MaskMat::default());
     commands.spawn((Mesh3d(mesh.clone()), MeshMaterial3d(flat), RenderLayers::layer(MASK_LAYER), NoFrustumCulling, NotShadowCaster, NotShadowReceiver, Transform::default()));
     // The full-screen layer that traces the edges, on the main camera.
     let mut quad = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
