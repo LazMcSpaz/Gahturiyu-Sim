@@ -101,6 +101,10 @@ pub struct Container {
     pub owner: Owner,
     /// Things taken from it so far (keys the witness rolls).
     pub taken: u32,
+    /// What the squad put in it and hasn't taken back: still theirs, so
+    /// taking it back is no theft (NM-26).
+    #[serde(default)]
+    pub ours: Vec<(items::ItemId, u16)>,
 }
 
 /// All the containers laid out so far.
@@ -274,7 +278,7 @@ impl World {
             }
             let keeper = self.keeper(d.id).map(|p| self.life(p).job);
             let (items, lock) = stock(self.seed, id, what, v.use_, v.key, keeper);
-            self.containers.insert(id, Container { id, what, pos, rot, items, lock, picked: false, owner, taken: 0 });
+            self.containers.insert(id, Container { id, what, pos, rot, items, lock, picked: false, owner, taken: 0, ours: Vec::new() });
         }
     }
 
@@ -321,7 +325,7 @@ impl World {
         let a = Rng::from_keys(&[self.seed, n as u64, 0x5354_5053]).f32() * std::f32::consts::TAU;
         let pos = at.add(V2::new(a.cos(), a.sin()).scale(3.0));
         let items = stash_stock(self.seed, n);
-        self.containers.insert(id, Container { id, what: Holder::Chest, pos, rot: a, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0 });
+        self.containers.insert(id, Container { id, what: Holder::Chest, pos, rot: a, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0, ours: Vec::new() });
         id
     }
 

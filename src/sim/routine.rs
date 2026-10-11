@@ -165,6 +165,9 @@ pub const BOAT_OUT: f32 = 5.4;
 pub const BOAT_BACK: f32 = 6.4;
 /// Usual bedtime, hours (individuals vary).
 pub const BED: f32 = 22.0;
+/// Share of days someone at home spends it indoors rather than out in the
+/// yard (NM-11): they see whoever comes in.
+pub const INDOORS_BY_DAY: f32 = 0.5;
 
 fn hours(t: f64) -> f32 {
     (t.rem_euclid(DAY) / HOUR) as f32
@@ -522,10 +525,12 @@ impl World {
         let a = r.f32() * std::f32::consts::TAU;
         let u = r.f32();
         let around = |c: V2, near: f32, far: f32| c.add(V2::new(a.cos(), a.sin()).scale(near + (far - near) * u));
+        // Some days, at home means indoors (NM-11): about half.
+        let stays_in = Rng::from_keys(&[p.seed, day as u64, 0x494E_444F]).chance(INDOORS_BY_DAY);
         let home = || -> V2 {
             match p.dwelling.map(|d| &s.buildings[d as usize]) {
-                // In bed: indoors.
-                Some(b) if asleep => around(b.pos, 0.0, b.size * 0.25),
+                // In bed, or about the house: indoors.
+                Some(b) if asleep || (stays_in && b.kind != BuildingKind::HoraroStilt) => around(b.pos, 0.0, b.size * 0.25),
                 Some(b) if b.kind == BuildingKind::HoraroStilt => around(b.pos, b.size * 0.36, b.size * 0.44),
                 Some(b) => around(b.pos, b.size * 0.6 + 2.0, b.size * 0.6 + 9.0),
                 None => around(s.pos, 5.0, s.radius()),

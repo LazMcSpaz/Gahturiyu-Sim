@@ -29,6 +29,9 @@ pub const SQUAD_SPEED: f32 = 1.5;
 pub const TOGETHER: f32 = 200.0;
 /// How near two squad members must stand to hand something over, m.
 pub const GIVE_REACH: f32 = 8.0;
+/// Members whose goals are this close (and who walk near each other) are
+/// marching together, metres.
+pub const MARCH_TOGETHER: f32 = 25.0;
 /// A squad member this far from the middle of the others has strayed: the
 /// squad list says so (playtest 2: three gives failed at 47, 57 and 66 m,
 /// and nobody had noticed the squad had spread out).
@@ -43,6 +46,9 @@ pub struct Give {
     pub to: PersonId,
     pub item: ItemId,
     pub piece: Option<super::materials::Piece>,
+    /// How many to hand over (0: the whole stack).
+    #[serde(default)]
+    pub n: u16,
 }
 /// How close someone must be to pick something up, metres.
 pub const REACH: f32 = 1.8;
@@ -308,7 +314,7 @@ impl World {
             let ahead = at.add(dir.scale(3.0));
             let grade = (self.terrain.height(ahead) - self.terrain.height(at)) / 3.0;
             let ground = self.terrain.ground(at).pace();
-            let stride = (self.member_speed(pid) as f64 * walk_factor(grade) as f64 * ground as f64 * dt) as f32;
+            let stride = (self.march_speed(k) as f64 * walk_factor(grade) as f64 * ground as f64 * dt) as f32;
             // Too much to carry: they can't take a step, and say so.
             if self.load_of(pid) >= super::inventory::OVERLOAD_STOP {
                 self.squad.goal[k] = at;
@@ -394,6 +400,37 @@ impl World {
     }
 
     /// Where squad member number `k` is: their fight position if fighting.
+    /// How fast member `k` walks with the others going the same way (BL-47):
+    /// those sent together keep to the slowest one's pace, so the squad
+    /// doesn't string out; whoever is furthest behind walks as fast as they
+    /// can, so stragglers catch up.
+    pub fn march_speed(&self, k: usize) -> f32 {
+        let own = self.member_speed(self.squad.members[k]);
+        let goal = self.squad.goal[k];
+        let here = self.squad.at[k];
+        let left = here.dist(goal);
+        let mut slowest = own;
+        let mut hindmost = true;
+        for j in 0..self.squad.members.len() {
+            if j == k || self.squad.goal[j].dist(goal) > MARCH_TOGETHER || self.squad.at[j].dist(here) > MARCH_TOGETHER * 4.0 || self.squad.at[j].dist(self.squad.goal[j]) < 1e-3 {
+                continue;
+            }
+            let pj = self.squad.members[j];
+            if self.fighting.contains_key(&pj) || self.is_down(pj) {
+                continue;
+            }
+            slowest = slowest.min(self.member_speed(pj));
+            if self.squad.at[j].dist(self.squad.goal[j]) > left + 2.0 {
+                hindmost = false;
+            }
+        }
+        if hindmost {
+            own
+        } else {
+            slowest
+        }
+    }
+
     pub fn member_pos(&self, k: usize) -> V2 {
         let pid = self.squad.members[k];
         self.fighter_pos(pid).unwrap_or(self.squad.at[k])
@@ -541,6 +578,11 @@ impl World {
     /// Hand pack entry `k` (the whole stack) from one squad member to
     /// another standing near. Says why not, if not.
     pub fn give_entry(&mut self, from: PersonId, k: usize, to: PersonId) -> Result<String, String> {
+        self.give_some(from, k, to, 0)
+    }
+
+    /// Hand over `n` of pack entry `k` (0, or more than there are: all of it).
+    pub fn give_some(&mut self, from: PersonId, k: usize, to: PersonId, n: u16) -> Result<String, String> {
         let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
         if from == to {
             return Err("They already have it.".into());
@@ -558,14 +600,20 @@ impl World {
         if d > GIVE_REACH {
             return Err(format!("{} is {d:.0} m away; bring them within {GIVE_REACH:.0} m first.", name(self, to)));
         }
-        let Some(e) = self.people[from as usize].detail.as_ref().and_then(|x| x.gear.bag.get(k)).copied() else {
+        let Some(mut e) = self.people[from as usize].detail.as_ref().and_then(|x| x.gear.bag.get(k)).copied() else {
             return Err("Nothing there.".into());
         };
         let t = self.time;
         self.settle_condition(from, t);
         self.settle_condition(to, t);
         if let Some(x) = self.people[from as usize].detail.as_mut() {
-            x.gear.bag.remove(k);
+            // Some of a stack, or all of it (a made piece is one thing).
+            if n > 0 && n < e.1 && e.2.is_none() {
+                x.gear.bag[k].1 -= n;
+                e.1 = n;
+            } else {
+                x.gear.bag.remove(k);
+            }
         }
         if self.people[to as usize].ensure_detail() {
             self.stats.detailed += 1;
@@ -592,6 +640,11 @@ impl World {
     /// near, else the giver walks over and hands it across when they get
     /// there (as `order_dose` does with a draught). Says why not, if not.
     pub fn order_give(&mut self, from: PersonId, k: usize, to: PersonId) -> Result<String, String> {
+        self.order_give_some(from, k, to, 0)
+    }
+
+    /// As `order_give`, `n` of the stack (0: all of it).
+    pub fn order_give_some(&mut self, from: PersonId, k: usize, to: PersonId, n: u16) -> Result<String, String> {
         let name = |w: &World, p: PersonId| w.people[p as usize].name().unwrap_or("someone").to_string();
         if self.squad.index(from).is_some() && self.squad.index(to).is_some() && from != to && self.person_pos(from).dist(self.person_pos(to)) > GIVE_REACH {
             if self.fighting.contains_key(&from) || self.fighting.contains_key(&to) {
@@ -610,12 +663,12 @@ impl World {
             let at = self.person_pos(to);
             self.order_members(&[from], at);
             self.giving.retain(|g| g.from != from);
-            self.giving.push(Give { from, to, item: e.0, piece: e.2 });
+            self.giving.push(Give { from, to, item: e.0, piece: e.2, n });
             let what = item(e.0).name.to_lowercase();
             return Ok(format!("{} walks over to {} ({d:.0} m) with the {what}.", name(self, from), name(self, to)));
         }
         self.giving.retain(|g| g.from != from);
-        self.give_entry(from, k, to)
+        self.give_some(from, k, to, n)
     }
 
     /// Squad members on their way to hand something over: once near, they
@@ -640,7 +693,7 @@ impl World {
             let there = self.person_pos(g.to);
             if self.person_pos(g.from).dist(there) <= GIVE_REACH * 0.5 {
                 self.giving.remove(n);
-                let _ = self.give_entry(g.from, k, g.to);
+                let _ = self.give_some(g.from, k, g.to, g.n);
                 continue;
             }
             // They've moved since: head for where they are now.

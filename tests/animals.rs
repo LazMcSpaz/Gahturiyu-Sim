@@ -562,6 +562,10 @@ fn pens_have_owners_grow_to_their_limit_and_can_be_culled() {
     let year = w.pen(turiyu).unwrap().now(w.time + 400.0 * DAY).count.floor();
     assert_eq!(year, before + 3.0, "the pen should grow to its limit");
     // And living through some of it day by day comes to the same thing.
+    // (The squad is fed meanwhile: starving kills now, B2.)
+    for &k in &w.squad.members.clone() {
+        w.people[k as usize].detail.as_mut().unwrap().gear.add(gahturiyu_sim::sim::items::id("salted_meat"), 30);
+    }
     let ahead = w.pen(turiyu).unwrap().now(w.time + 12.0 * DAY).count;
     let mut w = run(w, 12.0 * 24.0, HOUR);
     let lived = w.pen_now(turiyu).unwrap().count;
