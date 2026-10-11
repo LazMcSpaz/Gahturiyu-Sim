@@ -58,6 +58,8 @@ pub const HUNGER_SLEEPING: f32 = 0.7;
 pub const HUNGER_WOUNDED: f32 = 1.25;
 /// Extra hunger per unit of load above half capacity.
 pub const HUNGER_LOAD: f32 = 0.6;
+/// A squadmate this close shares their food with one who has none, metres.
+pub const SHARE_REACH: f32 = 40.0;
 /// Members eat when hunger reaches this, if they have food.
 pub const EAT_AT: f32 = 35.0;
 /// Stage thresholds.
@@ -494,7 +496,26 @@ impl World {
             return self.base_food_for(pid, hunger);
         }
         // A town feeds those it holds to work (NM-34).
-        own.or_else(|| self.bound_food_for(pid))
+        own.or_else(|| self.bound_food_for(pid)).or_else(|| self.shared_food_for(pid, hunger).map(|(_, it)| it))
+    }
+
+    /// With nothing of their own, a squadmate close by shares theirs (RG-21):
+    /// (who, what). The nearest with food, within `SHARE_REACH`.
+    fn shared_food_for(&self, pid: PersonId, hunger: f32) -> Option<(PersonId, ItemId)> {
+        let k = self.squad.index(pid)?;
+        let here = self.member_pos(k);
+        let (_, giver) = self
+            .squad
+            .members
+            .iter()
+            .enumerate()
+            .filter(|&(j, &m)| m != pid && !self.people[m as usize].dead && self.member_pos(j).dist(here) <= SHARE_REACH)
+            .filter(|&(_, &m)| self.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| matches!(item(e.0).kind, Kind::Food(_)))))
+            .map(|(j, &m)| (self.member_pos(j).dist(here), m))
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))?;
+        let foods: Vec<(ItemId, f32)> = self.people[giver as usize].detail.as_ref()?.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect();
+        let it = foods.iter().filter(|f| f.1 <= hunger).max_by(|a, b| a.1.total_cmp(&b.1)).or_else(|| foods.iter().min_by(|a, b| a.1.total_cmp(&b.1)))?.0;
+        Some((giver, it))
     }
 
     /// Eat something now (or at `t`): hunger drops by its nourishment.
@@ -502,7 +523,18 @@ impl World {
         let Kind::Food(n) = item(it).kind else { return false };
         // From their own pack; a base's resident with none of it, from the store.
         let had = self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) || (self.resident_of(pid).is_some() && self.base_take_food(pid, it)) || self.bound_take_food(pid, it);
+        // Or a squadmate close by hands some over.
+        let mut shared_by = None;
         if !had {
+            let hunger = self.people[pid as usize].cond.as_ref().map(|c| c.hunger_at(t)).unwrap_or(0.0);
+            if let Some((giver, _)) = self.shared_food_for(pid, hunger).filter(|&(_, x)| x == it) {
+                if self.people[giver as usize].detail.as_mut().is_some_and(|d| d.gear.take(it)) {
+                    self.people[giver as usize].recompute_might();
+                    shared_by = Some(giver);
+                }
+            }
+        }
+        if !had && shared_by.is_none() {
             return false;
         }
         self.settle(pid, t);
@@ -517,7 +549,11 @@ impl World {
         }
         p.recompute_might();
         let name = p.name().unwrap_or("someone").to_string();
-        self.log.push_front((t, format!("{name} eats some {}.", item(it).name.to_lowercase())));
+        let line = match shared_by {
+            Some(g) => format!("{} shares some {} with {name}.", self.people[g as usize].name().unwrap_or("Someone"), item(it).name.to_lowercase()),
+            None => format!("{name} eats some {}.", item(it).name.to_lowercase()),
+        };
+        self.log.push_front((t, line));
         self.log.truncate(14);
         true
     }

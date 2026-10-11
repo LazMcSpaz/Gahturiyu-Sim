@@ -104,7 +104,10 @@ fn hunger_and_meals_dont_depend_on_step_size() {
 fn going_hungry_weakens_then_wastes_and_the_fed_come_round() {
     let mut w = worldgen::generate(1);
     let m = mage(&w);
-    take_all_food(&mut w, m);
+    // Nobody close by has food to share either (RG-21).
+    for k in w.squad.members.clone() {
+        take_all_food(&mut w, k);
+    }
     let strength = w.people[m as usize].effective_stats().attr(Attr::Strength);
     // Weak from hunger after a day and a half or so.
     run(&mut w, 40.0, 120.0);
@@ -119,7 +122,8 @@ fn going_hungry_weakens_then_wastes_and_the_fed_come_round() {
     // (Starving kills in the end, B2, but slowly: not yet.)
     assert!(!body::dead(&hp, &p.stats) && !p.dead, "dead too soon");
     // Fed again, they come round.
-    w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("salted_meat"), 3);
+    // (Enough to go round: hungry squadmates close by are shared with.)
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("salted_meat"), 20);
     run(&mut w, 30.0, 120.0);
     let p = &w.people[m as usize];
     assert!(!body::knocked_out(&p.wounds.hp_at(&p.stats, w.time)), "should be back on their feet");

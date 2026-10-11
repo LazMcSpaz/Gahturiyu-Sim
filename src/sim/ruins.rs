@@ -170,13 +170,13 @@ impl World {
                 RuinKind::Lair(_) => 0.0,
             };
             let id = (WILD, ru.id as u16, 0);
-            self.containers.insert(id, Container { id, what: Holder::Chest, pos: at(1.0), rot, items: chest, lock, picked: false, owner: Owner::Nobody, taken: 0 });
+            self.containers.insert(id, Container { id, what: Holder::Chest, pos: at(1.0), rot, items: chest, lock, picked: false, owner: Owner::Nobody, taken: 0, ours: Vec::new() });
             if ru.kind == RuinKind::Ruin {
                 let mut crate_: Vec<Entry> = vec![Entry(items::id(READING[rr.below(READING.len())]), 1, None)];
                 let (k, n) = SUPPLIES[rr.below(SUPPLIES.len())];
                 crate_.push(Entry(items::id(k), n, None));
                 let id = (WILD, ru.id as u16, 1);
-                self.containers.insert(id, Container { id, what: Holder::Crate, pos: at(-1.0), rot: rot + 0.4, items: crate_, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0 });
+                self.containers.insert(id, Container { id, what: Holder::Crate, pos: at(-1.0), rot: rot + 0.4, items: crate_, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0, ours: Vec::new() });
             }
         }
         self.ruins = out;

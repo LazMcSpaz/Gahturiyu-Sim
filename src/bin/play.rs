@@ -53,7 +53,7 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   rest | wake               the selected lie down where they are, or get up
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
-  give NAME N TO_NAME       hand pack entry N to another squad member standing near
+  give NAME N TO_NAME [HOW_MANY]  hand pack entry N (or some of it) to another squad member
   dismiss NAME              send a member away; they stay in the town they're in
   dose GIVER PATIENT        GIVER gives PATIENT (downed, say) a healing draught
   unequip NAME SLOT         take off what's worn in a slot (main, off, head, body, hands, legs, feet, back, ring, neck)
@@ -1460,9 +1460,11 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         }
         "give" => {
             let (Some(m), Ok(k), Some(to)) = (member(w, arg(0)), arg(1).parse::<usize>(), member(w, arg(2))) else {
-                return "Usage: give NAME N TO_NAME (N from `pack NAME`)\n".into();
+                return "Usage: give NAME N TO_NAME [HOW_MANY] (N from `pack NAME`)\n".into();
             };
-            match w.order_give(m, k, to) {
+            // Some of the stack, or (no count) all of it.
+            let n = arg(3).parse::<u16>().unwrap_or(0);
+            match w.order_give_some(m, k, to, n) {
                 Ok(line) => {
                     o += &format!("{line}\n");
                     // If they had to walk over, see it through.

@@ -309,9 +309,20 @@ impl World {
             if let Some(why) = loss {
                 m.lost = Some((l.job, why));
                 m.idle_days = 0;
+                // A trade with no work in it: back to plain work (NM-51),
+                // not to nothing. Hurt or away, they've nothing for now.
+                let labour = if why == Loss::Idle { l.community.and_then(|ci| self.labour_places(ci).first().copied()) } else { None };
                 let lf = &mut self.society.lives[p as usize];
-                lf.job = Job::None;
-                lf.place = None;
+                match labour {
+                    Some(pl) => {
+                        lf.job = Job::Labourer;
+                        lf.place = Some(pl);
+                    }
+                    None => {
+                        lf.job = Job::None;
+                        lf.place = None;
+                    }
+                }
                 lost_any = true;
             }
             let l = self.society.lives[p as usize];

@@ -171,6 +171,7 @@ impl World {
         if self.source_now(who) != Some(src) {
             return false;
         }
+        let mut own_back = 0u16;
         let taken: Vec<Entry> = match (src, what) {
             (Source::Body(body), LootRef::Worn(s)) => {
                 let Some(d) = self.people[body as usize].detail.as_mut() else { return false };
@@ -191,7 +192,15 @@ impl World {
                 if k >= c.items.len() {
                     return false;
                 }
-                vec![c.items.remove(k)]
+                let e = c.items.remove(k);
+                // What of it the squad put there is theirs again.
+                if let Some(o) = c.ours.iter_mut().find(|o| o.0 == e.0) {
+                    let back = o.1.min(e.1);
+                    o.1 -= back;
+                    own_back = back;
+                }
+                c.ours.retain(|o| o.1 > 0);
+                vec![e]
             }
             (Source::Chest(_), LootRef::Worn(_)) => return false,
         };
@@ -219,7 +228,11 @@ impl World {
         };
         self.log.push_front((self.time, format!("{a} takes {} from {from}.", names.join(", "))));
         self.log.truncate(14);
-        if let Source::Chest(c) = src {
+        // Only what wasn't theirs is taking from someone.
+        let stolen: Vec<Entry> = taken.iter().map(|e| Entry(e.0, e.1 - own_back.min(e.1), e.2)).filter(|e| e.1 > 0).collect();
+        let worth = worth - own_back as f32 * taken.first().map(|e| item(e.0).value).unwrap_or(0.0);
+        if let (Source::Chest(c), false) = (src, stolen.is_empty()) {
+            let taken = stolen;
             let before = self.wrongs_in(c.0);
             self.took_from(who, c, worth);
             // Told to the watch: the town knows what went (NM-24).
@@ -249,6 +262,11 @@ impl World {
         match chest.items.iter_mut().find(|x| x.0 == e.0 && x.2.is_none() && e.2.is_none()) {
             Some(x) => x.1 += e.1,
             None => chest.items.push(e),
+        }
+        // Still the squad's: theirs to take back.
+        match chest.ours.iter_mut().find(|x| x.0 == e.0) {
+            Some(x) => x.1 = x.1.saturating_add(e.1),
+            None => chest.ours.push((e.0, e.1)),
         }
         let what = chest.what.name();
         self.people[who as usize].recompute_might();
