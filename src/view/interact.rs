@@ -148,7 +148,7 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
     match h {
         Hover::Person(pid) => {
             let p = &w.people[pid as usize];
-            let name = p.name().unwrap_or("them");
+            let name = &w.called(pid).unwrap_or_else(|| "them".to_string());
             if w.squad.index(pid).is_some() {
                 // Down (or badly hurt) and someone has a draught: that first.
                 let hurt = w.is_down(pid) || super::hud::bar_for(w, pid).is_some_and(|b| b.0 < 0.5);
@@ -481,8 +481,8 @@ pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, 
     };
     match d.aim {
         Aim::Foe => match person {
-            Some(p) if w.is_enemy(p) => (format!("Cast on {}  ·  {}", w.people[p as usize].name().unwrap_or("them"), if w.fighting.contains_key(&who) { reach(w.person_pos(p)) } else { "starts the fight".into() }), true),
-            Some(p) => (format!("{} isn't an enemy", w.people[p as usize].name().unwrap_or("They")), false),
+            Some(p) if w.is_enemy(p) => (format!("Cast on {}  ·  {}", w.called(p).unwrap_or_else(|| "them".into()), if w.fighting.contains_key(&who) { reach(w.person_pos(p)) } else { "starts the fight".into() }), true),
+            Some(p) => (format!("{} isn't an enemy", w.called(p).unwrap_or_else(|| "They".into())), false),
             None => ("Point at an enemy".into(), false),
         },
         Aim::Friend => match person {
@@ -518,7 +518,7 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
     Some(match h {
         Hover::Person(p) => {
             let pp = &w.people[p as usize];
-            let n = pp.name().map(|s| s.to_string()).unwrap_or_else(|| pp.race.name().to_string());
+            let n = w.called(p).unwrap_or_else(|| pp.race.name().to_string());
             if w.can_loot(p) {
                 format!("{n} (beaten)")
             } else {

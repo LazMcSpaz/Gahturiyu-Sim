@@ -71,7 +71,7 @@ pub fn loot_panel(c: &Canvas, w: &World, at: Option<Vec2>, putting: bool, take_k
     let (title, whose, whose_col) = match src {
         Source::Body(body) => {
             let p = &w.people[body as usize];
-            (p.name().unwrap_or("Them").to_string(), if p.dead { "Dead".to_string() } else { "Out cold".to_string() }, SUB)
+            (w.called(body).unwrap_or_else(|| "Them".to_string()), if p.dead { "Dead".to_string() } else { "Out cold".to_string() }, SUB)
         }
         Source::Chest(id) => match w.container(id) {
             Some(k) => {

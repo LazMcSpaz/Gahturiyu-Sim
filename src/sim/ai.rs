@@ -85,7 +85,8 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     // An order to go for someone lapses once they've turned and run beyond
     // arm's reach: a runner is a little quicker than a chaser, so a chase
     // that hasn't landed a blow at once never will (it only drags the fight
-    // out to its time limit).
+    // out to its time limit). Short of that the player's order stands: the
+    // let-go rule (`gives_chase`) is for those left to themselves.
     // (A beast that can still be got is another matter: `still_quarry`.)
     let runaway = |j: usize| b.fighters[j].fleeing && !still_quarry(me, &b.fighters[j]) && me.pos.dist(b.fighters[j].pos) > me.reach();
     let ordered = match me.order {
@@ -251,6 +252,90 @@ fn still_quarry(me: &Fighter, them: &Fighter) -> bool {
     far <= me.attack_range().max(QUARRY_CHASE) || them.speed() < me.base_speed * super::body::leg_factor(&me.hp) * 0.95
 }
 
+/// How far from their own people, metres, the most timid goes after a foe
+/// who's getting away; the boldest go `CHASE_BOLD` further.
+pub const CHASE_BASE: f32 = 12.0;
+pub const CHASE_BOLD: f32 = 36.0;
+/// With nobody of their own still fighting, they go this many times as far
+/// (there's nobody to go back and help).
+pub const CHASE_FREE: f32 = 2.0;
+/// A friend with a foe this close (or in reach of their weapon) is still
+/// fighting, metres.
+pub const ENGAGED: f32 = 6.0;
+
+/// Where a fighter's own people are, and whether any of them are still
+/// fighting: the middle of those of their side with a foe close by who is
+/// fighting back; failing that, the ground the fight started on
+/// (`Battle::ground`).
+pub fn anchor(b: &Battle, i: usize) -> (V2, bool) {
+    let me = &b.fighters[i];
+    let engaged: Vec<V2> = (0..b.fighters.len())
+        .filter(|&k| k != i && b.fighters[k].side == me.side && b.fighters[k].active() && !b.fighters[k].fleeing && !b.fighters[k].is_decoy())
+        .filter(|&k| {
+            let f = &b.fighters[k];
+            let near = f.attack_range().max(ENGAGED);
+            // (A foe close by who is fighting back: someone walking off with
+            // a pack at their heels isn't a fight to go back to.)
+            (0..b.fighters.len()).any(|j| {
+                let o = &b.fighters[j];
+                b.hostile(k, j) && o.active() && !o.fleeing && f.pos.dist(o.pos) <= near && o.target.is_some_and(|x| x < b.fighters.len() && b.fighters[x].side == me.side)
+            })
+        })
+        .map(|k| b.fighters[k].pos)
+        .collect();
+    if engaged.is_empty() {
+        (b.ground.unwrap_or(me.pos), false)
+    } else {
+        (engaged.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / engaged.len() as f32), true)
+    }
+}
+
+/// How far from their own people (`anchor`) fighter `i` will go after
+/// someone getting away. Bolder people go further, and each has their own
+/// leaning, one roll keyed to the fight and the fighter (so some of a band
+/// give up sooner than others). Further if none of their own are still
+/// fighting.
+pub fn chase_limit(b: &Battle, i: usize, still_fighting: bool) -> f32 {
+    let me = &b.fighters[i];
+    let lean = 0.7 + 0.6 * Rng::from_keys(&[b.seed, i as u64, 0x4348_4153]).f32();
+    (CHASE_BASE + CHASE_BOLD * me.boldness.clamp(0.0, 1.0)) * lean * if still_fighting { 1.0 } else { CHASE_FREE }
+}
+
+/// Whether fighter `i` goes after (or keeps after) foe `j`. One rule for
+/// every fight, near the squad or far from it (P23):
+/// - someone coming at one of us is in the fight: always;
+/// - a beast: while it stands its ground, or once it has turned tail while
+///   it can still be got (`still_quarry`): that's what a hunt is;
+/// - a person who has turned tail has given the fight up: let go once out of
+///   reach (they're a little quicker, so a chase never lands a blow);
+/// - anyone else not fighting back (walking off, falling back): as far as
+///   the chaser's nerve takes them from their own people (`chase_limit`
+///   from `anchor`), on their heels or not, and not at all once they've
+///   got out of reach and are the quicker. Past that they let them go, and
+///   go back to whoever of theirs is still fighting (`choose_target` then
+///   picks a foe there).
+pub fn gives_chase(b: &Battle, i: usize, j: usize) -> bool {
+    let (me, them) = (&b.fighters[i], &b.fighters[j]);
+    if !them.fleeing && them.target.is_some_and(|k| k < b.fighters.len() && b.fighters[k].active() && b.hostile(j, k)) {
+        return true;
+    }
+    let close = me.pos.dist(them.pos) <= me.reach().max(me.attack_range());
+    if them.fleeing {
+        return close || still_quarry(me, them);
+    }
+    // A beast that hasn't run yet is what a hunt is for.
+    if them.home == super::animals::ANIMAL_SIDE {
+        return true;
+    }
+    // Walking off without fighting back: on their heels or not, nobody
+    // follows them further than this from their own people.
+    let (at, fighting) = anchor(b, i);
+    if me.pos.dist(at) > chase_limit(b, i, fighting) {
+        return false;
+    }
+    close || them.speed() <= me.speed() * 1.05
+}
+
 fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
     let me = &b.fighters[i];
     let score = |j: usize| -> f32 {
@@ -273,12 +358,11 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
         .filter(|&j| b.hostile(i, j) && b.fighters[j].active())
         // Someone hidden by a spell is lost beyond arm's reach.
         .filter(|&j| b.fighters[j].has(Does::Hide).is_none() || me.pos.dist(b.fighters[j].pos) <= 4.0)
-        // Don't chase a runner who's already got a head start (unless it's
-        // a beast that can still be got).
-        .filter(|&j| !(b.fighters[j].fleeing && !still_quarry(me, &b.fighters[j]) && me.pos.dist(b.fighters[j].pos) > me.reach()))
+        // Not someone getting away past what this one will chase (P23).
+        .filter(|&j| gives_chase(b, i, j))
         .min_by(|&x, &y| score(x).total_cmp(&score(y)))?;
     match me.target {
-        Some(cur) if cur != best && b.fighters[cur].active() && !b.fighters[cur].fleeing && b.hostile(i, cur) && score(cur) < score(best) + 2.0 + jitter => Some(cur),
+        Some(cur) if cur != best && b.fighters[cur].active() && !b.fighters[cur].fleeing && b.hostile(i, cur) && gives_chase(b, i, cur) && score(cur) < score(best) + 2.0 + jitter => Some(cur),
         _ => Some(best),
     }
 }

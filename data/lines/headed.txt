@@ -1,0 +1,16 @@
+# Where they're headed: "Where are you headed?" Asked of someone on the
+# road with others. One piece (line). See FORMAT.md.
+# Tags here: going_home (back to their own town), going_on (to another
+# town), wandering (no town of their own, going nowhere in particular),
+# caravan (carrying goods).
+# Slots: {going} (the town they're making for), {from} (their own town).
+line | going_home | Home, to {going}. I've been away long enough.
+line | going_home, voice=roduro | Back to {going}, to my own roof. The road's no place to sleep.
+line | going_home, voice=horaro | Home to {going}, before the {w:tide} turns on me.
+line | going_on | To {going}. There's business there, and none of yours.
+line | going_on, gentle | We're making for {going}. Is that your way too?
+line | going_on, voice=tadoro | {going}. Then back to {from}, and I'll write it all down.
+line | going_on, caravan | {going}, with the goods. They'll fetch more there than they did in {from}.
+line | wandering | Wherever the road goes. I don't belong anywhere in particular.
+line | wandering, voice=qotiro | Nowhere you'd know. I go where the work is.
+line | | On, the same as you.

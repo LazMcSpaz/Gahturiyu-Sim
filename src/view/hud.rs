@@ -321,7 +321,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
     match h {
         Hover::Person(pid) => {
             let p = &w.people[pid as usize];
-            let name = p.name().unwrap_or("(not yet named)");
+            let name = w.called(pid).unwrap_or_else(|| "(not yet named)".to_string());
             out.push((format!("{}  ·  {}", name, p.race.name()), race_color(p.race)));
             if w.can_loot(pid) {
                 out.push(("Beaten: click to go through their things (Shift-click to carry)".to_string(), GOLD));

@@ -50,6 +50,7 @@ pub mod memory;
 pub mod names;
 pub mod news;
 pub mod person;
+pub mod place;
 pub mod quests;
 pub mod ring;
 pub mod race;

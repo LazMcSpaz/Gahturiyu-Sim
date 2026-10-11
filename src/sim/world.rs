@@ -600,16 +600,19 @@ impl World {
     pub fn describe_group(&self, id: GroupId) -> String {
         let Some(g) = self.group(id) else { return String::new() };
         let lead = &self.people[g.members[0] as usize];
-        let who = match lead.name() {
+        // A band that would fall on you is called what it is, and roughly
+        // how many (how a fight would go is for the player to find out).
+        if g.hostile {
+            let n = super::talk::band_words(g.members.len());
+            let mut c = n.chars();
+            let n = c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default();
+            return format!("{n} of them: bandits.");
+        }
+        let who = match self.called(g.members[0]) {
             Some(n) if g.members.len() == 1 => format!("{} ({})", n, lead.race.name()),
             Some(n) => format!("{} and {} other{}", n, g.members.len() - 1, if g.members.len() == 2 { "" } else { "s" }),
             None => format!("{} travellers", g.members.len()),
         };
-        // A band that would fall on you is called what it is (how a fight
-        // would go is for the player to find out: hover, or `look`).
-        if g.hostile {
-            return format!("{who}: bandits.");
-        }
         match g.kind {
             Kind::Wanderer { .. } => format!("{who}, wandering, crosses your path."),
             Kind::Journey { home } => {

@@ -151,8 +151,7 @@ impl World {
     }
 
     fn name_of_or(&self, pid: PersonId) -> String {
-        let p = &self.people[pid as usize];
-        p.name().map(|s| s.to_string()).unwrap_or_else(|| super::names::person_name(p.race, p.seed))
+        self.name_of(pid)
     }
 
     /// Leave a body at `at`.
