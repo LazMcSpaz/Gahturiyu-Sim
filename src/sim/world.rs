@@ -111,6 +111,11 @@ pub struct World {
     // --- Things -------------------------------------------------------------
     /// Squad members on their way to pick something up.
     pub pickups: Vec<Pickup>,
+    /// Bedrolls laid out and tents pitched (`bedding.rs`), the last id given,
+    /// and squad members on their way to lay out, pack up or lie down.
+    pub beds: Vec<super::bedding::Bedding>,
+    pub next_bed: u32,
+    pub bed_jobs: Vec<super::bedding::BedJob>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -335,6 +340,9 @@ impl World {
             corpses: Vec::new(),
             alerts: Vec::new(),
             pickups: Vec::new(),
+            beds: Vec::new(),
+            next_bed: 0,
+            bed_jobs: Vec::new(),
             dosing: Vec::new(),
             giving: Vec::new(),
             ground: Vec::new(),

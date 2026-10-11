@@ -393,9 +393,23 @@ impl Shot {
             }
         }
         if self.rest {
+            // Whoever carries the tent pitches it beside them; the rest lay
+            // out bedrolls round it; then they all lie down (once it's up).
+            use gahturiyu_sim::sim::bedding::BedKind;
             let all = world.squad.members.clone();
-            world.order_rest(&all);
-            for _ in 0..60 {
+            if let Some(&m) = all.iter().find(|&&m| world.can_lay(m, BedKind::Tent)) {
+                let at = world.person_pos(m).add(V2::new(3.0, 1.5));
+                let _ = world.order_lay(m, BedKind::Tent, at, true);
+            }
+            for (i, &m) in all.iter().enumerate() {
+                if world.bed_jobs.iter().any(|j| matches!(j, gahturiyu_sim::sim::bedding::BedJob::Lay { who, .. } if *who == m)) {
+                    continue;
+                }
+                let a = i as f32 * 1.7;
+                let at = world.person_pos(m).add(V2::new(a.cos() * 2.5, a.sin() * 2.5));
+                let _ = world.order_lay(m, BedKind::Bedroll, at, true);
+            }
+            for _ in 0..90 {
                 world.step(10.0);
             }
         }

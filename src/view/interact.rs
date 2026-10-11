@@ -51,6 +51,12 @@ pub enum Act {
     /// Give this squad member a healing draught (the nearest of the
     /// selected who has one).
     Dose(PersonId),
+    /// Lie down in a bedroll or tent the squad laid out.
+    SleepIn(u32),
+    /// Pack a bedroll or tent up.
+    PackUp(u32),
+    /// Lay out a bedroll (or pitch a tent) here.
+    Lay(gahturiyu_sim::sim::bedding::BedKind, V2),
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -76,7 +82,20 @@ pub fn menu_choices(w: &World, m: &Menu, who: &[PersonId]) -> (String, Vec<Choic
         return (title, wild_choices(w, &s));
     }
     match m.ground {
-        Some(p) => ("Here".into(), vec![ch("Walk here", Act::Walk(p)), ch("Sneak here", Act::SneakTo(p))]),
+        Some(p) => {
+            use gahturiyu_sim::sim::bedding::BedKind;
+            let mut cs = vec![ch("Walk here", Act::Walk(p)), ch("Sneak here", Act::SneakTo(p))];
+            // Out of doors: somewhere to sleep, from what the picked carry.
+            if w.building_at(p).is_none() {
+                if who.iter().any(|&m| w.can_lay(m, BedKind::Bedroll)) {
+                    cs.push(ch("Lay out a bedroll here", Act::Lay(BedKind::Bedroll, p)));
+                }
+                if who.iter().any(|&m| w.can_lay(m, BedKind::Tent)) {
+                    cs.push(ch("Pitch the tent here", Act::Lay(BedKind::Tent, p)));
+                }
+            }
+            ("Here".into(), cs)
+        }
         None => ("Nothing here".into(), Vec::new()),
     }
 }
@@ -260,6 +279,16 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                 out.push(ch("Walk to it", Act::Walk(t.pos)));
             }
         }
+        Hover::Bedding(id) => {
+            if let Some(b) = w.bedding(id) {
+                let name = b.kind.name();
+                if b.ready(w.time) {
+                    out.push(ch(if b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { "Sleep in the tent".to_string() } else { "Sleep here".to_string() }, Act::SleepIn(id)));
+                }
+                out.push(ch(format!("Pack up the {name}"), Act::PackUp(id)));
+                out.push(ch("Walk to it", Act::Walk(b.pos)));
+            }
+        }
         Hover::Ruin(r) => {
             if let Some(ru) = w.ruins.get(r as usize) {
                 out.push(ch("Walk there", Act::Walk(ru.pos)));
@@ -324,6 +353,24 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
                 Some(Ok(m)) | Some(Err(m)) => m,
                 None => "Nobody standing has a healing draught.".into(),
             });
+        }
+        Act::SleepIn(id) => {
+            // The nearest of the picked who isn't lying down already.
+            let Some(at) = w.bedding(id).map(|b| b.pos) else { return Some("It's gone.".into()) };
+            let m = who.iter().copied().filter(|&m| !w.any_resting(&[m])).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at))).or_else(|| nearest(w, who, at));
+            return m.and_then(|m| w.order_sleep_in(m, id).err()).map(|e| format!("Can't: {e}."));
+        }
+        Act::PackUp(id) => {
+            let Some(at) = w.bedding(id).map(|b| b.pos) else { return Some("It's gone.".into()) };
+            return nearest(w, who, at).and_then(|m| w.order_pack(m, id).err()).map(|e| format!("Can't: {e}."));
+        }
+        Act::Lay(kind, at) => {
+            // The nearest of the picked who carries one.
+            let m = who.iter().copied().filter(|&m| w.can_lay(m, kind)).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at)));
+            return match m {
+                Some(m) => w.order_lay(m, kind, at, false).err().map(|e| format!("Can't: {e}.")),
+                None => Some(format!("Nobody picked carries a {}.", kind.name())),
+            };
         }
         Act::SneakTo(p) => {
             for &m in who {
@@ -549,6 +596,11 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
         Hover::Node(n) => item(w.nodes.iter().find(|x| x.id == n)?.item).name.to_string(),
         Hover::Station(i) => w.stations.get(i)?.1.name().to_string(),
         Hover::Torch(_) => "Standing torch".into(),
+        Hover::Bedding(id) => match w.bedding(id) {
+            Some(b) if b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent => "Tent".into(),
+            Some(_) => "Bedroll".into(),
+            None => return None,
+        },
         Hover::Deposit(d) => w.deposit(d)?.face().name.to_string(),
         Hover::Ruin(r) => w.ruins.get(r as usize)?.name(w),
         Hover::Container(id) => {

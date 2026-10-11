@@ -340,7 +340,7 @@ where the most signs stand: workplace signposts and service plaques; add
 `GAHT_HOURS=15` for night, `GAHT_ZOOM=60 GAHT_PITCH=0.6` for the usual town camera).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
-`GAHT_REST=1` (the squad beds down where it stands, after `GAHT_HOURS`, so the tent in the hunter's pack goes up),
+`GAHT_REST=1` (after `GAHT_HOURS`, the hunter pitches the tent and the rest lay out bedrolls round it, then they lie down),
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
 put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,
@@ -521,6 +521,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   `What::Fire` in the solid list. A fire put out is in `World::doused` (saved)
   until it relights by the clock; a camp's stays `Camp::doused_until`. The
   town is redrawn when one of its fires goes out (`doused_mark`).
+- Sleeping out of doors (Laz, 11 Oct; `sim/bedding.rs`): nobody sleeps on the
+  bare ground. Everyone carries a bedroll; it's laid out where it's wanted
+  (right-click the ground) and stays, an object, until packed up; a tent is
+  pitched the same way (ten minutes, rising as it goes; it holds three and
+  rests better). Clicking a bedroll, tent, or a bed indoors sends someone to
+  lie down; there's no rest button (N or the Wake pill gets them up). Squad
+  members bed down by themselves at night only where there's something to
+  sleep in. `World::order_rest` (tests, the play tool) lays out a bedroll at
+  their feet and lies down in it.
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.

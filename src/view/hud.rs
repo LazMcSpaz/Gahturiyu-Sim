@@ -625,6 +625,17 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             out.push(("Standing torch".into(), GOLD));
             out.push((format!("Burns until {}", hhmm(st.out_at)), DIM));
         }
+        Hover::Bedding(id) => {
+            let Some(b) = w.bedding(id) else { return out };
+            let tent = b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent;
+            out.push((if tent { "Tent".into() } else { "Bedroll".into() }, GOLD));
+            if !b.ready(w.time) {
+                out.push((if tent { format!("Being pitched: up at {}", hhmm(b.ready_at)) } else { "Being laid out".into() }, DIM));
+            } else if tent {
+                out.push((format!("Sleeps {}; rests better than the open", gahturiyu_sim::sim::bedding::IN_TENT), DIM));
+            }
+            out.push(("Left-click: sleep in it  ·  Right-click: pack it up".into(), DIM));
+        }
     }
     out
 }
