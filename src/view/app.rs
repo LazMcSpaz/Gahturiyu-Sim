@@ -156,6 +156,13 @@ pub struct Game {
     /// Filled by the 3D scene each frame: hoverable points, town names and
     /// health bars, in world space.
     pub picks: Vec<(Vec3, f32, Hover)>,
+    /// Filled by the 3D scene each frame: the floor height (top) of each
+    /// building the squad is in, so a click indoors lands on the floor.
+    pub floors: Vec<(gahturiyu_sim::sim::buildings::DoorId, f32)>,
+    /// How each figure drawn is walking and facing (UI-9; drawing only).
+    pub gaits: super::gait::Gaits,
+    /// What the mouse rests on and since when (the long tooltip waits, UI-4).
+    pub resting: Option<(Hover, std::time::Instant)>,
     pub labels: Vec<(Vec3, String)>,
     pub bars: Vec<(Vec3, f32, Option<f32>, bool)>,
     /// Remarks townsfolk make as the squad goes by: (who, what, until frame),
@@ -163,6 +170,9 @@ pub struct Game {
     pub barks: Vec<(PersonId, String, u32)>,
     /// What the squad has noticed and said (`remarks.rs`).
     pub remarks: super::remarks::Remarks,
+    /// The last walk that can't get all the way (UI-7): the spot clicked,
+    /// who was sent, and when. A grey cross marks the spot while they go.
+    pub short: Option<(V2, Vec<PersonId>, std::time::Instant)>,
     /// The town's talk panel shows everything (as with the detail readout).
     pub town_all: bool,
     /// The land editor (F10).
@@ -281,10 +291,14 @@ pub fn run() {
         panels: Vec::new(),
         hover: None,
         picks: Vec::new(),
+        floors: Vec::new(),
+        gaits: Default::default(),
+        resting: None,
         labels: Vec::new(),
         bars: Vec::new(),
         barks: Vec::new(),
         remarks: Default::default(),
+        short: None,
         town_all: false,
         editor: Default::default(),
         barked: std::collections::HashMap::new(),
@@ -375,6 +389,10 @@ pub fn run() {
             game.follow = false;
             game.orbit.target = p;
             game.orbit.ground = game.world.terrain.surface(p);
+        }
+        if let Some(p) = *super::shot::WAY_SHORT.lock().unwrap() {
+            let who: Vec<PersonId> = game.world.squad.members.iter().copied().take(2).collect();
+            note_short(&mut game, &who, p);
         }
         // Interiors and the variants row frame themselves.
         game.cutaway = s.cutaway;
@@ -817,10 +835,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     if buttons.just_released(MouseButton::Right) {
         if let Some(p) = game.rpress_at.take() {
             if (p - mouse).length() < 6.0 && !on_panels {
-                let ground = match game.view {
-                    View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
-                    View::Scene => game.orbit.ground_at(game.screen, mouse, &game.world.terrain),
-                };
+                let ground = point_under(game, mouse);
                 game.menu = Some(super::interact::Menu { at: mouse, hover: game.hover, wild: if game.hover.is_none() { game.wild } else { None }, ground });
             }
         }
@@ -1028,6 +1043,58 @@ fn place_click(game: &mut Game, shift: bool) {
 
 /// A short left-click in the world: select a squad member, attack an enemy,
 /// pick something up, or walk there.
+/// The mouse has rested on `h` long enough for its long tooltip (or Alt is
+/// held, or it's a screenshot); restarts the wait when `h` changes (UI-4).
+fn tip_due(game: &mut Game, h: Hover, alt: bool) -> bool {
+    if game.resting.is_none_or(|r| r.0 != h) {
+        game.resting = Some((h, std::time::Instant::now()));
+    }
+    // (Screenshots show the tooltip, or with `GAHT_PLATE=1` the name plate.)
+    if game.shot.is_some() {
+        return alt || std::env::var("GAHT_PLATE").is_err();
+    }
+    alt || game.resting.is_some_and(|r| r.1.elapsed().as_secs_f32() >= super::pointer::TIP_AFTER)
+}
+
+/// Just the name, over the thing under the mouse (UI-4): over its head if
+/// it's a person, else just above the pointer.
+fn name_plate(c: &hud::Canvas, game: &Game, h: Hover, size: Vec2) {
+    let Some(name) = super::interact::short_name(&game.world, h) else { return };
+    let vp = game.orbit.view_proj(size);
+    let over = match game.view {
+        View::Scene => game.picks.iter().find(|p| p.2 == h).and_then(|p| game.orbit.project(&vp, size, p.0)).map(|q| q - Vec2::new(0.0, 14.0)),
+        View::Map => None,
+    };
+    super::pointer::plate(c, over.unwrap_or(game.mouse - Vec2::new(0.0, 16.0)), &name);
+}
+
+/// Before a walk is ordered: if it can't get all the way (the water's in
+/// the way), mark the spot and have the lead say so (UI-7).
+fn note_short(game: &mut Game, who: &[PersonId], p: V2) {
+    let w = &game.world;
+    let short = who.iter().filter_map(|&m| w.squad.index(m)).any(|k| w.walk_stops_short(w.member_pos(k), p).is_some());
+    game.short = None;
+    if short {
+        game.short = Some((p, who.to_vec(), std::time::Instant::now()));
+        if let Some(&lead) = who.first() {
+            game.barks.retain(|b| b.0 != lead);
+            game.barks.push((lead, "We can't cross the water.".into(), game.frame + BARK_FRAMES));
+        }
+    }
+}
+
+/// The spot under the mouse: on the map, or in the 3D view the floor of a
+/// building the squad is in (UI-10), else the land.
+fn point_under(game: &Game, mouse: Vec2) -> Option<V2> {
+    match game.view {
+        View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
+        View::Scene => {
+            let floor = |d: &gahturiyu_sim::sim::buildings::Door| game.floors.iter().find(|f| f.0 == d.id).map(|f| f.1).unwrap_or(f32::NAN);
+            super::interact::floor_under(&game.world, game.orbit.ray(game.screen, mouse), &floor).or_else(|| game.orbit.ground_at(game.screen, mouse, &game.world.terrain))
+        }
+    }
+}
+
 fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
     if game.placing.is_some() {
         place_click(game, shift);
@@ -1110,10 +1177,10 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
         }
         return;
     }
-    let target = match game.view {
-        View::Map => Some(game.map_cam.to_world(game.screen, mouse)),
-        View::Scene => game.orbit.ground_at(game.screen, mouse, &game.world.terrain),
-    };
+    let target = point_under(game, mouse);
+    if let Some(t) = target {
+        note_short(game, &who, t);
+    }
     let world = &mut game.world;
     if let Some(t) = target {
         if game.sel.is_all(world) {
@@ -1870,7 +1937,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
 
     // (Screenshots: `GAHT_MENU=1` right-clicks at the fake mouse.)
     if game.shot.is_some() && game.frame == 20 && std::env::var("GAHT_MENU").is_ok() {
-        let ground = game.orbit.ground_at(game.screen, game.mouse, &game.world.terrain);
+        let ground = point_under(game, game.mouse);
         game.menu = Some(super::interact::Menu { at: game.mouse, hover: game.hover, wild: game.wild, ground });
     }
     // The right-click menu, and anything pinned with Examine.
@@ -1897,10 +1964,14 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     for &x in &who {
                         game.world.set_sneaking(x, true);
                     }
+                    note_short(game, &who, p);
                     let _ = super::interact::perform(&mut game.world, &who, all, Act::Walk(p));
                     game.sounds.ui("ui_order");
                 }
                 act => {
+                    if let Act::Walk(p) = act {
+                        note_short(game, &who, p);
+                    }
                     if let Some(msg) = super::interact::perform(&mut game.world, &who, all, act) {
                         // (A draught handed over says so too; that isn't a failure.)
                         if !matches!(act, Act::Dose(_)) {
@@ -1938,10 +2009,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     let ground_hover = if on_panels || game.hover.is_some() {
         None
     } else {
-        let gp = match game.view {
-            View::Map => Some(game.map_cam.to_world(game.screen, game.mouse)),
-            View::Scene => game.orbit.ground_at(game.screen, game.mouse, &game.world.terrain),
-        };
+        let gp = point_under(game, game.mouse);
         let on_ground = gp.and_then(|p| super::interact::ground_hover(&game.world, p));
         // A building under the mouse, by its outline on screen (the ground
         // behind a roof isn't the building): the one nearest its middle.
@@ -1950,6 +2018,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             let vp = game.orbit.view_proj(size);
             let mut best = f32::MAX;
             for d in game.world.doors_near(game.orbit.target, game.orbit.draw_radius().min(400.0)) {
+                // (One the squad is in is open: its floor is ground, UI-10.)
+                if super::interact::squad_inside(&game.world, d.id) {
+                    continue;
+                }
                 let g = scene.grid.height(&game.world.terrain, d.centre);
                 let mid = to3(d.centre, g + d.radius * 0.35);
                 let (Some(a), Some(b)) = (game.orbit.project(&vp, size, mid), game.orbit.project(&vp, size, mid + Vec3::new(d.radius * 0.8, 0.0, 0.0))) else { continue };
@@ -1994,14 +2066,34 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&lines, game.mouse.x - wd - 18.0, game.mouse.y, 15.0);
     } else if let Some(h) = game.hover {
         if game.aim.is_none() {
-            c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            if tip_due(game, h, alt) {
+                c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            } else {
+                name_plate(&c, game, h, size);
+            }
         }
     }
     super::animals::overlay(&c, game, &scene, &mut panels);
     if game.hover.is_none() && game.wild.is_none() && game.aim.is_none() {
         if let Some(h) = ground_hover {
             game.hover = Some(h);
-            c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            if tip_due(game, h, alt) {
+                c.panel(&super::interact::tooltip(&game.world, h, &who_sel, shift_held, alt), game.mouse.x + 18.0, game.mouse.y + 12.0, 16.0);
+            } else {
+                name_plate(&c, game, h, size);
+            }
+        }
+    }
+    if game.hover.is_none() {
+        game.resting = None;
+    }
+    // Beside the pointer: what a left-click will do (UI-5). (Screenshots
+    // show it only with a mouse set, `GAHT_HOVER`.)
+    let real_mouse = game.shot.is_none() || std::env::var("GAHT_HOVER").is_ok();
+    if real_mouse && !on_panels && game.aim.is_none() && game.placing.is_none() && game.menu.is_none() && game.drag.is_none() && !game.editor.on {
+        let ground = if game.hover.is_none() && game.wild.is_none() { point_under(game, game.mouse) } else { None };
+        if let Some((m, crime)) = super::pointer::mark_for(&game.world, game.hover, game.wild.as_ref(), ground, &who_sel, shift_held) {
+            super::pointer::draw_mark(&c, game.mouse, m, crime);
         }
     }
     // Alt: a label on everything that can be hovered, as in Baldur's Gate 3.

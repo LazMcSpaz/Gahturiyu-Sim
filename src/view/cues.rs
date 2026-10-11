@@ -36,11 +36,22 @@ pub const ARC_SHARE: f64 = 0.5;
 /// Which way someone faces, radians (sim convention): at their target in a
 /// fight, along their way if walking, else as they happen to stand.
 pub fn facing(w: &World, pid: PersonId, at: V2) -> f32 {
+    aim(w, pid, at).unwrap_or_else(|| rest(w, pid))
+}
+
+/// The way someone stands when nothing has turned them.
+pub fn rest(w: &World, pid: PersonId) -> f32 {
+    (w.people[pid as usize].seed % 628) as f32 / 100.0
+}
+
+/// The way someone is made to face, if anything makes them: who they talk
+/// to or fight, what they go through, the squad's next corner.
+pub fn aim(w: &World, pid: PersonId, at: V2) -> Option<f32> {
     // Talking: the two face each other.
     if let Some(c) = w.talk.as_ref().filter(|c| c.with == pid || c.npc == pid) {
         let d = w.person_pos(if c.with == pid { c.npc } else { c.with }).sub(at);
         if d.len() > 0.05 {
-            return d.y.atan2(d.x);
+            return Some(d.y.atan2(d.x));
         }
     }
     if let Some((b, f)) = fight(w, pid) {
@@ -52,13 +63,13 @@ pub fn facing(w: &World, pid: PersonId, at: V2) -> f32 {
         if let Some(j) = t.filter(|&j| j < b.fighters.len()) {
             let d = b.fighters[j].pos.sub(at);
             if d.len() > 0.05 {
-                return d.y.atan2(d.x);
+                return Some(d.y.atan2(d.x));
             }
         }
         if let Act::Cast { point, .. } = f.act {
             let d = point.sub(at);
             if d.len() > 0.05 {
-                return d.y.atan2(d.x);
+                return Some(d.y.atan2(d.x));
             }
         }
     }
@@ -67,17 +78,17 @@ pub fn facing(w: &World, pid: PersonId, at: V2) -> f32 {
     if let Some(c) = chest.and_then(|c| w.container(c)) {
         let d = c.pos.sub(at);
         if d.len() > 0.05 && w.squad.index(pid).is_none_or(|k| w.squad.route[k].is_empty()) {
-            return d.y.atan2(d.x);
+            return Some(d.y.atan2(d.x));
         }
     }
     if let Some(k) = w.squad.index(pid) {
         let to = w.squad.route[k].first().copied().unwrap_or(w.squad.goal[k]);
         let d = to.sub(w.squad.at[k]);
         if d.len() > 0.3 {
-            return d.y.atan2(d.x);
+            return Some(d.y.atan2(d.x));
         }
     }
-    (w.people[pid as usize].seed % 628) as f32 / 100.0
+    None
 }
 
 fn fight(w: &World, pid: PersonId) -> Option<(&gahturiyu_sim::sim::combat::Battle, &gahturiyu_sim::sim::combat::Fighter)> {

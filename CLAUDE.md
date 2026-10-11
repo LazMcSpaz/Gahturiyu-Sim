@@ -288,6 +288,10 @@ first one's things: the loot panel).
 `GAHT_GRIND=1` (two of the squad at work at the nearest woodlot, mid-morning; `GAHT_GRIND=mine`
 for the nearest iron seam).
 `GAHT_MENU=1` (the right-click menu for whatever is under `GAHT_HOVER`).
+`GAHT_WAY=1` (members 0 and 1 caught walking round the nearest building: the dotted order line;
+`GAHT_WAY=sea` sends them out to sea from the nearest shore: the line ends at the water, a grey
+cross at the spot, the lead says so). `GAHT_PLATE=1` (show the name plate under `GAHT_HOVER`
+instead of the long tooltip).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
@@ -423,6 +427,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.
 
+- What's under the mouse (`view/pointer.rs`): a soft ring round it and its name on a small
+  plate at once; the long tooltip after half a second (`TIP_AFTER`). Beside the pointer, a mark
+  for what a left-click will do (walk, talk, attack, go in, take, work, can't; red for a crime),
+  read from `interact::choices`, so it always matches the click. A click on the floor of a
+  building the squad is in walks to that spot (`interact::floor_under`).
+- Figures are eased after the sim's positions (`view/gait.rs`, drawing only): a bob in step,
+  a gentle start and stop, turning at a person's speed, and they keep facing their way when
+  they stop. The selected members' order lines are dotted along their real route
+  (`Squad::route`). A walk into the sea is planned to the shore (`World::cut_at_water`).
 - Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
   healing, "?"/"!" as suspicion builds, a skill rising) come from comparing
   the world with what the window saw last frame — drawing only. Left-drag

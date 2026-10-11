@@ -42,6 +42,8 @@ pub const ROAD_HALF: f32 = 4.0;
 pub const PICK_TIME: f64 = 4.0;
 /// How close to the door you must stand to work the lock, metres.
 pub const AT_DOOR: f32 = 1.5;
+/// How finely a walk is checked for open water when it's ordered, metres.
+pub const WATER_PROBE: f32 = 1.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Door {
@@ -364,6 +366,39 @@ impl World {
         let (tail, locked) = self.route(rb, b);
         path.extend(tail);
         (path, locked)
+    }
+
+    /// A way (from `from`, through `way`'s points) cut where it would first
+    /// step into open water: up to the last dry footing, which ends it.
+    /// None if it stays dry all the way (UI-7: the squad stops at the
+    /// shore, so the order says so from the start).
+    pub fn cut_at_water(&self, from: V2, way: &[V2]) -> Option<Vec<V2>> {
+        let mut last = from;
+        for (i, &p) in way.iter().enumerate() {
+            let n = (last.dist(p) / WATER_PROBE).ceil().max(1.0) as usize;
+            let mut dry = last;
+            for j in 1..=n {
+                let q = last.lerp(p, j as f32 / n as f32);
+                if self.open_water(q) {
+                    let mut out = way[..i].to_vec();
+                    if out.last().is_none_or(|x| x.dist(dry) > 0.01) {
+                        out.push(dry);
+                    }
+                    return Some(out);
+                }
+                dry = q;
+            }
+            last = p;
+        }
+        None
+    }
+
+    /// Where a walk from `from` to `to` would stop short, at the water's
+    /// edge, if it would (what the window shows before and after a click).
+    pub fn walk_stops_short(&self, from: V2, to: V2) -> Option<V2> {
+        let (way, _) = self.travel(from, to);
+        let cut = self.cut_at_water(from, &way)?;
+        Some(cut.last().copied().unwrap_or(from))
     }
 
     /// Open water the squad can't walk: the sea, less buildings standing in
