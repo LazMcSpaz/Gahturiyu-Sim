@@ -22,6 +22,15 @@
 //! crime becomes a bounty, whose news travels as before. With no guard on
 //! watch (or an unpaid watch that won't stir) it's a bounty straight away.
 //!
+//! **Wanted.** A bounty is a debt, and the town's watch knows the face of
+//! whoever was seen at it (`World::wanted`). Nobody goes looking; but a
+//! guard of that town who is up and sees that face close by, plainly
+//! (`KNOW_FACE`, less in the dark or for someone creeping; walls hide;
+//! not at all through a disguise), knows them and comes after them (Laz,
+//! N8: "Only if the squad is spotted and recognized"). Caught, what is owed
+//! is called in by the town's custom (`World::call_in`); lost again, it
+//! stays owed as it was. Squadmates who weren't seen at it aren't known.
+//!
 //! The chase is the squad's own (the player exception): the guard is moved
 //! step by step, like the squad. A guard on a chase stands where the chase
 //! has them (`World::person_pos`).
@@ -62,6 +71,9 @@ pub const OFF_DUTY_REACH: f32 = 120.0;
 pub const GIVE_UP: f64 = 20.0 * 60.0;
 /// A thief this far beyond the town's edge has got away, m.
 pub const BEYOND: f32 = 150.0;
+/// How near a guard must see a wanted face to know it, m, in plain day and
+/// on the move (scaled like all sight by light, stillness and sneaking).
+pub const KNOW_FACE: f32 = 25.0;
 
 /// A guard after a squad member.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -80,6 +92,10 @@ pub struct Pursuit {
     /// Where and when they last saw the thief.
     pub last_seen: V2,
     pub seen_t: f64,
+    /// After someone known for what's already owed, not for a new wrong:
+    /// caught, the debt is called in; lost, it stays as it was.
+    #[serde(default)]
+    pub owed: bool,
 }
 
 impl World {
@@ -185,9 +201,12 @@ impl World {
             // The watch is already after them: this goes on the charge.
             if let Some(p) = self.pursuits.iter_mut().find(|p| p.culprit == who && p.town == town) {
                 p.fine += fine;
-                if wrong.gravity() > p.wrong.gravity() {
+                // (Chased for an old debt, now for this too: judged for it,
+                // and the debt is called in with it as at any judgement.)
+                if p.owed || wrong.gravity() > p.wrong.gravity() {
                     p.wrong = wrong;
                 }
+                p.owed = false;
             }
             self.say(t, line.clone());
             self.alerts.push(line);
@@ -203,7 +222,7 @@ impl World {
                     None => 20.0,
                 }
                 .min(FETCH_MAX);
-                self.pursuits.push(Pursuit { guard: g, culprit: who, town, wrong, fine, witness, start: t + fetch, pos: None, last_seen: at, seen_t: t + fetch });
+                self.pursuits.push(Pursuit { guard: g, culprit: who, town, wrong, fine, witness, start: t + fetch, pos: None, last_seen: at, seen_t: t + fetch, owed: false });
                 let told = match witness {
                     Some(w) => format!("{line} {} runs to fetch the watch!", self.name_of(w)),
                     None => format!("{line} Someone runs to fetch the watch!"),
@@ -242,14 +261,70 @@ impl World {
     /// The crime is known but the one who did it isn't held: a bounty, and
     /// the news of it sets off.
     pub(super) fn post_bounty(&mut self, who: PersonId, town: SettlementId, fine: f32, line: String) {
-        let _ = who;
         *self.bounty.entry(town).or_insert(0.0) += fine * BOUNTY_MARKUP;
+        self.face_known(town, who);
         self.crime_known(town);
         let total = self.bounty[&town];
         let t = self.time;
         self.say(t, format!("{line} Bounty in {}: {total:.0}.", self.settlements[town as usize].name));
         // Nobody came running, but it isn't over (NM-28).
         self.alerts.push(format!("{line} The watch will hear of it."));
+    }
+
+    /// The town's watch knows this face for what's owed there.
+    pub(super) fn face_known(&mut self, town: SettlementId, who: PersonId) {
+        if !self.wanted.contains(&(town, who)) {
+            self.wanted.push((town, who));
+            self.wanted.sort_unstable();
+        }
+    }
+
+    /// Each step: where the squad is wanted, a guard of that town who is up
+    /// and sees a face the watch knows, near and plainly, comes after them
+    /// (N8). Nobody goes looking, and an unpaid watch doesn't stir for an
+    /// old debt.
+    pub(super) fn watch_for_wanted(&mut self) {
+        if self.wanted.is_empty() {
+            return;
+        }
+        let t = self.time;
+        let mut known: Option<(PersonId, PersonId, SettlementId, V2)> = None;
+        for &(town, m) in &self.wanted {
+            if self.bounty.get(&town).is_none_or(|b| *b < 1.0) || self.society.towns[town as usize].owed > 0.0 {
+                continue;
+            }
+            let Some(k) = self.squad.index(m) else { continue };
+            let s = &self.settlements[town as usize];
+            let at = self.member_pos(k);
+            if at.dist(s.pos) > s.reach + BEYOND {
+                continue;
+            }
+            let busy = self.is_down(m) || self.is_bonded(m, t) || self.fighting.contains_key(&m) || self.duels.iter().any(|d| d.accused == m) || self.pursuits.iter().any(|p| p.culprit == m && p.town == town);
+            if busy || self.boon(m, super::effects::Does::Disguise) > 0.0 {
+                continue;
+            }
+            let near = KNOW_FACE * self.visibility_of(m);
+            let room = self.building_at(at).map(|d| d.id);
+            let guard = s
+                .residents
+                .iter()
+                .copied()
+                .filter(|&p| !self.people[p as usize].dead && self.people[p as usize].home == Some(town) && self.life(p).job == Job::Guard)
+                .filter(|&p| !self.fighting.contains_key(&p) && !self.is_down(p) && !self.pursuits.iter().any(|x| x.guard == p))
+                .filter(|&p| self.doing_now(p).is_some_and(|d| d.0 != super::routine::Doing::Asleep))
+                .map(|p| (p, self.person_pos(p)))
+                .filter(|&(_, gp)| gp.dist(at) <= near && self.building_at(gp).map(|d| d.id) == room)
+                .min_by(|a, b| a.1.dist(at).total_cmp(&b.1.dist(at)).then(a.0.cmp(&b.0)));
+            if let Some((g, _)) = guard {
+                known = Some((g, m, town, at));
+                break;
+            }
+        }
+        let Some((g, m, town, at)) = known else { return };
+        self.pursuits.push(Pursuit { guard: g, culprit: m, town, wrong: Wrong::Theft, fine: 0.0, witness: None, start: t, pos: None, last_seen: at, seen_t: t, owed: true });
+        let line = format!("{} of the watch knows {}: wanted in {}.", self.name_of(g), self.name_of(m), self.settlements[town as usize].name);
+        self.say(t, line.clone());
+        self.alerts.push(line);
     }
 
     /// What the squad is wanted for, town by town, for the journal (NM-28):
@@ -342,7 +417,13 @@ impl World {
                 self.pursuits.remove(i);
                 let name = self.name_of(p.culprit);
                 let line = format!("{name} has slipped the watch in {}.", self.settlements[p.town as usize].name);
-                self.post_bounty(p.culprit, p.town, p.fine, line);
+                if p.owed {
+                    // (Nothing new to owe: the debt stays as it was.)
+                    self.say(t, line.clone());
+                    self.alerts.push(line);
+                } else {
+                    self.post_bounty(p.culprit, p.town, p.fine, line);
+                }
                 continue;
             }
             let x = &mut self.pursuits[i];
@@ -367,6 +448,10 @@ impl World {
             let ci = self.society.towns[p.town as usize].shore;
             self.society.communities[ci as usize].customs.justice
         };
-        self.judge(p.culprit, p.town, p.wrong, p.fine, custom);
+        if p.owed {
+            self.call_in(p.culprit, p.town, custom);
+        } else {
+            self.judge(p.culprit, p.town, p.wrong, p.fine, custom);
+        }
     }
 }

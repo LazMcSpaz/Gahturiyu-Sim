@@ -170,6 +170,10 @@ pub struct World {
     pub casts: Vec<super::casting::PendingCast>,
     /// The watch after squad members for crimes told of (`pursuit.rs`).
     pub pursuits: Vec<super::pursuit::Pursuit>,
+    /// Whose faces a town's watch knows for what's owed there: (the town,
+    /// the squad member seen at it), kept in order (`pursuit.rs`).
+    #[serde(default)]
+    pub wanted: Vec<(SettlementId, PersonId)>,
     /// Ruins and lairs worth the walk (`ruins.rs`).
     pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
@@ -345,6 +349,7 @@ impl World {
             ruins: Vec::new(),
             casts: Vec::new(),
             pursuits: Vec::new(),
+            wanted: Vec::new(),
             crafting: Vec::new(),
             making_more: Vec::new(),
             crafted_count: HashMap::new(),

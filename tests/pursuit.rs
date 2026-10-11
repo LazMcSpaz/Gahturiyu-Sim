@@ -331,3 +331,152 @@ fn nm40_a_guard_near_by_comes_though_off_duty() {
     assert_eq!(w.pursuits.iter().map(|p| p.guard).collect::<Vec<_>>(), vec![off], "the guard 20 m away is fetched: {:?}", w.log.iter().take(3).collect::<Vec<_>>());
     assert!(w.bounty.is_empty());
 }
+
+// ---- N8 (#144, NM-22): the watch and a wanted squad ---------------------------
+
+fn put(w: &mut World, who: PersonId, at: V2) {
+    let k = w.squad.index(who).unwrap();
+    w.squad.at[k] = at;
+    w.squad.goal[k] = at;
+    w.squad.route[k].clear();
+}
+
+/// A spot out of doors this far from `from`, and at least `clear` from
+/// every guard of the town but the one stood at `from`.
+fn spot_by(w: &World, town: u16, from: V2, dist: f32, clear: f32) -> V2 {
+    let guards = guards_of(w, town as usize);
+    (0..16)
+        .map(|k| from.add(V2::new((k as f32 * 0.3927).cos(), (k as f32 * 0.3927).sin()).scale(dist)))
+        .find(|&p| w.building_at(p).is_none() && guards.iter().all(|&g| w.person_pos(g).dist(from) < 0.5 || w.person_pos(g).dist(p) >= clear))
+        .expect("a clear spot by the guard")
+}
+
+/// A town where something is owed and member 0's face is known for it (a
+/// theft told of, and the thief away before the watch came); member 0 left
+/// far outside. With it, a guard of the town on watch out of doors, and
+/// what's owed.
+fn wanted() -> (World, u16, PersonId, PersonId, f32) {
+    let (mut w, town, me, folk) = in_town();
+    assert!(told(&mut w, town, me, &folk));
+    let s = &w.settlements[town as usize];
+    let far = s.pos.add(V2::new(s.reach + 400.0, 0.0));
+    put(&mut w, me, far);
+    let mut n = 0;
+    while !w.pursuits.is_empty() && n < 20_000 {
+        w.step(0.25);
+        n += 1;
+    }
+    let owed = w.bounty.get(&town).copied().unwrap_or(0.0);
+    assert!(owed > 0.0 && w.wanted.contains(&(town, me)), "owed {owed}, known {:?}", w.wanted);
+    let t = w.time;
+    let guard = guards_of(&w, town as usize).into_iter().find(|&g| w.at_work(g, t) && w.building_at(w.person_pos(g)).is_none()).expect("a guard on watch out of doors");
+    (w, town, me, guard, owed)
+}
+
+fn wait(w: &mut World, secs: f32) {
+    for _ in 0..(secs / 0.25) as usize {
+        w.step(0.25);
+    }
+}
+
+/// A guard of the town who sees a wanted face close by knows it and comes;
+/// caught, what was owed is called in and the matter is closed.
+#[test]
+fn n8_a_guard_who_sees_a_wanted_face_close_by_comes_after_them() {
+    let (mut w, town, me, guard, owed) = wanted();
+    let gp = w.person_pos(guard);
+    let coin = gahturiyu_sim::sim::items::id("coin");
+    let purse = w.squad_count(coin);
+    let at = spot_by(&w, town, gp, 8.0, 0.0);
+    put(&mut w, me, at);
+    w.step(0.25);
+    assert!(w.pursuits.iter().any(|p| p.culprit == me && p.town == town && p.owed), "known and gone after: {:?}", w.pursuits);
+    assert!(w.alerts.iter().any(|a| a.contains("of the watch knows")), "{:?}", w.alerts.last());
+    // Nothing more is owed for being known: the debt is what it was.
+    assert_eq!(w.charge_on(me), owed);
+    assert!(caught_in_the_end(&mut w), "{:?}", w.log.iter().rev().take(4).collect::<Vec<_>>());
+    assert!(w.log.iter().any(|l| l.1.contains("is held in")), "called in");
+    assert!(w.bounty.get(&town).is_none() && !w.wanted.iter().any(|x| x.0 == town), "the matter is closed: {:?} {:?}", w.bounty, w.wanted);
+    // Paid, or to be worked off, or riding on a duel, by the town's custom.
+    let paid = purse - w.squad_count(coin);
+    assert!(paid > 0 || w.is_bonded(me, w.time) || !w.duels.is_empty(), "something came of it");
+    // And with nothing owed, nobody comes again.
+    wait(&mut w, 30.0);
+    assert!(w.pursuits.is_empty());
+}
+
+/// Only if spotted and recognised (Laz): not a squadmate nobody saw at it,
+/// not from across the square, not through a disguise, not creeping past
+/// out of plain sight.
+#[test]
+fn n8_only_if_spotted_and_recognised() {
+    use gahturiyu_sim::sim::effects::{lasting, Does, Reach};
+    use gahturiyu_sim::sim::pursuit::KNOW_FACE;
+    let (mut w, town, me, guard, owed) = wanted();
+    let gp = w.person_pos(guard);
+    // A squadmate who wasn't seen at it stands right by the guard.
+    let other = w.squad.members[1];
+    let at = spot_by(&w, town, gp, 5.0, 0.0);
+    put(&mut w, other, at);
+    wait(&mut w, 20.0);
+    assert!(w.pursuits.is_empty(), "nobody knows this one's face");
+    // The one who was, in sight but too far off to be known.
+    let at = spot_by(&w, town, gp, 55.0, KNOW_FACE + 15.0);
+    put(&mut w, me, at);
+    wait(&mut w, 20.0);
+    assert!(w.pursuits.is_empty(), "too far to know a face");
+    // Close by, in disguise.
+    assert!(w.apply_effect(me, &lasting(Does::Disguise, 1.0, 1800.0, Reach::Caster), 1.0));
+    let at = spot_by(&w, town, gp, 6.0, 0.0);
+    put(&mut w, me, at);
+    wait(&mut w, 20.0);
+    assert!(w.pursuits.is_empty(), "not through a disguise");
+    w.boons.clear();
+    let at = spot_by(&w, town, gp, 55.0, KNOW_FACE + 15.0);
+    put(&mut w, me, at);
+    // Creeping: known only from much nearer.
+    w.set_sneaking(me, true);
+    w.step(0.25);
+    let near = KNOW_FACE * w.visibility_of(me);
+    assert!(near < KNOW_FACE * 0.6, "creeping is harder to make out: {near}");
+    let at = spot_by(&w, town, gp, (near * 1.6).max(near + 2.0), near * 1.5);
+    put(&mut w, me, at);
+    wait(&mut w, 20.0);
+    assert!(w.pursuits.is_empty(), "crept past at {:.0} m (known within {near:.0})", (near * 1.6).max(near + 2.0));
+    assert_eq!(w.bounty.get(&town).copied(), Some(owed));
+    // Right under the guard's nose, creeping or not.
+    let at = spot_by(&w, town, gp, (near * 0.5).max(0.8), 0.0);
+    put(&mut w, me, at);
+    w.step(0.25);
+    // (Or caught on the spot, if another of the watch stood within reach.)
+    assert!(w.pursuits.iter().any(|p| p.culprit == me && p.owed) || w.log.iter().any(|l| l.1.contains("is held in")), "known close to");
+}
+
+/// Known and lost again, it stays owed as it was (no more for running, and
+/// the face is still known); a new wrong seen on the way is judged as one.
+#[test]
+fn n8_lost_again_it_stays_owed_and_a_new_wrong_is_judged() {
+    let (mut w, town, me, guard, owed) = wanted();
+    let gp = w.person_pos(guard);
+    let at = spot_by(&w, town, gp, 8.0, 0.0);
+    put(&mut w, me, at);
+    w.step(0.25);
+    assert!(w.pursuits.iter().any(|p| p.culprit == me && p.owed));
+    let s = &w.settlements[town as usize];
+    let far = s.pos.add(V2::new(s.reach + 400.0, 0.0));
+    put(&mut w, me, far);
+    wait(&mut w, 5.0);
+    assert!(w.pursuits.is_empty(), "out of town, lost");
+    assert_eq!(w.bounty.get(&town).copied(), Some(owed), "the same debt, no more");
+    assert!(w.wanted.contains(&(town, me)));
+    assert_eq!(w.log.iter().filter(|l| l.1.contains("slipped the watch")).count(), 2);
+    // Back, known again; and seen at something new on the way.
+    let at = spot_by(&w, town, gp, 8.0, 0.0);
+    put(&mut w, me, at);
+    w.step(0.25);
+    assert!(w.pursuits.iter().any(|p| p.culprit == me && p.owed));
+    let at = w.person_pos(me);
+    w.wrong_seen(me, town, Wrong::Trespass, 20.0, "Seen where they shouldn't be!".into(), None, None, at);
+    let p = w.pursuits.iter().find(|p| p.culprit == me).expect("still chased");
+    assert!(!p.owed && p.wrong == Wrong::Trespass && p.fine == 20.0, "{p:?}");
+}
