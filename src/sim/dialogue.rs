@@ -806,7 +806,8 @@ impl World {
                 if self.stats.ambushes > 0 && self.nearest_camp(p.home).is_some_and(|c| c.0 <= HEARSAY_REACH) {
                     tags.push("ambushes".to_string());
                 }
-                if let Some((d, dir, _)) = self.nearest_camp(p.home) {
+                let told_of = self.nearest_camp(p.home).map(|c| c.3);
+                if let Some((d, dir, _, _)) = self.nearest_camp(p.home) {
                     tags.push("camp_near".into());
                     values.push(("walk", super::talk::walk_words(d).to_string()));
                     values.push(("dir", dir.to_string()));
@@ -823,10 +824,18 @@ impl World {
                 }
                 // One of the things they could say, picked like any other piece.
                 let pick = if tags.is_empty() { None } else { Some(tags[r.below(tags.len())].clone()) };
+                // Told of a camp: the map shows it now.
+                if let (Some(g), Some("camp_near")) = (told_of, pick.as_deref()) {
+                    self.hear_of_camp(g);
+                }
                 self.spoken(c, "rumours", &["line"], &pick.into_iter().collect::<Vec<_>>(), &values)
             }
             Topic::Bandits => match self.nearest_camp(p.home) {
-                Some((d, dir, n)) if d < 6000.0 => self.spoken(c, "bandits", &["line"], &["camp_near".into()], &[("count", super::talk::band_words(n).to_string()), ("walk", super::talk::walk_words(d).to_string()), ("dir", dir.to_string())]),
+                Some((d, dir, n, gid)) if d < 6000.0 => {
+                    // Now the squad has heard of it (the map shows it).
+                    self.hear_of_camp(gid);
+                    self.spoken(c, "bandits", &["line"], &["camp_near".into()], &[("count", super::talk::band_words(n).to_string()), ("walk", super::talk::walk_words(d).to_string()), ("dir", dir.to_string())])
+                }
                 _ => self.spoken(c, "bandits", &["line"], &["no_camp".into()], &[]),
             },
             Topic::Work => match self.quest_offer(c.npc) {
@@ -842,7 +851,8 @@ impl World {
                     // A favour: nothing to pay, and said so.
                     let paid = coin > 0;
                     match kind {
-                        QuestKind::ClearCamp { at, .. } => {
+                        QuestKind::ClearCamp { at, camp } => {
+                            self.hear_of_camp(camp);
                             let v = at.sub(town.map(|t| t.pos).unwrap_or(at));
                             format!(
                                 "Those bandits {} {} of here have had my cousin twice. Break that camp and {}{extra}.",
@@ -1107,11 +1117,11 @@ impl World {
     }
 
     /// Distance, direction and size of the bandit camp nearest a town.
-    fn nearest_camp(&self, home: Option<u16>) -> Option<(f32, &'static str, usize)> {
+    fn nearest_camp(&self, home: Option<u16>) -> Option<(f32, &'static str, usize, super::group::GroupId)> {
         let from = home.map(|h| self.settlements[h as usize].pos).unwrap_or(self.squad.pos);
         let c = self.camps.iter().filter(|c| !self.is_warden(c.group)).min_by(|a, b| a.pos.dist(from).total_cmp(&b.pos.dist(from)))?;
         let n = self.group(c.group).map(|g| g.members.iter().filter(|&&m| !self.people[m as usize].dead).count()).unwrap_or(0);
-        Some((c.pos.dist(from), compass(c.pos.sub(from)), n))
+        Some((c.pos.dist(from), compass(c.pos.sub(from)), n, c.group))
     }
 }
 

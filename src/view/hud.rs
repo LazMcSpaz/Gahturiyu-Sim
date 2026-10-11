@@ -482,9 +482,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             for &m in &g.members {
                 by[w.people[m as usize].race.index()] += 1;
             }
-            let mix: Vec<String> = ALL_RACES.iter().zip(by).filter(|(_, n)| *n > 0).map(|(r, n)| format!("{} {}", r.name(), n)).collect();
-            let who = if g.members.len() == 1 { "1 traveller".to_string() } else { format!("{} travellers", g.members.len()) };
-            out.push((format!("{who}  ({})", mix.join(", ")), race_color(w.people[g.members[0] as usize].race)));
+            // How many, and of what people, in words (#154: no head counts).
+            let mix: Vec<&str> = ALL_RACES.iter().zip(by).filter(|(_, n)| *n > 0).map(|(r, _)| r.name()).collect();
+            let who = if g.members.len() == 1 { "A traveller".to_string() } else { capital(&format!("{} travellers", gahturiyu_sim::sim::talk::band_words(g.members.len()))) };
+            out.push((format!("{who}: {}", mix.join(" and ")), race_color(w.people[g.members[0] as usize].race)));
             out.push((doing(w, gid), TEXT));
             if see_all() {
                 let might: f32 = g.members.iter().map(|&m| w.people[m as usize].might).sum();

@@ -80,6 +80,9 @@ pub struct Camp {
     /// (`containers::stash_id`).
     #[serde(default)]
     pub stash: Option<super::containers::ContainerId>,
+    /// Whether the squad has seen it or heard of it (for the map).
+    #[serde(default)]
+    pub known: super::known::Known,
 }
 
 /// When a camp first sees someone walking this leg: within `CAMP_SIGHT`, or

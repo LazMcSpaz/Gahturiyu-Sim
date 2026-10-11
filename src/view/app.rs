@@ -1378,7 +1378,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             if st.relief.is_none() {
                 st.relief = Some(map::load_relief(ctx, &game.world));
             }
-            for (at, slack, h) in map::draw(&c, &game.map_cam, &game.world, game.rings, st.relief.as_ref().unwrap(), &game.sel) {
+            for (at, slack, h) in map::draw(&c, &game.map_cam, &game.world, game.rings, st.relief.as_ref().unwrap(), &game.sel, game.debug) {
                 pick.offer(at, slack, h);
             }
             super::weather::map_colours(&c, ctx, game, &mut weather);
@@ -1707,11 +1707,22 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         build_act = a;
         panels.push(bx);
     }
+    let mut town_closed = false;
     if let Some(t) = game.town {
         let at = game.slides.begin(&c);
-        panels.push(super::townui::town_panel(&c, w, t));
-        panels.push(super::townui::life_panel(&c, w, t, game.debug || game.town_all));
+        if game.debug || game.town_all {
+            // The testing readout (L): everything, numbers and all.
+            panels.push(super::townui::readout_panel(&c, w, t));
+            panels.push(super::townui::life_panel(&c, w, t, true));
+        } else {
+            let (bx, closed) = super::townui::town_panel(&c, w, t, click);
+            panels.push(bx);
+            town_closed = closed;
+        }
         game.slides.end(&c, "town", at);
+    }
+    if town_closed {
+        game.town = None;
     }
     if game.book.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
         game.book = None;

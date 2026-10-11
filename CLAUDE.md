@@ -430,6 +430,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   every ~20 s, the same kind not for ~5 min. They replace tips and news
   lines: nothing announces a band any more (the play tool stops a wait on a
   band coming into sight by looking itself).
+- The town panel (`view/townui.rs`, P) is what a visitor could learn: its
+  people in words, who rules, what's open now and where, work going, the
+  talk of the town. The old readout (every share, the store, the money)
+  shows instead with L. The map (`view/map.rs`) shows towns, roads and
+  their work from the start; a camp once one of the squad has come within
+  `known::CAMP_SEEN` of it or been told of it in talk (`Camp::known`,
+  saved: Seen draws filled, Heard an outline); ruins and lairs once found;
+  travellers, herds, fights and bodies only within `map::MAP_SIGHT` of the
+  squad. L shows the whole world.
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.
