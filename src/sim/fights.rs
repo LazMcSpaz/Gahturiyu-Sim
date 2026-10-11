@@ -244,7 +244,9 @@ impl World {
                 match self.squad.members.iter().find_map(|m| self.fighting.get(m)).copied().filter(|b| !duels.contains(b)) {
                     Some(bid) => self.join_battle(bid, 1, &fresh),
                     None => {
-                        let home = self.camps.iter().any(|c| c.group == gid && c.ready_at > when);
+                        // (On their own ground, that is: a resting camp that
+                        // saw a torch out in the dark comes out to it. BL-31)
+                        let home = self.camps.iter().any(|c| c.group == gid && c.ready_at > when && self.squad.members.iter().any(|&m| self.person_pos(m).dist(c.pos) <= super::encounters::GUARD_RING));
                         let line = if home { "You're seen in their camp! They come for you." } else { "You're attacked!" }.to_string();
                         self.alerts.push(line.clone());
                         self.log.push_front((when, line));

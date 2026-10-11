@@ -53,6 +53,9 @@ pub const DRIVE_AT: f32 = 0.35;
 pub const DRIVE_PER_DRAMA: f32 = 0.5;
 /// How much prominence lifts a candidate's chance of being picked.
 pub const PROMINENCE: f32 = 0.6;
+/// How much a bandit camp within reach worries a town by being there,
+/// added to what its people's own fear and its nearness come to.
+pub const CAMP_WORRY: f32 = 0.05;
 /// Most live storylines of one kind in a town.
 pub const VARIETY: usize = 2;
 /// Days before a town has another storyline of the same kind start: theft
@@ -318,7 +321,10 @@ impl World {
             // Bandits nearby.
             if let Some(c) = self.near_camp(town) {
                 let d = c.1;
-                let fear = m.needs()[Need::Safety as usize] * 0.5 + (1.0 - d / 4000.0).max(0.0) * 0.4;
+                // A camp within reach is a worry by itself, before anyone
+                // here has been robbed on the road (RG-16: with nothing to
+                // start from, nobody asked in a squad's first week).
+                let fear = CAMP_WORRY + m.needs()[Need::Safety as usize] * 0.5 + (1.0 - d / 4000.0).max(0.0) * 0.4;
                 if r.chance(0.05) {
                     out.push(Candidate { who: p, plot: Plot::Ask { chance: Chance::ClearCamp { camp: c.0, at: c.2 }, target: None, event: None }, drive: fear * asks, prominence: 0.0 });
                 }

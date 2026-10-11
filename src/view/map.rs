@@ -179,7 +179,8 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
     }
 
     super::animals::draw_map(c, cam, w);
-    for cp in &w.camps {
+    // (A ruin's wardens camp at the ruin: the ruin's own mark is theirs. BL-71)
+    for cp in w.camps.iter().filter(|cp| !w.is_warden(cp.group)) {
         let q = s(cp.pos);
         let k = (cam.zoom * 8.0).clamp(4.0, 9.0);
         c.triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y + k * 0.7), vec2(q.x + k, q.y + k * 0.7), ega([0.85, 0.22, 0.18], 0.9));

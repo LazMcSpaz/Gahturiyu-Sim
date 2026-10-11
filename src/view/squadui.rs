@@ -644,7 +644,7 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
 }
 
 fn journal_rect(c: &Canvas, w: &World) -> Bx {
-    let n = (w.quests.len() + w.work_lines().len()).max(1) as f32;
+    let n = (w.quests.len() + w.work_lines().len() + w.wanted_lines().len()).max(1) as f32;
     let up = super::frame::BOTTOM_CLEAR - 30.0;
     let wide = if w.work_lines().is_empty() { 620.0 } else { 900.0f32.min(c.w - 24.0) };
     Bx::new(12.0, c.h - 30.0 - up - 30.0 - (60.0 + n * 22.0), wide, 50.0 + n * 22.0)
@@ -657,13 +657,19 @@ pub fn journal(c: &Canvas, w: &World) -> Bx {
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     c.text("Journal", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
     let work = w.work_lines();
-    if w.quests.is_empty() && work.is_empty() {
+    // Where the squad is wanted comes first (NM-28).
+    let wanted = w.wanted_lines();
+    if w.quests.is_empty() && work.is_empty() && wanted.is_empty() {
         c.text("No jobs yet. Ask people if they have any work.", r.x + 14.0, r.y + 48.0, 14.0, DIM);
         return r;
     }
-    // Town work first (who, where, the wage), then jobs.
+    for (i, l) in wanted.iter().enumerate() {
+        c.text(l, r.x + 14.0, r.y + 48.0 + i as f32 * 22.0, 14.0, WARN);
+    }
+    let top = r.y + 48.0 + wanted.len() as f32 * 22.0;
+    // Then town work (who, where, the wage), then jobs.
     for (i, l) in work.iter().enumerate() {
-        c.text(l, r.x + 14.0, r.y + 48.0 + i as f32 * 22.0, 13.0, GOLD);
+        c.text(l, r.x + 14.0, top + i as f32 * 22.0, 13.0, GOLD);
     }
     for (i, q) in w.quests.iter().enumerate() {
         let col = match q.stage {
@@ -671,7 +677,7 @@ pub fn journal(c: &Canvas, w: &World) -> Bx {
             Stage::Report => GOLD,
             _ => TEXT,
         };
-        c.text(&w.quest_line(q), r.x + 14.0, r.y + 48.0 + (i + work.len()) as f32 * 22.0, 14.0, col);
+        c.text(&w.quest_line(q), r.x + 14.0, top + (i + work.len()) as f32 * 22.0, 14.0, col);
     }
     r
 }

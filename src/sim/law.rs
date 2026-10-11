@@ -1411,13 +1411,23 @@ impl World {
         }
     }
 
-    /// A bound squad member who strays too far from the town has run.
+    /// A bound squad member who strays too far from the town has run. (A
+    /// backstop: as things stand nothing takes one out of town. They take
+    /// no orders, can't be carried, and are walked back to their work.)
     pub(super) fn check_runaways(&mut self) {
         let t = self.time;
-        for m in self.squad.members.clone() {
+        for (k, m) in self.squad.members.clone().into_iter().enumerate() {
             let Some(b) = self.bond_of(m).copied() else { continue };
             let s = &self.settlements[b.town as usize];
-            if self.person_pos(m).dist(s.pos) > s.reach + BOND_REACH {
+            let edge = s.reach + BOND_REACH;
+            // Bound where they stood, out past the edge (a duel lost there
+            // leaves them lying where they fell: U-6), they haven't run:
+            // nobody runs out cold, and on their feet they're on their way
+            // in (`hold_the_bound` sends them to their work).
+            if self.is_down(m) || self.fighting.contains_key(&m) || self.squad.goal[k].dist(s.pos) <= edge {
+                continue;
+            }
+            if self.person_pos(m).dist(s.pos) > edge {
                 // Running costs more than staying: the days still owed, and
                 // more for running (NM-35).
                 let left = self.buy_out_price(m).unwrap_or(0) as f32;

@@ -480,10 +480,12 @@ fn nm34_a_town_feeds_those_it_holds() {
     assert!(w.hunger_of(m).unwrap() >= gahturiyu_sim::sim::condition::STARVING, "free and without food for five days, they starve: {:?}", w.hunger_of(m));
 }
 
-/// NM-35: someone bound can't be carried off, and running costs more than
-/// what was owed.
+/// NM-35: someone bound can't be carried off. (It used to end: moved far
+/// off, they have "run", at a price. Since U-6 nobody out cold has run, and
+/// nothing in the game moves a bound member out of town: they take no
+/// orders and can't be carried.)
 #[test]
-fn nm35_the_bound_arent_carried_off_and_running_costs_more() {
+fn nm35_the_bound_arent_carried_off() {
     use gahturiyu_sim::sim::{body, geo::V2};
     let mut w = worldgen::generate(1);
     let (m, mate) = (w.squad.members[0], w.squad.members[1]);
@@ -501,14 +503,12 @@ fn nm35_the_bound_arent_carried_off_and_running_costs_more() {
     assert!(w.can_carry(mate, m), "down and free: can be carried");
     w.bond(m, town, None, t, t + 10.0 * DAY);
     assert!(!w.can_carry(mate, m), "down and bound: stays where the town has them");
-    // Run (taken far off): the bounty is the days still owed and more.
-    let left = w.buy_out_price(m).unwrap() as f32;
+    // Moved far off as they lie there, they haven't run from anything.
     let far = w.settlements[town as usize].pos.add(V2::new(w.settlements[town as usize].reach + 2000.0, 0.0));
     w.teleport_squad(far);
     w.step(0.5);
-    assert!(!w.is_bonded(m, w.time), "run");
-    let owed = w.bounty.get(&town).copied().unwrap_or(0.0);
-    assert!(owed >= left + law::RUN_PRICE - 1.0, "running costs {owed:.0}, the bond was {left:.0}");
+    assert!(w.is_bonded(m, w.time), "out cold, not a runaway");
+    assert_eq!(w.bounty.get(&town).copied().unwrap_or(0.0), 0.0);
 }
 
 /// NM-36: "for 3 days" is three days; the days left can be read; and the
@@ -787,4 +787,68 @@ fn nm55_a_fine_is_paid_by_those_who_are_there() {
     assert_eq!(left, 500, "the far purse wasn't touched");
     assert!(said(&w, "pays 10 of the 40 coin"), "{:?}", w.log);
     assert!(w.is_bonded(m, w.time), "the rest is worked off");
+}
+
+/// A dry spot `out` metres beyond the town's edge, with a way in on foot.
+fn spot_beyond(w: &World, town: SettlementId, out: f32) -> gahturiyu_sim::sim::geo::V2 {
+    use gahturiyu_sim::sim::geo::V2;
+    let s = &w.settlements[town as usize];
+    (0..16)
+        .map(|i| {
+            let a = i as f32 / 16.0 * std::f32::consts::TAU;
+            s.pos.add(V2::new(a.cos(), a.sin()).scale(s.reach + out))
+        })
+        .find(|&p| !w.terrain.is_sea(p) && (1..=8).all(|k| !w.terrain.is_sea(s.pos.add(p.sub(s.pos).scale(k as f32 / 8.0)))))
+        .expect("dry land beyond the town")
+}
+
+/// U-6: someone bound where they stood, out past the town's edge (a duel
+/// lost there leaves them lying where they fell), hasn't run from anything.
+/// They stay bound and come in to their work.
+#[test]
+fn u6_bound_beyond_the_edge_of_town_is_not_a_runaway() {
+    let mut w = worldgen::generate(1);
+    let town = nearest_town(&w);
+    let m = w.squad.members[0];
+    let (centre, reach) = (w.settlements[town as usize].pos, w.settlements[town as usize].reach);
+    let out = spot_beyond(&w, town, law::BOND_REACH + 60.0);
+    w.teleport_squad(out);
+    let now = w.time;
+    w.bond(m, town, None, now, now + 2.0 * DAY);
+    w.step(1.0);
+    assert!(!said(&w, "has run from their bond"), "bound out there, they are called a runaway at once");
+    assert!(w.is_bonded(m, w.time), "still bound");
+    assert_eq!(w.bounty.get(&town).copied().unwrap_or(0.0), 0.0, "no bounty for running");
+    // They walk in.
+    for _ in 0..1500 {
+        w.step(1.0);
+    }
+    assert!(w.person_pos(m).dist(centre) <= reach + law::BOND_REACH, "came in to their work: {:.0} m from the middle of town", w.person_pos(m).dist(centre));
+    assert!(w.is_bonded(m, w.time) && !said(&w, "has run from their bond"));
+}
+
+/// U-6: knocked out beyond the edge with a bond on them, they haven't run
+/// either: nobody runs lying down.
+#[test]
+fn u6_out_cold_beyond_the_edge_is_not_a_runaway() {
+    use gahturiyu_sim::sim::body::Part;
+    let mut w = worldgen::generate(1);
+    let town = nearest_town(&w);
+    let m = w.squad.members[0];
+    let out = spot_beyond(&w, town, law::BOND_REACH + 60.0);
+    w.teleport_squad(out);
+    let now = w.time;
+    // (Torso to nothing, as of now.)
+    let p = &mut w.people[m as usize];
+    let max = p.stats.max_hp(Part::Torso);
+    p.wounds.lost = p.wounds.lost_at(now);
+    p.wounds.lost[1] = max + 20.0;
+    p.wounds.at = now;
+    assert!(w.is_down(m), "out cold");
+    w.bond(m, town, None, now, now + 2.0 * DAY);
+    for _ in 0..60 {
+        w.step(1.0);
+    }
+    assert!(!said(&w, "has run from their bond"), "out cold, they are called a runaway");
+    assert!(w.is_bonded(m, w.time));
 }
