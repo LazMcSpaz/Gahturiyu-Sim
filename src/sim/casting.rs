@@ -449,6 +449,16 @@ impl World {
         if b.fighters[i].mana < s.def().cost {
             return cannot("not enough energy");
         }
+        // Aimed at someone out of its reach, the energy would go on nothing
+        // ("goes wide", BL-54): say so before any is spent. (The same reach
+        // as when the cast lands: `Battle::resolve_cast`.)
+        if let (Some(j), magic::Aim::Foe | magic::Aim::Friend | magic::Aim::Anyone) = (j, s.def().aim) {
+            let blind = b.fighters[i].has(Does::Blind).is_some() && s.def().aim == magic::Aim::Foe;
+            let range = if blind { 5.0 } else { s.def().range };
+            if b.fighters[i].pos.dist(b.fighters[j].pos) > range + 1.0 {
+                return cannot("too far off");
+            }
+        }
         if !b.begin_cast(i, s, j, point) {
             return cannot("can't cast that now");
         }

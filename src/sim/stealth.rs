@@ -255,7 +255,9 @@ impl World {
             let mut when = None;
             for &m in &members {
                 let (rate, near) = match resting {
-                    Some(home) if self.person_pos(m).dist(home) > super::encounters::GUARD_RING => (0.0, false),
+                    // A camp at rest minds only its own ground, but a lit
+                    // torch is seen from it like from anywhere (BL-31).
+                    Some(home) if self.person_pos(m).dist(home) > super::encounters::GUARD_RING && !self.torch_lit(m) => (0.0, false),
                     _ => eyes.iter().map(|&(at, awake)| self.detect_rate_by(gid, at, m, awake)).fold((0.0f32, false), |a, b| (a.0.max(b.0), a.1 || b.1)),
                 };
                 // Sneak is learned by creeping about unseen, not by crouching

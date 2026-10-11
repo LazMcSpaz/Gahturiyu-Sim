@@ -615,6 +615,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 out.push((other, DIM));
             }
             out.push((format!("A {} town{}", s.founders.name(), if s.coastal { " on the coast" } else { "" }), DIM));
+            // Wanted here (NM-28).
+            if let Some(owed) = w.bounty.get(&sid).filter(|b| **b >= 1.0) {
+                out.push((format!("Wanted here: {owed:.0} coin owed."), WARN));
+            }
         }
         Hover::Torch(i) => {
             let Some(st) = w.standing.get(i) else { return out };
