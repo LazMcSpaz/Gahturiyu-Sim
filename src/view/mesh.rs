@@ -14,6 +14,8 @@ pub struct Builder {
     nrm: Vec<[f32; 3]>,
     col: Vec<[f32; 4]>,
     idx: Vec<u32>,
+    /// Flames noted on this builder (`flame.rs` draws them each frame).
+    flames: Vec<super::flame::Spot>,
 }
 
 impl Builder {
@@ -189,7 +191,21 @@ impl Builder {
     }
 
     /// Append another builder's geometry.
+    /// A flame here: its root, its radius at the root and its height (the
+    /// measures of the plain cone it replaces). Not drawn into this mesh:
+    /// noted, and drawn each frame with the fire material (`flame.rs`).
+    pub fn flame(&mut self, base: Vec3, r: f32, h: f32) {
+        let seed = (base.x * 7.31 + base.z * 3.17 + base.y * 1.3).to_bits().wrapping_mul(2654435761);
+        self.flames.push(super::flame::Spot { base, width: r * 1.9, height: h * 1.7, seed });
+    }
+
+    /// The flames noted so far, taken out.
+    pub fn take_flames(&mut self) -> Vec<super::flame::Spot> {
+        std::mem::take(&mut self.flames)
+    }
+
     pub fn append(&mut self, o: Builder) {
+        self.flames.extend(o.flames);
         let base = self.pos.len() as u32;
         self.pos.extend(o.pos);
         self.nrm.extend(o.nrm);

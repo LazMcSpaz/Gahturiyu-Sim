@@ -19,6 +19,7 @@ pub mod lootui;
 pub mod makeui;
 pub mod hints;
 pub mod feel;
+pub mod flame;
 pub mod frame;
 pub mod gait;
 pub mod interact;
