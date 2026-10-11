@@ -299,8 +299,10 @@ impl World {
         d.lock > 0.0 && is_night(self.time) && self.picked.get(&id) != Some(&night_of(self.time))
     }
 
-    /// The way from `a` to `b` on foot: around buildings, and through doors
-    /// to get in or out. Ends at `b`, or at a locked door (which it names).
+    /// The way from `a` to `b` on foot (`walk.rs`): round everything solid,
+    /// and through doors and gates to get in or out. Ends at `b` (beside
+    /// it, if `b` is in something solid), at a locked door (which it
+    /// names), or as near as a way gets if none leads there (`can_walk`).
     pub fn route(&self, a: V2, b: V2) -> (Vec<V2>, Option<DoorId>) {
         self.route_keyed(a, b, false)
     }
@@ -310,36 +312,20 @@ impl World {
     /// stand, not the hour, so a walk worked out from the clock comes out
     /// the same whenever it's asked for.
     pub fn route_keyed(&self, a: V2, b: V2, keys: bool) -> (Vec<V2>, Option<DoorId>) {
-        let from_in = self.building_at(a);
-        let to_in = self.building_at(b);
-        if let (Some(x), Some(y)) = (from_in, to_in) {
-            if x.id == y.id {
-                let mut out = Vec::new();
-                rooms_between(&x, a, b, &mut out);
-                out.push(b);
-                return (out, None);
+        let f = self.find_way(a, b);
+        if !keys {
+            if let Some(door) = f.enters.and_then(|id| id.door()).filter(|&d| self.is_locked(d)) {
+                return (f.way[..f.at_door].to_vec(), Some(door));
             }
         }
-        let mut out = Vec::new();
-        let mut cur = a;
-        if let Some(d) = from_in {
-            rooms_between(&d, a, d.inside, &mut out);
-            out.push(d.inside);
-            out.push(d.outside);
-            cur = d.outside;
-        }
-        let dest = to_in.map(|d| d.outside).unwrap_or(b);
-        self.detour(cur, dest, &mut out, 0);
-        out.push(dest);
-        if let Some(d) = to_in {
-            if !keys && self.is_locked(d.id) {
-                return (out, Some(d.id));
-            }
-            out.push(d.inside);
-            rooms_between(&d, d.inside, b, &mut out);
-            out.push(b);
-        }
-        (out, None)
+        (f.way.clone(), None)
+    }
+
+    /// Does a walk from `a` get to `b` (or to beside it, if `b` is in
+    /// something solid)? False when no way leads there: `route` then ends
+    /// at the nearest spot a way does reach.
+    pub fn can_walk(&self, a: V2, b: V2) -> bool {
+        self.find_way(a, b).reached
     }
 
     /// The way to go a long way: along the roads if that's quicker overall
@@ -421,29 +407,6 @@ impl World {
             total += self.terrain.effort(p, q);
         }
         total
-    }
-
-    /// Add corner points so the line `p`→`q` goes round buildings.
-    fn detour(&self, p: V2, q: V2, out: &mut Vec<V2>, depth: u8) {
-        if depth > 4 || p.dist(q) < 0.5 {
-            return;
-        }
-        let mid = p.lerp(q, 0.5);
-        let hit = self
-            .doors_near(mid, p.dist(q) * 0.5 + 2.0)
-            .into_iter()
-            .filter(|d| d.centre.dist(p) > d.radius + 0.3 && d.centre.dist(q) > d.radius + 0.3)
-            .filter(|d| seg_dist(p, q, d.centre) < d.radius + 0.8)
-            .min_by(|x, y| x.centre.dist(p).total_cmp(&y.centre.dist(p)));
-        let Some(d) = hit else { return };
-        let dir = q.sub(p);
-        let len = dir.len().max(1e-3);
-        let n = V2::new(-dir.y / len, dir.x / len);
-        let side = if d.centre.sub(p).x * n.x + d.centre.sub(p).y * n.y > 0.0 { -1.0 } else { 1.0 };
-        let corner = d.centre.add(n.scale(side * (d.radius + 1.8)));
-        self.detour(p, corner, out, depth + 1);
-        out.push(corner);
-        self.detour(corner, q, out, depth + 1);
     }
 
     // ---- Lockpicking --------------------------------------------------------
@@ -671,36 +634,6 @@ impl World {
         v.dedup();
         v
     }
-}
-
-/// Corner points to get from `a` to `b` inside a building without walking
-/// through its inner walls: through the doorway of each wall in the way.
-fn rooms_between(d: &Door, a: V2, b: V2, out: &mut Vec<V2>) {
-    let pieces = d.wall_pieces();
-    let ways = d.doorways();
-    let mut cur = a;
-    for _ in 0..4 {
-        if !pieces.iter().any(|&(p, q)| crosses(cur, b, p, q)) {
-            return;
-        }
-        // The doorway that gets us past the most walls in the way, nearest first.
-        let best = ways
-            .iter()
-            .copied()
-            .filter(|&g| g.dist(cur) > 0.3 && !pieces.iter().any(|&(p, q)| crosses(cur, g, p, q)))
-            .min_by(|x, y| (x.dist(cur) + x.dist(b)).total_cmp(&(y.dist(cur) + y.dist(b))));
-        let Some(g) = best else { return };
-        out.push(g);
-        cur = g;
-    }
-}
-
-/// Do segments `a`–`b` and `p`–`q` cross?
-fn crosses(a: V2, b: V2, p: V2, q: V2) -> bool {
-    let cross = |o: V2, x: V2, y: V2| (x.x - o.x) * (y.y - o.y) - (x.y - o.y) * (y.x - o.x);
-    let (d1, d2) = (cross(p, q, a), cross(p, q, b));
-    let (d3, d4) = (cross(a, b, p), cross(a, b, q));
-    d1 * d2 < 0.0 && d3 * d4 < 0.0
 }
 
 /// Distance from `c` to the segment `a`–`b`.
