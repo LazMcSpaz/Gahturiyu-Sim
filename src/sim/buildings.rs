@@ -300,6 +300,14 @@ impl World {
     /// The way from `a` to `b` on foot: around buildings, and through doors
     /// to get in or out. Ends at `b`, or at a locked door (which it names).
     pub fn route(&self, a: V2, b: V2) -> (Vec<V2>, Option<DoorId>) {
+        self.route_keyed(a, b, false)
+    }
+
+    /// As `route`, for someone who holds the keys (townsfolk going about
+    /// their day): locks don't stop them. Depends only on where things
+    /// stand, not the hour, so a walk worked out from the clock comes out
+    /// the same whenever it's asked for.
+    pub fn route_keyed(&self, a: V2, b: V2, keys: bool) -> (Vec<V2>, Option<DoorId>) {
         let from_in = self.building_at(a);
         let to_in = self.building_at(b);
         if let (Some(x), Some(y)) = (from_in, to_in) {
@@ -322,7 +330,7 @@ impl World {
         self.detour(cur, dest, &mut out, 0);
         out.push(dest);
         if let Some(d) = to_in {
-            if self.is_locked(d.id) {
+            if !keys && self.is_locked(d.id) {
                 return (out, Some(d.id));
             }
             out.push(d.inside);

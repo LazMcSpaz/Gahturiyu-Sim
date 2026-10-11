@@ -169,6 +169,20 @@ pub const BED: f32 = 22.0;
 /// yard (NM-11): they see whoever comes in.
 pub const INDOORS_BY_DAY: f32 = 0.5;
 
+/// The point a share `f` of the way along a path of straight legs.
+fn along(way: &[V2], f: f32) -> V2 {
+    let total: f32 = way.windows(2).map(|w| w[0].dist(w[1])).sum();
+    let mut left = total * f.clamp(0.0, 1.0);
+    for w in way.windows(2) {
+        let d = w[0].dist(w[1]);
+        if left <= d {
+            return w[0].lerp(w[1], if d > 1e-4 { left / d } else { 0.0 });
+        }
+        left -= d;
+    }
+    *way.last().unwrap_or(&V2::new(0.0, 0.0))
+}
+
 fn hours(t: f64) -> f32 {
     (t.rem_euclid(DAY) / HOUR) as f32
 }
@@ -639,7 +653,14 @@ impl World {
             let a = self.spot_pos(pid, prev.spot, prev.doing == Doing::Asleep, prev.from, day);
             let b = self.spot_pos(pid, next.spot, next.doing == Doing::Asleep, next.from, day);
             let f = ((h - seg.from) / (plan.end_of(i) - seg.from).max(0.01)).clamp(0.0, 1.0);
-            return a.lerp(b, f);
+            // Round buildings and in and out by the doors (#171), as the
+            // squad walks; out on the water (the stilts), straight.
+            if self.terrain.is_sea(a) || self.terrain.is_sea(b) {
+                return a.lerp(b, f);
+            }
+            let mut way = vec![a];
+            way.extend(self.route_keyed(a, b, true).0);
+            return along(&way, f);
         }
         self.spot_pos(pid, seg.spot, seg.doing == Doing::Asleep, h, day).add(wobble)
     }
