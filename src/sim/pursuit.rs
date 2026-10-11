@@ -14,7 +14,9 @@
 //! guard sets off for where the thief was last seen, running a little faster
 //! than anyone walks (`GUARD_PACE`). While the guard can see the thief (the
 //! same sight rules as a witness: light, sneaking, walls) they head for them;
-//! out of sight they go to the last place they saw them and look about. Close
+//! out of sight they go to the last place they saw them and look about:
+//! someone in the street points the way if the thief is still in the open,
+//! and a door close by that the thief went in at is tried (`trail`). Close
 //! enough and the thief is caught and judged (`World::judge`). Lost for
 //! `LOSE_AFTER`, out of town, or after `GIVE_UP`, the guard gives up and the
 //! crime becomes a bounty, whose news travels as before. With no guard on
@@ -49,8 +51,13 @@ pub const WITNESS_PACE: f32 = 2.6;
 pub const FETCH_MAX: f64 = 150.0;
 /// Close enough to lay a hand on someone, m.
 pub const CATCH: f32 = 1.6;
-/// Out of sight this long, a guard gives up, s.
-pub const LOSE_AFTER: f64 = 120.0;
+/// Out of sight this long, a guard gives up, s. (Long enough to follow
+/// someone into the next house or down the street: NM-20.)
+pub const LOSE_AFTER: f64 = 300.0;
+/// A door this near where the thief was last seen gets tried, m.
+pub const TRY_DOOR: f32 = 40.0;
+/// A guard off duty but up and within this of the witness comes too, m.
+pub const OFF_DUTY_REACH: f32 = 120.0;
 /// No chase lasts longer than this, s.
 pub const GIVE_UP: f64 = 20.0 * 60.0;
 /// A thief this far beyond the town's edge has got away, m.
@@ -208,8 +215,10 @@ impl World {
         }
     }
 
-    /// The guard on watch nearest `from` who'll come (an unpaid watch stirs
-    /// only now and then).
+    /// The guard who'll come: one on watch, the nearest to `from`; failing
+    /// that, a guard of the town who is up and close by, off duty or not
+    /// (NM-40: a witness doesn't walk past a guard to find nobody at the
+    /// post). An unpaid watch stirs only now and then.
     fn guard_for(&self, town: SettlementId, from: V2, who: PersonId) -> Option<PersonId> {
         let t = self.time;
         let paid = self.society.towns[town as usize].owed <= 0.0;
@@ -217,13 +226,17 @@ impl World {
         if !paid && !r.chance(0.3) {
             return None;
         }
+        let up_and_near = |p: PersonId| self.doing_now(p).is_some_and(|d| d.0 != super::routine::Doing::Asleep) && !self.is_down(p) && self.person_pos(p).dist(from) <= OFF_DUTY_REACH;
         self.settlements[town as usize]
             .residents
             .iter()
             .copied()
-            .filter(|&p| !self.people[p as usize].dead && self.people[p as usize].home == Some(town) && self.life(p).job == Job::Guard && self.at_work(p, t))
+            .filter(|&p| !self.people[p as usize].dead && self.people[p as usize].home == Some(town) && self.life(p).job == Job::Guard && !self.fighting.contains_key(&p))
             .filter(|&p| !self.pursuits.iter().any(|x| x.guard == p))
-            .min_by(|&a, &b| self.person_pos(a).dist(from).total_cmp(&self.person_pos(b).dist(from)).then(a.cmp(&b)))
+            .map(|p| (p, self.at_work(p, t)))
+            .filter(|&(p, on)| on || up_and_near(p))
+            .min_by(|&(a, on_a), &(b, on_b)| on_b.cmp(&on_a).then(self.person_pos(a).dist(from).total_cmp(&self.person_pos(b).dist(from))).then(a.cmp(&b)))
+            .map(|x| x.0)
     }
 
     /// The crime is known but the one who did it isn't held: a bounty, and
@@ -274,6 +287,19 @@ impl World {
         at.dist(from) <= sight && self.building_at(at).map(|d| d.id) == self.building_at(from).map(|d| d.id)
     }
 
+    /// At the last place the thief was seen, and they aren't there: where
+    /// next, if anything says. In the open in town, someone in the street
+    /// saw which way they went (the same eyes as see a crime: nobody about,
+    /// or a thief keeping out of sight, and there's no saying). Gone in at a
+    /// door close by, the watch tries it (NM-20).
+    fn trail(&self, from: V2, culprit: PersonId, town: SettlementId) -> Option<V2> {
+        let at = self.person_pos(culprit);
+        match self.building_at(at) {
+            Some(d) => (d.outside.dist(from) <= TRY_DOOR).then_some(at),
+            None => (self.spotter(culprit, at, town).0 > 0.0).then_some(at),
+        }
+    }
+
     /// Each step: guards run thieves down, catch them, or give up.
     pub(super) fn chase(&mut self, dt: f64) {
         let t = self.time;
@@ -295,6 +321,12 @@ impl World {
             let mut seen = (p.last_seen, p.seen_t);
             if self.guard_sees(pos, p.culprit) {
                 seen = (at, t);
+            } else if pos.dist(seen.0) <= 1.0 {
+                // Not where they were last seen: ask, and try the doors.
+                // (Not sight of them: the clock on losing them runs on.)
+                if let Some(next) = self.trail(pos, p.culprit, p.town) {
+                    seen.0 = next;
+                }
             }
             let to = seen.0.sub(pos);
             let step = GUARD_PACE * dt as f32;

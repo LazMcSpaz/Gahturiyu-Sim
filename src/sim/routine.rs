@@ -80,6 +80,8 @@ pub enum Spot {
     Boat,
     /// The meal runner's round.
     RunRound,
+    /// The night watch's walk: round the town's doors, all night (NM-40).
+    Watch,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -321,10 +323,13 @@ impl World {
         // The night watch keeps its own day.
         if l.job == Job::Guard && l.shift == 1 {
             let worked_last_night = !self.is_rest_day(pid, day - 1, rhythm);
+            // (They don't all eat at once: someone is always on the walk.)
+            let meal = 2.0 + (pid % 3) as f32 * 0.5;
             if worked_last_night {
-                plan.push(0.0, Doing::Work, Spot::Work);
-                plan.push(2.0, Doing::Meal, Spot::Work);
-                plan.push(2.5, Doing::Work, Spot::Work);
+                plan.push(0.0, Doing::Work, Spot::Watch);
+                // (Eaten on the walk: no trip back to the post.)
+                plan.push(meal, Doing::Meal, Spot::Watch);
+                plan.push(meal + 0.5, Doing::Work, Spot::Watch);
                 plan.push(6.0, Doing::Walking, Spot::Home);
                 plan.push(6.25, Doing::Asleep, Spot::Home);
             } else {
@@ -342,7 +347,7 @@ impl World {
                     plan.push(16.0, Doing::Home, Spot::Home);
                 }
                 plan.push(17.6, Doing::Walking, Spot::Work);
-                plan.push(18.0, Doing::Work, Spot::Work);
+                plan.push(18.0, Doing::Work, Spot::Watch);
                 plan.work = Some((18.0, 30.0));
             }
             return plan;
@@ -594,6 +599,24 @@ impl World {
                     homes[i]
                 }
             }
+            Spot::Watch => {
+                // From door to door of the town's buildings on land, in a
+                // ring round its middle: four minutes' walk and two
+                // minutes' stand at each. (By the hours since the world
+                // began, so midnight is no jump.)
+                let mut doors: Vec<V2> = (0..s.buildings.len() as u16).filter_map(|i| super::buildings::door_of(s, i)).map(|d| d.outside).collect();
+                if doors.is_empty() {
+                    return around(s.pos, 4.0, 12.0);
+                }
+                let bearing = |q: &V2| (q.y - s.pos.y).atan2(q.x - s.pos.x);
+                doors.sort_by(|x, y| bearing(x).total_cmp(&bearing(y)));
+                let n = doors.len() as i64;
+                let x = (day as f64 * 24.0 + h as f64) / 0.1;
+                let (k, f) = (x.floor() as i64, (x - x.floor()) as f32);
+                let i = ((p.seed % 9973) as i64 + k).rem_euclid(n) as usize;
+                let from = doors[(i + doors.len() - 1) % doors.len()];
+                from.lerp(doors[i], (f / 0.67).min(1.0))
+            }
             Spot::Boat => {
                 // Out from the stilts to the dock, unload, and back.
                 let from = tl.places.iter().find(|w| w.kind == PlaceKind::Deck && geo::inland(w.pos) < 0.0).or_else(|| tl.places.iter().find(|w| w.kind == PlaceKind::DivePlatform)).map(|w| w.pos).unwrap_or(s.pos);
@@ -650,7 +673,10 @@ impl World {
             // From where the last part was to where the next one is.
             let prev = if i > 0 { plan.segs[i - 1] } else { seg };
             let next = if i + 1 < plan.n { plan.segs[i + 1] } else { seg };
-            let a = self.spot_pos(pid, prev.spot, prev.doing == Doing::Asleep, prev.from, day);
+            // (The night watch is still walking when its shift ends: they
+            // set off for home from where the walk has them then.)
+            let left_at = if prev.spot == Spot::Watch { seg.from } else { prev.from };
+            let a = self.spot_pos(pid, prev.spot, prev.doing == Doing::Asleep, left_at, day);
             let b = self.spot_pos(pid, next.spot, next.doing == Doing::Asleep, next.from, day);
             let f = ((h - seg.from) / (plan.end_of(i) - seg.from).max(0.01)).clamp(0.0, 1.0);
             // Round buildings and in and out by the doors (#171), as the

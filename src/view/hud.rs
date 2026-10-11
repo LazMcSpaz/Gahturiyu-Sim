@@ -995,5 +995,6 @@ fn where_word(w: &World, pid: PersonId, spot: gahturiyu_sim::sim::routine::Spot,
         Spot::Rounds => "going from home to home".into(),
         Spot::Boat => "on the dawn boat".into(),
         Spot::RunRound => "out to the fields and yards".into(),
+        Spot::Watch => "walking the town".into(),
     }
 }
