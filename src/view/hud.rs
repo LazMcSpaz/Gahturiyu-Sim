@@ -652,6 +652,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if let Some(other) = super::lexicon::town_other(w, sid) {
                 out.push((other, DIM));
             }
+            // Wanted here (NM-28).
+            if let Some(owed) = w.bounty.get(&sid).filter(|b| **b >= 1.0) {
+                out.push((format!("Wanted here: {owed:.0} coin owed."), WARN));
+            }
             out.push((
                 format!("{} town, founded by the {}{}", if s.coastal { "Coastal" } else { "Inland" }, s.founders.name(), if s.coastal { ", Horaro stilts offshore" } else { "" }),
                 TEXT,

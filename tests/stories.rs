@@ -186,3 +186,55 @@ fn less_drama_means_fewer_storylines() {
     let (calm, wild) = (count(0.2), count(0.7));
     assert!(calm < wild, "calm {calm}, eventful {wild}");
 }
+
+/// RG-16: towns with a bandit camp within reach ask for it to be broken now
+/// and then, and the asking reaches the squad as a job on offer. Counted
+/// as the hunt counted it (who has work to offer at 11:00 each day), over
+/// twelve days in the hunt's three worlds.
+#[test]
+fn rg16_towns_near_a_camp_ask_for_it_to_be_cleared() {
+    use gahturiyu_sim::sim::quests::QuestKind;
+    let (mut camp, mut all, mut near, mut early) = (0, 0, 0, 0);
+    for seed in [1u64, 21, 34] {
+        let mut w = worldgen::generate(seed);
+        near += w.settlements.iter().filter(|s| w.camps.iter().any(|c| !w.is_warden(c.group) && c.pos.dist(s.pos) < 4000.0)).count();
+        // Each job once: who offers it, and what kind it is.
+        let mut seen = std::collections::BTreeSet::new();
+        let (mut here, mut by_day) = (0, Vec::new());
+        run(&mut w, 5.0 * HOUR);
+        for day in 0..12 {
+            let mut today = 0;
+            for s in 0..w.settlements.len() {
+                for &p in &w.settlements[s].residents {
+                    if let Some((k, _, _)) = w.quest_offer(p) {
+                        let is_camp = matches!(k, QuestKind::ClearCamp { .. });
+                        let kind = match k {
+                            QuestKind::ClearCamp { .. } => 0u8,
+                            QuestKind::Fetch { .. } => 1,
+                            QuestKind::Deliver { .. } => 2,
+                            _ => 3,
+                        };
+                        if seen.insert((p, kind, day / 3)) && is_camp {
+                            here += 1;
+                        }
+                        today += is_camp as usize;
+                    }
+                }
+            }
+            by_day.push(today);
+            if day < 4 {
+                early += today;
+            }
+            run(&mut w, DAY);
+        }
+        eprintln!("world {seed}: {} jobs on offer over 12 days, {here} to clear a camp (on offer each day: {by_day:?})", seen.len());
+        camp += here;
+        all += seen.len();
+    }
+    eprintln!("{near} towns near a camp; {camp} of {all} jobs on offer were to clear one");
+    assert!(near > 0, "some town lies near a camp");
+    assert!(camp >= 3, "clear-the-camp jobs come up: {camp} of {all} in 36 world-days");
+    assert!(early > 0, "and in a squad's first four days somewhere, not only after a week");
+    // But they don't crowd the rest out.
+    assert!(camp * 3 <= all, "not every job is the camp: {camp} of {all}");
+}

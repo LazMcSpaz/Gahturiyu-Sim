@@ -145,3 +145,40 @@ fn keeping_quiet_means_nothing_follows() {
     eprintln!("{quiet} of {} friends kept quiet", folk.len());
     assert!(quiet > 0, "friends look away sometimes");
 }
+
+/// NM-28: a crime seen with nobody to come running still says something
+/// follows, and what's owed can be looked up afterwards.
+#[test]
+fn nm28_a_bounty_posted_says_so_and_can_be_looked_up() {
+    let mut w = worldgen::generate(1);
+    assert!(w.wanted_lines().is_empty(), "nothing owed at the start");
+    // A town with no guard on watch just now (some hour of the night).
+    let mut found = None;
+    'hours: for _ in 0..48 {
+        w.step(HOUR / 2.0);
+        let t = w.time;
+        for s in 0..w.settlements.len() as u16 {
+            let guards = w.settlements[s as usize].residents.iter().filter(|&&p| !w.people[p as usize].dead && w.life(p).job == Job::Guard && w.at_work(p, t)).count();
+            if guards == 0 && w.settlements[s as usize].residents.len() > 40 {
+                found = Some(s);
+                break 'hours;
+            }
+        }
+    }
+    let town = found.expect("a town with nobody on watch at some hour");
+    w.teleport_squad(w.settlements[town as usize].pos);
+    let me = w.squad.members[0];
+    let at = w.person_pos(me);
+    // (No witness named: the town saw it for itself, so it is told.)
+    w.wrong_seen(me, town, Wrong::Theft, 40.0, "Seen stealing!".into(), None, None, at);
+    assert!(w.pursuits.is_empty(), "nobody on watch to send");
+    let owed = w.bounty.get(&town).copied().unwrap_or(0.0);
+    assert!(owed >= 40.0, "a bounty instead: {owed}");
+    let alert = w.alerts.last().cloned().unwrap_or_default();
+    assert!(alert.contains("Seen stealing!") && alert.contains("watch will hear"), "the line the player sees says it isn't over: {alert:?}");
+    let name = w.settlements[town as usize].name.clone();
+    assert_eq!(w.wanted_lines(), vec![format!("Wanted in {name}: {owed:.0} coin owed.")]);
+    // Paid off, it's gone from the list.
+    w.bounty.insert(town, 0.0);
+    assert!(w.wanted_lines().is_empty());
+}
