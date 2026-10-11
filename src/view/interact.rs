@@ -554,22 +554,57 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
     })
 }
 
+/// Someone of the squad is in this building (it's drawn cut open).
+pub fn squad_inside(w: &World, id: DoorId) -> bool {
+    w.squad.inside.iter().flatten().any(|&i| i == id)
+}
+
+/// The spot on the floor of a building the squad is in, under a view ray
+/// (origin, direction), if the ray meets one. The floor stands above the
+/// ground under most of the building, so the ground under the mouse is
+/// the wrong spot there.
+pub fn floor_under(w: &World, ray: (bevy::math::Vec3, bevy::math::Vec3), floor: &dyn Fn(&gahturiyu_sim::sim::buildings::Door) -> f32) -> Option<V2> {
+    let (a, dir) = ray;
+    if dir.y.abs() < 1e-4 {
+        return None;
+    }
+    let mut best: Option<(f32, V2)> = None;
+    for id in w.squad.inside.iter().flatten() {
+        let Some(d) = w.door(*id) else { continue };
+        let f = floor(&d);
+        if !f.is_finite() {
+            continue;
+        }
+        let s = (f - a.y) / dir.y;
+        if s <= 0.0 {
+            continue;
+        }
+        let q = a + dir * s;
+        let p = V2::new(q.x, q.z);
+        if d.contains(p) && best.is_none_or(|b| s < b.0) {
+            best = Some((s, p));
+        }
+    }
+    best.map(|b| b.1)
+}
+
 /// What's on the ground under the mouse when nothing smaller is: a piece of
-/// furniture, a building, a camp, a workplace.
+/// furniture, a building, a camp, a workplace. On the floor of a building
+/// the squad is in, nothing: a click there walks to the spot (UI-10).
 pub fn ground_hover(w: &World, at: V2) -> Option<Hover> {
     for d in w.doors_near(at, 2.0) {
         if !d.contains(at) {
             continue;
         }
         // Furniture shows (and counts) only inside, where it's drawn.
-        let inside = w.squad.inside.iter().flatten().any(|&i| i == d.id);
-        if inside {
+        if squad_inside(w, d.id) {
             for (k, p) in d.variant().furniture.iter().enumerate() {
                 let (wd, dp, _) = p.what.size();
                 if d.to_world(p.at).dist(at) < (wd.max(dp) * 0.6).max(0.6) {
                     return Some(Hover::Furniture(d.id, k as u8));
                 }
             }
+            return None;
         }
         return Some(Hover::Building(d.id));
     }

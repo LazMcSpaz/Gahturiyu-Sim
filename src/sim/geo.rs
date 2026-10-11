@@ -52,6 +52,11 @@ pub fn inland(p: V2) -> f32 {
     p.x - coast_x(p.y)
 }
 
+/// Inside the map's edges only (the sea is left to whoever walks into it).
+pub fn clamp_to_bounds(p: V2, margin: f32) -> V2 {
+    V2::new(p.x.clamp(margin, WORLD_SIZE - margin), p.y.clamp(margin, WORLD_SIZE - margin))
+}
+
 pub fn clamp_to_world(p: V2, margin: f32) -> V2 {
     let x = p.x.clamp(margin, WORLD_SIZE - margin).max(coast_x(p.y) + margin);
     V2::new(x, p.y.clamp(margin, WORLD_SIZE - margin))

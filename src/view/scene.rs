@@ -130,6 +130,15 @@ pub struct Grid {
     far: f32,
 }
 
+impl Scene3d {
+    /// The top of a building's floor as drawn: from the town's cache, or
+    /// worked out on the spot for a town not drawn.
+    pub fn floor_of(&self, t: &Terrain, d: &Door) -> f32 {
+        let cached = self.towns.get(&d.id.0).and_then(|tw| tw.floors.get(d.id.1 as usize).copied());
+        cached.unwrap_or_else(|| super::interiors::floor_height(d, &|p| self.grid.height(t, p)).0) + super::interiors::FLOOR_TOP
+    }
+}
+
 impl Grid {
     /// Height of the drawn ground at `p`, matching how each cell is split
     /// into two triangles.
@@ -204,6 +213,12 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     game.picks.clear();
     game.labels.clear();
+    // (Screenshots step the world a fixed 1/30 s a frame; so do the figures.)
+    game.gaits.begin(if game.shot.is_some() { 1.0 / 30.0 } else { (game.frame_ms / 1000.0) as f32 });
+    game.gaits.hot = match game.hover {
+        Some(Hover::Person(p)) => Some(p),
+        _ => None,
+    };
     game.bars.clear();
     let show = game.view == View::Scene;
     for mut v in &mut vis {
@@ -480,7 +495,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             if w.is_indoors_asleep(pid) {
                 continue;
             }
-            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground));
         }
     }
     // The watch on a chase: a red ring under the guard, a fainter one under
@@ -523,7 +538,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     tent(&mut b, to3(at, on_ground(at)), k, r);
                 }
                 for &m in &g.members {
-                    heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &floor_at, &on_ground));
+                    heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
                 }
                 // The leader's torch, after dark.
                 if w.group_torch_lit(g, w.time) {
@@ -558,25 +573,25 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     for &m in &w.squad.members {
-        heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &floor_at, &on_ground));
+        heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
     }
     // Squad members living at a base.
     for m in w.all_residents() {
         let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
         if here && w.person_pos(m).dist(oc.target) < radius {
-            heads.push(person(&mut b, &mut gl, &mut fl, w, m, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
         }
     }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
-            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground));
         }
     }
     // The fallen.
     for &(at, race, _, pid) in &w.corpses {
         if w.carried_by(pid).is_some() {
-            heads.push(person(&mut b, &mut gl, &mut fl, w, pid, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground));
             continue;
         }
         if at.dist(oc.target) < radius {
@@ -830,6 +845,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    // The floors of the buildings the squad is in, for clicks there (UI-10).
+    game.floors = w.squad.inside.iter().flatten().filter_map(|&id| w.door(id)).map(|d| (d.id, scene.floor_of(&w.terrain, &d))).collect();
+
     // Rings and the order lines, laid on the land. At night each member
     // gets a faint ring too, so the squad can always be made out.
     let night = 1.0 - gahturiyu_sim::sim::stealth::daylight(w.time);
@@ -838,7 +856,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
         let picked = game.sel.shows(w, m);
-        let face = super::cues::facing(w, m, at);
+        let face = game.gaits.face(m).unwrap_or_else(|| super::cues::facing(w, m, at));
         // Indoors, laid on the floor.
         let inner = floor_at(at);
         let ring_ground = |p: V2| inner.unwrap_or_else(|| on_ground(p));
@@ -849,12 +867,45 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let col = palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night);
             facing_ring(&mut fl, &ring_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
         }
+        // The way they'll actually walk, round buildings and through doors,
+        // dotted; for the selected only (UI-6). What's walked is gone.
         let goal = w.squad.goal[i];
-        if w.fighter(m).is_none() && at.dist(goal) > 1.5 {
-            let col = if picked { palette::GOLD } else { [0.95, 0.95, 0.95] };
-            draped_ribbon(&mut fl, &stand, at, goal, rw * 0.5, 0.4, col, 10.0);
+        if picked && w.fighter(m).is_none() && at.dist(goal) > 1.5 {
+            let mut way = vec![at];
+            way.extend(w.squad.route[i].iter().copied());
+            if way.last().is_none_or(|p| p.dist(goal) > 0.05) {
+                way.push(goal);
+            }
+            dotted_path(&mut fl, &stand, &way, rw * 0.5, 0.4, palette::GOLD, 0.7 * k, 0.6 * k);
             let inner = floor_at(goal);
-            draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), goal, 0.8 * k, rw * 0.6, 12, col, eye);
+            draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), goal, 0.8 * k, rw * 0.6, 12, palette::GOLD, eye);
+        }
+    }
+    // Under the mouse: a soft ring round it (UI-4).
+    let hot = game.hover.and_then(|h| super::pointer::spot_of(w, h).map(|(p, r)| (h, p, r))).map(|(h, p, r)| match h {
+        Hover::Person(id) => (game.gaits.drawn(id).unwrap_or(p), r * k),
+        _ if r < 2.0 => (p, r * k),
+        _ => (p, r),
+    });
+    if let Some((p, r)) = hot.or(game.wild.map(|s| (s.at, (s.size * 0.8).max(0.9) * k))) {
+        let inner = floor_at(p);
+        // (Thinner and fainter round something big: a building, a camp.)
+        let big = r > 3.0 * k;
+        let (wd, col) = if big { (rw * 0.25, palette::scale(palette::BRASS_LIGHT, 0.5)) } else { (rw * 0.45, palette::scale(palette::BRASS_LIGHT, 0.85)) };
+        draped_ring(&mut fl, &|q: V2| inner.unwrap_or_else(|| on_ground(q)), p, r, wd, if big { 64 } else { 28 }, col, eye);
+    }
+    // A walk that can't get all the way: a small grey cross at the spot
+    // asked for, while they're still on their way (UI-7).
+    if let Some((spot, who, at)) = &game.short {
+        let going = who.iter().filter_map(|&m| w.squad.index(m)).any(|i| w.member_pos(i).dist(w.squad.goal[i]) > 0.5);
+        if going || at.elapsed().as_secs_f32() < 3.0 || game.shot.is_some() {
+            let r = 0.9 * k;
+            let grey = [0.62, 0.62, 0.60];
+            for a in [std::f32::consts::FRAC_PI_4, -std::f32::consts::FRAC_PI_4] {
+                let d = V2::new(a.cos(), a.sin()).scale(r);
+                // (Over the water, on its surface.)
+                draped_ribbon(&mut fl, &|p: V2| on_ground(p).max(0.0), spot.sub(d), spot.add(d), rw * 0.9, 0.45, grey, 0.5);
+            }
         }
     }
     // Aiming a spell: how far it reaches, and who's in its sights.
@@ -961,6 +1012,52 @@ fn draped_ribbon(b: &mut Builder, ground: &dyn Fn(V2) -> f32, a: V2, c: V2, widt
         let q = [p0.sub(side), p0.add(side), p1.add(side), p1.sub(side)];
         let v = q.map(|p| to3(p, ground(p) + lift));
         b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+    }
+}
+
+/// A dotted line laid over the ground along a way (`pts`, first to last):
+/// dashes `dash` long with `gap` between, counted from the far end so they
+/// stay put on the ground as the walker eats the line up. The dashes dim a
+/// little toward the far end.
+fn dotted_path(b: &mut Builder, ground: &dyn Fn(V2) -> f32, pts: &[V2], width: f32, lift: f32, col: Rgb, dash: f32, gap: f32) {
+    let total: f32 = pts.windows(2).map(|s| s[0].dist(s[1])).sum();
+    if total < 1e-3 || dash <= 0.0 {
+        return;
+    }
+    // (A long walk gets longer dashes rather than thousands of them.)
+    let spread = (total / (dash + gap) / 1500.0).max(1.0);
+    let (dash, gap) = (dash * spread, gap * spread);
+    let period = dash + gap;
+    // How far along the way, from the start, a distance from the end is.
+    let mut from_end = total;
+    for s in pts.windows(2) {
+        let (a, c) = (s[0], s[1]);
+        let len = a.dist(c);
+        if len < 1e-4 {
+            continue;
+        }
+        let d = c.sub(a).scale(1.0 / len);
+        let side = V2::new(-d.y, d.x).scale(width * 0.5);
+        // Dashes start where (distance from the end) is a whole period.
+        let mut u = 0.0;
+        while u < len {
+            let e = from_end - u;
+            let into = e.rem_euclid(period);
+            // `into` from the next dash's far edge; a dash covers [gap, period).
+            let (on, run) = if into >= gap { (true, into - gap) } else { (false, into) };
+            let step = run.max(0.05).min(len - u);
+            if on {
+                let p0 = a.add(d.scale(u));
+                let p1 = a.add(d.scale(u + step));
+                let k = 1.0 - 0.35 * ((total - (from_end - u)) / total);
+                let lc = palette::lin(palette::scale(col, k.clamp(0.6, 1.0)));
+                let q = [p0.sub(side), p0.add(side), p1.add(side), p1.sub(side)];
+                let v = q.map(|p| to3(p, ground(p) + lift));
+                b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+            }
+            u += step;
+        }
+        from_end -= len;
     }
 }
 
@@ -1327,9 +1424,12 @@ fn body_size(race: Race) -> (f32, f32) {
 
 /// Draw one person; returns where their head is, for hover.
 #[allow(clippy::too_many_arguments)]
-fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: PersonId, k: f32, eye: Vec3, floor_at: &dyn Fn(V2) -> Option<f32>, ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
+fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super::gait::Gaits, w: &World, pid: PersonId, k: f32, eye: Vec3, floor_at: &dyn Fn(V2) -> Option<f32>, ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
     let p = &w.people[pid as usize];
-    let at = w.person_pos(pid);
+    // Eased after where the sim has them, turning as a person turns (UI-9).
+    let sim_at = w.person_pos(pid);
+    let pose = gaits.pose(pid, sim_at, super::cues::aim(w, pid, sim_at), super::cues::rest(w, pid));
+    let at = pose.pos;
     // Indoors, they and their rings stand on the floor (looked up once).
     let inner = floor_at(at);
     let on_ground = &|q: V2| inner.unwrap_or_else(|| ground(q));
@@ -1343,7 +1443,7 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: P
     let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);
     if foe && !far {
         // A faint red ring with a tip the way they face.
-        facing_ring(fl, on_ground, at, 0.9 * k, 0.04 * k, super::cues::facing(w, pid, at), [0.48, 0.16, 0.13], eye, true);
+        facing_ring(fl, on_ground, at, 0.9 * k, 0.04 * k, pose.face, [0.48, 0.16, 0.13], eye, true);
     }
     let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
     // Carried: across the carrier's shoulders.
@@ -1401,17 +1501,22 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, w: &World, pid: P
         b.column(base, r, r * 0.6, h, 4, race_color(p.race));
         return (base + vec3(0.0, h, 0.0), pid);
     }
-    // Sneaking: bent over, low, head forward.
-    let face = super::cues::facing(w, pid, at);
+    // Sneaking: bent over, low, head forward. Walking, the body rises and
+    // falls with each step.
+    let face = pose.face;
+    let base = base + vec3(0.0, pose.bob * h, 0.0);
     let fwd = vec3(face.cos(), 0.0, face.sin());
     let crouch = w.squad.index(pid).is_some() && w.is_sneaking(pid);
     let body = if crouch { h * 0.5 } else { h * 0.8 };
-    b.column(base, r, r * 0.8, body, 6, race_color(p.race));
+    // Under the mouse: a little brighter (UI-4).
+    let lift = if gaits.hot == Some(pid) { 1.3 } else { 1.0 };
+    let coat = palette::scale(race_color(p.race), lift);
+    b.column(base, r, r * 0.8, body, 6, coat);
     let head = base + vec3(0.0, body, 0.0) + if crouch { fwd * (r * 0.9) } else { Vec3::ZERO };
-    b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::skin(p.race));
+    b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::scale(palette::skin(p.race), lift));
     if crouch {
         // A hunched back between hips and head.
-        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(race_color(p.race), 0.85));
+        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(coat, 0.85));
     }
     super::cues::draw(b, gl, w, pid, base, if crouch { h * 0.75 } else { h }, r, face, k.min(2.0));
     // A lit torch, held up beside them.

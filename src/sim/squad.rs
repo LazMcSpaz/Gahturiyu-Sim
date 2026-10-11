@@ -183,7 +183,7 @@ impl World {
 
     /// Said once, so a walk that ends at the water isn't a mystery.
     fn sea_stops(&mut self) {
-        let line = "The water stops them: the squad can't cross the sea.".to_string();
+        let line = "The water stops them.".to_string();
         if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
             self.log.push_front((self.time, line));
             self.log.truncate(14);
@@ -198,7 +198,19 @@ impl World {
         }
         let members = self.squad.members.clone();
         self.order_members(&members, target);
-        self.squad.target = if self.on_walkway(target) { target } else { geo::clamp_to_world(target, 50.0) };
+        self.squad.target = self.order_spot(target);
+    }
+
+    /// Where an order to a spot is taken to: the spot, kept inside the
+    /// map's edges. (It was kept 50 m inland of the broad coastline, which
+    /// near the coast turned a click on the water into a walk inland; the
+    /// walk now goes to the shore and stops, UI-7.)
+    fn order_spot(&self, target: V2) -> V2 {
+        if self.on_walkway(target) {
+            target
+        } else {
+            geo::clamp_to_bounds(target, 50.0)
+        }
     }
 
     /// Send some members somewhere, in formation among themselves. Mid-fight,
@@ -207,8 +219,8 @@ impl World {
         if !(target.x.is_finite() && target.y.is_finite()) {
             return;
         }
-        // (Out over the water only on a dock, bridge or stilt platform.)
-        let target = if self.on_walkway(target) { target } else { geo::clamp_to_world(target, 50.0) };
+        // (Out to sea they stop at the water's edge: `cut_at_water`.)
+        let target = self.order_spot(target);
         // The bound work where they're put.
         let bound: Vec<PersonId> = who.iter().copied().filter(|&m| !self.free_to_order(m)).collect();
         for &m in &bound {
@@ -228,8 +240,12 @@ impl World {
             if let Some(k) = self.squad.index(pid) {
                 // Indoors there's no room for a formation.
                 let spot = if self.building_at(target).is_some() { target.add(formation(n).scale(0.3)) } else { target.add(formation(n)) };
-                let (path, locked) = self.travel(self.member_pos(k), spot);
+                let from = self.member_pos(k);
+                let (path, locked) = self.travel(from, spot);
                 blocked = blocked.or(locked);
+                // A way into the water ends at the shore (UI-7), where the
+                // walk would stop anyway.
+                let path = self.cut_at_water(from, &path).unwrap_or(path);
                 self.squad.goal[k] = *path.last().unwrap_or(&spot);
                 self.squad.route[k] = path;
             }

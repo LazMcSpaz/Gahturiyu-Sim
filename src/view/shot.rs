@@ -797,6 +797,9 @@ impl Shot {
         if let Some(which) = self.signs.clone() {
             *self.framing.lock().unwrap() = signs_street(world, &which);
         }
+        if let Ok(how) = std::env::var("GAHT_WAY") {
+            *self.framing.lock().unwrap() = way_round(world, &how);
+        }
         super::animals::prepare(world);
     }
 }
@@ -915,6 +918,65 @@ fn walk_in(world: &mut World) -> Option<(V2, f32, f32, Option<f32>)> {
     // Look from the front, down into the rooms.
     let yaw = d.rot + 0.5;
     Some((d.centre, 17.0, 0.78, Some(yaw)))
+}
+
+/// `GAHT_WAY=1`: the first two squad members are sent to the far side of
+/// the nearest building and caught a few seconds into the walk (the order
+/// line follows their way round it, UI-6). Returns the camera's framing,
+/// from overhead.
+/// `GAHT_WAY=sea`: the same two are sent out to sea from the nearest shore
+/// (UI-7: the line ends at the water's edge, a grey cross out at the spot).
+pub static WAY_SHORT: std::sync::Mutex<Option<V2>> = std::sync::Mutex::new(None);
+
+fn way_round(world: &mut World, how: &str) -> Option<(V2, f32, f32, Option<f32>)> {
+    let here = world.squad.pos;
+    if how == "sea" {
+        // The nearest open water, looking outward in rings.
+        let mut sea = None;
+        'look: for r in (20..6000).step_by(20) {
+            for a in 0..64 {
+                let ang = a as f32 / 64.0 * std::f32::consts::TAU;
+                let p = here.add(V2::new(ang.cos(), ang.sin()).scale(r as f32));
+                if world.open_water(p) {
+                    sea = Some(p);
+                    break 'look;
+                }
+            }
+        }
+        let sea = sea?;
+        // Back to dry land along the line, then 20 m more inland.
+        let back = here.sub(sea);
+        let back = back.scale(1.0 / back.len().max(0.01));
+        let mut shore = sea;
+        while world.open_water(shore) {
+            shore = shore.add(back.scale(1.0));
+        }
+        world.teleport_squad(shore.add(back.scale(20.0)));
+        world.step(0.001);
+        let to = shore.sub(back.scale(30.0));
+        let who: Vec<_> = world.squad.members.iter().copied().take(2).collect();
+        world.order_members(&who, to);
+        for _ in 0..30 {
+            world.step(0.1);
+        }
+        *WAY_SHORT.lock().unwrap() = Some(to);
+        let from = world.squad.pos;
+        eprintln!("sea: squad {:?}, shore {:?}, to {:?} ({:.0} m)", from, shore, to, from.dist(to));
+        return Some((from.lerp(to, 0.5), from.dist(to) * 1.6 + 20.0, 1.2, None));
+    }
+    let d = world.doors_near(here, 300.0).into_iter().min_by(|a, b| a.centre.dist(here).total_cmp(&b.centre.dist(here)))?;
+    // Stand on one side of it, then go to the other.
+    let side = here.sub(d.centre);
+    let side = side.scale(1.0 / side.len().max(0.01));
+    world.teleport_squad(d.centre.add(side.scale(d.radius + 7.0)));
+    world.step(0.001);
+    let to = d.centre.sub(side.scale(d.radius + 7.0));
+    let who: Vec<_> = world.squad.members.iter().copied().take(2).collect();
+    world.order_members(&who, to);
+    for _ in 0..30 {
+        world.step(0.1);
+    }
+    Some((d.centre, 30.0, 1.25, None))
 }
 
 /// `GAHT_SIGNS`: the spot in a town where the most signs (trade buildings
