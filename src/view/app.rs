@@ -161,6 +161,8 @@ pub struct Game {
     /// Remarks townsfolk make as the squad goes by: (who, what, until frame),
     /// and when each may speak up again.
     pub barks: Vec<(PersonId, String, u32)>,
+    /// What the squad has noticed and said (`remarks.rs`).
+    pub remarks: super::remarks::Remarks,
     /// The town's talk panel shows everything (as with the detail readout).
     pub town_all: bool,
     /// The land editor (F10).
@@ -282,6 +284,7 @@ pub fn run() {
         labels: Vec::new(),
         bars: Vec::new(),
         barks: Vec::new(),
+        remarks: Default::default(),
         town_all: false,
         editor: Default::default(),
         barked: std::collections::HashMap::new(),
@@ -1096,6 +1099,10 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                     game.notice = Some((msg, std::time::Instant::now()));
                 } else if locked && matches!(act, Act::Walk(_)) {
                     game.sounds.ui("ui_cant");
+                    // They walk up to it, and say so.
+                    if let Some(&m) = who.first() {
+                        super::remarks::now(game, m, "locked");
+                    }
                 } else if matches!(act, Act::Walk(_)) {
                     game.sounds.ui("ui_order");
                 }
@@ -1249,12 +1256,18 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             // Townsfolk with something on their mind say so as the squad passes.
             update_barks(game);
+            // And the squad says what it notices.
+            super::remarks::update(game);
             for (pid, line, _) in &game.barks {
                 let at = game.world.person_pos(*pid);
                 let g = scene.grid.height(&game.world.terrain, at);
                 if let Some(q) = game.orbit.project(&vp, size, to3(at, g + 2.4)) {
                     let wd = c.width(line, 15.0) + 12.0;
                     c.rect(q.x - wd / 2.0, q.y - 18.0, wd, 22.0, hud::shadow(0.6));
+                    // One of ours: a brass edge.
+                    if game.world.people[*pid as usize].in_squad {
+                        c.rect_lines(q.x - wd / 2.0, q.y - 18.0, wd, 22.0, 1.0, super::palette::ega(super::palette::BRASS, 0.8));
+                    }
                     c.centred(&format!("\u{201c}{line}\u{201d}"), q.x, q.y - 2.0, 15.0, super::palette::TEXT);
                 }
             }

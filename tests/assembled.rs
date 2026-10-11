@@ -51,7 +51,7 @@ fn the_pieces_parse() {
     let p = talk::pieces();
     assert!(p.len() > 60);
     for x in p {
-        assert!(["greeting", "topic", "feeling", "hook", "farewell", "bark", "origin", "work", "about", "folk", "ways", "line"].contains(&x.slot), "{x:?}");
+        assert!(["greeting", "topic", "feeling", "hook", "farewell", "bark", "origin", "work", "about", "folk", "ways", "line", "remark"].contains(&x.slot), "{x:?}");
     }
     // The theft set is there.
     assert!(p.iter().any(|x| x.topic == "theft" && x.text.contains("took {item}")));
@@ -195,4 +195,17 @@ fn thanks_for_telling_the_watch_come_from_the_wronged_and_say_you() {
     let lines = vec![w.assemble_talk(victim, lead, Some(&c), false).text];
     assert!(lines.iter().all(|l| !l.contains(&name)), "named to their own face: {lines:?}");
     assert!(lines.iter().any(|l| l.contains("You ")), "{lines:?}");
+}
+
+/// The squad's own remarks (`data/lines/squad.txt`): every kind the window
+/// asks for has a line, for every member.
+#[test]
+fn every_kind_of_squad_remark_has_a_line() {
+    let w = worldgen::generate(1);
+    for about in ["camp", "ruin", "lair", "robbers", "new_town", "hungry", "starving", "tired", "heavy", "dark", "locked", "blocked", "after_fight", "won", "robbed"] {
+        for &m in &w.squad.members {
+            let line = w.squad_remark(m, about, &[("town", "Woodhaven".to_string())], 1);
+            assert!(line.as_deref().is_some_and(|l| !l.is_empty() && !l.contains('{')), "{about}: {line:?}");
+        }
+    }
 }

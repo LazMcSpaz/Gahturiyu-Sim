@@ -14,6 +14,8 @@ pieces of text in these files. Edit them freely; no code changes needed
   me about yourself"), `town.txt`, `advice.txt`, `rumours.txt`,
   `bandits.txt`. Each says at its top which slots it uses and which extra
   tags and slot values it gets.
+- `squad.txt` — what your own squad says out loud when they notice
+  something (slot `remark`, one `about=` tag; the list is at its top).
 
 ## A line
 

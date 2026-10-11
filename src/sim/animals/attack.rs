@@ -825,11 +825,12 @@ impl World {
     ///
     /// (This repeats what `fights::start_battle` does, which is private to
     /// that file. If that function is opened up, this should call it.)
-    fn squad_fray_shell(&mut self, id: u32, at: f64) -> Battle {
+    fn squad_fray_shell(&mut self, id: u32, at: f64, near: V2) -> Battle {
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
         let mut b = Battle::new(id, seed, at, Vec::new(), Vec::new());
         b.lights = Some(self.fixed_lights());
-        for pid in self.squad_fit() {
+        // Those of the squad near it (BL-15: one off on their own stays out).
+        for pid in self.squad_near(near) {
             self.people[pid as usize].ensure_detail();
             let pos = self.person_pos(pid);
             let mut f = Fighter::from_person(&self.people[pid as usize], SQUAD_SIDE, pos, self.time);
@@ -885,12 +886,12 @@ impl World {
     /// herd is already fighting).
     fn squad_fray(&mut self, herd: u32, squad_surprised: f64, herd_surprised: f64, hunted: bool) -> Option<u32> {
         let t = self.time;
-        if self.squad_battle().is_some() || self.squad_fit().is_empty() || self.herd_in_fray(herd) {
+        let centre = self.herd_pos(herd, t);
+        if self.squad_battle().is_some() || self.squad_near(centre).is_empty() || self.herd_in_fray(herd) {
             return None;
         }
         let h = &self.animals.herds[herd as usize];
         let here = self.squad.pos;
-        let centre = self.herd_pos(herd, t);
         // The nearest of them come into it.
         let mut slots: Vec<(usize, V2)> = (0..h.alive(t)).filter(|&j| !h.down(j, t)).map(|j| (j, h.member_at(centre, j, t))).collect();
         slots.sort_by(|a, b| a.1.dist(here).total_cmp(&b.1.dist(here)).then(a.0.cmp(&b.0)));
@@ -901,7 +902,7 @@ impl World {
         }
         let id = self.animals.next_battle;
         self.animals.next_battle += 1;
-        let mut b = self.squad_fray_shell(id, t);
+        let mut b = self.squad_fray_shell(id, t, centre);
         let h = &self.animals.herds[herd as usize];
         let d = h.def();
         let mut parts = Vec::new();
@@ -918,7 +919,7 @@ impl World {
             }
         }
         let pack = slots.len() as u8;
-        let (pack_might, their_might) = (h.might(t), self.squad_fit().iter().map(|&m| self.people[m as usize].might).sum::<f32>());
+        let (pack_might, their_might) = (h.might(t), b.fighters.iter().filter(|f| f.side == SQUAD_SIDE && f.is_person()).map(|f| self.people[f.pid as usize].might).sum::<f32>());
         let (sp, people) = (h.sp, b.fighters.iter().filter(|f| f.side == SQUAD_SIDE).count() as u8);
         self.battles.push(b);
         self.animals.frays.push(Fray { battle: id, at: centre, ends: None, parts, animals_won: false, squad_won: false, hunted, cargo: None });

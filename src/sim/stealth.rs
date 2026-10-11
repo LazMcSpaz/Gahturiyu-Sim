@@ -41,6 +41,13 @@ pub const HEARING: f32 = 30.0;
 pub const TOUCH: f32 = 3.0;
 /// Sneaking within this many metres of watchers, unnoticed, trains Sneak.
 pub const CREEP: f32 = 45.0;
+/// A camp watches whoever of the squad comes within this many metres of
+/// it (further than anyone can be seen, even by torchlight).
+pub const WATCH_REACH: f32 = 320.0;
+/// Below this much daylight a camp sleeps but for its lookout.
+pub const NIGHT_WATCH: f32 = 0.3;
+/// How keen a sleeper's ears are, as a share of someone awake.
+pub const ASLEEP_SENSES: f32 = 0.3;
 /// Pace while sneaking, as a share of normal.
 pub const SNEAK_PACE: f32 = 0.45;
 
@@ -152,17 +159,23 @@ impl World {
     /// How fast a watcher's suspicion of someone rises per second, right now.
     /// Also returns whether they're within the watcher's senses at all.
     pub fn detect_rate(&self, watcher: GroupId, from: V2, pid: PersonId) -> (f32, bool) {
+        self.detect_rate_by(watcher, from, pid, 1.0)
+    }
+
+    /// The same from one pair of eyes, its senses scaled by `awake` (1 for
+    /// a lookout, less for one asleep by the fire).
+    fn detect_rate_by(&self, watcher: GroupId, from: V2, pid: PersonId, awake: f32) -> (f32, bool) {
         let Some(k) = self.squad.index(pid) else { return (0.0, false) };
         let at = self.member_pos(k);
         let d = at.dist(from);
-        if d < TOUCH {
-            return (100.0, true);
-        }
-        // Inside a veil, lookouts see and hear nothing.
+        // Inside a veil, lookouts see and hear nothing, close or not.
         if self.wards_at(super::effects::Does::Veil, at).next().is_some() {
             return (0.0, d < CREEP);
         }
-        let sharp = self.alertness(watcher);
+        if d < TOUCH {
+            return (100.0, true);
+        }
+        let sharp = self.alertness(watcher) * awake;
         let mut sight = SIGHT * self.visibility_of(pid) * sharp;
         // A torch in the dark is a beacon.
         if self.torch_lit(pid) {
@@ -170,6 +183,10 @@ impl World {
         }
         let in_town = self.settlements.iter().any(|s| s.pos.dist(at) < s.reach);
         let hearing = HEARING * self.noise_of(pid) * sharp * if in_town { 0.6 } else { 1.0 };
+        // Asleep, they see nothing; they may still hear.
+        if awake < 1.0 {
+            sight = 0.0;
+        }
         let mut rate = 0.0;
         if d < sight {
             rate += 0.3 + 1.5 * (1.0 - d / sight);
@@ -178,6 +195,28 @@ impl World {
             rate += 0.2 + 1.0 * (1.0 - d / hearing);
         }
         (rate, d < CREEP)
+    }
+
+    /// Where a camp's band are, each with how awake they are: everyone by
+    /// day; at night one keeps watch (a different one each night, by the
+    /// band's seed) and the rest sleep round the fire (BL-20). The out cold
+    /// and those in a fight watch nothing.
+    fn camp_eyes(&self, gid: GroupId) -> Vec<(V2, f32)> {
+        let Some(g) = self.group(gid) else { return Vec::new() };
+        let up: Vec<PersonId> = g.members.iter().copied().filter(|&m| !self.people[m as usize].dead && !self.fighting.contains_key(&m) && !self.is_down(m)).collect();
+        if up.is_empty() {
+            return Vec::new();
+        }
+        let night = daylight(self.time) < NIGHT_WATCH;
+        let night_no = (self.time / DAY).floor() as u64;
+        let lookout = super::rng::Rng::from_keys(&[g.seed, night_no, 0x4C4F_4F4B]).below(up.len());
+        up.iter().enumerate().map(|(i, &m)| (self.person_pos(m), if night && i != lookout { ASLEEP_SENSES } else { 1.0 })).collect()
+    }
+
+    /// How fast a camp's band would notice this squad member where they
+    /// stand right now, per second (the quickest of their eyes).
+    pub fn watch_rate(&self, gid: GroupId, pid: PersonId) -> f32 {
+        self.camp_eyes(gid).iter().map(|&(at, awake)| self.detect_rate_by(gid, at, pid, awake).0).fold(0.0, f32::max)
     }
 
     /// Run the watchers' meters up to now. Returns the groups that noticed
@@ -193,26 +232,31 @@ impl World {
         // A camp licking its wounds after a fight doesn't go looking for
         // another, but still sees who walks into its own ground, unless the
         // squad beat it (then the squad holds the field till they've rested).
-        let watchers: Vec<(GroupId, V2, Option<V2>)> = self
+        // Any camp near any one of the squad watches, not only those near
+        // the bulk of it (BL-21).
+        let members: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)).collect();
+        let spots: Vec<V2> = members.iter().map(|&m| self.person_pos(m)).collect();
+        let watchers: Vec<(GroupId, Option<V2>)> = self
             .camps
             .iter()
             .filter(|c| c.ready_at <= self.time || !self.beaten_camps.contains(&c.group))
+            .filter(|c| spots.iter().any(|p| p.dist(c.pos) <= WATCH_REACH))
             .filter_map(|c| self.group(c.group).map(|g| (g, c.pos, c.ready_at > self.time)))
-            .filter(|(g, _, _)| g.band == 1 && !self.fighting_groups.contains(&g.id) && g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
-            .map(|(g, home, resting)| (g.id, g.position_at(self.time), resting.then_some(home)))
+            .filter(|(g, _, _)| !self.fighting_groups.contains(&g.id) && g.members.iter().any(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)))
+            .map(|(g, home, resting)| (g.id, resting.then_some(home)))
             .collect();
-        let members: Vec<PersonId> = self.squad.members.iter().copied().filter(|m| !self.people[*m as usize].dead && !self.fighting.contains_key(m)).collect();
         // Rates don't change much within one step; work them out once.
         // (However long the step: a cap here would make a long step count
         // for less than the same time in short ones.)
         let ticks = (last - first + 1) as f32;
         let mut noticed = Vec::new();
-        for &(gid, from, resting) in &watchers {
+        for &(gid, resting) in &watchers {
+            let eyes = self.camp_eyes(gid);
             let mut when = None;
             for &m in &members {
                 let (rate, near) = match resting {
                     Some(home) if self.person_pos(m).dist(home) > super::encounters::GUARD_RING => (0.0, false),
-                    _ => self.detect_rate(gid, from, m),
+                    _ => eyes.iter().map(|&(at, awake)| self.detect_rate_by(gid, at, m, awake)).fold((0.0f32, false), |a, b| (a.0.max(b.0), a.1 || b.1)),
                 };
                 // Sneak is learned by creeping about unseen, not by crouching
                 // still (or sleeping) beside a camp.

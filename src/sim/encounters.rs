@@ -48,6 +48,11 @@ pub const CAMP_REST: f64 = 4.0 * HOUR;
 /// gang doesn't go looking for anyone, but it still sees who walks in here
 /// (and its pile lies inside it).
 pub const GUARD_RING: f32 = 20.0;
+/// Directions from a camp's fire that are clear of the band sitting round it
+/// (`World::person_pos` spreads a resting band along rays at 0.5 + 2.1·i
+/// radians; these are the gaps between them). The stash, a ruin's cache and
+/// the lean-tos go there.
+pub const CLEAR_OF_THE_BAND: [f32; 3] = [1.55, 3.65, 5.75];
 /// Where a gang leaves the beaten it finds lying in its camp, metres out.
 pub const DUMP_AT: f32 = 35.0;
 

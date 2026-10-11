@@ -32,8 +32,6 @@ pub const NIGHT_FACTOR: f32 = 0.12;
 const ANNOUNCE_GAP: f64 = 3600.0;
 /// How often (game seconds) townsfolk are checked for coming into band 1.
 const TOWN_LOOK_EVERY: f64 = 3.0;
-/// How many lines of the event log to keep.
-const LOG_LEN: usize = 14;
 
 pub const HOUR: f64 = 3600.0;
 pub const DAY: f64 = 24.0 * HOUR;
@@ -557,14 +555,10 @@ impl World {
             }
         }
         self.in_view_groups.retain(|_, last| t - *last <= ANNOUNCE_GAP);
-        // Only a band that would fall on the squad is called out. Other
-        // parties on the road are there to be seen, not announced (NM-63).
-        for id in entered {
-            if self.group(id).is_some_and(|g| g.hostile) {
-                let line = self.describe_group(id);
-                self.push_log(line);
-            }
-        }
+        // Nobody is announced: a band is there to be seen, and the squad
+        // says so when one of them sees it (the window's remarks; NM-63,
+        // BL-40).
+        let _ = entered;
 
         // Townsfolk are banded one by one, by where each of them is standing.
         // Checked a few times a game-minute: who gets *named* never changes
@@ -592,11 +586,6 @@ impl World {
     /// witness has (`stealth::SIGHT`, more by day in the open)?
     pub fn in_plain_sight(&self, at: V2) -> bool {
         at.dist(self.squad.pos) <= super::stealth::SIGHT * 3.0
-    }
-
-    fn push_log(&mut self, line: String) {
-        self.log.push_front((self.time, line));
-        self.log.truncate(LOG_LEN);
     }
 
     pub fn describe_group(&self, id: GroupId) -> String {

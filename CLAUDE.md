@@ -290,8 +290,10 @@ for the nearest iron seam).
 `GAHT_MENU=1` (the right-click menu for whatever is under `GAHT_HOVER`).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
-`GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot, full, hungry, night,
-beaten; screenshots otherwise show none and never touch `hints.txt`).
+`GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
+otherwise show none and never touch `hints.txt`).
+`GAHT_REMARK=<about>` (the first squad member says a remark of that kind over their head, e.g.
+`camp`, `hungry`, `dark`, `locked`; the kinds are listed at the top of `data/lines/squad.txt`).
 `GAHT_INTERIOR=1|tadoro|crowded|slope|<variant key>` (member 0 walks into the nearest open workshop or
 shop and opens a container: the cut-open rooms and the container panel; camera close unless
 `GAHT_ZOOM`/`GAHT_PITCH`. `tadoro`: a building a Ṭaḍoro lodges in, framed on their corner;
@@ -409,6 +411,17 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   marked `⟦native|meaning⟧` (`sim/speech.rs`); the talk panel draws it in
   `NATIVE` with a dotted underline and gives its meaning along the bottom
   when the mouse is over it. Text that can't hover uses `speech::plain`.
+
+- The squad speaks (`view/remarks.rs`, drawing only): first sight of a camp,
+  ruin or lair, a new town, a hunger or tiredness stage, a heavy pack, dusk in
+  the open, a fight over, coming round after a robbery, a locked click. Lines
+  are `data/lines/squad.txt` (`World::squad_remark`); at most one remark
+  every ~20 s, the same kind not for ~5 min. They replace tips and news
+  lines: nothing announces a band any more (the play tool stops a wait on a
+  band coming into sight by looking itself).
+- Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
+  let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
+  the mouse once a frame.
 
 - Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
   healing, "?"/"!" as suspicion builds, a skill rising) come from comparing

@@ -22,6 +22,7 @@ pub mod map;
 pub mod mesh;
 pub mod models;
 pub mod palette;
+pub mod remarks;
 pub mod scene;
 pub mod settings;
 pub mod sound;

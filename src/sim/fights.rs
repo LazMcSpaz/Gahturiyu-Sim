@@ -17,10 +17,14 @@ use super::rng::{self, Rng};
 use super::stats::{Calling, Skill, SKILLS};
 use super::world::World;
 
-/// Share of arrows and bolts found again after a fight.
 /// How far off someone can be and still be gone for: about as far as
 /// they could be made out and closed on.
 pub const ATTACK_REACH: f32 = 150.0;
+/// Squad members this near where a fight starts are in it from the start.
+pub const FIGHT_PULL: f32 = 120.0;
+/// A squad member this near anyone still fighting joins the fight.
+pub const JOIN_AT: f32 = 25.0;
+/// Share of arrows and bolts found again after a fight.
 pub const AMMO_FOUND: f32 = 0.5;
 /// How long the fallen stay on the ground, game seconds.
 pub const CORPSE_TIME: f64 = 2.0 * 3600.0;
@@ -64,6 +68,27 @@ impl World {
             .collect()
     }
 
+    /// Squad members able to fight and near enough to `at` to be drawn into
+    /// a fight there (BL-15: one sent off on their own stays out of it).
+    pub fn squad_near(&self, at: V2) -> Vec<PersonId> {
+        self.squad_fit().into_iter().filter(|&m| self.person_pos(m).dist(at) <= FIGHT_PULL).collect()
+    }
+
+    /// Squad members on their feet who walk up to the squad's fight join it.
+    fn walk_ins(&mut self) {
+        let duels: Vec<u32> = self.duels.iter().map(|d| d.battle).collect();
+        let Some(bid) = self.squad_battle().map(|b| b.id).filter(|b| !duels.contains(b)) else { return };
+        let spots: Vec<V2> = self.battle(bid).map(|b| b.fighters.iter().filter(|f| f.active()).map(|f| f.pos).collect()).unwrap_or_default();
+        let joining: Vec<PersonId> = self
+            .squad_fit()
+            .into_iter()
+            .filter(|&m| !self.fighting.contains_key(&m) && spots.iter().any(|p| p.dist(self.person_pos(m)) <= JOIN_AT))
+            .collect();
+        if !joining.is_empty() {
+            self.join_battle(bid, SQUAD_SIDE, &joining);
+        }
+    }
+
     /// Tell some squad members to move somewhere mid-fight (they stop
     /// attacking until they get there).
     pub(super) fn order_in_battle(&mut self, who: &[PersonId], target: V2) {
@@ -103,7 +128,13 @@ impl World {
             return false;
         }
         let them: Vec<PersonId> = g.members.iter().copied().filter(|&m| self.fit_to_fight(m)).collect();
-        let fit = self.squad_fit();
+        // Those sent, and whoever of the squad is near (BL-15).
+        let mut fit = self.squad_near(there);
+        for &m in who {
+            if !fit.contains(&m) && self.fit_to_fight(m) && self.person_pos(m).dist(there) <= ATTACK_REACH {
+                fit.push(m);
+            }
+        }
         if fit.is_empty() || them.is_empty() {
             return false;
         }
@@ -228,8 +259,19 @@ impl World {
                 if fresh.is_empty() {
                     continue;
                 }
+                // Those near them, and anyone they've spotted (BL-15).
+                let band_at = self.group(gid).map(|g| g.position_at(when)).unwrap_or(self.squad.pos);
+                let mut near = self.squad_near(band_at);
+                for &m in &squad_fit {
+                    if !near.contains(&m) && self.suspicion.get(&(gid, m)).is_some_and(|v| *v >= 1.0) {
+                        near.push(m);
+                    }
+                }
+                if near.is_empty() {
+                    continue;
+                }
                 // A sanctuary: they won't come for anyone sheltering in it.
-                let open: Vec<PersonId> = squad_fit.iter().copied().filter(|&m| self.wards_at(Does::Sanctuary, self.person_pos(m)).next().is_none()).collect();
+                let open: Vec<PersonId> = near.iter().copied().filter(|&m| self.wards_at(Does::Sanctuary, self.person_pos(m)).next().is_none()).collect();
                 if open.is_empty() {
                     // They hold off, but they'll be watching when you leave it.
                     for (k, v) in self.suspicion.iter_mut() {
@@ -248,8 +290,7 @@ impl World {
                         let line = if home { "You're seen in their camp! They come for you." } else { "You're attacked!" }.to_string();
                         self.alerts.push(line.clone());
                         self.log.push_front((when, line));
-                        let fit = self.squad_fit();
-                        let id = self.start_battle(vec![(SQUAD_SIDE, fit), (1, fresh)], when);
+                        let id = self.start_battle(vec![(SQUAD_SIDE, near), (1, fresh)], when);
                         // A tripwire round them: sleepers are up at once.
                         let tripped = self.squad.members.iter().any(|&m| self.wards_at(Does::Tripwire, self.person_pos(m)).next().is_some());
                         if tripped {
@@ -266,6 +307,7 @@ impl World {
             }
         }
 
+        self.walk_ins();
         for b in &mut self.battles {
             b.advance_to(t);
         }
@@ -628,10 +670,13 @@ impl World {
         let homes: Vec<V2> = self.camps.iter().filter(|c| bands.contains(&c.group) && self.group(c.group).is_some()).map(|c| c.pos).collect();
         let mut moved = false;
         for home in homes {
+            // Everyone of the squad on their ground, down or not: those left
+            // standing are seen off it too, so nobody comes round inside it
+            // and starts the whole thing again (BL-19).
             for f in b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && !f.dead) {
                 let Some(k) = self.squad.index(f.pid) else { continue };
                 let at = self.squad.at[k];
-                if at.dist(home) > GUARD_RING || !self.is_down(f.pid) {
+                if at.dist(home) > GUARD_RING {
                     continue;
                 }
                 let away = at.sub(home);

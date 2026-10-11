@@ -86,6 +86,8 @@ pub enum Owner {
 /// from the cache in its camp (capped short of noticing, so the watch's own
 /// meter decides it on its next look).
 pub const TAKE_NOISE: f32 = 0.35;
+/// How far a camp's stash stands from its fire, metres.
+pub const STASH_OUT: f32 = 8.0;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Container {
@@ -322,8 +324,11 @@ impl World {
     pub(super) fn make_stash(&mut self, at: V2) -> ContainerId {
         let n = self.containers.range((WILD, STASH_BASE, 0)..=(WILD, u16::MAX, u8::MAX)).count() as u16;
         let id = (WILD, STASH_BASE + n, 0);
-        let a = Rng::from_keys(&[self.seed, n as u64, 0x5354_5053]).f32() * std::f32::consts::TAU;
-        let pos = at.add(V2::new(a.cos(), a.sin()).scale(3.0));
+        // Between where the band sits round the fire (`World::person_pos`
+        // spreads them along three rays), out of arm's reach of them all, so
+        // a good sneak in the dark can get to it (BL-20).
+        let a = super::encounters::CLEAR_OF_THE_BAND[2];
+        let pos = at.add(V2::new(a.cos(), a.sin()).scale(STASH_OUT));
         let items = stash_stock(self.seed, n);
         self.containers.insert(id, Container { id, what: Holder::Chest, pos, rot: a, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0, ours: Vec::new() });
         id
@@ -440,6 +445,7 @@ impl World {
                 let meter = self.suspicion.entry((g, who)).or_insert(0.0);
                 *meter = (*meter + TAKE_NOISE).min(0.99);
             }
+            self.lair_disturbed(id.1 as u32);
             return;
         }
         let mut r = Rng::from_keys(&[self.seed, who as u64, id.0 as u64, id.1 as u64, id.2 as u64, n as u64, 0x5448_4546]);

@@ -595,9 +595,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let kk = k.min(4.0);
         let fire = to3(c.pos, on_ground(c.pos));
         gl.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, palette::EMBER);
-        for j in 0..3 {
-            let a = j as f32 * 2.1 + c.group as f32;
-            let at = c.pos.add(V2::new(a.cos(), a.sin()).scale(7.0 * kk));
+        // Lean-tos out behind the gaps where the band sits (and the stash).
+        for &a in &gahturiyu_sim::sim::encounters::CLEAR_OF_THE_BAND {
+            let at = c.pos.add(V2::new(a.cos(), a.sin()).scale(12.0 * kk));
             b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, palette::CAMP_HIDE);
         }
     }
@@ -867,6 +867,21 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 let tp = w.person_pos(p);
                 let col = if tp.dist(at) <= range { super::squadui::RITUAL } else { [0.95, 0.45, 0.30] };
                 draped_ring(&mut fl, &on_ground, tp, 1.3 * k, rw * 0.9, 24, col, eye);
+            }
+            // An area that catches everyone in it: drawn where it would land,
+            // red if any of the squad would be caught (UI-13).
+            let area = s.def().effects.iter().filter_map(|e| match e.reach {
+                gahturiyu_sim::sim::effects::Reach::Area { radius, who: gahturiyu_sim::sim::effects::Who::All } => Some(radius),
+                _ => None,
+            }).fold(0.0f32, f32::max);
+            let aimed = match game.hover {
+                Some(Hover::Person(p)) => Some(w.person_pos(p)),
+                _ => game.orbit.ground_at(game.screen, game.mouse, &w.terrain),
+            };
+            if let (true, Some(spot)) = (area > 0.0, aimed) {
+                let ours = w.squad.members.iter().any(|&m| w.person_pos(m).dist(spot) <= area);
+                let col = if ours { [0.95, 0.25, 0.20] } else { super::squadui::RITUAL };
+                draped_ring(&mut fl, &on_ground, spot, area, rw * 1.2, 48, col, eye);
             }
         }
     }
