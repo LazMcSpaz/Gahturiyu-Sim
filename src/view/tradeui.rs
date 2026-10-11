@@ -31,6 +31,7 @@ use gahturiyu_sim::sim::{
 
 use super::hud::{Canvas, Face};
 use super::palette::{eg, ega, Rgb, BRASS, BRASS_LIGHT, TEXT};
+use super::kit;
 use super::squadui::{Bx, Click};
 
 /// The trade screen while it's open.
@@ -107,7 +108,7 @@ pub type Scrolls = [f32; 2];
 /// Draw the screen for the talk that is open; what was clicked, the box it
 /// covers (all of the window: nothing behind it takes a click), and where
 /// its two lists are really scrolled to.
-pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Click>) -> (Option<TradeAct>, Bx, Scrolls) {
+pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Click>) -> (Option<TradeAct>, Bx, Scrolls) {
     let all = Bx::new(0.0, 0.0, c.w, c.h);
     let Some(cv) = w.talk.as_ref() else { return (None, all, t.scroll) };
     let npc = cv.npc;
@@ -160,6 +161,9 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
             c.styled("too far", cx - fw / 2.0, top + 106.0, 12.0, ega(EVEN, 0.5), Face::Italic, 0.0);
         }
         let bx = Bx::new(cx - 30.0, top + 14.0, 60.0, 84.0);
+        if near && !on {
+            kit::round(c, cx, cy, rad, kit::look(&bx));
+        }
         if near && !on && clicked(&bx) {
             act = Some(TradeAct::Member(m));
         }
@@ -204,10 +208,10 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         let bx = Bx::new(lx + 6.0, yy, SIDE_W - 12.0, ROW);
         let laid: u16 = t.table.give.iter().filter(|g| g.0 == member && g.1 == it).map(|g| g.2).sum();
         let sells = price.is_some() && !worn;
-        let hot = sells && bx.contains(mouse);
-        if hot {
-            c.grad(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.22), ega(BRASS, 0.04), true);
-        }
+        // (What they won't buy doesn't answer the mouse.)
+        let look = if sells { kit::row(c, &bx, false) } else { kit::Look::default() };
+        let hot = look.hot;
+        let yy = yy + kit::nudge(look);
         c.rect(bx.x + 6.0, bx.y + bx.h - 1.0, bx.w - 12.0, 1.0, ega(BRASS, 0.08));
         let fade = if sells { 1.0 } else { 0.5 };
         let label = if n > 1 { format!("{} ×{n}", named(w, it)) } else { named(w, it) };
@@ -287,10 +291,9 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         }
         let bx = Bx::new(rx + 6.0, yy, SIDE_W - 12.0, ROW);
         let laid: u16 = t.table.get.iter().filter(|g| g.0 == it).map(|g| g.1).sum();
-        let hot = bx.contains(mouse);
-        if hot {
-            c.grad(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.22), ega(BRASS, 0.04), true);
-        }
+        let look = kit::row(c, &bx, false);
+        let hot = look.hot;
+        let yy = yy + kit::nudge(look);
         c.rect(bx.x + 6.0, bx.y + bx.h - 1.0, bx.w - 12.0, 1.0, ega(BRASS, 0.08));
         let lw = c.styled(&named(w, it), bx.x + 12.0, yy + 22.0, 19.0, eg(if hot { BRIGHT } else { TEXT }), Face::Body, 0.0);
         let cw = c.styled(&format!("×{n}"), bx.x + 20.0 + lw, yy + 22.0, 15.0, eg(FAINT), Face::Body, 0.0);
@@ -344,9 +347,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         for (k, (label, coin)) in lines.iter().enumerate() {
             let ly = *y + 54.0 + k as f32 * 28.0;
             let bx = Bx::new(tx + 24.0, ly - 20.0, bxw - 8.0, 27.0);
-            if bx.contains(mouse) {
-                c.rect(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.14));
-            }
+            let ly = ly + kit::nudge(kit::row(c, &bx, false));
             c.styled(label, tx + 34.0, ly, 18.0, eg(TEXT), Face::Body, 0.0);
             if let Some(v) = coin {
                 c.styled_right(&v.to_string(), tx + 20.0 + bxw - 14.0, ly, 18.0, eg(EVEN), Face::Body, 0.0);
@@ -382,29 +383,21 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, mouse: Vec2, click: Option<Clic
         c.styled_centred(&why, tx + TABLE_W / 2.0, by - 14.0, 16.0, eg(POOR), Face::Italic, 0.0);
     }
     let clear = Bx::new(tx + 46.0, by + 2.0, 110.0, 40.0);
-    c.rect(clear.x, clear.y, clear.w, clear.h, ega(DARK, if clear.contains(mouse) { 0.8 } else { 0.6 }));
-    c.rect_lines(clear.x, clear.y, clear.w, clear.h, 1.0, ega(EVEN, 0.4));
-    c.styled("CLEAR", clear.x + clear.w / 2.0 - c.styled_width("CLEAR", 15.0, Face::Title, 3.0) / 2.0, clear.y + 26.0, 15.0, eg(EVEN), Face::Title, 3.0);
-    if clicked(&clear) {
+    let bare = t.table.is_empty();
+    kit::button(c, &clear, "CLEAR", kit::Kind::Plain, !bare);
+    if !bare && clicked(&clear) {
         act = Some(TradeAct::Clear);
     }
     let deal = Bx::new(tx + 172.0, by, 182.0, 44.0);
-    if ready {
-        c.grad(deal.x, deal.y, deal.w, deal.h, eg(if deal.contains(mouse) { BRIGHT } else { BRASS_LIGHT }), eg(BRASS), false);
-        c.rect_lines(deal.x, deal.y, deal.w, deal.h, 1.0, eg(BRASS_LIGHT));
-        c.styled("DEAL", deal.x + deal.w / 2.0 - c.styled_width("DEAL", 19.0, Face::Title, 5.0) / 2.0, deal.y + 30.0, 19.0, eg(DARK), Face::Title, 5.0);
-        if clicked(&deal) {
-            act = Some(TradeAct::Deal);
-        }
-    } else {
-        c.rect(deal.x, deal.y, deal.w, deal.h, ega(BRASS, 0.10));
-        c.rect_lines(deal.x, deal.y, deal.w, deal.h, 1.0, ega(BRASS, 0.3));
-        c.styled("DEAL", deal.x + deal.w / 2.0 - c.styled_width("DEAL", 19.0, Face::Title, 5.0) / 2.0, deal.y + 30.0, 19.0, ega(BRASS, 0.45), Face::Title, 5.0);
+    kit::button(c, &deal, "DEAL", kit::Kind::Primary, ready);
+    if ready && clicked(&deal) {
+        act = Some(TradeAct::Deal);
     }
 
     // Leaving, and how it works.
     let close = Bx::new(c.w - 60.0, 26.0, 34.0, 34.0);
-    c.styled("×", close.x + 9.0, close.y + 26.0, 28.0, eg(if close.contains(mouse) { BRASS_LIGHT } else { GROUP }), Face::Body, 0.0);
+    let cl = kit::look(&close);
+    c.styled("×", close.x + 9.0, close.y + 26.0 + kit::nudge(cl), 28.0, eg(if cl.hot { BRASS_LIGHT } else { GROUP }), Face::Body, 0.0);
     if clicked(&close) {
         act = Some(TradeAct::Close);
     }
