@@ -485,6 +485,23 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             ring_widened(&mut fl, &on_ground, c, 1.25 * k, 0.05 * k, 22, [0.85, 0.25, 0.15], eye, 0.004);
         }
     }
+    // The squad's own tent stands while someone sleeps under it (it lives in
+    // a pack; this is drawing only: `condition::Shelter` says who has it).
+    {
+        use gahturiyu_sim::sim::condition::{Activity, Shelter};
+        let tent_id = gahturiyu_sim::sim::items::id("tent");
+        for (j, &m) in w.squad.members.iter().enumerate() {
+            let at = w.squad.at[j];
+            if at.dist(oc.target) > radius || !w.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| e.0 == tent_id)) {
+                continue;
+            }
+            let under = w.squad.members.iter().enumerate().any(|(i, &o)| w.squad.at[i].dist(at) < 15.0 && w.people[o as usize].cond.as_ref().is_some_and(|c| c.activity == Activity::Sleeping && c.shelter == Shelter::Tent));
+            if under {
+                let spot = at.add(V2::new(2.6, 1.6));
+                tent(&mut b, to3(spot, on_ground(spot)), k, w.people[m as usize].seed);
+            }
+        }
+    }
     for g in &w.groups {
         // Travellers in town at night have found beds indoors.
         if g.pos.dist(oc.target) > radius || w.lodging(g) {

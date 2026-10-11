@@ -159,3 +159,29 @@ fn someone_who_has_strayed_is_flagged() {
         assert!(w.strayed(w.squad.members[3]).is_some() && w.strayed(m).is_some());
     }
 }
+
+/// N1, item 4: a tent isn't "used". Asked to, the game says how it works
+/// (it goes up when the squad beds down), and those who sleep near whoever
+/// carries it sleep under it.
+#[test]
+fn n1_a_tent_needs_no_pitching() {
+    use gahturiyu_sim::sim::condition::Shelter;
+    let mut w = worldgen::generate(1);
+    let tent = items::id("tent");
+    let carrier = w.squad.members.iter().copied().find(|&m| w.count_of(m, "tent") > 0).expect("the hunter starts with a tent");
+    let why = w.why_cant_use(carrier, tent).expect("a tent isn't used up");
+    assert!(why.contains("beds down") && !why.contains("isn't something to use"), "{why}");
+    // Out in the open, away from any roof, the squad beds down.
+    let out = w.squad.pos.add(V2::new(600.0, 0.0));
+    w.teleport_squad(out);
+    let all = w.squad.members.clone();
+    w.order_rest(&all);
+    for _ in 0..60 {
+        w.step(10.0);
+    }
+    for &m in &all {
+        let c = w.people[m as usize].cond.as_ref().unwrap();
+        assert!(w.is_asleep(m), "{} is asleep", w.name_of(m));
+        assert_eq!(c.shelter, Shelter::Tent, "{} sleeps under the tent", w.name_of(m));
+    }
+}

@@ -49,6 +49,9 @@ pub struct Shot {
     pub talk_to: Option<String>,
     /// `GAHT_STARVE=1`: the squad is starving (no food, hunger 92).
     pub starve: bool,
+    /// `GAHT_REST=1`: the squad beds down where it stands (after
+    /// `GAHT_HOURS`), so the hunter's tent goes up.
+    pub rest: bool,
     /// `GAHT_EXHAUST=1`: the squad is exhausted and out of breath.
     pub exhaust: bool,
     /// `GAHT_CARRY=1`: member 2 is down and member 0 is carrying them.
@@ -174,6 +177,7 @@ impl Shot {
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
             starve: var("GAHT_STARVE").is_some(),
+            rest: var("GAHT_REST").is_some(),
             exhaust: var("GAHT_EXHAUST").is_some(),
             carry: var("GAHT_CARRY").is_some(),
             limb: var("GAHT_LIMB").is_some(),
@@ -371,6 +375,13 @@ impl Shot {
             let end = world.time + h * 3600.0;
             while world.time < end {
                 world.step(60.0);
+            }
+        }
+        if self.rest {
+            let all = world.squad.members.clone();
+            world.order_rest(&all);
+            for _ in 0..60 {
+                world.step(10.0);
             }
         }
         if let Some(what) = self.society.clone() {

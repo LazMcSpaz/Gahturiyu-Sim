@@ -320,3 +320,67 @@ fn rg6_greetings_vary_by_who_is_speaking() {
     assert!(by_job >= 3, "only {by_job} greetings by trade");
     assert!(greetings >= 100, "{greetings} greetings");
 }
+
+/// N1, item 5 (the life-story check): asked about themselves, people of one
+/// people don't all tell the same story. It follows their years, their
+/// house, where they live and whether they'd rather be elsewhere; and
+/// nobody on dry land says they sleep over the water.
+#[test]
+fn n1_life_stories_differ_within_a_people() {
+    use gahturiyu_sim::sim::{race::Race, talk};
+    use std::collections::BTreeSet;
+    let w = worldgen::generate(1);
+    let lead = w.squad.members[0];
+    let mut told: [BTreeSet<u16>; 4] = Default::default();
+    let mut heads = [0usize; 4];
+    let mut work: BTreeSet<u16> = BTreeSet::new();
+    for s in &w.settlements {
+        for &p in &s.residents {
+            if w.people[p as usize].dead {
+                continue;
+            }
+            let (tags, values) = w.life_story_facts(p);
+            let said = w.say_from(p, lead, "background", &["origin", "work"], &tags, &values);
+            assert!(!said.text.is_empty(), "{} has nothing to say of themselves", w.name_of(p));
+            let r = w.people[p as usize].race.index();
+            heads[r] += 1;
+            told[r].insert(said.pieces[0]);
+            if let Some(&k) = said.pieces.get(1) {
+                work.insert(k);
+            }
+            // Stilts are only claimed by those who live on them.
+            let origin = &talk::pieces()[said.pieces[0] as usize];
+            if origin.must.contains(&"stilts") {
+                assert!(tags.iter().any(|t| t == "stilts"), "{} says: {}", w.name_of(p), said.text);
+            }
+            if !tags.iter().any(|t| t == "stilts") {
+                assert!(!said.text.contains("born on the stilts") && !said.text.contains("under the floor"), "{} lives on land and says: {}", w.name_of(p), said.text);
+            }
+        }
+    }
+    println!("people {heads:?}; different stories of where they come from: {:?}; of their work: {}", told.iter().map(|t| t.len()).collect::<Vec<_>>(), work.len());
+    for r in [Race::Roduro, Race::Qotiro, Race::Horaro, Race::Tadoro] {
+        assert!(told[r.index()].len() >= 8, "{r:?}: {} people tell only {} stories", heads[r.index()], told[r.index()].len());
+    }
+    assert!(work.len() >= 8, "only {} ways to say what they do", work.len());
+    // In one town, no one story is most of what a people has to tell.
+    use std::collections::BTreeMap;
+    let mut here: [BTreeMap<u16, usize>; 4] = Default::default();
+    for p in locals(&w) {
+        if w.people[p as usize].dead {
+            continue;
+        }
+        let (tags, values) = w.life_story_facts(p);
+        let said = w.say_from(p, lead, "background", &["origin"], &tags, &values);
+        *here[w.people[p as usize].race.index()].entry(said.pieces[0]).or_default() += 1;
+    }
+    for (r, m) in here.iter().enumerate() {
+        let n: usize = m.values().sum();
+        let most = m.values().copied().max().unwrap_or(0);
+        println!("in the starting town, people {r}: {n} of them tell {} stories; the commonest is told by {most}", m.len());
+        if n >= 20 {
+            assert!(most * 5 <= n * 2, "{most} of {n} tell the same story");
+            assert!(m.len() >= 6, "{n} people tell only {} stories", m.len());
+        }
+    }
+}
