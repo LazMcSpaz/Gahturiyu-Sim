@@ -309,7 +309,7 @@ conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
 put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,
 hires a hauler from town and opens the Base tab a day later).
-`GAHT_WEATHER=1` (the weather panel, F7; `folded` for its headline, `off` for none),
+`GAHT_WEATHER=1` (the weather panel; in play it's F7 with the detail switch L on; `folded` for its headline, `off` for none),
 `GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
 with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`
 (a lightning strike), `GAHT_WEATHER_TAB=effects`, `GAHT_WEATHER_QUALITY=off|low|medium|high`,
@@ -524,6 +524,18 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   no weather, so the `rain` piece never fires; fencing pays ring and thief out
   of the wider world (as caravans do). A dialogue "voice" is the speaker's
   people's way of speaking (presentation only, not a world rule).
+- Homes are open to visitors by day. Bedded down in someone else's home at
+  any hour, or inside one after dark, a squad member is told to go by
+  whoever of the house is up; staying on (ten minutes), or doing it again
+  that day, is trespass, reported like any other crime (Laz, N5;
+  `law.rs` `mind_the_guests`). A bed paid for at an inn is theirs.
+- The Overgrowth is still a stand-in: three wild regions far from any town
+  start overgrown, with a Briarback group each (Laz, N3; `animals/hooks.rs`).
+- Taming, cocoons, pens and pack beasts have no orders in this version
+  (Laz, N6): the wildlife and weather panels and their keys (F7, F12, H, Y,
+  F11, U) work only with the detail switch (L) on.
+- Shunning falls on the thief alone; what was stolen in a town has no buyer
+  there until it's settled (Laz, N4).
 - Skipped spells and why are listed in README (Magic). Far sight is skipped
   because the map shows everything; it needs fog of war first.
 - Animals follow the Part 4 prompt (Laz): the species list and their roles

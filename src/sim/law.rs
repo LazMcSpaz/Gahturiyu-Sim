@@ -143,6 +143,13 @@ pub const SEARCH_REACH: f32 = 30.0;
 pub const RUN_PRICE: f32 = 60.0;
 /// The most stolen things a town keeps track of.
 pub const HOT_MAX: usize = 64;
+/// Told to get out of a bed, or out of a house after dark, a squad member
+/// has this long to do it, seconds.
+pub const HOUSE_GRACE: f64 = 10.0 * 60.0;
+/// A household remembers a warning, and doesn't send for the watch twice, for this long.
+pub const HOUSE_MEMORY: f64 = DAY;
+/// The fine for staying where you were told to leave.
+pub const TRESPASS_FINE: f32 = 40.0;
 /// What a town gives someone it holds to work, when they have no food of
 /// their own, and how much of its stock a meal is.
 pub const BOUND_MEAL: &str = "flatbread";
@@ -252,6 +259,19 @@ pub struct Hot {
     pub n: u16,
     /// The chest it came out of, if it came out of one.
     pub from: Option<ContainerId>,
+}
+
+/// A squad member a household has told to get out of its beds, or out of
+/// its house after dark (Laz, N5): homes are open by day; a warning comes
+/// first, and staying on is reported like any other crime.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Unwelcome {
+    pub who: PersonId,
+    pub door: super::buildings::DoorId,
+    /// When they were told.
+    pub warned: f64,
+    /// When the watch was last sent for over it, if it has been.
+    pub reported: Option<f64>,
 }
 
 /// A duel the law set, being fought now.
@@ -987,6 +1007,8 @@ impl World {
         };
         let g = &mut self.society.towns[town as usize].gov;
         match rule {
+            // (U-12: the post can't be taken twice over.)
+            None if g.arbiter == Some(p) => return Err("already holds it"),
             None => g.arbiter = Some(p),
             Some(rule) => {
                 let c = g.chambers.iter_mut().find(|c| c.rule == rule).ok_or("this town has no such post")?;
@@ -1041,9 +1063,10 @@ impl World {
                 // What was owed is paid now if it can be; what can't rides
                 // on the duel.
                 let coin = items::id("coin");
-                let pay = (self.squad_count(coin) as f32).min(owed).floor();
+                let payers = self.paying_with(who);
+                let pay = (self.count_among(&payers, coin) as f32).min(owed).floor();
                 if pay >= 1.0 {
-                    self.take_from_squad(coin, pay as u16);
+                    self.take_among(&payers, coin, pay as u16);
                     self.say(t, format!("{name} pays the {pay:.0} coin already owed in {place}."));
                 }
                 self.say(t, format!("{name} must answer for {} by duel in {place}.", wrong.name()));
@@ -1073,12 +1096,24 @@ impl World {
         }
     }
 
+    /// Whose purses pay for this squad member: theirs and those of squad
+    /// members standing with them.
+    fn paying_with(&self, who: PersonId) -> Vec<PersonId> {
+        match self.squad.index(who) {
+            Some(k) => self.near_member(k),
+            None => self.squad.members.clone(),
+        }
+    }
+
     /// Pay a fine from the squad's coin; what can't be paid is worked off.
     fn pay_or_bond(&mut self, who: PersonId, town: SettlementId, fine: f32) {
+        // Out of the purses of the one judged and those standing with them,
+        // not of a squadmate in another town (NM-55).
         let coin = super::items::id("coin");
-        let have = self.squad_count(coin) as f32;
+        let payers = self.paying_with(who);
+        let have = self.count_among(&payers, coin) as f32;
         let pay = have.min(fine).floor();
-        self.take_from_squad(coin, pay as u16);
+        self.take_among(&payers, coin, pay as u16);
         let short = fine - pay;
         // Say what was taken, and what is still owed (NM-38).
         let (name, t) = (self.name_of(who), self.time);
@@ -1165,6 +1200,77 @@ impl World {
         let Some(g) = super::jobs::FOODS.iter().find(|g| tl.stock[g.index()].base >= BOUND_MEAL_UNITS) else { return false };
         tl.stock[g.index()].base -= BOUND_MEAL_UNITS;
         true
+    }
+
+    // ---- Strangers in the house --------------------------------------------------
+
+    /// Is this building someone else's home, to this squad member: people
+    /// live there, it isn't where they themselves lived, and they haven't
+    /// paid for the bed they're in?
+    pub fn others_home(&self, m: PersonId, door: super::buildings::DoorId) -> bool {
+        let p = &self.people[m as usize];
+        if p.home == Some(door.0) && p.dwelling == Some(door.1) {
+            return false;
+        }
+        if self.squad.index(m).is_some_and(|k| self.in_rented_bed(m, self.squad.at[k])) {
+            return false;
+        }
+        !self.residents_of(door).is_empty()
+    }
+
+    /// Someone of the house who is up and about it (indoors or in the
+    /// yard) to notice a stranger inside: the first, in the town's order.
+    pub fn host_at(&self, door: super::buildings::DoorId) -> Option<PersonId> {
+        use super::routine::{Doing, Spot};
+        self.residents_of(door).into_iter().find(|&p| {
+            !self.fighting.contains_key(&p) && !self.is_down(p) && matches!(self.doing_now(p), Some((d, Spot::Home)) if d != Doing::Asleep)
+        })
+    }
+
+    /// The squad's step: a squad member bedded down in someone else's home
+    /// (at any hour), or inside one after dark, is told to go by whoever of
+    /// the house is up. If they are still at it `HOUSE_GRACE` later, or do
+    /// it again within the day, it is reported: trespass, by that witness,
+    /// through `wrong_seen` like any other crime.
+    pub(super) fn mind_the_guests(&mut self) {
+        let t = self.time;
+        self.unwelcome.retain(|u| t - u.warned < HOUSE_MEMORY);
+        for k in 0..self.squad.members.len() {
+            let m = self.squad.members[k];
+            let Some(door) = self.squad.inside[k] else { continue };
+            if self.is_down(m) || self.fighting.contains_key(&m) || self.is_bonded(m, t) || !self.others_home(m, door) {
+                continue;
+            }
+            let abed = self.is_asleep(m) || self.squad.resting[k];
+            let night = super::buildings::is_night(t);
+            if !abed && !night {
+                continue;
+            }
+            let Some(host) = self.host_at(door) else { continue };
+            let (name, theirs) = (self.name_of(m), self.name_of(host));
+            let Some(i) = self.unwelcome.iter().position(|u| u.who == m && u.door == door) else {
+                // The warning; nobody sleeps through it.
+                self.unwelcome.push(Unwelcome { who: m, door, warned: t, reported: None });
+                let line = if abed { format!("{theirs} tells {name} to get out of that bed.") } else { format!("{theirs} tells {name} to get out of the house.") };
+                self.alerts.push(line.clone());
+                self.say(t, line);
+                if abed {
+                    self.order_wake(&[m]);
+                    if self.is_asleep(m) {
+                        self.set_activity(m, super::condition::Activity::Resting);
+                    }
+                }
+                continue;
+            };
+            let u = self.unwelcome[i];
+            if t - u.warned < HOUSE_GRACE || u.reported.is_some() {
+                continue;
+            }
+            self.unwelcome[i].reported = Some(t);
+            let line = if abed { format!("{name} won't leave {theirs}'s bed!") } else { format!("{name} is still in {theirs}'s house after dark!") };
+            let (owner, at) = (self.belongs_to(door), self.squad.at[k]);
+            self.wrong_seen(m, door.0, Wrong::Trespass, TRESPASS_FINE, line, Some(host), Some(owner), at);
+        }
     }
 
     // ---- What was seen stolen ----------------------------------------------------

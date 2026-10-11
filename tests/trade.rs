@@ -240,3 +240,85 @@ fn stolen_goods_have_no_buyer_in_the_town_they_were_taken_in() {
     let elsewhere = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).find(|&p| w.life(p).job == Job::Merchant && w.people[p as usize].home != Some(town) && w.at_work(p, w.time) && w.offer(p, helm, None).is_some());
     assert!(elsewhere.is_some(), "it still sells somewhere else");
 }
+
+/// RG-1 = RG-20 = NM-55: only the one talking and those standing with them
+/// trade and pay; a squadmate a long way off keeps their pack and purse.
+#[test]
+fn only_those_standing_with_the_talker_trade_and_pay() {
+    use gahturiyu_sim::sim::geo::V2;
+    let (coin, timber) = (items::id("coin"), items::id("timber"));
+    let (mut w, merchant) = market(1, timber);
+    let me = open_wares(&mut w, merchant);
+    for m in w.squad.members.clone() {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        while d.gear.take(coin) {}
+        while d.gear.take(timber) {}
+    }
+    let near = w.squad.members.iter().copied().find(|&m| m != me).unwrap();
+    let far = w.squad.members.iter().copied().find(|&m| m != me && m != near).unwrap();
+    give(&mut w, me, coin, 5);
+    give(&mut w, near, coin, 20);
+    give(&mut w, near, timber, 2);
+    give(&mut w, far, coin, 500);
+    give(&mut w, far, timber, 30);
+    let k = w.squad.index(far).unwrap();
+    w.squad.at[k] = w.squad.at[k].add(V2::new(300.0, 0.0));
+    w.squad.goal[k] = w.squad.at[k];
+    let has = |w: &World, m: PersonId, it: ItemId| w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| e.0 == it).map(|e| e.1).sum::<u16>();
+    assert!(w.talk.is_some());
+    assert_eq!(w.squad_count(coin), 25, "the purses at hand: the talker's and the one beside them");
+    assert_eq!(w.sell_all_quote(merchant, timber).0, 2, "two timber to sell, not thirty-two");
+    w.ask(Topic::SellAll(timber));
+    assert_eq!(has(&w, far, timber), 30, "the far pack wasn't emptied");
+    assert_eq!(has(&w, near, timber), 0, "the near one's was sold");
+    assert_eq!(has(&w, far, coin), 500);
+    // Nothing dearer than 25 coin can be bought, whatever the far purse holds.
+    let dear = w.for_sale(merchant).into_iter().find(|x| x.2 > w.squad_count(coin));
+    if let Some((it, _, price)) = dear {
+        let before = w.squad_count(it);
+        w.ask(Topic::Buy(it, price));
+        assert_eq!(w.squad_count(it), before, "not bought with coin that isn't here");
+        assert_eq!(has(&w, far, coin), 500);
+    }
+    // With the talk over, the squad's coin is counted whole again.
+    w.end_talk();
+    assert!(w.squad_count(coin) >= 525);
+}
+
+/// NM-59: all of a merchant's wares can be reached, a page at a time, and
+/// food comes before everything else.
+#[test]
+fn all_of_a_merchants_wares_can_be_reached_food_first() {
+    use gahturiyu_sim::sim::dialogue::BUY_SHOWN;
+    use gahturiyu_sim::sim::jobs::good_of;
+    let mut w = worldgen::generate(1);
+    until_hour(&mut w, 11.0);
+    let merchant = w
+        .settlements
+        .iter()
+        .flat_map(|s| s.residents.iter().copied())
+        .filter(|&p| w.life(p).job == Job::Merchant && w.at_work(p, w.time))
+        .max_by_key(|&p| w.for_sale(p).len())
+        .expect("a merchant at work");
+    let wares = w.for_sale(merchant);
+    assert!(wares.len() > BUY_SHOWN, "more wares than one page shows: {}", wares.len());
+    let is_food = |it: ItemId| good_of(items::item(it).key).is_some_and(|g| g.is_food());
+    let first_other = wares.iter().position(|x| !is_food(x.0)).unwrap_or(wares.len());
+    assert!(wares[first_other..].iter().all(|x| !is_food(x.0)), "food comes first: {:?}", wares.iter().map(|x| items::item(x.0).name).collect::<Vec<_>>());
+    open_wares(&mut w, merchant);
+    let buys = |w: &World| -> Vec<(ItemId, u16)> { w.topics().iter().filter_map(|t| if let Topic::Buy(it, p) = t { Some((*it, *p)) } else { None }).collect() };
+    assert_eq!(buys(&w).len(), BUY_SHOWN);
+    // Page through: every ware turns up, once, in order.
+    let mut seen = Vec::new();
+    for _ in 0..12 {
+        seen.extend(buys(&w));
+        if !w.topics().contains(&Topic::BuyRest) {
+            break;
+        }
+        w.ask(Topic::BuyRest);
+    }
+    assert_eq!(seen, wares.iter().map(|x| (x.0, x.2)).collect::<Vec<_>>());
+    // Back to the first page.
+    w.ask(Topic::Trade);
+    assert_eq!(buys(&w).len(), BUY_SHOWN);
+}

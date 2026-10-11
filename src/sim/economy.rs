@@ -530,10 +530,9 @@ impl World {
     pub fn for_sale(&self, npc: PersonId) -> Vec<(ItemId, u16, u16)> {
         let Some((town, shelf)) = self.shelves(npc) else { return vec![] };
         let mut out: Vec<(ItemId, u16, u16)> = Vec::new();
-        if shelf.map(|s| s == Shelf::Goods).unwrap_or(true) {
-            out.extend(self.shelf_for_sale(town).into_iter().map(|(it, n, p, _)| (it, n, p)));
-        }
-        let mut by_good: Vec<Vec<(ItemId, u16, u16)>> = Vec::new();
+        // Food first, then the other goods, then made things: so what a
+        // traveller most needs is never the part of the list cut off (NM-59).
+        let mut by_good: Vec<(bool, Vec<(ItemId, u16, u16)>)> = Vec::new();
         for g in GOODS {
             let mut v = Vec::new();
             if shelf.map(|s| s != g.shelf()).unwrap_or(false) {
@@ -549,10 +548,17 @@ impl World {
                     v.push((it, n, (self.worth_in(town, it, None) * BUY_MARKUP).ceil().max(1.0) as u16));
                 }
             }
-            by_good.push(v);
+            by_good.push((g.is_food(), v));
         }
-        for k in 0..by_good.iter().map(|v| v.len()).max().unwrap_or(0) {
-            out.extend(by_good.iter().filter_map(|v| v.get(k).copied()));
+        // (Each good's things in turn, the foods before the rest.)
+        for food in [true, false] {
+            let part: Vec<&Vec<(ItemId, u16, u16)>> = by_good.iter().filter(|x| x.0 == food).map(|x| &x.1).collect();
+            for k in 0..part.iter().map(|v| v.len()).max().unwrap_or(0) {
+                out.extend(part.iter().filter_map(|v| v.get(k).copied()));
+            }
+        }
+        if shelf.map(|s| s == Shelf::Goods).unwrap_or(true) {
+            out.extend(self.shelf_for_sale(town).into_iter().map(|(it, n, p, _)| (it, n, p)));
         }
         out
     }
@@ -602,9 +608,9 @@ impl World {
         let Some((town, _)) = self.shelves(npc) else { return (0, 0) };
         let good = super::jobs::good_of(items::item(it).key);
         let mut stock = good.map(|g| self.society.towns[town as usize].stock[g.index()]);
-        // Every one of them the squad carries, in the order they're offered.
+        // Every one of them the squad has at hand, in the order they're offered.
         let mut units: Vec<Option<super::materials::Piece>> = Vec::new();
-        for &m in &self.squad.members {
+        for m in self.at_hand() {
             if let Some(d) = &self.people[m as usize].detail {
                 for e in d.gear.bag.iter().filter(|e| e.0 == it) {
                     units.extend(std::iter::repeat(e.2).take(e.1 as usize));
@@ -657,7 +663,7 @@ impl World {
     /// dearest first.
     pub fn worn_sellable(&self, npc: PersonId) -> Vec<(ItemId, PersonId, u16)> {
         let mut out = Vec::new();
-        for &m in &self.squad.members {
+        for m in self.at_hand() {
             if let Some(d) = &self.people[m as usize].detail {
                 for s in super::items::SLOTS {
                     if let Some(it) = d.gear.in_slot(s) {
@@ -720,7 +726,8 @@ impl World {
     pub fn sell_at(&mut self, npc: PersonId, it: ItemId, price: u16) -> bool {
         let Some((town, _)) = self.shelves(npc) else { return false };
         let mut seller = None;
-        let order: Vec<PersonId> = self.trader().into_iter().chain(self.squad.members.iter().copied()).collect();
+        // (Whoever is talking first, then those standing with them: NM-55.)
+        let order: Vec<PersonId> = self.at_hand();
         'find: for m in order {
             if let Some(d) = &self.people[m as usize].detail {
                 for (k, e) in d.gear.bag.iter().enumerate() {
@@ -758,7 +765,7 @@ impl World {
     /// Things the squad carries that this merchant would buy, with the price.
     pub fn sellable(&self, npc: PersonId) -> Vec<(ItemId, u16)> {
         let mut out: Vec<(ItemId, u16)> = Vec::new();
-        for &m in &self.squad.members {
+        for m in self.at_hand() {
             if let Some(d) = &self.people[m as usize].detail {
                 for e in &d.gear.bag {
                     if let Some(p) = self.offer(npc, e.0, e.2.as_ref()) {

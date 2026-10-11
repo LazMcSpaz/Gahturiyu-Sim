@@ -98,6 +98,8 @@ pub enum Topic {
     SellWorn(items::ItemId, PersonId, u16),
     /// Show everything the merchant would take, not just the dearest few.
     SellRest,
+    /// Show the next of the merchant's wares.
+    BuyRest,
     Goodbye,
     /// Ask someone who won't come to join anyway: they say why not.
     /// (Last, so saves made before it still read.)
@@ -149,6 +151,7 @@ impl Topic {
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
+            Topic::BuyRest => "What else have you got?",
             Topic::Say(o) => o.label(),
             Topic::Goodbye => "Goodbye",
         }
@@ -202,7 +205,15 @@ pub struct Conversation {
     /// few things that fetch most; later pages are the rest of the sell list.
     #[serde(default)]
     pub sell_page: u8,
+    /// Which page of their wares is showing (0: the first few, food first).
+    #[serde(default)]
+    pub buy_page: u8,
 }
+
+/// How many wares the first page shows before "What else have you got?",
+/// and how many a later page holds.
+pub const BUY_SHOWN: usize = 7;
+pub const BUY_PAGE: usize = 18;
 
 /// How many kinds of thing the sell list shows before "What else would you
 /// take?" (what fetches most first, so the best of the loot is never the
@@ -257,6 +268,10 @@ impl World {
             Topic::SellRest => {
                 let left = self.talk.as_ref().map(|c| self.sell_kinds(c.npc).len().saturating_sub(sell_seen(c.sell_page))).unwrap_or(0);
                 format!("What else would you take? ({left} more)")
+            }
+            Topic::BuyRest => {
+                let left = self.talk.as_ref().map(|c| self.for_sale(c.npc).len().saturating_sub(buy_seen(c.buy_page))).unwrap_or(0);
+                format!("What else have you got? ({left} more)")
             }
             Topic::Join(0) => "Come with us — join the squad".into(),
             Topic::Join(fee) => format!("Come with us — join the squad ({fee} coin to sign on)"),
@@ -333,7 +348,7 @@ impl World {
         self.note_said(npc, who, &said.pieces);
         // From now on they've met (the greeting above was the first-meeting one, if it was).
         self.met.insert((npc, who));
-        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_page: 0 });
+        self.talk = Some(Conversation { with: who, npc, lines: vec![(true, said.text)], offered: false, lessons: false, trading: false, orders: false, concerns, at: 0, pieces: said.pieces, refused: said.refused, tried: Vec::new(), sell_page: 0, buy_page: 0 });
     }
 
     pub fn end_talk(&mut self) {
@@ -402,8 +417,22 @@ impl World {
                 let kinds = self.sell_kinds(c.npc);
                 let page = if sell_seen(c.sell_page.saturating_sub(1)) < kinds.len() { c.sell_page } else { 0 };
                 let line = |&(it, p, _): &(items::ItemId, u16, u16)| if self.squad_count(it) > 1 { Topic::SellAll(it) } else { Topic::Sell(it, p) };
-                if page == 0 {
-                    t.extend(self.for_sale(c.npc).into_iter().take(7).map(|(it, _, p)| Topic::Buy(it, p)));
+                // All their wares can be reached (NM-59): the first few
+                // here (food first), the rest a page at a time on asking.
+                let wares = self.for_sale(c.npc);
+                let buy_page = if buy_seen(c.buy_page.saturating_sub(1)) < wares.len() { c.buy_page } else { 0 };
+                if buy_page > 0 {
+                    t.clear();
+                    t.extend(wares.iter().skip(buy_seen(buy_page - 1)).take(BUY_PAGE).map(|&(it, _, p)| Topic::Buy(it, p)));
+                    if wares.len() > buy_seen(buy_page) {
+                        t.push(Topic::BuyRest);
+                    }
+                    t.push(Topic::Trade);
+                } else if page == 0 {
+                    t.extend(wares.iter().take(BUY_SHOWN).map(|&(it, _, p)| Topic::Buy(it, p)));
+                    if wares.len() > BUY_SHOWN {
+                        t.push(Topic::BuyRest);
+                    }
                     t.extend(kinds.iter().take(SELL_SHOWN).map(line));
                     if kinds.len() > SELL_SHOWN {
                         t.push(Topic::SellRest);
@@ -439,7 +468,7 @@ impl World {
         // Crafters at work mend what they know how to work, and teach their trade.
         if let Some(craft) = self.life(c.npc).job.craft().filter(|_| self.at_work(c.npc, self.time)) {
             let mut mends = Vec::new();
-            for &m in &self.squad.members {
+            for m in self.at_hand() {
                 for (k, &slot) in SLOTS.iter().enumerate() {
                     let Some(id) = self.people[m as usize].detail.as_ref().and_then(|d| d.gear.in_slot(slot)) else { continue };
                     if craft.mends(items::craft_of(id)) {
@@ -567,6 +596,12 @@ impl World {
             if let Some(c) = self.talk.as_mut() {
                 c.trading = true;
                 c.sell_page = 0;
+                c.buy_page = 0;
+            }
+        }
+        if topic == Topic::BuyRest {
+            if let Some(c) = self.talk.as_mut() {
+                c.buy_page = c.buy_page.saturating_add(1);
             }
         }
         if topic == Topic::SellRest {
@@ -887,6 +922,7 @@ impl World {
             }
             Topic::SellWorn(it, m, p) => format!("{} would have to take the {} off first. I'd give about {p} coin for it.", self.people[m as usize].name().unwrap_or("Your friend"), items::item(it).name.to_lowercase()),
             Topic::SellRest => "Anything here, if the price suits you.".into(),
+            Topic::BuyRest => "There's this as well.".into(),
             Topic::Buy(it, price) => {
                 if self.buy_at(c.npc, it, price) {
                     format!("{price} coin. There you are.")
@@ -1023,6 +1059,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::SellWorn(it, m, _) => 3_000_000 + ((it as u64) << 32) + m as u64,
         Topic::SellRest => 73,
+        Topic::BuyRest => 76,
         Topic::Say(o) => 80 + o as u64,
     }
 }
@@ -1046,6 +1083,11 @@ impl World {
 }
 
 /// How many kinds of the sell list have been shown by the end of this page.
+/// How many wares have been shown by the end of this page.
+fn buy_seen(page: u8) -> usize {
+    BUY_SHOWN + page as usize * BUY_PAGE
+}
+
 fn sell_seen(page: u8) -> usize {
     SELL_SHOWN + page as usize * SELL_PAGE
 }

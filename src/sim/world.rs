@@ -237,6 +237,9 @@ pub struct World {
     /// Who has talked with which squad member before: (them, the member).
     #[serde(default)]
     pub met: std::collections::BTreeSet<(PersonId, PersonId)>,
+    /// Squad members told to get out of someone's bed or house (`law.rs`).
+    #[serde(default)]
+    pub unwelcome: Vec<super::law::Unwelcome>,
 
     // --- Torches ------------------------------------------------------------
     /// Torches burning in someone's hand.
@@ -362,6 +365,7 @@ impl World {
             hot: Vec::new(),
             getting_up: HashMap::new(),
             met: std::collections::BTreeSet::new(),
+            unwelcome: Vec::new(),
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),

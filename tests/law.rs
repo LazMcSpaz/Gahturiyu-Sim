@@ -614,3 +614,177 @@ fn n4_shunning_shows_and_stolen_goods_dont_sell_there() {
     run(&mut w, 6.5 * DAY);
     assert_eq!(w.shunned_in(m), None);
 }
+
+// ---- Strangers in the house (Laz, N5: welcome by day; a warning first) -----------------
+
+/// A home with someone of the house up and about it at this moment, in any
+/// town; the world is run on (ten minutes at a time, up to two days) until
+/// there is one at an hour that suits `when`.
+fn home_with_a_host(w: &mut World, when: impl Fn(f64) -> bool) -> (gahturiyu_sim::sim::buildings::DoorId, PersonId) {
+    for _ in 0..2 * 24 * 6 {
+        let hour = w.time.rem_euclid(DAY) / HOUR;
+        if when(hour) {
+            for town in 0..w.settlements.len() as SettlementId {
+                for b in 0..w.settlements[town as usize].buildings.len() as u16 {
+                    let Some(d) = w.door((town, b)) else { continue };
+                    if let Some(host) = w.host_at(d.id) {
+                        return (d.id, host);
+                    }
+                }
+            }
+        }
+        w.step(600.0);
+    }
+    panic!("nobody was up and about their own house at such an hour in two days");
+}
+
+/// Put a squad member inside a building (as if they'd walked in).
+fn put_inside(w: &mut World, m: PersonId, door: gahturiyu_sim::sim::buildings::DoorId) {
+    let d = w.door(door).unwrap();
+    w.teleport_squad(d.centre);
+    let k = w.squad.index(m).unwrap();
+    // The others wait outside, a street away.
+    for j in 0..w.squad.members.len() {
+        if j != k {
+            w.squad.at[j] = d.outside.add(gahturiyu_sim::sim::geo::V2::new(40.0, 0.0));
+            w.squad.goal[j] = w.squad.at[j];
+            w.squad.inside[j] = None;
+        }
+    }
+    w.squad.at[k] = d.centre;
+    w.squad.goal[k] = d.centre;
+    w.squad.inside[k] = Some(door);
+}
+
+/// By day a home is open to a visitor on their feet: nobody says a word.
+#[test]
+fn n5_by_day_a_home_is_open_to_visitors() {
+    let mut w = worldgen::generate(1);
+    let (door, _host) = home_with_a_host(&mut w, |h| (9.0..16.0).contains(&h));
+    let m = w.squad.members[0];
+    put_inside(&mut w, m, door);
+    assert!(w.others_home(m, door));
+    for _ in 0..40 {
+        w.step(60.0);
+        let k = w.squad.index(m).unwrap();
+        w.squad.inside[k] = Some(door);
+    }
+    assert!(w.unwelcome.is_empty(), "nobody minds a visitor by day: {:?}", w.log);
+    assert!(w.pursuits.is_empty() && w.bounty.is_empty());
+}
+
+/// Bedding down in someone's home: told to get out of the bed first (and
+/// woken); doing it again is reported.
+#[test]
+fn n5_sleeping_in_someone_elses_bed_is_warned_then_reported() {
+    let mut w = worldgen::generate(1);
+    let (door, host) = home_with_a_host(&mut w, |h| (9.0..16.0).contains(&h));
+    let m = w.squad.members[0];
+    put_inside(&mut w, m, door);
+    w.order_rest(&[m]);
+    let k = w.squad.index(m).unwrap();
+    w.step(1.0);
+    let theirs = w.name_of(host);
+    assert_eq!(w.unwelcome.len(), 1, "told once: {:?}", w.log);
+    assert!(w.alerts.iter().any(|a| a.contains(&theirs) && a.ends_with("to get out of that bed.")), "{:?}", w.alerts);
+    assert!(!w.squad.resting[k] && !w.is_asleep(m), "and they are up");
+    assert!(w.pursuits.is_empty() && w.bounty.is_empty(), "a warning, not a crime");
+    // Up and standing there by day: no more is said.
+    for _ in 0..15 {
+        w.step(60.0);
+        w.squad.inside[k] = Some(door);
+    }
+    assert!(w.pursuits.is_empty() && w.bounty.is_empty(), "on their feet by day, they're a visitor: {:?}", w.log);
+    // Back into the bed: now it is reported (the household's own tell the watch all but always).
+    w.order_rest(&[m]);
+    w.squad.inside[k] = Some(door);
+    w.step(1.0);
+    let reported = w.unwelcome[0].reported.is_some();
+    assert!(reported, "back in the bed after the warning: {:?}", w.log);
+    assert!(!w.pursuits.is_empty() || w.bounty.get(&door.0).copied().unwrap_or(0.0) > 0.0 || w.log.iter().any(|l| l.1.contains("won't leave")), "the watch hears of it: {:?}", w.log);
+    // Once: not again every step.
+    let fines: f32 = w.pursuits.iter().map(|p| p.fine).sum::<f32>() + w.bounty.values().sum::<f32>();
+    for _ in 0..10 {
+        w.squad.inside[k] = Some(door);
+        w.step(30.0);
+    }
+    let after: f32 = w.pursuits.iter().map(|p| p.fine).sum::<f32>() + w.bounty.values().sum::<f32>();
+    assert!(after <= fines + 0.01 || w.pursuits.is_empty(), "charged once for it: {fines} then {after}");
+}
+
+/// After dark: told to leave the house; still inside ten minutes on, it's trespass.
+#[test]
+fn n5_inside_a_home_after_dark_is_warned_then_trespass() {
+    let mut w = worldgen::generate(1);
+    let (door, host) = home_with_a_host(&mut w, |h| h >= 20.0 || h < 5.0);
+    let m = w.squad.members[0];
+    put_inside(&mut w, m, door);
+    let k = w.squad.index(m).unwrap();
+    w.step(1.0);
+    let theirs = w.name_of(host);
+    assert!(w.alerts.iter().any(|a| a.contains(&theirs) && a.ends_with("to get out of the house.")), "{:?}", w.alerts);
+    assert!(w.unwelcome[0].reported.is_none());
+    // Gone within the ten minutes: nothing follows.
+    let mut gone = w.clone();
+    gone.squad.inside[k] = None;
+    gone.squad.at[k] = gone.squad.at[1];
+    gone.squad.goal[k] = gone.squad.at[k];
+    for _ in 0..30 {
+        gone.step(60.0);
+    }
+    assert!(gone.pursuits.is_empty() && gone.bounty.is_empty(), "they left when told: {:?}", gone.log);
+    // Still there: reported, if someone of the house is still up to see it.
+    let mut told = false;
+    for _ in 0..14 {
+        w.squad.inside[k] = Some(door);
+        w.squad.at[k] = w.door(door).unwrap().centre;
+        w.squad.goal[k] = w.squad.at[k];
+        w.step(60.0);
+        told |= w.unwelcome.iter().any(|u| u.reported.is_some());
+    }
+    assert!(told || w.host_at(door).is_none(), "still inside after the warning: {:?}", w.log);
+}
+
+/// U-12: the arbiter's post, once taken, isn't taken again by the one who holds it.
+#[test]
+fn u12_the_arbiters_post_is_taken_once() {
+    let mut w = worldgen::generate(1);
+    let town = nearest_town(&w);
+    let m = w.squad.members.iter().copied().find(|&m| w.eligible(m, Post::Arbiter));
+    let Some(m) = m else {
+        // (No Ṭaḍoro in this squad: make one eligible the way the rule reads it.)
+        let m = w.squad.members[0];
+        w.people[m as usize].race = Race::Tadoro;
+        assert!(w.eligible(m, Post::Arbiter));
+        w.standing_in.insert((m, town), law::COUNCIL + 100.0);
+        assert_eq!(w.take_post(m, town, Post::Arbiter), Ok(()));
+        assert_eq!(w.take_post(m, town, Post::Arbiter), Err("already holds it"));
+        return;
+    };
+    w.standing_in.insert((m, town), law::COUNCIL + 100.0);
+    assert_eq!(w.take_post(m, town, Post::Arbiter), Ok(()));
+    assert_eq!(w.government(town).arbiter, Some(m));
+    assert_eq!(w.take_post(m, town, Post::Arbiter), Err("already holds it"));
+}
+
+/// NM-55: a fine is paid by the one judged and those standing with them, not
+/// from the purse of a squadmate a long way off.
+#[test]
+fn nm55_a_fine_is_paid_by_those_who_are_there() {
+    use gahturiyu_sim::sim::geo::V2;
+    let coin = gahturiyu_sim::sim::items::id("coin");
+    let mut w = worldgen::generate(1);
+    let (m, far) = (w.squad.members[0], w.squad.members[3]);
+    let town = nearest_town(&w);
+    strip_coin(&mut w);
+    give_coin(&mut w, m, 10);
+    give_coin(&mut w, far, 500);
+    let k = w.squad.index(far).unwrap();
+    w.squad.at[k] = w.squad.at[k].add(V2::new(400.0, 0.0));
+    w.squad.goal[k] = w.squad.at[k];
+    w.judge(m, town, law::Wrong::Theft, 40.0, Justice::Elders);
+    let left = w.people[far as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| e.0 == coin).map(|e| e.1).sum::<u16>();
+    assert_eq!(left, 500, "the far purse wasn't touched");
+    assert!(said(&w, "pays 10 of the 40 coin"), "{:?}", w.log);
+    assert!(w.is_bonded(m, w.time), "the rest is worked off");
+}

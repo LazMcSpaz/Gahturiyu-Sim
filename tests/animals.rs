@@ -376,11 +376,33 @@ fn turiyu_graze_and_briarbacks_follow_the_overgrowth() {
     let many = w.population(r, Sp::Briarback);
     assert!(many > some, "a higher Overgrowth should breed more: {some} -> {many}");
     let briars: Vec<&Herd> = w.animals.herds.iter().filter(|h| h.sp == Sp::Briarback).collect();
-    assert!(briars.iter().all(|h| h.region == r && region_of(h.home) == r), "Briarbacks outside the overgrown region");
+    // (A new world has a few overgrown regions of its own, far from the towns: N3.)
+    assert!(briars.iter().all(|h| region_of(h.home) == h.region && w.overgrowth(h.region) > BRIAR_THRESHOLD), "Briarbacks outside the overgrown regions");
     // It recedes: they die back.
     w.set_overgrowth(r, 0.1);
     let w = run(w, 30.0 * 24.0, HOUR);
     assert_eq!(w.population(r, Sp::Briarback), 0.0, "Briarbacks outlived the Overgrowth");
+}
+
+/// N3 (Laz: B): a new world has a few overgrown regions out in the wilds, so
+/// Briarbacks can be met; the same ones every time for the same seed.
+#[test]
+fn n3_a_new_world_has_a_few_overgrown_regions_with_briarbacks() {
+    use gahturiyu_sim::sim::animals::{OVERGROWN_FROM_TOWNS, OVERGROWN_REGIONS};
+    for seed in [1u64, 4, 9] {
+        let w = worldgen::generate(seed);
+        let over: Vec<u16> = (0..w.animals.regions.len() as u16).filter(|&r| w.overgrowth(r) > BRIAR_THRESHOLD).collect();
+        assert_eq!(over.len(), OVERGROWN_REGIONS, "world {seed}: {over:?}");
+        let briars: Vec<&Herd> = w.animals.herds.iter().filter(|h| h.sp == Sp::Briarback && h.alive(w.time) > 0).collect();
+        assert!(briars.len() >= OVERGROWN_REGIONS, "world {seed}: {} Briarback groups", briars.len());
+        for h in &briars {
+            assert!(over.contains(&h.region), "world {seed}: a Briarback outside the overgrown regions");
+            assert!(w.settlements.iter().all(|s| s.pos.dist(h.home) > OVERGROWN_FROM_TOWNS - 1100.0), "world {seed}: Briarbacks on a town's doorstep");
+        }
+        // The same world again: the same regions.
+        let again = worldgen::generate(seed);
+        assert_eq!(over, (0..again.animals.regions.len() as u16).filter(|&r| again.overgrowth(r) > BRIAR_THRESHOLD).collect::<Vec<_>>());
+    }
 }
 
 #[test]
