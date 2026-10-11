@@ -19,6 +19,7 @@
 #   about=dark       night coming on, out in the open
 #   about=locked     a door or lid that won't open
 #   about=blocked    somewhere they can't get to
+#   about=order      now and then, a word in answer to being sent somewhere
 #   about=after_fight a fight just ended, someone of ours down
 #   about=won        a fight just ended, won
 #   about=robbed     coming round after being robbed
@@ -74,6 +75,12 @@ remark | about=locked | It's locked.
 remark | about=locked, hot | Locked. Of course it is.
 remark | about=blocked | Can't get through there.
 remark | about=blocked | No way through.
+
+remark | about=order | Right.
+remark | about=order | On it.
+remark | about=order | Going.
+remark | about=order | Aye.
+remark | about=order | Mm.
 
 remark | about=after_fight | Is everyone up?
 remark | about=after_fight, gentle | Someone help me with them.

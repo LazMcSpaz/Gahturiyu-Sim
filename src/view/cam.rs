@@ -16,6 +16,11 @@ pub fn to3(p: V2, h: f32) -> Vec3 {
     vec3(p.x, h, p.y)
 }
 
+/// One turn of the wheel nearer or further, from this distance.
+pub fn zoom_step(dist: f32, wheel: f32) -> f32 {
+    (dist * if wheel > 0.0 { 0.87 } else { 1.0 / 0.87 }).clamp(12.0, 4500.0)
+}
+
 pub struct OrbitCam {
     /// The point the camera circles, on the ground (sim x, sim y).
     pub target: V2,
@@ -61,10 +66,6 @@ impl OrbitCam {
     pub fn orbit(&mut self, dx: f32, dy: f32) {
         self.yaw += dx * 0.006;
         self.pitch = (self.pitch + dy * 0.004).clamp(0.08, 1.50);
-    }
-
-    pub fn zoom(&mut self, wheel: f32) {
-        self.dist = (self.dist * if wheel > 0.0 { 0.87 } else { 1.0 / 0.87 }).clamp(12.0, 4500.0);
     }
 
     /// Slide the target across the ground, relative to where the camera faces.

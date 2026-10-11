@@ -16,6 +16,7 @@ pub mod lexicon;
 pub mod lootui;
 pub mod makeui;
 pub mod hints;
+pub mod feel;
 pub mod frame;
 pub mod gait;
 pub mod interact;
