@@ -73,6 +73,8 @@ pub struct Mats {
     pub flat: Handle<StandardMaterial>,
     /// Flames (`flame.rs`): unlit, adding their light to what's behind.
     pub fire: Handle<StandardMaterial>,
+    /// Smoke: unlit, see-through by each corner's alpha.
+    pub smoke: Handle<StandardMaterial>,
 }
 
 #[derive(Component)]
@@ -85,7 +87,7 @@ pub struct Scene3d {
     ground_key: Option<(i64, i64, u32, u32)>,
     ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
     pub grid: Grid,
-    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
+    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
     /// Triangles in our own meshes (for the readout): what moves, the
     /// ground and roads, and the towns.
@@ -118,8 +120,9 @@ struct Town {
     /// people and things inside stand on it without asking the sim each frame.
     doors: Vec<Option<Door>>,
     floors: Vec<f32>,
-    /// Its flames (drawn each frame, `flame.rs`).
+    /// Its flames and wisps of smoke (drawn each frame, `flame.rs`).
     flames: Vec<super::flame::Spot>,
+    smoke: Vec<super::flame::Spot>,
 }
 
 /// Where the ground mesh's vertices are, so things laid on the ground can
@@ -175,7 +178,8 @@ pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMateri
     let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
     let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
     let fire = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Add, ..default() });
-    commands.insert_resource(Mats { lit, glow, flat, fire });
+    let smoke = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Blend, ..default() });
+    commands.insert_resource(Mats { lit, glow, flat, fire, smoke });
 }
 
 fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<StandardMaterial>, b: Builder, marker: impl Bundle) -> (Entity, Handle<Mesh>) {
@@ -387,11 +391,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let tris = lit.triangles() + glow.triangles();
             let mut flames = lit.take_flames();
             flames.extend(glow.take_flames());
+            let mut smoke = lit.take_smoke();
+            smoke.extend(glow.take_smoke());
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
             let doors: Vec<Option<Door>> = (0..s.buildings.len() as u16).map(|i| door_of(s, i)).collect();
             let floors = doors.iter().map(|d| d.map(|d| super::interiors::floor_height(&d, &on_ground).0).unwrap_or(f32::MIN)).collect();
-            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors, flames });
+            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors, flames, smoke });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
@@ -1020,10 +1026,18 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     let mut fire = Builder::new();
     super::flame::draw(&mut fire, &spots, eye, now, radius.min(1500.0));
-    tris += b.triangles() + gl.triangles() + fl.triangles() + fire.triangles();
+    let mut wisps = b.take_smoke();
+    wisps.extend(gl.take_smoke());
+    wisps.extend(fl.take_smoke());
+    for town in scene.towns.values() {
+        wisps.extend(town.smoke.iter().copied());
+    }
+    let mut smoke = Builder::new();
+    super::flame::draw_smoke(&mut smoke, &wisps, eye, now, radius.min(600.0));
+    tris += b.triangles() + gl.triangles() + fl.triangles() + fire.triangles() + smoke.triangles();
     match &scene.dynamic {
-        Some((hb, hg, hf, hx)) => {
-            for (h, m) in [(hb, b), (hg, gl), (hf, fl), (hx, fire)] {
+        Some((hb, hg, hf, hx, hs)) => {
+            for (h, m) in [(hb, b), (hg, gl), (hf, fl), (hx, fire), (hs, smoke)] {
                 if let Some(mut x) = meshes.get_mut(h) {
                     *x = m.mesh();
                 }
@@ -1034,7 +1048,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let (_, hg) = spawn_mesh(&mut commands, &mut meshes, &mats.glow, gl, Dynamic);
             let (_, hf) = spawn_mesh(&mut commands, &mut meshes, &mats.flat, fl, Dynamic);
             let (_, hx) = spawn_mesh(&mut commands, &mut meshes, &mats.fire, fire, Dynamic);
-            scene.dynamic = Some((hb, hg, hf, hx));
+            let (_, hs) = spawn_mesh(&mut commands, &mut meshes, &mats.smoke, smoke, Dynamic);
+            scene.dynamic = Some((hb, hg, hf, hx, hs));
         }
     }
     if let Some(mut m) = meshes.get_mut(&mask.mesh) {
@@ -1986,7 +2001,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
             // A turf-covered stack, smouldering.
             b.dome(base, 2.6, 2.6, 1.8, 0.0, 0.0, 8, [0.25, 0.22, 0.18]);
             if fire(0) {
-                gl.flame(base + vec3(0.0, 1.7, 0.0), 0.25, 0.4);
+                gl.smoke(base + vec3(0.0, 1.7, 0.0), 0.3);
             }
             for i in 0..3 {
                 let p = base + vec3(4.0, 0.0, -1.0 + i as f32);

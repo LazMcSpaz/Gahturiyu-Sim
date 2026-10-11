@@ -5,12 +5,13 @@ and tweaks through conversation, not an editor. Explain game-dev terms plainly.
 World lore (races, languages, architecture, pantheon) lives in the claude.ai
 "Gahturiyu" Project, not in this repo.
 
-## Where we are (Laz, 2026-10-09)
+## Where we are (Laz, 2026-10-11)
 
-- **System freeze.** No new systems until the playable-MVP list is built
-  (visual feedback, looting, recruiting, a money grind, robbery on defeat,
-  placeholder buildings with interiors and containers, ruins and lairs,
-  progress messages). Base building Stage 4 (raids, law) waits.
+- **The freeze is lifted** (Laz, 11 Oct): new features may be started. The
+  MVP list it held to (visual feedback, looting, recruiting, a money grind,
+  robbery on defeat, placeholder buildings with interiors and containers,
+  ruins and lairs, progress messages) is built. Base building Stage 4
+  (raids, law) is still to come.
 - **Every action the player orders has a visual cue** in the 3D view, not
   only a HUD line: a swing shows an arc, an archer's weapon points out to
   shoot and down to reload, a sneaker crouches, and so on. Placeholder
