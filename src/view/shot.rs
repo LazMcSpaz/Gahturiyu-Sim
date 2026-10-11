@@ -49,9 +49,14 @@ pub struct Shot {
     /// materials, member 2 a little way off), its making screen open.
     pub make: Option<String>,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
-    /// `horaro` or `tadoro`: the nearest of that people).
+    /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
+    /// `official`, `healer`...: the nearest with that job; `indoors`: the
+    /// nearest who is inside a building).
     pub talk: bool,
     pub talk_to: Option<String>,
+    /// `GAHT_BYE=1`: with `GAHT_TALK`, the goodbye is said: their parting
+    /// words, held on the screen.
+    pub bye: bool,
     /// `GAHT_STARVE=1`: the squad is starving (no food, hunger 92).
     pub starve: bool,
     /// `GAHT_REST=1`: the squad beds down where it stands (after
@@ -184,6 +189,7 @@ impl Shot {
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
+            bye: var("GAHT_BYE").is_some(),
             starve: var("GAHT_STARVE").is_some(),
             rest: var("GAHT_REST").is_some(),
             exhaust: var("GAHT_EXHAUST").is_some(),
@@ -588,7 +594,7 @@ impl Shot {
                     .residents_in_band1(town)
                     .into_iter()
                     .filter(|&p| !world.people[p as usize].dead && !world.is_indoors_asleep(p))
-                    .filter(|&p| want.as_deref().map(|w| world.people[p as usize].race.name().to_lowercase().replace('ṭ', "t").replace('ḍ', "d") == w).unwrap_or(true))
+                    .filter(|&p| want.as_deref().map(|w| world.people[p as usize].race.name().to_lowercase().replace('ṭ', "t").replace('ḍ', "d") == w || world.life(p).job.name().to_lowercase() == w || (w == "indoors" && world.building_at(world.person_pos(p)).is_some())).unwrap_or(true))
                     .min_by(|&a, &b| {
                         let key = |p| (world.building_at(world.person_pos(p)).is_some(), world.person_pos(p).dist(here));
                         let (ka, kb) = (key(a), key(b));

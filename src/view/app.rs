@@ -399,6 +399,14 @@ pub fn run() {
             game.orbit.target = p;
             game.orbit.ground = game.world.terrain.surface(p);
         }
+        if s.bye {
+            // (Held: a screenshot takes longer to draw than the words stay up.)
+            if let Some((with, npc)) = game.world.talk.as_ref().map(|c| (c.with, c.npc)) {
+                if let Some(line) = game.world.ask(gahturiyu_sim::sim::dialogue::Topic::Goodbye) {
+                    game.parting = Some(super::talkui::Parting { with, npc, line, since: std::time::Instant::now() + std::time::Duration::from_secs(3600) });
+                }
+            }
+        }
         if let Some(t) = std::env::var("GAHT_SLIDE").ok().and_then(|v| v.parse().ok()) {
             game.slides.hold(t);
         }
@@ -1013,7 +1021,9 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         let spots = pair.map(|(a, b)| (w.person_pos(a), w.person_pos(b)));
         let snap = game.shot.is_some();
         let cost = |eye: V2, mid: V2| pair.map(|p| super::talkui::sight_cost(w, p, eye, mid)).unwrap_or(0.0);
-        super::talkui::aim(&mut game.orbit, &mut game.talk_cam, spots, &cost, game.follow, dt, snap);
+        // (Both under one roof: the camera looks down into the room.)
+        let indoors = spots.is_some_and(|(a, b)| w.building_at(a).is_some() && w.building_at(a).map(|d| d.id) == w.building_at(b).map(|d| d.id));
+        super::talkui::aim(&mut game.orbit, &mut game.talk_cam, spots, indoors, &cost, game.follow, dt, snap);
     }
     // Keep the camera's pivot on the ground, easing so it doesn't jolt.
     let g = game.world.terrain.surface(game.orbit.target);

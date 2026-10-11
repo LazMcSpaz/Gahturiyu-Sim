@@ -145,7 +145,7 @@ impl Topic {
             Topic::PostWork(..) => "I'm looking for work",
             Topic::QuitWork => "I'm giving up this work",
             Topic::Hire(_) => "Come and work at my outpost",
-            Topic::Join(_) | Topic::AskJoin => "Come with us",
+            Topic::Join(_) | Topic::AskJoin => "Come with us.",
             Topic::Treat(_) => "See to my people's wounds",
             Topic::RentBeds(_) => "Beds for the night",
             Topic::SellAll(..) => "Sell all",

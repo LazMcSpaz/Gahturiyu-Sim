@@ -853,11 +853,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let night = 1.0 - gahturiyu_sim::sim::stealth::daylight(w.time);
     let rw = (oc.dist / 260.0).max(0.12);
     let sq = w.squad.pos;
+    let talking = w.talk.is_some() || game.parting.is_some();
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
         // Whoever the next order goes to is lit: one picked out, or, with
         // nobody picked out, all of them (UI-3). Their rings breathe.
-        let picked = game.sel.who(w).contains(&m);
+        // (Not close in on a talk: nobody is being sent anywhere.)
+        let picked = !talking && game.sel.who(w).contains(&m);
         let face = game.gaits.face(m).unwrap_or_else(|| super::cues::facing(w, m, at));
         // Indoors, laid on the floor.
         let inner = floor_at(at);

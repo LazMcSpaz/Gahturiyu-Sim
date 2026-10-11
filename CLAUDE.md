@@ -246,7 +246,10 @@ k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar` (the squad at the nearest such station
 with the craft and some materials, its making screen open), `GAHT_DROP=k`
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
-`GAHT_TALK=1` (talk to the nearest local; `GAHT_TALK=roduro|qotiro|horaro|tadoro` the nearest of that people),
+`GAHT_TALK=1` (talk to the nearest local; `GAHT_TALK=roduro|qotiro|horaro|tadoro` the nearest of that people;
+`GAHT_TALK=merchant|official|healer|innkeeper|guard` the nearest with that job, `GAHT_TALK=indoors` the nearest
+who is inside a building; add `GAHT_BYE=1` for the goodbye:
+their parting words, held),
 `GAHT_NAMES=native|english` (the Names setting), `GAHT_STARVE=1`, `GAHT_EXHAUST=1`,
 `GAHT_CARRY=1` (member 0 carrying a downed member 2), `GAHT_LIMB=1` (member 0
 loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
