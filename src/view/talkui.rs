@@ -537,6 +537,10 @@ pub struct TalkCam {
 /// is the one in view).
 const CAM_DIST: f32 = 6.5;
 const CAM_PITCH: f32 = 0.28;
+/// Indoors: the tilt that sees down into a room over its cut-open walls,
+/// and how much further back.
+const CAM_PITCH_IN: f32 = 0.62;
+const CAM_IN_BACK: f32 = 1.5;
 const CAM_ROUND: f32 = 0.38;
 const CAM_SETTLE: f32 = 0.9;
 const CAM_BACK: f32 = 0.45;
@@ -578,13 +582,15 @@ pub fn sight_cost(w: &World, pair: (PersonId, PersonId), eye: V2, mid: V2) -> f3
 /// `cost` says how blocked the view from a spot would be (`sight_cost`);
 /// `following` says the camera's target is being kept on the squad anyway;
 /// `snap` is for screenshots (no easing). Drawing only.
-pub fn aim(orbit: &mut OrbitCam, cam: &mut Option<TalkCam>, pair: Option<(V2, V2)>, cost: &dyn Fn(V2, V2) -> f32, following: bool, dt: f32, snap: bool) {
+pub fn aim(orbit: &mut OrbitCam, cam: &mut Option<TalkCam>, pair: Option<(V2, V2)>, indoors: bool, cost: &dyn Fn(V2, V2) -> f32, following: bool, dt: f32, snap: bool) {
     let k = if snap { 1.0 } else { 1.0 - (-7.0 * dt).exp() };
     match pair {
         Some((a, b)) => {
             let mid = a.add(b).scale(0.5);
             let sep = a.dist(b);
-            let dist = (CAM_DIST + sep * 0.8).clamp(CAM_DIST, 10.0);
+            let dist = (CAM_DIST + sep * 0.8).clamp(CAM_DIST, 10.0) + if indoors { CAM_IN_BACK } else { 0.0 };
+            // (Indoors, from higher: down into the room over its cut-open walls.)
+            let pitch = if indoors { CAM_PITCH_IN } else { CAM_PITCH };
             if cam.is_none() {
                 // Side on to the two, a little round behind the squad
                 // member, from whichever side is clearer; if both are
@@ -593,7 +599,7 @@ pub fn aim(orbit: &mut OrbitCam, cam: &mut Option<TalkCam>, pair: Option<(V2, V2
                 let side = std::f32::consts::FRAC_PI_2 - CAM_ROUND;
                 let score = |yaw: f32| {
                     let off = turn_toward(back + side, yaw).abs().min(turn_toward(back - side, yaw).abs());
-                    cost(mid.add(V2::new(yaw.cos(), yaw.sin()).scale(dist * CAM_PITCH.cos())), mid) + off * 1.2 + turn_toward(orbit.yaw, yaw).abs() * 0.05
+                    cost(mid.add(V2::new(yaw.cos(), yaw.sin()).scale(dist * pitch.cos())), mid) + off * 1.2 + turn_toward(orbit.yaw, yaw).abs() * 0.05
                 };
                 let mut want = back + side;
                 for i in 0..16 {
@@ -612,7 +618,7 @@ pub fn aim(orbit: &mut OrbitCam, cam: &mut Option<TalkCam>, pair: Option<(V2, V2
             if tc.settling > 0.0 || snap {
                 tc.settling -= dt;
                 orbit.yaw += turn_toward(orbit.yaw, tc.side) * k;
-                orbit.pitch += (CAM_PITCH - orbit.pitch) * k;
+                orbit.pitch += (pitch - orbit.pitch) * k;
                 orbit.dist += (dist - orbit.dist) * k;
             }
         }
