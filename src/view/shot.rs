@@ -116,6 +116,8 @@ pub struct Shot {
     pub shun: bool,
     /// `GAHT_TRADE=1`: talk to the nearest merchant at work and look at their wares.
     pub trade: bool,
+    /// `GAHT_TRADE=table`: the same, with a few things laid on the table.
+    pub trade_table: bool,
     /// `GAHT_CONVO=1`: a local who was robbed last night talks about it
     /// (a conversation put together from the dialogue pieces).
     pub convo: bool,
@@ -208,6 +210,7 @@ impl Shot {
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
             trade: var("GAHT_TRADE").is_some(),
+            trade_table: var("GAHT_TRADE").as_deref() == Some("table"),
             convo: var("GAHT_CONVO").is_some(),
             guard: var("GAHT_GUARD").is_some(),
             feud: var("GAHT_FEUD").is_some(),
