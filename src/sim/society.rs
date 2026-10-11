@@ -1013,7 +1013,9 @@ impl World {
                 l.job = job;
                 l.place = place;
                 l.shift = match job {
-                    Job::Guard => (k % 3 == 2) as u8,
+                    // (Every third guard keeps the night, the second of any two: a
+                    // town with two guards has one for each: NM-40.)
+                    Job::Guard => (k % 3 == 1) as u8,
                     Job::Fisher if k == 0 => 1, // the first fisher crews the dawn boat
                     _ => r.chance(0.25) as u8,
                 };

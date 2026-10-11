@@ -334,7 +334,8 @@ eldest).
 eat at midday, work, garden, maybe the market (every fourth day is market
 day) or a neighbour's, then the evening, then bed. People rest one day in six
 (under bells, a third of a shift at a time). Guards on the night watch work
-18:00 to 06:00. At night people are indoors asleep — which makes them poor
+18:00 to 06:00 (one guard in three, and one of any two), walking the town
+from door to door all night. At night people are indoors asleep — which makes them poor
 witnesses, and they can't be talked to.
 
 **Food** comes three ways, and the cooking custom decides how much each is
@@ -453,8 +454,12 @@ village wronged by its town withdraws its boats), or the **public record**
 (it follows you to every town with an arbiter). Where it's unclear, the
 arbiter rules. Townsfolk take their own disputes to a hearing when a grudge
 gets that far (below). If the watch is on hand
-(and paid) when your crime is seen, you're arrested and judged on the spot;
-otherwise it's a bounty, and the news travels with travellers as before.
+(and paid) when your crime is seen, a guard is fetched (one on watch, or
+one off duty who is up and close by) and comes after you: through the door
+of a house near where you were last seen, and down the street if anyone
+about saw which way you went. Caught, you're judged on the spot; lose them
+and it's a bounty ("Wanted in ..." in the journal), and the news travels
+with travellers as before.
 Assaulting townsfolk, killing them, harming an arbiter (very serious
 everywhere) and raising the Roduro dead in a town where the elders sit are
 all crimes.
@@ -1037,6 +1042,7 @@ The numbers most worth tuning, all named constants:
 | Work rates (`FARM_PER_HOUR`, `FISH_PER_HOUR`, `KELP_PER_HOUR`, `MEALS_PER_COOK_HOUR`, `POTS_PER_RUN`, `Job::yields`), who gets the garden (`Job::lightness`), how well callings and tempers suit each job (`Job::fit`), goods' worth and spoiling | `src/sim/jobs.rs` |
 | Gardens, tax, guards' pay, the merchants' purse, trade prices, notes and the exchange fee, caravans (`GARDEN_FOOD`, `TAX_PER_HEAD`, `GUARD_WAGE`, `PURSE_PER_MERCHANT`, `PURSE_REFILL`, `BUY_MARKUP`, `SELL_SHARE`, `NOTE_VALUE`, `CARAVAN_CHANCE`, `CARGO_PER_HEAD`, `KEEP_DAYS`) | `src/sim/economy.rs` |
 | Working hours by rhythm, the night watch, the runners' round and the dawn boats (`work_hours`, `RUN_HOURS`, `BOAT_OUT`, `BOAT_BACK`, `BED`) | `src/sim/routine.rs` |
+| The watch after a thief: how fast, how long out of sight before giving up, how near a door gets tried, how near an off-duty guard comes from (`GUARD_PACE`, `LOSE_AFTER`, `GIVE_UP`, `TRY_DOOR`, `OFF_DUTY_REACH`, `BEYOND`) | `src/sim/pursuit.rs` |
 | The tide and the season (`TIDE_PERIOD`, `YEAR_DAYS`, `SEASON_SWING`) | `src/sim/tide.rs` |
 | Hunger: how fast, stages, when they eat (`HUNGER_PER_HOUR`, `EAT_AT`, `HUNGRY`/`WEAK`/`STARVING`, `STARVE_DRAIN`) | `src/sim/condition.rs` |
 | Stamina and tiredness (`STAMINA_WALK`, `STAMINA_CLIMB`, `STAMINA_REST`, `TIRED_PER_HOUR`, `SLEEP_OPEN`/`TENT`/`INDOORS`, `EXHAUSTED`) | `src/sim/condition.rs` |

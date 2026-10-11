@@ -123,6 +123,73 @@ fn a_thief_who_gets_away_has_a_bounty_instead() {
     assert!(w.log.iter().any(|l| l.1.contains("slipped the watch")));
 }
 
+/// Stand by until the chase is over; true if it ended with the thief caught.
+fn caught_in_the_end(w: &mut World) -> bool {
+    let mut n = 0;
+    while !w.pursuits.is_empty() && n < 20_000 {
+        w.step(0.25);
+        n += 1;
+    }
+    assert!(w.pursuits.is_empty(), "the chase ended");
+    w.log.iter().any(|l| l.1.contains("catches"))
+}
+
+/// NM-20: stepping into the house next door doesn't shake the watch off:
+/// a door close by where the thief was last seen is tried.
+#[test]
+fn nm20_the_watch_follows_through_the_next_door() {
+    use gahturiyu_sim::sim::buildings::door_of;
+    let (mut w, town, me, folk) = in_town();
+    // Seen at it in the street, 25 m from a house that can be walked into.
+    let s = w.settlements[town as usize].clone();
+    let mut doors: Vec<_> = (0..s.buildings.len() as u16).filter_map(|i| door_of(&s, i)).filter(|d| !w.is_locked(d.id)).collect();
+    doors.sort_by(|a, b| a.outside.dist(s.pos).total_cmp(&b.outside.dist(s.pos)));
+    let d = doors.first().expect("an open door in town").clone();
+    let out = d.outside.sub(d.inside);
+    let from = d.outside.add(out.scale(25.0 / out.len().max(0.01)));
+    let k = w.squad.index(me).unwrap();
+    w.squad.at[k] = from;
+    w.squad.goal[k] = from;
+    w.squad.route[k].clear();
+    assert!(told(&mut w, town, me, &folk), "somebody tells");
+    // And in they go.
+    w.order_members(&[me], d.centre);
+    for _ in 0..600 {
+        if w.squad.inside[k] == Some(d.id) || w.pursuits.is_empty() {
+            break;
+        }
+        w.step(0.25);
+    }
+    // (Caught on the way in is the watch doing its job too.)
+    assert!(w.squad.inside[k] == Some(d.id) || w.log.iter().any(|l| l.1.contains("catches")), "got indoors");
+    assert!(caught_in_the_end(&mut w), "indoors next door, the thief slipped the watch: {:?}", w.log.iter().take(4).collect::<Vec<_>>());
+    assert!(w.bounty.is_empty());
+}
+
+/// NM-20: nor does walking a hundred metres down the street in broad day,
+/// with people about to point the way.
+#[test]
+fn nm20_the_watch_follows_down_the_street() {
+    let (mut w, town, me, folk) = in_town();
+    assert!(told(&mut w, town, me, &folk), "somebody tells");
+    let from = w.person_pos(me);
+    let s = w.settlements[town as usize].clone();
+    // 110 m off, still in town, out of doors.
+    let to = (0..16)
+        .map(|i| {
+            let a = i as f32 / 16.0 * std::f32::consts::TAU;
+            from.add(V2::new(a.cos(), a.sin()).scale(110.0))
+        })
+        .filter(|&p| p.dist(s.pos) < s.reach && w.building_at(p).is_none() && !w.terrain.is_sea(p))
+        .min_by(|a, b| a.dist(s.pos).total_cmp(&b.dist(s.pos)))
+        .expect("a spot down the street");
+    let k = w.squad.index(me).unwrap();
+    w.squad.at[k] = to;
+    w.squad.goal[k] = to;
+    w.squad.route[k].clear();
+    assert!(caught_in_the_end(&mut w), "110 m down the street, the thief slipped the watch: {:?}", w.log.iter().take(4).collect::<Vec<_>>());
+}
+
 #[test]
 fn keeping_quiet_means_nothing_follows() {
     let (mut w, town, me, folk) = in_town();
@@ -181,4 +248,86 @@ fn nm28_a_bounty_posted_says_so_and_can_be_looked_up() {
     // Paid off, it's gone from the list.
     w.bounty.insert(town, 0.0);
     assert!(w.wanted_lines().is_empty());
+}
+
+fn guards_of(w: &World, town: usize) -> Vec<PersonId> {
+    w.settlements[town].residents.iter().copied().filter(|&p| !w.people[p as usize].dead && w.life(p).job == Job::Guard).collect()
+}
+
+/// NM-40: a town with two guards or more keeps a watch through the night
+/// (it used to take three, and the whole watch sat down to eat at 02:00);
+/// and the night watch walks the town instead of standing at the post.
+#[test]
+fn nm40_someone_keeps_watch_at_night_and_walks_the_town() {
+    let mut w = worldgen::generate(3);
+    let towns: Vec<usize> = (0..w.settlements.len()).filter(|&s| guards_of(&w, s).len() >= 2).collect();
+    assert!(towns.len() > 10);
+    // The second night, at one, two and half past three in the morning.
+    let mut dark = Vec::new();
+    for h in [25.0, 26.25, 27.5] {
+        while w.time < 24.0 * HOUR + h * HOUR {
+            w.step(300.0);
+        }
+        let t = w.time;
+        for &s in &towns {
+            if !guards_of(&w, s).iter().any(|&p| w.at_work(p, t)) {
+                dark.push((w.settlements[s].name.clone(), h - 24.0));
+            }
+        }
+    }
+    // (A town whose one night guard has the night off is dark that night;
+    // that's a rest day, not a town without a watch.)
+    eprintln!("{} towns with two guards or more; unwatched: {dark:?}", towns.len());
+    for h in [1.0, 2.25, 3.5] {
+        let n = dark.iter().filter(|d| d.1 == h).count();
+        assert!(n * 10 <= towns.len() * 3, "at {h} in the morning {n} of {} towns have nobody on watch: {dark:?}", towns.len());
+    }
+    // Someone on the night watch is out walking: they move, they stay in
+    // town, and where they are is the same whenever it's asked.
+    let t = w.time;
+    let (town, walker) = towns.iter().find_map(|&s| guards_of(&w, s).into_iter().find(|&p| w.life(p).shift == 1 && w.at_work(p, t)).map(|p| (s, p))).expect("a night guard on watch");
+    let here = w.person_pos(walker);
+    assert_eq!(here, w.person_pos(walker));
+    let (centre, reach) = (w.settlements[town].pos, w.settlements[town].reach);
+    let mut far = 0.0f32;
+    for _ in 0..8 {
+        w.step(300.0);
+        let at = w.person_pos(walker);
+        if w.at_work(walker, w.time) {
+            far = far.max(at.dist(here));
+            assert!(at.dist(centre) <= reach + 60.0, "the watch keeps to the town: {:.0} m from its middle", at.dist(centre));
+        }
+    }
+    assert!(far > 15.0, "in forty minutes the night watch moved {far:.0} m");
+}
+
+/// NM-40: with nobody at the post, a witness fetches a guard who is up
+/// and close by, though off duty.
+#[test]
+fn nm40_a_guard_near_by_comes_though_off_duty() {
+    let mut w = worldgen::generate(3);
+    // Mid-afternoon: the night watch is up and at home, off duty.
+    while w.time < 15.5 * HOUR {
+        w.step(300.0);
+    }
+    let t = w.time;
+    let found = (0..w.settlements.len()).find_map(|s| guards_of(&w, s).into_iter().find(|&p| w.life(p).shift == 1 && !w.at_work(p, t) && !w.is_indoors_asleep(p) && w.is_about(p, t)).map(|p| (s, p)));
+    let (town, off) = found.expect("a night guard up and off duty in the afternoon");
+    // The day watch is laid out cold: nobody at the post to fetch.
+    for g in guards_of(&w, town) {
+        if g != off {
+            let p = &mut w.people[g as usize];
+            let max = p.stats.max_hp(gahturiyu_sim::sim::body::Part::Torso);
+            p.wounds.lost = p.wounds.lost_at(t);
+            p.wounds.lost[1] = max + 20.0;
+            p.wounds.at = t;
+        }
+    }
+    assert!(!guards_of(&w, town).iter().any(|&p| w.at_work(p, t)), "nobody on watch");
+    let near = w.person_pos(off).add(V2::new(20.0, 0.0));
+    w.teleport_squad(near);
+    let me = w.squad.members[0];
+    w.wrong_seen(me, town as u16, Wrong::Theft, 30.0, "Seen stealing!".into(), None, None, near);
+    assert_eq!(w.pursuits.iter().map(|p| p.guard).collect::<Vec<_>>(), vec![off], "the guard 20 m away is fetched: {:?}", w.log.iter().take(3).collect::<Vec<_>>());
+    assert!(w.bounty.is_empty());
 }
