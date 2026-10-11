@@ -62,6 +62,8 @@ const READING: &[&str] = &["notes_paralyze", "manual_smithing", "manual_alchemy"
 const SUPPLIES: &[(&str, u16)] = &[("flatbread", 4), ("dried_fish", 3), ("torch", 2), ("healing_draught", 1)];
 /// How hard a ruin's chest is to pick (between these).
 pub const CHEST_LOCK: (f32, f32) = (30.0, 60.0);
+/// How far a ruin's chest and crate stand from its middle, metres.
+pub const CACHE_OUT: f32 = 6.0;
 
 /// Distance from a point to the nearest road.
 fn road_dist(w: &World, p: V2) -> f32 {
@@ -164,7 +166,15 @@ impl World {
                 }
             }
             let rot = rr.f32() * std::f32::consts::TAU;
-            let at = |k: f32| ru.pos.add(V2::new(rot.cos(), rot.sin()).scale(1.6 * k));
+            // A ruin's chest and crate stand between where its wardens sit,
+            // out of arm's reach of them (BL-22); a lair's chest at its mouth.
+            let at = |k: f32| match ru.kind {
+                RuinKind::Ruin => {
+                    let a = super::encounters::CLEAR_OF_THE_BAND[if k > 0.0 { 0 } else { 1 }];
+                    ru.pos.add(V2::new(a.cos(), a.sin()).scale(CACHE_OUT))
+                }
+                RuinKind::Lair(_) => ru.pos.add(V2::new(rot.cos(), rot.sin()).scale(1.6 * k)),
+            };
             let lock = match ru.kind {
                 RuinKind::Ruin => CHEST_LOCK.0 + rr.f32() * (CHEST_LOCK.1 - CHEST_LOCK.0),
                 RuinKind::Lair(_) => 0.0,
@@ -184,11 +194,12 @@ impl World {
 
     /// Note ruins the squad comes upon (the squad's step).
     pub(super) fn find_ruins(&mut self) {
-        let here = self.squad.pos;
+        // Whoever of the squad gets there, alone or not (BL-21).
+        let spots: Vec<V2> = self.squad.members.iter().map(|&m| self.person_pos(m)).collect();
         let t = self.time;
         let mut found = Vec::new();
         for ru in self.ruins.iter_mut().filter(|r| !r.found) {
-            if ru.pos.dist(here) <= FIND_AT {
+            if spots.iter().any(|p| ru.pos.dist(*p) <= FIND_AT) {
                 ru.found = true;
                 found.push(ru.clone());
             }
@@ -197,18 +208,25 @@ impl World {
             let what = match ru.kind {
                 RuinKind::Ruin => {
                     let held = ru.guards.and_then(|g| self.group(g)).is_some_and(|g| g.members.iter().any(|&m| !self.people[m as usize].dead));
+                    // (Who's in it, the squad says: the window's remarks.)
                     if held {
-                        "You come upon an old ruin. Someone has dug in here — and something glints inside.".to_string()
+                        "An old ruin.".to_string()
                     } else {
-                        "You come upon an old ruin, empty now.".to_string()
+                        "An old ruin, empty.".to_string()
                     }
                 }
-                RuinKind::Lair(_) => format!("You come upon a {}. Bones, and the gleam of things their owners won't need.", ru.name(self).to_lowercase()),
+                RuinKind::Lair(_) => format!("A {}.", ru.name(self).to_lowercase()),
             };
-            self.alerts.push(what.clone());
             self.log.push_front((t, what));
             self.log.truncate(14);
         }
+    }
+
+    /// Something was taken from a cache in the wild: if it's a lair's, its
+    /// beast (if home) comes for the squad (BL-55).
+    pub(super) fn lair_disturbed(&mut self, ruin: u32) {
+        let Some(RuinKind::Lair(h)) = self.ruins.get(ruin as usize).map(|r| r.kind) else { return };
+        self.beast_defends_lair(h);
     }
 
     /// Is this band a ruin's wardens?
@@ -221,7 +239,8 @@ impl World {
         let Some(ru) = self.ruins.get(id as usize) else { return false };
         match ru.kind {
             RuinKind::Ruin => ru.guards.and_then(|g| self.group(g)).is_some_and(|g| g.members.iter().any(|&m| !self.people[m as usize].dead)),
-            RuinKind::Lair(h) => self.animals.herds.get(h as usize).is_some_and(|h| h.alive(self.time) > 0),
+            // A lair is guarded while its beast is home.
+            RuinKind::Lair(h) => self.beast_at_home(h),
         }
     }
 

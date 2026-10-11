@@ -507,3 +507,26 @@ mod tests {
         assert_eq!(c.cocoons_at(100.0 * DAY), COCOON_CAP);
     }
 }
+
+/// A great beast counts as at home on its lair when it is this near it,
+/// metres (or within its own sense of it, if that reaches further).
+pub const LAIR_HOME: f32 = 40.0;
+
+impl World {
+    /// Is this herd's beast alive and at its lair (its home) just now?
+    pub fn beast_at_home(&self, herd: u32) -> bool {
+        let t = self.time;
+        let Some(h) = self.animals.herds.get(herd as usize) else { return false };
+        h.alive(t) > 0 && self.herd_pos(herd, t).dist(h.home) <= LAIR_HOME.max(h.def().sense)
+    }
+
+    /// Someone of the squad has gone at a beast's lair (its chest): if the
+    /// beast is home it comes for them, asleep or not, rested or not (BL-55).
+    /// Returns whether it did.
+    pub fn beast_defends_lair(&mut self, herd: u32) -> bool {
+        if !self.beast_at_home(herd) || self.squad_battle().is_some() || self.herd_in_fray(herd) {
+            return false;
+        }
+        self.herd_attacks_squad(herd, 0.0).is_some()
+    }
+}

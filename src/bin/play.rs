@@ -868,8 +868,16 @@ fn pack(w: &World, m: PersonId) -> String {
 /// Run the world on for up to `secs`, stopping early at what a player would
 /// notice: a fight starting, someone going down, a talk opening, or (with
 /// `until_still`) everyone ordered getting where they were going.
+/// Bands that would fall on the squad, in sight of one of it just now.
+fn bands_in_sight(w: &World) -> Vec<u32> {
+    let eyes: Vec<_> = w.squad.members.iter().map(|&m| w.person_pos(m)).collect();
+    let reach = gahturiyu_sim::sim::stealth::SIGHT * gahturiyu_sim::sim::stealth::daylight(w.time).max(0.45);
+    w.groups.iter().filter(|g| g.hostile && g.members.iter().any(|&m| !w.is_down(m) && eyes.iter().any(|e| e.dist(w.person_pos(m)) <= reach))).map(|g| g.id).collect()
+}
+
 fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
     let start = w.time;
+    let seen = bands_in_sight(w);
     let fighting = w.squad_battle().is_some();
     let down: Vec<bool> = w.squad.members.iter().map(|&m| w.is_down(m)).collect();
     let talking = w.talk.is_some();
@@ -894,9 +902,9 @@ fn pass(w: &mut World, secs: f64, until_still: Option<&[PersonId]>) -> String {
             why = "A conversation opens.".into();
             break;
         }
-        // (The window shows a band of bandits coming into sight in the news,
-        // in red: the tool stops on it, as a player would look up.)
-        if w.log.iter().take_while(|l| l.0 > start).any(|l| l.1.ends_with(": bandits.")) {
+        // A band coming into sight: the tool stops, as a player would look up
+        // (the window has one of the squad say so).
+        if w.time - start > 0.0 && bands_in_sight(w).iter().any(|g| !seen.contains(g)) {
             why = "Bandits in sight.".into();
             break;
         }

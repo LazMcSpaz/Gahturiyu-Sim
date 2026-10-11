@@ -1,6 +1,8 @@
-//! First-hour hints (the playable-MVP list): short tips that turn up when
-//! they're useful (the first fight, the first beaten foe, a full pack,
-//! nightfall), one at a time, each once. Click a tip to put it away; it
+//! First-hour hints (the playable-MVP list): short tips on the controls
+//! that turn up when they're useful (the first town, the first fight, the
+//! first beaten foe), one at a time, each once. What the squad notices
+//! (hunger, a full pack, nightfall, being robbed) they say themselves
+//! (`remarks.rs`). Click a tip to put it away; it
 //! goes on its own after a while. Which have been seen is kept in
 //! `hints.txt` beside `settings.txt` (delete it to see them all again).
 //!
@@ -8,7 +10,7 @@
 
 use std::time::{Duration, Instant};
 
-use gahturiyu_sim::sim::{condition, stealth, World};
+use gahturiyu_sim::sim::World;
 
 use super::hud::Canvas;
 use super::palette::{DIM, GOLD, TEXT};
@@ -21,16 +23,11 @@ const WRAP: usize = 74;
 
 /// The tips, in the order they're considered.
 const HINTS: &[(&str, &str)] = &[
-    ("welcome", "Welcome. Left-click the ground to walk. Click a card along the bottom (or F1–F4) to choose who takes orders; ` picks everyone again. Hover over anything to see what it is."),
-    ("town", "A town. Click a townsperson to talk: merchants trade, some have work, and a few restless ones will join the squad if asked (the town panel lists who, and their price)."),
-    ("work", "Short of coin? Every town has a woodlot (and some a mine) nearby, marked by a post. Click it and the selected work until their packs are full."),
-    ("fight", "A fight! Click an enemy to set the selected on them. The ring under each fighter points the way they face."),
-    ("loot", "A beaten foe: click them and someone goes through their things. Bandits carry coin."),
-    ("full", "A full pack slows you down. Talk to a merchant (\"What have you got?\") and use Sell all."),
-    ("hungry", "Someone's hungry. They eat from their pack when they need to: buy food from a merchant, or hunt (click a wild animal) and cut up what you kill."),
-    ("night", "Night's coming. Press N to rest (a tent in someone's pack makes it a better sleep), or T for torches if you'd rather keep going."),
-    ("beaten", "Beaten and robbed. Rest until you can stand (N), get some gear, and go and take it back from their camp."),
-    ("feel", "Felt spells come with use. As someone casts and fights, their feel for that kind of magic grows, and the spells within reach come to them on their own. Their spell book (M) shows what they know."),
+    ("welcome", "Left-click the ground to walk. F1 to F4 picks who takes orders; ` picks everyone."),
+    ("town", "Click someone to talk to them."),
+    ("work", "Short of coin? There's a woodlot by every town, marked with a post. Click it to work there."),
+    ("fight", "Click an enemy to set the selected on them."),
+    ("loot", "Click a beaten foe to go through their things."),
 ];
 
 pub struct Hints {
@@ -82,11 +79,6 @@ fn due(w: &World, id: &str) -> bool {
         "work" => w.deposits.iter().any(|d| near(d.pos, 400.0)),
         "fight" => w.squad_battle().is_some(),
         "loot" => w.squad_battle().is_none() && w.groups.iter().filter(|g| g.band <= 1).flat_map(|g| g.members.iter()).any(|&m| w.can_loot(m) && near(w.person_pos(m), 80.0)),
-        "full" => w.squad.members.iter().any(|&m| w.pack_load_of(m) > 0.95),
-        "hungry" => w.squad.members.iter().any(|&m| w.hunger_of(m).is_some_and(|h| condition::stage_of(h) != condition::HungerStage::Fed)),
-        "night" => stealth::daylight(w.time) < 0.35,
-        "beaten" => w.log.front().is_some_and(|l| l.1.starts_with("Beaten.") && w.time - l.0 < 3600.0),
-        "feel" => w.log.iter().take(12).any(|l| w.time - l.0 < 3600.0 && (l.1.contains(" has a feel for ") || l.1.contains(" the feel of "))),
         _ => false,
     }
 }

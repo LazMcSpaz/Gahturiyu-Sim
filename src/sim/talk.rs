@@ -91,7 +91,7 @@ impl Subject {
 }
 
 /// The data files, compiled in.
-const FILES: [(&str, &str); 18] = [
+const FILES: [(&str, &str); 19] = [
     ("", include_str!("../../data/lines/greetings.txt")),
     ("", include_str!("../../data/lines/farewells.txt")),
     ("theft", include_str!("../../data/lines/theft.txt")),
@@ -110,6 +110,7 @@ const FILES: [(&str, &str); 18] = [
     ("advice", include_str!("../../data/lines/advice.txt")),
     ("rumours", include_str!("../../data/lines/rumours.txt")),
     ("bandits", include_str!("../../data/lines/bandits.txt")),
+    ("squad", include_str!("../../data/lines/squad.txt")),
 ];
 
 #[derive(Clone, Debug)]
@@ -688,6 +689,25 @@ impl World {
         let f = self.facts(npc, with, Some(&c));
         let p = self.pick(&f, c.subject.key(), "bark", npc, with, &[])?;
         let s = f.fill(p.text);
+        (!s.is_empty()).then_some(s)
+    }
+
+    /// What a squad member says out loud about something they noticed
+    /// (`data/lines/squad.txt`, slot `remark`, tag `about=<about>`). `nth`
+    /// varies the pick between equally fitting lines. Changes nothing; the
+    /// window shows it over their head.
+    pub fn squad_remark(&self, who: PersonId, about: &str, values: &[(&'static str, String)], nth: u64) -> Option<String> {
+        let mut f = self.facts(who, who, None);
+        f.tag(format!("about={about}"));
+        for (k, v) in values {
+            f.set(k, v.clone());
+        }
+        let fits: Vec<&'static Piece> = pieces().iter().filter(|p| p.topic == "squad" && p.slot == "remark" && f.fits(p)).collect();
+        let best = fits.iter().map(|p| p.must.len() + p.not.len()).max()?;
+        let top: Vec<&'static Piece> = fits.into_iter().filter(|p| p.must.len() + p.not.len() == best).collect();
+        let tag = about.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(b as u64));
+        let mut r = Rng::from_keys(&[self.seed, who as u64, tag, nth, 0x5245_4D4B]);
+        let s = f.fill(top[r.below(top.len())].text);
         (!s.is_empty()).then_some(s)
     }
 

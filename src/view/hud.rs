@@ -405,7 +405,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                     Some(g) if w.suspicion.iter().any(|((x, _), v)| *x == g && *v > 0.3) => "suspicious",
                     _ => "unaware of you",
                 };
-                out.push((format!("Bandit  ·  {state}  ·  click to attack"), [0.95, 0.35, 0.3]));
+                out.push((format!("Bandit, {state}"), [0.95, 0.35, 0.3]));
             }
             if let Some(c) = w.carrying(pid) {
                 out.push((format!("Carrying {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
@@ -413,14 +413,14 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if let Some(c) = w.carried_by(pid) {
                 out.push((format!("Carried by {}", w.people[c as usize].name().unwrap_or("someone")), TEXT));
             } else if body::knocked_out(&hp) && !p.dead {
-                out.push(("Down. Select someone and click to carry them.".into(), DIM));
+                out.push(("Down".into(), DIM));
             }
             if let Some(hrs) = w.torch_hours_left(pid) {
                 let lit = if w.torch_lit(pid) { "lit" } else { "out" };
-                out.push((format!("Torch {lit}  ·  {:.1} h left  ·  T to light or put out", hrs), GOLD));
+                out.push((format!("Torch {lit}, {:.1} h left", hrs), GOLD));
             }
             if p.in_squad && w.is_sneaking(pid) {
-                out.push((format!("Sneaking  ·  noise {:.1}  ·  visibility {:.0}%", w.noise_of(pid), w.visibility_of(pid) * 100.0), SNEAK));
+                out.push(("Sneaking".to_string(), SNEAK));
             }
             // Bound to work for someone, and for how long.
             if let Some(b) = w.bond_of(pid) {
@@ -444,11 +444,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                     let known = w.bounty_known_in(town);
                     out.push((
                         format!(
-                            "Standing in {} {:.0}: {}{}",
+                            "Standing in {}: {}{}",
                             w.settlements[town as usize].name,
-                            s,
                             gahturiyu_sim::sim::World::standing_word(s),
-                            if known > 0.0 { format!("  ·  bounties known here {known:.0}") } else { String::new() }
+                            if known > 0.0 { format!(", a bounty of {known:.0} known here") } else { String::new() }
                         ),
                         if known > 0.0 { [0.95, 0.6, 0.3] } else { DIM },
                     ));
@@ -516,7 +515,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                     out.push((if c <= 0.0 { "Someone's; nobody would see it taken from here".to_string() } else { format!("Someone's: taking it is theft, {:.0}% chance of being seen", c * 100.0) }, WARN));
                 }
             }
-            out.push(("Click to pick up".into(), TEXT));
         }
         Hover::Door(id) => {
             let s = &w.settlements[id.0 as usize];
@@ -524,39 +522,22 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             // What it is, by trade and who keeps it ("Maker's forge · kept by
             // Ana, smith"), or just its variant ("Grown cottage").
             match super::signs::keeper(w, id) {
-                Some(_) => {
-                    out.push((super::signs::building_title(w, id).unwrap_or_else(|| d.variant().name.to_string()), TEXT));
-                    out.push((s.name.clone(), DIM));
-                }
-                None => out.push((format!("{}  ·  {}", d.variant().name, s.name), TEXT)),
+                Some(_) => out.push((super::signs::building_title(w, id).unwrap_or_else(|| d.variant().name.to_string()), TEXT)),
+                None => out.push((d.variant().name.to_string(), TEXT)),
             }
-            if d.lock <= 0.0 {
-                out.push(("No lock.  Click to go in.".into(), DIM));
-            } else if w.is_locked(id) {
-                out.push((format!("Locked for the night: {}", w.lock_outlook(d.lock)), WARN));
-                out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
-            } else {
-                out.push((format!("Open  ·  lock {:.0}, locked 20:00–06:00", d.lock), DIM));
-                out.push(("Click to go in.".into(), DIM));
+            if w.is_locked(id) {
+                out.push(("Locked".into(), WARN));
             }
         }
         Hover::Building(id) => {
             let st = &w.settlements[id.0 as usize];
             let Some(d) = w.door(id) else { return out };
             out.push((d.variant().name.to_string(), GOLD));
+            let _ = st;
             let owner = super::interiors::owner_text(w, w.belongs_to(id));
-            out.push((format!("{}  ·  belongs to {owner}", st.name), TEXT));
-            let lock = if d.lock <= 0.0 {
-                "No lock".to_string()
-            } else if w.is_locked(id) {
-                format!("Locked for the night (lock {:.0})", d.lock)
-            } else {
-                format!("Open by day; locked 20:00–06:00 (lock {:.0})", d.lock)
-            };
-            out.push((lock, if w.is_locked(id) { WARN } else { DIM }));
-            let inside = w.residents_in_band1(id.0).into_iter().filter(|&p| w.building_at(w.person_pos(p)).map(|x| x.id) == Some(id)).count();
-            if inside > 0 {
-                out.push((format!("{inside} inside"), DIM));
+            out.push((format!("Belongs to {owner}"), DIM));
+            if w.is_locked(id) {
+                out.push(("Locked".into(), WARN));
             }
         }
         Hover::Furniture(id, k) => {
@@ -566,69 +547,51 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             out.push((format!("In the {}", d.variant().name.to_lowercase()), DIM));
         }
         Hover::Camp(k) => {
-            out.push(("Bandit camp".to_string(), GOLD));
-            if let Some(c) = w.camps.get(k) {
-                let n = w.group(c.group).map(|g| g.members.iter().filter(|&&m| !w.people[m as usize].dead && !w.is_down(m)).count()).unwrap_or(0);
-                out.push((format!("{n} standing  ·  they watch the roads, and anyone who comes close"), WARN));
-                if w.is_warden(c.group) {
-                    out.push(("Dug in at a ruin".to_string(), WARN));
-                }
-            }
+            let _ = k;
+            out.push(("A camp".to_string(), GOLD));
         }
         Hover::Place(t, k) => {
             let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) else { return out };
-            out.push((p.kind.name().to_string(), GOLD));
-            let here = w.settlements[t as usize].residents.iter().filter(|&&q| w.workplace_of(q).is_some_and(|wp| wp.pos.dist(p.pos) < 1.0) && w.at_work(q, w.time)).count();
-            out.push((format!("{}  ·  {here} at work here now", w.settlements[t as usize].name), DIM));
+            out.push((format!("{}'s {}", w.settlements[t as usize].name, p.kind.name().to_lowercase()), GOLD));
         }
         Hover::Container(id) => {
             let Some(k) = w.container(id) else { return out };
+            let wild = gahturiyu_sim::sim::containers::is_wild(id);
             if gahturiyu_sim::sim::containers::is_stash(id) {
                 out.push(("The bandits' stash".to_string(), TEXT));
+            } else if wild {
+                out.push((capital(k.what.name()), TEXT));
             } else {
-                out.push((format!("A {}  ·  belongs to {}", k.what.name(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
+                out.push((format!("A {}, belongs to {}", k.what.name().to_lowercase(), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))), TEXT));
             }
             if w.container_locked(id) {
-                out.push((format!("Locked: {}", w.lock_outlook(k.lock)), WARN));
-                out.push(("Click to pick the lock (needs a lockpick).".into(), DIM));
-            } else if gahturiyu_sim::sim::containers::is_wild(id) {
-                out.push(("Click to open (nobody's: taking is no crime, but keepers nearby may hear)".into(), DIM));
-            } else {
-                out.push(("Click to open (taking is theft)".into(), DIM));
+                out.push(("Locked".into(), WARN));
+            }
+            if !wild {
+                out.push(("Taking from it is theft".into(), DIM));
             }
         }
         Hover::Node(id) => {
             let Some(n) = w.nodes.iter().find(|n| n.id == id) else { return out };
             out.push((format!("{}  ×{}", items::item(n.item).name, n.amount), GOLD));
-            if n.ready(w.time) {
-                out.push(("Click to gather".into(), TEXT));
-            } else {
-                out.push((format!("Picked; grows back at {}", hhmm(n.picked_at.unwrap_or(0.0) + 24.0 * HOUR)), DIM));
+            if !n.ready(w.time) {
+                out.push(("Picked".into(), DIM));
             }
         }
         Hover::Ruin(id) => {
             let Some(ru) = w.ruins.get(id as usize) else { return out };
             out.push((ru.name(w), GOLD));
-            let held = w.ruin_held(id);
-            let line = match ru.kind {
-                gahturiyu_sim::sim::ruins::RuinKind::Ruin if held => "Held by wardens: a hard band, dug in",
-                gahturiyu_sim::sim::ruins::RuinKind::Lair(_) if held => "Its owner is about",
-                _ => "Nobody guards it now",
-            };
-            out.push((line.to_string(), if held { WARN } else { TEXT }));
-            let n = w.ruin_cache(id);
-            out.push((if n > 0 { format!("{n} things lying inside") } else { "Picked clean".to_string() }, DIM));
+            if !w.ruin_held(id) {
+                out.push(("Abandoned".to_string(), DIM));
+            }
         }
         Hover::Deposit(id) => {
             let Some(d) = w.deposit(id) else { return out };
             let town = &w.settlements[d.town as usize].name;
             out.push((format!("{} of {town}", d.face().name), GOLD));
-            let left = d.left_at(w.time).floor();
-            out.push((format!("{} × {} left (of {}); a unit {:.0} kg, fetches about {} coin in {town} (less each for a big lot)", left, items::item(d.item).name.to_lowercase(), d.face().cap, items::item(d.item).weight, w.fetches_in(d.town, d.item)), TEXT));
-            if let Some(h) = w.deposit_full_in(id) {
-                out.push((format!("Grows back: full again in {h:.0} h"), DIM));
+            if d.left_at(w.time) < 1.0 {
+                out.push(("Worked out for now".to_string(), DIM));
             }
-            out.push(("Click: the selected work it until their packs are full".into(), DIM));
         }
         Hover::Station(i) => {
             let (_, st) = w.stations[i];
@@ -644,7 +607,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 S::GrowerBed => "Stone-tending: grown stone, slow to come",
             };
             out.push((what.into(), TEXT));
-            out.push(("Stand by it and press K".into(), DIM));
         }
         Hover::Town(sid) => {
             let s = &w.settlements[sid as usize];
@@ -652,30 +614,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             if let Some(other) = super::lexicon::town_other(w, sid) {
                 out.push((other, DIM));
             }
+            out.push((format!("A {} town{}", s.founders.name(), if s.coastal { " on the coast" } else { "" }), DIM));
             // Wanted here (NM-28).
             if let Some(owed) = w.bounty.get(&sid).filter(|b| **b >= 1.0) {
                 out.push((format!("Wanted here: {owed:.0} coin owed."), WARN));
-            }
-            out.push((
-                format!("{} town, founded by the {}{}", if s.coastal { "Coastal" } else { "Inland" }, s.founders.name(), if s.coastal { ", Horaro stilts offshore" } else { "" }),
-                TEXT,
-            ));
-            let mut by = [0usize; 4];
-            let mut home = 0;
-            for &p in &s.residents {
-                by[w.people[p as usize].race.index()] += 1;
-                if w.busy_until[p as usize] <= w.time {
-                    home += 1;
-                }
-            }
-            out.push((format!("{} people, {} home right now", s.residents.len(), home), TEXT));
-            for (r, n) in ALL_RACES.iter().zip(by) {
-                out.push((format!("   {} {}", r.name(), n), race_color(*r)));
-            }
-            if let Some(tl) = w.society.towns.get(sid as usize) {
-                let k = w.society.communities[tl.shore as usize].customs;
-                out.push((format!("{}  ·  {}", k.cooking.name(), k.rhythm.name()), TEXT));
-                out.push((format!("Fed {:.0}% yesterday  ·  click for the town panel", w.town_food(sid) * 100.0), DIM));
             }
         }
         Hover::Torch(i) => {

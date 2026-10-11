@@ -35,7 +35,7 @@ fn coming_upon_a_ruin_is_noted() {
     w.teleport_squad(r.pos.add(V2::new(120.0, 0.0)));
     w.step(0.1);
     assert!(w.ruins[0].found);
-    assert!(w.log.iter().any(|l| l.1.contains("come upon")), "{:?}", w.log);
+    assert!(w.log.iter().any(|l| l.1.contains("old ruin")), "{:?}", w.log);
 }
 
 /// Round 1 and 3: a ruin should hold something to search, not a pile on the

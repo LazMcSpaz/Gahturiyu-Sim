@@ -1,0 +1,85 @@
+# What your own squad says, out loud, when they notice something.
+#
+# One slot: `remark`. The window picks a moment (first sight of a camp, the
+# first hungry pang, dusk in the open...) and asks for a remark with one
+# `about=` tag; the piece with the most matching conditions wins, as in the
+# other files. Keep them short: one breath, said to the others, never
+# explaining the game.
+#
+# Extra tags:
+#   about=camp       a camp comes into sight for the first time
+#   about=ruin       an old ruin comes into sight, someone dug in there
+#   about=lair       a great beast's lair comes into sight
+#   about=robbers    the camp in sight is the one holding what they took
+#   about=new_town   a town none of them has been to before
+#   about=hungry     the first pang (hungry)
+#   about=starving   past hungry
+#   about=tired      dead on their feet
+#   about=heavy      carrying more than they can manage
+#   about=dark       night coming on, out in the open
+#   about=locked     a door or lid that won't open
+#   about=blocked    somewhere they can't get to
+#   about=after_fight a fight just ended, someone of ours down
+#   about=won        a fight just ended, won
+#   about=robbed     coming round after being robbed
+# Slot values: {town} (the town's name, for new_town), {name} (the speaker).
+
+remark | about=camp | Smoke up ahead. Someone's camped there.
+remark | about=camp | Those look like trouble.
+remark | about=camp, hot | That lot are looking for a fight.
+remark | about=camp, patient | Easy. There's a camp ahead.
+remark | about=camp, voice=horaro | Smoke on the wind. Someone's dug in over there.
+remark | about=camp, voice=qotiro | Camp ahead. Armed.
+remark | about=camp, voice=tadoro | Now who would camp out here? No one honest, I'd guess.
+remark | about=camp, voice=roduro | Somebody's made themselves at home out there.
+
+remark | about=robbers | That's the lot who robbed us.
+remark | about=robbers, hot | There they are. They've still got our things.
+remark | about=robbers, voice=qotiro | Them. Our gear's in there.
+
+remark | about=ruin | There's someone in those old walls.
+remark | about=ruin, voice=roduro | Old stone, and dead. Somebody's living in it.
+remark | about=ruin, voice=tadoro | A ruin! And, I think, people in it who won't want to chat.
+
+remark | about=lair | Bones. Something big lives here.
+remark | about=lair, patient | Quiet now. This is something's den.
+remark | about=lair, voice=horaro | That smell. Something lairs here.
+
+remark | about=new_town | {town}. Never been.
+remark | about=new_town, voice=tadoro | {town}! I've heard of it. Let's see if it's true.
+remark | about=new_town, voice=qotiro | {town}. Keep your purses close.
+remark | about=new_town, voice=horaro | {town}. Let's see if they've anything to eat.
+
+remark | about=hungry | I need to eat.
+remark | about=hungry | When did we last eat?
+remark | about=hungry, hot | I'm starving here.
+remark | about=hungry, voice=horaro | My belly's talking to me.
+remark | about=starving | I can't keep going without food.
+remark | about=starving, voice=qotiro | Food. Now. Or I drop.
+
+remark | about=tired | I'm dead on my feet.
+remark | about=tired | I need to sleep.
+remark | about=tired, voice=tadoro | If I close my eyes I'll be asleep before I hit the ground.
+
+remark | about=heavy | This pack's killing me.
+remark | about=heavy | Too much to carry.
+remark | about=heavy, hot | Who packed all this?
+
+remark | about=dark | Getting dark.
+remark | about=dark | We'll want a fire soon, or a torch.
+remark | about=dark, voice=horaro | The light's going.
+remark | about=dark, voice=qotiro | Dark soon. Stay close.
+
+remark | about=locked | It's locked.
+remark | about=locked, hot | Locked. Of course it is.
+remark | about=blocked | Can't get through there.
+remark | about=blocked | No way through.
+
+remark | about=after_fight | Is everyone up?
+remark | about=after_fight, gentle | Someone help me with them.
+remark | about=won | That's done.
+remark | about=won, hot | Anyone else?
+
+remark | about=robbed | They took everything. It'll be at their camp.
+remark | about=robbed, hot | They'll pay for that.
+remark | about=robbed, patient | We're alive. We can get it back.

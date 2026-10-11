@@ -8,7 +8,9 @@
 //! - casting raises a glowing mote above the hand; drinking lifts a flask;
 //! - building, crafting, gathering, picking a lock and going through a body
 //!   or a container bob a tool (a hand) up and down, facing what's worked;
-//! - sneaking crouches the figure (drawn in `scene::person`).
+//! - sneaking crouches the figure (drawn in `scene::person`);
+//! - a caster stands in a glowing ring that closes as the spell comes;
+//! - two fighters trading blows are joined by a thin red line on the ground.
 //!
 //! Drawing only: everything here reads the sim's own states and times.
 
@@ -24,6 +26,7 @@ const BLADE: Rgb = [0.72, 0.74, 0.78];
 const ARC: Rgb = [1.0, 0.97, 0.85];
 const MOTE: Rgb = [0.65, 0.75, 1.0];
 const FLASK: Rgb = [0.85, 0.35, 0.30];
+const LOCKED: Rgb = [0.85, 0.18, 0.14];
 
 /// How long after a blow lands its arc still shows, seconds.
 const ARC_AFTER: f64 = 0.2;
@@ -130,6 +133,9 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         Act::Cast { done, .. } => {
             let lift = (1.0 - ((done - t).max(0.0) / 1.5).min(1.0)) as f32;
             gl.dome(hand + vec3(0.0, (0.4 + 0.5 * lift) * k, 0.0), 0.16 * k, 0.16 * k, 0.24 * k, 0.0, 0.0, 2, MOTE);
+            // A glowing circle on the ground round the caster, closing in
+            // as the spell comes (UI-13).
+            ground_ring(gl, base + vec3(0.0, 0.06, 0.0), (1.4 - 0.5 * lift) * k, 0.07 * k, MOTE);
             return;
         }
         Act::Drink { .. } => {
@@ -138,6 +144,20 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
             return;
         }
         _ => {}
+    }
+    // Locked together: a thin red line on the ground to the one they're
+    // trading blows with (drawn once, from the lower index; UI-13).
+    if let Some(j) = f.target.filter(|&j| j < battle.fighters.len()) {
+        let o = &battle.fighters[j];
+        let me = battle.fighters.iter().position(|x| std::ptr::eq(x, f)).unwrap_or(usize::MAX);
+        let close = o.pos.dist(f.pos) <= f.weapon.reach.max(o.weapon.reach) + 1.5;
+        if close && o.active() && o.target == Some(me) && me < j && !ranged {
+            let d = o.pos.sub(f.pos);
+            let to = base + vec3(d.x, 0.0, d.y) + vec3(0.0, 0.05, 0.0);
+            let from = base + vec3(0.0, 0.05, 0.0);
+            let across = vec3(-d.y, 0.0, d.x).normalize_or_zero() * (0.03 * k);
+            gl.quad([from - across, from + across, to + across, to - across], Vec3::Y, LOCKED);
+        }
     }
     if ranged {
         // Aiming: pointed at the target at shoulder height. Reloading:
@@ -204,5 +224,15 @@ fn swing_arc(gl: &mut Builder, centre: Vec3, face: f32, radius: f32, p: f32, k: 
         let drop = |t: f32| vec3(0.0, (0.25 - 0.5 * t) * k, 0.0);
         let q = [centre + d0 * r_in + drop(t0), centre + d0 * r_out + drop(t0), centre + d1 * r_out + drop(t1), centre + d1 * r_in + drop(t1)];
         gl.quad(q, Vec3::Y, ARC);
+    }
+}
+
+/// A flat ring on the ground (glowing), centred at `c`.
+fn ground_ring(gl: &mut Builder, c: Vec3, r: f32, w: f32, col: Rgb) {
+    let n = 28;
+    for i in 0..n {
+        let (a0, a1) = (i as f32 / n as f32 * std::f32::consts::TAU, (i + 1) as f32 / n as f32 * std::f32::consts::TAU);
+        let (d0, d1) = (vec3(a0.cos(), 0.0, a0.sin()), vec3(a1.cos(), 0.0, a1.sin()));
+        gl.quad([c + d0 * (r - w), c + d0 * (r + w), c + d1 * (r + w), c + d1 * (r - w)], Vec3::Y, col);
     }
 }
