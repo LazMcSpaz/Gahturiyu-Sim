@@ -13,7 +13,7 @@
 //! strike), never by name, so a new spell in the list is used sensibly
 //! without touching this file.
 
-use super::combat::{Act, Battle, Order, ARCHER_DRAW, ARCHER_STOW, SQUAD_SIDE};
+use super::combat::{Act, Battle, Fighter, Order, ARCHER_DRAW, ARCHER_STOW, SQUAD_SIDE};
 use super::geo::V2;
 use super::effects::{Does, Lasts, Reach};
 use super::items::{item, ItemId, Kind};
@@ -86,7 +86,8 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     // arm's reach: a runner is a little quicker than a chaser, so a chase
     // that hasn't landed a blow at once never will (it only drags the fight
     // out to its time limit).
-    let runaway = |j: usize| b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach();
+    // (A beast that can still be got is another matter: `still_quarry`.)
+    let runaway = |j: usize| b.fighters[j].fleeing && !still_quarry(me, &b.fighters[j]) && me.pos.dist(b.fighters[j].pos) > me.reach();
     let ordered = match me.order {
         Some(Order::Attack(j)) if b.fighters[j].active() && !runaway(j) => Some(j),
         Some(Order::Attack(_)) => {
@@ -233,6 +234,23 @@ fn strength(s: Spell) -> f32 {
 
 /// Pick who to fight: near, already fighting me, and nearly beaten all count.
 /// Sticks with the current target unless something is clearly better.
+/// Whoever is after a beast keeps after it this far once it has turned
+/// tail, metres (further with a bow: as far as it shoots).
+pub const QUARRY_CHASE: f32 = 15.0;
+
+/// A wild animal that has turned tail is still worth going after while it
+/// can be got: it's close, or in bowshot, or too lame to outrun its hunter.
+/// So a hunt has a chase in it: slow or hobbled prey can be run down, and
+/// quick prey is gone in a few strides (BL-24). People who run are let go
+/// (see `choose_target`).
+fn still_quarry(me: &Fighter, them: &Fighter) -> bool {
+    if them.home != super::animals::ANIMAL_SIDE {
+        return false;
+    }
+    let far = me.pos.dist(them.pos);
+    far <= me.attack_range().max(QUARRY_CHASE) || them.speed() < me.base_speed * super::body::leg_factor(&me.hp) * 0.95
+}
+
 fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
     let me = &b.fighters[i];
     let score = |j: usize| -> f32 {
@@ -255,8 +273,9 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
         .filter(|&j| b.hostile(i, j) && b.fighters[j].active())
         // Someone hidden by a spell is lost beyond arm's reach.
         .filter(|&j| b.fighters[j].has(Does::Hide).is_none() || me.pos.dist(b.fighters[j].pos) <= 4.0)
-        // Don't chase a runner who's already got a head start.
-        .filter(|&j| !(b.fighters[j].fleeing && me.pos.dist(b.fighters[j].pos) > me.reach()))
+        // Don't chase a runner who's already got a head start (unless it's
+        // a beast that can still be got).
+        .filter(|&j| !(b.fighters[j].fleeing && !still_quarry(me, &b.fighters[j]) && me.pos.dist(b.fighters[j].pos) > me.reach()))
         .min_by(|&x, &y| score(x).total_cmp(&score(y)))?;
     match me.target {
         Some(cur) if cur != best && b.fighters[cur].active() && !b.fighters[cur].fleeing && b.hostile(i, cur) && score(cur) < score(best) + 2.0 + jitter => Some(cur),
