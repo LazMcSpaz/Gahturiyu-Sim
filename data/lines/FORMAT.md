@@ -89,4 +89,9 @@ ago"), `{workplace}`, `{place}`, `{thief}`, `{victim}`, `{actor}`,
 `{deed}`, `{count}`, `{span}` ("week"), `{pay}`, `{days}`, `{reward}`,
 `{target}` (the other person or household), `{relation}` ("my neighbour",
 "my household"), `{debt}`, `{job}`, `{why}`, `{offer}` (the job, in a line).
+`{walk}` and `{far}` (how long a walk: "half an hour's walk"), `{dir}`.
 A slot with nothing to fill it says "someone" (names) or nothing.
+
+People don't speak in figures about others. A distance is a walk
+(`{walk}`), a band's size is hearsay (`{count}`: "three or four"), a town's
+head-count is rough ("a couple of hundred"). Nobody says "2.6 km".
