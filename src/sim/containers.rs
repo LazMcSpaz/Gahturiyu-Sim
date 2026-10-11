@@ -416,7 +416,7 @@ impl World {
     pub fn searching_now(&self, who: PersonId) -> Option<ContainerId> {
         match self.source_now(who)? {
             Source::Chest(c) => Some(c),
-            Source::Body(_) => None,
+            Source::Body(_) | Source::Store(_) => None,
         }
     }
 

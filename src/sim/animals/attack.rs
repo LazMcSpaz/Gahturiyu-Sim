@@ -95,8 +95,13 @@ pub const FLEE_CHANCE: f32 = 0.35;
 /// wary afterwards.
 pub const FLEE_DIST: f32 = 280.0;
 pub const WARY_TIME: f64 = 15.0 * 60.0;
-/// How close the squad has to get to a herd to set about it, metres.
+/// How close the squad has to get to a herd to set about it, metres, at
+/// most: prey that lets hunters nearer is set about from nearer (BL-24).
 pub const HUNT_REACH: f32 = 40.0;
+/// Hunters stop this far outside the distance their prey would bolt at, and
+/// never need to come nearer than `STALK_MIN`, metres.
+pub const STALK_MARGIN: f32 = 3.0;
+pub const STALK_MIN: f32 = 8.0;
 /// A pack that means to attack the squad closes to this before it does.
 pub const PACK_CLOSE: f32 = 45.0;
 /// Going quietly, the squad is noticed at this share of the usual distance.
@@ -110,6 +115,16 @@ fn reaction(toward: Toward) -> f64 {
         _ => 1.5,
     }
 }
+
+/// How long after it knows it's set upon an unhurt beast that flees stands
+/// before it runs, seconds: part of its kind's reaction time, by a roll
+/// fixed for the fight and the animal.
+fn startle(toward: Toward, seed: u64, i: u64) -> f64 {
+    reaction(toward) * (0.4 + 0.6 * Rng::from_keys(&[seed, i, 0x5354_4152]).f32() as f64)
+}
+
+/// A herd already on the run when it's set about has known for this long, seconds.
+const ON_THE_RUN: f64 = 60.0;
 
 /// Who an animal in a fight is.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -253,7 +268,11 @@ fn nerve(b: &mut Battle, parts: &[FrayPart]) {
         }
         let d = p.sp.def();
         let run = if d.toward.flees() {
-            true
+            // One that's hurt runs at once. The rest take a moment to make
+            // out what is happening, calm beasts longer than shy ones: long
+            // enough, with slow prey, for whoever crept up to get among
+            // them (BL-24).
+            f.hp.iter().zip(f.max_hp.iter()).any(|(h, m)| h < m) || b.time >= f.aware_at + startle(d.toward, b.seed, i as u64)
         } else {
             let mine: f32 = b.fighters.iter().filter(|x| x.side == f.side && x.active()).map(|x| x.might).sum();
             let theirs: f32 = b.fighters.iter().filter(|x| x.side != f.side && x.active()).map(|x| x.might).sum();
@@ -975,13 +994,14 @@ impl World {
             self.log.truncate(14);
             return true;
         }
-        if near > HUNT_REACH + h.spread(t) {
+        let running = h.away.map(|a| t < a.arrive && a.from.dist(a.to) > 1.0).unwrap_or(false);
+        let sneaking = who.iter().all(|&m| self.is_sneaking(m));
+        if near > self.hunt_reach(herd, sneaking && !running) + h.spread(t) {
             return false;
         }
-        let running = h.away.map(|a| t < a.arrive && a.from.dist(a.to) > 1.0).unwrap_or(false);
         let surprise = if running {
-            0.0
-        } else if who.iter().all(|&m| self.is_sneaking(m)) {
+            -ON_THE_RUN
+        } else if sneaking {
             5.0
         } else {
             reaction(h.def().toward)
@@ -994,6 +1014,20 @@ impl World {
         self.log.push_front((t, line));
         self.log.truncate(14);
         true
+    }
+
+    /// How near hunters come to a herd before they set about it: as near as
+    /// it lets them. Prey bolts inside its flight distance (half that for
+    /// those who creep), so the hunters close to just outside it, and never
+    /// start from further than `HUNT_REACH`: slow, calm prey is set about
+    /// from a few strides, shy prey from as near as it can be got (BL-24).
+    pub fn hunt_reach(&self, herd: u32, sneaking: bool) -> f32 {
+        let Some(h) = self.animals.herds.get(herd as usize) else { return HUNT_REACH };
+        let flight = h.def().flight;
+        if flight <= 0.0 {
+            return HUNT_REACH;
+        }
+        (flight * if sneaking { SNEAK_HALVES } else { 1.0 } + STALK_MARGIN).clamp(STALK_MIN, HUNT_REACH)
     }
 
     /// The wild herd nearest a point, within `radius`.

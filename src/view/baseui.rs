@@ -54,6 +54,8 @@ pub enum BuildAction {
     /// The next recipe for a crafter.
     NextRecipe(PersonId),
     Seal(BaseId, u32),
+    /// Go through the base's store (take things out, put things in).
+    OpenStore(BaseId),
 }
 
 /// The base nearest a point, if it's within reach of it.
@@ -474,6 +476,13 @@ fn base_panel(c: &Canvas, w: &World, bid: BaseId, mouse: Vec2, click: Option<Cli
     // The store.
     y += ROW + 6.0;
     c.text("Store", x, y, 15.0, TEXT);
+    if !b.present.is_empty() {
+        let ob = Bx::new(r.x + r.w - 102.0, y - 14.0, 88.0, 18.0);
+        button("Open", &ob);
+        if clicked(&ob) {
+            act = Some(BuildAction::OpenStore(bid));
+        }
+    }
     y += ROW;
     let store: Vec<String> = b.store.iter().map(|e| format!("{} {}", e.1, item(e.0).name.to_lowercase())).collect();
     c.text(&if store.is_empty() { "empty".to_string() } else { store.join(", ") }, x + 8.0, y, 13.0, DIM);

@@ -1091,3 +1091,65 @@ fn bl25_a_hound_eats_from_its_owner_s_pack() {
     let w = run(w, 7.0 * 24.0, HOUR);
     assert!(w.tamed().is_empty(), "an unfed hound leaves");
 }
+
+/// BL-24: slow, calm prey can be crept up on and brought down; the hunt
+/// starts from as near as the prey lets the hunters come, not from 40 m,
+/// and isn't over the instant the prey starts to run.
+#[test]
+fn bl24_prey_crept_up_on_can_be_brought_down() {
+    let mut tried = 0;
+    let mut killed_somewhere = false;
+    for seed in [7u64, 8, 1] {
+        let mut w = worldgen::generate(seed);
+        step_to(&mut w, 9.0 * HOUR);
+        let t = w.time;
+        let Some(herd) = w.animals.herds.iter().filter(|h| h.sp == Sp::WildTuriyu && h.alive(t) >= 3 && !h.hidden(t)).min_by_key(|h| h.id).map(|h| h.id) else { continue };
+        tried += 1;
+        let who = w.squad.members.clone();
+        for &m in &who {
+            w.set_sneaking(m, true);
+        }
+        let at = w.herd_pos(herd, t);
+        w.teleport_squad(at.add(V2::new(70.0, 0.0)));
+        // Crept up on, they let the hunters nearer than the old 40 m.
+        let reach = w.hunt_reach(herd, true);
+        assert!(reach < 20.0, "Wild Turiyu let creeping hunters come close: {reach}");
+        assert!(!w.hunt(&who, herd), "not from 70 m off");
+        assert!(w.order_hunt(&who, herd));
+        let before = w.animals.herds[herd as usize].alive(t);
+        let mut began = None;
+        let mut told: Vec<String> = Vec::new();
+        let mut last = String::new();
+        for _ in 0..3000 {
+            w.step(0.2);
+            if let Some(b) = w.squad_battle() {
+                let state: Vec<String> = b.fighters.iter().filter(|f| !f.is_person()).map(|f| format!("{:.0}%{}", f.vitality() * 100.0, if f.ko { "ko" } else if f.fled { "gone" } else { "" })).collect();
+                last = state.join(" ");
+                for l in &b.log {
+                    let l = format!("{:.1} {}", l.0, l.1);
+                    if !told.contains(&l) {
+                        told.push(l);
+                    }
+                }
+            }
+            if began.is_none() {
+                if let Some(b) = w.squad_battle() {
+                    // How far the nearest hunter is from the nearest animal as it begins.
+                    let gap = b.fighters.iter().filter(|f| f.is_person()).flat_map(|p| b.fighters.iter().filter(|f| !f.is_person()).map(move |a| a.pos.dist(p.pos))).fold(f32::MAX, f32::min);
+                    began = Some((w.time, gap));
+                }
+            } else if w.squad_battle().is_none() {
+                break;
+            }
+        }
+        let (start, gap) = began.unwrap_or_else(|| panic!("world {seed}: the hunters never got near enough to begin"));
+        assert!(gap < 30.0, "world {seed}: it began with the nearest hunter {gap:.0} m from the nearest animal");
+        assert!(w.squad_battle().is_none(), "world {seed}: the hunt never ended");
+        assert!(w.time - start >= 2.0, "world {seed}: over in the instant it began ({:.1} s)", w.time - start);
+        let after = w.animals.herds[herd as usize].alive(w.time);
+        killed_somewhere |= after < before;
+        println!("world {seed}: began at {gap:.0} m, lasted {:.0} s, {before} -> {after} [{last}]\n  {}", w.time - start, told.join("\n  "));
+    }
+    assert!(tried > 0, "no Wild Turiyu herd of three or more in the worlds tried");
+    assert!(killed_somewhere, "in {tried} hunts of Wild Turiyu crept up on, nothing was brought down");
+}

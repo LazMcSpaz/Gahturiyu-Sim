@@ -553,8 +553,11 @@ impl World {
             Some(g) => format!("{} shares some {} with {name}.", self.people[g as usize].name().unwrap_or("Someone"), item(it).name.to_lowercase()),
             None => format!("{name} eats some {}.", item(it).name.to_lowercase()),
         };
-        self.log.push_front((t, line));
-        self.log.truncate(14);
+        // (Those left at a base eat unremarked.)
+        if self.squad.index(pid).is_some() {
+            self.log.push_front((t, line));
+            self.log.truncate(14);
+        }
         true
     }
 
@@ -672,9 +675,12 @@ impl World {
                         if let Some(k) = self.squad.index(pid) {
                             self.squad.resting[k] = false;
                         }
-                        let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
-                        self.log.push_front((t, format!("{name} wakes, rested.")));
-                        self.log.truncate(14);
+                        // (Those left at a base wake and sleep unremarked.)
+                        if self.squad.index(pid).is_some() {
+                            let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+                            self.log.push_front((t, format!("{name} wakes, rested.")));
+                            self.log.truncate(14);
+                        }
                     }
                     Event::Bed => {
                         self.settle(pid, t);
@@ -685,9 +691,11 @@ impl World {
                             c.activity = Activity::Sleeping;
                         }
                         self.rate_wounds(pid);
-                        let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
-                        self.log.push_front((t, format!("{name} beds down for the night.")));
-                        self.log.truncate(14);
+                        if self.squad.index(pid).is_some() {
+                            let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+                            self.log.push_front((t, format!("{name} beds down for the night.")));
+                            self.log.truncate(14);
+                        }
                         self.drop_held_on_sleep(pid, t);
                         self.torch_out_for_sleep(pid, t);
                     }
