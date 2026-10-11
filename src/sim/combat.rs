@@ -743,9 +743,11 @@ impl Battle {
         }
 
         // Over when no two sides still standing are enemies, or it's dragged on.
-        // People running away don't keep a fight going.
+        // People running away don't keep a fight going. An animal that has
+        // turned tail is still in it until it gets clear (`idle`): a hunt
+        // isn't over the instant the prey starts to run (BL-24).
         // (A fighter turned by a spell still counts for the side they came in on.)
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && !f.fleeing && !f.is_decoy()).map(|f| f.home).collect();
+        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && (!f.fleeing || f.home == super::animals::ANIMAL_SIDE) && !f.is_decoy()).map(|f| f.home).collect();
         sides.sort();
         sides.dedup();
         if sides.len() <= 1 || t - self.start > MAX_LENGTH {

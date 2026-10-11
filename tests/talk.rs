@@ -267,3 +267,56 @@ fn the_news_isnt_crowded_with_passers_by() {
         }
     }
 }
+
+/// RG-6: people don't all say hello the same way. The greeting follows the
+/// speaker's people, job, temper, mood and the hour; every tag a greeting
+/// asks for is one the game sets, and every word of their own is a real one.
+#[test]
+fn rg6_greetings_vary_by_who_is_speaking() {
+    use gahturiyu_sim::names;
+    use gahturiyu_sim::sim::{jobs, talk};
+    use std::collections::BTreeSet;
+    let job_tags: Vec<String> = jobs::ALL_JOBS.iter().map(|j| format!("job={}", j.name().to_lowercase())).collect();
+    let peoples = ["roduro", "qotiro", "horaro", "tadoro"];
+    let mut greetings = 0;
+    for p in talk::pieces().iter().filter(|p| p.slot == "greeting") {
+        greetings += 1;
+        for c in p.must.iter().chain(p.not.iter()) {
+            if c.starts_with("job=") {
+                assert!(job_tags.contains(&c.to_string()), "no such job: {c}");
+            }
+            if let Some(v) = c.strip_prefix("voice=").or(c.strip_prefix("you=")) {
+                assert!(peoples.contains(&v), "no such people: {c}");
+            }
+        }
+        let mut rest = p.text;
+        while let Some(i) = rest.find("{w:").into_iter().chain(rest.find("{W:")).min() {
+            let tail = &rest[i + 3..];
+            let end = tail.find('}').expect("a closed brace");
+            assert!(names::root(&tail[..end]).is_some(), "no such root `{}` in: {}", &tail[..end], p.text);
+            rest = &tail[end..];
+        }
+    }
+    // One town, first meeting, one moment: many different hellos, and
+    // different trades among them.
+    let w = worldgen::generate(1);
+    let lead = w.squad.members[0];
+    let mut said: BTreeSet<u16> = BTreeSet::new();
+    let mut folk = 0;
+    for p in locals(&w) {
+        if w.people[p as usize].dead {
+            continue;
+        }
+        let s = w.assemble_talk(p, lead, None, true);
+        if s.refused || s.pieces.is_empty() {
+            continue;
+        }
+        folk += 1;
+        said.insert(s.pieces[0]);
+    }
+    let by_job = said.iter().filter(|&&id| talk::pieces()[id as usize].must.iter().any(|c| c.starts_with("job="))).count();
+    println!("{folk} townsfolk, {} different greetings, {by_job} of them by trade", said.len());
+    assert!(said.len() >= 15, "{folk} townsfolk greet in only {} ways", said.len());
+    assert!(by_job >= 3, "only {by_job} greetings by trade");
+    assert!(greetings >= 100, "{greetings} greetings");
+}

@@ -31,3 +31,135 @@ greeting | warm | Good to see you again. Come in.
 greeting | night | It's late to be calling. What is it?
 greeting | morning | Morning. I've a long day ahead, so make it quick.
 greeting | rain | Wet day for it. Come under the eaves.
+#
+# ---- More ways to say hello (RG-6) ---------------------------------------
+# Nearly every line here has two conditions, so they all weigh the same and
+# each person's fixed roll picks among the ones that fit them right now:
+# their people, their job, their temper and mood, the hour, and whether
+# they've met you. A line with three conditions would always win, so keep to
+# two unless it should.
+#
+# By people, and whether you've met.
+greeting | voice=roduro, stranger | {W:guest}, is it? Come in off the road. What are you after?
+greeting | voice=roduro, stranger | I don't know your face. No matter, the {w:door} is open. What do you need?
+greeting | voice=roduro, known | Back again, {w:friend}? Good. What is it this time?
+greeting | voice=roduro, known | {W:peace}, {w:friend}. You know your way about by now.
+greeting | voice=roduro, warm | Come in, come in. There's always room at the {w:hearth} for you.
+greeting | voice=roduro, warm | {W:friend}! Sit down and tell me how the road has been.
+greeting | voice=qotiro, stranger | You're new here. State your business.
+greeting | voice=qotiro, stranger | A stranger. Fine. What do you want of me?
+greeting | voice=qotiro, known | You again. Go on.
+greeting | voice=qotiro, known | I remember you. Say it.
+greeting | voice=qotiro, warm | Good, it's you. I have time for you.
+greeting | voice=qotiro, warm | {W:honour} to you, {w:friend}. What do you need?
+greeting | voice=horaro, stranger | Ho there! I don't know your face, and I know most. What are you after?
+greeting | voice=horaro, stranger | Fair {w:wind} to you, stranger. What washes you up here?
+greeting | voice=horaro, known | Ho, it's you again! What has the {w:tide} brought this time?
+greeting | voice=horaro, known | Back, are you? Good. Come and talk.
+greeting | voice=horaro, known | There's a face I know. {W:salt} and fair weather, {w:friend}.
+greeting | voice=horaro, warm | {W:friend}! I was just thinking of you. Come, what's the news?
+greeting | voice=horaro, warm | Look who the {w:tide} brought back! Stay and talk a while.
+greeting | voice=tadoro, stranger | Someone new! Good. Tell me where the {w:road} has taken you.
+greeting | voice=tadoro, stranger | I haven't written you down yet. Who are you, and what do you want to know?
+greeting | voice=tadoro, known | Ah, it's you. I've thought of three more things to ask you. But go on.
+greeting | voice=tadoro, known | Back again? Good, I like a story with a second part.
+greeting | voice=tadoro, warm | There you are! What have you seen since we last talked?
+greeting | voice=tadoro, warm | {W:friend}, at last. Everyone else here has already told me all they know.
+#
+# One people to another (or to its own).
+greeting | voice=roduro, you=roduro | One of our own. {W:peace} to you. What do you need?
+greeting | voice=qotiro, you=qotiro | One of ours. Good. Speak.
+greeting | voice=horaro, you=horaro | Ho, {w:friend}! You've {w:salt} in your blood, I can see it. What brings you?
+greeting | voice=tadoro, you=tadoro | Another of us! Whose {w:tent} are you from? No, tell me after. What is it?
+greeting | voice=tadoro, you=qotiro | A Qotiro. I'll keep it short, then, the way your people like it. What is it?
+greeting | voice=qotiro, you=tadoro | A Ṭaḍoro. You'll talk all day if I let you. What is it?
+greeting | voice=horaro, you=roduro | A stone-grower! Come to see how the rest of us live? What can I do for you?
+greeting | voice=roduro, you=horaro | You've the {w:sea} on you. Welcome all the same. What do you need?
+#
+# By the hour.
+greeting | voice=roduro, night | It's late for callers. Speak soft, and tell me what you need.
+greeting | voice=roduro, evening | Evening, and {w:peace} with it. What can I do for you?
+greeting | voice=qotiro, morning | The {w:sun} is up. So am I. What do you want?
+greeting | voice=qotiro, night | At this hour? Be quick.
+greeting | voice=horaro, morning | Morning! The {w:tide} waits for nobody, so talk while I've a moment.
+greeting | voice=horaro, evening | Evening, {w:friend}. A fair end to the day. What can I do for you?
+greeting | voice=tadoro, morning | Up with the {w:dawn}, are you? Then you'll have something to tell me.
+greeting | voice=tadoro, night | Can't sleep either? Good. The best talk happens in the dark.
+greeting | night, known | You keep late hours. What is it?
+greeting | evening, stranger | Evening. What brings you to me at the end of the day?
+#
+# By temper and mood.
+greeting | hot, stranger | What are you looking at? If you want something, say it.
+greeting | hot, known | You. What now?
+greeting | gentle, stranger | Hello, hello. No need to stand off, I don't bite. What can I do for you?
+greeting | gentle, known | Oh, hello again! How have you been keeping?
+greeting | cold, stranger | Yes? I don't believe we've met.
+greeting | cold, known | It's you. What do you need?
+greeting | hungry, stranger | My belly's empty and my temper's short. What is it?
+greeting | hungry, known | You find me hungry, so forgive my manners. What is it?
+greeting | worried, stranger | Hm? Oh. Sorry, my mind was elsewhere. What do you want?
+greeting | worried, known | Oh, it's you. I'm glad of a face I know today.
+greeting | afraid, stranger | Stay where I can see you. Who are you?
+greeting | afraid, known | Oh! It's only you. You gave me a start.
+greeting | content, stranger | Hello there. You've caught me in a good mood, so ask away.
+greeting | content, known | A good day, this. What can I do for you?
+#
+# By trade. (The tag is the job's name in small letters, as the town panel
+# shows it.)
+greeting | job=merchant, stranger | Buying or selling? Either way, you're welcome.
+greeting | job=merchant, known | Back for more? Let's see what you've brought me.
+greeting | job=innkeeper, stranger | Welcome. A bed, a meal, or only a word?
+greeting | job=innkeeper, known | Back again! A bed, a meal, or a word?
+greeting | job=guard, stranger | Hold a moment. I don't know you. What's your business here?
+greeting | job=guard, known | You're all right, I know you. What is it?
+greeting | job=guard, night | Who's that? Step into the light.
+greeting | job=farmer, stranger | If you've come to help, there's work. If not, what is it?
+greeting | job=farmer, known | Hello again. The ground won't wait, but I can spare a word.
+greeting | job=fisher and diver, stranger | You've not the look of someone who works the water. What do you want with me?
+greeting | job=fisher and diver, known | You again. Come to hear about the one that got away?
+greeting | job=forager and hunter, stranger | You walk loud. I heard you a long way off. What is it?
+greeting | job=forager and hunter, known | Quieter today, aren't you? You're learning. What do you need?
+greeting | job=woodcutter and quarrier, stranger | I've dust in my ears, so speak up. Who are you?
+greeting | job=woodcutter and quarrier, known | You again. Speak up, my ears are still ringing.
+greeting | job=stone tender, stranger | Careful where you lean. Some of this {w:stone} is still young. What do you need?
+greeting | job=stone tender, known | Ah, you. Come to watch {w:stone} grow? It's slower than you'd think.
+greeting | job=cook, stranger | Hungry? Everyone who comes to me is. What can I do for you?
+greeting | job=cook, known | You again. No, it isn't ready. What do you want?
+greeting | job=meal runner, stranger | Quick, I've mouths waiting. What is it?
+greeting | job=meal runner, known | You again. Talk fast, I'm wanted elsewhere.
+greeting | job=caravaner, stranger | Another one off the {w:road}. Where have you come in from?
+greeting | job=caravaner, known | We keep crossing paths, you and I. What is it?
+greeting | job=official, stranger | If it's town business, say which. If it isn't, say that too.
+greeting | job=official, known | You again. Is this for the town, or for yourself?
+greeting | job=priest, stranger | {W:blessing} on you, stranger. What do you seek?
+greeting | job=priest, known | {W:blessing} on you again. What brings you back?
+greeting | job=healer, stranger | Is someone hurt? If not, what can I do for you?
+greeting | job=healer, known | You're on your feet, I see. Good. What is it?
+greeting | job=teacher, stranger | Come to learn something, or to tell me something? Either will do.
+greeting | job=teacher, known | Back with another question? Good. Ask it.
+greeting | job=exchanger, stranger | Coin, notes, or a question? I deal in all three.
+greeting | job=exchanger, known | Back again. Is it the {w:coin} or the talk you're after?
+greeting | job=arbiter, stranger | I hear disputes, not gossip. Which is this?
+greeting | job=arbiter, known | You again. I hope you've not brought me a quarrel.
+greeting | job=labourer and porter, stranger | If you've something heavy, I'm your hand. Otherwise, what?
+greeting | job=labourer and porter, known | You again. Still nothing to carry? Then what is it?
+greeting | job=drifter, stranger | Don't mind me. I'm only passing, same as you. What do you want?
+greeting | job=drifter, known | Still here? So am I, as it turns out.
+greeting | job=smith, stranger | Something to mend, or something to make? Or only talk?
+greeting | job=smith, known | Back again. What's broken this time?
+greeting | job=armourer, stranger | Looking to be harder to hurt? Or is it only talk you want?
+greeting | job=armourer, known | Back again. Something to fit, or something to mend?
+greeting | job=alchemist, stranger | Don't touch anything. Now, what is it you're after?
+greeting | job=alchemist, known | You again. Still in one piece, I see. What do you need?
+greeting | job=scribe, stranger | A letter, a map, or a question? I've ink for all of them.
+greeting | job=scribe, known | Back again. Something to read, or something to write?
+greeting | job=kelp gatherer, !distrusts | Mind the smell, it's only kelp. What do you need?
+greeting | job=boatwright, !distrusts | Unless it's a hull that wants mending, I can spare a moment. What is it?
+greeting | job=weaver and sealer, !distrusts | Mind the threads. What can I do for you?
+greeting | job=tanner, !distrusts | Stand upwind of me if you like, most do. What is it?
+greeting | job=leatherworker, !distrusts | Something to stitch, or something to ask?
+greeting | job=tailor, !distrusts | Something to fit, or only something to ask?
+greeting | job=woodworker, !distrusts | Mind the shavings. What is it you need?
+greeting | job=charcoal burner, !distrusts | Don't mind the soot, it doesn't come off. What do you want?
+greeting | job=carpenter, !distrusts | Let me set this down. Right. What is it?
+greeting | job=mason, !distrusts | Mind your feet round the cut stone. What do you need?
