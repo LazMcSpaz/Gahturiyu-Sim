@@ -28,6 +28,7 @@ pub mod pointer;
 pub mod remarks;
 pub mod scene;
 pub mod settings;
+pub mod slide;
 pub mod sound;
 pub mod shot;
 pub mod signs;
