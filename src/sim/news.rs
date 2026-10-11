@@ -65,6 +65,7 @@ impl World {
     /// A bounty is paid: the matter is closed everywhere.
     pub(super) fn bounty_settled(&mut self, origin: SettlementId) {
         self.bounty.remove(&origin);
+        self.wanted.retain(|w| w.0 != origin);
         self.news.retain(|k, _| k.1 != origin);
         // What was stolen there is settled with it (`law.rs`).
         self.hot.retain(|h| h.town != origin);
