@@ -25,14 +25,25 @@ impl Builder {
         self.idx.len() / 3
     }
 
-    /// How many corners so far (for `points_since`).
-    pub fn mark(&self) -> usize {
-        self.pos.len()
+    /// Where the builder has got to (for `copy_since`).
+    pub fn mark(&self) -> (usize, usize) {
+        (self.pos.len(), self.idx.len())
     }
 
-    /// The corners added since `mark` (to outline what was just drawn).
-    pub fn points_since(&self, mark: usize) -> Vec<Vec3> {
-        self.pos[mark.min(self.pos.len())..].iter().map(|p| Vec3::from(*p)).collect()
+    /// Copy what was added since `mark` into `into`, all in one colour (the
+    /// outline mask, `outline.rs`), with nothing below `floor(x, z)`: what's
+    /// sunk into the ground isn't seen, so it mustn't be outlined either.
+    pub fn copy_since(&self, mark: (usize, usize), col: Rgb, into: &mut Builder, floor: &dyn Fn(f32, f32) -> f32) {
+        let (v0, i0) = mark;
+        let base = into.pos.len() as u32;
+        let c = lin(col);
+        for k in v0..self.pos.len() {
+            let [x, y, z] = self.pos[k];
+            into.pos.push([x, y.max(floor(x, z)), z]);
+            into.nrm.push(self.nrm[k]);
+            into.col.push(c);
+        }
+        into.idx.extend(self.idx[i0..].iter().map(|&i| i - v0 as u32 + base));
     }
 
     pub fn is_empty(&self) -> bool {

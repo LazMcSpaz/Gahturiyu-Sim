@@ -528,6 +528,7 @@ pub fn run() {
         .configure_sets(PostUpdate, bevy_egui::EguiPostUpdateSet::PostProcessOutput.before(bevy::asset::AssetEventSystems))
         .add_plugins(super::foliage::FoliagePlugin)
         .add_plugins(super::weather::WeatherPlugin)
+        .add_plugins(super::outline::OutlinePlugin)
         .insert_resource(game)
         .insert_resource(super::settings::Settings::load())
         .init_resource::<scene::Scene3d>()
@@ -1143,7 +1144,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
 }
 
 /// Aim the 3D camera; switch it off on the map.
-fn camera(game: Res<Game>, mut cam: Query<(&mut Camera, &mut Transform, &mut Projection), With<MainCamera>>) {
+pub fn camera(game: Res<Game>, mut cam: Query<(&mut Camera, &mut Transform, &mut Projection), With<MainCamera>>) {
     let Ok((mut c, mut tf, mut proj)) = cam.single_mut() else { return };
     c.is_active = game.view == View::Scene;
     *tf = Transform::from_translation(game.orbit.eye()).looking_at(game.orbit.look_at(), Vec3::Y);
