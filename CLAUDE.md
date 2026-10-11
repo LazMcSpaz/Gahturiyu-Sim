@@ -274,7 +274,10 @@ green line through each door and gate; works in the real game too), `GAHT_FOREST
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
 `GAHT_BOOK=k` (member k's spell book), `GAHT_STATS=k` (member k's stats sheet),
-`GAHT_GAMEMENU=1` (the Escape menu; `quit` or `new` for its question), `GAHT_HELD=1` (the squad's mage holds
+`GAHT_GAMEMENU=1` (the Escape menu; `quit` or `new` for its question),
+`GAHT_CAST=glow,haste,douse` (the mage learns and casts these in turn: the cast's
+glow and burst, the badges it leaves; add `GAHT_TORCH=1` for a torch to douse, and
+`GAHT_FRAMES` about 12 to catch it mid-cast), `GAHT_HELD=1` (the squad's mage holds
 Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
 beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
@@ -502,6 +505,16 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   outside them. Gold round the picked; under the mouse red foe, green ally,
   blue neutral; foes always faintly red. Lines show through walls. No circle
   underfoot, only a small arrow the way someone faces (`facing_arrow`).
+- Spells cast outside fights are noted in `World::cast_marks` (not saved) and
+  played out by `view/castfx.rs` on the window's clock: a glow at the caster,
+  a mote crossing to the target, a burst there, in the domain's colour; a
+  grey puff for a fizzle; the `cast` sound. Anyone under a lasting effect
+  shows a badge per kind over their head (`view/effecticons.rs`; hover names it).
+- Douse and Kindle reach any flame by one rule (`torch.rs`: `flames_near`,
+  `put_out`, `light_up`): a squad member's torch, a standing torch, or any
+  `What::Fire` in the solid list. A fire put out is in `World::doused` (saved)
+  until it relights by the clock; a camp's stays `Camp::doused_until`. The
+  town is redrawn when one of its fires goes out (`doused_mark`).
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.

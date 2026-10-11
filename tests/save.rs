@@ -21,7 +21,7 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?}\n", w.corpses, w.ground);
     s += &format!("{:?}\n", w.log);
     s += &format!("{:?} {:?}\n", w.busy_until, w.group_of);
-    s += &format!("{:?} {:?}\n", w.standing, w.quests);
+    s += &format!("{:?} {:?} {:?}\n", w.standing, w.quests, w.doused);
     s += &sorted(&w.bounty);
     s += &sorted(&w.news);
     s += &sorted(&w.torches);

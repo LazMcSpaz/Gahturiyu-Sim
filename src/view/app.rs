@@ -217,6 +217,8 @@ pub struct Game {
     pub game_menu: Option<super::screens::GameMenu>,
     /// Which screen is open (`screens.rs`: one at a time).
     pub screens: super::screens::Screens,
+    /// Spells cast outside fights, being shown (`castfx.rs`).
+    pub castfx: super::castfx::CastFx,
     /// Quit chosen in the game menu (the window closes at the end of the frame).
     pub quit: bool,
 }
@@ -354,6 +356,7 @@ pub fn run() {
         game_menu: None,
         screens: Default::default(),
         quit: false,
+        castfx: Default::default(),
         shot: None,
         world,
     };
@@ -1509,6 +1512,21 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     hud::draw_bar(&c, s.x, s.y - 12.0, *vit, *mana, *down);
                 }
             }
+            // Badges for lasting magic over heads (P20), and what the one
+            // under the mouse is.
+            let mut fx_tip = None;
+            for (p, _, h) in &game.picks {
+                if let Hover::Person(pid) = h {
+                    if p.distance(eye) < 400.0 {
+                        if let Some(s) = game.orbit.project(&vp, size, *p) {
+                            fx_tip = super::effecticons::draw(&c, &game.world, *pid, s, game.mouse).or(fx_tip);
+                        }
+                    }
+                }
+            }
+            if let Some(t) = fx_tip {
+                c.panel(&t, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
+            }
             for (p, name) in &game.labels {
                 if let Some(q) = game.orbit.project(&vp, size, *p) {
                     if p.distance(eye) < game.orbit.draw_radius() * 1.1 {
@@ -2373,7 +2391,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         c.panel(&lines, book_left - wd - 10.0, game.mouse.y, 15.0);
     } else if let Some((who, s)) = game.aim {
         // Aiming: what the click would do, and whether it can.
-        let (line, ok) = super::interact::aim_label(&game.world, who, s, game.hover, game.aim_scroll.is_some());
+        let ground = point_under(game, game.mouse);
+        let (line, ok) = super::interact::aim_label(&game.world, who, s, game.hover, game.aim_scroll.is_some(), ground);
         let lines = vec![(s.def().name.to_string(), super::palette::GOLD), (line, if ok { super::palette::BRASS_LIGHT } else { [0.95, 0.38, 0.30] }), ("Right-click or Esc to cancel".to_string(), super::palette::DIM)];
         c.panel(&lines, game.mouse.x + 18.0, game.mouse.y + 12.0, 15.0);
     }

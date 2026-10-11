@@ -48,6 +48,19 @@ pub const GLOW_REACH: f32 = 12.0;
 pub const GLOOM_REACH: f32 = 10.0;
 /// Hours a campfire stays out once doused.
 pub const DOUSE_HOURS: f64 = 3.0;
+/// How near where a spell is aimed a fire or torch must be for it to reach
+/// it (Douse, Kindle), metres.
+pub const FLAME_REACH: f32 = 6.0;
+
+/// A flame that magic can put out or light (Laz's P18): a torch in a squad
+/// member's hand, a torch set in the ground, or any fire in the solid list
+/// (a camp's, a town's hearth, a charcoal pit, a workyard's, a base's).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FlameAt {
+    Held(PersonId),
+    Standing(usize),
+    Fire(super::solid::Id),
+}
 /// Sneaking with a lit torch: you're still this visible (1 = not hidden at all).
 pub const TORCH_SNEAK: f32 = 0.9;
 
@@ -306,6 +319,122 @@ impl World {
     /// (not bandits) light one while they're on the move after dark.
     pub fn group_torch_lit(&self, g: &super::group::Group, t: f64) -> bool {
         !g.hostile && daylight(t) < TRAVEL_TORCH_DARK && g.is_moving(t) && !self.fighting_groups.contains(&g.id)
+    }
+
+    /// Is this fire (one of the solid list's) burning at `t`?
+    pub fn fire_lit(&self, id: super::solid::Id, t: f64) -> bool {
+        match id {
+            super::solid::Id::CampFire(g) => self.camps.iter().find(|c| c.group == g).is_none_or(|c| t >= c.doused_until),
+            _ => !self.doused.iter().any(|&(d, until)| d == id && t < until),
+        }
+    }
+
+    /// The flames within `r` of `p`, nearest first: which, where, and whether
+    /// it's burning now. A squad member counts if they hold a lit torch or
+    /// carry one to light; a standing torch while it burns.
+    pub fn flames_near(&self, p: V2, r: f32) -> Vec<(FlameAt, V2, bool)> {
+        let t = self.time;
+        let mut out: Vec<(FlameAt, V2, bool)> = Vec::new();
+        let torch = items::id("torch");
+        for (k, &m) in self.squad.members.iter().enumerate() {
+            let at = self.member_pos(k);
+            if at.dist(p) > r {
+                continue;
+            }
+            let lit = self.torch_lit(m);
+            let has = self.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| e.0 == torch));
+            if lit || has {
+                out.push((FlameAt::Held(m), at, lit));
+            }
+        }
+        for (i, st) in self.standing.iter().enumerate() {
+            if st.burning(t) && st.pos.dist(p) <= r {
+                out.push((FlameAt::Standing(i), st.pos, true));
+            }
+        }
+        for th in self.solids_near(p, r) {
+            if th.what == super::solid::What::Fire {
+                let at = th.shape.centre();
+                out.push((FlameAt::Fire(th.id), at, self.fire_lit(th.id, t)));
+            }
+        }
+        out.sort_by(|a, b| a.1.dist(p).total_cmp(&b.1.dist(p)));
+        out
+    }
+
+    /// What a flame is called, for the log and the aiming line.
+    pub fn flame_name(&self, f: FlameAt) -> String {
+        match f {
+            FlameAt::Held(m) => format!("{}'s torch", self.people[m as usize].name().unwrap_or("someone")),
+            FlameAt::Standing(_) => "the standing torch".to_string(),
+            FlameAt::Fire(super::solid::Id::CampFire(_)) => "the campfire".to_string(),
+            FlameAt::Fire(super::solid::Id::Building(..)) => "the town's fire".to_string(),
+            FlameAt::Fire(_) => "the fire".to_string(),
+        }
+    }
+
+    fn flame_line(&mut self, f: FlameAt, t: f64, what: &str) {
+        if matches!(f, FlameAt::Held(_)) {
+            return;
+        }
+        let mut line = self.flame_name(f);
+        if let Some(c) = line.get_mut(0..1) {
+            c.make_ascii_uppercase();
+        }
+        self.say(t, format!("{line} {what}."));
+    }
+
+    /// Put out a flame (Douse). False if it wasn't burning.
+    pub(super) fn put_out(&mut self, f: FlameAt, t: f64) -> bool {
+        let done = match f {
+            FlameAt::Held(m) => self.torch_lit(m) && self.toggle_torch(m),
+            FlameAt::Standing(i) => {
+                let burning = self.standing.get(i).is_some_and(|s| s.burning(t));
+                if burning {
+                    self.standing[i].out_at = t;
+                }
+                burning
+            }
+            FlameAt::Fire(id) if !self.fire_lit(id, t) => false,
+            FlameAt::Fire(super::solid::Id::CampFire(g)) => {
+                if let Some(c) = self.camps.iter_mut().find(|c| c.group == g) {
+                    c.doused_until = t + DOUSE_HOURS * HOUR;
+                }
+                true
+            }
+            FlameAt::Fire(id) => {
+                self.doused.retain(|&(d, until)| d != id && t < until);
+                self.doused.push((id, t + DOUSE_HOURS * HOUR));
+                true
+            }
+        };
+        if done {
+            self.flame_line(f, t, "hisses out");
+        }
+        done
+    }
+
+    /// Light a flame (Kindle). False if it was already burning or can't be.
+    pub(super) fn light_up(&mut self, f: FlameAt, t: f64) -> bool {
+        let done = match f {
+            FlameAt::Held(m) => !self.torch_lit(m) && self.toggle_torch(m),
+            FlameAt::Standing(_) => false,
+            FlameAt::Fire(id) if self.fire_lit(id, t) => false,
+            FlameAt::Fire(super::solid::Id::CampFire(g)) => {
+                if let Some(c) = self.camps.iter_mut().find(|c| c.group == g) {
+                    c.doused_until = t;
+                }
+                true
+            }
+            FlameAt::Fire(id) => {
+                self.doused.retain(|&(d, until)| d != id && t < until);
+                true
+            }
+        };
+        if done {
+            self.flame_line(f, t, "roars back to life");
+        }
+        done
     }
 
     /// Every light, including torches being carried.

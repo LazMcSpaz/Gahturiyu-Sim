@@ -240,6 +240,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         return;
     }
+    let now = game.feel.now;
+    super::castfx::update(game, now);
     let w = &game.world;
     let oc = &game.orbit;
     let radius = oc.draw_radius();
@@ -320,6 +322,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let s = &w.settlements[sid as usize];
         let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| cutaway || open.contains(&(sid, *i))).collect();
         let layout = w.society.towns.get(sid as usize).map(|tl| tl.places.iter().fold(tl.places.len() as u64, |h, p| h.rotate_left(5) ^ p.seed)).unwrap_or(0);
+        // (And when one of its fires is put out or lit again: P18.)
+        let layout = layout ^ doused_mark(w, sid);
         let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.generation || tw.layout != layout).unwrap_or(true);
         if fresh {
             if let Some(old) = scene.towns.remove(&sid) {
@@ -354,7 +358,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                             // Placeholder shapes by variant (the hearth its own way).
                             _ => {
                                 if !super::interiors::exterior(&mut lit, &mut glow, t, s, i as u16, &on_ground) {
-                                    building(&mut lit, &mut glow, t, bd, &on_ground);
+                                    let fire = w.fire_lit(solid::Id::Building(sid, i as u16), w.time);
+                                    building(&mut lit, &mut glow, t, bd, fire, &on_ground);
                                 }
                             }
                         }
@@ -362,8 +367,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 }
             }
             if let Some(tl) = w.society.towns.get(sid as usize) {
-                for wp in &tl.places {
-                    workplace(&mut lit, &mut glow, t, w, wp, &on_ground);
+                for (j, wp) in tl.places.iter().enumerate() {
+                    let fire = |k: u8| w.fire_lit(solid::Id::Place(sid, j as u16, k), w.time);
+                    workplace(&mut lit, &mut glow, t, w, wp, &fire, &on_ground);
                 }
             }
             // The dock and rope bridges out to the stilts (RG-14): planks at
@@ -624,7 +630,11 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         let kk = k.min(4.0);
         let fire = to3(c.pos, on_ground(c.pos));
-        gl.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, palette::EMBER);
+        if w.fire_lit(solid::Id::CampFire(c.group), w.time) {
+            gl.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, palette::EMBER);
+        } else {
+            b.column(fire - vec3(0.0, 0.1, 0.0), 1.0 * kk, 0.9 * kk, 0.2 * kk, 6, palette::ASH);
+        }
         // Lean-tos out behind the gaps where the band sits (and the stash).
         for &a in &gahturiyu_sim::sim::encounters::CLEAR_OF_THE_BAND {
             let at = c.pos.add(V2::new(a.cos(), a.sin()).scale(12.0 * kk));
@@ -977,6 +987,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         draped_ring(&mut fl, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
         draped_ring(&mut fl, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);
     }
+    // Spells cast outside fights (P16).
+    super::castfx::draw(&game.castfx, w, &mut gl, &mut fl, &on_ground, k, now, &|b: &mut Builder, c: V2, r: f32, wd: f32, col: Rgb| draped_ring(b, &on_ground, c, r, wd, 28, col, eye));
     super::animals::draw(w, &mut b, &mut gl, &on_ground, oc.target, radius, k, eye);
     super::baseui::draw(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, game.placing.as_ref());
     tris += b.triangles() + gl.triangles() + fl.triangles();
@@ -1385,7 +1397,24 @@ fn window_glow(gl: &mut Builder, bd: &Building, ground: f32, r: f32) {
     gl.patch(face + vec3(0.0, h * 0.35, 0.0), 1.1, 0.8, bd.rot, palette::WINDOW);
 }
 
-fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_ground: &dyn Fn(V2) -> f32) {
+/// A mark of which of a town's fires are out now (the town is redrawn when
+/// it changes).
+fn doused_mark(w: &World, sid: u16) -> u64 {
+    w.doused
+        .iter()
+        .filter(|(id, until)| w.time < *until && matches!(id, solid::Id::Building(s, _) | solid::Id::Place(s, _, _) if *s == sid))
+        .fold(0x9E37_79B9u64, |h, (id, _)| {
+            let k = match id {
+                solid::Id::Building(_, i) => *i as u64,
+                solid::Id::Place(_, j, k) => 0x1_0000 + ((*j as u64) << 8) + *k as u64,
+                _ => 0,
+            };
+            h.rotate_left(7) ^ k.wrapping_mul(0x2545_F491_4F6C_DD1D)
+        })
+}
+
+/// A town building. `fire`: the town's fire is burning (a hearth).
+fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, fire: bool, on_ground: &dyn Fn(V2) -> f32) {
     let ground = if bd.kind == BuildingKind::HoraroStilt { 0.0 } else { on_ground(bd.pos) };
     // Sink buildings a little so they sit into slopes rather than float.
     let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
@@ -1457,7 +1486,12 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_gr
                 let a = i as f32 / 9.0 * std::f32::consts::TAU;
                 b.block(base + vec3(a.cos(), -0.2, a.sin()) * 2.4, 0.9, 0.7, 0.75, a, palette::STONE);
             }
-            gl.column(base + vec3(0.0, -0.2, 0.0), 1.4, 0.3, 1.4, 8, palette::EMBER);
+            if fire {
+                gl.column(base + vec3(0.0, -0.2, 0.0), 1.4, 0.3, 1.4, 8, palette::EMBER);
+            } else {
+                // Put out: a bed of ash.
+                b.column(base + vec3(0.0, -0.2, 0.0), 1.6, 1.4, 0.3, 8, palette::ASH);
+            }
         }
     }
 }
@@ -1821,7 +1855,10 @@ fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64) {
 
 /// A workplace: fields in rows, stalls with awnings, a post, a dock — simple
 /// shapes to say what's done where.
-fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, on_ground: &dyn Fn(V2) -> f32) {
+/// A town's workplace. `fire(k)`: its part `k` (in `solid::place_parts`)
+/// is a fire that's burning.
+#[allow(clippy::too_many_arguments)]
+fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, fire: &dyn Fn(u8) -> bool, on_ground: &dyn Fn(V2) -> f32) {
     let k = wp.kind;
     let size = k.size();
     let wet = geo::inland(wp.pos) < 0.0;
@@ -1887,7 +1924,9 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
         PlaceKind::CharcoalPit => {
             // A turf-covered stack, smouldering.
             b.dome(base, 2.6, 2.6, 1.8, 0.0, 0.0, 8, [0.25, 0.22, 0.18]);
-            gl.column(base + vec3(0.0, 1.7, 0.0), 0.25, 0.1, 0.4, 6, palette::EMBER);
+            if fire(0) {
+                gl.column(base + vec3(0.0, 1.7, 0.0), 0.25, 0.1, 0.4, 6, palette::EMBER);
+            }
             for i in 0..3 {
                 let p = base + vec3(4.0, 0.0, -1.0 + i as f32);
                 b.stick(p - vec3(1.2, 0.0, 0.0) + vec3(0.0, 0.25, 0.0), p + vec3(1.2, 0.0, 0.0) + vec3(0.0, 0.25, 0.0), 0.25, palette::TIMBER);
@@ -2025,10 +2064,14 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
                         b.stick(to3(q, on_ground(q) - 0.1), to3(q, on_ground(q) + 0.95), 0.14, palette::TIMBER);
                     }
                 }
-                for (what, shape, _, _) in solid::place_parts(wp) {
+                for (k, (what, shape, _, _)) in solid::place_parts(wp).into_iter().enumerate() {
                     if what == solid::What::Fire {
                         let c = shape.centre();
-                        gl.column(to3(c, on_ground(c)), 0.6, 0.3, 0.9, 6, palette::EMBER);
+                        if fire(k as u8) {
+                            gl.column(to3(c, on_ground(c)), 0.6, 0.3, 0.9, 6, palette::EMBER);
+                        } else {
+                            b.column(to3(c, on_ground(c)), 0.7, 0.6, 0.15, 6, palette::ASH);
+                        }
                     }
                 }
             } else {

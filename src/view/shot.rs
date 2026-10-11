@@ -535,6 +535,38 @@ impl Shot {
             }
         }
         let mage = world.squad.members.iter().copied().find(|&m| world.people[m as usize].stats.calling == gahturiyu_sim::sim::stats::Calling::Mage);
+        // `GAHT_CAST=glow,haste,douse`: the mage learns these and casts each
+        // in turn (on themselves, on the first member, or at the nearest
+        // flame), so the casts and the badges they leave show.
+        if let Ok(keys) = std::env::var("GAHT_CAST") {
+            if let Some(m) = mage.or(world.squad.members.first().copied()) {
+                use gahturiyu_sim::sim::magic::{self, Aim};
+                for key in keys.split(',') {
+                    let s = magic::spell(key.trim());
+                    if let Some(d) = world.people[m as usize].detail.as_mut() {
+                        if !d.spells.contains(&s) {
+                            d.spells.push(s);
+                        }
+                    }
+                    let t = world.time;
+                    let full = world.people[m as usize].max_mana();
+                    world.people[m as usize].set_mana(full, t);
+                    let first = world.squad.members[0];
+                    let (target, point) = match s.def().aim {
+                        Aim::Friend | Aim::Anyone => (Some(first), None),
+                        Aim::Point => {
+                            let at = world.person_pos(m);
+                            let douse = s.def().effects.iter().any(|e| e.does == gahturiyu_sim::sim::effects::Does::Douse);
+                            (None, world.flames_near(at, 14.0).into_iter().find(|f| f.2 == douse).map(|f| f.1).or(Some(at)))
+                        }
+                        _ => (None, None),
+                    };
+                    if let Err(e) = world.use_spell(m, s, target, point) {
+                        eprintln!("GAHT_CAST {key}: {}", e.0);
+                    }
+                }
+            }
+        }
         if self.held {
             if let Some(m) = mage {
                 let t = world.time;
