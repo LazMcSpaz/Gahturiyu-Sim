@@ -48,7 +48,7 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {}\n{:?}\n{:?}\n", w.bases, w.next_base, w.looting, w.making_more);
     s += &format!("{:?}\n{:?}\n{:?}\n{:?}\n", w.deposits, w.labour, w.butchering, w.chases);
     s += &format!("{:?}\n{:?}\n{:?}\n", w.levels, w.ruins, w.casts);
-    s += &format!("{:?}\n{:?}\n{:?}\n", w.pursuits, w.dosing, w.giving);
+    s += &format!("{:?}\n{:?}\n{:?}\n{:?}\n", w.pursuits, w.wanted, w.dosing, w.giving);
     // Containers in buildings, and locks being worked.
     s += &format!("{:?}\n{:?}\n", w.containers, w.picking);
     // Each building's chosen style.
@@ -175,6 +175,7 @@ fn the_same_world_saves_to_the_same_bytes() {
         let towns = w.settlements.len() as u32;
         for k in 0..40u32 {
             w.bounty.insert((k % towns) as u16, k as f32);
+            w.wanted.push(((k % towns) as u16, w.squad.members[k as usize % w.squad.members.len()]));
             w.regard.insert(k * 7, 1.0);
             w.cast_count.insert(k * 3, 2);
             w.furnished.insert((0, k as u16));

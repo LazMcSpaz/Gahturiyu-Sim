@@ -460,6 +460,14 @@ of a house near where you were last seen, and down the street if anyone
 about saw which way you went. Caught, you're judged on the spot; lose them
 and it's a bounty ("Wanted in ..." in the journal), and the news travels
 with travellers as before.
+**Wanted.** Nobody goes looking for a debt. But the town's watch knows the
+face of whoever was seen at it, and a guard of that town who is up and sees
+that face close by and plainly (about 25 m in daylight; much less in the
+dark, or for someone creeping; not through a wall, and not at all through a
+Disguise) comes after them. Caught, what's owed is called in by the town's
+custom (paid, worked off, or fought for), and anything seen stolen there
+goes back. Lost again, it stays owed as it was. A squadmate nobody saw at it
+isn't known. So: keep out of the watch's sight, or pay up first.
 Assaulting townsfolk, killing them, harming an arbiter (very serious
 everywhere) and raising the Roduro dead in a town where the elders sit are
 all crimes.
@@ -1051,6 +1059,7 @@ The numbers most worth tuning, all named constants:
 | Carrying: body weights, pace (`body_weight()`, `CARRY_PACE`, `CARRY_BODY`, `CARRY_PACE_RANGE`) | `src/sim/carry.rs` |
 | Bedtime (`BEDTIME`, `RISE`, `BED_TIRED`) | `src/sim/condition.rs` |
 | How readily bounty news travels (`NEWS_CHANCE`) | `src/sim/news.rs` |
+| How near a guard knows a wanted face (`KNOW_FACE`) | `src/sim/pursuit.rs` |
 | How dark before travellers light torches (`TRAVEL_TORCH_DARK`) | `src/sim/torch.rs` |
 | Road speed and ground types (`ROAD_PACE`, `ROAD_HALF_WIDTH`, `Ground::pace`) | `src/sim/terrain.rs` |
 | When a trip goes by road (`ROAD_TRIP`) | `src/sim/buildings.rs` |

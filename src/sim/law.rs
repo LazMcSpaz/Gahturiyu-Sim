@@ -1096,6 +1096,44 @@ impl World {
         }
     }
 
+    /// A wanted squad member, known and caught (N8): what the town already
+    /// holds against the squad is called in, by its custom. No new wrong is
+    /// judged; what was seen stolen there goes back as at any arrest.
+    pub(super) fn call_in(&mut self, who: PersonId, town: SettlementId, custom: Justice) {
+        let t = self.time;
+        let name = self.name_of(who);
+        let gone = self.take_hot_back(who, town).round();
+        let owed = self.bounty.get(&town).copied().unwrap_or(0.0).round().max(0.0) + gone;
+        self.bounty_settled(town);
+        if owed < 1.0 {
+            return;
+        }
+        if self.is_asleep(who) && !self.is_down(who) {
+            self.order_wake(&[who]);
+            self.set_activity(who, super::condition::Activity::Resting);
+        }
+        let place = self.settlements[town as usize].name.clone();
+        self.say(t, format!("{name} is held in {place} for the {owed:.0} coin owed there."));
+        match custom {
+            Justice::Duel => {
+                // Paid now if it can be; what can't rides on a duel.
+                let coin = items::id("coin");
+                let payers = self.paying_with(who);
+                let pay = (self.count_among(&payers, coin) as f32).min(owed).floor();
+                if pay >= 1.0 {
+                    self.take_among(&payers, coin, pay as u16);
+                    self.say(t, format!("{name} pays {pay:.0} coin."));
+                }
+                if owed - pay >= 1.0 {
+                    self.say(t, format!("{name} must answer for the rest by duel in {place}."));
+                    self.start_duel(who, town, owed - pay);
+                }
+            }
+            // (Shunning and the record ask nothing more for an old debt.)
+            Justice::Elders | Justice::Shunning | Justice::Record => self.pay_or_bond(who, town, owed),
+        }
+    }
+
     /// Whose purses pay for this squad member: theirs and those of squad
     /// members standing with them.
     fn paying_with(&self, who: PersonId) -> Vec<PersonId> {
@@ -1435,6 +1473,7 @@ impl World {
                 self.say(t, format!("{name} has run from their bond in {}.", s.name));
                 self.bonds.retain(|x| x.who != m);
                 *self.bounty.entry(b.town).or_insert(0.0) += left + RUN_PRICE;
+                self.face_known(b.town, m);
                 self.crime_known(b.town);
                 self.add_standing(m, b.town, -15.0);
                 *self.records.entry(m).or_insert(0.0) += Wrong::Escape.gravity();
