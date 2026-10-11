@@ -28,6 +28,7 @@ use gahturiyu_sim::sim::{
 };
 
 use super::hud::{Canvas, Face};
+use super::kit;
 use super::palette::{eg, ega, race_color, Rgb, BRASS, BRASS_LIGHT, TEXT};
 use super::squadui::{Bx, Click};
 
@@ -109,7 +110,7 @@ pub fn maker(makers: &[Maker], who: Option<PersonId>) -> Option<PersonId> {
 
 /// Draw the screen; what was clicked, the box it covers, and how far the
 /// list is really scrolled (it can't go past its end).
-pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Click>) -> (Option<MakeAct>, Bx, f32) {
+pub fn making(c: &Canvas, w: &World, m: &Making, _mouse: Vec2, click: Option<Click>) -> (Option<MakeAct>, Bx, f32) {
     let b = &m.bench;
     let rows = w.making_list(b);
     let clicked = |bx: &Bx| click.map(|k| bx.contains(k.at) && !k.right).unwrap_or(false);
@@ -132,7 +133,8 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
         c.styled(&b.place, r.x + 8.0, r.y + 58.0, 17.0, eg(SUB), Face::Italic, 0.0);
     }
     let close = Bx::new(r.x + r.w - 34.0, r.y + 6.0, 30.0, 30.0);
-    c.styled("×", close.x + 8.0, close.y + 24.0, 26.0, eg(if close.contains(mouse) { BRASS_LIGHT } else { GROUP }), Face::Body, 0.0);
+    let cl = kit::look(&close);
+    c.styled("×", close.x + 8.0, close.y + 24.0 + kit::nudge(cl), 26.0, eg(if cl.hot { BRASS_LIGHT } else { GROUP }), Face::Body, 0.0);
     if clicked(&close) {
         act = Some(MakeAct::Close);
     }
@@ -188,10 +190,11 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
             c.grad(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.30), ega(BRASS, 0.05), true);
             c.rect(bx.x, bx.y, bx.w, 1.0, ega(BRASS_LIGHT, 0.35));
             c.rect(bx.x, bx.y + bx.h - 1.0, bx.w, 1.0, ega(BRASS_LIGHT, 0.2));
-        } else if bx.contains(mouse) {
-            c.rect(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.12));
         }
-        c.rect(bx.x + 8.0, bx.y + bx.h - 1.0, bx.w - 16.0, 1.0, ega(BRASS, 0.07));
+        // (Held down, the row's words sink a touch; the click is still the row's.)
+        let hit = bx;
+        let bx = Bx { y: bx.y + kit::nudge(kit::row(c, &bx, false)), ..bx };
+        c.rect(hit.x + 8.0, hit.y + hit.h - 1.0, hit.w - 16.0, 1.0, ega(BRASS, 0.07));
         let fade = match row.standing {
             Standing::Ready => 1.0,
             Standing::Short => 0.6,
@@ -229,7 +232,7 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
                 }
             }
         }
-        if clicked(&bx) {
+        if clicked(&hit) {
             act = Some(MakeAct::Pick(row.recipe));
         }
     }
@@ -312,8 +315,8 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
         let fade = if able { 1.0 } else { 0.45 };
         c.rect(bx.x, bx.y, bx.w, bx.h, ega(DARK, 0.38));
         c.rect_lines(bx.x, bx.y, bx.w, bx.h, if on { 1.6 } else { 1.0 }, if on { eg(HEAD) } else { ega(BRASS, 0.28 * fade) });
-        if able && !on && bx.contains(mouse) {
-            c.rect(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.10));
+        if able && !on {
+            kit::row(c, &bx, false);
         }
         let p = &w.people[mk.who as usize];
         c.circle(bx.x + 26.0, bx.y + 22.0, 13.0, ega(race_color(p.race), 0.85 * fade));
@@ -357,10 +360,8 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
     let less = Bx::new(cb.x, cb.y, 40.0, 48.0);
     let more = Bx::new(cb.x + 84.0, cb.y, 40.0, 48.0);
     for (bx, sign) in [(&less, "−"), (&more, "+")] {
-        if bx.contains(mouse) {
-            c.rect(bx.x, bx.y, bx.w, bx.h, ega(BRASS, 0.18));
-        }
-        c.styled(sign, bx.x + 13.0, bx.y + 33.0, 24.0, eg(BRASS), Face::Body, 0.0);
+        let l = kit::row(c, bx, false);
+        c.styled(sign, bx.x + 13.0, bx.y + 33.0 + kit::nudge(l), 24.0, eg(if l.hot { BRASS_LIGHT } else { BRASS }), Face::Body, 0.0);
     }
     let ns = n.to_string();
     c.styled(&ns, cb.x + 62.0 - c.styled_width(&ns, 22.0, Face::Body, 0.0) / 2.0, cb.y + 32.0, 22.0, eg(BRIGHT), Face::Body, 0.0);
@@ -371,16 +372,7 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
         act = Some(MakeAct::Count((n + 1).min(MOST)));
     }
     let mb = Bx::new(x + 140.0, by, right - x - 140.0, 48.0);
-    if ready.is_some() {
-        let hot = mb.contains(mouse);
-        c.grad(mb.x, mb.y, mb.w, mb.h, eg(if hot { BRIGHT } else { BRASS_LIGHT }), eg(BRASS), false);
-        c.rect_lines(mb.x, mb.y, mb.w, mb.h, 1.0, eg(BRASS_LIGHT));
-        c.styled("MAKE", mb.x + mb.w / 2.0 - c.styled_width("MAKE", 21.0, Face::Title, 6.0) / 2.0, mb.y + 32.0, 21.0, eg(DARK), Face::Title, 6.0);
-    } else {
-        c.rect(mb.x, mb.y, mb.w, mb.h, ega(BRASS, 0.10));
-        c.rect_lines(mb.x, mb.y, mb.w, mb.h, 1.0, ega(BRASS, 0.3));
-        c.styled("MAKE", mb.x + mb.w / 2.0 - c.styled_width("MAKE", 21.0, Face::Title, 6.0) / 2.0, mb.y + 32.0, 21.0, ega(BRASS, 0.45), Face::Title, 6.0);
-    }
+    kit::button(c, &mb, "MAKE", kit::Kind::Primary, ready.is_some());
     if let (Some(p), true) = (ready, clicked(&mb)) {
         act = Some(MakeAct::Make(p, ri, n));
     }

@@ -32,6 +32,7 @@ use gahturiyu_sim::sim::{
 
 use super::cam::OrbitCam;
 use super::hud::{Canvas, Face};
+use super::kit;
 use super::palette::{eg, ega, Rgb, BRASS};
 use super::squadui::{Bx, Click, NATIVE};
 
@@ -427,7 +428,11 @@ pub fn talk(c: &Canvas, w: &World, st: &Talking, parting: Option<&Parting>, mous
         let ry = list_y + (i - first) as f32 * ROW;
         let bx = Bx::new(x0 - 14.0, ry, row_w, ROW - 2.0);
         let open = r.kind != Kind::Locked;
-        let hot = open && bx.contains(mouse);
+        // Under the mouse it lights; held it sinks and dims; let go, it
+        // glows a moment (the kit's states, in this screen's own colours).
+        let look = if open { kit::look(&bx) } else { kit::Look::default() };
+        let hot = look.hot;
+        let ry = ry + kit::nudge(look);
         let col = match r.kind {
             _ if hot => HOT,
             Kind::Does => DOES,
@@ -437,10 +442,14 @@ pub fn talk(c: &Canvas, w: &World, st: &Talking, parting: Option<&Parting>, mous
             Kind::Locked => LOCKED,
         };
         if hot {
-            c.grad(bx.x, bx.y, bx.w * 0.6, bx.h, ega(BRASS, 0.26), ega(BRASS, 0.06), true);
-            c.grad(bx.x + bx.w * 0.6, bx.y, bx.w * 0.4, bx.h, ega(BRASS, 0.06), ega(BRASS, 0.0), true);
+            let k = if look.held { 0.55 } else { 1.0 };
+            c.grad(bx.x, bx.y, bx.w * 0.6, bx.h, ega(BRASS, 0.26 * k), ega(BRASS, 0.06 * k), true);
+            c.grad(bx.x + bx.w * 0.6, bx.y, bx.w * 0.4, bx.h, ega(BRASS, 0.06 * k), ega(BRASS, 0.0), true);
             c.rule_in(bx.x, bx.x + bx.w * 0.7, bx.y + 0.5, 1.0, ega(NAME, 0.35), false);
             c.rule_in(bx.x, bx.x + bx.w * 0.7, bx.y + bx.h - 0.5, 1.0, ega(NAME, 0.2), false);
+        }
+        if look.flash > 0.0 {
+            c.grad(bx.x, bx.y, bx.w * 0.7, bx.h, ega([1.0, 0.9, 0.6], 0.24 * look.flash), ega([1.0, 0.9, 0.6], 0.0), true);
         }
         // The number to press (the first nine showing).
         let nb = Bx::new(x0, ry + 4.0, 24.0, 24.0);
