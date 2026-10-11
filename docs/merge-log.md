@@ -104,7 +104,7 @@ Every branch that existed on 10 Oct 2026 is in `main` as of step 4. Branches for
 
 ### Still to do
 
-- The `pre-merge/2026-10-10/...` tags are now on GitHub (seen there on 10 Oct; not pushed by the session that did the consolidation). The result itself is not yet tagged `consolidated-2026-10-10`.
+- Done: the `pre-merge/2026-10-10/...` tags (pushed from Laz's PC, 10 Oct) and `consolidated-2026-10-10` on `be5862c` (pushed 11 Oct).
 - Done: GitHub's default branch is `main` (Laz switched it, 10 Oct).
-- Not yet run on Windows. Every check above was on Linux.
+- Done: first full Windows run, on later `main` (`6da92da`, 11 Oct, Laz's PC, rustc 1.99.0): 76 groups, 618 passed, 0 failed, 16 ignored. Five `tests/names.rs` checks first failed only because Git for Windows checks files out with CRLF; the clone now has `core.autocrlf false` (see `CLAUDE.md`, "Laz's PC").
 - The old branches are left in place. Deleting them is Laz's call.
