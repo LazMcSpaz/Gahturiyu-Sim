@@ -383,6 +383,7 @@ impl World {
         self.do_labour();
         self.do_casts();
         self.find_ruins();
+        self.note_camps_seen();
         self.do_crafting();
         self.do_lessons();
         self.check_runaways();

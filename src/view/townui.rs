@@ -1,6 +1,11 @@
-//! The town panel (P, or click a town's name): what its people lean toward,
-//! what they've settled on, what's in store, how well they ate, the money,
-//! and which services are open right now.
+//! The town panel (P, or click a town's name): what a visitor could learn
+//! by looking and asking (#153 UI-Town, plan 5.6): the town's name and
+//! people, who rules in words, what's open now and where, the work going,
+//! and the talk of the town. No numbers about others.
+//!
+//! With the testing readout (L) the old panels come back instead: every
+//! leaning and share, the store, the money, the government, all the talk
+//! (`readout_panel`, `life_panel`).
 
 use bevy_egui::egui::Color32;
 
@@ -39,8 +44,8 @@ fn leanings<T: PartialEq + Copy>(c: &Canvas, x: f32, y: f32, label: &str, opts: 
     }
 }
 
-/// Draw the panel for a town; returns where it is.
-pub fn town_panel(c: &Canvas, w: &World, town: u16) -> Bx {
+/// The testing readout of a town (L): everything, numbers and all.
+pub fn readout_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     let s = &w.settlements[town as usize];
     let tl = &w.society.towns[town as usize];
     let comms: Vec<u32> = std::iter::once(tl.shore).chain(tl.stilts).collect();
@@ -391,4 +396,227 @@ pub fn life_panel(c: &Canvas, w: &World, town: u16, debug: bool) -> Bx {
         }
     }
     r
+}
+
+// ---- The visitor's panel (#153) ---------------------------------------------------
+
+/// The visitor's panel's width, and the room it leaves clear below for the
+/// little map and the bottom band.
+const VW: f32 = 440.0;
+const CLEAR_BELOW: f32 = 232.0;
+
+/// What a town's people are, in words: "mostly Roduro", "Roduro and Qotiro".
+fn peoples_words(share: &[f32; 4]) -> String {
+    let mut by: Vec<(gahturiyu_sim::sim::race::Race, f32)> = ALL_RACES.iter().map(|r| (*r, share[r.index()])).filter(|x| x.1 >= 0.15).collect();
+    by.sort_by(|a, b| b.1.total_cmp(&a.1));
+    match by.as_slice() {
+        [] => "a mix of peoples".into(),
+        [(a, s), ..] if *s >= 0.6 => format!("mostly {}", a.name()),
+        [(a, _)] => a.name().to_string(),
+        [(a, _), (b, _)] => format!("{} and {}", a.name(), b.name()),
+        [(a, _), (b, _), rest @ ..] => {
+            let more: Vec<&str> = rest.iter().map(|x| x.0.name()).collect();
+            format!("{}, {} and {}", a.name(), b.name(), more.join(" and "))
+        }
+    }
+}
+
+/// Where in town a spot is, from its middle: "in the middle", "on the east side".
+fn side_words(mid: gahturiyu_sim::sim::geo::V2, at: gahturiyu_sim::sim::geo::V2, radius: f32) -> String {
+    let v = at.sub(mid);
+    if v.len() < radius * 0.3 {
+        "in the middle".into()
+    } else if v.len() > radius * 1.4 {
+        format!("out to the {}", gahturiyu_sim::sim::quests::compass(v))
+    } else {
+        format!("on the {} side", gahturiyu_sim::sim::quests::compass(v))
+    }
+}
+
+fn capital(s: &str) -> String {
+    let mut ch = s.chars();
+    ch.next().map(|c| c.to_uppercase().collect::<String>() + ch.as_str()).unwrap_or_default()
+}
+
+/// One line of the visitor's panel.
+enum Line {
+    Head(&'static str),
+    Text(String, Rgb),
+    /// A row of two: what (left) and its note (right).
+    Pair(String, String, Rgb),
+}
+
+/// Draw the visitor's panel for a town. Returns where it is, and whether its
+/// close cross was clicked.
+pub fn town_panel(c: &Canvas, w: &World, town: u16, click: Option<super::squadui::Click>) -> (Bx, bool) {
+    use super::hud::Face;
+    use super::kit;
+    use super::palette::{BRASS, BRASS_LIGHT};
+    let s = &w.settlements[town as usize];
+    let tl = &w.society.towns[town as usize];
+    let shore = &w.society.communities[tl.shore as usize];
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Who lives here, and how many, in words.
+    let folk = s.residents.iter().filter(|&&p| !w.people[p as usize].dead).count();
+    let mut about = format!(
+        "{} town{}: {} people, {}.",
+        s.founders.name(),
+        if s.coastal { " on the coast" } else { "" },
+        gahturiyu_sim::sim::talk::folk_words(folk),
+        peoples_words(&shore.blend.share)
+    );
+    about = capital(&format!("a {about}"));
+    lines.push(Line::Text(about, TEXT));
+    if let Some(si) = tl.stilts {
+        let st = &w.society.communities[si as usize];
+        let line = if st.withdrawn { "The stilt village offshore has turned its back on the town.".to_string() } else { format!("A stilt village stands offshore. The tide is at {}.", tide::tide_word(w.time)) };
+        lines.push(Line::Text(line, if st.withdrawn { WARN } else { DIM }));
+    }
+    if let Some(owed) = w.bounty.get(&town).filter(|b| **b >= 1.0) {
+        lines.push(Line::Text(format!("You're wanted here: {owed:.0} coin owed."), WARN));
+    }
+
+    // Who rules.
+    lines.push(Line::Head("WHO RULES"));
+    lines.push(Line::Text(capital(&w.gov_words(town)), GOLD));
+    let rulers = w.rulers_words(town);
+    if rulers != "no one" {
+        lines.push(Line::Text(capital(&rulers), DIM));
+    }
+
+    // What's open now, and where.
+    lines.push(Line::Head("OPEN NOW"));
+    let mut shut: Vec<String> = Vec::new();
+    let mut any = false;
+    for svc in SERVICES {
+        let workers: Vec<u32> = s.residents.iter().copied().filter(|&p| !w.people[p as usize].dead && w.life(p).job.service() == Some(svc)).collect();
+        if workers.is_empty() {
+            continue;
+        }
+        if !w.service_open(town, svc) {
+            shut.push(svc.name().to_lowercase());
+            continue;
+        }
+        any = true;
+        let place = workers.iter().find(|&&p| w.at_work(p, w.time)).or(workers.first()).and_then(|&p| w.workplace_of(p)).map(|wp| wp.pos);
+        let where_ = place.map(|at| side_words(s.pos, at, s.radius())).unwrap_or_default();
+        lines.push(Line::Pair(svc.name().to_string(), where_, OPEN));
+    }
+    if !any {
+        lines.push(Line::Text("Nothing just now.".into(), DIM));
+    }
+    if !shut.is_empty() {
+        lines.push(Line::Text(format!("Shut: {}.", shut.join(", ")), DIM));
+    }
+
+    // Work going: posts in town, jobs heard of, the squad's own.
+    lines.push(Line::Head("WORK"));
+    let before = lines.len();
+    for (job, pl) in w.vacant_posts(town) {
+        let at = tl.places.get(pl as usize).map(|p| p.kind.name().to_lowercase()).unwrap_or_default();
+        lines.push(Line::Pair(format!("{} at the {at}", job.name()), format!("{} coin a day", w.post_wage(job)), TEXT));
+    }
+    for o in w.known_opps(town) {
+        lines.push(Line::Text(format!("{}: {}", w.name_of(o.asker), w.opp_line(o)), if o.legal { TEXT } else { WARN }));
+    }
+    let ours: Vec<String> = w.society.contracts.iter().filter(|c| w.squad.index(c.member).is_some()).zip(w.work_lines()).filter(|(c, _)| c.town == town).map(|(_, l)| l).collect();
+    for l in ours {
+        lines.push(Line::Text(l, GOLD));
+    }
+    // Out of town: where the woodlot, the mine and the fields are.
+    let mut seen_kinds = Vec::new();
+    for wp in tl.places.iter().filter(|p| p.kind.is_away()) {
+        if seen_kinds.contains(&wp.kind) {
+            continue;
+        }
+        seen_kinds.push(wp.kind);
+        let v = wp.pos.sub(s.pos);
+        let worked_out = w.deposits.iter().filter(|d| d.pos.dist(wp.pos) < 15.0).all(|d| d.left_at(w.time) < 1.0) && w.deposits.iter().any(|d| d.pos.dist(wp.pos) < 15.0);
+        let note = format!("{} {}{}", gahturiyu_sim::sim::talk::walk_words(v.len()), gahturiyu_sim::sim::quests::compass(v), if worked_out { ", worked out" } else { "" });
+        lines.push(Line::Pair(wp.kind.name().to_string(), note, DIM));
+    }
+    if lines.len() == before {
+        lines.push(Line::Text("None that you know of.".into(), DIM));
+    }
+
+    // The talk of the town.
+    let lately: Vec<&gahturiyu_sim::sim::history::Event> = w.events(town).iter().rev().filter(|e| !e.hidden && e.severity >= 0.3).take(4).collect();
+    let ring = w.ring(town).filter(|r| r.found);
+    if !lately.is_empty() || ring.is_some() {
+        lines.push(Line::Head("TALK OF THE TOWN"));
+        for e in lately {
+            let who = e.actor.map(|a| w.name_of(a)).unwrap_or_else(|| "Someone".into());
+            let whom = e.victim.map(|v| w.name_of(v)).unwrap_or_default();
+            let day = World::day_of(e.t) as i64 + 1;
+            lines.push(Line::Text(format!("Day {day}: {who} {} {whom}", e.deed.words()).trim_end().to_string(), if e.severity >= 0.5 { WARN } else { DIM }));
+        }
+        if let Some(r) = ring {
+            let leader = r.leader.map(|l| w.name_of(l)).unwrap_or_else(|| "nobody known".into());
+            lines.push(Line::Text(format!("A ring works the town, led by {leader}."), GOLD));
+        }
+    }
+
+    // Lay it out: wrapped, and cut off where the room ends.
+    let inner = VW - 32.0;
+    let mut laid: Vec<(Line, Vec<String>)> = Vec::new();
+    for l in lines {
+        let wrapped = match &l {
+            Line::Text(t, _) => wrap(c, t, 14.0, inner),
+            _ => Vec::new(),
+        };
+        laid.push((l, wrapped));
+    }
+    let tall = |l: &Line, wrapped: &[String]| match l {
+        Line::Head(_) => 34.0,
+        Line::Text(..) => wrapped.len() as f32 * 19.0,
+        Line::Pair(..) => 19.0,
+    };
+    let body: f32 = laid.iter().map(|(l, ws)| tall(l, ws)).sum();
+    let h = (96.0 + body + 18.0).min(c.h - CLEAR_BELOW - 12.0).max(200.0);
+    let r = Bx::new(c.w - VW - 14.0, 12.0, VW, h);
+    c.frame_box(r.x, r.y, r.w, r.h);
+    c.rect(r.x, r.y, r.w, 3.0, eg(race_color(s.founders)));
+
+    // The heading: the town's name as the people round it say it, and the other.
+    let name = super::lexicon::town(w, town).to_uppercase();
+    c.styled(&name, r.x + 16.0, r.y + 40.0, 26.0, eg(BRASS_LIGHT), Face::Title, 4.0);
+    if let Some(other) = super::lexicon::town_other(w, town) {
+        c.styled(&other, r.x + 18.0, r.y + 62.0, 15.0, eg(DIM), Face::Italic, 0.0);
+    }
+    let close = Bx::new(r.x + r.w - 38.0, r.y + 10.0, 28.0, 28.0);
+    let cl = kit::look(&close);
+    c.styled("×", close.x + 7.0, close.y + 22.0 + kit::nudge(cl), 24.0, eg(if cl.hot { BRASS_LIGHT } else { BRASS }), Face::Body, 0.0);
+    let closed = click.is_some_and(|k| !k.right && close.contains(k.at));
+    c.rule_in(r.x + 12.0, r.x + r.w - 12.0, r.y + 76.0, 1.5, eg(BRASS), false);
+
+    let x = r.x + 16.0;
+    let right = r.x + r.w - 16.0;
+    let mut y = r.y + 84.0;
+    let end = r.y + r.h - 10.0;
+    for (l, wrapped) in &laid {
+        if y + tall(l, wrapped) > end {
+            c.styled_right("…", right, end, 14.0, eg(DIM), Face::Body, 0.0);
+            break;
+        }
+        match l {
+            Line::Head(t) => {
+                y += 34.0;
+                c.diamond(x + 3.0, y - 5.0, 3.5, eg(BRASS));
+                c.styled(t, x + 14.0, y, 12.0, eg(BRASS), Face::Title, 2.5);
+            }
+            Line::Text(_, col) => {
+                for part in wrapped {
+                    y += 19.0;
+                    c.text(part, x, y, 14.0, *col);
+                }
+            }
+            Line::Pair(a, b, col) => {
+                y += 19.0;
+                c.text(a, x, y, 14.0, TEXT);
+                c.styled_right(b, right, y, 14.0, eg(*col), Face::Italic, 0.0);
+            }
+        }
+    }
+    (r, closed)
 }

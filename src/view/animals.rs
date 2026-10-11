@@ -453,7 +453,9 @@ fn map_colour(sp: Sp) -> Rgb {
 }
 
 /// Mark the animals on the top-down map. Called once from `map::draw`.
-pub fn draw_map(c: &Canvas, cam: &MapCam, w: &World) {
+/// `seen`: whether a spot is in sight of the squad (the map shows herds,
+/// colonies and carcasses only there; everything with the readout on).
+pub fn draw_map(c: &Canvas, cam: &MapCam, w: &World, seen: &dyn Fn(V2) -> bool) {
     if w.animals.regions.is_empty() {
         return;
     }
@@ -468,7 +470,7 @@ pub fn draw_map(c: &Canvas, cam: &MapCam, w: &World) {
         }
         let pos = w.herd_pos(h.id, t);
         let q = cam.to_screen(size, pos);
-        if !on_screen(q) {
+        if !on_screen(q) || !seen(pos) {
             continue;
         }
         let col = map_colour(h.sp);
@@ -486,7 +488,7 @@ pub fn draw_map(c: &Canvas, cam: &MapCam, w: &World) {
         }
         // A pack shadowing travellers: a line to its quarry.
         if let Some(hu) = h.hunt {
-            if let Some(g) = w.group(hu.victim) {
+            if let Some(g) = w.group(hu.victim).filter(|g| seen(g.position_at(t))) {
                 c.line(q, cam.to_screen(size, g.position_at(t)), 1.5, ega([1.0, 0.3, 0.2], 0.8));
             }
         }
@@ -502,18 +504,18 @@ pub fn draw_map(c: &Canvas, cam: &MapCam, w: &World) {
     }
     for col in &w.animals.colonies {
         let q = cam.to_screen(size, col.pos);
-        if on_screen(q) {
+        if on_screen(q) && seen(col.pos) {
             let k = dot + 1.5;
             c.rect(q.x - k, q.y - k, k * 2.0, k * 2.0, ega([0.93, 0.92, 0.86], 0.85));
         }
     }
-    for car in w.animals.carcasses.iter().filter(|x| x.gone_at > t) {
+    for car in w.animals.carcasses.iter().filter(|x| x.gone_at > t && seen(x.pos)) {
         let q = cam.to_screen(size, car.pos);
         let k = dot;
         c.line(Vec2::new(q.x - k, q.y - k), Vec2::new(q.x + k, q.y + k), 1.5, eg([0.7, 0.4, 0.3]));
         c.line(Vec2::new(q.x - k, q.y + k), Vec2::new(q.x + k, q.y - k), 1.5, eg([0.7, 0.4, 0.3]));
     }
-    for (pos, _) in w.flocks() {
+    for (pos, _) in w.flocks().into_iter().filter(|f| seen(f.0)) {
         let q = cam.to_screen(size, pos);
         c.circle_lines(q.x, q.y, dot + 5.0, 1.0, eg([0.2, 0.2, 0.22]));
     }

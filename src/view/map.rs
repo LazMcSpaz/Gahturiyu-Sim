@@ -7,6 +7,7 @@ use gahturiyu_sim::sim::{
     bands::{BAND1_RADIUS, BAND2_RADIUS},
     combat::{FxKind, SQUAD_SIDE},
     geo::{self, V2, WORLD_SIZE},
+    known::Known,
     race::Race,
     World,
 };
@@ -49,9 +50,20 @@ pub fn load_relief(ctx: &egui::Context, w: &World) -> TextureHandle {
     ctx.load_texture("relief", relief_image(w), TextureOptions::LINEAR)
 }
 
+/// How far from one of the squad the map shows what moves (travellers,
+/// herds, fights), metres: about as far as they could make it out.
+pub const MAP_SIGHT: f32 = 400.0;
+
 /// Draw the map; returns things that can be hovered (screen point, slack).
-pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHandle, sel: &Selection) -> Vec<(Vec2, f32, Hover)> {
+///
+/// What a player sees on it is what the squad knows (#154 UI-Map): towns,
+/// roads and the work round them from the start; camps once seen or heard
+/// of (`Camp::known`); ruins and lairs once found; travellers, herds and
+/// fights only near the squad. `all` (the readout, L) shows everything.
+pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHandle, sel: &Selection, all: bool) -> Vec<(Vec2, f32, Hover)> {
     let size = vec2(c.w, c.h);
+    let eyes: Vec<V2> = w.squad.members.iter().map(|&m| w.person_pos(m)).collect();
+    let seen = |p: V2| all || eyes.iter().any(|e| e.dist(p) <= MAP_SIGHT);
     let mut picks = Vec::new();
     let s = |p: V2| cam.to_screen(size, p);
     c.rect(0.0, 0.0, c.w, c.h, eg([0.03, 0.04, 0.04]));
@@ -161,7 +173,7 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         }
     }
 
-    for g in &w.groups {
+    for g in w.groups.iter().filter(|g| seen(g.pos)) {
         let lead = w.people[g.members[0] as usize].race;
         if g.band == 1 {
             for &m in &g.members {
@@ -178,21 +190,34 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         }
     }
 
-    super::animals::draw_map(c, cam, w);
+    super::animals::draw_map(c, cam, w, &seen);
+    // Camps the squad has seen (a filled mark) or only heard of (an outline).
     // (A ruin's wardens camp at the ruin: the ruin's own mark is theirs. BL-71)
     for cp in w.camps.iter().filter(|cp| !w.is_warden(cp.group)) {
+        let known = if all { Known::Seen } else { cp.known };
+        if known == Known::No {
+            continue;
+        }
         let q = s(cp.pos);
         let k = (cam.zoom * 8.0).clamp(4.0, 9.0);
-        c.triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y + k * 0.7), vec2(q.x + k, q.y + k * 0.7), ega([0.85, 0.22, 0.18], 0.9));
+        let (a, b, d) = (vec2(q.x, q.y - k), vec2(q.x - k, q.y + k * 0.7), vec2(q.x + k, q.y + k * 0.7));
+        let red = [0.85, 0.22, 0.18];
+        if known == Known::Seen {
+            c.triangle(a, b, d, ega(red, 0.9));
+        } else {
+            for (p0, p1) in [(a, b), (b, d), (d, a)] {
+                c.line(p0, p1, 1.5, ega(red, 0.8));
+            }
+        }
         if cam.zoom > 0.15 {
-            c.centred("bandits", q.x, q.y + k + 13.0, 13.0, [0.95, 0.5, 0.45]);
+            c.centred(if known == Known::Seen { "camp" } else { "a camp, they say" }, q.x, q.y + k + 13.0, 13.0, [0.95, 0.5, 0.45]);
         }
     }
-    for ru in &w.ruins {
+    for ru in w.ruins.iter().filter(|ru| all || ru.found) {
         let q = s(ru.pos);
         let k = (cam.zoom * 8.0).clamp(4.0, 9.0);
-        let held = w.ruin_held(ru.id);
-        let col = if held { [0.85, 0.7, 0.35] } else { [0.6, 0.6, 0.6] };
+        // (Whether anyone holds it now is found out by going there.)
+        let col = [0.85, 0.7, 0.35];
         c.triangle(vec2(q.x, q.y - k), vec2(q.x - k, q.y), vec2(q.x + k, q.y), ega(col, 0.95));
         c.triangle(vec2(q.x, q.y + k), vec2(q.x - k, q.y), vec2(q.x + k, q.y), ega(col, 0.95));
         if cam.zoom > 0.15 {
@@ -205,7 +230,7 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
             c.circle(q.x, q.y, 3.0, eg(palette::EMBER));
         }
     }
-    for &(at, _, _, _) in &w.corpses {
+    for &(at, _, _, _) in w.corpses.iter().filter(|c| seen(c.0)) {
         let q = s(at);
         let k = dot + 1.0;
         let red = eg([0.8, 0.2, 0.15]);
@@ -214,7 +239,7 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
     }
     for battle in &w.battles {
         for f in &battle.fighters {
-            if f.dead || f.fled {
+            if f.dead || f.fled || !seen(f.pos) {
                 continue;
             }
             let q = s(f.pos);
@@ -227,7 +252,7 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
                 }
             }
         }
-        for fx in &battle.fx {
+        for fx in battle.fx.iter().filter(|_| battle.fighters.iter().any(|f| seen(f.pos))) {
             let age = (w.time - fx.at) as f32;
             match fx.kind {
                 FxKind::Fireball { at, radius } if (0.0..0.8).contains(&age) => {

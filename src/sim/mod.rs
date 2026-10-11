@@ -30,6 +30,7 @@ pub mod inventory;
 pub mod chances;
 pub mod history;
 pub mod jobs;
+pub mod known;
 pub mod layout;
 pub mod law;
 pub mod lives;

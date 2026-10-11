@@ -235,7 +235,7 @@ impl World {
         };
         self.add_group(g);
         let stash = Some(self.make_stash(at));
-        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash });
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash, known: Default::default() });
         self.scan_camp(self.camps.len() - 1);
         gid
     }
