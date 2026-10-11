@@ -1686,13 +1686,42 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
     let body = if crouch { h * 0.5 } else { h * 0.8 };
     // Under the mouse: a little brighter (UI-4).
     let lift = if gaits.hot == Some(pid) { 1.3 } else { 1.0 };
-    let coat = palette::scale(race_color(p.race), lift);
-    b.column(base, r, r * 0.8, body, 6, coat);
+    // The parts clothes and armour are laid on (`dress.rs`): the lower half,
+    // the upper half, the head, the shoulders and the back.
+    let o = super::dress::outfit(w, pid);
+    let (upper, lower) = (palette::scale(o.upper, lift), palette::scale(o.lower, lift));
+    let side = vec3(-fwd.z, 0.0, fwd.x);
+    let waist = body * 0.45;
+    b.column(base, r, r * 0.9, waist, 6, lower);
+    b.column(base + vec3(0.0, waist, 0.0), r * 0.94, r * 0.8, body - waist, 6, upper);
+    if let Some(c) = o.band {
+        // A band across the chest: a guard's red, an official's or priest's gold.
+        b.column(base + vec3(0.0, waist + (body - waist) * 0.5, 0.0), r * 0.9, r * 0.87, body * 0.07, 6, palette::scale(c, lift));
+    }
+    if let Some(c) = o.shoulders {
+        for s in [-1.0f32, 1.0] {
+            b.block(base + vec3(0.0, body - r * 0.35, 0.0) + side * (s * r * 0.85), r * 0.7, r * 0.8, r * 0.4, face, palette::scale(c, lift));
+        }
+    }
+    if let Some((c, size)) = o.back {
+        // A pack on the back, bigger as it holds more.
+        let back = base + vec3(0.0, waist + (body - waist) * 0.15, 0.0) - fwd * (r * (0.85 + 0.25 * size));
+        b.block(back, r * 0.55 * (0.7 + size * 0.5), r * (1.1 + 0.4 * size), (body - waist) * (0.55 + 0.3 * size), face, palette::scale(c, lift));
+    }
     let head = base + vec3(0.0, body, 0.0) + if crouch { fwd * (r * 0.9) } else { Vec3::ZERO };
     b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::scale(palette::skin(p.race), lift));
+    match o.head {
+        Some((super::dress::Headwear::Cap, c)) => b.block(head + vec3(0.0, h * 0.13, 0.0), r * 1.2, r * 1.2, h * 0.08, face, palette::scale(c, lift)),
+        Some((super::dress::Headwear::Helm, c)) => {
+            // Down over the brow and the back of the head; the face open.
+            b.block(head + vec3(0.0, h * 0.09, 0.0) - fwd * (r * 0.05), r * 1.25, r * 1.25, h * 0.13, face, palette::scale(c, lift));
+            b.block(head + vec3(0.0, h * 0.02, 0.0) - fwd * (r * 0.4), r * 0.5, r * 1.22, h * 0.12, face, palette::scale(c, lift * 0.9));
+        }
+        None => {}
+    }
     if crouch {
         // A hunched back between hips and head.
-        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(coat, 0.85));
+        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(upper, 0.85));
     }
     super::cues::draw(b, gl, w, pid, base, if crouch { h * 0.75 } else { h }, r, face, k.min(2.0));
     // A lit torch, held up beside them.

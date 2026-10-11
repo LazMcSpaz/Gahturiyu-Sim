@@ -6,6 +6,7 @@ pub mod baseui;
 pub mod cam;
 pub mod castfx;
 pub mod cues;
+pub mod dress;
 pub mod editor;
 pub mod effecticons;
 pub mod floaters;

@@ -471,6 +471,12 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   `StandardMaterial` through `ExtendedMaterial`: wind sway weighted by vertex
   colour alpha, and billboard corners in UV_1. Shadows use the standard
   shadow pass, so trees' shadows don't sway.
+- A figure is parts that clothes and armour go on (`view/dress.rs`): lower half,
+  upper half, head (cap or helm), shoulders (only with shoulder pieces, none
+  made yet) and back (a pack). Each part's colour is what's worn in its slot,
+  by its material; with nothing there, work clothes by job (a guard's red, an
+  official's blue, a priest's white) or a seeded dye. Guards, officials and
+  priests wear a chest band. No legs: Laz likes the figures as they are.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
 
@@ -509,7 +515,9 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   mesh only a mask camera sees (`MASK_LAYER`); it draws them into a window-sized
   image, and a full-screen layer on the main camera colours the pixels just
   outside them. Gold round the picked; under the mouse red foe, green ally,
-  blue neutral; foes always faintly red. Lines show through walls. No circle
+  blue neutral; foes always faintly red. Lines show through walls, faint (the
+  mask keeps each shape's depth in alpha; the main camera has a `DepthPrepass`,
+  which foliage stays out of). No circle
   underfoot, only a small arrow the way someone faces (`facing_arrow`).
 - Spells cast outside fights are noted in `World::cast_marks` (not saved) and
   played out by `view/castfx.rs` on the window's clock: a glow at the caster,
