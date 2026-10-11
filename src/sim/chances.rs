@@ -360,6 +360,10 @@ impl World {
             _ => QuestKind::Job { opp: id },
         };
         if o.kind == Chance::Guard {
+            // One paid work at a time: a post or guard work, not both (U-7).
+            if self.society.contracts.iter().any(|c| c.member == who) {
+                return None;
+            }
             let place = o.place?;
             let day = World::day_of(self.time);
             let hours = self.day_plan(o.asker, day).work.unwrap_or((8.0, 18.0));
@@ -813,6 +817,15 @@ impl World {
 
     /// The squad hands in a finished job (on reporting back): the asker
     /// remembers it, the town too.
+    /// What a job's giver has to pay with now (never below nothing).
+    pub(super) fn giver_can_pay(&self, o: &Opportunity) -> f32 {
+        match o.giver {
+            Giver::Ring(town) => self.society.rings.iter().find(|r| r.town == town).map(|r| r.purse).unwrap_or(0.0),
+            _ => self.society.lives.get(o.asker as usize).and_then(|l| l.household).map(|h| self.society.households[h as usize].purse.coin).unwrap_or(0.0),
+        }
+        .max(0.0)
+    }
+
     pub(super) fn finish_opp(&mut self, id: u32, who: PersonId, t: f64) {
         let Some(o) = self.opportunity(id).cloned() else { return };
         if matches!(o.state, OppState::Done | OppState::Failed) {
@@ -824,17 +837,19 @@ impl World {
         if o.legal {
             self.add_standing(who, o.town, JOB_STANDING);
         }
-        // Coin from the giver's purse (a favour owed is a good turn remembered).
+        // Coin from the giver's purse, as far as it goes (a favour owed is a
+        // good turn remembered).
         if !o.favour && o.reward > 0 && !matches!(o.kind, Chance::Guard) {
+            let pay = (o.reward as f32).min(self.giver_can_pay(&o));
             match o.giver {
                 Giver::Ring(town) => {
                     if let Some(r) = self.society.rings.iter_mut().find(|r| r.town == town) {
-                        r.purse -= o.reward as f32;
+                        r.purse -= pay;
                     }
                 }
                 _ => {
                     if let Some(h) = self.society.lives.get(o.asker as usize).and_then(|l| l.household) {
-                        self.society.households[h as usize].purse.coin -= o.reward as f32;
+                        self.society.households[h as usize].purse.coin -= pay;
                     }
                 }
             }
@@ -898,7 +913,28 @@ impl World {
     }
 
     /// At dawn: lapsed opportunities close; jobs past their time fail.
+    /// A job whose giver has died or joined the squad is off: nobody is left
+    /// to report to (U-11).
+    fn orphaned_quests(&mut self, t: f64) {
+        for i in 0..self.quests.len() {
+            let q = &self.quests[i];
+            let g = &self.people[q.giver as usize];
+            if q.stage == Stage::Done || !(g.dead || g.in_squad) {
+                continue;
+            }
+            let (opp, who) = (q.opp, q.giver);
+            self.quests[i].stage = Stage::Done;
+            if let Some(id) = opp {
+                self.fail_opp(id, t);
+            }
+            let line = format!("The job for {} is off: there's nobody to answer to.", self.name_of(who));
+            self.log.push_front((t, line));
+            self.log.truncate(14);
+        }
+    }
+
     pub(super) fn dawn_opps(&mut self, t: f64) {
+        self.orphaned_quests(t);
         for i in 0..self.society.opps.len() {
             let o = &self.society.opps[i];
             // A killing whose target has died is done, whenever it was noticed.

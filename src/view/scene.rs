@@ -351,6 +351,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     workplace(&mut lit, &mut glow, t, w, wp, &on_ground);
                 }
             }
+            // The dock and rope bridges out to the stilts (RG-14): planks at
+            // deck height.
+            for (a, c) in w.walkways(sid) {
+                let v = c.sub(a);
+                let mid = a.lerp(c, 0.5);
+                lit.block(to3(mid, DECK - 0.25), v.len(), gahturiyu_sim::sim::buildings::WALKWAY_HALF * 1.6, 0.25, v.y.atan2(v.x), palette::TIMBER);
+            }
             let tris = lit.triangles() + glow.triangles();
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);

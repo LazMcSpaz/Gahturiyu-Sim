@@ -195,6 +195,12 @@ impl World {
     /// Pay out a finished job to `who`.
     pub(super) fn reward(&mut self, qi: usize, who: PersonId) {
         let (coin, bonus) = (self.quests[qi].coin, self.quests[qi].bonus);
+        // Paid from the giver's purse, as far as it goes (U-10).
+        let coin = match self.quests[qi].opp.and_then(|id| self.opportunity(id)) {
+            Some(o) if !o.favour => coin.min(self.giver_can_pay(o) as u16),
+            _ => coin,
+        };
+        self.quests[qi].coin = coin;
         if let Some(d) = self.people[who as usize].detail.as_mut() {
             d.gear.add(items::id("coin"), coin);
             if let Some(b) = bonus {
@@ -209,9 +215,12 @@ impl World {
         }
         let giver = self.quests[qi].giver;
         *self.regard.entry(giver).or_insert(0.0) += 20.0;
-        // A favour done for a town raises your standing there.
-        if let Some(town) = self.people[giver as usize].home {
-            self.add_standing(who, town, 5.0);
+        // A favour done for a town raises your standing there. (A job from
+        // the board does that in `finish_opp`, and only if lawful: U-9.)
+        if self.quests[qi].opp.is_none() {
+            if let Some(town) = self.people[giver as usize].home {
+                self.add_standing(who, town, 5.0);
+            }
         }
     }
 

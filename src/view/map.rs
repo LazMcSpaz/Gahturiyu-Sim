@@ -68,6 +68,12 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         y += step;
     }
     let road_w = (cam.zoom * 6.0).clamp(1.5, 4.0);
+    // Docks and rope bridges out to the stilt villages (RG-14).
+    for st in w.settlements.iter().filter(|st| st.stilts.is_some()) {
+        for (a, b) in w.walkways(st.id) {
+            c.line(s(a), s(b), (road_w * 0.6).max(1.0), eg(palette::TIMBER));
+        }
+    }
     for road in &w.routes.roads {
         for seg in road.windows(2) {
             c.line(s(seg[0]), s(seg[1]), road_w, eg(palette::ROAD));

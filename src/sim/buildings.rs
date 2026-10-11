@@ -336,6 +336,10 @@ impl World {
     /// than striking out across country, else straight (round buildings and
     /// through doors as usual). Short trips always go straight.
     pub fn travel(&self, a: V2, b: V2) -> (Vec<V2>, Option<DoorId>) {
+        // Out to a stilt village (or back): over its dock and bridges.
+        if let Some(path) = self.over_walkways(a, b) {
+            return (path, None);
+        }
         if a.dist(b) < ROAD_TRIP {
             return self.route(a, b);
         }
@@ -357,7 +361,7 @@ impl World {
     /// Open water the squad can't walk: the sea, less buildings standing in
     /// it and roads along a low shore.
     pub fn open_water(&self, p: V2) -> bool {
-        self.terrain.is_sea(p) && self.building_at(p).is_none() && !self.routes.on_road(p, ROAD_HALF)
+        self.terrain.is_sea(p) && self.building_at(p).is_none() && !self.routes.on_road(p, ROAD_HALF) && !self.on_walkway(p)
     }
 
     /// Walking effort straight across the land; the sea can't be crossed.
@@ -667,3 +671,97 @@ fn seg_dist(a: V2, b: V2, c: V2) -> f32 {
     a.lerp(b, t).dist(c)
 }
 
+
+// ---- Out to the stilts (RG-14) ----------------------------------------------
+
+/// Half the width of a dock or rope bridge out to a stilt village, metres.
+pub const WALKWAY_HALF: f32 = 1.5;
+
+impl World {
+    /// The ways out over the water to a town's stilt village (Laz, 10 Oct): a
+    /// dock from the shore to the village's middle, and a rope bridge from
+    /// there to each platform. Worked out from the town as laid out.
+    pub fn walkways(&self, town: SettlementId) -> Vec<(V2, V2)> {
+        let s = &self.settlements[town as usize];
+        let Some(mid) = s.stilts else { return Vec::new() };
+        let mut out = vec![(self.stilt_shore(mid), mid)];
+        for b in s.buildings.iter().filter(|b| b.kind == BuildingKind::HoraroStilt) {
+            out.push((mid, b.pos));
+        }
+        out
+    }
+
+    /// Where a village's dock meets dry land: east of it (the land lies east
+    /// of the coast), a step past the water's edge.
+    fn stilt_shore(&self, mid: V2) -> V2 {
+        let mut p = mid;
+        for _ in 0..500 {
+            if !self.terrain.is_sea(p) {
+                return p.add(V2::new(2.0, 0.0));
+            }
+            p = p.add(V2::new(2.0, 0.0));
+        }
+        p
+    }
+
+    /// The stilt platform `p` stands on, if any: its middle.
+    fn platform_at(&self, town: SettlementId, p: V2) -> Option<V2> {
+        self.settlements[town as usize].buildings.iter().find(|b| b.kind == BuildingKind::HoraroStilt && b.pos.dist(p) <= b.size * 0.55).map(|b| b.pos)
+    }
+
+    /// The town whose dock, bridges or platforms `p` is on.
+    pub fn walkway_town(&self, p: V2) -> Option<SettlementId> {
+        self.settlements
+            .iter()
+            .filter(|s| s.stilts.is_some_and(|m| m.dist(p) < 1200.0))
+            .find(|s| self.platform_at(s.id, p).is_some() || self.walkways(s.id).iter().any(|&(a, b)| seg_dist(a, b, p) <= WALKWAY_HALF))
+            .map(|s| s.id)
+    }
+
+    /// On a dock, a rope bridge or a stilt platform: dry footing over the sea.
+    pub fn on_walkway(&self, p: V2) -> bool {
+        self.walkway_town(p).is_some()
+    }
+
+    /// A way from `a` to `b` over the walkways, when either end is out on the
+    /// water at a stilt village (else None: the usual ways do).
+    fn over_walkways(&self, a: V2, b: V2) -> Option<Vec<V2>> {
+        let out = |p: V2| self.terrain.is_sea(p).then(|| self.walkway_town(p)).flatten();
+        let (ta, tb) = (out(a), out(b));
+        if ta.is_none() && tb.is_none() {
+            return None;
+        }
+        let mid = |t: SettlementId| self.settlements[t as usize].stilts.unwrap_or(a);
+        let mut path = Vec::new();
+        // From a: to its platform's middle, then the village's middle.
+        if let Some(t) = ta {
+            path.extend(self.platform_at(t, a).filter(|c| c.dist(a) > 0.5));
+            path.push(mid(t));
+        }
+        match (ta, tb) {
+            (Some(x), Some(y)) if x == y => {}
+            (Some(x), _) => {
+                // Ashore, and on by the usual ways.
+                let shore = self.stilt_shore(mid(x));
+                path.push(shore);
+                let to = tb.map(|y| self.stilt_shore(mid(y))).unwrap_or(b);
+                path.extend(self.travel(shore, to).0);
+                if let Some(y) = tb {
+                    path.push(mid(y));
+                }
+            }
+            (None, Some(y)) => {
+                let shore = self.stilt_shore(mid(y));
+                path.extend(self.travel(a, shore).0);
+                path.push(mid(y));
+            }
+            (None, None) => unreachable!(),
+        }
+        // Out to b's platform, and b.
+        if let Some(t) = tb {
+            path.extend(self.platform_at(t, b).filter(|c| c.dist(b) > 0.5));
+        }
+        path.push(b);
+        Some(path)
+    }
+}
