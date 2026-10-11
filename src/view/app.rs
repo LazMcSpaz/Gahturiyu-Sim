@@ -1021,9 +1021,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         let spots = pair.map(|(a, b)| (w.person_pos(a), w.person_pos(b)));
         let snap = game.shot.is_some();
         let cost = |eye: V2, mid: V2| pair.map(|p| super::talkui::sight_cost(w, p, eye, mid)).unwrap_or(0.0);
-        // (Both under one roof: the camera looks down into the room.)
-        let indoors = spots.is_some_and(|(a, b)| w.building_at(a).is_some() && w.building_at(a).map(|d| d.id) == w.building_at(b).map(|d| d.id));
-        super::talkui::aim(&mut game.orbit, &mut game.talk_cam, spots, indoors, &cost, game.follow, dt, snap);
+        super::talkui::aim(&mut game.orbit, &mut game.talk_cam, spots, &cost, game.follow, dt, snap);
     }
     // Keep the camera's pivot on the ground, easing so it doesn't jolt.
     let g = game.world.terrain.surface(game.orbit.target);
