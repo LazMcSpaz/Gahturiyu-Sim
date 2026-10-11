@@ -1136,9 +1136,9 @@ fn note_short(game: &mut Game, who: &[PersonId], p: V2) {
     game.short = None;
     if short {
         game.short = Some((p, who.to_vec(), std::time::Instant::now()));
+        // The lead says so, as a squad remark (`about=water` in squad.txt).
         if let Some(&lead) = who.first() {
-            game.barks.retain(|b| b.0 != lead);
-            game.barks.push((lead, "We can't cross the water.".into(), game.frame + BARK_FRAMES));
+            super::remarks::now(game, lead, "water");
         }
     }
 }
