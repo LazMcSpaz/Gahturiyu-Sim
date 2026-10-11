@@ -34,7 +34,8 @@ const LINES: usize = 18;
 pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (Option<LootAct>, Option<Bx>) {
     let Some((who, src)) = w.squad.members.iter().find_map(|&m| w.source_now(m).map(|s| (m, s))) else { return (None, None) };
     let things = w.contents(src);
-    let chest = matches!(src, Source::Chest(_));
+    // (A base's store is gone through like a chest: things go in as well as out.)
+    let chest = matches!(src, Source::Chest(_) | Source::Store(_));
     let mine: Vec<(usize, gahturiyu_sim::sim::items::ItemId, u16)> = w.people[who as usize].detail.as_ref().map(|d| d.gear.bag.iter().enumerate().map(|(k, e)| (k, e.0, e.1)).collect()).unwrap_or_default();
     let rows = things.len().max(mine.len()).clamp(3, LINES);
     let r = Bx::new(c.w * 0.5 - W * 0.5, 110.0, W, rows as f32 * ROW + 150.0);
@@ -53,6 +54,10 @@ pub fn loot_panel(c: &Canvas, w: &World, mouse: Vec2, click: Option<Click>) -> (
         Source::Chest(id) => match w.container(id) {
             Some(k) => (format!("A {}", k.what.name()), super::interiors::owner_text(w, w.container_owner(id).unwrap_or(k.owner))),
             None => ("A container".into(), String::new()),
+        },
+        Source::Store(b) => match w.base(b) {
+            Some(b) => ("The store".to_string(), format!("{}  ·  {:.0} of {:.0} kg", b.name, b.load(), b.capacity())),
+            None => ("The store".into(), String::new()),
         },
     };
     let mut y = r.y + 30.0;

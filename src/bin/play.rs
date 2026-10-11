@@ -64,8 +64,9 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   build KEY [DIR M] [DEG]   lay a building (a site) DIR M metres from that member, turned DEG degrees
   build wall KEY DIR M [DIR M ..]   lay a wall from that member's spot along the legs given
   base                      the bases: buildings, sites, store, who lives there, what's happened
-  base store | leave NAME | fetch NAME | job NAME JOB | recipe NAME [N] | seal ID | down ID
-                            put materials in the store; leave a member / fetch them (or let a hired hand go);
+  base store | open [NAME] | leave NAME | fetch NAME | job NAME JOB | recipe NAME [N] | seal ID | down ID
+                            put building materials in the store; go through the store (then take N, put N);
+                            leave a member / fetch them (or let a hired hand go);
                             set a resident's job or recipe; seal a roof with pitch; take a building down
   wait M                    let M minutes pass (stops early if a fight starts, someone goes down, or a talk opens)
   fight                     how the squad's fight is going (during a fight, `wait 1` moves it on)
@@ -1697,13 +1698,14 @@ fn loot_view(w: &World, looter: PersonId) -> String {
             let at = w.container(c).map(|c| c.pos).unwrap_or(w.squad.pos);
             format!("{} opens a {} (taking from it is theft: {:.0}% chance of being seen)", first_name(w, looter), w.container(c).map(|c| c.what.name()).unwrap_or("container"), w.catch_chance(looter, at, c.0) * 100.0)
         }
+        Source::Store(b) => format!("{} goes through the store at {}", first_name(w, looter), w.base(b).map(|b| b.name.as_str()).unwrap_or("the base")),
     };
     let _ = writeln!(o, "{title}:");
     for (i, (r, it, n)) in w.contents(src).iter().enumerate() {
         let worn = matches!(r, LootRef::Worn(_));
         let _ = writeln!(o, "  {}. {} × {}{}  (~{:.0} coin each)", i + 1, n, item(*it).name, if worn { " (worn)" } else { "" }, item(*it).value);
     }
-    o += "  (take N, or takeall)\n";
+    o += if matches!(src, Source::Body(_)) { "  (take N, or takeall)\n" } else { "  (take N, takeall, or put N from their pack)\n" };
     o
 }
 
@@ -1872,6 +1874,18 @@ fn base_cmd(w: &mut World, lead: PersonId, a: &[&str]) -> String {
             }
             None => o += "Nobody selected is standing at a base.\n",
         },
+        // Go through the store: `take N`, `takeall` and `put N` then work on it.
+        "open" => match at_base {
+            Some(bid) => {
+                let here: Vec<PersonId> = w.base(bid).map(|b| b.present.clone()).unwrap_or_default();
+                let who = member(w, arg(1)).filter(|m| here.contains(m)).or_else(|| here.contains(&lead).then_some(lead)).or_else(|| here.first().copied());
+                match who {
+                    Some(m) if w.order_store(m, bid) => o += &loot_view(w, m),
+                    _ => o += "Nobody there can see to the store.\n",
+                }
+            }
+            None => o += "Nobody selected is standing at a base.\n",
+        },
         "leave" => match (member(w, arg(1)), at_base) {
             (Some(m), Some(bid)) => match w.leave_at_base(m, bid) {
                 Ok(()) => { let _ = writeln!(o, "{} stays at the base.", first_name(w, m)); }
@@ -1930,7 +1944,7 @@ fn base_cmd(w: &mut World, lead: PersonId, a: &[&str]) -> String {
             }
             _ => o += "Stand at the base and give the building's number from `base`.\n",
         },
-        _ => o += "`base`, or `base store | leave NAME | fetch NAME | job NAME JOB | recipe NAME [N] | seal ID | down ID`.\n",
+        _ => o += "`base`, or `base store | open [NAME] | leave NAME | fetch NAME | job NAME JOB | recipe NAME [N] | seal ID | down ID`.\n",
     }
     o
 }

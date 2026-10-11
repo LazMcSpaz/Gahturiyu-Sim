@@ -375,6 +375,11 @@ pub struct Base {
     /// Who was at the base the last time it was looked at, and which site
     /// each is building (by building id).
     pub present: Vec<PersonId>,
+    /// Those of `present` who are up: nobody builds in their sleep.
+    pub up: Vec<PersonId>,
+    /// The last change of shift handled here (work starts at `WORK_FROM`
+    /// and stops at `WORK_TO`).
+    pub shift_at: f64,
     /// (who, which building, their pace): on a site or mending.
     pub builders: Vec<(PersonId, u32, f32)>,
     /// Squad members left here, and their work.
@@ -397,7 +402,7 @@ pub enum Bad {
     Water,
     Overlaps,
     Road,
-    /// On a town's buildings.
+    /// On a town's buildings, or its fields, market, yards or pens.
     Town,
     /// Outside the base's reach.
     TooFar,
@@ -418,7 +423,7 @@ impl Bad {
             Bad::Water => "in the water",
             Bad::Overlaps => "in the way of another building",
             Bad::Road => "on a road",
-            Bad::Town => "on a town's buildings",
+            Bad::Town => "on a town's ground",
             Bad::TooFar => "too far from the camp marker",
             Bad::NoBase => "lay a camp marker first",
             Bad::NearBase => "too near another camp",
@@ -686,6 +691,20 @@ impl World {
                 return Err(Bad::Town);
             }
         }
+        // A town's working ground: its fields, market and yards, and the
+        // pens of its beasts (U-18).
+        for (k, tl) in self.society.towns.iter().enumerate() {
+            let Some(s) = self.settlements.get(k) else { continue };
+            if s.pos.dist(plan.at) > s.reach + 400.0 {
+                continue;
+            }
+            if tl.places.iter().any(|p| hits(p.pos, p.kind.size() * 0.5)) {
+                return Err(Bad::Town);
+            }
+        }
+        if self.animals.pens.iter().any(|p| p.town.is_some() && hits(p.home, p.radius)) {
+            return Err(Bad::Town);
+        }
         // Other buildings at any base (a gate may sit on its own wall; a
         // tower on the walls it joins).
         for base in &self.bases {
@@ -725,11 +744,13 @@ impl World {
             None => Land::Wilds,
         };
         let name = format!("Outpost {}", id + 1);
-        let mut base = Base { id, name, owner: Owner::Squad, at, founded: self.time, land, buildings: Vec::new(), next_id: 0, store: Vec::new(), present: Vec::new(), builders: Vec::new(), residents: Vec::new(), log: Vec::new(), dawn_done: (self.time / super::world::DAY).floor() as i64, wealth: 0.0, defence: 0.0 };
+        let mut base = Base { id, name, owner: Owner::Squad, at, founded: self.time, land, buildings: Vec::new(), next_id: 0, store: Vec::new(), present: Vec::new(), up: Vec::new(), shift_at: self.time, builders: Vec::new(), residents: Vec::new(), log: Vec::new(), dawn_done: (self.time / super::world::DAY).floor() as i64, wealth: 0.0, defence: 0.0 };
         base.buildings.push(Built { id: 0, def: plan.def as u16, at, rot: 0.0, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: self.time, rate: 0.0, done_at: None, hands: Vec::new() }), placed: self.time, sealed: false });
         base.next_id = 1;
         self.bases.push(base);
-        self.say_base(id, format!("A camp marker is laid: {}.", self.bases.last().unwrap().name));
+        let line = format!("A camp marker is laid: {}.", self.bases.last().unwrap().name);
+        self.base_note(id, self.time, line.clone(), false);
+        self.tell(self.time, line);
         self.base_changed(id);
         Ok(id)
     }
@@ -909,8 +930,12 @@ impl World {
         // Builders: the squad at the base, and residents set to build. Each
         // goes to the first site (in placing order) with its materials that
         // they can build; with none, to mending the worst-kept building.
-        let mut hands: Vec<PersonId> = self.bases[i].present.clone();
-        hands.extend(self.bases[i].residents.iter().filter(|r| r.job == Job::Builder && self.bases[i].arrived(r.who)).map(|r| r.who));
+        // The squad's own build whenever they're up; those who live here
+        // keep the base's hours, and nobody works knocked out.
+        let mut hands: Vec<PersonId> = self.bases[i].up.clone();
+        if work_hours(t) {
+            hands.extend(self.bases[i].residents.iter().filter(|r| r.job == Job::Builder && self.bases[i].arrived(r.who) && self.fit_to_work(r.who, t)).map(|r| r.who));
+        }
         let was_mending: Vec<u32> = self.bases[i].builders.iter().map(|h| h.1).filter(|&id| self.bases[i].building(id).is_some_and(|b| b.standing())).collect();
         let mut builders: Vec<(PersonId, u32, f32)> = Vec::new();
         for &m in &hands {
@@ -1006,6 +1031,8 @@ impl World {
                     }
                 }
             }
+            // Work starts and stops by the clock.
+            offer(next_shift(b.shift_at), b.id, Due::Shift);
             // The day's tally, once there are hands to pay.
             if b.residents.iter().any(|r| r.hire.is_some()) {
                 let dawn = ((b.dawn_done + 1) * 24 + super::society::DAWN) as f64 * HOUR;
@@ -1074,6 +1101,8 @@ impl World {
                 self.base_note(bid, t, format!("{name} arrives at {bname}."), false);
             }
             Due::Dawn => self.base_dawn(i, t),
+            // (What follows re-plans the work for the new hour.)
+            Due::Shift => self.bases[i].shift_at = t,
         }
         self.base_changed_at(bid, t);
         true
@@ -1092,16 +1121,14 @@ impl World {
                 })
                 .map(|k| self.squad.members[k])
                 .collect();
-            if present != self.bases[i].present {
+            let up: Vec<PersonId> = present.iter().copied().filter(|&m| !self.is_asleep(m)).collect();
+            if present != self.bases[i].present || up != self.bases[i].up {
                 self.bases[i].present = present;
+                self.bases[i].up = up;
                 let id = self.bases[i].id;
                 self.base_changed(id);
             }
         }
-    }
-
-    fn say_base(&mut self, bid: BaseId, line: String) {
-        self.base_note(bid, self.time, line, true);
     }
 
     /// A line in the base's own log (and, if `loud`, the journal).
@@ -1113,10 +1140,23 @@ impl World {
                 log.remove(0);
             }
         }
-        if loud {
-            self.log.push_front((t, line));
-            self.log.truncate(14);
+        // The squad hears of it if someone of theirs is there to see it;
+        // otherwise it waits in the base's own log (U-19).
+        if loud && self.base_index(bid).is_some_and(|i| !self.bases[i].present.is_empty()) {
+            self.tell(t, line);
         }
+    }
+
+    /// A line of news.
+    pub(super) fn tell(&mut self, t: f64, line: String) {
+        self.log.push_front((t, line));
+        self.log.truncate(14);
+    }
+
+    /// Up to working: alive and not knocked out at `t`.
+    pub(super) fn fit_to_work(&self, who: PersonId, t: f64) -> bool {
+        let p = &self.people[who as usize];
+        !p.dead && !super::body::knocked_out(&p.wounds.hp_at(&p.stats, t))
     }
 }
 
@@ -1131,6 +1171,25 @@ enum Due {
     Arrives(PersonId),
     /// The day's tally.
     Dawn,
+    /// Work starts for the day, or stops for the night.
+    Shift,
+}
+
+/// Those who live at a base work from this hour to this one; a round begun
+/// in time is seen through.
+pub const WORK_FROM: f64 = 6.0;
+pub const WORK_TO: f64 = 20.0;
+
+/// Is `t` within a base's working day?
+pub fn work_hours(t: f64) -> bool {
+    let h = t.rem_euclid(super::world::DAY) / HOUR;
+    (WORK_FROM..WORK_TO).contains(&h)
+}
+
+/// The first start or end of a working day after `t`.
+pub fn next_shift(t: f64) -> f64 {
+    let day = (t / super::world::DAY).floor();
+    [WORK_FROM, WORK_TO, WORK_FROM + 24.0].into_iter().map(|h| day * super::world::DAY + h * HOUR).find(|&x| x > t + 1e-6).unwrap_or(t + super::world::DAY)
 }
 
 /// How much of a builder's hours become practice in the skill.

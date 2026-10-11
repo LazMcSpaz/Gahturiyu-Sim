@@ -355,7 +355,17 @@ impl Shot {
             }
         }
         if let Some(what) = self.build.clone() {
-            demo_base(world, what == "base");
+            demo_base(world, what == "base" || what == "store");
+            // `store`: whoever is there goes through the base's store.
+            if what == "store" {
+                if let Some(b) = world.bases.first() {
+                    let (bid, at) = (b.id, b.at);
+                    world.teleport_squad(at.add(V2::new(0.0, -2.0)));
+                    world.step(1.0);
+                    let lead = world.squad.members[0];
+                    world.order_store(lead, bid);
+                }
+            }
         }
         if let Some(h) = self.hours {
             let end = world.time + h * 3600.0;

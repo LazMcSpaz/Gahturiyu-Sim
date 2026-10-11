@@ -308,7 +308,8 @@ conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
 put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,
-hires a hauler from town and opens the Base tab a day later).
+hires a hauler from town and opens the Base tab a day later; `GAHT_BUILD=store` does the same
+and has the first member go through the base's store).
 `GAHT_WEATHER=1` (the weather panel; in play it's F7 with the detail switch L on; `folded` for its headline, `off` for none),
 `GAHT_WEATHER_HOURS=h`, `GAHT_PRESET=clear|overcast|drizzle|seafog|downpour|gale|thunderstorm|snow`
 with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `GAHT_FLASH=1`
