@@ -14,8 +14,10 @@ pub struct Builder {
     nrm: Vec<[f32; 3]>,
     col: Vec<[f32; 4]>,
     idx: Vec<u32>,
-    /// Flames noted on this builder (`flame.rs` draws them each frame).
+    /// Flames noted on this builder (`flame.rs` draws them each frame), and
+    /// wisps of smoke (chimneys, a smouldering stack).
     flames: Vec<super::flame::Spot>,
+    smoke: Vec<super::flame::Spot>,
 }
 
 impl Builder {
@@ -204,8 +206,20 @@ impl Builder {
         std::mem::take(&mut self.flames)
     }
 
+    /// A faint wisp of smoke rising from here (a chimney's top): `r` across
+    /// at its root. Drawn each frame, like flames.
+    pub fn smoke(&mut self, base: Vec3, r: f32) {
+        let seed = (base.x * 5.13 + base.z * 2.71).to_bits().wrapping_mul(2246822519);
+        self.smoke.push(super::flame::Spot { base, width: r * 2.0, height: r * 4.0, seed });
+    }
+
+    pub fn take_smoke(&mut self) -> Vec<super::flame::Spot> {
+        std::mem::take(&mut self.smoke)
+    }
+
     pub fn append(&mut self, o: Builder) {
         self.flames.extend(o.flames);
+        self.smoke.extend(o.smoke);
         let base = self.pos.len() as u32;
         self.pos.extend(o.pos);
         self.nrm.extend(o.nrm);

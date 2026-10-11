@@ -149,3 +149,39 @@ pub fn draw(b: &mut Builder, spots: &[Spot], eye: Vec3, now: f32, reach: f32) {
         }
     }
 }
+
+/// Faint wisps of smoke (chimneys, a smouldering stack): three soft grey
+/// puffs, each rising from the root, spreading and thinning to nothing a
+/// metre or two up, one after another. Drawn into a see-through builder.
+pub fn draw_smoke(b: &mut Builder, spots: &[Spot], eye: Vec3, now: f32, reach: f32) {
+    const PUFFS: u32 = 3;
+    const RISE_SECS: f32 = 3.2;
+    for s in spots {
+        let to_eye = eye - s.base;
+        if to_eye.length() > reach {
+            continue;
+        }
+        let face = to_eye.normalize_or(Vec3::Y);
+        let side = vec3(-face.z, 0.0, face.x).normalize_or(Vec3::X);
+        let up = face.cross(side).normalize_or(Vec3::Y);
+        for i in 0..PUFFS {
+            let f = (now / RISE_SECS + i as f32 / PUFFS as f32 + (s.seed % 100) as f32 * 0.01).fract();
+            let drift = wobble(now, 0.7, s.seed + i * 31) * 0.3 + 0.25;
+            let c = s.base + Vec3::Y * (s.height * f) + side * (s.width * drift * f);
+            let r = s.width * (0.35 + 0.9 * f);
+            // In quickly, then thinning away as it rises.
+            let a = 0.2 * (f * 6.0).min(1.0) * (1.0 - f);
+            let grey = 0.62 - 0.12 * f;
+            let mid = [grey, grey, grey * 1.02, a];
+            let rim = [grey, grey, grey, 0.0];
+            let n = 10;
+            for k in 0..n {
+                let a0 = k as f32 / n as f32 * std::f32::consts::TAU;
+                let a1 = (k + 1) as f32 / n as f32 * std::f32::consts::TAU;
+                let p0 = c + (side * a0.cos() + up * a0.sin()) * r;
+                let p1 = c + (side * a1.cos() + up * a1.sin()) * r;
+                b.quad_lin([c, p0, p1, c], [face; 4], [mid, rim, rim, mid]);
+            }
+        }
+    }
+}

@@ -297,11 +297,11 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     // What the place is for, seen from outside.
     match v.key {
         "roduro_forge" => {
-            // A chimney stack through the dome, glowing at the top, and the
-            // forge's mouth glowing through the wall beside it.
+            // A chimney stack through the dome, a wisp of smoke at its top,
+            // and the forge's mouth glowing through the wall beside it.
             let c = f.at(0.1, -0.62, 0.0);
             b.column(c, 0.62, 0.46, top + 1.4, 8, palette::scale(palette::STONE, 0.8));
-            gl.flame(c + Vec3::Y * (top + 1.4), 0.4, 0.35);
+            gl.smoke(c + Vec3::Y * (top + 1.4), 0.35);
             let mn = f.normal_at(0.15, -0.99, true);
             gl.patch(f.at(0.15, -0.99, sink + 0.9) + vec3(mn.cos(), 0.0, mn.sin()) * 0.08, 0.9, 0.6, mn, palette::EMBER);
             // Charcoal heaped outside.
@@ -454,10 +454,10 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     }
     match v.key {
         "qotiro_workyard" => {
-            // A chimney stack at the back, smoking hot, and a kiln in the yard.
+            // A chimney stack at the back, smoking, and a kiln in the yard.
             let c = f.at(-0.75, 0.7, 0.0);
             b.block(c, 1.1, 1.1, roof + 2.8, f.rot, palette::scale(col, 0.85));
-            gl.flame(c + Vec3::Y * (roof + 2.8), 0.45, 0.35);
+            gl.smoke(c + Vec3::Y * (roof + 2.8), 0.4);
             let k = f.at(0.4, 1.0, sink) + f.side() * 2.2;
             b.column(k, 1.3, 0.45, 2.1, 12, BRICK);
             gl.patch(k + f.fwd() * 1.12 + Vec3::Y * 0.5, 0.6, 0.5, f.rot, palette::EMBER);
