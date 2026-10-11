@@ -335,7 +335,7 @@ impl World {
             Chance::Deliver { to } => format!("take a letter to {}", name(Some(to))),
             k => k.name().into(),
         };
-        format!("{what} — {pay}{}", if o.legal { "" } else { " (unlawful)" })
+        format!("{what}, for {pay}{}", if o.legal { "" } else { " (unlawful)" })
     }
 
     // ---- Taking them ---------------------------------------------------------

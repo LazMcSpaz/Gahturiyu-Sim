@@ -469,7 +469,7 @@ impl World {
 
     /// Group every community into households by its custom (lodgers live
     /// with whoever's home they sleep in).
-    pub(super) fn form_all_households(&mut self) {
+    pub fn form_all_households(&mut self) {
         // What each person's share of their old household's purse was comes
         // with them into the new one (debts too, owed now to the hall).
         // (What other households owe them counts as theirs: those loans are
@@ -508,6 +508,10 @@ impl World {
             }
         }
         let had = !self.society.households.is_empty();
+        // Who was in each old household, to say which new one it became
+        // (U-14): whatever names a household by its old number is told the
+        // new one its first member now lives in.
+        let old_members: Vec<Vec<PersonId>> = self.society.households.iter().map(|h| h.members.iter().copied().collect()).collect();
         self.society.households.clear();
         for l in &mut self.society.lives {
             l.household = None;
@@ -542,6 +546,7 @@ impl World {
                     None => {}
                 }
             }
+            self.renumber_households(&old_members);
             // Anything that named a household by its old number is let go.
             for r in &mut self.society.rings {
                 r.paying.clear();
@@ -551,6 +556,41 @@ impl World {
         }
         // Containers name their household by number: renumbered, so look again.
         self.refresh_container_owners();
+    }
+
+    /// After households are formed again: what named a household by its
+    /// old number names the household its people now live in (U-14):
+    /// memories of a household, jobs a household is giving, and where a
+    /// hired hand goes home to. (A household nobody is left in is gone:
+    /// a memory of it is of nobody in particular, its jobs are called off.)
+    fn renumber_households(&mut self, old_members: &[Vec<PersonId>]) {
+        let lives = &self.society.lives;
+        let new_of = |old: u32| -> Option<u32> { old_members.get(old as usize)?.iter().find_map(|&m| lives.get(m as usize).and_then(|l| l.household)) };
+        let map: Vec<Option<u32>> = (0..old_members.len() as u32).map(new_of).collect();
+        let to = |old: u32| map.get(old as usize).copied().flatten();
+        use super::memory::Who;
+        for mind in &mut self.society.minds {
+            for m in mind.memories.iter_mut() {
+                if let Who::Household(h) = m.about {
+                    m.about = to(h).map(Who::Household).unwrap_or(Who::Someone);
+                }
+            }
+        }
+        for o in &mut self.society.opps {
+            if let super::chances::Giver::Household(h) = o.giver {
+                match to(h) {
+                    Some(n) => o.giver = super::chances::Giver::Household(n),
+                    None => o.open = false,
+                }
+            }
+        }
+        for b in &mut self.bases {
+            for r in &mut b.residents {
+                if let Some(hire) = r.hire.as_mut() {
+                    hire.household = hire.household.and_then(to);
+                }
+            }
+        }
     }
 
     /// Where a community's labourers work.

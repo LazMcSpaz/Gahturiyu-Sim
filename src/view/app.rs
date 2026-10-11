@@ -103,6 +103,14 @@ pub struct Game {
     pub trade_last: Option<(std::time::Instant, bool, items::ItemId)>,
     /// Space was pressed at the table (Deal).
     pub space_deal: bool,
+    /// Space with a loot box open: Take all.
+    pub space_take: bool,
+    /// The loot box shows the pack, to put things in (a chest).
+    pub loot_put: bool,
+    /// The pack screen's own memory (sort, scroll, a drag, its menu).
+    pub pack: super::packui::PackState,
+    /// The left button is down this frame.
+    pub left_held: bool,
     /// The talk screen (`talkui.rs`): what's been asked in this talk; their
     /// parting words, held a moment after it; a number key just pressed;
     /// and where the camera was before it came in close.
@@ -262,6 +270,10 @@ pub fn run() {
         trade_quoted: None,
         trade_last: None,
         space_deal: false,
+        space_take: false,
+        loot_put: false,
+        pack: Default::default(),
+        left_held: false,
         talking: None,
         parting: None,
         talk_key: None,
@@ -606,6 +618,9 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     if keys.just_pressed(KeyCode::Space) {
         if game.trading.is_some() {
             game.space_deal = true;
+        } else if super::lootui::open_loot(w).is_some() {
+            // (Going through something, Space is Take all.)
+            game.space_take = true;
         } else {
             game.paused = !game.paused;
         }
@@ -837,6 +852,10 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     // The wheel at the trade table runs the list under the mouse (the pack
     // on the left, the stall on the right); in a talk, the replies.
+    // The wheel over the pack scrolls the column under the mouse.
+    if on_panels && scroll.delta.y != 0.0 && game.inv.is_some() {
+        game.pack.wheel += scroll.delta.y.signum() * 3.0;
+    }
     if scroll.delta.y != 0.0 {
         if let Some(t) = game.trading.as_mut() {
             let k = if mouse.x < window.width() / 2.0 { 0 } else { 1 };
@@ -848,6 +867,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     // Clicks on the panels are handled when they're drawn; a short click
     // anywhere else is an order.
     game.ui_click = None;
+    game.left_held = buttons.pressed(MouseButton::Left);
     if buttons.just_pressed(MouseButton::Left) {
         game.press_at = Some(mouse);
     }
@@ -1116,9 +1136,9 @@ fn note_short(game: &mut Game, who: &[PersonId], p: V2) {
     game.short = None;
     if short {
         game.short = Some((p, who.to_vec(), std::time::Instant::now()));
+        // The lead says so, as a squad remark (`about=water` in squad.txt).
         if let Some(&lead) = who.first() {
-            game.barks.retain(|b| b.0 != lead);
-            game.barks.push((lead, "We can't cross the water.".into(), game.frame + BARK_FRAMES));
+            super::remarks::now(game, lead, "water");
         }
     }
 }
@@ -1616,13 +1636,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
     }
     let mut item_tip = None;
-    if let Some(pid) = game.inv {
+    if let Some(pid) = game.inv.filter(|&p| w.squad.index(p).is_some()) {
         let at = game.slides.begin(&c);
-        let (a, h, bx) = squadui::inventory(&c, w, pid, game.mouse, click);
+        let (a, bx) = super::packui::pack(&c, w, &mut game.pack, pid, game.mouse, game.left_held, click);
         game.slides.end(&c, "pack", at);
         actions.extend(a);
-        item_tip = h;
-        panels.extend(bx);
+        panels.push(bx);
     }
     // Making: at a bench (or with a mortar in the pack) it's the bench's own
     // screen; anywhere else, what that member knows how to make and where.
@@ -1690,10 +1709,13 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             },
         }
     }
+    let mut journal_act = None;
     if game.journal {
         let at = game.slides.begin(&c);
-        panels.push(squadui::journal(&c, w));
+        let (a, bx) = super::journalui::journal(&c, w, click);
         game.slides.end(&c, "journal", at);
+        journal_act = a;
+        panels.push(bx);
     }
     let mut build_act = None;
     if game.build {
@@ -1728,8 +1750,23 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         panels.push(bx);
     }
     panels.extend(super::hints::show(&c, &mut game.hints, w, click));
+    // The loot box stands beside the body or chest on screen.
+    let loot_at = super::lootui::open_loot(w).and_then(|(_, src)| {
+        let p = super::lootui::loot_spot(w, src);
+        match game.view {
+            View::Scene => {
+                let g = scene.grid.height(&w.terrain, p);
+                game.orbit.project(&game.orbit.view_proj(size), size, to3(p, g + 0.8))
+            }
+            View::Map => Some(game.map_cam.to_screen(game.screen, p)),
+        }
+    });
+    if super::lootui::open_loot(w).is_none() {
+        game.loot_put = false;
+    }
+    let take_key = std::mem::take(&mut game.space_take);
     let at = game.slides.begin(&c);
-    let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, game.mouse, click);
+    let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, loot_at, game.loot_put, take_key, click);
     game.slides.end(&c, "loot", at);
     panels.extend(loot_box);
     match loot_act {
@@ -1745,6 +1782,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             w.put_in(m, k);
         }
         Some(super::lootui::LootAct::Close(m)) => w.stop_looting(m),
+        Some(super::lootui::LootAct::Tab(put)) => {
+            game.loot_put = put;
+            game.sounds.ui("ui_press");
+        }
         None => {}
     }
     // A merchant's wares out: the trade table takes the talk's place.
@@ -1895,6 +1936,22 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 None => {}
             }
         }
+    }
+    match journal_act {
+        Some(super::journalui::JournalAct::Close) => game.journal = false,
+        // A job clicked: the view goes to where it points.
+        Some(super::journalui::JournalAct::Look(p)) => {
+            game.follow = false;
+            match game.view {
+                View::Scene => {
+                    game.orbit.target = p;
+                    game.orbit.ground = w.terrain.surface(p);
+                }
+                View::Map => game.map_cam.centre = p,
+            }
+            game.sounds.ui("ui_press");
+        }
+        None => {}
     }
     match build_act {
         Some(super::baseui::BuildAction::Pick(def)) => {

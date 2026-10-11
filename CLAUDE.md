@@ -454,6 +454,14 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   `game.slides.begin(&c)` and `game.slides.end(&c, "name", at)`: its shapes are moved and
   faded after it has drawn, so panels themselves know nothing of it; a new panel needs
   those two lines round its call. Clicks are tested where the panel comes to rest.
+- Three screens of the squad's own (`view/journalui.rs`, `lootui.rs`, `packui.rs`, drawing
+  only): the journal is a ledger (what's owed, in red: bounties and bonds; town work; jobs, a click
+  on one takes the view to where it points); going through a body or chest is a small box beside
+  it on screen (owner in red when it's theft, with the odds; Take all, or Space; a chest's Put in
+  tab); the pack is the whole squad side by side, a column each (worn things by the body figure,
+  the pack sortable, a weight bar), drag a thing onto another column to give it, double-click to
+  wear or use, right-click for the rest, and hovering something wearable says what it would
+  replace (better green, worse red). `GAHT_INV=k` opens the pack on member k's column.
 - Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
   healing, "?"/"!" as suspicion builds, a skill rising) come from comparing
   the world with what the window saw last frame — drawing only. Left-drag

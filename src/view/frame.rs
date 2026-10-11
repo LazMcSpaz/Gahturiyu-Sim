@@ -479,7 +479,7 @@ fn part_col(hp: f32, max: f32, lost: bool) -> Color32 {
     a(col, 1.0)
 }
 
-fn figure(c: &Canvas, w: &World, pid: PersonId, x: f32, y: f32) {
+pub fn figure(c: &Canvas, w: &World, pid: PersonId, x: f32, y: f32) {
     let p = &w.people[pid as usize];
     let (hp, missing) = match w.fighter(pid) {
         Some(f) => (f.hp, f.missing),

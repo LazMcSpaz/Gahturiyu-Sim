@@ -12,11 +12,9 @@ use gahturiyu_sim::sim::{
     condition::Shelter,
     crafting::{success_chance, Cannot, RECIPES},
     materials::{Craft, Grade, CRAFTS},
-    inventory,
-    items::{self, item, ItemId, Kind, Slot, SLOTS},
+    items::{self, item, ItemId, Kind, Slot},
     magic::{Aim, Place, Spell, Style},
     person::PersonId,
-    quests::Stage,
     stats::Skill,
     World,
 };
@@ -109,14 +107,7 @@ pub struct Click {
     pub shift: bool,
 }
 
-const INV_W: f32 = 400.0;
 const ROW: f32 = 21.0;
-
-fn inv_rect(c: &Canvas, w: &World, pid: PersonId) -> Bx {
-    let bag = w.people[pid as usize].detail.as_ref().map(|d| d.gear.bag.len()).unwrap_or(0);
-    let h = 70.0 + (SLOTS.len() as f32 + 1.0) * ROW + (bag.max(1) as f32 + 1.0) * ROW + 40.0;
-    Bx::new(c.w - INV_W - 12.0, 12.0, INV_W, h.min(c.h - 130.0))
-}
 
 pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     let p = &w.people[pid as usize];
@@ -360,109 +351,6 @@ pub fn spell_lines(s: Spell) -> Vec<(String, Rgb)> {
     out
 }
 
-/// One person's gear: worn on the left of each row, the pack below.
-/// Returns what was clicked, the item under the mouse, and the panel's box.
-pub fn inventory(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option<Click>) -> (Option<Action>, Option<ItemId>, Option<Bx>) {
-    let p = &w.people[pid as usize];
-    let Some(d) = p.detail.as_ref() else { return (None, None, None) };
-    let r = inv_rect(c, w, pid);
-    c.frame_box(r.x, r.y, r.w, r.h);
-    c.rect(r.x, r.y, r.w, 4.0, eg(race_color(p.race)));
-    let mut act = None;
-    let mut hovered = None;
-    let clicked = |rect: Bx| click.filter(|k| rect.contains(k.at));
-
-    let x = r.x + 14.0;
-    let mut y = r.y + 26.0;
-    c.text(&format!("{}  ·  pack and gear", p.name().unwrap_or("?")), x, y, 17.0, race_color(p.race));
-    let close = Bx::new(r.x + r.w - 26.0, r.y + 8.0, 18.0, 18.0);
-    c.text("×", close.x + 3.0, close.y + 15.0, 18.0, if close.contains(mouse) { GOLD } else { DIM });
-    if clicked(close).is_some() {
-        act = Some(Action::CloseInventory);
-    }
-    y += 22.0;
-    let gear = &d.gear;
-    let load = gear.load(&p.stats);
-    let speed = inventory::encumbrance_factor(load);
-    let line = format!("Carrying {:.1} of {:.0} kg{}", gear.weight(), gear.capacity(&p.stats), if load > 1.0 { format!("  ·  overloaded, {:.0}% speed", speed * 100.0) } else { String::new() });
-    c.text(&line, x, y, 14.0, if load > 1.0 { WARN } else { DIM });
-    let locked = w.fighter(pid).is_some();
-    y += 10.0;
-
-    let row = |y: f32| Bx::new(r.x + 6.0, y - 15.0, r.w - 12.0, ROW);
-    y += ROW;
-    c.text("Worn", x, y, 15.0, TEXT);
-    for s in SLOTS {
-        y += ROW;
-        let rr = row(y);
-        let it = gear.in_slot(s);
-        if rr.contains(mouse) && it.is_some() {
-            c.rect(rr.x, rr.y, rr.w, rr.h, ega(GOLD, 0.12));
-            hovered = it;
-        }
-        c.text(s.name(), x + 8.0, y, 14.0, DIM);
-        let mut name = it.map(|i| item(i).name.to_string()).unwrap_or("—".into());
-        if let (Some(i), Some(pc)) = (it, gear.piece(s)) {
-            name += &wear_word(w, i, pc);
-        }
-        if it.map(|i| matches!(item(i).kind, Kind::Torch(_))).unwrap_or(false) {
-            if let Some(h) = w.torch_hours_left(pid) {
-                name = format!("{name} ({}, {:.1} h)", if w.torch_lit(pid) { "lit" } else { "out" }, h);
-            }
-        }
-        c.text(&name, x + 110.0, y, 14.0, if it.is_some() { TEXT } else { DIM });
-        if let Some(i) = it {
-            let kg = format!("{:.1} kg", item(i).weight);
-            c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
-            if let Some(ck) = clicked(rr).filter(|_| !locked) {
-                act = Some(if ck.right { Action::Care(pid, s) } else { Action::Unequip(pid, s) });
-            }
-        }
-    }
-    y += ROW + 4.0;
-    c.text("Pack", x, y, 15.0, TEXT);
-    if gear.bag.is_empty() {
-        y += ROW;
-        c.text("empty", x + 8.0, y, 14.0, DIM);
-    }
-    // Shift-click hands a thing to the nearest squadmate.
-    let here = w.person_pos(pid);
-    let mate = w.squad.members.iter().copied().filter(|&m| m != pid).min_by(|&a, &b| w.person_pos(a).dist(here).total_cmp(&w.person_pos(b).dist(here)));
-    for (k, e) in gear.bag.iter().enumerate() {
-        let (i, n) = (e.0, e.1);
-        y += ROW;
-        if y > r.y + r.h - 34.0 {
-            c.text("…", x + 8.0, y, 14.0, DIM);
-            break;
-        }
-        let rr = row(y);
-        if rr.contains(mouse) {
-            c.rect(rr.x, rr.y, rr.w, rr.h, ega(GOLD, 0.12));
-            hovered = Some(i);
-        }
-        let worn = e.2.map(|pc| wear_word(w, i, &pc)).unwrap_or_default();
-        let label = if n > 1 { format!("{}  ×{n}", item(i).name) } else { format!("{}{worn}", item(i).name) };
-        c.text(&label, x + 8.0, y, 14.0, TEXT);
-        let kg = format!("{:.1} kg", item(i).weight * n as f32);
-        c.text(&kg, r.x + r.w - c.width(&kg, 13.0) - 14.0, y, 13.0, DIM);
-        if let Some(ck) = clicked(rr) {
-            if ck.shift && !ck.right && !locked && mate.is_some() {
-                act = Some(Action::GiveEntry(pid, k, mate.unwrap()));
-            } else if ck.right {
-                act = Some(Action::DropEntry(pid, k));
-            } else if !locked && items::equippable(i) {
-                act = Some(Action::EquipEntry(pid, k));
-            } else if !locked && matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_)) {
-                act = Some(Action::Use(pid, i));
-            }
-        }
-    }
-    let give = mate.map(|m| format!("  ·  Shift-click: give to {}", w.people[m as usize].name().unwrap_or("?"))).unwrap_or_default();
-    let hint = if locked { "In a fight: gear can't be changed until it's over.".to_string() } else { format!("Click: take off / put on / use  ·  Right-click: drop, or seal/mend what's worn{give}") };
-    c.text(&hint, x, r.y + r.h - 12.0, 13.0, if locked { WARN } else { DIM });
-    (act, hovered, Some(r))
-}
-
 /// "  (63%)": how worn a made piece is, if it is.
 pub fn wear_word(w: &World, id: ItemId, pc: &gahturiyu_sim::sim::materials::Piece) -> String {
     let most = items::max_durability(id);
@@ -641,43 +529,4 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
     }
     c.text("Click a recipe to make it. Stone grows only if you're by its bed each dawn.", x, r.y + r.h - 12.0, 13.0, DIM);
     (act, hovered, r)
-}
-
-fn journal_rect(c: &Canvas, w: &World) -> Bx {
-    let n = (w.quests.len() + w.work_lines().len() + w.wanted_lines().len()).max(1) as f32;
-    let up = super::frame::BOTTOM_CLEAR - 30.0;
-    let wide = if w.work_lines().is_empty() { 620.0 } else { 900.0f32.min(c.w - 24.0) };
-    Bx::new(12.0, c.h - 30.0 - up - 30.0 - (60.0 + n * 22.0), wide, 50.0 + n * 22.0)
-}
-
-/// Jobs taken on, and what each needs next.
-pub fn journal(c: &Canvas, w: &World) -> Bx {
-    let r = journal_rect(c, w);
-    c.frame_box(r.x, r.y, r.w, r.h);
-    c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
-    c.text("Journal", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
-    let work = w.work_lines();
-    // Where the squad is wanted comes first (NM-28).
-    let wanted = w.wanted_lines();
-    if w.quests.is_empty() && work.is_empty() && wanted.is_empty() {
-        c.text("No jobs yet. Ask people if they have any work.", r.x + 14.0, r.y + 48.0, 14.0, DIM);
-        return r;
-    }
-    for (i, l) in wanted.iter().enumerate() {
-        c.text(l, r.x + 14.0, r.y + 48.0 + i as f32 * 22.0, 14.0, WARN);
-    }
-    let top = r.y + 48.0 + wanted.len() as f32 * 22.0;
-    // Then town work (who, where, the wage), then jobs.
-    for (i, l) in work.iter().enumerate() {
-        c.text(l, r.x + 14.0, top + i as f32 * 22.0, 13.0, GOLD);
-    }
-    for (i, q) in w.quests.iter().enumerate() {
-        let col = match q.stage {
-            Stage::Done => DIM,
-            Stage::Report => GOLD,
-            _ => TEXT,
-        };
-        c.text(&w.quest_line(q), r.x + 14.0, top + (i + work.len()) as f32 * 22.0, 14.0, col);
-    }
-    r
 }

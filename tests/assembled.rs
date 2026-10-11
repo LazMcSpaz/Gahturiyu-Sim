@@ -202,7 +202,7 @@ fn thanks_for_telling_the_watch_come_from_the_wronged_and_say_you() {
 #[test]
 fn every_kind_of_squad_remark_has_a_line() {
     let w = worldgen::generate(1);
-    for about in ["camp", "ruin", "lair", "robbers", "new_town", "hungry", "starving", "tired", "heavy", "dark", "locked", "blocked", "order", "after_fight", "won", "robbed"] {
+    for about in ["camp", "ruin", "lair", "robbers", "new_town", "hungry", "starving", "tired", "heavy", "dark", "locked", "blocked", "water", "order", "after_fight", "won", "robbed"] {
         for &m in &w.squad.members {
             let line = w.squad_remark(m, about, &[("town", "Woodhaven".to_string())], 1);
             assert!(line.as_deref().is_some_and(|l| !l.is_empty() && !l.contains('{')), "{about}: {line:?}");
