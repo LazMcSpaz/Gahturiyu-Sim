@@ -113,16 +113,16 @@ pub enum Topic {
 impl Topic {
     pub fn label(self) -> &'static str {
         match self {
-            Topic::Background => "Background",
-            Topic::ThisTown => "This town",
-            Topic::Advice => "A little advice",
-            Topic::Rumours => "Latest rumours",
-            Topic::Bandits => "Bandits",
+            Topic::Background => "Tell me about yourself.",
+            Topic::ThisTown => "What's this town like?",
+            Topic::Advice => "Any advice for a traveller?",
+            Topic::Rumours => "Heard anything lately?",
+            Topic::Bandits => "Any trouble with bandits?",
             Topic::Work => "Any work?",
             Topic::Accept => "I'll do it.",
             Topic::Report(_) => "About that job...",
-            Topic::Letter(_) => "A letter for you",
-            Topic::PayBounty => "Pay my bounty",
+            Topic::Letter(_) => "A letter for you.",
+            Topic::PayBounty => "I'll pay what I owe.",
             Topic::Lessons => "Could you teach me?",
             Topic::Learn(_) => "Teach me",
             Topic::Trade => "What have you got?",
@@ -153,7 +153,7 @@ impl Topic {
             Topic::SellRest => "What else would you take?",
             Topic::BuyRest => "What else have you got?",
             Topic::Say(o) => o.label(),
-            Topic::Goodbye => "Goodbye",
+            Topic::Goodbye => "That's all.",
         }
     }
 
@@ -569,16 +569,56 @@ impl World {
         t
     }
 
-    /// Ask about something; their answer goes into the conversation.
-    pub fn ask(&mut self, topic: Topic) {
-        let Some(c) = self.talk.clone() else { return };
+    /// What can't be asked just now, each with the plain reason: the window
+    /// shows these dim among the replies, so it's clear they could be asked
+    /// another time. Only what the squad could see or would know: whether
+    /// someone is at their work, and whether the town knows them.
+    pub fn locked_topics(&self) -> Vec<(Topic, String)> {
+        let Some(c) = &self.talk else { return vec![] };
+        if c.refused || self.people[c.npc as usize].in_squad || self.regard_of(c.npc, c.with) < super::talk::DISTRUST {
+            return vec![];
+        }
+        use super::jobs::Job;
+        let job = self.life(c.npc).job;
+        let (they, their) = match super::names::gender(self.people[c.npc as usize].seed) {
+            crate::names::Gender::Female => ("She", "her"),
+            crate::names::Gender::Male => ("He", "his"),
+            crate::names::Gender::Either => ("They", "their"),
+        };
+        let is = if they == "They" { "aren't" } else { "isn't" };
+        let mut out = Vec::new();
+        if !self.at_work(c.npc, self.time) {
+            match job {
+                Job::Merchant => out.push((Topic::Trade, format!("{they} {is} at {their} stall."))),
+                Job::Healer => out.push((Topic::Treat(0), format!("{they} {is} at {their} work."))),
+                Job::Innkeeper => out.push((Topic::RentBeds(0), format!("{they} {is} at the inn."))),
+                Job::Exchanger => out.push((Topic::ToNote, format!("{they} {is} at {their} desk."))),
+                Job::Official | Job::Arbiter => out.push((Topic::Board, format!("{they} {is} at the hall."))),
+                _ => {}
+            }
+        } else if matches!(job, Job::Official | Job::Arbiter) {
+            // A post in the town's running: the town has to know you first.
+            if let Some(town) = self.people[c.npc as usize].home {
+                if self.standing(c.with, town) < super::law::COUNCIL {
+                    out.push((Topic::TakePost(super::law::Post::Speaker), "The town doesn't know you well enough.".into()));
+                }
+            }
+        }
+        out
+    }
+
+    /// Ask about something; their answer goes into the conversation, and
+    /// is handed back (a goodbye ends the talk, so their parting words are
+    /// nowhere else).
+    pub fn ask(&mut self, topic: Topic) -> Option<String> {
+        let c = self.talk.clone()?;
         if topic == Topic::Goodbye {
             let bye = self.farewell(c.npc, c.with);
             self.note_said(c.npc, c.with, &bye.pieces);
             self.push_talk(false, topic.label().to_string());
-            self.push_talk(true, bye.text);
+            self.push_talk(true, bye.text.clone());
             self.talk = None;
-            return;
+            return Some(bye.text);
         }
         if let Topic::Say(opt) = topic {
             self.push_talk(false, opt.label().to_string());
@@ -589,8 +629,8 @@ impl World {
                     t.at += 1;
                 }
             }
-            self.push_talk(true, answer);
-            return;
+            self.push_talk(true, answer.clone());
+            return Some(answer);
         }
         self.push_talk(false, self.topic_text(topic));
         if topic == Topic::Lessons {
@@ -621,7 +661,8 @@ impl World {
             }
         }
         let answer = self.answer(&c, topic);
-        self.push_talk(true, answer);
+        self.push_talk(true, answer.clone());
+        Some(answer)
     }
 
     /// A reply from one of the asked-about line files. Steady: the same
@@ -973,8 +1014,13 @@ impl World {
             Topic::Buy(it, price) => {
                 if self.buy_at(c.npc, it, price) {
                     format!("{price} coin. There you are.")
+                } else if self.squad_count(items::id("coin")) < price {
+                    // (RG-2: the one reason that's true.)
+                    "You haven't the coin for that.".into()
+                } else if let Some(&(_, _, now)) = self.for_sale(c.npc).iter().find(|x| x.0 == it) {
+                    format!("It's {now} coin now.")
                 } else {
-                    "You haven't the coin for that — or I've none left.".into()
+                    "I've none left.".into()
                 }
             }
             Topic::Sell(it, price) => {

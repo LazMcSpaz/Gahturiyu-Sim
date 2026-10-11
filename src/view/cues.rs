@@ -33,6 +33,13 @@ pub const ARC_SHARE: f64 = 0.5;
 /// Which way someone faces, radians (sim convention): at their target in a
 /// fight, along their way if walking, else as they happen to stand.
 pub fn facing(w: &World, pid: PersonId, at: V2) -> f32 {
+    // Talking: the two face each other.
+    if let Some(c) = w.talk.as_ref().filter(|c| c.with == pid || c.npc == pid) {
+        let d = w.person_pos(if c.with == pid { c.npc } else { c.with }).sub(at);
+        if d.len() > 0.05 {
+            return d.y.atan2(d.x);
+        }
+    }
     if let Some((b, f)) = fight(w, pid) {
         let t = match f.act {
             Act::Swing { target, .. } => Some(target),

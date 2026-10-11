@@ -463,3 +463,69 @@ fn one_of_a_thing_is_sold_from_the_pack_it_was_clicked_in() {
     w.stop_trading();
     assert!(w.talk.as_ref().is_some_and(|c| !c.trading));
 }
+
+/// RG-2: a purchase that can't go through gives the one reason that's true,
+/// not "you haven't the coin, or I've none left".
+#[test]
+fn rg2_a_purchase_that_fails_gives_the_one_true_reason() {
+    let coin = items::id("coin");
+    let mut w = worldgen::generate(1);
+    until_hour(&mut w, 11.0);
+    let merchant = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).filter(|&p| w.life(p).job == Job::Merchant && w.at_work(p, w.time)).max_by_key(|&p| w.for_sale(p).len()).expect("a merchant at work");
+    let me = open_wares(&mut w, merchant);
+    let (it, _, price) = w.for_sale(merchant)[0];
+    // Not a coin among those standing there.
+    for m in w.squad.members.clone() {
+        while w.people[m as usize].detail.as_mut().unwrap().gear.take(coin) {}
+    }
+    assert_eq!(w.squad_count(coin), 0);
+    assert_eq!(w.ask(Topic::Buy(it, price)).as_deref(), Some("You haven't the coin for that."));
+    // Coin enough, but the price has moved since it was named.
+    give(&mut w, me, coin, 2000);
+    assert_eq!(w.ask(Topic::Buy(it, price + 1)), Some(format!("It's {price} coin now.")));
+    // Coin enough, and nothing of the kind on the stall.
+    let gone = (0..ITEMS.len() as ItemId).find(|&k| k != coin && !w.for_sale(merchant).iter().any(|x| x.0 == k)).expect("something they don't sell");
+    assert_eq!(w.ask(Topic::Buy(gone, 1)).as_deref(), Some("I've none left."));
+    // And one that goes through still does.
+    assert_eq!(w.ask(Topic::Buy(it, price)), Some(format!("{price} coin. There you are.")));
+}
+
+/// UI-Talk: what can't be asked just now is still listed, with the plain
+/// reason: a merchant away from the stall can't show their wares.
+#[test]
+fn what_cant_be_asked_now_is_listed_with_why() {
+    let mut w = worldgen::generate(1);
+    until_hour(&mut w, 11.0);
+    let merchant = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).find(|&p| w.life(p).job == Job::Merchant && w.at_work(p, w.time)).expect("a merchant at work");
+    open_wares(&mut w, merchant);
+    assert!(w.is_trading(merchant));
+    assert!(w.locked_topics().iter().all(|(t, _)| *t != Topic::Trade), "at the stall nothing is locked: {:?}", w.locked_topics());
+    w.end_talk();
+    // Later, off work but still up.
+    for _ in 0..96 {
+        if !w.at_work(merchant, w.time) && !w.is_indoors_asleep(merchant) {
+            break;
+        }
+        w.step(HOUR / 4.0);
+    }
+    assert!(!w.at_work(merchant, w.time) && !w.is_indoors_asleep(merchant), "the merchant is off work and up");
+    let me = w.squad.members[0];
+    let at = w.person_pos(merchant);
+    for k in 0..w.squad.members.len() {
+        w.squad.at[k] = at;
+        w.squad.goal[k] = at;
+        w.squad.route[k].clear();
+    }
+    w.squad.pos = at;
+    assert!(w.order_talk(me, merchant));
+    for _ in 0..40 {
+        if w.talk.is_some() {
+            break;
+        }
+        w.step(0.25);
+    }
+    assert!(w.talk.is_some(), "the talk opened");
+    assert!(!w.topics().contains(&Topic::Trade), "no wares away from the stall");
+    let locked = w.locked_topics();
+    assert!(locked.iter().any(|(t, why)| *t == Topic::Trade && why.contains("stall")), "it's listed, with why: {locked:?}");
+}

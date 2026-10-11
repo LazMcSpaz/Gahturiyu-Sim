@@ -547,6 +547,13 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   75% (`economy::BUY_MARKUP`, `SELL_SHARE`; `headless trade` counts the
   routes that pay). The squad doesn't run caravans of its own. Being hired
   to guard a caravan is wanted but not built (after the freeze).
+- Talk is close up (`view/talkui.rs`, mockup 1; Laz's R4): the replies are
+  `World::topics`, plus `World::locked_topics` (what can't be asked just
+  now, with the plain reason), and a click or number key comes back as the
+  topic to ask. `World::ask` hands back what they said, so parting words
+  can be held on screen after a goodbye has ended the talk. The camera's
+  move in (`talkui::aim`) is drawing only: it sets the orbit after the
+  follow step and puts it back after. No regard number anywhere.
 - Trade is across a table (`view/tradeui.rs`, mockup 2): the window keeps
   what's laid on it (`economy::Table`) and shows `World::deal_quote`, which
   works the table through on a copy of the world exactly as `deal_table`
