@@ -294,6 +294,8 @@ cross at the spot, the lead says so). `GAHT_PLATE=1` (show the name plate under 
 instead of the long tooltip).
 `GAHT_MARK=1` (the three marks a click leaves, walk, attack and can't, held part-way closed
 beside the squad).
+`GAHT_SLIDE=t` (hold every open panel part-way in, 0 to 1: `0.5` is half faded and 6 px low;
+screenshots otherwise show panels arrived).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
@@ -444,6 +446,11 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   nobody picked out), and their order lines; a nod from those sent, and now and then a word
   (`about=order` in `data/lines/squad.txt`); the 3D camera glides (`feel::Glide`) after the
   squad and to the distance it's sent, and zooming tilts it. Screenshots snap.
+- Panels slide up 12 px and fade in over 0.18 s when they open, and fade out over 0.12 s
+  when they close (`view/slide.rs`, drawing only). A panel is whatever `ui` draws between
+  `game.slides.begin(&c)` and `game.slides.end(&c, "name", at)`: its shapes are moved and
+  faded after it has drawn, so panels themselves know nothing of it; a new panel needs
+  those two lines round its call. Clicks are tested where the panel comes to rest.
 - Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
   healing, "?"/"!" as suspicion builds, a skill rising) come from comparing
   the world with what the window saw last frame — drawing only. Left-drag

@@ -113,6 +113,8 @@ pub struct Game {
     /// The small answers to a click (`feel.rs`): marks on the ground, nods,
     /// the rings' breath; and where the camera is gliding to.
     pub feel: super::feel::Feel,
+    /// Panels arriving and going (`slide.rs`).
+    pub slides: super::slide::Slides,
     pub glide: Option<super::feel::Glide>,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
@@ -265,6 +267,7 @@ pub fn run() {
         talk_key: None,
         talk_cam: None,
         feel: Default::default(),
+        slides: Default::default(),
         glide: None,
         loads: 0,
         notice: None,
@@ -395,6 +398,9 @@ pub fn run() {
             game.follow = false;
             game.orbit.target = p;
             game.orbit.ground = game.world.terrain.surface(p);
+        }
+        if let Some(t) = std::env::var("GAHT_SLIDE").ok().and_then(|v| v.parse().ok()) {
+            game.slides.hold(t);
         }
         if std::env::var("GAHT_MARK").is_ok() {
             let at = game.world.squad.pos;
@@ -1354,6 +1360,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     let size = game.screen;
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("canvas")));
     let c = Canvas { p: painter, w: size.x, h: size.y };
+    game.slides.tick(if game.shot.is_some() { 1.0 / 30.0 } else { ctx.input(|i| i.stable_dt).min(0.1) }, game.shot.is_some());
     let mut pick = Picker { mouse: game.mouse, best: None };
     let mut panels: Vec<Bx> = Vec::new();
 
@@ -1518,7 +1525,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         panels.extend(boxes);
     }
     if game.keys {
+        let at = game.slides.begin(&c);
         panels.push(super::frame::keys_panel(&c, game.view == View::Map));
+        game.slides.end(&c, "keys", at);
     }
     for fa in [list_act, bottom_act].into_iter().flatten() {
         // (A pick in the squad list sounds as the selection changes.)
@@ -1600,7 +1609,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     let mut item_tip = None;
     if let Some(pid) = game.inv {
+        let at = game.slides.begin(&c);
         let (a, h, bx) = squadui::inventory(&c, w, pid, game.mouse, click);
+        game.slides.end(&c, "pack", at);
         actions.extend(a);
         item_tip = h;
         panels.extend(bx);
@@ -1617,7 +1628,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             } else {
                 game.making = Some(super::makeui::Making::at(bench));
             }
+            let at = game.slides.begin(&c);
             let (a, bx, scroll) = super::makeui::making(&c, w, game.making.as_ref().unwrap(), game.mouse, click);
+            game.slides.end(&c, "making", at);
             game.making.as_mut().unwrap().scroll = scroll;
             make_act = a;
             panels.push(bx);
@@ -1625,7 +1638,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         None => {
             game.making = None;
             if let Some(pid) = game.craft {
+                let at = game.slides.begin(&c);
                 let (a, h, bx) = squadui::crafting(&c, w, pid, game.mouse, click);
+                game.slides.end(&c, "craft", at);
                 actions.extend(a);
                 item_tip = item_tip.or(h);
                 panels.push(bx);
@@ -1668,7 +1683,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
     }
     if game.journal {
+        let at = game.slides.begin(&c);
         panels.push(squadui::journal(&c, w));
+        game.slides.end(&c, "journal", at);
     }
     let mut build_act = None;
     if game.build {
@@ -1676,13 +1693,17 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             View::Scene => game.orbit.target,
             View::Map => game.map_cam.centre,
         };
+        let at = game.slides.begin(&c);
         let (a, bx) = super::baseui::build_panel(&c, w, here, game.placing.as_ref().map(|p| p.def), game.base_tab, game.mouse, click);
+        game.slides.end(&c, "build", at);
         build_act = a;
         panels.push(bx);
     }
     if let Some(t) = game.town {
+        let at = game.slides.begin(&c);
         panels.push(super::townui::town_panel(&c, w, t));
         panels.push(super::townui::life_panel(&c, w, t, game.debug || game.town_all));
+        game.slides.end(&c, "town", at);
     }
     if game.book.map(|p| w.squad.index(p).is_none()).unwrap_or(false) {
         game.book = None;
@@ -1690,14 +1711,18 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     let mut spell_tip = None;
     let mut book_left = game.mouse.x;
     if let Some(pid) = game.book {
+        let at = game.slides.begin(&c);
         let (a, h, bx) = squadui::spell_book(&c, w, pid, game.mouse, click);
+        game.slides.end(&c, "spells", at);
         actions.extend(a);
         spell_tip = h;
         book_left = bx.x;
         panels.push(bx);
     }
     panels.extend(super::hints::show(&c, &mut game.hints, w, click));
+    let at = game.slides.begin(&c);
     let (loot_act, loot_box) = super::lootui::loot_panel(&c, w, game.mouse, click);
+    game.slides.end(&c, "loot", at);
     panels.extend(loot_box);
     match loot_act {
         Some(super::lootui::LootAct::Take(m, src, what)) => {
@@ -1726,7 +1751,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             st.quote = Some(w.deal_quote(npc, &st.table));
             game.trade_quoted = Some(now);
         }
+        let at = game.slides.begin(&c);
         let (a, bx, scrolls) = super::tradeui::trade(&c, w, st, game.mouse, click);
+        game.slides.end(&c, "trade", at);
         st.scroll = scrolls;
         panels.push(bx);
         let twice = |last: &Option<(std::time::Instant, bool, items::ItemId)>, giving: bool, it: items::ItemId| last.is_some_and(|l| l.1 == giving && l.2 == it && now.duration_since(l.0).as_secs_f32() < 0.35);
@@ -1833,7 +1860,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             use super::talkui::TalkAct;
             use gahturiyu_sim::sim::dialogue::Topic;
             let st = game.talking.clone().unwrap_or_default();
+            let at = game.slides.begin(&c);
             let (a, bx, scroll) = super::talkui::talk(&c, w, &st, game.parting.as_ref(), game.mouse, click, key);
+            game.slides.end(&c, "talk", at);
             if let Some(t) = game.talking.as_mut() {
                 t.scroll = scroll;
             }
@@ -1995,13 +2024,17 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     if game.options {
         let mut s = settings.clone();
+        let at = game.slides.begin(&c);
         panels.push(super::settings::panel(&c, &mut s, game.mouse, click, game.frame_ms));
+        game.slides.end(&c, "settings", at);
         if s != *settings {
             *settings = s;
             game.sounds.ui("ui_press");
         }
     }
+    let at = game.slides.begin(&c);
     panels.extend(super::weather::panel(&c, game, &mut weather, click));
+    game.slides.end(&c, "weather", at);
 
     // (Screenshots: `GAHT_MENU=1` right-clicks at the fake mouse.)
     if game.shot.is_some() && game.frame == 20 && std::env::var("GAHT_MENU").is_ok() {
@@ -2012,7 +2045,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if let Some(m) = game.menu {
         let who = game.sel.who(&game.world);
         let all = game.sel.is_all(&game.world);
+        let at = game.slides.begin(&c);
         let (picked, bx) = super::interact::draw_menu(&c, &game.world, &m, &who, game.mouse, click);
+        game.slides.end(&c, "menu", at);
         panels.push(bx);
         if let Some(act) = picked {
             use super::interact::Act;
@@ -2068,6 +2103,9 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         }
         panels.push(r);
     }
+
+    // Panels just closed fade where they were (under the tooltips).
+    game.slides.finish(&c);
 
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
