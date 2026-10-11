@@ -403,3 +403,36 @@ fn n1_life_stories_differ_within_a_people() {
         }
     }
 }
+
+/// The words pass on talk: townsfolk don't speak in figures about others.
+/// A camp is a walk away, a band's size is hearsay, a town's head-count is
+/// rough (only a Ṭaḍoro with a tally gives the number of their own town).
+#[test]
+fn nobody_says_how_many_km_or_counts_heads() {
+    use gahturiyu_sim::sim::race::Race;
+    use gahturiyu_sim::sim::talk;
+    for p in talk::pieces() {
+        assert!(!p.text.contains("{km}") && !p.text.contains(" km"), "{}", p.text);
+    }
+    assert_eq!(talk::walk_words(300.0), "a few minutes' walk");
+    assert_eq!(talk::walk_words(2600.0), "half an hour's walk");
+    assert_eq!(talk::walk_words(6000.0), "an hour's walk");
+    assert_eq!(talk::band_words(4), "three or four");
+    assert_eq!(talk::band_words(6), "half a dozen");
+    assert_eq!(talk::folk_words(243), "a couple of hundred");
+    let mut w = worldgen::generate(1);
+    let (mut heard, mut camps) = (0, 0);
+    for npc in locals(&w).into_iter().step_by(9).take(14) {
+        talk_to(&mut w, npc);
+        let tally = w.people[npc as usize].race == Race::Tadoro;
+        for t in [Topic::Bandits, Topic::ThisTown] {
+            let Some(said) = w.ask(t) else { continue };
+            heard += 1;
+            camps += (t == Topic::Bandits && said.contains("walk")) as usize;
+            assert!((tally && t == Topic::ThisTown) || !said.chars().any(|c| c.is_ascii_digit()), "{t:?}: {said}");
+        }
+        w.ask(Topic::Goodbye);
+    }
+    assert!(heard >= 20, "only {heard} answers");
+    eprintln!("{heard} answers, {camps} of a camp a walk away");
+}

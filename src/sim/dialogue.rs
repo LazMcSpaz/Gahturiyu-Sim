@@ -758,7 +758,10 @@ impl World {
                 let mut values: Vec<(&'static str, String)> = vec![
                     ("town", said),
                     ("founders", t.founders.name().to_string()),
-                    ("count", t.residents.len().to_string()),
+                    // (In words, as one of them would say it; the exact count is
+                    // for the one voice that keeps a tally.)
+                    ("count", super::talk::folk_words(t.residents.len()).to_string()),
+                    ("exact", t.residents.len().to_string()),
                     ("most", most.to_string()),
                 ];
                 if let Some(cm) = self.community_of(c.npc) {
@@ -805,7 +808,7 @@ impl World {
                 }
                 if let Some((d, dir, _)) = self.nearest_camp(p.home) {
                     tags.push("camp_near".into());
-                    values.push(("km", format!("{:.1}", d / 1000.0)));
+                    values.push(("walk", super::talk::walk_words(d).to_string()));
                     values.push(("dir", dir.to_string()));
                 }
                 if let Some(h) = p.home {
@@ -823,7 +826,7 @@ impl World {
                 self.spoken(c, "rumours", &["line"], &pick.into_iter().collect::<Vec<_>>(), &values)
             }
             Topic::Bandits => match self.nearest_camp(p.home) {
-                Some((d, dir, n)) if d < 6000.0 => self.spoken(c, "bandits", &["line"], &["camp_near".into()], &[("count", n.to_string()), ("km", format!("{:.1}", d / 1000.0)), ("dir", dir.to_string())]),
+                Some((d, dir, n)) if d < 6000.0 => self.spoken(c, "bandits", &["line"], &["camp_near".into()], &[("count", super::talk::band_words(n).to_string()), ("walk", super::talk::walk_words(d).to_string()), ("dir", dir.to_string())]),
                 _ => self.spoken(c, "bandits", &["line"], &["no_camp".into()], &[]),
             },
             Topic::Work => match self.quest_offer(c.npc) {
@@ -842,8 +845,8 @@ impl World {
                         QuestKind::ClearCamp { at, .. } => {
                             let v = at.sub(town.map(|t| t.pos).unwrap_or(at));
                             format!(
-                                "Those bandits {:.1} km {} of here have had my cousin twice. Break that camp and {}{extra}.",
-                                v.len() / 1000.0,
+                                "Those bandits {} {} of here have had my cousin twice. Break that camp and {}{extra}.",
+                                super::talk::walk_words(v.len()),
                                 compass(v),
                                 if paid { format!("I'll pay {coin} coin") } else { "I'll owe you".to_string() }
                             )

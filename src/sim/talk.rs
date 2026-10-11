@@ -240,7 +240,7 @@ impl Facts {
                 rest = &rest[a + b + 1..];
                 continue;
             }
-            out.push_str(self.slots.get(key).map(|s| s.as_str()).unwrap_or(if matches!(key, "item" | "when" | "workplace" | "place" | "why" | "offer" | "span" | "count" | "pay" | "days" | "reward" | "debt" | "job" | "deed" | "there" | "far" | "dir") { "" } else { "someone" }));
+            out.push_str(self.slots.get(key).map(|s| s.as_str()).unwrap_or(if matches!(key, "item" | "when" | "workplace" | "place" | "why" | "offer" | "span" | "count" | "pay" | "days" | "reward" | "debt" | "job" | "deed" | "there" | "far" | "dir" | "walk" | "exact") { "" } else { "someone" }));
             rest = &rest[a + b + 1..];
         }
         out.push_str(rest);
@@ -250,10 +250,13 @@ impl Facts {
 }
 
 /// Roughly how long a walk a distance is, as someone would say it.
-fn walk_words(metres: f32) -> &'static str {
+pub fn walk_words(metres: f32) -> &'static str {
     // An unhurried traveller's pace, and about ten hours on the road a day.
     let hours = metres / (super::squad::SQUAD_SPEED * 3600.0);
     match hours {
+        h if h < 0.12 => "a few minutes' walk",
+        h if h < 0.38 => "a quarter hour's walk",
+        h if h < 0.75 => "half an hour's walk",
         h if h < 1.5 => "an hour's walk",
         h if h < 4.0 => "a few hours' walk",
         h if h < 7.0 => "half a day's walk",
@@ -261,6 +264,31 @@ fn walk_words(metres: f32) -> &'static str {
         h if h < 25.0 => "two days' walk",
         h if h < 35.0 => "three days' walk",
         _ => "many days' walk",
+    }
+}
+
+/// How many are in a band, as someone who has only heard of it would say
+/// (nobody outside it has counted): "three or four", "half a dozen".
+pub fn band_words(n: usize) -> &'static str {
+    match n {
+        0..=2 => "one or two",
+        3..=4 => "three or four",
+        5..=7 => "half a dozen",
+        8..=11 => "ten or so",
+        _ => "a dozen or more",
+    }
+}
+
+/// How many live in a town, as one of them would say it: "a couple of
+/// hundred".
+pub fn folk_words(n: usize) -> &'static str {
+    match n {
+        0..=59 => "a few dozen",
+        60..=149 => "a hundred or so",
+        150..=249 => "a couple of hundred",
+        250..=349 => "three hundred or so",
+        350..=499 => "four hundred or so",
+        _ => "hundreds",
     }
 }
 
