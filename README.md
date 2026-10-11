@@ -148,7 +148,7 @@ the roads again if you changed the land's shape or ground.
 - **Food**: hunger climbs with the clock — faster on the move, under a heavy
   load or when wounded, slower asleep. Members eat from their own pack when
   hungry. Go without and they heal slower, then weaken, then waste until they
-  collapse (it never kills). Food is found in homes; berries and mussels can be
+  collapse, and a day or two after that, if nobody feeds them, they die. Food is found in homes; berries and mussels can be
   gathered.
 - **Stamina and sleep**: stamina drains on the march (more uphill and loaded)
   and comes back standing still; a fight starts with what's left. Tiredness
