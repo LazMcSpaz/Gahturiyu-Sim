@@ -275,7 +275,7 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
         // A stone lantern by the door.
         let lp = f.at(dx, dy, 0.0) + f.fwd() * 1.6 + f.side() * 1.4;
         b.column(lp + Vec3::Y * sink, 0.18, 0.14, 1.5, 6, palette::STONE);
-        gl.column(lp + Vec3::Y * (sink + 1.5), 0.16, 0.10, 0.3, 6, palette::WINDOW);
+        gl.flame(lp + Vec3::Y * (sink + 1.5), 0.16, 0.3);
     }
     // The door, dark in the wall, and a warm window on the free side.
     let door = f.at(dx, dy, sink + 1.0) + vec3(f.normal_at(dx, dy, true).cos(), 0.0, f.normal_at(dx, dy, true).sin()) * 0.06;
@@ -301,7 +301,7 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
             // forge's mouth glowing through the wall beside it.
             let c = f.at(0.1, -0.62, 0.0);
             b.column(c, 0.62, 0.46, top + 1.4, 8, palette::scale(palette::STONE, 0.8));
-            gl.column(c + Vec3::Y * (top + 1.4), 0.4, 0.2, 0.35, 8, palette::EMBER);
+            gl.flame(c + Vec3::Y * (top + 1.4), 0.4, 0.35);
             let mn = f.normal_at(0.15, -0.99, true);
             gl.patch(f.at(0.15, -0.99, sink + 0.9) + vec3(mn.cos(), 0.0, mn.sin()) * 0.08, 0.9, 0.6, mn, palette::EMBER);
             // Charcoal heaped outside.
@@ -457,7 +457,7 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
             // A chimney stack at the back, smoking hot, and a kiln in the yard.
             let c = f.at(-0.75, 0.7, 0.0);
             b.block(c, 1.1, 1.1, roof + 2.8, f.rot, palette::scale(col, 0.85));
-            gl.column(c + Vec3::Y * (roof + 2.8), 0.45, 0.2, 0.35, 6, palette::EMBER);
+            gl.flame(c + Vec3::Y * (roof + 2.8), 0.45, 0.35);
             let k = f.at(0.4, 1.0, sink) + f.side() * 2.2;
             b.column(k, 1.3, 0.45, 2.1, 12, BRICK);
             gl.patch(k + f.fwd() * 1.12 + Vec3::Y * 0.5, 0.6, 0.5, f.rot, palette::EMBER);
@@ -795,7 +795,7 @@ fn tadoro_corner(b: &mut Builder, gl: &mut Builder, f: &Frame, c: &layout::Corne
     for (dx, dz, h) in [(0.0f32, 0.0f32, 0.16f32), (0.07, 0.05, 0.11), (-0.05, 0.06, 0.08)] {
         let at = candle + vec3(dx, 0.0, dz);
         b.column(at + Vec3::Y * 0.03, 0.03, 0.03, h, 6, LINEN);
-        gl.column(at + Vec3::Y * (0.04 + h), 0.025, 0.0, 0.07, 5, palette::WINDOW);
+        gl.flame(at + Vec3::Y * (0.04 + h), 0.025, 0.07);
     }
     // A leather satchel, its strap looped up.
     let sat = to3(c.satchel.c, y0);
@@ -932,7 +932,7 @@ fn furniture(b: &mut Builder, gl: &mut Builder, what: Furn, base: Vec3, rot: f32
             }
             b.stick(q.p(-0.3, -0.1, 0.1), q.p(0.3, 0.1, 0.1), 0.1, WOOD_DARK);
             b.stick(q.p(-0.1, 0.3, 0.1), q.p(0.1, -0.3, 0.1), 0.1, WOOD_DARK);
-            gl.column(q.p(0.0, 0.0, 0.0), w * 0.28, w * 0.08, 0.32, 6, palette::EMBER);
+            gl.flame(q.p(0.0, 0.0, 0.0), w * 0.28, 0.32);
         }
         Furn::Workbench => {
             q.bx(b, 0.0, 0.0, h - 0.1, w, d, 0.1, WOOD_LIGHT);
@@ -1009,7 +1009,7 @@ fn furniture(b: &mut Builder, gl: &mut Builder, what: Furn, base: Vec3, rot: f32
             q.bx(b, 0.0, 0.0, 0.0, w * 0.88, d * 0.82, h * 0.85, [0.55, 0.54, 0.52]);
             q.bx(b, 0.0, 0.0, h * 0.85, w, d, h * 0.15, palette::METAL_GOLD);
             for s in [-1.0f32, 1.0] {
-                gl.column(q.p(0.0, s * w * 0.38, h), 0.05, 0.05, 0.18, 5, palette::WINDOW);
+                gl.flame(q.p(0.0, s * w * 0.38, h), 0.05, 0.18);
             }
             let q2 = std::f32::consts::FRAC_PI_2;
             b.stick(q.p(0.0, d * 0.25, h), q.p(0.0, d * 0.25, h + 0.3), 0.05, palette::METAL_GOLD);

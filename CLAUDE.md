@@ -433,9 +433,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   vertex colours). Materials don't cull or flip facings (`cull_mode: None`,
   `double_sided: false`): our meshes aren't consistently wound, so the facing
   we give each vertex is what's lit.
-- Three materials in `scene::Mats`: `lit` (sun, moon, fires), `glow` (unlit;
-  brightened at night so windows and flames bloom), `flat` (unlit ground
-  markings: rings, order lines).
+- Four materials in `scene::Mats`: `lit` (sun, moon, fires), `glow` (unlit;
+  brightened at night so windows bloom), `flat` (unlit ground markings: rings,
+  order lines), `fire` (unlit, adds its light: flames).
+- Flames (`view/flame.rs`): anything that burns calls `Builder::flame(root,
+  radius, height)` instead of drawing a cone; the spot is kept (in a town's
+  cache too) and every spot near the camera is drawn each frame as tongues
+  turned to the camera, white-gold to orange to nothing, swaying and
+  flickering on the window's clock, with sparks and a warm patch underneath;
+  a big fire is a row of tongues over a broad body.
 - Three lifetimes: the ground and roads are rebuilt only when the camera
   moves a coarse cell or zooms; each town near the camera is its own entity,
   rebuilt only when someone goes in or out of a building; everything that

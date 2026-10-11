@@ -286,7 +286,7 @@ pub fn draw(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, grou
                         b.block(to3(p, ground(p) - 0.05), 0.4, 0.35, 0.3 * lift + 0.05, a, RUBBLE);
                     }
                     if bl.standing() {
-                        gl.column(to3(bl.at, g), 0.6, 0.1, 0.5, 6, palette::EMBER);
+                        gl.flame(to3(bl.at, g), 0.6, 0.5);
                     }
                 }
                 Kind::Field | Kind::Pen => {

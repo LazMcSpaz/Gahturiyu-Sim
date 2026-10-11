@@ -71,6 +71,8 @@ pub struct Mats {
     pub lit: Handle<StandardMaterial>,
     pub glow: Handle<StandardMaterial>,
     pub flat: Handle<StandardMaterial>,
+    /// Flames (`flame.rs`): unlit, adding their light to what's behind.
+    pub fire: Handle<StandardMaterial>,
 }
 
 #[derive(Component)]
@@ -83,7 +85,7 @@ pub struct Scene3d {
     ground_key: Option<(i64, i64, u32, u32)>,
     ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
     pub grid: Grid,
-    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
+    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
     /// Triangles in our own meshes (for the readout): what moves, the
     /// ground and roads, and the towns.
@@ -116,6 +118,8 @@ struct Town {
     /// people and things inside stand on it without asking the sim each frame.
     doors: Vec<Option<Door>>,
     floors: Vec<f32>,
+    /// Its flames (drawn each frame, `flame.rs`).
+    flames: Vec<super::flame::Spot>,
 }
 
 /// Where the ground mesh's vertices are, so things laid on the ground can
@@ -170,7 +174,8 @@ pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMateri
     let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
     let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
     let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
-    commands.insert_resource(Mats { lit, glow, flat });
+    let fire = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Add, ..default() });
+    commands.insert_resource(Mats { lit, glow, flat, fire });
 }
 
 fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<StandardMaterial>, b: Builder, marker: impl Bundle) -> (Entity, Handle<Mesh>) {
@@ -380,11 +385,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 lit.block(to3(mid, DECK - 0.25), v.len(), gahturiyu_sim::sim::buildings::WALKWAY_HALF * 1.6, 0.25, v.y.atan2(v.x), palette::TIMBER);
             }
             let tris = lit.triangles() + glow.triangles();
+            let mut flames = lit.take_flames();
+            flames.extend(glow.take_flames());
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
             let doors: Vec<Option<Door>> = (0..s.buildings.len() as u16).map(|i| door_of(s, i)).collect();
             let floors = doors.iter().map(|d| d.map(|d| super::interiors::floor_height(&d, &on_ground).0).unwrap_or(f32::MIN)).collect();
-            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors });
+            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors, flames });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
@@ -565,7 +572,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 if w.group_torch_lit(g, w.time) {
                     let f = torch_flame(w, g.members[0], k, &stand);
                     b.stick(f - vec3(0.0, 0.55 * k, 0.0), f, 0.06 * k, palette::TIMBER);
-                    gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
+                    gl.flame(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.32 * k.min(3.0));
                 }
             }
             2 => {
@@ -580,7 +587,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 }
                 game.picks.push((to3(g.pos, on_ground(g.pos) + 2.0 * k), 2.0, Hover::Group(g.id)));
                 if w.group_torch_lit(g, w.time) {
-                    gl.column(to3(g.pos, on_ground(g.pos) + 2.2 * k), 0.25 * k, 0.02, 0.6 * k, 6, palette::EMBER);
+                    gl.flame(to3(g.pos, on_ground(g.pos) + 2.2 * k), 0.25 * k, 0.6 * k);
                 }
             }
             _ => {
@@ -631,7 +638,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let kk = k.min(4.0);
         let fire = to3(c.pos, on_ground(c.pos));
         if w.fire_lit(solid::Id::CampFire(c.group), w.time) {
-            gl.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, palette::EMBER);
+            gl.flame(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.7 * kk);
         } else {
             b.column(fire - vec3(0.0, 0.1, 0.0), 1.0 * kk, 0.9 * kk, 0.2 * kk, 6, palette::ASH);
         }
@@ -695,7 +702,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         let base = to3(st.pos, stand(st.pos));
         b.column(base, 0.07, 0.05, 1.8, 5, palette::TIMBER);
-        gl.column(base + vec3(0.0, 1.8, 0.0), 0.16, 0.02, 0.45, 6, palette::EMBER);
+        gl.flame(base + vec3(0.0, 1.8, 0.0), 0.16, 0.45);
     }
     // Workshops round the hearths, and things to gather.
     for (i, &(p, st)) in w.stations.iter().enumerate() {
@@ -707,7 +714,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         match st {
             Station::Forge => {
                 b.block(base, 2.0, 1.6, 1.0, a, palette::STONE);
-                gl.column(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3, 0.3, 6, palette::EMBER);
+                gl.flame(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3);
                 b.column(base + vec3(0.8, 0.0, 0.8), 0.25, 0.25, 0.8, 5, [0.25, 0.25, 0.27]);
             }
             Station::Bench => {
@@ -874,7 +881,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for &m in &w.squad.members {
         if w.torch_lit(m) && w.fighter(m).map(|f| !f.ko).unwrap_or(true) {
             let f = torch_flame(w, m, k, &stand);
-            gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
+            gl.flame(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.32 * k.min(3.0));
         }
     }
 
@@ -991,10 +998,20 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     super::castfx::draw(&game.castfx, w, &mut gl, &mut fl, &on_ground, k, now, &|b: &mut Builder, c: V2, r: f32, wd: f32, col: Rgb| draped_ring(b, &on_ground, c, r, wd, 28, col, eye));
     super::animals::draw(w, &mut b, &mut gl, &on_ground, oc.target, radius, k, eye);
     super::baseui::draw(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, game.placing.as_ref());
-    tris += b.triangles() + gl.triangles() + fl.triangles();
+    // Every flame near the camera, the towns' and the moving world's, drawn
+    // afresh so each flickers (`flame.rs`).
+    let mut spots = b.take_flames();
+    spots.extend(gl.take_flames());
+    spots.extend(fl.take_flames());
+    for town in scene.towns.values() {
+        spots.extend(town.flames.iter().copied());
+    }
+    let mut fire = Builder::new();
+    super::flame::draw(&mut fire, &spots, eye, now, radius.min(1500.0));
+    tris += b.triangles() + gl.triangles() + fl.triangles() + fire.triangles();
     match &scene.dynamic {
-        Some((hb, hg, hf)) => {
-            for (h, m) in [(hb, b), (hg, gl), (hf, fl)] {
+        Some((hb, hg, hf, hx)) => {
+            for (h, m) in [(hb, b), (hg, gl), (hf, fl), (hx, fire)] {
                 if let Some(mut x) = meshes.get_mut(h) {
                     *x = m.mesh();
                 }
@@ -1004,7 +1021,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let (_, hb) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, b, Dynamic);
             let (_, hg) = spawn_mesh(&mut commands, &mut meshes, &mats.glow, gl, Dynamic);
             let (_, hf) = spawn_mesh(&mut commands, &mut meshes, &mats.flat, fl, Dynamic);
-            scene.dynamic = Some((hb, hg, hf));
+            let (_, hx) = spawn_mesh(&mut commands, &mut meshes, &mats.fire, fire, Dynamic);
+            scene.dynamic = Some((hb, hg, hf, hx));
         }
     }
     if let Some(mut m) = meshes.get_mut(&mask.mesh) {
@@ -1487,7 +1505,7 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, fire:
                 b.block(base + vec3(a.cos(), -0.2, a.sin()) * 2.4, 0.9, 0.7, 0.75, a, palette::STONE);
             }
             if fire {
-                gl.column(base + vec3(0.0, -0.2, 0.0), 1.4, 0.3, 1.4, 8, palette::EMBER);
+                gl.flame(base + vec3(0.0, -0.2, 0.0), 1.4, 1.4);
             } else {
                 // Put out: a bed of ash.
                 b.column(base + vec3(0.0, -0.2, 0.0), 1.6, 1.4, 0.3, 8, palette::ASH);
@@ -1629,7 +1647,7 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
         // A lantern on a pole at the bow (drawn only; it lights nothing).
         let bow = hull + vec3(rot.cos(), 0.0, rot.sin()) * (2.3 * k.min(3.0));
         b.stick(bow, bow + vec3(0.0, 2.0, 0.0), 0.08, palette::TIMBER);
-        fl.column(bow + vec3(0.0, 2.0, 0.0), 0.18, 0.12, 0.3, 6, palette::WINDOW);
+        gl.flame(bow + vec3(0.0, 2.0, 0.0), 0.12, 0.25);
         hull + vec3(0.0, 0.6, 0.0)
     } else {
         base
@@ -1925,7 +1943,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
             // A turf-covered stack, smouldering.
             b.dome(base, 2.6, 2.6, 1.8, 0.0, 0.0, 8, [0.25, 0.22, 0.18]);
             if fire(0) {
-                gl.column(base + vec3(0.0, 1.7, 0.0), 0.25, 0.1, 0.4, 6, palette::EMBER);
+                gl.flame(base + vec3(0.0, 1.7, 0.0), 0.25, 0.4);
             }
             for i in 0..3 {
                 let p = base + vec3(4.0, 0.0, -1.0 + i as f32);
@@ -1950,7 +1968,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
             b.column(base + vec3(0.0, DECK, 0.0), size * 0.55, size * 0.55, 0.3, 10, palette::TIMBER);
             if k == PlaceKind::Deck {
                 // The village's cooking fire.
-                gl.column(base + vec3(0.0, DECK + 0.3, 0.0), 0.6, 0.2, 0.6, 6, palette::EMBER);
+                gl.flame(base + vec3(0.0, DECK + 0.3, 0.0), 0.6, 0.6);
                 b.column(base + vec3(1.3, DECK + 0.3, 0.0), 0.5, 0.45, 0.6, 8, [0.45, 0.32, 0.22]);
             } else {
                 // A ladder down to the water, and a rope frame.
@@ -1979,7 +1997,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
         PlaceKind::Kitchen | PlaceKind::Deck => {
             // An open-sided cookhouse: a roof on posts over a big fire and pots.
             awning(b, base, 6.0, [0.42, 0.34, 0.26], rot);
-            gl.column(base + vec3(0.0, 1.0, 0.0), 0.8, 0.25, 0.7, 7, palette::EMBER);
+            gl.flame(base + vec3(0.0, 1.0, 0.0), 0.8, 0.7);
             for i in 0..3 {
                 let a = i as f32 * 2.1;
                 b.column(base + vec3(a.cos(), 1.0, a.sin()) * 1.8, 0.45, 0.4, 0.7, 8, [0.45, 0.32, 0.22]);
@@ -2068,7 +2086,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
                     if what == solid::What::Fire {
                         let c = shape.centre();
                         if fire(k as u8) {
-                            gl.column(to3(c, on_ground(c)), 0.6, 0.3, 0.9, 6, palette::EMBER);
+                            gl.flame(to3(c, on_ground(c)), 0.6, 0.9);
                         } else {
                             b.column(to3(c, on_ground(c)), 0.7, 0.6, 0.15, 6, palette::ASH);
                         }
