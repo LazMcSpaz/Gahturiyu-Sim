@@ -26,12 +26,12 @@ use gahturiyu_sim::sim::{
     combat::{FxKind, SQUAD_SIDE},
     crafting::Station,
     geo::{self, V2},
-    group::Kind as GroupKind,
     items,
     effects::{Does, Summon},
     person::PersonId,
     routine::Doing,
     society::Workplace,
+    solid::{self, Shape},
     jobs::{PlaceKind, Shelf},
     race::Race,
     rng,
@@ -487,6 +487,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let mut b = Builder::new();
     let mut gl = Builder::new();
     let mut fl = Builder::new();
+    // `GAHT_SOLID=1`: what the sim holds to be solid, drawn over the world.
+    if solid_shown() {
+        solid_outlines(&mut fl, w, &on_ground, oc.target, radius.min(140.0));
+    }
     let k = (oc.dist / 220.0).max(1.0);
     let mut heads: Vec<(Vec3, PersonId)> = Vec::new();
     for s in &w.settlements {
@@ -507,22 +511,18 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             ring_widened(&mut fl, &on_ground, c, 1.25 * k, 0.05 * k, 22, [0.85, 0.25, 0.15], eye, 0.004);
         }
     }
-    // The squad's own tent stands while someone sleeps under it (it lives in
-    // a pack; this is drawing only: `condition::Shelter` says who has it).
-    {
-        use gahturiyu_sim::sim::condition::{Activity, Shelter};
-        let tent_id = gahturiyu_sim::sim::items::id("tent");
-        for (j, &m) in w.squad.members.iter().enumerate() {
-            let at = w.squad.at[j];
-            if at.dist(oc.target) > radius || !w.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| e.0 == tent_id)) {
-                continue;
-            }
-            let under = w.squad.members.iter().enumerate().any(|(i, &o)| w.squad.at[i].dist(at) < 15.0 && w.people[o as usize].cond.as_ref().is_some_and(|c| c.activity == Activity::Sleeping && c.shelter == Shelter::Tent));
-            if under {
-                let spot = at.add(V2::new(2.6, 1.6));
-                tent(&mut b, to3(spot, on_ground(spot)), k, w.people[m as usize].seed);
-            }
+    // Tents: the squad's own while someone sleeps under it, and a resting
+    // band of wanderers' (`World::tents` says which stand, and where).
+    for (id, spot) in w.tents() {
+        if spot.dist(oc.target) > radius {
+            continue;
         }
+        let seed = match id {
+            solid::Id::Tent(m) => w.people[m as usize].seed,
+            solid::Id::GroupTent(g) => w.group(g).map(|x| w.people[x.members[0] as usize].seed).unwrap_or(0),
+            _ => 0,
+        };
+        tent(&mut b, to3(spot, on_ground(spot)), k, seed);
     }
     for g in &w.groups {
         // Travellers in town at night have found beds indoors.
@@ -532,11 +532,6 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let lead = w.people[g.members[0] as usize].race;
         match g.band {
             1 => {
-                if matches!(g.kind, GroupKind::Wanderer { .. }) && !g.is_moving(w.time) && !g.hostile {
-                    let r = w.people[g.members[0] as usize].seed;
-                    let at = g.pos.add(V2::new(3.5, 2.0));
-                    tent(&mut b, to3(at, on_ground(at)), k, r);
-                }
                 for &m in &g.members {
                     heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
                 }
@@ -626,20 +621,28 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let rr = |i: u64| ((ru.id as u64 * 977 + i * 131) % 100) as f32 / 100.0;
         match ru.kind {
             gahturiyu_sim::sim::ruins::RuinKind::Ruin => {
-                b.block(base - vec3(0.0, 0.05, 0.0), 16.0 * kk, 0.15 * kk, 12.0 * kk, 0.3, [0.52, 0.5, 0.46]);
-                for i in 0..14 {
-                    let a = i as f32 / 14.0 * std::f32::consts::TAU;
-                    let at = ru.pos.add(V2::new(a.cos() * 9.0, a.sin() * 7.0).scale(kk));
-                    let tall = 0.4 + rr(i) * 3.2;
-                    if rr(i + 40) < 0.25 {
-                        continue; // a gap in the wall
+                // A stone floor, and what still stands round it (`solid::ruin_parts`:
+                // the same wall pieces and columns a walker has to go round).
+                b.block(base - vec3(0.0, 0.1, 0.0), 16.0 * kk, 12.0 * kk, 0.15 * kk, 0.3, [0.52, 0.5, 0.46]);
+                let out = |p: V2| ru.pos.add(p.sub(ru.pos).scale(kk));
+                for (n, _, shape, tall, _) in w.ruin_parts(ru) {
+                    match shape {
+                        Shape::Box(r) if n < 14 => {
+                            let at = out(r.c);
+                            b.block(to3(at, on_ground(at) - 0.1), r.hw * 2.0 * kk, r.hd * 2.0 * kk, (tall + 0.1) * kk, r.rot, [0.6, 0.58, 0.53]);
+                        }
+                        // The fallen column.
+                        Shape::Box(r) => {
+                            let [u, _] = r.axes();
+                            let (p, q) = (out(r.c.sub(u.scale(r.hw))), out(r.c.add(u.scale(r.hw))));
+                            b.stick(to3(p, on_ground(p) + 0.4 * kk), to3(q, on_ground(q) + 0.4 * kk), 0.5 * kk, [0.68, 0.66, 0.6]);
+                        }
+                        Shape::Round { c, rx, .. } => {
+                            let at = out(c);
+                            b.column(to3(at, on_ground(at)), rx * kk, rx * 0.9 * kk, tall * kk, 8, [0.68, 0.66, 0.6]);
+                        }
                     }
-                    b.block(to3(at, on_ground(at)), 3.6 * kk, tall * kk, 0.9 * kk, a + std::f32::consts::FRAC_PI_2, [0.6, 0.58, 0.53]);
                 }
-                // Two columns, one standing, one fallen.
-                b.column(base + vec3(2.0, 0.0, 1.0) * kk, 0.55 * kk, 0.5 * kk, 4.2 * kk, 8, [0.68, 0.66, 0.6]);
-                let f0 = base + vec3(-3.0, 0.4, -1.5) * kk;
-                b.stick(f0, f0 + vec3(3.8, 0.0, 1.2) * kk, 0.5 * kk, [0.68, 0.66, 0.6]);
             }
             gahturiyu_sim::sim::ruins::RuinKind::Lair(_) => {
                 // A rock arch over a dark mouth.
@@ -1927,24 +1930,31 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
             }
         }
         PlaceKind::TendersYard => {
-            for i in 0..5 {
-                let a = i as f32 / 5.0 * std::f32::consts::TAU;
-                b.dome(base + vec3(a.cos(), 0.0, a.sin()) * (size * 0.3), 1.2, 1.0, 1.0 + u(5 + i as u64) * 0.8, 0.1, 0.12, wp.seed ^ i as u64, palette::STONE);
+            // Lumps of growing stone in an arc behind the bed (`solid::place_parts`).
+            for (i, (_, shape, h, _)) in solid::place_parts(wp).into_iter().enumerate() {
+                if let Shape::Round { c, rx, ry, .. } = shape {
+                    b.dome(to3(c, on_ground(c) - sink * 0.3), rx, ry, h, 0.1, 0.12, wp.seed ^ i as u64, palette::STONE);
+                }
             }
         }
         PlaceKind::Workyard | PlaceKind::Forge | PlaceKind::Bench | PlaceKind::Desk | PlaceKind::AlchemyTable | PlaceKind::WeaversShed | PlaceKind::Workshop => {
             if k == PlaceKind::Workyard {
-                // A fenced yard.
-                let half = size * 0.5;
-                let corners = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
-                for i in 0..4 {
-                    let (ax, az) = corners[i];
-                    let (bx, bz) = corners[(i + 1) % 4];
-                    let pa = wp.pos.add(along.scale(ax * half)).add(across.scale(az * half));
-                    let pb = wp.pos.add(along.scale(bx * half)).add(across.scale(bz * half));
+                // A fenced yard: a rail on posts, open at its gate (the same
+                // fence and gate a walker meets: `solid.rs`).
+                for r in solid::yard_walls(wp) {
+                    let [u, _] = r.axes();
+                    let (pa, pb) = (r.c.sub(u.scale(r.hw)), r.c.add(u.scale(r.hw)));
                     b.stick(to3(pa, on_ground(pa) + 0.8), to3(pb, on_ground(pb) + 0.8), 0.12, palette::TIMBER);
+                    for q in [pa, pb] {
+                        b.stick(to3(q, on_ground(q) - 0.1), to3(q, on_ground(q) + 0.95), 0.14, palette::TIMBER);
+                    }
                 }
-                gl.column(base + vec3(-sn, 0.0, cs) * -2.0, 0.6, 0.3, 0.9, 6, palette::EMBER);
+                for (what, shape, _, _) in solid::place_parts(wp) {
+                    if what == solid::What::Fire {
+                        let c = shape.centre();
+                        gl.column(to3(c, on_ground(c)), 0.6, 0.3, 0.9, 6, palette::EMBER);
+                    }
+                }
             } else {
                 let col = if k == PlaceKind::Forge { palette::STONE } else { palette::QUARRIED };
                 b.block(base, size * 0.8, size * 0.7, 3.0 + sink, rot, col);
@@ -2048,6 +2058,41 @@ fn stone(b: &mut Builder, centre: Vec3, rx: f32, rz: f32, h: f32, lump: f32, rot
             let nrm = if nrm.y < -0.2 { -nrm } else { nrm };
             let shade = 0.88 + noise(i + 3, k + 5) * 0.25;
             b.quad(q, nrm, [col[0] * shade, col[1] * shade, col[2] * shade]);
+        }
+    }
+}
+
+/// Is `GAHT_SOLID` set? (Asked once.)
+fn solid_shown() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("GAHT_SOLID").is_ok())
+}
+
+/// `GAHT_SOLID=1`: every solid thing's outline laid on the ground round the
+/// camera (`sim/solid.rs`): red for what stops a walker (a hollow thing's
+/// wall stretch by stretch, so its doorway shows as a gap), blue for what's
+/// listed but lets you by, and a green line through each door and gate from
+/// just outside to just inside. Drawing only.
+fn solid_outlines(fl: &mut Builder, w: &World, on_ground: &dyn Fn(V2) -> f32, centre: V2, radius: f32) {
+    const STOPS: Rgb = [0.95, 0.15, 0.10];
+    const LETS_BY: Rgb = [0.20, 0.55, 0.95];
+    const WAY: Rgb = [0.25, 0.90, 0.30];
+    let ring = |fl: &mut Builder, pts: &[V2], col: Rgb| {
+        for k in 0..pts.len() {
+            draped_ribbon(fl, on_ground, pts[k], pts[(k + 1) % pts.len()], 0.12, 0.22, col, 3.0);
+        }
+    };
+    for th in w.solids_near(centre, radius) {
+        match th.hollow {
+            Some(_) if th.blocks => {
+                for r in th.walls() {
+                    ring(fl, &r.corners(), STOPS);
+                }
+                if let Some(way) = th.way() {
+                    draped_ribbon(fl, on_ground, way.outside, way.inside, 0.18, 0.24, WAY, 3.0);
+                }
+            }
+            _ => ring(fl, th.shape.outline().corners(), if th.blocks { STOPS } else { LETS_BY }),
         }
     }
 }

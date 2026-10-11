@@ -228,6 +228,19 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    paying from the base's coin then the squad's; quits and theft are keyed
    rolls and are noted in the home town's history (gossip).
 
+17. **What is solid has one source of truth: `sim/solid.rs`.** Every
+   physical thing (building walls and doorways, inner walls, furniture,
+   containers, workplaces and their counters and fences, pens, camps, ruins,
+   base buildings, rocks) is listed there with an id that lasts and its real
+   outline, as a pure function of the world (nothing saved; the lists are
+   kept per town and rebuilt when what they're made from changes). Ask it by
+   place (`solids_near`, `solid_at`, `blocked_at`, `way_clear`, `free_spot`,
+   `enclosure_at`); don't write another "is there a building here" test.
+   A new kind of standing thing is added there first, and the window draws
+   it from the same numbers (`place_parts`, `ruin_parts`, `yard_walls`,
+   `coop_of`, `built_thing`, `tents`), so what's seen is what's solid. Trees
+   are drawing only (they follow the graphics settings) and so are never solid.
+
 ## Verifying visual changes
 
 The window can screenshot itself headlessly:
@@ -254,7 +267,9 @@ their parting words, held),
 `GAHT_CARRY=1` (member 0 carrying a downed member 2), `GAHT_LIMB=1` (member 0
 loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
 (members 0 and 1 light torches; the hunter sets a standing torch),
-`GAHT_DEBUG=1` (the detail readout), `GAHT_FOREST=1` (camera far out over the
+`GAHT_DEBUG=1` (the detail readout), `GAHT_SOLID=1` (every solid thing's
+outline on the ground: red stops a walker, blue is listed but lets you by, a
+green line through each door and gate; works in the real game too), `GAHT_FOREST=1` (camera far out over the
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
 `GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds

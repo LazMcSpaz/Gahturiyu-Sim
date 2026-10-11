@@ -290,11 +290,12 @@ pub fn draw(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, grou
                     }
                 }
                 Kind::Field | Kind::Pen => {
-                    // A low fence round the plot.
-                    let cs = bl.corners();
-                    for k in 0..4 {
-                        let (p, q) = (cs[k], cs[(k + 1) % 4]);
-                        let n = (p.dist(q) / 2.0).ceil() as usize;
+                    // A low fence round the plot, open at its gate (the
+                    // stretches a walker has to go round: `solid::built_thing`).
+                    for r in gahturiyu_sim::sim::solid::built_thing(0, bl).map(|t| t.walls()).unwrap_or_default() {
+                        let [u, _] = r.axes();
+                        let (p, q) = (r.c.sub(u.scale(r.hw)), r.c.add(u.scale(r.hw)));
+                        let n = (p.dist(q) / 2.0).ceil().max(1.0) as usize;
                         for j in 0..=n {
                             let s = p.lerp(q, j as f32 / n as f32);
                             b.stick(to3(s, ground(s) - 0.2), to3(s, ground(s) + d.h * lift), 0.15, main);
@@ -305,11 +306,17 @@ pub fn draw(w: &World, b: &mut Builder, gl: &mut Builder, fl: &mut Builder, grou
                         b.block(to3(bl.at, g - 0.1), d.d - 0.8, bl.w - 0.8, 0.15, bl.rot, [0.30, 0.24, 0.15]);
                     }
                 }
-                Kind::Wall | Kind::Gate | Kind::Tower => {
-                    b.block(to3(bl.at, g - 0.4), d.d, bl.w, d.h * lift + 0.4, bl.rot, main);
-                    if d.kind == Kind::Gate && bl.standing() {
+                // A gate stands open: two posts and a beam over the way through.
+                Kind::Gate => {
+                    for e in bl.wall_ends() {
+                        b.block(to3(e, ground(e) - 0.4), d.d, 0.4, d.h * lift + 0.4, bl.rot, main);
+                    }
+                    if bl.standing() {
                         b.block(to3(bl.at, g + d.h * 0.85), d.d + 0.2, bl.w + 0.4, 0.4, bl.rot, SOOT);
                     }
+                }
+                Kind::Wall | Kind::Tower => {
+                    b.block(to3(bl.at, g - 0.4), d.d, bl.w, d.h * lift + 0.4, bl.rot, main);
                 }
                 _ => {
                     // Walls, and a roof that sits on them once the work's done.
