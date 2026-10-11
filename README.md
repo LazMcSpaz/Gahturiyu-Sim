@@ -56,7 +56,7 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 | M | Spell book (click a spell to use it; spells aimed at someone or somewhere then wait for a click in the world — right-click cancels) |
 | G | Look through a scout spirit (G again or C to come back) |
 | J | Journal (jobs) |
-| P, or click a town's name | Town panel: its people and customs, food, store, money, which services are open |
+| P, or click a town's name | Town panel: what a visitor could learn — its people, who rules, what's open and where, work going, the talk of the town (L shows every number) |
 | O | Graphics and sound settings |
 | F8 / F9 | Save / load (one quick-save slot) |
 | Right-drag, Q / E | Turn the camera (map: pan) |
@@ -74,10 +74,9 @@ The window opens in **3D**. Press **V** to flip to the top-down map and back.
 Hover over anyone or anything for details. A fight breaking out near you drops
 the speed to real time.
 
-In the **pack** panel: click something worn to take it off, click something in
-the pack to put it on (or drink, eat or use it), right-click to drop it. Equip
-the short bow from the pack to shoot (arrows stay in the pack). Click a standing
-torch in the pack to set it in the ground.
+In the **pack** panel (the whole squad side by side): double-click something
+to wear or use it (drink, eat, read, set a standing torch up), drag it onto another member's column to
+give it, right-click for the rest (take off, put down, give). Equip the short bow to shoot (arrows stay in the pack).
 
 **The HUD.** Top left, the **squad**: a portrait, name and state per member,
 with health (green) and stamina (gold; energy, blue, for casters). Click to
