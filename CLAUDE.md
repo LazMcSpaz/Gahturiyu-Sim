@@ -292,6 +292,8 @@ for the nearest iron seam).
 `GAHT_WAY=sea` sends them out to sea from the nearest shore: the line ends at the water, a grey
 cross at the spot, the lead says so). `GAHT_PLATE=1` (show the name plate under `GAHT_HOVER`
 instead of the long tooltip).
+`GAHT_MARK=1` (the three marks a click leaves, walk, attack and can't, held part-way closed
+beside the squad).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
@@ -436,6 +438,12 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   a gentle start and stop, turning at a person's speed, and they keep facing their way when
   they stop. The selected members' order lines are dotted along their real route
   (`Squad::route`). A walk into the sea is planned to the shore (`World::cut_at_water`).
+- Answers to the player's hand (`view/feel.rs`, drawing only, on the window's own clock): a
+  ring closing on the spot clicked (gold to walk, red to go for someone, grey for what can't
+  be done); gold rings that breathe under whoever the next order goes to (everyone, with
+  nobody picked out), and their order lines; a nod from those sent, and now and then a word
+  (`about=order` in `data/lines/squad.txt`); the 3D camera glides (`feel::Glide`) after the
+  squad and to the distance it's sent, and zooming tilts it. Screenshots snap.
 - Floating words over heads (`view/floaters.rs`: "+2 Timber", hurt and
   healing, "?"/"!" as suspicion builds, a skill rising) come from comparing
   the world with what the window saw last frame — drawing only. Left-drag

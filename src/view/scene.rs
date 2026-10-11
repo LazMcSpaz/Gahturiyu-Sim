@@ -855,20 +855,23 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let sq = w.squad.pos;
     for (i, &m) in w.squad.members.iter().enumerate() {
         let at = w.member_pos(i);
-        let picked = game.sel.shows(w, m);
+        // Whoever the next order goes to is lit: one picked out, or, with
+        // nobody picked out, all of them (UI-3). Their rings breathe.
+        let picked = game.sel.who(w).contains(&m);
         let face = game.gaits.face(m).unwrap_or_else(|| super::cues::facing(w, m, at));
         // Indoors, laid on the floor.
         let inner = floor_at(at);
         let ring_ground = |p: V2| inner.unwrap_or_else(|| on_ground(p));
         if picked {
-            facing_ring(&mut fl, &ring_ground, at, 1.2 * k, rw * 0.8, face, palette::GOLD, eye, false);
+            let breath = game.feel.breath();
+            facing_ring(&mut fl, &ring_ground, at, (1.2 + 0.07 * breath) * k, rw * 0.8, face, palette::scale(palette::GOLD, 0.82 + 0.18 * breath), eye, false);
         } else {
             // Barely there: enough to see which way they face.
             let col = palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night);
             facing_ring(&mut fl, &ring_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
         }
         // The way they'll actually walk, round buildings and through doors,
-        // dotted; for the selected only (UI-6). What's walked is gone.
+        // dotted; for those the next order goes to (UI-6). What's walked is gone.
         let goal = w.squad.goal[i];
         if picked && w.fighter(m).is_none() && at.dist(goal) > 1.5 {
             let mut way = vec![at];
@@ -907,6 +910,18 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 draped_ribbon(&mut fl, &|p: V2| on_ground(p).max(0.0), spot.sub(d), spot.add(d), rw * 0.9, 0.45, grey, 0.5);
             }
         }
+    }
+    // Where a click just landed: a ring closing on the spot, gold to walk,
+    // red to go for someone, grey for what can't be done (UI-2).
+    for m in &game.feel.marks {
+        let f = m.age(game.feel.now);
+        let col = match m.kind {
+            super::feel::MarkKind::Walk => palette::GOLD,
+            super::feel::MarkKind::Attack => [0.92, 0.24, 0.18],
+            super::feel::MarkKind::Cant => [0.62, 0.62, 0.62],
+        };
+        let inner = floor_at(m.at);
+        draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), m.at, (2.6 - 2.0 * f) * k, rw * (1.1 - 0.7 * f), 20, col, eye);
     }
     // Aiming a spell: how far it reaches, and who's in its sights.
     if let Some((who, s)) = game.aim {
@@ -1452,7 +1467,8 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super
     let floor = if geo::inland(at) < 0.0 { DECK + 0.3 } else { on_ground(at) };
     let (h, r) = body_size(p.race);
     let (h, r) = (h * k, r * k);
-    let base = to3(at, floor - 0.1);
+    // (A nod to an order just given: the figure dips and comes up. UI-8)
+    let base = to3(at, floor - 0.1 - super::feel::dip(pid) * 0.14 * k);
     let far = base.distance(eye) > PERSON_SIMPLE * k.max(1.0);
     // Bandits and anyone you're fighting get a red mark at their feet.
     let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);

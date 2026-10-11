@@ -110,6 +110,10 @@ pub struct Game {
     pub parting: Option<super::talkui::Parting>,
     pub talk_key: Option<usize>,
     pub talk_cam: Option<super::talkui::TalkCam>,
+    /// The small answers to a click (`feel.rs`): marks on the ground, nods,
+    /// the rings' breath; and where the camera is gliding to.
+    pub feel: super::feel::Feel,
+    pub glide: Option<super::feel::Glide>,
     /// How many times a save has been loaded (so cached drawing of the old
     /// world is thrown away).
     pub loads: u32,
@@ -260,6 +264,8 @@ pub fn run() {
         parting: None,
         talk_key: None,
         talk_cam: None,
+        feel: Default::default(),
+        glide: None,
         loads: 0,
         notice: None,
         wild: None,
@@ -390,6 +396,10 @@ pub fn run() {
             game.orbit.target = p;
             game.orbit.ground = game.world.terrain.surface(p);
         }
+        if std::env::var("GAHT_MARK").is_ok() {
+            let at = game.world.squad.pos;
+            game.feel.show(at);
+        }
         if let Some(p) = *super::shot::WAY_SHORT.lock().unwrap() {
             let who: Vec<PersonId> = game.world.squad.members.iter().copied().take(2).collect();
             note_short(&mut game, &who, p);
@@ -447,6 +457,11 @@ pub fn run() {
         .add_plugins(plugins)
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
+        // New letters reach the screen the frame they're first drawn: the
+        // panels' letter sheet is updated before Bevy gathers the frame's
+        // changed pictures, not after (or a letter never drawn before is a
+        // gap for one frame: "06:0", "s r ng").
+        .configure_sets(PostUpdate, bevy_egui::EguiPostUpdateSet::PostProcessOutput.before(bevy::asset::AssetEventSystems))
         .add_plugins(super::foliage::FoliagePlugin)
         .add_plugins(super::weather::WeatherPlugin)
         .insert_resource(game)
@@ -527,6 +542,8 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     game.mouse = mouse;
     super::kit::input(mouse, buttons.just_pressed(MouseButton::Left), buttons.just_released(MouseButton::Left), time.elapsed_secs());
     let dt = time.delta_secs();
+    // (Screenshots step at a fixed pace, so a mark or a nod is the same in each.)
+    game.feel.tick(if game.shot.is_some() { 1.0 / 30.0 } else { dt.min(0.1) });
     if keys.just_pressed(KeyCode::F10) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
         super::editor::toggle(game);
         game.last_mouse = mouse;
@@ -912,7 +929,8 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
         }
         View::Scene => {
             if wheel != 0.0 && !on_panels {
-                game.orbit.zoom(wheel);
+                // Nearer or further, gliding there (and tilting with it).
+                game.glide.get_or_insert(super::feel::Glide::of(&game.orbit)).zoom(wheel);
             }
             if buttons.pressed(MouseButton::Right) && d.length() > 0.0 {
                 game.orbit.orbit(d.x, d.y);
@@ -972,7 +990,15 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     }
     if game.follow {
         game.map_cam.centre = game.world.squad.pos;
-        game.orbit.target = game.world.squad.pos;
+    }
+    // The 3D camera glides: after the squad when following, and to the
+    // distance and tilt it's been sent to (UI-11).
+    {
+        let snap = game.shot.is_some() || game.frame < 2;
+        let to = game.follow.then_some(game.world.squad.pos);
+        let mut g = game.glide.unwrap_or(super::feel::Glide::of(&game.orbit));
+        g.step(&mut game.orbit, to, dt, snap);
+        game.glide = Some(g);
     }
     // Talking: the camera comes in low beside the two, and goes back after.
     if game.view == View::Scene {
@@ -1159,19 +1185,44 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 game.craft = game.sel.lead(world);
             }
             act => {
+                // Where the click landed in the world, for its mark.
+                let spot = match act {
+                    Act::Walk(p) | Act::Sleep(p) | Act::SneakTo(p) => Some(p),
+                    Act::Attack(p) | Act::Talk(p) | Act::Loot(p) | Act::Carry(p) | Act::Dose(p) => Some(world.person_pos(p)),
+                    Act::Enter(d) | Act::PickLock(d) => world.door(d).map(|d| d.outside),
+                    Act::Search(c) | Act::PickChest(c) => world.container(c).map(|c| c.pos),
+                    _ => None,
+                };
+                use super::feel::MarkKind;
+                let mut answered = false;
                 if let Some(msg) = super::interact::perform(world, &who, all, act) {
                     if !matches!(act, Act::Dose(_)) {
                         game.sounds.ui("ui_cant");
+                        if let Some(p) = spot {
+                            game.feel.mark(p, MarkKind::Cant);
+                        }
                     }
                     game.notice = Some((msg, std::time::Instant::now()));
                 } else if locked && matches!(act, Act::Walk(_)) {
                     game.sounds.ui("ui_cant");
+                    if let Some(p) = spot {
+                        game.feel.mark(p, MarkKind::Cant);
+                    }
                     // They walk up to it, and say so.
                     if let Some(&m) = who.first() {
                         super::remarks::now(game, m, "locked");
                     }
-                } else if matches!(act, Act::Walk(_)) {
-                    game.sounds.ui("ui_order");
+                } else {
+                    if matches!(act, Act::Walk(_)) {
+                        game.sounds.ui("ui_order");
+                    }
+                    if let Some(p) = spot {
+                        game.feel.mark(p, if matches!(act, Act::Attack(_)) { MarkKind::Attack } else { MarkKind::Walk });
+                    }
+                    answered = true;
+                }
+                if answered {
+                    answer_order(game, &who);
                 }
             }
         }
@@ -1189,6 +1240,23 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
             world.order_members(&who, t);
         }
         game.sounds.ui("ui_order");
+        // (Grey where they can't get all the way: the cross is drawn there.)
+        game.feel.mark(t, if game.short.is_some() { super::feel::MarkKind::Cant } else { super::feel::MarkKind::Walk });
+        answer_order(game, &who);
+    }
+}
+
+/// Those just given an order nod, and now and then one says a word (UI-8):
+/// a line of their own from `data/lines/squad.txt`, never over something
+/// they're already saying.
+fn answer_order(game: &mut Game, who: &[PersonId]) {
+    if let Some((pid, nth)) = game.feel.ordered(&game.world, who) {
+        if game.barks.iter().any(|b| b.0 == pid) {
+            return;
+        }
+        if let Some(line) = game.world.squad_remark(pid, "order", &[], nth) {
+            game.barks.push((pid, gahturiyu_sim::sim::speech::plain(&line), game.frame + super::feel::WORD_FRAMES));
+        }
     }
 }
 
