@@ -66,6 +66,9 @@ pub struct World {
     pub groups: Vec<Group>,
     #[serde(skip)]
     group_index: HashMap<GroupId, usize>,
+    /// The lists of solid things as last built (`solid.rs`): never saved.
+    #[serde(skip)]
+    pub(super) solid_cache: super::solid::Cache,
     pub next_group: GroupId,
     pub squad: Squad,
     pub bands: BandMap,
@@ -308,6 +311,7 @@ impl World {
             settlements,
             groups: Vec::new(),
             group_index: HashMap::new(),
+            solid_cache: Default::default(),
             squad,
             hour_done: (start_time / HOUR).floor() as i64,
             log: VecDeque::new(),

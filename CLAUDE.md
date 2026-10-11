@@ -229,6 +229,19 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    paying from the base's coin then the squad's; quits and theft are keyed
    rolls and are noted in the home town's history (gossip).
 
+17. **What is solid has one source of truth: `sim/solid.rs`.** Every
+   physical thing (building walls and doorways, inner walls, furniture,
+   containers, workplaces and their counters and fences, pens, camps, ruins,
+   base buildings, rocks) is listed there with an id that lasts and its real
+   outline, as a pure function of the world (nothing saved; the lists are
+   kept per town and rebuilt when what they're made from changes). Ask it by
+   place (`solids_near`, `solid_at`, `blocked_at`, `way_clear`, `free_spot`,
+   `enclosure_at`); don't write another "is there a building here" test.
+   A new kind of standing thing is added there first, and the window draws
+   it from the same numbers (`place_parts`, `ruin_parts`, `yard_walls`,
+   `coop_of`, `built_thing`, `tents`), so what's seen is what's solid. Trees
+   are drawing only (they follow the graphics settings) and so are never solid.
+
 ## Verifying visual changes
 
 The window can screenshot itself headlessly:
@@ -255,10 +268,13 @@ their parting words, held),
 `GAHT_CARRY=1` (member 0 carrying a downed member 2), `GAHT_LIMB=1` (member 0
 loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
 (members 0 and 1 light torches; the hunter sets a standing torch),
-`GAHT_DEBUG=1` (the detail readout), `GAHT_FOREST=1` (camera far out over the
+`GAHT_DEBUG=1` (the detail readout), `GAHT_SOLID=1` (every solid thing's
+outline on the ground: red stops a walker, blue is listed but lets you by, a
+green line through each door and gate; works in the real game too), `GAHT_FOREST=1` (camera far out over the
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
-`GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds
+`GAHT_BOOK=k` (member k's spell book), `GAHT_STATS=k` (member k's stats sheet),
+`GAHT_GAMEMENU=1` (the Escape menu; `quit` or `new` for its question), `GAHT_HELD=1` (the squad's mage holds
 Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
 beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
@@ -473,6 +489,19 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   saved: Seen draws filled, Heard an outline); ruins and lairs once found;
   travellers, herds, fights and bodies only within `map::MAP_SIGHT` of the
   squad. L shows the whole world.
+- One screen at a time (`view/screens.rs`, Laz's P10/P11): every screen is a
+  line in `Screen`, `is_open` and `close`; `settle` runs at the start and end of
+  the panel pass and closes all but the newest, and turns member screens (pack,
+  craft, spells, stats) to the selection's lead. Escape closes the open screen,
+  or with none open brings up the game menu (the world waits while it's up).
+  Space only ever pauses; Enter is Deal / Take all / Make.
+- Outlines (`view/outline.rs`, Laz's P3) trace what's drawn: the shapes to
+  outline are copied each frame in their colour (`Builder::copy_since`) into a
+  mesh only a mask camera sees (`MASK_LAYER`); it draws them into a window-sized
+  image, and a full-screen layer on the main camera colours the pixels just
+  outside them. Gold round the picked; under the mouse red foe, green ally,
+  blue neutral; foes always faintly red. Lines show through walls. No circle
+  underfoot, only a small arrow the way someone faces (`facing_arrow`).
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.

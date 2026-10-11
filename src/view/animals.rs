@@ -340,9 +340,11 @@ pub fn draw(w: &World, b: &mut Builder, gl: &mut Builder, on_ground: &dyn Fn(V2)
             Sp::Raftback => {}
             Sp::Shellhen => {
                 fence(b, on_ground, p.home, p.radius, 0.5);
-                let at = p.home.add(V2::new(p.radius * 0.45, 0.0));
-                b.block(to3(at, on_ground(at) - 0.1), 2.4, 1.8, 1.3, spin(p.seed), palette::TIMBER);
-                b.block(to3(at, on_ground(at) + 1.2), 2.8, 2.2, 0.2, spin(p.seed), palette::WEAVE);
+                // The coop, on the side away from the gate (`solid::coop_of`).
+                let coop = gahturiyu_sim::sim::solid::coop_of(p.home, p.radius, p.seed);
+                let at = coop.c;
+                b.block(to3(at, on_ground(at) - 0.1), coop.hw * 2.0, coop.hd * 2.0, 1.3, coop.rot, palette::TIMBER);
+                b.block(to3(at, on_ground(at) + 1.2), coop.hw * 2.0 + 0.4, coop.hd * 2.0 + 0.4, 0.2, coop.rot, palette::WEAVE);
             }
             Sp::Plodder => {
                 fence(b, on_ground, p.home, p.radius, 1.2);

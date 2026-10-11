@@ -13,7 +13,7 @@
 //! - `row(c, bx, selected)`: the band behind a list row (hover, held, flash).
 //! - `nudge(look)`: how far to push a pressed thing's contents down (px).
 
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 use bevy::math::{vec2, Vec2};
 use bevy_egui::egui::Color32;
@@ -39,16 +39,22 @@ struct Input {
     now: f32,
 }
 
-thread_local! {
-    static INPUT: RefCell<Input> = RefCell::new(Input::default());
+/// One for the whole window. (Not per thread: Bevy runs the input and the
+/// panels on different worker threads, and a per-thread copy left the panels
+/// reading an old mouse on some frames, so rows under the mouse flickered:
+/// Laz's P1.)
+static INPUT: Mutex<Input> = Mutex::new(Input { mouse: Vec2::ZERO, held_from: None, released: None, release_end: Vec2::ZERO, now: 0.0 });
+
+fn with<R>(f: impl FnOnce(&mut Input) -> R) -> R {
+    let mut i = INPUT.lock().unwrap_or_else(|e| e.into_inner());
+    f(&mut i)
 }
 
 /// Once a frame, from `app.rs`: the mouse, whether the left button went
 /// down or was let go this frame, and the time. A let-go counts on a box
 /// only if the press began on it too.
 pub fn input(mouse: Vec2, pressed_now: bool, released_now: bool, now: f32) {
-    INPUT.with(|i| {
-        let mut i = i.borrow_mut();
+    with(|i| {
         i.mouse = mouse;
         i.now = now;
         if pressed_now {
@@ -76,8 +82,7 @@ pub struct Look {
 }
 
 pub fn look(b: &Bx) -> Look {
-    INPUT.with(|i| {
-        let i = i.borrow();
+    with(|i| {
         let hot = b.contains(i.mouse);
         let held = hot && i.held_from.is_some_and(|p| b.contains(p));
         let flash = match i.released {
