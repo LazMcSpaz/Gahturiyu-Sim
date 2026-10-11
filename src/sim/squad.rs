@@ -198,7 +198,7 @@ impl World {
         }
         let members = self.squad.members.clone();
         self.order_members(&members, target);
-        self.squad.target = geo::clamp_to_world(target, 50.0);
+        self.squad.target = if self.on_walkway(target) { target } else { geo::clamp_to_world(target, 50.0) };
     }
 
     /// Send some members somewhere, in formation among themselves. Mid-fight,
@@ -207,7 +207,8 @@ impl World {
         if !(target.x.is_finite() && target.y.is_finite()) {
             return;
         }
-        let target = geo::clamp_to_world(target, 50.0);
+        // (Out over the water only on a dock, bridge or stilt platform.)
+        let target = if self.on_walkway(target) { target } else { geo::clamp_to_world(target, 50.0) };
         // The bound work where they're put.
         let bound: Vec<PersonId> = who.iter().copied().filter(|&m| !self.free_to_order(m)).collect();
         for &m in &bound {
