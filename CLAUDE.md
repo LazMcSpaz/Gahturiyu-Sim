@@ -479,6 +479,11 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   craft, spells, stats) to the selection's lead. Escape closes the open screen,
   or with none open brings up the game menu (the world waits while it's up).
   Space only ever pauses; Enter is Deal / Take all / Make.
+- Outlines (`view/outline.rs`, Laz's P3): gold round the picked; under the mouse, red foe, green ally, blue neutral; foes always faintly red. No circle underfoot, only a small arrow the way they face (`facing_arrow`). Each is
+  the convex outer edge of the shape just drawn, as the camera sees it, laid as
+  a thin band in the glow material, pulled toward the camera along the line of
+  sight so the ground at their feet doesn't hide it. Any drawn thing can use it
+  (`Builder::mark` / `points_since`). A bandit camp is not one hoverable thing.
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.

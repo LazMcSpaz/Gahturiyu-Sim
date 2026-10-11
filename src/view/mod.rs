@@ -24,6 +24,7 @@ pub mod journalui;
 pub mod map;
 pub mod mesh;
 pub mod models;
+pub mod outline;
 pub mod packui;
 pub mod palette;
 pub mod pointer;

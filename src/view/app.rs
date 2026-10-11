@@ -61,8 +61,6 @@ pub enum Hover {
     Building((u16, u16)),
     /// A piece of furniture in a building: (building, its place in the layout).
     Furniture((u16, u16), u8),
-    /// A bandit camp (index into `World::camps`).
-    Camp(usize),
     /// A town's workplace: (town, its place in the town's list).
     Place(u16, u16),
     /// A chest, crate, cupboard or barrel in a building.
@@ -1287,7 +1285,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
     let all = game.sel.is_all(world);
     let first = match hover {
         // A workplace or a camp is only named; clicking there walks there.
-        Some(Hover::Place(..)) | Some(Hover::Camp(_)) => None,
+        Some(Hover::Place(..)) => None,
         Some(h) => super::interact::choices(world, h, &who, shift).into_iter().find(|c| c.act != super::interact::Act::Examine),
         None => game.wild.and_then(|s| super::interact::wild_choices(world, &s).into_iter().next()),
     };
