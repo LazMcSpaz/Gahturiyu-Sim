@@ -1,0 +1,221 @@
+# Candidate speakers: six per people, each with that people's picked accent.
+# The ones Laz keeps go into voices.toml.
+# Make it with:  python tools/voice/voice.py sheet tools/voice/sheets/speakers.toml -o tools/voice/out/speakers
+
+title = "Gahturiyu speakers"
+text = "Mind the road."
+
+[[item]]
+id = "roduro_m1"
+group = "Roduro (Earth)"
+label = "Man 1: the voice from the ladder"
+base = "kokoro:bm_george*0.5+hm_omega*0.5"
+accent = "roduro_v1"
+text = "You're not from here. What is it? It's not safe after dark any more."
+
+[[item]]
+id = "roduro_m2"
+group = "Roduro (Earth)"
+label = "Man 2: bigger and deeper"
+base = "kokoro:am_onyx*0.6+hm_psi*0.4"
+accent = "roduro_v1"
+text = "You're not from here. What is it? It's not safe after dark any more."
+size = 1.08
+pitch = -1.0
+
+[[item]]
+id = "roduro_m3"
+group = "Roduro (Earth)"
+label = "Man 3: lighter and younger"
+base = "kokoro:bm_daniel*0.5+jm_kumo*0.5"
+accent = "roduro_v1"
+text = "You're not from here. What is it? It's not safe after dark any more."
+size = 0.97
+pitch = 1.0
+
+[[item]]
+id = "roduro_f1"
+group = "Roduro (Earth)"
+label = "Woman 1"
+base = "kokoro:bf_alice*0.5+hf_beta*0.5"
+accent = "roduro_v1"
+text = "You're not from here. What is it? It's not safe after dark any more."
+
+[[item]]
+id = "roduro_f2"
+group = "Roduro (Earth)"
+label = "Woman 2: lower and sturdier"
+base = "kokoro:af_kore*0.6+hf_alpha*0.4"
+accent = "roduro_v1"
+text = "You're not from here. What is it? It's not safe after dark any more."
+size = 1.06
+pitch = -1.5
+
+[[item]]
+id = "roduro_f3"
+group = "Roduro (Earth)"
+label = "Woman 3: brighter"
+base = "kokoro:af_aoede*0.5+if_sara*0.5"
+accent = "roduro_v1"
+text = "You're not from here. What is it? It's not safe after dark any more."
+pitch = 0.5
+
+[[item]]
+id = "qotiro_m1"
+group = "Qotiro (Fire)"
+label = "Man 1: the voice from the ladder"
+base = "kokoro:am_fenrir*0.5+em_alex*0.5"
+accent = "qotiro_v1"
+text = "Speak. I'm busy. If I catch them I'll break their hands."
+
+[[item]]
+id = "qotiro_m2"
+group = "Qotiro (Fire)"
+label = "Man 2: bigger and deeper"
+base = "kokoro:am_onyx*0.5+im_nicola*0.5"
+accent = "qotiro_v1"
+text = "Speak. I'm busy. If I catch them I'll break their hands."
+size = 1.1
+pitch = -0.5
+
+[[item]]
+id = "qotiro_m3"
+group = "Qotiro (Fire)"
+label = "Man 3: lighter and younger"
+base = "kokoro:am_eric*0.5+em_alex*0.5"
+accent = "qotiro_v1"
+text = "Speak. I'm busy. If I catch them I'll break their hands."
+pitch = 1.0
+
+[[item]]
+id = "qotiro_f1"
+group = "Qotiro (Fire)"
+label = "Woman 1"
+base = "kokoro:af_kore*0.5+ef_dora*0.5"
+accent = "qotiro_v1"
+text = "Speak. I'm busy. If I catch them I'll break their hands."
+
+[[item]]
+id = "qotiro_f2"
+group = "Qotiro (Fire)"
+label = "Woman 2: lower and sturdier"
+base = "kokoro:af_alloy*0.5+if_sara*0.5"
+accent = "qotiro_v1"
+text = "Speak. I'm busy. If I catch them I'll break their hands."
+size = 1.05
+pitch = -1.0
+
+[[item]]
+id = "qotiro_f3"
+group = "Qotiro (Fire)"
+label = "Woman 3: brighter"
+base = "kokoro:af_nova*0.6+ef_dora*0.4"
+accent = "qotiro_v1"
+text = "Speak. I'm busy. If I catch them I'll break their hands."
+pitch = 1.0
+
+[[item]]
+id = "horaro_f1"
+group = "Horaro (Water)"
+label = "Woman 1: the voice from the ladder"
+base = "kokoro:bf_emma*0.5+pf_dora*0.5"
+accent = "horaro_v1"
+text = "Come in out of the wind, friend. Good to see you again."
+
+[[item]]
+id = "horaro_f2"
+group = "Horaro (Water)"
+label = "Woman 2: more of the foreign colour"
+base = "kokoro:bf_lily*0.4+pf_dora*0.6"
+accent = "horaro_v1"
+text = "Come in out of the wind, friend. Good to see you again."
+
+[[item]]
+id = "horaro_f3"
+group = "Horaro (Water)"
+label = "Woman 3: a different colour"
+base = "kokoro:af_sky*0.5+jf_alpha*0.5"
+accent = "horaro_v1"
+text = "Come in out of the wind, friend. Good to see you again."
+pitch = -1.0
+
+[[item]]
+id = "horaro_m1"
+group = "Horaro (Water)"
+label = "Man 1"
+base = "kokoro:bm_daniel*0.5+pm_alex*0.5"
+accent = "horaro_v1"
+text = "Come in out of the wind, friend. Good to see you again."
+
+[[item]]
+id = "horaro_m2"
+group = "Horaro (Water)"
+label = "Man 2: deeper, more of the foreign colour"
+base = "kokoro:bm_george*0.4+pm_alex*0.6"
+accent = "horaro_v1"
+text = "Come in out of the wind, friend. Good to see you again."
+size = 1.04
+pitch = -1.0
+
+[[item]]
+id = "horaro_m3"
+group = "Horaro (Water)"
+label = "Man 3: a different colour"
+base = "kokoro:am_eric*0.5+jm_kumo*0.5"
+accent = "horaro_v1"
+text = "Come in out of the wind, friend. Good to see you again."
+pitch = 1.0
+
+[[item]]
+id = "tadoro_m1"
+group = "Ṭaḍoro (Air)"
+label = "Man 1: the voice from the ladder"
+base = "kokoro:am_puck*0.6+bf_lily*0.4"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. It will be remembered. Everything is."
+
+[[item]]
+id = "tadoro_m2"
+group = "Ṭaḍoro (Air)"
+label = "Man 2: thinner"
+base = "kokoro:am_eric*0.6+zm_yunxi*0.4"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. It will be remembered. Everything is."
+size = 0.95
+
+[[item]]
+id = "tadoro_m3"
+group = "Ṭaḍoro (Air)"
+label = "Man 3: light and young"
+base = "kokoro:am_puck*0.5+af_sky*0.5"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. It will be remembered. Everything is."
+size = 0.93
+pitch = 1.5
+
+[[item]]
+id = "tadoro_f1"
+group = "Ṭaḍoro (Air)"
+label = "Woman 1"
+base = "kokoro:af_aoede*0.6+bf_lily*0.4"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. It will be remembered. Everything is."
+
+[[item]]
+id = "tadoro_f2"
+group = "Ṭaḍoro (Air)"
+label = "Woman 2: thinner"
+base = "kokoro:af_nova*0.5+zf_xiaobei*0.5"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. It will be remembered. Everything is."
+size = 0.95
+
+[[item]]
+id = "tadoro_f3"
+group = "Ṭaḍoro (Air)"
+label = "Woman 3: light and young"
+base = "kokoro:bf_lily*0.6+af_sky*0.4"
+accent = "tadoro_v1"
+text = "Ah, a new face. Tell me something I don't know. It will be remembered. Everything is."
+size = 0.94
+pitch = 1.0

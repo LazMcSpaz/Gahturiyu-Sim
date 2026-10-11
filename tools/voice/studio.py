@@ -38,11 +38,12 @@ VOICES_HEADER = """# The game's cast of voices. Each [name] is one speaker an NP
 # How far each slider goes: (lowest, highest, step).
 RANGES = {
     "speed": (0.6, 1.5, 0.01), "pause": (0.3, 2.5, 0.05), "range": (0.3, 2.0, 0.05),
+    "stop": (0.0, 3.0, 0.05), "life": (0.0, 2.0, 0.05),
     "lilt": (-4.0, 4.0, 0.25), "pitch": (-6.0, 6.0, 0.25), "energy": (-1.0, 1.0, 0.05),
     "breath": (0.0, 1.0, 0.05), "size": (0.8, 1.25, 0.01), "age": (0.0, 1.0, 0.05),
     "rough": (0.0, 1.0, 0.05), "tremor": (0.0, 1.0, 0.05),
 }
-ACCENT_DIALS = ["speed", "pause", "range", "lilt", "pitch", "energy", "breath"]
+ACCENT_DIALS = ["speed", "stop", "pause", "life", "range", "lilt", "pitch", "energy", "breath"]
 BODY_DIALS = ["pitch", "size", "age", "rough"]
 
 
@@ -97,11 +98,12 @@ def say(body: dict) -> dict:
     started = time.time()
     plain, bent = V.sounds_of(v, text)
     x, sr, _ = V.render(v, text, body.get("emotion") or None)
+    plan = V.phrasing_of(v, text, body.get("emotion") or None)
     import soundfile as sf
     buf = io.BytesIO()
     sf.write(buf, x, sr, format="WAV", subtype="PCM_16")
     out = {"wav": base64.b64encode(buf.getvalue()).decode("ascii"), "plain": plain, "bent": bent,
-           "took": round(time.time() - started, 2), **V.measure(x, sr)}
+           "took": round(time.time() - started, 2), "phrasing": V.phrasing_words(plan), **V.measure(x, sr)}
     if body.get("listen") and (V.MODELS / V.EARS_DIR).exists():
         out.update(V.hear(x, sr, text))
     return out

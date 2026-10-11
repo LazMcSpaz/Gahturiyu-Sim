@@ -141,7 +141,8 @@ def load_toml(path: Path) -> dict:
 DIALS = load_toml(HERE / "dials.toml")
 DEFAULTS: dict = DIALS["defaults"]
 ENG: dict = DIALS["engine"]
-MULTIPLIED = {"speed", "pause", "range", "size"}
+PHRASING: dict = DIALS["phrasing"]
+MULTIPLIED = {"speed", "pause", "stop", "life", "range", "size"}
 
 
 def load_profiles() -> dict:
@@ -288,6 +289,8 @@ def with_emotion(dials: dict, emotion: str | None, delivery: dict | None = None)
     if d["age"] > 0:
         fold_in(DIALS["age"], min(d["age"], 1.0))
     d["speed"] = min(max(d["speed"], 0.5), 2.0)
+    d["stop"] = min(max(d["stop"], 0.0), 5.0)
+    d["life"] = min(max(d["life"], 0.0), 3.0)
     for k in ("breath", "rough", "tremor"):
         d[k] = min(max(d[k], 0.0), 1.0)
     d["energy"] = min(max(d["energy"], -1.0), 1.0)
@@ -320,11 +323,15 @@ def espeak(lang: str):
     return _backends[lang]
 
 
+def sentences_of(text: str) -> list:
+    """The line cut at its full stops, question marks and the like."""
+    return [s for s in SENTENCE_END.split(text.strip()) if s.strip()]
+
+
 def to_sounds(text: str, accent: str, lexicon: dict) -> list:
     """The line as one string of sounds per sentence."""
-    sentences = [s for s in SENTENCE_END.split(text.strip()) if s.strip()]
     out = []
-    for sentence in sentences:
+    for sentence in sentences_of(text):
         parts, pos = [], 0
         for m in WORD.finditer(sentence):
             word = fold(m.group()).replace("’", "'")
@@ -387,15 +394,24 @@ def kokoro_style(base: str) -> np.ndarray:
     return (total / weight).astype(np.float32)
 
 
-def speak_kokoro(v: Voice, sounds: list, d: dict, seed: int):
+def speak_kokoro(v: Voice, sounds: list, d: dict, seed: int, paces: list):
+    """Each sentence spoken on its own, at its own pace: ([samples per sentence], sample rate)."""
     k = kokoro()
     style = kokoro_style(v.base)
-    phonemes = " ".join(sounds)
-    known = k.tokenizer.known(phonemes)
-    if not known.strip():
-        die("nothing in that line the voice can say")
-    audio, sr = k.create(known, voice=style, speed=d["speed"], is_phonemes=True, trim=False)
-    return np.asarray(audio, dtype=np.float32), sr
+    chunks, sr = [], 24000
+    for sentence, pace in zip(sounds, paces):
+        known = k.tokenizer.known(sentence)
+        if not known.strip():
+            die("nothing in that line the voice can say")
+        # The engine keeps one reading per length of sentence; short ones borrow
+        # a longer one's (see kokoro_steady_sounds in dials.toml).
+        n = max(len(k.tokenizer.tokenize(known)), int(ENG["kokoro_steady_sounds"]))
+        row = min(n, len(style)) - 1
+        steady = np.broadcast_to(style[row:row + 1], style.shape)
+        audio, sr = k.create(known, voice=steady, speed=min(max(d["speed"] * pace, 0.5), 2.0),
+                             is_phonemes=True, trim=False)
+        chunks.append(np.asarray(audio, dtype=np.float32))
+    return chunks, sr
 
 
 def vctk_meta() -> dict:
@@ -421,7 +437,8 @@ def vctk_probe():
     return _probe
 
 
-def speak_vctk(v: Voice, sounds: list, d: dict, seed: int):
+def speak_vctk(v: Voice, sounds: list, d: dict, seed: int, paces: list):
+    """Each sentence spoken on its own, at its own pace: ([samples per sentence], sample rate)."""
     import onnxruntime as ort
     meta = vctk_meta()
     ids, speakers = meta["phoneme_id_map"], meta["speaker_id_map"]
@@ -445,11 +462,14 @@ def speak_vctk(v: Voice, sounds: list, d: dict, seed: int):
                 seq += ids[ch] + ids["_"]
         seqs.append(np.array([seq + list(ids["$"])], dtype=np.int64))
 
-    def run(session, noise, length, noise_w):
-        scales = np.array([noise, length, noise_w], dtype=np.float32)
-        return [np.asarray(session.run(None, {
-            "input": x, "input_lengths": np.array([x.shape[1]], dtype=np.int64),
-            "scales": scales, "sid": sid})[0], dtype=np.float32).ravel() for x in seqs]
+    def run(session, noise, length, noise_w, paced=False):
+        out = []
+        for x, pace in zip(seqs, paces):
+            scales = np.array([noise, length / pace if paced else length, noise_w], dtype=np.float32)
+            out.append(np.asarray(session.run(None, {
+                "input": x, "input_lengths": np.array([x.shape[1]], dtype=np.int64),
+                "scales": scales, "sid": sid})[0], dtype=np.float32).ravel())
+        return out
 
     length = base["length_scale"] / d["speed"]
     if abs(d["speed"] - 1) > 1e-3:
@@ -471,15 +491,7 @@ def speak_vctk(v: Voice, sounds: list, d: dict, seed: int):
             l0, t0, l1 = l1, t1, nxt
             t1 = plain(l1)
         length = l1
-    chunks = [trim(c, sr, pad=0.01) for c in
-              run(sess, base["noise_scale"] * d["variation"], length, base["noise_w"] * d["variation"])]
-    gap = np.zeros(int(ENG["sentence_gap_seconds"] * sr), dtype=np.float32)
-    out = []
-    for c in chunks:
-        if out:
-            out.append(gap)
-        out.append(c)
-    return np.concatenate(out), sr
+    return run(sess, base["noise_scale"] * d["variation"], length, base["noise_w"] * d["variation"], paced=True), sr
 
 
 # ---------------------------------------------------------------------------
@@ -572,47 +584,98 @@ def add_breath(x: np.ndarray, sr: int, amount: float, rng) -> np.ndarray:
     return (x * (1 - 0.25 * amount) + noise * env * ENG["breath_mix"] * amount).astype(np.float32)
 
 
-def reshape(x: np.ndarray, sr: int, d: dict, rng) -> np.ndarray:
-    """Body size and everything about pitch, done with Praat."""
+def smooth(u):
+    """0 to 1 with a soft start and a soft landing."""
+    u = np.clip(u, 0.0, 1.0)
+    return u * u * (3 - 2 * u)
+
+
+def reshape(x: np.ndarray, sr: int, d: dict, rng, end: dict | None = None) -> np.ndarray:
+    """Body size and everything about pitch and its timing, done with Praat.
+
+    `end` shapes the sentence's last beat: "at" (seconds in, where that beat
+    starts; the last 40% if left out), "rise" and "hold" (redraw the ending:
+    see [phrasing] in dials.toml) and "linger" (hold the last beat longer).
+    "center" is the middle pitch of the whole line, in Hertz: the range dial
+    squeezes or widens the pitch round that, so it also acts on how far one
+    sentence sits from the next.
+    """
+    end = end or {}
     pitch, size, rang = d["pitch"], d["size"], d["range"]
     lilt, tremor, rough = d["lilt"], d["tremor"], d["rough"]
-    contour = abs(lilt) > 1e-3 or tremor > 1e-3 or rough > 1e-3
+    rise, hold, linger = end.get("rise"), float(end.get("hold", 1.0)), float(end.get("linger", 0.0))
+    redraw = rise is not None and hold > 1e-3
+    contour = abs(lilt) > 1e-3 or tremor > 1e-3 or rough > 1e-3 or redraw
     plain = abs(pitch) > 1e-3 or abs(rang - 1) > 1e-3
     resize = abs(size - 1) > 1e-3
-    if not (contour or plain or resize):
+    stretch = linger > 1e-3
+    if not (contour or plain or resize or stretch):
         return x
     import parselmouth
-    from parselmouth.praat import call
+    from parselmouth.praat import call, run
+    # Praat fills stretched breath and hiss with its own dice. Pinning them to
+    # the clip's key makes the same clip come out the same every time.
+    run(f"random_initializeWithSeedUnsafelyButPredictably: {int(rng.integers(1, 2 ** 31 - 1))}")
     snd = parselmouth.Sound(x.astype(np.float64), sampling_frequency=sr)
     lo, hi = 60.0, 600.0
+    moves = rang   # how far a redrawn ending travels follows the range dial too
     if resize:
         # One pass moves the throat size and, while it's there, the plain pitch changes.
         median = call(snd.to_pitch(pitch_floor=lo, pitch_ceiling=hi), "Get quantile", 0, 0, 0.5, "Hertz")
         target = 0.0
         if plain and median == median and median > 0:
-            target = median * 2 ** (pitch / 12)
+            center = float(end.get("center") or median)
+            target = center * (median / center) ** rang * 2 ** (pitch / 12)
         snd = call(snd, "Change gender", lo, hi, 1.0 / size, target, rang if target else 1.0, 1.0)
         if target:
             pitch, rang, plain = 0.0, 1.0, False
-    if contour or plain:
+    if contour or plain or stretch:
+        total = snd.duration
+        at = end.get("at")
+        at = 0.6 * total if at is None else min(max(float(at), 0.0), total - 0.05)
         manip = call(snd, "To Manipulation", 0.01, lo, hi)
         tier = call(manip, "Extract pitch tier")
         count = call(tier, "Get number of points")
-        if count >= 2:
+        if count >= 2 and (contour or plain):
             t = np.array([call(tier, "Get time from index", i) for i in range(1, count + 1)])
             f = np.array([call(tier, "Get value at index", i) for i in range(1, count + 1)])
-            median = float(np.median(f))
-            st = 12 * np.log2(f / median) * rang + pitch
-            u = (t - t[0]) / max(t[-1] - t[0], 1e-3)
-            st += lilt * np.clip((u - 0.6) / 0.4, 0, 1)
+            center = float(end.get("center") or np.median(f)) if plain else float(np.median(f))
+            st = 12 * np.log2(f / center) * rang
+            # The ending is over where the voice stops, not where the clip does
+            # (a last "s" or "f" carries no pitch).
+            close = float(t[-1])
+            at = min(at, close - 0.18)
+            u = np.clip((t - at) / max(close - at, 1e-3), 0, 1)
+            if redraw:
+                # Where the voice stood just before its last beat; the ending leaves from there.
+                before = st[(t >= at - 0.3) & (t < at)]
+                if len(before) == 0:
+                    before = st[t < at][-3:]
+                anchor = float(np.median(before)) if len(before) else 0.0
+                wanted = anchor + rise * moves * u ** 1.5
+                # Only the slope of the ending is replaced. The small ups and
+                # downs the voice made on the way stay, or it sounds drawn with a ruler.
+                tail = u > 0
+                if tail.sum() >= 3:
+                    slope = np.polyval(np.polyfit(t[tail], st[tail], 1), t[tail])
+                    wanted[tail] += np.clip(st[tail] - slope, -3.0, 3.0)
+                w = hold * smooth(u * 2.5)
+                st = st * (1 - w) + wanted * w
+            st = st + pitch + lilt * smooth(u)
             st += tremor * ENG["tremor_semitones"] * np.sin(2 * math.pi * ENG["tremor_hz"] * t)
             st += rough * ENG["rough_semitones"] * rng.standard_normal(len(t))
-            f2 = np.clip(median * 2 ** (st / 12), 50.0, 650.0)
-            new = call("Create PitchTier", "p", 0.0, snd.duration)
+            f2 = np.clip(center * 2 ** (st / 12), 50.0, 650.0)
+            new = call("Create PitchTier", "p", 0.0, total)
             for ti, fi in zip(t, f2):
                 call(new, "Add point", float(ti), float(fi))
             call([new, manip], "Replace pitch tier")
-            snd = call(manip, "Get resynthesis (overlap-add)")
+        if stretch:
+            held = call("Create DurationTier", "d", 0.0, total)
+            call(held, "Add point", float(at), 1.0)
+            call(held, "Add point", float(at + 0.4 * (total - at)), 1.0 + linger)
+            call(held, "Add point", float(total), 1.0 + linger)
+            call([held, manip], "Replace duration tier")
+        snd = call(manip, "Get resynthesis (overlap-add)")
     return np.asarray(snd.values[0], dtype=np.float32)
 
 
@@ -664,20 +727,169 @@ def sounds_of(v: Voice, text: str) -> tuple:
     return plain, bent
 
 
+# ---------------------------------------------------------------------------
+# Phrasing: a line is said one sentence at a time. Each sentence has its own
+# pace, height and ending, and a real silence after it. Numbers: [phrasing]
+# in dials.toml.
+
+OPEN_ASKERS = {"who", "what", "where", "when", "why", "how", "which", "whose", "whom"}
+MARKS = set(".,!?…;:—–-\"'“”‘’()")
+INNER_MARK = re.compile(r"[,;:—–…]|\.\.\.")
+
+
+def kind_of(sentence: str) -> str:
+    """What kind of sentence this is, by how it ends and how it starts."""
+    s = sentence.rstrip(" \"'“”‘’)")
+    if s.endswith(("…", "...")):
+        return "trail"
+    if "?" in s[-2:]:
+        words = words_of(s)
+        return "ask_open" if (words and words[0] in OPEN_ASKERS) or "or" in words[1:] else "ask"
+    if "!" in s[-2:]:
+        return "shout"
+    return "tell"
+
+
+def last_beat(sounds: str) -> float:
+    """How far through a sentence (0..1) its last stressed beat starts, judged from its sounds."""
+    seen, strong, weak = 0.0, None, None
+    for ch in sounds:
+        if ch == "ˈ":
+            strong = seen
+        elif ch == "ˌ":
+            weak = seen
+        elif ch == "ː":
+            seen += 0.5
+        elif not ch.isspace() and ch not in MARKS:
+            seen += 1.0
+    mark = strong if strong is not None else weak
+    return 0.55 if mark is None or seen <= 0 else mark / seen
+
+
+def phrase(sentences: list, d: dict, seed: int) -> list:
+    """How each sentence of a line is to be said, and the silence after it.
+
+    One entry per sentence: kind, speed, lift, range, rise, hold, linger, loud,
+    gap (seconds; 0 after the last). Sentences with no words in them ("…")
+    are not spoken: they only lengthen the silence before the next one.
+    """
+    P, life = PHRASING, d["life"]
+    spoken = [s for s in sentences if WORD.search(s)]
+    counts = [len(words_of(s)) for s in spoken]
+    plan, extra = [], 0.0
+    for s in sentences:
+        if not WORD.search(s):
+            extra += P["wordless_gap"]
+            if plan:
+                plan[-1]["gap"] += P["wordless_gap"] * d["stop"]
+            continue
+        i, n = len(plan), len(spoken)
+        k = P["kind"][kind_of(s)]
+        speed, lift, moves = float(k.get("speed", 1.0)), float(k.get("lift", 0.0)), float(k.get("range", 1.0))
+        linger, gap = float(k.get("linger", 0.0)), float(k["gap"])
+        if n > 1:
+            lift -= min(i * P["step_down"], P["step_down_most"])
+            if i == n - 1:
+                speed *= P["last_speed"]
+                linger += P["last_linger"]
+        if counts[i] <= P["short_words"]:
+            speed *= P["short_speed"]
+        elif counts[i] >= P["long_words"]:
+            speed *= P["long_speed"]
+        if i == n - 2 and counts[i + 1] <= P["short_words"]:
+            gap *= P["beat_before_short"]
+        # Keyed by the line and which sentence it is, never by when it's made.
+        roll = np.random.default_rng(seed_for(seed, "phrase", i)).uniform(-1, 1, 4)
+        speed *= 1 + P["roll_speed"] * roll[0]
+        lift += P["roll_pitch"] * roll[1]
+        moves *= 1 + P["roll_range"] * roll[2]
+        gap *= 1 + P["roll_gap"] * roll[3]
+        plan.append({
+            "kind": kind_of(s), "words": counts[i],
+            "speed": speed ** life, "lift": lift * life, "range": moves ** life,
+            "rise": None if "rise" not in k else float(k["rise"]) * min(life, 1.5),
+            "hold": min(1.0, float(k.get("hold", 1.0)) * life),
+            "linger": linger * life, "loud": float(k.get("loud", 0.0)) * life,
+            "gap": 0.0 if i == n - 1 else gap * d["stop"] * math.sqrt(d["pause"]),
+        })
+    return plan
+
+
+KIND_WORDS = {"tell": "statement", "ask": "question, rising", "ask_open": "open question, held up",
+              "shout": "shout", "trail": "trailing off"}
+
+
+def phrasing_words(plan: list) -> str:
+    """The plan in a line of plain words: "statement, a touch slower · 0.52 s · question, rising"."""
+    bits = []
+    for how in plan:
+        pace = how["speed"]
+        bits.append(KIND_WORDS[how["kind"]] + (", slower" if pace < 0.95 else ", quicker" if pace > 1.03 else ""))
+        if how["gap"] > 0:
+            bits.append(f"{how['gap']:.2f} s")
+    return " · ".join(bits)
+
+
+def phrasing_of(v: Voice, text: str, emotion: str | None = None, take: int = 0) -> list:
+    """The plan `render` follows for this line and voice (for showing, and for tests)."""
+    d = with_emotion(v.dials, emotion, v.accent.get("delivery"))
+    return phrase(sentences_of(text), d, seed_for(v.engine, v.base, reading_of(v), text, take))
+
+
+def middle_pitch(chunks: list, sr: int) -> float | None:
+    """The middle pitch of a whole line, in Hertz, across all its sentences."""
+    if len(chunks) < 2:
+        return None
+    import parselmouth
+    f = np.concatenate([parselmouth.Sound(x.astype(np.float64), sampling_frequency=sr)
+                        .to_pitch(pitch_floor=60, pitch_ceiling=600).selected_array["frequency"] for x in chunks])
+    f = f[f > 0]
+    return float(np.median(f)) if len(f) > 5 else None
+
+
+def soften_ends(x: np.ndarray, sr: int, seconds: float = 0.006) -> np.ndarray:
+    n = min(int(seconds * sr), len(x) // 2)
+    if n:
+        ramp = np.linspace(0, 1, n, dtype=np.float32)
+        x = x.copy()
+        x[:n] *= ramp
+        x[-n:] *= ramp[::-1]
+    return x
+
+
 def render(v: Voice, text: str, emotion: str | None = None, take: int = 0):
     """One line, one voice: (samples, sample rate, the sounds it was said with)."""
     d = with_emotion(v.dials, emotion, v.accent.get("delivery"))
+    sentences = sentences_of(text)
     _, sounds = sounds_of(v, text)
+    keep = [i for i, s in enumerate(sentences) if WORD.search(s)]
+    sounds = [sounds[i] for i in keep]
     if not sounds:
         die("there's no text to say")
     # Keyed by who is speaking and what they say, not by the dials: turning a
     # dial changes that one thing and leaves the reading itself alone.
     seed = seed_for(v.engine, v.base, reading_of(v), text, take)
     rng = np.random.default_rng(seed)
-    x, sr = (speak_kokoro if v.engine == "kokoro" else speak_vctk)(v, sounds, d, seed)
-    x = trim(x, sr)
-    x = scale_pauses(x, sr, d["pause"])
-    x = reshape(x, sr, d, rng)
+    plan = phrase(sentences, d, seed)
+    chunks, sr = (speak_kokoro if v.engine == "kokoro" else speak_vctk)(v, sounds, d, seed, [p["speed"] for p in plan])
+    chunks = [trim(x, sr, pad=0.03) for x in chunks]
+    center = middle_pitch(chunks, sr)
+    parts = []
+    for x, how, said in zip(chunks, plan, sounds):
+        # A gap inside a sentence is only made longer where the text has a
+        # comma or a dash; the engine sometimes pauses where there is none.
+        inner = d["pause"] * PHRASING["comma"] if INNER_MARK.search(said.rstrip(".!?… ")) else min(d["pause"], 1.0)
+        x = scale_pauses(x, sr, inner)
+        total = len(x) / sr
+        at = min(max(last_beat(said) * total, total - PHRASING["tail_most"]), total - PHRASING["tail_least"])
+        own = dict(d, pitch=d["pitch"] + how["lift"], range=d["range"] * how["range"])
+        x = reshape(x, sr, own, rng, {"at": max(at, 0.0), "rise": how["rise"], "hold": how["hold"],
+                                      "linger": how["linger"], "center": center})
+        x = soften_ends(trim(x, sr, pad=0.03), sr) * np.float32(10 ** (how["loud"] / 20))
+        parts.append(x)
+        if how["gap"] > 0:
+            parts.append(np.zeros(int(how["gap"] * sr), dtype=np.float32))
+    x = np.concatenate(parts)
     x = add_breath(x, sr, d["breath"], rng)
     x = finish(x, sr, d)
     return x, sr, " | ".join(sounds)
@@ -714,6 +926,30 @@ def measure(x: np.ndarray, sr: int) -> dict:
         out["pitch_hz"] = round(med)
         out["pitch_spread_st"] = round(float(np.std(12 * np.log2(f / med))), 2)
     return out
+
+
+def longest_stop(x: np.ndarray, sr: int) -> float:
+    """The longest silence inside a clip, in seconds."""
+    quiet, n = quiet_frames(x, sr)
+    best, run = 0, 0
+    inside = False
+    for q in quiet:
+        if not q:
+            best, run, inside = (max(best, run) if inside else best), 0, True
+        else:
+            run += 1
+    return best * n / sr
+
+
+def ending(x: np.ndarray, sr: int) -> float:
+    """Where the voice ends: semitones above (+) or below (-) the clip's middle pitch."""
+    import parselmouth
+    snd = parselmouth.Sound(x.astype(np.float64), sampling_frequency=sr)
+    f = snd.to_pitch(time_step=0.005, pitch_floor=60, pitch_ceiling=600).selected_array["frequency"]
+    f = f[f > 0]
+    if len(f) < 30:
+        return float("nan")
+    return float(np.median(12 * np.log2(f[-24:] / np.median(f))))
 
 
 SHORT_FORMS = (("n't", " not"), ("'ve", " have"), ("'re", " are"), ("'ll", " will"), ("'m", " am"), ("'d", " would"))
@@ -1027,6 +1263,22 @@ def cmd_selftest(args) -> None:
         expect(f"{base} pause 2", m["seconds"] > m0["seconds"] + 0.1, f"{m0['seconds']}s -> {m['seconds']}s")
         m = measure(*clip(base, energy=1.0))
         expect(f"{base} energy 1", m["level_db"] > m0["level_db"] + 1.5, f"{m0['level_db']} -> {m['level_db']} dB")
+        # Phrasing: a full stop is a real silence, the stop dial scales it,
+        # and a question ends higher than the same words as a statement.
+        g0 = longest_stop(x0, sr)
+        expect(f"{base} a full stop lingers", g0 >= 0.4, f"{g0:.2f} s of silence at the full stop")
+        g = longest_stop(clip(base, stop=2.0)[0], sr)
+        expect(f"{base} stop 2", g > 1.5 * g0, f"{g0:.2f} s -> {g:.2f} s")
+
+        def asked(**dials):
+            v = voice_from({"base": base, **dials})
+            return ending(*render(v, "Is it safe?")[:2]) - ending(*render(v, "Is it safe.")[:2])
+
+        up = asked()
+        expect(f"{base} a question ends higher", up >= 2.5, f"{up:+.1f} semitones above the same words as a statement")
+        if base.startswith("kokoro"):   # the accent model raises questions a little by itself
+            flat = asked(life=0.0)
+            expect(f"{base} life 0 reads them alike", flat < up - 2.0, f"{flat:+.1f} semitones apart")
         for emotion in DIALS["emotion"]:
             x, _ = clip(base, emotion)
             h = hear(x, sr, line)

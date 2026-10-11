@@ -101,8 +101,17 @@ Dials (all in `dials.toml`, with their numbers):
 
 - **Body:** `pitch`, `size` (bigger or smaller chest and throat), `age`,
   `breath`, `rough`, `tremor`.
-- **Delivery:** `speed`, `pause`, `range` (flat to sing-song), `lilt` (the
-  line ends rising or falling), `energy` (soft to hard).
+- **Delivery:** `speed`, `pause` (gaps at commas), `stop` (how long a full
+  stop lingers), `life` (how much pace and tune change from sentence to
+  sentence), `range` (flat to sing-song), `lilt` (sentences end rising or
+  falling), `energy` (soft to hard).
+- **Phrasing:** a line is spoken one sentence at a time. Each sentence gets
+  its own pace, height and ending by what kind it is (statement, yes-or-no
+  question, open question, shout, trailing off) and where it falls in the
+  line, plus a small fixed roll so no two come out alike, and a real
+  silence after it. The numbers are the `[phrasing]` tables in
+  `dials.toml`. The engines on their own read a question and a statement
+  with the same falling tune and leave almost no gap at a full stop.
 - **Emotion:** `angry`, `stern`, `weary`, `warm`, `afraid`, `sly`, each
   with a strength (`--emotion angry:0.5`). These are bundles of the dials
   above. They change how a line is delivered; they are not an actor's
