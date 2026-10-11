@@ -257,7 +257,8 @@ loses the left arm), `GAHT_RANGED=1` (bandit archers open up), `GAHT_TORCH=1`
 `GAHT_DEBUG=1` (the detail readout), `GAHT_FOREST=1` (camera far out over the
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
-`GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds
+`GAHT_BOOK=k` (member k's spell book), `GAHT_STATS=k` (member k's stats sheet),
+`GAHT_GAMEMENU=1` (the Escape menu; `quit` or `new` for its question), `GAHT_HELD=1` (the squad's mage holds
 Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
 beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
@@ -472,6 +473,12 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   saved: Seen draws filled, Heard an outline); ruins and lairs once found;
   travellers, herds, fights and bodies only within `map::MAP_SIGHT` of the
   squad. L shows the whole world.
+- One screen at a time (`view/screens.rs`, Laz's P10/P11): every screen is a
+  line in `Screen`, `is_open` and `close`; `settle` runs at the start and end of
+  the panel pass and closes all but the newest, and turns member screens (pack,
+  craft, spells, stats) to the selection's lead. Escape closes the open screen,
+  or with none open brings up the game menu (the world waits while it's up).
+  Space only ever pauses; Enter is Deal / Take all / Make.
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.

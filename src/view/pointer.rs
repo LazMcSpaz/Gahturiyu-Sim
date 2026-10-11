@@ -19,7 +19,9 @@ use super::interact::{self, Act};
 use super::palette::{ega, BRASS_LIGHT};
 
 /// How long the mouse rests on a thing before its long tooltip shows, seconds.
-pub const TIP_AFTER: f32 = 0.5;
+pub const TIP_AFTER: f32 = 1.5;
+/// How far the mouse may wander (px) and still count as resting on a thing.
+pub const STILL: f32 = 4.0;
 
 /// What a left-click will do, as the pointer shows it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
