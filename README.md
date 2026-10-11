@@ -367,8 +367,9 @@ guards; when it can't, the pay owed is shown in red (Part 3 makes that matter).
 
 **What the land offers.** Each town looks at the land within a day's walk
 once, as the world is made: ore and rare veins (gold, Edgeglass seed
-crystals) toward the mountains and the plateau's edge, sand on the plateau,
-clay in the lowlands, tentsilk cocoons in the hills, and on the coast reed,
+crystals) toward the mountains and the south-east highland's rocky rim, sand
+on the beaches and river flats, clay in the lowlands, tentsilk cocoons in the
+hills, and on the coast reed,
 pitch from the shore woods, shell and pearls, and whatever lies on the
 seabed. Its woodcutters and quarriers split their hours over what's there;
 farmers bring in fibre, hunters hides, divers shell and fishskin, kelp
@@ -857,7 +858,7 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
 - **Colours are races.** Stone = Roduro, ember = Qotiro, sea blue = Horaro,
   pale violet = Ṭaḍoro.
 - **Towns** follow `architecture.md`: Roduro grow rounded, banded homes of dark
-  stone with a lit window; Qotiro towns are stepped sandstone blocks around a
+  stone with a lit window; Qotiro towns are stepped dark-stone blocks around a
   three-tier temple; Qotiro living elsewhere keep one small dark-stone hall with
   a gold crown; every coastal town has a Horaro stilt village just offshore —
   woven domes on stone pillars with timber decks. Every town has a hearth at its
@@ -902,7 +903,7 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
   lights the simulation counts for who sees whom. At night each squad member
   has a faint ring at their feet so you can always find them.
 - **Grass, bushes and trees** are decoration: they grow where the ground suits
-  (never on roads, in towns or on the dry plateau's bare rock) and sway in the
+  (never on roads, in towns or on bare rock) and sway in the
   wind. They don't change anything that happens. Grass fades out by 80 m,
   bushes by 300 m; trees turn into simpler shapes and then flat pictures with
   distance so woods stay visible to the horizon. Press L to see how many of
@@ -916,8 +917,14 @@ If the game runs slowly, try grass and trees on medium first, then shadows.
 - **Rolling hills** rise slowly inland.
 - **Mountains** wall in the north and east edges, with one big massif in the
   middle of the map.
-- **The Qotiro plateau** in the south-east is a flat-topped, cliff-edged
-  tableland of dry scrub — their homeland.
+- **The south-east** stands higher: rolling plains with a broken, rocky rim.
+  The Qotiro settled thickest there, in Roduro country like everywhere else
+  (their desert home is far away; there's no desert, steppe or dry plateau on
+  this map).
+- **Seven kinds of country** (biomes): rolling plains, forests, coast, bog,
+  rocky ground (ravines and chasms too), snowy mountains, and the Overgrowth.
+  `headless biomes [seed]` prints each one's share, the towns' country and
+  where each kind of animal lives.
 - **Roads** link every town to its nearest neighbours. They were found by
   searching the land for the easiest walk, so they follow valleys, climb
   escarpments where the slope eases, and go around mountains. Travellers use
@@ -1027,7 +1034,8 @@ The numbers most worth tuning, all named constants:
 | Race temperaments, build, walking speed | `src/sim/race.rs` |
 | How busy the roads are, day vs night | `DEPARTURE_RATE`, `NIGHT_FACTOR` in `src/sim/world.rs` |
 | Band sizes and update rates | `src/sim/bands.rs` |
-| Where mountains, the plateau and cliffs are; how tall | `src/sim/terrain.rs` |
+| Where mountains, the south-east highland and cliffs are; how tall | `src/sim/terrain.rs` |
+| What kind of country (biome) each spot is | `src/sim/biome.rs` |
 | How roads are chosen (steepness limit, how many links per town) | `src/sim/routes.rs` |
 | Ground and building colours | `src/view/palette.rs` |
 | Stats, skills, how fast they train | `src/sim/stats.rs` |

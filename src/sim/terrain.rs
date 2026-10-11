@@ -3,9 +3,11 @@
 //! Heights are built once, from the world seed, into a grid; everything else
 //! samples that grid. The land rises gently from the coast into rolling hills,
 //! walls up into mountains along the north and east edges and one inland
-//! massif, and lifts into a flat-topped, cliff-edged plateau in the south-east
-//! — the arid Qotiro homeland. Some stretches of shore are low cliffs instead
-//! of beaches.
+//! massif, and stands higher in the south-east: a raised stretch of rolling
+//! plains with a broken, rocky rim. Some stretches of shore are low cliffs
+//! instead of beaches. What kind of country each spot is (plains, forest,
+//! coast, bog, rocky ground, snowy mountains) is read off this land in
+//! `biome.rs`; there is no desert, steppe or dry plateau anywhere (Laz).
 //!
 //! The sea is at height 0. Land at the waterline sits just above it.
 
@@ -218,6 +220,11 @@ fn warp(seed: u64, p: V2, amount: f32) -> V2 {
     )
 }
 
+/// The highland's rim: how far into it (from, to), and how steep, counts
+/// as its broken rocky edge.
+pub const RIM: (f32, f32) = (0.2, 0.7);
+pub const RIM_STEEP: f32 = 0.28;
+
 fn smooth(a: f32, b: f32, x: f32) -> f32 {
     let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
@@ -233,8 +240,8 @@ pub fn mountain_mask(p: V2) -> f32 {
     north.max(east).max(massif)
 }
 
-/// How far into the Qotiro plateau a spot is, 0..1, before its eroded edge.
-pub fn plateau_mask(p: V2) -> f32 {
+/// How far into the south-east highland a spot is, 0..1, before its broken rim.
+pub fn highland_mask(p: V2) -> f32 {
     smooth(10_900.0, 12_600.0, p.x) * smooth(9_900.0, 11_600.0, p.y) * (1.0 - smooth(16_000.0, 18_000.0, p.x))
 }
 
@@ -243,9 +250,9 @@ pub fn cliff_mask(seed: u64, y: f32) -> f32 {
     smooth(0.56, 0.70, noise(seed ^ 0xC11F, 0.0, y, 2600.0))
 }
 
-/// How much a point belongs to the plateau, 0..1, with its eroded edge.
-fn plateau_at(seed: u64, p: V2) -> f32 {
-    let pm = plateau_mask(warp(seed, p, 2600.0));
+/// How much a point belongs to the south-east highland, 0..1, with its broken rim.
+fn highland_at(seed: u64, p: V2) -> f32 {
+    let pm = highland_mask(warp(seed, p, 2600.0));
     smooth(0.34, 0.56, pm + (fbm(seed ^ 0x9A7E, p.x, p.y, 1400.0, 3) - 0.5) * 0.5)
 }
 
@@ -268,9 +275,9 @@ fn raw_height(seed: u64, p: V2) -> f32 {
     let hills = (fbm(seed ^ 0x4111, x, y, 2400.0, 5) - 0.5) * 2.0;
     let hills_amp = 95.0 * smooth(300.0, 2600.0, d);
 
-    // The Qotiro plateau: flat on top, with an eroded escarpment around it.
-    let edge = plateau_at(seed, p);
-    let plateau = edge * (115.0 + (noise(seed ^ 0x77, x, y, 3000.0) - 0.5) * 18.0);
+    // The south-east highland: raised plains, with a broken rocky rim.
+    let edge = highland_at(seed, p);
+    let highland = edge * (115.0 + (noise(seed ^ 0x77, x, y, 3000.0) - 0.5) * 18.0);
     let rolling = hills * hills_amp * (1.0 - 0.75 * edge);
 
     // Mountains: ridged crests, masked to their regions and kept off the coast
@@ -282,7 +289,7 @@ fn raw_height(seed: u64, p: V2) -> f32 {
     // Low sea cliffs along some stretches of shore.
     let cliff = cliff_mask(seed, y) * 26.0 * smooth(12.0, 80.0, d);
 
-    let h = lowland + rolling + plateau + mountains + cliff;
+    let h = lowland + rolling + highland + mountains + cliff;
     h.max(0.35 + d.min(400.0) * 0.004)
 }
 
@@ -332,8 +339,8 @@ impl Terrain {
     }
 
     /// The ground underfoot, read off the land itself: road where a road
-    /// runs; sand along the shore; rock on steep slopes and high mountains;
-    /// scrub on the dry plateau and in patches elsewhere; grass otherwise.
+    /// runs; sand along the shore; rock on steep slopes, high mountains and
+    /// the highland's broken rim; scrub in patches; grass otherwise.
     pub fn ground(&self, p: V2) -> Ground {
         if self.on_road(p) {
             return Ground::Road;
@@ -349,10 +356,10 @@ impl Terrain {
         if geo::inland(p) < 60.0 {
             return Ground::Sand;
         }
-        if self.slope(p) > 0.35 || self.mountains(p) > 0.55 {
+        if self.slope(p) > 0.35 || self.mountains(p) > 0.55 || self.on_rim(p) {
             return Ground::Rock;
         }
-        if self.plateau(p) > 0.5 || noise(self.seed ^ 0x5C2B, p.x, p.y, 450.0) > 0.7 {
+        if noise(self.seed ^ 0x5C2B, p.x, p.y, 450.0) > 0.7 {
             return Ground::Scrub;
         }
         Ground::Grass
@@ -362,9 +369,17 @@ impl Terrain {
         self.seed
     }
 
-    /// 0..1: how far this spot is into the Qotiro plateau (arid scrub).
-    pub fn plateau(&self, p: V2) -> f32 {
-        plateau_at(self.seed, p)
+    /// 0..1: how far this spot is into the south-east highland (raised
+    /// plains; its rim is rocky ground).
+    pub fn highland(&self, p: V2) -> f32 {
+        highland_at(self.seed, p)
+    }
+
+    /// On the highland's broken rim: part way into it, and steep. Rocky
+    /// ground, with ledges and clefts.
+    pub fn on_rim(&self, p: V2) -> bool {
+        let hl = self.highland(p);
+        hl > RIM.0 && hl < RIM.1 && self.slope(p) > RIM_STEEP
     }
 
     /// 0..1: how far this spot is into mountain country.

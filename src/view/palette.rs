@@ -155,13 +155,10 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     // Lowland grass, drier and patchier uphill.
     let mut c = mix(GRASS, GRASS_DRY, n1 * 0.9 + n2 * 0.25 - 0.1);
     c = mix(c, HEATH, smooth(140.0, 320.0, h) * 0.8);
-    // The Qotiro plateau is arid scrub; its escarpments are bare sandstone.
-    let arid = t.plateau(p);
-    c = mix(c, mix(SCRUB, GRASS_DRY, n2 * 0.4), arid * 0.9);
-    // Bare rock where it's steep or high.
+    // Bare rock where it's steep or high (the south-east highland is grass
+    // like the rest, its broken rim rock like any steep face).
     let steep = smooth(0.86, 0.66, up) * (0.75 + n1 * 0.5);
-    let rock = if arid > 0.4 { SANDROCK } else { ROCK };
-    c = mix(c, rock, steep.max(smooth(380.0, 520.0, h) * 0.85));
+    c = mix(c, ROCK, steep.max(smooth(380.0, 520.0, h) * 0.85));
     // Snow on the high flats, above the snow line (which the weather moves).
     let line = snow_line();
     c = mix(c, SNOW, smooth(line - 60.0, line + 60.0, h) * smooth(0.78, 0.90, up) * 0.85);

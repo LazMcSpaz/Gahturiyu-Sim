@@ -498,7 +498,7 @@ roots, the first describing the second, made once as a recipe and then said in e
 of the four tongues by that tongue's rules, and in English.
 
 - **Features** (23): cove, bay, headland, cliff, shore, river mouth, island, sea
-  stack, rocky hillside, hill, valley, hollow, ridge, mountain, peak, pass, plateau,
+  stack, rocky hillside, hill, valley, hollow, ridge, mountain, peak, pass, upland (the raised south-east; no plateau since 11 Oct),
   plain, wood, marsh, heath, spring, stream. Each has the words such a place is
   called (a cove is a "cove", a "harbour", a "bay") and the things found there that
   might name it (gulls, kelp, shells).
@@ -732,7 +732,7 @@ From stage 3:
 16. **Who owns what** where the game doesn't say: jobs, town places and creatures.
     Notably Teacher, Scribe, Alchemist, Exchanger, Drifter, coin and letters are
     Ṭaḍoro; Mason is Qotiro (the Roduro grow, they don't build); marsh, hill and
-    mountain beasts are Roduro; the plateau's are Qotiro; everything of the shore and
+    mountain beasts are Roduro; the Dustrunner is Qotiro; everything of the shore and
     sea is Horaro; the silk spinners are Ṭaḍoro (Tentsilk is theirs).
 17. **A job is usually "one who does X" from a single root** (Tailor is "cloth-er",
     Carpenter "timber-er"), to keep names to three or four beats. The English name

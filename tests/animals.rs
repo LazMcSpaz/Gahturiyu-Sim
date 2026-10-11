@@ -198,7 +198,6 @@ fn a_new_world_is_stocked() {
         for h in &w.animals.herds {
             assert_eq!(region_of(h.home), h.region);
             match h.sp {
-                Sp::Dustrunner => assert!(w.terrain.plateau(h.home) > 0.4, "a Dustrunner flock off the plateau"),
                 Sp::Tidepicker => assert!(gahturiyu_sim::sim::geo::inland(h.home) < 120.0, "Tidepickers inland"),
                 Sp::Cragmaw => assert!(h.home.dist(MASSIF) < MASSIF_RADIUS + 200.0, "a Cragmaw off the massif"),
                 _ => {}
@@ -207,6 +206,18 @@ fn a_new_world_is_stocked() {
             if h.def().toward.dangerous() {
                 assert!(w.settlements.iter().all(|s| s.pos.dist(h.home) > s.radius() + 300.0), "a {} lairs at a town's edge", h.def().name);
             }
+        }
+        // And in the country their kind lives in (homes are set up to 70 m
+        // off the spot the country was read at, so near it, and most).
+        for sp in [Sp::WildTuriyu, Sp::Brushleaper, Sp::Wallowback, Sp::CragGrazer, Sp::Dustrunner, Sp::Ridgehound, Sp::Mirejaw] {
+            let mask: u16 = sp.def().habitats.iter().map(|h| 1u16 << (*h as u16)).sum();
+            let homes: Vec<_> = w.animals.herds.iter().filter(|h| h.sp == sp).collect();
+            let near = |p: V2| (0..9).any(|k| {
+                let q = if k == 0 { p } else { let a = k as f32 * 0.785; p.add(V2::new(a.cos(), a.sin()).scale(90.0)) };
+                gahturiyu_sim::sim::animals::country(w.seed, &w.terrain, q) & mask != 0
+            });
+            let fits = homes.iter().filter(|h| near(h.home)).count();
+            assert!(fits * 10 >= homes.len() * 7, "seed {seed}: only {fits} of {} {} homes in their country", homes.len(), sp.name());
         }
         // Every town keeps animals, and every pen is somebody's town's.
         for s in &w.settlements {
@@ -319,6 +330,8 @@ fn a_pack_leaves_a_strong_squad_alone_but_falls_on_a_lone_survivor() {
     let mut attacked = false;
     'night: for _ in 0..5 {
         down(&mut w);
+        // (Kept hungry: it may have caught something in the hour between.)
+        w.animals.herds[pack as usize].ready_at = 0.0;
         // (Its nerve is rolled afresh each hour.)
         let lone = [w.squad.members[0]];
         let roll_ok = (0..=10).any(|k| w.herd_would_attack(pack, &lone, k as f32 / 10.0));

@@ -6,7 +6,7 @@
 //! set of slow curves and one run of storms for the whole world, which each
 //! region takes its own share of (`shared` in the climate file), and which
 //! reach places further east a little later (`lag`). So a storm darkens the
-//! sea, then the coast, then the hills; the plateau may miss it altogether.
+//! sea, then the coast, then the plains and the mountains.
 //!
 //! Three kinds of thing are laid over each other, all fixed by the world
 //! seed, the region and the time asked about:

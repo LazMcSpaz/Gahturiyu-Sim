@@ -190,7 +190,9 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    Bonepicker, Tidepicker's tide). Society reaches animals only through the
    plain functions in `animals/hooks.rs`, `livestock.rs`, `region.rs` and
    `herd.rs`; a caller on the timeline uses the `_at(t)` form. Animals read
-   the Overgrowth only through `World::overgrowth(region)`.
+   the Overgrowth only through `World::overgrowth(region)`. Their habitats are
+   the biomes (`biome.rs`) plus a few places within them (shore, hill cliffs,
+   ledges, the massif).
 
 21. **Weather is looked up from the place and the time.** `weather_at(pos, t)`
    is a pure function of the seed, the region and `t` (`sim/weather/`): never
@@ -198,6 +200,8 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    `data/weather/climate.ron`. Regions have their own climates and share the
    big weather, which reaches a place `lag(pos)` after the sea's edge.
    Anything on the timeline that reads the weather passes the event's time.
+   Its regions are the biomes big enough to have weather (open sea, coast,
+   rolling plains, rocky ground, snowy mountains).
    What the weather does to people and things is `weather_effects(pos, t)`,
    and unusual days are `omens(region, day)`: both looked up the same way. A
    rule that reads them asks once per decision (a fight's start, a leg's
@@ -332,6 +336,8 @@ with `GAHT_PRESET_STRENGTH=0..1` (forced weather; U cycles it in the window), `G
 (a lightning strike), `GAHT_WEATHER_TAB=effects`, `GAHT_WEATHER_QUALITY=off|low|medium|high`,
 `GAHT_WEATHER_COST=1`; more in `docs/weather-hooks.md`.
 `headless society [days] [seed]` prints every town's customs, jobs, food and money.
+`headless biomes [seed]` prints each biome's share of the land, every town's country and
+where each kind of animal lives.
 
 Under Xvfb, Bevy renders in software (Mesa's lavapipe Vulkan driver, package
 `mesa-vulkan-drivers`): about 5 fps, so the fps readout means nothing there.
@@ -534,8 +540,16 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   residents share one; plain homes go by head count. Residents are whoever
   sleeps there (`dwelling`), not `Household::home`. It never changes after.
   Keepers and trade marks use the same table (`layout::keeps`, `sign_of`).
-- The south-east inland is Qotiro country — a raised arid plateau; elsewhere
-  inland is mostly Roduro. Mountains wall the north and east, plus one massif.
+- The only biomes are (Laz, 2026-10-11): rolling plains, forests, coast, bog,
+  rocky mountainous ground (including ravines and chasms), snowy mountains,
+  and the Overgrowth (`sim/biome.rs`, `World::biome_at`). No desert, steppe or
+  arid plateau anywhere: the Qotiro come from desert lands, but here they live
+  in Roduro lands, out of their element. Inland towns are mostly Roduro;
+  the Qotiro settled thickest in the south-east, where the land stands
+  higher (rolling plains with a broken, rocky rim; `Terrain::highland`).
+  Mountains wall the north and east, plus one massif. Animals' habitats,
+  the weather's regions and what the land gives all start from the biomes;
+  forest, bog and the Overgrowth share the weather of the country round them.
 - Population is 5,000 split evenly by race (a starting point, Laz's call).
   Towns are mixed: founders count 2.5× in their own town, Horaro lean coastal
   (Laz: very present on the coast but rarely the majority). Bandits are extra.

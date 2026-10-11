@@ -1,8 +1,8 @@
 //! A town's crafters at work, what the land gives, what things cost, and the
 //! squad's dealings with crafters: orders, lessons and manuals.
 //!
-//! **Sources.** What the land round a town offers (ore in the mountains,
-//! sand on the plateau, reed and shell on the coast...) is read off the
+//! **Sources.** What the land round a town offers (ore in the mountains and
+//! on rocky ground, sand on the coast, reed and shell there too...) is read off the
 //! terrain once, as the world is made, and stored with the town. Gatherers
 //! bring in their share of it every hour they work (`Job::gathers`).
 //!
@@ -144,24 +144,26 @@ impl World {
     /// What the land within reach of a town offers, by good, 0..1.
     pub(super) fn town_sources(&self, town: SettlementId) -> Vec<f32> {
         let s = &self.settlements[town as usize];
-        let (mut n, mut mount, mut plat, mut edge, mut hills, mut low) = (0.0f32, 0.0, 0.0, 0.0, 0.0, 0.0);
+        // (`high`: how far into the south-east highland; its broken rim
+        // (`edge`) is rocky ground with ore in it, its top plains.)
+        let (mut n, mut mount, mut high, mut edge, mut hills, mut low) = (0.0f32, 0.0, 0.0, 0.0, 0.0, 0.0);
         for j in -3..=3 {
             for i in -3..=3 {
                 let p = s.pos.add(super::geo::V2::new(i as f32 * 500.0, j as f32 * 500.0));
                 if p.dist(s.pos) > 1600.0 || !super::geo::is_land(p) {
                     continue;
                 }
-                let (m, pl, h) = (self.terrain.mountains(p), self.terrain.plateau(p), self.terrain.height(p));
+                let (m, pl, h) = (self.terrain.mountains(p), self.terrain.highland(p), self.terrain.height(p));
                 n += 1.0;
                 mount += m;
-                plat += pl;
+                high += pl;
                 edge += 4.0 * pl * (1.0 - pl);
                 hills += smooth(60.0, 180.0, h) * (1.0 - pl);
                 low += ((h < 45.0) && m < 0.15 && pl < 0.15) as u8 as f32;
             }
         }
         let n = n.max(1.0);
-        let (mount, plat, edge, hills, low) = (mount / n, plat / n, edge / n, hills / n, low / n);
+        let (mount, high, edge, hills, low) = (mount / n, high / n, edge / n, hills / n, low / n);
         // Quarriers go further for ore and veins: the high ground within a day's round trip.
         let (mut nf, mut far) = (0.0f32, 0.0f32);
         for j in -4..=4 {
@@ -171,7 +173,7 @@ impl World {
                     continue;
                 }
                 nf += 1.0;
-                far += self.terrain.mountains(p).max(4.0 * self.terrain.plateau(p) * (1.0 - self.terrain.plateau(p)) * 0.5);
+                far += self.terrain.mountains(p).max(4.0 * self.terrain.highland(p) * (1.0 - self.terrain.highland(p)) * 0.5);
             }
         }
         let far = far / nf.max(1.0);
@@ -179,14 +181,15 @@ impl World {
         let mut r = Rng::from_keys(&[self.seed, town as u64, 0x534F_5552]);
         let mut src = vec![0.0f32; N_GOODS];
         let mut set = |g: Good, x: f32| src[g.index()] = x.clamp(0.0, 1.0);
-        set(Good::Timber, (1.0 - 0.7 * plat - 0.5 * mount).max(0.15));
-        set(Good::Rock, mount + hills * 0.7 + plat * 0.3);
+        set(Good::Timber, (1.0 - 0.5 * mount).max(0.15));
+        set(Good::Rock, mount + hills * 0.7 + edge * 0.6);
         set(Good::Ore, mount + edge * 0.4 + far * 1.5 - 0.05);
         set(Good::Clay, low);
-        set(Good::Sand, plat + sea * 0.25);
-        // Rare veins.
+        // Sand from the beaches, and the river flats' silt.
+        set(Good::Sand, sea * 0.6 + low * 0.3);
+        // Rare veins: in the mountains, or the highland's rocky rim.
         let veins = r.f32();
-        set(Good::Gold, if veins < 0.3 && (far > 0.15 || plat > 0.3) { 0.6 } else { 0.0 });
+        set(Good::Gold, if veins < 0.3 && (far > 0.15 || (high > 0.3 && edge > 0.2)) { 0.6 } else { 0.0 });
         set(Good::EdgeSeed, if far > 0.2 { (far - 0.2) * 1.2 } else { 0.0 });
         // The coast: reed, resin from the shore woods, shellbeds, the seabed.
         set(Good::Seareed, sea);

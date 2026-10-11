@@ -5,8 +5,8 @@
 //! the same every time: each plant has a cell on a fixed grid (grass every
 //! `GRASS_GRID` metres, bushes `BUSH_GRID`, trees `TREE_GRID`) and grows
 //! there or not by the ground under it — its height, slope, kind (the sim's
-//! `Ground`), how near the coast it is, and how far into the dry Qotiro
-//! plateau. Woods are where a slow noise is high. Nothing grows on roads, in
+//! `Ground`) and how near the coast it is. Woods are where a slow noise is
+//! high (the sim's forests, `biome.rs`). Nothing grows on roads, in
 //! towns, round bandit camps or in water.
 //!
 //! **Drawing many plants cheaply.** Every plant of a kind shares one mesh and
@@ -223,7 +223,6 @@ fn wood(w: &World, p: V2) -> f32 {
 struct Spot {
     h: f32,
     slope: f32,
-    arid: f32,
     shore: f32,
     ground: Ground,
 }
@@ -238,7 +237,7 @@ fn spot(w: &World, p: V2) -> Option<Spot> {
     if ground == Ground::Road || t.on_road(p) {
         return None;
     }
-    Some(Spot { h: t.height(p), slope: t.slope(p), arid: t.plateau(p), shore, ground })
+    Some(Spot { h: t.height(p), slope: t.slope(p), shore, ground })
 }
 
 /// A plant's place in its grid cell, and a roll for it, from the seed.
@@ -253,7 +252,7 @@ fn grass_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
     if s.ground != Ground::Grass {
         return false;
     }
-    let chance = 0.8 * (1.0 - s.arid) * smooth(0.75, 0.45, s.slope) * smooth(620.0, 460.0, s.h) * smooth(6.0, 22.0, s.shore) * (1.0 - 0.5 * wood(w, p));
+    let chance = 0.8 * smooth(0.75, 0.45, s.slope) * smooth(620.0, 460.0, s.h) * smooth(6.0, 22.0, s.shore) * (1.0 - 0.5 * wood(w, p));
     let (m, add) = w.terrain.edits.plants_at(p)[0];
     r.f32() < (chance * m + add * smooth(0.9, 0.6, s.slope)) * density
 }
@@ -264,7 +263,7 @@ fn bush_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
         return false;
     }
     let wd = wood(w, p);
-    let chance = (0.10 + 0.35 * wd * (1.0 - wd) * 4.0 * 0.5 + 0.25 * s.arid) * smooth(0.8, 0.5, s.slope) * smooth(720.0, 560.0, s.h) * smooth(6.0, 14.0, s.shore);
+    let chance = (0.10 + 0.35 * wd * (1.0 - wd) * 4.0 * 0.5) * smooth(0.8, 0.5, s.slope) * smooth(720.0, 560.0, s.h) * smooth(6.0, 14.0, s.shore);
     let (m, add) = w.terrain.edits.plants_at(p)[1];
     r.f32() < (chance * m + add * smooth(0.9, 0.6, s.slope)) * density
 }
@@ -277,7 +276,7 @@ fn tree_at(w: &World, p: V2, r: &mut Rng, density: f32) -> Option<u8> {
         return None;
     }
     let wd = wood(w, p);
-    let chance = (0.85 * wd + 0.025) * (1.0 - 0.95 * s.arid) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore);
+    let chance = (0.85 * wd + 0.025) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore);
     let (m, add) = w.terrain.edits.plants_at(p)[2];
     if r.f32() >= (chance * m + add * smooth(0.8, 0.5, s.slope)) * density {
         return None;
@@ -717,7 +716,7 @@ pub fn biggest_wood_near(w: &World, p: V2) -> Option<V2> {
         for i in -40..=40 {
             let q = p.add(V2::new(i as f32 * step, j as f32 * step));
             let Some(s) = spot(w, q) else { continue };
-            if s.h > TREE_LINE || s.arid > 0.3 || w.settlements.iter().any(|t| t.pos.dist(q) < t.reach + 100.0) {
+            if s.h > TREE_LINE || w.settlements.iter().any(|t| t.pos.dist(q) < t.reach + 100.0) {
                 continue;
             }
             // How wooded the neighbourhood is, near the squad preferred.

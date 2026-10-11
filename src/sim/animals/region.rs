@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use super::super::geo::{self, V2, WORLD_SIZE};
 use super::super::rng::{self, Rng};
-use super::super::terrain::{self, Ground, Terrain};
+use super::super::biome;
+use super::super::terrain::{self, Terrain};
 use super::super::world::{World, DAY};
 use super::species::{Class, Habitat, Sp, FISH, N_HABITATS};
 
@@ -115,63 +116,31 @@ fn bit(h: Habitat) -> u16 {
     1 << (h as u16)
 }
 
-/// Which kinds of country a spot on land is. A bit per `Habitat`.
+/// Which kinds of country a spot on land is. A bit per `Habitat`: the
+/// spot's biome (`biome::land_biome`), plus any of the places within it
+/// that some animals keep to (the beach, hill cliffs, ledges, the massif).
 pub fn country(world_seed: u64, t: &Terrain, p: V2) -> u16 {
     if !geo::is_land(p) {
         return 0;
     }
     let d = geo::inland(p);
-    let h = t.height(p);
-    let s = t.slope(p);
-    let m = t.mountains(p);
-    let pl = t.plateau(p);
-    let mut out = 0u16;
     if d < SHORE_STRIP {
         return bit(Habitat::Shore);
     }
-    let high = m > 0.55 || (s > 0.35 && h > 250.0);
-    if high {
-        out |= bit(Habitat::Mountain);
-        if p.dist(MASSIF) < MASSIF_RADIUS {
-            out |= bit(Habitat::Massif);
-        }
+    let Some(b) = biome::land_biome(world_seed, t, p) else { return 0 };
+    let mut out = Habitat::of_biome(b).map(bit).unwrap_or(0);
+    let (h, s) = (t.height(p), t.slope(p));
+    let high = biome::mountain_ground(t, p);
+    if high && p.dist(MASSIF) < MASSIF_RADIUS {
+        out |= bit(Habitat::Massif);
     }
-    // Ledges: the steepest ground anywhere, and the plateau's broken edge.
-    if s > 0.5 || (pl > 0.2 && pl < 0.7 && s > 0.28) {
+    // Ledges: the steepest ground anywhere (ravines, chasm edges), and the
+    // highland's broken rim.
+    if s > 0.5 || t.on_rim(p) {
         out |= bit(Habitat::Ledge);
     }
-    if high {
-        return out;
-    }
-    if pl > 0.6 {
-        return out | bit(Habitat::Plateau);
-    }
-    if s > 0.26 && s < 0.7 && h > 30.0 && d > 300.0 && pl < 0.4 {
+    if !high && s > 0.26 && s < 0.7 && h > 30.0 && d > 300.0 && t.highland(p) < 0.4 {
         out |= bit(Habitat::Cliff);
-    }
-    // Wet ground: the low flat coast behind a beach, and valley bottoms
-    // (ground well below what stands round it).
-    let low_coast = d < 700.0 && h < 9.0 && s < 0.05 && terrain::cliff_mask(t.seed(), p.y) < 0.3;
-    let hollow = || {
-        let mut sum = 0.0;
-        for k in 0..8 {
-            let a = k as f32 / 8.0 * std::f32::consts::TAU;
-            sum += t.height(p.add(V2::new(a.cos(), a.sin()).scale(300.0)));
-        }
-        sum / 8.0 - h
-    };
-    if low_coast || (s < 0.08 && h < 160.0 && hollow() > 12.0) {
-        return out | bit(Habitat::Marsh);
-    }
-    if s > 0.3 {
-        return out;
-    }
-    if wooded(world_seed, p) > 0.5 {
-        out |= bit(Habitat::Wood);
-    } else if t.ground(p) == Ground::Scrub {
-        out |= bit(Habitat::Scrub);
-    } else {
-        out |= bit(Habitat::Grass);
     }
     out
 }

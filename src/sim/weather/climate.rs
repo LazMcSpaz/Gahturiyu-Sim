@@ -53,7 +53,9 @@ pub struct RegionClimate {
 pub struct Borders {
     pub sea_from: f32,
     pub coast_reach: f32,
-    pub upland_from: f32,
+    /// How much of the coast's weather a sheltered stretch of it gets (the
+    /// rest is the plains'), 0..1.
+    pub sheltered_coast: f32,
     pub blend: f32,
 }
 
@@ -286,7 +288,7 @@ mod tests {
     #[test]
     fn the_climate_file_loads_and_seasons_pass_through_their_values() {
         let c = parse(TEXT).expect("the climate file should load");
-        assert_eq!(c.regions.len(), 6);
+        assert_eq!(c.regions.len(), super::super::REGIONS);
         let v = [1.0, 5.0, 2.0, -3.0];
         for (k, want) in v.iter().enumerate() {
             assert!((seasonal(&v, k as f32 * 0.25) - want).abs() < 1e-4);

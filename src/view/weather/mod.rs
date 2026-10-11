@@ -146,7 +146,7 @@ pub struct WeatherView {
 
 impl Default for WeatherView {
     fn default() -> Self {
-        let calm = weather::localise(&Sky::default(), Region::Lowland, 0.0, 0.0);
+        let calm = weather::localise(&Sky::default(), Region::Plains, 0.0, 0.0);
         WeatherView {
             open: false,
             folded: false,

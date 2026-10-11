@@ -41,7 +41,8 @@ pub enum Feature {
     Mountain,
     Peak,
     Pass,
-    Plateau,
+    /// The raised south-east: rolling plains, higher than the rest.
+    Upland,
     Plain,
     Wood,
     Marsh,
@@ -351,7 +352,7 @@ pub const FEATURES: [Feature; 23] = [
     Feature::Mountain,
     Feature::Peak,
     Feature::Pass,
-    Feature::Plateau,
+    Feature::Upland,
     Feature::Plain,
     Feature::Wood,
     Feature::Marsh,

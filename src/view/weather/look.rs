@@ -140,8 +140,8 @@ pub fn apply(
 
     // ---- Snow on the ground ------------------------------------------------------------
     // Where it lies: where the last days have been cold enough here, or in
-    // the mountains if they are colder (it is their tops that show).
-    let lying = here.snow_lies_above.min(v.skies[Region::Mountain as usize].snow_lying);
+    // the snowy mountains if they are colder (it is their tops that show).
+    let lying = here.snow_lies_above.min(v.skies[Region::Snowy as usize].snow_lying);
     palette::set_snow_line(lying);
     v.spent += started.elapsed().as_secs_f32() * 1000.0;
 }

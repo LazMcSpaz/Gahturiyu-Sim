@@ -1,4 +1,8 @@
 //! Climate regions: which kind of country a spot is, read off the land.
+//! Each is one of the biomes (`biome.rs`), plus the open sea. Forest, bog
+//! and the Overgrowth are patches within the plains and the hills, too small
+//! to have weather of their own: they take the weather of the country round
+//! them. There is no dry or plateau climate anywhere.
 //!
 //! Each region has its own weather, and nothing travels from one to the
 //! next. So that there are no hard lines, a spot near a border belongs
@@ -6,6 +10,7 @@
 
 use super::climate::climate;
 use super::noise::smooth;
+use crate::sim::biome;
 use crate::sim::geo::{self, V2};
 use crate::sim::terrain::{self, Terrain};
 
@@ -13,37 +18,38 @@ use crate::sim::terrain::{self, Terrain};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Region {
     OpenSea = 0,
-    ExposedCoast = 1,
-    /// Sheltered coast and the low country behind it.
-    Lowland = 2,
-    Upland = 3,
-    Mountain = 4,
-    /// The dry Qotiro plateau in the south-east.
-    Plateau = 5,
+    /// The coast: fully where it lies open to the sea (cliffs, headlands,
+    /// where the mountains come down to it), half where it's sheltered.
+    Coast = 1,
+    /// The rolling plains, low or high, with their forests and bogs.
+    Plains = 2,
+    /// Rocky mountain ground below the snow.
+    Rocky = 3,
+    /// The snowy mountains.
+    Snowy = 4,
 }
 
-pub const REGIONS: usize = 6;
+pub const REGIONS: usize = 5;
 
 /// How much a spot belongs to each region; the shares add up to 1.
 pub type Mix = [f32; REGIONS];
 
 impl Region {
-    pub const ALL: [Region; REGIONS] = [Region::OpenSea, Region::ExposedCoast, Region::Lowland, Region::Upland, Region::Mountain, Region::Plateau];
+    pub const ALL: [Region; REGIONS] = [Region::OpenSea, Region::Coast, Region::Plains, Region::Rocky, Region::Snowy];
 
     pub fn name(self) -> &'static str {
         match self {
             Region::OpenSea => "open sea",
-            Region::ExposedCoast => "exposed coast",
-            Region::Lowland => "sheltered coast and lowland",
-            Region::Upland => "upland",
-            Region::Mountain => "mountain",
-            Region::Plateau => "plateau",
+            Region::Coast => "coast",
+            Region::Plains => "rolling plains",
+            Region::Rocky => "rocky ground",
+            Region::Snowy => "snowy mountains",
         }
     }
 
     /// By the sea: where sea mist and surf belong.
     pub fn maritime(self) -> bool {
-        matches!(self, Region::OpenSea | Region::ExposedCoast)
+        matches!(self, Region::OpenSea | Region::Coast)
     }
 }
 
@@ -60,8 +66,8 @@ pub fn shore_exposure(terrain: &Terrain, y: f32) -> f32 {
 }
 
 /// Which region a single point falls in, with soft edges only where the
-/// land itself changes gently (the shore). The plateau's rim and the foot of
-/// the mountains are sharp here; `mix` softens them.
+/// land itself changes gently (the shore). The foot of the mountains and the
+/// snow country's edge are sharp here; `mix` softens them.
 fn mix_at_point(terrain: &Terrain, p: V2) -> Mix {
     let b = &climate().borders;
     let half = b.blend / 2.0;
@@ -75,19 +81,20 @@ fn mix_at_point(terrain: &Terrain, p: V2) -> Mix {
     take(Region::OpenSea, smooth(-(b.sea_from - half), -(b.sea_from + half), d), &mut rest);
     if rest > 0.0 {
         let band = smooth(b.coast_reach + half, b.coast_reach - half, d);
-        let exposed = if band > 0.0 { band * shore_exposure(terrain, p.y) } else { 0.0 };
-        take(Region::ExposedCoast, exposed, &mut rest);
+        let coast = if band > 0.0 { band * shore_exposure(terrain, p.y).max(b.sheltered_coast) } else { 0.0 };
+        take(Region::Coast, coast, &mut rest);
     }
     if rest > 0.0 {
-        take(Region::Mountain, smooth(0.42, 0.52, terrain.mountains(p)) * smooth(0.0, 2.0 * half, d), &mut rest);
+        let mountain = smooth(0.42, 0.52, terrain.mountains(p)) * smooth(0.0, 2.0 * half, d);
+        let snow = biome::SNOW_COUNTRY;
+        let high = smooth(snow - 20.0, snow + 20.0, terrain.height(p));
+        take(Region::Snowy, mountain * high, &mut rest);
+        if rest > 0.0 {
+            // (`rest` already has the snowy share taken out of it.)
+            take(Region::Rocky, (mountain * (1.0 - high) / (1.0 - mountain * high).max(1e-6)).min(1.0), &mut rest);
+        }
     }
-    if rest > 0.0 {
-        take(Region::Plateau, smooth(0.42, 0.58, terrain.plateau(p)), &mut rest);
-    }
-    if rest > 0.0 {
-        take(Region::Upland, smooth(b.upland_from - 20.0, b.upland_from + 20.0, terrain.height(p)), &mut rest);
-    }
-    out[Region::Lowland as usize] = rest;
+    out[Region::Plains as usize] = rest;
     out
 }
 

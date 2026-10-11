@@ -21,8 +21,8 @@ The game shows the English name. The founders' form (in bold) is the place's own
 | a farming village on the plain | Roduro | **Duskacre** | yah-heh-TAH-leh | **Yahetale** | Daptar | Naleiawe | Sayeyafe | dusk field |
 | a village named for the house that founded it | Roduro | **Galu's House** | HAH-leh YEE GAH-loo | **Hale yi Galu** | Par di Gor | Wale i Walu | Faye yi Wayu | Galu's house |
 | a village with a shrine to the World's Artery | Roduro | **Horahìda's Well** | DOO-ee YEE hoh-rah-HIH-dah | **Ḍuʻi yi Horahìda** | Nuq di Porped | Nui i Worawila | Yuwi yi Faushefith | Horahìda's spring |
-| a temple-fortress on the plateau | Qotiro | **Dryham** | MAK-par | Ḍaqahale | **Maqpar** | Walemaa | Fayewaha | dry house |
-| a town on the plateau's edge | Qotiro | **Plainhearth** | RAH-mak-kep | Laḍaʻahi | **Ramaqkep** | Hawilamaa | Hafiyawe | plain hearth |
+| a temple-fortress on the high plains | Qotiro | **Grasshearth** | KHOK-kep | Shogaqahi | **Xokkep** | Hawihowa | Hafisauwa | grass hearth |
+| a town on a rocky rim | Qotiro | **Plainhearth** | RAH-mak-kep | Laḍaʻahi | **Ramaqkep** | Hawilamaa | Hafiyawe | plain hearth |
 | a mining town under the mountains | Qotiro | **Ironcrag** | GET-krek | Geduraqi | **Getkrek** | Harahiwelu | Hashaheweth | iron crag |
 | a fort holding a pass | Qotiro | **Farhall** | MOK-pak | Ḍaqohaqe | **Mokpak** | Wahemaho | Fahewahe | far hall |
 | a town named for a battle | Qotiro | **Battleacre** | TOK-tar | Toqotale | **Toqtar** | Nalenoo | Sayesuh | fight field |

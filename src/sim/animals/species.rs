@@ -90,46 +90,64 @@ pub enum Class {
 }
 
 /// The kinds of country animals live in. Worked out from the land itself
-/// (see `region.rs`).
+/// (see `region.rs`). The first six are the land's biomes (`biome.rs`; the
+/// Overgrowth lies on top of them and Briarbacks follow it on their own);
+/// the last four are places within them that some animals keep to.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Habitat {
-    /// Open hill grassland.
-    Grass,
-    Scrub,
-    /// Woods and their edges.
-    Wood,
-    /// Low wet ground: coastal marsh and valley bottoms.
-    Marsh,
-    /// Mountain ledges.
-    Mountain,
-    /// The high dry plateau.
-    Plateau,
-    /// The shore and its rock pools.
+    /// Rolling plains: open grassland.
+    Plains,
+    /// Forests and their edges.
+    Forest,
+    /// The coast behind the beach.
+    Coast,
+    /// Bog: wet flats behind the coast, bog pools in valley bottoms.
+    Bog,
+    /// Rocky ground: the mountains below the snow, steep faces, the
+    /// highland's broken rim.
+    Rocky,
+    /// Snowy mountains.
+    Snowy,
+    /// The beach and its rock pools (on the coast).
     Shore,
-    /// Steep hill faces.
+    /// Steep hill faces (rocky ground).
     Cliff,
-    /// Chasm edges and escarpment ledges.
+    /// Ravine and chasm ledges, and the highland rim's (rocky ground).
     Ledge,
-    /// The central massif.
+    /// The central massif (rocky and snowy mountain).
     Massif,
 }
 
 pub const N_HABITATS: usize = 10;
-pub const HABITATS: [Habitat; N_HABITATS] = [Habitat::Grass, Habitat::Scrub, Habitat::Wood, Habitat::Marsh, Habitat::Mountain, Habitat::Plateau, Habitat::Shore, Habitat::Cliff, Habitat::Ledge, Habitat::Massif];
+pub const HABITATS: [Habitat; N_HABITATS] = [Habitat::Plains, Habitat::Forest, Habitat::Coast, Habitat::Bog, Habitat::Rocky, Habitat::Snowy, Habitat::Shore, Habitat::Cliff, Habitat::Ledge, Habitat::Massif];
 
 impl Habitat {
     pub fn name(self) -> &'static str {
         match self {
-            Habitat::Grass => "grassland",
-            Habitat::Scrub => "scrub",
-            Habitat::Wood => "woodland",
-            Habitat::Marsh => "marsh",
-            Habitat::Mountain => "mountain",
-            Habitat::Plateau => "plateau",
+            Habitat::Plains => "rolling plains",
+            Habitat::Forest => "forest",
+            Habitat::Coast => "coast",
+            Habitat::Bog => "bog",
+            Habitat::Rocky => "rocky ground",
+            Habitat::Snowy => "snowy mountains",
             Habitat::Shore => "shore",
             Habitat::Cliff => "hill cliffs",
-            Habitat::Ledge => "ledges",
+            Habitat::Ledge => "ravines and chasms",
             Habitat::Massif => "massif",
+        }
+    }
+
+    /// The habitat that is this biome (the Overgrowth has none of its own).
+    pub fn of_biome(b: crate::sim::biome::Biome) -> Option<Habitat> {
+        use crate::sim::biome::Biome;
+        match b {
+            Biome::Plains => Some(Habitat::Plains),
+            Biome::Forest => Some(Habitat::Forest),
+            Biome::Coast => Some(Habitat::Coast),
+            Biome::Bog => Some(Habitat::Bog),
+            Biome::Rocky => Some(Habitat::Rocky),
+            Biome::Snowy => Some(Habitat::Snowy),
+            Biome::Overgrowth => None,
         }
     }
 }
@@ -445,13 +463,13 @@ pub const SPECIES: [Species; N_SPECIES] = [
         class: Class::Prey,
         describe: "Knee-high and neckless: a low barrel body, broad flat snout, clawed toes, a short velvety grey-brown coat with dark ring bands.",
         looks: Looks { build: Build::Barrel, len: 0.95, tall: 0.5, wide: 0.5, coat: [0.42, 0.36, 0.30], mark: [0.20, 0.17, 0.15] },
-        habitats: &[Habitat::Grass],
+        habitats: &[Habitat::Plains],
         group: (6, 15),
         active: Active::Day,
         toward: Toward::Calm,
         speed: 3.5,
         body: Body { attack: "claws", strength: 25.0, agility: 30.0, toughness: 30.0, hp: 0.6, cut: 2.0, blunt: 1.0, reach: 0.6, skill: 20.0, dodge: 15.0, might: 4.0, nerve: 0.9, odds: 1.0 },
-        density: 3.4,
+        density: 2.2,
         growth: 0.03,
         range: 350.0,
         sense: 40.0,
@@ -464,9 +482,9 @@ pub const SPECIES: [Species; N_SPECIES] = [
         key: "brushleaper",
         name: "Brushleaper",
         class: Class::Prey,
-        describe: "A slight, long-legged browser of the scrub and wood edge, all spring and nerves.",
+        describe: "A slight, long-legged browser of the open plains and the forest's edge, all spring and nerves.",
         looks: Looks { build: Build::Runner, len: 1.3, tall: 0.95, wide: 0.35, coat: [0.58, 0.47, 0.32], mark: [0.86, 0.80, 0.66] },
-        habitats: &[Habitat::Scrub, Habitat::Wood, Habitat::Grass],
+        habitats: &[Habitat::Plains, Habitat::Forest],
         group: (3, 6),
         active: Active::DawnDusk,
         toward: Toward::Bolts,
@@ -485,9 +503,9 @@ pub const SPECIES: [Species; N_SPECIES] = [
         key: "wallowback",
         name: "Wallowback",
         class: Class::Prey,
-        describe: "A great mud-caked grazer of the wet ground, slow to anger and hard to stop.",
+        describe: "A great mud-caked grazer of the bogs and the coast, slow to anger and hard to stop.",
         looks: Looks { build: Build::Grazer, len: 2.9, tall: 1.6, wide: 1.3, coat: [0.38, 0.32, 0.27], mark: [0.26, 0.22, 0.19] },
-        habitats: &[Habitat::Marsh],
+        habitats: &[Habitat::Bog, Habitat::Coast],
         group: (8, 20),
         active: Active::DayNoonRest,
         toward: Toward::ChargesIfCornered,
@@ -507,7 +525,7 @@ pub const SPECIES: [Species; N_SPECIES] = [
         class: Class::Prey,
         describe: "A sure-footed climber armoured in overlapping horn plates.",
         looks: Looks { build: Build::Runner, len: 1.5, tall: 1.0, wide: 0.5, coat: [0.50, 0.48, 0.45], mark: [0.24, 0.22, 0.20] },
-        habitats: &[Habitat::Mountain, Habitat::Massif],
+        habitats: &[Habitat::Rocky, Habitat::Massif],
         group: (2, 4),
         active: Active::Day,
         toward: Toward::ClimbsAway,
@@ -526,16 +544,16 @@ pub const SPECIES: [Species; N_SPECIES] = [
         key: "dustrunner",
         name: "Dustrunner",
         class: Class::Prey,
-        describe: "A tall two-legged runner of the dry plateau, in flocks that move like blown dust.",
+        describe: "A tall two-legged runner of the open plains, in fast flocks that move like blown dust.",
         looks: Looks { build: Build::Bird, len: 1.1, tall: 1.4, wide: 0.4, coat: [0.80, 0.68, 0.48], mark: [0.50, 0.36, 0.24] },
-        habitats: &[Habitat::Plateau],
+        habitats: &[Habitat::Plains],
         group: (10, 30),
         active: Active::DayNoonRest,
         toward: Toward::Outruns,
         speed: 11.0,
         body: Body { attack: "peck", strength: 15.0, agility: 70.0, toughness: 15.0, hp: 0.45, cut: 2.0, blunt: 1.0, reach: 0.7, skill: 20.0, dodge: 60.0, might: 3.0, nerve: 0.9, odds: 1.0 },
         yields: &[("meat", 2.0), ("tough_skin", 1.0)],
-        density: 4.5,
+        density: 1.5,
         growth: 0.05,
         range: 700.0,
         sense: 160.0,
@@ -590,7 +608,7 @@ pub const SPECIES: [Species; N_SPECIES] = [
         class: Class::Predator,
         describe: "A rangy pack hunter of the hills that follows herds and roads after dark.",
         looks: Looks { build: Build::Runner, len: 1.35, tall: 0.75, wide: 0.4, coat: [0.30, 0.27, 0.25], mark: [0.62, 0.52, 0.38] },
-        habitats: &[Habitat::Grass, Habitat::Wood, Habitat::Scrub],
+        habitats: &[Habitat::Plains, Habitat::Forest],
         group: (4, 7),
         active: Active::DuskNight,
         diet: "runs down Brushleapers and Wallowback young",
@@ -636,9 +654,9 @@ pub const SPECIES: [Species; N_SPECIES] = [
         key: "mirejaw",
         name: "Mirejaw",
         class: Class::Predator,
-        describe: "It lies submerged at the water's edge with only its eyes showing, and takes whatever comes to drink or cross.",
+        describe: "It lies submerged in a bog pool with only its eyes showing, and takes whatever comes to drink or cross.",
         looks: Looks { build: Build::Lurker, len: 3.8, tall: 0.5, wide: 1.1, coat: [0.22, 0.30, 0.22], mark: [0.36, 0.42, 0.28] },
-        habitats: &[Habitat::Marsh],
+        habitats: &[Habitat::Bog],
         group: (1, 1),
         active: Active::Dawn,
         diet: "drinkers and crossers",

@@ -107,8 +107,9 @@ pub fn site_features(t: &Terrain, pos: V2, coastal: bool) -> Vec<Feature> {
     if t.mountains(pos) > 0.5 {
         out.push(Feature::Mountain);
     }
-    if t.plateau(pos) > 0.5 {
-        out.push(Feature::Plateau);
+    // The raised south-east: rolling plains, higher than the rest.
+    if t.highland(pos) > 0.5 {
+        out.push(Feature::Upland);
     }
     // Higher or lower than the ground 300 m round about.
     let mut round = 0.0;
@@ -134,7 +135,7 @@ pub fn site_features(t: &Terrain, pos: V2, coastal: bool) -> Vec<Feature> {
     if geo::inland(pos) < 700.0 && h < 2.5 && slope < 0.03 && terrain::cliff_mask(seed, pos.y) < 0.3 {
         out.push(Feature::Marsh);
     }
-    if t.plateau(pos) <= 0.5 && terrain::noise(seed ^ 0x5C2B, pos.x, pos.y, 450.0) > 0.7 {
+    if t.highland(pos) <= 0.5 && terrain::noise(seed ^ 0x5C2B, pos.x, pos.y, 450.0) > 0.7 {
         out.push(Feature::Heath);
     }
     if out.is_empty() {

@@ -22,9 +22,9 @@
 //! by the bed: each dawn they're away adds a day.
 //!
 //! Stations are set up in the towns' workplaces and free to use. Materials
-//! come from merchants, and from the land — kelp on the coast, emberroot and
-//! salt on the Qotiro plateau, ore and storm glass in the mountains, deadwood
-//! anywhere. A picked spot grows back after a day.
+//! come from merchants, and from the land — kelp and salt on the coast, ore,
+//! storm glass and emberroot on rocky ground and in the mountains, deadwood
+//! on the plains and in the forests. A picked spot grows back after a day.
 
 use serde::{Deserialize, Serialize};
 
@@ -460,7 +460,7 @@ impl World {
             }
             let p = V2::new(r.range(300.0, size - 300.0), r.range(300.0, size - 300.0));
             let inland = geo::inland(p);
-            let (h, mt, pl) = (self.terrain.height(p), self.terrain.mountains(p), self.terrain.plateau(p));
+            let (h, mt) = (self.terrain.height(p), self.terrain.mountains(p));
             let roll = r.f32();
             let key = if (-40.0..15.0).contains(&inland) {
                 if roll < 0.5 { "kelp_frond" } else if roll < 0.8 { "mussels" } else { "salt_crystal" }
@@ -468,10 +468,9 @@ impl World {
                 continue;
             } else if mt > 0.45 && h > 300.0 {
                 if roll < 0.3 { "storm_glass" } else { "iron_ore" }
-            } else if mt > 0.2 {
-                if roll < 0.55 { "iron_ore" } else { "ash_moss" }
-            } else if pl > 0.5 {
-                if roll < 0.6 { "emberroot" } else { "salt_crystal" }
+            } else if mt > 0.2 || self.terrain.on_rim(p) {
+                // Rocky ground below the high mountains.
+                if roll < 0.45 { "iron_ore" } else if roll < 0.75 { "ash_moss" } else { "emberroot" }
             } else if roll < 0.3 {
                 "timber"
             } else if roll < 0.5 {

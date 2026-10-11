@@ -66,7 +66,7 @@ impl OmenKind {
     /// Whether this omen can come in a region at all.
     pub fn happens_in(self, region: Region) -> bool {
         match self {
-            OmenKind::ShoreSnow => matches!(region, Region::OpenSea | Region::ExposedCoast | Region::Lowland),
+            OmenKind::ShoreSnow => matches!(region, Region::OpenSea | Region::Coast | Region::Plains),
             OmenKind::DeadCalm => region.maritime(),
             _ => true,
         }
@@ -121,11 +121,10 @@ pub fn omens_lagging(seed: u64, region: Region, day: i64, lag: f64) -> Vec<Omen>
     let mut add = |kind: OmenKind, at: f64, text: String| out.push(Omen { kind, rarity: kind.rarity(), region, at, pos: None, landmark: None, text });
     let place = match region {
         Region::OpenSea => "out at sea",
-        Region::ExposedCoast => "along the open coast",
-        Region::Lowland => "over the low country",
-        Region::Upland => "over the uplands",
-        Region::Mountain => "in the mountains",
-        Region::Plateau => "over the plateau",
+        Region::Coast => "along the coast",
+        Region::Plains => "over the plains",
+        Region::Rocky => "in the mountains",
+        Region::Snowy => "on the snowy tops",
     };
 
     // ---- Thunder in midwinter ------------------------------------------------

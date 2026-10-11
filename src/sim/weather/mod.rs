@@ -9,16 +9,17 @@
 //! finely the world is stepped or where the squad stands.
 //!
 //! Weather has a **character by region**. The land is divided into kinds of
-//! country (`region.rs`): open sea, exposed coast, sheltered coast and
-//! lowland, upland, mountain, and the dry plateau. Each has its own climate
-//! table. A spot near a border gets a mix of both sides, fading over about
+//! country (`region.rs`), the biomes big enough to have weather of their
+//! own: open sea, coast, rolling plains, rocky ground and snowy mountains
+//! (forest, bog and the Overgrowth take the weather of the country round
+//! them). Each has its own climate table. A spot near a border gets a mix of both sides, fading over about
 //! 200 m.
 //!
 //! The **big weather is shared** and **comes in off the sea**. The slow
 //! curves and the storms belong to the whole country; each region takes its
 //! own share of them, and they reach places further east a little later
-//! (`lag`). A storm darkens the sea, then the coast, then the hills, and the
-//! dry plateau often misses it. Still nothing is run: a place's weather is
+//! (`lag`). A storm darkens the sea, then the coast, then the plains and
+//! the mountains. Still nothing is run: a place's weather is
 //! its regions' skies read at `t - lag(place)`.
 //!
 //! What a region's weather tends to be (how grey, how wet, how windy, how

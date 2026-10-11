@@ -5,6 +5,7 @@
 //!     cargo run --release --bin headless -- trade [days] [seed]     (which goods bought in one town sell for more in another)
 //!     cargo run --release --bin headless -- weather [years] [seed]  (each region's weather added up over the years)
 //!     cargo run --release --bin headless -- omens [years] [seed]    (how often each omen comes, and the first of each)
+//!     cargo run --release --bin headless -- biomes [seed]           (each biome's share of the land, the towns' and the animals' country)
 //!
 //! With `GAHT_SAVE=path`, the world is saved there at the end (the window
 //! can start from it with `GAHT_LOAD=path`).
@@ -32,6 +33,10 @@ fn main() {
         let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
         let w = world(seed);
         print!("{}", gahturiyu_sim::sim::weather::report::omen_table(&w.terrain, &w.landmarks(), seed, args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100)));
+        return;
+    }
+    if args.get(1).map(|a| a == "biomes").unwrap_or(false) {
+        print!("{}", gahturiyu_sim::sim::biome::report(&world(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1))));
         return;
     }
     if args.get(1).map(|a| a == "trade").unwrap_or(false) {

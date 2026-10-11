@@ -328,7 +328,9 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
         push(&mut out, V2::new(x, y), founders, true, rng);
     }
 
-    // Inland towns. The south-east is Qotiro country; elsewhere mostly Roduro.
+    // Inland towns. The Qotiro settled thickest in the south-east (Roduro
+    // country, like the rest: their desert home is far away); elsewhere the
+    // towns are mostly Roduro.
     let mut tries = 0;
     while out.len() < COASTAL_TOWNS + INLAND_TOWNS && tries < 5000 {
         tries += 1;
@@ -336,8 +338,9 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
         if geo::inland(p) < 2200.0 || out.iter().any(|s| s.pos.dist(p) < 2700.0) {
             continue;
         }
-        // Flat, habitable ground: not up a mountain or on a slope.
-        if t.height(p) > 260.0 || t.slope(p) > 0.07 || t.mountains(p) > 0.25 || (t.plateau(p) > 0.05 && t.plateau(p) < 0.95) {
+        // Flat, habitable ground: not up a mountain, on a slope or on the
+        // highland's rim.
+        if t.height(p) > 260.0 || t.slope(p) > 0.07 || t.mountains(p) > 0.25 || (t.highland(p) > 0.05 && t.highland(p) < 0.95) {
             continue;
         }
         let homeland = p.x > 11_500.0 && p.y > 10_500.0;

@@ -44,7 +44,7 @@ fn weather_is_the_same_whatever_order_it_is_asked_in() {
         .rev()
         .map(|&(p, t)| {
             let _ = weather::weather_at(&terrain, 5, V2::new(p.y, p.x), t + 7.0 * DAY);
-            let _ = weather::forecast(5, Region::Mountain, t - DAY, 5);
+            let _ = weather::forecast(5, Region::Snowy, t - DAY, 5);
             weather::weather_at(&terrain, 5, p, t)
         })
         .collect();
@@ -195,21 +195,22 @@ fn every_kind_of_country_is_on_the_map() {
     for r in Region::ALL {
         assert!(seen[r as usize] as f32 / n as f32 > 0.015, "hardly any {} on the map", r.name());
     }
-    // Far out is open sea; the high north is mountain; the south-east is the plateau.
+    // Far out is open sea; the high north is mountain; the raised south-east
+    // is plains like the rest (there is no plateau climate).
     assert_eq!(weather::region_at(&terrain, V2::new(300.0, 10_000.0)), Region::OpenSea);
-    assert_eq!(weather::region_at(&terrain, V2::new(10_000.0, 800.0)), Region::Mountain);
-    assert_eq!(weather::region_at(&terrain, V2::new(14_500.0, 14_500.0)), Region::Plateau);
+    assert!(matches!(weather::region_at(&terrain, V2::new(10_000.0, 800.0)), Region::Rocky | Region::Snowy));
+    assert_eq!(weather::region_at(&terrain, V2::new(14_500.0, 14_500.0)), Region::Plains);
 }
 
 #[test]
-fn the_exposed_coast_is_mostly_grey() {
+fn the_coast_is_mostly_grey() {
     // Laz: like Scotland. Overcast and drizzle are normal, clear days feel
     // special, storms a few times a month.
     for seed in [1u64, 2, 3] {
         let days = 30 * 48;
-        let year = report::tally(seed, Region::ExposedCoast, 0, days, None);
-        let summer = report::tally(seed, Region::ExposedCoast, 0, days, Some(1));
-        let winter = report::tally(seed, Region::ExposedCoast, 0, days, Some(3));
+        let year = report::tally(seed, Region::Coast, 0, days, None);
+        let summer = report::tally(seed, Region::Coast, 0, days, Some(1));
+        let winter = report::tally(seed, Region::Coast, 0, days, Some(3));
         assert!((0.50..=0.60).contains(&year.grey), "world {seed}: grey or wet for {:.0}% of daylight", year.grey * 100.0);
         assert!((0.10..=0.20).contains(&year.clear), "world {seed}: clear for {:.0}% of daylight", year.clear * 100.0);
         assert!((2.0..=5.0).contains(&year.storm_days), "world {seed}: {:.1} storm days a month", year.storm_days);
@@ -224,40 +225,40 @@ fn the_exposed_coast_is_mostly_grey() {
 fn snow_belongs_to_the_mountains_in_winter() {
     for seed in [1u64, 2, 3] {
         let days = 30 * 48;
-        let high_winter = report::tally(seed, Region::Mountain, 0, days, Some(3));
-        let high_summer = report::tally(seed, Region::Mountain, 0, days, Some(1));
-        let coast = report::tally(seed, Region::ExposedCoast, 0, days, None);
-        let coast_summer = report::tally(seed, Region::ExposedCoast, 0, days, Some(1));
+        let high_winter = report::tally(seed, Region::Snowy, 0, days, Some(3));
+        let high_summer = report::tally(seed, Region::Snowy, 0, days, Some(1));
+        let coast = report::tally(seed, Region::Coast, 0, days, None);
+        let coast_summer = report::tally(seed, Region::Coast, 0, days, Some(1));
         assert!(high_winter.snow_days > 10.0, "world {seed}: only {:.1} snowy days a month in the winter mountains", high_winter.snow_days);
         assert!(high_winter.snow_days > 5.0 * high_summer.snow_days + 5.0, "world {seed}: mountain snow should be a winter thing");
         assert!(coast.snow_days < 1.0, "world {seed}: {:.1} snowy days a month on the coast is not rare", coast.snow_days);
         assert_eq!(coast_summer.snow_days, 0.0, "world {seed}: snow on the summer coast");
-        // The plateau is the dry country.
-        let plateau = report::tally(seed, Region::Plateau, 0, days, None);
-        assert!(plateau.clear > 0.35 && plateau.raining < 0.1, "world {seed}: the plateau should be dry and clear");
+        // The snowy tops get more of it than the rocky ground below them.
+        let rocky_winter = report::tally(seed, Region::Rocky, 0, days, Some(3));
+        assert!(high_winter.snow_days > rocky_winter.snow_days, "world {seed}: {:.1} snowy days on the tops, {:.1} on the rocky ground", high_winter.snow_days, rocky_winter.snow_days);
     }
 }
 
 #[test]
 fn fog_pools_in_the_low_ground_and_thick_fog_hides_everything() {
     let sky = Sky { fog: 1.0, fog_depth: 30.0, cloud: 0.3, cloud_base: 900.0, temp0: 10.0, wind: 1.0, wind_x: 1.0, ..Default::default() };
-    let low = weather::localise(&sky, Region::Lowland, 40.0, 40.0);
-    let rise = weather::localise(&sky, Region::Lowland, 58.0, 40.0);
-    let hill = weather::localise(&sky, Region::Lowland, 110.0, 40.0);
+    let low = weather::localise(&sky, Region::Plains, 40.0, 40.0);
+    let rise = weather::localise(&sky, Region::Plains, 58.0, 40.0);
+    let hill = weather::localise(&sky, Region::Plains, 110.0, 40.0);
     assert!(low.fog > 0.95 && low.visibility < 40.0 && low.kind == Kind::ThickFog, "the valley floor should be in thick fog: {low:?}");
     assert!(rise.fog < low.fog && rise.fog > 0.0, "the fog should thin towards its top");
     assert!(hill.fog == 0.0 && hill.visibility > 10_000.0, "the hill should stand clear of it");
     // High ground under a low cloud base is in hill fog.
     let grey = Sky { cloud: 0.95, cloud_base: 300.0, temp0: 10.0, ..Default::default() };
-    assert_eq!(weather::localise(&grey, Region::Mountain, 500.0, 200.0).kind, Kind::HillFog);
-    assert_eq!(weather::localise(&grey, Region::Mountain, 150.0, 150.0).kind, Kind::Overcast);
+    assert_eq!(weather::localise(&grey, Region::Rocky, 500.0, 200.0).kind, Kind::HillFog);
+    assert_eq!(weather::localise(&grey, Region::Rocky, 150.0, 150.0).kind, Kind::Overcast);
     // And it does get that thick: sight down to about 30 m at the worst.
-    let worst = (0..(96 * 72)).map(|k| weather::weather_in(1, Region::ExposedCoast, k as f64 * 1200.0).visibility).fold(f32::MAX, f32::min);
+    let worst = (0..(96 * 72)).map(|k| weather::weather_in(1, Region::Coast, k as f64 * 1200.0).visibility).fold(f32::MAX, f32::min);
     assert!((25.0..45.0).contains(&worst), "the thickest fog in two years left {worst} m of sight");
     // Height makes it colder, and turns rain to snow.
     let wet = Sky { precip: 0.5, cloud: 1.0, cloud_base: 2000.0, temp0: 4.0, ..Default::default() };
-    let shore = weather::localise(&wet, Region::Mountain, 0.0, 0.0);
-    let top = weather::localise(&wet, Region::Mountain, 800.0, 700.0);
+    let shore = weather::localise(&wet, Region::Rocky, 0.0, 0.0);
+    let top = weather::localise(&wet, Region::Snowy, 800.0, 700.0);
     assert!(shore.rain > 0.45 && shore.snow < 0.02, "rain at the shore");
     assert!(top.snow > 0.45 && top.rain < 0.02 && top.temperature < 0.0, "snow on the tops");
     assert!((shore.snowline - 461.5).abs() < 2.0, "the snowline should sit where the air reaches 1 degree: {}", shore.snowline);
@@ -266,7 +267,7 @@ fn fog_pools_in_the_low_ground_and_thick_fog_hides_everything() {
 #[test]
 fn a_storm_brings_wind_first_then_rain_and_goes_dark() {
     // Find a strong storm with quiet days round it.
-    let maker = Maker::new(4, Region::ExposedCoast);
+    let maker = Maker::new(4, Region::Coast);
     let (day, storm) = (2..2000)
         .find_map(|d| {
             let s = maker.storm_on(d)?;
@@ -274,7 +275,7 @@ fn a_storm_brings_wind_first_then_rain_and_goes_dark() {
             (alone && s.strength > 0.85).then_some((d, s))
         })
         .expect("a strong storm somewhere in forty years");
-    let at = |hours: f32| weather::weather_in(4, Region::ExposedCoast, storm.start + hours as f64 * HOUR);
+    let at = |hours: f32| weather::weather_in(4, Region::Coast, storm.start + hours as f64 * HOUR);
     let before = at(-8.0);
     let worst = at(storm.build + storm.hold / 2.0);
     let after = at(storm.build + storm.hold + storm.clear + 8.0);
@@ -298,20 +299,20 @@ fn the_country_shares_its_big_weather() {
     let seed = 3;
     let hours = 48 * 24 * 10;
     let (mut coast_storm, mut sea_too, mut low_too) = (0, 0, 0);
-    let (mut dry_storm, mut sea_with_dry) = (0, 0);
+    let (mut high_storm, mut sea_with_high) = (0, 0);
     let (mut a, mut b) = (Vec::with_capacity(hours), Vec::with_capacity(hours));
     for h in 0..hours {
         let t = h as f64 * HOUR;
         let at = |r: Region| weather::sky(seed, r, t);
-        let (sea, coast, low, dry) = (at(Region::OpenSea), at(Region::ExposedCoast), at(Region::Lowland), at(Region::Plateau));
+        let (sea, coast, low, high) = (at(Region::OpenSea), at(Region::Coast), at(Region::Plains), at(Region::Snowy));
         if coast.storm >= 0.5 {
             coast_storm += 1;
             sea_too += (sea.storm >= 0.3) as u32;
             low_too += (low.storm >= 0.3) as u32;
         }
-        if dry.storm >= 0.5 {
-            dry_storm += 1;
-            sea_with_dry += (sea.storm >= 0.3) as u32;
+        if high.storm >= 0.5 {
+            high_storm += 1;
+            sea_with_high += (sea.storm >= 0.3) as u32;
         }
         a.push(coast.cloud);
         b.push(low.cloud);
@@ -320,9 +321,10 @@ fn the_country_shares_its_big_weather() {
     // A storm on the coast is a storm at sea, and usually inland too.
     assert!(sea_too as f32 > 0.85 * coast_storm as f32, "the sea shared {sea_too} of {coast_storm} coast storm hours");
     assert!(low_too as f32 > 0.5 * coast_storm as f32, "the lowland shared {low_too} of {coast_storm} coast storm hours");
-    // The plateau gets few storms, and none that the sea did not have first.
-    assert!(dry_storm > 20 && (dry_storm as f32) < 0.6 * coast_storm as f32, "{dry_storm} plateau storm hours against {coast_storm} on the coast");
-    assert!(sea_with_dry as f32 > 0.85 * dry_storm as f32);
+    // The snowy tops have their storms, and nearly none that the sea did not
+    // have first.
+    assert!(high_storm > 20, "{high_storm} storm hours on the snowy tops against {coast_storm} on the coast");
+    assert!(sea_with_high as f32 > 0.85 * high_storm as f32);
     // Grey days are mostly grey for the coast and the country behind it alike.
     let n = a.len() as f32;
     let (ma, mb) = (a.iter().sum::<f32>() / n, b.iter().sum::<f32>() / n);
@@ -347,7 +349,7 @@ fn weather_comes_in_off_the_sea() {
     let behind = 1.3 * HOUR;
     for k in 0..400 {
         let t = k as f64 * 5.3 * HOUR;
-        for r in [Region::Lowland, Region::Mountain] {
+        for r in [Region::Plains, Region::Rocky] {
             let (here, there) = (weather::sky(4, r, t), weather::sky_at(4, r, t + behind, behind));
             // (Bar the hair's breadth the season has moved on in the meantime.)
             assert!((here.cloud - there.cloud).abs() < 0.02 && (here.storm - there.storm).abs() < 0.005 && (here.precip - there.precip).abs() < 0.02, "{}: the weather changed on its way in: {here:?} / {there:?}", r.name());
@@ -356,10 +358,10 @@ fn weather_comes_in_off_the_sea() {
     // So a storm peaks later inland: find a strong one and time it at two
     // lowland places far apart, west and east.
     let terrain = Terrain::generate(4);
-    let lowland: Vec<V2> = (0..40).map(|i| V2::new(3200.0 + i as f32 * 300.0, 10_400.0)).filter(|&p| weather::mix(&terrain, p)[Region::Lowland as usize] > 0.98).collect();
+    let lowland: Vec<V2> = (0..40).map(|i| V2::new(3200.0 + i as f32 * 300.0, 10_400.0)).filter(|&p| weather::mix(&terrain, p)[Region::Plains as usize] > 0.98).collect();
     let (west, east) = (lowland[0], *lowland.last().unwrap());
     assert!(east.x - west.x > 3000.0, "need two lowland places well apart");
-    let maker = Maker::new(4, Region::Lowland);
+    let maker = Maker::new(4, Region::Plains);
     let storm = (2..3000).find_map(|d| maker.storm_on(d).filter(|s| s.strength > 0.8 && maker.storm_on(d - 1).is_none() && maker.storm_on(d + 1).is_none())).expect("a strong lowland storm");
     let half_up = |p: V2| (0..600).map(|k| storm.start - 4.0 * HOUR + k as f64 * 60.0).find(|&t| weather::weather_at(&terrain, 4, p, t).storm > 0.4).expect("the storm should reach it");
     let apart = half_up(east) - half_up(west);
@@ -400,10 +402,10 @@ fn snow_lies_on_the_winter_hills() {
     let (mut winter, mut summer, mut shore) = (0, 0, 0);
     for year in 0..20 {
         for day in 0..6 {
-            let w = weather::weather_in(2, Region::Mountain, (year * 48 + 33 + day) as f64 * DAY + 12.0 * HOUR);
-            let s = weather::weather_in(2, Region::Mountain, (year * 48 + 9 + day) as f64 * DAY + 12.0 * HOUR);
-            let c = weather::weather_in(2, Region::ExposedCoast, (year * 48 + 33 + day) as f64 * DAY + 12.0 * HOUR);
-            winter += (weather::localise(&weather::sky(2, Region::Mountain, (year * 48 + 33 + day) as f64 * DAY), Region::Mountain, 700.0, 600.0).snow_cover > 0.5) as u32;
+            let w = weather::weather_in(2, Region::Snowy, (year * 48 + 33 + day) as f64 * DAY + 12.0 * HOUR);
+            let s = weather::weather_in(2, Region::Snowy, (year * 48 + 9 + day) as f64 * DAY + 12.0 * HOUR);
+            let c = weather::weather_in(2, Region::Coast, (year * 48 + 33 + day) as f64 * DAY + 12.0 * HOUR);
+            winter += (weather::localise(&weather::sky(2, Region::Snowy, (year * 48 + 33 + day) as f64 * DAY), Region::Snowy, 700.0, 600.0).snow_cover > 0.5) as u32;
             summer += (s.snow_lies_above < 900.0) as u32;
             shore += (c.snow_cover > 0.5) as u32;
             assert!(w.snow_lies_above < s.snow_lies_above, "snow should lie lower in winter");
@@ -507,16 +509,16 @@ fn omens_are_real_weather_and_the_same_however_asked() {
     let mut k = all.len();
     for day in (0..days).rev().step_by(7) {
         for r in Region::ALL.iter().rev() {
-            let _ = weather::omens(seed, Region::Plateau, day + 3);
-            k = (day as usize) * 6 + *r as usize;
+            let _ = weather::omens(seed, Region::Snowy, day + 3);
+            k = (day as usize) * weather::REGIONS + *r as usize;
             assert_eq!(all[k], weather::omens(seed, *r, day));
         }
     }
     assert!(k < all.len());
     // The weather reaches the east later, and so do its omens.
     let east = 1.5 * HOUR;
-    let later: usize = (0..days).map(|d| weather::omens_lagging(seed, Region::Mountain, d, east).len()).sum();
-    let sooner: usize = (0..days).map(|d| weather::omens(seed, Region::Mountain, d).len()).sum();
+    let later: usize = (0..days).map(|d| weather::omens_lagging(seed, Region::Rocky, d, east).len()).sum();
+    let sooner: usize = (0..days).map(|d| weather::omens(seed, Region::Rocky, d).len()).sum();
     assert!((later as f32 - sooner as f32).abs() <= 0.2 * sooner as f32 + 3.0, "{sooner} omens at the sea's edge, {later} an hour and a half inland");
 }
 
@@ -558,7 +560,7 @@ fn a_fine_day_changes_nothing_and_bad_weather_does() {
     // Noon at midsummer (day 12 of the 48-day year) and at midwinter (day 36).
     let (summer, winter) = (12.5 * DAY, 36.5 * DAY);
     let fine = Sky { cloud: 0.1, wind: 3.0, wind_x: 3.0, temp0: 17.0, cloud_base: 2000.0, snow_lying: 2500.0, ..Sky::default() };
-    let e = weather::effects_of(&made(Region::Lowland, fine), summer);
+    let e = weather::effects_of(&made(Region::Plains, fine), summer);
     assert!(e.sight_mult == 1.0 && e.hearing_mult == 1.0 && e.ranged_accuracy_mult == 1.0 && e.travel_speed_mult == 1.0, "a fine day changed something: {e:?}");
     assert!(e.slip_risk == 0.0 && e.exposure == 0.0 && e.shelter_seeking == 0.0 && e.boats_can_sail && e.outdoor_work_ok && e.sea_danger < 0.2);
     assert!(e.fire_spread_mult > 1.0 && e.fire_spread_mult < 1.3, "a light breeze on dry ground fans a fire a little: {}", e.fire_spread_mult);
@@ -567,40 +569,40 @@ fn a_fine_day_changes_nothing_and_bad_weather_does() {
     assert!(none.sight_mult == 1.0 && none.boats_can_sail && none.outdoor_work_ok);
 
     // Thick fog: you can't see, the boats stay in, but you hear as well as ever.
-    let fog = weather::effects_of(&made(Region::ExposedCoast, Sky { fog: 1.0, fog_depth: 60.0, ..fine }), summer);
+    let fog = weather::effects_of(&made(Region::Coast, Sky { fog: 1.0, fog_depth: 60.0, ..fine }), summer);
     assert!(fog.sight_mult < 0.25 && fog.hearing_mult == 1.0 && !fog.boats_can_sail && fog.sea_danger >= 0.5 && !fog.outdoor_work_ok, "{fog:?}");
     // Mist is nothing like as bad.
-    let mist = weather::effects_of(&made(Region::ExposedCoast, Sky { fog: 0.4, fog_depth: 60.0, ..fine }), summer);
+    let mist = weather::effects_of(&made(Region::Coast, Sky { fog: 0.4, fog_depth: 60.0, ..fine }), summer);
     assert!(mist.sight_mult > fog.sight_mult && mist.boats_can_sail && mist.outdoor_work_ok);
 
     // A thunderstorm on the coast: everything is worse.
     let storm_sky = Sky { cloud: 1.0, precip: 0.9, wind: 26.0, wind_x: 26.0, gust: 0.8, temp0: 9.0, storm: 1.0, lightning: 3.0, sea: 1.0, wetness: 1.0, cloud_base: 300.0, snow_lying: 1200.0, ..Sky::default() };
-    let storm = weather::effects_of(&made(Region::ExposedCoast, storm_sky), summer);
+    let storm = weather::effects_of(&made(Region::Coast, storm_sky), summer);
     assert!(storm.sight_mult < 0.9 && storm.hearing_mult < 0.4 && storm.ranged_accuracy_mult < 0.45 && storm.travel_speed_mult < 0.65, "{storm:?}");
     assert!(storm.slip_risk > 0.3 && storm.exposure > 0.5 && storm.fire_spread_mult < 0.1 && !storm.boats_can_sail && storm.sea_danger > 0.9);
     assert!(!storm.outdoor_work_ok && storm.shelter_seeking > 0.95);
     // The same gale is easier going in the sheltered low country.
-    let sheltered = weather::effects_of(&made(Region::Lowland, storm_sky), summer);
+    let sheltered = weather::effects_of(&made(Region::Plains, storm_sky), summer);
     assert!(sheltered.travel_speed_mult > storm.travel_speed_mult);
 
     // Drizzle: people shrug it off and carry on.
-    let drizzle = weather::effects_of(&made(Region::ExposedCoast, Sky { cloud: 0.9, precip: 0.12, wetness: 0.4, wind: 6.0, wind_x: 6.0, temp0: 11.0, ..fine }), summer);
+    let drizzle = weather::effects_of(&made(Region::Coast, Sky { cloud: 0.9, precip: 0.12, wetness: 0.4, wind: 6.0, wind_x: 6.0, temp0: 11.0, ..fine }), summer);
     assert!(drizzle.outdoor_work_ok && drizzle.boats_can_sail && drizzle.shelter_seeking < 0.05 && drizzle.fire_spread_mult < 0.6, "{drizzle:?}");
 
     // A dry gale fans fire; hard frost and lying snow stop the crops and the feet.
-    let dry_gale = weather::effects_of(&made(Region::Plateau, Sky { wind: 20.0, wind_x: 20.0, ..fine }), summer);
+    let dry_gale = weather::effects_of(&made(Region::Rocky, Sky { wind: 20.0, wind_x: 20.0, ..fine }), summer);
     assert!(dry_gale.fire_spread_mult > 1.5 && dry_gale.ranged_accuracy_mult < 0.7);
-    let frost = weather::effects_of(&made(Region::Upland, Sky { cloud: 0.2, wind: 8.0, wind_x: 8.0, temp0: -6.0, wetness: 0.5, cloud_base: 2000.0, snow_lying: -300.0, ..Sky::default() }), winter);
+    let frost = weather::effects_of(&made(Region::Rocky, Sky { cloud: 0.2, wind: 8.0, wind_x: 8.0, temp0: -6.0, wetness: 0.5, cloud_base: 2000.0, snow_lying: -300.0, ..Sky::default() }), winter);
     assert!(frost.crop_growth_mult == 0.0 && frost.exposure > 0.7 && frost.slip_risk >= 0.4 && frost.travel_speed_mult < 0.7 && frost.feels_like < -6.0, "{frost:?}");
     // Winter alone slows the crops, even on a mild damp day.
     let mild = Sky { cloud: 0.6, wind: 4.0, wind_x: 4.0, temp0: 12.0, wetness: 0.4, cloud_base: 900.0, snow_lying: 2000.0, ..Sky::default() };
-    let (in_summer, in_winter) = (weather::effects_of(&made(Region::Lowland, mild), summer), weather::effects_of(&made(Region::Lowland, mild), winter));
+    let (in_summer, in_winter) = (weather::effects_of(&made(Region::Plains, mild), summer), weather::effects_of(&made(Region::Plains, mild), winter));
     assert!(in_winter.crop_growth_mult < 0.25 * in_summer.crop_growth_mult && in_summer.crop_growth_mult > 0.9);
     // A clouded night is darker than a clear one; by day the cloud costs nothing.
     let grey = Sky { cloud: 1.0, ..fine };
     let midnight = 12.0 * DAY;
-    assert!(weather::effects_of(&made(Region::Lowland, grey), midnight).sight_mult < weather::effects_of(&made(Region::Lowland, fine), midnight).sight_mult);
-    assert_eq!(weather::effects_of(&made(Region::Lowland, grey), summer).sight_mult, 1.0);
+    assert!(weather::effects_of(&made(Region::Plains, grey), midnight).sight_mult < weather::effects_of(&made(Region::Plains, fine), midnight).sight_mult);
+    assert_eq!(weather::effects_of(&made(Region::Plains, grey), summer).sight_mult, 1.0);
 }
 
 #[test]

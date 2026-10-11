@@ -15,9 +15,11 @@ where each thing is meant to be connected.
 - **Looked up, never run.** `weather_at(place, time)` is worked out from the world
   seed, the place and the time. There is no weather state in `World`, nothing in
   `World::step`, nothing saved, and `save::FORMAT` is untouched.
-- **A character by region.** Six kinds of country, read off the land
-  (`sim/weather/region.rs`): open sea, exposed coast, sheltered coast and lowland,
-  upland, mountain, plateau. Each has its own climate table; borders fade over about 200 m.
+- **A character by region.** Five kinds of country, read off the land
+  (`sim/weather/region.rs`): open sea, coast, rolling plains, rocky ground, snowy
+  mountains (the biomes big enough to have weather; forest, bog and the Overgrowth
+  take the weather round them; no dry or plateau climate, Laz 11 Oct). Each has its
+  own climate table; borders fade over about 200 m.
 - **The big weather is shared, and comes in off the sea** (Laz asked for this after
   stage 2; it replaces "by region only"). One set of slow curves and one run of storms
   belong to the whole country. Each region takes its share (`shared` in the climate
@@ -219,10 +221,10 @@ weather, found by looking the day up, not something rolled on the side: on a day
 | Omen (`OmenKind`) | What counts | Where | Rarity | Measured, times a year |
 |---|---|---|---|---|
 | `WinterThunder` | a thunderstorm whose thunder begins within 5 days of midwinter | every region | very rare | 0.09 to 0.14 |
-| `NoonFog` | fog 0.6 thick or more still lying at noon, within 4 days of midsummer | every region (hardly ever the plateau) | rare | 0.47 to 0.52 |
-| `ShoreSnow` | snow falling at sea level for three hours together; counted on the first day of a spell | open sea, exposed coast, lowland | very rare | 0.15 to 0.17 |
+| `NoonFog` | fog 0.6 thick or more still lying at noon, within 4 days of midsummer | every region | rare | 0.47 to 0.52 |
+| `ShoreSnow` | snow falling at sea level for three hours together; counted on the first day of a spell | open sea, coast, rolling plains | very rare | 0.15 to 0.17 |
 | `StormRun` | three storm days in a row; counted on the third | every region | very rare | 0.13 to 0.18 |
-| `DeadCalm` | wind under 1.5 m/s for six hours together between 06:00 and 20:00 | open sea, exposed coast | rare | 0.54 to 0.71 |
+| `DeadCalm` | wind under 1.5 m/s for six hours together between 06:00 and 20:00 | open sea, coast | rare | 0.54 to 0.71 |
 | `LandmarkStrike` | a lightning strike of some size within 150 m of a town's centre | wherever a town is | uncommon | 2.4 to 2.6 (whole country) |
 
 - **Rarity bands** (in the data file): uncommon 1 to 4 times a year, rare 0.25 to 1,

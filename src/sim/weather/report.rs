@@ -182,7 +182,7 @@ pub fn omen_table(terrain: &crate::sim::terrain::Terrain, landmarks: &[super::La
     use std::fmt::Write;
     let mut out = String::new();
     let _ = writeln!(out, "\nOmens over {years} years, world {seed}: times a year (a typical region; then each region)");
-    let _ = writeln!(out, "  {:<28} {:<10} {:>11} {:>8}   sea  coast    low     up  mount plateau", "", "rarity", "band", "typical");
+    let _ = writeln!(out, "  {:<28} {:<10} {:>11} {:>8}   sea  coast plains  rocky  snowy", "", "rarity", "band", "typical");
     for (kind, by) in rates(seed, 0, years) {
         let (lo, hi) = kind.band();
         let (rate, each) = if kind == OmenKind::LandmarkStrike {

@@ -40,7 +40,7 @@ impl LandGrid {
     pub fn mix(&self, p: V2) -> Mix {
         if self.shares.is_empty() {
             let mut m = [0.0; REGIONS];
-            m[weather::Region::Lowland as usize] = 1.0;
+            m[weather::Region::Plains as usize] = 1.0;
             return m;
         }
         let step = WORLD_SIZE / (N - 1) as f32;
