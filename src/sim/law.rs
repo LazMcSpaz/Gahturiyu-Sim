@@ -1063,9 +1063,10 @@ impl World {
                 // What was owed is paid now if it can be; what can't rides
                 // on the duel.
                 let coin = items::id("coin");
-                let pay = (self.squad_count(coin) as f32).min(owed).floor();
+                let payers = self.paying_with(who);
+                let pay = (self.count_among(&payers, coin) as f32).min(owed).floor();
                 if pay >= 1.0 {
-                    self.take_from_squad(coin, pay as u16);
+                    self.take_among(&payers, coin, pay as u16);
                     self.say(t, format!("{name} pays the {pay:.0} coin already owed in {place}."));
                 }
                 self.say(t, format!("{name} must answer for {} by duel in {place}.", wrong.name()));
@@ -1095,12 +1096,24 @@ impl World {
         }
     }
 
+    /// Whose purses pay for this squad member: theirs and those of squad
+    /// members standing with them.
+    fn paying_with(&self, who: PersonId) -> Vec<PersonId> {
+        match self.squad.index(who) {
+            Some(k) => self.near_member(k),
+            None => self.squad.members.clone(),
+        }
+    }
+
     /// Pay a fine from the squad's coin; what can't be paid is worked off.
     fn pay_or_bond(&mut self, who: PersonId, town: SettlementId, fine: f32) {
+        // Out of the purses of the one judged and those standing with them,
+        // not of a squadmate in another town (NM-55).
         let coin = super::items::id("coin");
-        let have = self.squad_count(coin) as f32;
+        let payers = self.paying_with(who);
+        let have = self.count_among(&payers, coin) as f32;
         let pay = have.min(fine).floor();
-        self.take_from_squad(coin, pay as u16);
+        self.take_among(&payers, coin, pay as u16);
         let short = fine - pay;
         // Say what was taken, and what is still owed (NM-38).
         let (name, t) = (self.name_of(who), self.time);

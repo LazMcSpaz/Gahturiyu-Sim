@@ -2,6 +2,7 @@
 //!
 //!     cargo run --release --bin headless -- [days] [seed]
 //!     cargo run --release --bin headless -- society [days] [seed]   (each town's customs, jobs, food and money)
+//!     cargo run --release --bin headless -- trade [days] [seed]     (which goods bought in one town sell for more in another)
 //!     cargo run --release --bin headless -- weather [years] [seed]  (each region's weather added up over the years)
 //!     cargo run --release --bin headless -- omens [years] [seed]    (how often each omen comes, and the first of each)
 //!
@@ -31,6 +32,10 @@ fn main() {
         let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
         let w = world(seed);
         print!("{}", gahturiyu_sim::sim::weather::report::omen_table(&w.terrain, &w.landmarks(), seed, args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100)));
+        return;
+    }
+    if args.get(1).map(|a| a == "trade").unwrap_or(false) {
+        trade(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(5.0), args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1));
         return;
     }
     if args.get(1).map(|a| a == "fight").unwrap_or(false) {
@@ -271,4 +276,87 @@ fn world(seed: u64) -> gahturiyu_sim::sim::World {
         Err(_) => Default::default(),
     };
     worldgen::generate_authored(seed, forge, edits)
+}
+
+/// `headless trade [days] [seed]`: is there a trade route that pays? After
+/// `days`, at eleven in the morning: every good a town has to spare, what a
+/// lot of ten costs there and what it fetches in each other town within a
+/// morning's walk (the price falls as the buyer's stock grows, as it does
+/// in play), under the margins as they are and under a few others.
+fn trade(days: f64, seed: u64) {
+    use gahturiyu_sim::sim::economy::{BUY_MARKUP, SELL_SHARE};
+    use gahturiyu_sim::sim::items;
+    use gahturiyu_sim::sim::jobs::{good_of, GOODS};
+    use gahturiyu_sim::sim::society::Flow;
+    use gahturiyu_sim::sim::World;
+    const NEAR: f32 = 6000.0;
+    const LOT: usize = 10;
+    let mut w = world(seed);
+    let until = days.floor() * 24.0 + 11.0;
+    while w.time / HOUR < until {
+        w.step(HOUR / 2.0);
+    }
+    let t = w.time;
+    println!("Trade in world {seed}, day {}, 11:00. A route: buy a lot of {LOT} in one town, carry it to another within {} km, sell it there.", days.floor() as i64 + 1, NEAR / 1000.0);
+    // (item, from, to, what one is worth where it's bought, what each of the lot is worth where it's sold, metres)
+    let mut routes: Vec<(items::ItemId, usize, usize, f32, Vec<f32>, f32)> = Vec::new();
+    for a in 0..w.settlements.len() {
+        for g in GOODS {
+            let keep = if g.is_food() { w.society.communities[w.society.towns[a].shore as usize].food.need } else { 0.0 };
+            let spare = (w.stock_now(a as u16, g) - keep).max(0.0);
+            for key in g.items() {
+                let it = items::id(key);
+                if ((spare / g.items().len() as f32) / World::units_of(g, it)).floor() < LOT as f32 {
+                    continue;
+                }
+                for b in 0..w.settlements.len() {
+                    let far = w.settlements[a].pos.dist(w.settlements[b].pos);
+                    if a == b || far > NEAR {
+                        continue;
+                    }
+                    // Each one sold adds to the buyer's stock and lowers the next one's price.
+                    let stock = w.society.towns[b].stock[g.index()];
+                    let each: Vec<f32> = (0..LOT).map(|k| w.worth_holding(b as u16, it, None, t, Some(Flow { base: stock.base + k as f32 * World::units_of(g, it), rate: stock.rate }))).collect();
+                    routes.push((it, a, b, w.worth_in(a as u16, it, None), each, far));
+                }
+            }
+        }
+    }
+    let towns = w.settlements.len();
+    println!("{} lots on offer to carry somewhere near, from {} towns.", routes.len(), towns);
+    for (buy, sell) in [(BUY_MARKUP, SELL_SHARE), (1.2, 0.65), (1.2, 0.7), (1.15, 0.75), (1.1, 0.8)] {
+        let cost = |r: &(items::ItemId, usize, usize, f32, Vec<f32>, f32)| (r.3 * buy).ceil().max(1.0) * LOT as f32;
+        let take = |r: &(items::ItemId, usize, usize, f32, Vec<f32>, f32)| r.4.iter().map(|x| (x * sell).floor()).sum::<f32>();
+        let mut paying: Vec<&(items::ItemId, usize, usize, f32, Vec<f32>, f32)> = routes.iter().filter(|r| take(r) > cost(r)).collect();
+        paying.sort_by(|x, y| ((take(y) - cost(y)) / cost(y)).total_cmp(&((take(x) - cost(x)) / cost(x))));
+        let from: std::collections::BTreeSet<usize> = paying.iter().map(|r| r.1).collect();
+        let kinds: std::collections::BTreeSet<&str> = paying.iter().filter_map(|r| good_of(items::item(r.0).key)).map(|g| g.name()).collect();
+        println!(
+            "\nBuy at worth x {buy:.2}, sell at worth x {sell:.2}{}: {} lots pay; {} of {towns} towns have something that pays to carry; goods: {}.",
+            if buy == BUY_MARKUP && sell == SELL_SHARE { " (as it is now)" } else { "" },
+            paying.len(),
+            from.len(),
+            if kinds.is_empty() { "none".to_string() } else { kinds.into_iter().collect::<Vec<_>>().join(", ") }
+        );
+        // The best lot of each kind of thing.
+        let mut shown: Vec<items::ItemId> = Vec::new();
+        for r in &paying {
+            if shown.contains(&r.0) || shown.len() >= 6 {
+                continue;
+            }
+            shown.push(r.0);
+            println!(
+                "  {:<16} {:<12} -> {:<12} {:>4.1} km: {LOT} cost {:>4.0}, fetch {:>4.0}, gain {:>4.0} ({:.0}% on the coin, {:.0} kg)",
+                items::item(r.0).name,
+                w.settlements[r.1].name,
+                w.settlements[r.2].name,
+                r.5 / 1000.0,
+                cost(r),
+                take(r),
+                take(r) - cost(r),
+                (take(r) - cost(r)) / cost(r) * 100.0,
+                items::item(r.0).weight * LOT as f32
+            );
+        }
+    }
 }

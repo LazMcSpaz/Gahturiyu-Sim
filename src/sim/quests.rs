@@ -24,6 +24,10 @@ use super::settlement::SettlementId;
 use super::chances::Chance;
 use super::world::World;
 
+/// Squad members this near the one talking are with them: their packs and
+/// purses count for what's bought, sold, paid or handed in, metres.
+pub const AT_HAND: f32 = 25.0;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum QuestKind {
     ClearCamp { camp: GroupId, at: V2 },
@@ -105,42 +109,77 @@ impl World {
         }
     }
 
-    /// How many of an item the whole squad carries. Money is coin and notes
-    /// together: a note pays as fifty coin anywhere coin is asked for (NM-27).
+    /// Whose packs count right now. With a talk open: the one talking and
+    /// the squad members standing with them (within `AT_HAND`), the talker
+    /// first, so nothing is sold, paid or handed in out of a pack that isn't
+    /// there (RG-1 = RG-20 = NM-55). With no talk open: the whole squad.
+    pub fn at_hand(&self) -> Vec<PersonId> {
+        match self.talk.as_ref().and_then(|c| self.squad.index(c.with)) {
+            Some(k) => self.near_member(k),
+            None => self.squad.members.clone(),
+        }
+    }
+
+    /// Member `k` and the squad members within `AT_HAND` of them, `k` first.
+    pub fn near_member(&self, k: usize) -> Vec<PersonId> {
+        let at = self.member_pos(k);
+        let mut out = vec![self.squad.members[k]];
+        out.extend((0..self.squad.members.len()).filter(|&j| j != k && self.member_pos(j).dist(at) <= AT_HAND).map(|j| self.squad.members[j]));
+        out
+    }
+
+    /// How many of an item the squad has at hand (`at_hand`). Money is coin
+    /// and notes together: a note pays as fifty coin anywhere coin is asked
+    /// for (NM-27).
     pub fn squad_count(&self, it: ItemId) -> u16 {
-        let n = self.squad_has(it);
+        self.count_among(&self.at_hand(), it)
+    }
+
+    /// The same, among these members.
+    pub fn count_among(&self, who: &[PersonId], it: ItemId) -> u16 {
+        let n = self.has_among(who, it);
         if it == items::id("coin") {
-            n.saturating_add(self.squad_has(items::id("note")).saturating_mul(super::economy::NOTE_VALUE))
+            n.saturating_add(self.has_among(who, items::id("note")).saturating_mul(super::economy::NOTE_VALUE))
         } else {
             n
         }
     }
 
-    /// How many of exactly this the squad carries (coin without the notes).
+    /// How many of exactly this the squad has at hand (coin without the notes).
     pub fn squad_has(&self, it: ItemId) -> u16 {
-        self.squad.members.iter().filter_map(|&m| self.people[m as usize].detail.as_ref()).map(|d| d.gear.bag.iter().filter(|e| e.0 == it).map(|e| e.1).sum::<u16>()).sum()
+        self.has_among(&self.at_hand(), it)
     }
 
-    /// Take `n` of an item from whoever in the squad has them. Short of
-    /// coin, a note is broken: the change stays with whoever held it.
+    fn has_among(&self, who: &[PersonId], it: ItemId) -> u16 {
+        who.iter().filter_map(|&m| self.people[m as usize].detail.as_ref()).map(|d| d.gear.bag.iter().filter(|e| e.0 == it).map(|e| e.1).sum::<u16>()).fold(0u16, |a, b| a.saturating_add(b))
+    }
+
+    /// Take `n` of an item from whoever at hand has them. Short of coin, a
+    /// note is broken: the change stays with whoever held it.
     pub(super) fn take_from_squad(&mut self, it: ItemId, n: u16) {
-        let mut n = self.take_plain(it, n);
+        let who = self.at_hand();
+        self.take_among(&who, it, n);
+    }
+
+    /// The same, from these members.
+    pub(super) fn take_among(&mut self, who: &[PersonId], it: ItemId, n: u16) {
+        let mut n = self.take_plain(who, it, n);
         if it != items::id("coin") {
             return;
         }
         let note = items::id("note");
         while n > 0 {
-            let Some(m) = self.squad.members.clone().into_iter().find(|&m| self.people[m as usize].detail.as_mut().is_some_and(|d| d.gear.take(note))) else { break };
+            let Some(m) = who.iter().copied().find(|&m| self.people[m as usize].detail.as_mut().is_some_and(|d| d.gear.take(note))) else { break };
             if let Some(d) = self.people[m as usize].detail.as_mut() {
                 d.gear.add(it, super::economy::NOTE_VALUE);
             }
-            n = self.take_plain(it, n);
+            n = self.take_plain(who, it, n);
         }
     }
 
     /// Take up to `n` of exactly this item; returns how many are still to find.
-    fn take_plain(&mut self, it: ItemId, mut n: u16) -> u16 {
-        for m in self.squad.members.clone() {
+    fn take_plain(&mut self, who: &[PersonId], it: ItemId, mut n: u16) -> u16 {
+        for &m in who {
             while n > 0 {
                 let took = self.people[m as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false);
                 if !took {
