@@ -26,7 +26,6 @@
 
 use super::geo::V2;
 use super::group::GroupId;
-use super::items::{item, Kind, Slot, SLOTS};
 use super::person::PersonId;
 use super::stats::{Attr, Skill};
 use super::world::{World, DAY, HOUR};
@@ -113,10 +112,10 @@ impl World {
         } else {
             0.25
         };
-        // Armour clanks by its weight.
+        // Armour clanks: by its weight a little, and by each piece's own noise
+        // (mail and plate loud, soft shoes quiet; the items design, 0.3).
         let gear = p.kit();
-        let worn: f32 = SLOTS.iter().filter_map(|&s| gear.in_slot(s)).filter(|&i| matches!(item(i).kind, Kind::Armor(_)) || item(i).slot == Slot::OffHand).map(|i| item(i).weight).sum();
-        n += worn * 0.035;
+        n += gear.wear_noise();
         if self.squad.sneaking[k] {
             let skill = p.effective_stats().skill(Skill::Sneak);
             n *= 0.4 * (1.0 - skill / 160.0);

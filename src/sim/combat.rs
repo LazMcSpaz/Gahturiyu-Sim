@@ -103,6 +103,11 @@ pub const KNOCKDOWN_SECS: f64 = 2.0;
 /// knocking someone out, and only this much once they're out: clubs take
 /// people alive (rule 3). Edged damage counts as it always has.
 pub const BLUNT_TO_KO: f32 = 1.25;
+/// How much of a blow's weight (for staggers and knockdowns) full padding
+/// takes off, and how much of a head blow's blunt a full knockout guard
+/// does (the items design, 0.3).
+pub const PADDING_EASE: f32 = 0.6;
+pub const HELM_KO: f32 = 0.6;
 pub const BLUNT_PAST_KO: f32 = 0.4;
 
 /// Chance a cutting blow from `w` opens a bleed (`WeaponDef::bleed`).
@@ -422,6 +427,10 @@ pub struct Fighter {
     /// Which slot each piece of `armor` is worn in.
     #[serde(default)]
     pub armor_slots: Vec<super::items::Slot>,
+    /// Each armour piece's padding and knockout guard (`items::wears`), in
+    /// the order of `armor` (the items design, 0.3).
+    #[serde(default)]
+    pub armor_pad: Vec<[f32; 2]>,
     /// Wear this fight, written back afterwards: blows struck with the
     /// weapon, blows taken by the shield, and for each piece of armour the
     /// blows it caught and how many of them were heavy blunt ones.
@@ -453,6 +462,7 @@ impl Fighter {
         let worn_armor: Vec<(super::items::Slot, ArmorDef)> = super::items::SLOTS.iter().filter_map(|&s| gear.in_slot(s).and_then(|id| item(id).armor().copied()).map(|a| (s, a))).collect();
         let armor: Vec<ArmorDef> = worn_armor.iter().map(|x| x.1).collect();
         let armor_slots: Vec<super::items::Slot> = worn_armor.iter().map(|x| x.0).collect();
+        let armor_pad: Vec<[f32; 2]> = armor_slots.iter().map(|&s| gear.in_slot(s).map(super::items::wears).map(|w| [w.padding, w.ko_guard]).unwrap_or([0.0; 2])).collect();
         // A bulky pack costs dodging too, the fuller the more (0.4).
         let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum::<f32>() + gear.bulk() * BULK_DODGE;
         let speed_bonus = gear.worn(Does::MoveSpeed);
@@ -486,7 +496,7 @@ impl Fighter {
             armor,
             dodge_penalty,
             worn: gear.worn_effects().collect(),
-            base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load) * gear.pack_pace(),
+            base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load) * gear.pack_pace() * gear.wear_pace(stats.attr(Attr::Strength)),
             spells,
             boldness: p.traits.boldness,
             might: p.might,
@@ -532,6 +542,7 @@ impl Fighter {
             broke: Vec::new(),
             armor_wear: vec![[0.0; 2]; armor_slots.len()],
             armor_slots: armor_slots,
+            armor_pad,
             weapon_wear: 0.0,
             shield_wear: 0.0,
         }
@@ -614,6 +625,7 @@ impl Fighter {
             broke: Vec::new(),
             armor_wear: Vec::new(),
             armor_slots: Vec::new(),
+            armor_pad: Vec::new(),
             weapon_wear: 0.0,
             shield_wear: 0.0,
         }
@@ -1452,7 +1464,17 @@ impl Battle {
         if skin.cut > 0.0 {
             layers.push((None, skin));
         }
-        layers.sort_by(|x, y| y.1.cut.total_cmp(&x.1.cut));
+        // A blow meets what's worn outermost first: the cloak, then the over
+        // layer (and helm, gloves, boots), then the under layer, then the skin
+        // (0.3, rule 2).
+        let slots = &self.fighters[d].armor_slots;
+        let rank = |w: &Option<usize>| match w.and_then(|i| slots.get(i).copied()) {
+            None => 3,
+            Some(super::items::Slot::Cloak) => 0,
+            Some(super::items::Slot::BodyUnder | super::items::Slot::LegsUnder) => 2,
+            Some(_) => 1,
+        };
+        layers.sort_by_key(|x| rank(&x.0));
         // Rusted armour stops less (skin doesn't rust); a heavy point gets
         // through some of it.
         let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
@@ -1461,11 +1483,23 @@ impl Battle {
         // Frozen stiff, even a light blow cracks brittle things.
         let heavy = blunt > cut || self.fighters[d].has(Does::Frozen).is_some();
         let mut met = false;
+        // The most padding and the best guard among the layers that met it.
+        let (mut pad, mut guard) = (0.0f32, 0.0f32);
         for (k, (which, layer)) in layers.iter().enumerate() {
-            let r = if k == 0 { r_cover1 } else { r_cover2 };
+            // (Each layer its own roll; past the second, drawn from the
+            // second's, so the stream is as it was: rule 2.)
+            let r = match k {
+                0 => r_cover1,
+                1 => r_cover2,
+                _ => (r_cover2 * (7.31 * k as f32 + 1.0)).fract(),
+            };
             let worn = if which.is_none() { 1.0 } else { rust * through };
             if r < layer.coverage {
                 met |= which.is_some();
+                if let Some(p) = which.and_then(|i| self.fighters[d].armor_pad.get(i)) {
+                    pad = pad.max(p[0]);
+                    guard = guard.max(p[1]);
+                }
                 cut *= 1.0 - layer.cut * worn;
                 blunt *= 1.0 - layer.blunt * worn;
                 if let Some(i) = which {
@@ -1491,8 +1525,10 @@ impl Battle {
         if unaware {
             self.fx.push(Fx { kind: FxKind::Sneak { at: self.fighters[d].pos }, at: self.time });
             self.fighters[a].train(Skill::Sneak, 3.0);
-            // A sap from behind: out cold, not hurt (rule 7).
-            if stuns(&weapon) && part.vital() {
+            // A sap from behind: out cold, not hurt (rule 7), unless a helm
+            // turns it (0.3, rule 4: a strong blow is needed then).
+            let helmed = part == Part::Head && (r_bleed * 13.7).fract() < guard;
+            if stuns(&weapon) && part.vital() && !helmed {
                 self.say(format!("{an} catches {dn} unawares and knocks them senseless."));
                 let head = self.fighters[d].hp[Part::Head as usize].max(0.0);
                 self.wound(d, Part::Head, head + 0.5);
@@ -1513,6 +1549,8 @@ impl Battle {
         } else {
             self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), cut + blunt));
         }
+        // A helm takes the knockout out of a blunt blow to the head (0.3).
+        let blunt = if part == Part::Head { blunt * (1.0 - HELM_KO * guard) } else { blunt };
         self.wound_blow(d, part, cut, blunt);
         // A cut the armour didn't mostly stop opens a bleed (rule 1).
         if cut > 0.5 && !stopped && r_bleed < bleed_chance(&weapon) && !self.fighters[d].dead && self.fighters[d].summon.is_none_or(|s| !s.mindless) {
@@ -1527,7 +1565,8 @@ impl Battle {
         // their feet (rule 2).
         let f = &self.fighters[d];
         if blunt > 0.0 && f.active() && !f.helpless() {
-            let weight = blunt / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
+            // Padding takes the edge off (0.3, rule 4).
+            let weight = blunt * (1.0 - PADDING_EASE * pad) / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
             if r_down < chance_of(weight, KNOCKDOWN) {
                 self.knock_down(d, KNOCKDOWN_SECS);
             } else if r_stagger < chance_of(weight, STAGGER) {

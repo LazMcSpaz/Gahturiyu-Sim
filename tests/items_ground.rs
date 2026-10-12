@@ -173,3 +173,26 @@ fn clothes_read_as_a_people_or_a_role() {
     assert!(wears(items::id("sash_robe")).warmth < wears(items::id("banded_tunic")).warmth);
     assert!(wears(items::id("sea_wrap")).dry > wears(items::id("banded_tunic")).dry);
 }
+
+#[test]
+fn heavy_armour_slows_and_clanks_and_strength_eases_it() {
+    let dressed = |keys: &[&str]| {
+        let mut g = Gear::default();
+        for k in keys {
+            g.wear(items::id(k));
+        }
+        g
+    };
+    let sneaker = dressed(&["wraps", "trousers", "soft_shoes"]);
+    let leather = dressed(&["cloth_shirt", "hide_coat", "trousers", "hide_leggings", "boots"]);
+    let plate = dressed(&["mail_shirt", "plate_cuirass", "full_helm", "mail_leggings", "plate_greaves", "armoured_boots", "gauntlets"]);
+    // A sneaker in silk wraps and soft shoes keeps nearly all their sneaking.
+    assert!(sneaker.wear_noise() < 0.1, "{}", sneaker.wear_noise());
+    assert!(leather.wear_noise() < plate.wear_noise() * 0.5);
+    // Plate slows (a fully plated fighter about a fifth); strength eases it.
+    assert!(sneaker.wear_pace(35.0) > 0.97, "soft shoes cost a little on rough ground only");
+    let weak = plate.wear_pace(20.0);
+    let strong = plate.wear_pace(90.0);
+    assert!(weak < 0.85 && weak > 0.6, "{weak}");
+    assert!(strong > weak);
+}
