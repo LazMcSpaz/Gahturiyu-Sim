@@ -127,3 +127,34 @@ fn goods_charms_valuables_and_tools_exist() {
         assert!(items::catalogue_has(k), "{k} missing");
     }
 }
+
+#[test]
+fn the_ingredients_hold_to_the_balance_review() {
+    use gahturiyu_sim::sim::items::herbs::{Alch, Tier, INGREDIENTS, OILS};
+    use std::collections::{HashMap, HashSet};
+    // Every ingredient is an item and has four effects.
+    for i in INGREDIENTS.iter().chain(OILS.iter().map(|o| &o.0)) {
+        assert!(items::catalogue_has(i.key), "{} has no item", i.key);
+        assert!(items::ingredient(items::id(i.key)).is_some());
+    }
+    for (_, base) in OILS {
+        assert!(INGREDIENTS.iter().any(|i| i.key == *base), "oil from {base}");
+    }
+    // Every effect comes from at least two different kinds, so it can be brewed.
+    let mut kinds: HashMap<Alch, HashSet<_>> = HashMap::new();
+    for i in INGREDIENTS {
+        for e in i.effects {
+            kinds.entry(e).or_default().insert(i.kind);
+        }
+    }
+    assert_eq!(kinds.len(), 27, "all 27 effects are carried");
+    for (e, k) in &kinds {
+        assert!(k.len() >= 2, "{} from only one kind", e.name());
+    }
+    // Powerful effects are scarce: none of them from more than two common sources,
+    // except Toughen, whose common ones are hunted or from the Overgrowth.
+    for (e, _) in kinds.iter().filter(|(e, _)| e.tier() == Tier::Powerful && **e != Alch::Toughen) {
+        let common = INGREDIENTS.iter().filter(|i| i.common == 3 && i.effects.contains(e)).count();
+        assert!(common <= 2, "{} has {common} common sources", e.name());
+    }
+}
