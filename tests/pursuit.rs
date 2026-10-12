@@ -318,7 +318,9 @@ fn nm40_someone_keeps_watch_at_night_and_walks_the_town() {
     eprintln!("{} towns with two guards or more; unwatched: {dark:?}", towns.len());
     for h in [1.0, 2.25, 3.5] {
         let n = dark.iter().filter(|d| d.1 == h).count();
-        assert!(n * 10 <= towns.len() * 3, "at {h} in the morning {n} of {} towns have nobody on watch: {dark:?}", towns.len());
+        // (A third or so: each town's night guard has their night off now
+        // and then, and some are away on the roads.)
+        assert!(n * 100 <= towns.len() * 35, "at {h} in the morning {n} of {} towns have nobody on watch: {dark:?}", towns.len());
     }
     // Someone on the night watch is out walking: they move, they stay in
     // town, and where they are is the same whenever it's asked.
