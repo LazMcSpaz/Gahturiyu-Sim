@@ -115,6 +115,28 @@ pub fn guarded(gear: &Gear, fire: bool) -> Vec<(ItemId, u16)> {
     out
 }
 
+/// The bottles (anything drunk from a bottle, brewed or not) in a pack that
+/// nothing guards: a potion case, or a strongbox, takes as many as it holds,
+/// the first in the pack first. Each one by itself, with its mix.
+pub fn bottles_at_risk(gear: &Gear) -> Vec<(ItemId, Option<super::items::herbs::Mix>)> {
+    let mut room: u16 = gear
+        .bag
+        .iter()
+        .filter_map(|e| container(e.0).and_then(|c| c.guards).filter(|g| g.0 == Guards::Potions || g.0 == Guards::Small).map(|g| g.1 * e.1))
+        .sum();
+    let mut out = Vec::new();
+    for e in gear.bag.iter().filter(|e| item(e.0).kind == Kind::Potion) {
+        for _ in 0..e.1 {
+            if room > 0 {
+                room -= 1;
+            } else {
+                out.push((e.0, e.2.and_then(|p| p.mix)));
+            }
+        }
+    }
+    out
+}
+
 /// Does a guard of this kind take this?
 pub fn guards(g: Guards, id: ItemId) -> bool {
     match g {

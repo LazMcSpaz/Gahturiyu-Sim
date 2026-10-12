@@ -229,6 +229,11 @@ pub const COATING_WOUNDS: f32 = 1.0;
 /// hits it takes to down someone (Part 1, B2; Laz, 12 Oct: twice). How
 /// often a blow staggers or knocks someone down reads the blow before it.
 pub const DAMAGE_SCALE: f32 = 2.0;
+/// Chances a carried bottle not in a case cracks (Part 4 rule 10): with a
+/// heavy blunt blow that lands, with a fall, and for each second burning.
+pub const CRACK_BLOW: f32 = 0.2;
+pub const CRACK_FALL: f32 = 0.3;
+pub const CRACK_BURN: f32 = 0.06;
 pub const CROWDED_RECOVER: f32 = 1.4;
 /// Stepping back out of a crowd, as a share of their pace.
 pub const STEP_BACK: f32 = 0.7;
@@ -450,6 +455,13 @@ pub struct Fighter {
     /// Sandglass flasks carried to throw a harmful brew in (Part 4 rule 8).
     #[serde(default)]
     pub flasks: u16,
+    /// Bottles in the pack with nothing round them (no potion case), which
+    /// a heavy blow, a fall or a burn can crack (Part 4 rule 10; the squad's
+    /// only, `bottles_at_risk`); and those that cracked.
+    #[serde(default)]
+    pub exposed: Vec<(ItemId, Option<Mix>)>,
+    #[serde(default)]
+    pub cracked: Vec<(ItemId, Option<Mix>)>,
     /// Poison on their hand weapon: the mix, and the wounding blows left
     /// (Part 4 rule 9; `coating.rs`).
     #[serde(default)]
@@ -603,6 +615,8 @@ impl Fighter {
             bottles: gear.bottles(),
             drunk: Vec::new(),
             flasks: count(FLASK),
+            exposed: if p.in_squad { super::soak::bottles_at_risk(gear) } else { Vec::new() },
+            cracked: Vec::new(),
             coating: None,
             quick: gear.quick(),
             offhand: gear.in_slot(super::items::Slot::OffHand).and_then(|id| item(id).weapon().copied()).filter(|w| offhand_ok(w) && !held.two_handed),
@@ -690,6 +704,8 @@ impl Fighter {
             bottles: Vec::new(),
             drunk: Vec::new(),
             flasks: 0,
+            exposed: Vec::new(),
+            cracked: Vec::new(),
             coating: None,
             quick: Vec::new(),
             offhand: None,
@@ -907,6 +923,8 @@ pub enum FxKind {
     /// A flask bursting at `at` (its splash `radius`), coloured by `does`
     /// (the harm it carries most).
     Splash { at: V2, radius: f32, does: Does },
+    /// A bottle in fighter `who`'s pack cracking, where they stood (`at`).
+    Glass { who: usize, at: V2 },
 }
 
 /// A visual moment for the window to show.
@@ -1101,6 +1119,8 @@ impl Battle {
             let dmg = burn * DT as f32 * f.warded() * f.fireproof();
             self.fighters[j].burned += DT as f32;
             self.hurt_whole(j, dmg);
+            // The heat may crack a bottle they carry.
+            self.crack_bottle(j, CRACK_BURN * DT as f32, 0x4655);
         }
 
         // Poison eats at the body (not the downed: it doesn't finish anyone
@@ -1710,6 +1730,11 @@ impl Battle {
         // A helm takes the knockout out of a blunt blow to the head (0.3).
         let blunt = if part == Part::Head { blunt * (1.0 - HELM_KO * guard) } else { blunt };
         self.wound_blow(d, part, cut, blunt);
+        // A heavy blunt blow that lands may crack a bottle they carry
+        // (Part 4 rule 10).
+        if heavy && blunt > 0.0 {
+            self.crack_bottle(d, CRACK_BLOW, 0x424C);
+        }
         // A cut the armour didn't mostly stop opens a bleed (rule 1).
         if cut > 0.5 * DAMAGE_SCALE && !stopped && r_bleed < bleed_chance(&weapon) && !self.fighters[d].dead && self.fighters[d].summon.is_none_or(|s| !s.mindless) {
             self.open_bleed(d, cut * BLEED_PER_CUT);
@@ -2084,6 +2109,53 @@ impl Battle {
         let name = self.names[d].clone();
         self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: true }, at: self.time });
         self.say(format!("{name} is knocked off their feet."));
+        // A fall may crack a bottle they carry.
+        self.crack_bottle(d, CRACK_FALL, 0x4641);
+    }
+
+    /// Maybe a bottle in fighter `d`'s pack cracks (one keyed roll, `salt`
+    /// telling two in the same moment apart): the one it is by another roll,
+    /// among those not in a case and not yet drunk.
+    pub fn crack_bottle(&mut self, d: usize, chance: f32, salt: u64) {
+        if self.fighters[d].exposed.is_empty() {
+            return;
+        }
+        let mut r = Rng::from_keys(&[self.seed, self.ticks, d as u64, salt, 0x474C_4153]);
+        if r.f32() >= chance {
+            return;
+        }
+        let f = &self.fighters[d];
+        // (Still there: not drunk in the meantime.)
+        let left: Vec<usize> = (0..f.exposed.len())
+            .filter(|&k| match f.exposed[k] {
+                (_, Some(m)) => f.bottles.contains(&m),
+                (it, None) => f.potions.contains(&it),
+            })
+            .collect();
+        if left.is_empty() {
+            return;
+        }
+        let k = left[r.below(left.len())];
+        let f = &mut self.fighters[d];
+        let (it, mix) = f.exposed.remove(k);
+        match mix {
+            Some(m) => {
+                if let Some(j) = f.bottles.iter().position(|x| *x == m) {
+                    f.bottles.remove(j);
+                }
+            }
+            None => {
+                if let Some(j) = f.potions.iter().position(|x| *x == it) {
+                    f.potions.remove(j);
+                }
+            }
+        }
+        f.cracked.push((it, mix));
+        let at = f.pos;
+        self.fx.push(Fx { kind: FxKind::Glass { who: d, at }, at: self.time });
+        let what = mix.map(|m| m.name()).unwrap_or_else(|| item(it).name.to_string()).to_lowercase();
+        let name = self.names[d].clone();
+        self.say(format!("{name}'s {what} breaks."));
     }
 
     /// Start binding a bandage on `who` (themselves, or someone beside).
