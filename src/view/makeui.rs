@@ -135,13 +135,14 @@ pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Clic
 
     let h = (c.h - super::frame::BOTTOM_CLEAR - 70.0).clamp(420.0, 900.0);
     let r = Bx::new(40.0, 50.0, W.min(c.w - 80.0), h);
-    // The world goes dark behind it, from the left: all but black under the
-    // screen itself (the squad's list is under there), thinning out beyond
-    // it. The band along the bottom stays as it is.
+    // The world goes dark behind it, from the left: black under the screen
+    // itself (the squad's list is under there, and anything short of opaque
+    // shows it through: the window blends in linear light), thinning out
+    // beyond it. The band along the bottom stays as it is.
     let dark_h = c.h - super::frame::BOTTOM_CLEAR + 8.0;
     let solid = r.x + r.w + 24.0;
-    c.rect(0.0, 0.0, solid, dark_h, ega(DARK, 0.985));
-    c.grad(solid, 0.0, c.w * 0.14, dark_h, ega(DARK, 0.985), ega(DARK, 0.0), true);
+    c.rect(0.0, 0.0, solid, dark_h, eg(DARK));
+    c.grad(solid, 0.0, c.w * 0.14, dark_h, eg(DARK), ega(DARK, 0.0), true);
 
     // The heading: the station, and where it stands.
     let title = if b.carried_by.is_some() { b.place.to_uppercase() } else { format!("THE {}", b.station.name().to_uppercase()) };
