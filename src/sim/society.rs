@@ -217,7 +217,7 @@ pub struct TownLife {
     /// day: yesterday, today and tomorrow, read from the weather at dawn
     /// (`routine::storm_hours`; a cache of a pure lookup).
     #[serde(default)]
-    pub storms: Vec<(i64, u32)>,
+    pub storms: Vec<super::routine::DayAir>,
     /// When each kind of storyline last started here: (kind, day).
     #[serde(default)]
     pub cooldowns: Vec<(u8, i32)>,

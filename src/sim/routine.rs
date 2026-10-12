@@ -160,6 +160,18 @@ impl Plan {
     }
 }
 
+/// A day's weather for town life, hour by hour (a cache of a pure lookup,
+/// kept in `TownLife::storms`): the hours too rough for outdoor work (bit h
+/// for hour h), and how strongly each hour drives people indoors (0..255).
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct DayAir {
+    pub day: i64,
+    pub storm: u32,
+    pub seek: [u8; 24],
+}
+
+const SHELTER_TAG: u64 = 0x5348_454C;
+
 /// Work done out in the weather: lost in a storm hour (`weather_out`).
 pub const OUTDOOR_JOBS: [Job; 6] = [Job::Farmer, Job::Woodcutter, Job::Forager, Job::KelpGatherer, Job::Fisher, Job::Labourer];
 
@@ -474,45 +486,78 @@ impl World {
         }
         plan.push(bed - 0.25, Doing::Walking, Spot::Home);
         plan.push(bed, Doing::Asleep, Spot::Home);
-        self.weather_out(plan, town, day, l.job)
+        self.weather_out(plan, pid, town, day, l.job)
+    }
+
+    /// A day's weather for town life in `town`, hour by hour: the hours too
+    /// rough for outdoor work (heavy rain, a gale, heavy snow, bitter cold,
+    /// thick fog or lightning: `outdoor_work_ok`), and the share of those
+    /// with nothing pressing who head indoors (`shelter_seeking`). Asked once
+    /// for each hour.
+    pub fn day_air(&self, town: SettlementId, day: i64) -> DayAir {
+        let at = self.settlements[town as usize].pos;
+        let mut air = DayAir { day, storm: 0, seek: [0; 24] };
+        for h in 0..24 {
+            let fx = self.weather_effects(at, day as f64 * DAY + h as f64 * HOUR);
+            if !fx.outdoor_work_ok {
+                air.storm |= 1 << h;
+            }
+            air.seek[h] = (fx.shelter_seeking.clamp(0.0, 1.0) * 255.0).round() as u8;
+        }
+        air
     }
 
     /// The hours of `day` too rough for outdoor work in `town` (bit h for
-    /// hour h): heavy rain, a gale, heavy snow, bitter cold, thick fog or
-    /// lightning (`outdoor_work_ok`, asked once for each hour).
+    /// hour h).
     pub fn storm_hours(&self, town: SettlementId, day: i64) -> u32 {
-        let at = self.settlements[town as usize].pos;
-        (0..24).filter(|&h| !self.weather_effects(at, day as f64 * DAY + h as f64 * HOUR).outdoor_work_ok).fold(0u32, |m, h| m | (1 << h))
+        self.air_of(town, day).storm
     }
 
-    /// An outdoor worker's hours lost to the weather: each hour of work that
-    /// falls in a storm hour is spent at home instead. (The town keeps the
-    /// masks for yesterday, today and tomorrow from dawn; any other day's
-    /// is worked out as asked, the same.)
-    fn weather_out(&self, plan: Plan, town: SettlementId, day: i64, job: Job) -> Plan {
-        if !OUTDOOR_JOBS.contains(&job) {
+    /// The town's weather for `day`: kept for yesterday, today and tomorrow
+    /// from dawn; any other day's worked out as asked, the same.
+    fn air_of(&self, town: SettlementId, day: i64) -> DayAir {
+        self.society.towns[town as usize].storms.iter().find(|a| a.day == day).copied().unwrap_or_else(|| self.day_air(town, day))
+    }
+
+    /// The weather in someone's day: an outdoor worker's working hour in a
+    /// storm hour is spent at home; and an hour out at the market, in the
+    /// garden, idling about or on a deck of an evening is spent at home when
+    /// the weather drives them in (one keyed roll each person and hour,
+    /// against the hour's `shelter_seeking`).
+    fn weather_out(&self, plan: Plan, pid: PersonId, town: SettlementId, day: i64, job: Job) -> Plan {
+        let air = self.air_of(town, day);
+        let outdoor_job = OUTDOOR_JOBS.contains(&job);
+        if (air.storm == 0 || !outdoor_job) && air.seek.iter().all(|&x| x == 0) {
             return plan;
         }
         let tl = &self.society.towns[town as usize];
-        let mask = tl.storms.iter().find(|s| s.0 == day).map(|s| s.1).unwrap_or_else(|| self.storm_hours(town, day));
-        if mask == 0 {
-            return plan;
-        }
-        let bad = |h: f32| mask & (1 << (h.floor() as u32).min(23)) != 0;
+        let out_of_doors = |s: &Seg| match s.doing {
+            Doing::Work => outdoor_job,
+            Doing::Market | Doing::Garden | Doing::Idle => true,
+            Doing::Evening => matches!(s.spot, Spot::Place(k) if tl.places.get(k as usize).is_some_and(|p| p.kind == PlaceKind::Deck)),
+            _ => false,
+        };
+        let driven_in = |s: &Seg, h: usize| {
+            if s.doing == Doing::Work {
+                air.storm & (1 << h) != 0
+            } else {
+                air.seek[h] > 0 && Rng::from_keys(&[self.seed, pid as u64, day as u64, h as u64, SHELTER_TAG]).f32() * 255.0 < air.seek[h] as f32
+            }
+        };
         let mut out = Plan::new();
         out.rest = plan.rest;
         out.work = plan.work;
         for (i, s) in plan.segs().iter().enumerate() {
             let end = plan.end_of(i);
-            if s.doing != Doing::Work {
+            if !out_of_doors(s) {
                 out.push(s.from, s.doing, s.spot);
                 continue;
             }
-            // Split the work at the hours, home through the storm ones.
+            // Split it at the hours, home through the ones that drive them in.
             let mut a = s.from;
             while a < end {
                 let b = (a.floor() + 1.0).min(end);
-                if bad(a) {
+                if driven_in(s, (a.floor() as usize).min(23)) {
                     out.push(a, Doing::Home, Spot::Home);
                 } else {
                     out.push(a, s.doing, s.spot);
