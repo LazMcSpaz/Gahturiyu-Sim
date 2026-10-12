@@ -628,13 +628,15 @@ fn rust_lets_more_through_their_armour() {
         }
         b.fighters[2].think_at = 0.0;
         b.fighters[2].target = Some(1);
+        // (The first few seconds, before anyone's down: once they are, what
+        // a last blow happened to take swamps the difference.)
         let before = hp(&b, 1);
-        for _ in 0..200 {
+        for _ in 0..60 {
             b.tick();
         }
         before - hp(&b, 1)
     };
-    let taken = |rust: bool| (2..8).map(|id| taken_one(rust, id)).sum::<f32>();
+    let taken = |rust: bool| (2..14).map(|id| taken_one(rust, id)).sum::<f32>();
     let (r, p) = (taken(true), taken(false));
     assert!(r > p);
 }

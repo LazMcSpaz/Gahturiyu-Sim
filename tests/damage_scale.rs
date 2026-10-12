@@ -61,12 +61,11 @@ pub fn hits_to_down(key: &str) -> f32 {
     total / n as f32
 }
 
-// Today it takes about 13: the global scale comes with the duel grid
-// (items step 4), with every new form in place and Laz there to play it.
+// Laz's target was 4-6 (B2); before the scale it took about 13, and Laz
+// chose to double it (12 Oct): about half as many now.
 #[test]
-#[ignore = "the damage scale is set with the duel grid (items plan, step 4)"]
-fn a_common_longsword_downs_an_unarmoured_person_in_four_to_six_hits() {
+fn a_common_longsword_downs_an_unarmoured_person_in_about_seven_hits() {
     let h = hits_to_down("longsword");
     eprintln!("longsword: {h:.1} hits");
-    assert!((4.0..=6.0).contains(&h), "{h:.1} hits to down");
+    assert!((5.0..=8.0).contains(&h), "{h:.1} hits to down");
 }

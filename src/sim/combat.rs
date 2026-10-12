@@ -199,6 +199,11 @@ pub const FIRST_STRIKE: f32 = 0.7;
 pub const PUSH_CHANCE: f32 = 0.55;
 pub const INSIDE: f32 = 0.55;
 pub const CROWDED_HIT: f32 = 0.6;
+/// What a landed blow does to the body (its wounds and the bleed it opens),
+/// after armour, on top of the weapon's numbers: the one dial for how many
+/// hits it takes to down someone (Part 1, B2; Laz, 12 Oct: twice). How
+/// often a blow staggers or knocks someone down reads the blow before it.
+pub const DAMAGE_SCALE: f32 = 2.0;
 pub const CROWDED_RECOVER: f32 = 1.4;
 /// Stepping back out of a crowd, as a share of their pace.
 pub const STEP_BACK: f32 = 0.7;
@@ -1573,8 +1578,8 @@ impl Battle {
         let (r_bleed, r_stagger, r_down, r_push) = (dice.f32(), dice.f32(), dice.f32(), dice.f32());
         // A cut the armour mostly stopped opens no bleed (0.3).
         let stopped = cut_swung > 0.0 && cut < cut_swung * (1.0 - BLEED_STOPPED);
-        let mut cut = cut * shield;
-        let mut blunt = blunt * shield;
+        let mut cut = cut * shield * DAMAGE_SCALE;
+        let mut blunt = blunt * shield * DAMAGE_SCALE;
         self.fighters[a].train(weapon.skill, 1.0);
         if unaware {
             self.fx.push(Fx { kind: FxKind::Sneak { at: self.fighters[d].pos }, at: self.time });
@@ -1607,7 +1612,7 @@ impl Battle {
         let blunt = if part == Part::Head { blunt * (1.0 - HELM_KO * guard) } else { blunt };
         self.wound_blow(d, part, cut, blunt);
         // A cut the armour didn't mostly stop opens a bleed (rule 1).
-        if cut > 0.5 && !stopped && r_bleed < bleed_chance(&weapon) && !self.fighters[d].dead && self.fighters[d].summon.is_none_or(|s| !s.mindless) {
+        if cut > 0.5 * DAMAGE_SCALE && !stopped && r_bleed < bleed_chance(&weapon) && !self.fighters[d].dead && self.fighters[d].summon.is_none_or(|s| !s.mindless) {
             self.open_bleed(d, cut * BLEED_PER_CUT);
         }
         // A long weapon meeting someone on their way in can drive them back
@@ -1620,7 +1625,7 @@ impl Battle {
         let f = &self.fighters[d];
         if blunt > 0.0 && f.active() && !f.helpless() {
             // Padding takes the edge off (0.3, rule 4).
-            let weight = blunt * (1.0 - PADDING_EASE * pad) / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
+            let weight = blunt / DAMAGE_SCALE * (1.0 - PADDING_EASE * pad) / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
             if r_down < chance_of(weight, KNOCKDOWN) {
                 self.knock_down(d, KNOCKDOWN_SECS);
             } else if r_stagger < chance_of(weight, STAGGER) {
