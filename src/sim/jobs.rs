@@ -514,7 +514,7 @@ impl Good {
             Good::Herbs => &["bloodleaf", "ghostcap", "salt_crystal", "emberroot", "moorbell", "peatroot", "weepmoss", "hearthleaf", "bluestem", "stonebean", "sweetroot", "brinekale", "stoneapple", "firepod", "bluestem_oil"],
             // (Drinks with the wares: ale, cider, wine, spirits; the Qotiro
             // sacrament spirit is never sold.)
-            Good::Wares => &["hardgrain_ale", "stonebean_dark", "stoneapple_cider", "moorberry_wine", "ashberry_wine", "nightberry_wine", "brine_wine", "stone_spirit", "gold_cordial", "torch", "healing_draught", "mana_tonic", "lockpick", "arrows", "bolts", "sling_stones", "hearthclay_pot", "sandglass_flask", "sunbark", "duskseed", "gold_thread"],
+            Good::Wares => &["drift_smoke", "elders_blend", "sweet_blend", "hall_incense", "ghost_incense", "hardgrain_ale", "stonebean_dark", "stoneapple_cider", "moorberry_wine", "ashberry_wine", "nightberry_wine", "brine_wine", "stone_spirit", "gold_cordial", "torch", "healing_draught", "mana_tonic", "lockpick", "arrows", "bolts", "sling_stones", "hearthclay_pot", "sandglass_flask", "sunbark", "duskseed", "gold_thread"],
             Good::Ore => &["iron_ore"],
             Good::Charcoal => &["charcoal"],
             Good::Ash => &["ash"],

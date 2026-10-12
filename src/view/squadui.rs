@@ -447,6 +447,7 @@ pub fn item_lines(id: ItemId) -> Vec<(String, Rgb)> {
         Kind::Ammo => out.push(("Ammunition: used up a shot at a time; about half is found again after a fight".into(), TEXT)),
         Kind::Food(n) => out.push((format!("Food: takes {n:.0} off hunger  ·  eaten when hungry, or click to eat"), TEXT)),
         Kind::Drink(n) => out.push((format!("Drink: {n:.0} drunker a bottle  ·  click to drink"), TEXT)),
+        Kind::Smoke(n) => out.push((format!("Smoke: {n:.0} higher a smoke{}  ·  click to smoke", if gahturiyu_sim::sim::haze::in_a_pipe(id) { " (wants a pipe)" } else { "" }), TEXT)),
         Kind::Errand => out.push(("Someone else's: deliver it".into(), TEXT)),
         Kind::Torch(h) => {
             out.push((format!("Off hand  ·  burns {h:.0} hours  ·  T to light or put out"), TEXT));
@@ -498,6 +499,7 @@ pub fn ground_color(id: ItemId) -> Rgb {
         Kind::Ammo => [0.6, 0.55, 0.45],
         Kind::Food(_) => [0.75, 0.55, 0.35],
         Kind::Drink(_) => [0.55, 0.30, 0.45],
+        Kind::Smoke(_) => [0.55, 0.50, 0.45],
         Kind::Torch(_) | Kind::StandingTorch(_) => [0.45, 0.32, 0.2],
     }
 }
