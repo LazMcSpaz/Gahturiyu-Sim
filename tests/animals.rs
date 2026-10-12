@@ -443,7 +443,8 @@ fn bonepickers_clear_a_body_by_day_and_not_by_night() {
     assert_eq!(w.body_cleared_at(other), None);
     step_to(&mut w, t + CORPSE_TIME - 120.0);
     assert!(w.body_there(other));
-    assert_eq!(w.animals.stats.bodies_cleared, 1);
+    // (This body: other deaths out in the world may be cleared meanwhile.)
+    assert_eq!(w.body_cleared_at(other), None);
 }
 
 #[test]
