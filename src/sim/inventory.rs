@@ -77,6 +77,9 @@ pub fn stack_of(id: ItemId) -> u16 {
         Kind::Material => 10,
         Kind::Food(_) | Kind::Potion | Kind::Scroll(_) | Kind::Torch(_) => 5,
         Kind::Tool if item(id).key == "lockpick" => 10,
+        // Thrown weapons carried a few at a time (items design, Part 1).
+        Kind::Weapon(_) if items::info(id).form == items::id("throwing_knives") => 6,
+        Kind::Weapon(_) if items::info(id).form == items::id("javelin") => 3,
         _ => 1,
     }
 }
@@ -563,13 +566,13 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         &["staff"]
     } else {
         match (best, race) {
-            (Skill::Blade, _) => &["knife", "short_sword", "longsword"],
-            (Skill::Marksman, _) => &["short_bow", "crossbow"],
-            (Skill::Blunt, Race::Roduro) => &["club", "stone_maul"],
-            (Skill::Blunt, Race::Qotiro) => &["club", "war_pick"],
-            (Skill::Blunt, _) => &["club", "war_pick"],
+            (Skill::Blade, _) => &["knife", "short_sword", "cutlass", "longsword", "greatsword"],
+            (Skill::Marksman, _) => &["short_bow", "longbow", "crossbow"],
+            (Skill::Blunt, Race::Roduro) => &["club", "mace", "stone_maul"],
+            (Skill::Blunt, Race::Qotiro) => &["club", "mace", "war_pick", "battle_axe"],
+            (Skill::Blunt, _) => &["club", "mace", "war_pick"],
             (_, Race::Horaro) => &["spear", "trident", "glaive"],
-            _ => &["spear", "glaive"],
+            _ => &["short_spear", "spear", "glaive"],
         }
     };
     let weapon_share = if stats.calling == Calling::Common { 0.6 } else { 0.4 };
@@ -606,6 +609,31 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     }
     if rng.chance(0.6) {
         wishlist.push("small_pack");
+    }
+    // Now and then something kept hidden, or something to throw (items
+    // design, Part 1: every form should turn up somewhere).
+    let extra = rng.f32();
+    let tucked: &[(&str, u16)] = if extra < 0.08 {
+        &[("sap", 1)]
+    } else if extra < 0.14 {
+        &[("throwing_knives", 6)]
+    } else if extra < 0.19 {
+        &[("dirk", 1)]
+    } else if extra < 0.23 {
+        &[("javelin", 3)]
+    } else if extra < 0.26 {
+        &[("knuckle_guards", 1)]
+    } else if extra < 0.28 {
+        &[("hand_crossbow", 1), ("bolts", 6)]
+    } else {
+        &[]
+    };
+    for &(key, n) in tucked {
+        let id = items::id(key);
+        if item(id).value * n as f32 <= left {
+            g.add(id, n);
+            left -= item(id).value * n as f32;
+        }
     }
     for key in wishlist {
         let id = items::id(key);

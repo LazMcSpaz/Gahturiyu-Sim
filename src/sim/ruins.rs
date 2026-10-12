@@ -53,7 +53,7 @@ pub struct Ruin {
 }
 
 /// What a ruin's cache may hold besides coin (keys; two are picked).
-const RUIN_GOODS: &[&str] = &["gold_ring", "pearl_necklace", "greater_healing", "mana_tonic", "scroll_fireball", "scroll_lightning", "notes_paralyze", "manual_smithing", "manual_alchemy", "longsword", "scale_hauberk", "iron_helm", "round_shield", "large_pack", "crossbow"];
+const RUIN_GOODS: &[&str] = &["gold_ring", "pearl_necklace", "greater_healing", "mana_tonic", "scroll_fireball", "scroll_lightning", "notes_paralyze", "manual_smithing", "manual_alchemy", "longsword", "scale_hauberk", "iron_helm", "round_shield", "large_pack", "crossbow", "greatsword", "longbow", "hand_crossbow"];
 /// What lies in a lair, left by those who came before (one is picked).
 const LAIR_GOODS: &[&str] = &["longsword", "glaive", "war_pick", "scale_greaves", "iron_helm", "healing_draught", "greater_healing", "gold_ring"];
 /// Something to read in a ruin's crate (one is picked).
