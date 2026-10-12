@@ -126,12 +126,18 @@ pub struct Wounds {
     /// The damage on the head and torso at which the rally stops.
     #[serde(default)]
     pub rally_to: [f32; 2],
+    /// Torso health lost to an open bleed per hour from `at` on (a squad
+    /// member not yet bound after a fight). It never stops by itself: a
+    /// bandage or healing stops it; the torso doesn't mend meanwhile, and
+    /// left long enough it kills (`condition.rs` solves for when).
+    #[serde(default)]
+    pub bleed: f32,
 }
 
 
 impl Default for Wounds {
     fn default() -> Wounds {
-        Wounds { lost: [0.0; 6], at: 0.0, rate: HEAL_PER_HOUR, drain: 0.0, drain_cap: 0.0, missing: [false; 6], rally: 0.0, rally_to: [0.0; 2] }
+        Wounds { lost: [0.0; 6], at: 0.0, rate: HEAL_PER_HOUR, drain: 0.0, drain_cap: 0.0, missing: [false; 6], rally: 0.0, rally_to: [0.0; 2], bleed: 0.0 }
     }
 }
 
@@ -157,11 +163,40 @@ impl Wounds {
                 out[i] = self.lost[i];
             }
         }
+        let torso = Part::Torso as usize;
         if self.drain > 0.0 {
-            let torso = Part::Torso as usize;
             out[torso] = (self.lost[torso] + self.drain * h).min(self.drain_cap.max(self.lost[torso]));
         }
+        if self.bleed > 0.0 {
+            // Bleeding, the torso doesn't mend (or rally): it only loses.
+            let wasted = if self.drain > 0.0 { out[torso] } else { self.lost[torso] };
+            out[torso] = wasted + self.bleed * h;
+        }
         out
+    }
+
+    /// Hours from `at` until the torso's damage reaches `level` while
+    /// bleeding (with any wasting), if it's bleeding at all.
+    pub fn torso_reaches(&self, level: f32) -> Option<f32> {
+        if self.bleed <= 0.0 {
+            return None;
+        }
+        let l = self.lost[Part::Torso as usize];
+        if l >= level {
+            return Some(0.0);
+        }
+        if self.drain > 0.0 {
+            let cap = self.drain_cap.max(l);
+            let both = self.bleed + self.drain;
+            let h1 = (cap - l) / self.drain;
+            let h = (level - l) / both;
+            if h <= h1 {
+                return Some(h);
+            }
+            let at_h1 = cap + self.bleed * h1;
+            return Some(h1 + (level - at_h1).max(0.0) / self.bleed);
+        }
+        Some((level - l) / self.bleed)
     }
 
     /// Health on each part at time `t`.
@@ -188,7 +223,7 @@ impl Wounds {
     /// Hours from `at` until every wound that can heal has (with a rally
     /// counted), if they're healing at all.
     pub fn healed_in(&self) -> Option<f32> {
-        if self.rate <= 0.0 || self.drain > 0.0 {
+        if self.rate <= 0.0 || self.drain > 0.0 || self.bleed > 0.0 {
             return None;
         }
         let mut worst = 0.0f32;

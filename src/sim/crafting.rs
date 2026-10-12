@@ -894,8 +894,12 @@ impl World {
         if self.fighting.contains_key(&who) {
             return match item(it).kind {
                 Kind::Potion | Kind::Scroll(_) => None,
+                _ if super::combat::is_bandage(it) => None,
                 _ => Some(format!("The {name} can't be used in a fight.")),
             };
+        }
+        if super::combat::is_bandage(it) {
+            return self.bandage_for(who).is_none().then(|| "Nobody near is bleeding.".to_string());
         }
         // A tent is pitched where it's wanted (`bedding.rs`).
         if item(it).key == "tent" {
@@ -935,6 +939,9 @@ impl World {
         }
         if let Kind::Manual(_) = item(it).kind {
             return self.study(who, it);
+        }
+        if super::combat::is_bandage(it) {
+            return self.bandage_for(who).is_some_and(|on| self.bind_wounds(who, on, t));
         }
         // A potion's own effects, or a scroll's spell (no energy, can't fail).
         let effects: &[super::effects::Effect] = match item(it).kind {

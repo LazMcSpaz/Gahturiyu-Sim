@@ -38,6 +38,7 @@ fn glyph(d: Does) -> (Glyph, Rgb) {
     match d {
         Burning => (Glyph::Flame, [1.0, 0.55, 0.22]),
         Wet => (Glyph::Drop, [0.45, 0.70, 1.0]),
+        Bleed => (Glyph::Drop, [0.80, 0.10, 0.08]),
         Chilled | Frozen => (Glyph::Frost, [0.80, 0.92, 1.0]),
         Barrier | Toughen | ResistElements | ResistParalysis | ResistBlind | DomainResist(_) | Veil => (Glyph::Shield, [0.95, 0.85, 0.55]),
         Paralyze | Calm | Fear | Dominate | Sway | Daze | Blind | KnockDown => (Glyph::Mind, [0.80, 0.60, 1.0]),

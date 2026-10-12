@@ -445,6 +445,9 @@ impl World {
             for k in 0..6 {
                 p.wounds.missing[k] |= f.missing[k];
             }
+            // A squad member still bleeding goes on bleeding (`bleeding.rs`);
+            // everyone else is bound by their own once it's over.
+            p.wounds.bleed = if p.in_squad && !f.dead { f.bleeding() * 3600.0 } else { 0.0 };
             p.set_mana(f.mana, t);
             for (k, amt) in f.trained.iter().enumerate() {
                 if *amt > 0.0 {
@@ -525,7 +528,9 @@ impl World {
                 self.boons.retain(|bn| bn.pid != pid);
                 // (A fire on someone is put out when the fight's over; the
                 // cold goes too. Wetness stays until they dry.)
-                for s in f.statuses.iter().filter(|s| s.until > t && !matches!(s.does, Does::Burning | Does::Chilled | Does::Frozen)) {
+                // (A bleed goes on in their wounds, above; on their feet again
+                // once it's over.)
+                for s in f.statuses.iter().filter(|s| s.until > t && !matches!(s.does, Does::Burning | Does::Chilled | Does::Frozen | Does::Bleed | Does::KnockDown)) {
                     self.boons.push(super::casting::Boon { pid, does: s.does, power: s.power, until: s.until });
                 }
             }
@@ -539,6 +544,13 @@ impl World {
                 self.toggle_torch(pid);
             }
             self.after_fight(pid, t, fatigue, tire);
+        }
+        // Squad members still bleeding are bound, with a bandage from their
+        // own pack or a squadmate's.
+        for f in b.fighters.iter().filter(|f| f.is_person() && f.home != super::combat::GRAVE_SIDE && !f.dead) {
+            if self.squad.index(f.pid).is_some() {
+                self.bind_after_fight(f.pid, t);
+            }
         }
         killed
     }

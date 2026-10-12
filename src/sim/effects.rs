@@ -125,6 +125,8 @@ pub enum Does {
     /// Call up creatures to fight for the caster for as long as it lasts.
     /// Power: how strong they are (1 = as made).
     Summon(Summon),
+    /// Stop every bleed (a bandage bound on). Healing does this too.
+    Staunch,
 
     // ---- While it lasts (or while worn) --------------------------------
     /// Power: points added.
@@ -221,12 +223,17 @@ pub enum Does {
     Chilled,
     /// Frozen stiff: can't move or act, and brittle armour cracks.
     Frozen,
+    /// Bleeding from cuts (`combat.rs`): the torso loses this many hit
+    /// points a second until a bandage or healing stops it. It never stops
+    /// by itself; out of a fight a squad member's goes on in their wounds
+    /// (`body::Wounds::bleed`).
+    Bleed,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight | Does::Burning | Does::Wet | Does::Chilled | Does::Frozen)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight | Does::Burning | Does::Wet | Does::Chilled | Does::Frozen | Does::Bleed)
     }
 
     /// Guards against harm (worth putting up when a fight reaches you).
@@ -248,7 +255,7 @@ impl Does {
     /// lasting effect that isn't an attack (it's kept as a blessing on them).
     pub fn works_outside_fights(self) -> bool {
         match self {
-            Does::Heal | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel | Does::Unlock | Does::Transmute | Does::Preserve => true,
+            Does::Heal | Does::Staunch | Does::Energy | Does::Rest | Does::Stamina | Does::Regrow | Does::Kindle | Does::Douse | Does::Dispel | Does::Unlock | Does::Transmute | Does::Preserve => true,
             Does::Raise => false,
             // A guardian can wait on the ground for a fight; the rest only
             // come to one.
@@ -397,6 +404,8 @@ impl Effect {
             Does::Wet => "Soaks them (fire can't take; lightning and cold bite deeper)".to_string(),
             Does::Chilled => "Chills them".to_string(),
             Does::Frozen => "Freezes them stiff".to_string(),
+            Does::Staunch => "Stops bleeding".to_string(),
+            Does::Bleed => format!("Bleeding ({p:.1} a second)"),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),

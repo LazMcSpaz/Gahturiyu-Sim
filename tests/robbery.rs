@@ -149,6 +149,12 @@ fn beaten_beside_a_camp_someone_is_up_within_the_hour() {
         let downed = squad.iter().filter(|&&m| w.is_down(m)).count();
         eprintln!("seed {seed}: lost {lost}, {downed} down, fit {:?}", w.squad_fit());
         assert!(lost && downed >= 2, "seed {seed}: the squad lost");
+        // (Cuts left unbound would bleed them to death where they lie
+        // (items design 0.2, Laz: "it can kill"; `tests/combat_rules.rs`);
+        // here it's coming round that's checked, so their cuts are bound.)
+        for &m in &squad {
+            w.people[m as usize].wounds.bleed = 0.0;
+        }
         let ended = w.time;
         let camp = w.camps.iter().find(|c| c.group == band).unwrap().pos;
         let mut first_up = None;
