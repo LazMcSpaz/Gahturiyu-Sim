@@ -190,6 +190,7 @@ impl World {
             }
         }
         self.ruins = out;
+        self.solid_changed();
     }
 
     /// Note ruins the squad comes upon (the squad's step).

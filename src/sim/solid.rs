@@ -54,11 +54,15 @@
 //! **How it's kept.** The list is a pure function of the world (nothing new
 //! is saved). It's built a town at a time, and once for everything out in
 //! the wild, and kept until what it was built from changes (`Cache`; a
-//! cheap mark of the town's buildings and workplaces, or of the camps,
-//! pens, bases and rocks, is checked on every ask). Tents and standing
+//! mark of the town's buildings and workplaces, or of the camps, pens,
+//! bases and rocks). The marks are worked out again only after something
+//! they're made from has changed: whatever changes one of those calls
+//! `World::solid_changed` (the rocks and the counts are watched by
+//! themselves), so an ask costs a look at a few numbers. Tents and standing
 //! torches come and go, so they are added fresh on each ask.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -734,12 +738,15 @@ impl Solids {
 /// The lists as last built, with the mark of what each was built from.
 /// Never saved; a copy of the world starts with none.
 #[derive(Default)]
-pub struct Cache(Mutex<Kept>);
+pub struct Cache(Mutex<Kept>, AtomicU64);
 
 #[derive(Default)]
 struct Kept {
     towns: Vec<Option<(u64, Arc<Solids>)>>,
     wild: Option<(u64, Arc<Solids>)>,
+    /// The marks as last worked out (`None`: not yet, for a town), and the
+    /// quick look (`World::quick_mark`) they were worked out at.
+    marks: Option<([u64; 6], Option<u64>, Vec<Option<u64>>)>,
     /// Ways already found (`walk.rs`), by their two ends, each with the
     /// mark of the lists it was found among.
     ways: HashMap<[u32; 4], (u64, Arc<super::walk::Found>)>,
@@ -752,6 +759,36 @@ struct Kept {
 /// Most ways (and, apart, spots) kept before the lot is dropped and found
 /// afresh as asked for.
 const WAYS_KEPT: usize = 40_000;
+
+impl Kept {
+    /// The mark `World::solid_sets_marked` would give for `p`, if every
+    /// list it needs is built and nothing has changed since (`q`, the quick
+    /// look); with `out`, those lists too.
+    fn mark_near(&self, w: &World, q: [u64; 6], p: V2, within: f32, mut out: Option<&mut Vec<Arc<Solids>>>) -> Option<u64> {
+        let marks = self.marks.as_ref().filter(|m| m.0 == q)?;
+        let (wm, wild) = self.wild.as_ref()?;
+        if marks.1 != Some(*wm) {
+            return None;
+        }
+        let mut all = *wm;
+        if let Some(o) = out.as_deref_mut() {
+            o.push(wild.clone());
+        }
+        for s in &w.settlements {
+            if s.pos.dist(p) < s.reach + within + 30.0 {
+                let (tm, set) = self.towns.get(s.id as usize)?.as_ref()?;
+                if marks.2.get(s.id as usize).copied().flatten() != Some(*tm) {
+                    return None;
+                }
+                all = mark(all ^ tm, s.id as u64);
+                if let Some(o) = out.as_deref_mut() {
+                    o.push(set.clone());
+                }
+            }
+        }
+        Some(all)
+    }
+}
 
 impl Cache {
     /// A way kept for these two ends, found among lists with this mark.
@@ -794,6 +831,17 @@ impl std::fmt::Debug for Cache {
     }
 }
 
+/// Check every quick look against the full marks, and stop the world if
+/// something they're made from changed without `World::solid_changed`
+/// (tests).
+static CHECK: AtomicBool = AtomicBool::new(false);
+
+/// Turn the check on (`CHECK`). For tests: the marks are then worked out
+/// in full on every ask as well, which is slow.
+pub fn check_marks(on: bool) {
+    CHECK.store(on, Ordering::Relaxed);
+}
+
 fn mark(h: u64, x: u64) -> u64 {
     (h ^ x).wrapping_mul(0x0000_0100_0000_01B3).rotate_left(23)
 }
@@ -803,6 +851,99 @@ fn mark_v2(h: u64, p: V2) -> u64 {
 }
 
 impl World {
+    /// Something the solid lists are built from has changed (a camp gone, a
+    /// base building placed or standing, a town's workplaces laid out
+    /// again): their marks are worked out afresh at the next ask. Anything
+    /// that changes what `town_mark` or `wild_mark` reads calls this; a
+    /// rock edit or a new camp, pen, base or town is also seen by itself
+    /// (`quick_mark`).
+    pub fn solid_changed(&self) {
+        self.solid_cache.1.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// What's looked at on every ask: the changes told of, and the counts
+    /// and rock versions that move by themselves.
+    fn quick_mark(&self) -> [u64; 6] {
+        let rocks = |e: &super::mapedit::MapEdits| (e.rocks.len() as u64) << 32 | e.rocks_v as u64;
+        [
+            self.solid_cache.1.load(Ordering::Relaxed),
+            (self.settlements.len() as u64) << 32 | self.camps.len() as u64,
+            (self.bases.len() as u64) << 32 | self.animals.pens.len() as u64,
+            rocks(&self.terrain.edits),
+            rocks(&self.terrain.authored),
+            self.ruins.len() as u64,
+        ]
+    }
+
+    /// The marks kept for the wild (`None`) or a town, if nothing has
+    /// changed since they were worked out; otherwise worked out again.
+    fn kept_mark(&self, town: Option<SettlementId>) -> u64 {
+        let q = self.quick_mark();
+        let full = || match town {
+            Some(t) => self.town_mark(t),
+            None => self.wild_mark(),
+        };
+        let have = {
+            let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
+            if kept.marks.as_ref().map(|m| m.0) != Some(q) {
+                kept.marks = Some((q, None, vec![None; self.settlements.len()]));
+            }
+            let m = kept.marks.as_ref().unwrap();
+            match town {
+                Some(t) => m.2.get(t as usize).copied().flatten(),
+                None => m.1,
+            }
+        };
+        if let Some(h) = have {
+            if CHECK.load(Ordering::Relaxed) {
+                assert_eq!(h, full(), "the solid lists of {town:?} changed without World::solid_changed");
+            }
+            return h;
+        }
+        let h = full();
+        let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(m) = kept.marks.as_mut().filter(|m| m.0 == q) {
+            match town {
+                Some(t) => {
+                    if let Some(slot) = m.2.get_mut(t as usize) {
+                        *slot = Some(h);
+                    }
+                }
+                None => m.1 = Some(h),
+            }
+        }
+        h
+    }
+
+    /// `solid_sets_marked` with one look under the lock, when nothing has
+    /// changed since every list it needs was built (the usual ask).
+    fn sets_kept(&self, p: V2, within: f32) -> Option<(Vec<Arc<Solids>>, u64)> {
+        let q = self.quick_mark();
+        let kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut out = Vec::new();
+        let all = kept.mark_near(self, q, p, within, Some(&mut out))?;
+        drop(kept);
+        self.check_mark_near(p, within, all);
+        Some((out, all))
+    }
+
+    fn check_mark_near(&self, p: V2, within: f32, all: u64) {
+        if CHECK.load(Ordering::Relaxed) {
+            assert_eq!(all, self.full_mark_near(p, within), "the solid lists near {p:?} changed without World::solid_changed");
+        }
+    }
+
+    /// The mark of the lists near `p`, worked out in full (`CHECK`).
+    fn full_mark_near(&self, p: V2, within: f32) -> u64 {
+        let mut all = self.wild_mark();
+        for s in &self.settlements {
+            if s.pos.dist(p) < s.reach + within + 30.0 {
+                all = mark(all ^ self.town_mark(s.id), s.id as u64);
+            }
+        }
+        all
+    }
+
     /// A mark of everything a town's list is built from.
     fn town_mark(&self, t: SettlementId) -> u64 {
         let s = &self.settlements[t as usize];
@@ -870,7 +1011,7 @@ impl World {
     }
 
     fn town_solids_marked(&self, t: SettlementId) -> (u64, Arc<Solids>) {
-        let m = self.town_mark(t);
+        let m = self.kept_mark(Some(t));
         {
             let mut kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
             if kept.towns.len() <= t as usize {
@@ -894,7 +1035,7 @@ impl World {
     }
 
     fn wild_solids_marked(&self) -> (u64, Arc<Solids>) {
-        let m = self.wild_mark();
+        let m = self.kept_mark(None);
         {
             let kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
             if let Some((have, s)) = &kept.wild {
@@ -917,6 +1058,9 @@ impl World {
     /// `solid_sets`, with one mark for the lot: it changes when anything
     /// any of them was built from does.
     pub fn solid_sets_marked(&self, p: V2, within: f32) -> (Vec<Arc<Solids>>, u64) {
+        if let Some(kept) = self.sets_kept(p, within) {
+            return kept;
+        }
         let (mut all, wild) = self.wild_solids_marked();
         let mut out = vec![wild];
         for s in &self.settlements {
@@ -1468,9 +1612,19 @@ impl World {
     /// `free_spot` (with its room) or `stand_by`, kept (`Cache`) until what
     /// stands near `p` changes.
     fn spot_kept(&self, p: V2, near: Option<(V2, f32)>) -> (Option<V2>, f32) {
-        let (sets, mark) = self.solid_sets_marked(p, 10.0);
         let (n, r) = near.unwrap_or((p, f32::INFINITY));
         let key = [p.x.to_bits(), p.y.to_bits(), n.x.to_bits(), n.y.to_bits(), r.to_bits()];
+        // The usual ask: one look under the lock, nothing built.
+        let q = self.quick_mark();
+        let hit = {
+            let kept = self.solid_cache.0.lock().unwrap_or_else(|e| e.into_inner());
+            kept.mark_near(self, q, p, 10.0, None).and_then(|m| kept.spots.get(&key).filter(|s| s.0 == m).map(|s| (m, (s.1, s.2))))
+        };
+        if let Some((m, s)) = hit {
+            self.check_mark_near(p, 10.0, m);
+            return s;
+        }
+        let (sets, mark) = self.solid_sets_marked(p, 10.0);
         if let Some(s) = self.solid_cache.spot(key, mark) {
             return s;
         }

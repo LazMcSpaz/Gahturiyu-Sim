@@ -486,6 +486,7 @@ impl World {
                     self.groups[gi].ends = t;
                     self.groups[gi].members.clear();
                     self.camps.remove(ci);
+                    self.solid_changed();
                 } else {
                     let c = centre(BANDIT_SIDE, &f.result, self).unwrap_or(camp_pos);
                     let back = alive.iter().map(|&m| up_at(self, m)).fold(t, f64::max);
