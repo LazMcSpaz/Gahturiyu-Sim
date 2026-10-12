@@ -393,7 +393,7 @@ pub fn run() {
         }
         game.inv = s.inventory.and_then(|k| game.world.squad.members.get(k).copied());
         game.craft = s.craft.and_then(|k| game.world.squad.members.get(k).copied());
-        if s.make.is_some() {
+        if s.make.as_deref().is_some_and(|m| !m.ends_with(",closed")) {
             game.craft = game.world.squad.members.first().copied();
         }
         if s.trade_table {

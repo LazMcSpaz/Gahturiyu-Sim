@@ -425,7 +425,7 @@ impl Shot {
                 world.step(10.0);
             }
         }
-        if let Some(what) = self.make.clone() {
+        if let Some(what) = self.make.clone().map(|m| m.trim_end_matches(",closed").to_string()) {
             make_scene(world, &what);
         }
         if self.drink {
@@ -1315,6 +1315,14 @@ fn make_scene(world: &mut World, what: &str) {
             return;
         };
         world.teleport_squad(at.add(V2::new(1.2, 0.8)));
+        // A station in a building: the squad is inside it (drawn cut open).
+        if let Some(d) = world.building_at(at) {
+            for k in 0..world.squad.members.len() {
+                if world.building_at(world.squad.at[k]).is_some_and(|x| x.id == d.id) {
+                    world.squad.inside[k] = Some(d.id);
+                }
+            }
+        }
         // One of them a little way off: named on the screen as too far.
         if let Some(k) = m.get(2).and_then(|&p| world.squad.index(p)) {
             let off = at.add(V2::new(22.0, 6.0));
@@ -1355,6 +1363,10 @@ fn make_scene(world: &mut World, what: &str) {
         world.taste(m[0], items::id("nightberry"));
         let _ = world.brew(m[0], &[items::id("bloodleaf"), items::id("wild_berries")], 1);
         world.step(gahturiyu_sim::sim::brewing::BREW_SECS + 5.0);
+        // And another under way, to see the brewer at it.
+        if let Err(e) = world.brew(m[1.min(m.len() - 1)], &[items::id("nightberry"), items::id("ghostcap")], 1) {
+            eprintln!("GAHT_MAKE: the second brew: {}", e.say());
+        }
     }
     // At a fire or a stove: a pot, and the second of them already cooking
     // (the stirring cue).
