@@ -99,6 +99,8 @@ pub enum Action {
     /// Use this very thing in the pack: drink a brewed bottle (its own mix),
     /// read a recipe sheet.
     UseEntry(PersonId, usize),
+    /// Coat the hand weapon with the brewed bottle at this pack entry.
+    CoatEntry(PersonId, usize),
     /// Taste a raw ingredient (it shows one of its effects).
     Taste(PersonId, ItemId),
     Craft(PersonId, usize),

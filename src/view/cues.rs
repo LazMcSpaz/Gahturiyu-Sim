@@ -26,7 +26,10 @@
 //!   ground where they were pushed (`push_streak`);
 //! - a sweeping weapon's arc is drawn wider than a plain swing's;
 //! - a thrown weapon tumbles end over end through the air and lies where it
-//!   comes down; one that breaks bursts into splinters (`thrown_flight`).
+//!   comes down; one that breaks bursts into splinters (`thrown_flight`);
+//! - a flask is held up and back, then tumbles through the air and bursts in
+//!   a ring of drops coloured by its harm (`splash`);
+//! - a blade with poison on it drips green;
 //!
 //! Drawing only: everything here reads the sim's own states and times.
 
@@ -57,6 +60,7 @@ const DUST: Rgb = [0.62, 0.56, 0.46];
 const POT: Rgb = [0.18, 0.16, 0.15];
 const STEAM: Rgb = [0.88, 0.88, 0.86];
 const PUFF: Rgb = [0.80, 0.80, 0.84];
+const POISON: Rgb = [0.45, 0.80, 0.25];
 /// How long the puff shows after a smoke, game seconds.
 const SMOKE_SHOWS: f32 = 90.0;
 const SNEAK: Rgb = [1.0, 0.55, 0.25];
@@ -198,6 +202,10 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         if bleed > 0.0 {
             drips(b, base, h, r, bleed, w.time, pid, k, BLOOD);
         }
+        // Poison on their blade: green drips from the hand.
+        if w.coating_of(pid).is_some() {
+            drips(b, hand - vec3(0.0, h * 0.45, 0.0), h, r, 0.1, w.time, pid ^ 0x77, k, POISON);
+        }
         // Just had a smoke: a pale puff drifting up from them for a while.
         if let Some(c) = w.people[pid as usize].cond.as_ref() {
             let since = (w.time - c.last_smoke) as f32;
@@ -263,6 +271,16 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         return;
     }
     let ranged = f.weapon.range > 0.0;
+    if f.coating.is_some_and(|c| c.1 > 0) {
+        drips(b, hand - vec3(0.0, h * 0.45, 0.0), h, r, 0.1, t, pid ^ 0x77, k, POISON);
+    }
+    // Throwing a flask: it's held up and back, ready to go.
+    if let Act::Flask { lands, .. } = f.act {
+        let p = (1.0 - ((lands - t).max(0.0) / 0.8).min(1.0)) as f32;
+        let at = hand + vec3(0.0, (0.3 + 0.4 * p) * k, 0.0) - fwd * (0.3 * p * k);
+        b.column(at, 0.09 * k, 0.07 * k, 0.2 * k, 6, [0.80, 0.75, 0.55]);
+        return;
+    }
     // Casting: a mote rising above the hand; drinking: a flask at the mouth.
     match f.act {
         Act::Cast { done, .. } => {
@@ -386,6 +404,28 @@ fn drips(b: &mut Builder, base: Vec3, h: f32, r: f32, rate: f32, t: f64, pid: Pe
 
 /// A blow on someone who never saw it coming: a red-gold burst where it
 /// landed, swelling and gone in half a second (`age` in seconds).
+/// A flask bursting (Part 4 rule 8): a ring spreading over the splash and
+/// a spray of drops above it, coloured by the harm it carries, for a
+/// second or so.
+pub fn splash(gl: &mut Builder, at: Vec3, radius: f32, does: gahturiyu_sim::sim::effects::Does, age: f32, k: f32) {
+    use gahturiyu_sim::sim::effects::Does;
+    let col = match does {
+        Does::Burning | Does::Damage(_) => [1.0, 0.55, 0.22],
+        Does::Poison | Does::Nausea | Does::ThinBlood => POISON,
+        Does::Slumber | Does::Daze | Does::Blind => [0.70, 0.60, 1.0],
+        Does::Smoke => [0.70, 0.70, 0.72],
+        _ => [0.85, 0.80, 0.55],
+    };
+    let p = (age / 1.2).clamp(0.0, 1.0);
+    ground_ring(gl, at, radius * (0.3 + 0.7 * p), 0.12 * k * (1.0 - p) + 0.02, col);
+    for i in 0..10 {
+        let a = i as f32 / 10.0 * std::f32::consts::TAU;
+        let d = vec3(a.cos(), 0.0, a.sin()) * (radius * 0.6 * p);
+        let up = (1.6 * p - 1.4 * p * p) * k;
+        gl.block(at + d + vec3(0.0, up, 0.0), 0.1 * k, 0.1 * k, 0.1 * k, a, col);
+    }
+}
+
 pub fn sneak_burst(gl: &mut Builder, at: Vec3, age: f32, k: f32) {
     let p = (age / 0.5).clamp(0.0, 1.0);
     for i in 0..8 {

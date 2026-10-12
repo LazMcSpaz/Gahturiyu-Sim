@@ -478,6 +478,9 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
                         items_.push(("Put on".into(), Some(Action::EquipEntry(pid, e))));
                     } else if !locked && mix.is_some() {
                         items_.push(("Drink".into(), Some(Action::UseEntry(pid, e))));
+                        if w.why_cant_coat(pid, e).is_none() {
+                            items_.push(("Coat the blade".into(), Some(Action::CoatEntry(pid, e))));
+                        }
                     } else if !locked && sheet.is_some() {
                         items_.push(("Read".into(), Some(Action::UseEntry(pid, e))));
                     } else if !locked && usable(i) {
@@ -560,13 +563,14 @@ fn double(st: &mut PackState, pid: PersonId, k: usize, worn: bool, now: std::tim
 
 /// Things used from the pack (eaten, drunk, read, set up).
 fn usable(i: ItemId) -> bool {
-    matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_))
+    matches!(item(i).kind, Kind::Potion | Kind::Scroll(_) | Kind::Food(_) | Kind::Drink(_) | Kind::Smoke(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_))
 }
 
 fn use_word(i: ItemId) -> &'static str {
     match item(i).kind {
         Kind::Food(_) => "Eat",
-        Kind::Potion => "Drink",
+        Kind::Potion | Kind::Drink(_) => "Drink",
+        Kind::Smoke(_) => if gahturiyu_sim::sim::haze::in_a_pipe(i) { "Smoke a pipe" } else { "Burn some" },
         Kind::Scroll(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_) => "Read",
         Kind::StandingTorch(_) => "Set it up",
         _ => "Use",
