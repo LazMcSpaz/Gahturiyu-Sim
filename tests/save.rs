@@ -27,6 +27,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?} {:?}\n", w.binding, w.thrown_lying, w.gatherers);
     // Packs soaking through and drying (containers).
     s += &format!("{:?}\n", w.soaks);
+    // What the squad has to eat and how fresh (food).
+    s += &format!("{:?}\n", w.larder);
     s += &sorted(&w.bounty);
     s += &sorted(&w.news);
     s += &sorted(&w.torches);

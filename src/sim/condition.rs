@@ -34,6 +34,16 @@
 //! roof helps), standing about is ordinary, marching heals little, and hunger
 //! cuts it further — a starving marcher heals nothing at all.
 //!
+//! **Thirst** (the items design, 0.6: light) runs from 0 to 100 beside
+//! hunger: faster marching and fighting, slower asleep, and rain on someone
+//! out in it brings it down. Members drink when it reaches `DRINK_AT`: from a
+//! town's wells or a base's well if they're there (and they fill their
+//! waterskins), else from a waterskin (`SKIN_DRINKS` drinks each; an open
+//! skin catches rain). Thirsty (50) they get their breath back slower;
+//! parched (75) their attributes are down; at 100 they collapse, knocked
+//! out, and it never kills. The rain is read once an hour, at the top of
+//! the hour, for anyone out in it.
+//!
 //! Only your squad has a condition. Everyone else in the world gets by, and
 //! heals at the plain constant rate.
 //!
@@ -70,6 +80,34 @@ pub const STARVING: f32 = 85.0;
 pub const WEAK_FACTOR: f32 = 0.85;
 /// Torso health lost per hour while starving.
 pub const STARVE_DRAIN: f32 = 2.0;
+
+/// Thirst gained per hour, resting (0.6: water is easy to find, but it
+/// matters on long marches and when fighting).
+pub const THIRST_PER_HOUR: f32 = 2.2;
+/// Multipliers on thirst: marching, fighting, asleep.
+pub const THIRST_WALKING: f32 = 1.8;
+pub const THIRST_FIGHTING: f32 = 3.0;
+pub const THIRST_SLEEPING: f32 = 0.5;
+/// Thirst taken off per hour by rain on someone out in it (a downpour, 1).
+pub const RAIN_QUENCH: f32 = 6.0;
+/// They drink when thirst reaches this.
+pub const DRINK_AT: f32 = 40.0;
+/// Stages: thirsty, parched, collapse.
+pub const THIRSTY: f32 = 50.0;
+pub const PARCHED: f32 = 75.0;
+pub const COLLAPSE: f32 = 99.9;
+/// Breath comes back this much slower thirsty; attributes this much lower
+/// parched.
+pub const THIRSTY_BREATH: f32 = 0.7;
+pub const PARCHED_FACTOR: f32 = 0.85;
+/// Drinks a waterskin holds, thirst one takes off, and how fast an open
+/// skin fills in rain (drinks an hour, a downpour).
+pub const SKIN_DRINKS: f32 = 4.0;
+pub const SKIN_QUENCH: f32 = 45.0;
+pub const SKIN_CATCH: f32 = 2.0;
+/// Torso health lost per hour collapsed from thirst: down to knocked out
+/// within the hour or two, never further. Rain or a drink brings them round.
+pub const THIRST_DRAIN: f32 = 60.0;
 
 /// Stamina used per hour walking on the flat, unburdened.
 pub const STAMINA_WALK: f32 = 12.0;
@@ -166,11 +204,20 @@ pub struct Condition {
     /// Sustained by a spell: no hunger, and no tiredness building up.
     #[serde(default)]
     pub sustained: bool,
+    /// Thirst, 0 (slaked) .. 100 (collapsed).
+    #[serde(default)]
+    pub thirst: f32,
+    /// Drinks of water carried in their waterskins.
+    #[serde(default)]
+    pub water: f32,
+    /// The rain on them this piece (0 under a roof), read at its start.
+    #[serde(default)]
+    pub rain: f32,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0 }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -180,9 +227,12 @@ impl Condition {
     /// Stamina change per hour in this piece (negative while walking).
     pub fn stamina_rate(&self) -> f32 {
         let hold = if self.holding { super::casting::STAMINA_HOLD } else { 0.0 };
+        // (Thirsty, breath comes back slower: read at the last settle, the
+        // stage line being a step on the timeline.)
+        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 };
         match self.activity {
             Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
-            Activity::Resting | Activity::Sleeping => STAMINA_REST - hold,
+            Activity::Resting | Activity::Sleeping => STAMINA_REST * dry - hold,
             Activity::Fighting => 0.0, // the fight keeps its own count
         }
     }
@@ -270,8 +320,44 @@ impl Condition {
         (r > 0.0).then(|| self.at + ((level - self.hunger) / r) as f64 * HOUR)
     }
 
+    /// Thirst gained per hour in this piece (less, or falling, in rain).
+    pub fn thirst_rate(&self) -> f32 {
+        if self.sustained {
+            return -self.rain * RAIN_QUENCH;
+        }
+        let r = THIRST_PER_HOUR
+            * match self.activity {
+                Activity::Walking => THIRST_WALKING,
+                Activity::Fighting => THIRST_FIGHTING,
+                Activity::Sleeping => THIRST_SLEEPING,
+                Activity::Resting => 1.0,
+            }
+            * (1.0 + HUNGER_LOAD * (self.load - 0.5).clamp(0.0, 1.5));
+        r - self.rain * RAIN_QUENCH
+    }
+
+    pub fn thirst_at(&self, t: f64) -> f32 {
+        (self.thirst + self.thirst_rate() * hours(self.at, t)).clamp(0.0, 100.0)
+    }
+
+    /// When thirst crosses `level` in this piece, either way.
+    pub fn thirst_crosses(&self, level: f32) -> Option<f64> {
+        let r = self.thirst_rate();
+        let gap = level - self.thirst;
+        if r == 0.0 || gap.abs() < 1e-4 || gap.signum() != r.signum() {
+            return None;
+        }
+        Some(self.at + (gap / r) as f64 * HOUR)
+    }
+
+    /// Water caught in open skins by `t` (they hold `cap` drinks).
+    pub fn water_at(&self, t: f64, cap: f32) -> f32 {
+        (self.water + self.rain * SKIN_CATCH * hours(self.at, t)).min(cap.max(self.water))
+    }
+
     /// Bring the values forward to `t` and start a new piece there.
     pub fn settle(&mut self, t: f64) {
+        self.thirst = self.thirst_at(t);
         self.hunger = self.hunger_at(t);
         self.stamina = self.stamina_at(t);
         self.tired = self.tired_at(t);
@@ -292,6 +378,9 @@ impl Condition {
         }
         if self.stage() >= HungerStage::Weak {
             f *= WEAK_FACTOR;
+        }
+        if self.thirst >= PARCHED {
+            f *= PARCHED_FACTOR;
         }
         if self.exhausted() {
             f *= EXHAUSTED_FACTOR;
@@ -359,6 +448,13 @@ fn hours(from: f64, to: f64) -> f32 {
 /// Apply a condition's healing (and wasting) to someone's wounds from now on.
 fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats, can_die: bool) {
     w.rate = c.heal_rate();
+    // Collapsed from thirst: the torso wastes to knocked out, never further.
+    if c.thirst >= COLLAPSE && c.stage() != HungerStage::Starving {
+        w.drain = THIRST_DRAIN;
+        w.drain_cap = stats.max_hp(Part::Torso) + 1.0;
+        w.rally = 0.0;
+        return;
+    }
     if c.stage() == HungerStage::Starving {
         w.drain = STARVE_DRAIN;
         // Wasting knocks a squad member out, then kills them (Laz, B2),
@@ -406,9 +502,13 @@ impl World {
             let p = &self.people[pid as usize];
             super::inventory::effective(&p.stats, &p.kit()).max_fatigue()
         };
+        let rain = self.rain_on(pid, t);
+        let cap = self.skins_of(pid) * SKIN_DRINKS;
         let p = &mut self.people[pid as usize];
         let Some(c) = p.cond.as_mut() else { return };
+        c.water = c.water_at(t, cap).min(cap);
         c.settle(t);
+        c.rain = rain;
         c.shelter = shelter;
         // Full stays full when the pool's size changes (a fresh member's
         // placeholder pool, or new gear).
@@ -477,6 +577,10 @@ impl World {
 
     /// The best thing in someone's pack to eat now.
     fn food_for(&self, pid: PersonId, hunger: f32) -> Option<ItemId> {
+        // What's going off is eaten first (0.6).
+        if let Some(it) = self.food_going_off(pid, self.time) {
+            return Some(it);
+        }
         let foods: Vec<(ItemId, f32)> = self.people[pid as usize].detail.as_ref().map(|d| d.gear.bag.iter().filter_map(|e| if let Kind::Food(n) = item(e.0).kind { Some((e.0, n)) } else { None }).collect()).unwrap_or_default();
         // The biggest meal that won't be wasted, else the smallest one there is.
         let own = foods.iter().filter(|f| f.1 <= hunger).max_by(|a, b| a.1.total_cmp(&b.1)).or_else(|| foods.iter().min_by(|a, b| a.1.total_cmp(&b.1))).map(|f| f.0);
@@ -511,8 +615,13 @@ impl World {
     /// Eat something now (or at `t`): hunger drops by its nourishment.
     pub fn eat(&mut self, pid: PersonId, it: ItemId, t: f64) -> bool {
         let Kind::Food(n) = item(it).kind else { return false };
-        // From their own pack; a base's resident with none of it, from the store.
-        let had = self.people[pid as usize].detail.as_mut().map(|d| d.gear.take(it)).unwrap_or(false) || (self.resident_of(pid).is_some() && self.base_take_food(pid, it)) || self.bound_take_food(pid, it);
+        // From their own pack (what's going off first: `spoil.rs`); a base's
+        // resident with none of it, from the store.
+        let own = self.take_food(pid, it, t);
+        let had = own.is_some() || (self.resident_of(pid).is_some() && self.base_take_food(pid, it)) || self.bound_take_food(pid, it);
+        // Stale fills less; spoiled fills little and turns the stomach.
+        let fresh = own.unwrap_or(super::spoil::Fresh::Fresh);
+        let n = n * super::spoil::FILLS[fresh as usize];
         // Or a squadmate close by hands some over.
         let mut shared_by = None;
         if !had {
@@ -539,9 +648,14 @@ impl World {
         }
         p.recompute_might();
         let name = p.name().unwrap_or("someone").to_string();
-        let line = match shared_by {
-            Some(g) => format!("{} shares some {} with {name}.", self.people[g as usize].name().unwrap_or("Someone"), item(it).name.to_lowercase()),
-            None => format!("{name} eats some {}.", item(it).name.to_lowercase()),
+        let line = match (shared_by, fresh) {
+            (Some(g), _) => format!("{} shares some {} with {name}.", self.people[g as usize].name().unwrap_or("Someone"), item(it).name.to_lowercase()),
+            // TODO(alchemy): spoiled food gives Nausea (with a little
+            // toxicity) once that effect exists (Part 4); until then it only
+            // fills little.
+            (None, super::spoil::Fresh::Spoiled) => format!("{name} eats some spoiled {} and feels sick.", item(it).name.to_lowercase()),
+            (None, super::spoil::Fresh::Stale) => format!("{name} eats some stale {}.", item(it).name.to_lowercase()),
+            (None, super::spoil::Fresh::Fresh) => format!("{name} eats some {}.", item(it).name.to_lowercase()),
         };
         // (Those left at a base eat unremarked.)
         if self.squad.index(pid).is_some() {
@@ -582,6 +696,19 @@ impl World {
                     consider(c.hunger_reaches(level), Event::Stage);
                 }
                 consider(c.tired_reaches(EXHAUSTED), Event::Stage);
+                // Thirst crossing a stage, either way; and for anyone out of
+                // doors, the top of the hour (the rain is read again).
+                for level in [THIRSTY, PARCHED, COLLAPSE] {
+                    consider(c.thirst_crosses(level), Event::Stage);
+                }
+                if self.shelter_of(pid) == Shelter::Open {
+                    consider(Some(((c.at / HOUR).floor() + 1.0) * HOUR), Event::Stage);
+                }
+                // Time to drink, if there's water.
+                if self.water_for(pid, &c) {
+                    let due = if c.thirst >= DRINK_AT { Some(c.at) } else { c.thirst_crosses(DRINK_AT).filter(|_| c.thirst_rate() > 0.0) };
+                    consider(due, Event::Drink);
+                }
                 consider(c.winded_turns(), Event::Stage);
                 consider(c.rested_by(EXHAUSTED), Event::Stage);
                 // Fully rested: wake up (unless they're out cold then).
@@ -644,7 +771,21 @@ impl World {
                 match e {
                     Event::Stage => {
                         let was = c.stage();
+                        let was_dry = c.thirst_at(t);
                         self.settle(pid, t);
+                        // A line when someone turns thirsty, or parched.
+                        if self.squad.index(pid).is_some() {
+                            let line = match was_dry {
+                                d if d >= PARCHED - 1e-3 && c.thirst < PARCHED - 1e-3 => Some("is parched"),
+                                d if d >= THIRSTY - 1e-3 && c.thirst < THIRSTY - 1e-3 => Some("is thirsty"),
+                                _ => None,
+                            };
+                            if let Some(how) = line {
+                                let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+                                self.log.push_front((t, format!("{name} {how}.")));
+                                self.log.truncate(14);
+                            }
+                        }
                         // One line when someone starts starving, before
                         // anyone goes down.
                         let now_starving = self.people[pid as usize].cond.as_ref().is_some_and(|c| c.stage() == HungerStage::Starving);
@@ -704,6 +845,11 @@ impl World {
                         self.torch_out_for_sleep(pid, t);
                     }
                     Event::Ritual => self.ritual_done(pid),
+                    Event::Drink => {
+                        if !self.drink_water(pid, t) {
+                            break;
+                        }
+                    }
                     Event::Eat => {
                         let h = c.hunger_at(t);
                         if let Some(f) = self.food_for(pid, h) {
@@ -762,6 +908,12 @@ impl World {
     /// For the window: hunger 0..100 now.
     pub fn hunger_of(&self, pid: PersonId) -> Option<f32> {
         self.people[pid as usize].cond.as_ref().map(|c| c.hunger_at(self.time))
+    }
+
+    /// Thirst 0..100 now, and the drinks of water they carry.
+    pub fn thirst_of(&self, pid: PersonId) -> Option<(f32, f32)> {
+        let cap = self.skins_of(pid) * SKIN_DRINKS;
+        self.people[pid as usize].cond.as_ref().map(|c| (c.thirst_at(self.time), c.water_at(self.time, cap)))
     }
 
     /// Tiredness 0..100 now.
@@ -915,6 +1067,7 @@ impl World {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Event {
     Stage,
+    Drink,
     Starved,
     BledOut,
     Eat,

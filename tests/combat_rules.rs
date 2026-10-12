@@ -181,6 +181,12 @@ fn after_a_fight_the_squad_binds_its_cuts() {
 #[test]
 fn a_bandage_from_the_pack_stops_a_bleed() {
     let (mut w, m) = after_a_fight(false).expect("someone in the squad left bleeding");
+    // (Only this one bleeding: anyone else cut in the fight is bound already.)
+    for &o in &w.squad.members.clone() {
+        if o != m {
+            w.people[o as usize].wounds.bleed = 0.0;
+        }
+    }
     let bandage = items::id("bandage");
     assert!(w.why_cant_use(m, bandage).is_some(), "no bandage on them");
     w.people[m as usize].detail.as_mut().unwrap().gear.add(bandage, 2);

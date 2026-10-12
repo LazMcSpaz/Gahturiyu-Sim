@@ -92,7 +92,7 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
         let id = people.len() as PersonId;
         let mut p = Person::summary(id, rng::key(&[seed, 0x5351_5544, i as u64]), race, Some(start_town));
         p.in_squad = true;
-        p.cond = Some(super::condition::Condition::new(6.0 * HOUR));
+        p.cond = Some(super::condition::Condition { water: super::condition::SKIN_DRINKS, ..super::condition::Condition::new(6.0 * HOUR) });
         p.specialize(calling, skills, budget);
         p.ensure_detail();
         // The squad starts in the shared basics: leather, cloth and simple
@@ -119,6 +119,8 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
             d.gear.add(super::items::id("bedroll"), 1);
             // And a few bandages: a cut bleeds until it's bound.
             d.gear.add(super::items::id("bandage"), 3);
+            // And a full waterskin.
+            d.gear.add(super::items::id("waterskin"), 1);
             // The crafts they've each taken up.
             d.crafts = match (race, calling) {
                 (_, Calling::Mage) => vec![Skill::Alchemy, Skill::Inscription],

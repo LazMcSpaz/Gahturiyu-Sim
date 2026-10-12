@@ -156,6 +156,13 @@ pub fn sheet(c: &Canvas, w: &World, pid: PersonId, click: Option<Click>) -> (Opt
         bar_row(c, rx, y, col_w, "Hunger", word, h / 100.0, if h >= 40.0 { BAR_LOW } else { BAR_STAMINA });
         y += LH;
     }
+    if let Some((t, water)) = w.thirst_of(pid) {
+        use gahturiyu_sim::sim::condition::{PARCHED, THIRSTY};
+        let word = if t >= PARCHED { "Parched" } else if t >= THIRSTY { "Thirsty" } else { "Slaked" };
+        let carried = if water >= 1.0 { format!("{word}, {:.0} drinks carried", water.floor()) } else { format!("{word}, no water") };
+        bar_row(c, rx, y, col_w, "Thirst", &carried, t / 100.0, if t >= THIRSTY { BAR_LOW } else { BAR_STAMINA });
+        y += LH;
+    }
     if let Some(tired) = w.tired_of(pid) {
         let word = if tired >= EXHAUSTED { "Exhausted" } else if tired >= EXHAUSTED * 0.5 { "Tired" } else { "Rested" };
         bar_row(c, rx, y, col_w, "Tiredness", word, tired / 100.0, if tired >= EXHAUSTED { BAR_LOW } else { BAR_STAMINA });

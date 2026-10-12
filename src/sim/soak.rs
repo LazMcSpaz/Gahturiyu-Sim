@@ -45,6 +45,9 @@ pub struct Soak {
     /// (0 none, 1 resists, 2 sealed): a change of pack settles it.
     #[serde(default)]
     pub proof: u8,
+    /// How fast their food goes off from `at`, days a day (`spoil.rs`).
+    #[serde(default)]
+    pub food_rate: f32,
 }
 
 /// Soaking through, per hour, in a downpour (rain 1): nothing in the way,
@@ -93,9 +96,10 @@ pub fn guarded(gear: &Gear, fire: bool) -> Vec<(ItemId, u16)> {
         }
     }
     let mut out = Vec::new();
-    // Papers first: that's what a wrap or a case is for.
+    // Papers first (that's what a wrap or a case is for), then food (it
+    // keeps longer sealed), then the rest.
     let mut order: Vec<&super::inventory::Entry> = gear.bag.iter().collect();
-    order.sort_by_key(|e| !is_paper(e.0));
+    order.sort_by_key(|e| if is_paper(e.0) { 0 } else if super::spoil::is_food(e.0) { 1 } else { 2 });
     for e in order {
         let mut n = 0;
         for slot in room.iter_mut() {
@@ -116,7 +120,7 @@ pub fn guards(g: Guards, id: ItemId) -> bool {
     match g {
         Guards::Papers => is_paper(id),
         Guards::Potions => item(id).kind == Kind::Potion,
-        Guards::Small => super::items::footprint(id) == (1, 1) || is_paper(id),
+        Guards::Small => super::items::footprint(id) == (1, 1) || is_paper(id) || super::spoil::is_food(id),
     }
 }
 
@@ -139,11 +143,18 @@ impl World {
                 continue;
             }
             if !self.soaks.iter().any(|s| s.pid == pid) {
-                let mut s = Soak { pid, at: now, through: 0.0, inside: 0.0, rate: 0.0, inside_rate: 0.0, roofed: false, fire: false, warned: false, proof: 0 };
+                self.stamp_food(pid, now);
+                let mut s = Soak { pid, at: now, through: 0.0, inside: 0.0, rate: 0.0, inside_rate: 0.0, roofed: false, fire: false, warned: false, proof: 0, food_rate: 1.0 };
                 self.soak_rates(&mut s, now);
                 self.soaks.push(s);
+                let r = self.food_rate(pid, now);
+                if let Some(x) = self.soaks.iter_mut().find(|x| x.pid == pid) {
+                    x.food_rate = r;
+                }
                 continue;
             }
+            // Food just come into their pack gets its freshness.
+            self.stamp_food(pid, now);
             for _ in 0..64 {
                 let k = self.soaks.iter().position(|s| s.pid == pid).unwrap();
                 let s = self.soaks[k];
@@ -161,6 +172,12 @@ impl World {
                     }
                 }
                 let proof = self.people[pid as usize].detail.as_ref().map(|d| proof_index(outer_proof(&d.gear)) as u8).unwrap_or(0);
+                // (Food turning stale or spoiled is a moment too.)
+                if let Some(tt) = self.next_food_turn(pid, s.food_rate) {
+                    if tt > s.at && tt < next {
+                        next = tt;
+                    }
+                }
                 let changed_cover = roofed != s.roofed || fire != s.fire || proof != s.proof;
                 let t = if changed_cover { now.min(next) } else { next };
                 if t > now {
@@ -180,6 +197,10 @@ impl World {
                 self.soak_rates(&mut s, t);
                 let k = self.soaks.iter().position(|x| x.pid == pid).unwrap();
                 self.soaks[k] = s;
+                // Their food: settled at the old rate, then the new one.
+                self.settle_food(pid, s.food_rate, t);
+                let r = self.food_rate(pid, t);
+                self.soaks[k].food_rate = r;
             }
         }
         self.soaks.retain(|s| self.squad.index(s.pid).is_some());

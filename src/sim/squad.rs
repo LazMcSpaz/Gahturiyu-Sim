@@ -201,6 +201,7 @@ impl World {
         }
         let members = self.squad.members.clone();
         self.order_members(&members, target);
+        self.warn_of_thirst(target);
         self.squad.target = self.order_spot(target);
     }
 
