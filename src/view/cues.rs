@@ -222,8 +222,11 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
             Act::Recover { .. } => ((fwd * 0.35 + vec3(0.0, -1.0, 0.0)).normalize(), 0.8),
             _ => ((fwd + vec3(0.0, -0.6, 0.0)).normalize(), 0.8),
         };
+        // The bow or crossbow itself (`looks.rs`), else a stick with a crossbar.
+        if super::looks::wield(b, w, pid, shoulder - dir * (0.25 * k), dir, k) {
+            return;
+        }
         b.stick(shoulder - dir * (0.25 * k), shoulder + dir * (len * k), 0.07 * k, STICK);
-        // A crossbar, so it reads as a bow of some kind.
         let mid = shoulder + dir * (0.45 * k);
         let bar = side * (0.28 * k);
         b.stick(mid - bar, mid + bar, 0.05 * k, STICK);
@@ -239,13 +242,17 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
             swing_arc(gl, base + vec3(0.0, h * 0.6, 0.0), face, reach + 0.3, p, k);
             let a = face + (1.2 - 2.4 * p);
             let tip = hand + vec3(a.cos(), 0.0, a.sin()) * (reach * k);
-            b.stick(hand, tip, 0.07 * k, BLADE);
+            if !super::looks::wield(b, w, pid, hand, tip - hand, k) {
+                b.stick(hand, tip, 0.07 * k, BLADE);
+            }
             return;
         }
         // Drawing back before the blow.
         let a = face + 1.3;
         let tip = hand + vec3(a.cos(), 0.35, a.sin()) * (reach * 0.8 * k);
-        b.stick(hand, tip, 0.07 * k, BLADE);
+        if !super::looks::wield(b, w, pid, hand, tip - hand, k) {
+            b.stick(hand, tip, 0.07 * k, BLADE);
+        }
         return;
     }
     if let Act::Recover { until } = f.act {
@@ -256,7 +263,9 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         }
     }
     let tip = hand + (fwd + vec3(0.0, -0.45, 0.0)).normalize() * (reach * k);
-    b.stick(hand, tip, 0.07 * k, BLADE);
+    if !super::looks::wield(b, w, pid, hand, tip - hand, k) {
+        b.stick(hand, tip, 0.07 * k, BLADE);
+    }
 }
 
 /// Blood: drops falling from the body, faster the worse the bleed, and a

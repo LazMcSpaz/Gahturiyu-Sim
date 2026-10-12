@@ -120,6 +120,19 @@ impl Builder {
         self.face(&[p[0] + up, p[1] + up, p[2] + up, p[3] + up], Vec3::Y, col);
     }
 
+    /// A box turned any way: centre `c`, half its size along each of three
+    /// axes (`x`, `y`, `z`, at right angles). Items' shapes are made of these
+    /// (`looks.rs`).
+    pub fn cuboid(&mut self, c: Vec3, x: Vec3, y: Vec3, z: Vec3, col: Rgb) {
+        let col = lin(col);
+        for (a, u, v) in [(x, y, z), (y, z, x), (z, x, y)] {
+            for s in [-1.0f32, 1.0] {
+                let f = c + a * s;
+                self.face(&[f - u - v, f + u - v, f + u + v, f - u + v], (a * s).normalize_or_zero(), col);
+            }
+        }
+    }
+
     /// A box between two points (a stick: a shaft, a pole), `t` thick.
     pub fn stick(&mut self, a: Vec3, b: Vec3, t: f32, col: Rgb) {
         let col = lin(col);
