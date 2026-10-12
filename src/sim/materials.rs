@@ -279,6 +279,9 @@ pub struct Piece {
     /// A brewed bottle's mix (`items::herbs::Mix`).
     #[serde(default)]
     pub mix: Option<super::items::herbs::Mix>,
+    /// A recipe sheet's mix (`brewing::Sheet`).
+    #[serde(default)]
+    pub sheet: Option<super::brewing::Sheet>,
 }
 
 /// Durability lost a day by unsealed reed.
@@ -286,13 +289,18 @@ pub const ROT_PER_DAY: f32 = 4.0;
 
 impl Piece {
     pub fn new(max: f32, t: f64) -> Piece {
-        Piece { left: max, at: t, mark: None, sealed: false, mix: None }
+        Piece { left: max, at: t, mark: None, sealed: false, mix: None, sheet: None }
     }
 
     /// A brewed bottle: nothing about it but its mix, so bottles brewed the
     /// same way are the same and stack.
     pub fn bottle(mix: super::items::herbs::Mix) -> Piece {
-        Piece { left: 1.0, at: 0.0, mark: None, sealed: false, mix: Some(mix) }
+        Piece { left: 1.0, at: 0.0, mark: None, sealed: false, mix: Some(mix), sheet: None }
+    }
+
+    /// A recipe sheet: nothing about it but the mix written on it.
+    pub fn sheet(sheet: super::brewing::Sheet) -> Piece {
+        Piece { left: 1.0, at: 0.0, mark: None, sealed: false, mix: None, sheet: Some(sheet) }
     }
     /// Durability left at time `t`, after any rot.
     pub fn left_at(&self, rots: bool, t: f64) -> f32 {

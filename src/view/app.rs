@@ -1884,6 +1884,19 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 }
                 game.sounds.ui("ui_press");
             }
+            MakeAct::Write(p, k) => match w.write_sheet(p, k) {
+                Ok(()) => game.sounds.ui("ui_press"),
+                Err(why) => {
+                    game.sounds.ui("ui_cant");
+                    game.notice = Some((format!("Can't: {why}."), std::time::Instant::now()));
+                }
+            },
+            MakeAct::Teach(p) => {
+                let others: Vec<_> = game.making.as_ref().map(|m| w.bench_hands(&m.bench)).unwrap_or_default().into_iter().filter(|&o| o != p).collect();
+                let learned: usize = others.iter().map(|&o| w.share_lore(p, o)).sum();
+                game.sounds.ui("ui_press");
+                game.notice = Some((if learned > 0 { format!("{} teaches the others what they know ({learned} effects).", w.name_of(p)) } else { "They know nothing the others don't.".to_string() }, std::time::Instant::now()));
+            }
             MakeAct::Brew(p, ings, n) => match w.brew(p, &ings, n) {
                 Ok(()) => game.sounds.ui("ui_press"),
                 Err(why) => {
@@ -2240,10 +2253,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::Craft(pid, r) => {
                 let _ = w.start_craft(pid, r);
             }
-            Action::DrinkEntry(pid, k) => {
-                if !w.drink_entry(pid, k) {
+            Action::UseEntry(pid, k) => {
+                if !w.use_entry(pid, k) {
                     game.sounds.ui("ui_cant");
-                    game.notice = Some(("That can't be drunk just now.".into(), std::time::Instant::now()));
+                    game.notice = Some(("That can't be used just now.".into(), std::time::Instant::now()));
                 }
             }
             Action::Taste(pid, it) => {

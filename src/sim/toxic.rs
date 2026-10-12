@@ -95,6 +95,23 @@ impl World {
         self.drunk(who, it, piece.and_then(|p| p.mix))
     }
 
+    /// Use the `k`th thing in someone's pack: a bottle is drunk, a recipe
+    /// sheet read (it stays), anything else used as `use_item` would.
+    pub fn use_entry(&mut self, who: PersonId, k: usize) -> bool {
+        let Some(e) = self.people[who as usize].detail.as_ref().and_then(|d| d.gear.bag.get(k)).copied() else { return false };
+        if let Some(s) = e.2.and_then(|p| p.sheet) {
+            if self.is_down(who) {
+                return false;
+            }
+            self.read_sheet(who, s);
+            return true;
+        }
+        if item(e.0).kind == Kind::Potion {
+            return self.drink_entry(who, k);
+        }
+        self.use_item(who, e.0)
+    }
+
     /// Drink the `k`th thing in someone's pack (a particular bottle).
     pub fn drink_entry(&mut self, who: PersonId, k: usize) -> bool {
         if self.is_down(who) || self.fighting.contains_key(&who) {

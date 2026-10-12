@@ -224,6 +224,7 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
     let mut tip: Option<(ItemId, Option<PersonId>)> = None;
     // A brewed bottle under the mouse: its own mix.
     let mut tip_mix: Option<gahturiyu_sim::sim::items::herbs::Mix> = None;
+    let mut tip_sheet: Option<gahturiyu_sim::sim::brewing::Sheet> = None;
     let mut columns = Vec::new();
     // Every grid drawn: whose, which, where, and its cell size.
     let mut grid_boxes: Vec<(PersonId, u8, Bx, f32)> = Vec::new();
@@ -337,9 +338,11 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
                 c.styled_right(&pl.n.to_string(), r.x + r.w - 3.0, r.y + r.h - 3.0, 11.0, eg(TEXT), Face::Body, 0.0);
             }
             let mix = gear.bag[e].2.and_then(|p| p.mix);
+            let sheet = gear.bag[e].2.and_then(|p| p.sheet);
             if l.hot && dragged.is_none() {
                 tip = Some((i, Some(pid)));
                 tip_mix = mix;
+                tip_sheet = sheet;
             }
             if let Some(ck) = click.filter(|ck| r.contains(ck.at)) {
                 if ck.right {
@@ -347,8 +350,8 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
                 } else if !st.dragging && !locked && double(st, pid, e, false, now) {
                     if items::equippable(i) {
                         acts.push(Action::EquipEntry(pid, e));
-                    } else if mix.is_some() {
-                        acts.push(Action::DrinkEntry(pid, e));
+                    } else if mix.is_some() || sheet.is_some() {
+                        acts.push(Action::UseEntry(pid, e));
                     } else if usable(i) {
                         acts.push(Action::Use(pid, i));
                     }
@@ -470,11 +473,13 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
         let locked = w.fighter(pid).is_some();
         match pick {
             Pick::Entry(e) => {
-                if let Some((i, mix)) = gear.and_then(|g| g.bag.get(e)).map(|x| (x.0, x.2.and_then(|p| p.mix))) {
+                if let Some((i, mix, sheet)) = gear.and_then(|g| g.bag.get(e)).map(|x| (x.0, x.2.and_then(|p| p.mix), x.2.and_then(|p| p.sheet))) {
                     if !locked && items::equippable(i) {
                         items_.push(("Put on".into(), Some(Action::EquipEntry(pid, e))));
                     } else if !locked && mix.is_some() {
-                        items_.push(("Drink".into(), Some(Action::DrinkEntry(pid, e))));
+                        items_.push(("Drink".into(), Some(Action::UseEntry(pid, e))));
+                    } else if !locked && sheet.is_some() {
+                        items_.push(("Read".into(), Some(Action::UseEntry(pid, e))));
                     } else if !locked && usable(i) {
                         items_.push((use_word(i).into(), Some(Action::Use(pid, i))));
                     } else if !locked && items::ingredient(i).is_some() {
@@ -529,9 +534,10 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
     // it would replace.
     if let (Some((i, who)), None) = (tip, dragged) {
         if st.menu.is_none() {
-            let mut lines = match tip_mix {
-                Some(m) => super::squadui::mix_lines(&m),
-                None => super::squadui::item_lines(i),
+            let mut lines = match (tip_mix, tip_sheet) {
+                (Some(m), _) => super::squadui::mix_lines(&m),
+                (_, Some(s)) => super::squadui::sheet_lines(&s),
+                _ => super::squadui::item_lines(i),
             };
             if let Some(pid) = who {
                 lines.extend(super::squadui::ingredient_lines(w, pid, i));

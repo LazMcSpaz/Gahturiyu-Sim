@@ -23,6 +23,7 @@ use super::effects::{Effect, Lasts};
 use super::geo::V2;
 use super::items::herbs::{self, Alch, Kit, Mix, MIX_INGREDIENTS};
 use super::items::{self, item, ItemId};
+use super::jobs::Job;
 use super::materials::{Craft, Grade, Piece};
 use super::person::PersonId;
 use super::rng::Rng;
@@ -329,5 +330,131 @@ impl World {
     pub fn brew_progress(&self, who: PersonId) -> Option<f32> {
         let j = self.brewing.iter().find(|j| j.who == who)?;
         Some((1.0 - (j.done_at - self.time) / BREW_SECS).clamp(0.0, 1.0) as f32)
+    }
+}
+// ---- Taught, and written down (brewing.rs additions) --------------------------
+
+/// What an alchemist, healer or forager asks to say what one ingredient does.
+pub const HERBLORE_PRICE: u16 = 12;
+/// The most ingredients offered to be asked about at once.
+pub const HERBLORE_OFFERED: usize = 3;
+
+/// A remembered mix written down: its ingredients (`MIX_INGREDIENTS` at most,
+/// `n` of them). Kept in the sheet's `Piece`.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Sheet {
+    pub ings: [ItemId; MIX_INGREDIENTS],
+    pub n: u8,
+}
+
+impl Sheet {
+    pub fn of(ings: &[ItemId]) -> Sheet {
+        let mut a = [0; MIX_INGREDIENTS];
+        for (k, &i) in ings.iter().take(MIX_INGREDIENTS).enumerate() {
+            a[k] = i;
+        }
+        Sheet { ings: a, n: ings.len().min(MIX_INGREDIENTS) as u8 }
+    }
+    pub fn ingredients(&self) -> &[ItemId] {
+        &self.ings[..self.n as usize]
+    }
+}
+
+impl World {
+    /// Who will say what an ingredient does: alchemists, healers and
+    /// foragers, at work.
+    pub fn knows_herbs(&self, npc: PersonId) -> bool {
+        matches!(self.life(npc).job, Job::Alchemist | Job::Healer | Job::Forager) && self.at_work(npc, self.time)
+    }
+
+    /// The ingredients `who` carries that they don't know all of, to ask
+    /// about (at most `HERBLORE_OFFERED`).
+    pub fn herblore_asks(&self, who: PersonId) -> Vec<ItemId> {
+        let Some(d) = self.people[who as usize].detail.as_ref() else { return vec![] };
+        let mut out: Vec<ItemId> = d.gear.bag.iter().map(|e| e.0).filter(|&i| items::ingredient(i).is_some() && self.known_effects(who, i).iter().any(|k| k.is_none())).collect();
+        out.sort();
+        out.dedup();
+        out.truncate(HERBLORE_OFFERED);
+        out
+    }
+
+    /// Pay to be told everything an ingredient does (false: no coin).
+    pub fn buy_herblore(&mut self, who: PersonId, ing: ItemId) -> bool {
+        let Some(def) = items::ingredient(ing) else { return false };
+        if self.squad_count(items::id("coin")) < HERBLORE_PRICE {
+            return false;
+        }
+        self.take_from_squad(items::id("coin"), HERBLORE_PRICE);
+        for a in def.effects {
+            self.learn_effect(who, ing, a);
+        }
+        true
+    }
+
+    /// Write one of `who`'s remembered mixes on a sheet: a sheet of reed
+    /// paper and some ink from their pack, and the Inscription craft.
+    pub fn write_sheet(&mut self, who: PersonId, k: usize) -> Result<(), String> {
+        let Some(rm) = self.lore.get(&who).and_then(|l| l.mixes.get(k)).cloned() else { return Err("no such mix".into()) };
+        if !self.knows_craft(who, Craft::Inscription) {
+            return Err("hasn't taken up inscription".into());
+        }
+        let (paper, ink) = (items::id("reed_paper"), items::id("ink"));
+        let Some(d) = self.people[who as usize].detail.as_mut() else { return Err("no pack".into()) };
+        if !d.gear.bag.iter().any(|e| e.0 == paper) || !d.gear.bag.iter().any(|e| e.0 == ink) {
+            return Err("needs reed paper and ink".into());
+        }
+        d.gear.take(paper);
+        d.gear.take(ink);
+        d.gear.add_piece(items::id("recipe_sheet"), Piece::sheet(Sheet::of(&rm.ings)));
+        let p = &mut self.people[who as usize];
+        p.stats.exercise(Skill::Inscription, 0.5);
+        p.recompute_might();
+        let name = self.name_of(who);
+        let t = self.time;
+        self.say(t, format!("{name} writes down the {}.", rm.name.to_lowercase()));
+        Ok(())
+    }
+
+    /// Read a recipe sheet: the mix is remembered, and what its ingredients
+    /// share is known.
+    pub fn read_sheet(&mut self, who: PersonId, sheet: Sheet) {
+        let ings = sheet.ingredients().to_vec();
+        let shared = herbs::shared(&ings);
+        for &i in &ings {
+            for &a in &shared {
+                self.learn_effect(who, i, a);
+            }
+        }
+        let mut sorted = ings.clone();
+        sorted.sort();
+        let name = Mix::brew(&shared, 50.0, Kit::default()).name();
+        let lore = self.lore.entry(who).or_default();
+        if !lore.mixes.iter().any(|m| m.ings == sorted) {
+            lore.mixes.push(Remembered { name: name.clone(), ings: sorted });
+        }
+        let who_ = self.name_of(who);
+        let t = self.time;
+        self.say(t, format!("{who_} reads the recipe for a {}.", name.to_lowercase()));
+    }
+
+    /// Teach a squadmate everything `from` knows of the alchemist's art.
+    pub fn share_lore(&mut self, from: PersonId, to: PersonId) -> usize {
+        let Some(l) = self.lore.get(&from).cloned() else { return 0 };
+        let mut learned = 0;
+        for (ing, bits) in l.known {
+            let Some(def) = items::ingredient(ing) else { continue };
+            for k in 0..4 {
+                if bits & (1 << k) != 0 {
+                    learned += self.learn_effect(to, ing, def.effects[k]) as usize;
+                }
+            }
+        }
+        let lore = self.lore.entry(to).or_default();
+        for m in l.mixes {
+            if !lore.mixes.iter().any(|x| x.ings == m.ings) {
+                lore.mixes.push(m);
+            }
+        }
+        learned
     }
 }

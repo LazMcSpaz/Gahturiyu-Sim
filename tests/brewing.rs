@@ -222,3 +222,53 @@ fn brewing_comes_out_the_same_however_the_world_is_stepped() {
     };
     assert_eq!(run(5.0), run(200.0));
 }
+
+#[test]
+fn an_alchemist_says_what_an_ingredient_does_for_a_little_coin() {
+    let (mut w, m) = at_a_table(1);
+    give(&mut w, m, "coin", 50);
+    give(&mut w, m, "vinecap", 1);
+    let ing = id("vinecap");
+    assert!(w.herblore_asks(m).contains(&ing), "something they don't know all of");
+    let coin = w.squad_count(id("coin"));
+    assert!(w.buy_herblore(m, ing));
+    assert_eq!(w.squad_count(id("coin")), coin - gahturiyu_sim::sim::brewing::HERBLORE_PRICE);
+    assert_eq!(w.known_effects(m, ing).iter().flatten().count(), 4, "all four, now");
+    assert!(!w.herblore_asks(m).contains(&ing));
+}
+
+#[test]
+fn a_mix_written_down_is_learned_by_whoever_reads_it_and_lore_is_shared() {
+    let (mut w, m) = at_a_table(1);
+    let other = w.squad.members[1];
+    give(&mut w, m, "bloodleaf", 1);
+    give(&mut w, m, "wild_berries", 1);
+    w.brew(m, &[id("bloodleaf"), id("wild_berries")], 1).unwrap();
+    wait(&mut w, BREW_SECS + 30.0);
+    // Written down: paper, ink, and the craft.
+    assert!(w.write_sheet(m, 0).is_err(), "no paper, ink or craft yet");
+    let d = w.people[m as usize].detail.as_mut().unwrap();
+    if !d.crafts.contains(&Skill::Inscription) {
+        d.crafts.push(Skill::Inscription);
+    }
+    give(&mut w, m, "reed_paper", 1);
+    give(&mut w, m, "ink", 1);
+    w.write_sheet(m, 0).expect("written");
+    let sheet = id("recipe_sheet");
+    assert_eq!(w.count_of(m, "recipe_sheet"), 1);
+    // Handed over and read.
+    let k = w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().position(|e| e.0 == sheet).unwrap();
+    let e = w.people[m as usize].detail.as_mut().unwrap().gear.bag.remove(k);
+    w.people[other as usize].detail.as_mut().unwrap().gear.bag.push(e);
+    assert!(w.lore_of(other).is_none_or(|l| l.mixes.is_empty()));
+    let k = w.people[other as usize].detail.as_ref().unwrap().gear.bag.iter().position(|e| e.0 == sheet).unwrap();
+    assert!(w.use_entry(other, k));
+    assert_eq!(w.lore_of(other).unwrap().mixes.len(), 1, "remembered");
+    assert!(w.known_effects(other, id("bloodleaf")).contains(&Some(Alch::Heal)));
+    assert_eq!(w.count_of(other, "recipe_sheet"), 1, "a sheet isn't used up");
+    // Taught at the table: everything the brewer knows.
+    let third = w.squad.members[2];
+    assert!(w.share_lore(m, third) > 0);
+    assert!(w.known_effects(third, id("wild_berries")).contains(&Some(Alch::Heal)));
+    assert_eq!(w.share_lore(m, third), 0, "nothing new the second time");
+}

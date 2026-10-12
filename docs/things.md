@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-552 things: 188 belong to one people, 364 are shared.
+553 things: 188 belong to one people, 365 are shared.
 
 ## Jobs
 
@@ -400,6 +400,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
+| Recipe sheet | Yerishehi | Derxep | Hewiieri | Sefiyeshi | herb-write |
 | Manual | Aqoṭehi | Oktrep | Lewiaho | Thefiyahe | teach-paper |
 | Notes | Shehilahi | Xeprep | Lawihewi | Yafisefi | write-leaf |
 | Rite | Qashe | Kax | Hahe | Hase | rite |

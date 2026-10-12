@@ -67,6 +67,10 @@ pub enum MakeAct {
     Remove(usize),
     Recall(Vec<ItemId>),
     Brew(PersonId, Vec<ItemId>, u16),
+    /// Write the brewer's `k`th remembered mix on a sheet.
+    Write(PersonId, usize),
+    /// The brewer teaches everyone at the table what they know.
+    Teach(PersonId),
 }
 
 /// The most that can be asked for in one go.

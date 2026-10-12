@@ -415,6 +415,7 @@
     (english: "Greater healing draught", group: Food, made: "whole+drink"),
     (english: "Mana tonic", group: Food, made: "spirit+drink"),
     (english: "Potion", group: Food, made: "herb+drink"),
+    (english: "Recipe sheet", group: Book, made: "herb+write"),
 
     // ==== Named treasures (items.rs) ============================================
     (english: "Ring of Swiftness", group: Treasure, made: "ring/swift"),

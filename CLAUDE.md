@@ -724,6 +724,11 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   removed. What each person knows is `World::lore` (tasting shows one
   effect, brewing what the ingredients shared; brewed mixes are
   remembered). The making screen hands over to `view/brewui.rs` at a table.
+  Taught (`brewing.rs`): alchemists, healers and foragers at work say what
+  an ingredient does for a little coin (`Topic::Herblore`); a remembered mix
+  is written on a recipe sheet with Inscription (paper and ink; the mix is
+  in the sheet's `Piece`) and read to learn it (`use_entry`); a brewer
+  teaches those at the table what they know (`share_lore`).
 - Factions (Laz, `docs/factions.md`, `docs/leaders.md`; F1-F2 in
   `factions.rs`): the factions, three sub-factions under each major, the
   minors and the guilds are one data table (`FACTIONS`), how they regard
