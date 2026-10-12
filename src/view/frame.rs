@@ -302,7 +302,7 @@ fn tracked_job(w: &World) -> Option<(String, String, Option<V2>)> {
     let at_giver = Some(w.person_pos(q.giver));
     Some(match (&q.kind, q.stage) {
         (_, Stage::Report) => ("Report back".into(), format!("{giver} in {town} is waiting to hear"), at_giver),
-        (QuestKind::ClearCamp { at, .. }, _) => ("The bandit camp".into(), format!("Break it, for {giver} of {town}"), Some(*at)),
+        (QuestKind::ClearCamp { at, camp }, _) => ((if w.is_slaver_camp(*camp) { "The Binders' camp" } else { "The bandit camp" }).into(), format!("Break it, for {giver} of {town}"), Some(*at)),
         (QuestKind::Fetch { item, count }, _) => {
             let name = gahturiyu_sim::sim::items::item(*item).name.to_lowercase();
             (format!("{count} × {name}"), format!("For {giver} in {town}: you have {}", w.squad_count(*item)), at_giver)

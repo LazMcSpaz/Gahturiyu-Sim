@@ -475,6 +475,9 @@ impl World {
         }
         if self.quest_offer(c.npc).is_some() {
             t.push(if c.offered { Topic::Accept } else { Topic::Work });
+        } else if self.leader_holds_back(c.npc).is_some() {
+            // A leader with work they won't give the squad yet says so.
+            t.push(Topic::Work);
         }
         // A bounty is paid to the watch or the town's officials, not to
         // whoever happens to be in the street.
@@ -1030,6 +1033,7 @@ impl World {
                 }
                 _ => self.spoken(c, "bandits", &["line"], &["no_camp".into()], &[]),
             },
+            Topic::Work if self.leader_of(c.npc).is_some() => self.leader_work(c),
             Topic::Work => match self.quest_offer(c.npc) {
                 Some((kind, coin, bonus)) => {
                     if let Some(t) = self.talk.as_mut() {
@@ -1144,7 +1148,7 @@ impl World {
             },
             Topic::Report(i) => {
                 let q = self.quests[i].clone();
-                match (q.kind, q.stage) {
+                let said = match (q.kind, q.stage) {
                     // Something to get back: only with it in hand (U-8).
                     (QuestKind::Job { opp }, Stage::Report) if self.opportunity(opp).is_some_and(|o| o.kind == super::chances::Chance::Recover && o.item.is_some_and(|it| self.squad_has(it) == 0)) => "You haven't got it with you.".into(),
                     (_, Stage::Report) => {
@@ -1164,6 +1168,14 @@ impl World {
                         }
                     }
                     _ => "It's not done yet.".into(),
+                };
+                // A leader's thanks are their own (`data/lines/leaders.txt`).
+                match q.task.and_then(super::leaders::task_by_key) {
+                    Some(t) if self.quests[i].stage == Stage::Done => {
+                        let (tags, values) = self.task_facts(c.npc, t, None, self.quests[i].coin);
+                        self.spoken(c, "leader", &["thanks"], &tags, &values)
+                    }
+                    _ => said,
                 }
             }
             Topic::Letter(i) => {
@@ -1314,6 +1326,28 @@ impl World {
                 }
             }
             Topic::Goodbye => String::new(),
+        }
+    }
+
+    /// A leader asked for work: their next job, or why not yet, in their
+    /// own words (`data/lines/leaders.txt`).
+    fn leader_work(&mut self, c: &Conversation) -> String {
+        if let Some(o) = self.leader_offer(c.npc) {
+            if let Some(t) = self.talk.as_mut() {
+                t.offered = true;
+            }
+            if let QuestKind::ClearCamp { camp, .. } = o.kind {
+                self.hear_of_camp(camp);
+            }
+            let (tags, values) = self.task_facts(c.npc, o.task, Some(&o.kind), o.task.coin);
+            return self.spoken(c, "leader", &["offer"], &tags, &values);
+        }
+        match self.leader_holds_back(c.npc) {
+            Some(t) => {
+                let (tags, values) = self.task_facts(c.npc, t, None, t.coin);
+                self.spoken(c, "leader", &["not_yet"], &tags, &values)
+            }
+            None => self.spoken(c, "leader", &["nothing"], &[], &[]),
         }
     }
 

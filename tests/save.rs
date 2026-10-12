@@ -31,6 +31,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n", w.guilds);
     // The Binders' captives (and which camps are slavers).
     s += &format!("{:?} {:?}\n", w.captives, w.camps.iter().map(|c| c.slavers).collect::<Vec<_>>());
+    // Who sits as which faction leader.
+    s += &format!("{:?}\n", w.seats);
     // Combat: someone on their way to bind a bleed; thrown things lying about and who gathers them.
     s += &format!("{:?} {:?} {:?}\n", w.binding, w.thrown_lying, w.gatherers);
     // Packs soaking through and drying (containers).
