@@ -99,8 +99,9 @@ const PLATE_DARK: Rgb = [0.15, 0.13, 0.09];
 const ORANGE: Rgb = [0.93, 0.47, 0.26];
 
 /// A bar with a dark track, a thin brass edge and diamond ends.
-/// The drunk meter's colour.
+/// The drunk and high meters' colours.
 const DRINK: Rgb = [0.92, 0.66, 0.28];
+const HAZE: Rgb = [0.70, 0.74, 0.90];
 
 fn bar(c: &Canvas, x: f32, y: f32, w: f32, h: f32, frac: f32, col: Rgb, big_end: bool) {
     c.rect(x, y - h / 2.0, w, h, a(UMBER, 0.85));
@@ -261,9 +262,20 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
             if (drink > 0.5 || sore) && !down {
                 let stage = gahturiyu_sim::sim::drunk::Drunk::of(drink);
                 let word = if drink > 0.5 { if stage == gahturiyu_sim::sim::drunk::Drunk::Sober { "had a drink" } else { stage.name() } } else { "hungover" };
-                c.styled(word, ix, cy - 8.0, 12.0, a(DRINK, 1.0), Face::Italic, 0.0);
+                ix += c.styled(word, ix, cy - 8.0, 12.0, a(DRINK, 1.0), Face::Italic, 0.0) + 8.0;
                 if drink > 0.5 {
                     c.grad(nx - 4.0, cy + 23.0, bw * (drink / 100.0).min(1.0), 2.0, a(palette::scale(DRINK, 0.7), 1.0), a(DRINK, 1.0), false);
+                }
+            }
+            // Smoke too: how high (a second thin bar), or craving one.
+            let haze = w.haze_of(pid);
+            let crave = w.craving_of(pid);
+            if (haze > 0.5 || crave > 0) && !down {
+                let stage = gahturiyu_sim::sim::haze::Haze::of(haze);
+                let word = if haze > 0.5 { if stage == gahturiyu_sim::sim::haze::Haze::Clear { "had a smoke" } else { stage.name() } } else if crave > 1 { "craving a smoke badly" } else { "craving a smoke" };
+                c.styled(word, ix, cy - 8.0, 12.0, a(HAZE, 1.0), Face::Italic, 0.0);
+                if haze > 0.5 {
+                    c.grad(nx - 4.0, cy + 26.0, bw * (haze / 100.0).min(1.0), 2.0, a(palette::scale(HAZE, 0.7), 1.0), a(HAZE, 1.0), false);
                 }
             }
         }

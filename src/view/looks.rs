@@ -389,6 +389,7 @@ fn fallback(id: ItemId) -> (Pose, &'static [Bit]) {
     let d = item(id);
     match d.kind {
         Kind::Potion | Kind::Drink(_) => (Upright, POTION),
+        Kind::Smoke(_) => (Upright, FOOD),
         Kind::Scroll(_) => (Long, SCROLL),
         Kind::Notes(_) => (Upright, NOTES),
         Kind::Text(_) | Kind::Manual(_) => (Upright, BOOK),

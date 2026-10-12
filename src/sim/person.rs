@@ -217,6 +217,22 @@ impl Person {
                     s.set_skill(sk, (v - dull).max(0.0));
                 }
             }
+            // Smoke (`haze.rs`): hazy, clumsier and worse aim; craving one,
+            // poorer focus.
+            let h = c.haze_stage() as usize;
+            if super::haze::HAZE_CLUMSY[h] > 0.0 {
+                let v = s.attr(super::stats::Attr::Agility);
+                s.set_attr(super::stats::Attr::Agility, (v - super::haze::HAZE_CLUMSY[h]).max(1.0));
+                let v = s.skill(super::stats::Skill::Marksman);
+                s.set_skill(super::stats::Skill::Marksman, (v - super::haze::HAZE_AIM[h]).max(0.0));
+            }
+            let focus = super::haze::CRAVE_FOCUS[c.craving as usize];
+            if focus > 0.0 {
+                for a in [super::stats::Attr::Intellect, super::stats::Attr::Willpower] {
+                    let v = s.attr(a);
+                    s.set_attr(a, (v - focus).max(1.0));
+                }
+            }
         }
     }
 

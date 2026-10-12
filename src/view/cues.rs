@@ -56,6 +56,9 @@ const SPARK: Rgb = [1.0, 0.95, 0.7];
 const DUST: Rgb = [0.62, 0.56, 0.46];
 const POT: Rgb = [0.18, 0.16, 0.15];
 const STEAM: Rgb = [0.88, 0.88, 0.86];
+const PUFF: Rgb = [0.80, 0.80, 0.84];
+/// How long the puff shows after a smoke, game seconds.
+const SMOKE_SHOWS: f32 = 90.0;
 const SNEAK: Rgb = [1.0, 0.55, 0.25];
 const PARRY: Rgb = [1.0, 1.0, 0.95];
 
@@ -139,11 +142,21 @@ fn fight(w: &World, pid: PersonId) -> Option<(&gahturiyu_sim::sim::combat::Battl
 /// (drunk a little, very drunk a lot; drawing only).
 pub fn drunk_sway(w: &World, pid: PersonId, face: f32) -> V2 {
     use gahturiyu_sim::sim::drunk::Drunk;
-    let reach = match Drunk::of(w.drunk_of(pid)) {
+    use gahturiyu_sim::sim::haze::Haze;
+    let drink: f32 = match Drunk::of(w.drunk_of(pid)) {
         Drunk::Drunk => 0.12,
         Drunk::VeryDrunk => 0.28,
-        _ => return V2::new(0.0, 0.0),
+        _ => 0.0,
     };
+    let smoke = match Haze::of(w.haze_of(pid)) {
+        Haze::Hazy => 0.1,
+        Haze::Stupor => 0.2,
+        _ => 0.0,
+    };
+    let reach: f32 = drink.max(smoke);
+    if reach <= 0.0 {
+        return V2::new(0.0, 0.0);
+    }
     let s = ((w.time * 1.7 + pid as f64 * 0.9).sin() + 0.4 * (w.time * 3.1 + pid as f64).sin()) as f32 * reach;
     V2::new(-face.sin(), face.cos()).scale(s)
 }
@@ -184,6 +197,18 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         let bleed = w.bleeding(pid) / 3600.0;
         if bleed > 0.0 {
             drips(b, base, h, r, bleed, w.time, pid, k, BLOOD);
+        }
+        // Just had a smoke: a pale puff drifting up from them for a while.
+        if let Some(c) = w.people[pid as usize].cond.as_ref() {
+            let since = (w.time - c.last_smoke) as f32;
+            if c.haze_seen > 0.0 && (0.0..SMOKE_SHOWS).contains(&since) {
+                for i in 0..4 {
+                    let rise = ((w.time * 0.4 + i as f64 / 4.0 + pid as f64 * 0.21).fract()) as f32;
+                    let s = (0.08 + 0.14 * rise) * (1.0 - rise) * k * (1.0 - since / SMOKE_SHOWS);
+                    let at = base + vec3(0.0, h * (1.0 + rise * 0.6), 0.0) + side * ((rise - 0.5) * 0.3 * k);
+                    b.block(at, s, s, s, rise * 4.0, PUFF);
+                }
+            }
         }
         // Soaked through (their pack, or their clothes): water dripping.
         if w.soak_at(pid, w.time).0 >= 1.0 {
