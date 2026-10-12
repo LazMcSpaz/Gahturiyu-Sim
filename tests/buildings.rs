@@ -176,6 +176,8 @@ fn taking_from_a_container_is_theft_when_seen() {
             }
         }
         let before = w.container(id).unwrap().items.len();
+        // (Pockets emptied each time: this is about being seen, not room.)
+        w.people[m as usize].detail.as_mut().unwrap().gear.bag.clear();
         assert!(w.take_from(m, Source::Chest(id), LootRef::Pack(0)), "took something");
         assert_eq!(w.container(id).unwrap().items.len(), before - 1);
         takes += 1;

@@ -386,9 +386,15 @@ impl World {
     pub fn take_all_from(&mut self, who: PersonId, src: Source) -> usize {
         let mut n = 0;
         let charge = self.charge_on(who);
-        while let Some(&(what, _, _)) = self.contents(src).first() {
+        // (Something with no room in the grids is left; the rest still come.)
+        let mut k = 0;
+        while let Some(&(what, _, _)) = self.contents(src).get(k) {
             if !self.take_from(who, src, what) {
-                break;
+                if self.source_now(who) != Some(src) {
+                    break;
+                }
+                k += 1;
+                continue;
             }
             n += 1;
             // Caught in the act: arrested or chased off, either way it stops here.

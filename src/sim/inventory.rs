@@ -56,7 +56,7 @@ pub struct Placed {
 }
 
 /// Pockets: what anyone carries without a pack, (wide, tall) cells.
-pub const POCKETS: (u8, u8) = (5, 4);
+pub const POCKETS: (u8, u8) = (6, 5);
 
 /// The grid a pack holds, by how much it carries.
 pub fn pack_grid(kg: f32) -> (u8, u8) {
@@ -652,7 +652,9 @@ mod tests {
         // Twelve flatbreads are three stacks of five, four and three... of five at most.
         assert_eq!(placed.iter().filter(|p| g.bag[p.entry].0 == items::id("flatbread")).map(|p| p.n).sum::<u16>(), 12);
         assert!(placed.iter().all(|p| p.n <= stack_of(g.bag[p.entry].0)));
-        // A spear is six long: no room in pockets four tall, even turned (6 wide > 5).
+        // Pockets full of knives: no room for a spear (six long).
+        g.add(items::id("knife"), 14);
+        assert!(!g.room_for(items::id("knife"), 1));
         assert!(!g.room_for(items::id("spear"), 1));
         // With a large pack on, it fits.
         g.wear(items::id("large_pack"));
