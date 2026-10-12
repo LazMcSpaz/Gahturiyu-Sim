@@ -689,6 +689,16 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   `wear::FIELD_REPAIR` of its most away from a station, and is used up.
   Mundane goods, folk charms and valuables are `items/goods.rs` (homes,
   chests, ruins and travellers' kit draw on its lists).
+  Clothes (Part 3): each people's cut (banded tunic, sash robe and wool
+  overcoat, sea wrap and rain hat, travelling robe) and the role garments
+  (guard's tabard, vestment, merchant's coat, labourer's smock) read as a
+  people or a role through `items::look(id)`; their weather is in `wears`
+  (warmth, dry, wind). Townsfolk are dressed in their own people's cut as a
+  leaning rolled per person (`starting_kit`). The disguise and belonging
+  rules that would read `look` aren't built yet.
+  Alchemy ingredients are data in `items/herbs.rs` (`items::ingredient`):
+  kind, four effects (`Alch`), where found; brewing waits on how a brewed
+  potion is to be kept (Laz's call).
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is

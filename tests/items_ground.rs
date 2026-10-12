@@ -158,3 +158,18 @@ fn the_ingredients_hold_to_the_balance_review() {
         assert!(common <= 2, "{} has {common} common sources", e.name());
     }
 }
+
+#[test]
+fn clothes_read_as_a_people_or_a_role() {
+    use gahturiyu_sim::sim::{items::{look, wears, Role}, race::Race};
+    assert_eq!(look(items::id("banded_tunic")).people, Some(Race::Roduro));
+    assert_eq!(look(items::id("sash_robe")).people, Some(Race::Qotiro));
+    assert_eq!(look(items::id("sea_wrap")).people, Some(Race::Horaro));
+    assert_eq!(look(items::id("travelling_robe")).people, Some(Race::Tadoro));
+    assert_eq!(look(items::id("cloth_shirt")).people, None, "plain fits anywhere, belongs nowhere");
+    assert_eq!(look(items::id("guard_tabard")).role, Some(Role::Guard));
+    assert_eq!(look(items::id("vestment")).role, Some(Role::Priest));
+    // The desert robe is cool here; the banded tunic warm; the sea wrap sheds water.
+    assert!(wears(items::id("sash_robe")).warmth < wears(items::id("banded_tunic")).warmth);
+    assert!(wears(items::id("sea_wrap")).dry > wears(items::id("banded_tunic")).dry);
+}

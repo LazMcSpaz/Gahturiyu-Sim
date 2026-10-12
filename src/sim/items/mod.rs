@@ -455,9 +455,35 @@ pub struct Wears {
     pub slow: f32,
     /// Hides what's carried and worn beneath it from a look or a search, 0..1.
     pub hides: f32,
+    /// Against wind (gales on the coast and in the mountains), 0..1.
+    pub wind: f32,
 }
 
-const NONE: Wears = Wears { padding: 0.0, ko_guard: 0.0, noise: 0.0, sight: 0.0, warmth: 0.0, dry: 0.0, soaks: false, slow: 0.0, hides: 0.0 };
+const NONE: Wears = Wears { padding: 0.0, ko_guard: 0.0, noise: 0.0, sight: 0.0, warmth: 0.0, dry: 0.0, soaks: false, slow: 0.0, hides: 0.0, wind: 0.0 };
+
+/// A role a garment reads as (Part 3): people treat the wearer as one until
+/// someone sees through it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    Guard,
+    Priest,
+    Merchant,
+    Labourer,
+}
+
+/// How a piece of clothing reads (Part 3): as a people's own cut (or plain),
+/// and for some, a role. For the disguise and belonging rules to read.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Look {
+    pub people: Option<super::race::Race>,
+    pub role: Option<Role>,
+}
+
+/// How this reads when worn (by its form).
+pub fn look(id: ItemId) -> Look {
+    let key = item(info(id).form).key;
+    clothing::LOOKS.iter().find(|l| l.0 == key).map(|l| l.1).unwrap_or_default()
+}
 
 static WEARS: std::sync::LazyLock<Vec<(&'static str, Wears)>> = std::sync::LazyLock::new(|| [armour::WEARS, clothing::WEARS].concat());
 

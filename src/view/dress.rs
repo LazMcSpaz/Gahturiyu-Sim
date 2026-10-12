@@ -72,6 +72,8 @@ fn worn_colour(id: items::ItemId) -> Option<Rgb> {
         "hide_coat" | "hide_leggings" => return Some([0.48, 0.36, 0.24]),
         "padded_jacket" => return Some([0.62, 0.54, 0.38]),
         "wraps" => return Some([0.78, 0.72, 0.62]),
+        "banded_tunic" => return Some([0.48, 0.44, 0.38]),
+        "sash_robe" => return Some([0.80, 0.70, 0.52]),
         _ => {}
     }
     material_colour(info(id).main)

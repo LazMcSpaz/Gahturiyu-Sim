@@ -203,6 +203,16 @@ static SHAPES: &[(&str, Pose, &[Bit])] = &[
     ("plate_cuirass", Upright, &[bx(0.45, 0.88, 0.42, 0.28, Main), bx(0.47, 0.86, 0.04, 0.30, Light), bx(0.45, 0.48, 0.43, 0.29, Dark)]),
     ("cloak", Upright, &[bx(0.05, 0.90, 0.50, 0.04, Main), bxz(0.85, 0.93, 0.0, 0.36, 0.04, 0.10, Dark)]),
     ("oilskin_cape", Upright, &[bx(0.25, 0.90, 0.52, 0.04, Rgb([0.30, 0.32, 0.22])), bxz(0.85, 0.93, 0.0, 0.36, 0.04, 0.10, Pitch)]),
+    ("banded_tunic", Upright, &[bx(0.30, 0.85, 0.40, 0.22, Main), bxo(0.55, 0.85, -0.26, 0.10, 0.15, Main), bxo(0.55, 0.85, 0.26, 0.10, 0.15, Main), bx(0.42, 0.44, 0.41, 0.23, Dark), bx(0.56, 0.58, 0.41, 0.23, Dark), bx(0.70, 0.72, 0.41, 0.23, Dark)]),
+    ("sash_robe", Upright, &[bx(0.05, 0.86, 0.40, 0.22, Main), bxo(0.55, 0.86, -0.27, 0.13, 0.15, Main), bxo(0.55, 0.86, 0.27, 0.13, 0.15, Main), bx(0.48, 0.56, 0.42, 0.24, Rgb([0.70, 0.30, 0.18]))]),
+    ("sea_wrap", Upright, &[bx(0.35, 0.82, 0.38, 0.20, Main), bx(0.45, 0.48, 0.39, 0.21, Cord), bx(0.62, 0.65, 0.39, 0.21, Cord)]),
+    ("wool_overcoat", Upright, &[bx(0.15, 0.90, 0.46, 0.28, Main), bxo(0.50, 0.90, -0.29, 0.13, 0.19, Main), bxo(0.50, 0.90, 0.29, 0.13, 0.19, Main), bx(0.86, 0.95, 0.30, 0.30, Dark)]),
+    ("wool_cap", Upright, &[bx(0.0, 0.10, 0.23, 0.23, Main), bx(0.03, 0.04, 0.24, 0.24, Dark), bx(0.07, 0.08, 0.24, 0.24, Dark)]),
+    ("rain_hat", Upright, &[bx(0.0, 0.02, 0.40, 0.40, Main), bx(0.02, 0.12, 0.20, 0.20, Main)]),
+    ("guard_tabard", Upright, &[bx(0.35, 0.85, 0.34, 0.26, Main), bx(0.58, 0.64, 0.35, 0.27, Gold)]),
+    ("vestment", Upright, &[bx(0.05, 0.88, 0.44, 0.26, Main), bxo(0.50, 0.88, -0.29, 0.14, 0.18, Main), bxo(0.50, 0.88, 0.29, 0.14, 0.18, Main), bxz(0.30, 0.80, 0.0, 0.06, 0.13, 0.01, Gold)]),
+    ("merchants_coat", Upright, &[bx(0.20, 0.88, 0.46, 0.28, Main), bxo(0.50, 0.88, -0.29, 0.13, 0.19, Main), bxo(0.50, 0.88, 0.29, 0.13, 0.19, Main), bx(0.82, 0.92, 0.36, 0.30, Rgb([0.55, 0.45, 0.32]))]),
+    ("labourers_smock", Upright, &[bx(0.30, 0.86, 0.42, 0.24, Main), bxz(0.30, 0.60, 0.0, 0.30, 0.12, 0.01, Leather)]),
     ("fur_mantle", Upright, &[bx(0.45, 0.90, 0.62, 0.08, Rgb([0.52, 0.42, 0.30])), bx(0.82, 0.95, 0.44, 0.16, Rgb([0.62, 0.52, 0.38]))]),
     ("padded_vest", Upright, &[bx(0.40, 0.85, 0.38, 0.22, Main), bx(0.52, 0.54, 0.39, 0.23, Dark), bx(0.66, 0.68, 0.39, 0.23, Dark)]),
     (
@@ -469,8 +479,32 @@ fn scale(c: Rgb, k: f32) -> Rgb {
     [(c[0] * k).min(1.0), (c[1] * k).min(1.0), (c[2] * k).min(1.0)]
 }
 
+/// Garments with a colour of their own, whatever cloth they're cut from
+/// (Part 3: plain colours until dyes).
+fn garment_colour(key: &str) -> Option<Rgb> {
+    Some(match key {
+        "banded_tunic" | "wool_cap" => [0.48, 0.44, 0.38],
+        "sash_robe" => [0.80, 0.70, 0.52],
+        "wool_overcoat" => [0.40, 0.34, 0.30],
+        "guard_tabard" => [0.62, 0.18, 0.15],
+        "vestment" => [0.88, 0.85, 0.78],
+        "merchants_coat" => [0.62, 0.42, 0.20],
+        "labourers_smock" => [0.55, 0.50, 0.42],
+        _ => return None,
+    })
+}
+
+/// Is this (in the cloak slot) a garment worn on the body, not a cape
+/// behind it: an overcoat or a role garment?
+pub fn worn_round(id: ItemId) -> bool {
+    matches!(item(info(id).form).key, "wool_overcoat" | "guard_tabard" | "vestment" | "merchants_coat" | "labourers_smock")
+}
+
 /// The colour of a box of this thing.
 pub fn colour(id: ItemId, t: Tint) -> Rgb {
+    if let (Main, Some(c)) = (t, garment_colour(item(info(id).form).key)) {
+        return c;
+    }
     const UNDYED: Rgb = [0.64, 0.58, 0.47];
     let main = || super::dress::material_colour(info(id).main).unwrap_or(if info(id).main == Material::None { own_colour(id) } else { UNDYED });
     match t {
@@ -609,7 +643,12 @@ pub fn on_figure(b: &mut Builder, w: &World, pid: PersonId, base: Vec3, fwd: Vec
     let Some(gear) = w.people[pid as usize].detail.as_ref().map(|d| &d.gear) else { return };
     let up = Vec3::Y;
     let pack = gear.in_slot(Slot::Back).is_some();
-    if let Some(id) = gear.in_slot(Slot::Cloak) {
+    if let Some(id) = gear.in_slot(Slot::Cloak).filter(|&i| worn_round(i)) {
+        // An overcoat or a role garment: round the body, from the shoulders down.
+        let (top, bottom) = (body - r * 0.1, waist * if item(info(id).form).key == "guard_tabard" { 0.7 } else { 0.25 });
+        let c = base + up * ((top + bottom) * 0.5);
+        b.cuboid(c, up * ((top - bottom) * 0.5), side * (r * 1.02), fwd * (r * 0.98), scale(colour(id, Main), lift));
+    } else if let Some(id) = gear.in_slot(Slot::Cloak) {
         // From the shoulders nearly to the ground, over the pack if one's worn.
         let (top, bottom) = (body - r * 0.15, waist * 0.2);
         let back = r * (if pack { 1.75 } else { 1.0 });
