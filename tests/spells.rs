@@ -396,10 +396,14 @@ fn might_makes_them_stronger_and_able_to_carry_more() {
 
 #[test]
 fn toughened_skin_takes_the_edge_off_blows() {
-    let hits = |tough: bool| {
-        let mut b = fight(&[(brute(2), 1, V2::new(1.5, 0.0))]);
-        if tough {
-            cast_until(&mut b, spell("toughen"), None, V2::new(0.0, 0.0), |b| b.fighters[0].has(Does::Toughen).is_some());
+    // (Cast in both fights, and taken off again in the plain one, so the two
+    // are timed alike and differ only in the skin; summed over a few
+    // attackers, as one fight's dice swing too far.)
+    let hits_one = |tough: bool, id: u32| {
+        let mut b = fight(&[(brute(id), 1, V2::new(1.5, 0.0))]);
+        cast_until(&mut b, spell("toughen"), None, V2::new(0.0, 0.0), |b| b.fighters[0].has(Does::Toughen).is_some());
+        if !tough {
+            b.fighters[0].statuses.retain(|s| s.does != Does::Toughen);
         }
         b.fighters[1].think_at = 0.0;
         let before = hp(&b, 0);
@@ -408,10 +412,10 @@ fn toughened_skin_takes_the_edge_off_blows() {
         }
         before - hp(&b, 0)
     };
-    // (One fight's dice. With breath slow to come back in a fight (B5) this
-    // one lands at 0.90 of the plain fight's hurt, so the line is 0.95; see
-    // the buildings agent's note on the shared page.)
-    assert!(hits(true) < hits(false) * 0.95);
+    let hits = |tough: bool| (2..8).map(|id| hits_one(tough, id)).sum::<f32>();
+
+    let (t, p) = (hits(true), hits(false));
+    assert!(t < p * 0.95);
 }
 
 #[test]
@@ -612,12 +616,15 @@ fn shrink_softens_blows_and_enlarge_hardens_them() {
 
 #[test]
 fn rust_lets_more_through_their_armour() {
-    let taken = |rust: bool| {
-        let mut armoured = brute(2);
+    // (Cast in both fights and taken off again in the plain one, so they're
+    // timed alike; summed over a few pairs, as one fight's dice swing too far.)
+    let taken_one = |rust: bool, id: u32| {
+        let mut armoured = brute(id);
         armoured.stats.set_skill(Skill::Dodge, 0.0);
-        let mut b = fight(&[(armoured, 1, V2::new(1.5, 0.0)), (brute(3), 0, V2::new(0.0, 1.0))]);
-        if rust {
-            cast_until(&mut b, spell("rust"), Some(1), V2::new(1.5, 0.0), |b| b.fighters[1].has(Does::Rust).is_some());
+        let mut b = fight(&[(armoured, 1, V2::new(1.5, 0.0)), (brute(id + 20), 0, V2::new(0.0, 1.0))]);
+        cast_until(&mut b, spell("rust"), Some(1), V2::new(1.5, 0.0), |b| b.fighters[1].has(Does::Rust).is_some());
+        if !rust {
+            b.fighters[1].statuses.retain(|s| s.does != Does::Rust);
         }
         b.fighters[2].think_at = 0.0;
         b.fighters[2].target = Some(1);
@@ -627,7 +634,9 @@ fn rust_lets_more_through_their_armour() {
         }
         before - hp(&b, 1)
     };
-    assert!(taken(true) > taken(false));
+    let taken = |rust: bool| (2..8).map(|id| taken_one(rust, id)).sum::<f32>();
+    let (r, p) = (taken(true), taken(false));
+    assert!(r > p);
 }
 
 #[test]

@@ -652,9 +652,32 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         g.wear(id);
         *left -= item(id).value;
     };
-    // Everyone has clothes.
-    buy(&mut g, "cloth_shirt", &mut left);
+    // Everyone has clothes: most in their own people's cut (a leaning rolled
+    // for each person, Part 3), the rest plain.
+    let own_cut = rng.chance(0.65);
+    let under = match race {
+        _ if !own_cut => "cloth_shirt",
+        Race::Roduro => "banded_tunic",
+        Race::Qotiro => "sash_robe",
+        Race::Horaro => "sea_wrap",
+        Race::Tadoro => "cloth_shirt",
+    };
+    buy(&mut g, under, &mut left);
     buy(&mut g, "trousers", &mut left);
+    if own_cut {
+        // Qotiro wear a wool overcoat over the desert robe here; Ṭaḍoro travel
+        // in their robe; Roduro and Horaro sometimes wear their caps and hats.
+        let extra = match race {
+            Race::Qotiro => Some("wool_overcoat"),
+            Race::Tadoro => Some("travelling_robe"),
+            Race::Roduro if rng.chance(0.4) => Some("wool_cap"),
+            Race::Horaro if rng.chance(0.4) => Some("rain_hat"),
+            _ => None,
+        };
+        if let Some(k) = extra.filter(|&k| item(items::id(k)).value <= left.max(0.0) + 20.0) {
+            buy(&mut g, k, &mut left);
+        }
+    }
 
     // A weapon to suit their best skill, as good as the purse allows.
     let best = [Skill::Blade, Skill::Blunt, Skill::Spear, Skill::Marksman]
@@ -760,7 +783,7 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         }
     }
     // Spare clothes don't travel; drop anything replaced.
-    g.bag.retain(|e| !matches!(item(e.0).key, "cloth_shirt" | "trousers"));
+    g.bag.retain(|e| !matches!(item(e.0).key, "cloth_shirt" | "trousers" | "banded_tunic" | "sash_robe" | "sea_wrap"));
     g
 }
 
