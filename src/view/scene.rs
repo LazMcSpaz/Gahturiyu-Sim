@@ -851,7 +851,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let floor = indoors.map_or_else(|| on_ground(g.pos), |(_, f)| f + super::interiors::FLOOR_TOP);
             let base = to3(g.pos, floor + on.map_or(0.0, |o| o.0));
             let kk = k.min(6.0);
-            b.block(base, 0.55 * kk, 0.35 * kk, 0.22 * kk, on.map_or(g.id as f32 * 1.7, |o| o.1), super::squadui::ground_color(g.item));
+            // Its own shape, lying on its back (`looks.rs`); a little larger
+            // than life so a ring or a knife can be found.
+            super::looks::lying(&mut b, g.item, base, on.map_or(g.id as f32 * 1.7, |o| o.1), kk * 1.4);
             game.picks.push((base + vec3(0.0, 0.3 * kk, 0.0), 4.0, Hover::Item(g.id)));
         }
     }
@@ -1725,6 +1727,9 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
         let back = base + vec3(0.0, waist + (body - waist) * 0.15, 0.0) - fwd * (r * (0.85 + 0.25 * size));
         b.block(back, r * 0.55 * (0.7 + size * 0.5), r * (1.1 + 0.4 * size), (body - waist) * (0.55 + 0.3 * size), face, palette::scale(c, lift));
     }
+    // A cloak, a belt, a brooch, the shield on the arm and the weapon carried
+    // (`looks.rs`; in a fight the weapon is drawn in hand by `cues`).
+    super::looks::on_figure(b, w, pid, base, fwd, side, waist, body, r, k.min(2.0), lift, w.fighter(pid).is_some());
     let head = base + vec3(0.0, body, 0.0) + if crouch { fwd * (r * 0.9) } else { Vec3::ZERO };
     b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::scale(palette::skin(p.race), lift));
     match o.head {

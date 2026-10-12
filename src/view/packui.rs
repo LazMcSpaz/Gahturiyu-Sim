@@ -310,7 +310,14 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
             if let (Some(i), Some(pc)) = (it, gear.piece(s)) {
                 name += &super::squadui::wear_word(w, i, pc);
             }
-            c.styled(&fit_text(c, &name, 13.0, row.w - 80.0), sx + 72.0, y + 14.0 + dy, 13.0, eg(if it.is_some() { TEXT } else { FAINT }), Face::Body, 0.0);
+            // Its icon, then its name (`looks.rs`).
+            let nx = if let Some(i) = it {
+                super::looks::icon(c, i, sx + 70.0, y + 1.0 + dy, 17.0, 17.0);
+                sx + 92.0
+            } else {
+                sx + 72.0
+            };
+            c.styled(&fit_text(c, &name, 13.0, row.w - (nx - sx) - 8.0), nx, y + 14.0 + dy, 13.0, eg(if it.is_some() { TEXT } else { FAINT }), Face::Body, 0.0);
             if let Some(i) = it {
                 if l.hot {
                     tip = Some((i, None));
@@ -350,8 +357,9 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
             let dy = kit::nudge(l);
             let label = if n > 1 { format!("{} × {}", n, item(i).name) } else { item(i).name.to_string() };
             let worn = pc.map(|pc| super::squadui::wear_word(w, i, &pc)).unwrap_or_default();
-            let name = fit_text(c, &format!("{label}{worn}"), 14.0, row.w - 92.0);
-            c.styled(&name, ix, y + 16.0 + dy, 14.0, eg(if lifted { FAINT } else { TEXT }), Face::Body, 0.0);
+            let name = fit_text(c, &format!("{label}{worn}"), 14.0, row.w - 118.0);
+            super::looks::icon(c, i, ix - 2.0, y + 1.5 + dy, 20.0, 20.0);
+            c.styled(&name, ix + 24.0, y + 16.0 + dy, 14.0, eg(if lifted { FAINT } else { TEXT }), Face::Body, 0.0);
             let kg = format!("{:.1}", item(i).weight * n as f32);
             c.styled_right(&kg, col.x + col.w - 56.0, y + 16.0 + dy, 12.0, eg(SUB), Face::Body, 0.0);
             let worth = format!("{:.0} c", item(i).value * n as f32);

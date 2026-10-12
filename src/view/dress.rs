@@ -43,7 +43,7 @@ pub struct Outfit {
 }
 
 /// The colour of a material as worn.
-fn material_colour(m: Material) -> Option<Rgb> {
+pub(super) fn material_colour(m: Material) -> Option<Rgb> {
     Some(match m {
         Material::PlainIron | Material::Forgeiron => [0.48, 0.50, 0.53],
         Material::Bronze => [0.62, 0.45, 0.26],
