@@ -22,6 +22,18 @@ pub(super) static ITEMS: &[ItemDef] = &[
     ItemDef { key: "tent", name: "Tent", slot: Slot::MainHand, kind: Kind::Tool, weight: 6.0, value: 60.0, effects: &[] },
     ItemDef { key: "bedroll", name: "Bedroll", slot: Slot::MainHand, kind: Kind::Tool, weight: 2.0, value: 10.0, effects: &[] },
     ItemDef { key: "mortar_and_pestle", name: "Mortar and pestle", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 25.0, effects: &[] },
+    // Work and gathering, camp and travel (Part 6). Each has one job; the
+    // rules that read them come with that job.
+    ItemDef { key: "woodcutters_axe", name: "Woodcutter's axe", slot: Slot::MainHand, kind: Kind::Tool, weight: 2.0, value: 30.0, effects: &[] },
+    ItemDef { key: "mining_pick", name: "Mining pick", slot: Slot::MainHand, kind: Kind::Tool, weight: 3.0, value: 35.0, effects: &[] },
+    ItemDef { key: "sickle", name: "Sickle", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.5, value: 10.0, effects: &[] },
+    ItemDef { key: "fishing_line", name: "Fishing line", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.2, value: 4.0, effects: &[] },
+    ItemDef { key: "skinning_knife", name: "Skinning knife", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.2, value: 12.0, effects: &[] },
+    ItemDef { key: "tinderbox", name: "Tinderbox", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.2, value: 5.0, effects: &[] },
+    ItemDef { key: "cooking_pot", name: "Cooking pot", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 12.0, effects: &[] },
+    ItemDef { key: "waterskin", name: "Waterskin", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.3, value: 4.0, effects: &[] },
+    ItemDef { key: "lantern", name: "Lantern", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.0, value: 25.0, effects: &[] },
+    ItemDef { key: "repair_kit", name: "Repair kit", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 30.0, effects: &[] },
     // Binds a cut: stops bleeding (combat finds it by what it does).
     ItemDef { key: "bandage", name: "Bandage", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.05, value: 2.0, effects: &[now(Does::Staunch, 1.0, Reach::Target)] },
 ];
@@ -41,5 +53,11 @@ pub(super) static SIZES: &[(&str, u8, u8)] = &[
     ("standing_torch", 1, 3),
     ("torch", 1, 2),
     ("mortar_and_pestle", 1, 1),
+    ("woodcutters_axe", 1, 4),
+    ("mining_pick", 2, 4),
+    ("sickle", 1, 2),
+    ("cooking_pot", 2, 2),
+    ("lantern", 1, 2),
+    ("repair_kit", 2, 1),
     ("bandage", 1, 1),
 ];
