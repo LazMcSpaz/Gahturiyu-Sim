@@ -299,6 +299,7 @@ beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
 `GAHT_SHUN=1` (the nearest stilt village withdraws; runs past the next dawn), `GAHT_TRADE=1` (trading
 with the nearest merchant at work; `GAHT_TRADE=table` lays a few things on the table first), `GAHT_FACTIONS=1` (the nearest town held by the Banner Lords, a few deeds done, the journal open on Standing),
+`GAHT_WEAR=key,key` (member 0 puts these on: any wearable item keys, e.g. `palace_tabard`),
 `GAHT_CONVO=1` (a local robbed last night talks about it,
 assembled from `data/lines`), `GAHT_GUARD=1` (member 0 on a guard contract at a merchant's stall;
 the journal shows it), `GAHT_EDIT=1` (the land editor open beside a few demo strokes: a terraced
