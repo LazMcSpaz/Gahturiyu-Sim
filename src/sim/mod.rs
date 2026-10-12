@@ -26,6 +26,7 @@ pub mod effects;
 pub mod elements;
 pub mod encounters;
 pub mod few;
+pub mod factions;
 pub mod fights;
 pub mod forge;
 pub mod geo;

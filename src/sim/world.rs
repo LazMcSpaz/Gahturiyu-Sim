@@ -186,6 +186,10 @@ pub struct World {
     pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
+    /// The squad's standing with the factions, and the Great House's lords
+    /// (`factions.rs`).
+    #[serde(default)]
+    pub factions: super::factions::Factions,
     /// Brews under way at alchemy tables (`brewing.rs`).
     #[serde(default)]
     pub brewing: Vec<super::brewing::BrewJob>,
@@ -401,6 +405,7 @@ impl World {
             crafting: Vec::new(),
             brewing: Vec::new(),
             lore: Default::default(),
+            factions: super::factions::Factions::new(),
             making_more: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),

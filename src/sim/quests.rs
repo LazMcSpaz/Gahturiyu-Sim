@@ -209,6 +209,10 @@ impl World {
         }
         self.people[who as usize].recompute_might();
         self.quests[qi].stage = Stage::Done;
+        let giver = self.quests[qi].giver;
+        if let Some(f) = self.people[giver as usize].home.and_then(|h| self.holder_of(h)) {
+            self.deed(f, super::factions::JOB_DEED);
+        }
         if let Some(opp) = self.quests[qi].opp {
             let t = self.time;
             self.finish_opp(opp, who, t);

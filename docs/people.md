@@ -7,25 +7,25 @@
 | Name as shown | Say it | In their own tongue | What the name hints at |
 |---|---|---|---|
 | **Theloʻoqa the Tender, of the Herb-Brow House** | theh-loh-OH-kah | Theloʻoqa Leḍaqe, yi Yeriṭiha | "Peaceful friend": what her parents wished for her. Her house is named for where it grew: the brow, and the herb there. She is the Tender there. |
-| **Doqoḍato of the Herb-Brow House** | doh-koh-DAH-toh | Doqoḍato yi Yeriṭiha | "Stone guest": a name kept in his line, handed down. His house is named for where it grew: the brow, and the herb there. |
+| **Ḍoqaguru of the Herb-Brow House** | doh-kah-GOO-roo | Ḍoqaguru yi Yeriṭiha | "Rock ridge": a name kept in his line, handed down. His house is named for where it grew: the brow, and the herb there. |
 | **Ḍoʻidodì of the Herb-Brow House** | doh-ee-DOH-dih | Ḍoʻidodì yi Yeriṭiha | "Patient soil": what her parents wished for her. Her house is named for where it grew: the brow, and the herb there. |
-| **Hiḍaḍoʻo the Farmer, of the Herb-Brow House** | hee-dah-DOH-oh | Hiḍaḍoʻo Ḍoheqe, yi Yeriṭiha | "White sea". His house is named for where it grew: the brow, and the herb there. He is the Farmer there. |
+| **Roduhuḍo the Farmer, of the Herb-Brow House** | roh-doo-HOO-doh | Roduhuḍo Ḍoheqe, yi Yeriṭiha | "Earth ancestor": named for his people's own element. His house is named for where it grew: the brow, and the herb there. He is the Farmer there. |
 | **Tuʻeḍoʻa of the Ninth-Ring House** | too-eh-DOH-ah | Tuʻeḍoʻa yi Goshigole | "Old sea". Her house is named for the rings in its stone: an old house. |
 | **Goleḍe of the Ninth-Ring House** | goh-LEH-deh | Goleḍe yi Goshigole | "Ring keeper": a name kept in his line, handed down. His house is named for the rings in its stone: an old house. |
 | **Qahituḍe the Innkeeper, of the Ninth-Ring House** | kah-hee-TOO-deh | Qahituḍe Ḍatiqoḍi, yi Goshigole | "Hearth elder": a name that looks back to those who came before. Their house is named for the rings in its stone: an old house. They are the Innkeeper there. |
 | **Yaḍoʻe of the Ninth-Ring House** | yah-DOH-eh | Yaḍoʻe yi Goshigole | "Night patience": a name kept in her line, handed down. Her house is named for the rings in its stone: an old house. |
-| **Hegu of the Herb-Crag House** | HEH-goo | Hegu yi Yeriraqi | "Wing". His house is named for where it grew: the crag, and the herb there. |
+| **Yahu of the Herb-Crag House** | YAH-hoo | Yahu yi Yeriraqi | "Dusk": a child born at dusk. His house is named for where it grew: the crag, and the herb there. |
 | **Litiqa the Healer, of the Herb-Crag House** | lee-TEE-kah | Litiqa Doḍiqe, yi Yeriraqi | "Bright peak": a name kept in her line, handed down. Her house is named for where it grew: the crag, and the herb there. She is the Healer there. |
 | **Ḍuhutehu of the Herb-Crag House** | doo-hoo-TEH-hoo | Ḍuhutehu yi Yeriraqi | "Deep bank". His house is named for where it grew: the crag, and the herb there. |
 | **Litihegi of the Herb-Crag House** | lee-tee-HEH-gee | Litihegi yi Yeriraqi | "Bright wing". Her house is named for where it grew: the crag, and the herb there. |
-| **Giriḍaʻo the Hunter, of the Bark-Hill House** | gee-ree-DAH-oh | Giriḍaʻo Lìdìqe, yi Thuhehuli | "Green flower". His house is named for where it grew: the hill, and the bark there. He is the Hunter there. |
+| **Ratoteho the Hunter, of the Bark-Hill House** | rah-toh-TEH-hoh | Ratoteho Lìdìqe, yi Thuhehuli | "North bank". His house is named for where it grew: the hill, and the bark there. He is the Hunter there. |
 | **Qeḍutiḍe of the Bark-Hill House** | keh-doo-TEE-deh | Qeḍutiḍe yi Thuhehuli | "Winter seed": a child born in winter. Their house is named for where it grew: the hill, and the bark there. |
 | **Yaḍohoḍi of the Bark-Hill House** | yah-doh-HOH-dee | Yaḍohoḍi yi Thuhehuli | "Night hollow": a child born by night. Her house is named for where it grew: the hill, and the bark there. |
-| **Laʻetalu the Tender, of the Bark-Hill House** | lah-eh-TAH-loo | Laʻetalu Leḍaqe, yi Thuhehuli | "Day field": a name kept in his line, handed down. His house is named for where it grew: the hill, and the bark there. He is the Tender there. |
+| **Theloʻato the Tender, of the Bark-Hill House** | theh-loh-AH-toh | Theloʻato Leḍaqe, yi Thuhehuli | "Peaceful vow": a name kept in his line, handed down. His house is named for where it grew: the hill, and the bark there. He is the Tender there. |
 | **Ḍeshiha of the Vine-Hollow House** | deh-SHEE-hah | Ḍeshiha yi Legehoḍo | "Sweet snow": a child born in snow. Her house is named for where it grew: the hollow, and the vine there. |
-| **Theloʻato of the Vine-Hollow House** | theh-loh-AH-toh | Theloʻato yi Legehoḍo | "Peaceful vow": what his parents wished for him. His house is named for where it grew: the hollow, and the vine there. |
+| **Ḍutu of the Vine-Hollow House** | DOO-too | Ḍutu yi Legehoḍo | "Honour": what his parents wished for him. His house is named for where it grew: the hollow, and the vine there. |
 | **Laʻethuha the Farmer, of the Vine-Hollow House** | lah-eh-THOO-hah | Laʻethuha Ḍoheqe, yi Legehoḍo | "Day bark": a child born in broad day. Her house is named for where it grew: the hollow, and the vine there. She is the Farmer there. |
-| **Shohu of the Vine-Hollow House** | SHOH-hoo | Shohu yi Legehoḍo | "Grey". His house is named for where it grew: the hollow, and the vine there. |
+| **Hulo of the Vine-Hollow House** | HOO-loh | Hulo yi Legehoḍo | "Hill". His house is named for where it grew: the hollow, and the vine there. |
 
 ## Qotiro
 

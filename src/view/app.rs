@@ -425,7 +425,7 @@ pub fn run() {
         if s.feud {
             game.town_all = true;
         }
-        if s.guard {
+        if s.guard || s.factions {
             game.journal = true;
         }
         if s.edit {

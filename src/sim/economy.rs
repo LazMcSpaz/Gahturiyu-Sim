@@ -238,6 +238,7 @@ impl World {
             self.shunned.retain(|s| s.2 > t);
             self.check_orders(t);
             self.tend_beds(t);
+            self.dawn_factions(t);
         }
         self.set_rates();
     }
@@ -617,6 +618,11 @@ impl World {
     /// more of each.
     pub fn for_sale(&self, npc: PersonId) -> Vec<(ItemId, u16, u16)> {
         let Some((town, shelf)) = self.shelves(npc) else { return vec![] };
+        // (Where the town's holder is hostile to the squad, nothing.)
+        if !self.deals_with_squad(town) {
+            return vec![];
+        }
+        let regard = self.regard_price(town);
         let mut out: Vec<(ItemId, u16, u16)> = Vec::new();
         // Food first, then the other goods, then made things: so what a
         // traveller most needs is never the part of the list cut off (NM-59).
@@ -633,7 +639,7 @@ impl World {
                 let it = items::id(key);
                 let n = ((spare / g.items().len() as f32) / Self::units_of(g, it)).floor().min(20.0) as u16;
                 if n > 0 {
-                    v.push((it, n, (self.worth_in(town, it, None) * BUY_MARKUP).ceil().max(1.0) as u16));
+                    v.push((it, n, (self.worth_in(town, it, None) * BUY_MARKUP * regard).ceil().max(1.0) as u16));
                 }
             }
             by_good.push((g.is_food(), v));
@@ -682,7 +688,10 @@ impl World {
             // Anything else goes to the goods shop.
             (Some(s), None) => s == Shelf::Goods,
         };
-        let price = (self.worth_holding(town, it, piece, self.time, stock) * SELL_SHARE).floor() as u16;
+        if !self.deals_with_squad(town) {
+            return None;
+        }
+        let price = (self.worth_holding(town, it, piece, self.time, stock) * SELL_SHARE / self.regard_price(town)).floor() as u16;
         (takes && price > 0 && purse >= price as f32).then_some(price)
     }
 

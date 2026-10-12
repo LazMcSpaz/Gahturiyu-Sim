@@ -129,6 +129,9 @@ pub struct Shot {
     /// `GAHT_GUARD=1`: squad member 0 on a guard contract, standing at a
     /// merchant's stall in its hours.
     pub guard: bool,
+    /// `GAHT_FACTIONS=1`: the nearest town held by the Banner Lords, a few
+    /// deeds done for and against factions, and the journal open on Standing.
+    pub factions: bool,
     /// `GAHT_FEUD=1`: two households in the nearest town fall out and the
     /// world runs on; the town panel's debug readout shows how it went.
     pub feud: bool,
@@ -219,6 +222,7 @@ impl Shot {
             trade_table: var("GAHT_TRADE").as_deref() == Some("table"),
             convo: var("GAHT_CONVO").is_some(),
             guard: var("GAHT_GUARD").is_some(),
+            factions: var("GAHT_FACTIONS").is_some(),
             feud: var("GAHT_FEUD").is_some(),
             edit: var("GAHT_EDIT").is_some(),
             society: var("GAHT_SOCIETY"),
@@ -733,6 +737,18 @@ impl Shot {
                     world.ask(*t);
                 }
             }
+        }
+        if self.factions {
+            use gahturiyu_sim::sim::factions::id;
+            let here = world.squad.pos;
+            if let Some(t) = (0..world.settlements.len()).min_by(|&a, &b| world.settlements[a].pos.dist(here).total_cmp(&world.settlements[b].pos.dist(here))) {
+                world.settlements[t].holder = Some(id("banner_lords"));
+            }
+            world.deed(id("banner_lords"), 40.0);
+            world.deed(id("true_line"), -30.0);
+            world.deed(id("writers"), 12.0);
+            world.lord_deed(0, 25.0);
+            world.deed(id("binders"), -60.0);
         }
         if self.guard {
             use gahturiyu_sim::sim::{chances::Chance, jobs::Job, world::{DAY, HOUR}};

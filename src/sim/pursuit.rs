@@ -191,8 +191,11 @@ impl World {
                 return;
             }
         }
-        // Told: the town knows.
+        // Told: the town knows (and so does whoever holds it).
         self.add_standing(who, town, -fine / 4.0);
+        if let Some(f) = self.holder_of(town) {
+            self.deed(f, -super::factions::crime_deed(fine));
+        }
         self.society.towns[town as usize].gov.wrongs += 1.0;
         if wrong.always_recorded() {
             *self.records.entry(who).or_insert(0.0) += wrong.gravity();

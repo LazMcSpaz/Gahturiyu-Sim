@@ -8,7 +8,7 @@ Every name is built from roots (`docs/glossary.md`) and finished with one of its
 
 Endings: a man's name ends in `-o`, `-u`; a woman's in `-a`, `-i`; a name for either in `-e`, `-ì`.
 
-### Roduro male names (160)
+### Roduro male names (159)
 
 | Name | Say it | Means | Name | Say it | Means |
 |---|---|---|---|---|---|
@@ -45,53 +45,53 @@ Endings: a man's name ends in `-o`, `-u`; a woman's in `-a`, `-i`; a name for ei
 | **Heḍoro** | heh-DOH-roh | true hound | **Hegu** | HEH-goo | wing |
 | **Hiḍaḍoʻo** | hee-dah-DOH-oh | white sea | **Hiḍagu** | hee-DAH-goo | white water |
 | **Hiqìgolu** | hee-kih-GOH-loo | root ring | **Hiqìhaʻu** | hee-kih-HAH-oo | root trust |
-| **Hiqìro** | hee-KIH-roh | great root | **Hiqìtehu** | hee-kih-TEH-hoo | root bank |
-| **Hiqu** | HEE-koo | root | **Hotorìṭo** | hoh-toh-RIH-toh | holy forest |
-| **Hotoro** | hoh-TOH-roh | holy | **Hoyaro** | hoh-YAH-roh | great staff |
-| **Hoyu** | HOH-yoo | staff | **Huḍago** | hoo-DAH-goh | hidden water |
-| **Huḍalego** | hoo-dah-LEH-goh | hidden vine | **Huliguro** | hoo-lee-GOO-roh | hill ridge |
-| **Hulilegu** | hoo-lee-LEH-goo | hill vine | **Huliro** | hoo-LEE-roh | great hill |
-| **Huliṭoḍo** | hoo-lee-TOH-doh | hill mountain | **Huliʻu** | hoo-LEE-oo | hill joy |
-| **Hulo** | HOO-loh | hill | **Hushu** | HOO-shoo | ember |
-| **Laʻedaqo** | lah-eh-DAH-koh | day branch | **Laʻehoyo** | lah-eh-HOH-yoh | day staff |
-| **Laʻetalu** | lah-eh-TAH-loo | day field | **Laʻethelo** | lah-eh-THEH-loh | day peace |
-| **Laho** | LAH-hoh | leaf | **Laʻu** | LAH-oo | day |
-| **Liʻo** | LEE-oh | joy | **Qahiḍiro** | kah-hee-DEE-roh | hearth heath |
-| **Qahihalo** | kah-hee-HAH-loh | hearth house | **Qahiqo** | kah-HEE-koh | hearth root |
-| **Qeḍugeʻu** | keh-doo-GEH-oo | winter luck | **Qeḍulaʻo** | keh-doo-LAH-oh | winter sky |
-| **Qeḍutu** | keh-DOO-too | winter honour | **Qoḍu** | KOH-doo | horn |
-| **Qorogo** | koh-ROH-goh | storm | **Quho** | KOO-hoh | cave |
-| **Quhoro** | koo-HOH-roh | great cave | **Ratoteho** | rah-toh-TEH-hoh | north bank |
-| **Ratotiqo** | rah-toh-TEE-koh | north peak | **Ratoṭoḍu** | rah-toh-TOH-doo | north mountain |
-| **Rihaguʻo** | ree-hah-GOO-oh | dawn fruit | **Rihatalu** | ree-hah-TAH-loo | dawn field |
-| **Riho** | REE-hoh | dawn | **Rodo** | ROH-doh | earth |
-| **Roduhuḍo** | roh-doo-HOO-doh | earth ancestor | **Roduru** | roh-DOO-roo | great earth |
-| **Roshaḍu** | roh-SHAH-doo | red grain | **Roshaʻo** | roh-SHAH-oh | red air |
-| **Roshu** | ROH-shoo | red | **Ruʻalaʻo** | roo-ah-LAH-oh | high day |
-| **Ruʻaṭequ** | roo-ah-TEH-koo | high tree | **Ruʻathelu** | roo-ah-THEH-loo | high peace |
-| **Ruʻatiḍu** | roo-ah-TEE-doo | high seed | **Ruʻo** | ROO-oh | high |
-| **Shaʻu** | SHAH-oo | spirit | **Shiḍuʻo** | shee-DOO-oh | knowing spring |
-| **Shiḍutu** | shee-DOO-too | knowing honour | **Shigu** | SHEE-goo | bird |
-| **Shogalu** | shoh-GAH-loo | little grass | **Shohu** | SHOH-hoo | grey |
-| **Shoṭilu** | shoh-TEE-loo | little star | **Shoṭo** | SHOH-toh | star |
-| **Taleru** | tah-LEH-roo | great field | **Talo** | TAH-loh | field |
-| **Tashilo** | tah-SHEE-loh | whole stream | **Tasho** | TAH-shoh | whole |
-| **Teharo** | teh-HAH-roh | great bank | **Ṭelihoḍu** | teh-lee-HOH-doo | golden hollow |
-| **Ṭeqaho** | teh-KAH-hoh | tree hearth | **Ṭeqahuḍu** | teh-kah-HOO-doo | tree ancestor |
-| **Ṭeqatiʻo** | teh-kah-TEE-oh | tree ledge | **Ṭequ** | TEH-koo | tree |
-| **Theloʻato** | theh-loh-AH-toh | peaceful vow | **Thelohoʻu** | theh-loh-HOH-oo | peaceful gift |
-| **Tiḍo** | TEE-doh | seed | **Ṭoḍulu** | toh-DOO-loo | little mountain |
-| **Ṭuʻalahu** | too-ah-LAH-hoo | blue leaf | **Ṭuʻaqaru** | too-ah-KAH-roo | blue cliff |
-| **Ṭuʻaqìro** | too-ah-KIH-roh | blue frost | **Ṭuʻaṭuḍu** | too-ah-TOO-doo | blue moss |
-| **Ṭuḍiḍato** | too-dee-DAH-toh | moss guest | **Ṭuḍiqahu** | too-dee-KAH-hoo | moss hearth |
-| **Ṭuḍiqaro** | too-dee-KAH-roh | moss cliff | **Tuʻehoḍo** | too-eh-HOH-doh | old hollow |
-| **Tuʻerogo** | too-eh-ROH-goh | old storm | **Tuʻeshogu** | too-eh-SHOH-goo | old grass |
-| **Tuʻeṭeqo** | too-eh-TEH-koh | old tree | **Tuhuḍo** | too-HOO-doh | ancestor |
-| **Tuʻu** | TOO-oo | old | **Yaḍoho** | yah-DOH-hoh | night cloud |
-| **Yaḍoqu** | yah-DOH-koo | night rock | **Yaḍoraqo** | yah-doh-RAH-koh | night crag |
-| **Yahu** | YAH-hoo | dusk | **Yeḍilu** | yeh-DEE-loo | little song |
-| **Yero** | YEH-roh | herb | **Yito** | YEE-toh | quiet |
-| **Yitoḍu** | yee-TOH-doo | quiet sun | **Yitolaʻo** | yee-toh-LAH-oh | quiet day |
+| **Hiqìtehu** | hee-kih-TEH-hoo | root bank | **Hiqu** | HEE-koo | root |
+| **Hotorìṭo** | hoh-toh-RIH-toh | holy forest | **Hotoro** | hoh-TOH-roh | holy |
+| **Hoyaro** | hoh-YAH-roh | great staff | **Hoyu** | HOH-yoo | staff |
+| **Huḍago** | hoo-DAH-goh | hidden water | **Huḍalego** | hoo-dah-LEH-goh | hidden vine |
+| **Huliguro** | hoo-lee-GOO-roh | hill ridge | **Hulilegu** | hoo-lee-LEH-goo | hill vine |
+| **Huliro** | hoo-LEE-roh | great hill | **Huliṭoḍo** | hoo-lee-TOH-doh | hill mountain |
+| **Huliʻu** | hoo-LEE-oo | hill joy | **Hulo** | HOO-loh | hill |
+| **Hushu** | HOO-shoo | ember | **Laʻedaqo** | lah-eh-DAH-koh | day branch |
+| **Laʻehoyo** | lah-eh-HOH-yoh | day staff | **Laʻetalu** | lah-eh-TAH-loo | day field |
+| **Laʻethelo** | lah-eh-THEH-loh | day peace | **Laho** | LAH-hoh | leaf |
+| **Laʻu** | LAH-oo | day | **Liʻo** | LEE-oh | joy |
+| **Qahiḍiro** | kah-hee-DEE-roh | hearth heath | **Qahihalo** | kah-hee-HAH-loh | hearth house |
+| **Qahiqo** | kah-HEE-koh | hearth root | **Qeḍugeʻu** | keh-doo-GEH-oo | winter luck |
+| **Qeḍulaʻo** | keh-doo-LAH-oh | winter sky | **Qeḍutu** | keh-DOO-too | winter honour |
+| **Qoḍu** | KOH-doo | horn | **Qorogo** | koh-ROH-goh | storm |
+| **Quho** | KOO-hoh | cave | **Quhoro** | koo-HOH-roh | great cave |
+| **Ratoteho** | rah-toh-TEH-hoh | north bank | **Ratotiqo** | rah-toh-TEE-koh | north peak |
+| **Ratoṭoḍu** | rah-toh-TOH-doo | north mountain | **Rihaguʻo** | ree-hah-GOO-oh | dawn fruit |
+| **Rihatalu** | ree-hah-TAH-loo | dawn field | **Riho** | REE-hoh | dawn |
+| **Rodo** | ROH-doh | earth | **Roduhuḍo** | roh-doo-HOO-doh | earth ancestor |
+| **Roduru** | roh-DOO-roo | great earth | **Roshaḍu** | roh-SHAH-doo | red grain |
+| **Roshaʻo** | roh-SHAH-oh | red air | **Roshu** | ROH-shoo | red |
+| **Ruʻalaʻo** | roo-ah-LAH-oh | high day | **Ruʻaṭequ** | roo-ah-TEH-koo | high tree |
+| **Ruʻathelu** | roo-ah-THEH-loo | high peace | **Ruʻatiḍu** | roo-ah-TEE-doo | high seed |
+| **Ruʻo** | ROO-oh | high | **Shaʻu** | SHAH-oo | spirit |
+| **Shiḍuʻo** | shee-DOO-oh | knowing spring | **Shiḍutu** | shee-DOO-too | knowing honour |
+| **Shigu** | SHEE-goo | bird | **Shogalu** | shoh-GAH-loo | little grass |
+| **Shohu** | SHOH-hoo | grey | **Shoṭilu** | shoh-TEE-loo | little star |
+| **Shoṭo** | SHOH-toh | star | **Taleru** | tah-LEH-roo | great field |
+| **Talo** | TAH-loh | field | **Tashilo** | tah-SHEE-loh | whole stream |
+| **Tasho** | TAH-shoh | whole | **Teharo** | teh-HAH-roh | great bank |
+| **Ṭelihoḍu** | teh-lee-HOH-doo | golden hollow | **Ṭeqaho** | teh-KAH-hoh | tree hearth |
+| **Ṭeqahuḍu** | teh-kah-HOO-doo | tree ancestor | **Ṭeqatiʻo** | teh-kah-TEE-oh | tree ledge |
+| **Ṭequ** | TEH-koo | tree | **Theloʻato** | theh-loh-AH-toh | peaceful vow |
+| **Thelohoʻu** | theh-loh-HOH-oo | peaceful gift | **Tiḍo** | TEE-doh | seed |
+| **Ṭoḍulu** | toh-DOO-loo | little mountain | **Ṭuʻalahu** | too-ah-LAH-hoo | blue leaf |
+| **Ṭuʻaqaru** | too-ah-KAH-roo | blue cliff | **Ṭuʻaqìro** | too-ah-KIH-roh | blue frost |
+| **Ṭuʻaṭuḍu** | too-ah-TOO-doo | blue moss | **Ṭuḍiḍato** | too-dee-DAH-toh | moss guest |
+| **Ṭuḍiqahu** | too-dee-KAH-hoo | moss hearth | **Ṭuḍiqaro** | too-dee-KAH-roh | moss cliff |
+| **Tuʻehoḍo** | too-eh-HOH-doh | old hollow | **Tuʻerogo** | too-eh-ROH-goh | old storm |
+| **Tuʻeshogu** | too-eh-SHOH-goo | old grass | **Tuʻeṭeqo** | too-eh-TEH-koh | old tree |
+| **Tuhuḍo** | too-HOO-doh | ancestor | **Tuʻu** | TOO-oo | old |
+| **Yaḍoho** | yah-DOH-hoh | night cloud | **Yaḍoqu** | yah-DOH-koo | night rock |
+| **Yaḍoraqo** | yah-doh-RAH-koh | night crag | **Yahu** | YAH-hoo | dusk |
+| **Yeḍilu** | yeh-DEE-loo | little song | **Yero** | YEH-roh | herb |
+| **Yito** | YEE-toh | quiet | **Yitoḍu** | yee-TOH-doo | quiet sun |
+| **Yitolaʻo** | yee-toh-LAH-oh | quiet day |  | |  |
 
 ### Roduro female names (160)
 

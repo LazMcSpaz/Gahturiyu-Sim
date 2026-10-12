@@ -588,8 +588,9 @@ fn the_names_of_things_hold_together() {
             for w in n.split(' ') {
                 fits(w, t, &th.english);
             }
-            // Short enough to say: four beats a word (Horaro, all vowels, five).
-            let most = if t == Tongue::Horaro { 5 } else { 4 };
+            // Short enough to say: four beats a word (Horaro, all vowels, five;
+            // a faction's name, chosen by Laz, five).
+            let most = if t == Tongue::Horaro || th.group == names::Group::Faction { 5 } else { 4 };
             assert!(names::syllables(&n, t) <= most, "{}: {} `{n}` runs to {} beats", th.english, t.name(), names::syllables(&n, t));
             assert_eq!(th.native(t), (t, n.clone()));
             assert_eq!(names::native_name(&th.english, t).as_deref(), Some(n.as_str()));

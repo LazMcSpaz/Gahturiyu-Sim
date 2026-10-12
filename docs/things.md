@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-496 things: 164 belong to one people, 332 are shared.
+519 things: 187 belong to one people, 332 are shared.
 
 ## Jobs
 
@@ -628,4 +628,32 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | The Overgrowth | Quʻa yi Qotihiqì | Quq di Qotepek | Hua i Honiwii | Huwa yi Hausifih | grow of the Barbed-Root |
+
+## Factions and guilds
+
+| English | Whose | Native name | Say it | Word for word |
+|---|---|---|---|---|
+| The First Peoples | Roduro | **Ḍuʻaro** | doo-AH-roh | first-kind |
+| The Great House | Roduro | **Raqihale** | rah-kee-HAH-leh | great-house |
+| The Open Hand | Ṭaḍoro | **Yiwafei** | yee-wah-FAY | give-hand |
+| The Holy House | Roduro | **Hotorìle** | hoh-toh-RIH-leh | holy-house |
+| The Last Wave | Qotiro | **Muretak** | MOO-reh-tak | last-migrate-er |
+| The Far Sails | Horaro | **Hewelamaho** | heh-weh-lah-MAH-hoh | far-sail-er |
+| The Binders | Qotiro | **Nitak** | NEE-tak | bind-er |
+| The Wardens | Roduro | **Taroqe** | tah-ROH-keh | guard-er |
+| The Highfolk | Roduro | **Ṭoḍuro** | toh-DOO-roh | mountain-kind |
+| The Rooted | Roduro | **Hiqìro** | hee-KIH-roh | root-kind |
+| The Writers | Ṭaḍoro | **Sheisefi** | shay-seh-FEE | write-kind |
+| The Lantern Company | Ṭaḍoro | **Fauyayawa** | fow-yah-yah-WAH | torch-staff |
+| The Old Hands | Roduro | **Tuʻeḍiḍa** | too-eh-DEE-dah | old-hand |
+| The Night Market | Horaro | **Mihaiamo** | mee-hah-ee-AH-moh | night-market |
+| The Seated Houses | Roduro | **Tuḍuhale** | too-doo-HAH-leh | elder-house |
+| The True Line | Roduro | **Heḍoqage** | heh-doh-KAH-geh | true-line |
+| The Tide Houses | Horaro | **Walelei** | wah-leh-LEH-ee | tide-house |
+| The Throne | Roduro | **Hiruʻa** | hee-ROO-ah | most-high |
+| The Banner Lords | Roduro | **Dayaqoḍiqe** | dah-yah-koh-DEE-keh | loyal-hold-er |
+| The Free Lords | Roduro | **Ḍaqoḍiqe** | dah-koh-DEE-keh | far-hold-er |
+| The Open Council | Ṭaḍoro | **Fahesuhu** | fah-heh-soo-HOO | trade-hall |
+| The Sharp Hands | Ṭaḍoro | **Yiwahehe** | yee-wah-heh-HEH | sharp-hand |
+| The Road Crews | Ṭaḍoro | **Fauyasathu** | fow-yah-sah-THOO | road-staff |
 
