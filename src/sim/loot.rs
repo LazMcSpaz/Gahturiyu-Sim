@@ -194,6 +194,27 @@ impl World {
         if self.source_now(who) != Some(src) {
             return false;
         }
+        // No room in the grids for it: it stays where it is (items step 3).
+        if let Source::Store(b) = src {
+            let t = self.time;
+            if let Some(i) = self.bases.iter().position(|x| x.id == b) {
+                self.bases[i].settle_now(t);
+            }
+        }
+        let peek: Option<(items::ItemId, u16)> = match (src, what) {
+            (Source::Body(b), LootRef::Worn(s)) => self.people[b as usize].detail.as_ref().and_then(|d| d.gear.in_slot(s)).map(|i| (i, 1)),
+            (Source::Body(b), LootRef::Pack(k)) => self.people[b as usize].detail.as_ref().and_then(|d| d.gear.bag.get(k)).map(|e| (e.0, e.1)),
+            (Source::Chest(c), LootRef::Pack(k)) => self.containers.get(&c).and_then(|c| c.items.get(k)).map(|e| (e.0, e.1)),
+            (Source::Store(b), LootRef::Pack(k)) => self.bases.iter().find(|x| x.id == b).and_then(|x| x.store.get(k)).map(|e| (e.0, e.1)),
+            _ => None,
+        };
+        if let Some((it, n)) = peek {
+            if !self.room_in_pack(who, it, n) {
+                let name = self.people[who as usize].name().unwrap_or("someone").to_string();
+                self.log.push_front((self.time, format!("{name} has no room for the {}.", items::item(it).name.to_lowercase())));
+                return false;
+            }
+        }
         let mut own_back = 0u16;
         let taken: Vec<Entry> = match (src, what) {
             (Source::Body(body), LootRef::Worn(s)) => {

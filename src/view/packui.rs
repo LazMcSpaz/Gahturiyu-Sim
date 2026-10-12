@@ -3,11 +3,13 @@
 //! known pain). Its own screen, the world dimmed behind it.
 //!
 //! Each column: who it is; what they wear, beside the little body that shows
-//! their wounds; their pack as a list (name, weight, worth, wear), sorted by
-//! the heading clicked; and a weight bar at the foot that turns amber, then
-//! red. Drag a thing onto another column to give it (the column glows, or
-//! goes red if they can't take it now); double-click to wear or use it;
-//! right-click for the rest. Hovering something wearable says what it would
+//! their wounds; their grids (pockets, then the pack's), each thing in its
+//! cells with its icon (Laz's items step 3, Kenshi-style), and anything with
+//! no room listed loose in red; and a weight bar at the foot that turns
+//! amber, then red. Drag a thing to another cell to move it, or onto another
+//! column to give it (the column glows, or goes red if they can't take it
+//! now); double-click to wear or use it; right-click for the rest (turn it,
+//! give, put down). "Tidy every pack" repacks biggest first. Hovering something wearable says what it would
 //! replace and what changes, better in green and worse in red.
 //!
 //! Drawing only: what's done comes back as the same `squadui::Action`s the
@@ -44,29 +46,18 @@ const DRAG_AFTER: f32 = 6.0;
 /// Two clicks on one row within this long are a double-click, seconds.
 const DOUBLE: f32 = 0.35;
 
-/// How a pack list is sorted.
-#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
-pub enum Sort {
-    /// As packed.
-    #[default]
-    Packed,
-    Name,
-    Weight,
-    Worth,
-}
-
 /// The pack screen's own memory between frames (the window's, not the world's).
 #[derive(Default)]
 pub struct PackState {
-    pub sort: Sort,
     /// The first column shown, when the squad is wider than the screen.
     pub first: usize,
-    /// How far each column's list is scrolled, rows.
-    pub scroll: Vec<(PersonId, usize)>,
     /// A thing pressed on: whose, which pack entry, where the press began.
     pub press: Option<(PersonId, usize, Vec2)>,
     /// It's being dragged.
     pub dragging: bool,
+    /// When the press was on a stack in a grid: which (of `arrange().0`),
+    /// the cell within it that was grabbed, and whether it lies turned.
+    pub grab: Option<(usize, u8, u8, bool)>,
     /// The last row clicked and when (for double-clicks).
     pub last: Option<(PersonId, usize, bool, std::time::Instant)>,
     /// An open right-click menu: whose, a pack entry or a worn slot, where.
@@ -82,32 +73,6 @@ pub struct PackState {
 pub enum Pick {
     Entry(usize),
     Worn(Slot),
-}
-
-impl PackState {
-    fn scroll_of(&self, pid: PersonId) -> usize {
-        self.scroll.iter().find(|s| s.0 == pid).map(|s| s.1).unwrap_or(0)
-    }
-    fn set_scroll(&mut self, pid: PersonId, v: usize) {
-        match self.scroll.iter_mut().find(|s| s.0 == pid) {
-            Some(s) => s.1 = v,
-            None => self.scroll.push((pid, v)),
-        }
-    }
-}
-
-/// Pack entries in the order the sort asks (indices into the bag).
-pub fn sorted(w: &World, pid: PersonId, sort: Sort) -> Vec<usize> {
-    let Some(d) = w.people[pid as usize].detail.as_ref() else { return Vec::new() };
-    let bag = &d.gear.bag;
-    let mut k: Vec<usize> = (0..bag.len()).collect();
-    match sort {
-        Sort::Packed => {}
-        Sort::Name => k.sort_by(|&a, &b| item(bag[a].0).name.cmp(item(bag[b].0).name)),
-        Sort::Weight => k.sort_by(|&a, &b| (item(bag[b].0).weight * bag[b].1 as f32).total_cmp(&(item(bag[a].0).weight * bag[a].1 as f32))),
-        Sort::Worth => k.sort_by(|&a, &b| (item(bag[b].0).value * bag[b].1 as f32).total_cmp(&(item(bag[a].0).value * bag[a].1 as f32))),
-    }
-    k
 }
 
 /// What wearing `new` instead of what's in its slot would change, as
@@ -209,24 +174,19 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
     c.rect(0.0, 0.0, c.w, dark_h, ega(DARK, 0.95));
     let r = Bx::new(x0 - 20.0, top - 44.0, total_w + 40.0, bottom - top + 50.0);
     c.styled("PACKS", x0, top - 14.0, 22.0, eg(HEAD), Face::Title, 6.0);
-    // Sort, by the heading.
-    let sorts = [(Sort::Packed, "as packed"), (Sort::Name, "name"), (Sort::Weight, "weight"), (Sort::Worth, "worth")];
-    let mut sx = x0 + 150.0;
-    c.styled("sorted by", sx, top - 16.0, 13.0, eg(FAINT), Face::Italic, 0.0);
-    sx += c.styled_width("sorted by", 13.0, Face::Italic, 0.0) + 10.0;
-    for (s, label) in sorts {
+    // Tidy: everyone's grids repacked, biggest things first.
+    {
+        let sx = x0 + 150.0;
+        let label = "tidy every pack";
         let wd = c.styled_width(label, 13.0, Face::Body, 0.0);
         let b = Bx::new(sx - 4.0, top - 31.0, wd + 8.0, 20.0);
         let l = kit::look(&b);
-        let on = st.sort == s;
-        c.styled(label, sx, top - 16.0 + kit::nudge(l), 13.0, eg(if on { BRASS_LIGHT } else if l.hot { TEXT } else { SUB }), Face::Body, 0.0);
-        if on {
-            c.rule(sx, sx + wd, top - 12.0, 1.0, ega(BRASS_LIGHT, 0.8));
-        }
+        c.styled(label, sx, top - 16.0 + kit::nudge(l), 13.0, eg(if l.hot { BRASS_LIGHT } else { SUB }), Face::Body, 0.0);
         if click.is_some_and(|k| !k.right && b.contains(k.at)) {
-            st.sort = s;
+            for &m in &shown {
+                acts.push(Action::Tidy(m));
+            }
         }
-        sx += wd + 16.0;
     }
     // Close.
     let close = Bx::new(r.x + r.w - 34.0, r.y + 6.0, 28.0, 28.0);
@@ -252,6 +212,7 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
     if !left_held && click.is_none() {
         st.press = None;
         st.dragging = false;
+        st.grab = None;
     }
     if let Some((_, _, from)) = st.press {
         if left_held && (mouse - from).length() > DRAG_AFTER {
@@ -262,6 +223,8 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
 
     let mut tip: Option<(ItemId, Option<PersonId>)> = None;
     let mut columns = Vec::new();
+    // Every grid drawn: whose, which, where, and its cell size.
+    let mut grid_boxes: Vec<(PersonId, u8, Bx, f32)> = Vec::new();
     for (ci, &pid) in shown.iter().enumerate() {
         let cx = x0 + ci as f32 * (COL_W + GAP);
         let col = Bx::new(cx, top, COL_W, bottom - top);
@@ -334,40 +297,47 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
         }
         y += 8.0;
         c.rule(ix, col.x + col.w - 14.0, y, 0.8, ega(BRASS, 0.4));
-        // The pack.
-        let order = sorted(w, pid, st.sort);
+        // The pack: its grids, pockets then the pack's, each thing in its
+        // cells with its icon and how many (items step 3). What doesn't fit is
+        // carried loose, listed in red underneath.
         let foot = col.y + col.h - 46.0;
-        let room = ((foot - y - 8.0) / ROW_H).floor().max(1.0) as usize;
-        if col.contains(mouse) && st.wheel != 0.0 {
-            let s = st.scroll_of(pid) as f32 - st.wheel;
-            st.set_scroll(pid, s.max(0.0) as usize);
+        let (placed, loose) = gear.arrange();
+        let cell = ((col.w - 28.0) / 8.0).floor().min(32.0);
+        let mut gy = y + 2.0;
+        let mut boxes: Vec<Bx> = Vec::new();
+        for (g, &(gw, gh)) in gear.grids().iter().enumerate() {
+            let label = if g == 0 { "Pockets".to_string() } else { gear.in_slot(Slot::Back).map(|i| item(i).name.to_string()).unwrap_or_default() };
+            c.styled(&label, ix, gy + 11.0, 12.0, eg(FAINT), Face::Italic, 0.0);
+            gy += 15.0;
+            let b = Bx::new(ix, gy, gw as f32 * cell, gh as f32 * cell);
+            c.rect(b.x, b.y, b.w, b.h, ega([0.0, 0.0, 0.0], 0.35));
+            for yy in 0..gh {
+                for xx in 0..gw {
+                    c.rect_lines(b.x + xx as f32 * cell, b.y + yy as f32 * cell, cell, cell, 1.0, ega(BRASS, 0.16));
+                }
+            }
+            grid_boxes.push((pid, g as u8, b, cell));
+            boxes.push(b);
+            gy += b.h + 6.0;
         }
-        let most = order.len().saturating_sub(room);
-        let first = st.scroll_of(pid).min(most);
-        st.set_scroll(pid, first);
-        y += 4.0;
-        if order.is_empty() {
-            c.styled("Nothing in the pack.", ix + 4.0, y + 17.0, 14.0, eg(FAINT), Face::Italic, 0.0);
-        }
-        for &e in order.iter().skip(first).take(room) {
-            let (i, n, pc) = (gear.bag[e].0, gear.bag[e].1, gear.bag[e].2);
-            let row = Bx::new(col.x + 6.0, y, col.w - 12.0, ROW_H);
-            let lifted = dragged.is_some_and(|d| d.0 == pid && d.1 == e);
-            let l = kit::row(c, &row, st.menu.is_some_and(|m| m.0 == pid && m.1 == Pick::Entry(e)) || lifted);
-            let dy = kit::nudge(l);
-            let label = if n > 1 { format!("{} × {}", n, item(i).name) } else { item(i).name.to_string() };
-            let worn = pc.map(|pc| super::squadui::wear_word(w, i, &pc)).unwrap_or_default();
-            let name = fit_text(c, &format!("{label}{worn}"), 14.0, row.w - 118.0);
-            super::looks::icon(c, i, ix - 2.0, y + 1.5 + dy, 20.0, 20.0);
-            c.styled(&name, ix + 24.0, y + 16.0 + dy, 14.0, eg(if lifted { FAINT } else { TEXT }), Face::Body, 0.0);
-            let kg = format!("{:.1}", item(i).weight * n as f32);
-            c.styled_right(&kg, col.x + col.w - 56.0, y + 16.0 + dy, 12.0, eg(SUB), Face::Body, 0.0);
-            let worth = format!("{:.0} c", item(i).value * n as f32);
-            c.styled_right(&worth, col.x + col.w - 14.0, y + 16.0 + dy, 12.0, eg(FAINT), Face::Body, 0.0);
+        for (k, pl) in placed.iter().enumerate() {
+            let e = pl.entry;
+            let i = gear.bag[e].0;
+            let gb = boxes[pl.grid as usize];
+            let r = Bx::new(gb.x + pl.x as f32 * cell + 1.0, gb.y + pl.y as f32 * cell + 1.0, pl.w as f32 * cell - 2.0, pl.h as f32 * cell - 2.0);
+            let lifted = dragged.is_some_and(|d| d.0 == pid && st.grab.is_some_and(|g| g.0 == k));
+            let l = kit::row(c, &r, st.menu.is_some_and(|m| m.0 == pid && m.1 == Pick::Entry(e)) || lifted);
+            c.rect(r.x, r.y, r.w, r.h, ega([0.24, 0.19, 0.12], if lifted { 0.3 } else { 0.85 }));
+            if !lifted {
+                super::looks::icon(c, i, r.x + 2.0, r.y + 2.0 + kit::nudge(l), r.w - 4.0, r.h - 4.0);
+            }
+            if pl.n > 1 {
+                c.styled_right(&pl.n.to_string(), r.x + r.w - 3.0, r.y + r.h - 3.0, 11.0, eg(TEXT), Face::Body, 0.0);
+            }
             if l.hot && dragged.is_none() {
                 tip = Some((i, Some(pid)));
             }
-            if let Some(ck) = click.filter(|k| row.contains(k.at)) {
+            if let Some(ck) = click.filter(|ck| r.contains(ck.at)) {
                 if ck.right {
                     st.menu = Some((pid, Pick::Entry(e), ck.at));
                 } else if !st.dragging && !locked && double(st, pid, e, false, now) {
@@ -378,15 +348,40 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
                     }
                 }
             }
-            // A press here may become a drag.
+            // A press here may become a drag: to another cell, or another column.
+            if left_held && st.press.is_none() && r.contains(mouse) && click.is_none() && st.menu.is_none() {
+                st.press = Some((pid, e, mouse));
+                st.grab = Some((k, ((mouse.x - r.x) / cell).floor().max(0.0) as u8, ((mouse.y - r.y) / cell).floor().max(0.0) as u8, pl.turned));
+            }
+        }
+        if gear.bag.is_empty() {
+            c.styled("Nothing in the pack.", ix + 4.0, gy + 14.0, 14.0, eg(FAINT), Face::Italic, 0.0);
+        }
+        // Loose: no room for these anywhere.
+        let mut ly = gy;
+        for &(e, n) in &loose {
+            if ly > foot - 24.0 {
+                break;
+            }
+            let i = gear.bag[e].0;
+            let row = Bx::new(col.x + 6.0, ly, col.w - 12.0, ROW_H);
+            let l = kit::row(c, &row, st.menu.is_some_and(|m| m.0 == pid && m.1 == Pick::Entry(e)));
+            super::looks::icon(c, i, ix - 2.0, ly + 1.5, 20.0, 20.0);
+            let what = if n > 1 { format!("{} × {}", n, item(i).name) } else { item(i).name.to_string() };
+            c.styled(&fit_text(c, &format!("{what}: loose, no room"), 13.0, row.w - 40.0), ix + 24.0, ly + 16.0 + kit::nudge(l), 13.0, eg(BAD), Face::Body, 0.0);
+            if l.hot && dragged.is_none() {
+                tip = Some((i, Some(pid)));
+            }
+            if let Some(ck) = click.filter(|ck| row.contains(ck.at)) {
+                if ck.right {
+                    st.menu = Some((pid, Pick::Entry(e), ck.at));
+                }
+            }
             if left_held && st.press.is_none() && row.contains(mouse) && click.is_none() && st.menu.is_none() {
                 st.press = Some((pid, e, mouse));
+                st.grab = None;
             }
-            y += ROW_H;
-        }
-        if order.len() > room {
-            let more = format!("{} of {} shown; the wheel scrolls", room.min(order.len() - first), order.len());
-            c.styled(&more, ix, foot - 4.0, 12.0, eg(FAINT), Face::Italic, 0.0);
+            ly += ROW_H;
         }
         // The weight bar: amber near full, red over.
         let load = gear.load(&p.stats);
@@ -399,9 +394,22 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
     }
     st.wheel = 0.0;
 
-    // Let go after a drag: on another column, a give.
+    // Where a dragged stack would land in its own grids: (grid, x, y).
+    let grab = st.grab;
+    let landing = |at: Vec2, from: PersonId| -> Option<(u8, u8, u8, f32, Bx)> {
+        let (_, ox, oy, _) = grab?;
+        let &(_, g, b, cell) = grid_boxes.iter().find(|x| x.0 == from && x.2.contains(at))?;
+        let x = ((at.x - b.x) / cell).floor() as i32 - ox as i32;
+        let y = ((at.y - b.y) / cell).floor() as i32 - oy as i32;
+        Some((g, x.max(0) as u8, y.max(0) as u8, cell, b))
+    };
+    // Let go after a drag: in its own grids, moved there; on another
+    // column, a give.
     if let (Some((from, e, _)), Some(k)) = (dragged, click) {
         if !k.right {
+            if let (Some((g, x, y, _, _)), Some((which, _, _, turned))) = (landing(k.at, from), grab) {
+                acts.push(Action::Place(from, which, g, x, y, turned));
+            }
             if let Some(&(to, _)) = columns.iter().find(|(_, b)| b.contains(k.at)) {
                 if to != from {
                     match why_not_give(w, from, to) {
@@ -416,6 +424,15 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
         }
         st.press = None;
         st.dragging = false;
+        st.grab = None;
+    }
+    // Over its own grids: the cells it would take, outlined.
+    if let Some((from, e, _)) = dragged {
+        if let (Some((_, x, y, cell, b)), Some((_, _, _, turned)), Some(i)) = (landing(mouse, from), grab, w.people[from as usize].detail.as_ref().and_then(|d| d.gear.bag.get(e)).map(|x| x.0)) {
+            let (fw, fh) = items::footprint(i);
+            let (fw, fh) = if turned { (fh, fw) } else { (fw, fh) };
+            c.rect_lines(b.x + x as f32 * cell, b.y + y as f32 * cell, fw as f32 * cell, fh as f32 * cell, 2.0, ega(BRASS_LIGHT, 0.9));
+        }
     }
     // The thing being dragged follows the pointer, lifted a little.
     if let Some((from, e, _)) = dragged {
@@ -457,6 +474,9 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
                         if why_not_give(w, pid, m).is_none() {
                             items_.push((format!("Give to {}", w.name_of(m)), Some(Action::GiveEntry(pid, e, m))));
                         }
+                    }
+                    if gear.is_some_and(|g| g.arrange().0.iter().any(|p| p.entry == e)) {
+                        items_.push(("Turn it".into(), Some(Action::Turn(pid, e))));
                     }
                     items_.push(("Put down".into(), Some(Action::DropEntry(pid, e))));
                 }
@@ -549,25 +569,6 @@ fn fit_text(c: &Canvas, s: &str, size: f32, room: f32) -> String {
 mod tests {
     use super::*;
     use gahturiyu_sim::sim::worldgen;
-
-    #[test]
-    fn sorting_a_pack() {
-        let w = worldgen::generate(1);
-        // The member with the most in their pack.
-        let pid = *w.squad.members.iter().max_by_key(|&&m| w.people[m as usize].detail.as_ref().map(|d| d.gear.bag.len()).unwrap_or(0)).unwrap();
-        let bag = &w.people[pid as usize].detail.as_ref().unwrap().gear.bag;
-        assert!(bag.len() >= 3);
-        let packed = sorted(&w, pid, Sort::Packed);
-        assert_eq!(packed, (0..bag.len()).collect::<Vec<_>>());
-        let heavy = sorted(&w, pid, Sort::Weight);
-        let kg = |k: usize| item(bag[k].0).weight * bag[k].1 as f32;
-        assert!(heavy.windows(2).all(|p| kg(p[0]) >= kg(p[1])), "heaviest first");
-        let named = sorted(&w, pid, Sort::Name);
-        assert!(named.windows(2).all(|p| item(bag[p[0]].0).name <= item(bag[p[1]].0).name), "by name");
-        let mut all = heavy.clone();
-        all.sort_unstable();
-        assert_eq!(all, packed, "every entry once");
-    }
 
     #[test]
     fn what_wearing_it_would_change() {
