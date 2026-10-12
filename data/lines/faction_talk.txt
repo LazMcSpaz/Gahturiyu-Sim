@@ -1,0 +1,87 @@
+# What someone says of their faction (docs/factions.md, "Voices" and "Depth";
+# Laz, 2026-10-12). slot | conditions | text | flags
+#
+# line: asked "What do you make of things?" - the faction's public face, its
+#   topics and pet words.
+# private: asked "What do you really think?" - only to someone they trust
+#   (`confides`; the deepest lines want `trusts_you`). Their doubts, fears,
+#   what they actually believe.
+# welcome: what a guild member says when the squad joins.
+
+# ---- Public: the First Peoples ---------------------------------------------------
+line | faction=first_peoples | The house has kept this hill for nine generations. Things were quieter then.
+line | faction=first_peoples | We don't turn people away. We simply don't invite them in.
+line | faction=first_peoples | Everything in its proper place, in its proper time. That is all we ask.
+line | faction=first_peoples, faction=seated_houses | The houses have spoken. There's nothing more to say.
+line | faction=first_peoples, faction=true_line | The Seated Houses have forgotten whose blood built this. We have not.
+line | faction=first_peoples, faction=tide_houses | We stand with the Alliance. Of course we do.
+# ---- Public: the Great House -----------------------------------------------------
+line | faction=great_house | Titles, ranks, leave to speak. The empire taught this island how to be governed.
+line | faction=great_house, faction=throne | The emperor's peace held this whole island once. It will again.
+line | faction=great_house, faction=banner_lords | My lord's loyalty is known. The Throne rewards loyalty. Remember that.
+line | faction=great_house, faction=free_lords | A lord down the valley wants my land. I want him to stop wanting it.
+# ---- Public: the Open Hand -------------------------------------------------------
+line | faction=open_hand | Trade frees people. Every caravan breaks a chain.
+line | faction=open_hand | The First Peoples sit on their hills counting ancestors. We count customers.
+line | faction=open_hand, faction=open_council | Fair dealing, open roads, a place at the table for everyone. That's the whole of it.
+line | faction=open_hand, faction=sharp_hands | Ideals are lovely. Good prices are lovelier. You'd be surprised what I can find you.
+line | faction=open_hand, faction=road_crews | Council talks about the road. We walk it. The Sharp Hands just sell it.
+# ---- Public: minors and guilds ---------------------------------------------------
+line | faction=holy_house | The stone remembers the faithless.
+line | faction=holy_house | Kneel at the rite. The house keeps account of who does.
+line | faction=last_wave | Respect is earned here. Stand your ground and you'll get it.
+line | faction=far_sails | The sea doesn't care whose house you're from.
+line | faction=binders | Everyone works for someone. Some of us just say it out loud.
+line | faction=wardens | Another one of us went into the green. We'll drink his share.
+line | faction=highfolk | The Great House claims these peaks? Let it climb up and say so.
+line | faction=rooted | Stone forgets. Root remembers.
+line | faction=writers | We have three accounts of that battle. All of them disagree. Isn't that wonderful?
+line | faction=writers | Did you know that word once meant "twice-forged"? Nobody does any more.
+line | faction=lantern_company | We work for anyone who pays. Which means some days we're guarding the people we fought last month.
+line | faction=dueling_society | Nobody died. That's the point.
+line | faction=dueling_society | I know, I know, real fights kill people. Ours don't. Come and watch.
+line | | Things are what they are. I keep my head down and do my work.
+
+# ---- Private: to someone they trust ----------------------------------------------
+private | faction=first_peoples, confides | We have records of every house on this island. Do you know how many have gone quiet in my lifetime?
+private | faction=first_peoples, confides | My grandmother's garden is three days from the green now. It was thirty when she planted it.
+private | faction=first_peoples, faction=seated_houses, confides | Change frightens me more than the green does. Is that a terrible thing to say?
+private | faction=first_peoples, faction=true_line, confides | The Seated Houses are failing at the one thing that matters: remembering.
+private | faction=first_peoples, faction=tide_houses, confides | My cousin sails with the Far Sails now. Don't repeat that.
+private | faction=great_house, faction=throne, confides | You've seen him. Don't tell me what you saw. Just... help us keep the banner up.
+private | faction=great_house, faction=banner_lords, confides | I bow to the Throne because someone has to. If we all stop, there's nothing left.
+private | faction=great_house, faction=free_lords, confides | An emperor who can't hold a cup isn't going to hold my valley.
+private | faction=great_house, confides | Sometimes I think the dream will die with this emperor, and nobody will even notice.
+private | faction=open_hand, faction=open_council, confides | When I joined we knew every carter by name. Now there are ledgers I'm not allowed to read.
+private | faction=open_hand, faction=road_crews, confides | If the Great House and the First Peoples ever stop hating each other, they'll come for us first.
+private | faction=open_hand, faction=sharp_hands, confides | Ideals are lovely. They don't pay for guards.
+private | faction=open_hand, confides | We're growing too fast. I can feel it. The cause is getting lost in the counting.
+private | faction=holy_house, confides | We used to feed people. Now we arm them. I pray for the house more than I pray for anyone.
+private | faction=last_wave, confides | My daughter was born here. This is her land, whatever the old houses say.
+private | faction=last_wave, trusts_you | You stood by us. Now you eat at our fire, and no one touches you.
+private | faction=far_sails, confides | Free doesn't feed anyone. So yes, some cargo isn't on the manifest.
+private | faction=far_sails, trusts_you | Ask me no questions about the hold, friend, and I'll tell you no lies.
+private | faction=binders, confides | You think I wanted this? The lords didn't want Qotiro farmers. They wanted this.
+private | faction=binders, trusts_you | My son will be a lord's man, not a Binder. That's what all this buys.
+private | faction=wardens, confides | Everyone here has a name they don't say. That's why we joke.
+private | faction=wardens, trusts_you | My village was where those trees are now. I can still find the well, if I want to.
+private | faction=highfolk, confides | Some paths up here we don't show lowlanders. Some we don't show each other.
+private | faction=highfolk, trusts_you | There were never four of us. Don't ask me again, and don't ever say it below the snowline.
+private | faction=rooted, confides | We did not lose them. We kept them. Come and listen.
+private | faction=rooted, trusts_you | Your mother is in the roots. She asked for you.
+private | faction=writers, confides | We don't take sides. We just make sure the right side knows the right thing at the right time.
+private | faction=writers, trusts_you | Curiosity is a fine reason. It's also an excellent cover.
+private | faction=lantern_company, confides | I've seen a man walk back into a fire for a contract he'd already been paid for. That's the Company.
+private | faction=old_hands, confides | A friend of the house is a friend of ours. That matter's been seen to. Don't ask by whom.
+private | faction=old_hands, trusts_you | The houses used to need us. Now they pretend they never did.
+private | faction=night_market, confides | Looking for something you can't buy in daylight? Didn't see you, you didn't see me.
+private | faction=dueling_society, confides | They laugh at us for fighting for fun. Then they fight one of us for real.
+private | confides | Between us? I'm tired. Everyone's pulling a different way and I just want a quiet year.
+
+# ---- Joining ---------------------------------------------------------------------
+welcome | faction=writers | Then you're one of us. Write everything down. Everything.
+welcome | faction=lantern_company | Welcome to the Company. No abandoning a contract, and no abandoning a comrade. That's the whole code.
+welcome | faction=old_hands | A friend of the house, then. Keep your mouth shut and your door open.
+welcome | faction=night_market | Welcome to the market. Didn't see you, you didn't see me, everybody's happy.
+welcome | faction=dueling_society | Good! First bout's tomorrow. Nobody dies.
+welcome | | Then you're one of us.

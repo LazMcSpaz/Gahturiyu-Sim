@@ -120,6 +120,13 @@ pub enum Topic {
     Headed,
     /// Ask, out of town, what's round about.
     Around,
+    /// What they make of things: their faction's public face (F4-F5).
+    Views,
+    /// What they really think: their faction's private side, to someone
+    /// they trust.
+    Confide,
+    /// Ask to join their guild (`membership.rs`).
+    JoinGuild(super::factions::FactionId),
 }
 
 impl Topic {
@@ -163,6 +170,9 @@ impl Topic {
             Topic::RentBeds(_) => "Beds for the night",
             Topic::Headed => "Where are you headed?",
             Topic::Around => "What's out this way?",
+            Topic::Views => "What do you make of things?",
+            Topic::Confide => "What do you really think?",
+            Topic::JoinGuild(_) => "Could I join you?",
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
@@ -272,6 +282,7 @@ impl World {
             Topic::BuyOut(m, p) => format!("Buy {} out of their bond ({p} coin)", self.people[m as usize].name().unwrap_or("?")),
             Topic::Herblore(it) => format!("What does the {} do? ({} coin)", items::item(it).name.to_lowercase(), super::brewing::HERBLORE_PRICE),
             Topic::TakePost(post) => format!("Take up the post of {}", post.name()),
+            Topic::JoinGuild(g) => format!("Could I join {}?", super::factions::def(g).name),
             Topic::TakeJob(id) => match self.opportunity(id) {
                 Some(o) => format!("I'll take it: {}", self.opp_line(o)),
                 None => t.text(),
@@ -609,6 +620,20 @@ impl World {
                 }
             }
         }
+        // Their faction (F4-F5): what they make of things; what they really
+        // think, once they trust you; and their guild, if they'd have you.
+        let trusted = self.met.contains(&(c.npc, c.with)) && self.regard_of(c.npc, c.with) >= super::talk::CONFIDES;
+        if !self.factions_of(c.npc).is_empty() {
+            t.push(Topic::Views);
+            if trusted {
+                t.push(Topic::Confide);
+            }
+        } else if trusted && self.syndicate_of(c.npc).is_some() {
+            t.push(Topic::Confide);
+        }
+        if let Some(g) = self.guild_of(c.npc, trusted).filter(|&g| self.can_join(g).is_ok()) {
+            t.push(Topic::JoinGuild(g));
+        }
         // Anyone footloose (or a carpenter or mason) may come and work at
         // the squad's outpost, for a wage.
         if let Some(wage) = self.hire_terms(c.npc) {
@@ -661,6 +686,21 @@ impl World {
         };
         let is = if they == "They" { "aren't" } else { "isn't" };
         let mut out = Vec::new();
+        // Not open with you yet, or their guild won't have you: say why.
+        let trusted = self.met.contains(&(c.npc, c.with)) && self.regard_of(c.npc, c.with) >= super::talk::CONFIDES;
+        if !self.factions_of(c.npc).is_empty() && !trusted {
+            let doesnt = if they == "They" { "don't" } else { "doesn't" };
+            out.push((Topic::Confide, format!("{they} {doesnt} know you well enough to say.")));
+        }
+        if let Some(g) = self.guild_of(c.npc, trusted) {
+            if let Err(why) = self.can_join(g) {
+                if !self.in_guild(g) {
+                    let mut w = why.to_string();
+                    w[..1].make_ascii_uppercase();
+                    out.push((Topic::JoinGuild(g), format!("{w}.")));
+                }
+            }
+        }
         if !self.at_work(c.npc, self.time) {
             match job {
                 Job::Merchant => out.push((Topic::Trade, format!("{they} {is} at {their} stall."))),
@@ -924,6 +964,15 @@ impl World {
                 let (tags, values) = self.headed_facts(c.npc);
                 self.spoken(c, "headed", &["line"], &tags, &values)
             }
+            Topic::Views => self.spoken(c, "faction", &["line"], &[], &[]),
+            Topic::Confide => self.spoken(c, "faction", &["private"], &[], &[]),
+            Topic::JoinGuild(g) => match self.join_guild(g) {
+                Ok(()) => {
+                    let tag = format!("faction={}", super::factions::def(g).key);
+                    self.spoken(c, "faction", &["welcome"], &[tag], &[])
+                }
+                Err(why) => format!("No. {}{}.", why[..1].to_uppercase(), &why[1..]),
+            },
             Topic::Around => {
                 let (tags, values, camp) = self.around_facts(c.npc);
                 // Told of a camp: the map shows it now.
@@ -1317,6 +1366,9 @@ fn topic_key(t: Topic) -> u64 {
         Topic::RentBeds(_) => 75,
         Topic::Headed => 77,
         Topic::Around => 78,
+        Topic::Views => 79,
+        Topic::Confide => 4_000_000,
+        Topic::JoinGuild(g) => 4_000_001 + g as u64,
         Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::SellWorn(it, m, _) => 3_000_000 + ((it as u64) << 32) + m as u64,
         Topic::SellRest => 73,

@@ -48,6 +48,13 @@ pub const RECENT: f64 = 2.0 * DAY;
 pub const SAID_CAP: usize = 300;
 /// Disposition below which they won't talk; above which they're warm.
 pub const DISTRUST: f32 = 20.0;
+/// Trust past which someone opens up about what they really think (F4-F5),
+/// and past which they say the deepest of it.
+pub const CONFIDES: f32 = 70.0;
+pub const TRUSTS_YOU: f32 = 85.0;
+/// How much a faction's tag counts when picking a line, beside the count of
+/// conditions.
+const FACTION_WEIGHT: usize = 2;
 pub const WARM: f32 = 65.0;
 /// How much what they remember of a squad member moves their regard (× memory).
 pub const MEMORY_WEIGHT: f32 = 50.0;
@@ -91,7 +98,7 @@ impl Subject {
 }
 
 /// The data files, compiled in.
-const FILES: [(&str, &str); 21] = [
+const FILES: [(&str, &str); 23] = [
     ("", include_str!("../../data/lines/greetings.txt")),
     ("", include_str!("../../data/lines/farewells.txt")),
     ("theft", include_str!("../../data/lines/theft.txt")),
@@ -113,6 +120,10 @@ const FILES: [(&str, &str); 21] = [
     ("around", include_str!("../../data/lines/around.txt")),
     ("headed", include_str!("../../data/lines/headed.txt")),
     ("squad", include_str!("../../data/lines/squad.txt")),
+    // Each faction's own greetings and farewells (with the rest), and what
+    // they say of things, in public and in private (F4-F5).
+    ("", include_str!("../../data/lines/factions.txt")),
+    ("faction", include_str!("../../data/lines/faction_talk.txt")),
 ];
 
 #[derive(Clone, Debug)]
@@ -469,6 +480,28 @@ impl World {
             f.tag("warm");
         }
         f.tag(if met { "known" } else { "stranger" });
+        // Their factions (F4-F5: `membership.rs`), whether they'd open up to
+        // this squad member, and whether the squad is one of theirs.
+        let confides = met && regard >= CONFIDES;
+        for fid in self.factions_of(npc) {
+            f.tag(format!("faction={}", super::factions::def(fid).key));
+            if self.in_guild(fid) {
+                f.tag("member");
+            }
+        }
+        if confides {
+            f.tag("confides");
+            if regard >= TRUSTS_YOU {
+                f.tag("trusts_you");
+            }
+            // A syndicate comes out only to someone they trust.
+            if let Some(s) = self.syndicate_of(npc) {
+                f.tag(format!("faction={}", super::factions::def(s).key));
+                if self.in_guild(s) {
+                    f.tag("member");
+                }
+            }
+        }
         if let Some(t) = town {
             f.set("town", self.settlements[t as usize].name.clone());
         }
@@ -652,8 +685,11 @@ impl World {
         let fresh: Vec<&'static Piece> = fits.iter().copied().filter(|p| !recent(p)).collect();
         let pool = if fresh.is_empty() { fits } else { fresh };
         // A refusal always wins when it fits.
-        let best = pool.iter().map(|p| p.must.len() + p.not.len() + if p.refuse { 100 } else { 0 }).max().unwrap();
-        let top: Vec<&'static Piece> = pool.into_iter().filter(|p| p.must.len() + p.not.len() + if p.refuse { 100 } else { 0 } == best).collect();
+        // (A refusal always wins; a faction's line outranks a plain one: the
+        // faction sets the attitude, F4-F5.)
+        let score = |p: &Piece| p.must.len() + p.not.len() + if p.refuse { 100 } else { 0 } + if p.must.iter().any(|m| m.starts_with("faction=")) { FACTION_WEIGHT } else { 0 };
+        let best = pool.iter().map(|p| score(p)).max().unwrap();
+        let top: Vec<&'static Piece> = pool.into_iter().filter(|p| score(p) == best).collect();
         let mut r = Rng::from_keys(&[self.seed, npc as u64, with as u64, slot.len() as u64, topic.len() as u64, 0x5049_434B]);
         Some(top[r.below(top.len())])
     }
