@@ -223,11 +223,9 @@ impl World {
             // today's and tomorrow's read.
             let day = World::day_of(t);
             for town in 0..self.settlements.len() {
-                let keep: Vec<(i64, u32)> = self.society.towns[town].storms.iter().copied().filter(|s| s.0 == day - 1).collect();
-                let mut storms = keep;
+                let mut storms: Vec<super::routine::DayAir> = self.society.towns[town].storms.iter().copied().filter(|a| a.day == day - 1).collect();
                 for d in [day, day + 1] {
-                    let mask = self.storm_hours(town as SettlementId, d);
-                    storms.push((d, mask));
+                    storms.push(self.day_air(town as SettlementId, d));
                 }
                 self.society.towns[town].storms = storms;
             }

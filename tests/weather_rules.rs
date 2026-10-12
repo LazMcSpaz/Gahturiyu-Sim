@@ -114,3 +114,32 @@ fn outdoor_work_stops_in_a_storm_and_indoor_work_goes_on() {
     }
     assert!(plan.hours_of(Doing::Home, ws, we) > 0.0, "home through the storm");
 }
+
+#[test]
+fn everyone_goes_in_when_the_weather_drives_them_in() {
+    use gahturiyu_sim::sim::routine::{Doing, Spot};
+    let w = worldgen::generate(1);
+    let today = gahturiyu_sim::sim::World::day_of(w.time);
+    // A town and an hour of a day when the weather drives everyone in.
+    let mut found = None;
+    'search: for day in today..today + 40 {
+        for s in &w.settlements {
+            let air = w.day_air(s.id, day);
+            if let Some(h) = (8..20).find(|&h| air.seek[h] == 255) {
+                found = Some((s.id, day, h));
+                break 'search;
+            }
+        }
+    }
+    let Some((town, day, h)) = found else {
+        eprintln!("no hour like that in forty days here; nothing to check");
+        return;
+    };
+    let decks: Vec<u16> = w.society.towns[town as usize].places.iter().enumerate().filter(|(_, p)| p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Deck).map(|(k, _)| k as u16).collect();
+    for &p in &w.settlements[town as usize].residents {
+        let plan = w.day_plan(p, day);
+        let s = plan.segs()[plan.index_at(h as f32 + 0.5)];
+        let out = matches!(s.doing, Doing::Market | Doing::Garden | Doing::Idle) || (s.doing == Doing::Evening && matches!(s.spot, Spot::Place(k) if decks.contains(&k)));
+        assert!(!out, "someone out ({:?}) in weather that drives everyone in", s.doing);
+    }
+}
