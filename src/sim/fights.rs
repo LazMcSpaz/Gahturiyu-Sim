@@ -310,6 +310,7 @@ impl World {
         }
 
         self.walk_ins();
+        self.around_fights();
         for b in &mut self.battles {
             b.advance_to(t);
         }

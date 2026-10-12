@@ -118,7 +118,8 @@ impl World {
         let bed = self.inn_bed(npc);
         self.rooms.retain(|r| r.until > t);
         for (n, &m) in who.iter().enumerate() {
-            let at = bed.add(super::squad::formation(n).scale(0.25));
+            // (On the floor beside the beds, where there's room to lie.)
+            let at = self.free_spot(bed.add(super::squad::formation(n).scale(0.25)));
             self.rooms.push(Room { who: m, town, at, until });
             self.order_sleep_at(m, at);
         }

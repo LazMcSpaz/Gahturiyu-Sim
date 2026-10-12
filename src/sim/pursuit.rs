@@ -403,9 +403,9 @@ impl World {
                     seen.0 = next;
                 }
             }
-            let to = seen.0.sub(pos);
-            let step = GUARD_PACE * dt as f32;
-            pos = if to.len() <= step { seen.0 } else { pos.add(to.scale(step / to.len())) };
+            // Round what's solid and in by doors (the watch holds the town's
+            // keys), never through a wall (P21).
+            pos = self.step_toward(pos, seen.0, GUARD_PACE * dt as f32);
             let reach = self.settlements[p.town as usize].reach;
             let out_of_town = at.dist(self.settlements[p.town as usize].pos) > reach + BEYOND;
             if pos.dist(at) <= CATCH && seen.1 == t {

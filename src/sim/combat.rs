@@ -571,11 +571,56 @@ pub struct Battle {
     /// Lasting spells on patches of ground.
     #[serde(default)]
     pub zones: Vec<Zone>,
+    /// What's solid round the fight, for fighters to go round (`Around`).
+    #[serde(skip)]
+    pub around: Around,
+}
+
+/// What's solid round a fight (`solid.rs`): fighters step round it, never
+/// through it. Not saved: the world hands it over before a fight is advanced
+/// (`World::around_fights`, and before a far fight's result is run), the
+/// same lists for the copy near the squad as for the result, so both are
+/// fought on the same ground (rules 1 and 7). None: open ground (a duel,
+/// tests).
+#[derive(Clone, Default)]
+pub struct Around(pub Option<std::sync::Arc<Vec<std::sync::Arc<super::solid::Solids>>>>);
+
+impl std::fmt::Debug for Around {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // (The same either way, so a fight reads the same saved and loaded.)
+        f.write_str("Around")
+    }
+}
+
+impl Around {
+    /// Where someone at `a` stepping for `b` ends up (`walk::slide`).
+    fn step(&self, a: V2, b: V2) -> V2 {
+        match &self.0 {
+            Some(sets) => super::walk::slide(sets, a, b, super::solid::BODY),
+            None => b,
+        }
+    }
+
+    /// Where someone at `a` making for `goal` is after `d` metres: straight
+    /// at it if nothing solid stands between, else along the way round
+    /// (`walk::find`, the same finder everyone walks by).
+    fn toward(&self, a: V2, goal: V2, d: f32) -> V2 {
+        let to = goal.sub(a);
+        let straight = if to.len() <= d { goal } else { a.add(to.scale(d / to.len())) };
+        let Some(sets) = &self.0 else { return straight };
+        let body = super::solid::BODY;
+        if sets.iter().all(|s| s.crossing(a, goal, body).is_none()) {
+            return straight;
+        }
+        let (from, end) = (super::solid::free_spot_in(sets, a, body), super::solid::free_spot_in(sets, goal, body));
+        let way = super::walk::find(sets, from, end, body).way;
+        super::walk::along(a, &way, d)
+    }
 }
 
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new() }
+        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), around: Around::default() }
     }
 
     /// How well lit a spot in the fight is, 0..1.
@@ -768,13 +813,14 @@ impl Battle {
         }
     }
 
-    /// Move fighter `i` to `to`, unless that would take them into a
-    /// sanctuary held against them.
+    /// Move fighter `i` toward `to`, round anything solid on the way
+    /// (`Around`), unless that would take them into a sanctuary held against
+    /// them.
     fn step_to(&mut self, i: usize, to: V2) {
         let me = &self.fighters[i];
         let barred = self.zones.iter().any(|z| z.does == Does::Sanctuary && z.until > self.time && z.side != me.side && to.dist(z.pos) < z.radius && me.pos.dist(z.pos) >= z.radius);
         if !barred {
-            self.fighters[i].pos = to;
+            self.fighters[i].pos = self.around.step(me.pos, to);
         }
     }
 
@@ -810,7 +856,8 @@ impl Battle {
             if d.len() < 0.6 {
                 self.fighters[i].order = None;
             } else {
-                self.step_to(i, me.pos.add(d.scale(speed.min(d.len()) / d.len())));
+                let to = self.around.toward(me.pos, p, speed.min(d.len()));
+                self.step_to(i, to);
             }
             return;
         }
@@ -832,7 +879,8 @@ impl Battle {
         let reach = me.attack_range();
         if dist > reach * 0.92 {
             let step = speed.min(dist - reach * 0.85).max(0.0);
-            self.step_to(i, me.pos.add(d.scale(step / dist.max(0.01))));
+            let to = self.around.toward(me.pos, them.pos, step);
+            self.step_to(i, to);
         } else if me.usable_weapon().is_some() && me.fatigue > 4.0 {
             let windup = me.weapon.windup * me.attack_time();
             self.fighters[i].act = Act::Swing { target: j, lands: self.time + windup as f64 };
@@ -889,8 +937,10 @@ impl Battle {
                 let min = if self.fighters[i].side == self.fighters[j].side { ALLY_SPACE } else { BODY * 2.0 };
                 if l < min {
                     let push = if l < 1e-4 { V2::new(0.05 * (j as f32 - i as f32), 0.03) } else { d.scale((min - l) * 0.5 / l) };
-                    self.fighters[i].pos = self.fighters[i].pos.sub(push);
-                    self.fighters[j].pos = self.fighters[j].pos.add(push);
+                    // (Not into a wall or a table.)
+                    let (a, b) = (self.fighters[i].pos, self.fighters[j].pos);
+                    self.fighters[i].pos = self.around.step(a, a.sub(push));
+                    self.fighters[j].pos = self.around.step(b, b.add(push));
                 }
             }
         }

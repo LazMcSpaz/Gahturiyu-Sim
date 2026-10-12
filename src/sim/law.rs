@@ -1439,7 +1439,8 @@ impl World {
                 continue;
             }
             let a = k as f32 * 2.3;
-            let spot = self.bound_spot(b.town).add(super::geo::V2::new(a.cos(), a.sin()).scale(4.0));
+            // (Beside the hall, where there's room to stand, not in it.)
+            let spot = self.free_spot(self.bound_spot(b.town).add(super::geo::V2::new(a.cos(), a.sin()).scale(4.0)));
             if self.squad.goal[k].dist(spot) > 2.0 {
                 let (path, _) = self.route(self.member_pos(k), spot);
                 self.squad.goal[k] = *path.last().unwrap_or(&spot);

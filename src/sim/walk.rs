@@ -288,9 +288,25 @@ impl Floor {
     }
 }
 
+/// How near the first turn of a way can be and be passed by, if there's a
+/// straight way on to the turn after it, metres.
+const PAST: f32 = 1.5;
+
 /// The way from `a` to `b` on foot for a walker `body` wide: both must be
 /// spots a walker can stand on (`World::free_spot`).
 pub fn find(sets: &[Arc<Solids>], a: V2, b: V2, body: f32) -> Found {
+    let mut f = find_turns(sets, a, b, body);
+    // On the doorstep already, or a step round a corner: straight on from
+    // where they stand, so someone finding their way afresh each step (the
+    // watch, a fighter) doesn't step back to the turn each time.
+    while f.way.len() >= 2 && f.way[0].dist(a) < PAST && sets.iter().all(|s| s.crossing(a, f.way[1], body).is_none()) {
+        f.way.remove(0);
+        f.at_door = f.at_door.saturating_sub(1);
+    }
+    f
+}
+
+fn find_turns(sets: &[Arc<Solids>], a: V2, b: V2, body: f32) -> Found {
     let (from, to) = (enclosure(sets, a), enclosure(sets, b));
     let mut out = Found { way: Vec::new(), reached: true, enters: None, at_door: 0 };
     if from.map(|t| t.id) == to.map(|t| t.id) {
@@ -332,6 +348,58 @@ pub fn find(sets: &[Arc<Solids>], a: V2, b: V2, body: f32) -> Found {
     out
 }
 
+/// Where someone at `a` stepping straight for `b` (a short step: a
+/// fighter's, a tick at a time) ends up: at `b` if nothing solid is in the
+/// way; else slid along the edge of what is, as far along the step as that
+/// goes; else where they are. Something they're already within `body` of,
+/// they may step away from or along, not further into.
+pub fn slide(sets: &[Arc<Solids>], a: V2, b: V2, body: f32) -> V2 {
+    let r = a.dist(b);
+    if r < 1e-6 {
+        return b;
+    }
+    let mut near = Vec::new();
+    for set in sets {
+        for pc in set.pieces_in(V2::new(a.x - r, a.y - r), V2::new(a.x + r, a.y + r), body) {
+            if pc.part != Part::Hull {
+                near.push(pc.poly);
+            }
+        }
+    }
+    let ok = |q: V2| {
+        near.iter().all(|p| {
+            let at = p.depth(a);
+            if at < body - 1e-3 { p.depth(q) >= at - 1e-4 } else { !p.crossed(a, q, body) }
+        })
+    };
+    if ok(b) {
+        return b;
+    }
+    // Along an edge of whatever is in the way: the one keeping closest to
+    // the step (the first such, so the same step slides the same way).
+    let step = b.sub(a);
+    let mut best: Option<(f32, V2)> = None;
+    for p in &near {
+        let cs = p.corners();
+        for k in 0..cs.len() {
+            let e = cs[(k + 1) % cs.len()].sub(cs[k]);
+            let l = e.len();
+            if l < 1e-4 {
+                continue;
+            }
+            let along = (step.x * e.x + step.y * e.y) / l;
+            if along.abs() < 1e-4 || best.is_some_and(|x| along.abs() <= x.0) {
+                continue;
+            }
+            let q = a.add(e.scale(along / l));
+            if ok(q) {
+                best = Some((along.abs(), q));
+            }
+        }
+    }
+    best.map(|x| x.1).unwrap_or(a)
+}
+
 /// Does a way (from `a` through `way`) keep clear of everything solid?
 /// What it runs into first, if not. (For checking ways; the finder doesn't
 /// need it.)
@@ -348,7 +416,52 @@ pub fn runs_into(sets: &[Arc<Solids>], a: V2, way: &[V2], body: f32) -> Option<I
     None
 }
 
+/// Where a walker setting off from `a` along `way` is after `d` metres (at
+/// its end, if it's shorter).
+pub fn along(a: V2, way: &[V2], d: f32) -> V2 {
+    let (mut at, mut left) = (a, d.max(0.0));
+    for &q in way {
+        let len = at.dist(q);
+        if left <= len {
+            return if len > 1e-6 { at.lerp(q, left / len) } else { q };
+        }
+        left -= len;
+        at = q;
+    }
+    at
+}
+
 impl World {
+    /// What's solid round a fight, for it to be fought on (`combat::Around`):
+    /// every list with something near its fighters. Open ground if it has
+    /// none yet.
+    pub fn around_fight(&self, b: &super::combat::Battle) -> super::combat::Around {
+        let n = b.fighters.len();
+        if n == 0 {
+            return super::combat::Around::default();
+        }
+        let c = b.fighters.iter().fold(V2::default(), |s, f| s.add(f.pos)).scale(1.0 / n as f32);
+        let r = b.fighters.iter().map(|f| f.pos.dist(c)).fold(0.0, f32::max);
+        super::combat::Around(Some(Arc::new(self.solid_sets(c, r + 60.0))))
+    }
+
+    /// Give every fight being stepped that has no ground yet (new, or just
+    /// loaded) its ground, before it's advanced.
+    pub(super) fn around_fights(&mut self) {
+        for i in 0..self.battles.len() {
+            if self.battles[i].around.0.is_none() {
+                let g = self.around_fight(&self.battles[i]);
+                self.battles[i].around = g;
+            }
+        }
+    }
+
+    /// Where someone at `a` heading for `b` is after `d` metres on foot,
+    /// along the way (`find_way`; locks don't stop them: for the watch).
+    pub fn step_toward(&self, a: V2, b: V2, d: f32) -> V2 {
+        along(a, &self.find_way(a, b).way, d)
+    }
+
     /// The way on foot from `a` to `b`, round everything solid and through
     /// doors and gates. An end that can't be stood on (in a counter, in a
     /// wall) is taken as the nearest spot beside it. A pure function of

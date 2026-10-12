@@ -103,6 +103,44 @@ fn a_told_theft_sends_a_guard_who_catches_the_thief() {
     assert!(w.bounty.is_empty(), "caught, so no bounty");
 }
 
+/// P21: the guard runs round buildings and stalls and in by doors, never
+/// through them, the whole way to the thief, here hiding behind a house.
+#[test]
+fn the_watch_runs_round_what_is_solid() {
+    use gahturiyu_sim::sim::buildings::door_of;
+    let (mut w, town, me, folk) = in_town();
+    assert!(told(&mut w, town, me, &folk), "somebody tells");
+    let guard = w.pursuits[0].guard;
+    while w.chase_pos(guard).is_none() && !w.pursuits.is_empty() {
+        w.step(0.25);
+    }
+    let g = w.chase_pos(guard).expect("the guard sets off");
+    // The thief behind the house nearest the guard, last seen there.
+    let s = w.settlements[town as usize].clone();
+    let d = (0..s.buildings.len() as u16).filter_map(|i| door_of(&s, i)).min_by(|a, b| a.centre.dist(g).total_cmp(&b.centre.dist(g))).expect("a house");
+    let away = d.centre.sub(g);
+    let hide = w.free_spot(d.centre.add(away.scale((d.radius + 3.0) / away.len().max(0.01))));
+    assert!(w.in_the_way(g, hide, 0.0).is_some(), "the house stands between the guard and the thief");
+    let k = w.squad.index(me).unwrap();
+    w.squad.at[k] = hide;
+    w.squad.goal[k] = hide;
+    w.squad.route[k].clear();
+    w.pursuits[0].last_seen = hide;
+    w.pursuits[0].seen_t = w.time;
+    let (mut trail, mut n) = (vec![g], 0);
+    while !w.pursuits.is_empty() && n < 20_000 {
+        w.step(0.25);
+        n += 1;
+        if let Some(at) = w.chase_pos(guard) {
+            trail.push(at);
+        }
+    }
+    for s in trail.windows(2) {
+        assert_eq!(w.in_the_way(s[0], s[1], 0.0), None, "the guard ran through something between {:?} and {:?}", s[0], s[1]);
+    }
+    assert!(w.log.iter().any(|l| l.1.contains("catches")), "and caught the thief: {:?}", w.log.iter().take(3).collect::<Vec<_>>());
+}
+
 #[test]
 fn a_thief_who_gets_away_has_a_bounty_instead() {
     let (mut w, town, me, folk) = in_town();

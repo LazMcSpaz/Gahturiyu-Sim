@@ -2095,4 +2095,13 @@ fn solid_outlines(fl: &mut Builder, w: &World, on_ground: &dyn Fn(V2) -> f32, ce
             _ => ring(fl, th.shape.outline().corners(), if th.blocks { STOPS } else { LETS_BY }),
         }
     }
+    // Each squad member's planned way, from where they stand.
+    const PLAN: Rgb = [0.98, 0.85, 0.15];
+    for k in 0..w.squad.members.len() {
+        let mut at = w.squad.at[k];
+        for &q in &w.squad.route[k] {
+            draped_ribbon(fl, on_ground, at, q, 0.08, 0.30, PLAN, 3.0);
+            at = q;
+        }
+    }
 }

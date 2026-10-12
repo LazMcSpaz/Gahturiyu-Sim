@@ -494,6 +494,7 @@ impl World {
         }
         let mut b = Battle::new(id, seed, t, fighters, names);
         b.lights = Some(self.fixed_lights_at(t));
+        b.around = self.around_fight(&b);
         for &m in &people {
             self.fighting.insert(m, id);
         }
@@ -1075,6 +1076,7 @@ impl World {
                 continue;
             };
             let parts = self.animals.frays[k].parts.clone();
+            self.around_fights();
             advance_fray(&mut self.battles[bi], &parts, t);
             if self.animals.frays[k].ends.is_none() && self.battles[bi].over {
                 let b = &self.battles[bi];

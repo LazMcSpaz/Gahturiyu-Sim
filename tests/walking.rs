@@ -396,3 +396,50 @@ fn townsfolk_stand_where_a_walker_can_stand() {
     }
     assert!(looked > 300 && bad.is_empty(), "{} of {looked} townsfolk stand where nobody could", bad.len());
 }
+
+/// Two who fall on each other from either side of a house go round it to
+/// meet, as anyone walks (`combat::Around`): no step in the fight passes
+/// through anything solid.
+#[test]
+fn fighters_go_round_what_is_solid() {
+    use gahturiyu_sim::sim::combat::{Battle, Fighter};
+    let w = worldgen::generate(1);
+    let s = &w.settlements[0];
+    let d = (0..s.buildings.len() as u16).filter_map(|i| w.door((s.id, i))).max_by(|a, b| a.half.y.total_cmp(&b.half.y)).expect("a building");
+    let side = unit(d.rot + 1.5708);
+    let (a, b) = (w.free_spot(d.centre.add(side.scale(d.half.y + 3.0))), w.free_spot(d.centre.sub(side.scale(d.half.y + 3.0))));
+    assert!(w.in_the_way(a, b, 0.0).is_some(), "the house stands between them");
+    let (pa, pb) = (&w.people[w.squad.members[0] as usize], &w.people[w.squad.members[1] as usize]);
+    let mut fight = Battle::new(1, 7, w.time, vec![Fighter::from_person(pa, 0, a, w.time), Fighter::from_person(pb, 1, b, w.time)], vec!["A".into(), "B".into()]);
+    fight.around = w.around_fight(&fight);
+    let mut at: Vec<V2> = fight.fighters.iter().map(|f| f.pos).collect();
+    let mut met = false;
+    for _ in 0..6000 {
+        if fight.over {
+            break;
+        }
+        fight.tick();
+        for (k, f) in fight.fighters.iter().enumerate() {
+            assert_eq!(w.in_the_way(at[k], f.pos, 0.0), None, "fighter {k} stepped through something from {:?} to {:?}", at[k], f.pos);
+            at[k] = f.pos;
+        }
+        met |= at[0].dist(at[1]) < 3.0;
+    }
+    assert!(met, "they found their way round to each other");
+}
+
+/// Every crafting station can be worked from where a walk to it ends: a
+/// roofed workplace's station stands at its middle, which nobody can reach,
+/// so beside the building counts.
+#[test]
+fn every_station_can_be_worked_from_beside_it() {
+    let w = worldgen::generate(1);
+    let mut far = Vec::new();
+    for &(s, kind) in &w.stations {
+        let stand = w.free_spot(s);
+        if w.station_near(stand, kind).is_none() {
+            far.push((s, stand.dist(s)));
+        }
+    }
+    assert!(!w.stations.is_empty() && far.is_empty(), "{} of {} stations can't be worked from beside them: {:?}", far.len(), w.stations.len(), &far[..far.len().min(5)]);
+}

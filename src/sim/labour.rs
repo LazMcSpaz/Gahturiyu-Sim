@@ -177,14 +177,13 @@ impl World {
         self.chases.retain(|c| !c.who.is_empty());
     }
 
-    /// Send a member to a spot: by the way round buildings, or straight
-    /// there if that way stops short of it.
+    /// Send a member to a spot: by the way round what's solid, to the
+    /// nearest spot beside it they can stand on (`free_spot`). Never
+    /// straight through anything: if no way gets there, as near as one does.
     pub(super) fn send(&mut self, who: PersonId, to: V2) -> bool {
         let Some(k) = self.squad.index(who) else { return false };
-        let (mut path, _) = self.route(self.member_pos(k), to);
-        if path.last().is_some_and(|e| e.dist(to) > REACH) {
-            path.push(to);
-        }
+        let to = self.free_spot(to);
+        let (path, _) = self.route(self.member_pos(k), to);
         self.squad.goal[k] = *path.last().unwrap_or(&to);
         self.squad.route[k] = path;
         self.squad.resting[k] = false;
