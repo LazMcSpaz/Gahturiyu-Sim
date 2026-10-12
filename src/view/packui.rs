@@ -299,7 +299,8 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
         let sx = ix + 40.0;
         let locked = w.fighter(pid).is_some();
         y += 6.0;
-        for s in SLOTS {
+        // Belt, brooch, neck and rings only when something's in them.
+        for s in SLOTS.into_iter().filter(|&s| !s.accessory() || gear.in_slot(s).is_some()) {
             let it = gear.in_slot(s);
             let row = Bx::new(sx - 4.0, y, col.x + col.w - sx - 8.0, SLOT_H);
             let l = if it.is_some() { kit::row(c, &row, st.menu.is_some_and(|m| m.0 == pid && m.1 == Pick::Worn(s))) } else { kit::Look::default() };

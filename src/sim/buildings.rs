@@ -587,7 +587,7 @@ impl World {
         let b = self.settlements[d.id.0 as usize].buildings[d.id.1 as usize].clone();
         let mut r = Rng::from_keys(&[b.seed, 0x4655_524E]);
         let common: &[&str] = &[
-            "cloth_shirt", "trousers", "knife", "club", "leather_cap", "boots", "small_pack", "lockpick", "padded_jacket", "leather_gloves", "hide", "reed_paper", "squid_ink", "timber",
+            "cloth_shirt", "trousers", "knife", "club", "leather_cap", "boots", "small_pack", "lockpick", "padded_jacket", "leather_gloves", "hide", "reed_paper", "ink", "timber",
             "kelp_frond", "healing_draught", "iron_ingot", "leather", "flatbread", "dried_fish", "salted_meat", "flatbread",
         ];
         let better: &[&str] = &["short_sword", "hide_coat", "war_pick", "spear", "buckler", "hide_leggings", "iron_helm"];

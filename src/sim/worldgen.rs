@@ -160,7 +160,7 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
         p.detail.as_mut().unwrap().gear.add(super::items::id("torch"), 2);
         // Something to make things with, to start.
         let starter: &[(&str, u16)] = match calling {
-            Calling::Mage => &[("mortar_and_pestle", 1), ("kelp_frond", 4), ("ash_moss", 2), ("ghostcap", 2), ("salt_crystal", 1), ("reed_paper", 2), ("squid_ink", 2), ("healing_draught", 2)],
+            Calling::Mage => &[("mortar_and_pestle", 1), ("bloodleaf", 4), ("wild_berries", 2), ("ghostcap", 2), ("salt_crystal", 1), ("reed_paper", 2), ("ink", 2), ("healing_draught", 2)],
             Calling::Hunter => &[("hide", 4), ("healing_draught", 1)],
             _ if race == Race::Qotiro => &[("iron_ingot", 3), ("leather", 1), ("timber", 2), ("healing_draught", 1)],
             _ => &[("healing_draught", 1)],

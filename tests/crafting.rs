@@ -53,7 +53,7 @@ fn a_mage_brews_a_potion_anywhere_with_a_mortar() {
     let before = w.count_of(m, "healing_draught");
     let skill = w.people[m as usize].stats.skill(Skill::Alchemy);
     w.start_craft(m, recipe("healing_draught")).expect("can brew");
-    assert_eq!(w.count_of(m, "kelp_frond"), 2, "materials go in at the start");
+    assert_eq!(w.count_of(m, "bloodleaf"), 2, "materials go in at the start");
     assert!(w.craft_progress(m).is_some());
     wait(&mut w, 45.0);
     assert!(w.craft_progress(m).is_none());
@@ -91,18 +91,18 @@ fn a_botched_job_gives_half_back() {
     w.people[m as usize].stats.set_skill(Skill::Alchemy, 0.0);
     assert!(success_chance(0.0, 45.0) < 0.1);
     // Plenty of materials for several tries at something too hard.
-    for (k, n) in [("kelp_frond", 20), ("ghostcap", 10), ("salt_crystal", 10)] {
+    for (k, n) in [("bloodleaf", 20), ("wild_berries", 10), ("ghostcap", 10)] {
         w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id(k), n);
     }
     let r = recipe("greater_healing");
     let mut botched = false;
     for _ in 0..4 {
-        let kelp = w.count_of(m, "kelp_frond");
+        let leaf = w.count_of(m, "bloodleaf");
         let made = w.count_of(m, "greater_healing");
         w.start_craft(m, r).unwrap();
         wait(&mut w, 65.0);
         if w.count_of(m, "greater_healing") == made {
-            assert_eq!(w.count_of(m, "kelp_frond"), kelp - 1, "half the kelp comes back");
+            assert_eq!(w.count_of(m, "bloodleaf"), leaf - 1, "half the bloodleaf comes back");
             botched = true;
             break;
         }

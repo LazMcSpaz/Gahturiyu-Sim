@@ -483,8 +483,9 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   shadow pass, so trees' shadows don't sway.
 - A figure is parts that clothes and armour go on (`view/dress.rs`): lower half,
   upper half, head (cap or helm), shoulders (only with shoulder pieces, none
-  made yet) and back (a pack). Each part's colour is what's worn in its slot,
-  by its material; with nothing there, work clothes by job (a guard's red, an
+  made yet) and back (a pack). Each part's colour is what's worn in its slot
+  (the over layer if any, else the under), by its material; with nothing
+  there, work clothes by job (a guard's red, an
   official's blue, a priest's white) or a seeded dye. Guards, officials and
   priests wear a chest band. No legs: Laz likes the figures as they are.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
@@ -650,6 +651,19 @@ time (Python, not part of the game build; `tools/voice/README.md`).
 - Deaths are rare, Kenshi-style: a head or torso at zero knocks you out; only
   falling to minus its maximum kills. Limbs at minus their maximum are lost.
 - No diseases, no aging; starvation knocks a squad member out, then, if nobody feeds them, kills them (Laz, 10 Oct, B2; slowly: a couple of days past collapsing).
+- Items follow Laz's items design (`docs/items-design.md`, split between the
+  two sessions in `docs/items-plan.md`). The data is one file per kind under
+  `src/sim/items/`. Slots: body and legs have an under and an over layer, a
+  cloak goes over the pack, and there are a belt, a brooch, the neck and two
+  rings (an item says `Ring`; `Gear::slot_for` picks the free hand). Every
+  form has a size in grid cells (`items::footprint`), for the grid inventory
+  to come. Gone (Laz, 0.1): the harpoon (the trident takes its place),
+  sandstone lamellar (now the plate cuirass), the kite shield (now the round
+  shield), ash moss; squid ink is plain ink (charcoal and ash). Renamed, keys
+  kept: Saltcrust, Hardgrain, Moorberry, Tallow. Kelp frond stays as food and
+  a ritual material, not an alchemy ingredient; bloodleaf takes ash moss's
+  place in the healing recipes and on the forage spots until alchemy is
+  redone (step 5).
 - Tents are bought items anyone can carry (Laz's call); there's no shop yet,
   so the squad's hunter starts with one.
 - The sea stays off-limits to the squad for now.

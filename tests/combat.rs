@@ -179,7 +179,7 @@ fn lightning_ignores_armour() {
         let mut target = brute(2);
         let d = target.detail.as_mut().unwrap();
         if !armoured {
-            for s in [items::Slot::Body, items::Slot::Head, items::Slot::Legs] {
+            for s in [items::Slot::BodyUnder, items::Slot::BodyOver, items::Slot::Head, items::Slot::LegsUnder, items::Slot::LegsOver] {
                 d.gear.unequip(s);
             }
         }

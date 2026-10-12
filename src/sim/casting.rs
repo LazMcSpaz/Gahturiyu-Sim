@@ -29,7 +29,7 @@ use super::world::World;
 
 /// What Transmute turns into what: (material, how many, becomes, how many).
 /// Each lot is one row's worth, worked down the list.
-pub const TRANSMUTE: &[(&str, u16, &str, u16)] = &[("iron_ore", 1, "iron_ingot", 1), ("hide", 1, "leather", 1), ("salt_crystal", 3, "storm_glass", 1), ("ash_moss", 2, "ghostcap", 1)];
+pub const TRANSMUTE: &[(&str, u16, &str, u16)] = &[("iron_ore", 1, "iron_ingot", 1), ("hide", 1, "leather", 1), ("salt_crystal", 3, "storm_glass", 1), ("bloodleaf", 2, "ghostcap", 1)];
 
 /// Preserve keeps bodies from rotting for this many hours.
 pub const PRESERVE_HOURS: f64 = 24.0;

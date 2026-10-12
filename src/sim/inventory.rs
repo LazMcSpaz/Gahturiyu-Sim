@@ -16,10 +16,10 @@ use super::stats::{Calling, Skill, Stats, ATTRS, SKILLS};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Gear {
-    slots: [Option<ItemId>; 10],
+    slots: [Option<ItemId>; SLOTS.len()],
     /// The made pieces being worn, slot by slot (wear and maker's mark).
     #[serde(default)]
-    pieces: [Option<Piece>; 10],
+    pieces: [Option<Piece>; SLOTS.len()],
     /// Everything not worn: (item, how many, and for a made piece its own
     /// state — such pieces never stack).
     pub bag: Vec<Entry>,
@@ -48,6 +48,16 @@ impl Gear {
 
     pub fn equipped(&self) -> impl Iterator<Item = ItemId> + '_ {
         self.slots.iter().flatten().copied()
+    }
+
+    /// Where something meant for `s` goes on: a ring on whichever hand is
+    /// free (the first if both are taken), anything else in its own slot.
+    pub fn slot_for(&self, s: Slot) -> Slot {
+        if s == Slot::Ring && self.in_slot(Slot::Ring).is_some() && self.in_slot(Slot::Ring2).is_none() {
+            Slot::Ring2
+        } else {
+            s
+        }
     }
 
     pub fn add(&mut self, id: ItemId, n: u16) {
@@ -154,10 +164,11 @@ impl Gear {
         if two_handed {
             self.unequip(Slot::OffHand);
         }
+        let to = self.slot_for(def.slot);
         let piece = self.take_piece(id).flatten();
-        self.unequip(def.slot);
-        self.slots[slot_index(def.slot)] = Some(id);
-        self.pieces[slot_index(def.slot)] = piece;
+        self.unequip(to);
+        self.slots[slot_index(to)] = Some(id);
+        self.pieces[slot_index(to)] = piece;
         Ok(())
     }
 
@@ -184,10 +195,11 @@ impl Gear {
             if two_handed {
                 self.unequip(Slot::OffHand);
             }
+            let to = self.slot_for(def.slot);
             let (id, piece) = self.take_entry(0).unwrap();
-            self.unequip(def.slot);
-            self.slots[slot_index(def.slot)] = Some(id);
-            self.pieces[slot_index(def.slot)] = piece;
+            self.unequip(to);
+            self.slots[slot_index(to)] = Some(id);
+            self.pieces[slot_index(to)] = piece;
             return Ok(());
         }
         self.equip(e.0)
@@ -335,7 +347,7 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
             (Skill::Blunt, Race::Roduro) => &["club", "stone_maul"],
             (Skill::Blunt, Race::Qotiro) => &["club", "war_pick"],
             (Skill::Blunt, _) => &["club", "war_pick"],
-            (_, Race::Horaro) => &["spear", "harpoon", "glaive"],
+            (_, Race::Horaro) => &["spear", "trident", "glaive"],
             _ => &["spear", "glaive"],
         }
     };
@@ -363,12 +375,12 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     if stats.calling != Calling::Mage {
         wishlist.extend(["scale_hauberk", "iron_helm", "scale_greaves"]);
         if race == Race::Qotiro {
-            wishlist.insert(0, "sandstone_lamellar");
+            wishlist.insert(0, "plate_cuirass");
         }
     }
     wishlist.extend(["hide_coat", "padded_jacket", "leather_cap", "hide_leggings", "boots", "leather_gloves"]);
     if !two_handed && stats.calling == Calling::Warrior {
-        wishlist.insert(1, "kite_shield");
+        wishlist.insert(1, "round_shield");
         wishlist.push("buckler");
     }
     if rng.chance(0.6) {
@@ -400,12 +412,12 @@ mod tests {
     #[test]
     fn two_handed_weapons_need_both_hands() {
         let mut g = Gear::default();
-        g.wear(items::id("kite_shield"));
+        g.wear(items::id("round_shield"));
         g.add(items::id("glaive"), 1);
         g.equip(items::id("glaive")).unwrap();
         assert_eq!(g.in_slot(Slot::OffHand), None, "the shield should come off");
-        assert!(g.bag.iter().any(|e| e.0 == items::id("kite_shield")));
-        g.equip(items::id("kite_shield")).unwrap();
+        assert!(g.bag.iter().any(|e| e.0 == items::id("round_shield")));
+        g.equip(items::id("round_shield")).unwrap();
         assert_eq!(g.in_slot(Slot::MainHand), None, "the glaive should come off");
     }
 
