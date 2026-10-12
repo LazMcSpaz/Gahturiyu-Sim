@@ -149,6 +149,9 @@ pub struct Shot {
     /// `GAHT_FACTIONS=1`: the nearest town held by the Banner Lords, a few
     /// deeds done for and against factions, and the journal open on Standing.
     pub factions: bool,
+    /// `GAHT_WEAR=key,key`: squad member 0 puts these on (any wearable item
+    /// keys), to see them on the figure.
+    pub wear: Option<String>,
     /// `GAHT_FEUD=1`: two households in the nearest town fall out and the
     /// world runs on; the town panel's debug readout shows how it went.
     pub feud: bool,
@@ -245,6 +248,7 @@ impl Shot {
             convo: var("GAHT_CONVO").is_some(),
             guard: var("GAHT_GUARD").is_some(),
             factions: var("GAHT_FACTIONS").is_some(),
+            wear: var("GAHT_WEAR"),
             feud: var("GAHT_FEUD").is_some(),
             edit: var("GAHT_EDIT").is_some(),
             society: var("GAHT_SOCIETY"),
@@ -853,6 +857,18 @@ impl Shot {
                 let opts = world.topics();
                 if let Some(t) = opts.iter().find(|t| matches!(t, Topic::Say(_))) {
                     world.ask(*t);
+                }
+            }
+        }
+        if let Some(keys) = self.wear.clone() {
+            let m = world.squad.members[0];
+            for k in keys.split(',').map(str::trim).filter(|k| !k.is_empty()) {
+                let id = gahturiyu_sim::sim::items::id(k);
+                if let Some(d) = world.people[m as usize].detail.as_mut() {
+                    d.gear.add(id, 1);
+                }
+                if !world.equip(m, id) {
+                    eprintln!("GAHT_WEAR: couldn't put on {k}");
                 }
             }
         }

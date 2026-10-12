@@ -668,7 +668,19 @@ pub fn on_figure(b: &mut Builder, w: &World, pid: PersonId, base: Vec3, fwd: Vec
     let Some(gear) = w.people[pid as usize].detail.as_ref().map(|d| &d.gear) else { return };
     let up = Vec3::Y;
     let pack = gear.in_slot(Slot::Back).is_some();
-    if let Some(id) = gear.in_slot(Slot::Cloak).filter(|&i| worn_round(i)) {
+    let worn_key = gear.in_slot(Slot::Cloak).map(|i| item(info(i).form).key);
+    if let (Some(id), Some("courier_sash" | "healers_sash")) = (gear.in_slot(Slot::Cloak), worn_key) {
+        // A sash: a band from one shoulder across the chest to the other hip.
+        let c = base + up * ((body + waist) * 0.5);
+        let along = (up + side).normalize() * ((body - waist) * 0.62);
+        let across = (side - up).normalize() * (r * 0.16);
+        b.cuboid(c, along, across, fwd * (r * 1.03), scale(colour(id, Main), lift));
+    } else if let (Some(id), Some("work_apron" | "kitchen_apron")) = (gear.in_slot(Slot::Cloak), worn_key) {
+        // An apron: a panel down the front, chest to knee.
+        let (top, bottom) = (body - r * 0.35, waist * 0.35);
+        let c = base + up * ((top + bottom) * 0.5) + fwd * (r * 1.0);
+        b.cuboid(c, up * ((top - bottom) * 0.5), side * (r * 0.78), fwd * (r * 0.05), scale(colour(id, Main), lift));
+    } else if let Some(id) = gear.in_slot(Slot::Cloak).filter(|&i| worn_round(i)) {
         // An overcoat or a role garment: round the body, from the shoulders down.
         let (top, bottom) = (body - r * 0.1, waist * if item(info(id).form).key == "guard_tabard" { 0.7 } else { 0.25 });
         let c = base + up * ((top + bottom) * 0.5);
