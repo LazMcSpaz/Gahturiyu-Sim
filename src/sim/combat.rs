@@ -202,6 +202,23 @@ pub const FIRST_STRIKE: f32 = 0.7;
 pub const PUSH_CHANCE: f32 = 0.55;
 pub const INSIDE: f32 = 0.55;
 pub const CROWDED_HIT: f32 = 0.6;
+/// A thrown flask (Part 4 rule 8): how far it can be thrown, the nearest
+/// worth throwing it, how wide it splashes, its wind-up and recovery, and
+/// what it's thrown in.
+pub const FLASK_RANGE: f32 = 14.0;
+pub const FLASK_NEAREST: f32 = 3.0;
+pub const FLASK_RADIUS: f32 = 2.5;
+pub const FLASK_WINDUP: f64 = 0.8;
+pub const FLASK_RECOVER: f64 = 0.6;
+pub const FLASK: &str = "sandglass_flask";
+/// A Burn flask: hurt a second while it burns, and for how long; a Smoke
+/// flask's cloud, how long (each by the brew's strength and its harm's length).
+pub const FLASK_BURN: f32 = 2.0;
+pub const FLASK_BURN_SECS: f32 = 6.0;
+pub const FLASK_SMOKE_SECS: f32 = 25.0;
+/// A blow must do this much (after armour) to carry a blade's poison in.
+pub const COATING_WOUNDS: f32 = 1.0;
+
 /// What a landed blow does to the body (its wounds and the bleed it opens),
 /// after armour, on top of the weapon's numbers: the one dial for how many
 /// hits it takes to down someone (Part 1, B2; Laz, 12 Oct: twice). How
@@ -328,6 +345,8 @@ pub enum Act {
     Bind { who: usize, item: ItemId, done: f64 },
     /// Throwing a weapon (from the hand, or a spare from the pack).
     Throw { target: usize, item: ItemId, lands: f64 },
+    /// Throwing a harmful brew in a flask at a spot (Part 4 rule 8).
+    Flask { at: V2, mix: Mix, lands: f64 },
 }
 
 /// What the player (or a leader) has told someone to do.
@@ -423,6 +442,13 @@ pub struct Fighter {
     pub bottles: Vec<Mix>,
     #[serde(default)]
     pub drunk: Vec<Mix>,
+    /// Sandglass flasks carried to throw a harmful brew in (Part 4 rule 8).
+    #[serde(default)]
+    pub flasks: u16,
+    /// Poison on their hand weapon: the mix, and the wounding blows left
+    /// (Part 4 rule 9; `coating.rs`).
+    #[serde(default)]
+    pub coating: Option<(Mix, u16)>,
     /// Toxicity (the alchemist's meter, `condition.rs`): what they came in
     /// with plus what they've drunk since. It doesn't drain in a fight.
     #[serde(default)]
@@ -571,6 +597,8 @@ impl Fighter {
             toxic: p.cond.as_ref().map(|c| c.tox_at(t)).unwrap_or(0.0),
             bottles: gear.bottles(),
             drunk: Vec::new(),
+            flasks: count(FLASK),
+            coating: None,
             quick: gear.quick(),
             offhand: gear.in_slot(super::items::Slot::OffHand).and_then(|id| item(id).weapon().copied()).filter(|w| offhand_ok(w) && !held.two_handed),
             weapon_item: gear.in_slot(super::items::Slot::MainHand),
@@ -656,6 +684,8 @@ impl Fighter {
             toxic: 0.0,
             bottles: Vec::new(),
             drunk: Vec::new(),
+            flasks: 0,
+            coating: None,
             quick: Vec::new(),
             offhand: None,
             weapon_item: None,
@@ -869,6 +899,9 @@ pub enum FxKind {
     /// A weapon thrown from `from`, coming down at `to` (`hit`: on the one
     /// it was thrown at); `broke`: in pieces when it lands.
     Throw { item: ItemId, from: V2, to: V2, hit: bool, broke: bool },
+    /// A flask bursting at `at` (its splash `radius`), coloured by `does`
+    /// (the harm it carries most).
+    Splash { at: V2, radius: f32, does: Does },
 }
 
 /// A visual moment for the window to show.
@@ -1166,6 +1199,12 @@ impl Battle {
                         self.throw_at(i, target, it, &mut rng);
                         let rec = item(it).weapon().map(|w| w.recover).unwrap_or(0.5) * self.fighters[i].attack_time();
                         self.fighters[i].act = Act::Recover { until: t + rec as f64 };
+                    }
+                }
+                Act::Flask { at, mix, lands } => {
+                    if t >= lands {
+                        self.flask_burst(i, at, mix);
+                        self.fighters[i].act = Act::Recover { until: t + FLASK_RECOVER * self.fighters[i].attack_time() as f64 };
                     }
                 }
                 Act::Idle => self.idle(i),
@@ -1664,6 +1703,18 @@ impl Battle {
         if cut > 0.5 * DAMAGE_SCALE && !stopped && r_bleed < bleed_chance(&weapon) && !self.fighters[d].dead && self.fighters[d].summon.is_none_or(|s| !s.mindless) {
             self.open_bleed(d, cut * BLEED_PER_CUT);
         }
+        // Poison on the blade goes in with a blow that wounds (Part 4 rule
+        // 9): one the armour mostly stopped carries none.
+        if cut + blunt > COATING_WOUNDS && !stopped && !self.fighters[d].dead {
+            if let Some((mix, left)) = self.fighters[a].coating.filter(|c| c.1 > 0) {
+                self.fighters[a].coating = Some((mix, left - 1));
+                let src = Source { by: a, spell: None, target: Some(d), point: self.fighters[d].pos, skill: 1.0, r_dmg: 0.5, r_resist: (r_down * 5.3).fract() };
+                for e in mix.effects().into_iter().filter(|e| e.does.harmful()) {
+                    self.affect(&src, &e, d, 1.0);
+                }
+                self.say(format!("{an}'s poisoned blade bites."));
+            }
+        }
         // A long weapon meeting someone on their way in can drive them back
         // out of their own reach (rule 4).
         if blow.follow && !shot && self.keeps_at_bay(a, d) && r_push < PUSH_CHANCE {
@@ -2003,7 +2054,7 @@ impl Battle {
     fn stagger(&mut self, d: usize) {
         let t = self.time;
         let f = &mut self.fighters[d];
-        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. } | Act::Throw { .. }) {
+        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. } | Act::Throw { .. } | Act::Flask { .. }) {
             f.act = Act::Recover { until: t + STAGGER_SECS };
         }
         f.think_at = f.think_at.max(t + STAGGER_SECS);
@@ -2136,6 +2187,66 @@ impl Battle {
     }
 
     /// Start drinking a brewed bottle of this mix from the pack.
+    /// Throw a harmful brew in a flask at `at` (Part 4 rule 8): the bottle
+    /// and a flask are used up (written back like a bottle drunk).
+    pub fn begin_flask(&mut self, i: usize, mix: Mix, at: V2) -> bool {
+        if self.busy_with_hands(i) || self.fighters[i].flasks == 0 || !mix.harms() {
+            return false;
+        }
+        let f = &mut self.fighters[i];
+        if f.pos.dist(at) > FLASK_RANGE {
+            return false;
+        }
+        let Some(k) = f.bottles.iter().position(|m| *m == mix) else { return false };
+        f.bottles.remove(k);
+        f.drunk.push(mix);
+        f.flasks -= 1;
+        f.used.push(super::items::id(FLASK));
+        let windup = FLASK_WINDUP * f.attack_time() as f64;
+        f.act = Act::Flask { at, mix, lands: self.time + windup };
+        let name = self.names[i].clone();
+        self.say(format!("{name} hurls a flask of {}.", mix.name().to_lowercase()));
+        true
+    }
+
+    /// A flask bursts at `at`: everyone in the splash, friend or foe, gets
+    /// what it carries that harms (each may throw it off as from a spell);
+    /// a smoke in it hangs there as a cloud.
+    fn flask_burst(&mut self, i: usize, at: V2, mix: Mix) {
+        let mut harms: Vec<Effect> = mix.effects().into_iter().filter(|e| e.does.harmful()).collect();
+        // Burn and Smoke are for flasks (drunk, they only sicken): it sets
+        // the splash alight, or leaves a cloud there, by the brew's strength.
+        for a in mix.carries() {
+            match a {
+                super::items::herbs::Alch::Burn => harms.push(super::effects::lasting(Does::Burning, FLASK_BURN * mix.power, FLASK_BURN_SECS * mix.bad_for, Reach::Caster)),
+                super::items::herbs::Alch::Smoke => harms.push(super::effects::lasting(Does::Smoke, 1.0, FLASK_SMOKE_SECS * mix.bad_for, Reach::Caster)),
+                _ => {}
+            }
+        }
+        let from = self.fighters[i].pos;
+        let main = harms.iter().map(|e| e.does).find(|&d| d != Does::Smoke).or(harms.first().map(|e| e.does)).unwrap_or(Does::Poison);
+        self.fx.push(Fx { kind: FxKind::Throw { item: super::items::id(FLASK), from, to: at, hit: false, broke: true }, at: self.time });
+        self.fx.push(Fx { kind: FxKind::Splash { at, radius: FLASK_RADIUS, does: main }, at: self.time });
+        let caught: Vec<usize> = (0..self.fighters.len()).filter(|&j| !self.fighters[j].dead && !self.fighters[j].fled && self.fighters[j].pos.dist(at) <= FLASK_RADIUS).collect();
+        for e in &harms {
+            if e.does == Does::Smoke {
+                let secs = if let Lasts::Secs(s) = e.lasts { s as f64 } else { 20.0 };
+                let (side, owner) = (self.fighters[i].side, self.fighters[i].pid);
+                self.zones.push(Zone { does: Does::Smoke, pos: at, radius: FLASK_RADIUS * 1.6, power: e.power, until: self.time + secs, side, owner, fresh: true });
+                continue;
+            }
+            for &j in &caught {
+                let r = Rng::from_keys(&[self.seed, self.ticks, i as u64, j as u64, 0x464C_534B]);
+                let mut r = r;
+                let src = Source { by: i, spell: None, target: Some(j), point: at, skill: 1.0, r_dmg: r.f32(), r_resist: r.f32() };
+                self.affect(&src, e, j, 1.0);
+            }
+        }
+        let name = self.names[i].clone();
+        let n = caught.iter().filter(|&&j| self.hostile(i, j)).count();
+        self.say(format!("{name}'s flask bursts{}.", if n > 1 { format!(" over {n} of them") } else { String::new() }));
+    }
+
     pub fn begin_drink_mix(&mut self, i: usize, mix: Mix) -> bool {
         if self.busy_with_hands(i) {
             return false;

@@ -6,6 +6,7 @@ pub mod animals;
 pub mod bands;
 pub mod bedding;
 pub mod campfire;
+pub mod coating;
 pub mod drunk;
 pub mod haze;
 pub mod base;

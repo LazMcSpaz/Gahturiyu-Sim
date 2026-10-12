@@ -148,6 +148,13 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
             }
         }
     }
+    // A harmful brew in a flask at a knot of foes, with no friend in the
+    // splash (Part 4 rule 8).
+    if let Some((m, at)) = flask_aim(b, i) {
+        if b.begin_flask(i, m, at) {
+            return;
+        }
+    }
     let me = &b.fighters[i];
     let tonic = me.potions.iter().copied().find(|&p| potion(p, Does::Energy) > 0.0);
     if !me.spells.is_empty() && me.mana < 15.0 {
@@ -159,6 +166,33 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     if !me.spells.is_empty() || !me.scrolls.is_empty() || me.held.is_some() {
         try_spell(b, i, target, r_spell);
     }
+}
+
+/// Where to throw a flask, and which: at the foe with the most of their
+/// side round them (two or more, or the last one standing), in range, with
+/// no friend (themselves included) in the splash. The bottle is the one
+/// that's mostly harm (by what it does, never its name).
+fn flask_aim(b: &Battle, i: usize) -> Option<(super::items::herbs::Mix, super::geo::V2)> {
+    use super::combat::{FLASK_NEAREST, FLASK_RADIUS, FLASK_RANGE};
+    let me = &b.fighters[i];
+    if me.flasks == 0 {
+        return None;
+    }
+    let mix = me.bottles.iter().copied().filter(|m| m.main().is_some_and(|a| a.harmful())).max_by(|a, b| a.power.total_cmp(&b.power))?;
+    let foes: Vec<usize> = (0..b.fighters.len()).filter(|&j| b.hostile(i, j) && b.fighters[j].active() && !b.fighters[j].is_decoy()).collect();
+    let best = foes
+        .iter()
+        .copied()
+        .filter(|&j| (FLASK_NEAREST..=FLASK_RANGE).contains(&me.pos.dist(b.fighters[j].pos)))
+        .map(|j| {
+            let at = b.fighters[j].pos;
+            let caught = foes.iter().filter(|&&k| b.fighters[k].pos.dist(at) <= FLASK_RADIUS).count();
+            let friends = (0..b.fighters.len()).filter(|&k| !b.hostile(i, k) && !b.fighters[k].dead && b.fighters[k].pos.dist(at) <= FLASK_RADIUS + 0.5).count();
+            (j, at, caught, friends)
+        })
+        .filter(|&(_, _, caught, friends)| friends == 0 && (caught >= 2 || foes.len() == 1))
+        .max_by(|a, b| a.2.cmp(&b.2).then(b.0.cmp(&a.0)))?;
+    Some((mix, best.1))
 }
 
 /// Is an enemy on their feet close enough to land a blow before a bandage
