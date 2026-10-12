@@ -679,8 +679,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   to come) and the 38 armour forms plus belts. What a worn piece costs and
   gives beyond protection (padding, a helm's knockout guard, noise, sight,
   warmth, keeping dry, soaking, slowness, hiding what's beneath) is
-  `items::wears(id)`, a table by form beside each file's items: data for the
-  rules of Part 2 (0.3), which don't read it yet.
+  `items::wears(id)`, a table by form beside each file's items. The fight
+  rules read it (0.3): a blow meets the cloak, then the over layer (and
+  helm, gloves, boots), then the under layer, then the skin; the most
+  padding among the layers it met eases staggers and knockdowns
+  (`combat::PADDING_EASE`), a helm's guard takes knockout force out of a
+  blunt head blow (`HELM_KO`) and can turn a sap. Noise from what's worn is
+  `Gear::wear_noise` (stealth), slowness `Gear::wear_pace` (fights and the
+  squad's walking), eased by strength. Warmth, dry and wind wait on the
+  weather hooks.
   Tools (Part 6): a deposit's `Face` names its tool and a makeshift
   (`labour::FACES`): an axe cuts timber in `TOOL_TIME` (less at a better
   grade), a hatchet in `MAKESHIFT_TIME`; a seam can't be worked without a

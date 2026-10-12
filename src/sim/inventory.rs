@@ -55,6 +55,10 @@ pub struct Placed {
     pub turned: bool,
 }
 
+/// Noise from what's worn: per kilogram, and per point of a piece's clank.
+pub const WEAR_NOISE_PER_KG: f32 = 0.015;
+pub const WEAR_CLANK: f32 = 0.8;
+
 /// Pockets: what anyone carries without a pack, (wide, tall) cells.
 pub const POCKETS: (u8, u8) = (6, 5);
 
@@ -423,6 +427,22 @@ impl Gear {
     }
 
     /// Travel and fight speed with the containers carried, 0..1.
+    /// Heavy armour's slowing (`items::wears`), eased by strength: the
+    /// strong carry plate better (0.3, rule 5; no hard minimum).
+    pub fn wear_pace(&self, strength: f32) -> f32 {
+        let slow: f32 = self.equipped().map(|i| items::wears(i).slow).sum();
+        let eased = (1.0 - strength / 150.0).clamp(0.3, 1.0);
+        (1.0 - slow * eased).max(0.5)
+    }
+
+    /// How much noise what's worn makes when moving: by weight a little, and
+    /// by each piece's own clank (mail and plate loud, soft shoes quieter).
+    pub fn wear_noise(&self) -> f32 {
+        let worn: f32 = self.equipped().filter(|&i| matches!(item(i).kind, Kind::Armor(_)) || item(i).slot == Slot::OffHand).map(|i| item(i).weight).sum();
+        let clank: f32 = self.equipped().map(|i| items::wears(i).noise).sum();
+        (worn * WEAR_NOISE_PER_KG + clank * WEAR_CLANK).max(0.0)
+    }
+
     pub fn pack_pace(&self) -> f32 {
         self.fullness().iter().filter_map(|&(s, full)| self.in_slot(s).and_then(items::container).map(|c| 1.0 - c.slow * (BULK_EMPTY + (1.0 - BULK_EMPTY) * full))).product::<f32>().max(0.2)
     }
