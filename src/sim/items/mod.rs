@@ -129,6 +129,80 @@ pub struct WeaponDef {
     /// Chance a hit tangles the target up for a few seconds (nets).
     #[serde(default)]
     pub entangle: f32,
+    // ---- The fight rules of the items design, 0.2 (`combat.rs`) ----
+    /// Chance a cutting hit opens a bleed, 0..1.
+    #[serde(default)]
+    pub bleed: f32,
+    /// The room it needs to be swung well (tight places hurt `Long`).
+    #[serde(default)]
+    pub space: Space,
+    /// How many it can catch in one swing (0 or 1: just the one aimed at).
+    #[serde(default)]
+    pub sweep: u8,
+    /// A sneak attack's multiplier (0: the usual, `combat::SNEAK_ATTACK`).
+    #[serde(default)]
+    pub sneak: f32,
+    /// A sneak attack with it knocks out instead of wounding (the sap).
+    #[serde(default)]
+    pub stuns: bool,
+    /// How easily it's hidden on the body, 0..1 (`combat::notices`).
+    #[serde(default)]
+    pub conceal: f32,
+    /// Can be thrown (it flies and lands where it stops).
+    #[serde(default)]
+    pub thrown: bool,
+    /// Chance a thrown one breaks when it hits something, 0..1.
+    #[serde(default)]
+    pub breaks: f32,
+    /// Can go in the off hand, to parry with.
+    #[serde(default)]
+    pub offhand: bool,
+}
+
+/// How much room a weapon needs to be swung well (the items design, 0.2
+/// rule 5): long and sweeping weapons suffer indoors, in alleys and crowds.
+/// Long ones are the reach weapons that keep foes at bay (rule 4);
+/// sweeping ones are swung wide (the maul, the greatsword).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Space {
+    Short,
+    #[default]
+    Medium,
+    Long,
+    Sweep,
+}
+
+/// The fight-rule numbers of a weapon line, laid over it with `fits`.
+#[derive(Clone, Copy)]
+pub(super) struct Fits {
+    pub bleed: f32,
+    pub space: Space,
+    pub sweep: u8,
+    pub sneak: f32,
+    pub stuns: bool,
+    pub conceal: f32,
+    pub thrown: bool,
+    pub breaks: f32,
+    pub offhand: bool,
+}
+
+pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false };
+
+/// A weapon line with its fight-rule numbers.
+pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
+    if let Kind::Weapon(mut w) = d.kind {
+        w.bleed = f.bleed;
+        w.space = f.space;
+        w.sweep = f.sweep;
+        w.sneak = f.sneak;
+        w.stuns = f.stuns;
+        w.conceal = f.conceal;
+        w.thrown = f.thrown;
+        w.breaks = f.breaks;
+        w.offhand = f.offhand;
+        d.kind = Kind::Weapon(w);
+    }
+    d
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -143,6 +217,10 @@ pub struct ArmorDef {
     pub blunt: f32,
     /// Taken off the chance to dodge.
     pub dodge_penalty: f32,
+    /// How well it's hidden when worn, 0..1: an under layer, gloves and
+    /// boots go unseen; a helm or a coat of plates is plain to see.
+    #[serde(default)]
+    pub conceal: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -208,7 +286,7 @@ const fn weapon(key: &'static str, name: &'static str, skill: Skill, cut: f32, b
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 }),
+        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, ..FISTS }),
         weight,
         value,
         effects: &[],
@@ -217,7 +295,18 @@ const fn weapon(key: &'static str, name: &'static str, skill: Skill, cut: f32, b
 
 #[allow(clippy::too_many_arguments)]
 const fn armor(key: &'static str, name: &'static str, slot: Slot, covers: &'static [Part], coverage: f32, cut: f32, blunt: f32, dodge_penalty: f32, weight: f32, value: f32) -> ItemDef {
-    ItemDef { key, name, slot, kind: Kind::Armor(ArmorDef { covers, coverage, cut, blunt, dodge_penalty }), weight, value, effects: &[] }
+    ItemDef { key, name, slot, kind: Kind::Armor(ArmorDef { covers, coverage, cut, blunt, dodge_penalty, conceal: worn_unseen(slot) }), weight, value, effects: &[] }
+}
+
+/// How well a worn piece is hidden, by where it's worn (the line can say
+/// otherwise): under layers, gloves and boots go unseen, a helm never.
+const fn worn_unseen(slot: Slot) -> f32 {
+    match slot {
+        Slot::BodyUnder | Slot::LegsUnder => 0.75,
+        Slot::Hands | Slot::Feet => 0.4,
+        Slot::BodyOver | Slot::LegsOver | Slot::Cloak => 0.1,
+        _ => 0.0,
+    }
 }
 
 const fn material(key: &'static str, name: &'static str, weight: f32, value: f32) -> ItemDef {
@@ -231,7 +320,7 @@ const fn ranged(key: &'static str, name: &'static str, cut: f32, blunt: f32, ran
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, parry: 0.0, range, ammo: Some(ammo), pierce: 0.0, entangle: 0.0 }),
+        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, range, ammo: Some(ammo), space: Space::Short, ..FISTS }),
         weight,
         value,
         effects: &[],
@@ -499,4 +588,26 @@ impl ItemDef {
 }
 
 /// Bare hands, when nothing is held.
-pub const FISTS: WeaponDef = WeaponDef { skill: Skill::Unarmed, cut: 0.0, blunt: 4.0, reach: 0.8, windup: 0.35, recover: 0.35, two_handed: false, parry: 0.0, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 };
+pub const FISTS: WeaponDef = WeaponDef {
+    skill: Skill::Unarmed,
+    cut: 0.0,
+    blunt: 4.0,
+    reach: 0.8,
+    windup: 0.35,
+    recover: 0.35,
+    two_handed: false,
+    parry: 0.0,
+    range: 0.0,
+    ammo: None,
+    pierce: 0.0,
+    entangle: 0.0,
+    bleed: 0.0,
+    space: Space::Short,
+    sweep: 0,
+    sneak: 0.0,
+    stuns: false,
+    conceal: 0.0,
+    thrown: false,
+    breaks: 0.0,
+    offhand: false,
+};

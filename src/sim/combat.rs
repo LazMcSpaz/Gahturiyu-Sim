@@ -105,72 +105,52 @@ pub const KNOCKDOWN_SECS: f64 = 2.0;
 pub const BLUNT_TO_KO: f32 = 1.25;
 pub const BLUNT_PAST_KO: f32 = 0.4;
 
-/// Chance a cutting blow from `w` opens a bleed.
-/// TODO(items): read `WeaponDef::bleed` once it exists; until then, from how
-/// much of its damage is cut.
+/// Chance a cutting blow from `w` opens a bleed (`WeaponDef::bleed`).
 pub fn bleed_chance(w: &WeaponDef) -> f32 {
     if w.cut <= 0.0 {
-        return 0.0;
+        0.0
+    } else {
+        w.bleed
     }
-    0.45 * w.cut / (w.cut + w.blunt)
 }
 
 /// A sneak attack's multiplier on the damage before the attacker's Sneak
-/// adds to it: the knife's is highest by far.
-/// TODO(items): read `WeaponDef::sneak`; until then quick light blades are
-/// the knife's kind, two-handed weapons the clumsiest.
+/// adds to it (`WeaponDef::sneak`): the knife's is highest by far.
 pub fn sneak_mult(w: &WeaponDef) -> f32 {
-    if w.skill == Skill::Blade && w.windup <= 0.4 && w.range == 0.0 {
-        4.0
-    } else if w.two_handed {
-        1.5
+    if w.sneak > 0.0 {
+        w.sneak
     } else {
         SNEAK_ATTACK
     }
 }
 
 /// A sneak attack with it knocks out instead of wounding (the sap).
-/// TODO(items): read `WeaponDef::stuns`; until then a quick, light,
-/// all-blunt weapon (none yet: the sap comes with the new forms).
 pub fn stuns(w: &WeaponDef) -> bool {
-    w.skill == Skill::Blunt && w.cut == 0.0 && w.blunt > 0.0 && w.windup <= 0.4 && w.range == 0.0
+    w.stuns
 }
 
 // ---- Room to swing, reach and the off hand (rules 4-6) -----------------------
 
-/// How much room a weapon needs to be swung well (rule 5).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Space {
-    Short,
-    Medium,
-    Long,
-}
+pub use super::items::Space;
 
-/// The room a weapon needs.
-/// TODO(items): read `WeaponDef::space`; until then from its reach (bows and
-/// the like need none: they're drawn, not swung).
+/// The room a weapon needs (bows and the like need none: they're drawn,
+/// not swung).
 pub fn space_of(w: &WeaponDef) -> Space {
-    if w.range > 0.0 || w.reach <= 1.0 {
+    if w.range > 0.0 {
         Space::Short
-    } else if w.reach < 1.6 {
-        Space::Medium
     } else {
-        Space::Long
+        w.space
     }
 }
 
 /// Swung in a wide arc that can catch two or three at once (rule 5).
-/// TODO(items): read `WeaponDef::sweep`; until then heavy two-handed weapons
-/// swung rather than thrust (the maul, the glaive).
 pub fn sweeps(w: &WeaponDef) -> bool {
-    w.two_handed && w.range == 0.0 && w.entangle == 0.0 && (w.blunt >= 15.0 || (w.skill != Skill::Blunt && w.cut >= 14.0))
+    w.sweep > 1 && w.range == 0.0
 }
 
 /// Can go in the off hand, to parry with (rule 6).
-/// TODO(items): read `WeaponDef::offhand`; until then a short one-handed
-/// blade that's mostly edge (the knife, the short sword; the dirk to come).
 pub fn offhand_ok(w: &WeaponDef) -> bool {
-    w.range == 0.0 && !w.two_handed && w.skill == Skill::Blade && w.reach <= 1.1 && w.cut >= w.blunt * 2.5
+    w.offhand && !w.two_handed && w.range == 0.0
 }
 
 /// Long and sweeping weapons in tight places (indoors, an alley, friends
@@ -182,10 +162,9 @@ pub const TIGHT_HIT: f32 = 0.3;
 pub const TIGHT_ROOM: f32 = 2.0;
 pub const CROWD_NEAR: f32 = 1.6;
 pub const CROWD_EACH: f32 = 0.35;
-/// A sweep catches up to this many more within reach and this wide an arc
-/// (cosine of the half-angle), for this share of the blow; friends too once
-/// it's this tight.
-pub const SWEEP_MORE: usize = 2;
+/// A sweep catches the rest of its `WeaponDef::sweep` within reach and
+/// this wide an arc (cosine of the half-angle), for this share of the blow;
+/// friends too once it's this tight.
 pub const SWEEP_COS: f32 = 0.5;
 pub const SWEEP_SHARE: f32 = 0.6;
 pub const SWEEP_ALLIES: f32 = 0.5;
@@ -499,7 +478,7 @@ impl Fighter {
         for (i, part) in PARTS.iter().enumerate() {
             max_hp[i] = stats.max_hp(*part) * c.hp * power;
         }
-        let weapon = WeaponDef { skill: Skill::Unarmed, cut: c.cut * power, blunt: c.blunt * power, reach: c.reach, windup: 0.5, recover: 0.45, two_handed: false, parry: 0.0, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 };
+        let weapon = WeaponDef { cut: c.cut * power, blunt: c.blunt * power, reach: c.reach, windup: 0.5, recover: 0.45, bleed: if c.cut > 0.0 { 0.3 } else { 0.0 }, ..FISTS };
         Fighter {
             pid: NOBODY,
             side,
@@ -1368,7 +1347,7 @@ impl Battle {
         // Armour on that part: each layer that covers it may catch the blow.
         // Toughened skin is one more layer, everywhere.
         let skin = self.fighters[d].power(Does::Toughen).min(0.8);
-        let skin = ArmorDef { covers: &PARTS, coverage: 1.0, cut: skin, blunt: skin * 0.6, dodge_penalty: 0.0 };
+        let skin = ArmorDef { covers: &PARTS, coverage: 1.0, cut: skin, blunt: skin * 0.6, dodge_penalty: 0.0, conceal: 1.0 };
         // (Indices into the armour worn; None for the skin.)
         let mut layers: Vec<(Option<usize>, ArmorDef)> = self.fighters[d].armor.iter().enumerate().filter(|(_, a)| a.covers.contains(&part)).map(|(i, a)| (Some(i), *a)).collect();
         if skin.cut > 0.0 {
@@ -1621,7 +1600,7 @@ impl Battle {
             })
             .collect();
         caught.sort_by(|x, y| x.1.total_cmp(&y.1).then(x.0.cmp(&y.0)));
-        for (j, _) in caught.into_iter().take(SWEEP_MORE) {
+        for (j, _) in caught.into_iter().take(w.sweep.saturating_sub(1) as usize) {
             let mut r = Rng::from_keys(&[self.seed, self.ticks, a as u64, j as u64, 0x5357_4545]);
             self.resolve_blow(a, j, &mut r, Blow { share: SWEEP_SHARE, weapon: None, follow: false });
         }
@@ -2397,7 +2376,7 @@ struct Source {
 
 /// Long and sweeping weapons need room (rule 5); short and middling don't.
 pub fn needs_room(w: &WeaponDef) -> bool {
-    space_of(w) == Space::Long || sweeps(w)
+    matches!(space_of(w), Space::Long | Space::Sweep) || sweeps(w)
 }
 
 /// Anything that stops bleeding when used (a bandage): found by what it
