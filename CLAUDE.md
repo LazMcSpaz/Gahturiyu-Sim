@@ -203,8 +203,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    What the weather does to people and things is `weather_effects(pos, t)`,
    and unusual days are `omens(region, day)`: both looked up the same way. A
    rule that reads them asks once per decision (a fight's start, a leg's
-   departure, an hour of a day plan). Nothing reads it yet
-   (`docs/weather-hooks.md` says where each piece is meant to connect).
+   departure, an hour of a day plan). Read so far by the cold on the body
+   (`cold.rs`, exposure), a fight's aim (`Battle::aim_weather`, taken at its
+   start) and spotting (`stealth.rs`, sight and hearing);
+   `docs/weather-hooks.md` says where the rest is meant to connect.
 
 22. **Bases are built on the clock.** A construction site stores its labour
    at one moment plus a rate (the builders on it now); its finish is solved

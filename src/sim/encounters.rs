@@ -315,6 +315,7 @@ impl World {
         }
         let mut b = Battle::new(id, seed, t, fighters, names);
         b.lights = Some(self.fixed_lights_at(t));
+        b.aim_weather = self.air_for(at, t);
         b.around = self.around_fight(&b);
         for &m in bandits.iter().chain(&victims) {
             self.fighting.insert(m, id);
