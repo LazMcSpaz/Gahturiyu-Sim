@@ -526,6 +526,10 @@ impl World {
             if self.people[f.pid as usize].in_squad && (f.burned > 0.0 || f.soaked) {
                 self.paper_spoils(f, b.seed, t);
             }
+            // Bottles that cracked are gone (Part 4 rule 10).
+            if self.people[f.pid as usize].in_squad && !f.cracked.is_empty() {
+                self.bottles_broke(f, t);
+            }
             let p = &mut self.people[f.pid as usize];
             if f.dead {
                 p.dead = true;

@@ -54,6 +54,10 @@ pub struct Shot {
     /// `GAHT_FLASK=1`: three bandits bunched near the squad, the first of
     /// them with a slumber brew and a flask; held the moment it bursts.
     pub flask: bool,
+    /// `GAHT_GLASS=1`: bandits on the squad, and a bottle in the first
+    /// member's pack cracks: the glint and the splash (the cue lasts a
+    /// second, so try `GAHT_FRAMES` about 6).
+    pub glass: bool,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
     /// `official`, `healer`...: the nearest with that job; `indoors`: the
@@ -197,6 +201,7 @@ impl Shot {
             make: var("GAHT_MAKE"),
             drink: var("GAHT_DRINK").is_some(),
             flask: var("GAHT_FLASK").is_some(),
+            glass: var("GAHT_GLASS").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
@@ -448,6 +453,26 @@ impl Shot {
                 let burst = world.battles.iter().any(|b| b.fx.iter().any(|f| matches!(f.kind, gahturiyu_sim::sim::combat::FxKind::Splash { .. }) && b.time - f.at > 0.4));
                 if burst {
                     break;
+                }
+            }
+        }
+        if self.glass {
+            let m = world.squad.members[0];
+            if let Some(d) = world.people[m as usize].detail.as_mut() {
+                d.gear.bag.retain(|e| gahturiyu_sim::sim::items::item(e.0).key != "potion_case");
+                d.gear.add(gahturiyu_sim::sim::items::id("healing_draught"), 3);
+            }
+            let at = world.squad.pos.add(V2::new(9.0, 2.0));
+            world.spawn_bandits(at, 2, false);
+            for _ in 0..600 {
+                world.step(0.1);
+                if world.squad_battle().is_some() {
+                    break;
+                }
+            }
+            if let Some(b) = world.battles.iter_mut().find(|b| b.fighters.iter().any(|f| f.pid == m)) {
+                if let Some(i) = b.fighters.iter().position(|f| f.pid == m) {
+                    b.crack_bottle(i, 1.0, 9);
                 }
             }
         }

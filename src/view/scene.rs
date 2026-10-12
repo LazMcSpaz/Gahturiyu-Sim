@@ -909,6 +909,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 FxKind::Push { from, to, .. } if (0.0..1.0).contains(&age) => super::cues::push_streak(&mut gl, to3(from, on_ground(from)), to3(to, on_ground(to)), age, k.min(3.0)),
                 FxKind::Throw { item, from, to, hit, broke } => super::cues::thrown_flight(&mut b, &mut gl, &on_ground, item, from, to, hit, broke, age, k.min(3.0)),
                 FxKind::Splash { at, radius, does } if (0.0..1.2).contains(&age) => super::cues::splash(&mut gl, to3(at, on_ground(at) + 0.1), radius, does, age, k.min(3.0)),
+                FxKind::Glass { at, .. } if (0.0..1.0).contains(&age) => super::cues::glass(&mut gl, to3(at, on_ground(at)), age, k.min(3.0)),
                 _ => {}
             }
         }
