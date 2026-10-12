@@ -216,6 +216,25 @@ impl Slavery {
     }
 }
 
+/// Whether passing as a priest is a crime here (Laz, 12 Oct: impersonating
+/// a priest is a crime where the town forbids it).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum Garb {
+    Forbidden,
+    #[default]
+    Tolerated,
+}
+pub const GARBS: [Garb; 2] = [Garb::Forbidden, Garb::Tolerated];
+
+impl Garb {
+    pub fn name(self) -> &'static str {
+        match self {
+            Garb::Forbidden => "Sacred garb is for the priests alone",
+            Garb::Tolerated => "Anyone may wear what they like",
+        }
+    }
+}
+
 /// Where someone spends the evening, by preference.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Evening {
@@ -259,6 +278,8 @@ pub struct Profile {
     pub justice: [f32; 4],
     /// What bondage may be (allowed, temporary, recorded).
     pub slavery: [f32; 3],
+    /// Sacred garb forbidden to others, or tolerated (weights).
+    pub garb: [f32; 2],
     /// Where their honour tends to sit, 0..1 (each person rolls their own).
     pub honour: f32,
     /// How readily they'd ask an outsider for help, 0..1 (proud or insular
@@ -283,6 +304,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [1.0, 0.0, 0.0],
         justice: [0.80, 0.10, 0.05, 0.05],
         slavery: [0.05, 0.85, 0.10],
+        garb: [0.80, 0.20],
         honour: 0.65,
         asks: 0.45,
     },
@@ -301,6 +323,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [0.0, 1.0, 0.0],
         justice: [0.10, 0.80, 0.05, 0.05],
         slavery: [0.80, 0.15, 0.05],
+        garb: [0.90, 0.10],
         honour: 0.7,
         asks: 0.3,
     },
@@ -319,6 +342,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [0.0, 0.0, 1.0],
         justice: [0.05, 0.05, 0.85, 0.05],
         slavery: [0.05, 0.85, 0.10],
+        garb: [0.50, 0.50],
         honour: 0.55,
         asks: 0.35,
     },
@@ -339,6 +363,7 @@ pub const PROFILES: [Profile; 4] = [
         ruling: [0.0, 0.0, 0.0],
         justice: [0.10, 0.05, 0.05, 0.80],
         slavery: [0.0, 0.20, 0.80],
+        garb: [0.15, 0.85],
         honour: 0.6,
         asks: 0.7,
     },
@@ -383,6 +408,8 @@ pub struct Blend {
     pub justice: [f32; 4],
     #[serde(default)]
     pub slavery: [f32; 3],
+    #[serde(default)]
+    pub garb: [f32; 2],
 }
 
 /// What a community has settled on.
@@ -398,6 +425,9 @@ pub struct Customs {
     pub justice: Justice,
     #[serde(default)]
     pub slavery: Slavery,
+    /// Whether passing as a priest is a crime here (`disguise.rs`).
+    #[serde(default)]
+    pub garb: Garb,
 }
 
 impl Customs {
@@ -475,6 +505,7 @@ impl Blend {
             },
             justice: mix(&share, |p| p.justice, seed, key, 5),
             slavery: mix(&share, |p| p.slavery, seed, key, 6),
+            garb: mix(&share, |p| p.garb, seed, key, 8),
         }
     }
 
@@ -504,6 +535,7 @@ impl Blend {
             own,
             justice: JUSTICES[pick(&self.justice, roll(5))],
             slavery: SLAVERIES[pick(&self.slavery, roll(6))],
+            garb: GARBS[pick(&self.garb, roll(8))],
         }
     }
 }
