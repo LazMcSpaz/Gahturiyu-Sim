@@ -470,6 +470,38 @@ pub fn splash(gl: &mut Builder, at: Vec3, radius: f32, does: gahturiyu_sim::sim:
     }
 }
 
+/// A bottle cracking in someone's pack (Part 4 rule 10): a white star of a
+/// glint at the hip, glass flicked out and falling, drops of the draught
+/// with it, and a dark wet patch spreading where they stand, over a second.
+pub fn glass(gl: &mut Builder, at: Vec3, age: f32, k: f32) {
+    const SHARD: [f32; 3] = [0.92, 0.97, 1.0];
+    const DROP: [f32; 3] = [0.45, 0.75, 0.95];
+    const WET: [f32; 3] = [0.16, 0.22, 0.30];
+    let p = (age / 1.0).clamp(0.0, 1.0);
+    let hip = at + vec3(0.3 * k, 1.0, 0.0);
+    // The glint: a star, bright for the first third of a second.
+    if age < 0.3 {
+        let s = 0.45 * k * (1.0 - age / 0.3);
+        gl.stick(hip - vec3(s, 0.0, 0.0), hip + vec3(s, 0.0, 0.0), 0.05 * k, SHARD);
+        gl.stick(hip - vec3(0.0, s, 0.0), hip + vec3(0.0, s, 0.0), 0.05 * k, SHARD);
+        gl.stick(hip - vec3(0.0, 0.0, s), hip + vec3(0.0, 0.0, s), 0.05 * k, SHARD);
+    }
+    // Glass and drops, out and down.
+    for i in 0..12 {
+        let a = i as f32 / 12.0 * std::f32::consts::TAU + 0.3;
+        let reach = if i % 2 == 0 { 0.9 } else { 0.6 };
+        let out = vec3(a.cos(), 0.0, a.sin()) * (reach * p * k);
+        let y = 1.0 + 0.9 * p - 2.0 * p * p;
+        if y > 0.02 {
+            let (size, col) = if i % 2 == 0 { (0.09, SHARD) } else { (0.07, DROP) };
+            gl.block(hip - vec3(0.0, 1.0, 0.0) + out + vec3(0.0, y, 0.0), size * k, size * k, size * k, a, col);
+        }
+    }
+    // The wet patch, a filled disc growing under them.
+    let r = 0.55 * k * (0.2 + 0.8 * p);
+    ground_ring(gl, at + vec3(0.3 * k, 0.04, 0.0), r * 0.5, r * 0.5, WET);
+}
+
 pub fn sneak_burst(gl: &mut Builder, at: Vec3, age: f32, k: f32) {
     let p = (age / 0.5).clamp(0.0, 1.0);
     for i in 0..8 {

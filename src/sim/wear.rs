@@ -120,6 +120,31 @@ impl World {
         self.log.truncate(14);
     }
 
+    /// Bottles that cracked in a fight leave the pack (Part 4 rule 10).
+    pub fn bottles_broke(&mut self, f: &Fighter, t: f64) {
+        let pid = f.pid;
+        self.settle_condition(pid, self.time);
+        let Some(d) = self.people[pid as usize].detail.as_mut() else { return };
+        let mut lost: Vec<String> = Vec::new();
+        for &(it, mix) in &f.cracked {
+            let gone = match mix {
+                Some(m) => d.gear.take_mix(&m),
+                None => d.gear.take(it),
+            };
+            if gone {
+                lost.push(mix.map(|m| m.name()).unwrap_or_else(|| item(it).name.to_string()).to_lowercase());
+            }
+        }
+        if lost.is_empty() {
+            return;
+        }
+        let name = d.name.clone();
+        self.people[pid as usize].recompute_might();
+        let what = if lost.len() == 1 { format!("{} breaks", lost[0]) } else { format!("{} break", lost.join(", ")) };
+        self.log.push_front((t, format!("{name}'s {what}.")));
+        self.log.truncate(14);
+    }
+
     /// A piece worn to nothing is gone.
     fn break_piece(&mut self, pid: PersonId, slot: Slot, t: f64) {
         // What they carry changes: settle their condition first (the squad
