@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-340 things: 128 belong to one people, 212 are shared.
+365 things: 137 belong to one people, 228 are shared.
 
 ## Jobs
 
@@ -179,8 +179,17 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Silk wraps | Ṭaḍoro | **Yisasausa** | yee-sah-sow-SAH | body-bind |
 | Scale hauberk | Qotiro | **Xotxert** | KHOT-khert | body-scale |
 | Plate cuirass | Qotiro | **Xotord** | KHOH-tord | body-shield |
-| Iron helm | Qotiro | **Triktord** | TRIK-tord | head-shield |
+| Open helm | Qotiro | **Triktord** | TRIK-tord | head-shield |
+| Full helm | Qotiro | **Textrik** | TEKH-trik | whole-head |
 | Scale greaves | Qotiro | **Gurtaxert** | GOOR-tah-khert | foot-scale |
+| Gauntlets | Qotiro | **Gedrim** | GED-rim | iron-hand |
+| Fishskin boots | Horaro | **Wulamia** | woo-lah-MEE-ah | fish-foot |
+| Armoured boots | Qotiro | **Gedgurt** | GED-goort | iron-foot |
+| Fishskin undercoat | Horaro | **Honamia** | hoh-nah-MEE-ah | fish-body |
+| Stone cuirass | Roduro | **Doqoshota** | doh-koh-SHOH-tah | stone-body |
+| Travelling robe | Ṭaḍoro | **Safafiye** | sah-fah-fee-YEH | walk-cloth |
+| Plate greaves | Qotiro | **Pirtagurt** | PIR-tah-goort | board-foot |
+| Oilskin cape | Horaro | **Nawanoli** | nah-wah-NOH-lee | rain-cloth |
 | Round shield | Qotiro | **Portord** | POR-tord | round-shield |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
@@ -189,11 +198,24 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Padded jacket | Yalutaḍu | Dortord | Nanuialu | Sayuyayu | soft-shield |
 | Hide coat | Shotahali | Xotper | Walihona | Fayisausa | body-hide |
 | Leather cap | Ṭiqoheqa | Trikpek | Wehaliho | Fehathihe | head-shell |
+| Padded cap | Yaluṭiqo | Dortrik | Lihoialu | Thiheyayu | soft-head |
+| Mail coif | Goleṭiqo | Gortrik | Lihowole | Thihewauye | ring-head |
+| Hood | Ṭiqotaha | Triktap | Nawaliho | Safathihe | head-cloth |
 | Trousers | Guṭataha | Gurtap | Nawawula | Safawutha | foot-cloth |
 | Hide leggings | Guṭahali | Gurtaper | Waliwula | Fayiwutha | foot-hide |
 | Leather gloves | Ḍiḍahali | Drimper | Walinima | Fayiyiwa | hand-hide |
+| Bracers | Ḍiḍahiṭo | Drimpirt | Wilonima | Fitheyiwa | hand-board |
 | Boots | Guṭaheqa | Gurtapek | Wehawula | Fehawutha | foot-shell |
+| Soft shoes | Yitoguṭa | Ditgurt | Wulaino | Wuthayise | quiet-foot |
+| Fur-lined boots | Qeḍuguṭa | Kengurt | Wulahenu | Wuthaheyu | winter-foot |
+| Padded vest | Yalushota | Dorxot | Honaialu | Sausayayu | soft-body |
+| Mail shirt | Goleshota | Gorxot | Honawole | Sausawauye | ring-body |
+| Fur jerkin | Qeḍushota | Kenxot | Honahenu | Sausaheyu | winter-body |
+| Brigandine | Hiṭoshota | Pirtaxot | Honawilo | Sausafithe | board-body |
+| Mail leggings | Goleguṭa | Gorgurt | Wulawole | Wuthawauye | ring-foot |
+| Fur mantle | Shihataha | Xiptap | Nawahiwa | Safasifa | snow-cloth |
 | Buckler | Ḍiḍataḍu | Drimtord | Nanunima | Sayuyiwa | hand-shield |
+| Tower shield | Hutitaḍu | Putord | Nanuwuni | Sayufusi | wall-shield |
 | Cloak | Lataha | Ratap | Nawalana | Safayasa | wide-cloth |
 
 ## Gear
@@ -222,6 +244,9 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Storm glass | Qorogusha | Krokkex | Hehahorowu | Hesahaushe | storm-glass |
 | Gold ring | Ṭeligole | Trergor | Woleleli | Wauyetheyi | gold-ring |
 | Plain belt | Qoḍiroḍa | Komron | Ronahomi | Shauyahauwi | hold-rope |
+| Bandolier belt | Ḍaḍeroḍa | Manron | Ronamane | Shauyawaye | many-rope |
+| Sash | Lataḍita | Ratnit | Ninalana | Yisayasa | wide-bind |
+| Fine belt | Ṭeliroḍa | Treron | Ronaleli | Shauyatheyi | gold-rope |
 | Bronze brooch | Tahaḍata | Tapmat | Mananawa | Wasasafa | cloth-hook |
 
 ## Food, herbs and draughts

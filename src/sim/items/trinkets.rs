@@ -10,6 +10,9 @@ pub(super) static ITEMS: &[ItemDef] = &[
     trinket("pearl_necklace", "Pearl necklace", Slot::Neck, 0.1, 140.0, &[]),
     // --- Belts and brooches (accessories: show and enchanting) ---------------
     trinket("plain_belt", "Plain belt", Slot::Belt, 0.3, 8.0, &[]),
+    trinket("bandolier_belt", "Bandolier belt", Slot::Belt, 0.5, 20.0, &[]),
+    trinket("sash", "Sash", Slot::Belt, 0.2, 10.0, &[]),
+    trinket("fine_belt", "Fine belt", Slot::Belt, 0.4, 120.0, &[]),
     trinket("bronze_brooch", "Bronze brooch", Slot::Brooch, 0.05, 15.0, &[]),
     // --- Money and errands ------------------------------------------------
     ItemDef { key: "coin", name: "Coin", slot: Slot::MainHand, kind: Kind::Coin, weight: 0.005, value: 1.0, effects: &[] },
