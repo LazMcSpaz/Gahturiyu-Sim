@@ -314,6 +314,7 @@ impl World {
             Sp::Shellhen => 5.0,
             _ => (4.0 + limit.sqrt() * d.looks.len * 1.6).min(26.0),
         };
+        self.solid_changed();
         self.animals.pens.push(Pen {
             id,
             sp,

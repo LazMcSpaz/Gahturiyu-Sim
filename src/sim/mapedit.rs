@@ -848,6 +848,7 @@ impl super::world::World {
         let (t, r) = super::worldgen::land(t, &self.settlements);
         self.terrain = t;
         self.routes = r;
+        self.solid_changed();
         // (The roads are drawn into the ground.)
         self.terrain.edits.changed(true, false);
     }

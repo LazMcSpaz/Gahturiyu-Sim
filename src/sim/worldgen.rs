@@ -231,6 +231,7 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
     w.forge = town;
+    w.solid_changed();
     // Bandits by the roads; workshops in town; things to gather.
     w.place_camps();
     // Customs, households, jobs and workplaces (crafting stations stand in those).
