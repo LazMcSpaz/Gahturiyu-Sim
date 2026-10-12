@@ -134,6 +134,8 @@ pub enum NoDeal {
     TheyWontTake(ItemId),
     /// The merchant has no more of it.
     Gone(ItemId),
+    /// What's bought wouldn't fit in the trader's grids.
+    NoRoom,
 }
 
 impl NoDeal {
@@ -145,6 +147,7 @@ impl NoDeal {
             NoDeal::YouCantPay(n) => format!("You're {n} coin short."),
             NoDeal::TheyWontTake(it) => format!("{they} won't take any more {}.", items::item(it).name.to_lowercase()),
             NoDeal::Gone(it) => format!("{they} hasn't that much {}.", items::item(it).name.to_lowercase()),
+            NoDeal::NoRoom => "There's no room in the pack for all that.".to_string(),
         }
     }
 }
@@ -913,6 +916,7 @@ impl World {
         }
         // (What couldn't be paid for still counts toward the sum shown, at
         // the price it stood at.)
+        let loose_before = self.trader().map_or(0, |b| self.loose_count(b));
         let mut unpaid = 0u32;
         for &(it, n) in &table.get {
             let (mut got, mut coin) = (0u16, 0u32);
@@ -933,6 +937,10 @@ impl World {
                 coin += price as u32;
             }
             d.gets.push((it, got, coin));
+        }
+        // Everything bought has to fit in the trader's grids (items step 3).
+        if d.stuck.is_none() && self.trader().is_some_and(|b| self.loose_count(b) > loose_before) {
+            d.stuck = Some(NoDeal::NoRoom);
         }
         if let Some(NoDeal::YouCantPay(_)) = d.stuck {
             let have = self.squad_count(items::id("coin")) as u32;

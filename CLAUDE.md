@@ -674,6 +674,17 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   a ritual material, not an alchemy ingredient; bloodleaf takes ash moss's
   place in the healing recipes and on the forage spots until alchemy is
   redone (step 5).
+- The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
+  squad member carries things in grids, pockets (`POCKETS`) then the pack's
+  (`pack_grid`, by how much it holds). Where each stack sits is
+  `Gear::arrange`, a pure function of the gear: `Gear::layout` keeps the
+  spots the player put things in (beside the bag, so nothing that adds to or
+  takes from the bag needs to know), and anything without a spot packs into
+  the first free cells. Stacks hold `stack_of` each. Room matters only for
+  the squad: taking loot, picking up, being given or buying something with no
+  room is refused (`World::room_in_pack`, `NoDeal::NoRoom`); anything added
+  any other way that doesn't fit is carried loose and listed in red. Weight
+  still slows as before.
 - Tents are bought items anyone can carry (Laz's call); there's no shop yet,
   so the squad's hunter starts with one.
 - The sea stays off-limits to the squad for now.

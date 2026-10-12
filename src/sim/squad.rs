@@ -613,6 +613,49 @@ impl World {
         true
     }
 
+    /// Has this squad member room in their grids for `n` more of a thing
+    /// (items step 3)? Anyone outside the squad always has.
+    pub fn room_in_pack(&self, pid: PersonId, it: ItemId, n: u16) -> bool {
+        if self.squad.index(pid).is_none() {
+            return true;
+        }
+        self.people[pid as usize].detail.as_ref().is_none_or(|d| d.gear.room_for(it, n))
+    }
+
+    /// Move a stack in a squad member's grids (`which`: an index into
+    /// `Gear::arrange().0`). False if it won't fit there.
+    pub fn place_in_pack(&mut self, pid: PersonId, which: usize, grid: u8, x: u8, y: u8, turned: bool) -> bool {
+        if self.squad.index(pid).is_none() {
+            return false;
+        }
+        self.people[pid as usize].detail.as_mut().is_some_and(|d| d.gear.place(which, grid, x, y, turned))
+    }
+
+    /// Turn the first stack of pack entry `entry` on its side (or back), where
+    /// it lies, if it fits turned.
+    pub fn turn_in_pack(&mut self, pid: PersonId, entry: usize) -> bool {
+        let Some(d) = self.people[pid as usize].detail.as_ref() else { return false };
+        let placed = d.gear.arrange().0;
+        let Some(k) = placed.iter().position(|p| p.entry == entry) else { return false };
+        let p = placed[k];
+        self.place_in_pack(pid, k, p.grid, p.x, p.y, !p.turned)
+    }
+
+    /// Repack a squad member's grids from scratch, biggest things first.
+    pub fn tidy_pack(&mut self, pid: PersonId) {
+        if self.squad.index(pid).is_none() {
+            return;
+        }
+        if let Some(d) = self.people[pid as usize].detail.as_mut() {
+            d.gear.tidy();
+        }
+    }
+
+    /// How many things a squad member carries loose, for want of room.
+    pub fn loose_count(&self, pid: PersonId) -> u16 {
+        self.people[pid as usize].detail.as_ref().map_or(0, |d| d.gear.loose())
+    }
+
     /// Hand pack entry `k` (the whole stack) from one squad member to
     /// another standing near. Says why not, if not.
     pub fn give_entry(&mut self, from: PersonId, k: usize, to: PersonId) -> Result<String, String> {
@@ -641,6 +684,10 @@ impl World {
         let Some(mut e) = self.people[from as usize].detail.as_ref().and_then(|x| x.gear.bag.get(k)).copied() else {
             return Err("Nothing there.".into());
         };
+        let count = if n > 0 && n < e.1 && e.2.is_none() { n } else { e.1 };
+        if !self.room_in_pack(to, e.0, count) {
+            return Err(format!("{} has no room for that.", name(self, to)));
+        }
         let t = self.time;
         self.settle_condition(from, t);
         self.settle_condition(to, t);
@@ -905,6 +952,13 @@ impl World {
                 continue;
             };
             if self.squad.at[k].dist(self.ground[gi].pos) <= REACH && !self.is_down(pk.who) {
+                // No room in the grids: it stays on the ground.
+                if !self.room_in_pack(pk.who, self.ground[gi].item, self.ground[gi].count) {
+                    let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
+                    self.log.push_front((self.time, format!("{name} has no room for the {}.", item(self.ground[gi].item).name.to_lowercase())));
+                    done.push(n);
+                    continue;
+                }
                 let g = self.ground.remove(gi);
                 let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();
                 if let Some(town) = g.owner {

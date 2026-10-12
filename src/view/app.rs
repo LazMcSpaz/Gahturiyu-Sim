@@ -2208,6 +2208,17 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             Action::DropEntry(pid, k) => {
                 w.drop_entry(pid, k);
             }
+            Action::Place(pid, which, g, x, y, turned) => {
+                if !w.place_in_pack(pid, which, g, x, y, turned) {
+                    game.notice = Some(("It won't fit there.".into(), std::time::Instant::now()));
+                }
+            }
+            Action::Turn(pid, k) => {
+                if !w.turn_in_pack(pid, k) {
+                    game.notice = Some(("No room to turn it there.".into(), std::time::Instant::now()));
+                }
+            }
+            Action::Tidy(pid) => w.tidy_pack(pid),
             Action::GiveEntry(pid, k, to) => {
                 let msg = match w.order_give(pid, k, to) {
                     Ok(m) | Err(m) => m,

@@ -23,6 +23,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?}\n", w.busy_until, w.group_of);
     s += &format!("{:?} {:?} {:?}\n", w.standing, w.quests, w.doused);
     s += &format!("{:?} {:?} {:?}\n", w.beds, w.next_bed, w.bed_jobs);
+    // Combat: someone on their way to bind a bleed; thrown things lying about and who gathers them.
+    s += &format!("{:?} {:?} {:?}\n", w.binding, w.thrown_lying, w.gatherers);
     s += &sorted(&w.bounty);
     s += &sorted(&w.news);
     s += &sorted(&w.torches);
