@@ -394,6 +394,7 @@ impl World {
         self.do_pickups();
         self.do_bed_jobs();
         self.do_dosing();
+        self.do_binding();
         self.do_giving();
         self.tidy_looting();
         self.do_picking();

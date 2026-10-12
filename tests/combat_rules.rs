@@ -299,3 +299,225 @@ fn a_sap_from_behind_knocks_out_without_wounding() {
     }
     assert!(knocked >= 5, "out cold most times it lands on the head or body ({knocked} of 20)");
 }
+
+// ---- Rule 4: keeping at bay ----------------------------------------------------
+
+/// A spearman and a knifeman `gap` apart, both left to fight it out.
+fn spear_and_knife(seed: u64, gap: f32) -> Battle {
+    let (a, b) = (person(1, &[(Skill::Spear, 55.0)]), person(2, &[(Skill::Blade, 55.0)]));
+    let mut fa = Fighter::from_person(&a, 0, V2::new(0.0, 0.0), 0.0);
+    let mut fb = Fighter::from_person(&b, 1, V2::new(gap, 0.0), 0.0);
+    fa.weapon = weapon("spear");
+    fb.weapon = weapon("knife");
+    fa.think_at = 0.0;
+    fb.think_at = 0.0;
+    Battle::new(0, seed, 0.0, vec![fa, fb], vec!["Spear".into(), "Knife".into()])
+}
+
+#[test]
+fn a_spear_strikes_first_and_keeps_a_knife_at_bay() {
+    let (mut first, mut pushed) = (0, 0);
+    for seed in 0..20 {
+        let mut b = spear_and_knife(300 + seed, 6.0);
+        let mut who_first = None;
+        for _ in 0..600 {
+            b.tick();
+            if who_first.is_none() {
+                who_first = b.log.iter().find(|l| l.1.starts_with("Spear hits") || l.1.starts_with("Knife hits") || l.1.contains("dodges") || l.1.contains("blocks")).map(|l| l.1.starts_with("Spear") || l.1.starts_with("Knife dodges") || l.1.contains("blocks Spear"));
+            }
+            if b.over {
+                break;
+            }
+        }
+        first += who_first.unwrap_or(false) as u32;
+        pushed += b.log.iter().any(|l| l.1.contains("keeps Knife at bay")) as u32;
+    }
+    assert!(first >= 15, "the spear gets the first blow in ({first} of 20)");
+    assert!(pushed >= 8, "and drives the knife back ({pushed} of 20)");
+}
+
+#[test]
+fn a_long_weapon_with_a_foe_inside_it_hits_soft() {
+    let blows = |gap: f32| {
+        let mut b = pair(41);
+        b.fighters[1].pos = V2::new(gap, 0.0);
+        let mut total = 0.0;
+        for _ in 0..40 {
+            one_blow(&mut b, weapon("spear"));
+            total += b.fighters[1].damage_taken;
+            b.fighters[1].damage_taken = 0.0;
+        }
+        total
+    };
+    let (inside, at_length) = (blows(0.7), blows(2.4));
+    assert!(inside < at_length * 0.75, "crowded, the spear hits soft ({inside:.0} vs {at_length:.0})");
+}
+
+#[test]
+fn a_crowded_spearman_steps_back() {
+    let mut b = spear_and_knife(7, 0.7);
+    b.fighters[1].think_at = f64::INFINITY;
+    b.fighters[0].target = Some(1);
+    b.fighters[0].think_at = f64::INFINITY;
+    for _ in 0..10 {
+        b.tick();
+    }
+    assert!(b.fighters[0].pos.dist(b.fighters[1].pos) > 0.9, "stepped back out ({:.2} m)", b.fighters[0].pos.dist(b.fighters[1].pos));
+}
+
+// ---- Rule 5: tight spaces and sweeps ---------------------------------------------
+
+#[test]
+fn friends_pressing_close_make_it_tight() {
+    let mut b = pair(5);
+    assert_eq!(b.tightness(0), 0.0, "open ground");
+    let mut friend = b.fighters[0].clone();
+    friend.pos = V2::new(-0.9, 0.6);
+    b.fighters.push(friend.clone());
+    b.names.push("C".into());
+    friend.pos = V2::new(-0.9, -0.6);
+    b.fighters.push(friend);
+    b.names.push("D".into());
+    assert!(b.tightness(0) >= 0.6, "two friends at the elbows ({})", b.tightness(0));
+}
+
+#[test]
+fn indoors_long_weapons_land_less_and_short_ones_dont_care() {
+    // A real building, its walls round the fight (`World::around_fight`).
+    let w = worldgen::generate(1);
+    let d = (0..w.settlements[0].buildings.len() as u16).find_map(|i| gahturiyu_sim::sim::buildings::door_of(&w.settlements[0], i).filter(|d| d.half.x.min(d.half.y) >= 3.0)).expect("a big enough building");
+    let landed = |key: &str, inside: bool| {
+        let mut hits = 0;
+        for seed in 0..12 {
+            let mut b = pair(500 + seed);
+            let at = if inside { w.free_spot(d.centre) } else { d.outside.add(d.outside.sub(d.centre).scale(3.0)) };
+            b.fighters[0].pos = at;
+            b.fighters[1].pos = at.add(V2::new(1.0, 0.0));
+            b.around = w.around_fight(&b);
+            if inside {
+                assert!(b.tightness(0) >= 0.99, "indoors is tight");
+            }
+            for _ in 0..20 {
+                one_blow(&mut b, weapon(key));
+            }
+            hits += b.log.iter().filter(|l| l.1.starts_with("A hits")).count();
+        }
+        hits
+    };
+    let (spear_in, spear_out) = (landed("spear", true), landed("spear", false));
+    assert!((spear_in as f32) < spear_out as f32 * 0.9, "a spear lands less indoors ({spear_in} vs {spear_out})");
+    let (knife_in, knife_out) = (landed("knife", true), landed("knife", false));
+    assert!((knife_in as i32 - knife_out as i32).abs() <= (knife_out as i32) / 10 + 2, "a knife doesn't care ({knife_in} vs {knife_out})");
+}
+
+#[test]
+fn a_maul_sweeps_foes_in_front_and_friends_only_when_tight() {
+    let mut b = pair(61);
+    b.fighters[0].weapon = weapon("stone_maul");
+    // Two more foes in the arc, one behind.
+    for (k, at) in [V2::new(1.1, 0.7), V2::new(1.1, -0.7), V2::new(-1.2, 0.0)].into_iter().enumerate() {
+        let mut f = b.fighters[1].clone();
+        f.pos = at;
+        b.fighters.push(f);
+        b.names.push(format!("F{k}"));
+    }
+    let mut struck = [0; 5];
+    for _ in 0..30 {
+        for j in 1..5 {
+            b.fighters[j].hp = b.fighters[j].max_hp;
+            b.fighters[j].ko = false;
+            b.fighters[j].statuses.clear();
+            b.fighters[j].damage_taken = 0.0;
+        }
+        b.fighters[0].act = Act::Swing { target: 1, lands: b.time + 0.05 };
+        for _ in 0..2 {
+            b.tick();
+        }
+        for j in 1..5 {
+            struck[j] += (b.fighters[j].damage_taken > 0.0) as u32;
+        }
+    }
+    assert!(struck[2] > 5 && struck[3] > 5, "the two beside the target are caught ({struck:?})");
+    assert_eq!(struck[4], 0, "nobody behind");
+    // A friend at the maul-man's elbow, in the arc: spared in the open...
+    let mut b = pair(62);
+    b.fighters[0].weapon = weapon("stone_maul");
+    let mut friend = b.fighters[0].clone();
+    friend.pos = V2::new(0.9, 0.9);
+    b.fighters.push(friend);
+    b.names.push("Friend".into());
+    let swing = |b: &mut Battle| {
+        let mut hurt = 0;
+        for _ in 0..30 {
+            b.fighters[2].damage_taken = 0.0;
+            b.fighters[2].hp = b.fighters[2].max_hp;
+            b.fighters[1].hp = b.fighters[1].max_hp;
+            b.fighters[1].ko = false;
+            b.fighters[0].act = Act::Swing { target: 1, lands: b.time + 0.05 };
+            for _ in 0..2 {
+                b.tick();
+            }
+            hurt += (b.fighters[2].damage_taken > 0.0) as u32;
+        }
+        hurt
+    };
+    assert_eq!(swing(&mut b), 0, "friends aren't swept in the open");
+    // ...but caught when it's tight (two more friends pressing in).
+    for at in [V2::new(-0.8, 0.5), V2::new(-0.8, -0.5)] {
+        let mut f = b.fighters[2].clone();
+        f.pos = at;
+        b.fighters.push(f);
+        b.names.push("Press".into());
+    }
+    assert!(swing(&mut b) > 0, "a friend in the arc is caught when it's tight");
+}
+
+// ---- Rule 6: the off-hand parry -------------------------------------------------
+
+#[test]
+fn an_off_hand_blade_parries_and_strikes_back() {
+    // B holds a short sword and nothing else (their own kit might be a
+    // spear or a shield, which takes the off hand).
+    let count = |off: Option<WeaponDef>| {
+        let (mut taken, mut back, mut parries) = (0.0, 0, 0);
+        for seed in 0..10 {
+            let mut b = pair(700 + seed);
+            b.fighters[1].weapon = weapon("short_sword");
+            b.fighters[1].shield = 0.0;
+            b.fighters[1].offhand = off;
+            b.fighters[1].stats.set_skill(Skill::Block, 60.0);
+            for _ in 0..30 {
+                let before = b.fighters[0].damage_taken;
+                one_blow(&mut b, weapon("longsword"));
+                taken += b.fighters[1].damage_taken;
+                b.fighters[1].damage_taken = 0.0;
+                back += (b.fighters[0].damage_taken > before) as u32;
+            }
+            parries += b.fx.iter().filter(|x| matches!(x.kind, combat::FxKind::Parry { .. })).count();
+        }
+        (taken, back, parries)
+    };
+    let (bare, bare_back, bare_parries) = count(None);
+    let (with_knife, knife_back, parries) = count(Some(weapon("knife")));
+    assert!(with_knife < bare * 0.92, "the knife in the off hand turns blows ({with_knife:.0} taken vs {bare:.0})");
+    assert_eq!((bare_back, bare_parries), (0, 0));
+    assert!(parries > 10, "parried with it ({parries})");
+    assert!(knife_back > 0, "and now and then strikes back");
+    // Not with a two-handed weapon in the other hand, nor a shield.
+    let mut b = pair(9);
+    b.fighters[1].offhand = Some(weapon("knife"));
+    b.fighters[1].weapon = weapon("short_sword");
+    b.fighters[1].shield = 0.0;
+    assert!(b.fighters[1].offhand_up().is_some());
+    b.fighters[1].weapon = weapon("spear");
+    assert!(b.fighters[1].offhand_up().is_none(), "a two-handed weapon takes both hands");
+    b.fighters[1].weapon = weapon("short_sword");
+    b.fighters[1].shield = 0.4;
+    assert!(b.fighters[1].offhand_up().is_none(), "a shield takes the off hand");
+    for key in ["knife", "short_sword"] {
+        assert!(combat::offhand_ok(&weapon(key)), "the {key} goes in the off hand");
+    }
+    for key in ["longsword", "hatchet", "club", "spear"] {
+        assert!(!combat::offhand_ok(&weapon(key)), "the {key} doesn't");
+    }
+}

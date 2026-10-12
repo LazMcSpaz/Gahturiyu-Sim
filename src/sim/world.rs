@@ -233,6 +233,9 @@ pub struct World {
     /// A squad member on their way to give another a healing draught: (giver, patient).
     #[serde(default)]
     pub dosing: Vec<(PersonId, PersonId)>,
+    /// A squad member on their way to bind another's bleeding: (by, who).
+    #[serde(default)]
+    pub binding: Vec<(PersonId, PersonId)>,
     /// A squad member on their way to hand another something from their pack.
     pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
@@ -344,6 +347,7 @@ impl World {
             next_bed: 0,
             bed_jobs: Vec::new(),
             dosing: Vec::new(),
+            binding: Vec::new(),
             giving: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,

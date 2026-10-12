@@ -1321,7 +1321,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 // Where the click landed in the world, for its mark.
                 let spot = match act {
                     Act::Walk(p) | Act::Sleep(p) | Act::SneakTo(p) => Some(p),
-                    Act::Attack(p) | Act::Talk(p) | Act::Loot(p) | Act::Carry(p) | Act::Dose(p) => Some(world.person_pos(p)),
+                    Act::Attack(p) | Act::Talk(p) | Act::Loot(p) | Act::Carry(p) | Act::Dose(p) | Act::Bind(p) => Some(world.person_pos(p)),
                     Act::Enter(d) | Act::PickLock(d) => world.door(d).map(|d| d.outside),
                     Act::Search(c) | Act::PickChest(c) => world.container(c).map(|c| c.pos),
                     _ => None,
@@ -1329,7 +1329,7 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 use super::feel::MarkKind;
                 let mut answered = false;
                 if let Some(msg) = super::interact::perform(world, &who, all, act) {
-                    if !matches!(act, Act::Dose(_)) {
+                    if !matches!(act, Act::Dose(_) | Act::Bind(_)) {
                         game.sounds.ui("ui_cant");
                         if let Some(p) = spot {
                             game.feel.mark(p, MarkKind::Cant);
@@ -2293,7 +2293,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     }
                     if let Some(msg) = super::interact::perform(&mut game.world, &who, all, act) {
                         // (A draught handed over says so too; that isn't a failure.)
-                        if !matches!(act, Act::Dose(_)) {
+                        if !matches!(act, Act::Dose(_) | Act::Bind(_)) {
                             game.sounds.ui("ui_cant");
                         }
                         game.notice = Some((msg, std::time::Instant::now()));

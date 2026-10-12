@@ -76,6 +76,57 @@ impl World {
         }
     }
 
+    /// Have one squad member bind another's bleeding with a bandage from
+    /// their own pack: at once if they're beside them, else they walk over
+    /// and do it there (`do_binding`).
+    pub fn order_bind(&mut self, by: PersonId, who: PersonId) -> Result<String, String> {
+        if self.squad.index(by).is_none() || self.squad.index(who).is_none() {
+            return Err("Only between squad members.".into());
+        }
+        let (a, b) = (self.name_of(by), self.name_of(who));
+        if self.is_down(by) {
+            return Err(format!("{a} is down too."));
+        }
+        if self.fighting.contains_key(&by) {
+            return Err("In a fight, it's done from the pack (it takes a few seconds).".into());
+        }
+        if self.bandage_of(by).is_none() {
+            return Err(format!("{a} has no bandage."));
+        }
+        if self.bleeding(who) <= 0.0 {
+            return Err(format!("{b} isn't bleeding."));
+        }
+        self.binding.retain(|x| x.0 != by);
+        if self.person_pos(by).dist(self.person_pos(who)) <= BIND_NEAR {
+            let t = self.time;
+            self.bind_wounds(by, who, t);
+            return Ok(if by == who { format!("{a} binds their cuts.") } else { format!("{a} binds {b}'s cuts.") });
+        }
+        let at = self.person_pos(who);
+        self.order_members(&[by], at);
+        self.binding.push((by, who));
+        Ok(format!("{a} goes over to {b}."))
+    }
+
+    /// Squad members on their way to bind someone: once near, they do.
+    pub(super) fn do_binding(&mut self) {
+        let mut k = 0;
+        while k < self.binding.len() {
+            let (g, p) = self.binding[k];
+            if self.squad.index(g).is_none() || self.squad.index(p).is_none() || self.is_down(g) || self.bandage_of(g).is_none() || self.bleeding(p) <= 0.0 {
+                self.binding.remove(k);
+                continue;
+            }
+            if self.person_pos(g).dist(self.person_pos(p)) <= BIND_NEAR * 0.5 {
+                self.binding.remove(k);
+                let t = self.time;
+                self.bind_wounds(g, p, t);
+                continue;
+            }
+            k += 1;
+        }
+    }
+
     /// Who a bandage used by `by` out of a fight goes on: themselves if
     /// they're bleeding, else the worst-bleeding squadmate near them.
     pub fn bandage_for(&self, by: PersonId) -> Option<PersonId> {
