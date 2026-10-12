@@ -163,6 +163,13 @@ pub fn sheet(c: &Canvas, w: &World, pid: PersonId, click: Option<Click>) -> (Opt
         bar_row(c, rx, y, col_w, "Thirst", &carried, t / 100.0, if t >= THIRSTY { BAR_LOW } else { BAR_STAMINA });
         y += LH;
     }
+    // Cold (the weather against what they wear), once there's any.
+    if let Some(cold) = w.cold_of(pid).filter(|&x| x >= 0.5) {
+        use gahturiyu_sim::sim::condition::{CHILLED, COLD, FREEZING};
+        let word = if cold >= FREEZING { "Freezing" } else if cold >= COLD { "Cold through" } else if cold >= CHILLED { "Chilled" } else { "Cool" };
+        bar_row(c, rx, y, col_w, "Cold", word, cold / 100.0, if cold >= CHILLED { BAR_LOW } else { BAR_STAMINA });
+        y += LH;
+    }
     // Toxicity (what they've drunk), once there's any.
     if let Some(tox) = w.toxicity_of(pid).filter(|&x| x >= 0.5) {
         use gahturiyu_sim::sim::condition::{QUEASY, SICK, TOX_COLLAPSE};

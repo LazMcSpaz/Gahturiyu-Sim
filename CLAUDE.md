@@ -729,6 +729,18 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   is written on a recipe sheet with Inscription (paper and ink; the mix is
   in the sheet's `Piece`) and read to learn it (`use_entry`); a brewer
   teaches those at the table what they know (`share_lore`).
+- Cold and wet on the body (0.3; `cold.rs`): the weather's exposure where
+  a squad member stands, read at the top of each hour like the rain, less
+  what they wear (each piece's warmth; its dryness in rain or snow; its
+  wind cover in a wind, `items::wears`) and a Warmth draught. A roof, a tent
+  or a burning fire within `WARM_REACH` keeps it out, as do a bedroll to
+  sleep in and walking, a little. `Condition::cold` heads for the level
+  what gets through sets (`cold_to`, re-read hourly), climbing or easing at
+  a steady rate until it's there, so mild weather settles at a light
+  chill; chilled (30) breath
+  comes back slower, cold (60) attributes and pace drop, freezing (90) they
+  collapse and it never kills. A campfire catching or going out close by is
+  a moment on the timeline. The stats sheet shows Cold once there's any.
 - Factions (Laz, `docs/factions.md`, `docs/leaders.md`; F1-F2 in
   `factions.rs`): the factions, three sub-factions under each major, the
   minors and the guilds are one data table (`FACTIONS`), how they regard

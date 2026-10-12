@@ -121,6 +121,17 @@ pub const SKIN_CATCH: f32 = 2.0;
 /// within the hour or two, never further. Rain or a drink brings them round.
 pub const THIRST_DRAIN: f32 = 60.0;
 
+/// Cold (`cold.rs`), 0..100: chilled, cold, freezing (they collapse; it
+/// never kills); breath back this much slower chilled, attributes and pace
+/// this much lower cold; torso health lost an hour collapsed from cold.
+pub const CHILLED: f32 = 30.0;
+pub const COLD: f32 = 60.0;
+pub const FREEZING: f32 = 90.0;
+pub const CHILLED_BREATH: f32 = 0.8;
+pub const COLD_FACTOR: f32 = 0.85;
+pub const COLD_PACE: f32 = 0.9;
+pub const COLD_DRAIN: f32 = 120.0;
+
 /// Toxicity drained per hour.
 pub const TOX_DRAIN: f32 = 5.0;
 /// Stages: queasy, sick, collapse; and where someone collapsed comes round.
@@ -284,11 +295,17 @@ pub struct Condition {
     pub last_smoke: f64,
     #[serde(default)]
     pub craving: u8,
+    /// Cold, 0..100 (`cold.rs`), and the level it heads for this piece
+    /// (read at the settle).
+    #[serde(default)]
+    pub cold: f32,
+    #[serde(default)]
+    pub cold_to: f32,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, haze: 0.0, haze_seen: 0.0, smoke_buff: None, habit: false, last_smoke: 0.0, craving: 0 }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, haze: 0.0, haze_seen: 0.0, smoke_buff: None, habit: false, last_smoke: 0.0, craving: 0, cold: 0.0, cold_to: 0.0 }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -300,7 +317,7 @@ impl Condition {
         let hold = if self.holding { super::casting::STAMINA_HOLD } else { 0.0 };
         // (Thirsty, breath comes back slower: read at the last settle, the
         // stage line being a step on the timeline.)
-        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 } * if self.hungover { super::drunk::HANGOVER_BREATH } else { 1.0 } * if self.haze_stage() >= super::haze::Haze::Mellow { super::haze::MELLOW_BREATH } else { 1.0 };
+        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 } * if self.hungover { super::drunk::HANGOVER_BREATH } else { 1.0 } * if self.haze_stage() >= super::haze::Haze::Mellow { super::haze::MELLOW_BREATH } else { 1.0 } * if self.cold >= CHILLED { CHILLED_BREATH } else { 1.0 };
         match self.activity {
             Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
             Activity::Resting | Activity::Sleeping => STAMINA_REST * dry * (1.0 + self.breath) - hold,
@@ -437,7 +454,36 @@ impl Condition {
     }
 
     /// Bring the values forward to `t` and start a new piece there.
+    /// How fast cold moves this piece, an hour: towards `cold_to`.
+    pub fn chill(&self) -> f32 {
+        if self.cold_to > self.cold + 1e-4 {
+            super::cold::COLD_GAIN
+        } else if self.cold_to < self.cold - 1e-4 {
+            -super::cold::COLD_EASE
+        } else {
+            0.0
+        }
+    }
+
+    /// Cold at `t` (it stops where it's heading).
+    pub fn cold_at(&self, t: f64) -> f32 {
+        let c = self.cold + self.chill() * hours(self.at, t);
+        if self.chill() >= 0.0 { c.min(self.cold_to) } else { c.max(self.cold_to) }.clamp(0.0, 100.0)
+    }
+
+    /// When cold crosses `level` in this piece, if it gets that far.
+    pub fn cold_crosses(&self, level: f32) -> Option<f64> {
+        let r = self.chill();
+        let gap = level - self.cold;
+        let reaches = if r > 0.0 { level <= self.cold_to } else { level >= self.cold_to };
+        if r == 0.0 || gap.abs() < 1e-4 || gap.signum() != r.signum() || !reaches {
+            return None;
+        }
+        Some(self.at + (gap / r) as f64 * HOUR)
+    }
+
     pub fn settle(&mut self, t: f64) {
+        self.cold = self.cold_at(t);
         self.drunk = self.drunk_at(t);
         self.haze = self.haze_at(t);
         if self.habit && t >= super::haze::craving_times(self.last_smoke)[2] {
@@ -475,6 +521,9 @@ impl Condition {
         }
         if self.tox >= SICK {
             f *= SICK_FACTOR;
+        }
+        if self.cold >= COLD {
+            f *= COLD_FACTOR;
         }
         if self.exhausted() {
             f *= EXHAUSTED_FACTOR;
@@ -534,6 +583,9 @@ impl Condition {
         let mut f = if self.exhausted() { EXHAUSTED_PACE } else { 1.0 };
         if self.drunk_stage() == super::drunk::Drunk::VeryDrunk {
             f *= super::drunk::STUMBLE_PACE;
+        }
+        if self.cold >= COLD {
+            f *= COLD_PACE;
         }
         if self.haze_stage() >= super::haze::Haze::Hazy {
             f *= super::haze::HAZY_PACE;
@@ -598,8 +650,8 @@ fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats, can_die: bool) 
     w.rate = c.heal_rate();
     // Collapsed from thirst, or from what they've drunk: the torso wastes to
     // knocked out, never further.
-    if (c.thirst >= COLLAPSE || c.tox_out) && c.stage() != HungerStage::Starving {
-        w.drain = if c.tox_out { TOX_KO_DRAIN } else { THIRST_DRAIN };
+    if (c.thirst >= COLLAPSE || c.tox_out || c.cold >= FREEZING) && c.stage() != HungerStage::Starving {
+        w.drain = if c.tox_out { TOX_KO_DRAIN } else if c.cold >= FREEZING { COLD_DRAIN } else { THIRST_DRAIN };
         w.drain_cap = stats.max_hp(Part::Torso) + 1.0;
         w.rally = 0.0;
         return;
@@ -654,12 +706,14 @@ impl World {
             super::inventory::effective(&p.stats, &p.kit()).max_fatigue()
         };
         let rain = self.rain_on(pid, t);
+        let cold_to = self.cold_target(pid, t);
         let cap = self.skins_of(pid) * SKIN_DRINKS;
         let p = &mut self.people[pid as usize];
         let Some(c) = p.cond.as_mut() else { return };
         c.water = c.water_at(t, cap).min(cap);
         c.settle(t);
         c.rain = rain;
+        c.cold_to = cold_to;
         c.shelter = shelter;
         // Full stays full when the pool's size changes (a fresh member's
         // placeholder pool, or new gear).
@@ -915,6 +969,16 @@ impl World {
                 if self.shelter_of(pid) == Shelter::Open {
                     consider(Some(((c.at / HOUR).floor() + 1.0) * HOUR), Event::Stage);
                 }
+                // Cold crossing a stage, either way; a fire close by catching
+                // or going out.
+                for level in [CHILLED, COLD, FREEZING] {
+                    consider(c.cold_crosses(level), Event::Stage);
+                }
+                for te in self.fire_turns_near(pid) {
+                    if te > c.at {
+                        consider(Some(te), Event::Stage);
+                    }
+                }
                 // Time to drink, if there's water.
                 if self.water_for(pid, &c) {
                     let due = if c.thirst >= DRINK_AT { Some(c.at) } else { c.thirst_crosses(DRINK_AT).filter(|_| c.thirst_rate() > 0.0) };
@@ -983,7 +1047,21 @@ impl World {
                     Event::Stage => {
                         let was = c.stage();
                         let was_dry = c.thirst_at(t);
+                        let was_cold = c.cold_at(t);
                         self.settle(pid, t);
+                        // A line when someone turns cold, or freezing.
+                        if self.squad.index(pid).is_some() {
+                            let line = match was_cold {
+                                d if d >= FREEZING - 1e-3 && c.cold < FREEZING - 1e-3 => Some("is freezing"),
+                                d if d >= COLD - 1e-3 && c.cold < COLD - 1e-3 => Some("is cold through"),
+                                _ => None,
+                            };
+                            if let Some(how) = line {
+                                let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
+                                self.log.push_front((t, format!("{name} {how}.")));
+                                self.log.truncate(14);
+                            }
+                        }
                         // A line when someone turns thirsty, or parched.
                         if self.squad.index(pid).is_some() {
                             let line = match was_dry {
