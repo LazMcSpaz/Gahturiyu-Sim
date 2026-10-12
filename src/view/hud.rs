@@ -601,7 +601,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 S::Forge => "Smithing: weapons, smelting ore; Armoring: iron pieces",
                 S::Bench => "Armoring: tanning, leather and hide pieces, bucklers",
                 S::Desk => "Inscription: scrolls",
-                S::AlchemyTable => "Alchemy: potions (a mortar and pestle works anywhere)",
+                S::AlchemyTable => "Alchemy: potions, brewed from ingredients that share an effect",
                 S::Loom => "Weaving: reed, shell, fishskin and tentsilk; sealing with pitch",
                 S::Workbench => "Handcraft: leather, cloth and wood — the shared basics",
                 S::GrowerBed => "Stone-tending: grown stone, slow to come",

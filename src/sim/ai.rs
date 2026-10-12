@@ -119,11 +119,18 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     if !matches!(me.act, Act::Idle) {
         return;
     }
-    // A potion when badly hurt, or a tonic when a caster runs dry.
+    // A potion when badly hurt, or a tonic when a caster runs dry. (A
+    // brewed bottle counts by what it does; one that also harms only when
+    // there's nothing cleaner.)
     let heal = me.potions.iter().copied().filter(|&p| potion(p, Does::Heal) > 0.0).max_by(|a, b| potion(*a, Does::Heal).total_cmp(&potion(*b, Does::Heal)));
+    let heal_mix = me.bottles.iter().copied().filter(|m| mixed(m, Does::Heal) > 0.0).max_by(|a, b| (!a.harms()).cmp(&!b.harms()).then(mixed(a, Does::Heal).total_cmp(&mixed(b, Does::Heal))));
     if me.vitality() < 0.4 {
         if let Some(p) = heal {
             b.begin_drink(i, p);
+            return;
+        }
+        if let Some(m) = heal_mix {
+            b.begin_drink_mix(i, m);
             return;
         }
     }
@@ -165,6 +172,11 @@ fn threatened(b: &Battle, i: usize) -> bool {
 }
 
 /// How much of `does` a potion gives when drunk (0 if none).
+/// How much a brewed bottle does of `does`.
+fn mixed(m: &super::items::herbs::Mix, does: Does) -> f32 {
+    m.effects().iter().filter(|e| e.does == does).map(|e| e.power).sum()
+}
+
 fn potion(it: ItemId, does: Does) -> f32 {
     if item(it).kind != Kind::Potion {
         return 0.0;

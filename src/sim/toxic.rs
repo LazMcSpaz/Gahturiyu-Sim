@@ -9,6 +9,7 @@
 
 use super::condition::{SICK, TOX_COLLAPSE};
 use super::effects::{Does, Effect, Lasts};
+use super::items::herbs::Mix;
 use super::items::{item, ItemId, Kind};
 use super::person::PersonId;
 use super::rng::Rng;
@@ -25,10 +26,19 @@ pub const VOMIT_CHANCE: f32 = 0.35;
 pub const ROUSED: f32 = 0.15;
 const VOMIT_TAG: u64 = 0x564F_4D49;
 
-/// Toxicity a potion adds when drunk.
+/// Toxicity a potion adds when drunk (a brewed bottle: by its mix).
 pub fn draught_tox(it: ItemId) -> f32 {
     let _ = it;
     DRAUGHT_TOX
+}
+
+/// What a potion does when drunk: a brewed bottle's mix, else the item's own
+/// effects.
+pub fn draught_effects(it: ItemId, mix: Option<&Mix>) -> Vec<Effect> {
+    match mix {
+        Some(m) => m.effects(),
+        None => item(it).effects.to_vec(),
+    }
 }
 
 /// Does a draught come straight back up? One roll per drinker, draught and
@@ -73,27 +83,50 @@ impl World {
         now
     }
 
-    /// Drink a potion out of a fight: its toxicity first; sick, it may come
-    /// straight back up; then each of its effects on the drinker.
+    /// Drink a potion out of a fight (for a brewed one, the first bottle in
+    /// the pack): its toxicity first; sick, it may come straight back up;
+    /// then each of its effects on the drinker.
     pub(super) fn drink_potion(&mut self, who: PersonId, it: ItemId) -> bool {
-        let t = self.time;
         if item(it).kind != Kind::Potion {
             return false;
         }
         let Some(d) = self.people[who as usize].detail.as_mut() else { return false };
-        if !d.gear.take(it) {
+        let Some(piece) = d.gear.take_piece(it) else { return false };
+        self.drunk(who, it, piece.and_then(|p| p.mix))
+    }
+
+    /// Drink the `k`th thing in someone's pack (a particular bottle).
+    pub fn drink_entry(&mut self, who: PersonId, k: usize) -> bool {
+        if self.is_down(who) || self.fighting.contains_key(&who) {
             return false;
         }
+        let Some(d) = self.people[who as usize].detail.as_mut() else { return false };
+        let Some(e) = d.gear.bag.get(k) else { return false };
+        if item(e.0).kind != Kind::Potion {
+            return false;
+        }
+        let (it, mix) = (e.0, e.2.and_then(|p| p.mix));
+        match mix {
+            Some(m) => d.gear.take_mix(&m),
+            None => d.gear.take(it),
+        };
+        self.drunk(who, it, mix)
+    }
+
+    /// What drinking it does, once it's out of the pack.
+    fn drunk(&mut self, who: PersonId, it: ItemId, mix: Option<Mix>) -> bool {
+        let t = self.time;
         let name = self.name_of(who);
-        self.say(t, format!("{name} drinks the {}.", item(it).name.to_lowercase()));
-        let tox = self.add_toxicity(who, draught_tox(it), t);
+        let what = mix.map(|m| m.name()).unwrap_or_else(|| item(it).name.to_string());
+        self.say(t, format!("{name} drinks the {}.", what.to_lowercase()));
+        let tox = self.add_toxicity(who, mix.map(|m| m.tox()).unwrap_or_else(|| draught_tox(it)), t);
         if throws_up(self.seed, who as u64, it, t.to_bits(), tox) {
             self.say(t, format!("{name} retches it straight back up."));
             self.people[who as usize].recompute_might();
             return true;
         }
-        for e in item(it).effects {
-            self.take_dose(who, e);
+        for e in draught_effects(it, mix.as_ref()) {
+            self.take_dose(who, &e);
         }
         self.people[who as usize].recompute_might();
         true

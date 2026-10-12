@@ -43,7 +43,7 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
-    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar|campfire|stove`: the squad at
+    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|table|campfire|stove`: the squad at
     /// the nearest such station with things to make and the craft for it
     /// (member 0 practised, member 1 new to it and carrying some of the
     /// materials, member 2 a little way off), its making screen open.
@@ -1171,7 +1171,7 @@ fn make_scene(world: &mut World, what: &str) {
         "workbench" => Station::Workbench,
         "desk" => Station::Desk,
         "bed" => Station::GrowerBed,
-        "mortar" => Station::AlchemyTable,
+        "table" | "mortar" => Station::AlchemyTable,
         "campfire" => Station::Campfire,
         "stove" => Station::Stove,
         _ => Station::Forge,
@@ -1217,7 +1217,7 @@ fn make_scene(world: &mut World, what: &str) {
         };
         let p = world.free_spot(d.centre);
         world.teleport_squad(p);
-    } else if what != "mortar" {
+    } else {
         let Some(at) = world.stations.iter().filter(|(_, k)| *k == station).map(|(p, _)| *p).min_by(|a, b| a.dist(here).total_cmp(&b.dist(here))) else {
             eprintln!("GAHT_MAKE: no {what} in this world");
             return;
@@ -1252,10 +1252,17 @@ fn make_scene(world: &mut World, what: &str) {
             }
         }
     }
-    if what == "mortar" {
+    // At an alchemy table: ingredients to brew with, a few tasted, and one
+    // mix brewed already (so it's remembered).
+    if station == Station::AlchemyTable {
         if let Some(d) = world.people[m[0] as usize].detail.as_mut() {
-            d.gear.add(items::id("mortar_and_pestle"), 1);
+            for (k, n) in [("bloodleaf", 4), ("wild_berries", 3), ("sweetroot", 2), ("nightberry", 2), ("mirebloom", 2), ("ghostcap", 2)] {
+                d.gear.add(items::id(k), n);
+            }
         }
+        world.taste(m[0], items::id("nightberry"));
+        let _ = world.brew(m[0], &[items::id("bloodleaf"), items::id("wild_berries")], 1);
+        world.step(gahturiyu_sim::sim::brewing::BREW_SECS + 5.0);
     }
     // At a fire or a stove: a pot, and the second of them already cooking
     // (the stirring cue).

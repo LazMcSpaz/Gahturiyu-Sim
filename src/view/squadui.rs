@@ -96,6 +96,10 @@ pub enum Action {
     /// Seal a worn reed piece with pitch, or mend it yourself.
     Care(PersonId, Slot),
     Use(PersonId, ItemId),
+    /// Drink this very bottle in the pack (a brewed potion: its own mix).
+    DrinkEntry(PersonId, usize),
+    /// Taste a raw ingredient (it shows one of its effects).
+    Taste(PersonId, ItemId),
     Craft(PersonId, usize),
     CloseInventory,
     /// Use a spell from the book (cast, perform, or release).
@@ -375,6 +379,26 @@ pub fn wear_word(w: &World, id: ItemId, pc: &gahturiyu_sim::sim::materials::Piec
 }
 
 /// A few lines describing an item.
+/// A brewed bottle's tooltip: its name, grade and what it does.
+pub fn mix_lines(m: &gahturiyu_sim::sim::items::herbs::Mix) -> Vec<(String, Rgb)> {
+    let mut out = vec![(m.name(), GOLD), (format!("A brewed potion  ·  {} grade", m.grade().name()), DIM)];
+    for e in m.effects() {
+        let harm = e.does.harmful() || e.power < 0.0;
+        out.push((e.describe(), if harm { [0.90, 0.45, 0.38] } else { TEXT }));
+    }
+    out
+}
+
+/// What `who` knows of an ingredient's four effects ("?" for the rest).
+pub fn ingredient_lines(w: &World, who: PersonId, id: ItemId) -> Vec<(String, Rgb)> {
+    if items::ingredient(id).is_none() {
+        return Vec::new();
+    }
+    let known = w.known_effects(who, id);
+    let words: Vec<String> = known.iter().map(|k| k.map(|a| a.name().to_string()).unwrap_or_else(|| "?".to_string())).collect();
+    vec![(format!("Effects: {}", words.join(", ")), DIM), ("Taste it to learn one; brew it to learn what it shares".to_string(), DIM)]
+}
+
 pub fn item_lines(id: ItemId) -> Vec<(String, Rgb)> {
     let d = item(id);
     let mut out = vec![(d.name.to_string(), GOLD)];

@@ -20,7 +20,8 @@ use bevy::math::Vec2;
 
 use gahturiyu_sim::sim::{
     crafting::{time_words, Bench, MakeRow, Maker, Standing, RECIPES},
-    items::{item, Kind},
+    crafting::Station,
+    items::{item, ItemId, Kind},
     materials::Grade,
     person::PersonId,
     stats::Skill,
@@ -44,11 +45,13 @@ pub struct Making {
     pub n: u16,
     /// How far the list is scrolled, pixels.
     pub scroll: f32,
+    /// At an alchemy table: the ingredients put in the mix (`brewui.rs`).
+    pub mix: Vec<ItemId>,
 }
 
 impl Making {
     pub fn at(bench: Bench) -> Making {
-        Making { bench, pick: None, who: None, n: 1, scroll: 0.0 }
+        Making { bench, pick: None, who: None, n: 1, scroll: 0.0, mix: Vec::new() }
     }
 }
 
@@ -58,6 +61,12 @@ pub enum MakeAct {
     Who(PersonId),
     Count(u16),
     Make(PersonId, usize, u16),
+    /// At an alchemy table: put an ingredient in the mix, take the `k`th
+    /// out, fill it with a remembered mix, brew `n` bottles.
+    Add(ItemId),
+    Remove(usize),
+    Recall(Vec<ItemId>),
+    Brew(PersonId, Vec<ItemId>, u16),
 }
 
 /// The most that can be asked for in one go.
@@ -110,7 +119,11 @@ pub fn maker(makers: &[Maker], who: Option<PersonId>) -> Option<PersonId> {
 
 /// Draw the screen; what was clicked, the box it covers, and how far the
 /// list is really scrolled (it can't go past its end).
-pub fn making(c: &Canvas, w: &World, m: &Making, _mouse: Vec2, click: Option<Click>) -> (Option<MakeAct>, Bx, f32) {
+pub fn making(c: &Canvas, w: &World, m: &Making, mouse: Vec2, click: Option<Click>) -> (Option<MakeAct>, Bx, f32) {
+    // At an alchemy table, the brewing screen.
+    if m.bench.station == Station::AlchemyTable {
+        return super::brewui::brewing(c, w, m, mouse, click);
+    }
     let b = &m.bench;
     let rows = w.making_list(b);
     let clicked = |bx: &Bx| click.map(|k| bx.contains(k.at) && !k.right).unwrap_or(false);

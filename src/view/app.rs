@@ -853,7 +853,13 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     // At a bench's screen: Enter makes what's shown, by whoever is shown.
     if (keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)) && game.trading.is_none() {
-        if let Some(m) = game.making.clone() {
+        if let Some(m) = game.making.clone().filter(|m| m.bench.station == gahturiyu_sim::sim::crafting::Station::AlchemyTable) {
+            // At an alchemy table: Enter brews the mix shown.
+            match super::brewui::brewer(w, &m).map(|p| w.brew(p, &m.mix, m.n.clamp(1, super::makeui::MOST))) {
+                Some(Ok(())) => game.sounds.ui("ui_press"),
+                _ => game.sounds.ui("ui_cant"),
+            }
+        } else if let Some(m) = game.making.clone() {
             let rows = w.making_list(&m.bench);
             if let Some(ri) = super::makeui::shown(&rows, m.pick) {
                 let who = super::makeui::maker(&w.makers(&m.bench, ri), m.who);
@@ -1783,8 +1789,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         actions.extend(a);
         panels.push(bx);
     }
-    // Making: at a bench (or with a mortar in the pack) it's the bench's own
-    // screen; anywhere else, what that member knows how to make and where.
+    // Making: at a bench it's the bench's own screen (at an alchemy table,
+    // brewing); anywhere else, what that member knows how to make and where.
     let mut make_act = None;
     match game.craft.and_then(|pid| w.bench_for(pid).map(|b| (pid, b))) {
         Some((_, bench)) => {
@@ -1841,6 +1847,35 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 game.sounds.ui("ui_press");
             }
             MakeAct::Make(p, ri, n) => match w.make(p, ri, n) {
+                Ok(()) => game.sounds.ui("ui_press"),
+                Err(why) => {
+                    game.sounds.ui("ui_cant");
+                    game.notice = Some((format!("Can't: {}.", why.say()), std::time::Instant::now()));
+                }
+            },
+            MakeAct::Add(id) => {
+                if let Some(m) = game.making.as_mut() {
+                    if m.mix.len() < gahturiyu_sim::sim::items::herbs::MIX_INGREDIENTS {
+                        m.mix.push(id);
+                    }
+                }
+                game.sounds.ui("ui_press");
+            }
+            MakeAct::Remove(k) => {
+                if let Some(m) = game.making.as_mut() {
+                    if k < m.mix.len() {
+                        m.mix.remove(k);
+                    }
+                }
+                game.sounds.ui("ui_press");
+            }
+            MakeAct::Recall(ings) => {
+                if let Some(m) = game.making.as_mut() {
+                    m.mix = ings;
+                }
+                game.sounds.ui("ui_press");
+            }
+            MakeAct::Brew(p, ings, n) => match w.brew(p, &ings, n) {
                 Ok(()) => game.sounds.ui("ui_press"),
                 Err(why) => {
                     game.sounds.ui("ui_cant");
@@ -2195,6 +2230,18 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             }
             Action::Craft(pid, r) => {
                 let _ = w.start_craft(pid, r);
+            }
+            Action::DrinkEntry(pid, k) => {
+                if !w.drink_entry(pid, k) {
+                    game.sounds.ui("ui_cant");
+                    game.notice = Some(("That can't be drunk just now.".into(), std::time::Instant::now()));
+                }
+            }
+            Action::Taste(pid, it) => {
+                if !w.taste(pid, it) {
+                    game.sounds.ui("ui_cant");
+                    game.notice = Some(("That can't be tasted just now.".into(), std::time::Instant::now()));
+                }
             }
             Action::EquipEntry(pid, k) => {
                 w.equip_entry(pid, k);
