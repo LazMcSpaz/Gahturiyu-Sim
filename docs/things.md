@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-482 things: 162 belong to one people, 320 are shared.
+492 things: 164 belong to one people, 328 are shared.
 
 ## Jobs
 
@@ -190,6 +190,8 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Travelling robe | Ṭaḍoro | **Safafiye** | sah-fah-fee-YEH | walk-cloth |
 | Plate greaves | Qotiro | **Pirtagurt** | PIR-tah-goort | board-foot |
 | Oilskin cape | Horaro | **Nawanoli** | nah-wah-NOH-lee | rain-cloth |
+| Sea wrap | Horaro | **Nawamoa** | nah-wah-MOH-ah | sea-cloth |
+| Brimmed rain hat | Horaro | **Lihonoli** | lee-hoh-NOH-lee | rain-head |
 | Round shield | Qotiro | **Portord** | POR-tord | round-shield |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
@@ -214,6 +216,14 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Brigandine | Hiṭoshota | Pirtaxot | Honawilo | Sausafithe | board-body |
 | Mail leggings | Goleguṭa | Gorgurt | Wulawole | Wuthawauye | ring-foot |
 | Fur mantle | Shihataha | Xiptap | Nawahiwa | Safasifa | snow-cloth |
+| Banded tunic | Goletaha | Gortap | Nawawole | Safawauye | ring-cloth |
+| Sash robe | Toḍataha | Tontap | Nawanona | Safasauya | sun-cloth |
+| Wool overcoat | Qeḍutaha | Kentap | Nawahenu | Safaheyu | winter-cloth |
+| Wool cap | Qeḍuṭiqo | Kentrik | Lihohenu | Thiheheyu | winter-head |
+| Guard's tabard | Tarotaha | Tortap | Nawanaro | Safasashe | guard-cloth |
+| Vestment | Qihutaha | Kiptap | Nawahiwu | Safahifu | priest-cloth |
+| Merchant's coat | Tuqutaha | Tuktap | Nawanuu | Safasuhu | trade-cloth |
+| Labourer's smock | Qaqitaha | Kektap | Nawahahi | Safahahi | carry-cloth |
 | Buckler | Ḍiḍataḍu | Drimtord | Nanunima | Sayuyiwa | hand-shield |
 | Tower shield | Hutitaḍu | Putord | Nanuwuni | Sayufusi | wall-shield |
 | Cloak | Lataha | Ratap | Nawalana | Safayasa | wide-cloth |
