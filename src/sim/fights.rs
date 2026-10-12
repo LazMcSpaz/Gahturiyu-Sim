@@ -546,6 +546,8 @@ impl World {
             }
             self.after_fight(pid, t, fatigue, tire);
         }
+        // The squad's thrown weapons lie where they came down.
+        self.lay_thrown(b);
         // Squad members still bleeding are bound, with a bandage from their
         // own pack or a squadmate's.
         for f in b.fighters.iter().filter(|f| f.is_person() && f.home != super::combat::GRAVE_SIDE && !f.dead) {

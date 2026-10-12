@@ -60,6 +60,8 @@ pub enum Act {
     PackUp(u32),
     /// Lay out a bedroll (or pitch a tent) here.
     Lay(gahturiyu_sim::sim::bedding::BedKind, V2),
+    /// Gather up the squad's thrown weapons lying about.
+    GatherThrown,
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -268,6 +270,9 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                     Some(town) => out.push(crime(format!("Steal the {name} ({})", odds(w.catch_chance(lead, gi.pos, town))), Act::PickUp(g))),
                     None => out.push(ch(format!("Pick up the {name}"), Act::PickUp(g))),
                 }
+                if w.thrown_by_squad(g) && w.thrown_lying.len() > 1 {
+                    out.push(ch("Gather the thrown weapons", Act::GatherThrown));
+                }
             }
         }
         Hover::Deposit(d) => {
@@ -351,6 +356,14 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,
+        Act::GatherThrown => {
+            let all = w.squad.members.clone();
+            let n = w.gather_thrown(if who.is_empty() { &all } else { who });
+            if n == 0 {
+                return Some("Nothing thrown is lying about.".into());
+            }
+            true
+        }
         Act::Bind(p) => {
             // The nearest of the selected with a bandage (they themselves
             // first); else anyone in the squad.

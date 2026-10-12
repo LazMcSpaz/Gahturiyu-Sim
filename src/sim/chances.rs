@@ -698,7 +698,8 @@ impl World {
         // paying on the poor; threats on the timid (against the one threatening).
         let them = self.people[npc as usize].traits;
         let honour = self.society.lives.get(npc as usize).map(|l| l.habits.honour).unwrap_or(0.5);
-        let you = self.people[who as usize].might / 100.0;
+        // (As they see you: a weapon they haven't noticed doesn't frighten.)
+        let you = self.seen_might(npc, who, super::conceal::Look::SizeUp, t) / 100.0;
         let price = (o.amount * 0.5).max(10.0) as u16;
         let yields = match how {
             Press::Ask => r.chance((honour - 0.3).max(0.0) + self.disposition(npc, who) / 200.0 - 0.2),

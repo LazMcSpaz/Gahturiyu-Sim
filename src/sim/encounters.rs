@@ -280,9 +280,13 @@ impl World {
         }
 
         // Strength against strength, with a touch of luck: bandits only jump
-        // people they think they can take.
+        // people they think they can take. They size the travellers up from
+        // where they lie in wait: a weapon or a mail shirt they don't notice
+        // isn't counted (`conceal.rs`).
         let might = |who: &[PersonId]| who.iter().map(|&m| self.people[m as usize].might).sum::<f32>();
-        let (mb, mv) = (might(&bandits), might(&victims));
+        let looker = bandits[0];
+        let mb = might(&bandits);
+        let mv = victims.iter().map(|&m| self.seen_might(looker, m, super::conceal::Look::SizeUp, t)).sum::<f32>();
         let roll = Rng::from_keys(&[self.seed, e.camp as u64, e.victim as u64, t.to_bits(), 0xA3B0]).f32();
         if mb * (0.7 + 0.6 * roll) < mv {
             return;

@@ -236,6 +236,12 @@ pub struct World {
     /// A squad member on their way to bind another's bleeding: (by, who).
     #[serde(default)]
     pub binding: Vec<(PersonId, PersonId)>,
+    /// The squad's thrown weapons lying on the ground (ground item ids), and
+    /// who is gathering them (`thrown.rs`).
+    #[serde(default)]
+    pub thrown_lying: Vec<u32>,
+    #[serde(default)]
+    pub gatherers: Vec<PersonId>,
     /// A squad member on their way to hand another something from their pack.
     pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
@@ -348,6 +354,8 @@ impl World {
             bed_jobs: Vec::new(),
             dosing: Vec::new(),
             binding: Vec::new(),
+            thrown_lying: Vec::new(),
+            gatherers: Vec::new(),
             giving: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,

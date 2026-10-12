@@ -21,7 +21,9 @@
 //!   body; a parry with it flashes white along it;
 //! - a long weapon driving someone back leaves a scuffed streak on the
 //!   ground where they were pushed (`push_streak`);
-//! - a sweeping weapon's arc is drawn wider than a plain swing's.
+//! - a sweeping weapon's arc is drawn wider than a plain swing's;
+//! - a thrown weapon tumbles end over end through the air and lies where it
+//!   comes down; one that breaks bursts into splinters (`thrown_flight`).
 //!
 //! Drawing only: everything here reads the sim's own states and times.
 
@@ -331,6 +333,43 @@ pub fn push_streak(gl: &mut Builder, from: Vec3, to: Vec3, age: f32, k: f32) {
     let across = vec3(-d.z, 0.0, d.x).normalize_or_zero() * (0.12 * k * (1.0 - age).max(0.0));
     let (a, b) = (from + vec3(0.0, 0.05, 0.0), to + vec3(0.0, 0.05, 0.0));
     gl.quad([a - across, a + across, b + across, b - across], Vec3::Y, DUST);
+}
+
+/// A thrown weapon in the air, tumbling end over end, then (its flight
+/// over) splinters if it broke. `age` in seconds since it left the hand.
+#[allow(clippy::too_many_arguments)]
+pub fn thrown_flight(b: &mut Builder, gl: &mut Builder, on_ground: &dyn Fn(V2) -> f32, it: gahturiyu_sim::sim::items::ItemId, from: V2, to: V2, hit: bool, broke: bool, age: f32, k: f32) {
+    let len = from.dist(to).max(0.1);
+    let fly = len / gahturiyu_sim::sim::combat::THROWN_SPEED;
+    if age < 0.0 || age > fly + 0.4 {
+        return;
+    }
+    let u = (age / fly).min(1.0);
+    let p = from.lerp(to, u);
+    let lift = if hit { 1.2 } else { 1.3 * (1.0 - u) + 0.05 } + 0.06 * len * u * (1.0 - u);
+    let at = vec3(p.x, on_ground(p) + lift, p.y);
+    if u < 1.0 {
+        // End over end.
+        let d = to.sub(from).scale(1.0 / len);
+        let spin = age * 14.0;
+        let along = vec3(d.x * spin.cos(), spin.sin(), d.y * spin.cos()).normalize_or_zero();
+        let across = vec3(-d.y, 0.0, d.x);
+        // Its real shape (`looks.rs`), held at its middle.
+        super::looks::draw(b, it, at - along * (0.3 * k), along, across, k, 1.0);
+    } else if broke {
+        let t = (age - fly) / 0.4;
+        for i in 0..6 {
+            let a = i as f32 * 1.05;
+            let o = vec3(a.cos(), 0.6, a.sin()) * (0.5 * t * k);
+            gl.block(at + o, 0.06 * k, 0.06 * k, 0.06 * k, a, SPARK);
+        }
+    }
+}
+
+/// A thrown weapon lying on the ground where it came down.
+pub fn thrown_lying(b: &mut Builder, at: Vec3, it: gahturiyu_sim::sim::items::ItemId, k: f32) {
+    let rot = (it as f32 * 1.7) % 6.28;
+    super::looks::lying(b, it, at, rot, k);
 }
 
 /// A swept arc in front of a fighter, from their right to their left,

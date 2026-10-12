@@ -55,7 +55,7 @@ pub fn mark_for(w: &World, hover: Option<Hover>, wild: Option<&Seen>, ground: Op
     }?;
     let m = match first.act {
         Act::Walk(_) | Act::SneakTo(_) | Act::Sleep(_) | Act::SleepIn(_) => Mark::Walk,
-        Act::PackUp(_) | Act::Lay(..) => Mark::Work,
+        Act::PackUp(_) | Act::Lay(..) | Act::GatherThrown => Mark::Work,
         Act::Talk(_) => Mark::Talk,
         Act::Attack(_) => Mark::Attack,
         Act::Enter(_) | Act::PickLock(_) => Mark::Enter,

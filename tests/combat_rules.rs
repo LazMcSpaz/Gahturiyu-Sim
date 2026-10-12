@@ -648,3 +648,212 @@ fn a_knife_put_on_beside_a_sword_goes_in_the_off_hand() {
     g.equip(spear).unwrap();
     assert_eq!(g.in_slot(Slot::OffHand), None, "a spear takes both hands");
 }
+
+// ---- Rule 8: thrown weapons ----------------------------------------------------
+
+/// A hatchet-thrower (with a club to draw after) and a foe `gap` away.
+fn thrower(seed: u64, gap: f32, spares: usize) -> Battle {
+    let mut b = pair(seed);
+    let hatchet = items::id("hatchet");
+    b.fighters[0].weapon = weapon("hatchet");
+    b.fighters[0].weapon_item = Some(hatchet);
+    b.fighters[0].throws = vec![hatchet; spares];
+    b.fighters[0].backup = Some((weapon("club"), "Club"));
+    b.fighters[0].stats.set_skill(Skill::Marksman, 60.0);
+    b.fighters[1].pos = V2::new(gap, 0.0);
+    b.fighters[1].weapon = weapon("knife");
+    b.fighters[0].think_at = 0.0;
+    b
+}
+
+#[test]
+fn out_of_reach_they_throw_and_it_lands_where_it_stops() {
+    let mut b = thrower(11, 9.0, 2);
+    b.fighters[1].think_at = f64::INFINITY;
+    for _ in 0..60 {
+        b.tick();
+    }
+    assert!(b.thrown.len() >= 2, "both spares thrown ({})", b.thrown.len());
+    assert!(b.fighters[0].throws.is_empty());
+    for th in &b.thrown {
+        assert!(th.at.dist(b.fighters[1].pos) < 9.0, "lands near the target or past it ({:?})", th.at);
+    }
+    assert!(b.thrown[..2].iter().all(|th| !th.from_hand), "the spares went first");
+    assert!(b.fx.iter().any(|x| matches!(x.kind, combat::FxKind::Throw { .. })), "seen flying");
+    assert!(b.fighters[0].trained[Skill::Marksman as usize] > 0.0, "throwing is Marksman");
+    // Then the one in the hand, and the club comes out.
+    for _ in 0..40 {
+        b.tick();
+    }
+    assert!(b.thrown.iter().any(|t| t.from_hand), "the hand's hatchet thrown too");
+    assert_eq!(b.fighters[0].weapon_item, None);
+    assert_eq!(b.fighters[0].weapon_name, "Club", "the club drawn");
+}
+
+#[test]
+fn with_nothing_else_to_draw_they_keep_the_one_in_hand() {
+    let mut b = thrower(12, 9.0, 0);
+    b.fighters[0].backup = None;
+    b.fighters[1].think_at = f64::INFINITY;
+    for _ in 0..60 {
+        b.tick();
+    }
+    assert!(b.thrown.is_empty(), "not thrown away");
+}
+
+#[test]
+fn thrown_weapons_break_by_chance_on_what_they_hit() {
+    let count = |breaks: f32| {
+        let mut broke = 0;
+        let mut thrown = 0;
+        for seed in 0..15 {
+            let mut b = thrower(400 + seed, 8.0, 3);
+            b.fighters[1].think_at = f64::INFINITY;
+            let mut w = weapon("hatchet");
+            w.breaks = breaks;
+            b.fighters[0].weapon = w;
+            // (The spares are hatchets too: their numbers come from the item.)
+            for _ in 0..90 {
+                b.tick();
+            }
+            thrown += b.thrown.len();
+            broke += b.thrown.iter().filter(|t| t.broke).count();
+        }
+        (broke, thrown)
+    };
+    let (broke, thrown) = count(0.08);
+    assert!(thrown > 30);
+    assert!(broke > 0 && broke < thrown / 2, "a hatchet breaks now and then ({broke} of {thrown})");
+    assert!(b_never_breaks(), "a thing that never breaks doesn't");
+}
+
+fn b_never_breaks() -> bool {
+    let mut b = thrower(77, 8.0, 3);
+    b.fighters[1].think_at = f64::INFINITY;
+    b.fighters[0].throws.clear();
+    let net = items::id("net");
+    b.fighters[0].throws = vec![net; 3];
+    for _ in 0..90 {
+        b.tick();
+    }
+    !b.thrown.is_empty() && b.thrown.iter().all(|t| !t.broke || item_breaks(t.item))
+}
+
+fn item_breaks(it: items::ItemId) -> bool {
+    items::item(it).weapon().is_some_and(|w| w.breaks > 0.0)
+}
+
+#[test]
+fn a_thrown_net_tangles() {
+    let mut tangled = 0;
+    for seed in 0..10 {
+        let mut b = thrower(900 + seed, 6.0, 0);
+        b.fighters[1].think_at = f64::INFINITY;
+        b.fighters[0].throws = vec![items::id("net")];
+        for _ in 0..40 {
+            b.tick();
+        }
+        tangled += b.log.iter().any(|l| l.1.contains("net tangles")) as u32;
+    }
+    assert!(tangled > 0, "a net thrown tangles ({tangled} of 10)");
+}
+
+#[test]
+fn after_a_fight_the_squads_throws_lie_about_to_be_gathered() {
+    let hatchet = items::id("hatchet");
+    for seed in 1..10u64 {
+        let mut w = worldgen::generate(seed);
+        // Everyone with three hatchets to throw.
+        for &m in &w.squad.members.clone() {
+            let d = w.people[m as usize].detail.as_mut().unwrap();
+            d.gear.add(hatchet, 3);
+        }
+        let at = w.squad.pos.add(V2::new(16.0, 4.0));
+        w.spawn_bandits(at, 3, false);
+        w.step(0.1);
+        for _ in 0..40_000 {
+            w.step(0.25);
+            if w.battles.is_empty() && w.next_battle > 0 {
+                break;
+            }
+        }
+        if w.thrown_lying.is_empty() {
+            continue;
+        }
+        let lying = w.thrown_lying.clone();
+        for id in &lying {
+            assert!(w.ground.iter().any(|g| g.id == *id && g.item == hatchet), "a hatchet on the ground");
+        }
+        let carried = |w: &World| w.squad.members.iter().map(|&m| held(w, m, hatchet)).sum::<u16>();
+        let before = carried(&w);
+        let fit: Vec<u32> = w.squad.members.iter().copied().filter(|&m| !w.is_down(m) && !w.people[m as usize].dead).collect();
+        assert!(w.gather_thrown(&fit) >= lying.len());
+        for _ in 0..4000 {
+            w.step(0.25);
+            if w.thrown_lying.is_empty() {
+                break;
+            }
+        }
+        assert!(w.thrown_lying.is_empty(), "all gathered");
+        assert_eq!(carried(&w), before + lying.len() as u16, "back in the packs");
+        return;
+    }
+    panic!("no fight left a hatchet lying");
+}
+
+// ---- Rule 9: concealment ---------------------------------------------------------
+
+#[test]
+fn hidden_things_are_hard_to_notice_and_never_certain() {
+    use gahturiyu_sim::sim::conceal::{notice_chance, Look};
+    for h in [0.0, 0.3, 0.6, 0.9, 1.0] {
+        for sharp in [0.0, 0.5, 1.0] {
+            let (g, s, f) = (notice_chance(h, sharp, Look::Glance), notice_chance(h, sharp, Look::SizeUp), notice_chance(h, sharp, Look::Search));
+            assert!(g <= s && s <= f, "looking harder notices more");
+            assert!(g > 0.0 && f < 1.0, "never certain either way");
+        }
+    }
+    assert!(notice_chance(0.9, 0.5, Look::Glance) < 0.2, "a well-hidden knife slips past a glance");
+    assert!(notice_chance(0.9, 0.5, Look::Search) > 0.5, "a search mostly finds it");
+}
+
+#[test]
+fn a_hidden_knife_isnt_counted_until_its_noticed() {
+    use gahturiyu_sim::sim::conceal::{self, Look};
+    use gahturiyu_sim::sim::items::Slot;
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    let looker = w.settlements[0].residents[0];
+    // Only a knife: what they look like with it seen, and unseen.
+    {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        d.gear.unequip(Slot::MainHand);
+        d.gear.unequip(Slot::OffHand);
+        d.gear.add(items::id("knife"), 1);
+        d.gear.equip(items::id("knife")).unwrap();
+    }
+    w.people[m as usize].recompute_might();
+    let full = w.people[m as usize].might;
+    let gear = w.people[m as usize].kit();
+    assert!(!conceal::shows(&gear, Slot::MainHand), "a knife doesn't show on the figure");
+    let (mut lower, mut same) = (0, 0);
+    for h in 0..200 {
+        let t = w.time + h as f64 * 3600.0;
+        let seen = w.seen_might(looker, m, Look::Glance, t);
+        assert!(seen <= full + 1e-3);
+        if seen < full - 1e-3 {
+            lower += 1;
+        } else {
+            same += 1;
+        }
+        // The same look in the same hour comes out the same.
+        assert_eq!(seen, w.seen_might(looker, m, Look::Glance, t));
+    }
+    assert!(lower > same, "a glance mostly misses it ({lower} missed, {same} seen)");
+    // A longsword in the hand is plain to see.
+    let d = w.people[m as usize].detail.as_mut().unwrap();
+    d.gear.add(items::id("longsword"), 1);
+    d.gear.unequip(Slot::MainHand);
+    d.gear.equip(items::id("longsword")).unwrap();
+    assert!(conceal::shows(&w.people[m as usize].kit(), Slot::MainHand));
+}

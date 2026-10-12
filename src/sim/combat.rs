@@ -193,9 +193,60 @@ struct Blow {
     share: f32,
     weapon: Option<WeaponDef>,
     follow: bool,
+    /// Thrown (`weapon` is the thing thrown): flies like a shot.
+    throw: bool,
 }
 
-const WHOLE: Blow = Blow { share: 1.0, weapon: None, follow: true };
+const WHOLE: Blow = Blow { share: 1.0, weapon: None, follow: true, throw: false };
+
+// ---- Thrown weapons (rule 8) ---------------------------------------------------
+
+/// How far a thrown weapon carries, metres (a net less far).
+pub const THROW_RANGE: f32 = 12.0;
+pub const NET_RANGE: f32 = 8.0;
+/// Nobody throws at someone nearer than this (they'd rather strike).
+pub const THROW_NEAREST: f32 = 3.0;
+/// A thrown weapon's chance to break, times what it hit: a body, armour, a
+/// shield (or a parrying blade), the ground past a miss.
+pub const BREAK_ON: (f32, f32, f32, f32) = (1.0, 1.5, 2.0, 0.8);
+
+/// How far `w` carries when thrown (0: it isn't thrown).
+pub fn throw_range(w: &WeaponDef) -> f32 {
+    if !w.thrown || w.range > 0.0 {
+        0.0
+    } else if w.entangle > 0.0 {
+        NET_RANGE
+    } else {
+        THROW_RANGE
+    }
+}
+
+/// A thrown weapon where it came down.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Thrown {
+    pub item: ItemId,
+    /// Who threw it (a fighter's index).
+    pub by: usize,
+    pub at: V2,
+    /// It broke when it hit (and is gone).
+    pub broke: bool,
+    /// When it came down.
+    pub when: f64,
+    /// Thrown from the hand (rather than a spare from the pack).
+    pub from_hand: bool,
+}
+
+/// What became of a blow.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Landed {
+    /// No blow at all (out of reach, nothing to strike with).
+    Gone,
+    Missed,
+    /// Turned: a shield, a parry, a brace.
+    Blocked,
+    /// It landed; `armour` if armour met it.
+    Hit { armour: bool },
+}
 
 /// Chance from (weight - from) × per, capped.
 fn chance_of(weight: f32, (from, per, most): (f32, f32, f32)) -> f32 {
@@ -239,6 +290,8 @@ pub enum Act {
     Drink { item: ItemId, done: f64 },
     /// Binding a bandage on someone (themselves, or a friend beside them).
     Bind { who: usize, item: ItemId, done: f64 },
+    /// Throwing a weapon (from the hand, or a spare from the pack).
+    Throw { target: usize, item: ItemId, lands: f64 },
 }
 
 /// What the player (or a leader) has told someone to do.
@@ -332,6 +385,16 @@ pub struct Fighter {
     /// A blade in the off hand to parry with (`offhand_ok`).
     #[serde(default)]
     pub offhand: Option<WeaponDef>,
+    /// What's in the main hand (none once it's been thrown).
+    #[serde(default)]
+    pub weapon_item: Option<ItemId>,
+    /// Throwing weapons in the pack, besides the one in the hand.
+    #[serde(default)]
+    pub throws: Vec<ItemId>,
+    /// The best hand weapon in the pack that isn't for throwing: drawn
+    /// once the one in the hand has been thrown.
+    #[serde(default, with = "super::save::named_weapon")]
+    pub backup: Option<(WeaponDef, &'static str)>,
     /// Until this time they haven't realised they're under attack: they
     /// stand there, can't dodge or block, and take a sneak attack's damage.
     pub aware_at: f64,
@@ -452,6 +515,9 @@ impl Fighter {
             used: Vec::new(),
             bandages: gear.bag.iter().filter(|e| is_bandage(e.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             offhand: gear.in_slot(super::items::Slot::OffHand).and_then(|id| item(id).weapon().copied()).filter(|w| offhand_ok(w) && !held.two_handed),
+            weapon_item: gear.in_slot(super::items::Slot::MainHand),
+            throws: gear.bag.iter().filter(|e| item(e.0).weapon().is_some_and(|w| throw_range(w) > 0.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
+            backup: gear.bag.iter().filter_map(|e| item(e.0).weapon().filter(|w| w.range == 0.0 && !w.thrown).map(|w| (*w, item(e.0).name))).max_by(|a, b| (a.0.cut + a.0.blunt).total_cmp(&(b.0.cut + b.0.blunt))),
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
             held: None,
@@ -529,6 +595,9 @@ impl Fighter {
             used: Vec::new(),
             bandages: Vec::new(),
             offhand: None,
+            weapon_item: None,
+            throws: Vec::new(),
+            backup: None,
             aware_at: 0.0,
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
@@ -711,6 +780,9 @@ pub enum FxKind {
     Parry { who: usize },
     /// Fighter `who` driven back by a long weapon, from `from` to `to`.
     Push { who: usize, from: V2, to: V2 },
+    /// A weapon thrown from `from`, coming down at `to` (`hit`: on the one
+    /// it was thrown at); `broke`: in pieces when it lands.
+    Throw { item: ItemId, from: V2, to: V2, hit: bool, broke: bool },
 }
 
 /// A visual moment for the window to show.
@@ -749,6 +821,9 @@ pub struct Battle {
     /// What's solid round the fight, for fighters to go round (`Around`).
     #[serde(skip)]
     pub around: Around,
+    /// Thrown weapons where they came down (rule 8).
+    #[serde(default)]
+    pub thrown: Vec<Thrown>,
 }
 
 /// What's solid round a fight (`solid.rs`): fighters step round it, never
@@ -795,7 +870,7 @@ impl Around {
 
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default() }
+        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default(), thrown: Vec::new() }
     }
 
     /// How well lit a spot in the fight is, 0..1.
@@ -979,6 +1054,13 @@ impl Battle {
                         self.fighters[i].act = Act::Idle;
                     }
                 }
+                Act::Throw { target, item: it, lands } => {
+                    if t >= lands {
+                        self.throw_at(i, target, it, &mut rng);
+                        let rec = item(it).weapon().map(|w| w.recover).unwrap_or(0.5) * self.fighters[i].attack_time();
+                        self.fighters[i].act = Act::Recover { until: t + rec as f64 };
+                    }
+                }
                 Act::Idle => self.idle(i),
             }
         }
@@ -1128,6 +1210,14 @@ impl Battle {
             }
         }
         let me = &self.fighters[i];
+        // Out of reach but within a throw: throw something (rule 8).
+        if dist > reach * 1.2 && dist >= THROW_NEAREST && !me.shooting() && me.fatigue > 4.0 {
+            if let Some(it) = self.to_throw(i).filter(|&it| item(it).weapon().is_some_and(|w| dist <= throw_range(w))) {
+                let windup = item(it).weapon().map(|w| w.windup).unwrap_or(0.5) * me.attack_time();
+                self.fighters[i].act = Act::Throw { target: j, item: it, lands: self.time + windup as f64 };
+                return;
+            }
+        }
         if dist > reach * 0.92 {
             let step = speed.min(dist - reach * 0.85).max(0.0);
             let to = self.around.toward(me.pos, tpos, step);
@@ -1211,22 +1301,23 @@ impl Battle {
         self.resolve_blow(a, d, rng, WHOLE);
     }
 
-    fn resolve_blow(&mut self, a: usize, d: usize, rng: &mut Rng, blow: Blow) {
+    fn resolve_blow(&mut self, a: usize, d: usize, rng: &mut Rng, blow: Blow) -> Landed {
         // Every draw happens whatever the outcome, so one swing missing never
         // shifts the dice for everyone after it.
         let (r_hit, r_block, r_part, r_dmg, r_cover1, r_cover2) = (rng.f32(), rng.f32(), rng.f32(), rng.f32(), rng.f32(), rng.f32());
         let att = &self.fighters[a];
         let def = &self.fighters[d];
-        let Some((weapon, arm)) = att.usable_weapon() else { return };
+        let held = if blow.throw { Some((FISTS, 1.0)) } else { att.usable_weapon() };
+        let Some((weapon, arm)) = held else { return Landed::Gone };
         let (weapon, arm) = blow.weapon.map(|w| (w, 1.0)).unwrap_or((weapon, arm));
-        let shot = att.shooting() && blow.weapon.is_none();
+        let shot = (att.shooting() && blow.weapon.is_none()) || blow.throw;
         let dist = att.pos.dist(def.pos);
         if !def.active() || dist > if shot { weapon.range * 1.05 } else { att.reach() * 1.3 } {
-            return;
+            return Landed::Gone;
         }
         // A bow without arrows (or swung up close with no hand weapon) is a club, and a poor one.
         let weapon = if weapon.range > 0.0 && !shot { FISTS } else { weapon };
-        if shot {
+        if shot && !blow.throw {
             self.fighters[a].ammo -= 1;
             self.fighters[a].shots += 1;
         }
@@ -1254,7 +1345,7 @@ impl Battle {
         let tight = if !shot && needs_room(&weapon) { 1.0 - TIGHT_HIT * self.tightness(a) } else { 1.0 };
         let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark * tight;
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
-        if shot {
+        if shot && !blow.throw {
             // Only for drawing. A miss comes down a few metres past the target,
             // placed from dice already rolled so nothing else shifts.
             let hit = r_hit <= p_hit;
@@ -1273,13 +1364,13 @@ impl Battle {
             if rng_line(r_dmg) {
                 self.say(format!("{dn} dodges {an}."));
             }
-            return;
+            return Landed::Missed;
         }
         // A brace turns the blow that would have landed, then it's spent.
         if self.fighters[d].has(Does::Brace).is_some() {
             self.fighters[d].statuses.retain(|s| s.does != Does::Brace);
             self.say(format!("{dn}'s brace turns {an}'s blow."));
-            return;
+            return Landed::Blocked;
         }
         let def = &self.fighters[d];
         // Only a shield stops an arrow.
@@ -1296,8 +1387,9 @@ impl Battle {
         let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
         let roll = 0.8 + r_dmg * 0.4;
         let skill_mult = 0.6 + skill * 0.006;
-        // Strength puts weight behind a blow; a bowstring doesn't care.
-        let pull = if shot { 0.0 } else { 1.0 };
+        // Strength puts weight behind a blow (and a throw); a bowstring
+        // doesn't care.
+        let pull = if shot && !blow.throw { 0.0 } else { 1.0 };
         let size = if shot { 1.0 } else { self.fighters[a].size() };
         // A long weapon with its foe inside its reach hits soft (rule 4).
         let crowded = if blow.weapon.is_none() && self.crowded(a, d) { CROWDED_HIT } else { 1.0 };
@@ -1305,7 +1397,7 @@ impl Battle {
         let mut blunt = weapon.blunt * (1.0 + strength * 0.010 * pull) * skill_mult * roll * size * blow.share * crowded;
         // The weapon in the hand slot wears with every blow that connects
         // (bowstrings less). An archer's pack sidearm doesn't count here.
-        if self.fighters[a].stowed.is_none() {
+        if self.fighters[a].stowed.is_none() && !blow.throw {
             self.fighters[a].weapon_wear += if shot { 0.3 } else { 1.0 };
         }
 
@@ -1328,10 +1420,10 @@ impl Battle {
                 let mut back = Rng::from_keys(&[self.seed, self.ticks, d as u64, a as u64, 0x5249_504F]);
                 if blow.follow && back.f32() < RIPOSTE && self.fighters[d].active() {
                     let off = self.fighters[d].offhand_up();
-                    self.resolve_blow(d, a, &mut back, Blow { share: RIPOSTE_SHARE, weapon: off, follow: false });
+                    self.resolve_blow(d, a, &mut back, Blow { share: RIPOSTE_SHARE, weapon: off, follow: false, throw: false });
                 }
             }
-            return;
+            return Landed::Blocked;
         }
 
         // Where it lands.
@@ -1361,10 +1453,12 @@ impl Battle {
         let cut_swung = cut;
         // Frozen stiff, even a light blow cracks brittle things.
         let heavy = blunt > cut || self.fighters[d].has(Does::Frozen).is_some();
+        let mut met = false;
         for (k, (which, layer)) in layers.iter().enumerate() {
             let r = if k == 0 { r_cover1 } else { r_cover2 };
             let worn = if which.is_none() { 1.0 } else { rust * through };
             if r < layer.coverage {
+                met |= which.is_some();
                 cut *= 1.0 - layer.cut * worn;
                 blunt *= 1.0 - layer.blunt * worn;
                 if let Some(i) = which {
@@ -1396,7 +1490,7 @@ impl Battle {
                 let head = self.fighters[d].hp[Part::Head as usize].max(0.0);
                 self.wound(d, Part::Head, head + 0.5);
                 self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: true }, at: self.time });
-                return;
+                return Landed::Hit { armour: met };
             }
             // A sneak attack: the better the sneak, the worse the wound, and
             // a knife worst of all.
@@ -1405,6 +1499,8 @@ impl Battle {
             cut *= k;
             blunt *= k;
             self.say(format!("{an} catches {dn} unawares: the {} ({:.0}).", part.name(), cut + blunt));
+        } else if blow.throw {
+            self.say(format!("{an}'s {} strikes {dn} in the {} ({:.0}).", self.names_thing(weapon), part.name(), cut + blunt));
         } else if shot {
             self.say(format!("{an} shoots {dn} in the {} ({:.0}).", part.name(), cut + blunt));
         } else {
@@ -1436,6 +1532,77 @@ impl Battle {
             let until = self.time + ENTANGLE_SECS;
             self.fighters[d].statuses.push(super::magic::Status { does: Does::Slow, power: 0.75, until });
             self.say(format!("{an}'s net tangles {dn}."));
+        }
+        Landed::Hit { armour: met }
+    }
+
+    /// A word for a weapon thrown ("hatchet").
+    fn names_thing(&self, w: WeaponDef) -> &'static str {
+        if w.entangle > 0.0 {
+            "net"
+        } else {
+            "throw"
+        }
+    }
+
+    /// What fighter `i` would throw now: a spare from the pack first, else
+    /// what's in the hand if there's something else to draw after.
+    fn to_throw(&self, i: usize) -> Option<ItemId> {
+        let f = &self.fighters[i];
+        if f.burdened || f.usable_weapon().is_none_or(|w| w.1 < 1.0) {
+            return None;
+        }
+        if let Some(&it) = f.throws.first() {
+            return Some(it);
+        }
+        let it = f.weapon_item?;
+        let w = item(it).weapon()?;
+        (throw_range(w) > 0.0 && f.backup.is_some()).then_some(it)
+    }
+
+    /// Fighter `a` throws `it` at `d`: it flies, lands where it stops, and
+    /// may break on what it hit (rule 8).
+    fn throw_at(&mut self, a: usize, d: usize, it: ItemId, rng: &mut Rng) {
+        let Some(w) = item(it).weapon().copied() else { return };
+        if d >= self.fighters.len() || !self.fighters[a].active() {
+            return;
+        }
+        // Out of the pack, or out of the hand (and the next weapon drawn).
+        let f = &mut self.fighters[a];
+        let from_hand = if let Some(k) = f.throws.iter().position(|&x| x == it) {
+            f.throws.remove(k);
+            false
+        } else if f.weapon_item == Some(it) {
+            let (next, name) = f.backup.take().unwrap_or((FISTS, "bare hands"));
+            f.weapon = next;
+            f.weapon_name = name;
+            f.weapon_item = None;
+            true
+        } else {
+            return;
+        };
+        let (from, aim) = (self.fighters[a].pos, self.fighters[d].pos);
+        let thrown = WeaponDef { skill: Skill::Marksman, range: throw_range(&w), ..w };
+        let landed = self.resolve_blow(a, d, rng, Blow { share: 1.0, weapon: Some(thrown), follow: false, throw: true });
+        let mut dice = Rng::from_keys(&[self.seed, self.ticks, a as u64, d as u64, 0x5448_5257]);
+        let (r_break, r_far, r_side) = (dice.f32(), dice.f32(), dice.f32());
+        let dir = aim.sub(from);
+        let dir = dir.scale(1.0 / dir.len().max(0.01));
+        let side = V2::new(-dir.y, dir.x);
+        let (at, on) = match landed {
+            Landed::Hit { armour } => (aim.add(side.scale((r_side - 0.5) * 0.8)), if armour { BREAK_ON.1 } else { BREAK_ON.0 }),
+            Landed::Blocked => (aim.sub(dir.scale(0.6 + r_far)).add(side.scale((r_side - 0.5) * 1.5)), BREAK_ON.2),
+            Landed::Missed | Landed::Gone => (aim.add(dir.scale(2.0 + r_far * 5.0)).add(side.scale((r_side - 0.5) * 3.0)), BREAK_ON.3),
+        };
+        let at = self.around.step(aim, at);
+        let broke = r_break < (w.breaks * on).min(1.0);
+        let hit = matches!(landed, Landed::Hit { .. });
+        let flight = (from.dist(at) / THROWN_SPEED) as f64;
+        self.fx.push(Fx { kind: FxKind::Throw { item: it, from, to: at, hit, broke }, at: self.time });
+        self.thrown.push(Thrown { item: it, by: a, at, broke, when: self.time + flight, from_hand });
+        if broke {
+            let name = self.names[a].clone();
+            self.say(format!("{name}'s {} breaks.", item(it).name.to_lowercase()));
         }
     }
 
@@ -1602,7 +1769,7 @@ impl Battle {
         caught.sort_by(|x, y| x.1.total_cmp(&y.1).then(x.0.cmp(&y.0)));
         for (j, _) in caught.into_iter().take(w.sweep.saturating_sub(1) as usize) {
             let mut r = Rng::from_keys(&[self.seed, self.ticks, a as u64, j as u64, 0x5357_4545]);
-            self.resolve_blow(a, j, &mut r, Blow { share: SWEEP_SHARE, weapon: None, follow: false });
+            self.resolve_blow(a, j, &mut r, Blow { share: SWEEP_SHARE, weapon: None, follow: false, throw: false });
         }
     }
 
@@ -1678,7 +1845,7 @@ impl Battle {
     fn stagger(&mut self, d: usize) {
         let t = self.time;
         let f = &mut self.fighters[d];
-        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. }) {
+        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. } | Act::Throw { .. }) {
             f.act = Act::Recover { until: t + STAGGER_SECS };
         }
         f.think_at = f.think_at.max(t + STAGGER_SECS);
@@ -2373,6 +2540,10 @@ struct Source {
     r_dmg: f32,
     r_resist: f32,
 }
+
+/// How fast a thrown weapon flies, metres a second (drawing, and when it
+/// comes down).
+pub const THROWN_SPEED: f32 = 18.0;
 
 /// Long and sweeping weapons need room (rule 5); short and middling don't.
 pub fn needs_room(w: &WeaponDef) -> bool {
