@@ -205,7 +205,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    rule that reads them asks once per decision (a fight's start, a leg's
    departure, an hour of a day plan). Read so far by the cold on the body
    (`cold.rs`, exposure), a fight's aim (`Battle::aim_weather`, taken at its
-   start) and spotting (`stealth.rs`, sight and hearing);
+   start), spotting (`stealth.rs`, sight and hearing), fires and standing
+   torches in the open (drowned by the first downpour, `World::drowned_by`,
+   worked out when lit) and the boats (kept in for the hour when the sea
+   won't let them out, read at the stilts at the top of the hour);
    `docs/weather-hooks.md` says where the rest is meant to connect.
 
 22. **Bases are built on the clock.** A construction site stores its labour

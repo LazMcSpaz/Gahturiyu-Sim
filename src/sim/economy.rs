@@ -279,6 +279,9 @@ impl World {
                 work.push((p, l, worked, ran));
             }
             let src = self.society.towns[town].sources.clone();
+            // The boats put out only if the sea lets them this hour (read at
+            // the stilt village at the top of the hour: `boats_can_sail`).
+            let sea_ok = self.settlements[town].stilts.is_none_or(|p| self.weather_effects(p, t).boats_can_sail);
             let mut crafters = Vec::new();
             for (p, l, worked, ran) in work {
                 let Some(ci) = l.community else { continue };
@@ -286,6 +289,7 @@ impl World {
                 match l.job {
                     Job::Cook => self.society.communities[ci as usize].cooked.rate += worked * MEALS_PER_COOK_HOUR,
                     Job::Runner => self.society.communities[ci as usize].carried.rate += ran / RUN_HOURS * POTS_PER_RUN,
+                    Job::Fisher if offshore && !sea_ok => {}
                     Job::Fisher if offshore => {
                         self.society.communities[ci as usize].catch.rate += worked * super::jobs::FISH_PER_HOUR;
                         for (g, r) in Job::Fisher.gathers(&src, true, None) {
