@@ -23,6 +23,7 @@ use bevy::math::Vec2;
 use gahturiyu_sim::names::Gender;
 use gahturiyu_sim::sim::{
     economy::{Deal, Table},
+    items::herbs::Mix,
     items::{self, item, ItemId, Kind, SLOTS},
     names::gender,
     person::PersonId,
@@ -49,10 +50,11 @@ pub struct Trading {
 pub enum TradeAct {
     Close,
     Member(PersonId),
-    /// One of this member's things onto the table.
-    Give(PersonId, ItemId),
+    /// One of this member's things onto the table (a brewed bottle: of
+    /// this mix).
+    Give(PersonId, ItemId, Option<Mix>),
     /// One of the merchant's things onto the table.
-    Get(ItemId),
+    Get(ItemId, Option<Mix>),
     /// One back off the table: (from the giving side?, which line).
     Back(bool, usize),
     Clear,
@@ -97,9 +99,29 @@ fn they(seed: u64) -> (&'static str, &'static str, &'static str) {
     }
 }
 
-/// A thing's name as the Names setting has it (RG-18).
+/// A thing's name as the Names setting has it (RG-18); a brewed bottle by
+/// its mix ("Draught of heal").
 fn named(w: &World, it: ItemId) -> String {
     super::lexicon::thing(w, item(it).name)
+}
+
+fn named_mix(w: &World, it: ItemId, mix: Option<Mix>) -> String {
+    match mix {
+        Some(m) => m.name(),
+        None => named(w, it),
+    }
+}
+
+/// What a brewed bottle carries, short: "heal, restore stamina · daze"
+/// (helpful first, then the harm), and its grade.
+fn mix_note(m: &Mix) -> (String, bool) {
+    let good: Vec<String> = m.carries().filter(|a| !a.harmful()).map(|a| a.name().to_lowercase()).collect();
+    let bad: Vec<String> = m.carries().filter(|a| a.harmful()).map(|a| a.name().to_lowercase()).collect();
+    let mut s = format!("{}: {}", m.grade().name(), good.join(", "));
+    if !bad.is_empty() {
+        s += &format!(" · {}", bad.join(", "));
+    }
+    (s, !bad.is_empty())
 }
 
 /// The lists' real scroll positions, after drawing.
@@ -179,34 +201,35 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
     // The pack: what can be sold first, then what they won't take, then what's worn.
     let list_top = hy + 14.0;
     let list_h = side_h - (list_top - top) - 96.0;
-    let mut rows: Vec<(ItemId, u16, Option<u16>, bool)> = Vec::new();
+    let mut rows: Vec<(ItemId, u16, Option<u16>, bool, Option<Mix>)> = Vec::new();
     if let Some(d) = me.detail.as_ref() {
         for e in &d.gear.bag {
             if matches!(item(e.0).kind, Kind::Coin) {
                 continue;
             }
             let price = w.offer(npc, e.0, e.2.as_ref());
-            match rows.iter_mut().find(|r| r.0 == e.0 && r.2 == price && !r.3) {
+            let mix = e.2.and_then(|p| p.mix);
+            match rows.iter_mut().find(|r| r.0 == e.0 && r.2 == price && !r.3 && r.4 == mix) {
                 Some(r) => r.1 += e.1,
-                None => rows.push((e.0, e.1, price, false)),
+                None => rows.push((e.0, e.1, price, false, mix)),
             }
         }
         rows.sort_by_key(|r| r.2.is_none());
         for s in SLOTS {
             if let Some(it) = d.gear.in_slot(s) {
-                rows.push((it, 1, w.offer(npc, it, d.gear.piece(s)), true));
+                rows.push((it, 1, w.offer(npc, it, d.gear.piece(s)), true, None));
             }
         }
     }
     let most = (rows.len() as f32 * ROW - list_h).max(0.0);
     scrolls[0] = t.scroll[0].clamp(0.0, most);
-    for (k, &(it, n, price, worn)) in rows.iter().enumerate() {
+    for (k, &(it, n, price, worn, mix)) in rows.iter().enumerate() {
         let yy = list_top + k as f32 * ROW - scrolls[0];
         if yy < list_top - 1.0 || yy + ROW > list_top + list_h + 1.0 {
             continue;
         }
         let bx = Bx::new(lx + 6.0, yy, SIDE_W - 12.0, ROW);
-        let laid: u16 = t.table.give.iter().filter(|g| g.0 == member && g.1 == it).map(|g| g.2).sum();
+        let laid: u16 = t.table.give.iter().filter(|g| g.0 == member && g.1 == it && g.3 == mix).map(|g| g.2).sum();
         let sells = price.is_some() && !worn;
         // (What they won't buy doesn't answer the mouse.)
         let look = if sells { kit::row(c, &bx, false) } else { kit::Look::default() };
@@ -214,7 +237,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
         let yy = yy + kit::nudge(look);
         c.rect(bx.x + 6.0, bx.y + bx.h - 1.0, bx.w - 12.0, 1.0, ega(BRASS, 0.08));
         let fade = if sells { 1.0 } else { 0.5 };
-        let label = if n > 1 { format!("{} ×{n}", named(w, it)) } else { named(w, it) };
+        let label = if n > 1 { format!("{} ×{n}", named_mix(w, it, mix)) } else { named_mix(w, it, mix) };
         let lw = c.styled(&label, bx.x + 12.0, yy + 22.0, 19.0, ega(if hot { BRIGHT } else { TEXT }, fade), Face::Body, 0.0);
         if worn {
             c.styled("worn", bx.x + 20.0 + lw, yy + 22.0, 15.0, ega(FAINT, 0.9), Face::Italic, 0.0);
@@ -237,7 +260,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
             arrow(c, bx.x + bx.w - 24.0 - pw, yy + 22.0, up, col);
         }
         if sells && laid < n && clicked(&bx) {
-            act = Some(TradeAct::Give(member, it));
+            act = Some(TradeAct::Give(member, it, mix));
         }
     }
     if rows.is_empty() {
@@ -280,25 +303,30 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
     c.styled(&format!("{} STALL", her_cap.to_uppercase()), rx + 18.0, hy, 13.0, eg(GROUP), Face::Title, 4.0);
     c.styled_right(&format!("{she} asks"), rx + SIDE_W - 18.0, hy, 15.0, eg(FAINT), Face::Body, 0.0);
     c.rect(rx + 18.0, hy + 8.0, SIDE_W - 36.0, 1.0, ega(BRASS, 0.35));
-    let wares = w.for_sale(npc);
+    let wares = w.stall(npc);
     let stall_h = side_h - (list_top - top) - 16.0;
     let most = (wares.len() as f32 * ROW - stall_h).max(0.0);
     scrolls[1] = t.scroll[1].clamp(0.0, most);
-    for (k, &(it, n, price)) in wares.iter().enumerate() {
+    for (k, lot) in wares.iter().enumerate() {
+        let (it, n, price, mix) = (lot.item, lot.n, lot.price, lot.mix);
         let yy = list_top + k as f32 * ROW - scrolls[1];
         if yy < list_top - 1.0 || yy + ROW > list_top + stall_h + 1.0 {
             continue;
         }
         let bx = Bx::new(rx + 6.0, yy, SIDE_W - 12.0, ROW);
-        let laid: u16 = t.table.get.iter().filter(|g| g.0 == it).map(|g| g.1).sum();
+        let laid: u16 = t.table.get.iter().filter(|g| g.0 == it && g.2 == mix).map(|g| g.1).sum();
         let look = kit::row(c, &bx, false);
         let hot = look.hot;
         let yy = yy + kit::nudge(look);
         c.rect(bx.x + 6.0, bx.y + bx.h - 1.0, bx.w - 12.0, 1.0, ega(BRASS, 0.08));
-        let lw = c.styled(&named(w, it), bx.x + 12.0, yy + 22.0, 19.0, eg(if hot { BRIGHT } else { TEXT }), Face::Body, 0.0);
+        let lw = c.styled(&named_mix(w, it, mix), bx.x + 12.0, yy + 22.0, 19.0, eg(if hot { BRIGHT } else { TEXT }), Face::Body, 0.0);
         let cw = c.styled(&format!("×{n}"), bx.x + 20.0 + lw, yy + 22.0, 15.0, eg(FAINT), Face::Body, 0.0);
         if laid > 0 {
             c.styled(&format!("{laid} on the table"), bx.x + 30.0 + lw + cw, yy + 22.0, 15.0, eg(HEAD), Face::Italic, 0.0);
+        } else if let Some(m) = mix {
+            // What the bottle carries, its harm in red.
+            let (note, harms) = mix_note(&m);
+            c.styled(&note, bx.x + 30.0 + lw + cw, yy + 22.0, 13.0, eg(if harms { POOR } else { FAINT }), Face::Italic, 0.0);
         }
         c.styled_right(&format!("{:.1} kg", item(it).weight), bx.x + bx.w - 100.0, yy + 22.0, 15.0, eg(FAINT), Face::Body, 0.0);
         let rate = w.going_rate(npc, it);
@@ -309,7 +337,7 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
             arrow(c, bx.x + bx.w - 24.0 - pw, yy + 22.0, up, col);
         }
         if laid < n && clicked(&bx) {
-            act = Some(TradeAct::Get(it));
+            act = Some(TradeAct::Get(it, mix));
         }
     }
     if wares.is_empty() {
@@ -358,9 +386,9 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
         }
         *y += h + 12.0;
     };
-    let name_n = |it: ItemId, n: u16| if n > 1 { format!("{} ×{n}", named(w, it)) } else { named(w, it) };
-    let gives: Vec<(String, Option<u32>)> = t.table.give.iter().enumerate().map(|(k, g)| (name_n(g.1, g.2), coin_of_give(k))).collect();
-    let gets: Vec<(String, Option<u32>)> = t.table.get.iter().enumerate().map(|(k, g)| (name_n(g.0, g.1), coin_of_get(k))).collect();
+    let name_n = |it: ItemId, n: u16, mix: Option<Mix>| if n > 1 { format!("{} ×{n}", named_mix(w, it, mix)) } else { named_mix(w, it, mix) };
+    let gives: Vec<(String, Option<u32>)> = t.table.give.iter().enumerate().map(|(k, g)| (name_n(g.1, g.2, g.3), coin_of_give(k))).collect();
+    let gets: Vec<(String, Option<u32>)> = t.table.get.iter().enumerate().map(|(k, g)| (name_n(g.0, g.1, g.2), coin_of_get(k))).collect();
     pile("You give", quote.map(|q| q.given()), gives, true, &mut y, &mut act);
     pile("You get", quote.map(|q| q.got()), gets, false, &mut y, &mut act);
 

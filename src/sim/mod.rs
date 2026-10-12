@@ -3,6 +3,7 @@
 
 pub mod ai;
 pub mod animals;
+pub mod apothecary;
 pub mod bands;
 pub mod bedding;
 pub mod binders;
