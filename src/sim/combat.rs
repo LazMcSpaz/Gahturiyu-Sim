@@ -1102,7 +1102,9 @@ impl Battle {
                 let resting = matches!(f.act, Act::Idle | Act::Recover { .. });
                 // Breath comes back slowly in a fight (B5): a few minutes'
                 // standing off to get it all back.
-                f.fatigue = (f.fatigue + (if resting { FIGHT_BREATH_REST } else { FIGHT_BREATH }) * DT as f32).min(f.max_fatigue);
+                // (A good meal in them brings it back faster: `Does::Breath`.)
+                let meal = 1.0 + f.power(Does::Breath);
+                f.fatigue = (f.fatigue + (if resting { FIGHT_BREATH_REST } else { FIGHT_BREATH }) * meal * DT as f32).min(f.max_fatigue);
                 f.mana = (f.mana + f.mana_regen * DT as f32).min(f.max_mana);
             }
         }
