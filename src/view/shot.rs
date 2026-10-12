@@ -58,6 +58,9 @@ pub struct Shot {
     /// member's pack cracks: the glint and the splash (the cue lasts a
     /// second, so try `GAHT_FRAMES` about 6).
     pub glass: bool,
+    /// `GAHT_CAPTIVE=1`: a slavers' band camped a little way off, the fourth
+    /// member held captive at their fire (the squad list says so).
+    pub captive: bool,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
     /// `official`, `healer`...: the nearest with that job; `indoors`: the
@@ -133,6 +136,10 @@ pub struct Shot {
     pub trade: bool,
     /// `GAHT_TRADE=table`: the same, with a few things laid on the table.
     pub trade_table: bool,
+    /// `GAHT_TRADE=bottles`: a merchant who sells the town's shelf, with
+    /// town alchemists' bottles on it (a clean and a cheap healing draught,
+    /// and a warming one), the stall scrolled down to them, one on the table.
+    pub trade_bottles: bool,
     /// `GAHT_CONVO=1`: a local who was robbed last night talks about it
     /// (a conversation put together from the dialogue pieces).
     pub convo: bool,
@@ -205,6 +212,7 @@ impl Shot {
             drink: var("GAHT_DRINK").is_some(),
             flask: var("GAHT_FLASK").is_some(),
             glass: var("GAHT_GLASS").is_some(),
+            captive: var("GAHT_CAPTIVE").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
@@ -236,6 +244,7 @@ impl Shot {
             shun: var("GAHT_SHUN").is_some(),
             trade: var("GAHT_TRADE").is_some(),
             trade_table: var("GAHT_TRADE").as_deref() == Some("table"),
+            trade_bottles: var("GAHT_TRADE").as_deref() == Some("bottles"),
             convo: var("GAHT_CONVO").is_some(),
             guard: var("GAHT_GUARD").is_some(),
             factions: var("GAHT_FACTIONS").is_some(),
@@ -458,6 +467,21 @@ impl Shot {
                 if burst {
                     break;
                 }
+            }
+        }
+        if self.captive {
+            let at = world.squad.pos.add(V2::new(200.0, 60.0));
+            let band = world.spawn_binders(at, 4);
+            if let Some(&m) = world.squad.members.get(3) {
+                world.captives.push(gahturiyu_sim::sim::binders::Captive { who: m, camp: band, since: world.time });
+                // Already at their fire, as the Binders leave a captive.
+                let fire = world.free_spot(at.add(V2::new(4.0, 2.0)));
+                world.squad.at[3] = fire;
+                world.squad.goal[3] = fire;
+                world.squad.route[3].clear();
+            }
+            for _ in 0..240 {
+                world.step(0.5);
             }
         }
         if self.glass {
@@ -926,7 +950,24 @@ impl Shot {
         }
         if self.trade {
             let here = world.squad.pos;
-            let npc = world.people.iter().map(|p| p.id).filter(|&p| world.is_trading(p)).min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            let bottle = gahturiyu_sim::sim::items::id("brewed_potion");
+            let npc = world.people.iter().map(|p| p.id).filter(|&p| world.is_trading(p) && (!self.trade_bottles || world.offer(p, bottle, None).is_some())).min_by(|&a, &b| world.person_pos(a).dist(here).total_cmp(&world.person_pos(b).dist(here)));
+            if let (Some(npc), true) = (npc, self.trade_bottles) {
+                use gahturiyu_sim::sim::apothecary::KNOWN_MIXES;
+                use gahturiyu_sim::sim::items::herbs::Kit;
+                use gahturiyu_sim::sim::materials::{Grade, Piece};
+                let full = Kit { mortar: Some(Grade::Common), retort: Some(Grade::Common), calcinator: Some(Grade::Common), alembic: Some(Grade::Common) };
+                let brewed = |key: &str, skill: f32| KNOWN_MIXES.iter().find(|m| m.key == key).map(|m| m.brewed(skill, full));
+                if let Some(town) = world.people[npc as usize].home {
+                    for (key, skill, n) in [("healing", 70.0, 2), ("cheap_healing", 25.0, 2), ("warmth", 45.0, 1)] {
+                        if let Some(mix) = brewed(key, skill) {
+                            for _ in 0..n {
+                                world.society.towns[town as usize].shelf.push(gahturiyu_sim::sim::making::Shelved { item: bottle, piece: Some(Piece::bottle(mix)) });
+                            }
+                        }
+                    }
+                }
+            }
             if let Some(npc) = npc {
                 let lead = world.squad.members[0];
                 let at = world.person_pos(npc);

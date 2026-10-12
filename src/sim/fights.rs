@@ -277,6 +277,8 @@ impl World {
                         near.push(m);
                     }
                 }
+                // Not those they hold captive by their own fire (`binders.rs`).
+                near.retain(|&m| self.captive_of(m).is_none_or(|c| c.camp != gid));
                 if near.is_empty() {
                     continue;
                 }
