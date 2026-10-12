@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-328 things: 123 belong to one people, 205 are shared.
+340 things: 128 belong to one people, 212 are shared.
 
 ## Jobs
 
@@ -145,6 +145,11 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Glaive | Qotiro | **Qixpod** | KIKH-pod | knife-staff |
 | Crossbow | Qotiro | **Kurtagux** | KOOR-tah-gookh | shut-bow |
 | Trident | Horaro | **Honihuri** | hoh-nee-HOO-ree | three-spear |
+| Greatsword | Qotiro | **Tomqix** | TOM-kikh | heavy-knife |
+| Battle axe | Qotiro | **Toqtrek** | TOK-trek | fight-cut |
+| Mace | Qotiro | **Portaport** | POR-tah-port | round-strike |
+| Short spear | Qotiro | **Qotik** | KOH-tik | little spear |
+| Hand crossbow | Qotiro | **Kurtaguxik** | KOOR-tah-goo-khik | little shut-bow |
 | Weighted net | Horaro | **Uwenome** | oo-weh-NOH-meh | heavy-net |
 | Crossbow bolts | Qotiro | **Getkix** | GET-kikh | iron-thorn |
 
@@ -157,6 +162,13 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Staff | Hoya | Pod | Woia | Fauya | staff |
 | Hatchet | Daqaqishe | Daqix | Hihelaa | Hisethaha | branch-knife |
 | Sling | Ṭiruroḍa | Triron | Ronaliru | Shauyathishu | throw-rope |
+| Dirk | Taroqishe | Torqix | Hihenaro | Hisesashe | guard-knife |
+| Cutlass | Qehuqishe | Kepqix | Hihehewu | Hisehefu | crooked-knife |
+| Sap | Yitohaṭu | Ditport | Waluino | Fathuyise | quiet-strike |
+| Knuckle guards | Ḍiḍagedu | Drimged | Welunima | Wetheyiwa | hand-iron |
+| Longbow | Leʻugushu | Reqgux | Wuuleu | Wusuyeyu | long-bow |
+| Throwing knives | Ṭiruqishe | Trirqix | Hiheliru | Hisethishu | throw-knife |
+| Javelin | Ṭiruqoti | Trirqot | Honiliru | Hausithishu | throw-spear |
 | Arrows | Gushuqishu | Guxkix | Hihuwuu | Hisuwusu | bow-thorn |
 | Sling stones | Ṭirudoqo | Trirdoq | Looliru | Thehethishu | throw-stone |
 

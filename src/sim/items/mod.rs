@@ -157,6 +157,10 @@ pub struct WeaponDef {
     /// Can go in the off hand, to parry with.
     #[serde(default)]
     pub offhand: bool,
+    /// The strength it wants (Part 1, B1): below it, slower and less sure.
+    /// Read by the fight rules once they weigh it (the duel grid's step).
+    #[serde(default)]
+    pub strength: f32,
 }
 
 /// How much room a weapon needs to be swung well (the items design, 0.2
@@ -184,9 +188,10 @@ pub(super) struct Fits {
     pub thrown: bool,
     pub breaks: f32,
     pub offhand: bool,
+    pub strength: f32,
 }
 
-pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false };
+pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false, strength: 0.0 };
 
 /// A weapon line with its fight-rule numbers.
 pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
@@ -200,6 +205,7 @@ pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
         w.thrown = f.thrown;
         w.breaks = f.breaks;
         w.offhand = f.offhand;
+        w.strength = f.strength;
         d.kind = Kind::Weapon(w);
     }
     d
@@ -610,4 +616,5 @@ pub const FISTS: WeaponDef = WeaponDef {
     thrown: false,
     breaks: 0.0,
     offhand: false,
+    strength: 0.0,
 };
