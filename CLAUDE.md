@@ -387,8 +387,17 @@ only in the cloud.
 - The clone has `core.autocrlf false` in its own config (Git for Windows
   turns it on system-wide): with CRLF checkouts the generated-docs checks in
   `tests/names.rs` fail on a byte compare.
+- Half the CPU only: every cargo command with `CARGO_BUILD_JOBS=8
+  RUST_TEST_THREADS=8` (in Laz's user environment). The PC has lost power
+  under long all-core loads; never run two full test suites at once.
 - Times on this PC (Ryzen 7 3700X, 16 threads): a release build after a
-  change about 1 minute; the full `cargo test --release` about 7½ minutes.
+  change about 1½ minutes; the full `cargo test --release` about 10 minutes
+  at 8 threads.
+- A chunk of work is built on its own branch (now `next/items`,
+  `docs/items-plan.md`), merged into `main` once Laz has played it, so `main`
+  stays playable meanwhile. Laz can play the chunk so far from
+  `C:\Users\Laz PC\Repos\Gahturiyu-Sim-next` (its own build, saves and
+  settings), rebuilt after each merge while that game isn't running.
 
 ## Voices (a tool, not a system)
 
