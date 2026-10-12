@@ -171,18 +171,23 @@ impl World {
                     self.campfires.retain(|f| t < f.out_at + DAY);
                     self.next_fire += 1;
                     let lit_at = t + secs;
-                    self.campfires.push(Campfire { id: self.next_fire, pos: at, by: who, since: t, lit_at, out_at: lit_at + BURN_HOURS * HOUR });
+                    let out_at = self.drowned_by(at, lit_at, lit_at + BURN_HOURS * HOUR);
+                    self.campfires.push(Campfire { id: self.next_fire, pos: at, by: who, since: t, lit_at, out_at });
                     self.say(t, format!("{name} lays a campfire and gets it going."));
                 }
                 FireJob::Feed { fire, .. } => {
+                    let Some(f) = self.campfires.iter().find(|f| f.id == fire) else { continue };
+                    let (pos, burning, out) = (f.pos, t < f.out_at, f.out_at);
+                    let (from, until) = if burning { (out, out + BURN_HOURS * HOUR) } else { (t + secs, t + secs + BURN_HOURS * HOUR) };
+                    let out_at = self.drowned_by(pos, from, until);
                     let Some(f) = self.campfires.iter_mut().find(|f| f.id == fire) else { continue };
-                    if t < f.out_at {
-                        f.out_at += BURN_HOURS * HOUR;
+                    if burning {
+                        f.out_at = out_at;
                     } else {
                         // Gone out (or doused): wood on the ashes, lit again.
                         f.since = t;
                         f.lit_at = t + secs;
-                        f.out_at = f.lit_at + BURN_HOURS * HOUR;
+                        f.out_at = out_at;
                         f.by = who;
                     }
                     self.say(t, format!("{name} puts more wood on the fire."));

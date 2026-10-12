@@ -61,6 +61,8 @@ pub enum FlameAt {
     Standing(usize),
     Fire(super::solid::Id),
 }
+/// Rain this heavy (a downpour) puts out a fire or a standing torch in the open.
+pub const DROWNING_RAIN: f32 = 0.7;
 /// Sneaking with a lit torch: you're still this visible (1 = not hidden at all).
 pub const TORCH_SNEAK: f32 = 0.9;
 
@@ -227,7 +229,8 @@ impl World {
             Kind::StandingTorch(h) => h,
             _ => STANDING_HOURS,
         };
-        self.standing.push(StandingTorch { pos, lit_at: t, out_at: t + hours as f64 * HOUR });
+        let out_at = self.drowned_by(pos, t, t + hours as f64 * HOUR);
+        self.standing.push(StandingTorch { pos, lit_at: t, out_at });
         let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
         self.say(t, format!("{name} sets a torch in the ground."));
         true
@@ -330,6 +333,21 @@ impl World {
             super::solid::Id::SquadFire(k) => self.campfire(k).is_some_and(|f| f.burning(t)),
             _ => !self.doused.iter().any(|&(d, until)| d == id && t < until),
         }
+    }
+
+    /// When a flame out in the open at `pos`, burning from `from`, goes out:
+    /// at `until`, or at the first hour in between when a downpour comes
+    /// (`DROWNING_RAIN`; worked out from the weather when it's lit, so it
+    /// goes out by the clock like any other).
+    pub fn drowned_by(&self, pos: V2, from: f64, until: f64) -> f64 {
+        let mut h = (from / HOUR).floor() * HOUR;
+        while h < until {
+            if self.weather_at(pos, h).rain >= DROWNING_RAIN {
+                return h.max(from);
+            }
+            h += HOUR;
+        }
+        until
     }
 
     /// The flames within `r` of `p`, nearest first: which, where, and whether
