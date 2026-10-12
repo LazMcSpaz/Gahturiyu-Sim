@@ -114,6 +114,8 @@ impl World {
         let gear = p.kit();
         let worn: f32 = SLOTS.iter().filter_map(|&s| gear.in_slot(s)).filter(|&i| matches!(item(i).kind, Kind::Armor(_)) || item(i).slot == Slot::OffHand).map(|i| item(i).weight).sum();
         n += worn * 0.035;
+        // And by what it is (0.3): metal and stone loudest, soft shoes quiet.
+        n += gear.worn_costs(p.effective_stats().attr(Attr::Strength)).noise;
         if self.squad.sneaking[k] {
             let skill = p.effective_stats().skill(Skill::Sneak);
             n *= 0.4 * (1.0 - skill / 160.0);

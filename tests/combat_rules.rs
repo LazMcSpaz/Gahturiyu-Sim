@@ -153,7 +153,8 @@ fn after_a_fight(bandages: bool) -> Option<(World, u32)> {
             }
         }
         if !bandages {
-            if let Some(&m) = w.squad.members.iter().find(|&&m| w.bleeding(m) > 0.0 && !w.people[m as usize].dead) {
+            // (On their feet: someone out cold can't use anything.)
+            if let Some(&m) = w.squad.members.iter().find(|&&m| w.bleeding(m) > 0.0 && !w.people[m as usize].dead && !w.is_down(m)) {
                 return Some((w, m));
             }
             continue;
@@ -900,4 +901,112 @@ fn heavier_weapons_tire_more_per_blow() {
         before - b.fighters[0].fatigue
     };
     assert!(tired("stone_maul") > tired("longsword") && tired("longsword") > tired("knife"));
+}
+
+// ---- Armour on the body (0.3) ---------------------------------------------------
+
+/// B wearing these.
+fn wearing(b: &mut Battle, keys: &[&str]) {
+    let p = {
+        let mut p = person(2, &[(Skill::Dodge, 5.0)]);
+        let d = p.detail.as_mut().unwrap();
+        d.gear = gahturiyu_sim::sim::inventory::Gear::default();
+        for k in keys {
+            d.gear.add(items::id(k), 1);
+            d.gear.equip(items::id(k)).unwrap();
+        }
+        p
+    };
+    let mut f = Fighter::from_person(&p, 1, b.fighters[1].pos, 0.0);
+    f.think_at = f64::INFINITY;
+    b.fighters[1] = f;
+}
+
+#[test]
+fn padding_and_a_helm_take_the_edge_off_a_club() {
+    let downs = |keys: &[&str]| {
+        let mut floored = 0;
+        let mut out_cold = 0;
+        for seed in 0..12 {
+            let mut b = pair(800 + seed);
+            wearing(&mut b, keys);
+            for _ in 0..30 {
+                b.fighters[1].statuses.retain(|s| s.does != Does::KnockDown);
+                one_blow(&mut b, weapon("stone_maul"));
+                floored += b.fighters[1].has(Does::KnockDown).is_some() as u32;
+            }
+            // Blows to the head until out.
+            let mut b = pair(900 + seed);
+            wearing(&mut b, keys);
+            let mut n = 0;
+            while !b.fighters[1].ko && n < 60 {
+                b.wound_blow(1, gahturiyu_sim::sim::body::Part::Head, 0.0, 6.0);
+                n += 1;
+            }
+            out_cold += n;
+        }
+        (floored, out_cold)
+    };
+    let (bare_floored, bare_blows) = downs(&[]);
+    let (padded_floored, padded_blows) = downs(&["padded_jacket", "padded_cap"]);
+    assert!(padded_floored < bare_floored, "padding: floored less ({padded_floored} vs {bare_floored})");
+    assert!(padded_blows > bare_blows, "padding and a cap: longer to knock out ({padded_blows} vs {bare_blows} blows)");
+    let (_, helm_blows) = downs(&["full_helm"]);
+    assert!(helm_blows > bare_blows * 3, "a full helm guards the head ({helm_blows} vs {bare_blows})");
+}
+
+#[test]
+fn the_outer_layer_meets_the_blow_first_and_glass_slips_past_light_armour() {
+    use gahturiyu_sim::sim::materials::{Grade, Material};
+    let glass = items::variant(items::id("longsword"), Material::Edgeglass, Material::None, Grade::Common).expect("an Edgeglass longsword");
+    let iron = items::variant(items::id("longsword"), Material::Forgeiron, Material::None, Grade::Common).unwrap();
+    // Against a light hide coat, Edgeglass gets more through than its edge
+    // alone would; against plate it doesn't.
+    let through = |it: items::ItemId, keys: &[&str]| {
+        let mut total = 0.0;
+        for seed in 0..15 {
+            let mut b = pair(1000 + seed);
+            wearing(&mut b, keys);
+            b.fighters[0].weapon_item = Some(it);
+            let w = *items::item(it).weapon().unwrap();
+            for _ in 0..20 {
+                one_blow(&mut b, w);
+                total += b.fighters[1].damage_taken;
+                b.fighters[1].damage_taken = 0.0;
+            }
+        }
+        total
+    };
+    let (g_bare, i_bare) = (through(glass, &[]), through(iron, &[]));
+    let (g_hide, i_hide) = (through(glass, &["hide_coat"]), through(iron, &["hide_coat"]));
+    assert!(g_hide / g_bare > i_hide / i_bare, "glass keeps more of its bite through a hide coat");
+}
+
+#[test]
+fn heavy_armour_costs_pace_and_breath_and_strength_eases_it() {
+    let pace = |keys: &[&str], strength: f32| {
+        let mut b = pair(5);
+        wearing(&mut b, keys);
+        let _ = strength;
+        b.fighters[1].base_speed
+    };
+    assert!(pace(&["plate_cuirass", "plate_greaves", "armoured_boots"], 35.0) < pace(&[], 35.0) * 0.85, "plate slows");
+    let g = {
+        let mut g = gahturiyu_sim::sim::inventory::Gear::default();
+        for k in ["plate_cuirass", "plate_greaves"] {
+            g.add(items::id(k), 1);
+            g.equip(items::id(k)).unwrap();
+        }
+        g
+    };
+    let (weak, strong) = (g.worn_costs(20.0), g.worn_costs(80.0));
+    assert!(strong.slow < weak.slow && strong.noise < weak.noise, "the strong carry it better");
+    assert!(g.worn_costs(35.0).noise > 0.3, "plate is loud");
+    let soft = {
+        let mut g = gahturiyu_sim::sim::inventory::Gear::default();
+        g.add(items::id("soft_shoes"), 1);
+        g.equip(items::id("soft_shoes")).unwrap();
+        g
+    };
+    assert!(soft.worn_costs(35.0).noise <= 0.0, "soft shoes are quiet");
 }

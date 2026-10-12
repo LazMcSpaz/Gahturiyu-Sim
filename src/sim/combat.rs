@@ -115,6 +115,12 @@ pub const KNOCKDOWN_SECS: f64 = 2.0;
 /// people alive (rule 3). Edged damage counts as it always has.
 pub const BLUNT_TO_KO: f32 = 1.25;
 pub const BLUNT_PAST_KO: f32 = 0.4;
+/// Armour this light (it stops no more of a cut than this) lets Edgeglass and
+/// Sandglass through: it counts for this share (0.3).
+pub const LIGHT_ARMOUR: f32 = 0.35;
+pub const GLASS_SLIPS: f32 = 0.5;
+/// Padding's share against a blunt blow's knockout (0.3).
+pub const PAD_KO: f32 = 0.6;
 
 /// Chance a cutting blow from `w` opens a bleed (`WeaponDef::bleed`).
 pub fn bleed_chance(w: &WeaponDef) -> f32 {
@@ -430,6 +436,19 @@ pub struct Fighter {
     /// Which slot each piece of `armor` is worn in.
     #[serde(default)]
     pub armor_slots: Vec<super::items::Slot>,
+    /// Each piece of `armor`'s padding (0.3): takes the edge off stagger,
+    /// knockdown and knockout from blunt blows where it covers.
+    #[serde(default)]
+    pub armor_pad: Vec<f32>,
+    /// A helm's guard against a knockout to the head (0.3).
+    #[serde(default)]
+    pub ko_guard: f32,
+    /// What their armour costs them (0.3, eased by Strength): a share of
+    /// breath per blow, and of sight in the dark (full helms).
+    #[serde(default)]
+    pub wear_slow: f32,
+    #[serde(default)]
+    pub wear_sight: f32,
     /// Wear this fight, written back afterwards: blows struck with the
     /// weapon, blows taken by the shield, and for each piece of armour the
     /// blows it caught and how many of them were heavy blunt ones.
@@ -461,7 +480,11 @@ impl Fighter {
         let worn_armor: Vec<(super::items::Slot, ArmorDef)> = super::items::SLOTS.iter().filter_map(|&s| gear.in_slot(s).and_then(|id| item(id).armor().copied()).map(|a| (s, a))).collect();
         let armor: Vec<ArmorDef> = worn_armor.iter().map(|x| x.1).collect();
         let armor_slots: Vec<super::items::Slot> = worn_armor.iter().map(|x| x.0).collect();
-        let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum();
+        let armor_pad: Vec<f32> = armor_slots.iter().map(|&s| gear.in_slot(s).map(|id| super::items::wears(id).padding).unwrap_or(0.0)).collect();
+        let costs = gear.worn_costs(stats.attr(Attr::Strength));
+        let eases = inventory::strength_eases(stats.attr(Attr::Strength));
+        // Armour's weight on dodging, eased by Strength (0.3).
+        let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum::<f32>() * eases;
         let speed_bonus = gear.worn(Does::MoveSpeed);
         let load = gear.load(&p.stats);
         let held = gear.weapon();
@@ -493,7 +516,7 @@ impl Fighter {
             armor,
             dodge_penalty,
             worn: gear.worn_effects().collect(),
-            base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load),
+            base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load) * (1.0 - costs.slow),
             spells,
             boldness: p.traits.boldness,
             might: p.might,
@@ -538,6 +561,10 @@ impl Fighter {
             broke: Vec::new(),
             armor_wear: vec![[0.0; 2]; armor_slots.len()],
             armor_slots: armor_slots,
+            armor_pad,
+            ko_guard: gear.ko_guard(),
+            wear_slow: costs.slow,
+            wear_sight: costs.sight,
             weapon_wear: 0.0,
             shield_wear: 0.0,
         }
@@ -619,6 +646,10 @@ impl Fighter {
             broke: Vec::new(),
             armor_wear: Vec::new(),
             armor_slots: Vec::new(),
+            armor_pad: Vec::new(),
+            ko_guard: 0.0,
+            wear_slow: 0.0,
+            wear_sight: 0.0,
             weapon_wear: 0.0,
             shield_wear: 0.0,
         }
@@ -1367,7 +1398,8 @@ impl Battle {
         let dodge = if shot { dodge * 0.5 } else { dodge };
         let far = if shot { 1.0 - 0.35 * dist / weapon.range.max(1.0) } else { 1.0 };
         // In the dark it's hard to hit what you can't see, an arrow most of all.
-        let seen = self.light_at(def.pos).max(att.power(Does::Nightsight).min(1.0));
+        // (A full helm narrows the eyes: the dark is darker in one, 0.3.)
+        let seen = (self.light_at(def.pos) * (1.0 - att.wear_sight * 0.5)).max(att.power(Does::Nightsight).min(1.0));
         let dark = if shot { DARK_SHOT + (1.0 - DARK_SHOT) * seen } else { DARK_BLOW + (1.0 - DARK_BLOW) * seen };
         // Long and sweeping weapons in tight places land less often (rule 5).
         let tight = if !shot && needs_room(&weapon) { 1.0 - TIGHT_HIT * self.tightness(a) } else { 1.0 };
@@ -1386,7 +1418,8 @@ impl Battle {
         }
         let att = &self.fighters[a];
         let strength = att.attr(Attr::Strength);
-        self.fighters[a].fatigue -= (SWING_TIRES + if weapon.kg > 0.0 { weapon.kg * TIRES_PER_KG } else { weapon.windup * 4.0 }) * tiring;
+        let armour_tires = 1.0 + self.fighters[a].wear_slow;
+        self.fighters[a].fatigue -= (SWING_TIRES + if weapon.kg > 0.0 { weapon.kg * TIRES_PER_KG } else { weapon.windup * 4.0 }) * tiring * armour_tires;
 
         if r_hit > p_hit {
             self.fighters[d].train(Skill::Dodge, 1.0);
@@ -1475,7 +1508,16 @@ impl Battle {
         if skin.cut > 0.0 {
             layers.push((None, skin));
         }
-        layers.sort_by(|x, y| y.1.cut.total_cmp(&x.1.cut));
+        // The outer layer meets the blow first, then what's under it (0.3);
+        // toughened skin last.
+        let slots = self.fighters[d].armor_slots.clone();
+        layers.sort_by_key(|(which, _)| match which.and_then(|i| slots.get(i)) {
+            Some(super::items::Slot::BodyUnder | super::items::Slot::LegsUnder) => 1,
+            Some(_) => 0,
+            None => 2,
+        });
+        // Edgeglass and Sandglass slip past light armour (0.3).
+        let glass = self.fighters[a].weapon_item.is_some_and(|it| matches!(super::items::info(it).main, super::materials::Material::Edgeglass | super::materials::Material::Sandglass)) && blow.weapon.is_none();
         // Rusted armour stops less (skin doesn't rust); a heavy point gets
         // through some of it.
         let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
@@ -1487,6 +1529,7 @@ impl Battle {
         for (k, (which, layer)) in layers.iter().enumerate() {
             let r = if k == 0 { r_cover1 } else { r_cover2 };
             let worn = if which.is_none() { 1.0 } else { rust * through };
+            let worn = if glass && which.is_some() && layer.cut <= LIGHT_ARMOUR { worn * GLASS_SLIPS } else { worn };
             if r < layer.coverage {
                 met |= which.is_some();
                 cut *= 1.0 - layer.cut * worn;
@@ -1515,7 +1558,9 @@ impl Battle {
             self.fx.push(Fx { kind: FxKind::Sneak { at: self.fighters[d].pos }, at: self.time });
             self.fighters[a].train(Skill::Sneak, 3.0);
             // A sap from behind: out cold, not hurt (rule 7).
-            if stuns(&weapon) && part.vital() {
+            // (A good helm may turn it: one roll, keyed to the blow.)
+            let turned = part == Part::Head && dice.f32() < self.fighters[d].ko_guard;
+            if stuns(&weapon) && part.vital() && !turned {
                 self.say(format!("{an} catches {dn} unawares and knocks them senseless."));
                 let head = self.fighters[d].hp[Part::Head as usize].max(0.0);
                 self.wound(d, Part::Head, head + 0.5);
@@ -1550,7 +1595,9 @@ impl Battle {
         // their feet (rule 2).
         let f = &self.fighters[d];
         if blunt > 0.0 && f.active() && !f.helpless() {
-            let weight = blunt / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
+            // Padding where it lands takes the edge off (0.3).
+            let pad = self.padding_on(d, part);
+            let weight = blunt * (1.0 - pad) / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
             if r_down < chance_of(weight, KNOCKDOWN) {
                 self.knock_down(d, KNOCKDOWN_SECS);
             } else if r_stagger < chance_of(weight, STAGGER) {
@@ -1817,6 +1864,9 @@ impl Battle {
         }
         let was_down = self.fighters[d].ko;
         let left = self.fighters[d].hp[part as usize].max(0.0);
+        // Padding, and on the head a helm, soften the knockout (0.3).
+        let guard = (self.padding_on(d, part) * PAD_KO + if part == Part::Head { self.fighters[d].ko_guard } else { 0.0 }).min(0.8);
+        let blunt = blunt * (1.0 - guard);
         let to_line = cut + blunt * BLUNT_TO_KO;
         let dmg = if to_line <= left {
             to_line
@@ -1829,6 +1879,12 @@ impl Battle {
         if !was_down && f.ko && !f.dead {
             self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: true }, at: self.time });
         }
+    }
+
+    /// The padding of what they wear over `part` (the thickest).
+    fn padding_on(&self, d: usize, part: Part) -> f32 {
+        let f = &self.fighters[d];
+        f.armor.iter().zip(&f.armor_pad).filter(|(a, _)| a.covers.contains(&part)).map(|(_, &p)| p).fold(0.0, f32::max)
     }
 
     /// Lose blood from the torso (a bleed): no one's woken or calmed out of

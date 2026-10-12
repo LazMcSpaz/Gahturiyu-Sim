@@ -297,7 +297,7 @@ impl World {
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
         // Their own kit's weight as usual; a body they're carrying has its own pace.
         let load = self.kit_weight_at(pid, self.time) / self.capacity_at(pid, self.time).max(1.0);
-        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(load) * self.carry_pace(pid) * (1.0 + bonus)
+        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(load) * (1.0 - gear.worn_costs(stats.attr(super::stats::Attr::Strength)).slow) * self.carry_pace(pid) * (1.0 + bonus)
     }
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).

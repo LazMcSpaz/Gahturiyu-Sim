@@ -504,6 +504,43 @@ impl Gear {
     }
 }
 
+/// What wearing armour and clothes costs (the items design, 0.3): how much
+/// slower in a fight and on the road, how much louder, how much worse at
+/// seeing (full helms). Each as a share; Strength eases them
+/// (`strength_eases`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct WornCosts {
+    pub slow: f32,
+    pub noise: f32,
+    pub sight: f32,
+}
+
+/// How much Strength eases what armour costs: average (35) as written,
+/// stronger less (down to half), weaker more (up to a third more).
+pub fn strength_eases(strength: f32) -> f32 {
+    (1.0 - (strength - 35.0) / 130.0).clamp(0.5, 1.33)
+}
+
+impl Gear {
+    /// What everything worn costs, for someone this strong.
+    pub fn worn_costs(&self, strength: f32) -> WornCosts {
+        let k = strength_eases(strength);
+        let mut c = WornCosts::default();
+        for id in self.equipped() {
+            let w = items::wears(id);
+            c.slow += w.slow;
+            c.noise += w.noise;
+            c.sight = c.sight.max(w.sight);
+        }
+        WornCosts { slow: (c.slow * k).clamp(0.0, 0.6), noise: (c.noise * k).max(-0.3), sight: (c.sight * k).clamp(0.0, 0.8) }
+    }
+
+    /// A helm's guard against being knocked out by a blow to the head.
+    pub fn ko_guard(&self) -> f32 {
+        self.equipped().map(|id| items::wears(id).ko_guard).fold(0.0, f32::max)
+    }
+}
+
 /// Stats as they stand with gear on: enchantments added on top of the base.
 pub fn effective(base: &Stats, gear: &Gear) -> Stats {
     let mut s = base.clone();

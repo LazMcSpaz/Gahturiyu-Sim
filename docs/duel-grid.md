@@ -1,0 +1,59 @@
+# The duel grid
+
+Written by `cargo test --release --test duel_grid -- --ignored` (items design, 0.2 item 10).
+Each cell: the share of 16 duels the weapon won against an average fighter with a Common Forgeiron longsword wearing that armour (draws count half). Both fighters average (Strength, Agility, Toughness 35; 40 in the weapon skills). "in": on the floor of a town building; "sneak": the reference doesn't see the first blow coming. Bows start 14 m off, thrown weapons 9 m, the rest 3 m (1 m from behind).
+
+| Weapon | none out | none out sneak | none in | none in sneak | light out | light out sneak | light in | light in sneak | mail out | mail out sneak | mail in | mail in sneak | plate out | plate out sneak | plate in | plate in sneak |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Knife | 0 | 6 | 0 | 6 | 0 | 6 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Dirk | 6 | 12 | 6 | 12 | 6 | 6 | 6 | 6 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 |
+| Short sword | 38 | 62 | 56 | 56 | 25 | 31 | 31 | 50 | 0 | 12 | 12 | 6 | 0 | 6 | 6 | 6 |
+| Cutlass | 56 | 69 | 56 | 69 | 31 | 44 | 31 | 44 | 12 | 0 | 12 | 0 | 6 | 0 | 6 | 0 |
+| Longsword | 69 | 69 | 69 | 69 | 56 | 56 | 56 | 56 | 38 | 44 | 38 | 44 | 12 | 25 | 12 | 25 |
+| Greatsword | 38 | 56 | 6 | 31 | 44 | 50 | 0 | 6 | 28 | 12 | 0 | 6 | 12 | 6 | 0 | 0 |
+| Hatchet | 25 | 44 | 62 | 50 | 19 | 25 | 31 | 19 | 6 | 0 | 6 | 0 | 0 | 0 | 0 | 0 |
+| Battle axe | 69 | 62 | 6 | 62 | 62 | 56 | 19 | 50 | 50 | 38 | 6 | 12 | 31 | 25 | 0 | 6 |
+| Sap | 0 | 50 | 0 | 44 | 0 | 44 | 0 | 44 | 0 | 44 | 0 | 44 | 0 | 44 | 0 | 44 |
+| Club | 25 | 44 | 31 | 44 | 0 | 12 | 6 | 12 | 0 | 0 | 6 | 19 | 0 | 12 | 0 | 6 |
+| Mace | 50 | 69 | 50 | 62 | 6 | 25 | 0 | 25 | 25 | 6 | 25 | 12 | 25 | 38 | 19 | 31 |
+| War-pick | 56 | 62 | 56 | 62 | 31 | 56 | 38 | 56 | 19 | 50 | 19 | 50 | 25 | 56 | 25 | 56 |
+| Stone maul | 12 | 69 | 19 | 19 | 6 | 19 | 0 | 6 | 12 | 12 | 0 | 6 | 6 | 19 | 0 | 12 |
+| Staff | 31 | 31 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 6 | 0 | 0 |
+| Knuckle guards | 31 | 56 | 31 | 56 | 0 | 0 | 0 | 0 | 12 | 12 | 19 | 12 | 6 | 6 | 0 | 6 |
+| Spear | 100 | 94 | 19 | 31 | 100 | 88 | 12 | 25 | 94 | 69 | 6 | 0 | 100 | 94 | 0 | 0 |
+| Short spear | 31 | 44 | 28 | 62 | 19 | 31 | 19 | 31 | 6 | 6 | 12 | 12 | 0 | 0 | 0 | 6 |
+| Trident | 31 | 38 | 0 | 25 | 19 | 19 | 0 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Glaive | 75 | 88 | 12 | 6 | 69 | 81 | 0 | 0 | 62 | 81 | 0 | 0 | 100 | 94 | 0 | 0 |
+| Short bow | 38 | 38 | 0 | 0 | 38 | 38 | 0 | 0 | 38 | 38 | 0 | 0 | 50 | 50 | 0 | 0 |
+| Longbow | 25 | 28 | 0 | 0 | 25 | 28 | 0 | 0 | 25 | 25 | 0 | 0 | 25 | 25 | 0 | 0 |
+| Crossbow | 28 | 31 | 0 | 6 | 22 | 25 | 0 | 0 | 22 | 22 | 0 | 0 | 38 | 28 | 0 | 0 |
+| Hand crossbow | 25 | 16 | 0 | 0 | 25 | 16 | 0 | 0 | 28 | 16 | 0 | 0 | 19 | 12 | 0 | 0 |
+| Sling | 38 | 47 | 0 | 0 | 38 | 50 | 0 | 0 | 41 | 47 | 0 | 0 | 41 | 47 | 0 | 0 |
+| Throwing knives | 6 | 0 | 50 | 50 | 6 | 0 | 38 | 38 | 0 | 0 | 6 | 12 | 0 | 0 | 0 | 0 |
+| Javelin | 50 | 75 | 94 | 62 | 44 | 44 | 75 | 56 | 6 | 12 | 25 | 12 | 0 | 6 | 0 | 6 |
+| Weighted net | 25 | 31 | 31 | 31 | 12 | 19 | 25 | 12 | 6 | 6 | 0 | 0 | 6 | 0 | 0 | 12 |
+
+## The best in each case
+
+| Case | Win rate | Weapon |
+|---|---|---|
+| none out | 100% | Spear |
+| none out sneak | 94% | Spear |
+| none in | 94% | Javelin |
+| none in sneak | 69% | Cutlass, Longsword |
+| light out | 100% | Spear |
+| light out sneak | 88% | Spear |
+| light in | 75% | Javelin |
+| light in sneak | 56% | Longsword, War-pick, Javelin |
+| mail out | 94% | Spear |
+| mail out sneak | 81% | Glaive |
+| mail in | 38% | Longsword |
+| mail in sneak | 50% | War-pick |
+| plate out | 100% | Spear, Glaive |
+| plate out sneak | 94% | Spear, Glaive |
+| plate in | 25% | War-pick |
+| plate in sneak | 56% | War-pick |
+
+## Never the best choice
+
+Knife, Dirk, Short sword, Greatsword, Hatchet, Battle axe, Sap, Club, Mace, Stone maul, Staff, Knuckle guards, Short spear, Trident, Short bow, Longbow, Crossbow, Hand crossbow, Sling, Throwing knives, Weighted net
