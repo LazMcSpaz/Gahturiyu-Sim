@@ -392,6 +392,7 @@ impl World {
         }
         self.hold_the_bound();
         self.watch_for_wanted();
+        self.watch_for_disguises();
         self.chase(dt);
         self.recentre_squad();
         self.update_indoors();

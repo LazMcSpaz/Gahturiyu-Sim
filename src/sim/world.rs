@@ -190,6 +190,12 @@ pub struct World {
     /// (`factions.rs`).
     #[serde(default)]
     pub factions: super::factions::Factions,
+    /// Squad members doubted in a disguise, and who looked at whom this hour
+    /// (`disguise.rs`).
+    #[serde(default)]
+    pub doubts: Vec<super::disguise::Doubt>,
+    #[serde(default)]
+    pub eyed: Vec<(PersonId, PersonId, i64)>,
     /// Brews under way at alchemy tables (`brewing.rs`).
     #[serde(default)]
     pub brewing: Vec<super::brewing::BrewJob>,
@@ -406,6 +412,8 @@ impl World {
             brewing: Vec::new(),
             lore: Default::default(),
             factions: super::factions::Factions::new(),
+            doubts: Vec::new(),
+            eyed: Vec::new(),
             making_more: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),

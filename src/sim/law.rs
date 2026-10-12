@@ -299,6 +299,9 @@ pub enum Wrong {
     Desecration,
     /// Running from a bond.
     Escape,
+    /// Passing as one of the watch, or as a priest where that's forbidden
+    /// (`disguise.rs`).
+    Impersonation,
 }
 
 impl Wrong {
@@ -312,6 +315,7 @@ impl Wrong {
             Wrong::HarmArbiter => "harming an arbiter",
             Wrong::Desecration => "desecrating the dead",
             Wrong::Escape => "running from a bond",
+            Wrong::Impersonation => "impersonation",
         }
     }
     /// So grave it's written down wherever arbiters reach, however it's judged.
@@ -323,7 +327,7 @@ impl Wrong {
     pub fn gravity(self) -> f32 {
         match self {
             Wrong::Trespass | Wrong::Escape => 1.0,
-            Wrong::Theft | Wrong::StolenGoods => 2.0,
+            Wrong::Theft | Wrong::StolenGoods | Wrong::Impersonation => 2.0,
             Wrong::Assault => 3.0,
             Wrong::Desecration => 6.0,
             Wrong::Murder => 8.0,
@@ -1282,6 +1286,11 @@ impl World {
             let abed = self.is_asleep(m) || self.squad.resting[k];
             let night = super::buildings::is_night(t);
             if !abed && !night {
+                continue;
+            }
+            // One of the watch, as far as the house can tell, isn't turned
+            // out at night (`disguise.rs`).
+            if !abed && self.disguise_of(m) == Some(super::disguise::civic("watch")) {
                 continue;
             }
             let Some(host) = self.host_at(door) else { continue };

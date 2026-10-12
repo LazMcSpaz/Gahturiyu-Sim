@@ -158,6 +158,9 @@ impl World {
         // The guard is the law; a guard who sees it tells themselves.
         if life.job == Job::Guard {
             p += 0.1;
+        } else if self.disguise_of(culprit) == Some(super::disguise::civic("watch")) {
+            // Townsfolk are slow to report one of the watch (`disguise.rs`).
+            p *= super::disguise::WATCH_UNREPORTED;
         }
         // Bad blood with the victim, or warmth toward them.
         if let (Some(Owner::Household(h)), Some(w)) = (owner, life.household) {

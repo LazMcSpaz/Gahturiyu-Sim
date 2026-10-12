@@ -156,6 +156,9 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
         };
         return (place, SNEAK);
     }
+    if w.brewing.iter().any(|j| j.who == pid) {
+        return ("Brewing", GOLD);
+    }
     if let Some(j) = w.crafting.iter().find(|j| j.who == pid) {
         let cooking = gahturiyu_sim::sim::crafting::RECIPES[j.recipe].skill == Skill::Cooking;
         return (if cooking { "Cooking" } else { "Crafting" }, GOLD);
@@ -193,6 +196,9 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
     }
     if sneaking {
         ("Crouched", SNEAK)
+    } else if w.disguise_of(pid).is_some() {
+        // Dressed as one of a town's own (`disguise.rs`).
+        ("In disguise", SNEAK)
     } else {
         ("Standing", DIM)
     }

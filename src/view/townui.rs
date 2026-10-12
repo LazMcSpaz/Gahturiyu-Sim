@@ -224,7 +224,7 @@ pub fn readout_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     y += 17.0;
     let laws: Vec<String> = std::iter::once(tl.shore).chain(tl.stilts).map(|ci| {
         let cm = &w.society.communities[ci as usize];
-        format!("{}: {}, {}", if cm.stilts { "Stilts" } else { "Land" }, cm.customs.justice.name().to_lowercase(), cm.customs.slavery.name().to_lowercase())
+        format!("{}: {}, {}", if cm.stilts { "Stilts" } else { "Land" }, cm.customs.justice.name().to_lowercase(), cm.customs.slavery.name().to_lowercase()) + &format!(", {}", cm.customs.garb.name().to_lowercase())
     }).collect();
     c.text(&laws.join("  ·  "), x + 8.0, y, 13.0, TEXT);
     let bonds = w.bonds.iter().filter(|b| b.town == town && b.until > w.time).count();
