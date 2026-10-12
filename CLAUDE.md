@@ -488,6 +488,16 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   there, work clothes by job (a guard's red, an
   official's blue, a priest's white) or a seeded dye. Guards, officials and
   priests wear a chest band. No legs: Laz likes the figures as they are.
+- Items look like themselves (`view/looks.rs`, Laz's items step 2): each form
+  is a few boxes in a table (a blade, a guard and a grip; a coat's body and
+  sleeves), coloured by its material, and the same boxes are drawn in hand in
+  a fight (`looks::wield`, from `cues`), carried (a short weapon at the hip, a
+  spear or staff upright in the hand, a bow or maul across the back, a shield
+  on the arm), worn over the parts (cloak, belt, brooch: `looks::on_figure`),
+  lying on the ground (`looks::lying`), and as the icon beside its name in
+  the pack screen (`looks::icon`, the boxes projected and painted by egui, no
+  render target). A new form gets a line in `SHAPES`; without one it takes a
+  shape by its kind.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
 
