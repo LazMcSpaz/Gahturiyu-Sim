@@ -16,7 +16,14 @@
 //!   sparks round their head; knocked off their feet or out cold by it, a
 //!   ring of dust on the ground too (and they lie flat, `scene::person`);
 //! - a blow from someone never seen coming bursts red-gold where it lands
-//!   (`sneak_burst`, drawn with the fight's other effects).
+//!   (`sneak_burst`, drawn with the fight's other effects);
+//! - a blade in the off hand is a second, shorter stick held across the
+//!   body; a parry with it flashes white along it;
+//! - a long weapon driving someone back leaves a scuffed streak on the
+//!   ground where they were pushed (`push_streak`);
+//! - a sweeping weapon's arc is drawn wider than a plain swing's;
+//! - a thrown weapon tumbles end over end through the air and lies where it
+//!   comes down; one that breaks bursts into splinters (`thrown_flight`).
 //!
 //! Drawing only: everything here reads the sim's own states and times.
 
@@ -42,6 +49,10 @@ const BLOOD: Rgb = [0.55, 0.04, 0.03];
 const SPARK: Rgb = [1.0, 0.95, 0.7];
 const DUST: Rgb = [0.62, 0.56, 0.46];
 const SNEAK: Rgb = [1.0, 0.55, 0.25];
+const PARRY: Rgb = [1.0, 1.0, 0.95];
+
+/// How long a parry's flash shows, seconds.
+const PARRY_SHOWS: f64 = 0.25;
 
 /// How long a stagger's sparks show, seconds.
 const JOLT_SHOWS: f64 = 0.7;
@@ -232,15 +243,28 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         b.stick(mid - bar, mid + bar, 0.05 * k, STICK);
         return;
     }
-    // A hand weapon: held forward and down; swung, it flashes an arc.
+    // A blade in the off hand: short, held across the body at the other
+    // side; it flashes when it turns a blow.
+    if f.offhand_up().is_some() {
+        let off = base - side * (r * 1.25) + vec3(0.0, h * 0.5, 0.0) + fwd * (r * 0.4);
+        let parried = battle.fx.iter().rev().any(|x| matches!(x.kind, FxKind::Parry { who } if who == me) && t >= x.at && t - x.at < PARRY_SHOWS);
+        let tip = off + (fwd * 0.8 + side * 0.5 + vec3(0.0, 0.25, 0.0)).normalize() * (0.5 * k);
+        b.stick(off, tip, 0.06 * k, BLADE);
+        if parried {
+            gl.stick(off, tip + (tip - off) * 0.4, 0.12 * k, PARRY);
+        }
+    }
+    // A hand weapon: held forward and down; swung, it flashes an arc
+    // (wider for a sweeping weapon).
     let reach = (f.weapon.reach * 0.75).clamp(0.6, 2.4);
+    let wide = if gahturiyu_sim::sim::combat::sweeps(&f.weapon) { 1.7 } else { 1.2 };
     if let Act::Swing { lands, .. } = f.act {
         let windup = f.weapon.windup.max(0.2) as f64;
         let start = lands - windup * ARC_SHARE;
         let p = ((t - start) / (windup * ARC_SHARE + ARC_AFTER)).clamp(0.0, 1.0) as f32;
         if t >= start {
-            swing_arc(gl, base + vec3(0.0, h * 0.6, 0.0), face, reach + 0.3, p, k);
-            let a = face + (1.2 - 2.4 * p);
+            swing_arc(gl, base + vec3(0.0, h * 0.6, 0.0), face, reach + 0.3, p, wide, k);
+            let a = face + (wide - 2.0 * wide * p);
             let tip = hand + vec3(a.cos(), 0.0, a.sin()) * (reach * k);
             if !super::looks::wield(b, w, pid, hand, tip - hand, k) {
                 b.stick(hand, tip, 0.07 * k, BLADE);
@@ -259,7 +283,7 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         // Just after a blow: the arc lingers a moment.
         let since = f.weapon.recover as f64 - (until - t);
         if since < ARC_AFTER {
-            swing_arc(gl, base + vec3(0.0, h * 0.6, 0.0), face, reach + 0.3, 1.0, k);
+            swing_arc(gl, base + vec3(0.0, h * 0.6, 0.0), face, reach + 0.3, 1.0, wide, k);
         }
     }
     let tip = hand + (fwd + vec3(0.0, -0.45, 0.0)).normalize() * (reach * k);
@@ -302,11 +326,57 @@ pub fn sneak_burst(gl: &mut Builder, at: Vec3, age: f32, k: f32) {
     }
 }
 
+/// Someone driven back by a long weapon: a scuffed streak along the ground
+/// from where they stood to where they were pushed, fading over a second.
+pub fn push_streak(gl: &mut Builder, from: Vec3, to: Vec3, age: f32, k: f32) {
+    let d = to - from;
+    let across = vec3(-d.z, 0.0, d.x).normalize_or_zero() * (0.12 * k * (1.0 - age).max(0.0));
+    let (a, b) = (from + vec3(0.0, 0.05, 0.0), to + vec3(0.0, 0.05, 0.0));
+    gl.quad([a - across, a + across, b + across, b - across], Vec3::Y, DUST);
+}
+
+/// A thrown weapon in the air, tumbling end over end, then (its flight
+/// over) splinters if it broke. `age` in seconds since it left the hand.
+#[allow(clippy::too_many_arguments)]
+pub fn thrown_flight(b: &mut Builder, gl: &mut Builder, on_ground: &dyn Fn(V2) -> f32, it: gahturiyu_sim::sim::items::ItemId, from: V2, to: V2, hit: bool, broke: bool, age: f32, k: f32) {
+    let len = from.dist(to).max(0.1);
+    let fly = len / gahturiyu_sim::sim::combat::THROWN_SPEED;
+    if age < 0.0 || age > fly + 0.4 {
+        return;
+    }
+    let u = (age / fly).min(1.0);
+    let p = from.lerp(to, u);
+    let lift = if hit { 1.2 } else { 1.3 * (1.0 - u) + 0.05 } + 0.06 * len * u * (1.0 - u);
+    let at = vec3(p.x, on_ground(p) + lift, p.y);
+    if u < 1.0 {
+        // End over end.
+        let d = to.sub(from).scale(1.0 / len);
+        let spin = age * 14.0;
+        let along = vec3(d.x * spin.cos(), spin.sin(), d.y * spin.cos()).normalize_or_zero();
+        let across = vec3(-d.y, 0.0, d.x);
+        // Its real shape (`looks.rs`), held at its middle.
+        super::looks::draw(b, it, at - along * (0.3 * k), along, across, k, 1.0);
+    } else if broke {
+        let t = (age - fly) / 0.4;
+        for i in 0..6 {
+            let a = i as f32 * 1.05;
+            let o = vec3(a.cos(), 0.6, a.sin()) * (0.5 * t * k);
+            gl.block(at + o, 0.06 * k, 0.06 * k, 0.06 * k, a, SPARK);
+        }
+    }
+}
+
+/// A thrown weapon lying on the ground where it came down.
+pub fn thrown_lying(b: &mut Builder, at: Vec3, it: gahturiyu_sim::sim::items::ItemId, k: f32) {
+    let rot = (it as f32 * 1.7) % 6.28;
+    super::looks::lying(b, it, at, rot, k);
+}
+
 /// A swept arc in front of a fighter, from their right to their left,
 /// drawn up to `p` (0..1) of the way, brightest at its leading edge.
-fn swing_arc(gl: &mut Builder, centre: Vec3, face: f32, radius: f32, p: f32, k: f32) {
+fn swing_arc(gl: &mut Builder, centre: Vec3, face: f32, radius: f32, p: f32, wide: f32, k: f32) {
     let steps = 12;
-    let (a0, a1) = (face + 1.2, face - 1.2);
+    let (a0, a1) = (face + wide, face - wide);
     let end = (steps as f32 * p).ceil() as usize;
     let tail = 9;
     for i in end.saturating_sub(tail)..end {

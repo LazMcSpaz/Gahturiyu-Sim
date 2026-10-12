@@ -102,7 +102,7 @@ fn edges_open_bleeds_and_clubs_never_do() {
 #[test]
 fn armour_that_stops_most_of_a_cut_stops_the_bleed() {
     let mut b = pair(5);
-    b.fighters[1].armor = vec![ArmorDef { covers: &gahturiyu_sim::sim::body::PARTS, coverage: 1.0, cut: 0.7, blunt: 0.3, dodge_penalty: 0.0 }];
+    b.fighters[1].armor = vec![ArmorDef { covers: &gahturiyu_sim::sim::body::PARTS, coverage: 1.0, cut: 0.7, blunt: 0.3, dodge_penalty: 0.0, conceal: 0.0 }];
     // (A blade that gets through none of it: Forgeiron's point would.)
     let mut sword = weapon("longsword");
     sword.pierce = 0.0;
@@ -125,11 +125,24 @@ fn healing_closes_a_bleed() {
     assert_eq!(b.fighters[1].bleeding(), 0.0, "a healing draught stops the bleeding");
 }
 
-/// A world just after a fight in which a squad member was left bleeding
-/// (they carry no bandages yet).
-fn bleeding_after_a_fight() -> Option<(World, u32)> {
+/// How many of `it` someone carries.
+fn held(w: &World, m: u32, it: items::ItemId) -> u16 {
+    w.people[m as usize].detail.as_ref().unwrap().gear.bag.iter().filter(|e| e.0 == it).map(|e| e.1).sum()
+}
+
+/// A world just after a fight in which a squad member was left bleeding,
+/// with or without the bandages they set out with.
+fn after_a_fight(bandages: bool) -> Option<(World, u32)> {
+    let bandage = items::id("bandage");
     for seed in 1..12u64 {
         let mut w = worldgen::generate(seed);
+        if !bandages {
+            for &m in &w.squad.members.clone() {
+                let g = &mut w.people[m as usize].detail.as_mut().unwrap().gear;
+                while g.take(bandage) {}
+            }
+        }
+        let before: u16 = w.squad.members.iter().map(|&m| held(&w, m, bandage)).sum();
         let at = w.squad.pos.add(V2::new(18.0, 4.0));
         w.spawn_bandits(at, 3, false);
         w.step(0.1);
@@ -139,16 +152,85 @@ fn bleeding_after_a_fight() -> Option<(World, u32)> {
                 break;
             }
         }
-        if let Some(&m) = w.squad.members.iter().find(|&&m| w.bleeding(m) > 0.0 && !w.people[m as usize].dead) {
-            return Some((w, m));
+        if !bandages {
+            if let Some(&m) = w.squad.members.iter().find(|&&m| w.bleeding(m) > 0.0 && !w.people[m as usize].dead) {
+                return Some((w, m));
+            }
+            continue;
+        }
+        // With bandages: anyone cut was bound when it was over.
+        let after: u16 = w.squad.members.iter().filter(|&&m| !w.people[m as usize].dead).map(|&m| held(&w, m, bandage)).sum();
+        if after < before {
+            if let Some(&m) = w.squad.members.iter().find(|&&m| !w.people[m as usize].dead) {
+                return Some((w, m));
+            }
         }
     }
     None
 }
 
 #[test]
+fn after_a_fight_the_squad_binds_its_cuts() {
+    let (w, _) = after_a_fight(true).expect("a fight where someone was cut and bound");
+    for &m in &w.squad.members {
+        assert_eq!(w.bleeding(m), 0.0, "everyone bound");
+    }
+    assert!(w.log.iter().any(|l| l.1.contains("binds")), "and it says so");
+}
+
+#[test]
+fn a_bandage_from_the_pack_stops_a_bleed() {
+    let (mut w, m) = after_a_fight(false).expect("someone in the squad left bleeding");
+    let bandage = items::id("bandage");
+    assert!(w.why_cant_use(m, bandage).is_some(), "no bandage on them");
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(bandage, 2);
+    assert_eq!(w.why_cant_use(m, bandage), None);
+    assert!(w.use_item(m, bandage));
+    assert_eq!(w.bleeding(m), 0.0);
+    assert_eq!(held(&w, m, bandage), 1, "one used");
+    assert!(w.why_cant_use(m, bandage).is_some(), "nobody near bleeding now");
+}
+
+#[test]
+fn a_squadmate_binds_someone_on_an_order() {
+    let (mut w, m) = after_a_fight(false).expect("someone in the squad left bleeding");
+    let bandage = items::id("bandage");
+    let other = *w.squad.members.iter().find(|&&o| o != m && !w.people[o as usize].dead && !w.is_down(o)).expect("someone standing");
+    w.people[other as usize].detail.as_mut().unwrap().gear.add(bandage, 1);
+    let said = w.order_bind(other, m);
+    assert!(said.is_ok(), "{said:?}");
+    for _ in 0..600 {
+        if w.bleeding(m) == 0.0 {
+            break;
+        }
+        w.step(0.5);
+    }
+    assert_eq!(w.bleeding(m), 0.0, "bound");
+    assert_eq!(held(&w, other, bandage), 0);
+}
+
+#[test]
+fn in_a_fight_they_bind_a_bleed_once_nobody_is_on_them() {
+    let mut b = pair(3);
+    let bandage = items::id("bandage");
+    assert!(combat::is_bandage(bandage), "found by what it does");
+    assert!(!combat::is_bandage(items::id("healing_draught")), "a draught is drunk, not bound on");
+    b.fighters[1].bandages = vec![bandage];
+    b.open_bleed(1, 0.4);
+    // Their foe far off: they bind it (a few seconds).
+    b.fighters[0].pos = V2::new(30.0, 0.0);
+    b.fighters[1].think_at = 0.0;
+    for _ in 0..80 {
+        b.tick();
+    }
+    assert_eq!(b.fighters[1].bleeding(), 0.0, "bound");
+    assert_eq!(b.fighters[1].used, vec![bandage]);
+    assert!(b.log.iter().any(|l| l.1 == "B binds their wounds."));
+}
+
+#[test]
 fn bleeding_out_of_a_fight_is_solved_on_the_clock() {
-    let (w, m) = bleeding_after_a_fight().expect("someone in the squad left bleeding");
+    let (w, m) = after_a_fight(false).expect("someone in the squad left bleeding");
     let p = &w.people[m as usize];
     let h = p.wounds.torso_reaches(2.0 * p.stats.max_hp(Part::Torso)).expect("bleeding");
     let due = p.wounds.at + h as f64 * 3600.0;
@@ -169,7 +251,7 @@ fn bleeding_out_of_a_fight_is_solved_on_the_clock() {
 
 #[test]
 fn a_healing_draught_stops_a_bleed_out_of_a_fight() {
-    let (mut w, m) = bleeding_after_a_fight().expect("someone in the squad left bleeding");
+    let (mut w, m) = after_a_fight(false).expect("someone in the squad left bleeding");
     let draught = items::id("healing_draught");
     w.people[m as usize].detail.as_mut().unwrap().gear.add(draught, 1);
     assert!(w.use_item(m, draught));
@@ -275,7 +357,7 @@ fn the_knife_has_the_worst_sneak_attack() {
 #[test]
 fn a_sap_from_behind_knocks_out_without_wounding() {
     // (The sap comes with the new forms; until then, one made here.)
-    let sap = WeaponDef { skill: Skill::Blunt, cut: 0.0, blunt: 4.0, reach: 0.8, windup: 0.35, recover: 0.4, two_handed: false, parry: 0.0, range: 0.0, ammo: None, pierce: 0.0, entangle: 0.0 };
+    let sap = WeaponDef { skill: Skill::Blunt, cut: 0.0, blunt: 5.0, reach: 0.5, windup: 0.35, recover: 0.35, stuns: true, conceal: 0.8, ..items::FISTS };
     assert!(combat::stuns(&sap));
     for key in ["knife", "club", "short_sword"] {
         assert!(!combat::stuns(&weapon(key)), "the {key} doesn't stun");
@@ -298,4 +380,480 @@ fn a_sap_from_behind_knocks_out_without_wounding() {
         }
     }
     assert!(knocked >= 5, "out cold most times it lands on the head or body ({knocked} of 20)");
+}
+
+// ---- Rule 4: keeping at bay ----------------------------------------------------
+
+/// A spearman and a knifeman `gap` apart, both left to fight it out.
+fn spear_and_knife(seed: u64, gap: f32) -> Battle {
+    let (a, b) = (person(1, &[(Skill::Spear, 55.0)]), person(2, &[(Skill::Blade, 55.0)]));
+    let mut fa = Fighter::from_person(&a, 0, V2::new(0.0, 0.0), 0.0);
+    let mut fb = Fighter::from_person(&b, 1, V2::new(gap, 0.0), 0.0);
+    fa.weapon = weapon("spear");
+    fb.weapon = weapon("knife");
+    fa.think_at = 0.0;
+    fb.think_at = 0.0;
+    Battle::new(0, seed, 0.0, vec![fa, fb], vec!["Spear".into(), "Knife".into()])
+}
+
+#[test]
+fn a_spear_strikes_first_and_keeps_a_knife_at_bay() {
+    let (mut first, mut pushed) = (0, 0);
+    for seed in 0..20 {
+        let mut b = spear_and_knife(300 + seed, 6.0);
+        let mut who_first = None;
+        for _ in 0..600 {
+            b.tick();
+            if who_first.is_none() {
+                who_first = b.log.iter().find(|l| l.1.starts_with("Spear hits") || l.1.starts_with("Knife hits") || l.1.contains("dodges") || l.1.contains("blocks")).map(|l| l.1.starts_with("Spear") || l.1.starts_with("Knife dodges") || l.1.contains("blocks Spear"));
+            }
+            if b.over {
+                break;
+            }
+        }
+        first += who_first.unwrap_or(false) as u32;
+        pushed += b.log.iter().any(|l| l.1.contains("keeps Knife at bay")) as u32;
+    }
+    assert!(first >= 15, "the spear gets the first blow in ({first} of 20)");
+    assert!(pushed >= 8, "and drives the knife back ({pushed} of 20)");
+}
+
+#[test]
+fn a_long_weapon_with_a_foe_inside_it_hits_soft() {
+    let blows = |gap: f32| {
+        let mut b = pair(41);
+        b.fighters[1].pos = V2::new(gap, 0.0);
+        let mut total = 0.0;
+        for _ in 0..40 {
+            one_blow(&mut b, weapon("spear"));
+            total += b.fighters[1].damage_taken;
+            b.fighters[1].damage_taken = 0.0;
+        }
+        total
+    };
+    let (inside, at_length) = (blows(0.7), blows(2.4));
+    assert!(inside < at_length * 0.75, "crowded, the spear hits soft ({inside:.0} vs {at_length:.0})");
+}
+
+#[test]
+fn a_crowded_spearman_steps_back() {
+    let mut b = spear_and_knife(7, 0.7);
+    b.fighters[1].think_at = f64::INFINITY;
+    b.fighters[0].target = Some(1);
+    b.fighters[0].think_at = f64::INFINITY;
+    for _ in 0..10 {
+        b.tick();
+    }
+    assert!(b.fighters[0].pos.dist(b.fighters[1].pos) > 0.9, "stepped back out ({:.2} m)", b.fighters[0].pos.dist(b.fighters[1].pos));
+}
+
+// ---- Rule 5: tight spaces and sweeps ---------------------------------------------
+
+#[test]
+fn friends_pressing_close_make_it_tight() {
+    let mut b = pair(5);
+    assert_eq!(b.tightness(0), 0.0, "open ground");
+    let mut friend = b.fighters[0].clone();
+    friend.pos = V2::new(-0.9, 0.6);
+    b.fighters.push(friend.clone());
+    b.names.push("C".into());
+    friend.pos = V2::new(-0.9, -0.6);
+    b.fighters.push(friend);
+    b.names.push("D".into());
+    assert!(b.tightness(0) >= 0.6, "two friends at the elbows ({})", b.tightness(0));
+}
+
+#[test]
+fn indoors_long_weapons_land_less_and_short_ones_dont_care() {
+    // A real building, its walls round the fight (`World::around_fight`).
+    let w = worldgen::generate(1);
+    let d = (0..w.settlements[0].buildings.len() as u16).find_map(|i| gahturiyu_sim::sim::buildings::door_of(&w.settlements[0], i).filter(|d| d.half.x.min(d.half.y) >= 3.0)).expect("a big enough building");
+    let landed = |key: &str, inside: bool| {
+        let mut hits = 0;
+        for seed in 0..12 {
+            let mut b = pair(500 + seed);
+            let at = if inside { w.free_spot(d.centre) } else { d.outside.add(d.outside.sub(d.centre).scale(3.0)) };
+            b.fighters[0].pos = at;
+            b.fighters[1].pos = at.add(V2::new(1.0, 0.0));
+            b.around = w.around_fight(&b);
+            if inside {
+                assert!(b.tightness(0) >= 0.99, "indoors is tight");
+            }
+            for _ in 0..20 {
+                one_blow(&mut b, weapon(key));
+            }
+            hits += b.log.iter().filter(|l| l.1.starts_with("A hits")).count();
+        }
+        hits
+    };
+    let (spear_in, spear_out) = (landed("spear", true), landed("spear", false));
+    assert!((spear_in as f32) < spear_out as f32 * 0.9, "a spear lands less indoors ({spear_in} vs {spear_out})");
+    let (knife_in, knife_out) = (landed("knife", true), landed("knife", false));
+    assert!((knife_in as i32 - knife_out as i32).abs() <= (knife_out as i32) / 10 + 2, "a knife doesn't care ({knife_in} vs {knife_out})");
+}
+
+#[test]
+fn a_maul_sweeps_foes_in_front_and_friends_only_when_tight() {
+    let mut b = pair(61);
+    b.fighters[0].weapon = weapon("stone_maul");
+    // Two more foes in the arc, one behind.
+    for (k, at) in [V2::new(1.1, 0.7), V2::new(1.1, -0.7), V2::new(-1.2, 0.0)].into_iter().enumerate() {
+        let mut f = b.fighters[1].clone();
+        f.pos = at;
+        b.fighters.push(f);
+        b.names.push(format!("F{k}"));
+    }
+    let mut struck = [0; 5];
+    for _ in 0..30 {
+        for j in 1..5 {
+            b.fighters[j].hp = b.fighters[j].max_hp;
+            b.fighters[j].ko = false;
+            b.fighters[j].statuses.clear();
+            b.fighters[j].damage_taken = 0.0;
+        }
+        b.fighters[0].act = Act::Swing { target: 1, lands: b.time + 0.05 };
+        for _ in 0..2 {
+            b.tick();
+        }
+        for j in 1..5 {
+            struck[j] += (b.fighters[j].damage_taken > 0.0) as u32;
+        }
+    }
+    // (A maul sweeps two in all: the one aimed at and the nearer beside.)
+    assert!(struck[2] + struck[3] > 10, "one beside the target is caught too ({struck:?})");
+    assert_eq!(struck[4], 0, "nobody behind");
+    // A greatsword's sweep (three in all) catches both.
+    b.fighters[0].weapon = WeaponDef { sweep: 3, ..weapon("stone_maul") };
+    let mut both = 0;
+    for _ in 0..30 {
+        for j in 1..5 {
+            b.fighters[j].hp = b.fighters[j].max_hp;
+            b.fighters[j].ko = false;
+            b.fighters[j].statuses.clear();
+            b.fighters[j].damage_taken = 0.0;
+        }
+        b.fighters[0].act = Act::Swing { target: 1, lands: b.time + 0.05 };
+        for _ in 0..2 {
+            b.tick();
+        }
+        both += (b.fighters[2].damage_taken > 0.0 && b.fighters[3].damage_taken > 0.0) as u32;
+    }
+    assert!(both > 5, "a three-way sweep catches both beside ({both} of 30)");
+    // A friend at the maul-man's elbow, in the arc: spared in the open...
+    let mut b = pair(62);
+    b.fighters[0].weapon = weapon("stone_maul");
+    let mut friend = b.fighters[0].clone();
+    friend.pos = V2::new(0.9, 0.9);
+    b.fighters.push(friend);
+    b.names.push("Friend".into());
+    let swing = |b: &mut Battle| {
+        let mut hurt = 0;
+        for _ in 0..30 {
+            b.fighters[2].damage_taken = 0.0;
+            b.fighters[2].hp = b.fighters[2].max_hp;
+            b.fighters[1].hp = b.fighters[1].max_hp;
+            b.fighters[1].ko = false;
+            b.fighters[0].act = Act::Swing { target: 1, lands: b.time + 0.05 };
+            for _ in 0..2 {
+                b.tick();
+            }
+            hurt += (b.fighters[2].damage_taken > 0.0) as u32;
+        }
+        hurt
+    };
+    assert_eq!(swing(&mut b), 0, "friends aren't swept in the open");
+    // ...but caught when it's tight (two more friends pressing in).
+    for at in [V2::new(-0.8, 0.5), V2::new(-0.8, -0.5)] {
+        let mut f = b.fighters[2].clone();
+        f.pos = at;
+        b.fighters.push(f);
+        b.names.push("Press".into());
+    }
+    assert!(swing(&mut b) > 0, "a friend in the arc is caught when it's tight");
+}
+
+// ---- Rule 6: the off-hand parry -------------------------------------------------
+
+#[test]
+fn an_off_hand_blade_parries_and_strikes_back() {
+    // B holds a short sword and nothing else (their own kit might be a
+    // spear or a shield, which takes the off hand).
+    let count = |off: Option<WeaponDef>| {
+        let (mut taken, mut back, mut parries) = (0.0, 0, 0);
+        for seed in 0..10 {
+            let mut b = pair(700 + seed);
+            b.fighters[1].weapon = weapon("short_sword");
+            b.fighters[1].shield = 0.0;
+            b.fighters[1].offhand = off;
+            b.fighters[1].stats.set_skill(Skill::Block, 60.0);
+            for _ in 0..30 {
+                let before = b.fighters[0].damage_taken;
+                one_blow(&mut b, weapon("longsword"));
+                taken += b.fighters[1].damage_taken;
+                b.fighters[1].damage_taken = 0.0;
+                back += (b.fighters[0].damage_taken > before) as u32;
+            }
+            parries += b.fx.iter().filter(|x| matches!(x.kind, combat::FxKind::Parry { .. })).count();
+        }
+        (taken, back, parries)
+    };
+    let (bare, bare_back, bare_parries) = count(None);
+    let (with_knife, knife_back, parries) = count(Some(weapon("knife")));
+    assert!(with_knife < bare * 0.92, "the knife in the off hand turns blows ({with_knife:.0} taken vs {bare:.0})");
+    assert_eq!((bare_back, bare_parries), (0, 0));
+    assert!(parries > 10, "parried with it ({parries})");
+    assert!(knife_back > 0, "and now and then strikes back");
+    // Not with a two-handed weapon in the other hand, nor a shield.
+    let mut b = pair(9);
+    b.fighters[1].offhand = Some(weapon("knife"));
+    b.fighters[1].weapon = weapon("short_sword");
+    b.fighters[1].shield = 0.0;
+    assert!(b.fighters[1].offhand_up().is_some());
+    b.fighters[1].weapon = weapon("spear");
+    assert!(b.fighters[1].offhand_up().is_none(), "a two-handed weapon takes both hands");
+    b.fighters[1].weapon = weapon("short_sword");
+    b.fighters[1].shield = 0.4;
+    assert!(b.fighters[1].offhand_up().is_none(), "a shield takes the off hand");
+    for key in ["knife", "short_sword"] {
+        assert!(combat::offhand_ok(&weapon(key)), "the {key} goes in the off hand");
+    }
+    for key in ["longsword", "hatchet", "club", "spear"] {
+        assert!(!combat::offhand_ok(&weapon(key)), "the {key} doesn't");
+    }
+}
+
+#[test]
+fn a_knife_put_on_beside_a_sword_goes_in_the_off_hand() {
+    use gahturiyu_sim::sim::{inventory::Gear, items::Slot};
+    let (sword, knife, spear, shield) = (items::id("longsword"), items::id("knife"), items::id("spear"), items::id("round_shield"));
+    let mut g = Gear::default();
+    for it in [sword, knife, spear, shield] {
+        g.add(it, 1);
+    }
+    g.equip(knife).unwrap();
+    assert_eq!(g.in_slot(Slot::MainHand), Some(knife), "alone, a knife goes in the main hand");
+    g.equip(sword).unwrap();
+    assert_eq!(g.in_slot(Slot::MainHand), Some(sword));
+    g.equip(knife).unwrap();
+    assert_eq!(g.in_slot(Slot::OffHand), Some(knife), "beside a sword, in the off hand");
+    let p = person(9, &[(Skill::Blade, 40.0)]);
+    let mut p = p;
+    p.detail.as_mut().unwrap().gear = g.clone();
+    let f = Fighter::from_person(&p, 0, V2::new(0.0, 0.0), 0.0);
+    assert!(f.offhand_up().is_some(), "and it parries in a fight");
+    // A shield takes its place; a two-handed weapon takes both hands.
+    g.equip(shield).unwrap();
+    assert_eq!(g.in_slot(Slot::OffHand), Some(shield));
+    g.equip(knife).unwrap();
+    g.equip(spear).unwrap();
+    assert_eq!(g.in_slot(Slot::OffHand), None, "a spear takes both hands");
+}
+
+// ---- Rule 8: thrown weapons ----------------------------------------------------
+
+/// A hatchet-thrower (with a club to draw after) and a foe `gap` away.
+fn thrower(seed: u64, gap: f32, spares: usize) -> Battle {
+    let mut b = pair(seed);
+    let hatchet = items::id("hatchet");
+    b.fighters[0].weapon = weapon("hatchet");
+    b.fighters[0].weapon_item = Some(hatchet);
+    b.fighters[0].throws = vec![hatchet; spares];
+    b.fighters[0].backup = Some((weapon("club"), "Club"));
+    b.fighters[0].stats.set_skill(Skill::Marksman, 60.0);
+    b.fighters[1].pos = V2::new(gap, 0.0);
+    b.fighters[1].weapon = weapon("knife");
+    b.fighters[0].think_at = 0.0;
+    b
+}
+
+#[test]
+fn out_of_reach_they_throw_and_it_lands_where_it_stops() {
+    let mut b = thrower(11, 9.0, 2);
+    b.fighters[1].think_at = f64::INFINITY;
+    for _ in 0..60 {
+        b.tick();
+    }
+    assert!(b.thrown.len() >= 2, "both spares thrown ({})", b.thrown.len());
+    assert!(b.fighters[0].throws.is_empty());
+    for th in &b.thrown {
+        assert!(th.at.dist(b.fighters[1].pos) < 9.0, "lands near the target or past it ({:?})", th.at);
+    }
+    assert!(b.thrown[..2].iter().all(|th| !th.from_hand), "the spares went first");
+    assert!(b.fx.iter().any(|x| matches!(x.kind, combat::FxKind::Throw { .. })), "seen flying");
+    assert!(b.fighters[0].trained[Skill::Marksman as usize] > 0.0, "throwing is Marksman");
+    // Then the one in the hand, and the club comes out.
+    for _ in 0..40 {
+        b.tick();
+    }
+    assert!(b.thrown.iter().any(|t| t.from_hand), "the hand's hatchet thrown too");
+    assert_eq!(b.fighters[0].weapon_item, None);
+    assert_eq!(b.fighters[0].weapon_name, "Club", "the club drawn");
+}
+
+#[test]
+fn with_nothing_else_to_draw_they_keep_the_one_in_hand() {
+    let mut b = thrower(12, 9.0, 0);
+    b.fighters[0].backup = None;
+    b.fighters[1].think_at = f64::INFINITY;
+    for _ in 0..60 {
+        b.tick();
+    }
+    assert!(b.thrown.is_empty(), "not thrown away");
+}
+
+#[test]
+fn thrown_weapons_break_by_chance_on_what_they_hit() {
+    let count = |breaks: f32| {
+        let mut broke = 0;
+        let mut thrown = 0;
+        for seed in 0..15 {
+            let mut b = thrower(400 + seed, 8.0, 3);
+            b.fighters[1].think_at = f64::INFINITY;
+            let mut w = weapon("hatchet");
+            w.breaks = breaks;
+            b.fighters[0].weapon = w;
+            // (The spares are hatchets too: their numbers come from the item.)
+            for _ in 0..90 {
+                b.tick();
+            }
+            thrown += b.thrown.len();
+            broke += b.thrown.iter().filter(|t| t.broke).count();
+        }
+        (broke, thrown)
+    };
+    let (broke, thrown) = count(0.08);
+    assert!(thrown > 30);
+    assert!(broke > 0 && broke < thrown / 2, "a hatchet breaks now and then ({broke} of {thrown})");
+    assert!(b_never_breaks(), "a thing that never breaks doesn't");
+}
+
+fn b_never_breaks() -> bool {
+    let mut b = thrower(77, 8.0, 3);
+    b.fighters[1].think_at = f64::INFINITY;
+    b.fighters[0].throws.clear();
+    let net = items::id("net");
+    b.fighters[0].throws = vec![net; 3];
+    for _ in 0..90 {
+        b.tick();
+    }
+    !b.thrown.is_empty() && b.thrown.iter().all(|t| !t.broke || item_breaks(t.item))
+}
+
+fn item_breaks(it: items::ItemId) -> bool {
+    items::item(it).weapon().is_some_and(|w| w.breaks > 0.0)
+}
+
+#[test]
+fn a_thrown_net_tangles() {
+    let mut tangled = 0;
+    for seed in 0..10 {
+        let mut b = thrower(900 + seed, 6.0, 0);
+        b.fighters[1].think_at = f64::INFINITY;
+        b.fighters[0].throws = vec![items::id("net")];
+        for _ in 0..40 {
+            b.tick();
+        }
+        tangled += b.log.iter().any(|l| l.1.contains("net tangles")) as u32;
+    }
+    assert!(tangled > 0, "a net thrown tangles ({tangled} of 10)");
+}
+
+#[test]
+fn after_a_fight_the_squads_throws_lie_about_to_be_gathered() {
+    let hatchet = items::id("hatchet");
+    for seed in 1..10u64 {
+        let mut w = worldgen::generate(seed);
+        // Everyone with three hatchets to throw.
+        for &m in &w.squad.members.clone() {
+            let d = w.people[m as usize].detail.as_mut().unwrap();
+            d.gear.add(hatchet, 3);
+        }
+        let at = w.squad.pos.add(V2::new(16.0, 4.0));
+        w.spawn_bandits(at, 3, false);
+        w.step(0.1);
+        for _ in 0..40_000 {
+            w.step(0.25);
+            if w.battles.is_empty() && w.next_battle > 0 {
+                break;
+            }
+        }
+        if w.thrown_lying.is_empty() {
+            continue;
+        }
+        let lying = w.thrown_lying.clone();
+        for id in &lying {
+            assert!(w.ground.iter().any(|g| g.id == *id && g.item == hatchet), "a hatchet on the ground");
+        }
+        let carried = |w: &World| w.squad.members.iter().map(|&m| held(w, m, hatchet)).sum::<u16>();
+        let before = carried(&w);
+        let fit: Vec<u32> = w.squad.members.iter().copied().filter(|&m| !w.is_down(m) && !w.people[m as usize].dead).collect();
+        assert!(w.gather_thrown(&fit) >= lying.len());
+        for _ in 0..4000 {
+            w.step(0.25);
+            if w.thrown_lying.is_empty() {
+                break;
+            }
+        }
+        assert!(w.thrown_lying.is_empty(), "all gathered");
+        assert_eq!(carried(&w), before + lying.len() as u16, "back in the packs");
+        return;
+    }
+    panic!("no fight left a hatchet lying");
+}
+
+// ---- Rule 9: concealment ---------------------------------------------------------
+
+#[test]
+fn hidden_things_are_hard_to_notice_and_never_certain() {
+    use gahturiyu_sim::sim::conceal::{notice_chance, Look};
+    for h in [0.0, 0.3, 0.6, 0.9, 1.0] {
+        for sharp in [0.0, 0.5, 1.0] {
+            let (g, s, f) = (notice_chance(h, sharp, Look::Glance), notice_chance(h, sharp, Look::SizeUp), notice_chance(h, sharp, Look::Search));
+            assert!(g <= s && s <= f, "looking harder notices more");
+            assert!(g > 0.0 && f < 1.0, "never certain either way");
+        }
+    }
+    assert!(notice_chance(0.9, 0.5, Look::Glance) < 0.2, "a well-hidden knife slips past a glance");
+    assert!(notice_chance(0.9, 0.5, Look::Search) > 0.5, "a search mostly finds it");
+}
+
+#[test]
+fn a_hidden_knife_isnt_counted_until_its_noticed() {
+    use gahturiyu_sim::sim::conceal::{self, Look};
+    use gahturiyu_sim::sim::items::Slot;
+    let mut w = worldgen::generate(1);
+    let m = w.squad.members[0];
+    let looker = w.settlements[0].residents[0];
+    // Only a knife: what they look like with it seen, and unseen.
+    {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        d.gear.unequip(Slot::MainHand);
+        d.gear.unequip(Slot::OffHand);
+        d.gear.add(items::id("knife"), 1);
+        d.gear.equip(items::id("knife")).unwrap();
+    }
+    w.people[m as usize].recompute_might();
+    let full = w.people[m as usize].might;
+    let gear = w.people[m as usize].kit();
+    assert!(!conceal::shows(&gear, Slot::MainHand), "a knife doesn't show on the figure");
+    let (mut lower, mut same) = (0, 0);
+    for h in 0..200 {
+        let t = w.time + h as f64 * 3600.0;
+        let seen = w.seen_might(looker, m, Look::Glance, t);
+        assert!(seen <= full + 1e-3);
+        if seen < full - 1e-3 {
+            lower += 1;
+        } else {
+            same += 1;
+        }
+        // The same look in the same hour comes out the same.
+        assert_eq!(seen, w.seen_might(looker, m, Look::Glance, t));
+    }
+    assert!(lower > same, "a glance mostly misses it ({lower} missed, {same} seen)");
+    // A longsword in the hand is plain to see.
+    let d = w.people[m as usize].detail.as_mut().unwrap();
+    d.gear.add(items::id("longsword"), 1);
+    d.gear.unequip(Slot::MainHand);
+    d.gear.equip(items::id("longsword")).unwrap();
+    assert!(conceal::shows(&w.people[m as usize].kit(), Slot::MainHand));
 }

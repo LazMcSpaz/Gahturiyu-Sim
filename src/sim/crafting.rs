@@ -162,6 +162,7 @@ pub static RECIPES: &[Recipe] = &[
     p("hide_coat", M::Leather, M::None, &[("leather", 3)], K::Handcraft, 20.0, S::Workbench, 120.0),
     p("hide_leggings", M::Leather, M::None, &[("leather", 2)], K::Handcraft, 15.0, S::Workbench, 100.0),
     p("cloth_shirt", M::Cloth, M::None, &[("cloth", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    r("bandage", 4, &[("cloth", 1)], K::Handcraft, 1.0, S::Workbench, 15.0),
     p("trousers", M::Cloth, M::None, &[("cloth", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
     p("padded_jacket", M::Cloth, M::None, &[("cloth", 4)], K::Handcraft, 15.0, S::Workbench, 120.0),
     p("small_pack", M::Leather, M::None, &[("leather", 2)], K::Handcraft, 10.0, S::Workbench, 90.0),

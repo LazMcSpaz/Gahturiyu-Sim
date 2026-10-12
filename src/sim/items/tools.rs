@@ -22,6 +22,8 @@ pub(super) static ITEMS: &[ItemDef] = &[
     ItemDef { key: "tent", name: "Tent", slot: Slot::MainHand, kind: Kind::Tool, weight: 6.0, value: 60.0, effects: &[] },
     ItemDef { key: "bedroll", name: "Bedroll", slot: Slot::MainHand, kind: Kind::Tool, weight: 2.0, value: 10.0, effects: &[] },
     ItemDef { key: "mortar_and_pestle", name: "Mortar and pestle", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 25.0, effects: &[] },
+    // Binds a cut: stops bleeding (combat finds it by what it does).
+    ItemDef { key: "bandage", name: "Bandage", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.05, value: 2.0, effects: &[now(Does::Staunch, 1.0, Reach::Target)] },
 ];
 
 pub(super) static FORMS: &[Form] = &[
@@ -39,4 +41,5 @@ pub(super) static SIZES: &[(&str, u8, u8)] = &[
     ("standing_torch", 1, 3),
     ("torch", 1, 2),
     ("mortar_and_pestle", 1, 1),
+    ("bandage", 1, 1),
 ];

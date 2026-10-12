@@ -51,12 +51,17 @@ pub enum Act {
     /// Give this squad member a healing draught (the nearest of the
     /// selected who has one).
     Dose(PersonId),
+    /// Bind this squad member's bleeding (the nearest of the selected with
+    /// a bandage, or they themselves).
+    Bind(PersonId),
     /// Lie down in a bedroll or tent the squad laid out.
     SleepIn(u32),
     /// Pack a bedroll or tent up.
     PackUp(u32),
     /// Lay out a bedroll (or pitch a tent) here.
     Lay(gahturiyu_sim::sim::bedding::BedKind, V2),
+    /// Gather up the squad's thrown weapons lying about.
+    GatherThrown,
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -174,6 +179,10 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                 if hurt && w.squad.members.iter().any(|&m| m != pid && w.healing_potion_of(m).is_some()) {
                     out.push(ch(format!("Give {name} a healing draught"), Act::Dose(pid)));
                 }
+                // Bleeding, and someone (themselves too) has a bandage.
+                if w.bleeding(pid) > 0.0 && w.squad.members.iter().any(|&m| !w.is_down(m) && w.bandage_of(m).is_some()) {
+                    out.insert(0, ch(format!("Bind {name}'s cuts"), Act::Bind(pid)));
+                }
                 out.push(ch(format!("Select {name}"), Act::Select(pid)));
                 if who.iter().any(|&m| m != pid && w.can_carry(m, pid)) {
                     out.push(ch(format!("Carry {name}"), Act::Carry(pid)));
@@ -261,6 +270,9 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                     Some(town) => out.push(crime(format!("Steal the {name} ({})", odds(w.catch_chance(lead, gi.pos, town))), Act::PickUp(g))),
                     None => out.push(ch(format!("Pick up the {name}"), Act::PickUp(g))),
                 }
+                if w.thrown_by_squad(g) && w.thrown_lying.len() > 1 {
+                    out.push(ch("Gather the thrown weapons", Act::GatherThrown));
+                }
             }
         }
         Hover::Deposit(d) => {
@@ -344,6 +356,25 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,
+        Act::GatherThrown => {
+            let all = w.squad.members.clone();
+            let n = w.gather_thrown(if who.is_empty() { &all } else { who });
+            if n == 0 {
+                return Some("Nothing thrown is lying about.".into());
+            }
+            true
+        }
+        Act::Bind(p) => {
+            // The nearest of the selected with a bandage (they themselves
+            // first); else anyone in the squad.
+            let at = w.person_pos(p);
+            let pick = |list: &[PersonId]| list.iter().copied().filter(|&m| !w.is_down(m) && w.bandage_of(m).is_some()).min_by(|&a, &b| ((a != p), w.person_pos(a).dist(at)).partial_cmp(&((b != p), w.person_pos(b).dist(at))).unwrap_or(std::cmp::Ordering::Equal));
+            let by = pick(who).or_else(|| pick(&w.squad.members.clone()));
+            return Some(match by.map(|g| w.order_bind(g, p)) {
+                Some(Ok(m)) | Some(Err(m)) => m,
+                None => "Nobody standing has a bandage.".into(),
+            });
+        }
         Act::Dose(p) => {
             // The nearest of the selected with a draught; else anyone in the squad.
             let at = w.person_pos(p);

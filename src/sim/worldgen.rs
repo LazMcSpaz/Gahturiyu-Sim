@@ -117,6 +117,8 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
             }
             // Everyone carries a bedroll: nobody sleeps on the bare ground.
             d.gear.add(super::items::id("bedroll"), 1);
+            // And a few bandages: a cut bleeds until it's bound.
+            d.gear.add(super::items::id("bandage"), 3);
             // The crafts they've each taken up.
             d.crafts = match (race, calling) {
                 (_, Calling::Mage) => vec![Skill::Alchemy, Skill::Inscription],

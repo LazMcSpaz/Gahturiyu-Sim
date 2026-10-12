@@ -62,6 +62,8 @@ fn member(w: &World, c: Calling) -> u32 {
 fn wield(w: &mut World, who: u32, id: items::ItemId) {
     let t = w.time;
     let d = w.people[who as usize].detail.as_mut().unwrap();
+    // (Into the main hand: a knife put on beside a sword goes in the off hand.)
+    d.gear.unequip(Slot::MainHand);
     d.gear.add_piece(id, fresh(id, t));
     let k = d.gear.bag.len() - 1;
     assert!(w.equip_entry(who, k));

@@ -194,6 +194,7 @@
     (english: "Standing torch", group: Gear, made: "pillar+torch"),
     (english: "Tent", group: Gear, made: "tent"),
     (english: "Bedroll", group: Gear, made: "rest+cloth"),
+    (english: "Bandage", group: Gear, made: "bind+cloth"),
     (english: "Mortar and pestle", group: Gear, made: "break+pot"),
     (english: "Storm glass", group: Gear, made: "storm+glass"),
     (english: "Hearthclay pot", group: Gear, belongs: Some(Roduro), made: "pot/=Hearthclay"),

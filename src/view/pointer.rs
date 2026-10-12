@@ -55,11 +55,11 @@ pub fn mark_for(w: &World, hover: Option<Hover>, wild: Option<&Seen>, ground: Op
     }?;
     let m = match first.act {
         Act::Walk(_) | Act::SneakTo(_) | Act::Sleep(_) | Act::SleepIn(_) => Mark::Walk,
-        Act::PackUp(_) | Act::Lay(..) => Mark::Work,
+        Act::PackUp(_) | Act::Lay(..) | Act::GatherThrown => Mark::Work,
         Act::Talk(_) => Mark::Talk,
         Act::Attack(_) => Mark::Attack,
         Act::Enter(_) | Act::PickLock(_) => Mark::Enter,
-        Act::Loot(_) | Act::Carry(_) | Act::Search(_) | Act::PickChest(_) | Act::PickUp(_) | Act::Dose(_) => Mark::Take,
+        Act::Loot(_) | Act::Carry(_) | Act::Search(_) | Act::PickChest(_) | Act::PickUp(_) | Act::Dose(_) | Act::Bind(_) => Mark::Take,
         Act::Gather(_) | Act::Work(_) | Act::Make(_) | Act::Hunt(_) | Act::Butcher(_) => Mark::Work,
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => return None,
     };

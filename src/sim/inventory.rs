@@ -108,6 +108,21 @@ impl Gear {
 
     /// Where something meant for `s` goes on: a ring on whichever hand is
     /// free (the first if both are taken), anything else in its own slot.
+    /// Where a thing goes when put on: its own slot, except that a blade
+    /// that can go in the off hand (`WeaponDef::offhand`) goes there when
+    /// the main hand already holds a one-handed weapon and the off hand is
+    /// free (the items design, 0.2 rule 6).
+    pub fn hand_for(&self, id: ItemId) -> Slot {
+        let def = item(id);
+        let off = def.weapon().is_some_and(|w| w.offhand);
+        let main_one_handed = self.in_slot(Slot::MainHand).and_then(|m| item(m).weapon()).is_some_and(|w| !w.two_handed && w.range == 0.0);
+        if def.slot == Slot::MainHand && off && main_one_handed && self.in_slot(Slot::OffHand).is_none() {
+            Slot::OffHand
+        } else {
+            self.slot_for(def.slot)
+        }
+    }
+
     pub fn slot_for(&self, s: Slot) -> Slot {
         if s == Slot::Ring && self.in_slot(Slot::Ring).is_some() && self.in_slot(Slot::Ring2).is_none() {
             Slot::Ring2
@@ -210,7 +225,8 @@ impl Gear {
             return Err(EquipError::WrongSlot);
         }
         let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
-        if def.slot == Slot::OffHand {
+        let to = self.hand_for(id);
+        if to == Slot::OffHand {
             if let Some(m) = self.in_slot(Slot::MainHand) {
                 if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) {
                     self.unequip(Slot::MainHand);
@@ -220,7 +236,6 @@ impl Gear {
         if two_handed {
             self.unequip(Slot::OffHand);
         }
-        let to = self.slot_for(def.slot);
         let piece = self.take_piece(id).flatten();
         self.unequip(to);
         self.slots[slot_index(to)] = Some(id);
@@ -241,7 +256,8 @@ impl Gear {
             // (take_piece prefers plain ones; take this piece directly.)
             let def = item(e.0);
             let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
-            if def.slot == Slot::OffHand {
+            let to = self.hand_for(e.0);
+            if to == Slot::OffHand {
                 if let Some(m) = self.in_slot(Slot::MainHand) {
                     if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) {
                         self.unequip(Slot::MainHand);
@@ -251,7 +267,6 @@ impl Gear {
             if two_handed {
                 self.unequip(Slot::OffHand);
             }
-            let to = self.slot_for(def.slot);
             let (id, piece) = self.take_entry(0).unwrap();
             self.unequip(to);
             self.slots[slot_index(to)] = Some(id);

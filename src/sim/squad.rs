@@ -394,6 +394,7 @@ impl World {
         self.do_pickups();
         self.do_bed_jobs();
         self.do_dosing();
+        self.do_binding();
         self.do_giving();
         self.tidy_looting();
         self.do_picking();
@@ -981,8 +982,14 @@ impl World {
                 done.push(n);
             }
         }
+        let gathered: Vec<PersonId> = done.iter().map(|&n| self.pickups[n].who).filter(|w| self.gatherers.contains(w)).collect();
         for n in done.into_iter().rev() {
             self.pickups.remove(n);
+        }
+        // Gathering thrown weapons: on to the next.
+        self.thrown_lying.retain(|id| self.ground.iter().any(|g| g.id == *id));
+        for m in gathered {
+            self.gather_next(m);
         }
     }
 
