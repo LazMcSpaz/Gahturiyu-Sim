@@ -43,7 +43,7 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
-    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar`: the squad at
+    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar|campfire|stove`: the squad at
     /// the nearest such station with things to make and the craft for it
     /// (member 0 practised, member 1 new to it and carrying some of the
     /// materials, member 2 a little way off), its making screen open.
@@ -1172,11 +1172,52 @@ fn make_scene(world: &mut World, what: &str) {
         "desk" => Station::Desk,
         "bed" => Station::GrowerBed,
         "mortar" => Station::AlchemyTable,
+        "campfire" => Station::Campfire,
+        "stove" => Station::Stove,
         _ => Station::Forge,
     };
     let here = world.squad.pos;
     let m = world.squad.members.clone();
-    if what != "mortar" {
+    if station == Station::Campfire {
+        // The nearest town fire, clear of its workshop's benches.
+        let mut spot = None;
+        let mut towns: Vec<usize> = (0..world.settlements.len()).collect();
+        towns.sort_by(|&a, &b| world.settlements[a].pos.dist(here).total_cmp(&world.settlements[b].pos.dist(here)));
+        'find: for s in towns {
+            let (c, r) = (world.settlements[s].pos, world.settlements[s].reach);
+            for th in world.solids_near(c, r) {
+                if th.what != gahturiyu_sim::sim::solid::What::Fire || !world.fire_lit(th.id, world.time) {
+                    continue;
+                }
+                let f = th.shape.centre();
+                for k in 0..16 {
+                    let a = k as f32 * 0.4;
+                    let p = f.add(V2::new(a.cos(), a.sin()).scale(2.6));
+                    if world.stations.iter().all(|s| s.0.dist(p) > f.dist(p)) && world.fire_at(p).is_some() && world.can_stand(p, 0.3) {
+                        spot = Some(p);
+                        break 'find;
+                    }
+                }
+            }
+        }
+        let Some(p) = spot else {
+            eprintln!("GAHT_MAKE: no fire in this world");
+            return;
+        };
+        world.teleport_squad(p);
+    } else if station == Station::Stove {
+        let inside = (0..world.settlements.len() as u16)
+            .flat_map(|s| (0..world.settlements[s as usize].buildings.len() as u16).map(move |b| (s, b)))
+            .filter_map(|(s, b)| gahturiyu_sim::sim::buildings::door_of(&world.settlements[s as usize], b))
+            .filter(|d| world.station_near(d.centre, Station::Stove).is_some())
+            .min_by(|a, b| a.centre.dist(here).total_cmp(&b.centre.dist(here)));
+        let Some(d) = inside else {
+            eprintln!("GAHT_MAKE: no hearth in this world");
+            return;
+        };
+        let p = world.free_spot(d.centre);
+        world.teleport_squad(p);
+    } else if what != "mortar" {
         let Some(at) = world.stations.iter().filter(|(_, k)| *k == station).map(|(p, _)| *p).min_by(|a, b| a.dist(here).total_cmp(&b.dist(here))) else {
             eprintln!("GAHT_MAKE: no {what} in this world");
             return;
@@ -1214,6 +1255,21 @@ fn make_scene(world: &mut World, what: &str) {
     if what == "mortar" {
         if let Some(d) = world.people[m[0] as usize].detail.as_mut() {
             d.gear.add(items::id("mortar_and_pestle"), 1);
+        }
+    }
+    // At a fire or a stove: a pot, and the second of them already cooking
+    // (the stirring cue).
+    if matches!(station, Station::Campfire | Station::Stove) {
+        if let Some(d) = world.people[m[0] as usize].detail.as_mut() {
+            d.gear.add(items::id("cooking_pot"), 1);
+        }
+        if let (Some(&cook), Some(&ri)) = (m.get(1), recipes.first()) {
+            if let Some(d) = world.people[cook as usize].detail.as_mut() {
+                for &(k, need) in RECIPES[ri].inputs {
+                    d.gear.add(items::id(k), need);
+                }
+            }
+            let _ = world.start_craft(cook, ri);
         }
     }
     world.step(1.0);

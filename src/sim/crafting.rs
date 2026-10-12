@@ -48,6 +48,11 @@ pub enum Station {
     Workbench,
     /// Where stone is grown.
     GrowerBed,
+    /// Any fire burning within reach (`fire_at`): basic food only (0.6).
+    Campfire,
+    /// A hearth indoors, or a base's kitchen: full meals, and anything a
+    /// campfire does.
+    Stove,
 }
 
 impl Station {
@@ -60,6 +65,8 @@ impl Station {
             Station::Loom => "Weaver's frame",
             Station::Workbench => "Workbench",
             Station::GrowerBed => "Grower's bed",
+            Station::Campfire => "Campfire",
+            Station::Stove => "Stove",
         }
     }
 }
@@ -76,15 +83,27 @@ impl Station {
             Station::Loom => Some(Furn::Loom),
             Station::Workbench => Some(Furn::Workbench),
             Station::GrowerBed => Some(Furn::GrowerBed),
-            Station::Desk | Station::AlchemyTable => None,
+            // A home's hearth is its stove.
+            Station::Stove => Some(Furn::Hearth),
+            Station::Desk | Station::AlchemyTable | Station::Campfire => None,
         }
     }
 }
 
-pub const STATIONS: [Station; 7] = [Station::Forge, Station::Bench, Station::Desk, Station::AlchemyTable, Station::Loom, Station::Workbench, Station::GrowerBed];
+pub const STATIONS: [Station; 9] = [Station::Forge, Station::Bench, Station::Desk, Station::AlchemyTable, Station::Loom, Station::Workbench, Station::GrowerBed, Station::Campfire, Station::Stove];
+
+impl Station {
+    /// Can a recipe for station `of` be made at this one? A stove does
+    /// everything a campfire does.
+    pub fn serves(self, of: Station) -> bool {
+        self == of || (self == Station::Stove && of == Station::Campfire)
+    }
+}
 
 /// How close to a station you must stand to use it, metres.
 pub const AT_STATION: f32 = 3.0;
+/// How far a fire's middle may be beyond that (its ring of stones), metres.
+const FIRE_SIDE: f32 = 1.5;
 /// How far inside something a station can be and still be worked from
 /// beside it (the middle of the biggest roofed workplace), metres.
 const STATION_DEEP: f32 = 6.0;
@@ -107,15 +126,26 @@ pub struct Recipe {
     /// For a piece: what it's made of (`None`: the form's usual material).
     pub main: Material,
     pub second: Material,
+    /// Cooking: a pot is wanted over a campfire (porridge, tea, broth); a
+    /// stove has its own.
+    pub pot: bool,
+    /// Cooking: water, from a well (a town or a base) or a waterskin.
+    pub water: bool,
 }
 
 const fn r(output: &'static str, makes: u16, inputs: &'static [(&'static str, u16)], skill: Skill, difficulty: f32, station: Station, time: f64) -> Recipe {
-    Recipe { output, makes, inputs, skill, difficulty, station, time, main: M::None, second: M::None }
+    Recipe { output, makes, inputs, skill, difficulty, station, time, main: M::None, second: M::None, pot: false, water: false }
 }
 
 /// A piece in these materials.
 const fn p(form: &'static str, main: Material, second: Material, inputs: &'static [(&'static str, u16)], skill: Skill, difficulty: f32, station: Station, time: f64) -> Recipe {
-    Recipe { output: form, makes: 1, inputs, skill, difficulty, station, time, main, second }
+    Recipe { output: form, makes: 1, inputs, skill, difficulty, station, time, main, second, pot: false, water: false }
+}
+
+/// A dish (0.6): cooked at a campfire or a stove, its grade from the cook's
+/// skill (`items::food::DISHES`).
+const fn c(output: &'static str, makes: u16, inputs: &'static [(&'static str, u16)], difficulty: f32, station: Station, minutes: f64, pot: bool, water: bool) -> Recipe {
+    Recipe { output, makes, inputs, skill: Skill::Cooking, difficulty, station, time: minutes * 60.0, main: M::None, second: M::None, pot, water }
 }
 
 use super::materials::Material as M;
@@ -288,6 +318,25 @@ pub static RECIPES: &[Recipe] = &[
     r("healing_draught", 1, &[("bloodleaf", 2), ("wild_berries", 1)], K::Alchemy, 15.0, S::AlchemyTable, 40.0),
     r("mana_tonic", 1, &[("ghostcap", 2), ("salt_crystal", 1)], K::Alchemy, 25.0, S::AlchemyTable, 40.0),
     r("greater_healing", 1, &[("bloodleaf", 2), ("wild_berries", 1), ("ghostcap", 1)], K::Alchemy, 45.0, S::AlchemyTable, 60.0),
+    // Cooking (0.6, "Food recipes"). Over a campfire: basic food (a pot for
+    // porridge and tea). (Hardgrain is `grain`, Saltcrust `salt_crystal`,
+    // Tallow `animal_oil`, Moorberries `wild_berries`.)
+    c("roast_meat", 1, &[("raw_meat", 1)], 5.0, S::Campfire, 15.0, false, false),
+    c("spit_fish", 1, &[("fish", 1)], 5.0, S::Campfire, 12.0, false, false),
+    c("fried_puffcaps", 1, &[("puffcap", 2), ("animal_oil", 1)], 10.0, S::Campfire, 10.0, false, false),
+    c("camp_porridge", 2, &[("grain", 1)], 8.0, S::Campfire, 20.0, true, true),
+    c("moorbell_tea", 2, &[("moorbell", 1)], 5.0, S::Campfire, 10.0, true, true),
+    // At a stove: full meals.
+    c("sweetroot_stew", 2, &[("raw_meat", 1), ("sweetroot", 1), ("hearthleaf", 1)], 20.0, S::Stove, 45.0, false, true),
+    c("fish_broth", 2, &[("fish", 1), ("brinekale", 1), ("salt_crystal", 1)], 20.0, S::Stove, 40.0, false, true),
+    c("mussel_pot", 2, &[("mussels", 2), ("brinekale", 1), ("bluestem_oil", 1)], 25.0, S::Stove, 35.0, false, true),
+    c("stonebean_stew", 2, &[("stonebean", 2), ("sweetroot", 1), ("animal_oil", 1)], 20.0, S::Stove, 50.0, false, true),
+    c("hardgrain_bread", 3, &[("grain", 2), ("salt_crystal", 1)], 25.0, S::Stove, 60.0, false, true),
+    c("shellhen_bake", 1, &[("egg", 2), ("bloodleaf", 1), ("cheese", 1)], 15.0, S::Stove, 15.0, false, false),
+    c("glazed_meat", 1, &[("raw_meat", 1), ("ashberry", 2)], 30.0, S::Stove, 40.0, false, false),
+    c("trail_cake", 3, &[("grain", 1), ("wild_berries", 2), ("animal_oil", 1)], 30.0, S::Stove, 50.0, false, false),
+    c("stoneapple_cake", 2, &[("grain", 1), ("stoneapple", 2), ("milk", 1)], 40.0, S::Stove, 60.0, false, false),
+    c("firepod_stew", 2, &[("raw_meat", 1), ("stonebean", 1), ("firepod", 1)], 35.0, S::Stove, 50.0, false, true),
 ];
 
 /// How many beds one Tender keeps growing at once (a town's Tenders grow
@@ -312,6 +361,9 @@ impl Recipe {
     /// The item it makes at this grade.
     pub fn item(&self, grade: Grade) -> ItemId {
         let id = items::id(self.output);
+        if items::is_dish(id) {
+            return items::variant(id, M::None, M::None, grade).unwrap_or(id);
+        }
         if !self.is_piece() {
             return id;
         }
@@ -491,6 +543,10 @@ pub enum Cannot {
     Busy,
     /// They haven't taken up the craft (a teacher or a manual first).
     Unknown(Craft),
+    /// Over a campfire this wants a cooking pot (not used up).
+    NoPot,
+    /// It wants water: a well (in a town or at a base) or a waterskin.
+    NoWater,
 }
 
 impl Cannot {
@@ -505,6 +561,8 @@ impl Cannot {
             }
             Cannot::Busy => "they're busy with other work".into(),
             Cannot::Unknown(c) => format!("they haven't taken up {}", c.skill().name().to_lowercase()),
+            Cannot::NoPot => "wants a cooking pot over a campfire".into(),
+            Cannot::NoWater => "wants water: a well, or a waterskin".into(),
         }
     }
 }
@@ -624,7 +682,21 @@ impl World {
     /// forge; both playtests stood in the "Maker's forge" and were told
     /// there was none).
     pub fn station_near(&self, p: V2, kind: Station) -> Option<V2> {
+        if kind == Station::Campfire {
+            return self.fire_at(p);
+        }
         self.stations.iter().filter(|(_, k)| *k == kind).map(|(s, _)| *s).find(|&s| self.at_station(s, p)).or_else(|| self.station_indoors(p, kind))
+    }
+
+    /// A fire burning within reach of `p`, to cook over: a campfire, a base's
+    /// fire ring, a town's hearth fire (any `What::Fire` in the solid list).
+    pub fn fire_at(&self, p: V2) -> Option<V2> {
+        self.solids_near(p, AT_STATION + FIRE_SIDE)
+            .into_iter()
+            .filter(|th| th.what == super::solid::What::Fire && self.fire_lit(th.id, self.time))
+            .map(|th| th.shape.centre())
+            .filter(|c| c.dist(p) <= AT_STATION + FIRE_SIDE)
+            .min_by(|a, b| a.dist(p).total_cmp(&b.dist(p)))
     }
 
     /// Is `p` within reach of the station at `s`? Within `AT_STATION` of it,
@@ -689,8 +761,16 @@ impl World {
     /// within reach, or the one in the building the spot is in.
     pub fn bench_at(&self, p: V2) -> Option<Bench> {
         let open = self.stations.iter().filter(|(s, _)| self.at_station(*s, p)).min_by(|a, b| a.0.dist(p).total_cmp(&b.0.dist(p))).map(|&(s, k)| (s, k));
-        let (at, station) = open.or_else(|| STATIONS.iter().find_map(|&k| self.station_indoors(p, k).map(|c| (c, k))))?;
-        Some(Bench { station, at, place: self.bench_place(at, station), carried_by: None })
+        // A fire nearer than any station standing in the open is the one
+        // they mean (a workyard's fire beside its benches).
+        let fire = self.fire_at(p).map(|c| (c, Station::Campfire));
+        let open = match (open, fire) {
+            (Some(o), Some(f)) if f.0.dist(p) < o.0.dist(p) => Some(f),
+            (o, _) => o,
+        };
+        let (at, station) = open.or_else(|| STATIONS.iter().find_map(|&k| self.station_indoors(p, k).map(|c| (c, k)))).or(fire)?;
+        let place = if station == Station::Campfire && self.building_at(at).is_none() { "Campfire".to_string() } else { self.bench_place(at, station) };
+        Some(Bench { station, at, place, carried_by: None })
     }
 
     /// The bench a squad member could work at where they stand: the one
@@ -750,7 +830,7 @@ impl World {
     pub fn making_list(&self, b: &Bench) -> Vec<MakeRow> {
         let hands = self.bench_hands(b);
         (0..RECIPES.len())
-            .filter(|&ri| RECIPES[ri].station == b.station)
+            .filter(|&ri| b.station.serves(RECIPES[ri].station))
             .filter_map(|ri| {
                 let rc = &RECIPES[ri];
                 let makers = self.makers(b, ri);
@@ -769,6 +849,16 @@ impl World {
                 Some(MakeRow { recipe: ri, standing, parts, best })
             })
             .collect()
+    }
+
+    /// Water for a dish `who` would cook: Some(None) from a well where they
+    /// stand, Some(Some(g)) a drink from g's waterskin (theirs first, then a
+    /// squadmate's beside them), None if there's none.
+    pub fn cooking_water(&self, who: PersonId) -> Option<Option<PersonId>> {
+        if self.water_at(self.person_pos(who)) {
+            return Some(None);
+        }
+        self.craft_givers(who).into_iter().find(|&g| self.people[g as usize].cond.as_ref().is_some_and(|c| c.water >= 1.0)).map(Some)
     }
 
     pub fn count_of(&self, who: PersonId, key: &str) -> u16 {
@@ -809,8 +899,16 @@ impl World {
         let at = self.person_pos(who);
         // (A mortar and pestle in the maker's pack, or a squadmate's beside them.)
         let portable = rc.station == Station::AlchemyTable && self.craft_stock(who, "mortar_and_pestle") > 0;
-        if !portable && self.station_near(at, rc.station).is_none() {
+        // A stove does what a campfire does, and has its own pots.
+        let stove = rc.station == Station::Campfire && self.station_near(at, Station::Stove).is_some();
+        if !portable && !stove && self.station_near(at, rc.station).is_none() {
             out.push(Cannot::NoStation(rc.station));
+        }
+        if rc.pot && !stove && self.craft_stock(who, "cooking_pot") == 0 {
+            out.push(Cannot::NoPot);
+        }
+        if rc.water && self.cooking_water(who).is_none() {
+            out.push(Cannot::NoWater);
         }
         out
     }
@@ -850,6 +948,15 @@ impl World {
         }
         for &g in &givers {
             self.people[g as usize].recompute_might();
+        }
+        // Water from a skin, if there's no well here.
+        if rc.water {
+            if let Some(Some(g)) = self.cooking_water(who) {
+                self.settle_condition(g, t);
+                if let Some(c) = self.people[g as usize].cond.as_mut() {
+                    c.water = (c.water - 1.0).max(0.0);
+                }
+            }
         }
         let bed = (rc.skill == Skill::Tending).then(|| self.station_near(self.person_pos(who), Station::GrowerBed)).flatten();
         let n = self.crafted_count.entry(who).or_insert(0);

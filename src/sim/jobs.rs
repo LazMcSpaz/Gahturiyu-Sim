@@ -502,14 +502,16 @@ impl Good {
     /// The things a merchant hands over for it (item keys).
     pub fn items(self) -> &'static [&'static str] {
         match self {
-            Good::Grain => &["flatbread"],
-            Good::Fish => &["dried_fish", "mussels"],
+            // (With what cooks want, 0.6: grain, raw fish, meat, eggs, milk
+            // and cheese, the farmed crops and the oils.)
+            Good::Grain => &["flatbread", "grain"],
+            Good::Fish => &["dried_fish", "mussels", "fish"],
             Good::Kelp => &["kelp_frond"],
-            Good::Game => &["salted_meat", "wild_berries"],
+            Good::Game => &["salted_meat", "wild_berries", "raw_meat", "egg", "milk", "cheese", "animal_oil"],
             Good::Timber => &["timber"],
             Good::Rock => &["rock"],
             Good::Hides => &["hide"],
-            Good::Herbs => &["bloodleaf", "ghostcap", "salt_crystal", "emberroot", "moorbell", "peatroot", "weepmoss", "hearthleaf", "bluestem", "stonebean"],
+            Good::Herbs => &["bloodleaf", "ghostcap", "salt_crystal", "emberroot", "moorbell", "peatroot", "weepmoss", "hearthleaf", "bluestem", "stonebean", "sweetroot", "brinekale", "stoneapple", "firepod", "bluestem_oil"],
             Good::Wares => &["torch", "healing_draught", "mana_tonic", "lockpick", "arrows", "bolts", "sling_stones", "hearthclay_pot", "sandglass_flask", "sunbark", "duskseed", "gold_thread"],
             Good::Ore => &["iron_ore"],
             Good::Charcoal => &["charcoal"],

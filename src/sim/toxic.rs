@@ -102,7 +102,11 @@ impl World {
     /// One effect of something drunk, on the drinker, out of a fight. Side
     /// effects reach them too (`apply_effect` alone keeps attacks for fights).
     pub fn take_dose(&mut self, who: PersonId, e: &Effect) {
-        let t = self.time;
+        self.take_dose_at(who, e, self.time);
+    }
+
+    /// The same, at `t` (something eaten on the condition timeline: rule 8).
+    pub fn take_dose_at(&mut self, who: PersonId, e: &Effect, t: f64) {
         let Lasts::Secs(secs) = e.lasts else {
             self.apply_effect(who, e, 1.0);
             return;

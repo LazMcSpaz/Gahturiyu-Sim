@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-492 things: 164 belong to one people, 328 are shared.
+513 things: 164 belong to one people, 349 are shared.
 
 ## Jobs
 
@@ -71,6 +71,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 |---|---|---|---|---|---|
 | Handcraft | Ḍiḍagiṭa | Drimgirt | Wilanima | Withayiwa | hand-work |
 | Carpentry | Qahogiṭa | Kopgirt | Wilahawo | Withahafe | timber-work |
+| Cooking | Tuḍagiṭa | Tungirt | Wilanuna | Withasuya | cook-work |
 
 ## Materials and goods
 
@@ -325,6 +326,24 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Duskseed | Yahetiḍu | Daptim | Nimuiawe | Siwuyafe | dusk-seed |
 | Gold thread | Ṭelishoga | Trerxog | Howaleli | Sauwatheyi | gold-grass |
 | Bluestem oil | Ṭuʻaḍoṭi | Truqmort | Molilua | Wauthithuwa | blue-oil |
+| Raw fish | Garoḍiʻa | Gormiq | Miawaro | Wiyawashe | wild-fish |
+| Mossback milk | Hiḍaʻiḍu | Pinin | Inuwina | Iyufiya | white-drink |
+| Mossback cheese | Hiḍaqeʻi | Pinkeq | Heiwina | Heifiya | white-food |
+| Roast meat | Ṭaqudiʻa | Trokdix | Lialahu | Thiyathahu | fire-meat |
+| Spit-roast fish | Ṭaquḍiʻa | Trokmiq | Mialahu | Wiyathahu | fire-fish |
+| Fried puffcaps | Ḍoṭiqo | Mortrik | Lihomoli | Thihewauthi | oil-head |
+| Camp porridge | Yalushaḍi | Dorxem | Hamiialu | Sawiyayu | soft-grain |
+| Moorbell tea | Ḍaʻiʻiḍu | Meqin | Inumai | Iyuwai | flower-drink |
+| Sweetroot stew | Ḍeshiqulo | Mexkur | Hulomehi | Huyewesi | sweet-pot |
+| Fish and kale broth | Ḍiʻaqulo | Miqkur | Hulomia | Huyewiya | fish-pot |
+| Mussel pot | Heqaqulo | Pekur | Huloweha | Huyefeha | shell-pot |
+| Stonebean stew | Tiḍuqulo | Timkur | Hulonimu | Huyesiwu | seed-pot |
+| Hardgrain bread | Ṭohuḍìha | Tropunmip | Miwalowuni | Wifathaufe | strong-bread |
+| Shellhen bake | Ohoqahi | Opkep | Hawiowo | Hafiyaufe | egg-hearth |
+| Ashberry-glazed meat | Hushediʻa | Puxdix | Liawuhe | Thiyafuse | ember-meat |
+| Trail cake | Shaduḍiha | Xodmip | Miwahalu | Wifasathu | road-bread |
+| Stoneapple cake | Ḍeshiḍiha | Mexmip | Miwamehi | Wifawesi | sweet-bread |
+| Firepod stew | Tuhiqulo | Tupkur | Hulonuwi | Huyesufi | burn-pot |
 | Ember oil | Husheḍoṭi | Puxmort | Moliwuhe | Wauthifuse | ember-oil |
 | Healing draught | Doḍiʻiḍu | Donin | Inuloni | Iyuthauyi | heal-drink |
 | Greater healing draught | Tashiʻiḍu | Texin | Inunahi | Iyusasi | whole-drink |
@@ -457,6 +476,8 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | Workbench | Giṭahiṭo | Girtapirt | Wilowila | Fithewitha | work-board |
+| Campfire | Ḍoʻeṭaqu | Noqtrok | Lahunoe | Thahuyehe | rest-fire |
+| Stove | Tuḍaqahi | Tunkep | Hawinuna | Hafisuya | cook-hearth |
 
 ## What the squad can build
 

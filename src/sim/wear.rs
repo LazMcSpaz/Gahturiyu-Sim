@@ -243,6 +243,10 @@ impl World {
     /// manual; anyone else: if it's their trade.)
     pub fn knows_craft(&self, who: PersonId, craft: Craft) -> bool {
         let p = &self.people[who as usize];
+        // Anyone of the squad can cook; their skill decides how well (0.6).
+        if p.in_squad && craft == Craft::Cooking {
+            return true;
+        }
         if p.in_squad {
             p.detail.as_ref().map(|d| d.crafts.contains(&craft.skill())).unwrap_or(false)
         } else {
@@ -357,6 +361,7 @@ impl Craft {
             Craft::Alchemy => S::AlchemyTable,
             // Building crafts mend nothing at a station: a workbench stands in.
             Craft::Carpentry | Craft::Masonry => S::Workbench,
+            Craft::Cooking => S::Stove,
         }
     }
 }

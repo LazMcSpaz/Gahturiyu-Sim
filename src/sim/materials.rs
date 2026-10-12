@@ -59,10 +59,12 @@ pub enum Craft {
     Carpentry,
     /// Laid stone (rubble walls, wells, kitchens): bases, Part 7.
     Masonry,
+    /// Meals at a campfire or a stove (0.6).
+    Cooking,
 }
 
-pub const CRAFTS: [Craft; 9] = [Craft::Handcraft, Craft::Smithing, Craft::Armoring, Craft::Tending, Craft::Weaving, Craft::Inscription, Craft::Alchemy, Craft::Carpentry, Craft::Masonry];
-pub const N_CRAFTS: usize = 9;
+pub const CRAFTS: [Craft; 10] = [Craft::Handcraft, Craft::Smithing, Craft::Armoring, Craft::Tending, Craft::Weaving, Craft::Inscription, Craft::Alchemy, Craft::Carpentry, Craft::Masonry, Craft::Cooking];
+pub const N_CRAFTS: usize = 10;
 
 impl Craft {
     pub fn index(self) -> usize {
@@ -79,6 +81,7 @@ impl Craft {
             Craft::Alchemy => Skill::Alchemy,
             Craft::Carpentry => Skill::Carpentry,
             Craft::Masonry => Skill::Masonry,
+            Craft::Cooking => Skill::Cooking,
         }
     }
     pub fn of_skill(s: Skill) -> Option<Craft> {
@@ -101,6 +104,7 @@ impl Craft {
             Craft::Alchemy => "alchemy",
             Craft::Carpentry => "carpentry",
             Craft::Masonry => "masonry",
+            Craft::Cooking => "cooking",
         }
     }
 }

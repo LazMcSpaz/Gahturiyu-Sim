@@ -73,10 +73,12 @@ pub enum Skill {
     Carpentry,
     /// Laid stone: rubble walls, wells, kitchens, footings.
     Masonry,
+    /// Meals at a campfire or a stove (the items design, 0.6).
+    Cooking,
 }
 
 /// How many skills there are.
-pub const N_SKILLS: usize = 22;
+pub const N_SKILLS: usize = 23;
 
 pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Blade,
@@ -101,6 +103,7 @@ pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Weaving,
     Skill::Carpentry,
     Skill::Masonry,
+    Skill::Cooking,
 ];
 
 impl Skill {
@@ -128,6 +131,7 @@ impl Skill {
             Skill::Weaving => "Weaving",
             Skill::Carpentry => "Carpentry",
             Skill::Masonry => "Masonry",
+            Skill::Cooking => "Cooking",
         }
     }
 
@@ -146,6 +150,7 @@ impl Skill {
             Skill::Tending => Attr::Willpower,
             Skill::Carpentry => Attr::Agility,
             Skill::Masonry => Attr::Strength,
+            Skill::Cooking => Attr::Agility,
         }
     }
 
