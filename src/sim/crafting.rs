@@ -154,6 +154,11 @@ pub static RECIPES: &[Recipe] = &[
     // Two traditions: an Edgeglass edge (from a Tender) on a Forgeiron spine.
     p("longsword", M::Edgeglass, M::Forgeiron, &[("edgeglass", 1), ("iron_ingot", 2), ("leather", 1)], K::Smithing, 65.0, S::Forge, 240.0),
     r("sandglass_flask", 1, &[("sand", 2), ("charcoal", 1)], K::Smithing, 15.0, S::Forge, 60.0),
+    // An alchemy table's tools (Part 4): kept in a base's store, they're
+    // fitted to its table.
+    r("retort", 1, &[("sand", 3), ("charcoal", 1)], K::Smithing, 25.0, S::Forge, 90.0),
+    r("calcinator", 1, &[("clay", 3), ("charcoal", 2)], K::Smithing, 20.0, S::Forge, 90.0),
+    r("alembic", 1, &[("sand", 4), ("charcoal", 2)], K::Smithing, 35.0, S::Forge, 120.0),
     r("gold_ring", 1, &[("gold_nugget", 2)], K::Smithing, 30.0, S::Forge, 90.0),
     // Armouring.
     p("iron_helm", M::Bronze, M::None, &[("bronze_ingot", 2), ("leather", 1)], K::Armoring, 20.0, S::Forge, 120.0),
@@ -693,11 +698,10 @@ impl World {
         Some(Bench { station, at, place: self.bench_place(at, station), carried_by: None })
     }
 
-    /// The bench a squad member could work at where they stand: the one
-    /// they're at, else the mortar and pestle in their pack.
+    /// The bench a squad member could work at where they stand. (A mortar
+    /// and pestle is a table's tool now, not a bench in the pack: Part 4.)
     pub fn bench_for(&self, who: PersonId) -> Option<Bench> {
-        let at = self.person_pos(who);
-        self.bench_at(at).or_else(|| (self.count_of(who, "mortar_and_pestle") > 0).then(|| Bench { station: Station::AlchemyTable, at, place: "Mortar and pestle".to_string(), carried_by: Some(who) }))
+        self.bench_at(self.person_pos(who))
     }
 
     /// Is this squad member at that bench (and up)?
@@ -750,7 +754,7 @@ impl World {
     pub fn making_list(&self, b: &Bench) -> Vec<MakeRow> {
         let hands = self.bench_hands(b);
         (0..RECIPES.len())
-            .filter(|&ri| RECIPES[ri].station == b.station)
+            .filter(|&ri| RECIPES[ri].station == b.station && RECIPES[ri].station != Station::AlchemyTable)
             .filter_map(|ri| {
                 let rc = &RECIPES[ri];
                 let makers = self.makers(b, ri);
@@ -795,7 +799,7 @@ impl World {
         // Stone grows on its own while tended, so it doesn't keep its
         // grower from other work; one bed at a time, though.
         let growing = |j: &Job| RECIPES[j.recipe].skill == Skill::Tending;
-        if self.crafting.iter().any(|j| j.who == who && growing(j) == (rc.skill == Skill::Tending)) || self.fighting.contains_key(&who) {
+        if self.crafting.iter().any(|j| j.who == who && growing(j) == (rc.skill == Skill::Tending)) || self.brewing.iter().any(|j| j.who == who) || self.fighting.contains_key(&who) {
             out.push(Cannot::Busy);
         }
         if !self.knows_craft(who, rc.craft()) {
@@ -807,9 +811,7 @@ impl World {
             }
         }
         let at = self.person_pos(who);
-        // (A mortar and pestle in the maker's pack, or a squadmate's beside them.)
-        let portable = rc.station == Station::AlchemyTable && self.craft_stock(who, "mortar_and_pestle") > 0;
-        if !portable && self.station_near(at, rc.station).is_none() {
+        if self.station_near(at, rc.station).is_none() {
             out.push(Cannot::NoStation(rc.station));
         }
         out

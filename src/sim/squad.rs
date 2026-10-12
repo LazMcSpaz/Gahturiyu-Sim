@@ -408,6 +408,7 @@ impl World {
         self.find_ruins();
         self.note_camps_seen();
         self.do_crafting();
+        self.do_brewing();
         self.do_lessons();
         self.check_runaways();
         self.mind_the_guests();

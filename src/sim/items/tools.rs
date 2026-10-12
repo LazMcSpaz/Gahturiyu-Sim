@@ -116,6 +116,11 @@ pub(super) static ITEMS: &[ItemDef] = &[
     ItemDef { key: "tent", name: "Tent", slot: Slot::MainHand, kind: Kind::Tool, weight: 6.0, value: 60.0, effects: &[] },
     ItemDef { key: "bedroll", name: "Bedroll", slot: Slot::MainHand, kind: Kind::Tool, weight: 2.0, value: 10.0, effects: &[] },
     ItemDef { key: "mortar_and_pestle", name: "Mortar and pestle", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 25.0, effects: &[] },
+    // An alchemy table's other tools (`brewing.rs`): shorter harm, longer
+    // help, stronger brews.
+    ItemDef { key: "retort", name: "Retort", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.0, value: 40.0, effects: &[] },
+    ItemDef { key: "calcinator", name: "Calcinator", slot: Slot::MainHand, kind: Kind::Tool, weight: 3.0, value: 40.0, effects: &[] },
+    ItemDef { key: "alembic", name: "Alembic", slot: Slot::MainHand, kind: Kind::Tool, weight: 1.5, value: 60.0, effects: &[] },
     // Work and gathering, camp and travel (Part 6). Each has one job; the
     // rules that read them come with that job.
     ItemDef { key: "woodcutters_axe", name: "Woodcutter's axe", slot: Slot::MainHand, kind: Kind::Tool, weight: 2.0, value: 30.0, effects: &[] },
@@ -147,6 +152,9 @@ pub(super) static SIZES: &[(&str, u8, u8)] = &[
     ("standing_torch", 1, 3),
     ("torch", 1, 2),
     ("mortar_and_pestle", 1, 1),
+    ("retort", 1, 2),
+    ("calcinator", 2, 2),
+    ("alembic", 1, 2),
     ("woodcutters_axe", 1, 4),
     ("mining_pick", 2, 4),
     ("sickle", 1, 2),

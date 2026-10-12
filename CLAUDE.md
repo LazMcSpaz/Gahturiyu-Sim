@@ -258,7 +258,7 @@ squad's start, e.g. to put a town on the band edge). For the newer systems:
 `GAHT_HOURS=h` (run h hours first), `GAHT_CAMP=k` (start 70 m from bandit camp
 k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 `GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`,
-`GAHT_MAKE=forge|bench|loom|workbench|desk|bed|mortar` (the squad at the nearest such station
+`GAHT_MAKE=forge|bench|loom|workbench|desk|bed|table` (the squad at the nearest such station
 with the craft and some materials, its making screen open), `GAHT_DROP=k`
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
 `GAHT_TALK=1` (talk to the nearest local; `GAHT_TALK=roduro|qotiro|horaro|tadoro` the nearest of that people;
@@ -714,6 +714,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   the drinker out of a fight too (poison and nausea at once, the rest as
   boons), and the toxicity meter is on the condition timeline (queasy,
   sick, collapse; sick, a draught may come back up; it never kills).
+  Brewing (`brewing.rs`, Laz's option (a)) is only at an alchemy table:
+  2 to 4 ingredients of two kinds or more; the bottle (`brewed_potion`)
+  keeps its `herbs::Mix` in its `Piece` and stacks only with the same mix.
+  Skill and the table's tools (`table_kit`: a town alchemist's has all four,
+  a healing house a mortar and retort, a base's what its store holds) set
+  strength and how long help and harm last; harm is shortened, never
+  removed. What each person knows is `World::lore` (tasting shows one
+  effect, brewing what the ingredients shared; brewed mixes are
+  remembered). The making screen hands over to `view/brewui.rs` at a table.
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is

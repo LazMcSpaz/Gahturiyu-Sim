@@ -248,6 +248,9 @@
     (english: "Bedroll", group: Gear, made: "rest+cloth"),
     (english: "Bandage", group: Gear, made: "bind+cloth"),
     (english: "Mortar and pestle", group: Gear, made: "break+pot"),
+    (english: "Retort", group: Gear, made: "glass+neck"),
+    (english: "Calcinator", group: Gear, made: "burn+pot"),
+    (english: "Alembic", group: Gear, made: "cloud+glass"),
     (english: "Woodcutter's axe", group: Gear, made: "tree+cut"),
     (english: "Mining pick", group: Gear, made: "dig+horn"),
     (english: "Sickle", group: Gear, made: "grass+cut"),
@@ -380,6 +383,7 @@
     (english: "Healing draught", group: Food, made: "heal+drink"),
     (english: "Greater healing draught", group: Food, made: "whole+drink"),
     (english: "Mana tonic", group: Food, made: "spirit+drink"),
+    (english: "Potion", group: Food, made: "herb+drink"),
 
     // ==== Named treasures (items.rs) ============================================
     (english: "Ring of Swiftness", group: Treasure, made: "ring/swift"),

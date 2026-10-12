@@ -18,6 +18,7 @@ pub mod light;
 pub mod lexicon;
 pub mod lootui;
 pub mod looks;
+pub mod brewui;
 pub mod makeui;
 pub mod hints;
 pub mod feel;

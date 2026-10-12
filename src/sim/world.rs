@@ -186,6 +186,12 @@ pub struct World {
     pub ruins: Vec<super::ruins::Ruin>,
     /// Jobs in progress.
     pub crafting: Vec<super::crafting::Job>,
+    /// Brews under way at alchemy tables (`brewing.rs`).
+    #[serde(default)]
+    pub brewing: Vec<super::brewing::BrewJob>,
+    /// What each person knows of alchemy: ingredients' effects, mixes.
+    #[serde(default)]
+    pub lore: std::collections::BTreeMap<PersonId, super::brewing::Lore>,
     /// More of the same to make once the one under way is done.
     #[serde(default)]
     pub making_more: Vec<super::crafting::More>,
@@ -393,6 +399,8 @@ impl World {
             pursuits: Vec::new(),
             wanted: Vec::new(),
             crafting: Vec::new(),
+            brewing: Vec::new(),
+            lore: Default::default(),
             making_more: Vec::new(),
             crafted_count: HashMap::new(),
             orders: Vec::new(),
