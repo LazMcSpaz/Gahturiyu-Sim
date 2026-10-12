@@ -96,13 +96,14 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
         p.specialize(calling, skills, budget);
         p.ensure_detail();
         // The squad starts in the shared basics: leather, cloth and simple
-        // weapons. The traditions' work is the step up.
+        // weapons, a shirt and trousers under the rest. The traditions' work
+        // is the step up.
         {
             let basics: &[&str] = match (race, calling) {
-                (_, Calling::Mage) => &["staff", "padded_jacket", "trousers", "boots"],
-                (_, Calling::Hunter) => &["spear", "hide_coat", "leather_cap", "hide_leggings", "boots", "small_pack"],
-                (Race::Qotiro, _) => &["hatchet", "buckler", "hide_coat", "leather_cap", "hide_leggings", "leather_gloves", "boots"],
-                _ => &["club", "hide_coat", "leather_cap", "hide_leggings", "boots", "small_pack"],
+                (_, Calling::Mage) => &["staff", "cloth_shirt", "padded_jacket", "trousers", "boots"],
+                (_, Calling::Hunter) => &["spear", "cloth_shirt", "hide_coat", "leather_cap", "trousers", "hide_leggings", "boots", "small_pack"],
+                (Race::Qotiro, _) => &["hatchet", "buckler", "cloth_shirt", "hide_coat", "leather_cap", "trousers", "hide_leggings", "leather_gloves", "boots"],
+                _ => &["club", "cloth_shirt", "hide_coat", "leather_cap", "trousers", "hide_leggings", "boots", "small_pack"],
             };
             let d = p.detail.as_mut().unwrap();
             d.gear = super::inventory::Gear::default();
