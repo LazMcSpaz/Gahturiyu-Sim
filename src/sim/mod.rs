@@ -21,6 +21,7 @@ pub mod conceal;
 pub mod condition;
 pub mod crafting;
 pub mod culture;
+pub mod disguise;
 pub mod dialogue;
 pub mod economy;
 pub mod effects;

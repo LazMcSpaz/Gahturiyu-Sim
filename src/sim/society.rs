@@ -382,7 +382,7 @@ impl World {
                     stilts: offshore,
                     counted: [0; 4],
                     blend: Blend::default(),
-                    customs: Customs { cooking: Cooking::Household, rhythm: culture::Rhythm::Seasonal, belonging: Belonging::Lineage, layout: Layout::Combined, own: [false; 4], justice: culture::Justice::Elders, slavery: culture::Slavery::Temporary },
+                    customs: Customs { cooking: Cooking::Household, rhythm: culture::Rhythm::Seasonal, belonging: Belonging::Lineage, layout: Layout::Combined, own: [false; 4], justice: culture::Justice::Elders, slavery: culture::Slavery::Temporary, garb: culture::Garb::Tolerated },
                     food: Food::default(),
                     away: 0.0,
                     withdrawn: false,

@@ -739,6 +739,21 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   `regard_price`; no dealing at all where hostile, `deals_with_squad`), a
   crime told there and a job done there count with it. The journal lists
   Standing in words.
+- Disguise (F3, `disguise.rs`; Laz: New Vegas's standing with Kenshi's fit
+  check): the civic groups and elite uniforms are data (`CIVIC`: the
+  garment's `items::Role`, who the real ones are by job, how close they
+  are, whether it's a crime, whose they are); only the four role garments
+  exist so far (tabard, vestment, merchant's coat, labourer's smock). Worn,
+  a squad member passes as the group (`disguise_of`). Each step (the player
+  exception, like the watch knowing a face) the nearest of the real ones
+  who is up and sees them plainly looks, once an hour each, by a keyed roll
+  (`seen_through_chance`: closeness, one of them or not, the kit, a tabard
+  not this town's, Sneak, past doubts). Seen through: friendly standing
+  with the group's faction lets it pass, hostile sends the watch, otherwise
+  they're questioned (`talks_past`). Found out: the watch is always
+  `Wrong::Impersonation`, a priest only where the community's
+  `Customs::garb` forbids it, and a priest always costs with the Holy House.
+  One of the watch is reported less and isn't turned out of houses at night.
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is
