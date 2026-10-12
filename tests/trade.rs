@@ -387,7 +387,7 @@ fn the_table_says_what_changes_hands() {
     let wares = w.for_sale(merchant);
     let (want, stock, _) = *wares.iter().find(|x| x.0 != timber).expect("they sell something else");
     let take = stock.min(2);
-    let table = Table { give: vec![(me, timber, 8)], get: vec![(want, take)] };
+    let table = Table { give: vec![(me, timber, 8, None)], get: vec![(want, take, None)] };
     let (had_coin, had_timber, had_want) = (w.squad_count(coin), w.count_of(me, "timber"), w.squad_count(want));
     let stamp = format!("{:?}{:?}", w.people[me as usize].detail.as_ref().unwrap().gear.bag, w.society.towns[w.people[merchant as usize].home.unwrap() as usize].stock);
     // Asking what it would come to changes nothing.
@@ -420,7 +420,7 @@ fn a_table_that_cant_go_through_changes_nothing_and_says_why() {
     }
     let wares = w.for_sale(merchant);
     let (want, stock, price) = *wares.iter().max_by_key(|x| x.2).unwrap();
-    let table = Table { give: Vec::new(), get: vec![(want, stock.min(2))] };
+    let table = Table { give: Vec::new(), get: vec![(want, stock.min(2), None)] };
     let bag = format!("{:?}", w.people[me as usize].detail.as_ref().unwrap().gear.bag);
     let done = w.deal_table(merchant, &table);
     match done.stuck {
@@ -436,7 +436,7 @@ fn a_table_that_cant_go_through_changes_nothing_and_says_why() {
     w.society.towns[town].purse_at = w.time;
     give(&mut w, me, timber, 6);
     let had = w.count_of(me, "timber");
-    let table = Table { give: vec![(me, timber, 6)], get: Vec::new() };
+    let table = Table { give: vec![(me, timber, 6, None)], get: Vec::new() };
     let done = w.deal_table(merchant, &table);
     assert_eq!(done.stuck, Some(NoDeal::TheyCantPay), "a purse of {} against six at about {one}", one * 2.5);
     assert_eq!(w.count_of(me, "timber"), had, "none of it went");

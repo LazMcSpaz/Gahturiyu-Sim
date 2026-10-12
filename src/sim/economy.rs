@@ -26,6 +26,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::group::{Group, GroupId, Kind, Leg};
+use super::items::herbs::Mix;
 use super::items::{self, ItemId};
 use super::jobs::{Good, Job, PlaceKind, Shelf, FOODS, GOODS, MEALS_PER_COOK_HOUR, N_GOODS, POTS_PER_RUN};
 use super::making::{Shelved, ASH_PER_TIMBER, BURN_PER_HOUR, CHARCOAL_PER_TIMBER};
@@ -68,11 +69,13 @@ pub const GRAIN_GLUT_SPOIL: f32 = 0.1;
 pub const BUY_MARKUP: f32 = 1.15;
 pub const SELL_SHARE: f32 = 0.75;
 /// What's laid on the table between the squad and a merchant: what the
-/// squad gives (from whose pack, what, how many) and what it takes.
+/// squad gives (from whose pack, what, how many) and what it takes. A
+/// brewed bottle goes by its mix too, so each mix is its own line (`None`:
+/// anything of the item).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Table {
-    pub give: Vec<(PersonId, ItemId, u16)>,
-    pub get: Vec<(ItemId, u16)>,
+    pub give: Vec<(PersonId, ItemId, u16, Option<Mix>)>,
+    pub get: Vec<(ItemId, u16, Option<Mix>)>,
 }
 
 impl Table {
@@ -82,21 +85,46 @@ impl Table {
 
     /// One more of a member's thing onto the table (up to `most`).
     pub fn add_give(&mut self, who: PersonId, it: ItemId, most: u16) {
-        match self.give.iter_mut().find(|g| g.0 == who && g.1 == it) {
+        self.add_give_mix(who, it, None, most);
+    }
+
+    /// The same, for a brewed bottle of this mix.
+    pub fn add_give_mix(&mut self, who: PersonId, it: ItemId, mix: Option<Mix>, most: u16) {
+        match self.give.iter_mut().find(|g| g.0 == who && g.1 == it && g.3 == mix) {
             Some(g) => g.2 = (g.2 + 1).min(most),
-            None if most > 0 => self.give.push((who, it, 1)),
+            None if most > 0 => self.give.push((who, it, 1, mix)),
             None => {}
         }
     }
 
     /// One more of the merchant's things onto the table (up to `most`).
     pub fn add_get(&mut self, it: ItemId, most: u16) {
-        match self.get.iter_mut().find(|g| g.0 == it) {
+        self.add_get_mix(it, None, most);
+    }
+
+    /// The same, for a brewed bottle of this mix.
+    pub fn add_get_mix(&mut self, it: ItemId, mix: Option<Mix>, most: u16) {
+        match self.get.iter_mut().find(|g| g.0 == it && g.2 == mix) {
             Some(g) => g.1 = (g.1 + 1).min(most),
-            None if most > 0 => self.get.push((it, 1)),
+            None if most > 0 => self.get.push((it, 1, mix)),
             None => {}
         }
     }
+}
+
+/// A line on a merchant's stall: what, how many, the price of each, and a
+/// brewed bottle's mix (each mix its own line).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lot {
+    pub item: ItemId,
+    pub n: u16,
+    pub price: u16,
+    pub mix: Option<Mix>,
+}
+
+/// Does a thing of this mix answer a line asking for `want` (`None`: any)?
+pub fn mix_fits(want: Option<Mix>, has: Option<Mix>) -> bool {
+    want.is_none() || want == has
 }
 
 /// How a table goes, or would go.
@@ -633,13 +661,18 @@ impl World {
     /// things on the town's shelf first, then one of each kind of good, then
     /// more of each.
     pub fn for_sale(&self, npc: PersonId) -> Vec<(ItemId, u16, u16)> {
+        self.stall(npc).into_iter().map(|l| (l.item, l.n, l.price)).collect()
+    }
+
+    /// The same, line by line, a brewed bottle's mix with it.
+    pub fn stall(&self, npc: PersonId) -> Vec<Lot> {
         let Some((town, shelf)) = self.shelves(npc) else { return vec![] };
         // (Where the town's holder is hostile to the squad, nothing.)
         if !self.deals_with_squad(town) {
             return vec![];
         }
         let regard = self.regard_price(town);
-        let mut out: Vec<(ItemId, u16, u16)> = Vec::new();
+        let mut out: Vec<Lot> = Vec::new();
         // Food first, then the other goods, then made things: so what a
         // traveller most needs is never the part of the list cut off (NM-59).
         let mut by_good: Vec<(bool, Vec<(ItemId, u16, u16)>)> = Vec::new();
@@ -664,11 +697,11 @@ impl World {
         for food in [true, false] {
             let part: Vec<&Vec<(ItemId, u16, u16)>> = by_good.iter().filter(|x| x.0 == food).map(|x| &x.1).collect();
             for k in 0..part.iter().map(|v| v.len()).max().unwrap_or(0) {
-                out.extend(part.iter().filter_map(|v| v.get(k).copied()));
+                out.extend(part.iter().filter_map(|v| v.get(k).copied()).map(|(item, n, price)| Lot { item, n, price, mix: None }));
             }
         }
         if shelf.map(|s| s == Shelf::Goods).unwrap_or(true) {
-            out.extend(self.shelf_for_sale(town).into_iter().map(|(it, n, p, _)| (it, n, p)));
+            out.extend(self.shelf_lots(town).into_iter().map(|(l, _)| l));
         }
         out
     }
@@ -800,15 +833,21 @@ impl World {
     /// The squad buys one of something at this price. False if they can't
     /// pay or it's gone.
     pub fn buy_at(&mut self, npc: PersonId, it: ItemId, price: u16) -> bool {
+        self.buy_lot(npc, it, None, price)
+    }
+
+    /// The squad buys one of something at this price: a brewed bottle of
+    /// exactly this mix, if one's given. False if they can't pay or it's gone.
+    pub fn buy_lot(&mut self, npc: PersonId, it: ItemId, mix: Option<Mix>, price: u16) -> bool {
         let Some((town, _)) = self.shelves(npc) else { return false };
-        if !self.for_sale(npc).iter().any(|x| x.0 == it && x.2 == price) || self.squad_count(items::id("coin")) < price {
+        if !self.stall(npc).iter().any(|l| l.item == it && l.price == price && mix_fits(mix, l.mix)) || self.squad_count(items::id("coin")) < price {
             return false;
         }
         let Some(buyer) = self.trader() else { return false };
         let good = super::jobs::good_of(items::item(it).key);
         let mut bought: Option<Shelved> = None;
         if good.is_none() {
-            let Some(&(_, _, _, k)) = self.shelf_for_sale(town).iter().find(|x| x.0 == it && x.2 == price) else { return false };
+            let Some(&(_, k)) = self.shelf_lots(town).iter().find(|(l, _)| l.item == it && l.price == price && mix_fits(mix, l.mix)) else { return false };
             bought = Some(self.society.towns[town as usize].shelf.remove(k));
         }
         self.settle_condition(buyer, self.time);
@@ -887,11 +926,16 @@ impl World {
     /// One of `it` from this member's own pack goes to the merchant, at what
     /// they offer for it now. What it fetched, if it sold.
     pub fn sell_from(&mut self, npc: PersonId, who: PersonId, it: ItemId) -> Option<u16> {
+        self.sell_from_mix(npc, who, it, None)
+    }
+
+    /// The same, a brewed bottle of exactly this mix if one's given.
+    pub fn sell_from_mix(&mut self, npc: PersonId, who: PersonId, it: ItemId, mix: Option<Mix>) -> Option<u16> {
         let (town, _) = self.shelves(npc)?;
         if !self.at_hand().contains(&who) {
             return None;
         }
-        let (k, price) = self.people[who as usize].detail.as_ref()?.gear.bag.iter().enumerate().find_map(|(k, e)| if e.0 == it && e.1 > 0 { self.offer(npc, it, e.2.as_ref()).map(|p| (k, p)) } else { None })?;
+        let (k, price) = self.people[who as usize].detail.as_ref()?.gear.bag.iter().enumerate().find_map(|(k, e)| if e.0 == it && e.1 > 0 && mix_fits(mix, e.2.and_then(|p| p.mix)) { self.offer(npc, it, e.2.as_ref()).map(|p| (k, p)) } else { None })?;
         self.sell_entry(npc, town, who, k, price).then_some(price)
     }
 
@@ -922,10 +966,10 @@ impl World {
             d.stuck = Some(NoDeal::Empty);
             return d;
         }
-        for &(who, it, n) in &table.give {
+        for &(who, it, n, mix) in &table.give {
             let (mut sold, mut coin) = (0u16, 0u32);
             for _ in 0..n {
-                match self.sell_from(npc, who, it) {
+                match self.sell_from_mix(npc, who, it, mix) {
                     Some(p) => {
                         sold += 1;
                         coin += p as u32;
@@ -943,16 +987,16 @@ impl World {
         // the price it stood at.)
         let loose_before = self.trader().map_or(0, |b| self.loose_count(b));
         let mut unpaid = 0u32;
-        for &(it, n) in &table.get {
+        for &(it, n, mix) in &table.get {
             let (mut got, mut coin) = (0u16, 0u32);
             for _ in 0..n {
-                let Some(&(_, _, price)) = self.for_sale(npc).iter().find(|x| x.0 == it) else {
+                let Some(price) = self.stall(npc).iter().find(|l| l.item == it && mix_fits(mix, l.mix)).map(|l| l.price) else {
                     if d.stuck.is_none() {
                         d.stuck = Some(NoDeal::Gone(it));
                     }
                     break;
                 };
-                if d.stuck.is_some() || !self.buy_at(npc, it, price) {
+                if d.stuck.is_some() || !self.buy_lot(npc, it, mix, price) {
                     if d.stuck.is_none() {
                         d.stuck = Some(NoDeal::YouCantPay(0));
                     }
