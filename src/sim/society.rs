@@ -824,6 +824,7 @@ impl World {
         let s = &mut self.settlements[t as usize];
         s.reach = s.reach.max(reach);
         self.society.towns[t as usize].places = placed;
+        self.solid_changed();
     }
 
     /// Crafting stations stand in the workplaces that hold them.

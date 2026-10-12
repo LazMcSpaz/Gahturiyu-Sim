@@ -748,6 +748,7 @@ impl World {
         base.buildings.push(Built { id: 0, def: plan.def as u16, at, rot: 0.0, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: self.time, rate: 0.0, done_at: None, hands: Vec::new() }), placed: self.time, sealed: false });
         base.next_id = 1;
         self.bases.push(base);
+        self.solid_changed();
         let line = format!("A camp marker is laid: {}.", self.bases.last().unwrap().name);
         self.base_note(id, self.time, line.clone(), false);
         self.tell(self.time, line);
@@ -771,6 +772,7 @@ impl World {
         let id = b.next_id;
         b.next_id += 1;
         b.buildings.push(Built { id, def: plan.def as u16, at: plan.at, rot: plan.rot, w: plan.w, state: State::Site(Site { delivered: Vec::new(), labour: 0.0, since: t, rate: 0.0, done_at: None, hands: Vec::new() }), placed: t, sealed: false });
+        self.solid_changed();
         self.base_changed(bid);
         Ok(id)
     }
@@ -835,6 +837,7 @@ impl World {
     fn remove_building(&mut self, bid: BaseId, id: u32) -> bool {
         let t = self.time;
         let Some(i) = self.base_index(bid) else { return false };
+        self.solid_changed();
         let b = &mut self.bases[i];
         let Some(k) = b.buildings.iter().position(|x| x.id == id) else { return false };
         b.settle(t);
@@ -1060,6 +1063,7 @@ impl World {
                 };
                 bl.state = State::Standing { hp: d.hp, since: t, hp_at: t, rate: 0.0 };
                 let (at, name) = (bl.at, d.name);
+                self.solid_changed();
                 if let (Some(sk), true) = (d.skill, d.labour > 0.0) {
                     for (who, hours) in hands {
                         self.people[who as usize].stats.exercise(sk, hours * PRACTICE);
@@ -1084,6 +1088,7 @@ impl World {
                 let bl = &mut self.bases[i].buildings[k];
                 bl.state = State::Ruin;
                 let (at, d) = (bl.at, bl.def());
+                self.solid_changed();
                 if let Some(st) = d.station {
                     if let Some(j) = self.stations.iter().position(|(p, s)| *s == st && p.dist(at) < 0.5) {
                         self.stations.remove(j);
