@@ -597,12 +597,21 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     let two_handed = g.weapon().two_handed;
     let mut wishlist: Vec<&str> = vec![];
     if stats.calling != Calling::Mage {
-        wishlist.extend(["scale_hauberk", "iron_helm", "scale_greaves"]);
-        if race == Race::Qotiro {
-            wishlist.insert(0, "plate_cuirass");
+        wishlist.extend(["scale_hauberk", "mail_shirt", "iron_helm", "scale_greaves", "brigandine"]);
+        match race {
+            Race::Qotiro => wishlist.insert(0, "plate_cuirass"),
+            Race::Roduro if stats.calling == Calling::Warrior => wishlist.insert(0, "stone_cuirass"),
+            _ => {}
         }
     }
-    wishlist.extend(["hide_coat", "padded_jacket", "leather_cap", "hide_leggings", "boots", "leather_gloves"]);
+    wishlist.extend(["hide_coat", "padded_jacket", "padded_vest", "leather_cap", "hide_leggings", "boots", "leather_gloves", "bracers"]);
+    // Something for the weather, now and then (cloaks and hoods).
+    let weather = rng.f32();
+    if weather < 0.25 {
+        wishlist.push("cloak");
+    } else if weather < 0.35 {
+        wishlist.push("hood");
+    }
     if !two_handed && stats.calling == Calling::Warrior {
         wishlist.insert(1, "round_shield");
         wishlist.push("buckler");
@@ -628,6 +637,13 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     } else {
         &[]
     };
+    let charm = rng.f32();
+    if charm < 0.3 {
+        let own = items::goods::CHARMS.iter().find(|c| c.0 == race).map(|c| c.1).unwrap_or(items::goods::ANYONE_CHARMS);
+        g.add(items::id(rng.pick(own)), 1);
+    } else if charm < 0.4 {
+        g.add(items::id(rng.pick(items::goods::ANYONE_CHARMS)), 1);
+    }
     for &(key, n) in tucked {
         let id = items::id(key);
         if item(id).value * n as f32 <= left {
@@ -675,8 +691,8 @@ mod tests {
         let s = stats();
         let mut g = Gear::default();
         let base_cap = g.capacity(&s);
-        g.add(items::id("scale_hauberk"), 5);
-        assert!((g.weight() - 70.0).abs() < 0.01);
+        g.add(items::id("scale_hauberk"), 8);
+        assert!((g.weight() - 8.0 * item(items::id("scale_hauberk")).weight).abs() < 0.01);
         let heavy = g.load(&s);
         g.wear(items::id("large_pack"));
         assert!((g.capacity(&s) - base_cap - 45.0).abs() < 0.01);

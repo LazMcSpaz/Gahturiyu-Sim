@@ -334,7 +334,7 @@ fn nm24_what_was_seen_stolen_goes_back_on_arrest() {
     w.judge(m, town, law::Wrong::Theft, 30.0, Justice::Elders);
     assert_eq!(count(&w, helm), 0, "the helm is taken back");
     assert_eq!(count(&w, cap), 0, "and the cap from the squadmate standing by");
-    assert!(said(&w, "takes back what was stolen: iron helm, leather cap."), "{:?}", w.log);
+    assert!(said(&w, "takes back what was stolen: open helm, leather cap."), "{:?}", w.log);
     assert!(w.hot.is_empty(), "the town has no more claim");
     // The missing helm's worth (120) is on top of the fine of 30.
     assert!(said(&w, "a fine of 150."), "{:?}", w.log);

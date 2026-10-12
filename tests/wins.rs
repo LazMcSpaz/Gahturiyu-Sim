@@ -60,14 +60,16 @@ fn the_downed_come_round_after_a_fight_even_with_the_gang_near() {
         }
         let down: Vec<u32> = w.squad.members.iter().copied().filter(|&m| w.is_down(m)).collect();
         let end = w.time;
-        while w.time < end + 2.5 * HOUR {
+        // (Within three and a half hours: one nearly killed by the heavier
+        // weapons of Laz's items list takes nearly three to rally.)
+        while w.time < end + 3.5 * HOUR {
             w.step(30.0);
         }
         let still: Vec<u32> = down.iter().copied().filter(|&m| w.squad.index(m).is_some() && w.is_down(m)).collect();
-        eprintln!("seed {seed}: {} down after the fight, {} still down 2.5 h later", down.len(), still.len());
+        eprintln!("seed {seed}: {} down after the fight, {} still down 3.5 h later", down.len(), still.len());
         for &m in &still {
             let p = &w.people[m as usize];
-            eprintln!("  {m}: hp {:?} rate {} rally {} drain {} cond {:?}", p.wounds.hp_at(&p.stats, w.time), p.wounds.rate, p.wounds.rally, p.wounds.drain, p.cond.as_ref().map(|c| (c.activity, c.hunger_at(w.time))));
+            eprintln!("  {m}: hp {:?} rate {} rally {} drain {} bleed {} lost {:?} at {} now {} rally_to {:?} missing {:?} cond {:?}", p.wounds.hp_at(&p.stats, w.time), p.wounds.rate, p.wounds.rally, p.wounds.drain, p.wounds.bleed, p.wounds.lost, p.wounds.at, w.time, p.wounds.rally_to, p.wounds.missing, p.cond.as_ref().map(|c| (c.activity, c.hunger_at(w.time))));
         }
         assert!(still.is_empty(), "seed {seed}: still down");
     }

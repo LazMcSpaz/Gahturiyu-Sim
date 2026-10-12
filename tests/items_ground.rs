@@ -81,3 +81,49 @@ fn a_belt_and_a_brooch_have_their_slots() {
     assert_eq!(g.in_slot(Slot::Brooch), Some(items::id("bronze_brooch")));
     assert_eq!(SLOTS.len(), 16);
 }
+
+#[test]
+fn every_armour_piece_has_its_reason() {
+    use gahturiyu_sim::sim::items::wears;
+    let w = |k: &str| wears(items::id(k));
+    // Helms guard against knockouts, the full helm best, and it costs sight.
+    assert!(w("full_helm").ko_guard > w("iron_helm").ko_guard && w("iron_helm").ko_guard > w("leather_cap").ko_guard);
+    assert!(w("full_helm").sight > 0.0 && w("iron_helm").sight == 0.0);
+    // Furs are warmest; metal chills.
+    assert!(w("fur_mantle").warmth > w("cloak").warmth && w("mail_shirt").warmth < 0.0);
+    // The travelling robe hides the most from a search; soft shoes are quietest.
+    let hide_best = ["travelling_robe", "cloak", "hood", "hide_coat"].iter().max_by(|a, b| w(a).hides.total_cmp(&w(b).hides)).unwrap();
+    assert_eq!(*hide_best, "travelling_robe");
+    assert!(w("soft_shoes").noise < w("boots").noise && w("armoured_boots").noise > w("boots").noise);
+    // Padding against blunt, waterproofing for the wet.
+    assert!(w("padded_jacket").padding > w("hide_coat").padding);
+    assert!(w("oilskin_cape").dry > 0.8 && w("fishskin_boots").dry > w("boots").dry);
+    // Plate and stone slow you; nothing else listed is free of a cost or a gift.
+    assert!(w("stone_cuirass").slow > w("plate_cuirass").slow && w("plate_cuirass").slow > 0.0);
+    // Every slot of the body has something new to wear.
+    for k in ["padded_cap", "mail_coif", "full_helm", "padded_vest", "mail_shirt", "fishskin_undercoat", "fur_jerkin", "brigandine", "stone_cuirass", "travelling_robe", "bracers", "gauntlets", "mail_leggings", "plate_greaves", "fishskin_boots", "fur_boots", "armoured_boots", "soft_shoes", "hood", "oilskin_cape", "fur_mantle", "tower_shield", "bandolier_belt", "sash", "fine_belt"] {
+        assert!(items::catalogue_has(k), "{k} missing");
+    }
+}
+
+#[test]
+fn goods_charms_valuables_and_tools_exist() {
+    use gahturiyu_sim::sim::items::goods;
+    for list in [goods::HOUSEHOLD, goods::VALUABLES, goods::TREASURE, goods::ANYONE_CHARMS] {
+        for k in list {
+            assert!(items::catalogue_has(k), "{k} missing");
+        }
+    }
+    // Each people has charms of its own.
+    assert_eq!(goods::CHARMS.len(), 4);
+    for (_, list) in goods::CHARMS {
+        assert_eq!(list.len(), 3);
+    }
+    // Valuables: much worth in little weight.
+    for k in goods::TREASURE {
+        assert!(item(items::id(k)).value / item(items::id(k)).weight.max(0.01) > 100.0, "{k}");
+    }
+    for k in ["woodcutters_axe", "mining_pick", "sickle", "fishing_line", "skinning_knife", "tinderbox", "cooking_pot", "waterskin", "lantern", "repair_kit", "ring_warding", "steady_torc", "keen_brooch", "travellers_brooch", "belt_of_bearing"] {
+        assert!(items::catalogue_has(k), "{k} missing");
+    }
+}

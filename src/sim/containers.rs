@@ -182,6 +182,12 @@ pub fn stock(seed: u64, id: ContainerId, what: Holder, use_: Use, variant: &str,
                 let k = *r.pick(list);
                 add(&mut out, k, 1);
             }
+            // Things of the house (items design, Part 7).
+            if use_ != Use::Shop {
+                for _ in 0..1 + r.below(3) {
+                    add(&mut out, r.pick(items::goods::HOUSEHOLD), 1);
+                }
+            }
             if r.chance(0.2) { 10.0 + r.f32() * 30.0 } else { 0.0 }
         }
         Holder::Chest => {
@@ -195,6 +201,10 @@ pub fn stock(seed: u64, id: ContainerId, what: Holder, use_: Use, variant: &str,
                     *r.pick(CLOTHES)
                 };
                 add(&mut out, k, 1);
+            }
+            // Something worth stealing, now and then.
+            if r.chance(0.3) {
+                add(&mut out, r.pick(items::goods::VALUABLES), 1);
             }
             if use_ == Use::Shrine {
                 let texts: Vec<&str> = items::ITEMS.iter().filter(|d| matches!(d.kind, items::Kind::Text(_) | items::Kind::Notes(_))).map(|d| d.key).collect();

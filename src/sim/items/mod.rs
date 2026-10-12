@@ -9,7 +9,7 @@
 //!
 //! The lines of data live in one file per kind (`weapons.rs`, `armour.rs`,
 //! `clothing.rs`, `tools.rs`, `ingredients.rs`, `trinkets.rs`, `magic.rs`,
-//! `food.rs`), each with its items, its made forms and its grid sizes; this
+//! `food.rs`, `goods.rs`), each with its items, its made forms and its grid sizes; this
 //! file holds what they share and puts them together (`ITEMS`, `FORMS`).
 //! A new item is a line in its kind's file (Laz's items design,
 //! `docs/items-design.md`).
@@ -26,6 +26,7 @@ pub type ItemId = u16;
 mod armour;
 mod clothing;
 mod food;
+pub mod goods;
 mod ingredients;
 mod magic;
 mod tools;
@@ -383,7 +384,7 @@ const fn trinket(key: &'static str, name: &'static str, slot: Slot, weight: f32,
 /// The whole catalogue, in the order of the files that hold it. An `ItemId`
 /// is an index into this list (and the made versions after it, `Catalogue`).
 pub static ITEMS: std::sync::LazyLock<Vec<ItemDef>> = std::sync::LazyLock::new(|| {
-    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS].concat()
+    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS, goods::ITEMS].concat()
 });
 
 /// Can this be worn or held (rather than used up or crafted with)?
@@ -446,9 +447,45 @@ pub fn craft_of(id: ItemId) -> Craft {
     info(id).main.def().craft
 }
 
+/// What a worn piece costs and gives beyond the blows it stops (Part 2 of
+/// the items design, rules 4 to 7). Data for the rules to read; each rule
+/// reads only its own number.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Wears {
+    /// Takes the edge off stagger, knockdown and knockout from blunt blows
+    /// to the parts it covers, 0..1.
+    pub padding: f32,
+    /// A helm's guard against being knocked out by a blow to the head, 0..1.
+    pub ko_guard: f32,
+    /// Sneaking made harder, 0..1 (metal and stone loudest; soft shoes below 0).
+    pub noise: f32,
+    /// Spotting and seeing at night made harder, 0..1 (full helms).
+    pub sight: f32,
+    /// Against cold, -1..1 (furs warm; metal chills in the cold).
+    pub warmth: f32,
+    /// Keeps the wet out, 0..1.
+    pub dry: f32,
+    /// Gets heavy when soaked (cloth and padding).
+    pub soaks: bool,
+    /// Slows in a fight and on the road, a share (set when a leg is written).
+    pub slow: f32,
+    /// Hides what's carried and worn beneath it from a look or a search, 0..1.
+    pub hides: f32,
+}
+
+const NONE: Wears = Wears { padding: 0.0, ko_guard: 0.0, noise: 0.0, sight: 0.0, warmth: 0.0, dry: 0.0, soaks: false, slow: 0.0, hides: 0.0 };
+
+static WEARS: std::sync::LazyLock<Vec<(&'static str, Wears)>> = std::sync::LazyLock::new(|| [armour::WEARS, clothing::WEARS].concat());
+
+/// What wearing this costs and gives beyond protection (by its form).
+pub fn wears(id: ItemId) -> Wears {
+    let key = item(info(id).form).key;
+    WEARS.iter().find(|w| w.0 == key).map(|w| w.1).unwrap_or(NONE)
+}
+
 /// Grid cells by form key, from the files above.
 static SIZES: std::sync::LazyLock<Vec<(&'static str, u8, u8)>> = std::sync::LazyLock::new(|| {
-    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES].concat()
+    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES, goods::SIZES].concat()
 });
 
 /// How many cells it takes in a pack's grid, (wide, tall), standing upright
@@ -511,7 +548,7 @@ const fn f(key: &'static str, noun: &'static str, usual: Material, mains: &'stat
 /// Forgeiron spine, Nacre scales on a Slatewing frame); any listed pairing
 /// can turn up.
 pub static FORMS: std::sync::LazyLock<Vec<Form>> = std::sync::LazyLock::new(|| {
-    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS].concat()
+    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS, goods::FORMS].concat()
 });
 
 fn leak(s: String) -> &'static str {
