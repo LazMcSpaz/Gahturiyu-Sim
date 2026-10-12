@@ -64,6 +64,8 @@ pub mod routes;
 pub mod save;
 pub mod settlement;
 pub mod society;
+pub mod show;
+pub mod soak;
 pub mod solid;
 pub mod squad;
 pub mod speech;

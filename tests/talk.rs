@@ -261,7 +261,7 @@ fn rumours_have_no_count_and_things_taken_read_right() {
         assert!(p.topic != "money" || !p.text.contains("We owe {debt} coin"), "{}", p.text);
     }
     assert_eq!(talk::a_thing(items::id("spear")), "a spear");
-    assert_eq!(talk::a_thing(items::id("iron_helm")), "an iron helm");
+    assert_eq!(talk::a_thing(items::id("iron_helm")), "an open helm");
     assert_eq!(talk::a_thing(items::id("flatbread")), "flatbread");
     assert_eq!(talk::a_thing(items::id("arrows")), "arrows");
 }

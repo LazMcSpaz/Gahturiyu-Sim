@@ -32,7 +32,7 @@ fn every_container_says_what_it_is_like() {
     assert!(large.bulk > satchel.bulk * 3.0, "a satchel is the sneak's bag");
     assert!(items::container(id("duffel")).unwrap().hands);
     assert_eq!(items::container(id("quiver")).unwrap().holds, Holds::Ammo);
-    assert_eq!(items::container(id("bandolier")).unwrap().quick, 4);
+    assert_eq!(items::container(id("bandolier_belt")).unwrap().quick, 4);
     assert!(items::container(id("longsword")).is_none());
 }
 
@@ -70,7 +70,7 @@ fn a_bulky_pack_costs_dodging_and_pace_in_a_fight() {
 
 #[test]
 fn quick_slots_take_only_what_is_quick_to_use_and_it_is_quicker() {
-    let mut g = wearing(&["bandolier"]);
+    let mut g = wearing(&["bandolier_belt"]);
     let draught = id("healing_draught");
     g.add(draught, 3);
     g.add(id("timber"), 2);
@@ -98,8 +98,8 @@ fn quick_slots_take_only_what_is_quick_to_use_and_it_is_quicker() {
         let mut p = w.people[m as usize].clone();
         let d = p.detail.as_mut().unwrap();
         if belt {
-            d.gear.add(id("bandolier"), 1);
-            d.gear.equip(id("bandolier")).unwrap();
+            d.gear.add(id("bandolier_belt"), 1);
+            d.gear.equip(id("bandolier_belt")).unwrap();
         }
         d.gear.add(draught, 1);
         let f = Fighter::from_person(&p, 0, V2::default(), 0.0);

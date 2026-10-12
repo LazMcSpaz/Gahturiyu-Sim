@@ -31,7 +31,7 @@ mod magic;
 mod tools;
 mod trinkets;
 
-pub use tools::{container, Container, Holds, Proof};
+pub use tools::{container, Container, Guards, Holds, Proof};
 mod weapons;
 
 /// Where a thing is worn or held. Body and legs take two layers, an under
@@ -159,6 +159,10 @@ pub struct WeaponDef {
     /// Can go in the off hand, to parry with.
     #[serde(default)]
     pub offhand: bool,
+    /// The strength it wants (Part 1, B1): below it, slower and less sure.
+    /// Read by the fight rules once they weigh it (the duel grid's step).
+    #[serde(default)]
+    pub strength: f32,
 }
 
 /// How much room a weapon needs to be swung well (the items design, 0.2
@@ -186,9 +190,10 @@ pub(super) struct Fits {
     pub thrown: bool,
     pub breaks: f32,
     pub offhand: bool,
+    pub strength: f32,
 }
 
-pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false };
+pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false, strength: 0.0 };
 
 /// A weapon line with its fight-rule numbers.
 pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
@@ -202,6 +207,7 @@ pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
         w.thrown = f.thrown;
         w.breaks = f.breaks;
         w.offhand = f.offhand;
+        w.strength = f.strength;
         d.kind = Kind::Weapon(w);
     }
     d
@@ -423,6 +429,42 @@ pub fn craft_of(id: ItemId) -> Craft {
     info(id).main.def().craft
 }
 
+/// What a worn piece costs and gives beyond the blows it stops (Part 2 of
+/// the items design, rules 4 to 7). Data for the rules to read; each rule
+/// reads only its own number.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Wears {
+    /// Takes the edge off stagger, knockdown and knockout from blunt blows
+    /// to the parts it covers, 0..1.
+    pub padding: f32,
+    /// A helm's guard against being knocked out by a blow to the head, 0..1.
+    pub ko_guard: f32,
+    /// Sneaking made harder, 0..1 (metal and stone loudest; soft shoes below 0).
+    pub noise: f32,
+    /// Spotting and seeing at night made harder, 0..1 (full helms).
+    pub sight: f32,
+    /// Against cold, -1..1 (furs warm; metal chills in the cold).
+    pub warmth: f32,
+    /// Keeps the wet out, 0..1.
+    pub dry: f32,
+    /// Gets heavy when soaked (cloth and padding).
+    pub soaks: bool,
+    /// Slows in a fight and on the road, a share (set when a leg is written).
+    pub slow: f32,
+    /// Hides what's carried and worn beneath it from a look or a search, 0..1.
+    pub hides: f32,
+}
+
+const NONE: Wears = Wears { padding: 0.0, ko_guard: 0.0, noise: 0.0, sight: 0.0, warmth: 0.0, dry: 0.0, soaks: false, slow: 0.0, hides: 0.0 };
+
+static WEARS: std::sync::LazyLock<Vec<(&'static str, Wears)>> = std::sync::LazyLock::new(|| [armour::WEARS, clothing::WEARS].concat());
+
+/// What wearing this costs and gives beyond protection (by its form).
+pub fn wears(id: ItemId) -> Wears {
+    let key = item(info(id).form).key;
+    WEARS.iter().find(|w| w.0 == key).map(|w| w.1).unwrap_or(NONE)
+}
+
 /// Grid cells by form key, from the files above.
 static SIZES: std::sync::LazyLock<Vec<(&'static str, u8, u8)>> = std::sync::LazyLock::new(|| {
     [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES].concat()
@@ -612,4 +654,5 @@ pub const FISTS: WeaponDef = WeaponDef {
     thrown: false,
     breaks: 0.0,
     offhand: false,
+    strength: 0.0,
 };

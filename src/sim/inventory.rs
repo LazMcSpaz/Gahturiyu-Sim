@@ -77,6 +77,9 @@ pub fn stack_of(id: ItemId) -> u16 {
         Kind::Material => 10,
         Kind::Food(_) | Kind::Potion | Kind::Scroll(_) | Kind::Torch(_) => 5,
         Kind::Tool if item(id).key == "lockpick" => 10,
+        // Thrown weapons carried a few at a time (items design, Part 1).
+        Kind::Weapon(_) if items::info(id).form == items::id("throwing_knives") => 6,
+        Kind::Weapon(_) if items::info(id).form == items::id("javelin") => 3,
         _ => 1,
     }
 }
@@ -662,13 +665,13 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         &["staff"]
     } else {
         match (best, race) {
-            (Skill::Blade, _) => &["knife", "short_sword", "longsword"],
-            (Skill::Marksman, _) => &["short_bow", "crossbow"],
-            (Skill::Blunt, Race::Roduro) => &["club", "stone_maul"],
-            (Skill::Blunt, Race::Qotiro) => &["club", "war_pick"],
-            (Skill::Blunt, _) => &["club", "war_pick"],
+            (Skill::Blade, _) => &["knife", "short_sword", "cutlass", "longsword", "greatsword"],
+            (Skill::Marksman, _) => &["short_bow", "longbow", "crossbow"],
+            (Skill::Blunt, Race::Roduro) => &["club", "mace", "stone_maul"],
+            (Skill::Blunt, Race::Qotiro) => &["club", "mace", "war_pick", "battle_axe"],
+            (Skill::Blunt, _) => &["club", "mace", "war_pick"],
             (_, Race::Horaro) => &["spear", "trident", "glaive"],
-            _ => &["spear", "glaive"],
+            _ => &["short_spear", "spear", "glaive"],
         }
     };
     let weapon_share = if stats.calling == Calling::Common { 0.6 } else { 0.4 };
@@ -693,18 +696,52 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     let two_handed = g.weapon().two_handed;
     let mut wishlist: Vec<&str> = vec![];
     if stats.calling != Calling::Mage {
-        wishlist.extend(["scale_hauberk", "iron_helm", "scale_greaves"]);
-        if race == Race::Qotiro {
-            wishlist.insert(0, "plate_cuirass");
+        wishlist.extend(["scale_hauberk", "mail_shirt", "iron_helm", "scale_greaves", "brigandine"]);
+        match race {
+            Race::Qotiro => wishlist.insert(0, "plate_cuirass"),
+            Race::Roduro if stats.calling == Calling::Warrior => wishlist.insert(0, "stone_cuirass"),
+            _ => {}
         }
     }
-    wishlist.extend(["hide_coat", "padded_jacket", "leather_cap", "hide_leggings", "boots", "leather_gloves"]);
+    wishlist.extend(["hide_coat", "padded_jacket", "padded_vest", "leather_cap", "hide_leggings", "boots", "leather_gloves", "bracers"]);
+    // Something for the weather, now and then (cloaks and hoods).
+    let weather = rng.f32();
+    if weather < 0.25 {
+        wishlist.push("cloak");
+    } else if weather < 0.35 {
+        wishlist.push("hood");
+    }
     if !two_handed && stats.calling == Calling::Warrior {
         wishlist.insert(1, "round_shield");
         wishlist.push("buckler");
     }
     if rng.chance(0.6) {
         wishlist.push("small_pack");
+    }
+    // Now and then something kept hidden, or something to throw (items
+    // design, Part 1: every form should turn up somewhere).
+    let extra = rng.f32();
+    let tucked: &[(&str, u16)] = if extra < 0.08 {
+        &[("sap", 1)]
+    } else if extra < 0.14 {
+        &[("throwing_knives", 6)]
+    } else if extra < 0.19 {
+        &[("dirk", 1)]
+    } else if extra < 0.23 {
+        &[("javelin", 3)]
+    } else if extra < 0.26 {
+        &[("knuckle_guards", 1)]
+    } else if extra < 0.28 {
+        &[("hand_crossbow", 1), ("bolts", 6)]
+    } else {
+        &[]
+    };
+    for &(key, n) in tucked {
+        let id = items::id(key);
+        if item(id).value * n as f32 <= left {
+            g.add(id, n);
+            left -= item(id).value * n as f32;
+        }
     }
     for key in wishlist {
         let id = items::id(key);
@@ -746,8 +783,8 @@ mod tests {
         let s = stats();
         let mut g = Gear::default();
         let base_cap = g.capacity(&s);
-        g.add(items::id("scale_hauberk"), 5);
-        assert!((g.weight() - 70.0).abs() < 0.01);
+        g.add(items::id("scale_hauberk"), 8);
+        assert!((g.weight() - 8.0 * item(items::id("scale_hauberk")).weight).abs() < 0.01);
         let heavy = g.load(&s);
         g.wear(items::id("large_pack"));
         assert!((g.capacity(&s) - base_cap - 45.0).abs() < 0.01);
