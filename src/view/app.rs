@@ -67,6 +67,8 @@ pub enum Hover {
     Container(gahturiyu_sim::sim::containers::ContainerId),
     /// A bedroll laid out or a tent pitched by the squad (`Bedding::id`).
     Bedding(u32),
+    /// A campfire the squad laid.
+    Campfire(u32),
 }
 
 /// Everything the window keeps between frames.
@@ -1581,6 +1583,13 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 let up = if bd.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { 1.6 } else { 0.3 };
                 if let Some(q) = game.orbit.project(&vp, size, to3(bd.pos, g + up)) {
                     pick.offer(q, if bd.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { 6.0 } else { 3.0 }, Hover::Bedding(bd.id));
+                }
+            }
+            // The squad's campfires.
+            for f in &game.world.campfires {
+                let g = scene.grid.height(&game.world.terrain, f.pos);
+                if let Some(q) = game.orbit.project(&vp, size, to3(f.pos, g + 0.3)) {
+                    pick.offer(q, 2.5, Hover::Campfire(f.id));
                 }
             }
             "3D"

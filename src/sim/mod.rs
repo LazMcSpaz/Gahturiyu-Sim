@@ -5,6 +5,7 @@ pub mod ai;
 pub mod animals;
 pub mod bands;
 pub mod bedding;
+pub mod campfire;
 pub mod base;
 pub mod baselife;
 pub mod bleeding;

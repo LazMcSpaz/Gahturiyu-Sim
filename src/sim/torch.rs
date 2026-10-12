@@ -310,6 +310,8 @@ impl World {
         let mut out: Vec<Light> = self.camps.iter().filter(|c| t >= c.doused_until).map(|c| Light { pos: c.pos, reach: 18.0, power: 0.7, flat: false }).collect();
         out.extend(self.settlements.iter().map(|s| Light { pos: s.pos, reach: s.reach + 10.0, power: 0.25, flat: true }));
         out.extend(self.standing.iter().filter(|s| s.burning(t)).map(|s| Light { pos: s.pos, reach: STANDING_REACH, power: STANDING_POWER, flat: false }));
+        // The squad's own campfires while they burn.
+        out.extend(self.campfires.iter().filter(|f| f.burning(t)).map(|f| Light { pos: f.pos, reach: super::campfire::FIRE_LIGHT, power: super::campfire::FIRE_POWER, flat: false }));
         // Lights set on the ground by spells (a wisp).
         out.extend(self.wards.iter().filter(|w| t < w.until).filter_map(|w| spell_light(w.does, w.power, w.pos, w.radius)));
         out
@@ -325,6 +327,7 @@ impl World {
     pub fn fire_lit(&self, id: super::solid::Id, t: f64) -> bool {
         match id {
             super::solid::Id::CampFire(g) => self.camps.iter().find(|c| c.group == g).is_none_or(|c| t >= c.doused_until),
+            super::solid::Id::SquadFire(k) => self.campfire(k).is_some_and(|f| f.burning(t)),
             _ => !self.doused.iter().any(|&(d, until)| d == id && t < until),
         }
     }
@@ -367,7 +370,7 @@ impl World {
         match f {
             FlameAt::Held(m) => format!("{}'s torch", self.people[m as usize].name().unwrap_or("someone")),
             FlameAt::Standing(_) => "the standing torch".to_string(),
-            FlameAt::Fire(super::solid::Id::CampFire(_)) => "the campfire".to_string(),
+            FlameAt::Fire(super::solid::Id::CampFire(_) | super::solid::Id::SquadFire(_)) => "the campfire".to_string(),
             FlameAt::Fire(super::solid::Id::Building(..)) => "the town's fire".to_string(),
             FlameAt::Fire(_) => "the fire".to_string(),
         }
@@ -402,6 +405,12 @@ impl World {
                 }
                 true
             }
+            FlameAt::Fire(super::solid::Id::SquadFire(k)) => {
+                if let Some(f) = self.campfires.iter_mut().find(|f| f.id == k) {
+                    f.out_at = t;
+                }
+                true
+            }
             FlameAt::Fire(id) => {
                 self.doused.retain(|&(d, until)| d != id && t < until);
                 self.doused.push((id, t + DOUSE_HOURS * HOUR));
@@ -420,6 +429,7 @@ impl World {
             FlameAt::Held(m) => !self.torch_lit(m) && self.toggle_torch(m),
             FlameAt::Standing(_) => false,
             FlameAt::Fire(id) if self.fire_lit(id, t) => false,
+            FlameAt::Fire(super::solid::Id::SquadFire(_)) => false,
             FlameAt::Fire(super::solid::Id::CampFire(g)) => {
                 if let Some(c) = self.camps.iter_mut().find(|c| c.group == g) {
                     c.doused_until = t;
