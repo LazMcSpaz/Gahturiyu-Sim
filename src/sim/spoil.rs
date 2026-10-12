@@ -54,6 +54,17 @@ pub const SHELF: &[(&str, f32)] = &[
     ("trail_cake", 90.0),
     ("stoneapple_cake", 6.0),
     ("firepod_stew", 3.0),
+    // Drinks: ale and cider spoil; wine, spirits and cordial keep.
+    ("hardgrain_ale", 8.0),
+    ("stonebean_dark", 8.0),
+    ("stoneapple_cider", 8.0),
+    ("moorberry_wine", 3650.0),
+    ("ashberry_wine", 3650.0),
+    ("nightberry_wine", 3650.0),
+    ("brine_wine", 3650.0),
+    ("stone_spirit", 3650.0),
+    ("sacrament_spirit", 3650.0),
+    ("gold_cordial", 3650.0),
 ];
 pub const SHELF_DEFAULT: f32 = 5.0;
 /// Stale once this share of its shelf life is left.
@@ -92,8 +103,9 @@ pub fn shelf_of(id: ItemId) -> f32 {
     SHELF.iter().find(|s| s.0 == key).map(|s| s.1).unwrap_or(SHELF_DEFAULT)
 }
 
+/// Food, or a drink (ale and cider go off; wine and spirits keep).
 pub fn is_food(id: ItemId) -> bool {
-    matches!(item(id).kind, Kind::Food(_))
+    matches!(item(id).kind, Kind::Food(_) | Kind::Drink(_))
 }
 
 /// Days of freshness left at `t`, going off at `rate` (days a day) since
@@ -251,7 +263,7 @@ impl World {
     /// eat before the rest.
     pub(super) fn food_going_off(&self, pid: PersonId, t: f64) -> Option<ItemId> {
         let d = self.people[pid as usize].detail.as_ref()?;
-        let mut kinds: Vec<ItemId> = d.gear.bag.iter().filter(|e| is_food(e.0)).map(|e| e.0).collect();
+        let mut kinds: Vec<ItemId> = d.gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Food(_))).map(|e| e.0).collect();
         kinds.dedup();
         kinds.into_iter().filter(|&it| !RAW.contains(&item(it).key)).find(|&it| self.freshness(pid, it, t) == Fresh::Stale)
     }
