@@ -80,6 +80,21 @@ pub struct Making {
     pub rate: f32,
     /// The hour they took it up (keys the grade roll).
     pub hour: i64,
+    /// A town alchemist's brew instead of a recipe (`apothecary.rs`, by
+    /// the mix's key; `recipe` is then unused).
+    #[serde(default, with = "super::save::opt_name")]
+    pub brew: Option<super::save::Name>,
+}
+
+impl Making {
+    /// Hours it takes.
+    pub fn hours(&self) -> f32 {
+        if self.brew.is_some() {
+            super::apothecary::BREW_HOURS
+        } else {
+            RECIPES[self.recipe as usize].npc_hours()
+        }
+    }
 }
 
 /// A made thing on a town's shelf.
@@ -342,7 +357,7 @@ impl World {
                 }
                 None => {
                     let form = items::info(rc.item(Grade::Common)).form;
-                    let same = tl.shelf.iter().filter(|s| items::info(s.item).form == form).count() + tl.making.iter().filter(|m| RECIPES[m.recipe as usize].output == rc.output).count();
+                    let same = tl.shelf.iter().filter(|s| items::info(s.item).form == form).count() + tl.making.iter().filter(|m| m.brew.is_none() && RECIPES[m.recipe as usize].output == rc.output).count();
                     if tl.shelf.len() + tl.making.len() >= SHELF_CAP || same >= SHELF_EACH {
                         continue;
                     }
@@ -376,10 +391,17 @@ impl World {
             let have = self.society.towns[town as usize].making.iter().position(|m| m.who == p);
             let k = match have {
                 Some(k) => k,
+                // A town alchemist brews for the shelf (`apothecary.rs`).
+                None if Self::brews(job) => {
+                    let Some(key) = self.choose_brew(town, p, h) else { continue };
+                    let ms = &mut self.society.towns[town as usize].making;
+                    ms.push(Making { who: p, recipe: 0, done: 0.0, rate: 0.0, hour: h, brew: Some(key) });
+                    ms.len() - 1
+                }
                 None => {
                     let Some(ri) = self.choose_work(town, p, job, h) else { continue };
                     let ms = &mut self.society.towns[town as usize].making;
-                    ms.push(Making { who: p, recipe: ri as u16, done: 0.0, rate: 0.0, hour: h });
+                    ms.push(Making { who: p, recipe: ri as u16, done: 0.0, rate: 0.0, hour: h, brew: None });
                     ms.len() - 1
                 }
             };
@@ -397,7 +419,7 @@ impl World {
         for (k, m) in ms.iter_mut().enumerate() {
             m.done += m.rate;
             m.rate = 0.0;
-            if m.done >= RECIPES[m.recipe as usize].npc_hours() {
+            if m.done >= m.hours() {
                 done.push(k);
             }
         }
@@ -408,6 +430,10 @@ impl World {
     }
 
     fn finish_making(&mut self, town: SettlementId, m: Making, t: f64) {
+        if m.brew.is_some() {
+            self.finish_town_brew(town, &m);
+            return;
+        }
         let rc = &RECIPES[m.recipe as usize];
         let skill = self.work_skill(m.who, rc.craft());
         let roll = Rng::from_keys(&[self.seed, m.who as u64, m.hour as u64, 0x4752_4144]).f32();
@@ -433,7 +459,14 @@ impl World {
     /// At dawn: work left by crafters who are gone or have changed trade is dropped.
     pub(super) fn tidy_making(&mut self, town: SettlementId) {
         let ms = std::mem::take(&mut self.society.towns[town as usize].making);
-        let keep = ms.into_iter().filter(|m| !self.people[m.who as usize].dead && self.people[m.who as usize].home == Some(town) && self.life(m.who).job.craft() == Some(RECIPES[m.recipe as usize].craft())).collect();
+        let keep = ms
+            .into_iter()
+            .filter(|m| {
+                let job = self.life(m.who).job;
+                let same = if m.brew.is_some() { Self::brews(job) } else { job.craft() == Some(RECIPES[m.recipe as usize].craft()) };
+                !self.people[m.who as usize].dead && self.people[m.who as usize].home == Some(town) && same
+            })
+            .collect();
         self.society.towns[town as usize].making = keep;
     }
 
@@ -458,12 +491,19 @@ impl World {
 
     /// Made things on a town's shelf: (item, how many, price, where on the shelf).
     pub fn shelf_for_sale(&self, town: SettlementId) -> Vec<(ItemId, u16, u16, usize)> {
-        let mut out: Vec<(ItemId, u16, u16, usize)> = Vec::new();
+        self.shelf_lots(town).into_iter().map(|(l, k)| (l.item, l.n, l.price, k)).collect()
+    }
+
+    /// The same as stall lines, each with where its first is on the shelf:
+    /// alike at the same price share a line, and each brewed mix has its own.
+    pub fn shelf_lots(&self, town: SettlementId) -> Vec<(super::economy::Lot, usize)> {
+        let mut out: Vec<(super::economy::Lot, usize)> = Vec::new();
         for (k, s) in self.society.towns[town as usize].shelf.iter().enumerate() {
             let price = (self.worth_in(town, s.item, s.piece.as_ref()) * super::economy::BUY_MARKUP).ceil().max(1.0) as u16;
-            match out.iter_mut().find(|o| o.0 == s.item && o.2 == price) {
-                Some(o) => o.1 += 1,
-                None => out.push((s.item, 1, price, k)),
+            let mix = s.piece.and_then(|p| p.mix);
+            match out.iter_mut().find(|o| o.0.item == s.item && o.0.price == price && o.0.mix == mix) {
+                Some(o) => o.0.n += 1,
+                None => out.push((super::economy::Lot { item: s.item, n: 1, price, mix }, k)),
             }
         }
         out

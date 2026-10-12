@@ -403,10 +403,10 @@ pub fn run() {
             if let Some(cv) = w.talk.as_ref() {
                 let mut table = gahturiyu_sim::sim::economy::Table::default();
                 if let Some(e) = w.people[cv.with as usize].detail.as_ref().and_then(|d| d.gear.bag.iter().find(|e| w.offer(cv.npc, e.0, e.2.as_ref()).is_some())) {
-                    table.give.push((cv.with, e.0, e.1.min(2)));
+                    table.give.push((cv.with, e.0, e.1.min(2), e.2.and_then(|p| p.mix)));
                 }
-                for x in w.for_sale(cv.npc).iter().take(2) {
-                    table.get.push((x.0, 1));
+                for l in w.stall(cv.npc).iter().take(2) {
+                    table.get.push((l.item, 1, l.mix));
                 }
                 game.trading = Some(super::tradeui::Trading { table, ..Default::default() });
             }
@@ -2026,38 +2026,43 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 st.member = Some(m);
                 game.sounds.ui("ui_press");
             }
-            Some(TradeAct::Give(who, it)) => {
+            Some(TradeAct::Give(who, it, mix)) => {
                 if twice(&game.trade_last, true, it) {
                     // The one just laid comes back off, and is sold on the spot.
-                    if let Some(k) = st.table.give.iter().position(|g| g.0 == who && g.1 == it) {
+                    if let Some(k) = st.table.give.iter().position(|g| g.0 == who && g.1 == it && g.3 == mix) {
                         st.table.give[k].2 -= 1;
                         if st.table.give[k].2 == 0 {
                             st.table.give.remove(k);
                         }
                     }
-                    game.sounds.ui(if w.sell_from(npc, who, it).is_some() { "coins" } else { "ui_cant" });
+                    game.sounds.ui(if w.sell_from_mix(npc, who, it, mix).is_some() { "coins" } else { "ui_cant" });
                     game.trade_last = None;
                 } else {
-                    let have = w.count_of(who, items::item(it).key);
-                    st.table.add_give(who, it, have);
+                    // (A brewed bottle: only those of this mix.)
+                    let have = match mix {
+                        Some(m) => w.people[who as usize].detail.as_ref().map(|d| d.gear.bag.iter().filter(|e| e.0 == it && e.2.and_then(|p| p.mix) == Some(m)).map(|e| e.1).sum()).unwrap_or(0),
+                        None => w.count_of(who, items::item(it).key),
+                    };
+                    st.table.add_give_mix(who, it, mix, have);
                     game.trade_last = Some((now, true, it));
                     game.sounds.ui("ui_press");
                 }
                 st.quote = None;
             }
-            Some(TradeAct::Get(it)) => {
+            Some(TradeAct::Get(it, mix)) => {
                 if twice(&game.trade_last, false, it) {
-                    if let Some(k) = st.table.get.iter().position(|g| g.0 == it) {
+                    if let Some(k) = st.table.get.iter().position(|g| g.0 == it && g.2 == mix) {
                         st.table.get[k].1 -= 1;
                         if st.table.get[k].1 == 0 {
                             st.table.get.remove(k);
                         }
                     }
-                    game.sounds.ui(if w.buy(npc, it) { "coins" } else { "ui_cant" });
+                    let lot = w.stall(npc).into_iter().find(|l| l.item == it && l.mix == mix);
+                    game.sounds.ui(if lot.is_some_and(|l| w.buy_lot(npc, it, mix, l.price)) { "coins" } else { "ui_cant" });
                     game.trade_last = None;
                 } else {
-                    let stock = w.for_sale(npc).iter().find(|x| x.0 == it).map(|x| x.1).unwrap_or(0);
-                    st.table.add_get(it, stock);
+                    let stock = w.stall(npc).iter().find(|l| l.item == it && l.mix == mix).map(|l| l.n).unwrap_or(0);
+                    st.table.add_get_mix(it, mix, stock);
                     game.trade_last = Some((now, false, it));
                     game.sounds.ui("ui_press");
                 }
