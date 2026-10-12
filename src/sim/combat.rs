@@ -72,6 +72,75 @@ pub const GRAVE_SIDE: Side = 250;
 pub const ENTANGLE_SECS: f64 = 4.0;
 pub const NOBODY: PersonId = PersonId::MAX;
 
+// ---- Cuts, knocks and sneaking (the items design, 0.2 rules 1-3 and 7) ----
+
+/// A bleed's strength: hit points a second, from the torso, for each point
+/// of cut damage that got through.
+pub const BLEED_PER_CUT: f32 = 0.008;
+/// The most one body bleeds, hit points a second, however many cuts.
+pub const BLEED_MOST: f32 = 1.2;
+/// A cut this much stopped by armour opens no bleed (0.3: 60%).
+pub const BLEED_STOPPED: f32 = 0.6;
+/// Seconds to bind a bandage on, oneself or someone beside (a blow
+/// spoils it).
+pub const BIND_SECS: f64 = 4.0;
+/// How near someone must be to bind them, metres (beyond body to body).
+pub const BIND_REACH: f32 = 1.2;
+/// The AI binds a bleed this strong or worse (hit points a second).
+pub const BIND_AT: f32 = 0.08;
+/// How heavy a blunt blow is against who it lands on: blunt damage that got
+/// through over (`STAGGER_BASE` + their Strength × `STAGGER_STRENGTH`).
+pub const STAGGER_BASE: f32 = 6.0;
+pub const STAGGER_STRENGTH: f32 = 0.15;
+/// Chance to stagger (a swing or a cast spoilt) and to knock down, by how
+/// heavy the blow was: (weight - from) × per, capped.
+pub const STAGGER: (f32, f32, f32) = (0.3, 0.5, 0.8);
+pub const KNOCKDOWN: (f32, f32, f32) = (1.0, 0.35, 0.6);
+/// A stagger loses them this long; on the ground this long.
+pub const STAGGER_SECS: f64 = 0.6;
+pub const KNOCKDOWN_SECS: f64 = 2.0;
+/// Blunt damage to the head or torso counts this much more towards
+/// knocking someone out, and only this much once they're out: clubs take
+/// people alive (rule 3). Edged damage counts as it always has.
+pub const BLUNT_TO_KO: f32 = 1.25;
+pub const BLUNT_PAST_KO: f32 = 0.4;
+
+/// Chance a cutting blow from `w` opens a bleed.
+/// TODO(items): read `WeaponDef::bleed` once it exists; until then, from how
+/// much of its damage is cut.
+pub fn bleed_chance(w: &WeaponDef) -> f32 {
+    if w.cut <= 0.0 {
+        return 0.0;
+    }
+    0.45 * w.cut / (w.cut + w.blunt)
+}
+
+/// A sneak attack's multiplier on the damage before the attacker's Sneak
+/// adds to it: the knife's is highest by far.
+/// TODO(items): read `WeaponDef::sneak`; until then quick light blades are
+/// the knife's kind, two-handed weapons the clumsiest.
+pub fn sneak_mult(w: &WeaponDef) -> f32 {
+    if w.skill == Skill::Blade && w.windup <= 0.4 && w.range == 0.0 {
+        4.0
+    } else if w.two_handed {
+        1.5
+    } else {
+        SNEAK_ATTACK
+    }
+}
+
+/// A sneak attack with it knocks out instead of wounding (the sap).
+/// TODO(items): read `WeaponDef::stuns`; until then a quick, light,
+/// all-blunt weapon (none yet: the sap comes with the new forms).
+pub fn stuns(w: &WeaponDef) -> bool {
+    w.skill == Skill::Blunt && w.cut == 0.0 && w.blunt > 0.0 && w.windup <= 0.4 && w.range == 0.0
+}
+
+/// Chance from (weight - from) × per, capped.
+fn chance_of(weight: f32, (from, per, most): (f32, f32, f32)) -> f32 {
+    ((weight - from) * per).clamp(0.0, most)
+}
+
 /// A fighter that a spell called up.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Summoned {
@@ -107,6 +176,8 @@ pub enum Act {
     Cast { spell: Spell, target: Option<usize>, point: V2, done: f64, scroll: bool },
     /// Drinking a potion.
     Drink { item: ItemId, done: f64 },
+    /// Binding a bandage on someone (themselves, or a friend beside them).
+    Bind { who: usize, item: ItemId, done: f64 },
 }
 
 /// What the player (or a leader) has told someone to do.
@@ -194,6 +265,9 @@ pub struct Fighter {
     pub potions: Vec<ItemId>,
     pub scrolls: Vec<ItemId>,
     pub used: Vec<ItemId>,
+    /// Bandages in their pack (anything that staunches, `Does::Staunch`).
+    #[serde(default)]
+    pub bandages: Vec<ItemId>,
     /// Until this time they haven't realised they're under attack: they
     /// stand there, can't dodge or block, and take a sneak attack's damage.
     pub aware_at: f64,
@@ -289,7 +363,8 @@ impl Fighter {
             act: Act::Idle,
             target: None,
             order: None,
-            statuses: Vec::new(),
+            // Still bleeding from before (a squad member not yet bound).
+            statuses: bleeding_in(p),
             ko: false,
             dead: false,
             fleeing: false,
@@ -311,6 +386,7 @@ impl Fighter {
             potions: gear.bag.iter().filter(|e| item(e.0).kind == Kind::Potion).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
+            bandages: gear.bag.iter().filter(|e| is_bandage(e.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
             held: None,
@@ -386,6 +462,7 @@ impl Fighter {
             potions: Vec::new(),
             scrolls: Vec::new(),
             used: Vec::new(),
+            bandages: Vec::new(),
             aware_at: 0.0,
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
@@ -399,6 +476,11 @@ impl Fighter {
             weapon_wear: 0.0,
             shield_wear: 0.0,
         }
+    }
+
+    /// How hard they're bleeding, hit points a second (0 if not).
+    pub fn bleeding(&self) -> f32 {
+        self.has(Does::Bleed).map(|s| s.power).unwrap_or(0.0)
     }
 
     /// A real person (not a summoned creature or a raised corpse).
@@ -547,6 +629,11 @@ pub enum FxKind {
     /// `hit` is whether it struck (or was blocked by) the target; a miss lands
     /// a little past them and lies there.
     Arrow { from: V2, to: V2, hit: bool },
+    /// Fighter `who` rocked by a heavy blow (a stagger, a knockdown, or
+    /// knocked out by a blunt one).
+    Jolt { who: usize, down: bool },
+    /// A blow on someone who never saw it coming, at `at`.
+    Sneak { at: V2 },
 }
 
 /// A visual moment for the window to show.
@@ -734,6 +821,19 @@ impl Battle {
             self.hurt_whole(j, dmg);
         }
 
+        // Whoever is bleeding loses blood from the torso, down or not, until
+        // they're bound or healed (rule 1): left long enough, it kills.
+        for j in 0..n {
+            let f = &self.fighters[j];
+            if f.dead || f.fled {
+                continue;
+            }
+            let bleed = f.bleeding();
+            if bleed > 0.0 {
+                self.lose_blood(j, bleed * DT as f32);
+            }
+        }
+
         // Spells wear off; breath and mana come back.
         for f in &mut self.fighters {
             f.statuses.retain(|s| s.until > t);
@@ -791,6 +891,12 @@ impl Battle {
                 Act::Drink { item: it, done } => {
                     if t >= done {
                         self.drink(i, it);
+                        self.fighters[i].act = Act::Idle;
+                    }
+                }
+                Act::Bind { who, item: it, done } => {
+                    if t >= done {
+                        self.bind(i, who, it);
                         self.fighters[i].act = Act::Idle;
                     }
                 }
@@ -1131,6 +1237,7 @@ impl Battle {
         // through some of it.
         let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
         let through = 1.0 - weapon.pierce.clamp(0.0, 0.9);
+        let cut_swung = cut;
         // Frozen stiff, even a light blow cracks brittle things.
         let heavy = blunt > cut || self.fighters[d].has(Does::Frozen).is_some();
         for (k, (which, layer)) in layers.iter().enumerate() {
@@ -1150,20 +1257,54 @@ impl Battle {
             }
         }
         let shield = self.fighters[d].warded();
-        let mut dmg = (cut + blunt) * shield;
+        // (Its own dice, keyed to this blow, so the stream everyone else
+        // draws from is the same as ever: rule 2.)
+        let mut dice = Rng::from_keys(&[self.seed, self.ticks, a as u64, d as u64, 0x424C_4F57]);
+        let (r_bleed, r_stagger, r_down) = (dice.f32(), dice.f32(), dice.f32());
+        // A cut the armour mostly stopped opens no bleed (0.3).
+        let stopped = cut_swung > 0.0 && cut < cut_swung * (1.0 - BLEED_STOPPED);
+        let mut cut = cut * shield;
+        let mut blunt = blunt * shield;
         self.fighters[a].train(weapon.skill, 1.0);
         if unaware {
-            // A sneak attack: the better the sneak, the worse the wound.
-            let sneak = self.fighters[a].skill(Skill::Sneak);
-            dmg *= SNEAK_ATTACK + sneak / 50.0;
+            self.fx.push(Fx { kind: FxKind::Sneak { at: self.fighters[d].pos }, at: self.time });
             self.fighters[a].train(Skill::Sneak, 3.0);
-            self.say(format!("{an} catches {dn} unawares: the {} ({:.0}).", part.name(), dmg));
+            // A sap from behind: out cold, not hurt (rule 7).
+            if stuns(&weapon) && part.vital() {
+                self.say(format!("{an} catches {dn} unawares and knocks them senseless."));
+                let head = self.fighters[d].hp[Part::Head as usize].max(0.0);
+                self.wound(d, Part::Head, head + 0.5);
+                self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: true }, at: self.time });
+                return;
+            }
+            // A sneak attack: the better the sneak, the worse the wound, and
+            // a knife worst of all.
+            let sneak = self.fighters[a].skill(Skill::Sneak);
+            let k = sneak_mult(&weapon) + sneak / 50.0;
+            cut *= k;
+            blunt *= k;
+            self.say(format!("{an} catches {dn} unawares: the {} ({:.0}).", part.name(), cut + blunt));
         } else if shot {
-            self.say(format!("{an} shoots {dn} in the {} ({:.0}).", part.name(), dmg));
+            self.say(format!("{an} shoots {dn} in the {} ({:.0}).", part.name(), cut + blunt));
         } else {
-            self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), dmg));
+            self.say(format!("{an} hits {dn} in the {} ({:.0}).", part.name(), cut + blunt));
         }
-        self.wound(d, part, dmg);
+        self.wound_blow(d, part, cut, blunt);
+        // A cut the armour didn't mostly stop opens a bleed (rule 1).
+        if cut > 0.5 && !stopped && r_bleed < bleed_chance(&weapon) && !self.fighters[d].dead && self.fighters[d].summon.is_none_or(|s| !s.mindless) {
+            self.open_bleed(d, cut * BLEED_PER_CUT);
+        }
+        // A heavy blunt blow rocks them: a swing or a cast spoilt, or off
+        // their feet (rule 2).
+        let f = &self.fighters[d];
+        if blunt > 0.0 && f.active() && !f.helpless() {
+            let weight = blunt / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
+            if r_down < chance_of(weight, KNOCKDOWN) {
+                self.knock_down(d, KNOCKDOWN_SECS);
+            } else if r_stagger < chance_of(weight, STAGGER) {
+                self.stagger(d);
+            }
+        }
         // A net tangles them up for a few seconds.
         if weapon.entangle > 0.0 && (r_dmg * 7.31).fract() < weapon.entangle && !self.fighters[d].dead {
             let until = self.time + ENTANGLE_SECS;
@@ -1213,9 +1354,18 @@ impl Battle {
         let was_ko = f.ko;
         f.hp[part as usize] -= dmg;
         f.damage_taken += dmg;
-        // A hit spoils whatever spell was being cast.
+        // A hit spoils whatever spell was being cast, and any bandage being
+        // bound (by them, or on them).
         if matches!(f.act, Act::Cast { .. }) && dmg > 6.0 {
             f.act = Act::Recover { until: self.time + 0.4 };
+        }
+        if matches!(f.act, Act::Bind { .. }) {
+            f.act = Act::Recover { until: self.time + 0.3 };
+        }
+        for o in &mut self.fighters {
+            if matches!(o.act, Act::Bind { who, .. } if who == d) {
+                o.act = Act::Recover { until: self.time + 0.3 };
+            }
         }
         let name = self.names[d].clone();
         let stats = self.fighters[d].stats.clone();
@@ -1237,6 +1387,132 @@ impl Battle {
             self.fighters[d].hp[i] = -body::LIMB_LOSS * self.fighters[d].max_hp[i];
             self.say(format!("{name} loses the {}!", part.name()));
         }
+    }
+
+    /// A blow of `cut` and `blunt` (after armour) on a part. On the head and
+    /// torso blunt counts more towards knocking out and less past it, so
+    /// clubs take people alive (rule 3); edges count as ever.
+    pub fn wound_blow(&mut self, d: usize, part: Part, cut: f32, blunt: f32) {
+        let total = cut + blunt;
+        if total <= 0.0 {
+            return;
+        }
+        if !part.vital() || blunt <= 0.0 {
+            self.wound(d, part, total);
+            return;
+        }
+        let was_down = self.fighters[d].ko;
+        let left = self.fighters[d].hp[part as usize].max(0.0);
+        let to_line = cut + blunt * BLUNT_TO_KO;
+        let dmg = if to_line <= left {
+            to_line
+        } else {
+            // What's left of the blow past the line counts its blunt for less.
+            left + (cut + blunt * BLUNT_PAST_KO) * (1.0 - left / to_line)
+        };
+        self.wound(d, part, dmg);
+        let f = &self.fighters[d];
+        if !was_down && f.ko && !f.dead {
+            self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: true }, at: self.time });
+        }
+    }
+
+    /// Lose blood from the torso (a bleed): no one's woken or calmed out of
+    /// anything by it, but it can put them down, and kill them.
+    fn lose_blood(&mut self, d: usize, dmg: f32) {
+        let torso = Part::Torso as usize;
+        let was_ko = self.fighters[d].ko;
+        self.fighters[d].hp[torso] -= dmg;
+        let name = self.names[d].clone();
+        let stats = self.fighters[d].stats.clone();
+        if body::dead(&self.fighters[d].hp, &stats) {
+            self.fighters[d].dead = true;
+            self.fighters[d].ko = true;
+            self.say(format!("{name} bleeds to death."));
+        } else if body::knocked_out(&self.fighters[d].hp) && !was_ko {
+            self.fighters[d].ko = true;
+            self.fighters[d].act = Act::Idle;
+            self.say(format!("{name} collapses from loss of blood."));
+        }
+    }
+
+    /// A cut opens (or worsens) a bleed of `power` hit points a second.
+    pub fn open_bleed(&mut self, d: usize, power: f32) {
+        let f = &mut self.fighters[d];
+        let was = f.bleeding();
+        let now = (was + power).min(BLEED_MOST);
+        f.statuses.retain(|s| s.does != Does::Bleed);
+        f.statuses.push(Status { does: Does::Bleed, power: now, until: f64::INFINITY });
+        if was <= 0.0 {
+            let name = self.names[d].clone();
+            self.say(format!("{name} is bleeding."));
+        }
+    }
+
+    /// Every bleed on them stops (a bandage, or healing).
+    pub fn staunch(&mut self, d: usize) -> bool {
+        let f = &mut self.fighters[d];
+        let had = f.bleeding() > 0.0;
+        f.statuses.retain(|s| s.does != Does::Bleed);
+        had
+    }
+
+    /// Rocked by a blow: whatever they were swinging or casting is spoilt.
+    fn stagger(&mut self, d: usize) {
+        let t = self.time;
+        let f = &mut self.fighters[d];
+        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. }) {
+            f.act = Act::Recover { until: t + STAGGER_SECS };
+        }
+        f.think_at = f.think_at.max(t + STAGGER_SECS);
+        let name = self.names[d].clone();
+        self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: false }, at: t });
+        self.say(format!("{name} staggers."));
+    }
+
+    /// Off their feet: no dodging or blocking, and getting up takes `secs`.
+    pub fn knock_down(&mut self, d: usize, secs: f64) {
+        let until = self.time + secs;
+        let f = &mut self.fighters[d];
+        f.statuses.retain(|s| s.does != Does::KnockDown);
+        f.statuses.push(Status { does: Does::KnockDown, power: 1.0, until });
+        f.act = Act::Idle;
+        let name = self.names[d].clone();
+        self.fx.push(Fx { kind: FxKind::Jolt { who: d, down: true }, at: self.time });
+        self.say(format!("{name} is knocked off their feet."));
+    }
+
+    /// Start binding a bandage on `who` (themselves, or someone beside).
+    pub fn begin_bind(&mut self, i: usize, who: usize) -> bool {
+        if self.busy_with_hands(i) || !self.fighters[who].is_person() || self.fighters[who].bleeding() <= 0.0 || self.fighters[who].dead {
+            return false;
+        }
+        if i != who && self.fighters[i].pos.dist(self.fighters[who].pos) > BIND_REACH + BODY * 2.0 {
+            return false;
+        }
+        let Some(&it) = self.fighters[i].bandages.first() else { return false };
+        let t = self.time;
+        let f = &mut self.fighters[i];
+        f.act = Act::Bind { who, item: it, done: t + BIND_SECS * f.attack_time().max(0.8) as f64 };
+        true
+    }
+
+    fn bind(&mut self, i: usize, who: usize, it: ItemId) {
+        let f = &self.fighters[i];
+        let Some(k) = f.bandages.iter().position(|&b| b == it) else { return };
+        if who != i && f.pos.dist(self.fighters[who].pos) > BIND_REACH + BODY * 2.0 + 0.5 {
+            return;
+        }
+        let f = &mut self.fighters[i];
+        f.bandages.remove(k);
+        f.used.push(it);
+        let name = self.names[i].clone();
+        let line = if who == i { format!("{name} binds their wounds.") } else { format!("{name} binds {}'s wounds.", self.names[who]) };
+        let src = Source { by: i, spell: None, target: Some(who), point: self.fighters[who].pos, skill: 1.0, r_dmg: 0.5, r_resist: 1.0 };
+        for e in item(it).effects {
+            self.apply(&src, e);
+        }
+        self.say(line);
     }
 
     // ---- Spells -----------------------------------------------------------
@@ -1293,7 +1569,7 @@ impl Battle {
     /// throwing the first away (the draught, the energy, the scroll).
     fn busy_with_hands(&self, i: usize) -> bool {
         match self.fighters[i].act {
-            Act::Cast { done, .. } | Act::Drink { done, .. } => done > self.time,
+            Act::Cast { done, .. } | Act::Drink { done, .. } | Act::Bind { done, .. } => done > self.time,
             _ => false,
         }
     }
@@ -1589,8 +1865,14 @@ impl Battle {
                 }
                 Does::Heal => {
                     // Worst wounds first: head and torso when someone is down,
-                    // otherwise whatever is most hurt.
+                    // otherwise whatever is most hurt. Healing closes cuts too.
+                    if self.staunch(j) {
+                        self.say(format!("{tname} stops bleeding."));
+                    }
                     self.mend_fighter(j, e.power * src.skill * (0.9 + src.r_dmg * 0.2) * boost);
+                }
+                Does::Staunch => {
+                    self.staunch(j);
                 }
                 Does::Drain => {
                     let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * boost * ward * self.fighters[j].warded();
@@ -1873,6 +2155,23 @@ struct Source {
     skill: f32,
     r_dmg: f32,
     r_resist: f32,
+}
+
+/// Anything that stops bleeding when used (a bandage): found by what it
+/// does, never by name.
+pub fn is_bandage(it: ItemId) -> bool {
+    let d = item(it);
+    !matches!(d.kind, Kind::Potion) && d.effects.iter().any(|e| e.does == Does::Staunch && e.lasts == Lasts::Now)
+}
+
+/// A squad member still bleeding from before (their wounds, `Wounds::bleed`,
+/// per hour) comes into a fight with the bleed on them, per second.
+fn bleeding_in(p: &Person) -> Vec<Status> {
+    if p.wounds.bleed > 0.0 {
+        vec![Status { does: Does::Bleed, power: p.wounds.bleed / 3600.0, until: f64::INFINITY }]
+    } else {
+        Vec::new()
+    }
 }
 
 /// Only about half of misses and blocks are worth a line in the log.

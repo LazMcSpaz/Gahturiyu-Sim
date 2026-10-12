@@ -872,6 +872,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                     gl.patch(to3(at, on_ground(at) + 2.2), 0.8, 0.8, 0.0, [0.6, 0.6, 0.7]);
                 }
                 FxKind::Arrow { from, to, hit } => arrow(&mut b, &on_ground, from, to, hit, age, k),
+                FxKind::Sneak { at } if (0.0..0.5).contains(&age) => super::cues::sneak_burst(&mut gl, to3(at, on_ground(at) + 1.3), age, k.min(3.0)),
                 _ => {}
             }
         }
@@ -1636,7 +1637,7 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
         // A small red arrow the way they face (and a red outline, `person`).
         facing_arrow(fl, on_ground, at, 0.9 * k, pose.face, [0.48, 0.16, 0.13]);
     }
-    let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
+    let down = w.fighter(pid).map(|f| f.ko || f.dead || f.has(Does::KnockDown).is_some()).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
     // Carried: across the carrier's shoulders.
     if w.carried_by(pid).is_some() {
         let rot = (p.seed % 628) as f32 / 100.0;

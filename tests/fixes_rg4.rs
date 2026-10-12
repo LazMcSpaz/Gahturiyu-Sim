@@ -149,7 +149,10 @@ fn bl20_at_night_a_good_sneak_at_the_stash_has_a_while_before_being_seen() {
     let rate = w.watch_rate(c.group, m);
     eprintln!("night: fire lit {lit:.2}/s, doused {rate:.2}/s");
     assert!(rate < 0.15, "seen at {rate:.2} a second: under seven seconds at the stash");
-    // By day the same spot is hopeless.
+    // By day the same spot is hopeless. (Back with the others till then:
+    // left at the stash they're found and beaten, and a beaten thief left
+    // bleeding can die of it.)
+    put(&mut w, m, c.pos.add(V2::new(600.0, 0.0)));
     until_hour(&mut w, 12.0);
     put(&mut w, m, stash.add(stash.sub(c.pos).scale(1.0 / stash.dist(c.pos)).scale(1.0)));
     let day = w.watch_rate(c.group, m);

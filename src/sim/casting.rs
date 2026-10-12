@@ -312,6 +312,18 @@ impl World {
                     Err(format!("{name} has no {} to hand in this fight.", item(it).name.to_lowercase()))
                 }
             }
+            _ if super::combat::is_bandage(it) => {
+                // On whoever was named, else themselves, else the worst
+                // bleeding friend beside them.
+                let near = |j: usize| j == i || b.fighters[j].pos.dist(b.fighters[i].pos) <= super::combat::BIND_REACH + 1.0;
+                let who = target.and_then(|p| b.index_of(p)).or_else(|| {
+                    (0..b.fighters.len()).filter(|&j| !b.hostile(i, j) && near(j) && b.fighters[j].bleeding() > 0.0).max_by(|&x, &y| (x == i).cmp(&(y == i)).then(b.fighters[x].bleeding().total_cmp(&b.fighters[y].bleeding())))
+                });
+                match who {
+                    Some(j) if b.begin_bind(i, j) => Ok(format!("{name} binds a bandage on.")),
+                    _ => Err(format!("{name} has nobody bleeding beside them to bind.")),
+                }
+            }
             Kind::Scroll(key) => {
                 let sp = magic::spell(key);
                 let j = target.and_then(|p| b.index_of(p)).or_else(|| if sp.def().aim == magic::Aim::Foe || !sp.def().works_outside_fights() { b.nearest_enemy(i) } else { Some(i) });
@@ -731,7 +743,10 @@ impl World {
             _ => return false,
         }
         match e.does {
+            Does::Staunch => self.stop_bleeding(target, t),
             Does::Heal => {
+                // Healing closes cuts too.
+                self.stop_bleeding(target, t);
                 if self.people[target as usize].cond.is_some() {
                     self.settle_condition(target, t);
                 }

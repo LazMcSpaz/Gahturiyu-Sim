@@ -127,6 +127,21 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
             return;
         }
     }
+    // A bleed bound when nobody is close enough to stop it (themselves
+    // first, then a friend beside them).
+    if !me.bandages.is_empty() && !threatened(b, i) {
+        let me = &b.fighters[i];
+        let near = |j: usize| j == i || me.pos.dist(b.fighters[j].pos) <= super::combat::BIND_REACH + 0.9;
+        let who = (0..b.fighters.len())
+            .filter(|&j| !b.hostile(i, j) && b.fighters[j].is_person() && !b.fighters[j].dead && near(j) && b.fighters[j].bleeding() >= super::combat::BIND_AT)
+            .max_by(|&x, &y| (x == i).cmp(&(y == i)).then(b.fighters[x].bleeding().total_cmp(&b.fighters[y].bleeding())));
+        if let Some(j) = who {
+            if b.begin_bind(i, j) {
+                return;
+            }
+        }
+    }
+    let me = &b.fighters[i];
     let tonic = me.potions.iter().copied().find(|&p| potion(p, Does::Energy) > 0.0);
     if !me.spells.is_empty() && me.mana < 15.0 {
         if let Some(p) = tonic {
@@ -137,6 +152,16 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     if !me.spells.is_empty() || !me.scrolls.is_empty() || me.held.is_some() {
         try_spell(b, i, target, r_spell);
     }
+}
+
+/// Is an enemy on their feet close enough to land a blow before a bandage
+/// is bound?
+fn threatened(b: &Battle, i: usize) -> bool {
+    let me = &b.fighters[i];
+    (0..b.fighters.len()).any(|j| {
+        let o = &b.fighters[j];
+        b.hostile(i, j) && o.active() && !o.helpless() && !o.fleeing && o.pos.dist(me.pos) <= o.attack_range().max(2.0) + 3.0
+    })
 }
 
 /// How much of `does` a potion gives when drunk (0 if none).

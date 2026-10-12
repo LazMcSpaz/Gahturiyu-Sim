@@ -620,6 +620,12 @@ impl World {
                 if hungry_now && self.food_for(pid, c.hunger_at(now)).is_some() {
                     consider(Some(c.hunger_reaches(EAT_AT).unwrap_or(c.at)), Event::Eat);
                 }
+                // Bled to death, when an open bleed runs its course.
+                if p.in_squad && p.wounds.bleed > 0.0 {
+                    if let Some(h) = p.wounds.torso_reaches(2.0 * p.stats.max_hp(Part::Torso)) {
+                        consider(Some(p.wounds.at + h as f64 * HOUR), Event::BledOut);
+                    }
+                }
                 // Starved to death, when the wasting runs its course (B2).
                 if p.in_squad && p.wounds.drain > 0.0 {
                     let cap = 2.0 * p.stats.max_hp(Part::Torso);
@@ -652,7 +658,15 @@ impl World {
                         self.settle(pid, t);
                         let p = &self.people[pid as usize];
                         if body::dead(&p.wounds.hp_at(&p.stats, t), &p.stats) {
-                            self.starved_to_death(pid, t);
+                            self.died_out_of_a_fight(pid, t, "has starved to death");
+                            break;
+                        }
+                    }
+                    Event::BledOut => {
+                        self.settle(pid, t);
+                        let p = &self.people[pid as usize];
+                        if body::dead(&p.wounds.hp_at(&p.stats, t), &p.stats) {
+                            self.died_out_of_a_fight(pid, t, "has bled to death");
                             break;
                         }
                     }
@@ -853,9 +867,10 @@ impl World {
 
     /// After a fight: carry on with the stamina it left them.
     /// Felt casting adds to tiredness too.
-    /// A squad member starved to death: they fall where they stand, their
-    /// things with them, and they're gone from the squad.
-    fn starved_to_death(&mut self, pid: PersonId, t: f64) {
+    /// A squad member starved or bled to death: they fall where they stand,
+    /// their things with them, and they're gone from the squad. `how` ends
+    /// the log line ("has starved to death").
+    fn died_out_of_a_fight(&mut self, pid: PersonId, t: f64, how: &str) {
         let Some(k) = self.squad.index(pid) else { return };
         let at = self.member_pos(k);
         let race = self.people[pid as usize].race;
@@ -881,7 +896,7 @@ impl World {
         self.recentre_squad();
         self.people[pid as usize].recompute_might();
         let name = self.people[pid as usize].name().unwrap_or("someone").to_string();
-        self.log.push_front((t, format!("{name} has starved to death.")));
+        self.log.push_front((t, format!("{name} {how}.")));
         self.log.truncate(14);
     }
 
@@ -901,6 +916,7 @@ impl World {
 enum Event {
     Stage,
     Starved,
+    BledOut,
     Eat,
     Wake,
     Bed,

@@ -10,13 +10,24 @@
 //!   or a container bob a tool (a hand) up and down, facing what's worked;
 //! - sneaking crouches the figure (drawn in `scene::person`);
 //! - a caster stands in a glowing ring that closes as the spell comes;
-//! - two fighters trading blows are joined by a thin red line on the ground.
+//! - two fighters trading blows are joined by a thin red line on the ground;
+//! - someone bleeding drips red, and leaves red spots where they stand;
+//! - a heavy blow that rocks someone (a stagger) spins a ring of pale
+//!   sparks round their head; knocked off their feet or out cold by it, a
+//!   ring of dust on the ground too (and they lie flat, `scene::person`);
+//! - a blow from someone never seen coming bursts red-gold where it lands
+//!   (`sneak_burst`, drawn with the fight's other effects).
 //!
 //! Drawing only: everything here reads the sim's own states and times.
 
 use bevy::math::{vec3, Vec3};
 
-use gahturiyu_sim::sim::{combat::Act, geo::V2, person::PersonId, World};
+use gahturiyu_sim::sim::{
+    combat::{Act, FxKind},
+    geo::V2,
+    person::PersonId,
+    World,
+};
 
 use super::mesh::Builder;
 use super::palette::Rgb;
@@ -27,6 +38,13 @@ const ARC: Rgb = [1.0, 0.97, 0.85];
 const MOTE: Rgb = [0.65, 0.75, 1.0];
 const FLASK: Rgb = [0.85, 0.35, 0.30];
 const LOCKED: Rgb = [0.85, 0.18, 0.14];
+const BLOOD: Rgb = [0.55, 0.04, 0.03];
+const SPARK: Rgb = [1.0, 0.95, 0.7];
+const DUST: Rgb = [0.62, 0.56, 0.46];
+const SNEAK: Rgb = [1.0, 0.55, 0.25];
+
+/// How long a stagger's sparks show, seconds.
+const JOLT_SHOWS: f64 = 0.7;
 
 /// How long after a blow lands its arc still shows, seconds.
 const ARC_AFTER: f64 = 0.2;
@@ -125,6 +143,11 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         gl.block(top - vec3(0.0, 0.08 * k, 0.0) + side * (0.05 * k), 0.06 * k, 0.06 * k, 0.08 * k, face, [0.95, 0.95, 0.9]);
     }
     let Some((battle, f)) = fight(w, pid) else {
+        // Out of a fight: still bleeding (not yet bound).
+        let bleed = w.bleeding(pid) / 3600.0;
+        if bleed > 0.0 {
+            drips(b, base, h, r, bleed, w.time, pid, k);
+        }
         // Out of a fight: a tool going up and down while they work.
         if working(w, pid) {
             let bob = ((w.time * 4.0 + pid as f64 * 1.7).sin() * 0.5 + 0.5) as f32;
@@ -134,10 +157,30 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         }
         return;
     };
-    if f.ko || f.dead || f.fled || !f.is_person() {
+    let t = battle.time;
+    if !f.dead && !f.fled && f.bleeding() > 0.0 {
+        drips(b, base, h, r, f.bleeding(), t, pid, k);
+    }
+    // Rocked by a blow: sparks round the head; floored, dust round them.
+    let me = battle.fighters.iter().position(|x| std::ptr::eq(x, f)).unwrap_or(usize::MAX);
+    if let Some((age, down)) = battle.fx.iter().rev().find_map(|x| match x.kind {
+        FxKind::Jolt { who, down } if who == me && t - x.at < JOLT_SHOWS && t >= x.at => Some(((t - x.at) / JOLT_SHOWS, down)),
+        _ => None,
+    }) {
+        let age = age as f32;
+        let head = base + vec3(0.0, if down || f.ko { r * 1.6 } else { h * 1.02 }, 0.0);
+        for i in 0..5 {
+            let a = i as f32 / 5.0 * std::f32::consts::TAU + age * 9.0;
+            let at = head + vec3(a.cos(), 0.0, a.sin()) * ((0.3 + 0.25 * age) * k);
+            gl.block(at, 0.09 * k, 0.09 * k, 0.09 * k, a, SPARK);
+        }
+        if down {
+            ground_ring(gl, base + vec3(0.0, 0.05, 0.0), (0.6 + 1.2 * age) * k, 0.1 * k * (1.0 - age), DUST);
+        }
+    }
+    if f.ko || f.dead || f.fled || !f.is_person() || f.has(gahturiyu_sim::sim::effects::Does::KnockDown).is_some() {
         return;
     }
-    let t = battle.time;
     let ranged = f.weapon.range > 0.0;
     // Casting: a mote rising above the hand; drinking: a flask at the mouth.
     match f.act {
@@ -214,6 +257,40 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
     }
     let tip = hand + (fwd + vec3(0.0, -0.45, 0.0)).normalize() * (reach * k);
     b.stick(hand, tip, 0.07 * k, BLADE);
+}
+
+/// Blood: drops falling from the body, faster the worse the bleed, and a
+/// few red spots on the ground round their feet.
+#[allow(clippy::too_many_arguments)]
+fn drips(b: &mut Builder, base: Vec3, h: f32, r: f32, rate: f32, t: f64, pid: PersonId, k: f32) {
+    let n = if rate >= 0.4 { 3 } else if rate >= 0.12 { 2 } else { 1 };
+    let fall = h * 0.55;
+    for i in 0..n {
+        let phase = ((t * (0.8 + rate as f64 * 1.5) + i as f64 / n as f64 + pid as f64 * 0.37).fract()) as f32;
+        let a = pid as f32 * 2.3 + i as f32 * 2.1;
+        let off = vec3(a.cos(), 0.0, a.sin()) * (r * 0.9);
+        let at = base + off + vec3(0.0, fall * (1.0 - phase * phase), 0.0);
+        b.block(at, 0.05 * k, 0.05 * k, 0.09 * k, a, BLOOD);
+    }
+    for i in 0..(2 + n) {
+        let a = pid as f32 * 1.3 + i as f32 * 2.4;
+        let d = r * (0.6 + 0.5 * ((i * 7 + pid as usize) % 5) as f32 / 5.0);
+        let at = base + vec3(a.cos() * d, 0.04, a.sin() * d);
+        let (u, v) = (vec3(a.cos(), 0.0, a.sin()) * (0.07 * k), vec3(-a.sin(), 0.0, a.cos()) * (0.05 * k));
+        b.quad([at - u - v, at + u - v, at + u + v, at - u + v], Vec3::Y, BLOOD);
+    }
+}
+
+/// A blow on someone who never saw it coming: a red-gold burst where it
+/// landed, swelling and gone in half a second (`age` in seconds).
+pub fn sneak_burst(gl: &mut Builder, at: Vec3, age: f32, k: f32) {
+    let p = (age / 0.5).clamp(0.0, 1.0);
+    for i in 0..8 {
+        let a = i as f32 / 8.0 * std::f32::consts::TAU;
+        let d = vec3(a.cos(), 0.0, a.sin());
+        let r0 = (0.2 + 0.9 * p) * k;
+        gl.stick(at + d * r0, at + d * (r0 + 0.35 * k * (1.0 - p)), 0.06 * k, SNEAK);
+    }
 }
 
 /// A swept arc in front of a fighter, from their right to their left,
