@@ -200,6 +200,8 @@ pub const PUSH_CHANCE: f32 = 0.55;
 pub const INSIDE: f32 = 0.55;
 pub const CROWDED_HIT: f32 = 0.6;
 pub const CROWDED_RECOVER: f32 = 1.4;
+/// Stepping back out of a crowd, as a share of their pace.
+pub const STEP_BACK: f32 = 0.7;
 /// An off-hand blade's guard (a shield's is its whole block value, 0..1),
 /// and the chance a parry with it comes back as a quick blow, at this share.
 pub const OFFHAND_PARRY: f32 = 0.25;
@@ -1251,10 +1253,12 @@ impl Battle {
         let reach = me.attack_range();
         let tpos = them.pos;
         // A long weapon with a foe inside it: step back to where it works
-        // (rule 4), unless there's nowhere to step.
-        if self.crowded(i, j) {
+        // (rule 4), unless there's nowhere to step, or no getting away: a
+        // foe as quick as the step back would only follow (the whole fight
+        // long). Then it's fought from where they stand, crowded.
+        if self.crowded(i, j) && self.can_step_back(i, j) {
             let from = self.fighters[i].pos;
-            let back = from.sub(d.scale(speed * 0.7 / dist.max(0.01)));
+            let back = from.sub(d.scale(speed * STEP_BACK / dist.max(0.01)));
             self.step_to(i, back);
             if self.fighters[i].pos.dist(from) > speed * 0.3 {
                 return;
@@ -1308,9 +1312,21 @@ impl Battle {
         let step = me.speed() * DT as f32 * CIRCLE_PACE;
         let turn = way * step / dist.max(0.5);
         let (s, c) = turn.sin_cos();
-        let keep = reach * 0.85;
-        let rotated = V2::new(d.x * c - d.y * s, d.x * s + d.y * c).scale(keep / dist);
+        // Round to their striking distance at a walk, not in one bound; a
+        // long weapon crowded by a foe as quick keeps where it is (`idle`).
+        let keep = if self.crowded(i, j) && !self.can_step_back(i, j) { dist } else { reach * 0.85 };
+        let r = dist + (keep - dist).clamp(-step, step);
+        let rotated = V2::new(d.x * c - d.y * s, d.x * s + d.y * c).scale(r / dist);
         self.step_to(i, them.add(rotated));
+    }
+
+    /// Whether `i` stepping back from `j` opens a gap: `j` is busy (a
+    /// swing, a spell) or not after them, or the step back (`STEP_BACK` of
+    /// their pace) outpaces `j` coming on.
+    fn can_step_back(&self, i: usize, j: usize) -> bool {
+        let them = &self.fighters[j];
+        let coming = them.target == Some(i) && matches!(them.act, Act::Idle);
+        !coming || self.fighters[i].speed() * STEP_BACK > them.speed()
     }
 
     pub fn nearest_enemy(&self, i: usize) -> Option<usize> {

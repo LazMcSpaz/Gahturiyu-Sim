@@ -658,8 +658,11 @@ impl World {
             if let Some(k) = self.squad.index(f.pid) {
                 self.squad.at[k] = f.pos;
                 self.squad.goal[k] = f.pos;
-                // The march they were on before the fight is over too.
+                // The march they were on before the fight is over too, and
+                // with it anything they were sent to pick up or gather.
                 self.squad.route[k].clear();
+                self.pickups.retain(|p| p.who != f.pid);
+                self.gatherers.retain(|&g| g != f.pid);
             }
         }
         // Beaten in a gang's own camp: they drag the downed out of it and

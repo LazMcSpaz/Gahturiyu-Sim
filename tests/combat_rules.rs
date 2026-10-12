@@ -456,6 +456,26 @@ fn a_crowded_spearman_steps_back() {
     assert!(b.fighters[0].pos.dist(b.fighters[1].pos) > 0.9, "stepped back out ({:.2} m)", b.fighters[0].pos.dist(b.fighters[1].pos));
 }
 
+#[test]
+fn a_spearman_who_cant_outpace_the_foe_stands_and_fights() {
+    // Slowed (a heavy pack, say): stepping back would only be followed, the
+    // whole fight long. They fight from where they stand instead.
+    for seed in 0..6 {
+        let mut b = spear_and_knife(40 + seed, 0.7);
+        b.fighters[0].base_speed *= 0.6;
+        let start = b.fighters[0].pos;
+        let mut far = 0.0f32;
+        for _ in 0..400 {
+            b.tick();
+            far = far.max(b.fighters[0].pos.dist(start));
+            if b.over {
+                break;
+            }
+        }
+        assert!(far < 6.0, "seed {seed}: backed off {far:.1} m");
+    }
+}
+
 // ---- Rule 5: tight spaces and sweeps ---------------------------------------------
 
 #[test]
@@ -815,6 +835,62 @@ fn after_a_fight_the_squads_throws_lie_about_to_be_gathered() {
         return;
     }
     panic!("no fight left a hatchet lying");
+}
+
+#[test]
+fn a_fight_while_gathering_ends_it_and_it_can_be_ordered_again() {
+    // Heavy packs on before the fight, so nobody can outpace anyone (the
+    // squad mustn't be led off: the spearmen stand, `can_step_back`). On
+    // seed 2 the bandits come back while the squad gathers.
+    let hatchet = items::id("hatchet");
+    let mut w = worldgen::generate(2);
+    let start = w.squad.pos;
+    for &m in &w.squad.members.clone() {
+        let d = w.people[m as usize].detail.as_mut().unwrap();
+        d.gear.add(hatchet, 3);
+        d.gear.add(items::id("large_pack"), 1);
+        d.gear.equip(items::id("large_pack")).unwrap();
+    }
+    w.spawn_bandits(start.add(V2::new(16.0, 4.0)), 3, false);
+    w.step(0.1);
+    let mut far = 0.0f32;
+    for _ in 0..40_000 {
+        w.step(0.25);
+        for &m in &w.squad.members {
+            far = far.max(w.person_pos(m).dist(start));
+        }
+        if w.battles.is_empty() && w.next_battle > 0 {
+            break;
+        }
+    }
+    assert!(far < 60.0, "the fight stays where it was ({far:.0} m)");
+    assert!(!w.thrown_lying.is_empty());
+    let fit = |w: &World| w.squad.members.iter().copied().filter(|&m| !w.is_down(m) && !w.people[m as usize].dead).collect::<Vec<u32>>();
+    w.gather_thrown(&fit(&w));
+    let (mut fought, mut orders) = (false, 1);
+    for _ in 0..20_000 {
+        w.step(0.25);
+        if !w.battles.is_empty() {
+            fought = true;
+            continue;
+        }
+        if w.thrown_lying.is_empty() {
+            break;
+        }
+        // Over: nobody stands waiting on an order they aren't walking to.
+        for p in &w.pickups {
+            let k = w.squad.index(p.who).unwrap();
+            let g = w.ground.iter().find(|g| g.id == p.thing).unwrap();
+            assert!(w.squad.goal[k].dist(g.pos) < 3.0 || w.squad.at[k].dist(g.pos) < 3.0, "a pickup left hanging");
+        }
+        if w.gatherers.is_empty() && w.pickups.is_empty() {
+            w.gather_thrown(&fit(&w));
+            orders += 1;
+            assert!(orders < 10);
+        }
+    }
+    assert!(w.thrown_lying.is_empty(), "all gathered in the end");
+    let _ = fought;
 }
 
 // ---- Rule 9: concealment ---------------------------------------------------------
