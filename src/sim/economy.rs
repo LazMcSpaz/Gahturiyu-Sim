@@ -247,6 +247,18 @@ impl World {
             for town in 0..self.settlements.len() {
                 self.dawn(town as SettlementId, t);
             }
+            // The weather hour by hour for outdoor work: yesterday's kept,
+            // today's and tomorrow's read.
+            let day = World::day_of(t);
+            for town in 0..self.settlements.len() {
+                let keep: Vec<(i64, u32)> = self.society.towns[town].storms.iter().copied().filter(|s| s.0 == day - 1).collect();
+                let mut storms = keep;
+                for d in [day, day + 1] {
+                    let mask = self.storm_hours(town as SettlementId, d);
+                    storms.push((d, mask));
+                }
+                self.society.towns[town].storms = storms;
+            }
             for town in 0..self.settlements.len() {
                 self.dawn_lives(town as SettlementId, t);
             }

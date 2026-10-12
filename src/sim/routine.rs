@@ -160,6 +160,9 @@ impl Plan {
     }
 }
 
+/// Work done out in the weather: lost in a storm hour (`weather_out`).
+pub const OUTDOOR_JOBS: [Job; 6] = [Job::Farmer, Job::Woodcutter, Job::Forager, Job::KelpGatherer, Job::Fisher, Job::Labourer];
+
 /// Length of a meal runner's midday round, hours.
 pub const RUN_HOURS: f32 = 1.5;
 /// When the dawn boat leaves the stilts and when it's back, hours.
@@ -471,7 +474,57 @@ impl World {
         }
         plan.push(bed - 0.25, Doing::Walking, Spot::Home);
         plan.push(bed, Doing::Asleep, Spot::Home);
-        plan
+        self.weather_out(plan, town, day, l.job)
+    }
+
+    /// The hours of `day` too rough for outdoor work in `town` (bit h for
+    /// hour h): heavy rain, a gale, heavy snow, bitter cold, thick fog or
+    /// lightning (`outdoor_work_ok`, asked once for each hour).
+    pub fn storm_hours(&self, town: SettlementId, day: i64) -> u32 {
+        let at = self.settlements[town as usize].pos;
+        (0..24).filter(|&h| !self.weather_effects(at, day as f64 * DAY + h as f64 * HOUR).outdoor_work_ok).fold(0u32, |m, h| m | (1 << h))
+    }
+
+    /// An outdoor worker's hours lost to the weather: each hour of work that
+    /// falls in a storm hour is spent at home instead. (The town keeps the
+    /// masks for yesterday, today and tomorrow from dawn; any other day's
+    /// is worked out as asked, the same.)
+    fn weather_out(&self, plan: Plan, town: SettlementId, day: i64, job: Job) -> Plan {
+        if !OUTDOOR_JOBS.contains(&job) {
+            return plan;
+        }
+        let tl = &self.society.towns[town as usize];
+        let mask = tl.storms.iter().find(|s| s.0 == day).map(|s| s.1).unwrap_or_else(|| self.storm_hours(town, day));
+        if mask == 0 {
+            return plan;
+        }
+        let bad = |h: f32| mask & (1 << (h.floor() as u32).min(23)) != 0;
+        let mut out = Plan::new();
+        out.rest = plan.rest;
+        out.work = plan.work;
+        for (i, s) in plan.segs().iter().enumerate() {
+            let end = plan.end_of(i);
+            if s.doing != Doing::Work {
+                out.push(s.from, s.doing, s.spot);
+                continue;
+            }
+            // Split the work at the hours, home through the storm ones.
+            let mut a = s.from;
+            while a < end {
+                let b = (a.floor() + 1.0).min(end);
+                if bad(a) {
+                    out.push(a, Doing::Home, Spot::Home);
+                } else {
+                    out.push(a, s.doing, s.spot);
+                }
+                a = b;
+            }
+        }
+        // (Too many parts to the day: keep it as it was.)
+        if out.n >= out.segs.len() {
+            return plan;
+        }
+        out
     }
 
     /// Is someone at home in their town (not off on the road, not dead)?

@@ -213,6 +213,11 @@ pub struct TownLife {
     /// How eventful the town is: scales its storyteller (`stories.rs`).
     #[serde(default = "drama_start")]
     pub drama: f32,
+    /// The hours of a day too rough for outdoor work (bit h for hour h), by
+    /// day: yesterday, today and tomorrow, read from the weather at dawn
+    /// (`routine::storm_hours`; a cache of a pure lookup).
+    #[serde(default)]
+    pub storms: Vec<(i64, u32)>,
     /// When each kind of storyline last started here: (kind, day).
     #[serde(default)]
     pub cooldowns: Vec<(u8, i32)>,
@@ -413,6 +418,7 @@ impl World {
                 owed: 0.0,
                 landed: 0.0,
                 drama: super::stories::DRAMA_START,
+                storms: Vec::new(),
                 cooldowns: Vec::new(),
             });
         }
