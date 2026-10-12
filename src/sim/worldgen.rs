@@ -246,6 +246,12 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     w.place_ruins();
     // The Binders' camps last of all, so nobody else's dice move.
     w.place_binders();
+    // The weather for outdoor work, the first days (after this, each dawn).
+    let day = World::day_of(w.time);
+    for town in 0..w.settlements.len() {
+        let storms = (day - 1..=day + 1).map(|d| (d, w.storm_hours(town as super::settlement::SettlementId, d))).collect();
+        w.society.towns[town].storms = storms;
+    }
     w
 }
 
