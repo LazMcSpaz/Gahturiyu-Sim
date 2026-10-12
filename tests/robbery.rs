@@ -221,8 +221,10 @@ fn a_resting_gang_still_guards_its_camp() {
     for &m in &w.squad.members {
         let k = w.squad.index(m).unwrap();
         assert!(w.member_pos(k).dist(camp) > GUARD_RING, "dragged out of the camp");
-        assert!(w.member_pos(k).dist(camp) < DUMP_AT + 5.0, "but not far");
     }
+    // (Those dragged out lie at the dump; anyone who fell further off, past
+    // the guard ring, lies where they fell.)
+    assert!(w.squad.members.iter().any(|&m| w.member_pos(w.squad.index(m).unwrap()).dist(camp) < DUMP_AT + 5.0), "but not far");
     assert!(w.log.iter().any(|l| l.1.starts_with("They drag you out")), "{:?}", w.log);
     // Someone comes round and goes in for the pile.
     let ended = w.time;

@@ -141,14 +141,13 @@ fn details_once_built_are_kept() {
     // Never rebuilt or rerolled. (What strangers use up in a fight they
     // restock at home, so their packs don't change either.)
     for (id, d) in seen {
-        let now = w.people[id as usize].detail.as_ref().expect("details kept");
-        assert_eq!(now.name, d.name, "person {id} was renamed");
-        assert_eq!(now.spells, d.spells, "person {id}'s spells changed");
-        // (Someone killed meanwhile dropped what they had where they fell: a
-        // death, not a rebuild.)
+        // (The dead drop everything where they fall.)
         if w.people[id as usize].dead {
             continue;
         }
+        let now = w.people[id as usize].detail.as_ref().expect("details kept");
+        assert_eq!(now.name, d.name, "person {id} was renamed");
+        assert_eq!(now.spells, d.spells, "person {id}'s spells changed");
         for s in gahturiyu_sim::sim::items::SLOTS {
             assert_eq!(now.gear.in_slot(s), d.gear.in_slot(s), "person {id}'s gear changed while out of sight");
         }

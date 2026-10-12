@@ -91,11 +91,15 @@ pub fn shows(gear: &Gear, slot: Slot) -> bool {
 /// what's worn over it, and their Sneak.
 pub fn hidden(gear: &Gear, sneak: f32, slot: Slot) -> f32 {
     let Some(own) = conceal_of(gear, slot) else { return 0.0 };
-    let cloak = gear.in_slot(Slot::Cloak).is_some() && slot != Slot::Cloak;
-    let coat = gear.in_slot(Slot::BodyOver).is_some();
+    // What's worn over it hides it (`items::wears`, `hides`: a robe or a
+    // cloak a lot, a coat some): a cloak covers everything, a coat what's
+    // under it and at the belt.
+    let hides = |s: Slot| gear.in_slot(s).map(|id| super::items::wears(id).hides.max(if s == Slot::Cloak { CLOAK_COVER } else { 0.0 })).unwrap_or(0.0);
     let short = matches!(slot, Slot::MainHand | Slot::OffHand) && gear.in_slot(slot).and_then(|id| item(id).weapon()).is_some_and(|w| w.space == super::items::Space::Short);
     let under = matches!(slot, Slot::BodyUnder | Slot::LegsUnder);
-    let cover = if cloak { CLOAK_COVER } else { 0.0 } + if coat && (under || short) { COAT_COVER } else { 0.0 };
+    let cloak = if slot != Slot::Cloak { hides(Slot::Cloak) } else { 0.0 };
+    let coat = if (under || short) && slot != Slot::BodyOver { hides(Slot::BodyOver).max(if gear.in_slot(Slot::BodyOver).is_some() { COAT_COVER } else { 0.0 }) } else { 0.0 };
+    let cover = cloak + coat;
     (own + cover + sneak.clamp(0.0, 100.0) / 100.0 * SNEAK_COVER).min(1.0)
 }
 

@@ -77,6 +77,17 @@ pub const NOBODY: PersonId = PersonId::MAX;
 /// A bleed's strength: hit points a second, from the torso, for each point
 /// of cut damage that got through.
 pub const BLEED_PER_CUT: f32 = 0.008;
+/// A weapon too heavy for its wielder (Part 1, B1): per point of Strength
+/// short, this much slower (at most) and this much less likely to land (at
+/// most).
+pub const WEAK_TIME: f32 = 0.01;
+pub const WEAK_TIME_MOST: f32 = 0.5;
+pub const WEAK_HIT: f32 = 0.005;
+pub const WEAK_HIT_MOST: f32 = 0.25;
+/// Stamina a blow costs: this, plus this much a kilogram of weapon
+/// (weightless ones, a creature's claws, by their wind-up instead).
+pub const SWING_TIRES: f32 = 3.0;
+pub const TIRES_PER_KG: f32 = 0.6;
 /// The most one body bleeds, hit points a second, however many cuts.
 pub const BLEED_MOST: f32 = 1.2;
 /// A cut this much stopped by armour opens no bleed (0.3: 60%).
@@ -109,6 +120,11 @@ pub const BLUNT_TO_KO: f32 = 1.25;
 pub const PADDING_EASE: f32 = 0.6;
 pub const HELM_KO: f32 = 0.6;
 pub const BLUNT_PAST_KO: f32 = 0.4;
+/// Armour this light (it stops no more of a cut than this) lets Edgeglass and
+/// Sandglass through: it counts for this share (0.3).
+pub const LIGHT_ARMOUR: f32 = 0.35;
+pub const GLASS_SLIPS: f32 = 0.5;
+
 
 /// Chance a cutting blow from `w` opens a bleed (`WeaponDef::bleed`).
 pub fn bleed_chance(w: &WeaponDef) -> f32 {
@@ -713,6 +729,23 @@ impl Fighter {
         ((1.25 - self.attr(Attr::Agility) * 0.005) * (1.0 - self.haste() * 0.6) * (1.0 + self.power(Does::Slow) * 0.5 + self.power(Does::Burden) * 0.3)).clamp(0.5, 1.6)
     }
 
+    /// How a weapon sits in their hands (Part 1, B1): (time, to hit, tiring)
+    /// multipliers. Each point of Strength short of what it wants: +1% swing
+    /// time and -0.5% to hit (capped at +50% and -25%) and tires 1% more;
+    /// the grade's balance swings quicker and lands surer.
+    pub fn wield(&self, w: &WeaponDef) -> (f32, f32, f32) {
+        let short = (w.strength - self.attr(Attr::Strength)).max(0.0);
+        let time = (1.0 + (short * WEAK_TIME).min(WEAK_TIME_MOST)) * (1.0 - w.balance);
+        let hit = (1.0 - (short * WEAK_HIT).min(WEAK_HIT_MOST)) * (1.0 + w.balance);
+        (time, hit, 1.0 + short * WEAK_TIME)
+    }
+
+    /// Multiplier on the weapon in hand's swing and recovery times: their
+    /// quickness and how it sits in their hands.
+    pub fn swing_time(&self) -> f32 {
+        self.attack_time() * self.wield(&self.weapon).0
+    }
+
     /// The weapon actually usable: a ruined (or lost) sword arm means fists
     /// from the other hand; a two-handed weapon needs both arms; both arms
     /// gone means no attack at all.
@@ -1043,7 +1076,7 @@ impl Battle {
                         self.resolve_attack(i, target, &mut rng);
                         self.sweep(i, target);
                         let crowded = if self.crowded(i, target) { CROWDED_RECOVER } else { 1.0 };
-                        let rec = self.fighters[i].weapon.recover * self.fighters[i].attack_time() * crowded;
+                        let rec = self.fighters[i].weapon.recover * self.fighters[i].swing_time() * crowded;
                         self.fighters[i].act = Act::Recover { until: t + rec as f64 };
                     }
                 }
@@ -1232,7 +1265,7 @@ impl Battle {
         if dist > reach * 1.2 && dist >= THROW_NEAREST && !me.shooting() && me.fatigue > 4.0 {
             if let Some(it) = self.to_throw(i).filter(|&it| item(it).weapon().is_some_and(|w| dist <= throw_range(w))) {
                 let quick = if me.quick.contains(&it) { QUICK_THROW } else { 1.0 };
-                let windup = item(it).weapon().map(|w| w.windup).unwrap_or(0.5) * me.attack_time() * quick;
+                let windup = item(it).weapon().map(|w| w.windup * me.wield(w).0).unwrap_or(0.5) * me.attack_time() * quick;
                 self.fighters[i].act = Act::Throw { target: j, item: it, lands: self.time + windup as f64 };
                 return;
             }
@@ -1242,7 +1275,7 @@ impl Battle {
             let to = self.around.toward(me.pos, tpos, step);
             self.step_to(i, to);
         } else if me.usable_weapon().is_some() && me.fatigue > 4.0 {
-            let mut windup = me.weapon.windup * me.attack_time();
+            let mut windup = me.weapon.windup * me.swing_time();
             // Meeting someone coming in, a longer weapon strikes first.
             if !me.shooting() && self.keeps_at_bay(i, j) {
                 windup *= FIRST_STRIKE;
@@ -1362,7 +1395,9 @@ impl Battle {
         let dark = if shot { DARK_SHOT + (1.0 - DARK_SHOT) * seen } else { DARK_BLOW + (1.0 - DARK_BLOW) * seen };
         // Long and sweeping weapons in tight places land less often (rule 5).
         let tight = if !shot && needs_room(&weapon) { 1.0 - TIGHT_HIT * self.tightness(a) } else { 1.0 };
-        let p_hit = (0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark * tight;
+        // Too heavy for them, or finely balanced (Part 1, B1).
+        let (_, wield_hit, tiring) = att.wield(&weapon);
+        let p_hit = ((0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark * tight * wield_hit).min(0.97);
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
         if shot && !blow.throw {
             // Only for drawing. A miss comes down a few metres past the target,
@@ -1375,7 +1410,7 @@ impl Battle {
         }
         let att = &self.fighters[a];
         let strength = att.attr(Attr::Strength);
-        self.fighters[a].fatigue -= 3.0 + weapon.windup * 4.0;
+        self.fighters[a].fatigue -= (SWING_TIRES + if weapon.kg > 0.0 { weapon.kg * TIRES_PER_KG } else { weapon.windup * 4.0 }) * tiring;
 
         if r_hit > p_hit {
             self.fighters[d].train(Skill::Dodge, 1.0);
@@ -1475,6 +1510,8 @@ impl Battle {
             Some(_) => 1,
         };
         layers.sort_by_key(|x| rank(&x.0));
+        // Edgeglass and Sandglass slip past light armour (0.3).
+        let glass = self.fighters[a].weapon_item.is_some_and(|it| matches!(super::items::info(it).main, super::materials::Material::Edgeglass | super::materials::Material::Sandglass)) && blow.weapon.is_none();
         // Rusted armour stops less (skin doesn't rust); a heavy point gets
         // through some of it.
         let rust = 1.0 - self.fighters[d].power(Does::Rust).min(1.0);
@@ -1494,6 +1531,7 @@ impl Battle {
                 _ => (r_cover2 * (7.31 * k as f32 + 1.0)).fract(),
             };
             let worn = if which.is_none() { 1.0 } else { rust * through };
+            let worn = if glass && which.is_some() && layer.cut <= LIGHT_ARMOUR { worn * GLASS_SLIPS } else { worn };
             if r < layer.coverage {
                 met |= which.is_some();
                 if let Some(p) = which.and_then(|i| self.fighters[d].armor_pad.get(i)) {

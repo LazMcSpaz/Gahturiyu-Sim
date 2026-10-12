@@ -945,6 +945,7 @@ impl World {
 
     /// Anyone standing by what they were sent for picks it up.
     pub(super) fn do_pickups(&mut self) {
+        let mut picked: Vec<PersonId> = Vec::new();
         let mut done = Vec::new();
         for (n, pk) in self.pickups.clone().iter().enumerate() {
             let Some(gi) = self.ground.iter().position(|g| g.id == pk.thing) else {
@@ -989,9 +990,12 @@ impl World {
                 self.people[pk.who as usize].recompute_might();
                 self.log.push_front((self.time, format!("{name} picks up {}.", item(g.item).name.to_lowercase())));
                 done.push(n);
+                picked.push(pk.who);
             }
         }
-        let gathered: Vec<PersonId> = done.iter().map(|&n| self.pickups[n].who).filter(|w| self.gatherers.contains(w)).collect();
+        // (Only those who got what they went for go on to the next: one with
+        // no room stops.)
+        let gathered: Vec<PersonId> = picked.into_iter().filter(|w| self.gatherers.contains(w)).collect();
         for n in done.into_iter().rev() {
             self.pickups.remove(n);
         }

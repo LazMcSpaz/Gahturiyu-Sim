@@ -76,7 +76,8 @@ impl World {
     pub(super) fn gather_next(&mut self, m: PersonId) {
         let at = self.person_pos(m);
         let claimed: Vec<u32> = self.pickups.iter().filter(|p| p.who != m).map(|p| p.thing).collect();
-        let next = self.thrown_lying.iter().copied().filter(|id| !claimed.contains(id)).filter_map(|id| self.ground.iter().find(|g| g.id == id).map(|g| (id, g.pos.dist(at)))).min_by(|a, b| a.1.total_cmp(&b.1));
+        // (Only what they've room for.)
+        let next = self.thrown_lying.iter().copied().filter(|id| !claimed.contains(id)).filter_map(|id| self.ground.iter().find(|g| g.id == id).filter(|g| self.room_in_pack(m, g.item, g.count)).map(|g| (id, g.pos.dist(at)))).min_by(|a, b| a.1.total_cmp(&b.1));
         match next {
             Some((id, _)) if self.order_pickup(m, id) => {}
             _ => self.gatherers.retain(|&g| g != m),

@@ -54,7 +54,7 @@ pub(super) static ITEMS: &[ItemDef] = &[
         name: "Weighted net",
         slot: Slot::MainHand,
         // (Thrown, it tangles whoever it lands on; it seldom breaks.)
-        kind: Kind::Weapon(WeaponDef { skill: Skill::Spear, cut: 0.0, blunt: 2.0, reach: 2.4, windup: 0.8, recover: 1.0, two_handed: true, entangle: 0.45, space: Space::Medium, thrown: true, breaks: 0.02, strength: 20.0, ..FISTS }),
+        kind: Kind::Weapon(WeaponDef { skill: Skill::Spear, cut: 0.0, blunt: 2.0, reach: 2.4, windup: 0.8, recover: 1.0, two_handed: true, entangle: 0.45, space: Space::Medium, thrown: true, breaks: 0.02, strength: 20.0, kg: 2.0, ..FISTS }),
         weight: 2.0,
         value: 35.0,
         effects: &[],

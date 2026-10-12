@@ -153,7 +153,8 @@ fn after_a_fight(bandages: bool) -> Option<(World, u32)> {
             }
         }
         if !bandages {
-            if let Some(&m) = w.squad.members.iter().find(|&&m| w.bleeding(m) > 0.0 && !w.people[m as usize].dead) {
+            // (On their feet: someone out cold can't use anything.)
+            if let Some(&m) = w.squad.members.iter().find(|&&m| w.bleeding(m) > 0.0 && !w.people[m as usize].dead && !w.is_down(m)) {
                 return Some((w, m));
             }
             continue;
@@ -194,7 +195,9 @@ fn a_bandage_from_the_pack_stops_a_bleed() {
     assert!(w.use_item(m, bandage));
     assert_eq!(w.bleeding(m), 0.0);
     assert_eq!(held(&w, m, bandage), 1, "one used");
-    assert!(w.why_cant_use(m, bandage).is_some(), "nobody near bleeding now");
+    if w.squad.members.iter().all(|&o| w.bleeding(o) == 0.0) {
+        assert!(w.why_cant_use(m, bandage).is_some(), "nobody near bleeding now");
+    }
 }
 
 #[test]
@@ -863,3 +866,94 @@ fn a_hidden_knife_isnt_counted_until_its_noticed() {
     d.gear.equip(items::id("longsword")).unwrap();
     assert!(conceal::shows(&w.people[m as usize].kit(), Slot::MainHand));
 }
+
+// ---- Heft (Part 1, B1): weight, strength and grade ------------------------------
+
+#[test]
+fn lighter_material_swings_quicker_and_heavier_wants_more_strength() {
+    use gahturiyu_sim::sim::materials::{Grade, Material};
+    let def = |key: &str, m: Material, g: Grade| *items::item(items::variant(items::id(key), m, Material::None, g).expect("a variant")).weapon().unwrap();
+    let iron = def("longsword", Material::Forgeiron, Grade::Common);
+    let glass = def("longsword", Material::Edgeglass, Grade::Common);
+    assert!(glass.windup < iron.windup * 0.9, "Edgeglass swings quicker ({} vs {})", glass.windup, iron.windup);
+    assert!(glass.strength < iron.strength && glass.kg < iron.kg);
+    let master = def("longsword", Material::Forgeiron, Grade::Masterwork);
+    let crude = def("longsword", Material::Forgeiron, Grade::Crude);
+    assert!(master.balance > 0.0 && crude.balance < 0.0, "grade balance");
+    // In the hand: an average fighter wields a Common longsword as it is;
+    // a weak one is slower and less sure, up to the caps.
+    let b = pair(1);
+    let mut f = b.fighters[0].clone();
+    f.stats.set_attr(gahturiyu_sim::sim::stats::Attr::Strength, 35.0);
+    assert_eq!(f.wield(&iron), (1.0, 1.0, 1.0));
+    let maul = weapon("stone_maul");
+    f.stats.set_attr(gahturiyu_sim::sim::stats::Attr::Strength, 25.0);
+    let (time, hit, tire) = f.wield(&maul);
+    assert!((time - 1.4).abs() < 1e-4 && (hit - 0.8).abs() < 1e-4 && tire > 1.0, "40 short: +40% time, -20% to hit ({time}, {hit})");
+    f.stats.set_attr(gahturiyu_sim::sim::stats::Attr::Strength, 1.0);
+    let (time, hit, _) = f.wield(&maul);
+    assert!((time - 1.5).abs() < 1e-4 && (hit - 0.75).abs() < 1e-4, "capped");
+    // Finely made, quicker and surer.
+    f.stats.set_attr(gahturiyu_sim::sim::stats::Attr::Strength, 60.0);
+    let (time, hit, _) = f.wield(&master);
+    assert!(time < 1.0 && hit > 1.0);
+}
+
+#[test]
+fn heavier_weapons_tire_more_per_blow() {
+    let tired = |key: &str| {
+        let mut b = pair(3);
+        b.fighters[0].stats.set_attr(gahturiyu_sim::sim::stats::Attr::Strength, 90.0);
+        let before = b.fighters[0].fatigue;
+        one_blow(&mut b, weapon(key));
+        before - b.fighters[0].fatigue
+    };
+    assert!(tired("stone_maul") > tired("longsword") && tired("longsword") > tired("knife"));
+}
+
+// ---- Armour on the body (0.3) ---------------------------------------------------
+
+/// B wearing these.
+fn wearing(b: &mut Battle, keys: &[&str]) {
+    let p = {
+        let mut p = person(2, &[(Skill::Dodge, 5.0)]);
+        let d = p.detail.as_mut().unwrap();
+        d.gear = gahturiyu_sim::sim::inventory::Gear::default();
+        for k in keys {
+            d.gear.add(items::id(k), 1);
+            d.gear.equip(items::id(k)).unwrap();
+        }
+        p
+    };
+    let mut f = Fighter::from_person(&p, 1, b.fighters[1].pos, 0.0);
+    f.think_at = f64::INFINITY;
+    b.fighters[1] = f;
+}
+
+#[test]
+fn the_outer_layer_meets_the_blow_first_and_glass_slips_past_light_armour() {
+    use gahturiyu_sim::sim::materials::{Grade, Material};
+    let glass = items::variant(items::id("longsword"), Material::Edgeglass, Material::None, Grade::Common).expect("an Edgeglass longsword");
+    let iron = items::variant(items::id("longsword"), Material::Forgeiron, Material::None, Grade::Common).unwrap();
+    // Against a light hide coat, Edgeglass gets more through than its edge
+    // alone would; against plate it doesn't.
+    let through = |it: items::ItemId, keys: &[&str]| {
+        let mut total = 0.0;
+        for seed in 0..15 {
+            let mut b = pair(1000 + seed);
+            wearing(&mut b, keys);
+            b.fighters[0].weapon_item = Some(it);
+            let w = *items::item(it).weapon().unwrap();
+            for _ in 0..20 {
+                one_blow(&mut b, w);
+                total += b.fighters[1].damage_taken;
+                b.fighters[1].damage_taken = 0.0;
+            }
+        }
+        total
+    };
+    let (g_bare, i_bare) = (through(glass, &[]), through(iron, &[]));
+    let (g_hide, i_hide) = (through(glass, &["hide_coat"]), through(iron, &["hide_coat"]));
+    assert!(g_hide / g_bare > i_hide / i_bare, "glass keeps more of its bite through a hide coat");
+}
+
