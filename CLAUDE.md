@@ -742,8 +742,10 @@ time (Python, not part of the game build; `tools/voice/README.md`).
 - Disguise (F3, `disguise.rs`; Laz: New Vegas's standing with Kenshi's fit
   check): the civic groups and elite uniforms are data (`CIVIC`: the
   garment's `items::Role`, who the real ones are by job, how close they
-  are, whether it's a crime, whose they are); only the four role garments
-  exist so far (tabard, vestment, merchant's coat, labourer's smock). Worn,
+  are, whether it's a crime, whose they are), each with its role garment
+  (`items/clothing.rs`: tabard, vestment, merchant's coat, smock, clerk's
+  robe, courier's sash, crew cords, aprons, healer's sash, rags, and the
+  five elite uniforms). Worn,
   a squad member passes as the group (`disguise_of`). Each step (the player
   exception, like the watch knowing a face) the nearest of the real ones
   who is up and sees them plainly looks, once an hour each, by a keyed roll

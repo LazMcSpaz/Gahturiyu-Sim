@@ -148,3 +148,16 @@ fn hostile_holders_come_after_a_false_watchman_and_friendly_ones_let_it_pass() {
     assert!(w.pursuits.iter().all(|p| p.culprit != m), "let it pass");
     assert!(w.doubted_times(m, civic("watch")) > 0, "but they'll look harder next time");
 }
+
+#[test]
+fn every_group_has_a_garment_that_passes_for_it() {
+    for (g, c) in CIVIC.iter().enumerate() {
+        let role = c.role.unwrap_or_else(|| panic!("{} has a garment", c.name));
+        let garment = items::ITEMS.iter().position(|i| items::look(i_id(i.key)).role == Some(role)).unwrap_or_else(|| panic!("{}: something to wear", c.name));
+        let _ = (g, garment);
+    }
+}
+
+fn i_id(key: &str) -> items::ItemId {
+    items::id(key)
+}

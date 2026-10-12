@@ -213,6 +213,18 @@ static SHAPES: &[(&str, Pose, &[Bit])] = &[
     ("vestment", Upright, &[bx(0.05, 0.88, 0.44, 0.26, Main), bxo(0.50, 0.88, -0.29, 0.14, 0.18, Main), bxo(0.50, 0.88, 0.29, 0.14, 0.18, Main), bxz(0.30, 0.80, 0.0, 0.06, 0.13, 0.01, Gold)]),
     ("merchants_coat", Upright, &[bx(0.20, 0.88, 0.46, 0.28, Main), bxo(0.50, 0.88, -0.29, 0.13, 0.19, Main), bxo(0.50, 0.88, 0.29, 0.13, 0.19, Main), bx(0.82, 0.92, 0.36, 0.30, Rgb([0.55, 0.45, 0.32]))]),
     ("labourers_smock", Upright, &[bx(0.30, 0.86, 0.42, 0.24, Main), bxz(0.30, 0.60, 0.0, 0.30, 0.12, 0.01, Leather)]),
+    ("clerks_robe", Upright, &[bx(0.05, 0.88, 0.44, 0.26, Main), bxo(0.50, 0.88, -0.29, 0.14, 0.18, Main), bxo(0.50, 0.88, 0.29, 0.14, 0.18, Main), bxz(0.55, 0.62, 0.10, 0.05, 0.13, 0.01, Dark)]),
+    ("courier_sash", Upright, &[bxz(0.35, 0.75, 0.0, 0.05, 0.25, 0.01, Main)]),
+    ("crew_cords", Upright, &[bx(0.80, 0.84, 0.16, 0.16, Main), bx(0.70, 0.80, 0.03, 0.17, Main)]),
+    ("work_apron", Upright, &[bxz(0.35, 0.75, 0.0, 0.30, 0.12, 0.01, Main)]),
+    ("kitchen_apron", Upright, &[bxz(0.35, 0.75, 0.0, 0.30, 0.12, 0.01, Main)]),
+    ("healers_sash", Upright, &[bxz(0.35, 0.75, 0.0, 0.05, 0.25, 0.01, Main)]),
+    ("rags", Upright, &[bx(0.30, 0.86, 0.42, 0.24, Main), bx(0.70, 0.74, 0.43, 0.25, Dark)]),
+    ("palace_tabard", Upright, &[bx(0.35, 0.85, 0.34, 0.26, Main), bx(0.58, 0.64, 0.35, 0.27, Gold)]),
+    ("retainers_tabard", Upright, &[bx(0.35, 0.85, 0.34, 0.26, Main), bx(0.58, 0.64, 0.35, 0.27, Gold)]),
+    ("order_surcoat", Upright, &[bx(0.35, 0.85, 0.34, 0.26, Main), bx(0.58, 0.64, 0.35, 0.27, Gold)]),
+    ("house_livery", Upright, &[bx(0.35, 0.85, 0.34, 0.26, Main), bx(0.58, 0.64, 0.35, 0.27, Gold)]),
+    ("temple_mantle", Upright, &[bx(0.10, 0.88, 0.46, 0.28, Main), bxz(0.30, 0.45, 0.0, 0.08, 0.14, 0.01, Gold)]),
     ("fur_mantle", Upright, &[bx(0.45, 0.90, 0.62, 0.08, Rgb([0.52, 0.42, 0.30])), bx(0.82, 0.95, 0.44, 0.16, Rgb([0.62, 0.52, 0.38]))]),
     ("padded_vest", Upright, &[bx(0.40, 0.85, 0.38, 0.22, Main), bx(0.52, 0.54, 0.39, 0.23, Dark), bx(0.66, 0.68, 0.39, 0.23, Dark)]),
     (
@@ -490,6 +502,18 @@ fn garment_colour(key: &str) -> Option<Rgb> {
         "vestment" => [0.88, 0.85, 0.78],
         "merchants_coat" => [0.62, 0.42, 0.20],
         "labourers_smock" => [0.55, 0.50, 0.42],
+        "clerks_robe" => [0.30, 0.30, 0.38],
+        "courier_sash" => [0.78, 0.62, 0.22],
+        "crew_cords" => [0.62, 0.55, 0.40],
+        "work_apron" => [0.45, 0.32, 0.20],
+        "kitchen_apron" => [0.86, 0.84, 0.76],
+        "healers_sash" => [0.45, 0.66, 0.50],
+        "rags" => [0.42, 0.38, 0.32],
+        "palace_tabard" => [0.36, 0.13, 0.40],
+        "retainers_tabard" => [0.20, 0.30, 0.55],
+        "order_surcoat" => [0.86, 0.82, 0.74],
+        "house_livery" => [0.24, 0.40, 0.26],
+        "temple_mantle" => [0.72, 0.55, 0.20],
         _ => return None,
     })
 }
@@ -497,7 +521,7 @@ fn garment_colour(key: &str) -> Option<Rgb> {
 /// Is this (in the cloak slot) a garment worn on the body, not a cape
 /// behind it: an overcoat or a role garment?
 pub fn worn_round(id: ItemId) -> bool {
-    matches!(item(info(id).form).key, "wool_overcoat" | "guard_tabard" | "vestment" | "merchants_coat" | "labourers_smock")
+    matches!(item(info(id).form).key, "wool_overcoat" | "guard_tabard" | "vestment" | "merchants_coat" | "labourers_smock" | "clerks_robe" | "courier_sash" | "work_apron" | "kitchen_apron" | "healers_sash" | "rags" | "palace_tabard" | "retainers_tabard" | "order_surcoat" | "house_livery" | "temple_mantle")
 }
 
 /// The colour of a box of this thing.

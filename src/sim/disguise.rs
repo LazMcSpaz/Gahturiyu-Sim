@@ -5,8 +5,7 @@
 //!   `items::Role`), who knows the real ones (by job), how close they are
 //!   (`Close`: a tight group notices a stranger in its own clothes), whether
 //!   impersonating them is a crime (`Crime`), the faction they answer to,
-//!   and what the look opens. Groups whose garments aren't made yet are
-//!   listed with none: nobody can wear them until they are.
+//!   and what the look opens.
 //! - **Wearing a role garment** puts a squad member in that group while it's
 //!   worn (`disguise_of`). Townsfolk treat them as the role: a witness is
 //!   slower to report one of the watch, and the watch doesn't turn one of
@@ -97,8 +96,8 @@ const fn c(key: &'static str, name: &'static str, role: Option<Role>, knows: &'s
     Civic { key, name, role, knows, close, crime, faction, elite: false, opens }
 }
 
-const fn elite(key: &'static str, name: &'static str, knows: &'static [Job], close: Close, faction: Option<&'static str>, opens: &'static str) -> Civic {
-    Civic { key, name, role: None, knows, close, crime: Crime::Always, faction, elite: true, opens }
+const fn elite(key: &'static str, name: &'static str, role: Role, knows: &'static [Job], close: Close, faction: Option<&'static str>, opens: &'static str) -> Civic {
+    Civic { key, name, role: Some(role), knows, close, crime: Crime::Always, faction, elite: true, opens }
 }
 
 use Close::{Loose, Medium, Tight, VeryTight};
@@ -107,22 +106,22 @@ pub static CIVIC: &[Civic] = &[
     // Uniformed groups (passes).
     c("watch", "The town watch", Some(Role::Guard), &[Job::Guard], Tight, Crime::Always, None, "gates after dark, the barracks, the jail, questioning people"),
     c("shrine_keepers", "Shrine keepers", Some(Role::Priest), &[Job::Priest], Tight, Crime::ByCustom, Some("holy_house"), "shrines, the back rooms of rites, funerals"),
-    c("clerks", "Exchange-house clerks", None, &[Job::Exchanger], Tight, Crime::Never, Some("writers"), "vaults, ledgers, the coin presses"),
-    c("couriers", "Couriers", None, &[Job::Runner], Loose, Crime::Never, None, "walking anywhere with a letter"),
-    c("harbour_crews", "Harbour crews", None, &[Job::Fisher, Job::Boatwright], Medium, Crime::Never, Some("far_sails"), "docks, holds, cargo"),
+    c("clerks", "Exchange-house clerks", Some(Role::Clerk), &[Job::Exchanger], Tight, Crime::Never, Some("writers"), "vaults, ledgers, the coin presses"),
+    c("couriers", "Couriers", Some(Role::Courier), &[Job::Runner], Loose, Crime::Never, None, "walking anywhere with a letter"),
+    c("harbour_crews", "Harbour crews", Some(Role::Crew), &[Job::Fisher, Job::Boatwright], Medium, Crime::Never, Some("far_sails"), "docks, holds, cargo"),
     // Work clothes (blending in).
-    c("craft_trades", "The craft trades", None, &[Job::Smith, Job::Armourer, Job::Weaver, Job::StoneTender], Medium, Crime::Never, None, "workyards and back doors"),
+    c("craft_trades", "The craft trades", Some(Role::Craft), &[Job::Smith, Job::Armourer, Job::Weaver, Job::StoneTender], Medium, Crime::Never, None, "workyards and back doors"),
     c("labourers", "Labourers and porters", Some(Role::Labourer), &[Job::Labourer], Loose, Crime::Never, None, "warehouses, kitchens, building sites"),
-    c("kitchen", "Kitchen and mess-hall workers", None, &[Job::Cook], Medium, Crime::Never, None, "kitchens, the meal runners' routes, mess halls"),
-    c("healers", "Healers", None, &[Job::Healer], Medium, Crime::Never, None, "sickrooms; the wounded and prisoners"),
+    c("kitchen", "Kitchen and mess-hall workers", Some(Role::Kitchen), &[Job::Cook], Medium, Crime::Never, None, "kitchens, the meal runners' routes, mess halls"),
+    c("healers", "Healers", Some(Role::Healer), &[Job::Healer], Medium, Crime::Never, None, "sickrooms; the wounded and prisoners"),
     c("merchants", "Merchants", Some(Role::Merchant), &[Job::Merchant], Loose, Crime::Never, None, "market halls and caravans"),
-    c("beggars", "Beggars and street folk", None, &[], Loose, Crime::Never, None, "unseen by the rich: good for watching and listening"),
-    // Elite uniforms (Laz: in from the start; their garments come later).
-    elite("palace_guard", "The palace guard", &[Job::Guard], VeryTight, Some("throne"), "the court and the emperor's halls"),
-    elite("retainers", "A lord's retainers", &[Job::Guard], Tight, Some("great_house"), "that lord's hall and lands"),
-    elite("armed_order", "The armed order", &[Job::Guard, Job::Priest], Tight, Some("holy_house"), "fortified shrines and inquisitor patrols"),
-    elite("house_guard", "House guard", &[Job::Guard], VeryTight, Some("first_peoples"), "the old houses and the Seated Houses' halls"),
-    elite("temple_guard", "Temple guard", &[Job::Guard, Job::Priest], VeryTight, Some("last_wave"), "enclave summits and rites"),
+    c("beggars", "Beggars and street folk", Some(Role::Beggar), &[Job::Drifter], Loose, Crime::Never, None, "unseen by the rich: good for watching and listening"),
+    // Elite uniforms (Laz: in from the start).
+    elite("palace_guard", "The palace guard", Role::PalaceGuard, &[Job::Guard], VeryTight, Some("throne"), "the court and the emperor's halls"),
+    elite("retainers", "A lord's retainers", Role::Retainer, &[Job::Guard], Tight, Some("great_house"), "that lord's hall and lands"),
+    elite("armed_order", "The armed order", Role::ArmedOrder, &[Job::Guard, Job::Priest], Tight, Some("holy_house"), "fortified shrines and inquisitor patrols"),
+    elite("house_guard", "House guard", Role::HouseGuard, &[Job::Guard], VeryTight, Some("first_peoples"), "the old houses and the Seated Houses' halls"),
+    elite("temple_guard", "Temple guard", Role::TempleGuard, &[Job::Guard, Job::Priest], VeryTight, Some("last_wave"), "enclave summits and rites"),
 ];
 
 /// A looker who isn't one of the group sees through it this much less often.
@@ -181,8 +180,8 @@ impl World {
         let armed = gear.in_slot(Slot::MainHand).is_some_and(|id| matches!(item(id).kind, Kind::Weapon(_)));
         let armoured = [Slot::BodyOver, Slot::Head, Slot::Hands, Slot::LegsOver].iter().any(|&s| gear.in_slot(s).is_some_and(|id| matches!(item(id).kind, Kind::Armor(_))));
         match CIVIC[g].role {
-            // One of the watch goes armed.
-            Some(Role::Guard) => (!armed) as u32,
+            // One of the watch, or of any guard, goes armed.
+            Some(Role::Guard | Role::PalaceGuard | Role::Retainer | Role::ArmedOrder | Role::HouseGuard | Role::TempleGuard) => (!armed) as u32,
             Some(_) => armed as u32 + armoured as u32,
             None => 0,
         }

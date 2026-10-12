@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-540 things: 187 belong to one people, 353 are shared.
+552 things: 188 belong to one people, 364 are shared.
 
 ## Jobs
 
@@ -193,6 +193,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Oilskin cape | Horaro | **Nawanoli** | nah-wah-NOH-lee | rain-cloth |
 | Sea wrap | Horaro | **Nawamoa** | nah-wah-MOH-ah | sea-cloth |
 | Brimmed rain hat | Horaro | **Lihonoli** | lee-hoh-NOH-lee | rain-head |
+| Crew cords | Horaro | **Ronalei** | roh-nah-LEH-ee | tide-rope |
 | Round shield | Qotiro | **Portord** | POR-tord | round-shield |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
@@ -225,6 +226,17 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Vestment | Qihutaha | Kiptap | Nawahiwu | Safahifu | priest-cloth |
 | Merchant's coat | Tuqutaha | Tuktap | Nawanuu | Safasuhu | trade-cloth |
 | Labourer's smock | Qaqitaha | Kektap | Nawahahi | Safahahi | carry-cloth |
+| Clerk's robe | Shehitaha | Xeptap | Nawahewi | Safasefi | write-cloth |
+| Courier's sash | Shadutaha | Xottap | Nawahalu | Safasathu | road-cloth |
+| Leather apron | Giṭahali | Girtaper | Waliwila | Fayiwitha | work-hide |
+| Kitchen apron | Tuḍataha | Tuntap | Nawanuna | Safasuya | cook-cloth |
+| Healer's sash | Doḍitaha | Dontap | Nawaloni | Safathauyi | heal-cloth |
+| Rags | Tuʻetaha | Tuqtap | Nawanue | Safasuwe | old-cloth |
+| Palace guard's tabard | Ruʻataro | Ruqtor | Narorua | Sasheshuwa | high-guard |
+| Retainer's tabard | Qoḍitaha | Komtap | Nawahomi | Safahauwi | hold-cloth |
+| Order surcoat | Hotorìro | Potortor | Narowonori | Sashefausesh | holy-guard |
+| House livery | Haletaha | Partap | Nawawale | Safafaye | house-cloth |
+| Temple guard's mantle | Toḍataro | Tontor | Naronona | Sashesauya | sun-guard |
 | Buckler | Ḍiḍataḍu | Drimtord | Nanunima | Sayuyiwa | hand-shield |
 | Tower shield | Hutitaḍu | Putord | Nanuwuni | Sayufusi | wall-shield |
 | Cloak | Lataha | Ratap | Nawalana | Safayasa | wide-cloth |
