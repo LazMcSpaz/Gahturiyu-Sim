@@ -391,6 +391,7 @@ impl World {
             }
         }
         self.hold_the_bound();
+        self.hold_captives();
         self.watch_for_wanted();
         self.watch_for_disguises();
         self.chase(dt);

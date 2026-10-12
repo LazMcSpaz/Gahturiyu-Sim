@@ -130,6 +130,9 @@ pub struct World {
     /// The guilds (and the like) the squad has joined (`membership.rs`).
     #[serde(default)]
     pub guilds: Vec<super::factions::FactionId>,
+    /// Squad members held at a slavers' camp (`binders.rs`).
+    #[serde(default)]
+    pub captives: Vec<super::binders::Captive>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -393,6 +396,7 @@ impl World {
             fire_jobs: Vec::new(),
             coatings: Vec::new(),
             guilds: Vec::new(),
+            captives: Vec::new(),
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),

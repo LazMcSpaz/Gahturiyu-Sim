@@ -83,6 +83,9 @@ pub struct Camp {
     /// Whether the squad has seen it or heard of it (for the map).
     #[serde(default)]
     pub known: super::known::Known,
+    /// Slavers (the Binders, `binders.rs`), not bandits.
+    #[serde(default)]
+    pub slavers: bool,
 }
 
 /// When a camp first sees someone walking this leg: within `CAMP_SIGHT`, or
@@ -405,7 +408,13 @@ impl World {
     pub fn role_word(&self, pid: PersonId) -> &'static str {
         use super::stats::Calling;
         let p = &self.people[pid as usize];
-        if p.bandit {
+        let slaver = self.group_of[pid as usize].is_some_and(|g| self.is_slaver_camp(g));
+        if p.bandit && slaver {
+            match p.kit_stats.calling {
+                Calling::Hunter => "Binder archer",
+                _ => "Binder",
+            }
+        } else if p.bandit {
             match p.kit_stats.calling {
                 Calling::Mage => "Bandit mage",
                 Calling::Hunter => "Bandit archer",
@@ -424,9 +433,13 @@ impl World {
         self.fighting_groups.remove(&f.victim);
         self.fighting_groups.remove(&f.camp);
         let killed = self.write_back(&f.result);
-        // Beaten travellers lose what they were carrying.
+        // Beaten travellers lose what they were carrying; slavers take the
+        // travellers themselves (`binders.rs`).
         if !f.result.fighters.iter().any(|x| x.side == TRAVELLER_SIDE && x.active()) {
             self.rob_cargo(f.victim);
+            if self.is_slaver_camp(f.camp) {
+                self.enslave_travellers(&f.result, TRAVELLER_SIDE, t);
+            }
         }
 
         // When someone knocked down can stand again.
