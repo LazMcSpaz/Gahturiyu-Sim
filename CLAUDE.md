@@ -208,7 +208,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    start), spotting (`stealth.rs`, sight and hearing), fires and standing
    torches in the open (drowned by the first downpour, `World::drowned_by`,
    worked out when lit) and the boats (kept in for the hour when the sea
-   won't let them out, read at the stilts at the top of the hour);
+   won't let them out, read at the stilts at the top of the hour) and
+   outdoor work (`routine::OUTDOOR_JOBS`: an hour of work in a storm hour is
+   spent at home; each town keeps yesterday's, today's and tomorrow's storm
+   hours, read at dawn, `TownLife::storms`, so day plans stay a lookup);
    `docs/weather-hooks.md` says where the rest is meant to connect.
 
 22. **Bases are built on the clock.** A construction site stores its labour

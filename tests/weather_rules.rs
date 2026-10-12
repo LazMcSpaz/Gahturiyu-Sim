@@ -75,3 +75,42 @@ fn the_boats_stay_in_when_the_sea_wont_let_them_out() {
     let ci = tl.stilts.expect("a stilt village") as usize;
     assert_eq!(w.society.communities[ci].catch.rate, 0.0, "nobody out fishing in that sea");
 }
+
+#[test]
+fn outdoor_work_stops_in_a_storm_and_indoor_work_goes_on() {
+    use gahturiyu_sim::sim::{jobs::Job, routine::Doing};
+    let w = worldgen::generate(1);
+    let today = gahturiyu_sim::sim::World::day_of(w.time);
+    // A town and a day with storm hours in working time, and someone of an
+    // outdoor trade who works that day.
+    let mut found = None;
+    'search: for day in today..today + 30 {
+        for s in &w.settlements {
+            let mask = w.storm_hours(s.id, day);
+            if mask & 0b0000_0000_0011_1111_1100_0000 == 0 {
+                continue;
+            }
+            for &p in &s.residents {
+                if w.life(p).job == Job::Farmer {
+                    let plan = w.day_plan(p, day);
+                    if let Some((ws, we)) = plan.work {
+                        if (ws.ceil() as u32..we.floor() as u32).any(|h| mask & (1 << h) != 0) {
+                            found = Some((p, day, mask, ws, we));
+                            break 'search;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let (p, day, mask, ws, we) = found.expect("a stormy working day somewhere in a month");
+    let plan = w.day_plan(p, day);
+    for h in ws.ceil() as u32..we.floor() as u32 {
+        let hf = h as f32 + 0.5;
+        let doing = plan.segs()[plan.index_at(hf)].doing;
+        if mask & (1 << h) != 0 {
+            assert_ne!(doing, Doing::Work, "out in the storm at {h}:30");
+        }
+    }
+    assert!(plan.hours_of(Doing::Home, ws, we) > 0.0, "home through the storm");
+}
