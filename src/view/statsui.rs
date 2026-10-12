@@ -163,6 +163,13 @@ pub fn sheet(c: &Canvas, w: &World, pid: PersonId, click: Option<Click>) -> (Opt
         bar_row(c, rx, y, col_w, "Thirst", &carried, t / 100.0, if t >= THIRSTY { BAR_LOW } else { BAR_STAMINA });
         y += LH;
     }
+    // Toxicity (what they've drunk), once there's any.
+    if let Some(tox) = w.toxicity_of(pid).filter(|&x| x >= 0.5) {
+        use gahturiyu_sim::sim::condition::{QUEASY, SICK, TOX_COLLAPSE};
+        let word = if tox >= TOX_COLLAPSE { "Collapsed" } else if tox >= SICK { "Sick" } else if tox >= QUEASY { "Queasy" } else { "Fine" };
+        bar_row(c, rx, y, col_w, "Toxicity", word, tox / 100.0, if tox >= QUEASY { BAR_LOW } else { BAR_STAMINA });
+        y += LH;
+    }
     if let Some(tired) = w.tired_of(pid) {
         let word = if tired >= EXHAUSTED { "Exhausted" } else if tired >= EXHAUSTED * 0.5 { "Tired" } else { "Rested" };
         bar_row(c, rx, y, col_w, "Tiredness", word, tired / 100.0, if tired >= EXHAUSTED { BAR_LOW } else { BAR_STAMINA });

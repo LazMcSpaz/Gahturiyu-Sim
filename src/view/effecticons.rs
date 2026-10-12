@@ -40,12 +40,13 @@ fn glyph(d: Does) -> (Glyph, Rgb) {
         Wet => (Glyph::Drop, [0.45, 0.70, 1.0]),
         Bleed => (Glyph::Drop, [0.80, 0.10, 0.08]),
         Chilled | Frozen => (Glyph::Frost, [0.80, 0.92, 1.0]),
-        Barrier | Toughen | ResistElements | ResistParalysis | ResistBlind | DomainResist(_) | Veil => (Glyph::Shield, [0.95, 0.85, 0.55]),
-        Paralyze | Calm | Fear | Dominate | Sway | Daze | Blind | KnockDown => (Glyph::Mind, [0.80, 0.60, 1.0]),
+        Poison | Nausea => (Glyph::Drop, [0.55, 0.80, 0.25]),
+        Barrier | Toughen | ResistElements | ResistParalysis | ResistBlind | DomainResist(_) | Veil | Steady | ResistFire | Warmth => (Glyph::Shield, [0.95, 0.85, 0.55]),
+        Paralyze | Calm | Fear | Dominate | Sway | Daze | Blind | KnockDown | Slumber => (Glyph::Mind, [0.80, 0.60, 1.0]),
         Hide | Silent | Disguise | Gloom => (Glyph::Hidden, [0.62, 0.66, 0.80]),
-        Glow | Nightsight | SenseLife => (Glyph::Light, [1.0, 0.95, 0.70]),
+        Glow | Nightsight | SenseLife | KeenSenses => (Glyph::Light, [1.0, 0.95, 0.70]),
         d if d.harmful() => (Glyph::Down, [0.95, 0.42, 0.34]),
-        Attr(_) | Skill(_) | Haste | MoveSpeed | MaxEnergy | EnergyRegen | Carry | Lighten | Sustain | DomainPower(_) => (Glyph::Up, [0.55, 0.92, 0.55]),
+        Attr(_) | Skill(_) | Haste | MoveSpeed | MaxEnergy | EnergyRegen | Carry | Lighten | Sustain | DomainPower(_) | DeepBreath => (Glyph::Up, [0.55, 0.92, 0.55]),
         _ => (Glyph::Dot, [0.80, 0.80, 0.80]),
     }
 }

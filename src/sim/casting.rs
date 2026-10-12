@@ -744,6 +744,42 @@ impl World {
         }
         match e.does {
             Does::Staunch => self.stop_bleeding(target, t),
+            Does::Rouse => {
+                // Brought round: head and torso lifted just over the line.
+                let p = &self.people[target as usize];
+                if !super::body::knocked_out(&p.wounds.hp_at(&p.stats, t)) {
+                    return false;
+                }
+                if p.cond.is_some() {
+                    self.settle_condition(target, t);
+                }
+                let p = &mut self.people[target as usize];
+                let base = p.stats.clone();
+                let mut hp = p.wounds.hp_at(&base, t);
+                for part in [super::body::Part::Head, super::body::Part::Torso] {
+                    let k = part as usize;
+                    hp[k] = hp[k].max(base.max_hp(part) * super::toxic::ROUSED);
+                }
+                p.wounds.set(&base, &hp, t);
+                if p.cond.is_some() {
+                    self.settle_condition(target, t);
+                }
+                let name = self.name_of(target);
+                self.say(t, format!("{name} comes round."));
+                true
+            }
+            Does::Cleanse => {
+                self.boons.retain(|b| !(b.pid == target && matches!(b.does, Does::Poison | Does::Nausea)));
+                if self.people[target as usize].cond.is_none() {
+                    return false;
+                }
+                self.settle_condition(target, t);
+                if let Some(c) = self.people[target as usize].cond.as_mut() {
+                    c.tox = (c.tox - e.power).max(0.0);
+                }
+                self.settle_condition(target, t);
+                true
+            }
             Does::Heal => {
                 // Healing closes cuts too.
                 self.stop_bleeding(target, t);
@@ -923,7 +959,7 @@ impl World {
     }
 
     /// Damage spread over the whole body (out of a fight).
-    fn wound_whole(&mut self, pid: PersonId, dmg: f32, t: f64) {
+    pub(super) fn wound_whole(&mut self, pid: PersonId, dmg: f32, t: f64) {
         if self.people[pid as usize].cond.is_some() {
             self.settle_condition(pid, t);
         }

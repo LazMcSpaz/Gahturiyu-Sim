@@ -1020,9 +1020,12 @@ impl World {
         if super::combat::is_bandage(it) {
             return self.bandage_for(who).is_some_and(|on| self.bind_wounds(who, on, t));
         }
-        // A potion's own effects, or a scroll's spell (no energy, can't fail).
+        // A potion: drunk, with its toxicity and side effects (`toxic.rs`).
+        if item(it).kind == Kind::Potion {
+            return self.drink_potion(who, it);
+        }
+        // A scroll's spell (no energy, can't fail).
         let effects: &[super::effects::Effect] = match item(it).kind {
-            Kind::Potion => item(it).effects,
             Kind::Scroll(key) => {
                 let d = super::magic::spell(key).def();
                 if !d.works_outside_fights() {

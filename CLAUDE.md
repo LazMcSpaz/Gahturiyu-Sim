@@ -704,8 +704,16 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   leaning rolled per person (`starting_kit`). The disguise and belonging
   rules that would read `look` aren't built yet.
   Alchemy ingredients are data in `items/herbs.rs` (`items::ingredient`):
-  kind, four effects (`Alch`), where found; brewing waits on how a brewed
-  potion is to be kept (Laz's call).
+  kind, four effects (`Alch`), where found. Each `Alch` has a plain dose
+  (`Alch::dose`, a list of `Effect`s; brewing will scale it). The new
+  `Does` kinds (Rouse, Steady, Cleanse, Warmth, ResistFire, KeenSenses,
+  DeepBreath, Poison, Slumber, Nausea, ThinBlood, Smoke) each have their
+  rule in `combat.rs` and, where they mean something out of a fight,
+  `casting.rs`. Drinking goes through `toxic.rs` (`drink_potion`,
+  `take_dose`; `Battle::dose` in a fight): a draught's side effects reach
+  the drinker out of a fight too (poison and nausea at once, the rest as
+  boons), and the toxicity meter is on the condition timeline (queasy,
+  sick, collapse; sick, a draught may come back up; it never kills).
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is

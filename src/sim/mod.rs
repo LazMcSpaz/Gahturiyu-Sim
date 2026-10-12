@@ -75,6 +75,7 @@ pub mod spoil;
 pub mod stats;
 pub mod thirst;
 pub mod thrown;
+pub mod toxic;
 pub mod torch;
 pub mod walk;
 pub mod stealth;

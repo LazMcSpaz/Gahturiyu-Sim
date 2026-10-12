@@ -44,6 +44,13 @@
 //! out, and it never kills. The rain is read once an hour, at the top of
 //! the hour, for anyone out in it.
 //!
+//! **Toxicity** (Part 4, the alchemist's meter) runs from 0 to 100: every
+//! potion drunk adds some (`toxic.rs`), nausea adds more, and it drains away
+//! at `TOX_DRAIN` an hour. Queasy (30) breath comes back slower; sick (60)
+//! attributes are down, and each draught may come straight back up; at 90
+//! they collapse, knocked out until it's down to `TOX_WAKE`. It never
+//! kills. Only a dose raises it, so only the falls are on the timeline.
+//!
 //! Only your squad has a condition. Everyone else in the world gets by, and
 //! heals at the plain constant rate.
 //!
@@ -108,6 +115,20 @@ pub const SKIN_CATCH: f32 = 2.0;
 /// Torso health lost per hour collapsed from thirst: down to knocked out
 /// within the hour or two, never further. Rain or a drink brings them round.
 pub const THIRST_DRAIN: f32 = 60.0;
+
+/// Toxicity drained per hour.
+pub const TOX_DRAIN: f32 = 5.0;
+/// Stages: queasy, sick, collapse; and where someone collapsed comes round.
+pub const QUEASY: f32 = 30.0;
+pub const SICK: f32 = 60.0;
+pub const TOX_COLLAPSE: f32 = 90.0;
+pub const TOX_WAKE: f32 = 70.0;
+/// Breath comes back this much slower queasy; attributes this much lower sick.
+pub const QUEASY_BREATH: f32 = 0.75;
+pub const SICK_FACTOR: f32 = 0.85;
+/// Torso health lost per hour collapsed from toxicity (down to knocked out,
+/// never further).
+pub const TOX_KO_DRAIN: f32 = 240.0;
 
 /// Stamina used per hour walking on the flat, unburdened.
 pub const STAMINA_WALK: f32 = 12.0;
@@ -213,11 +234,17 @@ pub struct Condition {
     /// The rain on them this piece (0 under a roof), read at its start.
     #[serde(default)]
     pub rain: f32,
+    /// Toxicity, 0..100 (`toxic.rs`).
+    #[serde(default)]
+    pub tox: f32,
+    /// Collapsed from toxicity, until it's down to `TOX_WAKE`.
+    #[serde(default)]
+    pub tox_out: bool,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0 }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -229,7 +256,7 @@ impl Condition {
         let hold = if self.holding { super::casting::STAMINA_HOLD } else { 0.0 };
         // (Thirsty, breath comes back slower: read at the last settle, the
         // stage line being a step on the timeline.)
-        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 };
+        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 };
         match self.activity {
             Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
             Activity::Resting | Activity::Sleeping => STAMINA_REST * dry - hold,
@@ -350,6 +377,16 @@ impl Condition {
         Some(self.at + (gap / r) as f64 * HOUR)
     }
 
+    /// Toxicity at `t` (it only drains between doses).
+    pub fn tox_at(&self, t: f64) -> f32 {
+        (self.tox - TOX_DRAIN * hours(self.at, t)).max(0.0)
+    }
+
+    /// When toxicity falls to `level` in this piece.
+    pub fn tox_falls_to(&self, level: f32) -> Option<f64> {
+        (self.tox > level + 1e-4).then(|| self.at + ((self.tox - level) / TOX_DRAIN) as f64 * HOUR)
+    }
+
     /// Water caught in open skins by `t` (they hold `cap` drinks).
     pub fn water_at(&self, t: f64, cap: f32) -> f32 {
         (self.water + self.rain * SKIN_CATCH * hours(self.at, t)).min(cap.max(self.water))
@@ -358,6 +395,10 @@ impl Condition {
     /// Bring the values forward to `t` and start a new piece there.
     pub fn settle(&mut self, t: f64) {
         self.thirst = self.thirst_at(t);
+        self.tox = self.tox_at(t);
+        if self.tox_out && self.tox <= TOX_WAKE + 1e-3 {
+            self.tox_out = false;
+        }
         self.hunger = self.hunger_at(t);
         self.stamina = self.stamina_at(t);
         self.tired = self.tired_at(t);
@@ -381,6 +422,9 @@ impl Condition {
         }
         if self.thirst >= PARCHED {
             f *= PARCHED_FACTOR;
+        }
+        if self.tox >= SICK {
+            f *= SICK_FACTOR;
         }
         if self.exhausted() {
             f *= EXHAUSTED_FACTOR;
@@ -448,9 +492,10 @@ fn hours(from: f64, to: f64) -> f32 {
 /// Apply a condition's healing (and wasting) to someone's wounds from now on.
 fn apply_to_wounds(c: &Condition, w: &mut Wounds, stats: &Stats, can_die: bool) {
     w.rate = c.heal_rate();
-    // Collapsed from thirst: the torso wastes to knocked out, never further.
-    if c.thirst >= COLLAPSE && c.stage() != HungerStage::Starving {
-        w.drain = THIRST_DRAIN;
+    // Collapsed from thirst, or from what they've drunk: the torso wastes to
+    // knocked out, never further.
+    if (c.thirst >= COLLAPSE || c.tox_out) && c.stage() != HungerStage::Starving {
+        w.drain = if c.tox_out { TOX_KO_DRAIN } else { THIRST_DRAIN };
         w.drain_cap = stats.max_hp(Part::Torso) + 1.0;
         w.rally = 0.0;
         return;
@@ -700,6 +745,10 @@ impl World {
                 // doors, the top of the hour (the rain is read again).
                 for level in [THIRSTY, PARCHED, COLLAPSE] {
                     consider(c.thirst_crosses(level), Event::Stage);
+                }
+                // Toxicity falling past a stage (or far enough to come round).
+                for level in [QUEASY, SICK, TOX_WAKE] {
+                    consider(c.tox_falls_to(level), Event::Stage);
                 }
                 if self.shelter_of(pid) == Shelter::Open {
                     consider(Some(((c.at / HOUR).floor() + 1.0) * HOUR), Event::Stage);
@@ -1052,7 +1101,7 @@ impl World {
         self.log.truncate(14);
     }
 
-    pub(super) fn after_fight(&mut self, pid: PersonId, t: f64, stamina: f32, tire: f32) {
+    pub(super) fn after_fight(&mut self, pid: PersonId, t: f64, stamina: f32, tire: f32, tox: f32) {
         if self.people[pid as usize].cond.is_none() {
             return;
         }
@@ -1060,6 +1109,14 @@ impl World {
         if let Some(c) = self.people[pid as usize].cond.as_mut() {
             c.stamina = stamina.clamp(0.0, c.max_stamina);
             c.tired = (c.tired + tire).min(100.0);
+            // What they drank in the fight (it didn't drain while they fought).
+            if tox > c.tox + 1e-3 {
+                c.tox = tox.min(100.0);
+                c.tox_out |= c.tox >= TOX_COLLAPSE;
+            }
+        }
+        if self.people[pid as usize].cond.as_ref().is_some_and(|c| c.tox_out) {
+            self.settle(pid, t);
         }
     }
 }
