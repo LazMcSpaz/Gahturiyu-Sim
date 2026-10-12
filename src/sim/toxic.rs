@@ -162,7 +162,7 @@ impl World {
                 }
                 self.add_toxicity(who, e.power * NAUSEA_TOX, t);
             }
-            d if d.harmful() => self.add_boon(who, d, e.power, t + secs as f64),
+            d if d.harmful() => self.add_boon_at(who, d, e.power, t + secs as f64, t),
             _ => {
                 self.apply_effect(who, e, 1.0);
             }

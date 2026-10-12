@@ -233,3 +233,96 @@ fn every_dish_can_be_made_from_what_can_be_had() {
     }
     assert_eq!(RECIPES.iter().filter(|r| r.skill == Skill::Cooking).count(), 15, "the fifteen dishes");
 }
+
+// ---- Meal buffs (Part 5, rule 3), teas and broths (rule 6) -------------------
+
+use gahturiyu_sim::sim::effects::Does;
+
+fn graded(key: &str, g: Grade) -> items::ItemId {
+    items::variant(items::id(key), gahturiyu_sim::sim::materials::Material::None, gahturiyu_sim::sim::materials::Material::None, g).unwrap()
+}
+
+/// Member 0, hungry enough to eat anything, given `it`.
+fn fed(seed: u64, it: items::ItemId) -> (World, u32) {
+    let mut w = worldgen::generate(seed);
+    let m = w.squad.members[0];
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(it, 1);
+    w.step(1.0);
+    // (Hungry only now, so they haven't eaten it by themselves.)
+    w.people[m as usize].cond.as_mut().unwrap().hunger = 60.0;
+    (w, m)
+}
+
+fn boon(w: &World, m: u32, d: Does) -> f32 {
+    w.boons_on(m).iter().filter(|b| b.does == d).map(|b| b.power).sum()
+}
+
+#[test]
+fn a_full_meal_gives_its_buff_for_some_hours_and_raw_food_none() {
+    let (mut w, m) = fed(11, items::id("sweetroot_stew"));
+    let heal_before = w.people[m as usize].cond.as_ref().unwrap().heal_rate();
+    assert!(w.eat(m, items::id("sweetroot_stew"), w.time));
+    assert!(boon(&w, m, Does::Mending) > 0.2, "the stew mends");
+    let c = w.people[m as usize].cond.as_ref().unwrap();
+    assert!(c.heal_rate() > heal_before * 1.2, "wounds mend faster ({:.2} vs {heal_before:.2})", c.heal_rate());
+    // Six hours on, it's worn off.
+    let end = w.time + 6.5 * HOUR;
+    while w.time < end {
+        w.step(60.0);
+    }
+    assert_eq!(boon(&w, m, Does::Mending), 0.0);
+    assert_eq!(w.people[m as usize].cond.as_ref().unwrap().mending, 0.0, "and the condition knows");
+    // Roast meat fills, nothing more.
+    let (mut w, m) = fed(12, items::id("roast_meat"));
+    assert!(w.eat(m, items::id("roast_meat"), w.time));
+    assert!(w.boons_on(m).is_empty());
+}
+
+#[test]
+fn one_meal_buff_at_a_time_the_newest_replacing_it() {
+    let (mut w, m) = fed(13, items::id("sweetroot_stew"));
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("mussel_pot"), 1);
+    assert!(w.eat(m, items::id("sweetroot_stew"), w.time));
+    assert!(boon(&w, m, Does::Mending) > 0.0);
+    w.people[m as usize].cond.as_mut().unwrap().hunger = 60.0;
+    assert!(w.eat(m, items::id("mussel_pot"), w.time));
+    assert_eq!(boon(&w, m, Does::Mending), 0.0, "the stew's buff gone");
+    assert!(boon(&w, m, Does::Breath) > 0.2, "the mussel pot's in");
+    // Breath: resting, stamina comes back faster.
+    let c = w.people[m as usize].cond.as_ref().unwrap();
+    assert!(c.breath > 0.2);
+}
+
+#[test]
+fn a_better_cooked_meal_gives_a_stronger_buff() {
+    let power = |g: Grade| {
+        let it = graded("firepod_stew", g);
+        let (mut w, m) = fed(14, it);
+        assert!(w.eat(m, it, w.time));
+        boon(&w, m, Does::Warmth)
+    };
+    let (crude, common, fine) = (power(Grade::Crude), power(Grade::Common), power(Grade::Fine));
+    assert!(crude < common && common < fine, "{crude} {common} {fine}");
+}
+
+#[test]
+fn tea_and_broth_quench_thirst() {
+    let (mut w, m) = fed(15, items::id("moorbell_tea"));
+    w.people[m as usize].cond.as_mut().unwrap().thirst = 60.0;
+    let before = w.people[m as usize].cond.as_ref().unwrap().thirst;
+    assert!(w.eat(m, items::id("moorbell_tea"), w.time));
+    let after = w.people[m as usize].cond.as_ref().unwrap().thirst;
+    assert!(after < before - 20.0, "{before} -> {after}");
+    assert!(boon(&w, m, Does::Warmth) > 0.0, "and it warms");
+}
+
+#[test]
+fn a_spoiled_meal_gives_no_buff() {
+    let (mut w, m) = fed(16, items::id("sweetroot_stew"));
+    for l in w.larder.iter_mut().filter(|l| l.pid == m) {
+        l.at -= 10.0 * DAY;
+    }
+    assert_eq!(w.freshness(m, items::id("sweetroot_stew"), w.time), Fresh::Spoiled);
+    assert!(w.eat(m, items::id("sweetroot_stew"), w.time));
+    assert_eq!(boon(&w, m, Does::Mending), 0.0);
+}

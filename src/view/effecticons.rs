@@ -46,7 +46,7 @@ fn glyph(d: Does) -> (Glyph, Rgb) {
         Hide | Silent | Disguise | Gloom => (Glyph::Hidden, [0.62, 0.66, 0.80]),
         Glow | Nightsight | SenseLife | KeenSenses => (Glyph::Light, [1.0, 0.95, 0.70]),
         d if d.harmful() => (Glyph::Down, [0.95, 0.42, 0.34]),
-        Attr(_) | Skill(_) | Haste | MoveSpeed | MaxEnergy | EnergyRegen | Carry | Lighten | Sustain | DomainPower(_) | DeepBreath => (Glyph::Up, [0.55, 0.92, 0.55]),
+        Attr(_) | Skill(_) | Haste | MoveSpeed | MaxEnergy | EnergyRegen | Carry | Lighten | Sustain | DomainPower(_) | DeepBreath | Breath | Mending => (Glyph::Up, [0.55, 0.92, 0.55]),
         _ => (Glyph::Dot, [0.80, 0.80, 0.80]),
     }
 }

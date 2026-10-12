@@ -190,7 +190,12 @@ impl World {
     /// condition starts a new piece here, so what it changes (load, hunger)
     /// counts from exactly now.
     pub(super) fn add_boon(&mut self, pid: PersonId, does: Does, power: f32, until: f64) {
-        let t = self.time;
+        self.add_boon_at(pid, does, power, until, self.time);
+    }
+
+    /// The same, as of `t` (something on the condition timeline, like a
+    /// meal eaten at its moment: rule 8).
+    pub(super) fn add_boon_at(&mut self, pid: PersonId, does: Does, power: f32, until: f64, t: f64) {
         self.boons.retain(|b| !(b.pid == pid && b.does == does));
         self.boons.push(Boon { pid, does, power, until });
         if self.people[pid as usize].cond.is_some() {
