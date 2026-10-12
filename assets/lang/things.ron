@@ -78,6 +78,7 @@
     (english: "Alchemy", group: Craft, belongs: Some(Tadoro), made: "brew+work"),
     (english: "Handcraft", group: Craft, made: "hand+work", also: ["Leather, cloth and woodwork"]),
     (english: "Carpentry", group: Craft, made: "timber+work"),
+    (english: "Cooking", group: Craft, made: "cook+work"),
 
     // ==== Materials and goods (materials.rs, the goods in jobs.rs, items.rs) =====
     // Grown stone: Roduro.
@@ -379,6 +380,24 @@
     (english: "Duskseed", group: Food, made: "dusk+seed"),
     (english: "Gold thread", group: Food, made: "gold+grass"),
     (english: "Bluestem oil", group: Food, made: "blue+oil"),
+    (english: "Raw fish", group: Food, made: "wild+fish"),
+    (english: "Mossback milk", group: Food, made: "white+drink"),
+    (english: "Mossback cheese", group: Food, made: "white+food"),
+    (english: "Roast meat", group: Food, made: "fire+meat"),
+    (english: "Spit-roast fish", group: Food, made: "fire+fish"),
+    (english: "Fried puffcaps", group: Food, made: "oil+head"),
+    (english: "Camp porridge", group: Food, made: "soft+grain"),
+    (english: "Moorbell tea", group: Food, made: "flower+drink"),
+    (english: "Sweetroot stew", group: Food, made: "sweet+pot"),
+    (english: "Fish and kale broth", group: Food, made: "fish+pot"),
+    (english: "Mussel pot", group: Food, made: "shell+pot"),
+    (english: "Stonebean stew", group: Food, made: "seed+pot"),
+    (english: "Hardgrain bread", group: Food, made: "strong+bread"),
+    (english: "Shellhen bake", group: Food, made: "egg+hearth"),
+    (english: "Ashberry-glazed meat", group: Food, made: "ember+meat"),
+    (english: "Trail cake", group: Food, made: "road+bread"),
+    (english: "Stoneapple cake", group: Food, made: "sweet+bread"),
+    (english: "Firepod stew", group: Food, made: "burn+pot"),
     (english: "Ember oil", group: Food, made: "ember+oil"),
     (english: "Healing draught", group: Food, made: "heal+drink"),
     (english: "Greater healing draught", group: Food, made: "whole+drink"),
@@ -492,6 +511,8 @@
     (english: "Weaver's frame", group: Station, belongs: Some(Horaro), made: "weave+pillar"),
     (english: "Workbench", group: Station, made: "work+board"),
     (english: "Grower's bed", group: Station, belongs: Some(Roduro), made: "grow+hollow"),
+    (english: "Campfire", group: Station, made: "rest+fire"),
+    (english: "Stove", group: Station, made: "cook+hearth"),
 
     // ==== What the squad can build (base.rs) ====================================
     (english: "Camp marker", group: BaseBuilding, made: "rest+pillar"),

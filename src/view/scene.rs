@@ -763,6 +763,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 b.block(base, 2.4, 1.6, 0.35, a, palette::STONE);
                 b.dome(base + vec3(0.0, 0.35, 0.0), 0.6, 0.5, 0.5, 0.1, 0.12, 7, palette::STONE);
             }
+            // (Not listed among the stations: a fire and a hearth draw themselves.)
+            Station::Campfire | Station::Stove => {}
         }
         game.picks.push((base + vec3(0.0, 1.3, 0.0), 2.0, Hover::Station(i)));
     }

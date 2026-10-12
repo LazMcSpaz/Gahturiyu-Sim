@@ -24,7 +24,7 @@ use super::world::World;
 const MAGIC: &[u8; 4] = b"GAHT";
 /// Bumped whenever what's saved changes shape; older saves are refused
 /// rather than misread.
-pub const FORMAT: u32 = 68;
+pub const FORMAT: u32 = 69;
 
 #[derive(Debug)]
 pub enum LoadError {

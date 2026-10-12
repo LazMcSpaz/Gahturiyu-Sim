@@ -156,8 +156,9 @@ pub fn status(w: &World, pid: PersonId, k: usize) -> (&'static str, Rgb) {
         };
         return (place, SNEAK);
     }
-    if w.crafting.iter().any(|j| j.who == pid) {
-        return ("Crafting", GOLD);
+    if let Some(j) = w.crafting.iter().find(|j| j.who == pid) {
+        let cooking = gahturiyu_sim::sim::crafting::RECIPES[j.recipe].skill == Skill::Cooking;
+        return (if cooking { "Cooking" } else { "Crafting" }, GOLD);
     }
     if w.ritual_progress(pid).is_some() {
         return ("Performing a ritual", RITUAL);
@@ -555,6 +556,8 @@ pub fn crafting(c: &Canvas, w: &World, pid: PersonId, mouse: Vec2, click: Option
             Err(Cannot::Missing(..)) => w.craft_blockers(pid, i).iter().find_map(|b| if let Cannot::NoStation(s) = b { Some(format!("at the {}", s.name().to_lowercase())) } else { None }).unwrap_or_default(),
             Err(Cannot::Busy) => "busy".into(),
             Err(Cannot::Unknown(_)) => "learn first".into(),
+            Err(Cannot::NoPot) => "needs a pot".into(),
+            Err(Cannot::NoWater) => "needs water".into(),
         };
         c.text(&why, r.x + r.w - c.width(&why, 13.0) - 14.0, y, 13.0, if ok.is_ok() { GOLD } else { WARN });
         if ok.is_ok() && click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {

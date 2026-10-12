@@ -423,6 +423,12 @@ pub fn info(id: ItemId) -> &'static ItemInfo {
     &catalogue().info[id as usize]
 }
 
+/// Is this a cooked dish (any grade)?
+pub fn is_dish(id: ItemId) -> bool {
+    let form = info(id).form;
+    food::DISHES.contains(&item(form).key)
+}
+
 /// The version of `form` in these materials at this grade, if there is one.
 pub fn variant(form: ItemId, main: Material, second: Material, grade: Grade) -> Option<ItemId> {
     catalogue().variants.get(&(form, main, second, grade)).copied()
@@ -624,6 +630,28 @@ impl Catalogue {
                         variants.insert((fid, main, second, grade), id);
                     }
                 }
+            }
+        }
+        // Dishes come in grades too, with no material (0.6).
+        for &key in food::DISHES {
+            let fid = ITEMS.iter().position(|d| d.key == key).unwrap_or_else(|| panic!("dish {key} has no item")) as ItemId;
+            let base = ITEMS[fid as usize];
+            for (g, grade) in GRADES.into_iter().enumerate() {
+                if grade == Grade::Common {
+                    variants.insert((fid, M::None, M::None, grade), fid);
+                    continue;
+                }
+                let Kind::Food(n) = base.kind else { panic!("dish {key} isn't food") };
+                let id = defs.len() as ItemId;
+                defs.push(ItemDef {
+                    key: leak(format!("{key}~{grade:?}")),
+                    name: leak(format!("{} {}", grade.name(), base.name.to_lowercase())),
+                    kind: Kind::Food(n * food::DISH_FILLS[g]),
+                    value: (base.value * grade.worth()).max(1.0),
+                    ..base
+                });
+                info.push(ItemInfo { form: fid, main: M::None, second: M::None, grade });
+                variants.insert((fid, M::None, M::None, grade), id);
             }
         }
         let by_key = defs.iter().enumerate().map(|(i, d)| (d.key, i as ItemId)).collect();

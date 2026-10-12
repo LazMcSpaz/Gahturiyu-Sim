@@ -22,7 +22,7 @@ use super::world::{World, DAY};
 
 /// Raw food, for cooking (or a hound): eaten only when there's nothing
 /// else, not first because it's going off.
-pub const RAW: &[&str] = &["raw_meat"];
+pub const RAW: &[&str] = &["raw_meat", "fish"];
 
 /// Shelf life in days, by food. TODO(items): a field on the food line
 /// (`Kind::Food`) once the food data grows; the rest keep `SHELF_DEFAULT`.
@@ -34,6 +34,26 @@ pub const SHELF: &[(&str, f32)] = &[
     ("mussels", 2.0),
     ("raw_meat", 2.0),
     ("egg", 7.0),
+    ("fish", 2.0),
+    ("milk", 2.0),
+    ("cheese", 20.0),
+    // Dishes: cooked food keeps a few days; bread for weeks, trail cake
+    // for months (0.6).
+    ("roast_meat", 3.0),
+    ("spit_fish", 2.0),
+    ("fried_puffcaps", 2.0),
+    ("camp_porridge", 2.0),
+    ("moorbell_tea", 1.0),
+    ("sweetroot_stew", 3.0),
+    ("fish_broth", 2.0),
+    ("mussel_pot", 2.0),
+    ("stonebean_stew", 3.0),
+    ("hardgrain_bread", 21.0),
+    ("shellhen_bake", 3.0),
+    ("glazed_meat", 4.0),
+    ("trail_cake", 90.0),
+    ("stoneapple_cake", 6.0),
+    ("firepod_stew", 3.0),
 ];
 pub const SHELF_DEFAULT: f32 = 5.0;
 /// Stale once this share of its shelf life is left.

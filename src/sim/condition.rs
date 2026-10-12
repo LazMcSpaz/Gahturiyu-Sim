@@ -79,6 +79,8 @@ pub const HUNGER_LOAD: f32 = 0.6;
 pub const SHARE_REACH: f32 = 40.0;
 /// Members eat when hunger reaches this, if they have food.
 pub const EAT_AT: f32 = 35.0;
+/// What spoiled food does (0.6): the stomach turns, a little toxicity.
+pub const SPOILED_NAUSEA: super::effects::Effect = super::effects::lasting(super::effects::Does::Nausea, 0.5, 40.0, super::effects::Reach::Caster);
 /// Stage thresholds.
 pub const HUNGRY: f32 = 40.0;
 pub const WEAK: f32 = 65.0;
@@ -692,12 +694,14 @@ impl World {
             apply_to_wounds(&c, &mut p.wounds, &stats, p.in_squad);
         }
         p.recompute_might();
+        // Spoiled food turns the stomach: Nausea, with a little toxicity.
+        if own.is_some() && fresh == super::spoil::Fresh::Spoiled {
+            self.take_dose_at(pid, &SPOILED_NAUSEA, t);
+        }
+        let p = &self.people[pid as usize];
         let name = p.name().unwrap_or("someone").to_string();
         let line = match (shared_by, fresh) {
             (Some(g), _) => format!("{} shares some {} with {name}.", self.people[g as usize].name().unwrap_or("Someone"), item(it).name.to_lowercase()),
-            // TODO(alchemy): spoiled food gives Nausea (with a little
-            // toxicity) once that effect exists (Part 4); until then it only
-            // fills little.
             (None, super::spoil::Fresh::Spoiled) => format!("{name} eats some spoiled {} and feels sick.", item(it).name.to_lowercase()),
             (None, super::spoil::Fresh::Stale) => format!("{name} eats some stale {}.", item(it).name.to_lowercase()),
             (None, super::spoil::Fresh::Fresh) => format!("{name} eats some {}.", item(it).name.to_lowercase()),
