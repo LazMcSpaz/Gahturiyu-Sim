@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-563 things: 192 belong to one people, 371 are shared.
+569 things: 198 belong to one people, 371 are shared.
 
 ## Jobs
 
@@ -301,6 +301,12 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Stone spirit | Roduro | **Doqoshaʻi** | doh-koh-SHAH-ee | stone-spirit |
 | Sacrament spirit | Qotiro | **Kaxtrok** | KAKH-trok | rite-fire |
 | Gold thread cordial | Ṭaḍoro | **Iyutheyi** | ee-yoo-theh-YEE | gold-drink |
+| Hall incense | Qotiro | **Pakmek** | PAK-mek | hall-smoke |
+| Ghost incense | Qotiro | **Xeqmek** | KHEK-mek | spirit-smoke |
+| Sun incense | Qotiro | **Tonmek** | TON-mek | sun-smoke |
+| Drift smoke | Roduro | **Ḍireḍequ** | dee-reh-DEH-koo | heath-smoke |
+| Elder's blend | Roduro | **Tuḍuḍequ** | too-doo-DEH-koo | elder-smoke |
+| Sweet water-pipe blend | Ṭaḍoro | **Wehuwesi** | weh-hoo-weh-SEE | sweet-smoke |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|

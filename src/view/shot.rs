@@ -48,8 +48,8 @@ pub struct Shot {
     /// (member 0 practised, member 1 new to it and carrying some of the
     /// materials, member 2 a little way off), its making screen open.
     pub make: Option<String>,
-    /// `GAHT_DRINK=1`: the squad in drink: member 0 very drunk, 1 drunk, 2
-    /// tipsy, 3 hungover (the meter on the squad list, the sway).
+    /// `GAHT_DRINK=1`: the squad in drink and smoke: member 0 very drunk, 1 drunk, 2
+    /// tipsy and hazy from a pipe, 3 hungover (the meters on the squad list, the sway, the puff).
     pub drink: bool,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
@@ -457,6 +457,16 @@ impl Shot {
                         world.squad.resting[i] = false;
                     }
                 }
+            }
+            // The tipsy one has a pipe or two as well (hazy, the puff).
+            if let Some(&p) = m.get(2) {
+                let blend = gahturiyu_sim::sim::items::id("elders_blend");
+                if let Some(d) = world.people[p as usize].detail.as_mut() {
+                    d.gear.add(gahturiyu_sim::sim::items::id("pipe"), 1);
+                    d.gear.add(blend, 2);
+                }
+                world.smoke(p, blend);
+                world.smoke(p, blend);
             }
             world.step(1.0);
         }

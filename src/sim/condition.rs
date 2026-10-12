@@ -268,11 +268,27 @@ pub struct Condition {
     /// What their last drink's small effect was (one at a time).
     #[serde(default)]
     pub drink_buff: Option<super::effects::Does>,
+    /// How high, 0..100, draining (`haze.rs`); whether they've smoked since
+    /// their head last cleared; their last smoke's small effect.
+    #[serde(default)]
+    pub haze: f32,
+    #[serde(default)]
+    pub haze_seen: f32,
+    #[serde(default)]
+    pub smoke_buff: Option<super::effects::Does>,
+    /// A smoking habit, their last smoke, and how badly they crave one this
+    /// piece (0 none, 1 mild, 2 hard; read at the settle).
+    #[serde(default)]
+    pub habit: bool,
+    #[serde(default)]
+    pub last_smoke: f64,
+    #[serde(default)]
+    pub craving: u8,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, haze: 0.0, haze_seen: 0.0, smoke_buff: None, habit: false, last_smoke: 0.0, craving: 0 }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -284,7 +300,7 @@ impl Condition {
         let hold = if self.holding { super::casting::STAMINA_HOLD } else { 0.0 };
         // (Thirsty, breath comes back slower: read at the last settle, the
         // stage line being a step on the timeline.)
-        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 } * if self.hungover { super::drunk::HANGOVER_BREATH } else { 1.0 };
+        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 } * if self.hungover { super::drunk::HANGOVER_BREATH } else { 1.0 } * if self.haze_stage() >= super::haze::Haze::Mellow { super::haze::MELLOW_BREATH } else { 1.0 };
         match self.activity {
             Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
             Activity::Resting | Activity::Sleeping => STAMINA_REST * dry * (1.0 + self.breath) - hold,
@@ -423,6 +439,11 @@ impl Condition {
     /// Bring the values forward to `t` and start a new piece there.
     pub fn settle(&mut self, t: f64) {
         self.drunk = self.drunk_at(t);
+        self.haze = self.haze_at(t);
+        if self.habit && t >= super::haze::craving_times(self.last_smoke)[2] {
+            self.habit = false;
+        }
+        self.craving = self.craving_at(t);
         self.thirst = self.thirst_at(t);
         self.tox = self.tox_at(t);
         if self.tox_out && self.tox <= TOX_WAKE + 1e-3 {
@@ -472,6 +493,38 @@ impl Condition {
         (self.drunk > level + 1e-4).then(|| self.at + ((self.drunk - level) / super::drunk::DRUNK_DRAIN) as f64 * HOUR)
     }
 
+    /// How high at `t` (it drains at `haze::HAZE_DRAIN`).
+    pub fn haze_at(&self, t: f64) -> f32 {
+        (self.haze - super::haze::HAZE_DRAIN * hours(self.at, t)).max(0.0)
+    }
+
+    /// When haze falls to `level`, if it's above it now.
+    pub fn haze_falls_to(&self, level: f32) -> Option<f64> {
+        (self.haze > level + 1e-4).then(|| self.at + ((self.haze - level) / super::haze::HAZE_DRAIN) as f64 * HOUR)
+    }
+
+    /// How high they are (as of the last settle).
+    pub fn haze_stage(&self) -> super::haze::Haze {
+        super::haze::Haze::of(self.haze)
+    }
+
+    /// How badly they crave a smoke at `t`: 0 none, 1 mild, 2 hard.
+    pub fn craving_at(&self, t: f64) -> u8 {
+        if !self.habit {
+            return 0;
+        }
+        let [mild, hard, gone] = super::haze::craving_times(self.last_smoke);
+        if t >= gone {
+            0
+        } else if t >= hard {
+            2
+        } else if t >= mild {
+            1
+        } else {
+            0
+        }
+    }
+
     /// The stage of drink they're at (as of the last settle).
     pub fn drunk_stage(&self) -> super::drunk::Drunk {
         super::drunk::Drunk::of(self.drunk)
@@ -481,6 +534,9 @@ impl Condition {
         let mut f = if self.exhausted() { EXHAUSTED_PACE } else { 1.0 };
         if self.drunk_stage() == super::drunk::Drunk::VeryDrunk {
             f *= super::drunk::STUMBLE_PACE;
+        }
+        if self.haze_stage() >= super::haze::Haze::Hazy {
+            f *= super::haze::HAZY_PACE;
         }
         // Slower as breath runs out, to half pace with none left.
         let share = self.stamina_at(t) / self.max_stamina.max(1.0);
@@ -845,6 +901,17 @@ impl World {
                 if c.hungover && c.hangover_until > c.at {
                     consider(Some(c.hangover_until), Event::Stage);
                 }
+                // Smoke wearing off; a habit's cravings turning, or fading.
+                for level in [super::haze::STUPOR, super::haze::HAZY, super::haze::MELLOW, 0.0] {
+                    consider(c.haze_falls_to(level), Event::Sober);
+                }
+                if c.habit {
+                    for tc in super::haze::craving_times(c.last_smoke) {
+                        if tc > c.at {
+                            consider(Some(tc), Event::Stage);
+                        }
+                    }
+                }
                 if self.shelter_of(pid) == Shelter::Open {
                     consider(Some(((c.at / HOUR).floor() + 1.0) * HOUR), Event::Stage);
                 }
@@ -942,6 +1009,7 @@ impl World {
                     Event::Sober => {
                         self.settle(pid, t);
                         self.sobered(pid, t);
+                        self.haze_eased(pid, t);
                     }
                     Event::Starved => {
                         self.settle(pid, t);

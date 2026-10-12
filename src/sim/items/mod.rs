@@ -26,6 +26,7 @@ pub type ItemId = u16;
 mod armour;
 mod clothing;
 mod drinks;
+mod smokes;
 mod food;
 pub mod goods;
 pub mod herbs;
@@ -292,6 +293,9 @@ pub enum Kind {
     /// Drunk for pleasure (0.6, "Alcohol"): this much drunker a bottle makes
     /// you (0..100), and its one small effect (`ItemDef::effects`).
     Drink(f32),
+    /// Smoked or burned (0.6, "Smokes"): this much higher one makes you
+    /// (0..100), and its one small effect.
+    Smoke(f32),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -391,7 +395,7 @@ const fn trinket(key: &'static str, name: &'static str, slot: Slot, weight: f32,
 /// The whole catalogue, in the order of the files that hold it. An `ItemId`
 /// is an index into this list (and the made versions after it, `Catalogue`).
 pub static ITEMS: std::sync::LazyLock<Vec<ItemDef>> = std::sync::LazyLock::new(|| {
-    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS, goods::ITEMS, herbs::ITEMS, drinks::ITEMS].concat()
+    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS, goods::ITEMS, herbs::ITEMS, drinks::ITEMS, smokes::ITEMS].concat()
 });
 
 /// Can this be worn or held (rather than used up or crafted with)?
@@ -428,6 +432,11 @@ pub fn info(id: ItemId) -> &'static ItemInfo {
 }
 
 pub use food::DISH_FILLS;
+
+/// Is this smoke a pipe blend (wanting a pipe)?
+pub fn smoked_in_a_pipe(id: ItemId) -> bool {
+    smokes::PIPE_BLENDS.contains(&item(info(id).form).key)
+}
 
 /// A drink's other sides: thirst it takes away (negative: adds), and the
 /// toxicity it adds.
@@ -559,7 +568,7 @@ pub fn ingredient(id: ItemId) -> Option<&'static herbs::Ingredient> {
 
 /// Grid cells by form key, from the files above.
 static SIZES: std::sync::LazyLock<Vec<(&'static str, u8, u8)>> = std::sync::LazyLock::new(|| {
-    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES, goods::SIZES, herbs::SIZES, drinks::SIZES].concat()
+    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES, goods::SIZES, herbs::SIZES, drinks::SIZES, smokes::SIZES].concat()
 });
 
 /// How many cells it takes in a pack's grid, (wide, tall), standing upright
@@ -622,7 +631,7 @@ const fn f(key: &'static str, noun: &'static str, usual: Material, mains: &'stat
 /// Forgeiron spine, Nacre scales on a Slatewing frame); any listed pairing
 /// can turn up.
 pub static FORMS: std::sync::LazyLock<Vec<Form>> = std::sync::LazyLock::new(|| {
-    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS, goods::FORMS, herbs::FORMS, drinks::FORMS].concat()
+    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS, goods::FORMS, herbs::FORMS, drinks::FORMS, smokes::FORMS].concat()
 });
 
 fn leak(s: String) -> &'static str {

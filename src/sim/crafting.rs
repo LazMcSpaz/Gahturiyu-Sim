@@ -1104,6 +1104,7 @@ impl World {
             return Some(format!("Pitch it where you want it (right-click the ground): it takes {} minutes, then up to {} can sleep in it.", (super::bedding::PITCH_SECS / 60.0).round(), super::bedding::IN_TENT));
         }
         match item(it).kind {
+            Kind::Smoke(_) => self.why_cant_smoke(who, it),
             Kind::Food(_) | Kind::Drink(_) | Kind::StandingTorch(_) | Kind::Notes(_) | Kind::Text(_) | Kind::Manual(_) | Kind::Potion => None,
             Kind::Scroll(key) => {
                 let sp = super::magic::spell(key).def();
@@ -1131,6 +1132,9 @@ impl World {
         }
         if let Kind::Drink(_) = item(it).kind {
             return self.drink(who, it);
+        }
+        if let Kind::Smoke(_) = item(it).kind {
+            return self.smoke(who, it);
         }
         if let Kind::StandingTorch(_) = item(it).kind {
             return self.place_torch(who);

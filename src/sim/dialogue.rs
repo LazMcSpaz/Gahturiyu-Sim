@@ -338,6 +338,8 @@ impl World {
         d += self.boon(with, super::effects::Does::Sway);
         // In drink: merrier company when tipsy, worse past it.
         d += self.drunk_talk(with);
+        // Smoke: easier company when mellow; craving one, short-tempered.
+        d += self.haze_talk(with);
         // Finery on show (0.4).
         d += self.finery_respect(with);
         d.clamp(0.0, 100.0)
