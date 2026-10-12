@@ -211,6 +211,7 @@ impl World {
                 styles.push(layout::style_for(b.kind, b.size, b.seed, &jobs).map(|v| v.key));
             }
             self.settlements[t].styles = styles;
+            self.solid_changed();
             self.settlements[t].sleepers = sleepers;
         }
     }

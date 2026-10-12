@@ -331,6 +331,7 @@ impl World {
         let pos = at.add(V2::new(a.cos(), a.sin()).scale(STASH_OUT));
         let items = stash_stock(self.seed, n);
         self.containers.insert(id, Container { id, what: Holder::Chest, pos, rot: a, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0, ours: Vec::new() });
+        self.solid_changed();
         id
     }
 

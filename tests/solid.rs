@@ -53,6 +53,7 @@ fn with_every_variant() -> (World, Vec<(u16, &'static layout::Variant)>) {
         made.push((i, v));
     }
     w.settlements[0].reach += 600.0 + made.len() as f32 * 70.0;
+    w.solid_changed();
     (w, made)
 }
 
@@ -476,10 +477,11 @@ fn ids_last_through_a_save_and_what_changes_is_followed() {
     assert_eq!(before, all_things(&w.clone()), "a copy of the world has the same list");
     let back = World::load_bytes(&w.save_bytes()).expect("loads");
     assert_eq!(before, all_things(&back), "and so does a saved game loaded");
-    // A workplace moved (a town laid out again) is followed without being told.
+    // A workplace moved (a town laid out again) is followed once told.
     let j = w.society.towns[0].places.iter().position(|p| p.kind == PlaceKind::Hall).expect("a hall");
     let was = w.solid(Id::Place(0, j as u16, 0)).unwrap();
     w.society.towns[0].places[j].pos = was.shape.centre().add(V2::new(3.0, 0.0));
+    w.solid_changed();
     let now = w.solid(Id::Place(0, j as u16, 0)).unwrap();
     assert!(now.shape.centre().dist(was.shape.centre().add(V2::new(3.0, 0.0))) < 1e-3, "the hall's outline moved with it");
     // What comes and goes: a standing torch while it burns, by an id that stays.

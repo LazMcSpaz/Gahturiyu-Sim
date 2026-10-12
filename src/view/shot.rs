@@ -1151,6 +1151,7 @@ fn variants_row(world: &mut World, which: &str, open: bool) -> Option<(V2, f32, 
         s.buildings.push(Building { pos, kind: v.kind, size, rot: std::f32::consts::FRAC_PI_2, seed });
         s.reach = s.reach.max(pos.dist(s.pos) + size);
     }
+    world.solid_changed();
     let centre = origin.add(V2::new(0.0, -depth * 0.5 + 4.0));
     let dist = (width * 0.8).max(depth * 1.5) + 12.0;
     Some((centre, dist, if open { 0.95 } else { 0.62 }, Some(std::f32::consts::FRAC_PI_2)))

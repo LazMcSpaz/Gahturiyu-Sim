@@ -391,6 +391,7 @@ fn every_variant_can_be_walked_into() {
         s.buildings.push(Building { pos: spot, kind: v.kind, size, rot, seed });
         s.reach = s.reach.max(s.pos.dist(spot) + size);
         let i = (s.buildings.len() - 1) as u16;
+        w.solid_changed();
         let d = door_of(&w.settlements[t], i).expect("a door");
         assert_eq!(d.variant().key, v.key, "door_of gives the variant");
         assert_eq!(d.round, v.shape == Shape::Round);
@@ -432,6 +433,7 @@ fn every_variant_can_be_walked_into() {
         // Out of the way for the next one.
         w.teleport_squad(spot.add(V2::new(40.0, 0.0)));
         w.settlements[t].buildings[i as usize].pos = V2::new(-1.0e6, -1.0e6);
+        w.solid_changed();
     }
 }
 

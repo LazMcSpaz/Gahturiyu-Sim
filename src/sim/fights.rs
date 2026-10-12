@@ -236,6 +236,7 @@ impl World {
         self.add_group(g);
         let stash = Some(self.make_stash(at));
         self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash, known: Default::default() });
+        self.solid_changed();
         self.scan_camp(self.camps.len() - 1);
         gid
     }
@@ -596,6 +597,7 @@ impl World {
             if alive.is_empty() {
                 self.groups[gi].ends = t;
                 self.camps.retain(|cp| cp.group != gid);
+                self.solid_changed();
                 continue;
             }
             // The middle of those of them who were in the fight (some may
