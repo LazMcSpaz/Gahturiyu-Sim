@@ -85,6 +85,9 @@ pub const STATIONS: [Station; 7] = [Station::Forge, Station::Bench, Station::Des
 
 /// How close to a station you must stand to use it, metres.
 pub const AT_STATION: f32 = 3.0;
+/// How far inside something a station can be and still be worked from
+/// beside it (the middle of the biggest roofed workplace), metres.
+const STATION_DEEP: f32 = 6.0;
 /// A grower must be this near their bed at dawn for the stone to have grown
 /// that day (they've been round to tend it).
 pub const TENDING_REACH: f32 = 200.0;
@@ -544,7 +547,15 @@ impl World {
     /// forge; both playtests stood in the "Maker's forge" and were told
     /// there was none).
     pub fn station_near(&self, p: V2, kind: Station) -> Option<V2> {
-        self.stations.iter().filter(|(_, k)| *k == kind).map(|(s, _)| *s).find(|s| s.dist(p) <= AT_STATION).or_else(|| self.station_indoors(p, kind))
+        self.stations.iter().filter(|(_, k)| *k == kind).map(|(s, _)| *s).find(|&s| self.at_station(s, p)).or_else(|| self.station_indoors(p, kind))
+    }
+
+    /// Is `p` within reach of the station at `s`? Within `AT_STATION` of it,
+    /// or of the nearest spot beside it a walker can stand on: a roofed
+    /// workplace's station is at its middle, which nobody can stand by.
+    fn at_station(&self, s: V2, p: V2) -> bool {
+        let d = s.dist(p);
+        d <= AT_STATION || (d <= AT_STATION + STATION_DEEP && self.free_spot(s).dist(p) <= AT_STATION)
     }
 
     /// The building `p` is in, if its furniture includes this station. The
@@ -600,7 +611,7 @@ impl World {
     /// The bench at or beside a spot, if there's one: a station standing
     /// within reach, or the one in the building the spot is in.
     pub fn bench_at(&self, p: V2) -> Option<Bench> {
-        let open = self.stations.iter().filter(|(s, _)| s.dist(p) <= AT_STATION).min_by(|a, b| a.0.dist(p).total_cmp(&b.0.dist(p))).map(|&(s, k)| (s, k));
+        let open = self.stations.iter().filter(|(s, _)| self.at_station(*s, p)).min_by(|a, b| a.0.dist(p).total_cmp(&b.0.dist(p))).map(|&(s, k)| (s, k));
         let (at, station) = open.or_else(|| STATIONS.iter().find_map(|&k| self.station_indoors(p, k).map(|c| (c, k))))?;
         Some(Bench { station, at, place: self.bench_place(at, station), carried_by: None })
     }

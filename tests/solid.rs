@@ -82,7 +82,17 @@ fn every_building_variant_and_everything_in_it_is_listed() {
                 layout::Thing::Extra(_) => continue,
             };
             let t = w.solid(id).unwrap_or_else(|| panic!("{}: {id:?} is listed", v.key));
-            assert_eq!(t.shape, Shape::Box(r), "{}: {id:?} has its footprint", v.key);
+            // (An inner wall of a round building stops at the outer wall.)
+            match (what, t.shape) {
+                (layout::Thing::Wall(_), Shape::Box(got)) if d.round => {
+                    assert!(got.rot == r.rot && got.hd == r.hd && got.hw <= r.hw + 1e-3 && got.hw > 0.3, "{}: {id:?} is its wall, cut to the outline", v.key);
+                    let [u, _] = got.axes();
+                    for end in [got.c.sub(u.scale(got.hw)), got.c.add(u.scale(got.hw))] {
+                        assert!(th.shape.grown(0.05).contains(end), "{}: {id:?} ends inside the outer wall", v.key);
+                    }
+                }
+                _ => assert_eq!(t.shape, Shape::Box(r), "{}: {id:?} has its footprint", v.key),
+            }
             assert_eq!(t.within, Some(th.id));
             let flat = matches!(t.what, What::Furniture(Furn::Bedroll | Furn::Screen));
             assert_eq!(t.blocks, !flat, "{}: {id:?}", v.key);
@@ -141,6 +151,11 @@ fn every_building_of_every_town_is_listed() {
                     let n = layout::footprints(&d).len();
                     let inside = set.things.iter().filter(|t| t.within == Some(Id::Building(s.id, i)) && !matches!(t.id, Id::Door(..))).count();
                     assert_eq!(inside, n, "seed {seed}: {}'s building {i} has everything in it", s.name);
+                    // And none of it reaches out through the walls.
+                    let shell = set.things.iter().find(|t| t.id == Id::Building(s.id, i)).unwrap().shape.grown(0.15);
+                    for t in set.things.iter().filter(|t| t.within == Some(Id::Building(s.id, i)) && !matches!(t.id, Id::Door(..))) {
+                        assert!(t.shape.outline().corners().iter().all(|&c| shell.contains(c)), "seed {seed}: {:?} is inside its walls", t.id);
+                    }
                 }
             }
         }

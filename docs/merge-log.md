@@ -109,6 +109,7 @@ Every branch that existed on 10 Oct 2026 is in `main` as of step 4. Branches for
 | `fix/play-ui` (primary) | Merge commits, several times through the day | `1df41f7`, `4c97152`, `c0c6146` | Full suite on Windows before each. |
 | `fix/solid-world` stage 1 (cloud B) | Made from `d2cb42f`; `main` had moved but the merge was clean, so the primary merged it and tested the result | `d4237fd` | 77 groups, 626 passed, 0 failed, 16 ignored (Windows). |
 | `fix/play-fights-talk` (cloud C) | The primary merged `main` into it, bumped `save::FORMAT` to 57 for `Battle::ground`, and merged in the session's own earlier sync | `877e09f` | 78 groups, 631 passed, 0 failed, 16 ignored (Windows). |
+| `fix/solid-world` stage 2 (second local session; tip `795963b`) | Merge commit. The branch had `main` at `cdddea0` merged in (one clash in `combat.rs`, both sides kept), so the result is identical to its tip. One way-finder for everyone, indoor walks, reachable chests, Roduro room layouts, arrival checks (P21, P22). No save shape change (`Battle::around` is not saved), no `Cargo.toml` change. Left open: `headless 3 1` takes 29 s against 16.5 s before (townsfolk standing-spot lookups re-check the solid lists) | see `git log --first-parent main` | 80 groups, 645 passed, 0 failed, 16 ignored (Windows, 8 threads). |
 
 ### Still to do
 

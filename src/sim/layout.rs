@@ -257,18 +257,21 @@ pub const VARIANTS: &[Variant] = &[
         weight: 3,
         door: -0.3,
         storeys: 1,
-        // Split down the middle: the hall with the hearth, and the sleeping
-        // room (two beds with their heads to the far wall, a chest between).
+        // Split down the middle: the hall with the hearth (a bench by it, the
+        // cupboard under the shelf), and the sleeping room (two beds with
+        // their heads to the far wall, a chest between; one bed stands a
+        // little further in, so there's a way round its foot to the chest).
+        // Everything can be got to at every size (`tests/buildings.rs`).
         walls: &[w((1.0, 0.05), (-1.0, 0.05), Some(0.2))],
         furniture: &[
-            f(Hearth, 0.1, -0.45, 0.0),
+            f(Hearth, -0.05, -0.48, 0.0),
             f(Table, -0.49, -0.4, Q),
-            f(Bench, -0.23, -0.4, Q),
+            f(Bench, 0.19, -0.61, Q),
             f(Bed, -0.49, 0.35, Q),
-            f(Bed, 0.21, 0.35, Q),
+            f(Bed, 0.26, 0.51, Q),
             f(Shelf, -0.42, -0.04, 0.0),
         ],
-        holders: &[h(Cupboard, -0.13, -0.77, 0.0), h(Chest, -0.14, 0.725, 0.0), h(Barrel, 0.44, -0.6, 0.0)],
+        holders: &[h(Cupboard, -0.57, -0.15, 0.0), h(Chest, -0.13, 0.72, 0.0), h(Barrel, 0.44, -0.6, 0.0)],
     },
     Variant {
         key: "roduro_tender",
@@ -321,7 +324,7 @@ pub const VARIANTS: &[Variant] = &[
         kind: K::RoduroHome,
         shape: Shape::Round,
         use_: Use::Workshop,
-        half: (0.45, 0.5),
+        half: (0.5, 0.5),
         sizes: (8.0, 13.0),
         weight: 2,
         door: -0.2,
@@ -331,13 +334,13 @@ pub const VARIANTS: &[Variant] = &[
         walls: &[w((-0.25, -1.0), (-0.25, 1.0), Some(0.7))],
         furniture: &[
             f(Loom, 0.1, -0.6, 0.0),
-            f(Loom, 0.45, -0.25, Q),
-            f(Table, 0.3, 0.55, Q),
+            f(Loom, 0.31, -0.29, Q),
+            f(Table, 0.31, 0.54, Q),
             f(Bed, -0.57, 0.3, Q),
             f(Hearth, -0.57, -0.42, 0.0),
             f(Shelf, -0.81, -0.03, Q),
         ],
-        holders: &[h(Crate, 0.6, 0.15, 0.0), h(Cupboard, -0.05, 0.75, 0.0), h(Chest, -0.45, -0.04, 0.0), h(Barrel, -0.4, -0.65, 0.0)],
+        holders: &[h(Crate, 0.6, 0.17, 0.0), h(Cupboard, -0.05, 0.75, 0.0), h(Chest, -0.57, -0.05, 0.0), h(Barrel, -0.4, -0.65, 0.0)],
     },
     Variant {
         key: "roduro_benchroom",
@@ -354,14 +357,14 @@ pub const VARIANTS: &[Variant] = &[
         // timber in front; the living room behind.
         walls: &[w((-0.2, -1.0), (-0.2, 1.0), Some(0.3))],
         furniture: &[
-            f(Workbench, 0.3, -0.55, Q),
+            f(Workbench, 0.3, -0.55, 0.0),
             f(Workbench, 0.12, 0.6, 0.0),
-            f(Rack, 0.5, 0.41, 0.4),
+            f(Rack, 0.29, 0.36, 0.4),
             f(Rack, 0.12, -0.23, 0.0),
             f(Bed, -0.57, 0.3, Q),
             f(Hearth, -0.57, -0.42, 0.0),
         ],
-        holders: &[h(Crate, 0.55, -0.1, 0.0), h(Crate, 0.25, 0.15, 0.3), h(Chest, -0.45, -0.04, 0.0), h(Barrel, -0.78, -0.05, 0.0)],
+        holders: &[h(Crate, 0.55, -0.1, 0.0), h(Crate, 0.25, 0.15, 0.3), h(Chest, -0.56, -0.22, 0.0), h(Barrel, -0.74, -0.06, 0.0)],
     },
     Variant {
         key: "roduro_trader",
@@ -384,7 +387,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Table, -0.45, 0.35, 0.0),
             f(Hearth, -0.75, 0.05, 0.0),
         ],
-        holders: &[h(Cupboard, 0.31, 0.58, 0.0), h(Crate, 0.57, 0.5, 0.0), h(Chest, -0.74, -0.25, Q)],
+        holders: &[h(Cupboard, 0.51, 0.25, Q), h(Crate, 0.57, 0.5, 0.0), h(Chest, -0.74, -0.25, Q)],
     },
     Variant {
         key: "roduro_great",
@@ -630,8 +633,9 @@ pub const VARIANTS: &[Variant] = &[
         weight: 1,
         door: 0.0,
         storeys: 2,
-        // A communal hall, with a small shrine room and a store at the back.
-        walls: &[w((-0.45, -1.0), (-0.45, 1.0), Some(0.25)), w((-0.45, 0.1), (-1.0, 0.1), None)],
+        // A communal hall, with a small shrine room and a store at the back,
+        // each with its doorway onto the hall (the shrine's facing the altar).
+        walls: &[w((-0.45, -1.0), (-0.45, 0.1), Some(0.45)), w((-0.45, 0.1), (-0.45, 1.0), Some(0.5)), w((-0.45, 0.1), (-1.0, 0.1), None)],
         furniture: &[f(LongTable, 0.3, 0.0, 0.0), f(Bench, 0.3, 0.25, 0.0), f(Bench, 0.3, -0.25, 0.0), f(Hearth, -0.2, 0.6, 0.0), f(Altar, -0.8, 0.55, Q)],
         holders: &[h(Chest, -0.8, -0.35, Q), h(Barrel, -0.6, -0.8, 0.0), h(Cupboard, 0.6, -0.85, 0.0)],
     },

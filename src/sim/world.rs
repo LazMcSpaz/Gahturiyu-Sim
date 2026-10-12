@@ -707,8 +707,11 @@ impl World {
         if let Some(gid) = self.group_of[pid as usize] {
             if let Some(g) = self.group(gid) {
                 let i = g.members.iter().position(|&m| m == pid).unwrap_or(0) as f32;
-                let spread = if g.is_moving(self.time) { 2.5 } else { 7.0 };
+                let resting = !g.is_moving(self.time);
+                let spread = if resting { 7.0 } else { 2.5 };
                 let with_band = g.pos.add(V2::new((i * 2.1 + 0.5).cos(), (i * 2.1 + 0.5).sin()).scale(spread * (0.6 + i * 0.35)));
+                // At rest, each stands where there's room (not in a lean-to).
+                let with_band = if resting && !self.open_water(with_band) { self.free_spot(with_band) } else { with_band };
                 // Got up somewhere else: walking back to the band.
                 if let Some(&(from, since)) = self.getting_up.get(&pid) {
                     let gap = with_band.sub(from);
@@ -735,11 +738,18 @@ impl World {
             };
             let a = r.f32() * std::f32::consts::TAU;
             let rad = r.range(near, far);
-            // A slow drift, so a town is not a frozen photograph.
+            // A slow drift, so a town is not a frozen photograph (as far as
+            // there's room round them, on ground they can stand on).
             let phase = r.f32() * 100.0;
             let tt = (self.time / 240.0) as f32 + phase;
             let wobble = V2::new(tt.sin(), (tt * 0.7).cos()).scale(drift);
-            return centre.add(V2::new(a.cos(), a.sin()).scale(rad)).add(wobble);
+            let at = centre.add(V2::new(a.cos(), a.sin()).scale(rad));
+            if self.open_water(at) {
+                return at.add(wobble);
+            }
+            let (at, room) = self.free_spot_room(at);
+            let far = wobble.len();
+            return at.add(if far > room { wobble.scale(room / far) } else { wobble });
         }
         V2::default()
     }

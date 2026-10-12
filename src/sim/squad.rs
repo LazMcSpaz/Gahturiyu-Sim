@@ -236,13 +236,23 @@ impl World {
             self.sea_stops();
         }
         let mut blocked = None;
+        let mut no_way = false;
+        // A spot in something solid (a counter, a wall) is taken as the
+        // nearest spot beside it (`solid.rs`), and each member's place in
+        // the formation likewise. Inside a building or a yard there's
+        // little room for a formation, and nobody is sent to the far side
+        // of its wall.
+        let aim = if self.open_water(target) { target } else { self.free_spot(target) };
+        let room = self.enclosure_at(aim).map(|t| t.id);
         for (n, &pid) in who.iter().enumerate() {
             if let Some(k) = self.squad.index(pid) {
-                // Indoors there's no room for a formation.
-                let spot = if self.building_at(target).is_some() { target.add(formation(n).scale(0.3)) } else { target.add(formation(n)) };
+                let place = aim.add(formation(n).scale(if room.is_some() { 0.3 } else { 1.0 }));
+                let spot = if self.open_water(place) { place } else { self.free_spot(place) };
+                let spot = if self.enclosure_at(spot).map(|t| t.id) == room { spot } else { aim };
                 let from = self.member_pos(k);
                 let (path, locked) = self.travel(from, spot);
                 blocked = blocked.or(locked);
+                no_way |= locked.is_none() && from.dist(spot) < super::buildings::ROAD_TRIP && !self.can_walk(from, spot);
                 // A way into the water ends at the shore (UI-7), where the
                 // walk would stop anyway.
                 let path = self.cut_at_water(from, &path).unwrap_or(path);
@@ -265,6 +275,13 @@ impl World {
         if blocked.is_some() {
             self.log.push_front((self.time, "The door is locked.".to_string()));
             self.log.truncate(14);
+        } else if no_way {
+            // They go as near as they can get, and say so.
+            let line = "There's no way through to there.".to_string();
+            if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+                self.log.push_front((self.time, line));
+                self.log.truncate(14);
+            }
         }
         self.order_in_battle(who, target);
     }
