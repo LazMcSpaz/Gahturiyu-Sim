@@ -674,6 +674,13 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   a ritual material, not an alchemy ingredient; bloodleaf takes ash moss's
   place in the healing recipes and on the forage spots until alchemy is
   redone (step 5).
+  Step 4 (Laz's lists): the 28 weapons with table B3's numbers
+  (`WeaponDef::strength` is the strength each wants, for the B1 rules still
+  to come) and the 38 armour forms plus belts. What a worn piece costs and
+  gives beyond protection (padding, a helm's knockout guard, noise, sight,
+  warmth, keeping dry, soaking, slowness, hiding what's beneath) is
+  `items::wears(id)`, a table by form beside each file's items: data for the
+  rules of Part 2 (0.3), which don't read it yet.
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is
