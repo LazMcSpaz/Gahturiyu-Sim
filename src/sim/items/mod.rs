@@ -502,6 +502,19 @@ pub enum Role {
     Priest,
     Merchant,
     Labourer,
+    // The other civic groups and the elite uniforms (`disguise::CIVIC`).
+    Clerk,
+    Courier,
+    Crew,
+    Craft,
+    Kitchen,
+    Healer,
+    Beggar,
+    PalaceGuard,
+    Retainer,
+    ArmedOrder,
+    HouseGuard,
+    TempleGuard,
 }
 
 /// How a piece of clothing reads (Part 3): as a people's own cut (or plain),
