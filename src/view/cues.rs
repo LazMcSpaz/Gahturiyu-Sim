@@ -10,6 +10,9 @@
 //!   or a container bob a tool (a hand) up and down, facing what's worked;
 //! - cooking stirs a spoon round a small pot at their feet, steam rising
 //!   from it;
+//! - brewing holds a flask over a little flame, bubbling in the colour of
+//!   the mix (its main effect);
+//! - someone chilled or colder breathes out pale puffs;
 //! - sneaking crouches the figure (drawn in `scene::person`);
 //! - a caster stands in a glowing ring that closes as the spell comes;
 //! - two fighters trading blows are joined by a thin red line on the ground;
@@ -63,6 +66,23 @@ const PUFF: Rgb = [0.80, 0.80, 0.84];
 const POISON: Rgb = [0.45, 0.80, 0.25];
 /// How long the puff shows after a smoke, game seconds.
 const SMOKE_SHOWS: f32 = 90.0;
+const GLASS: Rgb = [0.75, 0.82, 0.85];
+const FLAME: Rgb = [1.0, 0.62, 0.22];
+const BREATH: Rgb = [0.90, 0.92, 0.95];
+
+/// A brew's colour, by its main effect.
+fn mix_colour(m: &gahturiyu_sim::sim::items::herbs::Mix) -> Rgb {
+    use gahturiyu_sim::sim::items::herbs::Alch as A;
+    match m.main() {
+        Some(a) if a.harmful() => [0.55, 0.30, 0.65],
+        Some(A::Heal | A::Stanch | A::Rouse) => [0.85, 0.25, 0.25],
+        Some(A::RestoreEnergy | A::ClearMind | A::KeenSenses) => [0.35, 0.55, 0.95],
+        Some(A::RestoreStamina | A::Swiftness | A::Strength | A::Steady) => [0.95, 0.75, 0.25],
+        Some(A::Shadow | A::NightSight) => [0.30, 0.30, 0.60],
+        Some(A::Warmth | A::ResistFire) => [0.95, 0.45, 0.15],
+        _ => [0.45, 0.80, 0.45],
+    }
+}
 const SNEAK: Rgb = [1.0, 0.55, 0.25];
 const PARRY: Rgb = [1.0, 1.0, 0.95];
 
@@ -221,6 +241,30 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         // Soaked through (their pack, or their clothes): water dripping.
         if w.soak_at(pid, w.time).0 >= 1.0 {
             drips(b, base, h, r, 0.2, w.time, pid ^ 0x55, k, WATER);
+        }
+        // Cold: a pale breath now and then.
+        if w.cold_of(pid).is_some_and(|c| c >= gahturiyu_sim::sim::condition::CHILLED) {
+            let mouth = base + vec3(0.0, h * 0.9, 0.0) + fwd * (r * 0.9);
+            let beat = ((w.time * 0.5 + pid as f64 * 0.37).fract()) as f32;
+            if beat < 0.5 {
+                let s = (0.05 + 0.18 * beat) * (1.0 - beat * 1.6).max(0.0) * k;
+                b.block(mouth + fwd * (beat * 0.5 * k) + vec3(0.0, beat * 0.15 * k, 0.0), s, s, s, beat * 3.0, BREATH);
+            }
+        }
+        // Brewing: a flask held over a little flame, bubbling in the mix's colour.
+        if let Some(j) = w.brewing.iter().find(|j| j.who == pid) {
+            let flask = hand + fwd * (0.35 * k) + vec3(0.0, 0.05 * k, 0.0);
+            let col = mix_colour(&j.mix);
+            b.column(flask, 0.08 * k, 0.03 * k, 0.2 * k, 6, GLASS);
+            b.column(flask + vec3(0.0, 0.01 * k, 0.0), 0.07 * k, 0.05 * k, 0.09 * k, 6, col);
+            let flick = (0.8 + 0.2 * (w.time * 9.0 + pid as f64).sin()) as f32;
+            b.block(flask - vec3(0.0, 0.08 * k, 0.0), 0.06 * k, 0.07 * k * flick, 0.06 * k, w.time as f32 * 3.0, FLAME);
+            for i in 0..3 {
+                let rise = ((w.time * 0.8 + i as f64 / 3.0 + pid as f64 * 0.29).fract()) as f32;
+                let s = 0.035 * (1.0 - rise) * k;
+                b.block(flask + vec3((i as f32 - 1.0) * 0.02 * k, (0.18 + rise * 0.3) * k, 0.0), s, s, s, rise * 5.0, col);
+            }
+            return;
         }
         // Cooking: a pot at their feet, a spoon going round in it, steam.
         if cooking(w, pid) {
