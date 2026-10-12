@@ -33,6 +33,12 @@ pub struct Terrain {
     pub authored: super::mapedit::MapEdits,
 }
 
+/// On a road the weather slows a walker at most this much (the mud doesn't
+/// count on a made road).
+pub const ROAD_WEATHER_FLOOR: f32 = 0.85;
+/// Along a leg the weather is read this often (metres), at its departure.
+pub const WEATHER_EVERY: f32 = 2000.0;
+
 /// What the ground underfoot is like. Each has a small effect on walking pace.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ground {
@@ -425,6 +431,19 @@ impl Terrain {
     /// stretch's length divided by Tobler's hiking speed (uphill slow, gentle
     /// downhill slightly fast, steep downhill slow again) and by the pace of
     /// the ground at its middle (roads quick, rock and sand slow).
+    /// Walking pace in the weather at `p` at `t` (soaked ground, lying snow,
+    /// a gale on open ground: `weather_effects::travel_speed_mult`); on a
+    /// road the mud doesn't count, so it never falls below
+    /// `ROAD_WEATHER_FLOOR` there.
+    pub fn weather_pace(&self, p: V2, t: f64) -> f32 {
+        let pace = super::weather::weather_effects(self, self.seed, p, t).travel_speed_mult;
+        if self.on_road(p) {
+            pace.max(ROAD_WEATHER_FLOOR)
+        } else {
+            pace
+        }
+    }
+
     pub fn effort(&self, a: V2, b: V2) -> f32 {
         let len = a.dist(b);
         if len < 1e-3 {
