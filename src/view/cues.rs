@@ -8,6 +8,8 @@
 //! - casting raises a glowing mote above the hand; drinking lifts a flask;
 //! - building, crafting, gathering, picking a lock and going through a body
 //!   or a container bob a tool (a hand) up and down, facing what's worked;
+//! - cooking stirs a spoon round a small pot at their feet, steam rising
+//!   from it;
 //! - sneaking crouches the figure (drawn in `scene::person`);
 //! - a caster stands in a glowing ring that closes as the spell comes;
 //! - two fighters trading blows are joined by a thin red line on the ground;
@@ -32,6 +34,8 @@ use bevy::math::{vec3, Vec3};
 
 use gahturiyu_sim::sim::{
     combat::{Act, FxKind},
+    crafting::RECIPES,
+    stats::Skill,
     geo::V2,
     person::PersonId,
     World,
@@ -50,6 +54,8 @@ const BLOOD: Rgb = [0.55, 0.04, 0.03];
 const WATER: Rgb = [0.35, 0.55, 0.85];
 const SPARK: Rgb = [1.0, 0.95, 0.7];
 const DUST: Rgb = [0.62, 0.56, 0.46];
+const POT: Rgb = [0.18, 0.16, 0.15];
+const STEAM: Rgb = [0.88, 0.88, 0.86];
 const SNEAK: Rgb = [1.0, 0.55, 0.25];
 const PARRY: Rgb = [1.0, 1.0, 0.95];
 
@@ -129,6 +135,11 @@ fn fight(w: &World, pid: PersonId) -> Option<(&gahturiyu_sim::sim::combat::Battl
     Some((b, f))
 }
 
+/// Is someone cooking (a dish under way)?
+fn cooking(w: &World, pid: PersonId) -> bool {
+    w.crafting.iter().any(|j| j.who == pid && RECIPES[j.recipe].skill == Skill::Cooking)
+}
+
 /// Is someone at work with their hands (building, crafting, gathering)?
 fn working(w: &World, pid: PersonId) -> bool {
     w.crafting.iter().any(|j| j.who == pid && j.bed.is_none())
@@ -164,6 +175,21 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         // Soaked through (their pack, or their clothes): water dripping.
         if w.soak_at(pid, w.time).0 >= 1.0 {
             drips(b, base, h, r, 0.2, w.time, pid ^ 0x55, k, WATER);
+        }
+        // Cooking: a pot at their feet, a spoon going round in it, steam.
+        if cooking(w, pid) {
+            let pot = base + fwd * (r * 1.6 + 0.25 * k);
+            b.column(pot, 0.22 * k, 0.26 * k, 0.28 * k, 8, POT);
+            let a = (w.time * 2.5 + pid as f64 * 1.3) as f32;
+            let tip = pot + vec3(a.cos() * 0.12 * k, 0.22 * k, a.sin() * 0.12 * k);
+            b.stick(tip, hand + fwd * (0.15 * k) - vec3(0.0, 0.1 * k, 0.0), 0.04 * k, STICK);
+            for i in 0..3 {
+                let rise = ((w.time * 0.6 + i as f64 / 3.0 + pid as f64 * 0.37).fract()) as f32;
+                let puff = pot + vec3((i as f32 - 1.0) * 0.06 * k, (0.35 + rise * 0.9) * k, 0.0);
+                let s = (0.12 + 0.1 * rise) * (1.0 - rise) * k;
+                b.block(puff, s, s, s, a + i as f32, STEAM);
+            }
+            return;
         }
         // Out of a fight: a tool going up and down while they work.
         if working(w, pid) {

@@ -240,12 +240,14 @@ fn a_forge_indoors_is_a_forge() {
         assert!(w.station_near(d.centre, Station::Loom).is_some());
         assert!(w.station_near(d.centre, Station::Forge).is_none());
     }
-    // A plain home is no workshop.
+    // A plain home is no workshop, though its hearth is a stove (0.6), and
+    // a fire burning nearby will do to cook over.
     for d in buildings_of(&w, "roduro_cottage").iter().take(3) {
         if w.stations.iter().all(|s| s.0.dist(d.centre) > 6.0) {
-            for st in gahturiyu_sim::sim::crafting::STATIONS {
+            for st in gahturiyu_sim::sim::crafting::STATIONS.into_iter().filter(|&s| s != Station::Stove && s != Station::Campfire) {
                 assert!(w.station_near(d.centre, st).is_none(), "{st:?} in a cottage");
             }
+            assert!(w.station_near(d.centre, Station::Stove).is_some(), "a cottage's hearth is a stove");
         }
     }
 }

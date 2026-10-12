@@ -1209,6 +1209,10 @@ pub fn station_size(st: Station) -> (f32, f32, f32) {
         Station::Loom => (2.0, 0.5, 1.9),
         Station::Workbench => (2.0, 0.9, 0.85),
         Station::GrowerBed => (2.4, 1.6, 0.35),
+        // (Never stand in the open as stations: a fire is its own solid, a
+        // stove a hearth indoors.)
+        Station::Campfire => (1.4, 1.4, 0.3),
+        Station::Stove => (1.4, 1.0, 1.0),
     }
 }
 

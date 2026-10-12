@@ -605,6 +605,8 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 S::Loom => "Weaving: reed, shell, fishskin and tentsilk; sealing with pitch",
                 S::Workbench => "Handcraft: leather, cloth and wood — the shared basics",
                 S::GrowerBed => "Stone-tending: grown stone, slow to come",
+                S::Campfire => "Cooking: roast meat and fish; porridge and tea with a pot",
+                S::Stove => "Cooking: full meals, and anything a campfire does",
             };
             out.push((what.into(), TEXT));
         }
