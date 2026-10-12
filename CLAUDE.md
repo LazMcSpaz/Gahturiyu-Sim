@@ -681,6 +681,14 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   warmth, keeping dry, soaking, slowness, hiding what's beneath) is
   `items::wears(id)`, a table by form beside each file's items: data for the
   rules of Part 2 (0.3), which don't read it yet.
+  Tools (Part 6): a deposit's `Face` names its tool and a makeshift
+  (`labour::FACES`): an axe cuts timber in `TOOL_TIME` (less at a better
+  grade), a hatchet in `MAKESHIFT_TIME`; a seam can't be worked without a
+  mining pick (or a war-pick at a pinch). A skinning knife gets
+  `SKINNING_YIELD` more from a carcass. A repair kit mends a worn piece to
+  `wear::FIELD_REPAIR` of its most away from a station, and is used up.
+  Mundane goods, folk charms and valuables are `items/goods.rs` (homes,
+  chests, ruins and travellers' kit draw on its lists).
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is
