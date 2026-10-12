@@ -736,6 +736,13 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
     } else {
         &[]
     };
+    let charm = rng.f32();
+    if charm < 0.3 {
+        let own = items::goods::CHARMS.iter().find(|c| c.0 == race).map(|c| c.1).unwrap_or(items::goods::ANYONE_CHARMS);
+        g.add(items::id(rng.pick(own)), 1);
+    } else if charm < 0.4 {
+        g.add(items::id(rng.pick(items::goods::ANYONE_CHARMS)), 1);
+    }
     for &(key, n) in tucked {
         let id = items::id(key);
         if item(id).value * n as f32 <= left {

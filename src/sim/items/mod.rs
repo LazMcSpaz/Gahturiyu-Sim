@@ -9,7 +9,7 @@
 //!
 //! The lines of data live in one file per kind (`weapons.rs`, `armour.rs`,
 //! `clothing.rs`, `tools.rs`, `ingredients.rs`, `trinkets.rs`, `magic.rs`,
-//! `food.rs`), each with its items, its made forms and its grid sizes; this
+//! `food.rs`, `goods.rs`), each with its items, its made forms and its grid sizes; this
 //! file holds what they share and puts them together (`ITEMS`, `FORMS`).
 //! A new item is a line in its kind's file (Laz's items design,
 //! `docs/items-design.md`).
@@ -26,6 +26,7 @@ pub type ItemId = u16;
 mod armour;
 mod clothing;
 mod food;
+pub mod goods;
 mod ingredients;
 mod magic;
 mod tools;
@@ -366,7 +367,7 @@ const fn trinket(key: &'static str, name: &'static str, slot: Slot, weight: f32,
 /// The whole catalogue, in the order of the files that hold it. An `ItemId`
 /// is an index into this list (and the made versions after it, `Catalogue`).
 pub static ITEMS: std::sync::LazyLock<Vec<ItemDef>> = std::sync::LazyLock::new(|| {
-    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS].concat()
+    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS, goods::ITEMS].concat()
 });
 
 /// Can this be worn or held (rather than used up or crafted with)?
@@ -467,7 +468,7 @@ pub fn wears(id: ItemId) -> Wears {
 
 /// Grid cells by form key, from the files above.
 static SIZES: std::sync::LazyLock<Vec<(&'static str, u8, u8)>> = std::sync::LazyLock::new(|| {
-    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES].concat()
+    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES, goods::SIZES].concat()
 });
 
 /// How many cells it takes in a pack's grid, (wide, tall), standing upright
@@ -530,7 +531,7 @@ const fn f(key: &'static str, noun: &'static str, usual: Material, mains: &'stat
 /// Forgeiron spine, Nacre scales on a Slatewing frame); any listed pairing
 /// can turn up.
 pub static FORMS: std::sync::LazyLock<Vec<Form>> = std::sync::LazyLock::new(|| {
-    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS].concat()
+    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS, goods::FORMS].concat()
 });
 
 fn leak(s: String) -> &'static str {
