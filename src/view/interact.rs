@@ -62,6 +62,8 @@ pub enum Act {
     Lay(gahturiyu_sim::sim::bedding::BedKind, V2),
     /// Gather up the squad's thrown weapons lying about.
     GatherThrown,
+    /// Put down the pack (with what's in it).
+    DropPack(PersonId),
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -184,6 +186,9 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                     out.insert(0, ch(format!("Bind {name}'s cuts"), Act::Bind(pid)));
                 }
                 out.push(ch(format!("Select {name}"), Act::Select(pid)));
+                if w.people[pid as usize].detail.as_ref().is_some_and(|d| d.gear.hands_full() || d.gear.in_slot(gahturiyu_sim::sim::items::Slot::Back).is_some_and(|i| matches!(item(i).kind, gahturiyu_sim::sim::items::Kind::Pack(_)))) {
+                    out.push(ch(format!("Put down {name}'s pack"), Act::DropPack(pid)));
+                }
                 if who.iter().any(|&m| m != pid && w.can_carry(m, pid)) {
                     out.push(ch(format!("Carry {name}"), Act::Carry(pid)));
                 }
@@ -356,6 +361,11 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,
+        Act::DropPack(p) => {
+            return Some(match w.drop_pack(p) {
+                Ok(m) | Err(m) => m,
+            });
+        }
         Act::GatherThrown => {
             let all = w.squad.members.clone();
             let n = w.gather_thrown(if who.is_empty() { &all } else { who });

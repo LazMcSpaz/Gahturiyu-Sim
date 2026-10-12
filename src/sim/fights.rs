@@ -392,6 +392,10 @@ impl World {
     fn add_fighters(&mut self, b: &mut Battle, side: Side, who: &[PersonId]) {
         for &pid in who {
             self.people[pid as usize].ensure_detail();
+            // A duffel in both hands is dropped to fight (0.4).
+            if self.people[pid as usize].detail.as_ref().is_some_and(|d| d.gear.hands_full()) {
+                let _ = self.drop_pack(pid);
+            }
             let pos = self.person_pos(pid);
             let mut f = Fighter::from_person(&self.people[pid as usize], side, pos, b.time);
             // Woken by the attack: a few seconds before they're on their feet.

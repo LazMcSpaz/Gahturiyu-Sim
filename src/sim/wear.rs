@@ -77,15 +77,29 @@ impl World {
     /// soaked through: each piece is a keyed roll.
     pub fn paper_spoils(&mut self, f: &Fighter, seed: u64, t: f64) {
         let pid = f.pid;
-        let keep = super::elements::paper_survives(f.burned, f.soaked);
+        // The pack keeps some of it off (0.4); what's in a scroll case or an
+        // oilskin is safe from what that seals out.
+        let (pack_fire, pack_water) = match self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.in_slot(Slot::Back)).and_then(items::container) {
+            Some(c) => (c.fire, c.water),
+            None => (items::Proof::None, items::Proof::None),
+        };
+        let burned = f.burned * match pack_fire {
+            items::Proof::None => 1.0,
+            items::Proof::Resists => 0.4,
+            items::Proof::Sealed => 0.0,
+        };
+        let soaked = f.soaked && pack_water == items::Proof::None;
+        let keep = super::elements::paper_survives(burned, soaked);
         let Some(d) = self.people[pid as usize].detail.as_mut() else { return };
+        let safe: Vec<(ItemId, u16)> = super::soak::guarded(&d.gear, burned > 0.0).into_iter().chain(if soaked { super::soak::guarded(&d.gear, false) } else { Vec::new() }).collect();
         let mut lost: Vec<ItemId> = Vec::new();
         for (k, e) in d.gear.bag.iter_mut().enumerate() {
             if !super::elements::is_paper(e.0) {
                 continue;
             }
+            let spared = safe.iter().filter(|g| g.0 == e.0).map(|g| g.1).max().unwrap_or(0).min(e.1);
             let mut left = e.1;
-            for u in 0..e.1 {
+            for u in spared..e.1 {
                 if super::rng::Rng::from_keys(&[seed, pid as u64, k as u64, u as u64, 0x5041_5045]).f32() >= keep {
                     left -= 1;
                     lost.push(e.0);

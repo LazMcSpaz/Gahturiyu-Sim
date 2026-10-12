@@ -32,6 +32,8 @@ mod ingredients;
 mod magic;
 mod tools;
 mod trinkets;
+
+pub use tools::{container, Container, Guards, Holds, Proof};
 mod weapons;
 
 /// Where a thing is worn or held. Body and legs take two layers, an under

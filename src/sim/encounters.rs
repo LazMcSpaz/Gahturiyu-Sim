@@ -287,6 +287,9 @@ impl World {
         let looker = bandits[0];
         let mb = might(&bandits);
         let mv = victims.iter().map(|&m| self.seen_might(looker, m, super::conceal::Look::SizeUp, t)).sum::<f32>();
+        // Finery on show makes them worth the risk (0.4).
+        let finery: f32 = victims.iter().map(|&m| self.shown_wealth(m)).sum();
+        let mv = mv / (1.0 + finery * super::show::TEMPTS_PER_COIN);
         let roll = Rng::from_keys(&[self.seed, e.camp as u64, e.victim as u64, t.to_bits(), 0xA3B0]).f32();
         if mb * (0.7 + 0.6 * roll) < mv {
             return;

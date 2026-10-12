@@ -242,6 +242,9 @@ pub struct World {
     pub thrown_lying: Vec<u32>,
     #[serde(default)]
     pub gatherers: Vec<PersonId>,
+    /// How wet what each squad member carries is (`soak.rs`).
+    #[serde(default)]
+    pub soaks: Vec<super::soak::Soak>,
     /// A squad member on their way to hand another something from their pack.
     pub giving: Vec<super::squad::Give>,
     /// Strangers set down somewhere, until they come round.
@@ -356,6 +359,7 @@ impl World {
             binding: Vec::new(),
             thrown_lying: Vec::new(),
             gatherers: Vec::new(),
+            soaks: Vec::new(),
             giving: Vec::new(),
             ground: Vec::new(),
             next_ground_id: 0,
@@ -552,6 +556,7 @@ impl World {
         self.update_opps();
         self.work_contracts(dt);
         self.update_conditions();
+        self.update_soaking();
         self.expire_boons();
 
         // 4. Journeys that are over dissolve; their people are home.

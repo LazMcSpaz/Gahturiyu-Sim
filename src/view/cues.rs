@@ -12,6 +12,7 @@
 //! - a caster stands in a glowing ring that closes as the spell comes;
 //! - two fighters trading blows are joined by a thin red line on the ground;
 //! - someone bleeding drips red, and leaves red spots where they stand;
+//!   someone soaked through (their pack or clothes) drips water;
 //! - a heavy blow that rocks someone (a stagger) spins a ring of pale
 //!   sparks round their head; knocked off their feet or out cold by it, a
 //!   ring of dust on the ground too (and they lie flat, `scene::person`);
@@ -46,6 +47,7 @@ const MOTE: Rgb = [0.65, 0.75, 1.0];
 const FLASK: Rgb = [0.85, 0.35, 0.30];
 const LOCKED: Rgb = [0.85, 0.18, 0.14];
 const BLOOD: Rgb = [0.55, 0.04, 0.03];
+const WATER: Rgb = [0.35, 0.55, 0.85];
 const SPARK: Rgb = [1.0, 0.95, 0.7];
 const DUST: Rgb = [0.62, 0.56, 0.46];
 const SNEAK: Rgb = [1.0, 0.55, 0.25];
@@ -157,7 +159,11 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         // Out of a fight: still bleeding (not yet bound).
         let bleed = w.bleeding(pid) / 3600.0;
         if bleed > 0.0 {
-            drips(b, base, h, r, bleed, w.time, pid, k);
+            drips(b, base, h, r, bleed, w.time, pid, k, BLOOD);
+        }
+        // Soaked through (their pack, or their clothes): water dripping.
+        if w.soak_at(pid, w.time).0 >= 1.0 {
+            drips(b, base, h, r, 0.2, w.time, pid ^ 0x55, k, WATER);
         }
         // Out of a fight: a tool going up and down while they work.
         if working(w, pid) {
@@ -170,7 +176,7 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
     };
     let t = battle.time;
     if !f.dead && !f.fled && f.bleeding() > 0.0 {
-        drips(b, base, h, r, f.bleeding(), t, pid, k);
+        drips(b, base, h, r, f.bleeding(), t, pid, k, BLOOD);
     }
     // Rocked by a blow: sparks round the head; floored, dust round them.
     let me = battle.fighters.iter().position(|x| std::ptr::eq(x, f)).unwrap_or(usize::MAX);
@@ -295,7 +301,7 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
 /// Blood: drops falling from the body, faster the worse the bleed, and a
 /// few red spots on the ground round their feet.
 #[allow(clippy::too_many_arguments)]
-fn drips(b: &mut Builder, base: Vec3, h: f32, r: f32, rate: f32, t: f64, pid: PersonId, k: f32) {
+fn drips(b: &mut Builder, base: Vec3, h: f32, r: f32, rate: f32, t: f64, pid: PersonId, k: f32, col: Rgb) {
     let n = if rate >= 0.4 { 3 } else if rate >= 0.12 { 2 } else { 1 };
     let fall = h * 0.55;
     for i in 0..n {
@@ -303,14 +309,14 @@ fn drips(b: &mut Builder, base: Vec3, h: f32, r: f32, rate: f32, t: f64, pid: Pe
         let a = pid as f32 * 2.3 + i as f32 * 2.1;
         let off = vec3(a.cos(), 0.0, a.sin()) * (r * 0.9);
         let at = base + off + vec3(0.0, fall * (1.0 - phase * phase), 0.0);
-        b.block(at, 0.05 * k, 0.05 * k, 0.09 * k, a, BLOOD);
+        b.block(at, 0.05 * k, 0.05 * k, 0.09 * k, a, col);
     }
     for i in 0..(2 + n) {
         let a = pid as f32 * 1.3 + i as f32 * 2.4;
         let d = r * (0.6 + 0.5 * ((i * 7 + pid as usize) % 5) as f32 / 5.0);
         let at = base + vec3(a.cos() * d, 0.04, a.sin() * d);
         let (u, v) = (vec3(a.cos(), 0.0, a.sin()) * (0.07 * k), vec3(-a.sin(), 0.0, a.cos()) * (0.05 * k));
-        b.quad([at - u - v, at + u - v, at + u + v, at - u + v], Vec3::Y, BLOOD);
+        b.quad([at - u - v, at + u - v, at + u + v, at - u + v], Vec3::Y, col);
     }
 }
 
