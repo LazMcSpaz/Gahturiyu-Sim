@@ -46,6 +46,7 @@ pub mod jobs;
 pub mod known;
 pub mod layout;
 pub mod law;
+pub mod leaders;
 pub mod lives;
 pub mod items;
 pub mod loot;

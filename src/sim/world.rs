@@ -133,6 +133,9 @@ pub struct World {
     /// Squad members held at a slavers' camp (`binders.rs`).
     #[serde(default)]
     pub captives: Vec<super::binders::Captive>,
+    /// Who sits as which faction leader (`leaders.rs`).
+    #[serde(default)]
+    pub seats: Vec<super::leaders::Seat>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -397,6 +400,7 @@ impl World {
             coatings: Vec::new(),
             guilds: Vec::new(),
             captives: Vec::new(),
+            seats: Vec::new(),
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),

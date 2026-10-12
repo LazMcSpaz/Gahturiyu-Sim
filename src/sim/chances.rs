@@ -374,7 +374,7 @@ impl World {
             self.society.contracts.push(Contract { member: who, town: o.town, place, opp: Some(id), post: None, hours, pay: o.amount, until, present: 0.0, missed: 0, days_paid: 0, sent_day: -1, first_day });
         }
         let qid = self.quests.len() as u32;
-        self.quests.push(Quest { id: qid, giver: o.asker, kind, stage: Stage::Active, coin: o.reward, bonus: None, opp: Some(id) });
+        self.quests.push(Quest { id: qid, giver: o.asker, kind, stage: Stage::Active, coin: o.reward, bonus: None, opp: Some(id), task: None });
         let t = self.time;
         let o = self.opp_mut(id)?;
         o.state = OppState::Taken;

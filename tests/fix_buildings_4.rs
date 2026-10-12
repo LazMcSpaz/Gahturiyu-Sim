@@ -82,7 +82,7 @@ fn nm_58_debt_jobs_pay_less_than_the_debt_and_jobs_say_where() {
     let far = w.settlements.iter().max_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap().id;
     let to = w.settlements[far as usize].residents[0];
     let giver = w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap().residents[0];
-    let q = Quest { id: 0, giver, kind: QuestKind::Deliver { to }, stage: Stage::Active, coin: 5, bonus: None, opp: None };
+    let q = Quest { id: 0, giver, kind: QuestKind::Deliver { to }, stage: Stage::Active, coin: 5, bonus: None, opp: None, task: None };
     let line = w.quest_line(&q);
     assert!(line.contains(" km "), "{line}");
 }
