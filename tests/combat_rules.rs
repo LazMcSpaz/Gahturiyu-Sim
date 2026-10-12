@@ -796,6 +796,13 @@ fn after_a_fight_the_squads_throws_lie_about_to_be_gathered() {
         let carried = |w: &World| w.squad.members.iter().map(|&m| held(w, m, hatchet)).sum::<u16>();
         let before = carried(&w);
         let fit: Vec<u32> = w.squad.members.iter().copied().filter(|&m| !w.is_down(m) && !w.people[m as usize].dead).collect();
+        // (Room for them all: a fight can leave one standing, and a pack has
+        // only so many cells; one with no room stops, `gather_next`.)
+        for &m in &fit {
+            let d = w.people[m as usize].detail.as_mut().unwrap();
+            d.gear.add(items::id("large_pack"), 1);
+            d.gear.equip(items::id("large_pack")).unwrap();
+        }
         assert!(w.gather_thrown(&fit) >= lying.len());
         for _ in 0..4000 {
             w.step(0.25);
