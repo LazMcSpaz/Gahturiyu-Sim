@@ -77,15 +77,29 @@ impl World {
     /// soaked through: each piece is a keyed roll.
     pub fn paper_spoils(&mut self, f: &Fighter, seed: u64, t: f64) {
         let pid = f.pid;
-        let keep = super::elements::paper_survives(f.burned, f.soaked);
+        // The pack keeps some of it off (0.4); what's in a scroll case or an
+        // oilskin is safe from what that seals out.
+        let (pack_fire, pack_water) = match self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.in_slot(Slot::Back)).and_then(items::container) {
+            Some(c) => (c.fire, c.water),
+            None => (items::Proof::None, items::Proof::None),
+        };
+        let burned = f.burned * match pack_fire {
+            items::Proof::None => 1.0,
+            items::Proof::Resists => 0.4,
+            items::Proof::Sealed => 0.0,
+        };
+        let soaked = f.soaked && pack_water == items::Proof::None;
+        let keep = super::elements::paper_survives(burned, soaked);
         let Some(d) = self.people[pid as usize].detail.as_mut() else { return };
+        let safe: Vec<(ItemId, u16)> = super::soak::guarded(&d.gear, burned > 0.0).into_iter().chain(if soaked { super::soak::guarded(&d.gear, false) } else { Vec::new() }).collect();
         let mut lost: Vec<ItemId> = Vec::new();
         for (k, e) in d.gear.bag.iter_mut().enumerate() {
             if !super::elements::is_paper(e.0) {
                 continue;
             }
+            let spared = safe.iter().filter(|g| g.0 == e.0).map(|g| g.1).max().unwrap_or(0).min(e.1);
             let mut left = e.1;
-            for u in 0..e.1 {
+            for u in spared..e.1 {
                 if super::rng::Rng::from_keys(&[seed, pid as u64, k as u64, u as u64, 0x5041_5045]).f32() >= keep {
                     left -= 1;
                     lost.push(e.0);
@@ -260,11 +274,42 @@ impl World {
         } else {
             match self.mend_myself(pid, pid, slot) {
                 Ok(()) => format!("{name} mends the {what}."),
-                Err(e) => format!("{name} can't mend the {what}: {e}."),
+                // No station or no craft: a repair kit mends it part of the
+                // way (items design, Part 6); a full mend still needs both.
+                Err(e) => match self.field_repair(pid, slot) {
+                    Some(true) => format!("{name} patches up the {what} with a repair kit."),
+                    Some(false) => format!("{name} can't do more for the {what} without a station."),
+                    None => format!("{name} can't mend the {what}: {e}."),
+                },
             }
         };
         self.log.push_front((self.time, line));
         self.log.truncate(14);
+    }
+
+    /// Mend a worn piece part of the way with a repair kit from the packs (it
+    /// is used up): up to `FIELD_REPAIR` of its most. `None`: no kit, or
+    /// nothing to mend; `Some(false)`: already as good as a kit can make it.
+    pub fn field_repair(&mut self, pid: PersonId, slot: Slot) -> Option<bool> {
+        let kit = items::id("repair_kit");
+        if self.squad_count(kit) == 0 {
+            return None;
+        }
+        let id = self.people[pid as usize].detail.as_ref().and_then(|d| d.gear.in_slot(slot))?;
+        if !items::repairable(id) {
+            return None;
+        }
+        let (left, most) = self.wear_of(pid, slot)?;
+        if left >= most {
+            return None;
+        }
+        let up_to = most * FIELD_REPAIR;
+        if left >= up_to {
+            return Some(false);
+        }
+        self.restore(pid, slot, up_to - left);
+        self.take_from_squad(kit, 1);
+        Some(true)
     }
 
     /// Seal a squad member's reed piece in a slot with pitch from the packs.
@@ -289,6 +334,9 @@ impl World {
         true
     }
 }
+
+/// How far a repair kit can bring a worn piece back, a share of its most.
+pub const FIELD_REPAIR: f32 = 0.6;
 
 /// A fresh made piece.
 pub fn fresh(id: ItemId, t: f64) -> Piece {

@@ -50,13 +50,19 @@ pub struct Face {
     pub minutes: f32,
     /// Share of `cap` that grows back each day.
     pub refill: f32,
+    /// The tool for the work (items design, Part 6), and whether it can't be
+    /// done without one.
+    pub tool: &'static str,
+    pub needs_tool: bool,
+    /// Something that does at a pinch, slower than the tool.
+    pub makeshift: &'static str,
 }
 
 /// The kinds of face (data; a new kind is a line here and a place for it).
 pub const FACES: &[Face] = &[
-    Face { key: "timber", name: "Woodlot", cap: 80, minutes: 5.0, refill: 0.6 },
-    Face { key: "iron_ore", name: "Iron seam", cap: 60, minutes: 6.0, refill: 0.5 },
-    Face { key: "gold_nugget", name: "Gold seam", cap: 6, minutes: 30.0, refill: 0.25 },
+    Face { key: "timber", name: "Woodlot", cap: 80, minutes: 5.0, refill: 0.6, tool: "woodcutters_axe", needs_tool: false, makeshift: "hatchet" },
+    Face { key: "iron_ore", name: "Iron seam", cap: 60, minutes: 6.0, refill: 0.5, tool: "mining_pick", needs_tool: true, makeshift: "war_pick" },
+    Face { key: "gold_nugget", name: "Gold seam", cap: 6, minutes: 30.0, refill: 0.25, tool: "mining_pick", needs_tool: true, makeshift: "war_pick" },
 ];
 
 /// How much of a good the land round a town must offer for a mine to be dug.
@@ -84,6 +90,12 @@ pub const YIELD_ITEMS: &[(&str, &str, f32)] = &[
 
 /// Minutes to cut up a carcass, per unit of the animal's size.
 pub const BUTCHER_MINUTES: f32 = 15.0;
+/// A unit of work with the right tool takes this share of the time (better
+/// grades less again); with the makeshift one, this share.
+pub const TOOL_TIME: f32 = 0.6;
+pub const MAKESHIFT_TIME: f32 = 0.85;
+/// A skinning knife gets this much more from a carcass.
+pub const SKINNING_YIELD: f32 = 1.3;
 /// A second butcher sent to a carcass someone is on goes to another one
 /// within this distance, metres.
 pub const NEXT_CARCASS: f32 = 40.0;
@@ -190,10 +202,25 @@ impl World {
         true
     }
 
-    /// Send someone to work a deposit until their pack is full.
+    /// The best of a form someone carries or wears, by grade: its grade's
+    /// power (1 for Common), if they have one at all.
+    pub fn best_tool(&self, who: PersonId, form: &str) -> Option<f32> {
+        let d = self.people[who as usize].detail.as_ref()?;
+        let f = items::id(form);
+        d.gear.bag.iter().map(|e| e.0).chain(d.gear.equipped()).filter(|&i| items::info(i).form == f).map(|i| items::info(i).grade.power()).fold(None, |a: Option<f32>, p| Some(a.map_or(p, |a| a.max(p))))
+    }
+
+    /// Send someone to work a deposit until their pack is full. A face that
+    /// needs a tool (a seam: a mining pick) can't be worked without one.
     pub fn order_labour(&mut self, who: PersonId, deposit: u32) -> bool {
         let Some(d) = self.deposit(deposit).copied() else { return false };
         if self.squad.index(who).is_none() {
+            return false;
+        }
+        let face = d.face();
+        if face.needs_tool && self.best_tool(who, face.tool).is_none() && self.best_tool(who, face.makeshift).is_none() {
+            let name = self.people[who as usize].name().unwrap_or("Someone").to_string();
+            self.work_note(self.time, format!("{name} needs a {} to work the {}.", item(items::id(face.tool)).name.to_lowercase(), face.name.to_lowercase()));
             return false;
         }
         self.stop_work(who);
@@ -207,12 +234,19 @@ impl World {
         true
     }
 
-    /// Minutes a unit takes this worker: the strong and fit work faster.
+    /// Minutes a unit takes this worker: the strong and fit work faster, and
+    /// faster again with the right tool (a better grade more so).
     pub fn unit_minutes(&self, who: PersonId, deposit: u32) -> f32 {
         let Some(d) = self.deposit(deposit) else { return f32::MAX };
         let s = &self.people[who as usize].stats;
         let knack = 0.6 + s.attr(Attr::Strength) / 100.0 + s.skill(Skill::Athletics) / 150.0;
-        d.face().minutes / knack.max(0.3)
+        let face = d.face();
+        let tool = match (self.best_tool(who, face.tool), self.best_tool(who, face.makeshift)) {
+            (Some(p), _) => TOOL_TIME / p,
+            (None, Some(_)) => MAKESHIFT_TIME,
+            (None, None) => 1.0,
+        };
+        face.minutes * tool / knack.max(0.3)
     }
 
     /// Is someone at a deposit, working it?
@@ -222,7 +256,7 @@ impl World {
 
     /// Would one more of this fit in their pack?
     fn room_for(&self, who: PersonId, it: ItemId, t: f64) -> bool {
-        self.kit_weight_at(who, t) + self.burden_weight(who) + item(it).weight <= self.capacity_at(who, t)
+        self.kit_weight_at(who, t) + self.burden_weight(who) + item(it).weight <= self.capacity_at(who, t) && self.room_in_pack(who, it, 1)
     }
 
     /// Settle someone's condition at `t`, or at the start of their current
@@ -370,10 +404,12 @@ impl World {
             self.butchering.remove(k);
             let parts = self.butcher(c.id);
             let mut r = Rng::from_keys(&[self.seed, c.key, 0x4255_5443]);
+            // A skinning knife gets more of everything (Part 6).
+            let knife = if self.best_tool(b.who, "skinning_knife").is_some() { SKINNING_YIELD } else { 1.0 };
             let mut got: Vec<String> = Vec::new();
             for (name, amount) in parts {
                 let Some(&(_, key, per)) = YIELD_ITEMS.iter().find(|y| y.0 == name) else { continue };
-                let a = amount * per;
+                let a = amount * per * knife;
                 let n = a.floor() as u16 + u16::from(r.f32() < a.fract());
                 if n == 0 {
                     continue;

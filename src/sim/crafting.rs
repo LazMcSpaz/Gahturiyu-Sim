@@ -189,6 +189,14 @@ pub static RECIPES: &[Recipe] = &[
     p("padded_cap", M::Cloth, M::None, &[("cloth", 1)], K::Handcraft, 5.0, S::Workbench, 40.0),
     p("padded_vest", M::Cloth, M::None, &[("cloth", 3)], K::Handcraft, 10.0, S::Workbench, 90.0),
     p("hood", M::Cloth, M::None, &[("cloth", 1)], K::Handcraft, 3.0, S::Workbench, 30.0),
+    p("banded_tunic", M::Cloth, M::None, &[("cloth", 3)], K::Handcraft, 8.0, S::Workbench, 80.0),
+    p("sash_robe", M::Cloth, M::None, &[("cloth", 3)], K::Handcraft, 8.0, S::Workbench, 80.0),
+    p("wool_overcoat", M::Cloth, M::None, &[("cloth", 4)], K::Handcraft, 10.0, S::Workbench, 100.0),
+    p("wool_cap", M::Cloth, M::None, &[("cloth", 1)], K::Handcraft, 3.0, S::Workbench, 30.0),
+    p("guard_tabard", M::Cloth, M::None, &[("cloth", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    p("vestment", M::Cloth, M::None, &[("cloth", 3)], K::Handcraft, 10.0, S::Workbench, 90.0),
+    p("merchants_coat", M::Cloth, M::None, &[("cloth", 3), ("leather", 1)], K::Handcraft, 10.0, S::Workbench, 100.0),
+    p("labourers_smock", M::Cloth, M::None, &[("cloth", 2)], K::Handcraft, 3.0, S::Workbench, 40.0),
     p("soft_shoes", M::Cloth, M::None, &[("cloth", 1), ("leather", 1)], K::Handcraft, 5.0, S::Workbench, 40.0),
     p("cloak", M::Cloth, M::None, &[("cloth", 3)], K::Handcraft, 5.0, S::Workbench, 60.0),
     p("fur_jerkin", M::Leather, M::None, &[("hide", 3), ("leather", 1)], K::Handcraft, 15.0, S::Workbench, 120.0),
@@ -200,6 +208,14 @@ pub static RECIPES: &[Recipe] = &[
     r("sash", 1, &[("cloth", 1)], K::Handcraft, 2.0, S::Workbench, 20.0),
     p("small_pack", M::Leather, M::None, &[("leather", 2)], K::Handcraft, 10.0, S::Workbench, 90.0),
     p("large_pack", M::Leather, M::None, &[("leather", 4)], K::Handcraft, 25.0, S::Workbench, 150.0),
+    r("satchel", 1, &[("leather", 1)], K::Handcraft, 8.0, S::Workbench, 60.0),
+    r("sea_bag", 1, &[("fishskin", 3), ("pitch", 1)], K::Handcraft, 20.0, S::Workbench, 120.0),
+    r("duffel", 1, &[("cloth", 3)], K::Handcraft, 5.0, S::Workbench, 60.0),
+    r("quiver", 1, &[("leather", 1)], K::Handcraft, 8.0, S::Workbench, 45.0),
+    r("oilskin_wrap", 1, &[("cloth", 1), ("pitch", 1)], K::Handcraft, 5.0, S::Workbench, 30.0),
+    r("scroll_case", 1, &[("leather", 1), ("pitch", 1)], K::Handcraft, 10.0, S::Workbench, 60.0),
+    r("potion_case", 1, &[("leather", 2)], K::Handcraft, 10.0, S::Workbench, 60.0),
+    r("strongbox", 1, &[("iron_ingot", 3), ("timber", 1)], K::Smithing, 20.0, S::Forge, 150.0),
     p("club", M::Wood, M::None, &[("timber", 1)], K::Handcraft, 3.0, S::Workbench, 40.0),
     p("staff", M::Wood, M::None, &[("timber", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
     p("spear", M::Wood, M::None, &[("timber", 2)], K::Handcraft, 8.0, S::Workbench, 60.0),
@@ -227,6 +243,8 @@ pub static RECIPES: &[Recipe] = &[
     p("fishskin_boots", M::Fishskin, M::None, &[("fishskin", 2), ("pitch", 1)], K::Weaving, 15.0, S::Loom, 100.0),
     p("fishskin_undercoat", M::Fishskin, M::None, &[("fishskin", 3)], K::Weaving, 20.0, S::Loom, 140.0),
     p("oilskin_cape", M::Seareed, M::None, &[("seareed", 3), ("pitch", 2)], K::Weaving, 15.0, S::Loom, 120.0),
+    p("sea_wrap", M::Fishskin, M::None, &[("fishskin", 2), ("seareed", 1)], K::Weaving, 10.0, S::Loom, 90.0),
+    p("rain_hat", M::Seareed, M::None, &[("seareed", 2), ("pitch", 1)], K::Weaving, 6.0, S::Loom, 60.0),
     p("travelling_robe", M::Tentsilk, M::None, &[("tentsilk", 3)], K::Weaving, 20.0, S::Loom, 140.0),
     p("leather_cap", M::Fishskin, M::None, &[("fishskin", 1)], K::Weaving, 8.0, S::Loom, 60.0),
     p("wraps", M::Tentsilk, M::None, &[("tentsilk", 2)], K::Weaving, 15.0, S::Loom, 90.0),
@@ -507,24 +525,41 @@ impl World {
             let inland = geo::inland(p);
             let (h, mt, pl) = (self.terrain.height(p), self.terrain.mountains(p), self.terrain.plateau(p));
             let roll = r.f32();
+            // Where each of Laz's ingredients grows (items design, Part 4).
             let key = if (-40.0..15.0).contains(&inland) {
-                if roll < 0.5 { "kelp_frond" } else if roll < 0.8 { "mussels" } else { "salt_crystal" }
+                match roll {
+                    r if r < 0.35 => "kelp_frond",
+                    r if r < 0.55 => "mussels",
+                    r if r < 0.70 => "salt_crystal",
+                    r if r < 0.85 => "greymoss",
+                    r if r < 0.93 => "stormbell",
+                    _ => "storm_glass",
+                }
             } else if inland < 0.0 {
                 continue;
+            } else if mt > 0.45 && h > 600.0 {
+                // Snow country.
+                if roll < 0.3 { "rimestone" } else if roll < 0.6 { "frostleaf" } else { "iron_ore" }
             } else if mt > 0.45 && h > 300.0 {
                 if roll < 0.3 { "storm_glass" } else { "iron_ore" }
             } else if mt > 0.2 {
-                if roll < 0.55 { "iron_ore" } else { "emberroot" }
+                if roll < 0.45 { "iron_ore" } else if roll < 0.7 { "emberroot" } else { "ashberry" }
             } else if pl > 0.5 {
                 if roll < 0.6 { "emberroot" } else { "salt_crystal" }
-            } else if roll < 0.3 {
+            } else if roll < 0.25 {
                 "timber"
-            } else if roll < 0.5 {
+            } else if roll < 0.37 {
                 "ghostcap"
-            } else if roll < 0.62 {
+            } else if roll < 0.48 {
                 "wild_berries"
-            } else if roll < 0.75 {
+            } else if roll < 0.60 {
                 "bloodleaf"
+            } else if roll < 0.68 {
+                "puffcap"
+            } else if roll < 0.75 {
+                "sweetroot"
+            } else if roll < 0.79 {
+                "nightberry"
             } else {
                 continue;
             };

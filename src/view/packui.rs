@@ -306,7 +306,7 @@ pub fn pack(c: &Canvas, w: &World, st: &mut PackState, focus: PersonId, mouse: V
         let mut gy = y + 2.0;
         let mut boxes: Vec<Bx> = Vec::new();
         for (g, &(gw, gh)) in gear.grids().iter().enumerate() {
-            let label = if g == 0 { "Pockets".to_string() } else { gear.in_slot(Slot::Back).map(|i| item(i).name.to_string()).unwrap_or_default() };
+            let label = gear.grid_name(g);
             c.styled(&label, ix, gy + 11.0, 12.0, eg(FAINT), Face::Italic, 0.0);
             gy += 15.0;
             let b = Bx::new(ix, gy, gw as f32 * cell, gh as f32 * cell);

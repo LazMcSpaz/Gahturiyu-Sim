@@ -27,10 +27,13 @@ mod armour;
 mod clothing;
 mod food;
 pub mod goods;
+pub mod herbs;
 mod ingredients;
 mod magic;
 mod tools;
 mod trinkets;
+
+pub use tools::{container, Container, Guards, Holds, Proof};
 mod weapons;
 
 /// Where a thing is worn or held. Body and legs take two layers, an under
@@ -384,7 +387,7 @@ const fn trinket(key: &'static str, name: &'static str, slot: Slot, weight: f32,
 /// The whole catalogue, in the order of the files that hold it. An `ItemId`
 /// is an index into this list (and the made versions after it, `Catalogue`).
 pub static ITEMS: std::sync::LazyLock<Vec<ItemDef>> = std::sync::LazyLock::new(|| {
-    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS, goods::ITEMS].concat()
+    [weapons::ITEMS, armour::ITEMS, clothing::ITEMS, tools::ITEMS, ingredients::ITEMS, trinkets::ITEMS, magic::ITEMS, food::ITEMS, goods::ITEMS, herbs::ITEMS].concat()
 });
 
 /// Can this be worn or held (rather than used up or crafted with)?
@@ -471,9 +474,35 @@ pub struct Wears {
     pub slow: f32,
     /// Hides what's carried and worn beneath it from a look or a search, 0..1.
     pub hides: f32,
+    /// Against wind (gales on the coast and in the mountains), 0..1.
+    pub wind: f32,
 }
 
-const NONE: Wears = Wears { padding: 0.0, ko_guard: 0.0, noise: 0.0, sight: 0.0, warmth: 0.0, dry: 0.0, soaks: false, slow: 0.0, hides: 0.0 };
+const NONE: Wears = Wears { padding: 0.0, ko_guard: 0.0, noise: 0.0, sight: 0.0, warmth: 0.0, dry: 0.0, soaks: false, slow: 0.0, hides: 0.0, wind: 0.0 };
+
+/// A role a garment reads as (Part 3): people treat the wearer as one until
+/// someone sees through it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    Guard,
+    Priest,
+    Merchant,
+    Labourer,
+}
+
+/// How a piece of clothing reads (Part 3): as a people's own cut (or plain),
+/// and for some, a role. For the disguise and belonging rules to read.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Look {
+    pub people: Option<super::race::Race>,
+    pub role: Option<Role>,
+}
+
+/// How this reads when worn (by its form).
+pub fn look(id: ItemId) -> Look {
+    let key = item(info(id).form).key;
+    clothing::LOOKS.iter().find(|l| l.0 == key).map(|l| l.1).unwrap_or_default()
+}
 
 static WEARS: std::sync::LazyLock<Vec<(&'static str, Wears)>> = std::sync::LazyLock::new(|| [armour::WEARS, clothing::WEARS].concat());
 
@@ -483,9 +512,16 @@ pub fn wears(id: ItemId) -> Wears {
     WEARS.iter().find(|w| w.0 == key).map(|w| w.1).unwrap_or(NONE)
 }
 
+/// The alchemist's view of a thing: its kind and four effects, if it's an
+/// ingredient (`herbs.rs`).
+pub fn ingredient(id: ItemId) -> Option<&'static herbs::Ingredient> {
+    let key = item(id).key;
+    herbs::INGREDIENTS.iter().chain(herbs::OILS.iter().map(|o| &o.0)).find(|i| i.key == key)
+}
+
 /// Grid cells by form key, from the files above.
 static SIZES: std::sync::LazyLock<Vec<(&'static str, u8, u8)>> = std::sync::LazyLock::new(|| {
-    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES, goods::SIZES].concat()
+    [weapons::SIZES, armour::SIZES, clothing::SIZES, tools::SIZES, ingredients::SIZES, trinkets::SIZES, magic::SIZES, food::SIZES, goods::SIZES, herbs::SIZES].concat()
 });
 
 /// How many cells it takes in a pack's grid, (wide, tall), standing upright
@@ -548,7 +584,7 @@ const fn f(key: &'static str, noun: &'static str, usual: Material, mains: &'stat
 /// Forgeiron spine, Nacre scales on a Slatewing frame); any listed pairing
 /// can turn up.
 pub static FORMS: std::sync::LazyLock<Vec<Form>> = std::sync::LazyLock::new(|| {
-    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS, goods::FORMS].concat()
+    [weapons::FORMS, armour::FORMS, clothing::FORMS, tools::FORMS, ingredients::FORMS, trinkets::FORMS, magic::FORMS, food::FORMS, goods::FORMS, herbs::FORMS].concat()
 });
 
 fn leak(s: String) -> &'static str {

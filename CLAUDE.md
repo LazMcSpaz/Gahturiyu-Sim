@@ -679,8 +679,33 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   to come) and the 38 armour forms plus belts. What a worn piece costs and
   gives beyond protection (padding, a helm's knockout guard, noise, sight,
   warmth, keeping dry, soaking, slowness, hiding what's beneath) is
-  `items::wears(id)`, a table by form beside each file's items: data for the
-  rules of Part 2 (0.3), which don't read it yet.
+  `items::wears(id)`, a table by form beside each file's items. The fight
+  rules read it (0.3): a blow meets the cloak, then the over layer (and
+  helm, gloves, boots), then the under layer, then the skin; the most
+  padding among the layers it met eases staggers and knockdowns
+  (`combat::PADDING_EASE`), a helm's guard takes knockout force out of a
+  blunt head blow (`HELM_KO`) and can turn a sap. Noise from what's worn is
+  `Gear::wear_noise` (stealth), slowness `Gear::wear_pace` (fights and the
+  squad's walking), eased by strength. Warmth, dry and wind wait on the
+  weather hooks.
+  Tools (Part 6): a deposit's `Face` names its tool and a makeshift
+  (`labour::FACES`): an axe cuts timber in `TOOL_TIME` (less at a better
+  grade), a hatchet in `MAKESHIFT_TIME`; a seam can't be worked without a
+  mining pick (or a war-pick at a pinch). A skinning knife gets
+  `SKINNING_YIELD` more from a carcass. A repair kit mends a worn piece to
+  `wear::FIELD_REPAIR` of its most away from a station, and is used up.
+  Mundane goods, folk charms and valuables are `items/goods.rs` (homes,
+  chests, ruins and travellers' kit draw on its lists).
+  Clothes (Part 3): each people's cut (banded tunic, sash robe and wool
+  overcoat, sea wrap and rain hat, travelling robe) and the role garments
+  (guard's tabard, vestment, merchant's coat, labourer's smock) read as a
+  people or a role through `items::look(id)`; their weather is in `wears`
+  (warmth, dry, wind). Townsfolk are dressed in their own people's cut as a
+  leaning rolled per person (`starting_kit`). The disguise and belonging
+  rules that would read `look` aren't built yet.
+  Alchemy ingredients are data in `items/herbs.rs` (`items::ingredient`):
+  kind, four effects (`Alch`), where found; brewing waits on how a brewed
+  potion is to be kept (Laz's call).
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is

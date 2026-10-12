@@ -55,6 +55,10 @@ pub struct Placed {
     pub turned: bool,
 }
 
+/// Noise from what's worn: per kilogram, and per point of a piece's clank.
+pub const WEAR_NOISE_PER_KG: f32 = 0.015;
+pub const WEAR_CLANK: f32 = 0.8;
+
 /// Pockets: what anyone carries without a pack, (wide, tall) cells.
 pub const POCKETS: (u8, u8) = (6, 5);
 
@@ -227,11 +231,11 @@ impl Gear {
         if !wearable(def.kind) {
             return Err(EquipError::WrongSlot);
         }
-        let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
+        let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false) || items::container(id).is_some_and(|c| c.hands);
         let to = self.hand_for(id);
         if to == Slot::OffHand {
             if let Some(m) = self.in_slot(Slot::MainHand) {
-                if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) {
+                if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) || items::container(m).is_some_and(|c| c.hands) {
                     self.unequip(Slot::MainHand);
                 }
             }
@@ -258,11 +262,11 @@ impl Gear {
         if e.2.is_some() {
             // (take_piece prefers plain ones; take this piece directly.)
             let def = item(e.0);
-            let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false);
+            let two_handed = def.weapon().map(|w| w.two_handed).unwrap_or(false) || items::container(e.0).is_some_and(|c| c.hands);
             let to = self.hand_for(e.0);
             if to == Slot::OffHand {
                 if let Some(m) = self.in_slot(Slot::MainHand) {
-                    if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) {
+                    if item(m).weapon().map(|w| w.two_handed).unwrap_or(false) || items::container(m).is_some_and(|c| c.hands) {
                         self.unequip(Slot::MainHand);
                     }
                 }
@@ -335,10 +339,11 @@ impl Gear {
 
     /// How much this person can carry with this gear on, kg.
     pub fn capacity(&self, stats: &Stats) -> f32 {
-        let pack = match self.in_slot(Slot::Back).map(|id| item(id).kind) {
+        let held = |s: Slot| match self.in_slot(s).map(|id| item(id).kind) {
             Some(Kind::Pack(kg)) => kg,
             _ => 0.0,
         };
+        let pack = held(Slot::Back) + held(Slot::MainHand) + held(Slot::Belt);
         let extra = self.worn(Does::Carry);
         effective(stats, self).carry_capacity() + pack + extra
     }
@@ -356,13 +361,95 @@ impl Gear {
 
 impl Gear {
     /// The grids things are carried in: pockets, then the pack's if one is
-    /// worn. (wide, tall) cells.
+    /// worn, a duffel's if one is held, the belt's quick slots or a quiver.
+    /// (wide, tall) cells.
     pub fn grids(&self) -> Vec<(u8, u8)> {
-        let mut out = vec![POCKETS];
-        if let Some(Kind::Pack(kg)) = self.in_slot(Slot::Back).map(|id| item(id).kind) {
-            out.push(pack_grid(kg));
+        self.holders().iter().map(|h| h.1).collect()
+    }
+
+    /// The grids with what holds each: (the slot it's worn in, or None for
+    /// pockets; its size; what it takes).
+    pub fn holders(&self) -> Vec<(Option<Slot>, (u8, u8), items::Holds)> {
+        let mut out = vec![(None, POCKETS, items::Holds::Anything)];
+        for s in [Slot::Back, Slot::MainHand, Slot::Belt] {
+            let Some(id) = self.in_slot(s) else { continue };
+            let c = items::container(id);
+            match (item(id).kind, c) {
+                (Kind::Pack(_), Some(c)) if c.holds == items::Holds::Ammo => out.push((Some(s), (2, 4), c.holds)),
+                (Kind::Pack(kg), _) => out.push((Some(s), pack_grid(kg), items::Holds::Anything)),
+                (_, Some(c)) if c.quick > 0 => out.push((Some(s), (c.quick, 2), items::Holds::Quick)),
+                _ => {}
+            }
         }
         out
+    }
+
+    /// What a grid is called (the pack screen's label).
+    pub fn grid_name(&self, g: usize) -> String {
+        match self.holders().get(g) {
+            Some((None, ..)) => "Pockets".to_string(),
+            Some((Some(s), _, items::Holds::Quick)) => format!("{} (quick)", self.in_slot(*s).map(|i| item(i).name).unwrap_or("")),
+            Some((Some(s), ..)) => self.in_slot(*s).map(|i| item(i).name.to_string()).unwrap_or_default(),
+            None => String::new(),
+        }
+    }
+
+    /// The things in the quick slots (quicker to use in a fight).
+    pub fn quick(&self) -> Vec<ItemId> {
+        let quick: Vec<u8> = self.holders().iter().enumerate().filter(|(_, h)| h.2 == items::Holds::Quick).map(|(g, _)| g as u8).collect();
+        if quick.is_empty() {
+            return Vec::new();
+        }
+        let (placed, _) = self.arrange();
+        placed.iter().filter(|p| quick.contains(&p.grid)).flat_map(|p| std::iter::repeat_n(self.bag[p.entry].0, p.n as usize)).collect()
+    }
+
+    /// How full each container grid is, 0..1 (cells used of all), with its slot.
+    fn fullness(&self) -> Vec<(Slot, f32)> {
+        let holders = self.holders();
+        let (placed, _) = self.arrange();
+        holders
+            .iter()
+            .enumerate()
+            .filter_map(|(g, h)| {
+                let s = h.0?;
+                let cells = h.1 .0 as f32 * h.1 .1 as f32;
+                let used: f32 = placed.iter().filter(|p| p.grid as usize == g).map(|p| p.w as f32 * p.h as f32).sum();
+                Some((s, (used / cells.max(1.0)).min(1.0)))
+            })
+            .collect()
+    }
+
+    /// The sneak and dodge cost of the containers carried (0.4): each its
+    /// bulk, from a third when empty to all of it when full.
+    pub fn bulk(&self) -> f32 {
+        self.fullness().iter().filter_map(|&(s, full)| self.in_slot(s).and_then(items::container).map(|c| c.bulk * (BULK_EMPTY + (1.0 - BULK_EMPTY) * full))).sum()
+    }
+
+    /// Travel and fight speed with the containers carried, 0..1.
+    /// Heavy armour's slowing (`items::wears`), eased by strength: the
+    /// strong carry plate better (0.3, rule 5; no hard minimum).
+    pub fn wear_pace(&self, strength: f32) -> f32 {
+        let slow: f32 = self.equipped().map(|i| items::wears(i).slow).sum();
+        let eased = (1.0 - strength / 150.0).clamp(0.3, 1.0);
+        (1.0 - slow * eased).max(0.5)
+    }
+
+    /// How much noise what's worn makes when moving: by weight a little, and
+    /// by each piece's own clank (mail and plate loud, soft shoes quieter).
+    pub fn wear_noise(&self) -> f32 {
+        let worn: f32 = self.equipped().filter(|&i| matches!(item(i).kind, Kind::Armor(_)) || item(i).slot == Slot::OffHand).map(|i| item(i).weight).sum();
+        let clank: f32 = self.equipped().map(|i| items::wears(i).noise).sum();
+        (worn * WEAR_NOISE_PER_KG + clank * WEAR_CLANK).max(0.0)
+    }
+
+    pub fn pack_pace(&self) -> f32 {
+        self.fullness().iter().filter_map(|&(s, full)| self.in_slot(s).and_then(items::container).map(|c| 1.0 - c.slow * (BULK_EMPTY + (1.0 - BULK_EMPTY) * full))).product::<f32>().max(0.2)
+    }
+
+    /// Holding a duffel in both hands.
+    pub fn hands_full(&self) -> bool {
+        self.in_slot(Slot::MainHand).and_then(items::container).is_some_and(|c| c.hands)
     }
 
     /// Where everything in the pack sits: the stacks placed, and those that
@@ -370,7 +457,13 @@ impl Gear {
     /// the gear: things with a spot in `layout` go there if it's still free,
     /// the rest into the first free cells, upright first, then turned.
     pub fn arrange(&self) -> (Vec<Placed>, Vec<(usize, u16)>) {
-        let grids = self.grids();
+        let holders = self.holders();
+        let grids: Vec<(u8, u8)> = holders.iter().map(|h| h.1).collect();
+        // A quiver takes only ammunition, quick slots only what's quick to
+        // use; and those go there first.
+        let takes = |g: usize, id: ItemId| takes(holders[g].2, id);
+        let mut order: Vec<usize> = (0..grids.len()).filter(|&g| holders[g].2 != items::Holds::Anything).collect();
+        order.extend((0..grids.len()).filter(|&g| holders[g].2 == items::Holds::Anything));
         let mut used: Vec<Vec<bool>> = grids.iter().map(|&(w, h)| vec![false; w as usize * h as usize]).collect();
         // Every stack of every entry, in order.
         let mut stacks: Vec<(usize, u16)> = Vec::new();
@@ -406,7 +499,7 @@ impl Gear {
             let (fw, fh) = items::footprint(sp.item);
             let (w, h) = if sp.turned { (fh, fw) } else { (fw, fh) };
             let g = sp.grid as usize;
-            if g < grids.len() && fits(&used, g, sp.x, sp.y, w, h) {
+            if g < grids.len() && takes(g, sp.item) && fits(&used, g, sp.x, sp.y, w, h) {
                 take(&mut used, g, sp.x, sp.y, w, h);
                 placed.push(Placed { entry: stacks[i].0, n: stacks[i].1, grid: sp.grid, x: sp.x, y: sp.y, w, h, turned: sp.turned });
                 done[i] = true;
@@ -420,7 +513,11 @@ impl Gear {
             }
             let (fw, fh) = items::footprint(self.bag[stacks[i].0].0);
             let mut at = None;
-            'search: for g in 0..grids.len() {
+            let id = self.bag[stacks[i].0].0;
+            'search: for &g in &order {
+                if !takes(g, id) {
+                    continue;
+                }
                 for turned in [false, true] {
                     let (w, h) = if turned { (fh, fw) } else { (fw, fh) };
                     for y in 0..grids[g].1 {
@@ -476,6 +573,9 @@ impl Gear {
         let (w, h) = if turned { (fh, fw) } else { (fw, fh) };
         let grids = self.grids();
         let Some(&(gw, gh)) = grids.get(grid as usize) else { return false };
+        if !takes(self.holders()[grid as usize].2, id) {
+            return false;
+        }
         if x as u16 + w as u16 > gw as u16 || y as u16 + h as u16 > gh as u16 {
             return false;
         }
@@ -504,41 +604,23 @@ impl Gear {
     }
 }
 
-/// What wearing armour and clothes costs (the items design, 0.3): how much
-/// slower in a fight and on the road, how much louder, how much worse at
-/// seeing (full helms). Each as a share; Strength eases them
-/// (`strength_eases`).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct WornCosts {
-    pub slow: f32,
-    pub noise: f32,
-    pub sight: f32,
+/// A container's bulk and slowing when empty, as a share of when full.
+pub const BULK_EMPTY: f32 = 0.3;
+
+/// Does a grid that holds `h` take this?
+pub fn takes(h: items::Holds, id: ItemId) -> bool {
+    match h {
+        items::Holds::Anything => true,
+        items::Holds::Ammo => item(id).kind == Kind::Ammo,
+        items::Holds::Quick => quick_use(id),
+    }
 }
 
-/// How much Strength eases what armour costs: average (35) as written,
-/// stronger less (down to half), weaker more (up to a third more).
-pub fn strength_eases(strength: f32) -> f32 {
-    (1.0 - (strength - 35.0) / 130.0).clamp(0.5, 1.33)
-}
-
-impl Gear {
-    /// What everything worn costs, for someone this strong.
-    pub fn worn_costs(&self, strength: f32) -> WornCosts {
-        let k = strength_eases(strength);
-        let mut c = WornCosts::default();
-        for id in self.equipped() {
-            let w = items::wears(id);
-            c.slow += w.slow;
-            c.noise += w.noise;
-            c.sight = c.sight.max(w.sight);
-        }
-        WornCosts { slow: (c.slow * k).clamp(0.0, 0.6), noise: (c.noise * k).max(-0.3), sight: (c.sight * k).clamp(0.0, 0.8) }
-    }
-
-    /// A helm's guard against being knocked out by a blow to the head.
-    pub fn ko_guard(&self) -> f32 {
-        self.equipped().map(|id| items::wears(id).ko_guard).fold(0.0, f32::max)
-    }
+/// Quicker to reach from a belt in a fight: draughts, scrolls, bandages,
+/// throwing weapons.
+pub fn quick_use(id: ItemId) -> bool {
+    let d = item(id);
+    matches!(d.kind, Kind::Potion | Kind::Scroll(_)) || super::combat::is_bandage(id) || d.weapon().is_some_and(|w| w.thrown && w.entangle == 0.0)
 }
 
 /// Stats as they stand with gear on: enchantments added on top of the base.
@@ -590,9 +672,32 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         g.wear(id);
         *left -= item(id).value;
     };
-    // Everyone has clothes.
-    buy(&mut g, "cloth_shirt", &mut left);
+    // Everyone has clothes: most in their own people's cut (a leaning rolled
+    // for each person, Part 3), the rest plain.
+    let own_cut = rng.chance(0.65);
+    let under = match race {
+        _ if !own_cut => "cloth_shirt",
+        Race::Roduro => "banded_tunic",
+        Race::Qotiro => "sash_robe",
+        Race::Horaro => "sea_wrap",
+        Race::Tadoro => "cloth_shirt",
+    };
+    buy(&mut g, under, &mut left);
     buy(&mut g, "trousers", &mut left);
+    if own_cut {
+        // Qotiro wear a wool overcoat over the desert robe here; Ṭaḍoro travel
+        // in their robe; Roduro and Horaro sometimes wear their caps and hats.
+        let extra = match race {
+            Race::Qotiro => Some("wool_overcoat"),
+            Race::Tadoro => Some("travelling_robe"),
+            Race::Roduro if rng.chance(0.4) => Some("wool_cap"),
+            Race::Horaro if rng.chance(0.4) => Some("rain_hat"),
+            _ => None,
+        };
+        if let Some(k) = extra.filter(|&k| item(items::id(k)).value <= left.max(0.0) + 20.0) {
+            buy(&mut g, k, &mut left);
+        }
+    }
 
     // A weapon to suit their best skill, as good as the purse allows.
     let best = [Skill::Blade, Skill::Blunt, Skill::Spear, Skill::Marksman]
@@ -698,7 +803,7 @@ pub fn starting_kit(race: Race, stats: &Stats, budget: f32, seed: u64) -> Gear {
         }
     }
     // Spare clothes don't travel; drop anything replaced.
-    g.bag.retain(|e| !matches!(item(e.0).key, "cloth_shirt" | "trousers"));
+    g.bag.retain(|e| !matches!(item(e.0).key, "cloth_shirt" | "trousers" | "banded_tunic" | "sash_robe" | "sea_wrap"));
     g
 }
 

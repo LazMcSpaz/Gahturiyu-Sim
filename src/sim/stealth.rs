@@ -26,7 +26,6 @@
 
 use super::geo::V2;
 use super::group::GroupId;
-use super::items::{item, Kind, Slot, SLOTS};
 use super::person::PersonId;
 use super::stats::{Attr, Skill};
 use super::world::{World, DAY, HOUR};
@@ -39,6 +38,9 @@ pub const SIGHT: f32 = 75.0;
 pub const HEARING: f32 = 30.0;
 /// Bump into someone and they notice, whatever.
 pub const TOUCH: f32 = 3.0;
+/// Each point of a pack's bulk makes a sneaker this much easier to see.
+pub const BULK_SEEN: f32 = 1.0;
+
 /// Sneaking within this many metres of watchers, unnoticed, trains Sneak.
 pub const CREEP: f32 = 45.0;
 /// A camp watches whoever of the squad comes within this many metres of
@@ -110,12 +112,10 @@ impl World {
         } else {
             0.25
         };
-        // Armour clanks by its weight.
+        // Armour clanks: by its weight a little, and by each piece's own noise
+        // (mail and plate loud, soft shoes quiet; the items design, 0.3).
         let gear = p.kit();
-        let worn: f32 = SLOTS.iter().filter_map(|&s| gear.in_slot(s)).filter(|&i| matches!(item(i).kind, Kind::Armor(_)) || item(i).slot == Slot::OffHand).map(|i| item(i).weight).sum();
-        n += worn * 0.035;
-        // And by what it is (0.3): metal and stone loudest, soft shoes quiet.
-        n += gear.worn_costs(p.effective_stats().attr(Attr::Strength)).noise;
+        n += gear.wear_noise();
         if self.squad.sneaking[k] {
             let skill = p.effective_stats().skill(Skill::Sneak);
             n *= 0.4 * (1.0 - skill / 160.0);
@@ -135,6 +135,8 @@ impl World {
             let hidden = (0.55 - s.skill(Skill::Sneak) / 250.0 - s.attr(Attr::Agility) / 700.0).max(0.08);
             // There's no creeping about with a lit torch.
             v *= if self.torch_lit(pid) { hidden.max(super::torch::TORCH_SNEAK) } else { hidden };
+            // A bulky pack is hard to hide (0.4), the fuller the more.
+            v *= 1.0 + self.people[pid as usize].kit().bulk() * BULK_SEEN;
         }
         let moving = self.squad.at[k].dist(self.squad.goal[k]) > 0.3;
         if !moving {
