@@ -20,6 +20,7 @@ use super::geo::V2;
 use super::inventory::{self, Gear};
 use super::effects::{Does, Effect, Element, Lasts, Reach, Summon, Who};
 use super::elements;
+use super::items::herbs::Mix;
 use super::items::{item, ArmorDef, ItemId, Kind, WeaponDef, FISTS};
 use super::magic::{self, Aim, Spell, Status, Style};
 use super::person::{Person, PersonId};
@@ -316,8 +317,13 @@ pub enum Act {
     Recover { until: f64 },
     /// `scroll`: read from a scroll — no mana, can't fail.
     Cast { spell: Spell, target: Option<usize>, point: V2, done: f64, scroll: bool },
-    /// Drinking a potion.
-    Drink { item: ItemId, done: f64 },
+    /// Drinking a potion (a brewed bottle: its mix).
+    Drink {
+        item: ItemId,
+        done: f64,
+        #[serde(default)]
+        mix: Option<Mix>,
+    },
     /// Binding a bandage on someone (themselves, or a friend beside them).
     Bind { who: usize, item: ItemId, done: f64 },
     /// Throwing a weapon (from the hand, or a spare from the pack).
@@ -412,6 +418,11 @@ pub struct Fighter {
     /// Bandages in their pack (anything that staunches, `Does::Staunch`).
     #[serde(default)]
     pub bandages: Vec<ItemId>,
+    /// Brewed bottles in their pack (each its own mix), and those drunk.
+    #[serde(default)]
+    pub bottles: Vec<Mix>,
+    #[serde(default)]
+    pub drunk: Vec<Mix>,
     /// Toxicity (the alchemist's meter, `condition.rs`): what they came in
     /// with plus what they've drunk since. It doesn't drain in a fight.
     #[serde(default)]
@@ -558,6 +569,8 @@ impl Fighter {
             used: Vec::new(),
             bandages: gear.bag.iter().filter(|e| is_bandage(e.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             toxic: p.cond.as_ref().map(|c| c.tox_at(t)).unwrap_or(0.0),
+            bottles: gear.bottles(),
+            drunk: Vec::new(),
             quick: gear.quick(),
             offhand: gear.in_slot(super::items::Slot::OffHand).and_then(|id| item(id).weapon().copied()).filter(|w| offhand_ok(w) && !held.two_handed),
             weapon_item: gear.in_slot(super::items::Slot::MainHand),
@@ -641,6 +654,8 @@ impl Fighter {
             used: Vec::new(),
             bandages: Vec::new(),
             toxic: 0.0,
+            bottles: Vec::new(),
+            drunk: Vec::new(),
             quick: Vec::new(),
             offhand: None,
             weapon_item: None,
@@ -1132,9 +1147,9 @@ impl Battle {
                         self.fighters[i].act = Act::Recover { until: t + 0.3 };
                     }
                 }
-                Act::Drink { item: it, done } => {
+                Act::Drink { item: it, done, mix } => {
                     if t >= done {
-                        self.drink(i, it);
+                        self.drink(i, it, mix);
                         self.fighters[i].act = Act::Idle;
                     }
                 }
@@ -2114,26 +2129,40 @@ impl Battle {
         f.potions.remove(k);
         f.used.push(it);
         let quick = if from_quick(f, it) { QUICK_USE } else { 1.0 };
-        f.act = Act::Drink { item: it, done: self.time + DRINK_SECS * quick as f64 };
+        f.act = Act::Drink { item: it, done: self.time + DRINK_SECS * quick as f64, mix: None };
         true
     }
 
-    fn drink(&mut self, i: usize, it: ItemId) {
+    /// Start drinking a brewed bottle of this mix from the pack.
+    pub fn begin_drink_mix(&mut self, i: usize, mix: Mix) -> bool {
+        if self.busy_with_hands(i) {
+            return false;
+        }
+        let f = &mut self.fighters[i];
+        let Some(k) = f.bottles.iter().position(|m| *m == mix) else { return false };
+        f.bottles.remove(k);
+        f.drunk.push(mix);
+        f.act = Act::Drink { item: super::items::id("brewed_potion"), done: self.time + DRINK_SECS, mix: Some(mix) };
+        true
+    }
+
+    fn drink(&mut self, i: usize, it: ItemId, mix: Option<Mix>) {
         if item(it).kind != Kind::Potion {
             return;
         }
         let name = self.names[i].clone();
-        self.say(format!("{name} drinks a {}.", item(it).name.to_lowercase()));
+        let what = mix.map(|m| m.name()).unwrap_or_else(|| item(it).name.to_string());
+        self.say(format!("{name} drinks a {}.", what.to_lowercase()));
         // The stomach first (`toxic.rs`): sick, it may come straight back
         // up; past the limit, they collapse.
         let before = self.fighters[i].toxic;
-        let after = (before + super::toxic::draught_tox(it)).min(100.0);
+        let after = (before + mix.map(|m| m.tox()).unwrap_or_else(|| super::toxic::draught_tox(it))).min(100.0);
         self.fighters[i].toxic = after;
         if super::toxic::throws_up(self.seed, self.ticks, it, i as u64, after) {
             self.say(format!("{name} retches it straight back up."));
         } else {
-            for e in item(it).effects {
-                self.dose(i, e);
+            for e in super::toxic::draught_effects(it, mix.as_ref()) {
+                self.dose(i, &e);
             }
         }
         if after >= super::condition::TOX_COLLAPSE && before < super::condition::TOX_COLLAPSE && self.fighters[i].active() {

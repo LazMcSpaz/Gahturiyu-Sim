@@ -481,6 +481,9 @@ impl World {
                 for &it in &f.used {
                     d.gear.take(it);
                 }
+                for m in &f.drunk {
+                    d.gear.take_mix(m);
+                }
                 // Shattered gear is gone.
                 for &slot in &f.broke {
                     d.gear.discard(slot);

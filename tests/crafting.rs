@@ -46,19 +46,16 @@ fn every_recipe_names_real_items() {
 }
 
 #[test]
-fn a_mage_brews_a_potion_anywhere_with_a_mortar() {
+fn a_mortar_in_the_pack_no_longer_brews() {
+    // Potions are brewed at an alchemy table now (Part 4, `brewing.rs`); a
+    // mortar and pestle is one of its tools.
     let mut w = worldgen::generate(1);
     let m = mage(&w);
     w.people[m as usize].stats.set_skill(Skill::Alchemy, 60.0);
-    let before = w.count_of(m, "healing_draught");
-    let skill = w.people[m as usize].stats.skill(Skill::Alchemy);
-    w.start_craft(m, recipe("healing_draught")).expect("can brew");
-    assert_eq!(w.count_of(m, "bloodleaf"), 2, "materials go in at the start");
-    assert!(w.craft_progress(m).is_some());
-    wait(&mut w, 45.0);
-    assert!(w.craft_progress(m).is_none());
-    assert_eq!(w.count_of(m, "healing_draught"), before + 1);
-    assert!(w.people[m as usize].stats.skill(Skill::Alchemy) > skill);
+    assert!(w.count_of(m, "mortar_and_pestle") > 0);
+    w.teleport_squad(w.squad.pos.add(V2::new(400.0, 0.0)));
+    assert_eq!(w.start_craft(m, recipe("healing_draught")), Err(Cannot::NoStation(Station::AlchemyTable)));
+    assert!(w.bench_for(m).is_none());
 }
 
 #[test]
@@ -90,6 +87,14 @@ fn a_botched_job_gives_half_back() {
     let m = mage(&w);
     w.people[m as usize].stats.set_skill(Skill::Alchemy, 0.0);
     assert!(success_chance(0.0, 45.0) < 0.1);
+    // At an alchemy table (a mortar in the pack no longer brews).
+    let here = w.squad.pos;
+    let table = w.stations.iter().filter(|s| s.1 == Station::AlchemyTable).min_by(|a, b| a.0.dist(here).total_cmp(&b.0.dist(here))).unwrap().0;
+    w.teleport_squad(table.add(V2::new(1.0, 0.0)));
+    for k in 0..w.squad.members.len() {
+        w.squad.at[k] = table.add(V2::new(1.0, 0.3 * k as f32));
+        w.squad.goal[k] = w.squad.at[k];
+    }
     // Plenty of materials for several tries at something too hard.
     for (k, n) in [("bloodleaf", 20), ("wild_berries", 10), ("ghostcap", 10)] {
         w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id(k), n);

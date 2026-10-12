@@ -149,9 +149,31 @@ impl Gear {
         }
     }
 
-    /// Put one made piece in the pack, with its own wear and mark.
+    /// Put one made piece in the pack, with its own wear and mark. A brewed
+    /// bottle goes with any just like it.
     pub fn add_piece(&mut self, id: ItemId, piece: Piece) {
+        if piece.mix.is_some() {
+            if let Some(e) = self.bag.iter_mut().find(|e| e.0 == id && e.2 == Some(piece)) {
+                e.1 += 1;
+                return;
+            }
+        }
         self.bag.push(Entry(id, 1, Some(piece)));
+    }
+
+    /// Take one brewed bottle of this mix (false if there's none).
+    pub fn take_mix(&mut self, mix: &super::items::herbs::Mix) -> bool {
+        let Some(i) = self.bag.iter().position(|e| e.2.and_then(|p| p.mix).as_ref() == Some(mix)) else { return false };
+        self.bag[i].1 -= 1;
+        if self.bag[i].1 == 0 {
+            self.bag.remove(i);
+        }
+        true
+    }
+
+    /// The brewed bottles in the pack, one mix per bottle.
+    pub fn bottles(&self) -> Vec<super::items::herbs::Mix> {
+        self.bag.iter().filter_map(|e| e.2.and_then(|p| p.mix).map(|m| (m, e.1))).flat_map(|(m, n)| std::iter::repeat_n(m, n as usize)).collect()
     }
 
     pub fn take(&mut self, id: ItemId) -> bool {

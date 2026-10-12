@@ -2,18 +2,20 @@
 //! approved list after the balance review): each carries four effects, the
 //! same in every world; a potion carries the effects shared by two or more of
 //! the ingredients in it, from at least two different kinds. This file is the
-//! data, with what each effect does in a dose (`Alch::dose`); tasting,
-//! experiment and brewing are to come (Laz: each bottle carries its own mix).
+//! data, with what each effect does in a dose (`Alch::dose`), and what a
+//! brewed bottle carries (`Mix`: Laz's option (a), each bottle its own mix;
+//! bottles stack only when their mixes are the same).
 
 use super::*;
-use crate::sim::effects::{lasting, now, Effect};
+use crate::sim::effects::{lasting, now, Effect, Lasts};
+use crate::sim::materials::Grade;
 use crate::sim::stats::{Attr, Skill};
 use Alch as E;
 use Herb as H;
 use Wild as W;
 
 /// What an ingredient can do, helpful or harmful.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Alch {
     Heal,
     Stanch,
@@ -306,6 +308,182 @@ pub static INGREDIENTS: &[Ingredient] = &[
     ing("duskseed", H::Spice, [E::Shadow, E::NightSight, E::RestoreEnergy, E::Slumber], W::Imported, 1),
     ing("gold_thread", H::Spice, [E::Heal, E::RestoreEnergy, E::KeenSenses, E::Daze], W::Imported, 1),
 ];
+
+// ---- Brewing ------------------------------------------------------------------
+
+/// The most ingredients in one brew, and the most effects a bottle carries.
+pub const MIX_INGREDIENTS: usize = 4;
+pub const MIX_MOST: usize = 6;
+
+/// What a brewed bottle carries: its effects (each shared by two or more of
+/// the ingredients), how strong they are, and how long the helpful and the
+/// harmful ones last (1 = a plain dose). Kept in the bottle's `Piece`.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Mix {
+    pub effects: [Option<Alch>; MIX_MOST],
+    pub power: f32,
+    pub good_for: f32,
+    pub bad_for: f32,
+}
+
+/// The tools fitted to an alchemy table, each by its grade (none: not
+/// fitted).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Kit {
+    /// A small boost to everything.
+    pub mortar: Option<Grade>,
+    /// Shortens harmful effects.
+    pub retort: Option<Grade>,
+    /// Lengthens helpful effects.
+    pub calcinator: Option<Grade>,
+    /// Raises strength.
+    pub alembic: Option<Grade>,
+}
+
+/// How much a tool of this grade does (none fitted: nothing).
+fn tool(g: Option<Grade>) -> f32 {
+    match g {
+        None => 0.0,
+        Some(Grade::Crude) => 0.5,
+        Some(Grade::Common) => 1.0,
+        Some(Grade::Fine) => 1.5,
+        Some(Grade::Masterwork) => 2.0,
+    }
+}
+
+/// Mixes are kept to this step, so bottles brewed the same way stack.
+const MIX_STEP: f32 = 0.05;
+
+fn stepped(x: f32) -> f32 {
+    (x / MIX_STEP).round() * MIX_STEP
+}
+
+/// The effects a brew of these ingredients carries: every effect shared by
+/// at least two of them, if they're of at least two kinds (two berries alone
+/// make nothing). In a fixed order: helpful first, strongest first.
+pub fn shared(ings: &[ItemId]) -> Vec<Alch> {
+    let list: Vec<&Ingredient> = ings.iter().filter_map(|&i| super::ingredient(i)).collect();
+    if list.len() < 2 || list.iter().all(|i| i.kind == list[0].kind) {
+        return Vec::new();
+    }
+    let mut out: Vec<Alch> = Vec::new();
+    for (k, a) in list.iter().enumerate() {
+        for &e in &a.effects {
+            if out.contains(&e) {
+                continue;
+            }
+            if list.iter().enumerate().any(|(j, b)| j != k && b.effects.contains(&e)) {
+                out.push(e);
+            }
+        }
+    }
+    out.sort_by_key(|e| (e.harmful(), std::cmp::Reverse(e.tier()), *e));
+    out
+}
+
+impl Mix {
+    /// A brew of `effects` by someone of this Alchemy skill (0..100) at a
+    /// table with this kit. A bare table and an unskilled hand: weak, short,
+    /// and the harm lasts long; good tools and skill turn the harm into a
+    /// flicker, but never remove it.
+    pub fn brew(effects: &[Alch], skill: f32, kit: Kit) -> Mix {
+        let s = (skill / 100.0).clamp(0.0, 1.0);
+        let mortar = 0.1 * tool(kit.mortar);
+        let hand = 0.5 + s;
+        let mut fx = [None; MIX_MOST];
+        for (k, &e) in effects.iter().take(MIX_MOST).enumerate() {
+            fx[k] = Some(e);
+        }
+        Mix {
+            effects: fx,
+            power: stepped(0.6 + 0.6 * s + mortar + 0.25 * tool(kit.alembic) * hand),
+            good_for: stepped(0.6 + 0.6 * s + mortar + 0.3 * tool(kit.calcinator) * hand),
+            bad_for: stepped((1.6 - 0.6 * s - mortar - 0.35 * tool(kit.retort) * hand).max(0.1)),
+        }
+    }
+
+    pub fn carries(&self) -> impl Iterator<Item = Alch> + '_ {
+        self.effects.iter().flatten().copied()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.effects[0].is_none()
+    }
+
+    /// What drinking it does: each effect's plain dose, its strength and its
+    /// time scaled by the mix.
+    pub fn effects(&self) -> Vec<Effect> {
+        let mut out = Vec::new();
+        for a in self.carries() {
+            let long = if a.harmful() { self.bad_for } else { self.good_for };
+            for e in a.dose() {
+                let mut e = *e;
+                match e.lasts {
+                    Lasts::Secs(s) => {
+                        e.lasts = Lasts::Secs(s * long);
+                        e.power *= self.power;
+                    }
+                    // A daze's power is its length.
+                    _ if e.does == Does::Daze => e.power *= long,
+                    _ => e.power *= self.power,
+                }
+                out.push(e);
+            }
+        }
+        out
+    }
+
+    /// The effect it's named for: the strongest helpful one, else the
+    /// strongest harmful one.
+    pub fn main(&self) -> Option<Alch> {
+        self.carries().next()
+    }
+
+    /// "Draught of night sight", or "Tincture of slumber" for one that only
+    /// harms.
+    pub fn name(&self) -> String {
+        match self.main() {
+            Some(a) if !a.harmful() => format!("Draught of {}", a.name().to_lowercase()),
+            Some(a) => format!("Tincture of {}", a.name().to_lowercase()),
+            None => "Murky water".to_string(),
+        }
+    }
+
+    /// Does it carry anything harmful?
+    pub fn harms(&self) -> bool {
+        self.carries().any(|a| a.harmful())
+    }
+
+    /// Its grade: from its strength, less for harm that lingers.
+    pub fn grade(&self) -> Grade {
+        let score = self.power - if self.harms() { 0.5 * self.bad_for } else { 0.0 };
+        match score {
+            x if x >= 1.6 => Grade::Masterwork,
+            x if x >= 1.15 => Grade::Fine,
+            x if x >= 0.7 => Grade::Common,
+            _ => Grade::Crude,
+        }
+    }
+
+    /// Toxicity a bottle adds when drunk: more the stronger it is, and more
+    /// for every harmful effect, by how long it lingers.
+    pub fn tox(&self) -> f32 {
+        let harm = self.carries().filter(|a| a.harmful()).count() as f32;
+        8.0 * (0.5 + 0.5 * self.power) + 4.0 * harm * self.bad_for
+    }
+
+    /// What a bottle is worth, in coin.
+    pub fn worth(&self) -> f32 {
+        let each = |a: Alch| match a.tier() {
+            Tier::Common => 8.0,
+            Tier::Moderate => 14.0,
+            Tier::Powerful => 24.0,
+        };
+        let good: f32 = self.carries().filter(|a| !a.harmful()).map(each).sum::<f32>() * self.power * self.good_for.sqrt();
+        let bad: f32 = self.carries().filter(|a| a.harmful()).count() as f32 * 3.0 * self.bad_for;
+        (good - bad).max(2.0)
+    }
+}
 
 /// Oils: three of the base make one, keeping two of its effects, stronger
 /// (an oil is its own kind; its other two places are the same two again).
