@@ -143,3 +143,27 @@ fn everyone_goes_in_when_the_weather_drives_them_in() {
         assert!(!out, "someone out ({:?}) in weather that drives everyone in", s.doing);
     }
 }
+
+#[test]
+fn a_walk_set_out_in_foul_weather_takes_longer() {
+    use gahturiyu_sim::sim::group::Leg;
+    let w = worldgen::generate(1);
+    let start = (w.time / HOUR).ceil() * HOUR;
+    // Off the roads, a stretch of open country; the slowest and the fastest
+    // weather for it in the next fortnight.
+    let a = w.settlements[0].pos.add(V2::new(600.0, 600.0));
+    let b = a.add(V2::new(1500.0, 0.0));
+    let pace = |t: f64| w.terrain.weather_pace(a.lerp(b, 0.5), t);
+    let hours: Vec<f64> = (0..24 * 14).map(|h| start + h as f64 * HOUR).collect();
+    let foul = *hours.iter().min_by(|x, y| pace(**x).total_cmp(&pace(**y))).unwrap();
+    let fair = *hours.iter().max_by(|x, y| pace(**x).total_cmp(&pace(**y))).unwrap();
+    if pace(foul) > pace(fair) - 0.05 {
+        eprintln!("no foul weather to speak of here; nothing to check");
+        return;
+    }
+    let walk = |t: f64| {
+        let l = Leg::straight(a, b, t, 1.3, None, &w.terrain);
+        l.arrive - l.depart
+    };
+    assert!(walk(foul) > walk(fair) * 1.05, "foul {:.0} s against fair {:.0} s", walk(foul), walk(fair));
+}
