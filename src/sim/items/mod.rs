@@ -157,6 +157,29 @@ pub struct WeaponDef {
     /// Can go in the off hand, to parry with.
     #[serde(default)]
     pub offhand: bool,
+    // ---- Its heft (Part 1, B1) ----
+    /// The Strength it wants: below it, it's slower and less accurate
+    /// (`combat::Fighter::wield`). 0: anyone can use it.
+    #[serde(default)]
+    pub strength: f32,
+    /// Its weight, kg: swinging it tires by it.
+    #[serde(default)]
+    pub kg: f32,
+    /// Its grade's balance: swings this share quicker and lands this share
+    /// more often (negative for crude work).
+    #[serde(default)]
+    pub balance: f32,
+}
+
+/// A grade's balance (Part 1, B5): crude work swings slower and lands less,
+/// fine and masterwork quicker and surer.
+const fn balance_of(grade: Grade) -> f32 {
+    match grade {
+        Grade::Crude => -0.05,
+        Grade::Common => 0.0,
+        Grade::Fine => 0.04,
+        Grade::Masterwork => 0.08,
+    }
 }
 
 /// How much room a weapon needs to be swung well (the items design, 0.2
@@ -184,9 +207,10 @@ pub(super) struct Fits {
     pub thrown: bool,
     pub breaks: f32,
     pub offhand: bool,
+    pub strength: f32,
 }
 
-pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false };
+pub(super) const FIT: Fits = Fits { bleed: 0.0, space: Space::Medium, sweep: 0, sneak: 0.0, stuns: false, conceal: 0.0, thrown: false, breaks: 0.0, offhand: false, strength: 0.0 };
 
 /// A weapon line with its fight-rule numbers.
 pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
@@ -200,6 +224,7 @@ pub(super) const fn fits(mut d: ItemDef, f: Fits) -> ItemDef {
         w.thrown = f.thrown;
         w.breaks = f.breaks;
         w.offhand = f.offhand;
+        w.strength = f.strength;
         d.kind = Kind::Weapon(w);
     }
     d
@@ -286,7 +311,7 @@ const fn weapon(key: &'static str, name: &'static str, skill: Skill, cut: f32, b
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, ..FISTS }),
+        kind: Kind::Weapon(WeaponDef { skill, cut, blunt, reach, windup, recover, two_handed, parry, kg: weight, ..FISTS }),
         weight,
         value,
         effects: &[],
@@ -320,7 +345,7 @@ const fn ranged(key: &'static str, name: &'static str, cut: f32, blunt: f32, ran
         key,
         name,
         slot: Slot::MainHand,
-        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, range, ammo: Some(ammo), space: Space::Short, ..FISTS }),
+        kind: Kind::Weapon(WeaponDef { skill: Skill::Marksman, cut, blunt, reach: 1.0, windup, recover, two_handed: true, range, ammo: Some(ammo), space: Space::Short, kg: weight, ..FISTS }),
         weight,
         value,
         effects: &[],
@@ -543,10 +568,17 @@ fn made(base: &ItemDef, form: &Form, main: Material, second: Material, grade: Gr
     let turn_blunt = (a.turn_blunt + b.turn_blunt) * 0.5;
     let p = grade.power();
     let kind = match base.kind {
+        // Heavier swings slower (by the square root) and wants more
+        // Strength (Part 1, B1); the grade's balance on top.
         Kind::Weapon(w) => Kind::Weapon(WeaponDef {
             cut: w.cut * a.edge / u.edge * p,
             blunt: w.blunt * mass / u.mass * p,
             pierce: a.pierce.max(b.pierce),
+            windup: w.windup * (density / u.density).sqrt(),
+            recover: w.recover * (density / u.density).sqrt(),
+            strength: w.strength * density / u.density,
+            kg: base.weight * density / u.density,
+            balance: balance_of(grade),
             ..w
         }),
         Kind::Armor(x) => Kind::Armor(ArmorDef {
@@ -610,4 +642,7 @@ pub const FISTS: WeaponDef = WeaponDef {
     thrown: false,
     breaks: 0.0,
     offhand: false,
+    strength: 0.0,
+    kg: 0.0,
+    balance: 0.0,
 };
