@@ -27,6 +27,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?} {:?}\n", w.campfires, w.next_fire, w.fire_jobs);
     // Poison on the squad's blades.
     s += &format!("{:?}\n", w.coatings);
+    // The squad's guilds.
+    s += &format!("{:?}\n", w.guilds);
     // Combat: someone on their way to bind a bleed; thrown things lying about and who gathers them.
     s += &format!("{:?} {:?} {:?}\n", w.binding, w.thrown_lying, w.gatherers);
     // Packs soaking through and drying (containers).

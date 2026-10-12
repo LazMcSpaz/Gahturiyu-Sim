@@ -5,6 +5,7 @@ pub mod ai;
 pub mod animals;
 pub mod bands;
 pub mod bedding;
+pub mod membership;
 pub mod campfire;
 pub mod coating;
 pub mod drunk;

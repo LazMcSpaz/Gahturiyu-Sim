@@ -1,0 +1,66 @@
+# Faction greetings and farewells (docs/factions.md, "Voices"; Laz, 2026-10-12).
+# slot | conditions | text | flags
+#
+# A person's people sets the rhythm (their own greetings, their own words);
+# their faction sets the attitude. A line tagged with a faction outranks a
+# plain one (`faction=` counts double), and a sub-faction's line names both
+# the parent and the sub, so it outranks the parent's. Talk about other
+# factions comes up only when it's asked about ("What do you make of
+# things?", faction_talk.txt), not here.
+
+# ---- The First Peoples: cold courtesy -----------------------------------------
+greeting | faction=first_peoples, stranger | You may wait by the gate. Someone will see to you.
+greeting | faction=first_peoples, known | Ah. You again. Well, you know the way to the gate by now.
+greeting | faction=first_peoples, warm | You are welcome here, {w:friend}. That is not something we say lightly.
+farewell | faction=first_peoples | Mind the road. It is not ours past the bridge.
+farewell | faction=first_peoples, warm | Go well. The house will remember you kindly.
+greeting | faction=first_peoples, faction=seated_houses, stranger | The houses keep good order here. I'm sure you'll do nothing to change that.
+greeting | faction=first_peoples, faction=true_line, stranger | Our blood was here before theirs had a name. Remember whose hill you stand on.
+greeting | faction=first_peoples, faction=tide_houses, stranger | The elders listen... sometimes. What brings you to the shore?
+
+# ---- The Great House ------------------------------------------------------------
+greeting | faction=great_house, stranger | By whose leave do you travel? No matter. Speak.
+farewell | faction=great_house | Go by leave of the Throne, whatever you think of it.
+greeting | faction=great_house, faction=throne, stranger | Kneel or don't. The Throne remembers both.
+greeting | faction=great_house, faction=throne, known | The emperor's peace held this whole island once. It will again. What do you need?
+greeting | faction=great_house, faction=banner_lords, stranger | My lord flies the Throne's banner. That counts for something here. State your business.
+greeting | faction=great_house, faction=free_lords, stranger | What can you do for me, and what will it cost?
+greeting | faction=great_house, faction=free_lords, known | Back again. Good. I like people who come back with something to sell.
+
+# ---- The Open Hand: idealistic ----------------------------------------------------
+greeting | faction=open_hand, stranger | Welcome. Whoever you are, your coin's as good as anyone's, and so's your word.
+greeting | faction=open_hand, known | Good to see you on the road again. What news from the other towns?
+farewell | faction=open_hand | Open roads, friend.
+greeting | faction=open_hand, faction=open_council, stranger | Welcome, welcome. Every traveller who passes through is a thread in something bigger.
+greeting | faction=open_hand, faction=sharp_hands, stranger | Ah, a discerning sort, I can tell. For you, a special price. Between friends.
+greeting | faction=open_hand, faction=road_crews, stranger | Council talks about the road. We walk it. What do you need?
+
+# ---- Minors ----------------------------------------------------------------------
+greeting | faction=holy_house, stranger | Kneel at the rite, and the house will remember you kindly.
+greeting | faction=holy_house, known | The stone remembers the faithless. It remembers the faithful too. Which are you today?
+farewell | faction=holy_house | Many have left the shrine. The shrine has not left them. Go.
+greeting | faction=last_wave, stranger | You want to talk? Show me you can stand first.
+greeting | faction=last_wave, warm | You stood. Sit. Eat.
+farewell | faction=last_wave | We came here. We stay here. That's all.
+greeting | faction=far_sails, stranger | Titles don't float, friend. Who are you, then, under all that?
+greeting | faction=far_sails, known | Back from the dry land? Sit, there's always room on the deck.
+farewell | faction=far_sails | Fair wind. Or any wind. We're not fussy.
+greeting | faction=binders, stranger | You travel light. No one waiting for you, I'd guess.
+farewell | faction=binders | Careful on the roads at night, friend. People go missing.
+greeting | faction=wardens, stranger | Pay's bad, food's worse, and the trees want to eat you. Interested?
+farewell | faction=wardens | Tell your lord the wall's still standing. For now.
+greeting | faction=highfolk, stranger | Your road is long, lowlander. Sit by the fire and give us your name, and your father's.
+farewell | faction=highfolk | Go down carefully. The mountain keeps what the lowlands forget.
+greeting | faction=rooted | We are many. We are growing. You are... not yet.
+farewell | faction=rooted | Lie down a while, when you are tired. The green is soft.
+
+# ---- Guilds ----------------------------------------------------------------------
+greeting | faction=writers, stranger | Fascinating. A new face. Wait, say your name again, I want to write it down.
+greeting | faction=writers, known | You! Good. I have three accounts of something and they all disagree. Isn't that wonderful?
+farewell | faction=writers | Bring me something I don't know next time. Anything at all.
+greeting | faction=lantern_company, stranger | Another face on the road. You hire, or you looking to be hired?
+greeting | faction=lantern_company, known | Still breathing? Good. Another job, another scar.
+farewell | faction=lantern_company | You hold the lantern, we'll hold the line.
+greeting | faction=lantern_company, member | Drinks are on the dead man, Lantern. Sit.
+greeting | faction=writers, member | Ah, one of ours! Have you written anything down lately? You should.
+farewell | faction=writers, member | Keep your eyes open and your ink wet.
