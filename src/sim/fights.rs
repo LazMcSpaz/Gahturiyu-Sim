@@ -325,12 +325,18 @@ impl World {
         }
     }
 
+    /// How true shots fly in the weather at `pos` at `t` (a fight's start).
+    pub(super) fn air_for(&self, pos: V2, t: f64) -> f32 {
+        self.weather_effects(pos, t).ranged_accuracy_mult
+    }
+
     fn start_battle(&mut self, sides: Vec<(Side, Vec<PersonId>)>, at: f64) -> u32 {
         let id = self.next_battle;
         self.next_battle += 1;
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
         let mut b = Battle::new(id, seed, at, Vec::new(), Vec::new());
         b.lights = Some(self.fixed_lights());
+        b.aim_weather = self.air_for(self.squad.pos, at);
         self.battles.push(b.clone());
         for (side, who) in sides {
             self.add_fighters(&mut b, side, &who);

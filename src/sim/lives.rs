@@ -347,6 +347,25 @@ impl World {
     /// After posts are filled at dawn: anyone still without work labours if
     /// the town has room for more hands, else stays out of work.
     pub(super) fn place_jobless(&mut self, town: SettlementId) {
+        // Back on their feet, or home again: someone who lost their post to
+        // an injury or a long absence takes up their trade again where a post
+        // in it is going (NM-51), before anyone is set to labour.
+        let mut going = self.vacant_posts(town);
+        let back: Vec<PersonId> = self.settlements[town as usize].residents.iter().copied().filter(|&p| {
+            let (l, m) = (&self.society.lives[p as usize], &self.society.minds[p as usize]);
+            !self.people[p as usize].dead && !self.people[p as usize].in_squad && l.job == Job::None && m.injured_days == 0 && m.away_days == 0 && m.work != Work::Bonded && matches!(m.lost, Some((_, why)) if why != Loss::Idle)
+        }).collect();
+        for p in back {
+            let Some((job, _)) = self.society.minds[p as usize].lost else { continue };
+            let Some(k) = going.iter().position(|&(j, _)| j == job) else { continue };
+            let (_, place) = going.remove(k);
+            let lf = &mut self.society.lives[p as usize];
+            lf.job = job;
+            lf.place = Some(place);
+            let m = &mut self.society.minds[p as usize];
+            m.lost = None;
+            m.work = Work::Working;
+        }
         let tl = &self.society.towns[town as usize];
         for ci in std::iter::once(tl.shore).chain(tl.stilts) {
             let members: Vec<PersonId> = self.members_of(ci).collect();

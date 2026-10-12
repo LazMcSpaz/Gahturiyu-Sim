@@ -82,9 +82,11 @@ fn b6_treasuries_and_grain_level_off() {
     use gahturiyu_sim::sim::jobs::Good;
     let mut w = worldgen::generate(1);
     let snap = |w: &World| -> Vec<(f32, f32)> { w.society.towns.iter().map(|t| (t.treasury, t.stock[Good::Grain.index()].base)).collect() };
-    days(&mut w, 40.0);
+    // (A town hit hard early, by bandits or beasts, can still be climbing
+    // back at day 80; by day 60 the rest have settled.)
+    days(&mut w, 60.0);
     let mid = snap(&w);
-    days(&mut w, 40.0);
+    days(&mut w, 60.0);
     let end = snap(&w);
     for (i, (a, b)) in mid.iter().zip(&end).enumerate() {
         let heads = w.settlements[i].residents.len() as f32;

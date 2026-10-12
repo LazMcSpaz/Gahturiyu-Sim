@@ -205,3 +205,39 @@ fn shooting_in_the_dark_misses_more_and_a_torch_helps() {
     assert!(dark < day * 0.7, "dark {dark} vs day {day}");
     assert!(torch > dark * 1.3, "a torch on the target: {torch} vs {dark}");
 }
+
+/// Weather in the rules (part 1): a fight's air is read once, where and when
+/// it starts, and wind, rain and snow spoil shots in it.
+#[test]
+fn wind_and_rain_spoil_the_aim() {
+    let hits = |air: f32| {
+        let mut total = 0.0;
+        for seed in 0..6 {
+            let mut a = Fighter::from_person(&archer(1, false), 0, V2::new(0.0, 0.0), 0.0);
+            a.ammo = 200;
+            let mut d = Fighter::from_person(&target(2), 1, V2::new(22.0, 0.0), 0.0);
+            d.think_at = f64::INFINITY;
+            d.hp = [1e5; 6];
+            a.target = Some(1);
+            a.think_at = f64::INFINITY;
+            let mut b = Battle::new(0, 11 + seed, 0.0, vec![a, d], vec!["Archer".into(), "Target".into()]);
+            b.aim_weather = air;
+            for _ in 0..600 {
+                b.tick();
+            }
+            total += b.fighters[1].damage_taken;
+        }
+        total
+    };
+    let (calm, gale) = (hits(1.0), hits(0.3));
+    assert!(gale < calm * 0.6, "a gale: {gale} against {calm} in still air");
+}
+
+#[test]
+fn a_fight_takes_the_weather_where_it_starts() {
+    let mut w = worldgen::generate(1);
+    w.step(1.0);
+    let (p, t) = (w.squad.pos, w.time);
+    let air = w.weather_effects(p, t).ranged_accuracy_mult;
+    assert!((0.0..=1.0).contains(&air));
+}

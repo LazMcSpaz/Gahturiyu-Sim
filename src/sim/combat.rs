@@ -110,6 +110,11 @@ pub const STAGGER: (f32, f32, f32) = (0.3, 0.5, 0.8);
 pub const KNOCKDOWN: (f32, f32, f32) = (1.0, 0.35, 0.6);
 /// Someone hidden (a spell, smoke) is lost beyond this many metres.
 pub const LOST_BEYOND: f32 = 4.0;
+/// A fight's air before the weather is read (`Battle::aim_weather`).
+fn clear_air() -> f32 {
+    1.0
+}
+
 /// A stagger loses them this long; on the ground this long.
 pub const STAGGER_SECS: f64 = 0.6;
 pub const KNOCKDOWN_SECS: f64 = 2.0;
@@ -940,6 +945,11 @@ pub struct Battle {
     /// What's solid round the fight, for fighters to go round (`Around`).
     #[serde(skip)]
     pub around: Around,
+    /// How true shots and throws fly in this fight's weather (wind, rain,
+    /// snow: `weather_effects::ranged_accuracy_mult`), taken where and when
+    /// it starts, so a far fight and a near one are fought in the same air.
+    #[serde(default = "clear_air")]
+    pub aim_weather: f32,
     /// Thrown weapons where they came down (rule 8).
     #[serde(default)]
     pub thrown: Vec<Thrown>,
@@ -989,7 +999,8 @@ impl Around {
 
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default(), thrown: Vec::new() }
+        // (In the open air until told otherwise: `World::air_for`.)
+        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default(), thrown: Vec::new(), aim_weather: 1.0 }
     }
 
     /// How well lit a spot in the fight is, 0..1.
@@ -1506,7 +1517,7 @@ impl Battle {
         let tight = if !shot && needs_room(&weapon) { 1.0 - TIGHT_HIT * self.tightness(a) } else { 1.0 };
         // Too heavy for them, or finely balanced (Part 1, B1).
         let (_, wield_hit, tiring) = att.wield(&weapon);
-        let p_hit = ((0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark * tight * wield_hit).min(0.97);
+        let p_hit = ((0.5 + (atk - dodge) * 0.012).clamp(0.08, 0.95) * (1.0 - blinded * 0.7) * far * dark * tight * wield_hit * if shot { self.aim_weather } else { 1.0 }).min(0.97);
         let (an, dn) = (self.names[a].clone(), self.names[d].clone());
         if shot && !blow.throw {
             // Only for drawing. A miss comes down a few metres past the target,
