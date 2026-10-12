@@ -25,6 +25,8 @@ const HEAD: Rgb = [0.89, 0.76, 0.48];
 const SUB: Rgb = [0.66, 0.60, 0.50];
 const GROUP: Rgb = [0.66, 0.57, 0.42];
 const OWED: Rgb = [0.90, 0.48, 0.38];
+/// The most factions listed under Standing.
+const MOST_STANDING: usize = 6;
 const FAINT: Rgb = [0.55, 0.50, 0.42];
 
 const W: f32 = 560.0;
@@ -74,6 +76,15 @@ pub fn owed_lines(w: &World) -> Vec<String> {
 
 /// A squad member's town work: who and where, then the hours, the pay and
 /// how it stands now.
+/// Who thinks what of the squad: every faction (and lord) whose regard has
+/// moved off nothing, in words, most moved first.
+pub fn standing_lines(w: &World) -> Vec<(String, &'static str, f32)> {
+    use gahturiyu_sim::sim::factions::{standing_word, FACTIONS};
+    let mut out: Vec<(String, &'static str, f32)> = FACTIONS.iter().enumerate().map(|(k, f)| (f.name.to_string(), w.standing_with(k as u8))).chain(w.factions.lords.iter().map(|l| (format!("Lord {}", l.name), l.standing))).filter(|x| x.1.abs() >= 1.0).map(|(n, s)| (n, standing_word(s), s)).collect();
+    out.sort_by(|a, b| b.2.abs().total_cmp(&a.2.abs()).then(a.0.cmp(&b.0)));
+    out
+}
+
 fn work_cards(w: &World) -> Vec<(String, String)> {
     let day = World::day_of(w.time);
     let h = (w.time.rem_euclid(DAY) / HOUR) as f32;
@@ -104,12 +115,14 @@ pub fn journal(c: &Canvas, w: &World, click: Option<Click>) -> (Option<JournalAc
     let clicked = |bx: &Bx| click.map(|k| bx.contains(k.at) && !k.right).unwrap_or(false);
     let owed = owed_lines(w);
     let work = work_cards(w);
+    let standing = standing_lines(w);
+    let standing_shown = standing.len().min(MOST_STANDING);
     let mut open: Vec<&Quest> = w.quests.iter().filter(|q| q.stage != Stage::Done).collect();
     // Ones to report on first: they're one walk from paid.
     open.sort_by_key(|q| q.stage != Stage::Report);
     let done = w.quests.iter().filter(|q| q.stage == Stage::Done).count();
     let shown = open.len().min(MOST_JOBS);
-    let empty = owed.is_empty() && work.is_empty() && open.is_empty();
+    let empty = owed.is_empty() && work.is_empty() && open.is_empty() && standing.is_empty();
 
     // Its height, from what's in it.
     let mut h = 74.0 + 14.0;
@@ -118,6 +131,9 @@ pub fn journal(c: &Canvas, w: &World, click: Option<Click>) -> (Option<JournalAc
     }
     if !work.is_empty() {
         h += GROUP_H + work.len() as f32 * ROW_H;
+    }
+    if !standing.is_empty() {
+        h += GROUP_H + standing_shown as f32 * LINE_H;
     }
     if !open.is_empty() {
         h += GROUP_H + shown as f32 * ROW_H;
@@ -161,6 +177,22 @@ pub fn journal(c: &Canvas, w: &World, click: Option<Click>) -> (Option<JournalAc
                 break;
             }
             c.styled(l, x + 4.0, y + 17.0, 15.0, eg(OWED), Face::Body, 0.0);
+            y += LINE_H;
+        }
+    }
+    if !standing.is_empty() && fits(y, GROUP_H + LINE_H) {
+        group(&mut y, "STANDING", GROUP);
+        for (name, word, s) in standing.iter().take(standing_shown) {
+            if !fits(y, LINE_H) {
+                break;
+            }
+            c.styled(name, x + 4.0, y + 17.0, 15.0, eg(TEXT), Face::Body, 0.0);
+            let col = match (*word, *s < 0.0) {
+                ("Neutral", _) => SUB,
+                (_, true) => OWED,
+                _ => [0.61, 0.76, 0.48],
+            };
+            c.styled_right(word, r.x + r.w - 22.0, y + 17.0, 15.0, eg(col), Face::Italic, 0.0);
             y += LINE_H;
         }
     }

@@ -255,7 +255,7 @@ impl World {
     /// (`None`: as it stands).
     pub fn worth_holding(&self, town: SettlementId, it: ItemId, piece: Option<&Piece>, t: f64, stock: Option<super::society::Flow>) -> f32 {
         let def = item(it);
-        let mut v = def.value;
+        let mut v = piece.and_then(|p| p.mix).map(|m| m.worth()).unwrap_or(def.value);
         if let Some(g) = good_of(def.key) {
             v *= match stock {
                 Some(s) => self.price_factor_holding(town, g, t, s),

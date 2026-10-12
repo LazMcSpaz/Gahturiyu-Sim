@@ -31,6 +31,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n", w.larder);
     // Brews under way, and what each person knows of alchemy.
     s += &format!("{:?}\n{:?}\n", w.brewing, w.lore);
+    // Standing with the factions, the lords, and who holds each town.
+    s += &format!("{:?}\n{:?}\n", w.factions, w.settlements.iter().map(|s| s.holder).collect::<Vec<_>>());
     s += &sorted(&w.bounty);
     s += &sorted(&w.news);
     s += &sorted(&w.torches);

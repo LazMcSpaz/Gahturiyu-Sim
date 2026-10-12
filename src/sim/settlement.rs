@@ -75,6 +75,10 @@ pub struct Settlement {
     /// squad first walks in.
     #[serde(default)]
     pub sleepers: Vec<(u16, bool)>,
+    /// The faction that holds it (`factions.rs`): none until Laz's map gives
+    /// the factions their towns.
+    #[serde(default)]
+    pub holder: Option<super::factions::FactionId>,
 }
 
 impl Settlement {

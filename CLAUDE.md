@@ -284,7 +284,8 @@ beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
 goes to that kind of town first), `GAHT_DUEL=1` (member 0 judged by duel),
 `GAHT_SHUN=1` (the nearest stilt village withdraws; runs past the next dawn), `GAHT_TRADE=1` (trading
-with the nearest merchant at work; `GAHT_TRADE=table` lays a few things on the table first), `GAHT_CONVO=1` (a local robbed last night talks about it,
+with the nearest merchant at work; `GAHT_TRADE=table` lays a few things on the table first), `GAHT_FACTIONS=1` (the nearest town held by the Banner Lords, a few deeds done, the journal open on Standing),
+`GAHT_CONVO=1` (a local robbed last night talks about it,
 assembled from `data/lines`), `GAHT_GUARD=1` (member 0 on a guard contract at a merchant's stall;
 the journal shows it), `GAHT_EDIT=1` (the land editor open beside a few demo strokes: a terraced
 snow-capped hill, sand and mud, more trees, rocks; screenshots ignore
@@ -723,6 +724,21 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   removed. What each person knows is `World::lore` (tasting shows one
   effect, brewing what the ingredients shared; brewed mixes are
   remembered). The making screen hands over to `view/brewui.rs` at a table.
+- Factions (Laz, `docs/factions.md`, `docs/leaders.md`; F1-F2 in
+  `factions.rs`): the factions, three sub-factions under each major, the
+  minors and the guilds are one data table (`FACTIONS`), how they regard
+  each other another (`RELATIONS`; the Rooted against everyone), the
+  leaders a third (`LEADERS`: data until the map gives them homes). Their
+  native names are in `assets/lang/things.ron` (group Faction; Laz chose
+  them, so a faction's name may run to five beats). The squad's standing
+  with each (and with each Great House lord, `Lord`, saved) moves by deeds
+  (`World::deed`: half again with the parent, rippling by `RELATIONS`);
+  the lords drift at dawn by keyed rolls and change sides by their standing
+  with the Throne. A town's holder is `Settlement::holder`, none until the
+  map: where there is one, entry reads the major's standing (prices,
+  `regard_price`; no dealing at all where hostile, `deals_with_squad`), a
+  crime told there and a job done there count with it. The journal lists
+  Standing in words.
 - The grid inventory (Laz's items step 3, Kenshi-style; `inventory.rs`): a
   squad member carries things in grids, pockets (`POCKETS`) then the pack's
   (`pack_grid`, by how much it holds). Where each stack sits is

@@ -47,10 +47,11 @@ pub enum Group {
     Weather,
     Everyday,
     World,
+    Faction,
 }
 
 impl Group {
-    pub const ALL: [Group; 18] = [
+    pub const ALL: [Group; 19] = [
         Group::Job,
         Group::Craft,
         Group::Material,
@@ -69,6 +70,7 @@ impl Group {
         Group::Weather,
         Group::Everyday,
         Group::World,
+        Group::Faction,
     ];
 
     pub fn title(self) -> &'static str {
@@ -91,6 +93,7 @@ impl Group {
             Group::Weather => "Weather",
             Group::Everyday => "Everyday things",
             Group::World => "The world",
+            Group::Faction => "Factions and guilds",
         }
     }
 }

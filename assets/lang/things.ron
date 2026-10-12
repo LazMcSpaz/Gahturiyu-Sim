@@ -602,4 +602,28 @@
     // ==== The world ============================================================
     // The Overgrowth is named for Qotihiqì, the Barbed-Root (pantheon.md).
     (english: "The Overgrowth", group: World, made: "grow/@qotihiqi"),
+    // ==== Factions and guilds (Laz, docs/factions.md, 12 Oct) ====================
+    (english: "The First Peoples", group: Faction, belongs: Some(Roduro), made: "first:kind"),
+    (english: "The Great House", group: Faction, belongs: Some(Roduro), made: "great+house"),
+    (english: "The Open Hand", group: Faction, belongs: Some(Tadoro), made: "give+hand"),
+    (english: "The Holy House", group: Faction, belongs: Some(Roduro), made: "holy+house"),
+    (english: "The Last Wave", group: Faction, belongs: Some(Qotiro), made: "last+migrate:agent"),
+    (english: "The Far Sails", group: Faction, belongs: Some(Horaro), made: "far+sail:agent"),
+    (english: "The Binders", group: Faction, belongs: Some(Qotiro), made: "bind:agent"),
+    (english: "The Wardens", group: Faction, belongs: Some(Roduro), made: "guard:agent"),
+    (english: "The Highfolk", group: Faction, belongs: Some(Roduro), made: "mountain:kind"),
+    (english: "The Rooted", group: Faction, belongs: Some(Roduro), made: "root:kind"),
+    (english: "The Writers", group: Faction, belongs: Some(Tadoro), made: "write:kind"),
+    (english: "The Lantern Company", group: Faction, belongs: Some(Tadoro), made: "torch+staff"),
+    (english: "The Old Hands", group: Faction, belongs: Some(Roduro), made: "old+hand"),
+    (english: "The Night Market", group: Faction, belongs: Some(Horaro), made: "night+market"),
+    (english: "The Seated Houses", group: Faction, belongs: Some(Roduro), made: "elder+house"),
+    (english: "The True Line", group: Faction, belongs: Some(Roduro), made: "true+line"),
+    (english: "The Tide Houses", group: Faction, belongs: Some(Horaro), made: "tide+house"),
+    (english: "The Throne", group: Faction, belongs: Some(Roduro), made: "most+high"),
+    (english: "The Banner Lords", group: Faction, belongs: Some(Roduro), made: "loyal+hold:agent"),
+    (english: "The Free Lords", group: Faction, belongs: Some(Roduro), made: "far+hold:agent"),
+    (english: "The Open Council", group: Faction, belongs: Some(Tadoro), made: "trade+hall"),
+    (english: "The Sharp Hands", group: Faction, belongs: Some(Tadoro), made: "sharp+hand"),
+    (english: "The Road Crews", group: Faction, belongs: Some(Tadoro), made: "road+staff"),
 ]
