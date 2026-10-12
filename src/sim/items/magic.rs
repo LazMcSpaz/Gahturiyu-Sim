@@ -9,6 +9,8 @@ pub(super) static ITEMS: &[ItemDef] = &[
     potion("mana_tonic", "Mana tonic", 35.0, &[now(Does::Energy, 40.0, Reach::Caster)]),
     // A brewed potion: what it does is the mix in the bottle (`herbs::Mix`).
     potion("brewed_potion", "Potion", 10.0, &[]),
+    // A mix written down (`brewing::Sheet`, in the sheet's piece): read to learn it.
+    ItemDef { key: "recipe_sheet", name: "Recipe sheet", slot: Slot::MainHand, kind: Kind::Tool, weight: 0.05, value: 8.0, effects: &[] },
     scroll("scroll_heal", "Scroll of mending", "mend", 40.0),
     scroll("scroll_paralyze", "Scroll of paralysis", "paralyze", 60.0),
     scroll("scroll_fireball", "Scroll of fireball", "fireball", 70.0),

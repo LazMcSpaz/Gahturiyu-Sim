@@ -152,7 +152,7 @@ impl Gear {
     /// Put one made piece in the pack, with its own wear and mark. A brewed
     /// bottle goes with any just like it.
     pub fn add_piece(&mut self, id: ItemId, piece: Piece) {
-        if piece.mix.is_some() {
+        if piece.mix.is_some() || piece.sheet.is_some() {
             if let Some(e) = self.bag.iter_mut().find(|e| e.0 == id && e.2 == Some(piece)) {
                 e.1 += 1;
                 return;

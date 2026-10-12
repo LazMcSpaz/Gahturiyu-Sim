@@ -96,8 +96,9 @@ pub enum Action {
     /// Seal a worn reed piece with pitch, or mend it yourself.
     Care(PersonId, Slot),
     Use(PersonId, ItemId),
-    /// Drink this very bottle in the pack (a brewed potion: its own mix).
-    DrinkEntry(PersonId, usize),
+    /// Use this very thing in the pack: drink a brewed bottle (its own mix),
+    /// read a recipe sheet.
+    UseEntry(PersonId, usize),
     /// Taste a raw ingredient (it shows one of its effects).
     Taste(PersonId, ItemId),
     Craft(PersonId, usize),
@@ -393,6 +394,14 @@ pub fn mix_lines(m: &gahturiyu_sim::sim::items::herbs::Mix) -> Vec<(String, Rgb)
         out.push((e.describe(), if harm { [0.90, 0.45, 0.38] } else { TEXT }));
     }
     out
+}
+
+/// A recipe sheet's tooltip: the mix written on it and what goes in it.
+pub fn sheet_lines(s: &gahturiyu_sim::sim::brewing::Sheet) -> Vec<(String, Rgb)> {
+    use gahturiyu_sim::sim::items::herbs::{shared, Kit, Mix};
+    let name = Mix::brew(&shared(s.ingredients()), 50.0, Kit::default()).name();
+    let ings: Vec<String> = s.ingredients().iter().map(|&i| item(i).name.to_lowercase()).collect();
+    vec![("Recipe sheet".to_string(), GOLD), (format!("A {}", name.to_lowercase()), TEXT), (format!("From {}", ings.join(", ")), DIM), ("Read it to learn the mix".to_string(), DIM)]
 }
 
 /// What `who` knows of an ingredient's four effects ("?" for the rest).

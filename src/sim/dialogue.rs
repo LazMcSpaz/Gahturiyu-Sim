@@ -70,6 +70,8 @@ pub enum Topic {
     Mend(PersonId, u8, u16),
     /// Pay a crafter to teach their craft, at this price.
     CraftLesson(u16),
+    /// Ask an alchemist, healer or forager what an ingredient does.
+    Herblore(items::ItemId),
     /// Ask a Tender what they'd grow to order.
     Orders,
     /// Order a grown piece: (recipe, price).
@@ -142,6 +144,7 @@ impl Topic {
             Topic::ToCoin => "Change a note for coin",
             Topic::Mend(..) => "Mend this",
             Topic::CraftLesson(_) => "Teach me your trade",
+            Topic::Herblore(_) => "What does this do?",
             Topic::Orders => "What could you grow for me?",
             Topic::Order(..) => "Order",
             Topic::Collect(_) => "Is my order ready?",
@@ -267,6 +270,7 @@ impl World {
                 None => format!("Teach me your trade ({p} coin)"),
             },
             Topic::BuyOut(m, p) => format!("Buy {} out of their bond ({p} coin)", self.people[m as usize].name().unwrap_or("?")),
+            Topic::Herblore(it) => format!("What does the {} do? ({} coin)", items::item(it).name.to_lowercase(), super::brewing::HERBLORE_PRICE),
             Topic::TakePost(post) => format!("Take up the post of {}", post.name()),
             Topic::TakeJob(id) => match self.opportunity(id) {
                 Some(o) => format!("I'll take it: {}", self.opp_line(o)),
@@ -551,6 +555,11 @@ impl World {
             if let Some((_, price, _)) = self.craft_lesson(c.npc, c.with) {
                 t.push(Topic::CraftLesson(price));
             }
+        }
+        // Alchemists, healers and foragers at work say what an ingredient
+        // does, for a little coin (Part 4: taught).
+        if self.knows_herbs(c.npc) {
+            t.extend(self.herblore_asks(c.with).into_iter().map(Topic::Herblore));
         }
         // A bond is bought out from any official, arbiter or guard of the
         // town that holds it, wherever they are met (NM-37).
@@ -1215,6 +1224,15 @@ impl World {
                     Err(e) => format!("Not now: {e}."),
                 }
             }
+            Topic::Herblore(it) => {
+                let what = items::item(it).name.to_lowercase();
+                if self.buy_herblore(c.with, it) {
+                    let fx: Vec<String> = items::ingredient(it).map(|d| d.effects.iter().map(|a| a.name().to_lowercase()).collect()).unwrap_or_default();
+                    format!("The {what}? {}, {}, {} and {}. That's all there is to it.", crate::names::capital(&fx[0]), fx[1], fx[2], fx[3])
+                } else {
+                    format!("I'll tell you about the {what} for {} coin, and you haven't got it.", super::brewing::HERBLORE_PRICE)
+                }
+            }
             Topic::Orders => "Stone takes its time. Pay half now, and come back when it's grown — I'll need to be here to tend it.".into(),
             Topic::Order(ri, _) => match self.place_order(c.npc, ri as usize) {
                 Ok(k) => {
@@ -1279,6 +1297,7 @@ fn topic_key(t: Topic) -> u64 {
         Topic::ToCoin => 13,
         Topic::Mend(m, k, _) => 50_000 + m as u64 * 16 + k as u64,
         Topic::CraftLesson(_) => 14,
+        Topic::Herblore(it) => 95_000 + it as u64,
         Topic::Orders => 15,
         Topic::Order(ri, _) => 60_000 + ri as u64,
         Topic::Collect(k) => 70_000 + k as u64,

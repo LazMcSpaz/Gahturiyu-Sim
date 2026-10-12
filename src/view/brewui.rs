@@ -177,18 +177,37 @@ pub fn brewing(c: &Canvas, w: &World, m: &Making, _mouse: Vec2, click: Option<Cl
     if mixes.is_empty() {
         c.styled("None yet: a brewed mix is remembered.", r.x + 14.0, y + 18.0, 15.0, eg(FAINT), Face::Italic, 0.0);
     }
-    for rm in mixes.iter() {
-        if y + 30.0 > top + col_h - 4.0 {
+    // (One who writes can put a mix on a sheet: "write" at the row's end.)
+    let writes = who.is_some_and(|p| w.knows_craft(p, Craft::Inscription));
+    for (k, rm) in mixes.iter().enumerate() {
+        if y + 30.0 > top + col_h - 40.0 {
             break;
         }
-        let bx = Bx::new(r.x, y, LIST_W, 30.0);
+        let bx = Bx::new(r.x, y, LIST_W - if writes { 64.0 } else { 0.0 }, 30.0);
         let l = kit::row(c, &bx, false);
         let have = rm.ings.iter().all(|&i| stock.iter().find(|s| s.0 == i).map(|s| s.1).unwrap_or(0) >= rm.ings.iter().filter(|&&x| x == i).count() as u16);
         c.styled(&rm.name, bx.x + 12.0, bx.y + 20.0 + kit::nudge(l), 16.0, ega(if have { TEXT } else { FAINT }, 1.0), Face::Body, 0.0);
         if clicked(&bx) {
             act = Some(MakeAct::Recall(rm.ings.clone()));
         }
+        if let (true, Some(p)) = (writes, who) {
+            let wb = Bx::new(r.x + LIST_W - 60.0, y + 3.0, 50.0, 24.0);
+            let wl = kit::row(c, &wb, false);
+            c.styled("write", wb.x + 8.0, wb.y + 17.0 + kit::nudge(wl), 14.0, eg(if wl.hot { BRASS_LIGHT } else { GROUP }), Face::Italic, 0.0);
+            if clicked(&wb) {
+                act = Some(MakeAct::Write(p, k));
+            }
+        }
         y += 30.0;
+    }
+    // Teach the others at the table what the brewer knows.
+    if let Some(p) = who.filter(|_| w.bench_hands(&m.bench).len() > 1 && w.lore_of(who.unwrap()).is_some_and(|l| !l.known.is_empty())) {
+        let tb = Bx::new(r.x + 12.0, top + col_h - 36.0, LIST_W - 24.0, 28.0);
+        let tl = kit::row(c, &tb, false);
+        c.styled("Teach the others what you know", tb.x + 8.0, tb.y + 19.0 + kit::nudge(tl), 15.0, eg(if tl.hot { BRASS_LIGHT } else { SUB }), Face::Italic, 0.0);
+        if clicked(&tb) {
+            act = Some(MakeAct::Teach(p));
+        }
     }
 
     // ---- The mix ------------------------------------------------------------------
