@@ -127,6 +127,9 @@ pub struct World {
     /// Poison on the squad's blades (`coating.rs`).
     #[serde(default)]
     pub coatings: Vec<super::coating::Coating>,
+    /// The guilds (and the like) the squad has joined (`membership.rs`).
+    #[serde(default)]
+    pub guilds: Vec<super::factions::FactionId>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -389,6 +392,7 @@ impl World {
             next_fire: 0,
             fire_jobs: Vec::new(),
             coatings: Vec::new(),
+            guilds: Vec::new(),
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),
