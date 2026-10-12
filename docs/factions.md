@@ -116,7 +116,7 @@ Each major has **three sub-factions**: enough that none feels like one block, fe
 - **Role:** a self-contained culture to discover in the mountains.
 
 ### The Rooted (world threat)
-- People sworn to Qotihìqì and the Overgrowth. Like Morrowind's Sixth House.
+- People sworn to Qotihìqì and the Overgrowth. Like Morrowind's Sixth House. (They believe they serve the god; the truth is in `hidden-lore.md`.)
 - **Joining is one-way:** a Rooted member can't belong to any other faction.
 - **One goal:** cover the island with the Overgrowth.
 
@@ -144,6 +144,51 @@ The thieves' guild slot is two rivals at war, like Morrowind's Thieves Guild and
 - Combat as sport. Relatively new; their philosophy is that you can fight for fun too.
 - The old heads dislike them, because they think fighting should be for killing.
 - No presence on the world stage. Something the player can take part in now and then, like an arena.
+
+## Civic groups (Laz, 2026-10-12)
+Found in almost every sizable town, run by the town or its ruling faction. **Not joinable** like a guild. They matter mostly for **disguise** (`clothing.md`): their clothes are what the player borrows, and their members are who might see through it.
+
+**Rules:**
+- **Towns wear their holder's colours.** The same group looks different under different factions (a watch tabard in a Great House town shows the local lord's colours).
+- **Shrine keepers dress by people, not by god:** a Roduro shrine keeper looks Roduro whichever god they serve.
+- **Closeness:** how well members know each other. A **tight** group is a high-risk, high-reward disguise (they notice a stranger in their own clothes). A **loose** group is a low-risk disguise that opens less.
+- **The rest of the kit has to fit** (as the disguise rules already say): a porter with a sword, or a priest who doesn't know the rites, raises suspicion.
+
+### Uniformed groups (passes)
+
+| Group | Look | What the disguise opens | Closeness | Who sees through it |
+|---|---|---|---|---|
+| **Town watch** | Tabard in the town's colours | Gates after dark, barracks, the jail, questioning people | Tight | Guards of the same post. Impersonating the watch is a serious crime where customs say so |
+| **Shrine keepers** | Vestments, in each people's style | Shrines, rites' back rooms, funerals | Tight | Priests of that shrine, regular worshippers. A man in Qotiro vestments is spotted at once (priestesses only) |
+| **Exchange-house clerks** | Ink-stained Ṭaḍoro robe and a clerk's seal | Vaults, ledgers, the coin presses | Tight | The Writers, who know every clerk |
+| **Couriers** | Satchel and road sash | Walking anywhere "with a letter" | Loose | Anyone expecting a reply that never comes |
+| **Harbour crews** | Oilskin and crew cords | Docks, holds, cargo | Medium | The Far Sails, who know every crew |
+
+### Work clothes (blending in)
+
+| Group | Look | What the disguise opens | Closeness |
+|---|---|---|---|
+| **Craft trades** (smiths, weavers, Stone Tenders, carpenters) | Leather apron, a trade's own tools | Workyards and back doors; a Tender can enter old houses | Medium |
+| **Labourers and porters** | Labourer's smock | Warehouses, kitchens, building sites | Loose |
+| **Kitchen and mess-hall workers** | Apron, a runner's basket | Kitchens, meal runners' routes, Qotiro mess halls | Medium |
+| **Healers** | The healing house's sash | Sickrooms; the wounded and prisoners | Medium |
+| **Merchants** | Merchant's coat | Market halls, caravans (but thieves notice you) | Loose |
+| **Beggars and street folk** | Rags | Invisible to the rich; good for watching and listening | Loose |
+
+### Elite uniforms (Laz: in from the start)
+The hardest disguises: they open the most doors, but everyone inside them knows each other.
+
+| Uniform | Belongs to | What the disguise opens | Who sees through it |
+|---|---|---|---|
+| **Palace guard** | The Throne (Great House) | The court, the emperor's halls, near Litiṭaʻa | Very tight: the guard captain knows every face |
+| **Lord's retainers** | Each Great House lord (Banner or Free), in that lord's colours | That lord's hall and lands | Tight: retainers serve for years |
+| **The armed order** | The Holy House | Fortified shrines, inquisitor patrols, the high priest's presence | Tight, and they ask about scripture |
+| **House guard** | The First Peoples' old houses, in each house's colours | Old houses and the Seated Houses' halls | Very tight: old families know their servants by lineage |
+| **Temple guard** | The Last Wave's priestess | Enclave summits, rites | Very tight; outsiders are rare in the enclaves anyway |
+
+**Engine notes:**
+- Each civic group and elite uniform is data: look (clothing pieces), the places it opens, closeness, which faction's colours it takes.
+- Being caught in an elite uniform is worse than being caught in a common one.
 
 ## Names (chosen by Laz, 2026-10-12)
 English names come first in game; the native name shows on hover. Native names were **built with the naming module** (`lang make <recipe>` in the repo) from First Speech roots, in the tongue of the faction's main people. To change a native name, change its recipe.
@@ -337,8 +382,9 @@ Items marked *(Claude)* were filled in to complete the set; change freely.
 
 ### The Highfolk
 - **Public:** old-fashioned and proud.
-- **Depth: a secret.** They guard something old in the mountains. **What it is stays open** (Laz to decide): a way through the peaks, an old place, something tied to the Overgrowth's past.
-- **Private lines:** "Some paths up here we don't show lowlanders. Some we don't show each other." "The mountain keeps what the lowlands forgot."
+- **Depth: a secret** (Laz, 2026-10-12). They guard an **ancient temple complex, the Womb of Creation**, the supposed origin of the races. It tells of the creation of a single race, split into four by the gods' hubris and envy. Full details in `hidden-lore.md` (spoilers).
+- **Why they hide it:** they fear the end of their race and ways of life, and that if people learned one race is the natural state, they'd let the Overgrowth take them. The Highfolk believe the **gods** are using the Overgrowth to reunify all beings by force.
+- **Private lines:** "Some paths up here we don't show lowlanders. Some we don't show each other." "The mountain keeps what the lowlands forgot." Deepest trust: "There were never four of us. Don't ask me again, and don't ever say it below the snowline."
 
 ### The Rooted
 - **Public:** hollow and strange.
@@ -367,5 +413,4 @@ Items marked *(Claude)* were filled in to complete the set; change freely.
 ## Open
 - Each faction's places on the map, units, and how it treats the player.
 - Fuller voice pools (more lines per faction) once the dialogue system takes faction tags.
-- The Highfolk's secret.
 - **Engine:** faction tags on dialogue pieces; a separate private-line pool gated by trust.
