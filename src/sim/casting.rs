@@ -62,6 +62,22 @@ pub struct Boon {
     pub until: f64,
 }
 
+/// How many recent casts `World::cast_marks` keeps.
+const CAST_MARKS: usize = 16;
+
+/// A spell cast outside a fight, kept a moment so the window can show it
+/// (drawing only; not saved): its number, who cast what, from where to
+/// where, and whether it took.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CastMark {
+    pub n: u64,
+    pub by: PersonId,
+    pub spell: Spell,
+    pub from: V2,
+    pub to: V2,
+    pub ok: bool,
+}
+
 /// A lasting spell on a patch of ground outside a fight (a veil, a ward, a
 /// light, a guardian waiting).
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -498,6 +514,13 @@ impl World {
         if d.effects.iter().any(|e| e.does == Does::Unlock && e.reach == Reach::Object) && self.lock_near(point).is_none() {
             return cannot("no lock there");
         }
+        let flames = self.flames_near(point, super::torch::FLAME_REACH);
+        if d.effects.iter().any(|e| e.does == Does::Douse) && !flames.iter().any(|f| f.2) {
+            return cannot("no fire or torch burning there");
+        }
+        if d.effects.iter().any(|e| e.does == Does::Kindle) && !flames.iter().any(|f| !f.2) {
+            return cannot("nothing there to light");
+        }
         let p = &mut self.people[who as usize];
         p.set_mana(mana - d.cost, t);
         self.tire(who, d.tire);
@@ -506,6 +529,8 @@ impl World {
         let p = &self.people[who as usize];
         let chance = magic::success_chance(&p.effective_stats(), s, 1.0);
         let name = self.name_of(who);
+        let to = target.map(|p| self.person_pos(p)).unwrap_or(point);
+        self.mark_cast(who, s, from, to, roll <= chance);
         if roll > chance {
             self.people[who as usize].stats.exercise(d.skill(), 0.4);
             self.say(t, format!("{name}'s {} fizzles; the energy is spent.", d.name.to_lowercase()));
@@ -517,6 +542,15 @@ impl World {
         self.say(t, format!("{name} casts {}.", d.name.to_lowercase()));
         self.work_spell(who, s, target, point, skill);
         Ok(())
+    }
+
+    /// Note a spell cast outside a fight, for the window to show (P16).
+    fn mark_cast(&mut self, by: PersonId, spell: Spell, from: V2, to: V2, ok: bool) {
+        self.cast_seq += 1;
+        self.cast_marks.push(CastMark { n: self.cast_seq, by, spell, from, to, ok });
+        if self.cast_marks.len() > CAST_MARKS {
+            self.cast_marks.remove(0);
+        }
     }
 
     /// How much stronger someone's spells of this one's domain are (worn
@@ -598,10 +632,9 @@ impl World {
         }
     }
 
-    /// An effect on a thing near `point`: a torch, a campfire.
+    /// An effect on a thing near `point`: a torch, a fire, a body.
     fn affect_object(&mut self, by: PersonId, e: &Effect, point: V2) -> bool {
         let t = self.time;
-        const NEAR: f32 = 6.0;
         match e.does {
             Does::Preserve => {
                 let mut any = false;
@@ -658,57 +691,15 @@ impl World {
                 self.say(t, format!("Under {name}'s hands the materials change: {}.", made.join(", ")));
                 true
             }
-            Does::Douse => {
-                // The nearest flame: a torch in a squad member's hand, a
-                // standing torch, a campfire.
-                let mut best: Option<(f32, u8, usize)> = None;
-                let mut offer = |d: f32, kind: u8, i: usize| {
-                    if d <= NEAR && best.map(|b| d < b.0).unwrap_or(true) {
-                        best = Some((d, kind, i));
-                    }
-                };
-                for (k, &m) in self.squad.members.iter().enumerate() {
-                    if self.torch_lit(m) {
-                        offer(self.member_pos(k).dist(point), 0, k);
-                    }
-                }
-                for (i, st) in self.standing.iter().enumerate() {
-                    if st.burning(t) {
-                        offer(st.pos.dist(point), 1, i);
-                    }
-                }
-                for (i, c) in self.camps.iter().enumerate() {
-                    if t >= c.doused_until {
-                        offer(c.pos.dist(point), 2, i);
-                    }
-                }
-                match best {
-                    Some((_, 0, k)) => self.toggle_torch(self.squad.members[k]),
-                    Some((_, 1, i)) => {
-                        self.standing[i].out_at = t;
-                        self.say(t, "A standing torch hisses out.".to_string());
-                        true
-                    }
-                    Some((_, _, i)) => {
-                        self.camps[i].doused_until = t + super::torch::DOUSE_HOURS * super::world::HOUR;
-                        self.say(t, "A campfire hisses out.".to_string());
-                        true
-                    }
-                    None => false,
-                }
-            }
-            Does::Kindle => {
-                let member = self.squad.members.iter().enumerate().filter(|(k, &m)| !self.torch_lit(m) && self.member_pos(*k).dist(point) <= NEAR).min_by(|a, b| self.member_pos(a.0).dist(point).total_cmp(&self.member_pos(b.0).dist(point))).map(|(_, &m)| m);
-                if let Some(m) = member {
-                    return self.toggle_torch(m);
-                }
-                if let Some(i) = self.camps.iter().position(|c| t < c.doused_until && c.pos.dist(point) <= NEAR) {
-                    self.camps[i].doused_until = t;
-                    self.say(t, "A campfire roars back to life.".to_string());
-                    return true;
-                }
-                false
-            }
+            // Any fire or torch near where it's aimed, by one rule (P18).
+            Does::Douse => match self.flames_near(point, super::torch::FLAME_REACH).into_iter().find(|f| f.2) {
+                Some((f, _, _)) => self.put_out(f, t),
+                None => false,
+            },
+            Does::Kindle => match self.flames_near(point, super::torch::FLAME_REACH).into_iter().find(|f| !f.2) {
+                Some((f, _, _)) => self.light_up(f, t),
+                None => false,
+            },
             _ => false,
         }
     }

@@ -14,6 +14,10 @@ pub struct Builder {
     nrm: Vec<[f32; 3]>,
     col: Vec<[f32; 4]>,
     idx: Vec<u32>,
+    /// Flames noted on this builder (`flame.rs` draws them each frame), and
+    /// wisps of smoke (chimneys, a smouldering stack).
+    flames: Vec<super::flame::Spot>,
+    smoke: Vec<super::flame::Spot>,
 }
 
 impl Builder {
@@ -23,6 +27,27 @@ impl Builder {
 
     pub fn triangles(&self) -> usize {
         self.idx.len() / 3
+    }
+
+    /// Where the builder has got to (for `copy_since`).
+    pub fn mark(&self) -> (usize, usize) {
+        (self.pos.len(), self.idx.len())
+    }
+
+    /// Copy what was added since `mark` into `into`, all in one colour (the
+    /// outline mask, `outline.rs`), with nothing below `floor(x, z)`: what's
+    /// sunk into the ground isn't seen, so it mustn't be outlined either.
+    pub fn copy_since(&self, mark: (usize, usize), col: Rgb, into: &mut Builder, floor: &dyn Fn(f32, f32) -> f32) {
+        let (v0, i0) = mark;
+        let base = into.pos.len() as u32;
+        let c = lin(col);
+        for k in v0..self.pos.len() {
+            let [x, y, z] = self.pos[k];
+            into.pos.push([x, y.max(floor(x, z)), z]);
+            into.nrm.push(self.nrm[k]);
+            into.col.push(c);
+        }
+        into.idx.extend(self.idx[i0..].iter().map(|&i| i - v0 as u32 + base));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -168,7 +193,33 @@ impl Builder {
     }
 
     /// Append another builder's geometry.
+    /// A flame here: its root, its radius at the root and its height (the
+    /// measures of the plain cone it replaces). Not drawn into this mesh:
+    /// noted, and drawn each frame with the fire material (`flame.rs`).
+    pub fn flame(&mut self, base: Vec3, r: f32, h: f32) {
+        let seed = (base.x * 7.31 + base.z * 3.17 + base.y * 1.3).to_bits().wrapping_mul(2654435761);
+        self.flames.push(super::flame::Spot { base, width: r * 1.9, height: h * 1.7, seed });
+    }
+
+    /// The flames noted so far, taken out.
+    pub fn take_flames(&mut self) -> Vec<super::flame::Spot> {
+        std::mem::take(&mut self.flames)
+    }
+
+    /// A faint wisp of smoke rising from here (a chimney's top): `r` across
+    /// at its root. Drawn each frame, like flames.
+    pub fn smoke(&mut self, base: Vec3, r: f32) {
+        let seed = (base.x * 5.13 + base.z * 2.71).to_bits().wrapping_mul(2246822519);
+        self.smoke.push(super::flame::Spot { base, width: r * 2.0, height: r * 4.0, seed });
+    }
+
+    pub fn take_smoke(&mut self) -> Vec<super::flame::Spot> {
+        std::mem::take(&mut self.smoke)
+    }
+
     pub fn append(&mut self, o: Builder) {
+        self.flames.extend(o.flames);
+        self.smoke.extend(o.smoke);
         let base = self.pos.len() as u32;
         self.pos.extend(o.pos);
         self.nrm.extend(o.nrm);

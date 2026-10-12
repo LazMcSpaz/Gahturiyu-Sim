@@ -55,8 +55,37 @@ impl Part {
     }
 }
 
-/// Health lost per body part per game hour while resting outside a fight.
-pub const HEAL_PER_HOUR: f32 = 6.0;
+// ---- Healing: every rate in one place (P25) --------------------------------
+// Laz: "faster" or "slower" changes only these numbers. Potions and healing
+// spells are data (`effects::Effect`, `Does::Heal`) and mend at once, as
+// before.
+
+/// Health mended per body part per hour: the base every other rate here
+/// multiplies. Everyone outside the squad (and every animal) heals at this,
+/// whatever they're doing. (Was 6.0 to 11 Oct.)
+pub const HEAL_PER_HOUR: f32 = 1.5;
+/// A squad member's healing, times `HEAL_PER_HOUR`, by what they're doing:
+/// on the move, sitting or lying about awake, and asleep in the open, in a
+/// tent, under a roof, in a bed (an inn's, or their own at a base).
+pub const HEAL_WALKING: f32 = 0.3;
+pub const HEAL_RESTING: f32 = 1.0;
+pub const HEAL_SLEEP_OPEN: f32 = 1.5;
+pub const HEAL_SLEEP_TENT: f32 = 1.75;
+pub const HEAL_SLEEP_INDOORS: f32 = 2.0;
+pub const HEAL_SLEEP_BED: f32 = 3.0;
+/// ...and by how well fed: fed, hungry, weak, starving.
+pub const HEAL_FED: f32 = 1.0;
+pub const HEAL_HUNGRY: f32 = 0.5;
+pub const HEAL_WEAK: f32 = 0.25;
+pub const HEAL_STARVING: f32 = 0.0;
+/// The share of their wounds a town's healer mends on the spot (and is paid
+/// for); the rest heals at the rates above. (Was all of it to 11 Oct.)
+pub const HEALER_MENDS: f32 = 0.5;
+/// Coming round, not healing as such: extra mending per hour for a downed
+/// squad member's head and torso until they're back on their feet, and the
+/// share of the head's and torso's health they come round with.
+pub const RALLY_PER_HOUR: f32 = 24.0;
+pub const RALLY_WAKE: f32 = 0.15;
 /// An arm or leg is lost for good once its health falls to this many times
 /// its maximum below zero (1.0 = at minus its maximum).
 pub const LIMB_LOSS: f32 = 1.0;
@@ -99,11 +128,6 @@ pub struct Wounds {
     pub rally_to: [f32; 2],
 }
 
-/// Extra mending per hour for a downed squad member's head and torso, until
-/// they're back on their feet.
-pub const RALLY_PER_HOUR: f32 = 24.0;
-/// The share of the head's and torso's health they come round with.
-pub const RALLY_WAKE: f32 = 0.15;
 
 impl Default for Wounds {
     fn default() -> Wounds {

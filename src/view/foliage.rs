@@ -109,6 +109,11 @@ impl MaterialExtension for Sway {
     fn vertex_shader() -> ShaderRef {
         SHADER.into()
     }
+    /// Not in the depth prepass (`outline.rs` asks for one): the prepass
+    /// would draw the plants unswayed and clip the swaying ones.
+    fn enable_prepass() -> bool {
+        false
+    }
 }
 
 pub type PlantMat = ExtendedMaterial<StandardMaterial, Sway>;

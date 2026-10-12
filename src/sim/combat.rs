@@ -47,6 +47,11 @@ pub const ARCHER_DRAW: f32 = 3.5;
 pub const ARCHER_STOW: f32 = 9.0;
 /// A fight that drags on longer than this simply ends (everyone disengages).
 pub const MAX_LENGTH: f64 = 900.0;
+/// Someone this far from everyone they're fighting, with nobody after them,
+/// has got away, metres.
+pub const ESCAPE_GAP: f32 = 45.0;
+/// Seconds into a fight before anyone can be clear of it (`clear_of_it`).
+pub const SETTLE: f64 = 3.0;
 /// Body radius, metres: added to weapon reach.
 const BODY: f32 = 0.45;
 /// How far apart fighters on the same side keep, metres.
@@ -571,6 +576,12 @@ pub struct Battle {
     /// Lasting spells on patches of ground.
     #[serde(default)]
     pub zones: Vec<Zone>,
+    /// Where the fight started: the middle of everyone in it at the first
+    /// tick. Those chasing someone off measure how far they've come from
+    /// their own people against it when none of them are still fighting
+    /// (`ai::anchor`).
+    #[serde(default)]
+    pub ground: Option<V2>,
     /// What's solid round the fight, for fighters to go round (`Around`).
     #[serde(skip)]
     pub around: Around,
@@ -620,7 +631,7 @@ impl Around {
 
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), around: Around::default() }
+        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default() }
     }
 
     /// How well lit a spot in the fight is, 0..1.
@@ -677,6 +688,12 @@ impl Battle {
         let t = self.time;
         let mut rng = Rng::from_keys(&[self.seed, self.ticks, 0x4649_4748]);
         let n = self.fighters.len();
+        if self.ground.is_none() {
+            let at: Vec<V2> = self.fighters.iter().filter(|f| f.active()).map(|f| f.pos).collect();
+            if !at.is_empty() {
+                self.ground = Some(at.iter().fold(V2::default(), |a, p| a.add(*p)).scale(1.0 / at.len() as f32));
+            }
+        }
 
         // Bindings run out: called-up creatures fade.
         for i in 0..n {
@@ -797,12 +814,25 @@ impl Battle {
         // turned tail is still in it until it gets clear (`idle`): a hunt
         // isn't over the instant the prey starts to run (BL-24).
         // (A fighter turned by a spell still counts for the side they came in on.)
-        let mut sides: Vec<Side> = self.fighters.iter().filter(|f| f.active() && (!f.fleeing || f.home == super::animals::ANIMAL_SIDE) && !f.is_decoy()).map(|f| f.home).collect();
+        // Nor does someone nobody is after any more, well clear of everyone
+        // on the other side (P23: they've been let go).
+        // (Only asked when the fight would otherwise go on: a side left alone
+        // on the field holds it, as ever.)
+        let standing = |f: &Fighter| f.active() && (!f.fleeing || f.home == super::animals::ANIMAL_SIDE) && !f.is_decoy();
+        let mut plain: Vec<Side> = self.fighters.iter().filter(|f| standing(f)).map(|f| f.home).collect();
+        plain.sort();
+        plain.dedup();
+        let clear: Vec<bool> = (0..self.fighters.len()).map(|i| plain.len() > 1 && self.clear_of_it(i)).collect();
+        let mut sides: Vec<Side> = self.fighters.iter().enumerate().filter(|(i, f)| f.active() && (!f.fleeing || f.home == super::animals::ANIMAL_SIDE) && !f.is_decoy() && !clear[*i]).map(|(_, f)| f.home).collect();
         sides.sort();
         sides.dedup();
         if sides.len() <= 1 || t - self.start > MAX_LENGTH {
-            for f in self.fighters.iter_mut().filter(|f| f.fleeing && f.active()) {
-                f.fled = true;
+            // Those let go while walking off have gone; those who let them go
+            // and stood are still there (they hold the field, they didn't run).
+            for (i, f) in self.fighters.iter_mut().enumerate() {
+                if f.active() && (f.fleeing || (clear[i] && matches!(f.order, Some(Order::MoveTo(_))))) {
+                    f.fled = true;
+                }
             }
             self.over = true;
             let line = match sides.first() {
@@ -811,6 +841,30 @@ impl Battle {
             };
             self.say(line);
         }
+    }
+
+    /// Out of the fight without running: on their feet, aware, after nobody
+    /// (or walking off under orders), nobody after them, and more than
+    /// `ESCAPE_GAP` from everyone on the other side still in it. Not in the
+    /// first few seconds, before anyone has picked a foe, and not with beasts
+    /// in it.
+    pub fn clear_of_it(&self, i: usize) -> bool {
+        let f = &self.fighters[i];
+        if !f.active() || f.fleeing || f.is_decoy() || f.home == super::animals::ANIMAL_SIDE || f.unaware(self.time) || self.time - self.start < SETTLE {
+            return false;
+        }
+        if f.target.is_some_and(|j| self.fighters.get(j).is_some_and(|o| o.active())) {
+            return false;
+        }
+        // (Not against beasts: a hunt goes on while the quarry is still in
+        // it, and a beast that gives up runs by its own nerve, BL-24.)
+        if self.fighters.iter().enumerate().any(|(j, o)| self.hostile(i, j) && o.active() && o.home == super::animals::ANIMAL_SIDE) {
+            return false;
+        }
+        !(0..self.fighters.len()).any(|j| {
+            let o = &self.fighters[j];
+            self.hostile(i, j) && o.active() && !o.fleeing && !o.is_decoy() && (o.target == Some(i) || o.pos.dist(f.pos) <= ESCAPE_GAP)
+        })
     }
 
     /// Move fighter `i` toward `to`, round anything solid on the way
@@ -838,7 +892,7 @@ impl Battle {
                     if afraid && !me.fleeing && d.len() > 30.0 {
                         return;
                     }
-                    if d.len() > 45.0 {
+                    if d.len() > ESCAPE_GAP {
                         let name = self.names[i].clone();
                         self.fighters[i].fled = true;
                         self.say(format!("{name} gets away."));

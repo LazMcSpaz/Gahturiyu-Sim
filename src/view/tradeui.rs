@@ -413,6 +413,6 @@ pub fn trade(c: &Canvas, w: &World, t: &Trading, _mouse: Vec2, click: Option<Cli
     arrow(c, fx + 16.0, fy, false, eg(POOR));
     fx += 30.0;
     fx += c.styled("poor for you", fx, fy, 15.0, eg(FAINT), Face::Body, 0.0) + 34.0;
-    c.styled("Click to put on the table · twice to trade at once · Space deal · Esc leave", fx, fy, 15.0, eg(FAINT), Face::Body, 0.0);
+    c.styled("Click to put on the table · twice to trade at once · Enter deal · Esc leave", fx, fy, 15.0, eg(FAINT), Face::Body, 0.0);
     (act, all, scrolls)
 }

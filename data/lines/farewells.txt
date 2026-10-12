@@ -1,7 +1,7 @@
 # Farewells: the last thing they say. See FORMAT.md.
 farewell | voice=roduro | Mind the road, and come back while the stone still remembers you.
 farewell | voice=roduro, warm | Dodìṭo keep you steady, {w:friend}.
-farewell | voice=roduro, night | Keep to the lit streets. The dark is long out there.
+farewell | voice=roduro, night, in_town | Keep to the lit streets. The dark is long out there.
 farewell | voice=qotiro | Go, then. Do your work well.
 farewell | voice=qotiro, warm | Go with Qotisho's {w:fire}. Come back with your {w:honour} whole.
 farewell | voice=qotiro, cold | That's all.

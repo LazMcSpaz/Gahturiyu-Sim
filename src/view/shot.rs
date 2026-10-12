@@ -393,9 +393,23 @@ impl Shot {
             }
         }
         if self.rest {
+            // Whoever carries the tent pitches it beside them; the rest lay
+            // out bedrolls round it; then they all lie down (once it's up).
+            use gahturiyu_sim::sim::bedding::BedKind;
             let all = world.squad.members.clone();
-            world.order_rest(&all);
-            for _ in 0..60 {
+            if let Some(&m) = all.iter().find(|&&m| world.can_lay(m, BedKind::Tent)) {
+                let at = world.person_pos(m).add(V2::new(3.0, 1.5));
+                let _ = world.order_lay(m, BedKind::Tent, at, true);
+            }
+            for (i, &m) in all.iter().enumerate() {
+                if world.bed_jobs.iter().any(|j| matches!(j, gahturiyu_sim::sim::bedding::BedJob::Lay { who, .. } if *who == m)) {
+                    continue;
+                }
+                let a = i as f32 * 1.7;
+                let at = world.person_pos(m).add(V2::new(a.cos() * 2.5, a.sin() * 2.5));
+                let _ = world.order_lay(m, BedKind::Bedroll, at, true);
+            }
+            for _ in 0..90 {
                 world.step(10.0);
             }
         }
@@ -535,6 +549,38 @@ impl Shot {
             }
         }
         let mage = world.squad.members.iter().copied().find(|&m| world.people[m as usize].stats.calling == gahturiyu_sim::sim::stats::Calling::Mage);
+        // `GAHT_CAST=glow,haste,douse`: the mage learns these and casts each
+        // in turn (on themselves, on the first member, or at the nearest
+        // flame), so the casts and the badges they leave show.
+        if let Ok(keys) = std::env::var("GAHT_CAST") {
+            if let Some(m) = mage.or(world.squad.members.first().copied()) {
+                use gahturiyu_sim::sim::magic::{self, Aim};
+                for key in keys.split(',') {
+                    let s = magic::spell(key.trim());
+                    if let Some(d) = world.people[m as usize].detail.as_mut() {
+                        if !d.spells.contains(&s) {
+                            d.spells.push(s);
+                        }
+                    }
+                    let t = world.time;
+                    let full = world.people[m as usize].max_mana();
+                    world.people[m as usize].set_mana(full, t);
+                    let first = world.squad.members[0];
+                    let (target, point) = match s.def().aim {
+                        Aim::Friend | Aim::Anyone => (Some(first), None),
+                        Aim::Point => {
+                            let at = world.person_pos(m);
+                            let douse = s.def().effects.iter().any(|e| e.does == gahturiyu_sim::sim::effects::Does::Douse);
+                            (None, world.flames_near(at, 14.0).into_iter().find(|f| f.2 == douse).map(|f| f.1).or(Some(at)))
+                        }
+                        _ => (None, None),
+                    };
+                    if let Err(e) = world.use_spell(m, s, target, point) {
+                        eprintln!("GAHT_CAST {key}: {}", e.0);
+                    }
+                }
+            }
+        }
         if self.held {
             if let Some(m) = mage {
                 let t = world.time;

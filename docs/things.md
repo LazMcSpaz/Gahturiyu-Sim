@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-324 things: 124 belong to one people, 200 are shared.
+325 things: 124 belong to one people, 201 are shared.
 
 ## Jobs
 
@@ -204,6 +204,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Torch | Laḍa | Ram | Lama | Yawa | torch |
 | Standing torch | Hoqulaḍa | Pokram | Lamawohu | Yawafauhu | pillar-torch |
 | Tent | Hoga | Pog | Wowa | Fauwa | tent |
+| Bedroll | Ḍoʻetaha | Noqtap | Nawanoe | Safayehe | rest-cloth |
 | Mortar and pestle | Ṭahaqulo | Trapkur | Hulolawa | Huyethafa | break-pot |
 | Storm glass | Qorogusha | Krokkex | Hehahorowu | Hesahaushe | storm-glass |
 | Gold ring | Ṭeligole | Trergor | Woleleli | Wauyetheyi | gold-ring |

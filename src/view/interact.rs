@@ -51,6 +51,12 @@ pub enum Act {
     /// Give this squad member a healing draught (the nearest of the
     /// selected who has one).
     Dose(PersonId),
+    /// Lie down in a bedroll or tent the squad laid out.
+    SleepIn(u32),
+    /// Pack a bedroll or tent up.
+    PackUp(u32),
+    /// Lay out a bedroll (or pitch a tent) here.
+    Lay(gahturiyu_sim::sim::bedding::BedKind, V2),
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -76,7 +82,20 @@ pub fn menu_choices(w: &World, m: &Menu, who: &[PersonId]) -> (String, Vec<Choic
         return (title, wild_choices(w, &s));
     }
     match m.ground {
-        Some(p) => ("Here".into(), vec![ch("Walk here", Act::Walk(p)), ch("Sneak here", Act::SneakTo(p))]),
+        Some(p) => {
+            use gahturiyu_sim::sim::bedding::BedKind;
+            let mut cs = vec![ch("Walk here", Act::Walk(p)), ch("Sneak here", Act::SneakTo(p))];
+            // Out of doors: somewhere to sleep, from what the picked carry.
+            if w.building_at(p).is_none() {
+                if who.iter().any(|&m| w.can_lay(m, BedKind::Bedroll)) {
+                    cs.push(ch("Lay out a bedroll here", Act::Lay(BedKind::Bedroll, p)));
+                }
+                if who.iter().any(|&m| w.can_lay(m, BedKind::Tent)) {
+                    cs.push(ch("Pitch the tent here", Act::Lay(BedKind::Tent, p)));
+                }
+            }
+            ("Here".into(), cs)
+        }
         None => ("Nothing here".into(), Vec::new()),
     }
 }
@@ -148,7 +167,7 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
     match h {
         Hover::Person(pid) => {
             let p = &w.people[pid as usize];
-            let name = p.name().unwrap_or("them");
+            let name = &w.called(pid).unwrap_or_else(|| "them".to_string());
             if w.squad.index(pid).is_some() {
                 // Down (or badly hurt) and someone has a draught: that first.
                 let hurt = w.is_down(pid) || super::hud::bar_for(w, pid).is_some_and(|b| b.0 < 0.5);
@@ -260,14 +279,19 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                 out.push(ch("Walk to it", Act::Walk(t.pos)));
             }
         }
+        Hover::Bedding(id) => {
+            if let Some(b) = w.bedding(id) {
+                let name = b.kind.name();
+                if b.ready(w.time) {
+                    out.push(ch(if b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { "Sleep in the tent".to_string() } else { "Sleep here".to_string() }, Act::SleepIn(id)));
+                }
+                out.push(ch(format!("Pack up the {name}"), Act::PackUp(id)));
+                out.push(ch("Walk to it", Act::Walk(b.pos)));
+            }
+        }
         Hover::Ruin(r) => {
             if let Some(ru) = w.ruins.get(r as usize) {
                 out.push(ch("Walk there", Act::Walk(ru.pos)));
-            }
-        }
-        Hover::Camp(k) => {
-            if let Some(c) = w.camps.get(k) {
-                out.push(ch("Walk there (they'll see you)", Act::Walk(c.pos)));
             }
         }
         Hover::Place(t, k) => {
@@ -329,6 +353,24 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
                 Some(Ok(m)) | Some(Err(m)) => m,
                 None => "Nobody standing has a healing draught.".into(),
             });
+        }
+        Act::SleepIn(id) => {
+            // The nearest of the picked who isn't lying down already.
+            let Some(at) = w.bedding(id).map(|b| b.pos) else { return Some("It's gone.".into()) };
+            let m = who.iter().copied().filter(|&m| !w.any_resting(&[m])).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at))).or_else(|| nearest(w, who, at));
+            return m.and_then(|m| w.order_sleep_in(m, id).err()).map(|e| format!("Can't: {e}."));
+        }
+        Act::PackUp(id) => {
+            let Some(at) = w.bedding(id).map(|b| b.pos) else { return Some("It's gone.".into()) };
+            return nearest(w, who, at).and_then(|m| w.order_pack(m, id).err()).map(|e| format!("Can't: {e}."));
+        }
+        Act::Lay(kind, at) => {
+            // The nearest of the picked who carries one.
+            let m = who.iter().copied().filter(|&m| w.can_lay(m, kind)).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at)));
+            return match m {
+                Some(m) => w.order_lay(m, kind, at, false).err().map(|e| format!("Can't: {e}.")),
+                None => Some(format!("Nobody picked carries a {}.", kind.name())),
+            };
         }
         Act::SneakTo(p) => {
             for &m in who {
@@ -463,8 +505,9 @@ pub fn action_lines(lines: &mut Vec<(String, super::palette::Rgb)>, cs: Vec<Choi
 
 /// While aiming a spell: what a click on what's under the mouse would do,
 /// and whether it can be done.
-pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>, scroll: bool) -> (String, bool) {
+pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, h: Option<Hover>, scroll: bool, ground: Option<V2>) -> (String, bool) {
     use gahturiyu_sim::sim::magic::Aim;
+    use gahturiyu_sim::sim::effects::Does;
     let d = s.def();
     let from = w.person_pos(who);
     let caster = w.people[who as usize].name().unwrap_or("They").to_string();
@@ -486,8 +529,8 @@ pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, 
     };
     match d.aim {
         Aim::Foe => match person {
-            Some(p) if w.is_enemy(p) => (format!("Cast on {}  ·  {}", w.people[p as usize].name().unwrap_or("them"), if w.fighting.contains_key(&who) { reach(w.person_pos(p)) } else { "starts the fight".into() }), true),
-            Some(p) => (format!("{} isn't an enemy", w.people[p as usize].name().unwrap_or("They")), false),
+            Some(p) if w.is_enemy(p) => (format!("Cast on {}  ·  {}", w.called(p).unwrap_or_else(|| "them".into()), if w.fighting.contains_key(&who) { reach(w.person_pos(p)) } else { "starts the fight".into() }), true),
+            Some(p) => (format!("{} isn't an enemy", w.called(p).unwrap_or_else(|| "They".into())), false),
             None => ("Point at an enemy".into(), false),
         },
         Aim::Friend => match person {
@@ -513,6 +556,21 @@ pub fn aim_label(w: &World, who: PersonId, s: gahturiyu_sim::sim::magic::Spell, 
         },
         Aim::Corpse => ("Click by a body".into(), true),
         Aim::Point if !d.works_outside_fights() && !w.fighting.contains_key(&who) => ("Click by enemies: starts the fight".into(), true),
+        // Douse and Kindle: which flame it will reach (P18).
+        Aim::Point if d.effects.iter().any(|e| matches!(e.does, Does::Douse | Does::Kindle)) => {
+            let douse = d.effects.iter().any(|e| e.does == Does::Douse);
+            let at = match h {
+                Some(Hover::Person(p)) => Some(w.person_pos(p)),
+                Some(Hover::Torch(i)) => w.standing.get(i).map(|s| s.pos),
+                _ => ground,
+            };
+            let Some(at) = at else { return ("Point at a fire or torch".into(), false) };
+            match w.flames_near(at, gahturiyu_sim::sim::torch::FLAME_REACH).into_iter().find(|f| f.2 == douse) {
+                Some((f, pos, _)) => (format!("{} {}  ·  {}", if douse { "Put out" } else { "Light" }, w.flame_name(f), reach(pos)), true),
+                None if douse => ("No fire or torch burning here".into(), false),
+                None => ("Nothing here to light".into(), false),
+            }
+        }
         Aim::Point => ("Click a spot".into(), true),
         Aim::Caster => ("Click anywhere".into(), true),
     }
@@ -523,7 +581,7 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
     Some(match h {
         Hover::Person(p) => {
             let pp = &w.people[p as usize];
-            let n = pp.name().map(|s| s.to_string()).unwrap_or_else(|| pp.race.name().to_string());
+            let n = w.called(p).unwrap_or_else(|| pp.race.name().to_string());
             if w.can_loot(p) {
                 format!("{n} (beaten)")
             } else {
@@ -538,6 +596,11 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
         Hover::Node(n) => item(w.nodes.iter().find(|x| x.id == n)?.item).name.to_string(),
         Hover::Station(i) => w.stations.get(i)?.1.name().to_string(),
         Hover::Torch(_) => "Standing torch".into(),
+        Hover::Bedding(id) => match w.bedding(id) {
+            Some(b) if b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent => "Tent".into(),
+            Some(_) => "Bedroll".into(),
+            None => return None,
+        },
         Hover::Deposit(d) => w.deposit(d)?.face().name.to_string(),
         Hover::Ruin(r) => w.ruins.get(r as usize)?.name(w),
         Hover::Container(id) => {
@@ -549,7 +612,6 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
             }
         }
         Hover::Furniture(id, k) => w.door(id)?.variant().furniture.get(k as usize)?.what.name().to_string(),
-        Hover::Camp(_) => "Bandit camp".into(),
         Hover::Place(t, k) => w.society.towns.get(t as usize)?.places.get(k as usize)?.kind.name().to_string(),
     })
 }
@@ -589,7 +651,7 @@ pub fn floor_under(w: &World, ray: (bevy::math::Vec3, bevy::math::Vec3), floor: 
 }
 
 /// What's on the ground under the mouse when nothing smaller is: a piece of
-/// furniture, a building, a camp, a workplace. On the floor of a building
+/// furniture, a building, a workplace. On the floor of a building
 /// the squad is in, nothing: a click there walks to the spot (UI-10).
 pub fn ground_hover(w: &World, at: V2) -> Option<Hover> {
     for d in w.doors_near(at, 2.0) {
@@ -608,9 +670,8 @@ pub fn ground_hover(w: &World, at: V2) -> Option<Hover> {
         }
         return Some(Hover::Building(d.id));
     }
-    if let Some(k) = w.camps.iter().position(|c| c.pos.dist(at) < 14.0) {
-        return Some(Hover::Camp(k));
-    }
+    // (A bandit camp isn't one thing to click: its people, its stash and,
+    // later, its tents are picked one by one. Laz's P4.)
     for st in w.settlements.iter().filter(|s| s.pos.dist(at) < s.radius() + 500.0) {
         if let Some(tl) = w.society.towns.get(st.id as usize) {
             if let Some(k) = tl.places.iter().position(|p| p.pos.dist(at) < p.kind.size() * 0.5) {

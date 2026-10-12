@@ -75,11 +75,16 @@ fn a_healer_mends_the_hurt_for_coin() {
     give_coin(&mut w, price);
     let coin = items::id("coin");
     let before = w.squad_count(coin);
+    let t = w.time;
+    let was: Vec<f32> = [a, b].iter().map(|&m| w.people[m as usize].wounds.lost_at(t).iter().sum()).collect();
     w.ask(Topic::Treat(price));
     assert_eq!(w.squad_count(coin), before - price, "paid");
-    let t = w.time;
-    for m in [a, b] {
-        assert!(!w.people[m as usize].wounds.is_hurt(t), "mended");
+    // (P25) The healer mends their share of every wound at once; the rest
+    // heals as usual.
+    for (k, m) in [a, b].into_iter().enumerate() {
+        let now: f32 = w.people[m as usize].wounds.lost_at(t).iter().sum();
+        let want = was[k] * (1.0 - gahturiyu_sim::sim::body::HEALER_MENDS);
+        assert!((now - want).abs() < 0.5, "mended: {now} of {} left, want {want}", was[k]);
     }
 }
 

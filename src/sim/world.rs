@@ -111,6 +111,11 @@ pub struct World {
     // --- Things -------------------------------------------------------------
     /// Squad members on their way to pick something up.
     pub pickups: Vec<Pickup>,
+    /// Bedrolls laid out and tents pitched (`bedding.rs`), the last id given,
+    /// and squad members on their way to lay out, pack up or lie down.
+    pub beds: Vec<super::bedding::Bedding>,
+    pub next_bed: u32,
+    pub bed_jobs: Vec<super::bedding::BedJob>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -258,6 +263,16 @@ pub struct World {
     pub torch_left: HashMap<PersonId, f64>,
     /// Torches set in the ground.
     pub standing: Vec<super::torch::StandingTorch>,
+    /// Fires put out by magic (a town's hearth, a workyard's or charcoal
+    /// pit's fire: the solid list's fires), and until when. A bandit camp's
+    /// is `Camp::doused_until`.
+    pub doused: Vec<(super::solid::Id, f64)>,
+    /// The last few spells cast outside fights, newest last, for the window
+    /// to show (drawing only, so not saved), and how many there have been.
+    #[serde(skip)]
+    pub cast_marks: Vec<super::casting::CastMark>,
+    #[serde(skip)]
+    pub cast_seq: u64,
 
     // --- Magic --------------------------------------------------------------
     /// Rituals being performed.
@@ -325,6 +340,9 @@ impl World {
             corpses: Vec::new(),
             alerts: Vec::new(),
             pickups: Vec::new(),
+            beds: Vec::new(),
+            next_bed: 0,
+            bed_jobs: Vec::new(),
             dosing: Vec::new(),
             giving: Vec::new(),
             ground: Vec::new(),
@@ -380,6 +398,9 @@ impl World {
             torches: HashMap::new(),
             torch_left: HashMap::new(),
             standing: Vec::new(),
+            doused: Vec::new(),
+            cast_marks: Vec::new(),
+            cast_seq: 0,
             rituals: Vec::new(),
             held: HashMap::new(),
             circles: Vec::new(),
@@ -600,16 +621,19 @@ impl World {
     pub fn describe_group(&self, id: GroupId) -> String {
         let Some(g) = self.group(id) else { return String::new() };
         let lead = &self.people[g.members[0] as usize];
-        let who = match lead.name() {
+        // A band that would fall on you is called what it is, and roughly
+        // how many (how a fight would go is for the player to find out).
+        if g.hostile {
+            let n = super::talk::band_words(g.members.len());
+            let mut c = n.chars();
+            let n = c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default();
+            return format!("{n} of them: bandits.");
+        }
+        let who = match self.called(g.members[0]) {
             Some(n) if g.members.len() == 1 => format!("{} ({})", n, lead.race.name()),
             Some(n) => format!("{} and {} other{}", n, g.members.len() - 1, if g.members.len() == 2 { "" } else { "s" }),
             None => format!("{} travellers", g.members.len()),
         };
-        // A band that would fall on you is called what it is (how a fight
-        // would go is for the player to find out: hover, or `look`).
-        if g.hostile {
-            return format!("{who}: bandits.");
-        }
         match g.kind {
             Kind::Wanderer { .. } => format!("{who}, wandering, crosses your path."),
             Kind::Journey { home } => {

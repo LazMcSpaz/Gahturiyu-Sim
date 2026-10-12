@@ -22,7 +22,10 @@ use gahturiyu_sim::sim::{
 use super::app::Hover;
 use super::palette::{self, eg, ega, race_color, Rgb, DIM, GOLD, SNEAK, TEXT, WARN};
 
-pub const SPEEDS: [(f64, &str); 5] = [(1.0, "1×"), (10.0, "10×"), (60.0, "1 min/s"), (600.0, "10 min/s"), (3600.0, "1 hour/s")];
+/// Game seconds per real second, and the label (keys 1 to 5). Laz's P14:
+/// the old steps (10×, 1 min/s, 10 min/s, 1 hour/s) made things happen
+/// almost at once from the third up, so the top is now what was the third.
+pub const SPEEDS: [(f64, &str); 5] = [(1.0, "1×"), (2.0, "2×"), (5.0, "5×"), (15.0, "15×"), (60.0, "60×")];
 pub const PANEL: Color32 = Color32::from_rgba_premultiplied(16, 15, 11, 228);
 
 pub struct Canvas {
@@ -318,7 +321,7 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
     match h {
         Hover::Person(pid) => {
             let p = &w.people[pid as usize];
-            let name = p.name().unwrap_or("(not yet named)");
+            let name = w.called(pid).unwrap_or_else(|| "(not yet named)".to_string());
             out.push((format!("{}  ·  {}", name, p.race.name()), race_color(p.race)));
             if w.can_loot(pid) {
                 out.push(("Beaten: click to go through their things (Shift-click to carry)".to_string(), GOLD));
@@ -547,10 +550,6 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             out.push((capital(p.what.name()), GOLD));
             out.push((format!("In the {}", d.variant().name.to_lowercase()), DIM));
         }
-        Hover::Camp(k) => {
-            let _ = k;
-            out.push(("A camp".to_string(), GOLD));
-        }
         Hover::Place(t, k) => {
             let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) else { return out };
             out.push((format!("{}'s {}", w.settlements[t as usize].name, p.kind.name().to_lowercase()), GOLD));
@@ -625,6 +624,17 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             let Some(st) = w.standing.get(i) else { return out };
             out.push(("Standing torch".into(), GOLD));
             out.push((format!("Burns until {}", hhmm(st.out_at)), DIM));
+        }
+        Hover::Bedding(id) => {
+            let Some(b) = w.bedding(id) else { return out };
+            let tent = b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent;
+            out.push((if tent { "Tent".into() } else { "Bedroll".into() }, GOLD));
+            if !b.ready(w.time) {
+                out.push((if tent { format!("Being pitched: up at {}", hhmm(b.ready_at)) } else { "Being laid out".into() }, DIM));
+            } else if tent {
+                out.push((format!("Sleeps {}; rests better than the open", gahturiyu_sim::sim::bedding::IN_TENT), DIM));
+            }
+            out.push(("Left-click: sleep in it  ·  Right-click: pack it up".into(), DIM));
         }
     }
     out

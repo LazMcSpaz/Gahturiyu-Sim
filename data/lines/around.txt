@@ -1,0 +1,22 @@
+# Out this way: "What's out this way?" Asked out of town (on a road, in the
+# wilds, at a ruin, on a town's outskirts). Two pieces: where (the nearest
+# town, from here), danger (what they know of trouble close by). See FORMAT.md.
+# Tags here: town_near (the nearest town is a few hours' walk or less),
+# town_far, on_road (place=road), camp_near (a camp they'd know of, within an
+# hour or so's walk of here), quiet.
+# Slots: {town} (the nearest town), {walk} and {dir} (how far and which way
+# to it), {camp_walk} and {camp_dir} (to the camp).
+where | town_near | {town} is closest: {walk} {dir} of here.
+where | town_near, on_road | Keep to this road and you'll reach {town}. It's {walk}, {dir}.
+where | town_near, voice=roduro | {town} lies {walk} {dir}. The walls are good there, and the beds are better than the ground.
+where | town_near, voice=qotiro | {walk} {dir} is {town}. Follow the high ground and you won't lose it.
+where | town_near, voice=horaro | {town}'s {walk} {dir} of here. You'll smell the smoke from the fish racks before you see it.
+where | town_near, voice=tadoro | {town}, {walk} {dir}. I've walked it more times than I've counted, and I count most things.
+where | town_far | Nothing close. The nearest town is {town}, {walk} {dir} of here. Carry water.
+where | town_far, voice=horaro | You're a long way from anyone. {town} is {walk} {dir}, if you keep going.
+danger | camp_near | Mind yourself: there's a band camped {camp_walk} {camp_dir} of here. I give them a wide berth.
+danger | camp_near, voice=qotiro | There's a camp of thieves {camp_walk} {camp_dir}. Walk past it like you mean it, or walk round it.
+danger | camp_near, voice=tadoro | A band keeps a camp {camp_walk} {camp_dir} of here. Three travellers I know of didn't come back that way.
+danger | quiet | It's been quiet, as far as I know. Quiet doesn't last, mind.
+danger | quiet, on_road | The road's been quiet. Keep to it after dark and you'll likely be fine.
+danger | quiet, voice=roduro | Nothing worse than wolves that I've seen, and the wolves keep to themselves if you let them.

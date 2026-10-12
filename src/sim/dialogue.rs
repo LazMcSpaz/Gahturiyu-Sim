@@ -16,6 +16,7 @@ use super::crafting::RECIPES;
 use super::items::{self, SLOTS};
 use super::materials::Grade;
 use super::person::PersonId;
+use super::place::Place;
 use super::quests::{compass, QuestKind, Stage};
 use super::race::Race;
 use super::rng::Rng;
@@ -28,6 +29,11 @@ pub const TALK_RANGE: f32 = 3.5;
 pub const HEARSAY_REACH: f32 = 6000.0;
 /// Further apart than this, a talk is over.
 pub const TALK_PARTED: f32 = 8.0;
+/// Out of town, a town within this is "near" (a few hours' walk), metres.
+pub const AROUND_TOWN: f32 = 12_000.0;
+/// Out of town, someone knows of a camp this near where they stand, metres
+/// (about an hour's walk).
+pub const AROUND_CAMP: f32 = 3_500.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Topic {
@@ -108,6 +114,10 @@ pub enum Topic {
     Treat(u16),
     /// Take beds at the inn for the night, for this many coin in all.
     RentBeds(u16),
+    /// Ask someone on the road where they're going.
+    Headed,
+    /// Ask, out of town, what's round about.
+    Around,
 }
 
 impl Topic {
@@ -148,6 +158,8 @@ impl Topic {
             Topic::Join(_) | Topic::AskJoin => "Come with us.",
             Topic::Treat(_) => "See to my people's wounds",
             Topic::RentBeds(_) => "Beds for the night",
+            Topic::Headed => "Where are you headed?",
+            Topic::Around => "What's out this way?",
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
@@ -168,6 +180,16 @@ impl Topic {
             t => t.label().to_string(),
         }
     }
+}
+
+/// Where a talk is and who's talking (`World::situation`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Situation {
+    pub place: Place,
+    /// In (or just outside) the town they live in.
+    pub home_here: bool,
+    /// On the road with others (a journey or a wandering band).
+    pub travelling: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -374,6 +396,43 @@ impl World {
         }
     }
 
+    /// Where a talk with `npc` is happening and who they are, as far as
+    /// what's asked goes (P26): the kind of place (`place_at`), whether it's
+    /// their own town, and whether they're on the road with others.
+    pub fn situation(&self, npc: PersonId) -> Situation {
+        let place = self.place_at(self.person_pos(npc));
+        let p = &self.people[npc as usize];
+        let home_here = p.home.is_some() && place.town() == p.home;
+        let travelling = self.group_of.get(npc as usize).copied().flatten().and_then(|g| self.group(g)).is_some_and(|g| !g.hostile);
+        Situation { place, home_here, travelling }
+    }
+
+    /// The everyday questions, by the situation (P26). Everyone can be asked
+    /// about themselves, for advice and about bandits. Only someone in their
+    /// own town is asked what it's like; someone on the road with others,
+    /// where they're headed; out of town, what's round about. Those in a
+    /// town and those on the road have heard things; someone met alone out
+    /// in the wilds hasn't.
+    pub fn small_talk(&self, npc: PersonId) -> Vec<Topic> {
+        let s = self.situation(npc);
+        let mut t = vec![Topic::Background];
+        if s.home_here {
+            t.push(Topic::ThisTown);
+        }
+        if s.travelling {
+            t.push(Topic::Headed);
+        }
+        if s.place.town().is_none() && !matches!(s.place, Place::Base(_)) {
+            t.push(Topic::Around);
+        }
+        t.push(Topic::Advice);
+        if s.place.town().is_some() || s.travelling {
+            t.push(Topic::Rumours);
+        }
+        t.push(Topic::Bandits);
+        t
+    }
+
     /// What can be asked right now.
     pub fn topics(&self) -> Vec<Topic> {
         let Some(c) = &self.talk else { return vec![] };
@@ -382,7 +441,7 @@ impl World {
         }
         // What the squad member can say about what's on their mind.
         let mut t: Vec<Topic> = self.options(c.npc, c.with, &c.concerns, c.at).into_iter().filter(|o| *o == super::talk::Opt::More || !c.tried.contains(&(*o, c.at))).map(Topic::Say).collect();
-        t.extend([Topic::Background, Topic::ThisTown, Topic::Advice, Topic::Rumours, Topic::Bandits]);
+        t.extend(self.small_talk(c.npc));
         for (i, q) in self.quests.iter().enumerate() {
             if q.giver == c.npc && (q.stage == Stage::Report || matches!(q.kind, QuestKind::Fetch { .. }) && q.stage == Stage::Active) {
                 t.push(Topic::Report(i));
@@ -705,8 +764,9 @@ impl World {
         if life.community.is_some_and(|k| self.society.communities[k as usize].stilts) {
             tags.push("stilts".into());
         }
-        // Whether their people made the town they live in.
-        if let Some(t) = p.home {
+        // Whether their people made the town they live in (said only there:
+        // "this town" means nothing out on the road, P26).
+        if let Some(t) = p.home.filter(|_| self.situation(npc).home_here) {
             tags.push(if self.settlements[t as usize].founders == p.race { "founders" } else { "guests" }.into());
         }
         // Itchy feet, or roots.
@@ -716,6 +776,61 @@ impl World {
             tags.push("settled".into());
         }
         (tags, values)
+    }
+
+    /// Where someone on the road is going (`headed.txt`): read off their
+    /// group's journey.
+    pub fn headed_facts(&self, npc: PersonId) -> (Vec<String>, Vec<(&'static str, String)>) {
+        let mut tags = Vec::new();
+        let mut values: Vec<(&'static str, String)> = Vec::new();
+        let p = &self.people[npc as usize];
+        if let Some(h) = p.home {
+            values.push(("from", self.settlements[h as usize].name.clone()));
+        }
+        let g = self.group_of.get(npc as usize).copied().flatten().and_then(|g| self.group(g));
+        match g.map(|g| (g.kind.clone(), g.current_leg(self.time).and_then(|l| l.dest), g.cargo.is_some())) {
+            Some((super::group::Kind::Journey { home }, Some(d), cargo)) => {
+                tags.push(if d == home { "going_home" } else { "going_on" }.to_string());
+                if cargo {
+                    tags.push("caravan".into());
+                }
+                values.push(("going", self.settlements[d as usize].name.clone()));
+            }
+            Some((super::group::Kind::Journey { home }, None, _)) => {
+                tags.push("going_home".into());
+                values.push(("going", self.settlements[home as usize].name.clone()));
+            }
+            _ => tags.push("wandering".into()),
+        }
+        (tags, values)
+    }
+
+    /// What someone out of town knows of round about (`around.txt`): the
+    /// nearest town from here, and a camp close enough to be their business.
+    pub fn around_facts(&self, npc: PersonId) -> (Vec<String>, Vec<(&'static str, String)>, Option<super::group::GroupId>) {
+        let here = self.person_pos(npc);
+        let mut tags = Vec::new();
+        let mut values: Vec<(&'static str, String)> = Vec::new();
+        if self.place_at(here) == Place::Road {
+            tags.push("on_road".to_string());
+        }
+        if let Some(s) = self.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))) {
+            let d = s.pos.dist(here);
+            tags.push(if d <= AROUND_TOWN { "town_near" } else { "town_far" }.into());
+            values.push(("town", s.name.clone()));
+            values.push(("walk", super::talk::walk_words(d).to_string()));
+            values.push(("dir", compass(s.pos.sub(here)).to_string()));
+        }
+        let camp = self.camps.iter().filter(|c| !self.is_warden(c.group) && c.pos.dist(here) <= AROUND_CAMP).min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here)));
+        match camp {
+            Some(c) => {
+                tags.push("camp_near".into());
+                values.push(("camp_walk", super::talk::walk_words(c.pos.dist(here)).to_string()));
+                values.push(("camp_dir", compass(c.pos.sub(here)).to_string()));
+            }
+            None => tags.push("quiet".into()),
+        }
+        (tags, values, camp.map(|c| c.group))
     }
 
     fn spoken(&mut self, c: &Conversation, topic: &str, slots: &[&str], tags: &[String], values: &[(&'static str, String)]) -> String {
@@ -790,6 +905,18 @@ impl World {
                 self.spoken(c, "town", &["about", "folk", "ways"], &tags, &values)
             }
             Topic::Advice => self.spoken(c, "advice", &["line"], &[], &[]),
+            Topic::Headed => {
+                let (tags, values) = self.headed_facts(c.npc);
+                self.spoken(c, "headed", &["line"], &tags, &values)
+            }
+            Topic::Around => {
+                let (tags, values, camp) = self.around_facts(c.npc);
+                // Told of a camp: the map shows it now.
+                if let Some(g) = camp {
+                    self.hear_of_camp(g);
+                }
+                self.spoken(c, "around", &["where", "danger"], &tags, &values)
+            }
             Topic::Rumours => {
                 // Something they've heard, if they've heard anything.
                 if let Some(news) = c.concerns.iter().find(|k| matches!(k.subject, super::talk::Subject::News | super::talk::Subject::Theft) && k.event.is_some()).copied() {
@@ -830,7 +957,8 @@ impl World {
                 }
                 self.spoken(c, "rumours", &["line"], &pick.into_iter().collect::<Vec<_>>(), &values)
             }
-            Topic::Bandits => match self.nearest_camp(p.home) {
+            // (From their town if that's where they are; else from here.)
+            Topic::Bandits => match self.nearest_camp(p.home.filter(|_| self.situation(c.npc).home_here)) {
                 Some((d, dir, n, gid)) if d < 6000.0 => {
                     // Now the squad has heard of it (the map shows it).
                     self.hear_of_camp(gid);
@@ -1162,6 +1290,8 @@ fn topic_key(t: Topic) -> u64 {
         Topic::AskJoin => 73,
         Topic::Treat(_) => 74,
         Topic::RentBeds(_) => 75,
+        Topic::Headed => 77,
+        Topic::Around => 78,
         Topic::SellAll(it) => 2_000_000 + it as u64,
         Topic::SellWorn(it, m, _) => 3_000_000 + ((it as u64) << 32) + m as u64,
         Topic::SellRest => 73,

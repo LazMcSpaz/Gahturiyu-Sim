@@ -207,6 +207,10 @@ impl World {
         if let Some(d) = self.people[npc as usize].detail.as_mut() {
             d.gear = travelling_kit(&d.gear);
             d.gear.add(items::id("flatbread"), RECRUIT_BREAD);
+            // And something to sleep on (nobody sleeps on the bare ground).
+            if !d.gear.bag.iter().any(|e| e.0 == items::id("bedroll")) {
+                d.gear.add(items::id("bedroll"), 1);
+            }
         }
         self.people[npc as usize].recompute_might();
         self.settle_condition(npc, t);

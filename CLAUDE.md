@@ -5,12 +5,13 @@ and tweaks through conversation, not an editor. Explain game-dev terms plainly.
 World lore (races, languages, architecture, pantheon) lives in the claude.ai
 "Gahturiyu" Project, not in this repo.
 
-## Where we are (Laz, 2026-10-09)
+## Where we are (Laz, 2026-10-11)
 
-- **System freeze.** No new systems until the playable-MVP list is built
-  (visual feedback, looting, recruiting, a money grind, robbery on defeat,
-  placeholder buildings with interiors and containers, ruins and lairs,
-  progress messages). Base building Stage 4 (raids, law) waits.
+- **The freeze is lifted** (Laz, 11 Oct): new features may be started. The
+  MVP list it held to (visual feedback, looting, recruiting, a money grind,
+  robbery on defeat, placeholder buildings with interiors and containers,
+  ruins and lairs, progress messages) is built. Base building Stage 4
+  (raids, law) is still to come.
 - **Every action the player orders has a visual cue** in the 3D view, not
   only a HUD line: a swing shows an arc, an archer's weapon points out to
   shoot and down to reload, a sneaker crouches, and so on. Placeholder
@@ -61,7 +62,8 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    found by solving for the moment they fall due, not by checking each
    step. Don't tick these per step. (Climbing is the one by-the-metre cost,
    because the squad's own walking is already step-by-step.) Everyone outside
-   the squad heals at the constant `HEAL_PER_HOUR`.
+   the squad heals at the constant `HEAL_PER_HOUR`. Every healing rate (and
+   the healer's share) lives in one block in `body.rs` (P25).
 9. **A stranger's kit and spells come from `kit_stats`**, their stats when
    their kit was chosen, never from their current (trained) stats — otherwise
    being met or not changes their might.
@@ -272,7 +274,11 @@ outline on the ground: red stops a walker, blue is listed but lets you by, a
 green line through each door and gate; works in the real game too), `GAHT_FOREST=1` (camera far out over the
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
-`GAHT_BOOK=k` (member k's spell book), `GAHT_HELD=1` (the squad's mage holds
+`GAHT_BOOK=k` (member k's spell book), `GAHT_STATS=k` (member k's stats sheet),
+`GAHT_GAMEMENU=1` (the Escape menu; `quit` or `new` for its question),
+`GAHT_CAST=glow,haste,douse` (the mage learns and casts these in turn: the cast's
+glow and burst, the badges it leaves; add `GAHT_TORCH=1` for a torch to douse, and
+`GAHT_FRAMES` about 12 to catch it mid-cast), `GAHT_HELD=1` (the squad's mage holds
 Restore ready), `GAHT_SUMMON=1` (a fight where the mage calls up a spirit
 beast and raises a fallen bandit; try `GAHT_ZOOM=16 GAHT_PITCH=0.45`),
 `GAHT_TOWN=1` (the town panel for the nearest town; `GAHT_TOWN=roduro|qotiro|horaro|mixed`
@@ -335,7 +341,7 @@ where the most signs stand: workplace signposts and service plaques; add
 `GAHT_HOURS=15` for night, `GAHT_ZOOM=60 GAHT_PITCH=0.6` for the usual town camera).
 `GAHT_RECRUIT=n` (n willing townsfolk join the squad, fees covered; the last is asked in
 conversation, which stays open; try `GAHT_HOURS=30` so the first dawn has sorted out who's jobless).
-`GAHT_REST=1` (the squad beds down where it stands, after `GAHT_HOURS`, so the tent in the hunter's pack goes up),
+`GAHT_REST=1` (after `GAHT_HOURS`, the hunter pitches the tent and the rest lay out bedrolls round it, then they lie down),
 `GAHT_BUILD=1` (a demo outpost in the wilds near the start: huts and a lean-to up,
 a palisade and gate under way, the Build panel open and a hut's ghost on the cursor;
 put the cursor with `GAHT_HOVER`; `GAHT_BUILD=base` leaves a farmer and a builder there,
@@ -428,9 +434,15 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   vertex colours). Materials don't cull or flip facings (`cull_mode: None`,
   `double_sided: false`): our meshes aren't consistently wound, so the facing
   we give each vertex is what's lit.
-- Three materials in `scene::Mats`: `lit` (sun, moon, fires), `glow` (unlit;
-  brightened at night so windows and flames bloom), `flat` (unlit ground
-  markings: rings, order lines).
+- Four materials in `scene::Mats`: `lit` (sun, moon, fires), `glow` (unlit;
+  brightened at night so windows bloom), `flat` (unlit ground markings: rings,
+  order lines), `fire` (unlit, adds its light: flames).
+- Flames (`view/flame.rs`): anything that burns calls `Builder::flame(root,
+  radius, height)` instead of drawing a cone; the spot is kept (in a town's
+  cache too) and every spot near the camera is drawn each frame as tongues
+  turned to the camera, white-gold to orange to nothing, swaying and
+  flickering on the window's clock, with sparks and a warm patch underneath;
+  a big fire is a row of tongues over a broad body.
 - Three lifetimes: the ground and roads are rebuilt only when the camera
   moves a coarse cell or zooms; each town near the camera is its own entity,
   rebuilt only when someone goes in or out of a building; everything that
@@ -460,6 +472,12 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   `StandardMaterial` through `ExtendedMaterial`: wind sway weighted by vertex
   colour alpha, and billboard corners in UV_1. Shadows use the standard
   shadow pass, so trees' shadows don't sway.
+- A figure is parts that clothes and armour go on (`view/dress.rs`): lower half,
+  upper half, head (cap or helm), shoulders (only with shoulder pieces, none
+  made yet) and back (a pack). Each part's colour is what's worn in its slot,
+  by its material; with nothing there, work clothes by job (a guard's red, an
+  official's blue, a priest's white) or a seeded dye. Guards, officials and
+  priests wear a chest band. No legs: Laz likes the figures as they are.
 - People: full figure near, a plain shape beyond `PERSON_SIMPLE`, a shape per
   traveller for band-2 groups, one marker beyond band 2.
 
@@ -487,6 +505,40 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   saved: Seen draws filled, Heard an outline); ruins and lairs once found;
   travellers, herds, fights and bodies only within `map::MAP_SIGHT` of the
   squad. L shows the whole world.
+- One screen at a time (`view/screens.rs`, Laz's P10/P11): every screen is a
+  line in `Screen`, `is_open` and `close`; `settle` runs at the start and end of
+  the panel pass and closes all but the newest, and turns member screens (pack,
+  craft, spells, stats) to the selection's lead. Escape closes the open screen,
+  or with none open brings up the game menu (the world waits while it's up).
+  Space only ever pauses; Enter is Deal / Take all / Make.
+- Outlines (`view/outline.rs`, Laz's P3) trace what's drawn: the shapes to
+  outline are copied each frame in their colour (`Builder::copy_since`) into a
+  mesh only a mask camera sees (`MASK_LAYER`); it draws them into a window-sized
+  image, and a full-screen layer on the main camera colours the pixels just
+  outside them. Gold round the picked; under the mouse red foe, green ally,
+  blue neutral; foes always faintly red. Lines show through walls, faint (the
+  mask keeps each shape's depth in alpha; the main camera has a `DepthPrepass`,
+  which foliage stays out of). No circle
+  underfoot, only a small arrow the way someone faces (`facing_arrow`).
+- Spells cast outside fights are noted in `World::cast_marks` (not saved) and
+  played out by `view/castfx.rs` on the window's clock: a glow at the caster,
+  a mote crossing to the target, a burst there, in the domain's colour; a
+  grey puff for a fizzle; the `cast` sound. Anyone under a lasting effect
+  shows a badge per kind over their head (`view/effecticons.rs`; hover names it).
+- Douse and Kindle reach any flame by one rule (`torch.rs`: `flames_near`,
+  `put_out`, `light_up`): a squad member's torch, a standing torch, or any
+  `What::Fire` in the solid list. A fire put out is in `World::doused` (saved)
+  until it relights by the clock; a camp's stays `Camp::doused_until`. The
+  town is redrawn when one of its fires goes out (`doused_mark`).
+- Sleeping out of doors (Laz, 11 Oct; `sim/bedding.rs`): nobody sleeps on the
+  bare ground. Everyone carries a bedroll; it's laid out where it's wanted
+  (right-click the ground) and stays, an object, until packed up; a tent is
+  pitched the same way (ten minutes, rising as it goes; it holds three and
+  rests better). Clicking a bedroll, tent, or a bed indoors sends someone to
+  lie down; there's no rest button (N or the Wake pill gets them up). Squad
+  members bed down by themselves at night only where there's something to
+  sleep in. `World::order_rest` (tests, the play tool) lays out a bedroll at
+  their feet and lies down in it.
 - Clickable things share one feel (`view/kit.rs`): `kit::look` (hot, held,
   let-go flash), `kit::button`, `kit::row`, `kit::round`. `app.rs` feeds it
   the mouse once a frame.

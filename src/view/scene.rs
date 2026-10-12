@@ -71,6 +71,10 @@ pub struct Mats {
     pub lit: Handle<StandardMaterial>,
     pub glow: Handle<StandardMaterial>,
     pub flat: Handle<StandardMaterial>,
+    /// Flames (`flame.rs`): unlit, adding their light to what's behind.
+    pub fire: Handle<StandardMaterial>,
+    /// Smoke: unlit, see-through by each corner's alpha.
+    pub smoke: Handle<StandardMaterial>,
 }
 
 #[derive(Component)]
@@ -83,7 +87,7 @@ pub struct Scene3d {
     ground_key: Option<(i64, i64, u32, u32)>,
     ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
     pub grid: Grid,
-    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
+    dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
     /// Triangles in our own meshes (for the readout): what moves, the
     /// ground and roads, and the towns.
@@ -116,6 +120,9 @@ struct Town {
     /// people and things inside stand on it without asking the sim each frame.
     doors: Vec<Option<Door>>,
     floors: Vec<f32>,
+    /// Its flames and wisps of smoke (drawn each frame, `flame.rs`).
+    flames: Vec<super::flame::Spot>,
+    smoke: Vec<super::flame::Spot>,
 }
 
 /// Where the ground mesh's vertices are, so things laid on the ground can
@@ -170,7 +177,9 @@ pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMateri
     let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
     let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
     let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
-    commands.insert_resource(Mats { lit, glow, flat });
+    let fire = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Add, ..default() });
+    let smoke = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Blend, ..default() });
+    commands.insert_resource(Mats { lit, glow, flat, fire, smoke });
 }
 
 fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<StandardMaterial>, b: Builder, marker: impl Bundle) -> (Entity, Handle<Mesh>) {
@@ -182,7 +191,7 @@ fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<S
 /// Build what the 3D view shows this frame, and where things are on screen
 /// (for hovering, labels and health bars).
 #[allow(clippy::too_many_arguments)]
-pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, mats: Res<Mats>, models: Res<Models>, mut vis: Query<&mut Visibility, Or<(With<GroundMesh>, With<Dynamic>)>>) {
+pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, mats: Res<Mats>, models: Res<Models>, mask: Res<super::outline::Mask>, mut vis: Query<&mut Visibility, Or<(With<GroundMesh>, With<Dynamic>)>>) {
     let game = &mut *game;
     let scene = &mut *scene;
     if scene.loads != game.loads {
@@ -240,6 +249,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         return;
     }
+    let now = game.feel.now;
+    super::castfx::update(game, now);
     let w = &game.world;
     let oc = &game.orbit;
     let radius = oc.draw_radius();
@@ -320,6 +331,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let s = &w.settlements[sid as usize];
         let occupied: Vec<u16> = (0..s.buildings.len() as u16).filter(|i| cutaway || open.contains(&(sid, *i))).collect();
         let layout = w.society.towns.get(sid as usize).map(|tl| tl.places.iter().fold(tl.places.len() as u64, |h, p| h.rotate_left(5) ^ p.seed)).unwrap_or(0);
+        // (And when one of its fires is put out or lit again: P18.)
+        let layout = layout ^ doused_mark(w, sid);
         let fresh = scene.towns.get(&sid).map(|tw| tw.occupied != occupied || tw.with_models != models.generation || tw.layout != layout).unwrap_or(true);
         if fresh {
             if let Some(old) = scene.towns.remove(&sid) {
@@ -354,7 +367,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                             // Placeholder shapes by variant (the hearth its own way).
                             _ => {
                                 if !super::interiors::exterior(&mut lit, &mut glow, t, s, i as u16, &on_ground) {
-                                    building(&mut lit, &mut glow, t, bd, &on_ground);
+                                    let fire = w.fire_lit(solid::Id::Building(sid, i as u16), w.time);
+                                    building(&mut lit, &mut glow, t, bd, fire, &on_ground);
                                 }
                             }
                         }
@@ -362,8 +376,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 }
             }
             if let Some(tl) = w.society.towns.get(sid as usize) {
-                for wp in &tl.places {
-                    workplace(&mut lit, &mut glow, t, w, wp, &on_ground);
+                for (j, wp) in tl.places.iter().enumerate() {
+                    let fire = |k: u8| w.fire_lit(solid::Id::Place(sid, j as u16, k), w.time);
+                    workplace(&mut lit, &mut glow, t, w, wp, &fire, &on_ground);
                 }
             }
             // The dock and rope bridges out to the stilts (RG-14): planks at
@@ -374,11 +389,15 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 lit.block(to3(mid, DECK - 0.25), v.len(), gahturiyu_sim::sim::buildings::WALKWAY_HALF * 1.6, 0.25, v.y.atan2(v.x), palette::TIMBER);
             }
             let tris = lit.triangles() + glow.triangles();
+            let mut flames = lit.take_flames();
+            flames.extend(glow.take_flames());
+            let mut smoke = lit.take_smoke();
+            smoke.extend(glow.take_smoke());
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
             let doors: Vec<Option<Door>> = (0..s.buildings.len() as u16).map(|i| door_of(s, i)).collect();
             let floors = doors.iter().map(|d| d.map(|d| super::interiors::floor_height(&d, &on_ground).0).unwrap_or(f32::MIN)).collect();
-            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors });
+            scene.towns.insert(sid, Town { entities: ents, occupied, layout, with_models: models.generation, triangles: tris, doors, floors, flames, smoke });
         }
         for (i, _) in s.buildings.iter().enumerate() {
             if let Some(d) = door_of(s, i as u16) {
@@ -493,13 +512,33 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     let k = (oc.dist / 220.0).max(1.0);
     let mut heads: Vec<(Vec3, PersonId)> = Vec::new();
+    // Who gets a glowing outline (P3): whoever the next order goes to, and
+    // whoever is under the mouse.
+    // (Foes are always outlined, faintly, in red: everyone else only when
+    // picked or under the mouse, in the colour of their side.)
+    let mut outl = {
+        let talking = w.talk.is_some() || game.parting.is_some();
+        let breath = game.feel.breath();
+        let mut list: Vec<(PersonId, Rgb, f32)> = Vec::new();
+        if !talking {
+            for m in game.sel.who(w) {
+                list.push((m, palette::scale(OUTLINE_GOLD, 0.85 + 0.15 * breath), OUTLINE_PICKED));
+            }
+        }
+        if let Some(Hover::Person(h)) = game.hover {
+            if !list.iter().any(|x| x.0 == h) {
+                list.push((h, side_colour(w, h), OUTLINE_HOT));
+            }
+        }
+        Outlines { mask: Builder::new(), list }
+    };
     for s in &w.settlements {
         for pid in w.residents_in_band1(s.id) {
             // Asleep indoors: out of sight.
             if w.is_indoors_asleep(pid) {
                 continue;
             }
-            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground, &mut outl));
         }
     }
     // The watch on a chase: a red ring under the guard, a fainter one under
@@ -517,12 +556,24 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         if spot.dist(oc.target) > radius {
             continue;
         }
-        let seed = match id {
-            solid::Id::Tent(m) => w.people[m as usize].seed,
-            solid::Id::GroupTent(g) => w.group(g).map(|x| w.people[x.members[0] as usize].seed).unwrap_or(0),
-            _ => 0,
+        let (seed, up) = match id {
+            solid::Id::Tent(n) => (n as u64 * 0x9E37, w.bedding(n).map(|x| x.up(w.time)).unwrap_or(1.0)),
+            solid::Id::GroupTent(g) => (w.group(g).map(|x| w.people[x.members[0] as usize].seed).unwrap_or(0), 1.0),
+            _ => (0, 1.0),
         };
-        tent(&mut b, to3(spot, on_ground(spot)), k, seed);
+        tent(&mut b, to3(spot, on_ground(spot)), k, seed, up);
+    }
+    // Bedrolls laid out by the squad: a rolled-out blanket on the ground
+    // (unrolling as it's laid).
+    for bd in w.beds.iter().filter(|x| x.kind == gahturiyu_sim::sim::bedding::BedKind::Bedroll) {
+        if bd.pos.dist(oc.target) > radius {
+            continue;
+        }
+        let up = bd.up(w.time);
+        let g = stand(bd.pos);
+        let len = 0.5 + 1.5 * up;
+        b.block(to3(bd.pos, g - 0.02), len, 0.85, 0.12, bd.rot, palette::BEDROLL);
+        b.block(to3(bd.pos, g + 0.08) + vec3(bd.rot.cos(), 0.0, bd.rot.sin()) * (len * 0.5 - 0.2), 0.35, 0.8, 0.12, bd.rot, palette::scale(palette::BEDROLL, 1.3));
     }
     for g in &w.groups {
         // Travellers in town at night have found beds indoors.
@@ -533,13 +584,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         match g.band {
             1 => {
                 for &m in &g.members {
-                    heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
+                    heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground, &mut outl));
                 }
                 // The leader's torch, after dark.
                 if w.group_torch_lit(g, w.time) {
                     let f = torch_flame(w, g.members[0], k, &stand);
                     b.stick(f - vec3(0.0, 0.55 * k, 0.0), f, 0.06 * k, palette::TIMBER);
-                    gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
+                    gl.flame(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.32 * k.min(3.0));
                 }
             }
             2 => {
@@ -554,7 +605,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                 }
                 game.picks.push((to3(g.pos, on_ground(g.pos) + 2.0 * k), 2.0, Hover::Group(g.id)));
                 if w.group_torch_lit(g, w.time) {
-                    gl.column(to3(g.pos, on_ground(g.pos) + 2.2 * k), 0.25 * k, 0.02, 0.6 * k, 6, palette::EMBER);
+                    gl.flame(to3(g.pos, on_ground(g.pos) + 2.2 * k), 0.25 * k, 0.6 * k);
                 }
             }
             _ => {
@@ -568,25 +619,25 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     for &m in &w.squad.members {
-        heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
+        heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground, &mut outl));
     }
     // Squad members living at a base.
     for m in w.all_residents() {
         let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
         if here && w.person_pos(m).dist(oc.target) < radius {
-            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground, &mut outl));
         }
     }
     // Strangers being carried, or set down somewhere by the squad.
     for &pid in w.carried.keys().chain(w.set_down.keys()) {
         if !w.people[pid as usize].in_squad && !w.people[pid as usize].dead {
-            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground, &mut outl));
         }
     }
     // The fallen.
     for &(at, race, _, pid) in &w.corpses {
         if w.carried_by(pid).is_some() {
-            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground));
+            heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground, &mut outl));
             continue;
         }
         if at.dist(oc.target) < radius {
@@ -604,7 +655,11 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         let kk = k.min(4.0);
         let fire = to3(c.pos, on_ground(c.pos));
-        gl.column(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.2 * kk, 0.7 * kk, 6, palette::EMBER);
+        if w.fire_lit(solid::Id::CampFire(c.group), w.time) {
+            gl.flame(fire - vec3(0.0, 0.1, 0.0), 0.9 * kk, 0.7 * kk);
+        } else {
+            b.column(fire - vec3(0.0, 0.1, 0.0), 1.0 * kk, 0.9 * kk, 0.2 * kk, 6, palette::ASH);
+        }
         // Lean-tos out behind the gaps where the band sits (and the stash).
         for &a in &gahturiyu_sim::sim::encounters::CLEAR_OF_THE_BAND {
             let at = c.pos.add(V2::new(a.cos(), a.sin()).scale(12.0 * kk));
@@ -665,7 +720,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         let base = to3(st.pos, stand(st.pos));
         b.column(base, 0.07, 0.05, 1.8, 5, palette::TIMBER);
-        gl.column(base + vec3(0.0, 1.8, 0.0), 0.16, 0.02, 0.45, 6, palette::EMBER);
+        gl.flame(base + vec3(0.0, 1.8, 0.0), 0.16, 0.45);
     }
     // Workshops round the hearths, and things to gather.
     for (i, &(p, st)) in w.stations.iter().enumerate() {
@@ -677,7 +732,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         match st {
             Station::Forge => {
                 b.block(base, 2.0, 1.6, 1.0, a, palette::STONE);
-                gl.column(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3, 0.3, 6, palette::EMBER);
+                gl.flame(base + vec3(0.0, 1.0, 0.0), 0.5, 0.3);
                 b.column(base + vec3(0.8, 0.0, 0.8), 0.25, 0.25, 0.8, 5, [0.25, 0.25, 0.27]);
             }
             Station::Bench => {
@@ -844,7 +899,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for &m in &w.squad.members {
         if w.torch_lit(m) && w.fighter(m).map(|f| !f.ko).unwrap_or(true) {
             let f = torch_flame(w, m, k, &stand);
-            gl.column(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.01, 0.32 * k.min(3.0), 6, palette::EMBER);
+            gl.flame(f - vec3(0.0, 0.05, 0.0), 0.11 * k.min(3.0), 0.32 * k.min(3.0));
         }
     }
 
@@ -867,14 +922,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         // Indoors, laid on the floor.
         let inner = floor_at(at);
         let ring_ground = |p: V2| inner.unwrap_or_else(|| on_ground(p));
-        if picked {
-            let breath = game.feel.breath();
-            facing_ring(&mut fl, &ring_ground, at, (1.2 + 0.07 * breath) * k, rw * 0.8, face, palette::scale(palette::GOLD, 0.82 + 0.18 * breath), eye, false);
-        } else {
-            // Barely there: enough to see which way they face.
-            let col = palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night);
-            facing_ring(&mut fl, &ring_ground, at, 1.0 * k, 0.04 * k, face, col, eye, true);
-        }
+        // No circle underfoot (the picked are outlined, P3): just a small
+        // arrow the way they face, gold for the picked.
+        let col = if picked { palette::scale(palette::GOLD, 0.75) } else { palette::scale(palette::race_color(w.people[m as usize].race), 0.3 + 0.25 * night) };
+        facing_arrow(&mut fl, &ring_ground, at, 0.9 * k, face, col);
         // The way they'll actually walk, round buildings and through doors,
         // dotted; for those the next order goes to (UI-6). What's walked is gone.
         let goal = w.squad.goal[i];
@@ -890,7 +941,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     // Under the mouse: a soft ring round it (UI-4).
-    let hot = game.hover.and_then(|h| super::pointer::spot_of(w, h).map(|(p, r)| (h, p, r))).map(|(h, p, r)| match h {
+    // (People under the mouse are outlined instead, P3.)
+    let hot = game.hover.filter(|h| !matches!(h, Hover::Person(_))).and_then(|h| super::pointer::spot_of(w, h).map(|(p, r)| (h, p, r))).map(|(h, p, r)| match h {
         Hover::Person(id) => (game.gaits.drawn(id).unwrap_or(p), r * k),
         _ if r < 2.0 => (p, r * k),
         _ => (p, r),
@@ -960,12 +1012,32 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         draped_ring(&mut fl, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
         draped_ring(&mut fl, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);
     }
+    // Spells cast outside fights (P16).
+    super::castfx::draw(&game.castfx, w, &mut gl, &mut fl, &on_ground, k, now, &|b: &mut Builder, c: V2, r: f32, wd: f32, col: Rgb| draped_ring(b, &on_ground, c, r, wd, 28, col, eye));
     super::animals::draw(w, &mut b, &mut gl, &on_ground, oc.target, radius, k, eye);
     super::baseui::draw(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, game.placing.as_ref());
-    tris += b.triangles() + gl.triangles() + fl.triangles();
+    // Every flame near the camera, the towns' and the moving world's, drawn
+    // afresh so each flickers (`flame.rs`).
+    let mut spots = b.take_flames();
+    spots.extend(gl.take_flames());
+    spots.extend(fl.take_flames());
+    for town in scene.towns.values() {
+        spots.extend(town.flames.iter().copied());
+    }
+    let mut fire = Builder::new();
+    super::flame::draw(&mut fire, &spots, eye, now, radius.min(1500.0));
+    let mut wisps = b.take_smoke();
+    wisps.extend(gl.take_smoke());
+    wisps.extend(fl.take_smoke());
+    for town in scene.towns.values() {
+        wisps.extend(town.smoke.iter().copied());
+    }
+    let mut smoke = Builder::new();
+    super::flame::draw_smoke(&mut smoke, &wisps, eye, now, radius.min(600.0));
+    tris += b.triangles() + gl.triangles() + fl.triangles() + fire.triangles() + smoke.triangles();
     match &scene.dynamic {
-        Some((hb, hg, hf)) => {
-            for (h, m) in [(hb, b), (hg, gl), (hf, fl)] {
+        Some((hb, hg, hf, hx, hs)) => {
+            for (h, m) in [(hb, b), (hg, gl), (hf, fl), (hx, fire), (hs, smoke)] {
                 if let Some(mut x) = meshes.get_mut(h) {
                     *x = m.mesh();
                 }
@@ -975,8 +1047,13 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             let (_, hb) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, b, Dynamic);
             let (_, hg) = spawn_mesh(&mut commands, &mut meshes, &mats.glow, gl, Dynamic);
             let (_, hf) = spawn_mesh(&mut commands, &mut meshes, &mats.flat, fl, Dynamic);
-            scene.dynamic = Some((hb, hg, hf));
+            let (_, hx) = spawn_mesh(&mut commands, &mut meshes, &mats.fire, fire, Dynamic);
+            let (_, hs) = spawn_mesh(&mut commands, &mut meshes, &mats.smoke, smoke, Dynamic);
+            scene.dynamic = Some((hb, hg, hf, hx, hs));
         }
+    }
+    if let Some(mut m) = meshes.get_mut(&mask.mesh) {
+        *m = std::mem::take(&mut outl.mask).mesh();
     }
     scene.triangles = tris;
     scene.town_triangles = scene.towns.values().map(|t| t.triangles).sum();
@@ -1273,23 +1350,23 @@ fn nrm_v2(n: Vec3) -> V2 {
     V2::new(n.x, n.z)
 }
 
-/// A ring on the land with a pointed tip on its rim the way someone faces.
-#[allow(clippy::too_many_arguments)]
-fn facing_ring(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, width: f32, face: f32, col: Rgb, eye: Vec3, faint: bool) {
-    if faint {
-        ring_widened(b, ground, c, r, width, 18, col, eye, 0.003);
-    } else {
-        draped_ring(b, ground, c, r, width, 18, col, eye);
-    }
+/// Just the pointed tip of a facing ring: which way someone faces, with no
+/// circle (Laz, 11 Oct).
+fn facing_arrow(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, face: f32, col: Rgb) {
     let f = V2::new(face.cos(), face.sin());
     let side = V2::new(-f.y, f.x);
-    let w = if faint { r * 0.2 } else { (r * 0.38).max(width * 2.0) };
-    let tip = c.add(f.scale(r + w * 1.25));
-    let (l, rr) = (c.add(f.scale(r - width)).add(side.scale(w * 0.75)), c.add(f.scale(r - width)).sub(side.scale(w * 0.75)));
+    let w = r * 0.22;
+    let tip = c.add(f.scale(r + w * 1.4));
+    let back = c.add(f.scale(r));
+    // A slim chevron: two strokes meeting at the tip.
     let lift = 0.55 + r * 0.0008;
     let lc = palette::lin(col);
-    let v = [l, tip, tip, rr].map(|p| to3(p, ground(p) + lift));
-    b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+    for s in [1.0f32, -1.0] {
+        let wing = back.add(side.scale(s * w));
+        let inner = back.add(f.scale(w * 0.45)).add(side.scale(s * w * 0.55));
+        let v = [wing, tip, tip.sub(f.scale(w * 0.5)), inner].map(|p| to3(p, ground(p) + lift));
+        b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+    }
 }
 
 /// A ring laid on the land. Far pieces are widened so they stay a pixel or
@@ -1365,7 +1442,24 @@ fn window_glow(gl: &mut Builder, bd: &Building, ground: f32, r: f32) {
     gl.patch(face + vec3(0.0, h * 0.35, 0.0), 1.1, 0.8, bd.rot, palette::WINDOW);
 }
 
-fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_ground: &dyn Fn(V2) -> f32) {
+/// A mark of which of a town's fires are out now (the town is redrawn when
+/// it changes).
+fn doused_mark(w: &World, sid: u16) -> u64 {
+    w.doused
+        .iter()
+        .filter(|(id, until)| w.time < *until && matches!(id, solid::Id::Building(s, _) | solid::Id::Place(s, _, _) if *s == sid))
+        .fold(0x9E37_79B9u64, |h, (id, _)| {
+            let k = match id {
+                solid::Id::Building(_, i) => *i as u64,
+                solid::Id::Place(_, j, k) => 0x1_0000 + ((*j as u64) << 8) + *k as u64,
+                _ => 0,
+            };
+            h.rotate_left(7) ^ k.wrapping_mul(0x2545_F491_4F6C_DD1D)
+        })
+}
+
+/// A town building. `fire`: the town's fire is burning (a hearth).
+fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, fire: bool, on_ground: &dyn Fn(V2) -> f32) {
     let ground = if bd.kind == BuildingKind::HoraroStilt { 0.0 } else { on_ground(bd.pos) };
     // Sink buildings a little so they sit into slopes rather than float.
     let sink = (t.slope(bd.pos) * bd.size * 0.6).min(4.0);
@@ -1437,7 +1531,12 @@ fn building(b: &mut Builder, gl: &mut Builder, t: &Terrain, bd: &Building, on_gr
                 let a = i as f32 / 9.0 * std::f32::consts::TAU;
                 b.block(base + vec3(a.cos(), -0.2, a.sin()) * 2.4, 0.9, 0.7, 0.75, a, palette::STONE);
             }
-            gl.column(base + vec3(0.0, -0.2, 0.0), 1.4, 0.3, 1.4, 8, palette::EMBER);
+            if fire {
+                gl.flame(base + vec3(0.0, -0.2, 0.0), 1.4, 1.4);
+            } else {
+                // Put out: a bed of ash.
+                b.column(base + vec3(0.0, -0.2, 0.0), 1.6, 1.4, 0.3, 8, palette::ASH);
+            }
         }
     }
 }
@@ -1457,9 +1556,65 @@ fn body_size(race: Race) -> (f32, f32) {
     }
 }
 
-/// Draw one person; returns where their head is, for hover.
+/// Outline widths, in pixels: for whoever the next order goes to, for
+/// whoever is under the mouse, and for foes the rest of the time.
+const OUTLINE_PICKED: f32 = 1.6;
+const OUTLINE_HOT: f32 = 1.4;
+const OUTLINE_FOE: f32 = 1.0;
+/// Outline colours: the picked; and by side, foe, neutral, ally.
+const OUTLINE_GOLD: Rgb = [0.96, 0.82, 0.50];
+const OUTLINE_FOE_COL: Rgb = [0.90, 0.32, 0.26];
+const OUTLINE_NEUTRAL: Rgb = [0.52, 0.70, 0.92];
+const OUTLINE_ALLY: Rgb = [0.50, 0.86, 0.52];
+
+/// A bandit, or fighting against the squad.
+fn is_foe(w: &World, pid: PersonId) -> bool {
+    w.people[pid as usize].bandit || w.fighter(pid).is_some_and(|f| f.side != SQUAD_SIDE)
+}
+
+/// The squad's own, or fighting on its side.
+fn is_ally(w: &World, pid: PersonId) -> bool {
+    w.people[pid as usize].in_squad || w.fighter(pid).is_some_and(|f| f.side == SQUAD_SIDE)
+}
+
+/// The outline colour for someone's side: red foe, green ally, blue anyone else.
+fn side_colour(w: &World, pid: PersonId) -> Rgb {
+    if is_foe(w, pid) {
+        OUTLINE_FOE_COL
+    } else if is_ally(w, pid) {
+        OUTLINE_ALLY
+    } else {
+        OUTLINE_NEUTRAL
+    }
+}
+
+/// Who is drawn with an outline this frame, and their shapes in the
+/// outline's colour (`outline.rs` traces round them).
+struct Outlines {
+    mask: Builder,
+    list: Vec<(PersonId, Rgb, f32)>,
+}
+
+/// Draw one person, outlined if they're picked or under the mouse; returns
+/// where their head is, for hover.
 #[allow(clippy::too_many_arguments)]
-fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super::gait::Gaits, w: &World, pid: PersonId, k: f32, eye: Vec3, floor_at: &dyn Fn(V2) -> Option<f32>, ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
+fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super::gait::Gaits, w: &World, pid: PersonId, k: f32, eye: Vec3, floor_at: &dyn Fn(V2) -> Option<f32>, ground: &dyn Fn(V2) -> f32, outl: &mut Outlines) -> (Vec3, PersonId) {
+    let mark = b.mark();
+    let head = person_shape(b, gl, fl, gaits, w, pid, k, eye, floor_at, ground);
+    let fallen = w.people[pid as usize].dead || w.fighter(pid).is_some_and(|f| f.dead);
+    let style = outl.list.iter().find(|x| x.0 == pid).map(|x| (x.1, x.2)).or_else(|| (!fallen && is_foe(w, pid)).then(|| (palette::scale(OUTLINE_FOE_COL, 0.75), OUTLINE_FOE)));
+    if let Some((col, _)) = style {
+        let floor_y = |x: f32, z: f32| {
+            let p = V2::new(x, z);
+            floor_at(p).unwrap_or_else(|| ground(p))
+        };
+        b.copy_since(mark, col, &mut outl.mask, &floor_y);
+    }
+    head
+}
+
+#[allow(clippy::too_many_arguments)]
+fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super::gait::Gaits, w: &World, pid: PersonId, k: f32, eye: Vec3, floor_at: &dyn Fn(V2) -> Option<f32>, ground: &dyn Fn(V2) -> f32) -> (Vec3, PersonId) {
     let p = &w.people[pid as usize];
     // Eased after where the sim has them, turning as a person turns (UI-9).
     let sim_at = w.person_pos(pid);
@@ -1478,8 +1633,8 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super
     // Bandits and anyone you're fighting get a red mark at their feet.
     let foe = p.bandit || w.fighter(pid).map(|f| f.side != SQUAD_SIDE).unwrap_or(false);
     if foe && !far {
-        // A faint red ring with a tip the way they face.
-        facing_ring(fl, on_ground, at, 0.9 * k, 0.04 * k, pose.face, [0.48, 0.16, 0.13], eye, true);
+        // A small red arrow the way they face (and a red outline, `person`).
+        facing_arrow(fl, on_ground, at, 0.9 * k, pose.face, [0.48, 0.16, 0.13]);
     }
     let down = w.fighter(pid).map(|f| f.ko || f.dead).unwrap_or(false) || p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, w.time));
     // Carried: across the carrier's shoulders.
@@ -1519,7 +1674,7 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super
         // A lantern on a pole at the bow (drawn only; it lights nothing).
         let bow = hull + vec3(rot.cos(), 0.0, rot.sin()) * (2.3 * k.min(3.0));
         b.stick(bow, bow + vec3(0.0, 2.0, 0.0), 0.08, palette::TIMBER);
-        fl.column(bow + vec3(0.0, 2.0, 0.0), 0.18, 0.12, 0.3, 6, palette::WINDOW);
+        gl.flame(bow + vec3(0.0, 2.0, 0.0), 0.12, 0.25);
         hull + vec3(0.0, 0.6, 0.0)
     } else {
         base
@@ -1546,13 +1701,42 @@ fn person(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut super
     let body = if crouch { h * 0.5 } else { h * 0.8 };
     // Under the mouse: a little brighter (UI-4).
     let lift = if gaits.hot == Some(pid) { 1.3 } else { 1.0 };
-    let coat = palette::scale(race_color(p.race), lift);
-    b.column(base, r, r * 0.8, body, 6, coat);
+    // The parts clothes and armour are laid on (`dress.rs`): the lower half,
+    // the upper half, the head, the shoulders and the back.
+    let o = super::dress::outfit(w, pid);
+    let (upper, lower) = (palette::scale(o.upper, lift), palette::scale(o.lower, lift));
+    let side = vec3(-fwd.z, 0.0, fwd.x);
+    let waist = body * 0.45;
+    b.column(base, r, r * 0.9, waist, 6, lower);
+    b.column(base + vec3(0.0, waist, 0.0), r * 0.94, r * 0.8, body - waist, 6, upper);
+    if let Some(c) = o.band {
+        // A band across the chest: a guard's red, an official's or priest's gold.
+        b.column(base + vec3(0.0, waist + (body - waist) * 0.5, 0.0), r * 0.9, r * 0.87, body * 0.07, 6, palette::scale(c, lift));
+    }
+    if let Some(c) = o.shoulders {
+        for s in [-1.0f32, 1.0] {
+            b.block(base + vec3(0.0, body - r * 0.35, 0.0) + side * (s * r * 0.85), r * 0.7, r * 0.8, r * 0.4, face, palette::scale(c, lift));
+        }
+    }
+    if let Some((c, size)) = o.back {
+        // A pack on the back, bigger as it holds more.
+        let back = base + vec3(0.0, waist + (body - waist) * 0.15, 0.0) - fwd * (r * (0.85 + 0.25 * size));
+        b.block(back, r * 0.55 * (0.7 + size * 0.5), r * (1.1 + 0.4 * size), (body - waist) * (0.55 + 0.3 * size), face, palette::scale(c, lift));
+    }
     let head = base + vec3(0.0, body, 0.0) + if crouch { fwd * (r * 0.9) } else { Vec3::ZERO };
     b.block(head, r * 1.1, r * 1.1, h * 0.2, face, palette::scale(palette::skin(p.race), lift));
+    match o.head {
+        Some((super::dress::Headwear::Cap, c)) => b.block(head + vec3(0.0, h * 0.13, 0.0), r * 1.2, r * 1.2, h * 0.08, face, palette::scale(c, lift)),
+        Some((super::dress::Headwear::Helm, c)) => {
+            // Down over the brow and the back of the head; the face open.
+            b.block(head + vec3(0.0, h * 0.09, 0.0) - fwd * (r * 0.05), r * 1.25, r * 1.25, h * 0.13, face, palette::scale(c, lift));
+            b.block(head + vec3(0.0, h * 0.02, 0.0) - fwd * (r * 0.4), r * 0.5, r * 1.22, h * 0.12, face, palette::scale(c, lift * 0.9));
+        }
+        None => {}
+    }
     if crouch {
         // A hunched back between hips and head.
-        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(coat, 0.85));
+        b.block(base + vec3(0.0, body * 0.75, 0.0) + fwd * (r * 0.45), r * 1.6, r * 1.5, body * 0.35, face, palette::scale(upper, 0.85));
     }
     super::cues::draw(b, gl, w, pid, base, if crouch { h * 0.75 } else { h }, r, face, k.min(2.0));
     // A lit torch, held up beside them.
@@ -1736,16 +1920,21 @@ pub fn torch_flame(w: &World, pid: PersonId, k: f32, on_ground: &dyn Fn(V2) -> f
 }
 
 /// A Ṭaḍoro travelling tent: a taut cone of pale cloth around one pole.
-fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64) {
+fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64, up: f32) {
     let r = 2.2 * k.min(4.0);
-    b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5, 10, palette::TENT);
+    // (Being pitched: the cloth rises with the pole.)
+    let up = up.clamp(0.08, 1.0);
+    b.column(base - vec3(0.0, 0.2, 0.0), r, 0.05, r * 1.5 * up, 10, palette::TENT);
     let tilt = (seed % 7) as f32 * 0.1;
     b.column(base + vec3(0.0, r * 1.5 - 0.2, 0.0), 0.06 * k, 0.04 * k, 0.6 * k + tilt, 4, palette::TIMBER);
 }
 
 /// A workplace: fields in rows, stalls with awnings, a post, a dock — simple
 /// shapes to say what's done where.
-fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, on_ground: &dyn Fn(V2) -> f32) {
+/// A town's workplace. `fire(k)`: its part `k` (in `solid::place_parts`)
+/// is a fire that's burning.
+#[allow(clippy::too_many_arguments)]
+fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, fire: &dyn Fn(u8) -> bool, on_ground: &dyn Fn(V2) -> f32) {
     let k = wp.kind;
     let size = k.size();
     let wet = geo::inland(wp.pos) < 0.0;
@@ -1811,7 +2000,9 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
         PlaceKind::CharcoalPit => {
             // A turf-covered stack, smouldering.
             b.dome(base, 2.6, 2.6, 1.8, 0.0, 0.0, 8, [0.25, 0.22, 0.18]);
-            gl.column(base + vec3(0.0, 1.7, 0.0), 0.25, 0.1, 0.4, 6, palette::EMBER);
+            if fire(0) {
+                gl.smoke(base + vec3(0.0, 1.7, 0.0), 0.3);
+            }
             for i in 0..3 {
                 let p = base + vec3(4.0, 0.0, -1.0 + i as f32);
                 b.stick(p - vec3(1.2, 0.0, 0.0) + vec3(0.0, 0.25, 0.0), p + vec3(1.2, 0.0, 0.0) + vec3(0.0, 0.25, 0.0), 0.25, palette::TIMBER);
@@ -1835,7 +2026,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
             b.column(base + vec3(0.0, DECK, 0.0), size * 0.55, size * 0.55, 0.3, 10, palette::TIMBER);
             if k == PlaceKind::Deck {
                 // The village's cooking fire.
-                gl.column(base + vec3(0.0, DECK + 0.3, 0.0), 0.6, 0.2, 0.6, 6, palette::EMBER);
+                gl.flame(base + vec3(0.0, DECK + 0.3, 0.0), 0.6, 0.6);
                 b.column(base + vec3(1.3, DECK + 0.3, 0.0), 0.5, 0.45, 0.6, 8, [0.45, 0.32, 0.22]);
             } else {
                 // A ladder down to the water, and a rope frame.
@@ -1864,7 +2055,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
         PlaceKind::Kitchen | PlaceKind::Deck => {
             // An open-sided cookhouse: a roof on posts over a big fire and pots.
             awning(b, base, 6.0, [0.42, 0.34, 0.26], rot);
-            gl.column(base + vec3(0.0, 1.0, 0.0), 0.8, 0.25, 0.7, 7, palette::EMBER);
+            gl.flame(base + vec3(0.0, 1.0, 0.0), 0.8, 0.7);
             for i in 0..3 {
                 let a = i as f32 * 2.1;
                 b.column(base + vec3(a.cos(), 1.0, a.sin()) * 1.8, 0.45, 0.4, 0.7, 8, [0.45, 0.32, 0.22]);
@@ -1949,10 +2140,14 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
                         b.stick(to3(q, on_ground(q) - 0.1), to3(q, on_ground(q) + 0.95), 0.14, palette::TIMBER);
                     }
                 }
-                for (what, shape, _, _) in solid::place_parts(wp) {
+                for (k, (what, shape, _, _)) in solid::place_parts(wp).into_iter().enumerate() {
                     if what == solid::What::Fire {
                         let c = shape.centre();
-                        gl.column(to3(c, on_ground(c)), 0.6, 0.3, 0.9, 6, palette::EMBER);
+                        if fire(k as u8) {
+                            gl.flame(to3(c, on_ground(c)), 0.6, 0.9);
+                        } else {
+                            b.column(to3(c, on_ground(c)), 0.7, 0.6, 0.15, 6, palette::ASH);
+                        }
                     }
                 }
             } else {

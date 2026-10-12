@@ -39,8 +39,12 @@ pub const WEAVE: Rgb = [0.24, 0.21, 0.16];
 pub const TIMBER: Rgb = [0.36, 0.27, 0.18];
 pub const METAL_GOLD: Rgb = [0.95, 0.76, 0.28];
 pub const EMBER: Rgb = [1.0, 0.62, 0.26];
+/// A fire put out: grey ash.
+pub const ASH: Rgb = [0.30, 0.29, 0.28];
 pub const WINDOW: Rgb = [1.0, 0.70, 0.36];
 pub const TENT: Rgb = [0.62, 0.64, 0.74];
+/// A bedroll laid out: dyed wool.
+pub const BEDROLL: Rgb = [0.42, 0.30, 0.22];
 pub const CAMP_HIDE: Rgb = [0.42, 0.24, 0.18];
 
 // Panels: cream text on dark umber, with brass.

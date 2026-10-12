@@ -67,7 +67,7 @@ impl World {
     /// Why a body can't be gone through, in a line for the player.
     pub fn why_cant_loot(&self, body: PersonId) -> String {
         let p = &self.people[body as usize];
-        let name = p.name().unwrap_or("They").to_string();
+        let name = self.called(body).unwrap_or_else(|| "They".to_string());
         if p.in_squad {
             return format!("{name} is one of yours: use their pack.");
         }
@@ -256,7 +256,7 @@ impl World {
         self.settle_condition(who, self.time);
         let a = self.people[who as usize].name().unwrap_or("someone").to_string();
         let from = match src {
-            Source::Body(b) => self.people[b as usize].name().unwrap_or("them").to_string(),
+            Source::Body(b) => self.called(b).unwrap_or_else(|| "them".to_string()),
             Source::Chest(c) => format!("a {}", self.container(c).map(|c| c.what.name()).unwrap_or("container")),
             Source::Store(_) => "the store".to_string(),
         };

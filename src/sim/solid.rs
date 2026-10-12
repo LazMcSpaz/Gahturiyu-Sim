@@ -72,7 +72,6 @@ use super::geo::{self, V2};
 use super::group::GroupId;
 use super::jobs::PlaceKind;
 use super::layout::{self, Furn, Holder, Rect};
-use super::person::PersonId;
 use super::rng;
 use super::ruins::RuinKind;
 use super::settlement::{BuildingKind, SettlementId};
@@ -134,9 +133,12 @@ pub enum Id {
     ForgeHome(u32),
     /// A standing torch, named by where and when it was lit.
     Torch(u64),
-    /// The tent a squad member has put up, and a band of wanderers' tent.
-    Tent(PersonId),
+    /// A tent the squad has pitched (its `Bedding::id`), and a band of
+    /// wanderers' tent.
+    Tent(u32),
     GroupTent(GroupId),
+    /// A bedroll laid out (its `Bedding::id`).
+    Bedroll(u32),
 }
 
 impl Id {
@@ -1349,6 +1351,9 @@ impl World {
         for (id, at) in self.tents() {
             out.push(Thing::solid(id, What::Tent, Shape::circle(at, TENT), TENT * 1.5).open());
         }
+        for b in self.beds.iter().filter(|b| b.kind == super::bedding::BedKind::Bedroll) {
+            out.push(Thing::solid(Id::Bedroll(b.id), What::Furniture(Furn::Bedroll), Shape::Box(Rect::new(b.pos, b.rot, 0.45, 1.0)), 0.15).open());
+        }
         out
     }
 
@@ -1356,18 +1361,9 @@ impl World {
     /// carries a tent while someone near sleeps under it, and one by a
     /// band of wanderers stopped for a rest out of doors.
     pub fn tents(&self) -> Vec<(Id, V2)> {
-        use super::condition::{Activity, Shelter};
         let mut out = Vec::new();
-        let tent = super::items::id("tent");
-        for (j, &m) in self.squad.members.iter().enumerate() {
-            let at = self.squad.at[j];
-            if !self.people[m as usize].detail.as_ref().is_some_and(|d| d.gear.bag.iter().any(|e| e.0 == tent)) {
-                continue;
-            }
-            let under = self.squad.members.iter().enumerate().any(|(i, &o)| self.squad.at[i].dist(at) < 15.0 && self.people[o as usize].cond.as_ref().is_some_and(|c| c.activity == Activity::Sleeping && c.shelter == Shelter::Tent));
-            if under {
-                out.push((Id::Tent(m), at.add(V2::new(2.6, 1.6))));
-            }
+        for b in self.beds.iter().filter(|b| b.kind == super::bedding::BedKind::Tent) {
+            out.push((Id::Tent(b.id), b.pos));
         }
         for g in &self.groups {
             if g.band == 1 && matches!(g.kind, super::group::Kind::Wanderer { .. }) && !g.is_moving(self.time) && !g.hostile && !self.lodging(g) {

@@ -101,16 +101,11 @@ pub const EXHAUSTED: f32 = 75.0;
 pub const EXHAUSTED_PACE: f32 = 0.8;
 pub const EXHAUSTED_FACTOR: f32 = 0.85;
 
-/// Healing speed (times `HEAL_PER_HOUR`) by what they're doing. Fed members
-/// asleep indoors heal fastest; walking heals little.
-pub const HEAL_SLEEP_OPEN: f32 = 1.5;
-pub const HEAL_SLEEP_TENT: f32 = 1.75;
-pub const HEAL_SLEEP_INDOORS: f32 = 2.0;
-pub const HEAL_SLEEP_BED: f32 = 3.0;
-pub const HEAL_RESTING: f32 = 1.0;
+/// Healing speed by what they're doing and how fed: every healing rate is
+/// in `body.rs` (P25), named here as before.
+pub use super::body::{HEAL_RESTING, HEAL_SLEEP_BED, HEAL_SLEEP_INDOORS, HEAL_SLEEP_OPEN, HEAL_SLEEP_TENT, HEAL_WALKING};
 /// Lain down with nothing to sleep off, a member is up again after this long.
 pub const NAP_HOURS: f64 = 0.33;
-pub const HEAL_WALKING: f32 = 0.3;
 
 /// Where someone is sleeping.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -349,10 +344,10 @@ impl Condition {
         HEAL_PER_HOUR
             * rest
             * match self.stage() {
-                HungerStage::Fed => 1.0,
-                HungerStage::Hungry => 0.5,
-                HungerStage::Weak => 0.25,
-                HungerStage::Starving => 0.0,
+                HungerStage::Fed => body::HEAL_FED,
+                HungerStage::Hungry => body::HEAL_HUNGRY,
+                HungerStage::Weak => body::HEAL_WEAK,
+                HungerStage::Starving => body::HEAL_STARVING,
             }
     }
 }
@@ -453,15 +448,10 @@ impl World {
         if let Some(bed) = self.base_bed(pid) {
             return bed;
         }
-        let tent = super::items::id("tent");
-        let here = self.squad.at[k];
-        let has_tent = (0..self.squad.members.len()).any(|j| {
-            self.squad.at[j].dist(here) < 15.0 && self.people[self.squad.members[j] as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(|e| e.0 == tent)).unwrap_or(false)
-        });
-        if has_tent {
-            Shelter::Tent
-        } else {
-            Shelter::Open
+        // In a pitched tent, or out in the open (on a bedroll).
+        match self.bedding_at(self.squad.at[k]) {
+            Some(b) if b.kind == super::bedding::BedKind::Tent => Shelter::Tent,
+            _ => Shelter::Open,
         }
     }
 
@@ -744,6 +734,12 @@ impl World {
         if busy || self.is_sneaking(pid) || self.suspicion.iter().any(|(&(_, m), &v)| m == pid && v > 0.0) {
             return None;
         }
+        // Only where there's something to sleep in (Laz, 11 Oct: nobody
+        // beds down on the bare ground; they lie down in a bed, a bedroll
+        // or a tent).
+        if !self.sleep_place_at(self.squad.at[k]) && self.base_bed(pid).is_none() {
+            return None;
+        }
         let start = c.at.max(self.squad.kept_up[k]);
         let tired = if c.tired_at(start) >= BED_TIRED { start } else { c.tired_reaches(BED_TIRED)?.max(start) };
         Some(night_from(tired))
@@ -771,9 +767,14 @@ impl World {
         self.people[pid as usize].cond.as_ref().map(|c| c.activity == Activity::Sleeping).unwrap_or(false)
     }
 
-    /// Send a member to a bed (or any spot) to sleep there: they walk over
-    /// and bed down when they arrive.
+    /// Send a member to a bed, bedroll or tent to sleep there: they walk
+    /// over and bed down when they arrive. Nowhere to sleep at `at`: nothing.
     pub fn order_sleep_at(&mut self, who: PersonId, at: super::geo::V2) {
+        if !self.sleep_place_at(at) {
+            let name = self.name_of(who);
+            self.say(self.time, format!("{name} has nothing to sleep on there."));
+            return;
+        }
         self.order_members(&[who], at);
         if let Some(k) = self.squad.index(who) {
             if self.free_to_order(who) {
@@ -782,15 +783,40 @@ impl World {
         }
     }
 
-    /// Order some members to rest: they stop where they are and sleep.
-    /// (Getting up is its own order, `order_wake`; any order to move does too.)
+    /// Order some members to bed down: each lies down where they stand if
+    /// there's a bed, bedroll or tent there, else lays out their own bedroll
+    /// at their feet and lies down in it, else goes to a free one close by.
+    /// With none of these, they say so. (Getting up is `order_wake`; any order to move
+    /// gets them up too.)
     pub fn order_rest(&mut self, who: &[PersonId]) {
         for &m in who {
             let Some(k) = self.squad.index(m) else { continue };
-            if !self.fighting.contains_key(&m) {
+            if self.fighting.contains_key(&m) {
+                continue;
+            }
+            let here = self.squad.at[k];
+            let free = self
+                .beds
+                .iter()
+                .filter(|b| b.ready(self.time) && b.pos.dist(here) <= 3.0)
+                .find(|b| {
+                    let room = if b.kind == super::bedding::BedKind::Tent { super::bedding::IN_TENT } else { 1 };
+                    let reach = if b.kind == super::bedding::BedKind::Tent { super::bedding::TENT_REACH } else { super::bedding::BED_REACH };
+                    self.squad.members.iter().enumerate().filter(|(j, &o)| o != m && self.squad.resting[*j] && self.squad.at[*j].dist(b.pos) <= reach).count() < room
+                })
+                .map(|b| b.id);
+            // Lying where they stand if they can, else on their own bedroll
+            // at their feet, else on a free one close by.
+            if self.sleep_place_at(here) {
                 self.squad.resting[k] = true;
-                self.squad.goal[k] = self.squad.at[k];
+                self.squad.goal[k] = here;
                 self.squad.route[k].clear();
+            } else if self.order_lay(m, super::bedding::BedKind::Bedroll, here, true).is_ok() {
+            } else if let Some(b) = free {
+                let _ = self.order_sleep_in(m, b);
+            } else {
+                let name = self.name_of(m);
+                self.say(self.time, format!("{name} has no bedroll and nothing to sleep on here."));
             }
         }
     }

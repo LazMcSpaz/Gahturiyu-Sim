@@ -47,7 +47,7 @@ pub enum Button {
     Town,
     Build,
     Map,
-    Keys,
+    Stats,
 }
 
 const BUTTONS: [(Button, &str); 8] = [
@@ -58,7 +58,7 @@ const BUTTONS: [(Button, &str); 8] = [
     (Button::Town, "Town"),
     (Button::Build, "Build"),
     (Button::Map, "Map"),
-    (Button::Keys, "Keys"),
+    (Button::Stats, "Stats"),
 ];
 
 pub enum FrameAct {
@@ -421,8 +421,13 @@ fn icon(c: &Canvas, b: Button, x: f32, y: f32, col: Color32) {
             c.line(v(-3.0, -8.0), v(-3.0, 6.0), 1.0, col);
             c.line(v(3.0, -6.0), v(3.0, 8.0), 1.0, col);
         }
-        Button::Keys => {
-            c.styled_centred("?", x, y + 7.0, 20.0, col, Face::Title, 0.0);
+        Button::Stats => {
+            // A figure beside three bars.
+            c.circle(x - 4.0, y - 5.0, 3.0, col);
+            c.poly(&[v(-8.0, 8.0), v(-7.0, 0.0), v(-1.0, 0.0), v(0.0, 8.0)], col);
+            for (k, len) in [(0.0, 6.0), (1.0, 4.0), (2.0, 7.0)] {
+                c.line(v(3.0, -3.0 + k * 4.5), v(3.0 + len, -3.0 + k * 4.5), 1.6, col);
+            }
         }
     }
 }
@@ -570,12 +575,16 @@ pub fn bottom(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) -> (
         let resting = w.any_resting(&who);
         let s = Bx::new(ox, c.h - 106.0, 112.0, 32.0);
         pill(c, s.x, s.y, s.w, s.h, "SNEAK", sneaking, true);
+        // (No rest button: lying down is clicking a bed, bedroll or tent.
+        // While anyone picked is lying down, a button gets them up.)
         let r = Bx::new(ox, c.h - 66.0, 112.0, 32.0);
-        pill(c, r.x, r.y, r.w, r.h, if resting { "WAKE" } else { "REST" }, resting, false);
+        if resting {
+            pill(c, r.x, r.y, r.w, r.h, "WAKE", true, false);
+        }
         if clicked(&s) {
             act = Some(FrameAct::Sneak);
         }
-        if clicked(&r) {
+        if resting && clicked(&r) {
             act = Some(FrameAct::Rest);
         }
     }

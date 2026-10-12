@@ -50,7 +50,10 @@ Commands (ids come from `look`; NAME is a squad member's first name, or `all`):
   enter bID                 walk into a building (picks the lock if locked and you have a lockpick)
   carry pID | putdown       pick up a downed person / put them down
   sneak | torch             toggle for the selected
-  rest | wake               the selected lie down where they are, or get up
+  rest | wake               the selected lie down (their own bedroll laid at their feet, or a bed there), or get up
+  lay [tent]                the nearest selected lays out their bedroll (or pitches the tent) at their feet
+  sleep sID                 the nearest selected lies down in a bedroll or tent (ids from `look`)
+  packup sID                the nearest selected packs a bedroll or tent up
   pack [NAME]               a member's gear and pack, with entry numbers
   use NAME N [pID] | equip NAME N | drop NAME N   use/eat, put on, or drop pack entry N (a scroll of a harmful spell is read at pID: it starts the fight)
   give NAME N TO_NAME [HOW_MANY]  hand pack entry N (or some of it) to another squad member
@@ -180,7 +183,8 @@ fn who(w: &World, s: &Session) -> Vec<PersonId> {
 }
 
 fn name_of(w: &World, p: PersonId) -> String {
-    w.people[p as usize].name().map(|s| s.to_string()).unwrap_or_else(|| format!("someone ({})", w.people[p as usize].race.name()))
+    // What the squad knows them as (P24): a bandit is "Bandit".
+    w.called(p).unwrap_or_else(|| format!("someone ({})", w.people[p as usize].race.name()))
 }
 
 fn first_name(w: &World, p: PersonId) -> String {
@@ -658,6 +662,11 @@ fn nearby(w: &World, here: V2, only: &str) -> String {
         let lock = if w.is_locked(d.id) { format!(" (locked: {})", w.lock_outlook(d.lock)) } else { String::new() };
         lines.push((here.dist(d.outside), format!("b{}.{}  {what}{lock} — {}", d.id.0, d.id.1, dist_dir(here, d.outside))));
     }
+    // Bedrolls laid out and tents pitched.
+    for b in w.beds.iter().filter(|b| near(b.pos, 80.0)) {
+        let state = if b.ready(w.time) { String::new() } else { format!(" (going up: ready at {})", hhmm(b.ready_at)) };
+        lines.push((here.dist(b.pos), format!("s{}  {}{state} — {}", b.id, if b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent { "a tent" } else { "a bedroll" }, dist_dir(here, b.pos))));
+    }
     // Containers out in the wild close by: ruins' caches, camps' stashes.
     for c in w.containers.range((WILD, 0, 0)..=(WILD, u16::MAX, u8::MAX)).map(|(_, c)| c).filter(|c| near(c.pos, 60.0)) {
         let lock = if c.lock > 0.0 && !c.picked { format!(" (locked: {})", w.lock_outlook(c.lock)) } else { String::new() };
@@ -935,7 +944,7 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
     let mut sel = who(w, s);
     // An order goes to those who can take it, and is refused at once, with
     // the reason, when none of them can (NM-72): not the downed, not the bound.
-    const ORDERS: &[&str] = &["go", "attack", "talk", "loot", "search", "pickup", "gather", "work", "butcher", "hunt", "enter", "carry", "sneak", "rest", "torch"];
+    const ORDERS: &[&str] = &["go", "attack", "talk", "loot", "search", "pickup", "gather", "work", "butcher", "hunt", "enter", "carry", "sneak", "rest", "torch", "lay", "sleep", "packup"];
     if ORDERS.contains(&cmd) {
         let why: Vec<String> = sel.iter().filter_map(|&m| unable(w, m)).collect();
         sel.retain(|&m| unable(w, m).is_none());
@@ -1352,7 +1361,30 @@ fn run(w: &mut World, s: &mut Session, cmd: &str, a: &[&str], save: &Path) -> St
         }
         "rest" => {
             w.order_rest(&sel);
-            o += "Resting.\n";
+            o += "Bedding down.\n";
+        }
+        "lay" | "sleep" | "packup" => {
+            use gahturiyu_sim::sim::bedding::BedKind;
+            let bed = arg(0).trim_start_matches('s').parse::<u32>().ok();
+            let at = bed.and_then(|b| w.bedding(b).map(|x| x.pos)).unwrap_or(w.squad.pos);
+            let laying = if arg(0) == "tent" { BedKind::Tent } else { BedKind::Bedroll };
+            // (Laying out: someone who carries one.)
+            let able: Vec<PersonId> = if cmd == "lay" { sel.iter().copied().filter(|&m| w.can_lay(m, laying)).collect() } else { sel.clone() };
+            let Some(m) = able.iter().copied().min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at))) else { return "Nobody selected can do that.\n".into() };
+            let res = match (cmd, bed) {
+                ("lay", _) => {
+                    let kind = if arg(0) == "tent" { BedKind::Tent } else { BedKind::Bedroll };
+                    let here = w.person_pos(m);
+                    w.order_lay(m, kind, here, false)
+                }
+                ("sleep", Some(b)) => w.order_sleep_in(m, b),
+                ("packup", Some(b)) => w.order_pack(m, b),
+                _ => Err("give a bedroll or tent's id (sN from `look`)"),
+            };
+            o += &match res {
+                Ok(()) => format!("{}: on it.\n", first_name(w, m)),
+                Err(e) => format!("{}: can't: {e}.\n", first_name(w, m)),
+            };
         }
         "wake" => {
             // Only those resting or asleep get up; the downed stay down, and

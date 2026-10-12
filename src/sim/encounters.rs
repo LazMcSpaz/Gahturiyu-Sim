@@ -358,9 +358,54 @@ impl World {
         self.npc_fights.push(NpcFight { id, ends: result.time, result, camp: e.camp, victim: e.victim, was, dropped, cut: k });
     }
 
+    /// What the player reads for someone: what the squad knows them as
+    /// (`called`), or the name they'd be given if it isn't built yet.
     pub fn name_of(&self, pid: PersonId) -> String {
         let p = &self.people[pid as usize];
-        p.name().map(|s| s.to_string()).unwrap_or_else(|| names::person_name(p.race, p.seed))
+        self.called(pid).unwrap_or_else(|| names::person_name(p.race, p.seed))
+    }
+
+    /// One rule for how anyone is named to the player (P24): what the squad
+    /// would know them as.
+    /// - By name: the squad itself (and those left at a base), hands it has
+    ///   hired, anyone one of it has talked with (`met`), and townsfolk (a
+    ///   town's people go by their names among their neighbours; they're
+    ///   shown as before).
+    /// - Otherwise by what they plainly are: a bandit is "Bandit", or
+    ///   "Bandit archer" / "Bandit mage" by their calling; anyone else with
+    ///   no town to their name is "Traveller".
+    ///
+    /// `None` only for someone known by name whose name isn't built yet
+    /// (each caller keeps its own stand-in for that).
+    pub fn called(&self, pid: PersonId) -> Option<String> {
+        if self.known_by_name(pid) {
+            return self.people[pid as usize].name().map(str::to_string);
+        }
+        Some(self.role_word(pid).to_string())
+    }
+
+    /// Whether the squad would know someone by name (see `called`).
+    pub fn known_by_name(&self, pid: PersonId) -> bool {
+        let p = &self.people[pid as usize];
+        p.in_squad
+            || self.met.range((pid, 0)..=(pid, PersonId::MAX)).next().is_some()
+            || self.bases.iter().any(|b| b.residents.iter().any(|r| r.who == pid))
+            || (!p.bandit && p.home.is_some())
+    }
+
+    /// What a stranger plainly is, as a name.
+    pub fn role_word(&self, pid: PersonId) -> &'static str {
+        use super::stats::Calling;
+        let p = &self.people[pid as usize];
+        if p.bandit {
+            match p.kit_stats.calling {
+                Calling::Mage => "Bandit mage",
+                Calling::Hunter => "Bandit archer",
+                _ => "Bandit",
+            }
+        } else {
+            "Traveller"
+        }
     }
 
     // ---- After a fight ------------------------------------------------------

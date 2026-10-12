@@ -15,7 +15,8 @@ use super::person::PersonId;
 use super::settlement::SettlementId;
 use super::world::{World, DAY, HOUR};
 
-/// Coin per point of health the healer mends.
+/// Coin per point of health the healer mends (`body::HEALER_MENDS` of the
+/// wounds).
 pub const TREAT_COIN_PER_HP: f32 = 0.3;
 /// The least a healer asks.
 pub const TREAT_MIN: u16 = 4;
@@ -54,7 +55,7 @@ impl World {
             if self.member_pos(k).dist(here) > CARE_REACH || !p.wounds.is_hurt(t) {
                 continue;
             }
-            hp += p.wounds.lost_at(t).iter().enumerate().filter(|(i, _)| !p.wounds.missing[*i]).map(|(_, l)| l).sum::<f32>();
+            hp += p.wounds.lost_at(t).iter().enumerate().filter(|(i, _)| !p.wounds.missing[*i]).map(|(_, l)| l).sum::<f32>() * super::body::HEALER_MENDS;
             hurt.push(m);
         }
         if hurt.is_empty() {
@@ -63,8 +64,9 @@ impl World {
         Some((hurt, ((hp * TREAT_COIN_PER_HP).ceil() as u16).max(TREAT_MIN)))
     }
 
-    /// The healer mends everyone hurt nearby, for the price. Lost limbs stay
-    /// lost. Returns who was seen to.
+    /// The healer mends everyone hurt nearby, for the price: part of every
+    /// wound at once (`body::HEALER_MENDS`), and the rest heals as usual.
+    /// Lost limbs stay lost. Returns who was seen to.
     pub fn treat(&mut self, npc: PersonId) -> Result<Vec<PersonId>, &'static str> {
         let (hurt, price) = self.treat_terms(npc).ok_or("there's no one here I can help")?;
         let coin = items::id("coin");
@@ -75,9 +77,11 @@ impl World {
         let t = self.time;
         for &m in &hurt {
             self.settle_condition(m, t);
+            // They mend `HEALER_MENDS` of every wound; the rest heals as usual.
             let p = &mut self.people[m as usize];
-            let full: [f32; 6] = std::array::from_fn(|i| p.stats.max_hp(super::body::PARTS[i]));
-            p.wounds.set(&p.stats.clone(), &full, t);
+            let lost = p.wounds.lost_at(t);
+            let left: [f32; 6] = std::array::from_fn(|i| p.stats.max_hp(super::body::PARTS[i]) - lost[i] * (1.0 - super::body::HEALER_MENDS));
+            p.wounds.set(&p.stats.clone(), &left, t);
             self.settle_condition(m, t);
         }
         if let Some(home) = self.people[npc as usize].home {
