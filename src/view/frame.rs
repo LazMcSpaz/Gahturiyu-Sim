@@ -99,6 +99,9 @@ const PLATE_DARK: Rgb = [0.15, 0.13, 0.09];
 const ORANGE: Rgb = [0.93, 0.47, 0.26];
 
 /// A bar with a dark track, a thin brass edge and diamond ends.
+/// The drunk meter's colour.
+const DRINK: Rgb = [0.92, 0.66, 0.28];
+
 fn bar(c: &Canvas, x: f32, y: f32, w: f32, h: f32, frac: f32, col: Rgb, big_end: bool) {
     c.rect(x, y - h / 2.0, w, h, a(UMBER, 0.85));
     let f = frac.clamp(0.0, 1.0);
@@ -244,11 +247,25 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
             }
             if w.torch_lit(pid) {
                 c.poly(&[vec2(ix, cy - 20.0), vec2(ix + 4.0, cy - 11.0), vec2(ix - 4.0, cy - 11.0)], a(palette::EMBER, 1.0));
+                ix += 14.0;
             }
             let bw = LIST_W - 22.0 - (nx - 4.0);
             bar(c, nx - 4.0, cy + 6.0, bw, 7.0, vit, health_col(vit, down), true);
             let second = mana.or_else(|| w.stamina_of(pid)).unwrap_or(1.0);
             bar(c, nx - 4.0, cy + 18.0, bw, 4.0, second, if mana.is_some() { palette::MANA } else { BAR_STAMINA }, false);
+            // In drink, or the morning after: the stage named, and a thin
+            // amber bar for how drunk (only while it matters: Part 5, "the
+            // drunk and high meter").
+            let drink = w.drunk_of(pid);
+            let sore = w.hungover(pid);
+            if (drink > 0.5 || sore) && !down {
+                let stage = gahturiyu_sim::sim::drunk::Drunk::of(drink);
+                let word = if drink > 0.5 { if stage == gahturiyu_sim::sim::drunk::Drunk::Sober { "had a drink" } else { stage.name() } } else { "hungover" };
+                c.styled(word, ix, cy - 8.0, 12.0, a(DRINK, 1.0), Face::Italic, 0.0);
+                if drink > 0.5 {
+                    c.grad(nx - 4.0, cy + 23.0, bw * (drink / 100.0).min(1.0), 2.0, a(palette::scale(DRINK, 0.7), 1.0), a(DRINK, 1.0), false);
+                }
+            }
         }
         if rl.flash > 0.0 {
             c.grad(0.0, y0 + 3.0, wide, row_h - 6.0, a(BRASS_LIGHT, 0.30 * rl.flash), a(BRASS_LIGHT, 0.0), true);

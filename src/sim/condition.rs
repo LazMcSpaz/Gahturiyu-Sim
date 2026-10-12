@@ -254,11 +254,25 @@ pub struct Condition {
     /// What their last meal's buff was (one at a time: the newest replaces it).
     #[serde(default)]
     pub meal: Option<super::effects::Does>,
+    /// How drunk, 0..100, draining (`drunk.rs`); whether they've been drunk
+    /// this bout (a hangover follows), the hangover's end, and whether this
+    /// piece is hungover (read at the settle).
+    #[serde(default)]
+    pub drunk: f32,
+    #[serde(default)]
+    pub was_drunk: bool,
+    #[serde(default)]
+    pub hangover_until: f64,
+    #[serde(default)]
+    pub hungover: bool,
+    /// What their last drink's small effect was (one at a time).
+    #[serde(default)]
+    pub drink_buff: Option<super::effects::Does>,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -270,7 +284,7 @@ impl Condition {
         let hold = if self.holding { super::casting::STAMINA_HOLD } else { 0.0 };
         // (Thirsty, breath comes back slower: read at the last settle, the
         // stage line being a step on the timeline.)
-        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 };
+        let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 } * if self.hungover { super::drunk::HANGOVER_BREATH } else { 1.0 };
         match self.activity {
             Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
             Activity::Resting | Activity::Sleeping => STAMINA_REST * dry * (1.0 + self.breath) - hold,
@@ -408,6 +422,7 @@ impl Condition {
 
     /// Bring the values forward to `t` and start a new piece there.
     pub fn settle(&mut self, t: f64) {
+        self.drunk = self.drunk_at(t);
         self.thirst = self.thirst_at(t);
         self.tox = self.tox_at(t);
         if self.tox_out && self.tox <= TOX_WAKE + 1e-3 {
@@ -447,8 +462,26 @@ impl Condition {
     }
 
     /// Multiplier on walking pace from tiredness and lack of breath.
+    /// How drunk at `t` (it drains at `drunk::DRUNK_DRAIN`).
+    pub fn drunk_at(&self, t: f64) -> f32 {
+        (self.drunk - super::drunk::DRUNK_DRAIN * hours(self.at, t)).max(0.0)
+    }
+
+    /// When drunkenness falls to `level`, if it's above it now.
+    pub fn drunk_falls_to(&self, level: f32) -> Option<f64> {
+        (self.drunk > level + 1e-4).then(|| self.at + ((self.drunk - level) / super::drunk::DRUNK_DRAIN) as f64 * HOUR)
+    }
+
+    /// The stage of drink they're at (as of the last settle).
+    pub fn drunk_stage(&self) -> super::drunk::Drunk {
+        super::drunk::Drunk::of(self.drunk)
+    }
+
     pub fn pace_factor(&self, t: f64) -> f32 {
         let mut f = if self.exhausted() { EXHAUSTED_PACE } else { 1.0 };
+        if self.drunk_stage() == super::drunk::Drunk::VeryDrunk {
+            f *= super::drunk::STUMBLE_PACE;
+        }
         // Slower as breath runs out, to half pace with none left.
         let share = self.stamina_at(t) / self.max_stamina.max(1.0);
         if share < WINDED {
@@ -582,6 +615,7 @@ impl World {
         p.wounds.at = t;
         c.load = load;
         c.sustained = sustained;
+        c.hungover = t < c.hangover_until;
         c.breath = breath;
         c.mending = mending;
         c.wounded = lost.iter().any(|&l| l > 0.01);
@@ -804,6 +838,13 @@ impl World {
                 for level in [QUEASY, SICK, TOX_WAKE] {
                     consider(c.tox_falls_to(level), Event::Stage);
                 }
+                // Drink wearing off past a stage, or all gone; a hangover's end.
+                for level in [super::drunk::VERY_DRUNK, super::drunk::DRUNK, super::drunk::TIPSY, 0.0] {
+                    consider(c.drunk_falls_to(level), Event::Sober);
+                }
+                if c.hungover && c.hangover_until > c.at {
+                    consider(Some(c.hangover_until), Event::Stage);
+                }
                 if self.shelter_of(pid) == Shelter::Open {
                     consider(Some(((c.at / HOUR).floor() + 1.0) * HOUR), Event::Stage);
                 }
@@ -897,6 +938,10 @@ impl World {
                             self.log.push_front((t, format!("{name} is starving.")));
                             self.log.truncate(14);
                         }
+                    }
+                    Event::Sober => {
+                        self.settle(pid, t);
+                        self.sobered(pid, t);
                     }
                     Event::Starved => {
                         self.settle(pid, t);
@@ -1178,6 +1223,8 @@ impl World {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Event {
     Stage,
+    /// Drink wearing off past a stage line (`drunk.rs`).
+    Sober,
     Drink,
     Starved,
     BledOut,

@@ -1663,7 +1663,8 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
     // Eased after where the sim has them, turning as a person turns (UI-9).
     let sim_at = w.person_pos(pid);
     let pose = gaits.pose(pid, sim_at, super::cues::aim(w, pid, sim_at), super::cues::rest(w, pid));
-    let at = pose.pos;
+    // In drink, they sway from side to side (Part 5: the cue for drunk).
+    let at = pose.pos.add(super::cues::drunk_sway(w, pid, pose.face));
     // Indoors, they and their rings stand on the floor (looked up once).
     let inner = floor_at(at);
     let on_ground = &|q: V2| inner.unwrap_or_else(|| ground(q));
