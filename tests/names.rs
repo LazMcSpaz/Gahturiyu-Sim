@@ -568,7 +568,7 @@ fn everything_the_game_names_has_a_native_name() {
         assert_eq!(names::thing(m.name).unwrap().belongs, tradition(m.tradition), "{} is {}", m.name, m.tradition.name());
     }
     // (By the item, not the bare noun: a "net" as a made form is the weighted net.)
-    for f in items::FORMS {
+    for f in items::FORMS.iter() {
         let item = items::ITEMS.iter().find(|i| i.key == f.key).unwrap_or_else(|| panic!("no item `{}`", f.key));
         assert_eq!(names::thing(item.name).unwrap().belongs, tradition(f.usual.def().tradition), "a {} is usually made in {}", item.name, f.usual.name());
     }

@@ -829,7 +829,7 @@ impl Shot {
         }
         if let Some(k) = self.drop {
             if let Some(&m) = world.squad.members.get(k) {
-                for slot in [Slot::MainHand, Slot::Body, Slot::Back] {
+                for slot in [Slot::MainHand, Slot::BodyOver, Slot::Back] {
                     let it = world.people[m as usize].detail.as_ref().and_then(|d| d.gear.in_slot(slot));
                     if let Some(it) = it {
                         world.unequip(m, slot);

@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-325 things: 124 belong to one people, 201 are shared.
+327 things: 123 belong to one people, 204 are shared.
 
 ## Jobs
 
@@ -121,7 +121,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Pitch | Huqa | Puk | Wuha | Fuha | pitch |
 | Ink | Qeḍeḍage | Kemag | Maweheme | Wawehewe | black-water |
 | Reed paper | Yotoṭehi | Dotrep | Lewiiono | Thefiyause | reed-paper |
-| Salt crystal | Shiqaqiʻu | Xikiq | Hiuhiha | Hiyusiha | salt-crystal |
+| Saltcrust | Shiqaqiʻu | Xikiq | Hiuhiha | Hiyusiha | salt-crystal |
 | Wares | Tegu | Teg | Newu | Sewu | thing |
 | Light hide | Yaluhali | Dorper | Waliialu | Fayiyayu | soft-hide |
 | Thick hide | Toḍehali | Tomper | Walinome | Fayisauwe | heavy-hide |
@@ -129,7 +129,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Shell | Heqa | Pek | Weha | Feha | shell |
 | Horn plate | Qoḍohiṭo | Konpirt | Wilohono | Fithehauye | horn-board |
 | Teeth | Taqashuʻi | Taqxuq | Huinaa | Suwisaha | jaw-bone |
-| Animal oil | Gayugoṭi | Gadugmort | Moliwaiu | Wauthiwaye | beast-oil |
+| Tallow | Gayugoṭi | Gadugmort | Moliwaiu | Wauthiwaye | beast-oil |
 | Briar heart | Qishuṭaʻu | Kixtroq | Lauhihu | Thauhisu | thorn-soul |
 | Raw meat | Garodiʻa | Gordix | Liawaro | Thiyawashe | wild-meat |
 | Egg | Oho | Op | Owo | Aufe | egg |
@@ -142,7 +142,6 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Longsword | Qotiro | **Reqix** | REH-kikh | long-knife |
 | War-pick | Qotiro | **Toqkon** | TOK-kon | fight-horn |
 | Stone maul | Roduro | **Haṭudoqo** | hah-too-DOH-koh | strike-stone |
-| Harpoon | Horaro | **Honimia** | hoh-nee-MEE-ah | fish-spear |
 | Glaive | Qotiro | **Qixpod** | KIKH-pod | knife-staff |
 | Crossbow | Qotiro | **Kurtagux** | KOOR-tah-gookh | shut-bow |
 | Trident | Horaro | **Honihuri** | hoh-nee-HOO-ree | three-spear |
@@ -167,10 +166,10 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 |---|---|---|---|---|
 | Silk wraps | Ṭaḍoro | **Yisasausa** | yee-sah-sow-SAH | body-bind |
 | Scale hauberk | Qotiro | **Xotxert** | KHOT-khert | body-scale |
-| Sandstone lamellar | Qotiro | **Xotord** | KHOH-tord | body-shield |
+| Plate cuirass | Qotiro | **Xotord** | KHOH-tord | body-shield |
 | Iron helm | Qotiro | **Triktord** | TRIK-tord | head-shield |
 | Scale greaves | Qotiro | **Gurtaxert** | GOOR-tah-khert | foot-scale |
-| Kite shield | Qotiro | **Reqtord** | REK-tord | long-shield |
+| Round shield | Qotiro | **Portord** | POR-tord | round-shield |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
@@ -183,6 +182,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Leather gloves | Ḍiḍahali | Drimper | Walinima | Fayiyiwa | hand-hide |
 | Boots | Guṭaheqa | Gurtapek | Wehawula | Fehawutha | foot-shell |
 | Buckler | Ḍiḍataḍu | Drimtord | Nanunima | Sayuyiwa | hand-shield |
+| Cloak | Lataha | Ratap | Nawalana | Safayasa | wide-cloth |
 
 ## Gear
 
@@ -208,12 +208,15 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Mortar and pestle | Ṭahaqulo | Trapkur | Hulolawa | Huyethafa | break-pot |
 | Storm glass | Qorogusha | Krokkex | Hehahorowu | Hesahaushe | storm-glass |
 | Gold ring | Ṭeligole | Trergor | Woleleli | Wauyetheyi | gold-ring |
+| Plain belt | Qoḍiroḍa | Komron | Ronahomi | Shauyahauwi | hold-rope |
+| Bronze brooch | Tahaḍata | Tapmat | Mananawa | Wasasafa | cloth-hook |
 
 ## Food, herbs and draughts
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | Grain | Shaḍi | Xem | Hami | Sawi | grain |
+| Hardgrain | Ṭohuḍìḍi | Tropunxem | Hamilowuni | Sawithaufe | strong-grain |
 | Grain and greens | Taleqeʻi | Tarkeq | Heinale | Heisaye | field-food |
 | Fish | Ḍiʻa | Miq | Mia | Wiya | fish |
 | Game | Lìdìdiʻa | Redix | Lialili | Thiyayithi | hunt-meat |
@@ -222,13 +225,12 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Dried fish | Ḍaqaḍiʻa | Maqmiq | Miamaa | Wiyawaha | dry-fish |
 | Flatbread | Lataḍiha | Ratmip | Miwalana | Wifayasa | wide-bread |
 | Salted meat | Shiqadiʻa | Xikdix | Liahiha | Thiyasiha | salt-meat |
-| Wild berries | Garoguʻe | Gorguq | Wuewaro | Wuwewashe | wild-fruit |
+| Moorberry | Ḍireguʻe | Drirguq | Wuenire | Wuweyishe | heath-fruit |
 | Mussels | Ḍoqaheqa | Drokpek | Wehanoha | Fehathuha | rock-shell |
 | Kelp frond | Liḍulahi | Rimrep | Lawilimu | Yafiyiwu | kelp-leaf |
 | Ghostcap | Shaʻiṭiqo | Xeqtrik | Lihohai | Thihesai | spirit-head |
 | Emberroot | Ṭaquhiqì | Trokpik | Wiilahu | Fihithahu | fire-root |
-| Ash moss | Husheṭuḍi | Puxtrum | Lumiwuhe | Thuwifuse | ember-moss |
-| Squid ink | Ḍuhutedu | Drupted | Nelunuwu | Sethuyufu | deep-dye |
+| Bloodleaf | Roshalahi | Roxrep | Lawiroha | Yafishausa | red-leaf |
 | Healing draught | Doḍiʻiḍu | Donin | Inuloni | Iyuthauyi | heal-drink |
 | Greater healing draught | Tashiʻiḍu | Texin | Inunahi | Iyusasi | whole-drink |
 | Mana tonic | Shaʻiʻiḍu | Xeqin | Inuhai | Iyusai | spirit-drink |

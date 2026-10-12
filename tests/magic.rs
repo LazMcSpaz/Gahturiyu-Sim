@@ -337,7 +337,7 @@ fn perform_until_held(w: &mut World, m: u32, step: f64) {
     for _ in 0..12 {
         let d = w.people[m as usize].detail.as_mut().unwrap();
         d.gear.add(items::id("ghostcap"), 2);
-        d.gear.add(items::id("kelp_frond"), 2);
+        d.gear.add(items::id("bloodleaf"), 2);
         w.perform(m, restore).expect("can perform");
         wait(w, restore.def().rite.minutes as f64 * 60.0 + 30.0, step);
         if w.held_ritual(m) == Some(restore) {
@@ -444,7 +444,7 @@ fn a_failed_ritual_backlashes() {
     for _ in 0..10 {
         let d = w.people[m as usize].detail.as_mut().unwrap();
         d.gear.add(items::id("ghostcap"), 2);
-        d.gear.add(items::id("kelp_frond"), 2);
+        d.gear.add(items::id("bloodleaf"), 2);
         let hurt = |w: &World| w.people[m as usize].wounds.lost_at(w.time).iter().sum::<f32>();
         let before = hurt(&w);
         w.perform(m, spell("restore")).unwrap();

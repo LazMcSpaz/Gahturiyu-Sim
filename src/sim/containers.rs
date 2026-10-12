@@ -127,7 +127,7 @@ const BENCH_STOCK: &[(Job, &[&str])] = &[
     (Job::Boatwright, &["timber", "seareed", "fibre"]),
     (Job::Mason, &["rock", "sand", "clay", "rock"]),
 ];
-const CLOTHES: &[&str] = &["cloth_shirt", "trousers", "padded_jacket", "wraps", "boots", "leather_cap", "knife", "reed_paper", "squid_ink", "healing_draught", "torch", "lockpick"];
+const CLOTHES: &[&str] = &["cloth_shirt", "trousers", "padded_jacket", "wraps", "boots", "leather_cap", "knife", "reed_paper", "ink", "healing_draught", "torch", "lockpick"];
 const SHOP: &[&str] = &["cloth_shirt", "trousers", "boots", "leather_gloves", "small_pack", "torch", "healing_draught", "knife", "hatchet", "reed_paper"];
 const BETTER: &[&str] = &["short_sword", "hide_coat", "war_pick", "spear", "buckler", "hide_leggings", "iron_helm", "gold_ring", "pearl"];
 const RARE: &[&str] = &["ring_swiftness", "ring_might", "amulet_wellspring", "amulet_clear_mind", "ring_hearth", "seers_hood", "striders_boots", "duelists_gloves", "pearl_necklace"];

@@ -67,8 +67,8 @@ fn a_lost_arm_holds_no_shield_and_no_two_handed_weapon() {
     let g = &mut p.detail.as_mut().unwrap().gear;
     g.add(items::id("short_sword"), 1);
     g.equip(items::id("short_sword")).unwrap();
-    g.add(items::id("kite_shield"), 1);
-    g.equip(items::id("kite_shield")).unwrap();
+    g.add(items::id("round_shield"), 1);
+    g.equip(items::id("round_shield")).unwrap();
     let f = Fighter::from_person(&p, 0, V2::default(), 0.0);
     assert_eq!(f.shield_up(), 0.0);
     assert_eq!(f.usable_weapon().unwrap().0.skill, Skill::Blade, "a one-handed sword is fine");
@@ -79,8 +79,8 @@ fn the_squad_cant_strap_a_shield_to_a_lost_arm() {
     let mut w = worldgen::generate(1);
     let m = w.squad.members[0];
     w.people[m as usize].wounds.missing[Part::LeftArm as usize] = true;
-    w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("kite_shield"), 1);
-    assert!(!w.equip(m, items::id("kite_shield")));
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("round_shield"), 1);
+    assert!(!w.equip(m, items::id("round_shield")));
     w.people[m as usize].detail.as_mut().unwrap().gear.add(items::id("glaive"), 1);
     assert!(!w.equip(m, items::id("glaive")));
 }

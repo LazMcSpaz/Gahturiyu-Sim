@@ -148,11 +148,11 @@ pub static RECIPES: &[Recipe] = &[
     // Armouring.
     p("iron_helm", M::Bronze, M::None, &[("bronze_ingot", 2), ("leather", 1)], K::Armoring, 20.0, S::Forge, 120.0),
     p("iron_helm", M::Forgeiron, M::None, &[("iron_ingot", 2), ("leather", 1)], K::Armoring, 35.0, S::Forge, 150.0),
-    p("sandstone_lamellar", M::Bronze, M::None, &[("bronze_ingot", 4), ("leather", 2)], K::Armoring, 30.0, S::Forge, 240.0),
+    p("plate_cuirass", M::Bronze, M::None, &[("bronze_ingot", 4), ("leather", 2)], K::Armoring, 30.0, S::Forge, 240.0),
     p("scale_hauberk", M::Forgeiron, M::None, &[("iron_ingot", 6), ("leather", 2)], K::Armoring, 55.0, S::Forge, 300.0),
     p("scale_greaves", M::Forgeiron, M::None, &[("iron_ingot", 3), ("leather", 1)], K::Armoring, 40.0, S::Forge, 180.0),
     p("buckler", M::Bronze, M::None, &[("bronze_ingot", 1), ("timber", 2)], K::Armoring, 20.0, S::Bench, 120.0),
-    p("kite_shield", M::Forgeiron, M::None, &[("iron_ingot", 3), ("timber", 2)], K::Armoring, 40.0, S::Bench, 200.0),
+    p("round_shield", M::Forgeiron, M::None, &[("iron_ingot", 3), ("timber", 2)], K::Armoring, 40.0, S::Bench, 200.0),
     // Leather, cloth and wood: the shared basics.
     r("leather", 1, &[("hide", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
     r("cloth", 1, &[("fibre", 2)], K::Handcraft, 5.0, S::Workbench, 60.0),
@@ -179,7 +179,6 @@ pub static RECIPES: &[Recipe] = &[
     p("padded_jacket", M::Seareed, M::None, &[("seareed", 4), ("pitch", 1)], K::Weaving, 15.0, S::Loom, 120.0),
     p("small_pack", M::Seareed, M::None, &[("seareed", 3), ("pitch", 1)], K::Weaving, 10.0, S::Loom, 90.0),
     p("net", M::Seareed, M::None, &[("seareed", 4)], K::Weaving, 15.0, S::Loom, 120.0),
-    p("harpoon", M::Nacre, M::None, &[("nacre", 2), ("timber", 2)], K::Weaving, 25.0, S::Loom, 150.0),
     p("trident", M::Nacre, M::None, &[("nacre", 3), ("timber", 2)], K::Weaving, 30.0, S::Loom, 150.0),
     p("spear", M::Nacre, M::None, &[("nacre", 2), ("timber", 2)], K::Weaving, 25.0, S::Loom, 120.0),
     p("knife", M::Nacre, M::None, &[("nacre", 1), ("fishskin", 1)], K::Weaving, 20.0, S::Loom, 90.0),
@@ -201,33 +200,34 @@ pub static RECIPES: &[Recipe] = &[
     r("edgeglass", 1, &[("edge_seed", 1), ("rock", 1), ("ash", 2)], K::Tending, 40.0, S::GrowerBed, 90.0 * D),
     r("hearthclay_pot", 1, &[("clay", 1), ("ash", 1)], K::Tending, 3.0, S::GrowerBed, 4.0 * D),
     p("stone_maul", M::Ringstone, M::None, &[("rock", 6), ("ash", 2), ("timber", 1)], K::Tending, 30.0, S::GrowerBed, 30.0 * D),
-    p("kite_shield", M::Ringstone, M::None, &[("rock", 8), ("ash", 3)], K::Tending, 35.0, S::GrowerBed, 30.0 * D),
+    p("round_shield", M::Ringstone, M::None, &[("rock", 8), ("ash", 3)], K::Tending, 35.0, S::GrowerBed, 30.0 * D),
     p("iron_helm", M::Slatewing, M::None, &[("rock", 2), ("ash", 1), ("leather", 1)], K::Tending, 30.0, S::GrowerBed, 21.0 * D),
-    p("sandstone_lamellar", M::Slatewing, M::None, &[("rock", 6), ("ash", 3), ("leather", 2)], K::Tending, 45.0, S::GrowerBed, 21.0 * D),
+    p("plate_cuirass", M::Slatewing, M::None, &[("rock", 6), ("ash", 3), ("leather", 2)], K::Tending, 45.0, S::GrowerBed, 21.0 * D),
     p("scale_greaves", M::Slatewing, M::None, &[("rock", 4), ("ash", 2), ("leather", 1)], K::Tending, 35.0, S::GrowerBed, 21.0 * D),
     p("knife", M::Edgeglass, M::None, &[("edge_seed", 1), ("ash", 2), ("leather", 1)], K::Tending, 40.0, S::GrowerBed, 90.0 * D),
     p("short_sword", M::Edgeglass, M::None, &[("edge_seed", 2), ("ash", 3), ("leather", 1)], K::Tending, 50.0, S::GrowerBed, 90.0 * D),
     p("spear", M::Edgeglass, M::None, &[("edge_seed", 1), ("ash", 2), ("timber", 2)], K::Tending, 45.0, S::GrowerBed, 90.0 * D),
     // Paper, ink, scrolls and manuals.
     r("reed_paper", 2, &[("seareed", 1)], K::Inscription, 5.0, S::Desk, 40.0),
-    r("squid_ink", 1, &[("ash", 1), ("ash_moss", 1)], K::Inscription, 8.0, S::Desk, 40.0),
-    r("scroll_heal", 1, &[("reed_paper", 1), ("squid_ink", 1), ("kelp_frond", 1)], K::Inscription, 20.0, S::Desk, 60.0),
-    r("scroll_lightning", 1, &[("reed_paper", 1), ("squid_ink", 1), ("storm_glass", 1)], K::Inscription, 35.0, S::Desk, 60.0),
-    r("scroll_paralyze", 1, &[("reed_paper", 1), ("squid_ink", 1), ("ghostcap", 2)], K::Inscription, 40.0, S::Desk, 60.0),
-    r("scroll_fireball", 1, &[("reed_paper", 1), ("squid_ink", 1), ("emberroot", 2)], K::Inscription, 45.0, S::Desk, 60.0),
-    r("manual_handcraft", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_smithing", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_armoring", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_tending", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_weaving", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_inscription", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_alchemy", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_carpentry", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
-    r("manual_masonry", 1, &[("reed_paper", 4), ("squid_ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    // Lampblack ink.
+    r("ink", 1, &[("charcoal", 1), ("ash", 1)], K::Inscription, 8.0, S::Desk, 40.0),
+    r("scroll_heal", 1, &[("reed_paper", 1), ("ink", 1), ("bloodleaf", 1)], K::Inscription, 20.0, S::Desk, 60.0),
+    r("scroll_lightning", 1, &[("reed_paper", 1), ("ink", 1), ("storm_glass", 1)], K::Inscription, 35.0, S::Desk, 60.0),
+    r("scroll_paralyze", 1, &[("reed_paper", 1), ("ink", 1), ("ghostcap", 2)], K::Inscription, 40.0, S::Desk, 60.0),
+    r("scroll_fireball", 1, &[("reed_paper", 1), ("ink", 1), ("emberroot", 2)], K::Inscription, 45.0, S::Desk, 60.0),
+    r("manual_handcraft", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_smithing", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_armoring", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_tending", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_weaving", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_inscription", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_alchemy", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_carpentry", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
+    r("manual_masonry", 1, &[("reed_paper", 4), ("ink", 2)], K::Inscription, 30.0, S::Desk, 240.0),
     // Alchemy: a mortar and pestle in your pack does as well as the table.
-    r("healing_draught", 1, &[("kelp_frond", 2), ("ash_moss", 1)], K::Alchemy, 15.0, S::AlchemyTable, 40.0),
+    r("healing_draught", 1, &[("bloodleaf", 2), ("wild_berries", 1)], K::Alchemy, 15.0, S::AlchemyTable, 40.0),
     r("mana_tonic", 1, &[("ghostcap", 2), ("salt_crystal", 1)], K::Alchemy, 25.0, S::AlchemyTable, 40.0),
-    r("greater_healing", 1, &[("kelp_frond", 2), ("ghostcap", 1), ("salt_crystal", 1)], K::Alchemy, 45.0, S::AlchemyTable, 60.0),
+    r("greater_healing", 1, &[("bloodleaf", 2), ("wild_berries", 1), ("ghostcap", 1)], K::Alchemy, 45.0, S::AlchemyTable, 60.0),
 ];
 
 /// How many beds one Tender keeps growing at once (a town's Tenders grow
@@ -472,7 +472,7 @@ impl World {
             } else if mt > 0.45 && h > 300.0 {
                 if roll < 0.3 { "storm_glass" } else { "iron_ore" }
             } else if mt > 0.2 {
-                if roll < 0.55 { "iron_ore" } else { "ash_moss" }
+                if roll < 0.55 { "iron_ore" } else { "emberroot" }
             } else if pl > 0.5 {
                 if roll < 0.6 { "emberroot" } else { "salt_crystal" }
             } else if roll < 0.3 {
@@ -482,7 +482,7 @@ impl World {
             } else if roll < 0.62 {
                 "wild_berries"
             } else if roll < 0.75 {
-                "ash_moss"
+                "bloodleaf"
             } else {
                 continue;
             };

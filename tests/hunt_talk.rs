@@ -561,7 +561,7 @@ fn pack_sweep() {
     }
     let me = base.squad.members[0];
     // Two-handed weapons with a shield already held, and the other way round.
-    for (a, b) in [("glaive", "kite_shield"), ("kite_shield", "glaive"), ("crossbow", "buckler"), ("short_bow", "buckler"), ("buckler", "short_bow")] {
+    for (a, b) in [("glaive", "round_shield"), ("round_shield", "glaive"), ("crossbow", "buckler"), ("short_bow", "buckler"), ("buckler", "short_bow")] {
         let mut w = base.clone();
         let g = &mut w.people[me as usize].detail.as_mut().unwrap().gear;
         g.add(items::id(a), 1);

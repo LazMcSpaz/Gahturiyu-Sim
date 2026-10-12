@@ -68,7 +68,7 @@ fn worn_colour(id: items::ItemId) -> Option<Rgb> {
     // Some forms have a look of their own whatever they're made of.
     match key {
         "scale_hauberk" | "scale_greaves" => return Some(material_colour(info(id).main).unwrap_or([0.50, 0.52, 0.55])),
-        "sandstone_lamellar" => return Some([0.74, 0.62, 0.42]),
+        "plate_cuirass" => return Some([0.74, 0.62, 0.42]),
         "hide_coat" | "hide_leggings" => return Some([0.48, 0.36, 0.24]),
         "padded_jacket" => return Some([0.62, 0.54, 0.38]),
         "wraps" => return Some([0.78, 0.72, 0.62]),
@@ -112,15 +112,15 @@ pub fn outfit(w: &World, pid: PersonId) -> Outfit {
     let cloth = if p.bandit { darker(own_dye(p.seed), 0.7) } else { work };
     let gear = p.detail.as_ref().map(|d| &d.gear);
     let slot = |s: Slot| gear.and_then(|g| g.in_slot(s));
-    let upper = slot(Slot::Body).and_then(worn_colour).unwrap_or(cloth);
-    let lower = slot(Slot::Legs).and_then(worn_colour).unwrap_or(darker(cloth, 0.72));
+    let upper = slot(Slot::BodyOver).or_else(|| slot(Slot::BodyUnder)).and_then(worn_colour).unwrap_or(cloth);
+    let lower = slot(Slot::LegsOver).or_else(|| slot(Slot::LegsUnder)).and_then(worn_colour).unwrap_or(darker(cloth, 0.72));
     let head = slot(Slot::Head).map(|id| {
         let key = item(info(id).form).key;
         let col = worn_colour(id).unwrap_or(darker(cloth, 0.9));
         (if key.contains("helm") { Headwear::Helm } else { Headwear::Cap }, col)
     });
     // Shoulder pieces: none are made yet, so the part waits for them.
-    let shoulders = slot(Slot::Body).filter(|&id| item(info(id).form).key.contains("pauldron")).and_then(worn_colour);
+    let shoulders = slot(Slot::BodyOver).filter(|&id| item(info(id).form).key.contains("pauldron")).and_then(worn_colour);
     let back = slot(Slot::Back).map(|id| {
         let size = match item(id).kind {
             Kind::Pack(kg) => (kg / 45.0).clamp(0.4, 1.0),
