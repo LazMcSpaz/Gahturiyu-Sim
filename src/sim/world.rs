@@ -124,6 +124,9 @@ pub struct World {
     pub next_fire: u32,
     #[serde(default)]
     pub fire_jobs: Vec<super::campfire::FireJob>,
+    /// Poison on the squad's blades (`coating.rs`).
+    #[serde(default)]
+    pub coatings: Vec<super::coating::Coating>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -385,6 +388,7 @@ impl World {
             campfires: Vec::new(),
             next_fire: 0,
             fire_jobs: Vec::new(),
+            coatings: Vec::new(),
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),

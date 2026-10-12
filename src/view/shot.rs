@@ -51,6 +51,9 @@ pub struct Shot {
     /// `GAHT_DRINK=1`: the squad in drink and smoke: member 0 very drunk, 1 drunk, 2
     /// tipsy and hazy from a pipe, 3 hungover (the meters on the squad list, the sway, the puff).
     pub drink: bool,
+    /// `GAHT_FLASK=1`: three bandits bunched near the squad, the first of
+    /// them with a slumber brew and a flask; held the moment it bursts.
+    pub flask: bool,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
     /// `official`, `healer`...: the nearest with that job; `indoors`: the
@@ -193,6 +196,7 @@ impl Shot {
             enter: var("GAHT_ENTER").is_some(),
             make: var("GAHT_MAKE"),
             drink: var("GAHT_DRINK").is_some(),
+            flask: var("GAHT_FLASK").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
@@ -427,6 +431,25 @@ impl Shot {
         }
         if let Some(what) = self.make.clone().map(|m| m.trim_end_matches(",closed").to_string()) {
             make_scene(world, &what);
+        }
+        if self.flask {
+            use gahturiyu_sim::sim::items::herbs::{Alch, Kit, Mix};
+            let m = world.squad.members[0];
+            if let Some(d) = world.people[m as usize].detail.as_mut() {
+                for _ in 0..2 {
+                    d.gear.add_piece(gahturiyu_sim::sim::items::id("brewed_potion"), gahturiyu_sim::sim::materials::Piece::bottle(Mix::brew(&[Alch::Slumber], 60.0, Kit::default())));
+                }
+                d.gear.add(gahturiyu_sim::sim::items::id("sandglass_flask"), 2);
+            }
+            let at = world.squad.pos.add(V2::new(11.0, 3.0));
+            world.spawn_bandits(at, 3, false);
+            for _ in 0..600 {
+                world.step(0.1);
+                let burst = world.battles.iter().any(|b| b.fx.iter().any(|f| matches!(f.kind, gahturiyu_sim::sim::combat::FxKind::Splash { .. }) && b.time - f.at > 0.4));
+                if burst {
+                    break;
+                }
+            }
         }
         if self.drink {
             let spirit = gahturiyu_sim::sim::items::id("stone_spirit");

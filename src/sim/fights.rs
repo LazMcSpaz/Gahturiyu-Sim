@@ -408,6 +408,8 @@ impl World {
             f.torch = self.torch_lit(pid);
             f.has_torch = self.torch_in_hand(pid).is_some();
             f.held = self.held.get(&pid).copied();
+            // Poison on their blade comes into the fight (`coating.rs`).
+            f.coating = self.coating_of(pid).map(|c| (c.mix, c.hits));
             // Spells on them come into the fight.
             for bn in self.boons_on(pid) {
                 f.statuses.push(super::magic::Status { does: bn.does, power: bn.power, until: bn.until });
@@ -656,6 +658,13 @@ impl World {
             }
         }
 
+        // What's left of the poison on their blades.
+        for f in b.fighters.iter().filter(|f| f.is_person()) {
+            if let Some(c) = self.coatings.iter_mut().find(|c| c.pid == f.pid) {
+                c.hits = f.coating.map(|x| x.1).unwrap_or(c.hits);
+            }
+        }
+        self.coatings.retain(|c| c.hits > 0);
         // Squad members carry on from where the fight left them.
         for f in b.fighters.iter().filter(|f| f.side == SQUAD_SIDE && !f.dead) {
             if let Some(k) = self.squad.index(f.pid) {

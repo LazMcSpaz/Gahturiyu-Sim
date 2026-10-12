@@ -2259,6 +2259,12 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     game.notice = Some(("That can't be used just now.".into(), std::time::Instant::now()));
                 }
             }
+            Action::CoatEntry(pid, k) => {
+                if !w.coat_weapon(pid, k) {
+                    game.sounds.ui("ui_cant");
+                    game.notice = Some((format!("Can't: {}.", w.why_cant_coat(pid, k).unwrap_or("not now")), std::time::Instant::now()));
+                }
+            }
             Action::Taste(pid, it) => {
                 if !w.taste(pid, it) {
                     game.sounds.ui("ui_cant");
