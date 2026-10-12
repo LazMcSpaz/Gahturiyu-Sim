@@ -62,6 +62,10 @@ pub enum Act {
     Lay(gahturiyu_sim::sim::bedding::BedKind, V2),
     /// Gather up the squad's thrown weapons lying about.
     GatherThrown,
+    /// Lay a campfire here and light it.
+    Campfire(V2),
+    /// Put more wood on a campfire.
+    FeedFire(u32),
     /// Put down the pack (with what's in it).
     DropPack(PersonId),
 }
@@ -99,6 +103,9 @@ pub fn menu_choices(w: &World, m: &Menu, who: &[PersonId]) -> (String, Vec<Choic
                 }
                 if who.iter().any(|&m| w.can_lay(m, BedKind::Tent)) {
                     cs.push(ch("Pitch the tent here", Act::Lay(BedKind::Tent, p)));
+                }
+                if who.iter().any(|&m| w.can_make_fire(m)) {
+                    cs.push(ch("Make a campfire here", Act::Campfire(p)));
                 }
             }
             ("Here".into(), cs)
@@ -306,6 +313,17 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
                 out.push(ch("Walk to it", Act::Walk(b.pos)));
             }
         }
+        Hover::Campfire(id) => {
+            if let Some(f) = w.campfire(id) {
+                if f.burning(w.time) {
+                    out.push(ch("Cook here", Act::Make(f.pos)));
+                }
+                if who.iter().any(|&m| w.can_make_fire(m)) {
+                    out.push(ch(if f.burning(w.time) || f.lighting(w.time) { "Put more wood on" } else { "Light it again" }, Act::FeedFire(id)));
+                }
+                out.push(ch("Walk to it", Act::Walk(f.pos)));
+            }
+        }
         Hover::Ruin(r) => {
             if let Some(ru) = w.ruins.get(r as usize) {
                 out.push(ch("Walk there", Act::Walk(ru.pos)));
@@ -400,6 +418,22 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
             let Some(at) = w.bedding(id).map(|b| b.pos) else { return Some("It's gone.".into()) };
             let m = who.iter().copied().filter(|&m| !w.any_resting(&[m])).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at))).or_else(|| nearest(w, who, at));
             return m.and_then(|m| w.order_sleep_in(m, id).err()).map(|e| format!("Can't: {e}."));
+        }
+        Act::Campfire(at) => {
+            // The nearest of the picked with wood to burn.
+            let m = who.iter().copied().filter(|&m| w.can_make_fire(m)).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at)));
+            return match m {
+                Some(m) => w.order_campfire(m, at).err().map(|e| format!("Can't: {e}.")),
+                None => Some("Nobody picked carries wood to burn.".into()),
+            };
+        }
+        Act::FeedFire(id) => {
+            let Some(at) = w.campfire(id).map(|f| f.pos) else { return Some("It's gone.".into()) };
+            let m = who.iter().copied().filter(|&m| w.can_make_fire(m)).min_by(|&a, &b| w.person_pos(a).dist(at).total_cmp(&w.person_pos(b).dist(at)));
+            return match m {
+                Some(m) => w.order_feed_fire(m, id).err().map(|e| format!("Can't: {e}.")),
+                None => Some("Nobody picked carries wood to burn.".into()),
+            };
         }
         Act::PackUp(id) => {
             let Some(at) = w.bedding(id).map(|b| b.pos) else { return Some("It's gone.".into()) };
@@ -637,6 +671,7 @@ pub fn short_name(w: &World, h: Hover) -> Option<String> {
         Hover::Node(n) => item(w.nodes.iter().find(|x| x.id == n)?.item).name.to_string(),
         Hover::Station(i) => w.stations.get(i)?.1.name().to_string(),
         Hover::Torch(_) => "Standing torch".into(),
+        Hover::Campfire(_) => "Campfire".into(),
         Hover::Bedding(id) => match w.bedding(id) {
             Some(b) if b.kind == gahturiyu_sim::sim::bedding::BedKind::Tent => "Tent".into(),
             Some(_) => "Bedroll".into(),

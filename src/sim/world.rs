@@ -116,6 +116,14 @@ pub struct World {
     pub beds: Vec<super::bedding::Bedding>,
     pub next_bed: u32,
     pub bed_jobs: Vec<super::bedding::BedJob>,
+    /// The squad's own campfires (`campfire.rs`), the last id given, and
+    /// squad members on their way to lay or feed one.
+    #[serde(default)]
+    pub campfires: Vec<super::campfire::Campfire>,
+    #[serde(default)]
+    pub next_fire: u32,
+    #[serde(default)]
+    pub fire_jobs: Vec<super::campfire::FireJob>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -374,6 +382,9 @@ impl World {
             beds: Vec::new(),
             next_bed: 0,
             bed_jobs: Vec::new(),
+            campfires: Vec::new(),
+            next_fire: 0,
+            fire_jobs: Vec::new(),
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),

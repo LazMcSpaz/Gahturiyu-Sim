@@ -398,6 +398,7 @@ impl World {
         self.update_indoors();
         self.do_pickups();
         self.do_bed_jobs();
+        self.do_fire_jobs();
         self.do_dosing();
         self.do_binding();
         self.do_giving();

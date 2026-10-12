@@ -143,6 +143,8 @@ pub enum Id {
     GroupTent(GroupId),
     /// A bedroll laid out (its `Bedding::id`).
     Bedroll(u32),
+    /// A campfire the squad laid (its `Campfire::id`).
+    SquadFire(u32),
 }
 
 impl Id {
@@ -1501,6 +1503,10 @@ impl World {
         }
         for b in self.beds.iter().filter(|b| b.kind == super::bedding::BedKind::Bedroll) {
             out.push(Thing::solid(Id::Bedroll(b.id), What::Furniture(Furn::Bedroll), Shape::Box(Rect::new(b.pos, b.rot, 0.45, 1.0)), 0.15).open());
+        }
+        // The squad's campfires, laid until they burn out.
+        for f in self.campfires.iter().filter(|f| self.time >= f.since && self.time < f.out_at) {
+            out.push(Thing::solid(Id::SquadFire(f.id), What::Fire, Shape::circle(f.pos, super::campfire::FIRE_RADIUS), 0.5).open());
         }
         out
     }

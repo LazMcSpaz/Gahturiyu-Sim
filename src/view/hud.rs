@@ -638,6 +638,22 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
             }
             out.push(("Left-click: sleep in it  ·  Right-click: pack it up".into(), DIM));
         }
+        Hover::Campfire(id) => {
+            let Some(f) = w.campfire(id) else { return out };
+            out.push(("Campfire".into(), GOLD));
+            let t = w.time;
+            out.push((
+                if f.lighting(t) {
+                    format!("Being got going: alight at {}", hhmm(f.lit_at))
+                } else if f.burning(t) {
+                    format!("Burns until {}", hhmm(f.out_at))
+                } else {
+                    "Burnt out".into()
+                },
+                DIM,
+            ));
+            out.push(("Right-click: cook, or put more wood on".into(), DIM));
+        }
     }
     out
 }
