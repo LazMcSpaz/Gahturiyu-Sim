@@ -44,6 +44,12 @@ impl World {
         if p.in_squad {
             return out;
         }
+        // A leader belongs to their faction before anything else.
+        if let Some(l) = self.leader_of(pid) {
+            let f = factions::id(l.faction);
+            add(f);
+            add(factions::parent(f));
+        }
         if let Some(life) = self.society.lives.get(pid as usize) {
             let job = life.job;
             if let Some(f) = super::disguise::CIVIC.iter().filter(|c| !c.elite && c.knows.contains(&job)).find_map(|c| c.faction) {

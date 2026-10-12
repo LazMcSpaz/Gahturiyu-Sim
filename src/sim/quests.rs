@@ -58,12 +58,19 @@ pub struct Quest {
     /// The opportunity it came from.
     #[serde(default)]
     pub opp: Option<u32>,
+    /// The leader's job it is (`leaders::TASKS`, by key).
+    #[serde(default, with = "super::save::opt_name")]
+    pub task: Option<super::save::Name>,
 }
 
 impl World {
     /// The job this person would offer the squad, if any: their open
     /// opportunity (`chances.rs`), made from what's going on in their life.
     pub fn quest_offer(&self, npc: PersonId) -> Option<(QuestKind, u16, Option<ItemId>)> {
+        // A leader gives their faction's jobs, nothing else (`leaders.rs`).
+        if self.leader_of(npc).is_some() {
+            return self.leader_offer(npc).map(|o| (o.kind, o.task.coin, None));
+        }
         let o = self.open_offer(npc)?;
         let kind = match o.kind {
             Chance::ClearCamp { camp, at } => QuestKind::ClearCamp { camp, at },
@@ -76,6 +83,9 @@ impl World {
 
     /// Take on someone's job. A delivery hands `who` the letter.
     pub fn accept_quest(&mut self, npc: PersonId, who: PersonId) -> Option<u32> {
+        if self.leader_of(npc).is_some() {
+            return self.accept_leader_task(npc, who);
+        }
         let id = self.open_offer(npc)?.id;
         self.take_opportunity(id, who)
     }
@@ -210,6 +220,9 @@ impl World {
         self.people[who as usize].recompute_might();
         self.quests[qi].stage = Stage::Done;
         let giver = self.quests[qi].giver;
+        if let Some(key) = self.quests[qi].task {
+            self.leader_task_done(key);
+        }
         if let Some(f) = self.people[giver as usize].home.and_then(|h| self.holder_of(h)) {
             self.deed(f, super::factions::JOB_DEED);
         }
@@ -236,10 +249,11 @@ impl World {
         match (&q.kind, q.stage) {
             (_, Stage::Done) => format!("Done: a job for {giver} of {town}."),
             (_, Stage::Report) => format!("Report back to {giver} in {town}."),
-            (QuestKind::ClearCamp { at, .. }, _) => {
+            (QuestKind::ClearCamp { at, camp }, _) => {
                 let d = at.dist(self.squad.pos);
                 let v = at.sub(self.squad.pos);
-                format!("Break the bandit camp {:.1} km {} for {giver} of {town}.", d / 1000.0, compass(v))
+                let whose = if self.is_slaver_camp(*camp) { "the Binders'" } else { "the bandit" };
+                format!("Break {whose} camp {:.1} km {} for {giver} of {town}.", d / 1000.0, compass(v))
             }
             (QuestKind::Fetch { item, count }, _) => format!(
                 "Bring {giver} in {town} {count} × {} (you have {}).",

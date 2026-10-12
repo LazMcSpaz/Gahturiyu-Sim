@@ -51,7 +51,7 @@ pub fn job_card(w: &World, q: &Quest) -> (String, String, Option<V2>) {
     match (&q.kind, q.stage) {
         (_, Stage::Report) => ("Report back".into(), line, at_giver),
         (_, Stage::Done) => (format!("Done for {giver}"), line, None),
-        (QuestKind::ClearCamp { at, .. }, _) => ("The bandit camp".into(), line, Some(*at)),
+        (QuestKind::ClearCamp { at, camp }, _) => ((if w.is_slaver_camp(*camp) { "The Binders' camp" } else { "The bandit camp" }).into(), line, Some(*at)),
         (QuestKind::Fetch { item, count }, _) => (format!("{count} × {}", items::item(*item).name.to_lowercase()), line, at_giver),
         (QuestKind::Deliver { to }, _) => ("A sealed letter".into(), line, Some(w.person_pos(*to))),
         (QuestKind::Job { .. }, _) => (format!("A job for {giver}"), line, at_giver),
