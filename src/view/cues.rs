@@ -135,6 +135,19 @@ fn fight(w: &World, pid: PersonId) -> Option<(&gahturiyu_sim::sim::combat::Battl
     Some((b, f))
 }
 
+/// How far someone in drink sways to the side of the way they face, now
+/// (drunk a little, very drunk a lot; drawing only).
+pub fn drunk_sway(w: &World, pid: PersonId, face: f32) -> V2 {
+    use gahturiyu_sim::sim::drunk::Drunk;
+    let reach = match Drunk::of(w.drunk_of(pid)) {
+        Drunk::Drunk => 0.12,
+        Drunk::VeryDrunk => 0.28,
+        _ => return V2::new(0.0, 0.0),
+    };
+    let s = ((w.time * 1.7 + pid as f64 * 0.9).sin() + 0.4 * (w.time * 3.1 + pid as f64).sin()) as f32 * reach;
+    V2::new(-face.sin(), face.cos()).scale(s)
+}
+
 /// Is someone cooking (a dish under way)?
 fn cooking(w: &World, pid: PersonId) -> bool {
     w.crafting.iter().any(|j| j.who == pid && RECIPES[j.recipe].skill == Skill::Cooking)

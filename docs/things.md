@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-552 things: 188 belong to one people, 364 are shared.
+562 things: 192 belong to one people, 370 are shared.
 
 ## Jobs
 
@@ -295,6 +295,13 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 ## Food, herbs and draughts
 
+| English | Whose | Native name | Say it | Word for word |
+|---|---|---|---|---|
+| Brine wine | Horaro | **Inuhiha** | ee-noo-HEE-hah | salt-drink |
+| Stone spirit | Roduro | **Doqoshaʻi** | doh-koh-SHAH-ee | stone-spirit |
+| Sacrament spirit | Qotiro | **Kaxtrok** | KAKH-trok | rite-fire |
+| Gold thread cordial | Ṭaḍoro | **Iyutheyi** | ee-yoo-theh-YEE | gold-drink |
+
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | Grain | Shaḍi | Xem | Hami | Sawi | grain |
@@ -359,6 +366,12 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Trail cake | Shaduḍiha | Xodmip | Miwahalu | Wifasathu | road-bread |
 | Stoneapple cake | Ḍeshiḍiha | Mexmip | Miwamehi | Wifawesi | sweet-bread |
 | Firepod stew | Tuhiqulo | Tupkur | Hulonuwi | Huyesufi | burn-pot |
+| Hardgrain ale | Shaḍiʻiḍu | Xemin | Inuhami | Iyusawi | grain-drink |
+| Stonebean dark | Duquʻiḍu | Duqin | Inuluu | Iyuthuhu | dark-drink |
+| Stoneapple cider | Guʻeʻiḍu | Guqin | Inuwue | Iyuwuwe | fruit-drink |
+| Moorberry wine | Ḍireʻiḍu | Dririn | Inunire | Iyuyishe | heath-drink |
+| Ashberry wine | Husheʻiḍu | Puxin | Inuwuhe | Iyufuse | ember-drink |
+| Nightberry wine | Yaḍoʻiḍu | Domin | Inuiamo | Iyuyawe | night-drink |
 | Ember oil | Husheḍoṭi | Puxmort | Moliwuhe | Wauthifuse | ember-oil |
 | Healing draught | Doḍiʻiḍu | Donin | Inuloni | Iyuthauyi | heal-drink |
 | Greater healing draught | Tashiʻiḍu | Texin | Inunahi | Iyusasi | whole-drink |

@@ -202,6 +202,21 @@ impl Person {
                     s.set_attr(a, v * f);
                 }
             }
+            // Drink (`drunk.rs`): clumsier, worse aim and sneaking; a
+            // hangover a little clumsy too.
+            let k = c.drunk_stage() as usize;
+            let clumsy = super::drunk::DRUNK_CLUMSY[k] + if c.hungover { super::drunk::HUNGOVER_CLUMSY } else { 0.0 };
+            if clumsy > 0.0 {
+                let v = s.attr(super::stats::Attr::Agility);
+                s.set_attr(super::stats::Attr::Agility, (v - clumsy).max(1.0));
+            }
+            let dull = super::drunk::DRUNK_SKILLS[k];
+            if dull > 0.0 {
+                for sk in [super::stats::Skill::Sneak, super::stats::Skill::Marksman] {
+                    let v = s.skill(sk);
+                    s.set_skill(sk, (v - dull).max(0.0));
+                }
+            }
         }
     }
 

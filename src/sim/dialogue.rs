@@ -332,6 +332,8 @@ impl World {
         d += self.regard.get(&npc).copied().unwrap_or(0.0);
         // A swaying word.
         d += self.boon(with, super::effects::Does::Sway);
+        // In drink: merrier company when tipsy, worse past it.
+        d += self.drunk_talk(with);
         // Finery on show (0.4).
         d += self.finery_respect(with);
         d.clamp(0.0, 100.0)

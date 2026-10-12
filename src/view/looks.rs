@@ -388,7 +388,7 @@ const STUFF: &[Bit] = &[bx(0.0, 0.10, 0.16, 0.12, Own), bxo(0.0, 0.07, 0.10, 0.0
 fn fallback(id: ItemId) -> (Pose, &'static [Bit]) {
     let d = item(id);
     match d.kind {
-        Kind::Potion => (Upright, POTION),
+        Kind::Potion | Kind::Drink(_) => (Upright, POTION),
         Kind::Scroll(_) => (Long, SCROLL),
         Kind::Notes(_) => (Upright, NOTES),
         Kind::Text(_) | Kind::Manual(_) => (Upright, BOOK),

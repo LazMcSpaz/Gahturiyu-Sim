@@ -48,6 +48,9 @@ pub struct Shot {
     /// (member 0 practised, member 1 new to it and carrying some of the
     /// materials, member 2 a little way off), its making screen open.
     pub make: Option<String>,
+    /// `GAHT_DRINK=1`: the squad in drink: member 0 very drunk, 1 drunk, 2
+    /// tipsy, 3 hungover (the meter on the squad list, the sway).
+    pub drink: bool,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
     /// `official`, `healer`...: the nearest with that job; `indoors`: the
@@ -189,6 +192,7 @@ impl Shot {
             sneak: var("GAHT_SNEAK").is_some(),
             enter: var("GAHT_ENTER").is_some(),
             make: var("GAHT_MAKE"),
+            drink: var("GAHT_DRINK").is_some(),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
@@ -423,6 +427,38 @@ impl Shot {
         }
         if let Some(what) = self.make.clone() {
             make_scene(world, &what);
+        }
+        if self.drink {
+            let spirit = gahturiyu_sim::sim::items::id("stone_spirit");
+            let m = world.squad.members.clone();
+            // The fourth drinks first and sleeps it off into a hangover.
+            if let Some(&p) = m.get(3) {
+                if let Some(d) = world.people[p as usize].detail.as_mut() {
+                    d.gear.add(spirit, 2);
+                }
+                world.drink(p, spirit);
+                world.drink(p, spirit);
+                for _ in 0..80 {
+                    world.step(600.0);
+                    if world.hungover(p) {
+                        break;
+                    }
+                }
+            }
+            for (k, n) in [(0usize, 3u16), (1, 2), (2, 1)] {
+                if let Some(&p) = m.get(k) {
+                    if let Some(d) = world.people[p as usize].detail.as_mut() {
+                        d.gear.add(spirit, n);
+                    }
+                    for _ in 0..n {
+                        world.drink(p, spirit);
+                    }
+                    if let Some(i) = world.squad.index(p) {
+                        world.squad.resting[i] = false;
+                    }
+                }
+            }
+            world.step(1.0);
         }
         if let Some(what) = self.society.clone() {
             self.society_scene(world, &what);
