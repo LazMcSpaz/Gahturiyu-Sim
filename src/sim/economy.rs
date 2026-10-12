@@ -225,6 +225,8 @@ impl World {
             for town in 0..self.settlements.len() {
                 self.dawn_law(town as SettlementId, t);
             }
+            // The Binders' captives: slipping away, or sold on.
+            self.captives_at_dawn(t);
             for town in 0..self.settlements.len() {
                 self.place_jobless(town as SettlementId);
             }

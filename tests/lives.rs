@@ -62,7 +62,9 @@ fn a_household_whose_earner_is_laid_up_falls_into_debt() {
     let purse = &w.society.households[h].purse;
     assert!(purse.debt() > 0.0, "and they're borrowing: {:?}", purse);
     assert!(w.mind(p).needs()[Need::Money as usize] > 0.1, "and worried about it");
-    assert_eq!(w.household_need(h as u32).0, Need::Money);
+    // Their worst worry is money, unless the roads have grown unsafe
+    // (slavers raiding nearby: the Binders, F6), which can outweigh it.
+    assert!(matches!(w.household_need(h as u32).0, Need::Money | Need::Safety), "{:?}", w.household_need(h as u32));
 }
 
 #[test]

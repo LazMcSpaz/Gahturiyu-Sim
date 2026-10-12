@@ -1434,7 +1434,7 @@ impl World {
 
     /// Can the player give this squad member orders? Not while bound.
     pub fn free_to_order(&self, m: PersonId) -> bool {
-        !self.is_bonded(m, self.time)
+        !self.is_bonded(m, self.time) && self.captive_of(m).is_none()
     }
 
     /// Bound squad members are kept at their work (the squad's step): they
