@@ -25,6 +25,12 @@ pub(super) static ITEMS: &[ItemDef] = &[
     trinket("amulet_wellspring", "Wellspring Amulet", Slot::Neck, 0.2, 350.0, &[worn(Does::MaxEnergy, 30.0), worn(Does::EnergyRegen, 0.6)]),
     trinket("amulet_clear_mind", "Amulet of the Clear Mind", Slot::Neck, 0.2, 280.0, &[worn(Does::ResistParalysis, 0.6), worn(Does::Attr(Attr::Willpower), 6.0)]),
     trinket("ring_hearth", "Hearthstone Ring", Slot::Ring, 0.1, 260.0, &[worn(Does::ResistElements, 0.4)]),
+    // Laz's starter set (items design, Part 7): small buffs, found or bought.
+    trinket("ring_warding", "Ring of Warding", Slot::Ring, 0.05, 280.0, &[worn(Does::ResistElements, 0.15)]),
+    trinket("steady_torc", "Steady Torc", Slot::Neck, 0.4, 220.0, &[worn(Does::Attr(Attr::Strength), 4.0)]),
+    trinket("keen_brooch", "Keen-eye Brooch", Slot::Brooch, 0.05, 240.0, &[worn(Does::Skill(Skill::Sneak), 4.0)]),
+    trinket("travellers_brooch", "Traveller's Brooch", Slot::Brooch, 0.05, 160.0, &[worn(Does::Skill(Skill::Athletics), 5.0)]),
+    trinket("belt_of_bearing", "Fine Belt of Bearing", Slot::Belt, 0.4, 260.0, &[worn(Does::Carry, 10.0)]),
 ];
 
 pub(super) static FORMS: &[Form] = &[

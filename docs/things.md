@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-365 things: 137 belong to one people, 228 are shared.
+445 things: 162 belong to one people, 283 are shared.
 
 ## Jobs
 
@@ -222,6 +222,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 | English | Whose | Native name | Say it | Word for word |
 |---|---|---|---|---|
+| Fishing line | Horaro | **Hawemia** | hah-weh-MEE-ah | fish-line |
 | Hearthclay pot | Roduro | **Qulo yi qahiloha** | KOO-loh YEE kah-hee-LOH-hah | pot of hearth-clay |
 | Sandglass flask | Qotiro | **Kur di xenkex** | KOOR DEE KHEN-kekh | pot of sand-glass |
 | Pearl necklace | Horaro | **Nehimomi** | neh-hee-MOH-mee | pearl-neck |
@@ -241,6 +242,15 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Bedroll | Ḍoʻetaha | Noqtap | Nawanoe | Safayehe | rest-cloth |
 | Bandage | Ḍitaha | Nitap | Nawanina | Safayisa | bind-cloth |
 | Mortar and pestle | Ṭahaqulo | Trapkur | Hulolawa | Huyethafa | break-pot |
+| Woodcutter's axe | Ṭeqaṭeqi | Treqtrek | Lehilea | Thehitheya | tree-cut |
+| Mining pick | Quliqoḍo | Qurkon | Honohuli | Hauyehuyi | dig-horn |
+| Sickle | Shogaṭeqi | Xoktrek | Lehihowa | Thehisauwa | grass-cut |
+| Skinning knife | Haliqishe | Perqix | Hihewali | Hisefayi | hide-knife |
+| Tinderbox | Ṭaqute | Trokut | Hunelahu | Husethahu | fire-basket |
+| Cooking pot | Tuḍaqulo | Tunkur | Hulonuna | Huyesuya | cook-pot |
+| Waterskin | Ḍagehali | Makper | Walimawe | Fayiwawe | water-hide |
+| Lantern | Qethoqulo | Ketkur | Huloheho | Huyehethe | light-pot |
+| Repair kit | Ṭogiqute | Trokkut | Hunelowi | Husethauwi | make-basket |
 | Storm glass | Qorogusha | Krokkex | Hehahorowu | Hesahaushe | storm-glass |
 | Gold ring | Ṭeligole | Trergor | Woleleli | Wauyetheyi | gold-ring |
 | Plain belt | Qoḍiroḍa | Komron | Ronahomi | Shauyahauwi | hold-rope |
@@ -275,6 +285,12 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 ## Named treasures
 
+| English | Whose | Native name | Say it | Word for word |
+|---|---|---|---|---|
+| Carved Nacre | Horaro | **Wehahero** | weh-hah-HEH-roh | carve-shell |
+| Edgeglass sliver | Roduro | **Qoʻeqesha** | koh-eh-KEH-shah | sharp-glass |
+| Black pearl | Horaro | **Momiheme** | moh-mee-HEH-meh | black-pearl |
+
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
 | Ring of Swiftness | Gole yi giqe | Gor di gik | Wole i wihe | Wauye yi wihe | ring of swift |
@@ -282,6 +298,18 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Hearthstone Ring | Gole yi qahi | Gor di kep | Wole i hawi | Wauye yi hafi | ring of hearth |
 | Wellspring Amulet | Ḍuqe yi ḍuʻi | Muk di nuq | Muhe i nui | Wuhe yi yuwi | blessing of spring |
 | Amulet of the Clear Mind | Ḍuqe yi shiḍu | Muk di xin | Muhe i hinu | Wuhe yi siyu | blessing of aware |
+| Ring of Warding | Gole yi taro | Gor di tor | Wole i naro | Wauye yi sashe | ring of guard |
+| Steady Torc | Ḍeqi yi duya | Drek di dud | Nehi i luia | Yehi yi thuya | neck of support |
+| Keen-eye Brooch | Ḍata yi qote | Mat di kot | Mana i hone | Wasa yi hause | hook of see |
+| Traveller's Brooch | Ḍata yi shadu | Mat di xod | Mana i halu | Wasa yi sathu | hook of road |
+| Fine Belt of Bearing | Roḍa yi qaqi | Ron di kek | Rona i hahi | Shauya yi hahi | rope of carry |
+| Storm glass bead | Qoroguḍu | Kroktim | Nimuhorowu | Siwuhaushe | storm-seed |
+| Bronze bangle | Ḍiḍagole | Drimgor | Wolenima | Wauyeyiwa | hand-ring |
+| Silver ring | Heʻagole | Peqgor | Wolewea | Wauyefeya | pale-ring |
+| Silver bar | Hiḍahiṭo | Pinpirt | Wilowina | Fithefiya | white-board |
+| Cut gem | Ṭeqiʻu | Trekiq | Hiulehi | Hiyuthehi | cut-crystal |
+| Gold chain | Ṭeliqage | Trerkag | Haweleli | Hawetheyi | gold-line |
+| Engraved gold cup | Ṭeliqulo | Trerkur | Huloleli | Huyetheyi | gold-pot |
 | Seer's hood | Ṭiqotaha yi qoteqe | Triktap di kotak | Nawaliho i hehone | Safathihe yi hehause | head-cloth of see-er |
 | Strider's boots | Guṭaheqa yi hiqe | Gurtapek di piqak | Wehawula i hewie | Fehawutha yi hefiye | foot-shell of walk-er |
 | Duelist's gloves | Ḍiḍahali yi toqoqe | Drimper di toqak | Walinima i henoo | Fayiyiwa yi hesuh | hand-hide of fight-er |
@@ -464,8 +492,66 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 
 ## Everyday things
 
+| English | Whose | Native name | Say it | Word for word |
+|---|---|---|---|---|
+| Hearthclay jug | Roduro | **Ḍagequlo** | dah-geh-KOO-loh | water-pot |
+| Bronze lamp | Qotiro | **Domket** | DOM-ket | night-light |
+| Blank sheets | Ṭaḍoro | **Thefihashe** | theh-fee-hah-SHEH | empty-paper |
+| Quill | Ṭaḍoro | **Fewasefi** | feh-wah-seh-FEE | write-wing |
+| Letter | Ṭaḍoro | **Thefisaya** | theh-fee-sah-YAH | speak-paper |
+| Ledger | Ṭaḍoro | **Thefisifu** | theh-fee-see-FOO | count-paper |
+| Old map fragment | Ṭaḍoro | **Thefisathu** | theh-fee-sah-THOO | road-paper |
+| Book of songs | Ṭaḍoro | **Thefiyewi** | theh-fee-yeh-WEE | sing-paper |
+| Book of prayers | Ṭaḍoro | **Thefifausesh** | theh-fee-fow-SESH | holy-paper |
+| Ring-stone pebble | Roduro | **Tuʻedoqo** | too-eh-DOH-koh | old-stone |
+| Home chip | Roduro | **Haledoqo** | hah-leh-DOH-koh | house-stone |
+| Carved Turiyu | Roduro | **Qeroriyu** | keh-roh-REE-yoo | carve-"turiyu" |
+| Knotted sea cord | Horaro | **Ronamoa** | roh-nah-MOH-ah | sea-rope |
+| Shell rattle | Horaro | **Iemiweha** | ee-eh-mee-WEH-hah | shell-sing |
+| Drowned bell | Horaro | **Ieminuwu** | ee-eh-mee-NOO-woo | deep-sing |
+| Sun charm | Qotiro | **Tonik** | TOH-nik | little sun |
+| Ember bead | Qotiro | **Puxkex** | POOKH-kekh | ember-glass |
+| Sand vial | Qotiro | **Xenkur** | KHEN-koor | sand-pot |
+| Folded prayer | Ṭaḍoro | **Thefiwuhe** | theh-fee-woo-HEH | blessing-paper |
+| Feather quill charm | Ṭaḍoro | **Fewaweyu** | feh-wah-weh-YOO | luck-wing |
+| Road token | Ṭaḍoro | **Fisisathu** | fee-see-sah-THOO | road-coin |
+
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
 |---|---|---|---|---|---|
+| Clay cup | Iḍuqulo | Inkur | Huloinu | Huyeiyu | drink-pot |
+| Clay bowl | Qaḍaqulo | Kamkur | Hulohama | Huyehawa | eat-pot |
+| Wooden spoon | Qaḍadaqa | Kamdaq | Laahama | Thahahawa | eat-branch |
+| Ladle | Tuḍadaqa | Tundaq | Laanuna | Thahasuya | cook-branch |
+| Carved trencher | Qaḍahiṭo | Kampirt | Wilohama | Fithehawa | eat-board |
+| Tallow candle | Ḍoṭiqetho | Mortaket | Hehomoli | Hethewauthi | oil-light |
+| Candle stub | Qetholi | Ketik | Liheho | Yihethe | little light |
+| Rushlight | Yotoqetho | Dotket | Hehoiono | Hetheyause | reed-light |
+| Iron pot hook | Quloḍata | Kurmat | Manahulo | Wasahuye | pot-hook |
+| Woven basket | Lariqute | Rerkut | Hunelari | Huseyashi | weave-basket |
+| Reed mat | Yotohiṭo | Dotpirt | Wiloiono | Fitheyause | reed-board |
+| Wool blanket | Ḍoʻehali | Noqper | Walinoe | Fayiyehe | rest-hide |
+| Broom | Shogahoya | Xokpod | Woiahowa | Fauyasauwa | grass-staff |
+| Bone comb | Shuʻiṭiʻo | Xuqtriq | Liohui | Thiyesuwi | bone-claw |
+| Horn comb | Qoḍoṭiʻo | Kontriq | Liohono | Thiyehauye | horn-claw |
+| Pipe | Ḍequlo | Mekur | Hulomehu | Huyewehu | smoke-pot |
+| Bone dice | Geʻushuʻi | Geqxuq | Huiweu | Suwiweyu | luck-bone |
+| Set of game stones | Liʻedoqo | Riqdoq | Loolie | Theheyiye | joy-stone |
+| Sewing kit | Ḍitaqute | Nitkut | Hunenina | Huseyisa | bind-basket |
+| Spool of thread | Tahaqage | Tapkag | Hawenawa | Hawesafa | cloth-line |
+| Bone needles | Shuʻiqishu | Xuqkix | Hihuhui | Hisusuwi | bone-thorn |
+| Small mirror | Qotehiṭo | Kotpirt | Wilohone | Fithehause | see-board |
+| Purse | Hìtiqute | Petkut | Hunewini | Husefisi | coin-basket |
+| Bent nails | Qehuqishu | Kepkix | Hihuhewu | Hisuhefu | crooked-thorn |
+| Iron scrap | Geduli | Gedik | Liwelu | Yiweth | little iron |
+| Broken blade | Ṭahaqishe | Trapqix | Hihelawa | Hisethafa | break-knife |
+| Net fragment | Uheli | Upik | Liuwe | Yiyufe | little net |
+| Frayed rope | Tuʻeroḍa | Tuqron | Ronanue | Shauyasuwe | old-rope |
+| Cracked pot | Tuʻequlo | Tuqkur | Hulonue | Huyesuwe | old-pot |
+| Worn tool handle | Tuʻedaqa | Tuqdaq | Laanue | Thahasuwe | old-branch |
+| Ashberry ward | Taroguʻe | Torguq | Wuenaro | Wuwesashe | guard-fruit |
+| Stormbell locket | Qoroguʻi | Krogmeq | Maihorowu | Waihaushewu | storm-flower |
+| Lucky stone | Geʻudoqo | Geqdoq | Looweu | Theheweyu | luck-stone |
+| Moorbell posy | Ḍireḍaʻi | Drirmeq | Mainire | Waiyishe | heath-flower |
 | Bread | Ḍiha | Mip | Miwa | Wifa | bread |
 | Meat | Diʻa | Dix | Lia | Thiya | meat |
 | Salt | Shiqa | Xik | Hiha | Siha | salt |

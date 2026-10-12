@@ -105,3 +105,25 @@ fn every_armour_piece_has_its_reason() {
         assert!(items::catalogue_has(k), "{k} missing");
     }
 }
+
+#[test]
+fn goods_charms_valuables_and_tools_exist() {
+    use gahturiyu_sim::sim::items::goods;
+    for list in [goods::HOUSEHOLD, goods::VALUABLES, goods::TREASURE, goods::ANYONE_CHARMS] {
+        for k in list {
+            assert!(items::catalogue_has(k), "{k} missing");
+        }
+    }
+    // Each people has charms of its own.
+    assert_eq!(goods::CHARMS.len(), 4);
+    for (_, list) in goods::CHARMS {
+        assert_eq!(list.len(), 3);
+    }
+    // Valuables: much worth in little weight.
+    for k in goods::TREASURE {
+        assert!(item(items::id(k)).value / item(items::id(k)).weight.max(0.01) > 100.0, "{k}");
+    }
+    for k in ["woodcutters_axe", "mining_pick", "sickle", "fishing_line", "skinning_knife", "tinderbox", "cooking_pot", "waterskin", "lantern", "repair_kit", "ring_warding", "steady_torc", "keen_brooch", "travellers_brooch", "belt_of_bearing"] {
+        assert!(items::catalogue_has(k), "{k} missing");
+    }
+}
