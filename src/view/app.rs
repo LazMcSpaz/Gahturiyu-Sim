@@ -411,6 +411,17 @@ pub fn run() {
                 game.trading = Some(super::tradeui::Trading { table, ..Default::default() });
             }
         }
+        if s.trade_bottles {
+            // One of the bottles on the table, and the stall scrolled down to them.
+            let w = &game.world;
+            if let Some(cv) = w.talk.as_ref() {
+                let mut table = gahturiyu_sim::sim::economy::Table::default();
+                if let Some(l) = w.stall(cv.npc).into_iter().find(|l| l.mix.is_some()) {
+                    table.get.push((l.item, 1, l.mix));
+                }
+                game.trading = Some(super::tradeui::Trading { table, scroll: [0.0, 10_000.0], ..Default::default() });
+            }
+        }
         game.book = s.book.and_then(|k| game.world.squad.members.get(k).copied());
         // `GAHT_STATS=k`: member k's sheet. `GAHT_GAMEMENU=1`: the game menu
         // (`quit` or `new` for its question).

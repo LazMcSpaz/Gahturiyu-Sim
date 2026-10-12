@@ -116,3 +116,25 @@ fn beating_the_band_frees_everyone_they_hold() {
     assert!(w.free_to_order(held));
     let _ = HOUR;
 }
+
+/// A captive coming round by their captors' fire isn't set on by them
+/// again (found in a visual check: they were attacked, beaten and carried
+/// off over and over).
+#[test]
+fn captors_leave_their_captive_alone() {
+    let mut w = worldgen::generate(4);
+    let at = w.squad.pos.add(V2::new(200.0, 60.0));
+    let band = w.spawn_binders(at, 4);
+    let held = w.squad.members[3];
+    w.captives.push(Captive { who: held, camp: band, since: w.time });
+    let fire = w.free_spot(at.add(V2::new(4.0, 2.0)));
+    w.squad.at[3] = fire;
+    w.squad.goal[3] = fire;
+    w.squad.route[3].clear();
+    for _ in 0..600 {
+        w.step(0.5);
+    }
+    assert!(w.squad_battle().is_none(), "no fight with their own captive");
+    assert!(!w.is_down(held), "left standing by the fire");
+    assert_eq!(w.captive_of(held).map(|c| c.camp), Some(band));
+}
