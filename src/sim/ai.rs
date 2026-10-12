@@ -381,8 +381,8 @@ fn choose_target(b: &Battle, i: usize, jitter: f32) -> Option<usize> {
     };
     let best = (0..b.fighters.len())
         .filter(|&j| b.hostile(i, j) && b.fighters[j].active())
-        // Someone hidden by a spell is lost beyond arm's reach.
-        .filter(|&j| b.fighters[j].has(Does::Hide).is_none() || me.pos.dist(b.fighters[j].pos) <= 4.0)
+        // Someone hidden by a spell, or in smoke, is lost beyond arm's reach.
+        .filter(|&j| b.can_make_out(i, j))
         // Not someone getting away past what this one will chase (P23).
         .filter(|&j| gives_chase(b, i, j))
         .min_by(|&x, &y| score(x).total_cmp(&score(y)))?;

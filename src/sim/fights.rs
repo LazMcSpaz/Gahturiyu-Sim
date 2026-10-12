@@ -471,7 +471,7 @@ impl World {
                 }
             }
             let p = &mut self.people[f.pid as usize];
-            let (pid, fatigue, tire) = (f.pid, f.fatigue, f.tire);
+            let (pid, fatigue, tire, toxic) = (f.pid, f.fatigue, f.tire, f.toxic);
             // Potions drunk and scrolls read are gone; arrows loosed are gone
             // too, except the ones found again afterwards. Your squad's only:
             // everyone else restocks at home (like wear), so what someone
@@ -548,7 +548,7 @@ impl World {
             if self.squad.index(pid).is_some() && !f.dead && f.torch != self.torch_lit(pid) && self.torch_in_hand(pid).is_some() {
                 self.toggle_torch(pid);
             }
-            self.after_fight(pid, t, fatigue, tire);
+            self.after_fight(pid, t, fatigue, tire, toxic);
         }
         // The squad's thrown weapons lie where they came down.
         self.lay_thrown(b);

@@ -228,17 +228,49 @@ pub enum Does {
     /// by itself; out of a fight a squad member's goes on in their wounds
     /// (`body::Wounds::bleed`).
     Bleed,
+
+    // ---- The alchemist's (Part 4; `items::herbs::Alch`) ----------------
+    /// At once: brings someone knocked out back round (head and torso
+    /// lifted just over the line), and shakes off a daze or a slumber.
+    Rouse,
+    /// Stands firm: this share less chance of a stagger or a knockdown.
+    Steady,
+    /// At once: ends poison and nausea, and takes this much toxicity away.
+    Cleanse,
+    /// Keeps the cold and wet out: cold builds this share slower (and,
+    /// when the weather is wired in, exposure).
+    Warmth,
+    /// This share less hurt from fire and burning.
+    ResistFire,
+    /// Sharper eyes and ears: notices hidden things, concealed weapons and
+    /// sneakers as if this much sharper (0..1).
+    KeenSenses,
+    /// Holds their breath this much longer (nothing reads it until the sea
+    /// opens).
+    DeepBreath,
+    /// Poisoned: the body loses this many hit points a second (never the
+    /// downed). Out of a fight it runs its course at once.
+    Poison,
+    /// Fast asleep: can't move or act, dodge or block; a blow wakes them.
+    Slumber,
+    /// Sick to the stomach: loses this much stamina a second (out of a fight,
+    /// at once), and adds toxicity.
+    Nausea,
+    /// Thin blood: bleeds open this share worse.
+    ThinBlood,
+    /// Ground: a cloud no one sees into or out of beyond arm's reach.
+    Smoke,
 }
 
 impl Does {
     /// Something done to an enemy (a target can try to throw it off).
     pub fn harmful(self) -> bool {
-        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight | Does::Burning | Does::Wet | Does::Chilled | Does::Frozen | Does::Bleed)
+        matches!(self, Does::Damage(_) | Does::Paralyze | Does::Blind | Does::Slow | Does::KnockDown | Does::Douse | Does::Daze | Does::Calm | Does::Fear | Does::Dominate | Does::Burden | Does::Shatter | Does::Shrink | Does::Rust | Does::Drain | Does::Wither | Does::Blight | Does::Burning | Does::Wet | Does::Chilled | Does::Frozen | Does::Bleed | Does::Poison | Does::Slumber | Does::Nausea | Does::ThinBlood | Does::Smoke)
     }
 
     /// Guards against harm (worth putting up when a fight reaches you).
     pub fn guards(self) -> bool {
-        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide | Does::Toughen | Does::Brace)
+        matches!(self, Does::Barrier | Does::ResistElements | Does::ResistParalysis | Does::ResistBlind | Does::DomainResist(_) | Does::Hide | Does::Toughen | Does::Brace | Does::Steady | Does::ResistFire | Does::Warmth)
     }
 
     /// A lasting condition that a resist roll can stop, and what resists it.
@@ -406,6 +438,18 @@ impl Effect {
             Does::Frozen => "Freezes them stiff".to_string(),
             Does::Staunch => "Stops bleeding".to_string(),
             Does::Bleed => format!("Bleeding ({p:.1} a second)"),
+            Does::Rouse => "Brings the knocked-out round".to_string(),
+            Does::Steady => format!("{pct:.0}% steadier on their feet"),
+            Does::Cleanse => format!("Cures poison, {p:.0} toxicity away"),
+            Does::Warmth => format!("Keeps out {pct:.0}% of the cold"),
+            Does::ResistFire => format!("Resist fire {pct:.0}%"),
+            Does::KeenSenses => "Keener eyes and ears".to_string(),
+            Does::DeepBreath => "Holds their breath longer".to_string(),
+            Does::Poison => format!("Poison ({p:.1} a second)"),
+            Does::Slumber => "Puts them to sleep".to_string(),
+            Does::Nausea => "Nausea".to_string(),
+            Does::ThinBlood => format!("Bleeds {pct:.0}% worse"),
+            Does::Smoke => "A cloud of smoke".to_string(),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),

@@ -2,10 +2,12 @@
 //! approved list after the balance review): each carries four effects, the
 //! same in every world; a potion carries the effects shared by two or more of
 //! the ingredients in it, from at least two different kinds. This file is the
-//! data; tasting, experiment, brewing and the toxicity meter are to come
-//! (they wait on Laz's call on how a brewed potion is kept).
+//! data, with what each effect does in a dose (`Alch::dose`); tasting,
+//! experiment and brewing are to come (Laz: each bottle carries its own mix).
 
 use super::*;
+use crate::sim::effects::{lasting, now, Effect};
+use crate::sim::stats::{Attr, Skill};
 use Alch as E;
 use Herb as H;
 use Wild as W;
@@ -61,6 +63,115 @@ impl Alch {
             E::Heal | E::RestoreStamina | E::Warmth | E::Cleanse | E::Rouse | E::Stanch | E::Nausea | E::Daze | E::Weakness | E::Sluggish => Tier::Common,
             E::Strength | E::Swiftness | E::Toughen | E::Shadow | E::NightSight | E::Poison | E::Slumber => Tier::Powerful,
             _ => Tier::Moderate,
+        }
+    }
+
+    /// What one plain dose does to whoever drinks it (a Common potion from a
+    /// bare bench; brewing scales the power and the time). Burn and Smoke are
+    /// for thrown flasks: drunk, they only sicken (toxicity).
+    pub fn dose(self) -> &'static [Effect] {
+        match self {
+            E::Heal => {
+                const D: &[Effect] = &[now(Does::Heal, 20.0, Reach::Caster)];
+                D
+            }
+            E::Stanch => {
+                const D: &[Effect] = &[now(Does::Staunch, 1.0, Reach::Caster)];
+                D
+            }
+            E::RestoreStamina => {
+                const D: &[Effect] = &[now(Does::Stamina, 30.0, Reach::Caster)];
+                D
+            }
+            E::RestoreEnergy => {
+                const D: &[Effect] = &[now(Does::Energy, 20.0, Reach::Caster)];
+                D
+            }
+            E::Rouse => {
+                const D: &[Effect] = &[now(Does::Rouse, 1.0, Reach::Caster)];
+                D
+            }
+            E::Steady => {
+                const D: &[Effect] = &[lasting(Does::Steady, 0.4, 300.0, Reach::Caster)];
+                D
+            }
+            E::Cleanse => {
+                const D: &[Effect] = &[now(Does::Cleanse, 25.0, Reach::Caster)];
+                D
+            }
+            E::Strength => {
+                const D: &[Effect] = &[lasting(Does::Attr(Attr::Strength), 10.0, 300.0, Reach::Caster)];
+                D
+            }
+            E::Swiftness => {
+                const D: &[Effect] = &[lasting(Does::Haste, 0.2, 120.0, Reach::Caster)];
+                D
+            }
+            E::Shadow => {
+                const D: &[Effect] = &[lasting(Does::Hide, 0.3, 600.0, Reach::Caster)];
+                D
+            }
+            E::NightSight => {
+                const D: &[Effect] = &[lasting(Does::Nightsight, 0.6, 1800.0, Reach::Caster)];
+                D
+            }
+            E::Warmth => {
+                const D: &[Effect] = &[lasting(Does::Warmth, 0.5, 3600.0, Reach::Caster)];
+                D
+            }
+            E::ResistFire => {
+                const D: &[Effect] = &[lasting(Does::ResistFire, 0.4, 300.0, Reach::Caster)];
+                D
+            }
+            E::Toughen => {
+                const D: &[Effect] = &[lasting(Does::Toughen, 0.15, 300.0, Reach::Caster)];
+                D
+            }
+            E::ClearMind => {
+                const D: &[Effect] = &[lasting(Does::Skill(Skill::Structured), 10.0, 600.0, Reach::Caster), lasting(Does::EnergyRegen, 0.3, 600.0, Reach::Caster)];
+                D
+            }
+            E::KeenSenses => {
+                const D: &[Effect] = &[lasting(Does::KeenSenses, 0.3, 900.0, Reach::Caster)];
+                D
+            }
+            E::DeepBreath => {
+                const D: &[Effect] = &[lasting(Does::DeepBreath, 1.0, 600.0, Reach::Caster)];
+                D
+            }
+            E::Poison => {
+                const D: &[Effect] = &[lasting(Does::Poison, 0.5, 30.0, Reach::Caster)];
+                D
+            }
+            E::Weakness => {
+                const D: &[Effect] = &[lasting(Does::Attr(Attr::Strength), -10.0, 300.0, Reach::Caster)];
+                D
+            }
+            E::Sluggish => {
+                const D: &[Effect] = &[lasting(Does::Slow, 0.2, 60.0, Reach::Caster)];
+                D
+            }
+            E::Daze => {
+                const D: &[Effect] = &[now(Does::Daze, 2.0, Reach::Caster)];
+                D
+            }
+            E::Slumber => {
+                const D: &[Effect] = &[lasting(Does::Slumber, 1.0, 20.0, Reach::Caster)];
+                D
+            }
+            E::Blind => {
+                const D: &[Effect] = &[lasting(Does::Blind, 0.5, 20.0, Reach::Caster)];
+                D
+            }
+            E::Nausea => {
+                const D: &[Effect] = &[lasting(Does::Nausea, 0.5, 60.0, Reach::Caster)];
+                D
+            }
+            E::ThinBlood => {
+                const D: &[Effect] = &[lasting(Does::ThinBlood, 0.5, 300.0, Reach::Caster)];
+                D
+            }
+            E::Burn | E::Smoke => &[],
         }
     }
 

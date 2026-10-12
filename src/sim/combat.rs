@@ -107,6 +107,8 @@ pub const STAGGER_STRENGTH: f32 = 0.15;
 /// heavy the blow was: (weight - from) × per, capped.
 pub const STAGGER: (f32, f32, f32) = (0.3, 0.5, 0.8);
 pub const KNOCKDOWN: (f32, f32, f32) = (1.0, 0.35, 0.6);
+/// Someone hidden (a spell, smoke) is lost beyond this many metres.
+pub const LOST_BEYOND: f32 = 4.0;
 /// A stagger loses them this long; on the ground this long.
 pub const STAGGER_SECS: f64 = 0.6;
 pub const KNOCKDOWN_SECS: f64 = 2.0;
@@ -410,6 +412,10 @@ pub struct Fighter {
     /// Bandages in their pack (anything that staunches, `Does::Staunch`).
     #[serde(default)]
     pub bandages: Vec<ItemId>,
+    /// Toxicity (the alchemist's meter, `condition.rs`): what they came in
+    /// with plus what they've drunk since. It doesn't drain in a fight.
+    #[serde(default)]
+    pub toxic: f32,
     /// What's in their belt's quick slots (quicker to use, 0.4).
     #[serde(default)]
     pub quick: Vec<ItemId>,
@@ -551,6 +557,7 @@ impl Fighter {
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
             bandages: gear.bag.iter().filter(|e| is_bandage(e.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
+            toxic: p.cond.as_ref().map(|c| c.tox_at(t)).unwrap_or(0.0),
             quick: gear.quick(),
             offhand: gear.in_slot(super::items::Slot::OffHand).and_then(|id| item(id).weapon().copied()).filter(|w| offhand_ok(w) && !held.two_handed),
             weapon_item: gear.in_slot(super::items::Slot::MainHand),
@@ -633,6 +640,7 @@ impl Fighter {
             scrolls: Vec::new(),
             used: Vec::new(),
             bandages: Vec::new(),
+            toxic: 0.0,
             quick: Vec::new(),
             offhand: None,
             weapon_item: None,
@@ -695,13 +703,18 @@ impl Fighter {
         (1.0 - self.power(Does::Barrier)).clamp(0.1, 1.0)
     }
 
+    /// Share of fire's hurt that gets past what keeps it off (`ResistFire`).
+    pub fn fireproof(&self) -> f32 {
+        1.0 - self.power(Does::ResistFire).clamp(0.0, 0.9)
+    }
+
     pub fn paralyzed(&self) -> bool {
         self.has(Does::Paralyze).is_some()
     }
 
     /// Held still or knocked flat: can't move, act, dodge or block.
     pub fn helpless(&self) -> bool {
-        self.paralyzed() || self.has(Does::KnockDown).is_some() || self.has(Does::Frozen).is_some()
+        self.paralyzed() || self.has(Does::KnockDown).is_some() || self.has(Does::Frozen).is_some() || self.has(Does::Slumber).is_some()
     }
 
     /// An attribute with spells in force added.
@@ -1026,9 +1039,28 @@ impl Battle {
                 continue;
             }
             let Some(burn) = f.has(Does::Burning).map(|s| s.power) else { continue };
-            let dmg = burn * DT as f32 * f.warded();
+            let dmg = burn * DT as f32 * f.warded() * f.fireproof();
             self.fighters[j].burned += DT as f32;
             self.hurt_whole(j, dmg);
+        }
+
+        // Poison eats at the body (not the downed: it doesn't finish anyone
+        // off), and nausea takes their breath.
+        for j in 0..n {
+            let f = &self.fighters[j];
+            if !f.active() {
+                continue;
+            }
+            let poison = f.power(Does::Poison);
+            let sick = f.power(Does::Nausea);
+            if poison > 0.0 {
+                let dmg = poison * DT as f32;
+                self.hurt_whole(j, dmg);
+            }
+            if sick > 0.0 {
+                let f = &mut self.fighters[j];
+                f.fatigue = (f.fatigue - sick * DT as f32).max(0.0);
+            }
         }
 
         // Whoever is bleeding loses blood from the torso, down or not, until
@@ -1625,7 +1657,7 @@ impl Battle {
         let f = &self.fighters[d];
         if blunt > 0.0 && f.active() && !f.helpless() {
             // Padding takes the edge off (0.3, rule 4).
-            let weight = blunt / DAMAGE_SCALE * (1.0 - PADDING_EASE * pad) / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH);
+            let weight = blunt / DAMAGE_SCALE * (1.0 - PADDING_EASE * pad) / (STAGGER_BASE + f.attr(Attr::Strength) * STAGGER_STRENGTH) * (1.0 - f.power(Does::Steady).min(0.9));
             if r_down < chance_of(weight, KNOCKDOWN) {
                 self.knock_down(d, KNOCKDOWN_SECS);
             } else if r_stagger < chance_of(weight, STAGGER) {
@@ -1750,8 +1782,8 @@ impl Battle {
         }
         self.wake(self.fighters[d].side);
         let f = &mut self.fighters[d];
-        // A blow breaks a calm.
-        f.statuses.retain(|s| s.does != Does::Calm);
+        // A blow breaks a calm, and wakes a sleeper.
+        f.statuses.retain(|s| !matches!(s.does, Does::Calm | Does::Slumber));
         let was_ko = f.ko;
         f.hp[part as usize] -= dmg;
         f.damage_taken += dmg;
@@ -1932,6 +1964,7 @@ impl Battle {
     pub fn open_bleed(&mut self, d: usize, power: f32) {
         let f = &mut self.fighters[d];
         let was = f.bleeding();
+        let power = power * (1.0 + f.power(Does::ThinBlood));
         let now = (was + power).min(BLEED_MOST);
         f.statuses.retain(|s| s.does != Does::Bleed);
         f.statuses.push(Status { does: Does::Bleed, power: now, until: f64::INFINITY });
@@ -2091,10 +2124,29 @@ impl Battle {
         }
         let name = self.names[i].clone();
         self.say(format!("{name} drinks a {}.", item(it).name.to_lowercase()));
-        let src = Source { by: i, spell: None, target: Some(i), point: self.fighters[i].pos, skill: 1.0, r_dmg: 0.5, r_resist: 1.0 };
-        for e in item(it).effects {
-            self.apply(&src, e);
+        // The stomach first (`toxic.rs`): sick, it may come straight back
+        // up; past the limit, they collapse.
+        let before = self.fighters[i].toxic;
+        let after = (before + super::toxic::draught_tox(it)).min(100.0);
+        self.fighters[i].toxic = after;
+        if super::toxic::throws_up(self.seed, self.ticks, it, i as u64, after) {
+            self.say(format!("{name} retches it straight back up."));
+        } else {
+            for e in item(it).effects {
+                self.dose(i, e);
+            }
         }
+        if after >= super::condition::TOX_COLLAPSE && before < super::condition::TOX_COLLAPSE && self.fighters[i].active() {
+            self.say(format!("{name} collapses, sick from all they've drunk."));
+            let head = self.fighters[i].hp[Part::Head as usize].max(0.0);
+            self.wound(i, Part::Head, head + 0.5);
+        }
+    }
+
+    /// One effect of something drunk, on fighter `i` (side effects too).
+    pub fn dose(&mut self, i: usize, e: &Effect) {
+        let src = Source { by: i, spell: None, target: Some(i), point: self.fighters[i].pos, skill: 1.0, r_dmg: 0.5, r_resist: 1.0 };
+        self.apply(&src, e);
     }
 
     fn resolve_cast(&mut self, i: usize, spell: Spell, target: Option<usize>, point: V2, scroll: bool, rng: &mut Rng) {
@@ -2268,7 +2320,7 @@ impl Battle {
             Element::Frost => {
                 let had_fire = f.has(Does::Burning).is_some();
                 f.statuses.retain(|s| s.does != Does::Burning);
-                let gain = dmg * if wet { elements::WET_CHILL } else { 1.0 };
+                let gain = dmg * if wet { elements::WET_CHILL } else { 1.0 } * (1.0 - f.power(Does::Warmth).min(0.9));
                 let chill = f.power(Does::Chilled) + gain;
                 f.statuses.retain(|s| s.does != Does::Chilled);
                 if had_fire {
@@ -2324,7 +2376,7 @@ impl Battle {
                         * match el {
                             // Armour helps a little against fire and frost (it's
                             // mostly heat and cold), properly against stone.
-                            Element::Fire => best(Part::Torso, 0.3),
+                            Element::Fire => best(Part::Torso, 0.3) * f.fireproof(),
                             Element::Frost => best(Part::Torso, 0.2),
                             Element::Stone => best(Part::LeftLeg, 1.0),
                             Element::Lightning | Element::Rot => 1.0,
@@ -2371,6 +2423,31 @@ impl Battle {
                 }
                 Does::Staunch => {
                     self.staunch(j);
+                }
+                Does::Rouse => {
+                    // Brought round: head and torso just over the line, and
+                    // any daze or slumber shaken off.
+                    let f = &mut self.fighters[j];
+                    f.statuses.retain(|s| s.does != Does::Slumber);
+                    if matches!(f.act, Act::Recover { .. }) {
+                        f.act = Act::Idle;
+                    }
+                    if f.ko && !f.dead {
+                        for p in [Part::Head, Part::Torso] {
+                            let k = p as usize;
+                            f.hp[k] = f.hp[k].max(f.max_hp[k] * super::toxic::ROUSED);
+                        }
+                        if !body::knocked_out(&f.hp) {
+                            f.ko = false;
+                            f.act = Act::Idle;
+                            self.say(format!("{tname} comes round."));
+                        }
+                    }
+                }
+                Does::Cleanse => {
+                    let f = &mut self.fighters[j];
+                    f.statuses.retain(|s| !matches!(s.does, Does::Poison | Does::Nausea));
+                    f.toxic = (f.toxic - e.power).max(0.0);
                 }
                 Does::Drain => {
                     let dmg = e.power * src.skill * (0.8 + src.r_dmg * 0.4) * boost * ward * self.fighters[j].warded();
@@ -2452,6 +2529,11 @@ impl Battle {
                         self.say(format!("{tname} is thrown to the ground."));
                     }
                     Does::Blind => self.say(format!("{tname} is blinded.")),
+                    Does::Slumber => {
+                        f.act = Act::Idle;
+                        self.say(format!("{tname} falls asleep."));
+                    }
+                    Does::Poison => self.say(format!("{tname} is poisoned.")),
                     Does::Wet => {
                         self.soak(j, until);
                     }
@@ -2479,6 +2561,20 @@ impl Battle {
                 }
             }
         }
+    }
+
+    /// Can fighter `i` make out fighter `j`? Someone hidden by a spell, or
+    /// either of them in smoke, is lost beyond `LOST_BEYOND` (keen senses
+    /// stretch it).
+    pub fn can_make_out(&self, i: usize, j: usize) -> bool {
+        let (me, them) = (&self.fighters[i], &self.fighters[j]);
+        let veiled = them.has(Does::Hide).is_some() || self.in_smoke(me.pos) || self.in_smoke(them.pos);
+        !veiled || me.pos.dist(them.pos) <= LOST_BEYOND * (1.0 + me.power(Does::KeenSenses).min(1.0))
+    }
+
+    /// Is `p` inside a cloud of smoke?
+    pub fn in_smoke(&self, p: V2) -> bool {
+        self.zones.iter().any(|z| z.does == Does::Smoke && z.until > self.time && z.pos.dist(p) <= z.radius)
     }
 
     /// Can fighter `by` raise the body of fighter `j`? Only the real dead,

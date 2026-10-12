@@ -122,7 +122,9 @@ impl World {
         let gear = p.kit();
         let Some(id) = gear.in_slot(slot) else { return false };
         let h = hidden(&gear, p.stats.skill(Skill::Sneak), slot);
-        let chance = notice_chance(h, sharpness(&self.people[looker as usize]), look);
+        // Keen senses (a draught) sharpen the eye.
+        let sharp = (sharpness(&self.people[looker as usize]) + self.boon_at(looker, super::effects::Does::KeenSenses, t)).min(1.0);
+        let chance = notice_chance(h, sharp, look);
         let hour = (t / HOUR).floor() as u64;
         Rng::from_keys(&[self.seed, looker as u64, carrier as u64, slot as u64, id as u64, hour, look.tag(), 0x4849_4445]).f32() < chance
     }
