@@ -244,6 +244,8 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     w.place_deposits();
     w.place_animals();
     w.place_ruins();
+    // The Binders' camps last of all, so nobody else's dice move.
+    w.place_binders();
     w
 }
 

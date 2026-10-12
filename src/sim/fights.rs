@@ -186,6 +186,12 @@ impl World {
     /// A bandit camp at `at`. `met` builds their details now (otherwise
     /// that waits until someone comes close, like anyone else).
     pub(super) fn add_bandits(&mut self, at: V2, count: usize, with_mage: bool, met: bool) -> GroupId {
+        self.add_band(at, count, with_mage, met, false)
+    }
+
+    /// A hostile band's camp at `at`: bandits, or slavers (the Binders:
+    /// mostly Qotiro, `binders.rs`).
+    pub(super) fn add_band(&mut self, at: V2, count: usize, with_mage: bool, met: bool, slavers: bool) -> GroupId {
         let tag = self.people.len() as u64;
         let mut members = Vec::new();
         for k in 0..count {
@@ -193,6 +199,9 @@ impl World {
             let seed = rng::key(&[self.seed, 0xBAD, id as u64]);
             let mut r = Rng::from_keys(&[seed, 0x5241_4345]);
             let race = ALL_RACES[r.below(4)];
+            // (The Binders are mainly Qotiro: a roll of their own, so a
+            // bandit's draws stay as they were.)
+            let race = if slavers && Rng::from_keys(&[seed, 0x514F_5449]).f32() < 0.8 { super::race::Race::Qotiro } else { race };
             let mut p = Person::summary(id, seed, race, None);
             p.bandit = true;
             if with_mage && k == 0 {
@@ -235,7 +244,7 @@ impl World {
         };
         self.add_group(g);
         let stash = Some(self.make_stash(at));
-        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash, known: Default::default() });
+        self.camps.push(super::encounters::Camp { group: gid, pos: at, ready_at: self.time, doused_until: 0.0, stash, known: Default::default(), slavers });
         self.solid_changed();
         self.scan_camp(self.camps.len() - 1);
         gid
@@ -595,8 +604,11 @@ impl World {
             self.duel_over(&b);
         } else {
             self.fight_wrongs(&b);
-            // Beaten by bandits: they rob the downed.
-            self.rob_the_beaten(&b);
+            // Beaten by slavers: the downed are carried off (`binders.rs`);
+            // by bandits: they rob the downed.
+            if !self.take_captives(&b) {
+                self.rob_the_beaten(&b);
+            }
             // Runners may drop something on the way.
             self.runners_drop(&b);
         }
@@ -608,6 +620,11 @@ impl World {
             self.fighting_groups.remove(&gid);
             if squad_won && self.camps.iter().any(|c| c.group == gid) {
                 self.beaten_camps.insert(gid);
+                // A slavers' band beaten: everyone they held goes free.
+                if self.is_slaver_camp(gid) {
+                    self.free_captives(gid, t);
+                    self.deed(super::factions::id("binders"), super::binders::BEATEN_DEED);
+                }
             } else if b.winner().is_some() {
                 // They beat the squad: they hold their ground again.
                 self.beaten_camps.remove(&gid);
@@ -719,6 +736,10 @@ impl World {
             // and starts the whole thing again (BL-19).
             for f in b.fighters.iter().filter(|f| f.home == SQUAD_SIDE && f.is_person() && !f.dead) {
                 let Some(k) = self.squad.index(f.pid) else { continue };
+                // (Captives the Binders took stay by their fire.)
+                if self.captive_of(f.pid).is_some() {
+                    continue;
+                }
                 let at = self.squad.at[k];
                 if at.dist(home) > GUARD_RING {
                     continue;

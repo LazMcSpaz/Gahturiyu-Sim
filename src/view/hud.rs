@@ -436,6 +436,10 @@ pub fn describe(w: &World, h: Hover) -> Vec<(String, Rgb)> {
                 let line = if b.slave { format!("Enslaved in {place}") } else { format!("Bound to work in {place}  ·  {left}{}", if b.recorded { "  ·  recorded" } else { "" }) };
                 out.push((line, [0.95, 0.6, 0.3]));
             }
+            // Taken by the Binders, held at their camp.
+            if w.captive_of(pid).is_some() {
+                out.push(("Held captive by the Binders".to_string(), [0.95, 0.6, 0.3]));
+            }
             // A town has turned its back on them (N4).
             if let Some(t) = w.shunned_in(pid) {
                 out.push((format!("Shunned in {}", w.settlements[t as usize].name), [0.95, 0.6, 0.3]));
@@ -820,6 +824,9 @@ fn stranger_lines(w: &World, pid: PersonId, out: &mut Vec<(String, Rgb)>) {
     if let Some(b) = w.bond_of(pid) {
         let place = &w.settlements[b.town as usize].name;
         out.push((if b.slave { format!("Enslaved in {place}") } else { format!("Bound to work in {place}") }, [0.95, 0.6, 0.3]));
+    }
+    if w.captive_of(pid).is_some() {
+        out.push(("Held captive by the Binders".into(), [0.95, 0.6, 0.3]));
     }
     // What talking to them has turned up.
     if pid as usize >= w.society.minds.len() || p.bandit {

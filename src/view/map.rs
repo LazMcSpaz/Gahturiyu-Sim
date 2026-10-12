@@ -210,7 +210,13 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
             }
         }
         if cam.zoom > 0.15 {
-            c.centred(if known == Known::Seen { "camp" } else { "a camp, they say" }, q.x, q.y + k + 13.0, 13.0, [0.95, 0.5, 0.45]);
+            let label = match (known == Known::Seen, cp.slavers) {
+                (true, true) => "slavers' camp",
+                (true, false) => "camp",
+                (false, true) => "slavers, they say",
+                (false, false) => "a camp, they say",
+            };
+            c.centred(label, q.x, q.y + k + 13.0, 13.0, [0.95, 0.5, 0.45]);
         }
     }
     for ru in w.ruins.iter().filter(|ru| all || ru.found) {
