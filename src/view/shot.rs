@@ -345,6 +345,10 @@ impl Shot {
                 world.teleport_squad(d.pos.add(V2::new(7.0, 4.0)));
                 for k in 0..2.min(world.squad.members.len()) {
                     let m = world.squad.members[k];
+                    // (A seam needs a mining pick.)
+                    if let Some(dt) = world.people[m as usize].detail.as_mut() {
+                        dt.gear.add(gahturiyu_sim::sim::items::id("mining_pick"), 1);
+                    }
                     world.order_labour(m, d.id);
                 }
                 let end = world.time + 600.0;
