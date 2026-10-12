@@ -43,7 +43,7 @@ pub struct Shot {
     pub enter: bool,
     /// `GAHT_CRAFT=k`: open squad member k's crafting panel.
     pub craft: Option<usize>,
-    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|table|campfire|stove`: the squad at
+    /// `GAHT_MAKE=forge|bench|loom|workbench|desk|bed|table|campfire|stove|wild`: the squad at
     /// the nearest such station with things to make and the craft for it
     /// (member 0 practised, member 1 new to it and carrying some of the
     /// materials, member 2 a little way off), its making screen open.
@@ -1188,13 +1188,43 @@ fn make_scene(world: &mut World, what: &str) {
         "desk" => Station::Desk,
         "bed" => Station::GrowerBed,
         "table" | "mortar" => Station::AlchemyTable,
-        "campfire" => Station::Campfire,
+        "campfire" | "wild" => Station::Campfire,
         "stove" => Station::Stove,
         _ => Station::Forge,
     };
     let here = world.squad.pos;
     let m = world.squad.members.clone();
-    if station == Station::Campfire {
+    if what == "wild" {
+        // Out in the open: the first of them lays a campfire of their own.
+        let mut spot = here;
+        for k in 0..40 {
+            let p = here.add(V2::new(150.0 + 40.0 * k as f32, 90.0));
+            if world.town_at(p).is_none() && !world.terrain.is_sea(p) && world.can_stand(p, 0.3) {
+                spot = p;
+                break;
+            }
+        }
+        world.teleport_squad(spot);
+        if let Some(d) = world.people[m[0] as usize].detail.as_mut() {
+            d.gear.add(items::id("timber"), 2);
+            d.gear.add(items::id("tinderbox"), 1);
+        }
+        let fire = spot.add(V2::new(2.5, 0.0));
+        let _ = world.order_campfire(m[0], fire);
+        for _ in 0..60 {
+            world.step(0.25);
+        }
+        world.step(gahturiyu_sim::sim::campfire::TINDER_SECS + 1.0);
+        // The rest stand round it.
+        for (j, &p) in m.iter().enumerate().skip(1) {
+            if let Some(k) = world.squad.index(p) {
+                let a = j as f32 * 1.9;
+                let at = fire.add(V2::new(a.cos(), a.sin()).scale(2.2));
+                world.squad.at[k] = at;
+                world.squad.goal[k] = at;
+            }
+        }
+    } else if station == Station::Campfire {
         // The nearest town fire, clear of its workshop's benches.
         let mut spot = None;
         let mut towns: Vec<usize> = (0..world.settlements.len()).collect();

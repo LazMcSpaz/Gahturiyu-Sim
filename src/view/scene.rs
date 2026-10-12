@@ -666,6 +666,35 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             b.block(to3(at, on_ground(at) - 0.1), 3.2 * kk, 2.4 * kk, 1.6 * kk, a, palette::CAMP_HIDE);
         }
     }
+    // The squad's own campfires: a ring of stones round crossed logs; the
+    // flame while it burns, a wisp of smoke while it's got going, grey ash
+    // once it's out.
+    for f in &w.campfires {
+        if f.pos.dist(oc.target) > radius.min(600.0) {
+            continue;
+        }
+        let kk = k.min(4.0);
+        let base = to3(f.pos, on_ground(f.pos));
+        for i in 0..8 {
+            let a = i as f32 / 8.0 * std::f32::consts::TAU;
+            b.block(base + vec3(a.cos(), 0.0, a.sin()) * (0.6 * kk), 0.22 * kk, 0.18 * kk, 0.14 * kk, a, palette::STONE);
+        }
+        if w.time >= f.out_at {
+            b.column(base, 0.5 * kk, 0.45 * kk, 0.06 * kk, 6, palette::ASH);
+            continue;
+        }
+        b.stick(base + vec3(-0.35, 0.08, -0.2) * kk, base + vec3(0.35, 0.08, 0.2) * kk, 0.09 * kk, palette::TIMBER);
+        b.stick(base + vec3(-0.35, 0.08, 0.2) * kk, base + vec3(0.35, 0.08, -0.2) * kk, 0.09 * kk, palette::TIMBER);
+        if f.burning(w.time) {
+            gl.flame(base, 0.45 * kk, 0.6 * kk);
+        } else if f.lighting(w.time) {
+            for i in 0..3 {
+                let rise = ((w.time * 0.5 + i as f64 / 3.0).fract()) as f32;
+                let s = (0.1 + 0.12 * rise) * (1.0 - rise) * kk;
+                b.block(base + vec3(0.0, (0.2 + rise * 1.2) * kk, 0.0), s, s, s, rise * 3.0, [0.75, 0.74, 0.72]);
+            }
+        }
+    }
     // Ruins (broken walls round a floor) and lairs (a rock arch and bones).
     for ru in &w.ruins {
         if ru.pos.dist(oc.target) > radius.min(900.0) {

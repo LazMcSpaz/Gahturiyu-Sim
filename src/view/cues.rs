@@ -142,7 +142,7 @@ fn cooking(w: &World, pid: PersonId) -> bool {
 
 /// Is someone at work with their hands (building, crafting, gathering)?
 fn working(w: &World, pid: PersonId) -> bool {
-    w.crafting.iter().any(|j| j.who == pid && j.bed.is_none())
+    w.crafting.iter().any(|j| j.who == pid && j.bed.is_none()) || w.campfires.iter().any(|f| f.by == pid && f.lighting(w.time))
         || w.gathering.iter().any(|g| g.0 == pid)
         || w.picking.iter().any(|p| p.who == pid)
         || w.pickups.iter().any(|p| p.who == pid)

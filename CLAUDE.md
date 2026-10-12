@@ -258,7 +258,7 @@ squad's start, e.g. to put a town on the band edge). For the newer systems:
 `GAHT_HOURS=h` (run h hours first), `GAHT_CAMP=k` (start 70 m from bandit camp
 k), `GAHT_WAIT=h` (run until a fight is on nearby), `GAHT_BANDITS=n`,
 `GAHT_SNEAK=1`, `GAHT_SELECT=k`, `GAHT_INV=k`, `GAHT_CRAFT=k`,
-`GAHT_MAKE=forge|bench|loom|workbench|desk|bed|table|campfire|stove` (the squad at the nearest such station
+`GAHT_MAKE=forge|bench|loom|workbench|desk|bed|table|campfire|stove|wild` (the squad at the nearest such station; `wild`: out in the open round a campfire of their own
 with the craft and some materials, its making screen open), `GAHT_DROP=k`
 (member k drops some gear), `GAHT_ENTER=1` (member 0 walks into a home),
 `GAHT_TALK=1` (talk to the nearest local; `GAHT_TALK=roduro|qotiro|horaro|tadoro` the nearest of that people;
