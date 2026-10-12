@@ -27,7 +27,7 @@ use super::items::herbs::{self, Kit, Mix};
 use super::items::{self, ItemId};
 use super::jobs::{good_of, Job};
 use super::making::{Making, Shelved, SHELF_CAP, SHELF_EACH};
-use super::materials::{Craft, Grade, Piece};
+use super::materials::{Craft, Grade, Mark, Piece, MARK_SKILL};
 use super::person::PersonId;
 use super::rng::Rng;
 use super::settlement::SettlementId;
@@ -172,10 +172,15 @@ impl World {
     pub(super) fn finish_town_brew(&mut self, town: SettlementId, m: &Making) {
         let Some(km) = m.brew.and_then(known_mix) else { return };
         let mix = self.town_brew(m.who, km);
+        // Marked with who made it and where, like anything else on the
+        // shelf; stamped by a good hand or on a Fine bottle.
+        let skill = self.work_skill(m.who, Craft::Alchemy);
+        let mut piece = Piece::bottle(mix);
+        piece.mark = Some(Mark { maker: m.who, town: Some(town), stamped: mix.grade() >= Grade::Fine || skill >= MARK_SKILL });
         let tl = &mut self.society.towns[town as usize];
         for _ in 0..BREW_BOTTLES {
             if tl.shelf.len() < SHELF_CAP {
-                tl.shelf.push(Shelved { item: items::id("brewed_potion"), piece: Some(Piece::bottle(mix)) });
+                tl.shelf.push(Shelved { item: items::id("brewed_potion"), piece: Some(piece) });
             }
         }
     }
