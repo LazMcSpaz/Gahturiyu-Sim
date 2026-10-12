@@ -78,7 +78,9 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    layers) sits under the player's edits as `Terrain::authored`; the sea
    is wherever the land is below 0 (`Terrain::is_sea`), not the world's
    broad coastline, so authored bays and stacks count. Leg timing comes from `Leg::along`, which charges
-   each stretch by its slope; keep using it so schedules stay analytic.
+   each stretch by its slope and by the weather along it at the leg's
+   departure (`Terrain::weather_pace`, read every `WEATHER_EVERY` metres; on a
+   road the mud doesn't count); keep using it so schedules stay analytic.
 11. **Light has one source of truth.** Outdoors it's `stealth::daylight(t)`;
    everything else adds through `torch::Light` / `light_from`. Fights carry
    the fixed lights round them (`Battle::lights`) plus fighters' torches, so
@@ -205,7 +207,8 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    rule that reads them asks once per decision (a fight's start, a leg's
    departure, an hour of a day plan). Read so far by the cold on the body
    (`cold.rs`, exposure), a fight's aim (`Battle::aim_weather`, taken at its
-   start), spotting (`stealth.rs`, sight and hearing), fires and standing
+   start), walking pace (`Leg::along`, and the squad's own steps where
+   they are), spotting (`stealth.rs`, sight and hearing), fires and standing
    torches in the open (drowned by the first downpour, `World::drowned_by`,
    worked out when lit) and the boats (kept in for the hour when the sea
    won't let them out, read at the stilts at the top of the hour) and

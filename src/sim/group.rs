@@ -42,13 +42,26 @@ pub struct Leg {
 
 impl Leg {
     /// A leg along `path`, leaving at `depart`, walked at `speed` m/s on flat
-    /// ground and slower or faster as the slope demands.
+    /// ground and slower or faster as the slope demands, and as the weather
+    /// along it at the leg's departure demands (`Terrain::weather_pace`, read
+    /// every `WEATHER_EVERY` metres), so the schedule is still worked out in
+    /// advance (rules 3 and 10).
     pub fn along(path: Vec<V2>, depart: f64, speed: f32, dest: Option<SettlementId>, terrain: &Terrain) -> Leg {
         let mut effort = Vec::with_capacity(path.len());
         let mut total = 0.0f32;
         effort.push(0.0);
+        let mut read: Option<(V2, f32)> = None;
         for w in path.windows(2) {
-            total += terrain.effort(w[0], w[1]);
+            let mid = w[0].lerp(w[1], 0.5);
+            let pace = match read {
+                Some((at, pace)) if at.dist(mid) < super::terrain::WEATHER_EVERY => pace,
+                _ => {
+                    let pace = terrain.weather_pace(mid, depart).max(0.1);
+                    read = Some((mid, pace));
+                    pace
+                }
+            };
+            total += terrain.effort(w[0], w[1]) / pace;
             effort.push(total);
         }
         Leg {
