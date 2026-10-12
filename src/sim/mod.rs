@@ -36,6 +36,7 @@ pub mod geo;
 pub mod group;
 pub mod inventory;
 pub mod chances;
+pub mod cold;
 pub mod history;
 pub mod jobs;
 pub mod known;
