@@ -3,10 +3,10 @@
 //! member stands (cold and wet together, after wind chill) is read at the
 //! top of each hour, like the rain (`thirst.rs`), and set against what they
 //! wear: each worn piece's warmth, its dryness in rain or snow, and its wind
-//! cover in a wind (`items::wears`), and a Warmth draught. A roof, a tent or
+//! cover in a wind (`items::wears`), a Warmth draught, a bedroll to sleep in and the warmth of walking. A roof, a tent or
 //! a burning fire close by keeps it out altogether. What gets through
-//! builds `Condition::cold` at a steady rate for the hour (`chill`); with
-//! nothing getting through it eases off. Chilled (30), breath comes back
+//! sets the level `Condition::cold` heads for this hour (`cold_to`), climbing
+//! at `COLD_GAIN` or easing at `COLD_EASE` until it gets there. Chilled (30), breath comes back
 //! slower; cold (60), attributes and pace suffer; freezing (90), they
 //! collapse, knocked out, and it never kills. Stages are found by solving
 //! for the moment they're crossed, and a fire going out or catching close
@@ -20,9 +20,12 @@ use super::person::PersonId;
 use super::torch::FlameAt;
 use super::world::{World, HOUR};
 
-/// Cold gained an hour at full exposure, with nothing worn against it.
-pub const COLD_GAIN: f32 = 60.0;
-/// Cold shed an hour once nothing gets through.
+/// Cold heads for this much per unit of exposure that gets through (so
+/// mild weather settles at a light chill, and only bitter exposure with poor
+/// cover reaches freezing), gaining at `COLD_GAIN` an hour, shedding at
+/// `COLD_EASE`.
+pub const COLD_PER_EXPOSURE: f32 = 130.0;
+pub const COLD_GAIN: f32 = 30.0;
 pub const COLD_EASE: f32 = 25.0;
 /// Exposure below this is nothing.
 pub const EXPOSURE_FLOOR: f32 = 0.05;
@@ -33,6 +36,9 @@ pub const WARMTH_COVER: f32 = 0.45;
 pub const DRY_COVER: f32 = 0.30;
 pub const WIND_COVER: f32 = 0.20;
 pub const COVER_MOST: f32 = 0.9;
+/// Asleep in a bedroll, and on the move: this much more cover.
+pub const BEDDING_COVER: f32 = 0.4;
+pub const MOVING_COVER: f32 = 0.15;
 /// A wind this strong (m/s) counts for wind cover.
 pub const WINDY: f32 = 6.0;
 /// A fire this close keeps the cold off.
@@ -64,21 +70,27 @@ impl World {
         (WARMTH_COVER * warmth + DRY_COVER * dry * wet + WIND_COVER * windproof * windy).clamp(0.0, COVER_MOST)
     }
 
-    /// How fast `pid`'s cold changes this hour (per hour): up by what gets
-    /// through, or down once nothing does.
-    pub(super) fn chill_rate(&self, pid: PersonId, t: f64) -> f32 {
+    /// Where `pid`'s cold is heading this hour, from what gets through
+    /// (0 under a roof or by a fire).
+    pub(super) fn cold_target(&self, pid: PersonId, t: f64) -> f32 {
         let at = self.person_pos(pid);
         if self.shelter_of(pid) != Shelter::Open || self.warm_fire_at(at, t) {
-            return -COLD_EASE;
+            return 0.0;
         }
         let hour = (t / HOUR).floor() * HOUR;
         let fx = self.weather_effects(at, hour);
         let w = self.weather_at(at, hour);
-        let e = fx.exposure * (1.0 - self.cover_of(pid, w.rain, w.snow, w.wind, t));
+        let body = match self.people[pid as usize].cond.as_ref().map(|c| c.activity) {
+            Some(super::condition::Activity::Sleeping) => BEDDING_COVER,
+            Some(super::condition::Activity::Walking) => MOVING_COVER,
+            _ => 0.0,
+        };
+        let cover = (self.cover_of(pid, w.rain, w.snow, w.wind, t) + body).min(COVER_MOST);
+        let e = fx.exposure * (1.0 - cover);
         if e <= EXPOSURE_FLOOR {
-            -COLD_EASE
+            0.0
         } else {
-            COLD_GAIN * e
+            (COLD_PER_EXPOSURE * e).min(100.0)
         }
     }
 

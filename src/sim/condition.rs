@@ -130,7 +130,7 @@ pub const FREEZING: f32 = 90.0;
 pub const CHILLED_BREATH: f32 = 0.8;
 pub const COLD_FACTOR: f32 = 0.85;
 pub const COLD_PACE: f32 = 0.9;
-pub const COLD_DRAIN: f32 = 60.0;
+pub const COLD_DRAIN: f32 = 120.0;
 
 /// Toxicity drained per hour.
 pub const TOX_DRAIN: f32 = 5.0;
@@ -279,17 +279,17 @@ pub struct Condition {
     /// What their last drink's small effect was (one at a time).
     #[serde(default)]
     pub drink_buff: Option<super::effects::Does>,
-    /// Cold, 0..100 (`cold.rs`), and how fast it changes this piece (an
-    /// hour, read at the settle).
+    /// Cold, 0..100 (`cold.rs`), and the level it heads for this piece
+    /// (read at the settle).
     #[serde(default)]
     pub cold: f32,
     #[serde(default)]
-    pub chill: f32,
+    pub cold_to: f32,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, cold: 0.0, chill: 0.0 }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, cold: 0.0, cold_to: 0.0 }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -438,16 +438,29 @@ impl Condition {
     }
 
     /// Bring the values forward to `t` and start a new piece there.
-    /// Cold at `t`.
-    pub fn cold_at(&self, t: f64) -> f32 {
-        (self.cold + self.chill * hours(self.at, t)).clamp(0.0, 100.0)
+    /// How fast cold moves this piece, an hour: towards `cold_to`.
+    pub fn chill(&self) -> f32 {
+        if self.cold_to > self.cold + 1e-4 {
+            super::cold::COLD_GAIN
+        } else if self.cold_to < self.cold - 1e-4 {
+            -super::cold::COLD_EASE
+        } else {
+            0.0
+        }
     }
 
-    /// When cold crosses `level` in this piece, either way.
+    /// Cold at `t` (it stops where it's heading).
+    pub fn cold_at(&self, t: f64) -> f32 {
+        let c = self.cold + self.chill() * hours(self.at, t);
+        if self.chill() >= 0.0 { c.min(self.cold_to) } else { c.max(self.cold_to) }.clamp(0.0, 100.0)
+    }
+
+    /// When cold crosses `level` in this piece, if it gets that far.
     pub fn cold_crosses(&self, level: f32) -> Option<f64> {
-        let r = self.chill;
+        let r = self.chill();
         let gap = level - self.cold;
-        if r == 0.0 || gap.abs() < 1e-4 || gap.signum() != r.signum() {
+        let reaches = if r > 0.0 { level <= self.cold_to } else { level >= self.cold_to };
+        if r == 0.0 || gap.abs() < 1e-4 || gap.signum() != r.signum() || !reaches {
             return None;
         }
         Some(self.at + (gap / r) as f64 * HOUR)
@@ -637,14 +650,14 @@ impl World {
             super::inventory::effective(&p.stats, &p.kit()).max_fatigue()
         };
         let rain = self.rain_on(pid, t);
-        let chill = self.chill_rate(pid, t);
+        let cold_to = self.cold_target(pid, t);
         let cap = self.skins_of(pid) * SKIN_DRINKS;
         let p = &mut self.people[pid as usize];
         let Some(c) = p.cond.as_mut() else { return };
         c.water = c.water_at(t, cap).min(cap);
         c.settle(t);
         c.rain = rain;
-        c.chill = chill;
+        c.cold_to = cold_to;
         c.shelter = shelter;
         // Full stays full when the pool's size changes (a fresh member's
         // placeholder pool, or new gear).

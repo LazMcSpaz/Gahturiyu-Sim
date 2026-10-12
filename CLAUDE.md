@@ -733,8 +733,11 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   a squad member stands, read at the top of each hour like the rain, less
   what they wear (each piece's warmth; its dryness in rain or snow; its
   wind cover in a wind, `items::wears`) and a Warmth draught. A roof, a tent
-  or a burning fire within `WARM_REACH` keeps it out. `Condition::cold`
-  builds at the hour's rate (`chill`) or eases off; chilled (30) breath
+  or a burning fire within `WARM_REACH` keeps it out, as do a bedroll to
+  sleep in and walking, a little. `Condition::cold` heads for the level
+  what gets through sets (`cold_to`, re-read hourly), climbing or easing at
+  a steady rate until it's there, so mild weather settles at a light
+  chill; chilled (30) breath
   comes back slower, cold (60) attributes and pace drop, freezing (90) they
   collapse and it never kills. A campfire catching or going out close by is
   a moment on the timeline. The stats sheet shows Cold once there's any.
