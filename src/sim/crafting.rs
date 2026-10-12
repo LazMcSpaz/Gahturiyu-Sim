@@ -507,24 +507,41 @@ impl World {
             let inland = geo::inland(p);
             let (h, mt, pl) = (self.terrain.height(p), self.terrain.mountains(p), self.terrain.plateau(p));
             let roll = r.f32();
+            // Where each of Laz's ingredients grows (items design, Part 4).
             let key = if (-40.0..15.0).contains(&inland) {
-                if roll < 0.5 { "kelp_frond" } else if roll < 0.8 { "mussels" } else { "salt_crystal" }
+                match roll {
+                    r if r < 0.35 => "kelp_frond",
+                    r if r < 0.55 => "mussels",
+                    r if r < 0.70 => "salt_crystal",
+                    r if r < 0.85 => "greymoss",
+                    r if r < 0.93 => "stormbell",
+                    _ => "storm_glass",
+                }
             } else if inland < 0.0 {
                 continue;
+            } else if mt > 0.45 && h > 600.0 {
+                // Snow country.
+                if roll < 0.3 { "rimestone" } else if roll < 0.6 { "frostleaf" } else { "iron_ore" }
             } else if mt > 0.45 && h > 300.0 {
                 if roll < 0.3 { "storm_glass" } else { "iron_ore" }
             } else if mt > 0.2 {
-                if roll < 0.55 { "iron_ore" } else { "emberroot" }
+                if roll < 0.45 { "iron_ore" } else if roll < 0.7 { "emberroot" } else { "ashberry" }
             } else if pl > 0.5 {
                 if roll < 0.6 { "emberroot" } else { "salt_crystal" }
-            } else if roll < 0.3 {
+            } else if roll < 0.25 {
                 "timber"
-            } else if roll < 0.5 {
+            } else if roll < 0.37 {
                 "ghostcap"
-            } else if roll < 0.62 {
+            } else if roll < 0.48 {
                 "wild_berries"
-            } else if roll < 0.75 {
+            } else if roll < 0.60 {
                 "bloodleaf"
+            } else if roll < 0.68 {
+                "puffcap"
+            } else if roll < 0.75 {
+                "sweetroot"
+            } else if roll < 0.79 {
+                "nightberry"
             } else {
                 continue;
             };

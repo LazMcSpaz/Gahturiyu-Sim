@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-445 things: 162 belong to one people, 283 are shared.
+474 things: 162 belong to one people, 312 are shared.
 
 ## Jobs
 
@@ -279,6 +279,35 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Ghostcap | Shaʻiṭiqo | Xeqtrik | Lihohai | Thihesai | spirit-head |
 | Emberroot | Ṭaquhiqì | Trokpik | Wiilahu | Fihithahu | fire-root |
 | Bloodleaf | Roshalahi | Roxrep | Lawiroha | Yafishausa | red-leaf |
+| Ashberry | Husheguʻe | Puxguq | Wuewuhe | Wuwefuse | ember-fruit |
+| Nightberry | Yaḍoguʻe | Domguq | Wueilamo | Wuweyawe | night-fruit |
+| Stormbell | Qoroguʻi | Krogmeq | Maihorowu | Waihaushewu | storm-flower |
+| Moorbell | Ḍireḍaʻi | Drirmeq | Mainire | Waiyishe | heath-flower |
+| Mirebloom | Goḍuḍaʻi | Gomeq | Maiwomu | Waiwauwu | marsh-flower |
+| Frostleaf | Qìrilahi | Kerep | Lawihiri | Yafihishi | frost-leaf |
+| Creeperleaf | Legelahi | Regrep | Lawilewe | Yafiyewe | vine-leaf |
+| Sweetroot | Ḍeshihiqì | Mexpik | Wiimehi | Fihiwesi | sweet-root |
+| Peatroot | Qeḍehiqì | Kempik | Wiiheme | Fihihewe | black-root |
+| Rimestone | Qìridoqo | Kerdoq | Loohiri | Thehehishi | frost-stone |
+| Puffcap | Ḍequṭiqo | Mektrik | Lihomehu | Thihewehu | smoke-head |
+| Vinecap | Legeṭiqo | Rektrik | Liholewe | Thiheyewe | vine-head |
+| Weepmoss | Hìshaṭuḍi | Pextrum | Lumiwiha | Thuwifisa | wet-moss |
+| Greymoss | Shohiṭuḍi | Xoptrum | Lumihowi | Thuwisaufi | grey-moss |
+| Wallowback fat | Lutaḍoṭi | Rutmort | Moliluna | Wauthiyusa | mud-oil |
+| Tidepicker roe | Deʻiʻoho | Deqop | Owolei | Aufethei | tide-egg |
+| Ridgehound musk | Ḍoroqagu | Norkog | Hawunoro | Hawuyaushe | hound-bitter |
+| Cragmaw venom | Qaraqigu | Krekog | Hawuharahi | Hawuhashah | crag-bitter |
+| Stonebean | Doqotiḍu | Doqtim | Nimuloo | Siwuthehe | stone-seed |
+| Hearthleaf | Qahilahi | Keprep | Lawihawi | Yafihafi | hearth-leaf |
+| Stoneapple | Doqoguʻe | Doqguq | Wueloo | Wuwethehe | stone-fruit |
+| Bluestem | Ṭuʻashoga | Truqxog | Howalua | Sauwathuwa | blue-grass |
+| Firepod | Ṭaqutiḍu | Troktim | Nimulahu | Siwuthahu | fire-seed |
+| Brinekale | Shiqalahi | Xikrep | Lawihiha | Yafisiha | salt-leaf |
+| Sunbark | Toḍathuhe | Tontup | Huwenona | Thufesauya | sun-bark |
+| Duskseed | Yahetiḍu | Daptim | Nimuiawe | Siwuyafe | dusk-seed |
+| Gold thread | Ṭelishoga | Trerxog | Howaleli | Sauwatheyi | gold-grass |
+| Bluestem oil | Ṭuʻaḍoṭi | Truqmort | Molilua | Wauthithuwa | blue-oil |
+| Ember oil | Husheḍoṭi | Puxmort | Moliwuhe | Wauthifuse | ember-oil |
 | Healing draught | Doḍiʻiḍu | Donin | Inuloni | Iyuthauyi | heal-drink |
 | Greater healing draught | Tashiʻiḍu | Texin | Inunahi | Iyusasi | whole-drink |
 | Mana tonic | Shaʻiʻiḍu | Xeqin | Inuhai | Iyusai | spirit-drink |
@@ -288,7 +317,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | English | Whose | Native name | Say it | Word for word |
 |---|---|---|---|---|
 | Carved Nacre | Horaro | **Wehahero** | weh-hah-HEH-roh | carve-shell |
-| Edgeglass sliver | Roduro | **Qoʻeqesha** | koh-eh-KEH-shah | sharp-glass |
+| Edgeglass sliver | Roduro | **Qeshaqishu** | keh-shah-KEE-shoo | glass-thorn |
 | Black pearl | Horaro | **Momiheme** | moh-mee-HEH-meh | black-pearl |
 
 | English | Roduro | Qotiro | Horaro | Ṭaḍoro | Word for word |
@@ -549,9 +578,9 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Cracked pot | Tuʻequlo | Tuqkur | Hulonue | Huyesuwe | old-pot |
 | Worn tool handle | Tuʻedaqa | Tuqdaq | Laanue | Thahasuwe | old-branch |
 | Ashberry ward | Taroguʻe | Torguq | Wuenaro | Wuwesashe | guard-fruit |
-| Stormbell locket | Qoroguʻi | Krogmeq | Maihorowu | Waihaushewu | storm-flower |
+| Stormbell locket | Ḍaʻiqesha | Meqkex | Hehamai | Hesawai | flower-glass |
 | Lucky stone | Geʻudoqo | Geqdoq | Looweu | Theheweyu | luck-stone |
-| Moorbell posy | Ḍireḍaʻi | Drirmeq | Mainire | Waiyishe | heath-flower |
+| Moorbell posy | Hoʻiḍaʻi | Poqmeq | Maiwoi | Waifei | give-flower |
 | Bread | Ḍiha | Mip | Miwa | Wifa | bread |
 | Meat | Diʻa | Dix | Lia | Thiya | meat |
 | Salt | Shiqa | Xik | Hiha | Siha | salt |
