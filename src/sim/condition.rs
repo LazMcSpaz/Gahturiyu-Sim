@@ -65,6 +65,7 @@ use super::body::{self, Part, Wounds, HEAL_PER_HOUR};
 use super::items::{item, ItemId, Kind};
 use super::person::PersonId;
 use super::stats::Stats;
+use super::effects::{Does, Lasts};
 use super::world::{World, DAY, HOUR};
 
 /// Hunger gained per game hour, resting.
@@ -79,6 +80,8 @@ pub const HUNGER_LOAD: f32 = 0.6;
 pub const SHARE_REACH: f32 = 40.0;
 /// Members eat when hunger reaches this, if they have food.
 pub const EAT_AT: f32 = 35.0;
+/// A hot meal's warmth in cold weather (below `spoil::COLD_BELOW`), times.
+pub const HOT_MEAL_WARMTH: f32 = 1.5;
 /// What spoiled food does (0.6): the stomach turns, a little toxicity.
 pub const SPOILED_NAUSEA: super::effects::Effect = super::effects::lasting(super::effects::Does::Nausea, 0.5, 40.0, super::effects::Reach::Caster);
 /// Stage thresholds.
@@ -242,11 +245,20 @@ pub struct Condition {
     /// Collapsed from toxicity, until it's down to `TOX_WAKE`.
     #[serde(default)]
     pub tox_out: bool,
+    /// A good meal in them (0.6, `Does::Breath`, `Does::Mending`): breath
+    /// back and wounds mending this share faster, read at the settle.
+    #[serde(default)]
+    pub breath: f32,
+    #[serde(default)]
+    pub mending: f32,
+    /// What their last meal's buff was (one at a time: the newest replaces it).
+    #[serde(default)]
+    pub meal: Option<super::effects::Does>,
 }
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -261,7 +273,7 @@ impl Condition {
         let dry = if self.thirst >= THIRSTY { THIRSTY_BREATH } else { 1.0 } * if self.tox >= QUEASY { QUEASY_BREATH } else { 1.0 };
         match self.activity {
             Activity::Walking => -STAMINA_WALK * self.load_surcharge(STAMINA_LOAD) - hold,
-            Activity::Resting | Activity::Sleeping => STAMINA_REST * dry - hold,
+            Activity::Resting | Activity::Sleeping => STAMINA_REST * dry * (1.0 + self.breath) - hold,
             Activity::Fighting => 0.0, // the fight keeps its own count
         }
     }
@@ -478,6 +490,7 @@ impl Condition {
         };
         HEAL_PER_HOUR
             * rest
+            * (1.0 + self.mending)
             * match self.stage() {
                 HungerStage::Fed => body::HEAL_FED,
                 HungerStage::Hungry => body::HEAL_HUNGRY,
@@ -544,6 +557,8 @@ impl World {
     fn settle(&mut self, pid: PersonId, t: f64) {
         let load = self.load_at(pid, t);
         let sustained = self.boon_at(pid, super::effects::Does::Sustain, t) > 0.0;
+        let breath = self.boon_at(pid, super::effects::Does::Breath, t);
+        let mending = self.boon_at(pid, super::effects::Does::Mending, t);
         let shelter = self.shelter_of(pid);
         let max_stamina = {
             let p = &self.people[pid as usize];
@@ -567,6 +582,8 @@ impl World {
         p.wounds.at = t;
         c.load = load;
         c.sustained = sustained;
+        c.breath = breath;
+        c.mending = mending;
         c.wounded = lost.iter().any(|&l| l > 0.01);
         let c = c.clone();
         let stats = p.stats.clone();
@@ -697,6 +714,15 @@ impl World {
         // Spoiled food turns the stomach: Nausea, with a little toxicity.
         if own.is_some() && fresh == super::spoil::Fresh::Spoiled {
             self.take_dose_at(pid, &SPOILED_NAUSEA, t);
+        } else {
+            self.meal_buff(pid, it, t);
+        }
+        // Tea and broth quench thirst too.
+        let quench = super::items::quenches(it);
+        if quench > 0.0 {
+            if let Some(c) = self.people[pid as usize].cond.as_mut() {
+                c.thirst = (c.thirst - quench).max(0.0);
+            }
         }
         let p = &self.people[pid as usize];
         let name = p.name().unwrap_or("someone").to_string();
@@ -712,6 +738,30 @@ impl World {
             self.log.truncate(14);
         }
         true
+    }
+
+    /// A dish's buff (0.6): stronger the better it was cooked, warmth more
+    /// so when it's cold; one at a time, the newest replacing the last.
+    fn meal_buff(&mut self, pid: PersonId, it: ItemId, t: f64) {
+        let Some(e) = item(it).effects.first().copied() else { return };
+        let Lasts::Secs(secs) = e.lasts else { return };
+        let grade = super::items::info(it).grade;
+        let mut power = e.power * super::items::DISH_FILLS[grade as usize];
+        if e.does == Does::Warmth {
+            let at = self.person_pos(pid);
+            let hour = (t / HOUR).floor() * HOUR;
+            if self.weather_at(at, hour).temperature < super::spoil::COLD_BELOW {
+                power *= HOT_MEAL_WARMTH;
+            }
+        }
+        let last = self.people[pid as usize].cond.as_ref().and_then(|c| c.meal);
+        if let Some(old) = last.filter(|&d| d != e.does) {
+            self.boons.retain(|b| !(b.pid == pid && b.does == old));
+        }
+        self.add_boon_at(pid, e.does, power, t + secs as f64, t);
+        if let Some(c) = self.people[pid as usize].cond.as_mut() {
+            c.meal = Some(e.does);
+        }
     }
 
     /// Run every squad member's condition forward to now, handling each

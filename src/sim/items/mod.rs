@@ -423,6 +423,14 @@ pub fn info(id: ItemId) -> &'static ItemInfo {
     &catalogue().info[id as usize]
 }
 
+pub use food::DISH_FILLS;
+
+/// How much thirst this takes away when eaten (a tea or a broth).
+pub fn quenches(id: ItemId) -> f32 {
+    let key = item(info(id).form).key;
+    food::QUENCH.iter().find(|q| q.0 == key).map(|q| q.1).unwrap_or(0.0)
+}
+
 /// Is this a cooked dish (any grade)?
 pub fn is_dish(id: ItemId) -> bool {
     let form = info(id).form;

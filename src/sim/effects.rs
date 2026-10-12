@@ -260,6 +260,12 @@ pub enum Does {
     ThinBlood,
     /// Ground: a cloud no one sees into or out of beyond arm's reach.
     Smoke,
+    /// A good meal in them (0.6): breath comes back this share faster, out
+    /// of a fight (resting) and in one.
+    Breath,
+    /// A good meal in them (0.6): wounds mend this share faster. Healing is
+    /// hours of rest, so in a fight it does nothing.
+    Mending,
 }
 
 impl Does {
@@ -450,6 +456,8 @@ impl Effect {
             Does::Nausea => "Nausea".to_string(),
             Does::ThinBlood => format!("Bleeds {pct:.0}% worse"),
             Does::Smoke => "A cloud of smoke".to_string(),
+            Does::Breath => format!("Breath back {pct:.0}% faster"),
+            Does::Mending => format!("Wounds mend {pct:.0}% faster"),
         };
         let how_long = match self.lasts {
             Lasts::Secs(s) if s >= 3600.0 => format!(" for {:.0} h", s / 3600.0),
