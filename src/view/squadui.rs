@@ -84,6 +84,13 @@ pub enum Action {
     Unequip(PersonId, Slot),
     /// Put down this very entry in the pack.
     DropEntry(PersonId, usize),
+    /// Move a stack in someone's grids: which (of `Gear::arrange().0`), to
+    /// which grid, where, turned or not (items step 3).
+    Place(PersonId, usize, u8, u8, u8, bool),
+    /// Turn pack entry `k` on its side where it lies.
+    Turn(PersonId, usize),
+    /// Repack someone's grids, biggest first.
+    Tidy(PersonId),
     /// Hand this entry to another squad member.
     GiveEntry(PersonId, usize, PersonId),
     /// Seal a worn reed piece with pitch, or mend it yourself.
