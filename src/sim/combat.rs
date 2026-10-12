@@ -382,6 +382,9 @@ pub struct Fighter {
     /// Bandages in their pack (anything that staunches, `Does::Staunch`).
     #[serde(default)]
     pub bandages: Vec<ItemId>,
+    /// What's in their belt's quick slots (quicker to use, 0.4).
+    #[serde(default)]
+    pub quick: Vec<ItemId>,
     /// A blade in the off hand to parry with (`offhand_ok`).
     #[serde(default)]
     pub offhand: Option<WeaponDef>,
@@ -450,7 +453,8 @@ impl Fighter {
         let worn_armor: Vec<(super::items::Slot, ArmorDef)> = super::items::SLOTS.iter().filter_map(|&s| gear.in_slot(s).and_then(|id| item(id).armor().copied()).map(|a| (s, a))).collect();
         let armor: Vec<ArmorDef> = worn_armor.iter().map(|x| x.1).collect();
         let armor_slots: Vec<super::items::Slot> = worn_armor.iter().map(|x| x.0).collect();
-        let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum();
+        // A bulky pack costs dodging too, the fuller the more (0.4).
+        let dodge_penalty = armor.iter().map(|a| a.dodge_penalty).sum::<f32>() + gear.bulk() * BULK_DODGE;
         let speed_bonus = gear.worn(Does::MoveSpeed);
         let load = gear.load(&p.stats);
         let held = gear.weapon();
@@ -482,7 +486,7 @@ impl Fighter {
             armor,
             dodge_penalty,
             worn: gear.worn_effects().collect(),
-            base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load),
+            base_speed: p.race.walk_speed() * 2.6 * stats.move_factor() * (1.0 + speed_bonus) * inventory::encumbrance_factor(load) * gear.pack_pace(),
             spells,
             boldness: p.traits.boldness,
             might: p.might,
@@ -514,6 +518,7 @@ impl Fighter {
             scrolls: gear.bag.iter().filter(|e| matches!(item(e.0).kind, Kind::Scroll(_))).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
             used: Vec::new(),
             bandages: gear.bag.iter().filter(|e| is_bandage(e.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
+            quick: gear.quick(),
             offhand: gear.in_slot(super::items::Slot::OffHand).and_then(|id| item(id).weapon().copied()).filter(|w| offhand_ok(w) && !held.two_handed),
             weapon_item: gear.in_slot(super::items::Slot::MainHand),
             throws: gear.bag.iter().filter(|e| item(e.0).weapon().is_some_and(|w| throw_range(w) > 0.0)).flat_map(|e| std::iter::repeat(e.0).take(e.1 as usize)).collect(),
@@ -594,6 +599,7 @@ impl Fighter {
             scrolls: Vec::new(),
             used: Vec::new(),
             bandages: Vec::new(),
+            quick: Vec::new(),
             offhand: None,
             weapon_item: None,
             throws: Vec::new(),
@@ -1213,7 +1219,8 @@ impl Battle {
         // Out of reach but within a throw: throw something (rule 8).
         if dist > reach * 1.2 && dist >= THROW_NEAREST && !me.shooting() && me.fatigue > 4.0 {
             if let Some(it) = self.to_throw(i).filter(|&it| item(it).weapon().is_some_and(|w| dist <= throw_range(w))) {
-                let windup = item(it).weapon().map(|w| w.windup).unwrap_or(0.5) * me.attack_time();
+                let quick = if me.quick.contains(&it) { QUICK_THROW } else { 1.0 };
+                let windup = item(it).weapon().map(|w| w.windup).unwrap_or(0.5) * me.attack_time() * quick;
                 self.fighters[i].act = Act::Throw { target: j, item: it, lands: self.time + windup as f64 };
                 return;
             }
@@ -1569,6 +1576,9 @@ impl Battle {
         }
         // Out of the pack, or out of the hand (and the next weapon drawn).
         let f = &mut self.fighters[a];
+        if let Some(q) = f.quick.iter().position(|&x| x == it) {
+            f.quick.remove(q);
+        }
         let from_hand = if let Some(k) = f.throws.iter().position(|&x| x == it) {
             f.throws.remove(k);
             false
@@ -1877,7 +1887,8 @@ impl Battle {
         let Some(&it) = self.fighters[i].bandages.first() else { return false };
         let t = self.time;
         let f = &mut self.fighters[i];
-        f.act = Act::Bind { who, item: it, done: t + BIND_SECS * f.attack_time().max(0.8) as f64 };
+        let quick = if f.quick.contains(&it) { QUICK_USE } else { 1.0 };
+        f.act = Act::Bind { who, item: it, done: t + BIND_SECS * (f.attack_time().max(0.8) * quick) as f64 };
         true
     }
 
@@ -1889,6 +1900,9 @@ impl Battle {
         }
         let f = &mut self.fighters[i];
         f.bandages.remove(k);
+        if let Some(q) = f.quick.iter().position(|&x| x == it) {
+            f.quick.remove(q);
+        }
         f.used.push(it);
         let name = self.names[i].clone();
         let line = if who == i { format!("{name} binds their wounds.") } else { format!("{name} binds {}'s wounds.", self.names[who]) };
@@ -1943,7 +1957,8 @@ impl Battle {
         let Some(k) = f.scrolls.iter().position(|&s| matches!(item(s).kind, Kind::Scroll(x) if x == key)) else { return false };
         let it = f.scrolls.remove(k);
         f.used.push(it);
-        f.act = Act::Cast { spell, target, point, done: self.time + 0.6, scroll: true };
+        let quick = if from_quick(f, it) { QUICK_USE } else { 1.0 };
+        f.act = Act::Cast { spell, target, point, done: self.time + 0.6 * quick as f64, scroll: true };
         let name = self.names[i].clone();
         self.say(format!("{name} reads a scroll of {}.", spell.def().name.to_lowercase()));
         true
@@ -1967,7 +1982,8 @@ impl Battle {
         let Some(k) = f.potions.iter().position(|&p| p == it) else { return false };
         f.potions.remove(k);
         f.used.push(it);
-        f.act = Act::Drink { item: it, done: self.time + 1.2 };
+        let quick = if from_quick(f, it) { QUICK_USE } else { 1.0 };
+        f.act = Act::Drink { item: it, done: self.time + DRINK_SECS * quick as f64 };
         true
     }
 
@@ -2548,6 +2564,26 @@ pub const THROWN_SPEED: f32 = 18.0;
 /// Long and sweeping weapons need room (rule 5); short and middling don't.
 pub fn needs_room(w: &WeaponDef) -> bool {
     matches!(space_of(w), Space::Long | Space::Sweep) || sweeps(w)
+}
+
+/// Drinking a draught from the pack takes this long, seconds; from a quick
+/// slot on the belt this share of it (and binding a bandage, or reading a
+/// scroll); a throwing weapon from the belt winds up this share quicker.
+pub const DRINK_SECS: f64 = 1.2;
+pub const QUICK_USE: f32 = 0.5;
+pub const QUICK_THROW: f32 = 0.8;
+/// Each point of a pack's bulk (0.4) is this much off dodging.
+pub const BULK_DODGE: f32 = 0.2;
+
+/// Was `it` in their quick slots? (Then it's used from there.)
+fn from_quick(f: &mut Fighter, it: ItemId) -> bool {
+    match f.quick.iter().position(|&x| x == it) {
+        Some(q) => {
+            f.quick.remove(q);
+            true
+        }
+        None => false,
+    }
 }
 
 /// Anything that stops bleeding when used (a bandage): found by what it

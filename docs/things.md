@@ -8,7 +8,7 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 - A thing **every people has** has a word in each tongue, built the same way from each tongue's own roots.
 - *Word for word* is what the native name says, root by root. "-er" is one who does it; "-place" is where it is done.
 
-328 things: 123 belong to one people, 205 are shared.
+334 things: 123 belong to one people, 211 are shared.
 
 ## Jobs
 
@@ -200,6 +200,12 @@ The game shows the English name. The native name sits beneath it or on hover, wi
 | Small pack | Tushaqute | Tuxkut | Hunenuha | Husesusa | back-basket |
 | Large pack | Qaqiqute | Kekut | Hunehahi | Husehahi | carry-basket |
 | Porter's frame pack | Hiṭoqute | Pirtakut | Hunewilo | Husefithe | board-basket |
+| Satchel | Quteli | Kutik | Lihune | Yihuse | little basket |
+| Sea bag | Ḍoʻaqute | Moqkut | Hunemoa | Huseweya | sea-basket |
+| Duffel | Tahaqute | Tapkut | Hunenawa | Husesafa | cloth-basket |
+| Quiver | Qishuqute | Kixkut | Hunehihu | Husehisu | thorn-basket |
+| Bandolier belt | Qoḍiroḍara | Komronrek | Raronahomi | Shashauyahauwi | great hold-rope |
+| Sash | Ṭaḍotaha | Trontap | Nawalano | Safathaye | wind-cloth |
 | Lockpick | Quṭeḍata | Kurtamat | Manahule | Wasahuthe | shut-hook |
 | Torch | Laḍa | Ram | Lama | Yawa | torch |
 | Standing torch | Hoqulaḍa | Pokram | Lamawohu | Yawafauhu | pillar-torch |

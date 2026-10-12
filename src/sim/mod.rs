@@ -52,6 +52,7 @@ pub mod materials;
 pub mod memory;
 pub mod names;
 pub mod news;
+pub mod packs;
 pub mod person;
 pub mod place;
 pub mod quests;

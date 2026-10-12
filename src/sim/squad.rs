@@ -160,6 +160,9 @@ pub struct GroundItem {
     /// A made piece's own wear and maker's mark.
     #[serde(default)]
     pub piece: Option<super::materials::Piece>,
+    /// A pack put down with things in it: what's in it (`World::drop_pack`).
+    #[serde(default)]
+    pub inside: Vec<super::inventory::Entry>,
 }
 
 impl World {
@@ -297,7 +300,7 @@ impl World {
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
         // Their own kit's weight as usual; a body they're carrying has its own pace.
         let load = self.kit_weight_at(pid, self.time) / self.capacity_at(pid, self.time).max(1.0);
-        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(load) * self.carry_pace(pid) * (1.0 + bonus)
+        worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(load) * gear.pack_pace() * self.carry_pace(pid) * (1.0 + bonus)
     }
 
     /// Walk everyone a step toward their goal (members in a fight are moved by the fight).
@@ -911,7 +914,7 @@ impl World {
     pub fn put_on_ground(&mut self, it: ItemId, count: u16, pos: V2) -> u32 {
         let id = self.next_ground_id;
         self.next_ground_id += 1;
-        self.ground.push(GroundItem { id, item: it, count, pos, owner: None, piece: None });
+        self.ground.push(GroundItem { id, item: it, count, pos, owner: None, piece: None, inside: Vec::new() });
         id
     }
 
@@ -952,6 +955,11 @@ impl World {
                 continue;
             };
             if self.squad.at[k].dist(self.ground[gi].pos) <= REACH && !self.is_down(pk.who) {
+                // A pack put down: picked up and put back on, with what's in it.
+                if self.take_up_pack(pk.who, gi) {
+                    done.push(n);
+                    continue;
+                }
                 // No room in the grids: it stays on the ground.
                 if !self.room_in_pack(pk.who, self.ground[gi].item, self.ground[gi].count) {
                     let name = self.people[pk.who as usize].name().unwrap_or("someone").to_string();

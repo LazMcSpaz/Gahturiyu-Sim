@@ -39,6 +39,9 @@ pub const SIGHT: f32 = 75.0;
 pub const HEARING: f32 = 30.0;
 /// Bump into someone and they notice, whatever.
 pub const TOUCH: f32 = 3.0;
+/// Each point of a pack's bulk makes a sneaker this much easier to see.
+pub const BULK_SEEN: f32 = 1.0;
+
 /// Sneaking within this many metres of watchers, unnoticed, trains Sneak.
 pub const CREEP: f32 = 45.0;
 /// A camp watches whoever of the squad comes within this many metres of
@@ -133,6 +136,8 @@ impl World {
             let hidden = (0.55 - s.skill(Skill::Sneak) / 250.0 - s.attr(Attr::Agility) / 700.0).max(0.08);
             // There's no creeping about with a lit torch.
             v *= if self.torch_lit(pid) { hidden.max(super::torch::TORCH_SNEAK) } else { hidden };
+            // A bulky pack is hard to hide (0.4), the fuller the more.
+            v *= 1.0 + self.people[pid as usize].kit().bulk() * BULK_SEEN;
         }
         let moving = self.squad.at[k].dist(self.squad.goal[k]) > 0.3;
         if !moving {
