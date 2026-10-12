@@ -144,7 +144,9 @@ fn nm_26_taking_your_own_things_back_isnt_theft() {
 fn nm_51_no_trade_doesnt_pile_up() {
     use gahturiyu_sim::sim::jobs::Job;
     let mut w = worldgen::generate(1);
-    let none = |w: &gahturiyu_sim::sim::World| w.settlements.iter().flat_map(|s| s.residents.iter()).filter(|&&p| !w.people[p as usize].dead && w.life(p).job == Job::None).count();
+    // (Those hurt or away have nothing for now, by design: counted are the
+    // well and at home with no trade.)
+    let none = |w: &gahturiyu_sim::sim::World| w.settlements.iter().flat_map(|s| s.residents.iter()).filter(|&&p| !w.people[p as usize].dead && w.life(p).job == Job::None && w.society.minds[p as usize].injured_days == 0 && w.society.minds[p as usize].away_days == 0).count();
     let start = none(&w);
     for _ in 0..(30.0 * DAY / 600.0) as usize {
         w.step(600.0);
