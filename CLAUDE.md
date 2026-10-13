@@ -286,6 +286,11 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    the walled west quarter: **Home with the detail switch (L) on** opens its
    gate and brings the squad in; Home inside it opens the dev spawner
    (`World::test_quarter`, saved). Dev only: never part of the story.
+   **The sticky dev panel is Insert, anywhere** (`game.dev`, not a `Screen`:
+   it stays open while you play): tabs Items, Animals, People, Time, Weather
+   (forces a sky into the rules: `set_forced_sky`), Fire (`dev_fire`, a torch),
+   Squad (heal, bind, knock out, soak, chill, starve, coin), Rules (the
+   toggles), Go (the nearest town, Salt Isle, the quarter), Yard.
 
 17. **What is solid has one source of truth: `sim/solid.rs`.** Every
    physical thing (building walls and doorways, inner walls, furniture,
