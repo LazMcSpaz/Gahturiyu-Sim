@@ -65,6 +65,7 @@ pub const LESSONS: &[Lesson] = &[
     l("gate", Path::Sneak, "The gate", "Pass as one of theirs.", "disguise", Some(Spot::Gate), false),
     l("spotted", Path::Sneak, "Spotted", "Fight or run.", "fighting, fleeing", None, false),
     l("stow", Path::Sneak, "Stow away", "Get aboard.", "escaping; your first faction", Some(Spot::Dock), false),
+    l("sail", Path::Both, "The ship", "The ferry lies at the dock in the morning. Right-click the dock to board; it sails when you're all aboard.", "leaving the island", Some(Spot::Dock), true),
 ];
 
 pub fn lesson(key: &str) -> Option<&'static Lesson> {
