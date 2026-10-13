@@ -994,7 +994,8 @@ fn the_game_uses_the_names() {
         // ---- Towns: named for their sites, each different, and the whole name comes back.
         let mut own: HashSet<String> = HashSet::new();
         for s in &w.settlements {
-            assert!(s.name.chars().all(|c| c.is_ascii_alphabetic()), "seed {seed}: town `{}`", s.name);
+            // (Salt Isle is Laz's two-word name, given by hand.)
+            assert!(s.island || s.name.chars().all(|c| c.is_ascii_alphabetic()), "seed {seed}: town `{}`", s.name);
             for other in &w.settlements[..s.id as usize] {
                 assert!(!names::lookalike(&s.name, &other.name), "seed {seed}: towns `{}` and `{}`", s.name, other.name);
             }

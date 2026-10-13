@@ -152,6 +152,14 @@ const TOWN: u64 = 0x544F_574E;
 fn town_names(world_seed: u64, t: &Terrain, towns: &[Settlement]) -> Vec<PlaceName> {
     let mut out: Vec<PlaceName> = Vec::with_capacity(towns.len() + 1);
     for s in towns {
+        // Salt Isle is named by hand (`island.rs`; Laz: Roduro Shiqagahì, "salt island").
+        if s.island {
+            match names::place_from_roots("salt", "island", super::island::NAME, Tongue::Roduro) {
+                Some(p) if p.english == s.name => out.push(p),
+                _ => break,
+            }
+            continue;
+        }
         let p = names::generate_place_with(&site_features(t, s.pos, s.coastal), None, true, s.founders.into(), rng::key(&[world_seed, s.id as u64, TOWN]), &out);
         if p.english != s.name {
             break;

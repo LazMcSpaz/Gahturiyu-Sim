@@ -223,6 +223,9 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
         });
     }
 
+    // --- Salt Isle: the compound and its people, all extra ---------------
+    let island = super::island::add_compound(&mut settlements, &mut people, seed);
+
     // --- Roads between the towns ----------------------------------------
     let (authored, town) = match forge {
         Some(f) => (f.land, Some(f.town)),
@@ -233,11 +236,14 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     // Start at 06:00 on day 1.
     let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
     w.forge = town;
+    w.island = Some(island);
     w.solid_changed();
     // Bandits by the roads; workshops in town; things to gather.
     w.place_camps();
     // Customs, households, jobs and workplaces (crafting stations stand in those).
     w.found_society();
+    // The island's Binders stand guard and its debtors are bound.
+    w.bind_debtors();
     // Each building's look, from the trades of who lives there (fixed from now on).
     w.style_buildings();
     w.place_crafting();
@@ -307,6 +313,7 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
             styles: Vec::new(),
             sleepers: Vec::new(),
             holder: None,
+            island: false,
         });
     };
 

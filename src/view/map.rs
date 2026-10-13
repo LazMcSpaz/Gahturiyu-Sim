@@ -79,6 +79,11 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
         c.line(s(V2::new(geo::coast_x(y), y)), s(V2::new(geo::coast_x(y + step), y + step)), 1.5, eg(SHORE));
         y += step;
     }
+    // Salt Isle's shore.
+    let isle = geo::isle_outline(((cam.zoom * 4000.0) as usize).clamp(24, 160));
+    for k in 0..isle.len() {
+        c.line(s(isle[k]), s(isle[(k + 1) % isle.len()]), 1.5, eg(SHORE));
+    }
     let road_w = (cam.zoom * 6.0).clamp(1.5, 4.0);
     // Docks and rope bridges out to the stilt villages (RG-14).
     for st in w.settlements.iter().filter(|st| st.stilts.is_some()) {

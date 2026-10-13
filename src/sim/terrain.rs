@@ -262,6 +262,10 @@ fn mountains_at(seed: u64, p: V2) -> f32 {
 
 /// The height formula itself. Expensive; only used to fill the grid.
 fn raw_height(seed: u64, p: V2) -> f32 {
+    // Salt Isle: its own low shape, the same in every world (`island.rs`).
+    if geo::isle_inland(p) > 0.0 {
+        return super::island::height(p);
+    }
     let d = geo::inland(p);
     if d < 0.0 {
         return -1.0 - (-d).min(600.0) * 0.03;

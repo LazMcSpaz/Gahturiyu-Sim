@@ -8,7 +8,8 @@ fn bl_3_a_walk_between_towns_goes_round_the_water() {
     let mut tried = 0;
     for a in &w.settlements {
         for b in &w.settlements {
-            if a.id >= b.id || a.pos.dist(b.pos) > 8000.0 || !w.crosses_sea(a.pos, &[b.pos]) {
+            // (Salt Isle is reached by ship, not on foot.)
+            if a.id >= b.id || a.island || b.island || a.pos.dist(b.pos) > 8000.0 || !w.crosses_sea(a.pos, &[b.pos]) {
                 continue;
             }
             tried += 1;
