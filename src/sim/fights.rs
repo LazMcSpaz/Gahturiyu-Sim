@@ -352,6 +352,8 @@ impl World {
         self.next_battle += 1;
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
         let mut b = Battle::new(id, seed, at, Vec::new(), Vec::new());
+        // Wounds bleed in this fight only with bleeding on (`rules.rs`).
+        b.bleeding = self.rules.bleeding;
         b.lights = Some(self.fixed_lights());
         b.aim_weather = self.air_for(self.squad.pos, at);
         self.battles.push(b.clone());
@@ -424,6 +426,13 @@ impl World {
             // A training dummy in the test quarter never acts (`testquarter.rs`).
             if self.is_dummy(pid) {
                 f.think_at = f64::INFINITY;
+            }
+            // Switched off (`rules.rs`): no bottle at risk, no bleed carried in.
+            if !self.rules.potions_break {
+                f.exposed.clear();
+            }
+            if !self.rules.bleeding {
+                f.statuses.retain(|s| s.does != Does::Bleed);
             }
             // Woken by the attack: a few seconds before they're on their feet.
             if self.is_asleep(pid) {

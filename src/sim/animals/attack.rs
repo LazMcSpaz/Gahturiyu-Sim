@@ -493,6 +493,7 @@ impl World {
             names.push(self.name_of(m));
         }
         let mut b = Battle::new(id, seed, t, fighters, names);
+        b.bleeding = self.rules.bleeding;
         b.lights = Some(self.fixed_lights_at(t));
         b.aim_weather = self.air_for(at, t);
         b.around = self.around_fight(&b);
@@ -830,6 +831,7 @@ impl World {
     fn squad_fray_shell(&mut self, id: u32, at: f64, near: V2) -> Battle {
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
         let mut b = Battle::new(id, seed, at, Vec::new(), Vec::new());
+        b.bleeding = self.rules.bleeding;
         b.lights = Some(self.fixed_lights());
         b.aim_weather = self.air_for(near, at);
         // Those of the squad near it (BL-15: one off on their own stays out).

@@ -317,6 +317,8 @@ impl World {
             names.push(self.name_of(m));
         }
         let mut b = Battle::new(id, seed, t, fighters, names);
+        // (Every fight follows the same rules: `rules.rs`.)
+        b.bleeding = self.rules.bleeding;
         b.lights = Some(self.fixed_lights_at(t));
         b.aim_weather = self.air_for(at, t);
         b.around = self.around_fight(&b);
