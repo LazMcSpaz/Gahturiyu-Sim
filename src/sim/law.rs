@@ -281,6 +281,9 @@ pub struct Duel {
     pub accused: PersonId,
     pub town: SettlementId,
     pub fine: f32,
+    /// A bout in Salt Isle's yard (`caught.rs`): no one pays for it.
+    #[serde(default)]
+    pub yard: bool,
 }
 
 /// Kinds of wrong.
@@ -840,7 +843,13 @@ impl World {
             let name = self.name_of(who);
             let place = self.settlements[town as usize].name.clone();
             let days = ((until - t) / DAY).ceil() as i64;
-            let line = if days <= 1 { format!("{name} is bound to work in {place} for a day.") } else { format!("{name} is bound to work in {place} for {days} days.") };
+            let line = if !until.is_finite() {
+                format!("{name} is bound to work in {place} for life.")
+            } else if days <= 1 {
+                format!("{name} is bound to work in {place} for a day.")
+            } else {
+                format!("{name} is bound to work in {place} for {days} days.")
+            };
             self.alerts.push(line.clone());
             self.say(t, line);
         }
@@ -1444,7 +1453,8 @@ impl World {
         for k in 0..self.squad.members.len() {
             let m = self.squad.members[k];
             let Some(b) = self.bond_of(m).copied() else { continue };
-            if self.fighting.contains_key(&m) || self.is_down(m) {
+            // (Nobody is marched off mid-talk: the lord's judgment, the steward's word.)
+            if self.fighting.contains_key(&m) || self.is_down(m) || self.talk.as_ref().is_some_and(|c| c.with == m) {
                 continue;
             }
             let a = k as f32 * 2.3;
@@ -1559,7 +1569,7 @@ impl World {
                 b.fighters[i].pos = at.add(dir.scale(DUEL_GAP));
             }
         }
-        self.duels.push(Duel { battle: id, accused, town, fine });
+        self.duels.push(Duel { battle: id, accused, town, fine, yard: false });
     }
 
     /// How whole someone is, 0..1: the worse of head and body.
@@ -1584,6 +1594,10 @@ impl World {
         }
         let name = self.name_of(d.accused);
         let t = b.time;
+        if d.yard {
+            self.yard_bout_over(d.accused, won, t);
+            return;
+        }
         if won {
             self.say(t, format!("{name}'s side wins the duel; the matter is closed."));
             self.add_standing(d.accused, d.town, 2.0);

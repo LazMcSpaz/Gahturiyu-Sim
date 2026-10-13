@@ -142,6 +142,9 @@ pub struct World {
     /// Diʻub and the lord, and how Diʻub's questions went (`diub.rs`).
     #[serde(default)]
     pub strangers: super::diub::Strangers,
+    /// The caught path on Salt Isle (`caught.rs`).
+    #[serde(default)]
+    pub caught: super::caught::Caught,
     /// Salt Isle, the tutorial island (`island.rs`): which settlement is its
     /// compound. None in a world made before it.
     #[serde(default)]
@@ -426,6 +429,7 @@ impl World {
             seats: Vec::new(),
             test_quarter: None,
             strangers: Default::default(),
+            caught: Default::default(),
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),

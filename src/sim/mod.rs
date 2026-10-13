@@ -12,6 +12,7 @@ pub mod tutorial;
 pub mod ferry;
 pub mod membership;
 pub mod campfire;
+pub mod caught;
 pub mod coating;
 pub mod drunk;
 pub mod haze;

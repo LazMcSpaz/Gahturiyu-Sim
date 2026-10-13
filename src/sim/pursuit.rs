@@ -450,6 +450,11 @@ impl World {
         if self.is_bonded(p.culprit, t) || self.duels.iter().any(|d| d.accused == p.culprit) {
             return;
         }
+        // On Salt Isle: taken for a runaway (`caught.rs`).
+        if self.on_island() && self.is_island(p.town) {
+            self.taken(p.culprit);
+            return;
+        }
         let custom = {
             let ci = self.society.towns[p.town as usize].shore;
             self.society.communities[ci as usize].customs.justice

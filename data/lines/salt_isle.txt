@@ -1,0 +1,19 @@
+# Salt Isle's lord, Ḍeshu of the Grey House, and his steward on the caught
+# path (`src/sim/caught.rs`; docs/tutorial-island.md). Claude's drafts in
+# the brief's spirit: polished, bored, untroubled; to him the island is a
+# ledger. Laz to change. slot | conditions | text | flags
+#
+# defer:    what happens as the runaway is stood before him (the news, not
+#   his words): the Binders defer to him.
+# judgment: the lord's word when a runaway is stood before him.
+# owe:      "What do I owe?", from the lord or the steward.
+# bought:   when someone has paid the bond: buyer=lantern_company | writers.
+
+defer | | The Binder overseer starts to give his account. Ḍeshu lifts one finger, and the man stops.
+judgment | | No papers. No ship. No name anyone here knows. Then you're mine. Put it to work, and see it's fed.
+
+owe | | Everything, for now. You came ashore owing your keep, your passage and your life, and the island carries the debt. Work it, and the books may one day say otherwise. They rarely do.
+owe | voice=roduro | Owe? The house carries your debt, and the house is patient. Work, and one day the ledger may close. It so seldom does.
+
+bought | buyer=lantern_company | Someone in the Lantern Company liked the way you took a beating. They've paid. Go, before I think better of the price.
+bought | buyer=writers | The Writers have bought you. They collect odd things, I'm told. Go on, then. You're their ledger now.

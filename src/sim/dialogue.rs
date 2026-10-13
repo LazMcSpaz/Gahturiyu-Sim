@@ -130,6 +130,8 @@ pub enum Topic {
     /// An answer to one of Diʻub's questions (`diub.rs`): which question,
     /// which answer (`diub::RATHER_NOT`: "I'd rather not say").
     Answer(u8, u8),
+    /// Bound on Salt Isle: ask the lord or the steward what's owed (`caught.rs`).
+    Owe,
 }
 
 impl Topic {
@@ -177,6 +179,7 @@ impl Topic {
             Topic::Confide => "What do you really think?",
             Topic::JoinGuild(_) => "Could I join you?",
             Topic::Answer(..) => "...",
+            Topic::Owe => "What do I owe?",
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
@@ -247,6 +250,14 @@ pub struct Conversation {
     /// Which page of their wares is showing (0: the first few, food first).
     #[serde(default)]
     pub buy_page: u8,
+}
+
+impl Conversation {
+    /// A talk the world opens (the lord's judgment on Salt Isle), with
+    /// what's said first.
+    pub fn opened(with: PersonId, npc: PersonId, first: String, pieces: Vec<u16>) -> Conversation {
+        Conversation { with, npc, lines: vec![(true, first)], offered: false, lessons: false, trading: false, orders: false, concerns: Vec::new(), at: 0, pieces, refused: false, tried: Vec::new(), sell_page: 0, buy_page: 0 }
+    }
 }
 
 /// How many wares the first page shows before "What else have you got?",
@@ -490,6 +501,9 @@ impl World {
                 }
             }
         }
+        if self.says_what_is_owed(c.npc, c.with) {
+            t.push(Topic::Owe);
+        }
         if self.quest_offer(c.npc).is_some() {
             t.push(if c.offered { Topic::Accept } else { Topic::Work });
         } else if self.leader_holds_back(c.npc).is_some() {
@@ -660,10 +674,12 @@ impl World {
             t.push(Topic::Hire(wage));
         }
         // The restless may take to the road with the squad.
-        // (Anyone else, asked, says why not in a line.)
-        match self.join_terms(c.npc) {
+        // (Anyone else, asked, says why not in a line. Salt Isle's two
+        // strangers have their own roads: `diub.rs`.)
+        let stranger = self.is_lord(c.npc) || self.is_diub(c.npc);
+        match self.join_terms(c.npc).filter(|_| !stranger) {
             Some(fee) => t.push(Topic::Join(fee)),
-            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad => t.push(Topic::AskJoin),
+            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad && !stranger => t.push(Topic::AskJoin),
             None => {}
         }
         // A healer at work sees to the hurt; an innkeeper lets beds.
@@ -1355,6 +1371,7 @@ impl World {
             Topic::Goodbye => String::new(),
             // (Answered in `ask`: Diʻub's questions, `diub_answers`.)
             Topic::Answer(..) => String::new(),
+            Topic::Owe => self.what_is_owed(c.npc, c.with),
         }
     }
 
@@ -1404,6 +1421,7 @@ impl World {
 
 fn topic_key(t: Topic) -> u64 {
     match t {
+        Topic::Owe => 41_000,
         Topic::Answer(q, a) => 40_000 + q as u64 * 10 + a as u64,
         Topic::Background => 1,
         Topic::ThisTown => 2,

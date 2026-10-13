@@ -629,6 +629,10 @@ impl World {
         // Survivors' groups settle where the fight left them; wiped-out groups end.
         let touched: Vec<GroupId> = self.groups.iter().filter(|g| g.members.iter().any(|m| b.index_of(*m).is_some())).map(|g| g.id).collect();
         let squad_won = b.winner() == Some(SQUAD_SIDE);
+        // A fight won on Salt Isle counts toward who buys them out (`caught.rs`).
+        if squad_won && b.fighters.iter().any(|f| f.home == SQUAD_SIDE && f.is_person() && self.people[f.pid as usize].in_squad) {
+            self.island_deed(super::tutorial::Deed::FightWon);
+        }
         for gid in touched.clone() {
             self.fighting_groups.remove(&gid);
             if squad_won && self.camps.iter().any(|c| c.group == gid) {

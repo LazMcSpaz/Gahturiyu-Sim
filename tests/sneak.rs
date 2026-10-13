@@ -62,12 +62,13 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
         w.lesson_done(k);
     }
     assert_eq!(w.lesson_now().map(|x| x.key), Some("night_run"));
-    // Inside the palisade by day, walking: nothing (the law's to decide).
-    w.teleport_squad(isle.spot(Spot::Yard));
-    run_to_hour(&mut w, 12.0);
-    w.teleport_squad(isle.spot(Spot::Yard));
-    w.step(0.5);
-    assert_eq!(w.tutorial().unwrap().path, None);
+    // Inside the palisade by day, walking: taken for a runaway, the caught
+    // path (the second's `caught.rs`). (On a copy: this one goes on by night.)
+    let mut by_day = w.clone();
+    run_to_hour(&mut by_day, 12.0);
+    by_day.teleport_squad(isle.spot(Spot::Yard));
+    by_day.step(0.5);
+    assert_eq!(by_day.tutorial().unwrap().path, Some(Path::Caught));
     // After dark, sneaking inside: the sneak path.
     run_to_hour(&mut w, 23.0);
     w.teleport_squad(isle.spot(Spot::Yard));
@@ -84,8 +85,8 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
     w.containers.get_mut(&id).unwrap().taken = 1;
     w.step(0.5);
     assert_eq!(w.lesson_now().map(|x| x.key), Some("gate"));
-    // By day at the gate in a labourer's smock.
-    run_to_hour(&mut w, 10.0);
+    // By day at the gate in a labourer's smock. (On before it's light: in
+    // the compound plainly by day, they'd be taken: `caught.rs`.)
     let smock = gahturiyu_sim::sim::items::id("labourers_smock");
     {
         let d = w.people[m as usize].detail.as_mut().unwrap();
@@ -93,6 +94,7 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
         let _ = d.gear.equip(smock);
     }
     assert!(w.disguise_of(m).is_some(), "passes as a labourer");
+    run_to_hour(&mut w, 10.0);
     w.teleport_squad(isle.gate().at);
     w.step(0.5);
     assert_eq!(w.lesson_now().map(|x| x.key), Some("spotted"), "{:?}", w.tutorial());
