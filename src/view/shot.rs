@@ -62,8 +62,9 @@ pub struct Shot {
     /// member held captive at their fire (the squad list says so).
     pub captive: bool,
     /// `GAHT_QUARTER=1`: the squad inside the hidden test quarter (dev only);
-    /// `GAHT_QUARTER=items|creatures|people|world|yard` with the spawner open
-    /// on that tab (`yard` runs the duel grid for the first weapon).
+    /// `GAHT_QUARTER=items|animals|people|time|weather|fire|squad|rules|go|yard`
+    /// with the dev panel open on that tab (`yard` runs the duel grid for the
+    /// first weapon).
     pub quarter: Option<String>,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,

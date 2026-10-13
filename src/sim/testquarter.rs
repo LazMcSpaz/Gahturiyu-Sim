@@ -456,4 +456,97 @@ impl World {
     pub fn dev_job_of(&self, who: PersonId) -> Job {
         self.life(who).job
     }
+
+    // ---- The sticky dev panel's squad and place calls (Laz, 13 Oct) -------------
+
+    /// Everyone of the squad whole again: wounds mended, bleeds stopped.
+    pub fn dev_heal_all(&mut self) {
+        let t = self.time;
+        for m in self.squad.members.clone() {
+            self.settle_condition(m, t);
+            let p = &mut self.people[m as usize];
+            let max: [f32; 6] = std::array::from_fn(|k| p.stats.max_hp(super::body::PARTS[k]));
+            let stats = p.stats.clone();
+            p.wounds.set(&stats, &max, t);
+            p.wounds.bleed = 0.0;
+            p.recompute_might();
+        }
+    }
+
+    /// Knock one of the squad out cold.
+    pub fn dev_knock_out(&mut self, m: PersonId) {
+        let t = self.time;
+        self.settle_condition(m, t);
+        let p = &mut self.people[m as usize];
+        let stats = p.stats.clone();
+        let mut hp = p.wounds.hp_at(&stats, t);
+        hp[super::body::Part::Head as usize] = -0.5;
+        p.wounds.set(&stats, &hp, t);
+    }
+
+    /// One of the squad starving (hunger near the top).
+    pub fn dev_starve(&mut self, m: PersonId) {
+        let t = self.time;
+        self.settle_condition(m, t);
+        if let Some(c) = self.people[m as usize].cond.as_mut() {
+            c.hunger = 90.0;
+        }
+        self.settle_condition(m, t);
+    }
+
+    /// One of the squad chilled to the bone.
+    pub fn dev_chill(&mut self, m: PersonId) {
+        let t = self.time;
+        self.settle_condition(m, t);
+        if let Some(c) = self.people[m as usize].cond.as_mut() {
+            c.cold = 70.0;
+        }
+        self.settle_condition(m, t);
+    }
+
+    /// One of the squad's pack soaked through.
+    pub fn dev_soak(&mut self, m: PersonId) {
+        let t = self.time;
+        match self.soaks.iter_mut().find(|s| s.pid == m) {
+            Some(s) => {
+                s.at = t;
+                s.through = 1.0;
+            }
+            None => self.soaks.push(super::soak::Soak { pid: m, at: t, through: 1.0, inside: 0.0, rate: 0.0, inside_rate: 0.0, roofed: false, fire: false, warned: false, proof: 0, food_rate: 1.0 }),
+        }
+        self.update_soaking();
+    }
+
+    /// Every bleed in the squad stopped.
+    pub fn dev_bind_all(&mut self) {
+        let t = self.time;
+        for m in self.squad.members.clone() {
+            self.settle_condition(m, t);
+            self.people[m as usize].wounds.bleed = 0.0;
+        }
+    }
+
+    /// A standing torch lit beside one of the squad.
+    pub fn dev_torch(&mut self, m: PersonId) -> bool {
+        if let Some(d) = self.people[m as usize].detail.as_mut() {
+            d.gear.add(super::items::id("standing_torch"), 1);
+        }
+        self.place_torch(m)
+    }
+
+    /// The squad to the nearest mainland town, beside its hearth.
+    pub fn dev_go_town(&mut self) {
+        let here = self.squad.pos;
+        let Some(s) = self.settlements.iter().filter(|s| !s.island).min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))) else { return };
+        let at = self.free_spot(s.pos.add(V2::new(12.0, 6.0)));
+        self.teleport_squad(at);
+    }
+
+    /// The squad to a spot on Salt Isle.
+    pub fn dev_go_island(&mut self, spot: super::island::Spot) {
+        let Some(at) = self.island().map(|i| i.spot(spot)) else { return };
+        let at = self.free_spot(at);
+        self.teleport_squad(at);
+    }
 }
+
