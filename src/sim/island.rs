@@ -456,8 +456,7 @@ impl World {
         let town = isle.settlement;
         let residents = self.settlements[town as usize].residents.clone();
         for &p in &residents {
-            // (Nor the test quarter's culture row: second's `testquarter.rs`.)
-            if p == isle.steward || self.in_culture_row(p) {
+            if p == isle.steward {
                 continue;
             }
             let k = residents.iter().position(|&q| q == p).unwrap_or(0);

@@ -144,36 +144,79 @@ impl TestQuarter {
 /// creation (after `island::add_compound`, before the society is founded):
 /// a Roduro home, a Qotiro block, a Horaro stilt home and a home where
 /// Ṭaḍoro lodge (they don't build their own: canon), each at its lot in the
-/// test quarter, two residents each. Appended to the compound's buildings,
-/// so its own numbering stands. They keep to their homes
-/// (`World::in_culture_row`): the quarter is walled off from the compound.
-pub(super) fn add_culture_row(settlements: &mut [super::settlement::Settlement], people: &mut Vec<Person>, isle: &super::island::Island, seed: u64) {
+/// test quarter. Appended to the compound's buildings, so its own numbering
+/// stands. Their folk come last of all (`people_the_culture_row`), so no
+/// one else's dice move.
+pub(super) fn add_culture_row(settlements: &mut [super::settlement::Settlement], isle: &super::island::Island, seed: u64) {
     use super::settlement::{Building, BuildingKind};
     let (min, max) = isle.test_quarter();
     let q = TestQuarter::new(min, max);
     let s = &mut settlements[isle.settlement as usize];
     let mut r = Rng::from_keys(&[seed, 0x7E57_C017]);
     for (race, lot) in q.culture_lots() {
-        let kind = match race {
-            Race::Qotiro => BuildingKind::QotiroBlock,
-            Race::Horaro => BuildingKind::HoraroStilt,
-            _ => BuildingKind::RoduroHome,
+        let (kind, size) = match race {
+            Race::Qotiro => (BuildingKind::QotiroBlock, 15.0),
+            Race::Horaro => (BuildingKind::HoraroStilt, 10.0),
+            _ => (BuildingKind::RoduroHome, 11.0),
         };
-        let i = s.buildings.len() as u16;
-        s.buildings.push(Building { pos: lot.c, kind, size: 11.0, rot: std::f32::consts::FRAC_PI_2, seed: r.next_u64() });
-        for k in 0..2u64 {
-            let pid = people.len() as PersonId;
-            let mut p = Person::summary(pid, rng::key(&[seed, 0x7E57_C018, i as u64, k]), race, Some(s.id));
-            p.home = Some(s.id);
-            p.dwelling = Some(i);
-            s.residents.push(pid);
-            people.push(p);
-        }
+        s.buildings.push(Building { pos: lot.c, kind, size, rot: std::f32::consts::FRAC_PI_2, seed: r.next_u64() });
     }
     s.reach = s.buildings.iter().map(|b| b.pos.dist(s.pos) + b.size).fold(s.reach, f32::max);
 }
 
+/// People in the culture row's homes: two of each home's people.
+pub const ROW_FOLK: usize = 2;
+
 impl World {
+    /// The culture row's folk, last of all at world creation: two of each
+    /// people in their home, each pair a household of the compound's
+    /// community, with no trade (they keep to their homes:
+    /// `in_culture_row`).
+    pub(super) fn people_the_culture_row(&mut self) {
+        let Some(isle) = self.island.clone() else { return };
+        let town = isle.settlement;
+        let homes: Vec<(u16, Race)> = self.settlements[town as usize]
+            .buildings
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| isle.in_test_quarter(b.pos))
+            .zip(super::race::ALL_RACES)
+            .map(|((i, _), r)| (i as u16, r))
+            .collect();
+        let shore = self.society.towns[town as usize].shore;
+        for (home, race) in homes {
+            let hh = self.society.households.len() as u32;
+            let mut members = Vec::new();
+            for k in 0..ROW_FOLK as u64 {
+                let pid = self.people.len() as PersonId;
+                let mut p = Person::summary(pid, rng::key(&[self.seed, 0x7E57_C018, home as u64, k]), race, Some(town));
+                p.home = Some(town);
+                p.dwelling = Some(home);
+                p.wounds.at = self.time;
+                p.mana_at = self.time;
+                self.people.push(p);
+                self.busy_until.push(0.0);
+                self.group_of.push(None);
+                self.settlements[town as usize].residents.push(pid);
+                let mut l = super::society::Life::new(race, self.people[pid as usize].seed);
+                l.community = Some(shore);
+                l.household = Some(hh);
+                l.job = Job::None;
+                l.place = None;
+                self.society.lives.push(l);
+                self.society.minds.push(Default::default());
+                members.push(pid);
+            }
+            self.society.households.push(super::society::Household { community: shore, members, home: Some(home), purse: Default::default(), feelings: Vec::new() });
+            let sl = self.current_sleepers((town, home));
+            if let Some(x) = self.settlements[town as usize].sleepers.get_mut(home as usize) {
+                *x = sl;
+            }
+        }
+        self.refresh_container_owners();
+        self.solid_changed();
+    }
+
     /// Does this person live in the test quarter's culture row?
     pub fn in_culture_row(&self, pid: PersonId) -> bool {
         let p = &self.people[pid as usize];
