@@ -393,6 +393,7 @@ impl World {
         }
         self.hold_the_bound();
         self.hold_captives();
+        self.do_boarding();
         self.watch_for_wanted();
         self.watch_for_disguises();
         self.chase(dt);
@@ -410,6 +411,7 @@ impl World {
         self.do_labour();
         self.do_casts();
         self.find_ruins();
+        self.tutorial_step();
         self.note_camps_seen();
         self.do_crafting();
         self.do_brewing();

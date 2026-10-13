@@ -232,7 +232,18 @@ pub struct Game {
 /// A new world for `seed`: the forged town (assets/towns/demo) and the
 /// seed's map from the land editor, unless `own_land` asks for the seed's
 /// own land (screenshots).
-fn fresh_world(seed: u64, own_land: bool) -> World {
+/// How a new game begins: `GAHT_START=town|island`, else the opening on
+/// Salt Isle, except for screenshots (their scenes want the squad of four).
+fn start_kind(shot: bool) -> worldgen::Start {
+    match std::env::var("GAHT_START").as_deref() {
+        Ok("town") => worldgen::Start::Town,
+        Ok("island") => worldgen::Start::Island,
+        _ if shot => worldgen::Start::Town,
+        _ => worldgen::Start::Island,
+    }
+}
+
+fn fresh_world(seed: u64, own_land: bool, start: worldgen::Start) -> World {
     let forge = match gahturiyu_sim::sim::forge::load(&forge_dir(), seed) {
         Ok(f) => f,
         Err(e) => {
@@ -254,7 +265,10 @@ fn fresh_world(seed: u64, own_land: bool) -> World {
             }
         }
     };
-    worldgen::generate_authored(seed, forge, edits)
+    match start {
+        worldgen::Start::Town => worldgen::generate_authored(seed, forge, edits),
+        worldgen::Start::Island => worldgen::generate_opening(seed, forge, edits),
+    }
 }
 
 pub fn run() {
@@ -270,7 +284,7 @@ pub fn run() {
         }
         // A map authored for this seed (the land editor saves it). Screenshots
         // use the seed's own land unless GAHT_MAP is set.
-        None => fresh_world(seed, shot.is_some() && std::env::var("GAHT_MAP").is_err()),
+        None => fresh_world(seed, shot.is_some() && std::env::var("GAHT_MAP").is_err(), start_kind(shot.is_some())),
     };
     if let Some(s) = &shot {
         s.prepare(&mut world);
@@ -2484,7 +2498,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 MenuAct::Load => quick_load_now(game),
                 MenuAct::NewGame => {
                     let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(1);
-                    swap_world(game, fresh_world(seed, true));
+                    swap_world(game, fresh_world(seed, true, start_kind(false)));
                     game.notice = Some((format!("A new world (seed {seed})."), std::time::Instant::now()));
                 }
                 MenuAct::Quit => game.quit = true,

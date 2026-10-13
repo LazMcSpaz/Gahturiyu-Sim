@@ -172,6 +172,15 @@ impl Spot {
 
 /// Half the test quarter's side: it's this far each way from `Spot::TestQuarter`.
 pub const TEST_QUARTER_HALF: f32 = 80.0;
+/// The shelter hut's footprint, and its building's index in the compound.
+pub const HUT_SIZE: f32 = 7.5;
+pub const HUT_BUILDING: usize = 6;
+/// The hut's fire burns this long from the opening (then Diʻub's to feed).
+pub const HUT_FIRE_HOURS: f64 = 72.0;
+/// What lies by the fire when the player comes: (item key, how many).
+pub const HUT_FOOD: [(&str, u16); 3] = [("raw_meat", 2), ("fish", 2), ("wild_berries", 3)];
+/// How chilled a wrecked sailor wakes (`condition::CHILLED` is 30).
+pub const WRECKED_COLD: f32 = 45.0;
 
 /// The island as the world holds it: which settlement is the compound.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -216,12 +225,14 @@ fn build_compound(s: &mut Settlement, roles: &[Role], seed: u64) -> Vec<u16> {
     let at = |o: V2| c.add(o);
     let facing = |p: V2| (c.y - p.y).atan2(c.x - p.x);
     let mut b: Vec<Building> = vec![Building { pos: c, kind: BuildingKind::Hearth, size: 6.0, rot: 0.0, seed: rng.next_u64() }];
-    let plan: [(BuildingKind, V2, f32); 5] = [
+    let plan: [(BuildingKind, V2, f32); 6] = [
         (BuildingKind::QotiroHall, Spot::Hall.offset(), 16.0),
         (BuildingKind::QotiroBlock, V2::new(-55.0, -16.0), 15.0),
         (BuildingKind::QotiroBlock, V2::new(-55.0, 20.0), 15.0),
         (BuildingKind::QotiroBlock, V2::new(50.0, -40.0), 14.0),
         (BuildingKind::RoduroHome, V2::new(55.0, 35.0), 11.0),
+        // The shelter hut above the shore (nobody's home until Diʻub).
+        (BuildingKind::RoduroHome, Spot::Hut.offset(), HUT_SIZE),
     ];
     for (kind, off, size) in plan {
         let pos = at(off);
@@ -369,6 +380,37 @@ impl World {
         if self.is_island(c.town) {
             customs.slavery = Slavery::Allowed;
         }
+    }
+
+    /// The hut's door side: toward the compound.
+    pub fn hut_fire(&self) -> Option<V2> {
+        let isle = self.island()?;
+        let hut = self.settlements[isle.settlement as usize].buildings.get(HUT_BUILDING)?;
+        let to = isle.centre.sub(hut.pos);
+        let len = to.len().max(1.0);
+        Some(hut.pos.add(to.scale((hut.size * 0.5 + 5.0) / len)))
+    }
+
+    /// The opening (`tutorial.rs`): the squad wakes on the shore, chilled;
+    /// the hut's fire is lit and there's raw food beside it.
+    pub(super) fn start_opening(&mut self) {
+        let Some(isle) = self.island.clone() else { return };
+        let t = self.time;
+        let Some(fire) = self.hut_fire() else { return };
+        self.campfires.push(super::campfire::Campfire { id: self.next_fire, pos: fire, by: isle.steward, since: t - super::world::HOUR, lit_at: t - super::world::HOUR, out_at: t + HUT_FIRE_HOURS * super::world::HOUR });
+        self.next_fire += 1;
+        for (k, &(key, n)) in HUT_FOOD.iter().enumerate() {
+            let a = 1.2 + k as f32 * 0.9;
+            let at = fire.add(V2::new(a.cos(), a.sin()).scale(2.2));
+            self.put_on_ground(super::items::id(key), n, at);
+        }
+        for &m in &self.squad.members.clone() {
+            if let Some(c) = self.people[m as usize].cond.as_mut() {
+                c.cold = WRECKED_COLD;
+            }
+        }
+        self.tutorial = Some(super::tutorial::Tutorial::new(t, self.squad.pos));
+        self.solid_changed();
     }
 
     /// After the society is founded: the Binders are the compound's guards

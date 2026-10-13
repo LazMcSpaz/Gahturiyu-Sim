@@ -143,6 +143,15 @@ pub struct World {
     /// compound. None in a world made before it.
     #[serde(default)]
     pub island: Option<super::island::Island>,
+    /// The tutorial's progress (`tutorial.rs`): None off the opening.
+    #[serde(default)]
+    pub tutorial: Option<super::tutorial::Tutorial>,
+    /// The squad's crossing on the ferry, under way (`ferry.rs`), and who's
+    /// been sent to board.
+    #[serde(default)]
+    pub voyage: Option<super::ferry::Voyage>,
+    #[serde(default)]
+    pub boarding: Vec<PersonId>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -378,6 +387,9 @@ impl World {
             routes,
             forge: None,
             island: None,
+            tutorial: None,
+            voyage: None,
+            boarding: Vec::new(),
             bases: Vec::new(),
             next_base: 0,
             looting: Vec::new(),
@@ -761,6 +773,10 @@ impl World {
         let mut r = Rng::from_keys(&[p.seed, 0x504F_5349]);
         if let Some(pos) = self.fighter_pos(pid) {
             return pos;
+        }
+        // Aboard the ferry: read off the crossing (`ferry.rs`), never stepped.
+        if let Some(n) = self.voyage.as_ref().and_then(|v| v.members.iter().position(|&x| x == pid)) {
+            return self.voyage.as_ref().unwrap().at(self.time).0.add(super::squad::formation(n).scale(0.6));
         }
         if let Some(pos) = self.chase_pos(pid) {
             return pos;

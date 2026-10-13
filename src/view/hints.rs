@@ -72,6 +72,10 @@ impl Hints {
 
 /// Is this tip's moment here?
 fn due(w: &World, id: &str) -> bool {
+    // The island's lessons say it all (`tutorial.rs`).
+    if w.lesson_now().is_some() {
+        return false;
+    }
     let near = |p: gahturiyu_sim::sim::geo::V2, r: f32| w.squad.pos.dist(p) <= r;
     match id {
         "welcome" => true,

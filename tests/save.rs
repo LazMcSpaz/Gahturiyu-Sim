@@ -35,8 +35,10 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n", w.seats);
     // The hidden test quarter, once found.
     s += &format!("{:?}\n", w.test_quarter);
-    // Salt Isle: which settlement is the compound, and that it's flagged.
-    s += &format!("{:?} {:?}\n", w.island, w.settlements.iter().map(|t| t.island).collect::<Vec<_>>());
+    // Salt Isle: which settlement is the compound, and that it's flagged; the tutorial's progress.
+    s += &format!("{:?} {:?} {:?}\n", w.island, w.settlements.iter().map(|t| t.island).collect::<Vec<_>>(), w.tutorial);
+    // The ferry: a crossing under way, and who's sent to board.
+    s += &format!("{:?} {:?}\n", w.voyage, w.boarding);
     // Combat: someone on their way to bind a bleed; thrown things lying about and who gathers them.
     s += &format!("{:?} {:?} {:?}\n", w.binding, w.thrown_lying, w.gatherers);
     // Packs soaking through and drying (containers).
