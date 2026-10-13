@@ -17,7 +17,7 @@ fn enslaved(seed: u64) -> gahturiyu_sim::sim::World {
     let mut w = opening(seed);
     let isle = w.island().unwrap().clone();
     let m = w.squad.members[0];
-    for k in ["wake", "salvage", "shelter", "cook", "night_run"] {
+    for k in ["wake", "salvage", "shelter", "cook", "questions", "night_run"] {
         w.lesson_done(k);
     }
     w.set_path(Path::Caught);
