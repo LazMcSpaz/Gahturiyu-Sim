@@ -261,11 +261,17 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    `assets/world/towns.ron` (pixel, kind, founders, holder; placeholders
    until Laz's list), not the seed: a mark in the shallows comes ashore,
    one on a river to dry ground, one within `COASTAL_WITHIN` of the sea is
-   coastal with its dock on the nearest shore. Salt Isle lies `ISLE_OFF`
-   off the first capital. Roads are still found between the towns (the
-   drawn ones are the next piece); animal regions are 3 km and the herd
-   count is held to `HERD_SCALE` of the per-km² densities until they're
-   re-tuned; world creation prints its stages with `GAHT_TIMING=1`.
+   coastal with its dock on the nearest shore; one off the mainland (the
+   map's biggest piece of land, `on_mainland`) is `offshore`: no road or
+   caravan reaches it. Salt Isle lies `ISLE_OFF` off the first capital.
+   Roads are still found between the towns on a 600 m grid whose cells
+   carry a dry spot each (a strip narrower than the grid still gets a
+   road; the drawn roads are the next piece). Animal regions are 3 km;
+   wild herds are placed at full density only within `HERD_REACH` of a
+   town or a road (the far wilds are empty until the densities are
+   re-tuned); the Cragmaws' massif is the heart of the biggest snowfield
+   and the Dustrunners' plateau the level rocky ground. World creation
+   prints its stages with `GAHT_TIMING=1`.
 
 24. **Rules are toggles in the world.** `sim/rules.rs` holds what's switched
    on (`World::rules`, saved with the world: weather on the squad, weather

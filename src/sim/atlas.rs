@@ -422,9 +422,12 @@ impl Atlas {
                 class[i] = Class::Coast as u8;
             }
         }
+        // (The waterline runs between a sea pixel and a land pixel: half a
+        // pixel from either centre, so the distance climbs one metre a metre
+        // across it, not two.)
         let mut sea = vec![0.0f32; n];
         for i in 0..n {
-            sea[i] = if class[i] == Class::Sea as u8 { -to_land[i] * PX } else { to_sea[i] * PX };
+            sea[i] = if class[i] == Class::Sea as u8 { -(to_land[i] - 0.5) * PX } else { (to_sea[i] - 0.5) * PX };
         }
         // Heights and the mountain share, then the blur.
         let mut base = vec![0.0f32; n];

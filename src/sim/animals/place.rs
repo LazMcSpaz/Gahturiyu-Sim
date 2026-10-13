@@ -312,7 +312,8 @@ impl World {
                 let n = 1.0 + rr.below(2) as f32;
                 let south = rr.range(-40.0, 40.0);
                 if keep {
-                    let at = V2::new(geo::coast_x(stilts.y + south) - 150.0, stilts.y + south);
+                    // (In the water off the stilts, along the shore a little: `atlas.rs`.)
+                    let at = super::super::atlas::atlas().seaward(stilts.add(V2::new(0.0, south)), 150.0);
                     self.add_pen(Sp::Raftback, at, Some(id), n + 1.0, n);
                 }
             }

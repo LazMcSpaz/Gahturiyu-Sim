@@ -178,7 +178,9 @@ fn every_place_kind() -> Vec<PlaceKind> {
 #[test]
 fn every_kind_of_workplace_has_its_solid_parts() {
     use PlaceKind as P;
-    let at = V2::new(geo::coast_x(4000.0) + 900.0, 4000.0);
+    // (Somewhere well inland on the map's plains.)
+    let atlas = gahturiyu_sim::sim::atlas::atlas();
+    let at = (0..50_000u64).map(|k| atlas.land_spot(k * 7919 + 3)).find(|&p| atlas.inland(p) > 2000.0 && atlas.class_at(p) == gahturiyu_sim::sim::atlas::Class::Plains).expect("plains inland");
     assert!(geo::inland(at) > 0.0);
     for kind in every_place_kind() {
         let wp = Workplace { kind, pos: at, rot: 0.9, seed: 77 };

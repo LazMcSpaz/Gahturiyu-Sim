@@ -377,7 +377,7 @@ impl World {
 
     /// The coastal region nearest a point (for "catch from the water here").
     pub fn fishing_region(&self, p: V2) -> Option<RegionId> {
-        let here = region_of(V2::new(geo::coast_x(p.y), p.y));
+        let here = region_of(super::super::atlas::atlas().shore_spot(p, 1.0));
         self.animals.regions.get(here as usize).filter(|r| r.coast > 0.0).map(|_| here)
     }
 

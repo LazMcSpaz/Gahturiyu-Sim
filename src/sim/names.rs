@@ -89,8 +89,20 @@ pub fn site_features(t: &Terrain, pos: V2, coastal: bool) -> Vec<Feature> {
     if coastal {
         // The shape of the shore: where it bends inland the sea makes a cove;
         // where it stands out, a headland.
+        // (How much water lies round the site, read off the atlas: sea on
+        // most sides is a headland, little a cove or a bay.)
         let d = 350.0;
-        let bend = geo::coast_x(pos.y) - (geo::coast_x(pos.y - d) + geo::coast_x(pos.y + d)) / 2.0;
+        let atlas = super::atlas::atlas();
+        let shore = atlas.shore_spot(pos, 4.0);
+        let mut sea = 0.0f32;
+        for k in 0..12 {
+            let a = k as f32 / 12.0 * std::f32::consts::TAU;
+            if atlas.inland(shore.add(V2::new(a.cos(), a.sin()).scale(d))) < 0.0 {
+                sea += 1.0;
+            }
+        }
+        // Half the ring is a straight shore; the old measure's metres, roughly.
+        let bend = (6.0 - sea) * 20.0;
         if terrain::cliff_mask(seed, pos.y) > 0.5 {
             out.push(Feature::Cliff);
         }

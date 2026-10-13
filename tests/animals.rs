@@ -199,7 +199,7 @@ fn a_new_world_is_stocked() {
             assert_eq!(region_of(h.home), h.region);
             match h.sp {
                 Sp::Dustrunner => assert!(
-                    [(0.0, 0.0), (150.0, 0.0), (-150.0, 0.0), (0.0, 150.0), (0.0, -150.0)].iter().any(|&(dx, dy)| w.terrain.class(h.home.add(V2::new(dx, dy))) == gahturiyu_sim::sim::atlas::Class::Rock),
+                    (-1..=1).flat_map(|i| (-1..=1).map(move |j| (i as f32 * 150.0, j as f32 * 150.0))).any(|(dx, dy)| w.terrain.class(h.home.add(V2::new(dx, dy))) == gahturiyu_sim::sim::atlas::Class::Rock),
                     "a Dustrunner flock off the rocky flats"
                 ),
                 Sp::Tidepicker => assert!(gahturiyu_sim::sim::geo::inland(h.home) < 120.0, "Tidepickers inland"),
