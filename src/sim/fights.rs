@@ -277,8 +277,11 @@ impl World {
                         near.push(m);
                     }
                 }
-                // Not those they hold captive by their own fire (`binders.rs`).
-                near.retain(|&m| self.captive_of(m).is_none_or(|c| c.camp != gid));
+                // Not those they hold captive by their own fire (`binders.rs`),
+                // and not anyone already down: a fight is with those on their
+                // feet (the fallen are robbed when the fight is lost, not
+                // fought a second time).
+                near.retain(|&m| self.captive_of(m).is_none_or(|c| c.camp != gid) && squad_fit.contains(&m));
                 if near.is_empty() {
                     continue;
                 }
