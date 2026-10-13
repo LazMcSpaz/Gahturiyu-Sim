@@ -251,7 +251,9 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    settings panel (O) and set with `GAHT_RULES=key=off,…`. A system reads
    its rule at its decision point (`if !self.rules.x`): nothing is torn out,
    the rule just answers "no" there. A new toggle is a field, a table line
-   and that check.
+   and that check. `World::forced_sky` (the dev panel's "force weather") is
+   the one override of rule 21: a testing tool, not saved, read only by the
+   `World` wrappers `weather_at` / `weather_effects`.
 
 23. **Salt Isle is fixed geometry.** The tutorial island (`sim/island.rs`,
    `docs/tutorial-island.md`) sits at the same spot in every world
@@ -330,6 +332,7 @@ green line through each door and gate; works in the real game too), `GAHT_FOREST
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
 `GAHT_BOOK=k` (member k's spell book), `GAHT_STATS=k` (member k's stats sheet),
+`GAHT_TITLE=1|arena|load` (the title screen, on that page; screenshots otherwise start straight in),
 `GAHT_GAMEMENU=1` (the Escape menu; `quit`, `new` or `skip` for its question),
 `GAHT_CAST=glow,haste,douse` (the mage learns and casts these in turn: the cast's
 glow and burst, the badges it leaves; add `GAHT_TORCH=1` for a torch to douse, and
@@ -590,6 +593,14 @@ time (Python, not part of the game build; `tools/voice/README.md`).
   saved: Seen draws filled, Heard an outline); ruins and lairs once found;
   travellers, herds, fights and bodies only within `map::MAP_SIGHT` of the
   squad. L shows the whole world.
+- The title screen (`view/title.rs`, Laz, 13 Oct) is what the app opens on:
+  Continue (the newest `.sav` in `saves/`), New game (the opening), Load
+  game (the saves listed newest first), the Testing arena (Test combat: the
+  squad of four in the test quarter's yard with a band; Test building: the
+  demo outpost; The test area: the quarter), Settings, Quit. The world
+  stands still under it (`Game::title`); the Escape menu's "Title screen"
+  brings it back. Saving writes `saves/quick.sav` and a copy named for the
+  world's day and hour, so the list grows.
 - One screen at a time (`view/screens.rs`, Laz's P10/P11): every screen is a
   line in `Screen`, `is_open` and `close`; `settle` runs at the start and end of
   the panel pass and closes all but the newest, and turns member screens (pack,

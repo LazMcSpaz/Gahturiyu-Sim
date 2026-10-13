@@ -1540,7 +1540,7 @@ fn make_scene(world: &mut World, what: &str) {
 }
 
 /// Lay out a demo outpost near the squad (for `GAHT_BUILD`).
-fn demo_base(world: &mut World, living: bool) {
+pub(super) fn demo_base(world: &mut World, living: bool) {
     use gahturiyu_sim::sim::base::{def_index, Land, Plan, BUILDINGS};
     use gahturiyu_sim::sim::stats::Skill;
     let start = world.squad.pos;
