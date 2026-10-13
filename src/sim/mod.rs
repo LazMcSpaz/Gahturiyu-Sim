@@ -8,6 +8,7 @@ pub mod bands;
 pub mod bedding;
 pub mod binders;
 pub mod island;
+pub mod tutorial;
 pub mod membership;
 pub mod campfire;
 pub mod coating;
