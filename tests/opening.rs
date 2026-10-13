@@ -56,6 +56,24 @@ fn the_hut_has_a_fire_and_food() {
 }
 
 #[test]
+fn the_meat_by_the_fire_can_be_roasted_there() {
+    use gahturiyu_sim::sim::crafting::{Station, RECIPES};
+    let mut w = opening(9);
+    let m = w.squad.members[0];
+    let fire = w.hut_fire().unwrap();
+    // Picked up the raw meat, standing at the fire: roast meat is on the list, and it's theirs to make.
+    let meat = gahturiyu_sim::sim::items::id("raw_meat");
+    w.people[m as usize].detail.as_mut().unwrap().gear.add(meat, 1);
+    w.teleport_squad(fire.add(gahturiyu_sim::sim::geo::V2::new(1.6, 0.0)));
+    w.step(0.5);
+    let bench = w.bench_for(m).expect("at the fire");
+    assert_eq!(bench.station, Station::Campfire);
+    let rows = w.making_list(&bench);
+    let roast = rows.iter().find(|r| RECIPES[r.recipe].output == "roast_meat").expect("roast meat on the list");
+    assert_eq!(roast.best, Some(m), "the wrecked sailor can cook it: {:?}", roast.standing);
+}
+
+#[test]
 fn lessons_come_up_in_order_and_go_when_done() {
     let mut w = opening(3);
     let isle = w.island().unwrap().clone();

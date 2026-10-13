@@ -695,6 +695,30 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
     }
+    // Salt Isle's briar patch (`island.rs`): a fence round a tangle of dark
+    // bramble the locals leave alone (the same fence a walker meets).
+    if let Some(c) = w.island().map(|i| i.spot(gahturiyu_sim::sim::island::Spot::Briar)) {
+        if c.dist(oc.target) <= radius.min(900.0) {
+            use gahturiyu_sim::sim::island::{BRIAR_FENCE, BRIAR_RADIUS};
+            super::animals::fence(&mut b, &on_ground, c, BRIAR_RADIUS, BRIAR_FENCE);
+            for i in 0..30u64 {
+                let h = |k: u64| ((i * 7919 + k * 104729) % 1000) as f32 / 1000.0;
+                let a = h(1) * std::f32::consts::TAU;
+                let d = (0.1 + 0.8 * h(2)) * (BRIAR_RADIUS - 2.0);
+                let at = c.add(V2::new(a.cos(), a.sin()).scale(d));
+                let r = 0.9 + 1.3 * h(3);
+                let dark = 0.75 + 0.25 * h(6);
+                b.dome(to3(at, on_ground(at) - 0.3), r, r * (0.7 + 0.4 * h(4)), 0.5 + 0.9 * h(5), 0.55, 0.5, i ^ 0xB71A, [0.09 * dark, 0.13 * dark, 0.05 * dark]);
+                // Thorny canes sticking up out of it.
+                for j in 0..3u64 {
+                    let g = |k: u64| (((i + 1) * 3571 + j * 7877 + k * 104729) % 1000) as f32 / 1000.0;
+                    let q = at.add(V2::new(g(1) - 0.5, g(2) - 0.5).scale(r * 1.2));
+                    let top = q.add(V2::new(g(3) - 0.5, g(4) - 0.5).scale(1.2));
+                    b.stick(to3(q, on_ground(q) + 0.2), to3(top, on_ground(q) + 1.1 + 1.0 * g(5)), 0.05, [0.2, 0.14, 0.08]);
+                }
+            }
+        }
+    }
     // The wreck in Salt Isle's shallows (`island.rs`): a broken hull, heeled
     // over, its mast down.
     if let Some(p) = w.island().map(|i| i.spot(gahturiyu_sim::sim::island::Spot::Wreck)) {

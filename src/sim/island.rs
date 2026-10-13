@@ -172,6 +172,10 @@ impl Spot {
 
 /// Half the test quarter's side: it's this far each way from `Spot::TestQuarter`.
 pub const TEST_QUARTER_HALF: f32 = 80.0;
+/// The fenced briar patch on the wild north edge (a first look at the
+/// Overgrowth, Laz's brief): the fence's radius and height.
+pub const BRIAR_RADIUS: f32 = 14.0;
+pub const BRIAR_FENCE: f32 = 1.1;
 /// The shelter hut's footprint, and its building's index in the compound.
 pub const HUT_SIZE: f32 = 7.5;
 pub const HUT_BUILDING: usize = 6;
