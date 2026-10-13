@@ -929,7 +929,13 @@ time (Python, not part of the game build; `tools/voice/README.md`).
 - Trade (Laz, N7): buying low in one town and selling high in the next
   should make money, so merchants sell at 115% of a thing's worth and buy at
   75% (`economy::BUY_MARKUP`, `SELL_SHARE`; `headless trade` counts the
-  routes that pay). The squad doesn't run caravans of its own. Being hired
+  routes that pay). The squad's best haggler takes some of the gap off
+  (`Skill::Trade`: `buy_markup`, `sell_share`), and dealing grows it.
+- Social stats (Laz, 13 Oct): `Attr::Personality` (presence; its own roll,
+  nudged by sociability) and `Skill::Speech` / `Skill::Trade`, both
+  governed by it. `World::charm(who)` is what they add to how someone takes
+  you (`disposition`, recruiting); Speech grows by talking (`ask`), Trade
+  by dealing (`deal_through`). Diʻub's "Keeping the books" boosts Trade. The squad doesn't run caravans of its own. Being hired
   to guard a caravan is wanted but not built (after the freeze).
 - Talk is close up (`view/talkui.rs`, mockup 1; Laz's R4): the replies are
   `World::topics`, plus `World::locked_topics` (what can't be asked just

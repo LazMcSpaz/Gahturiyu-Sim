@@ -645,7 +645,7 @@ impl Fighter {
         skills[Skill::Unarmed as usize] = c.skill;
         skills[Skill::Dodge as usize] = c.dodge;
         skills[Skill::Block as usize] = c.skill * 0.5;
-        let stats = Stats { attrs: [c.strength, 45.0, c.toughness, 10.0, 60.0], skills, calling: super::stats::Calling::Common };
+        let stats = Stats { attrs: [c.strength, 45.0, c.toughness, 10.0, 60.0, 5.0], skills, calling: super::stats::Calling::Common };
         let mut max_hp = [0.0; 6];
         for (i, part) in PARTS.iter().enumerate() {
             max_hp[i] = stats.max_hp(*part) * c.hp * power;

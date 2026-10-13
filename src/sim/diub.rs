@@ -45,7 +45,7 @@ pub const QUESTIONS: [[&[Skill]; 4]; 4] = {
     use Skill::*;
     [
         // "What were you doing on that ship?"
-        [&[Athletics, Weaving], &[Blade, Block], &[Structured, Inscription], &[Sneak, Security]],
+        [&[Athletics, Weaving], &[Blade, Block], &[Trade, Inscription], &[Sneak, Security]],
         // "What did you do with your hands, before all this?"
         [&[Carpentry, Masonry], &[Smithing, Armoring], &[Alchemy], &[Marksman, Spear]],
         // "Someone comes at you in the dark. What do you do?"

@@ -68,6 +68,13 @@ pub const GRAIN_GLUT_SPOIL: f32 = 0.1;
 /// money); `headless trade` counts the routes that pay.
 pub const BUY_MARKUP: f32 = 1.15;
 pub const SELL_SHARE: f32 = 0.75;
+/// How much of the markup (buying) and the shortfall (selling) the squad's
+/// best haggler takes off at Trade 100 (`Skill::Trade`): a tenth and a
+/// fifth of the gap.
+pub const HAGGLE_BUY: f32 = 0.10;
+pub const HAGGLE_SELL: f32 = 0.20;
+/// Trade practice a thing dealt.
+pub const TRADE_PRACTICE: f32 = 0.08;
 /// What's laid on the table between the squad and a merchant: what the
 /// squad gives (from whose pack, what, how many) and what it takes. A
 /// brewed bottle goes by its mix too, so each mix is its own line (`None`:
@@ -688,7 +695,7 @@ impl World {
                 let it = items::id(key);
                 let n = ((spare / g.items().len() as f32) / Self::units_of(g, it)).floor().min(20.0) as u16;
                 if n > 0 {
-                    v.push((it, n, (self.worth_in(town, it, None) * BUY_MARKUP * regard).ceil().max(1.0) as u16));
+                    v.push((it, n, (self.worth_in(town, it, None) * self.buy_markup() * regard).ceil().max(1.0) as u16));
                 }
             }
             by_good.push((g.is_food(), v));
@@ -740,7 +747,7 @@ impl World {
         if !self.deals_with_squad(town) {
             return None;
         }
-        let price = (self.worth_holding(town, it, piece, self.time, stock) * SELL_SHARE / self.regard_price(town)).floor() as u16;
+        let price = (self.worth_holding(town, it, piece, self.time, stock) * self.sell_share() / self.regard_price(town)).floor() as u16;
         (takes && price > 0 && purse >= price as f32).then_some(price)
     }
 
@@ -795,13 +802,13 @@ impl World {
         if matches!(items::item(it).kind, items::Kind::Coin | items::Kind::Errand) {
             return None;
         }
-        Some(((self.worth_in(town, it, piece) * SELL_SHARE).floor() as u16, town))
+        Some(((self.worth_in(town, it, piece) * self.sell_share()).floor() as u16, town))
     }
 
     /// What one of something fetches from a merchant in this town just now.
     /// (The first of a lot: each one sold lowers the price of the next.)
     pub fn fetches_in(&self, town: SettlementId, it: ItemId) -> u16 {
-        (self.worth_in(town, it, None) * SELL_SHARE).floor() as u16
+        (self.worth_in(town, it, None) * self.sell_share()).floor() as u16
     }
 
     /// Things squad members are wearing that this merchant would buy if
@@ -956,10 +963,36 @@ impl World {
         if quote.stuck.is_some() {
             return quote;
         }
-        self.deal_through(npc, table)
+        let d = self.deal_through(npc, table);
+        if d.stuck.is_none() {
+            self.practise_trade((table.give.len() + table.get.len()) as u16);
+        }
+        d
     }
 
     /// The table, thing by thing (it stops where it sticks).
+    /// The squad's best haggler (`Skill::Trade`), 0..100: the squad deals as
+    /// one across the table.
+    pub fn best_trade(&self) -> f32 {
+        self.squad.members.iter().map(|&m| self.people[m as usize].effective_stats().skill(super::stats::Skill::Trade)).fold(0.0, f32::max)
+    }
+
+    /// What the squad pays over a thing's worth, after haggling.
+    pub fn buy_markup(&self) -> f32 {
+        1.0 + (BUY_MARKUP - 1.0) * (1.0 - HAGGLE_BUY * self.best_trade() / 100.0)
+    }
+
+    /// What the squad gets of a thing's worth, after haggling.
+    pub fn sell_share(&self) -> f32 {
+        SELL_SHARE + (1.0 - SELL_SHARE) * HAGGLE_SELL * self.best_trade() / 100.0
+    }
+
+    /// Dealing is how Trade grows: whoever haggles best practises it.
+    fn practise_trade(&mut self, things: u16) {
+        let Some(&best) = self.squad.members.iter().max_by(|&&a, &&b| self.people[a as usize].stats.skill(super::stats::Skill::Trade).total_cmp(&self.people[b as usize].stats.skill(super::stats::Skill::Trade))) else { return };
+        self.people[best as usize].stats.exercise(super::stats::Skill::Trade, TRADE_PRACTICE * things as f32);
+    }
+
     fn deal_through(&mut self, npc: PersonId, table: &Table) -> Deal {
         let mut d = Deal::default();
         if table.give.is_empty() && table.get.is_empty() {
