@@ -265,14 +265,17 @@ fn arena_setup(w: &mut World, a: super::title::Arena) {
         Arena::TestArea => {
             w.enter_test_quarter();
         }
+        // The squad on the arena's west side; foes are picked in the dev
+        // panel (opened on People) and come in on the east.
         Arena::Combat => {
-            w.enter_test_quarter();
-            if let Some((c, r)) = w.test_quarter().map(|q| q.arena()) {
-                w.teleport_squad(c.add(V2::new(-r * 0.45, 0.0)));
-                w.spawn_bandits(c.add(V2::new(r * 0.45, 0.0)), 3, false);
+            w.dev_to_arena();
+        }
+        Arena::Building => {
+            super::shot::demo_base(w, true);
+            if let Some(bid) = w.bases.first().map(|b| b.id) {
+                w.dev_stock_base(bid);
             }
         }
-        Arena::Building => super::shot::demo_base(w, true),
     }
     w.step(0.001);
 }
@@ -479,7 +482,7 @@ pub fn run() {
             use super::testquarter::{DevPanel, Tab};
             let mut dp = DevPanel { tab: match tab {
                 "creatures" | "animals" => Tab::Creatures,
-                "people" => Tab::People,
+                "people" | "arena" => Tab::People,
                 "world" | "time" => Tab::World,
                 "weather" => Tab::Weather,
                 "fire" => Tab::Fire,
@@ -2491,7 +2494,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     let mut w = fresh_world(seed, true, worldgen::Start::Town);
                     arena_setup(&mut w, a);
                     swap_world(game, w);
-                    game.notice = Some((format!("{} (seed {seed}).", a.label()), std::time::Instant::now()));
+                    if a == super::title::Arena::Combat {
+                        game.dev = Some(super::testquarter::DevPanel { tab: super::testquarter::Tab::People, ..Default::default() });
+                    }
+                    let tip = if a == super::title::Arena::Combat { " Pick foes in the dev panel (Insert)." } else { "" };
+                    game.notice = Some((format!("{} (seed {seed}).{tip}", a.label()), std::time::Instant::now()));
                     keep = false;
                 }
                 TitleAct::Settings => game.options = true,

@@ -1,7 +1,7 @@
 //! The dev panel's squad and place calls (Laz, 13 Oct: "a little window ...
 //! to spawn, turn things on or off, to test these features").
 
-use gahturiyu_sim::sim::{island::Spot, worldgen};
+use gahturiyu_sim::sim::{geo::V2, island::Spot, items, worldgen};
 
 #[test]
 fn heal_knock_out_and_bind() {
@@ -52,4 +52,36 @@ fn go_to_a_town_and_to_the_island() {
     assert!(!isle.contains(w.squad.pos));
     let near = w.settlements.iter().map(|s| s.pos.dist(w.squad.pos)).fold(f32::MAX, f32::min);
     assert!(near < 60.0, "by a town's hearth: {near}");
+}
+
+#[test]
+fn into_the_arena_and_foes_across_it() {
+    let mut w = worldgen::generate(1);
+    assert!(w.dev_to_arena());
+    let q = w.test_quarter().unwrap().clone();
+    assert!(w.squad.pos.dist(q.squad_side()) < 1.0, "on the arena's west side");
+    // A band called up there stands across the arena, inside the walls.
+    let band = w.dev_band(q.foe_side(), 3, false);
+    let at = w.group(band).unwrap().position_at(w.time);
+    assert!(q.contains(at) && at.dist(q.foe_side()) < 1.0);
+    assert!(at.x > w.squad.pos.x, "across from the squad");
+}
+
+#[test]
+fn the_building_arenas_store_is_stocked() {
+    let mut w = worldgen::generate(1);
+    let start = w.squad.pos;
+    let bid = (0..200)
+        .find_map(|k| {
+            let a = (k % 12) as f32 / 12.0 * std::f32::consts::TAU;
+            w.found_base(start.add(V2::new(a.cos(), a.sin()).scale(80.0 + (k / 12) as f32 * 30.0))).ok()
+        })
+        .expect("somewhere for a base");
+    let put = w.dev_stock_base(bid);
+    assert!(put > 100, "{put} things in");
+    let b = w.base(bid).unwrap();
+    assert!(b.buildings.iter().any(|bl| bl.def().key == "storehouse" && bl.standing()), "a storehouse up");
+    assert_eq!(b.count_in_store(items::id("timber")), 80);
+    assert!(b.count_in_store(items::id("flatbread")) >= 40);
+    assert!(b.load() <= b.capacity(), "{} of {} kg", b.load(), b.capacity());
 }

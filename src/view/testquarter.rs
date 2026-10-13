@@ -142,7 +142,8 @@ pub enum DevAct {
     Page(i32),
     Give(ItemId, u16),
     Herd(Sp),
-    Band(bool),
+    /// A band: Binders or bandits, how many, and a mage among them.
+    Band(bool, usize, bool),
     Person(Race),
     Faction(FactionId),
     Skip(f64),
@@ -160,6 +161,7 @@ pub enum DevAct {
     GoTown,
     GoIsland(gahturiyu_sim::sim::island::Spot),
     GoQuarter,
+    ToArena,
     ResetDummies,
     Gate(bool),
     Weapon(i32),
@@ -243,8 +245,8 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
             list(labels, acts, &mut act);
         }
         Tab::People => {
-            let mut labels: Vec<(String, Rgb)> = vec![plain("Bandits (three)"), plain("Binders (three)")];
-            let mut acts = vec![DevAct::Band(false), DevAct::Band(true)];
+            let mut labels: Vec<(String, Rgb)> = vec![plain("A lone bandit"), plain("Bandits (three)"), plain("Bandits (three, a mage)"), plain("Bandits (six)"), plain("Binders (three)")];
+            let mut acts = vec![DevAct::Band(false, 1, false), DevAct::Band(false, 3, false), DevAct::Band(false, 3, true), DevAct::Band(false, 6, false), DevAct::Band(true, 3, false)];
             for r in ALL_RACES {
                 labels.push((format!("A {}", r.name()), race_color(r)));
                 acts.push(DevAct::Person(r));
@@ -296,13 +298,13 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
         }
         Tab::Yard => {
             let open = w.test_quarter().is_some_and(|q| q.open);
-            let labels = vec![plain("Stand the dummies up"), plain(if open { "Lock the quarter's gate" } else { "Open the quarter's gate" })];
-            list(labels, vec![DevAct::ResetDummies, DevAct::Gate(!open)], &mut act);
+            let labels = vec![plain("The squad into the arena"), plain("Stand the dummies up"), plain(if open { "Lock the quarter's gate" } else { "Open the quarter's gate" })];
+            list(labels, vec![DevAct::ToArena, DevAct::ResetDummies, DevAct::Gate(!open)], &mut act);
             // The duel grid: a weapon's row against every armour set.
             let weapons = duelgrid::weapons();
             let wk = p.weapon % weapons.len().max(1);
             let name = weapons.get(wk).map(|k| gahturiyu_sim::sim::items::item(gahturiyu_sim::sim::items::id(k)).name).unwrap_or("?");
-            let gy = top + 2.0 * ROW + 6.0;
+            let gy = top + 3.0 * ROW + 6.0;
             c.styled("DUEL GRID", x + 16.0, gy + 18.0, 13.0, eg(GOLD), Face::Title, 3.0);
             let (prev, next, run) = (Bx::new(x + 120.0, gy, 26.0, 24.0), Bx::new(x + 330.0, gy, 26.0, 24.0), Bx::new(x + 362.0, gy, 62.0, 24.0));
             kit::button(c, &prev, "<", Kind::Plain, true);
@@ -340,13 +342,19 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
 /// buttons act on; `force`: the weather picture (as U), kept with the sim's.
 pub fn apply(w: &mut World, p: &mut DevPanel, act: DevAct, lead: Option<gahturiyu_sim::sim::person::PersonId>, force: &mut Option<Preset>) -> Option<String> {
     // Things are put a little way from the lead (or inside the quarter's
-    // gate, in the quarter), each at its own spot.
-    let base = match (w.test_quarter().filter(|q| q.contains(w.squad.pos)), lead) {
-        (Some(q), _) => q.pad(),
+    // gate, in the quarter), each at its own spot; in the quarter, foes and
+    // beasts come in across the arena from the squad.
+    let quarter = w.test_quarter().filter(|q| q.contains(w.squad.pos)).map(|q| (q.pad(), q.foe_side()));
+    let base = match (quarter, lead) {
+        (Some((pad, _)), _) => pad,
         (None, Some(m)) => w.person_pos(m).add(V2::new(18.0, 0.0)),
         (None, None) => w.squad.pos,
     };
     let near = |k: usize| base.add(V2::new(-((k % 4) as f32) * 5.0, -10.0 + (k / 4 % 5) as f32 * 5.0));
+    let foe = |k: usize| match quarter {
+        Some((_, side)) => side.add(V2::new(0.0, ((k % 3) as f32 - 1.0) * 3.0)),
+        None => near(k).add(V2::new(-30.0, 0.0)),
+    };
     let k = w.people.len() + w.animals.herds.len();
     match act {
         DevAct::Close => None,
@@ -365,12 +373,22 @@ pub fn apply(w: &mut World, p: &mut DevPanel, act: DevAct, lead: Option<gahturiy
             Some(format!("{n} × {} into {}'s pack", gahturiyu_sim::sim::items::item(it).name, w.name_of(who)))
         }
         DevAct::Herd(sp) => {
-            w.dev_herd(sp, near(k), 3);
+            let at = if quarter.is_some() { foe(k) } else { near(k) };
+            w.dev_herd(sp, at, 3);
             Some(format!("A herd of {}", sp.def().name.to_lowercase()))
         }
-        DevAct::Band(slavers) => {
-            w.dev_band(near(k).add(V2::new(-30.0, 0.0)), 3, slavers);
-            Some(if slavers { "Three Binders".into() } else { "Three bandits".into() })
+        DevAct::Band(slavers, n, mage) => {
+            if mage {
+                w.spawn_bandits(foe(k), n, true);
+            } else {
+                w.dev_band(foe(k), n, slavers);
+            }
+            Some(match (slavers, n, mage) {
+                (true, _, _) => format!("{n} Binders"),
+                (_, 1, _) => "A lone bandit".into(),
+                (_, _, true) => format!("{n} bandits, a mage among them"),
+                _ => format!("{n} bandits"),
+            })
         }
         DevAct::Person(r) => {
             w.dev_person(r, near(k));
@@ -450,6 +468,7 @@ pub fn apply(w: &mut World, p: &mut DevPanel, act: DevAct, lead: Option<gahturiy
             Some(format!("To Salt Isle: {}", spot.name()))
         }
         DevAct::GoQuarter => Some(if w.enter_test_quarter() { "Into the test quarter".into() } else { "No test quarter here".into() }),
+        DevAct::ToArena => Some(if w.dev_to_arena() { "Into the arena".into() } else { "No test quarter here".into() }),
         DevAct::ResetDummies => {
             w.dev_reset_dummies();
             Some("The dummies stand again".into())

@@ -123,6 +123,17 @@ impl TestQuarter {
         (self.at(0.32, 0.5), ARENA_R)
     }
 
+    /// The arena's two sides: the squad stands to fight on the west, and
+    /// foes called up in the quarter come in on the east, across from them.
+    pub fn squad_side(&self) -> V2 {
+        let (c, r) = self.arena();
+        c.add(V2::new(-r * 0.45, 0.0))
+    }
+    pub fn foe_side(&self) -> V2 {
+        let (c, r) = self.arena();
+        c.add(V2::new(r * 0.45, 0.0))
+    }
+
     /// Where the training dummies stand: a row along the arena's north edge.
     pub fn dummy_spots(&self) -> Vec<V2> {
         let (c, r) = self.arena();
@@ -548,5 +559,59 @@ impl World {
         let at = self.free_spot(at);
         self.teleport_squad(at);
     }
+
+    /// Into the combat yard: the quarter opened (found first if need be)
+    /// and the squad on the arena's west side. False where no quarter fits.
+    pub fn dev_to_arena(&mut self) -> bool {
+        if !self.enter_test_quarter() {
+            return false;
+        }
+        let Some(at) = self.test_quarter().map(|q| q.squad_side()) else { return false };
+        self.teleport_squad(at);
+        true
+    }
+
+    /// The building arena's store: a storehouse put up at once beside the
+    /// base (as a finished site stands, `base_events`), and the store filled
+    /// with what building takes, and food, leaving room for the haulers.
+    /// How many things went in.
+    pub fn dev_stock_base(&mut self, bid: super::base::BaseId) -> u32 {
+        use super::base::{def_index, Plan, State, BUILDINGS};
+        let Some(i) = self.bases.iter().position(|b| b.id == bid) else { return 0 };
+        let centre = self.bases[i].at;
+        let def = def_index("storehouse");
+        let spot = (0..48).find_map(|k| {
+            let a = (k % 12) as f32 / 12.0 * std::f32::consts::TAU;
+            let mut p = Plan { def, at: centre.add(V2::new(a.cos(), a.sin()).scale(16.0 + (k / 12) as f32 * 6.0)), rot: 0.0, w: BUILDINGS[def].w, replaces: None };
+            self.check_place(&mut p).is_ok().then_some(p)
+        });
+        if let Some(plan) = spot {
+            if let Ok(id) = self.place_building(plan) {
+                let t = self.time;
+                let b = &mut self.bases[i];
+                b.settle_pub(t);
+                if let Some(bl) = b.buildings.iter_mut().find(|x| x.id == id) {
+                    bl.state = State::Standing { hp: bl.def().hp, since: t, hp_at: t, rate: 0.0 };
+                }
+                self.solid_changed();
+            }
+        }
+        let mut put = 0u32;
+        for &(key, want) in STOCK {
+            let it = super::items::id(key);
+            let b = &mut self.bases[i];
+            let kg = super::items::item(it).weight.max(0.01);
+            let room = (b.capacity() * (1.0 - super::baselife::HAUL_SPARE) - b.load()).max(0.0);
+            let n = want.min((room / kg) as u16);
+            b.add_to_store(it, n);
+            put += n as u32;
+        }
+        self.base_changed(bid);
+        put
+    }
 }
+
+/// What the building arena's store is stocked with: enough for a longhouse,
+/// a wall and a few huts, and food for the hands.
+const STOCK: &[(&str, u16)] = &[("flatbread", 40), ("timber", 80), ("rock", 50), ("seareed", 30), ("clay", 20), ("iron_ingot", 6)];
 

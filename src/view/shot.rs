@@ -64,7 +64,8 @@ pub struct Shot {
     /// `GAHT_QUARTER=1`: the squad inside the hidden test quarter (dev only);
     /// `GAHT_QUARTER=items|animals|people|time|weather|fire|squad|rules|go|yard`
     /// with the dev panel open on that tab (`yard` runs the duel grid for the
-    /// first weapon).
+    /// first weapon); `arena`: the squad on the combat yard's west side and
+    /// three bandits called up across from them, the panel on People.
     pub quarter: Option<String>,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
@@ -495,7 +496,13 @@ impl Shot {
                 }
             }
         }
-        if self.quarter.is_some() {
+        if self.quarter.as_deref() == Some("arena") {
+            world.dev_to_arena();
+            if let Some(at) = world.test_quarter().map(|q| q.foe_side()) {
+                world.dev_band(at, 3, false);
+            }
+            world.step(0.5);
+        } else if self.quarter.is_some() {
             world.enter_test_quarter();
             world.step(0.5);
         }
