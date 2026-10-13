@@ -7,3 +7,5 @@ hints.txt
 saves/
 town_forge_out/
 tools/sounds/preview/
+!docs/map/*.png
+!assets/world/*.png
