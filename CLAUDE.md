@@ -428,6 +428,11 @@ only in the cloud.
 
 - `C:\Users\Laz PC\Repos\Gahturiyu-Sim` always holds `main`, built: Laz launches
   `target\release\gahturiyu.exe` from there. Don't switch it to another branch.
+- **The launcher** `tools/play.cmd` (a copy on the desktop, "Play Gahturiyu.cmd"):
+  a menu to pull (fast-forward only), build (half the CPU) and start `main`
+  or the preview (`Repos\Gahturiyu-Sim-next`, `next/items`), or start either
+  as it is. A failed pull plays what's there; a failed build says to close
+  the game first (Windows locks the exe).
 - Other branches go in git worktrees beside it
   (`C:\Users\Laz PC\Repos\Gahturiyu-Sim-wt\<branch>`), all sharing one build
   folder (`CARGO_TARGET_DIR=C:\Users\Laz PC\Repos\gaht-target`) so the slow
