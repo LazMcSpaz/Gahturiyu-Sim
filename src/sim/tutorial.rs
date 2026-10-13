@@ -54,7 +54,7 @@ pub const LESSONS: &[Lesson] = &[
     l("wake", Path::Both, "Wake", "You're alive, on a shore, in a storm. Left-click the ground to walk; drag to turn the camera, scroll to zoom.", "moving, the camera, weather", None, true),
     l("salvage", Path::Both, "Salvage", "What the sea left of your things lies at the water's edge below the wreck. Click the crate and take what's there.", "looting, your pack", Some(Spot::Wreck), true),
     l("shelter", Path::Both, "Shelter", "Get out of the weather. There's a hut up the slope with a fire going.", "shelter, cold", Some(Spot::Hut), true),
-    l("cook", Path::Both, "Cook", "There's raw food by the fire. Right-click the fire, Cook here, and eat what you make.", "fire, cooking, eating", Some(Spot::Hut), true),
+    l("cook", Path::Both, "Cook", "There's raw food by the fire: click it to pick it up. Then right-click the fire, Cook here, make something, and eat it (double-click it in the pack).", "fire, cooking, eating", Some(Spot::Hut), true),
     l("questions", Path::Both, "The stranger", "Someone's here. Talk to him.", "talking, who you were", Some(Spot::Hut), false),
     l("labour", Path::Caught, "Labour", "Work your shift.", "tools, gathering, carrying", Some(Spot::Quarry), false),
     l("workyard", Path::Caught, "The workyard", "Make what the overseers want.", "crafting, repair, bandages", Some(Spot::Workyard), false),
