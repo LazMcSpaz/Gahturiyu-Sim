@@ -46,5 +46,6 @@ pub mod squadui;
 pub mod statsui;
 pub mod townui;
 pub mod talkui;
+pub mod testquarter;
 pub mod tradeui;
 pub mod weather;

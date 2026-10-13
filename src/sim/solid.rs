@@ -145,6 +145,9 @@ pub enum Id {
     Bedroll(u32),
     /// A campfire the squad laid (its `Campfire::id`).
     SquadFire(u32),
+    /// The test quarter's wall, stretch `k` (`testquarter.rs`), and its gate.
+    Quarter(u8),
+    QuarterGate,
 }
 
 impl Id {
@@ -999,6 +1002,9 @@ impl World {
         for e in [&self.terrain.edits, &self.terrain.authored] {
             h = mark(h, (e.rocks.len() as u64) << 32 | e.rocks_v as u64);
         }
+        if let Some(q) = &self.test_quarter {
+            h = mark_v2(mark(h, 0x7E57 + q.open as u64), q.min);
+        }
         let wild = self.containers.range((containers::WILD, 0, 0)..=(containers::WILD, u16::MAX, u8::MAX));
         for (id, c) in wild {
             h = mark_v2(mark(h, (id.1 as u64) << 8 | id.2 as u64), c.pos);
@@ -1440,6 +1446,14 @@ impl World {
             let (shape, h, blocks) = rock_shape(r);
             let th = Thing::solid(Id::Rock(rng::key(&[r.pos.x.to_bits() as u64, r.pos.y.to_bits() as u64, r.seed as u64])), What::Stone, shape, h);
             out.push(if blocks { th } else { th.open() });
+        }
+        // The test quarter's wall, and its gate (shut until the key opens it).
+        if let Some(q) = &self.test_quarter {
+            for (k, r) in q.walls().into_iter().enumerate() {
+                out.push(Thing::solid(Id::Quarter(k as u8), What::Wall, Shape::Box(r), super::testquarter::WALL_H));
+            }
+            let gate = Thing::solid(Id::QuarterGate, What::Gate, Shape::Box(q.gate_leaf()), super::testquarter::WALL_H * 0.8);
+            out.push(if q.open { gate.open() } else { gate });
         }
         if let Some(f) = &self.forge {
             for (k, h) in f.founding.homes.iter().enumerate() {

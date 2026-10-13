@@ -695,6 +695,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
     }
+    // The hidden test quarter (dev only).
+    super::testquarter::draw(&mut b, w, &on_ground, oc.target, radius);
     // Ruins (broken walls round a floor) and lairs (a rock arch and bones).
     for ru in &w.ruins {
         if ru.pos.dist(oc.target) > radius.min(900.0) {

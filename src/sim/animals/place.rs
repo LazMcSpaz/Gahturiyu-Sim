@@ -33,7 +33,7 @@ const LAIR_FROM_ROAD: f32 = 9.0;
 
 impl World {
     /// A new wild herd. Returns its id.
-    pub(super) fn add_herd(&mut self, sp: Sp, home: V2, cap: u8, n: f32, seed: u64) -> u32 {
+    pub(crate) fn add_herd(&mut self, sp: Sp, home: V2, cap: u8, n: f32, seed: u64) -> u32 {
         let id = self.animals.herds.len() as u32;
         let region = region_of(home);
         let cap = cap.max(1);

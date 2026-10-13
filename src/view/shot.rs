@@ -61,6 +61,10 @@ pub struct Shot {
     /// `GAHT_CAPTIVE=1`: a slavers' band camped a little way off, the fourth
     /// member held captive at their fire (the squad list says so).
     pub captive: bool,
+    /// `GAHT_QUARTER=1`: the squad inside the hidden test quarter (dev only);
+    /// `GAHT_QUARTER=items|creatures|people|world|yard` with the spawner open
+    /// on that tab (`yard` runs the duel grid for the first weapon).
+    pub quarter: Option<String>,
     /// `GAHT_TALK=1`: talk to the nearest townsperson (`roduro`, `qotiro`,
     /// `horaro` or `tadoro`: the nearest of that people; `merchant`,
     /// `official`, `healer`...: the nearest with that job; `indoors`: the
@@ -213,6 +217,7 @@ impl Shot {
             flask: var("GAHT_FLASK").is_some(),
             glass: var("GAHT_GLASS").is_some(),
             captive: var("GAHT_CAPTIVE").is_some(),
+            quarter: var("GAHT_QUARTER"),
             craft: var("GAHT_CRAFT").and_then(|v| v.parse().ok()),
             talk: var("GAHT_TALK").is_some(),
             talk_to: var("GAHT_TALK").filter(|v| v != "1"),
@@ -468,6 +473,10 @@ impl Shot {
                     break;
                 }
             }
+        }
+        if self.quarter.is_some() {
+            world.enter_test_quarter();
+            world.step(0.5);
         }
         if self.captive {
             let at = world.squad.pos.add(V2::new(200.0, 60.0));

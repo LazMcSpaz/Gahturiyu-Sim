@@ -47,7 +47,7 @@ use super::app::Game;
 use super::settings::{Level, Settings};
 use land::{LandGrid, Stamp};
 pub use panel::{map_colours, panel};
-pub use presets::Preset;
+pub use presets::{Preset, PRESETS};
 
 /// How much weather is drawn, by the graphics setting.
 #[derive(Clone, Copy, Debug, PartialEq)]

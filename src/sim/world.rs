@@ -136,6 +136,9 @@ pub struct World {
     /// Who sits as which faction leader (`leaders.rs`).
     #[serde(default)]
     pub seats: Vec<super::leaders::Seat>,
+    /// The hidden dev test quarter, once found (`testquarter.rs`).
+    #[serde(default)]
+    pub test_quarter: Option<super::testquarter::TestQuarter>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -401,6 +404,7 @@ impl World {
             guilds: Vec::new(),
             captives: Vec::new(),
             seats: Vec::new(),
+            test_quarter: None,
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),
