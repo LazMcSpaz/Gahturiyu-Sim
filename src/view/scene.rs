@@ -695,6 +695,31 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
     }
+    // The ferry (`ferry.rs`): a hull with a mast, at a berth or on the
+    // squad's crossing; nothing while it's away.
+    if let Some((p, heading)) = w.ship_pos(w.time) {
+        if p.dist(oc.target) <= radius.min(900.0) {
+            let (cs, sn) = (heading.cos(), heading.sin());
+            let base = to3(p, 0.2);
+            b.block(base, 14.0, 4.2, 1.6, heading, palette::TIMBER);
+            b.block(base + vec3(0.0, 1.6, 0.0), 11.0, 3.0, 0.3, heading, palette::QUARRIED);
+            b.column(base + vec3(cs, 0.0, sn) * 1.5, 0.22, 0.18, 9.0, 6, palette::TIMBER);
+            b.block(base + vec3(cs, 0.0, sn) * 1.5 + vec3(-sn, 0.0, cs) * 0.2 + vec3(0.0, 5.5, 0.0), 0.15, 5.0, 4.5, heading, [0.86, 0.82, 0.70]);
+            // A plank to the dock while it lies in.
+            if w.voyage.is_none() {
+                for bth in [gahturiyu_sim::sim::ferry::Berth::Island, gahturiyu_sim::sim::ferry::Berth::Port] {
+                    if w.ship_in(bth, w.time) {
+                        if let Some(d) = w.dock_pos(bth) {
+                            let v = p.sub(d);
+                            let a = d.add(v.scale(0.25));
+                            let z = p.sub(v.scale(0.3));
+                            b.stick(to3(a, on_ground(d).max(1.0) + 0.4), to3(z, 1.9), 0.5, palette::TIMBER);
+                        }
+                    }
+                }
+            }
+        }
+    }
     // Ruins (broken walls round a floor) and lairs (a rock arch and bones).
     for ru in &w.ruins {
         if ru.pos.dist(oc.target) > radius.min(900.0) {

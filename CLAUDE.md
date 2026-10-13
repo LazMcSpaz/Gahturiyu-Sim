@@ -258,7 +258,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    world in the squad's step or by the system it teaches calling
    `lesson_done(key)`; progress is `World::tutorial` (saved). A new game is
    `worldgen::generate_opening` (one person, the storm hour looked up from
-   the weather, never forced); `generate` keeps the town start for tests.
+   the weather, never forced); `generate` keeps the town start for tests. The ferry (`sim/ferry.rs`)
+   keeps a timetable read off the clock (`ship_in`, `ship_pos`); a crossing
+   is the squad's own (`Voyage`: positions read off the crossing in the
+   squad's step), and putting in on the mainland ends the tutorial.
    The dev test quarter is the second session's, behind a debug key.
 
 17. **What is solid has one source of truth: `sim/solid.rs`.** Every

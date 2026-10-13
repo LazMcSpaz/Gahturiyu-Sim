@@ -68,6 +68,8 @@ pub enum Act {
     FeedFire(u32),
     /// Put down the pack (with what's in it).
     DropPack(PersonId),
+    /// Go to the dock and board the ferry when it's in.
+    Board,
 }
 
 /// An open right-click menu: where it was opened, and what was there.
@@ -331,6 +333,20 @@ pub fn choices(w: &World, h: Hover, who: &[PersonId], shift: bool) -> Vec<Choice
         }
         Hover::Place(t, k) => {
             if let Some(p) = w.society.towns.get(t as usize).and_then(|tl| tl.places.get(k as usize)) {
+                // The ferry's docks (`ferry.rs`): the island's, and the port's.
+                if p.kind == gahturiyu_sim::sim::jobs::PlaceKind::Dock && w.island().is_some() {
+                    let berth = if w.is_island(t) { Some(gahturiyu_sim::sim::ferry::Berth::Island) } else if w.ferry_port().is_some_and(|(pt, _)| pt == t) { Some(gahturiyu_sim::sim::ferry::Berth::Port) } else { None };
+                    if let Some(b) = berth {
+                        let line = if w.ship_in(b, w.time) {
+                            "Board the ship".to_string()
+                        } else {
+                            let next = w.ship_next(b, w.time);
+                            let h = (next / gahturiyu_sim::sim::world::HOUR).rem_euclid(24.0) as u32;
+                            format!("Wait for the ship (in at {h:02}:00)")
+                        };
+                        out.push(ch(line, Act::Board));
+                    }
+                }
                 out.push(ch(format!("Walk to the {}", p.kind.name().to_lowercase()), Act::Walk(p.pos)));
             }
         }
@@ -426,6 +442,10 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
                 Some(m) => w.order_campfire(m, at).err().map(|e| format!("Can't: {e}.")),
                 None => Some("Nobody picked carries wood to burn.".into()),
             };
+        }
+        Act::Board => {
+            let all = w.squad.members.clone();
+            return w.order_board(if who.is_empty() { &all } else { who }).err().map(|e| format!("Can't: {e}."));
         }
         Act::FeedFire(id) => {
             let Some(at) = w.campfire(id).map(|f| f.pos) else { return Some("It's gone.".into()) };
