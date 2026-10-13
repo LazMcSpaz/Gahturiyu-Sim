@@ -92,6 +92,14 @@ impl World {
     }
 }
 
+/// Whether the file at `path` is a save this version can load, by its
+/// header alone (the title screen's list, without reading whole worlds).
+pub fn loadable(path: &std::path::Path) -> bool {
+    let mut head = [0u8; 8];
+    let read = std::fs::File::open(path).and_then(|mut f| f.read_exact(&mut head));
+    read.is_ok() && &head[..4] == MAGIC && u32::from_le_bytes([head[4], head[5], head[6], head[7]]) == FORMAT
+}
+
 // --- The same world, the same bytes -------------------------------------------
 //
 // A hash map or set comes out in whatever order it happens to hold its

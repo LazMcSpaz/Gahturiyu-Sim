@@ -138,8 +138,37 @@ impl World {
     /// Force a sky everywhere (the dev panel; `None` clears it). A testing
     /// tool: every rule that reads the weather sees it, so cold, drowning,
     /// pace and sight can be tried without waiting for a storm.
+    ///
+    /// Fires and standing torches burning in the open had their end worked
+    /// out from the weather when they were lit (`drowned_by`); they're
+    /// worked out again from now, so a forced downpour puts them out as a
+    /// real one would. (Forcing it fair again doesn't relight anything; a
+    /// fire lit from the dev panel burns whatever the weather.) The squad's
+    /// conditions are settled then, so the new sky counts from that moment.
     pub fn set_forced_sky(&mut self, sky: Option<Sky>) {
         self.forced_sky = sky;
+        let t = self.time;
+        for k in 0..self.standing.len() {
+            let st = &self.standing[k];
+            if st.burning(t) {
+                let out = self.drowned_by(st.pos, t, st.out_at);
+                self.standing[k].out_at = out;
+            }
+        }
+        for k in 0..self.campfires.len() {
+            let f = &self.campfires[k];
+            if f.lit_at <= t && t < f.out_at && !f.dev_lit() {
+                let out = self.drowned_by(f.pos, t, f.out_at);
+                self.campfires[k].out_at = out;
+            }
+        }
+        // The squad's cold, thirst and packs read the weather by the hour:
+        // settled now, so the new sky (and any fire it put out) counts from
+        // this moment.
+        for m in self.squad.members.clone() {
+            self.settle_condition(m, t);
+        }
+        self.update_soaking();
     }
 
     /// The weather at a spot at a moment (any moment: past, now or to come).
@@ -183,6 +212,21 @@ impl World {
             return effects_mixed(&w, &mix(&self.terrain, pos), t);
         }
         weather_effects(&self.terrain, self.seed, pos, t)
+    }
+
+    /// Walking pace in the weather at `p` at `t`, as `Terrain::weather_pace`
+    /// but seeing a forced sky (the dev panel), so a forced storm slows the
+    /// squad as a real one would.
+    pub fn weather_pace(&self, p: V2, t: f64) -> f32 {
+        if self.forced_sky.is_none() {
+            return self.terrain.weather_pace(p, t);
+        }
+        let pace = self.weather_effects(p, t).travel_speed_mult;
+        if self.terrain.on_road(p) {
+            pace.max(super::terrain::ROAD_WEATHER_FLOOR)
+        } else {
+            pace
+        }
     }
 
     /// The named places lightning might strike: the towns, for now.
