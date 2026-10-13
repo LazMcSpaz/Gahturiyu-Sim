@@ -247,6 +247,10 @@ pub struct Condition {
     /// Drinks of water carried in their waterskins.
     #[serde(default)]
     pub water: f32,
+    /// Thirst switched off (`rules::Rules::thirst`): it doesn't grow. Set
+    /// at each settle from the world's rules.
+    #[serde(default)]
+    pub no_thirst: bool,
     /// The rain on them this piece (0 under a roof), read at its start.
     #[serde(default)]
     pub rain: f32,
@@ -305,7 +309,7 @@ pub struct Condition {
 
 impl Condition {
     pub fn new(t: f64) -> Condition {
-        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, haze: 0.0, haze_seen: 0.0, smoke_buff: None, habit: false, last_smoke: 0.0, craving: 0, cold: 0.0, cold_to: 0.0 }
+        Condition { at: t, hunger: 10.0, stamina: 100.0, max_stamina: 100.0, tired: 10.0, activity: Activity::Resting, shelter: Shelter::Open, load: 0.0, wounded: false, holding: false, sustained: false, thirst: 10.0, water: 0.0, no_thirst: false, rain: 0.0, tox: 0.0, tox_out: false, breath: 0.0, mending: 0.0, meal: None, drunk: 0.0, was_drunk: false, hangover_until: 0.0, hungover: false, drink_buff: None, haze: 0.0, haze_seen: 0.0, smoke_buff: None, habit: false, last_smoke: 0.0, craving: 0, cold: 0.0, cold_to: 0.0 }
     }
 
     fn load_surcharge(&self, k: f32) -> f32 {
@@ -410,6 +414,9 @@ impl Condition {
 
     /// Thirst gained per hour in this piece (less, or falling, in rain).
     pub fn thirst_rate(&self) -> f32 {
+        if self.no_thirst {
+            return 0.0;
+        }
         if self.sustained {
             return -self.rain * RAIN_QUENCH;
         }
@@ -708,10 +715,20 @@ impl World {
         let rain = self.rain_on(pid, t);
         let cold_to = self.cold_target(pid, t);
         let cap = self.skins_of(pid) * SKIN_DRINKS;
+        let (thirst_on, bleeding_on) = (self.rules.thirst, self.rules.bleeding);
         let p = &mut self.people[pid as usize];
+        // A bleed switched off (`rules::Rules::bleeding`) stops where it is.
+        if !bleeding_on {
+            p.wounds.bleed = 0.0;
+        }
         let Some(c) = p.cond.as_mut() else { return };
         c.water = c.water_at(t, cap).min(cap);
         c.settle(t);
+        // Thirst switched off: none, and none to come.
+        c.no_thirst = !thirst_on;
+        if c.no_thirst {
+            c.thirst = 0.0;
+        }
         c.rain = rain;
         c.cold_to = cold_to;
         c.shelter = shelter;

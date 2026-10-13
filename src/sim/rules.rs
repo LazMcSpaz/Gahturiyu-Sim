@@ -79,6 +79,25 @@ pub const RULES: &[Rule] = &[
     r("bleeding", "Wounds bleed", "A cut bleeds until it's bound; a bleed can kill"),
 ];
 
+impl super::world::World {
+    /// The squad's step: a rule switched since the squad's conditions were
+    /// last settled settles them now (thirst, bleeds, food going off, packs
+    /// soaking), so a switch takes hold at once.
+    pub(super) fn rules_step(&mut self) {
+        if self.rules == self.rules_applied {
+            return;
+        }
+        self.rules_applied = self.rules;
+        let t = self.time;
+        for m in self.squad.members.clone() {
+            self.settle_condition(m, t);
+            let rate = self.food_rate(m, t);
+            self.settle_food(m, rate, t);
+        }
+        self.update_soaking();
+    }
+}
+
 impl Rules {
     pub fn get(&self, key: &str) -> Option<bool> {
         Some(match key {

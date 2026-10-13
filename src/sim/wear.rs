@@ -47,8 +47,8 @@ impl World {
             }
         }
         // Pitch on what they wore caught when they burned: it scorches, and
-        // the seal burns away.
-        if f.burned > 0.0 {
+        // the seal burns away. (Not with fire on carried things switched off.)
+        if f.burned > 0.0 && self.rules.elements_on_items {
             for &slot in SLOTS.iter() {
                 let Some(d) = self.people[pid as usize].detail.as_mut() else { break };
                 if d.gear.piece(slot).map(|p| p.sealed).unwrap_or(false) {
@@ -79,6 +79,10 @@ impl World {
     /// Paper a squad member carried through a fight may have burned or been
     /// soaked through: each piece is a keyed roll.
     pub fn paper_spoils(&mut self, f: &Fighter, seed: u64, t: f64) {
+        // Switched off (`rules::Rules::elements_on_items`): paper comes through.
+        if !self.rules.elements_on_items {
+            return;
+        }
         let pid = f.pid;
         // The pack keeps some of it off (0.4); what's in a scroll case or an
         // oilskin is safe from what that seals out.

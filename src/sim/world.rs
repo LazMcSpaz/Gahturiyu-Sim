@@ -133,6 +133,10 @@ pub struct World {
     /// Squad members held at a slavers' camp (`binders.rs`).
     #[serde(default)]
     pub captives: Vec<super::binders::Captive>,
+    /// The rules as the squad's conditions were last settled under
+    /// (`rules_step`): a change settles them at once.
+    #[serde(default)]
+    pub rules_applied: super::rules::Rules,
     /// Who sits as which faction leader (`leaders.rs`).
     #[serde(default)]
     pub seats: Vec<super::leaders::Seat>,
@@ -430,6 +434,7 @@ impl World {
             coatings: Vec::new(),
             guilds: Vec::new(),
             captives: Vec::new(),
+            rules_applied: Default::default(),
             seats: Vec::new(),
             test_quarter: None,
             strangers: Default::default(),

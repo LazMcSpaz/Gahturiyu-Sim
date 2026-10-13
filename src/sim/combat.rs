@@ -934,8 +934,15 @@ pub struct Fx {
     pub at: f64,
 }
 
+fn bleeds() -> bool {
+    true
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Battle {
+    /// Cuts open bleeds (`rules::Rules::bleeding`, set when it starts).
+    #[serde(default = "bleeds")]
+    pub bleeding: bool,
     pub id: u32,
     pub seed: u64,
     pub start: f64,
@@ -1018,7 +1025,7 @@ impl Around {
 impl Battle {
     pub fn new(id: u32, seed: u64, start: f64, fighters: Vec<Fighter>, names: Vec<String>) -> Battle {
         // (In the open air until told otherwise: `World::air_for`.)
-        Battle { id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default(), thrown: Vec::new(), aim_weather: 1.0 }
+        Battle { bleeding: true, id, seed, start, time: start, ticks: 0, fighters, over: false, log: Vec::new(), fx: Vec::new(), names, lights: None, zones: Vec::new(), ground: None, around: Around::default(), thrown: Vec::new(), aim_weather: 1.0 }
     }
 
     /// How well lit a spot in the fight is, 0..1.
@@ -2066,6 +2073,9 @@ impl Battle {
 
     /// A cut opens (or worsens) a bleed of `power` hit points a second.
     pub fn open_bleed(&mut self, d: usize, power: f32) {
+        if !self.bleeding {
+            return;
+        }
         let f = &mut self.fighters[d];
         let was = f.bleeding();
         let power = power * (1.0 + f.power(Does::ThinBlood));

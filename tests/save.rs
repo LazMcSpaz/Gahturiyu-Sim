@@ -42,7 +42,7 @@ fn fingerprint(w: &World) -> String {
     // Salt Isle: which settlement is the compound, and that it's flagged; the tutorial's progress.
     s += &format!("{:?} {:?} {:?}\n", w.island, w.settlements.iter().map(|t| t.island).collect::<Vec<_>>(), w.tutorial);
     // The rules switched on or off.
-    s += &format!("{:?}\n", w.rules);
+    s += &format!("{:?} {:?}\n", w.rules, w.rules_applied);
     // The ferry: a crossing under way, and who's sent to board.
     s += &format!("{:?} {:?}\n", w.voyage, w.boarding);
     // Combat: someone on their way to bind a bleed; thrown things lying about and who gathers them.

@@ -129,6 +129,10 @@ impl World {
     /// How fast `pid`'s food goes off now, days a day (before any sealed
     /// box): soaked through, or cold.
     pub(super) fn food_rate(&self, pid: PersonId, t: f64) -> f32 {
+        // Switched off (`rules::Rules::food_spoils`): nothing goes off.
+        if !self.rules.food_spoils {
+            return 0.0;
+        }
         let mut r = 1.0;
         if self.soak_at(pid, t).0 >= 1.0 - 1e-4 {
             r *= WET_SPOILS;
