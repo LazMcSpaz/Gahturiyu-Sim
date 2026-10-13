@@ -56,8 +56,8 @@ pub const LESSONS: &[Lesson] = &[
     l("shelter", Path::Both, "Shelter", "Get out of the weather. There's a hut up the slope with a fire going.", "shelter, cold", Some(Spot::Hut), true),
     l("cook", Path::Both, "Cook", "There's raw food by the fire: click it to pick it up. Then right-click the fire, Cook here, make something, and eat it (double-click it in the pack).", "fire, cooking, eating", Some(Spot::Hut), true),
     l("questions", Path::Both, "The stranger", "Someone's here. Talk to him.", "talking, who you were", Some(Spot::Hut), false),
-    l("labour", Path::Caught, "Labour", "Work your shift.", "tools, gathering, carrying", Some(Spot::Quarry), false),
-    l("workyard", Path::Caught, "The workyard", "Make what the overseers want.", "crafting, repair, bandages", Some(Spot::Workyard), false),
+    l("labour", Path::Caught, "Labour", "You're the lord's now. By day the overseers walk you to the woodlot or the quarry: cut and dig (it goes on his pile), and you're walked back at dusk. You take no orders while bound.", "tools, gathering, carrying", Some(Spot::Woodlot), true),
+    l("workyard", Path::Caught, "The workyard", "Every third day you're put to the workyard. Press Craft there: mend something, or make a bandage (two cloth) for the sick house.", "crafting, repair, bandages", Some(Spot::Workyard), true),
     l("yard", Path::Caught, "The yard", "Prove yourself.", "fighting, wounds, knockouts", Some(Spot::Yard), false),
     l("bond", Path::Caught, "Your bond", "Learn what you owe.", "bonds, the law", Some(Spot::Hall), false),
     l("bought", Path::Caught, "Bought out", "Someone has paid for you.", "your first faction", Some(Spot::Dock), false),
@@ -93,6 +93,44 @@ pub struct Tutorial {
     pub woke_at: V2,
     /// The island is over: off by ship, or skipped.
     pub over: bool,
+    /// What they've done on the island (the caught path's buyer reads it).
+    #[serde(default)]
+    pub deeds: Deeds,
+}
+
+/// Work done on the island, counted as it happens: for the lessons, and for
+/// who buys a debtor out (the Lantern Company for fighters, the Writers for
+/// makers: the second session's `bought`).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
+pub struct Deeds {
+    /// Units cut or dug on a shift.
+    pub laboured: u32,
+    /// Things made in the compound.
+    pub made: u32,
+    /// Fights won on the island.
+    pub fights_won: u32,
+}
+
+/// A deed on the island.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Deed {
+    Labour,
+    Made,
+    FightWon,
+}
+
+/// Units of a shift's work that satisfy the labour lesson.
+pub const SHIFT_UNITS: u32 = 3;
+/// A shift's hours of the day (from, to).
+pub const SHIFT_HOURS: (f64, f64) = (7.0, 17.0);
+
+/// Where a bound squad member is put on the island.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Shift {
+    /// A deposit to work: its id and where it is.
+    Face(u32, V2),
+    /// The workyard: making, at the player's choice.
+    Workyard(V2),
 }
 
 /// The done list saved by key (a key no longer in the table is dropped).
@@ -112,7 +150,7 @@ mod done_list {
 
 impl Tutorial {
     pub fn new(t: f64, at: V2) -> Tutorial {
-        Tutorial { path: None, done: Vec::new(), started: t, woke_at: at, over: false }
+        Tutorial { path: None, done: Vec::new(), started: t, woke_at: at, over: false, deeds: Deeds::default() }
     }
 
     pub fn is_done(&self, key: &str) -> bool {
@@ -197,6 +235,9 @@ impl World {
                 let Some(hut) = self.island().map(|i| i.spot(Spot::Hut)) else { return false };
                 positions().any(|p| p.dist(hut) <= AT_HUT) || self.squad.members.iter().any(|&m| self.building_at(self.person_pos(m)).is_some())
             }
+            // Shifts worked, things made (`Deeds`, counted as they happen).
+            "labour" => self.tutorial.as_ref().is_some_and(|t| t.deeds.laboured >= SHIFT_UNITS),
+            "workyard" => self.tutorial.as_ref().is_some_and(|t| t.deeds.made >= 1),
             // Inside the palisade after dark, sneaking: the night run. (By
             // day through the gate, the law takes them: the caught path.)
             "night_run" => {
@@ -263,6 +304,47 @@ impl World {
         }
         self.end_tutorial();
         self.log.push_front((t, "The ferry puts you ashore on the mainland.".to_string()));
+    }
+
+    /// Count a deed on the island (nothing off it, or after it's over).
+    pub fn island_deed(&mut self, d: Deed) {
+        if !self.on_island() {
+            return;
+        }
+        if let Some(tu) = self.tutorial.as_mut() {
+            match d {
+                Deed::Labour => tu.deeds.laboured += 1,
+                Deed::Made => tu.deeds.made += 1,
+                Deed::FightWon => tu.deeds.fights_won += 1,
+            }
+        }
+    }
+
+    /// What they've done on the island so far.
+    pub fn island_deeds(&self) -> Option<Deeds> {
+        self.tutorial.as_ref().map(|t| t.deeds)
+    }
+
+    /// The bound squad member's shift on the island, by the day and the
+    /// hour: a deposit to work (the woodlot and the quarry, turn about), the
+    /// workyard every third day, or none (off shift). Pure: the overseers'
+    /// rota is the clock.
+    pub fn island_shift(&self, t: f64) -> Option<Shift> {
+        let isle = self.island()?;
+        let h = (t / HOUR).rem_euclid(24.0);
+        if !(SHIFT_HOURS.0..SHIFT_HOURS.1).contains(&h) {
+            return None;
+        }
+        let day = World::day_of(t);
+        if day % 3 == 2 {
+            return Some(Shift::Workyard(isle.spot(Spot::Workyard)));
+        }
+        let faces: Vec<&super::labour::Deposit> = self.deposits.iter().filter(|d| d.town == isle.settlement).collect();
+        if faces.is_empty() {
+            return Some(Shift::Workyard(isle.spot(Spot::Workyard)));
+        }
+        let d = faces[(day.rem_euclid(faces.len() as i64)) as usize];
+        Some(Shift::Face(d.id, d.pos))
     }
 
     /// Whether the squad is on Salt Isle still (the tutorial's rules apply).

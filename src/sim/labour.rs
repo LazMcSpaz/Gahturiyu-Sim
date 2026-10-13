@@ -63,11 +63,14 @@ pub const FACES: &[Face] = &[
     Face { key: "timber", name: "Woodlot", cap: 80, minutes: 5.0, refill: 0.6, tool: "woodcutters_axe", needs_tool: false, makeshift: "hatchet" },
     Face { key: "iron_ore", name: "Iron seam", cap: 60, minutes: 6.0, refill: 0.5, tool: "mining_pick", needs_tool: true, makeshift: "war_pick" },
     Face { key: "gold_nugget", name: "Gold seam", cap: 6, minutes: 30.0, refill: 0.25, tool: "mining_pick", needs_tool: true, makeshift: "war_pick" },
+    Face { key: "rock", name: "Quarry face", cap: 60, minutes: 6.0, refill: 0.5, tool: "mining_pick", needs_tool: false, makeshift: "war_pick" },
 ];
 
-/// How much of a good the land round a town must offer for a mine to be dug.
+/// How much of a good the land round a town must offer for a mine to be dug,
+/// and for a quarry to have a face of rock worth breaking.
 pub const ORE_AT: f32 = 0.1;
 pub const GOLD_AT: f32 = 0.5;
+pub const ROCK_AT: f32 = 0.6;
 
 /// What a carcass's parts become: (yield name, item, items per unit of yield).
 pub const YIELD_ITEMS: &[(&str, &str, f32)] = &[
@@ -169,6 +172,9 @@ impl World {
                         }
                         if tl.sources[Good::Gold.index()] >= GOLD_AT {
                             put("gold_nugget", off(3.1));
+                        }
+                        if tl.sources[Good::Rock.index()] >= ROCK_AT {
+                            put("rock", off(1.6));
                         }
                     }
                     _ => {}
@@ -298,8 +304,11 @@ impl World {
             let mut next = l.next.unwrap_or(now + self.unit_minutes(l.who, l.deposit) as f64 * 60.0);
             let mut done: Option<&'static str> = None;
             let mut got = 0u16;
+            // A bound squad member on Salt Isle works for the lord: what they
+            // cut goes on his pile, not in their pack (`tutorial::Deeds`).
+            let for_the_lord = self.is_island(d.town) && self.bond_of(l.who).is_some();
             while next <= now {
-                if !self.room_for(l.who, d.item, next) {
+                if !for_the_lord && !self.room_for(l.who, d.item, next) {
                     done = Some("their pack is full");
                     break;
                 }
@@ -312,7 +321,9 @@ impl World {
                 dd.left = left - 1.0;
                 dd.at = next;
                 self.settle_at(l.who, next);
-                if let Some(det) = self.people[l.who as usize].detail.as_mut() {
+                if for_the_lord {
+                    self.island_deed(super::tutorial::Deed::Labour);
+                } else if let Some(det) = self.people[l.who as usize].detail.as_mut() {
                     det.gear.add(d.item, 1);
                 }
                 self.people[l.who as usize].stats.exercise(Skill::Athletics, 0.25);

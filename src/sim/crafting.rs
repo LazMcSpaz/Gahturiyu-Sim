@@ -1021,6 +1021,9 @@ impl World {
             let grade = Grade::from(skill, 1.0, roll.f32());
             let at = j.bed.unwrap_or_else(|| self.person_pos(j.who));
             let town = self.town_at(at);
+            if ok && self.island().is_some_and(|i| i.in_compound(at)) {
+                self.island_deed(super::tutorial::Deed::Made);
+            }
             let p = &mut self.people[j.who as usize];
             p.stats.exercise(rc.skill, if ok { 2.0 } else { 0.8 });
             let line = if ok {

@@ -266,7 +266,11 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    always open: the watch stands at it); the sneak path's lessons are read
    off the world (inside the wall after dark sneaking, a stores container
    gone through, disguised at the gate by day, a fight with the compound's
-   people, sneaking aboard); the caught path's are the law's to call.
+   people, sneaking aboard). On the caught path a bound squad member works
+   the overseers' rota (`island_shift`, read off the clock: the woodlot and
+   quarry faces turn about, the workyard every third day), what they cut
+   goes to the lord, and `Tutorial::deeds` counts labour, things made and
+   fights won (`island_deed`) for the lessons and for who buys them out.
    The dev test quarter (`sim/testquarter.rs`, `view/testquarter.rs`) is
    the walled west quarter: **Home with the detail switch (L) on** opens its
    gate and brings the squad in; Home inside it opens the dev spawner
