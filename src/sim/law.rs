@@ -843,7 +843,13 @@ impl World {
             let name = self.name_of(who);
             let place = self.settlements[town as usize].name.clone();
             let days = ((until - t) / DAY).ceil() as i64;
-            let line = if days <= 1 { format!("{name} is bound to work in {place} for a day.") } else { format!("{name} is bound to work in {place} for {days} days.") };
+            let line = if !until.is_finite() {
+                format!("{name} is bound to work in {place} for life.")
+            } else if days <= 1 {
+                format!("{name} is bound to work in {place} for a day.")
+            } else {
+                format!("{name} is bound to work in {place} for {days} days.")
+            };
             self.alerts.push(line.clone());
             self.say(t, line);
         }
@@ -1447,7 +1453,8 @@ impl World {
         for k in 0..self.squad.members.len() {
             let m = self.squad.members[k];
             let Some(b) = self.bond_of(m).copied() else { continue };
-            if self.fighting.contains_key(&m) || self.is_down(m) {
+            // (Nobody is marched off mid-talk: the lord's judgment, the steward's word.)
+            if self.fighting.contains_key(&m) || self.is_down(m) || self.talk.as_ref().is_some_and(|c| c.with == m) {
                 continue;
             }
             let a = k as f32 * 2.3;

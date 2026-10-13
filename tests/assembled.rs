@@ -51,7 +51,7 @@ fn the_pieces_parse() {
     let p = talk::pieces();
     assert!(p.len() > 60);
     for x in p {
-        assert!(["greeting", "topic", "feeling", "hook", "farewell", "bark", "origin", "work", "about", "folk", "ways", "line", "remark", "where", "danger", "private", "welcome", "offer", "not_yet", "thanks", "nothing", "hello", "question", "answer", "reply", "guide", "night_market", "judgment", "owe", "bought"].contains(&x.slot), "{x:?}");
+        assert!(["greeting", "topic", "feeling", "hook", "farewell", "bark", "origin", "work", "about", "folk", "ways", "line", "remark", "where", "danger", "private", "welcome", "offer", "not_yet", "thanks", "nothing", "hello", "question", "answer", "reply", "guide", "night_market", "defer", "judgment", "owe", "bought"].contains(&x.slot), "{x:?}");
     }
     // The theft set is there.
     assert!(p.iter().any(|x| x.topic == "theft" && x.text.contains("took {item}")));

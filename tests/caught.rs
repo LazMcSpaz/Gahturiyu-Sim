@@ -53,7 +53,16 @@ fn walking_into_the_compound_by_day_you_are_taken_and_judged() {
     let c = w.talk.as_ref().expect("the lord speaks");
     assert!(w.is_lord(c.npc));
     assert!(c.lines[0].1.contains("mine"), "{}", c.lines[0].1);
+    assert!(w.log.iter().any(|l| l.1.contains("lifts one finger")), "the overseer defers to him");
+    assert!(!w.topics().iter().any(|t| matches!(t, Topic::Join(_) | Topic::AskJoin)), "not one to ask along");
     assert!(w.person_pos(m).dist(w.person_pos(c.npc)) < 6.0, "stood before him");
+    assert!(w.log.iter().any(|l| l.1.ends_with("for life.")), "{:?}", w.log);
+    // Nobody marches them off while he speaks.
+    let mut w = w;
+    for _ in 0..20 {
+        w.step(0.5);
+    }
+    assert!(w.talk.is_some(), "the judgment stays open until it's done with");
 }
 
 #[test]

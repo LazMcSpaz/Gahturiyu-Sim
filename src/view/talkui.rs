@@ -402,7 +402,8 @@ pub fn talk(c: &Canvas, w: &World, st: &Talking, parting: Option<&Parting>, mous
     super::frame::portrait(c, x0 + 46.0, top + 46.0, 41.0, them.race, them.seed, false, 3.0);
     c.styled(first_name(w, npc), x0 + 114.0, top + 48.0, 32.0, eg(NAME), Face::Caps, 1.0);
     let job = w.life(npc).job;
-    let what = if job == Job::None { them.stats.calling.name().to_lowercase() } else if super::lexicon::native() { super::lexicon::thing(w, job.name()).to_lowercase() } else { job.title(them.seed).to_lowercase() };
+    // (Salt Isle's lord is his title, not a trade: `diub.rs`.)
+    let what = if w.is_lord(npc) { "Free Lord of the Grey House".to_string() } else if job == Job::None { them.stats.calling.name().to_lowercase() } else if super::lexicon::native() { super::lexicon::thing(w, job.name()).to_lowercase() } else { job.title(them.seed).to_lowercase() };
     c.styled(&format!("{} · {what}", them.race.name()), x0 + 114.0, top + 76.0, 18.0, eg(SUB), Face::Italic, 0.0);
 
     // What they just said.

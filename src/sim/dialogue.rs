@@ -674,10 +674,12 @@ impl World {
             t.push(Topic::Hire(wage));
         }
         // The restless may take to the road with the squad.
-        // (Anyone else, asked, says why not in a line.)
-        match self.join_terms(c.npc) {
+        // (Anyone else, asked, says why not in a line. Salt Isle's two
+        // strangers have their own roads: `diub.rs`.)
+        let stranger = self.is_lord(c.npc) || self.is_diub(c.npc);
+        match self.join_terms(c.npc).filter(|_| !stranger) {
             Some(fee) => t.push(Topic::Join(fee)),
-            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad => t.push(Topic::AskJoin),
+            None if self.people[c.npc as usize].home.is_some() && !self.people[c.npc as usize].in_squad && !stranger => t.push(Topic::AskJoin),
             None => {}
         }
         // A healer at work sees to the hurt; an innkeeper lets beds.

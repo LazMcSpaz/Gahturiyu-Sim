@@ -107,7 +107,18 @@ impl World {
             self.squad.route[k].clear();
         }
         self.end_talk();
+        // The overseer would speak; the lord doesn't let him.
+        let defer = self.say_from(lord, who, "isle", &["defer"], &[], &[]).text;
+        if !defer.is_empty() {
+            self.say(t, defer);
+        }
         let said = self.say_from(lord, who, "isle", &["judgment"], &[], &[]);
+        // (Brought in at night, they're judged where he lies: his word is
+        // in the news, and they're asked nothing.)
+        if self.is_indoors_asleep(lord) {
+            self.say(t, said.text);
+            return;
+        }
         self.met.insert((lord, who));
         self.talk = Some(super::dialogue::Conversation::opened(who, lord, said.text, said.pieces));
     }
