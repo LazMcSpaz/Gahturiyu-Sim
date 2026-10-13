@@ -792,6 +792,7 @@ impl World {
         let a = Fighter::from_person(&self.people[offender as usize], 0, super::geo::V2::new(0.0, 0.0), t);
         let b = Fighter::from_person(&self.people[wronged as usize], 1, super::geo::V2::new(3.0, 0.0), t);
         let mut battle = Battle::new(u32::MAX, seed, t, vec![a, b], vec![self.name_of(offender), self.name_of(wronged)]);
+        battle.bleeding = self.rules.bleeding;
         battle.advance_to(t + DUEL_SECS);
         // To knockout: wounds stay, but no one dies of a duel.
         for f in &mut battle.fighters {
