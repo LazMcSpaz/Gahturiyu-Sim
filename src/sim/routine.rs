@@ -306,6 +306,12 @@ impl World {
             plan.push(0.0, Doing::Idle, Spot::Home);
             return plan;
         };
+        // The test quarter's culture row keeps to its homes: the quarter is
+        // walled off from the compound (second's `testquarter.rs`).
+        if self.in_culture_row(pid) {
+            plan.push(0.0, Doing::Idle, Spot::Home);
+            return plan;
+        }
         let comm = &self.society.communities[ci as usize];
         let tl = &self.society.towns[town as usize];
         let rhythm = self.rhythm_of(pid);

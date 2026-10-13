@@ -111,3 +111,24 @@ fn a_weapons_row_of_the_duel_grid() {
     assert_eq!(r.wins.len(), SETS.len());
     assert!(r.secs[0].is_some(), "a club downs someone in nothing at all");
 }
+
+#[test]
+fn the_culture_row_is_four_homes_on_the_island_whose_folk_stay_in() {
+    let w = worldgen::generate(1);
+    let isle = w.island().expect("Salt Isle").clone();
+    let town = isle.settlement;
+    let homes: Vec<usize> = w.settlements[town as usize].buildings.iter().enumerate().filter(|(_, b)| isle.in_test_quarter(b.pos)).map(|(i, _)| i).collect();
+    assert_eq!(homes.len(), 4, "a home for each people");
+    let folk: Vec<u32> = w.settlements[town as usize].residents.iter().copied().filter(|&p| w.in_culture_row(p)).collect();
+    assert_eq!(folk.len(), 8);
+    let peoples: std::collections::BTreeSet<String> = folk.iter().map(|&p| format!("{:?}", w.people[p as usize].race)).collect();
+    assert_eq!(peoples.len(), 4, "{peoples:?}");
+    for &p in &folk {
+        assert!(w.bond_of(p).is_none(), "not one of the compound's debtors");
+        let day = World::day_of(w.time);
+        let plan = w.day_plan(p, day);
+        assert!(plan.segs[..plan.n].iter().all(|s| s.spot == gahturiyu_sim::sim::routine::Spot::Home), "they keep to their homes");
+    }
+    // The compound's own buildings come first, numbered as the island made them.
+    assert!(homes.iter().all(|&i| i >= 6));
+}

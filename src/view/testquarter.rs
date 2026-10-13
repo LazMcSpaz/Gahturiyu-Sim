@@ -100,7 +100,7 @@ pub enum Tab {
     Yard,
 }
 
-const TABS: [(Tab, &str); 5] = [(Tab::Items, "Items"), (Tab::Creatures, "Creatures"), (Tab::People, "People"), (Tab::World, "World"), (Tab::Yard, "Yard")];
+const TABS: [(Tab, &str); 5] = [(Tab::Items, "Items"), (Tab::Creatures, "Animals"), (Tab::People, "People"), (Tab::World, "World"), (Tab::Yard, "Yard")];
 
 /// The spawner while it's open.
 #[derive(Clone, Debug, Default)]

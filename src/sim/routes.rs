@@ -143,6 +143,11 @@ impl Routes {
     }
 
     pub fn build(terrain: &Terrain, towns: &[Settlement]) -> Routes {
+        // No road reaches Salt Isle (`island.rs`); it's always the last
+        // settlement, so the rest keep their ids as indices here.
+        let mainland = towns.iter().position(|s| s.island).unwrap_or(towns.len());
+        debug_assert!(towns[mainland..].iter().all(|s| s.island), "island settlements come last");
+        let towns = &towns[..mainland];
         let idx = |i: usize, j: usize| j * G + i;
         let centre = |i: usize, j: usize| V2::new(i as f32 * GRID, j as f32 * GRID);
         let height: Vec<f32> = (0..G * G).map(|k| terrain.height(centre(k % G, k / G))).collect();

@@ -139,6 +139,10 @@ pub struct World {
     /// The hidden dev test quarter, once found (`testquarter.rs`).
     #[serde(default)]
     pub test_quarter: Option<super::testquarter::TestQuarter>,
+    /// Salt Isle, the tutorial island (`island.rs`): which settlement is its
+    /// compound. None in a world made before it.
+    #[serde(default)]
+    pub island: Option<super::island::Island>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -373,6 +377,7 @@ impl World {
             terrain,
             routes,
             forge: None,
+            island: None,
             bases: Vec::new(),
             next_base: 0,
             looting: Vec::new(),

@@ -38,7 +38,7 @@ pub use sacred::{god, make, people_english, people_meaning, people_name, sacred,
 pub use say::{ascii, capital, file_name, guess_tongue, pronounce, syllables};
 pub use sound::{At, Step};
 pub use people::{generate_person, generate_person_among, given_name, listed_given, person_with_given, Context, Gender, Given, Listed, PersonName};
-pub use places::{generate_place, generate_place_with, Feature, Founding, PlaceName};
+pub use places::{generate_place, generate_place_with, place_from_roots, Feature, Founding, PlaceName};
 pub use things::{native_name, thing, things, Group, Thing};
 
 /// The First Speech and its four daughters.

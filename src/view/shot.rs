@@ -124,6 +124,10 @@ pub struct Shot {
     pub chase: bool,
     /// `GAHT_RUIN=k`: midday, the squad 45 m from ruin (or lair) k.
     pub ruin: Option<usize>,
+    /// `GAHT_ISLAND=1|<spot>`: the squad on Salt Isle, at the shore or the
+    /// named spot (`island::Spot`, lower case: `hut`, `gate`, `hall`, `dock`,
+    /// `quarry`, `testquarter`, ...).
+    pub island: Option<String>,
     /// `GAHT_GRIND=1|mine`: two of the squad at work at the nearest town
     /// woodlot (or iron seam).
     pub grind: Option<String>,
@@ -244,6 +248,7 @@ impl Shot {
             recruit: var("GAHT_RECRUIT").and_then(|v| v.parse().ok()),
             grind: var("GAHT_GRIND"),
             ruin: var("GAHT_RUIN").and_then(|v| v.parse().ok()),
+            island: var("GAHT_ISLAND"),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -353,6 +358,15 @@ impl Shot {
         if self.forge {
             if let Some(c) = world.forge.as_ref().and_then(|f| f.centre()) {
                 world.teleport_squad(c);
+                world.step(0.001);
+            }
+        }
+        if let Some(spot) = &self.island {
+            use gahturiyu_sim::sim::island::Spot;
+            let want = spot.to_lowercase();
+            let spot = Spot::ALL.iter().copied().find(|s| format!("{s:?}").to_lowercase() == want).unwrap_or(Spot::Shore);
+            if let Some(at) = world.island().map(|i| i.spot(spot)) {
+                world.teleport_squad(at);
                 world.step(0.001);
             }
         }

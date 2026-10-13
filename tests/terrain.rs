@@ -5,7 +5,8 @@ use gahturiyu_sim::sim::{geo, worldgen};
 #[test]
 fn every_town_can_reach_every_other_over_dry_land() {
     let w = worldgen::generate(1);
-    let n = w.settlements.len() as u16;
+    // (Salt Isle has no road: it's reached by ship.)
+    let n = w.settlements.iter().filter(|s| !s.island).count() as u16;
     for a in 0..n {
         for b in 0..n {
             if a == b {

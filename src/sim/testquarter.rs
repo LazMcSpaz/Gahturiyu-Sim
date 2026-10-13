@@ -70,6 +70,11 @@ pub struct TestQuarter {
 }
 
 impl TestQuarter {
+    /// A quarter with these corners, nobody in it yet.
+    pub fn new(min: V2, max: V2) -> TestQuarter {
+        TestQuarter { min, max, open: false, dummies: Vec::new(), row: Vec::new() }
+    }
+
     pub fn centre(&self) -> V2 {
         self.min.lerp(self.max, 0.5)
     }
@@ -135,7 +140,47 @@ impl TestQuarter {
     }
 }
 
+/// The culture row's homes on the island, added to the compound at world
+/// creation (after `island::add_compound`, before the society is founded):
+/// a Roduro home, a Qotiro block, a Horaro stilt home and a home where
+/// Ṭaḍoro lodge (they don't build their own: canon), each at its lot in the
+/// test quarter, two residents each. Appended to the compound's buildings,
+/// so its own numbering stands. They keep to their homes
+/// (`World::in_culture_row`): the quarter is walled off from the compound.
+pub(super) fn add_culture_row(settlements: &mut [super::settlement::Settlement], people: &mut Vec<Person>, isle: &super::island::Island, seed: u64) {
+    use super::settlement::{Building, BuildingKind};
+    let (min, max) = isle.test_quarter();
+    let q = TestQuarter::new(min, max);
+    let s = &mut settlements[isle.settlement as usize];
+    let mut r = Rng::from_keys(&[seed, 0x7E57_C017]);
+    for (race, lot) in q.culture_lots() {
+        let kind = match race {
+            Race::Qotiro => BuildingKind::QotiroBlock,
+            Race::Horaro => BuildingKind::HoraroStilt,
+            _ => BuildingKind::RoduroHome,
+        };
+        let i = s.buildings.len() as u16;
+        s.buildings.push(Building { pos: lot.c, kind, size: 11.0, rot: std::f32::consts::FRAC_PI_2, seed: r.next_u64() });
+        for k in 0..2u64 {
+            let pid = people.len() as PersonId;
+            let mut p = Person::summary(pid, rng::key(&[seed, 0x7E57_C018, i as u64, k]), race, Some(s.id));
+            p.home = Some(s.id);
+            p.dwelling = Some(i);
+            s.residents.push(pid);
+            people.push(p);
+        }
+    }
+    s.reach = s.buildings.iter().map(|b| b.pos.dist(s.pos) + b.size).fold(s.reach, f32::max);
+}
+
 impl World {
+    /// Does this person live in the test quarter's culture row?
+    pub fn in_culture_row(&self, pid: PersonId) -> bool {
+        let p = &self.people[pid as usize];
+        let (Some(isle), Some(home), Some(d)) = (self.island(), p.home, p.dwelling) else { return false };
+        home == isle.settlement && self.settlements[home as usize].buildings.get(d as usize).is_some_and(|b| isle.in_test_quarter(b.pos))
+    }
+
     /// The test quarter, if it has been found.
     pub fn test_quarter(&self) -> Option<&TestQuarter> {
         self.test_quarter.as_ref()
@@ -144,8 +189,10 @@ impl World {
     /// Where the quarter goes: the island's walled west quarter once the
     /// island stands; until then the nearest flat open ground to `near`.
     fn quarter_spot(&self, near: V2) -> Option<(V2, V2)> {
-        // TODO(island): `self.island().map(|i| i.test_quarter())` once the
-        // primary's island.rs lands.
+        if let Some(i) = self.island() {
+            return Some(i.test_quarter());
+        }
+        // A world without the island: the nearest flat open ground.
         let half = SIDE * 0.5;
         for ring in 0..24 {
             let d = 400.0 + ring as f32 * 150.0;
@@ -190,9 +237,13 @@ impl World {
     pub fn enter_test_quarter(&mut self) -> bool {
         if self.test_quarter.is_none() {
             let Some((min, max)) = self.quarter_spot(self.squad.pos) else { return false };
-            self.test_quarter = Some(TestQuarter { min, max, open: false, dummies: Vec::new(), row: Vec::new() });
+            self.test_quarter = Some(TestQuarter::new(min, max));
             self.stand_dummies();
-            self.stand_culture_row();
+            // On the island the row is real homes with residents
+            // (`add_culture_row`); elsewhere, folk standing at each lot.
+            if self.island().is_none() {
+                self.stand_culture_row();
+            }
         }
         if let Some(q) = self.test_quarter.as_mut() {
             q.open = true;

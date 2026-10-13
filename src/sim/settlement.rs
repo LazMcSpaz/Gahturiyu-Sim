@@ -79,6 +79,10 @@ pub struct Settlement {
     /// the factions their towns.
     #[serde(default)]
     pub holder: Option<super::factions::FactionId>,
+    /// Salt Isle's compound (`island.rs`): no road or caravan reaches it,
+    /// and it's laid out by hand. Always the last settlement.
+    #[serde(default)]
+    pub island: bool,
 }
 
 impl Settlement {
