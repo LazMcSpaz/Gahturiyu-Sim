@@ -362,6 +362,10 @@ impl World {
             d -= self.bounty_known_in(h) / 4.0;
         }
         d += self.regard.get(&npc).copied().unwrap_or(0.0);
+        // Your own presence and way with words (`stats::Attr::Personality`,
+        // `Skill::Speech`): an ordinary person adds nothing, a charmer
+        // plenty, a boor loses some.
+        d += self.charm(with);
         // A swaying word.
         d += self.boon(with, super::effects::Does::Sway);
         // In drink: merrier company when tipsy, worse past it.
@@ -371,6 +375,16 @@ impl World {
         // Finery on show (0.4).
         d += self.finery_respect(with);
         d.clamp(0.0, 100.0)
+    }
+
+    /// How much someone's own presence and speech add to how they're taken:
+    /// Personality and Speech against an ordinary 32 and 10 (`CHARM_PER`,
+    /// `CHARM_SPEECH` each), -12..+20 or so.
+    pub fn charm(&self, who: PersonId) -> f32 {
+        let s = self.people[who as usize].effective_stats();
+        let per = (s.attr(super::stats::Attr::Personality) - 32.0) * super::stats::CHARM_PER;
+        let speech = (s.skill(super::stats::Skill::Speech) - 10.0) * super::stats::CHARM_SPEECH;
+        (per + speech).clamp(-12.0, 25.0)
     }
 
     /// Send a squad member over to talk to someone.
@@ -766,6 +780,10 @@ impl World {
     /// nowhere else).
     pub fn ask(&mut self, topic: Topic) -> Option<String> {
         let c = self.talk.clone()?;
+        // Talking is how Speech grows (a little a topic; the goodbye not).
+        if topic != Topic::Goodbye && self.people[c.with as usize].in_squad {
+            self.people[c.with as usize].stats.exercise(super::stats::Skill::Speech, super::stats::SPEECH_PRACTICE);
+        }
         if topic == Topic::Goodbye {
             let bye = self.farewell(c.npc, c.with);
             self.note_said(c.npc, c.with, &bye.pieces);

@@ -27,9 +27,22 @@ pub enum Attr {
     Intellect,
     /// Casting reliably, resisting spells, and fatigue.
     Willpower,
+    /// Presence and charm: how people take to you (talk, trade, recruiting;
+    /// Laz, 13 Oct). Speech and Trade grow from it.
+    Personality,
 }
 
-pub const ATTRS: [Attr; 5] = [Attr::Strength, Attr::Agility, Attr::Toughness, Attr::Intellect, Attr::Willpower];
+/// How many attributes there are.
+pub const N_ATTRS: usize = 6;
+
+/// What Personality and Speech add to how someone takes you, a point each
+/// over an ordinary 32 and 10 (`World::charm`).
+pub const CHARM_PER: f32 = 0.5;
+pub const CHARM_SPEECH: f32 = 0.3;
+/// Speech practice a topic asked.
+pub const SPEECH_PRACTICE: f32 = 0.4;
+
+pub const ATTRS: [Attr; N_ATTRS] = [Attr::Strength, Attr::Agility, Attr::Toughness, Attr::Intellect, Attr::Willpower, Attr::Personality];
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Skill {
@@ -75,10 +88,15 @@ pub enum Skill {
     Masonry,
     /// Meals at a campfire or a stove (the items design, 0.6).
     Cooking,
+    /// Talking people round: trust, questions, recruiting, the law's ear
+    /// (Laz, 13 Oct). Grows by talking.
+    Speech,
+    /// Haggling: better prices across the table. Grows by dealing.
+    Trade,
 }
 
 /// How many skills there are.
-pub const N_SKILLS: usize = 23;
+pub const N_SKILLS: usize = 25;
 
 pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Blade,
@@ -104,6 +122,8 @@ pub const SKILLS: [Skill; N_SKILLS] = [
     Skill::Carpentry,
     Skill::Masonry,
     Skill::Cooking,
+    Skill::Speech,
+    Skill::Trade,
 ];
 
 impl Skill {
@@ -132,6 +152,8 @@ impl Skill {
             Skill::Carpentry => "Carpentry",
             Skill::Masonry => "Masonry",
             Skill::Cooking => "Cooking",
+            Skill::Speech => "Speech",
+            Skill::Trade => "Trade",
         }
     }
 
@@ -151,6 +173,7 @@ impl Skill {
             Skill::Carpentry => Attr::Agility,
             Skill::Masonry => Attr::Strength,
             Skill::Cooking => Attr::Agility,
+            Skill::Speech | Skill::Trade => Attr::Personality,
         }
     }
 
@@ -167,6 +190,7 @@ impl Attr {
             Attr::Toughness => "Toughness",
             Attr::Intellect => "Intellect",
             Attr::Willpower => "Willpower",
+            Attr::Personality => "Personality",
         }
     }
     pub fn short(self) -> &'static str {
@@ -176,6 +200,7 @@ impl Attr {
             Attr::Toughness => "TOU",
             Attr::Intellect => "INT",
             Attr::Willpower => "WIL",
+            Attr::Personality => "PER",
         }
     }
 }
@@ -220,7 +245,7 @@ impl Calling {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Stats {
-    pub attrs: [f32; 5],
+    pub attrs: [f32; N_ATTRS],
     pub skills: [f32; N_SKILLS],
     pub calling: Calling,
 }
@@ -247,19 +272,23 @@ impl Stats {
     /// patient and clever take up magic — but anyone can be anything.
     pub fn generate(race: Race, traits: &Traits, seed: u64) -> Stats {
         let mut rng = Rng::from_keys(&[seed, 0x5354_4154]);
-        let bias: [f32; 5] = match race {
-            //                 STR   AGI   TOU   INT   WIL
-            Race::Roduro => [8.0, -4.0, 12.0, 0.0, 4.0],
-            Race::Qotiro => [12.0, 6.0, 6.0, -4.0, 0.0],
-            Race::Horaro => [-4.0, 4.0, 0.0, 6.0, 10.0],
-            Race::Tadoro => [-8.0, 10.0, -6.0, 14.0, 4.0],
+        let bias: [f32; N_ATTRS] = match race {
+            //                 STR   AGI   TOU   INT   WIL   PER
+            Race::Roduro => [8.0, -4.0, 12.0, 0.0, 4.0, 2.0],
+            Race::Qotiro => [12.0, 6.0, 6.0, -4.0, 0.0, -2.0],
+            Race::Horaro => [-4.0, 4.0, 0.0, 6.0, 10.0, 6.0],
+            Race::Tadoro => [-8.0, 10.0, -6.0, 14.0, 4.0, 4.0],
         };
-        let mut attrs = [0.0f32; 5];
-        for (i, a) in attrs.iter_mut().enumerate() {
+        let mut attrs = [0.0f32; N_ATTRS];
+        for (i, a) in attrs.iter_mut().enumerate().take(5) {
             *a = (32.0 + bias[i] + rng.normal() * 8.0).clamp(10.0, 70.0);
         }
         attrs[Attr::Strength as usize] += (traits.boldness - 0.5) * 8.0;
         attrs[Attr::Willpower as usize] += (traits.patience - 0.5) * 8.0;
+        // (Personality draws from its own roll, so everyone's other numbers
+        // stay as they were; the sociable have more of it.)
+        let mut social = Rng::from_keys(&[seed, 0x5045_5253_4F4E]);
+        attrs[Attr::Personality as usize] = (32.0 + bias[5] + social.normal() * 8.0).clamp(10.0, 70.0) + (traits.sociability - 0.5) * 12.0;
 
         // Calling. Ṭaḍoro magic is structural and teachable, so more of them
         // study it; Qotiro lean martial.

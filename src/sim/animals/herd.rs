@@ -542,7 +542,7 @@ fn stats_of(sp: Sp) -> Stats {
     skills[Skill::Unarmed as usize] = b.skill;
     skills[Skill::Dodge as usize] = b.dodge;
     skills[Skill::Block as usize] = b.skill * 0.5;
-    Stats { attrs: [b.strength, b.agility, b.toughness, 10.0, 60.0], skills, calling: Calling::Common }
+    Stats { attrs: [b.strength, b.agility, b.toughness, 10.0, 60.0, 5.0], skills, calling: Calling::Common }
 }
 
 /// The most health each part of an animal can have.

@@ -50,6 +50,7 @@ fn attr_name(a: Attr) -> &'static str {
         Attr::Toughness => "Toughness",
         Attr::Intellect => "Intellect",
         Attr::Willpower => "Willpower",
+        Attr::Personality => "Personality",
     }
 }
 
