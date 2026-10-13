@@ -299,7 +299,13 @@ fn tracked_job(w: &World) -> Option<(String, String, Option<V2>)> {
     let Some(q) = w.quests.iter().find(|q| q.stage != Stage::Done) else {
         // The tutorial's lesson, while there's no job.
         let x = w.lesson_now()?;
-        return Some((x.title.to_string(), x.task.to_string(), w.lesson_at(x)));
+        // Once you've met Diʻub, he says it first, in his own words (`diub.rs`).
+        let met = w.tutorial().is_some_and(|t| t.is_done("questions"));
+        let task = match w.guide_line(x.key).filter(|_| met) {
+            Some(g) => format!("Diʻub: “{g}” {}", x.task),
+            None => x.task.to_string(),
+        };
+        return Some((x.title.to_string(), task, w.lesson_at(x)));
     };
     let giver = w.people[q.giver as usize].name().unwrap_or("someone").to_string();
     let town = w.people[q.giver as usize].home.map(|h| w.settlements[h as usize].name.clone()).unwrap_or_default();

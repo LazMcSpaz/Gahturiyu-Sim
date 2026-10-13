@@ -780,7 +780,26 @@ impl Shot {
             }
             world.step(0.5);
         }
-        if self.talk {
+        // `GAHT_TALK=diub`: talk to Diʻub at the shelter hut and answer his
+        // first question (`GAHT_TALK=diub4`: all four, his offer after).
+        if let Some(n) = self.talk_to.as_deref().and_then(|w| w.strip_prefix("diub")).map(|r| r.parse::<u8>().unwrap_or(1)) {
+            if let Some(d) = world.strangers.diub {
+                let lead = world.squad.members[0];
+                let at = world.person_pos(d);
+                world.teleport_squad(at.add(V2::new(1.5, 0.0)));
+                world.squad.at[0] = at.add(V2::new(1.0, 0.0));
+                world.order_talk(lead, d);
+                for _ in 0..240 {
+                    if world.talk.is_some() {
+                        break;
+                    }
+                    world.step(0.5);
+                }
+                for q in 0..n.min(4) {
+                    world.ask(Topic::Answer(q, q % 4));
+                }
+            }
+        } else if self.talk {
             let lead = world.squad.members[0];
             let here = world.squad.pos;
             let town = world.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).map(|t| t.id).unwrap();

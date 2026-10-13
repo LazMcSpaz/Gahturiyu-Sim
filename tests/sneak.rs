@@ -58,7 +58,7 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
     let isle = w.island().unwrap().clone();
     let m = w.squad.members[0];
     // Through the shared opening by hand.
-    for k in ["wake", "salvage", "shelter", "cook"] {
+    for k in ["wake", "salvage", "shelter", "cook", "questions"] {
         w.lesson_done(k);
     }
     assert_eq!(w.lesson_now().map(|x| x.key), Some("night_run"));
@@ -116,7 +116,7 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
 fn a_fight_with_the_compounds_people_is_being_spotted() {
     let mut w = opening(14);
     let isle = w.island().unwrap().clone();
-    for k in ["wake", "salvage", "shelter", "cook", "night_run", "stores", "gate"] {
+    for k in ["wake", "salvage", "shelter", "cook", "questions", "night_run", "stores", "gate"] {
         w.lesson_done(k);
     }
     assert_eq!(w.tutorial().unwrap().path, Some(Path::Sneak));

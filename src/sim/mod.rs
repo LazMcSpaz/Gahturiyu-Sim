@@ -32,6 +32,7 @@ pub mod crafting;
 pub mod culture;
 pub mod disguise;
 pub mod dialogue;
+pub mod diub;
 pub mod duelgrid;
 pub mod economy;
 pub mod effects;

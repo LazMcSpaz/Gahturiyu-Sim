@@ -127,6 +127,9 @@ pub enum Topic {
     Confide,
     /// Ask to join their guild (`membership.rs`).
     JoinGuild(super::factions::FactionId),
+    /// An answer to one of Diʻub's questions (`diub.rs`): which question,
+    /// which answer (`diub::RATHER_NOT`: "I'd rather not say").
+    Answer(u8, u8),
 }
 
 impl Topic {
@@ -173,6 +176,7 @@ impl Topic {
             Topic::Views => "What do you make of things?",
             Topic::Confide => "What do you really think?",
             Topic::JoinGuild(_) => "Could I join you?",
+            Topic::Answer(..) => "...",
             Topic::SellAll(..) => "Sell all",
             Topic::SellWorn(..) => "Sell what's being worn",
             Topic::SellRest => "What else would you take?",
@@ -270,6 +274,8 @@ impl World {
     /// What a topic's button says, naming what it's about.
     pub fn topic_text(&self, t: Topic) -> String {
         match t {
+            Topic::Answer(_, a) if a >= super::diub::RATHER_NOT => "I'd rather not say.".to_string(),
+            Topic::Answer(q, a) => self.answer_text(q, a),
             Topic::Mend(owner, slot, p) => {
                 let what = self.people[owner as usize].detail.as_ref().and_then(|d| d.gear.in_slot(SLOTS[slot as usize])).map(|id| items::item(id).name.to_lowercase()).unwrap_or_default();
                 let whose = self.people[owner as usize].name().unwrap_or("?").to_string();
@@ -393,7 +399,11 @@ impl World {
         }
         // What they say first is put together from what's on their mind.
         let concerns = self.on_mind(npc);
-        let said = self.assemble_talk(npc, who, concerns.first(), true);
+        let mut said = self.assemble_talk(npc, who, concerns.first(), true);
+        if let Some(q) = self.strangers.question().filter(|_| self.is_diub(npc)) {
+            let first = if q == 0 { vec!["hello", "question"] } else { vec!["question"] };
+            said = self.say_from(npc, who, "diub", &first, &[format!("q={}", q + 1)], &[]);
+        }
         self.note_said(npc, who, &said.pieces);
         // From now on they've met (the greeting above was the first-meeting one, if it was).
         self.met.insert((npc, who));
@@ -459,6 +469,13 @@ impl World {
         let Some(c) = &self.talk else { return vec![] };
         if c.refused || self.people[c.npc as usize].in_squad || self.regard_of(c.npc, c.with) < super::talk::DISTRUST {
             return vec![Topic::Goodbye];
+        }
+        // Diʻub's questions: while any are left, the answers are all there is
+        // to say (`diub.rs`).
+        if let Some(q) = self.strangers.question().filter(|_| self.is_diub(c.npc)) {
+            let mut t: Vec<Topic> = (0..=super::diub::RATHER_NOT).map(|a| Topic::Answer(q, a)).collect();
+            t.push(Topic::Goodbye);
+            return t;
         }
         // What the squad member can say about what's on their mind.
         let mut t: Vec<Topic> = self.options(c.npc, c.with, &c.concerns, c.at).into_iter().filter(|o| *o == super::talk::Opt::More || !c.tried.contains(&(*o, c.at))).map(Topic::Say).collect();
@@ -680,6 +697,10 @@ impl World {
         if c.refused || self.people[c.npc as usize].in_squad || self.regard_of(c.npc, c.with) < super::talk::DISTRUST {
             return vec![];
         }
+        // (While Diʻub is asking his questions, his questions are all there is.)
+        if self.is_diub(c.npc) && self.strangers.question().is_some() {
+            return vec![];
+        }
         use super::jobs::Job;
         let job = self.life(c.npc).job;
         let (they, their) = match super::names::gender(self.people[c.npc as usize].seed) {
@@ -748,6 +769,12 @@ impl World {
             }
             self.push_talk(true, answer.clone());
             return Some(answer);
+        }
+        if let Topic::Answer(q, a) = topic {
+            self.push_talk(false, self.topic_text(topic));
+            let said = self.diub_answers(c.npc, c.with, q, a);
+            self.push_talk(true, said.clone());
+            return Some(said);
         }
         self.push_talk(false, self.topic_text(topic));
         if topic == Topic::Lessons {
@@ -1326,6 +1353,8 @@ impl World {
                 }
             }
             Topic::Goodbye => String::new(),
+            // (Answered in `ask`: Diʻub's questions, `diub_answers`.)
+            Topic::Answer(..) => String::new(),
         }
     }
 
@@ -1351,6 +1380,19 @@ impl World {
         }
     }
 
+    /// Diʻub hears an answer: the boosts (`diub.rs`), his reply, then his next
+    /// question, or, after the fourth, his offer.
+    fn diub_answers(&mut self, npc: PersonId, who: PersonId, q: u8, a: u8) -> String {
+        self.answer_question(who, a);
+        let tags = [format!("q={}", q + 1), format!("a={}", a.min(super::diub::RATHER_NOT) + 1)];
+        let reply = self.say_from(npc, who, "diub", &["reply"], &tags, &[]).text;
+        let next = match self.strangers.question() {
+            Some(n) => self.say_from(npc, who, "diub", &["question"], &[format!("q={}", n + 1)], &[]).text,
+            None => self.say_from(npc, who, "diub", &["offer"], &[], &[]).text,
+        };
+        format!("{reply} {next}")
+    }
+
     /// Distance, direction and size of the bandit camp nearest a town.
     fn nearest_camp(&self, home: Option<u16>) -> Option<(f32, &'static str, usize, super::group::GroupId)> {
         let from = home.map(|h| self.settlements[h as usize].pos).unwrap_or(self.squad.pos);
@@ -1362,6 +1404,7 @@ impl World {
 
 fn topic_key(t: Topic) -> u64 {
     match t {
+        Topic::Answer(q, a) => 40_000 + q as u64 * 10 + a as u64,
         Topic::Background => 1,
         Topic::ThisTown => 2,
         Topic::Advice => 3,

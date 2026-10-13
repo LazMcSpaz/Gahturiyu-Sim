@@ -55,7 +55,7 @@ pub const LESSONS: &[Lesson] = &[
     l("salvage", Path::Both, "Salvage", "What the sea left of your things lies at the water's edge below the wreck. Click the crate and take what's there.", "looting, your pack", Some(Spot::Wreck), true),
     l("shelter", Path::Both, "Shelter", "Get out of the weather. There's a hut up the slope with a fire going.", "shelter, cold", Some(Spot::Hut), true),
     l("cook", Path::Both, "Cook", "There's raw food by the fire: click it to pick it up. Then right-click the fire, Cook here, make something, and eat it (double-click it in the pack).", "fire, cooking, eating", Some(Spot::Hut), true),
-    l("questions", Path::Both, "The stranger", "Someone's here. Talk to him.", "talking, who you were", Some(Spot::Hut), false),
+    l("questions", Path::Both, "The stranger", "Someone's here. Talk to him.", "talking, who you were", Some(Spot::Hut), true),
     l("labour", Path::Caught, "Labour", "You're the lord's now. By day the overseers walk you to the woodlot or the quarry: cut and dig (it goes on his pile), and you're walked back at dusk. You take no orders while bound.", "tools, gathering, carrying", Some(Spot::Woodlot), true),
     l("workyard", Path::Caught, "The workyard", "Every third day you're put to the workyard. Press Craft there: mend something, or make a bandage (two cloth) for the sick house.", "crafting, repair, bandages", Some(Spot::Workyard), true),
     l("yard", Path::Caught, "The yard", "Prove yourself.", "fighting, wounds, knockouts", Some(Spot::Yard), false),
