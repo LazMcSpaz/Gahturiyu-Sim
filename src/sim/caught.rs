@@ -14,9 +14,8 @@
 //!   nobody dies of it, `law.rs`). Fought, the lesson's done; won, it counts.
 //! - **Bought out** (the "bought" lesson): when it's up, someone has paid
 //!   for them: the Lantern Company if they fought most, the Writers if they
-//!   worked with their head (what the island saw: `Caught`'s tallies, which
-//!   the labour and workyard lessons add to with `island_deed`; Diʻub's
-//!   answers break a tie, `Strangers::lean`). The bond ends, they're counted
+//!   worked with their head (what the island saw: `tutorial::Deeds`, fights
+//!   won against things made; Diʻub's answers break a tie, `Strangers::lean`). The bond ends, they're counted
 //!   among the buyer's people, and they owe it a while's work (`owes`).
 //!   The lesson's done at the dock, where the buyer's ship comes in.
 //!
@@ -38,25 +37,11 @@ pub const BOUGHT_FOR: u16 = 150;
 /// How light it must be for the compound to see you plainly.
 const DAY: f32 = 0.3;
 
-/// What the island saw a squad member do, for who buys them out.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Deed {
-    /// A bout or a fight won.
-    Fought,
-    /// A thing made or mended at a bench.
-    Made,
-    /// Hours of labour.
-    Laboured,
-}
-
 /// How the caught path stands. Saved.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Caught {
     /// Who was taken, and when.
     pub taken: Option<(PersonId, f64)>,
-    pub fought: u16,
-    pub made: u16,
-    pub laboured: u16,
     /// Who bought them out, and what's owed in work.
     pub owes: Option<(FactionId, u16)>,
 }
@@ -166,8 +151,8 @@ impl World {
     /// A yard bout is over (`law::duel_over`): fought, the lesson's done.
     pub(super) fn yard_bout_over(&mut self, who: PersonId, won: bool, t: f64) {
         let name = self.name_of(who);
+        // (A win is counted with any fight won on the island: `fights.rs`.)
         if won {
-            self.island_deed(Deed::Fought, 1);
             self.say(t, format!("{name} wins the bout. The overseers take note."));
         } else {
             self.say(t, format!("{name} goes down in the yard. The overseers take note all the same."));
@@ -175,21 +160,12 @@ impl World {
         self.lesson_done("yard");
     }
 
-    /// Something done on the island that counts toward who buys them out.
-    pub fn island_deed(&mut self, d: Deed, n: u16) {
-        let c = &mut self.caught;
-        match d {
-            Deed::Fought => c.fought = c.fought.saturating_add(n),
-            Deed::Made => c.made = c.made.saturating_add(n),
-            Deed::Laboured => c.laboured = c.laboured.saturating_add(n),
-        }
-    }
-
     /// Who would buy them out now: the Lantern Company for a fighter, the
     /// Writers for a head (labour leans to neither).
     pub fn buyer(&self) -> FactionId {
-        let fight = self.caught.fought as i32 * 2;
-        let head = self.caught.made as i32;
+        let d = self.island_deeds().unwrap_or_default();
+        let fight = d.fights_won as i32 * 2;
+        let head = d.made as i32;
         let lean = self.strangers.lean();
         let lantern = fight > head || (fight == head && lean >= 0);
         factions::id(if lantern { "lantern_company" } else { "writers" })

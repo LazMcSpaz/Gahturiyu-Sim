@@ -1451,6 +1451,33 @@ impl World {
                 continue;
             }
             let a = k as f32 * 2.3;
+            // On Salt Isle, a shift (`tutorial::island_shift`): the overseers
+            // walk them to the face, and the work starts when they get there.
+            if self.is_island(b.town) {
+                if let Some(shift) = self.island_shift(self.time) {
+                    match shift {
+                        super::tutorial::Shift::Face(id, at) => {
+                            if !self.labour.iter().any(|l| l.who == m) {
+                                let n = self.labour.iter().filter(|l| l.deposit == id).count() as f32;
+                                let spot = if n == 0.0 { at } else { at.add(super::geo::V2::new((n * 2.4).cos(), (n * 2.4).sin()).scale(1.6)) };
+                                self.send(m, spot);
+                                self.labour.push(super::labour::Labour { who: m, deposit: id, next: None });
+                            }
+                            continue;
+                        }
+                        super::tutorial::Shift::Workyard(at) => {
+                            self.labour.retain(|l| l.who != m);
+                            let spot = self.free_spot(at.add(super::geo::V2::new(a.cos(), a.sin()).scale(5.0)));
+                            if self.squad.goal[k].dist(spot) > 2.0 {
+                                self.send(m, spot);
+                            }
+                            continue;
+                        }
+                    }
+                }
+                // Off shift: back to the bunkhouses' side of the hall.
+                self.labour.retain(|l| l.who != m);
+            }
             // (Beside the hall, where there's room to stand, not in it.)
             let spot = self.free_spot(self.bound_spot(b.town).add(super::geo::V2::new(a.cos(), a.sin()).scale(4.0)));
             if self.squad.goal[k].dist(spot) > 2.0 {

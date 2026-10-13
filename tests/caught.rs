@@ -2,7 +2,8 @@
 //! a runaway, judged by the lord, the bond, the yard, bought out.
 
 use gahturiyu_sim::sim::{
-    caught::{Deed, AT_DOCK},
+    caught::AT_DOCK,
+    tutorial::Deed,
     dialogue::Topic,
     factions,
     geo::V2,
@@ -80,7 +81,9 @@ fn asking_what_is_owed_is_the_bond_lesson() {
 fn the_yard_bout_is_fought_out_and_nobody_pays() {
     let (mut w, m) = taken(3);
     w.end_talk();
-    w.lesson_done("bond");
+    for k in ["labour", "workyard", "bond"] {
+        w.lesson_done(k);
+    }
     assert_eq!(w.lesson_now().map(|x| x.key), Some("yard"));
     let isle = w.island().unwrap().clone();
     w.teleport_squad(isle.spot(Spot::Yard));
@@ -101,14 +104,17 @@ fn bought_out_by_the_company_for_a_fighter_or_the_writers_for_a_head() {
     let (mut w, m) = taken(3);
     w.end_talk();
     // A fighter.
-    w.island_deed(Deed::Fought, 2);
+    w.island_deed(Deed::FightWon);
+    w.island_deed(Deed::FightWon);
     assert_eq!(w.buyer(), factions::id("lantern_company"));
     // A head: more made than fought.
     let mut v = w.clone();
-    v.island_deed(Deed::Made, 9);
+    for _ in 0..9 {
+        v.island_deed(Deed::Made);
+    }
     assert_eq!(v.buyer(), factions::id("writers"));
     // The lessons before it done: the buyer comes.
-    for k in ["bond", "yard"] {
+    for k in ["labour", "workyard", "bond", "yard"] {
         w.lesson_done(k);
     }
     assert_eq!(w.lesson_now().map(|x| x.key), Some("bought"));
