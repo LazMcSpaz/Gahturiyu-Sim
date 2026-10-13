@@ -112,6 +112,9 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
     assert!(w.voyage.is_some(), "sailed");
     let tu = w.tutorial().unwrap();
     assert!(tu.is_done("stow") && tu.is_done("spotted") && tu.is_done("sail"), "{tu:?}");
+    // Diʻub's word on the ship, and the Night Market takes them in (`caught.rs`).
+    assert!(w.in_guild(gahturiyu_sim::sim::factions::id("night_market")), "counted among the Night Market");
+    assert!(w.log.iter().any(|l| l.1.starts_with("Diʻub:") && l.1.contains("Night Market")), "{:?}", w.log);
 }
 
 #[test]

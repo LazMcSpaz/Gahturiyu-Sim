@@ -333,6 +333,8 @@ impl World {
         if b == Berth::Island {
             if self.tutorial().and_then(|t| t.path) == Some(super::tutorial::Path::Sneak) {
                 self.lesson_done("stow");
+                // Diʻub takes them into the Night Market (second's `caught.rs`).
+                self.stowed_away();
             }
             self.lesson_done("sail");
         }

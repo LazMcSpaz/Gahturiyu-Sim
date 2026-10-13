@@ -19,6 +19,12 @@
 //!   among the buyer's people, and they owe it a while's work (`owes`).
 //!   The lesson's done at the dock, where the buyer's ship comes in.
 //!
+//! **The sneak path's end** (`stowed_away`, called by the ship when it sails
+//! with them stowed away): Diʻub goes to work for the Night Market and
+//! brings them in with him (his line, `data/lines/diub.txt` `night_market`):
+//! their first faction, as the Lantern Company or the Writers are on the
+//! caught path.
+//!
 //! The squad's own (the player exception): checked in the squad's step.
 
 use serde::{Deserialize, Serialize};
@@ -44,6 +50,10 @@ pub struct Caught {
     pub taken: Option<(PersonId, f64)>,
     /// Who bought them out, and what's owed in work.
     pub owes: Option<(FactionId, u16)>,
+    /// Stowed away with Diʻub on the sneak path: he's taken them into the
+    /// Night Market.
+    #[serde(default)]
+    pub night_market: bool,
 }
 
 impl World {
@@ -200,5 +210,21 @@ impl World {
         if !said.is_empty() {
             self.say(t, said);
         }
+    }
+
+    /// Off the island stowed away (the sneak path): Diʻub's word, and the
+    /// Night Market takes them in. Once.
+    pub fn stowed_away(&mut self) {
+        if self.caught.night_market {
+            return;
+        }
+        self.caught.night_market = true;
+        let t = self.time;
+        if let Some(line) = self.diub_line("night_market") {
+            let said = format!("{}: “{line}”", super::diub::DIUB);
+            self.alerts.push(said.clone());
+            self.say(t, said);
+        }
+        let _ = self.join_guild(factions::id("night_market"));
     }
 }
