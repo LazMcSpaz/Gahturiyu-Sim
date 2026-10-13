@@ -112,7 +112,9 @@ impl World {
             p.dwelling = Some(home);
             p.wounds.at = self.time;
             p.mana_at = self.time;
-            p.ensure_detail();
+            if p.ensure_detail() {
+                self.stats.detailed += 1;
+            }
             if let Some(d) = p.detail.as_mut() {
                 d.name = name.to_string();
             }

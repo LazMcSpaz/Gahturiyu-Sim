@@ -1020,6 +1020,10 @@ fn the_game_uses_the_names() {
         // ---- People: the given name is the same wherever it is asked for.
         let mut world = w.clone();
         for id in (0..world.people.len()).step_by(7) {
+            // (Diʻub and the lord carry Laz's own names: canon.ron, `diub.rs`.)
+            if world.is_diub(id as u32) || world.is_lord(id as u32) {
+                continue;
+            }
             let (race, pseed) = (world.people[id].race, world.people[id].seed);
             let given = game::person_name(race, pseed);
             assert_eq!(given, game::person_name(race, pseed));
