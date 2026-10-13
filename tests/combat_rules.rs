@@ -159,9 +159,11 @@ fn after_a_fight(bandages: bool) -> Option<(World, u32)> {
             }
             continue;
         }
-        // With bandages: anyone cut was bound when it was over.
+        // With bandages: anyone cut was bound when it was over. (A fight
+        // where the only bandage went on mid-fight isn't the one wanted: the
+        // binding asked for is after it, and the news says so.)
         let after: u16 = w.squad.members.iter().filter(|&&m| !w.people[m as usize].dead).map(|&m| held(&w, m, bandage)).sum();
-        if after < before {
+        if after < before && w.log.iter().any(|l| l.1.contains("binds")) {
             if let Some(&m) = w.squad.members.iter().find(|&&m| !w.people[m as usize].dead) {
                 return Some((w, m));
             }

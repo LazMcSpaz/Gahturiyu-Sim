@@ -274,6 +274,8 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
 
     // --- Salt Isle: the compound and its people, all extra ---------------
     let island = super::island::add_compound(&mut settlements, &mut people, seed);
+    // The test quarter's culture row: homes and residents of the compound (second's `testquarter.rs`).
+    super::testquarter::add_culture_row(&mut settlements, &island, seed);
 
     // --- Roads between the towns ----------------------------------------
     let (authored, town) = match forge {
@@ -304,6 +306,8 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     w.place_ruins();
     // The Binders' camps last of all, so nobody else's dice move.
     w.place_binders();
+    // The test quarter's culture row's folk, last of all (second's `testquarter.rs`).
+    w.people_the_culture_row();
     // The weather for outdoor work, the first days (after this, each dawn).
     let day = World::day_of(w.time);
     for town in 0..w.settlements.len() {

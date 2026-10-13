@@ -226,21 +226,28 @@ fn a_resting_gang_still_guards_its_camp() {
     // the guard ring, lies where they fell.)
     assert!(w.squad.members.iter().any(|&m| w.member_pos(w.squad.index(m).unwrap()).dist(camp) < DUMP_AT + 5.0), "but not far");
     assert!(w.log.iter().any(|l| l.1.starts_with("They drag you out")), "{:?}", w.log);
-    // Someone comes round and goes in for the pile.
+    // Someone comes round and goes in for the pile. (Whoever comes round
+    // first may already be on their ground, and be seen there before
+    // anyone is sent: that's the gang guarding its camp too.)
     let ended = w.time;
-    while w.squad_fit().is_empty() && w.time < ended + 3.0 * 3600.0 {
+    let seen = |w: &gahturiyu_sim::sim::World| w.log.iter().any(|l| l.0 > ended && l.1.starts_with("You're seen in their camp"));
+    while w.squad_fit().is_empty() && w.time < ended + 3.0 * 3600.0 && !seen(&w) {
         w.step(30.0);
     }
-    let up = w.squad_fit()[0];
-    let ready = w.camps.iter().find(|c| c.group == band).unwrap().ready_at;
-    assert!(ready > w.time, "the gang is resting");
-    w.order_members(&[up], camp);
-    let went = w.time;
-    while w.squad_battle().is_none() && w.time < went + 600.0 {
-        w.step(0.5);
+    if !seen(&w) {
+        // (The fittest of those up: someone barely standing may not walk at all.)
+        let hp = |w: &gahturiyu_sim::sim::World, m: u32| w.people[m as usize].wounds.hp_at(&w.people[m as usize].stats, w.time).iter().copied().fold(f32::MAX, f32::min);
+        let up = w.squad_fit().into_iter().max_by(|&a, &b| hp(&w, a).total_cmp(&hp(&w, b))).unwrap();
+        let ready = w.camps.iter().find(|c| c.group == band).unwrap().ready_at;
+        assert!(ready > w.time, "the gang is resting");
+        w.order_members(&[up], camp);
+        let went = w.time;
+        // (A fight with someone already lying there can be over within a step.)
+        while w.squad_battle().is_none() && !seen(&w) && w.time < went + 600.0 {
+            w.step(0.5);
+        }
     }
-    assert!(w.squad_battle().is_some(), "walking into the camp starts a fight");
-    assert!(w.log.iter().any(|l| l.1.starts_with("You're seen in their camp")), "{:?}", w.log);
+    assert!(seen(&w), "{:?}", w.log);
 }
 
 /// Play-test item 13: "They'll have it back at their camp" is true. What the

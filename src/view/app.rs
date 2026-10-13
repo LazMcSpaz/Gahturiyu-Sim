@@ -89,6 +89,8 @@ pub struct Game {
     pub rings: bool,
     /// The detail-level readout (L).
     pub debug: bool,
+    /// The test quarter's dev spawner, while it's open (Home, with L on).
+    pub dev: Option<super::testquarter::DevPanel>,
     pub sel: Selection,
     pub inv: Option<PersonId>,
     pub craft: Option<PersonId>,
@@ -364,6 +366,7 @@ pub fn run() {
         short: None,
         town_all: false,
         editor: Default::default(),
+        dev: None,
         barked: std::collections::HashMap::new(),
         build: false,
         base_tab: false,
@@ -424,6 +427,21 @@ pub fn run() {
                 }
                 game.trading = Some(super::tradeui::Trading { table, ..Default::default() });
             }
+        }
+        // `GAHT_QUARTER=<tab>`: the test quarter's spawner on that tab.
+        if let Some(tab) = s.quarter.as_deref().filter(|t| *t != "1") {
+            use super::testquarter::{DevPanel, Tab};
+            let mut dp = DevPanel { tab: match tab {
+                "creatures" => Tab::Creatures,
+                "people" => Tab::People,
+                "world" => Tab::World,
+                "yard" => Tab::Yard,
+                _ => Tab::Items,
+            }, ..Default::default() };
+            if dp.tab == Tab::Yard {
+                dp.row = gahturiyu_sim::sim::duelgrid::weapons().first().map(|w| gahturiyu_sim::sim::duelgrid::row(w));
+            }
+            game.dev = Some(dp);
         }
         if s.trade_bottles {
             // One of the bottles on the table, and the stall scrolled down to them.
@@ -858,6 +876,18 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     // P: the town panel for the town the squad is in.
     if keys.just_pressed(KeyCode::KeyP) {
         toggle_town(game);
+    }
+    // Home, with the detail switch on: the hidden test quarter (dev only,
+    // `testquarter.rs`). Outside it: open it and go in; inside: the spawner.
+    if keys.just_pressed(KeyCode::Home) && game.debug {
+        let inside = game.world.test_quarter().is_some_and(|q| q.open && q.contains(game.world.squad.pos));
+        if inside {
+            game.dev = if game.dev.is_some() { None } else { Some(Default::default()) };
+        } else if game.world.enter_test_quarter() {
+            game.notice = Some(("The test quarter (dev only). Home again for the spawner.".to_string(), std::time::Instant::now()));
+        } else {
+            game.notice = Some(("No flat ground for the test quarter near here.".to_string(), std::time::Instant::now()));
+        }
     }
     let w = &mut game.world;
     if keys.just_pressed(KeyCode::KeyO) {
@@ -1805,6 +1835,21 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     if town_button {
         toggle_town(game);
+    }
+    // The test quarter's dev spawner.
+    if let Some(mut dp) = game.dev.take() {
+        let (a, bx) = super::testquarter::panel(&c, &game.world, &dp, click, click.is_some_and(|k| k.shift));
+        panels.push(bx);
+        let lead = game.sel.lead(&game.world).or_else(|| game.world.squad.members.first().copied());
+        let close = matches!(a, Some(super::testquarter::DevAct::Close));
+        if let Some(a) = a {
+            if let Some(msg) = super::testquarter::apply(&mut game.world, &mut dp, a, lead, &mut weather.force) {
+                game.notice = Some((msg, std::time::Instant::now()));
+            }
+        }
+        if !close {
+            game.dev = Some(dp);
+        }
     }
     let w = &mut game.world;
     let mut item_tip = None;

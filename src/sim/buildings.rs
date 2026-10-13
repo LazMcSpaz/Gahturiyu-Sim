@@ -217,7 +217,7 @@ impl World {
     }
 
     /// How many live in a building now, and whether a Ṭaḍoro lodges there.
-    fn current_sleepers(&self, door: DoorId) -> (u16, bool) {
+    pub(super) fn current_sleepers(&self, door: DoorId) -> (u16, bool) {
         let rs = self.residents_of(door);
         let lodger = rs.iter().any(|&p| self.people[p as usize].race == super::race::Race::Tadoro);
         (rs.len() as u16, lodger)

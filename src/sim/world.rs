@@ -136,6 +136,9 @@ pub struct World {
     /// Who sits as which faction leader (`leaders.rs`).
     #[serde(default)]
     pub seats: Vec<super::leaders::Seat>,
+    /// The hidden dev test quarter, once found (`testquarter.rs`).
+    #[serde(default)]
+    pub test_quarter: Option<super::testquarter::TestQuarter>,
     /// Salt Isle, the tutorial island (`island.rs`): which settlement is its
     /// compound. None in a world made before it.
     #[serde(default)]
@@ -418,6 +421,7 @@ impl World {
             guilds: Vec::new(),
             captives: Vec::new(),
             seats: Vec::new(),
+            test_quarter: None,
             dosing: Vec::new(),
             binding: Vec::new(),
             thrown_lying: Vec::new(),

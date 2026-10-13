@@ -695,6 +695,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
     }
+    // The hidden test quarter (dev only).
+    super::testquarter::draw(&mut b, w, &on_ground, oc.target, radius);
     // Salt Isle's compound palisade (`island.rs`): posts shoulder to
     // shoulder along the wall a walker meets, the gate's posts taller.
     if let Some(isle) = w.island() {

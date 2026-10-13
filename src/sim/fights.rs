@@ -415,6 +415,10 @@ impl World {
             }
             let pos = self.person_pos(pid);
             let mut f = Fighter::from_person(&self.people[pid as usize], side, pos, b.time);
+            // A training dummy in the test quarter never acts (`testquarter.rs`).
+            if self.is_dummy(pid) {
+                f.think_at = f64::INFINITY;
+            }
             // Woken by the attack: a few seconds before they're on their feet.
             if self.is_asleep(pid) {
                 f.aware_at = b.start + 3.0;
