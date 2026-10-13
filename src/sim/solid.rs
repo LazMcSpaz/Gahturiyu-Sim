@@ -132,6 +132,9 @@ pub enum Id {
     /// Salt Isle's fenced briar patch, and its gate (`island.rs`).
     Briar,
     BriarGate,
+    /// Salt Isle's compound palisade, stretch `k`, and its gate.
+    Palisade(u8),
+    PalisadeGate,
     /// A building at a base: the base, and the building's own id.
     Base(BaseId, u32),
     /// A rock placed by hand, named by where it stands.
@@ -1419,7 +1422,16 @@ impl World {
                 out.push(Thing::solid(Id::PenHut(p.id), What::Shelter, Shape::Box(coop_of(p.home, p.radius, p.seed)), 1.4).inside(Id::Pen(p.id)));
             }
         }
-        // Salt Isle's briar patch: a fence with a gate, like a pen's.
+        // Salt Isle's compound: a palisade with one gate, always open (the
+        // watch stands at it); and the briar patch, a fence with a gate.
+        if let Some(isle) = self.island() {
+            use super::island::{PALISADE_H, PALISADE_T};
+            let way = isle.gate();
+            for (k, r) in isle.palisade_walls().into_iter().enumerate() {
+                out.push(Thing::solid(Id::Palisade(k as u8), What::Wall, Shape::Box(r), PALISADE_H));
+            }
+            out.push(Thing::solid(Id::PalisadeGate, What::Gate, Shape::Box(Rect::new(way.at, 0.0, way.width, PALISADE_T)), PALISADE_H * 0.8).open());
+        }
         if let Some(isle) = self.island() {
             use super::island::{Spot, BRIAR_FENCE, BRIAR_RADIUS};
             let c = isle.spot(Spot::Briar);

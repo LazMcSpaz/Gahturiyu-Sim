@@ -110,7 +110,7 @@ fn lessons_come_up_in_order_and_go_when_done() {
     w.people[m as usize].cond.as_mut().unwrap().meal = Some(gahturiyu_sim::sim::effects::Does::Warmth);
     w.step(0.5);
     assert!(w.tutorial().unwrap().is_done("cook"));
-    assert_eq!(w.lesson_now().map(|x| x.key), Some("sail"), "the ship, with the stranger's lesson off");
+    assert_eq!(w.lesson_now().map(|x| x.key), Some("night_run"), "the compound, with the stranger's lesson off");
     // A system can mark a path's lesson done: that sets the path.
     w.lesson_done("labour");
     assert_eq!(w.tutorial().unwrap().path, Some(Path::Caught));

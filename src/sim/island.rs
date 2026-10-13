@@ -176,6 +176,15 @@ pub const TEST_QUARTER_HALF: f32 = 80.0;
 /// Overgrowth, Laz's brief): the fence's radius and height.
 pub const BRIAR_RADIUS: f32 = 14.0;
 pub const BRIAR_FENCE: f32 = 1.1;
+/// The compound's palisade: its middle (from the island's centre), half
+/// its width and depth, its height and thickness. The gate is at
+/// `Spot::Gate`, in the south wall.
+pub const PALISADE_MID: V2 = V2::new(0.0, -4.0);
+pub const PALISADE_HALF: V2 = V2::new(78.0, 64.0);
+pub const PALISADE_H: f32 = 2.6;
+pub const PALISADE_T: f32 = 0.3;
+/// How wide the gate stands open.
+pub const GATE_WIDTH: f32 = 4.0;
 /// The shelter hut's footprint, and its building's index in the compound.
 pub const HUT_SIZE: f32 = 7.5;
 pub const HUT_BUILDING: usize = 6;
@@ -224,6 +233,43 @@ impl Island {
     pub fn in_test_quarter(&self, p: V2) -> bool {
         let (a, b) = self.test_quarter();
         p.x >= a.x && p.x <= b.x && p.y >= a.y && p.y <= b.y
+    }
+
+    /// The palisade's outline: its middle, and half its width and depth.
+    pub fn palisade(&self) -> (V2, V2) {
+        (self.centre.add(PALISADE_MID), PALISADE_HALF)
+    }
+
+    /// Inside the compound's palisade.
+    pub fn in_compound(&self, p: V2) -> bool {
+        let (c, h) = self.palisade();
+        (p.x - c.x).abs() <= h.x && (p.y - c.y).abs() <= h.y
+    }
+
+    /// The palisade as wall stretches (`layout::Rect`): north, east, west,
+    /// and the south wall in two, either side of the gate. Each is its own
+    /// solid thing, so nothing stands "inside" a hollow.
+    pub fn palisade_walls(&self) -> Vec<super::layout::Rect> {
+        use super::layout::Rect;
+        let (c, h) = self.palisade();
+        let t = PALISADE_T;
+        let gate = self.spot(Spot::Gate);
+        let (gl, gr) = (gate.x - GATE_WIDTH * 0.5, gate.x + GATE_WIDTH * 0.5);
+        let (x0, x1, y0, y1) = (c.x - h.x, c.x + h.x, c.y - h.y, c.y + h.y);
+        vec![
+            Rect::new(V2::new(c.x, y0), 0.0, h.x * 2.0, t),
+            // (The sides stop short of the end walls: they butt, not overlap.)
+            Rect::new(V2::new(x1, c.y), 0.0, t, h.y * 2.0 - 2.0 * t - 0.05),
+            Rect::new(V2::new(x0, c.y), 0.0, t, h.y * 2.0 - 2.0 * t - 0.05),
+            Rect::new(V2::new((x0 + gl) * 0.5, y1), 0.0, gl - x0, t),
+            Rect::new(V2::new((gr + x1) * 0.5, y1), 0.0, x1 - gr, t),
+        ]
+    }
+
+    /// The gate: the opening in the south wall (`solid::Way`).
+    pub fn gate(&self) -> super::solid::Way {
+        let at = self.spot(Spot::Gate);
+        super::solid::Way { at, width: GATE_WIDTH, outside: at.add(V2::new(0.0, 1.5)), inside: at.sub(V2::new(0.0, 1.5)) }
     }
 }
 

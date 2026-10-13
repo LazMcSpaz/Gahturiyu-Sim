@@ -261,7 +261,12 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    the weather, never forced); `generate` keeps the town start for tests. The ferry (`sim/ferry.rs`)
    keeps a timetable read off the clock (`ship_in`, `ship_pos`); a crossing
    is the squad's own (`Voyage`: positions read off the crossing in the
-   squad's step), and putting in on the mainland ends the tutorial.
+   squad's step), and putting in on the mainland ends the tutorial. The
+   compound's palisade and gate are solid (`Id::Palisade`, `PalisadeGate`,
+   always open: the watch stands at it); the sneak path's lessons are read
+   off the world (inside the wall after dark sneaking, a stores container
+   gone through, disguised at the gate by day, a fight with the compound's
+   people, sneaking aboard); the caught path's are the law's to call.
    The dev test quarter is the second session's, behind a debug key.
 
 17. **What is solid has one source of truth: `sim/solid.rs`.** Every
