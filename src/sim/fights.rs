@@ -341,6 +341,9 @@ impl World {
 
     /// How true shots fly in the weather at `pos` at `t` (a fight's start).
     pub(super) fn air_for(&self, pos: V2, t: f64) -> f32 {
+        if !self.rules.weather_on_squad {
+            return 1.0;
+        }
         self.weather_effects(pos, t).ranged_accuracy_mult
     }
 

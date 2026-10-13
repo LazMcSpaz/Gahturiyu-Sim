@@ -9,6 +9,7 @@ pub mod bedding;
 pub mod binders;
 pub mod island;
 pub mod tutorial;
+pub mod rules;
 pub mod ferry;
 pub mod membership;
 pub mod campfire;

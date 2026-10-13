@@ -124,6 +124,8 @@ pub struct Shot {
     pub chase: bool,
     /// `GAHT_RUIN=k`: midday, the squad 45 m from ruin (or lair) k.
     pub ruin: Option<usize>,
+    /// `GAHT_RULES=key=off,key=on`: the world's rules switched (`sim/rules.rs`).
+    pub rules: Option<String>,
     /// `GAHT_ISLAND=1|<spot>`: the squad on Salt Isle, at the shore or the
     /// named spot (`island::Spot`, lower case: `hut`, `gate`, `hall`, `dock`,
     /// `quarry`, `testquarter`, ...).
@@ -249,6 +251,7 @@ impl Shot {
             grind: var("GAHT_GRIND"),
             ruin: var("GAHT_RUIN").and_then(|v| v.parse().ok()),
             island: var("GAHT_ISLAND"),
+            rules: var("GAHT_RULES"),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
@@ -355,6 +358,9 @@ impl Shot {
     /// Set the world up for the picture: everything that changes the world
     /// (as opposed to the camera) happens here, before the first frame.
     pub fn prepare(&self, world: &mut World) {
+        if let Some(list) = &self.rules {
+            world.rules.apply(list);
+        }
         if self.forge {
             if let Some(c) = world.forge.as_ref().and_then(|f| f.centre()) {
                 world.teleport_squad(c);

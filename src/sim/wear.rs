@@ -29,6 +29,9 @@ pub const SELF_MEND: f32 = 1.2;
 impl World {
     /// A finished fight's wear, onto a squad member's gear.
     pub fn wear_gear(&mut self, f: &Fighter, t: f64) {
+        if !self.rules.gear_wears {
+            return;
+        }
         let pid = f.pid;
         // (slot, blows, of which heavy blunt ones)
         let mut hits: Vec<(Slot, f32, f32)> = Vec::new();
@@ -163,6 +166,9 @@ impl World {
     /// Unsealed reed rots: anything the squad carries that's rotted through
     /// is gone. Checked on the hour.
     pub(super) fn rot_gear(&mut self, t: f64) {
+        if !self.rules.gear_wears {
+            return;
+        }
         for m in self.squad.members.clone() {
             let rots = |e: &super::inventory::Entry| items::info(e.0).main.def().rots && e.2.map(|pc| pc.left_at(true, t) <= 0.0).unwrap_or(false);
             if self.people[m as usize].detail.as_ref().map(|d| d.gear.bag.iter().any(rots)).unwrap_or(false) {

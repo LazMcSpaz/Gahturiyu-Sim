@@ -56,7 +56,7 @@ impl World {
     /// Add toxicity at `t`: settled first; at `TOX_COLLAPSE` they collapse
     /// (knocked out until it's down to `TOX_WAKE`). Returns the new level.
     pub(super) fn add_toxicity(&mut self, pid: PersonId, amount: f32, t: f64) -> f32 {
-        if self.people[pid as usize].cond.is_none() || amount <= 0.0 {
+        if self.people[pid as usize].cond.is_none() || amount <= 0.0 || !self.rules.toxicity {
             return self.people[pid as usize].cond.as_ref().map(|c| c.tox_at(t)).unwrap_or(0.0);
         }
         self.settle_condition(pid, t);
