@@ -237,12 +237,13 @@ pub struct Game {
 /// own land (screenshots).
 /// The title screen at launch: up for a real run, down for screenshots and
 /// a `GAHT_LOAD` (which start straight in), unless `GAHT_TITLE=1|arena|load`
-/// asks for a page of it.
+/// asks for a page of it (`game`: as from the game menu, a game under way).
 fn title_at_launch(shot: bool) -> Option<super::title::Title> {
     use super::title::{Page, Title};
     match std::env::var("GAHT_TITLE").as_deref() {
         Ok("arena") => return Some(Title::on(Page::Arena)),
         Ok("load") => return Some(Title::on(Page::Load)),
+        Ok("game") => return Some(Title::from_game()),
         Ok(_) => return Some(Title::new()),
         Err(_) => {}
     }
@@ -771,7 +772,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     let dt = time.delta_secs();
     // (Screenshots step at a fixed pace, so a mark or a nod is the same in each.)
     game.feel.tick(if game.shot.is_some() { 1.0 / 30.0 } else { dt.min(0.1) });
-    if keys.just_pressed(KeyCode::F10) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
+    if (keys.just_pressed(KeyCode::F10) && game.title.is_none()) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
         super::editor::toggle(game);
         game.last_mouse = mouse;
         return;
@@ -797,6 +798,28 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
             }
         }
         super::editor::input(game, &keys, &buttons, mouse, on_panels, dt, time.elapsed_secs());
+        game.last_mouse = mouse;
+        return;
+    }
+    // Under the title screen the world's keys wait (nothing is saved, opened
+    // or spawned in the world behind it): Escape goes back a page or closes
+    // the settings, O opens them, and a click is the title's.
+    if game.title.is_some() {
+        if keys.just_pressed(KeyCode::Escape) {
+            super::screens::escape(game);
+        }
+        if keys.just_pressed(KeyCode::KeyO) {
+            game.options = !game.options;
+        }
+        let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+        game.ui_click = None;
+        game.left_held = buttons.pressed(MouseButton::Left);
+        if buttons.just_pressed(MouseButton::Left) {
+            game.press_at = Some(mouse);
+        }
+        if buttons.just_released(MouseButton::Left) && game.press_at.take().is_some_and(|p| (p - mouse).length() < 6.0) {
+            game.ui_click = Some(Click { at: mouse, right: false, shift });
+        }
         game.last_mouse = mouse;
         return;
     }
@@ -1902,8 +1925,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if town_button {
         toggle_town(game);
     }
-    // The test quarter's dev spawner.
-    if let Some(mut dp) = game.dev.take() {
+    // The dev panel (kept, not drawn, under the title screen).
+    if let Some(mut dp) = if game.title.is_none() { game.dev.take() } else { None } {
         let (a, bx) = super::testquarter::panel(&c, &game.world, &dp, click, click.is_some_and(|k| k.shift));
         panels.push(bx);
         let lead = game.sel.lead(&game.world).or_else(|| game.world.squad.members.first().copied());
@@ -1912,6 +1935,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             if let Some(msg) = super::testquarter::apply(&mut game.world, &mut dp, a, lead, &mut weather.force) {
                 game.notice = Some((msg, std::time::Instant::now()));
             }
+            game.world.rules_step();
         }
         if !close {
             game.dev = Some(dp);
@@ -2468,16 +2492,27 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     if let Some(mut t) = game.title.take() {
         use super::title::TitleAct;
-        // (With the settings panel over it, the click is the panel's.)
-        let (act, bx) = super::title::draw(&c, &mut t, if game.options { None } else { click }, size);
+        // (With the settings open from it, only its backdrop: the click is the panel's.)
+        let (act, bx) = if game.options { (None, super::title::backdrop(&c, size)) } else { super::title::draw(&c, &mut t, click, size) };
         panels.push(bx);
         let mut keep = true;
+        // The rule switches live in the world: those flipped here go with the
+        // player into the next one (a new game always takes them).
+        let seen = *t.rules_seen.get_or_insert(game.world.rules);
+        let rules = game.world.rules;
+        let carry = |game: &mut Game, always: bool| {
+            if always || rules != seen {
+                game.world.rules = rules;
+            }
+        };
         if let Some(act) = act {
             game.sounds.ui("ui_press");
             match act {
+                TitleAct::Resume => keep = false,
                 TitleAct::Continue(p) | TitleAct::Load(p) => match World::load_from(&p) {
                     Ok(w) => {
                         swap_world(game, w);
+                        carry(game, false);
                         game.notice = Some(("Loaded.".to_string(), std::time::Instant::now()));
                         keep = false;
                     }
@@ -2486,12 +2521,14 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                 TitleAct::NewGame => {
                     let seed = seed_now();
                     swap_world(game, fresh_world(seed, true, start_kind(false)));
+                    carry(game, true);
                     game.notice = Some((format!("A new world (seed {seed})."), std::time::Instant::now()));
                     keep = false;
                 }
                 TitleAct::Arena(a) => {
                     let seed = seed_now();
                     let mut w = fresh_world(seed, true, worldgen::Start::Town);
+                    w.rules = rules;
                     arena_setup(&mut w, a);
                     swap_world(game, w);
                     if a == super::title::Arena::Combat {
@@ -2513,6 +2550,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         let mut s = settings.clone();
         let at = game.slides.begin(&c);
         panels.push(super::settings::panel(&c, &mut s, &mut game.world.rules, game.mouse, click, game.frame_ms));
+        // A rule flipped shows at once, paused or not.
+        game.world.rules_step();
         game.slides.end(&c, "settings", at);
         if s != *settings {
             *settings = s;
@@ -2616,7 +2655,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     game.world.skip_island();
                     game.notice = Some(("Ashore on the mainland.".to_string(), std::time::Instant::now()));
                 }
-                MenuAct::Title => game.title = Some(super::title::Title::new()),
+                MenuAct::Title => game.title = Some(super::title::Title::from_game()),
                 MenuAct::Quit => game.quit = true,
             }
         }

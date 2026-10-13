@@ -258,16 +258,18 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
             list(labels, acts, &mut act);
         }
         Tab::World => {
-            let labels = vec![plain("An hour on"), plain("Six hours on"), plain("A day on"), plain("A season on (12 days)")];
+            let labels = vec![plain("An hour on"), plain("Six hours on"), plain("A day on"), plain("A season on (12 days; slow)")];
             let acts = vec![DevAct::Skip(1.0), DevAct::Skip(6.0), DevAct::Skip(24.0), DevAct::Skip(12.0 * 24.0)];
             list(labels, acts, &mut act);
         }
         Tab::Weather => {
             let forced = w.forced_sky.is_some();
-            let mut labels: Vec<(String, Rgb)> = vec![(if forced { "The real weather (now forced)".into() } else { "The real weather".into() }, GOLD)];
+            let mut labels: Vec<(String, Rgb)> = vec![if forced { plain("Back to the real weather") } else { ("The real weather (now)".into(), GOLD) }];
             let mut acts = vec![DevAct::Weather(None)];
             for pr in PRESETS {
-                labels.push(plain(pr.name()));
+                // The one forced now, in gold.
+                let on = w.forced_sky == Some(pr.sky(1.0));
+                labels.push(if on { (format!("{} (forced)", pr.name()), GOLD) } else { plain(pr.name()) });
                 acts.push(DevAct::Weather(Some(pr)));
             }
             list(labels, acts, &mut act);

@@ -30,7 +30,7 @@ pub enum Arena {
     Combat,
     /// A demo outpost under way, with a base to run.
     Building,
-    /// The test quarter itself, its spawner at Home.
+    /// The test quarter itself (the dev panel on Insert).
     TestArea,
 }
 
@@ -45,9 +45,9 @@ impl Arena {
 
     pub fn about(self) -> &'static str {
         match self {
-            Arena::Combat => "The squad of four in the test quarter's yard with a band to fight",
-            Arena::Building => "An outpost under way: huts up, a palisade going, the Build panel",
-            Arena::TestArea => "The walled test quarter: Home for the spawner, the yard, the culture row",
+            Arena::Combat => "The squad of four in the test quarter's yard; pick foes in the dev panel",
+            Arena::Building => "An outpost under way, its store stocked: huts up, a palisade going",
+            Arena::TestArea => "The walled test quarter: the yard, the culture row; Insert for the dev panel",
         }
     }
 }
@@ -55,6 +55,8 @@ impl Arena {
 /// What the player chose.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TitleAct {
+    /// Back to the game under way (the title came from the game menu).
+    Resume,
     Continue(PathBuf),
     NewGame,
     Load(PathBuf),
@@ -69,12 +71,19 @@ pub struct SaveFile {
     pub path: PathBuf,
     pub name: String,
     pub modified: std::time::SystemTime,
+    /// Made by this version of the game (an older format won't load).
+    pub loads: bool,
 }
 
 /// The title screen's state.
 pub struct Title {
     pub page: Page,
     pub saves: Vec<SaveFile>,
+    /// The rules as they stood when the title came up: switches flipped in
+    /// the settings from here carry into whatever world comes next.
+    pub rules_seen: Option<gahturiyu_sim::sim::rules::Rules>,
+    /// Brought up from the game menu: a game is under way to go back to.
+    pub from_game: bool,
 }
 
 /// Where saves live: `saves/` beside `assets/`.
@@ -95,7 +104,8 @@ pub fn list_saves() -> Vec<SaveFile> {
             let Ok(meta) = e.metadata() else { continue };
             let modified = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
             let name = path.file_stem().and_then(|x| x.to_str()).unwrap_or("save").to_string();
-            out.push(SaveFile { path, name, modified });
+            let loads = gahturiyu_sim::sim::save::loadable(&path);
+            out.push(SaveFile { path, name, modified, loads });
         }
     }
     out.sort_by(|a, b| b.modified.cmp(&a.modified).then(a.name.cmp(&b.name)));
@@ -119,15 +129,21 @@ fn ago(t: std::time::SystemTime) -> String {
 
 impl Title {
     pub fn new() -> Title {
-        Title { page: Page::Main, saves: list_saves() }
+        Title { page: Page::Main, saves: list_saves(), rules_seen: None, from_game: false }
     }
 
     pub fn on(page: Page) -> Title {
-        Title { page, saves: list_saves() }
+        Title { page, saves: list_saves(), rules_seen: None, from_game: false }
+    }
+
+    /// From the game menu: the same, with the game under way to go back to.
+    pub fn from_game() -> Title {
+        Title { from_game: true, ..Title::new() }
     }
 
     /// Escape: back a page, or nothing on the main page (the title stays
-    /// until a choice is made).
+    /// until a choice is made, unless there's a game to go back to: the
+    /// caller closes it then).
     pub fn back(&mut self) -> bool {
         if self.page == Page::Main {
             return false;
@@ -148,22 +164,34 @@ const ROW: f32 = 46.0;
 /// Saves listed on the Load page at most.
 const LIST: usize = 10;
 
+/// Only the title's dimmed backdrop, under the settings opened from it (the
+/// title's buttons would show through the panel). The whole screen's box.
+pub fn backdrop(c: &Canvas, size: Vec2) -> Bx {
+    c.rect(0.0, 0.0, size.x, size.y, ega([0.0, 0.0, 0.0], 0.55));
+    Bx::new(0.0, 0.0, size.x, size.y)
+}
+
 /// Draw the title screen over everything. Returns the choice made, and the
 /// panel's box (the whole screen: nothing underneath takes a click).
 pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Option<TitleAct>, Bx) {
     c.rect(0.0, 0.0, size.x, size.y, ega([0.0, 0.0, 0.0], 0.55));
     let rows: Vec<(Option<TitleAct>, String, Kind, bool, Option<String>)> = match t.page {
         Page::Main => {
-            let newest = t.saves.first().cloned();
-            let mut rows = vec![(
+            // The newest save this version can load.
+            let newest = t.saves.iter().find(|s| s.loads).cloned();
+            let mut rows = Vec::new();
+            if t.from_game {
+                rows.push((Some(TitleAct::Resume), "Back to the game".to_string(), Kind::Primary, true, Some("Anything else leaves it: save first (F8)".into())));
+            }
+            rows.push((
                 newest.as_ref().map(|s| TitleAct::Continue(s.path.clone())),
                 "Continue".to_string(),
-                Kind::Primary,
+                if t.from_game { Kind::Plain } else { Kind::Primary },
                 newest.is_some(),
                 newest.as_ref().map(|s| format!("{}, {}", s.name, ago(s.modified))),
-            )];
-            rows.push((Some(TitleAct::NewGame), "New game".into(), if newest.is_some() { Kind::Plain } else { Kind::Primary }, true, Some("Wrecked on Salt Isle's shore".into())));
-            rows.push((Some(TitleAct::Load(PathBuf::new())), "Load game".into(), Kind::Plain, !t.saves.is_empty(), None));
+            ));
+            rows.push((Some(TitleAct::NewGame), "New game".into(), if newest.is_some() || t.from_game { Kind::Plain } else { Kind::Primary }, true, Some("Wrecked on Salt Isle's shore".into())));
+            rows.push((Some(TitleAct::Load(PathBuf::new())), "Load game".into(), Kind::Plain, newest.is_some(), None));
             rows.push((Some(TitleAct::Arena(Arena::TestArea)), "Testing arena".into(), Kind::Plain, true, None));
             rows.push((Some(TitleAct::Settings), "Settings".into(), Kind::Plain, true, None));
             rows.push((Some(TitleAct::Quit), "Quit".into(), Kind::Plain, true, None));
@@ -175,7 +203,9 @@ pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Opt
             rows
         }
         Page::Load => {
-            let mut rows: Vec<_> = t.saves.iter().take(LIST).map(|s| (Some(TitleAct::Load(s.path.clone())), s.name.clone(), Kind::Plain, true, Some(ago(s.modified)))).collect();
+            // Saves from an older version are shown, dimmed, so they aren't
+            // a mystery; they can't be loaded.
+            let mut rows: Vec<_> = t.saves.iter().take(LIST).map(|s| (Some(TitleAct::Load(s.path.clone())), s.name.clone(), Kind::Plain, s.loads, Some(if s.loads { ago(s.modified) } else { format!("{}, from an older version", ago(s.modified)) }))).collect();
             if rows.is_empty() {
                 rows.push((None, "No saves yet".into(), Kind::Plain, false, Some("F8 or the menu's Save makes one".into())));
             }

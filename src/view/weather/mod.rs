@@ -142,6 +142,9 @@ pub struct WeatherView {
     map: Option<(Stamp, Vec<(Mix, f32, f32)>, Vec<(V2, V2)>)>,
     /// The map picture, and the moment (ten-minute step) it shows.
     picture: Option<(Stamp, i64, bool, egui::TextureHandle)>,
+    /// The world last drawn (`Game::loads`): a world loaded or begun
+    /// clears a forced picture, as its own forced sky isn't saved.
+    loads: Option<u32>,
 }
 
 impl Default for WeatherView {
@@ -175,6 +178,7 @@ impl Default for WeatherView {
             omens: None,
             map: None,
             picture: None,
+            loads: None,
         }
     }
 }
@@ -253,6 +257,10 @@ fn observe(game: Res<Game>, mut view: ResMut<WeatherView>, time: Res<Time>, sett
     }
     v.spent = 0.0;
     v.quality = Quality::of(v.quality_forced.unwrap_or(settings.weather));
+    if v.loads.is_some_and(|n| n != game.loads) {
+        v.force = None;
+    }
+    v.loads = Some(game.loads);
     let world = &game.world;
     let stamp: Stamp = (world.seed, game.loads, world.terrain.edits.version);
     if !v.land.is_for(stamp) && !game.editor.stroking {
