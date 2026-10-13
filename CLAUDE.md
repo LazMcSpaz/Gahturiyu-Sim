@@ -267,7 +267,10 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    off the world (inside the wall after dark sneaking, a stores container
    gone through, disguised at the gate by day, a fight with the compound's
    people, sneaking aboard); the caught path's are the law's to call.
-   The dev test quarter is the second session's, behind a debug key.
+   The dev test quarter (`sim/testquarter.rs`, `view/testquarter.rs`) is
+   the walled west quarter: **Home with the detail switch (L) on** opens its
+   gate and brings the squad in; Home inside it opens the dev spawner
+   (`World::test_quarter`, saved). Dev only: never part of the story.
 
 17. **What is solid has one source of truth: `sim/solid.rs`.** Every
    physical thing (building walls and doorways, inner walls, furniture,
@@ -364,6 +367,7 @@ screenshots otherwise show panels arrived).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
 `GAHT_ISLAND=1|<spot>` (the squad on Salt Isle, the tutorial island, at its shore or the named spot: `hut`, `gate`, `hall`, `workyard`, `dock`, `quarry`, `testquarter`, ...; `GAHT_VIEW=map GAHT_ZOOM=0.25` shows it off the coast).
+`GAHT_QUARTER=1|items|creatures|people|world|yard` (the dev test quarter opened and the squad inside, its spawner on that tab; `yard` the combat yard).
 `GAHT_START=town|island` (how the world begins: the squad of four in a town, or the opening, one person wrecked on Salt Isle's shore in a storm with the lesson in the tracked corner; screenshots default to the town, play to the island).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
 otherwise show none and never touch `hints.txt`).
