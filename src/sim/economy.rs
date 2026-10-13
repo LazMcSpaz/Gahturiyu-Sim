@@ -1154,7 +1154,8 @@ impl World {
                 .settlements
                 .iter()
                 .map(|o| {
-                    if o.id == s {
+                    // (No caravan sails to Salt Isle.)
+                    if o.id == s || o.island {
                         return 0.0;
                     }
                     let gain = (self.price_factor_at(o.id, g, t0) - home).max(0.0);

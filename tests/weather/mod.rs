@@ -196,7 +196,7 @@ fn every_kind_of_country_is_on_the_map() {
         assert!(seen[r as usize] as f32 / n as f32 > 0.015, "hardly any {} on the map", r.name());
     }
     // Far out is open sea; the high north is mountain; the south-east is the plateau.
-    assert_eq!(weather::region_at(&terrain, V2::new(300.0, 10_000.0)), Region::OpenSea);
+    assert_eq!(weather::region_at(&terrain, V2::new(300.0, 16_000.0)), Region::OpenSea);
     assert_eq!(weather::region_at(&terrain, V2::new(10_000.0, 800.0)), Region::Mountain);
     assert_eq!(weather::region_at(&terrain, V2::new(14_500.0, 14_500.0)), Region::Plateau);
 }

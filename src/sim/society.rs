@@ -426,6 +426,11 @@ impl World {
         // What the land offers decides some workplaces (a mine, a quarry).
         for t in 0..self.settlements.len() {
             self.society.towns[t].sources = self.town_sources(t as SettlementId);
+            if self.settlements[t].island {
+                let mut src = std::mem::take(&mut self.society.towns[t].sources);
+                self.island_sources(&mut src);
+                self.society.towns[t].sources = src;
+            }
         }
         for ci in 0..self.society.communities.len() as u32 {
             self.reblend(ci);
@@ -462,7 +467,8 @@ impl World {
         let c = &self.society.communities[ci as usize];
         let key = culture::community_key(c.town, c.stilts);
         let blend = Blend::of(counts, self.seed, key);
-        let customs = blend.choose(self.seed, key);
+        let mut customs = blend.choose(self.seed, key);
+        self.island_customs(ci, &mut customs);
         let c = &mut self.society.communities[ci as usize];
         let changed = c.customs != customs;
         c.counted = counts;
@@ -747,6 +753,17 @@ impl World {
 
     /// Lay out a town's workplaces (and move its crafting stations into them).
     pub(super) fn lay_out(&mut self, t: SettlementId) {
+        if self.settlements[t as usize].island {
+            // The compound is laid out by hand (`island.rs`).
+            let placed = self.island_places(t);
+            let town = &self.settlements[t as usize];
+            let reach = placed.iter().map(|p| p.pos.dist(town.pos) + p.kind.size()).fold(0.0, f32::max);
+            let s = &mut self.settlements[t as usize];
+            s.reach = s.reach.max(reach);
+            self.society.towns[t as usize].places = placed;
+            self.solid_changed();
+            return;
+        }
         let kinds = self.places_wanted(t);
         let town = &self.settlements[t as usize];
         let mut r = Rng::from_keys(&[self.seed, t as u64, 0x504C_4143]);

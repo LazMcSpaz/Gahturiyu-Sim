@@ -313,6 +313,19 @@ pub fn generate_place_with(features: &[Feature], founding: Option<&Founding>, to
     last.unwrap_or_else(|| panic!("no name could be made for {features:?}"))
 }
 
+/// A place named by hand from two roots, with the English the designer
+/// gave it: Salt Isle is "salt" + "island" in every tongue (Roduro
+/// Shiqagahì). `None` if a tongue has no word for one of them.
+pub fn place_from_roots(mark: &str, head: &str, english: &str, culture: Tongue) -> Option<PlaceName> {
+    let recipe = format!("{mark}+{head}");
+    let native = every_tongue(|t| things::build(&recipe, t, 0).map(|w| capital(&w)).unwrap_or_default());
+    if native.iter().any(|n| n.is_empty()) {
+        return None;
+    }
+    let k = Tongue::SPOKEN.iter().position(|x| *x == culture).unwrap_or(0);
+    Some(PlaceName { english: english.to_string(), main: culture, say: pronounce(&native[k], culture), native, meaning: format!("{} {}", mark.replace('_', " "), head.replace('_', " ")) })
+}
+
 /// Name a town from the features of its site: `generate_place(features, culture, seed)`.
 pub fn generate_place(features: &[Feature], culture: Tongue, seed: u64) -> PlaceName {
     generate_place_with(features, None, true, culture, seed, &[])
