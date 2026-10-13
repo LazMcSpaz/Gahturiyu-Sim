@@ -73,11 +73,12 @@ pub fn draw(c: &Canvas, cam: &MapCam, w: &World, rings: bool, relief: &TextureHa
     // A crisp shoreline over the relief picture, which is blurry up close.
     let top = cam.to_world(size, vec2(0.0, 0.0)).y.max(0.0);
     let bottom = cam.to_world(size, vec2(0.0, c.h)).y.min(WORLD_SIZE);
-    let step = (3.0 / cam.zoom).max(10.0);
-    let mut y = top - step;
-    while y < bottom + step {
-        c.line(s(V2::new(geo::coast_x(y), y)), s(V2::new(geo::coast_x(y + step), y + step)), 1.5, eg(SHORE));
-        y += step;
+    // (From the atlas's sea mask, within the window, coarser when zoomed out.)
+    let left = cam.to_world(size, vec2(0.0, 0.0)).x.max(0.0);
+    let right = cam.to_world(size, vec2(c.w, 0.0)).x.min(WORLD_SIZE);
+    let step = ((2.0 / cam.zoom / gahturiyu_sim::sim::atlas::PX).round() as usize).clamp(1, 16);
+    for (a, b) in gahturiyu_sim::sim::atlas::atlas().shoreline_in(V2::new(left, top), V2::new(right, bottom), step) {
+        c.line(s(a), s(b), 1.5, eg(SHORE));
     }
     // Salt Isle's shore.
     let isle = geo::isle_outline(((cam.zoom * 4000.0) as usize).clamp(24, 160));

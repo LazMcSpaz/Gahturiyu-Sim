@@ -329,7 +329,7 @@ fn all_of_a_merchants_wares_can_be_reached_food_first() {
 #[test]
 fn n7_buying_low_and_selling_high_pays_between_some_towns() {
     use std::collections::BTreeSet;
-    const NEAR: f32 = 6000.0;
+    const NEAR: f32 = 80_000.0;
     let mut w = worldgen::generate(1);
     // The second morning: the first dawn's tally has set the stocks.
     for _ in 0..(24 + 11) * 2 {

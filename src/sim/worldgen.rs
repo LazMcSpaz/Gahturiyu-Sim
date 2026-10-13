@@ -9,14 +9,16 @@ use super::settlement::{Settlement, SettlementId};
 use super::world::{Squad, World, HOUR};
 use super::names;
 use super::routes::Routes;
-use super::terrain::{self, Terrain};
+use super::terrain::Terrain;
+use super::{atlas, factions};
 
 /// How many people live in the world, split evenly between the four races.
 pub const POPULATION: usize = 5_000;
-/// Coastal towns, strung along the shore.
-pub const COASTAL_TOWNS: usize = 10;
-/// Upper limit on inland towns (fewer if they do not fit).
-pub const INLAND_TOWNS: usize = 20;
+/// A town marked in the shallows comes ashore to at least this much ground.
+pub const TOWN_ASHORE: f32 = 250.0;
+/// A town this close to the sea is coastal (a stilt village off its shore,
+/// boats, a dock on the nearest shore).
+pub const COASTAL_WITHIN: f32 = 3_500.0;
 /// Above this wanderlust a person belongs nowhere and roams.
 pub const WANDERER_THRESHOLD: f32 = 0.85;
 
@@ -55,8 +57,11 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
 
 fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits, start: Start) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
+    let mut at = std::time::Instant::now();
     let terrain = Terrain::generate(seed);
+    tick("terrain", &mut at);
     let mut settlements = place_settlements(&mut rng, seed, &terrain);
+    tick("towns placed", &mut at);
 
     // --- People ---------------------------------------------------------
     let mut people: Vec<Person> = Vec::with_capacity(POPULATION + 4);
@@ -81,6 +86,7 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
         }
     }
 
+    tick("people", &mut at);
     // --- Lay out each town from who ended up living there ---------------
     for s in settlements.iter_mut() {
         let races: Vec<Race> = s.residents.iter().map(|&p| people[p as usize].race).collect();
@@ -90,6 +96,7 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
         }
     }
 
+    tick("towns built", &mut at);
     // --- Your squad: one of each, because they live side by side ---------
     let start_town = settlements
         .iter()
@@ -282,7 +289,9 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
         Some(f) => (f.land, Some(f.town)),
         None => Default::default(),
     };
+    tick("squad and groups", &mut at);
     let (terrain, routes) = land(terrain.with_authored(authored).with_edits(edits), &settlements);
+    tick("roads", &mut at);
 
     // Start at 06:00 on day 1 (or the opening's storm).
     let mut w = World::assemble(seed, people, settlements, groups, squad, start_time, terrain, routes);
@@ -290,9 +299,12 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     w.island = Some(island);
     w.solid_changed();
     // Bandits by the roads; workshops in town; things to gather.
+    tick("assembled", &mut at);
     w.place_camps();
+    tick("camps", &mut at);
     // Customs, households, jobs and workplaces (crafting stations stand in those).
     w.found_society();
+    tick("society", &mut at);
     // The island's Binders stand guard and its debtors are bound.
     w.bind_debtors();
     if start == Start::Island {
@@ -302,10 +314,14 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     w.style_buildings();
     w.place_crafting();
     w.place_deposits();
+    tick("styles, crafting, deposits", &mut at);
     w.place_animals();
+    tick("animals", &mut at);
     w.place_ruins();
+    tick("ruins", &mut at);
     // The Binders' camps last of all, so nobody else's dice move.
     w.place_binders();
+    tick("binders", &mut at);
     // The test quarter's culture row's folk, last of all (second's `testquarter.rs`).
     w.people_the_culture_row();
     // Diʻub in the shelter hut, the lord in the hall (second's `diub.rs`).
@@ -316,6 +332,7 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
         let storms = (day - 1..=day + 1).map(|d| w.day_air(town as super::settlement::SettlementId, d)).collect();
         w.society.towns[town].storms = storms;
     }
+    tick("the rest", &mut at);
     w
 }
 
@@ -328,6 +345,37 @@ pub fn land(mut terrain: Terrain, settlements: &[Settlement]) -> (Terrain, Route
     terrain.set_roads(&routes.roads);
     routes.build_network(&terrain);
     (terrain, routes)
+}
+
+/// The levellest spot within a few hundred metres of `p` (a mark set on a
+/// hillside comes down to the flat beside it), `p` itself if it's level.
+fn level_near(t: &Terrain, p: V2) -> V2 {
+    if t.slope(p) < 0.06 {
+        return p;
+    }
+    let mut best = (t.slope(p), p);
+    for ring in 1..=4 {
+        for k in 0..12 {
+            let ang = k as f32 / 12.0 * std::f32::consts::TAU;
+            let q = p.add(V2::new(ang.cos(), ang.sin()).scale(ring as f32 * 90.0));
+            let s = t.slope(q);
+            if geo::inland(q) > 100.0 && s < best.0 {
+                best = (s, q);
+            }
+        }
+        if best.0 < 0.06 {
+            break;
+        }
+    }
+    best.1
+}
+
+/// With `GAHT_TIMING=1`, print how long each stage of world creation took.
+fn tick(label: &str, at: &mut std::time::Instant) {
+    if std::env::var_os("GAHT_TIMING").is_some() {
+        eprintln!("  {label}: {:.0} ms", at.elapsed().as_secs_f64() * 1000.0);
+        *at = std::time::Instant::now();
+    }
 }
 
 /// How strongly a settlement draws people of a race. Everyone lives
@@ -354,77 +402,35 @@ fn affinity(race: Race, s: &Settlement) -> f32 {
 }
 
 fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
+    // The towns are the marks on Laz's map (`atlas.rs`, `assets/world/towns.ron`),
+    // in the file's order: a mark in the shallows comes ashore; one near the
+    // sea is coastal, its stilt village just off the shore.
+    let a = atlas::atlas();
     let mut out: Vec<Settlement> = Vec::new();
-    let push = |out: &mut Vec<Settlement>, pos: V2, founders: Race, coastal: bool, rng: &mut Rng| {
+    for m in atlas::town_marks() {
+        let pos = level_near(t, a.dry_spot(a.landward(m.pos(), TOWN_ASHORE), 240));
+        let offshore = !a.on_mainland(pos);
+        let coastal = a.inland(pos) < COASTAL_WITHIN;
+        let stilts = if coastal { Some(a.seaward(pos, 70.0)) } else { None };
         let id = out.len() as SettlementId;
+        let holder = if m.holder.is_empty() { None } else { Some(factions::id(&m.holder)) };
         out.push(Settlement {
             id,
-            name: names::town_name(founders, seed, t, pos, coastal, out),
+            name: names::town_name(m.founders, seed, t, pos, coastal, &out),
             pos,
-            founders,
+            founders: m.founders,
             coastal,
-            stilts: if coastal { Some(V2::new(geo::coast_x(pos.y) - 70.0, pos.y)) } else { None },
-            size: rng.f32().powi(2) * 1.8 + 0.35,
+            stilts,
+            size: m.kind.size() * rng.range(0.85, 1.15),
             residents: Vec::new(),
             buildings: Vec::new(),
             reach: 0.0,
             styles: Vec::new(),
             sleepers: Vec::new(),
-            holder: None,
+            holder,
             island: false,
+            offshore,
         });
-    };
-
-    // Coastal towns, spaced down the shore.
-    for i in 0..COASTAL_TOWNS {
-        let y0 = ((i as f32 + 0.5) / COASTAL_TOWNS as f32 * WORLD_SIZE + rng.range(-800.0, 800.0)).clamp(900.0, WORLD_SIZE - 900.0);
-        let back = rng.range(170.0, 300.0);
-        // Slide along the shore to the nearest stretch of low, gentle beach:
-        // nobody builds a harbour town on a cliff or a mountainside.
-        let site = |y: f32| V2::new(geo::coast_x(y) + back, y);
-        let badness = |y: f32| {
-            let p = site(y);
-            terrain::cliff_mask(t.seed(), y) * 4.0 + t.slope(p) * 20.0 + (t.height(p) - 12.0).max(0.0) * 0.1 + t.mountains(p) * 10.0
-        };
-        // ...but stay well clear of the coastal towns already placed.
-        let crowded = |y: f32, out: &Vec<Settlement>| out.iter().any(|s| s.pos.dist(site(y)) < 2400.0);
-        let mut y = y0;
-        for k in 1..50 {
-            for dy in [k as f32 * 60.0, -(k as f32) * 60.0] {
-                let c = (y0 + dy).clamp(900.0, WORLD_SIZE - 900.0);
-                if !crowded(c, &out) && (crowded(y, &out) || badness(c) < badness(y)) {
-                    y = c;
-                }
-            }
-        }
-        // No decent shore anywhere near: this stretch gets no harbour.
-        if crowded(y, &out) || badness(y) > 2.0 {
-            continue;
-        }
-        let x = site(y).x;
-        let founders = match rng.weighted(&[0.55, 0.30, 0.15]) {
-            Some(0) => Race::Roduro,
-            Some(1) => Race::Horaro,
-            _ => Race::Qotiro,
-        };
-        push(&mut out, V2::new(x, y), founders, true, rng);
-    }
-
-    // Inland towns. The south-east is Qotiro country; elsewhere mostly Roduro.
-    let mut tries = 0;
-    while out.len() < COASTAL_TOWNS + INLAND_TOWNS && tries < 5000 {
-        tries += 1;
-        let p = V2::new(rng.range(800.0, WORLD_SIZE - 800.0), rng.range(800.0, WORLD_SIZE - 800.0));
-        if geo::inland(p) < 2200.0 || out.iter().any(|s| s.pos.dist(p) < 2700.0) {
-            continue;
-        }
-        // Flat, habitable ground: not up a mountain or on a slope.
-        if t.height(p) > 260.0 || t.slope(p) > 0.07 || t.mountains(p) > 0.25 || (t.plateau(p) > 0.05 && t.plateau(p) < 0.95) {
-            continue;
-        }
-        let homeland = p.x > 11_500.0 && p.y > 10_500.0;
-        let founders = if rng.chance(if homeland { 0.75 } else { 0.28 }) { Race::Qotiro } else { Race::Roduro };
-        push(&mut out, p, founders, false, rng);
     }
     out
 }

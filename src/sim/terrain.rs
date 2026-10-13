@@ -1,26 +1,25 @@
 //! The shape of the land.
 //!
-//! Heights are built once, from the world seed, into a grid; everything else
-//! samples that grid. The land rises gently from the coast into rolling hills,
-//! walls up into mountains along the north and east edges and one inland
-//! massif, and lifts into a flat-topped, cliff-edged plateau in the south-east
-//! — the arid Qotiro homeland. Some stretches of shore are low cliffs instead
-//! of beaches.
+//! The land is Laz's map (`atlas.rs`): the atlas gives each spot its class,
+//! its base height (smoothed) and its distance to the sea; the world seed
+//! adds the small relief on top (`micro_relief`), so no two worlds walk the
+//! same ground but every one is the map. Hand edits and the forge's land
+//! sit on that. Some stretches of shore are low cliffs instead of beaches.
 //!
 //! The sea is at height 0. Land at the waterline sits just above it.
 
 use serde::{Deserialize, Serialize};
 
+use super::atlas::{atlas, Class, PX};
 use super::geo::{self, V2, WORLD_SIZE};
 use super::rng;
 
-/// Grid spacing in metres. Finer detail than this is the view's business.
-pub const CELL: f32 = 30.0;
-const N: usize = (WORLD_SIZE / CELL) as usize + 2;
+/// The atlas's grid spacing in metres (one map pixel). Finer detail than
+/// this is the seed's small relief and the view's business.
+pub const CELL: f32 = PX;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Terrain {
-    h: Vec<f32>,
     seed: u64,
     /// Where the roads run (set once the road network is built).
     roads: RoadIndex,
@@ -89,7 +88,8 @@ impl Ground {
 pub const ROAD_PACE: f32 = 1.3;
 /// How far either side of a road's centre line still counts as road, metres.
 pub const ROAD_HALF_WIDTH: f32 = 6.0;
-const ROAD_CELL: f32 = 100.0;
+// (Coarse, for a continent: 390 km a side is 640 cells, not 3 900.)
+const ROAD_CELL: f32 = 600.0;
 const RN: usize = (WORLD_SIZE / ROAD_CELL) as usize + 1;
 
 /// Road segments filed by grid cell, so "is this on a road?" is quick.
@@ -197,33 +197,6 @@ fn fbm(seed: u64, x: f32, y: f32, scale: f32, octaves: u32) -> f32 {
     sum / norm
 }
 
-/// Ridged noise: sharp crests where plain noise crosses zero. 0..1. Each
-/// octave is weighted by the one before, so fine ridges gather on the big
-/// crests rather than speckling the valleys.
-fn ridged(seed: u64, x: f32, y: f32, scale: f32, octaves: u32) -> f32 {
-    let (mut sum, mut amp, mut norm, mut sc, mut weight) = (0.0, 1.0, 0.0, scale, 1.0f32);
-    for o in 0..octaves {
-        let (rx, ry) = rotated(x, y, o);
-        let n = 1.0 - perlin(seed.wrapping_add(o as u64 * 977), rx / sc, ry / sc).abs().min(1.0);
-        let n = n * n * weight;
-        weight = (n * 1.6).clamp(0.0, 1.0);
-        sum += n * amp;
-        norm += amp;
-        amp *= 0.5;
-        sc *= 0.5;
-    }
-    sum / norm
-}
-
-/// Push a point around by large, slow noise, so region edges wander instead
-/// of following straight lines.
-fn warp(seed: u64, p: V2, amount: f32) -> V2 {
-    V2::new(
-        p.x + (noise(seed ^ 0xA1, p.x, p.y, 4200.0) - 0.5) * amount,
-        p.y + (noise(seed ^ 0xA2, p.x, p.y, 4200.0) - 0.5) * amount,
-    )
-}
-
 fn smooth(a: f32, b: f32, x: f32) -> f32 {
     let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
@@ -231,17 +204,16 @@ fn smooth(a: f32, b: f32, x: f32) -> f32 {
 
 // ---- Regions ----------------------------------------------------------------
 
-/// How mountainous a spot is meant to be, 0..1, before any noise.
+/// How mountainous a spot is, 0..1: the map's snowy mountains and rocky
+/// ground (`atlas.rs`), blurred.
 pub fn mountain_mask(p: V2) -> f32 {
-    let north = smooth(5200.0, 1600.0, p.y);
-    let east = smooth(16_800.0, 20_000.0, p.x);
-    let massif = smooth(2600.0, 900.0, p.dist(V2::new(8_600.0, 12_600.0)));
-    north.max(east).max(massif)
+    atlas().mountain(p)
 }
 
-/// How far into the Qotiro plateau a spot is, 0..1, before its eroded edge.
-pub fn plateau_mask(p: V2) -> f32 {
-    smooth(10_900.0, 12_600.0, p.x) * smooth(9_900.0, 11_600.0, p.y) * (1.0 - smooth(16_000.0, 18_000.0, p.x))
+/// How far into the Qotiro plateau a spot is, 0..1. There's none on Laz's
+/// map: always 0 (kept for what still asks).
+pub fn plateau_mask(_p: V2) -> f32 {
+    0.0
 }
 
 /// How cliffy the shore is at this latitude, 0..1.
@@ -249,68 +221,60 @@ pub fn cliff_mask(seed: u64, y: f32) -> f32 {
     smooth(0.56, 0.70, noise(seed ^ 0xC11F, 0.0, y, 2600.0))
 }
 
-/// How much a point belongs to the plateau, 0..1, with its eroded edge.
-fn plateau_at(seed: u64, p: V2) -> f32 {
-    let pm = plateau_mask(warp(seed, p, 2600.0));
-    smooth(0.34, 0.56, pm + (fbm(seed ^ 0x9A7E, p.x, p.y, 1400.0, 3) - 0.5) * 0.5)
+/// How much a point belongs to the plateau, 0..1: none.
+fn plateau_at(_seed: u64, _p: V2) -> f32 {
+    0.0
 }
 
 /// How much a point belongs to the mountains, 0..1.
-fn mountains_at(seed: u64, p: V2) -> f32 {
-    smooth(0.05, 0.85, mountain_mask(warp(seed, p, 2600.0)))
+fn mountains_at(_seed: u64, p: V2) -> f32 {
+    smooth(0.08, 0.7, mountain_mask(p))
 }
 
-/// The height formula itself. Expensive; only used to fill the grid.
-fn raw_height(seed: u64, p: V2) -> f32 {
-    // Salt Isle: its own low shape, the same in every world (`island.rs`).
-    if geo::isle_inland(p) > 0.0 {
-        return super::island::height(p);
+/// The seed's small relief on top of the atlas: rolling ground in the
+/// lowland, broken ground in the rock and the snow, nothing on water. The
+/// amplitude by class, metres.
+fn relief_amp(c: Class) -> f32 {
+    match c {
+        Class::Sea | Class::Water => 0.0,
+        Class::Coast => 4.0,
+        Class::Bog => 1.5,
+        Class::Plains => 10.0,
+        Class::Forest => 14.0,
+        Class::Overgrowth => 12.0,
+        Class::Rock => 60.0,
+        Class::Snow => 120.0,
     }
-    let d = geo::inland(p);
-    if d < 0.0 {
-        return -1.0 - (-d).min(600.0) * 0.03;
+}
+
+/// The relief itself: two bands of noise, 700 m and 90 m across.
+fn micro_relief(seed: u64, p: V2) -> f32 {
+    let c = atlas().class_at(p);
+    let amp = relief_amp(c);
+    if amp <= 0.0 {
+        return 0.0;
     }
-    let (x, y) = (p.x, p.y);
-
-    // Lowland rising slowly away from the sea, and rolling hills that fade
-    // out toward the shore so the coast stays walkable.
-    let lowland = 0.35 + 50.0 * smooth(0.0, 6500.0, d) + 40.0 * smooth(5000.0, 15_000.0, d);
-    let hills = (fbm(seed ^ 0x4111, x, y, 2400.0, 5) - 0.5) * 2.0;
-    let hills_amp = 95.0 * smooth(300.0, 2600.0, d);
-
-    // The Qotiro plateau: flat on top, with an eroded escarpment around it.
-    let edge = plateau_at(seed, p);
-    let plateau = edge * (115.0 + (noise(seed ^ 0x77, x, y, 3000.0) - 0.5) * 18.0);
-    let rolling = hills * hills_amp * (1.0 - 0.75 * edge);
-
-    // Mountains: ridged crests, masked to their regions and kept off the coast
-    // (the northern range comes closest and meets the sea in steep ground).
-    let mm = mountains_at(seed, p) * smooth(0.0, 900.0, d);
-    let crest = ridged(seed ^ 0x3017, x, y, 4200.0, 5);
-    let mountains = mm * (120.0 + 620.0 * crest.powf(1.2)) * (0.7 + 0.6 * noise(seed ^ 0x51, x, y, 7000.0));
-
-    // Low sea cliffs along some stretches of shore.
-    let cliff = cliff_mask(seed, y) * 26.0 * smooth(12.0, 80.0, d);
-
-    let h = lowland + rolling + plateau + mountains + cliff;
-    h.max(0.35 + d.min(400.0) * 0.004)
+    let broad = (fbm(seed ^ 0x4111, p.x, p.y, 700.0, 3) - 0.5) * 2.0 * amp;
+    let fine = (noise(seed ^ 0x51, p.x, p.y, 90.0) - 0.5) * amp * 0.12;
+    broad + fine
 }
 
 impl Terrain {
     /// No land at all: a stand-in while a save is read.
     pub fn empty() -> Terrain {
-        Terrain { h: Vec::new(), seed: 0, roads: RoadIndex::default(), edits: Default::default(), authored: Default::default() }
+        Terrain { seed: 0, roads: RoadIndex::default(), edits: Default::default(), authored: Default::default() }
     }
 
+    /// The map's land with this seed's small relief on it.
     pub fn generate(seed: u64) -> Terrain {
         let tseed = rng::key(&[seed, 0x5445_5252]);
-        let mut h = vec![0.0f32; N * N];
-        for j in 0..N {
-            for i in 0..N {
-                h[j * N + i] = raw_height(tseed, V2::new(i as f32 * CELL, j as f32 * CELL));
-            }
-        }
-        Terrain { h, seed: tseed, roads: RoadIndex::default(), edits: Default::default(), authored: Default::default() }
+        let _ = atlas();
+        Terrain { seed: tseed, roads: RoadIndex::default(), edits: Default::default(), authored: Default::default() }
+    }
+
+    /// What the map says the ground is here.
+    pub fn class(&self, p: V2) -> Class {
+        atlas().class_at(p)
     }
 
     /// The same land with these hand edits on it.
@@ -356,6 +320,14 @@ impl Terrain {
                 }
             }
         }
+        // The map's own ground (`atlas.rs`).
+        match self.class(p) {
+            Class::Snow => return Ground::Snow,
+            Class::Rock => return Ground::Rock,
+            Class::Bog | Class::Water => return Ground::Mud,
+            Class::Overgrowth => return Ground::Scrub,
+            _ => {}
+        }
         if geo::inland(p) < 60.0 {
             return Ground::Sand;
         }
@@ -382,31 +354,28 @@ impl Terrain {
         mountains_at(self.seed, p)
     }
 
-    fn at(&self, i: i64, j: i64) -> f32 {
-        let i = i.clamp(0, N as i64 - 1) as usize;
-        let j = j.clamp(0, N as i64 - 1) as usize;
-        self.h[j * N + i]
-    }
-
     /// Ground height in metres at any point (sea floor below 0 offshore),
     /// hand edits included.
     pub fn height(&self, p: V2) -> f32 {
         self.base_height(p) + self.authored.height.at(p) + self.edits.height.at(p)
     }
 
-    /// The land as the seed made it, before any hand edits.
+    /// The land as the map and the seed made it, before any hand edits:
+    /// the atlas's base height with the seed's relief, kept above the
+    /// waterline on land and below it at sea.
     pub fn base_height(&self, p: V2) -> f32 {
-        let (fx, fy) = (p.x / CELL, p.y / CELL);
-        let (ix, iy) = (fx.floor(), fy.floor());
-        let (tx, ty) = (fx - ix, fy - iy);
-        let (ix, iy) = (ix as i64, iy as i64);
-        let a = self.at(ix, iy);
-        let b = self.at(ix + 1, iy);
-        let c = self.at(ix, iy + 1);
-        let d = self.at(ix + 1, iy + 1);
-        let top = a + (b - a) * tx;
-        let bot = c + (d - c) * tx;
-        top + (bot - top) * ty
+        // Salt Isle: its own low shape, the same in every world (`island.rs`).
+        if geo::isle_inland(p) > 0.0 {
+            return super::island::height(p);
+        }
+        let a = atlas();
+        let base = a.base_height(p);
+        let h = base + micro_relief(self.seed, p);
+        if a.inland(p) > 0.0 {
+            h.max(0.5)
+        } else {
+            h.min(-0.5)
+        }
     }
 
     /// Height on land, or 0 (the sea surface) offshore.
@@ -417,7 +386,8 @@ impl Terrain {
 
     /// Steepest rise per metre at a point (0 = flat, 1 = 45°).
     pub fn slope(&self, p: V2) -> f32 {
-        let e = CELL;
+        // (At the walking scale, not the map's 150 m: the seed's relief counts.)
+        let e = 30.0;
         let dx = (self.height(p.add(V2::new(e, 0.0))) - self.height(p.sub(V2::new(e, 0.0)))) / (2.0 * e);
         let dy = (self.height(p.add(V2::new(0.0, e))) - self.height(p.sub(V2::new(0.0, e)))) / (2.0 * e);
         (dx * dx + dy * dy).sqrt()
@@ -468,17 +438,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn coast_meets_the_sea_and_mountains_rise() {
+    fn the_map_is_land_in_a_sea_and_its_mountains_rise() {
         let t = Terrain::generate(1);
-        for y in (500..20_500).step_by(500) {
-            let y = y as f32;
-            let shore = V2::new(geo::coast_x(y) + 5.0, y);
-            assert!(t.height(shore) < 6.0, "shore at y={y} is {} m up", t.height(shore));
+        let a = atlas();
+        // Off the map's edges: sea, below the waterline.
+        assert!(t.height(V2::new(50.0, 50.0)) < 0.0 && t.is_sea(V2::new(50.0, 50.0)));
+        // Somewhere on land, just above it; a shore spot is low.
+        let land = a.land_spot(7);
+        assert!(t.height(land) >= 0.5, "land at {land:?}: {}", t.height(land));
+        let shore = a.shore_spot(land, 20.0);
+        assert!(t.height(shore) < 12.0, "the shore at {shore:?} is {} m up", t.height(shore));
+        // The highest ground is well up (the snowy mountains), if the map has any.
+        if a.census()[Class::Snow as usize] > 0 {
+            let peak = (0..4000u64).map(|k| t.height(a.land_spot(k * 977 + 13))).fold(0.0f32, f32::max);
+            assert!(peak > 300.0, "the mountains top out at only {peak} m");
         }
-        let peaks = (0..200)
-            .map(|i| t.height(V2::new(1000.0 + i as f32 * 95.0, 1200.0)))
-            .fold(0.0f32, f32::max);
-        assert!(peaks > 300.0, "northern range tops out at only {peaks} m");
     }
 
     #[test]

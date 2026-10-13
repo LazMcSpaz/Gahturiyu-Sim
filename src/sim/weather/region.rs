@@ -47,15 +47,23 @@ impl Region {
     }
 }
 
-/// How open to the sea the shore is at this latitude, 0..1: sea cliffs,
-/// headlands that stick out into the water, and where the mountains come
-/// down to the sea.
-pub fn shore_exposure(terrain: &Terrain, y: f32) -> f32 {
-    let cx = geo::coast_x(y);
-    let cliffs = terrain::cliff_mask(terrain.seed(), y);
-    let round = (geo::coast_x(y - 1500.0) + geo::coast_x(y - 750.0) + geo::coast_x(y + 750.0) + geo::coast_x(y + 1500.0)) / 4.0;
-    let headland = smooth(40.0, 160.0, round - cx);
-    let steep = smooth(0.3, 0.6, terrain.mountains(V2::new(cx + 700.0, y)));
+/// How open to the sea the shore is near a spot, 0..1: sea cliffs,
+/// headlands that stick out into the water (sea on most sides, read off
+/// the atlas), and where the mountains come down to the sea.
+pub fn shore_exposure(terrain: &Terrain, p: V2) -> f32 {
+    let atlas = super::super::atlas::atlas();
+    let cliffs = terrain::cliff_mask(terrain.seed(), p.y);
+    let mut sea = 0.0;
+    for k in 0..12 {
+        let a = k as f32 / 12.0 * std::f32::consts::TAU;
+        if atlas.inland(p.add(V2::new(a.cos(), a.sin()).scale(1500.0))) < 0.0 {
+            sea += 1.0 / 12.0;
+        }
+    }
+    // A straight open coast (sea on half the ring) is exposed; a bay's
+    // shore, with the sea on a third or less, is sheltered.
+    let headland = smooth(0.25, 0.5, sea);
+    let steep = smooth(0.3, 0.6, atlas.mountain(p));
     cliffs.max(headland).max(steep)
 }
 
@@ -75,7 +83,7 @@ fn mix_at_point(terrain: &Terrain, p: V2) -> Mix {
     take(Region::OpenSea, smooth(-(b.sea_from - half), -(b.sea_from + half), d), &mut rest);
     if rest > 0.0 {
         let band = smooth(b.coast_reach + half, b.coast_reach - half, d);
-        let exposed = if band > 0.0 { band * shore_exposure(terrain, p.y) } else { 0.0 };
+        let exposed = if band > 0.0 { band * shore_exposure(terrain, p) } else { 0.0 };
         take(Region::ExposedCoast, exposed, &mut rest);
     }
     if rest > 0.0 {

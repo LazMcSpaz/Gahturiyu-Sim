@@ -1,13 +1,19 @@
 //! Crime that means something: walls hide a thief, and a bound squad member
 //! is led off to work and can't be ordered until the bond ends.
 
-use gahturiyu_sim::sim::{geo::V2, world::DAY, worldgen};
+use gahturiyu_sim::sim::{geo::V2, world::DAY, worldgen, World};
+
+/// The town the squad starts in.
+fn home_town(w: &World) -> u16 {
+    let here = w.squad.pos;
+    w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap().id
+}
 
 #[test]
 fn walls_hide_a_thief() {
     let w = worldgen::generate(1);
     let me = w.squad.members[0];
-    let town = 2;
+    let town = home_town(&w);
     // Every building in town where nobody is inside right now: a theft there
     // can't be seen, whoever stands outside.
     let mut empty = 0;
@@ -29,7 +35,7 @@ fn walls_hide_a_thief() {
 fn the_bound_are_led_off_and_cant_be_ordered() {
     let mut w = worldgen::generate(1);
     let me = w.squad.members[0];
-    let town = 2;
+    let town = home_town(&w);
     let t = w.time;
     w.bond(me, town, None, t, t + 2.0 * DAY);
     assert!(!w.free_to_order(me));
@@ -60,7 +66,7 @@ fn things_can_be_put_in_a_container() {
     use gahturiyu_sim::sim::loot::Source;
     let mut w = worldgen::generate(1);
     let me = w.squad.members[0];
-    let d = w.door((2, 3)).unwrap();
+    let d = w.door((home_town(&w), 3)).unwrap();
     w.order_members(&[me], d.centre);
     for _ in 0..600 {
         w.step(0.25);
@@ -107,7 +113,7 @@ fn unlock_opens_a_chest_and_locks_read_clearly() {
     use gahturiyu_sim::sim::{magic, World};
     let mut w = worldgen::generate(1);
     let me = w.squad.members[0];
-    let town = 2u16;
+    let town = home_town(&w);
     // Walk into buildings until one has a locked container.
     let mut found = None;
     for b in 0..w.settlements[town as usize].buildings.len() as u16 {

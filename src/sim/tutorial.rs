@@ -299,7 +299,7 @@ impl World {
             self.people[m as usize].recompute_might();
         }
         if let Some((_, dock)) = self.ferry_port() {
-            let at = self.free_spot(dock.add(V2::new(4.0, 0.0)));
+            let at = self.free_spot(dock.sub(super::atlas::atlas().toward_sea(dock).scale(6.0)));
             self.teleport_squad(at);
         }
         self.end_tutorial();

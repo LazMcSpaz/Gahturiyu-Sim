@@ -25,10 +25,11 @@ fn same_spot(w: &World, p: V2, what: &str) -> V2 {
 /// Somewhere in the wilds near the squad where a base can go.
 fn base_ground(w: &World) -> V2 {
     let start = w.squad.pos;
+    let reach = w.settlements.iter().map(|s| if s.pos.dist(start) < s.reach { s.reach } else { 0.0 }).fold(0.0f32, f32::max);
     for ring in 0..60 {
         for k in 0..12 {
             let a = k as f32 / 12.0 * std::f32::consts::TAU;
-            let p = start.add(V2::new(a.cos(), a.sin()).scale(80.0 + ring as f32 * 30.0));
+            let p = start.add(V2::new(a.cos(), a.sin()).scale(reach + 80.0 + ring as f32 * 30.0));
             let mut c = w.clone();
             let Ok(bid) = c.found_base(p) else { continue };
             if c.base(bid).unwrap().land == Land::Wilds && c.check_place(&mut hut(p)).is_ok() {

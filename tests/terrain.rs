@@ -9,7 +9,8 @@ fn every_town_can_reach_every_other_over_dry_land() {
     let n = w.settlements.iter().filter(|s| !s.island).count() as u16;
     for a in 0..n {
         for b in 0..n {
-            if a == b {
+            // (An island's town is reached by sea, not road.)
+            if a == b || w.settlements[a as usize].offshore || w.settlements[b as usize].offshore {
                 continue;
             }
             let p = w.routes.between(a, b);

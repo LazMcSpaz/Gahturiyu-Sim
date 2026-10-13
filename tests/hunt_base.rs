@@ -18,10 +18,12 @@ use gahturiyu_sim::sim::{
 fn with_base(seed: u64) -> (World, u32, V2) {
     let w0 = worldgen::generate(seed);
     let start = w0.squad.pos;
+    // Past the town's own land (a capital's reaches well over a kilometre).
+    let reach = w0.settlements.iter().map(|s| if s.pos.dist(start) < s.reach { s.reach } else { 0.0 }).fold(0.0f32, f32::max);
     for ring in 0..40 {
         for k in 0..12 {
             let a = k as f32 / 12.0 * std::f32::consts::TAU;
-            let p = start.add(V2::new(a.cos(), a.sin()).scale(30.0 + ring as f32 * 25.0));
+            let p = start.add(V2::new(a.cos(), a.sin()).scale(reach + 30.0 + ring as f32 * 25.0));
             let mut w = w0.clone();
             let Ok(bid) = w.found_base(p) else { continue };
             if w.base(bid).unwrap().land != base::Land::Wilds {

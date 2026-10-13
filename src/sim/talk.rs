@@ -693,7 +693,8 @@ impl World {
         // A refusal always wins when it fits.
         // (A refusal always wins; a faction's line outranks a plain one: the
         // faction sets the attitude, F4-F5.)
-        let score = |p: &Piece| p.must.len() + p.not.len() + if p.refuse { 100 } else { 0 } + if p.must.iter().any(|m| m.starts_with("faction=")) { FACTION_WEIGHT } else { 0 };
+        // (And a job's own line outranks the line for its kind: `task=` over `ask=`.)
+        let score = |p: &Piece| p.must.len() + p.not.len() + if p.refuse { 100 } else { 0 } + if p.must.iter().any(|m| m.starts_with("faction=") || m.starts_with("task=")) { FACTION_WEIGHT } else { 0 };
         let best = pool.iter().map(|p| score(p)).max().unwrap();
         let top: Vec<&'static Piece> = pool.into_iter().filter(|p| score(p) == best).collect();
         let mut r = Rng::from_keys(&[self.seed, npc as u64, with as u64, slot.len() as u64, topic.len() as u64, 0x5049_434B]);

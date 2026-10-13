@@ -244,6 +244,29 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    paying from the base's coin then the squad's; quits and theft are keyed
    rolls and are noted in the home town's history (gossip).
 
+25. **The land is Laz's map.** `sim/atlas.rs` reads the map (one pixel
+   150 m: 36 hours' walk from the capital to the crossroads, Laz) once per
+   process: `assets/world/terrain.png` when the flat layers exist, else the
+   clean map in `docs/map/` by its legend colours (each pixel to the
+   nearest by hue, so the hill-shading doesn't fool it; the legend box is
+   sea; dark ink takes its neighbours' class). Each pixel has a class, a
+   smoothed base height, the signed distance to the sea (`geo::inland`)
+   and a mountain share (snow is mountain, rocky ground upland with rock
+   underfoot). `Terrain` is that plus the seed's small relief
+   (`micro_relief`, by class) under the hand edits; `WORLD_SIZE` is the
+   atlas's width; `geo::coast_x` is only the westernmost land of a row,
+   for what still asks. Nothing may scan the map per call: the atlas
+   answers by lookup (`inland`, `base_height`, `class_at`, `shore_spot`,
+   `seaward`, `landward`, `dry_spot`, `sea_path`). Towns are the marks in
+   `assets/world/towns.ron` (pixel, kind, founders, holder; placeholders
+   until Laz's list), not the seed: a mark in the shallows comes ashore,
+   one on a river to dry ground, one within `COASTAL_WITHIN` of the sea is
+   coastal with its dock on the nearest shore. Salt Isle lies `ISLE_OFF`
+   off the first capital. Roads are still found between the towns (the
+   drawn ones are the next piece); animal regions are 3 km and the herd
+   count is held to `HERD_SCALE` of the per-km² densities until they're
+   re-tuned; world creation prints its stages with `GAHT_TIMING=1`.
+
 24. **Rules are toggles in the world.** `sim/rules.rs` holds what's switched
    on (`World::rules`, saved with the world: weather on the squad, weather
    on fires, fire and water on carried things, potions breaking, gear wear,

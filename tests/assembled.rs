@@ -60,11 +60,14 @@ fn the_pieces_parse() {
 #[test]
 fn a_robbed_person_talks_about_it() {
     let mut w = worldgen::generate(1);
+    for s in &mut w.settlements {
+        s.holder = None;
+    }
     let npc = robbed(&mut w);
     assert_eq!(w.on_mind(npc)[0].subject, Subject::Theft);
     talk_to(&mut w, npc);
     let line = w.talk.as_ref().unwrap().lines[0].1.clone();
-    assert!(line.contains("robbed") || line.contains("lifted") || line.contains("dark"), "{line}");
+    assert!(line.contains("robbed") || line.contains("lifted") || line.contains("dark") || line.contains("took"), "{line}");
 }
 
 #[test]

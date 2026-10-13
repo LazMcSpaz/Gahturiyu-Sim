@@ -14,15 +14,23 @@ use super::super::terrain::{self, Ground, Terrain};
 use super::super::world::{World, DAY};
 use super::species::{Class, Habitat, Sp, FISH, N_HABITATS};
 
-/// One side of a region, metres.
-pub const REGION: f32 = 1500.0;
+/// One side of a region, metres (3 km on the continent: 16 600 regions,
+/// a 300 m survey step).
+pub const REGION: f32 = 3000.0;
 /// Regions along one side of the map.
 pub const ACROSS: usize = (WORLD_SIZE / REGION) as usize;
 /// Sample points along one side of a region when its country is surveyed.
 const SURVEY: usize = 10;
-/// The middle of the central massif (the same spot `terrain` raises it at).
-pub const MASSIF: V2 = V2::new(8_600.0, 12_600.0);
-pub const MASSIF_RADIUS: f32 = 2_600.0;
+/// The heart of the map's biggest snowfield (the snow pixel farthest from
+/// any other ground, `atlas.rs`), and how far the massif reaches round it:
+/// the Cragmaws' country. Fixed by the map, worked out once.
+pub fn massif() -> (V2, f32) {
+    static M: std::sync::OnceLock<(V2, f32)> = std::sync::OnceLock::new();
+    *M.get_or_init(|| {
+        let (c, px) = super::super::atlas::atlas().snow_heart();
+        (c, (px * super::super::atlas::PX * 1.2).max(2_600.0))
+    })
+}
 /// How far back from the water the shore reaches, metres.
 pub const SHORE_STRIP: f32 = 60.0;
 
@@ -132,7 +140,8 @@ pub fn country(world_seed: u64, t: &Terrain, p: V2) -> u16 {
     let high = m > 0.55 || (s > 0.35 && h > 250.0);
     if high {
         out |= bit(Habitat::Mountain);
-        if p.dist(MASSIF) < MASSIF_RADIUS {
+        let (massif_at, massif_r) = massif();
+        if p.dist(massif_at) < massif_r {
             out |= bit(Habitat::Massif);
         }
     }
@@ -143,7 +152,9 @@ pub fn country(world_seed: u64, t: &Terrain, p: V2) -> u16 {
     if high {
         return out;
     }
-    if pl > 0.6 {
+    // The plateau: there's none on the map; its dry flats are the rocky
+    // ground where it lies level (`atlas.rs`).
+    if pl > 0.6 || (super::super::atlas::atlas().class_at(p) == super::super::atlas::Class::Rock && s < 0.12) {
         return out | bit(Habitat::Plateau);
     }
     if s > 0.26 && s < 0.7 && h > 30.0 && d > 300.0 && pl < 0.4 {
@@ -152,13 +163,19 @@ pub fn country(world_seed: u64, t: &Terrain, p: V2) -> u16 {
     // Wet ground: the low flat coast behind a beach, and valley bottoms
     // (ground well below what stands round it).
     let low_coast = d < 700.0 && h < 9.0 && s < 0.05 && terrain::cliff_mask(t.seed(), p.y) < 0.3;
+    // The map's bog is marsh country outright (`atlas.rs`).
+    if super::super::atlas::atlas().class_at(p) == super::super::atlas::Class::Bog {
+        return out | bit(Habitat::Marsh);
+    }
     let hollow = || {
+        // (The map's own heights: cheap, and the seed's relief is noise here.)
+        let a = super::super::atlas::atlas();
         let mut sum = 0.0;
         for k in 0..8 {
-            let a = k as f32 / 8.0 * std::f32::consts::TAU;
-            sum += t.height(p.add(V2::new(a.cos(), a.sin()).scale(300.0)));
+            let ang = k as f32 / 8.0 * std::f32::consts::TAU;
+            sum += a.base_height(p.add(V2::new(ang.cos(), ang.sin()).scale(300.0)));
         }
-        sum / 8.0 - h
+        sum / 8.0 - a.base_height(p)
     };
     if low_coast || (s < 0.08 && h < 160.0 && hollow() > 12.0) {
         return out | bit(Habitat::Marsh);
@@ -180,28 +197,38 @@ pub fn country(world_seed: u64, t: &Terrain, p: V2) -> u16 {
 /// and the length of shore.
 pub(super) fn survey(world_seed: u64, t: &Terrain, r: RegionId) -> (Vec<(V2, u16)>, f32) {
     let c = region_centre(r);
+    let atlas = super::super::atlas::atlas();
+    // A region wholly at sea (most of the map's square) holds no country.
+    if atlas.inland(c) < -REGION {
+        return (Vec::new(), 0.0);
+    }
     let step = REGION / SURVEY as f32;
     let (x0, y0) = (c.x - REGION / 2.0, c.y - REGION / 2.0);
     let mut out = Vec::with_capacity(SURVEY * SURVEY);
+    let mut coast = 0.0;
     for j in 0..SURVEY {
         for i in 0..SURVEY {
             let p = V2::new(x0 + (i as f32 + 0.5) * step, y0 + (j as f32 + 0.5) * step);
             let c = country(world_seed, t, p);
-            if c != 0 {
+            if c == bit(Habitat::Shore) {
+                // (Just back from the waterline, wherever in the strip it fell.)
+                let q = atlas.shore_spot(p, SHORE_STRIP * 0.25);
+                if atlas.inland(q) < SHORE_STRIP {
+                    out.push((q, c));
+                }
+            } else if c != 0 {
                 out.push((p, c));
             }
-        }
-    }
-    // The shore is a strip too narrow for the grid to find: walk it.
-    let mut coast = 0.0;
-    for j in 0..SURVEY {
-        let y = y0 + (j as f32 + 0.5) * step;
-        let x = geo::coast_x(y);
-        if x >= x0 && x < x0 + REGION {
-            coast += step / 1000.0;
-            let p = V2::new(x + SHORE_STRIP * 0.25, y);
-            if terrain::cliff_mask(t.seed(), y) < 0.5 {
-                out.push((p, bit(Habitat::Shore)));
+            // The shore is a strip too narrow for the grid to find: a sample
+            // within a step of the water stands for that much shoreline, and
+            // puts a shore point just back from the waterline (`atlas.rs`).
+            let d = atlas.inland(p);
+            if d > -step && d < step {
+                coast += step / 1000.0;
+                let q = atlas.shore_spot(p, SHORE_STRIP * 0.25);
+                if atlas.inland(q) < SHORE_STRIP && terrain::cliff_mask(t.seed(), q.y) < 0.5 {
+                    out.push((q, bit(Habitat::Shore)));
+                }
             }
         }
     }

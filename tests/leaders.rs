@@ -82,6 +82,9 @@ fn a_seated_leader_goes_by_their_name_and_belongs_to_their_faction() {
 #[test]
 fn a_fetch_job_from_a_leader_pays_and_raises_standing() {
     let mut w = worldgen::generate(1);
+    for s in &mut w.settlements {
+        s.holder = None;
+    }
     let who = locals(&w)[2];
     w.seat_leader("Hoqa", who);
     let (kind, coin, _) = w.quest_offer(who).expect("Hoqa has work");

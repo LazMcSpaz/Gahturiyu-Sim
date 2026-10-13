@@ -1,12 +1,14 @@
 //! Positions, the map's size, and the coastline.
 //!
-//! The map is a square, `WORLD_SIZE` metres a side (about half of Kenshi).
-//! x runs west to east, y runs north to south. The sea is on the west.
+//! The map is a square, `WORLD_SIZE` metres a side: Laz's continent
+//! (`atlas.rs`) with sea round it. x runs west to east, y runs north to
+//! south. Where the sea is comes from the atlas.
 
 use serde::{Deserialize, Serialize};
 
-/// One side of the map, in metres.
-pub const WORLD_SIZE: f32 = 21_000.0;
+/// One side of the map, in metres: the atlas's width (2576 pixels of 150 m;
+/// the map's height is less, the rest is sea).
+pub const WORLD_SIZE: f32 = 2576.0 * 150.0;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 pub struct V2 {
@@ -38,9 +40,11 @@ impl V2 {
     }
 }
 
-/// The x position of the shoreline at a given y. Land lies east of it.
+/// The x of the westernmost land at a given y (the old western shore; the
+/// map's width where the row is all sea). What still asks for a coast by
+/// latitude gets this.
 pub fn coast_x(y: f32) -> f32 {
-    2300.0 + 550.0 * (y / 2700.0).sin() + 280.0 * (y / 950.0 + 1.3).sin() + 120.0 * (y / 310.0 + 0.4).sin()
+    super::atlas::atlas().west_shore_x(y)
 }
 
 pub fn is_land(p: V2) -> bool {
@@ -48,9 +52,9 @@ pub fn is_land(p: V2) -> bool {
 }
 
 /// How far inland a point sits, in metres (negative at sea): from the
-/// mainland's shore, or Salt Isle's.
+/// map's shore (`atlas.rs`), or Salt Isle's.
 pub fn inland(p: V2) -> f32 {
-    let main = p.x - coast_x(p.y);
+    let main = super::atlas::atlas().inland(p);
     if main >= 0.0 {
         return main;
     }
@@ -63,17 +67,24 @@ pub fn inland(p: V2) -> f32 {
 // every world, so the land and everything that asks "is this land?" know it
 // without a seed.
 
-/// The island's centre is this far down the map...
-pub const ISLE_Y: f32 = 10_000.0;
-/// ...and this far off the mainland's shore.
+/// The island's shore is this far off the mainland's.
 pub const ISLE_OFF: f32 = 1150.0;
 /// Half the island's width (east-west) and height (north-south), roughly.
 pub const ISLE_A: f32 = 420.0;
 pub const ISLE_B: f32 = 260.0;
 
-/// The middle of Salt Isle.
+/// The middle of Salt Isle: in the sea off the Imperial capital (the first
+/// capital marked on the map, `atlas.rs`), `ISLE_OFF` past the shore. Fixed
+/// by the map, so it's worked out once.
 pub fn isle_centre() -> V2 {
-    V2::new(coast_x(ISLE_Y) - ISLE_OFF, ISLE_Y)
+    static C: std::sync::OnceLock<V2> = std::sync::OnceLock::new();
+    *C.get_or_init(|| {
+        let a = super::atlas::atlas();
+        let marks = super::atlas::town_marks();
+        let capital = marks.iter().find(|m| m.kind == super::atlas::Kind::Capital).or(marks.first());
+        let from = capital.map(|m| m.pos()).unwrap_or_else(|| a.land_spot(0));
+        a.seaward(from, ISLE_OFF + ISLE_A)
+    })
 }
 
 /// How far inside Salt Isle's shore a point is, in metres (negative in the

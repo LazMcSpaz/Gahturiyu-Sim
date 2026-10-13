@@ -37,9 +37,11 @@ fn every_kind_of_ground_turns_up_and_is_stable() {
     let w = world();
     let w2 = world();
     let mut seen = std::collections::HashSet::new();
+    // (Twenty kilometres round the squad's town.)
+    let here = w.squad.pos;
     for j in 0..140 {
         for i in 0..140 {
-            let p = V2::new(i as f32 * 150.0 + 30.0, j as f32 * 150.0 + 30.0);
+            let p = V2::new(here.x - 10_500.0 + i as f32 * 150.0 + 30.0, here.y - 10_500.0 + j as f32 * 150.0 + 30.0);
             if !gahturiyu_sim::sim::geo::is_land(p) {
                 continue;
             }
@@ -90,7 +92,7 @@ fn a_far_destination_goes_by_road_when_thats_quicker() {
     let w = world();
     // From the squad's town to the furthest town a road reaches.
     let here = w.squad.pos;
-    let far = w.settlements.iter().map(|s| s.pos).filter(|p| p.dist(here) > 4000.0).min_by(|a, b| a.dist(here).total_cmp(&b.dist(here))).unwrap();
+    let far = w.settlements.iter().filter(|s| !s.offshore && !s.island).map(|s| s.pos).filter(|p| p.dist(here) > 4000.0).min_by(|a, b| a.dist(here).total_cmp(&b.dist(here))).unwrap();
     let (path, _) = w.travel(here, far);
     let on = path.iter().filter(|&&p| w.terrain.on_road(p)).count();
     assert!(on * 2 > path.len(), "most of the way should be road: {on} of {}", path.len());

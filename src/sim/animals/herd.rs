@@ -396,8 +396,9 @@ impl Herd {
         let mut r = Rng::from_keys(&[self.seed, block as u64, 0x524F_414D]);
         if self.sp == Sp::Tidepicker {
             // Out over the wet rocks along the water's edge.
-            let y = self.home.y + r.range(-d.range, d.range);
-            return V2::new(geo::coast_x(y) + r.range(3.0, 20.0), y);
+            // (Along the shore from home, then to the waterline: `atlas.rs`.)
+            let along = self.home.add(V2::new(0.0, r.range(-d.range, d.range)));
+            return super::super::atlas::atlas().shore_spot(along, r.range(3.0, 20.0));
         }
         if let Some(h) = self.haunt {
             if r.chance(HAUNT_SHARE) {

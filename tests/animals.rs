@@ -198,9 +198,12 @@ fn a_new_world_is_stocked() {
         for h in &w.animals.herds {
             assert_eq!(region_of(h.home), h.region);
             match h.sp {
-                Sp::Dustrunner => assert!(w.terrain.plateau(h.home) > 0.4, "a Dustrunner flock off the plateau"),
+                Sp::Dustrunner => assert!(
+                    [(0.0, 0.0), (150.0, 0.0), (-150.0, 0.0), (0.0, 150.0), (0.0, -150.0)].iter().any(|&(dx, dy)| w.terrain.class(h.home.add(V2::new(dx, dy))) == gahturiyu_sim::sim::atlas::Class::Rock),
+                    "a Dustrunner flock off the rocky flats"
+                ),
                 Sp::Tidepicker => assert!(gahturiyu_sim::sim::geo::inland(h.home) < 120.0, "Tidepickers inland"),
-                Sp::Cragmaw => assert!(h.home.dist(MASSIF) < MASSIF_RADIUS + 200.0, "a Cragmaw off the massif"),
+                Sp::Cragmaw => assert!(h.home.dist(massif().0) < massif().1 + 200.0, "a Cragmaw off the massif"),
                 _ => {}
             }
             // Nothing dangerous makes its home on top of a town.

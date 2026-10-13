@@ -803,8 +803,9 @@ impl World {
                     at
                 }
                 PlaceKind::Dock => {
-                    let y = stilts_at.map(|s| s.y).unwrap_or(town.pos.y) + r.range(-25.0, 25.0);
-                    V2::new(geo::coast_x(y) + 4.0, y)
+                    // Where the nearest shore meets dry land (`atlas.rs`).
+                    let base = stilts_at.unwrap_or(town.pos).add(V2::new(r.range(-25.0, 25.0), r.range(-25.0, 25.0)));
+                    super::atlas::atlas().shore_spot(base, 4.0)
                 }
                 PlaceKind::DivePlatform | PlaceKind::KelpBeds | PlaceKind::Boatyard => {
                     let c = offshore_village.unwrap_or(town.pos);

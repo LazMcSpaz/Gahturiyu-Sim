@@ -1,6 +1,13 @@
-# Laz's map (draft, 13 Oct 2026)
+# Laz's map (13 Oct 2026)
 
-`laz-map-draft-2026-10-13.png` (2576 × 1932): the first draft of the world map, from Laz. Not done; the start of the "rebuild the map" step he held back until the systems were built.
+- `laz-map-2026-10-13.png` (2576 × 1932): the clean export, legend colours only (rolling plains, forest, coast, bog, rocky ground, snowy mountains, the Overgrowth, rivers, cliff ticks at 250 m contours), no labels. **This is what `sim/atlas.rs` reads** (by colour, until flat layers exist in `assets/world/`).
+- `laz-map-draft-2026-10-13.png`: the annotated draft (territories in colour, towns and notes in Laz's hand, the two road networks in red and orange).
+- `laz-roads-2026-10-13.png`: the draft's red and orange strokes lifted out as a transparent overlay (`tools`-free: a colour threshold in Python), 150 m a pixel like the rest. The road layer the routes will read.
+- Towns are placed on a web page (Map Marks: generic icons, Laz's roads, a road tool; its RON export is the shape of `assets/world/towns.ron`).
+
+**Scale (Laz):** 36 hours of continuous travel from the Imperial capital to the river-crossing crossroads village: about 1 100 px of road at ~1.3 m/s, so **150 m a pixel**; the continent is about 390 × 290 km (`WORLD_SIZE` = 2576 × 150 m).
+
+## The draft's reading (the primary, before the clean map came)
 
 ## What it shows (the primary's reading)
 
@@ -20,9 +27,10 @@
 4. **The Overgrowth** becomes real regions with the ruins and half-abandoned places on its edge; the Wardens' forts are where the line is held.
 5. **The Qotiro plateau** of the current canon isn't on the map (the south-east is First Peoples plains and forest): dropped, or Laz says where.
 
-## Open (for Laz)
+## Answered (Laz, 13 Oct)
 
-- **Scale**: how far across is the continent? The current world is 21 km square (walked in a day or two). This looks like several hundred; the sim can take a bigger world, but travel, caravans, the bands and the day-plans were tuned at 21 km. A suggestion: ~60–80 km across, so a crossing is a few days.
-- **Source of truth**: is the finished map one image I trace (classes by colour, towns and roads by hand into a `.ron`), or layers (land, water, roads, labels) exported separately? Layers are easier and exact.
-- **The plateau**, and whether any of the current seed-made towns should survive (none need to).
-- **Salt Isle**: off the Imperial capital as drawn; the ferry port becomes the capital's dock.
+- **Scale**: 36 hours capital to crossroads (above). Everything tuned at 21 km (travel, caravans, bands, herds) now runs on a world fifteen times wider; the first pass only keeps it working (coarser road grid, 3 km animal regions, the herd count held down).
+- **Source of truth**: Laz can export layers; until then the clean map is read by colour. Wanted layers, same 2576 × 1932 canvas: `terrain.png` (legend fills only), `water.png`, `roads.png`, `cliffs.png`, `territory.png`.
+- **All the generated towns are dropped**; `assets/world/towns.ron` holds placeholders read off the draft until Laz's marks come from the page. **Don't lay the towns out carefully yet.**
+- **The plateau** isn't on the map: `plateau_mask` is 0 everywhere; the weather's Plateau region never shows.
+- **Salt Isle** lies off the Imperial capital (`geo::isle_centre`: `ISLE_OFF` seaward of the first capital mark); the ferry port is the capital's dock.

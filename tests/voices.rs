@@ -52,6 +52,9 @@ fn faction_lines(slot: &str, key: &str) -> Vec<&'static str> {
 #[test]
 fn a_persons_factions_come_from_their_trade_and_their_towns_holder() {
     let mut w = worldgen::generate(1);
+    for s in &mut w.settlements {
+        s.holder = None;
+    }
     let (k, folk) = home(&w);
     let scribe = folk.iter().copied().find(|&p| matches!(w.life(p).job, Job::Scribe | Job::Teacher | Job::Exchanger)).expect("someone of the Writers' trades");
     let writers = factions::id("writers");
@@ -67,6 +70,9 @@ fn a_persons_factions_come_from_their_trade_and_their_towns_holder() {
 #[test]
 fn a_faction_greets_in_its_own_attitude() {
     let mut w = worldgen::generate(1);
+    for s in &mut w.settlements {
+        s.holder = None;
+    }
     let (k, folk) = home(&w);
     let lead = w.squad.members[0];
     let scribe = folk.iter().copied().find(|&p| matches!(w.life(p).job, Job::Scribe | Job::Teacher | Job::Exchanger)).unwrap();

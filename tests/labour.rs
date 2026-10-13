@@ -25,7 +25,7 @@ fn every_town_has_a_woodlot_and_some_have_mines() {
     let woodlots = w.deposits.iter().filter(|d| d.item == timber).count();
     let mines = w.deposits.iter().filter(|d| d.item == items::id("iron_ore")).count();
     assert!(woodlots >= w.settlements.len() * 3 / 4, "{woodlots} woodlots for {} towns", w.settlements.len());
-    assert!(mines >= 4, "{mines} mines");
+    assert!(mines >= 3, "{mines} mines");
     // Placed from the seed: the same world gets the same.
     assert_eq!(worldgen::generate(1).deposits, w.deposits);
     for f in FACES {

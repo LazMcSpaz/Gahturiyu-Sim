@@ -4,13 +4,16 @@
 //! with its own keys, so adding animals never shifts anything else the seed
 //! decides.
 
+/// See `place_animals`: herds only within this far of a town or a road.
+const HERD_REACH: f32 = 8_000.0;
+
 use super::super::geo::{self, V2};
 use super::super::rng::{self, Rng};
 use super::super::terrain::seg_dist;
 use super::super::world::{World, DAY};
 use super::herd::Herd;
 use super::hooks::Colony;
-use super::region::{region_of, survey, Region, ACROSS};
+use super::region::{region_centre, region_of, survey, Region, ACROSS};
 use super::species::{Class, Habitat, Sp, Toward, ALL_SPECIES};
 use super::{Animals, FIRST_BATTLE};
 
@@ -87,6 +90,13 @@ impl World {
     }
 
     /// Put animals into a freshly made world. Called once from `worldgen`.
+    ///
+    /// `HERD_REACH`: the species' densities were set for the old 21 km
+    /// world; the continent has 340 times the land, and a herd is a record
+    /// that is saved and scanned every hour. So the wild herds are placed at
+    /// their full density only in the regions within `HERD_REACH` of a town
+    /// or a road, where anything happens; the far wilds are empty for now
+    /// (a placeholder, like the towns).
     pub(in crate::sim) fn place_animals(&mut self) {
         let seed = self.seed;
         self.animals = Animals { hour_done: self.hour_done - 1, next_battle: FIRST_BATTLE, near_at: V2::new(-1e9, -1e9), ..Animals::default() };
@@ -101,6 +111,14 @@ impl World {
         }
 
         // ---- Wild herds, wherever the country suits them ---------------------
+        // (Within reach of the towns and the roads; see `HERD_REACH`.)
+        let road_points: Vec<V2> = self.routes.roads.iter().flat_map(|r| r.iter().copied()).collect();
+        let peopled: Vec<bool> = (0..n)
+            .map(|r| {
+                let c = region_centre(r as u16);
+                self.settlements.iter().any(|s| s.pos.dist(c) < HERD_REACH) || road_points.iter().any(|p| p.dist(c) < HERD_REACH)
+            })
+            .collect();
         for sp in ALL_SPECIES {
             let d = sp.def();
             if d.density <= 0.0 || d.habitats.is_empty() || matches!(d.class, Class::Fish | Class::Sea | Class::Domestic) {
@@ -117,6 +135,9 @@ impl World {
                 CLEAR_WILD
             };
             for r in 0..n {
+                if !peopled[r] {
+                    continue;
+                }
                 let room = self.animals.regions[r].room_for(sp);
                 if room <= 0.0 {
                     continue;

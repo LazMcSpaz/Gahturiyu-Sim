@@ -18,7 +18,9 @@ use super::settlement::{Settlement, SettlementId};
 use super::terrain::{walk_factor, Terrain};
 
 /// Spacing of the search grid, metres.
-const GRID: f32 = 120.0;
+/// The pathfinding grid for the roads between towns, metres: coarse, for a
+/// continent (the roads will come from Laz's map's own lines).
+const GRID: f32 = 600.0;
 const G: usize = (WORLD_SIZE / GRID) as usize + 1;
 /// Each town is linked by road to this many of its nearest neighbours.
 const NEIGHBOURS: usize = 3;
@@ -149,18 +151,53 @@ impl Routes {
         debug_assert!(towns[mainland..].iter().all(|s| s.island), "island settlements come last");
         let towns = &towns[..mainland];
         let idx = |i: usize, j: usize| j * G + i;
-        let centre = |i: usize, j: usize| V2::new(i as f32 * GRID, j as f32 * GRID);
-        let height: Vec<f32> = (0..G * G).map(|k| terrain.height(centre(k % G, k / G))).collect();
+        let grid_centre = |i: usize, j: usize| V2::new(i as f32 * GRID, j as f32 * GRID);
+        // At the continent's scale the roads only need the map's own
+        // heights and shores (`atlas.rs`), not the seed's small relief: a
+        // cheap lookup for the half-million cells.
+        let atlas = super::atlas::atlas();
+        let coarse = |p: V2| atlas.base_height(p);
+        // A cell is dry if any of nine spots in it is dry land, and the
+        // route goes through the dry spot nearest its middle: a coastal
+        // strip or a valley narrower than the grid still carries a road.
+        let mut dry = vec![false; G * G];
+        let mut rep: Vec<V2> = Vec::with_capacity(G * G);
+        for k in 0..G * G {
+            let c = grid_centre(k % G, k / G);
+            let mut best: Option<(f32, V2)> = None;
+            for dj in -1..=1 {
+                for di in -1..=1 {
+                    let p = c.add(V2::new(di as f32, dj as f32).scale(GRID / 3.0));
+                    if p.x < 0.0 || p.y < 0.0 || p.x > WORLD_SIZE || p.y > WORLD_SIZE {
+                        continue;
+                    }
+                    if atlas.inland(p) > 15.0 {
+                        let d = p.dist(c);
+                        if best.is_none_or(|(bd, _)| d < bd) {
+                            best = Some((d, p));
+                        }
+                    }
+                }
+            }
+            dry[k] = best.is_some();
+            rep.push(best.map(|b| b.1).unwrap_or(c));
+        }
+        let centre = |i: usize, j: usize| rep[idx(i, j)];
+        let height: Vec<f32> = (0..G * G).map(|k| coarse(rep[k])).collect();
         // The steepest bit of ground along each step out of each cell, read
-        // off the fine terrain: a coarse grid alone would step straight over
-        // a cliff that sits between two of its points.
+        // off the map's heights: a coarse grid alone would step straight
+        // over a cliff that sits between two of its points. A step that
+        // crosses water can't be taken at all.
         let sub = |a: V2, b: V2| -> f32 {
             let mut worst = 0.0f32;
-            let n = 4;
+            let n = 6;
             for k in 0..n {
                 let p = a.lerp(b, k as f32 / n as f32);
                 let q = a.lerp(b, (k + 1) as f32 / n as f32);
-                worst = worst.max((terrain.height(q) - terrain.height(p)).abs() / p.dist(q));
+                if k + 1 < n && atlas.inland(q) < 15.0 {
+                    return f32::INFINITY;
+                }
+                worst = worst.max((coarse(q) - coarse(p)).abs() / p.dist(q).max(1.0));
             }
             worst
         };
@@ -168,16 +205,19 @@ impl Routes {
             .map(|k| {
                 let (i, j) = ((k % G) as i32, (k / G) as i32);
                 let mut out = [f32::INFINITY; 8];
+                if !dry[k] {
+                    return out;
+                }
                 for (n, (di, dj, _)) in STEPS.iter().enumerate() {
                     let (vi, vj) = (i + di, j + dj);
-                    if vi >= 0 && vj >= 0 && vi < G as i32 && vj < G as i32 {
+                    if vi >= 0 && vj >= 0 && vi < G as i32 && vj < G as i32 && dry[idx(vi as usize, vj as usize)] {
                         out[n] = sub(centre(i as usize, j as usize), centre(vi as usize, vj as usize));
                     }
                 }
                 out
             })
             .collect();
-        let dry: Vec<bool> = (0..G * G).map(|k| geo::inland(centre(k % G, k / G)) > 15.0).collect();
+        let snow: Vec<bool> = (0..G * G).map(|k| atlas.class_at(rep[k]) == super::atlas::Class::Snow).collect();
         let mut road = vec![false; G * G];
         let cell_of = |p: V2| -> usize {
             let i = (p.x / GRID).round().clamp(0.0, (G - 1) as f32) as usize;
@@ -200,14 +240,16 @@ impl Routes {
             best
         };
         let nodes: Vec<usize> = towns.iter().map(|t| cell_of(t.pos)).collect();
+        // (An offshore town has no road and no path: it's reached by sea.)
+        let ashore = |i: usize| !towns[i].offshore;
 
         let mut out = Routes::default();
         let mut raw: HashMap<(SettlementId, SettlementId), Vec<usize>> = HashMap::new();
 
         // Which pairs get a road of their own: each town's nearest few.
         let mut links: Vec<(usize, usize)> = Vec::new();
-        for a in 0..towns.len() {
-            let mut near: Vec<usize> = (0..towns.len()).filter(|&b| b != a).collect();
+        for a in (0..towns.len()).filter(|&a| ashore(a)) {
+            let mut near: Vec<usize> = (0..towns.len()).filter(|&b| b != a && ashore(b)).collect();
             near.sort_by(|&x, &y| towns[a].pos.dist(towns[x].pos).total_cmp(&towns[a].pos.dist(towns[y].pos)));
             for &b in near.iter().take(NEIGHBOURS) {
                 let pair = (a.min(b), a.max(b));
@@ -218,12 +260,12 @@ impl Routes {
         }
 
         // Phase 1: grow the road network from the neighbour links.
-        for a in 0..towns.len() {
+        for a in (0..towns.len()).filter(|&a| ashore(a)) {
             let wanted: Vec<usize> = links.iter().filter(|(x, _)| *x == a).map(|(_, y)| *y).collect();
             if wanted.is_empty() {
                 continue;
             }
-            let parent = search(nodes[a], &height, &steep, &dry, &road);
+            let parent = search(nodes[a], &height, &steep, &dry, &snow, &road);
             for b in wanted {
                 let cells = trace(&parent, nodes[a], nodes[b]);
                 for &c in &cells {
@@ -233,9 +275,9 @@ impl Routes {
             }
         }
         // Phase 2: every other pair, now leaning on the roads that exist.
-        for a in 0..towns.len() {
-            let parent = search(nodes[a], &height, &steep, &dry, &road);
-            for b in a + 1..towns.len() {
+        for a in (0..towns.len()).filter(|&a| ashore(a)) {
+            let parent = search(nodes[a], &height, &steep, &dry, &snow, &road);
+            for b in (a + 1..towns.len()).filter(|&b| ashore(b)) {
                 raw.entry((a as SettlementId, b as SettlementId)).or_insert_with(|| trace(&parent, nodes[a], nodes[b]));
             }
         }
@@ -249,7 +291,8 @@ impl Routes {
             pts[0] = towns[a as usize].pos;
             let last = pts.len() - 1;
             pts[last] = towns[b as usize].pos;
-            let pts = chaikin(chaikin(straighten(&pts, terrain)));
+            // (Smoothing cuts corners: a point left in the water comes ashore.)
+            let pts: Vec<V2> = chaikin(chaikin(straighten(&pts, terrain))).into_iter().map(|p| if atlas.inland(p) < 20.0 { atlas.landward(p, 25.0) } else { p }).collect();
             if links.contains(&(a as usize, b as usize)) {
                 out.roads.push(pts.clone());
             }
@@ -279,7 +322,7 @@ const STEPS: [(i32, i32, f32); 8] = [
     (-1, -1, std::f32::consts::SQRT_2),
 ];
 
-fn search(start: usize, height: &[f32], steep: &[[f32; 8]], dry: &[bool], road: &[bool]) -> Vec<u32> {
+fn search(start: usize, height: &[f32], steep: &[[f32; 8]], dry: &[bool], snow: &[bool], road: &[bool]) -> Vec<u32> {
     let mut dist = vec![f32::INFINITY; G * G];
     let mut parent = vec![u32::MAX; G * G];
     let mut heap = BinaryHeap::new();
@@ -309,7 +352,11 @@ fn search(start: usize, height: &[f32], steep: &[[f32; 8]], dry: &[bool], road: 
             }
             // Walking time, plus a premium on steep ground either way (people
             // avoid it even when they could manage it) and on high passes.
-            let mut cost = run / walk_factor(grade) * (1.0 + 5.0 * (worst - 0.12).max(0.0)) * (1.0 + (height[v] - 350.0).max(0.0) / 400.0);
+            let mut cost = run / walk_factor(grade) * (1.0 + 5.0 * (worst - 0.12).max(0.0)) * (1.0 + (height[v] - 250.0).max(0.0) / 100.0);
+            // (Nobody builds a road over the snow if there's any way round.)
+            if snow[v] {
+                cost *= 4.0;
+            }
             if road[v] {
                 cost *= ROAD_DISCOUNT;
             }

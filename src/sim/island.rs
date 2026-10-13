@@ -344,6 +344,7 @@ pub(super) fn add_compound(settlements: &mut Vec<Settlement>, people: &mut Vec<P
         sleepers: Vec::new(),
         holder: Some(super::factions::id("free_lords")),
         island: true,
+            offshore: false,
     };
     let mut roles: Vec<(Role, Race)> = Vec::new();
     roles.push((Role::Steward, Race::Roduro));

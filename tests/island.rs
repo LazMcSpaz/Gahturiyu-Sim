@@ -20,10 +20,12 @@ fn the_island_is_land_in_the_sea() {
         assert!(!geo::is_land(far), "sea 700 m out at {far:?}");
         assert!(geo::inland(far) < 0.0);
     }
-    assert!(c.x < geo::coast_x(c.y) - 600.0);
-    // Nothing else changed: a mainland point's inland distance is what it was.
-    let p = V2::new(geo::coast_x(4000.0) + 900.0, 4000.0);
-    assert_eq!(geo::inland(p), p.x - geo::coast_x(p.y));
+    // Off the mainland's shore by `ISLE_OFF`, in the atlas's sea (`atlas.rs`).
+    let atlas = gahturiyu_sim::sim::atlas::atlas();
+    assert!(atlas.inland(c) <= -(geo::ISLE_OFF + geo::ISLE_A) + 1.0, "the island's centre is {} m from the mainland", -atlas.inland(c));
+    // Nothing else changed: a mainland point's inland distance is the atlas's.
+    let p = atlas.land_spot(99);
+    assert_eq!(geo::inland(p), atlas.inland(p));
     // The terrain agrees, and the island is low and flat where the compound stands.
     let w = worldgen::generate(7);
     let isle = w.island().expect("the world has Salt Isle");

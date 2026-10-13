@@ -128,8 +128,12 @@ impl World {
                 // Seaward: away from the island's centre.
                 (dock, dock.sub(isle.centre))
             }
-            // The mainland's docks run out to the west (`scene.rs`).
-            Berth::Port => (self.ferry_port()?.1, V2::new(-1.0, 0.0)),
+            // The mainland's docks run out toward the water (`atlas.rs`).
+            Berth::Port => {
+                let dock = self.ferry_port()?.1;
+                let out = super::atlas::atlas().toward_sea(dock);
+                (dock, if out.len() < 0.5 { V2::new(-1.0, 0.0) } else { out })
+            }
         };
         let len = out.len().max(1e-3);
         let dir = out.scale(1.0 / len);
@@ -183,7 +187,14 @@ impl World {
         let a = self.berth_pos(Berth::Island)?;
         let z = self.berth_pos(Berth::Port)?;
         let gate = isle.centre.add(V2::new(0.0, super::geo::ISLE_B + SEA_GATE_OFF));
-        let mut path = vec![a, gate, z];
+        // From the gate, the way through open water to the port (`atlas.rs`:
+        // the atlas doesn't know the island, so it's closed off by hand).
+        let atlas = super::atlas::atlas();
+        let course = atlas.sea_path(gate, z, super::atlas::PX * 0.9, Some((isle.centre, super::geo::ISLE_A + SEA_GATE_OFF * 0.5)));
+        let mut path = vec![a, gate];
+        path.extend(course);
+        path.push(z);
+        path.dedup_by(|p, q| p.dist(*q) < 1.0);
         if from == Berth::Port {
             path.reverse();
         }
@@ -275,10 +286,13 @@ impl World {
             if t >= v.arrive {
                 // Put in: everyone stands on the dock.
                 let dock = self.dock_pos(v.to_berth).unwrap_or(v.to());
+                // (Landward of the dock: the water is a step away.)
+                let out = super::atlas::atlas().toward_sea(dock);
+                let land = if out.len() < 0.5 { V2::new(0.0, 0.0) } else { out.scale(-3.0) };
                 for (n, &m) in v.members.iter().enumerate() {
                     let Some(k) = self.squad.index(m) else { continue };
                     let a = 0.7 + n as f32 * 1.9;
-                    let at = self.free_spot(dock.add(V2::new(a.cos(), a.sin()).scale(2.0)));
+                    let at = self.free_spot(dock.add(land).add(V2::new(a.cos(), a.sin()).scale(1.5)));
                     self.squad.at[k] = at;
                     self.squad.goal[k] = at;
                     self.squad.route[k].clear();

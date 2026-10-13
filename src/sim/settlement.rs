@@ -83,6 +83,10 @@ pub struct Settlement {
     /// and it's laid out by hand. Always the last settlement.
     #[serde(default)]
     pub island: bool,
+    /// On an island of the map (`atlas::on_mainland`): no road or caravan
+    /// reaches it either; otherwise an ordinary town.
+    #[serde(default)]
+    pub offshore: bool,
 }
 
 impl Settlement {

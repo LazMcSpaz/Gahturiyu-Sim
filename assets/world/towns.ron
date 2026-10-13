@@ -1,0 +1,25 @@
+// Placeholder towns from Laz's map draft (13 Oct 2026): a dozen of the
+// marks, by pixel on `docs/map/laz-map-draft-2026-10-13.png` (150 m a
+// pixel). Laz: "don't put too much effort into laying out the towns right
+// now"; the real list, with his notes, comes later. Names are made by the
+// naming module from the site; `label` is what the map says.
+//
+// kind: Capital, City, Town, Village, Hamlet, Outpost, Fort.
+// holder: a faction key from `factions.rs` (the territory's).
+[
+    (label: "Imperial capital", px: (386, 1120), kind: Capital, founders: Roduro, holder: "throne"),
+    (label: "Large Imperial city, northern coast", px: (798, 373), kind: City, founders: Roduro, holder: "throne"),
+    (label: "Imperial city", px: (612, 927), kind: City, founders: Roduro, holder: "throne"),
+    (label: "Main High Folk town", px: (412, 721), kind: Town, founders: Roduro, holder: "highfolk"),
+    (label: "Imperial village", px: (730, 905), kind: Village, founders: Roduro, holder: "throne"),
+    (label: "Primary Warden fort and village", px: (1578, 837), kind: Fort, founders: Roduro, holder: "wardens"),
+    (label: "River-crossing crossroads village", px: (1481, 921), kind: Village, founders: Roduro, holder: "wardens"),
+    (label: "Open Hand capital", px: (773, 1443), kind: Capital, founders: Roduro, holder: "open_council"),
+    (label: "Open Hand city", px: (1327, 1224), kind: City, founders: Horaro, holder: "open_council"),
+    (label: "Open Hand town, on the main vein of travel", px: (786, 1662), kind: Town, founders: Roduro, holder: "open_council"),
+    (label: "First Peoples city, fort on the road", px: (1133, 1558), kind: City, founders: Roduro, holder: "seated_houses"),
+    (label: "First Peoples capital, sea castle", px: (1301, 1777), kind: Capital, founders: Horaro, holder: "seated_houses"),
+    (label: "First Peoples town, on an ancient city", px: (1470, 1760), kind: Town, founders: Roduro, holder: "seated_houses"),
+    (label: "Sea Fort town", px: (399, 1288), kind: Town, founders: Horaro, holder: "banner_lords"),
+    (label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),
+]
