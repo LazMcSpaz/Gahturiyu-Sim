@@ -72,6 +72,21 @@ impl FireJob {
 }
 
 impl World {
+    /// A fire lit at `at` right now, by the lead (the dev panel's "spawn
+    /// fire"): a campfire like any the squad lays, but it burns its hours
+    /// whatever the weather (a testing tool: a forced downpour would put a
+    /// real one out at once).
+    pub fn dev_fire(&mut self, at: V2) -> u32 {
+        let t = self.time;
+        let by = self.squad.members.first().copied().unwrap_or(0);
+        let id = self.next_fire;
+        self.next_fire += 1;
+        let out_at = t + BURN_HOURS * HOUR;
+        self.campfires.push(Campfire { id, pos: at, by, since: t, lit_at: t, out_at });
+        self.solid_changed();
+        id
+    }
+
     pub fn campfire(&self, id: u32) -> Option<&Campfire> {
         self.campfires.iter().find(|f| f.id == id)
     }

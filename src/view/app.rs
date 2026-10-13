@@ -221,6 +221,9 @@ pub struct Game {
     pub stats: Option<PersonId>,
     /// The game menu (Escape with nothing open); the world waits while it's up.
     pub game_menu: Option<super::screens::GameMenu>,
+    /// The title screen (`title.rs`): up at launch, and from the game menu.
+    /// The world stands still under it.
+    pub title: Option<super::title::Title>,
     /// Which screen is open (`screens.rs`: one at a time).
     pub screens: super::screens::Screens,
     /// Spells cast outside fights, being shown (`castfx.rs`).
@@ -232,6 +235,48 @@ pub struct Game {
 /// A new world for `seed`: the forged town (assets/towns/demo) and the
 /// seed's map from the land editor, unless `own_land` asks for the seed's
 /// own land (screenshots).
+/// The title screen at launch: up for a real run, down for screenshots and
+/// a `GAHT_LOAD` (which start straight in), unless `GAHT_TITLE=1|arena|load`
+/// asks for a page of it.
+fn title_at_launch(shot: bool) -> Option<super::title::Title> {
+    use super::title::{Page, Title};
+    match std::env::var("GAHT_TITLE").as_deref() {
+        Ok("arena") => return Some(Title::on(Page::Arena)),
+        Ok("load") => return Some(Title::on(Page::Load)),
+        Ok(_) => return Some(Title::new()),
+        Err(_) => {}
+    }
+    if shot || std::env::var("GAHT_LOAD").is_ok() {
+        None
+    } else {
+        Some(Title::new())
+    }
+}
+
+/// Seconds since the epoch: a seed for a new world.
+fn seed_now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(1)
+}
+
+/// Set a fresh town-start world up for one of the testing arena's scenes.
+fn arena_setup(w: &mut World, a: super::title::Arena) {
+    use super::title::Arena;
+    match a {
+        Arena::TestArea => {
+            w.enter_test_quarter();
+        }
+        Arena::Combat => {
+            w.enter_test_quarter();
+            if let Some((c, r)) = w.test_quarter().map(|q| q.arena()) {
+                w.teleport_squad(c.add(V2::new(-r * 0.45, 0.0)));
+                w.spawn_bandits(c.add(V2::new(r * 0.45, 0.0)), 3, false);
+            }
+        }
+        Arena::Building => super::shot::demo_base(w, true),
+    }
+    w.step(0.001);
+}
+
 /// How a new game begins: `GAHT_START=town|island`, else the opening on
 /// Salt Isle, except for screenshots (their scenes want the squad of four).
 fn start_kind(shot: bool) -> worldgen::Start {
@@ -375,6 +420,7 @@ pub fn run() {
         sounds: Default::default(),
         stats: None,
         game_menu: None,
+        title: title_at_launch(shot.is_some()),
         screens: Default::default(),
         quit: false,
         castfx: Default::default(),
@@ -647,7 +693,15 @@ fn toggle_town(game: &mut Game) {
 
 fn quick_save_now(game: &mut Game) {
     let msg = match game.world.save_to(&quick_save()) {
-        Ok(()) => "Saved.".to_string(),
+        Ok(()) => {
+            // And a copy named for the world's day and hour, for the title
+            // screen's Load list (`title.rs`).
+            let w = &game.world;
+            let hour = (w.time / gahturiyu_sim::sim::world::HOUR).rem_euclid(24.0) as u32;
+            let name = super::title::dated_name(World::day_of(w.time), hour, w.seed);
+            let _ = w.save_to(&super::title::saves_dir().join(format!("{name}.sav")));
+            format!("Saved ({name}).")
+        }
         Err(e) => format!("Couldn't save: {e}"),
     };
     game.notice = Some((msg, std::time::Instant::now()));
@@ -755,7 +809,7 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     }
     // Space only ever controls time (Laz's P11). (Not while the game menu
     // is up: the world waits for it anyway.)
-    if keys.just_pressed(KeyCode::Space) && game.game_menu.is_none() {
+    if keys.just_pressed(KeyCode::Space) && game.game_menu.is_none() && game.title.is_none() {
         game.paused = !game.paused;
     }
     // Enter does what the open screen is for: Deal at the trade table (taken
@@ -1162,7 +1216,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     }
     // Time stands still while you talk, as in Morrowind (and once the
     // squad is gone).
-    if !game.paused && game.game_menu.is_none() && game.world.talk.is_none() && !game.editor.on && !game.world.squad.members.is_empty() {
+    if !game.paused && game.game_menu.is_none() && game.title.is_none() && game.world.talk.is_none() && !game.editor.on && !game.world.squad.members.is_empty() {
         let t0 = std::time::Instant::now();
         // Screenshots run at a fixed pace so they don't depend on how fast
         // the machine draws.
@@ -1730,8 +1784,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     }
     let fs = super::frame::FrameState { sel: &game.sel, speed_i: game.speed_i, paused: game.paused, collapsed: game.squad_collapsed, open };
     // Close in on a talk, the frame folds away (the talk screen is the
-    // whole window); at the trade table too.
-    let close_up = w.talk.is_some() || game.parting.is_some();
+    // whole window); at the trade table too, and under the title screen.
+    let close_up = w.talk.is_some() || game.parting.is_some() || game.title.is_some();
     if game.view == View::Scene && !close_up {
         super::frame::banner(&c, w);
     }
@@ -2400,6 +2454,45 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if game.debug {
         panels.push(Bx::from(super::foliage::draw_readout(&c, &game.orbit, &scene, &foliage, &models)));
     }
+    if let Some(mut t) = game.title.take() {
+        use super::title::TitleAct;
+        // (With the settings panel over it, the click is the panel's.)
+        let (act, bx) = super::title::draw(&c, &mut t, if game.options { None } else { click }, size);
+        panels.push(bx);
+        let mut keep = true;
+        if let Some(act) = act {
+            game.sounds.ui("ui_press");
+            match act {
+                TitleAct::Continue(p) | TitleAct::Load(p) => match World::load_from(&p) {
+                    Ok(w) => {
+                        swap_world(game, w);
+                        game.notice = Some(("Loaded.".to_string(), std::time::Instant::now()));
+                        keep = false;
+                    }
+                    Err(e) => game.notice = Some((format!("Couldn't load: {e}"), std::time::Instant::now())),
+                },
+                TitleAct::NewGame => {
+                    let seed = seed_now();
+                    swap_world(game, fresh_world(seed, true, start_kind(false)));
+                    game.notice = Some((format!("A new world (seed {seed})."), std::time::Instant::now()));
+                    keep = false;
+                }
+                TitleAct::Arena(a) => {
+                    let seed = seed_now();
+                    let mut w = fresh_world(seed, true, worldgen::Start::Town);
+                    arena_setup(&mut w, a);
+                    swap_world(game, w);
+                    game.notice = Some((format!("{} (seed {seed}).", a.label()), std::time::Instant::now()));
+                    keep = false;
+                }
+                TitleAct::Settings => game.options = true,
+                TitleAct::Quit => game.quit = true,
+            }
+        }
+        if keep {
+            game.title = Some(t);
+        }
+    }
     if game.options {
         let mut s = settings.clone();
         let at = game.slides.begin(&c);
@@ -2507,6 +2600,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     game.world.skip_island();
                     game.notice = Some(("Ashore on the mainland.".to_string(), std::time::Instant::now()));
                 }
+                MenuAct::Title => game.title = Some(super::title::Title::new()),
                 MenuAct::Quit => game.quit = true,
             }
         }

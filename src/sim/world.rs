@@ -155,6 +155,10 @@ pub struct World {
     /// What's switched on (`rules.rs`): the toggles in the settings panel.
     #[serde(default)]
     pub rules: super::rules::Rules,
+    /// A testing tool (the dev panel): this sky everywhere, until cleared.
+    /// Not saved: a loaded world has its own weather again.
+    #[serde(skip)]
+    pub forced_sky: Option<super::weather::Sky>,
     /// The squad's crossing on the ferry, under way (`ferry.rs`), and who's
     /// been sent to board.
     #[serde(default)]
@@ -398,6 +402,7 @@ impl World {
             island: None,
             tutorial: None,
             rules: Default::default(),
+            forced_sky: None,
             voyage: None,
             boarding: Vec::new(),
             bases: Vec::new(),

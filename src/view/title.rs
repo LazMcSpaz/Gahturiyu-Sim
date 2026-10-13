@@ -102,11 +102,6 @@ pub fn list_saves() -> Vec<SaveFile> {
     out
 }
 
-/// The newest save, to continue from.
-pub fn newest_save() -> Option<SaveFile> {
-    list_saves().into_iter().next()
-}
-
 /// "3 minutes ago", "2 hours ago", "4 days ago".
 fn ago(t: std::time::SystemTime) -> String {
     let secs = std::time::SystemTime::now().duration_since(t).map(|d| d.as_secs()).unwrap_or(0);
@@ -189,7 +184,7 @@ pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Opt
         }
     };
     let subs = rows.iter().filter(|r| r.4.is_some()).count() as f32;
-    let h = 110.0 + rows.len() as f32 * ROW + subs * 16.0;
+    let h = 110.0 + rows.len() as f32 * ROW + subs * 18.0;
     let (x, y) = ((size.x - W) / 2.0, (size.y - h) / 2.0);
     c.frame_box(x, y, W, h);
     let title = "Gahturiyu";
@@ -219,8 +214,9 @@ pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Opt
         }
         by += ROW;
         if let Some(u) = under {
-            c.text(&u, x + 40.0, by - 8.0, 12.0, if enabled { TEXT } else { DIM });
-            by += 16.0;
+            // (Under the button, not on its edge.)
+            c.text(&u, x + 44.0, by + 2.0, 12.0, if enabled { TEXT } else { DIM });
+            by += 18.0;
         }
     }
     c.text("Esc goes back", x + 14.0, y + h - 12.0, 12.0, DIM);
