@@ -98,7 +98,7 @@ impl Subject {
 }
 
 /// The data files, compiled in.
-const FILES: [(&str, &str); 24] = [
+const FILES: [(&str, &str); 25] = [
     ("", include_str!("../../data/lines/greetings.txt")),
     ("", include_str!("../../data/lines/farewells.txt")),
     ("theft", include_str!("../../data/lines/theft.txt")),
@@ -126,6 +126,8 @@ const FILES: [(&str, &str); 24] = [
     ("faction", include_str!("../../data/lines/faction_talk.txt")),
     // What the faction leaders say of their jobs (`leaders.rs`).
     ("leader", include_str!("../../data/lines/leaders.txt")),
+    // Diʻub, the tutorial's stranger (`diub.rs`).
+    ("diub", include_str!("../../data/lines/diub.txt")),
 ];
 
 #[derive(Clone, Debug)]

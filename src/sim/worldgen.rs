@@ -308,6 +308,8 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     w.place_binders();
     // The test quarter's culture row's folk, last of all (second's `testquarter.rs`).
     w.people_the_culture_row();
+    // Diʻub in the shelter hut, the lord in the hall (second's `diub.rs`).
+    w.place_the_strangers();
     // The weather for outdoor work, the first days (after this, each dawn).
     let day = World::day_of(w.time);
     for town in 0..w.settlements.len() {

@@ -165,4 +165,11 @@
     (word: "Nacre", kind: Material, meaning: "a material or good", source: "src/sim/jobs.rs"),
     (word: "Stone Tender", kind: Job, meaning: "one who tends grown stone homes", source: "src/sim/jobs.rs"),
     (word: "the Overgrowth", kind: Other, meaning: "the hostile growth that takes hold of a region", source: "README.md"),
+
+    // ---- Salt Isle's two strangers (docs/tutorial-island.md) -------------
+    // Diʻub is a clipped nickname: a runaway who has dropped his house name
+    // and most of his old self. Its closed ending breaks Roduro's
+    // open-syllable rule on purpose, so no root makes it.
+    (word: "Diʻub", tongue: Some(Roduro), kind: Other, meaning: "the escaped debtor in Salt Isle's shelter hut, the tutorial's guide (a runaway's clipped nickname; it plays on Jiub)", source: "Laz, tutorial-island.md (2026-10-12)"),
+    (word: "Ḍeshu", tongue: Some(Roduro), kind: Other, meaning: "Ḍeshu of the Grey House, the Free Lord who owns Salt Isle (\"sweet\")", source: "tutorial-island.md (2026-10-12), a name from the naming module"),
 ]

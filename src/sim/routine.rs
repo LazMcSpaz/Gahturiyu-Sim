@@ -308,10 +308,12 @@ impl World {
         };
         // The test quarter's culture row keeps to its homes: the quarter is
         // walled off from the compound (second's `testquarter.rs`).
-        if self.in_culture_row(pid) {
+        // (Diʻub, a wary runaway, is up earlier and later: `diub.rs`.)
+        if self.keeps_home(pid) {
+            let (up, down) = if self.is_diub(pid) { (5.0, 23.0) } else { (7.0, 22.0) };
             plan.push(0.0, Doing::Asleep, Spot::Home);
-            plan.push(7.0, Doing::Home, Spot::Home);
-            plan.push(22.0, Doing::Asleep, Spot::Home);
+            plan.push(up, Doing::Home, Spot::Home);
+            plan.push(down, Doing::Asleep, Spot::Home);
             return plan;
         }
         let comm = &self.society.communities[ci as usize];

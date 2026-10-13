@@ -1,0 +1,75 @@
+# Diʻub, the escaped debtor in the shelter hut (`src/sim/diub.rs`;
+# docs/tutorial-island.md). slot | conditions | text | flags
+#
+# hello:    what he says when you first meet him at the hut (then the first
+#   question follows).
+# question: his questions, q=1..4 (Laz's brief).
+# answer:   what the squad member says, q=1..4, a=1..4 (Laz's brief). The
+#   fifth, "I'd rather not say", is always there and needs no line.
+# reply:    what he says to each answer, q and a; a=5 for "I'd rather not say".
+# offer:    after the fourth answer: working together to get off the island,
+#   and why not to go to the authorities.
+# guide:    his words for a lesson (lesson=<key>, `tutorial.rs`), shown in the
+#   tracked corner once you've met him. (Claude's drafts, Laz to change.)
+# night_market: on the ship, if you got off together on the sneak path.
+#
+# The questions, the answers and his replies are Laz's (the brief); the
+# greeting, offer, guide and night_market lines are Claude's drafts.
+
+hello | | You. You're not one of theirs, are you. Washed up? Sit, then. Eat what you cooked; I won't take it off you.
+
+question | q=1 | What were you doing on that ship?
+question | q=2 | What did you do with your hands, before all this?
+question | q=3 | Someone comes at you in the dark. What do you do?
+question | q=4 | Where were you going, before the storm?
+
+answer | q=1, a=1 | Working the ropes.
+answer | q=1, a=2 | Guarding the cargo. Didn't do much good.
+answer | q=1, a=3 | Keeping the books for the captain.
+answer | q=1, a=4 | I wasn't supposed to be aboard.
+answer | q=2, a=1 | Built things. Walls, roofs.
+answer | q=2, a=2 | Worked a forge.
+answer | q=2, a=3 | Mixed remedies. Herbs, mostly.
+answer | q=2, a=4 | Hunted.
+answer | q=3, a=1 | Hit first.
+answer | q=3, a=2 | Get out of the way.
+answer | q=3, a=3 | Keep still. Let them pass.
+answer | q=3, a=4 | I just... feel it coming. And something answers.
+answer | q=4, a=1 | Home. Whatever's left of it.
+answer | q=4, a=2 | Anywhere with work.
+answer | q=4, a=3 | To find a teacher.
+answer | q=4, a=4 | Away. Just away.
+
+reply | q=1, a=1 | Hands like that, I believed you before you said it.
+reply | q=1, a=2 | Cargo's at the bottom of the sea. You're not. Count that a win.
+reply | q=1, a=3 | A reader. Don't tell anyone here; they'll make you count salt.
+reply | q=1, a=4 | Ha. Then we're the same kind of guest.
+reply | q=2, a=1 | The Binding will love you. It always needs walls.
+reply | q=2, a=2 | Don't let them see your arms. They'll chain you to the anvil.
+reply | q=2, a=3 | Then you know what not to eat out here. Good.
+reply | q=2, a=4 | There's goats on the north side. And worse.
+reply | q=3, a=1 | Honest. Stupid, sometimes. But honest.
+reply | q=3, a=2 | That's how I've lasted this long.
+reply | q=3, a=3 | Good. Out here, still is alive.
+reply | q=3, a=4 | He looks at you a long while. "Keep that to yourself."
+reply | q=4, a=1 | Then we'll get you there. Or near enough.
+reply | q=4, a=2 | Plenty of work here. None of it paid.
+reply | q=4, a=3 | The Writers take strays. If you live.
+reply | q=4, a=4 | Away I understand.
+reply | a=5 | Fair. Nor would I.
+
+offer | | Here's how it is. This is the Binding. Anyone here without papers is a debtor by sundown, and nobody asks how you came. I'm getting off it, and two get further than one. Thinking of going down to the compound to explain yourself? Don't. They won't care, and they'll put a chain on you all the same. Your choice, though.
+
+guide | lesson=labour | Keep your head down and your load up. The ones who drop it get the quarry.
+guide | lesson=workyard | They'll want mending done. Do it well enough and they stop watching you.
+guide | lesson=yard | They fight in the yard to see who's worth feeding. Don't win too pretty.
+guide | lesson=bond | Ask the steward what you owe. He'll tell you. He enjoys it.
+guide | lesson=bought | Someone's paid for you. Don't ask why yet. Ask later, when you're off this rock.
+guide | lesson=night_run | After dark the gate's watched, the wall isn't, all of it. Keep low and keep out of the light.
+guide | lesson=stores | The stores have what we need. Locks, mind. Take what fits in your hands.
+guide | lesson=gate | By day, in a debtor's smock, nobody looks twice. Walk like you've somewhere to be.
+guide | lesson=spotted | If they've seen you, don't stand and argue. North, past the briar. They won't follow you in.
+guide | lesson=stow | The ship's in at morning. Low, quiet, and aboard before the crew's counted.
+guide | lesson=sail | That's the ship. Whatever you do, be on it.
+
+night_market | | Off the Binding, and nobody counting us. I know people on the mainland who'd pay for hands like yours: the Night Market. Come and find me there. I'll tell them you're with me.
