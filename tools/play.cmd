@@ -14,6 +14,8 @@ title Gahturiyu
 set "ROOT=C:\Users\Laz PC\Repos"
 set "CARGO_BUILD_JOBS=8"
 set "CARGO_TARGET_DIR="
+rem (cargo and git, wherever this is run from.)
+set "PATH=%USERPROFILE%\.cargo\bin;C:\Program Files\Git\cmd;%PATH%"
 
 echo.
 echo   Gahturiyu
