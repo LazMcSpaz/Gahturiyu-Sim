@@ -697,6 +697,39 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     // The hidden test quarter (dev only).
     super::testquarter::draw(&mut b, w, &on_ground, oc.target, radius);
+    // Salt Isle's compound palisade (`island.rs`): posts shoulder to
+    // shoulder along the wall a walker meets, the gate's posts taller.
+    if let Some(isle) = w.island() {
+        let (c, half) = isle.palisade();
+        if c.dist(oc.target) <= radius.min(900.0) + half.x {
+            use gahturiyu_sim::sim::island::PALISADE_H;
+            let way = isle.gate();
+            let corners = [c.add(V2::new(-half.x, -half.y)), c.add(V2::new(half.x, -half.y)), c.add(V2::new(half.x, half.y)), c.add(V2::new(-half.x, half.y))];
+            let dark = [0.3, 0.22, 0.14];
+            for k in 0..4 {
+                let (p, q) = (corners[k], corners[(k + 1) % 4]);
+                let n = (p.dist(q) / 0.9).round().max(1.0) as usize;
+                for i in 0..=n {
+                    let at = p.lerp(q, i as f32 / n as f32);
+                    if at.dist(way.at) < way.width * 0.5 {
+                        continue;
+                    }
+                    let h = PALISADE_H + 0.3 * (((i * 7 + k * 13) % 5) as f32 / 5.0);
+                    b.column(to3(at, on_ground(at) - 0.2), 0.24, 0.16, h + 0.2, 5, dark);
+                }
+                // A rail along the inside.
+                let inward = c.sub(p.lerp(q, 0.5));
+                let inward = inward.scale(0.35 / inward.len().max(1e-3));
+                b.stick(to3(p.add(inward), on_ground(p) + PALISADE_H * 0.6), to3(q.add(inward), on_ground(q) + PALISADE_H * 0.6), 0.12, palette::TIMBER);
+            }
+            for s in [-1.0, 1.0] {
+                let at = way.at.add(V2::new(s * way.width * 0.55, 0.0));
+                b.column(to3(at, on_ground(at) - 0.2), 0.34, 0.26, PALISADE_H + 1.2, 6, dark);
+            }
+            let (l, r) = (way.at.add(V2::new(-way.width * 0.55, 0.0)), way.at.add(V2::new(way.width * 0.55, 0.0)));
+            b.stick(to3(l, on_ground(l) + PALISADE_H + 0.9), to3(r, on_ground(r) + PALISADE_H + 0.9), 0.18, palette::TIMBER);
+        }
+    }
     // Salt Isle's briar patch (`island.rs`): a fence round a tangle of dark
     // bramble the locals leave alone (the same fence a walker meets).
     if let Some(c) = w.island().map(|i| i.spot(gahturiyu_sim::sim::island::Spot::Briar)) {

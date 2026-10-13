@@ -61,11 +61,11 @@ pub const LESSONS: &[Lesson] = &[
     l("yard", Path::Caught, "The yard", "Prove yourself.", "fighting, wounds, knockouts", Some(Spot::Yard), false),
     l("bond", Path::Caught, "Your bond", "Learn what you owe.", "bonds, the law", Some(Spot::Hall), false),
     l("bought", Path::Caught, "Bought out", "Someone has paid for you.", "your first faction", Some(Spot::Dock), false),
-    l("night_run", Path::Sneak, "Night run", "Get into the compound after dark, unseen.", "sneaking, light, guard routes", Some(Spot::Gate), false),
-    l("stores", Path::Sneak, "The stores", "Take what you need.", "looting, inventory, lockpicking", Some(Spot::Stores), false),
-    l("gate", Path::Sneak, "The gate", "Pass as one of theirs.", "disguise", Some(Spot::Gate), false),
-    l("spotted", Path::Sneak, "Spotted", "Fight or run.", "fighting, fleeing", None, false),
-    l("stow", Path::Sneak, "Stow away", "Get aboard.", "escaping; your first faction", Some(Spot::Dock), false),
+    l("night_run", Path::Both, "The compound", "The compound has what you need. Its gate is watched: go in by night, sneaking (the Sneak order), and keep out of the watch's sight. (Walk in by day and you'll be taken for a runaway.)", "sneaking, light, guard routes", Some(Spot::Gate), true),
+    l("stores", Path::Sneak, "The stores", "The hall and the steward's house keep chests and crates. Go in, go through one (click it) and take what you need; a lock wants a lockpick.", "looting, inventory, lockpicking", Some(Spot::Hall), true),
+    l("gate", Path::Sneak, "The gate", "By day, pass the gate as one of theirs: put on a labourer's smock (from the stores, or the Workbench) and walk through. The watch may look you over.", "disguise", Some(Spot::Gate), true),
+    l("spotted", Path::Sneak, "Spotted", "If the watch catches on, fight or run: the open ground north of the compound is yours, the briar theirs to avoid.", "fighting, fleeing", None, true),
+    l("stow", Path::Sneak, "Stow away", "The ship lies at the dock in the morning. Sneak aboard: right-click the dock while sneaking, Board the ship.", "escaping; your first faction", Some(Spot::Dock), true),
     l("sail", Path::Both, "The ship", "The ferry lies at the dock in the morning. Right-click the dock to board; it sails when you're all aboard.", "leaving the island", Some(Spot::Dock), true),
 ];
 
@@ -149,7 +149,8 @@ impl World {
 
     /// A system says a lesson is done (the talk: the questions answered;
     /// the law: made a slave, bought out; the ship: aboard). Also sets the
-    /// path when the lesson is one path's.
+    /// path when the lesson is one path's, and the night run (a sneak into
+    /// the compound) sets the sneak path.
     pub fn lesson_done(&mut self, key: &str) {
         let t = self.time;
         let Some(tu) = self.tutorial.as_mut() else { return };
@@ -160,8 +161,15 @@ impl World {
         if x.path != Path::Both && tu.path.is_none() {
             tu.path = Some(x.path);
         }
+        if key == "night_run" && tu.path.is_none() {
+            tu.path = Some(Path::Sneak);
+        }
         tu.done.push((x.key, t));
         self.log.push_front((t, format!("Lesson done: {}.", x.title)));
+        // Stowed away without a fight: never spotted, well done.
+        if key == "stow" {
+            self.lesson_done("spotted");
+        }
     }
 
     /// The squad takes the caught path or the sneak path (the law, the
@@ -188,6 +196,29 @@ impl World {
             "shelter" => {
                 let Some(hut) = self.island().map(|i| i.spot(Spot::Hut)) else { return false };
                 positions().any(|p| p.dist(hut) <= AT_HUT) || self.squad.members.iter().any(|&m| self.building_at(self.person_pos(m)).is_some())
+            }
+            // Inside the palisade after dark, sneaking: the night run. (By
+            // day through the gate, the law takes them: the caught path.)
+            "night_run" => {
+                let Some(isle) = self.island() else { return false };
+                let dark = super::stealth::daylight(self.time) < 0.3;
+                dark && self.squad.members.iter().enumerate().any(|(k, &m)| self.squad.sneaking[k] && isle.in_compound(self.person_pos(m)))
+            }
+            // Something of the compound's gone through.
+            "stores" => {
+                let Some(t) = self.island().map(|i| i.settlement) else { return false };
+                self.containers.range((t, 0, 0)..=(t, u16::MAX, u8::MAX)).any(|(_, c)| c.taken > 0)
+            }
+            // At the gate by day, passing as one of theirs.
+            "gate" => {
+                let Some(isle) = self.island() else { return false };
+                let gate = isle.gate();
+                super::stealth::daylight(self.time) >= 0.3 && self.squad.members.iter().any(|&m| self.person_pos(m).dist(gate.at) <= gate.width && self.disguise_of(m).is_some())
+            }
+            // A fight with the compound's people, or its watch after them.
+            "spotted" => {
+                let Some(t) = self.island().map(|i| i.settlement) else { return false };
+                self.pursuits.iter().any(|p| p.town == t) || self.squad_battle().is_some_and(|b| b.fighters.iter().any(|f| f.is_person() && !self.people[f.pid as usize].in_squad && self.people[f.pid as usize].home == Some(t)))
             }
             // The wreck's crate gone through (`island::WRECK_CRATE`).
             "salvage" => self.containers.get(&super::island::WRECK_CRATE).is_some_and(|c| c.taken > 0 || c.items.is_empty()),
