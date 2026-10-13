@@ -52,6 +52,7 @@ const fn l(key: &'static str, path: Path, title: &'static str, task: &'static st
 /// The lessons, in order: the shared opening first, then each path's.
 pub const LESSONS: &[Lesson] = &[
     l("wake", Path::Both, "Wake", "You're alive, on a shore, in a storm. Left-click the ground to walk; drag to turn the camera, scroll to zoom.", "moving, the camera, weather", None, true),
+    l("salvage", Path::Both, "Salvage", "What the sea left of your things lies at the water's edge below the wreck. Click the crate and take what's there.", "looting, your pack", Some(Spot::Wreck), true),
     l("shelter", Path::Both, "Shelter", "Get out of the weather. There's a hut up the slope with a fire going.", "shelter, cold", Some(Spot::Hut), true),
     l("cook", Path::Both, "Cook", "There's raw food by the fire. Right-click the fire, Cook here, and eat what you make.", "fire, cooking, eating", Some(Spot::Hut), true),
     l("questions", Path::Both, "The stranger", "Someone's here. Talk to him.", "talking, who you were", Some(Spot::Hut), false),
@@ -188,6 +189,8 @@ impl World {
                 let Some(hut) = self.island().map(|i| i.spot(Spot::Hut)) else { return false };
                 positions().any(|p| p.dist(hut) <= AT_HUT) || self.squad.members.iter().any(|&m| self.building_at(self.person_pos(m)).is_some())
             }
+            // The wreck's crate gone through (`island::WRECK_CRATE`).
+            "salvage" => self.containers.get(&super::island::WRECK_CRATE).is_some_and(|c| c.taken > 0 || c.items.is_empty()),
             // A meal's buff on them: they've cooked and eaten.
             "cook" => self.squad.members.iter().any(|&m| self.people[m as usize].cond.as_ref().is_some_and(|c| c.meal.is_some())),
             _ => false,
@@ -201,6 +204,34 @@ impl World {
         if self.lesson_holds(x) {
             self.lesson_done(x.key);
         }
+    }
+
+    /// Skip the island (a later playthrough): the squad stands on the
+    /// mainland port's dock with a traveller's kit, the island behind them.
+    pub fn skip_island(&mut self) {
+        if !self.on_island() {
+            return;
+        }
+        let t = self.time;
+        for &m in &self.squad.members.clone() {
+            self.people[m as usize].ensure_detail();
+            let d = self.people[m as usize].detail.as_mut().unwrap();
+            for key in super::island::BASIC_WEAR {
+                let id = super::items::id(key);
+                d.gear.add_piece(id, super::wear::fresh(id, t));
+                let _ = d.gear.equip(id);
+            }
+            for (key, n) in super::island::BASIC_PACK {
+                d.gear.add(super::items::id(key), n);
+            }
+            self.people[m as usize].recompute_might();
+        }
+        if let Some((_, dock)) = self.ferry_port() {
+            let at = self.free_spot(dock.add(V2::new(4.0, 0.0)));
+            self.teleport_squad(at);
+        }
+        self.end_tutorial();
+        self.log.push_front((t, "The ferry puts you ashore on the mainland.".to_string()));
     }
 
     /// Whether the squad is on Salt Isle still (the tutorial's rules apply).

@@ -181,6 +181,14 @@ pub const HUT_FIRE_HOURS: f64 = 72.0;
 pub const HUT_FOOD: [(&str, u16); 3] = [("raw_meat", 2), ("fish", 2), ("wild_berries", 3)];
 /// How chilled a wrecked sailor wakes (`condition::CHILLED` is 30).
 pub const WRECKED_COLD: f32 = 45.0;
+/// The crate of what the sea left, at the water's edge below the wreck.
+pub const WRECK_CRATE: super::containers::ContainerId = (super::containers::WILD, u16::MAX - 1, 0);
+/// What's in it: (item key, how many).
+pub const WRECK_GOODS: [(&str, u16); 5] = [("coin", 8), ("bedroll", 1), ("waterskin", 1), ("torch", 2), ("flatbread", 2)];
+/// A traveller's kit for skipping the island (`tutorial::skip_island`):
+/// worn, and in the pack.
+pub const BASIC_WEAR: [&str; 6] = ["club", "hide_coat", "leather_cap", "hide_leggings", "boots", "small_pack"];
+pub const BASIC_PACK: [(&str, u16); 7] = [("bedroll", 1), ("bandage", 3), ("waterskin", 1), ("flatbread", 3), ("dried_fish", 2), ("torch", 2), ("coin", 20)];
 
 /// The island as the world holds it: which settlement is the compound.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -391,11 +399,34 @@ impl World {
         Some(hut.pos.add(to.scale((hut.size * 0.5 + 5.0) / len)))
     }
 
+    /// Where the wreck's crate lies: the last dry ground between the shore
+    /// and the wreck.
+    pub fn wreck_edge(&self) -> Option<V2> {
+        let isle = self.island()?;
+        let (a, z) = (isle.spot(Spot::Shore), isle.spot(Spot::Wreck));
+        let d = z.sub(a);
+        let len = d.len().max(1e-3);
+        let dir = d.scale(1.0 / len);
+        let mut k = 0.0;
+        while k < len && !self.terrain.is_sea(a.add(dir.scale(k + 1.0))) {
+            k += 1.0;
+        }
+        Some(a.add(dir.scale((k - 2.5).max(0.0))))
+    }
+
     /// The opening (`tutorial.rs`): the squad wakes on the shore, chilled;
-    /// the hut's fire is lit and there's raw food beside it.
+    /// the hut's fire is lit and there's raw food beside it; what the sea
+    /// left of their things lies in a crate at the water's edge.
     pub(super) fn start_opening(&mut self) {
         let Some(isle) = self.island.clone() else { return };
         let t = self.time;
+        if let Some(edge) = self.wreck_edge() {
+            use super::containers::{Container, Owner};
+            use super::inventory::Entry;
+            let items: Vec<Entry> = WRECK_GOODS.iter().map(|&(k, n)| Entry(super::items::id(k), n, None)).collect();
+            let rot = (isle.centre.y - edge.y).atan2(isle.centre.x - edge.x);
+            self.containers.insert(WRECK_CRATE, Container { id: WRECK_CRATE, what: super::layout::Holder::Crate, pos: edge, rot, items, lock: 0.0, picked: false, owner: Owner::Nobody, taken: 0, ours: Vec::new() });
+        }
         let Some(fire) = self.hut_fire() else { return };
         self.campfires.push(super::campfire::Campfire { id: self.next_fire, pos: fire, by: isle.steward, since: t - super::world::HOUR, lit_at: t - super::world::HOUR, out_at: t + HUT_FIRE_HOURS * super::world::HOUR });
         self.next_fire += 1;

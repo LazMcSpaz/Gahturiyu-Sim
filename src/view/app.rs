@@ -445,6 +445,7 @@ pub fn run() {
             let confirm = match v.as_str() {
                 "quit" => Some(MenuAct::Quit),
                 "new" => Some(MenuAct::NewGame),
+                "skip" => Some(MenuAct::SkipIsland),
                 _ => None,
             };
             game.game_menu = Some(GameMenu { confirm });
@@ -2438,7 +2439,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
 
     // The game menu, over everything else.
     if let Some(mut m) = game.game_menu {
-        let (picked, bx) = super::screens::draw_menu(&c, &mut m, click, size);
+        let on_island = game.world.on_island();
+        let (picked, bx) = super::screens::draw_menu(&c, &mut m, click, size, on_island);
         game.game_menu = Some(m);
         panels.push(bx);
         if let Some(act) = picked {
@@ -2455,6 +2457,10 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(1);
                     swap_world(game, fresh_world(seed, true, start_kind(false)));
                     game.notice = Some((format!("A new world (seed {seed})."), std::time::Instant::now()));
+                }
+                MenuAct::SkipIsland => {
+                    game.world.skip_island();
+                    game.notice = Some(("Ashore on the mainland.".to_string(), std::time::Instant::now()));
                 }
                 MenuAct::Quit => game.quit = true,
             }

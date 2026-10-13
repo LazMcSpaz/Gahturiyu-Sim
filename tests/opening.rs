@@ -70,8 +70,18 @@ fn lessons_come_up_in_order_and_go_when_done() {
             break;
         }
     }
-    assert_eq!(w.lesson_now().map(|x| x.key), Some("shelter"), "after walking: {:?}", w.tutorial());
+    assert_eq!(w.lesson_now().map(|x| x.key), Some("salvage"), "after walking: {:?}", w.tutorial());
     assert!(w.tutorial().unwrap().is_done("wake"));
+    // The wreck's crate lies on dry ground at the water's edge, nobody's,
+    // with their things; gone through, the lesson is done.
+    let crate_ = w.containers.get(&gahturiyu_sim::sim::island::WRECK_CRATE).expect("the wreck's crate").clone();
+    assert!(!w.terrain.is_sea(crate_.pos) && w.terrain.is_sea(crate_.pos.add(crate_.pos.sub(isle.spot(Spot::Shore)).scale(0.3))), "at the edge: {:?}", crate_.pos);
+    assert!(crate_.owner == gahturiyu_sim::sim::containers::Owner::Nobody && crate_.lock == 0.0 && crate_.items.len() == 5);
+    w.step(0.5);
+    assert!(!w.tutorial().unwrap().is_done("salvage"), "not before it's opened");
+    w.containers.get_mut(&gahturiyu_sim::sim::island::WRECK_CRATE).unwrap().taken = 1;
+    w.step(0.5);
+    assert_eq!(w.lesson_now().map(|x| x.key), Some("shelter"));
     // At the hut's fire they're sheltered.
     let fire = w.hut_fire().unwrap();
     w.teleport_squad(fire.add(gahturiyu_sim::sim::geo::V2::new(AT_HUT * 0.5, 0.0)));
@@ -97,6 +107,27 @@ fn lessons_come_up_in_order_and_go_when_done() {
     let first_pathed = LESSONS.iter().position(|x| x.path != Path::Both).unwrap();
     assert!(LESSONS[..first_pathed].iter().all(|x| x.path == Path::Both));
     let _ = isle;
+}
+
+#[test]
+fn skipping_the_island_lands_them_kitted_at_the_port() {
+    let mut w = opening(8);
+    let m = w.squad.members[0];
+    assert!(w.on_island());
+    w.skip_island();
+    assert!(!w.on_island() && w.tutorial().unwrap().over && w.lesson_now().is_none());
+    let (_, port) = w.ferry_port().unwrap();
+    assert!(w.person_pos(m).dist(port) < 12.0 && !w.terrain.is_sea(w.person_pos(m)));
+    assert_eq!(w.squad_count(gahturiyu_sim::sim::items::id("bedroll")), 1);
+    assert!(w.squad_count(gahturiyu_sim::sim::items::id("coin")) >= 20);
+    assert_eq!(w.people[m as usize].detail.as_ref().unwrap().gear.weapon_name(), "Club");
+    // Skipping twice does nothing more.
+    w.skip_island();
+    assert_eq!(w.squad_count(gahturiyu_sim::sim::items::id("bedroll")), 1);
+    // Off the island, the plain start has nothing to skip either.
+    let mut plain = worldgen::generate(8);
+    plain.skip_island();
+    assert!(plain.tutorial().is_none());
 }
 
 #[test]

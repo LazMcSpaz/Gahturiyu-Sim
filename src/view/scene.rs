@@ -695,6 +695,23 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
     }
+    // The wreck in Salt Isle's shallows (`island.rs`): a broken hull, heeled
+    // over, its mast down.
+    if let Some(p) = w.island().map(|i| i.spot(gahturiyu_sim::sim::island::Spot::Wreck)) {
+        if p.dist(oc.target) <= radius.min(900.0) {
+            let a = 0.9f32;
+            let (cs, sn) = (a.cos(), a.sin());
+            b.block(to3(p, -0.6), 9.0, 3.6, 2.2, a, [0.28, 0.2, 0.14]);
+            b.block(to3(p.add(V2::new(cs, sn).scale(7.5)), -1.2), 5.0, 3.0, 1.4, a + 0.5, [0.26, 0.19, 0.13]);
+            let (q, r) = (p.add(V2::new(-sn, cs).scale(1.2)), p.add(V2::new(-sn, cs).scale(9.0).add(V2::new(cs, sn).scale(3.0))));
+            b.stick(to3(q, 1.3), to3(r, -0.4), 0.22, palette::TIMBER);
+            for i in 0..5 {
+                let f = i as f32 / 4.0;
+                let s = p.add(V2::new(cs, sn).scale(-4.0 + f * 3.0)).add(V2::new(-sn, cs).scale(2.5 + f * 2.0));
+                b.block(to3(s, -0.1), 1.6, 0.3, 0.2, a + f, [0.3, 0.22, 0.15]);
+            }
+        }
+    }
     // The ferry (`ferry.rs`): a hull with a mast, at a berth or on the
     // squad's crossing; nothing while it's away.
     if let Some((p, heading)) = w.ship_pos(w.time) {

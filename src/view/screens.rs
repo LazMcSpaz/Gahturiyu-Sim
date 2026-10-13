@@ -59,6 +59,8 @@ pub enum MenuAct {
     Save,
     Load,
     NewGame,
+    /// Skip the tutorial island: ashore at the port with a traveller's kit.
+    SkipIsland,
     Quit,
 }
 
@@ -146,14 +148,20 @@ const ROW: f32 = 46.0;
 
 /// Draw the game menu in the middle of the screen. Returns what was chosen
 /// (confirmed, for New game and Quit) and the panel's box.
-pub fn draw_menu(c: &Canvas, menu: &mut GameMenu, click: Option<Click>, size: Vec2) -> (Option<MenuAct>, Bx) {
+pub fn draw_menu(c: &Canvas, menu: &mut GameMenu, click: Option<Click>, size: Vec2, on_island: bool) -> (Option<MenuAct>, Bx) {
     // The world behind it dims a little: the game is paused.
     c.rect(0.0, 0.0, size.x, size.y, ega([0.0, 0.0, 0.0], 0.35));
     let ask = menu.confirm.map(|a| match a {
         MenuAct::NewGame => "Start a new world? Anything not saved is lost.",
+        MenuAct::SkipIsland => "Skip the island? You start at the port with a traveller's kit.",
         _ => "Quit? Anything not saved is lost.",
     });
-    let rows = if ask.is_some() { 2 } else { ITEMS.len() };
+    // On the island, a way off it for those who've played it (Laz).
+    let mut items: Vec<(MenuAct, &str)> = ITEMS.to_vec();
+    if on_island {
+        items.insert(ITEMS.len() - 1, (MenuAct::SkipIsland, "Skip the island"));
+    }
+    let rows = if ask.is_some() { 2 } else { items.len() };
     let h = 80.0 + rows as f32 * ROW + if ask.is_some() { 40.0 } else { 0.0 };
     let (x, y) = ((size.x - W) / 2.0, (size.y - h) / 2.0);
     c.frame_box(x, y, W, h);
@@ -168,7 +176,12 @@ pub fn draw_menu(c: &Canvas, menu: &mut GameMenu, click: Option<Click>, size: Ve
         c.text(q, x + (W - qw) / 2.0, by + 18.0, 15.0, TEXT);
         by += 40.0;
         let yes = menu.confirm.unwrap();
-        for (act, label, kind) in [(Some(yes), if yes == MenuAct::Quit { "Quit" } else { "Start" }, Kind::Primary), (None, "Back", Kind::Plain)] {
+        let word = match yes {
+            MenuAct::Quit => "Quit",
+            MenuAct::SkipIsland => "Skip",
+            _ => "Start",
+        };
+        for (act, label, kind) in [(Some(yes), word, Kind::Primary), (None, "Back", Kind::Plain)] {
             let b = Bx::new(x + 40.0, by, W - 80.0, ROW - 10.0);
             kit::button(c, &b, label, kind, true);
             if click.is_some_and(|k| b.contains(k.at)) {
@@ -180,12 +193,12 @@ pub fn draw_menu(c: &Canvas, menu: &mut GameMenu, click: Option<Click>, size: Ve
             by += ROW;
         }
     } else {
-        for (act, label) in ITEMS {
+        for (act, label) in items {
             let b = Bx::new(x + 40.0, by, W - 80.0, ROW - 10.0);
             kit::button(c, &b, label, if act == MenuAct::Resume { Kind::Primary } else { Kind::Plain }, true);
             if click.is_some_and(|k| b.contains(k.at)) {
                 match act {
-                    MenuAct::NewGame | MenuAct::Quit => menu.confirm = Some(act),
+                    MenuAct::NewGame | MenuAct::Quit | MenuAct::SkipIsland => menu.confirm = Some(act),
                     a => picked = Some(a),
                 }
             }

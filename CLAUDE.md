@@ -309,7 +309,7 @@ green line through each door and gate; works in the real game too), `GAHT_FOREST
 nearest big wood), `GAHT_SETTINGS=1` (the graphics panel), `GAHT_LOAD=path`
 (start from a save; `GAHT_SAVE=path ./target/release/headless 0.5` makes one),
 `GAHT_BOOK=k` (member k's spell book), `GAHT_STATS=k` (member k's stats sheet),
-`GAHT_GAMEMENU=1` (the Escape menu; `quit` or `new` for its question),
+`GAHT_GAMEMENU=1` (the Escape menu; `quit`, `new` or `skip` for its question),
 `GAHT_CAST=glow,haste,douse` (the mage learns and casts these in turn: the cast's
 glow and burst, the badges it leaves; add `GAHT_TORCH=1` for a torch to douse, and
 `GAHT_FRAMES` about 12 to catch it mid-cast), `GAHT_HELD=1` (the squad's mage holds
