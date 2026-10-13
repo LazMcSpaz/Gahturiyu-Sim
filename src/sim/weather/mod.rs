@@ -135,8 +135,18 @@ pub fn forecast_at(terrain: &Terrain, seed: u64, pos: V2, from: f64, hours: usiz
 }
 
 impl World {
+    /// Force a sky everywhere (the dev panel; `None` clears it). A testing
+    /// tool: every rule that reads the weather sees it, so cold, drowning,
+    /// pace and sight can be tried without waiting for a storm.
+    pub fn set_forced_sky(&mut self, sky: Option<Sky>) {
+        self.forced_sky = sky;
+    }
+
     /// The weather at a spot at a moment (any moment: past, now or to come).
     pub fn weather_at(&self, pos: V2, t: f64) -> Weather {
+        if let Some(sky) = &self.forced_sky {
+            return weather_with(&[*sky; REGIONS], &mix(&self.terrain, pos), self.terrain.surface(pos), floor(&self.terrain, pos));
+        }
         weather_at(&self.terrain, self.seed, pos, t)
     }
 
@@ -168,6 +178,10 @@ impl World {
     /// What the weather at a spot at a moment does to people and things
     /// out of doors there.
     pub fn weather_effects(&self, pos: V2, t: f64) -> Effects {
+        if self.forced_sky.is_some() {
+            let w = self.weather_at(pos, t);
+            return effects_mixed(&w, &mix(&self.terrain, pos), t);
+        }
         weather_effects(&self.terrain, self.seed, pos, t)
     }
 

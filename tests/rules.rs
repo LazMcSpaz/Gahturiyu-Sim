@@ -81,3 +81,34 @@ fn weather_off_fires_leaves_a_torch_to_burn_its_hours() {
     w.rules.weather_on_things = false;
     assert_eq!(w.drowned_by(pos, from, from + 6.0 * HOUR), from + 6.0 * HOUR, "burns its hours with the rule off");
 }
+
+#[test]
+fn a_forced_sky_reaches_every_rule_and_a_dev_fire_burns() {
+    use gahturiyu_sim::sim::weather::{sky, Region};
+    let mut w = worldgen::generate(5);
+    let pos = w.squad.pos;
+    // A downpour forced: the weather at any spot says so, and the effects follow.
+    let mut storm = sky(w.seed, Region::Lowland, 0.0);
+    storm.precip = 1.0;
+    storm.cloud = 1.0;
+    storm.temp0 = 12.0;
+    storm.storm = 1.0;
+    w.set_forced_sky(Some(storm));
+    for p in [pos, pos.add(V2::new(5000.0, 3000.0)), pos.add(V2::new(-1500.0, 8000.0))] {
+        assert!(w.weather_at(p, w.time).rain >= 0.8, "forced rain at {p:?}: {}", w.weather_at(p, w.time).rain);
+        assert!(!w.weather_effects(p, w.time).outdoor_work_ok);
+    }
+    // A real fire lit in the forced downpour goes out at once; the dev fire burns its hours anyway.
+    let at = pos.add(V2::new(3.0, 0.0));
+    assert!(w.drowned_by(at, w.time, w.time + 4.0 * HOUR) <= w.time + 1.0, "a real fire is drowned by the forced rain");
+    let id = w.dev_fire(at);
+    let f = *w.campfire(id).unwrap();
+    assert!(f.burning(w.time) && f.burning(w.time + 3.5 * HOUR) && w.fire_at(at.add(V2::new(1.5, 0.0))).is_some());
+    // Cleared: the seed's own weather again.
+    w.set_forced_sky(None);
+    assert_eq!(w.weather_at(pos, w.time).rain, worldgen::generate(5).weather_at(pos, w.time).rain);
+    // Not saved: a loaded world has its own weather.
+    w.set_forced_sky(Some(storm));
+    let back = gahturiyu_sim::sim::World::load_bytes(&w.save_bytes()).unwrap();
+    assert!(back.forced_sky.is_none());
+}

@@ -61,6 +61,8 @@ pub enum MenuAct {
     NewGame,
     /// Skip the tutorial island: ashore at the port with a traveller's kit.
     SkipIsland,
+    /// Back to the title screen (the world stands still under it).
+    Title,
     Quit,
 }
 
@@ -135,6 +137,15 @@ pub fn settle(game: &mut Game) {
 /// building being placed, a spell being aimed, a talk) have had their turn:
 /// close what's open, or open the game menu if nothing is.
 pub fn escape(game: &mut Game) {
+    // On the title screen: back a page (the main page stays until a choice).
+    if let Some(t) = game.title.as_mut() {
+        if game.options {
+            game.options = false;
+        } else {
+            t.back();
+        }
+        return;
+    }
     match open_now(game) {
         Some(Screen::Menu) if game.game_menu.is_some_and(|m| m.confirm.is_some()) => game.game_menu = Some(GameMenu::default()),
         Some(s) => close(game, s),
@@ -142,7 +153,7 @@ pub fn escape(game: &mut Game) {
     }
 }
 
-const ITEMS: [(MenuAct, &str); 7] = [(MenuAct::Resume, "Resume"), (MenuAct::Settings, "Settings"), (MenuAct::Keys, "Keys"), (MenuAct::Save, "Save"), (MenuAct::Load, "Load"), (MenuAct::NewGame, "New game"), (MenuAct::Quit, "Quit")];
+const ITEMS: [(MenuAct, &str); 8] = [(MenuAct::Resume, "Resume"), (MenuAct::Settings, "Settings"), (MenuAct::Keys, "Keys"), (MenuAct::Save, "Save"), (MenuAct::Load, "Load"), (MenuAct::NewGame, "New game"), (MenuAct::Title, "Title screen"), (MenuAct::Quit, "Quit")];
 const W: f32 = 320.0;
 const ROW: f32 = 46.0;
 

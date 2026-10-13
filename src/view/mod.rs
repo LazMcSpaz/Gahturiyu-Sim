@@ -38,6 +38,7 @@ pub mod remarks;
 pub mod scene;
 pub mod screens;
 pub mod settings;
+pub mod title;
 pub mod slide;
 pub mod sound;
 pub mod shot;
