@@ -210,8 +210,10 @@ fn a_crafter_at_work_teaches_their_trade_for_coin() {
     let mut w = worldgen::generate(1);
     let hunter = member(&w, Calling::Hunter);
     give(&mut w, hunter, "coin", 500);
-    let weaver = w.settlements.iter().flat_map(|s| s.residents.iter().copied()).find(|&p| w.life(p).job == Job::Weaver).unwrap();
-    until(&mut w, |w| w.at_work(weaver, w.time));
+    // A weaver at work (not every one is: some have no fibre in just now).
+    let at_work = |w: &World| w.settlements.iter().flat_map(|s| s.residents.iter().copied()).find(|&p| w.life(p).job == Job::Weaver && w.at_work(p, w.time));
+    until(&mut w, |w| at_work(w).is_some());
+    let weaver = at_work(&w).unwrap();
     assert!(!w.knows_craft(hunter, Craft::Weaving));
     let (craft, price, style) = w.craft_lesson(weaver, hunter).expect("they'll teach");
     assert_eq!(craft, Craft::Weaving);

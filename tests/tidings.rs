@@ -63,12 +63,12 @@ fn a_far_town_s_troubles_are_not_announced_to_the_squad() {
     for _ in 0..30 {
         w.step(HOUR);
     }
-    let lines = w.log.len();
     let (town, _, _) = failed_rite(&mut w, true);
     let name = w.settlements[town as usize].name.clone();
     assert!(!w.squad_is_at(town));
-    assert!(!w.log.iter().any(|l| l.1.contains("rite fails")), "nothing in the squad's news about {name}: {:?}", w.log);
-    assert!(w.log.len() <= lines + 1);
+    // (Other towns' days go on meanwhile: the squad's own may have a rite of
+    // its own fail, and that's news to them. Nothing names the far one.)
+    assert!(!w.log.iter().any(|l| l.1.contains(&name)), "nothing in the squad's news about {name}: {:?}", w.log);
 }
 
 #[test]

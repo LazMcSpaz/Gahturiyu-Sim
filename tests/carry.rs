@@ -22,7 +22,16 @@ fn knock_out(w: &mut World, pid: PersonId) {
 
 fn out_in_the_open() -> World {
     let mut w = worldgen::generate(1);
-    w.teleport_squad(w.squad.pos.add(V2::new(300.0, 0.0)));
+    // Out past the edge of the start town (the capital is 1.6 km across),
+    // with a kilometre of open land to the east of it.
+    let here = w.squad.pos;
+    let town = w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap();
+    let (c, r) = (town.pos, town.reach);
+    let spot = (0..32)
+        .map(|k| c.add(V2::new((k as f32 * 0.19635).cos(), (k as f32 * 0.19635).sin()).scale(r + 400.0)))
+        .find(|&p| (0..=12).all(|i| !w.terrain.is_sea(p.add(V2::new(i as f32 * 100.0, 0.0)))) && w.settlements.iter().all(|s| s.pos.dist(p) > s.reach + 300.0))
+        .expect("open land by the start town");
+    w.teleport_squad(spot);
     w
 }
 
@@ -92,7 +101,8 @@ fn a_downed_stranger_can_be_carried_and_left_somewhere() {
     knock_out(&mut w, s);
     // Bring them over to the squad first (the quick way): walk out to them.
     assert!(w.order_carry(a, s));
-    walk(&mut w, 600.0);
+    // (Over rough ground the 600 m takes longer than ten minutes.)
+    walk(&mut w, 900.0);
     assert_eq!(w.carried_by(s), Some(a));
     let spot = w.person_pos(a);
     w.put_down(a);

@@ -75,14 +75,18 @@ fn beaten_by_slavers_the_downed_are_carried_off_not_robbed() {
 #[test]
 fn held_long_enough_a_captive_is_sold_or_slips_away() {
     let (mut w, _, _) = beaten(2);
-    let held: Vec<u32> = w.captives.iter().map(|c| c.who).collect();
+    let first: Vec<(u32, f64)> = w.captives.iter().map(|c| (c.who, c.since)).collect();
+    let held: Vec<u32> = first.iter().map(|c| c.0).collect();
     assert!(!held.is_empty());
     let end = w.time + (CAPTIVE_DAYS + 1.5) * DAY;
     while w.time < end {
         w.step(600.0);
     }
     for &m in &held {
-        let gone = w.captive_of(m).is_none();
+        // (This captivity: once sold on, a member who wanders back by the
+        // camp may be taken again, and that's another.)
+        let since = first.iter().find(|c| c.0 == m).unwrap().1;
+        let gone = !w.captives.iter().any(|c| c.who == m && c.since == since);
         let sold = w.bond_of(m).is_some_and(|b| b.slave || b.until > w.time + 5.0 * DAY);
         let slipped = w.log.iter().any(|l| l.1.contains("slips away")) || w.alerts.iter().any(|a| a.contains("slips away"));
         assert!(gone, "not held for ever");

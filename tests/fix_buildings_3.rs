@@ -358,7 +358,9 @@ fn nm_33_health_read_now_is_what_a_fight_starts_from() {
     };
     let before = read(&w);
     let here = w.squad.pos;
-    let foe = (0..w.people.len() as u32).find(|&p| w.people[p as usize].bandit && !w.people[p as usize].dead && w.person_pos(p).dist(here) < 20000.0).unwrap();
+    // (Bands are tens of km apart on the big map: one called up near by.)
+    let band = w.spawn_bandits(here.add(V2::new(400.0, 0.0)), 2, false);
+    let foe = w.group(band).unwrap().members[0];
     let at = w.person_pos(foe);
     w.teleport_squad(at.add(V2::new(3.0, 0.0)));
     assert!(w.attack(&[m], foe));
@@ -391,9 +393,26 @@ fn nm_14_nm_46_play_search_sends_the_picker_and_look_lists_the_town() {
     assert!(play(&save, &["new", "1"]).contains("A new game"));
     let look = play(&save, &["look", "places"]);
     assert!(look.lines().any(|l| l.trim_start().starts_with('w') && l.contains("  the ")), "{look}");
-    play(&save, &["enter", "b2.8"]);
-    let out = play(&save, &["search", "k2.8.1"]);
-    assert!(out.contains("Wahiwea picks the lock") || out.contains("Sausuyu picks the lock"), "{out}");
-    assert!(out.contains("opens a chest"), "{out}");
+    // Mid-morning, when homes are emptiest (in the capital at dawn everyone's
+    // in, and sees the picking). Then into the nearest buildings of the start
+    // town until a locked chest there is picked and opened (ids are the
+    // town's own: `b<town>.<building>`, `k<..>.<n>`).
+    play(&save, &["wait", "300"]);
+    let look = play(&save, &["look", "places"]);
+    let buildings: Vec<String> = look.lines().filter_map(|l| l.trim_start().strip_prefix('b').filter(|r| r.starts_with(|c: char| c.is_ascii_digit())).map(|r| format!("b{}", r.split_whitespace().next().unwrap()))).take(16).collect();
+    assert!(!buildings.is_empty(), "{look}");
+    let mut opened = None;
+    let mut tries = Vec::new();
+    for b in &buildings {
+        let inside = play(&save, &["enter", b]);
+        let Some(chest) = inside.lines().map(str::trim_start).find(|l| l.starts_with('k') && l.contains("(locked")).map(|l| l.split_whitespace().next().unwrap().to_string()) else { continue };
+        let out = play(&save, &["search", &chest]);
+        if (out.contains("Wahiwea picks the lock") || out.contains("Sausuyu picks the lock")) && out.contains("opens a chest") {
+            opened = Some(out);
+            break;
+        }
+        tries.push(out);
+    }
+    assert!(opened.is_some(), "no locked chest picked and opened: {tries:?}");
     let _ = std::fs::remove_dir_all(save.parent().unwrap());
 }

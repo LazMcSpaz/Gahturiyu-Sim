@@ -177,6 +177,9 @@ impl World {
             }
             // Food just come into their pack gets its freshness.
             self.stamp_food(pid, now);
+            // The kind of pack on their back when last settled: another kind
+            // put on since is another pack, and it starts dry.
+            let mut was = self.soaks.iter().find(|s| s.pid == pid).map(|s| s.proof);
             for _ in 0..64 {
                 let k = self.soaks.iter().position(|s| s.pid == pid).unwrap();
                 let s = self.soaks[k];
@@ -207,6 +210,12 @@ impl World {
                 }
                 let (through, inside) = advance(&s, ((t - s.at) / HOUR) as f32);
                 let mut s = Soak { at: t, through, inside, ..s };
+                if t >= now && was.is_some_and(|p| p != proof) {
+                    s.through = 0.0;
+                    s.inside = 0.0;
+                    s.warned = false;
+                    was = None;
+                }
                 if s.inside >= INK_RUNS && !s.warned {
                     s.warned = true;
                     self.ink_runs(pid, t);

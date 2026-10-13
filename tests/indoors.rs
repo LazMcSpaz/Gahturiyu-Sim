@@ -137,8 +137,11 @@ fn a_home_has_things_inside_and_they_belong_to_someone() {
         w.order_pickup(m, g.id);
         walk(&mut w, 20.0);
     }
+    // Noticed: a bounty, or (with a watch out, as in a big town) a guard
+    // sent after the thief.
+    let noticed = |w: &World| !w.bounty.is_empty() || !w.pursuits.is_empty();
     let mut more = 0;
-    while w.bounty.is_empty() && more < 6 {
+    while !noticed(&w) && more < 6 {
         let id = w.put_on_ground(items::id("knife"), 1, d.centre);
         if let Some(g) = w.ground.iter_mut().find(|g| g.id == id) {
             g.owner = Some(d.id.0);
@@ -148,8 +151,8 @@ fn a_home_has_things_inside_and_they_belong_to_someone() {
         more += 1;
     }
     if w.catch_chance(m, d.centre, d.id.0) > 0.0 {
-        assert!(!w.bounty.is_empty(), "nobody saw a thing?");
+        assert!(noticed(&w), "nobody saw a thing?");
     } else {
-        assert!(w.bounty.is_empty(), "seen through walls");
+        assert!(!noticed(&w), "seen through walls");
     }
 }

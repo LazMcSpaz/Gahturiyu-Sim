@@ -389,7 +389,14 @@ fn busy_members_dont_bed_down() {
     let mut w = idle_world();
     run(&mut w, 15.5, 60.0); // 21:30
     let m = w.squad.members[0];
-    let far = w.person_pos(m).add(gahturiyu_sim::sim::geo::V2::new(6000.0, 0.0));
+    // Somewhere 6 km off over land (the capital is on the coast: some ways
+    // run into the sea and the walk would end at the shore).
+    use gahturiyu_sim::sim::geo::V2;
+    let from = w.person_pos(m);
+    let far = (0..16)
+        .map(|k| from.add(V2::new((k as f32 * 0.3927).cos(), (k as f32 * 0.3927).sin()).scale(6000.0)))
+        .find(|&p| (1..=12).all(|i| !w.terrain.is_sea(from.lerp(p, i as f32 / 12.0))))
+        .expect("land 6 km off");
     w.order_members(&[m], far);
     run(&mut w, 1.0, 1.0); // past 22:00, still on the way
     assert!(w.squad.at[0].dist(w.squad.goal[0]) > 1.0, "still walking");

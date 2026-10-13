@@ -99,21 +99,23 @@ fn customs_change_when_a_towns_mix_shifts() {
 fn a_service_closes_when_its_worker_dies() {
     let mut w = worldgen::generate(3);
     // A town with exactly one healer.
-    let (t, healer) = (0..w.settlements.len() as u16)
+    let ones: Vec<(u16, u32)> = (0..w.settlements.len() as u16)
         .filter_map(|t| {
             let hs: Vec<u32> = w.settlements[t as usize].residents.iter().copied().filter(|&p| w.life(p).job == Job::Healer).collect();
             (hs.len() == 1).then(|| (t, hs[0]))
         })
-        .next()
-        .expect("some town has one healer");
-    // Wait until they're at work.
+        .collect();
+    assert!(!ones.is_empty(), "some town has one healer");
+    // Wait until one of them is at work (any one may be off for days).
+    let mut at = None;
     for _ in 0..(24 * 8) {
-        if w.at_work(healer, w.time) {
+        at = ones.iter().copied().find(|&(_, h)| w.at_work(h, w.time));
+        if at.is_some() {
             break;
         }
         run(&mut w, 0.25, 60.0);
     }
-    assert!(w.at_work(healer, w.time), "the healer never went to work");
+    let (t, healer) = at.expect("the healer never went to work");
     assert!(w.service_open(t, Service::Healing));
     w.people[healer as usize].dead = true;
     assert!(!w.service_open(t, Service::Healing), "healing should close with the healer gone");

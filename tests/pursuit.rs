@@ -257,13 +257,22 @@ fn keeping_quiet_means_nothing_follows() {
 fn nm28_a_bounty_posted_says_so_and_can_be_looked_up() {
     let mut w = worldgen::generate(1);
     assert!(w.wanted_lines().is_empty(), "nothing owed at the start");
-    // A town with no guard on watch just now (some hour of the night).
+    // A town with no guard on watch just now (some hour of the night), and
+    // none of its guards up and about near its middle (they'd come too,
+    // off duty: NM-40; in a big town someone usually is).
+    use gahturiyu_sim::sim::{pursuit::OFF_DUTY_REACH, routine::Doing};
     let mut found = None;
     'hours: for _ in 0..48 {
         w.step(HOUR / 2.0);
         let t = w.time;
         for s in 0..w.settlements.len() as u16 {
-            let guards = w.settlements[s as usize].residents.iter().filter(|&&p| !w.people[p as usize].dead && w.life(p).job == Job::Guard && w.at_work(p, t)).count();
+            let at = w.settlements[s as usize].pos;
+            let guards = w.settlements[s as usize]
+                .residents
+                .iter()
+                .filter(|&&p| !w.people[p as usize].dead && w.life(p).job == Job::Guard)
+                .filter(|&&p| w.at_work(p, t) || (w.doing_now(p).is_some_and(|d| d.0 != Doing::Asleep) && w.person_pos(p).dist(at) <= OFF_DUTY_REACH + 60.0))
+                .count();
             if guards == 0 && w.settlements[s as usize].residents.len() > 40 {
                 found = Some(s);
                 break 'hours;

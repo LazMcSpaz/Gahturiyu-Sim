@@ -87,7 +87,9 @@ fn talking_grows_speech_and_dealing_grows_trade() {
     // Dealing: a deal through the table practises Trade for the best haggler.
     let coin = gahturiyu_sim::sim::items::id("coin");
     w.people[m as usize].detail.as_mut().unwrap().gear.add(coin, 200);
-    let t0 = w.people[m as usize].stats.skill(Skill::Trade);
+    // (The best haggler of those at the table practises: any of the squad.)
+    let trade = |w: &gahturiyu_sim::sim::World| w.squad.members.iter().map(|&p| w.people[p as usize].stats.skill(Skill::Trade)).sum::<f32>();
+    let t0 = trade(&w);
     let merchant = w.settlements[w.people[m as usize].home.unwrap() as usize].residents.iter().copied().find(|&p| !w.for_sale(p).is_empty());
     if let Some(mer) = merchant {
         let (it, _, _) = w.for_sale(mer)[0];
@@ -97,7 +99,7 @@ fn talking_grows_speech_and_dealing_grows_trade() {
         w.teleport_squad(w.person_pos(mer).add(gahturiyu_sim::sim::geo::V2::new(1.5, 0.0)));
         let d = w.deal_table(mer, &table);
         if d.stuck.is_none() {
-            assert!(w.people[m as usize].stats.skill(Skill::Trade) > t0, "Trade grew by dealing");
+            assert!(trade(&w) > t0, "Trade grew by dealing");
         }
     }
 }

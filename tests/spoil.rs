@@ -111,12 +111,24 @@ fn stale_fills_less_and_new_food_freshens_the_stack() {
 #[test]
 fn a_sealed_strongbox_keeps_food_longer() {
     // Two members side by side, the same bread; one keeps theirs boxed.
+    // (Out on open ground past the start town: in the capital one may stand
+    // under a roof and the other in the rain.)
     let mut w = worldgen::generate(3);
+    let here = w.squad.pos;
+    let town = w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap();
+    let (c, r) = (town.pos, town.reach);
+    let open = (0..32)
+        .map(|k| c.add(gahturiyu_sim::sim::geo::V2::new((k as f32 * 0.19635).cos(), (k as f32 * 0.19635).sin()).scale(r + 400.0)))
+        .find(|&p| !w.terrain.is_sea(p) && w.settlements.iter().all(|s| s.pos.dist(p) > s.reach + 300.0))
+        .expect("open land by the start town");
+    w.teleport_squad(open);
     let (a, b) = (w.squad.members[0], w.squad.members[1]);
     for (m, boxed) in [(a, false), (b, true)] {
         let d = w.people[m as usize].detail.as_mut().unwrap();
         d.gear.bag.retain(|e| !spoil::is_food(e.0));
-        d.gear.add(bread(), 6);
+        // (Eight: what the strongbox holds, and more than they eat in four
+        // days, so both still have some to compare.)
+        d.gear.add(bread(), 8);
         if boxed {
             d.gear.add(items::id("strongbox"), 1);
         }
@@ -124,7 +136,7 @@ fn a_sealed_strongbox_keeps_food_longer() {
     wait(&mut w, 4.0 * 24.0, 600.0);
     let least = |m: u32| stacks(&w, m).iter().map(|s| s.1).fold(f32::MAX, f32::min);
     let (open, boxed) = (least(a), least(b));
-    assert!(boxed > open + 1.0, "the strongbox's bread keeps ({boxed:.1} vs {open:.1} days left)");
+    assert!(boxed > open + 1.0, "the strongbox's bread keeps ({boxed:.1} vs {open:.1} days left; {:?} {:?})", stacks(&w, a), stacks(&w, b));
     assert!(spoil::stage(bread(), open) <= Fresh::Stale);
     let _ = DAY;
 }

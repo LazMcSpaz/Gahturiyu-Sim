@@ -37,15 +37,23 @@ fn to_dawn(w: &mut World) {
 fn a_household_whose_earner_is_laid_up_ends_up_stealing() {
     let mut w = worldgen::generate(1);
     set_drama(&mut w, 0.8);
-    // A pair keeping house together, one with a post and little put by.
+    // A small household (2 to 6: few pairs live alone where the customs
+    // run to lodging or one roof per lineage), one of them its only earner,
+    // little put by, and a grown-up beside them.
+    let earns = |w: &World, m: u32| w.society.lives[m as usize].job.is_post();
     let h = (0..w.society.households.len())
         .filter(|&h| {
             let hh = &w.society.households[h];
-            hh.members.len() == 2 && hh.members.iter().all(|&m| !w.people[m as usize].in_squad) && w.society.lives[hh.members[0] as usize].job.is_post()
+            (2..=6).contains(&hh.members.len())
+                && hh.members.iter().all(|&m| !w.people[m as usize].in_squad)
+                && hh.members.iter().filter(|&&m| earns(&w, m)).count() == 1
+                && hh.members.iter().any(|&m| !earns(&w, m) && w.society.lives[m as usize].age >= 18)
         })
         .min_by(|&a, &b| w.society.households[a].purse.coin.total_cmp(&w.society.households[b].purse.coin))
-        .unwrap();
-    let (earner, other) = (w.society.households[h].members[0], w.society.households[h].members[1]);
+        .expect("a small household with one earner");
+    let members: Vec<u32> = w.society.households[h].members.iter().copied().collect();
+    let earner = *members.iter().find(|&&m| earns(&w, m)).unwrap();
+    let other = *members.iter().find(|&&m| !earns(&w, m) && w.society.lives[m as usize].age >= 18).unwrap();
     // The other is bold and not over-honest.
     w.society.lives[other as usize].habits.honour = 0.1;
     w.people[other as usize].traits.boldness = 0.9;

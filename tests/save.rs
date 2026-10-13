@@ -152,7 +152,9 @@ fn lives_saved_after_some_days_carry_on_the_same() {
 fn a_fight_saved_halfway_ends_the_same() {
     let mut w = worldgen::generate(7);
     let camp = w.camps[0].pos;
-    w.teleport_squad(camp.add(V2::new(70.0, 0.0)));
+    // (Well inside a lookout's sight of someone standing still, ~56 m by
+    // day: at 70 m it came down to how sharp the band happened to be.)
+    w.teleport_squad(camp.add(V2::new(45.0, 0.0)));
     let mut waited = 0.0;
     while w.battles.is_empty() && waited < 2.0 * HOUR {
         w.step(0.5);
@@ -178,8 +180,10 @@ fn the_land_comes_back_from_the_seed() {
         assert_eq!(w.terrain.ground(p), back.terrain.ground(p));
     }
     assert_eq!(w.routes.roads, back.routes.roads);
-    // The land is most of the world's size; it isn't in the save.
-    assert!(w.save_bytes().len() < 4_000_000, "save is {} bytes", w.save_bytes().len());
+    // The land is most of the world's size; it isn't in the save. (On the
+    // big map the save is mostly people, ~2 MB, and herds: 12 640 of them,
+    // ~2.4 MB; the land would be tens of MB more.)
+    assert!(w.save_bytes().len() < 7_000_000, "save is {} bytes", w.save_bytes().len());
 }
 
 #[test]

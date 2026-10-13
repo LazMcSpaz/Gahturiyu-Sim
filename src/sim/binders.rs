@@ -198,7 +198,14 @@ impl World {
             }
             if t - c.since >= CAPTIVE_DAYS * DAY {
                 let at = self.person_pos(c.who);
-                let Some(town) = self.slave_market(at) else { continue };
+                let Some(town) = self.slave_market(at) else {
+                    // Nowhere on the mainland buys slaves: no use keeping them.
+                    self.captives.retain(|x| x.who != c.who);
+                    let line = format!("With no buyer to be found, the Binders turn {} loose.", self.name_of(c.who));
+                    self.alerts.push(line.clone());
+                    self.say(t, line);
+                    continue;
+                };
                 self.captives.retain(|x| x.who != c.who);
                 self.sell_into_slavery(c.who, town, t);
                 let name = self.name_of(c.who);
@@ -223,9 +230,12 @@ impl World {
         }
     }
 
-    /// The nearest town where a community allows slavery.
+    /// The nearest town where a community allows slavery. Not Salt Isle:
+    /// nothing from the mainland reaches it (no road, no caravan), and its
+    /// bound are its own (`island::DEBTORS`).
     pub fn slave_market(&self, at: V2) -> Option<SettlementId> {
         (0..self.settlements.len() as SettlementId)
+            .filter(|&s| !self.settlements[s as usize].island)
             .filter(|&s| {
                 let tl = &self.society.towns[s as usize];
                 std::iter::once(tl.shore).chain(tl.stilts).any(|ci| self.society.communities.get(ci as usize).is_some_and(|c| c.customs.slavery == Slavery::Allowed))
