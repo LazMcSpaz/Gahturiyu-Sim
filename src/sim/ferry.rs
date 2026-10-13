@@ -216,18 +216,28 @@ impl World {
     }
 
     /// Will the crew take this member off the island? The tutorial's
-    /// endings say (`tutorial.rs`): bought out or stowed away, once those
-    /// lessons are built; until then, yes.
-    pub fn can_board(&self, _who: PersonId, from: Berth) -> Result<(), &'static str> {
-        if from == Berth::Island {
-            if let Some(tu) = self.tutorial() {
-                if !tu.over {
-                    let gated = ["bought", "stow"].iter().filter_map(|k| super::tutorial::lesson(k)).any(|x| x.on);
-                    if gated && !tu.is_done("bought") && !tu.is_done("stow") {
-                        return Err("the crew won't take them");
-                    }
+    /// endings say (`tutorial.rs`): on the caught path, once they're bought
+    /// out (when that lesson is built); on the sneak path they stow away,
+    /// which means sneaking aboard; with no path chosen yet, anyone.
+    pub fn can_board(&self, who: PersonId, from: Berth) -> Result<(), &'static str> {
+        if from != Berth::Island {
+            return Ok(());
+        }
+        let Some(tu) = self.tutorial().filter(|t| !t.over) else { return Ok(()) };
+        match tu.path {
+            Some(super::tutorial::Path::Caught) => {
+                let gated = super::tutorial::lesson("bought").is_some_and(|x| x.on);
+                if gated && !tu.is_done("bought") {
+                    return Err("the crew won't take a debtor");
                 }
             }
+            Some(super::tutorial::Path::Sneak) => {
+                let sneaking = self.squad.index(who).is_some_and(|k| self.squad.sneaking[k]);
+                if !sneaking {
+                    return Err("a runaway has to sneak aboard");
+                }
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -321,6 +331,9 @@ impl World {
         self.voyage = Some(Voyage { members: waiting.clone(), path, depart: t, arrive, to_berth });
         self.boarding.clear();
         if b == Berth::Island {
+            if self.tutorial().and_then(|t| t.path) == Some(super::tutorial::Path::Sneak) {
+                self.lesson_done("stow");
+            }
             self.lesson_done("sail");
         }
         let names: Vec<String> = waiting.iter().map(|&m| self.name_of(m)).collect();
