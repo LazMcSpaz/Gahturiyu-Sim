@@ -340,6 +340,9 @@ impl World {
     /// (`DROWNING_RAIN`; worked out from the weather when it's lit, so it
     /// goes out by the clock like any other).
     pub fn drowned_by(&self, pos: V2, from: f64, until: f64) -> f64 {
+        if !self.rules.weather_on_things {
+            return until;
+        }
         let mut h = (from / HOUR).floor() * HOUR;
         while h < until {
             if self.weather_at(pos, h).rain >= DROWNING_RAIN {

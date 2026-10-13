@@ -152,6 +152,9 @@ pub struct World {
     /// The tutorial's progress (`tutorial.rs`): None off the opening.
     #[serde(default)]
     pub tutorial: Option<super::tutorial::Tutorial>,
+    /// What's switched on (`rules.rs`): the toggles in the settings panel.
+    #[serde(default)]
+    pub rules: super::rules::Rules,
     /// The squad's crossing on the ferry, under way (`ferry.rs`), and who's
     /// been sent to board.
     #[serde(default)]
@@ -394,6 +397,7 @@ impl World {
             forge: None,
             island: None,
             tutorial: None,
+            rules: Default::default(),
             voyage: None,
             boarding: Vec::new(),
             bases: Vec::new(),

@@ -244,6 +244,15 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    paying from the base's coin then the squad's; quits and theft are keyed
    rolls and are noted in the home town's history (gossip).
 
+24. **Rules are toggles in the world.** `sim/rules.rs` holds what's switched
+   on (`World::rules`, saved with the world: weather on the squad, weather
+   on fires, fire and water on carried things, potions breaking, gear wear,
+   thirst, food spoiling, toxicity, bleeding), listed from `RULES` in the
+   settings panel (O) and set with `GAHT_RULES=key=off,…`. A system reads
+   its rule at its decision point (`if !self.rules.x`): nothing is torn out,
+   the rule just answers "no" there. A new toggle is a field, a table line
+   and that check.
+
 23. **Salt Isle is fixed geometry.** The tutorial island (`sim/island.rs`,
    `docs/tutorial-island.md`) sits at the same spot in every world
    (`geo::isle_centre`, `isle_inland`): `geo::inland` and the land know it

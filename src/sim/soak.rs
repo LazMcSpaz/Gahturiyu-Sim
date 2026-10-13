@@ -244,7 +244,7 @@ impl World {
         let at = self.person_pos(s.pid);
         let hour = (t / HOUR).floor() * HOUR;
         let w = self.weather_at(at, hour);
-        let rain = if roofed { 0.0 } else { (w.rain + w.snow * 0.3).clamp(0.0, 1.0) };
+        let rain = if roofed || !self.rules.weather_on_squad { 0.0 } else { (w.rain + w.snow * 0.3).clamp(0.0, 1.0) };
         let proof = self.people[s.pid as usize].detail.as_ref().map(|d| outer_proof(&d.gear)).unwrap_or(Proof::None);
         s.proof = proof_index(proof) as u8;
         s.rate = if fire {

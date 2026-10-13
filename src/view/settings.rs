@@ -187,9 +187,12 @@ impl Settings {
 const W: f32 = 330.0;
 const ROW: f32 = 24.0;
 
-/// The settings panel. Returns its box; a click on a row changes it.
-pub fn panel(c: &Canvas, s: &mut Settings, mouse: Vec2, click: Option<Click>, frame_ms: f64) -> Bx {
-    let r = Bx::new((c.w - W) / 2.0, 120.0, W, 54.0 + 8.0 * ROW + 30.0);
+/// The settings panel. Returns its box; a click on a row changes it. The
+/// world's rules (`sim/rules.rs`) are listed under the drawing settings:
+/// those are the world's, saved with it, not `settings.txt`'s.
+pub fn panel(c: &Canvas, s: &mut Settings, rules: &mut gahturiyu_sim::sim::rules::Rules, mouse: Vec2, click: Option<Click>, frame_ms: f64) -> Bx {
+    use gahturiyu_sim::sim::rules::RULES;
+    let r = Bx::new((c.w - W) / 2.0, 60.0, W + 60.0, 54.0 + (8 + 2 + RULES.len()) as f32 * ROW + 30.0);
     c.frame_box(r.x, r.y, r.w, r.h);
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     c.text("Settings", r.x + 14.0, r.y + 26.0, 17.0, GOLD);
@@ -235,7 +238,30 @@ pub fn panel(c: &Canvas, s: &mut Settings, mouse: Vec2, click: Option<Click>, fr
             changed = true;
         }
     }
-    c.text("Click a row to change it  ·  O to close  ·  saved for next time", r.x + 14.0, r.y + r.h - 12.0, 12.0, DIM);
+    // The world's rules: what's switched on. A hovered rule says what it does.
+    let top = r.y + 54.0 + 8.0 * ROW;
+    c.rule_in(r.x + 14.0, r.x + r.w - 14.0, top - 8.0, 1.0, ega(GOLD, 0.5), true);
+    c.text("Rules (this world's; saved with it)", r.x + 14.0, top + 8.0, 14.0, GOLD);
+    let mut hover_about: Option<&str> = None;
+    for (i, rule) in RULES.iter().enumerate() {
+        let y = top + ROW + 8.0 + i as f32 * ROW;
+        let row = Bx::new(r.x + 6.0, y - 16.0, r.w - 12.0, ROW);
+        let on = rules.get(rule.key).unwrap_or(true);
+        if row.contains(mouse) {
+            c.rect(row.x, row.y, row.w, row.h, ega(GOLD, 0.12));
+            hover_about = Some(rule.about);
+        }
+        c.text(rule.name, r.x + 14.0, y, 15.0, if on { TEXT } else { DIM });
+        let value = if on { "on" } else { "off" };
+        c.text(value, r.x + r.w - c.width(value, 15.0) - 14.0, y, 15.0, if on { GOLD } else { DIM });
+        if click.map(|k| row.contains(k.at) && !k.right).unwrap_or(false) {
+            rules.toggle(rule.key);
+        }
+    }
+    match hover_about {
+        Some(about) => c.text(about, r.x + 14.0, r.y + r.h - 12.0, 12.0, DIM),
+        None => c.text("Click a row to change it  ·  O to close  ·  drawing settings saved for next time", r.x + 14.0, r.y + r.h - 12.0, 12.0, DIM),
+    }
     if changed {
         s.version += 1;
     }

@@ -2403,7 +2403,7 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     if game.options {
         let mut s = settings.clone();
         let at = game.slides.begin(&c);
-        panels.push(super::settings::panel(&c, &mut s, game.mouse, click, game.frame_ms));
+        panels.push(super::settings::panel(&c, &mut s, &mut game.world.rules, game.mouse, click, game.frame_ms));
         game.slides.end(&c, "settings", at);
         if s != *settings {
             *settings = s;

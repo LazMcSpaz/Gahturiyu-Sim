@@ -182,14 +182,19 @@ impl World {
         let sharp = self.alertness(watcher) * awake;
         // The weather where they are: fog, rain and snow close sight in;
         // rain, wind and snow drown out sound (`weather_effects`).
-        let air = self.weather_effects(at, self.time);
-        let mut sight = SIGHT * self.visibility_of(pid) * sharp * air.sight_mult;
+        let (sight_mult, hearing_mult) = if self.rules.weather_on_squad {
+            let air = self.weather_effects(at, self.time);
+            (air.sight_mult, air.hearing_mult)
+        } else {
+            (1.0, 1.0)
+        };
+        let mut sight = SIGHT * self.visibility_of(pid) * sharp * sight_mult;
         // A torch in the dark is a beacon (if the fog lets it through).
         if self.torch_lit(pid) {
-            sight = sight.max(super::torch::TORCH_SEEN * (1.0 - daylight(self.time)) * sharp * air.sight_mult);
+            sight = sight.max(super::torch::TORCH_SEEN * (1.0 - daylight(self.time)) * sharp * sight_mult);
         }
         let in_town = self.settlements.iter().any(|s| s.pos.dist(at) < s.reach);
-        let hearing = HEARING * self.noise_of(pid) * sharp * if in_town { 0.6 } else { 1.0 } * air.hearing_mult;
+        let hearing = HEARING * self.noise_of(pid) * sharp * if in_town { 0.6 } else { 1.0 } * hearing_mult;
         // Asleep, they see nothing; they may still hear.
         if awake < 1.0 {
             sight = 0.0;

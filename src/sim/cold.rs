@@ -73,6 +73,9 @@ impl World {
     /// Where `pid`'s cold is heading this hour, from what gets through
     /// (0 under a roof or by a fire).
     pub(super) fn cold_target(&self, pid: PersonId, t: f64) -> f32 {
+        if !self.rules.weather_on_squad {
+            return 0.0;
+        }
         let at = self.person_pos(pid);
         if self.shelter_of(pid) != Shelter::Open || self.warm_fire_at(at, t) {
             return 0.0;
