@@ -410,6 +410,7 @@ impl World {
         self.do_labour();
         self.do_casts();
         self.find_ruins();
+        self.tutorial_step();
         self.note_camps_seen();
         self.do_crafting();
         self.do_brewing();

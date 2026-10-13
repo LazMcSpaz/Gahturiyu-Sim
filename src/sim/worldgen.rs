@@ -24,6 +24,22 @@ pub fn generate(seed: u64) -> World {
     generate_with(seed, Default::default())
 }
 
+/// How a new game begins.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Start {
+    /// The squad of four in a mainland town (tests, screenshots, `GAHT_START=town`).
+    Town,
+    /// The opening: one person wrecked on Salt Isle's shore in a storm
+    /// (`tutorial.rs`).
+    Island,
+}
+
+/// The game's opening on Salt Isle (`Start::Island`), with a forged town
+/// and a map's edits like `generate_authored`.
+pub fn generate_opening(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
+    generate_from(seed, forge, edits, Start::Island)
+}
+
 /// A world from a seed, with a map's hand edits on its land
 /// (`mapedit.rs`). Towns are placed from the land as the seed made it, so
 /// edits never move a town; roads, camps and workplaces follow the edited land.
@@ -34,6 +50,10 @@ pub fn generate_with(seed: u64, edits: super::mapedit::MapEdits) -> World {
 /// A world with a forged town's land (and its buildings) on it, under the
 /// map's hand edits.
 pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
+    generate_from(seed, forge, edits, Start::Town)
+}
+
+fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits, start: Start) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
     let terrain = Terrain::generate(seed);
     let mut settlements = place_settlements(&mut rng, seed, &terrain);
@@ -88,13 +108,36 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
         (Race::Qotiro, Calling::Warrior, &[(Skill::Blunt, 55.0), (Skill::Block, 38.0)], 480.0),
         (Race::Tadoro, Calling::Mage, &[(Skill::Structured, 50.0), (Skill::Felt, 38.0), (Skill::Ritual, 30.0), (Skill::Dodge, 25.0)], 120.0),
     ];
+    // The opening: one person, nobody in particular yet (Diʻub's questions
+    // tilt them), in the clothes they were wrecked in and a knife.
+    let wrecked: [(Race, Calling, &[(Skill, f32)], f32); 1] = [(Race::Roduro, Calling::Common, &[(Skill::Athletics, 22.0), (Skill::Blade, 18.0), (Skill::Dodge, 18.0), (Skill::Sneak, 15.0), (Skill::Handcraft, 15.0)], 90.0)];
+    let roles: &[(Race, Calling, &[(Skill, f32)], f32)] = if start == Start::Island { &wrecked } else { &roles };
+    // Day 1 at 06:00; the opening waits for a storm on the island's shore.
+    let start_time = match start {
+        Start::Town => 6.0 * HOUR,
+        Start::Island => super::tutorial::storm_start(&terrain, seed, geo::isle_centre().add(super::island::Spot::Shore.offset()), 6.0 * HOUR),
+    };
     for (i, &(race, calling, skills, budget)) in roles.iter().enumerate() {
         let id = people.len() as PersonId;
         let mut p = Person::summary(id, rng::key(&[seed, 0x5351_5544, i as u64]), race, Some(start_town));
         p.in_squad = true;
-        p.cond = Some(super::condition::Condition { water: super::condition::SKIN_DRINKS, ..super::condition::Condition::new(6.0 * HOUR) });
+        p.cond = Some(super::condition::Condition { water: super::condition::SKIN_DRINKS, ..super::condition::Condition::new(start_time) });
         p.specialize(calling, skills, budget);
         p.ensure_detail();
+        if start == Start::Island {
+            let d = p.detail.as_mut().unwrap();
+            d.gear = super::inventory::Gear::default();
+            for key in ["cloth_shirt", "trousers"] {
+                let id = super::items::id(key);
+                d.gear.add_piece(id, super::wear::fresh(id, start_time));
+                let _ = d.gear.equip(id);
+            }
+            d.gear.add(super::items::id("knife"), 1);
+            d.crafts = vec![Skill::Handcraft];
+            people.push(p);
+            squad_ids.push(id);
+            continue;
+        }
         // The squad starts in the shared basics: leather, cloth and simple
         // weapons, a shirt and trousers under the rest. The traditions' work
         // is the step up.
@@ -109,7 +152,7 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
             d.gear = super::inventory::Gear::default();
             for key in basics {
                 let id = super::items::id(key);
-                d.gear.add_piece(id, super::wear::fresh(id, 6.0 * HOUR));
+                d.gear.add_piece(id, super::wear::fresh(id, start_time));
                 let _ = d.gear.equip(id);
             }
             if calling == Calling::Hunter {
@@ -179,7 +222,13 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     let st = &settlements[start_town as usize];
     // A clear spot near the hearth, not inside somebody's house.
     let mut squad_pos = st.pos.add(V2::new(14.0, 9.0));
+    if start == Start::Island {
+        squad_pos = geo::isle_centre().add(super::island::Spot::Shore.offset());
+    }
     'search: for ring in 1..40 {
+        if start == Start::Island {
+            break;
+        }
         for k in 0..12 {
             let a = k as f32 / 12.0 * std::f32::consts::TAU + ring as f32;
             let c = st.pos.add(V2::new(a.cos(), a.sin()).scale(6.0 + ring as f32 * 2.5));
@@ -233,8 +282,8 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     };
     let (terrain, routes) = land(terrain.with_authored(authored).with_edits(edits), &settlements);
 
-    // Start at 06:00 on day 1.
-    let mut w = World::assemble(seed, people, settlements, groups, squad, 6.0 * HOUR, terrain, routes);
+    // Start at 06:00 on day 1 (or the opening's storm).
+    let mut w = World::assemble(seed, people, settlements, groups, squad, start_time, terrain, routes);
     w.forge = town;
     w.island = Some(island);
     w.solid_changed();
@@ -244,6 +293,9 @@ pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: s
     w.found_society();
     // The island's Binders stand guard and its debtors are bound.
     w.bind_debtors();
+    if start == Start::Island {
+        w.start_opening();
+    }
     // Each building's look, from the trades of who lives there (fixed from now on).
     w.style_buildings();
     w.place_crafting();

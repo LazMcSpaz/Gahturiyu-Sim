@@ -140,6 +140,9 @@ pub struct World {
     /// compound. None in a world made before it.
     #[serde(default)]
     pub island: Option<super::island::Island>,
+    /// The tutorial's progress (`tutorial.rs`): None off the opening.
+    #[serde(default)]
+    pub tutorial: Option<super::tutorial::Tutorial>,
     /// Things lying on the ground.
     pub ground: Vec<GroundItem>,
     pub next_ground_id: u32,
@@ -375,6 +378,7 @@ impl World {
             routes,
             forge: None,
             island: None,
+            tutorial: None,
             bases: Vec::new(),
             next_base: 0,
             looting: Vec::new(),

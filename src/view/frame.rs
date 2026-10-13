@@ -296,7 +296,11 @@ pub fn squad_list(c: &Canvas, w: &World, st: &FrameState, click: Option<Click>) 
 
 /// The job worth following: a title, what to do, and where.
 fn tracked_job(w: &World) -> Option<(String, String, Option<V2>)> {
-    let q = w.quests.iter().find(|q| q.stage != Stage::Done)?;
+    let Some(q) = w.quests.iter().find(|q| q.stage != Stage::Done) else {
+        // The tutorial's lesson, while there's no job.
+        let x = w.lesson_now()?;
+        return Some((x.title.to_string(), x.task.to_string(), w.lesson_at(x)));
+    };
     let giver = w.people[q.giver as usize].name().unwrap_or("someone").to_string();
     let town = w.people[q.giver as usize].home.map(|h| w.settlements[h as usize].name.clone()).unwrap_or_default();
     let at_giver = Some(w.person_pos(q.giver));
@@ -363,7 +367,8 @@ pub fn tracked(c: &Canvas, w: &World) -> Option<Bx> {
     c.grad4(c.w - 460.0, tall, 460.0, 60.0, clear, a(UMBER, 0.6), clear, clear);
     if let Some((title, what, at)) = &job {
         c.rule_in(c.w - 380.0, c.w - 150.0, y, 1.2, a(BRASS, 0.9), true);
-        c.styled_right("TRACKED", xr - 18.0, y + 5.0, 12.0, a(TEXT, 0.85), Face::Title, 3.0);
+        let label = if w.quests.iter().any(|q| q.stage != Stage::Done) { "TRACKED" } else { "LESSON" };
+        c.styled_right(label, xr - 18.0, y + 5.0, 12.0, a(TEXT, 0.85), Face::Title, 3.0);
         c.diamond(xr, y, 4.5, a(BRASS_LIGHT, 1.0));
         y += 34.0;
         c.styled_right(&title.to_uppercase(), xr, y, 20.0, a(TEXT, 1.0), Face::Title, 1.0);

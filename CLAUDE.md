@@ -252,8 +252,14 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    (`Settlement::island`; routes rely on that), added after everyone else's
    dice, with its own extra people; no road or caravan reaches it, its
    customs always allow slavery, and it's laid out by hand (`Spot`). The
-   opening and the lessons are `sim/tutorial.rs`; the dev test quarter is
-   the second session's, behind a debug key.
+   opening and the lessons are `sim/tutorial.rs`: `LESSONS` is data (key,
+   path, task, where it points, `on`), the one up now is the first on the
+   squad's path not done, and a lesson is done by a pure reading of the
+   world in the squad's step or by the system it teaches calling
+   `lesson_done(key)`; progress is `World::tutorial` (saved). A new game is
+   `worldgen::generate_opening` (one person, the storm hour looked up from
+   the weather, never forced); `generate` keeps the town start for tests.
+   The dev test quarter is the second session's, behind a debug key.
 
 17. **What is solid has one source of truth: `sim/solid.rs`.** Every
    physical thing (building walls and doorways, inner walls, furniture,
@@ -350,6 +356,7 @@ screenshots otherwise show panels arrived).
 `GAHT_ALT=1` (Alt held: labels on everything hoverable, long tooltips).
 `GAHT_RUIN=k` (midday, the squad 45 m from ruin or lair k, the camera on the ruin and its cache; ruins come first, then lairs).
 `GAHT_ISLAND=1|<spot>` (the squad on Salt Isle, the tutorial island, at its shore or the named spot: `hut`, `gate`, `hall`, `workyard`, `dock`, `quarry`, `testquarter`, ...; `GAHT_VIEW=map GAHT_ZOOM=0.25` shows it off the coast).
+`GAHT_START=town|island` (how the world begins: the squad of four in a town, or the opening, one person wrecked on Salt Isle's shore in a storm with the lesson in the tracked corner; screenshots default to the town, play to the island).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
 otherwise show none and never touch `hints.txt`).
 `GAHT_REMARK=<about>` (the first squad member says a remark of that kind over their head, e.g.
