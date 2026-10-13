@@ -697,6 +697,47 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     // The hidden test quarter (dev only).
     super::testquarter::draw(&mut b, w, &on_ground, oc.target, radius);
+    // Salt Isle's briar patch (`island.rs`): a fence round a tangle of dark
+    // bramble the locals leave alone (the same fence a walker meets).
+    if let Some(c) = w.island().map(|i| i.spot(gahturiyu_sim::sim::island::Spot::Briar)) {
+        if c.dist(oc.target) <= radius.min(900.0) {
+            use gahturiyu_sim::sim::island::{BRIAR_FENCE, BRIAR_RADIUS};
+            super::animals::fence(&mut b, &on_ground, c, BRIAR_RADIUS, BRIAR_FENCE);
+            for i in 0..30u64 {
+                let h = |k: u64| ((i * 7919 + k * 104729) % 1000) as f32 / 1000.0;
+                let a = h(1) * std::f32::consts::TAU;
+                let d = (0.1 + 0.8 * h(2)) * (BRIAR_RADIUS - 2.0);
+                let at = c.add(V2::new(a.cos(), a.sin()).scale(d));
+                let r = 0.9 + 1.3 * h(3);
+                let dark = 0.75 + 0.25 * h(6);
+                b.dome(to3(at, on_ground(at) - 0.3), r, r * (0.7 + 0.4 * h(4)), 0.5 + 0.9 * h(5), 0.55, 0.5, i ^ 0xB71A, [0.09 * dark, 0.13 * dark, 0.05 * dark]);
+                // Thorny canes sticking up out of it.
+                for j in 0..3u64 {
+                    let g = |k: u64| (((i + 1) * 3571 + j * 7877 + k * 104729) % 1000) as f32 / 1000.0;
+                    let q = at.add(V2::new(g(1) - 0.5, g(2) - 0.5).scale(r * 1.2));
+                    let top = q.add(V2::new(g(3) - 0.5, g(4) - 0.5).scale(1.2));
+                    b.stick(to3(q, on_ground(q) + 0.2), to3(top, on_ground(q) + 1.1 + 1.0 * g(5)), 0.05, [0.2, 0.14, 0.08]);
+                }
+            }
+        }
+    }
+    // The wreck in Salt Isle's shallows (`island.rs`): a broken hull, heeled
+    // over, its mast down.
+    if let Some(p) = w.island().map(|i| i.spot(gahturiyu_sim::sim::island::Spot::Wreck)) {
+        if p.dist(oc.target) <= radius.min(900.0) {
+            let a = 0.9f32;
+            let (cs, sn) = (a.cos(), a.sin());
+            b.block(to3(p, -0.6), 9.0, 3.6, 2.2, a, [0.28, 0.2, 0.14]);
+            b.block(to3(p.add(V2::new(cs, sn).scale(7.5)), -1.2), 5.0, 3.0, 1.4, a + 0.5, [0.26, 0.19, 0.13]);
+            let (q, r) = (p.add(V2::new(-sn, cs).scale(1.2)), p.add(V2::new(-sn, cs).scale(9.0).add(V2::new(cs, sn).scale(3.0))));
+            b.stick(to3(q, 1.3), to3(r, -0.4), 0.22, palette::TIMBER);
+            for i in 0..5 {
+                let f = i as f32 / 4.0;
+                let s = p.add(V2::new(cs, sn).scale(-4.0 + f * 3.0)).add(V2::new(-sn, cs).scale(2.5 + f * 2.0));
+                b.block(to3(s, -0.1), 1.6, 0.3, 0.2, a + f, [0.3, 0.22, 0.15]);
+            }
+        }
+    }
     // The ferry (`ferry.rs`): a hull with a mast, at a berth or on the
     // squad's crossing; nothing while it's away.
     if let Some((p, heading)) = w.ship_pos(w.time) {

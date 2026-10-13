@@ -44,6 +44,16 @@ fn the_island_is_land_in_the_sea() {
         assert!(w.terrain.slope(p) < 0.12, "the test quarter is flat at {p:?}: slope {}", w.terrain.slope(p));
     }
     assert!(isle.in_test_quarter(isle.spot(Spot::TestQuarter)) && !isle.in_test_quarter(isle.spot(Spot::Hall)));
+    // The briar patch is fenced (solid), with a gate through.
+    use gahturiyu_sim::sim::solid::{Id, What};
+    let briar = isle.spot(Spot::Briar);
+    let near = w.solids_near(briar, gahturiyu_sim::sim::island::BRIAR_RADIUS + 5.0);
+    assert!(near.iter().any(|t| t.id == Id::Briar && t.what == What::Fence), "the briar's fence");
+    assert!(near.iter().any(|t| t.id == Id::BriarGate && t.what == What::Gate), "and its gate");
+    let outside = briar.add(V2::new(gahturiyu_sim::sim::island::BRIAR_RADIUS + 3.0, 0.0));
+    assert!(w.blocked_at(briar, 0.4).is_none() && w.blocked_at(outside, 0.4).is_none(), "open ground inside and out");
+    assert!(!w.way_clear(outside, briar, 0.4), "the fence stops a walker going straight through");
+    assert!(w.route(outside, briar).0.len() >= 2, "a way in through the gate");
 }
 
 #[test]

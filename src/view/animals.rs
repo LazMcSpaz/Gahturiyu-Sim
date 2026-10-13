@@ -304,8 +304,9 @@ fn lying(b: &mut Builder, base: Vec3, lk: &Looks, s: f32, rot: f32, dead: bool) 
     b.block(base - vec3(0.0, 0.05, 0.0), lk.len * s * 0.9, lk.wide.max(lk.tall * 0.6) * s, (lk.tall * 0.3 * s).max(0.08), rot, col);
 }
 
-/// A fence round a pen: posts and one rail.
-fn fence(b: &mut Builder, on_ground: &dyn Fn(V2) -> f32, centre: V2, r: f32, height: f32) {
+/// A fence round a pen: posts and one rail. (Salt Isle's briar patch
+/// borrows it, `scene.rs`.)
+pub(super) fn fence(b: &mut Builder, on_ground: &dyn Fn(V2) -> f32, centre: V2, r: f32, height: f32) {
     let n = ((r * std::f32::consts::TAU / 2.6).round() as usize).clamp(8, 40);
     let post = |k: usize| {
         let a = k as f32 / n as f32 * std::f32::consts::TAU;

@@ -129,6 +129,9 @@ pub enum Id {
     Pen(u32),
     PenGate(u32),
     PenHut(u32),
+    /// Salt Isle's fenced briar patch, and its gate (`island.rs`).
+    Briar,
+    BriarGate,
     /// A building at a base: the base, and the building's own id.
     Base(BaseId, u32),
     /// A rock placed by hand, named by where it stands.
@@ -1421,6 +1424,14 @@ impl World {
             if p.sp == Sp::Shellhen {
                 out.push(Thing::solid(Id::PenHut(p.id), What::Shelter, Shape::Box(coop_of(p.home, p.radius, p.seed)), 1.4).inside(Id::Pen(p.id)));
             }
+        }
+        // Salt Isle's briar patch: a fence with a gate, like a pen's.
+        if let Some(isle) = self.island() {
+            use super::island::{Spot, BRIAR_FENCE, BRIAR_RADIUS};
+            let c = isle.spot(Spot::Briar);
+            let (spans, way) = pen_fence(c, BRIAR_RADIUS);
+            out.push(Thing::solid(Id::Briar, What::Fence, Shape::circle(c, BRIAR_RADIUS), BRIAR_FENCE).hollowed(FENCE, spans, Some(way)));
+            out.push(Thing::solid(Id::BriarGate, What::Gate, Shape::Box(Rect::new(way.at, (way.outside.y - way.at.y).atan2(way.outside.x - way.at.x), FENCE, way.width)), BRIAR_FENCE).open());
         }
         for c in &self.camps {
             out.push(Thing::solid(Id::CampFire(c.group), What::Fire, Shape::circle(c.pos, 0.9), 0.7));
