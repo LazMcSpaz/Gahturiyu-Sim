@@ -412,6 +412,8 @@ impl World {
         self.do_casts();
         self.find_ruins();
         self.tutorial_step();
+        // The caught path's own moments (second's `caught.rs`).
+        self.caught_step();
         self.note_camps_seen();
         self.do_crafting();
         self.do_brewing();

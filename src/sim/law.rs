@@ -281,6 +281,9 @@ pub struct Duel {
     pub accused: PersonId,
     pub town: SettlementId,
     pub fine: f32,
+    /// A bout in Salt Isle's yard (`caught.rs`): no one pays for it.
+    #[serde(default)]
+    pub yard: bool,
 }
 
 /// Kinds of wrong.
@@ -1532,7 +1535,7 @@ impl World {
                 b.fighters[i].pos = at.add(dir.scale(DUEL_GAP));
             }
         }
-        self.duels.push(Duel { battle: id, accused, town, fine });
+        self.duels.push(Duel { battle: id, accused, town, fine, yard: false });
     }
 
     /// How whole someone is, 0..1: the worse of head and body.
@@ -1557,6 +1560,10 @@ impl World {
         }
         let name = self.name_of(d.accused);
         let t = b.time;
+        if d.yard {
+            self.yard_bout_over(d.accused, won, t);
+            return;
+        }
         if won {
             self.say(t, format!("{name}'s side wins the duel; the matter is closed."));
             self.add_standing(d.accused, d.town, 2.0);

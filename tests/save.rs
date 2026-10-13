@@ -37,6 +37,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n", w.test_quarter);
     // Diʻub and the lord, and Diʻub's questions answered.
     s += &format!("{:?}\n", w.strangers);
+    // The caught path: who was taken, what the island saw, who's owed.
+    s += &format!("{:?}\n", w.caught);
     // Salt Isle: which settlement is the compound, and that it's flagged; the tutorial's progress.
     s += &format!("{:?} {:?} {:?}\n", w.island, w.settlements.iter().map(|t| t.island).collect::<Vec<_>>(), w.tutorial);
     // The ferry: a crossing under way, and who's sent to board.
