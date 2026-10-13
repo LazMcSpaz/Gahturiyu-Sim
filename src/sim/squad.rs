@@ -301,7 +301,7 @@ impl World {
         let worn = p.cond.as_ref().map(|c| c.pace_factor(self.time)).unwrap_or(1.0);
         // Their own kit's weight as usual; a body they're carrying has its own pace.
         let load = self.kit_weight_at(pid, self.time) / self.capacity_at(pid, self.time).max(1.0);
-        let air = if self.rules.weather_on_squad { self.terrain.weather_pace(self.person_pos(pid), self.time) } else { 1.0 };
+        let air = if self.rules.weather_on_squad { self.weather_pace(self.person_pos(pid), self.time) } else { 1.0 };
         air * worn * sneak * SQUAD_SPEED * stats.move_factor() * body::leg_factor(&hp) * inventory::encumbrance_factor(load) * gear.pack_pace() * gear.wear_pace(stats.attr(super::stats::Attr::Strength)) * self.carry_pace(pid) * (1.0 + bonus)
     }
 

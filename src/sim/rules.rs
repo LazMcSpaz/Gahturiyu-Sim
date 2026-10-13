@@ -82,8 +82,9 @@ pub const RULES: &[Rule] = &[
 impl super::world::World {
     /// The squad's step: a rule switched since the squad's conditions were
     /// last settled settles them now (thirst, bleeds, food going off, packs
-    /// soaking), so a switch takes hold at once.
-    pub(super) fn rules_step(&mut self) {
+    /// soaking), so a switch takes hold at once. The window also calls it
+    /// when a switch is flipped, so it shows at once with time paused.
+    pub fn rules_step(&mut self) {
         if self.rules == self.rules_applied {
             return;
         }

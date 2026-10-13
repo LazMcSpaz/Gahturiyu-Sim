@@ -71,6 +71,14 @@ impl FireJob {
     }
 }
 
+impl Campfire {
+    /// Lit by the dev panel (`dev_fire`): lit the moment it's laid, where
+    /// the squad's take a while to catch. It burns whatever the weather.
+    pub fn dev_lit(&self) -> bool {
+        self.since == self.lit_at
+    }
+}
+
 impl World {
     /// A fire lit at `at` right now, by the lead (the dev panel's "spawn
     /// fire"): a campfire like any the squad lays, but it burns its hours

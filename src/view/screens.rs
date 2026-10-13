@@ -141,8 +141,9 @@ pub fn escape(game: &mut Game) {
     if let Some(t) = game.title.as_mut() {
         if game.options {
             game.options = false;
-        } else {
-            t.back();
+        } else if !t.back() && t.from_game {
+            // On the main page, with a game under way: back to it.
+            game.title = None;
         }
         return;
     }
