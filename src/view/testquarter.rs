@@ -1,16 +1,23 @@
 //! The hidden test quarter in the window (drawing only; the rules are
-//! `sim/testquarter.rs`). Home, with the detail switch (L) on, opens the
-//! quarter and brings the squad in; pressed again inside it, it shows the
-//! dev spawner. Nothing here is part of the story.
+//! `sim/testquarter.rs`), and the dev panel. Home, with the detail switch
+//! (L) on, opens the quarter and brings the squad in; Insert, anywhere,
+//! opens and closes the dev panel (Laz, 13 Oct: "a little window where I
+//! can turn weather on or off, ... spawn fire, ... spawn, turn things on or
+//! off"). Nothing here is part of the story.
 //!
 //! - **Drawing:** the wall and its gate (the same boxes `solid.rs` lists),
 //!   the arena's ring of posts and sand, pegged-out build plots, and a
 //!   signpost at each culture lot in its people's colour.
-//! - **The spawner** (`panel`): tabs for items (into the lead's pack; Shift
-//!   for ten), creatures (a herd of three), people (a band, someone of each
-//!   people or of a faction), the world (skip hours, days or a season; show
-//!   a kind of weather, as U does) and the yard (dummies stood up again, the
-//!   gate, and a weapon's row of the duel grid).
+//! - **The dev panel** (`panel`): a small window under the tracked corner
+//!   that stays open while the game goes on and other screens come and go
+//!   (it isn't one of `screens.rs`'s). Tabs: items (into the lead's pack;
+//!   Shift for ten), animals (a herd of three), people (a band, someone of
+//!   each people or of a faction), time (hours, a day, a season on), weather
+//!   (forced in the sim: cold, wet, pace, sight and fires all follow;
+//!   `World::set_forced_sky`), fire (a campfire, a standing torch), the squad
+//!   (heal, bind, knock out, soak, chill, starve, coin), the rules toggles,
+//!   go (the nearest town, Salt Isle, the test quarter), and the yard
+//!   (dummies stood up again, the gate, a weapon's row of the duel grid).
 
 use bevy::math::vec3;
 
@@ -89,7 +96,7 @@ pub fn draw(b: &mut Builder, w: &World, on_ground: &dyn Fn(V2) -> f32, near: V2,
     }
 }
 
-/// The spawner's tabs.
+/// The dev panel's tabs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Tab {
     #[default]
@@ -97,12 +104,28 @@ pub enum Tab {
     Creatures,
     People,
     World,
+    Weather,
+    Fire,
+    Squad,
+    Rules,
+    Go,
     Yard,
 }
 
-const TABS: [(Tab, &str); 5] = [(Tab::Items, "Items"), (Tab::Creatures, "Animals"), (Tab::People, "People"), (Tab::World, "World"), (Tab::Yard, "Yard")];
+const TABS: [(Tab, &str); 10] = [
+    (Tab::Items, "Items"),
+    (Tab::Creatures, "Animals"),
+    (Tab::People, "People"),
+    (Tab::World, "Time"),
+    (Tab::Weather, "Weather"),
+    (Tab::Fire, "Fire"),
+    (Tab::Squad, "Squad"),
+    (Tab::Rules, "Rules"),
+    (Tab::Go, "Go"),
+    (Tab::Yard, "Yard"),
+];
 
-/// The spawner while it's open.
+/// The dev panel while it's open.
 #[derive(Clone, Debug, Default)]
 pub struct DevPanel {
     pub tab: Tab,
@@ -124,42 +147,60 @@ pub enum DevAct {
     Faction(FactionId),
     Skip(f64),
     Weather(Option<Preset>),
+    Campfire,
+    Torch,
+    Heal,
+    KnockOut,
+    Soak,
+    Chill,
+    Starve,
+    Coin,
+    Bind,
+    Rule(&'static str),
+    GoTown,
+    GoIsland(gahturiyu_sim::sim::island::Spot),
+    GoQuarter,
     ResetDummies,
     Gate(bool),
     Weapon(i32),
     RunGrid,
 }
 
-const W: f32 = 520.0;
-const ROWS: usize = 16;
-const ROW: f32 = 28.0;
+/// A rule switched off, dimmed.
+const OFF: Rgb = [0.55, 0.50, 0.42];
 
-/// The spawner panel, on the right. What was clicked, and the box it covers.
+const W: f32 = 440.0;
+const ROWS: usize = 11;
+const ROW: f32 = 26.0;
+
+/// The dev panel: a small window under the tracked corner that stays open
+/// while the game goes on. What was clicked, and the box it covers.
 pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: bool) -> (Option<DevAct>, Bx) {
     let x = c.w - W - 24.0;
-    let y = 90.0;
-    let h = 140.0 + ROWS as f32 * ROW;
+    let y = 250.0;
+    let tab_h = 26.0;
+    let h = 46.0 + 2.0 * tab_h + 12.0 + ROWS as f32 * ROW + 40.0;
     c.frame_box(x, y, W, h);
     let mut act = None;
     let hit = |b: &Bx| click.is_some_and(|k| !k.right && b.contains(k.at));
-    c.styled("TEST QUARTER", x + 20.0, y + 34.0, 18.0, eg(GOLD), Face::Title, 4.0);
-    c.styled("dev only", x + 210.0, y + 34.0, 14.0, ega(TEXT, 0.6), Face::Italic, 0.0);
-    let close = Bx::new(x + W - 44.0, y + 14.0, 28.0, 28.0);
+    c.styled("DEV PANEL", x + 16.0, y + 28.0, 15.0, eg(GOLD), Face::Title, 3.0);
+    c.styled("Insert to close", x + 150.0, y + 28.0, 12.0, ega(TEXT, 0.55), Face::Italic, 0.0);
+    let close = Bx::new(x + W - 38.0, y + 10.0, 24.0, 24.0);
     kit::button(c, &close, "×", Kind::Plain, true);
     if hit(&close) {
         act = Some(DevAct::Close);
     }
-    // Tabs.
-    let tw = (W - 40.0) / TABS.len() as f32;
+    // Tabs, two rows of five.
+    let tw = (W - 32.0) / 5.0;
     for (k, (t, name)) in TABS.iter().enumerate() {
-        let b = Bx::new(x + 20.0 + k as f32 * tw, y + 50.0, tw - 6.0, 30.0);
+        let b = Bx::new(x + 16.0 + (k % 5) as f32 * tw, y + 42.0 + (k / 5) as f32 * (tab_h + 4.0), tw - 4.0, tab_h);
         kit::button(c, &b, name, if *t == p.tab { Kind::Primary } else { Kind::Plain }, true);
         if hit(&b) {
             act = Some(DevAct::Tab(*t));
         }
     }
-    let top = y + 96.0;
-    // A list of labelled buttons in two columns, paged.
+    let top = y + 42.0 + 2.0 * (tab_h + 4.0) + 8.0;
+    // A list of labelled rows in two columns, paged.
     let list = |labels: Vec<(String, Rgb)>, acts: Vec<DevAct>, act: &mut Option<DevAct>| {
         let per = ROWS * 2;
         let pages = labels.len().div_ceil(per).max(1);
@@ -167,19 +208,19 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
         let mut acts: Vec<Option<DevAct>> = acts.into_iter().map(Some).collect();
         for (k, (label, col)) in labels.iter().enumerate().skip(page * per).take(per) {
             let i = k - page * per;
-            let b = Bx::new(x + 20.0 + (i / ROWS) as f32 * (W - 40.0) / 2.0, top + (i % ROWS) as f32 * ROW, (W - 40.0) / 2.0 - 6.0, ROW - 3.0);
+            let b = Bx::new(x + 16.0 + (i / ROWS) as f32 * (W - 32.0) / 2.0, top + (i % ROWS) as f32 * ROW, (W - 32.0) / 2.0 - 4.0, ROW - 2.0);
             let l = kit::row(c, &b, false);
-            c.styled(label, b.x + 8.0, b.y + 19.0 + kit::nudge(l), 15.0, eg(*col), Face::Body, 0.0);
+            c.styled(label, b.x + 6.0, b.y + 18.0 + kit::nudge(l), 14.0, eg(*col), Face::Body, 0.0);
             if hit(&b) {
                 *act = acts[k].take();
             }
         }
         if pages > 1 {
             let by = top + ROWS as f32 * ROW + 6.0;
-            let (prev, next) = (Bx::new(x + 20.0, by, 40.0, 28.0), Bx::new(x + W - 60.0, by, 40.0, 28.0));
+            let (prev, next) = (Bx::new(x + 16.0, by, 32.0, 24.0), Bx::new(x + W - 48.0, by, 32.0, 24.0));
             kit::button(c, &prev, "<", Kind::Plain, page > 0);
             kit::button(c, &next, ">", Kind::Plain, page + 1 < pages);
-            c.styled(&format!("page {} of {pages}", page + 1), x + W / 2.0 - 40.0, by + 19.0, 14.0, ega(TEXT, 0.7), Face::Body, 0.0);
+            c.styled(&format!("page {} of {pages}", page + 1), x + W / 2.0 - 36.0, by + 17.0, 13.0, ega(TEXT, 0.7), Face::Body, 0.0);
             if hit(&prev) && page > 0 {
                 *act = Some(DevAct::Page(-1));
             }
@@ -188,6 +229,7 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
             }
         }
     };
+    let plain = |s: &str| (s.to_string(), TEXT);
     match p.tab {
         Tab::Items => {
             let n = if shift { 10 } else { 1 };
@@ -201,7 +243,7 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
             list(labels, acts, &mut act);
         }
         Tab::People => {
-            let mut labels: Vec<(String, Rgb)> = vec![("Bandits (three)".into(), TEXT), ("Binders (three)".into(), TEXT)];
+            let mut labels: Vec<(String, Rgb)> = vec![plain("Bandits (three)"), plain("Binders (three)")];
             let mut acts = vec![DevAct::Band(false), DevAct::Band(true)];
             for r in ALL_RACES {
                 labels.push((format!("A {}", r.name()), race_color(r)));
@@ -214,37 +256,59 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
             list(labels, acts, &mut act);
         }
         Tab::World => {
-            let mut labels: Vec<(String, Rgb)> = vec![("An hour on".into(), TEXT), ("Six hours on".into(), TEXT), ("A day on".into(), TEXT), ("A season on (12 days)".into(), TEXT), ("Real weather".into(), GOLD)];
-            let mut acts = vec![DevAct::Skip(1.0), DevAct::Skip(6.0), DevAct::Skip(24.0), DevAct::Skip(12.0 * 24.0), DevAct::Weather(None)];
+            let labels = vec![plain("An hour on"), plain("Six hours on"), plain("A day on"), plain("A season on (12 days)")];
+            let acts = vec![DevAct::Skip(1.0), DevAct::Skip(6.0), DevAct::Skip(24.0), DevAct::Skip(12.0 * 24.0)];
+            list(labels, acts, &mut act);
+        }
+        Tab::Weather => {
+            let forced = w.forced_sky.is_some();
+            let mut labels: Vec<(String, Rgb)> = vec![(if forced { "The real weather (now forced)".into() } else { "The real weather".into() }, GOLD)];
+            let mut acts = vec![DevAct::Weather(None)];
             for pr in PRESETS {
-                labels.push((format!("Show {}", pr.name().to_lowercase()), TEXT));
+                labels.push(plain(pr.name()));
                 acts.push(DevAct::Weather(Some(pr)));
             }
             list(labels, acts, &mut act);
         }
+        Tab::Fire => {
+            let labels = vec![plain("A campfire at the lead's feet"), plain("A standing torch by the lead")];
+            list(labels, vec![DevAct::Campfire, DevAct::Torch], &mut act);
+        }
+        Tab::Squad => {
+            let labels = vec![plain("Heal everyone"), plain("Bind every bleed"), plain("Knock the lead out"), plain("Soak the lead's pack"), plain("Chill the lead"), plain("Starve the lead"), plain("50 coin to the lead")];
+            let acts = vec![DevAct::Heal, DevAct::Bind, DevAct::KnockOut, DevAct::Soak, DevAct::Chill, DevAct::Starve, DevAct::Coin];
+            list(labels, acts, &mut act);
+        }
+        Tab::Rules => {
+            let labels = gahturiyu_sim::sim::rules::RULES.iter().map(|r| {
+                let on = w.rules.get(r.key).unwrap_or(true);
+                (format!("{}: {}", r.name, if on { "on" } else { "off" }), if on { TEXT } else { OFF })
+            });
+            let labels: Vec<(String, Rgb)> = labels.collect();
+            let acts = gahturiyu_sim::sim::rules::RULES.iter().map(|r| DevAct::Rule(r.key)).collect();
+            list(labels, acts, &mut act);
+        }
+        Tab::Go => {
+            use gahturiyu_sim::sim::island::Spot;
+            let labels = vec![plain("The nearest town"), plain("Salt Isle: the shore"), plain("Salt Isle: the compound gate"), plain("Salt Isle: the dock"), plain("The test quarter")];
+            let acts = vec![DevAct::GoTown, DevAct::GoIsland(Spot::Shore), DevAct::GoIsland(Spot::Gate), DevAct::GoIsland(Spot::Dock), DevAct::GoQuarter];
+            list(labels, acts, &mut act);
+        }
         Tab::Yard => {
             let open = w.test_quarter().is_some_and(|q| q.open);
-            let b1 = Bx::new(x + 20.0, top, 220.0, 32.0);
-            let b2 = Bx::new(x + 250.0, top, 250.0, 32.0);
-            kit::button(c, &b1, "Stand the dummies up", Kind::Plain, true);
-            kit::button(c, &b2, if open { "Lock the gate" } else { "Open the gate" }, Kind::Plain, true);
-            if hit(&b1) {
-                act = Some(DevAct::ResetDummies);
-            }
-            if hit(&b2) {
-                act = Some(DevAct::Gate(!open));
-            }
+            let labels = vec![plain("Stand the dummies up"), plain(if open { "Lock the quarter's gate" } else { "Open the quarter's gate" })];
+            list(labels, vec![DevAct::ResetDummies, DevAct::Gate(!open)], &mut act);
             // The duel grid: a weapon's row against every armour set.
             let weapons = duelgrid::weapons();
             let wk = p.weapon % weapons.len().max(1);
             let name = weapons.get(wk).map(|k| gahturiyu_sim::sim::items::item(gahturiyu_sim::sim::items::id(k)).name).unwrap_or("?");
-            let gy = top + 50.0;
-            c.styled("DUEL GRID", x + 20.0, gy + 20.0, 14.0, eg(GOLD), Face::Title, 3.0);
-            let (prev, next, run) = (Bx::new(x + 140.0, gy, 32.0, 28.0), Bx::new(x + 380.0, gy, 32.0, 28.0), Bx::new(x + 420.0, gy, 80.0, 28.0));
+            let gy = top + 2.0 * ROW + 6.0;
+            c.styled("DUEL GRID", x + 16.0, gy + 18.0, 13.0, eg(GOLD), Face::Title, 3.0);
+            let (prev, next, run) = (Bx::new(x + 120.0, gy, 26.0, 24.0), Bx::new(x + 330.0, gy, 26.0, 24.0), Bx::new(x + 362.0, gy, 62.0, 24.0));
             kit::button(c, &prev, "<", Kind::Plain, true);
             kit::button(c, &next, ">", Kind::Plain, true);
             kit::button(c, &run, "Run", Kind::Primary, true);
-            c.styled(name, x + 182.0, gy + 20.0, 16.0, eg(TEXT), Face::Body, 0.0);
+            c.styled(name, x + 154.0, gy + 18.0, 14.0, eg(TEXT), Face::Body, 0.0);
             if hit(&prev) {
                 act = Some(DevAct::Weapon(-1));
             }
@@ -254,30 +318,35 @@ pub fn panel(c: &Canvas, w: &World, p: &DevPanel, click: Option<Click>, shift: b
             if hit(&run) {
                 act = Some(DevAct::RunGrid);
             }
-            let ty = gy + 50.0;
-            c.styled("against", x + 20.0, ty, 13.0, ega(TEXT, 0.6), Face::Italic, 0.0);
-            c.styled("secs to down", x + 230.0, ty, 13.0, ega(TEXT, 0.6), Face::Italic, 0.0);
-            c.styled("wins of 8 v. longsword", x + 340.0, ty, 13.0, ega(TEXT, 0.6), Face::Italic, 0.0);
+            let ty = gy + 44.0;
+            c.styled("against", x + 16.0, ty, 12.0, ega(TEXT, 0.6), Face::Italic, 0.0);
+            c.styled("secs to down", x + 200.0, ty, 12.0, ega(TEXT, 0.6), Face::Italic, 0.0);
+            c.styled("wins of 8", x + 330.0, ty, 12.0, ega(TEXT, 0.6), Face::Italic, 0.0);
             for (k, (set, _)) in SETS.iter().enumerate() {
-                let ry = ty + 26.0 + k as f32 * 24.0;
-                c.styled(set, x + 20.0, ry, 15.0, eg(TEXT), Face::Body, 0.0);
+                let ry = ty + 20.0 + k as f32 * 19.0;
+                c.styled(set, x + 16.0, ry, 13.0, eg(TEXT), Face::Body, 0.0);
                 if let Some(r) = p.row.as_ref().filter(|r| r.weapon == weapons.get(wk).copied().unwrap_or("")) {
                     let s = r.secs[k].map(|t| format!("{t:.0}")).unwrap_or_else(|| "-".into());
-                    c.styled(&s, x + 250.0, ry, 15.0, eg(TEXT), Face::Body, 0.0);
-                    c.styled(&r.wins[k].to_string(), x + 380.0, ry, 15.0, eg(TEXT), Face::Body, 0.0);
+                    c.styled(&s, x + 220.0, ry, 13.0, eg(TEXT), Face::Body, 0.0);
+                    c.styled(&r.wins[k].to_string(), x + 345.0, ry, 13.0, eg(TEXT), Face::Body, 0.0);
                 }
             }
-            c.styled("Run fights the full rules: a moment's pause.", x + 20.0, ty + 26.0 + SETS.len() as f32 * 24.0 + 10.0, 13.0, ega(TEXT, 0.6), Face::Italic, 0.0);
         }
     }
     (act, Bx::new(x, y, W, h))
 }
 
-/// Carry out what was clicked. `lead`: whose pack things go into.
+/// Carry out what was clicked. `lead`: whose pack and person the squad
+/// buttons act on; `force`: the weather picture (as U), kept with the sim's.
 pub fn apply(w: &mut World, p: &mut DevPanel, act: DevAct, lead: Option<gahturiyu_sim::sim::person::PersonId>, force: &mut Option<Preset>) -> Option<String> {
-    let pad = w.test_quarter().map(|q| q.pad()).unwrap_or(w.squad.pos);
-    // Things are put a little way off the pad, each at its own spot.
-    let near = |k: usize| pad.add(V2::new(-14.0 - (k % 4) as f32 * 5.0, -10.0 + (k / 4 % 5) as f32 * 5.0));
+    // Things are put a little way from the lead (or inside the quarter's
+    // gate, in the quarter), each at its own spot.
+    let base = match (w.test_quarter().filter(|q| q.contains(w.squad.pos)), lead) {
+        (Some(q), _) => q.pad(),
+        (None, Some(m)) => w.person_pos(m).add(V2::new(18.0, 0.0)),
+        (None, None) => w.squad.pos,
+    };
+    let near = |k: usize| base.add(V2::new(-((k % 4) as f32) * 5.0, -10.0 + (k / 4 % 5) as f32 * 5.0));
     let k = w.people.len() + w.animals.herds.len();
     match act {
         DevAct::Close => None,
@@ -316,12 +385,71 @@ pub fn apply(w: &mut World, p: &mut DevPanel, act: DevAct, lead: Option<gahturiy
             Some(format!("{h} hours on"))
         }
         DevAct::Weather(pr) => {
+            // In the sim (cold, wet, pace, sight, fires all follow) and the picture.
+            w.set_forced_sky(pr.map(|x| x.sky(1.0)));
             *force = pr;
             Some(match pr {
-                Some(x) => format!("Weather shown: {} (drawing only, as U)", x.name()),
-                None => "Weather shown: the real weather".into(),
+                Some(x) => format!("Weather forced: {}", x.name()),
+                None => "The real weather again".into(),
             })
         }
+        DevAct::Campfire => {
+            let at = w.person_pos(lead?).add(V2::new(1.8, 0.6));
+            w.dev_fire(at);
+            Some("A campfire, lit".into())
+        }
+        DevAct::Torch => {
+            let m = lead?;
+            Some(if w.dev_torch(m) { "A standing torch, lit".into() } else { "No torch set (in a fight?)".into() })
+        }
+        DevAct::Heal => {
+            w.dev_heal_all();
+            Some("Everyone whole again".into())
+        }
+        DevAct::Bind => {
+            w.dev_bind_all();
+            Some("Every bleed stopped".into())
+        }
+        DevAct::KnockOut => {
+            let m = lead?;
+            w.dev_knock_out(m);
+            Some(format!("{} is knocked out", w.name_of(m)))
+        }
+        DevAct::Soak => {
+            let m = lead?;
+            w.dev_soak(m);
+            Some(format!("{}'s pack is soaked through", w.name_of(m)))
+        }
+        DevAct::Chill => {
+            let m = lead?;
+            w.dev_chill(m);
+            Some(format!("{} is chilled to the bone", w.name_of(m)))
+        }
+        DevAct::Starve => {
+            let m = lead?;
+            w.dev_starve(m);
+            Some(format!("{} is starving", w.name_of(m)))
+        }
+        DevAct::Coin => {
+            let m = lead?;
+            w.dev_give(m, gahturiyu_sim::sim::items::id("coin"), 50);
+            Some(format!("50 coin to {}", w.name_of(m)))
+        }
+        DevAct::Rule(key) => {
+            w.rules.toggle(key);
+            let on = w.rules.get(key).unwrap_or(true);
+            let name = gahturiyu_sim::sim::rules::RULES.iter().find(|r| r.key == key).map(|r| r.name).unwrap_or(key);
+            Some(format!("{name}: {}", if on { "on" } else { "off" }))
+        }
+        DevAct::GoTown => {
+            w.dev_go_town();
+            Some("To the nearest town".into())
+        }
+        DevAct::GoIsland(spot) => {
+            w.dev_go_island(spot);
+            Some(format!("To Salt Isle: {}", spot.name()))
+        }
+        DevAct::GoQuarter => Some(if w.enter_test_quarter() { "Into the test quarter".into() } else { "No test quarter here".into() }),
         DevAct::ResetDummies => {
             w.dev_reset_dummies();
             Some("The dummies stand again".into())

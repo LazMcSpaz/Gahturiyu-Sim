@@ -478,9 +478,14 @@ pub fn run() {
         if let Some(tab) = s.quarter.as_deref().filter(|t| *t != "1") {
             use super::testquarter::{DevPanel, Tab};
             let mut dp = DevPanel { tab: match tab {
-                "creatures" => Tab::Creatures,
+                "creatures" | "animals" => Tab::Creatures,
                 "people" => Tab::People,
-                "world" => Tab::World,
+                "world" | "time" => Tab::World,
+                "weather" => Tab::Weather,
+                "fire" => Tab::Fire,
+                "squad" => Tab::Squad,
+                "rules" => Tab::Rules,
+                "go" => Tab::Go,
                 "yard" => Tab::Yard,
                 _ => Tab::Items,
             }, ..Default::default() };
@@ -942,6 +947,10 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         } else {
             game.notice = Some(("No flat ground for the test quarter near here.".to_string(), std::time::Instant::now()));
         }
+    }
+    // Insert, anywhere: the dev panel, open while the game goes on (Laz, 13 Oct).
+    if keys.just_pressed(KeyCode::Insert) {
+        game.dev = if game.dev.is_some() { None } else { Some(Default::default()) };
     }
     let w = &mut game.world;
     if keys.just_pressed(KeyCode::KeyO) {
