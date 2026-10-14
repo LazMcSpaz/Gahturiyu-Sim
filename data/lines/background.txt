@@ -13,15 +13,15 @@
 
 # ---- Where they come from ----------------------------------------------
 origin | voice=roduro | When I was small, a Stone Tender began growing the house I live in. It has grown up beside me ever since. Look at the bands in the wall: one for every year, the same as mine.
-origin | voice=roduro | My family has lived on this {w:earth} longer than anyone can count. My grandmother's {w:hearth} is still warm; we have never let it go out.
-origin | voice=roduro | I was born under a roof my great-grandfather grew. We Roduro don't leave a place lightly. The {w:stone} remembers us, and we remember it.
-origin | voice=roduro, patient | I'm a slow sort of person, like my people. We grow things, houses and children and quarrels, and we wait to see what comes of them.
-origin | voice=qotiro | My people quarry their homes from the dark rock and forge their own lives. Nothing is given to us. Everything is made.
+origin | voice=roduro | This {w:hearth} hasn't gone out since before I was born. I'm not going to be the one who lets it.
+origin | voice=roduro | I was born under a roof that was grown before anyone now alive. It'll stand after me, too. Most days that's a comfort.
+origin | voice=roduro, patient | We grow things here, houses and children and quarrels, and then we wait. Most of them come up.
+origin | voice=qotiro | Nothing in my house was given to me. Point at anything; I'll tell you what it cost.
 origin | voice=qotiro | I was raised under the sun discs, where a child learns the {w:forge} before letters. A thing badly made is a {w:shame} on the hand that made it.
-origin | voice=qotiro, hot | You want my story? I work, I keep my word, and I don't ask anyone for anything. That's the whole of it.
-origin | voice=qotiro, patient | My mother told me that a person is like iron: worth what the {w:fire} has made of them, and no more.
+origin | voice=qotiro, hot | My story? I work, I'm paid, I go home. If you wanted a longer one, you should have asked someone idle.
+origin | voice=qotiro, patient | Iron's worth what the {w:fire} made of it, and no more. I've had a good deal of fire.
 origin | voice=horaro, stilts | I was born on the stilts and swam before I walked. The land-folk think it's strange, sleeping over the water. We think it's strange that they don't.
-origin | voice=horaro, stilts | My mother's line has fished this shore for longer than the stilts have stood. The {w:sea} gives, and the {w:sea} takes. You learn not to argue with it.
+origin | voice=horaro, stilts | We've fished this shore longer than the stilts have stood. The {w:sea} gives and takes, and arguing with it only gets you wet.
 origin | voice=horaro, stilts | I grew up with the sound of the {w:tide} under the floor. I still can't sleep properly anywhere quiet.
 origin | voice=tadoro | I lodge here for now. I keep notes on everything: the tides, the arguments, how long the bread lasts. Somebody ought to.
 origin | voice=tadoro | My people don't build, we travel. I've slept in a hundred houses and under a hundred tents, and written something down in every one of them.
@@ -69,18 +69,18 @@ origin | voice=qotiro, guests | My people didn't raise this town, and you can te
 origin | old, poor | I've worked all my life and I've little to show for it but my hands. They're good hands, though.
 origin | young, poor | There's not much to tell yet, and less in my purse. Both will change.
 origin | low_honour, wanderer | You'll hear things about me. Some of them are even true. I don't stay anywhere long enough to mind.
-origin | high_honour, old | I've kept my word all my life. It's cost me, some years. I'd do it again.
+origin | high_honour, old | I've kept every promise I ever made. One or two I'd give a great deal to have back.
 
 # ---- What they do ----------------------------------------------------------
-work | has_job | These days I work as {a_job}{place}. It keeps food on the table.
-work | has_job, content | I work as {a_job}{place}, and I'm good at it, if I say so myself.
-work | has_job, worried | I work as {a_job}{place}, though it pays less every season.
-work | has_job, voice=qotiro | I am {a_job}{place}. I do it properly.
+work | has_job | I'm {a_job}{place}. Ask me about anything else; I spend all day on that.
+work | has_job, content | I'm {a_job}{place}. Some days I'd do it for nothing. Don't tell them that.
+work | has_job, worried | I'm {a_job}{place}. Or I was this morning. Ask me again at the end of the season.
+work | has_job, voice=qotiro | I am {a_job}{place}. You may check my work. Most people don't think to.
 work | has_job, old | I've been {a_job}{place} longer than I care to count.
 work | has_job, young | I'm {a_job}{place}. Still learning it, if I'm honest.
 work | has_job, poor | I'm {a_job}{place}. It doesn't pay what it should.
-work | has_job, hot | I'm {a_job}{place}. The best they've got, whatever they tell you.
-work | has_job, gentle | I'm {a_job}{place}. Come by sometime, I like the company.
+work | has_job, hot | I'm {a_job}{place}, the best they've got. Ask anyone. No, ask me; the rest are jealous.
+work | has_job, gentle | I'm {a_job}{place}. Come by when it's quiet. It's never quiet, but come anyway.
 work | has_job, wanderer | I'm {a_job}{place}, for now. I've never held to one thing long.
 work | has_job, voice=tadoro | For now I'm {a_job}{place}. Ask me again next year; it'll be something else.
 work | no_job, calling=warrior | I've fought for coin, when there was coin to fight for. Lately there hasn't been.
