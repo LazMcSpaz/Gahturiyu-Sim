@@ -635,6 +635,52 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
             }
         }
     }
+    // Trees and bushes stamped in a built place (`placefile.rs`), exactly
+    // where they were put (no others grow there: `plan_woods_at`).
+    if layer != Layer::Grass {
+        for (p, k, s) in w.place_stamps_in(x0, y0, x0 + size, y0 + size) {
+            let sub: u8 = match (layer, k.as_str()) {
+                (Layer::Bush, "bush") => 0,
+                (Layer::Tree | Layer::Far, "tree_broad" | "tree_small") => 0,
+                (Layer::Tree | Layer::Far, "tree_conifer") => 1,
+                _ => continue,
+            };
+            if !clear.ok(p) {
+                continue;
+            }
+            let mut r = Rng::from_keys(&[(p.x * 100.0) as i64 as u64, (p.y * 100.0) as i64 as u64, 0x5354_414D]);
+            let yaw = r.f32() * std::f32::consts::TAU;
+            let scale = s * if k == "tree_small" { 0.6 } else { 1.0 };
+            let at = to3(p, ground(p) - 0.05);
+            let tf = Transform::from_translation(at).with_rotation(Quat::from_rotation_y(yaw)).with_scale(Vec3::splat(scale));
+            plants.push((at, sub));
+            match layer {
+                Layer::Bush => {
+                    let v = r.below(f.bush_full.len());
+                    entities.push(commands.spawn((Mesh3d(f.bush_full[v].clone()), MeshMaterial3d(f.plant_mat.clone()), tf, range(None, BUSH_FULL_END))).id());
+                    entities.push(commands.spawn((Mesh3d(f.bush_simple[v].clone()), MeshMaterial3d(f.plant_mat.clone()), tf, range(Some(BUSH_FULL_END), BUSH_SIMPLE_END), NotShadowCaster)).id());
+                }
+                Layer::Tree => {
+                    let k = sub as usize;
+                    entities.push(commands.spawn((Mesh3d(f.tree_full[k].clone()), MeshMaterial3d(f.plant_mat.clone()), tf, range(None, TREE_FULL_END))).id());
+                    entities.push(commands.spawn((Mesh3d(f.tree_blob[k].clone()), MeshMaterial3d(f.plant_mat.clone()), tf, range(Some(TREE_FULL_END), TREE_BLOB_END))).id());
+                }
+                Layer::Far => {
+                    let (hw, ht) = (3.2 * scale, 9.5 * scale);
+                    let u0 = if sub == 0 { 0.0 } else { 0.5 };
+                    let corners = [(-hw, 0.0), (hw, 0.0), (hw, ht), (-hw, ht)];
+                    let uvs = [[u0, 1.0], [u0 + 0.5, 1.0], [u0 + 0.5, 0.0], [u0, 0.0]];
+                    let c = [1.0, 1.0, 1.0, 0.0];
+                    far.quad_lin([at; 4], [Vec3::Y; 4], [c; 4]);
+                    for k in 0..4 {
+                        far_uv.push(uvs[k]);
+                        far_corner.push([corners[k].0, corners[k].1]);
+                    }
+                }
+                Layer::Grass => {}
+            }
+        }
+    }
     if layer == Layer::Far && !far.is_empty() {
         let m = far.mesh().with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, far_uv).with_inserted_attribute(Mesh::ATTRIBUTE_UV_1, far_corner);
         let h = meshes.add(m);

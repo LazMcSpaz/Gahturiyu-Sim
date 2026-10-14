@@ -203,8 +203,17 @@ pub const GROUND: &[(char, &str, &str)] = &[
     ('~', "water", "Water"),
 ];
 
-/// The whole catalogue, in a fixed order.
+/// The whole catalogue, in a fixed order (worked out once).
 pub fn catalogue() -> Vec<Entry> {
+    all().clone()
+}
+
+fn all() -> &'static Vec<Entry> {
+    static ALL: std::sync::OnceLock<Vec<Entry>> = std::sync::OnceLock::new();
+    ALL.get_or_init(build)
+}
+
+fn build() -> Vec<Entry> {
     let mut out = Vec::new();
 
     // Buildings: every variant at its usual size.
@@ -374,5 +383,5 @@ pub fn catalogue_json() -> String {
 
 /// An entry by key.
 pub fn find(key: &str) -> Option<Entry> {
-    catalogue().into_iter().find(|e| e.key == key)
+    all().iter().find(|e| e.key == key).cloned()
 }

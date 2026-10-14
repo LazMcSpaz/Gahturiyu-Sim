@@ -78,6 +78,7 @@ pub mod packs;
 pub mod person;
 pub mod plan;
 pub mod place;
+pub mod placefile;
 pub mod quests;
 pub mod ring;
 pub mod race;
