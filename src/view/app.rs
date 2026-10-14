@@ -1580,6 +1580,11 @@ fn update_barks(game: &mut Game) {
     }
 }
 
+/// How far from a thing's mark on screen the mouse still takes it, pixels
+/// (plus the thing's own slack). Laz, 13 Oct: finding the sweet spot made
+/// the game annoying to play.
+const PICK_BAND: f32 = 18.0;
+
 /// Collects things under the mouse and keeps the closest.
 struct Picker {
     mouse: Vec2,
@@ -1589,7 +1594,21 @@ struct Picker {
 impl Picker {
     fn offer(&mut self, at: Vec2, slack: f32, h: Hover) {
         let d = (at - self.mouse).length() - slack;
-        if d < 10.0 && self.best.as_ref().map(|(b, _)| d < *b).unwrap_or(true) {
+        self.take(d, h);
+    }
+
+    /// A thing with some height on screen (a person, head to feet): the
+    /// mouse anywhere along it takes it.
+    fn offer_span(&mut self, a: Vec2, b: Vec2, slack: f32, h: Hover) {
+        let ab = b - a;
+        let len2 = ab.length_squared();
+        let t = if len2 < 1e-3 { 0.0 } else { ((self.mouse - a).dot(ab) / len2).clamp(0.0, 1.0) };
+        let d = (a + ab * t - self.mouse).length() - slack;
+        self.take(d, h);
+    }
+
+    fn take(&mut self, d: f32, h: Hover) {
+        if d < PICK_BAND && self.best.as_ref().map(|(b, _)| d < *b).unwrap_or(true) {
             self.best = Some((d, h));
         }
     }
@@ -1661,7 +1680,18 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
             let eye = game.orbit.eye();
             for (p, slack, h) in &game.picks {
                 if let Some(s) = game.orbit.project(&vp, size, *p) {
-                    pick.offer(s, *slack, *h);
+                    // (A person is picked by their whole figure, not just the head.)
+                    let feet = match h {
+                        Hover::Person(pid) => {
+                            let at = game.world.person_pos(*pid);
+                            game.orbit.project(&vp, size, to3(at, scene.grid.height(&game.world.terrain, at)))
+                        }
+                        _ => None,
+                    };
+                    match feet {
+                        Some(f) => pick.offer_span(s, f, *slack, *h),
+                        None => pick.offer(s, *slack, *h),
+                    }
                 }
             }
             for (p, vit, mana, down) in &game.bars {

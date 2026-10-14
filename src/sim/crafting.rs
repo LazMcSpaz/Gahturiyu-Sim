@@ -1024,6 +1024,9 @@ impl World {
             if ok && self.island().is_some_and(|i| i.in_compound(at)) {
                 self.island_deed(super::tutorial::Deed::Made);
             }
+            if ok && matches!(rc.station, Station::Campfire | Station::Stove) {
+                self.island_deed(super::tutorial::Deed::Cooked);
+            }
             let p = &mut self.people[j.who as usize];
             p.stats.exercise(rc.skill, if ok { 2.0 } else { 0.8 });
             let line = if ok {

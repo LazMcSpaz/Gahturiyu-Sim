@@ -391,7 +391,14 @@ pub fn perform(w: &mut World, who: &[PersonId], all: bool, act: Act) -> Option<S
         }
         // (The window opens the making screen; here they only go there.)
         Act::Make(p) => {
-            w.order_members(who, p);
+            // Beside the station, on its near side: a fire isn't solid, so
+            // a walk to its middle would end in the flames (Laz, 13 Oct).
+            let from = who.first().map(|&m| w.person_pos(m)).unwrap_or(p);
+            let d = from.sub(p);
+            let len = d.len();
+            let dir = if len < 0.5 { V2::new(1.0, 0.0) } else { d.scale(1.0 / len) };
+            let at = w.free_spot(p.add(dir.scale(BESIDE_STATION)));
+            w.order_members(who, at);
             true
         }
         Act::Select(_) | Act::TownPanel(_) | Act::Examine => true,
@@ -749,6 +756,10 @@ pub fn floor_under(w: &World, ray: (bevy::math::Vec3, bevy::math::Vec3), floor: 
 /// What's on the ground under the mouse when nothing smaller is: a piece of
 /// furniture, a building, a workplace. On the floor of a building
 /// the squad is in, nothing: a click there walks to the spot (UI-10).
+/// How far from a station's middle someone stands to work at it, metres
+/// (within `crafting::AT_STATION`, clear of a fire's flames).
+const BESIDE_STATION: f32 = 1.3;
+
 pub fn ground_hover(w: &World, at: V2) -> Option<Hover> {
     for d in w.doors_near(at, 2.0) {
         if !d.contains(at) {
