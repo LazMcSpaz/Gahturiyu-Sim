@@ -286,6 +286,19 @@ impl World {
             let mut rr = Rng::from_keys(&[seed, town as u64, 0x4C49_5645]);
             let folk = self.settlements[town].residents.len() as f32;
             let id = self.settlements[town].id;
+            // A town with a plan (`plan.rs`) keeps the pens it drew, where it drew them.
+            if let Some(plan) = self.plan_of(id).filter(|p| !p.pens.is_empty()).cloned() {
+                let c = self.settlements[town].pos;
+                for pen in &plan.pens {
+                    let Some(sp) = pen.species() else {
+                        eprintln!("plan {}: no species {:?} for {:?}", plan.town, pen.species, pen.label);
+                        continue;
+                    };
+                    let fill = 0.6 + 0.35 * rr.f32();
+                    self.add_pen(sp, c.add(V2::new(pen.at.0, pen.at.1)), Some(id), pen.limit, (pen.limit * fill).round().max(1.0));
+                }
+                continue;
+            }
             let wants: [(Sp, f32, f32); 4] = [
                 (Sp::Turiyu, (folk / 8.0).clamp(4.0, 14.0), 1.0),
                 (Sp::Shellhen, (folk / 5.0).clamp(6.0, 30.0), 1.0),

@@ -24,4 +24,8 @@
     (key: "first_peoples_town_on_an_ancient_city", label: "First Peoples town, on an ancient city", px: (1470, 1760), kind: Town, founders: Roduro, holder: "seated_houses"),
     (key: "sea_fort_town", label: "Sea Fort town", px: (399, 1288), kind: Town, founders: Horaro, holder: "banner_lords"),
     (key: "last_wave_outpost_north", label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),
+    // Laz's drawn outpost (`assets/world/plans/last_wave_outpost_southwest.ron`): "southwest of
+    // Open Hand capital city". The pixel is a first guess, 6 km south-west of the capital; move it
+    // on the map page.
+    (key: "last_wave_outpost_southwest", label: "Small Last Wave outpost", px: (745, 1471), kind: Outpost, founders: Qotiro, holder: "last_wave"),
 ]

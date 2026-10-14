@@ -211,6 +211,8 @@ impl World {
                 styles.push(layout::style_for(b.kind, b.size, b.seed, &jobs).map(|v| v.key));
             }
             self.settlements[t].styles = styles;
+            // A plan's named variants over the chosen ones (`plan.rs`).
+            self.plan_styles(t as SettlementId);
             self.solid_changed();
             self.settlements[t].sleepers = sleepers;
         }

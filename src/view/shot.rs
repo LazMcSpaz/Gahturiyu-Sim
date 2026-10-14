@@ -114,6 +114,9 @@ pub struct Shot {
     /// people (or the most mixed) first.
     pub town: bool,
     pub town_kind: Option<String>,
+    /// `GAHT_GOTO=<town key>`: start the squad beside that town
+    /// (`assets/world/towns.ron`), e.g. one laid out from a drawing (`plan.rs`).
+    pub goto: Option<String>,
     /// `GAHT_BUILD=1`: a demo outpost in the wilds near the start (a hut and
     /// lean-to up, a palisade with a gate, more under way), the Build panel
     /// open and a hut's ghost on the cursor.
@@ -255,6 +258,7 @@ impl Shot {
             island: var("GAHT_ISLAND"),
             rules: var("GAHT_RULES"),
             town_kind: var("GAHT_TOWN").filter(|v| v != "1"),
+            goto: var("GAHT_GOTO"),
             duel: var("GAHT_DUEL").is_some(),
             shun: var("GAHT_SHUN").is_some(),
             trade: var("GAHT_TRADE").is_some(),
@@ -605,6 +609,16 @@ impl Shot {
                 let at = world.settlements[t].pos.add(V2::new(25.0, 10.0));
                 world.teleport_squad(at);
                 world.step(0.001);
+            }
+        }
+        if let Some(key) = &self.goto {
+            match gahturiyu_sim::sim::atlas::town_marks().iter().position(|m| m.key() == *key) {
+                Some(t) if t < world.settlements.len() => {
+                    let at = world.settlements[t].pos.add(V2::new(25.0, 10.0));
+                    world.teleport_squad(at);
+                    world.step(0.001);
+                }
+                _ => eprintln!("GAHT_GOTO: no town {key:?} in assets/world/towns.ron"),
             }
         }
         if self.shun {

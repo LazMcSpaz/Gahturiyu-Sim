@@ -45,6 +45,8 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?} {:?}\n", w.rules, w.rules_applied);
     // The ferry: a crossing under way, and who's sent to board.
     s += &format!("{:?} {:?}\n", w.voyage, w.boarding);
+    // Towns laid out from Laz's drawings.
+    s += &format!("{:?}\n", w.plans);
     // Combat: someone on their way to bind a bleed; thrown things lying about and who gathers them.
     s += &format!("{:?} {:?} {:?}\n", w.binding, w.thrown_lying, w.gatherers);
     // Packs soaking through and drying (containers).

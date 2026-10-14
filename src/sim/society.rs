@@ -764,10 +764,17 @@ impl World {
             self.solid_changed();
             return;
         }
-        let kinds = self.places_wanted(t);
+        // A town with a plan (`plan.rs`) has its drawn workplaces where
+        // they're drawn; what else it needs is spiralled in among them.
+        let mut placed: Vec<Workplace> = self.plan_places(t);
+        let mut kinds = self.places_wanted(t);
+        for p in &placed {
+            if let Some(i) = kinds.iter().position(|&k| k == p.kind) {
+                kinds.remove(i);
+            }
+        }
         let town = &self.settlements[t as usize];
         let mut r = Rng::from_keys(&[self.seed, t as u64, 0x504C_4143]);
-        let mut placed: Vec<Workplace> = Vec::new();
         let clear = |p: V2, size: f32, placed: &[Workplace]| {
             town.buildings.iter().all(|b| b.pos.dist(p) > (b.size + size) * 0.6 + 3.0) && placed.iter().all(|o| o.pos.dist(p) > (o.kind.size() + size) * 0.55 + 2.5)
         };

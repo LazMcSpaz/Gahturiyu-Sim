@@ -1,0 +1,65 @@
+// A small Last Wave outpost, from Laz's drawing (docs/plans/last_wave_outpost_southwest.png,
+// 14 Oct 2026). Read at 0.0586 m a pixel (a house drawn ~270 px long is 15 m), with the open
+// ground south-east of the chieftain's quarters as the centre (the hearth; nothing was drawn
+// there). Places are metres east and south of the centre; facings are degrees, 0 east, 90 south,
+// 180 west, 270 north: the door's side, turned toward the middle of the outpost unless the
+// drawing says otherwise. Sizes are metres across.
+//
+// Variants are the nearest the game has today; `wants` says what the drawing asks for that the
+// variant doesn't give yet, so the right shape can be made without going back to the picture.
+(
+    town: "last_wave_outpost_southwest",
+    title: "Small Last Wave outpost",
+    notes: "Southwest of Open Hand capital city. Housing: 2 tiered, timber, room for 12, workshop below. Temple / priestess quarters: 3 tiered, stone, room for 12, entry not permitted to outsiders. Chieftain's quarters: 2 tiered, stone, room for 12; second in command to the priestesses lives here. Forge: large open courtyard, stone. Incense house: timber hall, antechamber to get in. Tanner: outdoor. Storage: non-food, timber. Timber storage. Gardens. Animal pens.",
+    sketch: "docs/plans/last_wave_outpost_southwest.png",
+    scale: 0.0586,
+    origin: (1571, 1216),
+    buildings: [
+        // Top left.
+        (label: "Shield maker's house", kind: QotiroBlock, variant: Some("qotiro_workyard"), at: (-72.4, -54.0), facing: 112.0, size: 15.0, room_for: 12,
+         wants: "2 tiers, timber, the shield maker's workshop below and the living above"),
+        (label: "Fletcher and bowyer's house", kind: QotiroBlock, variant: Some("qotiro_benchyard"), at: (-54.0, -39.6), facing: 125.0, size: 15.0, room_for: 12,
+         wants: "2 tiers, timber, the bowyer's bench below and the living above"),
+        // The middle.
+        (label: "Temple and priestess quarters", kind: QotiroTemple, variant: Some("qotiro_temple"), at: (-22.8, -20.0), facing: 75.0, size: 20.0, room_for: 12,
+         wants: "3 tiers, stone, quarters for 12 priestesses; entry not permitted to outsiders (a rule, not a shape)"),
+        (label: "Forge", kind: QotiroBlock, variant: Some("qotiro_workyard"), at: (-2.0, -21.0), facing: 85.0, size: 16.0, room_for: 0,
+         wants: "stone, a large open courtyard with the forge in it"),
+        (label: "Chieftain's quarters", kind: QotiroBlock, variant: Some("qotiro_court"), at: (-20.0, -2.0), facing: 5.0, size: 15.0, room_for: 12,
+         wants: "2 tiers, stone; the chieftain and the priestesses' second in command live here"),
+        // West.
+        (label: "Incense house", kind: QotiroHall, variant: Some("qotiro_island_hall"), at: (-63.2, -4.0), facing: -15.0, size: 14.0, room_for: 0,
+         wants: "a timber hall, long, with an antechamber you must pass through to get in"),
+        // Bottom left.
+        (label: "Herbalist and alchemist's house", kind: QotiroBlock, variant: None, at: (-70.8, 17.6), facing: -10.0, size: 15.0, room_for: 12,
+         wants: "2 tiers, timber, the stillroom below and the living above; gardens beside it to the west"),
+        // Bottom right.
+        (label: "Leather crafter's house", kind: QotiroBlock, variant: Some("qotiro_benchyard"), at: (2.4, 29.6), facing: -105.0, size: 15.0, room_for: 12,
+         wants: "2 tiers, timber, the leatherworker's bench below and the living above"),
+        (label: "Smoker's house", kind: QotiroBlock, variant: None, at: (31.2, 29.6), facing: -120.0, size: 15.0, room_for: 12,
+         wants: "2 tiers, timber, a smokehouse below (a chimney smoking) and the living above"),
+    ],
+    places: [
+        // Work done in a building stands on that building: it's reached by its door.
+        (label: "The temple's shrine", kind: Shrine, at: (-22.8, -20.0)),
+        (label: "The chieftain's hall", kind: Hall, at: (-20.0, -2.0)),
+        (label: "The forge", kind: Forge, at: (-2.0, -21.0)),
+        (label: "The shield maker's bench", kind: Bench, at: (-72.4, -54.0)),
+        (label: "The bowyer's workshop", kind: Workshop, at: (-54.0, -39.6)),
+        (label: "The leather crafter's workshop", kind: Workshop, at: (2.4, 29.6)),
+        (label: "The herbalist's table", kind: AlchemyTable, at: (-70.8, 17.6)),
+        (label: "The smoker's kitchen", kind: Kitchen, at: (31.2, 29.6)),
+        // Outdoors.
+        (label: "The tanner's pits", kind: Workshop, at: (20.0, 40.8), wants: "open-air vats and stretching frames"),
+        (label: "The storage sheds", kind: Shop(Materials), at: (-50.4, 11.2), wants: "two small timber sheds, non-food storage"),
+    ],
+    pens: [
+        (label: "Animal pens", species: "turiyu", at: (46.4, -23.2), limit: 8.0),
+    ],
+    later: [
+        "Timber storage: a stack of logs north of the fletcher's, at (-52.8, -62.4).",
+        "Gardens: plots west of the herbalist's house, at (-78.8, 18.4).",
+        "The woods: trees all round the outpost up to the buildings, with the paths in through gaps.",
+        "The temple closed to outsiders.",
+    ],
+)

@@ -10,6 +10,7 @@ use super::world::{Squad, World, HOUR};
 use super::names;
 use super::routes::Routes;
 use super::terrain::Terrain;
+use super::plan::Plans;
 use super::roster::{Authored, Rosters};
 use super::{atlas, factions};
 
@@ -40,7 +41,7 @@ pub enum Start {
 /// The game's opening on Salt Isle (`Start::Island`), with a forged town
 /// and a map's edits like `generate_authored`.
 pub fn generate_opening(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
-    generate_from(seed, forge, edits, Start::Island, &Rosters::load())
+    generate_from(seed, forge, edits, Start::Island, &Rosters::load(), &Plans::load())
 }
 
 /// A world from a seed, with a map's hand edits on its land
@@ -53,16 +54,22 @@ pub fn generate_with(seed: u64, edits: super::mapedit::MapEdits) -> World {
 /// A world with a forged town's land (and its buildings) on it, under the
 /// map's hand edits.
 pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
-    generate_from(seed, forge, edits, Start::Town, &Rosters::load())
+    generate_from(seed, forge, edits, Start::Town, &Rosters::load(), &Plans::load())
 }
 
 /// A world with these rosters in place of those in `assets/world/people`
 /// (tests; the tools).
 pub fn generate_with_rosters(seed: u64, rosters: &Rosters) -> World {
-    generate_from(seed, None, Default::default(), Start::Town, rosters)
+    generate_from(seed, None, Default::default(), Start::Town, rosters, &Plans::load())
 }
 
-fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits, start: Start, rosters: &Rosters) -> World {
+/// A world with these rosters and these town plans (`plan.rs`) in place of
+/// the files' (tests; the tools).
+pub fn generate_with_plans(seed: u64, rosters: &Rosters, plans: &Plans) -> World {
+    generate_from(seed, None, Default::default(), Start::Town, rosters, plans)
+}
+
+fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits, start: Start, rosters: &Rosters, plans: &Plans) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
     let mut at = std::time::Instant::now();
     let terrain = Terrain::generate(seed);
@@ -144,9 +151,14 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
 
     tick("people", &mut at);
     // --- Lay out each town from who ended up living there ---------------
+    // A town with a plan (`plan.rs`) is laid out as drawn.
+    let planned: Vec<(SettlementId, super::plan::Plan)> = marks.iter().enumerate().filter_map(|(i, m)| plans.for_town(&m.key()).map(|p| (i as SettlementId, p.clone()))).collect();
     for s in settlements.iter_mut() {
         let races: Vec<Race> = s.residents.iter().map(|&p| people[p as usize].race).collect();
-        let homes = s.build(&races, seed);
+        let homes = match planned.iter().find(|(id, _)| *id == s.id) {
+            Some((_, plan)) => s.build_from_plan(plan, &races, seed),
+            None => s.build(&races, seed),
+        };
         for (&p, h) in s.residents.iter().zip(homes) {
             // A home given in a roster, if the layout has that building.
             let given = people[p as usize].authored.as_ref().and_then(|a| a.home()).filter(|&b| (b as usize) < s.buildings.len());
@@ -354,6 +366,7 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     // Start at 06:00 on day 1 (or the opening's storm).
     let mut w = World::assemble(seed, people, settlements, groups, squad, start_time, terrain, routes);
     w.forge = town;
+    w.plans = planned;
     w.island = Some(island);
     w.solid_changed();
     // Bandits by the roads; workshops in town; things to gather.

@@ -156,6 +156,10 @@ pub struct World {
     /// The tutorial's progress (`tutorial.rs`): None off the opening.
     #[serde(default)]
     pub tutorial: Option<super::tutorial::Tutorial>,
+    /// Towns laid out from Laz's drawings (`plan.rs`), by settlement: kept
+    /// here because a town is laid out again when its customs shift.
+    #[serde(default)]
+    pub plans: Vec<(SettlementId, super::plan::Plan)>,
     /// What's switched on (`rules.rs`): the toggles in the settings panel.
     #[serde(default)]
     pub rules: super::rules::Rules,
@@ -405,6 +409,7 @@ impl World {
             forge: None,
             island: None,
             tutorial: None,
+            plans: Vec::new(),
             rules: Default::default(),
             forced_sky: None,
             voyage: None,

@@ -220,6 +220,15 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    `shelter_seeking`);
    `docs/weather-hooks.md` says where the rest is meant to connect.
 
+26. **A drawn town is a plan file.** Laz draws a place; Claude transcribes
+   it into `assets/world/plans/<town key>.ron` (`sim/plan.rs`,
+   `docs/town-plans.md`): every building's offset, facing, size, head count
+   and the nearest variant, with a `wants` line for what the drawing asks
+   that the variant doesn't give; the drawing stays in `docs/plans/`. A
+   town with a plan is laid out from it (buildings, workplaces, pens) and
+   the plan is kept in the world. Never author a plan of your own; a new
+   shape a plan wants is a variant, made from its `wants` line.
+
 22. **Bases are built on the clock.** A construction site stores its labour
    at one moment plus a rate (the builders on it now); its finish is solved
    for (`Site::done_at`) and handled on the world's timeline
@@ -419,6 +428,7 @@ screenshots otherwise show panels arrived).
 `GAHT_ISLAND=1|<spot>` (the squad on Salt Isle, the tutorial island, at its shore or the named spot: `hut`, `gate`, `hall`, `workyard`, `dock`, `quarry`, `testquarter`, ...; `GAHT_VIEW=map GAHT_ZOOM=0.25` shows it off the coast).
 `GAHT_QUARTER=1|items|creatures|people|world|yard` (the dev test quarter opened and the squad inside, its spawner on that tab; `yard` the combat yard).
 `GAHT_START=town|island` (how the world begins: the squad of four in a town, or the opening, one person wrecked on Salt Isle's shore in a storm with the lesson in the tracked corner; screenshots default to the town, play to the island).
+`GAHT_GOTO=<town key>` (start beside that town of `assets/world/towns.ron`, e.g. one laid out from a drawing: `docs/town-plans.md`).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
 otherwise show none and never touch `hints.txt`).
 `GAHT_REMARK=<about>` (the first squad member says a remark of that kind over their head, e.g.

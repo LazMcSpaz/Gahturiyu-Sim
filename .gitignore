@@ -8,4 +8,5 @@ saves/
 town_forge_out/
 tools/sounds/preview/
 !docs/map/*.png
+!docs/plans/*.png
 !assets/world/*.png
