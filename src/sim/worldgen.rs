@@ -74,7 +74,7 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     let mut at = std::time::Instant::now();
     let terrain = Terrain::generate(seed);
     tick("terrain", &mut at);
-    let mut settlements = place_settlements(&mut rng, seed, &terrain);
+    let mut settlements = place_settlements(&mut rng, seed, &terrain, plans);
     tick("towns placed", &mut at);
 
     // --- People ---------------------------------------------------------
@@ -481,14 +481,27 @@ fn affinity(race: Race, s: &Settlement) -> f32 {
     }
 }
 
-fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
+/// Where a town marked on the map stands, before the land's lie is looked
+/// at: ashore (a mark in the shallows comes in) and off any river. The same
+/// in every world, so a town laid out by hand (a plan or a place file) stands
+/// exactly here, and the place builder centres on it (`grounds.rs`).
+pub fn town_spot(m: &atlas::TownMark) -> V2 {
+    let a = atlas::atlas();
+    a.dry_spot(a.landward(m.pos(), TOWN_ASHORE), 240)
+}
+
+fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain, plans: &Plans) -> Vec<Settlement> {
     // The towns are the marks on Laz's map (`atlas.rs`, `assets/world/towns.ron`),
     // in the file's order: a mark in the shallows comes ashore; one near the
-    // sea is coastal, its stilt village just off the shore.
+    // sea is coastal, its stilt village just off the shore. A town nobody laid
+    // out moves to the levellest ground near its mark (which the seed's relief
+    // decides); one laid out by hand keeps its spot, so its plan sits on the
+    // same land in every world.
     let a = atlas::atlas();
     let mut out: Vec<Settlement> = Vec::new();
     for m in atlas::town_marks() {
-        let pos = level_near(t, a.dry_spot(a.landward(m.pos(), TOWN_ASHORE), 240));
+        let spot = town_spot(&m);
+        let pos = if plans.for_town(&m.key()).is_some() { spot } else { level_near(t, spot) };
         let offshore = !a.on_mainland(pos);
         let coastal = a.inland(pos) < COASTAL_WITHIN;
         let stilts = if coastal { Some(a.seaward(pos, 70.0)) } else { None };
