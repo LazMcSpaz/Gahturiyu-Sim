@@ -115,7 +115,7 @@
     <div class="roles" id="i-roles"></div>
     <div class="line" id="i-counts"></div>
     <textarea id="i-notes" placeholder="Notes for the place (who holds it, what it's for, what Claude should know)"></textarea>
-    <div class="row"><button id="i-undo">Undo</button><button id="i-fit">Fit</button><button id="i-grid">Grid</button></div>
+    <div class="row"><button id="i-undo">Undo</button><button id="i-fit">Fit</button><button id="i-grid">Grid</button><button id="i-trees">Land’s trees</button></div>
   </div>
 </div>
 <div id="top">
@@ -149,8 +149,6 @@
   const params = new URLSearchParams(location.search);
   const KEY = (params.get("key") || "unnamed_place").replace(/[^a-z0-9_]/g, "_");
   const NAME = params.get("name") || KEY;
-  // The paintable square grows with the kind of place (a capital is a town ten times over).
-  const AREA = { capital: [600, 450], city: [450, 340], town: [320, 240], fort: [320, 240], village: [200, 150], hamlet: [120, 90], outpost: [160, 120], qotiro_outpost: [160, 120], warden_outpost: [160, 120], imperial_fort: [320, 240], stilt_village: [200, 150], highfolk_hold: [320, 240] };
 
   // ---- the catalogue: every thing the game can stand up, with its real footprint. The
   //      game writes assets/world/catalogue.json (headless catalogue); until it's beside this
@@ -261,15 +259,62 @@
   })();
 
   // ---- the place ----
-  const CELL = 2;
-  let [GW, GH] = AREA[params.get("kind") || ""] || [160, 120];
+  const CELL = 2, GW = 160, GH = 120;
   const P = { format: 1, key: KEY, title: NAME, notes: "", cell: CELL, size: [GW, GH], origin: [GW / 2, GH / 2], ground: ".".repeat(GW * GH), height: ".".repeat(GW * GH), foliage: [], roads: [], things: [] };
   const HCH = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"; // -26..+25 m
-  const hOf = (ch) => ch === "." ? 0 : HCH.indexOf(ch) - 26;
+  // A height is metres from the land's own height at the centre; NaN is untouched (the land's own).
+  const hOf = (ch) => ch === "." || HCH.indexOf(ch) < 0 ? NaN : HCH.indexOf(ch) - 26;
   const chOf = (h) => HCH[Math.max(0, Math.min(51, Math.round(h) + 26))];
-  let ground = P.ground.split(""), height = new Float32Array(GW * GH);
+  let ground = P.ground.split(""), height = new Float32Array(GW * GH).fill(NaN);
   const cellAt = (x, y) => { const i = Math.floor(x / CELL + P.origin[0]), j = Math.floor(y / CELL + P.origin[1]); return i >= 0 && j >= 0 && i < GW && j < GH ? j * GW + i : -1; };
   const cellXY = (k) => [((k % GW) - P.origin[0] + 0.5) * CELL, (Math.floor(k / GW) - P.origin[1] + 0.5) * CELL];
+
+  // ---- the land here, as the game grows it (grounds/<key>.json, written by the game's
+  //      `headless grounds`): its ground, height, sea and rivers under the place, a wider ring
+  //      round it, and the trees and bushes the land itself grows. Laz's map beyond that. ----
+  let LAND = null, natG = null, around = null, terrainDirty = true, contoursDirty = true, terrainPic = null;
+  const natH = new Float32Array(GW * GH);
+  const hAt = (k) => (Number.isNaN(height[k]) ? natH[k] : height[k]);
+  const NAT_COL = { g: "#6b8a46", s: "#8a8f4e", n: "#c9b98a", r: "#7b7772", d: "#8c7352", m: "#5f4d3a", v: "#8f8d85", w: "#e9ecef", R: "#8c6a45", q: "#5b84b8", "~": "#3f6496", f: "#4f6f38" };
+  const heights = (b64, n) => { const s = atob(b64), dv = new DataView(new ArrayBuffer(s.length)); for (let i = 0; i < s.length; i++) dv.setUint8(i, s.charCodeAt(i)); const out = new Float32Array(n); for (let k = 0; k < n && k * 2 + 1 < s.length; k++) out[k] = dv.getInt16(k * 2, true) / 10; return out; };
+  const rgb = (hex) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+  // A grid drawn into a picture a pixel a cell, lit from the north-west.
+  function shadedPicture(w, h, colourOf, heightOf, cell, into) {
+    const c = into || document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d"), img = x.createImageData(w, h);
+    for (let k = 0; k < w * h; k++) {
+      const col = colourOf(k), i = k % w, j = (k / w) | 0;
+      // The slope across the cells either side (smoother than cell to cell: heights come in 10 cm steps).
+      const l = i > 0 ? k - 1 : k, rr = i < w - 1 ? k + 1 : k, u = j > 0 ? k - w : k, dn = j < h - 1 ? k + w : k;
+      const d = ((heightOf(rr) - heightOf(l)) / ((rr - l) || 1) + (heightOf(dn) - heightOf(u)) / (((dn - u) / w) || 1)) / cell;
+      const f = Math.max(0.6, Math.min(1.35, 1 - d * 1.2));
+      for (let ch = 0; ch < 3; ch++) img.data[k * 4 + ch] = Math.min(255, col[ch] * f);
+      img.data[k * 4 + 3] = 255;
+    }
+    x.putImageData(img, 0, 0); return c;
+  }
+  const mapImg = new Image(); mapImg.onload = () => draw(); mapImg.src = "map.png";
+  const landReady = (async () => {
+    try {
+      const r = await fetch("grounds/" + KEY + ".json", { cache: "no-store" });
+      if (!r.ok) return false;
+      const L = await r.json();
+      if (!L.place || L.place.size[0] !== GW || L.place.size[1] !== GH) return false;
+      LAND = L; natG = L.place.ground.split(""); natH.set(heights(L.place.height, GW * GH));
+      const a = L.around, ah = heights(a.height, a.size[0] * a.size[1]);
+      around = { pic: shadedPicture(a.size[0], a.size[1], (k) => rgb(NAT_COL[a.ground[k]] || NAT_COL.g), (k) => ah[k], a.cell), cell: a.cell, w: a.size[0], h: a.size[1], ox: a.origin[0], oy: a.origin[1] };
+      terrainDirty = contoursDirty = true; draw(); return true;
+    } catch (e) { return false; }
+  })();
+  // The land's own trees and bushes as stamps (inside a built place only stamps grow, so
+  // these are what will stand there unless they're erased). Skips any already near a stamp.
+  function landPlants() {
+    if (!LAND) return 0;
+    let n = 0; const near = (x, y, r) => P.foliage.some((f) => Math.hypot(f.x - x, f.y - y) < r);
+    for (const [x, y, k, s] of LAND.trees) { if (near(x, y, 2)) continue; P.foliage.push({ k: k ? "tree_conifer" : "tree_broad", x, y, s }); n++; }
+    for (const [x, y, s] of LAND.bushes) { if (near(x, y, 1.2)) continue; P.foliage.push({ k: "bush", x, y, s }); n++; }
+    return n;
+  }
 
   // ---- the view ----
   let z = 4, tx = 0, ty = 0, dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -278,7 +323,7 @@
   function fit() { const r = stage.getBoundingClientRect(); const trayH = Math.min(260, $("tray").getBoundingClientRect().height || 170); z = Math.min(r.width, r.height - trayH) / 110; tx = r.width / 2; ty = (r.height - trayH) / 2; draw(); }
   const toW = (cx, cy) => { const r = stage.getBoundingClientRect(); return { x: (cx - r.left - tx) / z, y: (cy - r.top - ty) / z }; };
   const toS = (x, y) => { const r = stage.getBoundingClientRect(); return { x: r.left + tx + x * z, y: r.top + ty + y * z }; };
-  function zoomAt(cx, cy, f) { const r = stage.getBoundingClientRect(); const nz = Math.min(40, Math.max(0.5, z * f)); const px = cx - r.left, py = cy - r.top; tx = px - (px - tx) * (nz / z); ty = py - (py - ty) * (nz / z); z = nz; draw(); }
+  function zoomAt(cx, cy, f) { const r = stage.getBoundingClientRect(); const nz = Math.min(40, Math.max(0.02, z * f)); const px = cx - r.left, py = cy - r.top; tx = px - (px - tx) * (nz / z); ty = py - (py - ty) * (nz / z); z = nz; draw(); }
   stage.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
 
   // ---- drawing ----
@@ -289,21 +334,28 @@
     ctx.fillStyle = "#4b5a3a"; ctx.fillRect(0, 0, w, h);
     ctx.save(); ctx.translate(tx, ty); ctx.scale(z, z);
     const x0 = -P.origin[0] * CELL, y0 = -P.origin[1] * CELL, wm = GW * CELL, hm = GH * CELL;
-    // The ground: natural where untouched, else the paint.
-    ctx.fillStyle = GROUND_COL["."]; ctx.fillRect(x0, y0, wm, hm);
-    const vx0 = Math.max(0, Math.floor((-tx / z - x0) / CELL)), vy0 = Math.max(0, Math.floor((-ty / z - y0) / CELL));
-    const vx1 = Math.min(GW - 1, Math.ceil(((w - tx) / z - x0) / CELL)), vy1 = Math.min(GH - 1, Math.ceil(((h - ty) / z - y0) / CELL));
-    for (let j = vy0; j <= vy1; j++) for (let i = vx0; i <= vx1; i++) {
-      const g = ground[j * GW + i]; if (g === ".") continue;
-      ctx.fillStyle = GROUND_COL[g] || GROUND_COL["."]; ctx.fillRect(x0 + i * CELL, y0 + j * CELL, CELL + 0.02, CELL + 0.02);
+    // Far out, Laz's map (150 m a pixel); round the place, the game's land (8 m a cell), dimmed.
+    if (LAND && mapImg.complete && mapImg.naturalWidth) {
+      const [cx, cy] = LAND.centre, PXM = 150, R = 90;
+      const u0 = Math.max(0, Math.floor(cx / PXM) - R), v0 = Math.max(0, Math.floor(cy / PXM) - R), u1 = Math.min(mapImg.naturalWidth, Math.floor(cx / PXM) + R), v1 = Math.min(mapImg.naturalHeight, Math.floor(cy / PXM) + R);
+      ctx.imageSmoothingEnabled = z * PXM < 400;
+      if (u1 > u0 && v1 > v0) ctx.drawImage(mapImg, u0, v0, u1 - u0, v1 - v0, u0 * PXM - cx, v0 * PXM - cy, (u1 - u0) * PXM, (v1 - v0) * PXM);
     }
-    // Shading by height: a hint of light from the north-west.
-    for (let j = Math.max(1, vy0); j <= vy1; j++) for (let i = Math.max(1, vx0); i <= vx1; i++) {
-      const k = j * GW + i, d = (height[k] - height[k - 1]) + (height[k] - height[k - GW]);
-      if (Math.abs(d) < 0.08) continue;
-      ctx.fillStyle = d > 0 ? `rgba(0,0,0,${Math.min(0.35, d * 0.25)})` : `rgba(255,255,230,${Math.min(0.3, -d * 0.2)})`;
-      ctx.fillRect(x0 + i * CELL, y0 + j * CELL, CELL + 0.02, CELL + 0.02);
+    if (around) {
+      const ax = -around.ox * around.cell, ay = -around.oy * around.cell, aw = around.w * around.cell, ah = around.h * around.cell;
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(around.pic, ax, ay, aw, ah);
+      ctx.fillStyle = "rgba(20,16,10,.3)"; ctx.beginPath(); ctx.rect(ax, ay, aw, ah); ctx.rect(x0, y0, wm, hm); ctx.fill("evenodd");
     }
+    // The place: the paint where painted, else the land's own ground; shaded by the height
+    // (the land's own where untouched). Drawn into a picture a pixel a cell, redrawn on change.
+    if (terrainDirty) {
+      terrainPic = shadedPicture(GW, GH, (k) => { const g = ground[k]; return rgb(g !== "." ? GROUND_COL[g] || GROUND_COL["."] : natG ? NAT_COL[natG[k]] || GROUND_COL["."] : GROUND_COL["."]); }, hAt, CELL, terrainPic);
+      terrainDirty = false;
+    }
+    ctx.imageSmoothingEnabled = z * CELL < 6; ctx.drawImage(terrainPic, x0, y0, wm, hm);
+    ctx.strokeStyle = "rgba(232,199,106,.7)"; ctx.lineWidth = 1.5 / z; ctx.setLineDash([8 / z, 6 / z]); ctx.strokeRect(x0, y0, wm, hm); ctx.setLineDash([]);
+    // Rocks already on the land (the map's own; not part of the place).
+    if (LAND) for (const [rx, ry, rs] of LAND.rocks) { ctx.fillStyle = "#77736c"; ctx.beginPath(); ctx.arc(rx, ry, Math.max(0.5, rs * 0.5), 0, 7); ctx.fill(); }
     if (showGrid && z > 2) { ctx.strokeStyle = "rgba(0,0,0,.12)"; ctx.lineWidth = 0.5 / z; ctx.beginPath(); for (let i = 0; i <= GW; i += 5) { ctx.moveTo(x0 + i * CELL, y0); ctx.lineTo(x0 + i * CELL, y0 + hm); } for (let j = 0; j <= GH; j += 5) { ctx.moveTo(x0, y0 + j * CELL); ctx.lineTo(x0 + wm, y0 + j * CELL); } ctx.stroke(); }
     contours(x0, y0);
     // Roads.
@@ -323,30 +375,43 @@
     const m = [5, 10, 20, 50, 100, 200].find((s) => s * z >= 60) || 200; $("scalebar").style.width = (m * z) + "px"; $("scaletext").textContent = m + " m";
   }
   // Contour lines every metre (marching squares over the cell grid), heavier every 5.
+  // (Worked out once per change into a path a level, so panning only strokes them; the sea
+  //  floor gets none.)
+  let contourPaths = [], contoursAt = 0;
   function contours(x0, y0) {
-    let any = false; for (let k = 0; k < height.length; k += 7) if (height[k] !== 0) { any = true; break; }
-    if (!any) return;
-    let lo = Infinity, hi = -Infinity; for (let k = 0; k < height.length; k++) { if (height[k] < lo) lo = height[k]; if (height[k] > hi) hi = height[k]; }
-    const step = z < 1.5 ? 2 : 1;
-    for (let lv = Math.ceil(lo / step) * step; lv <= hi; lv += step) {
-      if (lv === 0 && lo >= 0) continue;
-      ctx.strokeStyle = lv % 5 === 0 ? "rgba(60,40,20,.75)" : "rgba(60,40,20,.42)"; ctx.lineWidth = (lv % 5 === 0 ? 1.4 : 0.8) / z;
-      ctx.beginPath();
-      for (let j = 0; j < GH - 1; j++) for (let i = 0; i < GW - 1; i++) {
-        const a = height[j * GW + i], b = height[j * GW + i + 1], c = height[(j + 1) * GW + i + 1], d = height[(j + 1) * GW + i];
-        const code = (a >= lv ? 8 : 0) | (b >= lv ? 4 : 0) | (c >= lv ? 2 : 0) | (d >= lv ? 1 : 0);
-        if (code === 0 || code === 15) continue;
-        const X = x0 + (i + 0.5) * CELL, Y = y0 + (j + 0.5) * CELL;
-        const t = (p, q) => (lv - p) / ((q - p) || 1e-6);
-        const top = [X + CELL * t(a, b), Y], right = [X + CELL, Y + CELL * t(b, c)], bottom = [X + CELL * t(d, c), Y + CELL], left = [X, Y + CELL * t(a, d)];
-        const seg = (p, q) => { ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); };
-        switch (code) {
-          case 1: case 14: seg(left, bottom); break; case 2: case 13: seg(bottom, right); break; case 3: case 12: seg(left, right); break;
-          case 4: case 11: seg(top, right); break; case 5: seg(top, left); seg(bottom, right); break; case 6: case 9: seg(top, bottom); break;
-          case 7: case 8: seg(top, left); break; case 10: seg(top, right); seg(left, bottom); break;
+    if (contoursDirty && (!painting || performance.now() - contoursAt > 150)) {
+      contoursDirty = false; contoursAt = performance.now(); contourPaths = [];
+      const hv = new Float32Array(GW * GH); let lo = Infinity, hi = -Infinity;
+      for (let k = 0; k < hv.length; k++) { hv[k] = hAt(k); const sea = natG && natG[k] === "~" && Number.isNaN(height[k]); if (sea) continue; if (hv[k] < lo) lo = hv[k]; if (hv[k] > hi) hi = hv[k]; }
+      lo = Math.max(lo, -0.5);
+      if (hi - lo >= 0.5) {
+        const step = hi - lo > 60 ? 2 : 1;
+        for (let lv = Math.ceil(lo / step) * step; lv <= hi; lv += step) {
+          if (lv === 0 && lo >= 0) continue;
+          const path = new Path2D();
+          for (let j = 0; j < GH - 1; j++) for (let i = 0; i < GW - 1; i++) {
+            const a = hv[j * GW + i], b = hv[j * GW + i + 1], c = hv[(j + 1) * GW + i + 1], d = hv[(j + 1) * GW + i];
+            const code = (a >= lv ? 8 : 0) | (b >= lv ? 4 : 0) | (c >= lv ? 2 : 0) | (d >= lv ? 1 : 0);
+            if (code === 0 || code === 15) continue;
+            const X = x0 + (i + 0.5) * CELL, Y = y0 + (j + 0.5) * CELL;
+            const t = (p, q) => (lv - p) / ((q - p) || 1e-6);
+            const top = [X + CELL * t(a, b), Y], right = [X + CELL, Y + CELL * t(b, c)], bottom = [X + CELL * t(d, c), Y + CELL], left = [X, Y + CELL * t(a, d)];
+            const seg = (p, q) => { path.moveTo(p[0], p[1]); path.lineTo(q[0], q[1]); };
+            switch (code) {
+              case 1: case 14: seg(left, bottom); break; case 2: case 13: seg(bottom, right); break; case 3: case 12: seg(left, right); break;
+              case 4: case 11: seg(top, right); break; case 5: seg(top, left); seg(bottom, right); break; case 6: case 9: seg(top, bottom); break;
+              case 7: case 8: seg(top, left); break; case 10: seg(top, right); seg(left, bottom); break;
+            }
+          }
+          contourPaths.push({ lv, path });
         }
       }
-      ctx.stroke();
+    }
+    if (z < 0.8) return;
+    for (const { lv, path } of contourPaths) {
+      if (z < 1.5 && lv % 2) continue;
+      ctx.strokeStyle = lv % 5 === 0 ? "rgba(60,40,20,.7)" : "rgba(60,40,20,.38)"; ctx.lineWidth = (lv % 5 === 0 ? 1.4 : 0.8) / z;
+      ctx.stroke(path);
     }
   }
   const STONE = "#8d8880", DARK = "#4a4a50", TIMBER = "#9a6f42", TIMBER_D = "#6f4d2c", ROOF = "#5a5047";
@@ -560,18 +625,23 @@
     const R = brushSize(), k = tool.k, mode = k === "erase" ? (settings.erase || "plants") : k;
     const i0 = Math.max(0, Math.floor((p.x - R) / CELL + P.origin[0])), i1 = Math.min(GW - 1, Math.ceil((p.x + R) / CELL + P.origin[0]));
     const j0 = Math.max(0, Math.floor((p.y - R) / CELL + P.origin[1])), j1 = Math.min(GH - 1, Math.ceil((p.y + R) / CELL + P.origin[1]));
-    if (mode === "ground") { for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const [cx, cy] = cellXY(j * GW + i); if (Math.hypot(cx - p.x, cy - p.y) <= R) ground[j * GW + i] = k === "erase" ? "." : groundKey; } }
+    if (mode === "ground") { terrainDirty = true; for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const [cx, cy] = cellXY(j * GW + i); if (Math.hypot(cx - p.x, cy - p.y) <= R) ground[j * GW + i] = k === "erase" ? "." : groundKey; } }
     else if (mode === "height") {
+      // Every change starts from the ground as it stands (the land's own where untouched);
+      // erasing hands a cell back to the land.
+      terrainDirty = contoursDirty = true;
       const soft = settings.soft, str = settings.strength * 0.25;
-      let mean = 0, n = 0; if (heightMode === "smooth" || heightMode === "flat" || k === "erase") { for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const [cx, cy] = cellXY(j * GW + i); if (Math.hypot(cx - p.x, cy - p.y) <= R) { mean += height[j * GW + i]; n++; } } mean = n ? mean / n : 0; }
+      let mean = 0, n = 0; if (heightMode === "smooth" || heightMode === "flat") { for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const [cx, cy] = cellXY(j * GW + i); if (Math.hypot(cx - p.x, cy - p.y) <= R) { mean += hAt(j * GW + i); n++; } } mean = n ? mean / n : 0; }
+      const was = Float32Array.from({ length: (j1 - j0 + 1) * (i1 - i0 + 1) }, (_, q) => hAt((j0 + Math.floor(q / (i1 - i0 + 1))) * GW + i0 + (q % (i1 - i0 + 1))));
+      const before = (i, j) => (i >= i0 && i <= i1 && j >= j0 && j <= j1 ? was[(j - j0) * (i1 - i0 + 1) + (i - i0)] : hAt(j * GW + i));
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
         const idx = j * GW + i, [cx, cy] = cellXY(idx), d = Math.hypot(cx - p.x, cy - p.y); if (d > R) continue;
-        const fall = soft > 0 ? Math.pow(Math.max(0, 1 - d / R), 0.4 + soft * 2) : 1;
-        if (k === "erase") height[idx] += (0 - height[idx]) * fall * 0.5;
-        else if (heightMode === "raise") height[idx] = Math.min(25, height[idx] + str * fall);
-        else if (heightMode === "lower") height[idx] = Math.max(-26, height[idx] - str * fall);
-        else if (heightMode === "flat") height[idx] += (mean - height[idx]) * fall * 0.5;
-        else { let s = 0, c = 0; for (const [di, dj] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < GW && jj < GH) { s += height[jj * GW + ii]; c++; } } height[idx] += (s / c - height[idx]) * fall * 0.6; }
+        const fall = soft > 0 ? Math.pow(Math.max(0, 1 - d / R), 0.4 + soft * 2) : 1, h0 = before(i, j);
+        if (k === "erase") { if (Number.isNaN(height[idx])) continue; const to = h0 + (natH[idx] - h0) * Math.min(1, fall * 0.8); height[idx] = Math.abs(to - natH[idx]) < 0.3 ? NaN : to; }
+        else if (heightMode === "raise") height[idx] = Math.min(25, h0 + str * fall);
+        else if (heightMode === "lower") height[idx] = Math.max(-26, h0 - str * fall);
+        else if (heightMode === "flat") height[idx] = h0 + (mean - h0) * fall * 0.5;
+        else { let s = 0, c = 0; for (const [di, dj] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < GW && jj < GH) { s += before(ii, jj); c++; } } height[idx] = h0 + (s / c - h0) * fall * 0.6; }
       }
     }
     else if (mode === "plants") {
@@ -654,22 +724,22 @@
     for (const t of P.things) { const d = CAT[t.k]; if (!d) continue; beds += t.room || 0; for (const j of d.jobs || []) roles[j] = (roles[j] || 0) + 1; counts[d.group] = (counts[d.group] || 0) + 1; }
     $("i-cap").innerHTML = `Room for <b>${beds}</b> · ${Object.keys(roles).length} kinds of work · tap for more`;
     $("i-roles").innerHTML = Object.keys(roles).sort().map((j) => `<span>${JOBN(j)} × ${roles[j]}</span>`).join("") || '<span style="color:var(--dim)">No workplaces yet.</span>';
-    $("i-counts").textContent = `${P.things.length} things, ${P.foliage.length} plants and rocks, ${P.roads.length} roads · ${GW * CELL} × ${GH * CELL} m`;
+    $("i-counts").textContent = `${P.things.length} things, ${P.foliage.length} plants and rocks, ${P.roads.length} roads · ${GW * CELL} × ${GH * CELL} m${LAND ? ` · the land of world ${LAND.seed}` : ""}`;
   }
   $("info").addEventListener("click", (e) => { if (e.target.closest("textarea, button")) return; $("info").classList.toggle("open"); });
   $("i-notes").addEventListener("input", () => { P.notes = $("i-notes").value; changed(); });
   $("i-undo").addEventListener("click", undo); $("i-fit").addEventListener("click", fit); $("i-grid").addEventListener("click", () => { showGrid = !showGrid; draw(); });
+  $("i-trees").addEventListener("click", () => { if (!LAND) { say("No picture of the land here yet.", true); return; } snapshot(); const n = landPlants(); if (n) changed(); draw(); say(n ? `Put back ${n} of the land’s own trees and bushes.` : "The land’s trees are all here already."); });
 
   // ---- undo, save, export ----
   const undoStack = [];
-  // (A cell at exactly 0 is written as untouched: the land's own height there.)
-  function serialize() { P.ground = ground.join(""); P.height = Array.from(height, (h) => Math.abs(h) < 0.05 ? "." : chOf(h)).join(""); return JSON.stringify(Object.assign({}, P, { saved: new Date().toISOString() })); }
+  // (An untouched cell is written "." : the land's own height there.)
+  function serialize() { P.ground = ground.join(""); P.height = Array.from(height, (h) => Number.isNaN(h) ? "." : chOf(h)).join(""); return JSON.stringify(Object.assign({}, P, { saved: new Date().toISOString() })); }
   function restore(json) {
     const o = JSON.parse(json);
     Object.assign(P, { title: o.title || P.title, notes: o.notes || "", foliage: o.foliage || [], roads: o.roads || [], things: o.things || [] });
-    // A saved place keeps its own area.
-    if (o.size && o.size[0] > 0 && o.size[1] > 0) { GW = o.size[0]; GH = o.size[1]; P.size = [GW, GH]; P.origin = o.origin || [GW / 2, GH / 2]; height = new Float32Array(GW * GH); }
-    ground = (o.ground || "").padEnd(GW * GH, ".").slice(0, GW * GH).split(""); const hs = (o.height || "").padEnd(GW * GH, "."); for (let k = 0; k < GW * GH; k++) height[k] = hOf(hs[k]);
+    if (o.size && o.size[0] === GW && o.size[1] === GH) { ground = (o.ground || "").padEnd(GW * GH, ".").slice(0, GW * GH).split(""); const hs = (o.height || "").padEnd(GW * GH, "."); for (let k = 0; k < GW * GH; k++) height[k] = hOf(hs[k]); }
+    terrainDirty = contoursDirty = true;
     $("i-notes").value = P.notes; info(); draw();
   }
   function snapshot() { undoStack.push(serialize()); if (undoStack.length > 30) undoStack.shift(); }
@@ -688,15 +758,27 @@
   }
   (async () => {
     try { db = await window.claude?.use?.("db"); const user = await window.claude?.use?.("user"); if (user && typeof user.can === "function") { const w = await user.can("data.write"); if (w === false) canWrite = false; } } catch (e) { db = null; }
+    const landed = await landReady;
     let shared = null, local = null;
     if (db) { try { const d = await db.collection("places").doc(KEY).get(); const v = d && d.data && d.data(); if (v && v.json) shared = v.json; } catch (e) { say("Couldn't reach the shared copy: " + (e.message || e.code), true); } }
     try { local = localStorage.getItem("place:" + KEY); } catch (e) {}
     const when = (j) => { try { return Date.parse(JSON.parse(j).saved) || 0; } catch (e) { return 0; } };
     const pick = shared && local ? (when(local) > when(shared) ? local : shared) : (shared || local);
     if (pick) { restore(pick); say(pick === local && shared ? "Loaded this browser's newer copy." : "Loaded."); if (pick === local && db && canWrite) store(); }
-    else say("A blank place. Pick a tool below.");
+    else if (landed) { const n = landPlants(); draw(); say(`The land as the game has it here, with its own ${n} trees and bushes: erase any you don't want.`); }
+    else say("A blank place (no picture of the land here yet). Pick a tool below.");
     info();
+    if (landed) glideIn();
   })();
+  // Open on Laz's map round the place and glide down into it.
+  function glideIn() {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = stage.getBoundingClientRect(), trayH = Math.min(260, $("tray").getBoundingClientRect().height || 170);
+    const end = Math.min(r.width, r.height - trayH) / 110, start = Math.min(r.width, r.height - trayH) / 9000;
+    const cx = r.width / 2, cy = (r.height - trayH) / 2, t0 = performance.now(), T = 1600;
+    const step = (now) => { const u = Math.min(1, (now - t0) / T), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2; z = Math.exp(Math.log(start) + (Math.log(end) - Math.log(start)) * e); tx = cx; ty = cy; draw(); if (u < 1 && !pointers.size) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
   async function exportFile() {
     const text = serialize();
     try { const dl = await window.claude?.use?.("downloads"); if (dl) { await dl.save({ filename: KEY + ".json", data: text }); say("Exported " + KEY + ".json."); return; } } catch (e) {}

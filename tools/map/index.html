@@ -736,7 +736,12 @@
   let place = null, editPid = null;
   const peopleEl = $("people"), pList = $("p-list"), pForm = $("p-form"), pRoster = $("p-roster"), pCrowd = $("p-crowd");
   const slug = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "x";
-  function townKey(id) { if (id === WANDERERS) return WANDERERS; const m = marks[id]; return m ? (slug(m.label) === "x" ? "mark_" + id : slug(m.label)) : "mark_" + id; }
+  // The game's key for a mark (grounds/index.json, written by the game beside the land under
+  // each mark): it stays with the mark even when the label changes or two labels match. A mark
+  // the game hasn't seen yet falls back to its label.
+  let GAME_KEYS = {};
+  fetch("grounds/index.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : {})).then((k) => { GAME_KEYS = k || {}; }).catch(() => {});
+  function townKey(id) { if (id === WANDERERS) return WANDERERS; if (GAME_KEYS[id] && GAME_KEYS[id].key) return GAME_KEYS[id].key; const m = marks[id]; return m ? (slug(m.label) === "x" ? "mark_" + id : slug(m.label)) : "mark_" + id; }
   function placeName(id) { if (id === WANDERERS) return "Wanderers (no place)"; const m = marks[id]; return m ? (m.label || KIND_NAME[m.kind] || "a place") : "a place"; }
   function fill(sel, list, blank) { sel.innerHTML = ""; if (blank) { const o = document.createElement("option"); o.value = ""; o.textContent = blank; sel.appendChild(o); } for (const [k, n] of list) { const o = document.createElement("option"); o.value = k; o.textContent = n; sel.appendChild(o); } }
   fill($("c-people"), PEOPLES); fill($("c-sex"), SEXES); fill($("c-job"), JOBS.map((j) => [j, JOB_NAME(j)])); fill($("c-wealth"), WEALTH); fill($("c-faction"), HOLDERS.slice(1), "none"); fill($("c-rel-kind"), REL_KINDS.map((k) => [k, k]));
@@ -852,7 +857,7 @@
   $("c-delete").addEventListener("click", () => { const id = editPid; if (!id || !people[id]) return; delete people[id]; for (const o of Object.values(people)) { o.rels = (o.rels || []).filter((r) => r.to !== id); } if (cols && canWrite) cols.people.doc(id).delete().catch(fail); pForm.hidden = true; pRoster.hidden = false; editPid = null; renderPeople(); });
   $("f-people").addEventListener("click", () => { if (selected && selected.col === "marks") openPeople(selected.id); });
   // The place builder (build.html): the ground, buildings and props of one place, top down.
-  $("f-build").addEventListener("click", () => { if (selected && selected.col === "marks") location.href = "build.html?key=" + encodeURIComponent(townKey(selected.id)) + "&name=" + encodeURIComponent(placeName(selected.id)) + "&kind=" + encodeURIComponent(marks[selected.id].kind); });
+  $("f-build").addEventListener("click", () => { if (selected && selected.col === "marks") location.href = "build.html?key=" + encodeURIComponent(townKey(selected.id)) + "&name=" + encodeURIComponent(placeName(selected.id)); });
   $("wanderers").addEventListener("click", () => openPeople(WANDERERS));
   // A generic saver for the two extra collections (the marks keep theirs).
   async function saveDoc(col, id, data, whole) {
