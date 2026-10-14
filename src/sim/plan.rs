@@ -55,6 +55,10 @@ pub struct Plan {
     pub woods: Option<Woods>,
     /// What's drawn that nothing stands for yet.
     pub later: Vec<String>,
+    /// A place built in the place builder (`placefile.rs`): the ground,
+    /// height, trees, rocks and roads it lays under the town. None for a
+    /// plan read from a sketch.
+    pub land: Option<super::placefile::PlaceLand>,
 }
 
 /// The drawing's trees as a coarse raster over the town: a digit 0..9 per
@@ -183,13 +187,21 @@ pub struct Plans {
 }
 
 impl Plans {
-    /// The plans in `assets/world/plans/` (none there: none at all). A file
-    /// that won't read is said on the console and skipped.
+    /// The plans in `assets/world/plans/` (none there: none at all), and
+    /// the places built in the place builder (`assets/world/places/`, a
+    /// place over a plan for the same town). A file that won't read is said
+    /// on the console and skipped.
     pub fn load() -> Plans {
-        match plans_dir() {
+        let mut out = match plans_dir() {
             Some(dir) => Plans::load_from(&dir),
             None => Plans::default(),
+        };
+        if let Some(dir) = plans_dir().and_then(|d| d.parent().map(|p| p.join("places"))).filter(|d| d.is_dir()) {
+            for (key, plan) in super::placefile::load_places(&dir) {
+                out.towns.insert(key, plan);
+            }
         }
+        out
     }
 
     pub fn load_from(dir: &Path) -> Plans {
@@ -213,7 +225,7 @@ impl Plans {
     }
 
     pub fn for_town(&self, key: &str) -> Option<&Plan> {
-        self.towns.get(key).filter(|p| !p.buildings.is_empty())
+        self.towns.get(key).filter(|p| !p.buildings.is_empty() || p.land.is_some())
     }
 }
 
@@ -275,13 +287,32 @@ impl World {
     /// where no drawing says (the land's own woods). Drawing only reads it.
     pub fn plan_woods_at(&self, p: V2) -> Option<f32> {
         for (t, plan) in &self.plans {
-            let Some(w) = &plan.woods else { continue };
             let c = self.settlements.get(*t as usize)?.pos;
-            if let Some(d) = w.at(p.sub(c)) {
+            if let Some(d) = plan.woods.as_ref().and_then(|w| w.at(p.sub(c))) {
                 return Some(d);
+            }
+            // A built place: only the trees stamped there (`place_stamps_in`).
+            if plan.land.as_ref().is_some_and(|l| l.covers(p.sub(c))) {
+                return Some(0.0);
             }
         }
         None
+    }
+
+    /// The trees and bushes stamped in built places within a box (west,
+    /// north, east, south edges): where, which (`tree_broad`, `tree_conifer`,
+    /// `tree_small`, `bush`), and how big. Drawing reads it.
+    pub fn place_stamps_in(&self, x0: f32, y0: f32, x1: f32, y1: f32) -> Vec<(V2, String, f32)> {
+        let mut out = Vec::new();
+        for (t, plan) in &self.plans {
+            let (Some(land), Some(s)) = (plan.land.as_ref(), self.settlements.get(*t as usize)) else { continue };
+            for (p, k, sc) in land.plants_at(s.pos) {
+                if p.x >= x0 && p.x < x1 && p.y >= y0 && p.y < y1 {
+                    out.push((p, k.to_string(), sc));
+                }
+            }
+        }
+        out
     }
 
     /// The workplaces a town's plan puts down, at their drawn places.

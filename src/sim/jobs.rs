@@ -785,3 +785,39 @@ impl Service {
         }
     }
 }
+
+/// Does someone with this job work at this kind of place (a stilt village's
+/// own places when `stilts`)? The one rule `World::places_for` and the
+/// catalogue (`catalogue.rs`) both read.
+pub fn works_at(job: Job, k: PlaceKind, stilts: bool) -> bool {
+    use PlaceKind as P;
+    match job {
+        Job::Farmer => k == P::Fields,
+        Job::Forager => k == P::Wilds,
+        Job::Woodcutter => matches!(k, P::Woodlot | P::Quarry),
+        Job::Fisher => if stilts { k == P::DivePlatform } else { k == P::Dock },
+        Job::KelpGatherer => stilts && k == P::KelpBeds,
+        Job::Boatwright => stilts && k == P::Boatyard,
+        Job::Cook => if stilts { k == P::Deck } else { matches!(k, P::Kitchen | P::MessHall) || (k == P::Deck) },
+        Job::Runner => !stilts && matches!(k, P::Kitchen | P::MessHall),
+        Job::Merchant | Job::Caravaner => matches!(k, P::Market | P::Shop(_)),
+        Job::Innkeeper => k == P::Inn,
+        Job::Guard => k == P::GuardPost,
+        Job::Official | Job::Arbiter => k == P::Hall,
+        Job::Priest => k == P::Shrine,
+        Job::Healer => matches!(k, P::HealingHouse | P::HealersHouse),
+        Job::Teacher => matches!(k, P::TeachingHouse | P::LettersHouse),
+        Job::Exchanger => matches!(k, P::ExchangeHouse | P::LettersHouse),
+        Job::Scribe => matches!(k, P::Desk | P::LettersHouse),
+        Job::Weaver => if stilts { k == P::Boatyard } else { matches!(k, P::WeaversShed | P::Workyard) },
+        Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => !stilts && matches!(k, P::Workshop | P::Workyard),
+        Job::CharcoalBurner => !stilts && k == P::CharcoalPit,
+        Job::Carpenter | Job::Mason => !stilts && matches!(k, P::Workyard | P::Workshop),
+        Job::Alchemist => matches!(k, P::AlchemyTable | P::HealingHouse),
+        Job::Smith => matches!(k, P::Workyard | P::Forge),
+        Job::Armourer => matches!(k, P::Workyard | P::Bench),
+        Job::StoneTender => k == P::TendersYard,
+        Job::Labourer => if stilts { k == P::DivePlatform } else { matches!(k, P::Market | P::Workyard | P::Shop(_) | P::Forge) },
+        Job::Drifter | Job::None => false,
+    }
+}

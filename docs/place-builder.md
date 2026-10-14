@@ -98,6 +98,22 @@ every shape and size. One entry per thing:
   anything a place needs that the game has no shape for (then a variant or a
   prop). The first file to import is the outpost, rebuilt in the tool.
 
+## The importer (built: `sim/placefile.rs`)
+
+A place file for a town (its key is the town mark's) is read at world
+creation and turned into a town plan (`plan.rs`), so it is laid out as
+placed: buildings by variant at their spot, facing and scale (`room`
+decides how many sleep there; the catalogue's beds if left out),
+workplaces, pens (a pen's scale changes how many it holds, by area), and
+the land (`PlaceLand`, kept on the plan and saved with the world): ground
+paint and height laid under the town (each height letter metres above or
+below the land's own height at the centre), rocks (stamped or placed) as
+rocks of the land, trees and bushes drawn exactly where stamped with no
+others growing inside the built area, roads painted on the ground. A place
+file overrides a plan read from a sketch for the same town. What the game
+can't stand up yet goes to the plan's `later`, with where it was put.
+`FORMAT`: `Plan::land` is new saved state.
+
 ## Mobile first
 
 44 px targets; the tray a bottom sheet that folds to a tab; brush sliders in
@@ -105,3 +121,52 @@ a pill above the tray; two-finger pinch stays available only with the Hand
 tool (a picked brush pauses all movement, as asked); undo; a thing picked
 shows four handles (move, rotate, scale, remove) big enough for a thumb;
 contour lines and ground colours readable in daylight.
+
+## What a place needs that the game has no shape for yet (the second's review, 14 Oct)
+
+The catalogue (`assets/world/catalogue.json`) lists everything the game can
+stand up today, with `missing: true` on the props it can show in the tray
+but not build. A place that uses a missing thing still imports: the thing
+goes to the plan's `later` list with where it was put, so nothing is lost,
+and it appears in the game once its shape exists. Here is what the outpost
+sketch asks for that has no shape, and what each would take. None is built
+yet.
+
+**Buildings.** A building in the game is a *variant*: its outline, inner
+walls, furniture and containers in one table (`layout::VARIANTS`), drawn
+from the same numbers it's solid by. A new building is one new line there
+plus its glyph on the page. The game has grown Roduro round houses, stepped
+Qotiro blocks, a temple and a hall, and Horaro stilt homes; it has no
+timber building at all, and nothing with more than one floor you can be on.
+
+| Asked for | What it would take |
+|---|---|
+| **Timber two-tier house, a workshop below and the living above** (the shield maker, the bowyer, the leatherworker, the herbalist's stillroom) | A timber people-agnostic kind (`BuildingKind::Timber`), its look in `view/interiors.rs`, and one variant per trade (shield bench, bow bench, leather bench, stillroom with a desk or alchemy table). The two tiers can be shown as storeys from outside, as Qotiro blocks are now; walking upstairs would be new (the game has one floor per building). |
+| **Timber hall, long and low, with an antechamber you pass through** | A variant whose inner wall makes a small front room with a second door into the hall. The walls and doors system already does inner walls; it needs an inner *door* (today inner walls are walls with gaps). |
+| **Stone house with a large open courtyard and the forge in it** | A Qotiro-style variant with an open courtyard (the `qotiro_court` has one) and the forge's furniture (forge, anvil, workbench) standing in the yard instead of a room. Mostly furniture placement; the forge's fire is already drawn. |
+| **Three-tier stone quarters for twelve priestesses, closed to outsiders** | The shape: a taller quarters variant (twelve beds). The closing is a rule, not a shape: a building flag the trespass check (`law.rs` `mind_the_guests`) reads, so walking in by day is trespass too. |
+| **Two-tier smokehouse below, living above, a chimney smoking** | As the timber house, with a smoking-rack piece of furniture and smoke drawn from the chimney (the flame system has the fire; smoke would be new drawing). It could also be a station for preserving food (no smoking recipe exists yet). |
+
+**Props.** A prop that stands in the world has to be in the solid list
+(`solid.rs`: what blocks a walker and what's drawn come from the same
+numbers). Each of these is a new kind there, plus its drawing:
+
+| Prop | What it would take |
+|---|---|
+| **Timber stack** | A solid pile (the woodlot already draws one as part of the workplace); on its own it needs a place in the town's layout. Could hold timber the town's store counts. |
+| **Garden plots** | Town gardens already exist in town life (`TownLife::gardens`, a gardener tends them) but aren't placed things; a plot from the place file would become one of those gardens at that spot, fenced as drawn. |
+| **Tanner's vats and stretching frames** | A solid outdoor yard prop; tanning is done in a workshop now, so the vats would be the tanner's workplace (a new place kind beside the workshop) or just a prop. |
+| **Fence run** | Fences exist only round pens, yards and palisades. A free fence line would be a solid line with an optional gate, like the palisade's segments. |
+| **Well, stall, cart** | A town well (the squad's base well exists: the same shape could stand in a town); a market stall on its own (stalls exist only as a market's counters); a cart (nothing like it yet; it could be the start of carts that move). |
+| **Young tree** | Foliage only has full-grown broadleaf and conifer trees; a small one is the broadleaf drawn smaller (the importer already draws `tree_small` that way). |
+| **Painted water** | The ground has no fresh water yet: a pond or stream painted in the builder stays the land's own ground. This waits for the rivers-and-bog work (water as ground that stops a walker). |
+| **Tents, campfires, bedrolls, standing torches in a town** | These exist, but as the squad's own things (they burn down, get packed up). A town's would need a fixed kind that just stands there (a fire that's always lit at night, a tent someone lives in). |
+
+**Roads.** A road drawn in the builder is painted onto the ground (dirt,
+or gravel for cobbles) and kept with the place; the game's own roads (the
+ones travellers walk between towns, and the faster pace on them) don't read
+it yet. Joining them would make a drawn road count as road underfoot.
+
+**Squad base buildings in a town** (huts, sheds, palisades) are a squad's
+outpost things with their own building and upkeep rules; placing one in a
+town is listed as `later`.

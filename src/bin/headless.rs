@@ -5,6 +5,7 @@
 //!     cargo run --release --bin headless -- trade [days] [seed]     (which goods bought in one town sell for more in another)
 //!     cargo run --release --bin headless -- weather [years] [seed]  (each region's weather added up over the years)
 //!     cargo run --release --bin headless -- omens [years] [seed]    (how often each omen comes, and the first of each)
+//!     cargo run --release --bin headless -- catalogue              (writes assets/world/catalogue.json: every thing the place builder can put down)
 //!
 //! With `GAHT_SAVE=path`, the world is saved there at the end (the window
 //! can start from it with `GAHT_LOAD=path`).
@@ -15,6 +16,16 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|a| a == "catalogue").unwrap_or(false) {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/world/catalogue.json");
+        let text = gahturiyu_sim::sim::catalogue::catalogue_json();
+        if let Err(e) = std::fs::write(&path, &text) {
+            eprintln!("couldn't write {}: {e}", path.display());
+            std::process::exit(1);
+        }
+        println!("{} things written to {}", gahturiyu_sim::sim::catalogue::catalogue().len(), path.display());
+        return;
+    }
     if args.get(1).map(|a| a == "crowd").unwrap_or(false) {
         crowd(args.get(2).map(String::as_str), args.iter().any(|a| a == "--replace"));
         return;

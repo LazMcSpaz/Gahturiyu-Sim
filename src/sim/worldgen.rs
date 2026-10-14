@@ -360,6 +360,13 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
         None => Default::default(),
     };
     tick("squad and groups", &mut at);
+    // Built places lay their ground, height, rocks and roads under the town (`placefile.rs`).
+    let mut authored = authored;
+    for (t, plan) in &planned {
+        if let Some(l) = &plan.land {
+            l.lay(settlements[*t as usize].pos, &terrain, &mut authored);
+        }
+    }
     let (terrain, routes) = land(terrain.with_authored(authored).with_edits(edits), &settlements);
     tick("roads", &mut at);
 
