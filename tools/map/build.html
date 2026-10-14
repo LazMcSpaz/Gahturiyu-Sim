@@ -479,7 +479,7 @@
     const add = (key, name, isFoliage, on, onPick) => {
       const b = document.createElement("button"); b.className = "pal" + (on ? " on" : ""); b.type = "button"; b.dataset.key = key;
       const cvs = document.createElement("canvas"); cvs.width = 120; cvs.height = 100; b.appendChild(cvs); thumb(cvs, key, isFoliage);
-      const sp = document.createElement("span"); sp.textContent = name; b.appendChild(sp);
+      const sp = document.createElement("span"); sp.textContent = name + (CAT[key] && CAT[key].missing ? " (no shape in the game yet)" : ""); b.appendChild(sp);
       b.addEventListener("click", () => onPick(key));
       strip.appendChild(b); return b;
     };
@@ -626,7 +626,7 @@
   function pick(t) {
     picked = t || null;
     sheet.hidden = !picked;
-    if (picked) { const d = CAT[picked.k]; $("t-label").value = picked.label || ""; $("t-room").value = picked.room || 0; $("t-room").style.display = d.beds || d.group === "building" || d.group === "base" ? "" : "none"; $("t-kind").textContent = `${d.name} · ${(d.depth * (picked.s || 1)).toFixed(1)} × ${(d.width * (picked.s || 1)).toFixed(1)} m · facing ${Math.round(picked.rot || 0)}°${d.beds ? " · beds: " + d.beds + " at this size" : ""}`; }
+    if (picked) { const d = CAT[picked.k]; $("t-label").value = picked.label || ""; $("t-room").value = picked.room || 0; $("t-room").style.display = d.beds || d.group === "building" || d.group === "base" ? "" : "none"; $("t-kind").textContent = `${d.name} · ${(d.depth * (picked.s || 1)).toFixed(1)} × ${(d.width * (picked.s || 1)).toFixed(1)} m · facing ${Math.round(picked.rot || 0)}°${d.beds ? " · " + d.beds + " bed" + (d.beds === 1 ? "" : "s") + (d.extra_beds ? ", room for " + d.extra_beds + " more on bedrolls" : "") : ""}${d.missing ? " · the game has no shape for this yet: it's noted for later" : ""}`; }
     draw();
   }
   $("t-label").addEventListener("input", () => { if (picked) { picked.label = $("t-label").value.trim(); changed(); draw(); } });
@@ -684,16 +684,25 @@
   function undo() { const s = undoStack.pop(); if (!s) { say("Nothing to undo."); return; } restore(s); pick(null); changed(); }
   let db = null, canWrite = true, saveTimer = null, dirty = false;
   function changed() { dirty = true; info(); clearTimeout(saveTimer); saveTimer = setTimeout(store, 700); }
+  // Every change is kept in this browser first (so a lost connection loses nothing), then in
+  // the shared store when there is one. Opening the place takes whichever is newer.
   async function store() {
-    if (!db || !canWrite) { try { localStorage.setItem("place:" + KEY, serialize()); say("Kept in this browser (not signed in: nothing shared)."); } catch (e) {} return; }
-    try { await db.collection("places").doc(KEY).set({ json: serialize(), title: P.title, saved: Date.now() }); dirty = false; say("Saved."); } catch (e) { say("Couldn't save: " + (e.message || e.code), true); }
+    const json = serialize();
+    let local = false;
+    try { localStorage.setItem("place:" + KEY, json); local = true; } catch (e) {}
+    if (!db || !canWrite) { say(local ? "Kept in this browser" + (db ? " (read only here)." : " (not signed in: nothing shared).") : "Couldn't keep it: this browser refuses storage.", !local); return; }
+    try { await db.collection("places").doc(KEY).set({ json, title: P.title, saved: Date.now() }); dirty = false; say("Saved (here and shared)."); }
+    catch (e) { say("Kept in this browser; the shared copy failed: " + (e.message || e.code), true); }
   }
   (async () => {
     try { db = await window.claude?.use?.("db"); const user = await window.claude?.use?.("user"); if (user && typeof user.can === "function") { const w = await user.can("data.write"); if (w === false) canWrite = false; } } catch (e) { db = null; }
-    let loaded = false;
-    if (db) { try { const d = await db.collection("places").doc(KEY).get(); const v = d && d.data && d.data(); if (v && v.json) { restore(v.json); loaded = true; say("Loaded."); } } catch (e) { say("Couldn't load: " + (e.message || e.code), true); } }
-    if (!loaded) { try { const s = localStorage.getItem("place:" + KEY); if (s) { restore(s); loaded = true; } } catch (e) {} }
-    if (!loaded) say("A blank place. Pick a tool below.");
+    let shared = null, local = null;
+    if (db) { try { const d = await db.collection("places").doc(KEY).get(); const v = d && d.data && d.data(); if (v && v.json) shared = v.json; } catch (e) { say("Couldn't reach the shared copy: " + (e.message || e.code), true); } }
+    try { local = localStorage.getItem("place:" + KEY); } catch (e) {}
+    const when = (j) => { try { return Date.parse(JSON.parse(j).saved) || 0; } catch (e) { return 0; } };
+    const pick = shared && local ? (when(local) > when(shared) ? local : shared) : (shared || local);
+    if (pick) { restore(pick); say(pick === local && shared ? "Loaded this browser's newer copy." : "Loaded."); if (pick === local && db && canWrite) store(); }
+    else say("A blank place. Pick a tool below.");
     info();
   })();
   async function exportFile() {
