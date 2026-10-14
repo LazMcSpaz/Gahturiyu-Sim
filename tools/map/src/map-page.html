@@ -1,0 +1,983 @@
+<title>Gahturiyu Map Marks</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@500;600&display=swap">
+<style>
+  /* Phone first: the map fills the screen; a strip of big icons along the bottom (thumb reach),
+     the chosen thing's form as a sheet above it, a small toolbar top right. On a wide screen the
+     icons dock into the top-right panel instead. The game's HUD colours; dark by choice. */
+  :root {
+    --umber: #231c14;
+    --umber-2: #2f261b;
+    --brass: #c9a24a;
+    --brass-dim: #8f7439;
+    --gold: #e8c76a;
+    --text: #efe6d2;
+    --dim: #b1a48b;
+    --bad: #d6684f;
+    --ink: #1d1710;
+    --display: "Cinzel", "Georgia", serif;
+    --body: "Alegreya", "Georgia", serif;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--umber); color: var(--text); font-family: var(--body); font-size: 16px; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  button { font: 600 14px var(--display); letter-spacing: .06em; color: var(--text); background: var(--umber-2); border: 1px solid var(--brass-dim); border-radius: 6px; padding: 10px 12px; cursor: pointer; min-height: 44px; touch-action: manipulation; }
+  button:hover { border-color: var(--brass); }
+  button.primary { background: linear-gradient(180deg, var(--gold), var(--brass)); color: var(--ink); border-color: var(--brass); }
+  button.danger { color: var(--bad); border-color: rgba(214,104,79,.5); }
+  button:focus-visible, input:focus, select:focus, textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+  /* The map. */
+  #stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; background: #4a6fa5; user-select: none; -webkit-user-select: none; }
+  #stage.panning { cursor: grabbing; }
+  #stage.armed { cursor: crosshair; }
+  #layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  #map { display: block; width: 2576px; height: 1932px; max-width: none; pointer-events: none; -webkit-user-drag: none; }
+  #drawn { position: absolute; left: 0; top: 0; width: 2576px; height: 1932px; max-width: none; pointer-events: none; -webkit-user-drag: none; }
+  #stage.draft #drawn { display: none; }
+  #roads { position: absolute; left: 0; top: 0; width: 2576px; height: 1932px; pointer-events: none; overflow: visible; }
+  #roads path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  #roads path.hit { stroke: transparent; pointer-events: stroke; cursor: pointer; }
+  #roads path.road { stroke: #5a3d1e; }
+  #roads path.road.track { stroke: #7a5a33; stroke-dasharray: var(--dash); }
+  #roads path.road.sel { stroke: var(--gold); }
+  #roads path.draft { stroke: var(--gold); stroke-dasharray: var(--dash); }
+  #roads circle { fill: var(--gold); stroke: var(--ink); }
+  #marks { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+  .mark { position: absolute; left: 0; top: 0; transform: translate(var(--x), var(--y)) scale(calc(1 / var(--z))); transform-origin: 0 0; cursor: pointer; }
+  .mark .hit { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; }
+  .mark .pin { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; pointer-events: none; }
+  .mark .pin svg { width: 28px; height: 28px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  .mark .tag { position: absolute; left: 17px; top: -10px; white-space: nowrap; font: 600 14px var(--body); color: var(--ink); background: rgba(239,230,210,.88); border: 1px solid rgba(60,45,25,.5); border-radius: 3px; padding: 0 6px; line-height: 20px; pointer-events: none; }
+  .mark .tag:empty { display: none; }
+  .mark.sel .pin svg { filter: drop-shadow(0 0 5px var(--gold)) drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  .mark.sel .tag { background: var(--gold); border-color: var(--brass-dim); }
+  .mark.lifted .pin { transform: translateY(-6px) scale(1.25); transition: transform .12s; }
+  .mark.lifted .tag { opacity: .4; }
+  #ghost { position: absolute; pointer-events: none; display: none; z-index: 9; }
+  #ghost svg { width: 36px; height: 36px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+
+  /* Top right: the toolbar. */
+  #top { position: absolute; top: calc(10px + var(--sat)); right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; z-index: 4; }
+  #bar { display: flex; gap: 6px; align-items: center; background: rgba(35,28,20,.94); border: 1px solid var(--brass-dim); border-top: 3px solid var(--brass); border-radius: 6px; padding: 6px 8px; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  #bar h1 { font: 600 14px var(--display); letter-spacing: .1em; color: var(--gold); margin: 0 6px 0 2px; white-space: nowrap; }
+  #bar .count { color: var(--dim); font-size: 14px; white-space: nowrap; }
+  #bar button { padding: 8px 10px; min-height: 40px; }
+  #status { font-size: 13px; color: var(--dim); background: rgba(35,28,20,.8); border-radius: 4px; padding: 3px 8px; max-width: 70vw; text-align: right; }
+  #status.bad { color: var(--bad); }
+  #status:empty { display: none; }
+
+  /* The list: a sheet from the right. */
+  #listbox { position: absolute; top: calc(70px + var(--sat)); right: 10px; bottom: calc(110px + var(--sab)); width: 280px; max-width: calc(100vw - 20px); background: rgba(35,28,20,.96); border: 1px solid var(--brass-dim); border-radius: 6px; overflow: auto; z-index: 4; padding: 6px; box-sizing: border-box; }
+  #listbox[hidden] { display: none; }
+  #listbox button { width: 100%; text-align: left; font: 400 15px var(--body); letter-spacing: 0; padding: 8px 8px; border-color: transparent; display: flex; gap: 8px; align-items: center; background: none; }
+  #listbox button:hover { border-color: var(--brass-dim); }
+  #listbox button svg { width: 22px; height: 22px; flex: none; }
+  #listbox button .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #listbox button .k { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  #listbox .empty { color: var(--dim); padding: 10px; font-style: italic; }
+
+  /* Bottom: the icon strip, and above it the sheet for the chosen thing. */
+  #dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; align-items: stretch; pointer-events: none; }
+  #dock > * { pointer-events: auto; }
+  #sheet { margin: 0 8px 8px; background: rgba(35,28,20,.97); border: 1px solid var(--brass-dim); border-top: 3px solid var(--brass); border-radius: 8px; padding: 10px 12px 12px; box-shadow: 0 -4px 20px rgba(0,0,0,.4); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #sheet[hidden] { display: none; }
+  #sheet .wide { grid-column: 1 / -1; }
+  #sheet .row { display: flex; gap: 8px; align-items: center; }
+  #sheet label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 3px; }
+  #sheet.road .mark-only { display: none; }
+  input, select, textarea { font: inherit; font-size: 16px; color: var(--text); background: var(--umber-2); border: 1px solid var(--brass-dim); border-radius: 6px; padding: 9px 10px; min-width: 0; width: 100%; box-sizing: border-box; min-height: 44px; }
+  textarea { min-height: 52px; resize: none; }
+  .coords { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #strip { background: rgba(35,28,20,.94); border-top: 1px solid var(--brass-dim); padding: 8px 8px calc(8px + var(--sab)); display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  #strip::-webkit-scrollbar { display: none; }
+  .pal { flex: none; width: 76px; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 2px 5px; border: 1px solid transparent; border-radius: 8px; cursor: grab; touch-action: none; color: var(--text); background: none; }
+  .pal:hover { border-color: var(--brass-dim); background: rgba(201,162,74,.08); }
+  .pal.armed { border-color: var(--gold); background: rgba(232,199,106,.18); box-shadow: inset 0 0 0 1px var(--gold); }
+  .pal svg { width: 30px; height: 30px; display: block; pointer-events: none; }
+  .pal span { font: 500 10px var(--display); letter-spacing: .02em; color: var(--dim); white-space: normal; text-align: center; line-height: 1.15; pointer-events: none; }
+  .pal.armed span { color: var(--gold); }
+  .pal.gap { width: 10px; min-width: 10px; padding: 0; border: none; pointer-events: none; }
+  #dockwrap { position: relative; }
+  #hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 8px); background: rgba(35,28,20,.94); border: 1px solid var(--brass-dim); border-radius: 24px; padding: 6px 8px 6px 14px; font-size: 14px; color: var(--text); display: flex; gap: 8px; align-items: center; max-width: calc(100vw - 24px); }
+  #hint span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hint button { padding: 6px 10px; min-height: 36px; border-radius: 18px; }
+  #hint[hidden], #sheet:not([hidden]) ~ #dockwrap #hint { display: none; }
+  #scale { position: absolute; left: 10px; top: calc(10px + var(--sat)); color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; z-index: 3; background: rgba(239,230,210,.6); padding: 2px 6px; border-radius: 3px; }
+  #scale .bar { height: 3px; background: var(--ink); border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); margin-bottom: 2px; }
+  #ron { display: none; width: 100%; height: 140px; font: 12px ui-monospace, monospace; }
+
+  /* The people screen: a roster for one place, over the map. */
+  #people { position: absolute; inset: 0; z-index: 8; background: rgba(35,28,20,.97); color: var(--text); display: flex; flex-direction: column; }
+  #people[hidden] { display: none; }
+  #people .head { display: flex; align-items: center; gap: 8px; padding: calc(10px + var(--sat)) 12px 8px; border-bottom: 1px solid var(--brass-dim); }
+  #people .head h2 { font: 600 15px var(--display); letter-spacing: .1em; color: var(--gold); margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #people .body { flex: 1; overflow: auto; padding: 10px 12px calc(16px + var(--sab)); -webkit-overflow-scrolling: touch; }
+  #people h3 { font: 600 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 14px 0 6px; }
+  .roster { display: flex; flex-direction: column; gap: 4px; }
+  .roster button { text-align: left; font: 400 15px var(--body); letter-spacing: 0; display: flex; gap: 8px; align-items: center; }
+  .roster button .n { flex: 1; }
+  .roster button .k { color: var(--dim); font-size: 12px; }
+  .roster .empty { color: var(--dim); font-style: italic; padding: 6px 2px; }
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+  .form[hidden], #p-roster[hidden] { display: none; }
+  .form .wide { grid-column: 1 / -1; }
+  .form label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 3px; }
+  .form textarea { min-height: 64px; }
+  .traits { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  .traits label { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--text); }
+  .crowd { display: flex; flex-direction: column; gap: 6px; }
+  .crowd .row { display: grid; grid-template-columns: 1fr 72px 44px; gap: 6px; align-items: center; }
+  .crowd .row .mix { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .crowd .row .mix label { font-size: 11px; color: var(--dim); }
+  .rel { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .rel select { flex: 1; min-width: 120px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 13px; background: var(--umber-2); border: 1px solid var(--brass-dim); border-radius: 14px; padding: 4px 10px; display: flex; gap: 6px; align-items: center; }
+  .chip button { min-height: 0; padding: 0 4px; border: none; background: none; color: var(--bad); font-size: 14px; }
+  .lean { font-size: 13px; color: var(--dim); }
+  #export-out { width: 100%; height: 200px; font: 12px ui-monospace, monospace; display: none; }
+  @media (min-width: 900px) { #people { left: auto; width: 520px; right: 0; border-left: 1px solid var(--brass-dim); } }
+
+  /* Wide screens: the icon grid in the top-right panel, as asked; the sheet beside it. */
+  @media (min-width: 900px) and (min-height: 600px) {
+    #dock { left: auto; right: 10px; top: calc(70px + var(--sat)); bottom: auto; width: 300px; }
+    #dockwrap { order: -1; }
+    #strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; border: 1px solid var(--brass-dim); border-radius: 6px; padding: 8px; overflow: visible; margin-bottom: 8px; }
+    .pal { width: auto; min-height: 60px; }
+    .pal.gap { display: none; }
+    #hint { bottom: auto; top: calc(100% - 2px); left: 0; right: 0; transform: none; max-width: none; margin: 0 8px; border-radius: 8px; }
+    #hint span { white-space: normal; }
+    #sheet { margin: 0; }
+    #listbox { top: calc(70px + var(--sat)); right: 320px; bottom: 10px; }
+  }
+</style>
+
+<div id="stage">
+  <div id="layer">
+    <img id="map" src="map.png" alt="Laz's map of Gahturiyu, 13 October" width="2576" height="1932">
+    <img id="drawn" src="roads.png" alt="The roads drawn on the draft" width="2576" height="1932">
+    <svg id="roads" viewBox="0 0 2576 1932" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="marks"></div>
+  </div>
+  <div id="ghost"></div>
+</div>
+
+<div id="scale"><div class="bar" id="scalebar"></div><span id="scaletext">10 km</span></div>
+
+<div id="top">
+  <div id="bar">
+    <h1>Map Marks</h1>
+    <span class="count" id="count">0</span>
+    <button id="toggle-draft" aria-label="Show the annotated draft instead of the clean map">Draft</button>
+    <button id="toggle-list" aria-label="List of marks">List</button>
+    <button id="wanderers" aria-label="People with no place">Wanderers</button>
+    <button id="copy" aria-label="Copy the marks as RON">RON</button>
+  </div>
+  <div id="status">Loading your marks…</div>
+</div>
+
+<div id="listbox" hidden></div>
+
+<div id="people" hidden>
+  <div class="head"><button id="p-back">Back</button><h2 id="p-title">People</h2><button id="p-export">Export</button></div>
+  <div class="body">
+    <div id="p-roster">
+      <h3>Characters</h3>
+      <div class="roster" id="p-list"></div>
+      <div class="row" style="margin-top:8px"><button id="p-new" class="primary">New character</button></div>
+      <h3>The crowd</h3>
+      <p class="lean" style="margin:0 0 6px">How many of each, roughly; the game makes them with small differences. Peoples mix: the town's founders' unless you set one.</p>
+      <div class="crowd" id="p-crowd"></div>
+      <div class="row" style="margin-top:8px"><button id="p-crowd-add">Add a row</button></div>
+      <h3>Export</h3>
+      <p class="lean" style="margin:0 0 6px">Every place's people and the marks, as the text the game reads. Copy it or save it, and hand it to Claude.</p>
+      <div class="row"><button id="p-export2">Export everything</button></div>
+      <textarea id="export-out" readonly></textarea>
+    </div>
+    <div id="p-form" class="form" hidden>
+      <div class="wide"><label for="c-name">Name <small style="text-transform:none;letter-spacing:0">(blank: the game names them)</small></label><input id="c-name" autocomplete="off"></div>
+      <div><label for="c-people">People</label><select id="c-people"></select></div>
+      <div><label for="c-sex">Sex</label><select id="c-sex"></select></div>
+      <div><label for="c-job">Profession</label><select id="c-job"></select></div>
+      <div><label for="c-wealth">Wealth</label><select id="c-wealth"></select></div>
+      <div><label for="c-faction">Faction</label><select id="c-faction"></select></div>
+      <div><label for="c-sub">Sub-faction or house</label><input id="c-sub" autocomplete="off" placeholder="optional"></div>
+      <div class="wide"><label>Traits <small style="text-transform:none;letter-spacing:0">(leave on "roll" to let the game decide from their people)</small></label><div class="traits" id="c-traits"></div></div>
+      <div class="wide"><label>Relations</label><div class="chips" id="c-rels"></div><div class="rel" style="margin-top:6px"><select id="c-rel-who"></select><select id="c-rel-kind"></select><button id="c-rel-add">Add</button></div></div>
+      <div class="wide"><label for="c-background">Background</label><textarea id="c-background" placeholder="who they are, in a few lines"></textarea></div>
+      <div class="wide"><label for="c-importance">Why they matter <small style="text-transform:none;letter-spacing:0">(a note for you and Claude, not the player)</small></label><textarea id="c-importance"></textarea></div>
+      <div class="wide"><label for="c-schedule">Schedule <small style="text-transform:none;letter-spacing:0">(optional, in words: "at the smoke hall every night from dusk")</small></label><input id="c-schedule" autocomplete="off"></div>
+      <div><label for="c-style">Clothing style</label><input id="c-style" autocomplete="off" placeholder="court, work, rags…"></div>
+      <div><label for="c-colours">Colours</label><input id="c-colours" autocomplete="off" placeholder="grey, black"></div>
+      <div class="wide"><label for="c-marks">Looks <small style="text-transform:none;letter-spacing:0">(a few words: a scar, a limp, a braid)</small></label><input id="c-marks" autocomplete="off"></div>
+      <div class="wide"><label><input type="checkbox" id="c-lines" style="width:auto;min-height:0;margin-right:6px">Will have their own lines file (Claude writes it with you)</label></div>
+      <div class="wide lean" id="c-lean"></div>
+      <div class="wide row"><button id="c-done" class="primary" style="flex:1">Done</button><button id="c-delete" class="danger">Remove</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="dock">
+  <div id="sheet" hidden>
+    <div class="wide"><label for="f-label">Name <small style="text-transform:none;letter-spacing:0">(optional)</small></label><input id="f-label" placeholder="leave blank for a plain icon" autocomplete="off" enterkeyhint="done"></div>
+    <div><label for="f-kind">Kind</label><select id="f-kind"></select></div>
+    <div class="mark-only"><label for="f-holder">Held by</label><select id="f-holder"></select></div>
+    <div class="mark-only"><label for="f-founders">Built by</label><select id="f-founders"></select></div>
+    <div class="wide"><label for="f-notes">Notes</label><textarea id="f-notes" rows="2" placeholder="size, what it does, who's there"></textarea></div>
+    <div class="wide row"><span class="coords" id="f-coords"></span></div>
+    <div class="wide row"><button id="f-people" style="flex:1" hidden>People</button><button id="f-build" style="flex:1" hidden>Build it out</button></div>
+    <div class="wide row"><button id="f-done" class="primary" style="flex:1">Done</button><button id="f-delete" class="danger">Remove</button></div>
+    <textarea id="ron" class="wide" aria-label="The marks as RON" readonly></textarea>
+  </div>
+  <div id="dockwrap">
+    <div id="hint" hidden><span id="hint-text"></span><button id="hint-undo" hidden>Undo point</button><button id="hint-finish" class="primary" hidden>Finish</button></div>
+    <div id="strip"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const PX_M = 26.5; // Laz (14 Oct): four Kenshis: 68 x 51 km, 26.5 m a pixel
+  const W = 2576, H = 1932;
+  // Standard icons: what a place is, not who it is. The outposts carry their people or office.
+  const KINDS = [
+    ["capital", "Capital"], ["city", "City"], ["town", "Town"], ["village", "Village"], ["hamlet", "Hamlet"],
+    ["gap"],
+    ["fort", "Fort"], ["outpost", "Outpost"], ["imperial_fort", "Imperial fort"], ["warden_outpost", "Warden outpost"], ["qotiro_outpost", "Qotiro outpost"],
+    ["highfolk_hold", "Highfolk hold"], ["stilt_village", "Stilt village"], ["bandit_camp", "Bandit camp"],
+    ["gap"],
+    ["mine", "Mine"], ["quarry", "Quarry"], ["lumber", "Lumber camp"], ["port", "Port"], ["bridge", "Bridge"], ["ferry", "Ferry"],
+    ["gap"],
+    ["ruin", "Ruin"], ["temple", "Temple"], ["shrine", "Shrine"], ["lookout", "Lookout"], ["other", "Other"],
+    ["gap"],
+    ["road", "Road"], ["track", "Track"],
+  ];
+  const KIND_NAME = Object.fromEntries(KINDS.filter((k) => k[1]));
+  const ROAD_KINDS = [["road", "Road"], ["track", "Track"]];
+  const isRoadKind = (k) => k === "road" || k === "track";
+  const HOLDERS = [
+    ["", "nobody / later"],
+    ["throne", "The Throne"], ["banner_lords", "The Banner Lords"], ["free_lords", "The Free Lords"],
+    ["seated_houses", "The Seated Houses"], ["true_line", "The True Line"], ["tide_houses", "The Tide Houses"],
+    ["open_council", "The Open Council"], ["sharp_hands", "The Sharp Hands"], ["road_crews", "The Road Crews"],
+    ["holy_house", "The Holy House"], ["last_wave", "The Last Wave"], ["far_sails", "The Far Sails"],
+    ["binders", "The Binders"], ["wardens", "The Wardens"], ["highfolk", "The Highfolk"], ["rooted", "The Rooted"],
+    ["writers", "The Writers"], ["lantern_company", "The Lantern Company"], ["old_hands", "The Old Hands"],
+    ["night_market", "The Night Market"], ["dueling_society", "The Dueling Society"],
+  ];
+  // One glyph a kind: settlements as rings by size, the rest as simple signs.
+  function glyph(kind) {
+    const I = "#1d1710";
+    const c = {
+      capital: "#e8c76a", city: "#d9b45c", town: "#c9a24a", village: "#b48d3f", hamlet: "#9c7a37",
+      fort: "#8aa0b8", outpost: "#a8b4c0", imperial_fort: "#b8322e", warden_outpost: "#7fa06a", qotiro_outpost: "#e0b64a", highfolk_hold: "#8aa0b8", stilt_village: "#5fa3c7", bandit_camp: "#8c7a66",
+      mine: "#c7c7c7", quarry: "#b7a58e", lumber: "#6f8f4a", port: "#7fb3d5", bridge: "#c9a24a", ferry: "#7fb3d5",
+      ruin: "#a89a86", temple: "#e6e6f0", shrine: "#e6e6f0", lookout: "#9fbf8f", other: "#efe6d2", road: "#5a3d1e", track: "#7a5a33",
+    }[kind] || "#efe6d2";
+    const s = { capital: 12, city: 10, town: 8, village: 6.5, hamlet: 5 }[kind];
+    const o = '<svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">', e = "</svg>";
+    if (s) return o + `<circle cx="14" cy="14" r="${s}" fill="${c}" stroke="${I}" stroke-width="2"/>` + (kind === "capital" ? `<circle cx="14" cy="14" r="4" fill="${I}"/>` : kind === "city" ? `<circle cx="14" cy="14" r="2.5" fill="${I}"/>` : "") + e;
+    switch (kind) {
+      case "fort": return o + `<path d="M5 24V8h4v3h3V8h4v3h3V8h4v16z" fill="${c}" stroke="${I}" stroke-width="2"/>` + e;
+      case "outpost": return o + `<path d="M8 24V9l6-5 6 5v15z" fill="${c}" stroke="${I}" stroke-width="2"/><path d="M11 24v-7h6v7" fill="${I}"/>` + e;
+      case "imperial_fort": return o + `<path d="M5 24V8h4v3h3V8h4v3h3V8h4v16z" fill="${c}" stroke="${I}" stroke-width="2"/><path d="M11 24v-6h6v6" fill="${I}"/>` + e;
+      case "warden_outpost": return o + `<path d="M8 24V9l6-5 6 5v15z" fill="${c}" stroke="${I}" stroke-width="2"/><path d="M11 24v-7h6v7" fill="${I}"/><path d="M14 2v5" stroke="${I}" stroke-width="2"/>` + e;
+      case "qotiro_outpost": return o + `<path d="M4 24l4-8h12l4 8z M8 16l3-6h6l3 6" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="6" r="3" fill="${c}" stroke="${I}" stroke-width="1.5"/>` + e;
+      case "highfolk_hold": return o + `<path d="M4 24L14 6l10 18z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/><path d="M10 24v-5h8v5" fill="${I}"/>` + e;
+      case "stilt_village": return o + `<path d="M6 14h16v6H6z" fill="${c}" stroke="${I}" stroke-width="2"/><path d="M8 20v5M14 20v5M20 20v5" stroke="${I}" stroke-width="2"/><path d="M5 14l9-7 9 7" fill="none" stroke="${I}" stroke-width="2"/>` + e;
+      case "bandit_camp": return o + `<path d="M4 23L14 8l10 15z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/><path d="M11 23l3-7 3 7" fill="${I}"/><path d="M19 4l3 3m0-3l-3 3" stroke="${I}" stroke-width="2"/>` + e;
+      case "mine": return o + `<path d="M4 20l9-11m0 0l9 11M13 9V4" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/><path d="M4 20l9-11 9 11" fill="none" stroke="${I}" stroke-width="1"/>` + e;
+      case "quarry": return o + `<path d="M4 22l4-10h6l2 4h8v6z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/>` + e;
+      case "lumber": return o + `<path d="M14 3l7 10h-4l5 7H6l5-7H7z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/><path d="M12 20h4v5h-4z" fill="${I}"/>` + e;
+      case "port": return o + `<path d="M14 4v18M8 10h12M6 16c0 5 4 7 8 7s8-2 8-7" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/><path d="M14 4v18M8 10h12M6 16c0 5 4 7 8 7s8-2 8-7" fill="none" stroke="${I}" stroke-width="1"/>` + e;
+      case "bridge": return o + `<path d="M3 20h22M5 20c2-8 16-8 18 0" fill="none" stroke="${c}" stroke-width="3"/><path d="M3 20h22M5 20c2-8 16-8 18 0" fill="none" stroke="${I}" stroke-width="1"/>` + e;
+      case "ferry": return o + `<path d="M5 17h18l-3 6H8z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/><path d="M14 17V6l7 6h-7" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/>` + e;
+      case "ruin": return o + `<path d="M5 24V12h4v-4h3v6h3V8h4v16z" fill="${c}" stroke="${I}" stroke-width="2"/>` + e;
+      case "temple": return o + `<path d="M14 3l10 8H4z M6 11h16v4H6z M8 15h12v9H8z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/>` + e;
+      case "shrine": return o + `<path d="M8 24V12l6-7 6 7v12z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="15" r="2.5" fill="${I}"/>` + e;
+      case "lookout": return o + `<path d="M11 24V8h6v16z M8 8l6-5 6 5z" fill="${c}" stroke="${I}" stroke-width="2"/>` + e;
+      case "road": return o + `<path d="M4 22C10 16 18 14 24 6" fill="none" stroke="${I}" stroke-width="6" stroke-linecap="round"/><path d="M4 22C10 16 18 14 24 6" fill="none" stroke="${c}" stroke-width="3.5" stroke-linecap="round"/>` + e;
+      case "track": return o + `<path d="M4 22C10 16 18 14 24 6" fill="none" stroke="${I}" stroke-width="5" stroke-linecap="round"/><path d="M4 22C10 16 18 14 24 6" fill="none" stroke="${c}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 4"/>` + e;
+      default: return o + `<path d="M14 3l3 8 8 1-6 6 2 8-7-4-7 4 2-8-6-6 8-1z" fill="${c}" stroke="${I}" stroke-width="2" stroke-linejoin="round"/>` + e;
+    }
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const stage = $("stage"), layer = $("layer"), marksEl = $("marks"), roadsEl = $("roads"), ghost = $("ghost"), status = $("status");
+  const hint = $("hint"), hintText = $("hint-text"), hintUndo = $("hint-undo"), hintFinish = $("hint-finish");
+  const sheet = $("sheet"), strip = $("strip"), listbox = $("listbox");
+  const fKind = $("f-kind"), fLabel = $("f-label"), fHolder = $("f-holder"), fFounders = $("f-founders"), fNotes = $("f-notes"), fCoords = $("f-coords");
+  // Who built a place: its buildings' style and the tongue its name is made in. Blank: the game guesses from the kind.
+  const FOUNDERS = [["", "guess from the kind"], ["Roduro", "Roduro (grown stone)"], ["Qotiro", "Qotiro (stepped dark stone)"], ["Horaro", "Horaro (stilts off the shore)"], ["Tadoro", "Ṭaḍoro (tents and lodgers)"]];
+  const say = (t, bad) => { status.textContent = t; status.classList.toggle("bad", !!bad); };
+
+  // ---- the view: pan, pinch and wheel zoom ----
+  let z = 0.3, tx = 0, ty = 0;
+  function apply() {
+    layer.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
+    layer.style.setProperty("--z", z);
+    layer.style.setProperty("--dash", (10 / z) + " " + (8 / z));
+    roadsEl.style.setProperty("--w", 4 / z);
+    for (const p of roadsEl.querySelectorAll("path.road, path.draft")) p.setAttribute("stroke-width", 4 / z);
+    for (const p of roadsEl.querySelectorAll("path.hit")) p.setAttribute("stroke-width", 30 / z);
+    for (const c of roadsEl.querySelectorAll("circle")) { c.setAttribute("r", 5 / z); c.setAttribute("stroke-width", 1.5 / z); }
+    $("scalebar").style.width = (10 * 1000 / PX_M * z) + "px";
+  }
+  let fitted = false;
+  function fit() {
+    const r = stage.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return; // not laid out yet: the resize watcher calls again
+    fitted = true;
+    z = Math.min(r.width / W, r.height / H) * 0.98;
+    tx = (r.width - W * z) / 2; ty = (r.height - H * z) / 2;
+    apply();
+  }
+  function toMap(cx, cy) {
+    const r = stage.getBoundingClientRect();
+    return { x: (cx - r.left - tx) / z, y: (cy - r.top - ty) / z };
+  }
+  function zoomAt(cx, cy, factor) {
+    const r = stage.getBoundingClientRect();
+    const nz = Math.min(8, Math.max(0.06, z * factor));
+    const px = cx - r.left, py = cy - r.top;
+    tx = px - (px - tx) * (nz / z); ty = py - (py - ty) * (nz / z);
+    z = nz; apply();
+  }
+  stage.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+  stage.addEventListener("dblclick", (e) => { if (!e.target.closest(".mark") && !armed) zoomAt(e.clientX, e.clientY, 1.8); });
+
+  // One gesture at a time: a pan, a pinch, a mark being moved, or a tap.
+  const pointers = new Map();
+  let pan = null, pinch = null, lift = null, hold = null, moved = false, downAt = null;
+  function clearHold() { if (hold) { clearTimeout(hold.timer); hold = null; } }
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.setPointerCapture(e.pointerId);
+    if (pointers.size === 2) {
+      // A second finger: whatever was going on becomes a pinch.
+      clearHold(); if (lift) dropLift(false); pan = null; stage.classList.remove("panning");
+      const [a, b] = [...pointers.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z };
+      return;
+    }
+    if (pointers.size > 2) return;
+    moved = false; downAt = { x: e.clientX, y: e.clientY };
+    const m = e.target.closest(".mark");
+    if (m && marks[m.dataset.id]) {
+      const id = m.dataset.id;
+      if (e.pointerType === "mouse") startLift(id, e);
+      else {
+        // On a touch, a short hold lifts the mark; a slide pans the map instead.
+        hold = { id, timer: setTimeout(() => { hold = null; startLift(id, e); if (navigator.vibrate) navigator.vibrate(10); }, 320) };
+        pan = { x: e.clientX, y: e.clientY, tx, ty };
+      }
+    } else {
+      pan = { x: e.clientX, y: e.clientY, tx, ty };
+      stage.classList.add("panning");
+    }
+  });
+  function startLift(id, e) {
+    pan = null; stage.classList.remove("panning");
+    lift = { id, start: toMap(e.clientX, e.clientY), ox: marks[id].x, oy: marks[id].y };
+    const el = marksEl.querySelector(`.mark[data-id="${id}"]`); if (el) el.classList.add("lifted");
+  }
+  function dropLift(keep) {
+    const el = marksEl.querySelector(`.mark[data-id="${lift.id}"]`); if (el) el.classList.remove("lifted");
+    const m = marks[lift.id];
+    if (m) {
+      if (keep && moved) save("marks", lift.id, { x: m.x, y: m.y });
+      else if (!keep) { m.x = lift.ox; m.y = lift.oy; placeEl(lift.id); }
+    }
+    lift = null;
+  }
+  stage.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (pinch.z * d / pinch.d) / z);
+      return;
+    }
+    if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) {
+      if (hold) { clearHold(); stage.classList.add("panning"); }
+      moved = true;
+    }
+    if (lift) {
+      const p = toMap(e.clientX, e.clientY), m = marks[lift.id];
+      if (!m) return;
+      m.x = Math.max(0, Math.min(W, lift.ox + (p.x - lift.start.x)));
+      m.y = Math.max(0, Math.min(H, lift.oy + (p.y - lift.start.y)));
+      placeEl(lift.id);
+    } else if (pan) {
+      tx = pan.tx + (e.clientX - pan.x); ty = pan.ty + (e.clientY - pan.y);
+      apply();
+    }
+  });
+  function endPointer(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size > 0) return;
+    clearHold();
+    stage.classList.remove("panning");
+    if (lift) { const id = lift.id; dropLift(e.type === "pointerup"); if (!moved) select("marks", id); }
+    else if (pan && !moved && e.type === "pointerup") {
+      const m = tapMark(e), r = tapRoad(e);
+      if (armed && isRoadKind(armed)) { const p = toMap(e.clientX, e.clientY); draftPoint(p.x, p.y); }
+      else if (m) select("marks", m);
+      else if (r) select("roads", r);
+      else if (armed) { const p = toMap(e.clientX, e.clientY); addMark(armed, p.x, p.y); }
+      else { select(null); listbox.hidden = true; }
+    }
+    pan = null; downAt = null;
+  }
+  function tapMark(e) { const el = e.target.closest && e.target.closest(".mark"); return el && marks[el.dataset.id] ? el.dataset.id : null; }
+  function tapRoad(e) { const el = e.target.closest && e.target.closest("path.hit"); return el && roads[el.dataset.id] ? el.dataset.id : null; }
+  stage.addEventListener("pointerup", endPointer);
+  stage.addEventListener("pointercancel", endPointer);
+  const onResize = () => { if (fitted) apply(); else fit(); };
+  window.addEventListener("resize", onResize);
+  if (window.ResizeObserver) new ResizeObserver(onResize).observe(stage);
+
+  // ---- the strip: tap a kind, then tap the map (as often as you like); or drag one on ----
+  let armed = null;
+  function arm(kind) {
+    if (armed && isRoadKind(armed) && kind !== armed) finishDraft();
+    armed = kind;
+    stage.classList.toggle("armed", !!kind);
+    for (const b of strip.children) b.classList.toggle("armed", b.dataset.kind === kind);
+    hint.hidden = !kind;
+    hintUndo.hidden = hintFinish.hidden = !(kind && isRoadKind(kind));
+    if (kind && isRoadKind(kind)) hintText.textContent = `Tap along the ${KIND_NAME[kind].toLowerCase()}, then Finish.`;
+    else if (kind) hintText.textContent = `Tap the map to place a ${KIND_NAME[kind].toLowerCase()}. Tap the icon again to stop.`;
+  }
+  for (const [k, name] of KINDS) {
+    if (k === "gap") { const g = document.createElement("div"); g.className = "pal gap"; strip.appendChild(g); continue; }
+    const b = document.createElement("button");
+    b.className = "pal"; b.dataset.kind = k; b.type = "button";
+    b.innerHTML = glyph(k) + `<span>${name}</span>`;
+    let down = null;
+    b.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, drag: false }; b.setPointerCapture(e.pointerId); });
+    b.addEventListener("pointermove", (e) => {
+      if (!down || isRoadKind(k)) return;
+      if (!down.drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) { down.drag = true; ghost.innerHTML = glyph(k); ghost.style.display = "block"; }
+      if (down.drag) { ghost.style.left = (e.clientX - 18) + "px"; ghost.style.top = (e.clientY - 18) + "px"; }
+    });
+    b.addEventListener("pointerup", (e) => {
+      if (!down) return;
+      if (down.drag) {
+        ghost.style.display = "none";
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        if (under && stage.contains(under)) { const p = toMap(e.clientX, e.clientY); addMark(k, p.x, p.y); }
+      } else arm(armed === k ? null : k);
+      down = null;
+    });
+    b.addEventListener("pointercancel", () => { down = null; ghost.style.display = "none"; });
+    strip.appendChild(b);
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea, select")) return;
+    if (e.key === "Escape") { arm(null); select(null); listbox.hidden = true; }
+    if (e.key === "Enter" && draft) finishDraft();
+    if ((e.key === "Delete" || e.key === "Backspace") && selected) removeSelected();
+    if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (draft) undoPoint(); else undo(); }
+  });
+
+  // ---- roads: tap points, finish; drawn as lines on the map ----
+  const roads = {};
+  let draft = null;
+  function draftPoint(x, y) {
+    if (!draft) draft = { kind: armed, pts: [] };
+    draft.pts.push(Math.round(Math.max(0, Math.min(W, x))), Math.round(Math.max(0, Math.min(H, y))));
+    hintText.textContent = draft.pts.length < 4 ? "Tap the next point." : `${draft.pts.length / 2} points. Tap on, or Finish.`;
+    renderRoads();
+  }
+  function undoPoint() { if (!draft) return; draft.pts.splice(-2, 2); if (!draft.pts.length) draft = null; renderRoads(); }
+  function finishDraft() {
+    if (!draft) return;
+    const d = draft; draft = null;
+    if (d.pts.length >= 4) {
+      const id = newId();
+      roads[id] = { kind: d.kind, pts: d.pts, label: "", notes: "", created: Date.now() };
+      renderAll(); save("roads", id, roads[id], true);
+    } else renderRoads();
+    hintText.textContent = `Tap along the next ${KIND_NAME[armed] ? KIND_NAME[armed].toLowerCase() : "road"}, or tap the icon to stop.`;
+  }
+  hintUndo.addEventListener("click", undoPoint);
+  hintFinish.addEventListener("click", finishDraft);
+  function pathOf(pts) { let s = ""; for (let i = 0; i < pts.length; i += 2) s += (i ? " L" : "M") + pts[i] + " " + pts[i + 1]; return s; }
+  function renderRoads() {
+    let s = "";
+    const ids = Object.keys(roads).sort((a, b) => roads[a].created - roads[b].created);
+    for (const id of ids) {
+      const r = roads[id], d = pathOf(r.pts);
+      s += `<path class="road ${r.kind}${selected && selected.col === "roads" && selected.id === id ? " sel" : ""}" d="${d}"/><path class="hit" data-id="${id}" d="${d}"/>`;
+    }
+    if (draft) {
+      s += `<path class="draft" d="${pathOf(draft.pts)}"/>`;
+      for (let i = 0; i < draft.pts.length; i += 2) s += `<circle cx="${draft.pts[i]}" cy="${draft.pts[i + 1]}"/>`;
+    }
+    roadsEl.innerHTML = s;
+    apply();
+  }
+
+  // ---- the marks ----
+  const marks = {};
+  let selected = null; // {col: "marks"|"roads", id}
+  function placeEl(id) {
+    const m = marks[id];
+    let el = marksEl.querySelector(`.mark[data-id="${id}"]`);
+    if (!m) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "mark"; el.dataset.id = id;
+      el.innerHTML = `<div class="hit"></div><div class="pin"></div><div class="tag"></div>`;
+      marksEl.appendChild(el);
+    }
+    el.style.setProperty("--x", m.x + "px"); el.style.setProperty("--y", m.y + "px");
+    el.querySelector(".pin").innerHTML = glyph(m.kind);
+    el.querySelector(".tag").textContent = m.label || "";
+    el.classList.toggle("sel", !!selected && selected.col === "marks" && selected.id === id);
+  }
+  function renderAll() {
+    for (const el of [...marksEl.children]) if (!marks[el.dataset.id]) el.remove();
+    for (const id in marks) placeEl(id);
+    renderRoads();
+    const n = Object.keys(marks).length, nr = Object.keys(roads).length;
+    $("count").textContent = n + (n === 1 ? " mark" : " marks") + (nr ? `, ${nr} road${nr === 1 ? "" : "s"}` : "");
+    renderList();
+  }
+  function renderList() {
+    listbox.innerHTML = "";
+    const order = (c) => (a, b) => (c[a].label || "~").localeCompare(c[b].label || "~") || c[a].kind.localeCompare(c[b].kind) || c[a].created - c[b].created;
+    const rows = [...Object.keys(marks).sort(order(marks)).map((id) => ["marks", id]), ...Object.keys(roads).sort(order(roads)).map((id) => ["roads", id])];
+    if (!rows.length) { listbox.innerHTML = '<div class="empty">Nothing placed yet.</div>'; return; }
+    for (const [col, id] of rows) {
+      const m = col === "marks" ? marks[id] : roads[id];
+      const b = document.createElement("button"); b.type = "button";
+      b.innerHTML = glyph(m.kind) + `<span class="n"></span><span class="k"></span>`;
+      b.querySelector(".n").textContent = m.label || "(unnamed)";
+      b.querySelector(".k").textContent = KIND_NAME[m.kind] || m.kind;
+      b.addEventListener("click", () => { centreOn(col, id); select(col, id); listbox.hidden = true; });
+      listbox.appendChild(b);
+    }
+  }
+  function centreOn(col, id) {
+    const m = col === "marks" ? marks[id] : roads[id]; if (!m) return;
+    const r = stage.getBoundingClientRect();
+    const x = col === "marks" ? m.x : m.pts[0], y = col === "marks" ? m.y : m.pts[1];
+    if (z < 0.5) z = 0.5;
+    tx = r.width / 2 - x * z; ty = r.height * 0.4 - y * z; apply();
+  }
+  // The clean map with the drawn roads laid over it, or the annotated draft (its own roads and notes).
+  let onDraft = false;
+  $("toggle-draft").addEventListener("click", () => {
+    onDraft = !onDraft;
+    $("map").src = onDraft ? "draft.png" : "map.png";
+    stage.classList.toggle("draft", onDraft);
+    $("toggle-draft").textContent = onDraft ? "Clean" : "Draft";
+  });
+  $("toggle-list").addEventListener("click", () => { listbox.hidden = !listbox.hidden; if (!listbox.hidden) select(null); });
+
+  // ---- the sheet for the chosen mark or road ----
+  function fillKinds(list) { fKind.innerHTML = ""; for (const [k, n] of list) { const o = document.createElement("option"); o.value = k; o.textContent = n; fKind.appendChild(o); } }
+  for (const [k, n] of HOLDERS) { const o = document.createElement("option"); o.value = k; o.textContent = n; fHolder.appendChild(o); }
+  for (const [k, n] of FOUNDERS) { const o = document.createElement("option"); o.value = k; o.textContent = n; fFounders.appendChild(o); }
+  function current() { return selected ? (selected.col === "marks" ? marks[selected.id] : roads[selected.id]) : null; }
+  function select(col, id, focus) {
+    selected = col && id && (col === "marks" ? marks[id] : roads[id]) ? { col, id } : null;
+    sheet.hidden = !selected;
+    $("ron").style.display = "none";
+    for (const el of marksEl.children) el.classList.toggle("sel", !!selected && selected.col === "marks" && el.dataset.id === selected.id);
+    renderRoads();
+    if (!selected) return;
+    const m = current();
+    sheet.classList.toggle("road", col === "roads");
+    fillKinds(col === "roads" ? ROAD_KINDS : KINDS.filter((k) => k[1] && !isRoadKind(k[0])));
+    $("f-people").hidden = !(col === "marks" && SETTLEMENT.has(m.kind));
+    $("f-build").hidden = !(col === "marks" && SETTLEMENT.has(m.kind));
+    if (col === "marks") countPeople();
+    fKind.value = m.kind; fLabel.value = m.label || ""; fHolder.value = m.holder || ""; fFounders.value = m.founders || ""; fNotes.value = m.notes || "";
+    const x = col === "marks" ? m.x : m.pts[0], y = col === "marks" ? m.y : m.pts[1];
+    fCoords.textContent = col === "marks"
+      ? `px ${Math.round(x)}, ${Math.round(y)} · ${(x * PX_M / 1000).toFixed(1)} km east, ${(y * PX_M / 1000).toFixed(1)} km south`
+      : `${m.pts.length / 2} points · ${(roadLength(m.pts) * PX_M / 1000).toFixed(1)} km`;
+    // Keep the chosen mark in view above the sheet (on a phone the sheet covers the bottom half).
+    const sr = sheet.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    const sy = st.top + ty + y * z, sx = st.left + tx + x * z;
+    const roomBottom = (sr.width > st.width * 0.7) ? sr.top : st.bottom;
+    const roomRight = (sr.width > st.width * 0.7) ? st.right : sr.left;
+    if (sy > roomBottom - 50) ty += (roomBottom - 70) - sy;
+    if (sy < st.top + 90) ty += (st.top + 110) - sy;
+    if (sx > roomRight - 40) tx += (roomRight - 60) - sx;
+    if (sx < st.left + 30) tx += (st.left + 50) - sx;
+    apply();
+    if (focus) fLabel.focus();
+  }
+  function roadLength(p) { let l = 0; for (let i = 2; i < p.length; i += 2) l += Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]); return l; }
+  let editTimer = null;
+  function editChanged() {
+    const m = current(); if (!m) return;
+    m.kind = fKind.value; m.label = fLabel.value.trim(); m.notes = fNotes.value.trim();
+    if (selected.col === "marks") { m.holder = fHolder.value; m.founders = fFounders.value; }
+    if (selected.col === "marks") placeEl(selected.id); else renderRoads();
+    renderList();
+    clearTimeout(editTimer);
+    const { col, id } = selected;
+    const fields = col === "marks" ? { kind: m.kind, label: m.label, holder: m.holder, founders: m.founders || "", notes: m.notes } : { kind: m.kind, label: m.label, notes: m.notes };
+    editTimer = setTimeout(() => save(col, id, fields), 400);
+  }
+  fKind.addEventListener("change", editChanged); fHolder.addEventListener("change", editChanged); fFounders.addEventListener("change", editChanged);
+  fLabel.addEventListener("input", editChanged); fNotes.addEventListener("input", editChanged);
+  fLabel.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); fLabel.blur(); select(null); } });
+  $("f-done").addEventListener("click", () => select(null));
+  $("f-delete").addEventListener("click", removeSelected);
+
+  // ---- the store: shared, saved, readable by Claude; the page works without it ----
+  let db = null, cols = null, canWrite = true;
+  const pending = {};
+  const undoStack = [];
+  function newId() { return "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function addMark(kind, x, y) {
+    const id = newId();
+    marks[id] = { kind, x: Math.max(0, Math.min(W, x)), y: Math.max(0, Math.min(H, y)), label: "", holder: "", founders: "", notes: "", created: Date.now() };
+    renderAll(); select("marks", id, false);
+    save("marks", id, marks[id], true);
+  }
+  function removeSelected() {
+    if (!selected) return;
+    const { col, id } = selected, set = col === "marks" ? marks : roads;
+    if (!set[id]) return;
+    undoStack.push({ col, id, data: set[id] }); if (undoStack.length > 20) undoStack.shift();
+    delete set[id]; select(null);
+    renderAll();
+    if (cols && canWrite) cols[col].doc(id).delete().then(() => say("Removed. Ctrl+Z puts it back."), fail); else say("Removed.");
+  }
+  function undo() {
+    const u = undoStack.pop(); if (!u) return;
+    (u.col === "marks" ? marks : roads)[u.id] = u.data; renderAll(); select(u.col, u.id);
+    save(u.col, u.id, u.data, true);
+  }
+  async function save(col, id, fields, whole) {
+    if (!cols || !canWrite) { say(db ? "You can't change this map's marks." : "Not saved: open this page signed in to keep marks.", true); return; }
+    const key = col + "/" + id, set = col === "marks" ? marks : roads;
+    if (pending[key]) { pending[key] = { fields: Object.assign(pending[key].fields, fields), whole: pending[key].whole || whole }; return; }
+    pending[key] = { fields, whole };
+    try {
+      if (whole) await cols[col].doc(id).set(set[id] || fields); else await cols[col].doc(id).update(fields);
+      say("Saved.");
+    } catch (e) { fail(e); }
+    const again = pending[key]; delete pending[key];
+    if (again && set[id] && (again.whole !== whole || JSON.stringify(again.fields) !== JSON.stringify(fields))) save(col, id, again.fields, again.whole);
+  }
+  function fail(e) {
+    if (e && e.code === "invalid_argument") { canWrite = false; say("You can't change this map's marks (read only).", true); }
+    else if (e && e.code === "quota_exceeded") say("The store is full: remove some marks.", true);
+    else say("Couldn't save: " + (e && e.message ? e.message : "try again"), true);
+  }
+  function editing(col, id) { return selected && selected.col === col && selected.id === id && (fLabel.matches(":focus") || fNotes.matches(":focus")); }
+  function applyMarks(snap) {
+    const seen = new Set();
+    for (const d of snap.docs) {
+      const v = d.data(); if (!v) continue;
+      seen.add(d.id);
+      if ((lift && lift.id === d.id) || editing("marks", d.id)) continue;
+      marks[d.id] = { kind: KIND_NAME[v.kind] && !isRoadKind(v.kind) ? String(v.kind) : "other", x: Number(v.x) || 0, y: Number(v.y) || 0, label: String(v.label || ""), holder: String(v.holder || ""), founders: String(v.founders || ""), notes: String(v.notes || ""), created: Number(v.created) || 0 };
+    }
+    for (const id in marks) if (!seen.has(id) && !pending["marks/" + id]) delete marks[id];
+    renderAll();
+    if (selected && selected.col === "marks" && !marks[selected.id]) select(null);
+    say(snap.empty && !Object.keys(roads).length ? "Nothing placed yet: pick an icon below and tap the map." : (snap.metadata.fromCache ? "Loading…" : ""));
+  }
+  function applyRoads(snap) {
+    const seen = new Set();
+    for (const d of snap.docs) {
+      const v = d.data(); if (!v || !Array.isArray(v.pts)) continue;
+      seen.add(d.id);
+      if (editing("roads", d.id)) continue;
+      roads[d.id] = { kind: isRoadKind(v.kind) ? String(v.kind) : "road", pts: v.pts.map(Number), label: String(v.label || ""), notes: String(v.notes || ""), created: Number(v.created) || 0 };
+    }
+    for (const id in roads) if (!seen.has(id) && !pending["roads/" + id]) delete roads[id];
+    renderAll();
+    if (selected && selected.col === "roads" && !roads[selected.id]) select(null);
+  }
+
+  // ---- a store of this browser's own, with the shape of the artifact's db, for the page as a
+  //      site (github.io) and for working with no signal: collection(name).doc(id).set/update/
+  //      delete/get and collection.onSnapshot, kept in localStorage, seeded once from the data
+  //      files beside the page. ----
+  function localDb() {
+    const KEYP = "gaht:db:";
+    const load = (col) => { try { return JSON.parse(localStorage.getItem(KEYP + col) || "{}"); } catch (e) { return {}; } };
+    const keep = (col, docs) => { try { localStorage.setItem(KEYP + col, JSON.stringify(docs)); } catch (e) { say("This browser's storage is full: export your work.", true); } };
+    const listeners = {};
+    const emit = (col) => { const docs = load(col); const snap = { empty: !Object.keys(docs).length, metadata: { fromCache: false }, docs: Object.keys(docs).map((id) => ({ id, data: () => docs[id] })) }; for (const cb of listeners[col] || []) cb(snap); };
+    return {
+      local: true,
+      seed(col, docs) { if (Object.keys(load(col)).length) return false; keep(col, docs); emit(col); return true; },
+      collection(col) {
+        return {
+          doc(id) {
+            return {
+              async set(data) { const d = load(col); d[id] = data; keep(col, d); emit(col); },
+              async update(fields) { const d = load(col); d[id] = Object.assign(d[id] || {}, fields); keep(col, d); emit(col); },
+              async delete() { const d = load(col); delete d[id]; keep(col, d); emit(col); },
+              async get() { const d = load(col); const v = d[id]; return { exists: !!v, data: () => v }; },
+            };
+          },
+          onSnapshot(cb) { (listeners[col] = listeners[col] || []).push(cb); setTimeout(() => emit(col), 0); return () => {}; },
+        };
+      },
+    };
+  }
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register("sw.js").catch(() => {});
+  (async () => {
+    try {
+      db = await window.claude?.use?.("db");
+      const user = await window.claude?.use?.("user");
+      if (user && typeof user.can === "function") { const w = await user.can("data.write"); if (w === false) canWrite = false; }
+    } catch (e) { db = null; }
+    if (!db) {
+      // Not on claude.ai: this browser's own store, seeded from the data files beside the page.
+      db = localDb(); canWrite = true;
+      try {
+        const r = await fetch("data/marks-export.json", { cache: "no-store" });
+        if (r.ok) { const ex = await r.json(); const docs = {}; for (const m of ex.marks || []) docs[m.id] = { kind: m.kind, label: m.label || "", holder: m.holder || "", founders: m.founders || "", notes: m.notes || "", x: m.px[0], y: m.px[1], created: m.created || 0 }; if (db.seed("marks", docs)) say("Your marks, from the repo."); }
+      } catch (e) {}
+      try {
+        const r = await fetch("data/people-export.json", { cache: "no-store" });
+        if (r.ok) { const ex = await r.json(); db.seed("people", ex.people || {}); db.seed("crowd", ex.crowd || {}); }
+      } catch (e) {}
+    }
+    cols = { marks: db.collection("marks"), roads: db.collection("roads"), people: db.collection("people"), crowd: db.collection("crowd") };
+    cols.marks.onSnapshot(applyMarks, (e) => say("Lost touch with the store: " + (e.message || e.code), true));
+    cols.roads.onSnapshot(applyRoads, (e) => say("Lost touch with the store: " + (e.message || e.code), true));
+    cols.people.onSnapshot(applyPeople, (e) => say("Lost touch with the store: " + (e.message || e.code), true));
+    cols.crowd.onSnapshot(applyCrowd, (e) => say("Lost touch with the store: " + (e.message || e.code), true));
+  })();
+
+  // ---- people: the roster of a place (the NPC tool, docs/authored-people.md) ----
+  const PEOPLES = [["Roduro", "Roduro"], ["Qotiro", "Qotiro"], ["Horaro", "Horaro"], ["Tadoro", "\u1e6ca\u1e0doro"]];
+  const SEXES = [["Man", "Man"], ["Woman", "Woman"]];
+  const JOBS = ["Farmer", "Fisher", "Forager", "Woodcutter", "StoneTender", "Cook", "Runner", "Merchant", "Caravaner", "Innkeeper", "Guard", "Official", "Priest", "Healer", "Teacher", "Exchanger", "Arbiter", "Labourer", "Drifter", "KelpGatherer", "Boatwright", "Smith", "Armourer", "Alchemist", "Scribe", "Weaver", "Tanner", "Leatherworker", "Tailor", "Woodworker", "CharcoalBurner", "Carpenter", "Mason", "None"];
+  const JOB_NAME = (j) => j.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace("None", "No trade");
+  const WEALTH = [["Destitute", "Destitute"], ["Poor", "Poor"], ["Comfortable", "Comfortable"], ["Rich", "Rich"], ["VeryRich", "Very rich"]];
+  // (The sim's own traits: honour is open ways (high) or covert (low); asks is how readily they ask an outsider for help.)
+  const TRAITS = [["wanderlust", "Wanderlust"], ["boldness", "Boldness"], ["sociability", "Sociability"], ["patience", "Patience"], ["honour", "Honour"], ["asks", "Asks for help"]];
+  const LEVELS = [["", "roll"], ["0.12", "very low"], ["0.3", "low"], ["0.5", "middling"], ["0.7", "high"], ["0.88", "very high"]];
+  const REL_KINDS = ["Spouse", "Child", "Parent", "Sibling", "Rival", "Friend", "Lover", "Debtor", "Creditor"];
+  const SETTLEMENT = new Set(["capital", "city", "town", "village", "hamlet", "fort", "outpost", "imperial_fort", "warden_outpost", "qotiro_outpost", "highfolk_hold", "stilt_village", "bandit_camp", "camp", "port", "temple", "mine", "quarry", "lumber", "lookout", "ruin", "shrine", "other"]);
+  const WANDERERS = "wanderers";
+  const people = {}, crowd = {};
+  let place = null, editPid = null;
+  const peopleEl = $("people"), pList = $("p-list"), pForm = $("p-form"), pRoster = $("p-roster"), pCrowd = $("p-crowd");
+  const slug = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "x";
+  // The game's key for a mark (grounds/index.json, written by the game beside the land under
+  // each mark): it stays with the mark even when the label changes or two labels match. A mark
+  // the game hasn't seen yet falls back to its label.
+  let GAME_KEYS = {};
+  fetch("grounds/index.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : {})).then((k) => { GAME_KEYS = k || {}; }).catch(() => {});
+  function townKey(id) { if (id === WANDERERS) return WANDERERS; if (GAME_KEYS[id] && GAME_KEYS[id].key) return GAME_KEYS[id].key; const m = marks[id]; return m ? (slug(m.label) === "x" ? "mark_" + id : slug(m.label)) : "mark_" + id; }
+  function placeName(id) { if (id === WANDERERS) return "Wanderers (no place)"; const m = marks[id]; return m ? (m.label || KIND_NAME[m.kind] || "a place") : "a place"; }
+  function fill(sel, list, blank) { sel.innerHTML = ""; if (blank) { const o = document.createElement("option"); o.value = ""; o.textContent = blank; sel.appendChild(o); } for (const [k, n] of list) { const o = document.createElement("option"); o.value = k; o.textContent = n; sel.appendChild(o); } }
+  fill($("c-people"), PEOPLES); fill($("c-sex"), SEXES); fill($("c-job"), JOBS.map((j) => [j, JOB_NAME(j)])); fill($("c-wealth"), WEALTH); fill($("c-faction"), HOLDERS.slice(1), "none"); fill($("c-rel-kind"), REL_KINDS.map((k) => [k, k]));
+  for (const [k, n] of TRAITS) { const d = document.createElement("div"); d.innerHTML = `<label for="c-t-${k}">${n}</label><select id="c-t-${k}"></select>`; $("c-traits").appendChild(d); fill(d.querySelector("select"), LEVELS); }
+
+  function openPeople(id) {
+    place = id; editPid = null;
+    $("p-title").textContent = placeName(id) + " · people";
+    pForm.hidden = true; pRoster.hidden = false; $("export-out").style.display = "none";
+    peopleEl.hidden = false; select(null); listbox.hidden = true;
+    renderPeople();
+  }
+  function renderPeople() {
+    if (peopleEl.hidden) return;
+    pList.innerHTML = "";
+    const ids = Object.keys(people).filter((k) => people[k].mark === place).sort((a, b) => (people[a].name || "~").localeCompare(people[b].name || "~"));
+    if (!ids.length) pList.innerHTML = '<div class="empty">Nobody yet.</div>';
+    for (const id of ids) {
+      const c = people[id];
+      const b = document.createElement("button"); b.type = "button";
+      b.innerHTML = `<span class="n"></span><span class="k"></span>`;
+      b.querySelector(".n").textContent = c.name || "(unnamed)";
+      b.querySelector(".k").textContent = [PEOPLES.find((p) => p[0] === c.people)?.[1], JOB_NAME(c.job || "None")].filter(Boolean).join(" · ");
+      b.addEventListener("click", () => openForm(id));
+      pList.appendChild(b);
+    }
+    // The crowd rows.
+    pCrowd.innerHTML = "";
+    const rows = (crowd[place] && crowd[place].rows) || [];
+    rows.forEach((r, i) => {
+      const d = document.createElement("div"); d.className = "row";
+      d.innerHTML = `<select></select><input type="number" min="0" max="500" step="1"><button class="danger" aria-label="Remove row">\u2715</button><div class="mix" hidden></div>`;
+      const sel = d.querySelector("select"); fill(sel, JOBS.filter((j) => j !== "None").map((j) => [j, JOB_NAME(j)])); sel.value = r.role || "Farmer";
+      const num = d.querySelector("input"); num.value = r.count || 0;
+      const mixEl = d.querySelector(".mix");
+      const mixBtn = document.createElement("button"); mixBtn.textContent = r.mix ? "Mix set" : "Mix: founders'"; mixBtn.style.gridColumn = "1 / -1"; mixBtn.style.minHeight = "36px";
+      d.appendChild(mixBtn);
+      const showMix = () => { mixEl.hidden = !r.mix; mixEl.innerHTML = ""; if (!r.mix) return; for (const [k, n] of PEOPLES) { const w = document.createElement("div"); w.innerHTML = `<label>${n}</label><input type="number" min="0" max="100" step="5">`; const inp = w.querySelector("input"); inp.value = Math.round((r.mix[k.toLowerCase()] || 0) * 100); inp.addEventListener("change", () => { r.mix[k.toLowerCase()] = Math.max(0, Number(inp.value) || 0) / 100; saveCrowd(); }); mixEl.appendChild(w); } };
+      mixBtn.addEventListener("click", () => { r.mix = r.mix ? null : { roduro: 0.4, qotiro: 0.2, horaro: 0.2, tadoro: 0.2 }; mixBtn.textContent = r.mix ? "Mix set (parts of a hundred)" : "Mix: founders'"; showMix(); saveCrowd(); });
+      showMix();
+      sel.addEventListener("change", () => { r.role = sel.value; saveCrowd(); });
+      num.addEventListener("change", () => { r.count = Math.max(0, Math.round(Number(num.value) || 0)); saveCrowd(); });
+      d.querySelector("button.danger").addEventListener("click", () => { rows.splice(i, 1); saveCrowd(); renderPeople(); });
+      pCrowd.appendChild(d);
+    });
+    if (!rows.length) pCrowd.innerHTML = '<div class="empty">No crowd rows yet: the game seeds this place as before.</div>';
+  }
+  function saveCrowd() {
+    if (!crowd[place]) crowd[place] = { rows: [] };
+    saveDoc("crowd", place, { rows: crowd[place].rows.map((r) => ({ role: r.role, count: r.count, mix: r.mix || null })) }, true);
+  }
+  $("p-crowd-add").addEventListener("click", () => { if (!crowd[place]) crowd[place] = { rows: [] }; crowd[place].rows.push({ role: "Farmer", count: 10, mix: null }); saveCrowd(); renderPeople(); });
+  $("p-back").addEventListener("click", () => { if (!pForm.hidden) { pForm.hidden = true; pRoster.hidden = false; editPid = null; renderPeople(); } else { peopleEl.hidden = true; place = null; } });
+  $("p-new").addEventListener("click", () => {
+    const id = newId();
+    people[id] = { mark: place, key: "", name: "", people: "Roduro", sex: "Man", job: "Farmer", wealth: "Comfortable", faction: "", sub: "", traits: {}, rels: [], background: "", importance: "", schedule: "", style: "", colours: "", marks: "", lines: false, created: Date.now() };
+    saveDoc("people", id, people[id], true);
+    openForm(id);
+  });
+  const cf = (k) => $("c-" + k);
+  function openForm(id) {
+    editPid = id; const c = people[id]; if (!c) return;
+    pRoster.hidden = true; pForm.hidden = false;
+    cf("name").value = c.name || ""; cf("people").value = c.people || "Roduro"; cf("sex").value = c.sex || "Man"; cf("job").value = c.job || "Farmer"; cf("wealth").value = c.wealth || "Comfortable"; cf("faction").value = c.faction || ""; cf("sub").value = c.sub || "";
+    for (const [k] of TRAITS) { const v = c.traits && c.traits[k]; cf("t-" + k).value = v == null ? "" : String(v); }
+    cf("background").value = c.background || ""; cf("importance").value = c.importance || ""; cf("schedule").value = c.schedule || ""; cf("style").value = c.style || ""; cf("colours").value = c.colours || ""; cf("marks").value = c.marks || ""; cf("lines").checked = !!c.lines;
+    renderRels(); renderLean();
+    peopleEl.querySelector(".body").scrollTop = 0;
+  }
+  function renderRels() {
+    const c = people[editPid]; if (!c) return;
+    const chips = $("c-rels"); chips.innerHTML = "";
+    (c.rels || []).forEach((r, i) => {
+      const who = people[r.to];
+      const d = document.createElement("span"); d.className = "chip";
+      d.innerHTML = `<span></span><button aria-label="Remove">\u2715</button>`;
+      d.querySelector("span").textContent = `${r.kind}: ${who ? (who.name || "(unnamed)") + " of " + placeName(who.mark) : "?"}`;
+      d.querySelector("button").addEventListener("click", () => { c.rels.splice(i, 1); formChanged(); renderRels(); });
+      chips.appendChild(d);
+    });
+    const others = Object.keys(people).filter((k) => k !== editPid).sort((a, b) => (people[a].name || "~").localeCompare(people[b].name || "~"));
+    fill($("c-rel-who"), others.map((k) => [k, (people[k].name || "(unnamed)") + " · " + placeName(people[k].mark)]), others.length ? "pick someone" : "nobody else yet");
+  }
+  $("c-rel-add").addEventListener("click", () => { const c = people[editPid]; const to = $("c-rel-who").value; if (!c || !to) return; c.rels = c.rels || []; c.rels.push({ to, kind: $("c-rel-kind").value }); formChanged(); renderRels(); });
+  // What would move them: a plain reading of their traits, people, wealth and trade,
+  // shown so the choices can be seen to add up. (The game works the real leanings out.)
+  function renderLean() {
+    const c = people[editPid]; if (!c) return;
+    const t = (k, d) => { const v = c.traits && c.traits[k]; return v == null ? d : Number(v); };
+    const out = [];
+    if (t("honour", 0.5) > 0.6) out.push("moved by honour and fair dealing"); else if (t("honour", 0.5) < 0.4) out.push("cold to appeals to honour");
+    if (c.wealth === "Destitute" || c.wealth === "Poor") out.push("moved by coin"); else if (c.wealth === "VeryRich") out.push("coin means little");
+    if (t("boldness", 0.5) < 0.4) out.push("moved by threats"); else if (t("boldness", 0.5) > 0.6) out.push("offended by threats");
+    if (t("sociability", 0.5) > 0.6) out.push("warms to friendliness"); else if (t("sociability", 0.5) < 0.4) out.push("cold to charm");
+    if (c.faction) out.push("moved by their faction's good");
+    if (["Priest", "Healer", "Teacher"].includes(c.job)) out.push("moved by the common good");
+    $("c-lean").textContent = out.length ? "Leanings, as it stands: " + out.join("; ") + "." : "Leanings: nothing marked yet.";
+  }
+  let formTimer = null;
+  function formChanged() {
+    const c = people[editPid]; if (!c) return;
+    c.name = cf("name").value.trim(); c.key = slug(c.name) === "x" ? "" : slug(c.name);
+    c.people = cf("people").value; c.sex = cf("sex").value; c.job = cf("job").value; c.wealth = cf("wealth").value; c.faction = cf("faction").value; c.sub = cf("sub").value.trim();
+    c.traits = {}; for (const [k] of TRAITS) { const v = cf("t-" + k).value; if (v !== "") c.traits[k] = Number(v); }
+    c.background = cf("background").value.trim(); c.importance = cf("importance").value.trim(); c.schedule = cf("schedule").value.trim(); c.style = cf("style").value.trim(); c.colours = cf("colours").value.trim(); c.marks = cf("marks").value.trim(); c.lines = cf("lines").checked;
+    renderLean();
+    clearTimeout(formTimer); const id = editPid;
+    formTimer = setTimeout(() => saveDoc("people", id, people[id], true), 400);
+  }
+  for (const k of ["name", "people", "sex", "job", "wealth", "faction", "sub", "background", "importance", "schedule", "style", "colours", "marks", "lines"]) { cf(k).addEventListener("input", formChanged); cf(k).addEventListener("change", formChanged); }
+  for (const [k] of TRAITS) cf("t-" + k).addEventListener("change", formChanged);
+  $("c-done").addEventListener("click", () => { clearTimeout(formTimer); const id = editPid; if (id && people[id]) saveDoc("people", id, people[id], true); pForm.hidden = true; pRoster.hidden = false; editPid = null; renderPeople(); });
+  $("c-delete").addEventListener("click", () => { const id = editPid; if (!id || !people[id]) return; delete people[id]; for (const o of Object.values(people)) { o.rels = (o.rels || []).filter((r) => r.to !== id); } if (cols && canWrite) cols.people.doc(id).delete().catch(fail); pForm.hidden = true; pRoster.hidden = false; editPid = null; renderPeople(); });
+  $("f-people").addEventListener("click", () => { if (selected && selected.col === "marks") openPeople(selected.id); });
+  // The place builder (build.html): the ground, buildings and props of one place, top down.
+  $("f-build").addEventListener("click", () => { if (selected && selected.col === "marks") location.href = "build.html?key=" + encodeURIComponent(townKey(selected.id)) + "&name=" + encodeURIComponent(placeName(selected.id)); });
+  $("wanderers").addEventListener("click", () => openPeople(WANDERERS));
+  // A generic saver for the two extra collections (the marks keep theirs).
+  async function saveDoc(col, id, data, whole) {
+    if (!cols || !canWrite) { say(db ? "You can't change this map's people." : "Not saved: open this page signed in to keep people.", true); return; }
+    try { if (whole) await cols[col].doc(id).set(data); else await cols[col].doc(id).update(data); say("Saved."); } catch (e) { fail(e); }
+  }
+  function applyPeople(snap) {
+    const seen = new Set();
+    for (const d of snap.docs) {
+      const v = d.data(); if (!v) continue; seen.add(d.id);
+      if (editPid === d.id) continue;
+      people[d.id] = Object.assign({ mark: WANDERERS, rels: [], traits: {} }, v);
+    }
+    for (const id in people) if (!seen.has(id) && id !== editPid) delete people[id];
+    renderPeople(); countPeople();
+  }
+  function applyCrowd(snap) {
+    for (const d of snap.docs) { const v = d.data(); if (v && Array.isArray(v.rows)) crowd[d.id] = { rows: v.rows.map((r) => ({ role: r.role, count: Number(r.count) || 0, mix: r.mix || null })) }; }
+    renderPeople();
+  }
+  function countPeople() {
+    if (!selected || selected.col !== "marks") return;
+    const n = Object.values(people).filter((p) => p.mark === selected.id).length;
+    const rows = (crowd[selected.id] && crowd[selected.id].rows) || [];
+    const crowdN = rows.reduce((a, r) => a + (r.count || 0), 0);
+    $("f-people").textContent = "People" + (n || crowdN ? ` (${n} named${crowdN ? ", " + crowdN + " in the crowd" : ""})` : "");
+  }
+
+  // ---- everything as RON, for the game's world files ----
+  function ron() {
+    const camel = (k) => k.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+    const q = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    const by = (c) => Object.keys(c).sort((a, b) => (c[a].created || 0) - (c[b].created || 0));
+    const ms = by(marks).map((id) => { const m = marks[id]; return `        (key: ${q(townKey(id))}, label: ${q(m.label || "")}, px: (${Math.round(m.x)}, ${Math.round(m.y)}), kind: ${camel(m.kind)}, holder: ${q(m.holder || "")}, founders: ${m.founders || "None"}, notes: ${q(m.notes || "")}),`; });
+    const rs = by(roads).map((id) => { const r = roads[id]; const pts = []; for (let i = 0; i < r.pts.length; i += 2) pts.push(`(${r.pts[i]}, ${r.pts[i + 1]})`); return `        (label: ${q(r.label || "")}, kind: ${camel(r.kind)}, notes: ${q(r.notes || "")}, px: [${pts.join(", ")}]),`; });
+    let out = "// From the Map Marks page, " + new Date().toISOString().slice(0, 10) + ": 26.5 m a pixel on the 2576 x 1932 map.\n// ---- assets/world/towns.ron (marks and roads)\n(\n    marks: [\n" + ms.join("\n") + "\n    ],\n    roads: [\n" + rs.join("\n") + "\n    ],\n)\n";
+    // One roster per place that has people or crowd rows (docs/authored-people.md).
+    const places = new Set([...Object.values(people).map((p) => p.mark), ...Object.keys(crowd).filter((k) => crowd[k].rows.length)]);
+    const keyOf = (id) => { const c = people[id]; return c.key || "p_" + id; };
+    for (const pl of [...places].sort()) {
+      const key = townKey(pl);
+      const chars = by(Object.fromEntries(Object.entries(people).filter(([, p]) => p.mark === pl))).map((id) => {
+        const c = people[id];
+        const tr = TRAITS.map(([k]) => `${k}: ${c.traits && c.traits[k] != null ? "Some(" + c.traits[k] + ")" : "None"}`).join(", ");
+        const rels = (c.rels || []).filter((r) => people[r.to]).map((r) => `(to: ${q(keyOf(r.to))}, kind: ${r.kind})`).join(", ");
+        const colours = c.colours ? c.colours.split(",").map((x) => q(x.trim())).filter((x) => x !== '""').join(", ") : "";
+        const marksTxt = c.marks ? c.marks.split(",").map((x) => q(x.trim())).filter((x) => x !== '""').join(", ") : "";
+        return `        (\n            key: ${q(keyOf(id))}, name: ${q(c.name || "")}, people: ${c.people || "Roduro"}, sex: ${c.sex || "Man"},\n            profession: ${c.job || "None"}, faction: ${c.faction ? "Some(" + q(c.faction) + ")" : "None"}, sub_faction: ${c.sub ? "Some(" + q(c.sub) + ")" : "None"}, wealth: ${c.wealth || "Comfortable"},\n            traits: (${tr}),\n            home: None, workplace: None,\n            relations: [${rels}],\n            background: ${q(c.background || "")},\n            importance: ${q(c.importance || "")},\n            schedule: [], schedule_note: ${q(c.schedule || "")},\n            appearance: (style: ${q(c.style || "")}, colours: [${colours}], marks: [${marksTxt}]),\n            lines: ${c.lines ? "Some(" + q(keyOf(id)) + ")" : "None"},\n        ),`;
+      });
+      const rows = ((crowd[pl] && crowd[pl].rows) || []).map((r) => `        (role: ${r.role}, count: ${r.count || 0}, mix: ${r.mix ? "Some((roduro: " + (r.mix.roduro || 0) + ", qotiro: " + (r.mix.qotiro || 0) + ", horaro: " + (r.mix.horaro || 0) + ", tadoro: " + (r.mix.tadoro || 0) + "))" : "None"}),`);
+      out += `\n// ---- assets/world/people/${key}.ron (${placeName(pl)})\n(\n    town: ${q(key)},\n    ruler: None,\n    characters: [\n${chars.join("\n")}\n    ],\n    crowd_rows: [\n${rows.join("\n")}\n    ],\n    crowd: [],\n)\n`;
+    }
+    return out;
+  }
+  async function exportAll() {
+    const text = ron();
+    const ta = $("export-out"); ta.value = text;
+    let copied = false, saved = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch (e) {}
+    // The file itself, through the page's download capability (the viewer asks first).
+    try {
+      const dl = await window.claude?.use?.("downloads");
+      if (dl) { await dl.save({ filename: "gahturiyu-world-" + new Date().toISOString().slice(0, 10) + ".txt", data: text }); saved = true; }
+    } catch (e) {}
+    ta.style.display = "block"; ta.focus(); ta.select();
+    say(saved ? (copied ? "Exported: saved as a text file, and copied." : "Exported: saved as a text file.") : (copied ? "Exported: copied; the text is below too." : "Exported: the text is below to copy."));
+  }
+  $("p-export").addEventListener("click", exportAll);
+  $("p-export2").addEventListener("click", exportAll);
+  $("copy").addEventListener("click", async () => {
+    const text = ron();
+    try { await navigator.clipboard.writeText(text); say("Copied as RON."); }
+    catch (e) { const ta = $("ron"); ta.value = text; sheet.hidden = false; ta.style.display = "block"; ta.focus(); ta.select(); say("Select and copy the text below."); }
+  });
+
+  // ---- a first look ----
+  const img = $("map");
+  img.addEventListener("load", () => { if (!fitted) fit(); });
+  fit();
+  renderAll();
+})();
+</script>
