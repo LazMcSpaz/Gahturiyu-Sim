@@ -778,8 +778,9 @@ impl World {
         let clear = |p: V2, size: f32, placed: &[Workplace]| {
             town.buildings.iter().all(|b| b.pos.dist(p) > (b.size + size) * 0.6 + 3.0) && placed.iter().all(|o| o.pos.dist(p) > (o.kind.size() + size) * 0.55 + 2.5)
         };
-        // In-town places spiral out from the hearth, between the homes.
-        let mut ring = 12.0f32;
+        // In-town places spiral out from the hearth, between the homes; for
+        // a drawn town, outside what was drawn.
+        let mut ring = self.plan_of(t).map(|p| p.extent() + 8.0).unwrap_or(12.0);
         let mut ang = r.f32() * std::f32::consts::TAU;
         let stilts_at = town.stilts;
         let offshore_village = stilts_at.map(|st| {

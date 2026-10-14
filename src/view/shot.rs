@@ -614,7 +614,7 @@ impl Shot {
         if let Some(key) = &self.goto {
             match gahturiyu_sim::sim::atlas::town_marks().iter().position(|m| m.key() == *key) {
                 Some(t) if t < world.settlements.len() => {
-                    let at = world.settlements[t].pos.add(V2::new(25.0, 10.0));
+                    let at = world.settlements[t].pos.add(V2::new(4.0, 3.0));
                     world.teleport_squad(at);
                     world.step(0.001);
                 }

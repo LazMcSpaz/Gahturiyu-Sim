@@ -149,3 +149,21 @@ fn lazs_plans_read_and_name_real_variants_places_and_species() {
     let t = town_index("last_wave_outpost_southwest");
     assert_eq!(w.settlements[t].buildings.len(), 1 + plans.for_town("last_wave_outpost_southwest").unwrap().buildings.len());
 }
+
+#[test]
+fn the_drawn_woods_are_read_off_the_plan() {
+    let plans = Plans::load();
+    let w = worldgen::generate_with_plans(1, &Rosters::default(), &plans);
+    let t = town_index("last_wave_outpost_southwest");
+    let c = w.settlements[t].pos;
+    let at = |x: f32, y: f32| w.plan_woods_at(c.add(gahturiyu_sim::sim::geo::V2::new(x, y)));
+    // Open ground at the hearth; thick wood between the fletcher's and the temple.
+    assert_eq!(at(0.0, 0.0), Some(0.0), "the hearth stands on open ground");
+    let wood = at(-43.0, -43.0).expect("inside the drawing");
+    assert!(wood > 0.5, "wood {wood}");
+    assert!(at(400.0, 0.0).is_none(), "outside the drawing the land grows as usual");
+    for (x, y) in [(0.0, 0.0), (-43.0, -43.0), (60.0, 40.0)] {
+        let p = c.add(gahturiyu_sim::sim::geo::V2::new(x, y));
+        eprintln!("ground at ({x}, {y}): {:?}, height {:.0}, slope {:.2}, road {}, map class {:?}", w.terrain.ground(p), w.terrain.height(p), w.terrain.slope(p), w.terrain.on_road(p), atlas::atlas().class_at(p));
+    }
+}

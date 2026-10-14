@@ -51,8 +51,43 @@ pub struct Plan {
     pub buildings: Vec<PlanBuilding>,
     pub places: Vec<PlanPlace>,
     pub pens: Vec<PlanPen>,
+    /// The trees as drawn: where the woods stand and where it's open.
+    pub woods: Option<Woods>,
     /// What's drawn that nothing stands for yet.
     pub later: Vec<String>,
+}
+
+/// The drawing's trees as a coarse raster over the town: a digit 0..9 per
+/// cell, 0 open ground, 9 thick wood. Cell (0, 0) is the drawing's top left
+/// corner; `origin` is the cell (fractional) that is the town's centre.
+/// Inside the raster this is what grows (the land's own woods are ignored);
+/// outside it the land grows as usual.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct Woods {
+    /// Metres across a cell.
+    pub cell: f32,
+    pub origin: (f32, f32),
+    /// One string a row, one digit a cell.
+    pub rows: Vec<String>,
+}
+
+impl Woods {
+    /// How wooded the drawing is at an offset from the centre (metres east
+    /// and south), 0..1; None outside the drawing.
+    pub fn at(&self, off: V2) -> Option<f32> {
+        if self.cell <= 0.0 {
+            return None;
+        }
+        let i = (off.x / self.cell + self.origin.0).floor();
+        let j = (off.y / self.cell + self.origin.1).floor();
+        if i < 0.0 || j < 0.0 {
+            return None;
+        }
+        let row = self.rows.get(j as usize)?;
+        let d = row.as_bytes().get(i as usize)?;
+        Some((d.saturating_sub(b'0')).min(9) as f32 / 9.0)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -130,6 +165,14 @@ impl Plan {
     /// Sleeping places in all.
     pub fn room(&self) -> usize {
         self.buildings.iter().map(|b| b.room_for as usize).sum()
+    }
+
+    /// How far from the centre the drawn things reach (buildings, places, pens).
+    pub fn extent(&self) -> f32 {
+        let b = self.buildings.iter().map(|b| V2::new(b.at.0, b.at.1).len() + b.size * 0.5);
+        let p = self.places.iter().map(|p| V2::new(p.at.0, p.at.1).len() + p.kind.size() * 0.5);
+        let n = self.pens.iter().map(|p| V2::new(p.at.0, p.at.1).len() + 10.0);
+        b.chain(p).chain(n).fold(0.0, f32::max)
     }
 }
 
@@ -226,6 +269,19 @@ impl World {
     /// The plan a town was laid out from, if any.
     pub fn plan_of(&self, t: SettlementId) -> Option<&Plan> {
         self.plans.iter().find(|(id, _)| *id == t).map(|(_, p)| p)
+    }
+
+    /// How wooded a drawn town's ground is at `p` (0 open, 1 thick), or None
+    /// where no drawing says (the land's own woods). Drawing only reads it.
+    pub fn plan_woods_at(&self, p: V2) -> Option<f32> {
+        for (t, plan) in &self.plans {
+            let Some(w) = &plan.woods else { continue };
+            let c = self.settlements.get(*t as usize)?.pos;
+            if let Some(d) = w.at(p.sub(c)) {
+                return Some(d);
+            }
+        }
+        None
     }
 
     /// The workplaces a town's plan puts down, at their drawn places.

@@ -203,7 +203,8 @@ impl Clear {
         let r = half * 1.5;
         let near = |p: V2, extra: f32| p.dist(centre) < r + extra;
         Clear {
-            towns: w.settlements.iter().filter(|s| near(s.pos, s.radius() + TOWN_CLEAR)).map(|s| (s.pos, s.radius() + TOWN_CLEAR)).collect(),
+            // (A town laid out from a drawing keeps the trees it drew: `plan.rs`.)
+            towns: w.settlements.iter().filter(|s| w.plan_of(s.id).is_none() && near(s.pos, s.radius() + TOWN_CLEAR)).map(|s| (s.pos, s.radius() + TOWN_CLEAR)).collect(),
             buildings: w.settlements.iter().filter(|s| near(s.pos, s.reach + 20.0)).flat_map(|s| s.buildings.iter()).filter(|b| near(b.pos, b.size + BUILDING_CLEAR)).map(|b| (b.pos, b.size * 0.6 + BUILDING_CLEAR)).collect(),
             camps: w.camps.iter().map(|c| c.pos).filter(|p| near(*p, 30.0)).collect(),
             nodes: w.nodes.iter().map(|n| n.pos).filter(|p| near(*p, 5.0)).collect(),
@@ -218,6 +219,13 @@ fn smooth(a: f32, b: f32, x: f32) -> f32 {
     let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
+
+/// A drawn town's thickest wood: the chance of a tree in a tree cell, and
+/// of a bush in a bush cell, where the drawing is darkest.
+const DRAWN_TREE: f32 = 0.95;
+const DRAWN_BUSH: f32 = 0.35;
+/// Metres between trees in drawn woods (the usual wood is `TREE_GRID`).
+const DRAWN_GRID: f32 = 5.5;
 
 /// How wooded a place is, 0..1 (before ground and height).
 fn wood(w: &World, p: V2) -> f32 {
@@ -265,6 +273,10 @@ fn grass_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
 
 fn bush_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
     let Some(s) = spot(w, p) else { return false };
+    if let Some(d) = w.plan_woods_at(p) {
+        // Drawn woods, whatever the ground: undergrowth with the trees, none on the open ground.
+        return r.f32() < DRAWN_BUSH * d * density;
+    }
     if !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
         return false;
     }
@@ -278,13 +290,21 @@ fn bush_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
 /// 1 conifer).
 fn tree_at(w: &World, p: V2, r: &mut Rng, density: f32) -> Option<u8> {
     let s = spot(w, p)?;
-    if !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
+    let drawn = w.plan_woods_at(p);
+    // (Drawn woods grow whatever the ground: the drawing says so.)
+    if drawn.is_none() && !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
         return None;
     }
     let wd = wood(w, p);
-    let chance = (0.85 * wd + 0.025) * (1.0 - 0.95 * s.arid) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore);
-    let (m, add) = w.terrain.edits.plants_at(p)[2];
-    if r.f32() >= (chance * m + add * smooth(0.8, 0.5, s.slope)) * density {
+    let chance = match drawn {
+        // Drawn woods (`plan.rs`): trees where the drawing has them, none where it's open.
+        Some(d) => DRAWN_TREE * d,
+        None => {
+            let (m, add) = w.terrain.edits.plants_at(p)[2];
+            (0.85 * wd + 0.025) * (1.0 - 0.95 * s.arid) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore) * m + add * smooth(0.8, 0.5, s.slope)
+        }
+    };
+    if r.f32() >= chance * density {
         return None;
     }
     // Conifers up the slopes, broadleaf below, mixed between.
@@ -543,14 +563,32 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
     let mut far = Builder::new();
     let mut far_uv: Vec<[f32; 2]> = Vec::new();
     let mut far_corner: Vec<[f32; 2]> = Vec::new();
+    let kind = match layer {
+        Layer::Grass => 1,
+        Layer::Bush => 2,
+        Layer::Tree | Layer::Far => 3,
+    };
+    let mut cells: Vec<(V2, Rng)> = Vec::new();
     for j in j0..=j1 {
         for i in i0..=i1 {
-            let kind = match layer {
-                Layer::Grass => 1,
-                Layer::Bush => 2,
-                Layer::Tree | Layer::Far => 3,
-            };
-            let (p, mut r) = cell(w, kind, i, j, grid);
+            cells.push(cell(w, kind, i, j, grid));
+        }
+    }
+    // Drawn woods (`plan.rs`) are thicker than the land's: a finer grid of
+    // trees over them, on top of the usual one.
+    if matches!(layer, Layer::Tree | Layer::Far) && w.plans.iter().any(|(_, p)| p.woods.is_some()) {
+        let g = DRAWN_GRID;
+        for j in (y0 / g).floor() as i64..=((y0 + size) / g).floor() as i64 {
+            for i in (x0 / g).floor() as i64..=((x0 + size) / g).floor() as i64 {
+                let (p, r) = cell(w, 4, i, j, g);
+                if w.plan_woods_at(p).is_some() {
+                    cells.push((p, r));
+                }
+            }
+        }
+    }
+    for (p, mut r) in cells {
+        {
             if p.x < x0 || p.x >= x0 + size || p.y < y0 || p.y >= y0 + size || !clear.ok(p) {
                 continue;
             }
