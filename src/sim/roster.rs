@@ -310,7 +310,8 @@ impl Rosters {
     }
 }
 
-fn people_dir() -> Option<PathBuf> {
+/// The rosters folder, if there is one near the game or the source.
+pub fn people_dir() -> Option<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
     if let Ok(cwd) = std::env::current_dir() {
         roots.extend(cwd.ancestors().take(4).map(Path::to_path_buf));

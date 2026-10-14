@@ -1,0 +1,66 @@
+# One personal detail for a crowd member (the crowd filler, `sim/crowd.rs`):
+# a habit, a worry, a hobby, a small loss, that their talk can mention.
+# detail | tags | text
+# Tags: people=roduro|qotiro|horaro|tadoro, job=<job's name>. None: anyone.
+# Written in the third person, present tense, as a fact about them; the
+# dialogue turns it into their own words. Keep each small: nothing the
+# game would have to act on (no cousins, no named places).
+detail | | keeps bees on the roof
+detail | | counts coins twice, and then once more
+detail | | sings under their breath while working, badly
+detail | | is afraid of dogs and won't say so
+detail | | lost a tooth in a fall and is vain about the gap
+detail | | can't sleep when the wind is from the south
+detail | | has a bad knee that tells the weather
+detail | | collects stones with holes in them
+detail | | talks to the hearth when nobody's by
+detail | | never eats fish, and has a story about why
+detail | | owes a neighbour a favour and is in no hurry to pay it
+detail | | was once nearly married
+detail | | has a scar on the hand from a knife they swear was someone else's
+detail | | wakes before the dawn and resents everyone who doesn't
+detail | | keeps a tally of the days since it last rained
+detail | | hums the same four notes all day
+detail | | will not step on a threshold with the left foot
+detail | | has buried something and won't say what
+detail | | laughs at the wrong moment and knows it
+detail | | gives every stray cat a different name
+detail | | mends things that aren't broken
+detail | | is saving for a thing they've never told anyone about
+detail | | has a grudge against a bell
+detail | | cannot tell left from right under pressure
+detail | | once saw something in the dark on the road and stopped travelling at night
+detail | | keeps their mother's knife and won't use it
+detail | | whistles when lying
+detail | | likes the smell of tar and is embarrassed by it
+detail | | is the only one in the house who can read, and reads everything twice
+detail | | feeds the birds before themselves
+detail | people=roduro | talks to the stone of the house as if it were listening
+detail | people=roduro | measures every room by lying down in it
+detail | people=roduro | won't leave a wall half-grown overnight
+detail | people=qotiro | corrects other people's titles
+detail | people=qotiro | polishes the sun disc on the lintel every morning
+detail | people=qotiro | keeps the family's rank in a box under the bed
+detail | people=horaro | can't sleep away from the sound of water
+detail | people=horaro | reads the weather off the gulls and is usually wrong
+detail | people=horaro | mends nets for anyone, and charges nobody
+detail | people=tadoro | writes down what people say and reads it back to them
+detail | people=tadoro | has slept in a different house every season for years
+detail | people=tadoro | asks three questions for every one answered
+detail | job=farmer | argues with the crows and is losing
+detail | job=farmer | knows which cloud means rain and tells everyone
+detail | job=fisher and diver | has a lucky knot and a story for it
+detail | job=guard | counts the people through the gate and remembers the faces
+detail | job=guard | has never drawn the blade and prays not to
+detail | job=merchant | weighs with the left hand and watches you with the right
+detail | job=merchant | keeps a book of who owes what and has it by heart
+detail | job=cook | tastes everything twice and salts it a third time
+detail | job=priest | has doubts, kept in a drawer with the candles
+detail | job=healer | has lost a patient this year and talks about the weather instead
+detail | job=smith | burned a hand as a child and never flinches from the fire now
+detail | job=labourer and porter | lifts with the back, knows better, lifts with the back
+detail | job=drifter | has walked every road twice and remembers none of them
+detail | job=innkeeper | knows every guest's story and tells none of them
+detail | job=scribe | has ink under the nails that won't wash out
+detail | job=teacher | has one pupil who was better, and says so
+detail | job=caravaner | has a mark on the map for every place a friend died

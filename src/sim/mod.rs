@@ -32,6 +32,7 @@ pub mod containers;
 pub mod conceal;
 pub mod condition;
 pub mod crafting;
+pub mod crowd;
 pub mod culture;
 pub mod disguise;
 pub mod dialogue;

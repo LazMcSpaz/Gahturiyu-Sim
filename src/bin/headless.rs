@@ -15,6 +15,10 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|a| a == "crowd").unwrap_or(false) {
+        crowd(args.get(2).map(String::as_str), args.iter().any(|a| a == "--replace"));
+        return;
+    }
     if args.get(1).map(|a| a == "society").unwrap_or(false) {
         society(args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3.0), args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1));
         return;
@@ -357,6 +361,60 @@ fn trade(days: f64, seed: u64) {
                 (take(r) - cost(r)) / cost(r) * 100.0,
                 items::item(r.0).weight * LOT as f32
             );
+        }
+    }
+}
+
+/// `headless crowd <town key> [--replace]`: fill the town's roster crowd
+/// from its rows and save the file (`assets/world/people/<key>.ron`). With
+/// a crowd already stored it refuses unless `--replace`, since Laz may have
+/// edited those people by hand. `headless crowd` alone lists the rosters
+/// and how many each would make.
+fn crowd(key: Option<&str>, replace: bool) {
+    use gahturiyu_sim::sim::atlas::town_marks;
+    use gahturiyu_sim::sim::race::Race;
+    use gahturiyu_sim::sim::roster::{people_dir, Roster, PEOPLE_DIR};
+    let Some(dir) = people_dir() else {
+        eprintln!("no {PEOPLE_DIR} folder found");
+        std::process::exit(1);
+    };
+    let founders_of = |key: &str| -> Race { town_marks().iter().find(|m| m.key() == key).map(|m| m.founders).unwrap_or(Race::Tadoro) };
+    let Some(key) = key else {
+        let rosters = gahturiyu_sim::sim::roster::Rosters::load_from(&dir);
+        for (k, r) in rosters.towns.iter().chain(rosters.wanderers.iter().map(|r| (&r.town, r))) {
+            let want: u32 = r.crowd_rows.iter().map(|row| row.count as u32).sum();
+            println!("{k:<24} {} characters, {} rows for {want} people, {} in the crowd now", r.characters.len(), r.crowd_rows.len(), r.crowd.len());
+        }
+        return;
+    };
+    let path = dir.join(format!("{key}.ron"));
+    let mut roster = match Roster::load(&path) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
+    if roster.town.is_empty() {
+        roster.town = key.to_string();
+    }
+    match roster.fill_crowd(founders_of(key), replace) {
+        Ok(n) => {
+            if let Err(e) = roster.save(&path) {
+                eprintln!("{}: {e}", path.display());
+                std::process::exit(1);
+            }
+            println!("{key}: {n} people made and saved to {}", path.display());
+            for p in roster.crowd.iter().take(8) {
+                println!("  {:<28} {:<7} {:<5} {:<22} household {:>2}  {:?}  {}", p.name, p.people.name(), if p.sex == gahturiyu_sim::sim::roster::Sex::Man { "man" } else { "woman" }, p.profession.name(), p.household, p.wealth, p.detail);
+            }
+            if roster.crowd.len() > 8 {
+                println!("  … and {} more", roster.crowd.len() - 8);
+            }
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(2);
         }
     }
 }
