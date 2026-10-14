@@ -12,7 +12,7 @@
 //! `game.sounds.at(name, pos)`; `update` plays the queue once a frame and
 //! also notices, by comparing with last frame, panels opening and closing,
 //! the selection changing and the blows, shots, casts and falls of fights
-//! near the camera. Silent in screenshots (`GAHT_SHOT`) and when the
+//! near the camera. Silent in screenshots (`GAHT_SHOT`, `GAHT_MAPRENDER`) and when the
 //! machine has no sound device (Bevy says so once and carries on).
 
 use std::collections::HashMap;
@@ -118,7 +118,7 @@ struct Entry {
 
 impl FromWorld for Sfx {
     fn from_world(world: &mut bevy::ecs::world::World) -> Sfx {
-        let silent = std::env::var("GAHT_SHOT").is_ok();
+        let silent = std::env::var("GAHT_SHOT").is_ok() || std::env::var("GAHT_MAPRENDER").is_ok();
         let mut sounds: HashMap<String, Sound> = HashMap::new();
         if !silent {
             let path = super::models::assets_dir().join("sounds").join("manifest.json");

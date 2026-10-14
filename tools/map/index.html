@@ -621,6 +621,28 @@
   stage.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   stage.addEventListener("dblclick", (e) => { if (!e.target.closest(".mark") && !armed && !inBuild()) zoomAt(e.clientX, e.clientY, 1.8); });
   const mapImg = new Image(); mapImg.onload = () => draw(); mapImg.src = "map.png";
+  // ---- close up, the game's own land as the game draws it, photographed from straight above
+  //      (render/, the game's map render: GAHT_MAPRENDER): the whole map at 4 m a pixel, and
+  //      round every mark at 1 m, its place left bare for what's built there. A picture is
+  //      fetched when it first comes into view (and kept, for offline). ----
+  const RENDER_LAND_Z = 0.08, RENDER_MARKS_Z = 0.4;
+  let RENDER = null; const renderPics = {};
+  fetch("render/index.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && Array.isArray(j.tiles)) { RENDER = j.tiles; for (const id in places) places[id].terrainDirty = true; draw(); } }).catch(() => {});
+  function renderPic(t) { let p = renderPics[t.name]; if (!p) { p = renderPics[t.name] = new Image(); p.onload = () => draw(); p.src = "render/" + t.name + "." + (t.ext || "webp"); } return p; }
+  const rendered = (pl) => !!RENDER && RENDER.some((t) => t.name === "mark_" + pl.key);
+  function drawRender(a, b) {
+    if (!RENDER) return;
+    for (const [level, from] of [["land", RENDER_LAND_Z], ["marks", RENDER_MARKS_Z]]) {
+      if (z < from) continue;
+      for (const t of RENDER) {
+        if (t.level !== level || t.x1 < a.x || t.x0 > b.x || t.y1 < a.y || t.y0 > b.y) continue;
+        const p = renderPic(t);
+        // (Half a pixel over each edge, so neighbours meet without a seam.)
+        const pad = (t.metres_a_pixel || 1) * 0.5;
+        if (p.complete && p.naturalWidth) { ctx.imageSmoothingEnabled = true; ctx.drawImage(p, t.x0 - pad, t.y0 - pad, t.x1 - t.x0 + 2 * pad, t.y1 - t.y0 + 2 * pad); }
+      }
+    }
+  }
   let onDraft = false;
   $("toggle-draft").addEventListener("click", () => { onDraft = !onDraft; mapImg.src = onDraft ? "draft.png" : "map.png"; $("toggle-draft").textContent = onDraft ? "Clean" : "Draft"; });
 
@@ -679,7 +701,9 @@
     const c = into || document.createElement("canvas"); c.width = w; c.height = h;
     const x = c.getContext("2d"), img = x.createImageData(w, h);
     for (let k = 0; k < w * h; k++) {
+      // (No colour: left clear, for what's drawn under it.)
       const col = colourOf(k), i = k % w, j = (k / w) | 0;
+      if (!col) { img.data[k * 4 + 3] = 0; continue; }
       const l = i > 0 ? k - 1 : k, rr = i < w - 1 ? k + 1 : k, u = j > 0 ? k - w : k, dn = j < h - 1 ? k + w : k;
       const d = ((heightOf(rr) - heightOf(l)) / ((rr - l) || 1) + (heightOf(dn) - heightOf(u)) / (((dn - u) / w) || 1)) / cell;
       const f = Math.max(0.6, Math.min(1.35, 1 - d * 1.2));
@@ -787,6 +811,7 @@
     settle();
     // Laz's map: pixels as blocks once a pixel is bigger than a couple of screen pixels.
     if (mapImg.complete && mapImg.naturalWidth) { ctx.imageSmoothingEnabled = z * PX_M < 2.5; ctx.drawImage(mapImg, 0, 0, W * PX_M, H * PX_M); }
+    { const r = stage.getBoundingClientRect(); drawRender(toW(r.left, r.top), toW(r.right, r.bottom)); }
     // The world's roads, Laz's lines.
     const rw = Math.max(5, 3 / z);
     for (const id in roads) { const r = roads[id]; if (r.pts.length < 4) continue; ctx.strokeStyle = r.kind === "track" ? "#7a5a33" : "#5a3d1e"; ctx.lineWidth = rw; ctx.lineCap = "round"; ctx.lineJoin = "round"; if (r.kind === "track") ctx.setLineDash([rw * 2.5, rw * 2]); ctx.beginPath(); for (let i = 0; i < r.pts.length; i += 2) { const x = (r.pts[i] + 0.5) * PX_M, y = (r.pts[i + 1] + 0.5) * PX_M; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); ctx.setLineDash([]); if (selected && selected.col === "roads" && selected.id === id) { ctx.strokeStyle = "#e8c76a"; ctx.lineWidth = rw * 0.5; ctx.stroke(); } }
@@ -804,8 +829,10 @@
   function drawPlace(pl, active) {
     ctx.save(); ctx.translate(pl.ox, pl.oy);
     const x0 = -pl.P.origin[0] * pl.CELL, y0 = -pl.P.origin[1] * pl.CELL, wm = pl.GW * pl.CELL, hm = pl.GH * pl.CELL;
-    if (pl.around) { const ar = pl.around, ax = -ar.ox * ar.cell, ay = -ar.oy * ar.cell, aw = ar.w * ar.cell, ah = ar.h * ar.cell; ctx.imageSmoothingEnabled = true; ctx.drawImage(ar.pic, ax, ay, aw, ah); ctx.fillStyle = "rgba(20,16,10,.25)"; ctx.beginPath(); ctx.rect(ax, ay, aw, ah); ctx.rect(x0, y0, wm, hm); ctx.fill("evenodd"); }
-    if (pl.terrainDirty) { pl.terrainPic = shadedPicture(pl.GW, pl.GH, (k) => { const g = pl.ground[k]; return rgb(g !== "." ? GROUND_COL[g] || GROUND_COL["."] : pl.natG ? NAT_COL[pl.natG[k]] || GROUND_COL["."] : GROUND_COL["."]); }, (k) => hAt(pl, k), pl.CELL, pl.terrainPic); pl.terrainDirty = false; }
+    const under = rendered(pl);
+    if (pl.around && !under) { const ar = pl.around, ax = -ar.ox * ar.cell, ay = -ar.oy * ar.cell, aw = ar.w * ar.cell, ah = ar.h * ar.cell; ctx.imageSmoothingEnabled = true; ctx.drawImage(ar.pic, ax, ay, aw, ah); ctx.fillStyle = "rgba(20,16,10,.25)"; ctx.beginPath(); ctx.rect(ax, ay, aw, ah); ctx.rect(x0, y0, wm, hm); ctx.fill("evenodd"); }
+    // (Over the game's own picture, only the paint: the rest is the land as drawn under it.)
+    if (pl.terrainDirty) { pl.terrainPic = shadedPicture(pl.GW, pl.GH, (k) => { const g = pl.ground[k]; if (under && g === ".") return null; return rgb(g !== "." ? GROUND_COL[g] || GROUND_COL["."] : pl.natG ? NAT_COL[pl.natG[k]] || GROUND_COL["."] : GROUND_COL["."]); }, (k) => hAt(pl, k), pl.CELL, pl.terrainPic); pl.terrainDirty = false; }
     ctx.imageSmoothingEnabled = z * pl.CELL < 6; ctx.drawImage(pl.terrainPic, x0, y0, wm, hm);
     ctx.strokeStyle = active ? "rgba(232,199,106,.9)" : "rgba(232,199,106,.45)"; ctx.lineWidth = 1.5 / z; ctx.setLineDash([8 / z, 6 / z]); ctx.strokeRect(x0, y0, wm, hm); ctx.setLineDash([]);
     if (pl.LAND) for (const [rx, ry, rs] of pl.LAND.rocks || []) { ctx.fillStyle = "#77736c"; ctx.beginPath(); ctx.arc(rx, ry, Math.max(0.5, rs * 0.5), 0, 7); ctx.fill(); }

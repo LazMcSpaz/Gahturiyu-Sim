@@ -85,6 +85,8 @@ impl Ground {
 }
 
 /// Walking pace on a road, relative to grass.
+/// Land rises from the waterline to its full height over this many metres.
+pub const SHORE_RISE_M: f32 = 25.0;
 pub const ROAD_PACE: f32 = 1.3;
 /// How far either side of a road's centre line still counts as road, metres.
 pub const ROAD_HALF_WIDTH: f32 = 6.0;
@@ -249,8 +251,9 @@ fn relief_amp(c: Class) -> f32 {
 
 /// The relief itself: two bands of noise, 700 m and 90 m across.
 fn micro_relief(seed: u64, p: V2) -> f32 {
-    let c = atlas().class_at(p);
-    let amp = relief_amp(c);
+    // (The strength blended across the pixels round it: a step in it at a
+    // forest's edge would be a little cliff.)
+    let amp = atlas().blend(p, relief_amp);
     if amp <= 0.0 {
         return 0.0;
     }
@@ -371,8 +374,11 @@ impl Terrain {
         let a = atlas();
         let base = a.base_height(p);
         let h = base + micro_relief(self.seed, p);
-        if a.inland(p) > 0.0 {
-            h.max(0.5)
+        let d = a.inland(p);
+        if d > 0.0 {
+            // (Rising from the waterline over the first `SHORE_RISE_M`, so a
+            // cliff's top follows the shore's curve, not the map's pixels.)
+            0.5 + (h.max(0.5) - 0.5) * smooth(0.0, SHORE_RISE_M, d)
         } else {
             h.min(-0.5)
         }

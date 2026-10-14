@@ -323,6 +323,8 @@ fn fresh_world(seed: u64, own_land: bool, start: worldgen::Start) -> World {
 pub fn run() {
     let seed: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(1);
     let shot = Shot::from_env();
+    // GAHT_MAPRENDER=dir: the map site's close-up pictures (`maprender.rs`).
+    let maprender = super::maprender::MapRender::from_env();
     // GAHT_LOAD=path starts from a save instead of a new world.
     let loaded = std::env::var("GAHT_LOAD").ok().map(|p| World::load_from(std::path::Path::new(&p)));
     let mut world = match loaded {
@@ -333,6 +335,8 @@ pub fn run() {
         }
         // A map authored for this seed (the land editor saves it). Screenshots
         // use the seed's own land unless GAHT_MAP is set.
+        // The map render shows the land with no places laid on it (`grounds::world_for`).
+        None if maprender.is_some() => gahturiyu_sim::sim::grounds::world_for(seed),
         None => fresh_world(seed, shot.is_some() && std::env::var("GAHT_MAP").is_err(), start_kind(shot.is_some())),
     };
     if let Some(s) = &shot {
@@ -424,7 +428,7 @@ pub fn run() {
         sounds: Default::default(),
         stats: None,
         game_menu: None,
-        title: title_at_launch(shot.is_some()),
+        title: title_at_launch(shot.is_some() || maprender.is_some()),
         screens: Default::default(),
         quit: false,
         castfx: Default::default(),
@@ -606,7 +610,7 @@ pub fn run() {
     }
     // Screenshots wait for every shader to be ready, so the first frames
     // aren't missing whatever was still being prepared.
-    let synchronous = shot.is_some();
+    let synchronous = shot.is_some() || maprender.is_some();
     game.shot = shot;
     let plugins = DefaultPlugins
         .set(WindowPlugin {
@@ -623,8 +627,11 @@ pub fn run() {
     // Screenshots are silent: no sound device is even opened.
     let plugins = if synchronous { plugins.disable::<bevy::audio::AudioPlugin>() } else { plugins };
 
-    App::new()
-        .add_plugins(plugins)
+    let mut app = App::new();
+    if let Some(m) = maprender {
+        app.insert_resource(m);
+    }
+    app.add_plugins(plugins)
         .insert_resource(EguiGlobalSettings { auto_create_primary_context: false, ..default() })
         .add_plugins(EguiPlugin::default())
         // New letters reach the screen the frame they're first drawn: the
@@ -643,8 +650,8 @@ pub fn run() {
         .init_resource::<super::sound::Sfx>()
         .insert_resource(ClearColor(Color::srgb(0.63, 0.69, 0.72)))
         .add_systems(Startup, (setup, scene::setup, light::setup, models::start, super::foliage::setup))
-        .add_systems(Update, (input, simulate, camera, light::update, models::finish, scene::update, super::foliage::update, super::sound::update, screenshot).chain())
-        .add_systems(EguiPrimaryContextPass, ui)
+        .add_systems(Update, (input, simulate, camera.run_if(super::maprender::off), super::maprender::step, light::update.run_if(super::maprender::off), models::finish, scene::update.run_if(super::maprender::off), super::foliage::update.run_if(super::maprender::off), super::sound::update.run_if(super::maprender::off), screenshot).chain())
+        .add_systems(EguiPrimaryContextPass, ui.run_if(super::maprender::off))
         .run();
 }
 

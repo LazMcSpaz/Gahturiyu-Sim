@@ -52,9 +52,21 @@ pub fn looks(r: &mut Rng) -> (f32, f32, usize) {
     (yaw, scale, variant)
 }
 
-/// How wooded a place is, 0..1 (before ground and height).
+/// How wooded the land is outside Laz's drawn forest, at most: scattered
+/// trees and the odd copse, never a wood he didn't draw.
+pub const OPEN_WOOD: f32 = 0.25;
+
+/// How wooded a place is, 0..1 (before ground and height): the forest drawn
+/// on Laz's map (`atlas::Class::Forest`) is wooded through, a little uneven
+/// and thinning where its edge is; elsewhere only `OPEN_WOOD` at the most,
+/// where the seed's slow noise is high.
 pub fn wood(w: &World, p: V2) -> f32 {
-    smooth(0.52, 0.66, terrain::noise(w.seed ^ 0xF0E5_7D11, p.x, p.y, WOOD_SCALE))
+    let noise = smooth(0.52, 0.66, terrain::noise(w.seed ^ 0xF0E5_7D11, p.x, p.y, WOOD_SCALE));
+    let a = super::atlas::atlas();
+    let r = super::atlas::PX * 0.75;
+    let around = [V2::new(0.0, 0.0), V2::new(r, 0.0), V2::new(-r, 0.0), V2::new(0.0, r), V2::new(0.0, -r)];
+    let drawn = around.iter().filter(|d| a.class_at(p.add(**d)) == super::atlas::Class::Forest).count() as f32 / around.len() as f32;
+    (drawn * (0.8 + 0.2 * noise)).max((1.0 - drawn) * OPEN_WOOD * noise)
 }
 
 /// The ground at a plant's spot, if anything can grow there at all.

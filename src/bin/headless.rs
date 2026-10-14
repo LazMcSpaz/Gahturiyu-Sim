@@ -16,6 +16,22 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // The land everywhere as picture tiles, for the site's zoomed-in view:
+    // `headless tiles [dir] [seed]` (the site's `tools/map/land` unless told).
+    if args.get(1).map(|a| a == "tiles").unwrap_or(false) {
+        let dir = args.get(2).map(std::path::PathBuf::from).unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tools/map/land"));
+        let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let t = std::time::Instant::now();
+        let w = gahturiyu_sim::sim::grounds::world_for(seed);
+        match gahturiyu_sim::sim::grounds::write_tiles(&w, &dir) {
+            Ok(n) => println!("{n} land tiles written to {} ({:.1} s)", dir.display(), t.elapsed().as_secs_f32()),
+            Err(e) => {
+                eprintln!("couldn't write {}: {e}", dir.display());
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     // Everything the map site needs beside its page (`sim/grounds.rs`
     // `write_site`): `headless site [seed]`. Exits 1 if a roster is bad.
     if args.get(1).map(|a| a == "site").unwrap_or(false) {

@@ -269,3 +269,39 @@ continent down to a doorway:
   `// ---- assets/world/people/<key>.ron` section is written to its file
   first. `tests/grounds.rs` fails if `tools/map/grounds/index.json` doesn't
   match the marks.
+
+## The game's land, photographed (built: second, 14 Oct evening)
+
+Laz, from the site on his phone: the game's land showed only round each mark
+("it should cover the whole screen"), it didn't match his map ("look again"),
+and it was blocky; "generate the map in game with no cities and such, then use
+a high resolution image of that as the detail level of the map".
+
+**The land now reads his map faithfully** (`sim/atlas.rs`, `sim/terrain.rs`,
+`sim/plants.rs`, `view/palette.rs`):
+- The sea is flooded in from the map's edge across any blue, stopped by his
+  dark shore line (`sea_from_the_edge`): the pale shallows had read as land and
+  the line as a river, so every coast stood ~300 m out to sea.
+- Edges between kinds of ground curve: each class's share is softened over a
+  few pixels once (`Atlas::soft`, `SOFT_PASSES`) and read back with a fixed
+  wobble (`EDGE_WOBBLE`); `class_at` is the biggest share, `share`/`blend`
+  give the soft values. The relief's strength blends across edges (no little
+  cliffs at a forest's edge). The shore is blurred a pixel (`SHORE_SMOOTH_PX`)
+  and land rises over its first `SHORE_RISE_M` (25 m), so a cliff's top follows
+  the shore's curve, not the map's 26.5 m pixels.
+- His forest grows woods (`plants::wood` follows `Class::Forest`; elsewhere at
+  most `OPEN_WOOD`), and the ground's colour follows his classes in the game
+  itself (forest floor, Overgrowth, bog, rock, snow, `palette::ground`).
+
+**The pictures** (`view/maprender.rs`, `tools/map/render.py`): the game window
+in a map-render mode (`GAHT_MAPRENDER=<dir>`) photographs the land from
+straight above with an orthographic camera, no towns, people or panels, a
+fixed north-west sun: the whole map at 4 m a pixel (open sea skipped) and every
+mark at 1 m, its place left without plants (only stamps grow in a built place;
+the site draws them). `render.py` runs it and packs the PNGs as WebP into
+`tools/map/render/` with `index.json` (name, level, metres a pixel, the world
+box). The page (`drawRender`) draws them in world metres: the 4 m level from
+`RENDER_LAND_Z`, the 1 m level from `RENDER_MARKS_Z`; over a rendered place only
+the paint is drawn (untouched cells clear) and the ring isn't. It needs a
+graphics card, so it runs on Laz's PC (a window open for about half an hour);
+re-run it when the land changes.

@@ -28,6 +28,7 @@ pub mod gait;
 pub mod interact;
 pub mod journalui;
 pub mod map;
+pub mod maprender;
 pub mod mesh;
 pub mod models;
 pub mod outline;

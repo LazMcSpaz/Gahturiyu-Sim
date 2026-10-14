@@ -27,7 +27,7 @@ self.addEventListener("activate", (e) => { e.waitUntil((async () => { for (const
 // Pages and data: the network first (a new version shows at once), the cache when there's no
 // signal. The heavy, slow-changing files (the map, the land, the catalogue): the cache first,
 // refreshed in the background.
-const heavy = (url) => /\.(png|jpg|svg)$/.test(url.pathname) || /\/grounds\//.test(url.pathname) || /catalogue\.json$/.test(url.pathname);
+const heavy = (url) => /\.(png|jpg|webp|svg)$/.test(url.pathname) || /\/grounds\//.test(url.pathname) || /catalogue\.json$/.test(url.pathname);
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;

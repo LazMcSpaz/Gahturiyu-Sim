@@ -287,3 +287,121 @@ pub fn write_site(root: &std::path::Path, seed: u64) -> std::io::Result<Vec<Stri
     }
     Ok(said)
 }
+
+// ---- The land everywhere, as pictures (the map site's zoomed-in view) -------
+
+/// Metres a pixel of the land tiles, and pixels a tile side.
+pub const TILE_M: f32 = 8.0;
+pub const TILE_PX: u32 = 256;
+
+/// The colours the site draws the land in (the page's `NAT_COL`), by ground letter.
+fn colour_of(l: char) -> [u8; 3] {
+    match l {
+        'g' => [0x6b, 0x8a, 0x46],
+        's' => [0x8a, 0x8f, 0x4e],
+        'n' => [0xc9, 0xb9, 0x8a],
+        'r' => [0x7b, 0x77, 0x72],
+        'd' => [0x8c, 0x73, 0x52],
+        'm' => [0x5f, 0x4d, 0x3a],
+        'v' => [0x8f, 0x8d, 0x85],
+        'w' => [0xe9, 0xec, 0xef],
+        'R' => [0x8c, 0x6a, 0x45],
+        'q' => [0x5b, 0x84, 0xb8],
+        '~' => [0x3f, 0x64, 0x96],
+        'f' => [0x4f, 0x6f, 0x38],
+        _ => [0x6b, 0x8a, 0x46],
+    }
+}
+
+/// One tile of the land as the game makes it (`TILE_PX` square at `TILE_M`
+/// a pixel; tile (i, j) starts at (i, j) × the tile's metres), shaded from
+/// the north-west as the site shades a place; None if it's all open sea.
+pub fn land_tile(w: &World, i: u32, j: u32) -> Option<image::RgbImage> {
+    let n = TILE_PX as usize;
+    let side = TILE_PX as f32 * TILE_M;
+    let (x0, y0) = (i as f32 * side, j as f32 * side);
+    let a = atlas::atlas();
+    // Quick look: open sea all over (every corner and the middle well out).
+    let probe = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0), (0.5, 0.5), (0.5, 0.0), (0.0, 0.5), (1.0, 0.5), (0.5, 1.0)];
+    if probe.iter().all(|(u, v)| a.inland(V2::new(x0 + u * side, y0 + v * side)) < -side) && super::geo::isle_inland(V2::new(x0 + side / 2.0, y0 + side / 2.0)) < -side {
+        return None;
+    }
+    // Heights with a pixel's border, for the shading.
+    let at = |px: i64, py: i64| V2::new(x0 + (px as f32 + 0.5) * TILE_M, y0 + (py as f32 + 0.5) * TILE_M);
+    let hn = n + 2;
+    let mut h = vec![0.0f32; hn * hn];
+    for py in 0..hn {
+        for px in 0..hn {
+            h[py * hn + px] = w.terrain.surface(at(px as i64 - 1, py as i64 - 1));
+        }
+    }
+    let mut img = image::RgbImage::new(TILE_PX, TILE_PX);
+    let mut any_land = false;
+    for py in 0..n {
+        for px in 0..n {
+            let p = at(px as i64, py as i64);
+            let mut l = letter(w, p);
+            if matches!(l, 'g' | 's') && plants::wood(w, p) > 0.45 && plants::spot(w, p).is_some_and(|s| s.h < plants::TREE_LINE) {
+                l = 'f';
+            }
+            any_land |= l != '~';
+            let k = (py + 1) * hn + px + 1;
+            let d = ((h[k + 1] - h[k - 1]) + (h[k + hn] - h[k - hn])) / (2.0 * TILE_M);
+            // (In twentieths: the picture compresses several times smaller, and looks the same.)
+            let f = if l == '~' { 1.0 } else { ((1.0 - d * 1.2).clamp(0.6, 1.35) * 20.0).round() / 20.0 };
+            let c = colour_of(l);
+            img.put_pixel(px as u32, py as u32, image::Rgb([(c[0] as f32 * f).min(255.0) as u8, (c[1] as f32 * f).min(255.0) as u8, (c[2] as f32 * f).min(255.0) as u8]));
+        }
+    }
+    any_land.then_some(img)
+}
+
+/// Every tile with land in it, written to `dir/<i>_<j>.png`, and
+/// `dir/index.json` (the metres a pixel and a tile's pixels, and the tiles
+/// there are). Worked on all the machine's threads. Returns the count.
+pub fn write_tiles(w: &World, dir: &std::path::Path) -> std::io::Result<usize> {
+    std::fs::create_dir_all(dir)?;
+    for e in std::fs::read_dir(dir)?.flatten() {
+        if e.path().extension().is_some_and(|x| x == "png" || x == "json") {
+            std::fs::remove_file(e.path())?;
+        }
+    }
+    let side = TILE_PX as f32 * TILE_M;
+    let (nx, ny) = ((super::geo::WORLD_SIZE / side).ceil() as u32, ((1932.0 * atlas::PX) / side).ceil() as u32);
+    let cells: Vec<(u32, u32)> = (0..ny).flat_map(|j| (0..nx).map(move |i| (i, j))).collect();
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2).clamp(1, 16);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let done: std::sync::Mutex<Vec<(u32, u32)>> = std::sync::Mutex::new(Vec::new());
+    let failed: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| loop {
+                let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(&(i, j)) = cells.get(k) else { break };
+                if let Some(img) = land_tile(w, i, j) {
+                    match save_png(&img, &dir.join(format!("{i}_{j}.png"))) {
+                        Ok(()) => done.lock().unwrap().push((i, j)),
+                        Err(e) => *failed.lock().unwrap() = Some(e.to_string()),
+                    }
+                }
+            });
+        }
+    });
+    if let Some(e) = failed.into_inner().unwrap() {
+        return Err(std::io::Error::other(e));
+    }
+    let mut tiles = done.into_inner().unwrap();
+    tiles.sort();
+    let index = serde_json::json!({ "metres_a_pixel": TILE_M, "tile_px": TILE_PX, "seed": w.seed, "tiles": tiles });
+    std::fs::write(dir.join("index.json"), serde_json::to_string(&index).expect("it writes"))?;
+    Ok(tiles.len())
+}
+
+/// A picture as a PNG squeezed as small as the encoder goes (the site's
+/// tiles go up a slow line).
+fn save_png(img: &image::RgbImage, path: &std::path::Path) -> Result<(), String> {
+    use image::ImageEncoder;
+    let f = std::io::BufWriter::new(std::fs::File::create(path).map_err(|e| e.to_string())?);
+    let enc = image::codecs::png::PngEncoder::new_with_quality(f, image::codecs::png::CompressionType::Best, image::codecs::png::FilterType::Adaptive);
+    enc.write_image(img.as_raw(), img.width(), img.height(), image::ExtendedColorType::Rgb8).map_err(|e| e.to_string())
+}

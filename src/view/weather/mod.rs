@@ -217,7 +217,7 @@ impl Plugin for WeatherPlugin {
         };
         app.insert_resource(view);
         app.add_systems(Startup, (groundfog::setup, rain::setup, lightning::setup));
-        app.add_systems(Update, (keys, observe, lightning::update, look::apply, groundfog::update, rain::update).chain().after(super::light::update));
+        app.add_systems(Update, (keys, observe, lightning::update, look::apply, groundfog::update, rain::update).chain().after(super::light::update).run_if(super::maprender::off));
     }
 }
 

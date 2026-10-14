@@ -399,6 +399,15 @@ pub struct Counts {
     pub chunks: usize,
 }
 
+impl Foliage {
+    /// The plant meshes and their material, for the map render
+    /// (`maprender.rs`): full trees, low trees (by kind), full bushes,
+    /// simple bushes (by variant).
+    pub(super) fn parts(&self) -> (&[Handle<Mesh>], &[Handle<Mesh>], &[Handle<Mesh>], &[Handle<Mesh>], &Handle<PlantMat>) {
+        (&self.tree_full, &self.tree_blob, &self.bush_full, &self.bush_simple, &self.plant_mat)
+    }
+}
+
 pub struct FoliagePlugin;
 
 impl Plugin for FoliagePlugin {

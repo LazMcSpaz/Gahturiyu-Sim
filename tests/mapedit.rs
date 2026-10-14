@@ -12,11 +12,18 @@ fn dab(brush: Brush, at: V2, radius: f32, secs: f32) -> Dab {
     Dab { brush, at, radius, strength: 1.0, falloff: 0.5, dt: secs, target: 0.0 }
 }
 
-/// Somewhere inland, out of town.
+/// Somewhere inland, out of town: the first spot on rings round the first
+/// town, past its reach, with ground all round it.
 fn spot(w: &World) -> V2 {
-    let p = w.settlements[0].pos.add(V2::new(400.0, 300.0));
-    assert!(gahturiyu_sim::sim::geo::is_land(p));
-    p
+    let s = &w.settlements[0];
+    (1..12)
+        .flat_map(|ring| (0..16).map(move |k| (ring, k)))
+        .map(|(ring, k)| {
+            let a = k as f32 / 16.0 * std::f32::consts::TAU;
+            s.pos.add(V2::new(a.cos(), a.sin()).scale(s.reach + 150.0 * ring as f32))
+        })
+        .find(|&p| gahturiyu_sim::sim::geo::inland(p) > 150.0 && w.terrain.slope(p) < 0.2)
+        .expect("land round the first town")
 }
 
 #[test]

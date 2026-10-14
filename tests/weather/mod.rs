@@ -173,8 +173,15 @@ fn weather_changes_smoothly_across_region_borders() {
                 let climb = (terrain.surface(p) - terrain.surface(V2::new(x - 20.0, y))).abs();
                 let lim = Limits { temperature: lim.temperature + weather::climate().lapse * climb, ..lim };
                 assert_close(&prev, &w, &lim, &format!("({x}, {y})"));
+                // (Upland is by height: where a sea cliff or a gorge wall climbs
+                // the whole upland band within the mix's reach, its share may
+                // change as fast as the ground does.)
+                let wall = (0..8).any(|k| {
+                    let a = k as f32 / 8.0 * std::f32::consts::TAU;
+                    (terrain.surface(V2::new(x + 140.0 * a.cos(), y + 140.0 * a.sin())) - terrain.surface(p)).abs() > 40.0
+                });
                 for k in 0..weather::REGIONS {
-                    assert!((m[k] - prev_mix[k]).abs() < 0.25, "({x}, {y}): a region border is a hard line");
+                    assert!(wall || (m[k] - prev_mix[k]).abs() < 0.25, "({x}, {y}): a region border is a hard line");
                 }
                 assert!((m.iter().sum::<f32>() - 1.0).abs() < 1e-4, "region shares should add up to 1");
                 prev = w;

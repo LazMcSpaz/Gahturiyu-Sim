@@ -2343,7 +2343,7 @@ fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Wor
 
 /// A rock placed by hand: faceted, lumpy stone of its kind, its shape fixed
 /// by its own seed.
-fn rock(b: &mut Builder, k: &gahturiyu_sim::sim::mapedit::Rock, ground: f32, slope: f32) {
+pub(super) fn rock(b: &mut Builder, k: &gahturiyu_sim::sim::mapedit::Rock, ground: f32, slope: f32) {
     let seed = k.seed as u64;
     let n = |i: u64| -> f32 { ((seed ^ i.wrapping_mul(0x9E37_79B9_7F4A_7C15)).wrapping_mul(0xBF58_476D_1CE4_E5B9) >> 40) as f32 / (1u64 << 24) as f32 };
     let tone = 0.8 + n(99) * 0.35;

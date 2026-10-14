@@ -125,6 +125,27 @@ const LOWLAND_OVER: f32 = 15_000.0;
 pub const SEA_DEPTH_PER_M: f32 = 0.02;
 pub const SEA_DEPTH_MOST: f32 = 60.0;
 
+/// The distance to the sea is blurred twice over this many pixels each side,
+/// so the shore curves instead of stepping.
+const SHORE_SMOOTH_PX: usize = 1;
+
+/// How many times each class's share is blurred (a pixel each side): the
+/// staircase of the map's 26.5 m pixels is rounded to curves.
+const SOFT_PASSES: usize = 3;
+
+/// How far the edges between kinds of ground wander off the map's pixel
+/// grid, metres, at two sizes of wobble (`Atlas::class_at`).
+pub const EDGE_WOBBLE: (f32, f32) = (14.0, 5.0);
+
+/// A spot nudged by the fixed edge wobble: slow bends and a finer ruffle.
+fn edge_wobble(p: V2) -> V2 {
+    use super::terrain::noise;
+    let (big, small) = EDGE_WOBBLE;
+    let dx = (noise(0xED6E_0001, p.x, p.y, 70.0) - 0.5) * 2.0 * big + (noise(0xED6E_0003, p.x, p.y, 18.0) - 0.5) * 2.0 * small;
+    let dy = (noise(0xED6E_0002, p.x, p.y, 70.0) - 0.5) * 2.0 * big + (noise(0xED6E_0004, p.x, p.y, 18.0) - 0.5) * 2.0 * small;
+    V2::new(p.x + dx, p.y + dy)
+}
+
 /// The sea's colours as the annotated draft paints them.
 const SEA_RGB: [[u8; 3]; 2] = [[180, 196, 216], [184, 200, 216]];
 
@@ -175,6 +196,49 @@ fn classify_clean(rgb: [u8; 3]) -> u8 {
         }
     }
     best.1 as u8
+}
+
+/// Is this the sea's colour, deep or shallow (blue over red, not ink)?
+fn sea_blue(rgb: [u8; 3]) -> bool {
+    let sum = rgb[0] as u32 + rgb[1] as u32 + rgb[2] as u32;
+    sum >= INK_SUM && rgb[2] as i32 > rgb[0] as i32 + 25 && rgb[2] >= rgb[1]
+}
+
+/// The sea is whatever blue the map's edge reaches without crossing ink:
+/// Laz draws the shore as a dark line, and the sea just off it pales into
+/// shallows (which by hue alone read as a lake). Blue inside the line
+/// (rivers, lakes) stays as it was.
+fn sea_from_the_edge(img: &image::RgbImage, class: &mut [u8], w: usize, h: usize) {
+    let mut seen = vec![false; w * h];
+    let mut stack: Vec<usize> = Vec::new();
+    for i in 0..w {
+        stack.push(i);
+        stack.push((h - 1) * w + i);
+    }
+    for j in 0..h {
+        stack.push(j * w);
+        stack.push(j * w + w - 1);
+    }
+    while let Some(k) = stack.pop() {
+        if seen[k] || !sea_blue(img.as_raw()[k * 3..k * 3 + 3].try_into().expect("three")) {
+            continue;
+        }
+        seen[k] = true;
+        class[k] = Class::Sea as u8;
+        let (i, j) = (k % w, k / w);
+        if i > 0 {
+            stack.push(k - 1);
+        }
+        if i + 1 < w {
+            stack.push(k + 1);
+        }
+        if j > 0 {
+            stack.push(k - w);
+        }
+        if j + 1 < h {
+            stack.push(k + w);
+        }
+    }
 }
 
 /// Give every `UNKNOWN` pixel the commonest class among its known
@@ -234,6 +298,10 @@ pub struct Atlas {
     land: Vec<u32>,
     /// Per pixel: on the mainland (the biggest piece of land) or not.
     main: Vec<bool>,
+    /// Each class's share of each pixel, softened over its neighbours
+    /// (`SOFT_PASSES`), 0..255, nine to a pixel: where the edges between
+    /// kinds of ground curve (`class_at`, `share`).
+    soft: Vec<u8>,
     /// Where it came from.
     pub source: String,
 }
@@ -391,6 +459,7 @@ impl Atlas {
             for (i, px) in img.pixels().enumerate() {
                 class[i] = classify_clean(px.0);
             }
+            sea_from_the_edge(&img, &mut class, w, h);
             if rel.starts_with("docs/") {
                 let (x0, y0, x1, y1) = LEGEND_BOX;
                 for j in y0..y1.min(h) {
@@ -470,6 +539,11 @@ impl Atlas {
                 base[i] = base[i].max(0.6);
             }
         }
+        // The shore, smoothed a little: the distance's zero line otherwise
+        // follows the map's pixel staircase (`SHORE_SMOOTH_PX`).
+        for _ in 0..2 {
+            blur(&mut sea, w, h, SHORE_SMOOTH_PX);
+        }
         let land: Vec<u32> = (0..n).filter(|&i| class[i] != Class::Sea as u8).map(|i| i as u32).collect();
         // The pieces of land, and the biggest of them: the mainland. (Towns
         // on the others are offshore: no road reaches them.)
@@ -503,7 +577,19 @@ impl Atlas {
         }
         let biggest = (0..sizes.len()).max_by_key(|&k| sizes[k]).map(|k| k as u32).unwrap_or(u32::MAX);
         let main: Vec<bool> = (0..n).map(|i| piece[i] == biggest).collect();
-        Atlas { w, h, class, base, sea, mount, land, main, source: source.to_string() }
+        // Each class's share, softened: the staircase of the map's pixels
+        // becomes a curve when it's read back at the half-way mark.
+        let mut soft = vec![0u8; n * 9];
+        for c in 0..9u8 {
+            let mut f: Vec<f32> = class.iter().map(|&k| (k == c) as u8 as f32).collect();
+            for _ in 0..SOFT_PASSES {
+                blur(&mut f, w, h, 1);
+            }
+            for i in 0..n {
+                soft[i * 9 + c as usize] = (f[i] * 255.0).round() as u8;
+            }
+        }
+        Atlas { w, h, class, base, sea, mount, land, main, soft, source: source.to_string() }
     }
 
     /// The world's extent, metres: the map's width (the world is square,
@@ -532,9 +618,52 @@ impl Atlas {
         self.idx(i, j).map(|k| self.main[k]).unwrap_or(false)
     }
 
-    /// The class at a spot (off the map: sea).
+    /// The class at a spot (off the map: sea), with the map's pixels'
+    /// edges smoothed: the spot is nudged by a fixed wobble (`EDGE_WOBBLE`,
+    /// the same in every world), then the class with the most weight among
+    /// the four pixel centres round it wins (as a bilinear blend would), so
+    /// a forest's edge winds and a rock face curves instead of stepping
+    /// pixel by pixel. Deep inside a pixel's class it is that class.
     pub fn class_at(&self, p: V2) -> Class {
-        let (i, j) = ((p.x / PX).floor() as i64, (p.y / PX).floor() as i64);
+        let s = self.shares(edge_wobble(p));
+        let best = (0..9).max_by(|a, b| s[*a].total_cmp(&s[*b])).unwrap_or(0);
+        Class::from_u8(best as u8)
+    }
+
+    /// Every class's softened share at a spot (no wobble), 0..1 each.
+    fn shares(&self, p: V2) -> [f32; 9] {
+        let (fx, fy) = (p.x / PX - 0.5, p.y / PX - 0.5);
+        let (i0, j0) = (fx.floor(), fy.floor());
+        let (tx, ty) = (fx - i0, fy - j0);
+        let mut out = [0.0f32; 9];
+        for (di, dj, wt) in [(0i64, 0i64, (1.0 - tx) * (1.0 - ty)), (1, 0, tx * (1.0 - ty)), (0, 1, (1.0 - tx) * ty), (1, 1, tx * ty)] {
+            match self.idx(i0 as i64 + di, j0 as i64 + dj) {
+                Some(k) => {
+                    for c in 0..9 {
+                        out[c] += wt * self.soft[k * 9 + c] as f32 / 255.0;
+                    }
+                }
+                None => out[Class::Sea as usize] += wt,
+            }
+        }
+        out
+    }
+
+    /// How much of a spot is of this class, 0..1, softly: the four pixel
+    /// centres round it blended (after the same wobble as `class_at`), so a
+    /// colour or a strength changes across an edge over a few metres
+    /// instead of in a step.
+    pub fn share(&self, p: V2, class: Class) -> f32 {
+        self.shares(edge_wobble(p))[class as usize]
+    }
+
+    /// Any number per class, weighted by the classes' softened shares at a spot.
+    pub fn blend(&self, p: V2, f: impl Fn(Class) -> f32) -> f32 {
+        self.shares(p).iter().enumerate().map(|(c, s)| s * f(Class::from_u8(c as u8))).sum()
+    }
+
+    /// The class of one pixel of the map as read (off the map: sea).
+    pub fn pixel_class(&self, i: i64, j: i64) -> Class {
         self.idx(i, j).map(|k| Class::from_u8(self.class[k])).unwrap_or(Class::Sea)
     }
 
