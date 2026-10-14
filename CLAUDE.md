@@ -428,7 +428,7 @@ screenshots otherwise show panels arrived).
 `GAHT_ISLAND=1|<spot>` (the squad on Salt Isle, the tutorial island, at its shore or the named spot: `hut`, `gate`, `hall`, `workyard`, `dock`, `quarry`, `testquarter`, ...; `GAHT_VIEW=map GAHT_ZOOM=0.25` shows it off the coast).
 `GAHT_QUARTER=1|items|creatures|people|world|yard` (the dev test quarter opened and the squad inside, its spawner on that tab; `yard` the combat yard).
 `GAHT_START=town|island` (how the world begins: the squad of four in a town, or the opening, one person wrecked on Salt Isle's shore in a storm with the lesson in the tracked corner; screenshots default to the town, play to the island).
-`GAHT_GOTO=<town key>` (start beside that town of `assets/world/towns.ron`, e.g. one laid out from a drawing: `docs/town-plans.md`).
+`GAHT_GOTO=<town key>` (start beside that town's hearth, by its key in `assets/world/towns.ron`; with `GAHT_YAW=1.5708 GAHT_PITCH=1.5 GAHT_ZOOM=230` it's a drawn town seen as its drawing, north up: `docs/town-plans.md`).
 `GAHT_HINT=<id>` (show that first-hour tip: welcome, town, work, fight, loot; screenshots
 otherwise show none and never touch `hints.txt`).
 `GAHT_REMARK=<about>` (the first squad member says a remark of that kind over their head, e.g.
