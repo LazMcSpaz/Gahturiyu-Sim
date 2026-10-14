@@ -1,4 +1,6 @@
-// A small Last Wave outpost, from Laz's drawing (docs/plans/last_wave_outpost_southwest.png,
+// A small Last Wave outpost, from Laz's drawing (now his mark `last_wave_outpost`, d36; his
+// place file `assets/world/places/last_wave_outpost.json` overrides this plan in the game,
+// so this stays as the sketch's transcription) (docs/plans/last_wave_outpost_southwest.png,
 // 14 Oct 2026), read a second time with the buildings' corners measured on a gridded copy of the
 // drawing (scratch script plan_read.py: corners -> centre, long axis, size; the door on the short
 // end that looks toward the middle; the trees rastered from the ink). Scale: a "room for 12"
@@ -11,7 +13,7 @@
 // Variants are the nearest the game has today; `wants` says what the drawing asks for that the
 // variant doesn't give yet, so the right shape can be made without going back to the picture.
 (
-    town: "last_wave_outpost_southwest",
+    town: "last_wave_outpost",
     title: "Small Last Wave outpost",
     notes: "Southwest of Open Hand capital city. Housing: 2 tiered, timber, room for 12, workshop below. Temple / priestess quarters: 3 tiered, stone, room for 12, entry not permitted to outsiders. Chieftain's quarters: 2 tiered, stone, room for 12; second in command to the priestesses lives here. Forge: large open courtyard, stone. Incense house: timber hall, antechamber to get in. Tanner: outdoor. Storage: non-food, timber. Timber storage. Gardens. Animal pens. Woods all round and between.",
     sketch: "docs/plans/last_wave_outpost_southwest.png",

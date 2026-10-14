@@ -121,8 +121,10 @@ fn a_plan_round_trips_through_its_file_and_a_save() {
 
 #[test]
 fn lazs_plans_read_and_name_real_variants_places_and_species() {
-    let plans = Plans::load();
-    assert!(plans.for_town("last_wave_outpost_southwest").is_some(), "the outpost's plan is in assets/world/plans");
+    // (The sketch plans alone: a place built in the place builder overrides
+    // a plan for the same town in `Plans::load`, and Laz's outpost has one.)
+    let plans = Plans::load_from(&gahturiyu_sim::sim::plan::plans_dir().expect("the plans folder"));
+    assert!(plans.for_town("last_wave_outpost").is_some(), "the outpost's plan is in assets/world/plans");
     for (key, p) in &plans.towns {
         assert!(atlas::town_marks().iter().any(|m| m.key() == *key), "{key}: no such mark in towns.ron");
         assert!(!p.buildings.is_empty(), "{key}: no buildings");
@@ -146,15 +148,15 @@ fn lazs_plans_read_and_name_real_variants_places_and_species() {
     }
     // The world builds with them.
     let w = worldgen::generate_with_plans(1, &Rosters::default(), &plans);
-    let t = town_index("last_wave_outpost_southwest");
-    assert_eq!(w.settlements[t].buildings.len(), 1 + plans.for_town("last_wave_outpost_southwest").unwrap().buildings.len());
+    let t = town_index("last_wave_outpost");
+    assert_eq!(w.settlements[t].buildings.len(), 1 + plans.for_town("last_wave_outpost").unwrap().buildings.len());
 }
 
 #[test]
 fn the_drawn_woods_are_read_off_the_plan() {
-    let plans = Plans::load();
+    let plans = Plans::load_from(&gahturiyu_sim::sim::plan::plans_dir().expect("the plans folder"));
     let w = worldgen::generate_with_plans(1, &Rosters::default(), &plans);
-    let t = town_index("last_wave_outpost_southwest");
+    let t = town_index("last_wave_outpost");
     let c = w.settlements[t].pos;
     let at = |x: f32, y: f32| w.plan_woods_at(c.add(gahturiyu_sim::sim::geo::V2::new(x, y)));
     // Open ground at the hearth; thick wood between the fletcher's and the temple.

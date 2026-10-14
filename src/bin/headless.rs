@@ -16,6 +16,22 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // The land under every mark, for the place builder (`sim/grounds.rs`):
+    // `headless grounds <dir> [seed]`.
+    if args.get(1).map(|a| a == "grounds").unwrap_or(false) {
+        let dir = std::path::PathBuf::from(args.get(2).cloned().unwrap_or_else(|| "grounds".into()));
+        let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let t = std::time::Instant::now();
+        let w = gahturiyu_sim::sim::grounds::world_for(seed);
+        match gahturiyu_sim::sim::grounds::write_all(&w, &dir) {
+            Ok(n) => println!("{n} marks' land written to {} (seed {seed}, {:.1} s)", dir.display(), t.elapsed().as_secs_f32()),
+            Err(e) => {
+                eprintln!("couldn't write {}: {e}", dir.display());
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if args.get(1).map(|a| a == "catalogue").unwrap_or(false) {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/world/catalogue.json");
         let text = gahturiyu_sim::sim::catalogue::catalogue_json();

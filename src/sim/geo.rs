@@ -73,9 +73,9 @@ pub const ISLE_OFF: f32 = 1150.0;
 pub const ISLE_A: f32 = 420.0;
 pub const ISLE_B: f32 = 260.0;
 
-/// The middle of Salt Isle: in the sea off the Imperial capital (the first
-/// capital marked on the map, `atlas.rs`), `ISLE_OFF` past the shore. Fixed
-/// by the map, so it's worked out once.
+/// The middle of Salt Isle: in the open sea nearest the Imperial capital (the
+/// first capital marked on the map, `atlas.rs`), `ISLE_OFF` past any shore.
+/// Fixed by the map, so it's worked out once.
 pub fn isle_centre() -> V2 {
     static C: std::sync::OnceLock<V2> = std::sync::OnceLock::new();
     *C.get_or_init(|| {
@@ -83,7 +83,7 @@ pub fn isle_centre() -> V2 {
         let marks = super::atlas::town_marks();
         let capital = marks.iter().find(|m| m.kind == super::atlas::Kind::Capital).or(marks.first());
         let from = capital.map(|m| m.pos()).unwrap_or_else(|| a.land_spot(0));
-        a.seaward(from, ISLE_OFF + ISLE_A)
+        a.open_sea_near(from, ISLE_OFF + ISLE_A, 60_000.0)
     })
 }
 

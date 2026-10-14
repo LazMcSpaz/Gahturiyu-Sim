@@ -7,7 +7,8 @@
 //! there or not by the ground under it — its height, slope, kind (the sim's
 //! `Ground`), how near the coast it is, and how far into the dry Qotiro
 //! plateau. Woods are where a slow noise is high. Nothing grows on roads, in
-//! towns, round bandit camps or in water.
+//! towns, round bandit camps or in water. That rule is the sim's
+//! (`sim/plants.rs`), so the place builder starts from the same trees.
 //!
 //! **Drawing many plants cheaply.** Every plant of a kind shares one mesh and
 //! one material, so the graphics card draws thousands of copies in one go
@@ -42,12 +43,7 @@ use bevy::render::render_resource::{AsBindGroup, Extent3d, TextureDimension, Tex
 use bevy::shader::{Shader, ShaderRef};
 use bevy_egui::egui;
 
-use gahturiyu_sim::sim::{
-    geo::{self, V2},
-    rng::Rng,
-    terrain::{self, Ground},
-    World,
-};
+use gahturiyu_sim::sim::{geo::V2, rng::Rng, World};
 
 use super::app::{Game, View};
 use super::cam::{to3, OrbitCam};
@@ -60,14 +56,10 @@ use super::settings::Settings;
 
 // ---- Placement ----------------------------------------------------------------
 
-/// Grid spacing for grass tufts, bushes and trees, metres.
-pub const GRASS_GRID: f32 = 1.7;
-pub const BUSH_GRID: f32 = 9.0;
-pub const TREE_GRID: f32 = 13.0;
-/// Size of the slow noise that decides where woods are, metres.
-pub const WOOD_SCALE: f32 = 750.0;
-/// Trees thin out above this height and stop by `TREE_LINE + 120`.
-pub const TREE_LINE: f32 = 420.0;
+// The grids, the woods and the tree line are the sim's (`sim/plants.rs`), so
+// the place builder's picture of the land grows the same plants.
+pub use gahturiyu_sim::sim::plants::{BUSH_GRID, GRASS_GRID, TREE_GRID, TREE_LINE};
+use gahturiyu_sim::sim::plants::{bush_at, cell, grass_at, looks, spot, tree_at, wood, DRAWN_GRID};
 
 // ---- Detail distances (from the camera, metres) --------------------------------
 
@@ -213,103 +205,6 @@ impl Clear {
     fn ok(&self, p: V2) -> bool {
         self.towns.iter().all(|(c, r)| c.dist(p) > *r) && self.buildings.iter().all(|(c, r)| c.dist(p) > *r) && self.camps.iter().all(|c| c.dist(p) > 26.0) && self.nodes.iter().all(|c| c.dist(p) > 2.5)
     }
-}
-
-fn smooth(a: f32, b: f32, x: f32) -> f32 {
-    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
-
-/// A drawn town's thickest wood: the chance of a tree in a tree cell, and
-/// of a bush in a bush cell, where the drawing is darkest.
-const DRAWN_TREE: f32 = 0.95;
-const DRAWN_BUSH: f32 = 0.35;
-/// Metres between trees in drawn woods (the usual wood is `TREE_GRID`).
-const DRAWN_GRID: f32 = 5.5;
-
-/// How wooded a place is, 0..1 (before ground and height).
-fn wood(w: &World, p: V2) -> f32 {
-    smooth(0.52, 0.66, terrain::noise(w.seed ^ 0xF0E5_7D11, p.x, p.y, WOOD_SCALE))
-}
-
-/// The ground at a plant's spot, if anything can grow there at all.
-struct Spot {
-    h: f32,
-    slope: f32,
-    arid: f32,
-    shore: f32,
-    ground: Ground,
-}
-
-fn spot(w: &World, p: V2) -> Option<Spot> {
-    let t = &w.terrain;
-    let shore = geo::inland(p);
-    if t.is_sea(p) || t.height(p) < 2.0 {
-        return None;
-    }
-    let ground = t.ground(p);
-    if ground == Ground::Road || t.on_road(p) {
-        return None;
-    }
-    Some(Spot { h: t.height(p), slope: t.slope(p), arid: t.plateau(p), shore, ground })
-}
-
-/// A plant's place in its grid cell, and a roll for it, from the seed.
-fn cell(w: &World, kind: u64, i: i64, j: i64, grid: f32) -> (V2, Rng) {
-    let mut r = Rng::from_keys(&[w.seed, 0xF011_A6E0 ^ kind, i as u64, j as u64]);
-    let p = V2::new((i as f32 + r.f32()) * grid, (j as f32 + r.f32()) * grid);
-    (p, r)
-}
-
-fn grass_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
-    let Some(s) = spot(w, p) else { return false };
-    if s.ground != Ground::Grass {
-        return false;
-    }
-    let chance = 0.8 * (1.0 - s.arid) * smooth(0.75, 0.45, s.slope) * smooth(620.0, 460.0, s.h) * smooth(6.0, 22.0, s.shore) * (1.0 - 0.5 * wood(w, p));
-    let (m, add) = w.terrain.edits.plants_at(p)[0];
-    r.f32() < (chance * m + add * smooth(0.9, 0.6, s.slope)) * density
-}
-
-fn bush_at(w: &World, p: V2, r: &mut Rng, density: f32) -> bool {
-    let Some(s) = spot(w, p) else { return false };
-    if let Some(d) = w.plan_woods_at(p) {
-        // Drawn woods, whatever the ground: undergrowth with the trees, none on the open ground.
-        return r.f32() < DRAWN_BUSH * d * density;
-    }
-    if !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
-        return false;
-    }
-    let wd = wood(w, p);
-    let chance = (0.10 + 0.35 * wd * (1.0 - wd) * 4.0 * 0.5 + 0.25 * s.arid) * smooth(0.8, 0.5, s.slope) * smooth(720.0, 560.0, s.h) * smooth(6.0, 14.0, s.shore);
-    let (m, add) = w.terrain.edits.plants_at(p)[1];
-    r.f32() < (chance * m + add * smooth(0.9, 0.6, s.slope)) * density
-}
-
-/// Whether a tree grows in this cell, and if so which kind (0 broadleaf,
-/// 1 conifer).
-fn tree_at(w: &World, p: V2, r: &mut Rng, density: f32) -> Option<u8> {
-    let s = spot(w, p)?;
-    let drawn = w.plan_woods_at(p);
-    // (Drawn woods grow whatever the ground: the drawing says so.)
-    if drawn.is_none() && !matches!(s.ground, Ground::Grass | Ground::Scrub | Ground::Dirt) {
-        return None;
-    }
-    let wd = wood(w, p);
-    let chance = match drawn {
-        // Drawn woods (`plan.rs`): trees where the drawing has them, none where it's open.
-        Some(d) => DRAWN_TREE * d,
-        None => {
-            let (m, add) = w.terrain.edits.plants_at(p)[2];
-            (0.85 * wd + 0.025) * (1.0 - 0.95 * s.arid) * smooth(TREE_LINE + 120.0, TREE_LINE, s.h) * smooth(0.7, 0.4, s.slope) * smooth(15.0, 80.0, s.shore) * m + add * smooth(0.8, 0.5, s.slope)
-        }
-    };
-    if r.f32() >= chance * density {
-        return None;
-    }
-    // Conifers up the slopes, broadleaf below, mixed between.
-    let conifer = r.f32() < smooth(160.0, 340.0, s.h) * 0.9 + 0.1 * wd;
-    Some(conifer as u8)
 }
 
 // ---- Meshes ----------------------------------------------------------------------
@@ -592,9 +487,7 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
             if p.x < x0 || p.x >= x0 + size || p.y < y0 || p.y >= y0 + size || !clear.ok(p) {
                 continue;
             }
-            let yaw = r.f32() * std::f32::consts::TAU;
-            let scale = 0.8 + r.f32() * 0.45;
-            let variant = r.below(3);
+            let (yaw, scale, variant) = looks(&mut r);
             let grows = match layer {
                 Layer::Grass => grass_at(w, p, &mut r, f.density.0).then_some(0),
                 Layer::Bush => bush_at(w, p, &mut r, f.density.1).then_some(0),

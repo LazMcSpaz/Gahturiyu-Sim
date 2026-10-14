@@ -79,6 +79,8 @@ pub mod person;
 pub mod plan;
 pub mod place;
 pub mod placefile;
+pub mod plants;
+pub mod grounds;
 pub mod quests;
 pub mod ring;
 pub mod race;

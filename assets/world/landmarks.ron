@@ -1,0 +1,30 @@
+// Landmarks: Laz's marks that aren't settlements (mines, ports, ferries,
+// lookouts, ruins, temples...), from `assets/world/marks-export.json`, written
+// by `tools/map/marks_to_towns.py`. NOTHING IN THE GAME READS THIS YET: it keeps
+// them, with stable keys, for when mines, ports and ruins are placed from
+// Laz's map. Don't edit by hand.
+[
+    (key: "imperial_resupply_port", id: "d01", label: "Imperial resupply port", px: (152, 595), kind: "port", holder: "throne", notes: "From the draft"),
+    (key: "mark_d04", id: "d04", label: "", px: (551, 580), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d05", id: "d05", label: "", px: (479, 616), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d06", id: "d06", label: "", px: (519, 683), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d07", id: "d07", label: "", px: (586, 770), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d08", id: "d08", label: "", px: (453, 951), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d09", id: "d09", label: "", px: (213, 857), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d10", id: "d10", label: "", px: (245, 1015), kind: "mine", holder: "throne", notes: "Mine"),
+    (key: "mark_d11", id: "d11", label: "", px: (650, 1543), kind: "mine", holder: "open_council", notes: "Mine"),
+    (key: "mark_d12", id: "d12", label: "", px: (777, 1539), kind: "mine", holder: "open_council", notes: "Mine"),
+    (key: "secret_temple", id: "d18", label: "Secret temple", px: (316, 857), kind: "temple", holder: "", notes: ""),
+    (key: "ancient_lookout", id: "d20", label: "Ancient lookout", px: (167, 1069), kind: "lookout", holder: "", notes: ""),
+    (key: "salt_island", id: "d21", label: "Salt Island", px: (631, 1185), kind: "other", holder: "", notes: "The tutorial island; in the game it sits off the Imperial capital"),
+    (key: "ruined_village", id: "d23", label: "Ruined village", px: (1655, 915), kind: "ruin", holder: "", notes: ""),
+    (key: "ruined_city", id: "d25", label: "Ruined city", px: (1745, 1018), kind: "ruin", holder: "", notes: ""),
+    (key: "ancient_lookout_d30", id: "d30", label: "Ancient lookout", px: (1056, 1134), kind: "lookout", holder: "", notes: ""),
+    (key: "horaro_wizard_s_tower", id: "mmv76ei869pxmx", label: "Horaro Wizard’s Tower", px: (325, 1309), kind: "other", holder: "", notes: "Need details"),
+    (key: "exiled_man_s_hut", id: "mmv76fbqf0m5wd", label: "Exiled Man’s Hut", px: (298, 1345), kind: "other", holder: "", notes: "The son of the lord of the nearby sea keep was exiled here. Need names and details"),
+    (key: "ancient_lookout_mmv76hg7ah240c", id: "mmv76hg7ah240c", label: "Ancient Lookout", px: (236, 1359), kind: "lookout", holder: "", notes: "Ruins of an old Roduro lookout tower."),
+    (key: "seastone_ruins", id: "mmv76izc9nmk6g", label: "Seastone Ruins", px: (262, 1346), kind: "ruin", holder: "", notes: "Ruins of an old village. Seemingly once an outpost to warn against invasion."),
+    (key: "mark_mmv76mfl2zdknp", id: "mmv76mfl2zdknp", label: "", px: (420, 1294), kind: "port", holder: "banner_lords", notes: ""),
+    (key: "mark_mmv76mwa4vdb9l", id: "mmv76mwa4vdb9l", label: "", px: (423, 1288), kind: "ferry", holder: "banner_lords", notes: "Goes to imperial capital"),
+    (key: "mark_mmv76njznfgul6", id: "mmv76njznfgul6", label: "", px: (379, 1054), kind: "port", holder: "throne", notes: ""),
+]

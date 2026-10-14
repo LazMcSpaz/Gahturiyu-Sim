@@ -1,32 +1,54 @@
-// Placeholder towns from Laz's map draft (13 Oct 2026): a dozen of the
-// marks, by pixel on `docs/map/laz-map-draft-2026-10-13.png` (150 m a
-// pixel). Laz: "don't put too much effort into laying out the towns right
-// now"; the real list, with his notes, comes later. Names are made by the
-// naming module from the site; `label` is what the map says.
+// The towns: Laz's settlement marks from the Map Marks page
+// (`assets/world/marks-export.json`), written by `tools/map/marks_to_towns.py`.
+// Don't edit by hand: change the mark on the page, pull the export again and
+// rerun the script (`tests/marks.rs` fails if this file is stale).
 //
-// key: stable, lower-case, from the label: the town's name in data (its roster is
-// `assets/world/people/<key>.ron`). Keep it when the label changes.
-// kind: Capital, City, Town, Village, Hamlet, Outpost, Fort.
-// holder: a faction key from `factions.rs` (the territory's).
+// key: the town's name in data (its roster is `assets/world/people/<key>.ron`,
+// its place `assets/world/places/<key>.json`); it stays with the mark's `id`
+// even if the label changes. label: what the map says (the town's own name is
+// made by the naming module). px: the pixel, 150 m a pixel. kind: Capital,
+// City, Town, Village, Hamlet, Outpost, Fort. holder: a faction key.
+// The comment on each line says where its founders came from.
 [
-    (key: "imperial_capital", label: "Imperial capital", px: (386, 1120), kind: Capital, founders: Roduro, holder: "throne"),
-    (key: "large_imperial_city_northern_coast", label: "Large Imperial city, northern coast", px: (798, 373), kind: City, founders: Roduro, holder: "throne"),
-    (key: "imperial_city", label: "Imperial city", px: (612, 927), kind: City, founders: Roduro, holder: "throne"),
-    (key: "main_high_folk_town", label: "Main High Folk town", px: (412, 721), kind: Town, founders: Roduro, holder: "highfolk"),
-    (key: "imperial_village", label: "Imperial village", px: (730, 905), kind: Village, founders: Roduro, holder: "throne"),
-    (key: "primary_warden_fort_and_village", label: "Primary Warden fort and village", px: (1578, 837), kind: Fort, founders: Roduro, holder: "wardens"),
-    (key: "river_crossing_crossroads_village", label: "River-crossing crossroads village", px: (1481, 921), kind: Village, founders: Roduro, holder: "wardens"),
-    (key: "open_hand_capital", label: "Open Hand capital", px: (773, 1443), kind: Capital, founders: Roduro, holder: "open_council"),
-    (key: "open_hand_city", label: "Open Hand city", px: (1327, 1224), kind: City, founders: Horaro, holder: "open_council"),
-    (key: "open_hand_town_on_the_main_vein_of_travel", label: "Open Hand town, on the main vein of travel", px: (786, 1662), kind: Town, founders: Roduro, holder: "open_council"),
-    (key: "first_peoples_city_fort_on_the_road", label: "First Peoples city, fort on the road", px: (1133, 1558), kind: City, founders: Roduro, holder: "seated_houses"),
-    (key: "first_peoples_capital_sea_castle", label: "First Peoples capital, sea castle", px: (1301, 1777), kind: Capital, founders: Horaro, holder: "seated_houses"),
-    (key: "first_peoples_town_on_an_ancient_city", label: "First Peoples town, on an ancient city", px: (1470, 1760), kind: Town, founders: Roduro, holder: "seated_houses"),
-    (key: "sea_fort_town", label: "Sea Fort town", px: (399, 1288), kind: Town, founders: Horaro, holder: "banner_lords"),
-    (key: "last_wave_outpost_north", label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),
-    // Laz's drawn outpost (`assets/world/plans/last_wave_outpost_southwest.ron`): "southwest of
-    // Open Hand capital city". The pixel is a guess: the map's south-west of the capital is rock
-    // above 240 m with no way through for a road, so it sits on the low ground 4 km south-south-west
-    // of the capital until Laz places it on the map page (forest is 12 km west).
-    (key: "last_wave_outpost_southwest", label: "Small Last Wave outpost", px: (768, 1468), kind: Outpost, founders: Qotiro, holder: "last_wave"),
+    (key: "imperial_capital", id: "t01", label: "Imperial capital", px: (467, 1070), kind: Capital, founders: Roduro, holder: "throne"),  // founders from the notes
+    (key: "large_imperial_city_northern_coast", id: "t02", label: "Large Imperial city, northern coast", px: (789, 439), kind: City, founders: Roduro, holder: "throne"),  // founders from the notes
+    (key: "imperial_city", id: "t03", label: "Imperial city", px: (612, 927), kind: City, founders: Roduro, holder: "throne"),  // founders from the notes
+    (key: "main_high_folk_town", id: "t04", label: "Main Highfolk town", px: (412, 721), kind: Town, founders: Roduro, holder: "highfolk"),  // founders from the notes
+    (key: "imperial_village", id: "t05", label: "Imperial village", px: (730, 905), kind: Village, founders: Roduro, holder: "throne"),  // founders from the notes
+    (key: "primary_warden_fort_and_village", id: "t06", label: "Primary Warden fort and village", px: (1578, 837), kind: Fort, founders: Roduro, holder: "wardens"),  // founders from the notes
+    (key: "river_crossing_crossroads_village", id: "t07", label: "River-crossing crossroads village", px: (1481, 921), kind: Village, founders: Roduro, holder: "wardens"),  // founders GUESSED (Built by is blank)
+    (key: "open_hand_capital", id: "t08", label: "Open Hand capital", px: (773, 1443), kind: Capital, founders: Roduro, holder: "open_council"),  // founders from the notes
+    (key: "open_hand_city", id: "t09", label: "Open Hand city", px: (1327, 1224), kind: City, founders: Horaro, holder: "open_council"),  // founders from the notes
+    (key: "open_hand_town_on_the_main_vein_of_travel", id: "t10", label: "Open Hand town, on the main vein of travel", px: (786, 1662), kind: Town, founders: Roduro, holder: "open_council"),  // founders from the notes
+    (key: "first_peoples_city_fort_on_the_road", id: "t11", label: "First Peoples city, fort on the road", px: (1091, 1569), kind: City, founders: Roduro, holder: "seated_houses"),  // founders from the notes
+    (key: "first_peoples_capital_sea_castle", id: "t12", label: "First Peoples capital, sea castle", px: (1301, 1777), kind: Capital, founders: Horaro, holder: "seated_houses"),  // founders from the notes
+    (key: "first_peoples_town_on_an_ancient_city", id: "t13", label: "First Peoples town, on an ancient city", px: (1470, 1760), kind: Town, founders: Roduro, holder: "seated_houses"),  // founders from the notes
+    (key: "sea_fort_town", id: "t14", label: "Sea Fort town", px: (403, 1286), kind: Town, founders: Roduro, holder: "banner_lords"),  // founders GUESSED (Built by is blank)
+    (key: "last_wave_outpost_north", id: "t15", label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),  // founders from the notes
+    (key: "remote_village", id: "d02", label: "Remote village", px: (319, 571), kind: Village, founders: Roduro, holder: ""),  // founders GUESSED (Built by is blank)
+    (key: "imperial_village_d03", id: "d03", label: "Imperial village", px: (483, 567), kind: Village, founders: Roduro, holder: "throne"),  // founders GUESSED (Built by is blank)
+    (key: "imperial_fishing_village", id: "d13", label: "Imperial fishing village", px: (155, 828), kind: Village, founders: Roduro, holder: "throne"),  // founders GUESSED (Built by is blank)
+    (key: "imperial_fishing_village_d14", id: "d14", label: "Imperial fishing village", px: (129, 998), kind: Village, founders: Roduro, holder: "throne"),  // founders GUESSED (Built by is blank)
+    (key: "imperial_lord_s_keep", id: "d15", label: "Imperial Lord's keep", px: (155, 902), kind: Fort, founders: Roduro, holder: "throne"),  // founders GUESSED (Built by is blank)
+    (key: "high_folk_village", id: "d16", label: "High Folk village", px: (277, 799), kind: Village, founders: Roduro, holder: "highfolk"),  // founders GUESSED (Built by is blank)
+    (key: "high_folk_village_d17", id: "d17", label: "High Folk village", px: (319, 1018), kind: Village, founders: Roduro, holder: "highfolk"),  // founders GUESSED (Built by is blank)
+    (key: "imperial_village_d19", id: "d19", label: "Imperial village", px: (586, 837), kind: Village, founders: Roduro, holder: "throne"),  // founders GUESSED (Built by is blank)
+    (key: "warden_fort", id: "d22", label: "Warden fort", px: (1533, 960), kind: Outpost, founders: Roduro, holder: "wardens"),  // founders GUESSED (Built by is blank)
+    (key: "abandoned_hamlet", id: "d24", label: "Abandoned hamlet", px: (1565, 1024), kind: Hamlet, founders: Roduro, holder: ""),  // founders GUESSED (Built by is blank)
+    (key: "warden_outpost", id: "d26", label: "Warden outpost", px: (1816, 1155), kind: Outpost, founders: Roduro, holder: "wardens"),  // founders GUESSED (Built by is blank)
+    (key: "first_peoples_village", id: "d27", label: "First Peoples village", px: (1719, 1256), kind: Village, founders: Roduro, holder: "seated_houses"),  // founders GUESSED (Built by is blank)
+    (key: "first_people_village", id: "d28", label: "First People village", px: (2138, 1372), kind: Village, founders: Roduro, holder: "seated_houses"),  // founders GUESSED (Built by is blank)
+    (key: "first_people_outpost", id: "d29", label: "First People outpost", px: (1983, 1455), kind: Outpost, founders: Roduro, holder: "seated_houses"),  // founders GUESSED (Built by is blank)
+    (key: "open_hand_marsh_hamlet", id: "d31", label: "Open Hand marsh hamlet", px: (1178, 1230), kind: Hamlet, founders: Roduro, holder: "open_council"),  // founders GUESSED (Built by is blank)
+    (key: "warden_fort_d32", id: "d32", label: "Warden fort", px: (1584, 1140), kind: Outpost, founders: Roduro, holder: "wardens"),  // founders GUESSED (Built by is blank)
+    (key: "first_peoples_village_d33", id: "d33", label: "First Peoples village", px: (1462, 1346), kind: Village, founders: Roduro, holder: "seated_houses"),  // founders GUESSED (Built by is blank)
+    (key: "open_hand_village", id: "d34", label: "Open Hand village", px: (960, 1285), kind: Village, founders: Roduro, holder: "open_council"),  // founders GUESSED (Built by is blank)
+    (key: "open_hand_village_d35", id: "d35", label: "Open Hand village", px: (1017, 1449), kind: Village, founders: Roduro, holder: "open_council"),  // founders GUESSED (Built by is blank)
+    (key: "last_wave_outpost", id: "d36", label: "Last Wave outpost", px: (715, 1642), kind: Outpost, founders: Qotiro, holder: "last_wave"),  // founders GUESSED from the kind (Built by is blank)
+    (key: "open_hand_hamlet", id: "d37", label: "Open Hand hamlet", px: (921, 1625), kind: Hamlet, founders: Roduro, holder: "open_council"),  // founders GUESSED (Built by is blank)
+    (key: "open_hand_village_d38", id: "d38", label: "Open Hand village", px: (1030, 1765), kind: Village, founders: Roduro, holder: "open_council"),  // founders GUESSED (Built by is blank)
+    (key: "first_people_hamlet", id: "d39", label: "First People hamlet", px: (1404, 1636), kind: Hamlet, founders: Roduro, holder: "seated_houses"),  // founders GUESSED (Built by is blank)
+    (key: "first_people_village_d40", id: "d40", label: "First People village", px: (1688, 1720), kind: Village, founders: Roduro, holder: "seated_houses"),  // founders GUESSED (Built by is blank)
+    (key: "sea_lord_s_keep", id: "mmv76lntkjpriz", label: "Sea Lord’s Keep", px: (409, 1301), kind: Fort, founders: Roduro, holder: "banner_lords"),  // founders GUESSED (Built by is blank)
+    (key: "highfolk_village", id: "mmv76p7vsql94u", label: "Highfolk Village", px: (374, 928), kind: Village, founders: Roduro, holder: "highfolk"),  // founders GUESSED (Built by is blank)
 ]

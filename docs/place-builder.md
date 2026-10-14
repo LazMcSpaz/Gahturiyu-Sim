@@ -114,6 +114,37 @@ file overrides a plan read from a sketch for the same town. What the game
 can't stand up yet goes to the plan's `later`, with where it was put.
 `FORMAT`: `Plan::land` is new saved state.
 
+## The land under a place (built: `sim/grounds.rs`)
+
+The builder opens on Laz's map round the mark and glides down into the
+place, over the land as the game makes it there: `headless grounds <dir>
+[seed]` writes `<dir>/<key>.json` for every mark (towns and landmarks) and
+`<dir>/index.json` (mark id → the game's key; the map page reads it, so a
+relabelled or duplicate mark opens the right place). Each file has the
+place's own grid (the builder's 2 m cells, 160 × 120, centred on the town's
+spot) and a ring round it (8 m cells, 1280 × 960 m): a ground letter a cell
+(grass, scrub, sand, rock, road, river or lake, sea...) and the height (dm
+from the centre's), plus the trees and bushes the land itself grows in the
+place (`sim/plants.rs`, the one rule the window's foliage uses too) and the
+map's own rocks. They're published beside the page as `grounds/`.
+
+- Untouched cells show the land's own ground and height; contours and
+  shading follow the real slopes, and raise / lower start from them.
+- A new place starts with the land's own trees and bushes as stamps (inside
+  a built place only stamps grow, so these are what will stand there):
+  erase what you don't want; "Land's trees" puts back any that are missing.
+- A town with a plan or place file stands exactly on its mark's spot
+  (`worldgen::town_spot`: ashore and off any river) in every world, so the
+  layout sits on the land it was drawn on. (A town nobody laid out still
+  moves to the levellest ground near its mark, which the seed decides.)
+- The land's broad shape is the map's and the same in every world; its
+  small relief (a few metres), scrub patches and woods follow the world's
+  seed. The files are from one world (the file says which); inside a place,
+  painted ground, set heights and stamped trees are the same in every world.
+
+Re-run the export and republish `grounds/` whenever the map, the marks or
+the land's rules change.
+
 ## Mobile first
 
 44 px targets; the tray a bottom sheet that folds to a tab; brush sliders in
