@@ -36,6 +36,8 @@ pub struct Routes {
     paths: HashMap<(SettlementId, SettlementId), Vec<V2>>,
     /// The roads worth drawing: the neighbour links the network grew from.
     pub roads: Vec<Vec<V2>>,
+    /// Pairs no way could be found between (a straight line stands in).
+    pub fallbacks: Vec<(SettlementId, SettlementId)>,
     /// The roads as a network to find a way along: points, and for each the
     /// points it joins with the walking effort between them.
     pub nodes: Vec<V2>,
@@ -287,6 +289,7 @@ impl Routes {
             if pts.is_empty() {
                 // Unreachable: fall back to a straight line rather than nothing.
                 pts = vec![towns[a as usize].pos, towns[b as usize].pos];
+                out.fallbacks.push((a, b));
             }
             pts[0] = towns[a as usize].pos;
             let last = pts.len() - 1;

@@ -121,14 +121,15 @@ fn a_holder_who_likes_the_squad_sells_cheaper_and_one_who_loathes_it_wont_deal()
     let mut w = worldgen::generate(1);
     let m = merchant(&mut w);
     let town = w.people[m as usize].home.unwrap();
-    let plain = w.for_sale(m)[0];
+    // (Something dear enough for a cheaper price to show as a whole coin.)
+    let plain = w.for_sale(m).into_iter().max_by_key(|x| x.2).expect("something for sale");
     let it = plain.0;
     let sells = w.offer(m, it, None);
     // Nobody holds it: nothing changes.
     assert_eq!(w.regard_price(town), 1.0);
     let gh = id("great_house");
     w.settlements[town as usize].holder = Some(id("banner_lords"));
-    assert_eq!(w.for_sale(m)[0], plain, "held, but nobody thinks anything of the squad yet");
+    assert_eq!(w.for_sale(m).into_iter().find(|x| x.0 == it), Some(plain), "held, but nobody thinks anything of the squad yet");
     // Honoured by the Great House (entry reads the parent): cheaper.
     w.deed(gh, HONOURED + 5.0);
     assert_eq!(w.regard_price(town), PRICE_HONOURED);

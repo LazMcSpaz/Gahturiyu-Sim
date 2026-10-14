@@ -446,6 +446,11 @@ fn every_variant_can_be_walked_into() {
 fn town_buildings(w: &World) -> Vec<((u16, u16), Vec<Job>, &'static layout::Variant)> {
     let mut out = Vec::new();
     for s in &w.settlements {
+        // (A town laid out from a drawing has the variants the drawing names,
+        // not those its residents' trades would choose: `plan.rs`.)
+        if w.plan_of(s.id).is_some() {
+            continue;
+        }
         for i in 0..s.buildings.len() as u16 {
             let Some(v) = layout::variant_in(s, i) else { continue };
             let jobs = w.household_order((s.id, i)).into_iter().map(|p| w.life(p).job).collect();

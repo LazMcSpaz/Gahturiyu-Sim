@@ -177,7 +177,7 @@ fn the_watch_spots_a_stranger_at_the_gate_and_comes_over() {
     // Talking to the watch instead: taken there and then, no small talk.
     let mut w = opened(3);
     run_to_hour(&mut w, 6.5);
-    let guard = w.settlements[isle.settlement as usize].residents.iter().copied().find(|&p| w.life(p).job == gahturiyu_sim::sim::jobs::Job::Guard && !w.is_bonded(p, w.time)).unwrap();
+    let guard = w.settlements[isle.settlement as usize].residents.iter().copied().find(|&p| w.life(p).job == gahturiyu_sim::sim::jobs::Job::Guard && !w.is_bonded(p, w.time) && !w.is_indoors_asleep(p)).unwrap();
     let at = w.person_pos(guard);
     w.teleport_squad(at.add(V2::new(1.5, 0.0)));
     w.pursuits.clear();

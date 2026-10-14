@@ -25,7 +25,8 @@
     (key: "sea_fort_town", label: "Sea Fort town", px: (399, 1288), kind: Town, founders: Horaro, holder: "banner_lords"),
     (key: "last_wave_outpost_north", label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),
     // Laz's drawn outpost (`assets/world/plans/last_wave_outpost_southwest.ron`): "southwest of
-    // Open Hand capital city". The pixel is a first guess, 6 km south-west of the capital; move it
-    // on the map page.
-    (key: "last_wave_outpost_southwest", label: "Small Last Wave outpost", px: (745, 1471), kind: Outpost, founders: Qotiro, holder: "last_wave"),
+    // Open Hand capital city". The pixel is a guess: the map's south-west of the capital is rock
+    // above 240 m with no way through for a road, so it sits on the low ground 4 km south-south-west
+    // of the capital until Laz places it on the map page (forest is 12 km west).
+    (key: "last_wave_outpost_southwest", label: "Small Last Wave outpost", px: (768, 1468), kind: Outpost, founders: Qotiro, holder: "last_wave"),
 ]

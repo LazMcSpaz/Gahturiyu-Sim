@@ -15,8 +15,9 @@ fn every_town_can_reach_every_other_over_dry_land() {
             }
             let p = w.routes.between(a, b);
             assert!(p.len() >= 2, "no route from {a} to {b}");
-            let far = w.settlements[a as usize].pos.dist(w.settlements[b as usize].pos) > 600.0;
-            assert!(!far || p.len() > 2, "route {a}->{b} fell back to a straight line (unreachable?)");
+            // (A road over flat ground can be one straight stretch; the
+            // routes say when no way was found.)
+            assert!(!w.routes.fallbacks.contains(&(a.min(b), a.max(b))), "route {a}->{b} fell back to a straight line (unreachable)");
             for q in &p[1..p.len() - 1] {
                 assert!(geo::inland(*q) > -40.0, "route {a}->{b} goes out to sea at {q:?}");
             }

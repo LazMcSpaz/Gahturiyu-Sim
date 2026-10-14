@@ -60,12 +60,23 @@ fn the_worker_walks_to_work_and_is_paid_the_wage_named() {
 fn a_woodcutter_says_where_the_woodlot_is() {
     use gahturiyu_sim::sim::{dialogue::Topic, jobs::{Job, PlaceKind}};
     let mut w = world();
-    let wc = w
-        .settlements
-        .iter()
-        .flat_map(|s| s.residents.iter().copied())
-        .find(|&p| w.life(p).job == Job::Woodcutter && w.workplace_of(p).is_some_and(|wp| wp.kind == PlaceKind::Woodlot) && !w.is_indoors_asleep(p))
-        .expect("a woodcutter up and about");
+    // A woodcutter up and about, and not at the woodlot just now: standing
+    // on it, they'd have no distance to give.
+    let pick = |w: &gahturiyu_sim::sim::World| {
+        w.settlements
+            .iter()
+            .flat_map(|s| s.residents.iter().copied())
+            .find(|&p| w.life(p).job == Job::Woodcutter && w.workplace_of(p).is_some_and(|wp| wp.kind == PlaceKind::Woodlot && wp.pos.dist(w.person_pos(p)) >= 60.0) && !w.is_indoors_asleep(p))
+    };
+    let mut wc = pick(&w);
+    for _ in 0..24 {
+        if wc.is_some() {
+            break;
+        }
+        w.step(3600.0);
+        wc = pick(&w);
+    }
+    let wc = wc.expect("a woodcutter up and about, away from the woodlot");
     let at = w.person_pos(wc);
     w.teleport_squad(at.add(gahturiyu_sim::sim::geo::V2::new(1.5, 0.0)));
     w.squad.at[0] = at.add(gahturiyu_sim::sim::geo::V2::new(1.0, 0.0));

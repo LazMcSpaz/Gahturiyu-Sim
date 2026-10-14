@@ -494,7 +494,8 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain) -> Vec<Settlement> {
             founders: m.founders,
             coastal,
             stilts,
-            size: m.kind.size() * rng.range(0.85, 1.15),
+            // (Keyed to the mark, so adding a mark doesn't move every later roll.)
+            size: m.kind.size() * Rng::from_keys(&[seed, super::crowd::key_hash(&m.key()), 0x53495A45]).range(0.85, 1.15),
             residents: Vec::new(),
             buildings: Vec::new(),
             reach: 0.0,

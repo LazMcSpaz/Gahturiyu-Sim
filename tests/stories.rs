@@ -114,7 +114,14 @@ fn a_robbed_merchant_hires_a_guard_who_stands_there_and_is_paid() {
     assert!(w.take_opportunity(opp, m).is_some());
     let c = w.contract_of(m).unwrap().clone();
     let at = w.contract_pos(&c);
-    // Wait for the next day's shift, standing nearby.
+    // Wait for the shift out in the open, out of the town's reach: within
+    // it the member would be sent to work a day early (and standing in
+    // someone's house overnight gets a squad member taken for trespass).
+    let away = (5..40)
+        .map(|k| at.add(gahturiyu_sim::sim::geo::V2::new(k as f32 * 100.0, 0.0)))
+        .find(|&p| !w.terrain.is_sea(p) && w.settlements.iter().all(|s| s.pos.dist(p) > s.reach + 200.0))
+        .expect("open ground near the town");
+    w.teleport_squad(away);
     let hour = |w: &World| (w.time.rem_euclid(DAY) / HOUR) as f32;
     run(&mut w, HOUR);
     while !(hour(&w) + 1.0 >= c.hours.0 && hour(&w) < c.hours.0) || World::day_of(w.time) as f64 * DAY < c.until - chances::GUARD_DAYS as f64 * DAY {
