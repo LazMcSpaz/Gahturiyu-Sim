@@ -9,15 +9,15 @@ greeting | voice=roduro, known | Ah, you again. Well met, {w:friend}. Come, sit 
 greeting | voice=roduro, warm | There you are! I was hoping you'd come by. {W:peace} to you, {w:friend}.
 greeting | voice=roduro, morning | Early, aren't you? The stone's still cold. Go on, then, what is it?
 greeting | voice=qotiro | Speak plainly. I have work waiting.
-greeting | voice=qotiro, stranger | I don't know you. That isn't a question yet.
+greeting | voice=qotiro, stranger | I don't know you. Your name first; the rest can wait its turn.
 greeting | voice=qotiro, known | You came back. Good. What do you need?
 greeting | voice=qotiro, warm | {W:sun} on your road. It's good to see a face I can trust.
 greeting | voice=qotiro, hot | If it's nothing, I'd sooner hear nothing. Well.
 greeting | voice=horaro | Come in out of the wind, {w:friend}. What brings you to me?
-greeting | voice=horaro, stranger | The {w:tide} left you, then. It's left worse. Sit before you fall over.
+greeting | voice=horaro, stranger | The {w:tide} brings in all sorts. You're one of the drier ones.
 greeting | voice=horaro, warm | Ho! Salt and fair weather to you, {w:friend}. Sit, sit.
 greeting | voice=horaro, night | Nothing good walks about under that {w:moon}. Say it quick, before I start believing it.
-greeting | voice=tadoro | A face I haven't written down. Say something I can keep.
+greeting | voice=tadoro | A face I haven't written down yet. There's a space in the book for you.
 greeting | voice=tadoro, known | You again! Good, I had a question saved up for you. But you first.
 greeting | voice=tadoro, warm | {W:friend}! Sit down, I've been writing all morning and my hand needs a rest.
 greeting | voice=tadoro, stranger | Don't tell me where you're from. Let me guess wrong first; I learn more that way.
@@ -25,11 +25,12 @@ greeting | distrusts | I've nothing to say to your sort. Move along. | refuse
 greeting | distrusts, voice=qotiro | No. Go. | refuse
 greeting | distrusts, voice=horaro | The {w:tide} can take you back where you came from. I'm not talking to you. | refuse
 # For anyone, when nothing more particular fits.
-greeting | | Yes? Mind the step.
-greeting | | You've the look of someone who's lost a street. Which one?
+greeting | in_town | Yes? Mind the step.
+greeting | | Yes? You're standing in my light.
+greeting | in_town | You've the look of someone who's lost a street. Which one?
 greeting | warm | Good to see you again. Come in.
 greeting | night | It's late to be calling. What is it?
-greeting | morning | It's early, and I'm no company till I've eaten. Say it anyway.
+greeting | morning | It's early, and I'm no company till I've eaten. You've been warned.
 greeting | rain | Wet day for it. Come under the eaves.
 #
 # ---- More ways to say hello (RG-6) ---------------------------------------
@@ -89,17 +90,17 @@ greeting | night, known | You keep late hours. What is it?
 greeting | evening, stranger | Evening. What brings you to me at the end of the day?
 #
 # By temper and mood.
-greeting | hot, stranger | Stare any longer and I'll charge for it. Speak, or walk.
+greeting | hot, stranger | Stare any longer and I'll charge for it.
 greeting | hot, known | You. What now?
 greeting | gentle, stranger | Hello, hello. No need to stand off, I don't bite. What can I do for you?
 greeting | gentle, known | Oh, hello again! How have you been keeping?
 greeting | cold, stranger | Yes? I don't believe we've met.
 greeting | cold, known | It's you. What do you need?
-greeting | hungry, stranger | I haven't eaten. Say it in one breath and I'll forgive you the rest.
+greeting | hungry, stranger | I haven't eaten. Whatever it is had better be short, or edible.
 greeting | hungry, known | You find me hungry, so forgive my manners. What is it?
 greeting | worried, stranger | Hm? No, nothing, I was counting. Where were we. Where were you, I mean.
 greeting | worried, known | Oh, it's you. I'm glad of a face I know today.
-greeting | afraid, stranger | Stand there. No, there, in the light. Now say your name, slowly.
+greeting | afraid, stranger | Stand there. No, there, where I can see your hands. Now your name, slowly.
 greeting | afraid, known | Oh! It's only you. You gave me a start.
 greeting | content, stranger | Hello there. You've caught me in a good mood, so ask away.
 greeting | content, known | A good day, this. What can I do for you?
@@ -123,7 +124,7 @@ greeting | job=woodcutter and quarrier, stranger | I've dust in my ears, so spea
 greeting | job=woodcutter and quarrier, known | You again. Speak up, my ears are still ringing.
 greeting | job=stone tender, stranger | Careful where you lean. Some of this {w:stone} is still young. What do you need?
 greeting | job=stone tender, known | Ah, you. Come to watch {w:stone} grow? It's slower than you'd think.
-greeting | job=cook, stranger | If you've come to tell me it's ready, it isn't. If you've come to eat, stand there and look hungry.
+greeting | job=cook, stranger | If you've come to ask is it ready: no. If you've come to eat, stand there and look hungry.
 greeting | job=cook, known | You again. No, it isn't ready. What do you want?
 greeting | job=meal runner, stranger | Quick, I've mouths waiting. What is it?
 greeting | job=meal runner, known | You again. Talk fast, I'm wanted elsewhere.
@@ -143,13 +144,13 @@ greeting | job=arbiter, stranger | I hear disputes, not gossip. Which is this?
 greeting | job=arbiter, known | You again. I hope you've not brought me a quarrel.
 greeting | job=labourer and porter, stranger | If you've something heavy, I'm your hand. Otherwise, what?
 greeting | job=labourer and porter, known | You again. Still nothing to carry? Then what is it?
-greeting | job=drifter, stranger | I'm not from here either. We could stand about not being from here, or you could say what you want.
+greeting | job=drifter, stranger | I'm not from here either. Between us we're from nowhere; that's two of us agreed on something.
 greeting | job=drifter, known | Still here? So am I, as it turns out.
 greeting | job=smith, stranger | Something to mend, or something to make? Or only talk?
 greeting | job=smith, known | Back again. What's broken this time?
 greeting | job=armourer, stranger | Looking to be harder to hurt? Or is it only talk you want?
 greeting | job=armourer, known | Back again. Something to fit, or something to mend?
-greeting | job=alchemist, stranger | Don't touch that. Don't touch the other thing either. Right: you have my attention, which is rarer than it looks.
+greeting | job=alchemist, stranger | Don't touch that. Or that. Right: you have my attention, which costs more than it looks.
 greeting | job=alchemist, known | You again. Still in one piece, I see. What do you need?
 greeting | job=scribe, stranger | A letter, a map, or a question? I've ink for all of them.
 greeting | job=scribe, known | Back again. Something to read, or something to write?
