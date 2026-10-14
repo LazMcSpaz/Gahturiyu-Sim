@@ -7,6 +7,14 @@ World lore (races, languages, architecture, pantheon) lives in the claude.ai
 
 ## Where we are (Laz, 2026-10-11)
 
+- **No world building by Claude (Laz, 14 Oct):** "From now on there should be
+  no world building from you. I'll hand author for the most part, and
+  contents will be simulated. We don't want to generate a world, it's not
+  coming out coherent." Places, people and land are authored by Laz in the
+  map page (marks, rosters, the place builder: `docs/place-builder.md`) and
+  read in from `assets/world/`; the generators stay only as fallbacks for
+  what isn't authored yet. Never invent a place, a person or a layout.
+
 - **The freeze is lifted** (Laz, 11 Oct): new features may be started. The
   MVP list it held to (visual feedback, looting, recruiting, a money grind,
   robbery on defeat, placeholder buildings with interiors and containers,
