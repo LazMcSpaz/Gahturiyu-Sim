@@ -33,7 +33,7 @@ thanks | task=answer_the_shore | Delivered. Good. Some letters you write so you 
 
 # ---- Paqax, the Binders -------------------------------------------------------------
 offer | task=terms_for_a_lord | You'd fetch a good price. Don't look like that; I'm hiring you, not selling you. Kotqot Wall-breaker, at {place}, {coin} coin, and the letter stays shut.
-thanks | task=terms_for_a_lord | Delivered, and no answer. That's an answer. {coin} coin; we're square, which is rarer than you'd think.
+thanks | task=terms_for_a_lord | Delivered. He'll answer when it suits him, which is his right and my problem. {coin} coin; we're square, which is rarer than you'd think.
 
 # ---- Feyesh, the Sharp Hands ---------------------------------------------------------
 offer | task=quiet_word | You let me finish my sentence. Hardly anyone does. {coin} coin to take this to Paqax, at {place}, and the Council needn't hear of it.
