@@ -277,25 +277,46 @@ impl Routes {
             }
         }
         // Phase 2: every other pair, now leaning on the roads that exist.
-        for a in (0..towns.len()).filter(|&a| ashore(a)) {
+        // (The roads are fixed now, so each town's search stands alone: run
+        // side by side, gathered in town order, the same as one by one.)
+        let starts: Vec<usize> = (0..towns.len()).filter(|&a| ashore(a)).collect();
+        let found = par_map(&starts, |&a| {
+            let wants: Vec<usize> = (a + 1..towns.len()).filter(|&b| ashore(b) && !raw.contains_key(&(a as SettlementId, b as SettlementId))).collect();
+            if wants.is_empty() {
+                return Vec::new();
+            }
             let parent = search(nodes[a], &height, &steep, &dry, &snow, &road);
-            for b in (a + 1..towns.len()).filter(|&b| ashore(b)) {
-                raw.entry((a as SettlementId, b as SettlementId)).or_insert_with(|| trace(&parent, nodes[a], nodes[b]));
+            wants.into_iter().map(|b| (b, trace(&parent, nodes[a], nodes[b]))).collect::<Vec<_>>()
+        });
+        for (&a, traces) in starts.iter().zip(found) {
+            for (b, cells) in traces {
+                raw.insert((a as SettlementId, b as SettlementId), cells);
             }
         }
 
-        for (&(a, b), cells) in &raw {
+        // Each pair's way, straightened and smoothed (side by side too, in a
+        // fixed order).
+        let mut pairs: Vec<(SettlementId, SettlementId)> = raw.keys().copied().collect();
+        pairs.sort();
+        let ways = par_map(&pairs, |&(a, b)| {
+            let cells = &raw[&(a, b)];
             let mut pts: Vec<V2> = cells.iter().map(|&c| centre(c % G, c / G)).collect();
-            if pts.is_empty() {
+            let fell_back = pts.is_empty();
+            if fell_back {
                 // Unreachable: fall back to a straight line rather than nothing.
                 pts = vec![towns[a as usize].pos, towns[b as usize].pos];
-                out.fallbacks.push((a, b));
             }
             pts[0] = towns[a as usize].pos;
             let last = pts.len() - 1;
             pts[last] = towns[b as usize].pos;
             // (Smoothing cuts corners: a point left in the water comes ashore.)
             let pts: Vec<V2> = chaikin(chaikin(straighten(&pts, terrain))).into_iter().map(|p| if atlas.inland(p) < 20.0 { atlas.landward(p, 25.0) } else { p }).collect();
+            (pts, fell_back)
+        });
+        for (&(a, b), (pts, fell_back)) in pairs.iter().zip(ways) {
+            if fell_back {
+                out.fallbacks.push((a, b));
+            }
             if links.contains(&(a as usize, b as usize)) {
                 out.roads.push(pts.clone());
             }
@@ -310,6 +331,21 @@ impl Routes {
         });
         out
     }
+}
+
+/// `f` over every item, on as many threads as the machine has, the results
+/// in the items' order (so the same as a plain loop).
+fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2).clamp(1, 16);
+    if items.len() < 2 || threads < 2 {
+        return items.iter().map(&f).collect();
+    }
+    let chunk = items.len().div_ceil(threads);
+    let f = &f;
+    std::thread::scope(|s| {
+        let handles: Vec<_> = items.chunks(chunk).map(|c| s.spawn(move || c.iter().map(f).collect::<Vec<R>>())).collect();
+        handles.into_iter().flat_map(|h| h.join().expect("a road worker")).collect()
+    })
 }
 
 /// Cheapest-walk search over the grid from `start`. Returns each cell's

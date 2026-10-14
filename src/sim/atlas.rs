@@ -282,6 +282,10 @@ pub struct TownMark {
     /// is `assets/world/people/<key>.ron`). Left out, it's made from the label.
     #[serde(default)]
     pub key: String,
+    /// The mark's id on Laz's map page (`marks-export.json`): the key stays
+    /// with it (`tools/map/marks_to_towns.py`).
+    #[serde(default)]
+    pub id: String,
     /// What the map says (not the town's name: that's made by the names).
     pub label: String,
     /// The pixel on the map.
@@ -594,6 +598,30 @@ impl Atlas {
             q = q.add(dir.scale((d + past).max(PX * 0.5).min(PX * 4.0)));
         }
         q
+    }
+
+    /// The nearest open sea to `p`: a spot at least `past` from any shore,
+    /// found by looking round in widening rings (a walk down the distance
+    /// field can end in a river, which the map counts as water). `p` itself
+    /// if there's none within `reach`.
+    pub fn open_sea_near(&self, p: V2, past: f32, reach: f32) -> V2 {
+        let mut r = PX * 2.0;
+        while r <= reach {
+            let n = ((std::f32::consts::TAU * r / PX) as usize).max(16);
+            let best = (0..n)
+                .map(|k| {
+                    let a = k as f32 / n as f32 * std::f32::consts::TAU;
+                    p.add(V2::new(a.cos() * r, a.sin() * r))
+                })
+                .map(|c| (self.inland(c), c))
+                .filter(|(h, _)| *h <= -past)
+                .min_by(|x, y| x.0.total_cmp(&y.0));
+            if let Some((_, c)) = best {
+                return c;
+            }
+            r += PX * 2.0;
+        }
+        p
     }
 
     /// The nearest spot on land from `p` with this much ground between it
