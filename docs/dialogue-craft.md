@@ -196,3 +196,127 @@ A line goes in only if it passes all of these, read aloud:
 4. Then the authored characters' own files (`data/lines/people/<key>.txt`),
    one character at a time, from their character card.
 5. Every new line through the test; every file through the loop.
+
+## 9. Scars: what went wrong in the second's own lines, and what fixed it
+
+The second session wrote the faction voices (`factions.txt`), the leaders'
+jobs (`leaders.txt`), Diʻub and the island (`diub.txt`, `salt_isle.txt`).
+Read back a day later, these are the faults, each with what fixed it where
+something did.
+
+- **The slot wrote the line.** Every leader's offer has the same skeleton:
+  the situation, the order, then `{coin} coin, <a flourish>`. Thirteen
+  offers, thirteen lines that end on a price and a pat phrase ("from my own
+  purse", "between friends", "if you live"). The slot `{coin}` sat at the
+  end because that's where it was easiest to put. *Fix:* the price goes
+  where the speaker would put it. A trader names it first; a proud man
+  last, or not at all ("you'll be paid"); someone embarrassed by how little
+  it is mumbles it in the middle. The slot is a fact, not a full stop.
+- **Thanks that thank.** Every `thanks` line says thank you and the coin.
+  People who've been helped rarely say "thank you" first: they check the
+  thing, they say what it means to them, they change the subject. *Fix:*
+  thanks lines are about the thing done, never about gratitude; the word
+  "thanks" is allowed once in the file.
+- **Flattery labelled as flattery.** Feyesh's "My friend, you're exactly
+  who I hoped for ... between friends" says *I am a flatterer* in three
+  places. A good flatterer flatters by noticing something true about you.
+  *Fix (the Egri lens):* the flattery is an accurate observation used as a
+  lever: "You came in by the back street. Most people don't know it's
+  there."
+- **Manifestos as greetings.** Faction greetings were the faction's
+  slogan in a stranger's mouth ("Every traveller is a thread in something
+  bigger"). A faction is an attitude a person *has*, not a line they
+  *recite*. *Fix:* the faction changes how the ordinary thing is said: a
+  Throne loyalist asks your business the way a customs clerk does; an Open
+  Hand idealist asks it as if they'd like the answer.
+- **Invented history.** Niralea's "My grandmother used to say..." gives a
+  canon leader a grandmother Laz never wrote. `FORMAT.md` already says
+  don't give a line facts the game doesn't know; for Laz's named people the
+  rule is stricter: only what `docs/leaders.md` and the Project's lore say,
+  or a detail so small it can't contradict anything (a habit, not a
+  relative).
+- **What worked, and why.** Ḍeshu's judgment: "Then you're mine. Put it to
+  work, and see it's fed." It works because it's an act (a claim), the
+  status is in the grammar (*it*, not *them*), it's lopsided (four words,
+  then an order to someone else), and it leaves the player a door (what
+  now?). Diʻub's guide lines worked when they were what he'd *do* ("Fire
+  first. Then we argue about the rest"), and failed when they told the
+  player what the lesson was.
+
+## 10. Lines are assembled: write for neighbours you can't see
+
+A talk is put together from pieces: greeting + topic + feeling + hook
+(`talk.rs` `assemble_talk`), each picked separately. So:
+
+- **Each piece must stand next to any other.** A greeting can't end with a
+  question the topic then ignores; a feeling can't repeat the greeting's
+  oath. The primary's audit found the greetings all ended in "What is it?",
+  and then the topic answered a question nobody had asked.
+- **Each piece owns one job.** The greeting places the speaker (who they
+  are to you); the topic says what's on their mind; the feeling colours it;
+  the hook leaves the door. If a greeting already leaves a door, that
+  person's hook should usually be empty (`hook | |`).
+- **Read pieces in the order they meet.** The review reads assembled talks
+  (the rg6 dump, `headless talk`), never a file top to bottom: the file
+  order hides the joins.
+- **Kill the new tic, not just the old one.** Removing the closing question
+  tends to put an imperative in its place ("Say it", "Speak"). Count how
+  many lines in one slot end the same way (test 12).
+
+## 11. What the engine's facts can and can't carry (today)
+
+A line can only be as specific as its conditions. What a line can be
+matched on now (`talk.rs` `facts`), and what it can't:
+
+| Can | Can't (yet) |
+|---|---|
+| their people (`voice=`), trade (`job=`), honour band (`low_honour`, `mid_honour`, `high_honour`) | their **sex** or the listener's (no tag); their age |
+| temper as combinations only: `hot` (bold and quick), `patient`, `gentle` (patient and sociable), `cold` (patient and unsociable) | boldness, sociability or wanderlust **alone**; so "bold *and* poor" can be written only as `hot, poor` |
+| mood: `worried`, `hungry`, `afraid`, `content` | tiredness, cold, being wet, drink, grief |
+| `has_coin` / `poor` | the five wealth steps (rosters have them; stage 4) |
+| the listener: `stranger`, `known`, `warm`, `distrusts`, `trusts_you`, `confides`, `member`, `you=<people>` | the listener's trade, sex, what they're wearing, whether they're armed or hurt |
+| when and where: `morning` to `night`, `place=`, `in_town`, `out_here`, `home_here`, `travelling` | the weather (`rain` exists but is never set; the weather now exists, so it could be) |
+| faction and sub-faction, a leader's `task=`, a topic's own tags | what they said to *this* person last time (only "don't repeat a piece"); the personal detail and relations (rosters, stage 4) |
+
+So **the trait table in section 4 is ahead of the engine.** Until the tags
+exist, write the combinations through what's there (`hot, poor`, `cold,
+worried`), and put the tags a line wanted but couldn't have in a comment
+above it (`# wants: bold, sex=woman`). That list is the case for each new
+tag.
+
+## 12. The faction-greeting fix (`talk.rs` `pick`)
+
+Today a piece's score is how many conditions it has, plus `FACTION_WEIGHT`
+(2) if any condition is `faction=` or `task=`. A two-condition faction
+greeting scores 4 and beats a three-condition line about the speaker's own
+trade and mood, so a held town greets alike. The fix, for the dialogue
+stage (no code yet: craft first):
+
+1. **Score what's about the person above what's about the group.** A
+   condition on the speaker's own facts (`job=`, mood, temper, honour, a
+   personal detail, `leader=`) counts 2; a faction or place condition counts
+   1; `task=` stays the strongest (it's a specific job).
+2. **A faction line is a fallback in its slot, not an override:** it wins
+   only when nothing about the person fits as well.
+3. **The attitude travels without the words:** a faction can add a
+   *feeling* piece ("...and the Throne's man in me says watch your step")
+   instead of replacing the greeting. Then a guard who is also a Throne
+   loyalist greets as a guard, and the loyalty leaks in the second piece:
+   section 4's "one leads, the other leaks", done by the assembler.
+
+## 13. Additions to the lenses and the test
+
+- **The Ishiguro lens** (*The Remains of the Day*), for anyone whose status
+  depends on not saying something: officials, servants, the bonded, the
+  Binders' overseer. They talk round it with perfect manners; the omission
+  is the whole character.
+- **The Leonard lens** (Elmore Leonard), for crooks, the Sharp Hands,
+  bandits: they talk shop sideways, they're funny without trying, nobody
+  explains the crime.
+- **Test 11: read it in the worst context.** The engine will show this line
+  in the place and hour that fits its tags least (a "mind the step" on an
+  open road; "come in out of the rain" at noon in a drought). If it's wrong
+  there, add the tag that keeps it out, or change the line.
+- **Test 12: count the slot's endings.** In one slot of one file, no more
+  than one line in five may end the same way (a question, "Say it", a name,
+  a blessing).

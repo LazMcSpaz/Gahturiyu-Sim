@@ -13,39 +13,39 @@
 # faction tags everyone gets (faction=wardens and so on).
 
 # ---- Any leader, by the kind of job ----------------------------------------------
-offer | ask=camp | There's a camp {walk} {dir} of here that's been a thorn too long. Break it and there's {coin} coin for you.
-offer | ask=slavers | The Binders keep a camp {walk} {dir} of here. Break it. {coin} coin, and the thanks of everyone they'd have sold.
-offer | ask=fetch | I need {count} × {item}. Bring them and you'll have {coin} coin.
-offer | ask=letter | Carry this to {to}, in {place}. Sealed; it stays sealed. {coin} coin when it's in their hands.
-not_yet | | Not yet. I don't know you well enough for what I need.
-thanks | | It's done? Good. {coin} coin, and my faction won't forget it.
-nothing | | Nothing more for now. Come back when the world has moved.
+offer | ask=camp | A camp, {walk} {dir} of here. {coin} coin to see it gone, and gone means not moved further down the road.
+offer | ask=slavers | {coin} coin. The Binders' camp {walk} {dir} of here has a pen beside it. Break the one, open the other.
+offer | ask=fetch | {count} × {item}, on this table, and there's {coin} coin in it. I'd go myself, but then who'd be here when you got back?
+offer | ask=letter | This goes to {to}, in {place}, with the seal whole. {coin} coin. If it arrives opened, don't come back for it.
+not_yet | | Ask me again when I know what you do when nobody's paying you.
+thanks | | Done. I'll hear it from others too; I always do. {coin} coin.
+nothing | | Nothing for you yet. Come back when something's gone wrong; something always does.
 
 # ---- Waarua, the Open Council ------------------------------------------------------
-offer | task=break_binders | I bought my own way out. Most of them never will. There's a Binder camp {walk} {dir} of here; break it and whoever's chained there walks free. {coin} coin, from my own purse.
-thanks | task=break_binders | Free. You don't know what that word weighs until you've waited years for it. Here: {coin} coin. Tell them who sent you, if they ask.
+offer | task=break_binders | I paid for my chain coin by coin. The ones in the Binder camp {walk} {dir} of here never will. Break it. The {coin} coin is mine, not the Council's.
+thanks | task=break_binders | {coin} coin. Now tell me: did any of them say anything, walking out?
 
 # ---- Niralea and Nemu: the shore and the fleet -----------------------------------
-offer | task=word_to_the_fleet | My grandmother used to say the tide always comes back to the same rock. Take this letter to Nemu of the Far Sails, in {place}. It only asks. {coin} coin for your trouble.
-thanks | task=word_to_the_fleet | He read it? Then he's thinking. That's more than last season. {coin} coin, with my thanks.
+offer | task=word_to_the_fleet | Nemu says the tide doesn't have to come back. Take him this, at {place}, {coin} coin for it, and don't let him read it in front of his captains.
+thanks | task=word_to_the_fleet | Did he laugh? He laughs when he means no. {coin} coin. My season's nearly out, you know.
 offer | task=answer_the_shore | Niralea's written again, hasn't she. Take her my answer, would you? {place}. Kind words, and still no. {coin} coin.
 thanks | task=answer_the_shore | Delivered. Good. Some letters you write so you don't have to say them. {coin} coin.
 
 # ---- Paqax, the Binders -------------------------------------------------------------
-offer | task=terms_for_a_lord | You have the look of someone who can walk past a lord's door. Take this to Kotqot Wall-breaker, at {place}. Don't read it; you'd only misunderstand it. {coin} coin.
-thanks | task=terms_for_a_lord | Received. Good. Everything has its price, and today you were worth {coin} coin.
+offer | task=terms_for_a_lord | You'd fetch a good price. Don't look like that; I'm hiring you, not selling you. Kotqot Wall-breaker, at {place}, {coin} coin, and the letter stays shut.
+thanks | task=terms_for_a_lord | Delivered, and no answer. That's an answer. {coin} coin; we're square, which is rarer than you'd think.
 
 # ---- Feyesh, the Sharp Hands ---------------------------------------------------------
-offer | task=quiet_word | My friend, you're exactly who I hoped for. A quiet letter to Paqax, in {place}. Nobody needs to know you carried it, least of all the Council. {coin} coin, between friends.
-thanks | task=quiet_word | Perfect. You see? We get along. {coin} coin, and my door's always open to you.
+offer | task=quiet_word | You let me finish my sentence. Hardly anyone does. {coin} coin to take this to Paqax, at {place}, and the Council needn't hear of it.
+thanks | task=quiet_word | There. I read you right; I usually do. {coin} coin, counted in front of you, because I'd want the same.
 
 # ---- Doruḍoqu, the Road Crews ---------------------------------------------------------
-offer | task=clear_the_road | Bandits, {walk} {dir} of here, right on our road. The Council talks about it. You could do something about it. {coin} coin, and the crews will know your name.
-thanks | task=clear_the_road | Road's clear, then. Good. {coin} coin. Don't expect a speech.
+offer | task=clear_the_road | Bandits sitting on our road, {walk} {dir} of here, right where the carts have to slow. The Council's held a meeting about it. Two. {coin} coin if you do better.
+thanks | task=clear_the_road | Clear? Good. {coin} coin. And don't call me foreman, I've had enough of that today.
 
 # ---- Lamawina, the Lantern Company ---------------------------------------------------
-offer | task=camp_bounty | Standing bounty on the camp {walk} {dir} of here. Company rules: you break it, you're paid, {coin} coin. Nobody left behind on the way.
-thanks | task=camp_bounty | Contract's done. {coin} coin, as written. Everyone come back?
+offer | task=camp_bounty | {coin} coin on the camp {walk} {dir} of here, written and witnessed. You come back with as many as you went out with, or it was a bad contract.
+thanks | task=camp_bounty | {coin} coin, as written. Now: how many went out, and how many are standing here?
 
 # ---- Totkit and Textrim, the Last Wave -----------------------------------------------
 offer | task=test_of_nerve | You want to see the High Priestess? Then show me something. Bandits camp {walk} {dir} of here. Break them and come back standing. {coin} coin, if you live.
@@ -57,7 +57,7 @@ thanks | task=bread_for_the_enclave | They'll eat tonight. That's what matters. 
 # ---- Haʻo and Hoqa, the Wardens --------------------------------------------------------
 offer | task=bandages_for_the_wall | The green doesn't kill clean. We go through bandages faster than bread. Bring {count} × {item}. {coin} coin; it's what we have.
 thanks | task=bandages_for_the_wall | That'll keep three of them standing a week longer. {coin} coin. Thank you.
-offer | task=plea_to_the_general | Thirty years on this wall and the powers send us speeches. Take this to the General, Haʻahoqo, in {place}. He's an old soldier; he'll read it. {coin} coin.
+offer | task=plea_to_the_general | Thirty years on this wall. The General sends speeches; I send this. Into Haʻahoqo's own hand at {place}, not his clerk's. {coin} coin. He was a soldier once.
 thanks | task=plea_to_the_general | He read it? Then maybe someone will come. Maybe. {coin} coin.
 
 # ---- Aloqi, the Holy House -------------------------------------------------------------
