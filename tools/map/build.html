@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gahturiyu Place Builder</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@500;600&display=swap">
+<style>
+  /* A top-down 2D editor for one place, phone and iPad first: the ground fills the screen;
+     along the bottom a tray of tools and things that folds to a tab; the picked tool's
+     settings in a pill above it; the place's info top left; save and export top right. */
+  :root {
+    --umber: #231c14; --umber-2: #2f261b; --brass: #c9a24a; --brass-dim: #8f7439; --gold: #e8c76a;
+    --text: #efe6d2; --dim: #b1a48b; --bad: #d6684f; --ink: #1d1710;
+    --display: "Cinzel", "Georgia", serif; --body: "Alegreya", "Georgia", serif;
+    --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { margin: 0; background: #5d6b45; color: var(--text); font-family: var(--body); font-size: 16px; overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  button { font: 600 13px var(--display); letter-spacing: .05em; color: var(--text); background: var(--umber-2); border: 1px solid var(--brass-dim); border-radius: 6px; padding: 8px 10px; cursor: pointer; min-height: 44px; touch-action: manipulation; }
+  button.primary { background: linear-gradient(180deg, var(--gold), var(--brass)); color: var(--ink); border-color: var(--brass); }
+  button.danger { color: var(--bad); border-color: rgba(214,104,79,.5); }
+  button.on { border-color: var(--gold); background: rgba(232,199,106,.2); box-shadow: inset 0 0 0 1px var(--gold); color: var(--gold); }
+  button:focus-visible, input:focus, select:focus, textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+  input, select, textarea { font: inherit; font-size: 16px; color: var(--text); background: var(--umber-2); border: 1px solid var(--brass-dim); border-radius: 6px; padding: 8px 10px; min-width: 0; width: 100%; box-sizing: border-box; min-height: 44px; }
+  input[type=range] { min-height: 32px; padding: 0; accent-color: var(--gold); }
+  #stage { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+  #stage.brush { cursor: crosshair; }
+  #stage.panning { cursor: grabbing; }
+  #cv { display: block; position: absolute; left: 0; top: 0; }
+
+  /* Top left: the place. */
+  #info { position: absolute; left: 8px; top: calc(60px + var(--sat)); z-index: 4; background: rgba(35,28,20,.94); border: 1px solid var(--brass-dim); border-top: 3px solid var(--brass); border-radius: 6px; padding: 6px 10px; max-width: min(320px, calc(100vw - 16px)); box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  #info h1 { font: 600 14px var(--display); letter-spacing: .08em; color: var(--gold); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #info .line { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #info .line b { color: var(--text); font-weight: 600; }
+  #info.open .more { display: block; }
+  #info .more { display: none; font-size: 13px; margin-top: 4px; max-height: 40vh; overflow: auto; }
+  #info .more .roles span { display: inline-block; background: var(--umber-2); border: 1px solid var(--brass-dim); border-radius: 12px; padding: 2px 8px; margin: 2px 4px 2px 0; }
+  #info .more textarea { margin-top: 6px; min-height: 60px; font-size: 14px; }
+  #info .more .row { display: flex; gap: 6px; margin-top: 6px; }
+  #info .more .row button { flex: 1; min-height: 40px; padding: 6px; }
+
+  /* Top right: save, export, back. */
+  #top { position: absolute; right: 8px; top: calc(8px + var(--sat)); z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #bar { display: flex; gap: 6px; background: rgba(35,28,20,.94); border: 1px solid var(--brass-dim); border-radius: 6px; padding: 5px 6px; }
+  #bar button { min-height: 40px; padding: 6px 10px; }
+  #status { font-size: 13px; color: var(--dim); background: rgba(35,28,20,.85); border-radius: 4px; padding: 3px 8px; max-width: 60vw; text-align: right; }
+  #status.bad { color: var(--bad); }
+  #status:empty { display: none; }
+  @media (min-width: 700px) { #info { top: calc(8px + var(--sat)); } }
+  #scale { position: absolute; left: 8px; bottom: calc(var(--tray-h, 160px) + 10px + var(--sab)); color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; z-index: 3; background: rgba(239,230,210,.6); padding: 2px 6px; border-radius: 3px; }
+  #scale .bar { height: 3px; background: var(--ink); border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); margin-bottom: 2px; }
+
+  /* The handles on a picked thing (drawn as DOM so they stay thumb-sized at any zoom). */
+  .handle { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; z-index: 5; display: flex; align-items: center; justify-content: center; touch-action: none; }
+  .handle::after { content: ""; width: 26px; height: 26px; border-radius: 50%; background: var(--gold); border: 2px solid var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  .handle.remove::after { background: var(--bad); }
+  .handle svg { position: absolute; width: 16px; height: 16px; pointer-events: none; }
+  .handle[hidden] { display: none; }
+  #thing-sheet { position: absolute; left: 8px; right: 8px; bottom: calc(var(--tray-h, 160px) + 8px + var(--sab)); z-index: 5; background: rgba(35,28,20,.96); border: 1px solid var(--brass-dim); border-top: 3px solid var(--brass); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px 8px; align-items: center; }
+  #thing-sheet[hidden] { display: none; }
+  #thing-sheet .k { font-size: 12px; color: var(--dim); grid-column: 1 / -1; }
+  #thing-sheet input { min-height: 40px; }
+  #thing-sheet button { min-height: 40px; }
+
+  /* The tray along the bottom: tool tabs, then the tool's own strip. */
+  #tray { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; background: rgba(35,28,20,.95); border-top: 1px solid var(--brass-dim); padding-bottom: var(--sab); display: flex; flex-direction: column; }
+  #tray.min #tools, #tray.min #strip, #tray.min #pill { display: none; }
+  #grip { display: flex; justify-content: center; padding: 4px 0 2px; }
+  #grip button { min-height: 28px; padding: 2px 30px; border-radius: 14px; font-size: 12px; }
+  #tools { display: flex; gap: 4px; padding: 4px 8px; overflow-x: auto; scrollbar-width: none; }
+  #tools::-webkit-scrollbar { display: none; }
+  #tools button { flex: none; min-width: 64px; min-height: 48px; padding: 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; }
+  #tools button svg { width: 22px; height: 22px; }
+  #pill { display: flex; gap: 10px; align-items: center; padding: 4px 12px; font-size: 13px; color: var(--dim); flex-wrap: wrap; }
+  #pill[hidden] { display: none; }
+  #pill label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #pill input[type=range] { width: 110px; }
+  #pill .swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+  #pill .sw { width: 40px; height: 40px; border-radius: 6px; border: 2px solid transparent; padding: 0; min-height: 0; }
+  #pill .sw.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--ink) inset; }
+  #strip { display: flex; gap: 6px; padding: 4px 8px 8px; overflow-x: auto; scrollbar-width: none; min-height: 84px; align-items: flex-end; }
+  #strip::-webkit-scrollbar { display: none; }
+  #strip[hidden] { display: none; }
+  .pal { flex: none; width: 84px; min-height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; padding: 4px 2px 5px; border: 1px solid transparent; border-radius: 8px; cursor: grab; touch-action: none; color: var(--text); background: none; }
+  .pal.on { border-color: var(--gold); background: rgba(232,199,106,.18); }
+  .pal canvas { width: 60px; height: 50px; pointer-events: none; }
+  .pal span { font: 500 10px var(--display); letter-spacing: .02em; color: var(--dim); white-space: normal; text-align: center; line-height: 1.15; pointer-events: none; }
+  .pal.head { width: auto; min-height: 0; align-self: center; padding: 0 6px; cursor: default; }
+  .pal.head span { color: var(--gold); writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .12em; }
+  #ghost { position: absolute; pointer-events: none; display: none; z-index: 9; }
+  #ghost canvas { width: 70px; height: 70px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+  #gh { position: absolute; inset: 0; z-index: 20; background: rgba(35,28,20,.97); display: flex; flex-direction: column; gap: 8px; padding: calc(16px + var(--sat)) 16px; }
+  #gh[hidden] { display: none; }
+  #gh h2 { font: 600 15px var(--display); letter-spacing: .1em; color: var(--gold); margin: 0; }
+  #gh p { margin: 0; font-size: 14px; color: var(--dim); }
+  #gh label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  #gh .row { display: flex; gap: 8px; }
+  @media (min-width: 900px) and (min-height: 600px) {
+    #tray { left: auto; right: 8px; bottom: 8px; width: 360px; border: 1px solid var(--brass-dim); border-radius: 8px; max-height: 60vh; }
+    #strip { flex-wrap: wrap; align-items: flex-start; overflow-y: auto; max-height: 34vh; }
+    #thing-sheet { left: 8px; right: auto; width: 320px; bottom: 8px; }
+    #scale { bottom: 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="h-move" class="handle" hidden><svg viewBox="0 0 16 16"><path d="M8 1v14M1 8h14M8 1l-2 2M8 1l2 2M8 15l-2-2M8 15l2-2M1 8l2-2M1 8l2 2M15 8l-2-2M15 8l-2 2" stroke="#1d1710" stroke-width="1.6" fill="none"/></svg></div>
+  <div id="h-rot" class="handle" hidden><svg viewBox="0 0 16 16"><path d="M3 9a5 5 0 1 0 2-4" stroke="#1d1710" stroke-width="1.8" fill="none"/><path d="M5 2v3h-3" stroke="#1d1710" stroke-width="1.8" fill="none"/></svg></div>
+  <div id="h-scale" class="handle" hidden><svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3h-5M13 3v5M3 13h5M3 13V8" stroke="#1d1710" stroke-width="1.8" fill="none"/></svg></div>
+  <div id="h-remove" class="handle remove" hidden><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="#1d1710" stroke-width="2"/></svg></div>
+  <div id="ghost"><canvas width="140" height="140"></canvas></div>
+</div>
+
+<div id="info"><h1 id="i-title">Place</h1><div class="line" id="i-cap">…</div>
+  <div class="more">
+    <div class="roles" id="i-roles"></div>
+    <div class="line" id="i-counts"></div>
+    <textarea id="i-notes" placeholder="Notes for the place (who holds it, what it's for, what Claude should know)"></textarea>
+    <div class="row"><button id="i-undo">Undo</button><button id="i-fit">Fit</button><button id="i-grid">Grid</button></div>
+  </div>
+</div>
+<div id="top">
+  <div id="bar"><button id="back">Map</button><button id="export">Export</button><button id="github" class="primary">Save to GitHub</button></div>
+  <div id="status"></div>
+</div>
+<div id="scale"><div class="bar" id="scalebar"></div><span id="scaletext">20 m</span></div>
+
+<div id="thing-sheet" hidden>
+  <input id="t-label" placeholder="what this one is called" autocomplete="off" enterkeyhint="done">
+  <input id="t-room" type="number" min="0" max="200" step="1" style="width:84px" aria-label="Beds">
+  <button id="t-done" class="primary">Done</button>
+  <div class="k" id="t-kind"></div>
+</div>
+
+<div id="tray">
+  <div id="grip"><button id="grip-btn" aria-label="Fold or unfold the tray">▾ tray</button></div>
+  <div id="tools"></div>
+  <div id="pill" hidden></div>
+  <div id="strip"></div>
+</div>
+
+<div id="gh" hidden>
+  <h2>Save to GitHub</h2>
+  <p>Writes this place as <code id="gh-path"></code> on the branch below, as one commit, when you press Save. The token stays in this browser only; it never goes into a file or the store.</p>
+  <label for="gh-token">Token (a fine-grained token with contents: write on the repo)</label><input id="gh-token" type="password" autocomplete="off">
+  <label for="gh-repo">Repository</label><input id="gh-repo" value="LazMcSpaz/Gahturiyu-Sim" autocomplete="off">
+  <label for="gh-branch">Branch</label><input id="gh-branch" value="world/atlas" autocomplete="off">
+  <div class="row"><button id="gh-cancel">Cancel</button><button id="gh-forget" class="danger">Forget token</button><button id="gh-save" class="primary" style="flex:1">Save</button></div>
+  <p id="gh-status"></p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const stage = $("stage"), cv = $("cv"), ctx = cv.getContext("2d");
+  const say = (t, bad) => { const s = $("status"); s.textContent = t; s.classList.toggle("bad", !!bad); };
+  const params = new URLSearchParams(location.search);
+  const KEY = (params.get("key") || "unnamed_place").replace(/[^a-z0-9_]/g, "_");
+  const NAME = params.get("name") || KEY;
+
+  // ---- the catalogue: every thing the game can stand up, with its real footprint. The
+  //      game writes assets/world/catalogue.json (headless catalogue); until it's beside this
+  //      page, this built-in list stands in, with the same keys and the game's sizes. ----
+  const JOBN = (j) => j.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  const B = (key, name, people, glyph, depth, width, o) => Object.assign({ key, name, group: "building", people, glyph, shape: "rect", depth, width, storeys: 1, beds: 0, jobs: [], scalable: true, rotatable: true }, o || {});
+  const SMITHS = ["Smith", "Armourer"], LOOM = ["Weaver", "Tailor"], BENCH = ["Tanner", "Leatherworker", "Woodworker", "Carpenter", "Mason", "Boatwright"], TRADE = ["Merchant", "Exchanger"];
+  let CATALOGUE = [
+    // Roduro: grown stone, round.
+    B("roduro_cottage", "Cottage", "roduro", "roduro", 8, 6.4, { shape: "round", beds: 3 }),
+    B("roduro_longhouse", "Longhouse", "roduro", "roduro", 11, 7, { shape: "round", beds: 4 }),
+    B("roduro_great", "Great house", "roduro", "roduro", 12.5, 10, { shape: "round", beds: 6, storeys: 2 }),
+    B("roduro_forge", "Smith's house", "roduro", "roduro", 10, 8, { shape: "round", beds: 3, jobs: SMITHS, stations: ["Forge"] }),
+    B("roduro_loomroom", "Weaver's house", "roduro", "roduro", 10, 8, { shape: "round", beds: 3, jobs: LOOM, stations: ["Loom"] }),
+    B("roduro_benchroom", "Bench house", "roduro", "roduro", 10, 8, { shape: "round", beds: 3, jobs: BENCH, stations: ["Workbench"] }),
+    B("roduro_tender", "Stone tender's house", "roduro", "roduro", 10, 8, { shape: "round", beds: 3, jobs: ["StoneTender"], stations: ["GrowerBed"] }),
+    B("roduro_trader", "Trader's house", "roduro", "roduro", 10, 8, { shape: "round", beds: 3, jobs: TRADE }),
+    // Qotiro: quarried, stepped boxes in dark stone.
+    B("qotiro_quarters", "Living quarters", "qotiro", "qotiro", 15, 12, { storeys: 3, beds: 7 }),
+    B("qotiro_court", "Courtyard house", "qotiro", "qotiro_court", 18, 14.4, { storeys: 2, beds: 5 }),
+    B("qotiro_workyard", "Smiths' yard", "qotiro", "qotiro_yard", 15, 12, { storeys: 2, beds: 4, jobs: SMITHS, stations: ["Forge", "Anvil"] }),
+    B("qotiro_benchyard", "Bench yard", "qotiro", "qotiro_yard", 15, 12, { storeys: 2, beds: 4, jobs: BENCH, stations: ["Workbench"] }),
+    B("qotiro_weavehall", "Weaving hall", "qotiro", "qotiro", 15, 12, { storeys: 2, beds: 4, jobs: LOOM, stations: ["Loom"] }),
+    B("qotiro_market", "Market house", "qotiro", "qotiro", 15, 12, { storeys: 2, beds: 4, jobs: TRADE }),
+    B("qotiro_mess", "Mess hall", "qotiro", "qotiro", 14, 11.2, { storeys: 1, jobs: ["Cook"] }),
+    B("qotiro_temple", "Temple-fortress", "qotiro", "temple", 20, 20, { storeys: 3, beds: 6, jobs: ["Priest"] }),
+    B("qotiro_island_hall", "Qotiro hall", "qotiro", "hall", 14, 11.2, { storeys: 2, jobs: ["Priest"] }),
+    // Horaro: domes on stilts off the shore (place them on water).
+    B("horaro_dome", "Stilt dome", "horaro", "horaro", 8, 8, { shape: "round", beds: 4 }),
+    B("horaro_twin", "Twin dome", "horaro", "horaro", 10, 10, { shape: "round", beds: 6 }),
+    B("horaro_hull", "Hull house", "horaro", "horaro", 9, 7, { shape: "round", beds: 4 }),
+    B("horaro_net_loft", "Net loft", "horaro", "horaro", 9, 9, { shape: "round", beds: 2, jobs: ["Fisher"] }),
+    // Camp and base buildings (anyone's; timber and rubble).
+    B("hut", "Hut", "any", "hut", 5, 4, { group: "base", beds: 2 }),
+    B("lean_to", "Lean-to", "any", "leanto", 3, 2.5, { group: "base", beds: 1 }),
+    B("longhouse", "Timber longhouse", "any", "hut", 9, 4.5, { group: "base", beds: 6 }),
+    B("storehouse", "Storehouse", "any", "hut", 6, 4, { group: "base" }),
+    B("hearth_kitchen", "Hearth kitchen", "any", "kitchen", 5, 5, { group: "base", jobs: ["Cook"] }),
+    B("well", "Well", "any", "well", 2, 2, { group: "base", shape: "round", rotatable: false }),
+    B("field_plot", "Field plot", "any", "field", 12, 8, { group: "base", jobs: ["Farmer"] }),
+    B("animal_pen", "Animal pen", "any", "pen", 10, 10, { group: "base", shape: "round" }),
+    B("shed_forge", "Work shed: forge", "any", "shed", 4, 3, { group: "base", jobs: SMITHS, stations: ["Forge"] }),
+    B("shed_bench", "Work shed: armourer's bench", "any", "shed", 4, 3, { group: "base", jobs: ["Armourer"], stations: ["Bench"] }),
+    B("shed_loom", "Work shed: weaver's frame", "any", "shed", 4, 3, { group: "base", jobs: LOOM, stations: ["Loom"] }),
+    B("shed_workbench", "Work shed: workbench", "any", "shed", 4, 3, { group: "base", jobs: BENCH, stations: ["Workbench"] }),
+    B("shed_desk", "Work shed: desk", "any", "shed", 4, 3, { group: "base", jobs: ["Scribe"], stations: ["Desk"] }),
+    B("shed_alchemy", "Work shed: alchemy", "any", "shed", 4, 3, { group: "base", jobs: ["Alchemist"], stations: ["AlchemyTable"] }),
+    B("palisade", "Palisade", "any", "wall", 10, 0.4, { group: "base" }),
+    B("rubble_wall", "Rubble wall", "any", "wall", 10, 0.7, { group: "base" }),
+    B("gate", "Gate", "any", "gate", 4, 1, { group: "base" }),
+    B("watchtower", "Watchtower", "any", "tower", 3, 3, { group: "base", storeys: 3 }),
+    // Workplaces: the town's places of work, outdoors or as a yard.
+    B("fields", "Fields", "any", "field", 34, 34, { group: "workplace", jobs: ["Farmer"] }),
+    B("wilds", "Hunting grounds", "any", "wilds", 22, 22, { group: "workplace", jobs: ["Forager"] }),
+    B("woodlot", "Woodlot", "any", "woodlot", 22, 22, { group: "workplace", jobs: ["Woodcutter"] }),
+    B("quarry", "Mine and quarry", "any", "quarry", 22, 22, { group: "workplace", jobs: ["Woodcutter"] }),
+    B("charcoal_pit", "Charcoal pit", "any", "pit", 12, 12, { group: "workplace", shape: "round", jobs: ["CharcoalBurner"] }),
+    B("dock", "Fishing dock", "any", "dock", 9, 4, { group: "workplace", jobs: ["Fisher"] }),
+    B("kitchen", "Hearth kitchen", "any", "kitchen", 7, 7, { group: "workplace", jobs: ["Cook", "Runner"] }),
+    B("market", "Market square", "any", "market", 16, 16, { group: "workplace", jobs: TRADE }),
+    B("shop", "Shop", "any", "shop", 7, 7, { group: "workplace", jobs: ["Merchant"] }),
+    B("inn", "Inn", "any", "hall", 11, 9, { group: "workplace", jobs: ["Innkeeper"], beds: 4 }),
+    B("shrine", "Shrine", "any", "shrine", 7, 7, { group: "workplace", jobs: ["Priest"] }),
+    B("guard_post", "Guard post", "any", "post", 7, 7, { group: "workplace", jobs: ["Guard"] }),
+    B("hall", "Hall", "any", "hall", 11, 9, { group: "workplace", jobs: ["Official", "Arbiter"] }),
+    B("healers_house", "Healer's house", "any", "hall", 7, 7, { group: "workplace", jobs: ["Healer"] }),
+    B("teaching_house", "Teaching house", "any", "hall", 7, 7, { group: "workplace", jobs: ["Teacher"] }),
+    B("exchange_house", "Exchange house", "any", "hall", 7, 7, { group: "workplace", jobs: ["Exchanger"] }),
+    B("tenders_yard", "Tenders' yard", "any", "yard", 7, 7, { group: "workplace", jobs: ["StoneTender"], stations: ["GrowerBed"] }),
+    B("smithy", "Smithy", "any", "yard", 7, 7, { group: "workplace", jobs: ["Smith"], stations: ["Forge"] }),
+    B("bench", "Armourer's shop", "any", "yard", 7, 7, { group: "workplace", jobs: ["Armourer"], stations: ["Bench"] }),
+    B("desk", "Scribe's room", "any", "shop", 7, 7, { group: "workplace", jobs: ["Scribe"], stations: ["Desk"] }),
+    B("alchemy_table", "Alchemist's shop", "any", "shop", 7, 7, { group: "workplace", jobs: ["Alchemist"], stations: ["AlchemyTable"] }),
+    B("weavers_shed", "Weavers' shed", "any", "shed", 7, 7, { group: "workplace", jobs: LOOM, stations: ["Loom"] }),
+    B("workshop", "Workshop", "any", "yard", 7, 7, { group: "workplace", jobs: BENCH, stations: ["Workbench"] }),
+    // Pens by beast.
+    B("pen_turiyu", "Turiyu pasture", "any", "pen", 14, 14, { group: "pen", shape: "round", species: "turiyu" }),
+    B("pen_shellhen", "Shellhen coop", "any", "pen", 5, 5, { group: "pen", shape: "round", species: "shellhen" }),
+    B("pen_mossback", "Mossback pen", "any", "pen", 12, 12, { group: "pen", shape: "round", species: "mossback" }),
+    B("pen_plodder", "Plodder pen", "any", "pen", 10, 10, { group: "pen", shape: "round", species: "plodder" }),
+    // Props: things that stand about.
+    B("rock_small", "Rock", "any", "rock", 1.2, 1.0, { group: "prop" }),
+    B("rock_large", "Boulder", "any", "rock", 3, 2.4, { group: "prop" }),
+    B("timber_stack", "Timber stack", "any", "logs", 4, 2, { group: "prop" }),
+    B("garden_plot", "Garden plot", "any", "garden", 4, 3, { group: "prop" }),
+    B("bedroll", "Bedroll", "any", "bedroll", 2, 0.8, { group: "prop" }),
+    B("tent", "Tent", "any", "tent", 3, 3, { group: "prop" }),
+    B("campfire", "Campfire", "any", "fire", 1.5, 1.5, { group: "prop", shape: "round", rotatable: false }),
+    B("standing_torch", "Standing torch", "any", "torch", 0.6, 0.6, { group: "prop", shape: "round", rotatable: false }),
+    B("fence", "Fence run", "any", "fence", 6, 0.2, { group: "prop" }),
+    B("cart", "Cart", "any", "cart", 3, 1.6, { group: "prop" }),
+    B("stall", "Market stall", "any", "stall", 3, 2, { group: "prop" }),
+    B("tanner_vats", "Tanner's vats", "any", "vats", 4, 3, { group: "prop", jobs: ["Tanner"] }),
+    B("smoker", "Smokehouse", "any", "smoker", 3, 3, { group: "prop", jobs: ["Cook"] }),
+  ];
+  // Foliage stamps and ground paints (not things: brushes).
+  const FOLIAGE = [["tree_broad", "Broadleaf", 5.5], ["tree_conifer", "Conifer", 4.5], ["tree_small", "Sapling", 2.5], ["bush", "Bush", 1.8], ["rock_small", "Rocks", 1.2], ["rock_large", "Boulders", 3]];
+  const GROUND = [["g", "Grass", "#6b8a46"], ["s", "Scrub", "#8a8f4e"], ["d", "Dirt", "#8c7352"], ["n", "Sand", "#c9b98a"], ["m", "Mud", "#5f4d3a"], ["v", "Gravel", "#8f8d85"], ["r", "Rock", "#7b7772"], ["w", "Snow", "#e9ecef"], ["~", "Water", "#4a6fa5"], [".", "Natural", "#5d6b45"]];
+  const GROUND_COL = Object.fromEntries(GROUND.map((g) => [g[0], g[2]]));
+  const ROADS = [["road", "Road", 3.5, "#8c6a45"], ["path", "Path", 1.6, "#9a8562"], ["cobbles", "Cobbles", 3, "#8a8378"], ["stairs", "Stairs", 2.6, "#7a7266"]];
+  const ROAD = Object.fromEntries(ROADS.map((r) => [r[0], r]));
+  let CAT = Object.fromEntries(CATALOGUE.map((c) => [c.key, c]));
+  (async () => {
+    try {
+      const r = await fetch("catalogue.json", { cache: "no-store" });
+      if (r.ok) { const list = await r.json(); if (Array.isArray(list) && list.length) { CATALOGUE = list.map((c) => Object.assign({ shape: "rect", storeys: 1, beds: 0, jobs: [], scalable: true, rotatable: true, group: "building", people: "any", glyph: "hut" }, c)); CAT = Object.fromEntries(CATALOGUE.map((c) => [c.key, c])); buildStrip(); info(); draw(); say("Catalogue from the game loaded."); } }
+    } catch (e) {}
+  })();
+
+  // ---- the place ----
+  const CELL = 2, GW = 160, GH = 120;
+  const P = { format: 1, key: KEY, title: NAME, notes: "", cell: CELL, size: [GW, GH], origin: [GW / 2, GH / 2], ground: ".".repeat(GW * GH), height: ".".repeat(GW * GH), foliage: [], roads: [], things: [] };
+  const HCH = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"; // -26..+25 m
+  const hOf = (ch) => ch === "." ? 0 : HCH.indexOf(ch) - 26;
+  const chOf = (h) => HCH[Math.max(0, Math.min(51, Math.round(h) + 26))];
+  let ground = P.ground.split(""), height = new Float32Array(GW * GH);
+  const cellAt = (x, y) => { const i = Math.floor(x / CELL + P.origin[0]), j = Math.floor(y / CELL + P.origin[1]); return i >= 0 && j >= 0 && i < GW && j < GH ? j * GW + i : -1; };
+  const cellXY = (k) => [((k % GW) - P.origin[0] + 0.5) * CELL, (Math.floor(k / GW) - P.origin[1] + 0.5) * CELL];
+
+  // ---- the view ----
+  let z = 4, tx = 0, ty = 0, dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  function size() { const r = stage.getBoundingClientRect(); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); cv.style.width = r.width + "px"; cv.style.height = r.height + "px"; draw(); }
+  // A first look: about 110 m across the screen (a house is a thumb wide), the centre in the middle.
+  function fit() { const r = stage.getBoundingClientRect(); const trayH = Math.min(260, $("tray").getBoundingClientRect().height || 170); z = Math.min(r.width, r.height - trayH) / 110; tx = r.width / 2; ty = (r.height - trayH) / 2; draw(); }
+  const toW = (cx, cy) => { const r = stage.getBoundingClientRect(); return { x: (cx - r.left - tx) / z, y: (cy - r.top - ty) / z }; };
+  const toS = (x, y) => { const r = stage.getBoundingClientRect(); return { x: r.left + tx + x * z, y: r.top + ty + y * z }; };
+  function zoomAt(cx, cy, f) { const r = stage.getBoundingClientRect(); const nz = Math.min(40, Math.max(0.5, z * f)); const px = cx - r.left, py = cy - r.top; tx = px - (px - tx) * (nz / z); ty = py - (py - ty) * (nz / z); z = nz; draw(); }
+  stage.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+
+  // ---- drawing ----
+  let showGrid = false;
+  function draw() {
+    const w = cv.width / dpr, h = cv.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#4b5a3a"; ctx.fillRect(0, 0, w, h);
+    ctx.save(); ctx.translate(tx, ty); ctx.scale(z, z);
+    const x0 = -P.origin[0] * CELL, y0 = -P.origin[1] * CELL, wm = GW * CELL, hm = GH * CELL;
+    // The ground: natural where untouched, else the paint.
+    ctx.fillStyle = GROUND_COL["."]; ctx.fillRect(x0, y0, wm, hm);
+    const vx0 = Math.max(0, Math.floor((-tx / z - x0) / CELL)), vy0 = Math.max(0, Math.floor((-ty / z - y0) / CELL));
+    const vx1 = Math.min(GW - 1, Math.ceil(((w - tx) / z - x0) / CELL)), vy1 = Math.min(GH - 1, Math.ceil(((h - ty) / z - y0) / CELL));
+    for (let j = vy0; j <= vy1; j++) for (let i = vx0; i <= vx1; i++) {
+      const g = ground[j * GW + i]; if (g === ".") continue;
+      ctx.fillStyle = GROUND_COL[g] || GROUND_COL["."]; ctx.fillRect(x0 + i * CELL, y0 + j * CELL, CELL + 0.02, CELL + 0.02);
+    }
+    // Shading by height: a hint of light from the north-west.
+    for (let j = Math.max(1, vy0); j <= vy1; j++) for (let i = Math.max(1, vx0); i <= vx1; i++) {
+      const k = j * GW + i, d = (height[k] - height[k - 1]) + (height[k] - height[k - GW]);
+      if (Math.abs(d) < 0.08) continue;
+      ctx.fillStyle = d > 0 ? `rgba(0,0,0,${Math.min(0.35, d * 0.25)})` : `rgba(255,255,230,${Math.min(0.3, -d * 0.2)})`;
+      ctx.fillRect(x0 + i * CELL, y0 + j * CELL, CELL + 0.02, CELL + 0.02);
+    }
+    if (showGrid && z > 2) { ctx.strokeStyle = "rgba(0,0,0,.12)"; ctx.lineWidth = 0.5 / z; ctx.beginPath(); for (let i = 0; i <= GW; i += 5) { ctx.moveTo(x0 + i * CELL, y0); ctx.lineTo(x0 + i * CELL, y0 + hm); } for (let j = 0; j <= GH; j += 5) { ctx.moveTo(x0, y0 + j * CELL); ctx.lineTo(x0 + wm, y0 + j * CELL); } ctx.stroke(); }
+    contours(x0, y0);
+    // Roads.
+    for (const r of P.roads) { if (r.pts.length < 2) continue; ctx.strokeStyle = (ROAD[r.k] || ROAD.road)[3]; ctx.lineWidth = r.w; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath(); r.pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); if (r.k === "stairs") { ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 0.15; for (let i = 1; i < r.pts.length; i++) { const a = r.pts[i - 1], b = r.pts[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 0.6)); for (let s = 0; s < n; s++) { const t = (s + 0.5) / n, px = a[0] + (b[0] - a[0]) * t, py = a[1] + (b[1] - a[1]) * t, nx = -(b[1] - a[1]) / L * r.w * 0.45, ny = (b[0] - a[0]) / L * r.w * 0.45; ctx.beginPath(); ctx.moveTo(px - nx, py - ny); ctx.lineTo(px + nx, py + ny); ctx.stroke(); } } } }
+    if (draft) { ctx.strokeStyle = "#e8c76a"; ctx.lineWidth = 2 / z; ctx.setLineDash([6 / z, 4 / z]); ctx.beginPath(); draft.pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#e8c76a"; for (const p of draft.pts) { ctx.beginPath(); ctx.arc(p[0], p[1], 4 / z, 0, 7); ctx.fill(); } }
+    // Things under foliage, so trees overhang.
+    for (const t of P.things) drawThing(ctx, t, t === picked);
+    // Foliage, sorted by y so nearer trees overlap.
+    const fol = P.foliage.slice().sort((a, b) => a.y - b.y);
+    for (const f of fol) drawFoliage(ctx, f);
+    // The centre.
+    ctx.strokeStyle = "rgba(232,199,106,.9)"; ctx.lineWidth = 1.2 / z; ctx.beginPath(); ctx.arc(0, 0, 3, 0, 7); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke();
+    // The brush's reach.
+    if (brushAt && tool && tool.brush) { ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 1.5 / z; ctx.setLineDash([3 / z, 3 / z]); ctx.beginPath(); ctx.arc(brushAt.x, brushAt.y, brushSize(), 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.restore();
+    placeHandles();
+    const m = [5, 10, 20, 50, 100, 200].find((s) => s * z >= 60) || 200; $("scalebar").style.width = (m * z) + "px"; $("scaletext").textContent = m + " m";
+  }
+  // Contour lines every metre (marching squares over the cell grid), heavier every 5.
+  function contours(x0, y0) {
+    let any = false; for (let k = 0; k < height.length; k += 7) if (height[k] !== 0) { any = true; break; }
+    if (!any) return;
+    let lo = Infinity, hi = -Infinity; for (let k = 0; k < height.length; k++) { if (height[k] < lo) lo = height[k]; if (height[k] > hi) hi = height[k]; }
+    const step = z < 1.5 ? 2 : 1;
+    for (let lv = Math.ceil(lo / step) * step; lv <= hi; lv += step) {
+      if (lv === 0 && lo >= 0) continue;
+      ctx.strokeStyle = lv % 5 === 0 ? "rgba(60,40,20,.75)" : "rgba(60,40,20,.42)"; ctx.lineWidth = (lv % 5 === 0 ? 1.4 : 0.8) / z;
+      ctx.beginPath();
+      for (let j = 0; j < GH - 1; j++) for (let i = 0; i < GW - 1; i++) {
+        const a = height[j * GW + i], b = height[j * GW + i + 1], c = height[(j + 1) * GW + i + 1], d = height[(j + 1) * GW + i];
+        const code = (a >= lv ? 8 : 0) | (b >= lv ? 4 : 0) | (c >= lv ? 2 : 0) | (d >= lv ? 1 : 0);
+        if (code === 0 || code === 15) continue;
+        const X = x0 + (i + 0.5) * CELL, Y = y0 + (j + 0.5) * CELL;
+        const t = (p, q) => (lv - p) / ((q - p) || 1e-6);
+        const top = [X + CELL * t(a, b), Y], right = [X + CELL, Y + CELL * t(b, c)], bottom = [X + CELL * t(d, c), Y + CELL], left = [X, Y + CELL * t(a, d)];
+        const seg = (p, q) => { ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); };
+        switch (code) {
+          case 1: case 14: seg(left, bottom); break; case 2: case 13: seg(bottom, right); break; case 3: case 12: seg(left, right); break;
+          case 4: case 11: seg(top, right); break; case 5: seg(top, left); seg(bottom, right); break; case 6: case 9: seg(top, bottom); break;
+          case 7: case 8: seg(top, left); break; case 10: seg(top, right); seg(left, bottom); break;
+        }
+      }
+      ctx.stroke();
+    }
+  }
+  const STONE = "#8d8880", DARK = "#4a4a50", TIMBER = "#9a6f42", TIMBER_D = "#6f4d2c", ROOF = "#5a5047";
+  function drawFoliage(c, f) {
+    const s = f.s || 1;
+    c.save(); c.translate(f.x, f.y);
+    switch (f.k) {
+      case "tree_broad": case "tree_small": { const r = (f.k === "tree_broad" ? 2.75 : 1.25) * s; c.fillStyle = "rgba(0,0,0,.18)"; c.beginPath(); c.ellipse(r * 0.35, r * 0.4, r, r * 0.8, 0, 0, 7); c.fill(); c.fillStyle = "#3f6b2e"; c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill(); c.fillStyle = "#5c8f3c"; c.beginPath(); c.arc(-r * 0.25, -r * 0.25, r * 0.6, 0, 7); c.fill(); break; }
+      case "tree_conifer": { const r = 2.2 * s; c.fillStyle = "rgba(0,0,0,.18)"; c.beginPath(); c.ellipse(r * 0.35, r * 0.4, r, r * 0.8, 0, 0, 7); c.fill(); c.fillStyle = "#2f5a34"; c.beginPath(); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, rr = i % 2 ? r : r * 0.62; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); c.fillStyle = "#4f7f44"; c.beginPath(); c.arc(0, 0, r * 0.3, 0, 7); c.fill(); break; }
+      case "bush": { const r = 0.9 * s; c.fillStyle = "#587a36"; c.beginPath(); c.arc(0, 0, r, 0, 7); c.arc(r * 0.6, r * 0.2, r * 0.7, 0, 7); c.arc(-r * 0.5, r * 0.3, r * 0.6, 0, 7); c.fill(); break; }
+      case "rock_small": case "rock_large": { const r = (f.k === "rock_small" ? 0.6 : 1.5) * s; c.fillStyle = "rgba(0,0,0,.2)"; c.beginPath(); c.ellipse(r * 0.3, r * 0.3, r, r * 0.8, 0.3, 0, 7); c.fill(); c.fillStyle = "#7d7a74"; c.beginPath(); c.moveTo(-r, -r * 0.3); c.lineTo(-r * 0.4, -r); c.lineTo(r * 0.6, -r * 0.8); c.lineTo(r, 0); c.lineTo(r * 0.5, r * 0.8); c.lineTo(-r * 0.6, r * 0.7); c.closePath(); c.fill(); c.fillStyle = "#a09c95"; c.beginPath(); c.moveTo(-r * 0.4, -r); c.lineTo(r * 0.6, -r * 0.8); c.lineTo(r * 0.2, -r * 0.1); c.closePath(); c.fill(); break; }
+    }
+    c.restore();
+  }
+  // Things: drawn at their real size, facing +x before the rotation; the door end at +depth/2.
+  function drawThing(c, t, sel) {
+    const d = CAT[t.k]; if (!d) return;
+    const s = t.s || 1, D = d.depth * s, W = d.width * s;
+    c.save(); c.translate(t.x, t.y); c.rotate((t.rot || 0) * Math.PI / 180);
+    const rect = (w, h, fill, stroke, lw) => { c.fillStyle = fill; c.fillRect(-w / 2, -h / 2, w, h); if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw || 0.15; c.strokeRect(-w / 2, -h / 2, w, h); } };
+    const ell = (w, h, fill, stroke, lw) => { c.beginPath(); c.ellipse(0, 0, w / 2, h / 2, 0, 0, 7); c.fillStyle = fill; c.fill(); if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw || 0.15; c.stroke(); } };
+    const shadow = () => { c.fillStyle = "rgba(0,0,0,.22)"; if (d.shape === "round") { c.beginPath(); c.ellipse(D * 0.06, W * 0.08, D / 2, W / 2, 0, 0, 7); c.fill(); } else c.fillRect(-D / 2 + D * 0.06, -W / 2 + W * 0.08, D, W); };
+    const door = () => { c.fillStyle = "#2b2118"; c.fillRect(D / 2 - 0.5, -0.6, 0.6, 1.2); };
+    switch (d.glyph) {
+      case "roduro": { shadow(); ell(D, W, "#6e6a66", "#3a3733", 0.2); for (let k = 1; k < (d.storeys || 1) + 1; k++) ell(D * (1 - 0.22 * k), W * (1 - 0.22 * k), k % 2 ? "#7c7873" : "#6e6a66", "#3a3733", 0.12); c.fillStyle = "#2b2118"; c.beginPath(); c.ellipse(D / 2 - 0.4, 0, 0.4, 0.7, 0, 0, 7); c.fill(); break; }
+      case "qotiro": case "qotiro_court": case "qotiro_yard": { shadow(); rect(D, W, DARK, "#2a2a30", 0.2); const n = d.storeys || 1; for (let k = 1; k < n; k++) rect(D * (1 - 0.2 * k), W * (1 - 0.2 * k), k % 2 ? "#5a5a62" : DARK, "#2a2a30", 0.12); if (d.glyph === "qotiro_court") rect(D * 0.4, W * 0.4, "#6d6b4a", "#2a2a30", 0.12); if (d.glyph === "qotiro_yard") { c.fillStyle = "#6d6b4a"; c.fillRect(-D / 2 + 0.3, -W / 2 + 0.3, D * 0.45, W - 0.6); c.fillStyle = "#2b2118"; c.fillRect(-D * 0.15, -0.4, 0.8, 0.8); } door(); break; }
+      case "temple": { shadow(); rect(D, W, DARK, "#2a2a30", 0.2); rect(D * 0.72, W * 0.72, "#5a5a62", "#2a2a30", 0.12); rect(D * 0.45, W * 0.45, DARK, "#2a2a30", 0.12); c.fillStyle = "#e8c76a"; c.beginPath(); c.arc(0, 0, Math.min(D, W) * 0.08, 0, 7); c.fill(); door(); break; }
+      case "hall": { shadow(); rect(D, W, DARK, "#2a2a30", 0.2); rect(D * 0.7, W * 0.7, "#5a5a62", "#2a2a30", 0.12); c.fillStyle = "#e8c76a"; c.fillRect(-0.4, -0.4, 0.8, 0.8); door(); break; }
+      case "horaro": { c.fillStyle = "#7a6a52"; c.fillRect(-D / 2 - 1, -W / 2 - 1, D + 2, W + 2); c.fillStyle = "#4a4a50"; for (const [px, py] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { c.beginPath(); c.arc(px * (D / 2 + 0.5), py * (W / 2 + 0.5), 0.35, 0, 7); c.fill(); } ell(D, W, "#9a8458", "#5a4a30", 0.15); ell(D * 0.55, W * 0.55, "#b09a66"); break; }
+      case "hut": { shadow(); rect(D, W, TIMBER, TIMBER_D, 0.15); c.strokeStyle = TIMBER_D; c.lineWidth = 0.12; c.beginPath(); c.moveTo(-D / 2, 0); c.lineTo(D / 2, 0); c.stroke(); door(); break; }
+      case "leanto": { shadow(); c.fillStyle = TIMBER; c.beginPath(); c.moveTo(-D / 2, -W / 2); c.lineTo(D / 2, -W / 2); c.lineTo(D / 2, W / 2); c.closePath(); c.fill(); c.strokeStyle = TIMBER_D; c.lineWidth = 0.12; c.stroke(); break; }
+      case "shed": { shadow(); rect(D, W, TIMBER, TIMBER_D, 0.12); c.fillStyle = "#3a3a40"; c.fillRect(-0.4, -0.3, 0.8, 0.6); break; }
+      case "kitchen": { c.fillStyle = "#6d6b4a"; c.fillRect(-D / 2, -W / 2, D, W); c.strokeStyle = "#5a5047"; c.lineWidth = 0.15; c.strokeRect(-D / 2, -W / 2, D, W); c.fillStyle = "#4a4a50"; c.beginPath(); c.arc(0, 0, Math.min(D, W) * 0.2, 0, 7); c.fill(); c.fillStyle = "#e07a2a"; c.beginPath(); c.arc(0, 0, Math.min(D, W) * 0.1, 0, 7); c.fill(); break; }
+      case "well": { ell(D, W, "#7b7772", "#3a3733", 0.15); ell(D * 0.5, W * 0.5, "#2a3a4a"); break; }
+      case "field": { c.fillStyle = "#8a6a3c"; c.fillRect(-D / 2, -W / 2, D, W); c.strokeStyle = "#6a4f2a"; c.lineWidth = 0.25; c.beginPath(); const n = Math.max(2, Math.round(W / 1.2)); for (let i = 1; i < n; i++) { const y = -W / 2 + W * i / n; c.moveTo(-D / 2 + 0.3, y); c.lineTo(D / 2 - 0.3, y); } c.stroke(); c.strokeStyle = "#5a4a30"; c.lineWidth = 0.12; c.strokeRect(-D / 2, -W / 2, D, W); break; }
+      case "garden": { c.fillStyle = "#6f5a3a"; c.fillRect(-D / 2, -W / 2, D, W); c.fillStyle = "#4f7f3a"; const n = Math.max(2, Math.round(W / 0.8)); for (let i = 0; i < n; i++) c.fillRect(-D / 2 + 0.2, -W / 2 + W * (i + 0.25) / n, D - 0.4, W / n * 0.45); break; }
+      case "pen": { c.fillStyle = "rgba(120,100,60,.25)"; c.beginPath(); c.ellipse(0, 0, D / 2, W / 2, 0, 0, 7); c.fill(); c.strokeStyle = "#7a5a33"; c.lineWidth = 0.18; c.setLineDash([0.4, 0.5]); c.stroke(); c.setLineDash([]); c.fillStyle = "#7a5a33"; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; c.beginPath(); c.arc(Math.cos(a) * D / 2, Math.sin(a) * W / 2, 0.16, 0, 7); c.fill(); } break; }
+      case "wall": { c.fillStyle = d.key === "palisade" ? TIMBER_D : "#6f6a62"; c.fillRect(-D / 2, -W / 2, D, W); if (d.key === "palisade") { c.fillStyle = TIMBER; for (let x = -D / 2 + 0.2; x < D / 2; x += 0.4) { c.beginPath(); c.arc(x, 0, 0.16, 0, 7); c.fill(); } } break; }
+      case "fence": { c.strokeStyle = "#7a5a33"; c.lineWidth = 0.12; c.beginPath(); c.moveTo(-D / 2, 0); c.lineTo(D / 2, 0); c.stroke(); c.fillStyle = "#7a5a33"; for (let x = -D / 2; x <= D / 2; x += 1.5) { c.beginPath(); c.arc(x, 0, 0.14, 0, 7); c.fill(); } break; }
+      case "gate": { c.fillStyle = TIMBER_D; c.fillRect(-D / 2, -W / 2, D * 0.2, W); c.fillRect(D / 2 - D * 0.2, -W / 2, D * 0.2, W); c.strokeStyle = TIMBER; c.lineWidth = 0.15; c.beginPath(); c.moveTo(-D / 2, 0); c.lineTo(D / 2, 0); c.stroke(); break; }
+      case "tower": { shadow(); rect(D, W, "#6f6a62", "#3a3733", 0.15); rect(D * 0.6, W * 0.6, "#8d8880", "#3a3733", 0.1); break; }
+      case "wilds": { c.fillStyle = "rgba(60,90,40,.25)"; c.beginPath(); c.ellipse(0, 0, D / 2, W / 2, 0, 0, 7); c.fill(); c.strokeStyle = "rgba(60,90,40,.6)"; c.lineWidth = 0.2; c.setLineDash([1, 0.8]); c.stroke(); c.setLineDash([]); break; }
+      case "woodlot": { c.fillStyle = "rgba(90,70,40,.25)"; c.beginPath(); c.ellipse(0, 0, D / 2, W / 2, 0, 0, 7); c.fill(); c.fillStyle = "#8a6a3c"; for (let i = 0; i < 9; i++) { const a = i * 2.4, r = (0.3 + (i % 3) * 0.2) * D / 2; c.beginPath(); c.arc(Math.cos(a) * r, Math.sin(a) * r * W / D, 0.5, 0, 7); c.fill(); } break; }
+      case "quarry": { c.fillStyle = "#8f8d85"; c.beginPath(); c.ellipse(0, 0, D / 2, W / 2, 0, 0, 7); c.fill(); c.strokeStyle = "#5a5852"; c.lineWidth = 0.2; for (let k = 1; k <= 3; k++) { c.beginPath(); c.ellipse(0, 0, D / 2 * (1 - k * 0.22), W / 2 * (1 - k * 0.22), 0, 0, 7); c.stroke(); } break; }
+      case "pit": { ell(D, W, "#3a332c", "#2a2420", 0.15); ell(D * 0.5, W * 0.5, "#1e1a16"); break; }
+      case "dock": { c.fillStyle = "#8a6a3c"; c.fillRect(-D / 2, -W / 2, D, W); c.strokeStyle = "#5a4a30"; c.lineWidth = 0.08; c.beginPath(); for (let x = -D / 2; x <= D / 2; x += 0.5) { c.moveTo(x, -W / 2); c.lineTo(x, W / 2); } c.stroke(); break; }
+      case "market": { c.fillStyle = "#7f7a70"; c.fillRect(-D / 2, -W / 2, D, W); for (let i = 0; i < 4; i++) { c.fillStyle = ["#b23a3a", "#2f6a9a", "#c9a24a", "#4f7f3a"][i]; c.fillRect(-D / 2 + 1 + (i % 2) * (D / 2), -W / 2 + 1 + Math.floor(i / 2) * (W / 2), 3, 2); } break; }
+      case "shop": { shadow(); rect(D, W, "#7c7873", "#3a3733", 0.15); c.fillStyle = "#c9a24a"; c.fillRect(D / 2 - 1.2, -1, 0.5, 2); door(); break; }
+      case "shrine": { ell(D, W, "#9a9690", "#3a3733", 0.15); c.fillStyle = "#e8c76a"; c.beginPath(); c.arc(0, 0, 0.6, 0, 7); c.fill(); break; }
+      case "post": { c.fillStyle = "rgba(140,60,60,.25)"; c.fillRect(-D / 2, -W / 2, D, W); c.fillStyle = "#8c3a3a"; c.fillRect(-0.4, -0.4, 0.8, 0.8); break; }
+      case "yard": { c.fillStyle = "#6d6b4a"; c.fillRect(-D / 2, -W / 2, D, W); c.strokeStyle = "#5a5047"; c.lineWidth = 0.15; c.strokeRect(-D / 2, -W / 2, D, W); c.fillStyle = "#3a3a40"; c.fillRect(-1, -0.5, 1.6, 1); break; }
+      case "rock": { c.fillStyle = "#7d7a74"; c.beginPath(); c.moveTo(-D / 2, -W * 0.3); c.lineTo(-D * 0.2, -W / 2); c.lineTo(D * 0.3, -W * 0.4); c.lineTo(D / 2, 0); c.lineTo(D * 0.25, W / 2); c.lineTo(-D * 0.3, W * 0.35); c.closePath(); c.fill(); c.fillStyle = "#a09c95"; c.beginPath(); c.moveTo(-D * 0.2, -W / 2); c.lineTo(D * 0.3, -W * 0.4); c.lineTo(D * 0.1, -W * 0.05); c.closePath(); c.fill(); break; }
+      case "logs": { c.fillStyle = TIMBER_D; c.fillRect(-D / 2, -W / 2, D, W); c.strokeStyle = TIMBER; c.lineWidth = 0.18; c.beginPath(); for (let y = -W / 2 + 0.25; y < W / 2; y += 0.45) { c.moveTo(-D / 2 + 0.1, y); c.lineTo(D / 2 - 0.1, y); } c.stroke(); break; }
+      case "bedroll": { rect(D, W, "#8a6a4a", "#5a4a30", 0.08); c.fillStyle = "#c9b98a"; c.fillRect(D / 2 - 0.6, -W / 2 + 0.1, 0.5, W - 0.2); break; }
+      case "tent": { c.fillStyle = "#b8a680"; c.beginPath(); c.moveTo(-D / 2, -W / 2); c.lineTo(D / 2, -W / 2); c.lineTo(D / 2, W / 2); c.lineTo(-D / 2, W / 2); c.closePath(); c.fill(); c.strokeStyle = "#7a6a52"; c.lineWidth = 0.12; c.beginPath(); c.moveTo(-D / 2, 0); c.lineTo(D / 2, 0); c.stroke(); break; }
+      case "fire": { ell(D, W, "#6f6a62", "#3a3733", 0.1); c.fillStyle = "#e07a2a"; c.beginPath(); c.arc(0, 0, D * 0.25, 0, 7); c.fill(); break; }
+      case "torch": { c.fillStyle = "#5a4a30"; c.beginPath(); c.arc(0, 0, 0.15, 0, 7); c.fill(); c.fillStyle = "rgba(255,180,60,.5)"; c.beginPath(); c.arc(0, 0, 0.35, 0, 7); c.fill(); break; }
+      case "cart": { rect(D, W, TIMBER, TIMBER_D, 0.1); c.fillStyle = "#3a3a40"; c.fillRect(-D * 0.2, -W / 2 - 0.2, 0.4, 0.3); c.fillRect(-D * 0.2, W / 2 - 0.1, 0.4, 0.3); break; }
+      case "stall": { rect(D, W, "#b23a3a", "#5a2020", 0.1); c.fillStyle = "#e8d7a8"; c.fillRect(-D / 2 + 0.2, -W / 2 + 0.2, D - 0.4, W * 0.35); break; }
+      case "vats": { c.fillStyle = "#5f4d3a"; c.fillRect(-D / 2, -W / 2, D, W); c.fillStyle = "#3a2e22"; for (const [px, py] of [[-1, -0.7], [0.5, -0.7], [-0.3, 0.7]]) { c.beginPath(); c.arc(px, py, 0.55, 0, 7); c.fill(); } break; }
+      case "smoker": { shadow(); rect(D, W, "#4a4a50", "#2a2a30", 0.12); c.fillStyle = "rgba(200,200,200,.6)"; c.beginPath(); c.arc(D * 0.25, -W * 0.25, 0.5, 0, 7); c.fill(); break; }
+      default: { shadow(); rect(D, W, "#7c7873", "#3a3733", 0.15); door(); }
+    }
+    if (sel) { c.strokeStyle = "#e8c76a"; c.lineWidth = 2 / z; c.setLineDash([4 / z, 3 / z]); if (d.shape === "round") { c.beginPath(); c.ellipse(0, 0, D / 2 + 0.3, W / 2 + 0.3, 0, 0, 7); c.stroke(); } else c.strokeRect(-D / 2 - 0.3, -W / 2 - 0.3, D + 0.6, W + 0.6); c.setLineDash([]); }
+    if (t.label && z > 2.5) { c.rotate(-(t.rot || 0) * Math.PI / 180); c.font = `${Math.max(1.2, 10 / z)}px Alegreya, serif`; c.textAlign = "center"; c.fillStyle = "rgba(239,230,210,.95)"; c.strokeStyle = "rgba(0,0,0,.6)"; c.lineWidth = 0.3; c.strokeText(t.label, 0, -W / 2 - 0.6); c.fillText(t.label, 0, -W / 2 - 0.6); }
+    c.restore();
+  }
+  function thumb(cvs, key, isFoliage) {
+    const c = cvs.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cvs.width, cvs.height);
+    const d = CAT[key], fs = FOLIAGE.find((f) => f[0] === key);
+    const ext = isFoliage ? (fs ? fs[2] * 1.2 : 4) : Math.max(d.depth, d.width) * 1.15;
+    const s = Math.min(cvs.width, cvs.height) / ext;
+    c.translate(cvs.width / 2, cvs.height / 2); c.scale(s, s);
+    if (isFoliage) drawFoliage(c, { k: key, x: 0, y: 0, s: 1 }); else drawThing(c, { k: key, x: 0, y: 0, rot: 0, s: 1 }, false);
+  }
+
+  // ---- the tray: tools and their strips ----
+  const TOOLS = [
+    ["hand", "Hand", '<path d="M7 20V8a2 2 0 0 1 4 0v6M11 13V5a2 2 0 0 1 4 0v8M15 13V7a2 2 0 0 1 4 0v9c0 4-3 7-7 7s-6-2-7-5L3 13a2 2 0 0 1 3-2l1 2"/>'],
+    ["things", "Things", '<path d="M4 20h16M6 20V9l6-4 6 4v11M10 20v-5h4v5"/>'],
+    ["ground", "Ground", '<path d="M3 17c4-4 8 2 12-2s4-6 6-6M3 21h18M5 9l3-5 3 5"/>'],
+    ["height", "Height", '<path d="M3 20c3-6 6-10 9-10s6 4 9 10M6 20c2-3 4-5 6-5s4 2 6 5M3 20h18"/>'],
+    ["plants", "Plants", '<path d="M12 21V11M12 11c-5 0-7-4-7-7 4 0 7 2 7 7zm0 0c5 0 7-4 7-7-4 0-7 2-7 7z"/>'],
+    ["roads", "Roads", '<path d="M4 21C9 15 14 15 20 3M9 21l1-3M12 15l1-3M15 9l1-3"/>'],
+    ["erase", "Erase", '<path d="M4 16l9-9 6 6-7 7H8zM12 20h8"/>'],
+  ];
+  let tool = null, armedKey = null, groundKey = "g", plantKey = "tree_broad", roadKey = "road", heightMode = "raise";
+  const settings = { size: 8, soft: 0.6, density: 0.5, strength: 1 };
+  const brushSize = () => settings.size;
+  const toolsEl = $("tools"), pill = $("pill"), strip = $("strip");
+  for (const [k, name, path] of TOOLS) {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.tool = k;
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg><span>${name}</span>`;
+    b.addEventListener("click", () => pickTool(k));
+    toolsEl.appendChild(b);
+  }
+  function pickTool(k) {
+    if (draft) finishDraft();
+    tool = { k, brush: ["ground", "height", "plants", "erase"].includes(k) };
+    stage.classList.toggle("brush", tool.brush || k === "roads");
+    for (const b of toolsEl.children) b.classList.toggle("on", b.dataset.tool === k);
+    armedKey = null; pick(null);
+    buildPill(); buildStrip();
+    say(tool.brush ? "One finger paints. Pick the Hand to move about." : k === "roads" ? "Tap along the road, then Finish." : k === "things" ? "Drag a thing on, or tap one then tap the ground. Tap a placed thing to adjust it." : "");
+  }
+  function slider(label, key, min, max, step) { const l = document.createElement("label"); l.innerHTML = `${label} <input type="range" min="${min}" max="${max}" step="${step}" value="${settings[key]}">`; l.querySelector("input").addEventListener("input", (e) => { settings[key] = Number(e.target.value); draw(); }); return l; }
+  function buildPill() {
+    pill.innerHTML = ""; pill.hidden = true;
+    if (!tool) return;
+    if (tool.k === "ground") { const sw = document.createElement("div"); sw.className = "swatches"; for (const [k, name, col] of GROUND) { const b = document.createElement("button"); b.className = "sw" + (k === groundKey ? " on" : ""); b.style.background = col; b.title = name; b.setAttribute("aria-label", name); b.addEventListener("click", () => { groundKey = k; buildPill(); }); sw.appendChild(b); } pill.appendChild(sw); pill.appendChild(slider("Size", "size", 2, 40, 1)); pill.hidden = false; }
+    else if (tool.k === "height") { for (const [k, n] of [["raise", "Raise"], ["lower", "Lower"], ["smooth", "Smooth"], ["flat", "Flatten"]]) { const b = document.createElement("button"); b.textContent = n; b.className = k === heightMode ? "on" : ""; b.style.minHeight = "36px"; b.addEventListener("click", () => { heightMode = k; buildPill(); }); pill.appendChild(b); } pill.appendChild(slider("Size", "size", 2, 40, 1)); pill.appendChild(slider("Soft", "soft", 0, 1, 0.05)); pill.appendChild(slider("Strength", "strength", 0.2, 3, 0.1)); pill.hidden = false; }
+    else if (tool.k === "plants") { pill.appendChild(slider("Size", "size", 2, 40, 1)); pill.appendChild(slider("Density", "density", 0.05, 1, 0.05)); pill.hidden = false; }
+    else if (tool.k === "erase") { for (const [k, n] of [["plants", "Plants"], ["ground", "Paint"], ["height", "Height"], ["things", "Things"]]) { const b = document.createElement("button"); b.textContent = n; b.className = k === (settings.erase || "plants") ? "on" : ""; b.style.minHeight = "36px"; b.addEventListener("click", () => { settings.erase = k; buildPill(); }); pill.appendChild(b); } pill.appendChild(slider("Size", "size", 2, 40, 1)); pill.hidden = false; }
+    else if (tool.k === "roads") { for (const [k, n] of ROADS) { const b = document.createElement("button"); b.textContent = n; b.className = k === roadKey ? "on" : ""; b.style.minHeight = "36px"; b.addEventListener("click", () => { roadKey = k; buildPill(); }); pill.appendChild(b); } const fin = document.createElement("button"); fin.textContent = "Finish"; fin.className = "primary"; fin.style.minHeight = "36px"; fin.addEventListener("click", finishDraft); pill.appendChild(fin); const un = document.createElement("button"); un.textContent = "Undo point"; un.style.minHeight = "36px"; un.addEventListener("click", () => { if (draft) { draft.pts.pop(); if (!draft.pts.length) draft = null; draw(); } }); pill.appendChild(un); pill.hidden = false; }
+  }
+  function buildStrip() {
+    strip.innerHTML = ""; strip.hidden = true;
+    if (!tool) return;
+    const add = (key, name, isFoliage, on, onPick) => {
+      const b = document.createElement("button"); b.className = "pal" + (on ? " on" : ""); b.type = "button"; b.dataset.key = key;
+      const cvs = document.createElement("canvas"); cvs.width = 120; cvs.height = 100; b.appendChild(cvs); thumb(cvs, key, isFoliage);
+      const sp = document.createElement("span"); sp.textContent = name; b.appendChild(sp);
+      b.addEventListener("click", () => onPick(key));
+      strip.appendChild(b); return b;
+    };
+    const head = (t) => { const d = document.createElement("div"); d.className = "pal head"; d.innerHTML = `<span>${t}</span>`; strip.appendChild(d); };
+    if (tool.k === "plants") { for (const [k, name] of FOLIAGE) add(k, name, true, k === plantKey, (key) => { plantKey = key; buildStrip(); }); strip.hidden = false; }
+    else if (tool.k === "things") {
+      const groups = [["building", "roduro", "Roduro"], ["building", "qotiro", "Qotiro"], ["building", "horaro", "Horaro"], ["base", null, "Timber"], ["workplace", null, "Work"], ["pen", null, "Pens"], ["prop", null, "Props"]];
+      for (const [g, people, title] of groups) {
+        const list = CATALOGUE.filter((c) => c.group === g && (!people || c.people === people));
+        if (!list.length) continue;
+        head(title);
+        for (const c of list) {
+          const b = add(c.key, c.name, false, c.key === armedKey, (key) => { armedKey = armedKey === key ? null : key; buildStrip(); say(armedKey ? `Tap the ground to put down a ${CAT[key].name.toLowerCase()}; tap the icon again to stop.` : ""); });
+          // Drag from the tray onto the ground.
+          let down = null;
+          b.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, drag: false }; b.setPointerCapture(e.pointerId); });
+          b.addEventListener("pointermove", (e) => { if (!down) return; if (!down.drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) { down.drag = true; thumb($("ghost").querySelector("canvas"), c.key, false); $("ghost").style.display = "block"; } if (down.drag) { $("ghost").style.left = (e.clientX - 35) + "px"; $("ghost").style.top = (e.clientY - 35) + "px"; } });
+          b.addEventListener("pointerup", (e) => { if (!down) return; if (down.drag) { $("ghost").style.display = "none"; const under = document.elementFromPoint(e.clientX, e.clientY); if (under && stage.contains(under)) { const p = toW(e.clientX, e.clientY); addThing(c.key, p.x, p.y); } e.stopPropagation(); e.preventDefault(); } down = null; }, true);
+          b.addEventListener("pointercancel", () => { down = null; $("ghost").style.display = "none"; });
+        }
+      }
+      strip.hidden = false;
+    }
+    const trayH = $("tray").getBoundingClientRect().height; document.documentElement.style.setProperty("--tray-h", trayH + "px");
+  }
+  $("grip-btn").addEventListener("click", () => { const t = $("tray"); t.classList.toggle("min"); $("grip-btn").textContent = t.classList.contains("min") ? "▴ tray" : "▾ tray"; const trayH = t.getBoundingClientRect().height; document.documentElement.style.setProperty("--tray-h", trayH + "px"); });
+
+  // ---- gestures: a brush paints with one finger and nothing moves; the Hand pans and pinches;
+  //      with Things or Hand a tap picks a thing. ----
+  const pointers = new Map();
+  let pan = null, pinch = null, painting = false, brushAt = null, lastPaint = null, moved = false, downAt = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".handle")) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.setPointerCapture(e.pointerId);
+    moved = false; downAt = { x: e.clientX, y: e.clientY };
+    const brushing = tool && tool.brush;
+    if (pointers.size === 2 && !brushing) { pan = null; const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z }; return; }
+    if (pointers.size > 1) return;
+    if (brushing) { snapshot(); painting = true; const p = toW(e.clientX, e.clientY); brushAt = p; lastPaint = null; paint(p); return; }
+    pan = { x: e.clientX, y: e.clientY, tx, ty }; stage.classList.add("panning");
+  });
+  stage.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size === 2) { const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (pinch.z * d / pinch.d) / z); return; }
+    if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) moved = true;
+    if (painting) { const p = toW(e.clientX, e.clientY); brushAt = p; paint(p); return; }
+    if (pan) { tx = pan.tx + (e.clientX - pan.x); ty = pan.ty + (e.clientY - pan.y); draw(); }
+  });
+  function endPointer(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size > 0) return;
+    stage.classList.remove("panning");
+    if (painting) { painting = false; brushAt = null; changed(); draw(); }
+    else if (pan && !moved && e.type === "pointerup") {
+      const p = toW(e.clientX, e.clientY);
+      if (tool && tool.k === "roads") draftPoint(p);
+      else if (armedKey) addThing(armedKey, p.x, p.y);
+      else { const t = thingAt(p); pick(t); }
+    }
+    pan = null; downAt = null;
+  }
+  stage.addEventListener("pointerup", endPointer); stage.addEventListener("pointercancel", endPointer);
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea, select")) return;
+    if (e.key === "Escape") { pick(null); armedKey = null; if (draft) finishDraft(); buildStrip(); }
+    if ((e.key === "Delete" || e.key === "Backspace") && picked) removePicked();
+    if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); }
+    if (e.key === "Enter" && draft) finishDraft();
+  });
+
+  // ---- brushes ----
+  // A stroke is dabbed every half cell along the way, so a fast finger leaves no gaps.
+  function paint(p) {
+    if (lastPaint) {
+      const L = Math.hypot(p.x - lastPaint.x, p.y - lastPaint.y);
+      if (L < CELL * 0.5) return;
+      const n = Math.ceil(L / (CELL * 0.5)), from = lastPaint;
+      for (let i = 1; i <= n; i++) dab({ x: from.x + (p.x - from.x) * i / n, y: from.y + (p.y - from.y) * i / n });
+    } else dab(p);
+    lastPaint = p;
+    draw();
+  }
+  function dab(p) {
+    const R = brushSize(), k = tool.k, mode = k === "erase" ? (settings.erase || "plants") : k;
+    const i0 = Math.max(0, Math.floor((p.x - R) / CELL + P.origin[0])), i1 = Math.min(GW - 1, Math.ceil((p.x + R) / CELL + P.origin[0]));
+    const j0 = Math.max(0, Math.floor((p.y - R) / CELL + P.origin[1])), j1 = Math.min(GH - 1, Math.ceil((p.y + R) / CELL + P.origin[1]));
+    if (mode === "ground") { for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const [cx, cy] = cellXY(j * GW + i); if (Math.hypot(cx - p.x, cy - p.y) <= R) ground[j * GW + i] = k === "erase" ? "." : groundKey; } }
+    else if (mode === "height") {
+      const soft = settings.soft, str = settings.strength * 0.25;
+      let mean = 0, n = 0; if (heightMode === "smooth" || heightMode === "flat" || k === "erase") { for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const [cx, cy] = cellXY(j * GW + i); if (Math.hypot(cx - p.x, cy - p.y) <= R) { mean += height[j * GW + i]; n++; } } mean = n ? mean / n : 0; }
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const idx = j * GW + i, [cx, cy] = cellXY(idx), d = Math.hypot(cx - p.x, cy - p.y); if (d > R) continue;
+        const fall = soft > 0 ? Math.pow(Math.max(0, 1 - d / R), 0.4 + soft * 2) : 1;
+        if (k === "erase") height[idx] += (0 - height[idx]) * fall * 0.5;
+        else if (heightMode === "raise") height[idx] = Math.min(25, height[idx] + str * fall);
+        else if (heightMode === "lower") height[idx] = Math.max(-26, height[idx] - str * fall);
+        else if (heightMode === "flat") height[idx] += (mean - height[idx]) * fall * 0.5;
+        else { let s = 0, c = 0; for (const [di, dj] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < GW && jj < GH) { s += height[jj * GW + ii]; c++; } } height[idx] += (s / c - height[idx]) * fall * 0.6; }
+      }
+    }
+    else if (mode === "plants") {
+      if (k === "erase") { P.foliage = P.foliage.filter((f) => Math.hypot(f.x - p.x, f.y - p.y) > R); }
+      else {
+        // Stamps thrown into the circle at the density asked, kept apart by their own size.
+        const sz = FOLIAGE.find((f) => f[0] === plantKey)[2], want = Math.max(1, Math.round(settings.density * Math.PI * R * R / (sz * sz * 1.3)));
+        for (let n = 0; n < want; n++) {
+          const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R, x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r;
+          if (P.foliage.some((f) => f.k === plantKey && Math.hypot(f.x - x, f.y - y) < sz * 0.8)) continue;
+          if (P.things.some((t) => { const d = CAT[t.k]; return d && Math.hypot(t.x - x, t.y - y) < Math.max(d.depth, d.width) * (t.s || 1) * 0.5 + 0.5; })) continue;
+          P.foliage.push({ k: plantKey, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, s: Math.round((0.8 + Math.random() * 0.45) * 100) / 100 });
+        }
+      }
+    }
+    else if (mode === "things") { P.things = P.things.filter((t) => Math.hypot(t.x - p.x, t.y - p.y) > R); if (picked && !P.things.includes(picked)) pick(null); }
+  }
+
+  // ---- roads ----
+  let draft = null;
+  function draftPoint(p) { if (!draft) draft = { k: roadKey, pts: [] }; draft.pts.push([Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]); draw(); say(draft.pts.length < 2 ? "Tap the next point." : `${draft.pts.length} points. Tap on, or Finish.`); }
+  function finishDraft() { if (!draft) return; const d = draft; draft = null; if (d.pts.length >= 2) { snapshot(); P.roads.push({ k: d.k, w: ROAD[d.k][2], pts: d.pts }); changed(); } draw(); }
+
+  // ---- things: place, pick, handles ----
+  let picked = null;
+  const nid = () => "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  function addThing(key, x, y) {
+    const d = CAT[key]; if (!d) return;
+    snapshot();
+    const t = { id: nid(), k: key, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, rot: 0, s: 1, label: "", room: d.beds || 0, note: "" };
+    // Face the centre, as the game's own layouts do.
+    if (d.rotatable !== false) t.rot = (Math.round(Math.atan2(-y, -x) * 180 / Math.PI) + 360) % 360;
+    P.things.push(t); changed(); pick(t);
+  }
+  function thingAt(p) {
+    let best = null, bd = Infinity;
+    for (const t of P.things) { const d = CAT[t.k]; if (!d) continue; const s = t.s || 1; const a = -(t.rot || 0) * Math.PI / 180; const dx = p.x - t.x, dy = p.y - t.y; const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a); const inside = d.shape === "round" ? (lx / (d.depth * s / 2)) ** 2 + (ly / (d.width * s / 2)) ** 2 <= 1.3 : Math.abs(lx) <= d.depth * s / 2 + 0.6 && Math.abs(ly) <= d.width * s / 2 + 0.6; if (inside) { const area = d.depth * d.width * s * s; if (area < bd) { bd = area; best = t; } } }
+    return best;
+  }
+  const sheet = $("thing-sheet");
+  function pick(t) {
+    picked = t || null;
+    sheet.hidden = !picked;
+    if (picked) { const d = CAT[picked.k]; $("t-label").value = picked.label || ""; $("t-room").value = picked.room || 0; $("t-room").style.display = d.beds || d.group === "building" || d.group === "base" ? "" : "none"; $("t-kind").textContent = `${d.name} · ${(d.depth * (picked.s || 1)).toFixed(1)} × ${(d.width * (picked.s || 1)).toFixed(1)} m · facing ${Math.round(picked.rot || 0)}°${d.beds ? " · beds: " + d.beds + " at this size" : ""}`; }
+    draw();
+  }
+  $("t-label").addEventListener("input", () => { if (picked) { picked.label = $("t-label").value.trim(); changed(); draw(); } });
+  $("t-room").addEventListener("change", () => { if (picked) { picked.room = Math.max(0, Math.round(Number($("t-room").value) || 0)); changed(); info(); } });
+  $("t-label").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("t-label").blur(); pick(null); } });
+  $("t-done").addEventListener("click", () => pick(null));
+  function removePicked() { if (!picked) return; snapshot(); P.things = P.things.filter((t) => t !== picked); pick(null); changed(); }
+  function placeHandles() {
+    const H = { move: $("h-move"), rot: $("h-rot"), scale: $("h-scale"), remove: $("h-remove") };
+    for (const k in H) H[k].hidden = !picked;
+    if (!picked) return;
+    const d = CAT[picked.k], s = picked.s || 1, a = (picked.rot || 0) * Math.PI / 180;
+    const off = (lx, ly) => { const x = picked.x + lx * Math.cos(a) - ly * Math.sin(a), y = picked.y + lx * Math.sin(a) + ly * Math.cos(a); const sp = toS(x, y); const r = stage.getBoundingClientRect(); return [sp.x - r.left, sp.y - r.top]; };
+    const D = d.depth * s / 2, W = d.width * s / 2, pad = 36 / z;
+    const set = (el, p) => { el.style.left = p[0] + "px"; el.style.top = p[1] + "px"; };
+    set(H.move, off(0, 0)); set(H.rot, off(D + pad, 0)); set(H.scale, off(D * 0.7 + pad * 0.7, W * 0.7 + pad * 0.7)); set(H.remove, off(-D * 0.7 - pad * 0.7, -W * 0.7 - pad * 0.7));
+    H.rot.hidden = d.rotatable === false; H.scale.hidden = d.scalable === false;
+  }
+  function handleDrag(el, onMove, onStart) {
+    let st = null;
+    el.addEventListener("pointerdown", (e) => { if (!picked) return; e.stopPropagation(); el.setPointerCapture(e.pointerId); snapshot(); st = onStart ? onStart(e) : {}; });
+    el.addEventListener("pointermove", (e) => { if (!st) return; onMove(e, st); draw(); });
+    const end = () => { if (st) { st = null; changed(); pick(picked); } };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  }
+  handleDrag($("h-move"), (e, st) => { const p = toW(e.clientX, e.clientY); picked.x = Math.round((p.x - st.dx) * 10) / 10; picked.y = Math.round((p.y - st.dy) * 10) / 10; }, (e) => { const p = toW(e.clientX, e.clientY); return { dx: p.x - picked.x, dy: p.y - picked.y }; });
+  handleDrag($("h-rot"), (e) => { const p = toW(e.clientX, e.clientY); let a = Math.atan2(p.y - picked.y, p.x - picked.x) * 180 / Math.PI; if (!e.shiftKey) a = Math.round(a / 5) * 5; picked.rot = Math.round(((a % 360) + 360) % 360); });
+  handleDrag($("h-scale"), (e, st) => { const p = toW(e.clientX, e.clientY); const d = Math.hypot(p.x - picked.x, p.y - picked.y); picked.s = Math.round(Math.max(0.4, Math.min(4, st.s0 * d / st.d0)) * 20) / 20; }, (e) => { const p = toW(e.clientX, e.clientY); return { s0: picked.s || 1, d0: Math.max(0.5, Math.hypot(p.x - picked.x, p.y - picked.y)) }; });
+  $("h-remove").addEventListener("pointerdown", (e) => e.stopPropagation());
+  $("h-remove").addEventListener("click", removePicked);
+
+  // ---- info: capacity and roles, from the catalogue ----
+  function info() {
+    $("i-title").textContent = P.title || KEY;
+    let beds = 0; const roles = {}, counts = {};
+    for (const t of P.things) { const d = CAT[t.k]; if (!d) continue; beds += t.room || 0; for (const j of d.jobs || []) roles[j] = (roles[j] || 0) + 1; counts[d.group] = (counts[d.group] || 0) + 1; }
+    $("i-cap").innerHTML = `Room for <b>${beds}</b> · ${Object.keys(roles).length} kinds of work · tap for more`;
+    $("i-roles").innerHTML = Object.keys(roles).sort().map((j) => `<span>${JOBN(j)} × ${roles[j]}</span>`).join("") || '<span style="color:var(--dim)">No workplaces yet.</span>';
+    $("i-counts").textContent = `${P.things.length} things, ${P.foliage.length} plants and rocks, ${P.roads.length} roads · ${GW * CELL} × ${GH * CELL} m`;
+  }
+  $("info").addEventListener("click", (e) => { if (e.target.closest("textarea, button")) return; $("info").classList.toggle("open"); });
+  $("i-notes").addEventListener("input", () => { P.notes = $("i-notes").value; changed(); });
+  $("i-undo").addEventListener("click", undo); $("i-fit").addEventListener("click", fit); $("i-grid").addEventListener("click", () => { showGrid = !showGrid; draw(); });
+
+  // ---- undo, save, export ----
+  const undoStack = [];
+  function serialize() { P.ground = ground.join(""); P.height = Array.from(height, (h) => chOf(h)).join(""); return JSON.stringify(Object.assign({}, P, { saved: new Date().toISOString() })); }
+  function restore(json) {
+    const o = JSON.parse(json);
+    Object.assign(P, { title: o.title || P.title, notes: o.notes || "", foliage: o.foliage || [], roads: o.roads || [], things: o.things || [] });
+    if (o.size && o.size[0] === GW && o.size[1] === GH) { ground = (o.ground || "").padEnd(GW * GH, ".").slice(0, GW * GH).split(""); const hs = (o.height || "").padEnd(GW * GH, "."); for (let k = 0; k < GW * GH; k++) height[k] = hOf(hs[k]); }
+    $("i-notes").value = P.notes; info(); draw();
+  }
+  function snapshot() { undoStack.push(serialize()); if (undoStack.length > 30) undoStack.shift(); }
+  function undo() { const s = undoStack.pop(); if (!s) { say("Nothing to undo."); return; } restore(s); pick(null); changed(); }
+  let db = null, canWrite = true, saveTimer = null, dirty = false;
+  function changed() { dirty = true; info(); clearTimeout(saveTimer); saveTimer = setTimeout(store, 700); }
+  async function store() {
+    if (!db || !canWrite) { try { localStorage.setItem("place:" + KEY, serialize()); say("Kept in this browser (not signed in: nothing shared)."); } catch (e) {} return; }
+    try { await db.collection("places").doc(KEY).set({ json: serialize(), title: P.title, saved: Date.now() }); dirty = false; say("Saved."); } catch (e) { say("Couldn't save: " + (e.message || e.code), true); }
+  }
+  (async () => {
+    try { db = await window.claude?.use?.("db"); const user = await window.claude?.use?.("user"); if (user && typeof user.can === "function") { const w = await user.can("data.write"); if (w === false) canWrite = false; } } catch (e) { db = null; }
+    let loaded = false;
+    if (db) { try { const d = await db.collection("places").doc(KEY).get(); const v = d && d.data && d.data(); if (v && v.json) { restore(v.json); loaded = true; say("Loaded."); } } catch (e) { say("Couldn't load: " + (e.message || e.code), true); } }
+    if (!loaded) { try { const s = localStorage.getItem("place:" + KEY); if (s) { restore(s); loaded = true; } } catch (e) {} }
+    if (!loaded) say("A blank place. Pick a tool below.");
+    info();
+  })();
+  async function exportFile() {
+    const text = serialize();
+    try { const dl = await window.claude?.use?.("downloads"); if (dl) { await dl.save({ filename: KEY + ".json", data: text }); say("Exported " + KEY + ".json."); return; } } catch (e) {}
+    try { await navigator.clipboard.writeText(text); say("Copied the place file to the clipboard."); } catch (e) { say("Couldn't export here.", true); }
+  }
+  $("export").addEventListener("click", exportFile);
+  $("back").addEventListener("click", () => { if (dirty) store(); location.href = "index.html"; });
+
+  // GitHub: one commit of assets/world/places/<key>.json, with a token kept in this browser only.
+  const gh = $("gh");
+  $("github").addEventListener("click", () => { gh.hidden = false; $("gh-path").textContent = `assets/world/places/${KEY}.json`; try { $("gh-token").value = localStorage.getItem("gh:token") || ""; $("gh-repo").value = localStorage.getItem("gh:repo") || $("gh-repo").value; $("gh-branch").value = localStorage.getItem("gh:branch") || $("gh-branch").value; } catch (e) {} $("gh-status").textContent = ""; });
+  $("gh-cancel").addEventListener("click", () => { gh.hidden = true; });
+  $("gh-forget").addEventListener("click", () => { try { localStorage.removeItem("gh:token"); } catch (e) {} $("gh-token").value = ""; $("gh-status").textContent = "Forgotten."; });
+  $("gh-save").addEventListener("click", async () => {
+    const token = $("gh-token").value.trim(), repo = $("gh-repo").value.trim(), branch = $("gh-branch").value.trim();
+    if (!token || !repo) { $("gh-status").textContent = "A token and a repository are needed."; return; }
+    try { localStorage.setItem("gh:token", token); localStorage.setItem("gh:repo", repo); localStorage.setItem("gh:branch", branch); } catch (e) {}
+    const path = `assets/world/places/${KEY}.json`, api = `https://api.github.com/repos/${repo}/contents/${path}`;
+    const headers = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json" };
+    $("gh-status").textContent = "Saving…";
+    try {
+      let sha = null;
+      const cur = await fetch(api + "?ref=" + encodeURIComponent(branch), { headers });
+      if (cur.ok) sha = (await cur.json()).sha;
+      const body = { message: `Place: ${P.title || KEY} (from the place builder)`, content: btoa(unescape(encodeURIComponent(serialize()))), branch };
+      if (sha) body.sha = sha;
+      const r = await fetch(api, { method: "PUT", headers, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error((await r.json()).message || r.status);
+      $("gh-status").textContent = "Saved to " + repo + " on " + branch + ". Claude will see it there."; say("Saved to GitHub.");
+    } catch (e) { $("gh-status").textContent = "GitHub said: " + (e.message || e); }
+  });
+
+  // ---- go ----
+  window.addEventListener("resize", size);
+  if (window.ResizeObserver) new ResizeObserver(size).observe(stage);
+  size(); fit(); pickTool("things"); info();
+})();
+</script>
+</body>
+</html>
