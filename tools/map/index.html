@@ -852,7 +852,7 @@
   $("c-delete").addEventListener("click", () => { const id = editPid; if (!id || !people[id]) return; delete people[id]; for (const o of Object.values(people)) { o.rels = (o.rels || []).filter((r) => r.to !== id); } if (cols && canWrite) cols.people.doc(id).delete().catch(fail); pForm.hidden = true; pRoster.hidden = false; editPid = null; renderPeople(); });
   $("f-people").addEventListener("click", () => { if (selected && selected.col === "marks") openPeople(selected.id); });
   // The place builder (build.html): the ground, buildings and props of one place, top down.
-  $("f-build").addEventListener("click", () => { if (selected && selected.col === "marks") location.href = "build.html?key=" + encodeURIComponent(townKey(selected.id)) + "&name=" + encodeURIComponent(placeName(selected.id)); });
+  $("f-build").addEventListener("click", () => { if (selected && selected.col === "marks") location.href = "build.html?key=" + encodeURIComponent(townKey(selected.id)) + "&name=" + encodeURIComponent(placeName(selected.id)) + "&kind=" + encodeURIComponent(marks[selected.id].kind); });
   $("wanderers").addEventListener("click", () => openPeople(WANDERERS));
   // A generic saver for the two extra collections (the marks keep theirs).
   async function saveDoc(col, id, data, whole) {

@@ -149,6 +149,8 @@
   const params = new URLSearchParams(location.search);
   const KEY = (params.get("key") || "unnamed_place").replace(/[^a-z0-9_]/g, "_");
   const NAME = params.get("name") || KEY;
+  // The paintable square grows with the kind of place (a capital is a town ten times over).
+  const AREA = { capital: [600, 450], city: [450, 340], town: [320, 240], fort: [320, 240], village: [200, 150], hamlet: [120, 90], outpost: [160, 120], qotiro_outpost: [160, 120], warden_outpost: [160, 120], imperial_fort: [320, 240], stilt_village: [200, 150], highfolk_hold: [320, 240] };
 
   // ---- the catalogue: every thing the game can stand up, with its real footprint. The
   //      game writes assets/world/catalogue.json (headless catalogue); until it's beside this
@@ -259,7 +261,8 @@
   })();
 
   // ---- the place ----
-  const CELL = 2, GW = 160, GH = 120;
+  const CELL = 2;
+  let [GW, GH] = AREA[params.get("kind") || ""] || [160, 120];
   const P = { format: 1, key: KEY, title: NAME, notes: "", cell: CELL, size: [GW, GH], origin: [GW / 2, GH / 2], ground: ".".repeat(GW * GH), height: ".".repeat(GW * GH), foliage: [], roads: [], things: [] };
   const HCH = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"; // -26..+25 m
   const hOf = (ch) => ch === "." ? 0 : HCH.indexOf(ch) - 26;
@@ -664,7 +667,9 @@
   function restore(json) {
     const o = JSON.parse(json);
     Object.assign(P, { title: o.title || P.title, notes: o.notes || "", foliage: o.foliage || [], roads: o.roads || [], things: o.things || [] });
-    if (o.size && o.size[0] === GW && o.size[1] === GH) { ground = (o.ground || "").padEnd(GW * GH, ".").slice(0, GW * GH).split(""); const hs = (o.height || "").padEnd(GW * GH, "."); for (let k = 0; k < GW * GH; k++) height[k] = hOf(hs[k]); }
+    // A saved place keeps its own area.
+    if (o.size && o.size[0] > 0 && o.size[1] > 0) { GW = o.size[0]; GH = o.size[1]; P.size = [GW, GH]; P.origin = o.origin || [GW / 2, GH / 2]; height = new Float32Array(GW * GH); }
+    ground = (o.ground || "").padEnd(GW * GH, ".").slice(0, GW * GH).split(""); const hs = (o.height || "").padEnd(GW * GH, "."); for (let k = 0; k < GW * GH; k++) height[k] = hOf(hs[k]);
     $("i-notes").value = P.notes; info(); draw();
   }
   function snapshot() { undoStack.push(serialize()); if (undoStack.length > 30) undoStack.shift(); }
