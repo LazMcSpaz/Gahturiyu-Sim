@@ -1,0 +1,90 @@
+{
+ "note": "Laz's people and crowd rows from the Map Marks page, pulled 14 Oct 2026; his data, pull again rather than edit.",
+ "people": {},
+ "crowd": {
+  "t14": {
+   "rows": [
+    {
+     "count": 20,
+     "mix": null,
+     "role": "Farmer"
+    },
+    {
+     "count": 25,
+     "mix": {
+      "horaro": 0.2,
+      "qotiro": 0.2,
+      "roduro": 0.4,
+      "tadoro": 0.2
+     },
+     "role": "Fisher"
+    },
+    {
+     "count": 12,
+     "mix": {
+      "horaro": 0.2,
+      "qotiro": 0.2,
+      "roduro": 0.4,
+      "tadoro": 0.2
+     },
+     "role": "Guard"
+    },
+    {
+     "count": 5,
+     "mix": null,
+     "role": "Merchant"
+    },
+    {
+     "count": 10,
+     "mix": {
+      "horaro": 0.2,
+      "qotiro": 0.2,
+      "roduro": 0.4,
+      "tadoro": 0.2
+     },
+     "role": "Boatwright"
+    },
+    {
+     "count": 4,
+     "mix": {
+      "horaro": 0.2,
+      "qotiro": 0.2,
+      "roduro": 0.4,
+      "tadoro": 0.2
+     },
+     "role": "KelpGatherer"
+    },
+    {
+     "count": 4,
+     "mix": null,
+     "role": "Woodworker"
+    },
+    {
+     "count": 3,
+     "mix": null,
+     "role": "Smith"
+    },
+    {
+     "count": 1,
+     "mix": null,
+     "role": "Mason"
+    },
+    {
+     "count": 3,
+     "mix": {
+      "horaro": 0.2,
+      "qotiro": 0.2,
+      "roduro": 0.4,
+      "tadoro": 0.2
+     },
+     "role": "StoneTender"
+    },
+    {
+     "count": 10,
+     "mix": null,
+     "role": "Farmer"
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,59 @@
+# The map page (tools/map) as a site at https://lazmcspaz.github.io/Gahturiyu-Sim/
+# so it works offline (a service worker needs a real web origin) and can save to
+# the repo through GitHub's API. The site is tools/map plus the data it reads,
+# staged from where the game keeps it, so nothing is kept twice in the repo.
+name: Map site
+
+on:
+  push:
+    branches: [world/atlas, main]
+    paths:
+      - tools/map/**
+      - assets/world/**
+      - docs/map/*.png
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage the site
+        run: |
+          mkdir -p site/data/places site/data/people
+          cp -r tools/map/* site/
+          # index.html is written for the artifact viewer, which adds the document skeleton; as a site it needs its own.
+          { printf '%s' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#231c14"></head><body>'; cat tools/map/index.html; printf '%s' '</body></html>'; } > site/index.html
+          cp docs/map/laz-map-2026-10-13.png site/map.png
+          cp docs/map/laz-map-draft-2026-10-13.png site/draft.png
+          cp docs/map/laz-roads-2026-10-13.png site/roads.png
+          cp assets/world/catalogue.json site/catalogue.json
+          cp assets/world/marks-export.json site/data/marks-export.json
+          cp assets/world/people-export.json site/data/people-export.json
+          cp assets/world/places/*.json site/data/places/ 2>/dev/null || true
+          cp assets/world/people/*.ron site/data/people/ 2>/dev/null || true
+          ls site/data/places > site/data/places.txt || true
+          echo "$GITHUB_SHA" > site/version.txt
+          du -sh site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

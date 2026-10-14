@@ -706,13 +706,54 @@
     renderAll();
     if (selected && selected.col === "roads" && !roads[selected.id]) select(null);
   }
+
+  // ---- a store of this browser's own, with the shape of the artifact's db, for the page as a
+  //      site (github.io) and for working with no signal: collection(name).doc(id).set/update/
+  //      delete/get and collection.onSnapshot, kept in localStorage, seeded once from the data
+  //      files beside the page. ----
+  function localDb() {
+    const KEYP = "gaht:db:";
+    const load = (col) => { try { return JSON.parse(localStorage.getItem(KEYP + col) || "{}"); } catch (e) { return {}; } };
+    const keep = (col, docs) => { try { localStorage.setItem(KEYP + col, JSON.stringify(docs)); } catch (e) { say("This browser's storage is full: export your work.", true); } };
+    const listeners = {};
+    const emit = (col) => { const docs = load(col); const snap = { empty: !Object.keys(docs).length, metadata: { fromCache: false }, docs: Object.keys(docs).map((id) => ({ id, data: () => docs[id] })) }; for (const cb of listeners[col] || []) cb(snap); };
+    return {
+      local: true,
+      seed(col, docs) { if (Object.keys(load(col)).length) return false; keep(col, docs); emit(col); return true; },
+      collection(col) {
+        return {
+          doc(id) {
+            return {
+              async set(data) { const d = load(col); d[id] = data; keep(col, d); emit(col); },
+              async update(fields) { const d = load(col); d[id] = Object.assign(d[id] || {}, fields); keep(col, d); emit(col); },
+              async delete() { const d = load(col); delete d[id]; keep(col, d); emit(col); },
+              async get() { const d = load(col); const v = d[id]; return { exists: !!v, data: () => v }; },
+            };
+          },
+          onSnapshot(cb) { (listeners[col] = listeners[col] || []).push(cb); setTimeout(() => emit(col), 0); return () => {}; },
+        };
+      },
+    };
+  }
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register("sw.js").catch(() => {});
   (async () => {
     try {
       db = await window.claude?.use?.("db");
       const user = await window.claude?.use?.("user");
       if (user && typeof user.can === "function") { const w = await user.can("data.write"); if (w === false) canWrite = false; }
     } catch (e) { db = null; }
-    if (!db) { say("Not saved: open this page signed in to keep marks between visits.", true); renderAll(); return; }
+    if (!db) {
+      // Not on claude.ai: this browser's own store, seeded from the data files beside the page.
+      db = localDb(); canWrite = true;
+      try {
+        const r = await fetch("data/marks-export.json", { cache: "no-store" });
+        if (r.ok) { const ex = await r.json(); const docs = {}; for (const m of ex.marks || []) docs[m.id] = { kind: m.kind, label: m.label || "", holder: m.holder || "", founders: m.founders || "", notes: m.notes || "", x: m.px[0], y: m.px[1], created: m.created || 0 }; if (db.seed("marks", docs)) say("Your marks, from the repo."); }
+      } catch (e) {}
+      try {
+        const r = await fetch("data/people-export.json", { cache: "no-store" });
+        if (r.ok) { const ex = await r.json(); db.seed("people", ex.people || {}); db.seed("crowd", ex.crowd || {}); }
+      } catch (e) {}
+    }
     cols = { marks: db.collection("marks"), roads: db.collection("roads"), people: db.collection("people"), crowd: db.collection("crowd") };
     cols.marks.onSnapshot(applyMarks, (e) => say("Lost touch with the store: " + (e.message || e.code), true));
     cols.roads.onSnapshot(applyRoads, (e) => say("Lost touch with the store: " + (e.message || e.code), true));
