@@ -78,7 +78,7 @@ use super::jobs::PlaceKind;
 use super::layout::{self, Furn, Holder, Rect};
 use super::rng;
 use super::ruins::RuinKind;
-use super::settlement::{BuildingKind, SettlementId};
+use super::settlement::{BuildingKind, Settlement, SettlementId};
 use super::society::Workplace;
 use super::world::World;
 
@@ -1131,9 +1131,17 @@ pub fn doorway_of(d: &Door) -> Way {
     Way { at, width: DOOR, outside: d.outside, inside: at.sub(dir.scale(layout::WALL_IN + BODY + 0.1)) }
 }
 
+/// A workplace that lies inside one of the town's buildings (Salt Isle's
+/// hall: the compound's stone hall is the place of work): the building
+/// stands for it, so it has no parts of its own, solid or drawn.
+pub fn place_in_building(s: &Settlement, wp: &Workplace) -> bool {
+    (0..s.buildings.len() as u16).any(|i| door_of(s, i).is_some_and(|d| d.contains(wp.pos)))
+}
+
 /// The solid parts of a workplace, as the window draws them (`view/scene.rs`,
 /// `workplace`): what each is, its outline, how tall, and whether it's in
-/// the way. Part 0 is its main body. A place out on the water has none.
+/// the way. Part 0 is its main body. A place out on the water has none, and
+/// nor has one inside a building (`place_in_building`).
 pub fn place_parts(wp: &Workplace) -> Vec<(What, Shape, f32, bool)> {
     use PlaceKind as P;
     let k = wp.kind;
@@ -1376,6 +1384,9 @@ impl World {
         let Some(tl) = self.society.towns.get(t as usize) else { return out };
         for (j, wp) in tl.places.iter().enumerate() {
             let j = j as u16;
+            if place_in_building(s, wp) {
+                continue;
+            }
             let yard = (wp.kind == PlaceKind::Workyard).then_some(Id::Place(t, j, 0));
             for (k, (what, shape, h, blocks)) in place_parts(wp).into_iter().enumerate() {
                 let th = Thing::solid(Id::Place(t, j, k as u8), what, shape, h);

@@ -218,6 +218,10 @@ fn every_kind_of_workplace_has_its_solid_parts() {
     for (t, tl) in w.society.towns.iter().enumerate() {
         let set = w.town_solids(t as u16);
         for (j, wp) in tl.places.iter().enumerate() {
+            // (A place inside a building has none: the building is it.)
+            if solid::place_in_building(&w.settlements[t], wp) {
+                continue;
+            }
             let parts = solid::place_parts(wp);
             for (k, (what, shape, _, blocks)) in parts.iter().enumerate() {
                 let th = set.things.iter().find(|x| x.id == Id::Place(t as u16, j as u16, k as u8)).unwrap_or_else(|| panic!("{:?} part {k}", wp.kind));
