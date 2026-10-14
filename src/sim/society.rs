@@ -885,37 +885,7 @@ impl World {
         use PlaceKind as P;
         let c = &self.society.communities[ci as usize];
         let tl = &self.society.towns[c.town as usize];
-        let fits = |k: PlaceKind| -> bool {
-            match job {
-                Job::Farmer => k == P::Fields,
-                Job::Forager => k == P::Wilds,
-                Job::Woodcutter => matches!(k, P::Woodlot | P::Quarry),
-                Job::Fisher => if c.stilts { k == P::DivePlatform } else { k == P::Dock },
-                Job::KelpGatherer => c.stilts && k == P::KelpBeds,
-                Job::Boatwright => c.stilts && k == P::Boatyard,
-                Job::Cook => if c.stilts { k == P::Deck } else { matches!(k, P::Kitchen | P::MessHall) || (k == P::Deck) },
-                Job::Runner => !c.stilts && matches!(k, P::Kitchen | P::MessHall),
-                Job::Merchant | Job::Caravaner => matches!(k, P::Market | P::Shop(_)),
-                Job::Innkeeper => k == P::Inn,
-                Job::Guard => k == P::GuardPost,
-                Job::Official | Job::Arbiter => k == P::Hall,
-                Job::Priest => k == P::Shrine,
-                Job::Healer => matches!(k, P::HealingHouse | P::HealersHouse),
-                Job::Teacher => matches!(k, P::TeachingHouse | P::LettersHouse),
-                Job::Exchanger => matches!(k, P::ExchangeHouse | P::LettersHouse),
-                Job::Scribe => matches!(k, P::Desk | P::LettersHouse),
-                Job::Weaver => if c.stilts { k == P::Boatyard } else { matches!(k, P::WeaversShed | P::Workyard) },
-                Job::Tanner | Job::Leatherworker | Job::Tailor | Job::Woodworker => !c.stilts && matches!(k, P::Workshop | P::Workyard),
-                Job::CharcoalBurner => !c.stilts && k == P::CharcoalPit,
-                Job::Carpenter | Job::Mason => !c.stilts && matches!(k, P::Workyard | P::Workshop),
-                Job::Alchemist => matches!(k, P::AlchemyTable | P::HealingHouse),
-                Job::Smith => matches!(k, P::Workyard | P::Forge),
-                Job::Armourer => matches!(k, P::Workyard | P::Bench),
-                Job::StoneTender => k == P::TendersYard,
-                Job::Labourer => if c.stilts { k == P::DivePlatform } else { matches!(k, P::Market | P::Workyard | P::Shop(_) | P::Forge) },
-                Job::Drifter | Job::None => false,
-            }
-        };
+        let fits = |k: PlaceKind| super::jobs::works_at(job, k, c.stilts);
         // Village decks belong to the village; a shore deck to the shore.
         tl.places
             .iter()

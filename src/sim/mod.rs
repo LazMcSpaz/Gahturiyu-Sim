@@ -27,6 +27,7 @@ pub mod buildings;
 pub mod care;
 pub mod carry;
 pub mod casting;
+pub mod catalogue;
 pub mod combat;
 pub mod containers;
 pub mod conceal;
