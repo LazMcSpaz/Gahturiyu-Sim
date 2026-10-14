@@ -1,0 +1,10 @@
+{
+  "name": "Gahturiyu Map",
+  "short_name": "Gahturiyu",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#231c14",
+  "theme_color": "#231c14",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

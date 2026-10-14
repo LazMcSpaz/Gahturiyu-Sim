@@ -744,6 +744,36 @@
   }
   function snapshot() { undoStack.push(serialize()); if (undoStack.length > 30) undoStack.shift(); }
   function undo() { const s = undoStack.pop(); if (!s) { say("Nothing to undo."); return; } restore(s); pick(null); changed(); }
+
+  // ---- a store of this browser's own, with the shape of the artifact's db, for the page as a
+  //      site (github.io) and for working with no signal: collection(name).doc(id).set/update/
+  //      delete/get and collection.onSnapshot, kept in localStorage, seeded once from the data
+  //      files beside the page. ----
+  function localDb() {
+    const KEYP = "gaht:db:";
+    const load = (col) => { try { return JSON.parse(localStorage.getItem(KEYP + col) || "{}"); } catch (e) { return {}; } };
+    const keep = (col, docs) => { try { localStorage.setItem(KEYP + col, JSON.stringify(docs)); } catch (e) { say("This browser's storage is full: export your work.", true); } };
+    const listeners = {};
+    const emit = (col) => { const docs = load(col); const snap = { empty: !Object.keys(docs).length, metadata: { fromCache: false }, docs: Object.keys(docs).map((id) => ({ id, data: () => docs[id] })) }; for (const cb of listeners[col] || []) cb(snap); };
+    return {
+      local: true,
+      seed(col, docs) { if (Object.keys(load(col)).length) return false; keep(col, docs); emit(col); return true; },
+      collection(col) {
+        return {
+          doc(id) {
+            return {
+              async set(data) { const d = load(col); d[id] = data; keep(col, d); emit(col); },
+              async update(fields) { const d = load(col); d[id] = Object.assign(d[id] || {}, fields); keep(col, d); emit(col); },
+              async delete() { const d = load(col); delete d[id]; keep(col, d); emit(col); },
+              async get() { const d = load(col); const v = d[id]; return { exists: !!v, data: () => v }; },
+            };
+          },
+          onSnapshot(cb) { (listeners[col] = listeners[col] || []).push(cb); setTimeout(() => emit(col), 0); return () => {}; },
+        };
+      },
+    };
+  }
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register("sw.js").catch(() => {});
   let db = null, canWrite = true, saveTimer = null, dirty = false;
   function changed() { dirty = true; info(); clearTimeout(saveTimer); saveTimer = setTimeout(store, 700); }
   // Every change is kept in this browser first (so a lost connection loses nothing), then in
@@ -758,6 +788,11 @@
   }
   (async () => {
     try { db = await window.claude?.use?.("db"); const user = await window.claude?.use?.("user"); if (user && typeof user.can === "function") { const w = await user.can("data.write"); if (w === false) canWrite = false; } } catch (e) { db = null; }
+    if (!db) {
+      // Not on claude.ai: this browser's own store; the repo's copy of this place seeds it.
+      db = localDb(); canWrite = true;
+      try { const r = await fetch("data/places/" + KEY + ".json", { cache: "no-store" }); if (r.ok) { const j = await r.text(); const docs = {}; docs[KEY] = { json: j, title: (JSON.parse(j).title || KEY), saved: Date.parse(JSON.parse(j).saved) || 0 }; db.seed("places", docs); } } catch (e) {}
+    }
     const landed = await landReady;
     let shared = null, local = null;
     if (db) { try { const d = await db.collection("places").doc(KEY).get(); const v = d && d.data && d.data(); if (v && v.json) shared = v.json; } catch (e) { say("Couldn't reach the shared copy: " + (e.message || e.code), true); } }
@@ -792,7 +827,7 @@
   // (The page can't reach GitHub itself: the viewer blocks calls out.)
   $("send").addEventListener("click", async () => {
     await store();
-    if (!db || !canWrite) { say("Not signed in here: use Export and hand the file over.", true); return; }
+    if (!db || !canWrite || db.local) { say(db && db.local ? "On the site your work stays in this browser: Export the file for now; Save to GitHub is coming." : "Not signed in here: use Export and hand the file over.", true); return; }
     try { await db.collection("places").doc(KEY).update({ sent: Date.now() }); say("Sent. Tell Claude to pull " + KEY + " in."); }
     catch (e) { say("Couldn't mark it sent: " + (e.message || e.code), true); }
   });
