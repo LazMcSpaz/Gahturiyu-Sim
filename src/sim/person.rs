@@ -55,6 +55,10 @@ pub struct Person {
     pub bandit: bool,
     /// Hunger and the like — your squad only.
     pub cond: Option<super::condition::Condition>,
+    /// Laz's own: their roster entry as written (`roster.rs`), every fact
+    /// kept. None for anyone the seed made.
+    #[serde(default)]
+    pub authored: Option<Box<super::roster::Authored>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -111,6 +115,7 @@ impl Person {
             dead: false,
             bandit: false,
             cond: None,
+            authored: None,
         };
         p.mana = p.max_mana();
         p.recompute_might();
@@ -134,7 +139,7 @@ impl Person {
             return false;
         }
         self.detail = Some(Detail {
-            name: names::person_name(self.race, self.seed),
+            name: self.given_name(),
             gear: inventory::starting_kit(self.race, &self.kit_stats, self.budget, self.seed),
             spells: magic::starting_spells(&self.kit_stats, self.seed),
             crafts: Vec::new(),
@@ -183,6 +188,16 @@ impl Person {
 
     pub fn name(&self) -> Option<&str> {
         self.detail.as_ref().map(|d| d.name.as_str())
+    }
+
+    /// Their name whether or not their details are built: the one they were
+    /// given in a roster, else the one their seed gives.
+    pub fn given_name(&self) -> String {
+        match (&self.detail, &self.authored) {
+            (Some(d), _) => d.name.clone(),
+            (None, Some(a)) => a.name().to_string(),
+            (None, None) => names::person_name(self.race, self.seed),
+        }
     }
 
     /// Stats with gear enchantments applied, and weakened by hunger (squad only).

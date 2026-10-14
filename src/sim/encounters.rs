@@ -31,7 +31,6 @@ use super::body;
 use super::combat::{Battle, Fighter, Side};
 use super::geo::{self, V2};
 use super::group::{GroupId, Kind, Leg};
-use super::names;
 use super::person::PersonId;
 use super::rng::{self, Rng};
 use super::settlement::SettlementId;
@@ -374,8 +373,7 @@ impl World {
     /// What the player reads for someone: what the squad knows them as
     /// (`called`), or the name they'd be given if it isn't built yet.
     pub fn name_of(&self, pid: PersonId) -> String {
-        let p = &self.people[pid as usize];
-        self.called(pid).unwrap_or_else(|| names::person_name(p.race, p.seed))
+        self.called(pid).unwrap_or_else(|| self.people[pid as usize].given_name())
     }
 
     /// One rule for how anyone is named to the player (P24): what the squad

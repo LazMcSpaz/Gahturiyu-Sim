@@ -177,7 +177,7 @@ pub fn readout_panel(c: &Canvas, w: &World, town: u16) -> Bx {
     c.text(&unrest, r.x + r.w - c.width(&unrest, 13.0) - 14.0, y, 13.0, if g.unrest >= 50.0 { WARN } else { DIM });
     y += 18.0;
     c.text(&w.gov_words(town), x, y, 13.0, GOLD);
-    let name = |p: u32| w.people[p as usize].name().map(|n| n.to_string()).unwrap_or_else(|| gahturiyu_sim::sim::names::person_name(w.people[p as usize].race, w.people[p as usize].seed));
+    let name = |p: u32| w.people[p as usize].given_name();
     for ch in &g.chambers {
         y += 17.0;
         let mut line = format!("{}: {}", ch.rule.name(), if ch.holders.is_empty() { "no one".to_string() } else { ch.holders.iter().map(|&p| name(p)).collect::<Vec<_>>().join(", ") });

@@ -1147,7 +1147,7 @@ impl World {
                             let q = &self.people[to as usize];
                             let place = q.home.map(|h| self.settlements[h as usize].name.clone()).unwrap_or_default();
                             let pay = if paid { format!("{coin} coin when it's done; they'll pay you.") } else { "I can't pay, but I'd owe you.".to_string() };
-                            format!("Would you carry a letter to {} in {place}? Sealed, mind. {pay}", super::names::person_name(q.race, q.seed))
+                            format!("Would you carry a letter to {} in {place}? Sealed, mind. {pay}", q.given_name())
                         }
                         QuestKind::Job { opp } => {
                             let line = self.opportunity(opp).map(|o| self.opp_line(o)).unwrap_or_default();

@@ -278,6 +278,10 @@ impl Kind {
 /// A town as marked on the map.
 #[derive(Deserialize, Clone, Debug)]
 pub struct TownMark {
+    /// Stable, lower-case: the town's name in data (`roster.rs`: its roster
+    /// is `assets/world/people/<key>.ron`). Left out, it's made from the label.
+    #[serde(default)]
+    pub key: String,
     /// What the map says (not the town's name: that's made by the names).
     pub label: String,
     /// The pixel on the map.
@@ -290,6 +294,11 @@ pub struct TownMark {
 }
 
 impl TownMark {
+    /// The town's key (`key`, else made from the label).
+    pub fn key(&self) -> String {
+        if self.key.is_empty() { super::roster::key_of_label(&self.label) } else { self.key.clone() }
+    }
+
     /// The mark's spot in metres (the pixel's centre).
     pub fn pos(&self) -> V2 {
         V2::new(self.px.0 as f32 * PX + PX / 2.0, self.px.1 as f32 * PX + PX / 2.0)

@@ -79,6 +79,7 @@ pub mod quests;
 pub mod ring;
 pub mod race;
 pub mod rng;
+pub mod roster;
 pub mod routine;
 pub mod routes;
 pub mod save;

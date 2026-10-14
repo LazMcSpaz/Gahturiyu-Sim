@@ -251,6 +251,13 @@ impl World {
         if !paid && !r.chance(0.3) {
             return None;
         }
+        self.nearest_guard(town, from)
+    }
+
+    /// The nearest guard of the town on watch to `from`, or failing that one
+    /// up and close by (paid or not).
+    fn nearest_guard(&self, town: SettlementId, from: V2) -> Option<PersonId> {
+        let t = self.time;
         let up_and_near = |p: PersonId| self.doing_now(p).is_some_and(|d| d.0 != super::routine::Doing::Asleep) && !self.is_down(p) && self.person_pos(p).dist(from) <= OFF_DUTY_REACH;
         self.settlements[town as usize]
             .residents
@@ -448,7 +455,9 @@ impl World {
         if self.pursuits.iter().any(|p| p.culprit == who) {
             return true;
         }
-        let Some(g) = self.guard_for(town, at, who) else { return false };
+        // (The compound's watch is the Binders' own: it comes whatever the
+        // town owes it.)
+        let Some(g) = self.nearest_guard(town, at) else { return false };
         let t = self.time;
         self.pursuits.push(Pursuit { guard: g, culprit: who, town, wrong: Wrong::Trespass, fine: 0.0, witness: None, start: t, pos: None, last_seen: at, seen_t: t, owed: true });
         let line = format!("{} of the watch has seen {}, and comes over.", self.name_of(g), self.name_of(who));
