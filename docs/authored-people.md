@@ -44,7 +44,8 @@ file is the format both agree on.
             relations: [ (to: "hoqa_wall", kind: Rival) ],   // Spouse | Child | Parent | Sibling | Rival | Friend | Lover | Debtor | Creditor
             background: "Lost his seat at court; runs the island as if it were one.",
             importance: "The first lord the player meets; sets the tone of the Free Lords.",
-            schedule: [ (from: 19.0, to: 23.0, at: Place(4)) ],   // optional overrides of the day plan, hours and a spot: Home | Work | Hearth | Place(workplace) | Building(index)
+            schedule: [ (from: 19.0, to: 23.0, at: Place(4)) ],
+            schedule_note: "at the smoke hall every night from dusk",   // the page's words; stays are made from them by hand   // optional overrides of the day plan, hours and a spot: Home | Work | Hearth | Place(workplace) | Building(index)
             appearance: (style: "court", colours: ["grey", "black"], marks: ["scar over the eye"]),
             lines: Some("deshu_grey"),    // data/lines/people/deshu_grey.txt
         ),

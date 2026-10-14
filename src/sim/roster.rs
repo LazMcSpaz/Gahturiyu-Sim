@@ -156,6 +156,10 @@ pub struct Character {
     pub importance: String,
     #[serde(default)]
     pub schedule: Vec<Stay>,
+    /// The schedule in words, as the page writes it ("at the smoke hall every
+    /// night from dusk"): a note for whoever turns it into stays.
+    #[serde(default)]
+    pub schedule_note: String,
     #[serde(default)]
     pub appearance: Appearance,
     /// `data/lines/people/<key>.txt`.
