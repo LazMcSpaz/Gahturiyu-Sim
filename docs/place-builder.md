@@ -201,3 +201,51 @@ it yet. Joining them would make a drawn road count as road underfoot.
 **Squad base buildings in a town** (huts, sheds, palisades) are a squad's
 outpost things with their own building and upkeep rules; placing one in a
 town is listed as `later`.
+
+## One map: zoom to build (Laz, 14 Oct evening)
+
+Laz: "all I have to do is zoom and I can build, no need to click the build
+button", and "I want to be able to work without an internet connection too."
+
+**The design.** One page, one canvas, one continuous zoom from the whole
+continent down to a doorway:
+
+- Far out it is the map page as now: Laz's map, the marks, the roads, the
+  people screen. Zoom in past about 1 m a screen pixel and the view becomes
+  the builder: the game's land under the paint, the place's things, the
+  tray and the tools. No button. Zoom out and it is the map again.
+- **The place under the view** is the active one: the mark nearest the
+  middle of the screen whose area holds the centre. Its name and capacity
+  sit in the corner; paint and things go into its file. Between places the
+  tools are greyed and the corner says "zoom in on a mark to build, or add
+  one here" (a tap adds a mark, which is then editable at once).
+- Areas by kind (hamlet 120 m to capital 600 m across), and a place's land
+  comes with it (the game writes the land under every mark at that size).
+- **Local first.** Every change is kept in the browser (IndexedDB) the
+  moment it is made; nothing needs the connection. **Offline** by a service
+  worker that caches the page, the map, the catalogue and every mark's land
+  on first visit, so the page opens with no signal at all. That needs a real
+  web origin: the page moves from the claude.ai artifact to **GitHub Pages**
+  (`lazmcspaz.github.io/Gahturiyu-Sim/map/`), served from the repo. The
+  artifact stays as a mirror until the Pages site is up.
+- **Save** (a button, when online) commits the changed place files, marks
+  and rosters to the repo through GitHub's API with a token kept only in
+  that browser (a github.io page may call GitHub; the artifact viewer may
+  not). Export / Import of a single file stays for the days with no signal.
+- One world file for the marks and roads (`assets/world/marks-export.json`),
+  one file a place (`assets/world/places/<key>.json`), one roster a place:
+  the same files the game reads, so Save is the whole hand-over.
+
+**Who does what.**
+- *Primary:* the unified page (`tools/map/`): continuous zoom, the active
+  place, local-first storage, the service worker, Save to GitHub, Import /
+  Export; the Pages deployment (a workflow that publishes `tools/map/` with
+  the data beside it).
+- *Second:* the game side: `headless grounds` at the new scale and with
+  the area by kind (hamlet 120 × 90 m … capital 600 × 450 m), written into
+  `tools/map/grounds/` in the repo so the site carries them; `headless
+  site` (or a script) that refreshes everything the site needs
+  (catalogue, grounds, marks) in one go; the importer reading areas of any
+  size; the three weather tests that read the map's size
+  (`tests/weather/mod.rs`) and `everyone_goes_in_when_the_weather_drives_them_in`
+  after the change to 26.5 m a pixel.
