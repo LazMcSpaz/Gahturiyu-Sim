@@ -4,9 +4,9 @@
 //! the builder draws a place over it, so what Laz lays out sits on the land
 //! he'll walk on.
 //!
-//! Each file holds the place's own grid (the builder's: `CELL` metres a
-//! cell, `SIZE` cells, centred on the town's spot, `worldgen::town_spot`)
-//! and a wider ring at `AROUND_CELL` for the view round it: a letter of
+//! Each file holds the place's own grid (`CELL` metres a cell, its area by
+//! the mark's kind, `AREAS`, centred on the town's spot, `worldgen::town_spot`)
+//! and a ring as many cells round it, `AROUND_SCALE` times coarser: a letter of
 //! ground a cell, the height a cell (decimetres from the centre's, as
 //! little-endian `i16`s in base64), and in the place the trees and bushes the
 //! land itself grows there (`plants.rs`, at full density, as no plan says
@@ -22,12 +22,30 @@ use super::plants;
 use super::terrain::Ground as G;
 use super::world::World;
 
-/// The place builder's grid: 2 m cells, 160 × 120 of them (320 × 240 m),
-/// the centre in the middle (`build.html`'s `CELL`, `GW`, `GH`).
+/// The place builder's cells, metres.
 pub const CELL: f32 = 2.0;
-pub const SIZE: (usize, usize) = (160, 120);
-/// The ring round it: the same count of 8 m cells (1280 × 960 m).
-pub const AROUND_CELL: f32 = 8.0;
+/// The ring round a place has as many cells as the place, each this many
+/// times bigger (so it reaches this many times as far).
+pub const AROUND_SCALE: f32 = 4.0;
+/// A place's area by its mark's kind, metres across and down (Laz, 14 Oct):
+/// a hamlet's yards to a capital's quarters. Anything else marked (a ruin,
+/// a lookout, a mine...) gets `OTHER_AREA`.
+pub const AREAS: &[(&str, f32, f32)] = &[
+    ("hamlet", 120.0, 90.0),
+    ("outpost", 160.0, 120.0),
+    ("village", 200.0, 150.0),
+    ("town", 320.0, 240.0),
+    ("fort", 320.0, 240.0),
+    ("city", 450.0, 340.0),
+    ("capital", 600.0, 450.0),
+];
+pub const OTHER_AREA: (f32, f32) = (160.0, 120.0);
+
+/// The place's grid for a mark of this kind: cells across and down.
+pub fn area_of(kind: &str) -> (usize, usize) {
+    let (w, h) = AREAS.iter().find(|a| a.0 == kind).map(|a| (a.1, a.2)).unwrap_or(OTHER_AREA);
+    ((w / CELL).round() as usize, (h / CELL).round() as usize)
+}
 
 /// A mark that isn't a town (`assets/world/landmarks.ron`).
 #[derive(Deserialize, Clone, Debug)]
@@ -125,8 +143,8 @@ pub fn letter(w: &World, p: V2) -> char {
     }
 }
 
-fn grid(w: &World, c: V2, h0: f32, cell: f32, woods: bool) -> Grid {
-    let (gw, gh) = SIZE;
+fn grid(w: &World, c: V2, h0: f32, size: (usize, usize), cell: f32, woods: bool) -> Grid {
+    let (gw, gh) = size;
     let origin = (gw / 2, gh / 2);
     let mut ground = String::with_capacity(gw * gh);
     let mut height: Vec<u8> = Vec::with_capacity(gw * gh * 2);
@@ -142,14 +160,16 @@ fn grid(w: &World, c: V2, h0: f32, cell: f32, woods: bool) -> Grid {
             height.extend_from_slice(&dm.to_le_bytes());
         }
     }
-    Grid { cell, size: SIZE, origin, ground, height: base64(&height) }
+    Grid { cell, size, origin, ground, height: base64(&height) }
 }
 
 /// The land at one mark's centre.
 pub fn land_at(w: &World, key: &str, id: &str, label: &str, kind: &str, c: V2) -> LandAt {
     let h0 = w.terrain.height(c);
-    let half = (SIZE.0 as f32 * CELL / 2.0, SIZE.1 as f32 * CELL / 2.0);
-    let (x0, y0, x1, y1) = (c.x - half.0, c.y - half.1, c.x + half.0, c.y + half.1);
+    let size = area_of(kind);
+    // (The box the grid covers: from the origin cell's corner, as the place file reads it.)
+    let (x0, y0) = (c.x - (size.0 / 2) as f32 * CELL, c.y - (size.1 / 2) as f32 * CELL);
+    let (x1, y1) = (x0 + size.0 as f32 * CELL, y0 + size.1 as f32 * CELL);
     let r1 = |v: f32| (v * 10.0).round() / 10.0;
     let r2 = |v: f32| (v * 100.0).round() / 100.0;
     let trees = plants::land_trees_in(w, x0, y0, x1, y1).into_iter().map(|(p, k, s)| (r1(p.x - c.x), r1(p.y - c.y), k, r2(s))).collect();
@@ -164,8 +184,8 @@ pub fn land_at(w: &World, key: &str, id: &str, label: &str, kind: &str, c: V2) -
         seed: w.seed,
         centre: (r1(c.x), r1(c.y)),
         h0: r1(h0),
-        place: grid(w, c, h0, CELL, false),
-        around: grid(w, c, h0, AROUND_CELL, true),
+        place: grid(w, c, h0, size, CELL, false),
+        around: grid(w, c, h0, size, CELL * AROUND_SCALE, true),
         trees,
         bushes,
         rocks,
@@ -189,6 +209,12 @@ pub fn write_all(w: &World, dir: &std::path::Path) -> std::io::Result<usize> {
     std::fs::create_dir_all(dir)?;
     let mut index = serde_json::Map::new();
     let all = marks();
+    // (A mark gone or renamed leaves no stale file behind.)
+    for e in std::fs::read_dir(dir)?.flatten() {
+        if e.path().extension().is_some_and(|x| x == "json") {
+            std::fs::remove_file(e.path())?;
+        }
+    }
     for (key, id, label, kind, c) in &all {
         let land = land_at(w, key, id, label, kind, *c);
         std::fs::write(dir.join(format!("{key}.json")), serde_json::to_string(&land).expect("it writes"))?;
@@ -210,4 +236,54 @@ pub fn base64(bytes: &[u8]) -> String {
         out.push(if c.len() > 2 { A[n as usize & 63] as char } else { '=' });
     }
     out
+}
+
+/// Everything the map site (`tools/map/`, served by GitHub Pages) needs
+/// beside its page, refreshed in one go from the repo at `root`: the
+/// catalogue, every mark's land (`grounds/`), and copies of Laz's marks and
+/// places (`data/`). Rosters aren't copied (the page keeps its own), but each
+/// is read, so a bad one is said here. The same files every time it's run on
+/// the same repo. Returns what it did, and any problem found, line by line.
+pub fn write_site(root: &std::path::Path, seed: u64) -> std::io::Result<Vec<String>> {
+    let site = root.join("tools/map");
+    let mut said = Vec::new();
+    std::fs::write(site.join("catalogue.json"), super::catalogue::catalogue_json())?;
+    said.push(format!("catalogue.json: {} things", super::catalogue::catalogue().len()));
+    let w = world_for(seed);
+    let n = write_all(&w, &site.join("grounds"))?;
+    said.push(format!("grounds/: {n} marks' land (world {seed})"));
+    // Laz's own files, as they are: the marks, and a place a file.
+    let data = site.join("data");
+    let places = data.join("places");
+    std::fs::create_dir_all(&places)?;
+    std::fs::copy(root.join("assets/world/marks-export.json"), data.join("marks-export.json"))?;
+    for e in std::fs::read_dir(&places)?.flatten() {
+        if e.path().extension().is_some_and(|x| x == "json") {
+            std::fs::remove_file(e.path())?;
+        }
+    }
+    let mut copied = 0;
+    if let Ok(dir) = std::fs::read_dir(root.join("assets/world/places")) {
+        let mut files: Vec<std::path::PathBuf> = dir.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).collect();
+        files.sort();
+        for f in files {
+            std::fs::copy(&f, places.join(f.file_name().expect("a file")))?;
+            copied += 1;
+        }
+    }
+    said.push(format!("data/: marks-export.json and {copied} places"));
+    // Every roster reads, and is for a town on the map.
+    let keys: Vec<String> = marks().into_iter().map(|m| m.0).collect();
+    if let Ok(dir) = std::fs::read_dir(root.join("assets/world/people")) {
+        let mut files: Vec<std::path::PathBuf> = dir.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "ron")).collect();
+        files.sort();
+        for f in files {
+            match super::roster::Roster::load(&f) {
+                Ok(r) if r.town != "wanderers" && !keys.contains(&r.town) => said.push(format!("PROBLEM {}: town \"{}\" isn't a mark's key", f.display(), r.town)),
+                Ok(r) => said.push(format!("roster {}: {} characters, {} crowd rows", r.town, r.characters.len(), r.crowd_rows.len())),
+                Err(e) => said.push(format!("PROBLEM {e}")),
+            }
+        }
+    }
+    Ok(said)
 }

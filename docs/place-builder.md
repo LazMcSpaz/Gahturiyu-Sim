@@ -249,3 +249,23 @@ continent down to a doorway:
   size; the three weather tests that read the map's size
   (`tests/weather/mod.rs`) and `everyone_goes_in_when_the_weather_drives_them_in`
   after the change to 26.5 m a pixel.
+
+**Built (second, 14 Oct late):**
+- `headless site [seed]` refreshes everything the site serves beside its
+  page, the same bytes every run: `tools/map/catalogue.json`,
+  `tools/map/grounds/` (every mark's land, `index.json` mark id → key,
+  stale files cleared) and copies of `assets/world/marks-export.json` and
+  `assets/world/places/*.json` in `tools/map/data/`; it reads every roster in
+  `assets/world/people/` and exits 1 if one is bad or names no mark.
+  `headless grounds [dir] [seed]` writes only the land (to the site unless
+  told).
+- Areas by kind (`grounds::AREAS`): hamlet 120 × 90 m, outpost 160 × 120,
+  village 200 × 150, town and fort 320 × 240, city 450 × 340, capital
+  600 × 450, any other mark 160 × 120; 2 m cells, origin at the middle cell;
+  the ring round it has as many cells, each 8 m. The importer already reads a
+  place file of any `size`/`origin` (`tests/grounds.rs` checks a hamlet's).
+- `python tools/map/pull.py [EXPORT.txt] [--no-site]`: after a save lands,
+  `marks_to_towns.py` then `headless site`; given a page export, each
+  `// ---- assets/world/people/<key>.ron` section is written to its file
+  first. `tests/grounds.rs` fails if `tools/map/grounds/index.json` doesn't
+  match the marks.

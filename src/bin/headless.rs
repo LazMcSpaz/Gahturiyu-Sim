@@ -16,10 +16,33 @@ use gahturiyu_sim::sim::{race::ALL_RACES, world::HOUR, worldgen};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // Everything the map site needs beside its page (`sim/grounds.rs`
+    // `write_site`): `headless site [seed]`. Exits 1 if a roster is bad.
+    if args.get(1).map(|a| a == "site").unwrap_or(false) {
+        let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let t = std::time::Instant::now();
+        match gahturiyu_sim::sim::grounds::write_site(root, seed) {
+            Ok(said) => {
+                for l in &said {
+                    println!("{l}");
+                }
+                println!("tools/map refreshed in {:.1} s", t.elapsed().as_secs_f32());
+                if said.iter().any(|l| l.starts_with("PROBLEM")) {
+                    std::process::exit(1);
+                }
+            }
+            Err(e) => {
+                eprintln!("couldn't refresh tools/map: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     // The land under every mark, for the place builder (`sim/grounds.rs`):
-    // `headless grounds <dir> [seed]`.
+    // `headless grounds [dir] [seed]` (the site's `tools/map/grounds` unless told).
     if args.get(1).map(|a| a == "grounds").unwrap_or(false) {
-        let dir = std::path::PathBuf::from(args.get(2).cloned().unwrap_or_else(|| "grounds".into()));
+        let dir = args.get(2).map(std::path::PathBuf::from).unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tools/map/grounds"));
         let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
         let t = std::time::Instant::now();
         let w = gahturiyu_sim::sim::grounds::world_for(seed);

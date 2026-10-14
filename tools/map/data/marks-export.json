@@ -1,0 +1,837 @@
+{
+ "note": "Laz's marks from the Map Marks page (artifact DU5oWpQwV9z7YDMFAR2LRh), pulled 14 Oct 2026; 150 m a pixel on the 2576 x 1932 map. His data: never edit by hand, pull again instead.",
+ "marks": [
+  {
+   "id": "d01",
+   "kind": "port",
+   "label": "Imperial resupply port",
+   "holder": "throne",
+   "founders": "",
+   "notes": "From the draft",
+   "px": [
+    152,
+    595
+   ],
+   "created": 101
+  },
+  {
+   "id": "d02",
+   "kind": "village",
+   "label": "Remote village",
+   "holder": "",
+   "founders": "",
+   "notes": "Claims no Imperial ties",
+   "px": [
+    319,
+    571
+   ],
+   "created": 102
+  },
+  {
+   "id": "d03",
+   "kind": "village",
+   "label": "Imperial village",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Supports the mines",
+   "px": [
+    483,
+    567
+   ],
+   "created": 103
+  },
+  {
+   "id": "d04",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    551,
+    580
+   ],
+   "created": 104
+  },
+  {
+   "id": "d05",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    479,
+    616
+   ],
+   "created": 105
+  },
+  {
+   "id": "d06",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    519,
+    683
+   ],
+   "created": 106
+  },
+  {
+   "id": "d07",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    586,
+    770
+   ],
+   "created": 107
+  },
+  {
+   "id": "d08",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    453,
+    951
+   ],
+   "created": 108
+  },
+  {
+   "id": "d09",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    213,
+    857
+   ],
+   "created": 109
+  },
+  {
+   "id": "d10",
+   "kind": "mine",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    245,
+    1015
+   ],
+   "created": 110
+  },
+  {
+   "id": "d11",
+   "kind": "mine",
+   "label": "",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    650,
+    1543
+   ],
+   "created": 111
+  },
+  {
+   "id": "d12",
+   "kind": "mine",
+   "label": "",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Mine",
+   "px": [
+    777,
+    1539
+   ],
+   "created": 112
+  },
+  {
+   "id": "d13",
+   "kind": "village",
+   "label": "Imperial fishing village",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Fishing",
+   "px": [
+    155,
+    828
+   ],
+   "created": 113
+  },
+  {
+   "id": "d14",
+   "kind": "village",
+   "label": "Imperial fishing village",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Fishing",
+   "px": [
+    129,
+    998
+   ],
+   "created": 114
+  },
+  {
+   "id": "d15",
+   "kind": "imperial_fort",
+   "label": "Imperial Lord's keep",
+   "holder": "throne",
+   "founders": "",
+   "notes": "",
+   "px": [
+    155,
+    902
+   ],
+   "created": 115
+  },
+  {
+   "id": "d16",
+   "kind": "village",
+   "label": "High Folk village",
+   "holder": "highfolk",
+   "founders": "",
+   "notes": "",
+   "px": [
+    277,
+    799
+   ],
+   "created": 116
+  },
+  {
+   "id": "d17",
+   "kind": "village",
+   "label": "High Folk village",
+   "holder": "highfolk",
+   "founders": "",
+   "notes": "Remote, small",
+   "px": [
+    319,
+    1018
+   ],
+   "created": 117
+  },
+  {
+   "id": "d18",
+   "kind": "temple",
+   "label": "Secret temple",
+   "holder": "",
+   "founders": "",
+   "notes": "",
+   "px": [
+    316,
+    857
+   ],
+   "created": 118
+  },
+  {
+   "id": "d19",
+   "kind": "village",
+   "label": "Imperial village",
+   "holder": "throne",
+   "founders": "",
+   "notes": "By the lake",
+   "px": [
+    586,
+    837
+   ],
+   "created": 119
+  },
+  {
+   "id": "d20",
+   "kind": "lookout",
+   "label": "Ancient lookout",
+   "holder": "",
+   "founders": "",
+   "notes": "",
+   "px": [
+    167,
+    1069
+   ],
+   "created": 120
+  },
+  {
+   "id": "d21",
+   "kind": "other",
+   "label": "Salt Island",
+   "holder": "",
+   "founders": "",
+   "notes": "The tutorial island; in the game it sits off the Imperial capital",
+   "px": [
+    631,
+    1185
+   ],
+   "created": 121
+  },
+  {
+   "id": "d22",
+   "kind": "warden_outpost",
+   "label": "Warden fort",
+   "holder": "wardens",
+   "founders": "",
+   "notes": "At the crossroads village",
+   "px": [
+    1533,
+    960
+   ],
+   "created": 122
+  },
+  {
+   "id": "d23",
+   "kind": "ruin",
+   "label": "Ruined village",
+   "holder": "",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1655,
+    915
+   ],
+   "created": 123
+  },
+  {
+   "id": "d24",
+   "kind": "hamlet",
+   "label": "Abandoned hamlet",
+   "holder": "",
+   "founders": "",
+   "notes": "Not yet taken",
+   "px": [
+    1565,
+    1024
+   ],
+   "created": 124
+  },
+  {
+   "id": "d25",
+   "kind": "ruin",
+   "label": "Ruined city",
+   "holder": "",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1745,
+    1018
+   ],
+   "created": 125
+  },
+  {
+   "id": "d26",
+   "kind": "warden_outpost",
+   "label": "Warden outpost",
+   "holder": "wardens",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1816,
+    1155
+   ],
+   "created": 126
+  },
+  {
+   "id": "d27",
+   "kind": "village",
+   "label": "First Peoples village",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Half abandoned",
+   "px": [
+    1719,
+    1256
+   ],
+   "created": 127
+  },
+  {
+   "id": "d28",
+   "kind": "village",
+   "label": "First People village",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Edge of territory",
+   "px": [
+    2138,
+    1372
+   ],
+   "created": 128
+  },
+  {
+   "id": "d29",
+   "kind": "outpost",
+   "label": "First People outpost",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Cliffs; resupply",
+   "px": [
+    1983,
+    1455
+   ],
+   "created": 129
+  },
+  {
+   "id": "d30",
+   "kind": "lookout",
+   "label": "Ancient lookout",
+   "holder": "",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1056,
+    1134
+   ],
+   "created": 130
+  },
+  {
+   "id": "d31",
+   "kind": "hamlet",
+   "label": "Open Hand marsh hamlet",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1178,
+    1230
+   ],
+   "created": 131
+  },
+  {
+   "id": "d32",
+   "kind": "warden_outpost",
+   "label": "Warden fort",
+   "holder": "wardens",
+   "founders": "",
+   "notes": "Small hamlet; the primary fort in the south",
+   "px": [
+    1584,
+    1140
+   ],
+   "created": 132
+  },
+  {
+   "id": "d33",
+   "kind": "village",
+   "label": "First Peoples village",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Half abandoned",
+   "px": [
+    1462,
+    1346
+   ],
+   "created": 133
+  },
+  {
+   "id": "d34",
+   "kind": "village",
+   "label": "Open Hand village",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Marshy; fishing",
+   "px": [
+    960,
+    1285
+   ],
+   "created": 134
+  },
+  {
+   "id": "d35",
+   "kind": "village",
+   "label": "Open Hand village",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Spread out",
+   "px": [
+    1017,
+    1449
+   ],
+   "created": 135
+  },
+  {
+   "id": "d36",
+   "kind": "qotiro_outpost",
+   "label": "Last Wave outpost",
+   "holder": "last_wave",
+   "founders": "",
+   "notes": "Second largest; relies on Open Hand business; concealed in forest",
+   "px": [
+    715,
+    1642
+   ],
+   "created": 136
+  },
+  {
+   "id": "d37",
+   "kind": "hamlet",
+   "label": "Open Hand hamlet",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Farming",
+   "px": [
+    921,
+    1625
+   ],
+   "created": 137
+  },
+  {
+   "id": "d38",
+   "kind": "village",
+   "label": "Open Hand village",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Small; fishing; forestry",
+   "px": [
+    1030,
+    1765
+   ],
+   "created": 138
+  },
+  {
+   "id": "d39",
+   "kind": "hamlet",
+   "label": "First People hamlet",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1404,
+    1636
+   ],
+   "created": 139
+  },
+  {
+   "id": "d40",
+   "kind": "village",
+   "label": "First People village",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "",
+   "px": [
+    1688,
+    1720
+   ],
+   "created": 140
+  },
+  {
+   "id": "mmv76ei869pxmx",
+   "kind": "other",
+   "label": "Horaro Wizard’s Tower",
+   "holder": "",
+   "founders": "",
+   "notes": "Need details",
+   "px": [
+    325,
+    1309
+   ],
+   "created": 1791925880262
+  },
+  {
+   "id": "mmv76fbqf0m5wd",
+   "kind": "other",
+   "label": "Exiled Man’s Hut",
+   "holder": "",
+   "founders": "",
+   "notes": "The son of the lord of the nearby sea keep was exiled here. Need names and details",
+   "px": [
+    298,
+    1345
+   ],
+   "created": 1791925918503
+  },
+  {
+   "id": "mmv76hg7ah240c",
+   "kind": "lookout",
+   "label": "Ancient Lookout",
+   "holder": "",
+   "founders": "",
+   "notes": "Ruins of an old Roduro lookout tower.",
+   "px": [
+    236,
+    1359
+   ],
+   "created": 1791926017606
+  },
+  {
+   "id": "mmv76izc9nmk6g",
+   "kind": "ruin",
+   "label": "Seastone Ruins",
+   "holder": "",
+   "founders": "",
+   "notes": "Ruins of an old village. Seemingly once an outpost to warn against invasion.",
+   "px": [
+    262,
+    1346
+   ],
+   "created": 1791926089065
+  },
+  {
+   "id": "mmv76lntkjpriz",
+   "kind": "imperial_fort",
+   "label": "Sea Lord’s Keep",
+   "holder": "banner_lords",
+   "founders": "",
+   "notes": "The keep of the lord of the adjacent village.",
+   "px": [
+    409,
+    1301
+   ],
+   "created": 1791926214104
+  },
+  {
+   "id": "mmv76mfl2zdknp",
+   "kind": "port",
+   "label": "",
+   "holder": "banner_lords",
+   "founders": "",
+   "notes": "",
+   "px": [
+    420,
+    1294
+   ],
+   "created": 1791926250086
+  },
+  {
+   "id": "mmv76mwa4vdb9l",
+   "kind": "ferry",
+   "label": "",
+   "holder": "banner_lords",
+   "founders": "",
+   "notes": "Goes to imperial capital",
+   "px": [
+    423,
+    1288
+   ],
+   "created": 1791926271724
+  },
+  {
+   "id": "mmv76njznfgul6",
+   "kind": "port",
+   "label": "",
+   "holder": "throne",
+   "founders": "",
+   "notes": "",
+   "px": [
+    379,
+    1054
+   ],
+   "created": 1791926302451
+  },
+  {
+   "id": "mmv76p7vsql94u",
+   "kind": "village",
+   "label": "Highfolk Village",
+   "holder": "highfolk",
+   "founders": "",
+   "notes": "",
+   "px": [
+    374,
+    928
+   ],
+   "created": 1791926380072
+  },
+  {
+   "id": "t01",
+   "kind": "capital",
+   "label": "Imperial capital",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    467,
+    1070
+   ],
+   "created": 1
+  },
+  {
+   "id": "t02",
+   "kind": "city",
+   "label": "Large Imperial city, northern coast",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    789,
+    439
+   ],
+   "created": 2
+  },
+  {
+   "id": "t03",
+   "kind": "city",
+   "label": "Imperial city",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    612,
+    927
+   ],
+   "created": 3
+  },
+  {
+   "id": "t04",
+   "kind": "town",
+   "label": "Main Highfolk town",
+   "holder": "highfolk",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    412,
+    721
+   ],
+   "created": 4
+  },
+  {
+   "id": "t05",
+   "kind": "village",
+   "label": "Imperial village",
+   "holder": "throne",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    730,
+    905
+   ],
+   "created": 5
+  },
+  {
+   "id": "t06",
+   "kind": "fort",
+   "label": "Primary Warden fort and village",
+   "holder": "wardens",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    1578,
+    837
+   ],
+   "created": 6
+  },
+  {
+   "id": "t07",
+   "kind": "village",
+   "label": "River-crossing crossroads village",
+   "holder": "wardens",
+   "founders": "",
+   "notes": "36 hours' walk from the Imperial capital",
+   "px": [
+    1481,
+    921
+   ],
+   "created": 7
+  },
+  {
+   "id": "t08",
+   "kind": "capital",
+   "label": "Open Hand capital",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    773,
+    1443
+   ],
+   "created": 8
+  },
+  {
+   "id": "t09",
+   "kind": "city",
+   "label": "Open Hand city",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Horaro founders",
+   "px": [
+    1327,
+    1224
+   ],
+   "created": 9
+  },
+  {
+   "id": "t10",
+   "kind": "town",
+   "label": "Open Hand town, on the main vein of travel",
+   "holder": "open_council",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    786,
+    1662
+   ],
+   "created": 10
+  },
+  {
+   "id": "t11",
+   "kind": "city",
+   "label": "First Peoples city, fort on the road",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    1091,
+    1569
+   ],
+   "created": 11
+  },
+  {
+   "id": "t12",
+   "kind": "capital",
+   "label": "First Peoples capital, sea castle",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Horaro founders",
+   "px": [
+    1301,
+    1777
+   ],
+   "created": 12
+  },
+  {
+   "id": "t13",
+   "kind": "town",
+   "label": "First Peoples town, on an ancient city",
+   "holder": "seated_houses",
+   "founders": "",
+   "notes": "Roduro founders",
+   "px": [
+    1470,
+    1760
+   ],
+   "created": 13
+  },
+  {
+   "id": "t14",
+   "kind": "town",
+   "label": "Sea Fort town",
+   "holder": "banner_lords",
+   "founders": "",
+   "notes": "Sends ships to patrol the sea for pirates. Loyal to the emperor. Large keep built on the rocks right on the sea.",
+   "px": [
+    403,
+    1286
+   ],
+   "created": 14
+  },
+  {
+   "id": "t15",
+   "kind": "qotiro_outpost",
+   "label": "Last Wave outpost, north",
+   "holder": "last_wave",
+   "founders": "",
+   "notes": "Qotiro founders",
+   "px": [
+    206,
+    683
+   ],
+   "created": 15
+  }
+ ]
+}
