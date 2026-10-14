@@ -376,7 +376,9 @@ impl World {
                 plan.push(18.0, Doing::Work, Spot::Watch);
                 plan.work = Some((18.0, 30.0));
             }
-            return plan;
+            // (A day off, or a garden or an evening out, is spent at home when
+            // the weather drives everyone in, as anyone's.)
+            return self.weather_out(plan, pid, town, day, l.job);
         }
 
         if rest {
@@ -421,7 +423,7 @@ impl World {
             plan.push(eve + 0.25, Doing::Evening, evening);
             plan.push(bed - 0.25, Doing::Walking, Spot::Home);
             plan.push(bed, Doing::Asleep, Spot::Home);
-            return plan;
+            return self.weather_out(plan, pid, town, day, l.job);
         }
 
         let (mut ws, mut we, mut meal) = self.work_hours(pid, day, rhythm, jitter, &mut r);
@@ -548,39 +550,53 @@ impl World {
             Doing::Evening => matches!(s.spot, Spot::Place(k) if tl.places.get(k as usize).is_some_and(|p| p.kind == PlaceKind::Deck)),
             _ => false,
         };
-        let driven_in = |s: &Seg, h: usize| {
+        // `sure`: only the hours that drive everyone in (a storm on outdoor
+        // work, or weather nobody stays out in), no rolls.
+        let driven_in = |s: &Seg, h: usize, sure: bool| {
             if s.doing == Doing::Work {
                 air.storm & (1 << h) != 0
+            } else if sure {
+                air.seek[h] == 255
             } else {
                 air.seek[h] > 0 && Rng::from_keys(&[self.seed, pid as u64, day as u64, h as u64, SHELTER_TAG]).f32() * 255.0 < air.seek[h] as f32
             }
         };
-        let mut out = Plan::new();
-        out.rest = plan.rest;
-        out.work = plan.work;
-        for (i, s) in plan.segs().iter().enumerate() {
-            let end = plan.end_of(i);
-            if !out_of_doors(s) {
-                out.push(s.from, s.doing, s.spot);
-                continue;
-            }
-            // Split it at the hours, home through the ones that drive them in.
-            let mut a = s.from;
-            while a < end {
-                let b = (a.floor() + 1.0).min(end);
-                if driven_in(s, (a.floor() as usize).min(23)) {
-                    out.push(a, Doing::Home, Spot::Home);
-                } else {
-                    out.push(a, s.doing, s.spot);
+        let split = |sure: bool| {
+            let mut out = Plan::new();
+            out.rest = plan.rest;
+            out.work = plan.work;
+            for (i, s) in plan.segs().iter().enumerate() {
+                let end = plan.end_of(i);
+                if !out_of_doors(s) {
+                    out.push(s.from, s.doing, s.spot);
+                    continue;
                 }
-                a = b;
+                // Split it at the hours, home through the ones that drive them in.
+                let mut a = s.from;
+                while a < end {
+                    let b = (a.floor() + 1.0).min(end);
+                    if driven_in(s, (a.floor() as usize).min(23), sure) {
+                        out.push(a, Doing::Home, Spot::Home);
+                    } else {
+                        out.push(a, s.doing, s.spot);
+                    }
+                    a = b;
+                }
             }
+            out
+        };
+        let out = split(false);
+        if out.n < out.segs.len() {
+            return out;
         }
-        // (Too many parts to the day: keep it as it was.)
-        if out.n >= out.segs.len() {
-            return plan;
+        // Too many parts to the day (in and out hour by hour): home at least
+        // through the hours nobody stays out in; failing that, as it was.
+        let out = split(true);
+        if out.n < out.segs.len() {
+            out
+        } else {
+            plan
         }
-        out
     }
 
     /// Is someone at home in their town (not off on the road, not dead)?

@@ -168,6 +168,10 @@ fn weather_changes_smoothly_across_region_borders() {
                 let p = V2::new(x, y);
                 let w = weather::weather_at(&terrain, 1, p, t);
                 let m = weather::mix(&terrain, p);
+                // (A drop to a river is a wall at this scale: the air cools by
+                // the lapse rate over whatever the ground climbs.)
+                let climb = (terrain.surface(p) - terrain.surface(V2::new(x - 20.0, y))).abs();
+                let lim = Limits { temperature: lim.temperature + weather::climate().lapse * climb, ..lim };
                 assert_close(&prev, &w, &lim, &format!("({x}, {y})"));
                 for k in 0..weather::REGIONS {
                     assert!((m[k] - prev_mix[k]).abs() < 0.25, "({x}, {y}): a region border is a hard line");
@@ -200,10 +204,13 @@ fn every_kind_of_country_is_on_the_map() {
         }
         assert!(seen[r as usize] as f32 / n as f32 > 0.015, "hardly any {} on the map", r.name());
     }
-    // Far out is open sea; the snowy tops are mountain.
+    // Far out is open sea; the snowy tops are mountain (those beyond the
+    // exposed coast's reach: within it, cliffs over the sea come first).
     let atlas = gahturiyu_sim::sim::atlas::atlas();
     assert_eq!(weather::region_at(&terrain, V2::new(300.0, 16_000.0)), Region::OpenSea);
-    let snow = (0..20_000u64).map(|k| atlas.land_spot(k * 7919 + 1)).find(|&p| atlas.class_at(p) == gahturiyu_sim::sim::atlas::Class::Snow).expect("snow on the map");
+    let b = &weather::climate().borders;
+    let inland = b.coast_reach + 2.0 * b.blend;
+    let snow = (0..20_000u64).map(|k| atlas.land_spot(k * 7919 + 1)).find(|&p| atlas.class_at(p) == gahturiyu_sim::sim::atlas::Class::Snow && gahturiyu_sim::sim::geo::inland(p) > inland).expect("snow inland on the map");
     assert_eq!(weather::region_at(&terrain, snow), Region::Mountain);
 }
 
@@ -362,9 +369,11 @@ fn weather_comes_in_off_the_sea() {
     // So a storm peaks later inland: find a strong one and time it at two
     // lowland places far apart, west and east.
     let terrain = Terrain::generate(4);
-    // (A line across the continent's middle.)
-    let lowland: Vec<V2> = (0..200).map(|i| V2::new(0.15 * WORLD_SIZE + i as f32 * (0.7 * WORLD_SIZE / 200.0), 0.45 * WORLD_SIZE)).filter(|&p| weather::mix(&terrain, p)[Region::Lowland as usize] > 0.98).collect();
-    let (west, east) = (lowland[0], *lowland.last().unwrap());
+    // (The westmost and eastmost pure lowland on a grid over the map.)
+    let lowland: Vec<V2> = (0..60).flat_map(|j| (0..80).map(move |i| V2::new((i as f32 + 0.5) * WORLD_SIZE / 80.0, (j as f32 + 0.5) * WORLD_SIZE / 60.0))).filter(|&p| weather::mix(&terrain, p)[Region::Lowland as usize] > 0.98).collect();
+    assert!(!lowland.is_empty(), "no lowland on the map");
+    let west = *lowland.iter().min_by(|a, b| a.x.total_cmp(&b.x)).unwrap();
+    let east = *lowland.iter().max_by(|a, b| a.x.total_cmp(&b.x)).unwrap();
     assert!(east.x - west.x > 3000.0, "need two lowland places well apart");
     let maker = Maker::new(4, Region::Lowland);
     let storm = (2..3000).find_map(|d| maker.storm_on(d).filter(|s| s.strength > 0.8 && maker.storm_on(d - 1).is_none() && maker.storm_on(d + 1).is_none())).expect("a strong lowland storm");
