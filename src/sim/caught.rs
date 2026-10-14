@@ -42,6 +42,8 @@ pub const AT_DOCK: f32 = 25.0;
 pub const BOUGHT_FOR: u16 = 150;
 /// How light it must be for the compound to see you plainly.
 const DAY: f32 = 0.3;
+/// Within this of the gate, outside it, the watch there sees who comes.
+pub const GATE_SEEN: f32 = 18.0;
 
 /// How the caught path stands. Saved.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
@@ -66,12 +68,22 @@ impl World {
         let Some(isle) = self.island().cloned() else { return };
         let t = self.time;
         let day = super::stealth::daylight(t) >= DAY;
-        // Taken: in the compound by day, plainly.
+        // Seen at the gate or in the compound by day, plainly: the watch
+        // comes over and takes them when it reaches them (Laz, 13 Oct:
+        // "they should spot me and approach"); with no guard about, taken
+        // where they stand as before.
         if day && self.caught.taken.is_none() {
-            let seen = self.squad.members.iter().copied().find(|&m| isle.in_compound(self.person_pos(m)) && self.disguise_of(m).is_none() && !self.is_bonded(m, t) && !self.is_down(m) && self.captive_of(m).is_none());
-            if let Some(m) = seen {
-                self.taken(m);
-                return;
+            let gate = isle.spot(Spot::Gate);
+            let seen: Vec<PersonId> = self.squad.members.iter().copied().filter(|&m| {
+                let at = self.person_pos(m);
+                (isle.in_compound(at) || at.dist(gate) <= GATE_SEEN) && self.plainly_free(m)
+            }).collect();
+            for m in seen {
+                let at = self.person_pos(m);
+                if !self.watch_comes_for(m, isle.settlement, at) {
+                    self.taken(m);
+                    return;
+                }
             }
         }
         let Some((who, _)) = self.caught.taken else { return };
@@ -88,6 +100,24 @@ impl World {
                 self.lesson_done("bought");
             }
         }
+    }
+
+    /// A squad member Salt Isle would take for a runaway on sight: no
+    /// disguise, not bound already, up, and nobody's captive.
+    fn plainly_free(&self, m: PersonId) -> bool {
+        self.disguise_of(m).is_none() && !self.is_bonded(m, self.time) && !self.is_down(m) && self.captive_of(m).is_none()
+    }
+
+    /// Talking to one of Salt Isle's watch, plainly free, before the path
+    /// has them: they're taken there and then.
+    pub(super) fn watch_takes(&self, who: PersonId, npc: PersonId) -> bool {
+        let Some(isle) = self.island() else { return false };
+        self.on_island()
+            && self.caught.taken.is_none()
+            && self.people[npc as usize].home == Some(isle.settlement)
+            && self.life(npc).job == super::jobs::Job::Guard
+            && !self.is_bonded(npc, self.time)
+            && self.plainly_free(who)
     }
 
     /// Taken for a runaway: bound to the steward as a slave, and stood
@@ -110,11 +140,15 @@ impl World {
         self.say(t, line);
         // Before Ḍeshu in the hall.
         let Some(lord) = self.strangers.lord else { return };
-        let before = self.free_spot(self.person_pos(lord).add(super::geo::V2::new(2.0, 0.0)));
+        // Close in front of him, in the room he's in (a free spot further
+        // off would open the talk from across the yard).
+        let at = self.person_pos(lord);
+        let before = self.stand_by(at.add(super::geo::V2::new(1.5, 0.0)), at, 2.5).unwrap_or(at.add(super::geo::V2::new(1.2, 0.0)));
         if let Some(k) = self.squad.index(who) {
             self.squad.at[k] = before;
             self.squad.goal[k] = before;
             self.squad.route[k].clear();
+            self.squad.inside[k] = self.building_at(at).map(|d| d.id);
         }
         self.end_talk();
         // The overseer would speak; the lord doesn't let him.

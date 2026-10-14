@@ -31,14 +31,26 @@ fn run_to_hour(w: &mut World, h: f64) {
     }
 }
 
-/// Walk in by day: taken.
+/// Run in short steps until `f` holds, `secs` at most.
+fn until(w: &mut World, secs: f64, f: impl Fn(&World) -> bool) -> bool {
+    let end = w.time + secs;
+    while w.time < end {
+        if f(w) {
+            return true;
+        }
+        w.step(0.25);
+    }
+    f(w)
+}
+
+/// Walk in by day: the watch sees them, comes over, and takes them.
 fn taken(seed: u64) -> (World, u32) {
     let mut w = opened(seed);
     run_to_hour(&mut w, 11.0);
     let isle = w.island().unwrap().clone();
     let m = w.squad.members[0];
     w.teleport_squad(isle.spot(Spot::Yard));
-    w.step(0.5);
+    assert!(until(&mut w, 300.0, |w| w.tutorial().unwrap().path == Some(Path::Caught)), "taken within five minutes");
     (w, m)
 }
 
@@ -46,6 +58,8 @@ fn taken(seed: u64) -> (World, u32) {
 fn walking_into_the_compound_by_day_you_are_taken_and_judged() {
     let (w, m) = taken(3);
     assert_eq!(w.tutorial().unwrap().path, Some(Path::Caught));
+    // (Seen first: one of the watch came over for them.)
+    assert!(w.log.iter().any(|l| l.1.contains("comes over")), "{:?}", w.log);
     let b = w.bond_of(m).expect("bound");
     assert!(b.slave && b.holder == Some(w.island().unwrap().steward));
     assert!(!w.free_to_order(m), "a slave takes no orders off the island");
@@ -137,4 +151,57 @@ fn bought_out_by_the_company_for_a_fighter_or_the_writers_for_a_head() {
     w.step(0.5);
     assert!(w.tutorial().unwrap().is_done("bought"));
     assert_eq!(w.lesson_now().map(|x| x.key), Some("sail"));
+}
+
+/// Laz (13 Oct): "Talked to the guard at the gate and he didn't try to
+/// enslave me ... They should spot me and approach." By day the watch sees
+/// a stranger at the gate and walks up before anything happens; and
+/// talking to one of them is no way round it.
+#[test]
+fn the_watch_spots_a_stranger_at_the_gate_and_comes_over() {
+    let mut w = opened(3);
+    run_to_hour(&mut w, 11.0);
+    let isle = w.island().unwrap().clone();
+    let m = w.squad.members[0];
+    // Outside the gate, a few metres off.
+    let gate = isle.spot(Spot::Gate);
+    w.teleport_squad(gate.add(V2::new(10.0, 0.0)));
+    w.step(0.25);
+    assert!(w.tutorial().unwrap().path != Some(Path::Caught), "not taken from across the way");
+    assert!(w.pursuits.iter().any(|p| p.culprit == m), "a guard comes over");
+    let first = w.pursuits.iter().find(|p| p.culprit == m).unwrap().guard;
+    assert!(until(&mut w, 300.0, |w| w.tutorial().unwrap().path == Some(Path::Caught)), "and takes them");
+    // They were caught where the guard reached them: close by, not far off.
+    assert!(w.log.iter().any(|l| l.1.contains("catches")), "{:?}", w.log);
+    let _ = first;
+    // Talking to the watch instead: taken there and then, no small talk.
+    let mut w = opened(3);
+    run_to_hour(&mut w, 6.5);
+    let guard = w.settlements[isle.settlement as usize].residents.iter().copied().find(|&p| w.life(p).job == gahturiyu_sim::sim::jobs::Job::Guard && !w.is_bonded(p, w.time)).unwrap();
+    let at = w.person_pos(guard);
+    w.teleport_squad(at.add(V2::new(1.5, 0.0)));
+    w.pursuits.clear();
+    assert!(w.order_talk(m, guard));
+    assert!(until(&mut w, 30.0, |w| w.tutorial().unwrap().path == Some(Path::Caught)), "talking to the watch, taken");
+}
+
+/// Laz (13 Oct): "Every character has the basic dialogue choices, even
+/// though it makes no sense in this context." On Salt Isle nobody is asked
+/// about their town, work, trade or the road.
+#[test]
+fn salt_isles_people_are_asked_only_what_fits() {
+    let (mut w, m) = taken(3);
+    let lord_topics = w.topics();
+    assert!(lord_topics.iter().all(|t| matches!(t, Topic::Say(_) | Topic::Answer(..) | Topic::Owe | Topic::Goodbye)), "{lord_topics:?}");
+    assert!(w.locked_topics().is_empty());
+    w.end_talk();
+    // One of the bound, in the compound.
+    let isle = w.island().unwrap().clone();
+    let bound = w.bonds.iter().find(|b| b.town == isle.settlement && b.who != m).unwrap().who;
+    let at = w.person_pos(bound);
+    w.teleport_squad(at.add(V2::new(1.5, 0.0)));
+    if w.order_talk(m, bound) && until(&mut w, 30.0, |w| w.talk.is_some()) {
+        let t = w.topics();
+        assert!(!t.iter().any(|x| matches!(x, Topic::Background | Topic::ThisTown | Topic::Advice | Topic::Rumours | Topic::Bandits | Topic::Work | Topic::Trade | Topic::AskJoin | Topic::Join(_))), "{t:?}");
+    }
 }
