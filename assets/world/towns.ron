@@ -4,22 +4,24 @@
 // now"; the real list, with his notes, comes later. Names are made by the
 // naming module from the site; `label` is what the map says.
 //
+// key: stable, lower-case, from the label: the town's name in data (its roster is
+// `assets/world/people/<key>.ron`). Keep it when the label changes.
 // kind: Capital, City, Town, Village, Hamlet, Outpost, Fort.
 // holder: a faction key from `factions.rs` (the territory's).
 [
-    (label: "Imperial capital", px: (386, 1120), kind: Capital, founders: Roduro, holder: "throne"),
-    (label: "Large Imperial city, northern coast", px: (798, 373), kind: City, founders: Roduro, holder: "throne"),
-    (label: "Imperial city", px: (612, 927), kind: City, founders: Roduro, holder: "throne"),
-    (label: "Main High Folk town", px: (412, 721), kind: Town, founders: Roduro, holder: "highfolk"),
-    (label: "Imperial village", px: (730, 905), kind: Village, founders: Roduro, holder: "throne"),
-    (label: "Primary Warden fort and village", px: (1578, 837), kind: Fort, founders: Roduro, holder: "wardens"),
-    (label: "River-crossing crossroads village", px: (1481, 921), kind: Village, founders: Roduro, holder: "wardens"),
-    (label: "Open Hand capital", px: (773, 1443), kind: Capital, founders: Roduro, holder: "open_council"),
-    (label: "Open Hand city", px: (1327, 1224), kind: City, founders: Horaro, holder: "open_council"),
-    (label: "Open Hand town, on the main vein of travel", px: (786, 1662), kind: Town, founders: Roduro, holder: "open_council"),
-    (label: "First Peoples city, fort on the road", px: (1133, 1558), kind: City, founders: Roduro, holder: "seated_houses"),
-    (label: "First Peoples capital, sea castle", px: (1301, 1777), kind: Capital, founders: Horaro, holder: "seated_houses"),
-    (label: "First Peoples town, on an ancient city", px: (1470, 1760), kind: Town, founders: Roduro, holder: "seated_houses"),
-    (label: "Sea Fort town", px: (399, 1288), kind: Town, founders: Horaro, holder: "banner_lords"),
-    (label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),
+    (key: "imperial_capital", label: "Imperial capital", px: (386, 1120), kind: Capital, founders: Roduro, holder: "throne"),
+    (key: "large_imperial_city_northern_coast", label: "Large Imperial city, northern coast", px: (798, 373), kind: City, founders: Roduro, holder: "throne"),
+    (key: "imperial_city", label: "Imperial city", px: (612, 927), kind: City, founders: Roduro, holder: "throne"),
+    (key: "main_high_folk_town", label: "Main High Folk town", px: (412, 721), kind: Town, founders: Roduro, holder: "highfolk"),
+    (key: "imperial_village", label: "Imperial village", px: (730, 905), kind: Village, founders: Roduro, holder: "throne"),
+    (key: "primary_warden_fort_and_village", label: "Primary Warden fort and village", px: (1578, 837), kind: Fort, founders: Roduro, holder: "wardens"),
+    (key: "river_crossing_crossroads_village", label: "River-crossing crossroads village", px: (1481, 921), kind: Village, founders: Roduro, holder: "wardens"),
+    (key: "open_hand_capital", label: "Open Hand capital", px: (773, 1443), kind: Capital, founders: Roduro, holder: "open_council"),
+    (key: "open_hand_city", label: "Open Hand city", px: (1327, 1224), kind: City, founders: Horaro, holder: "open_council"),
+    (key: "open_hand_town_on_the_main_vein_of_travel", label: "Open Hand town, on the main vein of travel", px: (786, 1662), kind: Town, founders: Roduro, holder: "open_council"),
+    (key: "first_peoples_city_fort_on_the_road", label: "First Peoples city, fort on the road", px: (1133, 1558), kind: City, founders: Roduro, holder: "seated_houses"),
+    (key: "first_peoples_capital_sea_castle", label: "First Peoples capital, sea castle", px: (1301, 1777), kind: Capital, founders: Horaro, holder: "seated_houses"),
+    (key: "first_peoples_town_on_an_ancient_city", label: "First Peoples town, on an ancient city", px: (1470, 1760), kind: Town, founders: Roduro, holder: "seated_houses"),
+    (key: "sea_fort_town", label: "Sea Fort town", px: (399, 1288), kind: Town, founders: Horaro, holder: "banner_lords"),
+    (key: "last_wave_outpost_north", label: "Last Wave outpost, north", px: (206, 683), kind: Outpost, founders: Qotiro, holder: "last_wave"),
 ]

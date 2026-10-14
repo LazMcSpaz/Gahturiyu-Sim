@@ -10,6 +10,7 @@ use super::world::{Squad, World, HOUR};
 use super::names;
 use super::routes::Routes;
 use super::terrain::Terrain;
+use super::roster::{Authored, Rosters};
 use super::{atlas, factions};
 
 /// How many people live in the world, split evenly between the four races.
@@ -39,7 +40,7 @@ pub enum Start {
 /// The game's opening on Salt Isle (`Start::Island`), with a forged town
 /// and a map's edits like `generate_authored`.
 pub fn generate_opening(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
-    generate_from(seed, forge, edits, Start::Island)
+    generate_from(seed, forge, edits, Start::Island, &Rosters::load())
 }
 
 /// A world from a seed, with a map's hand edits on its land
@@ -52,10 +53,16 @@ pub fn generate_with(seed: u64, edits: super::mapedit::MapEdits) -> World {
 /// A world with a forged town's land (and its buildings) on it, under the
 /// map's hand edits.
 pub fn generate_authored(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits) -> World {
-    generate_from(seed, forge, edits, Start::Town)
+    generate_from(seed, forge, edits, Start::Town, &Rosters::load())
 }
 
-fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits, start: Start) -> World {
+/// A world with these rosters in place of those in `assets/world/people`
+/// (tests; the tools).
+pub fn generate_with_rosters(seed: u64, rosters: &Rosters) -> World {
+    generate_from(seed, None, Default::default(), Start::Town, rosters)
+}
+
+fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::mapedit::MapEdits, start: Start, rosters: &Rosters) -> World {
     let mut rng = Rng::from_keys(&[seed, 0x574F_524C]);
     let mut at = std::time::Instant::now();
     let terrain = Terrain::generate(seed);
@@ -64,6 +71,10 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     tick("towns placed", &mut at);
 
     // --- People ---------------------------------------------------------
+    // A town with a roster (`roster.rs`) gets exactly its people: nobody
+    // the seed would have sent there.
+    let marks = atlas::town_marks();
+    let rostered: Vec<bool> = (0..settlements.len()).map(|i| marks.get(i).is_some_and(|m| rosters.for_town(&m.key()).is_some())).collect();
     let mut people: Vec<Person> = Vec::with_capacity(POPULATION + 4);
     let mut wanderers: Vec<PersonId> = Vec::new();
     let per_race = POPULATION / ALL_RACES.len();
@@ -78,11 +89,56 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
             } else {
                 let mut hr = Rng::from_keys(&[pseed, 0x484F_4D45]);
                 let w: Vec<f32> = settlements.iter().map(|s| s.size * affinity(race, s)).collect();
-                let h = hr.weighted(&w).unwrap_or(0) as SettlementId;
+                let mut h = hr.weighted(&w).unwrap_or(0) as SettlementId;
+                // Bound for a town with a roster: another town (a second
+                // pick, so nobody else's moves), or, with none, the road.
+                if rostered[h as usize] {
+                    let w: Vec<f32> = w.iter().zip(&rostered).map(|(&x, &r)| if r { 0.0 } else { x }).collect();
+                    match hr.weighted(&w) {
+                        Some(o) => h = o as SettlementId,
+                        None => {
+                            wanderers.push(id);
+                            people.push(p);
+                            continue;
+                        }
+                    }
+                }
                 p.home = Some(h);
                 settlements[h as usize].residents.push(id);
             }
             people.push(p);
+        }
+    }
+    // The rosters' people: each town's, then the wanderers'.
+    let authored = |a: Authored, home: Option<SettlementId>, people: &mut Vec<Person>| -> PersonId {
+        let id = people.len() as PersonId;
+        let mut p = Person::summary(id, a.seed(seed), a.people(), home);
+        p.home = home;
+        let t = a.traits();
+        for (v, given) in [(&mut p.traits.wanderlust, t.wanderlust), (&mut p.traits.boldness, t.boldness), (&mut p.traits.sociability, t.sociability), (&mut p.traits.patience, t.patience)] {
+            if let Some(x) = given {
+                *v = x.clamp(0.0, 1.0);
+            }
+        }
+        // (Stats follow the traits, as for anyone: worked out again from the ones given.)
+        p.stats = super::stats::Stats::generate(p.race, &p.traits, p.seed);
+        p.kit_stats = p.stats.clone();
+        p.authored = Some(Box::new(a));
+        p.recompute_might();
+        people.push(p);
+        id
+    };
+    for (si, s) in settlements.iter_mut().enumerate() {
+        let Some(r) = marks.get(si).and_then(|m| rosters.for_town(&m.key())) else { continue };
+        for a in r.people() {
+            let id = authored(a, Some(si as SettlementId), &mut people);
+            s.residents.push(id);
+        }
+    }
+    if let Some(r) = &rosters.wanderers {
+        for a in r.people() {
+            let id = authored(a, None, &mut people);
+            wanderers.push(id);
         }
     }
 
@@ -92,7 +148,9 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
         let races: Vec<Race> = s.residents.iter().map(|&p| people[p as usize].race).collect();
         let homes = s.build(&races, seed);
         for (&p, h) in s.residents.iter().zip(homes) {
-            people[p as usize].dwelling = Some(h);
+            // A home given in a roster, if the layout has that building.
+            let given = people[p as usize].authored.as_ref().and_then(|a| a.home()).filter(|&b| (b as usize) < s.buildings.len());
+            people[p as usize].dwelling = Some(given.unwrap_or(h));
         }
     }
 
@@ -304,6 +362,8 @@ fn generate_from(seed: u64, forge: Option<super::forge::Forge>, edits: super::ma
     tick("camps", &mut at);
     // Customs, households, jobs and workplaces (crafting stations stand in those).
     w.found_society();
+    // The rosters' professions, workplaces, habits and purses over what was rolled.
+    w.apply_rosters();
     tick("society", &mut at);
     // The island's Binders stand guard and its debtors are bound.
     w.bind_debtors();

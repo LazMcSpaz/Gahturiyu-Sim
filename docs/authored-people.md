@@ -36,14 +36,15 @@ file is the format both agree on.
             sub_faction: None,
             wealth: Rich,                 // Destitute | Poor | Comfortable | Rich | VeryRich
             traits: (                     // the sim's traits, 0..1 each; omitted ones are rolled from the people
-                temperament: Some(0.3), honour: Some(0.8), sociability: None, wanderlust: None, ..
+                wanderlust: None, boldness: Some(0.3), sociability: None, patience: None,
+                honour: Some(0.8), asks: None,   // honour: open ways (high) or covert (low); asks: how readily they ask an outsider for help
             ),
             home: Some(12),               // a building index in the town's layout, or None
             workplace: Some(2),           // a workplace index (`society.towns[t].places`), or None
             relations: [ (to: "hoqa_wall", kind: Rival) ],   // Spouse | Child | Parent | Sibling | Rival | Friend | Lover | Debtor | Creditor
             background: "Lost his seat at court; runs the island as if it were one.",
             importance: "The first lord the player meets; sets the tone of the Free Lords.",
-            schedule: [ (from: 19.0, to: 23.0, at: Place(4)) ],   // optional overrides of the day plan, hours and a spot
+            schedule: [ (from: 19.0, to: 23.0, at: Place(4)) ],   // optional overrides of the day plan, hours and a spot: Home | Work | Hearth | Place(workplace) | Building(index)
             appearance: (style: "court", colours: ["grey", "black"], marks: ["scar over the eye"]),
             lines: Some("deshu_grey"),    // data/lines/people/deshu_grey.txt
         ),
@@ -59,16 +60,42 @@ file is the format both agree on.
 )
 ```
 
+Every field but `key`, `name`, `people`, `sex` and `profession` may be left
+out (a character's `wealth` is then Comfortable, its traits rolled). The
+whole file reads back as written (`Roster::to_ron`, pretty, one field a line).
+
 Fields the page can't know (building and workplace indices) are left `None`
 by the page and filled in the game's editor or by hand; a character with no
 home is housed like a seeded person.
 
+The town's key is the mark's `key` in `towns.ron` (made from the label when
+left out: `Imperial capital` → `imperial_capital`).
+
 ## At world creation
 
-`worldgen::place_people`: for each town, if `assets/world/people/<key>.ron`
-exists, its characters and its stored crowd become the town's residents
-(`Person` with the stored fields in place of the rolled ones; traits given
-override the roll, the rest roll from the people as today); no seeded
-residents. Wanderers from `wanderers.ron`. Every fact (profession, faction,
-wealth, the personal detail, "authored") is available to the dialogue
-system's conditions.
+In `worldgen` (stage 1, built): for each town, if `assets/world/people/<key>.ron`
+exists, its characters and its stored crowd become the town's residents,
+and nobody seeded: anyone the seed would have sent there goes to another
+town (a second pick, so nobody else's moves). Each is an ordinary `Person`:
+
+- people and sex as given (their seed is one whose reading is that sex,
+  as names and offices read it), name as given, the traits given (the rest
+  rolled from the people), their stats worked out from those;
+- home: the building given, if the town's layout has it, else housed like
+  anyone; the layout is still made from who lives there, so adding people
+  can move building numbers;
+- once the town's life is founded: profession as given; workplace as
+  given if the town has it, else the first of that trade's; honour and
+  asks over the rolled habits; the household's purse at the richest of its
+  authored members' `wealth` (Destitute none, Poor 2 days' keep,
+  Comfortable 7, Rich 30, VeryRich 120).
+
+Wanderers from `wanderers.ron` start on the road like any wanderer. The
+whole entry is kept on the person (`Person::authored`, saved), so every fact
+(profession, faction, wealth, background, the personal detail, relations,
+schedule, looks, lines, and "authored" itself) is there for the dialogue's
+conditions (stage 4).
+
+Not yet: households from the crowd's own numbers (the town's customs still
+group people), the schedule and relations acting on anything, the ruler
+taking the seat, Salt Isle (it isn't a mark; its people are made in code).
