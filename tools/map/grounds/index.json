@@ -1,0 +1,322 @@
+{
+  "d01": {
+    "key": "imperial_resupply_port",
+    "kind": "port",
+    "label": "Imperial resupply port"
+  },
+  "d02": {
+    "key": "remote_village",
+    "kind": "village",
+    "label": "Remote village"
+  },
+  "d03": {
+    "key": "imperial_village_d03",
+    "kind": "village",
+    "label": "Imperial village"
+  },
+  "d04": {
+    "key": "mark_d04",
+    "kind": "mine",
+    "label": ""
+  },
+  "d05": {
+    "key": "mark_d05",
+    "kind": "mine",
+    "label": ""
+  },
+  "d06": {
+    "key": "mark_d06",
+    "kind": "mine",
+    "label": ""
+  },
+  "d07": {
+    "key": "mark_d07",
+    "kind": "mine",
+    "label": ""
+  },
+  "d08": {
+    "key": "mark_d08",
+    "kind": "mine",
+    "label": ""
+  },
+  "d09": {
+    "key": "mark_d09",
+    "kind": "mine",
+    "label": ""
+  },
+  "d10": {
+    "key": "mark_d10",
+    "kind": "mine",
+    "label": ""
+  },
+  "d11": {
+    "key": "mark_d11",
+    "kind": "mine",
+    "label": ""
+  },
+  "d12": {
+    "key": "mark_d12",
+    "kind": "mine",
+    "label": ""
+  },
+  "d13": {
+    "key": "imperial_fishing_village",
+    "kind": "village",
+    "label": "Imperial fishing village"
+  },
+  "d14": {
+    "key": "imperial_fishing_village_d14",
+    "kind": "village",
+    "label": "Imperial fishing village"
+  },
+  "d15": {
+    "key": "imperial_lord_s_keep",
+    "kind": "fort",
+    "label": "Imperial Lord's keep"
+  },
+  "d16": {
+    "key": "high_folk_village",
+    "kind": "village",
+    "label": "High Folk village"
+  },
+  "d17": {
+    "key": "high_folk_village_d17",
+    "kind": "village",
+    "label": "High Folk village"
+  },
+  "d18": {
+    "key": "secret_temple",
+    "kind": "temple",
+    "label": "Secret temple"
+  },
+  "d19": {
+    "key": "imperial_village_d19",
+    "kind": "village",
+    "label": "Imperial village"
+  },
+  "d20": {
+    "key": "ancient_lookout",
+    "kind": "lookout",
+    "label": "Ancient lookout"
+  },
+  "d21": {
+    "key": "salt_island",
+    "kind": "other",
+    "label": "Salt Island"
+  },
+  "d22": {
+    "key": "warden_fort",
+    "kind": "outpost",
+    "label": "Warden fort"
+  },
+  "d23": {
+    "key": "ruined_village",
+    "kind": "ruin",
+    "label": "Ruined village"
+  },
+  "d24": {
+    "key": "abandoned_hamlet",
+    "kind": "hamlet",
+    "label": "Abandoned hamlet"
+  },
+  "d25": {
+    "key": "ruined_city",
+    "kind": "ruin",
+    "label": "Ruined city"
+  },
+  "d26": {
+    "key": "warden_outpost",
+    "kind": "outpost",
+    "label": "Warden outpost"
+  },
+  "d27": {
+    "key": "first_peoples_village",
+    "kind": "village",
+    "label": "First Peoples village"
+  },
+  "d28": {
+    "key": "first_people_village",
+    "kind": "village",
+    "label": "First People village"
+  },
+  "d29": {
+    "key": "first_people_outpost",
+    "kind": "outpost",
+    "label": "First People outpost"
+  },
+  "d30": {
+    "key": "ancient_lookout_d30",
+    "kind": "lookout",
+    "label": "Ancient lookout"
+  },
+  "d31": {
+    "key": "open_hand_marsh_hamlet",
+    "kind": "hamlet",
+    "label": "Open Hand marsh hamlet"
+  },
+  "d32": {
+    "key": "warden_fort_d32",
+    "kind": "outpost",
+    "label": "Warden fort"
+  },
+  "d33": {
+    "key": "first_peoples_village_d33",
+    "kind": "village",
+    "label": "First Peoples village"
+  },
+  "d34": {
+    "key": "open_hand_village",
+    "kind": "village",
+    "label": "Open Hand village"
+  },
+  "d35": {
+    "key": "open_hand_village_d35",
+    "kind": "village",
+    "label": "Open Hand village"
+  },
+  "d36": {
+    "key": "last_wave_outpost",
+    "kind": "outpost",
+    "label": "Last Wave outpost"
+  },
+  "d37": {
+    "key": "open_hand_hamlet",
+    "kind": "hamlet",
+    "label": "Open Hand hamlet"
+  },
+  "d38": {
+    "key": "open_hand_village_d38",
+    "kind": "village",
+    "label": "Open Hand village"
+  },
+  "d39": {
+    "key": "first_people_hamlet",
+    "kind": "hamlet",
+    "label": "First People hamlet"
+  },
+  "d40": {
+    "key": "first_people_village_d40",
+    "kind": "village",
+    "label": "First People village"
+  },
+  "mmv76ei869pxmx": {
+    "key": "horaro_wizard_s_tower",
+    "kind": "other",
+    "label": "Horaro Wizard’s Tower"
+  },
+  "mmv76fbqf0m5wd": {
+    "key": "exiled_man_s_hut",
+    "kind": "other",
+    "label": "Exiled Man’s Hut"
+  },
+  "mmv76hg7ah240c": {
+    "key": "ancient_lookout_mmv76hg7ah240c",
+    "kind": "lookout",
+    "label": "Ancient Lookout"
+  },
+  "mmv76izc9nmk6g": {
+    "key": "seastone_ruins",
+    "kind": "ruin",
+    "label": "Seastone Ruins"
+  },
+  "mmv76lntkjpriz": {
+    "key": "sea_lord_s_keep",
+    "kind": "fort",
+    "label": "Sea Lord’s Keep"
+  },
+  "mmv76mfl2zdknp": {
+    "key": "mark_mmv76mfl2zdknp",
+    "kind": "port",
+    "label": ""
+  },
+  "mmv76mwa4vdb9l": {
+    "key": "mark_mmv76mwa4vdb9l",
+    "kind": "ferry",
+    "label": ""
+  },
+  "mmv76njznfgul6": {
+    "key": "mark_mmv76njznfgul6",
+    "kind": "port",
+    "label": ""
+  },
+  "mmv76p7vsql94u": {
+    "key": "highfolk_village",
+    "kind": "village",
+    "label": "Highfolk Village"
+  },
+  "t01": {
+    "key": "imperial_capital",
+    "kind": "capital",
+    "label": "Imperial capital"
+  },
+  "t02": {
+    "key": "large_imperial_city_northern_coast",
+    "kind": "city",
+    "label": "Large Imperial city, northern coast"
+  },
+  "t03": {
+    "key": "imperial_city",
+    "kind": "city",
+    "label": "Imperial city"
+  },
+  "t04": {
+    "key": "main_high_folk_town",
+    "kind": "town",
+    "label": "Main Highfolk town"
+  },
+  "t05": {
+    "key": "imperial_village",
+    "kind": "village",
+    "label": "Imperial village"
+  },
+  "t06": {
+    "key": "primary_warden_fort_and_village",
+    "kind": "fort",
+    "label": "Primary Warden fort and village"
+  },
+  "t07": {
+    "key": "river_crossing_crossroads_village",
+    "kind": "village",
+    "label": "River-crossing crossroads village"
+  },
+  "t08": {
+    "key": "open_hand_capital",
+    "kind": "capital",
+    "label": "Open Hand capital"
+  },
+  "t09": {
+    "key": "open_hand_city",
+    "kind": "city",
+    "label": "Open Hand city"
+  },
+  "t10": {
+    "key": "open_hand_town_on_the_main_vein_of_travel",
+    "kind": "town",
+    "label": "Open Hand town, on the main vein of travel"
+  },
+  "t11": {
+    "key": "first_peoples_city_fort_on_the_road",
+    "kind": "city",
+    "label": "First Peoples city, fort on the road"
+  },
+  "t12": {
+    "key": "first_peoples_capital_sea_castle",
+    "kind": "capital",
+    "label": "First Peoples capital, sea castle"
+  },
+  "t13": {
+    "key": "first_peoples_town_on_an_ancient_city",
+    "kind": "town",
+    "label": "First Peoples town, on an ancient city"
+  },
+  "t14": {
+    "key": "sea_fort_town",
+    "kind": "town",
+    "label": "Sea Fort town"
+  },
+  "t15": {
+    "key": "last_wave_outpost_north",
+    "kind": "outpost",
+    "label": "Last Wave outpost, north"
+  }
+}
