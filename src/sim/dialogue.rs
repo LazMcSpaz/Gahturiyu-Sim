@@ -419,6 +419,12 @@ impl World {
         self.want_talk = None;
         self.squad.goal[k] = self.squad.at[k];
         self.squad.route[k].clear();
+        // Face to face with Salt Isle's watch, plainly a stranger: no talk,
+        // they're taken (`caught.rs`).
+        if self.watch_takes(who, npc) {
+            self.taken(who);
+            return;
+        }
         if self.people[npc as usize].ensure_detail() {
             self.stats.detailed += 1;
         }
@@ -714,8 +720,21 @@ impl World {
         if self.at_work(c.npc, self.time) {
             t.extend(self.orders_with(c.npc).into_iter().map(|k| Topic::Collect(k as u16)));
         }
+        // Salt Isle's people (Laz, 13 Oct: "every character has the basic
+        // dialogue choices, even though it makes no sense in this context"):
+        // only what fits them and the path, what's on their mind, Diʻub's
+        // questions, what's owed; no town talk, trade, work or hiring.
+        if self.island_folk(c.npc) {
+            t.retain(|x| matches!(x, Topic::Say(_) | Topic::Answer(..) | Topic::Owe));
+        }
         t.push(Topic::Goodbye);
         t
+    }
+
+    /// One of Salt Isle's own while the squad is on it: the compound's
+    /// people, the culture row aside, and its two strangers.
+    pub fn island_folk(&self, npc: PersonId) -> bool {
+        self.on_island() && (self.is_diub(npc) || self.is_lord(npc) || self.people[npc as usize].home.is_some_and(|h| self.is_island(h) && !self.in_culture_row(npc)))
     }
 
     /// What can't be asked just now, each with the plain reason: the window
@@ -729,6 +748,10 @@ impl World {
         }
         // (While Diʻub is asking his questions, his questions are all there is.)
         if self.is_diub(c.npc) && self.strangers.question().is_some() {
+            return vec![];
+        }
+        // (Nor, on Salt Isle, what its people would never be asked.)
+        if self.island_folk(c.npc) {
             return vec![];
         }
         use super::jobs::Job;
