@@ -334,9 +334,9 @@
     ctx.fillStyle = "#4b5a3a"; ctx.fillRect(0, 0, w, h);
     ctx.save(); ctx.translate(tx, ty); ctx.scale(z, z);
     const x0 = -P.origin[0] * CELL, y0 = -P.origin[1] * CELL, wm = GW * CELL, hm = GH * CELL;
-    // Far out, Laz's map (150 m a pixel); round the place, the game's land (8 m a cell), dimmed.
+    // Far out, Laz's map (26.5 m a pixel); round the place, the game's land (8 m a cell), dimmed.
     if (LAND && mapImg.complete && mapImg.naturalWidth) {
-      const [cx, cy] = LAND.centre, PXM = 150, R = 90;
+      const [cx, cy] = LAND.centre, PXM = 26.5, R = 90;
       const u0 = Math.max(0, Math.floor(cx / PXM) - R), v0 = Math.max(0, Math.floor(cy / PXM) - R), u1 = Math.min(mapImg.naturalWidth, Math.floor(cx / PXM) + R), v1 = Math.min(mapImg.naturalHeight, Math.floor(cy / PXM) + R);
       ctx.imageSmoothingEnabled = z * PXM < 400;
       if (u1 > u0 && v1 > v0) ctx.drawImage(mapImg, u0, v0, u1 - u0, v1 - v0, u0 * PXM - cx, v0 * PXM - cy, (u1 - u0) * PXM, (v1 - v0) * PXM);

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// One side of the map, in metres: the atlas's width (2576 pixels of 150 m;
 /// the map's height is less, the rest is sea).
-pub const WORLD_SIZE: f32 = 2576.0 * 150.0;
+pub const WORLD_SIZE: f32 = 2576.0 * super::atlas::PX;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 pub struct V2 {

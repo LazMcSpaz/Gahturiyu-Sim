@@ -6,7 +6,7 @@
 // key: the town's name in data (its roster is `assets/world/people/<key>.ron`,
 // its place `assets/world/places/<key>.json`); it stays with the mark's `id`
 // even if the label changes. label: what the map says (the town's own name is
-// made by the naming module). px: the pixel, 150 m a pixel. kind: Capital,
+// made by the naming module). px: the pixel, 26.5 m a pixel (four Kenshis: 68 x 51 km). kind: Capital,
 // City, Town, Village, Hamlet, Outpost, Fort. holder: a faction key.
 // The comment on each line says where its founders came from.
 [

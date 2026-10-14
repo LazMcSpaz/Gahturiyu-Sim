@@ -262,7 +262,8 @@ These are load-bearing. `tests/consistency.rs` enforces the first three.
    rolls and are noted in the home town's history (gossip).
 
 25. **The land is Laz's map.** `sim/atlas.rs` reads the map (one pixel
-   150 m: 36 hours' walk from the capital to the crossroads, Laz) once per
+   26.5 m: "four Kenshis", 68 × 51 km, Laz, 14 Oct; it was 150 m and
+   36 hours' walk capital to crossroads, now about 6) once per
    process: `assets/world/terrain.png` when the flat layers exist, else the
    clean map in `docs/map/` by its legend colours (each pixel to the
    nearest by hue, so the hill-shading doesn't fool it; the legend box is

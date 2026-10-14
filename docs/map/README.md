@@ -5,7 +5,7 @@
 - `laz-roads-2026-10-13.png`: the draft's red and orange strokes lifted out as a transparent overlay (`tools`-free: a colour threshold in Python), 150 m a pixel like the rest. The road layer the routes will read.
 - Towns are placed on a web page (Map Marks: generic icons, Laz's roads, a road tool; its RON export is the shape of `assets/world/towns.ron`).
 
-**Scale (Laz):** 36 hours of continuous travel from the Imperial capital to the river-crossing crossroads village: about 1 100 px of road at ~1.3 m/s, so **150 m a pixel**; the continent is about 390 × 290 km (`WORLD_SIZE` = 2576 × 150 m).
+**Scale (Laz, 14 Oct): "Make it 4 Kenshis."** Kenshi's map is about 870 km², so the continent is about 3,500 km²: **26.5 m a pixel**, 68 × 51 km (`WORLD_SIZE` = 2576 × 26.5 m). The capital to the crossroads village (about 1 100 px of road) is now about 6 hours' walk. Before (13 Oct) it was 36 hours and 150 m a pixel, 390 × 290 km, which Laz found too big. Heights stay in metres; the atlas's blur and coast band are set in metres (`BLUR_M`, `COAST_M`), so the slopes and shores are the same lengths they were.
 
 ## The draft's reading (the primary, before the clean map came)
 
@@ -29,7 +29,7 @@
 
 ## Answered (Laz, 13 Oct)
 
-- **Scale**: 36 hours capital to crossroads (above). Everything tuned at 21 km (travel, caravans, bands, herds) now runs on a world fifteen times wider; the first pass only keeps it working (coarser road grid, 3 km animal regions, the herd count held down).
+- **Scale**: four Kenshis (above; was 36 hours capital to crossroads on 13 Oct). The road grid is 200 m, animal regions 3 km.
 - **Source of truth**: Laz can export layers; until then the clean map is read by colour. Wanted layers, same 2576 × 1932 canvas: `terrain.png` (legend fills only), `water.png`, `roads.png`, `cliffs.png`, `territory.png`.
 - **All the generated towns are dropped**; `assets/world/towns.ron` holds placeholders read off the draft until Laz's marks come from the page. **Don't lay the towns out carefully yet.**
 - **The plateau** isn't on the map: `plateau_mask` is 0 everywhere; the weather's Plateau region never shows.

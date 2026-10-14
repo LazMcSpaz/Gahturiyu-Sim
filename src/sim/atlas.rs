@@ -33,7 +33,11 @@ use super::race::Race;
 
 /// Metres a pixel: 36 hours of travel from the Imperial capital to the
 /// crossroads village (Laz) over about 1 100 pixels of road.
-pub const PX: f32 = 150.0;
+/// Laz (14 Oct): "Make it 4 Kenshis": the map is 68 × 51 km (about 3,500 km²,
+/// four of Kenshi's 870), so a pixel is 26.5 m. Everything in metres keeps
+/// its meaning; what was tuned in pixels (the blur, the coast band) is
+/// worked out from metres below.
+pub const PX: f32 = 26.5;
 
 /// What the ground is, from the legend.
 #[repr(u8)]
@@ -105,13 +109,15 @@ impl Class {
     }
 }
 
-/// Land within this many pixels of the sea is coast.
-pub const COAST_PX: usize = 2;
+/// Land within this many metres of the sea is coast, in pixels.
+pub const COAST_M: f32 = 300.0;
+pub const COAST_PX: usize = (COAST_M / PX) as usize + 1;
 /// Nobody's town stands higher than this, metres (`dry_spot`).
 pub const TOWN_HEIGHT: f32 = 240.0;
-/// The blur's radius in pixels (two passes): shores and mountain feet
-/// become slopes a few hundred metres long.
-const BLUR_PX: usize = 4;
+/// The blur's radius (two passes): shores and mountain feet become slopes
+/// about this many metres long, whatever a pixel measures.
+const BLUR_M: f32 = 600.0;
+const BLUR_PX: usize = (BLUR_M / PX) as usize;
 /// The lowland rises this much over this far from the sea.
 const LOWLAND_RISE: f32 = 40.0;
 const LOWLAND_OVER: f32 = 15_000.0;

@@ -20,7 +20,8 @@ use super::terrain::{walk_factor, Terrain};
 /// Spacing of the search grid, metres.
 /// The pathfinding grid for the roads between towns, metres: coarse, for a
 /// continent (the roads will come from Laz's map's own lines).
-const GRID: f32 = 600.0;
+// (200 m: on a 68 km map that's 342 cells a side, fewer than the old 600 m on 386 km.)
+const GRID: f32 = 200.0;
 const G: usize = (WORLD_SIZE / GRID) as usize + 1;
 /// Each town is linked by road to this many of its nearest neighbours.
 const NEIGHBOURS: usize = 3;

@@ -149,7 +149,7 @@ def build():
     t.append("// key: the town's name in data (its roster is `assets/world/people/<key>.ron`,")
     t.append("// its place `assets/world/places/<key>.json`); it stays with the mark's `id`")
     t.append("// even if the label changes. label: what the map says (the town's own name is")
-    t.append("// made by the naming module). px: the pixel, 150 m a pixel. kind: Capital,")
+    t.append("// made by the naming module). px: the pixel, 26.5 m a pixel (four Kenshis: 68 x 51 km). kind: Capital,")
     t.append("// City, Town, Village, Hamlet, Outpost, Fort. holder: a faction key.")
     t.append("// The comment on each line says where its founders came from.")
     t.append("[")

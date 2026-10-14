@@ -240,7 +240,7 @@
 <script>
 (function () {
   "use strict";
-  const PX_M = 150;
+  const PX_M = 26.5; // Laz (14 Oct): four Kenshis: 68 x 51 km, 26.5 m a pixel
   const W = 2576, H = 1932;
   // Standard icons: what a place is, not who it is. The outposts carry their people or office.
   const KINDS = [
@@ -893,7 +893,7 @@
     const by = (c) => Object.keys(c).sort((a, b) => (c[a].created || 0) - (c[b].created || 0));
     const ms = by(marks).map((id) => { const m = marks[id]; return `        (key: ${q(townKey(id))}, label: ${q(m.label || "")}, px: (${Math.round(m.x)}, ${Math.round(m.y)}), kind: ${camel(m.kind)}, holder: ${q(m.holder || "")}, founders: ${m.founders || "None"}, notes: ${q(m.notes || "")}),`; });
     const rs = by(roads).map((id) => { const r = roads[id]; const pts = []; for (let i = 0; i < r.pts.length; i += 2) pts.push(`(${r.pts[i]}, ${r.pts[i + 1]})`); return `        (label: ${q(r.label || "")}, kind: ${camel(r.kind)}, notes: ${q(r.notes || "")}, px: [${pts.join(", ")}]),`; });
-    let out = "// From the Map Marks page, " + new Date().toISOString().slice(0, 10) + ": 150 m a pixel on the 2576 x 1932 map.\n// ---- assets/world/towns.ron (marks and roads)\n(\n    marks: [\n" + ms.join("\n") + "\n    ],\n    roads: [\n" + rs.join("\n") + "\n    ],\n)\n";
+    let out = "// From the Map Marks page, " + new Date().toISOString().slice(0, 10) + ": 26.5 m a pixel on the 2576 x 1932 map.\n// ---- assets/world/towns.ron (marks and roads)\n(\n    marks: [\n" + ms.join("\n") + "\n    ],\n    roads: [\n" + rs.join("\n") + "\n    ],\n)\n";
     // One roster per place that has people or crowd rows (docs/authored-people.md).
     const places = new Set([...Object.values(people).map((p) => p.mark), ...Object.keys(crowd).filter((k) => crowd[k].rows.length)]);
     const keyOf = (id) => { const c = people[id]; return c.key || "p_" + id; };
