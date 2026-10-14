@@ -67,7 +67,13 @@ fn the_night_run_sets_the_sneak_path_and_the_lessons_follow() {
     let mut by_day = w.clone();
     run_to_hour(&mut by_day, 12.0);
     by_day.teleport_squad(isle.spot(Spot::Yard));
-    by_day.step(0.5);
+    // (The watch sees them, comes over and takes them.)
+    for _ in 0..1200 {
+        if by_day.tutorial().unwrap().path == Some(Path::Caught) {
+            break;
+        }
+        by_day.step(0.25);
+    }
     assert_eq!(by_day.tutorial().unwrap().path, Some(Path::Caught));
     // After dark, sneaking inside: the sneak path.
     run_to_hour(&mut w, 23.0);

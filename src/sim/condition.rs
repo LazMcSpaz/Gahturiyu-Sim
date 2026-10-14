@@ -885,6 +885,9 @@ impl World {
                 c.thirst = (c.thirst - quench).max(0.0);
             }
         }
+        if self.squad.index(pid).is_some() {
+            self.island_deed(super::tutorial::Deed::Ate);
+        }
         let p = &self.people[pid as usize];
         let name = p.name().unwrap_or("someone").to_string();
         let line = match (shared_by, fresh) {

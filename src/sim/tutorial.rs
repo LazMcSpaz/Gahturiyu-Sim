@@ -109,6 +109,12 @@ pub struct Deeds {
     pub made: u32,
     /// Fights won on the island.
     pub fights_won: u32,
+    /// Dishes cooked at a fire or stove (the Cook lesson).
+    #[serde(default)]
+    pub cooked: u32,
+    /// Meals eaten (the Cook lesson).
+    #[serde(default)]
+    pub ate: u32,
 }
 
 /// A deed on the island.
@@ -117,6 +123,8 @@ pub enum Deed {
     Labour,
     Made,
     FightWon,
+    Cooked,
+    Ate,
 }
 
 /// Units of a shift's work that satisfy the labour lesson.
@@ -264,7 +272,13 @@ impl World {
             // The wreck's crate gone through (`island::WRECK_CRATE`).
             "salvage" => self.containers.get(&super::island::WRECK_CRATE).is_some_and(|c| c.taken > 0 || c.items.is_empty()),
             // A meal's buff on them: they've cooked and eaten.
-            "cook" => self.squad.members.iter().any(|&m| self.people[m as usize].cond.as_ref().is_some_and(|c| c.meal.is_some())),
+            // A meal's buff on someone, or (whatever the dish gave) something
+            // cooked and something eaten since the wreck (Laz, 13 Oct: cooking
+            // and eating didn't move it on).
+            "cook" => {
+                self.squad.members.iter().any(|&m| self.people[m as usize].cond.as_ref().is_some_and(|c| c.meal.is_some()))
+                    || self.tutorial.as_ref().is_some_and(|t| t.deeds.cooked >= 1 && t.deeds.ate >= 1)
+            }
             _ => false,
         }
     }
@@ -316,6 +330,8 @@ impl World {
                 Deed::Labour => tu.deeds.laboured += 1,
                 Deed::Made => tu.deeds.made += 1,
                 Deed::FightWon => tu.deeds.fights_won += 1,
+                Deed::Cooked => tu.deeds.cooked += 1,
+                Deed::Ate => tu.deeds.ate += 1,
             }
         }
     }

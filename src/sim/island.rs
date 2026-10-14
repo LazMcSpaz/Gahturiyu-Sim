@@ -399,7 +399,9 @@ impl World {
         let mut r = Rng::from_keys(&[self.seed, t as u64, 0x504C_4143]);
         let plan: [(PlaceKind, V2); 10] = [
             (PlaceKind::GuardPost, Spot::Gate.offset()),
-            (PlaceKind::Hall, V2::new(-22.0, -48.0)),
+            // (On the hall building itself: a whole-building workplace is
+            // reached by its door, and named by it.)
+            (PlaceKind::Hall, Spot::Hall.offset()),
             (PlaceKind::Workyard, Spot::Workyard.offset()),
             (PlaceKind::Shop(super::jobs::Shelf::Materials), Spot::Stores.offset()),
             (PlaceKind::MessHall, V2::new(-15.0, 42.0)),

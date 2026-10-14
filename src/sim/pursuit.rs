@@ -440,6 +440,23 @@ impl World {
         }
     }
 
+    /// Salt Isle's watch has seen a stranger who has no business there: the
+    /// nearest guard on watch comes over for them at once, on foot, and
+    /// takes them when they reach them (`caught`, then `caught.rs` `taken`).
+    /// Got away from, nothing's owed. False if no guard is about.
+    pub(super) fn watch_comes_for(&mut self, who: PersonId, town: SettlementId, at: V2) -> bool {
+        if self.pursuits.iter().any(|p| p.culprit == who) {
+            return true;
+        }
+        let Some(g) = self.guard_for(town, at, who) else { return false };
+        let t = self.time;
+        self.pursuits.push(Pursuit { guard: g, culprit: who, town, wrong: Wrong::Trespass, fine: 0.0, witness: None, start: t, pos: None, last_seen: at, seen_t: t, owed: true });
+        let line = format!("{} of the watch has seen {}, and comes over.", self.name_of(g), self.name_of(who));
+        self.say(t, line.clone());
+        self.alerts.push(line);
+        true
+    }
+
     /// Caught: judged by the custom of those wronged (the town on land).
     fn caught(&mut self, p: Pursuit) {
         let t = self.time;

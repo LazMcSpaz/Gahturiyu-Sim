@@ -2086,6 +2086,11 @@ fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64, up: f32) {
 /// is a fire that's burning.
 #[allow(clippy::too_many_arguments)]
 fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, fire: &dyn Fn(u8) -> bool, on_ground: &dyn Fn(V2) -> f32) {
+    // (Inside a building, the building is the place: nothing of its own,
+    // as `solid::place_in_building` lists nothing.)
+    if w.building_at(wp.pos).is_some() {
+        return;
+    }
     let k = wp.kind;
     let size = k.size();
     let wet = geo::inland(wp.pos) < 0.0;
