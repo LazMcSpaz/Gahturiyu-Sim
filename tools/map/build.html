@@ -92,12 +92,6 @@
   .pal.head span { color: var(--gold); writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .12em; }
   #ghost { position: absolute; pointer-events: none; display: none; z-index: 9; }
   #ghost canvas { width: 70px; height: 70px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
-  #gh { position: absolute; inset: 0; z-index: 20; background: rgba(35,28,20,.97); display: flex; flex-direction: column; gap: 8px; padding: calc(16px + var(--sat)) 16px; }
-  #gh[hidden] { display: none; }
-  #gh h2 { font: 600 15px var(--display); letter-spacing: .1em; color: var(--gold); margin: 0; }
-  #gh p { margin: 0; font-size: 14px; color: var(--dim); }
-  #gh label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
-  #gh .row { display: flex; gap: 8px; }
   @media (min-width: 900px) and (min-height: 600px) {
     #tray { left: auto; right: 8px; bottom: 8px; width: 360px; border: 1px solid var(--brass-dim); border-radius: 8px; max-height: 60vh; }
     #strip { flex-wrap: wrap; align-items: flex-start; overflow-y: auto; max-height: 34vh; }
@@ -125,7 +119,7 @@
   </div>
 </div>
 <div id="top">
-  <div id="bar"><button id="back">Map</button><button id="export">Export</button><button id="github" class="primary">Save to GitHub</button></div>
+  <div id="bar"><button id="back">Map</button><button id="export">Export</button><button id="send" class="primary">Send to Claude</button></div>
   <div id="status"></div>
 </div>
 <div id="scale"><div class="bar" id="scalebar"></div><span id="scaletext">20 m</span></div>
@@ -144,14 +138,6 @@
   <div id="strip"></div>
 </div>
 
-<div id="gh" hidden>
-  <h2>Save to GitHub</h2>
-  <p>Writes this place as <code id="gh-path"></code> on the branch below, as one commit, when you press Save. The token stays in this browser only; it never goes into a file or the store.</p>
-  <label for="gh-token">Token (a fine-grained token with contents: write on the repo)</label><input id="gh-token" type="password" autocomplete="off">
-  <label for="gh-repo">Repository</label><input id="gh-repo" value="LazMcSpaz/Gahturiyu-Sim" autocomplete="off">
-  <label for="gh-branch">Branch</label><input id="gh-branch" value="world/atlas" autocomplete="off">
-  <div class="row"><button id="gh-cancel">Cancel</button><button id="gh-forget" class="danger">Forget token</button><button id="gh-save" class="primary" style="flex:1">Save</button></div>
-  <p id="gh-status"></p>
 </div>
 
 <script>
@@ -673,7 +659,8 @@
 
   // ---- undo, save, export ----
   const undoStack = [];
-  function serialize() { P.ground = ground.join(""); P.height = Array.from(height, (h) => chOf(h)).join(""); return JSON.stringify(Object.assign({}, P, { saved: new Date().toISOString() })); }
+  // (A cell at exactly 0 is written as untouched: the land's own height there.)
+  function serialize() { P.ground = ground.join(""); P.height = Array.from(height, (h) => Math.abs(h) < 0.05 ? "." : chOf(h)).join(""); return JSON.stringify(Object.assign({}, P, { saved: new Date().toISOString() })); }
   function restore(json) {
     const o = JSON.parse(json);
     Object.assign(P, { title: o.title || P.title, notes: o.notes || "", foliage: o.foliage || [], roads: o.roads || [], things: o.things || [] });
@@ -713,28 +700,14 @@
   $("export").addEventListener("click", exportFile);
   $("back").addEventListener("click", () => { if (dirty) store(); location.href = "index.html"; });
 
-  // GitHub: one commit of assets/world/places/<key>.json, with a token kept in this browser only.
-  const gh = $("gh");
-  $("github").addEventListener("click", () => { gh.hidden = false; $("gh-path").textContent = `assets/world/places/${KEY}.json`; try { $("gh-token").value = localStorage.getItem("gh:token") || ""; $("gh-repo").value = localStorage.getItem("gh:repo") || $("gh-repo").value; $("gh-branch").value = localStorage.getItem("gh:branch") || $("gh-branch").value; } catch (e) {} $("gh-status").textContent = ""; });
-  $("gh-cancel").addEventListener("click", () => { gh.hidden = true; });
-  $("gh-forget").addEventListener("click", () => { try { localStorage.removeItem("gh:token"); } catch (e) {} $("gh-token").value = ""; $("gh-status").textContent = "Forgotten."; });
-  $("gh-save").addEventListener("click", async () => {
-    const token = $("gh-token").value.trim(), repo = $("gh-repo").value.trim(), branch = $("gh-branch").value.trim();
-    if (!token || !repo) { $("gh-status").textContent = "A token and a repository are needed."; return; }
-    try { localStorage.setItem("gh:token", token); localStorage.setItem("gh:repo", repo); localStorage.setItem("gh:branch", branch); } catch (e) {}
-    const path = `assets/world/places/${KEY}.json`, api = `https://api.github.com/repos/${repo}/contents/${path}`;
-    const headers = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json" };
-    $("gh-status").textContent = "Saving…";
-    try {
-      let sha = null;
-      const cur = await fetch(api + "?ref=" + encodeURIComponent(branch), { headers });
-      if (cur.ok) sha = (await cur.json()).sha;
-      const body = { message: `Place: ${P.title || KEY} (from the place builder)`, content: btoa(unescape(encodeURIComponent(serialize()))), branch };
-      if (sha) body.sha = sha;
-      const r = await fetch(api, { method: "PUT", headers, body: JSON.stringify(body) });
-      if (!r.ok) throw new Error((await r.json()).message || r.status);
-      $("gh-status").textContent = "Saved to " + repo + " on " + branch + ". Claude will see it there."; say("Saved to GitHub.");
-    } catch (e) { $("gh-status").textContent = "GitHub said: " + (e.message || e); }
+  // Send to Claude: the place is in the shared store already (every change); this marks it as
+  // handed over, and Claude writes assets/world/places/<key>.json into the repo from there.
+  // (The page can't reach GitHub itself: the viewer blocks calls out.)
+  $("send").addEventListener("click", async () => {
+    await store();
+    if (!db || !canWrite) { say("Not signed in here: use Export and hand the file over.", true); return; }
+    try { await db.collection("places").doc(KEY).update({ sent: Date.now() }); say("Sent. Tell Claude to pull " + KEY + " in."); }
+    catch (e) { say("Couldn't mark it sent: " + (e.message || e.code), true); }
   });
 
   // ---- go ----
