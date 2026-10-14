@@ -21,7 +21,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": 0.35,
     "blurb": "A home, 1 bed."
   },
@@ -47,7 +47,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": -0.3,
     "blurb": "A home, 2 beds."
   },
@@ -77,7 +77,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": 0.0,
     "blurb": "A workshop with living space, 1 bed; kept by a stonetender."
   },
@@ -109,7 +109,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": 0.4,
     "blurb": "A workshop with living space, 0 beds; kept by a smith or armourer or charcoalburner."
   },
@@ -139,7 +139,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": -0.2,
     "blurb": "A workshop with living space, 1 bed; kept by a weaver or tailor."
   },
@@ -173,7 +173,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": 0.25,
     "blurb": "A workshop with living space, 1 bed; kept by a boatwright or tanner or leatherworker or woodworker or carpenter or mason."
   },
@@ -202,7 +202,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": -0.35,
     "blurb": "A shop with living space, 1 bed; kept by a merchant or exchanger."
   },
@@ -228,7 +228,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "roduro_home",
+    "glyph": "roduro",
     "door": 0.0,
     "blurb": "A home, 3 beds."
   },
@@ -252,7 +252,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro",
     "door": 0.0,
     "blurb": "Quarters for several households, 6 beds."
   },
@@ -278,7 +278,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro_court",
     "door": 0.0,
     "blurb": "A home, 2 beds."
   },
@@ -309,7 +309,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro_yard",
     "door": -0.4,
     "blurb": "A workshop with living space, 0 beds; kept by a smith or armourer."
   },
@@ -338,7 +338,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro",
     "door": 0.35,
     "blurb": "A workshop with living space, 2 beds; kept by a weaver or tailor."
   },
@@ -371,7 +371,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro_yard",
     "door": 0.4,
     "blurb": "A workshop with living space, 0 beds; kept by a boatwright or tanner or leatherworker or woodworker or carpenter or mason."
   },
@@ -398,7 +398,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro",
     "door": 0.0,
     "blurb": "A shop with living space, 0 beds; kept by a merchant or exchanger."
   },
@@ -424,7 +424,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_block",
+    "glyph": "qotiro",
     "door": 0.0,
     "blurb": "A hall where people eat or gather, 0 beds."
   },
@@ -448,7 +448,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_temple",
+    "glyph": "temple",
     "door": 0.0,
     "blurb": "A shrine, 0 beds."
   },
@@ -474,7 +474,7 @@
     ],
     "scalable": true,
     "rotatable": true,
-    "glyph": "qotiro_hall",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "A hall where people eat or gather, 0 beds."
   },
@@ -498,7 +498,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "horaro_stilt",
+    "glyph": "horaro",
     "door": 0.0,
     "blurb": "A home, 0 beds."
   },
@@ -522,7 +522,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "horaro_stilt",
+    "glyph": "horaro",
     "door": 0.0,
     "blurb": "A home, 0 beds."
   },
@@ -546,7 +546,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "horaro_stilt",
+    "glyph": "horaro",
     "door": 0.0,
     "blurb": "A home, 0 beds."
   },
@@ -570,7 +570,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "horaro_stilt",
+    "glyph": "horaro",
     "door": 0.0,
     "blurb": "A workshop with living space, 0 beds."
   },
@@ -588,7 +588,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "marker",
+    "glyph": "post",
     "door": 0.0,
     "blurb": "Founds a base: a fire ring of stones from the spot, for cooking and light."
   },
@@ -606,7 +606,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "shelter",
+    "glyph": "leanto",
     "door": 0.0,
     "blurb": "One bed, poor rest."
   },
@@ -624,7 +624,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "shelter",
+    "glyph": "hut",
     "door": 0.0,
     "blurb": "Two beds and a storage chest."
   },
@@ -642,7 +642,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "shelter",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Eight beds round a hearth."
   },
@@ -660,7 +660,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "store",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Large storage; food keeps longer."
   },
@@ -944,7 +944,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "field",
     "door": 0.0,
     "blurb": "Fields: farmer."
   },
@@ -964,7 +964,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "wilds",
     "door": 0.0,
     "blurb": "Hunting grounds: forager."
   },
@@ -984,7 +984,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "woodlot",
     "door": 0.0,
     "blurb": "Woodlot: woodcutter."
   },
@@ -1004,7 +1004,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "quarry",
     "door": 0.0,
     "blurb": "Mine and quarry: woodcutter."
   },
@@ -1024,7 +1024,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "pit",
     "door": 0.0,
     "blurb": "Charcoal pit: charcoalburner."
   },
@@ -1044,7 +1044,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "dock",
     "door": 0.0,
     "blurb": "Fishing dock: fisher."
   },
@@ -1065,7 +1065,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "dock",
     "door": 0.0,
     "blurb": "Dive platform: fisher, labourer."
   },
@@ -1085,7 +1085,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "dock",
     "door": 0.0,
     "blurb": "Kelp beds: kelpgatherer."
   },
@@ -1108,7 +1108,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "dock",
     "door": 0.0,
     "blurb": "Boatyard: boatwright, weaver."
   },
@@ -1129,7 +1129,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "kitchen",
     "door": 0.0,
     "blurb": "Hearth kitchen: cook, runner."
   },
@@ -1150,7 +1150,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "kitchen",
     "door": 0.0,
     "blurb": "Mess hall: cook, runner."
   },
@@ -1170,7 +1170,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "dock",
     "door": 0.0,
     "blurb": "Cooking deck: cook."
   },
@@ -1192,7 +1192,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "market",
     "door": 0.0,
     "blurb": "Market square: merchant, caravaner, labourer."
   },
@@ -1214,7 +1214,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shop",
     "door": 0.0,
     "blurb": "Goods shop: merchant, caravaner, labourer."
   },
@@ -1236,7 +1236,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shop",
     "door": 0.0,
     "blurb": "Food shop: merchant, caravaner, labourer."
   },
@@ -1258,7 +1258,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shop",
     "door": 0.0,
     "blurb": "Materials shop: merchant, caravaner, labourer."
   },
@@ -1278,7 +1278,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Inn: innkeeper."
   },
@@ -1298,7 +1298,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shrine",
     "door": 0.0,
     "blurb": "Shrine: priest."
   },
@@ -1318,7 +1318,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "post",
     "door": 0.0,
     "blurb": "Guard post: guard."
   },
@@ -1339,7 +1339,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Hall: official, arbiter."
   },
@@ -1362,7 +1362,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Healing house: healer, alchemist."
   },
@@ -1382,7 +1382,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Healer's house: healer."
   },
@@ -1402,7 +1402,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Teaching house: teacher."
   },
@@ -1422,7 +1422,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Exchange house: exchanger."
   },
@@ -1446,7 +1446,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "hall",
     "door": 0.0,
     "blurb": "Letters house: teacher, exchanger, scribe."
   },
@@ -1468,7 +1468,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "yard",
     "door": 0.0,
     "blurb": "Tenders' yard: stonetender."
   },
@@ -1503,7 +1503,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "open_ground",
+    "glyph": "yard",
     "door": 0.0,
     "blurb": "Workyard: labourer, smith, armourer, weaver, tanner, leatherworker, tailor, woodworker, carpenter, mason."
   },
@@ -1526,7 +1526,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Smithy: labourer, smith."
   },
@@ -1548,7 +1548,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Armourer's shop: armourer."
   },
@@ -1570,7 +1570,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Scribe's room: scribe."
   },
@@ -1592,7 +1592,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Alchemist's shop: alchemist."
   },
@@ -1614,7 +1614,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Weavers' shed: weaver."
   },
@@ -1641,7 +1641,7 @@
     ],
     "scalable": false,
     "rotatable": true,
-    "glyph": "room",
+    "glyph": "shed",
     "door": 0.0,
     "blurb": "Workshop: tanner, leatherworker, tailor, woodworker, carpenter, mason."
   },
@@ -1740,7 +1740,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": false,
-    "glyph": "raft_mooring",
+    "glyph": "pen",
     "door": 0.0,
     "limit": 2.0,
     "blurb": "Room for about 2 raftback; scale it for more or fewer."
@@ -1759,7 +1759,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "rock_boulder",
+    "glyph": "rock",
     "door": 0.0,
     "blurb": "A rock (the land editor's Boulder)."
   },
@@ -1777,7 +1777,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "rock_slab",
+    "glyph": "rock",
     "door": 0.0,
     "blurb": "A low flat rock."
   },
@@ -1795,7 +1795,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "rock_pillar",
+    "glyph": "rock",
     "door": 0.0,
     "blurb": "A standing rock."
   },
@@ -1813,7 +1813,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "rock_scree",
+    "glyph": "rock",
     "door": 0.0,
     "blurb": "Loose stones; walkable."
   },
@@ -1831,7 +1831,7 @@
     "stations": [],
     "scalable": true,
     "rotatable": true,
-    "glyph": "rock_outcrop",
+    "glyph": "rock",
     "door": 0.0,
     "blurb": "A broken rock face."
   },
@@ -1885,7 +1885,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "campfire",
+    "glyph": "fire",
     "door": 0.0,
     "blurb": "A fire to cook at and keep warm by."
   },
@@ -1903,7 +1903,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "standing_torch",
+    "glyph": "torch",
     "door": 0.0,
     "blurb": "Light at night until it burns down."
   },
@@ -1921,7 +1921,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "timber_pile",
+    "glyph": "logs",
     "door": 0.0,
     "blurb": "Only as part of a woodlot so far.",
     "missing": true
@@ -1940,7 +1940,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "fence_run",
+    "glyph": "fence",
     "door": 0.0,
     "blurb": "Fences only come with pens, yards and palisades so far.",
     "missing": true
@@ -1959,7 +1959,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "town_well",
+    "glyph": "well",
     "door": 0.0,
     "blurb": "A town well: only the squad's base well (`well`) exists so far.",
     "missing": true
@@ -1978,7 +1978,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "garden_plot",
+    "glyph": "garden",
     "door": 0.0,
     "blurb": "Gardens exist in town life, not as a placed thing yet.",
     "missing": true
@@ -2035,7 +2035,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "tanners_vats",
+    "glyph": "vats",
     "door": 0.0,
     "blurb": "No vats yet: tanning is done in a workshop.",
     "missing": true
@@ -2054,7 +2054,7 @@
     "stations": [],
     "scalable": false,
     "rotatable": true,
-    "glyph": "smokehouse",
+    "glyph": "smoker",
     "door": 0.0,
     "blurb": "No smokehouse yet.",
     "missing": true

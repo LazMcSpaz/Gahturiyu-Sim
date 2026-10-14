@@ -93,20 +93,6 @@ fn entry(key: &str, name: &str, group: &'static str, kind: &str) -> Entry {
     }
 }
 
-fn snake(s: &str) -> String {
-    let mut out = String::new();
-    for (i, c) in s.chars().enumerate() {
-        if c.is_ascii_uppercase() {
-            if i > 0 {
-                out.push('_');
-            }
-            out.push(c.to_ascii_lowercase());
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
 
 /// The stations a building's furniture makes.
 fn stations_of(furniture: &[layout::Piece]) -> Vec<String> {
@@ -168,12 +154,76 @@ pub fn workplace_of(key: &str) -> Option<PlaceKind> {
     WORKPLACES.iter().find(|w| w.1 == key).map(|w| w.0)
 }
 
-/// Out-of-doors workplaces: drawn as open ground with their gear, not a room.
-fn open_ground(k: PlaceKind) -> bool {
-    matches!(
-        k,
-        PlaceKind::Fields | PlaceKind::Wilds | PlaceKind::Woodlot | PlaceKind::Quarry | PlaceKind::CharcoalPit | PlaceKind::KelpBeds | PlaceKind::Market | PlaceKind::Workyard | PlaceKind::TendersYard | PlaceKind::Dock | PlaceKind::DivePlatform | PlaceKind::Deck | PlaceKind::Boatyard
-    )
+// The drawing families the place builder page knows (`tools/map/build.html`:
+// one drawing routine each, at the real size).
+
+fn building_glyph(v: &layout::Variant) -> &'static str {
+    match v.kind {
+        BuildingKind::RoduroHome => "roduro",
+        BuildingKind::HoraroStilt => "horaro",
+        BuildingKind::QotiroTemple => "temple",
+        BuildingKind::QotiroHall => "hall",
+        _ if v.key == "qotiro_court" => "qotiro_court",
+        _ if v.key == "qotiro_workyard" || v.key == "qotiro_benchyard" => "qotiro_yard",
+        _ => "qotiro",
+    }
+}
+
+fn base_glyph(key: &str, kind: super::base::Kind) -> &'static str {
+    use super::base::Kind as B;
+    match (key, kind) {
+        ("lean_to", _) => "leanto",
+        ("longhouse", _) => "hall",
+        (_, B::Shelter) => "hut",
+        (_, B::Store | B::Shed) => "shed",
+        (_, B::Kitchen) => "kitchen",
+        (_, B::Well) => "well",
+        (_, B::Field) => "field",
+        (_, B::Pen) => "pen",
+        (_, B::Wall) => "wall",
+        (_, B::Gate) => "gate",
+        (_, B::Tower) => "tower",
+        (_, B::Marker) => "post",
+    }
+}
+
+fn workplace_glyph(k: PlaceKind) -> &'static str {
+    use PlaceKind as P;
+    match k {
+        P::Fields => "field",
+        P::Wilds => "wilds",
+        P::Woodlot => "woodlot",
+        P::Quarry => "quarry",
+        P::CharcoalPit => "pit",
+        P::Dock | P::DivePlatform | P::KelpBeds | P::Boatyard | P::Deck => "dock",
+        P::Kitchen | P::MessHall => "kitchen",
+        P::Market => "market",
+        P::Shop(_) => "shop",
+        P::Shrine => "shrine",
+        P::GuardPost => "post",
+        P::Workyard | P::TendersYard => "yard",
+        P::Inn | P::Hall | P::HealingHouse | P::HealersHouse | P::TeachingHouse | P::ExchangeHouse | P::LettersHouse => "hall",
+        P::Forge | P::Bench | P::Desk | P::AlchemyTable | P::WeaversShed | P::Workshop => "shed",
+    }
+}
+
+fn prop_glyph(key: &str) -> &'static str {
+    match key {
+        k if k.starts_with("rock_") => "rock",
+        "tent" => "tent",
+        "bedroll" => "bedroll",
+        "campfire" => "fire",
+        "standing_torch" => "torch",
+        "timber_pile" => "logs",
+        "fence_run" => "fence",
+        "town_well" => "well",
+        "garden_plot" => "garden",
+        "stall" => "stall",
+        "cart" => "cart",
+        "tanners_vats" => "vats",
+        "smokehouse" => "smoker",
+        _ => "post",
+    }
 }
 
 /// The kept species, with a usual number of beasts in a town's pen (the
@@ -235,7 +285,7 @@ fn build() -> Vec<Entry> {
         e.jobs = ALL_JOBS.iter().filter(|&&j| layout::keeps(v, j)).map(|j| format!("{j:?}")).collect();
         e.stations = stations_of(v.furniture);
         e.scalable = true;
-        e.glyph = snake(&format!("{:?}", v.kind));
+        e.glyph = building_glyph(v).to_string();
         e.door = cm(v.door);
         let what = match v.use_ {
             Use::Home => "a home",
@@ -258,7 +308,7 @@ fn build() -> Vec<Entry> {
         e.storeys = 1;
         e.beds = d.beds as u16;
         e.stations = d.station.map(|s| vec![format!("{s:?}")]).unwrap_or_default();
-        e.glyph = snake(&format!("{:?}", d.kind));
+        e.glyph = base_glyph(d.key, d.kind).to_string();
         e.blurb = d.does.to_string();
         out.push(e);
     }
@@ -270,7 +320,7 @@ fn build() -> Vec<Entry> {
         e.width = cm(k.size());
         e.jobs = ALL_JOBS.iter().filter(|&&j| works_at(j, k, false) || works_at(j, k, true)).map(|j| format!("{j:?}")).collect();
         e.stations = k.stations().iter().map(|s| format!("{s:?}")).collect();
-        e.glyph = if open_ground(k) { "open_ground".into() } else { "room".into() };
+        e.glyph = workplace_glyph(k).to_string();
         e.blurb = if e.jobs.is_empty() { k.name().to_string() } else { format!("{}: {}.", k.name(), e.jobs.join(", ").to_lowercase()) };
         out.push(e);
     }
@@ -287,7 +337,7 @@ fn build() -> Vec<Entry> {
         e.limit = Some(limit);
         e.scalable = true;
         e.rotatable = false;
-        e.glyph = if sp == Sp::Raftback { "raft_mooring".into() } else { "pen".into() };
+        e.glyph = "pen".into();
         e.blurb = format!("Room for about {limit} {}; scale it for more or fewer.", def.name.to_lowercase());
         out.push(e);
     }
@@ -318,7 +368,7 @@ fn build() -> Vec<Entry> {
         e.depth = d;
         e.width = w;
         e.missing = missing;
-        e.glyph = key.to_string();
+        e.glyph = prop_glyph(key).to_string();
         e.blurb = blurb.to_string();
         if key.starts_with("rock_") {
             e.shape = "round";
