@@ -41,13 +41,13 @@ fn talk_to(w: &mut World, npc: PersonId) -> PersonId {
     lead
 }
 
-/// Someone offering that kind of job: jobs come from people's lives, so run
-/// the world (an eventful one) until someone does.
 thread_local! {
     /// Only a job that pays coin (a poor household offers a favour instead).
     static PAID: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// Someone offering that kind of job: jobs come from people's lives, so run
+/// the world (an eventful one) until someone does.
 fn find_offer(w: &mut World, want: fn(&QuestKind) -> bool) -> PersonId {
     for tl in &mut w.society.towns {
         tl.drama = 0.9;
