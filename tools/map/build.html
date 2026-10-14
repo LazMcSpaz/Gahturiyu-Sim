@@ -827,7 +827,7 @@
   // (The page can't reach GitHub itself: the viewer blocks calls out.)
   $("send").addEventListener("click", async () => {
     await store();
-    if (!db || !canWrite) { say("Not signed in here: use Export and hand the file over.", true); return; }
+    if (!db || !canWrite || db.local) { say(db && db.local ? "On the site your work stays in this browser: Export the file for now; Save to GitHub is coming." : "Not signed in here: use Export and hand the file over.", true); return; }
     try { await db.collection("places").doc(KEY).update({ sent: Date.now() }); say("Sent. Tell Claude to pull " + KEY + " in."); }
     catch (e) { say("Couldn't mark it sent: " + (e.message || e.code), true); }
   });
