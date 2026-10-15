@@ -182,7 +182,7 @@ pub struct Shot {
     /// `tadoro` / `crowded` / a variant's key pick the building differently
     /// (`walk_in`).
     pub interior: bool,
-    /// `GAHT_VARIANTS=1|roduro|qotiro|horaro[,open]`: every building variant
+    /// `GAHT_VARIANTS=1|roduro|qotiro|horaro|<variant key>[,open]`: every building variant
     /// (or one people's) laid out side by side on open ground near the squad.
     pub variants: Option<String>,
     /// `GAHT_CUTAWAY=1` (or `open` in `GAHT_VARIANTS`): every building near
@@ -1329,7 +1329,9 @@ fn variants_row(world: &mut World, which: &str, open: bool) -> Option<(V2, f32, 
             K::Hearth => false,
         }
     };
-    let list: Vec<_> = VARIANTS.iter().filter(|v| want(v.kind)).collect();
+    // A variant's key picks just that one (e.g. `roduro_round_ancient_01`).
+    let keys: Vec<&str> = tokens.iter().copied().filter(|t| VARIANTS.iter().any(|v| v.key == *t)).collect();
+    let list: Vec<_> = VARIANTS.iter().filter(|v| if keys.is_empty() { want(v.kind) } else { keys.contains(&v.key) }).collect();
     if list.is_empty() {
         return None;
     }
@@ -1390,6 +1392,11 @@ fn variants_row(world: &mut World, which: &str, open: bool) -> Option<(V2, f32, 
     for (at, size, v, seed) in placed {
         let pos = origin.add(at);
         s.buildings.push(Building { pos, kind: v.kind, size, rot: std::f32::consts::FRAC_PI_2, seed });
+        // Each is the variant shown, as a place file names it (one placed by
+        // hand is never rolled).
+        let i = s.buildings.len() - 1;
+        s.styles.resize(s.styles.len().max(i + 1), None);
+        s.styles[i] = Some(v.key);
         s.reach = s.reach.max(pos.dist(s.pos) + size);
     }
     world.solid_changed();

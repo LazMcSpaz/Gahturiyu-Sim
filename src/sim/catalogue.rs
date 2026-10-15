@@ -37,6 +37,11 @@ pub struct Entry {
     pub radius: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size_range: Option<[f32; 2]>,
+    /// A building with an outline of its own (`shape: "poly"`): its corners
+    /// in metres at its usual size, `[along the facing, across]` from its
+    /// middle, counter-clockwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline: Option<Vec<[f32; 2]>>,
     pub storeys: u8,
     pub beds: u16,
     /// Bedrolls the game lays on the floor when more live there than the
@@ -77,6 +82,7 @@ fn entry(key: &str, name: &str, group: &'static str, kind: &str) -> Entry {
         width: 0.0,
         radius: None,
         size_range: None,
+        outline: None,
         storeys: 1,
         beds: 0,
         extra_beds: 0,
@@ -275,7 +281,12 @@ fn build() -> Vec<Entry> {
             BuildingKind::HoraroStilt => "horaro",
             _ => "qotiro",
         });
-        e.shape = if v.shape == Shape::Round { "round" } else { "rect" };
+        e.shape = match v.shape {
+            Shape::Round => "round",
+            Shape::Rect => "rect",
+            Shape::Poly(_) => "poly",
+        };
+        e.outline = v.shape.points().map(|pts| pts.iter().map(|&(x, y)| [cm(x * v.half.0 * size), cm(y * v.half.1 * size)]).collect());
         e.depth = cm(2.0 * v.half.0 * size);
         e.width = cm(2.0 * v.half.1 * size);
         e.size_range = Some([cm(v.sizes.0), cm(v.sizes.1)]);

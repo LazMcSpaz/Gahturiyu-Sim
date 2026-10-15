@@ -31,12 +31,87 @@ use super::rng::Rng;
 use super::settlement::{Building, BuildingKind, Settlement};
 
 /// A building's outline.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Shape {
     /// Grown stone: an ellipse.
     Round,
     /// Quarried: a box.
     Rect,
+    /// An outline of its own, any shape (grown stone in lobes): corners in
+    /// layout units, counter-clockwise, reaching ±1 at its widest each way.
+    /// Never crosses itself; may curve in.
+    Poly(&'static [(f32, f32)]),
+}
+
+impl Shape {
+    /// An outline's corners, if it has its own.
+    pub fn points(self) -> Option<&'static [(f32, f32)]> {
+        match self {
+            Shape::Poly(p) => Some(p),
+            _ => None,
+        }
+    }
+}
+
+// ---- An outline of its own (`Shape::Poly`) ---------------------------------------
+//
+// Worked in metres in the building's own frame: `x` along its facing, `y`
+// across, the corners scaled by the half depth `hx` and half width `hy`.
+
+/// Corner `k` of an outline in metres.
+fn corner(pts: &[(f32, f32)], hx: f32, hy: f32, k: usize) -> V2 {
+    let (x, y) = pts[k % pts.len()];
+    V2::new(x * hx, y * hy)
+}
+
+/// Is `p` (metres, the building's frame) inside the outline?
+pub fn inside_outline(pts: &[(f32, f32)], hx: f32, hy: f32, p: V2) -> bool {
+    let n = pts.len();
+    let mut inside = false;
+    for k in 0..n {
+        let (a, b) = (corner(pts, hx, hy, k), corner(pts, hx, hy, k + 1));
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
+/// How far `p` (metres, the building's frame) is inside the outline
+/// (negative: outside), the nearest spot on it, and the way in from there
+/// (straight in from that edge).
+pub fn outline_nearest(pts: &[(f32, f32)], hx: f32, hy: f32, p: V2) -> (f32, V2, V2) {
+    let mut best = (f32::MAX, p, V2::new(1.0, 0.0));
+    for k in 0..pts.len() {
+        let (a, b) = (corner(pts, hx, hy, k), corner(pts, hx, hy, k + 1));
+        let q = on_seg(p, a, b);
+        let d = q.dist(p);
+        if d < best.0 {
+            let e = b.sub(a);
+            let l = e.len().max(1e-6);
+            best = (d, q, V2::new(-e.y / l, e.x / l));
+        }
+    }
+    let sign = if inside_outline(pts, hx, hy, p) { 1.0 } else { -1.0 };
+    (best.0 * sign, best.1, best.2)
+}
+
+/// The farthest an outline reaches from the building's middle, metres.
+pub fn outline_reach(pts: &[(f32, f32)], hx: f32, hy: f32) -> f32 {
+    (0..pts.len()).map(|k| corner(pts, hx, hy, k).len()).fold(0.0, f32::max)
+}
+
+/// Where the line across the building at `y` metres leaves the outline at
+/// the front: the largest `x` it crosses at (metres).
+pub fn outline_front(pts: &[(f32, f32)], hx: f32, hy: f32, y: f32) -> f32 {
+    let mut front = f32::MIN;
+    for k in 0..pts.len() {
+        let (a, b) = (corner(pts, hx, hy, k), corner(pts, hx, hy, k + 1));
+        if (a.y > y) != (b.y > y) {
+            front = front.max(a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x));
+        }
+    }
+    if front == f32::MIN { hx } else { front }
 }
 
 /// What a building is mostly for.
@@ -644,6 +719,62 @@ pub const VARIANTS: &[Variant] = &[
     Variant { key: "horaro_twin", name: "Twin domes", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.36, 0.5), sizes: (8.0, 99.0), weight: 2, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
     Variant { key: "horaro_hull", name: "Hull house", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.5, 0.32), sizes: (0.0, 99.0), weight: 2, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
     Variant { key: "horaro_net_loft", name: "Net loft", kind: K::HoraroStilt, shape: Shape::Rect, use_: Use::Workshop, half: (0.42, 0.34), sizes: (0.0, 99.0), weight: 1, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
+    // ---- Placed by hand: the catalogue's own buildings (`claude/placeholder-shapes.md`) ----
+    // Weight 0: never rolled for a town; a place file (or the showcase) names
+    // them. Added at the end of the list, so saved doors' variant numbers
+    // keep their meaning.
+    Variant {
+        key: "roduro_round_ancient_01",
+        name: "Clover tower house",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(CLOVER_OUTLINE),
+        use_: Use::Home,
+        half: (0.425, 0.5),
+        sizes: (16.86, 18.86),
+        weight: 0,
+        door: 0.1673,
+        storeys: 3,
+        // Ground floor only (the upper floors are drawn, not walked): the
+        // hall round the stair, the kitchen front right and the store front
+        // left, behind a wall with a doorway each. Metres in
+        // `assets/buildings/roduro_round_ancient_01.json`.
+        walls: &[w((0.0686, -0.2784), (0.3528, -0.989), None), w((0.9255, -0.031), (0.0718, -0.2775), Some(0.6702)), w((0.0718, -0.2775), (-0.7865, -0.5253), Some(0.3244))],
+        furniture: &[
+            f(Hearth, -0.4045, 0.1489, 0.0),
+            f(LongTable, 0.3333, 0.3729, 0.0),
+            f(Bench, 0.3333, 0.2889, 0.0),
+            f(Bench, 0.3333, 0.4569, 0.0),
+            f(Bed, -0.3122, 0.776, 0.0),
+            f(Bed, 0.0698, 0.7088, 0.0),
+            f(Bed, -0.6679, 0.3617, Q),
+            f(Shelf, -0.8392, -0.1086, Q),
+            f(Hearth, 0.5441, -0.6349, 0.0),
+            f(Table, 0.4124, -0.411, 0.0),
+            f(Shelf, 0.7285, -0.4558, Q),
+        ],
+        holders: &[
+            h(Cupboard, -0.6021, 0.6193, 0.6),
+            h(Chest, -0.3122, 0.6361, 0.0),
+            h(Barrel, 0.4255, -0.7917, 0.0),
+            h(Barrel, 0.6231, -0.2654, 0.0),
+            h(Crate, -0.1805, -0.6685, 0.0),
+            h(Crate, 0.0303, -0.7805, 0.3),
+            h(Chest, -0.4967, -0.5566, 0.33),
+            h(Barrel, -0.3122, -0.551, 0.0),
+        ],
+    },
+];
+
+/// The clover tower house's outline (`roduro_round_ancient_01`): its ground
+/// tier, from the catalogue model (`assets/buildings/roduro_round_ancient_01.json`,
+/// `tests/buildings.rs` checks they agree), in layout units, counter-clockwise.
+pub const CLOVER_OUTLINE: &[(f32, f32)] = &[
+    (-0.9565, -0.037), (-0.9999, -0.1915), (-0.9459, -0.3371), (-0.855, -0.4681), (-0.7312, -0.5767), (-0.5889, -0.6629),
+    (-0.4348, -0.7234), (-0.2806, -0.7783), (-0.1225, -0.8443), (0.0566, -0.944), (0.2688, -1.0), (0.4835, -0.9776),
+    (0.6772, -0.8925), (0.776, -0.7144), (0.8432, -0.5454), (0.8392, -0.3695), (0.8537, -0.2273), (0.9024, -0.1008),
+    (0.9512, 0.0336), (0.9749, 0.1814), (0.9999, 0.3483), (0.9038, 0.4838), (0.7509, 0.5778), (0.5863, 0.6394),
+    (0.4453, 0.7133), (0.2951, 0.7738), (0.1423, 0.8645), (-0.0408, 0.9552), (-0.2529, 1.0), (-0.4545, 0.9474),
+    (-0.6152, 0.8298), (-0.7206, 0.6753), (-0.7799, 0.5129), (-0.8392, 0.374), (-0.8972, 0.2419), (-0.9117, 0.1019),
 ];
 
 /// Which trade asks for which variant, by kind of building. One line per
@@ -848,6 +979,10 @@ pub fn index_of(v: &Variant) -> usize {
 
 /// A seed and size that give this variant (for showing every variant).
 pub fn example_of(v: &Variant) -> (f32, u64) {
+    if v.weight == 0 {
+        // Placed by hand: its usual size, and any seed.
+        return ((v.sizes.0 + v.sizes.1) * 0.5, 0);
+    }
     let size = ((v.sizes.0.max(7.5) + v.sizes.1.min(v.sizes.0.max(7.5) + 4.0)) * 0.5).max(v.sizes.0);
     let size = match v.kind {
         BuildingKind::QotiroBlock => size.clamp(15.5, 19.0),
@@ -980,6 +1115,18 @@ pub fn keep_clear(d: &Door) -> Vec<Rect> {
 
 /// Does a box lie wholly inside the outer walls, `margin` in from the outline?
 pub fn fits_inside(d: &Door, r: &Rect, margin: f32) -> bool {
+    if let Some(pts) = d.outline() {
+        // Every corner that far in, and no corner of the outline poking in
+        // over the box (an outline may curve in).
+        let inside = |p: V2| outline_nearest(pts, d.half.x, d.half.y, d.frame(p)).0 >= margin - 1e-4;
+        let wide = r.grow(margin);
+        let [u, w] = wide.axes();
+        let poked = pts.iter().any(|&k| {
+            let o = d.to_world(k).sub(wide.c);
+            dot(o, u).abs() < wide.hw && dot(o, w).abs() < wide.hd
+        });
+        return r.corners().into_iter().all(inside) && !poked;
+    }
     let (hx, hy) = (d.half.x - margin, d.half.y - margin);
     if hx <= 0.0 || hy <= 0.0 {
         return false;
@@ -1021,7 +1168,13 @@ fn floor_grid(d: &Door) -> Vec<(V2, f32, f32)> {
                 continue;
             }
             let p = d.to_world((x, y));
-            let n = if d.round {
+            let edge = d.outline_edge(p);
+            if edge.is_some_and(|e| e.0 < 0.3) {
+                continue;
+            }
+            let n = if let Some((_, _, inward)) = edge {
+                inward.scale(-1.0)
+            } else if d.round {
                 dir.scale(x / d.half.x).add(side.scale(y / d.half.y))
             } else if (1.0 - x.abs()) * d.half.x <= (1.0 - y.abs()) * d.half.y {
                 dir.scale(x.signum())
@@ -1260,7 +1413,7 @@ fn walls_near(d: &Door, p: V2) -> Vec<Hang> {
     let side = V2::new(-dir.y, dir.x);
     let (lx, ly) = d.to_local(p);
     let mut out: Vec<(f32, Hang)> = Vec::new();
-    let (at, n) = if d.round {
+    let (at, n) = if d.round || d.outline().is_some() {
         outer_face(d, p)
     } else {
         let walls = [((1.0 - lx) * d.half.x, 0usize), ((1.0 + lx) * d.half.x, 1), ((1.0 - ly) * d.half.y, 2), ((1.0 + ly) * d.half.y, 3)];
@@ -1276,7 +1429,7 @@ fn walls_near(d: &Door, p: V2) -> Vec<Hang> {
     };
     // A flat wall runs on to the corners; a round one curves (each sheet is
     // put on the curve, `on_face`), so allow a metre or so either way.
-    let run = if d.round { 1.0 } else { 2.0 };
+    let run = if d.round || d.outline().is_some() { 1.0 } else { 2.0 };
     out.push((at.dist(p), Hang { at, inward: n, up: 0.95, back: run, on: run, outer: true }));
     for (a, z) in d.wall_pieces() {
         let c = on_seg(p, a, z);
@@ -1303,6 +1456,9 @@ const FACE: f32 = WALL_IN + 0.02;
 /// The nearest spot on a round building's outer wall face to `p` (straight
 /// out from the middle), and the way into the room there.
 fn outer_face(d: &Door, p: V2) -> (V2, V2) {
+    if let Some((_, q, inward)) = d.outline_edge(p) {
+        return (q.add(inward.scale(FACE)), inward);
+    }
     let dir = V2::new(d.rot.cos(), d.rot.sin());
     let side = V2::new(-dir.y, dir.x);
     let (a, b) = ((d.half.x - FACE).max(0.1), (d.half.y - FACE).max(0.1));
@@ -1321,7 +1477,7 @@ fn outer_face(d: &Door, p: V2) -> (V2, V2) {
 fn on_face(d: &Door, h: &Hang, off: f32) -> (V2, V2) {
     let along = V2::new(-h.inward.y, h.inward.x);
     let p = h.at.add(along.scale(off));
-    if h.outer && d.round { outer_face(d, p) } else { (p, h.inward) }
+    if h.outer && (d.round || d.outline().is_some()) { outer_face(d, p) } else { (p, h.inward) }
 }
 
 /// The nearest point to `p` on the segment `a`–`z`.

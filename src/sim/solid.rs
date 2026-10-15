@@ -369,6 +369,11 @@ pub enum Shape {
     /// An ellipse: its middle, its turn, and how far it reaches along the
     /// turn and across it (a circle when they're the same).
     Round { c: V2, rot: f32, rx: f32, ry: f32 },
+    /// An outline of its own (`layout::Shape::Poly`; it may curve in): its
+    /// middle, its turn, how far it reaches along the turn and across, its
+    /// corners as shares of those, counter-clockwise, and how much bigger
+    /// all round it is than those corners (negative: smaller).
+    Outline { c: V2, rot: f32, hx: f32, hy: f32, pts: &'static [(f32, f32)], grow: f32 },
 }
 
 impl Shape {
@@ -379,7 +384,7 @@ impl Shape {
     pub fn centre(&self) -> V2 {
         match self {
             Shape::Box(r) => r.c,
-            Shape::Round { c, .. } => *c,
+            Shape::Round { c, .. } | Shape::Outline { c, .. } => *c,
         }
     }
 
@@ -388,6 +393,7 @@ impl Shape {
         match self {
             Shape::Box(r) => (r.hw * r.hw + r.hd * r.hd).sqrt(),
             Shape::Round { rx, ry, .. } => rx.max(*ry) * ROUND_OUT,
+            Shape::Outline { hx, hy, pts, grow, .. } => layout::outline_reach(pts, *hx, *hy) + grow.max(0.0),
         }
     }
 
@@ -395,7 +401,7 @@ impl Shape {
     fn local(&self, p: V2) -> (f32, f32) {
         let (c, rot) = match self {
             Shape::Box(r) => (r.c, r.rot),
-            Shape::Round { c, rot, .. } => (*c, *rot),
+            Shape::Round { c, rot, .. } | Shape::Outline { c, rot, .. } => (*c, *rot),
         };
         let d = p.sub(c);
         let (s, k) = rot.sin_cos();
@@ -407,6 +413,13 @@ impl Shape {
         match self {
             Shape::Box(r) => x.abs() < r.hw && y.abs() < r.hd,
             Shape::Round { rx, ry, .. } => (x / rx.max(1e-3)).powi(2) + (y / ry.max(1e-3)).powi(2) < 1.0,
+            Shape::Outline { hx, hy, pts, grow, .. } => {
+                if *grow == 0.0 {
+                    layout::inside_outline(pts, *hx, *hy, V2::new(x, y))
+                } else {
+                    layout::outline_nearest(pts, *hx, *hy, V2::new(x, y)).0 + grow > 0.0
+                }
+            }
         }
     }
 
@@ -415,6 +428,7 @@ impl Shape {
         match *self {
             Shape::Box(r) => Shape::Box(r.grow(m)),
             Shape::Round { c, rot, rx, ry } => Shape::Round { c, rot, rx: rx + m, ry: ry + m },
+            Shape::Outline { c, rot, hx, hy, pts, grow } => Shape::Outline { c, rot, hx, hy, pts, grow: grow + m },
         }
     }
 
@@ -425,6 +439,7 @@ impl Shape {
         match self {
             Shape::Box(r) => (r.hw - x.abs()).min(r.hd - y.abs()),
             Shape::Round { rx, ry, .. } => (1.0 - ((x / rx.max(1e-3)).powi(2) + (y / ry.max(1e-3)).powi(2)).sqrt()) * rx.min(*ry),
+            Shape::Outline { hx, hy, pts, grow, .. } => layout::outline_nearest(pts, *hx, *hy, V2::new(x, y)).0 + grow,
         }
     }
 
@@ -440,6 +455,19 @@ impl Shape {
                 let k = 0.98 / ((x / rx.max(1e-3)).powi(2) + (y / ry.max(1e-3)).powi(2)).sqrt().max(1e-3);
                 (c, rot, x * k, y * k)
             }
+            Shape::Outline { c, rot, hx, hy, pts, grow } => {
+                // Straight in from the nearest edge, just past the line; if a
+                // nook in the outline still leaves it out, toward the middle.
+                let (_, q, n) = layout::outline_nearest(pts, hx, hy, V2::new(x, y));
+                let mut at = q.add(n.scale(0.02 - grow));
+                for k in 1..=20 {
+                    if layout::outline_nearest(pts, hx, hy, at).0 + grow > 0.0 {
+                        break;
+                    }
+                    at = q.add(n.scale(0.02 - grow)).scale(1.0 - k as f32 / 20.0);
+                }
+                (c, rot, at.x, at.y)
+            }
         };
         c.add(unit(rot).scale(x)).add(unit(rot + std::f32::consts::FRAC_PI_2).scale(y))
     }
@@ -451,7 +479,36 @@ impl Shape {
         match self {
             Shape::Box(r) => Poly::new(&r.corners()),
             Shape::Round { .. } => Poly::new(&self.ring(ROUND_SIDES, ROUND_OUT)),
+            Shape::Outline { .. } => self.hull_of_outline(),
         }
+    }
+
+    /// An outline of its own as one convex block round all of it: sixteen
+    /// flat sides, each touching the outline at its farthest that way.
+    fn hull_of_outline(&self) -> Poly {
+        let Shape::Outline { grow, .. } = *self else { return self.outline() };
+        let pts = self.corners_of_outline();
+        let n = MAX_CORNERS;
+        let face = |k: usize| {
+            let d = unit(k as f32 / n as f32 * std::f32::consts::TAU);
+            (d, pts.iter().map(|p| dot(*p, d)).fold(f32::MIN, f32::max) + grow)
+        };
+        let corners: Vec<V2> = (0..n)
+            .map(|k| {
+                // Where side k meets side k + 1.
+                let ((a, ha), (b, hb)) = (face(k), face(k + 1));
+                let det = a.x * b.y - a.y * b.x;
+                V2::new((ha * b.y - hb * a.y) / det, (a.x * hb - b.x * ha) / det)
+            })
+            .collect();
+        Poly::new(&corners)
+    }
+
+    /// An outline of its own's corners on the map (as drawn: not grown).
+    pub fn corners_of_outline(&self) -> Vec<V2> {
+        let Shape::Outline { c, rot, hx, hy, pts, .. } = *self else { return Vec::new() };
+        let (u, w) = (unit(rot), unit(rot + std::f32::consts::FRAC_PI_2));
+        pts.iter().map(|&(x, y)| c.add(u.scale(x * hx)).add(w.scale(y * hy))).collect()
     }
 
     /// `n` points evenly round a round thing's edge (`out` times as far
@@ -562,7 +619,11 @@ impl Thing {
         let pts: Vec<V2> = match self.shape {
             Shape::Box(r) => r.corners().to_vec(),
             Shape::Round { .. } => self.shape.ring((h.spans as usize).max(8), 1.0),
+            Shape::Outline { .. } => self.shape.corners_of_outline(),
         };
+        // (An outline of its own may curve in: its corners go counter-
+        // clockwise, so in is to the left of each stretch.)
+        let ccw = matches!(self.shape, Shape::Outline { .. });
         let mid = self.shape.centre();
         let mut out = Vec::new();
         for k in 0..pts.len() {
@@ -574,7 +635,7 @@ impl Thing {
             let along = b.sub(a).scale(1.0 / len);
             // Inward from this stretch.
             let n = V2::new(-along.y, along.x);
-            let n = if dot(mid.sub(a), n) < 0.0 { n.scale(-1.0) } else { n };
+            let n = if !ccw && dot(mid.sub(a), n) < 0.0 { n.scale(-1.0) } else { n };
             let mut piece = |from: f32, to: f32| {
                 if to - from > 0.05 {
                     let c = a.add(along.scale((from + to) * 0.5)).add(n.scale(h.wall * 0.5));
@@ -1092,7 +1153,9 @@ impl World {
 
 /// A building's outline from its door (`buildings.rs`).
 pub fn shell_of(d: &Door) -> Shape {
-    if d.round {
+    if let Some(pts) = d.outline() {
+        Shape::Outline { c: d.centre, rot: d.rot, hx: d.half.x, hy: d.half.y, pts, grow: 0.0 }
+    } else if d.round {
         Shape::Round { c: d.centre, rot: d.rot, rx: d.half.x, ry: d.half.y }
     } else {
         Shape::Box(Rect::new(d.centre, d.rot, d.half.x * 2.0, d.half.y * 2.0))
@@ -1102,11 +1165,36 @@ pub fn shell_of(d: &Door) -> Shape {
 /// A stretch of inner wall as it stands: cut off where it meets a round
 /// building's outer wall (None if none of it is inside).
 pub fn inner_wall(d: &Door, r: Rect) -> Option<Rect> {
+    let [u, _] = r.axes();
+    let (a, z) = (r.c.sub(u.scale(r.hw)), r.c.add(u.scale(r.hw)));
+    if let Some(pts) = d.outline() {
+        // From where it first comes inside to where it last leaves: the
+        // places it crosses the outline, and which stretches between are in.
+        let (pa, pz) = (d.frame(a), d.frame(z));
+        let mut ts = vec![0.0f32, 1.0];
+        for k in 0..pts.len() {
+            let (p, q) = (pts[k], pts[(k + 1) % pts.len()]);
+            let (p, q) = (V2::new(p.0 * d.half.x, p.1 * d.half.y), V2::new(q.0 * d.half.x, q.1 * d.half.y));
+            let (e, f) = (pz.sub(pa), q.sub(p));
+            let den = e.x * f.y - e.y * f.x;
+            if den.abs() < 1e-9 {
+                continue;
+            }
+            let g = p.sub(pa);
+            let (t, s) = ((g.x * f.y - g.y * f.x) / den, (g.x * e.y - g.y * e.x) / den);
+            if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&s) {
+                ts.push(t);
+            }
+        }
+        ts.sort_by(f32::total_cmp);
+        let inside: Vec<(f32, f32)> = ts.windows(2).filter(|w| w[1] - w[0] > 1e-4 && layout::inside_outline(pts, d.half.x, d.half.y, pa.lerp(pz, (w[0] + w[1]) * 0.5))).map(|w| (w[0], w[1])).collect();
+        let (t0, t1) = (inside.first()?.0, inside.last()?.1);
+        let (a2, z2) = (a.lerp(z, t0), a.lerp(z, t1));
+        return (t1 - t0 > 1e-3).then(|| Rect::new(a2.lerp(z2, 0.5), r.rot, a2.dist(z2), r.hd * 2.0));
+    }
     if !d.round {
         return Some(r);
     }
-    let [u, _] = r.axes();
-    let (a, z) = (r.c.sub(u.scale(r.hw)), r.c.add(u.scale(r.hw)));
     // Where along it (0 at `a`, 1 at `z`) it is inside the outline.
     let (pa, pz) = (d.to_local(a), d.to_local(z));
     let (dx, dy) = (pz.0 - pa.0, pz.1 - pa.1);
@@ -1332,7 +1420,11 @@ pub fn things_of_building(d: &Door) -> Vec<Thing> {
     let v = d.variant();
     let way = doorway_of(d);
     let mut out = Vec::new();
-    out.push(Thing::solid(id, What::Building, shell_of(d), v.storeys as f32 * 3.0).hollowed(layout::WALL_IN, if d.round { 16 } else { 4 }, Some(way)));
+    out.push(Thing::solid(id, What::Building, shell_of(d), v.storeys as f32 * 3.0).hollowed(layout::WALL_IN, match d.outline() {
+        Some(pts) => pts.len().min(255) as u8,
+        None if d.round => 16,
+        None => 4,
+    }, Some(way)));
     out.push(Thing::solid(Id::Door(t, i), What::Door, Shape::Box(Rect::new(way.at.sub(unit(d.rot).scale(layout::WALL_IN * 0.5)), d.rot, layout::WALL_IN, DOOR)), 2.0).open().inside(id));
     for (what, r) in layout::footprints(d) {
         out.push(match what {
@@ -1372,7 +1464,11 @@ impl World {
                     _ => {
                         if let Some(v) = layout::variant_in(s, i) {
                             let (hx, hy) = (v.half.0 * b.size, v.half.1 * b.size);
-                            let shape = if v.shape == layout::Shape::Round { Shape::Round { c: b.pos, rot: b.rot, rx: hx, ry: hy } } else { Shape::Box(Rect::new(b.pos, b.rot, hx * 2.0, hy * 2.0)) };
+                            let shape = match v.shape {
+                                layout::Shape::Round => Shape::Round { c: b.pos, rot: b.rot, rx: hx, ry: hy },
+                                layout::Shape::Rect => Shape::Box(Rect::new(b.pos, b.rot, hx * 2.0, hy * 2.0)),
+                                layout::Shape::Poly(pts) => Shape::Outline { c: b.pos, rot: b.rot, hx, hy, pts, grow: 0.0 },
+                            };
                             out.push(Thing::solid(id, What::Building, shape, 3.0).open());
                         }
                     }

@@ -826,6 +826,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
                             let at = out(c);
                             b.column(to3(at, on_ground(at)), rx * kk, rx * 0.9 * kk, tall * kk, 8, [0.68, 0.66, 0.6]);
                         }
+                        // (Ruins have no outlines of their own.)
+                        Shape::Outline { .. } => {}
                     }
                 }
             }

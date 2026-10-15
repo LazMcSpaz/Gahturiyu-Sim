@@ -50,6 +50,10 @@ fn with_every_variant() -> (World, Vec<(u16, &'static layout::Variant)>) {
         let (size, seed) = layout::example_of(v);
         let i = w.settlements[0].buildings.len() as u16;
         w.settlements[0].buildings.push(Building { pos: at.add(V2::new(k as f32 * 70.0, 0.0)), kind: v.kind, size, rot: 0.7 + k as f32, seed });
+        // (One placed by hand is named, as a place file names it.)
+        let styles = &mut w.settlements[0].styles;
+        styles.resize(styles.len().max(i as usize + 1), None);
+        styles[i as usize] = Some(v.key);
         made.push((i, v));
     }
     w.settlements[0].reach += 600.0 + made.len() as f32 * 70.0;
@@ -85,7 +89,7 @@ fn every_building_variant_and_everything_in_it_is_listed() {
             let t = w.solid(id).unwrap_or_else(|| panic!("{}: {id:?} is listed", v.key));
             // (An inner wall of a round building stops at the outer wall.)
             match (what, t.shape) {
-                (layout::Thing::Wall(_), Shape::Box(got)) if d.round => {
+                (layout::Thing::Wall(_), Shape::Box(got)) if d.round || d.outline().is_some() => {
                     assert!(got.rot == r.rot && got.hd == r.hd && got.hw <= r.hw + 1e-3 && got.hw > 0.3, "{}: {id:?} is its wall, cut to the outline", v.key);
                     let [u, _] = got.axes();
                     for end in [got.c.sub(u.scale(got.hw)), got.c.add(u.scale(got.hw))] {

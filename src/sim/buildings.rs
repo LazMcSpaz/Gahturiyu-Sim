@@ -94,8 +94,41 @@ impl Door {
         if self.centre.dist(p) >= self.radius {
             return false;
         }
+        if let Some(pts) = self.outline() {
+            return layout::inside_outline(pts, self.half.x, self.half.y, self.frame(p));
+        }
         let (x, y) = self.to_local(p);
         if self.round { x * x + y * y < 1.0 } else { x.abs() < 1.0 && y.abs() < 1.0 }
+    }
+
+    /// The outline's own corners (layout units), for a building that has
+    /// one (`layout::Shape::Poly`); None for a round or square one.
+    pub fn outline(&self) -> Option<&'static [(f32, f32)]> {
+        self.variant().shape.points()
+    }
+
+    /// `p` in metres in the building's own frame: along its facing, and across.
+    pub fn frame(&self, p: V2) -> V2 {
+        let (x, y) = self.to_local(p);
+        V2::new(x * self.half.x, y * self.half.y)
+    }
+
+    /// A spot in the building's own frame (metres) on the map.
+    pub fn from_frame(&self, q: V2) -> V2 {
+        let dir = V2::new(self.rot.cos(), self.rot.sin());
+        let side = V2::new(-dir.y, dir.x);
+        self.centre.add(dir.scale(q.x)).add(side.scale(q.y))
+    }
+
+    /// For a building with an outline of its own: how far `p` is inside it
+    /// (metres; negative outside), the nearest spot on it, and the way in
+    /// from there, on the map.
+    pub fn outline_edge(&self, p: V2) -> Option<(f32, V2, V2)> {
+        let pts = self.outline()?;
+        let (m, q, n) = layout::outline_nearest(pts, self.half.x, self.half.y, self.frame(p));
+        let dir = V2::new(self.rot.cos(), self.rot.sin());
+        let side = V2::new(-dir.y, dir.x);
+        Some((m, self.from_frame(q), dir.scale(n.x).add(side.scale(n.y))))
     }
 
     /// The inner walls on the map, split at their doorways: solid stretches.
@@ -139,12 +172,20 @@ pub fn door_of(s: &Settlement, i: u16) -> Option<Door> {
 pub fn door_with(id: DoorId, b: &Building, v: &'static layout::Variant) -> Door {
     let half = V2::new(v.half.0 * b.size, v.half.1 * b.size);
     let round = v.shape == layout::Shape::Round;
-    let radius = if round { half.x.max(half.y) } else { half.len() } + 0.05;
+    let radius = match v.shape.points() {
+        Some(pts) => layout::outline_reach(pts, half.x, half.y),
+        None if round => half.x.max(half.y),
+        None => half.len(),
+    } + 0.05;
     let dir = V2::new(b.rot.cos(), b.rot.sin());
     let side = V2::new(-dir.y, dir.x);
     // The door's spot across the front, on the wall itself.
     let across = v.door * half.y * 0.8;
-    let front = if round { half.x * (1.0 - (across / half.y).powi(2)).max(0.0).sqrt() } else { half.x };
+    let front = match v.shape.points() {
+        Some(pts) => layout::outline_front(pts, half.x, half.y, across),
+        None if round => half.x * (1.0 - (across / half.y).powi(2)).max(0.0).sqrt(),
+        None => half.x,
+    };
     let face = b.pos.add(dir.scale(front)).add(side.scale(across));
     Door {
         id,

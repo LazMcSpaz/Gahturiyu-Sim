@@ -325,11 +325,27 @@ fn each_people_has_several_distinct_variants() {
             }
         }
     }
-    // Every variant is chosen by some building (its example finds it).
+    // Every variant is chosen by some building (its example finds it),
+    // except those placed by hand (weight 0), which no roll ever gives.
     for v in VARIANTS {
         let (size, seed) = layout::example_of(v);
+        if v.weight == 0 {
+            for s in 0..200 {
+                assert_ne!(layout::variant_for(v.kind, size, s).map(|x| x.key), Some(v.key), "{} is rolled", v.key);
+            }
+            continue;
+        }
         assert_eq!(layout::variant_for(v.kind, size, seed).map(|x| x.key), Some(v.key), "example of {}", v.key);
     }
+}
+
+/// Building `i` of a town built as variant `v` (as a place file names it),
+/// so a variant placed by hand (weight 0) is that variant.
+fn pin_style(s: &mut gahturiyu_sim::sim::settlement::Settlement, i: u16, v: &'static layout::Variant) {
+    if s.styles.len() <= i as usize {
+        s.styles.resize(i as usize + 1, None);
+    }
+    s.styles[i as usize] = Some(v.key);
 }
 
 /// Do segments `a`–`b` and `p`–`q` cross?
@@ -393,10 +409,12 @@ fn every_variant_can_be_walked_into() {
         s.buildings.push(Building { pos: spot, kind: v.kind, size, rot, seed });
         s.reach = s.reach.max(s.pos.dist(spot) + size);
         let i = (s.buildings.len() - 1) as u16;
+        pin_style(s, i, v);
         w.solid_changed();
         let d = door_of(&w.settlements[t], i).expect("a door");
         assert_eq!(d.variant().key, v.key, "door_of gives the variant");
         assert_eq!(d.round, v.shape == Shape::Round);
+        assert_eq!(d.outline(), v.shape.points());
         assert!(d.contains(d.inside), "{}: inside the door is inside", v.key);
         assert!(!d.contains(d.outside), "{}: outside the door is outside", v.key);
         assert!(d.contains(d.centre));
@@ -699,6 +717,10 @@ fn overlap(a: Foot, b: Foot) -> bool {
 
 /// The sizes a variant's buildings really come in (the ends of the range).
 fn real_sizes(v: &layout::Variant) -> [f32; 2] {
+    if v.weight == 0 {
+        // Placed by hand, at the sizes it's made for.
+        return [v.sizes.0, v.sizes.1];
+    }
     match v.kind {
         BuildingKind::RoduroHome => [v.sizes.0.max(7.0), v.sizes.1.min(12.5)],
         BuildingKind::QotiroBlock => [v.sizes.0.max(14.0), v.sizes.1.min(20.0)],
@@ -709,7 +731,11 @@ fn real_sizes(v: &layout::Variant) -> [f32; 2] {
 }
 
 /// A door for a variant at a size, standing at the origin facing +x.
-fn test_door(v: &layout::Variant, size: f32) -> Door {
+fn test_door(v: &'static layout::Variant, size: f32) -> Door {
+    if v.shape.points().is_some() {
+        let d = gahturiyu_sim::sim::buildings::door_with((0, 0), &Building { pos: V2::new(0.0, 0.0), kind: v.kind, size, rot: 0.0, seed: 1 }, v);
+        return Door { lock: 0.0, ..d };
+    }
     let half = V2::new(v.half.0 * size, v.half.1 * size);
     let round = v.shape == Shape::Round;
     let across = v.door * half.y * 0.8;
@@ -722,7 +748,7 @@ fn test_door(v: &layout::Variant, size: f32) -> Door {
 /// spot poking into the outer wall or standing in an inner doorway, and
 /// anything overlapping anything else (inner walls included; walls meeting
 /// walls are joints).
-fn floor_faults(v: &layout::Variant, size: f32) -> Vec<String> {
+fn floor_faults(v: &'static layout::Variant, size: f32) -> Vec<String> {
     let d = test_door(v, size);
     let name = |t: layout::Thing| match t {
         layout::Thing::Furniture(k) => format!("{} {k}", v.furniture[k].what.name()),
@@ -846,7 +872,13 @@ fn inside_by(d: &Door, f: Foot, margin: f32) -> bool {
     let (u, w) = (V2::new(f.1.cos(), f.1.sin()), V2::new(-f.1.sin(), f.1.cos()));
     [(-1.0f32, -1.0f32), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].iter().all(|&(a, b)| {
         let p = f.0.add(u.scale(a * f.2)).add(w.scale(b * f.3));
-        if d.round { (p.x / hx).powi(2) + (p.y / hy).powi(2) <= 1.0 + 1e-4 } else { p.x.abs() <= hx + 1e-4 && p.y.abs() <= hy + 1e-4 }
+        if let Some(pts) = d.outline() {
+            layout::outline_nearest(pts, d.half.x, d.half.y, p).0 >= margin - 1e-4
+        } else if d.round {
+            (p.x / hx).powi(2) + (p.y / hy).powi(2) <= 1.0 + 1e-4
+        } else {
+            p.x.abs() <= hx + 1e-4 && p.y.abs() <= hy + 1e-4
+        }
     })
 }
 
@@ -1537,4 +1569,97 @@ fn extra_beds_never_cover_belongings_already_laid() {
     }
     eprintln!("{checked} plans, {extras} extra bedrolls; {} faults", faults.len());
     assert!(faults.is_empty(), "{} faults, first:\n{}", faults.len(), faults.iter().take(30).cloned().collect::<Vec<_>>().join("\n"));
+}
+
+// ---- Buildings with an outline of their own ---------------------------------------
+
+/// The clover tower house's outline, door and inner walls are the ones in its
+/// metre file (`assets/buildings/roduro_round_ancient_01.json`, from the
+/// catalogue model), to the centimetre at the file's own size.
+#[test]
+fn the_clover_tower_house_matches_its_file() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/buildings/roduro_round_ancient_01.json");
+    let j: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).expect("the file")).expect("json");
+    let v = layout::by_key("roduro_round_ancient_01").expect("the variant");
+    let g = &j["game"];
+    let f = |x: &serde_json::Value| x.as_f64().unwrap() as f32;
+    let (cx, cy, size) = (f(&g["centre"][0]), f(&g["centre"][1]), f(&g["size"]));
+    assert_eq!((f(&g["half"][0]), f(&g["half"][1])), v.half);
+    assert!((f(&g["door"]) - v.door).abs() < 1e-4);
+    assert!(size >= v.sizes.0 && size < v.sizes.1 && (layout::example_of(v).0 - size).abs() < 0.01, "its usual size is the file's");
+    let (hx, hy) = (v.half.0 * size, v.half.1 * size);
+    let at = |p: (f32, f32)| V2::new(cx + p.0 * hx, cy + p.1 * hy);
+    // The ground tier's outline, corner for corner (the file's may run either way round).
+    let pts = v.shape.points().expect("an outline of its own");
+    let file: Vec<V2> = j["exterior"]["tiers"][0]["outline"].as_array().unwrap().iter().map(|p| V2::new(f(&p[0]), f(&p[1]))).collect();
+    assert_eq!(pts.len(), file.len());
+    for p in pts {
+        let q = at(*p);
+        assert!(file.iter().any(|r| r.dist(q) < 0.01), "corner {q:?} is in the file");
+    }
+    // Counter-clockwise, and it reaches ±1 at its widest each way.
+    let area: f32 = (0..pts.len()).map(|k| pts[k].0 * pts[(k + 1) % pts.len()].1 - pts[(k + 1) % pts.len()].0 * pts[k].1).sum();
+    assert!(area > 0.0);
+    let reach = |g: fn(&(f32, f32)) -> f32| pts.iter().map(g).fold(0.0f32, |a, b| a.max(b.abs()));
+    assert!((reach(|p| p.0) - 1.0).abs() < 0.002 && (reach(|p| p.1) - 1.0).abs() < 0.002);
+    // The main door is the file's, on the front of the outline.
+    let d = test_door(v, size);
+    let door = j["levels"][0]["outside_doors"][0]["xy"].as_array().unwrap();
+    assert!((d.outside.y - (f(&door[1]) - cy)).abs() < 0.01, "the door is where the file has it, across the front");
+    // Each inner wall runs along the file's (carried out to the outline), its doorway where the file's is.
+    let walls = j["levels"][0]["inner_walls"].as_array().unwrap();
+    let gaps = j["levels"][0]["door_gaps"].as_array().unwrap();
+    assert_eq!(v.walls.len(), walls.len());
+    for (k, wl) in v.walls.iter().enumerate() {
+        let (a, b) = (at(wl.a), at(wl.b));
+        let w = &walls[k];
+        let (p, q) = (V2::new(f(&w[0][0]), f(&w[0][1])), V2::new(f(&w[1][0]), f(&w[1][1])));
+        for e in [p, q] {
+            assert!(layout::on_seg(e, a, b).dist(e) < 0.01, "wall {k}: the file's end {e:?} is on it");
+        }
+        if let Some(g) = wl.gap {
+            let mid = a.lerp(b, g);
+            assert!(gaps.iter().any(|gp| V2::new((f(&gp[0][0]) + f(&gp[1][0])) * 0.5, (f(&gp[0][1]) + f(&gp[1][1])) * 0.5).dist(mid) < 0.02), "wall {k}: its doorway is the file's");
+        }
+    }
+}
+
+/// An outline that curves in is its own shape to a walker: the nook in the
+/// clover's side is outside, its lobes inside, and the outer wall stops a
+/// line in everywhere but the door.
+#[test]
+fn an_outline_of_its_own_curves_in() {
+    let v = layout::by_key("roduro_round_ancient_01").unwrap();
+    let d = test_door(v, layout::example_of(v).0);
+    let pts = v.shape.points().unwrap();
+    // The deepest corner where the outline turns in (between two lobes),
+    // and spots just out from it and just in.
+    let m: Vec<V2> = pts.iter().map(|p| V2::new(p.0 * d.half.x, p.1 * d.half.y)).collect();
+    let n = m.len();
+    let turn = |k: usize| {
+        let (a, b, c) = (m[(k + n - 1) % n], m[k], m[(k + 1) % n]);
+        (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
+    };
+    let k = (0..n).min_by(|&a, &b| turn(a).total_cmp(&turn(b))).unwrap();
+    assert!(turn(k) < 0.0, "the clover curves in somewhere");
+    let (a, c) = (m[(k + n - 1) % n], m[(k + 1) % n]);
+    let mid = a.lerp(c, 0.5);
+    let away = m[k].sub(mid).scale(1.0 / m[k].dist(mid));
+    let world = |q: V2| d.to_world((q.x / d.half.x, q.y / d.half.y));
+    let (out, inn) = (world(m[k].add(away.scale(0.2))), world(m[k].sub(away.scale(0.6))));
+    assert!(!d.contains(out) && d.contains(inn));
+    let shell = gahturiyu_sim::sim::solid::shell_of(&d);
+    assert!(!shell.contains(out) && shell.contains(inn));
+    assert!(shell.margin(inn) > 0.1 && shell.margin(out) < 0.0);
+    assert!(shell.grown(0.5).contains(out));
+    assert!(!shell.grown(-0.7).contains(inn));
+    assert!(shell.contains(shell.pulled_in(out)));
+    // The nook is inside the outline's convex hull (what a walk going round
+    // it keeps clear of) though not inside the building.
+    assert!(shell.outline().contains(out, 0.0));
+    // Its convex hull holds every corner.
+    let hull = shell.outline();
+    for p in pts {
+        assert!(hull.contains(d.to_world(*p), 1e-3));
+    }
 }

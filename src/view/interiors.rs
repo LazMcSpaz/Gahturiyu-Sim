@@ -115,7 +115,11 @@ impl Frame {
 /// Where a variant's door is, in layout units, on its outer wall.
 fn door_spot(v: &Variant) -> (f32, f32) {
     let across = v.door * 0.8;
-    let front = if v.shape == Shape::Round { (1.0 - across * across).max(0.0).sqrt() } else { 1.0 };
+    let front = match v.shape {
+        Shape::Round => (1.0 - across * across).max(0.0).sqrt(),
+        Shape::Poly(pts) => layout::outline_front(pts, 1.0, 1.0, across),
+        Shape::Rect => 1.0,
+    };
     (front, across)
 }
 
@@ -206,6 +210,301 @@ fn wall(b: &mut Builder, a: V2, c: V2, y: f32, t: f32, h: f32, col: Rgb) {
     b.block(to3(a.lerp(c, 0.5), y), len + 0.04, t, h, d.y.atan2(d.x), col);
 }
 
+// ---- A building with an outline of its own ---------------------------------------
+//
+// The sim knows only such a building's ground tier (`layout::Shape::Poly`);
+// what stands on it (more tiers, a dome, a stair inside, a second door) is
+// drawing only, here.
+
+/// How a building with an outline of its own is drawn: its tiers, each its
+/// own outline (layout units) from `z0` to `z1` metres at `at_size` (the
+/// first is the sim's outline), the top one ending in a dome `dome` of its
+/// height; a spiral stair inside (its middle in layout units, its reach in
+/// metres) and more doors drawn shut (a spot inside the room, layout units,
+/// and the way out from it, radians from the facing).
+struct Form {
+    key: &'static str,
+    at_size: f32,
+    tiers: &'static [(&'static [(f32, f32)], f32, f32)],
+    dome: f32,
+    stair: Option<((f32, f32), f32)>,
+    doors: &'static [((f32, f32), f32)],
+    /// Lit windows round each tier.
+    windows: &'static [usize],
+}
+
+/// The clover tower house (`claude/placeholder-shapes.md`; metres in
+/// `assets/buildings/roduro_round_ancient_01.json`).
+const FORMS: &[Form] = &[Form {
+    key: "roduro_round_ancient_01",
+    at_size: 17.86,
+    tiers: &[(layout::CLOVER_OUTLINE, 0.0, 4.15), (CLOVER_TIER_B, 4.15, 6.7), (CLOVER_TIER_C, 6.7, 11.39)],
+    dome: 0.5,
+    stair: Some(((0.0018, 0.027), 1.0)),
+    doors: &[((0.2415, 0.672), 1.1654)],
+    windows: &[4, 4, 3],
+}];
+
+const CLOVER_TIER_B: &[(f32, f32)] = &[
+    (-0.7378, -0.0291), (-0.7417, -0.1422), (-0.7101, -0.2542), (-0.6508, -0.3572), (-0.5546, -0.439), (-0.4519, -0.5106),
+    (-0.3135, -0.5252), (-0.2016, -0.5644), (-0.0922, -0.6517), (0.0435, -0.701), (0.1963, -0.7223), (0.3333, -0.6685),
+    (0.4545, -0.598), (0.556, -0.5095), (0.6166, -0.3975), (0.6653, -0.2923), (0.6824, -0.1814), (0.7075, -0.0795),
+    (0.7444, 0.0269), (0.7444, 0.1377), (0.7536, 0.262), (0.6047, 0.3225), (0.5349, 0.4087), (0.4058, 0.4401),
+    (0.3122, 0.4961), (0.2174, 0.5633), (0.1028, 0.6114), (-0.0263, 0.6741), (-0.1568, 0.6327), (-0.2859, 0.6025),
+    (-0.3939, 0.5364), (-0.5006, 0.4714), (-0.5849, 0.3852), (-0.5889, 0.2632), (-0.6311, 0.1702), (-0.6798, 0.0761),
+];
+const CLOVER_TIER_C: &[(f32, f32)] = &[
+    (-0.5942, -0.0235), (-0.5652, -0.1086), (-0.4822, -0.1736), (-0.4413, -0.2441), (-0.4282, -0.3404), (-0.3834, -0.4356),
+    (-0.2556, -0.4323), (-0.1462, -0.4155), (-0.0632, -0.4658), (0.0303, -0.4457), (0.1331, -0.4804), (0.2424, -0.4826),
+    (0.3004, -0.3919), (0.3504, -0.3191), (0.4058, -0.2598), (0.4664, -0.2038), (0.5362, -0.1422), (0.577, -0.0649),
+    (0.5744, 0.0202), (0.5757, 0.1064), (0.5652, 0.1948), (0.473, 0.2508), (0.4005, 0.3046), (0.3346, 0.3617),
+    (0.2516, 0.3975), (0.1831, 0.4726), (0.0843, 0.4938), (-0.0184, 0.5062), (-0.1344, 0.5431), (-0.2042, 0.4345),
+    (-0.2991, 0.4099), (-0.411, 0.3886), (-0.473, 0.3124), (-0.5059, 0.2262), (-0.5546, 0.1501), (-0.5612, 0.0627),
+];
+
+fn form_of(v: &Variant) -> Option<&'static Form> {
+    FORMS.iter().find(|f| f.key == v.key)
+}
+
+/// How far a soft shoulder rounds a tier's top edge in, and down, metres.
+const SHOULDER: f32 = 0.6;
+
+/// An outline in the building's frame (metres), moved in `m` metres all
+/// round (each corner along the middle of its two edges' ways in).
+fn inset(f: &Frame, pts: &[(f32, f32)], m: f32) -> Vec<V2> {
+    let n = pts.len();
+    let q: Vec<V2> = pts.iter().map(|&(x, y)| V2::new(x * f.hx, y * f.hy)).collect();
+    let inward = |k: usize| {
+        let e = q[(k + 1) % n].sub(q[k]);
+        let l = e.len().max(1e-6);
+        V2::new(-e.y / l, e.x / l)
+    };
+    (0..n)
+        .map(|k| {
+            let (a, b) = (inward((k + n - 1) % n), inward(k));
+            let s = a.add(b);
+            let l2 = (s.x * s.x + s.y * s.y).max(0.3);
+            q[k].add(s.scale(2.0 * m / l2))
+        })
+        .collect()
+}
+
+/// Frame metres on the map.
+fn fm(f: &Frame, q: V2) -> V2 {
+    f.c.add(f.dir().scale(q.x)).add(f.side_v2().scale(q.y))
+}
+
+/// The way out from each corner of a ring (frame metres), as a direction
+/// on the map.
+fn outward(f: &Frame, ring: &[V2]) -> Vec<Vec3> {
+    let n = ring.len();
+    (0..n)
+        .map(|k| {
+            let (a, b, c) = (ring[(k + n - 1) % n], ring[k], ring[(k + 1) % n]);
+            let e = c.sub(a);
+            let o = fm(f, b.add(V2::new(e.y, -e.x))).sub(fm(f, b));
+            vec3(o.x, 0.0, o.y).normalize_or_zero()
+        })
+        .collect()
+}
+
+/// The band of wall between two rings (frame metres) at heights `y0` and
+/// `y1` over the frame's base: upright when the rings match, sloping in
+/// when the upper one is smaller. `up` tips the lighting toward the sky.
+#[allow(clippy::too_many_arguments)]
+fn band(b: &mut Builder, f: &Frame, lo: &[V2], hi: &[V2], y0: f32, y1: f32, up: f32, col: Rgb) {
+    let n = lo.len().min(hi.len());
+    let (no, nh) = (outward(f, lo), outward(f, hi));
+    let c = palette::lin(col);
+    for k in 0..n {
+        let j = (k + 1) % n;
+        let p = [to3(fm(f, lo[k]), f.y + y0), to3(fm(f, lo[j]), f.y + y0), to3(fm(f, hi[j]), f.y + y1), to3(fm(f, hi[k]), f.y + y1)];
+        let nn = |o: Vec3| (o * (1.0 - up) + Vec3::Y * up).normalize_or_zero();
+        b.quad_lin(p, [nn(no[k]), nn(no[j]), nn(nh[j]), nn(nh[k])], [c; 4]);
+    }
+}
+
+/// Triangles filling an outline that may curve in (ear clipping), as
+/// corner numbers.
+fn ears(pts: &[V2]) -> Vec<[usize; 3]> {
+    let mut left: Vec<usize> = (0..pts.len()).collect();
+    let mut out = Vec::new();
+    let cross = |a: V2, b: V2, c: V2| (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    let mut guard = 0;
+    while left.len() > 3 && guard < 10_000 {
+        guard += 1;
+        let n = left.len();
+        let mut cut = None;
+        for k in 0..n {
+            let (i, j, l) = (left[(k + n - 1) % n], left[k], left[(k + 1) % n]);
+            let (a, b, c) = (pts[i], pts[j], pts[l]);
+            if cross(a, b, c) <= 1e-6 {
+                continue;
+            }
+            let clear = left.iter().all(|&m| m == i || m == j || m == l || {
+                let p = pts[m];
+                !(cross(a, b, p) >= 0.0 && cross(b, c, p) >= 0.0 && cross(c, a, p) >= 0.0)
+            });
+            if clear {
+                cut = Some(k);
+                break;
+            }
+        }
+        // (A sliver the clipping can't settle: cut the first corner.)
+        let k = cut.unwrap_or(0);
+        out.push([left[(k + n - 1) % n], left[k], left[(k + 1) % n]]);
+        left.remove(k);
+    }
+    if left.len() == 3 {
+        out.push([left[0], left[1], left[2]]);
+    }
+    out
+}
+
+/// A flat cap over a ring (frame metres) at height `y`, facing up.
+fn cap(b: &mut Builder, f: &Frame, ring: &[V2], y: f32, col: Rgb) {
+    for [i, j, k] in ears(ring) {
+        let (p, q, r) = (to3(fm(f, ring[i]), f.y + y), to3(fm(f, ring[j]), f.y + y), to3(fm(f, ring[k]), f.y + y));
+        b.quad([p, q, r, r], Vec3::Y, col);
+    }
+}
+
+/// The middle of a ring (the mean of its corners).
+fn middle(ring: &[V2]) -> V2 {
+    ring.iter().fold(V2::new(0.0, 0.0), |a, p| a.add(*p)).scale(1.0 / ring.len().max(1) as f32)
+}
+
+/// Spots `n` evenly round a ring by length (frame metres), each with the way
+/// out there (radians on the map), starting `from` of the way round.
+fn round_ring(f: &Frame, ring: &[V2], n: usize, from: f32) -> Vec<(V2, f32)> {
+    let len: Vec<f32> = (0..ring.len()).map(|k| ring[k].dist(ring[(k + 1) % ring.len()])).collect();
+    let total: f32 = len.iter().sum();
+    (0..n)
+        .map(|i| {
+            let mut s = ((i as f32 + from) / n as f32).fract() * total;
+            let mut k = 0;
+            while s > len[k] && k + 1 < len.len() {
+                s -= len[k];
+                k += 1;
+            }
+            let (a, b) = (ring[k], ring[(k + 1) % ring.len()]);
+            let p = a.lerp(b, s / len[k].max(1e-6));
+            let e = b.sub(a);
+            let o = fm(f, p.add(V2::new(e.y, -e.x))).sub(fm(f, p));
+            (p, o.y.atan2(o.x))
+        })
+        .collect()
+}
+
+/// A Roduro building with an outline of its own, from outside: each tier
+/// its outline grown up from the ground (or the tier under it) with a soft
+/// shoulder at the top, a flat terrace on it, the top tier domed; ancient
+/// stone (darker, in growth-ring bands) with moss on every top; its doors
+/// dark in the wall and lit windows round each tier.
+#[allow(clippy::too_many_arguments)]
+fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &Frame, size: f32, seed: u64, sink: f32, unit: &dyn Fn(u64) -> f32) {
+    let k = size / form.at_size;
+    let stone = palette::scale(palette::STONE, 0.74 + unit(9) * 0.08);
+    let ring_dark = palette::scale(stone, 0.88);
+    let moss = [0.27, 0.31, 0.22];
+    let last = form.tiers.len() - 1;
+    let mut doors: Vec<V2> = Vec::new();
+    for (i, &(pts, z0, z1)) in form.tiers.iter().enumerate() {
+        let (z0, z1) = (if i == 0 { 0.0 } else { z0 * k + sink - SHOULDER * 0.5 }, z1 * k + sink);
+        let outer = inset(f, pts, 0.0);
+        let top_wall = if i == last { z0 + (z1 - z0) * (1.0 - form.dome) } else { z1 - SHOULDER };
+        // The wall, in growth-ring bands about a metre apart.
+        let rings = (((top_wall - z0) / 0.9).round() as usize).max(1);
+        for r in 0..rings {
+            let (y0, y1) = (z0 + (top_wall - z0) * r as f32 / rings as f32, z0 + (top_wall - z0) * (r + 1) as f32 / rings as f32);
+            band(b, f, &outer, &outer, y0, y1, 0.0, if r % 2 == 1 { ring_dark } else { stone });
+        }
+        if i == 0 {
+            // Moss creeping up from the ground.
+            let skirt = inset(f, pts, -0.04);
+            band(b, f, &skirt, &skirt, -0.1, sink + 0.45, 0.0, moss);
+        }
+        if i < last {
+            // The shoulder rounding over, and the terrace on top.
+            let mid = inset(f, pts, SHOULDER * 0.3);
+            let ins = inset(f, pts, SHOULDER);
+            band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, stone);
+            band(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
+            cap(b, f, &ins, z1, palette::scale(moss, 0.9));
+        } else {
+            // The dome: the outline drawn in toward its middle as it rises.
+            let base = inset(f, pts, 0.0);
+            let c = middle(&base);
+            let steps = 6;
+            let dh = z1 - top_wall;
+            let mut prev = base.clone();
+            for s in 1..=steps {
+                let lat = s as f32 / steps as f32 * std::f32::consts::FRAC_PI_2;
+                let ring: Vec<V2> = base.iter().map(|p| c.add(p.sub(c).scale(lat.cos().max(0.02)))).collect();
+                let (ya, yb) = (top_wall + dh * ((s - 1) as f32 / steps as f32 * std::f32::consts::FRAC_PI_2).sin(), top_wall + dh * lat.sin());
+                band(b, f, &prev, &ring, ya, yb, lat.sin() * 0.8, if s >= steps - 1 { moss } else if s % 2 == 0 { ring_dark } else { stone });
+                prev = ring;
+            }
+            cap(b, f, &prev, z1, moss);
+            // A little stone bud at the crown.
+            let crown = fm(f, c);
+            b.dome(to3(crown, f.y + z1 - 0.1), 0.6, 0.5, 0.6, 0.25, 0.0, seed ^ 5, palette::scale(stone, 1.1));
+        }
+        // Lit windows round the tier, clear of the doors.
+        let n = form.windows.get(i).copied().unwrap_or(0);
+        let wy = if i == last { z0 + (top_wall - z0) * 0.55 } else { z0 + (top_wall - z0) * if i == 0 { 0.5 } else { 0.55 } };
+        let (dx, dy) = door_spot(v);
+        let main = V2::new(dx * f.hx, dy * f.hy);
+        for (p, out) in round_ring(f, &outer, n, 0.13 + i as f32 * 0.21) {
+            if i == 0 && (p.dist(main) < 3.0 || doors.iter().any(|d| d.dist(p) < 3.0)) {
+                continue;
+            }
+            let at = to3(fm(f, p), f.y + wy) + vec3(out.cos(), 0.0, out.sin()) * 0.06;
+            gl.patch(at, 0.8, if i == 0 { 1.1 } else { 0.9 }, out, palette::WINDOW);
+        }
+        if i == 0 {
+            // The other doors, drawn shut, where a line out from inside meets the wall.
+            for &((x, y), turn) in form.doors {
+                let from = V2::new(x * f.hx, y * f.hy);
+                let dir = V2::new(turn.cos(), turn.sin());
+                let mut t = 0.0;
+                while t < 20.0 && layout::inside_outline(pts, f.hx, f.hy, from.add(dir.scale(t))) {
+                    t += 0.05;
+                }
+                let at = from.add(dir.scale(t));
+                doors.push(at);
+                let o = fm(f, at.add(dir)).sub(fm(f, at));
+                let face = o.y.atan2(o.x);
+                b.patch(to3(fm(f, at), f.y + sink + 1.2) + vec3(face.cos(), 0.0, face.sin()) * 0.06, 1.3, 2.4, face, DOOR_DARK);
+                b.block(to3(fm(f, at.add(dir.scale(0.4))), f.y), 1.7, 0.9, sink + 0.15, face, palette::scale(stone, 1.15));
+            }
+        }
+    }
+    // The way in: dark in the wall, a step before it.
+    let (dx, dy) = door_spot(v);
+    let at = V2::new(dx * f.hx, dy * f.hy);
+    let (_, _, inward) = layout::outline_nearest(form.tiers[0].0, f.hx, f.hy, at.sub(V2::new(0.05, 0.0)));
+    let o = fm(f, at.sub(inward)).sub(fm(f, at));
+    let face = o.y.atan2(o.x);
+    b.patch(to3(fm(f, at), f.y + sink + 1.22) + vec3(face.cos(), 0.0, face.sin()) * 0.06, 1.3, 2.45, face, DOOR_DARK);
+    b.block(f.at(dx, dy, 0.0) + f.fwd() * 0.45, 1.6, 1.0, sink + 0.15, f.rot, palette::scale(stone, 1.15));
+}
+
+/// A spiral stair inside, cut off where the walls are cut away: a stone
+/// post and wedge steps winding up round it.
+fn stair(b: &mut Builder, f: &Frame, form: &Form) {
+    let Some(((x, y), r)) = form.stair else { return };
+    let c = f.p(x, y);
+    let rise = 0.19;
+    let steps = 12;
+    b.column(to3(c, f.y), 0.16, 0.16, rise * steps as f32 + 0.3, 8, palette::scale(palette::STONE, 0.8));
+    for k in 0..steps {
+        let a = f.rot + std::f32::consts::PI + k as f32 * 0.42;
+        let at = c.add(V2::new(a.cos(), a.sin()).scale(r * 0.55));
+        b.block(to3(at, f.y), r * 0.9, 0.42, rise * (k + 1) as f32, a, palette::scale(palette::STONE, 0.95 - (k % 2) as f32 * 0.06));
+    }
+}
+
 // ---- Outside -------------------------------------------------------------------
 
 /// Draw building `i` of town `s` from outside as its variant's placeholder
@@ -249,6 +548,9 @@ pub fn variant(b: &mut Builder, gl: &mut Builder, v: &Variant, pos: V2, rot: f32
 
 #[allow(clippy::too_many_arguments)]
 fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, seed: u64, sink: f32, unit: &dyn Fn(u64) -> f32, sign: Option<signs::Picto>) {
+    if let Some(form) = form_of(v) {
+        return roduro_form(b, gl, v, form, f, size, seed, sink, unit);
+    }
     let col = palette::scale(palette::STONE, 0.92 + unit(9) * 0.14);
     let wall_h = 2.3 + sink;
     let dome_h = size * (0.26 + unit(1) * 0.06);
@@ -590,7 +892,12 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_groun
     // The floor: level at the highest ground under the outline, a slab
     // reaching down below the lowest, so no ground shows through on a slope.
     let deep = floor + 0.05 - (low - 0.3);
-    if d.round {
+    if let Some(pts) = d.outline() {
+        let lo = Frame { y: low - 0.3, ..f };
+        let ring = inset(&lo, pts, 0.0);
+        band(b, &lo, &ring, &ring, 0.0, deep, 0.0, floor_col);
+        cap(b, &lo, &ring, deep, floor_col);
+    } else if d.round {
         drum(b, to3(d.centre, low - 0.3), f.hx, f.hy, deep, 1.0, f.rot, 30, floor_col);
     } else {
         b.block(to3(d.centre, low - 0.3), f.hx * 2.0, f.hy * 2.0, deep, f.rot, floor_col);
@@ -599,7 +906,17 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_groun
     let face = d.outside.sub(f.dir().scale(1.2));
     let gap = 0.8;
     let mut ring: Vec<V2> = Vec::new();
-    if d.round {
+    if let Some(pts) = d.outline() {
+        let corners: Vec<V2> = inset(&f, pts, 0.17).into_iter().map(|q| fm(&f, q)).collect();
+        for k in 0..corners.len() {
+            let (a, z) = (corners[k], corners[(k + 1) % corners.len()]);
+            let n = ((a.dist(z) / 0.8) as usize).max(1);
+            for j in 0..n {
+                ring.push(a.lerp(z, j as f32 / n as f32));
+            }
+        }
+        ring.push(ring[0]);
+    } else if d.round {
         let n = (((f.hx + f.hy) * std::f32::consts::PI / 0.8) as usize).clamp(24, 72);
         let inset = |r: f32| 1.0 - 0.17 / r;
         for k in 0..=n {
@@ -647,6 +964,9 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_groun
     for &(a, z) in &pieces {
         wall(b, a, z, floor - 0.1, 0.2, CUT_INNER + 0.1, inner_col);
     }
+    if let Some(form) = form_of(v) {
+        stair(b, &f, form);
+    }
     for g in d.doorways() {
         for &(a, z) in &pieces {
             for e in [a, z] {
@@ -679,6 +999,15 @@ pub const FLOOR_TOP: f32 = 0.05;
 /// stand on it.
 pub fn floor_height(d: &Door, on_ground: &dyn Fn(V2) -> f32) -> (f32, f32) {
     let mut pts = vec![d.centre];
+    if let Some(outline) = d.outline() {
+        // Its own outline: every other corner, and halfway in to each.
+        for &p in outline.iter().step_by(2) {
+            pts.push(d.to_world(p));
+            pts.push(d.to_world((p.0 * 0.5, p.1 * 0.5)));
+        }
+        let hs: Vec<f32> = pts.into_iter().map(on_ground).collect();
+        return (hs.iter().copied().fold(f32::MIN, f32::max), hs.iter().copied().fold(f32::MAX, f32::min));
+    }
     let n = 16;
     for k in 0..n {
         let a = k as f32 / n as f32 * std::f32::consts::TAU;
