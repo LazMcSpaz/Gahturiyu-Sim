@@ -144,6 +144,69 @@ pub const WORKPLACES: &[(PlaceKind, &str)] = &[
     (PlaceKind::Workshop, "workshop"),
 ];
 
+/// What a building is used as, by the sign hung on it (Laz, 14 Oct):
+/// a trade or a service. A building whose people have a variant for it
+/// becomes that variant (`variants`, one per people at most); otherwise the
+/// service (`place`, a workplace key) is kept in the building.
+#[derive(Serialize, Clone, Copy, Debug)]
+pub struct Sign {
+    pub key: &'static str,
+    pub name: &'static str,
+    pub variants: &'static [&'static str],
+    pub place: &'static str,
+}
+
+pub const SIGNS: &[Sign] = &[
+    Sign { key: "smith", name: "Smith", variants: &["roduro_forge", "qotiro_workyard"], place: "smithy" },
+    Sign { key: "weaver", name: "Weaver and tailor", variants: &["roduro_loomroom", "qotiro_weavehall"], place: "weavers_shed" },
+    Sign { key: "bench", name: "Bench work (tanner, carpenter, mason, boatwright)", variants: &["roduro_benchroom", "qotiro_benchyard"], place: "bench" },
+    Sign { key: "trader", name: "Trader", variants: &["roduro_trader", "qotiro_market"], place: "shop" },
+    Sign { key: "tender", name: "Stone-tender", variants: &["roduro_tender"], place: "tenders_yard" },
+    Sign { key: "food_shop", name: "Food shop", variants: &[], place: "shop_food" },
+    Sign { key: "goods_shop", name: "Goods shop", variants: &[], place: "shop" },
+    Sign { key: "materials_shop", name: "Materials shop", variants: &[], place: "shop_materials" },
+    Sign { key: "inn", name: "Inn", variants: &[], place: "inn" },
+    Sign { key: "healer", name: "Healer", variants: &[], place: "healers_house" },
+    Sign { key: "healing_house", name: "Healing house", variants: &[], place: "healing_house" },
+    Sign { key: "teacher", name: "Teacher", variants: &[], place: "teaching_house" },
+    Sign { key: "exchange", name: "Exchange", variants: &[], place: "exchange_house" },
+    Sign { key: "letters", name: "Letters house", variants: &[], place: "letters_house" },
+    Sign { key: "alchemist", name: "Alchemist", variants: &[], place: "alchemy_table" },
+    Sign { key: "scribe", name: "Scribe's desk", variants: &[], place: "desk" },
+    Sign { key: "workshop", name: "Workshop", variants: &[], place: "workshop" },
+    Sign { key: "shrine", name: "Shrine", variants: &[], place: "shrine" },
+    Sign { key: "guard", name: "Guard post", variants: &[], place: "guard_post" },
+    Sign { key: "hall", name: "Hall", variants: &[], place: "hall" },
+    Sign { key: "kitchen", name: "Kitchen", variants: &[], place: "kitchen" },
+    Sign { key: "mess", name: "Mess hall", variants: &[], place: "mess_hall" },
+];
+
+pub fn sign_of(key: &str) -> Option<&'static Sign> {
+    SIGNS.iter().find(|u| u.key == key)
+}
+
+/// A building variant's people, as the catalogue files it.
+pub fn people_of(kind: BuildingKind) -> &'static str {
+    match kind {
+        BuildingKind::RoduroHome => "roduro",
+        BuildingKind::HoraroStilt => "horaro",
+        _ => "qotiro",
+    }
+}
+
+/// The building a sign makes of a building variant: that people's variant
+/// for the use, if there is one.
+pub fn variant_for_sign(building: &str, sign: &str) -> Option<&'static str> {
+    let people = |k: &str| super::layout::by_key(k).map(|v| people_of(v.kind));
+    let mine = people(building)?;
+    sign_of(sign)?.variants.iter().copied().find(|v| people(v) == Some(mine))
+}
+
+/// The signs as JSON, for the site (`signs.json`).
+pub fn signs_json() -> String {
+    serde_json::to_string_pretty(SIGNS).expect("the signs write")
+}
+
 /// A workplace's key, by kind.
 pub fn workplace_key(k: PlaceKind) -> Option<&'static str> {
     WORKPLACES.iter().find(|w| w.0 == k).map(|w| w.1)
@@ -270,11 +333,7 @@ fn build() -> Vec<Entry> {
     for v in VARIANTS {
         let (size, _) = layout::example_of(v);
         let mut e = entry(v.key, v.name, "building", &format!("{:?}", v.kind));
-        e.people = Some(match v.kind {
-            BuildingKind::RoduroHome => "roduro",
-            BuildingKind::HoraroStilt => "horaro",
-            _ => "qotiro",
-        });
+        e.people = Some(people_of(v.kind));
         e.shape = if v.shape == Shape::Round { "round" } else { "rect" };
         e.depth = cm(2.0 * v.half.0 * size);
         e.width = cm(2.0 * v.half.1 * size);

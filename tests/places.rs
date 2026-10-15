@@ -134,3 +134,23 @@ fn a_built_place_saves_and_loads() {
     assert_eq!(back.plan_of(t as u16), w.plan_of(t as u16));
     assert_eq!(back.terrain.height(w.settlements[t].pos), w.terrain.height(w.settlements[t].pos));
 }
+
+#[test]
+fn a_sign_makes_a_building_its_peoples_trade_building() {
+    use gahturiyu_sim::sim::{catalogue, placefile::PlaceFile};
+    // A Roduro cottage signed as a smith is the Roduro forge, on the
+    // cottage's own footprint; a Horaro dome signed as a smith has no Horaro
+    // smithy, so it stands as built, and the sign is kept for later.
+    assert_eq!(catalogue::variant_for_sign("roduro_cottage", "smith"), Some("roduro_forge"));
+    assert_eq!(catalogue::variant_for_sign("qotiro_court", "weaver"), Some("qotiro_weavehall"));
+    assert_eq!(catalogue::variant_for_sign("horaro_dome", "smith"), None);
+    assert!(catalogue::SIGNS.iter().all(|s| catalogue::workplace_of(s.place).is_some()), "every sign's service is a workplace");
+    let text = r#"{"format":1,"key":"signs","cell":2,"size":[10,10],"origin":[5,5],
+        "things":[{"k":"roduro_cottage","x":0,"y":0,"rot":0,"s":1,"use":"smith"},{"k":"horaro_dome","x":20,"y":0,"use":"smith"}]}"#;
+    let plan = PlaceFile::from_json(text).expect("reads").to_plan();
+    assert_eq!(plan.buildings[0].variant.as_deref(), Some("roduro_forge"));
+    let (cottage, _) = gahturiyu_sim::sim::layout::example_of(gahturiyu_sim::sim::layout::by_key("roduro_cottage").unwrap());
+    assert!((plan.buildings[0].size - cottage).abs() < 0.01, "the cottage's footprint");
+    assert_eq!(plan.buildings[1].variant.as_deref(), Some("horaro_dome"));
+    assert!(plan.later.iter().any(|l| l.contains("signed as Smith")));
+}

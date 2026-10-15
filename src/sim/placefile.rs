@@ -212,7 +212,15 @@ impl PlaceFile {
                 "building" => {
                     let v = super::layout::by_key(&t.k).expect("a catalogue building is a variant");
                     let (usual, _) = super::layout::example_of(v);
-                    plan.buildings.push(PlanBuilding { label: t.label.clone(), kind: v.kind, variant: Some(t.k.clone()), at: (t.x, t.y), facing: t.rot, size: usual * t.s, room_for: t.room.unwrap_or(e.beds), wants: t.note.clone() });
+                    // Its sign: its people's building for that trade, on the
+                    // same footprint (`catalogue::SIGNS`).
+                    let signed = if t.use_.is_empty() { None } else { catalogue::variant_for_sign(&t.k, &t.use_) };
+                    if !t.use_.is_empty() && signed.is_none() {
+                        let name = catalogue::sign_of(&t.use_).map(|s| s.name).unwrap_or(t.use_.as_str());
+                        plan.later.push(format!("{}: signed as {name}; a service kept in a building comes next (it stands as built for now)", place(t)));
+                    }
+                    let v = signed.and_then(super::layout::by_key).unwrap_or(v);
+                    plan.buildings.push(PlanBuilding { label: t.label.clone(), kind: v.kind, variant: Some(v.key.to_string()), at: (t.x, t.y), facing: t.rot, size: usual * t.s, room_for: t.room.unwrap_or(e.beds), wants: t.note.clone() });
                 }
                 "workplace" => {
                     let kind = workplace_of(&t.k).expect("a catalogue workplace is a place kind");

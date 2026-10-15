@@ -295,7 +295,9 @@ fn draw_thing(b: &mut Builder, gl: &mut Builder, t: &Thing, at: V2, on_ground: &
         "building" => {
             if let Some(v) = layout::by_key(&t.k) {
                 let (usual, _) = layout::example_of(v);
-                super::interiors::variant(b, gl, v, at, rot, usual * t.s, seed, ground, 0.0);
+                // (As its sign makes it, on its own footprint.)
+                let shown = catalogue::variant_for_sign(&t.k, &t.use_).and_then(layout::by_key).unwrap_or(v);
+                super::interiors::variant(b, gl, shown, at, rot, usual * t.s, seed, ground, 0.0);
             }
         }
         "pen" => {
@@ -447,7 +449,8 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>, r: Bx, mut y: f3
         y += 22.0;
     }
     y += 8.0;
-    // What's in hand, or picked.
+    // What's in hand, or picked (a sign chosen is put on once the panel's drawn).
+    let mut signed: Option<(String, usize, String)> = None;
     if let Some(e) = b.armed.as_deref().and_then(entry) {
         c.text(&format!("Putting down: {}", e.name), x, y, 14.0, GOLD);
         y += 18.0;
@@ -464,12 +467,43 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>, r: Bx, mut y: f3
             y += 18.0;
             c.text("Drag to move · Q/E turn · [ ] size · Delete", x, y, 12.0, DIM);
             y += 18.0;
+            // A building's sign: what it's used as.
+            if e.is_some_and(|e| e.group == "building") {
+                let now = t.use_.clone();
+                c.text("Sign:", x, y + 4.0, 13.0, TEXT);
+                y += 22.0;
+                let cw = (w - 6.0) / 2.0;
+                let mut choice: Option<String> = None;
+                let all: Vec<(&str, String)> = std::iter::once(("", "Home (no sign)".to_string())).chain(catalogue::SIGNS.iter().map(|s| (s.key, s.name.split(" (").next().unwrap_or(s.name).to_string()))).collect();
+                for (k, (key, name)) in all.iter().enumerate() {
+                    let (bx, by) = (x + (k % 2) as f32 * (cw + 6.0), y + (k / 2) as f32 * 20.0);
+                    let swaps = !key.is_empty() && catalogue::variant_for_sign(&t.k, key).is_some();
+                    let label = if swaps { format!("{name} *") } else { name.clone() };
+                    if button(c, bx, by, cw, &label, now == *key, click) {
+                        choice = Some(key.to_string());
+                    }
+                }
+                y += ((all.len() + 1) / 2) as f32 * 20.0 + 2.0;
+                c.text("* this people has its own building for it", x, y, 11.0, DIM);
+                y += 16.0;
+                if let Some(k) = choice {
+                    signed = Some((key.clone(), i, k));
+                }
+            }
         }
     } else {
         c.text("Pick a thing, then click inside a place's box.", x, y, 12.0, DIM);
         y += 18.0;
         c.text("Click a placed thing to move or turn it.", x, y, 12.0, DIM);
         y += 18.0;
+    }
+    if let Some((key, i, k)) = signed {
+        if let Some(o) = b.places.get_mut(&key) {
+            if let Some(t) = o.file.things.get_mut(i) {
+                t.use_ = k;
+                o.unsaved = true;
+            }
+        }
     }
     // The place under the mouse.
     if let Some(key) = b.under.clone() {
@@ -514,13 +548,16 @@ pub fn demo(game: &mut Game) -> V2 {
     if let Some(key) = open_at(b, c) {
         let o = b.places.get_mut(&key).expect("opened");
         o.file.things.clear();
-        for (k, x, y, rot) in [("roduro_cottage", -16.0, 10.0, 30.0), ("roduro_forge", 14.0, -12.0, 200.0), ("market", 2.0, 24.0, 0.0)] {
-            o.file.things.push(Thing { id: format!("demo_{k}"), k: k.into(), x, y, rot, s: 1.0, label: String::new(), room: None, note: String::new(), use_: String::new() });
+        for (k, x, y, rot, sign) in [("roduro_cottage", -16.0, 10.0, 30.0, ""), ("roduro_longhouse", 14.0, -12.0, 200.0, "smith"), ("market", 2.0, 24.0, 0.0, "")] {
+            o.file.things.push(Thing { id: format!("demo_{k}"), k: k.into(), x, y, rot, s: 1.0, label: String::new(), room: None, note: String::new(), use_: sign.into() });
         }
         o.unsaved = true;
         b.picked = Some((key, 1));
     }
-    b.armed = Some("roduro_loomroom".into());
-    b.rot = 120.0;
+    // (`GAHT_EDITBUILD=sign`: the forge picked, its sign showing, nothing in hand.)
+    if std::env::var("GAHT_EDITBUILD").as_deref() != Ok("sign") {
+        b.armed = Some("roduro_loomroom".into());
+        b.rot = 120.0;
+    }
     c
 }

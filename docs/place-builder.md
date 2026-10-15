@@ -305,3 +305,34 @@ box). The page (`drawRender`) draws them in world metres: the 4 m level from
 the paint is drawn (untouched cells clear) and the ring isn't. It needs a
 graphics card, so it runs on Laz's PC (a window open for about half an hour);
 re-run it when the land changes.
+
+## The editor in the game (built: second, 14 Oct evening)
+
+Laz: the same authoring on the PC, in 3D with the game's placeholder
+buildings; one authored world every new game loads; a building's use set by
+hanging a sign on it.
+
+- **F10, then Build** (`view/build.rs`): a tray of the catalogue (Roduro,
+  Qotiro and Horaro buildings, workplaces, pens, props); what's in hand stands
+  on the ground under the mouse, its outline red outside every place or at
+  sea; click to put it down, click a placed thing to pick it, drag it, Q / E
+  to turn it (Shift finer), [ ] to size it, Delete to take it away,
+  right-click or Escape to let go. A place is a mark's area (its box); a
+  town stands hidden while its place is open, drawn as the place file
+  stands. Ctrl+S or Save places writes `assets/world/places/<key>.json`;
+  Rebuild the world starts the world again from the saved places.
+- **One authored world:** the Land tab's edits save to
+  `assets/world/land.gmap` (`MapEdits::world_path`), loaded under every new
+  game whatever its seed, and under the site's export and the render.
+- **Signs** (`catalogue::SIGNS`, written for the site as
+  `tools/map/signs.json`): a building thing's `use` is a sign key (smith,
+  weaver, bench, trader, tender, food_shop, goods_shop, materials_shop, inn,
+  healer, healing_house, teacher, exchange, letters, alchemist, scribe,
+  workshop, shrine, guard, hall, kitchen, mess), or absent for a home. Each
+  sign: `{key, name, variants, place}`. Where the building's people (its
+  catalogue `people`) have one of the sign's `variants`, the building becomes
+  that variant on its own footprint (a Roduro cottage signed `smith` is the
+  Roduro forge). Otherwise the sign's `place` (a workplace key) is kept in
+  the building: **not built yet** (it needs a saved link from a workplace to
+  its building, a FORMAT bump); until then the building stands as built and
+  the importer lists the sign in the plan's `later`.

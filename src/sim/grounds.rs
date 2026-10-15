@@ -248,6 +248,7 @@ pub fn write_site(root: &std::path::Path, seed: u64) -> std::io::Result<Vec<Stri
     let site = root.join("tools/map");
     let mut said = Vec::new();
     std::fs::write(site.join("catalogue.json"), super::catalogue::catalogue_json())?;
+    std::fs::write(site.join("signs.json"), super::catalogue::signs_json())?;
     said.push(format!("catalogue.json: {} things", super::catalogue::catalogue().len()));
     let w = world_for(seed);
     let n = write_all(&w, &site.join("grounds"))?;
