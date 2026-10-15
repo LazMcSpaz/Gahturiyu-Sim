@@ -486,8 +486,11 @@ fn affinity(race: Race, s: &Settlement) -> f32 {
 /// in every world, so a town laid out by hand (a plan or a place file) stands
 /// exactly here, and the place builder centres on it (`grounds.rs`).
 pub fn town_spot(m: &atlas::TownMark) -> V2 {
+    // (Dry ground within about 200 m of the mark; none there, the mark itself:
+    // a village Laz put in the high rock stands in the high rock, it doesn't
+    // walk a kilometre downhill. The land under it is his to level.)
     let a = atlas::atlas();
-    a.dry_spot(a.landward(m.pos(), TOWN_ASHORE), 240)
+    a.dry_spot(a.landward(m.pos(), TOWN_ASHORE), 8)
 }
 
 fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain, plans: &Plans) -> Vec<Settlement> {
