@@ -69,6 +69,8 @@ pub const ARROW_LIES: f32 = 20.0;
 #[derive(Resource)]
 pub struct Mats {
     pub lit: Handle<StandardMaterial>,
+    /// Grass (`turf.rs`): lit, with the grass tile on it.
+    pub turf: Handle<StandardMaterial>,
     pub glow: Handle<StandardMaterial>,
     pub flat: Handle<StandardMaterial>,
     /// Flames (`flame.rs`): unlit, adding their light to what's behind.
@@ -178,12 +180,24 @@ pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMateri
     // coordinates ignore it, and anything with them points at its white
     // corner unless it's stone.
     let stone = images.add(super::stone::texture());
-    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: Some(stone), perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
+    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: Some(stone.clone()), perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
+    let grass_img = super::turf::texture();
+    // `GAHT_TEXDUMP=dir` writes the two textures out as PNGs, to look at.
+    if let Ok(dir) = std::env::var("GAHT_TEXDUMP") {
+        for (name, img) in [("grass", &grass_img), ("stone", images.get(&stone).unwrap())] {
+            let (w, h) = (img.texture_descriptor.size.width, img.texture_descriptor.size.height);
+            let data = &img.data.as_ref().unwrap()[..(w * h * 4) as usize];
+            let _ = image::save_buffer(format!("{dir}/{name}.png"), data, w, h, image::ColorType::Rgba8);
+        }
+    }
+    let grass = images.add(grass_img);
+    let lift = 1.0 / super::turf::MEAN;
+    let turf = materials.add(StandardMaterial { base_color: Color::linear_rgb(lift, lift, lift), base_color_texture: Some(grass), perceptual_roughness: 0.95, reflectance: 0.15, cull_mode: None, double_sided: false, ..default() });
     let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
     let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
     let fire = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Add, ..default() });
     let smoke = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Blend, ..default() });
-    commands.insert_resource(Mats { lit, glow, flat, fire, smoke });
+    commands.insert_resource(Mats { lit, turf, glow, flat, fire, smoke });
 }
 
 fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<StandardMaterial>, b: Builder, marker: impl Bundle) -> (Entity, Handle<Mesh>) {
@@ -300,15 +314,20 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         g.append(r);
         scene.ground_triangles = g.triangles();
+        let turf = g.take_turf();
         match &scene.ground {
-            Some((h, _)) => {
+            Some((h, ht)) => {
                 if let Some(mut m) = meshes.get_mut(h) {
                     *m = g.mesh();
+                }
+                if let Some(mut m) = meshes.get_mut(ht) {
+                    *m = turf.mesh();
                 }
             }
             None => {
                 let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, g, GroundMesh);
-                scene.ground = Some((h.clone(), h));
+                let (_, ht) = spawn_mesh(&mut commands, &mut meshes, &mats.turf, turf, GroundMesh);
+                scene.ground = Some((h, ht));
             }
         }
         scene.ground_key = Some(key);
@@ -397,7 +416,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             flames.extend(glow.take_flames());
             let mut smoke = lit.take_smoke();
             smoke.extend(glow.take_smoke());
+            let turf = lit.take_turf();
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.lit, lit, ()).0);
+            ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.turf, turf, ()).0);
             ents.push(spawn_mesh(&mut commands, &mut meshes, &mats.glow, glow, ()).0);
             let doors: Vec<Option<Door>> = (0..s.buildings.len() as u16).map(|i| door_of(s, i)).collect();
             let floors = doors.iter().map(|d| d.map(|d| super::interiors::floor_height(&d, &on_ground).0).unwrap_or(f32::MIN)).collect();
@@ -1556,14 +1577,15 @@ fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, 
     let (x0, y0) = (centre.x - half, centre.y - half);
     // Land where the ground stands above the sea, water where it doesn't:
     // the land itself decides (an authored bay or stack included).
-    let vert = |p: V2| -> (Vec3, Vec3, [f32; 4]) {
+    let vert = |p: V2| -> (Vec3, Vec3, [f32; 4], f32) {
         let h = t.height(p);
         if h >= 0.0 {
             let h = h.max(0.3);
             let (nx, ny, nz) = t.normal(p, step.max(15.0));
-            (to3(p, h), vec3(nx, ny, nz), palette::lin(palette::ground(t, p, h, ny)))
+            let (c, grass) = palette::ground_and_grass(t, p, h, ny);
+            (to3(p, h), vec3(nx, ny, nz), palette::lin(c), grass)
         } else {
-            (to3(p, 0.0), Vec3::Y, palette::lin(palette::sea(p)))
+            (to3(p, 0.0), Vec3::Y, palette::lin(palette::sea(p)), 0.0)
         }
     };
     let skip = |xa: f32, xb: f32, ya: f32, yb: f32| -> bool {
@@ -1581,7 +1603,12 @@ fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, 
             }
             let ps = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
             let vs = ps.map(vert);
-            b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
+            // A cell that's mostly grass takes the grass texture.
+            if vs.iter().map(|v| v.3).sum::<f32>() > 2.0 {
+                b.quad_turf(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
+            } else {
+                b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
+            }
         }
     }
 }

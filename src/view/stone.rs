@@ -10,9 +10,7 @@
 //! The texture: `WIDTH` columns round the building (the first two white),
 //! `HEIGHT` rows for `TEX_H` metres of height, repeating.
 
-use bevy::asset::RenderAssetUsages;
-use bevy::image::{Image, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::image::{Image, ImageAddressMode};
 
 pub const WIDTH: usize = 1024;
 pub const HEIGHT: usize = 2048;
@@ -187,9 +185,14 @@ pub fn texture() -> Image {
             px[at + 3] = 255;
         }
     }
-    // The smaller copies, each a box filter of the last.
+    with_mips(px, WIDTH, HEIGHT, ImageAddressMode::Repeat, ImageAddressMode::Repeat)
+}
+
+/// An image from its full-size pixels, with its smaller copies for
+/// distance (each a box filter of the last).
+pub fn with_mips(px: Vec<u8>, width: usize, height: usize, u: ImageAddressMode, v: ImageAddressMode) -> Image {
     let mut data = px.clone();
-    let (mut w, mut h) = (WIDTH, HEIGHT);
+    let (mut w, mut h) = (width, height);
     let mut last = px;
     let mut levels = 1;
     while w > 1 || h > 1 {
@@ -214,17 +217,5 @@ pub fn texture() -> Image {
         h = nh;
         levels += 1;
     }
-    let mut img = Image::new_uninit(Extent3d { width: WIDTH as u32, height: HEIGHT as u32, depth_or_array_layers: 1 }, TextureDimension::D2, TextureFormat::Rgba8UnormSrgb, RenderAssetUsages::RENDER_WORLD);
-    img.texture_descriptor.mip_level_count = levels;
-    img.data = Some(data);
-    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-        address_mode_u: ImageAddressMode::Repeat,
-        address_mode_v: ImageAddressMode::Repeat,
-        mag_filter: ImageFilterMode::Linear,
-        min_filter: ImageFilterMode::Linear,
-        mipmap_filter: ImageFilterMode::Linear,
-        anisotropy_clamp: 4,
-        ..Default::default()
-    });
-    img
+    super::turf::image(data, width, height, levels, u, v)
 }

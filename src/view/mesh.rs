@@ -18,6 +18,9 @@ pub struct Builder {
     uv: Vec<[f32; 2]>,
     textured: bool,
     idx: Vec<u32>,
+    /// Grass (`turf.rs`): drawn with the turf material, so kept apart
+    /// here and taken out with `take_turf` when the mesh is made.
+    turf: Option<Box<Builder>>,
     /// Flames noted on this builder (`flame.rs` draws them each frame), and
     /// wisps of smoke (chimneys, a smouldering stack).
     flames: Vec<super::flame::Spot>,
@@ -100,6 +103,18 @@ impl Builder {
     pub fn quad_lin(&mut self, p: [Vec3; 4], n: [Vec3; 4], c: [[f32; 4]; 4]) {
         let i: Vec<u32> = (0..4).map(|k| self.v(p[k], n[k], c[k])).collect();
         self.idx.extend_from_slice(&[i[0], i[1], i[2], i[0], i[2], i[3]]);
+    }
+
+    /// A quad of grass: into the turf part (the grass texture, by world
+    /// position), colours linear.
+    pub fn quad_turf(&mut self, p: [Vec3; 4], n: [Vec3; 4], c: [[f32; 4]; 4]) {
+        let uv = p.map(|q| super::turf::uv_at(q.x, q.z));
+        self.turf.get_or_insert_with(Default::default).quad_tex(p, n, c, uv);
+    }
+
+    /// The grass drawn so far, as its own builder (the turf material).
+    pub fn take_turf(&mut self) -> Builder {
+        self.turf.take().map(|b| *b).unwrap_or_default()
     }
 
     /// A quad that samples the stone texture: a facing, a colour (linear)
@@ -261,6 +276,11 @@ impl Builder {
         self.pos.extend(o.pos);
         self.nrm.extend(o.nrm);
         self.col.extend(o.col);
+        self.uv.extend(o.uv);
+        self.textured |= o.textured;
         self.idx.extend(o.idx.into_iter().map(|i| i + base));
+        if let Some(t) = o.turf {
+            self.turf.get_or_insert_with(Default::default).append(*t);
+        }
     }
 }

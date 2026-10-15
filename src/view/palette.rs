@@ -151,36 +151,62 @@ pub fn sea(p: V2) -> Rgb {
 /// Colour of the ground at a point, given its height and how upright its
 /// surface is (`up` = 1 flat, smaller on slopes).
 pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
+    ground_and_grass(t, p, h, up).0
+}
+
+/// The ground's colour, and how much of it is grass (0..1: what the grass
+/// texture, `turf.rs`, should cover).
+pub fn ground_and_grass(t: &Terrain, p: V2, h: f32, up: f32) -> (Rgb, f32) {
     let s = t.seed();
+    let mut grass = 1.0f32;
     let d = geo::inland(p);
     let n1 = terrain::noise(s ^ 0xC0, p.x, p.y, 260.0);
     let n2 = terrain::noise(s ^ 0xC1, p.x, p.y, 40.0);
 
     // Lowland grass, drier and patchier uphill.
     let mut c = mix(GRASS, GRASS_DRY, n1 * 0.9 + n2 * 0.25 - 0.1);
-    c = mix(c, HEATH, smooth(140.0, 320.0, h) * 0.8);
+    let heath = smooth(140.0, 320.0, h) * 0.8;
+    c = mix(c, HEATH, heath);
+    grass *= 1.0 - heath * 0.5;
     // The Qotiro plateau is arid scrub; its escarpments are bare sandstone.
     let arid = t.plateau(p);
     c = mix(c, mix(SCRUB, GRASS_DRY, n2 * 0.4), arid * 0.9);
+    grass *= 1.0 - arid * 0.6;
     // Bare rock where it's steep or high.
     let steep = smooth(0.86, 0.66, up) * (0.75 + n1 * 0.5);
     let rock = if arid > 0.4 { SANDROCK } else { ROCK };
-    c = mix(c, rock, steep.max(smooth(380.0, 520.0, h) * 0.85));
+    let bare = steep.max(smooth(380.0, 520.0, h) * 0.85);
+    c = mix(c, rock, bare);
+    grass *= 1.0 - bare;
     // Snow on the high flats, above the snow line (which the weather moves).
     let line = snow_line();
-    c = mix(c, SNOW, smooth(line - 60.0, line + 60.0, h) * smooth(0.78, 0.90, up) * 0.85);
+    let snow = smooth(line - 60.0, line + 60.0, h) * smooth(0.78, 0.90, up) * 0.85;
+    c = mix(c, SNOW, snow);
+    grass *= 1.0 - snow;
     // Shingle along the waterline: by height where the land was authored
     // (its shore is wherever it meets the sea), by distance from the world's
     // coastline elsewhere (that shore is nearly flat).
     let shore = if t.authored.height.at(p).abs() > 0.01 { h / 3.0 } else { d / 35.0 };
     c = mix(SHINGLE, c, shore);
+    grass *= shore.clamp(0.0, 1.0);
     // Ground painted: authored first, then by hand on top.
     for layer in [&t.authored, &t.edits] {
         if let Some((k, w)) = layer.paint_at(p) {
             c = mix(c, texture(k), w);
+            grass = grass * (1.0 - w) + grassy(k) * w;
         }
     }
-    scale(c, 0.9 + n2 * 0.18)
+    (scale(c, 0.9 + n2 * 0.18), grass.clamp(0.0, 1.0))
+}
+
+/// How much of a paintable ground is grass (`mapedit::TEXTURES`, in order).
+fn grassy(k: u8) -> f32 {
+    match k {
+        0 | 1 => 1.0,
+        2 => 0.6,
+        3 => 0.3,
+        _ => 0.0,
+    }
 }
 
 /// The colour of each paintable ground (`mapedit::TEXTURES`, in order).

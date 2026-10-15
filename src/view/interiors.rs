@@ -886,6 +886,29 @@ fn band_tex(b: &mut Builder, f: &Frame, lo: &[V2], hi: &[V2], y0: f32, y1: f32, 
     }
 }
 
+/// A `band` of grass (the turf material, the grass tile by place).
+#[allow(clippy::too_many_arguments)]
+fn band_turf(b: &mut Builder, f: &Frame, lo: &[V2], hi: &[V2], y0: f32, y1: f32, up: f32, col: Rgb) {
+    let n = lo.len().min(hi.len());
+    let (no, nh) = (outward(f, lo), outward(f, hi));
+    let c = palette::lin(col);
+    for k in 0..n {
+        let j = (k + 1) % n;
+        let p = [to3(fm(f, lo[k]), f.y + y0), to3(fm(f, lo[j]), f.y + y0), to3(fm(f, hi[j]), f.y + y1), to3(fm(f, hi[k]), f.y + y1)];
+        let nn = |o: Vec3| (o * (1.0 - up) + Vec3::Y * up).normalize_or_zero();
+        b.quad_turf(p, [nn(no[k]), nn(no[j]), nn(nh[j]), nn(nh[k])], [c; 4]);
+    }
+}
+
+/// A flat `cap` of grass.
+fn cap_turf(b: &mut Builder, f: &Frame, ring: &[V2], y: f32, col: Rgb) {
+    let c = palette::lin(col);
+    for [i, j, k] in ears(ring) {
+        let (p, q, r) = (to3(fm(f, ring[i]), f.y + y), to3(fm(f, ring[j]), f.y + y), to3(fm(f, ring[k]), f.y + y));
+        b.quad_turf([p, q, r, r], [Vec3::Y; 4], [c; 4]);
+    }
+}
+
 /// Where in the strata a building starts (metres), by its seed.
 fn strata_off(seed: u64) -> f32 {
     ((seed >> 20) % 1000) as f32 / 1000.0 * stone::TEX_H
@@ -1080,14 +1103,15 @@ fn grown_roof(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], top_wall: f32, z1:
         let col = if s > grass_from { palette::scale(GRASS, 0.9 + s as f32 * 0.02) } else { palette::scale(stone, [0.9, 0.97, 0.86][s % 3]) };
         // The riser of each ring, then the flat step out to the next (a ledge).
         if s > grass_from {
-            band(b, f, &prev, &prev, ya, yb - 0.04, 0.0, palette::scale(col, 0.85));
+            band_turf(b, f, &prev, &prev, ya, yb - 0.04, 0.0, palette::scale(col, 0.85));
+            band_turf(b, f, &prev, &ring, yb - 0.04, yb, 0.9, col);
         } else {
             band_tex(b, f, &prev, &prev, ya, yb - 0.04, 0.0, palette::scale(col, 0.95), strata_off(seed));
+            band(b, f, &prev, &ring, yb - 0.04, yb, 0.9, col);
         }
-        band(b, f, &prev, &ring, yb - 0.04, yb, 0.9, col);
         prev = ring;
     }
-    cap(b, f, &prev, z1, GRASS);
+    cap_turf(b, f, &prev, z1, GRASS);
     // The ridge of stone spiralling in over the grass to the crown.
     if roof == Roof::Dome {
         let turns = 2.5;
@@ -1149,8 +1173,8 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             let mid = inset(f, pts, SHOULDER * 0.3);
             let ins = inset(f, pts, SHOULDER);
             band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, palette::scale(stone, 0.9));
-            band(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
-            cap(b, f, &ins, z1, GRASS);
+            band_turf(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
+            cap_turf(b, f, &ins, z1, GRASS);
             // Grass along the terrace's edge.
             for (j, &(p, _)) in round_ring(f, &inset(f, pts, SHOULDER + 0.35), 10, 0.2).iter().enumerate() {
                 tuft(b, to3(fm(f, p), f.y + z1 - 0.02), 0.22, seed.wrapping_add(j as u64 * 0x1F3));
@@ -1163,8 +1187,8 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             let ins = inset(f, pts, 1.1);
             let rise = (z1 - top_wall).min(1.2);
             band(b, f, &base, &mid, top_wall, top_wall + rise * 0.6, 0.45, palette::scale(stone, 0.9));
-            band(b, f, &mid, &ins, top_wall + rise * 0.6, top_wall + rise, 0.85, moss);
-            cap(b, f, &ins, top_wall + rise, GRASS);
+            band_turf(b, f, &mid, &ins, top_wall + rise * 0.6, top_wall + rise, 0.85, moss);
+            cap_turf(b, f, &ins, top_wall + rise, GRASS);
             for (j, &(p, _)) in round_ring(f, &inset(f, pts, 1.6), 14, 0.2).iter().enumerate() {
                 tuft(b, to3(fm(f, p), f.y + top_wall + rise - 0.02), 0.22, seed.wrapping_add(j as u64 * 0x1F3));
             }
