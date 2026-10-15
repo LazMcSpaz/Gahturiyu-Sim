@@ -217,7 +217,8 @@ fn every_kind_of_country_is_on_the_map() {
     assert_eq!(weather::region_at(&terrain, V2::new(300.0, 16_000.0)), Region::OpenSea);
     let b = &weather::climate().borders;
     let inland = b.coast_reach + 2.0 * b.blend;
-    let snow = (0..20_000u64).map(|k| atlas.land_spot(k * 7919 + 1)).find(|&p| atlas.class_at(p) == gahturiyu_sim::sim::atlas::Class::Snow && gahturiyu_sim::sim::geo::inland(p) > inland).expect("snow inland on the map");
+    // (Snow in mountain country: a snowfield on a high plateau is upland.)
+    let snow = (0..20_000u64).map(|k| atlas.land_spot(k * 7919 + 1)).find(|&p| atlas.class_at(p) == gahturiyu_sim::sim::atlas::Class::Snow && gahturiyu_sim::sim::geo::inland(p) > inland && terrain.mountains(p) > 0.6).expect("snow in the mountains on the map");
     assert_eq!(weather::region_at(&terrain, snow), Region::Mountain);
 }
 

@@ -775,8 +775,20 @@ impl World {
         }
         let town = &self.settlements[t as usize];
         let mut r = Rng::from_keys(&[self.seed, t as u64, 0x504C_4143]);
+        // (Other towns' buildings and workplaces too: Laz's marks can stand a
+        // few hundred metres apart, and a town's fields mustn't lie in its
+        // neighbour's street.)
+        let others: Vec<(V2, f32)> = self
+            .settlements
+            .iter()
+            .filter(|o| o.id != t && o.pos.dist(town.pos) < 6_000.0)
+            .flat_map(|o| o.buildings.iter().map(|b| (b.pos, b.size)).chain(self.society.towns.get(o.id as usize).into_iter().flat_map(|tl| tl.places.iter().map(|w| (w.pos, w.kind.size())))))
+            .collect();
         let clear = |p: V2, size: f32, placed: &[Workplace]| {
-            town.buildings.iter().all(|b| b.pos.dist(p) > (b.size + size) * 0.6 + 3.0) && placed.iter().all(|o| o.pos.dist(p) > (o.kind.size() + size) * 0.55 + 2.5)
+            // (A building's corners reach about 0.71 of its width from its middle.)
+            town.buildings.iter().all(|b| b.pos.dist(p) > b.size * 0.75 + size * 0.6 + 3.0)
+                && placed.iter().all(|o| o.pos.dist(p) > (o.kind.size() + size) * 0.55 + 2.5)
+                && others.iter().all(|(q, sz)| q.dist(p) > (sz + size) * 0.6 + 4.0)
         };
         // In-town places spiral out from the hearth, between the homes; for
         // a drawn town, outside what was drawn.
@@ -818,8 +830,10 @@ impl World {
                 PlaceKind::DivePlatform | PlaceKind::KelpBeds | PlaceKind::Boatyard => {
                     let c = offshore_village.unwrap_or(town.pos);
                     let mut at = c;
+                    // The seaward half: away from the town (the sea isn't always west).
+                    let away = (c.y - town.pos.y).atan2(c.x - town.pos.x);
                     for k in 0..200 {
-                        let a = r.f32() * std::f32::consts::PI + std::f32::consts::FRAC_PI_2; // seaward half
+                        let a = away + (r.f32() - 0.5) * std::f32::consts::PI;
                         let rad = 30.0 + k as f32 * 0.8 + r.range(0.0, 15.0);
                         let cand = c.add(V2::new(a.cos(), a.sin()).scale(rad));
                         let wet = -geo::inland(cand);
@@ -829,11 +843,24 @@ impl World {
                             break;
                         }
                     }
+                    // None that suits in the seaward half: any water all round that's clear.
+                    if at == c {
+                        for k in 0..240 {
+                            let a = k as f32 * 2.399_963;
+                            let cand = c.add(V2::new(a.cos(), a.sin()).scale(20.0 + k as f32 * 1.2));
+                            if geo::inland(cand) < -2.0 && clear(cand, size, &placed) {
+                                at = cand;
+                                break;
+                            }
+                        }
+                    }
                     at
                 }
                 PlaceKind::Deck if offshore_village.is_some() && village_decks == 0 && self.society.towns[t as usize].stilts.is_some() && placed.iter().any(|p| p.kind == PlaceKind::DivePlatform) => {
                     village_decks += 1;
-                    offshore_village.unwrap()
+                    // The village's middle, or the nearest clear spot round it.
+                    let c = offshore_village.unwrap();
+                    (0..240).map(|k| if k == 0 { c } else { let a = k as f32 * 2.399_963; c.add(V2::new(a.cos(), a.sin()).scale(6.0 + k as f32 * 0.8)) }).find(|&q| clear(q, size, &placed)).unwrap_or(c)
                 }
                 _ => {
                     let mut at = town.pos;

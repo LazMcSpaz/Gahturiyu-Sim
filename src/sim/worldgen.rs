@@ -21,6 +21,8 @@ pub const TOWN_ASHORE: f32 = 250.0;
 /// A town this close to the sea is coastal (a stilt village off its shore,
 /// boats, a dock on the nearest shore).
 pub const COASTAL_WITHIN: f32 = 3_500.0;
+/// A coastal town's stilt village stands in open water no farther than this.
+pub const STILTS_REACH: f32 = 1_500.0;
 /// Above this wanderlust a person belongs nowhere and roams.
 pub const WANDERER_THRESHOLD: f32 = 0.85;
 
@@ -512,7 +514,15 @@ fn place_settlements(rng: &mut Rng, seed: u64, t: &Terrain, plans: &Plans) -> Ve
         let pos = if plans.for_town(&m.key()).is_some() { spot } else { level_near(t, spot) };
         let offshore = !a.on_mainland(pos);
         let coastal = a.inland(pos) < COASTAL_WITHIN;
-        let stilts = if coastal { Some(a.seaward(pos, 70.0)) } else { None };
+        // The stilts stand in the nearest open water within `STILTS_REACH`,
+        // as far out as it allows (a walk down the distance field can stop on
+        // land, which stood stilt villages hundreds of metres inland); with
+        // no sea that near, there's no stilt village.
+        let stilts = if coastal {
+            [70.0, 30.0, 10.0].iter().map(|&out| a.open_sea_near(pos, out, STILTS_REACH)).find(|q| a.inland(*q) < 0.0)
+        } else {
+            None
+        };
         let id = out.len() as SettlementId;
         let holder = if m.holder.is_empty() { None } else { Some(factions::id(&m.holder)) };
         out.push(Settlement {
