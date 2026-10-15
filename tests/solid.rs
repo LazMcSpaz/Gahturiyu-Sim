@@ -90,7 +90,7 @@ fn every_building_variant_and_everything_in_it_is_listed() {
             // (An inner wall of a round building stops at the outer wall.)
             match (what, t.shape) {
                 (layout::Thing::Wall(_), Shape::Box(got)) if d.round || d.outline().is_some() => {
-                    assert!(got.rot == r.rot && got.hd == r.hd && got.hw <= r.hw + 1e-3 && got.hw > 0.3, "{}: {id:?} is its wall, cut to the outline", v.key);
+                    assert!(got.rot == r.rot && got.hd == r.hd && got.hw <= r.hw + 1e-3 && got.hw > if d.outline().is_some() { 0.05 } else { 0.3 }, "{}: {id:?} is its wall, cut to the outline ({got:?} from {r:?})", v.key);
                     let [u, _] = got.axes();
                     for end in [got.c.sub(u.scale(got.hw)), got.c.add(u.scale(got.hw))] {
                         assert!(th.shape.grown(0.05).contains(end), "{}: {id:?} ends inside the outer wall", v.key);

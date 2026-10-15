@@ -217,15 +217,16 @@ fn wall(b: &mut Builder, a: V2, c: V2, y: f32, t: f32, h: f32, col: Rgb) {
 // drawing only, here.
 
 /// How a building with an outline of its own is drawn: its tiers, each its
-/// own outline (layout units) from `z0` to `z1` metres at `at_size` (the
-/// first is the sim's outline), the top one ending in a dome `dome` of its
-/// height; a spiral stair inside (its middle in layout units, its reach in
+/// own outline (layout units) from `z0` to `z1` metres at `at_size`, its
+/// wall straight up to `wall_top` and rounding over above (the first is the
+/// sim's outline), the top one ending in a roof `dome` of its height; a spiral stair inside (its middle in layout units, its reach in
 /// metres) and more doors drawn shut (a spot inside the room, layout units,
 /// and the way out from it, radians from the facing).
 struct Form {
     key: &'static str,
     at_size: f32,
-    tiers: &'static [(&'static [(f32, f32)], f32, f32)],
+    tiers: &'static [(&'static [(f32, f32)], f32, f32, f32)],
+    roof: Roof,
     dome: f32,
     stair: Option<((f32, f32), f32)>,
     doors: &'static [((f32, f32), f32)],
@@ -233,34 +234,243 @@ struct Form {
     windows: &'static [usize],
 }
 
-/// The clover tower house (`claude/placeholder-shapes.md`; metres in
-/// `assets/buildings/roduro_round_ancient_01.json`).
-const FORMS: &[Form] = &[Form {
-    key: "roduro_round_ancient_01",
-    at_size: 17.86,
-    tiers: &[(layout::CLOVER_OUTLINE, 0.0, 4.15), (CLOVER_TIER_B, 4.15, 6.7), (CLOVER_TIER_C, 6.7, 11.39)],
-    dome: 0.5,
-    stair: Some(((0.0018, 0.027), 1.0)),
-    doors: &[((0.2415, 0.672), 1.1654)],
-    windows: &[4, 4, 3],
-}];
+/// What a tier ends in.
+#[derive(Clone, Copy, PartialEq)]
+enum Roof {
+    /// Drawn in toward its middle all round (grown stone).
+    Dome,
+    /// Drawn in across only: a barrel vault along the building's length.
+    Barrel,
+}
 
-const CLOVER_TIER_B: &[(f32, f32)] = &[
-    (-0.7378, -0.0291), (-0.7417, -0.1422), (-0.7101, -0.2542), (-0.6508, -0.3572), (-0.5546, -0.439), (-0.4519, -0.5106),
-    (-0.3135, -0.5252), (-0.2016, -0.5644), (-0.0922, -0.6517), (0.0435, -0.701), (0.1963, -0.7223), (0.3333, -0.6685),
-    (0.4545, -0.598), (0.556, -0.5095), (0.6166, -0.3975), (0.6653, -0.2923), (0.6824, -0.1814), (0.7075, -0.0795),
-    (0.7444, 0.0269), (0.7444, 0.1377), (0.7536, 0.262), (0.6047, 0.3225), (0.5349, 0.4087), (0.4058, 0.4401),
-    (0.3122, 0.4961), (0.2174, 0.5633), (0.1028, 0.6114), (-0.0263, 0.6741), (-0.1568, 0.6327), (-0.2859, 0.6025),
-    (-0.3939, 0.5364), (-0.5006, 0.4714), (-0.5849, 0.3852), (-0.5889, 0.2632), (-0.6311, 0.1702), (-0.6798, 0.0761),
+/// The catalogue's buildings (`claude/placeholder-shapes.md`; metres in
+/// `assets/buildings/<key>.json`). Written by
+/// `tools/buildings/roduro_forms.py rust`; edit the files, not these.
+const FORMS: &[Form] = &[
+    Form {
+        key: "roduro_hill_est_01",
+        at_size: 12.15,
+        tiers: &[(layout::RODURO_HILL_EST_01_OUTLINE, 0.0, 4.98, 4.98)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+    },
+    Form {
+        key: "roduro_hill_old_01",
+        at_size: 15.35,
+        tiers: &[(layout::RODURO_HILL_OLD_01_OUTLINE, 0.0, 4.0, 4.0), (RODURO_HILL_OLD_01_TIER_1, 4.0, 6.5, 6.25)],
+        roof: Roof::Dome,
+        dome: 0.1,
+        stair: Some(((-0.262, 0.0349), 1.0)),
+        doors: &[],
+        windows: &[3, 2],
+    },
+    Form {
+        key: "roduro_hill_young_01",
+        at_size: 8.06,
+        tiers: &[(layout::RODURO_HILL_YOUNG_01_OUTLINE, 0.0, 4.91, 4.75)],
+        roof: Roof::Dome,
+        dome: 0.033,
+        stair: None,
+        doors: &[],
+        windows: &[2],
+    },
+    Form {
+        key: "roduro_long_ancient_01",
+        at_size: 19.46,
+        tiers: &[(layout::RODURO_LONG_ANCIENT_01_OUTLINE, 0.0, 4.25, 3.0), (RODURO_LONG_ANCIENT_01_TIER_1, 4.25, 6.75, 6.75), (RODURO_LONG_ANCIENT_01_TIER_2, 6.75, 11.36, 11.0)],
+        roof: Roof::Dome,
+        dome: 0.078,
+        stair: Some(((-0.1326, 0.1818), 1.0)),
+        doors: &[((-0.6866, 0.741), 2.4102)],
+        windows: &[5, 4, 3],
+    },
+    Form {
+        key: "roduro_long_est_01",
+        at_size: 13.38,
+        tiers: &[(layout::RODURO_LONG_EST_01_OUTLINE, 0.0, 4.93, 3.25)],
+        roof: Roof::Barrel,
+        dome: 0.341,
+        stair: None,
+        doors: &[((-0.8504, -0.0964), -3.1335)],
+        windows: &[2],
+    },
+    Form {
+        key: "roduro_long_est_02",
+        at_size: 11.9,
+        tiers: &[(layout::RODURO_LONG_EST_02_OUTLINE, 0.0, 4.95, 4.95)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+    },
+    Form {
+        key: "roduro_long_old_01",
+        at_size: 16.36,
+        tiers: &[(layout::RODURO_LONG_OLD_01_OUTLINE, 0.0, 4.0, 3.75), (RODURO_LONG_OLD_01_TIER_1, 4.0, 6.51, 6.0)],
+        roof: Roof::Dome,
+        dome: 0.203,
+        stair: Some(((0.0628, 0.1696), 1.0)),
+        doors: &[],
+        windows: &[4, 2],
+    },
+    Form {
+        key: "roduro_long_young_01",
+        at_size: 7.49,
+        tiers: &[(layout::RODURO_LONG_YOUNG_01_OUTLINE, 0.0, 4.78, 3.25)],
+        roof: Roof::Barrel,
+        dome: 0.32,
+        stair: None,
+        doors: &[],
+        windows: &[1],
+    },
+    Form {
+        key: "roduro_round_ancient_01",
+        at_size: 17.84,
+        tiers: &[(layout::RODURO_ROUND_ANCIENT_01_OUTLINE, 0.0, 4.25, 4.0), (RODURO_ROUND_ANCIENT_01_TIER_1, 4.25, 6.75, 6.75), (RODURO_ROUND_ANCIENT_01_TIER_2, 6.75, 11.39, 9.75)],
+        roof: Roof::Dome,
+        dome: 0.353,
+        stair: Some(((-0.0028, 0.036), 1.0)),
+        doors: &[((0.2377, 0.6817), 1.1654)],
+        windows: &[4, 4, 3],
+    },
+    Form {
+        key: "roduro_round_est_01",
+        at_size: 10.3,
+        tiers: &[(layout::RODURO_ROUND_EST_01_OUTLINE, 0.0, 4.94, 4.94)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+    },
+    Form {
+        key: "roduro_round_est_02",
+        at_size: 9.57,
+        tiers: &[(layout::RODURO_ROUND_EST_02_OUTLINE, 0.0, 4.0, 4.0), (RODURO_ROUND_EST_02_TIER_1, 4.0, 6.46, 6.0)],
+        roof: Roof::Dome,
+        dome: 0.187,
+        stair: Some(((0.0083, 0.1034), 1.0)),
+        doors: &[],
+        windows: &[2, 1],
+    },
+    Form {
+        key: "roduro_round_old_01",
+        at_size: 13.81,
+        tiers: &[(layout::RODURO_ROUND_OLD_01_OUTLINE, 0.0, 4.25, 4.0), (RODURO_ROUND_OLD_01_TIER_1, 4.25, 6.73, 6.25)],
+        roof: Roof::Dome,
+        dome: 0.194,
+        stair: Some(((0.0188, 0.0571), 1.0)),
+        doors: &[((0.2049, 0.7682), 1.4124)],
+        windows: &[3, 3],
+    },
+    Form {
+        key: "roduro_round_young_01",
+        at_size: 7.04,
+        tiers: &[(layout::RODURO_ROUND_YOUNG_01_OUTLINE, 0.0, 4.97, 4.97)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[2],
+    },
+    Form {
+        key: "roduro_round_young_02",
+        at_size: 7.61,
+        tiers: &[(layout::RODURO_ROUND_YOUNG_02_OUTLINE, 0.0, 4.92, 4.92)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[1],
+    },
 ];
-const CLOVER_TIER_C: &[(f32, f32)] = &[
-    (-0.5942, -0.0235), (-0.5652, -0.1086), (-0.4822, -0.1736), (-0.4413, -0.2441), (-0.4282, -0.3404), (-0.3834, -0.4356),
-    (-0.2556, -0.4323), (-0.1462, -0.4155), (-0.0632, -0.4658), (0.0303, -0.4457), (0.1331, -0.4804), (0.2424, -0.4826),
-    (0.3004, -0.3919), (0.3504, -0.3191), (0.4058, -0.2598), (0.4664, -0.2038), (0.5362, -0.1422), (0.577, -0.0649),
-    (0.5744, 0.0202), (0.5757, 0.1064), (0.5652, 0.1948), (0.473, 0.2508), (0.4005, 0.3046), (0.3346, 0.3617),
-    (0.2516, 0.3975), (0.1831, 0.4726), (0.0843, 0.4938), (-0.0184, 0.5062), (-0.1344, 0.5431), (-0.2042, 0.4345),
-    (-0.2991, 0.4099), (-0.411, 0.3886), (-0.473, 0.3124), (-0.5059, 0.2262), (-0.5546, 0.1501), (-0.5612, 0.0627),
+// ---- end generated forms ----
+
+// ---- generated tiers (tools/buildings/roduro_forms.py rust) ----
+/// `roduro_hill_old_01`'s tier B (drawing only).
+pub const RODURO_HILL_OLD_01_TIER_1: &[(f32, f32)] = &[
+    (-0.9493, -0.0632), (-0.9337, -0.1752), (-0.9142, -0.2938), (-0.9259, -0.4436), (-0.8402, -0.5739), (-0.6803, -0.6638),
+    (-0.462, -0.6782), (-0.2554, -0.6625), (-0.0741, -0.6274), (0.0858, -0.6039), (0.2164, -0.5283), (0.2612, -0.372),
+    (0.306, -0.2925), (0.3197, -0.2169), (0.3216, -0.1544), (0.3509, -0.114), (0.3957, -0.0762), (0.4483, -0.0332),
+    (0.4815, 0.0202), (0.4971, 0.0814), (0.4912, 0.144), (0.4561, 0.2026), (0.6764, 0.4397), (0.6862, 0.6417),
+    (0.5224, 0.7316), (0.3216, 0.7798), (0.1033, 0.729), (-0.0741, 0.6039), (-0.2281, 0.5779), (-0.4016, 0.5765),
+    (-0.653, 0.6221), (-0.8714, 0.5805), (-0.9825, 0.4554), (-0.8986, 0.2756), (-0.8675, 0.1492), (-0.924, 0.0476),
 ];
+
+/// `roduro_long_ancient_01`'s tier B (drawing only).
+pub const RODURO_LONG_ANCIENT_01_TIER_1: &[(f32, f32)] = &[
+    (-0.7092, -0.0504), (-0.6683, -0.1367), (-0.6164, -0.2169), (-0.5536, -0.2898), (-0.4539, -0.3371), (-0.3666, -0.3854),
+    (-0.2792, -0.4358), (-0.1823, -0.4841), (-0.0703, -0.5087), (0.0457, -0.5077), (0.1618, -0.4933), (0.2724, -0.4645),
+    (0.3693, -0.4152), (0.4553, -0.3566), (0.4949, -0.2713), (0.5263, -0.1932), (0.5645, -0.1202), (0.6028, -0.0452),
+    (0.6123, 0.037), (0.5932, 0.1172), (0.5522, 0.1932), (0.5304, 0.2816), (0.5004, 0.3813), (0.4171, 0.4573),
+    (0.3283, 0.5457), (0.2137, 0.631), (0.0689, 0.6876), (-0.0949, 0.703), (-0.2642, 0.705), (-0.4403, 0.6876),
+    (-0.5905, 0.6177), (-0.6874, 0.5036), (-0.7284, 0.3731), (-0.7379, 0.2497), (-0.7652, 0.147), (-0.7502, 0.0442),
+];
+
+/// `roduro_long_ancient_01`'s tier C (drawing only).
+pub const RODURO_LONG_ANCIENT_01_TIER_2: &[(f32, f32)] = &[
+    (-0.5331, -0.0391), (-0.5195, -0.1069), (-0.469, -0.1644), (-0.3679, -0.1922), (-0.2997, -0.221), (-0.2314, -0.2405),
+    (-0.1713, -0.261), (-0.1058, -0.2693), (-0.043, -0.2734), (0.0184, -0.2713), (0.0785, -0.259), (0.1399, -0.2497),
+    (0.1945, -0.2271), (0.2396, -0.1942), (0.2778, -0.1572), (0.3092, -0.1172), (0.3434, -0.0761), (0.3789, -0.0298),
+    (0.3898, 0.0216), (0.3829, 0.075), (0.3939, 0.1377), (0.3925, 0.2086), (0.3693, 0.2826), (0.3201, 0.3535),
+    (0.256, 0.4286), (0.1672, 0.4985), (0.0526, 0.557), (-0.0812, 0.5879), (-0.2287, 0.6053), (-0.372, 0.5766),
+    (-0.4949, 0.5149), (-0.5973, 0.4358), (-0.671, 0.3422), (-0.6888, 0.2333), (-0.6437, 0.1233), (-0.5932, 0.0339),
+];
+
+/// `roduro_long_old_01`'s tier B (drawing only).
+pub const RODURO_LONG_OLD_01_TIER_1: &[(f32, f32)] = &[
+    (-0.5422, -0.0367), (-0.5354, -0.1064), (-0.4797, -0.165), (-0.4239, -0.2188), (-0.3733, -0.2751), (-0.3074, -0.3227),
+    (-0.2314, -0.3667), (-0.2432, -0.6699), (-0.0963, -0.8264), (0.0676, -0.5416), (0.1402, -0.3716), (0.2196, -0.3386),
+    (0.3057, -0.3154), (0.4037, -0.2922), (0.478, -0.2421), (0.527, -0.1797), (0.5371, -0.1064), (0.5844, -0.0391),
+    (0.6824, 0.0403), (0.728, 0.1381), (0.7465, 0.2482), (0.7769, 0.39), (0.6874, 0.4927), (0.5675, 0.5807),
+    (0.4222, 0.6491), (0.2652, 0.7029), (0.0929, 0.7335), (-0.0861, 0.7335), (-0.2601, 0.7103), (-0.4003, 0.6235),
+    (-0.4256, 0.4413), (-0.4577, 0.3313), (-0.4594, 0.2323), (-0.4577, 0.1528), (-0.478, 0.0917), (-0.4881, 0.0293),
+];
+
+/// `roduro_round_ancient_01`'s tier B (drawing only).
+pub const RODURO_ROUND_ANCIENT_01_TIER_1: &[(f32, f32)] = &[
+    (-0.741, -0.0471), (-0.7436, -0.1614), (-0.7013, -0.2713), (-0.6339, -0.37), (-0.5387, -0.4518), (-0.4316, -0.5191),
+    (-0.2836, -0.5146), (-0.1752, -0.5583), (-0.0641, -0.6401), (0.0747, -0.6861), (0.2175, -0.6682), (0.3523, -0.6256),
+    (0.47, -0.5572), (0.5586, -0.463), (0.6114, -0.3531), (0.6617, -0.2522), (0.696, -0.1491), (0.7331, -0.046),
+    (0.7555, 0.0639), (0.7344, 0.1738), (0.6696, 0.2713), (0.5625, 0.3397), (0.4832, 0.4148), (0.3801, 0.4641),
+    (0.2836, 0.5179), (0.1805, 0.5684), (0.0668, 0.6166), (-0.0602, 0.6289), (-0.1871, 0.6099), (-0.3074, 0.574),
+    (-0.4303, 0.5325), (-0.5295, 0.4596), (-0.5797, 0.3543), (-0.5691, 0.2343), (-0.622, 0.1502), (-0.6802, 0.0583),
+];
+
+/// `roduro_round_ancient_01`'s tier C (drawing only).
+pub const RODURO_ROUND_ANCIENT_01_TIER_2: &[(f32, f32)] = &[
+    (-0.544, -0.0325), (-0.5242, -0.1121), (-0.4832, -0.185), (-0.4541, -0.2646), (-0.425, -0.3554), (-0.3351, -0.4013),
+    (-0.232, -0.4193), (-0.1382, -0.4406), (-0.043, -0.4383), (0.0483, -0.4283), (0.1368, -0.4148), (0.2228, -0.3901),
+    (0.2915, -0.3408), (0.3603, -0.2948), (0.425, -0.2422), (0.4792, -0.1805), (0.5374, -0.1132), (0.5572, -0.0336),
+    (0.548, 0.0482), (0.5163, 0.1244), (0.4951, 0.2029), (0.4435, 0.2691), (0.3814, 0.3285), (0.3127, 0.3823),
+    (0.2347, 0.4294), (0.1487, 0.4675), (0.0522, 0.4865), (-0.0456, 0.4877), (-0.1421, 0.4675), (-0.232, 0.4361),
+    (-0.3166, 0.3957), (-0.392, 0.343), (-0.4462, 0.2747), (-0.4938, 0.204), (-0.5295, 0.1289), (-0.5453, 0.0482),
+];
+
+/// `roduro_round_est_02`'s tier B (drawing only).
+pub const RODURO_ROUND_EST_02_TIER_1: &[(f32, f32)] = &[
+    (-0.6454, -0.0324), (-0.5937, -0.1285), (-0.5466, -0.2205), (-0.4635, -0.2853), (-0.4029, -0.3605), (-0.3356, -0.4357),
+    (-0.2323, -0.4566), (-0.1268, -0.4483), (-0.0415, -0.5026), (0.0662, -0.5967), (0.1874, -0.6029), (0.2974, -0.5549),
+    (0.3625, -0.4504), (0.4254, -0.3668), (0.5915, -0.3584), (0.688, -0.2748), (0.7262, -0.1578), (0.7464, -0.0387),
+    (0.7598, 0.0825), (0.7576, 0.2079), (0.7082, 0.325), (0.6274, 0.4253), (0.5062, 0.4838), (0.4209, 0.5695),
+    (0.3221, 0.6489), (0.2054, 0.7032), (0.073, 0.7137), (-0.0505, 0.6364), (-0.1717, 0.6489), (-0.2997, 0.6364),
+    (-0.4052, 0.5695), (-0.4815, 0.4775), (-0.495, 0.3501), (-0.5286, 0.2539), (-0.6207, 0.1766), (-0.6633, 0.0763),
+];
+
+/// `roduro_round_old_01`'s tier B (drawing only).
+pub const RODURO_ROUND_OLD_01_TIER_1: &[(f32, f32)] = &[
+    (-0.4931, -0.0593), (-0.525, -0.1602), (-0.5438, -0.2758), (-0.4931, -0.3694), (-0.4091, -0.4368), (-0.2904, -0.4485),
+    (-0.1977, -0.4646), (-0.1195, -0.4997), (-0.0384, -0.5699), (0.0615, -0.6123), (0.1644, -0.6035), (0.2643, -0.567),
+    (0.3497, -0.5055), (0.4265, -0.4353), (0.5033, -0.3651), (0.5988, -0.2934), (0.6857, -0.1983), (0.7089, -0.0768),
+    (0.7118, 0.0476), (0.7292, 0.1792), (0.7147, 0.3182), (0.6539, 0.4411), (0.567, 0.5494), (0.4482, 0.6196),
+    (0.2904, 0.5933), (0.16, 0.5538), (0.0688, 0.6694), (-0.0558, 0.7279), (-0.1818, 0.703), (-0.315, 0.6869),
+    (-0.4381, 0.6299), (-0.5177, 0.5172), (-0.5395, 0.3724), (-0.5844, 0.2641), (-0.6133, 0.1544), (-0.5496, 0.0344),
+];
+// ---- end generated tiers ----
 
 fn form_of(v: &Variant) -> Option<&'static Form> {
     FORMS.iter().find(|f| f.key == v.key)
@@ -409,10 +619,10 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
     let moss = [0.27, 0.31, 0.22];
     let last = form.tiers.len() - 1;
     let mut doors: Vec<V2> = Vec::new();
-    for (i, &(pts, z0, z1)) in form.tiers.iter().enumerate() {
-        let (z0, z1) = (if i == 0 { 0.0 } else { z0 * k + sink - SHOULDER * 0.5 }, z1 * k + sink);
+    for (i, &(pts, z0, z1, wall_top)) in form.tiers.iter().enumerate() {
+        let (z0, z1, wall_top) = (if i == 0 { 0.0 } else { z0 * k + sink - SHOULDER * 0.5 }, z1 * k + sink, wall_top * k + sink);
         let outer = inset(f, pts, 0.0);
-        let top_wall = if i == last { z0 + (z1 - z0) * (1.0 - form.dome) } else { z1 - SHOULDER };
+        let top_wall = if i == last { wall_top.min(z0 + (z1 - z0) * (1.0 - form.dome)) } else { (z1 - SHOULDER).min(wall_top) };
         // The wall, in growth-ring bands about a metre apart.
         let rings = (((top_wall - z0) / 0.9).round() as usize).max(1);
         for r in 0..rings {
@@ -432,23 +642,39 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             band(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
             cap(b, f, &ins, z1, palette::scale(moss, 0.9));
         } else {
-            // The dome: the outline drawn in toward its middle as it rises.
+            // The roof: the outline drawn in as it rises, toward its middle
+            // (a dome) or across only (a barrel vault along the length).
             let base = inset(f, pts, 0.0);
             let c = middle(&base);
             let steps = 6;
             let dh = z1 - top_wall;
             let mut prev = base.clone();
+            let long = f.hx >= f.hy;
             for s in 1..=steps {
                 let lat = s as f32 / steps as f32 * std::f32::consts::FRAC_PI_2;
-                let ring: Vec<V2> = base.iter().map(|p| c.add(p.sub(c).scale(lat.cos().max(0.02)))).collect();
+                let sh = lat.cos().max(0.02);
+                let ring: Vec<V2> = base
+                    .iter()
+                    .map(|p| {
+                        let d = p.sub(c);
+                        match form.roof {
+                            Roof::Dome => c.add(d.scale(sh)),
+                            // The ends draw in a little too, so the vault's ends round off.
+                            Roof::Barrel if long => c.add(V2::new(d.x * (0.75 + 0.25 * sh), d.y * sh)),
+                            Roof::Barrel => c.add(V2::new(d.x * sh, d.y * (0.75 + 0.25 * sh))),
+                        }
+                    })
+                    .collect();
                 let (ya, yb) = (top_wall + dh * ((s - 1) as f32 / steps as f32 * std::f32::consts::FRAC_PI_2).sin(), top_wall + dh * lat.sin());
                 band(b, f, &prev, &ring, ya, yb, lat.sin() * 0.8, if s >= steps - 1 { moss } else if s % 2 == 0 { ring_dark } else { stone });
                 prev = ring;
             }
             cap(b, f, &prev, z1, moss);
-            // A little stone bud at the crown.
-            let crown = fm(f, c);
-            b.dome(to3(crown, f.y + z1 - 0.1), 0.6, 0.5, 0.6, 0.25, 0.0, seed ^ 5, palette::scale(stone, 1.1));
+            // A little stone bud at the crown of a dome.
+            if form.roof == Roof::Dome {
+                let crown = fm(f, c);
+                b.dome(to3(crown, f.y + z1 - 0.1), 0.6, 0.5, 0.6, 0.25, 0.0, seed ^ 5, palette::scale(stone, 1.1));
+            }
         }
         // Lit windows round the tier, clear of the doors.
         let n = form.windows.get(i).copied().unwrap_or(0);

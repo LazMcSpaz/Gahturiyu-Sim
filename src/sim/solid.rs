@@ -1189,6 +1189,9 @@ pub fn inner_wall(d: &Door, r: Rect) -> Option<Rect> {
         ts.sort_by(f32::total_cmp);
         let inside: Vec<(f32, f32)> = ts.windows(2).filter(|w| w[1] - w[0] > 1e-4 && layout::inside_outline(pts, d.half.x, d.half.y, pa.lerp(pz, (w[0] + w[1]) * 0.5))).map(|w| (w[0], w[1])).collect();
         let (t0, t1) = (inside.first()?.0, inside.last()?.1);
+        if t0 == 0.0 && t1 == 1.0 {
+            return Some(r);
+        }
         let (a2, z2) = (a.lerp(z, t0), a.lerp(z, t1));
         return (t1 - t0 > 1e-3).then(|| Rect::new(a2.lerp(z2, 0.5), r.rot, a2.dist(z2), r.hd * 2.0));
     }

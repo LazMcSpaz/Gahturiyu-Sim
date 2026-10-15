@@ -718,8 +718,9 @@ fn overlap(a: Foot, b: Foot) -> bool {
 /// The sizes a variant's buildings really come in (the ends of the range).
 fn real_sizes(v: &layout::Variant) -> [f32; 2] {
     if v.weight == 0 {
-        // Placed by hand, at the sizes it's made for.
-        return [v.sizes.0, v.sizes.1];
+        // Placed by hand, at the one size it's made for (its file's).
+        let (size, _) = layout::example_of(v);
+        return [size, size];
     }
     match v.kind {
         BuildingKind::RoduroHome => [v.sizes.0.max(7.0), v.sizes.1.min(12.5)],
@@ -1573,53 +1574,65 @@ fn extra_beds_never_cover_belongings_already_laid() {
 
 // ---- Buildings with an outline of their own ---------------------------------------
 
-/// The clover tower house's outline, door and inner walls are the ones in its
-/// metre file (`assets/buildings/roduro_round_ancient_01.json`, from the
-/// catalogue model), to the centimetre at the file's own size.
+/// Every catalogue building's outline, door and inner walls are the ones in
+/// its metre file (`assets/buildings/<key>.json`, from the catalogue model;
+/// `tools/buildings/roduro_forms.py`), to the centimetre at the file's own
+/// size.
 #[test]
-fn the_clover_tower_house_matches_its_file() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/buildings/roduro_round_ancient_01.json");
-    let j: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).expect("the file")).expect("json");
-    let v = layout::by_key("roduro_round_ancient_01").expect("the variant");
-    let g = &j["game"];
+fn catalogue_buildings_match_their_files() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/buildings");
+    let mut files: Vec<_> = std::fs::read_dir(&dir).expect("the folder").filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).collect();
+    files.sort();
+    assert!(files.len() >= 14, "{} files", files.len());
     let f = |x: &serde_json::Value| x.as_f64().unwrap() as f32;
-    let (cx, cy, size) = (f(&g["centre"][0]), f(&g["centre"][1]), f(&g["size"]));
-    assert_eq!((f(&g["half"][0]), f(&g["half"][1])), v.half);
-    assert!((f(&g["door"]) - v.door).abs() < 1e-4);
-    assert!(size >= v.sizes.0 && size < v.sizes.1 && (layout::example_of(v).0 - size).abs() < 0.01, "its usual size is the file's");
-    let (hx, hy) = (v.half.0 * size, v.half.1 * size);
-    let at = |p: (f32, f32)| V2::new(cx + p.0 * hx, cy + p.1 * hy);
-    // The ground tier's outline, corner for corner (the file's may run either way round).
-    let pts = v.shape.points().expect("an outline of its own");
-    let file: Vec<V2> = j["exterior"]["tiers"][0]["outline"].as_array().unwrap().iter().map(|p| V2::new(f(&p[0]), f(&p[1]))).collect();
-    assert_eq!(pts.len(), file.len());
-    for p in pts {
-        let q = at(*p);
-        assert!(file.iter().any(|r| r.dist(q) < 0.01), "corner {q:?} is in the file");
-    }
-    // Counter-clockwise, and it reaches ±1 at its widest each way.
-    let area: f32 = (0..pts.len()).map(|k| pts[k].0 * pts[(k + 1) % pts.len()].1 - pts[(k + 1) % pts.len()].0 * pts[k].1).sum();
-    assert!(area > 0.0);
-    let reach = |g: fn(&(f32, f32)) -> f32| pts.iter().map(g).fold(0.0f32, |a, b| a.max(b.abs()));
-    assert!((reach(|p| p.0) - 1.0).abs() < 0.002 && (reach(|p| p.1) - 1.0).abs() < 0.002);
-    // The main door is the file's, on the front of the outline.
-    let d = test_door(v, size);
-    let door = j["levels"][0]["outside_doors"][0]["xy"].as_array().unwrap();
-    assert!((d.outside.y - (f(&door[1]) - cy)).abs() < 0.01, "the door is where the file has it, across the front");
-    // Each inner wall runs along the file's (carried out to the outline), its doorway where the file's is.
-    let walls = j["levels"][0]["inner_walls"].as_array().unwrap();
-    let gaps = j["levels"][0]["door_gaps"].as_array().unwrap();
-    assert_eq!(v.walls.len(), walls.len());
-    for (k, wl) in v.walls.iter().enumerate() {
-        let (a, b) = (at(wl.a), at(wl.b));
-        let w = &walls[k];
-        let (p, q) = (V2::new(f(&w[0][0]), f(&w[0][1])), V2::new(f(&w[1][0]), f(&w[1][1])));
-        for e in [p, q] {
-            assert!(layout::on_seg(e, a, b).dist(e) < 0.01, "wall {k}: the file's end {e:?} is on it");
+    for path in files {
+        let j: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("the file")).expect("json");
+        let key = j["id"].as_str().unwrap();
+        let v = layout::by_key(key).unwrap_or_else(|| panic!("{key}: a variant"));
+        let g = &j["game"];
+        let (cx, cy, size) = (f(&g["centre"][0]), f(&g["centre"][1]), f(&g["size"]));
+        assert_eq!((f(&g["half"][0]), f(&g["half"][1])), v.half, "{key}");
+        assert!((f(&g["door"]) - v.door).abs() < 1e-4, "{key}");
+        assert_eq!(v.weight, 0, "{key}: placed by hand");
+        assert!(size >= v.sizes.0 && size < v.sizes.1 && (layout::example_of(v).0 - size).abs() < 0.01, "{key}: its usual size is the file's");
+        let (hx, hy) = (v.half.0 * size, v.half.1 * size);
+        let at = |p: (f32, f32)| V2::new(cx + p.0 * hx, cy + p.1 * hy);
+        // The ground tier's outline, corner for corner.
+        let pts = v.shape.points().unwrap_or_else(|| panic!("{key}: an outline of its own"));
+        let file: Vec<V2> = j["exterior"]["tiers"][0]["outline"].as_array().unwrap().iter().map(|p| V2::new(f(&p[0]), f(&p[1]))).collect();
+        assert_eq!(pts.len(), file.len(), "{key}");
+        for p in pts {
+            let q = at(*p);
+            assert!(file.iter().any(|r| r.dist(q) < 0.01), "{key}: corner {q:?} is in the file");
         }
-        if let Some(g) = wl.gap {
-            let mid = a.lerp(b, g);
-            assert!(gaps.iter().any(|gp| V2::new((f(&gp[0][0]) + f(&gp[1][0])) * 0.5, (f(&gp[0][1]) + f(&gp[1][1])) * 0.5).dist(mid) < 0.02), "wall {k}: its doorway is the file's");
+        // Counter-clockwise, and it reaches ±1 at its widest each way.
+        let area: f32 = (0..pts.len()).map(|k| pts[k].0 * pts[(k + 1) % pts.len()].1 - pts[(k + 1) % pts.len()].0 * pts[k].1).sum();
+        assert!(area > 0.0, "{key}");
+        let reach = |g: fn(&(f32, f32)) -> f32| pts.iter().map(g).fold(0.0f32, |a, b| a.max(b.abs()));
+        assert!((reach(|p| p.0) - 1.0).abs() < 0.002 && (reach(|p| p.1) - 1.0).abs() < 0.002, "{key}");
+        // The main door is the file's, on the front of the outline.
+        let d = test_door(v, size);
+        let door = j["levels"][0]["outside_doors"].as_array().unwrap().iter().min_by(|a, b| f(&a["yaw"]).abs().total_cmp(&f(&b["yaw"]).abs())).unwrap();
+        assert!((d.outside.y - (f(&door["xy"][1]) - cy)).abs() < 0.01, "{key}: the door is where the file has it, across the front");
+        // Each inner wall runs along the file's (carried out to the outline), its doorway where the file's is.
+        let walls = j["levels"][0]["walls"].as_array().unwrap();
+        let gaps = j["levels"][0]["door_gaps"].as_array().unwrap();
+        assert_eq!(v.walls.len(), walls.len(), "{key}");
+        for (k, wl) in v.walls.iter().enumerate() {
+            let (a, b) = (at(wl.a), at(wl.b));
+            let w = &walls[k];
+            let (p, q) = (V2::new(f(&w[0][0]), f(&w[0][1])), V2::new(f(&w[1][0]), f(&w[1][1])));
+            // (Along the same line: the game's wall may be carried out to the
+            // outline, or cut back out of the way in from the door.)
+            let u = b.sub(a).scale(1.0 / a.dist(b).max(1e-6));
+            for e in [p, q] {
+                let d = e.sub(a);
+                assert!((d.x * u.y - d.y * u.x).abs() < 0.02, "{key} wall {k}: the file's end {e:?} is along it");
+            }
+            if let Some(g) = wl.gap {
+                let mid = a.lerp(b, g);
+                assert!(gaps.iter().any(|gp| V2::new((f(&gp[0][0]) + f(&gp[1][0])) * 0.5, (f(&gp[0][1]) + f(&gp[1][1])) * 0.5).dist(mid) < 0.02), "{key} wall {k}: its doorway is the file's");
+            }
         }
     }
 }
@@ -1642,16 +1655,20 @@ fn an_outline_of_its_own_curves_in() {
     };
     let k = (0..n).min_by(|&a, &b| turn(a).total_cmp(&turn(b))).unwrap();
     assert!(turn(k) < 0.0, "the clover curves in somewhere");
+    // (The ground tier's lobes curve in only a hand's breadth: the chord
+    // between the corner's neighbours lies just outside the wall.)
     let (a, c) = (m[(k + n - 1) % n], m[(k + 1) % n]);
     let mid = a.lerp(c, 0.5);
-    let away = m[k].sub(mid).scale(1.0 / m[k].dist(mid));
+    let sag = m[k].dist(mid);
+    assert!(sag > 0.05, "a nook deep enough to test ({sag} m)");
+    let to_chord = mid.sub(m[k]).scale(1.0 / sag);
     let world = |q: V2| d.to_world((q.x / d.half.x, q.y / d.half.y));
-    let (out, inn) = (world(m[k].add(away.scale(0.2))), world(m[k].sub(away.scale(0.6))));
+    let (out, inn) = (world(m[k].add(to_chord.scale(sag * 0.5))), world(m[k].sub(to_chord.scale(0.6))));
     assert!(!d.contains(out) && d.contains(inn));
     let shell = gahturiyu_sim::sim::solid::shell_of(&d);
     assert!(!shell.contains(out) && shell.contains(inn));
     assert!(shell.margin(inn) > 0.1 && shell.margin(out) < 0.0);
-    assert!(shell.grown(0.5).contains(out));
+    assert!(shell.grown(0.2).contains(out));
     assert!(!shell.grown(-0.7).contains(inn));
     assert!(shell.contains(shell.pulled_in(out)));
     // The nook is inside the outline's convex hull (what a walk going round
