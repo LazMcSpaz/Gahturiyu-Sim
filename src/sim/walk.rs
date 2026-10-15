@@ -27,7 +27,7 @@ use std::collections::BinaryHeap;
 use std::sync::Arc;
 
 use super::geo::V2;
-use super::solid::{enclosure, free_spot_in, Id, Part, Poly, Solids, Thing, BODY};
+use super::solid::{enclosure, free_spot_in, Id, Part, Poly, Solids, Thing, Way, BODY};
 use super::world::World;
 
 /// How far off a corner a way turns, on top of a walker's width.
@@ -313,38 +313,63 @@ fn find_turns(sets: &[Arc<Solids>], a: V2, b: V2, body: f32) -> Found {
         let (way, reached) = across(sets, from.as_ref(), a, b, body);
         return Found { way, reached, ..out };
     }
+    // Out by each opening in turn: a house's door may open into its own
+    // yard (a trade home), so out of the house, then out of the yard.
     let mut cur = a;
-    // Out by its opening.
-    if let Some(th) = &from {
+    let mut here = from;
+    let mut steps = 0;
+    while let Some(th) = here {
+        if to.is_some_and(|t| t.id == th.id) {
+            break;
+        }
         let Some(way) = th.way() else { return Found { reached: false, ..out } };
-        let (w, reached) = across(sets, Some(th), cur, way.inside, body);
+        let (w, reached) = across(sets, Some(&th), cur, way.inside, body);
         out.way.extend(w);
         if !reached {
             return Found { reached: false, ..out };
         }
         out.way.push(way.outside);
         cur = way.outside;
+        here = enclosure(sets, cur);
+        steps += 1;
+        if steps > 3 {
+            return Found { reached: false, ..out };
+        }
     }
-    // Across the open to the other's opening (or to `b` itself).
-    let door = to.as_ref().and_then(|th| th.way());
-    if to.is_some() && door.is_none() {
-        return Found { reached: false, ..out };
+    // In by each opening in turn, from the outermost: the way to `b` is
+    // the openings of everything round it that we aren't in yet.
+    let mut doors: Vec<(Thing, Way)> = Vec::new();
+    let mut inner = to;
+    while let Some(th) = inner {
+        if here.is_some_and(|h| h.id == th.id) {
+            break;
+        }
+        let Some(way) = th.way() else { return Found { reached: false, ..out } };
+        doors.push((th, way));
+        inner = enclosure(sets, way.outside).filter(|o| o.id != th.id && !doors.iter().any(|d| d.0.id == o.id));
+        if doors.len() > 3 {
+            return Found { reached: false, ..out };
+        }
     }
-    let dest = door.map(|w| w.outside).unwrap_or(b);
-    let (w, reached) = across(sets, None, cur, dest, body);
-    out.way.extend(w);
-    if !reached {
-        return Found { reached: false, ..out };
-    }
-    // And in.
-    if let (Some(th), Some(way)) = (&to, door) {
-        out.enters = Some(th.id);
-        out.at_door = out.way.len();
-        out.way.push(way.inside);
-        let (w, reached) = across(sets, Some(th), way.inside, b, body);
+    doors.reverse();
+    let mut room = here;
+    for (k, (th, way)) in doors.iter().enumerate() {
+        let (w, reached) = across(sets, room.as_ref(), cur, way.outside, body);
         out.way.extend(w);
-        out.reached = reached;
+        if !reached {
+            return Found { reached: false, ..out };
+        }
+        if k + 1 == doors.len() {
+            out.enters = Some(th.id);
+            out.at_door = out.way.len();
+        }
+        out.way.push(way.inside);
+        cur = way.inside;
+        room = Some(*th);
     }
+    let (w, reached) = across(sets, room.as_ref(), cur, b, body);
+    out.way.extend(w);
+    out.reached = reached;
     out
 }
 

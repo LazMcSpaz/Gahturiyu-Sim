@@ -260,13 +260,14 @@ enum Dress {
 
 /// How a trade home's yard is dressed: pieces (kind, spot in layout
 /// units, turn, size w × d × h metres), awnings (footprint, height, cloth),
-/// roof posts (spot, height), a canopy (middle, reach along and across,
-/// turn, underside height) and a chimney (spot, radius, height).
+/// roof posts (spot, height), the shed's roof and a chimney (spot, radius,
+/// height).
 struct YardLook {
     dressing: &'static [(Dress, (f32, f32), f32, (f32, f32, f32))],
     shades: &'static [(&'static [(f32, f32)], f32, Rgb)],
     columns: &'static [((f32, f32), f32)],
-    canopy: Option<((f32, f32), f32, f32, f32, f32)>,
+    /// The shed's roof: its outline (layout units) and its underside height.
+    canopy: Option<(&'static [(f32, f32)], f32)>,
     chimney: Option<((f32, f32), f32, f32)>,
 }
 
@@ -465,25 +466,58 @@ const FORMS: &[Form] = &[
     },
     Form {
         key: "roduro_smith_home_01",
-        at_size: 10.3,
-        tiers: &[(layout::RODURO_SMITH_HOME_01_OUTLINE, 0.0, 4.94, 4.94)],
+        at_size: 11.3,
+        tiers: &[(layout::RODURO_SMITH_HOME_01_OUTLINE, 0.0, 5.0, 3.4)],
         roof: Roof::Dome,
-        dome: 0.0,
+        dome: 0.32,
         stair: None,
         doors: &[],
         windows: &[3],
-        yard: Some(YardLook { dressing: &[(Dress::Bellows, (-1.1469, 2.0971), -1.65, (1.902, 0.55, 1.02)), (Dress::Trough, (-0.7505, 1.9903), -0.07, (0.6, 1.3, 0.575)), (Dress::Crate, (-0.6258, 1.0641), 1.27, (1.06, 1.16, 0.658)), (Dress::Grindstone, (0.336, 2.5146), -1.91, (0.827, 0.9, 1.166)), (Dress::Crate, (0.3924, 1.1223), 1.97, (0.5, 1.5, 0.87)), (Dress::Barrel, (-0.7546, 2.3301), -0.07, (0.731, 0.75, 0.91)), (Dress::Block, (-0.7646, 1.4252), -0.07, (0.64, 0.64, 0.79)), (Dress::Frame, (0.0, 2.4155), -1.57, (0.7, 1.7, 0.685)), (Dress::Barrel, (-0.161, 1.1825), 0.0, (0.731, 0.75, 0.91)), (Dress::Bucket, (-0.6197, 2.1359), 0.0, (0.5, 0.5, 0.5)), (Dress::Lantern, (-0.6922, 2.0932), 0.0, (0.5, 0.5, 0.5)), (Dress::Sacks, (-0.3079, 0.9786), 0.0, (0.5, 0.5, 0.5)), (Dress::Pile, (0.7505, 1.3165), 0.0, (0.5, 0.5, 0.5)), (Dress::Stool, (-0.998, 1.4699), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.4568, 2.5534), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.664, 2.066), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.2415, 2.1049), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.2012, 1.5515), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.6037, 1.5903), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.6439, 1.1515), 0.0, (0.5, 0.5, 0.5)), (Dress::Wheel, (0.4628, 1.4447), 0.0, (0.5, 0.5, 0.5)), (Dress::Bucket, (0.1912, 1.2117), 0.0, (0.5, 0.5, 0.5))], shades: &[(&[(-0.4948, 2.7383), (0.4572, 2.5526), (0.664, 2.066), (-0.2415, 2.1049)], 2.27, OCHRE), (&[(-0.4932, 0.8951), (-0.2012, 1.5515), (0.6037, 1.5903), (0.6435, 1.1513)], 2.26, MADDER)], columns: &[((-0.5232, 2.7845), 3.2), ((-0.5232, 0.8427), 3.2), ((1.2073, 2.1049), 1.85), ((1.2274, 1.5612), 1.85), ((-0.4226, 2.1437), 2.97), ((-0.4226, 1.4835), 2.97)], canopy: Some(((-0.8968, 1.8167), 2.898, 5.346, 0.0, 2.85)), chimney: Some(((-1.4095, 1.833), 0.77, 5.8)) }),
+        yard: Some(YardLook { dressing: &[(Dress::Bellows, (-1.4999, -0.0788), -1.4866, (1.9, 0.55, 1.0)), (Dress::Trough, (-1.8213, 0.1336), 0.0, (0.6, 1.3, 0.6)), (Dress::Grindstone, (-1.7663, 0.6434), 2.0179, (0.83, 0.9, 1.17)), (Dress::Barrel, (-1.1235, 0.2717), -1.6667, (0.73, 0.75, 0.91)), (Dress::Crate, (-1.0164, 0.6434), -2.0708, (0.9, 0.9, 0.7)), (Dress::Pile, (-1.2307, -0.7372), 2.9154, (1.4, 1.2, 0.6)), (Dress::Bucket, (-2.1949, 0.3248), 1.0449, (0.4, 0.4, 0.3)), (Dress::Lantern, (-2.2485, -0.2062), 1.8005, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-2.0392, -0.6067), 2.7), ((-2.1242, -0.1589), 2.7), ((-1.9826, 0.2712), 2.7), ((-1.5596, 0.36), 2.7), ((-1.3192, -0.0154), 2.7), ((-1.3355, -0.4727), 2.7), ((-1.6281, -0.8018), 2.7)], canopy: Some((&[(-2.0392, -0.6067), (-2.1015, -0.4395), (-2.1247, -0.2303), (-2.1081, -0.0099), (-2.0481, 0.172), (-1.9615, 0.2936), (-1.8488, 0.3688), (-1.7037, 0.3929), (-1.5603, 0.3604), (-1.4094, 0.2227), (-1.3203, -0.0099), (-1.3092, -0.3315), (-1.3803, -0.5897), (-1.4981, -0.7389), (-1.658, -0.8071), (-1.8688, -0.7177)], 2.7)), chimney: Some(((-1.1428, -0.3858), 0.7, 6.0)) }),
+    },
+    Form {
+        key: "roduro_smith_home_02",
+        at_size: 10.6,
+        tiers: &[(layout::RODURO_SMITH_HOME_02_OUTLINE, 0.0, 3.5, 3.5), (RODURO_SMITH_HOME_02_TIER_1, 3.5, 6.6, 5.9)],
+        roof: Roof::Dome,
+        dome: 0.226,
+        stair: Some(((0.1887, -0.5283), 0.9)),
+        doors: &[],
+        windows: &[3, 2],
+        yard: Some(YardLook { dressing: &[(Dress::Bellows, (1.2455, -0.2642), -2.6728, (1.9, 0.55, 1.0)), (Dress::Trough, (1.0757, -0.6604), -2.8161, (0.6, 1.3, 0.6)), (Dress::Grindstone, (2.3211, -0.2266), -0.2427, (0.83, 0.9, 1.17)), (Dress::Barrel, (1.6985, 0.9055), -0.3101, (0.73, 0.75, 0.91)), (Dress::Crate, (0.8494, -1.2455), -2.9756, (0.9, 0.9, 0.7)), (Dress::Pile, (0.906, 0.9621), -0.0632, (1.4, 1.2, 0.6)), (Dress::Bucket, (1.1891, 1.0187), -0.0632, (0.4, 0.4, 0.3)), (Dress::Lantern, (1.8683, -0.9058), -2.5021, (0.3, 0.3, 2.0))], shades: &[], columns: &[((1.7736, -0.5362), 2.7), ((1.6445, -1.0338), 2.7), ((1.1849, -1.1853), 2.7), ((0.8919, -0.7798), 2.7), ((1.1998, 0.1338), 2.7), ((1.6534, -0.0358), 2.7)], canopy: Some((&[(1.7736, -0.5362), (1.7257, -0.8681), (1.5877, -1.1009), (1.4926, -1.1696), (1.3798, -1.204), (1.2383, -1.2002), (1.1281, -1.1583), (0.9655, -0.983), (0.8791, -0.7068), (0.8802, -0.3413), (0.9764, -0.0545), (1.0798, 0.0679), (1.2038, 0.1351), (1.3681, 0.1489), (1.5134, 0.1017), (1.6266, 0.0013), (1.7081, -0.1409), (1.7587, -0.3242)], 2.7)), chimney: Some(((1.7736, -1.1132), 0.7, 6.0)) }),
     },
     Form {
         key: "roduro_tanner_home_01",
-        at_size: 11.9,
-        tiers: &[(layout::RODURO_TANNER_HOME_01_OUTLINE, 0.0, 4.95, 4.95)],
+        at_size: 16.79,
+        tiers: &[(layout::RODURO_TANNER_HOME_01_OUTLINE, 0.0, 4.8, 3.3)],
         roof: Roof::Dome,
-        dome: 0.0,
+        dome: 0.312,
+        stair: None,
+        doors: &[],
+        windows: &[4],
+        yard: Some(YardLook { dressing: &[(Dress::Frame, (-0.1346, 0.384), 4.36, (0.13, 1.3, 1.5)), (Dress::Tub, (0.0599, 0.8756), -0.0512, (1.4, 1.4, 1.1)), (Dress::Tub, (0.1671, 0.5129), 0.0, (1.4, 1.4, 1.1)), (Dress::Tub, (0.3101, 0.7668), -1.3286, (1.4, 1.4, 1.1)), (Dress::Frame, (-0.4046, 0.8756), 3.1394, (0.87, 1.7, 2.1)), (Dress::Frame, (0.4173, 0.4766), -0.298, (0.87, 1.7, 2.1)), (Dress::Trough, (0.2029, 0.259), -2.7799, (1.9, 0.65, 0.6)), (Dress::Barrel, (-0.226, 1.0207), 0.2461, (0.73, 0.75, 0.91)), (Dress::Bucket, (0.3101, 1.0207), -0.3331, (0.4, 0.4, 0.3)), (Dress::Lantern, (0.4887, 0.658), -1.5975, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-0.4119, 0.6019), 2.7), ((-0.0649, 0.5509), 2.7), ((-0.012, 0.2158), 2.7)], canopy: Some((&[(-0.5948, 0.3202), (-0.587, 0.4291), (-0.5396, 0.5199), (-0.4575, 0.5835), (-0.3463, 0.6158), (-0.2035, 0.6123), (-0.0932, 0.571), (-0.0142, 0.4939), (0.0212, 0.3914), (0.0155, 0.2823), (-0.0299, 0.1903), (-0.1154, 0.1226), (-0.2267, 0.0903), (-0.4044, 0.102), (-0.5172, 0.2017)], 2.7)), chimney: None }),
+    },
+    Form {
+        key: "roduro_tanner_home_02",
+        at_size: 10.8,
+        tiers: &[(layout::RODURO_TANNER_HOME_02_OUTLINE, 0.0, 5.0, 3.4)],
+        roof: Roof::Dome,
+        dome: 0.32,
         stair: None,
         doors: &[],
         windows: &[3],
-        yard: Some(YardLook { dressing: &[(Dress::Pile, (-0.7684, 2.5983), -1.21, (1.253, 1.028, 0.41)), (Dress::Pile, (-1.5812, 1.8655), -0.49, (1.806, 1.456, 0.649)), (Dress::Tub, (-1.2536, 1.2185), 1.25, (1.402, 1.407, 1.553)), (Dress::Tub, (-0.6822, 1.1395), 1.43, (1.426, 1.467, 1.553)), (Dress::Tub, (-0.1207, 1.0992), 1.56, (1.476, 1.434, 1.553)), (Dress::Tub, (0.3571, 1.1647), 1.97, (1.418, 1.416, 1.553)), (Dress::Frame, (0.7487, 2.5025), -2.03, (0.866, 1.7, 2.108)), (Dress::Frame, (0.1379, 2.6353), -1.75, (0.866, 1.7, 2.108)), (Dress::Trough, (1.0861, 1.3647), 3.84, (1.9, 0.65, 0.615)), (Dress::Frame, (-1.4162, 2.2874), -0.57, (0.127, 1.3, 1.5)), (Dress::Barrel, (1.362, 1.6353), 2.75, (0.731, 0.75, 0.91)), (Dress::Frame, (1.1649, 2.1714), -2.5, (0.13, 2.93, 2.1)), (Dress::Post, (-0.3793, 1.0101), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.3916, 1.3714), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-1.3521, 1.5059), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.7044, 1.1782), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.8398, 1.9597), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.2561, 1.9765), 0.0, (0.5, 0.5, 0.5)), (Dress::Lantern, (-0.9482, 2.2689), 0.0, (0.5, 0.5, 0.5)), (Dress::Stool, (-0.6748, 2.2571), 0.0, (0.5, 0.5, 0.5)), (Dress::Bucket, (-0.9187, 1.3429), 0.0, (0.5, 0.5, 0.5)), (Dress::Bucket, (0.0468, 1.2824), 0.0, (0.5, 0.5, 0.5)), (Dress::Sacks, (-1.7757, 1.4706), 0.0, (0.5, 0.5, 0.5))], shades: &[(&[(-1.6789, 1.2319), (-0.3793, 1.0101), (-0.3916, 1.3714), (-1.3521, 1.5059)], 2.24, INDIGO), (&[(-0.3793, 1.0101), (0.7044, 1.1782), (0.8398, 1.9597), (-0.2561, 1.9765)], 2.16, LINEN)], columns: &[((-0.4162, 2.7916), 3.0), ((-1.8693, 1.9008), 3.0), ((1.6033, 2.0185), 1.8), ((1.5541, 1.5815), 1.8), ((-0.6625, 2.1025), 2.74)], canopy: Some(((-0.9487, 2.2691), 2.0, 2.9, -0.7138, 2.62)), chimney: None }),
+        yard: Some(YardLook { dressing: &[(Dress::Frame, (0.6346, -1.407), 4.4315, (0.13, 1.3, 1.5)), (Dress::Tub, (1.1855, -0.7937), 1.0151, (1.4, 1.4, 1.1)), (Dress::Tub, (1.6471, -1.1826), -2.0273, (1.4, 1.4, 1.1)), (Dress::Tub, (1.7624, -0.7381), -1.0157, (1.4, 1.4, 1.1)), (Dress::Frame, (1.2432, -0.2937), 1.3323, (0.87, 1.7, 2.1)), (Dress::Frame, (1.5317, -1.627), -1.3106, (0.87, 1.7, 2.1)), (Dress::Trough, (1.9355, -1.3493), -2.0571, (1.9, 0.65, 0.6)), (Dress::Barrel, (0.0317, -1.1826), 1.856, (0.73, 0.75, 0.91)), (Dress::Bucket, (1.6471, -0.3493), -0.5141, (0.4, 0.4, 0.3)), (Dress::Lantern, (0.9548, -0.627), 1.0772, (0.3, 0.3, 2.0))], shades: &[], columns: &[((0.1965, -1.612), 2.7), ((0.291, -1.1478), 2.7), ((0.7248, -0.967), 2.7), ((1.078, -1.2709), 2.7), ((1.0846, -1.7467), 2.7), ((0.6477, -1.8022), 2.7)], canopy: Some((&[(0.1965, -1.612), (0.1983, -1.4091), (0.2411, -1.2404), (0.3273, -1.1013), (0.45, -1.0069), (0.6136, -0.9641), (0.8025, -0.9843), (0.9394, -1.0609), (1.0436, -1.1922), (1.0971, -1.3374), (1.1153, -1.503), (1.1005, -1.6837), (1.0496, -1.8333), (0.5596, -1.783), (0.3446, -1.7065)], 2.7)), chimney: None }),
+    },
+    Form {
+        key: "roduro_tender_home_01",
+        at_size: 10.8,
+        tiers: &[(layout::RODURO_TENDER_HOME_01_OUTLINE, 0.0, 4.9, 3.3)],
+        roof: Roof::Dome,
+        dome: 0.327,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: Some(YardLook { dressing: &[(Dress::Crate, (-0.0952, -1.2692), 0.0, (0.9, 0.9, 0.7)), (Dress::Sacks, (0.627, -1.4423), -2.4625, (0.9, 0.7, 0.4)), (Dress::Barrel, (1.2228, 0.0235), 1.4089, (0.73, 0.75, 0.91)), (Dress::Trough, (1.3339, -1.3034), -3.0455, (1.9, 0.65, 0.6)), (Dress::Pile, (1.5561, -0.0919), -0.4227, (1.2, 1.0, 0.5)), (Dress::Bucket, (1.6672, -1.2457), -2.6037, (0.4, 0.4, 0.3)), (Dress::Lantern, (1.8894, -1.0727), -2.3394, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-0.3107, -1.0346), 2.7), ((0.8985, -1.1501), 2.7), ((0.7217, -1.5988), 2.7), ((0.2483, -1.7688), 2.7), ((-0.2024, -1.5505), 2.7)], canopy: Some((&[(-0.3107, -1.0346), (-0.1852, -0.8513), (0.0144, -0.7325), (0.2874, -0.6923), (0.5507, -0.7359), (0.7407, -0.8513), (0.8619, -1.0242), (0.9072, -1.2463), (0.8743, -1.4824), (0.6324, -1.6761), (0.4843, -1.7436), (0.2346, -1.7684), (0.0226, -1.7272), (-0.128, -1.6369), (-0.2302, -1.5017)], 2.7)), chimney: None }),
     },
     Form {
         key: "roduro_tower_cottage_01",
@@ -623,6 +657,16 @@ pub const RODURO_ROUND_OLD_01_TIER_1: &[(f32, f32)] = &[
     (-0.4381, 0.6299), (-0.5177, 0.5172), (-0.5395, 0.3724), (-0.5844, 0.2641), (-0.6133, 0.1544), (-0.5496, 0.0344),
 ];
 
+/// `roduro_smith_home_02`'s tier B (drawing only).
+pub const RODURO_SMITH_HOME_02_TIER_1: &[(f32, f32)] = &[
+    (0.8981, -0.0151), (0.8906, 0.1283), (0.866, 0.2679), (0.8151, 0.4019), (0.7377, 0.5226), (0.6358, 0.6245),
+    (0.5151, 0.7019), (0.3811, 0.7528), (0.2415, 0.7774), (0.0981, 0.7849), (-0.0453, 0.7774), (-0.1849, 0.7528),
+    (-0.3189, 0.7019), (-0.4396, 0.6245), (-0.5415, 0.5226), (-0.6189, 0.4019), (-0.6698, 0.2679), (-0.6943, 0.1283),
+    (-0.7019, -0.0151), (-0.6943, -0.1585), (-0.6698, -0.2981), (-0.6189, -0.4321), (-0.5415, -0.5528), (-0.4396, -0.6547),
+    (-0.3189, -0.7321), (-0.1849, -0.783), (-0.0453, -0.8075), (0.0981, -0.8151), (0.2415, -0.8075), (0.3811, -0.783),
+    (0.5151, -0.7321), (0.6358, -0.6547), (0.7377, -0.5528), (0.8151, -0.4321), (0.866, -0.2981), (0.8906, -0.1585),
+];
+
 /// `roduro_tower_cottage_01`'s tier B (drawing only).
 pub const RODURO_TOWER_COTTAGE_01_TIER_1: &[(f32, f32)] = &[
     (0.8205, 0.0), (0.8128, 0.1513), (0.7846, 0.2973), (0.7282, 0.4378), (0.6487, 0.5621), (0.5436, 0.6621),
@@ -689,6 +733,20 @@ fn inset(f: &Frame, pts: &[(f32, f32)], m: f32) -> Vec<V2> {
             q[k].add(s.scale(2.0 * m / l2))
         })
         .collect()
+}
+
+/// Does an outline turn in anywhere by more than a little (a crescent, a
+/// deep nook)?
+fn concave(pts: &[(f32, f32)]) -> bool {
+    let n = pts.len();
+    let mut worst = 0.0f32;
+    for k in 0..n {
+        let (a, b, c) = (pts[(k + n - 1) % n], pts[k], pts[(k + 1) % n]);
+        let cross = (b.0 - a.0) * (c.1 - b.1) - (b.1 - a.1) * (c.0 - b.0);
+        let l = ((b.0 - a.0).hypot(b.1 - a.1) * (c.0 - b.0).hypot(c.1 - b.1)).max(1e-6);
+        worst = worst.min(cross / l);
+    }
+    worst < -0.25
 }
 
 /// Frame metres on the map.
@@ -833,6 +891,16 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, stone);
             band(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
             cap(b, f, &ins, z1, palette::scale(moss, 0.9));
+        } else if concave(pts) {
+            // An outline that curls (a crescent) can't be drawn in toward
+            // one middle: a low rounded roof, inset from the edge, mossed.
+            let base = inset(f, pts, 0.0);
+            let mid = inset(f, pts, 0.5);
+            let ins = inset(f, pts, 1.1);
+            let rise = (z1 - top_wall).min(1.2);
+            band(b, f, &base, &mid, top_wall, top_wall + rise * 0.6, 0.45, stone);
+            band(b, f, &mid, &ins, top_wall + rise * 0.6, top_wall + rise, 0.85, moss);
+            cap(b, f, &ins, top_wall + rise, moss);
         } else {
             // The roof: the outline drawn in as it rises, toward its middle
             // (a dome) or across only (a barrel vault along the length).
@@ -916,18 +984,54 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
 /// awnings, the stations (the sim's own pieces) and the dressing.
 #[allow(clippy::too_many_arguments)]
 fn yard(b: &mut Builder, gl: &mut Builder, v: &Variant, y: &layout::Yard, look: &YardLook, f: &Frame, house: &[(f32, f32)], stone: Rgb, seed: u64) {
-    let fence_col = palette::scale(stone, 0.95);
+    // The yard's wall is the house's own stone, lower: the same growth-ring
+    // bands, moss along its top, and it runs on from the house's wall.
     let n = y.outline.len();
     let pts: Vec<V2> = y.outline.iter().map(|&(x, yy)| V2::new(x * f.hx, yy * f.hy)).collect();
     let gate = V2::new(y.gate.0 * f.hx, y.gate.1 * f.hy);
+    let moss = [0.27, 0.31, 0.22];
+    let h = y.fence;
+    let outer = inset(f, y.outline, 0.0);
+    let inner = inset(f, y.outline, 0.7);
+    let cap_out = inset(f, y.outline, -0.05);
+    let cap_in = inset(f, y.outline, 0.75);
+    let drawn = |k: usize| {
+        let mid = pts[k].lerp(pts[(k + 1) % n], 0.5);
+        layout::outline_nearest(house, f.hx, f.hy, mid).0 <= -0.45 && mid.dist(gate) >= y.gate_width * 0.5 + 0.1
+    };
+    let (ring_dark, c1, c2, c3) = (palette::scale(stone, 0.88), palette::lin(stone), palette::lin(palette::scale(stone, 0.88)), palette::lin(moss));
+    let _ = ring_dark;
     for k in 0..n {
-        let (a, c) = (pts[k], pts[(k + 1) % n]);
-        let mid = a.lerp(c, 0.5);
-        // Not where it runs along the house's wall, nor at the gate.
-        if layout::outline_nearest(house, f.hx, f.hy, mid).0 > -0.45 || mid.dist(gate) < y.gate_width * 0.5 + 0.1 {
+        if !drawn(k) {
             continue;
         }
-        wall(b, fm(f, a), fm(f, c), f.y - 0.2, 0.5, y.fence + 0.2, fence_col);
+        let j = (k + 1) % n;
+        let quad = |lo: &[V2], hi: &[V2], y0: f32, y1: f32, c: [f32; 4], flip: bool| {
+            let p = [to3(fm(f, lo[k]), f.y + y0), to3(fm(f, lo[j]), f.y + y0), to3(fm(f, hi[j]), f.y + y1), to3(fm(f, hi[k]), f.y + y1)];
+            let e = fm(f, lo[j]).sub(fm(f, lo[k]));
+            let nn = vec3(e.y, 0.0, -e.x).normalize_or_zero() * if flip { -1.0 } else { 1.0 };
+            (p, nn)
+        };
+        // Outside face in two bands, inside face, and the mossed top.
+        for (y0, y1, c) in [(-0.3, h * 0.5, c1), (h * 0.5, h, c2)] {
+            let (p, nn) = quad(&outer, &outer, y0, y1, c, false);
+            b.quad_lin(p, [nn; 4], [c; 4]);
+            let (p, nn) = quad(&inner, &inner, y0, y1, c, true);
+            b.quad_lin(p, [nn; 4], [c; 4]);
+        }
+        let (p, _) = quad(&cap_out, &cap_out, h, h + 0.16, c3, false);
+        b.quad_lin(p, [Vec3::Y; 4], [c3; 4]);
+        let (p, _) = quad(&cap_in, &cap_in, h, h + 0.16, c3, true);
+        b.quad_lin(p, [Vec3::Y; 4], [c3; 4]);
+        let top = [to3(fm(f, cap_out[k]), f.y + h + 0.16), to3(fm(f, cap_out[j]), f.y + h + 0.16), to3(fm(f, cap_in[j]), f.y + h + 0.16), to3(fm(f, cap_in[k]), f.y + h + 0.16)];
+        b.quad_lin(top, [Vec3::Y; 4], [c3; 4]);
+        // Ends where a run stops (at the gate, or at the house).
+        for (e, show) in [(k, !drawn((k + n - 1) % n)), (j, !drawn(j))] {
+            if show {
+                let end = [to3(fm(f, outer[e]), f.y - 0.3), to3(fm(f, inner[e]), f.y - 0.3), to3(fm(f, inner[e]), f.y + h + 0.16), to3(fm(f, outer[e]), f.y + h + 0.16)];
+                b.quad_lin(end, [Vec3::Y; 4], [c2; 4]);
+            }
+        }
     }
     // The gate: two posts.
     let (_, q, inward) = layout::outline_nearest(y.outline, f.hx, f.hy, gate);
@@ -940,10 +1044,15 @@ fn yard(b: &mut Builder, gl: &mut Builder, v: &Variant, y: &layout::Yard, look: 
     for &((x, yy), h) in look.columns {
         b.column(to3(f.p(x, yy), f.y - 0.1), 0.24, 0.2, h + 0.1, 6, palette::scale(stone, 0.9));
     }
-    if let Some(((x, yy), rx, ry, yaw, h)) = look.canopy {
-        let c = f.at(x, yy, h);
-        drum(b, c, rx + 0.3, ry + 0.3, 0.3, 0.97, f.rot + yaw, 16, palette::scale(stone, 0.8));
-        drum(b, c + Vec3::Y * 0.3, rx, ry, 0.5, 0.6, f.rot + yaw, 16, [0.27, 0.31, 0.22]);
+    if let Some((outline, h)) = look.canopy {
+        // A grown stone slab over the shed, mossed on top, drawn in a touch
+        // as it rises like the house's own roofs.
+        let ring = inset(f, outline, -0.2);
+        let top = inset(f, outline, 0.5);
+        let lo = Frame { y: f.y + h, ..*f };
+        band(b, &lo, &ring, &ring, 0.0, 0.3, 0.0, palette::scale(stone, 0.8));
+        band(b, &lo, &ring, &top, 0.3, 0.7, 0.6, palette::scale(stone, 0.9));
+        cap(b, &lo, &top, 0.7, moss);
     }
     if let Some(((x, yy), r, h)) = look.chimney {
         let c = f.at(x, yy, -0.1);

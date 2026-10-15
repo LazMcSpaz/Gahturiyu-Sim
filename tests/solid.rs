@@ -121,7 +121,8 @@ fn every_building_variant_and_everything_in_it_is_listed() {
         // And the doorway is open, for a walker's width.
         assert!(!walls.iter().any(|p| p.poly.crossed(way.outside, way.inside, BODY)), "{}: the doorway is clear", v.key);
         assert_eq!(w.enclosure_at(d.centre).map(|t| t.id), Some(th.id), "{}: standing in it", v.key);
-        assert_eq!(w.enclosure_at(way.outside).map(|t| t.id), None, "{}: standing outside it", v.key);
+        // (A trade home's door may open onto its own yard.)
+        assert!(w.enclosure_at(way.outside).map(|t| t.id).is_none_or(|id| matches!(id, Id::Yard(..))), "{}: standing outside it", v.key);
     }
     // The hearth's ring of stones, and the stilt homes (which stop nobody).
     let hearth = w.solid(Id::Building(0, 0)).expect("the hearth");

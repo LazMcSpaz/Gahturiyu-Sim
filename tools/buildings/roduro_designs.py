@@ -200,91 +200,139 @@ def designs():
     return out
 
 
-# ---- Work yards grown against a home (Laz, 15 Oct) ----------------------------
+# ---- Trade homes: house and work yard as one grown form (Laz, 15 Oct) ---------
+#
+# Laz liked all five shapes (the yard wall is the house's own stone, lower):
+#   A. one oval, the roofed end the house, the open end the yard;
+#   B. a crescent house curled round its court;
+#   C. the shed a low bud grown out of the house, the court in the crook;
+#   D. one broad low footprint the house rises out of;
+#   E. two lobes with the crease between them filled.
+# Every upper tier sits well inside the one under it (nothing hangs off an
+# edge). The main door faces +x; the gate faces +x too, except B's (side).
 
-# What each of a yard model's stations is to the game: a piece of the sim's
-# furniture (a station someone can work at, or a container), or dressing
-# the window draws and nothing else reads.
-STATION_KINDS = {
-    "forge_hearth": ("Forge", None), "anvil": ("Anvil", None), "workbench": ("Workbench", None), "tool_rack": ("Rack", None),
-    "charcoal_bin": (None, "crate"), "iron_stock": (None, "crate"), "quench_trough": (None, "trough"), "bellows": (None, "bellows"),
-    "grindstone": (None, "grindstone"), "water_barrel": (None, "barrel"), "swage_block": (None, "block"), "weapon_rack": (None, "frame"),
-    "cooling_rack": (None, "frame"),
-    "fleshing_beam": ("Workbench", None), "drying_rack": ("Rack", None), "bark_pile": (None, "pile"), "hide_stack": (None, "pile"),
-    "soak_vat": (None, "tub"), "stretching_frame": (None, "frame"), "water_trough": (None, "trough"), "knife_rack": (None, "frame"),
-    "hide_line": (None, "frame"),
+def smooth(p, r):
+    return p.buffer(r, join_style=1).buffer(-r, join_style=1)
+
+
+def turn(p, deg):
+    return affinity.rotate(p, deg, origin=(0, 0))
+
+
+# What stands in a trade's yard: the sim's pieces (stations, racks), then
+# the dressing the window draws. `shed` pieces go under the roof.
+TRADE_YARDS = {
+    "smith": dict(
+        shed=[("Forge", "wall"), ("Anvil", "middle"), ("Rack", "wall")],
+        open=[("Workbench", "wall")],
+        dress_shed=[("bellows", (1.9, 0.55, 1.0)), ("trough", (0.6, 1.3, 0.6)), ("block", (0.64, 0.64, 0.8))],
+        dress_open=[("grindstone", (0.83, 0.9, 1.17)), ("barrel", (0.73, 0.75, 0.91)), ("crate", (0.9, 0.9, 0.7)), ("pile", (1.4, 1.2, 0.6)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
+        chimney=True,
+    ),
+    "tanner": dict(
+        shed=[("Workbench", "wall"), ("Rack", "wall")],
+        open=[("Rack", "middle")],
+        dress_shed=[("pile", (1.25, 1.0, 0.4)), ("frame", (0.13, 1.3, 1.5))],
+        dress_open=[("tub", (1.4, 1.4, 1.1)), ("tub", (1.4, 1.4, 1.1)), ("tub", (1.4, 1.4, 1.1)), ("frame", (0.87, 1.7, 2.1)), ("frame", (0.87, 1.7, 2.1)), ("trough", (1.9, 0.65, 0.6)), ("barrel", (0.73, 0.75, 0.91)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
+        chimney=False,
+    ),
+    "tender": dict(
+        shed=[("Workbench", "wall"), ("Rack", "wall")],
+        open=[("GrowerBed", "middle"), ("GrowerBed", "middle"), ("GrowerBed", "middle")],
+        dress_shed=[("crate", (0.9, 0.9, 0.7)), ("sacks", (0.9, 0.7, 0.4))],
+        dress_open=[("barrel", (0.73, 0.75, 0.91)), ("trough", (1.9, 0.65, 0.6)), ("pile", (1.2, 1.0, 0.5)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
+        chimney=False,
+    ),
 }
-DRESSING_KINDS = {"bucket": "bucket", "sacks": "sacks", "stool": "stool", "lantern": "lantern", "shade_post": "post", "scrap_pile": "pile",
-                  "cart_wheel": "wheel", "ash_patch": None}
-HOLDERS = {"Chest", "Crate", "Cupboard", "Barrel"}
 
 
-def yard_of(model, house, side_y, along_x, fence_h=1.3):
-    """A yard model (its JSON) grown against the house's +y wall: its oval
-    overlaps the house a little and the house's wall becomes that side of
-    the fence. `side_y` is where the yard's middle sits across, `along_x`
-    along the house. Returns the yard in the house's frame, metres."""
-    oy, ox = side_y, along_x
-    at = lambda p: (round(p[0] + ox, 3), round(p[1] + oy, 3))
-    outline = affinity.translate(Polygon(model["outline"]), ox, oy)
-    # The yard keeps only what's outside the house wall (by a hand).
-    yard = outline.difference(house.buffer(-0.25))
-    if yard.geom_type != "Polygon":
-        yard = max(yard.geoms, key=lambda p: p.area)
-    yard = yard.simplify(0.08)
-    ring = yard.exterior if yard.exterior.is_ccw else LineString(list(yard.exterior.coords)[::-1])
-    pts = [(round(x, 3), round(y, 3)) for x, y in ring.coords[:-1]]
-    gate = at(model["gate"]["xy"])
-    pieces, dressing = [], []
-    for st in model["stations"]:
-        furn, dress = STATION_KINDS.get(st["kind"], (None, None))
-        p = at(st["xy"])
-        if not Point(p).within(yard.buffer(-0.6)):
-            continue
-        most = 2 if furn == "Rack" else 1
-        if furn and sum(1 for q in pieces if q["what"] == furn) < most:
-            pieces.append(dict(what=furn, at=list(p), rot=round(st["yaw"], 4)))
-        elif dress:
-            dressing.append(dict(kind=dress, at=list(p), rot=round(st["yaw"], 4), size=st["size"]))
-    for d in model["dressing"]:
-        kind = DRESSING_KINDS.get(d["kind"])
-        p = at(d["xy"])
-        if kind and Point(p).within(yard.buffer(-0.3)):
-            dressing.append(dict(kind=kind, at=list(p), rot=0.0, size=[0.5, 0.5, 0.5]))
-    shades = [dict(cloth=s["cloth"], footprint=[list(at(p)) for p in s["footprint"]], height=s["lowest_z"]) for s in model["shades"]]
-    canopy = model.get("canopy")
-    chimney = model.get("chimney")
-    # The roofed body (under the canopy) leans on the house: its columns.
-    columns = [dict(at=list(at(c["xy"])), height=c["height"]) for c in model["columns"] if Point(at(c["xy"])).within(yard.buffer(0.3))]
-    return dict(
-        model=model["id"],
-        outline=pts,
-        gate=list(gate),
-        gate_width=model["gate"]["width"],
-        fence_h=fence_h,
-        pieces=pieces,
-        dressing=dressing,
-        shades=shades,
-        canopy=dict(at=list(at(canopy["xy"])), rx=canopy["rx"], ry=canopy["ry"], yaw=canopy["yaw"], height=canopy["underside_z"]) if canopy else None,
-        chimney=dict(at=list(at(chimney["xy"])), r=chimney["r"], height=chimney["height"]) if chimney else None,
-        columns=columns,
+def yard_designs():
+    """The five trade homes: house outline, tiers, ground floor, and the yard
+    (its outline round the open ground, the roofed shed, the gate, the chimney)."""
+    out = {}
+
+    # A. One oval, one end open: the smith. The house is the street end
+    # (its door to the street), the yard behind it, the gate on the side.
+    big = oval(9.6, 5.8, 2.3)
+    house = affinity.translate(oval(5.6, 5.8, 2.3), 4.0, 0.0).intersection(big)
+    yard = big.difference(house.buffer(-0.3))
+    shed = affinity.translate(oval(2.3, 3.4, 2.2), -5.6, -1.2).intersection(big.buffer(-0.5))
+    walls = [((1.0, 5.8), (1.0, 0.3), 0.5), ((1.0, 0.3), (1.0, -5.8), None)]
+    out["roduro_smith_home_01"] = dict(
+        label="Smith's home, one oval", kit="home", trade="smith",
+        house=house, tiers=[tier(house, 0.0, 5.0, 3.4)],
+        level=level_of(house, walls, dict(main=(4.5, 0.0), bedroom=(-0.4, 2.5), store=(-0.4, -2.5)), [((9.6, 0.3), 0.0)]),
+        stairs=[], windows=[3], roof="dome",
+        yard=yard, shed=shed, gate=(-4.0, 5.9), chimney=(-2.4, -2.2),
     )
 
+    # B. A crescent house curled round its court: the tanner. The court
+    # opens to +y (the gate on that side); the door is on the +x arm's
+    # outside, to the street. (The house is thick enough at the bottom that
+    # its frame's middle is indoors, which the sim counts on.)
+    whole = oval(8.4, 9.0, 2.2)
+    court_oval = affinity.translate(oval(5.0, 4.8, 2.2), 0.0, 4.6)
+    opening = Polygon([(-4.6, 4.6), (4.6, 4.6), (4.6, 20), (-4.6, 20)])
+    house = smooth(whole.difference(court_oval.union(opening)), 0.9)
+    yard = whole.intersection(court_oval.union(opening)).difference(house.buffer(-0.3))
+    shed = affinity.translate(oval(2.6, 2.2, 2.2), -2.4, 2.2).intersection(yard.buffer(0.6))
+    # Walls across each arm of the crescent: a bedroom and a store in the
+    # arms, the main room round the bottom.
+    walls = [((4.9, 1.5), (9.2, 1.5), 0.5), ((-4.9, 1.5), (-9.2, 1.5), 0.5)]
+    out["roduro_tanner_home_01"] = dict(
+        label="Tanner's home, a crescent round its court", kit="home", trade="tanner",
+        house=house, tiers=[tier(house, 0.0, 4.8, 3.3)],
+        level=level_of(house, walls, dict(main=(0.0, -7.0), bedroom=(6.5, 3.5), store=(-6.5, 3.5)), [((6.0, -5.5), 0.0)]),
+        stairs=[], windows=[4], roof="dome",
+        yard=yard, shed=shed, gate=(0.0, 8.8), chimney=None,
+    )
 
-def yard_homes(cat_dir, specs):
-    """Trade homes: a catalogue home with a yard model grown against its
-    +y side. `specs` holds the homes' specs (for their outlines)."""
-    out = {}
-    # (The yard models' plan files, transcribed into the repo: `yards/`.)
-    here = os.path.dirname(os.path.abspath(__file__))
-    forge = json.load(open(os.path.join(here, "yards", "roduro_forge_yard_01.json")))
-    tannery = json.load(open(os.path.join(here, "yards", "roduro_tannery_yard_01.json")))
-    for key, label, home_id, model, side_y, along_x in [
-        ("roduro_smith_home_01", "Smith's home and yard", "roduro_round_est_01", forge, 9.6, -0.6),
-        ("roduro_tanner_home_01", "Tanner's home and yard", "roduro_long_est_02", tannery, 10.6, -1.0),
-    ]:
-        home = specs[home_id]
-        house = Polygon(home["exterior"]["tiers"][0]["outline"])
-        yard = yard_of(model, house, side_y, along_x)
-        out[key] = dict(home=home_id, label=label, yard=yard)
+    # C. The shed a low bud grown out of the house, the court in the crook:
+    # the tender. (The court on the -y side, so the door to the street is
+    # clear of it.)
+    house = oval(5.4, 5.2, 2.3)
+    bud = affinity.translate(oval(3.4, 3.0, 2.2), 1.5, -6.6)
+    mass = smooth(unary_union([house, bud]), 1.6)
+    court = smooth(unary_union([mass, affinity.translate(oval(5.6, 4.6, 2.2), 6.2, -3.4)]), 2.0)
+    yard = court.difference(house.buffer(-0.3))
+    walls = [((-5.4, -1.6), (-0.4, -1.6), 0.55), ((-0.4, -1.6), (-0.4, -5.2), None)]
+    out["roduro_tender_home_01"] = dict(
+        label="Stone-tender's home, the shed a bud", kit="home", trade="tender",
+        house=house, tiers=[tier(house, 0.0, 4.9, 3.3)],
+        level=level_of(house, walls, dict(main=(1.5, 1.5), bedroom=(-3.0, -3.5), store=(1.5, -4.0)), [((5.4, 2.8), 0.0)]),
+        stairs=[], windows=[3], roof="dome",
+        yard=yard, shed=bud.intersection(court.buffer(-0.4)), gate=(11.6, -3.0), chimney=None,
+    )
+
+    # D. One broad low footprint the house rises out of: the smith, ancient.
+    foot = oval(9.8, 7.2, 2.3, lobes=(3, 0.05, 20))
+    house = affinity.translate(oval(5.3, 5.3, 2.3), -3.6, 0.4)
+    assert foot.buffer(-0.3).contains(house)
+    yard = foot.difference(house.buffer(-0.3))
+    shed = affinity.translate(oval(2.4, 3.6, 2.2), 3.4, -2.4).intersection(foot.buffer(-0.5))
+    walls = [((-3.6, 5.7), (-3.6, 1.0), 0.5), ((-3.6, 1.0), (-3.6, -4.9), 0.5)]
+    out["roduro_smith_home_02"] = dict(
+        label="Smith's home, risen from one footprint", kit="drum", trade="smith",
+        house=house, tiers=[tier(house, 0.0, 3.5, 3.5), tier(house, 3.5, 6.6, 5.9, 0.8, (-0.2, 0.0), "B")],
+        level=level_of(house, walls, dict(main=(-1.5, 0.0), bedroom=(-6.5, 3.0), store=(-6.5, -2.0)), [((1.7, 0.8), 0.0)]),
+        stairs=[dict(xy=[-2.6, -2.4], r=0.9, from_level=1, to_level=2, steps=18)], windows=[3, 2], roof="dome",
+        yard=yard, shed=shed, gate=(9.7, 1.2), chimney=(5.8, -5.5), base=1.3,
+    )
+
+    # E. Two lobes, the crease filled in: the tanner, established. The yard
+    # lobe is on the -y side, so the door (to the street, on +x) is clear
+    # of the yard's wall.
+    house = oval(5.2, 5.4, 2.3)
+    lobe = affinity.translate(oval(6.4, 5.0, 2.3), 5.4, -5.4)
+    court = smooth(unary_union([house, lobe]), 2.0)
+    yard = court.difference(house.buffer(-0.3))
+    shed = affinity.translate(oval(2.4, 3.0, 2.2), 3.4, -8.2).intersection(court.buffer(-0.5))
+    walls = [((-5.2, 2.8), (5.2, 2.8), 0.5), ((0.4, 2.8), (0.4, 5.4), None)]
+    out["roduro_tanner_home_02"] = dict(
+        label="Tanner's home, two lobes grown together", kit="home", trade="tanner",
+        house=house, tiers=[tier(house, 0.0, 5.0, 3.4)],
+        level=level_of(house, walls, dict(main=(0.0, -1.0), bedroom=(-2.5, 4.2), store=(3.0, 4.2)), [((5.2, 1.6), 0.0)]),
+        stairs=[], windows=[3], roof="dome",
+        yard=yard, shed=shed, gate=(11.6, -5.0), chimney=None,
+    )
     return out

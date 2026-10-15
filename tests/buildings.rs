@@ -1699,7 +1699,7 @@ fn a_work_yard_is_fenced_gated_and_worked() {
     let spot = open_ground(&w, 40.0);
     let m = w.squad.members[0];
     let k = w.squad.index(m).unwrap();
-    for (key, station) in [("roduro_smith_home_01", Station::Forge), ("roduro_tanner_home_01", Station::Workbench)] {
+    for (key, station) in [("roduro_smith_home_01", Station::Forge), ("roduro_tanner_home_01", Station::Workbench), ("roduro_tender_home_01", Station::GrowerBed), ("roduro_smith_home_02", Station::Forge), ("roduro_tanner_home_02", Station::Workbench)] {
         let v = layout::by_key(key).unwrap();
         let yard = v.yard.unwrap_or_else(|| panic!("{key} has a yard"));
         let (size, seed) = layout::example_of(v);
@@ -1722,10 +1722,11 @@ fn a_work_yard_is_fenced_gated_and_worked() {
             assert!(fence.shape.contains(at) && !d.contains(at), "{key}: piece {j} stands in the yard, not the house");
             assert_eq!(th.within, Some(fence.id));
         }
-        // One side of the fence runs along the house: the yard's outline has
-        // corners just inside the house's wall.
+        // One side of the fence runs along the house (the yard's outline has
+        // corners just inside the house's wall), or the house rises out of
+        // the yard's own footprint.
         let along = yard.outline.iter().filter(|&&q| d.contains(d.to_world(q))).count();
-        assert!(along >= 3, "{key}: the fence shares the house's wall ({along} corners on it)");
+        assert!(along >= 3 || fence.shape.contains(d.centre), "{key}: the fence shares the house's wall ({along} corners on it)");
         // Its stations are stations.
         let st = yard.pieces.iter().find(|p| Station::of_furniture(p.what) == Some(station)).expect("the trade's station");
         let at = d.to_world(st.at);

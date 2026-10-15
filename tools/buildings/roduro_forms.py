@@ -480,8 +480,7 @@ def plan_png(spec, path):
         for sh in y["shades"]:
             ax.fill(*Polygon(sh["footprint"]).exterior.xy, color="tab:orange", alpha=0.15)
         if y["canopy"]:
-            c = y["canopy"]
-            ax.add_patch(matplotlib.patches.Ellipse(c["at"], c["rx"] * 2, c["ry"] * 2, angle=math.degrees(c["yaw"]), fill=False, ls="--"))
+            ax.plot(*Polygon(y["canopy"]["outline"]).exterior.xy, ls="--", color="0.3")
     cx, cy = g["centre"]
     ax.plot(cx + g["half"][0] * g["size"], cy + g["door"] * 0.8 * g["half"][1] * g["size"], "r>", ms=8)
     for o in g["other_doors"]:
@@ -599,7 +598,7 @@ def rust_forms(specs):
             canopy = "None"
             if y["canopy"]:
                 c = y["canopy"]
-                canopy = f"Some((({f3(u(c['at'])[0])}, {f3(u(c['at'])[1])}), {f3(c['rx'])}, {f3(c['ry'])}, {f3(c['yaw'])}, {f3(c['height'])}))"
+                canopy = "Some((&[" + ", ".join(f"({f3(u(p)[0])}, {f3(u(p)[1])})" for p in c["outline"]) + f"], {f3(c['height'])}))"
             chimney = "None"
             if y["chimney"]:
                 c = y["chimney"]
@@ -639,23 +638,119 @@ def design_specs(cat_dir):
         spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], d["stairs"], d["windows"], size_xyz, roof=d["roof"])
         spec["designed"] = True
         out[id] = spec
-    homes = {}
-    for f in sorted(glob.glob(os.path.join(ASSETS, "*.json"))):
-        j = json.load(open(f))
-        homes[j["id"]] = j
-    for id, d in rd.yard_homes(cat_dir, homes).items():
-        home = homes[d["home"]]
-        spec = json.loads(json.dumps(home))
-        spec["id"] = id
-        spec["label"] = d["label"]
+    for id, d in rd.yard_designs().items():
+        tiers = d["tiers"]
+        xs = [p[0] for p in tiers[0]["outline"]]
+        ys = [p[1] for p in tiers[0]["outline"]]
+        size_xyz = [round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), tiers[-1]["z1"]]
+        spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], d["stairs"], d["windows"], size_xyz, roof=d["roof"])
         spec["designed"] = True
-        spec["home"] = d["home"]
-        spec["game"]["variant"] = id
         spec["game"]["use"] = "workshop"
-        spec["game"]["hand"] = False
-        spec["game"]["yard"] = d["yard"]
+        spec["game"]["yard"] = place_yard(d, Polygon(spec["exterior"]["tiers"][0]["outline"]))
         out[id] = spec
     return out
+
+
+def place_yard(d, house):
+    """A designed trade home's yard: the fence ring, the gate, the roofed
+    shed on its posts, the chimney, and the trade's pieces and dressing
+    placed on the open ground (stations under the shed first)."""
+    import roduro_designs as rd
+    from shapely.ops import unary_union
+    trade = rd.TRADE_YARDS[d["trade"]]
+    # (Opened by a third of a metre: that drops any sliver of ground the
+    # yard's outline shares with the house's own wall.)
+    yard = d["yard"].buffer(-0.35, join_style=1).buffer(0.35, join_style=1).simplify(0.08)
+    if yard.geom_type != "Polygon":
+        yard = max(yard.geoms, key=lambda p: p.area)
+    ring = yard.exterior if yard.exterior.is_ccw else LineString(list(yard.exterior.coords)[::-1])
+    pts = [(round(x, 3), round(y, 3)) for x, y in ring.coords[:-1]]
+    shed = d["shed"]
+    gate = Point(d["gate"])
+    gate = ring.interpolate(ring.project(gate))
+    gate = (round(gate.x, 3), round(gate.y, 3))
+    # The ground someone can stand on: the yard in from its wall, and the
+    # fence's gate kept clear.
+    floor = yard.buffer(-0.7, join_style=2).difference(house.buffer(0.4))
+    clear = [Point(gate).buffer(1.6)]
+    # The house's door may open onto the yard: the way in from it stays clear.
+    for o in d["level"]["outside_doors"]:
+        x, y = o["xy"]
+        clear.append(box(x - 0.5, y - 0.8, x + 2.6, y + 0.8))
+    taken = []
+    pieces, dressing = [], []
+    BODY = 0.3
+
+    def still_open(f):
+        free = floor.difference(unary_union(taken + [f]).buffer(BODY + 0.02))
+        comps = list(free.geoms) if free.geom_type == "MultiPolygon" else [free]
+        home = [c for c in comps if c.distance(Point(gate)) < 2.0]
+        return bool(home) and all(home[0].distance(t) < BODY + 0.15 for t in taken + [f])
+
+    def put(name, prefer, size, area, dress):
+        w, dd = size[:2]
+        minx, miny, maxx, maxy = area.bounds
+        edge = yard.exterior
+        cands = []
+        for i in range(int((maxx - minx) / 0.3) + 1):
+            for j in range(int((maxy - miny) / 0.3) + 1):
+                x, y = minx + 0.3 * i, miny + 0.3 * j
+                c = Point(x, y)
+                if not area.contains(c):
+                    continue
+                near = edge.interpolate(edge.project(c))
+                e0 = edge.interpolate(max(edge.project(c) - 0.3, 0))
+                e1 = edge.interpolate(min(edge.project(c) + 0.3, edge.length))
+                along = math.atan2(e1.y - e0.y, e1.x - e0.x)
+                for rot in [along, along + Q, 0.0]:
+                    f = affinity.rotate(box(x - w / 2, y - dd / 2, x + w / 2, y + dd / 2), rot, origin=(x, y), use_radians=True)
+                    if not area.contains(f) or any(f.intersects(k) for k in clear) or any(f.distance(t) < 0.55 for t in taken):
+                        continue
+                    sc = c.distance(near) if prefer == "wall" else c.distance(area.centroid)
+                    cands.append((sc, x, y, rot, f))
+        cands.sort(key=lambda c: c[0])
+        best = next((c for c in cands[:40] if still_open(c[4])), None)
+        if best is None:
+            return
+        _, x, y, rot, f = best
+        taken.append(f)
+        if dress:
+            dressing.append(dict(kind=name, at=[round(x, 3), round(y, 3)], rot=round(rot, 4), size=list(size)))
+        else:
+            pieces.append(dict(what=name, at=[round(x, 3), round(y, 3)], rot=round(rot, 4)))
+
+    under = shed.buffer(-0.5).intersection(floor)
+    open_ground = floor.difference(shed.buffer(0.3))
+    for name, prefer in trade["shed"]:
+        put(name, prefer, SIZES[name], under, False)
+    for name, prefer in trade["open"]:
+        put(name, prefer, SIZES[name], open_ground, False)
+    for kind, size in trade["dress_shed"]:
+        put(kind, "wall", size, under, True)
+    for kind, size in trade["dress_open"]:
+        put(kind, "wall" if kind != "tub" else "middle", size, open_ground, True)
+    # Posts round the shed where it isn't against the house.
+    posts = []
+    sr = shed.exterior
+    n = max(4, int(sr.length / 2.6))
+    for k in range(n):
+        p = sr.interpolate(k / n * sr.length)
+        if house.buffer(0.3).contains(p):
+            continue
+        posts.append(dict(at=[round(p.x, 3), round(p.y, 3)], height=2.7))
+    canopy = [(round(x, 3), round(y, 3)) for x, y in shed.simplify(0.1).exterior.coords[:-1]]
+    return dict(
+        outline=pts,
+        gate=list(gate),
+        gate_width=2.2,
+        fence_h=d.get("base", 1.3),
+        pieces=pieces,
+        dressing=dressing,
+        shades=[],
+        canopy=dict(outline=canopy, height=2.7),
+        chimney=dict(at=list(d["chimney"]), r=0.7, height=6.0) if d.get("chimney") else None,
+        columns=posts,
+    )
 
 
 def main():
