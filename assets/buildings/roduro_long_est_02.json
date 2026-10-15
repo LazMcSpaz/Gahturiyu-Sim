@@ -4,7 +4,6 @@
  "units": "metres",
  "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
  "kit": "home",
- "age": "established",
  "overall": {
   "size_xyz": [
    8.48,
@@ -160,6 +159,7 @@
   ],
   "stair": null,
   "other_doors": [],
+  "yard": null,
   "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size."
  },
  "exterior": {
@@ -1555,6 +1555,7 @@
   }
  ],
  "stairs": [],
+ "age": "established",
  "outside_door_sizes": [
   {
    "level": 1,

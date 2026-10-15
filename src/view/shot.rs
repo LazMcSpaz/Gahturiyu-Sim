@@ -1343,8 +1343,19 @@ fn variants_row(world: &mut World, which: &str, open: bool) -> Option<(V2, f32, 
     let mut width = 0.0f32;
     for row in list.chunks(cols) {
         let sizes: Vec<(f32, u64)> = row.iter().map(|v| example_of(v)).collect();
-        let across: Vec<f32> = row.iter().zip(&sizes).map(|(v, s)| 2.0 * v.half.1 * s.0).collect();
-        let deep = row.iter().zip(&sizes).map(|(v, s)| 2.0 * v.half.0 * s.0).fold(0.0, f32::max);
+        // (A yard beside the house reaches past its outline.)
+        let reach = |v: &gahturiyu_sim::sim::layout::Variant, s: f32| -> (f32, f32) {
+            let (mut x, mut y) = (1.0f32, 1.0f32);
+            if let Some(yd) = v.yard {
+                for &(px, py) in yd.outline {
+                    x = x.max(px.abs());
+                    y = y.max(py.abs());
+                }
+            }
+            (2.0 * v.half.0 * s * x, 2.0 * v.half.1 * s * y)
+        };
+        let across: Vec<f32> = row.iter().zip(&sizes).map(|(v, s)| reach(v, s.0).1).collect();
+        let deep = row.iter().zip(&sizes).map(|(v, s)| reach(v, s.0).0).fold(0.0, f32::max);
         let total: f32 = across.iter().sum::<f32>() + gap * (row.len() as f32 - 1.0);
         width = width.max(total);
         let mut x = -total * 0.5;

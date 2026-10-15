@@ -35,7 +35,8 @@ Q = math.pi / 2
 # Furniture sizes (sim/layout.rs `Furn::size`, `Holder::size`): width along its own x, depth.
 SIZES = dict(Bed=(2.0, 1.0), Bedroll=(1.9, 0.8), Table=(1.4, 0.9), LongTable=(3.6, 0.9), Bench=(1.8, 0.4),
              Shelf=(1.6, 0.4), Hearth=(1.0, 1.0), Chest=(1.1, 0.6), Crate=(0.8, 0.8), Cupboard=(1.2, 0.5),
-             Barrel=(0.7, 0.7))
+             Barrel=(0.7, 0.7), Workbench=(2.0, 0.8), Anvil=(0.7, 0.4), Forge=(1.4, 1.2), Kiln=(1.3, 1.3), Loom=(1.6, 0.9),
+             Counter=(2.4, 0.7), Rack=(1.8, 0.35), GrowerBed=(1.8, 1.1), Altar=(1.6, 0.9), Screen=(1.6, 0.1))
 HOLDERS = {"Chest", "Crate", "Cupboard", "Barrel"}
 
 
@@ -131,7 +132,10 @@ def carry_to(outline, a, b):
     if hit.is_empty:
         return b
     pts = [hit] if hit.geom_type == "Point" else [g for g in hit.geoms if g.geom_type == "Point"]
-    best = min(pts, key=lambda q: (q.x - a[0]) * d[0] + (q.y - a[1]) * d[1])
+    # The first crossing past `b` (the end may start outside the outline).
+    proj = lambda q: (q.x - a[0]) * d[0] + (q.y - a[1]) * d[1]
+    beyond = [q for q in pts if proj(q) > l - 0.05]
+    best = min(beyond, key=proj) if beyond else max(pts, key=proj)
     return (round(best.x - d[0] * 0.02, 3), round(best.y - d[1] * 0.02, 3))
 
 
@@ -191,7 +195,8 @@ def kit_for(name, has_bedroom, area):
         beds = 0 if has_bedroom else BEDS_IN_MAIN
         if base == "hall":
             beds += 1 if area > 60 else 0
-        kit += [("Bed", "wall")] * beds
+        # (Beds first: they're the biggest and go against the wall.)
+        kit = [("Bed", "wall")] * beds + kit
         if area < 20:
             kit = [k for k in kit if k[0] not in ("Bench", "Cupboard")]
         if base == "hall" and area < 50:
@@ -311,6 +316,7 @@ def place(level, outline, walls, stair, door_face, inner):
 # ---- The spec ----------------------------------------------------------------------
 
 def spec_of(cat_dir, id, cat):
+    """A catalogue model's spec, from its profile and floor plan."""
     p = json.load(open(os.path.join(cat_dir, id + "_profile.json")))
     d = json.load(open(os.path.join(cat_dir, id + "_interior.json")))
     entry = cat[id]
@@ -323,11 +329,23 @@ def spec_of(cat_dir, id, cat):
     for k, t in enumerate(tiers):
         pts = outline_of(p, t)
         tier_specs.append(dict(name="ABC"[k] if k < 3 else str(k), z0=round(t["z0"], 2), z1=round(t["z1"], 2), wall_top=round(t["wall_top"], 2), outline=pts))
+    feats = entry.get("params", {}).get("feats", {})
+    windows = [feats.get("winA", feats.get("win", 2)), feats.get("winA2", feats.get("winB", 2)), feats.get("winA3", 2)][: len(tiers)]
+    spec = finish_spec(id, entry["label"], kit, tier_specs, d["levels"][0], d.get("stairs", []), windows, p["size"], roof="barrel" if kit == "vault" else "dome")
+    spec["age"] = entry.get("age")
+    spec["levels"] = d["levels"]
+    spec["outside_door_sizes"] = [dict(level=f["level"], width=f["width"], height=f["height"], balcony=f.get("balcony")) for f in d.get("outside_door_fit", [])]
+    return spec
+
+
+def finish_spec(id, label, kit, tier_specs, L1, stairs, windows, size_xyz, roof="dome", yard=None):
+    """The spec from the tiers and the ground floor's plan: the game's frame,
+    the walls carried to the outline and cut clear of the way in, the door,
+    and a furniture layout (or the one done by hand in the file already there)."""
     ground = Polygon(tier_specs[0]["outline"])
     if ground.area < 0 or not ground.exterior.is_ccw:
         tier_specs[0]["outline"] = tier_specs[0]["outline"][::-1]
         ground = Polygon(tier_specs[0]["outline"])
-    L1 = d["levels"][0]
     walls = walls_of(L1, ground)
     inner = ground.buffer(-WALL_IN - 0.12, join_style=2)
     # The game's frame: the outline's bounding box middle; the main door is
@@ -345,7 +363,7 @@ def spec_of(cat_dir, id, cat):
     hit = LineString([(cx, cy + across), (cx + 60, cy + across)]).intersection(ground.exterior)
     xs = [hit.x] if hit.geom_type == "Point" else [g.x for g in hit.geoms]
     face = (max(xs), cy + across)
-    stair = d["stairs"][0] if d.get("stairs") else None
+    stair = stairs[0] if stairs else None
     # A wall that runs into the way in from the door (the sim keeps a strip
     # from the door to 2 m inside clear) is cut back out of it.
     way = box(face[0] - 2.4, face[1] - 0.75, face[0] + 0.5, face[1] + 0.75)
@@ -368,7 +386,20 @@ def spec_of(cat_dir, id, cat):
             t = keep.project(Point(gp)) / keep.length
             g = round(t, 4) if keep.distance(Point(gp)) < 0.05 and 0.1 < t < 0.9 else None
         trimmed.append(((round(ax, 3), round(ay, 3)), (round(bx, 3), round(by, 3)), g))
-    walls = trimmed
+    # A doorway within a stride of a wall's end: the wall just stops short
+    # there instead (an open end), so no sliver of wall is left beside it.
+    ended = []
+    for a, b, g in trimmed:
+        if g is not None:
+            l = math.dist(a, b)
+            if g * l < 0.9 or (1.0 - g) * l < 0.9:
+                lerp = lambda t: (round(a[0] + (b[0] - a[0]) * t, 3), round(a[1] + (b[1] - a[1]) * t, 3))
+                hg = min(DOORWAY * 0.5 / l, 0.45)
+                a, b, g = (lerp(min(g + hg, 1.0)), b, None) if g * l < 0.9 else (a, lerp(max(g - hg, 0.0)), None)
+                if math.dist(a, b) < 0.6:
+                    continue
+        ended.append((a, b, g))
+    walls = ended
     # A layout done by hand in the file already there is kept.
     old = os.path.join(ASSETS, id + ".json")
     hand = None
@@ -377,11 +408,8 @@ def spec_of(cat_dir, id, cat):
         if og.get("hand"):
             hand = og
     furn = [] if hand else place(L1, ground, walls, stair, face, inner)
-    roof = "barrel" if kit == "vault" else "dome"
     top = tier_specs[-1]
     dome = round((top["z1"] - top["wall_top"]) / max(top["z1"] - top["z0"], 0.1), 3)
-    feats = entry.get("params", {}).get("feats", {})
-    windows = [feats.get("winA", feats.get("win", 2)), feats.get("winA2", feats.get("winB", 2)), feats.get("winA3", 2)][: len(tiers)]
     game = dict(
         variant=id,
         centre=[round(cx, 3), round(cy, 3)],
@@ -389,7 +417,7 @@ def spec_of(cat_dir, id, cat):
         half=list(half),
         sizes=[round(size - 0.25, 2), round(size + 0.25, 2)],
         door=door,
-        storeys=len(tiers),
+        storeys=len(tier_specs),
         roof=roof,
         dome=dome,
         windows=windows,
@@ -399,21 +427,20 @@ def spec_of(cat_dir, id, cat):
         holders=hand["holders"] if hand else [dict(what=n, at=[x, y], rot=r) for n, x, y, r in furn if n in HOLDERS],
         stair=dict(xy=stair["xy"], r=stair["r"]) if stair else None,
         other_doors=[dict(xy=o["xy"], yaw=o["yaw"]) for o in doors[1:]],
+        yard=yard,
         note="The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half × size.",
     )
     return dict(
         id=id,
-        label=entry["label"],
+        label=label,
         units="metres",
         frame="front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
         kit=kit,
-        age=entry.get("age"),
-        overall=dict(size_xyz=p["size"], height=p["height"]),
+        overall=dict(size_xyz=size_xyz, height=size_xyz[2]),
         game=game,
         exterior=dict(tiers=tier_specs),
-        levels=d["levels"],
-        stairs=d.get("stairs", []),
-        outside_door_sizes=[dict(level=f["level"], width=f["width"], height=f["height"], balcony=f.get("balcony")) for f in d.get("outside_door_fit", [])],
+        levels=[L1],
+        stairs=stairs,
     )
 
 
@@ -421,6 +448,7 @@ def plan_png(spec, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    import matplotlib.patches
     g = spec["game"]
     fig, ax = plt.subplots(figsize=(6, 6))
     for t, col in zip(spec["exterior"]["tiers"], ["k", "0.4", "0.6"]):
@@ -438,6 +466,22 @@ def plan_png(spec, path):
         f = foot(pc["what"], pc["at"][0], pc["at"][1], pc["rot"])
         ax.fill(*f.exterior.xy, color="tab:blue" if pc["what"] in HOLDERS else "tab:brown", alpha=0.7)
         ax.text(pc["at"][0], pc["at"][1], pc["what"], fontsize=5, ha="center")
+    if g.get("yard"):
+        y = g["yard"]
+        ax.plot(*Polygon(y["outline"]).exterior.xy, color="tab:green", lw=1.5)
+        ax.plot(*y["gate"], "g^", ms=8)
+        for pc in y["pieces"]:
+            f = foot(pc["what"], pc["at"][0], pc["at"][1], pc["rot"])
+            ax.fill(*f.exterior.xy, color="tab:olive", alpha=0.7)
+            ax.text(pc["at"][0], pc["at"][1], pc["what"], fontsize=5, ha="center")
+        for d in y["dressing"]:
+            ax.plot(*d["at"], "k.", ms=3)
+            ax.text(d["at"][0], d["at"][1], d["kind"], fontsize=4, ha="center", color="0.4")
+        for sh in y["shades"]:
+            ax.fill(*Polygon(sh["footprint"]).exterior.xy, color="tab:orange", alpha=0.15)
+        if y["canopy"]:
+            c = y["canopy"]
+            ax.add_patch(matplotlib.patches.Ellipse(c["at"], c["rx"] * 2, c["ry"] * 2, angle=math.degrees(c["yaw"]), fill=False, ls="--"))
     cx, cy = g["centre"]
     ax.plot(cx + g["half"][0] * g["size"], cy + g["door"] * 0.8 * g["half"][1] * g["size"], "r>", ms=8)
     for o in g["other_doors"]:
@@ -495,12 +539,21 @@ def rust_layout(specs):
             for w in g["walls"])
         furn = ",\n".join(f"            f({p['what']}, {f3(u(p['at'])[0])}, {f3(u(p['at'])[1])}, {rot_s(p['rot'])})" for p in g["furniture"])
         hold = ",\n".join(f"            h({p['what']}, {f3(u(p['at'])[0])}, {f3(u(p['at'])[1])}, {rot_s(p['rot'])})" for p in g["holders"])
+        yard = "None"
+        if g.get("yard"):
+            y = g["yard"]
+            consts.append(const_block(f"{up}_YARD_OUTLINE", unit_pts(spec, y["outline"]), f"`{id}`'s work yard, round the house's +y side, layout units (past ±1)."))
+            pieces = ", ".join(f"f({p['what']}, {f3(u(p['at'])[0])}, {f3(u(p['at'])[1])}, {rot_s(p['rot'])})" for p in y["pieces"])
+            consts.append(f"""/// `{id}`'s work yard: fenced, gated, its stations in the open.
+pub static {up}_YARD: Yard = Yard {{ outline: {up}_YARD_OUTLINE, gate: ({f3(u(y['gate'])[0])}, {f3(u(y['gate'])[1])}), gate_width: {f3(y['gate_width'])}, fence: {f3(y['fence_h'])}, pieces: &[{pieces}] }};""")
+            yard = f"Some(&{up}_YARD)"
+        use = "Use::Workshop" if g.get("use") == "workshop" else "Use::Home"
         variants.append(f'''    Variant {{
         key: "{id}",
         name: "{spec['label'].split(',')[0].split(' / ')[0].split(' (')[0]}",
         kind: K::RoduroHome,
         shape: Shape::Poly({up}_OUTLINE),
-        use_: Use::Home,
+        use_: {use},
         half: ({f3(g['half'][0])}, {f3(g['half'][1])}),
         sizes: ({f3(g['sizes'][0])}, {f3(g['sizes'][1])}),
         weight: 0,
@@ -513,6 +566,7 @@ def rust_layout(specs):
         holders: &[
 {hold}{',' if hold else ''}
         ],
+        yard: {yard},
     }},''')
     return "\n".join(variants), "\n\n".join(consts)
 
@@ -536,6 +590,21 @@ def rust_forms(specs):
         stair = f"Some((({f3(u(g['stair']['xy'])[0])}, {f3(u(g['stair']['xy'])[1])}), {f3(g['stair']['r'])}))" if g["stair"] else "None"
         doors = ", ".join(f"(({f3(u(o['xy'])[0])}, {f3(u(o['xy'])[1])}), {f3(o['yaw'])})" for o in g["other_doors"])
         windows = ", ".join(str(n) for n in g["windows"])
+        look = "None"
+        if g.get("yard"):
+            y = g["yard"]
+            dress = ", ".join(f"({'Dress::' + d['kind'].capitalize()}, ({f3(u(d['at'])[0])}, {f3(u(d['at'])[1])}), {f3(d['rot'])}, ({f3(d['size'][0])}, {f3(d['size'][1])}, {f3(d['size'][2])}))" for d in y["dressing"])
+            shades = ", ".join("(&[" + ", ".join(f"({f3(u(p)[0])}, {f3(u(p)[1])})" for p in sh["footprint"]) + f"], {f3(sh['height'])}, {sh['cloth'].upper()})" for sh in y["shades"])
+            cols = ", ".join(f"(({f3(u(c['at'])[0])}, {f3(u(c['at'])[1])}), {f3(c['height'])})" for c in y["columns"])
+            canopy = "None"
+            if y["canopy"]:
+                c = y["canopy"]
+                canopy = f"Some((({f3(u(c['at'])[0])}, {f3(u(c['at'])[1])}), {f3(c['rx'])}, {f3(c['ry'])}, {f3(c['yaw'])}, {f3(c['height'])}))"
+            chimney = "None"
+            if y["chimney"]:
+                c = y["chimney"]
+                chimney = f"Some((({f3(u(c['at'])[0])}, {f3(u(c['at'])[1])}), {f3(c['r'])}, {f3(c['height'])}))"
+            look = f"Some(YardLook {{ dressing: &[{dress}], shades: &[{shades}], columns: &[{cols}], canopy: {canopy}, chimney: {chimney} }})"
         forms.append(f'''    Form {{
         key: "{id}",
         at_size: {f3(g['size'])},
@@ -545,6 +614,7 @@ def rust_forms(specs):
         stair: {stair},
         doors: &[{doors}],
         windows: &[{windows}],
+        yard: {look},
     }},''')
     return "\n".join(forms), "\n\n".join(consts)
 
@@ -556,10 +626,51 @@ def splice(path, start, end, body):
     open(path, "w").write(s)
 
 
+def design_specs(cat_dir):
+    """The designed buildings (`roduro_designs.py`): the six that fill the
+    catalogue's gaps, and the trade homes with a yard."""
+    import roduro_designs as rd
+    out = {}
+    for id, d in rd.designs().items():
+        tiers = d["tiers"]
+        xs = [p[0] for p in tiers[0]["outline"]]
+        ys = [p[1] for p in tiers[0]["outline"]]
+        size_xyz = [round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), tiers[-1]["z1"]]
+        spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], d["stairs"], d["windows"], size_xyz, roof=d["roof"])
+        spec["designed"] = True
+        out[id] = spec
+    homes = {}
+    for f in sorted(glob.glob(os.path.join(ASSETS, "*.json"))):
+        j = json.load(open(f))
+        homes[j["id"]] = j
+    for id, d in rd.yard_homes(cat_dir, homes).items():
+        home = homes[d["home"]]
+        spec = json.loads(json.dumps(home))
+        spec["id"] = id
+        spec["label"] = d["label"]
+        spec["designed"] = True
+        spec["home"] = d["home"]
+        spec["game"]["variant"] = id
+        spec["game"]["use"] = "workshop"
+        spec["game"]["hand"] = False
+        spec["game"]["yard"] = d["yard"]
+        out[id] = spec
+    return out
+
+
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("spec", "rust"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("spec", "rust", "design"):
         print(__doc__)
         sys.exit(1)
+    if sys.argv[1] == "design":
+        sys.path.insert(0, HERE)
+        os.makedirs(os.path.join(ASSETS, "_plans"), exist_ok=True)
+        for id, spec in design_specs(sys.argv[2]).items():
+            json.dump(spec, open(os.path.join(ASSETS, id + ".json"), "w"), indent=1)
+            plan_png(spec, os.path.join(ASSETS, "_plans", id + ".png"))
+            g = spec["game"]
+            print(f"{id}: {len(spec['exterior']['tiers'])} tiers, size {g['size']}, {len(g['walls'])} walls, {len(g['furniture'])} pieces, {len(g['holders'])} containers" + (f", yard with {len(g['yard']['pieces'])} pieces" if g.get("yard") else ""))
+        return
     if sys.argv[1] == "spec":
         cat_dir = sys.argv[2]
         cat = json.load(open(os.path.join(cat_dir, "catalogue.json")))

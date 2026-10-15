@@ -4,7 +4,6 @@
  "units": "metres",
  "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
  "kit": "drum",
- "age": "old",
  "overall": {
   "size_xyz": [
    11.79,
@@ -74,17 +73,41 @@
   "hand": false,
   "furniture": [
    {
+    "what": "Bed",
+    "at": [
+     4.423,
+     4.285
+    ],
+    "rot": -1.2134
+   },
+   {
+    "what": "Bed",
+    "at": [
+     -2.827,
+     3.285
+    ],
+    "rot": 1.0235
+   },
+   {
+    "what": "Bed",
+    "at": [
+     -0.577,
+     6.285
+    ],
+    "rot": 0.6169
+   },
+   {
     "what": "Hearth",
     "at": [
-     3.923,
-     3.035
+     3.173,
+     -0.215
     ],
-    "rot": 0.0
+    "rot": -2.2376
    },
    {
     "what": "LongTable",
     "at": [
-     0.673,
+     0.923,
      3.535
     ],
     "rot": 0.0
@@ -92,34 +115,26 @@
    {
     "what": "Bench",
     "at": [
-     3.423,
-     4.285
+     1.173,
+     4.535
     ],
-    "rot": 0.3156
+    "rot": -0.229
    },
    {
     "what": "Bench",
     "at": [
-     2.673,
+     1.673,
      5.285
     ],
-    "rot": -0.695
+    "rot": -0.3819
    },
    {
     "what": "Shelf",
     "at": [
-     -0.827,
-     6.535
+     2.673,
+     6.785
     ],
-    "rot": 0.6244
-   },
-   {
-    "what": "Bed",
-    "at": [
-     3.423,
-     -0.465
-    ],
-    "rot": -0.6738
+    "rot": -0.4602
    },
    {
     "what": "Hearth",
@@ -151,9 +166,9 @@
     "what": "Cupboard",
     "at": [
      -3.577,
-     2.035
+     1.285
     ],
-    "rot": 1.3579
+    "rot": 2.5658
    },
    {
     "what": "Crate",
@@ -196,6 +211,7 @@
    "r": 1.0
   },
   "other_doors": [],
+  "yard": null,
   "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size."
  },
  "exterior": {
@@ -2801,6 +2817,7 @@
    "steps": 19
   }
  ],
+ "age": "old",
  "outside_door_sizes": [
   {
    "level": 1,

@@ -4,7 +4,6 @@
  "units": "metres",
  "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
  "kit": "drum",
- "age": "old",
  "overall": {
   "size_xyz": [
    10.17,
@@ -74,36 +73,60 @@
   "hand": false,
   "furniture": [
    {
+    "what": "Bed",
+    "at": [
+     -3.486,
+     -2.762
+    ],
+    "rot": 1.4681
+   },
+   {
+    "what": "Bed",
+    "at": [
+     2.264,
+     -5.012
+    ],
+    "rot": -2.4082
+   },
+   {
+    "what": "Bed",
+    "at": [
+     3.264,
+     -2.262
+    ],
+    "rot": -1.689
+   },
+   {
     "what": "Hearth",
     "at": [
-     2.514,
-     -2.012
+     -2.236,
+     -5.012
     ],
     "rot": 0.0
    },
    {
     "what": "LongTable",
     "at": [
-     0.264,
+     -0.236,
      -2.262
     ],
-    "rot": -1.6344
+    "rot": 0.0
    },
    {
     "what": "Bench",
     "at": [
-     1.014,
-     -2.262
+     0.514,
+     -1.512
     ],
-    "rot": -1.6481
+    "rot": 0.0088
    },
    {
     "what": "Bench",
     "at": [
-     2.264,
-     -4.012
+     1.264,
+     -0.762
     ],
-    "rot": -0.6789
+    "rot": 0.0088
    },
    {
     "what": "Shelf",
@@ -112,30 +135,6 @@
      -6.512
     ],
     "rot": 3.1184
-   },
-   {
-    "what": "Bed",
-    "at": [
-     -3.236,
-     -1.012
-    ],
-    "rot": 1.7324
-   },
-   {
-    "what": "Bed",
-    "at": [
-     1.014,
-     -5.762
-    ],
-    "rot": -2.7092
-   },
-   {
-    "what": "Bed",
-    "at": [
-     -2.236,
-     -4.012
-    ],
-    "rot": 1.9104
    },
    {
     "what": "Hearth",
@@ -166,10 +165,10 @@
    {
     "what": "Cupboard",
     "at": [
-     -3.486,
-     -5.012
+     -3.736,
+     -0.262
     ],
-    "rot": 1.9038
+    "rot": 1.8558
    },
    {
     "what": "Crate",
@@ -212,6 +211,7 @@
    "r": 1.0
   },
   "other_doors": [],
+  "yard": null,
   "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size."
  },
  "exterior": {
@@ -2817,6 +2817,7 @@
    "steps": 19
   }
  ],
+ "age": "old",
  "outside_door_sizes": [
   {
    "level": 1,

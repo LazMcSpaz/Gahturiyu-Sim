@@ -4,7 +4,6 @@
  "units": "metres",
  "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
  "kit": "drum",
- "age": "old",
  "overall": {
   "size_xyz": [
    13.93,
@@ -74,46 +73,6 @@
   "hand": false,
   "furniture": [
    {
-    "what": "Hearth",
-    "at": [
-     3.552,
-     -2.149
-    ],
-    "rot": 0.0
-   },
-   {
-    "what": "LongTable",
-    "at": [
-     1.052,
-     -2.149
-    ],
-    "rot": -2.2116
-   },
-   {
-    "what": "Bench",
-    "at": [
-     1.302,
-     -3.149
-    ],
-    "rot": -2.1611
-   },
-   {
-    "what": "Bench",
-    "at": [
-     1.802,
-     -3.899
-    ],
-    "rot": -2.3136
-   },
-   {
-    "what": "Shelf",
-    "at": [
-     -3.448,
-     -4.899
-    ],
-    "rot": 2.1303
-   },
-   {
     "what": "Bed",
     "at": [
      4.552,
@@ -124,18 +83,58 @@
    {
     "what": "Bed",
     "at": [
-     -1.448,
-     -5.649
+     -3.448,
+     -4.399
     ],
-    "rot": 4.2476
+    "rot": 2.1395
    },
    {
     "what": "Bed",
     "at": [
-     -2.448,
-     -2.649
+     3.552,
+     -3.399
+    ],
+    "rot": -2.3322
+   },
+   {
+    "what": "Hearth",
+    "at": [
+     0.302,
+     -5.149
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "LongTable",
+    "at": [
+     1.052,
+     -1.899
     ],
     "rot": 0.7091
+   },
+   {
+    "what": "Bench",
+    "at": [
+     2.552,
+     0.351
+    ],
+    "rot": 0.7091
+   },
+   {
+    "what": "Bench",
+    "at": [
+     2.552,
+     1.101
+    ],
+    "rot": 0.7091
+   },
+   {
+    "what": "Shelf",
+    "at": [
+     -1.698,
+     -6.399
+    ],
+    "rot": 2.7357
    },
    {
     "what": "Hearth",
@@ -166,10 +165,10 @@
    {
     "what": "Cupboard",
     "at": [
-     0.302,
-     -6.399
+     4.802,
+     -1.399
     ],
-    "rot": -2.7492
+    "rot": -0.277
    },
    {
     "what": "Barrel",
@@ -228,6 +227,7 @@
     "yaw": 1.4124
    }
   ],
+  "yard": null,
   "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size."
  },
  "exterior": {
@@ -2841,6 +2841,7 @@
    "steps": 20
   }
  ],
+ "age": "old",
  "outside_door_sizes": [
   {
    "level": 1,

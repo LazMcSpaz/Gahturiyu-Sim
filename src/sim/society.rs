@@ -860,12 +860,20 @@ impl World {
     }
 
     /// Crafting stations stand in the workplaces that hold them.
-    pub(super) fn place_stations(&mut self) {
+    pub fn place_stations(&mut self) {
         self.stations.clear();
         for tl in &self.society.towns {
             for p in &tl.places {
                 // (Side by side across the place: `solid::station_spots`.)
                 self.stations.extend(super::solid::station_spots(p));
+            }
+        }
+        // The stations in trade homes' yards (`layout::Yard`).
+        for s in &self.settlements {
+            for i in 0..s.buildings.len() as u16 {
+                if let Some(d) = super::buildings::door_of(s, i) {
+                    self.stations.extend(super::solid::yard_stations(&d));
+                }
             }
         }
         // The squad's own work sheds at its outposts stay (U-13).

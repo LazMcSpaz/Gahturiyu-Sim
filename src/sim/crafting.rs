@@ -90,6 +90,14 @@ impl Station {
     }
 }
 
+impl Station {
+    /// The station a piece of furniture is, if it's one (the other way
+    /// round from `furniture`; a hearth is a stove).
+    pub fn of_furniture(f: super::layout::Furn) -> Option<Station> {
+        STATIONS.iter().copied().find(|s| s.furniture() == Some(f))
+    }
+}
+
 pub const STATIONS: [Station; 9] = [Station::Forge, Station::Bench, Station::Desk, Station::AlchemyTable, Station::Loom, Station::Workbench, Station::GrowerBed, Station::Campfire, Station::Stove];
 
 impl Station {

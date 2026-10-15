@@ -263,6 +263,26 @@ pub struct Spot {
     pub rot: f32,
 }
 
+/// A work yard grown against a building's wall (Laz, 15 Oct): a fence
+/// round a patch of ground beside the house, one side of it the house's
+/// own wall, a gate in it, and the trade's stations standing in the open
+/// inside. Layout units in the building's frame (so they run past ±1).
+#[derive(Clone, Copy, Debug)]
+pub struct Yard {
+    /// Its outline, counter-clockwise; where it meets the house it runs
+    /// just inside the house's wall.
+    pub outline: &'static [(f32, f32)],
+    /// The gate: a spot on the outline, and how wide, metres.
+    pub gate: (f32, f32),
+    pub gate_width: f32,
+    /// How tall the fence stands, metres.
+    pub fence: f32,
+    /// What stands in it: a forge, an anvil, a bench, racks. The ones that
+    /// are crafting stations (`crafting::Station::of_furniture`) count as
+    /// the trade's, out in the open.
+    pub pieces: &'static [Piece],
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Variant {
     pub key: &'static str,
@@ -283,6 +303,8 @@ pub struct Variant {
     pub walls: &'static [Wall],
     pub furniture: &'static [Piece],
     pub holders: &'static [Spot],
+    /// A work yard against one wall, for a trade home.
+    pub yard: Option<&'static Yard>,
 }
 
 const fn w(a: (f32, f32), b: (f32, f32), gap: Option<f32>) -> Wall {
@@ -320,6 +342,7 @@ pub const VARIANTS: &[Variant] = &[
         walls: &[w((-0.05, 1.0), (-0.05, 0.15), None)],
         furniture: &[f(Bed, -0.42, 0.4, 0.0), f(Hearth, 0.05, -0.35, 0.0), f(Table, 0.35, -0.05, Q), f(Bench, 0.58, -0.05, Q), f(Shelf, -0.62, -0.35, Q)],
         holders: &[h(Chest, 0.2, 0.69, 0.0), h(Barrel, 0.47, -0.58, 0.0)],
+        yard: None,
     },
     Variant {
         key: "roduro_longhouse",
@@ -347,6 +370,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, -0.42, -0.04, 0.0),
         ],
         holders: &[h(Cupboard, -0.57, -0.15, 0.0), h(Chest, -0.13, 0.72, 0.0), h(Barrel, 0.44, -0.6, 0.0)],
+        yard: None,
     },
     Variant {
         key: "roduro_tender",
@@ -370,6 +394,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Hearth, -0.65, -0.37, 0.0),
         ],
         holders: &[h(Crate, 0.0, 0.25, 0.0), h(Crate, 0.0, -0.2, 0.3), h(Chest, -0.57, 0.51, Q)],
+        yard: None,
     },
     Variant {
         key: "roduro_forge",
@@ -392,6 +417,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, -0.7, 0.12, Q),
         ],
         holders: &[h(Crate, -0.56, 0.48, 0.0), h(Crate, -0.55, -0.5, 0.2), h(Barrel, 0.5, 0.57, 0.0), h(Chest, -0.71, -0.25, Q)],
+        yard: None,
     },
     Variant {
         key: "roduro_loomroom",
@@ -416,6 +442,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, -0.81, -0.03, Q),
         ],
         holders: &[h(Crate, 0.6, 0.17, 0.0), h(Cupboard, -0.05, 0.75, 0.0), h(Chest, -0.57, -0.05, 0.0), h(Barrel, -0.4, -0.65, 0.0)],
+        yard: None,
     },
     Variant {
         key: "roduro_benchroom",
@@ -440,6 +467,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Hearth, -0.57, -0.42, 0.0),
         ],
         holders: &[h(Crate, 0.55, -0.1, 0.0), h(Crate, 0.25, 0.15, 0.3), h(Chest, -0.56, -0.22, 0.0), h(Barrel, -0.74, -0.06, 0.0)],
+        yard: None,
     },
     Variant {
         key: "roduro_trader",
@@ -463,6 +491,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Hearth, -0.75, 0.05, 0.0),
         ],
         holders: &[h(Cupboard, 0.51, 0.25, Q), h(Crate, 0.57, 0.5, 0.0), h(Chest, -0.74, -0.25, Q)],
+        yard: None,
     },
     Variant {
         key: "roduro_great",
@@ -488,6 +517,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, 0.38, -0.73, 0.0),
         ],
         holders: &[h(Chest, -0.55, 0.6, Q), h(Chest, -0.55, -0.6, Q), h(Cupboard, -0.85, 0.0, Q), h(Barrel, 0.64, -0.54, 0.0)],
+        yard: None,
     },
     // ---- Qotiro: quarried, stepped, boxes -------------------------------------
     Variant {
@@ -523,6 +553,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Bedroll, -0.55, -0.45, 0.0),
         ],
         holders: &[h(Chest, 0.05, 0.85, 0.0), h(Chest, -0.9, 0.6, Q), h(Cupboard, 0.05, -0.85, 0.0), h(Chest, -0.9, -0.6, Q), h(Barrel, -0.85, 0.0, 0.0)],
+        yard: None,
     },
     Variant {
         key: "qotiro_court",
@@ -552,6 +583,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, -0.9, 0.0, Q),
         ],
         holders: &[h(Cupboard, 0.65, 0.75, 0.0), h(Chest, -0.85, 0.35, Q), h(Barrel, 0.65, -0.75, 0.0), h(Barrel, 0.55, -0.6, 0.0)],
+        yard: None,
     },
     Variant {
         key: "qotiro_workyard",
@@ -576,6 +608,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, -0.65, -0.85, 0.0),
         ],
         holders: &[h(Crate, -0.7, 0.75, 0.0), h(Crate, -0.75, 0.35, 0.3), h(Barrel, 0.75, 0.15, 0.0), h(Chest, -0.85, -0.35, Q)],
+        yard: None,
     },
     Variant {
         key: "qotiro_weavehall",
@@ -605,6 +638,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Rack, 0.0, -0.75, 0.0),
         ],
         holders: &[h(Crate, 0.65, 0.75, 0.0), h(Chest, -0.85, 0.35, Q), h(Cupboard, 0.65, -0.75, 0.0), h(Barrel, -0.85, -0.3, 0.0)],
+        yard: None,
     },
     Variant {
         key: "qotiro_benchyard",
@@ -629,6 +663,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Shelf, -0.65, 0.85, 0.0),
         ],
         holders: &[h(Crate, -0.7, -0.75, 0.0), h(Crate, -0.75, -0.35, 0.3), h(Barrel, 0.75, -0.15, 0.0), h(Chest, -0.85, 0.35, Q)],
+        yard: None,
     },
     Variant {
         key: "qotiro_market",
@@ -653,6 +688,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Rack, -0.85, 0.5, Q),
         ],
         holders: &[h(Crate, -0.75, -0.6, 0.0), h(Crate, -0.8, -0.2, 0.2), h(Cupboard, -0.85, 0.15, Q), h(Chest, -0.7, 0.8, 0.0)],
+        yard: None,
     },
     Variant {
         key: "qotiro_mess",
@@ -678,6 +714,7 @@ pub const VARIANTS: &[Variant] = &[
             f(Table, -0.6, -0.75, 0.0),
         ],
         holders: &[h(Barrel, -0.85, 0.8, 0.0), h(Barrel, -0.7, 0.8, 0.0), h(Barrel, -0.85, -0.85, 0.0), h(Cupboard, -0.5, 0.85, 0.0)],
+        yard: None,
     },
     Variant {
         key: "qotiro_temple",
@@ -694,6 +731,7 @@ pub const VARIANTS: &[Variant] = &[
         walls: &[w((-0.5, -1.0), (-0.5, 1.0), Some(0.5))],
         furniture: &[f(Altar, -0.75, 0.0, Q), f(Bench, 0.3, 0.4, Q), f(Bench, 0.3, -0.4, Q), f(Bench, -0.05, 0.4, Q), f(Bench, -0.05, -0.4, Q), f(Shelf, -0.8, 0.6, Q)],
         holders: &[h(Chest, -0.8, -0.5, Q), h(Cupboard, -0.85, 0.35, Q)],
+        yard: None,
     },
     // The island (diaspora) hall: Qotiro shape, local dark stone (`architecture.md`).
     // Every Qotiro building is in that dark stone; no sandstone (Laz).
@@ -713,12 +751,13 @@ pub const VARIANTS: &[Variant] = &[
         walls: &[w((-0.45, -1.0), (-0.45, 0.1), Some(0.45)), w((-0.45, 0.1), (-0.45, 1.0), Some(0.5)), w((-0.45, 0.1), (-1.0, 0.1), None)],
         furniture: &[f(LongTable, 0.3, 0.0, 0.0), f(Bench, 0.3, 0.25, 0.0), f(Bench, 0.3, -0.25, 0.0), f(Hearth, -0.2, 0.6, 0.0), f(Altar, -0.8, 0.55, Q)],
         holders: &[h(Chest, -0.8, -0.35, Q), h(Barrel, -0.6, -0.8, 0.0), h(Cupboard, 0.6, -0.85, 0.0)],
+        yard: None,
     },
     // ---- Horaro: stilt homes (look only, for now) ------------------------------
-    Variant { key: "horaro_dome", name: "Woven dome", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.5, 0.5), sizes: (0.0, 99.0), weight: 4, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
-    Variant { key: "horaro_twin", name: "Twin domes", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.36, 0.5), sizes: (8.0, 99.0), weight: 2, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
-    Variant { key: "horaro_hull", name: "Hull house", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.5, 0.32), sizes: (0.0, 99.0), weight: 2, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
-    Variant { key: "horaro_net_loft", name: "Net loft", kind: K::HoraroStilt, shape: Shape::Rect, use_: Use::Workshop, half: (0.42, 0.34), sizes: (0.0, 99.0), weight: 1, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[] },
+    Variant { key: "horaro_dome", name: "Woven dome", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.5, 0.5), sizes: (0.0, 99.0), weight: 4, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[], yard: None },
+    Variant { key: "horaro_twin", name: "Twin domes", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.36, 0.5), sizes: (8.0, 99.0), weight: 2, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[], yard: None },
+    Variant { key: "horaro_hull", name: "Hull house", kind: K::HoraroStilt, shape: Shape::Round, use_: Use::Home, half: (0.5, 0.32), sizes: (0.0, 99.0), weight: 2, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[], yard: None },
+    Variant { key: "horaro_net_loft", name: "Net loft", kind: K::HoraroStilt, shape: Shape::Rect, use_: Use::Workshop, half: (0.42, 0.34), sizes: (0.0, 99.0), weight: 1, door: 0.0, storeys: 1, walls: &[], furniture: &[], holders: &[], yard: None },
     // ---- Placed by hand: the catalogue's own buildings (`claude/placeholder-shapes.md`) ----
     // Weight 0: never rolled for a town; a place file (or the showcase) names
     // them. Appended to the list, so saved doors' variant numbers keep their
@@ -750,6 +789,38 @@ pub const VARIANTS: &[Variant] = &[
             h(Chest, 0.542, 0.7131, -0.7759),
             h(Crate, -0.5916, 0.7705, 0.6569),
         ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_hill_great_01",
+        name: "Hillside great house",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_HILL_GREAT_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.4282, 0.5),
+        sizes: (13.33, 13.83),
+        weight: 0,
+        door: 0.2393,
+        storeys: 2,
+        walls: &[w((-0.2038, -0.2209), (0.0279, -0.9841), None), w((0.9943, -0.0499), (-0.2038, -0.2209), Some(0.6555)), w((-0.2038, -0.2209), (-0.9967, -0.4424), Some(0.3492))],
+        furniture: &[
+            f(Bed, -0.577, 0.7445, -1.3165),
+            f(Bed, -0.8349, -0.1024, Q),
+            f(Hearth, -0.7919, 0.3395, 0.0),
+            f(Bench, -0.8779, 0.5604, 1.5687),
+            f(Hearth, 0.1831, -0.8099, -2.8824),
+            f(Table, 0.3551, -0.4417, 0.0),
+            f(Shelf, 0.828, -0.3312, -1.8644),
+        ],
+        holders: &[
+            h(Barrel, 0.5701, -0.6626, -2.3794),
+            h(Barrel, 0.0112, -0.368, 1.8252),
+            h(Crate, -0.534, -0.8586, 3.0704),
+            h(Crate, -0.8349, -0.6377, Q),
+            h(Chest, -0.233, -0.8586, 3.1416),
+            h(Barrel, -0.276, -0.5641, -1.3164),
+        ],
+        yard: None,
     },
     Variant {
         key: "roduro_hill_old_01",
@@ -764,25 +835,26 @@ pub const VARIANTS: &[Variant] = &[
         storeys: 2,
         walls: &[w((-0.1172, 0.997), (-0.1068, 0.2146), None), w((0.9622, 0.2208), (-0.1086, 0.2146), Some(0.6098)), w((-0.1086, 0.2146), (-0.9329, 0.2098), Some(0.5715))],
         furniture: &[
-            f(Hearth, 0.5037, -0.2589, 0.0),
-            f(LongTable, 0.0651, -0.2915, -1.6344),
-            f(Bench, 0.2113, -0.2915, -1.6481),
-            f(Bench, 0.455, -0.5195, -0.6789),
+            f(Bed, -0.6659, -0.3566, 1.4681),
+            f(Bed, 0.455, -0.6498, -2.4082),
+            f(Bed, 0.6499, -0.2915, -1.689),
+            f(Hearth, -0.4222, -0.6498, 0.0),
+            f(LongTable, -0.0324, -0.2915, 0.0),
+            f(Bench, 0.1138, -0.1937, 0.0088),
+            f(Bench, 0.26, -0.096, 0.0088),
             f(Shelf, -0.276, -0.8452, 3.1184),
-            f(Bed, -0.6172, -0.1286, 1.7324),
-            f(Bed, 0.2113, -0.7475, -2.7092),
-            f(Bed, -0.4222, -0.5195, 1.9104),
             f(Hearth, 0.6641, 0.5403, -1.1376),
             f(Table, 0.2743, 0.5078, Q),
             f(Shelf, 0.4205, 0.7683, -0.549),
         ],
         holders: &[
-            h(Cupboard, -0.6659, -0.6498, 1.9038),
+            h(Cupboard, -0.7146, -0.0309, 1.8558),
             h(Crate, -0.7573, 0.6014, 1.2429),
             h(Crate, -0.5136, 0.7643, 0.5651),
             h(Chest, -0.3187, 0.5689, -1.562),
             h(Barrel, -0.3674, 0.3408, -3.1328),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_hill_young_01",
@@ -802,6 +874,7 @@ pub const VARIANTS: &[Variant] = &[
         holders: &[
             h(Chest, 0.1777, 0.7127, -0.5283),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_long_ancient_01",
@@ -819,14 +892,14 @@ pub const VARIANTS: &[Variant] = &[
             f(Hearth, -0.2048, -0.6843, 2.2345),
             f(Table, 0.0683, -0.6072, Q),
             f(Shelf, 0.2048, -0.8898, 3.0759),
+            f(Bed, -0.7542, 0.1937, 1.8755),
+            f(Bed, 0.6452, 0.091, -1.1702),
+            f(Bed, -0.6176, -0.0889, 2.0405),
             f(Hearth, 0.338, 0.4764, 0.0),
             f(LongTable, 0.065, 0.3222, -1.006),
             f(Bench, 0.1332, 0.3993, -0.9283),
             f(Bench, 0.0309, 0.6048, -0.4972),
-            f(Shelf, -0.7883, 0.168, 1.8549),
-            f(Bed, 0.6452, 0.091, -1.1702),
-            f(Bed, -0.6176, -0.0889, 2.0405),
-            f(Bed, -0.72, 0.6048, 1.0388),
+            f(Shelf, -0.7542, 0.6305, 1.0348),
         ],
         holders: &[
             h(Barrel, 0.3072, -0.71, -1.1837),
@@ -836,6 +909,7 @@ pub const VARIANTS: &[Variant] = &[
             h(Barrel, 0.4549, -0.4459, 1.9579),
             h(Cupboard, 0.1332, 0.7847, -0.5049),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_long_est_01",
@@ -862,6 +936,7 @@ pub const VARIANTS: &[Variant] = &[
             h(Cupboard, 0.5815, 0.7227, -0.1529),
             h(Chest, -0.6378, -0.6718, 2.776),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_long_est_02",
@@ -888,6 +963,39 @@ pub const VARIANTS: &[Variant] = &[
             h(Chest, 0.5827, 0.7146, -0.8177),
             h(Crate, -0.4455, 0.7617, 0.767),
         ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_long_hall_01",
+        name: "Long hall",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_LONG_HALL_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.26),
+        sizes: (19.75, 20.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[w((-0.6, 0.9148), (-0.6, -0.9148), Some(0.5))],
+        furniture: &[
+            f(Bed, 0.45, -0.7673, -2.9958),
+            f(Bed, -0.425, 0.7712, 0.1175),
+            f(Bed, 0.425, 0.7712, -0.1175),
+            f(Hearth, -0.35, -0.6231, 0.0),
+            f(LongTable, 0.125, 0.0019, 0.0),
+            f(Bench, 0.175, 0.1462, -0.0208),
+            f(Bench, 0.025, 0.2904, -0.0063),
+            f(Shelf, -0.15, 0.8673, 0.0153),
+            f(Hearth, -0.7289, -0.6348, 2.6748),
+            f(Table, -0.7789, -0.0098, Q),
+            f(Shelf, -0.9289, -0.0098, 1.581),
+        ],
+        holders: &[
+            h(Cupboard, 0.75, -0.6712, -2.6748),
+            h(Barrel, -0.8789, -0.3944, 1.9101),
+            h(Barrel, -0.8789, 0.3748, 1.2315),
+        ],
+        yard: None,
     },
     Variant {
         key: "roduro_long_old_01",
@@ -902,23 +1010,26 @@ pub const VARIANTS: &[Variant] = &[
         storeys: 2,
         walls: &[w((-0.3826, -0.9688), (-0.0306, -0.1683), None), w((-0.8994, 0.0318), (-0.0375, -0.1666), Some(0.6442)), w((-0.0375, -0.1666), (0.6927, -0.3348), Some(0.3642))],
         furniture: &[
-            f(Hearth, 0.6254, 0.3637, 0.0),
-            f(LongTable, 0.0765, 0.4248, 0.0),
-            f(Bench, 0.541, 0.5165, 0.3156),
-            f(Bench, 0.4143, 0.6388, -0.695),
-            f(Shelf, -0.1768, 0.7916, 0.6244),
-            f(Bed, 0.541, -0.0642, -0.6738),
+            f(Bed, 0.7099, 0.5165, -1.2134),
+            f(Bed, -0.5146, 0.3943, 1.0235),
+            f(Bed, -0.1346, 0.761, 0.6169),
+            f(Hearth, 0.4988, -0.0336, -2.2376),
+            f(LongTable, 0.1187, 0.4248, 0.0),
+            f(Bench, 0.161, 0.5471, -0.229),
+            f(Bench, 0.2454, 0.6388, -0.3819),
+            f(Shelf, 0.4143, 0.8221, -0.4602),
             f(Hearth, -0.5359, -0.7427, 2.2648),
             f(Table, -0.4937, -0.4065, 0.0),
             f(Shelf, -0.747, -0.1925, 1.5757),
         ],
         holders: &[
-            h(Cupboard, -0.6413, 0.2414, 1.3579),
+            h(Cupboard, -0.6413, 0.1498, 2.5658),
             h(Crate, 0.2831, -0.6295, -2.2526),
             h(Crate, 0.0297, -0.7823, -2.5388),
             h(Chest, 0.452, -0.4461, -2.045),
             h(Barrel, -0.0125, -0.5378, 1.2627),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_long_young_01",
@@ -940,6 +1051,7 @@ pub const VARIANTS: &[Variant] = &[
         holders: &[
             h(Chest, -0.6152, 0.5127, 0.6718),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_round_ancient_01",
@@ -976,6 +1088,7 @@ pub const VARIANTS: &[Variant] = &[
             h(Chest, -0.503, -0.5482, 0.33),
             h(Barrel, -0.3179, -0.5426, 0.0),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_round_est_01",
@@ -1001,6 +1114,7 @@ pub const VARIANTS: &[Variant] = &[
             h(Crate, 0.2026, 0.7617, -0.556),
             h(Barrel, -0.1495, 0.8103, 0.1843),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_round_est_02",
@@ -1015,10 +1129,9 @@ pub const VARIANTS: &[Variant] = &[
         storeys: 2,
         walls: &[w((-0.1425, -0.1427), (-0.4898, -0.8617), None), w((-0.9828, 0.209), (-0.1477, -0.1406), Some(0.6728)), w((-0.1477, -0.1406), (0.7875, -0.5325), Some(0.3665))],
         furniture: &[
-            f(Hearth, 0.2786, 0.5051, 0.0),
-            f(Table, -0.2265, 0.4529, 0.5312),
-            f(Bench, -0.2826, 0.6096, 0.4974),
-            f(Bench, 0.7275, 0.4006, -1.083),
+            f(Bed, 0.4469, 0.6096, -0.5806),
+            f(Bed, -0.3387, 0.6096, 0.5464),
+            f(Bench, -0.2265, 0.4529, 0.5312),
             f(Shelf, 0.6714, -0.1741, -0.1599),
             f(Hearth, -0.0348, -0.6974, -3.074),
         ],
@@ -1026,6 +1139,7 @@ pub const VARIANTS: &[Variant] = &[
             h(Barrel, 0.358, -0.6451, -2.6555),
             h(Crate, -0.6903, -0.3152, 1.9253),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_round_old_01",
@@ -1040,26 +1154,27 @@ pub const VARIANTS: &[Variant] = &[
         storeys: 2,
         walls: &[w((-0.1085, 0.207), (-0.6627, 0.8596), None), w((0.5586, 0.785), (-0.1117, 0.2041), Some(0.6642)), w((-0.1117, 0.2041), (-0.7635, -0.3608), Some(0.3747))],
         furniture: &[
-            f(Hearth, 0.5586, -0.2069, 0.0),
-            f(LongTable, 0.1965, -0.2069, -2.2116),
-            f(Bench, 0.2327, -0.3532, -2.1611),
-            f(Bench, 0.3051, -0.4629, -2.3136),
-            f(Shelf, -0.4552, -0.6093, 2.1303),
             f(Bed, 0.7034, 0.4149, -0.9134),
-            f(Bed, -0.1655, -0.719, 4.2476),
-            f(Bed, -0.3104, -0.28, 0.7091),
+            f(Bed, -0.4552, -0.5361, 2.1395),
+            f(Bed, 0.5586, -0.3898, -2.3322),
+            f(Hearth, 0.0879, -0.6458, 0.0),
+            f(LongTable, 0.1965, -0.1703, 0.7091),
+            f(Bench, 0.4138, 0.1589, 0.7091),
+            f(Bench, 0.4138, 0.2686, 0.7091),
+            f(Shelf, -0.2017, -0.8287, 2.7357),
             f(Hearth, -0.7445, -0.0206, 1.9718),
             f(Table, -0.5635, 0.2354, -2.4324),
             f(Shelf, -0.8531, 0.3086, 1.5087),
         ],
         holders: &[
-            h(Cupboard, 0.0879, -0.8287, -2.7492),
+            h(Cupboard, 0.7396, -0.0972, -0.277),
             h(Barrel, -0.7083, 0.6012, 0.9187),
             h(Crate, -0.0417, 0.8289, -0.2156),
             h(Crate, 0.1755, 0.7191, -0.3227),
             h(Chest, -0.3314, 0.8289, 0.299),
             h(Barrel, -0.1865, 0.5362, 2.2798),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_round_young_01",
@@ -1081,6 +1196,7 @@ pub const VARIANTS: &[Variant] = &[
         holders: &[
             h(Chest, 0.6457, 0.3764, -1.0904),
         ],
+        yard: None,
     },
     Variant {
         key: "roduro_round_young_02",
@@ -1093,13 +1209,173 @@ pub const VARIANTS: &[Variant] = &[
         weight: 0,
         door: 0.2983,
         storeys: 1,
-        walls: &[w((0.0154, 0.4176), (-0.0705, 0.9905), None), w((0.9623, -0.241), (-0.9121, -0.4218), Some(0.4848)), w((0.8806, 0.5009), (0.2029, 0.4357), Some(0.8343)), w((0.0062, 0.4168), (-0.9901, 0.3206), Some(0.3465))],
+        walls: &[w((0.0154, 0.4176), (-0.0705, 0.9905), None), w((0.9623, -0.241), (-0.9121, -0.4218), Some(0.4848)), w((0.8806, 0.5009), (0.5105, 0.4654), None), w((0.0062, 0.4168), (-0.9901, 0.3206), Some(0.3465))],
         furniture: &[
             f(Hearth, -0.4265, -0.0762, 1.6577),
         ],
         holders: &[
             h(Chest, -0.0784, -0.7356, 2.8249),
         ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_smith_home_01",
+        name: "Smith's home and yard",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_SMITH_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.4825, 0.5),
+        sizes: (10.05, 10.55),
+        weight: 0,
+        door: -0.1675,
+        storeys: 1,
+        walls: &[w((-0.0258, 0.1792), (-0.4527, 0.8977), None), w((0.6692, 0.5637), (-0.0173, 0.1839), Some(0.6402)), w((-0.0173, 0.1839), (-0.866, -0.2854), Some(0.3781))],
+        furniture: &[
+            f(Hearth, -0.3151, -0.4159, 0.0),
+            f(Table, 0.1879, -0.2703, 0.0),
+            f(Bench, 0.5401, -0.3188, 0.0503),
+            f(Shelf, -0.2145, -0.7557, 2.7414),
+            f(Bed, -0.659, 0.4, 1.0073),
+        ],
+        holders: &[
+            h(Cupboard, 0.691, 0.2637, -1.0404),
+            h(Crate, 0.2026, 0.7617, -0.556),
+            h(Barrel, -0.1495, 0.8103, 0.1843),
+        ],
+        yard: Some(&RODURO_SMITH_HOME_01_YARD),
+    },
+    Variant {
+        key: "roduro_tanner_home_01",
+        name: "Tanner's home and yard",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_TANNER_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.3412, 0.5),
+        sizes: (11.65, 12.15),
+        weight: 0,
+        door: 0.175,
+        storeys: 1,
+        walls: &[w((0.0308, 0.9852), (-0.033, 0.4255), None), w((0.932, -0.4403), (-0.9746, -0.3387), Some(0.519)), w((0.982, 0.3713), (-0.0365, 0.4257), Some(0.6277)), w((-0.0365, 0.4257), (-0.8726, 0.4703), Some(0.3636))],
+        furniture: &[
+            f(Bed, -0.1887, -0.7965, 2.9626),
+            f(Hearth, 0.4795, -0.0955, 0.0),
+            f(Table, -0.0131, 0.0306, 0.0),
+            f(Bench, 0.1101, 0.1566, -0.078),
+            f(Shelf, -0.7519, 0.1987, 1.3921),
+        ],
+        holders: &[
+            h(Chest, 0.4886, -0.7124, -2.2406),
+            h(Cupboard, -0.6903, -0.1795, 3.1972),
+            h(Chest, 0.5827, 0.7146, -0.8177),
+            h(Crate, -0.4455, 0.7617, 0.767),
+        ],
+        yard: Some(&RODURO_TANNER_HOME_01_YARD),
+    },
+    Variant {
+        key: "roduro_tower_cottage_01",
+        name: "Tower cottage",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_TOWER_COTTAGE_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.4744),
+        sizes: (7.55, 8.05),
+        weight: 0,
+        door: 0.1014,
+        storeys: 2,
+        walls: &[w((-0.359, 0.9518), (-0.359, -0.9518), Some(0.5))],
+        furniture: &[
+            f(Bed, 0.2179, -0.6729, -2.9722),
+            f(Hearth, 0.0897, -0.1324, 0.0),
+            f(Bench, 0.5385, -0.2, -0.2314),
+        ],
+        holders: &[
+            h(Crate, -0.7538, -0.0143, 1.5819),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_tower_house_01",
+        name: "Tower house",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_TOWER_HOUSE_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.4515),
+        sizes: (13.04, 13.54),
+        weight: 0,
+        door: 0.3146,
+        storeys: 3,
+        walls: &[w((0.0444, -0.265), (0.2907, -0.9388), None), w((0.9628, 0.0205), (0.0444, -0.265), Some(0.6918)), w((0.0444, -0.265), (-0.7013, -0.5766), Some(0.3423))],
+        furniture: &[
+            f(Bed, -0.1959, 0.61, 1.9554),
+            f(Bed, 0.2932, 0.8183, -0.0624),
+            f(Hearth, 0.4436, 0.1517, 0.0),
+            f(Table, 0.2932, 0.4433, 0.0),
+            f(Bench, 0.1803, 0.5683, -0.0061),
+            f(Bench, 0.6694, 0.4433, 0.3472),
+            f(Hearth, 0.4206, -0.662, -2.4641),
+            f(Table, 0.6087, -0.3703, Q),
+        ],
+        holders: &[
+            h(Cupboard, 0.6694, 0.7349, -0.6579),
+            h(Crate, -0.1093, -0.8398, 2.9984),
+            h(Crate, -0.3726, -0.7148, 2.566),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_twin_home_01",
+        name: "Twin home",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_TWIN_HOME_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.4541, 0.5),
+        sizes: (14.13, 14.63),
+        weight: 0,
+        door: 0.3634,
+        storeys: 1,
+        walls: &[w((-0.6236, 0.0805), (0.2524, -0.4179), Some(0.5709)), w((-0.4176, 0.7694), (0.2438, -0.4921), Some(0.2494))],
+        furniture: &[
+            f(Hearth, -0.0427, 0.6999, 0.0),
+            f(LongTable, 0.3401, 0.3522, 0.0),
+            f(Bench, 0.7613, 0.4565, 0.2311),
+            f(Bench, 0.7613, 0.6303, -0.9948),
+            f(Shelf, 0.3784, 0.8737, -0.2126),
+            f(Bed, -0.7378, -0.6925, 2.234),
+        ],
+        holders: &[
+            h(Cupboard, 0.5316, -0.2389, -2.7114),
+            h(Chest, -0.6613, -0.1014, 0.6451),
+            h(Crate, -0.4727, 0.2121, 1.6941),
+            h(Chest, -0.243, 0.0382, 2.5819),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_vault_tall_01",
+        name: "Two-storey vault",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_VAULT_TALL_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.3707),
+        sizes: (11.35, 11.85),
+        weight: 0,
+        door: 0.1163,
+        storeys: 2,
+        walls: &[w((-0.2586, 0.9846), (-0.2586, -0.9846), Some(0.5))],
+        furniture: &[
+            f(Hearth, 0.4741, 0.5023, 0.0),
+            f(Table, 0.3017, -0.0209, 0.0),
+            f(Bench, 0.6034, -0.1372, -0.0463),
+            f(Shelf, 0.1724, -0.8349, -3.0962),
+            f(Bed, -0.7914, -0.2426, 1.7488),
+            f(Bed, -0.5759, 0.6295, 0.4674),
+            f(Shelf, -0.4897, -0.2426, -1.5708),
+        ],
+        holders: &[
+            h(Cupboard, 0.1724, 0.793, -0.0464),
+            h(Chest, -0.5328, -0.7077, 2.8501),
+        ],
+        yard: None,
     },
     // ---- end generated ----
 ];
@@ -1113,6 +1389,16 @@ pub const RODURO_HILL_EST_01_OUTLINE: &[(f32, f32)] = &[
     (0.9615, 0.0436), (1.0, 0.1654), (0.9952, 0.2971), (0.9423, 0.4255), (0.8894, 0.577), (0.8101, 0.7514),
     (0.6274, 0.8667), (0.399, 0.9309), (0.1538, 0.9687), (-0.0986, 0.9951), (-0.3654, 1.0), (-0.6298, 0.9539),
     (-0.8678, 0.865), (-1.0, 0.6922), (-0.9327, 0.4486), (-0.899, 0.2856), (-0.8509, 0.149), (-0.8125, 0.0387),
+];
+
+/// `roduro_hill_great_01`'s ground tier (`assets/buildings/roduro_hill_great_01.json`), layout units, counter-clockwise.
+pub const RODURO_HILL_GREAT_01_OUTLINE: &[(f32, f32)] = &[
+    (-0.9948, 0.8954), (-0.9983, 0.7187), (-0.9983, 0.539), (-1.0, 0.3594), (-1.0, 0.1811), (-1.0, 0.0015),
+    (-1.0, -0.1782), (-1.0, -0.3579), (-1.0, -0.5376), (-1.0, -0.7158), (-0.9983, -0.8954), (-0.8005, -0.9543),
+    (-0.5959, -0.9882), (-0.3861, -1.0), (-0.1763, -1.0), (0.0318, -0.9867), (0.2365, -0.9514), (0.4325, -0.8881),
+    (0.6114, -0.7968), (0.7627, -0.673), (0.8779, -0.5243), (0.9536, -0.3564), (0.9914, -0.1797), (1.0, -0.0015),
+    (0.9914, 0.1782), (0.9553, 0.3549), (0.8796, 0.5214), (0.7644, 0.6716), (0.6148, 0.7953), (0.4359, 0.8881),
+    (0.2399, 0.9499), (0.0353, 0.9867), (-0.1745, 1.0), (-0.3844, 1.0), (-0.5924, 0.9882), (-0.7988, 0.9558),
 ];
 
 /// `roduro_hill_old_01`'s ground tier (`assets/buildings/roduro_hill_old_01.json`), layout units, counter-clockwise.
@@ -1163,6 +1449,16 @@ pub const RODURO_LONG_EST_02_OUTLINE: &[(f32, f32)] = &[
     (0.9876, 0.0824), (0.9778, 0.2), (0.9852, 0.3328), (0.9925, 0.4908), (0.9211, 0.642), (0.7857, 0.7748),
     (0.6059, 0.8891), (0.3817, 0.9563), (0.1379, 0.9798), (-0.1108, 1.0), (-0.362, 0.9832), (-0.5911, 0.9092),
     (-0.7413, 0.7613), (-0.8448, 0.6118), (-0.8817, 0.4521), (-0.9063, 0.3176), (-0.9433, 0.1983), (-0.9728, 0.0824),
+];
+
+/// `roduro_long_hall_01`'s ground tier (`assets/buildings/roduro_long_hall_01.json`), layout units, counter-clockwise.
+pub const RODURO_LONG_HALL_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.993, 0.2769), (0.945, 0.5385), (0.845, 0.7346), (0.716, 0.8596), (0.576, 0.9308),
+    (0.433, 0.9712), (0.289, 0.9923), (0.145, 0.9981), (0.0, 1.0), (-0.145, 0.9981), (-0.289, 0.9923),
+    (-0.433, 0.9712), (-0.576, 0.9308), (-0.716, 0.8596), (-0.845, 0.7346), (-0.945, 0.5385), (-0.993, 0.2769),
+    (-1.0, 0.0), (-0.993, -0.2769), (-0.945, -0.5385), (-0.845, -0.7346), (-0.716, -0.8596), (-0.576, -0.9308),
+    (-0.433, -0.9712), (-0.289, -0.9923), (-0.145, -0.9981), (-0.0, -1.0), (0.145, -0.9981), (0.289, -0.9923),
+    (0.433, -0.9712), (0.576, -0.9308), (0.716, -0.8596), (0.845, -0.7346), (0.945, -0.5385), (0.993, -0.2769),
 ];
 
 /// `roduro_long_old_01`'s ground tier (`assets/buildings/roduro_long_old_01.json`), layout units, counter-clockwise.
@@ -1243,6 +1539,91 @@ pub const RODURO_ROUND_YOUNG_02_OUTLINE: &[(f32, f32)] = &[
     (0.9836, 0.0565), (0.9606, 0.1932), (0.9475, 0.343), (0.8918, 0.4901), (0.8262, 0.6531), (0.7213, 0.816),
     (0.5377, 0.9185), (0.3279, 0.979), (0.1082, 1.0), (-0.1148, 0.9947), (-0.3279, 0.9606), (-0.5311, 0.8922),
     (-0.7115, 0.7976), (-0.8426, 0.661), (-0.9344, 0.5112), (-1.0, 0.3614), (-0.9869, 0.1984), (-0.9377, 0.0539),
+];
+
+/// `roduro_smith_home_01`'s ground tier (`assets/buildings/roduro_smith_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_SMITH_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (-0.9477, -0.0835), (-0.8954, -0.2427), (-0.8129, -0.3845), (-0.6982, -0.501), (-0.6157, -0.633), (-0.5131, -0.765),
+    (-0.3682, -0.8466), (-0.2113, -0.9107), (-0.0483, -0.9767), (0.1308, -1.0), (0.3079, -0.9592), (0.4648, -0.8777),
+    (0.6218, -0.8019), (0.7666, -0.701), (0.8854, -0.5709), (0.9638, -0.4155), (0.992, -0.2466), (1.0001, -0.0816),
+    (0.9497, 0.0757), (0.8874, 0.2175), (0.8109, 0.3456), (0.7344, 0.468), (0.656, 0.5922), (0.5513, 0.701),
+    (0.4507, 0.8485), (0.3059, 0.9534), (0.1308, 0.9922), (-0.0503, 1.0), (-0.2294, 0.9728), (-0.4065, 0.9243),
+    (-0.5715, 0.8447), (-0.7163, 0.7301), (-0.8411, 0.5961), (-0.9357, 0.4388), (-1.0001, 0.268), (-0.998, 0.0874),
+];
+
+/// `roduro_smith_home_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const RODURO_SMITH_HOME_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (-0.4773, 0.8357), (-0.2185, 0.9252), (-0.0475, 0.9513), (0.1239, 0.9439), (0.2841, 0.9083), (0.3725, 0.8447),
+    (0.4304, 0.8567), (0.7833, 0.9878), (1.0449, 1.1932), (1.1604, 1.3598), (1.2317, 1.5499), (1.254, 1.9534),
+    (1.1604, 2.2771), (1.0878, 2.3915), (0.9479, 2.5375), (0.7254, 2.6788), (0.4304, 2.7802), (0.1437, 2.8221),
+    (-0.2427, 2.8254), (-0.5268, 2.7924), (-0.8216, 2.7052), (-1.05, 2.5784), (-1.1999, 2.4437), (-1.3154, 2.2771),
+    (-1.4001, 2.0206), (-1.4089, 1.6835), (-1.3443, 1.4212), (-1.2427, 1.2454), (-1.05, 1.0584), (-0.8216, 0.9317),
+];
+
+/// `roduro_smith_home_01`'s work yard: fenced, gated, its stations in the open.
+pub static RODURO_SMITH_HOME_01_YARD: Yard = Yard { outline: RODURO_SMITH_HOME_01_YARD_OUTLINE, gate: (1.2113, 1.8317), gate_width: 2.24, fence: 1.3, pieces: &[f(Forge, -1.1993, 1.8175, -0.07), f(Anvil, -0.7948, 1.6816, -0.07), f(Workbench, 0.3622, 2.3087, -1.57)] };
+
+/// `roduro_tanner_home_01`'s ground tier (`assets/buildings/roduro_tanner_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_TANNER_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (-0.9999, -0.037), (-0.9876, -0.1597), (-0.9753, -0.2908), (-0.9901, -0.4571), (-0.9531, -0.637), (-0.8152, -0.7849),
+    (-0.6157, -0.8975), (-0.3744, -0.9681), (-0.1158, -1.0), (0.1453, -0.9966), (0.4015, -0.958), (0.628, -0.8739),
+    (0.7857, -0.7277), (0.894, -0.5765), (0.9433, -0.4202), (0.9556, -0.2756), (0.9802, -0.1529), (0.9999, -0.0353),
+    (0.9876, 0.0824), (0.9778, 0.2), (0.9852, 0.3328), (0.9925, 0.4908), (0.9211, 0.642), (0.7857, 0.7748),
+    (0.6059, 0.8891), (0.3817, 0.9563), (0.1379, 0.9798), (-0.1108, 1.0), (-0.362, 0.9832), (-0.5911, 0.9092),
+    (-0.7413, 0.7613), (-0.8448, 0.6118), (-0.8817, 0.4521), (-0.9063, 0.3176), (-0.9433, 0.1983), (-0.9728, 0.0824),
+];
+
+/// `roduro_tanner_home_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const RODURO_TANNER_HOME_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (-0.4901, 0.8953), (-0.3453, 0.942), (-0.1116, 0.9578), (0.3579, 0.9161), (0.6416, 0.961), (0.882, 1.0237),
+    (1.1157, 1.1155), (1.3253, 1.2407), (1.441, 1.3425), (1.5312, 1.4568), (1.612, 1.6442), (1.6329, 1.8395),
+    (1.612, 2.0348), (1.5312, 2.2222), (1.441, 2.3365), (1.3253, 2.4383), (1.1157, 2.5635), (0.8019, 2.6792),
+    (0.4044, 2.7575), (-0.0483, 2.7887), (-0.6394, 2.7738), (-1.0307, 2.718), (-1.3504, 2.6282), (-1.6484, 2.4839),
+    (-1.8302, 2.3365), (-1.9814, 2.0987), (-2.022, 1.8395), (-1.9814, 1.5803), (-1.8302, 1.3425), (-1.6484, 1.1951),
+    (-1.3504, 1.0508), (-0.9509, 0.9455),
+];
+
+/// `roduro_tanner_home_01`'s work yard: fenced, gated, its stations in the open.
+pub static RODURO_TANNER_HOME_01_YARD: Yard = Yard { outline: RODURO_TANNER_HOME_01_YARD_OUTLINE, gate: (1.579, 1.8029), gate_width: 2.06, fence: 1.3, pieces: &[f(Workbench, -0.9605, 2.3227, -0.77), f(Rack, 0.2734, 1.4639, 1.57), f(Rack, 0.2734, 1.7664, 1.57)] };
+
+/// `roduro_tower_cottage_01`'s ground tier (`assets/buildings/roduro_tower_cottage_01.json`), layout units, counter-clockwise.
+pub const RODURO_TOWER_COTTAGE_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9923, 0.1838), (0.9564, 0.3648), (0.8897, 0.5324), (0.7897, 0.6837), (0.6615, 0.808),
+    (0.5103, 0.8999), (0.3462, 0.9621), (0.1744, 0.9918), (-0.0, 0.9999), (-0.1744, 0.9918), (-0.3462, 0.9621),
+    (-0.5103, 0.8999), (-0.6615, 0.808), (-0.7897, 0.6837), (-0.8897, 0.5324), (-0.9564, 0.3648), (-0.9923, 0.1838),
+    (-1.0, -0.0), (-0.9923, -0.1838), (-0.9564, -0.3648), (-0.8897, -0.5324), (-0.7897, -0.6837), (-0.6615, -0.808),
+    (-0.5103, -0.8999), (-0.3462, -0.9621), (-0.1744, -0.9918), (0.0, -0.9999), (0.1744, -0.9918), (0.3462, -0.9621),
+    (0.5103, -0.8999), (0.6615, -0.808), (0.7897, -0.6837), (0.8897, -0.5324), (0.9564, -0.3648), (0.9923, -0.1838),
+];
+
+/// `roduro_tower_house_01`'s ground tier (`assets/buildings/roduro_tower_house_01.json`), layout units, counter-clockwise.
+pub const RODURO_TOWER_HOUSE_01_OUTLINE: &[(f32, f32)] = &[
+    (0.9774, 0.0683), (1.0, 0.2533), (0.9865, 0.44), (0.9293, 0.615), (0.8284, 0.7649), (0.696, 0.8783),
+    (0.5395, 0.9516), (0.374, 0.9883), (0.2054, 0.9999), (0.0369, 0.9983), (-0.1317, 0.9999), (-0.3017, 0.9966),
+    (-0.4688, 0.9716), (-0.6298, 0.9166), (-0.7743, 0.8216), (-0.8901, 0.6866), (-0.9669, 0.52), (-1.0, 0.3366),
+    (-0.9925, 0.15), (-0.9564, -0.0317), (-0.9007, -0.2083), (-0.8254, -0.3766), (-0.7351, -0.535), (-0.6298, -0.68),
+    (-0.5049, -0.8066), (-0.3634, -0.9083), (-0.2054, -0.9733), (-0.0384, -0.9999), (0.1302, -0.9916), (0.2927, -0.9416),
+    (0.4432, -0.8566), (0.5741, -0.7399), (0.6885, -0.6016), (0.7863, -0.4483), (0.8676, -0.285), (0.9323, -0.1117),
+];
+
+/// `roduro_twin_home_01`'s ground tier (`assets/buildings/roduro_twin_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_TWIN_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (0.2512, -0.42), (0.4319, -0.3922), (0.6064, -0.3296), (0.7596, -0.2323), (0.8806, -0.1029), (0.9617, 0.0501),
+    (1.0, 0.2156), (0.9969, 0.3853), (0.9541, 0.5508), (0.8683, 0.701), (0.7427, 0.8275), (0.5865, 0.9207),
+    (0.4119, 0.9777), (0.2251, 1.0), (0.0383, 0.9903), (-0.1409, 0.9458), (-0.3063, 0.8651), (-0.4441, 0.751),
+    (-0.5452, 0.6078), (-0.6034, 0.4465), (-0.6202, 0.2782), (-0.5972, 0.1099), (-0.6983, 0.0125), (-0.8469, -0.089),
+    (-0.951, -0.2295), (-1.0, -0.3936), (-0.9939, -0.5633), (-0.9342, -0.7232), (-0.8193, -0.8567), (-0.6631, -0.9499),
+    (-0.4839, -0.9958), (-0.2971, -1.0), (-0.1149, -0.9597), (0.0459, -0.8748), (0.1685, -0.7469), (0.2374, -0.5897),
+];
+
+/// `roduro_vault_tall_01`'s ground tier (`assets/buildings/roduro_vault_tall_01.json`), layout units, counter-clockwise.
+pub const RODURO_VAULT_TALL_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9948, 0.2186), (0.9655, 0.4325), (0.8931, 0.6279), (0.7793, 0.7814), (0.6379, 0.8883),
+    (0.4828, 0.9511), (0.3241, 0.9837), (0.1621, 0.9976), (-0.0, 1.0), (-0.1621, 0.9976), (-0.3241, 0.9837),
+    (-0.4828, 0.9511), (-0.6379, 0.8883), (-0.7793, 0.7814), (-0.8931, 0.6279), (-0.9655, 0.4325), (-0.9948, 0.2186),
+    (-1.0, -0.0), (-0.9948, -0.2186), (-0.9655, -0.4325), (-0.8931, -0.6279), (-0.7793, -0.7814), (-0.6379, -0.8883),
+    (-0.4828, -0.9511), (-0.3241, -0.9837), (-0.1621, -0.9976), (0.0, -1.0), (0.1621, -0.9976), (0.3241, -0.9837),
+    (0.4828, -0.9511), (0.6379, -0.8883), (0.7793, -0.7814), (0.8931, -0.6279), (0.9655, -0.4325), (0.9948, -0.2186),
 ];
 // ---- end generated outlines ----
 

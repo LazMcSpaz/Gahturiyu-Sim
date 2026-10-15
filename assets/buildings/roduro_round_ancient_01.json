@@ -4,7 +4,6 @@
  "units": "metres",
  "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
  "kit": "drum",
- "age": "ancient",
  "overall": {
   "size_xyz": [
    15.29,
@@ -245,6 +244,7 @@
     "yaw": 1.1654
    }
   ],
+  "yard": null,
   "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size."
  },
  "exterior": {
@@ -4384,6 +4384,7 @@
    "steps": 14
   }
  ],
+ "age": "ancient",
  "outside_door_sizes": [
   {
    "level": 1,

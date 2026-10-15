@@ -118,6 +118,11 @@ pub enum Id {
     PlaceGate(SettlementId, u16),
     /// Crafting station `k` of a workplace, standing in the open.
     Station(SettlementId, u16, u8),
+    /// A trade home's work yard (`layout::Yard`): its fence, its gate, and
+    /// piece `k` standing in it (the yard's `pieces[k]`).
+    Yard(SettlementId, u16),
+    YardGate(SettlementId, u16),
+    YardPiece(SettlementId, u16, u8),
     /// A bandit camp's fire (by its gang), and its lean-to `k`.
     CampFire(GroupId),
     CampShelter(GroupId, u8),
@@ -493,15 +498,17 @@ impl Shape {
             let d = unit(k as f32 / n as f32 * std::f32::consts::TAU);
             (d, pts.iter().map(|p| dot(*p, d)).fold(f32::MIN, f32::max) + grow)
         };
+        // Where each side meets the next; a side that touches the outline
+        // only where its neighbours already do gives corners out of order
+        // (a tiny loop), so the convex hull of them all is taken.
         let corners: Vec<V2> = (0..n)
             .map(|k| {
-                // Where side k meets side k + 1.
                 let ((a, ha), (b, hb)) = (face(k), face(k + 1));
                 let det = a.x * b.y - a.y * b.x;
                 V2::new((ha * b.y - hb * a.y) / det, (a.x * hb - b.x * ha) / det)
             })
             .collect();
-        Poly::new(&corners)
+        Poly::new(&convex_hull(corners))
     }
 
     /// An outline of its own's corners on the map (as drawn: not grown).
@@ -523,6 +530,34 @@ impl Shape {
             })
             .collect()
     }
+}
+
+/// The convex hull of some points (counter-clockwise, no three in a line).
+fn convex_hull(mut pts: Vec<V2>) -> Vec<V2> {
+    pts.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
+    pts.dedup_by(|a, b| a.dist(*b) < 1e-4);
+    if pts.len() < 3 {
+        return pts;
+    }
+    let cross = |o: V2, a: V2, b: V2| (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    let mut lower: Vec<V2> = Vec::new();
+    for &p in &pts {
+        while lower.len() >= 2 && cross(lower[lower.len() - 2], lower[lower.len() - 1], p) <= 1e-6 {
+            lower.pop();
+        }
+        lower.push(p);
+    }
+    let mut upper: Vec<V2> = Vec::new();
+    for &p in pts.iter().rev() {
+        while upper.len() >= 2 && cross(upper[upper.len() - 2], upper[upper.len() - 1], p) <= 1e-6 {
+            upper.pop();
+        }
+        upper.push(p);
+    }
+    lower.pop();
+    upper.pop();
+    lower.extend(upper);
+    lower
 }
 
 /// Flat sides a round thing's outline is given, and how far out their
@@ -636,8 +671,16 @@ impl Thing {
             // Inward from this stretch.
             let n = V2::new(-along.y, along.x);
             let n = if !ccw && dot(mid.sub(a), n) < 0.0 { n.scale(-1.0) } else { n };
+            // (An outline of its own may turn in at a corner, where two
+            // stretches set in by the wall's thickness part a little: each
+            // stretch runs on a touch past its corners to close that.)
+            let ext = if ccw { h.wall * 0.8 } else { 0.0 };
+            // (Not into the opening, which may be wider than a stretch.)
+            let clear = |p: V2| h.way.is_none_or(|w| p.dist(w.at) > w.width * 0.5 + ext + 0.1);
+            let (ext_a, ext_b) = (if clear(a) { ext } else { 0.0 }, if clear(b) { ext } else { 0.0 });
             let mut piece = |from: f32, to: f32| {
                 if to - from > 0.05 {
+                    let (from, to) = (if from == 0.0 { -ext_a } else { from }, if to == len { len + ext_b } else { to });
                     let c = a.add(along.scale((from + to) * 0.5)).add(n.scale(h.wall * 0.5));
                     out.push(Rect::new(c, along.y.atan2(along.x), to - from, h.wall));
                 }
@@ -1447,7 +1490,45 @@ pub fn things_of_building(d: &Door) -> Vec<Thing> {
             layout::Thing::Extra(_) => continue,
         });
     }
+    if let Some(y) = v.yard {
+        out.extend(things_of_yard(d, y));
+    }
     out
+}
+
+/// A trade home's work yard (`layout::Yard`): its fence with the gate in
+/// it, the gate, and what stands inside. Where the fence runs along the
+/// house's wall it doubles it, which changes nothing.
+pub fn things_of_yard(d: &Door, y: &'static layout::Yard) -> Vec<Thing> {
+    let (t, i) = d.id;
+    let id = Id::Yard(t, i);
+    let shape = Shape::Outline { c: d.centre, rot: d.rot, hx: d.half.x, hy: d.half.y, pts: y.outline, grow: 0.0 };
+    let way = home_yard_gate(d, y);
+    let mut out = vec![Thing::solid(id, What::Fence, shape, y.fence).hollowed(FENCE, y.outline.len().min(255) as u8, Some(way))];
+    let turn = (way.outside.y - way.at.y).atan2(way.outside.x - way.at.x);
+    out.push(Thing::solid(Id::YardGate(t, i), What::Gate, Shape::Box(Rect::new(way.at, turn, FENCE, way.width)), y.fence * 0.8).open());
+    for (k, p) in y.pieces.iter().enumerate() {
+        let (w, dd, h) = p.what.size();
+        out.push(Thing::solid(Id::YardPiece(t, i, k as u8), What::Furniture(p.what), Shape::Box(Rect::new(d.to_world(p.at), d.rot + p.rot, w, dd)), h).inside(id));
+    }
+    out
+}
+
+/// The gate in a yard's fence: on the fence, with a step outside and inside.
+pub fn home_yard_gate(d: &Door, y: &layout::Yard) -> Way {
+    let at = d.to_world(y.gate);
+    let (_, q, inward) = layout::outline_nearest(y.outline, d.half.x, d.half.y, d.frame(at));
+    let dir = unit(d.rot);
+    let side = unit(d.rot + std::f32::consts::FRAC_PI_2);
+    let at = d.from_frame(q);
+    let inward = dir.scale(inward.x).add(side.scale(inward.y));
+    Way { at, width: y.gate_width, outside: at.sub(inward.scale(1.2)), inside: at.add(inward.scale(0.8)) }
+}
+
+/// The crafting stations standing in a building's yard, if it has one.
+pub fn yard_stations(d: &Door) -> Vec<(V2, Station)> {
+    let Some(y) = d.variant().yard else { return Vec::new() };
+    y.pieces.iter().filter_map(|p| Station::of_furniture(p.what).map(|st| (d.to_world(p.at), st))).collect()
 }
 
 impl World {
@@ -1701,6 +1782,7 @@ impl World {
     pub fn solid(&self, id: Id) -> Option<Thing> {
         let town = match id {
             Id::Building(s, _) | Id::Door(s, _) | Id::InnerWall(s, _, _) | Id::Furniture(s, _, _) | Id::Place(s, _, _) | Id::PlaceGate(s, _) | Id::Station(s, _, _) => Some(s),
+            Id::Yard(s, _) | Id::YardGate(s, _) | Id::YardPiece(s, _, _) => Some(s),
             Id::Container(s, _, _) if s != containers::WILD => Some(s),
             _ => None,
         };

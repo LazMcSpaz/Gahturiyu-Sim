@@ -4,7 +4,6 @@
  "units": "metres",
  "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
  "kit": "drum",
- "age": "ancient",
  "overall": {
   "size_xyz": [
    14.56,
@@ -99,6 +98,30 @@
     "rot": 3.0759
    },
    {
+    "what": "Bed",
+    "at": [
+     -5.709,
+     1.815
+    ],
+    "rot": 1.8755
+   },
+   {
+    "what": "Bed",
+    "at": [
+     4.541,
+     0.815
+    ],
+    "rot": -1.1702
+   },
+   {
+    "what": "Bed",
+    "at": [
+     -4.709,
+     -0.935
+    ],
+    "rot": 2.0405
+   },
+   {
     "what": "Hearth",
     "at": [
      2.291,
@@ -133,34 +156,10 @@
    {
     "what": "Shelf",
     "at": [
-     -5.959,
-     1.565
+     -5.709,
+     6.065
     ],
-    "rot": 1.8549
-   },
-   {
-    "what": "Bed",
-    "at": [
-     4.541,
-     0.815
-    ],
-    "rot": -1.1702
-   },
-   {
-    "what": "Bed",
-    "at": [
-     -4.709,
-     -0.935
-    ],
-    "rot": 2.0405
-   },
-   {
-    "what": "Bed",
-    "at": [
-     -5.459,
-     5.815
-    ],
-    "rot": 1.0388
+    "rot": 1.0348
    }
   ],
   "holders": [
@@ -229,6 +228,7 @@
     "yaw": 2.4102
    }
   ],
+  "yard": null,
   "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size."
  },
  "exterior": {
@@ -4368,6 +4368,7 @@
    "steps": 14
   }
  ],
+ "age": "ancient",
  "outside_door_sizes": [
   {
    "level": 1,

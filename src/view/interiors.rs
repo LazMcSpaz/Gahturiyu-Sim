@@ -232,7 +232,47 @@ struct Form {
     doors: &'static [((f32, f32), f32)],
     /// Lit windows round each tier.
     windows: &'static [usize],
+    /// How its work yard (`Variant::yard`) is dressed.
+    yard: Option<YardLook>,
 }
+
+/// A piece of yard dressing: drawn, never solid (`layout::Yard::pieces`
+/// are the solid ones).
+#[derive(Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+enum Dress {
+    Bellows,
+    Trough,
+    Grindstone,
+    Barrel,
+    Block,
+    Frame,
+    Tub,
+    Pile,
+    Crate,
+    Bucket,
+    Sacks,
+    Stool,
+    Lantern,
+    Post,
+    Wheel,
+}
+
+/// How a trade home's yard is dressed: pieces (kind, spot in layout
+/// units, turn, size w × d × h metres), awnings (footprint, height, cloth),
+/// roof posts (spot, height), a canopy (middle, reach along and across,
+/// turn, underside height) and a chimney (spot, radius, height).
+struct YardLook {
+    dressing: &'static [(Dress, (f32, f32), f32, (f32, f32, f32))],
+    shades: &'static [(&'static [(f32, f32)], f32, Rgb)],
+    columns: &'static [((f32, f32), f32)],
+    canopy: Option<((f32, f32), f32, f32, f32, f32)>,
+    chimney: Option<((f32, f32), f32, f32)>,
+}
+
+const OCHRE: Rgb = [0.70, 0.56, 0.26];
+const MADDER: Rgb = [0.58, 0.24, 0.20];
+const INDIGO: Rgb = [0.26, 0.36, 0.52];
 
 /// What a tier ends in.
 #[derive(Clone, Copy, PartialEq)]
@@ -256,6 +296,18 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[3],
+        yard: None,
+    },
+    Form {
+        key: "roduro_hill_great_01",
+        at_size: 13.58,
+        tiers: &[(layout::RODURO_HILL_GREAT_01_OUTLINE, 0.0, 3.6, 3.6), (RODURO_HILL_GREAT_01_TIER_1, 3.6, 6.9, 6.1)],
+        roof: Roof::Dome,
+        dome: 0.242,
+        stair: Some(((-0.4617, 0.1767), 1.0)),
+        doors: &[],
+        windows: &[4, 3],
+        yard: None,
     },
     Form {
         key: "roduro_hill_old_01",
@@ -266,6 +318,7 @@ const FORMS: &[Form] = &[
         stair: Some(((-0.262, 0.0349), 1.0)),
         doors: &[],
         windows: &[3, 2],
+        yard: None,
     },
     Form {
         key: "roduro_hill_young_01",
@@ -276,6 +329,7 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[2],
+        yard: None,
     },
     Form {
         key: "roduro_long_ancient_01",
@@ -286,6 +340,7 @@ const FORMS: &[Form] = &[
         stair: Some(((-0.1326, 0.1818), 1.0)),
         doors: &[((-0.6866, 0.741), 2.4102)],
         windows: &[5, 4, 3],
+        yard: None,
     },
     Form {
         key: "roduro_long_est_01",
@@ -296,6 +351,7 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[((-0.8504, -0.0964), -3.1335)],
         windows: &[2],
+        yard: None,
     },
     Form {
         key: "roduro_long_est_02",
@@ -306,6 +362,18 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[3],
+        yard: None,
+    },
+    Form {
+        key: "roduro_long_hall_01",
+        at_size: 20.0,
+        tiers: &[(layout::RODURO_LONG_HALL_01_OUTLINE, 0.0, 6.4, 4.2)],
+        roof: Roof::Barrel,
+        dome: 0.344,
+        stair: None,
+        doors: &[((0.0, 1.0), 1.5708)],
+        windows: &[5],
+        yard: None,
     },
     Form {
         key: "roduro_long_old_01",
@@ -316,6 +384,7 @@ const FORMS: &[Form] = &[
         stair: Some(((0.0628, 0.1696), 1.0)),
         doors: &[],
         windows: &[4, 2],
+        yard: None,
     },
     Form {
         key: "roduro_long_young_01",
@@ -326,6 +395,7 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[1],
+        yard: None,
     },
     Form {
         key: "roduro_round_ancient_01",
@@ -336,6 +406,7 @@ const FORMS: &[Form] = &[
         stair: Some(((-0.0028, 0.036), 1.0)),
         doors: &[((0.2377, 0.6817), 1.1654)],
         windows: &[4, 4, 3],
+        yard: None,
     },
     Form {
         key: "roduro_round_est_01",
@@ -346,6 +417,7 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[3],
+        yard: None,
     },
     Form {
         key: "roduro_round_est_02",
@@ -356,6 +428,7 @@ const FORMS: &[Form] = &[
         stair: Some(((0.0083, 0.1034), 1.0)),
         doors: &[],
         windows: &[2, 1],
+        yard: None,
     },
     Form {
         key: "roduro_round_old_01",
@@ -366,6 +439,7 @@ const FORMS: &[Form] = &[
         stair: Some(((0.0188, 0.0571), 1.0)),
         doors: &[((0.2049, 0.7682), 1.4124)],
         windows: &[3, 3],
+        yard: None,
     },
     Form {
         key: "roduro_round_young_01",
@@ -376,6 +450,7 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[2],
+        yard: None,
     },
     Form {
         key: "roduro_round_young_02",
@@ -386,11 +461,88 @@ const FORMS: &[Form] = &[
         stair: None,
         doors: &[],
         windows: &[1],
+        yard: None,
+    },
+    Form {
+        key: "roduro_smith_home_01",
+        at_size: 10.3,
+        tiers: &[(layout::RODURO_SMITH_HOME_01_OUTLINE, 0.0, 4.94, 4.94)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: Some(YardLook { dressing: &[(Dress::Bellows, (-1.1469, 2.0971), -1.65, (1.902, 0.55, 1.02)), (Dress::Trough, (-0.7505, 1.9903), -0.07, (0.6, 1.3, 0.575)), (Dress::Crate, (-0.6258, 1.0641), 1.27, (1.06, 1.16, 0.658)), (Dress::Grindstone, (0.336, 2.5146), -1.91, (0.827, 0.9, 1.166)), (Dress::Crate, (0.3924, 1.1223), 1.97, (0.5, 1.5, 0.87)), (Dress::Barrel, (-0.7546, 2.3301), -0.07, (0.731, 0.75, 0.91)), (Dress::Block, (-0.7646, 1.4252), -0.07, (0.64, 0.64, 0.79)), (Dress::Frame, (0.0, 2.4155), -1.57, (0.7, 1.7, 0.685)), (Dress::Barrel, (-0.161, 1.1825), 0.0, (0.731, 0.75, 0.91)), (Dress::Bucket, (-0.6197, 2.1359), 0.0, (0.5, 0.5, 0.5)), (Dress::Lantern, (-0.6922, 2.0932), 0.0, (0.5, 0.5, 0.5)), (Dress::Sacks, (-0.3079, 0.9786), 0.0, (0.5, 0.5, 0.5)), (Dress::Pile, (0.7505, 1.3165), 0.0, (0.5, 0.5, 0.5)), (Dress::Stool, (-0.998, 1.4699), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.4568, 2.5534), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.664, 2.066), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.2415, 2.1049), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.2012, 1.5515), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.6037, 1.5903), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.6439, 1.1515), 0.0, (0.5, 0.5, 0.5)), (Dress::Wheel, (0.4628, 1.4447), 0.0, (0.5, 0.5, 0.5)), (Dress::Bucket, (0.1912, 1.2117), 0.0, (0.5, 0.5, 0.5))], shades: &[(&[(-0.4948, 2.7383), (0.4572, 2.5526), (0.664, 2.066), (-0.2415, 2.1049)], 2.27, OCHRE), (&[(-0.4932, 0.8951), (-0.2012, 1.5515), (0.6037, 1.5903), (0.6435, 1.1513)], 2.26, MADDER)], columns: &[((-0.5232, 2.7845), 3.2), ((-0.5232, 0.8427), 3.2), ((1.2073, 2.1049), 1.85), ((1.2274, 1.5612), 1.85), ((-0.4226, 2.1437), 2.97), ((-0.4226, 1.4835), 2.97)], canopy: Some(((-0.8968, 1.8167), 2.898, 5.346, 0.0, 2.85)), chimney: Some(((-1.4095, 1.833), 0.77, 5.8)) }),
+    },
+    Form {
+        key: "roduro_tanner_home_01",
+        at_size: 11.9,
+        tiers: &[(layout::RODURO_TANNER_HOME_01_OUTLINE, 0.0, 4.95, 4.95)],
+        roof: Roof::Dome,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: Some(YardLook { dressing: &[(Dress::Pile, (-0.7684, 2.5983), -1.21, (1.253, 1.028, 0.41)), (Dress::Pile, (-1.5812, 1.8655), -0.49, (1.806, 1.456, 0.649)), (Dress::Tub, (-1.2536, 1.2185), 1.25, (1.402, 1.407, 1.553)), (Dress::Tub, (-0.6822, 1.1395), 1.43, (1.426, 1.467, 1.553)), (Dress::Tub, (-0.1207, 1.0992), 1.56, (1.476, 1.434, 1.553)), (Dress::Tub, (0.3571, 1.1647), 1.97, (1.418, 1.416, 1.553)), (Dress::Frame, (0.7487, 2.5025), -2.03, (0.866, 1.7, 2.108)), (Dress::Frame, (0.1379, 2.6353), -1.75, (0.866, 1.7, 2.108)), (Dress::Trough, (1.0861, 1.3647), 3.84, (1.9, 0.65, 0.615)), (Dress::Frame, (-1.4162, 2.2874), -0.57, (0.127, 1.3, 1.5)), (Dress::Barrel, (1.362, 1.6353), 2.75, (0.731, 0.75, 0.91)), (Dress::Frame, (1.1649, 2.1714), -2.5, (0.13, 2.93, 2.1)), (Dress::Post, (-0.3793, 1.0101), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.3916, 1.3714), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-1.3521, 1.5059), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.7044, 1.1782), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (0.8398, 1.9597), 0.0, (0.5, 0.5, 0.5)), (Dress::Post, (-0.2561, 1.9765), 0.0, (0.5, 0.5, 0.5)), (Dress::Lantern, (-0.9482, 2.2689), 0.0, (0.5, 0.5, 0.5)), (Dress::Stool, (-0.6748, 2.2571), 0.0, (0.5, 0.5, 0.5)), (Dress::Bucket, (-0.9187, 1.3429), 0.0, (0.5, 0.5, 0.5)), (Dress::Bucket, (0.0468, 1.2824), 0.0, (0.5, 0.5, 0.5)), (Dress::Sacks, (-1.7757, 1.4706), 0.0, (0.5, 0.5, 0.5))], shades: &[(&[(-1.6789, 1.2319), (-0.3793, 1.0101), (-0.3916, 1.3714), (-1.3521, 1.5059)], 2.24, INDIGO), (&[(-0.3793, 1.0101), (0.7044, 1.1782), (0.8398, 1.9597), (-0.2561, 1.9765)], 2.16, LINEN)], columns: &[((-0.4162, 2.7916), 3.0), ((-1.8693, 1.9008), 3.0), ((1.6033, 2.0185), 1.8), ((1.5541, 1.5815), 1.8), ((-0.6625, 2.1025), 2.74)], canopy: Some(((-0.9487, 2.2691), 2.0, 2.9, -0.7138, 2.62)), chimney: None }),
+    },
+    Form {
+        key: "roduro_tower_cottage_01",
+        at_size: 7.8,
+        tiers: &[(layout::RODURO_TOWER_COTTAGE_01_OUTLINE, 0.0, 3.5, 3.5), (RODURO_TOWER_COTTAGE_01_TIER_1, 3.5, 6.6, 5.9)],
+        roof: Roof::Dome,
+        dome: 0.226,
+        stair: Some(((0.2051, 0.6216), 0.9)),
+        doors: &[],
+        windows: &[2, 2],
+        yard: None,
+    },
+    Form {
+        key: "roduro_tower_house_01",
+        at_size: 13.29,
+        tiers: &[(layout::RODURO_TOWER_HOUSE_01_OUTLINE, 0.0, 3.9, 3.9), (RODURO_TOWER_HOUSE_01_TIER_1, 3.9, 7.0, 6.4), (RODURO_TOWER_HOUSE_01_TIER_2, 7.0, 10.3, 9.0)],
+        roof: Roof::Dome,
+        dome: 0.394,
+        stair: Some(((-0.0309, 0.1183), 1.0)),
+        doors: &[((0.2099, 0.9849), 1.16)],
+        windows: &[4, 4, 3],
+        yard: None,
+    },
+    Form {
+        key: "roduro_twin_home_01",
+        at_size: 14.38,
+        tiers: &[(layout::RODURO_TWIN_HOME_01_OUTLINE, 0.0, 5.2, 3.3)],
+        roof: Roof::Dome,
+        dome: 0.365,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: None,
+    },
+    Form {
+        key: "roduro_vault_tall_01",
+        at_size: 11.6,
+        tiers: &[(layout::RODURO_VAULT_TALL_01_OUTLINE, 0.0, 3.4, 3.4), (RODURO_VAULT_TALL_01_TIER_1, 3.4, 6.9, 5.4)],
+        roof: Roof::Barrel,
+        dome: 0.429,
+        stair: Some(((0.5172, -0.5814), 0.9)),
+        doors: &[],
+        windows: &[2, 2],
+        yard: None,
     },
 ];
 // ---- end generated forms ----
 
 // ---- generated tiers (tools/buildings/roduro_forms.py rust) ----
+/// `roduro_hill_great_01`'s tier B (drawing only).
+pub const RODURO_HILL_GREAT_01_TIER_1: &[(f32, f32)] = &[
+    (-1.0258, 0.6716), (-1.0275, 0.539), (-1.0275, 0.405), (-1.0275, 0.2695), (-1.0275, 0.1355), (-1.0275, 0.0015),
+    (-1.0275, -0.134), (-1.0275, -0.268), (-1.0275, -0.4021), (-1.0275, -0.5376), (-1.0275, -0.6716), (-0.8796, -0.7158),
+    (-0.7249, -0.7408), (-0.5684, -0.7511), (-0.4119, -0.7496), (-0.2554, -0.7393), (-0.1006, -0.7128), (0.0456, -0.6672),
+    (0.1797, -0.5965), (0.2932, -0.5052), (0.3809, -0.3932), (0.4359, -0.268), (0.4652, -0.1355), (0.4703, -0.0015),
+    (0.4652, 0.134), (0.4377, 0.2651), (0.3809, 0.3918), (0.2949, 0.5037), (0.1814, 0.5965), (0.0473, 0.6657),
+    (-0.0989, 0.7128), (-0.2537, 0.7393), (-0.4101, 0.7496), (-0.5666, 0.7511), (-0.7231, 0.7408), (-0.8779, 0.7158),
+];
+
 /// `roduro_hill_old_01`'s tier B (drawing only).
 pub const RODURO_HILL_OLD_01_TIER_1: &[(f32, f32)] = &[
     (-0.9493, -0.0632), (-0.9337, -0.1752), (-0.9142, -0.2938), (-0.9259, -0.4436), (-0.8402, -0.5739), (-0.6803, -0.6638),
@@ -469,6 +621,46 @@ pub const RODURO_ROUND_OLD_01_TIER_1: &[(f32, f32)] = &[
     (0.7118, 0.0476), (0.7292, 0.1792), (0.7147, 0.3182), (0.6539, 0.4411), (0.567, 0.5494), (0.4482, 0.6196),
     (0.2904, 0.5933), (0.16, 0.5538), (0.0688, 0.6694), (-0.0558, 0.7279), (-0.1818, 0.703), (-0.315, 0.6869),
     (-0.4381, 0.6299), (-0.5177, 0.5172), (-0.5395, 0.3724), (-0.5844, 0.2641), (-0.6133, 0.1544), (-0.5496, 0.0344),
+];
+
+/// `roduro_tower_cottage_01`'s tier B (drawing only).
+pub const RODURO_TOWER_COTTAGE_01_TIER_1: &[(f32, f32)] = &[
+    (0.8205, 0.0), (0.8128, 0.1513), (0.7846, 0.2973), (0.7282, 0.4378), (0.6487, 0.5621), (0.5436, 0.6621),
+    (0.4179, 0.7378), (0.2846, 0.7891), (0.1436, 0.8134), (0.0, 0.8188), (-0.1436, 0.8134), (-0.2846, 0.7891),
+    (-0.4179, 0.7378), (-0.5436, 0.6621), (-0.6487, 0.5621), (-0.7282, 0.4378), (-0.7846, 0.2973), (-0.8128, 0.1513),
+    (-0.8205, 0.0), (-0.8128, -0.1513), (-0.7846, -0.2973), (-0.7282, -0.4378), (-0.6487, -0.5621), (-0.5436, -0.6621),
+    (-0.4179, -0.7378), (-0.2846, -0.7891), (-0.1436, -0.8134), (-0.0, -0.8188), (0.1436, -0.8134), (0.2846, -0.7891),
+    (0.4179, -0.7378), (0.5436, -0.6621), (0.6487, -0.5621), (0.7282, -0.4378), (0.7846, -0.2973), (0.8128, -0.1513),
+];
+
+/// `roduro_tower_house_01`'s tier B (drawing only).
+pub const RODURO_TOWER_HOUSE_01_TIER_1: &[(f32, f32)] = &[
+    (0.6915, 0.0683), (0.7096, 0.2167), (0.699, 0.365), (0.6524, 0.5066), (0.5726, 0.6266), (0.4658, 0.7166),
+    (0.3424, 0.7749), (0.2099, 0.8049), (0.0745, 0.8133), (-0.0609, 0.8133), (-0.1964, 0.8133), (-0.3318, 0.8099),
+    (-0.4658, 0.7916), (-0.5937, 0.7466), (-0.7096, 0.67), (-0.8029, 0.5633), (-0.8646, 0.43), (-0.8901, 0.2833),
+    (-0.8841, 0.1333), (-0.8555, -0.0117), (-0.8104, -0.1533), (-0.7517, -0.2866), (-0.678, -0.4133), (-0.5937, -0.53),
+    (-0.4944, -0.6316), (-0.3815, -0.7133), (-0.2551, -0.7649), (-0.1211, -0.7866), (0.0143, -0.7783), (0.1437, -0.7399),
+    (0.2641, -0.6716), (0.3695, -0.5783), (0.4597, -0.4666), (0.538, -0.345), (0.6042, -0.2133), (0.6554, -0.0767),
+];
+
+/// `roduro_tower_house_01`'s tier C (drawing only).
+pub const RODURO_TOWER_HOUSE_01_TIER_2: &[(f32, f32)] = &[
+    (0.4507, 0.1183), (0.4643, 0.23), (0.4552, 0.3416), (0.4221, 0.4466), (0.3619, 0.5366), (0.2822, 0.605),
+    (0.1889, 0.6483), (0.0895, 0.67), (-0.0128, 0.6766), (-0.1136, 0.6766), (-0.2144, 0.6766), (-0.3168, 0.675),
+    (-0.4161, 0.66), (-0.5139, 0.6266), (-0.5997, 0.57), (-0.6704, 0.4883), (-0.7156, 0.39), (-0.7351, 0.28),
+    (-0.7306, 0.1683), (-0.7096, 0.0583), (-0.6764, -0.0483), (-0.6313, -0.1483), (-0.5771, -0.2433), (-0.5139, -0.33),
+    (-0.4387, -0.4066), (-0.3529, -0.4666), (-0.2596, -0.5066), (-0.1588, -0.5233), (-0.0579, -0.5166), (0.0399, -0.4883),
+    (0.1302, -0.4366), (0.2084, -0.3666), (0.2777, -0.2833), (0.3363, -0.1917), (0.3845, -0.0933), (0.4236, 0.01),
+];
+
+/// `roduro_vault_tall_01`'s tier B (drawing only).
+pub const RODURO_VAULT_TALL_01_TIER_1: &[(f32, f32)] = &[
+    (0.8603, 0.0), (0.8552, 0.1814), (0.8241, 0.3558), (0.7552, 0.5093), (0.6517, 0.6256), (0.531, 0.7),
+    (0.4017, 0.7465), (0.2672, 0.7697), (0.1345, 0.779), (-0.0, 0.779), (-0.1345, 0.779), (-0.2672, 0.7697),
+    (-0.4017, 0.7465), (-0.531, 0.7), (-0.6517, 0.6256), (-0.7552, 0.5093), (-0.8241, 0.3558), (-0.8552, 0.1814),
+    (-0.8603, 0.0), (-0.8552, -0.1814), (-0.8241, -0.3558), (-0.7552, -0.5093), (-0.6517, -0.6256), (-0.531, -0.7),
+    (-0.4017, -0.7465), (-0.2672, -0.7697), (-0.1345, -0.779), (-0.0, -0.779), (0.1345, -0.779), (0.2672, -0.7697),
+    (0.4017, -0.7465), (0.531, -0.7), (0.6517, -0.6256), (0.7552, -0.5093), (0.8241, -0.3558), (0.8552, -0.1814),
 ];
 // ---- end generated tiers ----
 
@@ -714,6 +906,125 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
     let face = o.y.atan2(o.x);
     b.patch(to3(fm(f, at), f.y + sink + 1.22) + vec3(face.cos(), 0.0, face.sin()) * 0.06, 1.3, 2.45, face, DOOR_DARK);
     b.block(f.at(dx, dy, 0.0) + f.fwd() * 0.45, 1.6, 1.0, sink + 0.15, f.rot, palette::scale(stone, 1.15));
+    if let (Some(y), Some(look)) = (v.yard, form.yard.as_ref()) {
+        yard(b, gl, v, y, look, f, form.tiers[0].0, stone, seed);
+    }
+}
+
+/// A trade home's work yard: the fence where it isn't the house's own
+/// wall, the gate posts, the roofed shed on its posts, the chimney, the
+/// awnings, the stations (the sim's own pieces) and the dressing.
+#[allow(clippy::too_many_arguments)]
+fn yard(b: &mut Builder, gl: &mut Builder, v: &Variant, y: &layout::Yard, look: &YardLook, f: &Frame, house: &[(f32, f32)], stone: Rgb, seed: u64) {
+    let fence_col = palette::scale(stone, 0.95);
+    let n = y.outline.len();
+    let pts: Vec<V2> = y.outline.iter().map(|&(x, yy)| V2::new(x * f.hx, yy * f.hy)).collect();
+    let gate = V2::new(y.gate.0 * f.hx, y.gate.1 * f.hy);
+    for k in 0..n {
+        let (a, c) = (pts[k], pts[(k + 1) % n]);
+        let mid = a.lerp(c, 0.5);
+        // Not where it runs along the house's wall, nor at the gate.
+        if layout::outline_nearest(house, f.hx, f.hy, mid).0 > -0.45 || mid.dist(gate) < y.gate_width * 0.5 + 0.1 {
+            continue;
+        }
+        wall(b, fm(f, a), fm(f, c), f.y - 0.2, 0.5, y.fence + 0.2, fence_col);
+    }
+    // The gate: two posts.
+    let (_, q, inward) = layout::outline_nearest(y.outline, f.hx, f.hy, gate);
+    let along = V2::new(-inward.y, inward.x);
+    for s in [-1.0f32, 1.0] {
+        let p = q.add(along.scale(s * (y.gate_width * 0.5 + 0.15)));
+        b.column(to3(fm(f, p), f.y - 0.1), 0.26, 0.22, y.fence + 0.6, 6, palette::scale(stone, 0.85));
+    }
+    // The shed: posts and a flat roof slab over them, leaning on the house.
+    for &((x, yy), h) in look.columns {
+        b.column(to3(f.p(x, yy), f.y - 0.1), 0.24, 0.2, h + 0.1, 6, palette::scale(stone, 0.9));
+    }
+    if let Some(((x, yy), rx, ry, yaw, h)) = look.canopy {
+        let c = f.at(x, yy, h);
+        drum(b, c, rx + 0.3, ry + 0.3, 0.3, 0.97, f.rot + yaw, 16, palette::scale(stone, 0.8));
+        drum(b, c + Vec3::Y * 0.3, rx, ry, 0.5, 0.6, f.rot + yaw, 16, [0.27, 0.31, 0.22]);
+    }
+    if let Some(((x, yy), r, h)) = look.chimney {
+        let c = f.at(x, yy, -0.1);
+        b.column(c, r, r * 0.8, h + 0.1, 8, palette::scale(stone, 0.8));
+        gl.smoke(c + Vec3::Y * (h + 0.1), r * 0.5);
+    }
+    // Awnings: a cloth on its corners' posts.
+    for &(foot, h, cloth) in look.shades {
+        if foot.len() == 4 {
+            let p: Vec<Vec3> = foot.iter().map(|&(x, yy)| f.at(x, yy, h + 0.1)).collect();
+            b.quad([p[0], p[1], p[2], p[3]], Vec3::Y, cloth);
+            b.quad([p[3], p[2], p[1], p[0]], -Vec3::Y, palette::scale(cloth, 0.8));
+        }
+    }
+    // The stations (the same spots the sim has them at), then the dressing.
+    for (k, p) in y.pieces.iter().enumerate() {
+        furniture(b, gl, p.what, f.at(p.at.0, p.at.1, 0.02), f.rot + p.rot, 64 + k);
+    }
+    for &(kind, (x, yy), rot, (w, d, h)) in look.dressing {
+        dressing(b, gl, kind, f.at(x, yy, 0.0), f.rot + rot, (w, d, h), seed ^ (x.to_bits() as u64));
+    }
+    let _ = v;
+}
+
+/// One piece of yard dressing as a few blocks.
+fn dressing(b: &mut Builder, gl: &mut Builder, kind: Dress, base: Vec3, rot: f32, (w, d, h): (f32, f32, f32), seed: u64) {
+    let (s, c) = rot.sin_cos();
+    let fwd = vec3(c, 0.0, s);
+    let side = vec3(-s, 0.0, c);
+    match kind {
+        Dress::Bellows => {
+            b.block(base + Vec3::Y * 0.4, w, d, h * 0.5, rot, LEATHER);
+            b.stick(base + Vec3::Y * 0.4, base + Vec3::Y * 0.4 + fwd * (w * 0.6), 0.08, WOOD);
+            for sgn in [-1.0f32, 1.0] {
+                b.stick(base + side * (sgn * d * 0.4), base + side * (sgn * d * 0.4) + Vec3::Y * 0.4, 0.07, WOOD_DARK);
+            }
+        }
+        Dress::Trough | Dress::Tub => {
+            let r = (w.min(d) * 0.5).max(0.3);
+            if kind == Dress::Tub {
+                b.column(base, r, r * 0.9, h * 0.6, 10, WOOD_DARK);
+                b.column(base + Vec3::Y * (h * 0.6 - 0.02), r * 0.85, r * 0.85, 0.02, 10, [0.22, 0.17, 0.11]);
+            } else {
+                b.block(base, w, d, h, rot, WOOD_DARK);
+                b.block(base + Vec3::Y * (h - 0.03), w - 0.12, d - 0.12, 0.03, rot, [0.20, 0.28, 0.34]);
+            }
+        }
+        Dress::Grindstone => {
+            b.block(base, w * 0.8, d * 0.8, 0.5, rot, WOOD);
+            b.column(base + Vec3::Y * 0.5, 0.05, 0.05, 0.02, 4, WOOD);
+            disc(b, base + Vec3::Y * (0.5 + w * 0.35), w * 0.35, rot + std::f32::consts::FRAC_PI_2, palette::scale(palette::STONE, 0.85));
+        }
+        Dress::Barrel => b.column(base, w * 0.5, w * 0.45, h, 10, WOOD),
+        Dress::Block => b.block(base, w, d, h, rot, IRON),
+        Dress::Frame => {
+            // Two posts and a crossbar; a tall frame gets a cloth or hides on it.
+            for sgn in [-1.0f32, 1.0] {
+                let p = base + side * (sgn * d * 0.5);
+                b.stick(p, p + Vec3::Y * h, 0.07, WOOD_DARK);
+            }
+            b.stick(base + side * (-d * 0.5) + Vec3::Y * (h - 0.05), base + side * (d * 0.5) + Vec3::Y * (h - 0.05), 0.06, WOOD_DARK);
+            if h > 1.5 {
+                b.block(base + Vec3::Y * (h * 0.35), w.max(0.08), d * 0.8, h * 0.5, rot, LEATHER);
+            }
+        }
+        Dress::Pile => b.dome(base, w.max(0.9) * 0.6, d.max(0.9) * 0.6, h.max(0.4), 0.3, 0.0, seed, [0.36, 0.28, 0.18]),
+        Dress::Crate => b.block(base, w, d, h, rot, WOOD_LIGHT),
+        Dress::Bucket => b.column(base, 0.18, 0.15, 0.3, 8, WOOD_DARK),
+        Dress::Sacks => {
+            b.dome(base, 0.4, 0.3, 0.35, 0.1, 0.0, seed, LINEN);
+            b.dome(base + fwd * 0.5, 0.35, 0.3, 0.3, 0.1, 0.0, seed ^ 3, palette::scale(LINEN, 0.9));
+        }
+        Dress::Stool => b.block(base + Vec3::Y * 0.3, 0.35, 0.35, 0.08, rot, WOOD),
+        Dress::Lantern => {
+            b.stick(base, base + Vec3::Y * 2.0, 0.06, IRON);
+            gl.patch(base + Vec3::Y * 1.85, 0.2, 0.25, rot, palette::WINDOW);
+        }
+        Dress::Post => b.stick(base, base + Vec3::Y * 2.3, 0.08, WOOD),
+        Dress::Wheel => disc(b, base + Vec3::Y * 0.5, 0.5, rot, WOOD_DARK),
+    }
+    let _ = h;
 }
 
 /// A spiral stair inside, cut off where the walls are cut away: a stone
@@ -1192,6 +1503,11 @@ pub fn interior(b: &mut Builder, gl: &mut Builder, w: &World, d: &Door, on_groun
     }
     if let Some(form) = form_of(v) {
         stair(b, &f, form);
+        // The yard stays as it is outside when the house is cut open.
+        if let (Some(y), Some(look)) = (v.yard, form.yard.as_ref()) {
+            let ground = Frame { y: on_ground(d.centre), ..f };
+            yard(b, gl, v, y, look, &ground, form.tiers[0].0, palette::scale(palette::STONE, 0.78), d.id.1 as u64);
+        }
     }
     for g in d.doorways() {
         for &(a, z) in &pieces {
