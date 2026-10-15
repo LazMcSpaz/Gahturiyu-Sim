@@ -317,7 +317,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let open = w.occupied();
     // Screenshots can show every building cut open (`GAHT_CUTAWAY`).
     let cutaway = game.cutaway;
-    let near: Vec<u16> = w.settlements.iter().filter(|s| s.pos.dist(oc.target) <= radius + s.reach).map(|s| s.id).collect();
+    // (A town whose place is open in the editor's Build tool stands hidden: what's drawn is the place as built there.)
+    let near: Vec<u16> = w.settlements.iter().filter(|s| s.pos.dist(oc.target) <= radius + s.reach && !game.editor.build.hides(s.id)).map(|s| s.id).collect();
     scene.towns.retain(|id, town| {
         let keep = near.contains(id);
         if !keep {
@@ -506,6 +507,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let mut b = Builder::new();
     let mut gl = Builder::new();
     let mut fl = Builder::new();
+    // The editor's Build tool: the places as laid out there (`build.rs`).
+    if game.editor.on {
+        super::build::draw(&mut b, &mut gl, game, &on_ground);
+    }
     // `GAHT_SOLID=1`: what the sim holds to be solid, drawn over the world.
     if solid_shown() {
         solid_outlines(&mut fl, w, &on_ground, oc.target, radius.min(140.0));

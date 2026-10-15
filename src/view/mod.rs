@@ -19,6 +19,7 @@ pub mod lexicon;
 pub mod lootui;
 pub mod looks;
 pub mod brewui;
+pub mod build;
 pub mod makeui;
 pub mod hints;
 pub mod feel;

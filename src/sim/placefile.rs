@@ -85,6 +85,10 @@ pub struct Thing {
     pub room: Option<u16>,
     #[serde(default)]
     pub note: String,
+    /// What it's used as, by its sign: a trade or service key (`uses`), or
+    /// empty for the building's own (a home, or the trade its kind keeps).
+    #[serde(default, rename = "use", skip_serializing_if = "String::is_empty")]
+    pub use_: String,
 }
 
 /// The file as the builder writes it.
@@ -342,4 +346,69 @@ pub fn load_places(dir: &std::path::Path) -> Vec<(String, Plan)> {
         }
     }
     out
+}
+
+/// The folder the game reads place files from (beside the plans), if found.
+pub fn places_dir() -> Option<std::path::PathBuf> {
+    super::plan::plans_dir().and_then(|d| d.parent().map(|p| p.join("places")))
+}
+
+/// Now, as the builder writes `saved` (UTC, to the second).
+pub fn now_stamp() -> String {
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    let (days, rem) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
+    // Days to a civil date (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + (m <= 2) as i64;
+    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", rem / 3600, rem % 3600 / 60, rem % 60)
+}
+
+impl PlaceFile {
+    /// A new, empty place for a mark: its area's grid (2 m cells, the
+    /// origin at the middle cell), nothing painted, set or placed.
+    pub fn blank(key: &str, title: &str, size: (usize, usize)) -> PlaceFile {
+        let n = size.0 * size.1;
+        PlaceFile {
+            format: 1,
+            key: key.to_string(),
+            title: title.to_string(),
+            cell: super::grounds::CELL,
+            size: (size.0 as u32, size.1 as u32),
+            origin: ((size.0 / 2) as f32, (size.1 / 2) as f32),
+            ground: ".".repeat(n),
+            height: ".".repeat(n),
+            ..Default::default()
+        }
+    }
+
+    /// The place file for a key, as saved in the game's places folder, if any.
+    pub fn for_key(key: &str) -> Option<PlaceFile> {
+        let path = places_dir()?.join(format!("{key}.json"));
+        PlaceFile::load(&path).ok()
+    }
+
+    /// Write it to the game's places folder (`<key>.json`), stamped now.
+    /// Returns where.
+    pub fn save(&mut self) -> Result<std::path::PathBuf, String> {
+        let dir = places_dir().ok_or("no places folder near the game")?;
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        self.saved = now_stamp();
+        let path = dir.join(format!("{}.json", self.key));
+        let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        std::fs::write(&path, text + "\n").map_err(|e| format!("{}: {e}", path.display()))?;
+        Ok(path)
+    }
+
+    /// The box the place's grid covers round a centre: (x0, y0, x1, y1).
+    pub fn bounds(&self, centre: V2) -> (f32, f32, f32, f32) {
+        let (x0, y0) = (centre.x - self.origin.0 * self.cell, centre.y - self.origin.1 * self.cell);
+        (x0, y0, x0 + self.size.0 as f32 * self.cell, y0 + self.size.1 as f32 * self.cell)
+    }
 }

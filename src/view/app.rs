@@ -542,6 +542,18 @@ pub fn run() {
             game.follow = false;
             game.orbit.target = at;
         }
+        // `GAHT_EDITBUILD=1`: the editor's Build tool open at the nearest mark,
+        // a few things put down there and a weaver's house in hand (`build::demo`).
+        if std::env::var("GAHT_EDITBUILD").is_ok() {
+            game.editor.on = true;
+            game.paused = true;
+            let c = super::build::demo(&mut game);
+            game.follow = false;
+            game.orbit.target = c;
+            game.orbit.ground = game.world.terrain.surface(c);
+            game.orbit.dist = 75.0;
+            game.orbit.pitch = 0.75;
+        }
         if let Some(what) = &s.build {
             game.build = what != "store";
             if what == "base" || what == "store" {
@@ -763,6 +775,19 @@ fn swap_world(game: &mut Game, w: World) {
     game.map_cam.centre = game.world.squad.pos;
 }
 
+/// The editor's "Rebuild the world": a new world from the saved places and
+/// the land as edited, the camera left where it was.
+pub(super) fn rebuild_world(game: &mut Game) {
+    let (target, yaw, pitch, dist) = (game.orbit.target, game.orbit.yaw, game.orbit.pitch, game.orbit.dist);
+    let w = fresh_world(game.world.seed, false, worldgen::Start::Town);
+    swap_world(game, w);
+    game.follow = false;
+    (game.orbit.target, game.orbit.yaw, game.orbit.pitch, game.orbit.dist) = (target, yaw, pitch, dist);
+    game.orbit.ground = game.world.terrain.surface(target);
+    // (Reopened from their files, against the new world's towns.)
+    game.editor.build.places.clear();
+}
+
 /// Keys and mouse: camera moves, and orders.
 fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<ButtonInput<MouseButton>>, scroll: Res<AccumulatedMouseScroll>, window: Single<&Window, With<PrimaryWindow>>, time: Res<Time>) {
     let game = &mut *game;
@@ -779,7 +804,9 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     let dt = time.delta_secs();
     // (Screenshots step at a fixed pace, so a mark or a nod is the same in each.)
     game.feel.tick(if game.shot.is_some() { 1.0 / 30.0 } else { dt.min(0.1) });
-    if (keys.just_pressed(KeyCode::F10) && game.title.is_none()) || (game.editor.on && keys.just_pressed(KeyCode::Escape)) {
+    // (Escape in the Build tool lets go of what's in hand before it leaves.)
+    let esc_leaves = game.editor.on && keys.just_pressed(KeyCode::Escape) && !game.editor.build.escape();
+    if (keys.just_pressed(KeyCode::F10) && game.title.is_none()) || esc_leaves {
         super::editor::toggle(game);
         game.last_mouse = mouse;
         return;

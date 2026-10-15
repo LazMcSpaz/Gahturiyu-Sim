@@ -86,6 +86,8 @@ pub struct Editor {
     /// Whether the world was paused before the editor opened.
     was_paused: bool,
     pub status: String,
+    /// The Build tool (`build.rs`): laying places out with the game's buildings.
+    pub build: super::build::Build,
 }
 
 impl Default for Editor {
@@ -112,6 +114,7 @@ impl Default for Editor {
             confirm_reload: false,
             was_paused: false,
             status: String::new(),
+            build: Default::default(),
         }
     }
 }
@@ -231,6 +234,12 @@ fn under(game: &Game, mouse: Vec2) -> Option<V2> {
 /// The editor's share of the keys and mouse. Camera controls carry on as
 /// usual; left-dragging over the land uses the brush.
 pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput<MouseButton>, mouse: Vec2, on_panels: bool, dt: f32, time: f32) {
+    if game.editor.build.on {
+        let at = under(game, mouse);
+        game.editor.cursor = None;
+        super::build::input(game, keys, buttons, at, on_panels);
+        return;
+    }
     let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
     // (Not mid-stroke: the stroke would be kept against the wrong land.)
@@ -398,8 +407,24 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
     c.rect(r.x, r.y, r.w, 4.0, eg(GOLD));
     let x = r.x + 12.0;
     let mut y = r.y + 28.0;
-    c.text("Land editor", x, y, 18.0, GOLD);
+    c.text("Editor", x, y, 18.0, GOLD);
     let leave = button(c, r.x + r.w - 92.0, y, 80.0, "Done (F10)", false, click, None);
+    // Land (the brushes) or Build (the places' buildings and things).
+    y += 24.0;
+    let tabw = (W - 30.0) / 2.0;
+    if button(c, x, y, tabw, "Land", !game.editor.build.on, click, None) {
+        game.editor.build.on = false;
+    }
+    if button(c, x + tabw + 6.0, y, tabw, "Build", game.editor.build.on, click, None) {
+        game.editor.build.on = true;
+    }
+    if game.editor.build.on {
+        super::build::panel(c, game, click, r, y + 30.0, &|c, x, y, w, l, on, k| button(c, x, y, w, l, on, k, None));
+        if leave {
+            toggle(game);
+        }
+        return r;
+    }
     let e = &mut game.editor;
     let col = (W - 30.0) / 2.0;
     let pick = |e: &mut Editor, t: Tool, hit: bool| {
@@ -563,6 +588,10 @@ pub fn panel(c: &Canvas, game: &mut Game, click: Option<Click>) -> Bx {
 /// The brush on the land: a ring where it reaches (and its soft edge), or a
 /// ramp's line.
 pub fn draw_cursor(c: &Canvas, game: &Game, project: &dyn Fn(Vec3) -> Option<Vec2>, drawn: &dyn Fn(V2) -> f32) {
+    if game.editor.build.on {
+        super::build::draw_marks(c, game, project, drawn);
+        return;
+    }
     let e = &game.editor;
     let Some(p) = e.cursor else { return };
     let ring = |r: f32, col: Color32, width: f32| {

@@ -405,3 +405,17 @@ fn save_png(img: &image::RgbImage, path: &std::path::Path) -> Result<(), String>
     let enc = image::codecs::png::PngEncoder::new_with_quality(f, image::codecs::png::CompressionType::Best, image::codecs::png::FilterType::Adaptive);
     enc.write_image(img.as_raw(), img.width(), img.height(), image::ExtendedColorType::Rgb8).map_err(|e| e.to_string())
 }
+
+/// The mark whose place holds a spot (its area by kind round its centre;
+/// the nearest centre if two overlap): key, label, kind, centre.
+pub fn place_at(p: V2) -> Option<(String, String, String, V2)> {
+    marks()
+        .into_iter()
+        .filter(|(_, _, _, kind, c)| {
+            let (gw, gh) = area_of(kind);
+            let (x0, y0) = (c.x - (gw / 2) as f32 * CELL, c.y - (gh / 2) as f32 * CELL);
+            p.x >= x0 && p.y >= y0 && p.x < x0 + gw as f32 * CELL && p.y < y0 + gh as f32 * CELL
+        })
+        .min_by(|a, b| a.4.dist(p).total_cmp(&b.4.dist(p)))
+        .map(|(key, _, label, kind, c)| (key, label, kind, c))
+}

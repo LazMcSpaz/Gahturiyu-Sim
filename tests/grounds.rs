@@ -134,3 +134,29 @@ fn a_place_file_of_any_size_is_read() {
     assert!(!land.covers(V2::new(-61.0, 0.0)) && !land.covers(V2::new(0.0, 47.0)) && !land.covers(V2::new(100.0, 0.0)));
     assert_eq!(land.plants_at(V2::new(0.0, 0.0)).count(), 1);
 }
+
+#[test]
+fn the_editor_opens_a_mark_s_place_at_its_area() {
+    // The place under a mark's centre is that mark's; a new one is its
+    // kind's area, all untouched, and lies where the builder's grid does.
+    let (key, _, label, kind, c) = grounds::marks().into_iter().find(|m| m.3 == "village").expect("a village");
+    let (k2, _, kind2, c2) = grounds::place_at(c).expect("a place there");
+    assert_eq!((k2.as_str(), kind2.as_str(), c2), (key.as_str(), kind.as_str(), c));
+    let size = grounds::area_of(&kind);
+    let f = gahturiyu_sim::sim::placefile::PlaceFile::blank(&key, &label, size);
+    assert_eq!((f.size.0 as usize, f.size.1 as usize), size);
+    assert_eq!(f.ground.len(), size.0 * size.1);
+    assert!(f.ground.chars().all(|ch| ch == '.') && f.height.chars().all(|ch| ch == '.'));
+    let (x0, y0, x1, y1) = f.bounds(c);
+    assert!((x1 - x0 - size.0 as f32 * grounds::CELL).abs() < 0.01 && (y1 - y0 - size.1 as f32 * grounds::CELL).abs() < 0.01);
+    assert!(x0 < c.x && c.x < x1 && y0 < c.y && c.y < y1);
+    // Far out at sea there's no place.
+    assert!(grounds::place_at(V2::new(10.0, 10.0)).is_none());
+    // A building's use round-trips, and is left out when there's none.
+    let mut t: gahturiyu_sim::sim::placefile::Thing = serde_json::from_str(r#"{"k":"roduro_cottage","x":1,"y":2}"#).expect("reads");
+    assert!(!serde_json::to_string(&t).unwrap().contains("\"use\""));
+    t.use_ = "smith".into();
+    let back: gahturiyu_sim::sim::placefile::Thing = serde_json::from_str(&serde_json::to_string(&t).unwrap()).unwrap();
+    assert_eq!(back.use_, "smith");
+    assert!(gahturiyu_sim::sim::placefile::now_stamp().ends_with('Z'));
+}
