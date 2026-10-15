@@ -191,7 +191,7 @@ pub fn save_map(game: &mut Game) {
     game.editor.status = match game.world.terrain.edits.save_to(game.world.seed, &path) {
         Ok(()) => {
             game.editor.unsaved = false;
-            format!("Saved to {}. New games on seed {} start from it.", path.display(), game.world.seed)
+            format!("Saved the world's land ({}). Every new game starts from it.", path.display())
         }
         Err(e) => format!("Couldn't save the map: {e}"),
     };

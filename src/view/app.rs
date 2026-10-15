@@ -695,6 +695,11 @@ pub fn forge_dir() -> std::path::PathBuf {
 
 /// Where the map for a seed is kept (beside the saves).
 pub fn map_path(seed: u64) -> std::path::PathBuf {
+    // The authored world's land, the same for every seed (Laz, 14 Oct); a
+    // seed's own map file only if the world folder isn't there.
+    if let Some(p) = gahturiyu_sim::sim::mapedit::MapEdits::world_path() {
+        return p;
+    }
     let assets = models::assets_dir();
     assets.parent().map(|p| p.to_path_buf()).unwrap_or_default().join(gahturiyu_sim::sim::mapedit::MapEdits::path_for(seed))
 }

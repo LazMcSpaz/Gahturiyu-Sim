@@ -201,7 +201,7 @@ pub fn world_for(seed: u64) -> World {
     for p in plans.towns.values_mut() {
         p.land = None;
     }
-    super::worldgen::generate_with_plans(seed, &super::roster::Rosters::load(), &plans)
+    super::worldgen::generate_authored_with(seed, &super::roster::Rosters::load(), &plans, super::mapedit::MapEdits::world())
 }
 
 /// Write every mark's file and the index into `dir`. Returns how many.

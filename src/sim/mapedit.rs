@@ -552,6 +552,25 @@ impl MapEdits {
 
     // ---- Files -------------------------------------------------------------------
 
+    /// The authored world's land (Laz, 14 Oct: one world every new game
+    /// loads, whatever its seed): `assets/world/land.gmap`, beside the
+    /// plans and places, if the folder is found.
+    pub fn world_path() -> Option<std::path::PathBuf> {
+        super::plan::plans_dir().and_then(|d| d.parent().map(|p| p.join("land.gmap")))
+    }
+
+    /// The authored world's land edits, or none if there's no file yet.
+    pub fn world() -> MapEdits {
+        match MapEdits::world_path().map(|p| (MapEdits::load_from(&p), p)) {
+            Some((Ok((_, e)), _)) => e,
+            Some((Err(e), p)) if p.exists() => {
+                eprintln!("couldn't read {}: {e}", p.display());
+                MapEdits::default()
+            }
+            _ => MapEdits::default(),
+        }
+    }
+
     /// The map file for a seed.
     pub fn path_for(seed: u64) -> std::path::PathBuf {
         std::path::PathBuf::from("maps").join(format!("seed-{seed}.gmap"))

@@ -65,6 +65,11 @@ pub fn generate_with_rosters(seed: u64, rosters: &Rosters) -> World {
 
 /// A world with these rosters and these town plans (`plan.rs`) in place of
 /// the files' (tests; the tools).
+/// The authored world: these plans and rosters, and these land edits.
+pub fn generate_authored_with(seed: u64, rosters: &Rosters, plans: &Plans, edits: super::mapedit::MapEdits) -> World {
+    generate_from(seed, None, edits, Start::Town, rosters, plans)
+}
+
 pub fn generate_with_plans(seed: u64, rosters: &Rosters, plans: &Plans) -> World {
     generate_from(seed, None, Default::default(), Start::Town, rosters, plans)
 }
