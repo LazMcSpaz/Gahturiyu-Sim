@@ -333,6 +333,8 @@ hanging a sign on it.
   catalogue `people`) have one of the sign's `variants`, the building becomes
   that variant on its own footprint (a Roduro cottage signed `smith` is the
   Roduro forge). Otherwise the sign's `place` (a workplace key) is kept in
-  the building: **not built yet** (it needs a saved link from a workplace to
-  its building, a FORMAT bump); until then the building stands as built and
-  the importer lists the sign in the plan's `later`.
+  the building: the importer puts that workplace at the building's middle,
+  and a workplace inside a building is the building's (the game already
+  knew: `solid::place_in_building`, nothing of its own stands or is solid;
+  its workers work there); its signpost stands by the door unless the
+  building hangs its own sign. No saved-shape change.

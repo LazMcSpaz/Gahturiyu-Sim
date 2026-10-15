@@ -152,5 +152,29 @@ fn a_sign_makes_a_building_its_peoples_trade_building() {
     let (cottage, _) = gahturiyu_sim::sim::layout::example_of(gahturiyu_sim::sim::layout::by_key("roduro_cottage").unwrap());
     assert!((plan.buildings[0].size - cottage).abs() < 0.01, "the cottage's footprint");
     assert_eq!(plan.buildings[1].variant.as_deref(), Some("horaro_dome"));
-    assert!(plan.later.iter().any(|l| l.contains("signed as Smith")));
+    // The Horaro have no smithy of their own: the smithy is kept in the dome
+    // (a workplace at its middle).
+    assert_eq!(plan.places.len(), 1);
+    assert_eq!(plan.places[0].kind, gahturiyu_sim::sim::jobs::PlaceKind::Forge);
+    assert_eq!(plan.places[0].at, (20.0, 0.0));
+}
+
+#[test]
+fn a_service_signed_on_a_building_is_kept_in_it() {
+    // A Qotiro courtyard house signed as an inn (the Qotiro have no inn
+    // building): in the world the inn is the house's, inside its walls, with
+    // nothing of its own standing in the town.
+    use gahturiyu_sim::sim::{atlas, jobs::PlaceKind, placefile::PlaceFile, plan::Plans, roster::Rosters, solid, worldgen};
+    let key = "imperial_village";
+    let text = r#"{"format":1,"key":"imperial_village","cell":2,"size":[100,75],"origin":[50,37],
+        "things":[{"k":"qotiro_court","x":24,"y":-10,"rot":90,"s":1,"use":"inn"}]}"#;
+    let mut plans = Plans::default();
+    plans.towns.insert(key.into(), PlaceFile::from_json(text).expect("reads").to_plan());
+    let w = worldgen::generate_with_plans(5, &Rosters::default(), &plans);
+    let t = atlas::town_marks().iter().position(|m| m.key() == key).expect("the village");
+    let s = &w.settlements[t];
+    let inn = w.society.towns[t].places.iter().find(|p| p.kind == PlaceKind::Inn).expect("the inn");
+    assert!(solid::place_in_building(s, inn), "the inn is inside the house");
+    let d = w.building_at(inn.pos).expect("a building there");
+    assert!(d.centre.dist(s.pos.add(gahturiyu_sim::sim::geo::V2::new(24.0, -10.0))) < 1.0, "the signed house");
 }

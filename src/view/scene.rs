@@ -2092,8 +2092,15 @@ fn tent(b: &mut Builder, base: Vec3, k: f32, seed: u64, up: f32) {
 #[allow(clippy::too_many_arguments)]
 fn workplace(b: &mut Builder, gl: &mut Builder, t: &Terrain, w: &World, wp: &Workplace, fire: &dyn Fn(u8) -> bool, on_ground: &dyn Fn(V2) -> f32) {
     // (Inside a building, the building is the place: nothing of its own,
-    // as `solid::place_in_building` lists nothing.)
-    if w.building_at(wp.pos).is_some() {
+    // as `solid::place_in_building` lists nothing; only its signpost by the
+    // door, unless the building hangs its own sign.)
+    if let Some(d) = w.building_at(wp.pos) {
+        let own = w.settlements.get(d.id.0 as usize).and_then(|s| gahturiyu_sim::sim::layout::variant_in(s, d.id.1)).is_some_and(super::signs::signed);
+        if let (Some(p), false) = (super::signs::for_place(wp.kind), own) {
+            let (front, side) = (V2::new(d.rot.cos(), d.rot.sin()), V2::new(-d.rot.sin(), d.rot.cos()));
+            let at = d.outside.add(front.scale(1.0)).add(side.scale(1.8));
+            super::signs::signpost(b, gl, p, to3(at, on_ground(at)), d.rot);
+        }
         return;
     }
     let k = wp.kind;

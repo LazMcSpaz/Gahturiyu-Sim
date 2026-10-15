@@ -216,8 +216,13 @@ impl PlaceFile {
                     // same footprint (`catalogue::SIGNS`).
                     let signed = if t.use_.is_empty() { None } else { catalogue::variant_for_sign(&t.k, &t.use_) };
                     if !t.use_.is_empty() && signed.is_none() {
-                        let name = catalogue::sign_of(&t.use_).map(|s| s.name).unwrap_or(t.use_.as_str());
-                        plan.later.push(format!("{}: signed as {name}; a service kept in a building comes next (it stands as built for now)", place(t)));
+                        // No building of its own for that people: the service
+                        // is kept in this one (a workplace at its middle is the
+                        // building's: `solid::place_in_building`).
+                        match catalogue::sign_of(&t.use_).and_then(|s| workplace_of(s.place)) {
+                            Some(kind) => plan.places.push(PlanPlace { label: t.label.clone(), kind, at: (t.x, t.y), facing: Some(t.rot), wants: t.note.clone() }),
+                            None => plan.later.push(format!("{}: no sign called {:?}", place(t), t.use_)),
+                        }
                     }
                     let v = signed.and_then(super::layout::by_key).unwrap_or(v);
                     plan.buildings.push(PlanBuilding { label: t.label.clone(), kind: v.kind, variant: Some(v.key.to_string()), at: (t.x, t.y), facing: t.rot, size: usual * t.s, room_for: t.room.unwrap_or(e.beds), wants: t.note.clone() });
