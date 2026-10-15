@@ -392,10 +392,13 @@ fn search(start: usize, height: &[f32], steep: &[[f32; 8]], dry: &[bool], snow: 
             }
             // Walking time, plus a premium on steep ground either way (people
             // avoid it even when they could manage it) and on high passes.
-            let mut cost = run / walk_factor(grade) * (1.0 + 5.0 * (worst - 0.12).max(0.0)) * (1.0 + (height[v] - 250.0).max(0.0) / 100.0);
+            // (A pass at 500 m costs like ground six times as far, so a road goes
+            // round the mountains when there's any way round; the grid is 200 m
+            // now, so the old factors let a short pass win against a long detour.)
+            let mut cost = run / walk_factor(grade) * (1.0 + 5.0 * (worst - 0.12).max(0.0)) * (1.0 + (height[v] - 250.0).max(0.0) / 50.0);
             // (Nobody builds a road over the snow if there's any way round.)
             if snow[v] {
-                cost *= 4.0;
+                cost *= 20.0;
             }
             if road[v] {
                 cost *= ROAD_DISCOUNT;

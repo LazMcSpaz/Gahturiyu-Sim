@@ -204,6 +204,39 @@ fn sea_blue(rgb: [u8; 3]) -> bool {
     sum >= INK_SUM && rgb[2] as i32 > rgb[0] as i32 + 25 && rgb[2] >= rgb[1]
 }
 
+/// A river that meets the sea is flooded with it (the flood runs up any blue
+/// it can reach), which cut every river to sea level: a canyon through the
+/// hills at 26.5 m a pixel. So: sea narrower than `2 * RIVER_PX` pixels
+/// (an opening: erode the sea by that much, grow it back) is a river or a
+/// narrow inlet, class `Water`: a channel a couple of metres below its banks
+/// (`RIVER_CUT`), not the sea.
+pub const RIVER_PX: f32 = 2.0;
+pub const RIVER_CUT: f32 = 2.0;
+fn rivers_from_the_sea(class: &mut [u8], w: usize, h: usize) {
+    let n = w * h;
+    let big = 1e6f32;
+    let mut to_land = vec![big; n];
+    for i in 0..n {
+        if class[i] != Class::Sea as u8 {
+            to_land[i] = 0.0;
+        }
+    }
+    chamfer(&mut to_land, w, h);
+    // The open sea's core: sea at least RIVER_PX from any land; the sea is what the core grows back over.
+    let mut to_core = vec![big; n];
+    for i in 0..n {
+        if class[i] == Class::Sea as u8 && to_land[i] > RIVER_PX {
+            to_core[i] = 0.0;
+        }
+    }
+    chamfer(&mut to_core, w, h);
+    for i in 0..n {
+        if class[i] == Class::Sea as u8 && to_core[i] > RIVER_PX + 0.5 {
+            class[i] = Class::Water as u8;
+        }
+    }
+}
+
 /// The sea is whatever blue the map's edge reaches without crossing ink:
 /// Laz draws the shore as a dark line, and the sea just off it pales into
 /// shallows (which by hue alone read as a lake). Blue inside the line
@@ -491,6 +524,7 @@ impl Atlas {
     /// and the mountain share.
     fn build(w: usize, h: usize, mut class: Vec<u8>, source: &str) -> Atlas {
         let n = w * h;
+        rivers_from_the_sea(&mut class, w, h);
         // The distance to the sea, in pixels (a chamfer transform, two passes).
         let big = 1e6f32;
         let mut to_sea = vec![big; n];
@@ -531,10 +565,13 @@ impl Atlas {
         blur(&mut base, w, h, BLUR_PX);
         blur(&mut mount, w, h, BLUR_PX);
         blur(&mut mount, w, h, BLUR_PX);
-        // The sea stays below the waterline whatever the blur did, land above.
+        // The sea stays below the waterline whatever the blur did, land above;
+        // a river runs a little below its banks.
         for i in 0..n {
             if class[i] == Class::Sea as u8 {
                 base[i] = -1.0 - (-(sea[i])).min(SEA_DEPTH_MOST / SEA_DEPTH_PER_M) * SEA_DEPTH_PER_M;
+            } else if class[i] == Class::Water as u8 {
+                base[i] = (base[i] - RIVER_CUT).max(0.6);
             } else {
                 base[i] = base[i].max(0.6);
             }
@@ -1012,13 +1049,24 @@ impl Atlas {
         if dry(i0, j0) {
             return p;
         }
+        // Ring by ring outward; within a ring the lowest, least rocky, nearest
+        // pixel (not the first in scan order, which sent a village a kilometre
+        // up a rock face).
         for r in 1..=within {
+            let mut best: Option<(f32, i64, i64)> = None;
             for dj in -r..=r {
                 for di in -r..=r {
                     if (di.abs() == r || dj.abs() == r) && dry(i0 + di, j0 + dj) {
-                        return V2::new((i0 + di) as f32 * PX + PX / 2.0, (j0 + dj) as f32 * PX + PX / 2.0);
+                        let k = self.idx(i0 + di, j0 + dj).unwrap();
+                        let score = self.base[k] + if self.class[k] == Class::Rock as u8 { 200.0 } else { 0.0 } + ((di * di + dj * dj) as f32).sqrt() * PX * 0.05;
+                        if best.map_or(true, |b| score < b.0) {
+                            best = Some((score, di, dj));
+                        }
                     }
                 }
+            }
+            if let Some((_, di, dj)) = best {
+                return V2::new((i0 + di) as f32 * PX + PX / 2.0, (j0 + dj) as f32 * PX + PX / 2.0);
             }
         }
         p

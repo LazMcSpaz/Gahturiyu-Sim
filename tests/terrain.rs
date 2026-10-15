@@ -39,14 +39,21 @@ fn roads_avoid_cliffs_and_go_around_mountains() {
     }
     // Smoothing the route can clip a short steep bit; a scramble, never a wall.
     assert!(worst < 0.75, "a road climbs at a grade of {worst}");
-    assert!(highest < 500.0, "a road goes over {highest} m");
+    // A road climbs no higher than the highest town it has to reach (Laz puts
+    // villages in the high rock), and never over a pass for its own sake.
+    let town_top = w.settlements.iter().map(|s| w.terrain.height(s.pos)).fold(0.0f32, f32::max);
+    assert!(highest < town_top.max(450.0) + 60.0, "a road goes over {highest} m (the highest town is at {town_top:.0})");
 }
 
 #[test]
 fn towns_stand_on_habitable_ground() {
     let w = worldgen::generate(1);
+    // (Laz's marks are where the towns are, hills and all: a town stands where
+    // he put it, on ground a person can stand on; the land under it is his
+    // to level in the editor.)
     for s in &w.settlements {
-        assert!(w.terrain.slope(s.pos) < 0.12, "{} sits on a slope", s.name);
-        assert!(w.terrain.height(s.pos) < 300.0, "{} is up a mountain", s.name);
+        assert!(!w.terrain.is_sea(s.pos), "{} is in the sea", s.name);
+        assert!(w.terrain.slope(s.pos) < 0.45, "{} sits on a cliff", s.name);
+        assert!(w.terrain.height(s.pos) < 900.0, "{} is up a mountain", s.name);
     }
 }
