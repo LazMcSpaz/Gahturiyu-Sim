@@ -938,6 +938,163 @@ fn round_ring(f: &Frame, ring: &[V2], n: usize, from: f32) -> Vec<(V2, f32)> {
         .collect()
 }
 
+/// Grown stone, as Laz wants the placeholders to show it (15 Oct, a
+/// happy medium between these and the final look): the stone darker,
+/// its growth in clear strata bands that climb round the building (one
+/// band a turn, so the seams spiral), each band a ledge a little in or
+/// out of the last; the roof stepped the same way with grass over its
+/// crown, a ridge of stone spiralling in to the top, and tufts of grass.
+const GRASS: Rgb = [0.27, 0.36, 0.15];
+const TUFT: Rgb = [0.35, 0.47, 0.17];
+
+/// How far round the ring (0..1 by length) each corner is.
+fn ring_fracs(ring: &[V2]) -> Vec<f32> {
+    let n = ring.len();
+    let mut out = Vec::with_capacity(n);
+    let mut s = 0.0;
+    for k in 0..n {
+        out.push(s);
+        s += ring[k].dist(ring[(k + 1) % n]);
+    }
+    let total = s.max(1e-6);
+    out.iter().map(|v| v / total).collect()
+}
+
+/// The ledge of band `r` (metres in or out), by the seed.
+fn ledge(seed: u64, r: i32) -> f32 {
+    let h = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add((r as i64 as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9));
+    ((h >> 40) % 9) as f32 * 0.02 - 0.08
+}
+
+/// A band's shade: three tones cycling, nudged by the seed.
+fn stratum(stone: Rgb, seed: u64, r: i32) -> Rgb {
+    let tone = [1.0, 0.84, 0.94][r.rem_euclid(3) as usize];
+    let h = seed.wrapping_add((r as i64 as u64).wrapping_mul(0x94D0_49BB_1331_11EB));
+    palette::scale(stone, tone + ((h >> 44) % 5) as f32 * 0.015 - 0.03)
+}
+
+/// The wall of a grown building between heights `z0` and `z1` (over the
+/// frame's base), as strata `pitch` metres thick that climb one band a
+/// turn. `pts` is the outline in the unit frame.
+fn strata(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], z0: f32, z1: f32, pitch: f32, seed: u64, stone: Rgb) {
+    if z1 <= z0 {
+        return;
+    }
+    let n = pts.len();
+    let fr = ring_fracs(&inset(f, pts, 0.0));
+    let bands = ((z1 - z0) / pitch).ceil() as i32;
+    let mut rings: Vec<Vec<V2>> = Vec::new();
+    for r in -1..=bands + 1 {
+        rings.push(inset(f, pts, ledge(seed, r)));
+    }
+    let ring = |r: i32| &rings[(r + 1) as usize];
+    for r in -1..=bands {
+        let col = palette::lin(stratum(stone, seed, r));
+        let lip = palette::lin(palette::scale(stratum(stone, seed, r + 1), 1.12));
+        let this = ring(r);
+        let next = ring(r + 1);
+        let (no, nn) = (outward(f, this), outward(f, next));
+        for k in 0..n {
+            let j = (k + 1) % n;
+            let (fk, fj) = (fr[k], if j == 0 { 1.0 } else { fr[j] });
+            let (lo_k, lo_j) = (z0 + (r as f32 + fk) * pitch, z0 + (r as f32 + fj) * pitch);
+            let (hi_k, hi_j) = (lo_k + pitch, lo_j + pitch);
+            let c = |y: f32| y.clamp(z0, z1);
+            if (hi_k <= z0 && hi_j <= z0) || (lo_k >= z1 && lo_j >= z1) {
+                continue;
+            }
+            // The band's face.
+            let p = [to3(fm(f, this[k]), f.y + c(lo_k)), to3(fm(f, this[j]), f.y + c(lo_j)), to3(fm(f, this[j]), f.y + c(hi_j)), to3(fm(f, this[k]), f.y + c(hi_k))];
+            b.quad_lin(p, [no[k], no[j], no[j], no[k]], [col; 4]);
+            // The ledge up to the next band, where its ring differs.
+            if hi_k < z1 || hi_j < z1 {
+                let q = [to3(fm(f, this[k]), f.y + c(hi_k)), to3(fm(f, this[j]), f.y + c(hi_j)), to3(fm(f, next[j]), f.y + c(hi_j + 0.03)), to3(fm(f, next[k]), f.y + c(hi_k + 0.03))];
+                let up = |o: Vec3| (o * 0.35 + Vec3::Y * 0.65).normalize_or_zero();
+                b.quad_lin(q, [up(no[k]), up(no[j]), up(nn[j]), up(nn[k])], [lip; 4]);
+            }
+        }
+    }
+}
+
+/// A tuft of grass: three thin blades crossing at `at`.
+fn tuft(b: &mut Builder, at: Vec3, h: f32, seed: u64) {
+    let col = palette::scale(TUFT, 0.9 + (seed % 5) as f32 * 0.05);
+    for k in 0..3 {
+        let a = k as f32 * 1.05 + (seed % 7) as f32 * 0.15;
+        let d = vec3(a.cos(), 0.0, a.sin()) * 0.11;
+        let lean = vec3(a.sin(), 0.0, -a.cos()) * (h * 0.25);
+        b.quad([at - d, at + d, at + lean + Vec3::Y * h, at + lean + Vec3::Y * h], Vec3::Y, col);
+    }
+}
+
+/// The roof of a grown building over the outline `pts` (unit frame) from
+/// the wall's top to the crown at `z1`: stepped rings of stone, grass over
+/// the crown with a stone ridge spiralling in to the top (domes only), and
+/// tufts of grass. The rings close toward the outline's middle (a dome) or
+/// across only (a barrel vault). Returns the crown.
+#[allow(clippy::too_many_arguments)]
+fn grown_roof(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], top_wall: f32, z1: f32, roof: Roof, long: bool, seed: u64, stone: Rgb) -> V2 {
+    let base = inset(f, pts, 0.0);
+    let c = middle(&base);
+    let dh = (z1 - top_wall).max(0.05);
+    let shrink = |p: V2, sh: f32| {
+        let d = p.sub(c);
+        match roof {
+            Roof::Dome => c.add(d.scale(sh)),
+            Roof::Barrel if long => c.add(V2::new(d.x * (0.75 + 0.25 * sh), d.y * sh)),
+            Roof::Barrel => c.add(V2::new(d.x * sh, d.y * (0.75 + 0.25 * sh))),
+        }
+    };
+    let height = |sh: f32| top_wall + dh * (1.0 - sh * sh).max(0.0).sqrt();
+    let steps = 8;
+    let grass_from = 4;
+    let mut prev = base.clone();
+    for s in 1..=steps {
+        let lat = s as f32 / steps as f32 * std::f32::consts::FRAC_PI_2;
+        let sh = lat.cos().max(0.02);
+        let ring: Vec<V2> = base.iter().map(|&p| shrink(p, sh)).collect();
+        let sh0 = ((s - 1) as f32 / steps as f32 * std::f32::consts::FRAC_PI_2).cos();
+        let (ya, yb) = (height(sh0), height(sh));
+        let col = if s > grass_from { palette::scale(GRASS, 0.9 + s as f32 * 0.02) } else { stratum(stone, seed ^ 0x51, s as i32) };
+        // The riser of each ring, then the flat step out to the next (a ledge).
+        band(b, f, &prev, &prev, ya, yb - 0.04, 0.0, if s > grass_from { palette::scale(col, 0.85) } else { palette::scale(col, 0.9) });
+        band(b, f, &prev, &ring, yb - 0.04, yb, 0.9, col);
+        prev = ring;
+    }
+    cap(b, f, &prev, z1, GRASS);
+    // The ridge of stone spiralling in over the grass to the crown.
+    if roof == Roof::Dome {
+        let turns = 2.5;
+        let n = (turns * 28.0) as usize;
+        let spots = round_ring(f, &base, 28, 0.0);
+        let at = |i: usize| {
+            let t = i as f32 / n as f32;
+            let sh = 0.72 * (1.0 - t) + 0.04;
+            let (p, _) = spots[(i % 28) % spots.len()];
+            let q = shrink(p, sh);
+            to3(fm(f, q), f.y + height(sh) + 0.07)
+        };
+        let ridge = palette::scale(stone, 1.0);
+        for i in 0..n {
+            let (p, q) = (at(i), at(i + 1));
+            let d = (q - p).normalize_or_zero();
+            let w = Vec3::Y.cross(d) * 0.09;
+            b.quad([p - w, p + w, q + w, q - w], Vec3::Y, ridge);
+        }
+    }
+    // Tufts of grass over the crown, more on a bigger roof.
+    let area = f.hx * f.hy;
+    let count = ((area * 0.35) as usize).clamp(6, 36);
+    let spots = round_ring(f, &base, count, 0.37);
+    for (i, &(p, _)) in spots.iter().enumerate() {
+        let h = seed.wrapping_add(i as u64 * 0x2545_F491_4F6C_DD1D).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        let sh = 0.08 + ((h >> 40) % 60) as f32 * 0.01;
+        let q = shrink(p, sh);
+        tuft(b, to3(fm(f, q), f.y + height(sh) - 0.02), 0.22 + ((h >> 50) % 4) as f32 * 0.05, h);
+    }
+    c
+}
+
 /// A Roduro building with an outline of its own, from outside: each tier
 /// its outline grown up from the ground (or the tier under it) with a soft
 /// shoulder at the top, a flat terrace on it, the top tier domed; ancient
@@ -946,21 +1103,18 @@ fn round_ring(f: &Frame, ring: &[V2], n: usize, from: f32) -> Vec<(V2, f32)> {
 #[allow(clippy::too_many_arguments)]
 fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &Frame, size: f32, seed: u64, sink: f32, unit: &dyn Fn(u64) -> f32) {
     let k = size / form.at_size;
-    let stone = palette::scale(palette::STONE, 0.74 + unit(9) * 0.08);
-    let ring_dark = palette::scale(stone, 0.88);
+    let stone = palette::scale(palette::STONE, 0.56 + unit(9) * 0.08);
     let moss = [0.27, 0.31, 0.22];
+    // Older (bigger) buildings grow in denser bands.
+    let pitch = (0.5 - size * 0.008).clamp(0.3, 0.46);
     let last = form.tiers.len() - 1;
     let mut doors: Vec<V2> = Vec::new();
     for (i, &(pts, z0, z1, wall_top)) in form.tiers.iter().enumerate() {
         let (z0, z1, wall_top) = (if i == 0 { 0.0 } else { z0 * k + sink - SHOULDER * 0.5 }, z1 * k + sink, wall_top * k + sink);
         let outer = inset(f, pts, 0.0);
         let top_wall = if i == last { wall_top.min(z0 + (z1 - z0) * (1.0 - form.dome)) } else { (z1 - SHOULDER).min(wall_top) };
-        // The wall, in growth-ring bands about a metre apart.
-        let rings = (((top_wall - z0) / 0.9).round() as usize).max(1);
-        for r in 0..rings {
-            let (y0, y1) = (z0 + (top_wall - z0) * r as f32 / rings as f32, z0 + (top_wall - z0) * (r + 1) as f32 / rings as f32);
-            band(b, f, &outer, &outer, y0, y1, 0.0, if r % 2 == 1 { ring_dark } else { stone });
-        }
+        // The wall, in strata that climb round it.
+        strata(b, f, pts, z0, top_wall, pitch, seed ^ (i as u64 * 0x9F), stone);
         if i == 0 {
             // Moss creeping up from the ground.
             let skirt = inset(f, pts, -0.04);
@@ -970,9 +1124,13 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             // The shoulder rounding over, and the terrace on top.
             let mid = inset(f, pts, SHOULDER * 0.3);
             let ins = inset(f, pts, SHOULDER);
-            band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, stone);
+            band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, stratum(stone, seed, 7));
             band(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
-            cap(b, f, &ins, z1, palette::scale(moss, 0.9));
+            cap(b, f, &ins, z1, GRASS);
+            // Grass along the terrace's edge.
+            for (j, &(p, _)) in round_ring(f, &inset(f, pts, SHOULDER + 0.35), 10, 0.2).iter().enumerate() {
+                tuft(b, to3(fm(f, p), f.y + z1 - 0.02), 0.22, seed.wrapping_add(j as u64 * 0x1F3));
+            }
         } else if concave(pts) {
             // An outline that curls (a crescent) can't be drawn in toward
             // one middle: a low rounded roof, inset from the edge, mossed.
@@ -980,38 +1138,16 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             let mid = inset(f, pts, 0.5);
             let ins = inset(f, pts, 1.1);
             let rise = (z1 - top_wall).min(1.2);
-            band(b, f, &base, &mid, top_wall, top_wall + rise * 0.6, 0.45, stone);
+            band(b, f, &base, &mid, top_wall, top_wall + rise * 0.6, 0.45, stratum(stone, seed, 7));
             band(b, f, &mid, &ins, top_wall + rise * 0.6, top_wall + rise, 0.85, moss);
-            cap(b, f, &ins, top_wall + rise, moss);
+            cap(b, f, &ins, top_wall + rise, GRASS);
+            for (j, &(p, _)) in round_ring(f, &inset(f, pts, 1.6), 14, 0.2).iter().enumerate() {
+                tuft(b, to3(fm(f, p), f.y + top_wall + rise - 0.02), 0.22, seed.wrapping_add(j as u64 * 0x1F3));
+            }
         } else {
             // The roof: the outline drawn in as it rises, toward its middle
             // (a dome) or across only (a barrel vault along the length).
-            let base = inset(f, pts, 0.0);
-            let c = middle(&base);
-            let steps = 6;
-            let dh = z1 - top_wall;
-            let mut prev = base.clone();
-            let long = f.hx >= f.hy;
-            for s in 1..=steps {
-                let lat = s as f32 / steps as f32 * std::f32::consts::FRAC_PI_2;
-                let sh = lat.cos().max(0.02);
-                let ring: Vec<V2> = base
-                    .iter()
-                    .map(|p| {
-                        let d = p.sub(c);
-                        match form.roof {
-                            Roof::Dome => c.add(d.scale(sh)),
-                            // The ends draw in a little too, so the vault's ends round off.
-                            Roof::Barrel if long => c.add(V2::new(d.x * (0.75 + 0.25 * sh), d.y * sh)),
-                            Roof::Barrel => c.add(V2::new(d.x * sh, d.y * (0.75 + 0.25 * sh))),
-                        }
-                    })
-                    .collect();
-                let (ya, yb) = (top_wall + dh * ((s - 1) as f32 / steps as f32 * std::f32::consts::FRAC_PI_2).sin(), top_wall + dh * lat.sin());
-                band(b, f, &prev, &ring, ya, yb, lat.sin() * 0.8, if s >= steps - 1 { moss } else if s % 2 == 0 { ring_dark } else { stone });
-                prev = ring;
-            }
-            cap(b, f, &prev, z1, moss);
+            let c = grown_roof(b, f, pts, top_wall, z1, form.roof, f.hx >= f.hy, seed, stone);
             // A little stone bud at the crown of a dome.
             if form.roof == Roof::Dome {
                 let crown = fm(f, c);
@@ -1027,7 +1163,7 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             if i == 0 && (p.dist(main) < 3.0 || doors.iter().any(|d| d.dist(p) < 3.0)) {
                 continue;
             }
-            let at = to3(fm(f, p), f.y + wy) + vec3(out.cos(), 0.0, out.sin()) * 0.06;
+            let at = to3(fm(f, p), f.y + wy) + vec3(out.cos(), 0.0, out.sin()) * 0.15;
             gl.patch(at, 0.8, if i == 0 { 1.1 } else { 0.9 }, out, palette::WINDOW);
         }
         if i == 0 {
@@ -1043,7 +1179,7 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
                 doors.push(at);
                 let o = fm(f, at.add(dir)).sub(fm(f, at));
                 let face = o.y.atan2(o.x);
-                b.patch(to3(fm(f, at), f.y + sink + 1.2) + vec3(face.cos(), 0.0, face.sin()) * 0.06, 1.3, 2.4, face, DOOR_DARK);
+                b.patch(to3(fm(f, at), f.y + sink + 1.2) + vec3(face.cos(), 0.0, face.sin()) * 0.15, 1.3, 2.4, face, DOOR_DARK);
                 b.block(to3(fm(f, at.add(dir.scale(0.4))), f.y), 1.7, 0.9, sink + 0.15, face, palette::scale(stone, 1.15));
             }
         }
@@ -1054,7 +1190,7 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
     let (_, _, inward) = layout::outline_nearest(form.tiers[0].0, f.hx, f.hy, at.sub(V2::new(0.05, 0.0)));
     let o = fm(f, at.sub(inward)).sub(fm(f, at));
     let face = o.y.atan2(o.x);
-    b.patch(to3(fm(f, at), f.y + sink + 1.22) + vec3(face.cos(), 0.0, face.sin()) * 0.06, 1.3, 2.45, face, DOOR_DARK);
+    b.patch(to3(fm(f, at), f.y + sink + 1.22) + vec3(face.cos(), 0.0, face.sin()) * 0.15, 1.3, 2.45, face, DOOR_DARK);
     b.block(f.at(dx, dy, 0.0) + f.fwd() * 0.45, 1.6, 1.0, sink + 0.15, f.rot, palette::scale(stone, 1.15));
     if let (Some(y), Some(look)) = (v.yard, form.yard.as_ref()) {
         yard(b, gl, v, y, look, f, form.tiers[0].0, stone, seed);
@@ -1094,8 +1230,10 @@ fn yard(b: &mut Builder, gl: &mut Builder, v: &Variant, y: &layout::Yard, look: 
             let nn = vec3(e.y, 0.0, -e.x).normalize_or_zero() * if flip { -1.0 } else { 1.0 };
             (p, nn)
         };
-        // Outside face in two bands, inside face, and the mossed top.
-        for (y0, y1, c) in [(-0.3, h * 0.5, c1), (h * 0.5, h, c2)] {
+        // Outside and inside faces in the house's strata, and the mossed top.
+        let bands: Vec<(f32, f32, [f32; 4])> = (0..4).map(|r| ((-0.3 + (h + 0.3) * r as f32 / 4.0), (-0.3 + (h + 0.3) * (r + 1) as f32 / 4.0), palette::lin(stratum(stone, seed, r)))).collect();
+        let _ = (c1, c2);
+        for &(y0, y1, c) in &bands {
             let (p, nn) = quad(&outer, &outer, y0, y1, c, false);
             b.quad_lin(p, [nn; 4], [c; 4]);
             let (p, nn) = quad(&inner, &inner, y0, y1, c, true);
@@ -1313,12 +1451,15 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     if let Some(form) = form_of(v) {
         return roduro_form(b, gl, v, form, f, size, seed, sink, unit);
     }
-    let col = palette::scale(palette::STONE, 0.92 + unit(9) * 0.14);
+    let col = palette::scale(palette::STONE, 0.56 + unit(9) * 0.08);
     let wall_h = 2.3 + sink;
     let dome_h = size * (0.26 + unit(1) * 0.06);
-    // The drum of grown wall, then the dome over it.
-    drum(b, f.at(0.0, 0.0, 0.0), f.hx, f.hy, wall_h, 0.97, f.rot, 28, col);
-    dome(b, f.at(0.0, 0.0, wall_h), f.hx * 0.97, f.hy * 0.97, dome_h, f.rot, 0.08, 0.10, seed, col);
+    let pitch = (0.5 - size * 0.008).clamp(0.3, 0.46);
+    // The ring of grown wall in its strata, then the roof over it.
+    let ring = |cx: f32, cy: f32, rx: f32, ry: f32| -> Vec<(f32, f32)> { (0..28).map(|k| { let a = k as f32 / 28.0 * std::f32::consts::TAU; (cx + rx * a.cos(), cy + ry * a.sin()) }).collect() };
+    let outline = ring(0.0, 0.0, 1.0, 1.0);
+    strata(b, f, &outline, 0.0, wall_h, pitch, seed, col);
+    grown_roof(b, f, &ring(0.0, 0.0, 0.97, 0.97), wall_h, wall_h + dome_h, Roof::Dome, f.hx >= f.hy, seed, col);
     let top = wall_h + dome_h;
     let (dx, dy) = door_spot(v);
     let side_free = if v.door > 0.0 { -1.0 } else { 1.0 };
@@ -1326,29 +1467,30 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     if v.storeys >= 2 {
         let (bx, by) = (-0.25, -0.2 * side_free);
         let bud = f.at(bx, by, wall_h + dome_h * 0.45);
-        drum(b, bud, f.hx * 0.5, f.hy * 0.46, dome_h * 0.5, 0.95, f.rot, 20, col);
-        dome(b, bud + Vec3::Y * dome_h * 0.5, f.hx * 0.48, f.hy * 0.44, dome_h * 0.75, f.rot, 0.1, 0.12, seed ^ 7, col);
+        let z = wall_h + dome_h * 0.45;
+        strata(b, f, &ring(bx, by, 0.5, 0.46), z - 0.3, z + dome_h * 0.5, pitch, seed ^ 7, col);
+        grown_roof(b, f, &ring(bx, by, 0.48, 0.44), z + dome_h * 0.5, z + dome_h * 1.25, Roof::Dome, true, seed ^ 7, col);
         // Its window, looking out to the front.
         let w = f.at(bx, by, 0.0) + f.fwd() * (f.hx * 0.49);
         gl.patch(vec3(w.x, bud.y + dome_h * 0.3, w.z), 0.8, 0.6, f.rot, palette::WINDOW);
     }
     if v.key == "roduro_great" {
         // A second bud on the other side, lower.
-        let bud = f.at(-0.35, 0.45 * side_free, wall_h + dome_h * 0.25);
-        dome(b, bud, f.hx * 0.38, f.hy * 0.34, dome_h * 0.8, f.rot, 0.1, 0.12, seed ^ 11, col);
+        let z = wall_h + dome_h * 0.25;
+        grown_roof(b, f, &ring(-0.35, 0.45 * side_free, 0.38, 0.34), z, z + dome_h * 0.8, Roof::Dome, true, seed ^ 11, col);
         // A stone lantern by the door.
         let lp = f.at(dx, dy, 0.0) + f.fwd() * 1.6 + f.side() * 1.4;
         b.column(lp + Vec3::Y * sink, 0.18, 0.14, 1.5, 6, palette::STONE);
         gl.flame(lp + Vec3::Y * (sink + 1.5), 0.16, 0.3);
     }
     // The door, dark in the wall, and a warm window on the free side.
-    let door = f.at(dx, dy, sink + 1.0) + vec3(f.normal_at(dx, dy, true).cos(), 0.0, f.normal_at(dx, dy, true).sin()) * 0.06;
+    let door = f.at(dx, dy, sink + 1.0) + vec3(f.normal_at(dx, dy, true).cos(), 0.0, f.normal_at(dx, dy, true).sin()) * 0.15;
     b.patch(door, 1.1, 2.0, f.normal_at(dx, dy, true), DOOR_DARK);
     b.block(f.at(dx, dy, 0.0) + f.fwd() * 0.45, 1.5, 0.9, sink + 0.15, f.rot, palette::scale(palette::STONE, 1.15));
     let wy = 0.45 * side_free;
     let wx = (1.0 - wy * wy).sqrt();
     let wn = f.normal_at(wx, wy, true);
-    gl.patch(f.at(wx, wy, sink + 1.6) + vec3(wn.cos(), 0.0, wn.sin()) * 0.06, 0.9, 0.7, wn, palette::WINDOW);
+    gl.patch(f.at(wx, wy, sink + 1.6) + vec3(wn.cos(), 0.0, wn.sin()) * 0.15, 0.9, 0.7, wn, palette::WINDOW);
     // A trade's sign: a board on brackets beside the door, on the side away
     // from the window (past a trader's awning).
     if let Some(p) = sign {
