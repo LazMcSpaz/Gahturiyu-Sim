@@ -765,6 +765,61 @@ pub const VARIANTS: &[Variant] = &[
     // `assets/buildings/*.json`; edit the files, not these.
     // ---- generated: catalogue buildings (tools/buildings/roduro_forms.py rust) ----
     Variant {
+        key: "roduro_binder_home_01",
+        name: "Bookbinder's home",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_BINDER_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.3194),
+        sizes: (14.15, 14.65),
+        weight: 0,
+        door: -0.3261,
+        storeys: 1,
+        walls: &[w((0.0833, 0.9934), (0.0833, -0.9934), Some(0.5)), w((-0.4722, 0.929), (-0.4722, -0.929), None)],
+        furniture: &[
+            f(Workbench, 0.4306, -0.7347, -2.9065),
+            f(Table, 0.4653, 0.0263, 0.0),
+            f(Shelf, 0.4306, 0.7873, -0.2227),
+            f(Shelf, 0.8819, 0.1894, -1.412),
+            f(Hearth, -0.2639, -0.574, 0.0),
+            f(Table, -0.1944, 0.0239, 0.0),
+            f(Bench, -0.1597, 0.2413, 0.0),
+            f(Shelf, -0.1944, 0.8392, 0.0647),
+        ],
+        holders: &[
+            h(Chest, 0.7083, 0.5699, -0.6417),
+            h(Cupboard, -0.0556, -0.7371, 4.6939),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_fletcher_home_01",
+        name: "Fletcher's home",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_FLETCHER_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.4821),
+        sizes: (10.95, 11.45),
+        weight: 0,
+        door: 0.0926,
+        storeys: 1,
+        walls: &[w((-0.2857, 0.9688), (-0.2857, 0.1111), Some(0.4818)), w((-0.2857, 0.1111), (-0.2857, -0.9688), None), w((-0.2857, 0.1111), (-0.9909, 0.1111), Some(0.5065))],
+        furniture: &[
+            f(Hearth, 0.2054, -0.6371, 0.0),
+            f(Table, 0.25, -0.313, 0.0),
+            f(Bench, 0.0268, -0.1741, 0.0),
+            f(Shelf, 0.8304, -0.313, -1.8366),
+            f(Workbench, -0.7391, -0.423, 2.0027),
+            f(Rack, -0.4266, -0.6545, -1.5708),
+            f(Shelf, -0.4713, -0.1915, -1.5708),
+        ],
+        holders: &[
+            h(Cupboard, -0.0625, 0.0574, 0.0),
+            h(Chest, -0.7338, 0.4815, 1.0045),
+        ],
+        yard: None,
+    },
+    Variant {
         key: "roduro_hill_est_01",
         name: "Hillside home",
         kind: K::RoduroHome,
@@ -1054,6 +1109,32 @@ pub const VARIANTS: &[Variant] = &[
         yard: None,
     },
     Variant {
+        key: "roduro_mason_home_01",
+        name: "Mason's home",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_MASON_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.4926),
+        sizes: (17.37, 17.87),
+        weight: 0,
+        door: -0.7222,
+        storeys: 1,
+        walls: &[w((0.4641, 0.269), (0.9862, 0.269), Some(0.7182)), w((-0.4766, 0.269), (-0.9863, 0.269), Some(0.7156))],
+        furniture: &[
+            f(Hearth, -0.1532, -0.7741, 0.0),
+            f(Table, -0.0114, -0.3133, 0.0),
+            f(Bench, -0.0397, -0.2269, -0.0128),
+            f(Shelf, -0.2667, 0.0324, -0.2291),
+            f(Bed, 0.7037, 0.5571, 1.4981),
+        ],
+        holders: &[
+            h(Cupboard, 0.3292, 0.0612, 0.3936),
+            h(Crate, -0.6806, 0.5282, -1.4646),
+            h(Crate, -0.6806, 0.7587, -1.7791),
+        ],
+        yard: Some(&RODURO_MASON_HOME_01_YARD),
+    },
+    Variant {
         key: "roduro_round_ancient_01",
         name: "Clover tower house",
         kind: K::RoduroHome,
@@ -1273,6 +1354,34 @@ pub const VARIANTS: &[Variant] = &[
         yard: Some(&RODURO_SMITH_HOME_02_YARD),
     },
     Variant {
+        key: "roduro_smoker_home_01",
+        name: "Smoker's home",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_SMOKER_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.5),
+        sizes: (9.72, 10.22),
+        weight: 0,
+        door: 0.0945,
+        storeys: 2,
+        walls: &[w((0.0002, 0.996), (0.0002, 0.1133), Some(0.498)), w((0.0002, 0.1133), (0.0002, -0.996), Some(0.5014))],
+        furniture: &[
+            f(Hearth, 0.4516, 0.4967, 0.0),
+            f(Table, 0.4014, -0.0048, 0.0),
+            f(Bench, 0.4516, -0.2054, -0.2181),
+            f(Shelf, 0.7525, -0.4562, -2.0526),
+            f(Bed, -0.7571, -0.2054, 1.7527),
+        ],
+        holders: &[
+            h(Chest, -0.2556, -0.8072, 2.9597),
+            h(Crate, -0.7571, 0.3462, 1.2135),
+            h(Crate, -0.2054, -0.0048, -1.5708),
+            h(Chest, -0.3057, 0.7976, 0.2609),
+            h(Barrel, -0.2054, 0.2961, -1.5708),
+        ],
+        yard: Some(&RODURO_SMOKER_HOME_01_YARD),
+    },
+    Variant {
         key: "roduro_tanner_home_01",
         name: "Tanner's home",
         kind: K::RoduroHome,
@@ -1455,10 +1564,84 @@ pub const VARIANTS: &[Variant] = &[
         ],
         yard: None,
     },
+    Variant {
+        key: "roduro_weaver_home_01",
+        name: "Weaver's home",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_WEAVER_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.453, 0.5),
+        sizes: (14.53, 15.03),
+        weight: 0,
+        door: 0.389,
+        storeys: 1,
+        walls: &[w((-0.6034, 0.1376), (0.3171, -0.3782), Some(0.57)), w((-0.3847, 0.7752), (0.3008, -0.5291), Some(0.2333))],
+        furniture: &[
+            f(Hearth, 0.4307, 0.7107, 0.0),
+            f(Table, 0.3561, 0.3724, 0.0),
+            f(Bench, 0.2814, 0.5077, -0.243),
+            f(Shelf, 0.7668, -0.0336, -2.1966),
+            f(Loom, -0.7068, -0.7345, 2.3903),
+            f(Loom, -0.184, -0.836, -2.8325),
+            f(Rack, -0.7814, -0.1594, 0.8935),
+            f(Shelf, 0.1147, -0.633, -1.9656),
+        ],
+        holders: &[
+            h(Cupboard, 0.0574, 0.8798, 0.1612),
+            h(Crate, -0.8561, -0.43, 1.5019),
+            h(Chest, -0.4442, 0.2727, 1.6188),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "roduro_woodworker_home_01",
+        name: "Woodworker's home and timber yard",
+        kind: K::RoduroHome,
+        shape: Shape::Poly(RODURO_WOODWORKER_HOME_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.4951, 0.5),
+        sizes: (11.96, 12.46),
+        weight: 0,
+        door: 0.0665,
+        storeys: 1,
+        walls: &[w((-0.5351, 0.9111), (-0.5351, 0.0532), Some(0.4306)), w((-0.5351, 0.0532), (-0.5351, -0.8996), None)],
+        furniture: &[
+            f(Hearth, -0.287, -0.6776, 0.0),
+            f(Table, 0.0852, 0.0185, 0.0),
+            f(Bench, 0.3747, 0.0185, 0.028),
+            f(Shelf, 0.0438, 0.8375, -0.2381),
+            f(Bed, -0.7998, -0.2452, 1.7359),
+        ],
+        holders: &[
+            h(Cupboard, 0.4574, 0.6737, -0.5429),
+            h(Chest, -0.8412, 0.2871, 1.3623),
+        ],
+        yard: Some(&RODURO_WOODWORKER_HOME_01_YARD),
+    },
     // ---- end generated ----
 ];
 
 // ---- generated outlines (tools/buildings/roduro_forms.py rust) ----
+/// `roduro_binder_home_01`'s ground tier (`assets/buildings/roduro_binder_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_BINDER_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9889, 0.2348), (0.9417, 0.4566), (0.8514, 0.6436), (0.7306, 0.7849), (0.5931, 0.8806),
+    (0.4486, 0.9436), (0.3, 0.9806), (0.15, 0.9958), (-0.0, 1.0001), (-0.15, 0.9958), (-0.3, 0.9806),
+    (-0.4486, 0.9436), (-0.5931, 0.8806), (-0.7306, 0.7849), (-0.8514, 0.6436), (-0.9417, 0.4566), (-0.9889, 0.2348),
+    (-1.0, 0.0), (-0.9889, -0.2348), (-0.9417, -0.4566), (-0.8514, -0.6436), (-0.7306, -0.7849), (-0.5931, -0.8806),
+    (-0.4486, -0.9436), (-0.3, -0.9806), (-0.15, -0.9958), (-0.0, -1.0001), (0.15, -0.9958), (0.3, -0.9806),
+    (0.4486, -0.9436), (0.5931, -0.8806), (0.7306, -0.7849), (0.8514, -0.6436), (0.9417, -0.4566), (0.9889, -0.2348),
+];
+
+/// `roduro_fletcher_home_01`'s ground tier (`assets/buildings/roduro_fletcher_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_FLETCHER_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9911, 0.1815), (0.9571, 0.3611), (0.8911, 0.5297), (0.7929, 0.6815), (0.6661, 0.8056),
+    (0.5143, 0.9001), (0.3482, 0.9612), (0.175, 0.9927), (0.0, 1.0001), (-0.175, 0.9927), (-0.3482, 0.9612),
+    (-0.5143, 0.9001), (-0.6661, 0.8056), (-0.7929, 0.6815), (-0.8911, 0.5297), (-0.9571, 0.3611), (-0.9911, 0.1815),
+    (-1.0, -0.0), (-0.9911, -0.1815), (-0.9571, -0.3611), (-0.8911, -0.5297), (-0.7929, -0.6815), (-0.6661, -0.8056),
+    (-0.5143, -0.9001), (-0.3482, -0.9612), (-0.175, -0.9927), (-0.0, -1.0001), (0.175, -0.9927), (0.3482, -0.9612),
+    (0.5143, -0.9001), (0.6661, -0.8056), (0.7929, -0.6815), (0.8911, -0.5297), (0.9571, -0.3611), (0.9911, -0.1815),
+];
+
 /// `roduro_hill_est_01`'s ground tier (`assets/buildings/roduro_hill_est_01.json`), layout units, counter-clockwise.
 pub const RODURO_HILL_EST_01_OUTLINE: &[(f32, f32)] = &[
     (-0.7884, -0.0617), (-0.8004, -0.1638), (-0.8149, -0.2807), (-0.7908, -0.4058), (-0.786, -0.5704), (-0.7668, -0.7909),
@@ -1558,6 +1741,28 @@ pub const RODURO_LONG_YOUNG_01_OUTLINE: &[(f32, f32)] = &[
     (0.4312, 1.0), (0.2417, 0.9827), (0.0734, 0.9481), (-0.0761, 0.8991), (-0.2256, 0.8905), (-0.3965, 0.9135),
     (-0.5728, 0.8761), (-0.7517, 0.8069), (-0.8932, 0.6714), (-0.9813, 0.4899), (-1.0, 0.2853), (-0.9466, 0.0865),
 ];
+
+/// `roduro_mason_home_01`'s ground tier (`assets/buildings/roduro_mason_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_MASON_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (-0.5494, 0.9021), (-0.6288, 0.9782), (-0.7877, 0.8157), (-0.9024, 0.6187), (-0.9728, 0.4009), (-1.0, 0.174),
+    (-0.9966, -0.0553), (-0.9591, -0.2811), (-0.8774, -0.4954), (-0.7514, -0.6844), (-0.5823, -0.8364), (-0.3814, -0.9401),
+    (-0.1623, -0.992), (0.0636, -1.0), (0.2872, -0.9689), (0.4972, -0.8871), (0.681, -0.7546), (0.8263, -0.5807),
+    (0.9274, -0.3756), (0.983, -0.1532), (1.0, 0.0749), (0.9864, 0.3042), (0.9353, 0.5265), (0.84, 0.7339),
+    (0.6992, 0.9125), (0.5471, 1.0), (0.5846, 0.7765), (0.5891, 0.5484), (0.5199, 0.3318), (0.3666, 0.1659),
+    (0.1589, 0.0783), (-0.0658, 0.0657), (-0.2849, 0.1175), (-0.4654, 0.2523), (-0.5721, 0.4516), (-0.5959, 0.6786),
+];
+
+/// `roduro_mason_home_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const RODURO_MASON_HOME_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (-0.5494, 0.9019), (-0.5815, 0.8015), (-0.5963, 0.686), (-0.5921, 0.5493), (-0.5677, 0.4352), (-0.5254, 0.3373),
+    (-0.4706, 0.2576), (-0.3951, 0.1846), (-0.3061, 0.1281), (-0.191, 0.0851), (-0.0714, 0.0658), (0.0785, 0.0666),
+    (0.1986, 0.0878), (0.3045, 0.1285), (0.4011, 0.1911), (0.4817, 0.2742), (0.5378, 0.3658), (0.5868, 0.5277),
+    (0.5918, 0.7182), (0.5471, 0.9019), (0.5455, 1.0221), (0.473, 1.0752), (0.3325, 1.131), (0.1669, 1.1665),
+    (-0.0201, 1.1762), (-0.207, 1.1609), (-0.3714, 1.1191), (-0.5329, 1.0434), (-0.5491, 1.0146),
+];
+
+/// `roduro_mason_home_01`'s work yard: fenced, gated, its stations in the open.
+pub static RODURO_MASON_HOME_01_YARD: Yard = Yard { outline: RODURO_MASON_HOME_01_YARD_OUTLINE, gate: (0.0, 1.1752), gate_width: 2.2, fence: 1.3, pieces: &[f(Workbench, -0.3946, 0.4051, 2.1397), f(Rack, -0.1902, 0.3014, 4.36), f(Workbench, 0.0623, 0.6997, -0.0512)] };
 
 /// `roduro_round_ancient_01`'s ground tier (`assets/buildings/roduro_round_ancient_01.json`), layout units, counter-clockwise.
 pub const RODURO_ROUND_ANCIENT_01_OUTLINE: &[(f32, f32)] = &[
@@ -1664,6 +1869,29 @@ pub const RODURO_SMITH_HOME_02_YARD_OUTLINE: &[(f32, f32)] = &[
 
 /// `roduro_smith_home_02`'s work yard: fenced, gated, its stations in the open.
 pub static RODURO_SMITH_HOME_02_YARD: Yard = Yard { outline: RODURO_SMITH_HOME_02_YARD_OUTLINE, gate: (2.586, 0.1462), gate_width: 2.2, fence: 1.3, pieces: &[f(Forge, 1.3587, -0.9434, -2.7041), f(Anvil, 1.3021, -0.5472, -2.6728), f(Rack, 1.5285, -0.4906, -0.9313), f(Workbench, 2.0947, -0.6228, -2.293)] };
+
+/// `roduro_smoker_home_01`'s ground tier (`assets/buildings/roduro_smoker_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_SMOKER_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.001), (0.992, 0.1795), (0.9579, 0.3541), (0.8957, 0.5226), (0.7994, 0.673), (0.673, 0.7994),
+    (0.5226, 0.8957), (0.3541, 0.9579), (0.1795, 0.992), (0.001, 1.0), (-0.1795, 0.992), (-0.3541, 0.9579),
+    (-0.5226, 0.8957), (-0.673, 0.7994), (-0.7994, 0.673), (-0.8937, 0.5226), (-0.9579, 0.3541), (-0.99, 0.1795),
+    (-1.0, 0.001), (-0.99, -0.1795), (-0.9579, -0.3541), (-0.8937, -0.5226), (-0.7994, -0.673), (-0.673, -0.7994),
+    (-0.5226, -0.8937), (-0.3541, -0.9579), (-0.1795, -0.99), (0.001, -1.0), (0.1795, -0.99), (0.3541, -0.9579),
+    (0.5226, -0.8937), (0.673, -0.7994), (0.7994, -0.673), (0.8957, -0.5226), (0.9579, -0.3541), (0.992, -0.1795),
+];
+
+/// `roduro_smoker_home_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const RODURO_SMOKER_HOME_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (2.5689, -0.1075), (2.5854, 0.1577), (2.549, 0.3898), (2.4716, 0.5785), (2.335, 0.7673), (2.1549, 0.9214),
+    (1.925, 1.0457), (1.657, 1.1316), (1.3743, 1.1787), (0.1681, 1.255), (-0.137, 1.2317), (-0.4014, 1.1665),
+    (-0.6837, 1.0295), (-0.9043, 0.8377), (-1.0586, 0.5932), (-1.134, 0.3091), (-1.134, 0.0193), (-1.061, -0.3813),
+    (-0.9575, -0.6395), (-0.7918, -0.8897), (-0.5625, -1.1161), (-0.3029, -1.2889), (-0.0038, -1.4166), (0.3266, -1.4869),
+    (0.7033, -1.4899), (1.0913, -1.4249), (1.4973, -1.2879), (1.8879, -1.0901), (2.1541, -0.8921), (2.3623, -0.6558),
+    (2.4973, -0.3968),
+];
+
+/// `roduro_smoker_home_01`'s work yard: fenced, gated, its stations in the open.
+pub static RODURO_SMOKER_HOME_01_YARD: Yard = Yard { outline: RODURO_SMOKER_HOME_01_YARD_OUTLINE, gate: (2.5846, 0.1462), gate_width: 2.2, fence: 1.3, pieces: &[f(Hearth, 1.3292, -0.5045, -2.6728), f(Rack, 1.3894, -0.986, -2.6966), f(Rack, 1.4425, 0.2756, 0.0), f(Workbench, 1.3823, 0.9376, -0.1544)] };
 
 /// `roduro_tanner_home_01`'s ground tier (`assets/buildings/roduro_tanner_home_01.json`), layout units, counter-clockwise.
 pub const RODURO_TANNER_HOME_01_OUTLINE: &[(f32, f32)] = &[
@@ -1772,6 +2000,39 @@ pub const RODURO_VAULT_TALL_01_OUTLINE: &[(f32, f32)] = &[
     (-0.4828, -0.9511), (-0.3241, -0.9837), (-0.1621, -0.9976), (0.0, -1.0), (0.1621, -0.9976), (0.3241, -0.9837),
     (0.4828, -0.9511), (0.6379, -0.8883), (0.7793, -0.7814), (0.8931, -0.6279), (0.9655, -0.4325), (0.9948, -0.2186),
 ];
+
+/// `roduro_weaver_home_01`'s ground tier (`assets/buildings/roduro_weaver_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_WEAVER_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (0.3114, -0.3816), (0.4862, -0.341), (0.6549, -0.2706), (0.7998, -0.1651), (0.9088, -0.0284), (0.9761, 0.1286),
+    (0.9999, 0.2963), (0.9835, 0.4655), (0.9238, 0.6252), (0.8207, 0.7659), (0.6818, 0.8769), (0.516, 0.954),
+    (0.3353, 0.9946), (0.1486, 1.0), (-0.0351, 0.9729), (-0.2084, 0.9093), (-0.3577, 0.8092), (-0.4757, 0.6779),
+    (-0.5504, 0.5237), (-0.5817, 0.3572), (-0.5728, 0.1881), (-0.646, 0.0798), (-0.8028, -0.0122), (-0.9193, -0.1434),
+    (-0.9865, -0.3004), (-0.9999, -0.4682), (-0.9656, -0.6346), (-0.876, -0.7821), (-0.7401, -0.8972), (-0.5728, -0.9716),
+    (-0.3891, -1.0), (-0.2039, -0.9905), (-0.0261, -0.9391), (0.1277, -0.843), (0.2397, -0.7091), (0.301, -0.5494),
+];
+
+/// `roduro_woodworker_home_01`'s ground tier (`assets/buildings/roduro_woodworker_home_01.json`), layout units, counter-clockwise.
+pub const RODURO_WOODWORKER_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (-0.2705, -1.0), (-0.0968, -0.9787), (0.0769, -0.9427), (0.2457, -0.8952), (0.4094, -0.8313), (0.5649, -0.7494),
+    (0.7072, -0.6462), (0.8296, -0.5217), (0.9239, -0.3743), (0.9801, -0.2088), (1.0, -0.0369), (0.995, 0.1384),
+    (0.9553, 0.3071), (0.8776, 0.4644), (0.7667, 0.6003), (0.6327, 0.7117), (0.4822, 0.8034), (0.3217, 0.8755),
+    (0.1547, 0.9312), (-0.0157, 0.9722), (-0.1894, 1.0), (-0.3631, 0.9853), (-0.5269, 0.9197), (-0.6724, 0.8247),
+    (-0.7948, 0.6986), (-0.8891, 0.5512), (-0.952, 0.389), (-0.9884, 0.2187), (-1.0, 0.045), (-0.995, -0.1302),
+    (-0.9719, -0.3022), (-0.9222, -0.4693), (-0.8428, -0.6249), (-0.732, -0.7609), (-0.5963, -0.8722), (-0.4392, -0.9509),
+];
+
+/// `roduro_woodworker_home_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const RODURO_WOODWORKER_HOME_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (-0.4231, -0.9048), (-0.6531, -0.7682), (-0.8273, -0.5546), (-0.9224, -0.298), (-0.95, 0.0213), (-0.9186, 0.3229),
+    (-0.8276, 0.5623), (-0.6531, 0.7764), (-0.4005, 0.9287), (-0.3864, 0.9699), (-0.4097, 1.0124), (-0.6051, 1.0293),
+    (-1.0087, 1.0223), (-1.5381, 0.9427), (-1.7588, 0.8717), (-1.9616, 0.7754), (-2.1301, 0.659), (-2.2578, 0.5296),
+    (-2.3526, 0.3799), (-2.4037, 0.2382), (-2.4277, 0.064), (-2.4203, -0.1428), (-2.3864, -0.2891), (-2.3247, -0.4244),
+    (-2.2373, -0.5459), (-2.107, -0.6696), (-1.9363, -0.7815), (-1.7336, -0.8732), (-1.5139, -0.9405), (-1.2483, -0.9908),
+    (-0.8777, -1.02), (-0.4356, -1.0149), (-0.3864, -0.9617),
+];
+
+/// `roduro_woodworker_home_01`'s work yard: fenced, gated, its stations in the open.
+pub static RODURO_WOODWORKER_HOME_01_YARD: Yard = Yard { outline: RODURO_WOODWORKER_HOME_01_YARD_OUTLINE, gate: (-1.4152, 0.9612), gate_width: 2.2, fence: 1.3, pieces: &[f(Workbench, -1.7447, -0.5767, 2.7128), f(Rack, -1.8936, -0.2819, 3.9486), f(Workbench, -1.22, 0.2742, -1.6734)] };
 // ---- end generated outlines ----
 
 /// Which trade asks for which variant, by kind of building. One line per
@@ -1846,6 +2107,12 @@ pub fn sign_of(v: &Variant) -> Option<Sign> {
         "roduro_benchroom" | "qotiro_benchyard" => Sign::Hammer,
         "qotiro_mess" => Sign::Bowl,
         "qotiro_temple" | "qotiro_island_hall" => Sign::Sun,
+        // The trade homes' marks (they hang no plaque: `serves` says no).
+        "roduro_smith_home_01" | "roduro_smith_home_02" => Sign::Anvil,
+        "roduro_tender_home_01" => Sign::Sprout,
+        "roduro_weaver_home_01" => Sign::Loom,
+        "roduro_tanner_home_01" | "roduro_tanner_home_02" | "roduro_woodworker_home_01" | "roduro_mason_home_01" | "roduro_fletcher_home_01" | "roduro_binder_home_01" => Sign::Hammer,
+        "roduro_smoker_home_01" => Sign::Bowl,
         _ => return None,
     })
 }

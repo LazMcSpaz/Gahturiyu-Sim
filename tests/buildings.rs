@@ -1699,7 +1699,7 @@ fn a_work_yard_is_fenced_gated_and_worked() {
     let spot = open_ground(&w, 40.0);
     let m = w.squad.members[0];
     let k = w.squad.index(m).unwrap();
-    for (key, station) in [("roduro_smith_home_01", Station::Forge), ("roduro_tanner_home_01", Station::Workbench), ("roduro_tender_home_01", Station::GrowerBed), ("roduro_smith_home_02", Station::Forge), ("roduro_tanner_home_02", Station::Workbench)] {
+    for (key, station) in [("roduro_smith_home_01", Station::Forge), ("roduro_tanner_home_01", Station::Workbench), ("roduro_tender_home_01", Station::GrowerBed), ("roduro_smith_home_02", Station::Forge), ("roduro_tanner_home_02", Station::Workbench), ("roduro_woodworker_home_01", Station::Workbench), ("roduro_smoker_home_01", Station::Stove), ("roduro_mason_home_01", Station::Workbench)] {
         let v = layout::by_key(key).unwrap();
         let yard = v.yard.unwrap_or_else(|| panic!("{key} has a yard"));
         let (size, seed) = layout::example_of(v);
@@ -1738,6 +1738,52 @@ fn a_work_yard_is_fenced_gated_and_worked() {
         let (path, _) = w.route(w.squad.at[k], stand);
         assert!(path.last().is_some_and(|p| p.dist(stand) < 0.05), "{key}: a way to the {station:?}");
         assert!(path.iter().any(|p| p.dist(way.at) < way.width), "{key}: the way goes in by the gate");
+        w.order_members(&[m], stand);
+        for _ in 0..600 {
+            w.step(0.5);
+            if w.squad.at[k].dist(stand) < 0.3 {
+                break;
+            }
+        }
+        assert!(w.squad.at[k].dist(stand) < 0.3, "{key}: got there ({:?} from {stand:?})", w.squad.at[k]);
+        assert_eq!(w.bench_at(w.squad.at[k]).map(|b| b.station), Some(station), "{key}: at the {station:?}");
+        w.teleport_squad(spot.add(V2::new(60.0, 0.0)));
+        w.settlements[t].buildings[i as usize].pos = V2::new(-1.0e6, -1.0e6);
+        w.solid_changed();
+    }
+}
+
+/// The trades that work indoors (Laz, 15 Oct): the weaver, the fletcher
+/// and the bookbinder have a workroom in the house, no yard, and its
+/// station counts as one once you're standing at it.
+#[test]
+fn an_indoor_workshop_has_its_station_in_the_house() {
+    use gahturiyu_sim::sim::crafting::Station;
+    use gahturiyu_sim::sim::layout::Furn;
+    let mut w = worldgen::generate(1);
+    until_hour(&mut w, 9.0);
+    let t = start_town(&w);
+    let spot = open_ground(&w, 40.0);
+    let m = w.squad.members[0];
+    let k = w.squad.index(m).unwrap();
+    for (key, furn, station) in [("roduro_weaver_home_01", Furn::Loom, Station::Loom), ("roduro_fletcher_home_01", Furn::Workbench, Station::Workbench), ("roduro_binder_home_01", Furn::Workbench, Station::Workbench)] {
+        let v = layout::by_key(key).unwrap();
+        assert!(v.yard.is_none(), "{key} works indoors");
+        let (size, seed) = layout::example_of(v);
+        let s = &mut w.settlements[t];
+        s.buildings.push(Building { pos: spot, kind: v.kind, size, rot: 0.4, seed });
+        s.reach = s.reach.max(s.pos.dist(spot) + size * 2.0);
+        let i = (s.buildings.len() - 1) as u16;
+        pin_style(s, i, v);
+        w.solid_changed();
+        w.place_stations();
+        let d = door_of(&w.settlements[t], i).unwrap();
+        let piece = gahturiyu_sim::sim::solid::things_of_building(&d).into_iter().find(|th| th.what == gahturiyu_sim::sim::solid::What::Furniture(furn)).unwrap_or_else(|| panic!("{key}: a {furn:?} in the house"));
+        let at = piece.shape.centre();
+        assert!(d.contains(at), "{key}: the {furn:?} stands inside");
+        let stand = w.free_spot(at);
+        let out = d.outside.sub(d.centre);
+        w.teleport_squad(d.outside.add(out.scale(3.0 / out.len().max(0.1))));
         w.order_members(&[m], stand);
         for _ in 0..600 {
             w.step(0.5);

@@ -256,6 +256,12 @@ enum Dress {
     Lantern,
     Post,
     Wheel,
+    /// A stack of trimmed logs (the woodworker's).
+    Logs,
+    /// A small stone smoking house, its own smoke out of the top.
+    Smokehouse,
+    /// A rough block of quarried stone (the mason's).
+    Stone,
 }
 
 /// How a trade home's yard is dressed: pieces (kind, spot in layout
@@ -288,6 +294,28 @@ enum Roof {
 /// `assets/buildings/<key>.json`). Written by
 /// `tools/buildings/roduro_forms.py rust`; edit the files, not these.
 const FORMS: &[Form] = &[
+    Form {
+        key: "roduro_binder_home_01",
+        at_size: 14.4,
+        tiers: &[(layout::RODURO_BINDER_HOME_01_OUTLINE, 0.0, 4.9, 3.2)],
+        roof: Roof::Dome,
+        dome: 0.347,
+        stair: None,
+        doors: &[],
+        windows: &[4],
+        yard: None,
+    },
+    Form {
+        key: "roduro_fletcher_home_01",
+        at_size: 11.2,
+        tiers: &[(layout::RODURO_FLETCHER_HOME_01_OUTLINE, 0.0, 4.9, 3.3)],
+        roof: Roof::Dome,
+        dome: 0.327,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: None,
+    },
     Form {
         key: "roduro_hill_est_01",
         at_size: 12.15,
@@ -399,6 +427,17 @@ const FORMS: &[Form] = &[
         yard: None,
     },
     Form {
+        key: "roduro_mason_home_01",
+        at_size: 17.62,
+        tiers: &[(layout::RODURO_MASON_HOME_01_OUTLINE, 0.0, 4.8, 3.3)],
+        roof: Roof::Dome,
+        dome: 0.312,
+        stair: None,
+        doors: &[],
+        windows: &[4],
+        yard: Some(YardLook { dressing: &[(Dress::Block, (-0.2583, 0.4742), 2.18, (0.7, 0.7, 0.7)), (Dress::Stone, (0.4369, 0.6306), -1.5975, (1.6, 1.2, 1.0)), (Dress::Stone, (0.3347, 0.9762), -0.3739, (1.3, 1.0, 0.8)), (Dress::Stone, (-0.4144, 0.8379), 1.2574, (1.1, 1.1, 1.3)), (Dress::Pile, (0.3347, 0.354), -2.3483, (1.4, 1.2, 0.6)), (Dress::Trough, (-0.2442, 0.9416), 1.8169, (1.9, 0.65, 0.6)), (Dress::Barrel, (0.1645, 0.2158), -2.8393, (0.73, 0.75, 0.91)), (Dress::Bucket, (-0.4825, 0.6651), 1.5787, (0.4, 0.4, 0.3)), (Dress::Lantern, (0.1645, 1.0453), -0.1807, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-0.4641, 0.5812), 2.7), ((-0.1689, 0.6048), 2.7), ((0.0209, 0.3903), 2.7), ((-0.1023, 0.1305), 2.7)], canopy: Some((&[(-0.5961, 0.3263), (-0.5865, 0.435), (-0.5369, 0.5247), (-0.4493, 0.5886), (-0.3377, 0.6175), (-0.1994, 0.6122), (-0.0893, 0.569), (-0.0119, 0.49), (0.0212, 0.3867), (0.0121, 0.2724), (-0.0375, 0.1827), (-0.1251, 0.1188), (-0.2367, 0.0899), (-0.3973, 0.1014), (-0.5144, 0.2035)], 2.7)), chimney: None }),
+    },
+    Form {
         key: "roduro_round_ancient_01",
         at_size: 17.84,
         tiers: &[(layout::RODURO_ROUND_ANCIENT_01_OUTLINE, 0.0, 4.25, 4.0), (RODURO_ROUND_ANCIENT_01_TIER_1, 4.25, 6.75, 6.75), (RODURO_ROUND_ANCIENT_01_TIER_2, 6.75, 11.39, 9.75)],
@@ -487,6 +526,17 @@ const FORMS: &[Form] = &[
         yard: Some(YardLook { dressing: &[(Dress::Bellows, (1.2455, -0.2642), -2.6728, (1.9, 0.55, 1.0)), (Dress::Trough, (1.0757, -0.6604), -2.8161, (0.6, 1.3, 0.6)), (Dress::Grindstone, (2.3211, -0.2266), -0.2427, (0.83, 0.9, 1.17)), (Dress::Barrel, (1.6985, 0.9055), -0.3101, (0.73, 0.75, 0.91)), (Dress::Crate, (0.8494, -1.2455), -2.9756, (0.9, 0.9, 0.7)), (Dress::Pile, (0.906, 0.9621), -0.0632, (1.4, 1.2, 0.6)), (Dress::Bucket, (1.1891, 1.0187), -0.0632, (0.4, 0.4, 0.3)), (Dress::Lantern, (1.8683, -0.9058), -2.5021, (0.3, 0.3, 2.0))], shades: &[], columns: &[((1.7736, -0.5362), 2.7), ((1.6445, -1.0338), 2.7), ((1.1849, -1.1853), 2.7), ((0.8919, -0.7798), 2.7), ((1.1998, 0.1338), 2.7), ((1.6534, -0.0358), 2.7)], canopy: Some((&[(1.7736, -0.5362), (1.7257, -0.8681), (1.5877, -1.1009), (1.4926, -1.1696), (1.3798, -1.204), (1.2383, -1.2002), (1.1281, -1.1583), (0.9655, -0.983), (0.8791, -0.7068), (0.8802, -0.3413), (0.9764, -0.0545), (1.0798, 0.0679), (1.2038, 0.1351), (1.3681, 0.1489), (1.5134, 0.1017), (1.6266, 0.0013), (1.7081, -0.1409), (1.7587, -0.3242)], 2.7)), chimney: Some(((1.7736, -1.1132), 0.7, 6.0)) }),
     },
     Form {
+        key: "roduro_smoker_home_01",
+        at_size: 9.97,
+        tiers: &[(layout::RODURO_SMOKER_HOME_01_OUTLINE, 0.0, 3.5, 3.5), (RODURO_SMOKER_HOME_01_TIER_1, 3.5, 6.6, 5.9)],
+        roof: Roof::Dome,
+        dome: 0.226,
+        stair: Some(((0.1888, -0.5278), 0.9)),
+        doors: &[],
+        windows: &[3, 2],
+        yard: Some(YardLook { dressing: &[(Dress::Frame, (1.5097, -0.7452), -1.102, (0.13, 1.6, 2.0)), (Dress::Logs, (0.5398, -1.2289), 3.1339, (2.4, 1.0, 0.9)), (Dress::Tub, (1.8638, 0.0951), -1.6328, (1.3, 1.3, 1.0)), (Dress::Trough, (0.8407, 0.9978), -0.0632, (1.9, 0.65, 0.6)), (Dress::Barrel, (2.0443, -0.6873), -2.293, (0.73, 0.75, 0.91)), (Dress::Barrel, (2.2249, -0.4465), -2.0515, (0.73, 0.75, 0.91)), (Dress::Bucket, (-0.1222, -1.1687), 2.7377, (0.4, 0.4, 0.3)), (Dress::Lantern, (1.9842, 0.8173), -0.4957, (0.3, 0.3, 2.0))], shades: &[], columns: &[((1.7727, -0.5356), 2.7), ((1.6437, -1.0329), 2.7), ((1.1844, -1.1844), 2.7), ((0.8915, -0.7791), 2.7), ((1.1994, 0.1338), 2.7), ((1.6526, -0.0357), 2.7)], canopy: Some((&[(1.7727, -0.5356), (1.725, -0.8674), (1.587, -1.1001), (1.3793, -1.203), (1.2377, -1.1992), (1.1276, -1.1575), (0.9651, -0.9821), (0.8786, -0.7061), (0.8798, -0.3408), (0.9761, -0.0542), (1.0794, 0.068), (1.2032, 0.1352), (1.3675, 0.1488), (1.5127, 0.1019), (1.6257, 0.0016), (1.7073, -0.1406)], 2.7)), chimney: None }),
+    },
+    Form {
         key: "roduro_tanner_home_01",
         at_size: 16.79,
         tiers: &[(layout::RODURO_TANNER_HOME_01_OUTLINE, 0.0, 4.8, 3.3)],
@@ -562,6 +612,28 @@ const FORMS: &[Form] = &[
         doors: &[],
         windows: &[2, 2],
         yard: None,
+    },
+    Form {
+        key: "roduro_weaver_home_01",
+        at_size: 14.78,
+        tiers: &[(layout::RODURO_WEAVER_HOME_01_OUTLINE, 0.0, 5.2, 3.3)],
+        roof: Roof::Dome,
+        dome: 0.365,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: None,
+    },
+    Form {
+        key: "roduro_woodworker_home_01",
+        at_size: 12.21,
+        tiers: &[(layout::RODURO_WOODWORKER_HOME_01_OUTLINE, 0.0, 5.0, 3.4)],
+        roof: Roof::Dome,
+        dome: 0.32,
+        stair: None,
+        doors: &[],
+        windows: &[3],
+        yard: Some(YardLook { dressing: &[(Dress::Block, (-1.9432, -0.0362), 1.6065, (0.7, 0.7, 0.7)), (Dress::Crate, (-1.5958, -0.3802), 2.7128, (0.9, 0.9, 0.7)), (Dress::Logs, (-1.0711, -0.5612), -1.2191, (3.0, 1.2, 1.1)), (Dress::Logs, (-1.9148, 0.5199), 0.6094, (2.6, 1.1, 0.9)), (Dress::Pile, (-1.0215, 0.6673), -2.0903, (1.3, 1.1, 0.5)), (Dress::Trough, (-2.2125, 0.1268), 1.4347, (1.9, 0.65, 0.6)), (Dress::Barrel, (-1.3192, -0.7577), 2.9528, (0.73, 0.75, 0.91)), (Dress::Bucket, (-0.8726, 0.8639), 0.0176, (0.4, 0.4, 0.3)), (Dress::Lantern, (-2.2125, -0.3155), 1.9948, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-2.0297, -0.6228), 2.7), ((-2.1248, -0.1771), 2.7), ((-1.9943, 0.2575), 2.7), ((-1.5756, 0.3676), 2.7), ((-1.3222, 0.0016), 2.7), ((-1.3311, -0.4563), 2.7), ((-1.6132, -0.7969), 2.7)], canopy: Some((&[(-2.0297, -0.6228), (-2.0979, -0.4549), (-2.1247, -0.2509), (-2.1113, -0.0249), (-2.0527, 0.164), (-1.9616, 0.294), (-1.8489, 0.3692), (-1.7037, 0.3931), (-1.5603, 0.3607), (-1.4092, 0.2231), (-1.3217, -0.0015), (-1.3083, -0.3235), (-1.3758, -0.5803), (-1.4981, -0.7381), (-1.6729, -0.8079)], 2.7)), chimney: None }),
     },
 ];
 // ---- end generated forms ----
@@ -665,6 +737,16 @@ pub const RODURO_SMITH_HOME_02_TIER_1: &[(f32, f32)] = &[
     (-0.7019, -0.0151), (-0.6943, -0.1585), (-0.6698, -0.2981), (-0.6189, -0.4321), (-0.5415, -0.5528), (-0.4396, -0.6547),
     (-0.3189, -0.7321), (-0.1849, -0.783), (-0.0453, -0.8075), (0.0981, -0.8151), (0.2415, -0.8075), (0.3811, -0.783),
     (0.5151, -0.7321), (0.6358, -0.6547), (0.7377, -0.5528), (0.8151, -0.4321), (0.866, -0.2981), (0.8906, -0.1585),
+];
+
+/// `roduro_smoker_home_01`'s tier B (drawing only).
+pub const RODURO_SMOKER_HOME_01_TIER_1: &[(f32, f32)] = &[
+    (0.8957, -0.015), (0.8897, 0.1274), (0.8616, 0.2678), (0.8114, 0.4022), (0.7352, 0.5226), (0.6349, 0.6249),
+    (0.5125, 0.7011), (0.3801, 0.7513), (0.2397, 0.7773), (0.0953, 0.7854), (-0.0471, 0.7773), (-0.1876, 0.7513),
+    (-0.322, 0.7011), (-0.4423, 0.6249), (-0.5426, 0.5226), (-0.6209, 0.4022), (-0.671, 0.2678), (-0.6971, 0.1274),
+    (-0.7031, -0.015), (-0.6971, -0.1575), (-0.671, -0.2979), (-0.6209, -0.4323), (-0.5426, -0.5527), (-0.4423, -0.655),
+    (-0.322, -0.7312), (-0.1876, -0.7813), (-0.0471, -0.8074), (0.0953, -0.8134), (0.2397, -0.8074), (0.3801, -0.7813),
+    (0.5125, -0.7312), (0.6349, -0.655), (0.7352, -0.5527), (0.8114, -0.4323), (0.8616, -0.2979), (0.8897, -0.1575),
 ];
 
 /// `roduro_tower_cottage_01`'s tier B (drawing only).
@@ -1132,6 +1214,40 @@ fn dressing(b: &mut Builder, gl: &mut Builder, kind: Dress, base: Vec3, rot: f32
         }
         Dress::Post => b.stick(base, base + Vec3::Y * 2.3, 0.08, WOOD),
         Dress::Wheel => disc(b, base + Vec3::Y * 0.5, 0.5, rot, WOOD_DARK),
+        Dress::Logs => {
+            // Rows of logs lying along the piece, each row one fewer.
+            let r = (d * 0.16).clamp(0.12, 0.2);
+            let across = ((d / (r * 2.0)).floor() as usize).clamp(2, 5);
+            let mut n = across;
+            let mut y = r;
+            let mut row = 0;
+            while n >= 1 && y < h {
+                for k in 0..n {
+                    let off = (k as f32 - (n as f32 - 1.0) * 0.5) * r * 2.0;
+                    let p = base + side * off + Vec3::Y * y;
+                    let jolt = ((seed.wrapping_mul(31).wrapping_add((row * 7 + k) as u64)) % 7) as f32 * 0.04;
+                    let col = palette::scale(WOOD, 0.75 + jolt);
+                    b.stick(p - fwd * (w * 0.5 - jolt), p + fwd * (w * 0.5), r, col);
+                }
+                n -= 1;
+                y += r * 1.75;
+                row += 1;
+            }
+        }
+        Dress::Smokehouse => {
+            let r = w.min(d) * 0.5;
+            let stone = palette::scale(palette::STONE, 0.75);
+            b.column(base, r, r * 0.92, h * 0.7, 10, stone);
+            b.dome(base + Vec3::Y * (h * 0.7 - 0.02), r * 0.95, r * 0.95, h * 0.3, 0.1, 0.0, seed, palette::scale(stone, 0.85));
+            b.column(base + Vec3::Y * (h * 0.9), r * 0.25, r * 0.2, h * 0.2, 6, palette::scale(stone, 0.7));
+            // A low door on the front.
+            b.block(base + fwd * (r * 0.9) + Vec3::Y * 0.6, 0.08, 0.6, 1.2, rot, WOOD_DARK);
+            gl.smoke(base + Vec3::Y * (h * 1.1), r * 0.35);
+        }
+        Dress::Stone => {
+            let stone = palette::scale(palette::STONE, 0.9 + ((seed % 5) as f32) * 0.03);
+            b.block(base, w, d, h, rot + ((seed % 3) as f32) * 0.15, stone);
+        }
     }
     let _ = h;
 }

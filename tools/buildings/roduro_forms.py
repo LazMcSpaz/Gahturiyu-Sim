@@ -184,6 +184,10 @@ KITS = {
     "store": [("Crate", "corner"), ("Crate", "corner"), ("Chest", "wall"), ("Barrel", "corner")],
     "bedroom": [("Bed", "wall"), ("Chest", "wall")],
     "back_room": [("Bed", "wall"), ("Bed", "wall"), ("Chest", "wall"), ("Shelf", "wall")],
+    # Workrooms of the trades that work indoors (Laz, 15 Oct).
+    "loomroom": [("Loom", "wall"), ("Loom", "wall"), ("Rack", "wall"), ("Shelf", "wall"), ("Crate", "corner")],
+    "fletchery": [("Workbench", "wall"), ("Rack", "wall"), ("Shelf", "wall"), ("Crate", "corner")],
+    "bindery": [("Workbench", "wall"), ("Table", "middle"), ("Shelf", "wall"), ("Shelf", "wall"), ("Chest", "corner")],
 }
 BEDS_IN_MAIN = 2
 
@@ -637,6 +641,15 @@ def design_specs(cat_dir):
         size_xyz = [round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), tiers[-1]["z1"]]
         spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], d["stairs"], d["windows"], size_xyz, roof=d["roof"])
         spec["designed"] = True
+        out[id] = spec
+    for id, d in rd.indoor_designs().items():
+        tiers = d["tiers"]
+        xs = [p[0] for p in tiers[0]["outline"]]
+        ys = [p[1] for p in tiers[0]["outline"]]
+        size_xyz = [round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), tiers[-1]["z1"]]
+        spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], d["stairs"], d["windows"], size_xyz, roof=d["roof"])
+        spec["designed"] = True
+        spec["game"]["use"] = "workshop"
         out[id] = spec
     for id, d in rd.yard_designs().items():
         tiers = d["tiers"]

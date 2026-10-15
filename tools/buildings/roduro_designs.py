@@ -236,6 +236,27 @@ TRADE_YARDS = {
         dress_open=[("tub", (1.4, 1.4, 1.1)), ("tub", (1.4, 1.4, 1.1)), ("tub", (1.4, 1.4, 1.1)), ("frame", (0.87, 1.7, 2.1)), ("frame", (0.87, 1.7, 2.1)), ("trough", (1.9, 0.65, 0.6)), ("barrel", (0.73, 0.75, 0.91)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
         chimney=False,
     ),
+    "woodworker": dict(
+        shed=[("Workbench", "wall"), ("Rack", "wall")],
+        open=[("Workbench", "middle")],
+        dress_shed=[("block", (0.7, 0.7, 0.7)), ("crate", (0.9, 0.9, 0.7))],
+        dress_open=[("logs", (3.0, 1.2, 1.1)), ("logs", (2.6, 1.1, 0.9)), ("pile", (1.3, 1.1, 0.5)), ("trough", (1.9, 0.65, 0.6)), ("barrel", (0.73, 0.75, 0.91)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
+        chimney=False,
+    ),
+    "smoker": dict(
+        shed=[("Hearth", "middle"), ("Rack", "wall")],
+        open=[("Rack", "middle"), ("Workbench", "wall")],
+        dress_shed=[("frame", (0.13, 1.6, 2.0))],
+        dress_open=[("smokehouse", (2.6, 2.6, 3.0)), ("logs", (2.4, 1.0, 0.9)), ("tub", (1.3, 1.3, 1.0)), ("trough", (1.9, 0.65, 0.6)), ("barrel", (0.73, 0.75, 0.91)), ("barrel", (0.73, 0.75, 0.91)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
+        chimney=False,
+    ),
+    "mason": dict(
+        shed=[("Workbench", "wall"), ("Rack", "wall")],
+        open=[("Workbench", "middle")],
+        dress_shed=[("block", (0.7, 0.7, 0.7)), ("crate", (0.9, 0.9, 0.7))],
+        dress_open=[("stone", (1.6, 1.2, 1.0)), ("stone", (1.3, 1.0, 0.8)), ("stone", (1.1, 1.1, 1.3)), ("pile", (1.4, 1.2, 0.6)), ("trough", (1.9, 0.65, 0.6)), ("barrel", (0.73, 0.75, 0.91)), ("bucket", (0.4, 0.4, 0.3)), ("lantern", (0.3, 0.3, 2.0))],
+        chimney=False,
+    ),
     "tender": dict(
         shed=[("Workbench", "wall"), ("Rack", "wall")],
         open=[("GrowerBed", "middle"), ("GrowerBed", "middle"), ("GrowerBed", "middle")],
@@ -246,93 +267,162 @@ TRADE_YARDS = {
 }
 
 
-def yard_designs():
-    """The five trade homes: house outline, tiers, ground floor, and the yard
-    (its outline round the open ground, the roofed shed, the gate, the chimney)."""
-    out = {}
+# ---- The five shapes, as makers ----------------------------------------------------
+#
+# Each takes the trade and a size and gives the house, its tiers and floor,
+# and the yard. A trade's yard contents are `TRADE_YARDS[trade]`.
 
-    # A. One oval, one end open: the smith. The house is the street end
-    # (its door to the street), the yard behind it, the gate on the side.
-    big = oval(9.6, 5.8, 2.3)
-    house = affinity.translate(oval(5.6, 5.8, 2.3), 4.0, 0.0).intersection(big)
+def shape_a(key, label, trade, k=1.0, storeys=1):
+    """A. One oval, one end open: the house is the street end (its door to
+    the street), the yard behind it, the gate on the side."""
+    big = oval(9.6 * k, 5.8 * k, 2.3)
+    house = affinity.translate(oval(5.6 * k, 5.8 * k, 2.3), 4.0 * k, 0.0).intersection(big)
     yard = big.difference(house.buffer(-0.3))
-    shed = affinity.translate(oval(2.3, 3.4, 2.2), -5.6, -1.2).intersection(big.buffer(-0.5))
-    walls = [((1.0, 5.8), (1.0, 0.3), 0.5), ((1.0, 0.3), (1.0, -5.8), None)]
-    out["roduro_smith_home_01"] = dict(
-        label="Smith's home, one oval", kit="home", trade="smith",
-        house=house, tiers=[tier(house, 0.0, 5.0, 3.4)],
-        level=level_of(house, walls, dict(main=(4.5, 0.0), bedroom=(-0.4, 2.5), store=(-0.4, -2.5)), [((9.6, 0.3), 0.0)]),
-        stairs=[], windows=[3], roof="dome",
-        yard=yard, shed=shed, gate=(-4.0, 5.9), chimney=(-2.4, -2.2),
+    shed = affinity.translate(oval(2.3 * k, 3.4 * k, 2.2), -5.6 * k, -1.2 * k).intersection(big.buffer(-0.5))
+    x = 1.0 * k
+    walls = [((x, 5.8 * k), (x, 0.3), 0.5), ((x, 0.3), (x, -5.8 * k), None)]
+    tiers = [tier(house, 0.0, 5.0, 3.4)] if storeys == 1 else [tier(house, 0.0, 3.5, 3.5), tier(house, 3.5, 6.6, 5.9, 0.78, (0.4, 0.0), "B")]
+    return dict(
+        label=label, kit="home" if storeys == 1 else "drum", trade=trade,
+        house=house, tiers=tiers,
+        level=level_of(house, walls, dict(main=(4.5 * k, 0.0), bedroom=(-0.4 * k, 2.5 * k), store=(-0.4 * k, -2.5 * k)), [((9.6 * k, 0.3), 0.0)]),
+        stairs=[dict(xy=[6.0 * k, -3.0 * k], r=0.9, from_level=1, to_level=2, steps=18)] if storeys > 1 else [], windows=[3] * storeys, roof="dome",
+        yard=yard, shed=shed, gate=(-4.0 * k, 5.9 * k), chimney=(-2.4 * k, -2.2 * k) if TRADE_YARDS[trade]["chimney"] else None,
     )
 
-    # B. A crescent house curled round its court: the tanner. The court
-    # opens to +y (the gate on that side); the door is on the +x arm's
-    # outside, to the street. (The house is thick enough at the bottom that
-    # its frame's middle is indoors, which the sim counts on.)
-    whole = oval(8.4, 9.0, 2.2)
-    court_oval = affinity.translate(oval(5.0, 4.8, 2.2), 0.0, 4.6)
-    opening = Polygon([(-4.6, 4.6), (4.6, 4.6), (4.6, 20), (-4.6, 20)])
+
+def shape_b(key, label, trade, k=1.0):
+    """B. A crescent house curled round its court: the court opens to +y
+    (the gate on that side); the door is on the +x arm's outside."""
+    whole = oval(8.4 * k, 9.0 * k, 2.2)
+    court_oval = affinity.translate(oval(5.0 * k, 4.8 * k, 2.2), 0.0, 4.6 * k)
+    opening = Polygon([(-4.6 * k, 4.6 * k), (4.6 * k, 4.6 * k), (4.6 * k, 20), (-4.6 * k, 20)])
     house = smooth(whole.difference(court_oval.union(opening)), 0.9)
     yard = whole.intersection(court_oval.union(opening)).difference(house.buffer(-0.3))
-    shed = affinity.translate(oval(2.6, 2.2, 2.2), -2.4, 2.2).intersection(yard.buffer(0.6))
-    # Walls across each arm of the crescent: a bedroom and a store in the
-    # arms, the main room round the bottom.
-    walls = [((4.9, 1.5), (9.2, 1.5), 0.5), ((-4.9, 1.5), (-9.2, 1.5), 0.5)]
-    out["roduro_tanner_home_01"] = dict(
-        label="Tanner's home, a crescent round its court", kit="home", trade="tanner",
+    shed = affinity.translate(oval(2.6 * k, 2.2 * k, 2.2), -2.4 * k, 2.2 * k).intersection(yard.buffer(0.6))
+    walls = [((4.9 * k, 1.5 * k), (9.2 * k, 1.5 * k), 0.5), ((-4.9 * k, 1.5 * k), (-9.2 * k, 1.5 * k), 0.5)]
+    return dict(
+        label=label, kit="home", trade=trade,
         house=house, tiers=[tier(house, 0.0, 4.8, 3.3)],
-        level=level_of(house, walls, dict(main=(0.0, -7.0), bedroom=(6.5, 3.5), store=(-6.5, 3.5)), [((6.0, -5.5), 0.0)]),
+        level=level_of(house, walls, dict(main=(0.0, -7.0 * k), bedroom=(6.5 * k, 3.5 * k), store=(-6.5 * k, 3.5 * k)), [((6.0 * k, -5.5 * k), 0.0)]),
         stairs=[], windows=[4], roof="dome",
-        yard=yard, shed=shed, gate=(0.0, 8.8), chimney=None,
+        yard=yard, shed=shed, gate=(0.0, 8.8 * k), chimney=(-3.4 * k, 1.0 * k) if TRADE_YARDS[trade]["chimney"] else None,
     )
 
-    # C. The shed a low bud grown out of the house, the court in the crook:
-    # the tender. (The court on the -y side, so the door to the street is
-    # clear of it.)
-    house = oval(5.4, 5.2, 2.3)
-    bud = affinity.translate(oval(3.4, 3.0, 2.2), 1.5, -6.6)
+
+def shape_c(key, label, trade, k=1.0):
+    """C. The shed a low bud grown out of the house, the court in the crook
+    (on the -y side, so the door to the street is clear of it)."""
+    house = oval(5.4 * k, 5.2 * k, 2.3)
+    bud = affinity.translate(oval(3.4 * k, 3.0 * k, 2.2), 1.5 * k, -6.6 * k)
     mass = smooth(unary_union([house, bud]), 1.6)
-    court = smooth(unary_union([mass, affinity.translate(oval(5.6, 4.6, 2.2), 6.2, -3.4)]), 2.0)
+    court = smooth(unary_union([mass, affinity.translate(oval(5.6 * k, 4.6 * k, 2.2), 6.2 * k, -3.4 * k)]), 2.0)
     yard = court.difference(house.buffer(-0.3))
-    walls = [((-5.4, -1.6), (-0.4, -1.6), 0.55), ((-0.4, -1.6), (-0.4, -5.2), None)]
-    out["roduro_tender_home_01"] = dict(
-        label="Stone-tender's home, the shed a bud", kit="home", trade="tender",
+    walls = [((-5.4 * k, -1.6 * k), (-0.4 * k, -1.6 * k), 0.55), ((-0.4 * k, -1.6 * k), (-0.4 * k, -5.2 * k), None)]
+    return dict(
+        label=label, kit="home", trade=trade,
         house=house, tiers=[tier(house, 0.0, 4.9, 3.3)],
-        level=level_of(house, walls, dict(main=(1.5, 1.5), bedroom=(-3.0, -3.5), store=(1.5, -4.0)), [((5.4, 2.8), 0.0)]),
+        level=level_of(house, walls, dict(main=(1.5 * k, 1.5 * k), bedroom=(-3.0 * k, -3.5 * k), store=(1.5 * k, -4.0 * k)), [((5.4 * k, 2.8 * k), 0.0)]),
         stairs=[], windows=[3], roof="dome",
-        yard=yard, shed=bud.intersection(court.buffer(-0.4)), gate=(11.6, -3.0), chimney=None,
+        yard=yard, shed=bud.intersection(court.buffer(-0.4)), gate=(11.6 * k, -3.0 * k), chimney=(0.4 * k, -7.8 * k) if TRADE_YARDS[trade]["chimney"] else None,
     )
 
-    # D. One broad low footprint the house rises out of: the smith, ancient.
-    foot = oval(9.8, 7.2, 2.3, lobes=(3, 0.05, 20))
-    house = affinity.translate(oval(5.3, 5.3, 2.3), -3.6, 0.4)
+
+def shape_d(key, label, trade, k=1.0):
+    """D. One broad low footprint the house rises out of; the house's door
+    opens onto the yard, then the gate."""
+    foot = oval(9.8 * k, 7.2 * k, 2.3, lobes=(3, 0.05, 20))
+    house = affinity.translate(oval(5.3 * k, 5.3 * k, 2.3), -3.6 * k, 0.4 * k)
     assert foot.buffer(-0.3).contains(house)
     yard = foot.difference(house.buffer(-0.3))
-    shed = affinity.translate(oval(2.4, 3.6, 2.2), 3.4, -2.4).intersection(foot.buffer(-0.5))
-    walls = [((-3.6, 5.7), (-3.6, 1.0), 0.5), ((-3.6, 1.0), (-3.6, -4.9), 0.5)]
-    out["roduro_smith_home_02"] = dict(
-        label="Smith's home, risen from one footprint", kit="drum", trade="smith",
+    shed = affinity.translate(oval(2.4 * k, 3.6 * k, 2.2), 3.4 * k, -2.4 * k).intersection(foot.buffer(-0.5))
+    walls = [((-3.6 * k, 5.7 * k), (-3.6 * k, 1.0 * k), 0.5), ((-3.6 * k, 1.0 * k), (-3.6 * k, -4.9 * k), 0.5)]
+    return dict(
+        label=label, kit="drum", trade=trade,
         house=house, tiers=[tier(house, 0.0, 3.5, 3.5), tier(house, 3.5, 6.6, 5.9, 0.8, (-0.2, 0.0), "B")],
-        level=level_of(house, walls, dict(main=(-1.5, 0.0), bedroom=(-6.5, 3.0), store=(-6.5, -2.0)), [((1.7, 0.8), 0.0)]),
-        stairs=[dict(xy=[-2.6, -2.4], r=0.9, from_level=1, to_level=2, steps=18)], windows=[3, 2], roof="dome",
-        yard=yard, shed=shed, gate=(9.7, 1.2), chimney=(5.8, -5.5), base=1.3,
+        level=level_of(house, walls, dict(main=(-1.5 * k, 0.0), bedroom=(-6.5 * k, 3.0 * k), store=(-6.5 * k, -2.0 * k)), [((1.7 * k, 0.8 * k), 0.0)]),
+        stairs=[dict(xy=[-2.6 * k, -2.4 * k], r=0.9, from_level=1, to_level=2, steps=18)], windows=[3, 2], roof="dome",
+        yard=yard, shed=shed, gate=(9.7 * k, 1.2 * k), chimney=(5.8 * k, -5.5 * k) if TRADE_YARDS[trade]["chimney"] else None, base=1.3,
     )
 
-    # E. Two lobes, the crease filled in: the tanner, established. The yard
-    # lobe is on the -y side, so the door (to the street, on +x) is clear
-    # of the yard's wall.
-    house = oval(5.2, 5.4, 2.3)
-    lobe = affinity.translate(oval(6.4, 5.0, 2.3), 5.4, -5.4)
+
+def shape_e(key, label, trade, k=1.0):
+    """E. Two lobes, the crease filled in; the yard lobe on the -y side so
+    the door (to the street, on +x) is clear of the yard's wall."""
+    house = oval(5.2 * k, 5.4 * k, 2.3)
+    lobe = affinity.translate(oval(6.4 * k, 5.0 * k, 2.3), 5.4 * k, -5.4 * k)
     court = smooth(unary_union([house, lobe]), 2.0)
     yard = court.difference(house.buffer(-0.3))
-    shed = affinity.translate(oval(2.4, 3.0, 2.2), 3.4, -8.2).intersection(court.buffer(-0.5))
-    walls = [((-5.2, 2.8), (5.2, 2.8), 0.5), ((0.4, 2.8), (0.4, 5.4), None)]
-    out["roduro_tanner_home_02"] = dict(
-        label="Tanner's home, two lobes grown together", kit="home", trade="tanner",
+    shed = affinity.translate(oval(2.4 * k, 3.0 * k, 2.2), 3.4 * k, -8.2 * k).intersection(court.buffer(-0.5))
+    walls = [((-5.2 * k, 2.8 * k), (5.2 * k, 2.8 * k), 0.5), ((0.4 * k, 2.8 * k), (0.4 * k, 5.4 * k), None)]
+    return dict(
+        label=label, kit="home", trade=trade,
         house=house, tiers=[tier(house, 0.0, 5.0, 3.4)],
-        level=level_of(house, walls, dict(main=(0.0, -1.0), bedroom=(-2.5, 4.2), store=(3.0, 4.2)), [((5.2, 1.6), 0.0)]),
+        level=level_of(house, walls, dict(main=(0.0, -1.0 * k), bedroom=(-2.5 * k, 4.2 * k), store=(3.0 * k, 4.2 * k)), [((5.2 * k, 1.6 * k), 0.0)]),
         stairs=[], windows=[3], roof="dome",
-        yard=yard, shed=shed, gate=(11.6, -5.0), chimney=None,
+        yard=yard, shed=shed, gate=(11.6 * k, -5.0 * k), chimney=(2.6 * k, -9.6 * k) if TRADE_YARDS[trade]["chimney"] else None,
+    )
+
+
+def yard_designs():
+    """The trade homes with a yard (Laz, 15 Oct): the five shapes, each
+    trade in the one that suits its work."""
+    homes = [
+        ("roduro_smith_home_01", "Smith's home, one oval", "smith", shape_a, {}),
+        ("roduro_tanner_home_01", "Tanner's home, a crescent round its court", "tanner", shape_b, {}),
+        ("roduro_tender_home_01", "Stone-tender's home, the shed a bud", "tender", shape_c, {}),
+        ("roduro_smith_home_02", "Smith's home, risen from one footprint", "smith", shape_d, {}),
+        ("roduro_tanner_home_02", "Tanner's home, two lobes grown together", "tanner", shape_e, {}),
+        # Laz, 15 Oct: the trades whose work is out of doors.
+        ("roduro_woodworker_home_01", "Woodworker's home and timber yard", "woodworker", shape_a, dict(k=1.08)),
+        ("roduro_smoker_home_01", "Smoker's home, the smokehouse in its ring", "smoker", shape_d, dict(k=0.94)),
+        ("roduro_mason_home_01", "Mason's home, the stone court", "mason", shape_b, dict(k=1.05)),
+    ]
+    return {key: maker(key, label, trade, **kw) for key, label, trade, maker, kw in homes}
+
+
+# ---- Indoor workshops (Laz, 15 Oct: some trades work indoors) ------------------
+#
+# A home with a workroom: the trade's stations stand inside (the sim finds
+# them by the building's furniture), no yard. The room's name picks what's
+# in it (`roduro_forms.KITS`).
+
+def indoor_designs():
+    out = {}
+
+    # The weaver: a twin home, the second lobe the loom room.
+    big = affinity.translate(oval(5.3, 5.1, 2.1), 0.9, 1.9)
+    small = affinity.translate(oval(4.4, 4.2, 2.1), -2.8, -3.6)
+    house = unary_union([big, small])
+    ring = big.exterior.intersection(small.exterior)
+    pts = sorted([p for p in (ring.geoms if hasattr(ring, "geoms") else [ring])], key=lambda p: p.x)
+    waist = ((round(pts[0].x, 3), round(pts[0].y, 3)), (round(pts[-1].x, 3), round(pts[-1].y, 3)))
+    walls = [(waist[0], waist[1], 0.55), ((-3.2, 5.6), (-1.2, 1.4), 0.6)]
+    out["roduro_weaver_home_01"] = dict(
+        label="Weaver's home, the loom room a second lobe", kit="home", trade="weaver",
+        tiers=[tier(house, 0.0, 5.2, 3.3)],
+        level=level_of(house, walls, dict(main=(1.5, 2.5), loomroom=(-3.0, -4.0), bedroom=(-3.0, 3.0)), [((6.2, 1.9), 0.0)]),
+        stairs=[], windows=[3], roof="dome",
+    )
+
+    # The fletcher: a round home with a workroom at the back.
+    house = oval(5.6, 5.4, 2.3)
+    walls = [((-1.6, 5.4), (-1.6, 0.6), 0.5), ((-1.6, 0.6), (-1.6, -5.4), None), ((-1.6, 0.6), (-5.6, 0.6), 0.5)]
+    out["roduro_fletcher_home_01"] = dict(
+        label="Fletcher's home, the workroom at the back", kit="home", trade="fletcher",
+        tiers=[tier(house, 0.0, 4.9, 3.3)],
+        level=level_of(house, walls, dict(main=(2.0, 0.0), fletchery=(-3.5, -2.5), bedroom=(-3.5, 3.0)), [((5.6, 0.4), 0.0)]),
+        stairs=[], windows=[3], roof="dome",
+    )
+
+    # The bookbinder: a long cottage, the bindery its front room with the
+    # good light, the family behind.
+    house = oval(7.2, 4.6, 2.5)
+    walls = [((0.6, 4.6), (0.6, -4.6), 0.5), ((-3.4, 4.6), (-3.4, 0.0), None)]
+    out["roduro_binder_home_01"] = dict(
+        label="Bookbinder's home, the bindery its front room", kit="home", trade="binder",
+        tiers=[tier(house, 0.0, 4.9, 3.2)],
+        level=level_of(house, walls, dict(bindery=(3.5, 0.0), main=(-1.5, -2.0), bedroom=(-5.5, 2.5)), [((7.2, -1.2), 0.0)]),
+        stairs=[], windows=[4], roof="dome",
     )
     return out
