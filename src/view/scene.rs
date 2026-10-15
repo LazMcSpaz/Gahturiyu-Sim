@@ -173,8 +173,12 @@ impl Grid {
     }
 }
 
-pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
+pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>, mut images: ResMut<Assets<Image>>) {
+    // The grown stone's strata (`stone.rs`): meshes without texture
+    // coordinates ignore it, and anything with them points at its white
+    // corner unless it's stone.
+    let stone = images.add(super::stone::texture());
+    let lit = materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: Some(stone), perceptual_roughness: 0.92, reflectance: 0.2, cull_mode: None, double_sided: false, ..default() });
     let glow = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, ..default() });
     let flat = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, depth_bias: 50.0, ..default() });
     let fire = materials.add(StandardMaterial { base_color: Color::WHITE, unlit: true, cull_mode: None, double_sided: false, alpha_mode: AlphaMode::Add, ..default() });

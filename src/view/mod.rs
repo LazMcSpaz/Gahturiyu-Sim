@@ -43,6 +43,7 @@ pub mod slide;
 pub mod sound;
 pub mod shot;
 pub mod signs;
+pub mod stone;
 pub mod squadui;
 pub mod statsui;
 pub mod townui;

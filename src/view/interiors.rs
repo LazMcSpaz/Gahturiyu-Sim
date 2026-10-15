@@ -46,6 +46,7 @@ use super::cam::to3;
 use super::mesh::Builder;
 use super::palette::{self, Rgb};
 use super::signs;
+use super::stone;
 
 /// Height of a Horaro stilt deck above what it stands on.
 const DECK: f32 = 2.4;
@@ -866,6 +867,30 @@ fn band(b: &mut Builder, f: &Frame, lo: &[V2], hi: &[V2], y0: f32, y1: f32, up: 
     }
 }
 
+/// A `band` that samples the stone texture: `off` is where in the strata
+/// the building starts (metres), as its walls' `strata` used.
+#[allow(clippy::too_many_arguments)]
+fn band_tex(b: &mut Builder, f: &Frame, lo: &[V2], hi: &[V2], y0: f32, y1: f32, up: f32, col: Rgb, off: f32) {
+    let n = lo.len().min(hi.len());
+    let (no, nh) = (outward(f, lo), outward(f, hi));
+    let fr = ring_fracs(lo);
+    let c = palette::lin(col);
+    for k in 0..n {
+        let j = (k + 1) % n;
+        let uj = if j == 0 { 1.0 } else { fr[j] };
+        let p = [to3(fm(f, lo[k]), f.y + y0), to3(fm(f, lo[j]), f.y + y0), to3(fm(f, hi[j]), f.y + y1), to3(fm(f, hi[k]), f.y + y1)];
+        let nn = |o: Vec3| (o * (1.0 - up) + Vec3::Y * up).normalize_or_zero();
+        let v0 = (y0 + off) / stone::TEX_H;
+        let v1 = (y1 + off) / stone::TEX_H;
+        b.quad_tex(p, [nn(no[k]), nn(no[j]), nn(nh[j]), nn(nh[k])], [c; 4], [[stone::u_of(fr[k]), v0], [stone::u_of(uj), v0], [stone::u_of(uj), v1], [stone::u_of(fr[k]), v1]]);
+    }
+}
+
+/// Where in the strata a building starts (metres), by its seed.
+fn strata_off(seed: u64) -> f32 {
+    ((seed >> 20) % 1000) as f32 / 1000.0 * stone::TEX_H
+}
+
 /// Triangles filling an outline that may curve in (ear clipping), as
 /// corner numbers.
 fn ears(pts: &[V2]) -> Vec<[usize; 3]> {
@@ -960,57 +985,54 @@ fn ring_fracs(ring: &[V2]) -> Vec<f32> {
     out.iter().map(|v| v / total).collect()
 }
 
-/// The ledge of band `r` (metres in or out), by the seed.
-fn ledge(seed: u64, r: i32) -> f32 {
-    let h = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add((r as i64 as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9));
-    ((h >> 40) % 9) as f32 * 0.02 - 0.08
-}
-
-/// A band's shade: three tones cycling, nudged by the seed.
-fn stratum(stone: Rgb, seed: u64, r: i32) -> Rgb {
-    let tone = [1.0, 0.84, 0.94][r.rem_euclid(3) as usize];
-    let h = seed.wrapping_add((r as i64 as u64).wrapping_mul(0x94D0_49BB_1331_11EB));
-    palette::scale(stone, tone + ((h >> 44) % 5) as f32 * 0.015 - 0.03)
+/// The ledge of stratum `i` (metres in or out), by the seed.
+fn ledge(seed: u64, i: i64) -> f32 {
+    let h = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add((i as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9));
+    ((h >> 40) % 9) as f32 * 0.015 - 0.06
 }
 
 /// The wall of a grown building between heights `z0` and `z1` (over the
-/// frame's base), as strata `pitch` metres thick that climb one band a
-/// turn. `pts` is the outline in the unit frame.
-fn strata(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], z0: f32, z1: f32, pitch: f32, seed: u64, stone: Rgb) {
+/// frame's base): the strata of `stone.rs`, each a ledge a little in or
+/// out of the last, their seams waving round the building, and the
+/// texture laid on so its bands fall on the same seams. `pts` is the
+/// outline in the unit frame; `off` is where in the strata this building
+/// starts (metres, by its seed), so no two walls band alike.
+fn strata(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], z0: f32, z1: f32, seed: u64, stone: Rgb) {
     if z1 <= z0 {
         return;
     }
+    let table = stone::strata();
+    let off = strata_off(seed);
     let n = pts.len();
     let fr = ring_fracs(&inset(f, pts, 0.0));
-    let bands = ((z1 - z0) / pitch).ceil() as i32;
-    let mut rings: Vec<Vec<V2>> = Vec::new();
-    for r in -1..=bands + 1 {
-        rings.push(inset(f, pts, ledge(seed, r)));
-    }
-    let ring = |r: i32| &rings[(r + 1) as usize];
-    for r in -1..=bands {
-        let col = palette::lin(stratum(stone, seed, r));
-        let lip = palette::lin(palette::scale(stratum(stone, seed, r + 1), 1.12));
-        let this = ring(r);
-        let next = ring(r + 1);
-        let (no, nn) = (outward(f, this), outward(f, next));
+    let col = palette::lin(stone);
+    let lip = palette::lin(palette::scale(stone, 1.12));
+    // Each stratum's top at each corner, in the building's own heights.
+    let idx = stone::between(&table, z0 + off, z1 + off);
+    let tops: Vec<Vec<f32>> = idx.iter().map(|&i| (0..=n).map(|k| stone::top_of(&table, i, if k == n { 1.0 } else { fr[k] }) - off).collect()).collect();
+    let rings: Vec<Vec<V2>> = idx.iter().map(|&i| inset(f, pts, ledge(seed, i))).collect();
+    let uv = |k: usize, y: f32| [stone::u_of(if k == n { 1.0 } else { fr[k] }), (y + off) / stone::TEX_H];
+    let c = |y: f32| y.clamp(z0, z1);
+    for s in 0..idx.len() {
+        // The band from the stratum below's top (or the floor) to this one's.
+        let this = &rings[s];
+        let (no, nn) = (outward(f, this), if s + 1 < idx.len() { outward(f, &rings[s + 1]) } else { outward(f, this) });
         for k in 0..n {
-            let j = (k + 1) % n;
-            let (fk, fj) = (fr[k], if j == 0 { 1.0 } else { fr[j] });
-            let (lo_k, lo_j) = (z0 + (r as f32 + fk) * pitch, z0 + (r as f32 + fj) * pitch);
-            let (hi_k, hi_j) = (lo_k + pitch, lo_j + pitch);
-            let c = |y: f32| y.clamp(z0, z1);
+            let j = k + 1;
+            let jj = j % n;
+            let (lo_k, lo_j) = if s == 0 { (z0, z0) } else { (tops[s - 1][k], tops[s - 1][j]) };
+            let (hi_k, hi_j) = (tops[s][k], tops[s][j]);
             if (hi_k <= z0 && hi_j <= z0) || (lo_k >= z1 && lo_j >= z1) {
                 continue;
             }
-            // The band's face.
-            let p = [to3(fm(f, this[k]), f.y + c(lo_k)), to3(fm(f, this[j]), f.y + c(lo_j)), to3(fm(f, this[j]), f.y + c(hi_j)), to3(fm(f, this[k]), f.y + c(hi_k))];
-            b.quad_lin(p, [no[k], no[j], no[j], no[k]], [col; 4]);
-            // The ledge up to the next band, where its ring differs.
-            if hi_k < z1 || hi_j < z1 {
-                let q = [to3(fm(f, this[k]), f.y + c(hi_k)), to3(fm(f, this[j]), f.y + c(hi_j)), to3(fm(f, next[j]), f.y + c(hi_j + 0.03)), to3(fm(f, next[k]), f.y + c(hi_k + 0.03))];
+            let p = [to3(fm(f, this[k]), f.y + c(lo_k)), to3(fm(f, this[jj]), f.y + c(lo_j)), to3(fm(f, this[jj]), f.y + c(hi_j)), to3(fm(f, this[k]), f.y + c(hi_k))];
+            b.quad_tex(p, [no[k], no[jj], no[jj], no[k]], [col; 4], [uv(k, c(lo_k)), uv(j, c(lo_j)), uv(j, c(hi_j)), uv(k, c(hi_k))]);
+            // The ledge up to the next stratum, where its ring differs.
+            if s + 1 < idx.len() && (hi_k < z1 || hi_j < z1) {
+                let next = &rings[s + 1];
+                let q = [to3(fm(f, this[k]), f.y + c(hi_k)), to3(fm(f, this[jj]), f.y + c(hi_j)), to3(fm(f, next[jj]), f.y + c(hi_j + 0.025)), to3(fm(f, next[k]), f.y + c(hi_k + 0.025))];
                 let up = |o: Vec3| (o * 0.35 + Vec3::Y * 0.65).normalize_or_zero();
-                b.quad_lin(q, [up(no[k]), up(no[j]), up(nn[j]), up(nn[k])], [lip; 4]);
+                b.quad_lin(q, [up(no[k]), up(no[jj]), up(nn[jj]), up(nn[k])], [lip; 4]);
             }
         }
     }
@@ -1055,9 +1077,13 @@ fn grown_roof(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], top_wall: f32, z1:
         let ring: Vec<V2> = base.iter().map(|&p| shrink(p, sh)).collect();
         let sh0 = ((s - 1) as f32 / steps as f32 * std::f32::consts::FRAC_PI_2).cos();
         let (ya, yb) = (height(sh0), height(sh));
-        let col = if s > grass_from { palette::scale(GRASS, 0.9 + s as f32 * 0.02) } else { stratum(stone, seed ^ 0x51, s as i32) };
+        let col = if s > grass_from { palette::scale(GRASS, 0.9 + s as f32 * 0.02) } else { palette::scale(stone, [0.9, 0.97, 0.86][s % 3]) };
         // The riser of each ring, then the flat step out to the next (a ledge).
-        band(b, f, &prev, &prev, ya, yb - 0.04, 0.0, if s > grass_from { palette::scale(col, 0.85) } else { palette::scale(col, 0.9) });
+        if s > grass_from {
+            band(b, f, &prev, &prev, ya, yb - 0.04, 0.0, palette::scale(col, 0.85));
+        } else {
+            band_tex(b, f, &prev, &prev, ya, yb - 0.04, 0.0, palette::scale(col, 0.95), strata_off(seed));
+        }
         band(b, f, &prev, &ring, yb - 0.04, yb, 0.9, col);
         prev = ring;
     }
@@ -1103,10 +1129,8 @@ fn grown_roof(b: &mut Builder, f: &Frame, pts: &[(f32, f32)], top_wall: f32, z1:
 #[allow(clippy::too_many_arguments)]
 fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &Frame, size: f32, seed: u64, sink: f32, unit: &dyn Fn(u64) -> f32) {
     let k = size / form.at_size;
-    let stone = palette::scale(palette::STONE, 0.56 + unit(9) * 0.08);
+    let stone = palette::scale(palette::STONE, 0.64 + unit(9) * 0.08);
     let moss = [0.27, 0.31, 0.22];
-    // Older (bigger) buildings grow in denser bands.
-    let pitch = (0.5 - size * 0.008).clamp(0.3, 0.46);
     let last = form.tiers.len() - 1;
     let mut doors: Vec<V2> = Vec::new();
     for (i, &(pts, z0, z1, wall_top)) in form.tiers.iter().enumerate() {
@@ -1114,7 +1138,7 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
         let outer = inset(f, pts, 0.0);
         let top_wall = if i == last { wall_top.min(z0 + (z1 - z0) * (1.0 - form.dome)) } else { (z1 - SHOULDER).min(wall_top) };
         // The wall, in strata that climb round it.
-        strata(b, f, pts, z0, top_wall, pitch, seed ^ (i as u64 * 0x9F), stone);
+        strata(b, f, pts, z0, top_wall, seed ^ (i as u64 * 0x9F), stone);
         if i == 0 {
             // Moss creeping up from the ground.
             let skirt = inset(f, pts, -0.04);
@@ -1124,7 +1148,7 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             // The shoulder rounding over, and the terrace on top.
             let mid = inset(f, pts, SHOULDER * 0.3);
             let ins = inset(f, pts, SHOULDER);
-            band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, stratum(stone, seed, 7));
+            band(b, f, &outer, &mid, top_wall, z1 - SHOULDER * 0.25, 0.45, palette::scale(stone, 0.9));
             band(b, f, &mid, &ins, z1 - SHOULDER * 0.25, z1, 0.85, moss);
             cap(b, f, &ins, z1, GRASS);
             // Grass along the terrace's edge.
@@ -1138,7 +1162,7 @@ fn roduro_form(b: &mut Builder, gl: &mut Builder, v: &Variant, form: &Form, f: &
             let mid = inset(f, pts, 0.5);
             let ins = inset(f, pts, 1.1);
             let rise = (z1 - top_wall).min(1.2);
-            band(b, f, &base, &mid, top_wall, top_wall + rise * 0.6, 0.45, stratum(stone, seed, 7));
+            band(b, f, &base, &mid, top_wall, top_wall + rise * 0.6, 0.45, palette::scale(stone, 0.9));
             band(b, f, &mid, &ins, top_wall + rise * 0.6, top_wall + rise, 0.85, moss);
             cap(b, f, &ins, top_wall + rise, GRASS);
             for (j, &(p, _)) in round_ring(f, &inset(f, pts, 1.6), 14, 0.2).iter().enumerate() {
@@ -1217,8 +1241,9 @@ fn yard(b: &mut Builder, gl: &mut Builder, v: &Variant, y: &layout::Yard, look: 
         let mid = pts[k].lerp(pts[(k + 1) % n], 0.5);
         layout::outline_nearest(house, f.hx, f.hy, mid).0 <= -0.45 && mid.dist(gate) >= y.gate_width * 0.5 + 0.1
     };
-    let (ring_dark, c1, c2, c3) = (palette::scale(stone, 0.88), palette::lin(stone), palette::lin(palette::scale(stone, 0.88)), palette::lin(moss));
-    let _ = ring_dark;
+    let (c1, c2, c3) = (palette::lin(stone), palette::lin(palette::scale(stone, 0.88)), palette::lin(moss));
+    let fr = ring_fracs(&outer);
+    let off = strata_off(seed);
     for k in 0..n {
         if !drawn(k) {
             continue;
@@ -1230,14 +1255,12 @@ fn yard(b: &mut Builder, gl: &mut Builder, v: &Variant, y: &layout::Yard, look: 
             let nn = vec3(e.y, 0.0, -e.x).normalize_or_zero() * if flip { -1.0 } else { 1.0 };
             (p, nn)
         };
-        // Outside and inside faces in the house's strata, and the mossed top.
-        let bands: Vec<(f32, f32, [f32; 4])> = (0..4).map(|r| ((-0.3 + (h + 0.3) * r as f32 / 4.0), (-0.3 + (h + 0.3) * (r + 1) as f32 / 4.0), palette::lin(stratum(stone, seed, r)))).collect();
-        let _ = (c1, c2);
-        for &(y0, y1, c) in &bands {
-            let (p, nn) = quad(&outer, &outer, y0, y1, c, false);
-            b.quad_lin(p, [nn; 4], [c; 4]);
-            let (p, nn) = quad(&inner, &inner, y0, y1, c, true);
-            b.quad_lin(p, [nn; 4], [c; 4]);
+        // Outside and inside faces in the house's stone, and the mossed top.
+        let _ = c2;
+        let uv = |k: usize, y: f32| [stone::u_of(if k >= n { 1.0 } else { fr[k] }), (y + off) / stone::TEX_H];
+        for (lo, flip) in [(&outer, false), (&inner, true)] {
+            let (p, nn) = quad(lo, lo, -0.3, h, c1, flip);
+            b.quad_tex(p, [nn; 4], [c1; 4], [uv(k, -0.3), uv(k + 1, -0.3), uv(k + 1, h), uv(k, h)]);
         }
         let (p, _) = quad(&cap_out, &cap_out, h, h + 0.16, c3, false);
         b.quad_lin(p, [Vec3::Y; 4], [c3; 4]);
@@ -1451,14 +1474,13 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
     if let Some(form) = form_of(v) {
         return roduro_form(b, gl, v, form, f, size, seed, sink, unit);
     }
-    let col = palette::scale(palette::STONE, 0.56 + unit(9) * 0.08);
+    let col = palette::scale(palette::STONE, 0.64 + unit(9) * 0.08);
     let wall_h = 2.3 + sink;
     let dome_h = size * (0.26 + unit(1) * 0.06);
-    let pitch = (0.5 - size * 0.008).clamp(0.3, 0.46);
     // The ring of grown wall in its strata, then the roof over it.
     let ring = |cx: f32, cy: f32, rx: f32, ry: f32| -> Vec<(f32, f32)> { (0..28).map(|k| { let a = k as f32 / 28.0 * std::f32::consts::TAU; (cx + rx * a.cos(), cy + ry * a.sin()) }).collect() };
     let outline = ring(0.0, 0.0, 1.0, 1.0);
-    strata(b, f, &outline, 0.0, wall_h, pitch, seed, col);
+    strata(b, f, &outline, 0.0, wall_h, seed, col);
     grown_roof(b, f, &ring(0.0, 0.0, 0.97, 0.97), wall_h, wall_h + dome_h, Roof::Dome, f.hx >= f.hy, seed, col);
     let top = wall_h + dome_h;
     let (dx, dy) = door_spot(v);
@@ -1468,7 +1490,7 @@ fn roduro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
         let (bx, by) = (-0.25, -0.2 * side_free);
         let bud = f.at(bx, by, wall_h + dome_h * 0.45);
         let z = wall_h + dome_h * 0.45;
-        strata(b, f, &ring(bx, by, 0.5, 0.46), z - 0.3, z + dome_h * 0.5, pitch, seed ^ 7, col);
+        strata(b, f, &ring(bx, by, 0.5, 0.46), z - 0.3, z + dome_h * 0.5, seed ^ 7, col);
         grown_roof(b, f, &ring(bx, by, 0.48, 0.44), z + dome_h * 0.5, z + dome_h * 1.25, Roof::Dome, true, seed ^ 7, col);
         // Its window, looking out to the front.
         let w = f.at(bx, by, 0.0) + f.fwd() * (f.hx * 0.49);

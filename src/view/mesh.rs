@@ -13,6 +13,10 @@ pub struct Builder {
     pos: Vec<[f32; 3]>,
     nrm: Vec<[f32; 3]>,
     col: Vec<[f32; 4]>,
+    /// Texture coordinates (`stone.rs`): the white corner unless set, and
+    /// only written into the mesh once something has set them.
+    uv: Vec<[f32; 2]>,
+    textured: bool,
     idx: Vec<u32>,
     /// Flames noted on this builder (`flame.rs` draws them each frame), and
     /// wisps of smoke (chimneys, a smouldering stack).
@@ -46,6 +50,7 @@ impl Builder {
             into.pos.push([x, y.max(floor(x, z)), z]);
             into.nrm.push(self.nrm[k]);
             into.col.push(c);
+            into.uv.push(super::stone::WHITE_UV);
         }
         into.idx.extend(self.idx[i0..].iter().map(|&i| i - v0 as u32 + base));
     }
@@ -62,27 +67,46 @@ impl Builder {
                 self.pos.push([0.0, -1e4, 0.0]);
                 self.nrm.push([0.0, 1.0, 0.0]);
                 self.col.push([0.0; 4]);
+                self.uv.push(super::stone::WHITE_UV);
             }
             self.idx.extend_from_slice(&[0, 1, 2]);
         }
-        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        let m = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.pos)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.nrm)
             .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.col)
-            .with_inserted_indices(Indices::U32(self.idx))
+            .with_inserted_indices(Indices::U32(self.idx));
+        if self.textured {
+            m.with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uv)
+        } else {
+            m
+        }
     }
 
     fn v(&mut self, p: Vec3, n: Vec3, c: [f32; 4]) -> u32 {
+        self.v_uv(p, n, c, super::stone::WHITE_UV)
+    }
+
+    fn v_uv(&mut self, p: Vec3, n: Vec3, c: [f32; 4], uv: [f32; 2]) -> u32 {
         let i = self.pos.len() as u32;
         self.pos.push(p.to_array());
         self.nrm.push(n.to_array());
         self.col.push(c);
+        self.uv.push(uv);
         i
     }
 
     /// A quad with a facing and a colour per corner (colours already linear).
     pub fn quad_lin(&mut self, p: [Vec3; 4], n: [Vec3; 4], c: [[f32; 4]; 4]) {
         let i: Vec<u32> = (0..4).map(|k| self.v(p[k], n[k], c[k])).collect();
+        self.idx.extend_from_slice(&[i[0], i[1], i[2], i[0], i[2], i[3]]);
+    }
+
+    /// A quad that samples the stone texture: a facing, a colour (linear)
+    /// and texture coordinates per corner.
+    pub fn quad_tex(&mut self, p: [Vec3; 4], n: [Vec3; 4], c: [[f32; 4]; 4], uv: [[f32; 2]; 4]) {
+        self.textured = true;
+        let i: Vec<u32> = (0..4).map(|k| self.v_uv(p[k], n[k], c[k], uv[k])).collect();
         self.idx.extend_from_slice(&[i[0], i[1], i[2], i[0], i[2], i[3]]);
     }
 
