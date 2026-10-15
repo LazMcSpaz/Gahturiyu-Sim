@@ -11,9 +11,9 @@ use bevy::asset::RenderAssetUsages;
 use bevy::image::{Image, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-pub const SIZE: usize = 1024;
+pub const SIZE: usize = 2048;
 /// Metres one tile covers.
-pub const TILE: f32 = 4.0;
+pub const TILE: f32 = 8.0;
 /// The tile's mean brightness (what the material lifts by).
 pub const MEAN: f32 = 0.80;
 
@@ -60,15 +60,17 @@ pub fn texture() -> Image {
     for y in 0..n {
         for x in 0..n {
             let (fx, fy) = (x as f32 / n as f32, y as f32 / n as f32);
-            let broad = noise(fx, fy, 3, 1) * 0.6 + noise(fx, fy, 7, 2) * 0.4;
-            let fine = noise(fx, fy, 64, 3) * 0.6 + noise(fx, fy, 160, 4) * 0.4;
+            let broad = noise(fx, fy, 2, 1) * 0.4 + noise(fx, fy, 5, 2) * 0.35 + noise(fx, fy, 13, 6) * 0.25;
+            let fine = noise(fx, fy, 128, 3) * 0.6 + noise(fx, fy, 320, 4) * 0.4;
             lum[y * n + x] = 0.72 + 0.12 * broad + 0.08 * fine;
-            warm[y * n + x] = (noise(fx, fy, 4, 5) - 0.5) * 2.0;
+            warm[y * n + x] = (noise(fx, fy, 3, 5) * 0.6 + noise(fx, fy, 9, 7) * 0.4 - 0.5) * 2.0;
         }
     }
     // Clumps of blades: a jittered grid of them, each a fan of strokes out
     // from its root, dark at the root, light at the tip.
-    let grid = 48;
+    // Clumps scattered at random (a grid of them, even jittered, reads as
+    // mown rows): about 140 to the square metre.
+    let clumps = (TILE * TILE * 200.0) as u64;
     let px_per_m = n as f32 / TILE;
     let mut plot = |x: f32, y: f32, w: f32, v: f32, lean: f32| {
         let r = w.ceil() as i64;
@@ -86,11 +88,10 @@ pub fn texture() -> Image {
             }
         }
     };
-    for gy in 0..grid {
-        for gx in 0..grid {
-            let id = (gy * grid + gx) as u64;
-            let cx = (gx as f32 + 0.15 + unit(seed, id * 3) * 0.7) / grid as f32 * n as f32;
-            let cy = (gy as f32 + 0.15 + unit(seed, id * 3 + 1) * 0.7) / grid as f32 * n as f32;
+    for id in 0..clumps {
+        {
+            let cx = unit(seed, id * 3) * n as f32;
+            let cy = unit(seed, id * 3 + 1) * n as f32;
             let blades = 8 + (unit(seed, id * 3 + 2) * 8.0) as usize;
             let size = 0.7 + unit(seed, id * 5 + 7) * 0.9;
             let lean = unit(seed, id * 5 + 9) * 2.0 - 1.0;
@@ -104,7 +105,12 @@ pub fn texture() -> Image {
             for bl in 0..blades {
                 let k = id * 97 + bl as u64 * 13;
                 let dir = unit(seed, k) * std::f32::consts::TAU;
-                let len = (0.09 + unit(seed, k + 1) * 0.13) * px_per_m * size;
+                let len = (0.07 + unit(seed, k + 1) * 0.11) * px_per_m * size;
+                // Each blade roots a little off the clump's middle, so the
+                // clump is a tussock, not a star.
+                let ra = unit(seed, k + 4) * std::f32::consts::TAU;
+                let rr = unit(seed, k + 5) * 0.035 * px_per_m;
+                let (cx, cy) = (cx + ra.cos() * rr, cy + ra.sin() * rr);
                 let bend = (unit(seed, k + 2) - 0.5) * 1.4;
                 let bright = 0.9 + unit(seed, k + 3) * 0.25;
                 let segs = (len / 0.7).ceil().max(4.0) as usize;
@@ -113,7 +119,7 @@ pub fn texture() -> Image {
                     let a = dir + bend * t * t;
                     let x = cx + a.cos() * len * t;
                     let y = cy + a.sin() * len * t;
-                    let w = (3.2 - 2.0 * t) * (n as f32 / 1024.0);
+                    let w = (0.0125 - 0.008 * t) * px_per_m;
                     let v = 0.55 + (bright - 0.55) * t.powf(0.8);
                     plot(x, y, w, v, lean + 0.4 * t);
                 }
@@ -139,7 +145,7 @@ pub fn texture() -> Image {
 
 /// Sampler and sizes shared with the stone (kept here so the two match).
 pub fn sampler(u: ImageAddressMode, v: ImageAddressMode) -> ImageSampler {
-    ImageSampler::Descriptor(ImageSamplerDescriptor { address_mode_u: u, address_mode_v: v, mag_filter: ImageFilterMode::Linear, min_filter: ImageFilterMode::Linear, mipmap_filter: ImageFilterMode::Linear, anisotropy_clamp: 4, ..Default::default() })
+    ImageSampler::Descriptor(ImageSamplerDescriptor { address_mode_u: u, address_mode_v: v, mag_filter: ImageFilterMode::Linear, min_filter: ImageFilterMode::Linear, mipmap_filter: ImageFilterMode::Linear, anisotropy_clamp: 8, ..Default::default() })
 }
 
 /// An image of `w` × `h` pixels with its smaller copies for distance.
