@@ -1,0 +1,324 @@
+{
+ "id": "qotiro_shrine_hall_01",
+ "label": "Shrine hall, the sun's pavilion on its platform",
+ "units": "metres",
+ "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
+ "kit": "hall",
+ "overall": {
+  "size_xyz": [
+   12.0,
+   12.0,
+   3.2
+  ],
+  "height": 3.2
+ },
+ "game": {
+  "variant": "qotiro_shrine_hall_01",
+  "centre": [
+   0.0,
+   0.0
+  ],
+  "size": 12.0,
+  "half": [
+   0.5,
+   0.5
+  ],
+  "sizes": [
+   11.75,
+   12.25
+  ],
+  "door": 0.0,
+  "storeys": 1,
+  "roof": "flat",
+  "dome": 0.094,
+  "windows": [
+   0
+  ],
+  "walls": [],
+  "hand": false,
+  "furniture": [
+   {
+    "what": "Bed",
+    "at": [
+     -5.04,
+     -4.54
+    ],
+    "rot": 1.5708
+   },
+   {
+    "what": "Bed",
+    "at": [
+     -5.04,
+     -1.79
+    ],
+    "rot": 1.5708
+   },
+   {
+    "what": "Bed",
+    "at": [
+     -5.04,
+     0.96
+    ],
+    "rot": 1.5708
+   },
+   {
+    "what": "Hearth",
+    "at": [
+     -4.04,
+     4.21
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "LongTable",
+    "at": [
+     -0.04,
+     -0.04
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "Bench",
+    "at": [
+     -0.54,
+     0.71
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "Bench",
+    "at": [
+     -0.54,
+     1.46
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "Shelf",
+    "at": [
+     -2.79,
+     -5.29
+    ],
+    "rot": 3.1416
+   }
+  ],
+  "holders": [
+   {
+    "what": "Cupboard",
+    "at": [
+     -0.54,
+     -5.29
+    ],
+    "rot": 3.1416
+   }
+  ],
+  "stair": null,
+  "other_doors": [],
+  "yard": null,
+  "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size.",
+  "kind": "qotiro",
+  "qotiro": {
+   "stairs": [
+    {
+     "kind": "stair",
+     "at": [
+      10.6,
+      0.0
+     ],
+     "rot": 3.1416,
+     "size": [
+      5.333,
+      2.4,
+      3.2
+     ],
+     "z": 0.0,
+     "head": [
+      4.267,
+      0.0
+     ]
+    }
+   ],
+   "doors_up": [],
+   "props": [
+    {
+     "kind": "arch",
+     "at": [
+      6.0,
+      -4.0
+     ],
+     "rot": 0.0,
+     "size": [
+      1.6,
+      0.1,
+      2.4
+     ],
+     "z": 0.0
+    },
+    {
+     "kind": "arch",
+     "at": [
+      6.0,
+      -2.0
+     ],
+     "rot": 0.0,
+     "size": [
+      1.6,
+      0.1,
+      2.4
+     ],
+     "z": 0.0
+    },
+    {
+     "kind": "arch",
+     "at": [
+      6.0,
+      2.0
+     ],
+     "rot": 0.0,
+     "size": [
+      1.6,
+      0.1,
+      2.4
+     ],
+     "z": 0.0
+    },
+    {
+     "kind": "arch",
+     "at": [
+      6.0,
+      4.0
+     ],
+     "rot": 0.0,
+     "size": [
+      1.6,
+      0.1,
+      2.4
+     ],
+     "z": 0.0
+    },
+    {
+     "kind": "pavilion",
+     "at": [
+      -1.5,
+      0.0
+     ],
+     "rot": 0.0,
+     "size": [
+      4.0,
+      4.0,
+      3.4
+     ],
+     "z": 3.2
+    },
+    {
+     "kind": "jars",
+     "at": [
+      3.0,
+      -4.6
+     ],
+     "rot": 0.0,
+     "size": [
+      0.9,
+      0.9,
+      0.8
+     ],
+     "z": 3.2
+    }
+   ]
+  },
+  "use": "hall"
+ },
+ "exterior": {
+  "tiers": [
+   {
+    "name": "A",
+    "z0": 0.0,
+    "z1": 3.2,
+    "wall_top": 2.9,
+    "outline": [
+     [
+      -6.0,
+      -6.0
+     ],
+     [
+      6.0,
+      -6.0
+     ],
+     [
+      6.0,
+      6.0
+     ],
+     [
+      -6.0,
+      6.0
+     ]
+    ]
+   }
+  ]
+ },
+ "levels": [
+  {
+   "level": 1,
+   "floor_z": 0.1,
+   "floor_m2": 130.0,
+   "outline": [
+    [
+     5.7,
+     -5.7
+    ],
+    [
+     -5.7,
+     -5.7
+    ],
+    [
+     -5.7,
+     5.7
+    ],
+    [
+     5.7,
+     5.7
+    ]
+   ],
+   "rooms": [
+    {
+     "name": "hall",
+     "area_m2": 130.0,
+     "hub": true,
+     "poly": [
+      [
+       5.7,
+       -5.7
+      ],
+      [
+       -5.7,
+       -5.7
+      ],
+      [
+       -5.7,
+       5.7
+      ],
+      [
+       5.7,
+       5.7
+      ]
+     ]
+    }
+   ],
+   "doors": [],
+   "outside_doors": [
+    {
+     "xy": [
+      6.0,
+      0.0
+     ],
+     "z": 0.1,
+     "yaw": 0.0
+    }
+   ],
+   "walls": [],
+   "door_gaps": []
+  }
+ ],
+ "stairs": [],
+ "designed": true
+}

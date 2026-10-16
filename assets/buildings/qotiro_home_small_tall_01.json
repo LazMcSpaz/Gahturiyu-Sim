@@ -1,0 +1,405 @@
+{
+ "id": "qotiro_home_small_tall_01",
+ "label": "Tall small home, three storeys",
+ "units": "metres",
+ "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
+ "kit": "home",
+ "overall": {
+  "size_xyz": [
+   6.0,
+   6.0,
+   10.4
+  ],
+  "height": 10.4
+ },
+ "game": {
+  "variant": "qotiro_home_small_tall_01",
+  "centre": [
+   0.0,
+   0.0
+  ],
+  "size": 6.0,
+  "half": [
+   0.5,
+   0.5
+  ],
+  "sizes": [
+   5.75,
+   6.25
+  ],
+  "door": 0.125,
+  "storeys": 3,
+  "roof": "flat",
+  "dome": 0.094,
+  "windows": [
+   2,
+   2,
+   2
+  ],
+  "walls": [
+   {
+    "a": [
+     -0.8,
+     2.98
+    ],
+    "b": [
+     -0.8,
+     -2.98
+    ],
+    "gap": 0.5
+   }
+  ],
+  "hand": false,
+  "furniture": [
+   {
+    "what": "Bed",
+    "at": [
+     0.95,
+     -2.04
+    ],
+    "rot": 3.1416
+   },
+   {
+    "what": "Bed",
+    "at": [
+     0.95,
+     1.96
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "Shelf",
+    "at": [
+     1.7,
+     -0.54
+    ],
+    "rot": 0.0
+   }
+  ],
+  "holders": [
+   {
+    "what": "Crate",
+    "at": [
+     -2.04,
+     1.21
+    ],
+    "rot": 1.5708
+   },
+   {
+    "what": "Crate",
+    "at": [
+     -2.04,
+     -1.29
+    ],
+    "rot": 1.5708
+   }
+  ],
+  "stair": null,
+  "other_doors": [],
+  "yard": null,
+  "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size.",
+  "kind": "qotiro",
+  "qotiro": {
+   "stairs": [
+    {
+     "kind": "stair",
+     "at": [
+      -3.0,
+      -3.7
+     ],
+     "rot": 0.0,
+     "size": [
+      6.0,
+      -1.4,
+      3.6
+     ],
+     "z": 0.0,
+     "head": [
+      4.0,
+      -3.7
+     ]
+    },
+    {
+     "kind": "stair",
+     "at": [
+      1.7,
+      3.0
+     ],
+     "rot": -1.5708,
+     "size": [
+      6.0,
+      1.4,
+      3.6
+     ],
+     "z": 3.6,
+     "head": [
+      1.7,
+      -4.0
+     ]
+    }
+   ],
+   "doors_up": [
+    {
+     "xy": [
+      1.0,
+      1.5
+     ],
+     "yaw": 0.0,
+     "z": 3.6
+    },
+    {
+     "xy": [
+      -1.0,
+      -1.0
+     ],
+     "yaw": -1.5708,
+     "z": 7.2
+    }
+   ],
+   "props": [
+    {
+     "kind": "disc",
+     "at": [
+      3.0,
+      -1.4
+     ],
+     "rot": 0.0,
+     "size": [
+      0.8,
+      0.1,
+      0.8
+     ],
+     "z": 2.2
+    },
+    {
+     "kind": "awning",
+     "at": [
+      2.0,
+      1.2
+     ],
+     "rot": 0.0,
+     "size": [
+      1.8,
+      3.0,
+      2.3
+     ],
+     "z": 3.6
+    },
+    {
+     "kind": "trough",
+     "at": [
+      2.4,
+      -2.4
+     ],
+     "rot": 0.0,
+     "size": [
+      1.0,
+      0.5,
+      0.5
+     ],
+     "z": 3.6
+    },
+    {
+     "kind": "jars",
+     "at": [
+      -2.2,
+      -2.2
+     ],
+     "rot": 0.0,
+     "size": [
+      0.9,
+      0.9,
+      0.8
+     ],
+     "z": 7.2
+    }
+   ]
+  }
+ },
+ "exterior": {
+  "tiers": [
+   {
+    "name": "A",
+    "z0": 0.0,
+    "z1": 3.6,
+    "wall_top": 3.3,
+    "outline": [
+     [
+      -3.0,
+      -3.0
+     ],
+     [
+      3.0,
+      -3.0
+     ],
+     [
+      3.0,
+      3.0
+     ],
+     [
+      -3.0,
+      3.0
+     ]
+    ]
+   },
+   {
+    "name": "B",
+    "z0": 3.6,
+    "z1": 7.2,
+    "wall_top": 6.9,
+    "outline": [
+     [
+      -3.0,
+      -3.0
+     ],
+     [
+      1.0,
+      -3.0
+     ],
+     [
+      1.0,
+      3.0
+     ],
+     [
+      -3.0,
+      3.0
+     ]
+    ]
+   },
+   {
+    "name": "C",
+    "z0": 7.2,
+    "z1": 10.4,
+    "wall_top": 10.1,
+    "outline": [
+     [
+      -3.0,
+      -1.0
+     ],
+     [
+      1.0,
+      -1.0
+     ],
+     [
+      1.0,
+      3.0
+     ],
+     [
+      -3.0,
+      3.0
+     ]
+    ]
+   }
+  ]
+ },
+ "levels": [
+  {
+   "level": 1,
+   "floor_z": 0.1,
+   "floor_m2": 29.2,
+   "outline": [
+    [
+     2.7,
+     -2.7
+    ],
+    [
+     -2.7,
+     -2.7
+    ],
+    [
+     -2.7,
+     2.7
+    ],
+    [
+     2.7,
+     2.7
+    ]
+   ],
+   "rooms": [
+    {
+     "name": "main",
+     "area_m2": 18.9,
+     "hub": true,
+     "poly": [
+      [
+       2.7,
+       -2.7
+      ],
+      [
+       -0.8,
+       -2.7
+      ],
+      [
+       -0.8,
+       2.7
+      ],
+      [
+       2.7,
+       2.7
+      ]
+     ]
+    },
+    {
+     "name": "store",
+     "area_m2": 10.3,
+     "hub": false,
+     "poly": [
+      [
+       -0.8,
+       -2.7
+      ],
+      [
+       -2.7,
+       -2.7
+      ],
+      [
+       -2.7,
+       2.7
+      ],
+      [
+       -0.8,
+       2.7
+      ]
+     ]
+    }
+   ],
+   "doors": [],
+   "outside_doors": [
+    {
+     "xy": [
+      3.0,
+      0.3
+     ],
+     "z": 0.1,
+     "yaw": 0.0
+    }
+   ],
+   "walls": [
+    [
+     [
+      -0.8,
+      3.0
+     ],
+     [
+      -0.8,
+      -3.0
+     ]
+    ]
+   ],
+   "door_gaps": [
+    [
+     [
+      -0.8,
+      -0.5
+     ],
+     [
+      -0.8,
+      0.5
+     ]
+    ]
+   ]
+  }
+ ],
+ "stairs": [],
+ "designed": true
+}

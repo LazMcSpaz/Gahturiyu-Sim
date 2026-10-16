@@ -375,7 +375,7 @@ def yard_designs():
         ("roduro_tanner_home_02", "Tanner's home, two lobes grown together", "tanner", shape_e, {}),
         # Laz, 15 Oct: the trades whose work is out of doors.
         ("roduro_woodworker_home_01", "Woodworker's home and timber yard", "woodworker", shape_a, dict(k=1.08)),
-        ("roduro_smoker_home_01", "Smoker's home, the smokehouse in its ring", "smoker", shape_d, dict(k=0.94)),
+        ("roduro_smoker_home_01", "Smoker's home, the smokehouse in its ring", "smoker", shape_d, dict(k=0.9)),
         ("roduro_mason_home_01", "Mason's home, the stone court", "mason", shape_b, dict(k=1.05)),
     ]
     return {key: maker(key, label, trade, **kw) for key, label, trade, maker, kw in homes}

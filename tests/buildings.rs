@@ -1699,7 +1699,7 @@ fn a_work_yard_is_fenced_gated_and_worked() {
     let spot = open_ground(&w, 40.0);
     let m = w.squad.members[0];
     let k = w.squad.index(m).unwrap();
-    for (key, station) in [("roduro_smith_home_01", Station::Forge), ("roduro_tanner_home_01", Station::Workbench), ("roduro_tender_home_01", Station::GrowerBed), ("roduro_smith_home_02", Station::Forge), ("roduro_tanner_home_02", Station::Workbench), ("roduro_woodworker_home_01", Station::Workbench), ("roduro_smoker_home_01", Station::Stove), ("roduro_mason_home_01", Station::Workbench)] {
+    for (key, station) in [("roduro_smith_home_01", Station::Forge), ("roduro_tanner_home_01", Station::Workbench), ("roduro_tender_home_01", Station::GrowerBed), ("roduro_smith_home_02", Station::Forge), ("roduro_tanner_home_02", Station::Workbench), ("roduro_woodworker_home_01", Station::Workbench), ("roduro_smoker_home_01", Station::Stove), ("roduro_mason_home_01", Station::Workbench), ("qotiro_forge_01", Station::Forge), ("qotiro_drill_yard_01", Station::Workbench)] {
         let v = layout::by_key(key).unwrap();
         let yard = v.yard.unwrap_or_else(|| panic!("{key} has a yard"));
         let (size, seed) = layout::example_of(v);
@@ -1746,7 +1746,10 @@ fn a_work_yard_is_fenced_gated_and_worked() {
             }
         }
         assert!(w.squad.at[k].dist(stand) < 0.3, "{key}: got there ({:?} from {stand:?})", w.squad.at[k]);
-        assert_eq!(w.bench_at(w.squad.at[k]).map(|b| b.station), Some(station), "{key}: at the {station:?}");
+        // At the station (or at its neighbour in the yard: a forge and its
+        // anvil stand together).
+        let found = w.bench_at(w.squad.at[k]).map(|b| b.station);
+        assert!(found == Some(station) || yard.pieces.iter().any(|p| Station::of_furniture(p.what) == found), "{key}: at the {station:?} (found {found:?})");
         w.teleport_squad(spot.add(V2::new(60.0, 0.0)));
         w.settlements[t].buildings[i as usize].pos = V2::new(-1.0e6, -1.0e6);
         w.solid_changed();

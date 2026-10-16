@@ -7,23 +7,38 @@
 //! one table here, read by the texture and by the walls' ledges
 //! (`interiors::strata`), so the two agree.
 //!
-//! The texture: `WIDTH` columns round the building (the first two white),
-//! `HEIGHT` rows for `TEX_H` metres of height, repeating.
+//! The texture is an atlas: the first two columns white; then `STRATA_COLS`
+//! columns of grown stone round a building; then the Qotiro's quarried
+//! stone (`ASHLAR_COLS`: big regular blocks in courses, `ASHLAR_W` metres
+//! along a wall before it repeats). `HEIGHT` rows for `TEX_H` metres of
+//! height, repeating.
 
 use bevy::image::{Image, ImageAddressMode};
 
-pub const WIDTH: usize = 1024;
+pub const WIDTH: usize = 2048;
 pub const HEIGHT: usize = 2048;
 /// Metres of wall the texture's height covers before it repeats.
 pub const TEX_H: f32 = 16.0;
 /// The white columns at the left, for everything that isn't stone.
 const WHITE_COLS: usize = 2;
+/// The grown stone's columns, then a gap, then the quarried stone's.
+const STRATA_COLS: usize = 1020;
+const GAP_COLS: usize = 4;
+const ASHLAR_COLS: usize = WIDTH - WHITE_COLS - STRATA_COLS - GAP_COLS;
+/// Metres of a quarried wall its columns cover.
+pub const ASHLAR_W: f32 = 16.0;
 /// Texture coordinates that land on the white columns.
 pub const WHITE_UV: [f32; 2] = [1.0 / WIDTH as f32, 0.5];
 
-/// The u coordinate for a spot `t` (0..1) of the way round a building.
+/// The u coordinate for a spot `t` (0..1) of the way round a grown building.
 pub fn u_of(t: f32) -> f32 {
-    (WHITE_COLS as f32 + 0.5 + t.clamp(0.0, 1.0) * (WIDTH - WHITE_COLS - 1) as f32) / WIDTH as f32
+    (WHITE_COLS as f32 + 0.5 + t.clamp(0.0, 1.0) * (STRATA_COLS - 1) as f32) / WIDTH as f32
+}
+
+/// The u coordinate `s` metres along a quarried wall (0..`ASHLAR_W`).
+pub fn u_ashlar(s: f32) -> f32 {
+    let t = (s / ASHLAR_W).clamp(0.0, 1.0);
+    ((WHITE_COLS + STRATA_COLS + GAP_COLS) as f32 + 0.5 + t * (ASHLAR_COLS - 1) as f32) / WIDTH as f32
 }
 
 /// One stratum: how thick, and its tone against the stone's colour.
@@ -138,7 +153,7 @@ pub fn texture() -> Image {
     let strata = strata();
     let n = strata.len();
     // Each stratum's top across the width, once.
-    let cols = WIDTH - WHITE_COLS;
+    let cols = STRATA_COLS;
     let tops: Vec<Vec<f32>> = (0..n as i64).map(|i| (0..cols).map(|c| top_of(&strata, i, (c as f32) / (cols - 1) as f32)).collect()).collect();
     let mut px = vec![0u8; WIDTH * HEIGHT * 4];
     for c in 0..WIDTH {
@@ -146,6 +161,15 @@ pub fn texture() -> Image {
             let at = ((HEIGHT - 1 - r) * WIDTH + c) * 4;
             if c < WHITE_COLS {
                 px[at..at + 4].copy_from_slice(&[255, 255, 255, 255]);
+                continue;
+            }
+            if c >= WHITE_COLS + STRATA_COLS {
+                // The gap (the quarried stone's mean), then the quarried stone.
+                let (rr, gg, bb) = if c < WHITE_COLS + STRATA_COLS + GAP_COLS { (0.80, 0.80, 0.80) } else { ashlar((c - WHITE_COLS - STRATA_COLS - GAP_COLS) as f32 / (ASHLAR_COLS - 1) as f32 * ASHLAR_W, (r as f32 + 0.5) / HEIGHT as f32 * TEX_H) };
+                px[at] = (rr.clamp(0.0, 1.0) * 255.0) as u8;
+                px[at + 1] = (gg.clamp(0.0, 1.0) * 255.0) as u8;
+                px[at + 2] = (bb.clamp(0.0, 1.0) * 255.0) as u8;
+                px[at + 3] = 255;
                 continue;
             }
             let t = (c - WHITE_COLS) as f32 / (cols - 1) as f32;
@@ -186,6 +210,65 @@ pub fn texture() -> Image {
         }
     }
     with_mips(px, WIDTH, HEIGHT, ImageAddressMode::Repeat, ImageAddressMode::Repeat)
+}
+
+/// The Qotiro's quarried stone at `s` metres along the wall and `v` up:
+/// big regular blocks laid in courses, each course's blocks offset half a
+/// block from the last, dark mortar joints, each block its own tone with
+/// a little grain and a chipped edge or two. Repeats every `ASHLAR_W`
+/// along and `TEX_H` up.
+fn ashlar(s: f32, v: f32) -> (f32, f32, f32) {
+    const COURSE: f32 = 0.6;
+    const BLOCK: f32 = 1.6;
+    const JOINT: f32 = 0.018;
+    let course = (v / COURSE).floor();
+    let cj = course as i64;
+    // Blocks offset by half a block on alternate courses; a course's own
+    // small variation in its blocks' lengths, keyed so it repeats.
+    let offset = if cj.rem_euclid(2) == 0 { 0.0 } else { BLOCK * 0.5 };
+    let along = (s + offset).rem_euclid(ASHLAR_W);
+    let bi = (along / BLOCK).floor();
+    let row = cj.rem_euclid((TEX_H / COURSE) as i64) as u64;
+    // Each joint sits a little off its grid line (the same for the block
+    // either side of it), so blocks run long and short; the row's last
+    // joint stays on its line, so the wall repeats.
+    let nb = (ASHLAR_W / BLOCK) as u64;
+    let joint_at = |k: u64| -> f32 {
+        let k = k % nb;
+        if k == 0 { 0.0 } else { k as f32 * BLOCK + (unit(0xA5_A5, row * 977 + k) - 0.5) * 0.7 }
+    };
+    let end = |k: u64| if k + 1 >= nb { ASHLAR_W } else { joint_at(k + 1) };
+    // The jittered joints may put this spot in the block before or after.
+    let mut k = bi as u64;
+    if k > 0 && along < joint_at(k) {
+        k -= 1;
+    } else if along >= end(k) && k + 1 < nb {
+        k += 1;
+    }
+    let key = row * 131 + k;
+    let x0 = joint_at(k);
+    let x1 = end(k);
+    let y0 = course * COURSE;
+    let y1 = y0 + COURSE;
+    let dx = (along - x0).min(x1 - along);
+    let dy = (v - y0).min(y1 - v);
+    let d = dx.min(dy);
+    // Tone of the block, grain, the joint's shadow.
+    let tone = 0.78 + (unit(0x5A5A, key) - 0.5) * 0.14;
+    let g = noise(s / ASHLAR_W, v / TEX_H, 128, 128, 21) * 0.6 + noise(s / ASHLAR_W, v / TEX_H, 32, 32, 22) * 0.4;
+    let mut l = tone * (0.92 + 0.16 * g);
+    // The joint and a bevelled, chipped edge.
+    let edge = (d / 0.045).clamp(0.0, 1.0);
+    let chip = noise(s / ASHLAR_W, v / TEX_H, 256, 256, 23);
+    let bevel = 0.72 + 0.28 * edge * (0.85 + 0.3 * chip).min(1.0);
+    l *= bevel;
+    if d < JOINT {
+        l *= 0.45;
+    }
+    // Faint damp streaks down the wall.
+    l *= 0.95 + 0.1 * noise(s / ASHLAR_W, v / TEX_H * 0.1, 96, 4, 24);
+    // A touch cool.
+    (l * 0.98, l, l * 1.03)
 }
 
 /// An image from its full-size pixels, with its smaller copies for

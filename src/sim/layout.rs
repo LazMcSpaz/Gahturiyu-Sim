@@ -765,6 +765,272 @@ pub const VARIANTS: &[Variant] = &[
     // `assets/buildings/*.json`; edit the files, not these.
     // ---- generated: catalogue buildings (tools/buildings/roduro_forms.py rust) ----
     Variant {
+        key: "qotiro_drill_yard_01",
+        name: "Drill yard",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_DRILL_YARD_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.2143, 0.5),
+        sizes: (13.75, 14.25),
+        weight: 0,
+        door: 0.625,
+        storeys: 2,
+        walls: &[w((-0.9933, -0.2857), (0.9933, -0.2857), Some(0.2987)), w((0.0, 0.9971), (0.0, -0.2857), Some(0.4989))],
+        furniture: &[
+            f(Hearth, 0.4166, -0.1071, 0.0),
+            f(Table, 0.5833, 0.2857, Q),
+            f(Bench, 0.3333, 0.1071, Q),
+            f(Bench, 0.3333, 0.75, Q),
+            f(Shelf, 0.75, 0.7143, -1.5708),
+            f(Bed, -0.68, -0.7914, Q),
+            f(Shelf, -0.0967, -0.5057, -1.5708),
+            f(Bed, 0.6666, -0.7914, -1.5708),
+        ],
+        holders: &[
+            h(Crate, -0.68, 0.3214, Q),
+            h(Crate, -0.68, 0.5714, Q),
+            h(Chest, -0.68, -0.0357, Q),
+            h(Barrel, -0.68, 0.7857, Q),
+            h(Chest, -0.0967, -0.8271, -1.5708),
+            h(Chest, 0.5833, -0.47, 0.0),
+        ],
+        yard: Some(&QOTIRO_DRILL_YARD_01_YARD),
+    },
+    Variant {
+        key: "qotiro_family_house_01",
+        name: "Family house",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_FAMILY_HOUSE_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.3571),
+        sizes: (13.75, 14.25),
+        weight: 0,
+        door: 0.4,
+        storeys: 3,
+        walls: &[w((-0.1429, 0.9961), (-0.1429, -0.9961), Some(0.5502)), w((0.9971, -0.3), (-0.1429, -0.3), Some(0.4987)), w((-0.1429, 0.0), (-0.9971, 0.0), Some(0.5017))],
+        furniture: &[
+            f(Hearth, 0.0714, 0.3, 0.0),
+            f(Table, 0.3929, 0.4501, 0.0),
+            f(Bench, 0.4643, 0.6001, 0.0),
+            f(Bench, 0.7143, 0.7001, 0.0),
+            f(Shelf, 0.3571, 0.05, 3.1416),
+            f(Hearth, 0.0357, -0.8081, 3.1416),
+            f(Table, 0.3929, -0.6581, 0.0),
+            f(Shelf, 0.7143, -0.8581, 3.1416),
+            f(Bed, -0.8629, 0.35, Q),
+            f(Bed, -0.8629, -0.7081, Q),
+            f(Bed, -0.5414, -0.8081, 3.1416),
+        ],
+        holders: &[
+            h(Cupboard, 0.6786, 0.05, 3.1416),
+            h(Barrel, 0.8571, -0.5581, -1.5708),
+            h(Chest, -0.8271, 0.8001, 0.0),
+            h(Chest, -0.6129, -0.358, 0.0),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_forge_01",
+        name: "Forge",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_FORGE_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.2, 0.5),
+        sizes: (9.75, 10.25),
+        weight: 0,
+        door: 0.5,
+        storeys: 1,
+        walls: &[w((0.0, 0.25), (0.0, -0.996), Some(0.2006))],
+        furniture: &[
+            f(Hearth, 0.375, 0.642, 0.0),
+            f(Shelf, 0.625, -0.708, -1.5708),
+        ],
+        holders: &[
+
+        ],
+        yard: Some(&QOTIRO_FORGE_01_YARD),
+    },
+    Variant {
+        key: "qotiro_home_corner_01",
+        name: "Corner house",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_HOME_CORNER_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.4167),
+        sizes: (11.75, 12.25),
+        weight: 0,
+        door: 0.45,
+        storeys: 3,
+        walls: &[w((-0.25, 0.9959), (-0.25, -0.9959), Some(0.6004)), w((0.9967, -0.2), (-0.25, -0.2), Some(0.4987)), w((-0.25, 0.2), (-0.9967, 0.2), Some(0.5022))],
+        furniture: &[
+            f(Hearth, 0.0, 0.5, 0.0),
+            f(Table, 0.3333, 0.55, 0.0),
+            f(Bench, 0.0833, 0.6999, 0.0),
+            f(Bench, 0.0417, 0.8499, 0.0),
+            f(Shelf, 0.3333, 0.25, 3.1416),
+            f(Hearth, -0.0417, -0.8079, 3.1416),
+            f(Table, 0.3333, -0.558, 0.0),
+            f(Shelf, 0.3333, -0.8579, 3.1416),
+        ],
+        holders: &[
+            h(Cupboard, 0.4583, 0.8499, 0.0),
+            h(Barrel, 0.6667, -0.8079, 3.1416),
+            h(Barrel, 0.8333, -0.508, -1.5708),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_home_long_01",
+        name: "Long house",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_HOME_LONG_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.2, 0.5),
+        sizes: (19.75, 20.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 2,
+        walls: &[w((0.0, -0.998), (0.0, -0.2), Some(0.4987)), w((0.0, -0.2), (0.0, 0.998), Some(0.4007)), w((0.995, -0.5), (0.0, -0.5), Some(0.4975)), w((0.0, -0.3), (-0.995, -0.3), Some(0.5025)), w((0.0, 0.4), (-0.995, 0.4), Some(0.5025))],
+        furniture: &[
+            f(Hearth, 0.375, -0.15, 0.0),
+            f(Table, 0.3125, 0.05, Q),
+            f(Bench, 0.375, 0.225, Q),
+            f(Bench, 0.5, 0.3, Q),
+            f(Shelf, 0.8125, -0.225, -1.5708),
+            f(Hearth, 0.3125, -0.904, 3.1416),
+            f(Table, 0.4375, -0.729, 0.0),
+            f(Bed, -0.76, -0.854, Q),
+            f(Bed, -0.76, -0.075, Q),
+            f(Bed, -0.635, 0.15, 3.1416),
+        ],
+        holders: &[
+            h(Cupboard, 0.8125, 0.125, -1.5708),
+            h(Barrel, 0.75, -0.904, 3.1416),
+            h(Chest, -0.6975, -0.529, 0.0),
+            h(Chest, -0.26, -0.125, -1.5708),
+            h(Crate, -0.76, 0.675, Q),
+            h(Crate, -0.76, 0.85, Q),
+            h(Chest, -0.3225, 0.9, 0.0),
+            h(Barrel, -0.26, 0.675, -1.5708),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_home_small_01",
+        name: "Small home",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_HOME_SMALL_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.5),
+        sizes: (5.75, 6.25),
+        weight: 0,
+        door: 0.2083,
+        storeys: 2,
+        walls: &[w((-0.2, 0.9933), (-0.2, -0.9933), Some(0.5))],
+        furniture: &[
+            f(Hearth, 0.3833, -0.3467, 0.0),
+            f(Table, 0.3, 0.57, 0.0),
+        ],
+        holders: &[
+            h(Chest, -0.5967, 0.7367, 0.0),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_home_small_end_01",
+        name: "Small home",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_HOME_SMALL_END_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.375),
+        sizes: (7.75, 8.25),
+        weight: 0,
+        door: 0.125,
+        storeys: 2,
+        walls: &[w((-0.125, 0.9933), (-0.125, -0.9933), Some(0.5)), w((-0.125, 0.1), (-0.995, 0.1), Some(0.5029))],
+        furniture: &[
+            f(Hearth, 0.3125, -0.3467, 0.0),
+            f(Table, 0.75, -0.3467, Q),
+        ],
+        holders: &[
+            h(Chest, -0.6975, 0.6833, 0.0),
+            h(Crate, -0.51, -0.68, 3.1416),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_home_small_low_01",
+        name: "Low small home",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_HOME_SMALL_LOW_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.375),
+        sizes: (7.75, 8.25),
+        weight: 0,
+        door: 0.5833,
+        storeys: 2,
+        walls: &[w((-0.1, 0.9933), (-0.1, -0.9933), Some(0.5)), w((0.995, -0.2), (-0.1, -0.2), Some(0.4977))],
+        furniture: &[
+            f(Hearth, 0.2125, 0.4667, 0.0),
+            f(Shelf, 0.275, -0.7633, 3.1416),
+            f(Bed, -0.76, 0.1333, Q),
+        ],
+        holders: &[
+            h(Barrel, 0.775, -0.5967, -1.5708),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_home_small_tall_01",
+        name: "Tall small home",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_HOME_SMALL_TALL_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.5),
+        sizes: (5.75, 6.25),
+        weight: 0,
+        door: 0.125,
+        storeys: 3,
+        walls: &[w((-0.2667, 0.9933), (-0.2667, -0.9933), Some(0.5))],
+        furniture: &[
+            f(Bed, 0.3167, -0.68, 3.1416),
+            f(Bed, 0.3167, 0.6533, 0.0),
+            f(Shelf, 0.5667, -0.18, 0.0),
+        ],
+        holders: &[
+            h(Crate, -0.68, 0.4033, Q),
+            h(Crate, -0.68, -0.43, Q),
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "qotiro_shrine_hall_01",
+        name: "Shrine hall",
+        kind: K::QotiroBlock,
+        shape: Shape::Poly(QOTIRO_SHRINE_HALL_01_OUTLINE),
+        use_: Use::Hall,
+        half: (0.5, 0.5),
+        sizes: (11.75, 12.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+            f(Bed, -0.84, -0.7567, Q),
+            f(Bed, -0.84, -0.2983, Q),
+            f(Bed, -0.84, 0.16, Q),
+            f(Hearth, -0.6733, 0.7017, 0.0),
+            f(LongTable, -0.0067, -0.0067, 0.0),
+            f(Bench, -0.09, 0.1183, 0.0),
+            f(Bench, -0.09, 0.2433, 0.0),
+            f(Shelf, -0.465, -0.8817, 3.1416),
+        ],
+        holders: &[
+            h(Cupboard, -0.09, -0.8817, 3.1416),
+        ],
+        yard: None,
+    },
+    Variant {
         key: "roduro_binder_home_01",
         name: "Bookbinder's home",
         kind: K::RoduroHome,
@@ -1360,24 +1626,24 @@ pub const VARIANTS: &[Variant] = &[
         shape: Shape::Poly(RODURO_SMOKER_HOME_01_OUTLINE),
         use_: Use::Workshop,
         half: (0.5, 0.5),
-        sizes: (9.72, 10.22),
+        sizes: (9.29, 9.79),
         weight: 0,
-        door: 0.0945,
+        door: 0.0943,
         storeys: 2,
-        walls: &[w((0.0002, 0.996), (0.0002, 0.1133), Some(0.498)), w((0.0002, 0.1133), (0.0002, -0.996), Some(0.5014))],
+        walls: &[w((0.0, 0.9958), (0.0, 0.1132), Some(0.4976)), w((0.0, 0.1132), (0.0, -0.9958), Some(0.5019))],
         furniture: &[
-            f(Hearth, 0.4516, 0.4967, 0.0),
-            f(Table, 0.4014, -0.0048, 0.0),
-            f(Bench, 0.4516, -0.2054, -0.2181),
-            f(Shelf, 0.7525, -0.4562, -2.0526),
-            f(Bed, -0.7571, -0.2054, 1.7527),
+            f(Hearth, 0.5765, -0.2744, 0.0),
+            f(Table, 0.3669, 0.0925, 0.0),
+            f(Bench, 0.4193, 0.3545, 0.5844),
+            f(Shelf, 0.3669, 0.7738, -0.3588),
+            f(Bed, -0.7461, 0.2497, 1.3719),
         ],
         holders: &[
-            h(Chest, -0.2556, -0.8072, 2.9597),
-            h(Crate, -0.7571, 0.3462, 1.2135),
-            h(Crate, -0.2054, -0.0048, -1.5708),
-            h(Chest, -0.3057, 0.7976, 0.2609),
-            h(Barrel, -0.2054, 0.2961, -1.5708),
+            h(Chest, -0.2744, -0.7985, 2.9228),
+            h(Crate, -0.7461, -0.3792, 1.9296),
+            h(Crate, -0.222, -0.0124, -1.5708),
+            h(Chest, -0.3268, 0.7738, 0.3154),
+            h(Barrel, -0.2744, 0.3021, -1.5708),
         ],
         yard: Some(&RODURO_SMOKER_HOME_01_YARD),
     },
@@ -1622,6 +1888,74 @@ pub const VARIANTS: &[Variant] = &[
 ];
 
 // ---- generated outlines (tools/buildings/roduro_forms.py rust) ----
+/// `qotiro_drill_yard_01`'s ground tier (`assets/buildings/qotiro_drill_yard_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_DRILL_YARD_01_OUTLINE: &[(f32, f32)] = &[
+    (-0.9999, -1.0), (0.9999, -1.0), (0.9999, 1.0), (-0.9999, 1.0),
+];
+
+/// `qotiro_drill_yard_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const QOTIRO_DRILL_YARD_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (1.0166, -1.0), (4.2164, -1.0), (4.3134, -0.9777), (4.333, 0.95), (4.281, 0.9916), (1.0166, 1.0),
+    (0.9196, 0.9777), (0.8999, -0.95), (0.9343, -0.9853),
+];
+
+/// `qotiro_drill_yard_01`'s work yard: fenced, gated, its stations in the open.
+pub static QOTIRO_DRILL_YARD_01_YARD: Yard = Yard { outline: QOTIRO_DRILL_YARD_01_YARD_OUTLINE, gate: (4.3234, 0.0), gate_width: 2.2, fence: 1.6, pieces: &[f(Rack, 1.2459, 0.7571, 1.5664), f(Rack, 1.9459, 0.7571, 1.5648), f(Workbench, 3.9337, -0.7286, -1.5752)] };
+
+/// `qotiro_family_house_01`'s ground tier (`assets/buildings/qotiro_family_house_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_FAMILY_HOUSE_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0001), (1.0, -1.0001), (1.0, 1.0001), (-1.0, 1.0001),
+];
+
+/// `qotiro_forge_01`'s ground tier (`assets/buildings/qotiro_forge_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_FORGE_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
+/// `qotiro_forge_01`'s work yard, round the house's +y side, layout units (past ±1).
+pub const QOTIRO_FORGE_01_YARD_OUTLINE: &[(f32, f32)] = &[
+    (1.025, -1.0), (4.325, -1.0), (4.4705, -0.9688), (4.5, 0.93), (4.422, 0.9882), (1.025, 1.0),
+    (0.8795, 0.9688), (0.85, -0.93), (0.9015, -0.9794),
+];
+
+/// `qotiro_forge_01`'s work yard: fenced, gated, its stations in the open.
+pub static QOTIRO_FORGE_01_YARD: Yard = Yard { outline: QOTIRO_FORGE_01_YARD_OUTLINE, gate: (4.4855, 0.0), gate_width: 2.2, fence: 2.0, pieces: &[f(Forge, 1.656, 0.12, 0.0), f(Anvil, 1.656, -0.18, 3.1354), f(Workbench, 3.901, -0.62, -1.577), f(Rack, 2.401, 0.82, -0.0087)] };
+
+/// `qotiro_home_corner_01`'s ground tier (`assets/buildings/qotiro_home_corner_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_HOME_CORNER_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -0.9999), (1.0, -0.9999), (1.0, 0.9999), (-1.0, 0.9999),
+];
+
+/// `qotiro_home_long_01`'s ground tier (`assets/buildings/qotiro_home_long_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_HOME_LONG_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
+/// `qotiro_home_small_01`'s ground tier (`assets/buildings/qotiro_home_small_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_HOME_SMALL_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
+/// `qotiro_home_small_end_01`'s ground tier (`assets/buildings/qotiro_home_small_end_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_HOME_SMALL_END_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
+/// `qotiro_home_small_low_01`'s ground tier (`assets/buildings/qotiro_home_small_low_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_HOME_SMALL_LOW_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
+/// `qotiro_home_small_tall_01`'s ground tier (`assets/buildings/qotiro_home_small_tall_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_HOME_SMALL_TALL_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
+/// `qotiro_shrine_hall_01`'s ground tier (`assets/buildings/qotiro_shrine_hall_01.json`), layout units, counter-clockwise.
+pub const QOTIRO_SHRINE_HALL_01_OUTLINE: &[(f32, f32)] = &[
+    (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0),
+];
+
 /// `roduro_binder_home_01`'s ground tier (`assets/buildings/roduro_binder_home_01.json`), layout units, counter-clockwise.
 pub const RODURO_BINDER_HOME_01_OUTLINE: &[(f32, f32)] = &[
     (1.0, 0.0), (0.9889, 0.2348), (0.9417, 0.4566), (0.8514, 0.6436), (0.7306, 0.7849), (0.5931, 0.8806),
@@ -1872,26 +2206,26 @@ pub static RODURO_SMITH_HOME_02_YARD: Yard = Yard { outline: RODURO_SMITH_HOME_0
 
 /// `roduro_smoker_home_01`'s ground tier (`assets/buildings/roduro_smoker_home_01.json`), layout units, counter-clockwise.
 pub const RODURO_SMOKER_HOME_01_OUTLINE: &[(f32, f32)] = &[
-    (1.0, 0.001), (0.992, 0.1795), (0.9579, 0.3541), (0.8957, 0.5226), (0.7994, 0.673), (0.673, 0.7994),
-    (0.5226, 0.8957), (0.3541, 0.9579), (0.1795, 0.992), (0.001, 1.0), (-0.1795, 0.992), (-0.3541, 0.9579),
-    (-0.5226, 0.8957), (-0.673, 0.7994), (-0.7994, 0.673), (-0.8937, 0.5226), (-0.9579, 0.3541), (-0.99, 0.1795),
-    (-1.0, 0.001), (-0.99, -0.1795), (-0.9579, -0.3541), (-0.8937, -0.5226), (-0.7994, -0.673), (-0.673, -0.7994),
-    (-0.5226, -0.8937), (-0.3541, -0.9579), (-0.1795, -0.99), (0.001, -1.0), (0.1795, -0.99), (0.3541, -0.9579),
-    (0.5226, -0.8937), (0.673, -0.7994), (0.7994, -0.673), (0.8957, -0.5226), (0.9579, -0.3541), (0.992, -0.1795),
+    (1.0, 0.0), (0.9916, 0.1782), (0.9581, 0.3543), (0.8952, 0.522), (0.7987, 0.673), (0.673, 0.7987),
+    (0.522, 0.8952), (0.3543, 0.9581), (0.1782, 0.9916), (0.0, 1.0), (-0.1782, 0.9916), (-0.3543, 0.9581),
+    (-0.522, 0.8952), (-0.673, 0.7987), (-0.7987, 0.673), (-0.8952, 0.522), (-0.9581, 0.3543), (-0.9916, 0.1782),
+    (-1.0, 0.0), (-0.9916, -0.1782), (-0.9581, -0.3543), (-0.8952, -0.522), (-0.7987, -0.673), (-0.673, -0.7987),
+    (-0.522, -0.8952), (-0.3543, -0.9581), (-0.1782, -0.9916), (0.0, -1.0), (0.1782, -0.9916), (0.3543, -0.9581),
+    (0.522, -0.8952), (0.673, -0.7987), (0.7987, -0.673), (0.8952, -0.522), (0.9581, -0.3543), (0.9916, -0.1782),
 ];
 
 /// `roduro_smoker_home_01`'s work yard, round the house's +y side, layout units (past ±1).
 pub const RODURO_SMOKER_HOME_01_YARD_OUTLINE: &[(f32, f32)] = &[
-    (2.5689, -0.1075), (2.5854, 0.1577), (2.549, 0.3898), (2.4716, 0.5785), (2.335, 0.7673), (2.1549, 0.9214),
-    (1.925, 1.0457), (1.657, 1.1316), (1.3743, 1.1787), (0.1681, 1.255), (-0.137, 1.2317), (-0.4014, 1.1665),
-    (-0.6837, 1.0295), (-0.9043, 0.8377), (-1.0586, 0.5932), (-1.134, 0.3091), (-1.134, 0.0193), (-1.061, -0.3813),
-    (-0.9575, -0.6395), (-0.7918, -0.8897), (-0.5625, -1.1161), (-0.3029, -1.2889), (-0.0038, -1.4166), (0.3266, -1.4869),
-    (0.7033, -1.4899), (1.0913, -1.4249), (1.4973, -1.2879), (1.8879, -1.0901), (2.1541, -0.8921), (2.3623, -0.6558),
-    (2.4973, -0.3968),
+    (2.5702, -0.1078), (2.5868, 0.1577), (2.5503, 0.3897), (2.473, 0.5788), (2.3363, 0.7675), (2.156, 0.9218),
+    (1.926, 1.0461), (1.6579, 1.1321), (1.3751, 1.1792), (0.1679, 1.2556), (-0.1373, 1.2323), (-0.4019, 1.1671),
+    (-0.6843, 1.03), (-0.9052, 0.8379), (-1.0593, 0.5933), (-1.1348, 0.309), (-1.1348, 0.0191), (-1.0618, -0.3818),
+    (-0.9581, -0.64), (-0.7925, -0.8906), (-0.5629, -1.117), (-0.3034, -1.2897), (-0.004, -1.4176), (0.3264, -1.4881),
+    (0.7036, -1.491), (1.0918, -1.426), (1.4979, -1.2889), (1.8887, -1.091), (2.1551, -0.8929), (2.3635, -0.6564),
+    (2.4985, -0.3973),
 ];
 
 /// `roduro_smoker_home_01`'s work yard: fenced, gated, its stations in the open.
-pub static RODURO_SMOKER_HOME_01_YARD: Yard = Yard { outline: RODURO_SMOKER_HOME_01_YARD_OUTLINE, gate: (2.5846, 0.1462), gate_width: 2.2, fence: 1.3, pieces: &[f(Hearth, 1.3292, -0.5045, -2.6728), f(Rack, 1.3894, -0.986, -2.6966), f(Rack, 1.4425, 0.2756, 0.0), f(Workbench, 1.3823, 0.9376, -0.1544)] };
+pub static RODURO_SMOKER_HOME_01_YARD: Yard = Yard { outline: RODURO_SMOKER_HOME_01_YARD_OUTLINE, gate: (2.586, 0.1461), gate_width: 2.2, fence: 1.3, pieces: &[f(Hearth, 1.3503, -0.5367, -2.6728), f(Rack, 1.4132, -0.914, -2.6728), f(Rack, 1.4895, 0.2912, 0.0), f(Workbench, 1.4266, 0.9201, -0.1651)] };
 
 /// `roduro_tanner_home_01`'s ground tier (`assets/buildings/roduro_tanner_home_01.json`), layout units, counter-clockwise.
 pub const RODURO_TANNER_HOME_01_OUTLINE: &[(f32, f32)] = &[

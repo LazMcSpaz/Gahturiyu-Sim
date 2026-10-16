@@ -575,6 +575,444 @@
     "blurb": "A workshop with living space, 0 beds."
   },
   {
+    "key": "qotiro_drill_yard_01",
+    "name": "Drill yard",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 6.0,
+    "width": 14.0,
+    "size_range": [
+      13.75,
+      14.25
+    ],
+    "outline": [
+      [
+        -3.0,
+        -7.0
+      ],
+      [
+        3.0,
+        -7.0
+      ],
+      [
+        3.0,
+        7.0
+      ],
+      [
+        -3.0,
+        7.0
+      ]
+    ],
+    "storeys": 2,
+    "beds": 2,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.63,
+    "blurb": "A workshop with living space, 2 beds."
+  },
+  {
+    "key": "qotiro_family_house_01",
+    "name": "Family house",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 14.0,
+    "width": 10.0,
+    "size_range": [
+      13.75,
+      14.25
+    ],
+    "outline": [
+      [
+        -7.0,
+        -5.0
+      ],
+      [
+        7.0,
+        -5.0
+      ],
+      [
+        7.0,
+        5.0
+      ],
+      [
+        -7.0,
+        5.0
+      ]
+    ],
+    "storeys": 3,
+    "beds": 3,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.4,
+    "blurb": "A home, 3 beds."
+  },
+  {
+    "key": "qotiro_forge_01",
+    "name": "Forge",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 4.0,
+    "width": 10.0,
+    "size_range": [
+      9.75,
+      10.25
+    ],
+    "outline": [
+      [
+        -2.0,
+        -5.0
+      ],
+      [
+        2.0,
+        -5.0
+      ],
+      [
+        2.0,
+        5.0
+      ],
+      [
+        -2.0,
+        5.0
+      ]
+    ],
+    "storeys": 1,
+    "beds": 0,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.5,
+    "blurb": "A workshop with living space, 0 beds."
+  },
+  {
+    "key": "qotiro_home_corner_01",
+    "name": "Corner house",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 12.0,
+    "width": 10.0,
+    "size_range": [
+      11.75,
+      12.25
+    ],
+    "outline": [
+      [
+        -6.0,
+        -5.0
+      ],
+      [
+        6.0,
+        -5.0
+      ],
+      [
+        6.0,
+        5.0
+      ],
+      [
+        -6.0,
+        5.0
+      ]
+    ],
+    "storeys": 3,
+    "beds": 0,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.45,
+    "blurb": "A home, 0 beds."
+  },
+  {
+    "key": "qotiro_home_long_01",
+    "name": "Long house",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 8.0,
+    "width": 20.0,
+    "size_range": [
+      19.75,
+      20.25
+    ],
+    "outline": [
+      [
+        -4.0,
+        -10.0
+      ],
+      [
+        4.0,
+        -10.0
+      ],
+      [
+        4.0,
+        10.0
+      ],
+      [
+        -4.0,
+        10.0
+      ]
+    ],
+    "storeys": 2,
+    "beds": 3,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.0,
+    "blurb": "A home, 3 beds."
+  },
+  {
+    "key": "qotiro_home_small_01",
+    "name": "Small home",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 6.0,
+    "width": 6.0,
+    "size_range": [
+      5.75,
+      6.25
+    ],
+    "outline": [
+      [
+        -3.0,
+        -3.0
+      ],
+      [
+        3.0,
+        -3.0
+      ],
+      [
+        3.0,
+        3.0
+      ],
+      [
+        -3.0,
+        3.0
+      ]
+    ],
+    "storeys": 2,
+    "beds": 0,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.21,
+    "blurb": "A home, 0 beds."
+  },
+  {
+    "key": "qotiro_home_small_end_01",
+    "name": "Small home",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 8.0,
+    "width": 6.0,
+    "size_range": [
+      7.75,
+      8.25
+    ],
+    "outline": [
+      [
+        -4.0,
+        -3.0
+      ],
+      [
+        4.0,
+        -3.0
+      ],
+      [
+        4.0,
+        3.0
+      ],
+      [
+        -4.0,
+        3.0
+      ]
+    ],
+    "storeys": 2,
+    "beds": 0,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.13,
+    "blurb": "A home, 0 beds."
+  },
+  {
+    "key": "qotiro_home_small_low_01",
+    "name": "Low small home",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 8.0,
+    "width": 6.0,
+    "size_range": [
+      7.75,
+      8.25
+    ],
+    "outline": [
+      [
+        -4.0,
+        -3.0
+      ],
+      [
+        4.0,
+        -3.0
+      ],
+      [
+        4.0,
+        3.0
+      ],
+      [
+        -4.0,
+        3.0
+      ]
+    ],
+    "storeys": 2,
+    "beds": 1,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.58,
+    "blurb": "A home, 1 bed."
+  },
+  {
+    "key": "qotiro_home_small_tall_01",
+    "name": "Tall small home",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 6.0,
+    "width": 6.0,
+    "size_range": [
+      5.75,
+      6.25
+    ],
+    "outline": [
+      [
+        -3.0,
+        -3.0
+      ],
+      [
+        3.0,
+        -3.0
+      ],
+      [
+        3.0,
+        3.0
+      ],
+      [
+        -3.0,
+        3.0
+      ]
+    ],
+    "storeys": 3,
+    "beds": 2,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.13,
+    "blurb": "A home, 2 beds."
+  },
+  {
+    "key": "qotiro_shrine_hall_01",
+    "name": "Shrine hall",
+    "group": "building",
+    "people": "qotiro",
+    "kind": "QotiroBlock",
+    "shape": "poly",
+    "depth": 12.0,
+    "width": 12.0,
+    "size_range": [
+      11.75,
+      12.25
+    ],
+    "outline": [
+      [
+        -6.0,
+        -6.0
+      ],
+      [
+        6.0,
+        -6.0
+      ],
+      [
+        6.0,
+        6.0
+      ],
+      [
+        -6.0,
+        6.0
+      ]
+    ],
+    "storeys": 1,
+    "beds": 3,
+    "extra_beds": 8,
+    "jobs": [],
+    "stations": [
+      "Stove"
+    ],
+    "scalable": true,
+    "rotatable": true,
+    "glyph": "qotiro",
+    "door": 0.0,
+    "blurb": "A hall where people eat or gather, 3 beds."
+  },
+  {
     "key": "roduro_binder_home_01",
     "name": "Bookbinder's home",
     "group": "building",
@@ -4195,156 +4633,156 @@
     "people": "roduro",
     "kind": "RoduroHome",
     "shape": "poly",
-    "depth": 9.97,
-    "width": 9.97,
+    "depth": 9.54,
+    "width": 9.54,
     "size_range": [
-      9.72,
-      10.22
+      9.29,
+      9.79
     ],
     "outline": [
       [
-        4.99,
+        4.77,
         0.0
       ],
       [
-        4.95,
-        0.89
+        4.73,
+        0.85
       ],
       [
-        4.78,
-        1.77
+        4.57,
+        1.69
       ],
       [
-        4.47,
-        2.61
+        4.27,
+        2.49
       ],
       [
-        3.99,
-        3.35
+        3.81,
+        3.21
       ],
       [
-        3.35,
-        3.99
+        3.21,
+        3.81
       ],
       [
-        2.61,
-        4.47
+        2.49,
+        4.27
       ],
       [
-        1.77,
-        4.78
+        1.69,
+        4.57
       ],
       [
-        0.89,
-        4.95
+        0.85,
+        4.73
       ],
       [
         0.0,
-        4.99
+        4.77
       ],
       [
-        -0.89,
-        4.95
+        -0.85,
+        4.73
       ],
       [
-        -1.77,
-        4.78
+        -1.69,
+        4.57
       ],
       [
-        -2.61,
-        4.47
+        -2.49,
+        4.27
       ],
       [
-        -3.35,
-        3.99
+        -3.21,
+        3.81
       ],
       [
-        -3.99,
-        3.35
+        -3.81,
+        3.21
       ],
       [
-        -4.46,
-        2.61
+        -4.27,
+        2.49
       ],
       [
-        -4.78,
-        1.77
+        -4.57,
+        1.69
       ],
       [
-        -4.94,
-        0.89
+        -4.73,
+        0.85
       ],
       [
-        -4.99,
+        -4.77,
         0.0
       ],
       [
-        -4.94,
-        -0.89
+        -4.73,
+        -0.85
       ],
       [
-        -4.78,
-        -1.77
+        -4.57,
+        -1.69
       ],
       [
-        -4.46,
-        -2.61
+        -4.27,
+        -2.49
       ],
       [
-        -3.99,
-        -3.35
+        -3.81,
+        -3.21
       ],
       [
-        -3.35,
-        -3.99
+        -3.21,
+        -3.81
       ],
       [
-        -2.61,
-        -4.46
+        -2.49,
+        -4.27
       ],
       [
-        -1.77,
-        -4.78
+        -1.69,
+        -4.57
       ],
       [
-        -0.89,
-        -4.94
+        -0.85,
+        -4.73
       ],
       [
         0.0,
-        -4.99
+        -4.77
       ],
       [
-        0.89,
-        -4.94
+        0.85,
+        -4.73
       ],
       [
-        1.77,
-        -4.78
+        1.69,
+        -4.57
       ],
       [
-        2.61,
-        -4.46
+        2.49,
+        -4.27
       ],
       [
-        3.35,
-        -3.99
+        3.21,
+        -3.81
       ],
       [
-        3.99,
-        -3.35
+        3.81,
+        -3.21
       ],
       [
-        4.47,
-        -2.61
+        4.27,
+        -2.49
       ],
       [
-        4.78,
-        -1.77
+        4.57,
+        -1.69
       ],
       [
-        4.95,
-        -0.89
+        4.73,
+        -0.85
       ]
     ],
     "storeys": 2,

@@ -550,11 +550,12 @@ def rust_layout(specs):
             consts.append(f"""/// `{id}`'s work yard: fenced, gated, its stations in the open.
 pub static {up}_YARD: Yard = Yard {{ outline: {up}_YARD_OUTLINE, gate: ({f3(u(y['gate'])[0])}, {f3(u(y['gate'])[1])}), gate_width: {f3(y['gate_width'])}, fence: {f3(y['fence_h'])}, pieces: &[{pieces}] }};""")
             yard = f"Some(&{up}_YARD)"
-        use = "Use::Workshop" if g.get("use") == "workshop" else "Use::Home"
+        use = {"workshop": "Use::Workshop", "hall": "Use::Hall", "shrine": "Use::Shrine"}.get(g.get("use"), "Use::Home")
+        kind = "K::QotiroBlock" if g.get("kind") == "qotiro" else "K::RoduroHome"
         variants.append(f'''    Variant {{
         key: "{id}",
         name: "{spec['label'].split(',')[0].split(' / ')[0].split(' (')[0]}",
-        kind: K::RoduroHome,
+        kind: {kind},
         shape: Shape::Poly({up}_OUTLINE),
         use_: {use},
         half: ({f3(g['half'][0])}, {f3(g['half'][1])}),
@@ -608,16 +609,27 @@ def rust_forms(specs):
                 c = y["chimney"]
                 chimney = f"Some((({f3(u(c['at'])[0])}, {f3(u(c['at'])[1])}), {f3(c['r'])}, {f3(c['height'])}))"
             look = f"Some(YardLook {{ dressing: &[{dress}], shades: &[{shades}], columns: &[{cols}], canopy: {canopy}, chimney: {chimney} }})"
+        qotiro = "None"
+        if g.get("qotiro"):
+            q = g["qotiro"]
+            props = []
+            for p in q["props"] + q["stairs"]:
+                props.append(f"(QProp::{p['kind'].capitalize()}, ({f3(u(p['at'])[0])}, {f3(u(p['at'])[1])}), {f3(p['rot'])}, ({f3(p['size'][0])}, {f3(p['size'][1])}, {f3(p['size'][2])}), {f3(p['z'])})")
+            ups = ", ".join(f"(({f3(u(o['xy'])[0])}, {f3(u(o['xy'])[1])}), {f3(o['yaw'])}, {f3(o['z'])})" for o in q["doors_up"])
+            heads = ", ".join(f"({f3(u(st['head'])[0])}, {f3(u(st['head'])[1])})" for st in q["stairs"])
+            qotiro = f"Some(QotiroLook {{ props: &[{', '.join(props)}], doors_up: &[{ups}], landings: &[{heads}] }})"
+        roof = {"barrel": "Barrel", "flat": "Flat"}.get(g["roof"], "Dome")
         forms.append(f'''    Form {{
         key: "{id}",
         at_size: {f3(g['size'])},
         tiers: &[{tier_s}],
-        roof: Roof::{'Barrel' if g['roof'] == 'barrel' else 'Dome'},
+        roof: Roof::{roof},
         dome: {f3(g['dome'])},
         stair: {stair},
         doors: &[{doors}],
         windows: &[{windows}],
         yard: {look},
+        qotiro: {qotiro},
     }},''')
     return "\n".join(forms), "\n\n".join(consts)
 
@@ -661,16 +673,43 @@ def design_specs(cat_dir):
         spec["game"]["use"] = "workshop"
         spec["game"]["yard"] = place_yard(d, Polygon(spec["exterior"]["tiers"][0]["outline"]))
         out[id] = spec
+    # The Qotiro buildings (`qotiro_designs.py`): quarried boxes, flat roofs,
+    # outside stairs and terrace props; two with a walled yard.
+    import qotiro_designs as qd
+    for id, d in qd.designs().items():
+        tiers = d["tiers"]
+        xs = [p[0] for p in tiers[0]["outline"]]
+        ys = [p[1] for p in tiers[0]["outline"]]
+        size_xyz = [round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), tiers[-1]["z1"]]
+        spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], [], d["windows"], size_xyz, roof="flat")
+        spec["designed"] = True
+        spec["game"]["kind"] = "qotiro"
+        spec["game"]["qotiro"] = d["qotiro"]
+        if d.get("use"):
+            spec["game"]["use"] = d["use"]
+        out[id] = spec
+    for id, d in qd.yard_designs().items():
+        tiers = d["tiers"]
+        xs = [p[0] for p in tiers[0]["outline"]]
+        ys = [p[1] for p in tiers[0]["outline"]]
+        size_xyz = [round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), tiers[-1]["z1"]]
+        spec = finish_spec(id, d["label"], d["kit"], tiers, d["level"], [], d["windows"], size_xyz, roof="flat")
+        spec["designed"] = True
+        spec["game"]["kind"] = "qotiro"
+        spec["game"]["qotiro"] = d["qotiro"]
+        spec["game"]["use"] = "workshop"
+        spec["game"]["yard"] = place_yard(d, Polygon(spec["exterior"]["tiers"][0]["outline"]), qd.TRADE_YARDS)
+        out[id] = spec
     return out
 
 
-def place_yard(d, house):
+def place_yard(d, house, trades=None):
     """A designed trade home's yard: the fence ring, the gate, the roofed
     shed on its posts, the chimney, and the trade's pieces and dressing
     placed on the open ground (stations under the shed first)."""
     import roduro_designs as rd
     from shapely.ops import unary_union
-    trade = rd.TRADE_YARDS[d["trade"]]
+    trade = (trades or rd.TRADE_YARDS)[d["trade"]]
     # (Opened by a third of a metre: that drops any sliver of ground the
     # yard's outline shares with the house's own wall.)
     yard = d["yard"].buffer(-0.35, join_style=1).buffer(0.35, join_style=1).simplify(0.08)

@@ -1,0 +1,338 @@
+{
+ "id": "qotiro_home_small_01",
+ "label": "Small home, a room on the roof",
+ "units": "metres",
+ "frame": "front (main door) faces +x; z up; origin = model origin; plan coordinates [x, y]",
+ "kit": "home",
+ "overall": {
+  "size_xyz": [
+   6.0,
+   6.0,
+   6.300000000000001
+  ],
+  "height": 6.300000000000001
+ },
+ "game": {
+  "variant": "qotiro_home_small_01",
+  "centre": [
+   0.0,
+   0.0
+  ],
+  "size": 6.0,
+  "half": [
+   0.5,
+   0.5
+  ],
+  "sizes": [
+   5.75,
+   6.25
+  ],
+  "door": 0.2083,
+  "storeys": 2,
+  "roof": "flat",
+  "dome": 0.111,
+  "windows": [
+   2,
+   1
+  ],
+  "walls": [
+   {
+    "a": [
+     -0.6,
+     2.98
+    ],
+    "b": [
+     -0.6,
+     -2.98
+    ],
+    "gap": 0.5
+   }
+  ],
+  "hand": false,
+  "furniture": [
+   {
+    "what": "Hearth",
+    "at": [
+     1.15,
+     -1.04
+    ],
+    "rot": 0.0
+   },
+   {
+    "what": "Table",
+    "at": [
+     0.9,
+     1.71
+    ],
+    "rot": 0.0
+   }
+  ],
+  "holders": [
+   {
+    "what": "Chest",
+    "at": [
+     -1.79,
+     2.21
+    ],
+    "rot": 0.0
+   }
+  ],
+  "stair": null,
+  "other_doors": [],
+  "yard": null,
+  "note": "The sim walks the ground tier only: tier A's outline, level 1's walls and doors. The other tiers, the roof, the stair and the other doors are drawn, not walked. Layout units are metres from `centre` divided by half \u00d7 size.",
+  "kind": "qotiro",
+  "qotiro": {
+   "stairs": [
+    {
+     "kind": "stair",
+     "at": [
+      3.0,
+      -3.7
+     ],
+     "rot": 3.1416,
+     "size": [
+      6.0,
+      1.4,
+      3.6
+     ],
+     "z": 0.0,
+     "head": [
+      -4.0,
+      -3.7
+     ]
+    }
+   ],
+   "doors_up": [
+    {
+     "xy": [
+      1.0,
+      1.0
+     ],
+     "yaw": 0.0,
+     "z": 3.6
+    }
+   ],
+   "props": [
+    {
+     "kind": "disc",
+     "at": [
+      3.0,
+      -1.4
+     ],
+     "rot": 0.0,
+     "size": [
+      0.8,
+      0.1,
+      0.8
+     ],
+     "z": 2.2
+    },
+    {
+     "kind": "awning",
+     "at": [
+      1.3,
+      -1.2
+     ],
+     "rot": 0.0,
+     "size": [
+      3.0,
+      3.0,
+      2.3
+     ],
+     "z": 3.6
+    },
+    {
+     "kind": "trough",
+     "at": [
+      2.4,
+      2.1
+     ],
+     "rot": 0.0,
+     "size": [
+      1.0,
+      0.5,
+      0.5
+     ],
+     "z": 3.6
+    },
+    {
+     "kind": "jars",
+     "at": [
+      -2.2,
+      -2.2
+     ],
+     "rot": 0.0,
+     "size": [
+      0.9,
+      0.9,
+      0.8
+     ],
+     "z": 3.6
+    }
+   ]
+  }
+ },
+ "exterior": {
+  "tiers": [
+   {
+    "name": "A",
+    "z0": 0.0,
+    "z1": 3.6,
+    "wall_top": 3.3,
+    "outline": [
+     [
+      -3.0,
+      -3.0
+     ],
+     [
+      3.0,
+      -3.0
+     ],
+     [
+      3.0,
+      3.0
+     ],
+     [
+      -3.0,
+      3.0
+     ]
+    ]
+   },
+   {
+    "name": "B",
+    "z0": 3.6,
+    "z1": 6.300000000000001,
+    "wall_top": 6.0,
+    "outline": [
+     [
+      -3.0,
+      -1.0
+     ],
+     [
+      1.0,
+      -1.0
+     ],
+     [
+      1.0,
+      3.0
+     ],
+     [
+      -3.0,
+      3.0
+     ]
+    ]
+   }
+  ]
+ },
+ "levels": [
+  {
+   "level": 1,
+   "floor_z": 0.1,
+   "floor_m2": 29.2,
+   "outline": [
+    [
+     2.7,
+     -2.7
+    ],
+    [
+     -2.7,
+     -2.7
+    ],
+    [
+     -2.7,
+     2.7
+    ],
+    [
+     2.7,
+     2.7
+    ]
+   ],
+   "rooms": [
+    {
+     "name": "main",
+     "area_m2": 17.8,
+     "hub": true,
+     "poly": [
+      [
+       2.7,
+       -2.7
+      ],
+      [
+       -0.6,
+       -2.7
+      ],
+      [
+       -0.6,
+       2.7
+      ],
+      [
+       2.7,
+       2.7
+      ]
+     ]
+    },
+    {
+     "name": "bedroom",
+     "area_m2": 11.3,
+     "hub": false,
+     "poly": [
+      [
+       -0.6,
+       -2.7
+      ],
+      [
+       -2.7,
+       -2.7
+      ],
+      [
+       -2.7,
+       2.7
+      ],
+      [
+       -0.6,
+       2.7
+      ]
+     ]
+    }
+   ],
+   "doors": [],
+   "outside_doors": [
+    {
+     "xy": [
+      3.0,
+      0.5
+     ],
+     "z": 0.1,
+     "yaw": 0.0
+    }
+   ],
+   "walls": [
+    [
+     [
+      -0.6,
+      3.0
+     ],
+     [
+      -0.6,
+      -3.0
+     ]
+    ]
+   ],
+   "door_gaps": [
+    [
+     [
+      -0.6,
+      -0.5
+     ],
+     [
+      -0.6,
+      0.5
+     ]
+    ]
+   ]
+  }
+ ],
+ "stairs": [],
+ "designed": true
+}
