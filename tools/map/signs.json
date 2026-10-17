@@ -1,0 +1,148 @@
+[
+  {
+    "key": "smith",
+    "name": "Smith",
+    "variants": [
+      "roduro_forge",
+      "qotiro_workyard"
+    ],
+    "place": "smithy"
+  },
+  {
+    "key": "weaver",
+    "name": "Weaver and tailor",
+    "variants": [
+      "roduro_loomroom",
+      "qotiro_weavehall"
+    ],
+    "place": "weavers_shed"
+  },
+  {
+    "key": "bench",
+    "name": "Bench work (tanner, carpenter, mason, boatwright)",
+    "variants": [
+      "roduro_benchroom",
+      "qotiro_benchyard"
+    ],
+    "place": "bench"
+  },
+  {
+    "key": "trader",
+    "name": "Trader",
+    "variants": [
+      "roduro_trader",
+      "qotiro_market"
+    ],
+    "place": "shop"
+  },
+  {
+    "key": "tender",
+    "name": "Stone-tender",
+    "variants": [
+      "roduro_tender"
+    ],
+    "place": "tenders_yard"
+  },
+  {
+    "key": "food_shop",
+    "name": "Food shop",
+    "variants": [],
+    "place": "shop_food"
+  },
+  {
+    "key": "goods_shop",
+    "name": "Goods shop",
+    "variants": [],
+    "place": "shop"
+  },
+  {
+    "key": "materials_shop",
+    "name": "Materials shop",
+    "variants": [],
+    "place": "shop_materials"
+  },
+  {
+    "key": "inn",
+    "name": "Inn",
+    "variants": [],
+    "place": "inn"
+  },
+  {
+    "key": "healer",
+    "name": "Healer",
+    "variants": [],
+    "place": "healers_house"
+  },
+  {
+    "key": "healing_house",
+    "name": "Healing house",
+    "variants": [],
+    "place": "healing_house"
+  },
+  {
+    "key": "teacher",
+    "name": "Teacher",
+    "variants": [],
+    "place": "teaching_house"
+  },
+  {
+    "key": "exchange",
+    "name": "Exchange",
+    "variants": [],
+    "place": "exchange_house"
+  },
+  {
+    "key": "letters",
+    "name": "Letters house",
+    "variants": [],
+    "place": "letters_house"
+  },
+  {
+    "key": "alchemist",
+    "name": "Alchemist",
+    "variants": [],
+    "place": "alchemy_table"
+  },
+  {
+    "key": "scribe",
+    "name": "Scribe's desk",
+    "variants": [],
+    "place": "desk"
+  },
+  {
+    "key": "workshop",
+    "name": "Workshop",
+    "variants": [],
+    "place": "workshop"
+  },
+  {
+    "key": "shrine",
+    "name": "Shrine",
+    "variants": [],
+    "place": "shrine"
+  },
+  {
+    "key": "guard",
+    "name": "Guard post",
+    "variants": [],
+    "place": "guard_post"
+  },
+  {
+    "key": "hall",
+    "name": "Hall",
+    "variants": [],
+    "place": "hall"
+  },
+  {
+    "key": "kitchen",
+    "name": "Kitchen",
+    "variants": [],
+    "place": "kitchen"
+  },
+  {
+    "key": "mess",
+    "name": "Mess hall",
+    "variants": [],
+    "place": "mess_hall"
+  }
+]
