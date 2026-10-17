@@ -1,0 +1,419 @@
+{
+ "id": "horaro_longhouse_bent_01",
+ "label": "Longhouse bent, two vaults meeting",
+ "units": "metres",
+ "frame": "the way on (+x); z up from the water; plan coordinates [x, y]",
+ "kit": "stilt",
+ "overall": {
+  "size_xyz": [
+   19.0,
+   13.0,
+   6.4
+  ],
+  "height": 6.4
+ },
+ "game": {
+  "variant": "horaro_longhouse_bent_01",
+  "centre": [
+   0.0,
+   0.0
+  ],
+  "size": 19.0,
+  "half": [
+   0.5,
+   0.3421
+  ],
+  "sizes": [
+   18.75,
+   19.25
+  ],
+  "door": 0.0,
+  "storeys": 1,
+  "roof": "flat",
+  "dome": 0.0,
+  "windows": [],
+  "walls": [],
+  "hand": false,
+  "furniture": [],
+  "holders": [],
+  "stair": null,
+  "other_doors": [],
+  "yard": null,
+  "kind": "horaro",
+  "use": "home",
+  "horaro": {
+   "deck": 2.7,
+   "supports": [
+    {
+     "kind": "pier",
+     "at": [
+      -8.6,
+      -1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -8.6,
+      1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -5.16,
+      -5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -5.16,
+      -1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -5.16,
+      1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -5.16,
+      5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -1.72,
+      -5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -1.72,
+      -1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -1.72,
+      1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      -1.72,
+      5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      1.72,
+      -5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      1.72,
+      -1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      1.72,
+      1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      1.72,
+      5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      5.16,
+      -5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      5.16,
+      -1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      5.16,
+      1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      5.16,
+      5.6
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      8.6,
+      -1.867
+     ],
+     "r": 0.42
+    },
+    {
+     "kind": "pier",
+     "at": [
+      8.6,
+      1.867
+     ],
+     "r": 0.42
+    }
+   ],
+   "hulls": [
+    {
+     "kind": "longhouse",
+     "at": [
+      -3.5,
+      1.5
+     ],
+     "yaw": 0.3,
+     "size": [
+      10.0,
+      6.0,
+      3.7
+     ]
+    },
+    {
+     "kind": "longhouse",
+     "at": [
+      3.8,
+      -2.4
+     ],
+     "yaw": -0.5,
+     "size": [
+      8.0,
+      6.0,
+      3.7
+     ]
+    }
+   ],
+   "seams": [
+    [
+     0,
+     1
+    ]
+   ],
+   "doors": [
+    {
+     "xy": [
+      7.31,
+      -4.318
+     ],
+     "yaw": -0.5
+    },
+    {
+     "xy": [
+      -8.277,
+      0.022
+     ],
+     "yaw": 3.4416
+    }
+   ],
+   "portholes": [],
+   "access": [
+    {
+     "kind": "ramp",
+     "at": [
+      9.5,
+      3.468
+     ],
+     "yaw": 0.35,
+     "len": 6.0
+    }
+   ],
+   "props": [
+    {
+     "kind": "basket",
+     "at": [
+      7.5,
+      3.5
+     ],
+     "rot": 0.0,
+     "size": [
+      0.9,
+      0.9,
+      0.8
+     ],
+     "z": 0.0
+    },
+    {
+     "kind": "sacks",
+     "at": [
+      -7.0,
+      -4.5
+     ],
+     "rot": 0.0,
+     "size": [
+      1.4,
+      0.6,
+      0.6
+     ],
+     "z": 0.0
+    },
+    {
+     "kind": "lamp",
+     "at": [
+      8.0,
+      -1.0
+     ],
+     "rot": 0.0,
+     "size": [
+      0.3,
+      0.3,
+      2.4
+     ],
+     "z": 0.0
+    }
+   ],
+   "quay": null,
+   "rail": [
+    [
+     0.046,
+     1.0
+    ]
+   ]
+  },
+  "note": "A stilt building: the sim knows the deck's outline only (nothing walks it); everything else is drawn from `horaro`. Layout units are metres from `centre` divided by half x size."
+ },
+ "exterior": {
+  "tiers": [
+   {
+    "name": "deck",
+    "z0": 0.0,
+    "z1": 2.7,
+    "wall_top": 2.7,
+    "outline": [
+     [
+      9.393,
+      5.636
+     ],
+     [
+      9.09,
+      6.09
+     ],
+     [
+      8.636,
+      6.393
+     ],
+     [
+      8.1,
+      6.5
+     ],
+     [
+      -8.1,
+      6.5
+     ],
+     [
+      -8.636,
+      6.393
+     ],
+     [
+      -9.09,
+      6.09
+     ],
+     [
+      -9.393,
+      5.636
+     ],
+     [
+      -9.5,
+      5.1
+     ],
+     [
+      -9.5,
+      -5.1
+     ],
+     [
+      -9.393,
+      -5.636
+     ],
+     [
+      -9.09,
+      -6.09
+     ],
+     [
+      -8.636,
+      -6.393
+     ],
+     [
+      -8.1,
+      -6.5
+     ],
+     [
+      8.1,
+      -6.5
+     ],
+     [
+      8.636,
+      -6.393
+     ],
+     [
+      9.09,
+      -6.09
+     ],
+     [
+      9.393,
+      -5.636
+     ],
+     [
+      9.5,
+      -5.1
+     ],
+     [
+      9.5,
+      5.1
+     ]
+    ]
+   }
+  ]
+ },
+ "levels": [],
+ "stairs": [],
+ "designed": true
+}

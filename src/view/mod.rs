@@ -11,6 +11,7 @@ pub mod editor;
 pub mod effecticons;
 pub mod floaters;
 pub mod foliage;
+pub mod horaro;
 pub mod hud;
 pub mod interiors;
 pub mod kit;

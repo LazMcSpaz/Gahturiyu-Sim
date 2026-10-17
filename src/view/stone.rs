@@ -15,18 +15,33 @@
 
 use bevy::image::{Image, ImageAddressMode};
 
-pub const WIDTH: usize = 2048;
+pub const WIDTH: usize = 4096;
 pub const HEIGHT: usize = 2048;
 /// Metres of wall the texture's height covers before it repeats.
 pub const TEX_H: f32 = 16.0;
-/// The white columns at the left, for everything that isn't stone.
+/// The white columns at the left, for everything that isn't textured.
 const WHITE_COLS: usize = 2;
-/// The grown stone's columns, then a gap, then the quarried stone's.
+/// Four regions side by side, a gap between each: the grown stone's
+/// strata, the quarried stone's ashlar, the Horaro's basket weave, and
+/// their plank decking. Each is `TEX_H` metres tall and repeats top to
+/// bottom; across, each covers its own width in metres (below) and a face
+/// is laid along it from its start.
 const STRATA_COLS: usize = 1020;
 const GAP_COLS: usize = 4;
-const ASHLAR_COLS: usize = WIDTH - WHITE_COLS - STRATA_COLS - GAP_COLS;
+const ASHLAR_COLS: usize = 1020;
+const WEAVE_COLS: usize = 1020;
+const PLANK_COLS: usize = WIDTH - WHITE_COLS - STRATA_COLS - ASHLAR_COLS - WEAVE_COLS - 3 * GAP_COLS;
+const ASHLAR_AT: usize = WHITE_COLS + STRATA_COLS + GAP_COLS;
+const WEAVE_AT: usize = ASHLAR_AT + ASHLAR_COLS + GAP_COLS;
+const PLANK_AT: usize = WEAVE_AT + WEAVE_COLS + GAP_COLS;
 /// Metres of a quarried wall its columns cover.
 pub const ASHLAR_W: f32 = 16.0;
+/// Metres round a woven hull its columns cover (a lobe's girth is laid
+/// along it in laps).
+pub const WEAVE_W: f32 = 8.0;
+/// Metres across the boards the plank columns cover (the boards run up
+/// the texture, so a deck's length is unlimited; its width is not).
+pub const PLANK_W: f32 = 24.0;
 /// Texture coordinates that land on the white columns.
 pub const WHITE_UV: [f32; 2] = [1.0 / WIDTH as f32, 0.5];
 
@@ -38,7 +53,19 @@ pub fn u_of(t: f32) -> f32 {
 /// The u coordinate `s` metres along a quarried wall (0..`ASHLAR_W`).
 pub fn u_ashlar(s: f32) -> f32 {
     let t = (s / ASHLAR_W).clamp(0.0, 1.0);
-    ((WHITE_COLS + STRATA_COLS + GAP_COLS) as f32 + 0.5 + t * (ASHLAR_COLS - 1) as f32) / WIDTH as f32
+    (ASHLAR_AT as f32 + 0.5 + t * (ASHLAR_COLS - 1) as f32) / WIDTH as f32
+}
+
+/// The u coordinate `s` metres round a woven hull (0..`WEAVE_W`).
+pub fn u_weave(s: f32) -> f32 {
+    let t = (s / WEAVE_W).clamp(0.0, 1.0);
+    (WEAVE_AT as f32 + 0.5 + t * (WEAVE_COLS - 1) as f32) / WIDTH as f32
+}
+
+/// The u coordinate `s` metres across the boards of a deck (0..`PLANK_W`).
+pub fn u_plank(s: f32) -> f32 {
+    let t = (s / PLANK_W).clamp(0.0, 1.0);
+    (PLANK_AT as f32 + 0.5 + t * (PLANK_COLS - 1) as f32) / WIDTH as f32
 }
 
 /// One stratum: how thick, and its tone against the stone's colour.
@@ -164,8 +191,21 @@ pub fn texture() -> Image {
                 continue;
             }
             if c >= WHITE_COLS + STRATA_COLS {
-                // The gap (the quarried stone's mean), then the quarried stone.
-                let (rr, gg, bb) = if c < WHITE_COLS + STRATA_COLS + GAP_COLS { (0.80, 0.80, 0.80) } else { ashlar((c - WHITE_COLS - STRATA_COLS - GAP_COLS) as f32 / (ASHLAR_COLS - 1) as f32 * ASHLAR_W, (r as f32 + 0.5) / HEIGHT as f32 * TEX_H) };
+                // The other regions, each behind a gap in its own mean tone.
+                let v = (r as f32 + 0.5) / HEIGHT as f32 * TEX_H;
+                let (rr, gg, bb) = if c < ASHLAR_AT {
+                    (0.80, 0.80, 0.80)
+                } else if c < ASHLAR_AT + ASHLAR_COLS {
+                    ashlar((c - ASHLAR_AT) as f32 / (ASHLAR_COLS - 1) as f32 * ASHLAR_W, v)
+                } else if c < WEAVE_AT {
+                    (0.42, 0.38, 0.30)
+                } else if c < WEAVE_AT + WEAVE_COLS {
+                    weave((c - WEAVE_AT) as f32 / (WEAVE_COLS - 1) as f32 * WEAVE_W, v)
+                } else if c < PLANK_AT {
+                    (0.46, 0.41, 0.34)
+                } else {
+                    plank((c - PLANK_AT) as f32 / (PLANK_COLS - 1) as f32 * PLANK_W, v)
+                };
                 px[at] = (rr.clamp(0.0, 1.0) * 255.0) as u8;
                 px[at + 1] = (gg.clamp(0.0, 1.0) * 255.0) as u8;
                 px[at + 2] = (bb.clamp(0.0, 1.0) * 255.0) as u8;
@@ -269,6 +309,109 @@ fn ashlar(s: f32, v: f32) -> (f32, f32, f32) {
     l *= 0.95 + 0.1 * noise(s / ASHLAR_W, v / TEX_H * 0.1, 96, 4, 24);
     // A touch cool.
     (l * 0.98, l, l * 1.03)
+}
+
+/// The Horaro's basket weave at `s` metres round and `v` up: strands a
+/// hand wide over and under each other in a plain weave, each strand
+/// rounded (light along its crown, dark at its edges), a little wobble
+/// and its own tone, and the dark inside showing through the gaps
+/// between them. Every third strand up is a thicker rib (the lashed
+/// hoops the paintings show). Repeats every `WEAVE_W` round and `TEX_H`
+/// up.
+fn weave(s: f32, v: f32) -> (f32, f32, f32) {
+    const CELL: f32 = 0.24;
+    const GAP: f32 = 0.045;
+    let (ts, tv) = (s / WEAVE_W, v / TEX_H);
+    // The strands wander a little, so the weave isn't a grid.
+    let ws = (noise(ts, tv, 12, 24, 31) - 0.5) * 0.06;
+    let wv = (noise(ts, tv, 24, 12, 32) - 0.5) * 0.06;
+    let (x, y) = (s + ws, v + wv);
+    let (ci, cj) = ((x / CELL).floor(), (y / CELL).floor());
+    let (fx, fy) = (x - ci * CELL, y - cj * CELL);
+    // Which strand is on top in this cell: the checkerboard of a plain
+    // weave. The upright strand runs along v in column ci, the lying one
+    // along s in row cj.
+    let upright_on_top = ((ci as i64) + (cj as i64)).rem_euclid(2) == 0;
+    let rib = (cj as i64).rem_euclid(3) == 0;
+    // How far across each strand (0 at its edge, 1 at its crown).
+    let across = |f: f32, w: f32| {
+        let m = (f - CELL * 0.5).abs();
+        let half = (CELL - GAP) * 0.5 * w;
+        if m > half { -1.0 } else { 1.0 - (m / half).powi(2) }
+    };
+    let up = across(fx, 1.0);
+    let ly = across(fy, if rib { 1.15 } else { 0.95 });
+    let tone_of = |key: u64, k: u64| 0.70 + (unit(key, k) - 0.5) * 0.34;
+    let col_tone = tone_of(0x7E_A1, ci.rem_euclid(WEAVE_W / CELL) as u64 * 7 + 1);
+    let row_tone = tone_of(0x7E_A2, cj.rem_euclid(TEX_H / CELL) as u64 * 11 + 3);
+    let (top, bottom, top_tone, bot_tone) = if upright_on_top { (up, ly, col_tone, row_tone) } else { (ly, up, row_tone, col_tone) };
+    let grain = 0.9 + 0.2 * noise(ts, tv, 160, 320, 33);
+    let l = if top >= 0.0 {
+        top_tone * (0.55 + 0.45 * top) * grain
+    } else if bottom >= 0.0 {
+        // The strand underneath, shaded by the one over it.
+        bot_tone * (0.5 + 0.38 * bottom) * 0.8 * grain
+    } else {
+        // A gap: the dark inside.
+        0.12 + 0.05 * noise(ts, tv, 64, 128, 34)
+    };
+    let l = if rib && ly >= 0.0 && (!upright_on_top || up < 0.0) { l * 0.92 } else { l };
+    // Weathered wicker: grey-brown, greyer toward the top of a hull.
+    let warm = 0.5 + 0.5 * (1.0 - (v / TEX_H).min(1.0));
+    (l * (0.90 + 0.10 * warm), l * (0.84 + 0.05 * warm), l * (0.70 + 0.03 * warm))
+}
+
+/// The Horaro's deck boards at `s` metres across the boards and `v` along
+/// them: boards a hand and a half wide with a thin dark gap between, each
+/// run of boards 1.8–3.6 m long with its joints staggered against the
+/// next board's, each board its own grey-brown tone and grain, silvered
+/// by the weather. Repeats every `PLANK_W` across and `TEX_H` along.
+fn plank(s: f32, v: f32) -> (f32, f32, f32) {
+    const BOARD: f32 = 0.24;
+    const GAP: f32 = 0.014;
+    let bi = (s / BOARD).floor();
+    let fx = s - bi * BOARD;
+    let col = bi.rem_euclid(PLANK_W / BOARD) as u64;
+    // The joints along this board's run: a seeded start, then boards of
+    // 1.8–3.6 m, the pattern fitted to repeat every TEX_H.
+    let mut joint = -1.0f32;
+    let mut y = (unit(0x9B_01, col * 3 + 1)) * 2.0 - 2.0;
+    let mut k = 0u64;
+    let mut key = col * 97;
+    while y < TEX_H {
+        let len = 1.8 + unit(0x9B_02, col * 131 + k) * 1.8;
+        let next = y + len;
+        if v >= y && v < next {
+            joint = (v - y).min(next - v);
+            key = col * 97 + k;
+            break;
+        }
+        y = next;
+        k += 1;
+    }
+    if joint < 0.0 {
+        joint = 1.0;
+    }
+    let tone = 0.72 + (unit(0x9B_03, key) - 0.5) * 0.26;
+    let (ts, tv) = (s / PLANK_W, v / TEX_H);
+    // Grain runs along the board: long streaks, a little mottle.
+    let grain = noise(ts, tv, 384, 24, 41) * 0.5 + noise(ts, tv, 96, 6, 42) * 0.3 + noise(ts, tv, 48, 96, 43) * 0.2;
+    let mut l = tone * (0.86 + 0.28 * grain);
+    // The gap between boards and the shadow at a joint.
+    let edge = fx.min(BOARD - fx);
+    if edge < GAP {
+        l *= 0.3;
+    } else if edge < 0.03 {
+        l *= 0.75 + 0.25 * ((edge - GAP) / 0.016);
+    }
+    if joint < 0.012 {
+        l *= 0.35;
+    } else if joint < 0.05 {
+        l *= 0.8 + 0.2 * (joint / 0.05);
+    }
+    // Silvered grey-brown, warmer where the grain is fresh.
+    let silver = unit(0x9B_04, key * 5 + 2);
+    (l * (1.02 - 0.08 * silver), l * (0.92 - 0.02 * silver), l * (0.76 + 0.08 * silver))
 }
 
 /// An image from its full-size pixels, with its smaller copies for

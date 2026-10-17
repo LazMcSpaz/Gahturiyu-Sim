@@ -765,6 +765,326 @@ pub const VARIANTS: &[Variant] = &[
     // `assets/buildings/*.json`; edit the files, not these.
     // ---- generated: catalogue buildings (tools/buildings/roduro_forms.py rust) ----
     Variant {
+        key: "horaro_domes_cluster_01",
+        name: "Domes cluster",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_DOMES_CLUSTER_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.4333),
+        sizes: (14.75, 15.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_egg_home_01",
+        name: "Egg home on a round deck",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_EGG_HOME_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.4706),
+        sizes: (16.75, 17.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_egg_twin_01",
+        name: "Egg twin",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_EGG_TWIN_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.4375),
+        sizes: (15.75, 16.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_fish_deck_01",
+        name: "Fish deck",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_FISH_DECK_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.4688),
+        sizes: (15.75, 16.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_hull_bent_01",
+        name: "Hull house bent round",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_HULL_BENT_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.3611),
+        sizes: (17.75, 18.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_lamp_oil_works_01",
+        name: "Lamp-oil works",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_LAMP_OIL_WORKS_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.2969),
+        sizes: (15.75, 16.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_longhouse_bent_01",
+        name: "Longhouse bent",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_LONGHOUSE_BENT_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.3421),
+        sizes: (18.75, 19.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_market_hall_01",
+        name: "Market hall",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_MARKET_HALL_01_OUTLINE),
+        use_: Use::Hall,
+        half: (0.5, 0.3571),
+        sizes: (20.75, 21.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_quay_market_01",
+        name: "Quay market",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_QUAY_MARKET_01_OUTLINE),
+        use_: Use::Hall,
+        half: (0.5, 0.325),
+        sizes: (19.75, 20.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_rock_home_01",
+        name: "Rock home",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_ROCK_HOME_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.3939),
+        sizes: (12.95, 13.45),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_rockhull_t_01",
+        name: "Rock-hull T",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_ROCKHULL_T_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.375),
+        sizes: (15.75, 16.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_rope_walk_01",
+        name: "Rope walk",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_ROPE_WALK_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.1067),
+        sizes: (29.75, 30.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_salt_deck_01",
+        name: "Salt deck",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_SALT_DECK_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.5),
+        sizes: (14.75, 15.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_salt_works_01",
+        name: "Salt works",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_SALT_WORKS_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.1562),
+        sizes: (23.75, 24.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_stilt_home_01",
+        name: "Stilt home",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_STILT_HOME_01_OUTLINE),
+        use_: Use::Home,
+        half: (0.5, 0.3133),
+        sizes: (16.35, 16.85),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
+        key: "horaro_weaving_hall_01",
+        name: "Weaving hall under a woven canopy",
+        kind: K::HoraroStilt,
+        shape: Shape::Poly(HORARO_WEAVING_HALL_01_OUTLINE),
+        use_: Use::Workshop,
+        half: (0.5, 0.4474),
+        sizes: (18.75, 19.25),
+        weight: 0,
+        door: 0.0,
+        storeys: 1,
+        walls: &[],
+        furniture: &[
+
+        ],
+        holders: &[
+
+        ],
+        yard: None,
+    },
+    Variant {
         key: "qotiro_drill_yard_01",
         name: "Drill yard",
         kind: K::QotiroBlock,
@@ -1890,6 +2210,158 @@ pub const VARIANTS: &[Variant] = &[
 ];
 
 // ---- generated outlines (tools/buildings/roduro_forms.py rust) ----
+/// `horaro_domes_cluster_01`'s ground tier (`assets/buildings/horaro_domes_cluster_01.json`), layout units, counter-clockwise.
+pub const HORARO_DOMES_CLUSTER_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1737), (0.9397, 0.342), (0.866, 0.5), (0.766, 0.6428), (0.6428, 0.7661),
+    (0.5, 0.8661), (0.342, 0.9398), (0.1736, 0.9848), (0.0, 1.0001), (-0.1736, 0.9848), (-0.342, 0.9398),
+    (-0.5, 0.8661), (-0.6428, 0.7661), (-0.766, 0.6428), (-0.866, 0.5), (-0.9397, 0.342), (-0.9848, 0.1737),
+    (-1.0, 0.0), (-0.9848, -0.1737), (-0.9397, -0.342), (-0.866, -0.5), (-0.766, -0.6428), (-0.6428, -0.7661),
+    (-0.5, -0.8661), (-0.342, -0.9398), (-0.1736, -0.9848), (-0.0, -1.0001), (0.1736, -0.9848), (0.342, -0.9398),
+    (0.5, -0.8661), (0.6428, -0.7661), (0.766, -0.6428), (0.866, -0.5), (0.9397, -0.342), (0.9848, -0.1737),
+];
+
+/// `horaro_egg_home_01`'s ground tier (`assets/buildings/horaro_egg_home_01.json`), layout units, counter-clockwise.
+pub const HORARO_EGG_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1736), (0.9396, 0.342), (0.866, 0.5), (0.766, 0.6427), (0.6428, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1736, 0.9847), (0.0, 1.0), (-0.1736, 0.9847), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6428, 0.766), (-0.766, 0.6427), (-0.866, 0.5), (-0.9396, 0.342), (-0.9848, 0.1736),
+    (-1.0, 0.0), (-0.9848, -0.1736), (-0.9396, -0.342), (-0.866, -0.5), (-0.766, -0.6427), (-0.6428, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1736, -0.9847), (-0.0, -1.0), (0.1736, -0.9847), (0.342, -0.9397),
+    (0.5, -0.866), (0.6428, -0.766), (0.766, -0.6427), (0.866, -0.5), (0.9396, -0.342), (0.9848, -0.1736),
+];
+
+/// `horaro_egg_twin_01`'s ground tier (`assets/buildings/horaro_egg_twin_01.json`), layout units, counter-clockwise.
+pub const HORARO_EGG_TWIN_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1737), (0.9397, 0.342), (0.866, 0.5), (0.766, 0.6429), (0.6428, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1736, 0.9849), (0.0, 1.0), (-0.1736, 0.9849), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6428, 0.766), (-0.766, 0.6429), (-0.866, 0.5), (-0.9397, 0.342), (-0.9848, 0.1737),
+    (-1.0, 0.0), (-0.9848, -0.1737), (-0.9397, -0.342), (-0.866, -0.5), (-0.766, -0.6429), (-0.6428, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1736, -0.9849), (-0.0, -1.0), (0.1736, -0.9849), (0.342, -0.9397),
+    (0.5, -0.866), (0.6428, -0.766), (0.766, -0.6429), (0.866, -0.5), (0.9397, -0.342), (0.9848, -0.1737),
+];
+
+/// `horaro_fish_deck_01`'s ground tier (`assets/buildings/horaro_fish_deck_01.json`), layout units, counter-clockwise.
+pub const HORARO_FISH_DECK_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1736), (0.9397, 0.342), (0.866, 0.4999), (0.766, 0.6427), (0.6428, 0.7659),
+    (0.5, 0.8659), (0.342, 0.9396), (0.1736, 0.9847), (0.0, 0.9999), (-0.1736, 0.9847), (-0.342, 0.9396),
+    (-0.5, 0.8659), (-0.6428, 0.7659), (-0.766, 0.6427), (-0.866, 0.4999), (-0.9397, 0.342), (-0.9848, 0.1736),
+    (-1.0, 0.0), (-0.9848, -0.1736), (-0.9397, -0.342), (-0.866, -0.4999), (-0.766, -0.6427), (-0.6428, -0.7659),
+    (-0.5, -0.8659), (-0.342, -0.9396), (-0.1736, -0.9847), (-0.0, -0.9999), (0.1736, -0.9847), (0.342, -0.9396),
+    (0.5, -0.8659), (0.6428, -0.7659), (0.766, -0.6427), (0.866, -0.4999), (0.9397, -0.342), (0.9848, -0.1736),
+];
+
+/// `horaro_hull_bent_01`'s ground tier (`assets/buildings/horaro_hull_bent_01.json`), layout units, counter-clockwise.
+pub const HORARO_HULL_BENT_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1737), (0.9397, 0.342), (0.866, 0.5), (0.766, 0.6428), (0.6428, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1737, 0.9848), (0.0, 1.0), (-0.1737, 0.9848), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6428, 0.766), (-0.766, 0.6428), (-0.866, 0.5), (-0.9397, 0.342), (-0.9848, 0.1737),
+    (-1.0, 0.0), (-0.9848, -0.1737), (-0.9397, -0.342), (-0.866, -0.5), (-0.766, -0.6428), (-0.6428, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1737, -0.9848), (-0.0, -1.0), (0.1737, -0.9848), (0.342, -0.9397),
+    (0.5, -0.866), (0.6428, -0.766), (0.766, -0.6428), (0.866, -0.5), (0.9397, -0.342), (0.9848, -0.1737),
+];
+
+/// `horaro_lamp_oil_works_01`'s ground tier (`assets/buildings/horaro_lamp_oil_works_01.json`), layout units, counter-clockwise.
+pub const HORARO_LAMP_OIL_WORKS_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1737), (0.9397, 0.3421), (0.866, 0.5), (0.766, 0.6427), (0.6428, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1736, 0.9848), (0.0, 0.9999), (-0.1736, 0.9848), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6428, 0.766), (-0.766, 0.6427), (-0.866, 0.5), (-0.9397, 0.3421), (-0.9848, 0.1737),
+    (-1.0, 0.0), (-0.9848, -0.1737), (-0.9397, -0.3421), (-0.866, -0.5), (-0.766, -0.6427), (-0.6428, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1736, -0.9848), (-0.0, -0.9999), (0.1736, -0.9848), (0.342, -0.9397),
+    (0.5, -0.866), (0.6428, -0.766), (0.766, -0.6427), (0.866, -0.5), (0.9397, -0.3421), (0.9848, -0.1737),
+];
+
+/// `horaro_longhouse_bent_01`'s ground tier (`assets/buildings/horaro_longhouse_bent_01.json`), layout units, counter-clockwise.
+pub const HORARO_LONGHOUSE_BENT_01_OUTLINE: &[(f32, f32)] = &[
+    (0.9887, 0.8671), (0.9568, 0.9369), (0.9091, 0.9836), (0.8526, 1.0), (-0.8526, 1.0), (-0.9091, 0.9836),
+    (-0.9568, 0.9369), (-0.9887, 0.8671), (-1.0, 0.7846), (-1.0, -0.7846), (-0.9887, -0.8671), (-0.9568, -0.9369),
+    (-0.9091, -0.9836), (-0.8526, -1.0), (0.8526, -1.0), (0.9091, -0.9836), (0.9568, -0.9369), (0.9887, -0.8671),
+    (1.0, -0.7846), (1.0, 0.7846),
+];
+
+/// `horaro_market_hall_01`'s ground tier (`assets/buildings/horaro_market_hall_01.json`), layout units, counter-clockwise.
+pub const HORARO_MARKET_HALL_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1736), (0.9397, 0.342), (0.866, 0.5001), (0.766, 0.6429), (0.6428, 0.7661),
+    (0.5, 0.8661), (0.342, 0.9398), (0.1736, 0.9849), (0.0, 1.0001), (-0.1736, 0.9849), (-0.342, 0.9398),
+    (-0.5, 0.8661), (-0.6428, 0.7661), (-0.766, 0.6429), (-0.866, 0.5001), (-0.9397, 0.342), (-0.9848, 0.1736),
+    (-1.0, 0.0), (-0.9848, -0.1736), (-0.9397, -0.342), (-0.866, -0.5001), (-0.766, -0.6429), (-0.6428, -0.7661),
+    (-0.5, -0.8661), (-0.342, -0.9398), (-0.1736, -0.9849), (-0.0, -1.0001), (0.1736, -0.9849), (0.342, -0.9398),
+    (0.5, -0.8661), (0.6428, -0.7661), (0.766, -0.6429), (0.866, -0.5001), (0.9397, -0.342), (0.9848, -0.1736),
+];
+
+/// `horaro_quay_market_01`'s ground tier (`assets/buildings/horaro_quay_market_01.json`), layout units, counter-clockwise.
+pub const HORARO_QUAY_MARKET_01_OUTLINE: &[(f32, f32)] = &[
+    (0.9909, 0.886), (0.9649, 0.946), (0.9259, 0.986), (0.88, 1.0), (-0.88, 1.0), (-0.9259, 0.986),
+    (-0.9649, 0.946), (-0.9909, 0.886), (-1.0, 0.8154), (-1.0, -0.8154), (-0.9909, -0.886), (-0.9649, -0.946),
+    (-0.9259, -0.986), (-0.88, -1.0), (0.88, -1.0), (0.9259, -0.986), (0.9649, -0.946), (0.9909, -0.886),
+    (1.0, -0.8154), (1.0, 0.8154),
+];
+
+/// `horaro_rock_home_01`'s ground tier (`assets/buildings/horaro_rock_home_01.json`), layout units, counter-clockwise.
+pub const HORARO_ROCK_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1737), (0.9397, 0.3421), (0.8661, 0.5001), (0.7661, 0.6428), (0.6427, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1736, 0.9849), (0.0, 1.0001), (-0.1736, 0.9849), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6427, 0.766), (-0.7661, 0.6428), (-0.8661, 0.5001), (-0.9397, 0.3421), (-0.9848, 0.1737),
+    (-1.0, 0.0), (-0.9848, -0.1737), (-0.9397, -0.3421), (-0.8661, -0.5001), (-0.7661, -0.6428), (-0.6427, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1736, -0.9849), (-0.0, -1.0001), (0.1736, -0.9849), (0.342, -0.9397),
+    (0.5, -0.866), (0.6427, -0.766), (0.7661, -0.6428), (0.8661, -0.5001), (0.9397, -0.3421), (0.9848, -0.1737),
+];
+
+/// `horaro_rockhull_t_01`'s ground tier (`assets/buildings/horaro_rockhull_t_01.json`), layout units, counter-clockwise.
+pub const HORARO_ROCKHULL_T_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1737), (0.9397, 0.342), (0.866, 0.5), (0.766, 0.6428), (0.6428, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1736, 0.9848), (0.0, 1.0), (-0.1736, 0.9848), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6428, 0.766), (-0.766, 0.6428), (-0.866, 0.5), (-0.9397, 0.342), (-0.9848, 0.1737),
+    (-1.0, 0.0), (-0.9848, -0.1737), (-0.9397, -0.342), (-0.866, -0.5), (-0.766, -0.6428), (-0.6428, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1736, -0.9848), (-0.0, -1.0), (0.1736, -0.9848), (0.342, -0.9397),
+    (0.5, -0.866), (0.6428, -0.766), (0.766, -0.6428), (0.866, -0.5), (0.9397, -0.342), (0.9848, -0.1737),
+];
+
+/// `horaro_rope_walk_01`'s ground tier (`assets/buildings/horaro_rope_walk_01.json`), layout units, counter-clockwise.
+pub const HORARO_ROPE_WALK_01_OUTLINE: &[(f32, f32)] = &[
+    (0.9949, 0.8069), (0.9805, 0.9082), (0.9589, 0.9759), (0.9333, 0.9997), (-0.9333, 0.9997), (-0.9589, 0.9759),
+    (-0.9805, 0.9082), (-0.9949, 0.8069), (-1.0, 0.6873), (-1.0, -0.6873), (-0.9949, -0.8069), (-0.9805, -0.9082),
+    (-0.9589, -0.9759), (-0.9333, -0.9997), (0.9333, -0.9997), (0.9589, -0.9759), (0.9805, -0.9082), (0.9949, -0.8069),
+    (1.0, -0.6873), (1.0, 0.6873),
+];
+
+/// `horaro_salt_deck_01`'s ground tier (`assets/buildings/horaro_salt_deck_01.json`), layout units, counter-clockwise.
+pub const HORARO_SALT_DECK_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1736), (0.9397, 0.342), (0.866, 0.5), (0.766, 0.6428), (0.6428, 0.766),
+    (0.5, 0.866), (0.342, 0.9397), (0.1736, 0.9848), (0.0, 1.0), (-0.1736, 0.9848), (-0.342, 0.9397),
+    (-0.5, 0.866), (-0.6428, 0.766), (-0.766, 0.6428), (-0.866, 0.5), (-0.9397, 0.342), (-0.9848, 0.1736),
+    (-1.0, 0.0), (-0.9848, -0.1736), (-0.9397, -0.342), (-0.866, -0.5), (-0.766, -0.6428), (-0.6428, -0.766),
+    (-0.5, -0.866), (-0.342, -0.9397), (-0.1736, -0.9848), (-0.0, -1.0), (0.1736, -0.9848), (0.342, -0.9397),
+    (0.5, -0.866), (0.6428, -0.766), (0.766, -0.6428), (0.866, -0.5), (0.9397, -0.342), (0.9848, -0.1736),
+];
+
+/// `horaro_salt_works_01`'s ground tier (`assets/buildings/horaro_salt_works_01.json`), layout units, counter-clockwise.
+pub const HORARO_SALT_WORKS_01_OUTLINE: &[(f32, f32)] = &[
+    (0.9937, 0.8357), (0.9756, 0.9222), (0.9486, 0.98), (0.9167, 1.0003), (-0.9167, 1.0003), (-0.9486, 0.98),
+    (-0.9756, 0.9222), (-0.9937, 0.8357), (-1.0, 0.7336), (-1.0, -0.7336), (-0.9937, -0.8357), (-0.9756, -0.9222),
+    (-0.9486, -0.98), (-0.9167, -1.0003), (0.9167, -1.0003), (0.9486, -0.98), (0.9756, -0.9222), (0.9937, -0.8357),
+    (1.0, -0.7336), (1.0, 0.7336),
+];
+
+/// `horaro_stilt_home_01`'s ground tier (`assets/buildings/horaro_stilt_home_01.json`), layout units, counter-clockwise.
+pub const HORARO_STILT_HOME_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1736), (0.9396, 0.3421), (0.866, 0.4999), (0.766, 0.6426), (0.6428, 0.7658),
+    (0.5, 0.8658), (0.342, 0.9395), (0.1736, 0.9847), (0.0, 0.9999), (-0.1736, 0.9847), (-0.342, 0.9395),
+    (-0.5, 0.8658), (-0.6428, 0.7658), (-0.766, 0.6426), (-0.866, 0.4999), (-0.9396, 0.3421), (-0.9848, 0.1736),
+    (-1.0, 0.0), (-0.9848, -0.1736), (-0.9396, -0.3421), (-0.866, -0.4999), (-0.766, -0.6426), (-0.6428, -0.7658),
+    (-0.5, -0.8658), (-0.342, -0.9395), (-0.1736, -0.9847), (-0.0, -0.9999), (0.1736, -0.9847), (0.342, -0.9395),
+    (0.5, -0.8658), (0.6428, -0.7658), (0.766, -0.6426), (0.866, -0.4999), (0.9396, -0.3421), (0.9848, -0.1736),
+];
+
+/// `horaro_weaving_hall_01`'s ground tier (`assets/buildings/horaro_weaving_hall_01.json`), layout units, counter-clockwise.
+pub const HORARO_WEAVING_HALL_01_OUTLINE: &[(f32, f32)] = &[
+    (1.0, 0.0), (0.9848, 0.1736), (0.9397, 0.342), (0.866, 0.5), (0.766, 0.6428), (0.6427, 0.7659),
+    (0.5, 0.8659), (0.342, 0.9396), (0.1737, 0.9848), (0.0, 0.9999), (-0.1737, 0.9848), (-0.342, 0.9396),
+    (-0.5, 0.8659), (-0.6427, 0.7659), (-0.766, 0.6428), (-0.866, 0.5), (-0.9397, 0.342), (-0.9848, 0.1736),
+    (-1.0, 0.0), (-0.9848, -0.1736), (-0.9397, -0.342), (-0.866, -0.5), (-0.766, -0.6428), (-0.6427, -0.7659),
+    (-0.5, -0.8659), (-0.342, -0.9396), (-0.1737, -0.9848), (-0.0, -0.9999), (0.1737, -0.9848), (0.342, -0.9396),
+    (0.5, -0.8659), (0.6427, -0.7659), (0.766, -0.6428), (0.866, -0.5), (0.9397, -0.342), (0.9848, -0.1736),
+];
+
 /// `qotiro_drill_yard_01`'s ground tier (`assets/buildings/qotiro_drill_yard_01.json`), layout units, counter-clockwise.
 pub const QOTIRO_DRILL_YARD_01_OUTLINE: &[(f32, f32)] = &[
     (-0.9999, -1.0), (0.9999, -1.0), (0.9999, 1.0), (-0.9999, 1.0),

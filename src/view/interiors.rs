@@ -46,6 +46,7 @@ use super::cam::to3;
 use super::mesh::Builder;
 use super::palette::{self, Rgb};
 use super::signs;
+use super::horaro::{self, HAcc, HHull, HProp, HSup, HoraroLook};
 use super::stone;
 
 /// Height of a Horaro stilt deck above what it stands on.
@@ -70,28 +71,28 @@ const DARK_STONE: Rgb = [0.27, 0.27, 0.29];
 /// A building's own frame: layout units (`x` back -1 to front +1, `y`
 /// across -1..1) scaled by its half depth and half width.
 #[derive(Clone, Copy)]
-struct Frame {
-    c: V2,
-    rot: f32,
-    hx: f32,
-    hy: f32,
+pub(super) struct Frame {
+    pub(super) c: V2,
+    pub(super) rot: f32,
+    pub(super) hx: f32,
+    pub(super) hy: f32,
     /// The height things are measured from.
-    y: f32,
+    pub(super) y: f32,
 }
 
 impl Frame {
-    fn dir(&self) -> V2 {
+    pub(super) fn dir(&self) -> V2 {
         V2::new(self.rot.cos(), self.rot.sin())
     }
     fn side_v2(&self) -> V2 {
         V2::new(-self.rot.sin(), self.rot.cos())
     }
     /// A layout point on the map.
-    fn p(&self, x: f32, y: f32) -> V2 {
+    pub(super) fn p(&self, x: f32, y: f32) -> V2 {
         self.c.add(self.dir().scale(x * self.hx)).add(self.side_v2().scale(y * self.hy))
     }
     /// A layout point, `h` metres up.
-    fn at(&self, x: f32, y: f32, h: f32) -> Vec3 {
+    pub(super) fn at(&self, x: f32, y: f32, h: f32) -> Vec3 {
         to3(self.p(x, y), self.y + h)
     }
     fn fwd(&self) -> Vec3 {
@@ -237,6 +238,8 @@ struct Form {
     yard: Option<YardLook>,
     /// A Qotiro building's outside stairs, upper doors and terrace props.
     qotiro: Option<QotiroLook>,
+    /// A Horaro building's supports, deck, hulls and gear (`horaro.rs`).
+    horaro: Option<HoraroLook>,
 }
 
 /// What stands on and against a Qotiro building (drawing only): each a
@@ -345,6 +348,214 @@ enum Roof {
 /// `tools/buildings/roduro_forms.py rust`; edit the files, not these.
 const FORMS: &[Form] = &[
     Form {
+        key: "horaro_domes_cluster_01",
+        at_size: 15.0,
+        tiers: &[(layout::HORARO_DOMES_CLUSTER_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.7103, -0.3088), 0.2452), ((0.622, 0.3134), -0.3482)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Root, (-0.4, 0.0769), 1.4), (HSup::Root, (0.4, -0.3846), 1.2), (HSup::Root, (0.3333, 0.5385), 1.1), (HSup::Root, (-0.2, -0.6154), 0.9)], deck: 2.7, rail: &[(0.0227, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.3333, 0.0769), 0.0, (7.2, 6.4, 3.6)), (HHull::Dome, (0.32, -0.4), 0.0, (6.0, 5.4, 3.0)), (HHull::Dome, (0.2933, 0.4308), 0.0, (5.2, 4.8, 2.7))], seams: &[(0, 1), (0, 2)], doors: &[((0.7103, -0.3088), 0.2452), ((0.622, 0.3134), -0.3482)], portholes: &[((0.0987, 0.2877), 0.4913, 1.6), ((0.0987, -0.1339), -0.4913, 1.6)], access: &[(HAcc::Ladder, (1.0, 0.0), 0.0, 4.0)], props: &[(HProp::Basket, (0.8, 0.0), 0.0, (0.9, 0.9, 0.8), 0.0)] }),
+    },
+    Form {
+        key: "horaro_egg_home_01",
+        at_size: 17.0,
+        tiers: &[(layout::HORARO_EGG_HOME_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.5882, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.87, -0.0), 0.5), (HSup::Drum, (0.7631, -0.4111), 0.5), (HSup::Drum, (0.4811, -0.7146), 0.5), (HSup::Drum, (0.1012, -0.8531), 0.5), (HSup::Drum, (-0.2993, -0.8094), 0.5), (HSup::Drum, (-0.6392, -0.5807), 0.5), (HSup::Drum, (-0.8399, -0.2125), 0.5), (HSup::Drum, (-0.8399, 0.2125), 0.5), (HSup::Drum, (-0.6392, 0.5807), 0.5), (HSup::Drum, (-0.2993, 0.8094), 0.5), (HSup::Drum, (0.1012, 0.8531), 0.5), (HSup::Drum, (0.4811, 0.7146), 0.5), (HSup::Drum, (0.7631, 0.4111), 0.5), (HSup::Drum, (0.0, 0.0), 0.6), (HSup::Drum, (-0.4706, 0.3125), 0.5), (HSup::Drum, (0.4118, -0.3125), 0.5), (HSup::Drum, (-0.4118, -0.375), 0.5), (HSup::Drum, (0.3529, 0.375), 0.5)], deck: 2.7, rail: &[(0.0193, 1.0)], quay: None, hulls: &[(HHull::Egg, (-0.0588, 0.0), 0.0, (11.0, 9.2, 4.6))], seams: &[], doors: &[((0.5882, 0.0), 0.0)], portholes: &[((0.4249, 0.3516), 0.7743, 1.6), ((0.4249, -0.3516), -0.7743, 1.6)], access: &[(HAcc::Ladder, (1.0, 0.0), 0.0, 4.0)], props: &[(HProp::Basket, (0.6471, 0.5), 0.0, (0.9, 0.9, 0.8), 0.0), (HProp::Jars, (0.5882, -0.5625), 0.0, (1.0, 1.0, 1.0), 0.0), (HProp::Coils, (-0.7647, 0.375), 0.5, (1.8, 0.6, 0.3), 0.0)] }),
+    },
+    Form {
+        key: "horaro_egg_twin_01",
+        at_size: 16.0,
+        tiers: &[(layout::HORARO_EGG_TWIN_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.3005, 0.4089), 0.4222)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8619, -0.0), 0.5), (HSup::Drum, (0.7047, -0.4789), 0.5), (HSup::Drum, (0.3352, -0.7731), 0.5), (HSup::Drum, (-0.1139, -0.8324), 0.5), (HSup::Drum, (-0.538, -0.6551), 0.5), (HSup::Drum, (-0.8191, -0.2551), 0.5), (HSup::Drum, (-0.8191, 0.2551), 0.5), (HSup::Drum, (-0.538, 0.6551), 0.5), (HSup::Drum, (-0.1139, 0.8324), 0.5), (HSup::Drum, (0.3352, 0.7731), 0.5), (HSup::Drum, (0.7047, 0.4789), 0.5), (HSup::Drum, (-0.25, 0.2143), 0.6), (HSup::Drum, (0.375, -0.3571), 0.5)], deck: 2.7, rail: &[(0.0, 0.9281), (0.9705, 1.0)], quay: None, hulls: &[(HHull::Egg, (-0.25, 0.2143), 0.0, (9.4, 7.8, 3.9)), (HHull::Egg, (0.325, -0.3143), 0.4, (6.8, 5.8, 2.9))], seams: &[(0, 1)], doors: &[((0.3005, 0.4089), 0.4222)], portholes: &[((0.1779, -0.1203), -0.7822, 1.6), ((0.6038, -0.046), 0.802, 1.6)], access: &[(HAcc::Ladder, (0.9421, -0.333), -0.3, 4.0)], props: &[(HProp::Basket, (0.6875, 0.5), 0.0, (0.9, 0.9, 0.8), 0.0), (HProp::Jars, (-0.6875, -0.5), 0.0, (1.0, 1.0, 1.0), 0.0)] }),
+    },
+    Form {
+        key: "horaro_fish_deck_01",
+        at_size: 16.0,
+        tiers: &[(layout::HORARO_FISH_DECK_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((-0.0625, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8745, -0.0), 0.5), (HSup::Drum, (0.7489, -0.4445), 0.5), (HSup::Drum, (0.4248, -0.7555), 0.5), (HSup::Drum, (-0.0, -0.8662), 0.5), (HSup::Drum, (-0.4248, -0.7555), 0.5), (HSup::Drum, (-0.7489, -0.4445), 0.5), (HSup::Drum, (-0.8745, 0.0), 0.5), (HSup::Drum, (-0.7489, 0.4445), 0.5), (HSup::Drum, (-0.4248, 0.7555), 0.5), (HSup::Drum, (0.0, 0.8662), 0.5), (HSup::Drum, (0.4248, 0.7555), 0.5), (HSup::Drum, (0.7489, 0.4445), 0.5), (HSup::Drum, (-0.5, 0.0), 0.6), (HSup::Drum, (0.25, 0.2666), 0.5), (HSup::Drum, (0.25, -0.3333), 0.5)], deck: 2.7, rail: &[(0.0, 0.9221), (0.9632, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.5, 0.0), 0.0, (7.0, 6.2, 3.5))], seams: &[], doors: &[((-0.0625, 0.0), 0.0)], portholes: &[((-0.2846, 0.3577), 1.1042, 1.6)], access: &[(HAcc::Ladder, (0.9303, -0.3622), -0.35, 4.0)], props: &[(HProp::Oven, (0.3125, 0.5599), 0.0, (1.8, 1.8, 1.5), 0.0), (HProp::Frame, (0.0625, -0.5999), 0.3, (3.6, 0.3, 2.4), 0.0), (HProp::Frame, (-0.375, -0.7333), -0.2, (3.0, 0.3, 2.4), 0.0), (HProp::Table, (0.4375, 0.0667), 0.0, (1.3, 1.3, 0.8), 0.0), (HProp::Table, (0.375, -0.24), 0.0, (1.3, 1.3, 0.8), 0.0), (HProp::Basket, (0.6875, 0.3333), 0.0, (0.8, 0.8, 0.7), 0.0), (HProp::Basket, (-0.125, 0.7333), 0.0, (0.8, 0.8, 0.7), 0.0), (HProp::Coils, (-0.75, 0.4666), 0.4, (1.8, 0.6, 0.3), 0.0)] }),
+    },
+    Form {
+        key: "horaro_hull_bent_01",
+        at_size: 18.0,
+        tiers: &[(layout::HORARO_HULL_BENT_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.8017, -0.0502), 0.5879)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8657, -0.0), 0.58), (HSup::Drum, (0.6053, -0.5759), 0.58), (HSup::Drum, (0.1274, -0.8039), 0.58), (HSup::Drum, (-0.3763, -0.7289), 0.58), (HSup::Drum, (-0.7863, -0.3306), 0.58), (HSup::Drum, (-0.7863, 0.3306), 0.58), (HSup::Drum, (-0.3763, 0.7289), 0.58), (HSup::Drum, (0.1274, 0.8039), 0.58), (HSup::Drum, (0.6053, 0.5759), 0.58), (HSup::Drum, (-0.2222, 0.0769), 0.6), (HSup::Drum, (0.4444, -0.2308), 0.55)], deck: 2.7, rail: &[(0.0, 0.0525), (0.0934, 1.0)], quay: None, hulls: &[(HHull::Hull, (-0.2778, 0.0769), 0.0, (11.0, 7.0, 3.5)), (HHull::Hull, (0.4444, -0.2308), -0.55, (7.6, 5.8, 2.9))], seams: &[(0, 1)], doors: &[((0.8017, -0.0502), 0.5879)], portholes: &[((-0.1277, 0.6116), 1.4146, 1.6), ((-0.1701, -0.46), -1.4588, 1.6), ((0.452, -0.7363), -1.7629, 1.6)], access: &[(HAcc::Ladder, (0.8626, 0.5049), 0.4, 4.0)], props: &[(HProp::Coils, (0.5556, 0.6154), 0.2, (1.8, 0.6, 0.3), 0.0), (HProp::Basket, (0.7778, 0.3385), 0.0, (0.9, 0.9, 0.8), 0.0)] }),
+    },
+    Form {
+        key: "horaro_lamp_oil_works_01",
+        at_size: 16.0,
+        tiers: &[(layout::HORARO_LAMP_OIL_WORKS_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((-0.2375, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8736, -0.0), 0.5), (HSup::Drum, (0.5789, -0.5827), 0.5), (HSup::Drum, (0.1191, -0.7787), 0.5), (HSup::Drum, (-0.3543, -0.7155), 0.5), (HSup::Drum, (-0.7742, -0.3551), 0.5), (HSup::Drum, (-0.7742, 0.3551), 0.5), (HSup::Drum, (-0.3543, 0.7155), 0.5), (HSup::Drum, (0.1191, 0.7787), 0.5), (HSup::Drum, (0.5789, 0.5827), 0.5), (HSup::Drum, (-0.5625, 0.0), 0.55), (HSup::Drum, (0.25, 0.1053), 0.5)], deck: 2.7, rail: &[(0.0369, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.5625, 0.0), 0.0, (5.2, 5.2, 5.0))], seams: &[], doors: &[((-0.2375, 0.0), 0.0)], portholes: &[((-0.4763, 0.5235), 1.3, 2.4)], access: &[(HAcc::Dock, (1.0, 0.0), 0.0, 5.0)], props: &[(HProp::Roof, (0.25, 0.1053), 0.0, (4.2, 3.6, 2.7), 0.0), (HProp::Hearth, (0.25, 0.1053), 0.0, (1.8, 1.8, 1.7), 0.0), (HProp::Jars, (-0.125, -0.6315), 0.0, (1.1, 1.1, 1.1), 0.0), (HProp::Jars, (-0.15, 0.6315), 0.0, (1.1, 1.1, 1.1), 0.0), (HProp::Coils, (0.5625, -0.6736), 0.0, (1.8, 0.6, 0.3), 0.0), (HProp::Lamp, (-0.225, 0.0), 0.0, (0.3, 0.3, 2.6), 0.0), (HProp::Boat, (0.9375, -0.9473), 0.2, (3.2, 1.2, 0.5), -2.6), (HProp::Chimney, (-0.5625, 0.0), 0.0, (0.3, 0.3, 0.8), 4.8)] }),
+    },
+    Form {
+        key: "horaro_longhouse_bent_01",
+        at_size: 19.0,
+        tiers: &[(layout::HORARO_LONGHOUSE_BENT_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.7695, -0.6643), -0.5), ((-0.8713, 0.0034), 3.4416)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Pier, (-0.9053, -0.2872), 0.42), (HSup::Pier, (-0.9053, 0.2872), 0.42), (HSup::Pier, (-0.5432, -0.8616), 0.42), (HSup::Pier, (-0.5432, -0.2872), 0.42), (HSup::Pier, (-0.5432, 0.2872), 0.42), (HSup::Pier, (-0.5432, 0.8616), 0.42), (HSup::Pier, (-0.1811, -0.8616), 0.42), (HSup::Pier, (-0.1811, -0.2872), 0.42), (HSup::Pier, (-0.1811, 0.2872), 0.42), (HSup::Pier, (-0.1811, 0.8616), 0.42), (HSup::Pier, (0.1811, -0.8616), 0.42), (HSup::Pier, (0.1811, -0.2872), 0.42), (HSup::Pier, (0.1811, 0.2872), 0.42), (HSup::Pier, (0.1811, 0.8616), 0.42), (HSup::Pier, (0.5432, -0.8616), 0.42), (HSup::Pier, (0.5432, -0.2872), 0.42), (HSup::Pier, (0.5432, 0.2872), 0.42), (HSup::Pier, (0.5432, 0.8616), 0.42), (HSup::Pier, (0.9053, -0.2872), 0.42), (HSup::Pier, (0.9053, 0.2872), 0.42)], deck: 2.7, rail: &[(0.046, 1.0)], quay: None, hulls: &[(HHull::Longhouse, (-0.3684, 0.2308), 0.3, (10.0, 6.0, 3.7)), (HHull::Longhouse, (0.4, -0.3692), -0.5, (8.0, 6.0, 3.7))], seams: &[(0, 1)], doors: &[((0.7695, -0.6643), -0.5), ((-0.8713, 0.0034), 3.4416)], portholes: &[], access: &[(HAcc::Ramp, (1.0, 0.5335), 0.35, 6.0)], props: &[(HProp::Basket, (0.7895, 0.5385), 0.0, (0.9, 0.9, 0.8), 0.0), (HProp::Sacks, (-0.7368, -0.6923), 0.0, (1.4, 0.6, 0.6), 0.0), (HProp::Lamp, (0.8421, -0.1538), 0.0, (0.3, 0.3, 2.4), 0.0)] }),
+    },
+    Form {
+        key: "horaro_market_hall_01",
+        at_size: 21.0,
+        tiers: &[(layout::HORARO_MARKET_HALL_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.0734, 0.4306), 0.1347), ((0.0392, -0.5457), -0.2529)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Root, (-0.4762, 0.4), 1.4), (HSup::Root, (-0.381, -0.6001), 1.3), (HSup::Root, (0.4762, -0.0667), 1.5), (HSup::Root, (0.0476, 0.6667), 1.1)], deck: 2.7, rail: &[(0.0, 0.0249), (0.0671, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.3333, 0.3734), 0.0, (8.6, 7.4, 4.1)), (HHull::Dome, (-0.2857, -0.4534), 0.0, (7.0, 6.2, 3.5))], seams: &[(0, 1)], doors: &[((0.0734, 0.4306), 0.1347), ((0.0392, -0.5457), -0.2529)], portholes: &[((-0.1025, 0.7806), 1.0396, 1.6), ((-0.0693, -0.1414), 0.9197, 1.6)], access: &[(HAcc::Ramp, (0.9411, 0.3364), 0.25, 6.0)], props: &[(HProp::Stall, (0.5238, 0.2667), 3.1416, (4.0, 3.2, 2.7), 0.0), (HProp::Jars, (0.619, -0.3334), 0.0, (1.0, 1.0, 1.1), 0.0), (HProp::Basket, (0.3333, -0.6001), 0.0, (0.9, 0.9, 0.8), 0.0), (HProp::Lamp, (0.5238, 0.5067), 0.0, (0.3, 0.3, 2.5), 0.0), (HProp::Coils, (0.1429, 0.8001), 0.3, (1.8, 0.6, 0.3), 0.0)] }),
+    },
+    Form {
+        key: "horaro_quay_market_01",
+        at_size: 20.0,
+        tiers: &[(layout::HORARO_QUAY_MARKET_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.3, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Pier, (-0.91, -0.2872), 0.42), (HSup::Pier, (-0.91, 0.2872), 0.42), (HSup::Pier, (-0.6067, -0.8615), 0.42), (HSup::Pier, (-0.6067, -0.2872), 0.42), (HSup::Pier, (-0.6067, 0.2872), 0.42), (HSup::Pier, (-0.6067, 0.8615), 0.42), (HSup::Pier, (-0.3033, -0.8615), 0.42), (HSup::Pier, (-0.3033, -0.2872), 0.42), (HSup::Pier, (-0.3033, 0.2872), 0.42), (HSup::Pier, (-0.3033, 0.8615), 0.42), (HSup::Pier, (0.0, -0.8615), 0.42), (HSup::Pier, (0.0, -0.2872), 0.42), (HSup::Pier, (0.0, 0.2872), 0.42), (HSup::Pier, (0.0, 0.8615), 0.42), (HSup::Pier, (0.3033, -0.8615), 0.42), (HSup::Pier, (0.3033, -0.2872), 0.42), (HSup::Pier, (0.3033, 0.2872), 0.42), (HSup::Pier, (0.3033, 0.8615), 0.42), (HSup::Pier, (0.6067, -0.8615), 0.42), (HSup::Pier, (0.6067, -0.2872), 0.42), (HSup::Pier, (0.6067, 0.2872), 0.42), (HSup::Pier, (0.6067, 0.8615), 0.42), (HSup::Pier, (0.91, -0.2872), 0.42), (HSup::Pier, (0.91, 0.2872), 0.42)], deck: 2.7, rail: &[(0.0, 0.0642), (0.1017, 1.0)], quay: Some((&[(1.0, -1.1538), (1.5, -1.0769), (1.55, 0.0), (1.5, 1.0769), (1.0, 1.1538)], 1.3)), hulls: &[(HHull::Longhouse, (-0.35, 0.0), 0.0, (13.0, 7.0, 4.3))], seams: &[], doors: &[((0.3, 0.0), 0.0)], portholes: &[], access: &[(HAcc::Stair, (1.0, 0.0), 0.0, 3.2)], props: &[(HProp::Stall, (0.55, 0.3846), 3.1416, (4.0, 3.4, 2.7), 0.0), (HProp::Lamp, (0.55, 0.6462), 0.0, (0.3, 0.3, 2.5), 0.0), (HProp::Jars, (0.6, -0.4615), 0.0, (1.0, 1.0, 1.1), 0.0), (HProp::Basket, (0.35, -0.7692), 0.0, (0.9, 0.9, 0.8), 0.0), (HProp::Sacks, (-0.85, 0.6923), 0.0, (1.4, 0.6, 0.6), 0.0), (HProp::Mooring, (1.46, -0.7692), 0.0, (0.3, 0.3, 1.1), -1.4), (HProp::Mooring, (1.51, 0.0), 0.0, (0.3, 0.3, 1.1), -1.4), (HProp::Mooring, (1.46, 0.7692), 0.0, (0.3, 0.3, 1.1), -1.4), (HProp::Boat, (1.3, -1.4615), 0.3, (3.2, 1.2, 0.5), -2.6)] }),
+    },
+    Form {
+        key: "horaro_rock_home_01",
+        at_size: 13.2,
+        tiers: &[(layout::HORARO_ROCK_HOME_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.6212, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Rock, (0.8018, -0.0), 0.95), (HSup::Rock, (0.2176, -0.7176), 0.95), (HSup::Rock, (-0.6092, -0.4814), 0.95), (HSup::Rock, (-0.6092, 0.4814), 0.95), (HSup::Rock, (0.2176, 0.7176), 0.95)], deck: 2.7, rail: &[], quay: None, hulls: &[(HHull::Dome, (-0.0909, 0.0), 0.0, (9.4, 7.8, 4.4))], seams: &[], doors: &[((0.6212, 0.0), 0.0)], portholes: &[((0.4088, 0.5343), 0.8855, 1.6), ((0.4088, -0.5343), -0.8855, 1.6)], access: &[(HAcc::Ladder, (1.0, 0.0), 0.0, 4.0)], props: &[] }),
+    },
+    Form {
+        key: "horaro_rockhull_t_01",
+        at_size: 16.0,
+        tiers: &[(layout::HORARO_ROCKHULL_T_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.375, 0.4), 1.5708)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Rock, (0.8364, -0.0), 0.85), (HSup::Rock, (0.3673, -0.6983), 0.85), (HSup::Rock, (-0.3673, -0.6983), 0.85), (HSup::Rock, (-0.8364, 0.0), 0.85), (HSup::Rock, (-0.3673, 0.6983), 0.85), (HSup::Rock, (0.3673, 0.6983), 0.85), (HSup::Rock, (-0.125, 0.0), 0.9)], deck: 2.7, rail: &[(0.0, 0.0668), (0.1121, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.3125, 0.0), 0.0, (8.8, 7.0, 3.9)), (HHull::Dome, (0.375, -0.1333), 1.5708, (6.4, 5.0, 2.8))], seams: &[(0, 1)], doors: &[((0.375, 0.4), 1.5708)], portholes: &[((-0.0626, 0.519), 1.1849, 1.6), ((-0.0626, -0.519), -1.1849, 1.6), ((0.0739, -0.0642), 3.0367, 1.6)], access: &[(HAcc::Ladder, (0.8054, 0.5867), 0.5, 4.0)], props: &[(HProp::Jars, (-0.125, 0.8), 0.0, (1.0, 1.0, 1.0), 0.0)] }),
+    },
+    Form {
+        key: "horaro_rope_walk_01",
+        at_size: 30.0,
+        tiers: &[(layout::HORARO_ROPE_WALK_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((-0.5467, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Post, (-0.9667, 0.0), 0.2), (HSup::Post, (-0.7733, -0.8435), 0.2), (HSup::Post, (-0.7733, 0.0), 0.2), (HSup::Post, (-0.7733, 0.8435), 0.2), (HSup::Post, (-0.58, -0.8435), 0.2), (HSup::Post, (-0.58, 0.0), 0.2), (HSup::Post, (-0.58, 0.8435), 0.2), (HSup::Post, (-0.3867, -0.8435), 0.2), (HSup::Post, (-0.3867, 0.0), 0.2), (HSup::Post, (-0.3867, 0.8435), 0.2), (HSup::Post, (-0.1933, -0.8435), 0.2), (HSup::Post, (-0.1933, 0.0), 0.2), (HSup::Post, (-0.1933, 0.8435), 0.2), (HSup::Post, (0.0, -0.8435), 0.2), (HSup::Post, (0.0, 0.0), 0.2), (HSup::Post, (0.0, 0.8435), 0.2), (HSup::Post, (0.1933, -0.8435), 0.2), (HSup::Post, (0.1933, 0.0), 0.2), (HSup::Post, (0.1933, 0.8435), 0.2), (HSup::Post, (0.3867, -0.8435), 0.2), (HSup::Post, (0.3867, 0.0), 0.2), (HSup::Post, (0.3867, 0.8435), 0.2), (HSup::Post, (0.58, -0.8435), 0.2), (HSup::Post, (0.58, 0.0), 0.2), (HSup::Post, (0.58, 0.8435), 0.2), (HSup::Post, (0.7733, -0.8435), 0.2), (HSup::Post, (0.7733, 0.0), 0.2), (HSup::Post, (0.7733, 0.8435), 0.2), (HSup::Post, (0.9667, 0.0), 0.2)], deck: 2.7, rail: &[(0.0, 0.0155), (0.0465, 0.7205), (0.7487, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.7333, 0.0), 0.0, (5.6, 5.0, 2.8)), (HHull::Arcade, (0.3, 0.0), 0.0, (21.0, 4.4, 3.2))], seams: &[], doors: &[((-0.5467, 0.0), 0.0)], portholes: &[((-0.802, 0.7029), 1.9206, 1.6)], access: &[(HAcc::Walkway, (1.0, 0.0), 0.0, 12.0), (HAcc::Ladder, (-0.2197, 0.9997), 2.3708, 4.0)], props: &[(HProp::Wheel, (-0.4333, 0.5623), 1.5708, (1.1, 0.6, 1.2), 0.0), (HProp::Coils, (-0.4, -0.5936), 0.0, (1.8, 0.6, 0.3), 0.0), (HProp::Bench, (-0.5, -0.781), 0.0, (1.6, 0.4, 0.45), 0.0), (HProp::Yarnline, (0.6667, 0.8122), 0.0, (4.0, 0.2, 1.9), 0.0), (HProp::Coils, (0.0, -0.7185), 0.0, (1.8, 0.6, 0.3), 0.0), (HProp::Boat, (0.4, -1.6245), 0.1, (3.2, 1.2, 0.5), -2.6)] }),
+    },
+    Form {
+        key: "horaro_salt_deck_01",
+        at_size: 15.0,
+        tiers: &[(layout::HORARO_SALT_DECK_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((-0.0667, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8661, -0.0), 0.5), (HSup::Drum, (0.7265, -0.4668), 0.5), (HSup::Drum, (0.3584, -0.7849), 0.5), (HSup::Drum, (-0.1231, -0.8553), 0.5), (HSup::Drum, (-0.5664, -0.6539), 0.5), (HSup::Drum, (-0.8281, -0.2432), 0.5), (HSup::Drum, (-0.8281, 0.2432), 0.5), (HSup::Drum, (-0.5664, 0.6539), 0.5), (HSup::Drum, (-0.1231, 0.8553), 0.5), (HSup::Drum, (0.3584, 0.7849), 0.5), (HSup::Drum, (0.7265, 0.4668), 0.5), (HSup::Drum, (-0.5333, 0.0), 0.6), (HSup::Drum, (0.2667, 0.1333), 0.5), (HSup::Drum, (0.1333, -0.3333), 0.5)], deck: 2.7, rail: &[(0.0, 0.9151), (0.9576, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.5333, 0.0), 0.0, (7.0, 6.4, 3.6))], seams: &[], doors: &[((-0.0667, 0.0), 0.0)], portholes: &[((-0.3371, 0.3856), 1.1685, 1.6)], access: &[(HAcc::Ladder, (0.9181, -0.3881), -0.4, 4.0)], props: &[(HProp::Pan, (0.1333, 0.5067), 0.0, (1.5, 1.5, 0.3), 0.0), (HProp::Pan, (0.5067, 0.3467), 0.0, (1.5, 1.5, 0.3), 0.0), (HProp::Pan, (0.56, -0.1333), 0.0, (1.5, 1.5, 0.3), 0.0), (HProp::Pan, (0.2933, -0.4533), 0.0, (1.5, 1.5, 0.3), 0.0), (HProp::Pan, (-0.0667, -0.64), 0.0, (1.5, 1.5, 0.3), 0.0), (HProp::Hearth, (0.1867, 0.0533), 0.0, (1.6, 1.6, 1.6), 0.0), (HProp::Sweep, (-0.2, 0.7733), 1.5708, (4.5, 0.5, 3.6), 0.0), (HProp::Sacks, (-0.4667, -0.6), 0.3, (1.4, 0.6, 0.6), 0.0), (HProp::Basket, (0.7333, 0.1333), 0.0, (0.8, 0.8, 0.7), 0.0)] }),
+    },
+    Form {
+        key: "horaro_salt_works_01",
+        at_size: 24.0,
+        tiers: &[(layout::HORARO_SALT_WORKS_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((-0.3583, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (-0.925, 0.0), 0.45), (HSup::Drum, (-0.6608, -0.7602), 0.45), (HSup::Drum, (-0.6608, 0.0), 0.45), (HSup::Drum, (-0.6608, 0.7602), 0.45), (HSup::Drum, (-0.3964, -0.7602), 0.45), (HSup::Drum, (-0.3964, 0.0), 0.45), (HSup::Drum, (-0.3964, 0.7602), 0.45), (HSup::Drum, (-0.1322, -0.7602), 0.45), (HSup::Drum, (-0.1322, 0.0), 0.45), (HSup::Drum, (-0.1322, 0.7602), 0.45), (HSup::Drum, (0.1322, -0.7602), 0.45), (HSup::Drum, (0.1322, 0.0), 0.45), (HSup::Drum, (0.1322, 0.7602), 0.45), (HSup::Drum, (0.3964, -0.7602), 0.45), (HSup::Drum, (0.3964, 0.0), 0.45), (HSup::Drum, (0.3964, 0.7602), 0.45), (HSup::Drum, (0.6608, -0.7602), 0.45), (HSup::Drum, (0.6608, 0.0), 0.45), (HSup::Drum, (0.6608, 0.7602), 0.45), (HSup::Drum, (0.925, 0.0), 0.45)], deck: 2.7, rail: &[(0.0, 0.0269), (0.0629, 0.2786), (0.3112, 1.0)], quay: None, hulls: &[(HHull::Dome, (-0.6667, 0.0), 0.0, (7.4, 6.4, 3.6))], seams: &[], doors: &[((-0.3583, 0.0), 0.0)], portholes: &[((-0.5687, 0.8064), 1.2878, 1.6), ((-0.5687, -0.8064), -1.2878, 1.6)], access: &[(HAcc::Walkway, (1.0, 0.0), 0.0, 8.0), (HAcc::Ladder, (0.0, -1.0003), -1.5708, 4.0)], props: &[(HProp::Pan, (-0.0417, 0.4802), 0.0, (1.8, 1.8, 0.3), 0.0), (HProp::Pan, (0.1667, -0.4268), 0.0, (1.8, 1.8, 0.3), 0.0), (HProp::Pan, (0.375, 0.4802), 0.0, (1.8, 1.8, 0.3), 0.0), (HProp::Pan, (0.5833, -0.4268), 0.0, (1.8, 1.8, 0.3), 0.0), (HProp::Hearth, (-0.1583, 0.0), 0.0, (1.6, 1.6, 1.6), 0.0), (HProp::Sweep, (0.7917, 0.6936), 0.6, (4.5, 0.5, 3.6), 0.0), (HProp::Sacks, (0.75, -0.5335), 0.0, (1.4, 0.6, 0.6), 0.0), (HProp::Basket, (-0.125, -0.6936), 0.0, (0.8, 0.8, 0.7), 0.0), (HProp::Chimney, (-0.6667, 0.0), 0.0, (0.3, 0.3, 0.8), 3.5)] }),
+    },
+    Form {
+        key: "horaro_stilt_home_01",
+        at_size: 16.6,
+        tiers: &[(layout::HORARO_STILT_HOME_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[((0.7108, 0.0), 0.0)],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8296, -0.0), 0.62), (HSup::Drum, (0.2045, -0.7035), 0.62), (HSup::Drum, (-0.5918, -0.4993), 0.62), (HSup::Drum, (-0.5918, 0.4993), 0.62), (HSup::Drum, (0.2045, 0.7035), 0.62)], deck: 2.7, rail: &[], quay: None, hulls: &[(HHull::Hull, (-0.0964, 0.0), 0.0, (13.4, 8.2, 4.1))], seams: &[], doors: &[((0.7108, 0.0), 0.0)], portholes: &[((0.5333, 0.6161), 1.0225, 1.6), ((0.5333, -0.6161), -1.0225, 1.6), ((-0.5118, 0.742), 1.8937, 1.6)], access: &[(HAcc::Ladder, (1.0, 0.0), 0.0, 4.0)], props: &[] }),
+    },
+    Form {
+        key: "horaro_weaving_hall_01",
+        at_size: 19.0,
+        tiers: &[(layout::HORARO_WEAVING_HALL_01_OUTLINE, 0.0, 2.7, 2.7)],
+        roof: Roof::Flat,
+        dome: 0.0,
+        stair: None,
+        doors: &[],
+        windows: &[],
+        yard: None,
+        qotiro: None,
+        horaro: Some(HoraroLook { supports: &[(HSup::Drum, (0.8942, -0.0), 0.5), (HSup::Drum, (0.7933, -0.4015), 0.5), (HSup::Drum, (0.5347, -0.7028), 0.5), (HSup::Drum, (0.1875, -0.8601), 0.5), (HSup::Drum, (-0.1875, -0.8601), 0.5), (HSup::Drum, (-0.5347, -0.7028), 0.5), (HSup::Drum, (-0.7933, -0.4015), 0.5), (HSup::Drum, (-0.8942, -0.0), 0.5), (HSup::Drum, (-0.7933, 0.4015), 0.5), (HSup::Drum, (-0.5347, 0.7028), 0.5), (HSup::Drum, (-0.1875, 0.8601), 0.5), (HSup::Drum, (0.1875, 0.8601), 0.5), (HSup::Drum, (0.5347, 0.7028), 0.5), (HSup::Drum, (0.7933, 0.4015), 0.5), (HSup::Drum, (-0.4211, 0.2941), 0.5), (HSup::Drum, (0.3684, 0.3529), 0.5), (HSup::Drum, (0.0526, -0.4706), 0.5), (HSup::Drum, (0.0, 0.0), 0.5)], deck: 2.7, rail: &[(0.0, 0.2992), (0.3523, 0.9321), (0.9675, 1.0)], quay: None, hulls: &[(HHull::Lid, (0.0, 0.0), 0.0, (23.0, 20.0, 7.0))], seams: &[], doors: &[], portholes: &[], access: &[(HAcc::Ladder, (0.9439, -0.3263), -0.3, 4.0), (HAcc::Dock, (-0.4376, 0.8951), 2.0708, 4.0)], props: &[(HProp::Treepost, (-0.4211, 0.2941), 0.0, (3.0, 3.0, 3.85), 0.0), (HProp::Treepost, (0.3684, 0.3529), 0.0, (3.0, 3.0, 3.85), 0.0), (HProp::Treepost, (0.0526, -0.4706), 0.0, (3.0, 3.0, 3.85), 0.0), (HProp::Loom, (-0.2105, 0.0), -1.5708, (2.2, 0.5, 2.2), 0.0), (HProp::Loom, (0.1579, 0.0), -1.5708, (2.2, 0.5, 2.2), 0.0), (HProp::Loom, (-0.0211, 0.5882), 1.5708, (2.2, 0.5, 2.2), 0.0), (HProp::Dyepots, (-0.6316, -0.2941), 0.3, (1.8, 0.6, 0.5), 0.0), (HProp::Yarnline, (-0.6842, 0.1765), 1.5708, (4.0, 0.2, 1.9), 0.0), (HProp::Yarnline, (0.5789, -0.3529), 0.4, (4.0, 0.2, 1.9), 0.0), (HProp::Bench, (0.3684, -0.1765), 0.0, (1.6, 0.4, 0.45), 0.0), (HProp::Basket, (0.6842, 0.2353), 0.0, (0.8, 0.8, 0.7), 0.0)] }),
+    },
+    Form {
         key: "qotiro_drill_yard_01",
         at_size: 14.0,
         tiers: &[(layout::QOTIRO_DRILL_YARD_01_OUTLINE, 0.0, 3.6, 3.3), (QOTIRO_DRILL_YARD_01_TIER_1, 3.6, 7.2, 6.9)],
@@ -355,6 +566,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 2],
         yard: Some(YardLook { dressing: &[(Dress::Trough, (3.9337, -0.3429), -1.5752, (1.9, 0.65, 0.6)), (Dress::Barrel, (3.9337, 0.2571), -1.5752, (0.73, 0.75, 0.91)), (Dress::Frame, (4.0337, 0.5143), -0.0044, (0.13, 1.6, 2.0)), (Dress::Sacks, (1.3339, -0.8571), 3.1416, (0.9, 0.6, 0.5))], shades: &[], columns: &[((2.1999, 0.2143), 2.7), ((2.1999, 0.598), 2.7), ((2.1999, 0.9816), 2.7), ((1.3476, 1.0), 2.7), ((1.3046, 0.2143), 2.7)], canopy: Some((&[(2.1999, 0.2143), (2.1999, 1.0), (0.8999, 1.0), (0.8999, 0.2143)], 2.7)), chimney: None }),
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (0.9999, 0.2143), 0.0, (0.9, 0.1, 0.9), 2.3), (QProp::Awning, (0.6666, 0.7143), 0.0, (1.8, 3.4, 2.3), 3.6), (QProp::Post, (2.3332, -0.4286), 0.0, (0.35, 0.35, 2.0), 0.0), (QProp::Post, (3.1665, 0.0714), 0.0, (0.35, 0.35, 2.0), 0.0), (QProp::Post, (2.3332, 0.5), 0.0, (0.35, 0.35, 2.0), 0.0), (QProp::Gate, (4.333, 0.0), 0.0, (3.0, 0.1, 2.0), 0.0), (QProp::Stair, (1.2333, -1.0), 1.5708, (6.0, -1.4, 3.6), 0.0)], doors_up: &[((0.3333, 0.0714), 0.0, 3.6)], landings: &[(1.2333, 0.0)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_family_house_01",
@@ -367,6 +579,7 @@ const FORMS: &[Form] = &[
         windows: &[4, 3, 2],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, -0.04), 0.0, (0.9, 0.1, 0.9), 2.3), (QProp::Awning, (0.7143, 0.2), 0.0, (3.6, 4.4, 2.4), 3.6), (QProp::Trough, (0.9, -0.8601), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Trough, (0.9, 0.8601), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Trough, (-0.7857, -0.8601), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Jars, (-0.6571, 0.8401), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Jars, (-0.6857, -0.36), 0.0, (0.9, 0.9, 0.8), 7.2), (QProp::Stair, (1.0, -1.1401), 3.1416, (6.0, 1.4, 3.6), 0.0), (QProp::Stair, (0.4286, 0.7531), 3.1416, (4.0, -1.53, 3.6), 3.6)], doors_up: &[((0.4286, -0.2), 0.0, 3.6), ((-0.4286, 0.2), 0.0, 7.2)], landings: &[(0.0, -1.1401), (-0.2857, 0.7531)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_forge_01",
@@ -379,6 +592,7 @@ const FORMS: &[Form] = &[
         windows: &[2],
         yard: Some(YardLook { dressing: &[(Dress::Bellows, (1.356, -0.42), 1.5646, (0.9, 0.5, 0.9)), (Dress::Trough, (3.601, 0.76), -0.0087, (1.9, 0.65, 0.6)), (Dress::Grindstone, (1.501, -0.8), 3.1416, (0.9, 0.5, 1.0)), (Dress::Barrel, (3.901, 0.4), -1.577, (0.73, 0.75, 0.91)), (Dress::Pile, (2.851, -0.74), 3.1416, (1.3, 1.1, 0.5)), (Dress::Crate, (3.451, -0.2), -1.577, (0.9, 0.9, 0.7))], shades: &[], columns: &[((2.3, -0.64), 2.7), ((2.3, -0.1086), 2.7), ((2.3, 0.4228), 2.7), ((1.5145, 0.64), 2.7)], canopy: Some((&[(2.3, -0.64), (2.3, 0.64), (0.85, 0.64), (0.85, -0.64)], 2.7)), chimney: None }),
         qotiro: Some(QotiroLook { props: &[(QProp::Chimney, (0.0, -0.6), 0.0, (2.2, 2.2, 11.0), 0.0), (QProp::Gate, (4.5, 0.0), 0.0, (2.2, 0.1, 2.2), 0.0), (QProp::Railing, (4.5, -0.72), 1.5708, (2.8, 0.05, 0.8), 2.0), (QProp::Railing, (4.5, 0.72), 1.5708, (2.8, 0.05, 0.8), 2.0), (QProp::Railing, (1.75, -1.0), 0.0, (11.0, 0.05, 0.8), 2.0), (QProp::Railing, (1.75, 1.0), 0.0, (11.0, 0.05, 0.8), 2.0), (QProp::Disc, (1.0, 0.8), 0.0, (0.7, 0.1, 0.7), 2.3)], doors_up: &[], landings: &[] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_home_corner_01",
@@ -391,6 +605,7 @@ const FORMS: &[Form] = &[
         windows: &[4, 3, 1],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, 0.0), 0.0, (0.9, 0.1, 0.9), 2.3), (QProp::Awning, (0.5, 0.6), 0.0, (3.4, 3.4, 2.3), 3.6), (QProp::Awning, (-0.1667, -0.6), 0.0, (1.8, 3.4, 2.3), 7.2), (QProp::Trough, (0.8833, -0.8599), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Trough, (0.25, 0.8599), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Jars, (0.7667, -0.32), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Jars, (-0.1667, -0.8399), 0.0, (0.9, 0.9, 0.8), 7.2), (QProp::Stair, (1.0, 1.1399), 3.1416, (6.0, -1.4, 3.6), 0.0), (QProp::Stair, (0.0, 0.34), 3.1416, (4.0, -1.4, 3.6), 3.6)], doors_up: &[((0.0, -0.4), 0.0, 3.6), ((-0.3333, -0.6), 0.0, 7.2)], landings: &[(-0.1667, 1.1399), (-0.8333, 0.34)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_home_long_01",
@@ -403,6 +618,7 @@ const FORMS: &[Form] = &[
         windows: &[6, 5],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, -0.16), 0.0, (0.9, 0.1, 0.9), 2.3), (QProp::Awning, (0.5, -0.35), 0.0, (3.2, 4.0, 2.3), 3.6), (QProp::Awning, (0.5, 0.55), 0.0, (3.2, 4.0, 2.3), 3.6), (QProp::Trough, (0.825, -0.85), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Trough, (0.825, 0.08), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Trough, (0.825, 0.86), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Jars, (0.25, 0.92), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Jars, (0.25, -0.08), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Stair, (-1.0, -1.07), 0.0, (6.0, -1.4, 3.6), 0.0), (QProp::Stair, (-1.0, 1.07), 0.0, (6.0, 1.4, 3.6), 0.0)], doors_up: &[((0.0, 0.2), 0.0, 3.6), ((0.0, -0.6), 0.0, 3.6)], landings: &[(0.75, -1.07), (0.75, 1.07)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_home_small_01",
@@ -415,6 +631,7 @@ const FORMS: &[Form] = &[
         windows: &[2, 1],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, -0.4667), 0.0, (0.8, 0.1, 0.8), 2.2), (QProp::Awning, (0.6667, -0.5333), 0.0, (1.8, 2.6, 2.3), 3.6), (QProp::Trough, (0.8, 0.7), 0.0, (1.0, 0.5, 0.5), 3.6), (QProp::Jars, (0.8333, -0.8333), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Stair, (1.0, -1.2333), 3.1416, (4.0, 1.4, 3.6), 0.0)], doors_up: &[((0.3333, 0.3333), 0.0, 3.6)], landings: &[(-0.6667, -1.2333)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_home_small_end_01",
@@ -427,6 +644,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 2],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, -0.5), 0.0, (0.8, 0.1, 0.8), 2.2), (QProp::Awning, (0.5, 0.2), 0.0, (3.2, 4.0, 2.3), 3.6), (QProp::Trough, (0.85, 0.2), 0.0, (1.4, 0.5, 0.5), 3.6), (QProp::Trough, (0.85, 0.8), 0.0, (1.0, 0.5, 0.5), 3.6), (QProp::Jars, (0.2, -0.8), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Stair, (-1.0, -1.2333), 0.0, (6.0, -1.4, 3.6), 0.0)], doors_up: &[((0.0, -0.2667), 0.0, 3.6)], landings: &[(0.75, -1.2333)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_home_small_low_01",
@@ -439,6 +657,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 0],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, -0.0667), 0.0, (0.8, 0.1, 0.8), 2.2), (QProp::Awning, (0.3, 0.2667), 0.0, (3.6, 3.2, 2.3), 3.6), (QProp::Oven, (-0.65, 0.6667), 0.0, (1.2, 1.2, 1.3), 3.6), (QProp::Trough, (0.825, 0.0), 0.0, (1.2, 0.5, 0.5), 3.6), (QProp::Trough, (0.825, 0.8), 0.0, (1.2, 0.5, 0.5), 3.6), (QProp::Jars, (-0.15, -0.7667), 0.0, (0.9, 0.9, 0.8), 3.6), (QProp::Stair, (-1.0, -1.2333), 0.0, (6.0, -1.4, 3.6), 0.0)], doors_up: &[((-0.5, -0.6667), 0.0, 3.6)], landings: &[(0.75, -1.2333)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_home_small_tall_01",
@@ -451,6 +670,7 @@ const FORMS: &[Form] = &[
         windows: &[2, 2, 2],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Disc, (1.0, -0.4667), 0.0, (0.8, 0.1, 0.8), 2.2), (QProp::Awning, (0.5, 0.4), 0.0, (1.8, 3.0, 2.3), 3.6), (QProp::Trough, (0.85, 0.8), 0.0, (1.0, 0.5, 0.5), 3.6), (QProp::Jars, (-0.85, 0.8), 0.0, (0.9, 0.9, 0.8), 7.2), (QProp::Stair, (-1.0, -1.2333), 0.0, (6.0, -1.4, 3.6), 0.0), (QProp::Stair, (0.5, -0.5883), 3.1416, (4.0, 1.53, 3.6), 3.6)], doors_up: &[((0.0, 0.3333), 0.0, 3.6), ((-0.5, 0.3333), 3.1416, 7.2)], landings: &[(0.75, -1.2333), (-0.75, -0.5883)] }),
+        horaro: None,
     },
     Form {
         key: "qotiro_shrine_hall_01",
@@ -463,6 +683,7 @@ const FORMS: &[Form] = &[
         windows: &[0],
         yard: None,
         qotiro: Some(QotiroLook { props: &[(QProp::Arch, (1.0, -0.6667), 0.0, (1.6, 0.1, 2.4), 0.0), (QProp::Arch, (1.0, -0.3333), 0.0, (1.6, 0.1, 2.4), 0.0), (QProp::Arch, (1.0, 0.3333), 0.0, (1.6, 0.1, 2.4), 0.0), (QProp::Arch, (1.0, 0.6667), 0.0, (1.6, 0.1, 2.4), 0.0), (QProp::Pavilion, (-0.25, 0.0), 0.0, (4.0, 4.0, 3.4), 3.2), (QProp::Jars, (0.5, -0.7667), 0.0, (0.9, 0.9, 0.8), 3.2), (QProp::Steps, (1.7667, 0.0), 3.1416, (4.6, 2.4, 3.2), 0.0)], doors_up: &[], landings: &[(1.1167, 0.0)] }),
+        horaro: None,
     },
     Form {
         key: "roduro_binder_home_01",
@@ -475,6 +696,7 @@ const FORMS: &[Form] = &[
         windows: &[4],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_fletcher_home_01",
@@ -487,6 +709,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_hill_est_01",
@@ -499,6 +722,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_hill_great_01",
@@ -511,6 +735,7 @@ const FORMS: &[Form] = &[
         windows: &[4, 3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_hill_old_01",
@@ -523,6 +748,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_hill_young_01",
@@ -535,6 +761,7 @@ const FORMS: &[Form] = &[
         windows: &[2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_long_ancient_01",
@@ -547,6 +774,7 @@ const FORMS: &[Form] = &[
         windows: &[5, 4, 3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_long_est_01",
@@ -559,6 +787,7 @@ const FORMS: &[Form] = &[
         windows: &[2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_long_est_02",
@@ -571,6 +800,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_long_hall_01",
@@ -583,6 +813,7 @@ const FORMS: &[Form] = &[
         windows: &[5],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_long_old_01",
@@ -595,6 +826,7 @@ const FORMS: &[Form] = &[
         windows: &[4, 2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_long_young_01",
@@ -607,6 +839,7 @@ const FORMS: &[Form] = &[
         windows: &[1],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_mason_home_01",
@@ -619,6 +852,7 @@ const FORMS: &[Form] = &[
         windows: &[4],
         yard: Some(YardLook { dressing: &[(Dress::Block, (-0.2583, 0.4742), 2.18, (0.7, 0.7, 0.7)), (Dress::Stone, (0.4369, 0.6306), -1.5975, (1.6, 1.2, 1.0)), (Dress::Stone, (0.3347, 0.9762), -0.3739, (1.3, 1.0, 0.8)), (Dress::Stone, (-0.4144, 0.8379), 1.2574, (1.1, 1.1, 1.3)), (Dress::Pile, (0.3347, 0.354), -2.3483, (1.4, 1.2, 0.6)), (Dress::Trough, (-0.2442, 0.9416), 1.8169, (1.9, 0.65, 0.6)), (Dress::Barrel, (0.1645, 0.2158), -2.8393, (0.73, 0.75, 0.91)), (Dress::Bucket, (-0.4825, 0.6651), 1.5787, (0.4, 0.4, 0.3)), (Dress::Lantern, (0.1645, 1.0453), -0.1807, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-0.4641, 0.5812), 2.7), ((-0.1689, 0.6048), 2.7), ((0.0209, 0.3903), 2.7), ((-0.1023, 0.1305), 2.7)], canopy: Some((&[(-0.5961, 0.3263), (-0.5865, 0.435), (-0.5369, 0.5247), (-0.4493, 0.5886), (-0.3377, 0.6175), (-0.1994, 0.6122), (-0.0893, 0.569), (-0.0119, 0.49), (0.0212, 0.3867), (0.0121, 0.2724), (-0.0375, 0.1827), (-0.1251, 0.1188), (-0.2367, 0.0899), (-0.3973, 0.1014), (-0.5144, 0.2035)], 2.7)), chimney: None }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_round_ancient_01",
@@ -631,6 +865,7 @@ const FORMS: &[Form] = &[
         windows: &[4, 4, 3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_round_est_01",
@@ -643,6 +878,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_round_est_02",
@@ -655,6 +891,7 @@ const FORMS: &[Form] = &[
         windows: &[2, 1],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_round_old_01",
@@ -667,6 +904,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_round_young_01",
@@ -679,6 +917,7 @@ const FORMS: &[Form] = &[
         windows: &[2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_round_young_02",
@@ -691,6 +930,7 @@ const FORMS: &[Form] = &[
         windows: &[1],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_smith_home_01",
@@ -703,6 +943,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: Some(YardLook { dressing: &[(Dress::Bellows, (-1.4999, -0.0788), -1.4866, (1.9, 0.55, 1.0)), (Dress::Trough, (-1.8213, 0.1336), 0.0, (0.6, 1.3, 0.6)), (Dress::Grindstone, (-1.7663, 0.6434), 2.0179, (0.83, 0.9, 1.17)), (Dress::Barrel, (-1.1235, 0.2717), -1.6667, (0.73, 0.75, 0.91)), (Dress::Crate, (-1.0164, 0.6434), -2.0708, (0.9, 0.9, 0.7)), (Dress::Pile, (-1.2307, -0.7372), 2.9154, (1.4, 1.2, 0.6)), (Dress::Bucket, (-2.1949, 0.3248), 1.0449, (0.4, 0.4, 0.3)), (Dress::Lantern, (-2.2485, -0.2062), 1.8005, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-2.0392, -0.6067), 2.7), ((-2.1242, -0.1589), 2.7), ((-1.9826, 0.2712), 2.7), ((-1.5596, 0.36), 2.7), ((-1.3192, -0.0154), 2.7), ((-1.3355, -0.4727), 2.7), ((-1.6281, -0.8018), 2.7)], canopy: Some((&[(-2.0392, -0.6067), (-2.1015, -0.4395), (-2.1247, -0.2303), (-2.1081, -0.0099), (-2.0481, 0.172), (-1.9615, 0.2936), (-1.8488, 0.3688), (-1.7037, 0.3929), (-1.5603, 0.3604), (-1.4094, 0.2227), (-1.3203, -0.0099), (-1.3092, -0.3315), (-1.3803, -0.5897), (-1.4981, -0.7389), (-1.658, -0.8071), (-1.8688, -0.7177)], 2.7)), chimney: Some(((-1.1428, -0.3858), 0.7, 6.0)) }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_smith_home_02",
@@ -715,6 +956,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 2],
         yard: Some(YardLook { dressing: &[(Dress::Bellows, (1.2455, -0.2642), -2.6728, (1.9, 0.55, 1.0)), (Dress::Trough, (1.0757, -0.6604), -2.8161, (0.6, 1.3, 0.6)), (Dress::Grindstone, (2.3211, -0.2266), -0.2427, (0.83, 0.9, 1.17)), (Dress::Barrel, (1.6985, 0.9055), -0.3101, (0.73, 0.75, 0.91)), (Dress::Crate, (0.8494, -1.2455), -2.9756, (0.9, 0.9, 0.7)), (Dress::Pile, (0.906, 0.9621), -0.0632, (1.4, 1.2, 0.6)), (Dress::Bucket, (1.1891, 1.0187), -0.0632, (0.4, 0.4, 0.3)), (Dress::Lantern, (1.8683, -0.9058), -2.5021, (0.3, 0.3, 2.0))], shades: &[], columns: &[((1.7736, -0.5362), 2.7), ((1.6445, -1.0338), 2.7), ((1.1849, -1.1853), 2.7), ((0.8919, -0.7798), 2.7), ((1.1998, 0.1338), 2.7), ((1.6534, -0.0358), 2.7)], canopy: Some((&[(1.7736, -0.5362), (1.7257, -0.8681), (1.5877, -1.1009), (1.4926, -1.1696), (1.3798, -1.204), (1.2383, -1.2002), (1.1281, -1.1583), (0.9655, -0.983), (0.8791, -0.7068), (0.8802, -0.3413), (0.9764, -0.0545), (1.0798, 0.0679), (1.2038, 0.1351), (1.3681, 0.1489), (1.5134, 0.1017), (1.6266, 0.0013), (1.7081, -0.1409), (1.7587, -0.3242)], 2.7)), chimney: Some(((1.7736, -1.1132), 0.7, 6.0)) }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_smoker_home_01",
@@ -727,6 +969,7 @@ const FORMS: &[Form] = &[
         windows: &[3, 2],
         yard: Some(YardLook { dressing: &[(Dress::Frame, (1.0987, -0.7883), 0.0, (0.13, 1.6, 2.0)), (Dress::Logs, (0.5461, -1.2182), 3.1339, (2.4, 1.0, 0.9)), (Dress::Tub, (1.9298, 0.0396), -1.6328, (1.3, 1.3, 1.0)), (Dress::Trough, (0.8606, 0.983), -0.0632, (1.9, 0.65, 0.6)), (Dress::Barrel, (2.2442, -0.4006), -0.4807, (0.73, 0.75, 0.91)), (Dress::Barrel, (1.9298, -0.778), -2.5021, (0.73, 0.75, 0.91)), (Dress::Bucket, (1.9927, 0.7943), -0.4957, (0.4, 0.4, 0.3)), (Dress::Lantern, (2.3071, 0.4799), -1.1176, (0.3, 0.3, 2.0))], shades: &[], columns: &[((1.7736, -0.5363), 2.7), ((1.5885, -1.1002), 2.7), ((1.0419, -1.0889), 2.7), ((1.5996, 0.0323), 2.7)], canopy: Some((&[(1.7736, -0.5363), (1.7258, -0.8681), (1.5878, -1.101), (1.3799, -1.204), (1.2382, -1.2002), (1.1281, -1.1583), (0.9654, -0.983), (0.879, -0.7067), (0.8801, -0.3413), (0.9765, -0.0545), (1.0799, 0.0679), (1.2038, 0.135), (1.3681, 0.1488), (1.5134, 0.1017), (1.6266, 0.0013), (1.7082, -0.1409)], 2.7)), chimney: None }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_tanner_home_01",
@@ -739,6 +982,7 @@ const FORMS: &[Form] = &[
         windows: &[4],
         yard: Some(YardLook { dressing: &[(Dress::Frame, (-0.1346, 0.384), 4.36, (0.13, 1.3, 1.5)), (Dress::Tub, (0.0599, 0.8756), -0.0512, (1.4, 1.4, 1.1)), (Dress::Tub, (0.1671, 0.5129), 0.0, (1.4, 1.4, 1.1)), (Dress::Tub, (0.3101, 0.7668), -1.3286, (1.4, 1.4, 1.1)), (Dress::Frame, (-0.4046, 0.8756), 3.1394, (0.87, 1.7, 2.1)), (Dress::Frame, (0.4173, 0.4766), -0.298, (0.87, 1.7, 2.1)), (Dress::Trough, (0.2029, 0.259), -2.7799, (1.9, 0.65, 0.6)), (Dress::Barrel, (-0.226, 1.0207), 0.2461, (0.73, 0.75, 0.91)), (Dress::Bucket, (0.3101, 1.0207), -0.3331, (0.4, 0.4, 0.3)), (Dress::Lantern, (0.4887, 0.658), -1.5975, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-0.4119, 0.6019), 2.7), ((-0.0649, 0.5509), 2.7), ((-0.012, 0.2158), 2.7)], canopy: Some((&[(-0.5948, 0.3202), (-0.587, 0.4291), (-0.5396, 0.5199), (-0.4575, 0.5835), (-0.3463, 0.6158), (-0.2035, 0.6123), (-0.0932, 0.571), (-0.0142, 0.4939), (0.0212, 0.3914), (0.0155, 0.2823), (-0.0299, 0.1903), (-0.1154, 0.1226), (-0.2267, 0.0903), (-0.4044, 0.102), (-0.5172, 0.2017)], 2.7)), chimney: None }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_tanner_home_02",
@@ -751,6 +995,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: Some(YardLook { dressing: &[(Dress::Frame, (0.6346, -1.407), 4.4315, (0.13, 1.3, 1.5)), (Dress::Tub, (1.1855, -0.7937), 1.0151, (1.4, 1.4, 1.1)), (Dress::Tub, (1.6471, -1.1826), -2.0273, (1.4, 1.4, 1.1)), (Dress::Tub, (1.7624, -0.7381), -1.0157, (1.4, 1.4, 1.1)), (Dress::Frame, (1.2432, -0.2937), 1.3323, (0.87, 1.7, 2.1)), (Dress::Frame, (1.5317, -1.627), -1.3106, (0.87, 1.7, 2.1)), (Dress::Trough, (1.9355, -1.3493), -2.0571, (1.9, 0.65, 0.6)), (Dress::Barrel, (0.0317, -1.1826), 1.856, (0.73, 0.75, 0.91)), (Dress::Bucket, (1.6471, -0.3493), -0.5141, (0.4, 0.4, 0.3)), (Dress::Lantern, (0.9548, -0.627), 1.0772, (0.3, 0.3, 2.0))], shades: &[], columns: &[((0.1965, -1.612), 2.7), ((0.291, -1.1478), 2.7), ((0.7248, -0.967), 2.7), ((1.078, -1.2709), 2.7), ((1.0846, -1.7467), 2.7), ((0.6477, -1.8022), 2.7)], canopy: Some((&[(0.1965, -1.612), (0.1983, -1.4091), (0.2411, -1.2404), (0.3273, -1.1013), (0.45, -1.0069), (0.6136, -0.9641), (0.8025, -0.9843), (0.9394, -1.0609), (1.0436, -1.1922), (1.0971, -1.3374), (1.1153, -1.503), (1.1005, -1.6837), (1.0496, -1.8333), (0.5596, -1.783), (0.3446, -1.7065)], 2.7)), chimney: None }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_tender_home_01",
@@ -763,6 +1008,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: Some(YardLook { dressing: &[(Dress::Crate, (-0.0952, -1.2692), 0.0, (0.9, 0.9, 0.7)), (Dress::Sacks, (0.627, -1.4423), -2.4625, (0.9, 0.7, 0.4)), (Dress::Barrel, (1.2228, 0.0235), 1.4089, (0.73, 0.75, 0.91)), (Dress::Trough, (1.3339, -1.3034), -3.0455, (1.9, 0.65, 0.6)), (Dress::Pile, (1.5561, -0.0919), -0.4227, (1.2, 1.0, 0.5)), (Dress::Bucket, (1.6672, -1.2457), -2.6037, (0.4, 0.4, 0.3)), (Dress::Lantern, (1.8894, -1.0727), -2.3394, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-0.3107, -1.0346), 2.7), ((0.8985, -1.1501), 2.7), ((0.7217, -1.5988), 2.7), ((0.2483, -1.7688), 2.7), ((-0.2024, -1.5505), 2.7)], canopy: Some((&[(-0.3107, -1.0346), (-0.1852, -0.8513), (0.0144, -0.7325), (0.2874, -0.6923), (0.5507, -0.7359), (0.7407, -0.8513), (0.8619, -1.0242), (0.9072, -1.2463), (0.8743, -1.4824), (0.6324, -1.6761), (0.4843, -1.7436), (0.2346, -1.7684), (0.0226, -1.7272), (-0.128, -1.6369), (-0.2302, -1.5017)], 2.7)), chimney: None }),
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_tower_cottage_01",
@@ -775,6 +1021,7 @@ const FORMS: &[Form] = &[
         windows: &[2, 2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_tower_house_01",
@@ -787,6 +1034,7 @@ const FORMS: &[Form] = &[
         windows: &[4, 4, 3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_twin_home_01",
@@ -799,6 +1047,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_vault_tall_01",
@@ -811,6 +1060,7 @@ const FORMS: &[Form] = &[
         windows: &[2, 2],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_weaver_home_01",
@@ -823,6 +1073,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: None,
         qotiro: None,
+        horaro: None,
     },
     Form {
         key: "roduro_woodworker_home_01",
@@ -835,6 +1086,7 @@ const FORMS: &[Form] = &[
         windows: &[3],
         yard: Some(YardLook { dressing: &[(Dress::Block, (-1.9432, -0.0362), 1.6065, (0.7, 0.7, 0.7)), (Dress::Crate, (-1.5958, -0.3802), 2.7128, (0.9, 0.9, 0.7)), (Dress::Logs, (-1.0711, -0.5612), -1.2191, (3.0, 1.2, 1.1)), (Dress::Logs, (-1.9148, 0.5199), 0.6094, (2.6, 1.1, 0.9)), (Dress::Pile, (-1.0215, 0.6673), -2.0903, (1.3, 1.1, 0.5)), (Dress::Trough, (-2.2125, 0.1268), 1.4347, (1.9, 0.65, 0.6)), (Dress::Barrel, (-1.3192, -0.7577), 2.9528, (0.73, 0.75, 0.91)), (Dress::Bucket, (-0.8726, 0.8639), 0.0176, (0.4, 0.4, 0.3)), (Dress::Lantern, (-2.2125, -0.3155), 1.9948, (0.3, 0.3, 2.0))], shades: &[], columns: &[((-2.0297, -0.6228), 2.7), ((-2.1248, -0.1771), 2.7), ((-1.9943, 0.2575), 2.7), ((-1.5756, 0.3676), 2.7), ((-1.3222, 0.0016), 2.7), ((-1.3311, -0.4563), 2.7), ((-1.6132, -0.7969), 2.7)], canopy: Some((&[(-2.0297, -0.6228), (-2.0979, -0.4549), (-2.1247, -0.2509), (-2.1113, -0.0249), (-2.0527, 0.164), (-1.9616, 0.294), (-1.8489, 0.3692), (-1.7037, 0.3931), (-1.5603, 0.3607), (-1.4092, 0.2231), (-1.3217, -0.0015), (-1.3083, -0.3235), (-1.3758, -0.5803), (-1.4981, -0.7381), (-1.6729, -0.8079)], 2.7)), chimney: None }),
         qotiro: None,
+        horaro: None,
     },
 ];
 // ---- end generated forms ----
@@ -1055,7 +1307,7 @@ const SHOULDER: f32 = 0.6;
 
 /// An outline in the building's frame (metres), moved in `m` metres all
 /// round (each corner along the middle of its two edges' ways in).
-fn inset(f: &Frame, pts: &[(f32, f32)], m: f32) -> Vec<V2> {
+pub(super) fn inset(f: &Frame, pts: &[(f32, f32)], m: f32) -> Vec<V2> {
     let n = pts.len();
     let q: Vec<V2> = pts.iter().map(|&(x, y)| V2::new(x * f.hx, y * f.hy)).collect();
     let inward = |k: usize| {
@@ -1088,7 +1340,7 @@ fn concave(pts: &[(f32, f32)]) -> bool {
 }
 
 /// Frame metres on the map.
-fn fm(f: &Frame, q: V2) -> V2 {
+pub(super) fn fm(f: &Frame, q: V2) -> V2 {
     f.c.add(f.dir().scale(q.x)).add(f.side_v2().scale(q.y))
 }
 
@@ -2467,6 +2719,13 @@ fn qotiro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, size: f32, 
 }
 
 fn horaro(b: &mut Builder, gl: &mut Builder, v: &Variant, f: &Frame, seed: u64) {
+    if let Some(form) = form_of(v) {
+        if let (Some(look), Some(tier)) = (form.horaro.as_ref(), form.tiers.first()) {
+            let k = f.hx / v.half.0.max(1e-4) / form.at_size;
+            horaro::horaro_form(b, gl, tier.0, look, f, k, seed);
+            return;
+        }
+    }
     // Stone pillars down into the water (or the ground), and the deck.
     let round = v.shape == Shape::Round;
     let n = 5;

@@ -1,0 +1,307 @@
+{
+ "id": "horaro_rock_home_01",
+ "label": "Rock home, a dome on lashed rock pillars",
+ "units": "metres",
+ "frame": "the way on (+x); z up from the water; plan coordinates [x, y]",
+ "kit": "stilt",
+ "overall": {
+  "size_xyz": [
+   13.2,
+   10.4,
+   7.1
+  ],
+  "height": 7.1
+ },
+ "game": {
+  "variant": "horaro_rock_home_01",
+  "centre": [
+   0.0,
+   0.0
+  ],
+  "size": 13.2,
+  "half": [
+   0.5,
+   0.3939
+  ],
+  "sizes": [
+   12.95,
+   13.45
+  ],
+  "door": 0.0,
+  "storeys": 1,
+  "roof": "flat",
+  "dome": 0.0,
+  "windows": [],
+  "walls": [],
+  "hand": false,
+  "furniture": [],
+  "holders": [],
+  "stair": null,
+  "other_doors": [],
+  "yard": null,
+  "kind": "horaro",
+  "use": "home",
+  "horaro": {
+   "deck": 2.7,
+   "supports": [
+    {
+     "kind": "rock",
+     "at": [
+      5.292,
+      -0.0
+     ],
+     "r": 0.95
+    },
+    {
+     "kind": "rock",
+     "at": [
+      1.436,
+      -3.731
+     ],
+     "r": 0.95
+    },
+    {
+     "kind": "rock",
+     "at": [
+      -4.021,
+      -2.503
+     ],
+     "r": 0.95
+    },
+    {
+     "kind": "rock",
+     "at": [
+      -4.021,
+      2.503
+     ],
+     "r": 0.95
+    },
+    {
+     "kind": "rock",
+     "at": [
+      1.436,
+      3.731
+     ],
+     "r": 0.95
+    }
+   ],
+   "hulls": [
+    {
+     "kind": "dome",
+     "at": [
+      -0.6,
+      0
+     ],
+     "yaw": 0.0,
+     "size": [
+      9.4,
+      7.8,
+      4.4
+     ]
+    }
+   ],
+   "seams": [],
+   "doors": [
+    {
+     "xy": [
+      4.1,
+      0.0
+     ],
+     "yaw": 0.0
+    }
+   ],
+   "portholes": [
+    {
+     "xy": [
+      2.698,
+      2.778
+     ],
+     "yaw": 0.8855,
+     "z": 1.6
+    },
+    {
+     "xy": [
+      2.698,
+      -2.778
+     ],
+     "yaw": -0.8855,
+     "z": 1.6
+    }
+   ],
+   "access": [
+    {
+     "kind": "ladder",
+     "at": [
+      6.6,
+      0.0
+     ],
+     "yaw": 0.0,
+     "len": 4.0
+    }
+   ],
+   "props": [],
+   "quay": null,
+   "rail": []
+  },
+  "note": "A stilt building: the sim knows the deck's outline only (nothing walks it); everything else is drawn from `horaro`. Layout units are metres from `centre` divided by half x size."
+ },
+ "exterior": {
+  "tiers": [
+   {
+    "name": "deck",
+    "z0": 0.0,
+    "z1": 2.7,
+    "wall_top": 2.7,
+    "outline": [
+     [
+      6.6,
+      0.0
+     ],
+     [
+      6.5,
+      0.903
+     ],
+     [
+      6.202,
+      1.779
+     ],
+     [
+      5.716,
+      2.6
+     ],
+     [
+      5.056,
+      3.342
+     ],
+     [
+      4.242,
+      3.983
+     ],
+     [
+      3.3,
+      4.503
+     ],
+     [
+      2.257,
+      4.886
+     ],
+     [
+      1.146,
+      5.121
+     ],
+     [
+      0.0,
+      5.2
+     ],
+     [
+      -1.146,
+      5.121
+     ],
+     [
+      -2.257,
+      4.886
+     ],
+     [
+      -3.3,
+      4.503
+     ],
+     [
+      -4.242,
+      3.983
+     ],
+     [
+      -5.056,
+      3.342
+     ],
+     [
+      -5.716,
+      2.6
+     ],
+     [
+      -6.202,
+      1.779
+     ],
+     [
+      -6.5,
+      0.903
+     ],
+     [
+      -6.6,
+      0.0
+     ],
+     [
+      -6.5,
+      -0.903
+     ],
+     [
+      -6.202,
+      -1.779
+     ],
+     [
+      -5.716,
+      -2.6
+     ],
+     [
+      -5.056,
+      -3.342
+     ],
+     [
+      -4.242,
+      -3.983
+     ],
+     [
+      -3.3,
+      -4.503
+     ],
+     [
+      -2.257,
+      -4.886
+     ],
+     [
+      -1.146,
+      -5.121
+     ],
+     [
+      -0.0,
+      -5.2
+     ],
+     [
+      1.146,
+      -5.121
+     ],
+     [
+      2.257,
+      -4.886
+     ],
+     [
+      3.3,
+      -4.503
+     ],
+     [
+      4.242,
+      -3.983
+     ],
+     [
+      5.056,
+      -3.342
+     ],
+     [
+      5.716,
+      -2.6
+     ],
+     [
+      6.202,
+      -1.779
+     ],
+     [
+      6.5,
+      -0.903
+     ]
+    ]
+   }
+  ]
+ },
+ "levels": [],
+ "stairs": [],
+ "designed": true
+}

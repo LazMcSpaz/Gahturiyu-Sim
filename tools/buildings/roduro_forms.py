@@ -448,6 +448,31 @@ def finish_spec(id, label, kit, tier_specs, L1, stairs, windows, size_xyz, roof=
     )
 
 
+def horaro_spec(id, d):
+    """A Horaro building's spec: the deck is the one tier the sim knows
+    (its outline, `Shape::Poly`); the rest is `game.horaro`, drawing only.
+    No walls, rooms or door: stilt homes have no interior yet (the sea is
+    off-limits to the squad)."""
+    from horaro_designs import outline, FLOOR
+    pts = outline(d["deck"])
+    minx, miny, maxx, maxy = d["deck"].bounds
+    cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
+    hx, hy = (maxx - minx) / 2, (maxy - miny) / 2
+    size = round(max(hx, hy) * 2, 2)
+    q = d["horaro"]
+    top = max([FLOOR] + [h["size"][2] + FLOOR for h in q["hulls"]])
+    game = dict(
+        variant=id, centre=[round(cx, 3), round(cy, 3)], size=size, half=[round(hx / size, 4), round(hy / size, 4)],
+        sizes=[round(size - 0.25, 2), round(size + 0.25, 2)], door=0.0, storeys=1, roof="flat", dome=0.0, windows=[],
+        walls=[], hand=False, furniture=[], holders=[], stair=None, other_doors=[], yard=None, kind="horaro", use=d.get("use", "home"),
+        horaro=q,
+        note="A stilt building: the sim knows the deck's outline only (nothing walks it); everything else is drawn from `horaro`. Layout units are metres from `centre` divided by half x size.",
+    )
+    return dict(id=id, label=d["label"], units="metres", frame="the way on (+x); z up from the water; plan coordinates [x, y]", kit="stilt",
+                overall=dict(size_xyz=[round(maxx - minx, 2), round(maxy - miny, 2), round(top, 2)], height=round(top, 2)),
+                game=game, exterior=dict(tiers=[dict(name="deck", z0=0.0, z1=FLOOR, wall_top=FLOOR, outline=pts)]), levels=[], stairs=[], designed=True)
+
+
 def plan_png(spec, path):
     import matplotlib
     matplotlib.use("Agg")
@@ -551,7 +576,7 @@ def rust_layout(specs):
 pub static {up}_YARD: Yard = Yard {{ outline: {up}_YARD_OUTLINE, gate: ({f3(u(y['gate'])[0])}, {f3(u(y['gate'])[1])}), gate_width: {f3(y['gate_width'])}, fence: {f3(y['fence_h'])}, pieces: &[{pieces}] }};""")
             yard = f"Some(&{up}_YARD)"
         use = {"workshop": "Use::Workshop", "hall": "Use::Hall", "shrine": "Use::Shrine"}.get(g.get("use"), "Use::Home")
-        kind = "K::QotiroBlock" if g.get("kind") == "qotiro" else "K::RoduroHome"
+        kind = {"qotiro": "K::QotiroBlock", "horaro": "K::HoraroStilt"}.get(g.get("kind"), "K::RoduroHome")
         variants.append(f'''    Variant {{
         key: "{id}",
         name: "{spec['label'].split(',')[0].split(' / ')[0].split(' (')[0]}",
@@ -618,6 +643,21 @@ def rust_forms(specs):
             ups = ", ".join(f"(({f3(u(o['xy'])[0])}, {f3(u(o['xy'])[1])}), {f3(o['yaw'])}, {f3(o['z'])})" for o in q["doors_up"])
             heads = ", ".join(f"({f3(u(st['head'])[0])}, {f3(u(st['head'])[1])})" for st in q["stairs"])
             qotiro = f"Some(QotiroLook {{ props: &[{', '.join(props)}], doors_up: &[{ups}], landings: &[{heads}] }})"
+        horaro = "None"
+        if g.get("horaro"):
+            q = g["horaro"]
+            sup = ", ".join(f"(HSup::{sp['kind'].capitalize()}, ({f3(u(sp['at'])[0])}, {f3(u(sp['at'])[1])}), {f3(sp['r'])})" for sp in q["supports"])
+            rail = ", ".join(f"({f3(a)}, {f3(b)})" for a, b in q["rail"])
+            quay = "None"
+            if q.get("quay"):
+                quay = "Some((&[" + ", ".join(f"({f3(u(p)[0])}, {f3(u(p)[1])})" for p in q["quay"]["outline"]) + f"], {f3(q['quay']['z'])}))"
+            hulls = ", ".join(f"(HHull::{h['kind'].capitalize()}, ({f3(u(h['at'])[0])}, {f3(u(h['at'])[1])}), {f3(h['yaw'])}, ({f3(h['size'][0])}, {f3(h['size'][1])}, {f3(h['size'][2])}))" for h in q["hulls"])
+            seams = ", ".join(f"({i}, {j})" for i, j in q["seams"])
+            doors = ", ".join(f"(({f3(u(o['xy'])[0])}, {f3(u(o['xy'])[1])}), {f3(o['yaw'])})" for o in q["doors"])
+            ports = ", ".join(f"(({f3(u(o['xy'])[0])}, {f3(u(o['xy'])[1])}), {f3(o['yaw'])}, {f3(o['z'])})" for o in q["portholes"])
+            acc = ", ".join(f"(HAcc::{a['kind'].capitalize()}, ({f3(u(a['at'])[0])}, {f3(u(a['at'])[1])}), {f3(a['yaw'])}, {f3(a['len'])})" for a in q["access"])
+            props = ", ".join(f"(HProp::{p['kind'].capitalize()}, ({f3(u(p['at'])[0])}, {f3(u(p['at'])[1])}), {f3(p['rot'])}, ({f3(p['size'][0])}, {f3(p['size'][1])}, {f3(p['size'][2])}), {f3(p['z'])})" for p in q["props"])
+            horaro = f"Some(HoraroLook {{ supports: &[{sup}], deck: {f3(q['deck'])}, rail: &[{rail}], quay: {quay}, hulls: &[{hulls}], seams: &[{seams}], doors: &[{doors}], portholes: &[{ports}], access: &[{acc}], props: &[{props}] }})"
         roof = {"barrel": "Barrel", "flat": "Flat"}.get(g["roof"], "Dome")
         forms.append(f'''    Form {{
         key: "{id}",
@@ -630,6 +670,7 @@ def rust_forms(specs):
         windows: &[{windows}],
         yard: {look},
         qotiro: {qotiro},
+        horaro: {horaro},
     }},''')
     return "\n".join(forms), "\n\n".join(consts)
 
@@ -688,6 +729,11 @@ def design_specs(cat_dir):
         if d.get("use"):
             spec["game"]["use"] = d["use"]
         out[id] = spec
+    # The Horaro buildings (`horaro_designs.py`): a deck on supports, woven
+    # lobes and gear, look-only (no door for the sim).
+    import horaro_designs as hd
+    for id, d in hd.designs().items():
+        out[id] = horaro_spec(id, d)
     for id, d in qd.yard_designs().items():
         tiers = d["tiers"]
         xs = [p[0] for p in tiers[0]["outline"]]

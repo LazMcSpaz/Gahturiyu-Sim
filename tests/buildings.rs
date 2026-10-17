@@ -1610,6 +1610,12 @@ fn catalogue_buildings_match_their_files() {
         assert!(area > 0.0, "{key}");
         let reach = |g: fn(&(f32, f32)) -> f32| pts.iter().map(g).fold(0.0f32, |a, b| a.max(b.abs()));
         assert!((reach(|p| p.0) - 1.0).abs() < 0.002 && (reach(|p| p.1) - 1.0).abs() < 0.002, "{key}");
+        // A Horaro stilt building is its deck's outline and nothing more
+        // to the sim (no door, no walls: nobody walks a deck yet).
+        if v.kind == BuildingKind::HoraroStilt {
+            assert!(j["levels"].as_array().unwrap().is_empty(), "{key}");
+            continue;
+        }
         // The main door is the file's, on the front of the outline.
         let d = test_door(v, size);
         let door = j["levels"][0]["outside_doors"].as_array().unwrap().iter().min_by(|a, b| f(&a["yaw"]).abs().total_cmp(&f(&b["yaw"]).abs())).unwrap();
