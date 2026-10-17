@@ -115,6 +115,7 @@ pub fn update(
     mut clear: ResMut<ClearColor>,
     cam: Query<Entity, With<MainCamera>>,
 ) {
+    let _prof = super::prof::span("light");
     let w = &game.world;
     let day = stealth::daylight(w.time);
     let night = ((1.0 - day) / (1.0 - 0.12)).clamp(0.0, 1.0);

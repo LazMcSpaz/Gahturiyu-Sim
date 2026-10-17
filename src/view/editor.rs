@@ -73,6 +73,9 @@ pub struct Editor {
     pub cursor: Option<V2>,
     /// Changes the window must redraw: (number, area), newest last.
     pub dirty: Vec<(u32, (V2, V2))>,
+    /// What's changed since the 3D view last looked (it takes it each
+    /// frame): mid-stroke, only the ground under it is redrawn.
+    pub fresh: Option<(V2, V2)>,
     dirty_n: u32,
     pending: Option<(V2, V2)>,
     last_flush: f32,
@@ -105,6 +108,7 @@ impl Default for Editor {
             ramp_from: None,
             cursor: None,
             dirty: Vec::new(),
+            fresh: None,
             dirty_n: 0,
             pending: None,
             last_flush: 0.0,
@@ -142,10 +146,12 @@ impl Editor {
     }
 
     fn mark(&mut self, area: (V2, V2)) {
-        self.pending = Some(match self.pending {
+        let join = |was: Option<(V2, V2)>| match was {
             Some((a, b)) => (V2::new(a.x.min(area.0.x), a.y.min(area.0.y)), V2::new(b.x.max(area.1.x), b.y.max(area.1.y))),
             None => area,
-        });
+        };
+        self.pending = Some(join(self.pending));
+        self.fresh = Some(join(self.fresh));
     }
 
     /// Hand what's changed to the window to redraw (now and then mid-stroke).
@@ -329,7 +335,10 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
             let e = &game.editor;
             let brush = e.brush(shift);
             let d = Dab { brush, at: p, radius: e.radius, strength: e.strength, falloff: e.softness, dt: dt.min(0.1), target: e.target };
-            if let Some(area) = game.world.terrain.dab(d) {
+            let prof_dab = super::prof::span("editor.dab");
+            let dabbed = game.world.terrain.dab(d);
+            drop(prof_dab);
+            if let Some(area) = dabbed {
                 game.editor.mark(area);
                 game.editor.unsaved = true;
                 if brush.shapes() || matches!(brush, Brush::Paint(_) | Brush::Unpaint) {

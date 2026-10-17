@@ -321,6 +321,7 @@ fn fresh_world(seed: u64, own_land: bool, start: worldgen::Start) -> World {
 }
 
 pub fn run() {
+    super::prof::init();
     let seed: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(1);
     let shot = Shot::from_env();
     // GAHT_MAPRENDER=dir: the map site's close-up pictures (`maprender.rs`).
@@ -794,10 +795,60 @@ pub(super) fn rebuild_world(game: &mut Game) {
 }
 
 /// Keys and mouse: camera moves, and orders.
-fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<ButtonInput<MouseButton>>, scroll: Res<AccumulatedMouseScroll>, window: Single<&Window, With<PrimaryWindow>>, time: Res<Time>) {
+/// The scripted brush stroke for measuring the editor (`prof.rs`, `GAHT_STROKE`).
+#[derive(Default)]
+pub(super) struct StrokeScript {
+    start: Option<f32>,
+    held: ButtonInput<MouseButton>,
+    /// When the wheel last turned, in the camera part.
+    wheel: f32,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<ButtonInput<MouseButton>>, scroll: Res<AccumulatedMouseScroll>, window: Single<&Window, With<PrimaryWindow>>, time: Res<Time>, mut stroke: Local<StrokeScript>) {
+    let _prof = super::prof::span("input");
     let game = &mut *game;
     game.screen = Vec2::new(window.width(), window.height());
     let mut mouse = window.cursor_position().unwrap_or(game.last_mouse);
+    // `GAHT_STROKE`: a few seconds of play, one with the editor open, four
+    // moving the camera about as one does to look at the land (tilting,
+    // turning, zooming in and out), then a Raise stroke held for that long,
+    // the brush circling the screen's middle.
+    let real_buttons = &*buttons;
+    let buttons: &ButtonInput<MouseButton> = match super::prof::stroke_secs() {
+        Some(secs) => {
+            let t = time.elapsed_secs();
+            let start = *stroke.start.get_or_insert(t + 3.0);
+            if t >= start && !game.editor.on {
+                super::editor::toggle(game);
+                game.editor.tool = super::editor::Tool::Raise;
+            }
+            stroke.held.clear();
+            let (cam, brush) = (start + 1.0, start + 5.0);
+            let done = brush + secs;
+            super::prof::phase(if t < start { "play" } else if t < cam { "editor" } else if t < brush { "camera" } else if t < done { "stroke" } else { "after" });
+            if t >= cam && t < brush {
+                // Tilt up and down, turning, and the wheel in, then out.
+                let dt = time.delta_secs();
+                let u = t - cam;
+                game.orbit.orbit(120.0 * dt, (u * 2.5).cos() * 220.0 * dt);
+                if t - stroke.wheel > 0.15 {
+                    stroke.wheel = t;
+                    game.glide.get_or_insert(super::feel::Glide::of(&game.orbit)).zoom(if u < 2.0 { 1.0 } else { -1.0 });
+                }
+            }
+            if t >= brush && t < brush + secs {
+                let a = (t - start) * 1.5;
+                mouse = game.screen * 0.5 + Vec2::new(a.cos(), a.sin()) * 120.0;
+                stroke.held.press(MouseButton::Left);
+            } else if t >= done {
+                stroke.held.release(MouseButton::Left);
+                game.quit = t >= done + 2.0;
+            }
+            &stroke.held
+        }
+        None => real_buttons,
+    };
     if let Some(h) = game.shot.as_ref().and_then(|s| s.hover) {
         mouse = h;
     }
@@ -1271,6 +1322,7 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
 
 /// Step the world by this frame's share of game time.
 fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
+    let _prof = super::prof::span("simulate");
     let game = &mut *game;
     let dt = time.delta_secs();
     game.frame_ms = game.frame_ms * 0.9 + dt as f64 * 1000.0 * 0.1;
@@ -1344,6 +1396,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
 
 /// Aim the 3D camera; switch it off on the map.
 pub fn camera(game: Res<Game>, mut cam: Query<(&mut Camera, &mut Transform, &mut Projection), With<MainCamera>>) {
+    let _prof = super::prof::span("camera");
     let Ok((mut c, mut tf, mut proj)) = cam.single_mut() else { return };
     c.is_active = game.view == View::Scene;
     *tf = Transform::from_translation(game.orbit.eye()).looking_at(game.orbit.look_at(), Vec3::Y);
@@ -1664,6 +1717,7 @@ struct UiState {
 /// The panels, labels, map and tooltips; clicks on panels become actions.
 #[allow(clippy::too_many_arguments)]
 fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>, scene: Res<scene::Scene3d>, models: Res<models::Models>, foliage: Res<super::foliage::Foliage>, mut settings: ResMut<super::settings::Settings>, mut weather: ResMut<super::weather::WeatherView>) -> Result {
+    let _prof = super::prof::span("ui");
     let ctx = contexts.ctx_mut()?;
     if !st.fonts {
         let mut fonts = egui::FontDefinitions::default();
@@ -2891,6 +2945,7 @@ impl From<egui::Rect> for Bx {
 
 /// Save a screenshot at the asked-for frame, then quit once it's on disk.
 fn screenshot(mut commands: Commands, mut game: ResMut<Game>, mut exit: MessageWriter<AppExit>) {
+    super::prof::frame();
     game.frame += 1;
     if game.quit {
         exit.write(AppExit::Success);

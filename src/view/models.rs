@@ -316,6 +316,7 @@ pub fn simplify(mesh: &Mesh, ratio: f32) -> Option<Mesh> {
 /// When a model's files have finished loading, gather their pieces, make
 /// any missing detail levels, and measure the model.
 pub fn finish(mut models: ResMut<Models>, gltfs: Res<Assets<Gltf>>, gmeshes: Res<Assets<GltfMesh>>, mut meshes: ResMut<Assets<Mesh>>, server: Res<AssetServer>) {
+    let _prof = super::prof::span("models");
     if models.loading.is_empty() {
         return;
     }

@@ -169,19 +169,19 @@ pub fn ground(t: &Terrain, p: V2, h: f32, up: f32) -> Rgb {
     c = mix(c, mix(SCRUB, GRASS_DRY, n2 * 0.4), arid * 0.9);
     // What Laz's map says the ground is: his forest's darker floor, the
     // Overgrowth, bog, rock and snow, with soft winding edges (`Atlas::share`).
-    let a = atlas::atlas();
-    let edge = |share: f32| smooth(0.25, 0.75, share);
-    c = mix(c, mix(FOREST_FLOOR, GRASS, n2 * 0.35), edge(a.share(p, Class::Forest)) * 0.85);
-    c = mix(c, OVERGROWN, edge(a.share(p, Class::Overgrowth)) * 0.85);
-    c = mix(c, BOG, edge(a.share(p, Class::Bog)) * 0.8);
-    let drawn_rock = edge(a.share(p, Class::Rock)) * (0.8 + n1 * 0.2);
+    let shares = atlas::atlas().shares_at(p);
+    let edge = |c: Class| smooth(0.25, 0.75, shares[c as usize]);
+    c = mix(c, mix(FOREST_FLOOR, GRASS, n2 * 0.35), edge(Class::Forest) * 0.85);
+    c = mix(c, OVERGROWN, edge(Class::Overgrowth) * 0.85);
+    c = mix(c, BOG, edge(Class::Bog) * 0.8);
+    let drawn_rock = edge(Class::Rock) * (0.8 + n1 * 0.2);
     // Bare rock where it's steep or high, or drawn as rock.
     let steep = (smooth(0.86, 0.66, up) * (0.75 + n1 * 0.5)).max(drawn_rock);
     let rock = if arid > 0.4 { SANDROCK } else { ROCK };
     c = mix(c, rock, steep.max(smooth(380.0, 520.0, h) * 0.85));
     // Snow on the high flats, above the snow line (which the weather moves).
     let line = snow_line();
-    c = mix(c, SNOW, (smooth(line - 60.0, line + 60.0, h) * smooth(0.78, 0.90, up)).max(edge(a.share(p, Class::Snow))) * 0.85);
+    c = mix(c, SNOW, (smooth(line - 60.0, line + 60.0, h) * smooth(0.78, 0.90, up)).max(edge(Class::Snow)) * 0.85);
     // Shingle along the waterline: by height where the land was authored
     // (its shore is wherever it meets the sea), by distance from the world's
     // coastline elsewhere (that shore is nearly flat).

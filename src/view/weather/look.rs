@@ -73,6 +73,7 @@ pub fn apply(
     cam: Query<Entity, With<MainCamera>>,
     mut wet_drawn: Local<f32>,
 ) {
+    let _prof = super::super::prof::span("weather.look");
     let started = std::time::Instant::now();
     let v = &mut *view;
     let (here, eye) = (v.here, v.eye);

@@ -208,6 +208,7 @@ struct Seen {
 
 /// Play what was asked for this frame, and what changed since the last.
 pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut sfx: ResMut<Sfx>, settings: Res<Settings>) {
+    let _prof = super::prof::span("sound");
     let game = &mut *game;
     let master = settings.sound.gain();
     let mut queue = std::mem::take(&mut game.sounds.0);

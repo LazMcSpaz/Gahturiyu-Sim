@@ -263,8 +263,12 @@ fn observe(game: Res<Game>, mut view: ResMut<WeatherView>, time: Res<Time>, sett
     v.loads = Some(game.loads);
     let world = &game.world;
     let stamp: Stamp = (world.seed, game.loads, world.terrain.edits.version);
-    if !v.land.is_for(stamp) && !game.editor.stroking {
+    // (The land's hand edits are caught up once the editor is closed: the
+    // whole grid takes most of a tenth of a second, a stall after every
+    // stroke.)
+    if !v.land.is_for(stamp) && !(game.editor.on && v.land.is_for_world(stamp)) {
         // Once per world (a fraction of a second); not counted as a frame's cost.
+        let _prof = super::prof::span("weather.land");
         v.land.build(&world.terrain, stamp);
     }
     let started = std::time::Instant::now();

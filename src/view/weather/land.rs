@@ -24,6 +24,11 @@ impl LandGrid {
         self.built == Some(stamp)
     }
 
+    /// Built for this world and load, if not for its latest hand edits.
+    pub fn is_for_world(&self, stamp: Stamp) -> bool {
+        self.built.is_some_and(|b| (b.0, b.1) == (stamp.0, stamp.1))
+    }
+
     pub fn build(&mut self, terrain: &Terrain, stamp: Stamp) {
         let step = WORLD_SIZE / (N - 1) as f32;
         self.shares.clear();
