@@ -120,7 +120,7 @@
   "qotiro": {
    "stairs": [
     {
-     "kind": "stair",
+     "kind": "steps",
      "at": [
       10.6,
       0.0
@@ -135,7 +135,8 @@
      "head": [
       6.7,
       0.0
-     ]
+     ],
+     "landing": 0.0
     }
    ],
    "doors_up": [],
