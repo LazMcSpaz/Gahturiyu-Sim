@@ -11,6 +11,7 @@ pub mod island;
 pub mod tutorial;
 pub mod rules;
 pub mod atlas;
+pub mod drawn_roads;
 pub mod ferry;
 pub mod membership;
 pub mod campfire;

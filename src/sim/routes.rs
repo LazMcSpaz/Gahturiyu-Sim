@@ -1,12 +1,11 @@
-//! Roads: the way people actually get between towns.
+//! Roads, and the way people get between towns.
 //!
-//! Built once at world creation by searching the land for the cheapest walk
-//! between towns, where "cheap" means short, not too steep, and dry. Each
-//! town is first linked to its nearest neighbours; ground that already
-//! carries a road is cheaper to use, so later routes bend onto existing ones
-//! and the links merge into a network of trunk roads instead of a web of
-//! straight lines. Travellers then follow these routes instead of walking
-//! through mountains.
+//! The roads are Laz's, as he drew them (`drawn_roads.rs`), and only those
+//! (Laz, 17 Oct): nothing else is drawn, painted or counted as a road. The way
+//! between each pair of towns is found once at world creation by searching
+//! the land for the cheapest walk, where "cheap" means short, not too steep,
+//! and dry; ground his roads cross is much cheaper, so a traveller takes the
+//! road where there is one and walks the land where there isn't.
 
 use serde::{Deserialize, Serialize};
 
@@ -23,10 +22,8 @@ use super::terrain::{walk_factor, Terrain};
 // (200 m: on a 68 km map that's 342 cells a side, fewer than the old 600 m on 386 km.)
 const GRID: f32 = 200.0;
 const G: usize = (WORLD_SIZE / GRID) as usize + 1;
-/// Each town is linked by road to this many of its nearest neighbours.
-const NEIGHBOURS: usize = 3;
-/// Cost multiplier on ground that already carries a road.
-const ROAD_DISCOUNT: f32 = 0.5;
+/// Cost multiplier on ground one of Laz's roads crosses.
+const ROAD_DISCOUNT: f32 = 0.4;
 /// Grades steeper than this can't be walked at all.
 const MAX_GRADE: f32 = 0.42;
 
@@ -35,7 +32,7 @@ pub struct Routes {
     /// Smoothed route between each pair of towns, stored once with the lower
     /// id first.
     paths: HashMap<(SettlementId, SettlementId), Vec<V2>>,
-    /// The roads worth drawing: the neighbour links the network grew from.
+    /// The roads: Laz's drawn lines, in metres (`drawn_roads.rs`).
     pub roads: Vec<Vec<V2>>,
     /// Pairs no way could be found between (a straight line stands in).
     pub fallbacks: Vec<(SettlementId, SettlementId)>,
@@ -249,37 +246,25 @@ impl Routes {
         let mut out = Routes::default();
         let mut raw: HashMap<(SettlementId, SettlementId), Vec<usize>> = HashMap::new();
 
-        // Which pairs get a road of their own: each town's nearest few.
-        let mut links: Vec<(usize, usize)> = Vec::new();
-        for a in (0..towns.len()).filter(|&a| ashore(a)) {
-            let mut near: Vec<usize> = (0..towns.len()).filter(|&b| b != a && ashore(b)).collect();
-            near.sort_by(|&x, &y| towns[a].pos.dist(towns[x].pos).total_cmp(&towns[a].pos.dist(towns[y].pos)));
-            for &b in near.iter().take(NEIGHBOURS) {
-                let pair = (a.min(b), a.max(b));
-                if !links.contains(&pair) {
-                    links.push(pair);
+        // Laz's roads, and the grid cells they cross (cheap to walk).
+        let drawn = super::drawn_roads::drawn_roads();
+        for line in drawn {
+            for s in line.windows(2) {
+                let n = ((s[0].dist(s[1]) / (GRID / 3.0)).ceil() as usize).max(1);
+                for k in 0..=n {
+                    let p = s[0].lerp(s[1], k as f32 / n as f32);
+                    let (i, j) = ((p.x / GRID).round(), (p.y / GRID).round());
+                    if i >= 0.0 && j >= 0.0 && (i as usize) < G && (j as usize) < G {
+                        road[idx(i as usize, j as usize)] = true;
+                    }
                 }
             }
         }
+        out.roads = drawn.to_vec();
 
-        // Phase 1: grow the road network from the neighbour links.
-        for a in (0..towns.len()).filter(|&a| ashore(a)) {
-            let wanted: Vec<usize> = links.iter().filter(|(x, _)| *x == a).map(|(_, y)| *y).collect();
-            if wanted.is_empty() {
-                continue;
-            }
-            let parent = search(nodes[a], &height, &steep, &dry, &snow, &road);
-            for b in wanted {
-                let cells = trace(&parent, nodes[a], nodes[b]);
-                for &c in &cells {
-                    road[c] = true;
-                }
-                raw.insert((a as SettlementId, b as SettlementId), cells);
-            }
-        }
-        // Phase 2: every other pair, now leaning on the roads that exist.
-        // (The roads are fixed now, so each town's search stands alone: run
-        // side by side, gathered in town order, the same as one by one.)
+        // Every pair's way, leaning on the roads. (The roads are fixed, so
+        // each town's search stands alone: run side by side, gathered in
+        // town order, the same as one by one.)
         let starts: Vec<usize> = (0..towns.len()).filter(|&a| ashore(a)).collect();
         let found = par_map(&starts, |&a| {
             let wants: Vec<usize> = (a + 1..towns.len()).filter(|&b| ashore(b) && !raw.contains_key(&(a as SettlementId, b as SettlementId))).collect();
@@ -318,18 +303,8 @@ impl Routes {
             if fell_back {
                 out.fallbacks.push((a, b));
             }
-            if links.contains(&(a as usize, b as usize)) {
-                out.roads.push(pts.clone());
-            }
             out.paths.insert((a, b), pts);
         }
-        // A fixed order (the map above iterates in no particular one): by
-        // where each road starts, then where it ends.
-        let key = |r: &Vec<V2>| (r[0].x, r[0].y, r[r.len() - 1].x, r[r.len() - 1].y);
-        out.roads.sort_by(|x, y| {
-            let (a, b) = (key(x), key(y));
-            a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.total_cmp(&b.2)).then(a.3.total_cmp(&b.3))
-        });
         out
     }
 }

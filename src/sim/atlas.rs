@@ -425,6 +425,11 @@ pub fn town_marks() -> &'static [TownMark] {
 /// Look for a map file beside the working directory, its parents, and the
 /// running program (the game is launched from its clone; tests from the
 /// crate; a screenshot from anywhere).
+/// A file of Laz's beside the game or the source (`find`), for the other layers.
+pub fn find_file(rel: &str) -> Option<PathBuf> {
+    find(rel)
+}
+
 fn find(rel: &str) -> Option<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
     if let Ok(cwd) = std::env::current_dir() {
