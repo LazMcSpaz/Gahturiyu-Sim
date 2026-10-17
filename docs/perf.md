@@ -9,10 +9,11 @@ worst) with what's going on (`[play]`, `[editor]`, `[stroke]`), then each
 span's milliseconds a frame. Off, a span costs one flag check.
 `prof::count(name)` counts things instead (shown as 1 ms each).
 
-`GAHT_STROKE=<seconds>` (with `GAHT_PROF`) scripts a land-editor stroke: the
-editor opens 3 s after the first frame, a Raise stroke is held for that
-long with the brush circling the middle of the screen, then the window
-closes. The same stroke every run, so a change can be measured before and
+`GAHT_STROKE=<seconds>` (with `GAHT_PROF`) scripts a land-editor session:
+the editor opens 3 s after the first frame (`[editor]`), the camera is
+tilted, turned and zoomed in and out for 4 s (`[camera]`), a Raise stroke
+is held for that long with the brush circling the middle of the screen
+(`[stroke]`), and the window closes 2 s after it's let go (`[after]`). The same stroke every run, so a change can be measured before and
 after. From Git Bash on the PC:
 
 ```
@@ -62,3 +63,30 @@ animals ~1.5 ms each, foliage 0.2 ms once loaded, the UI ~0.4 ms. The
 remaining whole-ground rebuild in the editor is mostly the fine patch
 (22,500 cells, ~32 ms); spreading its tiles over a few frames would hide it
 if panning still hitches.
+
+## Second pass: moving the camera in the editor (17 Oct)
+
+Laz edits while tilting and zooming to see the heights. Every zoom step
+changed the ground's key (the exact draw radius was in it), so the whole
+ground was redrawn: a 44 ms stall about every half second while the camera
+moved (250–460 ms each before the first pass).
+
+- The fine patch is one tile per coarse cell, fixed to the world
+  (`Scene3d::fine`): a zoom or tilt keeps every tile; a pan draws only the
+  cells it brings into reach; a stroke redraws the tiles it touched. The
+  far ring is kept unless its cell, reach or the land changed. Roads are
+  their own mesh, redrawn on any change (~4.5 ms).
+- The ground is drawn for the draw radius rounded up to steps of 1.2×
+  (`RADIUS_STEP`), so zooming far out redraws it now and then, not every
+  frame.
+- When a stroke ends, only towns it reached are redrawn.
+- The weather's land grid (`view/weather/land.rs`) was rebuilt for the
+  whole world after every stroke: 79 ms. While the editor is open it now
+  waits until the editor closes.
+
+| editor, scripted | before this pass | after |
+|---|---|---|
+| camera moving: worst frame | 60–67 ms (a ground redraw ~2× a second) | ~24 ms |
+| letting go of a stroke | ~120 ms | ~41 ms |
+| mid-stroke frame | ~22 ms | ~23 ms |
+

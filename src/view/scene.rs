@@ -56,9 +56,10 @@ const EDIT_REACH: f32 = 300.0;
 const EDIT_CELLS: usize = 150;
 /// Cells across the coarse ring that carries the far land to the horizon.
 const FAR_CELLS: usize = 72;
-/// The fine patch is this many tiles each way, each its own mesh: a brush
-/// stroke redraws only the tiles it touched, not the whole land.
-const FINE_TILES: i64 = 6;
+/// The ground is drawn for the draw radius rounded up to these steps (each
+/// this much more than the last), so zooming redraws it now and then, not
+/// every frame.
+const RADIUS_STEP: f32 = 1.2;
 /// Beyond this distance from the camera, a person is a plain shape.
 pub const PERSON_SIMPLE: f32 = 260.0;
 /// How fast an arrow is drawn flying, m/s.
@@ -89,11 +90,23 @@ pub struct Dynamic;
 pub struct Scene3d {
     ground_key: Option<(i64, i64, u32, u32)>,
     ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
-    /// The fine patch's tiles: each mesh and its cells (`i0, i1, j0, j1`).
-    fine: Vec<(Handle<Mesh>, (i64, i64, i64, i64), usize)>,
-    /// Tiles were redrawn mid-stroke: the whole ground (roads, the far ring)
-    /// is redrawn once the stroke is done.
+    /// The fine patch, one tile a coarse cell (by its cell), fixed to the
+    /// world: a zoom or tilt keeps them, a pan draws only the cells it brings
+    /// in, a brush stroke redraws only the tiles it touched.
+    fine: HashMap<(i64, i64), Tile>,
+    /// The far ring as drawn: (cell, far reach, fine reach, land version, snow).
+    ring_key: Option<(i64, i64, u32, u32, u32, u32)>,
+    roads: Option<Handle<Mesh>>,
+    /// Bumped whenever the whole land must be drawn again (a load, an edit
+    /// not made by a stroke).
+    land_v: u32,
+    /// Tiles were redrawn mid-stroke: the roads and the far ring are
+    /// redrawn once the stroke is done.
     patched: bool,
+    /// Where this stroke has reached (its towns are redrawn when it's done),
+    /// or every town, for a change not made by a stroke.
+    stroked: Option<(V2, V2)>,
+    towns_all: bool,
     pub grid: Grid,
     dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
@@ -101,6 +114,8 @@ pub struct Scene3d {
     /// ground and roads, and the towns.
     pub triangles: usize,
     pub ground_triangles: usize,
+    road_triangles: usize,
+    ring_triangles: usize,
     pub town_triangles: usize,
     /// Which loaded save the caches were built for (see `Game::loads`).
     loads: u32,
@@ -113,6 +128,18 @@ pub struct Scene3d {
     /// The forged town's homes, and which models and ground they were drawn with.
     forge: Vec<Entity>,
     forge_key: Option<(u32, (i64, i64, u32, u32))>,
+}
+
+/// One tile of the fine ground: its cells (`i0, i1, j0, j1`, of a grid
+/// `step` metres a cell from the world's corner), and which land and snow
+/// it was drawn for.
+struct Tile {
+    entity: Entity,
+    mesh: Handle<Mesh>,
+    cells: (i64, i64, i64, i64),
+    step: f32,
+    made: (u32, u32),
+    tris: usize,
 }
 
 struct Town {
@@ -244,6 +271,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         // A save was loaded: the land and towns may be another world's.
         scene.loads = game.loads;
         scene.ground_key = None;
+        scene.land_v += 1;
         scene.rocks_key = None;
         scene.forge_key = None;
         for (_, t) in scene.towns.drain() {
@@ -254,28 +282,53 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     }
     // The land was edited: the ground now (mid-stroke, only the tiles under
     // the brush; all of it once the stroke is done); the towns on it once the
-    // stroke is done.
+    // stroke is done (those the stroke reached).
     let ev = game.world.terrain.edits.ground_v;
     let fresh = game.editor.fresh.take();
     let mut patch = None;
     if scene.edits != ev {
         scene.edits = ev;
+        match (fresh, game.editor.stroking) {
+            (Some((a, b)), true) => {
+                scene.stroked = Some(match scene.stroked {
+                    Some((c, d)) => (V2::new(a.x.min(c.x), a.y.min(c.y)), V2::new(b.x.max(d.x), b.y.max(d.y))),
+                    None => (a, b),
+                });
+            }
+            _ => scene.towns_all = true,
+        }
         match fresh {
             Some(a) if game.editor.stroking && scene.ground_key.is_some() => patch = Some(a),
-            _ => scene.ground_key = None,
+            _ => {
+                scene.ground_key = None;
+                scene.land_v += 1;
+            }
         }
     }
     if scene.patched && !game.editor.stroking {
+        // (The tiles are already up to date.)
         scene.patched = false;
         scene.ground_key = None;
+        scene.ring_key = None;
     }
     if scene.towns_edits != ev && !game.editor.stroking {
         scene.towns_edits = ev;
-        for (_, t) in scene.towns.drain() {
-            for e in t.entities {
-                commands.entity(e).despawn();
+        let area = if std::mem::take(&mut scene.towns_all) { None } else { scene.stroked };
+        scene.stroked = None;
+        let settlements = &game.world.settlements;
+        scene.towns.retain(|&id, town| {
+            let hit = area.is_none_or(|(a, b)| {
+                let s = &settlements[id as usize];
+                let r = s.reach + 30.0;
+                s.pos.x + r >= a.x && s.pos.x - r <= b.x && s.pos.y + r >= a.y && s.pos.y - r <= b.y
+            });
+            if hit {
+                for &e in &town.entities {
+                    commands.entity(e).despawn();
+                }
             }
-        }
+            !hit
+        });
     }
     game.picks.clear();
     game.labels.clear();
@@ -316,49 +369,83 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let mut tris = 0usize;
 
     // ---- The land, cached ---------------------------------------------------
-    let coarse = far * 2.0 / FAR_CELLS as f32;
+    // (For the draw radius rounded up a step: `RADIUS_STEP`.)
+    let gr = (radius / 900.0).log(RADIUS_STEP).ceil().max(0.0);
+    let gr = (900.0 * RADIUS_STEP.powf(gr)).max(radius);
+    let gfar = (gr * 3.0).max(far);
+    let coarse = gfar * 2.0 / FAR_CELLS as f32;
     // While the land is being edited, a finer patch round the camera, so
     // small brush strokes show.
     // (And round a forged town, whose cliffs need it.)
     let editing = game.editor.on || w.forge.as_ref().and_then(|f| f.centre()).is_some_and(|c| c.dist(oc.target) < 900.0);
-    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits() ^ editing as u32 ^ palette::snow_step().wrapping_mul(0x9E37), (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
+    let snow = palette::snow_step();
+    let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, gr.to_bits() ^ editing as u32 ^ snow.wrapping_mul(0x9E37), (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
     if scene.ground_key != Some(key) {
         let _prof = super::prof::span("scene.ground");
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
-        // Fine patch: a whole number of coarse cells, so its edge meets the ring.
-        let reach = if editing { radius.min(EDIT_REACH) } else { radius };
+        // Fine patch: a whole number of coarse cells, so its edge meets the
+        // ring, and a whole number of fine cells to a coarse one.
+        let reach = if editing { gr.min(EDIT_REACH) } else { gr };
         let half_fine = ((reach / coarse).ceil().max(1.0)) * coarse;
         let cells = if editing { EDIT_CELLS } else { GROUND_CELLS };
-        let fine = half_fine * 2.0 / cells as f32;
-        let mut g = Builder::new();
-        let prof_x = super::prof::span("ground.far");
-        ground_patch(&mut g, t, centre, far, coarse, Some(half_fine));
-        drop(prof_x);
-        let prof_x = super::prof::span("ground.fine");
-        scene.grid = Grid { centre, half_fine, fine, coarse, far };
-        // The fine patch, tile by tile.
-        let n = (half_fine * 2.0 / fine).round() as i64;
-        let cut = |k: i64| (n * k / FINE_TILES, n * (k + 1) / FINE_TILES);
-        let tiles: Vec<(i64, i64, i64, i64)> = (0..FINE_TILES * FINE_TILES).map(|k| {
-            let ((i0, i1), (j0, j1)) = (cut(k % FINE_TILES), cut(k / FINE_TILES));
-            (i0, i1, j0, j1)
-        }).collect();
-        for (k, &cells) in tiles.iter().enumerate() {
-            let b = fine_tile(t, &scene.grid, cells);
-            let tris = b.triangles();
-            match scene.fine.get_mut(k) {
-                Some(f) => {
-                    if let Some(mut m) = meshes.get_mut(&f.0) {
-                        *m = b.mesh();
+        let per = (cells as f32 * coarse / (2.0 * half_fine)).round().max(1.0) as i64;
+        let fine = coarse / per as f32;
+        scene.grid = Grid { centre, half_fine, fine, coarse, far: gfar };
+        let land = (scene.land_v, snow);
+        // The far ring, unless it's the same as drawn.
+        let ring = (key.0, key.1, gfar.to_bits(), half_fine.to_bits(), land.0, land.1);
+        if scene.ring_key != Some(ring) {
+            let _prof_x = super::prof::span("ground.far");
+            let mut g = Builder::new();
+            ground_patch(&mut g, t, centre, gfar, coarse, Some(half_fine));
+            scene.ring_triangles = g.triangles();
+            match &scene.ground {
+                Some((h, _)) => {
+                    if let Some(mut m) = meshes.get_mut(h) {
+                        *m = g.mesh();
                     }
-                    f.1 = cells;
-                    f.2 = tris;
                 }
                 None => {
-                    let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, b, GroundMesh);
-                    scene.fine.push((h, cells, tris));
+                    let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, g, GroundMesh);
+                    scene.ground = Some((h.clone(), h));
                 }
             }
+            scene.ring_key = Some(ring);
+        }
+        // The fine tiles: those still in reach and drawn for this land are
+        // kept; the rest are drawn (into a tile let go, if there is one).
+        let prof_x = super::prof::span("ground.fine");
+        let n = (half_fine / coarse).round() as i64;
+        let want: Vec<(i64, i64)> = (-n..n).flat_map(|dj| (-n..n).map(move |di| (key.0 + di, key.1 + dj))).collect();
+        let mut spare: Vec<Tile> = Vec::new();
+        let gone: Vec<(i64, i64)> = scene.fine.iter().filter(|(c, tile)| !want.contains(c) || tile.step != fine || tile.made != land).map(|(c, _)| *c).collect();
+        for c in gone {
+            spare.extend(scene.fine.remove(&c));
+        }
+        for c in want {
+            if scene.fine.contains_key(&c) {
+                continue;
+            }
+            let cells = (c.0 * per, (c.0 + 1) * per, c.1 * per, (c.1 + 1) * per);
+            let b = fine_tile(t, fine, cells);
+            let tris = b.triangles();
+            let tile = match spare.pop() {
+                Some(mut tile) => {
+                    if let Some(mut m) = meshes.get_mut(&tile.mesh) {
+                        *m = b.mesh();
+                    }
+                    (tile.cells, tile.step, tile.made, tile.tris) = (cells, fine, land, tris);
+                    tile
+                }
+                None => {
+                    let (entity, mesh) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, b, GroundMesh);
+                    Tile { entity, mesh, cells, step: fine, made: land, tris }
+                }
+            };
+            scene.fine.insert(c, tile);
+        }
+        for tile in spare {
+            commands.entity(tile.entity).despawn();
         }
         patch = None;
         drop(prof_x);
@@ -371,28 +458,27 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let lw = 5.0f32.max(oc.dist / 90.0);
         // Never across a building's floor: the ribbon is cut away inside
         // every town building's outline (the floor is barely above the ground).
-        let outlines = doors_around(w, oc.target, radius * 1.5 + 200.0);
+        let outlines = doors_around(w, oc.target, gr * 1.5 + 200.0);
         let roads = Clip { ground: &on_ground, outlines: &outlines };
         for road in &w.routes.roads {
             for seg in road.windows(2) {
-                if seg[0].dist(oc.target) > radius * 1.5 {
+                if seg[0].dist(oc.target) > gr * 1.5 {
                     continue;
                 }
-                let piece = (radius / 45.0).max(10.0);
+                let piece = (gr / 45.0).max(10.0);
                 draped_ribbon_clipped(&mut r, &roads, seg[0], seg[1], lw, 0.25, palette::ROAD, piece);
             }
         }
-        g.append(r);
-        scene.ground_triangles = g.triangles() + scene.fine.iter().map(|f| f.2).sum::<usize>();
-        match &scene.ground {
-            Some((h, _)) => {
+        scene.road_triangles = r.triangles();
+        match &scene.roads {
+            Some(h) => {
                 if let Some(mut m) = meshes.get_mut(h) {
-                    *m = g.mesh();
+                    *m = r.mesh();
                 }
             }
             None => {
-                let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, g, GroundMesh);
-                scene.ground = Some((h.clone(), h));
+                let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, r, GroundMesh);
+                scene.roads = Some(h);
             }
         }
         scene.ground_key = Some(key);
@@ -401,23 +487,21 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     // their corners are lit by).
     if let Some((a, b)) = patch {
         let _prof = super::prof::span("scene.tiles");
-        let g = scene.grid;
-        let (x0, y0) = (g.centre.x - g.half_fine, g.centre.y - g.half_fine);
-        let m = 15.0 + g.fine * 2.0;
-        for f in &mut scene.fine {
-            let (i0, i1, j0, j1) = f.1;
-            let (xa, xb, ya, yb) = (x0 + i0 as f32 * g.fine, x0 + i1 as f32 * g.fine, y0 + j0 as f32 * g.fine, y0 + j1 as f32 * g.fine);
-            if a.x - m > xb || b.x + m < xa || a.y - m > yb || b.y + m < ya {
+        for tile in scene.fine.values_mut() {
+            let (i0, i1, j0, j1) = tile.cells;
+            let (st, m) = (tile.step, 15.0 + tile.step * 2.0);
+            if a.x - m > i1 as f32 * st || b.x + m < i0 as f32 * st || a.y - m > j1 as f32 * st || b.y + m < j0 as f32 * st {
                 continue;
             }
-            let tile = fine_tile(t, &g, f.1);
-            f.2 = tile.triangles();
-            if let Some(mut mesh) = meshes.get_mut(&f.0) {
-                *mesh = tile.mesh();
+            let built = fine_tile(t, st, tile.cells);
+            tile.tris = built.triangles();
+            if let Some(mut mesh) = meshes.get_mut(&tile.mesh) {
+                *mesh = built.mesh();
             }
         }
         scene.patched = true;
     }
+    scene.ground_triangles = scene.ring_triangles + scene.road_triangles + scene.fine.values().map(|tile| tile.tris).sum::<usize>();
     let grid = scene.grid;
     let on_ground = |p: V2| grid.height(t, p);
     let eye = oc.eye();
@@ -1715,10 +1799,11 @@ fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, 
     });
 }
 
-/// One tile of the fine patch: its cells of the grid `g` describes.
-fn fine_tile(t: &Terrain, g: &Grid, (i0, i1, j0, j1): (i64, i64, i64, i64)) -> Builder {
+/// One tile of the fine patch: cells `i0..i1` x `j0..j1` of a grid `step`
+/// metres a cell from the world's corner.
+fn fine_tile(t: &Terrain, step: f32, (i0, i1, j0, j1): (i64, i64, i64, i64)) -> Builder {
     let mut b = Builder::new();
-    ground_cells(&mut b, t, g.centre.x - g.half_fine, g.centre.y - g.half_fine, g.fine, (i0, i1), (j0, j1), |_, _, _, _| false);
+    ground_cells(&mut b, t, 0.0, 0.0, step, (i0, i1), (j0, j1), |_, _, _, _| false);
     b
 }
 

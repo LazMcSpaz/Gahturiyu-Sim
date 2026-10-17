@@ -800,6 +800,8 @@ pub(super) fn rebuild_world(game: &mut Game) {
 pub(super) struct StrokeScript {
     start: Option<f32>,
     held: ButtonInput<MouseButton>,
+    /// When the wheel last turned, in the camera part.
+    wheel: f32,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -808,8 +810,10 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
     let game = &mut *game;
     game.screen = Vec2::new(window.width(), window.height());
     let mut mouse = window.cursor_position().unwrap_or(game.last_mouse);
-    // `GAHT_STROKE`: a few seconds of play, two with the editor open, then a
-    // Raise stroke held for that long, the brush circling the screen's middle.
+    // `GAHT_STROKE`: a few seconds of play, one with the editor open, four
+    // moving the camera about as one does to look at the land (tilting,
+    // turning, zooming in and out), then a Raise stroke held for that long,
+    // the brush circling the screen's middle.
     let real_buttons = &*buttons;
     let buttons: &ButtonInput<MouseButton> = match super::prof::stroke_secs() {
         Some(secs) => {
@@ -820,14 +824,26 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
                 game.editor.tool = super::editor::Tool::Raise;
             }
             stroke.held.clear();
-            super::prof::phase(if t < start { "play" } else if t < start + 2.0 { "editor" } else { "stroke" });
-            if t >= start + 2.0 && t < start + 2.0 + secs {
+            let (cam, brush) = (start + 1.0, start + 5.0);
+            let done = brush + secs;
+            super::prof::phase(if t < start { "play" } else if t < cam { "editor" } else if t < brush { "camera" } else if t < done { "stroke" } else { "after" });
+            if t >= cam && t < brush {
+                // Tilt up and down, turning, and the wheel in, then out.
+                let dt = time.delta_secs();
+                let u = t - cam;
+                game.orbit.orbit(120.0 * dt, (u * 2.5).cos() * 220.0 * dt);
+                if t - stroke.wheel > 0.15 {
+                    stroke.wheel = t;
+                    game.glide.get_or_insert(super::feel::Glide::of(&game.orbit)).zoom(if u < 2.0 { 1.0 } else { -1.0 });
+                }
+            }
+            if t >= brush && t < brush + secs {
                 let a = (t - start) * 1.5;
                 mouse = game.screen * 0.5 + Vec2::new(a.cos(), a.sin()) * 120.0;
                 stroke.held.press(MouseButton::Left);
-            } else if t >= start + 2.0 + secs {
+            } else if t >= done {
                 stroke.held.release(MouseButton::Left);
-                game.quit = true;
+                game.quit = t >= done + 2.0;
             }
             &stroke.held
         }
@@ -1380,6 +1396,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
 
 /// Aim the 3D camera; switch it off on the map.
 pub fn camera(game: Res<Game>, mut cam: Query<(&mut Camera, &mut Transform, &mut Projection), With<MainCamera>>) {
+    let _prof = super::prof::span("camera");
     let Ok((mut c, mut tf, mut proj)) = cam.single_mut() else { return };
     c.is_active = game.view == View::Scene;
     *tf = Transform::from_translation(game.orbit.eye()).looking_at(game.orbit.look_at(), Vec3::Y);
