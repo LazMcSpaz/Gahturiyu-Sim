@@ -130,7 +130,9 @@
   #thing-sheet { position: absolute; left: 8px; right: 8px; bottom: calc(var(--tray-h, 160px) + 8px + var(--sab)); z-index: 5; background: rgba(35,28,20,.96); border: 1px solid var(--brass-dim); border-top: 3px solid var(--brass); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px 8px; align-items: center; }
   #thing-sheet[hidden] { display: none; }
   #thing-sheet .k { font-size: 12px; color: var(--dim); grid-column: 1 / -1; }
-  #thing-sheet input, #thing-sheet button { min-height: 40px; }
+  #thing-sheet input, #thing-sheet button, #thing-sheet select { min-height: 40px; }
+  #thing-sheet select { grid-column: 1 / -1; background: rgba(0,0,0,.25); color: var(--text); border: 1px solid var(--brass-dim); border-radius: 6px; font: inherit; padding: 0 8px; }
+  #thing-sheet select[hidden] { display: none; }
 
   /* Screens over the map: people, save, import. */
   #people { position: absolute; inset: 0; z-index: 8; background: rgba(35,28,20,.97); color: var(--text); display: flex; flex-direction: column; }
@@ -217,6 +219,7 @@
   <input id="t-label" placeholder="what this one is called" autocomplete="off" enterkeyhint="done">
   <input id="t-room" type="number" min="0" max="200" step="1" style="width:84px" aria-label="Beds">
   <button id="t-done" class="primary">Done</button>
+  <select id="t-use" aria-label="Use (the sign it hangs)"></select>
   <div class="k" id="t-kind"></div>
 </div>
 
@@ -1142,7 +1145,27 @@
   function addThing(key, x, y) { const pl = places[cur], d = CAT[key]; if (!pl || !d) return; snapshot(); const t = { id: nid(), k: key, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, rot: 0, s: 1, label: "", room: d.beds || 0, note: "" }; if (d.rotatable !== false) t.rot = (Math.round(Math.atan2(-y, -x) * 180 / Math.PI) + 360) % 360; pl.P.things.push(t); changed(); pick(t); }
   function thingAt(p) { const pl = places[cur]; if (!pl) return null; let best = null, bd = Infinity; for (const t of pl.P.things) { const d = CAT[t.k]; if (!d) continue; const s = t.s || 1; const a = -(t.rot || 0) * Math.PI / 180; const dx = p.x - t.x, dy = p.y - t.y; const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a); const inside = d.shape === "round" ? (lx / (d.depth * s / 2)) ** 2 + (ly / (d.width * s / 2)) ** 2 <= 1.3 : Math.abs(lx) <= d.depth * s / 2 + 0.6 && Math.abs(ly) <= d.width * s / 2 + 0.6; if (inside) { const area = d.depth * d.width * s * s; if (area < bd) { bd = area; best = t; } } } return best; }
   const tsheet = $("thing-sheet");
-  function pick(t) { picked = t || null; tsheet.hidden = !picked; if (picked) { const d = CAT[picked.k]; $("t-label").value = picked.label || ""; $("t-room").value = picked.room || 0; $("t-room").style.display = d.beds || d.group === "building" || d.group === "base" ? "" : "none"; $("t-kind").textContent = `${d.name} · ${(d.depth * (picked.s || 1)).toFixed(1)} × ${(d.width * (picked.s || 1)).toFixed(1)} m · facing ${Math.round(picked.rot || 0)}°${d.beds ? " · " + d.beds + " bed" + (d.beds === 1 ? "" : "s") + (d.extra_beds ? ", room for " + d.extra_beds + " more on bedrolls" : "") : ""}${d.missing ? " · the game has no shape for this yet: it's noted for later" : ""}`; } draw(); }
+  // ---- signs: a building's use (signs.json, written by the game's `headless site` from
+  //      catalogue::SIGNS). A building with no sign is a home. A sign that has a variant of the
+  //      building's own people turns it into that trade building on the same footprint; any
+  //      other sign puts the sign's workplace inside the building.
+  let SIGNS = [], SIGN = {};
+  (async () => { try { const r = await fetch("signs.json", { cache: "no-store" }); if (r.ok) { SIGNS = await r.json(); SIGN = Object.fromEntries(SIGNS.map((g) => [g.key, g])); if (picked) pick(picked); info(); draw(); } } catch (e) {} })();
+  const signSwap = (d, g) => (g.variants || []).find((v) => CAT[v] && CAT[v].people === d.people);
+  // What a building signed this way houses: the swapped variant if there is one, else the sign's workplace.
+  const signedAs = (t) => { const d = CAT[t.k], g = t.use && SIGN[t.use]; if (!d || !g) return null; const v = signSwap(d, g); return v ? CAT[v] : CAT[g.place] || null; };
+  function fillUse() {
+    const sel = $("t-use"), d = picked && CAT[picked.k];
+    sel.hidden = !(d && d.group === "building" && SIGNS.length);
+    if (sel.hidden) return;
+    sel.innerHTML = "";
+    const opt = (v, text) => { const o = document.createElement("option"); o.value = v; o.textContent = text; sel.appendChild(o); };
+    opt("", "Use: a home (no sign)");
+    for (const g of SIGNS) { const v = signSwap(d, g); opt(g.key, "Use: " + g.name + (v ? " ★ becomes " + CAT[v].name.toLowerCase() : "")); }
+    sel.value = picked.use && SIGN[picked.use] ? picked.use : "";
+  }
+  $("t-use").addEventListener("change", () => { if (!picked) return; snapshot(); const v = $("t-use").value; if (v) picked.use = v; else delete picked.use; changed(); pick(picked); info(); });
+  function pick(t) { picked = t || null; tsheet.hidden = !picked; if (picked) { const d = CAT[picked.k]; $("t-label").value = picked.label || ""; $("t-room").value = picked.room || 0; $("t-room").style.display = d.beds || d.group === "building" || d.group === "base" ? "" : "none"; $("t-kind").textContent = `${d.name} · ${(d.depth * (picked.s || 1)).toFixed(1)} × ${(d.width * (picked.s || 1)).toFixed(1)} m · facing ${Math.round(picked.rot || 0)}°${d.beds ? " · " + d.beds + " bed" + (d.beds === 1 ? "" : "s") + (d.extra_beds ? ", room for " + d.extra_beds + " more on bedrolls" : "") : ""}${d.missing ? " · the game has no shape for this yet: it's noted for later" : ""}${picked.use && SIGN[picked.use] ? " · sign: " + SIGN[picked.use].name.toLowerCase() + (signSwap(d, SIGN[picked.use]) ? " (drawn as " + CAT[signSwap(d, SIGN[picked.use])].name.toLowerCase() + ")" : " (its workplace inside)") : ""}`; } fillUse(); draw(); }
   $("t-label").addEventListener("input", () => { if (picked) { picked.label = $("t-label").value.trim(); changed(); draw(); } });
   $("t-room").addEventListener("change", () => { if (picked) { picked.room = Math.max(0, Math.round(Number($("t-room").value) || 0)); changed(); info(); } });
   $("t-label").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("t-label").blur(); pick(null); } });
@@ -1179,7 +1202,7 @@
     if (!pl || !inBuild()) { $("i-title").textContent = cur && marks[cur] ? (marks[cur].label || KIND_NAME[marks[cur].kind] || "a place") : "Gahturiyu"; $("i-cap").textContent = inBuild() ? "No place here: zoom out and add a mark" : cur && marks[cur] ? "Zoom in to build" : "Zoom in on a mark to build it"; $("i-roles").innerHTML = ""; $("i-counts").textContent = ""; $("i-notes").value = pl ? pl.P.notes || "" : ""; return; }
     $("i-title").textContent = pl.P.title || pl.key;
     let beds = 0; const roles = {};
-    for (const t of pl.P.things) { const d = CAT[t.k]; if (!d) continue; beds += t.room || 0; for (const j of d.jobs || []) roles[j] = (roles[j] || 0) + 1; }
+    for (const t of pl.P.things) { const d = CAT[t.k]; if (!d) continue; beds += t.room || 0; const sa = signedAs(t); const swapped = sa && sa.group === "building"; for (const j of (swapped ? sa.jobs : d.jobs) || []) roles[j] = (roles[j] || 0) + 1; if (sa && !swapped) for (const j of sa.jobs || []) roles[j] = (roles[j] || 0) + 1; }
     $("i-cap").innerHTML = `Room for <b>${beds}</b> · ${Object.keys(roles).length} kinds of work · tap for more`;
     $("i-roles").innerHTML = Object.keys(roles).sort().map((j) => `<span>${JOBN(j)} × ${roles[j]}</span>`).join("") || '<span style="color:var(--dim)">No workplaces yet.</span>';
     $("i-counts").textContent = `${pl.P.things.length} things, ${pl.P.foliage.length} plants and rocks, ${pl.P.roads.length} paths · ${pl.GW * pl.CELL} × ${pl.GH * pl.CELL} m${pl.LAND ? "" : " · the game's land for this place isn't here yet"}`;

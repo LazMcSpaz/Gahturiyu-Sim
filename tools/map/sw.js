@@ -3,8 +3,8 @@
 // files), and after that the page is served from the cache first, so it opens with
 // no signal at all. A new site version (version.txt changes) refreshes the cache
 // in the background.
-const CACHE = "gaht-map-v2";
-const CORE = ["./", "index.html", "build.html", "map.png", "roads.png", "draft.png", "catalogue.json", "grounds/index.json", "data/marks-export.json", "data/places.txt", "version.txt", "manifest.json"];
+const CACHE = "gaht-map-v3";
+const CORE = ["./", "index.html", "build.html", "map.png", "roads.png", "draft.png", "catalogue.json", "signs.json", "grounds/index.json", "data/marks-export.json", "data/places.txt", "version.txt", "manifest.json"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
