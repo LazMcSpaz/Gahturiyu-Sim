@@ -791,6 +791,29 @@ impl World {
     }
 
     /// Where a resident who is at home in town stands at `t`, by their plan.
+    /// Where a townsperson is, to within a few tens of metres: the spot
+    /// their plan has them at, or straight between the two when walking (no
+    /// way round the buildings, no drift). For banding only (who is near
+    /// enough to be drawn), which needs no finer: the exact way round the
+    /// buildings for every walker in a town cost 40-55 ms a look (17 Oct).
+    pub(super) fn routine_pos_rough(&self, pid: PersonId, t: f64) -> V2 {
+        let day = World::day_of(t);
+        let plan = self.day_plan(pid, day);
+        let h = hours(t);
+        let i = plan.index_at(h);
+        let seg = plan.segs[i];
+        if seg.doing == Doing::Walking {
+            let prev = if i > 0 { plan.segs[i - 1] } else { seg };
+            let next = if i + 1 < plan.n { plan.segs[i + 1] } else { seg };
+            let left_at = if prev.spot == Spot::Watch { seg.from } else { prev.from };
+            let a = self.stand_pos(pid, prev.spot, prev.doing == Doing::Asleep, left_at, day).0;
+            let b = self.stand_pos(pid, next.spot, next.doing == Doing::Asleep, next.from, day).0;
+            let f = ((h - seg.from) / (plan.end_of(i) - seg.from).max(0.01)).clamp(0.0, 1.0);
+            return a.lerp(b, f);
+        }
+        self.stand_pos(pid, seg.spot, seg.doing == Doing::Asleep, h, day).0
+    }
+
     pub(super) fn routine_pos(&self, pid: PersonId, t: f64) -> V2 {
         let day = World::day_of(t);
         let plan = self.day_plan(pid, day);

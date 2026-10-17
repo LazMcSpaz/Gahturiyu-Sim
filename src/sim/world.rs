@@ -572,14 +572,14 @@ impl World {
         }
         // 0. Who of the squad is at each base, as of now (moved by an order,
         //    or by last step's walking): a change settles the base's work.
-        self.refresh_bases();
+        super::prof::time("refresh_bases", || self.refresh_bases());
         // 1. The squad walks, each member at their own pace. Always fully
         //    simulated. Members in a fight are moved by the fight instead.
-        self.walk_squad(dt);
+        super::prof::time("walk_squad", || self.walk_squad(dt));
         self.bands.update(self.squad.pos);
 
         self.time += dt;
-        self.plan_ahead();
+        super::prof::time("plan_ahead", || self.plan_ahead());
 
         // 2. Everything scheduled up to now, strictly in time order: each
         //    game-hour's departures (keyed by settlement and hour), ambushes
@@ -587,8 +587,8 @@ impl World {
         //    Caravans reaching market and getting home are on the same line.
         loop {
             let hour_t = (self.hour_done + 1) as f64 * HOUR;
-            if self.animal_events(hour_t) { continue; }
-            if self.base_events(hour_t) { continue; }
+            if super::prof::time("animal_events", || self.animal_events(hour_t)) { continue; }
+            if super::prof::time("base_events", || self.base_events(hour_t)) { continue; }
             let ev = self.next_event().filter(|e| e.0 <= self.time && e.0 < hour_t);
             let cargo = self.next_cargo().filter(|c| c.0 <= self.time && c.0 < hour_t);
             match (ev, cargo) {
@@ -597,7 +597,7 @@ impl World {
                     continue;
                 }
                 (Some((_, is_end, i)), _) => {
-                    self.run_event(is_end, i);
+                    super::prof::time("run_event", || self.run_event(is_end, i));
                     continue;
                 }
                 (None, Some(c)) => {
@@ -612,10 +612,12 @@ impl World {
             self.hour_done += 1;
             // The town's work, food and money for the hour (and at dawn, the day).
             if !self.society.towns.is_empty() {
-                self.society_hour(self.hour_done);
+                let h = self.hour_done;
+                super::prof::time("society_hour", || self.society_hour(h));
             }
             for s in 0..self.settlements.len() {
-                if let Some(g) = self.plan_departure(s as SettlementId, self.hour_done) {
+                let h = self.hour_done;
+                if let Some(g) = super::prof::time("plan_departure", || self.plan_departure(s as SettlementId, h)) {
                     let id = g.id;
                     self.add_group(g);
                     self.carry_news(id);
@@ -624,7 +626,8 @@ impl World {
             }
             if !self.society.towns.is_empty() {
                 for s in 0..self.settlements.len() {
-                    if let Some(g) = self.plan_caravan(s as SettlementId, self.hour_done) {
+                    let h = self.hour_done;
+                    if let Some(g) = super::prof::time("plan_caravan", || self.plan_caravan(s as SettlementId, h)) {
                         let id = g.id;
                         self.add_group(g);
                         self.carry_news(id);
@@ -633,7 +636,7 @@ impl World {
                 }
             }
         }
-        self.plan_ahead();
+        super::prof::time("plan_ahead", || self.plan_ahead());
 
         // 3. Refresh groups, each at its band's rate.
         self.stats.refreshed = [0; 4];
@@ -649,16 +652,16 @@ impl World {
 
         // 3b. Torches that have burnt down; fights: new ones that break out,
         //     and the ones in progress.
-        self.update_torches();
-        self.update_rituals();
-        self.update_battles();
-        self.update_quests();
-        self.update_opps();
-        self.work_contracts(dt);
-        self.fill_skins();
-        self.update_conditions();
-        self.update_soaking();
-        self.expire_boons();
+        super::prof::time("update_torches", || self.update_torches());
+        super::prof::time("update_rituals", || self.update_rituals());
+        super::prof::time("update_battles", || self.update_battles());
+        super::prof::time("update_quests", || self.update_quests());
+        super::prof::time("update_opps", || self.update_opps());
+        super::prof::time("work_contracts", || self.work_contracts(dt));
+        super::prof::time("fill_skins", || self.fill_skins());
+        super::prof::time("update_conditions", || self.update_conditions());
+        super::prof::time("update_soaking", || self.update_soaking());
+        super::prof::time("expire_boons", || self.expire_boons());
 
         // 4. Journeys that are over dissolve; their people are home.
         //    Decided by the schedule, not by whether anyone looked.
@@ -676,8 +679,8 @@ impl World {
             self.group_index = self.groups.iter().enumerate().map(|(i, g)| (g.id, i)).collect();
         }
 
-        self.observe();
-        self.note_progress();
+        super::prof::time("observe", || self.observe());
+        super::prof::time("note_progress", || self.note_progress());
     }
 
     /// Whatever is close enough to matter gets its details built, and stays
@@ -718,12 +721,12 @@ impl World {
         self.last_town_look = t;
         self.looked_once = true;
         for s in 0..self.settlements.len() {
-            let near = self.residents_in_band1(s as SettlementId);
-            for &p in &near {
+            let near = super::prof::time("o.who_is_near", || self.residents_in_band1(s as SettlementId));
+            super::prof::time("o.ensure_detail", || for &p in &near {
                 if self.people[p as usize].ensure_detail() {
                     made += 1;
                 }
-            }
+            });
             // (No line when a town comes into view: it's there to be seen.)
             self.in_view_towns[s] = !near.is_empty();
         }
@@ -782,8 +785,32 @@ impl World {
             .iter()
             .copied()
             .filter(|&p| self.busy_until[p as usize] <= self.time && self.group_of[p as usize].is_none() && !self.people[p as usize].dead)
-            .filter(|&p| self.bands.band_at(self.person_pos(p)) == 1)
+            .filter(|&p| self.bands.band_at(self.band_pos(p)) == 1)
             .collect()
+    }
+
+    /// Where someone is, near enough to band them (`residents_in_band1`):
+    /// `person_pos`, but a townsperson going about their day is placed
+    /// roughly (`routine_pos_rough`), not walked round every building. Which
+    /// band someone is in decides only when their detail is built, never
+    /// what happens (rule 1).
+    fn band_pos(&self, pid: PersonId) -> V2 {
+        let p = &self.people[pid as usize];
+        let plain_townsperson = p.home.is_some()
+            && !p.in_squad
+            && self.society.lives.get(pid as usize).is_some_and(|l| l.community.is_some())
+            && self.group_of[pid as usize].is_none()
+            && !self.carried.contains_key(&pid)
+            && !self.set_down.contains_key(&pid)
+            && self.voyage.as_ref().is_none_or(|v| !v.members.contains(&pid))
+            && self.fighter_pos(pid).is_none()
+            && self.chase_pos(pid).is_none()
+            && !self.bases.iter().any(|b| b.spot(pid).is_some());
+        if plain_townsperson {
+            self.routine_pos_rough(pid, self.time)
+        } else {
+            self.person_pos(pid)
+        }
     }
 
     /// Is this the number of someone in the world? Orders that name a

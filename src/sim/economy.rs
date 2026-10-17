@@ -244,50 +244,52 @@ impl World {
             c.catch.settle();
         }
         s.rates_from = t;
-        for town in 0..self.settlements.len() {
+        super::prof::time("h.settle_making", || for town in 0..self.settlements.len() {
             self.settle_making(town as SettlementId, t);
-        }
-        self.rot_gear(t);
+        });
+        super::prof::time("h.rot_gear", || self.rot_gear(t));
         // Storylines due this hour are acted out.
-        self.story_hour(h, t);
+        super::prof::time("h.story_hour", || self.story_hour(h, t));
         if h.rem_euclid(24) == DAWN {
-            for town in 0..self.settlements.len() {
+            super::prof::time("d.dawn", || for town in 0..self.settlements.len() {
                 self.dawn(town as SettlementId, t);
-            }
+            });
             // The weather hour by hour for outdoor work: yesterday's kept,
             // today's and tomorrow's read.
             let day = World::day_of(t);
-            for town in 0..self.settlements.len() {
+            super::prof::time("d.storms", || for town in 0..self.settlements.len() {
                 let mut storms: Vec<super::routine::DayAir> = self.society.towns[town].storms.iter().copied().filter(|a| a.day == day - 1).collect();
+                // (Today's was worked out at yesterday's dawn, as tomorrow's:
+                // kept, not worked out again; it's a pure function of the
+                // town and the day.)
                 for d in [day, day + 1] {
-                    storms.push(self.day_air(town as SettlementId, d));
+                    let kept = self.society.towns[town].storms.iter().copied().find(|a| a.day == d);
+                    storms.push(kept.unwrap_or_else(|| self.day_air(town as SettlementId, d)));
                 }
                 self.society.towns[town].storms = storms;
-            }
-            for town in 0..self.settlements.len() {
+            });
+            super::prof::time("d.lives", || for town in 0..self.settlements.len() {
                 self.dawn_lives(town as SettlementId, t);
-            }
-            for town in 0..self.settlements.len() {
+            });
+            super::prof::time("d.law", || for town in 0..self.settlements.len() {
                 self.dawn_law(town as SettlementId, t);
-            }
+            });
             // The Binders' captives: slipping away, or sold on.
-            self.captives_at_dawn(t);
-            for town in 0..self.settlements.len() {
+            super::prof::time("d.captives", || self.captives_at_dawn(t));
+            super::prof::time("d.jobless", || for town in 0..self.settlements.len() {
                 self.place_jobless(town as SettlementId);
-            }
+            });
             // Jobs and contracts, then each town's ring and storyteller.
-            self.dawn_opps(t);
-            self.dawn_contracts(t);
-            for town in 0..self.settlements.len() {
+            super::prof::time("d.opps", || self.dawn_opps(t));
+            super::prof::time("d.contracts", || self.dawn_contracts(t));
+            super::prof::time("d.ring_stories", || for town in 0..self.settlements.len() {
                 self.dawn_ring(town as SettlementId, t);
                 self.dawn_stories(town as SettlementId, t);
-            }
+            });
             self.shunned.retain(|s| s.2 > t);
-            self.check_orders(t);
-            self.tend_beds(t);
-            self.dawn_factions(t);
+            super::prof::time("d.orders_beds_factions", || { self.check_orders(t); self.tend_beds(t); self.dawn_factions(t); });
         }
-        self.set_rates();
+        super::prof::time("h.set_rates", || self.set_rates());
     }
 
     /// How fast everything comes in during the hour from `rates_from`, and

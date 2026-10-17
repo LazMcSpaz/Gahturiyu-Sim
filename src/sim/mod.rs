@@ -78,6 +78,7 @@ pub mod news;
 pub mod packs;
 pub mod person;
 pub mod plan;
+pub mod prof;
 pub mod place;
 pub mod placefile;
 pub mod plants;
