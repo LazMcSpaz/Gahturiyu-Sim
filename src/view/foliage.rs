@@ -594,6 +594,7 @@ fn build_chunk(commands: &mut Commands, meshes: &mut Assets<Mesh>, f: &Foliage, 
 /// Load the chunks round the camera (nearest first, a few a frame) and drop
 /// the ones it has left behind.
 pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, scene: Res<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, settings: Res<Settings>) {
+    let _prof = super::prof::span("foliage");
     // Settings changed, or a save was loaded: start again.
     if f.settings_version != Some((settings.version, game.loads)) {
         for (_, c) in f.chunks.drain() {
@@ -604,6 +605,7 @@ pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, s
         f.density = settings.foliage_density();
         f.settings_version = Some((settings.version, game.loads));
     }
+    let prof_x = super::prof::span("foliage.dirty");
     // Land edited by hand: the chunks it touched grow again.
     let fresh: Vec<(V2, V2)> = game.editor.dirty.iter().filter(|d| d.0 > f.edits_seen).map(|d| d.1).collect();
     if let Some(n) = game.editor.dirty.last().map(|d| d.0) {
@@ -628,6 +630,8 @@ pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, s
             }
         }
     }
+    drop(prof_x);
+    let prof_x = super::prof::span("foliage.want");
     let w = &game.world;
     let show = game.view == View::Scene;
     let eye = game.orbit.eye();
@@ -665,11 +669,15 @@ pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, s
             let key = (layer, i, j);
             keep.insert(key, ());
             if !f.chunks.contains_key(&key) && !over(&t0) {
+                let _b = super::prof::span("foliage.build");
+                super::prof::count("foliage.chunks_built");
                 let c = build_chunk(&mut commands, &mut meshes, &f, w, &ground, layer, i, j);
                 f.chunks.insert(key, c);
             }
         }
     }
+    drop(prof_x);
+    let _prof_x = super::prof::span("foliage.gone");
     let gone: Vec<(Layer, i64, i64)> = f.chunks.keys().filter(|k| !keep.contains_key(k)).copied().collect();
     for k in gone {
         if let Some(c) = f.chunks.remove(&k) {
@@ -678,7 +686,12 @@ pub fn update(mut commands: Commands, mut f: ResMut<Foliage>, game: Res<Game>, s
             }
         }
     }
-    // Count what's drawn, by distance, for the readout.
+    // Count what's drawn, by distance, for the readout (only while it's
+    // shown: a pass over every plant near the camera costs milliseconds).
+    if !game.debug {
+        return;
+    }
+    let _count = super::prof::span("foliage.count");
     let mut n = Counts { chunks: f.chunks.len(), ..default() };
     let mid = |r: (f32, f32)| (r.0 + r.1) * 0.5;
     for ((layer, _, _), c) in &f.chunks {

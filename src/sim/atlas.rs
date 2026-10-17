@@ -694,6 +694,11 @@ impl Atlas {
         self.shares(edge_wobble(p))[class as usize]
     }
 
+    /// Every class's `share` at a spot at once (one wobble, one lookup).
+    pub fn shares_at(&self, p: V2) -> [f32; 9] {
+        self.shares(edge_wobble(p))
+    }
+
     /// Any number per class, weighted by the classes' softened shares at a spot.
     pub fn blend(&self, p: V2, f: impl Fn(Class) -> f32) -> f32 {
         self.shares(p).iter().enumerate().map(|(c, s)| s * f(Class::from_u8(c as u8))).sum()

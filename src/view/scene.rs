@@ -56,6 +56,9 @@ const EDIT_REACH: f32 = 300.0;
 const EDIT_CELLS: usize = 150;
 /// Cells across the coarse ring that carries the far land to the horizon.
 const FAR_CELLS: usize = 72;
+/// The fine patch is this many tiles each way, each its own mesh: a brush
+/// stroke redraws only the tiles it touched, not the whole land.
+const FINE_TILES: i64 = 6;
 /// Beyond this distance from the camera, a person is a plain shape.
 pub const PERSON_SIMPLE: f32 = 260.0;
 /// How fast an arrow is drawn flying, m/s.
@@ -86,6 +89,11 @@ pub struct Dynamic;
 pub struct Scene3d {
     ground_key: Option<(i64, i64, u32, u32)>,
     ground: Option<(Handle<Mesh>, Handle<Mesh>)>,
+    /// The fine patch's tiles: each mesh and its cells (`i0, i1, j0, j1`).
+    fine: Vec<(Handle<Mesh>, (i64, i64, i64, i64), usize)>,
+    /// Tiles were redrawn mid-stroke: the whole ground (roads, the far ring)
+    /// is redrawn once the stroke is done.
+    patched: bool,
     pub grid: Grid,
     dynamic: Option<(Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>, Handle<Mesh>)>,
     towns: HashMap<u16, Town>,
@@ -146,7 +154,44 @@ impl Scene3d {
     }
 }
 
+/// The drawn ground with each grid corner's height kept once asked: for
+/// things drawn over kilometres (the band rings), where many points share a
+/// cell. Its sea is where the drawn surface is at the water, not the true one.
+pub struct Memo<'a> {
+    grid: Grid,
+    t: &'a Terrain,
+    corners: std::cell::RefCell<HashMap<(bool, i64, i64), f32>>,
+}
+
+impl Memo<'_> {
+    pub fn height(&self, p: V2) -> f32 {
+        let g = &self.grid;
+        if g.fine <= 0.0 {
+            return self.t.surface(p);
+        }
+        let inside = (p.x - g.centre.x).abs() < g.half_fine && (p.y - g.centre.y).abs() < g.half_fine;
+        let (half, step) = if inside { (g.half_fine, g.fine) } else { (g.far, g.coarse) };
+        let (x0, y0) = (g.centre.x - half, g.centre.y - half);
+        let (fx, fy) = ((p.x - x0) / step, (p.y - y0) / step);
+        let (i, j) = (fx.floor(), fy.floor());
+        let (u, v) = (fx - i, fy - j);
+        let mut kept = self.corners.borrow_mut();
+        let mut corner = |di: f32, dj: f32| {
+            let key = (inside, (i + di) as i64, (j + dj) as i64);
+            *kept.entry(key).or_insert_with(|| self.t.height(V2::new(x0 + (i + di) * step, y0 + (j + dj) * step)).max(0.0))
+        };
+        let (a, b, c, d) = (corner(0.0, 0.0), corner(1.0, 0.0), corner(1.0, 1.0), corner(0.0, 1.0));
+        let h = if u >= v { a + (b - a) * u + (c - b) * v } else { a + (c - d) * u + (d - a) * v };
+        if a.max(b).max(c).max(d) <= 0.0 { 0.0 } else { h.max(0.3) }
+    }
+}
+
 impl Grid {
+    /// The drawn ground, remembering corners (`Memo`).
+    pub fn memo<'a>(&self, t: &'a Terrain) -> Memo<'a> {
+        Memo { grid: *self, t, corners: Default::default() }
+    }
+
     /// Height of the drawn ground at `p`, matching how each cell is split
     /// into two triangles.
     pub fn height(&self, t: &Terrain, p: V2) -> f32 {
@@ -192,6 +237,7 @@ fn spawn_mesh(commands: &mut Commands, meshes: &mut Assets<Mesh>, mat: &Handle<S
 /// (for hovering, labels and health bars).
 #[allow(clippy::too_many_arguments)]
 pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<Scene3d>, mut meshes: ResMut<Assets<Mesh>>, mats: Res<Mats>, models: Res<Models>, mask: Res<super::outline::Mask>, mut vis: Query<&mut Visibility, Or<(With<GroundMesh>, With<Dynamic>)>>) {
+    let _prof = super::prof::span("scene");
     let game = &mut *game;
     let scene = &mut *scene;
     if scene.loads != game.loads {
@@ -206,10 +252,21 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
     }
-    // The land was edited: the ground now; the towns on it once the stroke is done.
+    // The land was edited: the ground now (mid-stroke, only the tiles under
+    // the brush; all of it once the stroke is done); the towns on it once the
+    // stroke is done.
     let ev = game.world.terrain.edits.ground_v;
+    let fresh = game.editor.fresh.take();
+    let mut patch = None;
     if scene.edits != ev {
         scene.edits = ev;
+        match fresh {
+            Some(a) if game.editor.stroking && scene.ground_key.is_some() => patch = Some(a),
+            _ => scene.ground_key = None,
+        }
+    }
+    if scene.patched && !game.editor.stroking {
+        scene.patched = false;
         scene.ground_key = None;
     }
     if scene.towns_edits != ev && !game.editor.stroking {
@@ -266,6 +323,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let editing = game.editor.on || w.forge.as_ref().and_then(|f| f.centre()).is_some_and(|c| c.dist(oc.target) < 900.0);
     let key = ((oc.target.x / coarse).round() as i64, (oc.target.y / coarse).round() as i64, radius.to_bits() ^ editing as u32 ^ palette::snow_step().wrapping_mul(0x9E37), (oc.dist * oc.pitch.sin() / 25.0).round() as u32);
     if scene.ground_key != Some(key) {
+        let _prof = super::prof::span("scene.ground");
         let centre = V2::new(key.0 as f32 * coarse, key.1 as f32 * coarse);
         // Fine patch: a whole number of coarse cells, so its edge meets the ring.
         let reach = if editing { radius.min(EDIT_REACH) } else { radius };
@@ -273,12 +331,42 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let cells = if editing { EDIT_CELLS } else { GROUND_CELLS };
         let fine = half_fine * 2.0 / cells as f32;
         let mut g = Builder::new();
-        ground_patch(&mut g, t, centre, half_fine, fine, None);
+        let prof_x = super::prof::span("ground.far");
         ground_patch(&mut g, t, centre, far, coarse, Some(half_fine));
+        drop(prof_x);
+        let prof_x = super::prof::span("ground.fine");
         scene.grid = Grid { centre, half_fine, fine, coarse, far };
+        // The fine patch, tile by tile.
+        let n = (half_fine * 2.0 / fine).round() as i64;
+        let cut = |k: i64| (n * k / FINE_TILES, n * (k + 1) / FINE_TILES);
+        let tiles: Vec<(i64, i64, i64, i64)> = (0..FINE_TILES * FINE_TILES).map(|k| {
+            let ((i0, i1), (j0, j1)) = (cut(k % FINE_TILES), cut(k / FINE_TILES));
+            (i0, i1, j0, j1)
+        }).collect();
+        for (k, &cells) in tiles.iter().enumerate() {
+            let b = fine_tile(t, &scene.grid, cells);
+            let tris = b.triangles();
+            match scene.fine.get_mut(k) {
+                Some(f) => {
+                    if let Some(mut m) = meshes.get_mut(&f.0) {
+                        *m = b.mesh();
+                    }
+                    f.1 = cells;
+                    f.2 = tris;
+                }
+                None => {
+                    let (_, h) = spawn_mesh(&mut commands, &mut meshes, &mats.lit, b, GroundMesh);
+                    scene.fine.push((h, cells, tris));
+                }
+            }
+        }
+        patch = None;
+        drop(prof_x);
+        let _prof_x = super::prof::span("ground.roads");
         // Roads, laid over the land.
         let grid = scene.grid;
-        let on_ground = |p: V2| grid.height(t, p);
+        let memo = grid.memo(t);
+        let on_ground = |p: V2| memo.height(p);
         let mut r = Builder::new();
         let lw = 5.0f32.max(oc.dist / 90.0);
         // Never across a building's floor: the ribbon is cut away inside
@@ -295,7 +383,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             }
         }
         g.append(r);
-        scene.ground_triangles = g.triangles();
+        scene.ground_triangles = g.triangles() + scene.fine.iter().map(|f| f.2).sum::<usize>();
         match &scene.ground {
             Some((h, _)) => {
                 if let Some(mut m) = meshes.get_mut(h) {
@@ -309,11 +397,33 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         scene.ground_key = Some(key);
     }
+    // Mid-stroke: the tiles the brush touched (with a margin for the slopes
+    // their corners are lit by).
+    if let Some((a, b)) = patch {
+        let _prof = super::prof::span("scene.tiles");
+        let g = scene.grid;
+        let (x0, y0) = (g.centre.x - g.half_fine, g.centre.y - g.half_fine);
+        let m = 15.0 + g.fine * 2.0;
+        for f in &mut scene.fine {
+            let (i0, i1, j0, j1) = f.1;
+            let (xa, xb, ya, yb) = (x0 + i0 as f32 * g.fine, x0 + i1 as f32 * g.fine, y0 + j0 as f32 * g.fine, y0 + j1 as f32 * g.fine);
+            if a.x - m > xb || b.x + m < xa || a.y - m > yb || b.y + m < ya {
+                continue;
+            }
+            let tile = fine_tile(t, &g, f.1);
+            f.2 = tile.triangles();
+            if let Some(mut mesh) = meshes.get_mut(&f.0) {
+                *mesh = tile.mesh();
+            }
+        }
+        scene.patched = true;
+    }
     let grid = scene.grid;
     let on_ground = |p: V2| grid.height(t, p);
     let eye = oc.eye();
 
     // ---- Towns, cached ------------------------------------------------------
+    let prof_towns = super::prof::span("scene.towns");
     let open = w.occupied();
     // Screenshots can show every building cut open (`GAHT_CUTAWAY`).
     let cutaway = game.cutaway;
@@ -455,7 +565,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    drop(prof_towns);
     // ---- Rocks placed by hand, cached ----------------------------------------
+    let prof_rocks = super::prof::span("scene.rocks");
     // (Rebuilt when the rocks change, the ground under them is rebuilt, or
     // the camera moves on.)
     let rock_key = (scene.ground_key.unwrap_or_default(), w.terrain.edits.rocks_v, ((oc.target.x / 100.0).round() as i64, (oc.target.y / 100.0).round() as i64));
@@ -478,7 +590,9 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    drop(prof_rocks);
     // ---- Everything that moves, every frame ---------------------------------
+    let _prof_moving = super::prof::span("scene.moving");
     // Inside a building, people and things stand on its floor (cached with
     // the town), not the ground under it.
     // The building enclosing a point (as `World::building_at` finds it) and
@@ -537,6 +651,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
         Outlines { mask: Builder::new(), list }
     };
+    let prof_people = super::prof::span("moving.people");
     for s in &w.settlements {
         for pid in w.residents_in_band1(s.id) {
             // Asleep indoors: out of sight.
@@ -546,6 +661,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, pid, k, eye, &floor_at, &on_ground, &mut outl));
         }
     }
+    drop(prof_people);
     // The watch on a chase: a red ring under the guard, a fainter one under
     // whoever they're after.
     for p in &w.pursuits {
@@ -580,6 +696,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         b.block(to3(bd.pos, g - 0.02), len, 0.85, 0.12, bd.rot, palette::BEDROLL);
         b.block(to3(bd.pos, g + 0.08) + vec3(bd.rot.cos(), 0.0, bd.rot.sin()) * (len * 0.5 - 0.2), 0.35, 0.8, 0.12, bd.rot, palette::scale(palette::BEDROLL, 1.3));
     }
+    let prof_groups = super::prof::span("moving.groups");
     for g in &w.groups {
         // Travellers in town at night have found beds indoors.
         if g.pos.dist(oc.target) > radius || w.lodging(g) {
@@ -626,6 +743,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     for &m in &w.squad.members {
         heads.push(person(&mut b, &mut gl, &mut fl, &mut game.gaits, w, m, k, eye, &floor_at, &on_ground, &mut outl));
     }
+    drop(prof_groups);
+    let prof_misc1 = super::prof::span("moving.camps_isle_ruins");
     // Squad members living at a base.
     for m in w.all_residents() {
         let here = w.resident_of(m).and_then(|(b, _)| w.base(b)).is_some_and(|b| b.arrived(m));
@@ -857,6 +976,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         b.column(base, 0.07, 0.05, 1.8, 5, palette::TIMBER);
         gl.flame(base + vec3(0.0, 1.8, 0.0), 0.16, 0.45);
     }
+    drop(prof_misc1);
+    let prof_work = super::prof::span("moving.workshops");
     // Workshops round the hearths, and things to gather.
     for (i, &(p, st)) in w.stations.iter().enumerate() {
         if p.dist(oc.target) > radius.min(500.0) {
@@ -979,7 +1100,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         gl.block(base + vec3(-1.6 * kk, 1.6 * kk, 1.2 * kk), 0.35 * kk, 0.22 * kk, 0.05 * kk, 0.0, if key == "timber" { [0.55, 0.85, 0.45] } else { [0.95, 0.75, 0.35] });
         game.picks.push((base + vec3(0.0, 0.8 * kk, 0.0), 3.0, Hover::Deposit(d.id)));
     }
+    drop(prof_work);
+    let prof_misc2 = super::prof::span("moving.items_rings_magic");
     // Things lying about.
+    let prof_x = super::prof::span("misc.ground_items");
     for g in &w.ground {
         if g.pos.dist(oc.target) < radius.min(600.0) {
             // Indoors: on the floor, or on the shelves or a table it lies on.
@@ -994,6 +1118,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             game.picks.push((base + vec3(0.0, 0.3 * kk, 0.0), 4.0, Hover::Item(g.id)));
         }
     }
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.battles");
     // Spell effects, briefly; arrows in flight, and misses lying where they fell.
     for battle in &w.battles {
         for fx in &battle.fx {
@@ -1029,6 +1155,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.containers");
     // The caches in ruins and lairs, likewise.
     super::interiors::wild_containers(&mut b, &mut gl, w, &on_ground, oc.target, radius.min(400.0), &mut game.picks);
     // Containers in buildings someone is in: drawn every frame, so a lid
@@ -1044,6 +1172,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.magic");
     // ---- Magic on show ---------------------------------------------------
     magic_scene(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, k, eye, &mut game.bars);
 
@@ -1055,6 +1185,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
 
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.rings");
     // The floors of the buildings the squad is in, for clicks there (UI-10).
     game.floors = w.squad.inside.iter().flatten().filter_map(|&id| w.door(id)).map(|d| (d.id, scene.floor_of(&w.terrain, &d))).collect();
 
@@ -1092,6 +1224,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
             draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), goal, 0.8 * k, rw * 0.6, 12, palette::GOLD, eye);
         }
     }
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.hot");
     // Under the mouse: a soft ring round it (UI-4).
     // (People under the mouse are outlined instead, P3.)
     let hot = game.hover.filter(|h| !matches!(h, Hover::Person(_))).and_then(|h| super::pointer::spot_of(w, h).map(|(p, r)| (h, p, r))).map(|(h, p, r)| match h {
@@ -1132,6 +1266,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         let inner = floor_at(m.at);
         draped_ring(&mut fl, &|p: V2| inner.unwrap_or_else(|| on_ground(p)), m.at, (2.6 - 2.0 * f) * k, rw * (1.1 - 0.7 * f), 20, col, eye);
     }
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.aim_bands");
     // Aiming a spell: how far it reaches, and who's in its sights.
     if let Some((who, s)) = game.aim {
         if let Some(ki) = w.squad.index(who) {
@@ -1161,15 +1297,25 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         }
     }
     if game.rings {
-        draped_ring(&mut fl, &on_ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
-        draped_ring(&mut fl, &on_ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);
+        // (Kilometres round: the drawn ground's corners are each asked once.)
+        let memo = grid.memo(t);
+        let ground = |p: V2| memo.height(p);
+        draped_ring(&mut fl, &ground, sq, BAND1_RADIUS, rw * 2.0, 160, [0.92, 0.94, 0.95], eye);
+        draped_ring(&mut fl, &ground, sq, BAND2_RADIUS, rw * 3.0, 320, [0.80, 0.84, 0.86], eye);
     }
+    drop(prof_x);
+    let prof_x = super::prof::span("misc.castfx");
     // Spells cast outside fights (P16).
     super::castfx::draw(&game.castfx, w, &mut gl, &mut fl, &on_ground, k, now, &|b: &mut Builder, c: V2, r: f32, wd: f32, col: Rgb| draped_ring(b, &on_ground, c, r, wd, 28, col, eye));
+    drop(prof_x);
+    drop(prof_misc2);
+    let prof_animals = super::prof::span("moving.animals");
     super::animals::draw(w, &mut b, &mut gl, &on_ground, oc.target, radius, k, eye);
+    drop(prof_animals);
     super::baseui::draw(w, &mut b, &mut gl, &mut fl, &on_ground, oc.target, radius, game.placing.as_ref());
     // Every flame near the camera, the towns' and the moving world's, drawn
     // afresh so each flickers (`flame.rs`).
+    let prof_flames = super::prof::span("moving.flames");
     let mut spots = b.take_flames();
     spots.extend(gl.take_flames());
     spots.extend(fl.take_flames());
@@ -1187,6 +1333,8 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     let mut smoke = Builder::new();
     super::flame::draw_smoke(&mut smoke, &wisps, eye, now, radius.min(600.0));
     tris += b.triangles() + gl.triangles() + fl.triangles() + fire.triangles() + smoke.triangles();
+    drop(prof_flames);
+    let prof_upload = super::prof::span("moving.upload");
     match &scene.dynamic {
         Some((hb, hg, hf, hx, hs)) => {
             for (h, m) in [(hb, b), (hg, gl), (hf, fl), (hx, fire), (hs, smoke)] {
@@ -1207,6 +1355,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     if let Some(mut m) = meshes.get_mut(&mask.mesh) {
         *m = std::mem::take(&mut outl.mask).mesh();
     }
+    drop(prof_upload);
     scene.triangles = tris;
     scene.town_triangles = scene.towns.values().map(|t| t.triangles).sum();
 
@@ -1534,16 +1683,23 @@ fn ring_widened(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, widt
     let n = n.max((r * std::f32::consts::TAU / 18.0) as usize).min(2400);
     let lift = 0.5 + r * 0.0008;
     let lc = palette::lin(col);
-    for i in 0..n {
-        let a0 = i as f32 / n as f32 * std::f32::consts::TAU;
-        let a1 = (i + 1) as f32 / n as f32 * std::f32::consts::TAU;
-        let (u0, u1) = (V2::new(a0.cos(), a0.sin()), V2::new(a1.cos(), a1.sin()));
-        let mid = c.add(u0.scale(r));
+    // Each spoke once (its inner and outer corner), shared by the pieces
+    // either side: the ground is asked twice a spoke, not five times a piece.
+    let spoke = |i: usize| {
+        let a = i as f32 / n as f32 * std::f32::consts::TAU;
+        let u = V2::new(a.cos(), a.sin());
+        let mid = c.add(u.scale(r));
         let away = to3(mid, ground(mid)).distance(eye);
         let width = width.max(away * widen);
-        let q = [c.add(u0.scale(r - width * 0.5)), c.add(u0.scale(r + width * 0.5)), c.add(u1.scale(r + width * 0.5)), c.add(u1.scale(r - width * 0.5))];
-        let v = q.map(|p| to3(p, ground(p) + lift));
-        b.quad_lin(v, [Vec3::Y; 4], [lc; 4]);
+        let (pi, po) = (c.add(u.scale(r - width * 0.5)), c.add(u.scale(r + width * 0.5)));
+        (to3(pi, ground(pi) + lift), to3(po, ground(po) + lift))
+    };
+    let first = spoke(0);
+    let mut last = first;
+    for i in 0..n {
+        let next = if i + 1 == n { first } else { spoke(i + 1) };
+        b.quad_lin([last.0, last.1, next.1, next.0], [Vec3::Y; 4], [lc; 4]);
+        last = next;
     }
 }
 
@@ -1553,34 +1709,70 @@ fn ring_widened(b: &mut Builder, ground: &dyn Fn(V2) -> f32, c: V2, r: f32, widt
 fn ground_patch(b: &mut Builder, t: &Terrain, centre: V2, half: f32, step: f32, hole: Option<f32>) {
     let cells = (half * 2.0 / step).round() as i64;
     let (x0, y0) = (centre.x - half, centre.y - half);
-    // Land where the ground stands above the sea, water where it doesn't:
-    // the land itself decides (an authored bay or stack included).
-    let vert = |p: V2| -> (Vec3, Vec3, [f32; 4]) {
-        let h = t.height(p);
-        if h >= 0.0 {
-            let h = h.max(0.3);
-            let (nx, ny, nz) = t.normal(p, step.max(15.0));
-            (to3(p, h), vec3(nx, ny, nz), palette::lin(palette::ground(t, p, h, ny)))
-        } else {
-            (to3(p, 0.0), Vec3::Y, palette::lin(palette::sea(p)))
+    ground_cells(b, t, x0, y0, step, (0, cells), (0, cells), |xa, xb, ya, yb| match hole {
+        Some(hh) => xa >= centre.x - hh - 0.5 && xb <= centre.x + hh + 0.5 && ya >= centre.y - hh - 0.5 && yb <= centre.y + hh + 0.5,
+        None => false,
+    });
+}
+
+/// One tile of the fine patch: its cells of the grid `g` describes.
+fn fine_tile(t: &Terrain, g: &Grid, (i0, i1, j0, j1): (i64, i64, i64, i64)) -> Builder {
+    let mut b = Builder::new();
+    ground_cells(&mut b, t, g.centre.x - g.half_fine, g.centre.y - g.half_fine, g.fine, (i0, i1), (j0, j1), |_, _, _, _| false);
+    b
+}
+
+/// The ground's cells `i0..i1` × `j0..j1` of a grid `step` metres a cell from
+/// (`x0`, `y0`), less those `skip` says: land where the ground stands above
+/// the sea, coloured by the palette; water where it doesn't (the land itself
+/// decides, an authored bay or stack included). Each corner is worked out
+/// once, and its slope read from the heights round it in the same grid, over
+/// at least 15 m (as `Terrain::normal` would).
+fn ground_cells(b: &mut Builder, t: &Terrain, x0: f32, y0: f32, step: f32, (i0, i1): (i64, i64), (j0, j1): (i64, i64), skip: impl Fn(f32, f32, f32, f32) -> bool) {
+    if i1 <= i0 || j1 <= j0 {
+        return;
+    }
+    // Heights over the corners and a margin wide enough for the slopes.
+    let k = (15.0 / step).ceil().max(1.0) as i64;
+    let (w, h) = ((i1 - i0 + 1 + 2 * k) as usize, (j1 - j0 + 1 + 2 * k) as usize);
+    let at = |i: i64, j: i64| V2::new(x0 + i as f32 * step, y0 + j as f32 * step);
+    let mut hs = vec![0.0f32; w * h];
+    for jj in 0..h {
+        for ii in 0..w {
+            hs[jj * w + ii] = t.height(at(i0 - k + ii as i64, j0 - k + jj as i64));
         }
-    };
-    let skip = |xa: f32, xb: f32, ya: f32, yb: f32| -> bool {
-        match hole {
-            Some(hh) => xa >= centre.x - hh - 0.5 && xb <= centre.x + hh + 0.5 && ya >= centre.y - hh - 0.5 && yb <= centre.y + hh + 0.5,
-            None => false,
+    }
+    let hgt = |i: i64, j: i64| hs[(j - j0 + k) as usize * w + (i - i0 + k) as usize];
+    let e = k as f32 * step;
+    // Each corner once: its place, facing and colour.
+    let (cw, ch) = ((i1 - i0 + 1) as usize, (j1 - j0 + 1) as usize);
+    let mut vs: Vec<(Vec3, Vec3, [f32; 4])> = Vec::with_capacity(cw * ch);
+    for j in j0..=j1 {
+        for i in i0..=i1 {
+            let p = at(i, j);
+            let hh = hgt(i, j);
+            vs.push(if hh >= 0.0 {
+                let hh = hh.max(0.3);
+                let dx = (hgt(i + k, j) - hgt(i - k, j)) / (2.0 * e);
+                let dy = (hgt(i, j + k) - hgt(i, j - k)) / (2.0 * e);
+                let l = (dx * dx + 1.0 + dy * dy).sqrt();
+                let ny = 1.0 / l;
+                (to3(p, hh), vec3(-dx / l, ny, -dy / l), palette::lin(palette::ground(t, p, hh, ny)))
+            } else {
+                (to3(p, 0.0), Vec3::Y, palette::lin(palette::sea(p)))
+            });
         }
-    };
-    for j in 0..cells {
+    }
+    let v = |i: i64, j: i64| vs[(j - j0) as usize * cw + (i - i0) as usize];
+    for j in j0..j1 {
         let (ya, yb) = (y0 + j as f32 * step, y0 + (j + 1) as f32 * step);
-        for i in 0..cells {
+        for i in i0..i1 {
             let (xa, xb) = (x0 + i as f32 * step, x0 + (i + 1) as f32 * step);
             if skip(xa, xb, ya, yb) {
                 continue;
             }
-            let ps = [V2::new(xa, ya), V2::new(xb, ya), V2::new(xb, yb), V2::new(xa, yb)];
-            let vs = ps.map(vert);
-            b.quad_lin(vs.map(|v| v.0), vs.map(|v| v.1), vs.map(|v| v.2));
+            let q = [v(i, j), v(i + 1, j), v(i + 1, j + 1), v(i, j + 1)];
+            b.quad_lin(q.map(|v| v.0), q.map(|v| v.1), q.map(|v| v.2));
         }
     }
 }
