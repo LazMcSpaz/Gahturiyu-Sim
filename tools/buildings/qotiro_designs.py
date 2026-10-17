@@ -46,12 +46,82 @@ def tier(poly, z0, height, name, wall_top=None):
     return dict(name=name, z0=z0, z1=z0 + height, wall_top=z0 + (WALL_TOP if wall_top is None else wall_top), outline=[(round(x, 3), round(y, 3)) for x, y in corners(poly)])
 
 
-def stair(foot, yaw, z0, rise=STOREY, width=STAIR_W):
+def stair(foot, yaw, z0, rise=STOREY, width=STAIR_W, run=None):
     """Steps from `foot` running the way `yaw` points, rising `rise` over
-    the run (6 m a storey), then a 2 m landing at the top."""
-    length = STAIR_RUN * rise / STOREY
-    head = (round(foot[0] + math.cos(yaw) * (length + 1.0), 3), round(foot[1] + math.sin(yaw) * (length + 1.0), 3))
-    return dict(kind="stair", at=[round(foot[0], 3), round(foot[1], 3)], rot=round(yaw, 4), size=[round(length, 3), width, rise], z=z0, head=list(head))
+    `run` metres (6 m a storey unless said). The top step is at `head`;
+    the terrace it serves must lie beside the top of the run, and the
+    parapet is left out there (`landing`, the middle of the last stride)."""
+    length = run if run is not None else STAIR_RUN * rise / STOREY
+    head = (round(foot[0] + math.cos(yaw) * length, 3), round(foot[1] + math.sin(yaw) * length, 3))
+    landing = (round(foot[0] + math.cos(yaw) * (length - 0.7), 3), round(foot[1] + math.sin(yaw) * (length - 0.7), 3))
+    return dict(kind="stair", at=[round(foot[0], 3), round(foot[1], 3)], rot=round(yaw, 4), size=[round(length, 3), width, rise], z=z0, head=list(landing))
+
+
+def check(out):
+    """Every building must make sense as a thing to walk on (Laz, 17 Oct:
+    "the stairs are not coherent, some of the landings end up outside of
+    the walking platform"). So: a stair stands wholly on the ground or on
+    a terrace, runs beside walls (never through a tier that rises past
+    its foot), and its top step has that terrace's floor right beside it;
+    an upper door opens onto a terrace; a prop stands on one."""
+    from shapely.geometry import Point
+    from shapely import affinity
+    problems = []
+    for key, d in out.items():
+        tiers = [(Polygon(t["outline"]), t["z0"], t["z1"]) for t in d["tiers"]]
+
+        def floor_at(z):
+            """The walkable floor at height z: the ground, or the tops of the
+            tiers that end there, less whatever stands on them."""
+            if z < 0.01:
+                base = box(-200, -200, 200, 200).difference(unary_union([p for p, z0, _ in tiers if z0 < 0.01]))
+            else:
+                tops = [p for p, _, z1 in tiers if abs(z1 - z) < 0.05]
+                if not tops:
+                    return None
+                base = unary_union(tops)
+            above = [p for p, z0, z1 in tiers if z0 < z + 0.05 and z1 > z + 0.05]
+            return base.difference(unary_union(above)) if above else base
+
+        q = d["qotiro"]
+        for st in q["stairs"]:
+            x, y = st["at"]; yaw = st["rot"]; run, w, rise = st["size"][0], abs(st["size"][1]), st["size"][2]
+            z = st["z"]
+            foot = affinity.rotate(box(0, -w / 2, run, w / 2), yaw, origin=(0, 0), use_radians=True)
+            foot = affinity.translate(foot, x, y)
+            fl = floor_at(z)
+            if fl is None or not fl.buffer(0.05).contains(foot):
+                problems.append(f"{key}: stair at {st['at']} doesn't stand on the floor at {z} m")
+            blocking = [p for p, z0, z1 in tiers if z0 < z + rise - 0.05 and z1 > z + 0.05 and p.buffer(-0.05).intersects(foot)]
+            if blocking:
+                problems.append(f"{key}: stair at {st['at']} runs through a tier")
+            top = floor_at(z + rise)
+            n = (-math.sin(yaw), math.cos(yaw))
+            side = -1 if st["size"][1] < 0 else 1   # the wall side; the terrace is the other
+            probe = Point(x + math.cos(yaw) * (run - 0.7) - n[0] * side * (w / 2 + 0.5), y + math.sin(yaw) * (run - 0.7) - n[1] * side * (w / 2 + 0.5))
+            ahead = Point(x + math.cos(yaw) * (run + 0.5), y + math.sin(yaw) * (run + 0.5))
+            if top is None or not (top.buffer(0.05).contains(probe) or top.buffer(0.05).contains(ahead)):
+                problems.append(f"{key}: stair at {st['at']} tops out at {z + rise} m with no terrace beside its head ({probe.x:.1f}, {probe.y:.1f})")
+        for door in q["doors_up"]:
+            x, y = door["xy"]; yaw = door["yaw"]; z = door["z"]
+            fl = floor_at(z)
+            probe = Point(x + math.cos(yaw) * 0.8, y + math.sin(yaw) * 0.8)
+            if fl is None or not fl.buffer(0.05).contains(probe):
+                problems.append(f"{key}: door at {door['xy']} ({z} m) opens onto nothing")
+            on_wall = any(abs(z0 - z) < 0.05 and p.exterior.distance(Point(x, y)) < 0.05 for p, z0, _ in tiers)
+            if not on_wall:
+                problems.append(f"{key}: door at {door['xy']} ({z} m) isn't on a wall of that storey")
+        for pr in q["props"]:
+            if pr["kind"] in ("disc", "arch", "gate", "railing", "chimney", "stair"):
+                continue
+            x, y = pr["at"]; z = pr["z"]; w, dd = pr["size"][0], pr["size"][1]
+            foot = affinity.rotate(box(x - w / 2, y - dd / 2, x + w / 2, y + dd / 2), pr["rot"], origin=(x, y), use_radians=True)
+            fl = floor_at(z)
+            if fl is None or not fl.buffer(0.1).contains(foot):
+                problems.append(f"{key}: {pr['kind']} at {pr['at']} ({z} m) isn't on a terrace")
+    if problems:
+        raise ValueError("\n".join(problems))
+    return out
 
 
 def prop(kind, at, rot=0.0, size=(1.0, 1.0, 1.0), z=0.0):
@@ -96,7 +166,7 @@ def designs():
         qotiro=dict(
             stairs=[stair((3.0, -3.7), math.pi, 0.0)],
             doors_up=[door_up((1.0, 1.0), 0.0, STOREY)],
-            props=[prop("disc", (3.0, -1.4), 0.0, (0.8, 0.1, 0.8), 2.2), prop("awning", (1.3, -1.2), 0.0, (3.0, 3.0, 2.3), STOREY),
+            props=[prop("disc", (3.0, -1.4), 0.0, (0.8, 0.1, 0.8), 2.2), prop("awning", (2.0, -1.6), 0.0, (1.8, 2.6, 2.3), STOREY),
                    prop("trough", (2.4, 2.1), 0.0, (1.0, 0.5, 0.5), STOREY), prop("jars", (-2.2, -2.2), 0.0, (0.9, 0.9, 0.8), STOREY)],
         ),
     )
@@ -110,7 +180,7 @@ def designs():
         level=level_of(g, walls, dict(main=(1.8, 0.0), bedroom=(-2.3, 1.7), store=(-2.3, -1.5)), [((4.0, 0.3), 0.0)]),
         windows=[3, 2],
         qotiro=dict(
-            stairs=[stair((4.0, -3.7), math.pi, 0.0)],
+            stairs=[stair((-4.0, -3.7), 0.0, 0.0)],
             doors_up=[door_up((0.0, -0.8), 0.0, STOREY)],
             props=[prop("disc", (4.0, -1.5), 0.0, (0.8, 0.1, 0.8), 2.2), prop("awning", (2.0, 0.6), 0.0, (3.2, 4.0, 2.3), STOREY),
                    prop("trough", (3.4, -2.3), 0.0, (1.4, 0.5, 0.5), STOREY), prop("trough", (3.4, 2.4), 0.0, (1.0, 0.5, 0.5), STOREY),
@@ -187,7 +257,7 @@ def designs():
             props=[prop("disc", (6.0, 0.0), 0.0, (0.9, 0.1, 0.9), 2.3), prop("awning", (3.0, 3.0), 0.0, (3.4, 3.4, 2.3), STOREY),
                    prop("awning", (-1.0, -3.0), 0.0, (1.8, 3.4, 2.3), 2 * STOREY),
                    prop("trough", (5.3, -4.3), 0.0, (1.4, 0.5, 0.5), STOREY), prop("trough", (1.5, 4.3), 0.0, (1.4, 0.5, 0.5), STOREY),
-                   prop("jars", (4.6, -1.6), 0.0, (0.9, 0.9, 0.8), STOREY), prop("jars", (-5.2, 3.8), 0.0, (0.9, 0.9, 0.8), 2 * STOREY)],
+                   prop("jars", (4.6, -1.6), 0.0, (0.9, 0.9, 0.8), STOREY), prop("jars", (-1.0, 0.2), 0.0, (0.9, 0.9, 0.8), 2 * STOREY)],
         ),
     )
 
@@ -221,7 +291,7 @@ def designs():
         level=level_of(g, [], dict(hall=(0.0, 0.0)), [((6.0, 0.0), 0.0)]),
         windows=[0],
         qotiro=dict(
-            stairs=[stair((10.6, 0.0), math.pi, 0.0, rise=3.2, width=2.4)],
+            stairs=[stair((10.6, 0.0), math.pi, 0.0, rise=3.2, width=2.4, run=4.6)],
             doors_up=[],
             props=[prop("arch", (6.0, -4.0), 0.0, (1.6, 0.1, 2.4), 0.0), prop("arch", (6.0, -2.0), 0.0, (1.6, 0.1, 2.4), 0.0),
                    prop("arch", (6.0, 2.0), 0.0, (1.6, 0.1, 2.4), 0.0), prop("arch", (6.0, 4.0), 0.0, (1.6, 0.1, 2.4), 0.0),
@@ -229,7 +299,7 @@ def designs():
         ),
         use="hall",
     )
-    return wall_sides(out)
+    return check(wall_sides(out))
 
 
 def yard_designs():
@@ -285,7 +355,7 @@ def yard_designs():
                    prop("post", (2.0, 3.5), 0.0, (0.35, 0.35, 2.0), 0.0), prop("gate", (8.0, 0.0), 0.0, (3.0, 0.1, 2.0), 0.0)],
         ),
     )
-    return wall_sides(out)
+    return check(wall_sides(out))
 
 
 # What the two yards hold (the Roduro `TRADE_YARDS` shape): stations under
