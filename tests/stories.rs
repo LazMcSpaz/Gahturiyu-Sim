@@ -37,11 +37,13 @@ fn to_dawn(w: &mut World) {
 fn a_household_whose_earner_is_laid_up_ends_up_stealing() {
     let mut w = worldgen::generate(1);
     set_drama(&mut w, 0.8);
-    // A pair keeping house together, one with a post and little put by.
+    // A pair keeping house together, one with a post and little put by,
+    // the other with none (so the post is all they live on).
     let h = (0..w.society.households.len())
         .filter(|&h| {
             let hh = &w.society.households[h];
-            hh.members.len() == 2 && hh.members.iter().all(|&m| !w.people[m as usize].in_squad) && w.society.lives[hh.members[0] as usize].job.is_post()
+            let post = |k: usize| w.society.lives[hh.members[k] as usize].job.is_post();
+            hh.members.len() == 2 && hh.members.iter().all(|&m| !w.people[m as usize].in_squad) && post(0) && !post(1)
         })
         .min_by(|&a, &b| w.society.households[a].purse.coin.total_cmp(&w.society.households[b].purse.coin))
         .unwrap();

@@ -147,7 +147,11 @@ fn nm_57_a_secret_is_bought_from_those_who_know_and_only_paid_for_when_told() {
     let here = w.squad.pos;
     let town = w.settlements.iter().min_by(|a, b| a.pos.dist(here).total_cmp(&b.pos.dist(here))).unwrap().id;
     let res = w.settlements[town as usize].residents.clone();
-    let (victim, thief) = (res[4], res[9]);
+    // (A thief from another household, with someone at home to know: a
+    // stilt village living as one is a single household.)
+    let victim = res[4];
+    let hh = |p: u32| w.society.lives[p as usize].household;
+    let thief = res[9..].iter().copied().find(|&p| hh(p).is_some() && hh(p) != hh(victim) && w.society.households[hh(p).unwrap() as usize].members.len() >= 2).unwrap();
     let ev = w.note(Deed::Theft, Some(thief), Some(victim), town, w.time - 10.0 * HOUR, true);
     let day = World::day_of(w.time) as i32;
     w.remember(victim, Who::Someone, Deed::Theft, -0.6, day);
