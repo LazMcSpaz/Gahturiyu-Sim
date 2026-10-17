@@ -355,7 +355,7 @@ fn no_walk_in_any_town_passes_through_anything() {
 #[test]
 fn townsfolk_stand_where_a_walker_can_stand() {
     use gahturiyu_sim::sim::{
-        routine::Spot,
+        routine::{Doing, Spot},
         world::{DAY, HOUR},
     };
     let mut w = worldgen::generate(1);
@@ -376,7 +376,9 @@ fn townsfolk_stand_where_a_walker_can_stand() {
                 }
                 let plan = w.day_plan(pid, day);
                 let seg = plan.segs[plan.index_at(hour)];
-                if matches!(seg.spot, Spot::Rounds | Spot::Watch | Spot::Boat | Spot::RunRound) {
+                // (On the way between spots isn't at a spot: a walk home goes
+                // through the doorway, which is passed, not stood in.)
+                if matches!(seg.spot, Spot::Rounds | Spot::Watch | Spot::Boat | Spot::RunRound) || seg.doing == Doing::Walking {
                     continue;
                 }
                 let p = w.person_pos(pid);
