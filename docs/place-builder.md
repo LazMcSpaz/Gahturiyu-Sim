@@ -338,3 +338,41 @@ hanging a sign on it.
   knew: `solid::place_in_building`, nothing of its own stands or is solid;
   its workers work there); its signpost stands by the door unless the
   building hangs its own sign. No saved-shape change.
+
+## Grow a draft (second, 17 Oct)
+
+Laz asked for town layouts grown rather than spiralled, tried in the 2-D builder first
+(the research and Laz's rulings: https://claude.ai/artifact/7CUVyK4p43TRjynH24Ewj2).
+The place card's **Grow a draft** lays a town out in the place under the view, from the
+mark's notes and label and the land (`tools/map/src/towngrow.js`, inlined by
+`assemble.py`). It replaces the place's things and paths (Undo puts them back); each
+press is another roll. What it does:
+
+- **What the town grew on** comes from words in the notes or label ("fishing", "port",
+  "lake" a harbour; "ford", "river", "bridge", "crossing" a ford; "hill", "cliffs" a
+  hill; "crossroads", "market"; "road"; "fort", "keep", "castle"); with none, or when
+  the land can't hold it (a harbour with no sea near), the land decides. "Small",
+  "remote" shrink it; "spread out", "marshy" loosen it.
+- **Where it began**: the quay, the higher bank of the crossing, a hill's shoulder, the
+  road junction, or the flattest ground; a market square there, a well beside it. The
+  landmark (a Qotiro temple in a Qotiro town, else a great house) on the highest flat
+  ground near it, the top on a hill.
+- **Streets** from the heart out along the land's roads (and to the place's edge), to the
+  landmark and to the shore, by a path search that charges for climbing; **lanes** off
+  them to good ground. Paths `road` 5 m and `path` 2.5 m.
+- **Homes** on plots fronting every street, door to the street, packed near the square
+  and thinning (some plots left empty) toward the edge. Each plot goes to the people
+  who lean to it most (founders count 2.5×): Roduro the core, Qotiro the high and steep
+  ground (they terrace), Horaro ashore near the water, Ṭaḍoro tents at the edges; trade
+  houses (forge, loom room, bench room, trader…) on the main streets near the square.
+  A coast gets stilt homes on the water near the quay, on a boardwalk (`path` 2 m).
+- **Fields** (`field_plot`) along the roads beyond the last house ("farming" doubles them).
+- **Walls** round towns, cities, capitals and forts, not villages and smaller unless the
+  notes say "walled" / "palisade" ("unwalled" turns it off): stone pieces for a Roduro
+  or Qotiro town (`rubble_wall`, noted "grown stone wall" for Roduro until the game has
+  that piece), a palisade else; a gate where each main street crosses the wall or ends
+  at it, watchtowers by a city's or fort's gates.
+
+Homes by kind: hamlet 8, outpost 6, village 22, port 14, fort 12, town 50, city 110,
+capital 160 (before "small"). Everything stays inside the place's area; the ring of
+land round it (from `grounds/`) only tells it where the sea, rivers and roads are.

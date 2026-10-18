@@ -31,7 +31,8 @@ B = re.sub(r'  // The place builder \(build\.html\).*?\n  \$\("f-build"\)\.addEv
 assert '$("f-build")' not in B, "the old build button handler is still there"
 
 tpl = open(os.path.join(HERE, "world.tpl.html"), encoding="utf-8").read()
-out = tpl.replace("<!--@H@-->", H).replace("/*@A@*/", A).replace("/*@B@*/", B).replace("/*@C@*/", C).replace("/*@D@*/", D)
+G = open(os.path.join(HERE, "towngrow.js"), encoding="utf-8").read()
+out = tpl.replace("<!--@H@-->", H).replace("/*@G@*/", G).replace("/*@A@*/", A).replace("/*@B@*/", B).replace("/*@C@*/", C).replace("/*@D@*/", D)
 assert "/*@" not in out and "<!--@" not in out
 open(os.path.join(MAP, "index.html"), "w", encoding="utf-8", newline="\n").write(out)
 print("tools/map/index.html:", out.count("\n"), "lines")

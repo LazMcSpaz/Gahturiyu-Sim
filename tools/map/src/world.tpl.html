@@ -205,7 +205,7 @@
     <div class="roles" id="i-roles"></div>
     <div class="line" id="i-counts"></div>
     <textarea id="i-notes" placeholder="Notes for this place (who holds it, what it's for, what Claude should know)"></textarea>
-    <div class="row"><button id="i-undo">Undo</button><button id="i-grid">Grid</button><button id="i-trees">Land’s trees</button><button id="i-people">People</button></div>
+    <div class="row"><button id="i-undo">Undo</button><button id="i-grid">Grid</button><button id="i-trees">Land’s trees</button><button id="i-grow" title="Lay out a draft town here from the mark’s notes and the land: Undo puts back what was there, press again for another">Grow a draft</button><button id="i-people">People</button></div>
   </div>
 </div>
 <div id="top">
@@ -281,6 +281,7 @@
   const fKind = $("f-kind"), fLabel = $("f-label"), fHolder = $("f-holder"), fFounders = $("f-founders"), fNotes = $("f-notes"), fCoords = $("f-coords");
 /*@C@*/
 /*@D@*/
+/*@G@*/
 
   // ---- the store: IndexedDB in this browser, with the shape the people screen expects
   //      (collection(name).doc(id).set/update/delete/get, collection.onSnapshot). Seeded once
@@ -927,6 +928,21 @@
   $("info").addEventListener("click", (e) => { if (e.target.closest("textarea, button")) return; $("info").classList.toggle("open"); });
   $("i-notes").addEventListener("input", () => { const pl = places[cur]; if (pl) { pl.P.notes = $("i-notes").value; changed(); } });
   $("i-undo").addEventListener("click", () => undo()); $("i-grid").addEventListener("click", () => { showGrid = !showGrid; draw(); });
+  // Grow a draft town (towngrow.js): it replaces the place's things and paths (Undo puts them
+  // back); each press is another roll.
+  let growRoll = 0;
+  $("i-grow").addEventListener("click", () => {
+    const pl = places[cur], m = marks[cur];
+    if (!pl || !m) { say("Zoom in on a mark to grow a town there."); return; }
+    if (!pl.LAND) { say("This place's land isn't here yet, so there's nothing to grow on.", true); return; }
+    snapshot();
+    const out = TownGrow.grow({ pl, mark: m, cat: CAT, roll: growRoll++ });
+    pl.P.things = out.things.map((t) => Object.assign({ id: nid() }, t));
+    pl.P.roads = out.roads;
+    pl.P.foliage = pl.P.foliage.filter(out.keepFoliage);
+    pick(null); changed();
+    say(out.summary + " Undo puts back what was there; press again for another.");
+  });
   $("i-trees").addEventListener("click", () => { const pl = places[cur]; if (!pl) return; snapshot(); const n = landPlants(pl); changed(); draw(); say(n ? `${n} of the land's own trees and bushes put back.` : "The land's own trees are all there already."); });
   $("i-people").addEventListener("click", () => { if (cur) openPeople(cur); });
 
