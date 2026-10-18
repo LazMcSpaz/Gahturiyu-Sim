@@ -939,7 +939,11 @@
     const out = TownGrow.grow({ pl, mark: m, cat: CAT, roll: growRoll++ });
     pl.P.things = out.things.map((t) => Object.assign({ id: nid() }, t));
     pl.P.roads = out.roads;
-    pl.P.foliage = pl.P.foliage.filter(out.keepFoliage);
+    // The last draft's paint (its square) comes up before this one's goes down.
+    for (const [k, ch] of pl.grownPaint || []) if (pl.ground[k] === ch) pl.ground[k] = ".";
+    for (const [k, ch] of out.paint) if (pl.ground[k] === ".") pl.ground[k] = ch;
+    pl.grownPaint = out.paint; pl.terrainDirty = pl.contoursDirty = true;
+    pl.P.foliage = pl.P.foliage.filter((f) => !f.grown).filter(out.keepFoliage).concat(out.foliage.map((f) => Object.assign({ grown: true }, f)));
     pick(null); changed();
     say(out.summary + " Undo puts back what was there; press again for another.");
   });

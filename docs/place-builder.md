@@ -339,40 +339,50 @@ hanging a sign on it.
   its workers work there); its signpost stands by the door unless the
   building hangs its own sign. No saved-shape change.
 
-## Grow a draft (second, 17 Oct)
+## Grow a draft (second, 17 Oct; rebuilt after Laz's first look)
 
 Laz asked for town layouts grown rather than spiralled, tried in the 2-D builder first
-(the research and Laz's rulings: https://claude.ai/artifact/7CUVyK4p43TRjynH24Ewj2).
-The place card's **Grow a draft** lays a town out in the place under the view, from the
-mark's notes and label and the land (`tools/map/src/towngrow.js`, inlined by
-`assemble.py`). It replaces the place's things and paths (Undo puts them back); each
-press is another roll. What it does:
+(the research and his rulings: https://claude.ai/artifact/7CUVyK4p43TRjynH24Ewj2). His first
+look (17 Oct): "shapes aren't convincing or really coherent"; Horaro stilts never on land;
+a High Folk village is pure Roduro; Ṭaḍoro in towns are given rooms, not tents; and a
+hand-drawn city map and Watabou's Medieval Fantasy City Generator as the bar. So the
+grower now works the way Watabou's does (`tools/map/src/towngrow.js`, inlined by
+`assemble.py`); the place card's **Grow a draft** runs it for the place under the view,
+replacing its things and paths (Undo puts them back; each press is another roll).
 
-- **What the town grew on** comes from words in the notes or label ("fishing", "port",
-  "lake" a harbour; "ford", "river", "bridge", "crossing" a ford; "hill", "cliffs" a
-  hill; "crossroads", "market"; "road"; "fort", "keep", "castle"); with none, or when
-  the land can't hold it (a harbour with no sea near), the land decides. "Small",
-  "remote" shrink it; "spread out", "marshy" loosen it.
-- **Where it began**: the quay, the higher bank of the crossing, a hill's shoulder, the
-  road junction, or the flattest ground; a market square there, a well beside it. The
-  landmark (a Qotiro temple in a Qotiro town, else a great house) on the highest flat
-  ground near it, the top on a hill.
-- **Streets** from the heart out along the land's roads (and to the place's edge), to the
-  landmark and to the shore, by a path search that charges for climbing; **lanes** off
-  them to good ground. Paths `road` 5 m and `path` 2.5 m.
-- **Homes** on plots fronting every street, door to the street, packed near the square
-  and thinning (some plots left empty) toward the edge. Each plot goes to the people
-  who lean to it most (founders count 2.5×): Roduro the core, Qotiro the high and steep
-  ground (they terrace), Horaro ashore near the water, Ṭaḍoro tents at the edges; trade
-  houses (forge, loom room, bench room, trader…) on the main streets near the square.
-  A coast gets stilt homes on the water near the quay, on a boardwalk (`path` 2 m).
-- **Fields** (`field_plot`) along the roads beyond the last house ("farming" doubles them).
-- **Walls** round towns, cities, capitals and forts, not villages and smaller unless the
-  notes say "walled" / "palisade" ("unwalled" turns it off): stone pieces for a Roduro
-  or Qotiro town (`rubble_wall`, noted "grown stone wall" for Roduro until the game has
-  that piece), a palisade else; a gate where each main street crosses the wall or ends
-  at it, watchtowers by a city's or fort's gates.
+- **Where it began** comes from words in the mark's notes or label ("fishing", "port",
+  "lake": a harbour; "ford", "river", "bridge", "crossing"; "hill", "cliffs"; "crossroads",
+  "market"; "road"; "fort", "keep", "castle"), or the land when they say nothing or the
+  land can't hold it. "Small", "remote" shrink it; "spread out", "marshy" loosen it.
+- **Wards**: seeds on a spiral round that spot (dense in the middle), their Voronoi cells
+  (the middle three evened out); the nearest dry ones (by kind: hamlet 3 … capital 26)
+  are the town. **Every edge between two wards is a street**; the **main streets** run
+  from each gate to the square along those edges, by a search that charges for climbing;
+  the **roads out** cross the land from the gates along the land's own roads to the
+  place's edge.
+- **Gates** where the land's roads reach the town's outline (at least two; a sea gate on
+  a harbour). **Walls** (towns, cities, capitals, forts; villages only if the notes say
+  "walled"/"palisade"; "unwalled" turns it off) along the inner wards' outline, towers at
+  its corners, gates flanked by towers; stone for a Roduro or Qotiro town (`rubble_wall`,
+  noted "grown stone wall" for Roduro until the game has that piece), a palisade else.
+- **What each ward is**: the square (paved in a town, the green in a village: a market,
+  stalls, a well), the temple ground (a Qotiro temple in a Qotiro town, else a great
+  house and a shrine, with trees) on the highest ground by it, the better houses on the
+  highest wards, merchants round the square, craftsmen by the gates, the common rest; a
+  city has a park and a keep (its own wall and towers, a hall and a guard post, on the
+  highest edge ward); a shore ward is the harbour (stores, piers out over the water, a
+  dock).
+- **Who builds**: the founders' people, and any the notes name ("mixed": all three who
+  build). Qotiro take the high wards. **Horaro only ever on stilts over open water** (every
+  corner over the sea, by the piers, on boardwalks), and only when the notes name them.
+  **Ṭaḍoro build nothing** (they're given rooms).
+- **Lots**: each ward's block (pulled in from its streets) is cut across its longest
+  side again and again (Watabou's), with an alley through any deep block; a house on
+  each lot that has a street or alley side, its door to it, sized to the lot; some lots
+  stay gardens (more in a village and toward the edge).
+- **Outside the wall**: houses strung along the roads out by the gates, thinning, then
+  fields ("farming" means more).
 
-Homes by kind: hamlet 8, outpost 6, village 22, port 14, fort 12, town 50, city 110,
-capital 160 (before "small"). Everything stays inside the place's area; the ring of
-land round it (from `grounds/`) only tells it where the sea, rivers and roads are.
+It runs headless too (`towns-research/proto`: `growtest.js` on every town's land, about
+0.15 s for the biggest). Everything stays inside the place's area; the ring of land round
+it only tells it where the sea, rivers and roads are.
