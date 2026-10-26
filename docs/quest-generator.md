@@ -1,6 +1,6 @@
 # The Quest Generator: how the whole system works
 
-*Written 2026-10-26 by Claude, for Laz and for whoever builds it. No code here: this explains what the system does and how each part should work, mechanically.*
+*Written 2026-10-26 by Claude, for Laz and for whoever builds it (v1.1, audit fixes the same day; changes at the end). No code here: this explains what the system does and how each part should work, mechanically.*
 
 **Where the detailed rules live:** the claude.ai **Gahturiyu** Project, in the `claude/quest-*.md` docs. The rulebook (`quest-generator-rulebook.md`) wins any conflict.
 
@@ -14,16 +14,19 @@
 | `quest-locations.md` | pinning and the location pass |
 | `quest-mechanics.md` | the mechanics layer |
 | `quest-card-schema.md` | the data |
+| `quest-casting.md` | casting: specs and how they're filled (not yet written; §8 here stands in) |
+| `leaders.md` | the leader archetypes and their canon defaults (worldbuilding input) |
 | `faction-places.md` | places |
 | `worldgen-requirements.md` | what the land must provide |
 
-This doc is the map of how they fit together. Where a big design decision was made in conversation and isn't in those docs yet (casting, optional canon leaders, the grudge loop), it is written out in full here.
+This doc is the map of how they fit together. Where a big design decision was made in conversation and isn't in those docs yet (the casting pass itself), it is written out in full here.
 
 **Status:**
 - The **shape layer** (what quests *are*) is designed and has been tested on generated worlds.
-- **Casting, mechanics and the grudge loop** are designed here, but not yet tested.
+- **Casting** is designed here; **mechanics and the grudge loop** are in `quest-mechanics.md`. None of them is tested yet.
 - **Dialogue and the on-approach detail pass** are agreed in principle.
 - A full-world test was running when this was written. Its findings will change details, so check the Project's test results.
+- **Not yet in the topic docs:** the casting pass's matching, scoring, backtracking and repair (§8; to become `quest-casting.md`), and which archetypes are guaranteed beyond the lore-critical ones (§16). Specs, archetype leaders, court state and the *trade* tie went into the topic docs with the 2026-10-26 audit fixes, so a gap anywhere else is stale text, not an intended one.
 
 ---
 
@@ -56,15 +59,15 @@ The game builds its quests the way a dungeon master preps a campaign: **all the 
 | **Family** | the kind of situation. There are nine: Rescue, Investigate, Dispute, Threat, Passage, Acquire, Reckoning, Restore, Contest. |
 | **Premise** | the specific situation within a family, such as Rescue *Kidnapped* or Reckoning *Swindle*. Each family has four, plus faction-only **signature premises**. |
 | **Slot** | a role on a card: requester, captive, captor, holder, arbiter, guide… A slot is a *spec*, not a person, until casting fills it. |
-| **Way through** | one approach the player can take. Each premise lists 4–5, each tagged with a **kind**; Rescue's kinds are force, stealth, price and leverage. A card rolls 2–3 of them, covering at least 2 kinds, so there is always more than one way. |
-| **Twist** | an optional complication rolled at generation (*the captive doesn't want rescuing*). Twists belong to **groups** (*the other side is right*, *you started it*, *innocents pay*, *they don't want it*) that limit repetition. |
+| **Way through** | one approach the player can take. Each premise lists 4–5, each tagged with a **kind**; Rescue's kinds are force, stealth, price and leverage. A card rolls 2–3 of them (a faction crisis exactly 3), covering at least 2 kinds, so there is always more than one way. |
+| **Twist** | an optional complication rolled at generation (*the captive doesn't want rescuing*). Twists belong to six **groups** (*the other side is right*, *you started it*, *innocents pay*, *they don't want it*, *not what it seems*, *someone's hiding something*) that limit repetition. Every twist is in exactly one group. |
 | **Truth** | the hidden reality behind a card (who really did it). Usually secret. |
 | **Ending** | how a card can finish. Each family has a fixed list. Which one happens is up to the player, and its effects belong to the mechanics layer. |
 | **Fact** | a true statement about the world: "the quay is seized", "Hesper is held at the pens". Facts are **public** or **secret**. Everything the system knows is facts. |
 | **Plant** | a fact a card deliberately declares so a *later* card can depend on it, like a clue. A **payoff** is a later card that uses it. |
-| **Move** | something a story's villain *has done* between chapters, recorded as a public past-event fact. |
+| **Move** | something a story's villain *has done* between chapters, recorded as a public past-event fact. Each move works through a **lever** (debt, law, rumour, force…). |
 | **Registry** | the world's roster of people, places, things and factions, plus the links between them. |
-| **Standing** | Low (peasant), Middle (tradesperson), High (gentry), Top (ruler; pre-made only). |
+| **Standing** | Low (peasant), Middle (tradesperson), High (gentry), Top (ruler; pre-made only: a canon person or an archetype's generated filler, §8.2). |
 | **Scope** | how far a card's pressure reaches: household, community, region or realm. |
 | **Relatedness** | how tied a card is to a big story: main, minor, fallout, echo, independent, or faction. |
 
@@ -80,8 +83,9 @@ Everything quests talk about lives in one registry.
 - links to other people (family, kin, spouse, ally, employer/employee, rival, creditor/debtor, grudge, dependent, trade), each with a direction and a visibility (a secret link is how a hidden agent is hidden);
 - a faction membership;
 - facts about them;
-- whether they're pre-made (canon), dead, or **die at a known story move** (`dies_at`: alive on every card before that move, dead after);
-- a home, and a **fallback** (a backup person who can take their place if a quest outcome removes them).
+- whether they're pre-made (canon people and archetype fillers, §8.2), and which **archetype** they fill, if any;
+- whether they're dead, or **die at a known story move** (`dies_at`: alive on every card before that move, dead after);
+- a home, and a **fallback** (a backup person, chosen by casting, who can take their place if a quest outcome removes them).
 
 **Places** have:
 - a kind, an owner, an access level (open, guarded, remote, fortified) and a standing;
@@ -98,7 +102,7 @@ Everything quests talk about lives in one registry.
 - a seat and a reach;
 - a want, a virtue and a wound;
 - a hidden side (a secret fact);
-- relations with other factions;
+- relations with other factions: *ally*, *rival*, *at war*, *trade* (dealings without loyalty), *serves*;
 - facts.
 
 **Rules that keep the registry sane:**
@@ -110,7 +114,7 @@ Everything quests talk about lives in one registry.
   - **authorities** (magistrates, ring-keepers, arbiters) can appear more often;
   - **story cast** are exempt inside their own story.
   - These limits stop the same blacksmith being kidnapped, robbed and accused in one world.
-- **One holder per seat.** A seat or office (lord of a keep, wharf-master) belongs to one registry person; no card invents a second. Replacing a holder is an event with a fact.
+- ***Seats and offices have one holder.*** A seat or office (lord of a keep, wharf-master) belongs to one registry person; no card invents a second. Replacing a holder is an event with a fact.
 - **State is written down.** When an ending changes a person (fled, changed sides, disgraced, took a new post), it writes a **state fact** on them that later cards read. Past events carry **when** they happened; things carry **who holds them, since when**. "The only record" is one registry thing, never invented twice.
 - **Settlement context.** Each settlement keeps a list of public facts that the big stories did to it (a salt crisis, a war writ). It never gates a quest, but at least one local quest in each touched town refers to it, so towns notice the world around them.
 - **Open threads.** A loose end, such as the hook's stolen mules, is recorded as an open thread that some later card must close.
@@ -130,12 +134,13 @@ How a single card is rolled. Every random choice uses a **keyed roll** (§9), so
 1. **Family.** Rolled from weights. Those come from the location's features (a port leans toward Acquire and Dispute, a farm toward Restore and Threat) or, for a faction-given job, from the faction's profile.
 2. **Premise.** Rolled within the family, plus the giving faction's signature premises.
 3. **Requirements filter.** Each premise lists what it needs: *Bound by debt* needs a creditor/debtor link; *Under seal* needs an authority holding the thing in a guarded place. Anything the card can't satisfy is filtered out before rolling, never patched afterwards.
-4. **Slots become specs.** Every role the premise needs becomes a **job description** for casting: "a captor, Middle standing, lawless, with a hideout within a day of here". Specs can point at each other: "the captive's kin".
+4. **Slots become specs.** Every role the premise needs becomes a **job description** for casting: "a captor, Middle standing, lawless, with a hideout within a day of here". Specs can point at each other: "the captive's kin". The card stores it in its `specs` list; casting fills it later (§8). Until casting exists, a card resolves its own slots in the same order: search, reuse if it fits and the limits allow, otherwise create.
 5. **Separation.** In money matters (debt, ransom, trade deals, inheritance) the two main parties are at most one standing step apart. A peasant doesn't ransom a lord.
 6. **Reasons and motives.** Each party's reason is rolled from the family's list (Rescue captor reasons: ransom, leverage, revenge, holding them for someone else…).
-7. **Ways through.** The premise's ways are pooled. Ways the card can't support are removed and logged: no bribing a Top-standing target, no assault on a fortified place. Then 2–3 are rolled, covering at least 2 kinds, in a fixed order: forced ways first, then a way that reaches the truth, then **plant-backed ways** (ones that pay off something planted earlier, like an ally's offer), then random ones. Every way names a person, place or thing from its own card; no generic template ways.
+7. **Ways through.** The premise's ways are pooled. Ways the card can't support are removed and logged: no bribing a Top-standing target, no assault on a fortified place. Then 2–3 are rolled (a faction crisis rolls exactly 3), covering at least 2 kinds, in a fixed order: forced ways first, then a way that reaches the truth, then **plant-backed ways** (ones that pay off something planted earlier, like an ally's offer; rulebook, *Plant-backed ways roll first*), then random ones. Every way names a person, place or thing from its own card; no generic template ways.
+   - **Forced ways never give their place:** *Old wound*, a required ally way, the climax's sacrifice way, the crisis's code-break way. If two share a kind, the next way rolled is another kind. When slots run short, the methods preference yields first, then the heart's-secret way (offered as the twist instead).
 8. **Twist.** Rolled from the family's twist table, filtered by requirements and by the story's twist-group budget. *None* is a valid result.
-9. **Truth.** Rolled where the card's ways involve finding something out. **No blank card:** every card carries a hidden truth or a real twist, and at least one way reaches the truth. The premise must fit the place (no country estate in a reef village).
+9. **Truth.** Rolled where the card's ways involve finding something out. ***No blank card:*** every card carries a hidden truth or a real twist; twist *none* is legal only on a card with a truth. ***The truth is reachable:*** at least one way reaches it. ***Premise must fit the place:*** no country estate in a reef village.
 10. **Endings.** The family's static list, minus any ending the card's own filters make impossible.
 11. **Plants and dependencies.** The card declares what it plants for later cards, and lists the facts it depends on. The **plant rule** checks that every dependency was planted somewhere the player must already have been.
 
@@ -191,6 +196,7 @@ The result is a small block of data: a few hundred bytes.
   - the **Hand**: the villain's recurring face;
   - a **lieutenant**.
 - **Moves.** Between layers the villain *does something* (a move), recorded as a finished past event. Each chapter opens in the world that move made. Moves are what make the world visibly change as the story goes on.
+  - Each move names a **lever**. The story's lever is the last move's lever, and it is reserved: all the guild stories together may use it at most once.
 - **Scale arcs.** Rolled per story; they set how scope changes across the layers:
 
 | Arc | Direction | Scope changes like this |
@@ -217,7 +223,7 @@ The result is a small block of data: a few hundred bytes.
 **Rules added after the world test (v5):**
 - **Meet them before they matter.** On every path, the villain, the lieutenant and anyone the climax needs are met in person on an earlier card. Being the absent owner of something doesn't count.
 - **The heart on every layer, on every path.**
-- **Chapters chain and climb.** Each card follows from the last one's result, and the pressure rises.
+- ***Chain and climb.*** Each card follows from the last one's result, and the pressure rises.
 - **Wins stick.** A move aimed at something the player already settled changes how it plays out instead of undoing it. The Return has versions for each climax ending.
 - **Every taking gets a rescue; threads close.**
 - **Plants pay off.** The climax ally way is always rolled.
@@ -231,7 +237,7 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
 | **Routine** | 3–4 | ordinary guild jobs. Each secretly carries a **quiet plant** (an innocent detail: a black cord, a lamp number, a date). One is the **odd job**, where the villain's agent is hidden. |
 | **Reveal** | 1 | the quiet plants connect, and the hidden story is published |
 | **Story** | 2 chapters | the enemy moves before each one. Each card chains to the last, and pressure climbs. Chapter 2's move costs the heart personally. |
-| **Crisis** | 1 | at the guild's headquarters. One way to win is always a **code-break**: breaking the guild's own code. The player chooses where the guild goes next (the faction endings). |
+| **Crisis** | 1 | at the guild's headquarters. It rolls exactly 3 ways, and one is always a **code-break**: breaking the guild's own code. The player chooses where the guild goes next (the faction endings). |
 | **Epilogue** | optional | repair what the last move broke |
 
 - **Profiles make guild jobs feel like that guild:**
@@ -241,7 +247,9 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
   - a **code** that forbids certain ways and endings ("never inform");
   - vocabulary (what they deal in, where they work, who comes to them);
   - **faction-only twists**.
-- **Story kits** give variety. Each guild has 5–6 enemies (each with a shape, a want and a revelation *kind*: *the hidden hand*, *the cost*, *the old debt*), 4–5 stakes, 4 hearts, 3 odd jobs and 4 crises. Rolling one of each, with compatibility rules, gives hundreds of distinct spines per guild.
+- **Story kits** give variety. Each guild has 5–6 enemies (each with a shape, a want and a revelation *kind*: *the hidden hand*, *the cost*, *the old debt*), 4–5 stakes, 4 hearts, 3 odd jobs and 4–5 crises. Rolling one of each, with compatibility rules, gives hundreds of distinct spines per guild.
+  - **Kits name leader archetypes, not people** ("the Lantern leader archetype"); a canon name appears only as the default filler (§8.2).
+  - **Every signature premise carries a truth,** as its family requires (*No blank card*).
 - **Story craft rules** (learned in testing):
   - the enemy and their agent appear before the crisis;
   - every move advances the revealed scheme;
@@ -252,22 +260,24 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
   - at most two reveals of the same family;
   - each premise and each twist at most twice;
   - at most two last moves that kill someone;
-  - levers spread out.
-- **The rival syndicates** (Old Hands and Night Market) may be generated as a pair: two views of one feud, ending at the same deadly truce.
+  - levers spread out; the main story's lever at most once in all guild stories together.
+- **The rival syndicates** (Old Hands and Night Market, canonically *at war*) may be generated as a pair: two views of one feud, ending at the same deadly truce. Their crises differ.
 - **Kept smaller than the main story:** region scope at most, no foundational stakes, 9–12 cards.
+- **One crossing with the main story.** A guild story may use the main story's High people freely as authorities and in the background. It may give **one** of them a meaningful role (a client, an opponent, a knower); that is its single crossing, and that person may be the story's *Above* enemy (a lord the main story already set up). Never main-story cast or proxies, and never a main-story secret.
 
 **Rules added after the world test (v5):**
 - **Event ceiling.** A guild story never outweighs the main story; the enemy acts through local tools.
-- **Required faction fallout.** An event that reaches beyond the guild spawns a quest in a town it touched.
-- **Short steps.** The next card is within about a day's travel.
+- ***Faction fallout is required.*** A move that reaches beyond the guild spawns at least one fallout quest in a town it touched; at most one per move, so at most 3 per story.
+- **Short steps inside a phase or chapter; journeys between them.** Inside a phase or chapter, each card is within about a day of the one before. In the routine phase only, one step may be long, and the next card comes back near. Phase 3's journey is a chapter's opening card.
 - **Kit variants.** Every kit entry has 2–3 versions, so the same roll doesn't repeat a story.
 
 **Guild stories meet (Laz: medium overlap).** World B's five guild stories barely shared a town, so joining one guild could leave a whole part of the island unvisited. Now all guild stories are placed together, by one plan, before any of their quests are made:
-- **Each story crosses the map:** it touches at least 3 regions. It moves between phases and chapters (one journey each), never back and forth inside a chapter.
-- **Shared towns:** each story puts at least 2 quests in crossroads towns, which hold two or more guilds' halls and are also used by another guild story. They use different sites inside the town.
-- **Rivals and allies meet:** guilds have ties (rival, ally, trade). Every rival or allied pair gets one quest where a member of the other guild plays a real part: an opponent, a competitor, an ally, a guide. Neither story needs the other to have been played. If the player belongs to both guilds, it becomes a choice of loyalty.
+- **Each story crosses the map:** it touches at least 3 regions. It moves at phase and chapter boundaries, never inside a chapter.
+- **The plan places every routine card** (in at least 2 towns), each chapter, the reveal and the crisis.
+- **Shared towns:** each story puts at least 2 quests in shared towns, which hold two or more guilds' halls (every large town qualifies) and are also used by another guild story. They use different sites inside the town.
+- **Rivals and allies meet:** guilds have ties (rival, at war, ally, trade). Every rival or allied pair gets one quest where a member of the other guild plays a real part: an opponent, a competitor, an ally, a guide. It is set in a shared town or at a field site both guilds use. Neither story needs the other to have been played. If the player belongs to both guilds, it becomes a choice of loyalty. This isn't a main-story crossing.
 - **Across all guild stories,** every region with a guild presence gets a guild quest, and no region gets more than about a third of them.
-- **The world ledger.** One variety count shared by every pass.
+- ***World ledger.*** One variety count shared by every pass.
 
 ### 6.3 Side quests (the location pass)
 - **Every place on the map has a quota:**
@@ -280,7 +290,9 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
 | great town | 10–15 |
 | presence (a shrine, a camp) | 0–1 |
 
-- Story cards pinned there count toward it; the location pass fills the rest.
+- Story cards pinned there count toward it; the location pass fills the rest. A presence inside a town shares the town's count.
+- ***Per-place caps*** count every card pinned at a settlement, story cards included: a hook or landmark is the focus of at most 2 cards, a theme of at most 3, no family above 30%, no premise more than twice.
+- ***Settlement context:*** in every town a big story touched, at least one side quest refers to what it did there.
 - **Families lean on what's there:** ports breed trade quests, junctions breed Passage and raiders, the green's edge breeds Threat and Rescue.
 - **Each card should tie to its place:** its landmark, trade, hook or faction presence. A quest that could happen anywhere is a weak quest.
 - **Kinds:**
@@ -298,7 +310,7 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
 
 ## 7. The map and places
 
-- **Placement is relational,** not by compass. Faction territories and places are placed from a **relationship map**: what each faction needs from the land, what clusters, what sits next to what, and what must never touch (the slave road never crosses Open Hand land), with fallbacks when the terrain doesn't exist.
+- **Placement is relational,** not by compass. Faction territories and places are placed from a **relationship map**: what each faction needs from the land, what clusters, what sits next to what, and what must never touch (the Walking Road, the slave road, never crosses Open Hand land), with fallbacks when the terrain doesn't exist.
 - **Fixed and generated places:**
   - **fixed canon places:** the Ninth Ring, Highcrossing, Lanternhall…
   - **generated holdings** per major faction;
@@ -319,7 +331,7 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
 
 ## 8. Casting: who everyone actually is
 
-Quests don't name people when they're generated. They post **job descriptions**, and a separate **casting pass** fills them for the whole world at once. This is what makes the world feel connected (the same lord in three quests) instead of populated by strangers.
+Quests don't name people when they're generated. They post **job descriptions** (specs), and a separate **casting pass** fills them, one layer of power at a time (§8.4). This is what makes the world feel connected (the same lord in three quests) instead of populated by strangers. The full spec will be `quest-casting.md` (not yet written).
 
 ### 8.1 Job descriptions (specs)
 A spec says what a quest needs:
@@ -344,9 +356,10 @@ Place specs work the same way: *a toll bridge near Southroad, owned by a Banner 
 - **Classes, not fixed names.** Banner Lords, Free Lords, stewards, chapter captains, inquisitors and ladder-keepers are classes. Each world generates its own members, so two feuding Banner Lords are different people every playthrough.
 - **Canon leaders are optional archetypes.** Each canon leader is an **archetype with a default filler**. For example, *Dueling Society co-founder who once killed in a duel*: default Kitim.
   - Per world, each archetype either uses the canon person or **generates a new person** who keeps the traits and secrets stories depend on.
+  - **Either way the filler is pre-made:** it exists before any quest, and counts as pre-made wherever the rules say "pre-made only" (a generated emperor is legal).
   - **Story kits refer to archetypes, not names.** An entry that needs an archetype this world lacks is filtered out.
   - A few archetypes are **guaranteed** because the late-game secrets run through them: someone who has scouted the green (Hoqa's role), someone guarding the Womb (Shihi's role).
-- **Court state (folded into casting).** Before the main story, casting picks 3–4 **live tensions** from the leaders' canon foils (the Banner Lords' succession race, the high priest against the sincere priestess, the Tide speaker's term running out). Each is seeded as public facts naming the archetypes involved. Specs then *prefer* people already caught up in a live tension, so the world's quests orbit the same politics.
+- **Court state (made by casting).** Before the main story, casting picks 3–4 **live tensions** from the leaders' canon foils (the Banner Lords' succession race, the high priest against the sincere priestess, the Tide speaker's term running out). Each is seeded as public facts naming the archetypes involved. Specs then *prefer* people already caught up in a live tension, so the world's quests orbit the same politics.
 
 ### 8.3 The matching
 For each spec, in order of difficulty (the most constrained first):
@@ -367,14 +380,23 @@ For each spec, in order of difficulty (the most constrained first):
 4. **Backtrack** if a choice makes a later spec impossible: undo the most recent choice that blocked it and take that choice's next-best option.
 5. **Repair** if a spec can't be filled even by creation (a contradiction). The *card* that asked re-rolls the offending part (a different premise, twist or slot option), and casting runs again for that card.
 
-### 8.4 The repeating loop
-Casting and quest generation alternate until nothing changes:
-1. **Quest pass 1:** big stories first (main, then guilds), then the location pass, all as specs.
-2. **Casting pass 1:** fill everything.
-3. **Quest pass 2:** with real people and places now known (this lord is in a feud, this town lost its quay), generate the cards that depend on them: echoes, fallout, linked pairs, more location cards.
-4. **Casting pass 2,** and so on.
+### 8.4 Layer by layer
+Generation runs **top-down by power** (Project `quest-locations.md` §7a, *layers of power*). Each layer may read and reuse what the layers above it made, never the reverse, and nothing lower contradicts anything higher. **Casting runs layer by layer:** each layer's specs are cast before the next layer is generated, so a guild job can involve the lord the main story already set up instead of inventing a second one.
 
-**It always finishes:** each pass only *adds* cards and entries, never changes old ones, and quotas cap the total. In practice two or three rounds.
+| Layer | Made | Then |
+|---|---|---|
+| **0. World** | map, canon factions, leader archetypes and their fillers | — |
+| **1. Court state** | the live tensions (§8.2) | made by casting |
+| **2. Realm** | the main story, its Return, minors and fallout, all as specs | cast |
+| **3. Factions** | every guild story, as specs | cast |
+| **4. Communities** | the location pass: side quests, echoes, linked pairs, one-off faction jobs | cast |
+| **5. Households** | the background pass | — |
+
+- **Fallout is made with its story.** Only echoes, linked pairs and location cards wait for cast people.
+- **Layer-3 reuse of layer-2 people** follows the one-crossing rule (§6.2).
+- **Repair** that re-rolls a card re-casts only that card.
+
+**It always finishes:** each layer only *adds* cards and entries, never changes those above it, and quotas cap the total.
 
 ---
 
@@ -382,20 +404,19 @@ Casting and quest generation alternate until nothing changes:
 
 1. **Land:** terrain, rivers, roads, the Overgrowth (land generator).
 2. **Places:** territories, fixed places, generated holdings and their landmarks, presences, all by the relationship map. Each place is saved with its **descriptors** (*large*, *well defended*, *river-fed*) and a landmark, trade and hook.
-3. **Canon:** factions, archetypes (canon person or generated), court state.
-4. **The quest and casting loop** (§8.4):
-   1. main story, Return, minors, fallout;
-   2. faction stories: every guild's kits and cast, then one placement plan for all guild stories, then their quests;
-   3. the location pass by quota;
-   4. clocks;
-   5. casting rounds.
+3. **Canon:** factions, archetypes (canon person or generated), then court state, made by casting.
+4. **Quests and casting, layer by layer** (§8.4):
+   1. main story, Return, minors, fallout; then cast them;
+   2. faction stories: every guild's kits and cast, then one placement plan for all guild stories, then their quests; then cast them;
+   3. the location pass by quota; then cast it;
+   4. clocks.
 5. **Background pass:** ordinary people and places that fill out each town (shared with the sim's crowd filler).
 6. **Validate:** the mechanical checks below, every one cheap.
    - every reference resolves;
    - reuse limits, names and states hold;
    - every plant is paid off or deliberately seeds something;
    - every revelation is published; every move reaches a card;
-   - every place has at least one quest, and every region a deep thread;
+   - every settlement has at least one quest (presences and wild sites may have none), and every region holds at least one story card (main or faction);
    - the variety ledgers hold.
    - **On a failure,** repair the offending card (re-roll that piece) and re-check that card only.
 7. **Save.** Everything above is plain data in the save file.
@@ -589,8 +610,8 @@ The test process exists already (Project: `quest-test-results.md`, `quest-factio
   - references, reuse, names and states;
   - plants paid off;
   - spread and variety ledgers;
-  - coverage per place and region;
-  - depth per region.
+  - coverage per settlement and region;
+  - story cards per region.
 - **A story rubric** (`story-rubric.md`) built from storytelling and quest-design principles: coherence (*but / therefore*), span (every place has something), depth, each unit's beats (incident, escalating complications, a real dilemma, payoff), and the whole's enjoyment.
 - **Independent readers** who never saw the generation: a coherence reader, a story critic, and a simulated playthrough diary.
 
@@ -617,7 +638,7 @@ The first build is a **standalone generator**: a program that builds one world's
 3. **Keyed rolls:** one roll function keyed by seed and path, shared with the sim's.
 4. **The card roller:** §4, one card from a spec of where and why.
 5. **Story assemblers:** main story (diamond, chapters, moves, plants), faction stories (phases, kits, ledger), fallout, the location pass.
-6. **Casting:** specs, filter, score, create, backtrack, repair, and the repeating loop.
+6. **Casting:** specs, filter, score, create, backtrack, repair, run layer by layer.
 7. **Checkers and repair:** the validators from §9, run after each pass.
 8. **Output:** the world as data, plus a readable digest and the map view the tests already use.
 9. **Then the mechanics:** facts and signals, life cycle, effects, clocks, the situational table, the grudge loop. Exercised by a **mechanics test** that "plays" a generated world with random choices and checks nothing contradicts itself, quests open and close sensibly, and grudge-holders come back.
@@ -632,3 +653,17 @@ The first build is a **standalone generator**: a program that builds one world's
 - **The detail pass's descriptor tables:** garrison sizes, defence options, per place kind.
 - **The dialogue kit's first scope:** which families, voices and moments to write first.
 - **The Rites and Trials family,** parked until cultures exist.
+
+---
+
+## Changes
+- **v1.1 (2026-10-26, audit fixes):**
+  - Canon leaders as optional archetypes reach the registry: fillers count as pre-made, kits name archetypes (core H2).
+  - One crossing with the main story; it may be the guild story's *Above* enemy (core H3).
+  - Faction ties include *trade*; the syndicates are *at war* (core H4, content M11).
+  - Slots are specs, filled by casting layer by layer; court state is made by casting before the main story; fallout is made with its story (core H6, M5).
+  - Short steps inside a phase or chapter, journeys between them (core M2).
+  - Moves name levers; the main story's lever is reserved (core M3).
+  - Forced ways never give their place; the faction crisis rolls exactly 3 (core M4).
+  - The validator checks settlements and story cards per region; "deep thread" is gone (core M6).
+  - Six twist groups (core L2); "crossroads towns" are "shared towns" (core improvement 1); the Walking Road named (content L5); shared rule names match the rulebook; a "Not yet in the topic docs" line under Status (core improvement 8).
