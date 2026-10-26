@@ -14,7 +14,7 @@
 | `quest-locations.md` | pinning and the location pass |
 | `quest-mechanics.md` | the mechanics layer |
 | `quest-card-schema.md` | the data |
-| `quest-casting.md` | casting: specs and how they're filled (not yet written; §8 here stands in) |
+| `quest-casting.md` | casting: specs, classes, archetypes, court state, and how specs are filled layer by layer |
 | `leaders.md` | the leader archetypes and their canon defaults (worldbuilding input) |
 | `faction-places.md` | places |
 | `worldgen-requirements.md` | what the land must provide |
@@ -26,7 +26,7 @@ This doc is the map of how they fit together. Where a big design decision was ma
 - **Casting** is designed here; **mechanics and the grudge loop** are in `quest-mechanics.md`. None of them is tested yet.
 - **Dialogue and the on-approach detail pass** are agreed in principle.
 - A full-world test was running when this was written. Its findings will change details, so check the Project's test results.
-- **Not yet in the topic docs:** the casting pass's matching, scoring, backtracking and repair (§8; to become `quest-casting.md`), and which archetypes are guaranteed beyond the lore-critical ones (§16). Specs, archetype leaders, court state and the *trade* tie went into the topic docs with the 2026-10-26 audit fixes, so a gap anywhere else is stale text, not an intended one.
+- **Not yet in the topic docs:** which archetypes are guaranteed beyond the lore-critical ones (§16). Specs, archetype leaders, court state and the *trade* tie went into the topic docs with the 2026-10-26 audit fixes, so a gap anywhere else is stale text, not an intended one.
 
 ---
 
@@ -331,7 +331,7 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
 
 ## 8. Casting: who everyone actually is
 
-Quests don't name people when they're generated. They post **job descriptions** (specs), and a separate **casting pass** fills them, one layer of power at a time (§8.4). This is what makes the world feel connected (the same lord in three quests) instead of populated by strangers. The full spec will be `quest-casting.md` (not yet written).
+Quests don't name people when they're generated. They post **job descriptions** (specs), and a separate **casting pass** fills them, one layer of power at a time (§8.4). This is what makes the world feel connected (the same lord in three quests) instead of populated by strangers. The full rules are in `quest-casting.md`.
 
 ### 8.1 Job descriptions (specs)
 A spec says what a quest needs:
@@ -354,7 +354,7 @@ Place specs work the same way: *a toll bridge near Southroad, owned by a Banner 
 
 ### 8.2 Classes and archetypes
 - **Classes, not fixed names.** Banner Lords, Free Lords, stewards, chapter captains, inquisitors and ladder-keepers are classes. Each world generates its own members, so two feuding Banner Lords are different people every playthrough.
-- **Canon leaders are optional archetypes.** Each canon leader is an **archetype with a default filler**. For example, *Dueling Society co-founder who once killed in a duel*: default Kitim.
+- **Canon leaders are optional archetypes** (world setting `canon_leaders`: always / mostly (default, about 70%) / sometimes / never). Each canon leader is an **archetype with a default filler**. For example, *Dueling Society co-founder who once killed in a duel*: default Kitim.
   - Per world, each archetype either uses the canon person or **generates a new person** who keeps the traits and secrets stories depend on.
   - **Either way the filler is pre-made:** it exists before any quest, and counts as pre-made wherever the rules say "pre-made only" (a generated emperor is legal).
   - **Story kits refer to archetypes, not names.** An entry that needs an archetype this world lacks is filtered out.
@@ -362,23 +362,33 @@ Place specs work the same way: *a toll bridge near Southroad, owned by a Banner 
 - **Court state (made by casting).** Before the main story, casting picks 3–4 **live tensions** from the leaders' canon foils (the Banner Lords' succession race, the high priest against the sincere priestess, the Tide speaker's term running out). Each is seeded as public facts naming the archetypes involved. Specs then *prefer* people already caught up in a live tension, so the world's quests orbit the same politics.
 
 ### 8.3 The matching
-For each spec, in order of difficulty (the most constrained first):
-1. **Filter** every existing person or place by the hard requirements, and by the reuse limits and conflicting roles.
-2. **Score** the survivors:
+Each layer's specs are cast together (`quest-casting.md` §6):
+1. **Group** specs that point at each other ("kin of the captive"), so the link holds.
+2. **Hardest first:** the group with the fewest possible fillers goes first, so an easy spec never takes the only person a hard one could use.
+3. **Filter:** needs, reuse limits, conflicting roles and states, separation, conflict of interest, the story limits (one crossing per guild story; main cast never in a guild slot), names.
+4. **Score:**
 
 | Factor | Points |
 |---|---|
-| same region | +2 |
 | already linked to someone on this card | +3 |
-| on a nearby card in the same story | +2 |
-| part of a live court tension | +2 |
-| a grudge-holder suiting an opposing slot (§10.11) | +4 |
-| each existing use | −1 |
-| the spec's preferences | small bonuses |
+| on another card of the same story | +2 |
+| same region | +2 |
+| lives near | +1 |
+| in a live court tension | +2 |
+| a grudge-holder, for an opposing slot (during play, §10.11) | +4 |
+| each preference met | +1 |
+| each card already used on | −1 |
+| each link that must be added to fit | −1 |
 
-3. **Pick the best.** If nobody survives the filter, **create** a new entry: a name from the naming module, traits from the class's table, the links the spec demanded, a home near where it's needed.
-4. **Backtrack** if a choice makes a later spec impossible: undo the most recent choice that blocked it and take that choice's next-best option.
-5. **Repair** if a spec can't be filled even by creation (a contradiction). The *card* that asked re-rolls the offending part (a different premise, twist or slot option), and casting runs again for that card.
+5. **Reuse or create:** creating scores a flat 1.5, so an existing person wins only with a real reason to be there. The aim is 25–45% reuse, tuned by that one number.
+   - **Seat holders, archetypes, Top people and map places are never created here.** Seat holders and map places are looked up; archetype fillers and Top people come from layer 0.
+6. **Add needed links:**
+   - working links (creditor, employer, ally, rival, trade, grudge) between anyone;
+   - family links only to someone newly created, who takes the family name.
+7. **Stuck:** undo recent choices, up to a budget of 50 per layer. Then the card **repairs** itself by re-rolling the slot's alternative, then its twist, then its premise, at most 3 times. A side card that still fails is dropped and refilled; a story card never drops (that would be a logged generation error).
+8. **Fallbacks:** anyone reused in a role another card could end (captive, fugitive, culprit) and needed later gets a linked backup.
+
+Every tie is broken by a keyed roll; nothing depends on list order.
 
 ### 8.4 Layer by layer
 Generation runs **top-down by power** (Project `quest-locations.md` §7a, *layers of power*). Each layer may read and reuse what the layers above it made, never the reverse, and nothing lower contradicts anything higher. **Casting runs layer by layer:** each layer's specs are cast before the next layer is generated, so a guild job can involve the lord the main story already set up instead of inventing a second one.
