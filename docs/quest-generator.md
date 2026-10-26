@@ -261,6 +261,12 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
 - **Required faction fallout.** An event that reaches beyond the guild spawns a quest in a town it touched.
 - **Short steps.** The next card is within about a day's travel.
 - **Kit variants.** Every kit entry has 2–3 versions, so the same roll doesn't repeat a story.
+
+**Guild stories meet (Laz: medium overlap).** World B's five guild stories barely shared a town, so joining one guild could leave a whole part of the island unvisited. Now all guild stories are placed together, by one plan, before any of their quests are made:
+- **Each story crosses the map:** it touches at least 3 regions. It moves between phases and chapters (one journey each), never back and forth inside a chapter.
+- **Shared towns:** each story puts at least 2 quests in crossroads towns, which hold two or more guilds' halls and are also used by another guild story. They use different sites inside the town.
+- **Rivals and allies meet:** guilds have ties (rival, ally, trade). Every rival or allied pair gets one quest where a member of the other guild plays a real part: an opponent, a competitor, an ally, a guide. Neither story needs the other to have been played. If the player belongs to both guilds, it becomes a choice of loyalty.
+- **Across all guild stories,** every region with a guild presence gets a guild quest, and no region gets more than about a third of them.
 - **The world ledger.** One variety count shared by every pass.
 
 ### 6.3 Side quests (the location pass)
@@ -379,7 +385,7 @@ Casting and quest generation alternate until nothing changes:
 3. **Canon:** factions, archetypes (canon person or generated), court state.
 4. **The quest and casting loop** (§8.4):
    1. main story, Return, minors, fallout;
-   2. faction stories;
+   2. faction stories: every guild's kits and cast, then one placement plan for all guild stories, then their quests;
    3. the location pass by quota;
    4. clocks;
    5. casting rounds.
