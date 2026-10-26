@@ -110,10 +110,14 @@ Everything quests talk about lives in one registry.
   - **authorities** (magistrates, ring-keepers, arbiters) can appear more often;
   - **story cast** are exempt inside their own story.
   - These limits stop the same blacksmith being kidnapped, robbed and accused in one world.
+- **One holder per seat.** A seat or office (lord of a keep, wharf-master) belongs to one registry person; no card invents a second. Replacing a holder is an event with a fact.
+- **State is written down.** When an ending changes a person (fled, changed sides, disgraced, took a new post), it writes a **state fact** on them that later cards read. Past events carry **when** they happened; things carry **who holds them, since when**. "The only record" is one registry thing, never invented twice.
+- **Settlement context.** Each settlement keeps a list of public facts that the big stories did to it (a salt crisis, a war writ). It never gates a quest, but at least one local quest in each touched town refers to it, so towns notice the world around them.
+- **Open threads.** A loose end, such as the hook's stolen mules, is recorded as an open thread that some later card must close.
 - **Settlements are containers.** A card set in Openharbour happens at a *site inside* Openharbour (a quay, a shop, a house), so a big town can hold many quests without hitting the reuse limit.
 - **Names:**
   - full names are unique world-wide;
-  - first names don't share a stem within one card, story or location;
+  - first names don't share a stem within one card, story or location, and are unique within a region among people on story cards;
   - kin share a family name;
   - canon names are exempt.
 
@@ -129,11 +133,13 @@ How a single card is rolled. Every random choice uses a **keyed roll** (§9), so
 4. **Slots become specs.** Every role the premise needs becomes a **job description** for casting: "a captor, Middle standing, lawless, with a hideout within a day of here". Specs can point at each other: "the captive's kin".
 5. **Separation.** In money matters (debt, ransom, trade deals, inheritance) the two main parties are at most one standing step apart. A peasant doesn't ransom a lord.
 6. **Reasons and motives.** Each party's reason is rolled from the family's list (Rescue captor reasons: ransom, leverage, revenge, holding them for someone else…).
-7. **Ways through.** The premise's ways are pooled. Ways the card can't support are removed and logged: no bribing a Top-standing target, no assault on a fortified place. Then 2–3 are rolled, covering at least 2 kinds.
+7. **Ways through.** The premise's ways are pooled. Ways the card can't support are removed and logged: no bribing a Top-standing target, no assault on a fortified place. Then 2–3 are rolled, covering at least 2 kinds, in a fixed order: forced ways first, then a way that reaches the truth, then **plant-backed ways** (ones that pay off something planted earlier, like an ally's offer), then random ones. Every way names a person, place or thing from its own card; no generic template ways.
 8. **Twist.** Rolled from the family's twist table, filtered by requirements and by the story's twist-group budget. *None* is a valid result.
-9. **Truth.** Rolled where the card's ways involve finding something out.
+9. **Truth.** Rolled where the card's ways involve finding something out. **No blank card:** every card carries a hidden truth or a real twist, and at least one way reaches the truth. The premise must fit the place (no country estate in a reef village).
 10. **Endings.** The family's static list, minus any ending the card's own filters make impossible.
 11. **Plants and dependencies.** The card declares what it plants for later cards, and lists the facts it depends on. The **plant rule** checks that every dependency was planted somewhere the player must already have been.
+
+**Card text only says what's true then:** a card's words may use only facts its dependencies, plants or settlement context make true at its time. Directions and travel times are filled in from the map, never written freehand.
 
 The result is a small block of data: a few hundred bytes.
 
@@ -208,6 +214,15 @@ The result is a small block of data: a few hundred bytes.
   - the climax pays off its ally;
   - no premise appears more than three times.
 
+**Rules added after the world test (v5):**
+- **Meet them before they matter.** On every path, the villain, the lieutenant and anyone the climax needs are met in person on an earlier card. Being the absent owner of something doesn't count.
+- **The heart on every layer, on every path.**
+- **Chapters chain and climb.** Each card follows from the last one's result, and the pressure rises.
+- **Wins stick.** A move aimed at something the player already settled changes how it plays out instead of undoing it. The Return has versions for each climax ending.
+- **Every taking gets a rescue; threads close.**
+- **Plants pay off.** The climax ally way is always rolled.
+- **The villain's want survives the last move,** and a revelation's named cost is paid later.
+
 ### 6.2 Faction stories (one per joinable faction, 9–12 quests)
 Elder Scrolls guild questlines, generated. They start as **routine jobs** that turn out to have been one story.
 
@@ -240,6 +255,13 @@ Elder Scrolls guild questlines, generated. They start as **routine jobs** that t
   - levers spread out.
 - **The rival syndicates** (Old Hands and Night Market) may be generated as a pair: two views of one feud, ending at the same deadly truce.
 - **Kept smaller than the main story:** region scope at most, no foundational stakes, 9–12 cards.
+
+**Rules added after the world test (v5):**
+- **Event ceiling.** A guild story never outweighs the main story; the enemy acts through local tools.
+- **Required faction fallout.** An event that reaches beyond the guild spawns a quest in a town it touched.
+- **Short steps.** The next card is within about a day's travel.
+- **Kit variants.** Every kit entry has 2–3 versions, so the same roll doesn't repeat a story.
+- **The world ledger.** One variety count shared by every pass.
 
 ### 6.3 Side quests (the location pass)
 - **Every place on the map has a quota:**
@@ -565,6 +587,16 @@ The test process exists already (Project: `quest-test-results.md`, `quest-factio
   - depth per region.
 - **A story rubric** (`story-rubric.md`) built from storytelling and quest-design principles: coherence (*but / therefore*), span (every place has something), depth, each unit's beats (incident, escalating complications, a real dilemma, payoff), and the whole's enjoyment.
 - **Independent readers** who never saw the generation: a coherence reader, a story critic, and a simulated playthrough diary.
+
+---
+
+### 14.1 First results (2026-10-26)
+Two test worlds: a guild suite (54 quests) and a full world (188 quests across all ten regions).
+- **Story critic:** 4/5 on depth, units and the whole; the theme scored 5.
+- **Playthrough:** 6.5/10. The guild stories are about 8, the main story about 5.
+- **Coherence:** 3/5. Each story holds together, but the seams between stories contradict.
+
+The fixes went into the rules as v5 (marked "added after the world test" above). Full write-up: Project `quest-world-test-results.md`. Several fixes (state facts, seat holders, travel from the map) are bookkeeping that code does better than agents, so the Rust prototype is the real test of them.
 
 ---
 
