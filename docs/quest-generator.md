@@ -639,6 +639,8 @@ The fixes went into the rules as v5 (marked "added after the world test" above).
 
 ## 15. Building it (the Rust prototype, in words)
 
+**Status (Laz, 26 Oct): still in design.** The scope is frozen at what this document describes. The job now is to make it coherent and good, and code is written only where it speeds up finding the right shape. Everything in this section waits until Laz says the design is done.
+
 **Two agents build it in parallel:** Lane A does shape and mechanics, and Lane B does the story layer. Who owns which files, the branches and Lane B's brief are in the Project doc `claude/quest-parallel-plan.md`. The Python checkers and sample worlds used during design are in `tools/quests/`.
 
 The first build is a **standalone generator**: a program that builds one world's quests from a seed and writes them out, with the checkers. Later it becomes part of the sim. Its parts, in the order they'd be built:
