@@ -1,0 +1,1545 @@
+{
+ "assumption": "Hand-placed test island (world assumption, not land-generator output). Placement follows faction-places.md §1. 1 unit ≈ one day's travel; 'near' = within 1.25 units.",
+ "size_days": "about 11 days across, 9 days top to bottom",
+ "regions": [
+  {
+   "id": "r-vale",
+   "name": "the Elder Vale"
+  },
+  {
+   "id": "r-reefcoast",
+   "name": "the Reef Coast"
+  },
+  {
+   "id": "r-crossing",
+   "name": "the Crown Crossing"
+  },
+  {
+   "id": "r-marches",
+   "name": "the Marches"
+  },
+  {
+   "id": "r-harbour",
+   "name": "the Harbour Coast"
+  },
+  {
+   "id": "r-roads",
+   "name": "the Carter Roads"
+  },
+  {
+   "id": "r-rim",
+   "name": "the Broken Rim"
+  },
+  {
+   "id": "r-snows",
+   "name": "the High Snows"
+  },
+  {
+   "id": "r-green",
+   "name": "the Greenmarch"
+  },
+  {
+   "id": "r-sea",
+   "name": "the Wide Bay"
+  }
+ ],
+ "territories": [
+  {
+   "id": "t-first",
+   "holder": "f-first-peoples",
+   "sub": null
+  },
+  {
+   "id": "t-great",
+   "holder": "f-great-house",
+   "sub": null
+  },
+  {
+   "id": "t-free",
+   "holder": "f-great-house",
+   "sub": "f-free-lords"
+  },
+  {
+   "id": "t-open",
+   "holder": "f-open-hand",
+   "sub": null
+  },
+  {
+   "id": "t-wave",
+   "holder": "f-last-wave",
+   "sub": null
+  },
+  {
+   "id": "t-high",
+   "holder": "f-highfolk",
+   "sub": null
+  },
+  {
+   "id": "t-green",
+   "holder": "f-rooted",
+   "sub": null
+  },
+  {
+   "id": "t-sails",
+   "holder": "f-far-sails",
+   "sub": null
+  }
+ ],
+ "places": [
+  {
+   "id": "pl-ninth-ring",
+   "name": "the Ninth Ring",
+   "kind": "great town",
+   "size": "great",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 2.0,
+   "y": 4.0,
+   "standing": "Top",
+   "canon": true,
+   "owner_faction": "f-first-peoples",
+   "quota": [
+    10,
+    15
+   ],
+   "presences_in_town": [
+    "Old Hands HQ: the Old Gate House",
+    "Writers reading room",
+    "parish shrine",
+    "Lantern contract board"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-ashring",
+    "pl-firststone",
+    "pr-shrine-vale"
+   ]
+  },
+  {
+   "id": "pl-firststone",
+   "name": "Firststone",
+   "kind": "hill estate",
+   "size": "village",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 2.7,
+   "y": 3.1,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-first-peoples",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-green-wall",
+    "pl-ninth-ring",
+    "pr-green-cairn",
+    "pr-survey"
+   ]
+  },
+  {
+   "id": "pl-mount",
+   "name": "the Mount",
+   "kind": "shrine-town",
+   "size": "town",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 3.1,
+   "y": 4.7,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-holy-house",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [
+    "the Mount (Holy House seat)",
+    "tithe-house"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-elderhollow",
+    "pl-oathford",
+    "pr-crossing",
+    "pr-shrine-vale"
+   ]
+  },
+  {
+   "id": "pl-reefhold",
+   "name": "Reefhold",
+   "kind": "stilt town",
+   "size": "large",
+   "territory": "t-first",
+   "region": "r-reefcoast",
+   "x": 0.9,
+   "y": 6.4,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-first-peoples",
+   "quota": [
+    6,
+    10
+   ],
+   "presences_in_town": [
+    "Far Sails pilots' hall",
+    "Old Hands contact",
+    "Writers letter-writer's stall",
+    "Dueling ladder-keeper"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-lantern-rock",
+    "pl-shellring",
+    "pr-landing"
+   ]
+  },
+  {
+   "id": "pl-elderhollow",
+   "name": "Elderhollow",
+   "kind": "old town",
+   "size": "town",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 2.3,
+   "y": 5.6,
+   "standing": "Middle",
+   "canon": false,
+   "owner_faction": "f-first-peoples",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [
+    "the Low Shrine (Aloqi)",
+    "Old Hands contact (a steward)",
+    "Writers letter-writer's stall"
+   ],
+   "landmark": "a stump-ring of a vanished house",
+   "trade": "records",
+   "hook": "a Horaro family planning to leave",
+   "near": [
+    "pl-mount",
+    "pr-shrine-vale"
+   ]
+  },
+  {
+   "id": "pl-ashring",
+   "name": "Ashring",
+   "kind": "old village",
+   "size": "village",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 1.1,
+   "y": 3.2,
+   "standing": "Middle",
+   "canon": false,
+   "owner_faction": "f-first-peoples",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "landmark": "a house grown so big it swallowed its neighbor",
+   "trade": "stone milk",
+   "hook": "a Horaro family planning to leave",
+   "near": [
+    "pl-ninth-ring",
+    "pr-grove",
+    "pr-survey",
+    "pr-ward-tower-1"
+   ]
+  },
+  {
+   "id": "pl-shellring",
+   "name": "Shellring",
+   "kind": "reef village",
+   "size": "village",
+   "territory": "t-first",
+   "region": "r-reefcoast",
+   "x": 0.5,
+   "y": 5.3,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-first-peoples",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "landmark": "a stump-ring of a vanished house",
+   "trade": "records",
+   "hook": "a forged lineage",
+   "near": [
+    "pl-reefhold"
+   ]
+  },
+  {
+   "id": "pl-highcrossing",
+   "name": "Highcrossing",
+   "kind": "great town (capital)",
+   "size": "great",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 5.4,
+   "y": 4.1,
+   "standing": "Top",
+   "canon": true,
+   "owner_faction": "f-great-house",
+   "quota": [
+    10,
+    15
+   ],
+   "presences_in_town": [
+    "Writers HQ: the Wayhouse",
+    "Lantern chapter house",
+    "Dueling Society ring (tavern yard)",
+    "Night Market contact (a card game)",
+    "parish shrine",
+    "Warden recruiting post"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-crownsgate",
+    "pr-shrine-crossing",
+    "pr-shrine-ruin"
+   ]
+  },
+  {
+   "id": "pl-longwall",
+   "name": "Longwall",
+   "kind": "fortress town",
+   "size": "large",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 7.0,
+   "y": 2.9,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-great-house",
+   "quota": [
+    6,
+    10
+   ],
+   "presences_in_town": [
+    "Lantern chapter house",
+    "parish shrine",
+    "tithe-house",
+    "Dueling ring (tolerated by the lord)"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-crownsgate"
+   ]
+  },
+  {
+   "id": "pl-southroad",
+   "name": "Southroad",
+   "kind": "toll town",
+   "size": "large",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 5.6,
+   "y": 5.6,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-great-house",
+   "quota": [
+    6,
+    10
+   ],
+   "presences_in_town": [
+    "Night Market contact (dockless: a toll-dodge trail starts here)",
+    "Lantern contract board",
+    "Writers letter-writer's stall",
+    "parish shrine"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-counting-house",
+    "pl-lanternhall",
+    "pr-shrine-crossing",
+    "pr-shrine-ruin"
+   ]
+  },
+  {
+   "id": "pl-oathford",
+   "name": "Oathford",
+   "kind": "river town",
+   "size": "town",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 4.3,
+   "y": 5.0,
+   "standing": "Middle",
+   "canon": false,
+   "owner_faction": "f-great-house",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [
+    "parish shrine",
+    "Writers letter-writer's stall",
+    "Lantern contract board"
+   ],
+   "landmark": "a lord's tower",
+   "trade": "tolls",
+   "hook": "a forged imperial seal",
+   "near": [
+    "pl-mount",
+    "pr-crossing",
+    "pr-shrine-crossing"
+   ]
+  },
+  {
+   "id": "pl-crownsgate",
+   "name": "Crownsgate",
+   "kind": "gate village",
+   "size": "village",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 6.3,
+   "y": 3.4,
+   "standing": "Middle",
+   "canon": false,
+   "owner_faction": "f-great-house",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "landmark": "a toll bridge",
+   "trade": "grain",
+   "hook": "a forged imperial seal",
+   "near": [
+    "pl-highcrossing",
+    "pl-longwall",
+    "pr-lamp-grave"
+   ]
+  },
+  {
+   "id": "pl-breakwall",
+   "name": "Breakwall",
+   "kind": "frontier keep",
+   "size": "town",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 8.2,
+   "y": 4.6,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-free-lords",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [
+    "Binder debt broker",
+    "Lantern contract board"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-bogford",
+    "pl-chainmarket"
+   ]
+  },
+  {
+   "id": "pl-chainmarket",
+   "name": "the Chainmarket",
+   "kind": "market town",
+   "size": "large",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 8.8,
+   "y": 5.5,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-binders",
+   "quota": [
+    6,
+    10
+   ],
+   "presences_in_town": [
+    "Binder debt broker",
+    "Lantern contract board",
+    "Night Market contact"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-bogford",
+    "pl-breakwall",
+    "pr-raid-camp",
+    "pr-road-fort",
+    "pr-waystation"
+   ]
+  },
+  {
+   "id": "pl-bogford",
+   "name": "Bogford",
+   "kind": "bog village",
+   "size": "village",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 7.6,
+   "y": 5.4,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-free-lords",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "landmark": "an empty plinth",
+   "trade": "grain",
+   "hook": "a slave-bought field",
+   "near": [
+    "pl-breakwall",
+    "pl-chainmarket",
+    "pr-road-fort",
+    "pr-waystation"
+   ]
+  },
+  {
+   "id": "pl-openharbour",
+   "name": "Openharbour",
+   "kind": "great port",
+   "size": "great",
+   "territory": "t-open",
+   "region": "r-harbour",
+   "x": 4.9,
+   "y": 8.0,
+   "standing": "Top",
+   "canon": true,
+   "owner_faction": "f-open-hand",
+   "quota": [
+    10,
+    15
+   ],
+   "presences_in_town": [
+    "Night Market HQ: Under the Market Road",
+    "Dueling Society HQ: the Ring",
+    "Lantern chapter house",
+    "Writers reading room",
+    "Far Sails pilots' hall",
+    "Warden recruiting post"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": []
+  },
+  {
+   "id": "pl-counting-house",
+   "name": "the Silver Road Counting-House",
+   "kind": "fortified counting-house",
+   "size": "village",
+   "territory": "t-open",
+   "region": "r-roads",
+   "x": 5.5,
+   "y": 6.8,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-sharp-hands",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-lanternhall",
+    "pl-southroad",
+    "pr-challenge"
+   ]
+  },
+  {
+   "id": "pl-carters-rest",
+   "name": "Carter's Rest",
+   "kind": "waystation town",
+   "size": "town",
+   "territory": "t-open",
+   "region": "r-roads",
+   "x": 7.3,
+   "y": 7.0,
+   "standing": "Middle",
+   "canon": true,
+   "owner_faction": "f-road-crews",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [
+    "Lantern contract board",
+    "Dueling ladder-keeper",
+    "Writers letter-writer's stall"
+   ],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pr-challenge",
+    "pr-road-fort"
+   ]
+  },
+  {
+   "id": "pl-saltmarket",
+   "name": "Saltmarket",
+   "kind": "salt town",
+   "size": "town",
+   "territory": "t-open",
+   "region": "r-harbour",
+   "x": 3.5,
+   "y": 7.8,
+   "standing": "Middle",
+   "canon": false,
+   "owner_faction": "f-open-hand",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [
+    "Night Market fence's shop",
+    "Dueling ring (tavern yard)"
+   ],
+   "landmark": "a new quay",
+   "trade": "hauling",
+   "hook": "a strike brewing",
+   "near": [
+    "pr-cove"
+   ]
+  },
+  {
+   "id": "pl-wainyard",
+   "name": "Wainyard",
+   "kind": "cart village",
+   "size": "village",
+   "territory": "t-open",
+   "region": "r-roads",
+   "x": 8.6,
+   "y": 7.8,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-open-hand",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "landmark": "a freed family's shop",
+   "trade": "trade goods",
+   "hook": "a Binder contract hidden in a deal",
+   "near": []
+  },
+  {
+   "id": "pl-lanternhall",
+   "name": "Lanternhall",
+   "kind": "fortified hall (Lantern HQ)",
+   "size": "village",
+   "territory": "t-open",
+   "region": "r-roads",
+   "x": 6.4,
+   "y": 6.1,
+   "standing": "Middle",
+   "canon": true,
+   "owner_faction": "f-lantern",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-counting-house",
+    "pl-southroad",
+    "pr-challenge",
+    "pr-shrine-ruin"
+   ]
+  },
+  {
+   "id": "pl-textrim",
+   "name": "Textrim's Height",
+   "kind": "stepped enclave",
+   "size": "town",
+   "territory": "t-wave",
+   "region": "r-rim",
+   "x": 10.4,
+   "y": 3.2,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-last-wave",
+   "quota": [
+    3,
+    5
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-proving"
+   ]
+  },
+  {
+   "id": "pl-proving",
+   "name": "the Proving Ground",
+   "kind": "fortified camp",
+   "size": "village",
+   "territory": "t-wave",
+   "region": "r-rim",
+   "x": 9.4,
+   "y": 3.9,
+   "standing": "Middle",
+   "canon": true,
+   "owner_faction": "f-last-wave",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-textrim",
+    "pr-cairn-wave",
+    "pr-hunting"
+   ]
+  },
+  {
+   "id": "pl-ironstep",
+   "name": "Ironstep",
+   "kind": "enclave village",
+   "size": "village",
+   "territory": "t-wave",
+   "region": "r-rim",
+   "x": 11.0,
+   "y": 4.4,
+   "standing": "Middle",
+   "canon": false,
+   "owner_faction": "f-last-wave",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "landmark": "a dark-stone step-hall",
+   "trade": "guards",
+   "hook": "a hungry winter",
+   "near": [
+    "pr-hunting"
+   ]
+  },
+  {
+   "id": "pl-high-snows",
+   "name": "the High Snows",
+   "kind": "cliff hold",
+   "size": "village",
+   "territory": "t-high",
+   "region": "r-snows",
+   "x": 5.8,
+   "y": 0.8,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-highfolk",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pr-pass-hut"
+   ]
+  },
+  {
+   "id": "pl-womb",
+   "name": "the Womb of Creation",
+   "kind": "hidden temple (SECRET)",
+   "size": "site",
+   "territory": "t-high",
+   "region": "r-snows",
+   "x": 6.7,
+   "y": 0.3,
+   "standing": "Top",
+   "canon": true,
+   "owner_faction": "f-highfolk",
+   "quota": [
+    0,
+    0
+   ],
+   "presences_in_town": [],
+   "secret": true,
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-high-snows"
+   ]
+  },
+  {
+   "id": "pl-green-wall",
+   "name": "the Green Wall",
+   "kind": "wall-fort",
+   "size": "village",
+   "territory": "t-first",
+   "region": "r-green",
+   "x": 2.4,
+   "y": 1.9,
+   "standing": "Middle",
+   "canon": true,
+   "owner_faction": "f-wardens",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-firststone",
+    "pl-wellstone",
+    "pr-green-cairn",
+    "pr-survey",
+    "pr-ward-tower-1",
+    "pr-ward-tower-2"
+   ]
+  },
+  {
+   "id": "pl-wellstone",
+   "name": "Wellstone",
+   "kind": "lost village (in the green)",
+   "size": "site",
+   "territory": "t-green",
+   "region": "r-green",
+   "x": 1.9,
+   "y": 1.3,
+   "standing": "Low",
+   "canon": true,
+   "owner_faction": "f-wardens",
+   "quota": [
+    0,
+    1
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-green-wall",
+    "pl-soft-hollow",
+    "pr-ward-tower-1"
+   ]
+  },
+  {
+   "id": "pl-soft-hollow",
+   "name": "the Soft Hollow",
+   "kind": "Rooted village",
+   "size": "village",
+   "territory": "t-green",
+   "region": "r-green",
+   "x": 1.3,
+   "y": 0.9,
+   "standing": "Low",
+   "canon": true,
+   "owner_faction": "f-rooted",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-wellstone"
+   ]
+  },
+  {
+   "id": "pl-heart",
+   "name": "the Heart",
+   "kind": "the Overgrowth's centre (SECRET)",
+   "size": "site",
+   "territory": "t-green",
+   "region": "r-green",
+   "x": 0.6,
+   "y": 0.4,
+   "standing": "Top",
+   "canon": true,
+   "owner_faction": "f-rooted",
+   "quota": [
+    0,
+    0
+   ],
+   "presences_in_town": [],
+   "secret": true,
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-soft-hollow"
+   ]
+  },
+  {
+   "id": "pl-anchorage",
+   "name": "the Anchorage of the Wide Bay",
+   "kind": "ring of anchored ships",
+   "size": "village",
+   "territory": "t-sails",
+   "region": "r-sea",
+   "x": 0.1,
+   "y": 7.4,
+   "standing": "High",
+   "canon": true,
+   "owner_faction": "f-far-sails",
+   "quota": [
+    1,
+    2
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-lantern-rock"
+   ]
+  },
+  {
+   "id": "pl-lantern-rock",
+   "name": "the Lantern Rock",
+   "kind": "sea-rock tower",
+   "size": "site",
+   "territory": "t-sails",
+   "region": "r-sea",
+   "x": 0.5,
+   "y": 6.9,
+   "standing": "Middle",
+   "canon": true,
+   "owner_faction": "f-far-sails",
+   "quota": [
+    0,
+    1
+   ],
+   "presences_in_town": [],
+   "details_from": "faction-places.md (fixed place: landmark, trade, hook)",
+   "near": [
+    "pl-anchorage",
+    "pl-reefhold",
+    "pr-landing"
+   ]
+  },
+  {
+   "id": "pr-shrine-vale",
+   "name": "the Vale wayside shrine",
+   "kind": "wayside shrine",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 2.6,
+   "y": 4.4,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-holy-house",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-holy-house",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-elderhollow",
+    "pl-mount",
+    "pl-ninth-ring",
+    "pr-crossing"
+   ]
+  },
+  {
+   "id": "pr-shrine-crossing",
+   "name": "the Crossroads shrine",
+   "kind": "wayside shrine",
+   "size": "presence",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 4.9,
+   "y": 4.6,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-holy-house",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-holy-house",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-highcrossing",
+    "pl-oathford",
+    "pl-southroad"
+   ]
+  },
+  {
+   "id": "pr-shrine-ruin",
+   "name": "the Broken Shrine",
+   "kind": "wayside shrine (ruined)",
+   "size": "presence",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 6.2,
+   "y": 4.9,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-holy-house",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-holy-house",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-highcrossing",
+    "pl-lanternhall",
+    "pl-southroad",
+    "pr-lamp-grave"
+   ]
+  },
+  {
+   "id": "pr-ward-tower-1",
+   "name": "Watchtower Ash",
+   "kind": "Warden watchtower",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-green",
+   "x": 1.6,
+   "y": 2.2,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-wardens",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-wardens",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-ashring",
+    "pl-green-wall",
+    "pl-wellstone",
+    "pr-grove",
+    "pr-survey"
+   ]
+  },
+  {
+   "id": "pr-ward-tower-2",
+   "name": "Watchtower Thorn",
+   "kind": "Warden watchtower",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-green",
+   "x": 3.2,
+   "y": 1.6,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-wardens",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-wardens",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-green-wall",
+    "pr-green-cairn"
+   ]
+  },
+  {
+   "id": "pr-green-cairn",
+   "name": "the Year Cairns",
+   "kind": "marker cairns",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-green",
+   "x": 2.9,
+   "y": 2.4,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-wardens",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-wardens",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-firststone",
+    "pl-green-wall",
+    "pr-survey",
+    "pr-ward-tower-2"
+   ]
+  },
+  {
+   "id": "pr-road-fort",
+   "name": "Brennock road fort",
+   "kind": "Lantern road fort",
+   "size": "presence",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 7.9,
+   "y": 6.2,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-lantern",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-lantern",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-bogford",
+    "pl-carters-rest",
+    "pl-chainmarket",
+    "pr-waystation"
+   ]
+  },
+  {
+   "id": "pr-lamp-grave",
+   "name": "Owl Cross lamp grave",
+   "kind": "lamp grave",
+   "size": "presence",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 6.7,
+   "y": 4.4,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-lantern",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-lantern",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-crownsgate",
+    "pr-shrine-ruin"
+   ]
+  },
+  {
+   "id": "pr-raid-camp",
+   "name": "the Reedbank camp",
+   "kind": "Binder raid camp",
+   "size": "presence",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 9.6,
+   "y": 6.0,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-binders",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-binders",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-chainmarket",
+    "pr-pens"
+   ]
+  },
+  {
+   "id": "pr-pens",
+   "name": "the Sedge pens",
+   "kind": "Binder holding pen",
+   "size": "presence",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 9.2,
+   "y": 6.7,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-binders",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-binders",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pr-raid-camp"
+   ]
+  },
+  {
+   "id": "pr-waystation",
+   "name": "the Last Well",
+   "kind": "Walking Road waystation",
+   "size": "presence",
+   "territory": "t-free",
+   "region": "r-marches",
+   "x": 8.1,
+   "y": 5.9,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-binders",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-binders",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-bogford",
+    "pl-chainmarket",
+    "pr-road-fort"
+   ]
+  },
+  {
+   "id": "pr-landing",
+   "name": "Gull Landing",
+   "kind": "Far Sails landing",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-reefcoast",
+   "x": 1.4,
+   "y": 7.2,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-far-sails",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-far-sails",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-lantern-rock",
+    "pl-reefhold"
+   ]
+  },
+  {
+   "id": "pr-cove",
+   "name": "Smugglers' Notch",
+   "kind": "smugglers' cove",
+   "size": "presence",
+   "territory": "t-open",
+   "region": "r-harbour",
+   "x": 2.6,
+   "y": 8.4,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-night-market",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-night-market",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-saltmarket"
+   ]
+  },
+  {
+   "id": "pr-survey",
+   "name": "the Edge survey camp",
+   "kind": "Writers survey camp",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-green",
+   "x": 2.0,
+   "y": 2.6,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-writers",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-writers",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-ashring",
+    "pl-firststone",
+    "pl-green-wall",
+    "pr-green-cairn",
+    "pr-grove",
+    "pr-ward-tower-1"
+   ]
+  },
+  {
+   "id": "pr-dig",
+   "name": "the Old Road dig",
+   "kind": "Writers dig",
+   "size": "presence",
+   "territory": "t-great",
+   "region": "r-crossing",
+   "x": 4.4,
+   "y": 2.7,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-writers",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-writers",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pr-foothill"
+   ]
+  },
+  {
+   "id": "pr-challenge",
+   "name": "the Four Ways stone",
+   "kind": "challenge stone",
+   "size": "presence",
+   "territory": "t-open",
+   "region": "r-roads",
+   "x": 6.6,
+   "y": 7.3,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-dueling",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-dueling",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-carters-rest",
+    "pl-counting-house",
+    "pl-lanternhall"
+   ]
+  },
+  {
+   "id": "pr-cairn-wave",
+   "name": "the Rim watch cairn",
+   "kind": "Last Wave watch cairn",
+   "size": "presence",
+   "territory": "t-wave",
+   "region": "r-rim",
+   "x": 9.0,
+   "y": 3.2,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-last-wave",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-last-wave",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-proving"
+   ]
+  },
+  {
+   "id": "pr-pass-hut",
+   "name": "the Gap pass hut",
+   "kind": "Highfolk pass hut",
+   "size": "presence",
+   "territory": "t-high",
+   "region": "r-snows",
+   "x": 5.5,
+   "y": 1.6,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-highfolk",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-highfolk",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-high-snows",
+    "pr-foothill"
+   ]
+  },
+  {
+   "id": "pr-foothill",
+   "name": "the Foothill post",
+   "kind": "Highfolk trading post",
+   "size": "presence",
+   "territory": "t-great",
+   "region": "r-snows",
+   "x": 5.1,
+   "y": 2.2,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-highfolk",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-highfolk",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pr-dig",
+    "pr-pass-hut"
+   ]
+  },
+  {
+   "id": "pr-grove",
+   "name": "the Hush grove",
+   "kind": "Rooted listening grove",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-green",
+   "x": 1.2,
+   "y": 2.8,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-rooted",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-rooted",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-ashring",
+    "pr-survey",
+    "pr-ward-tower-1"
+   ]
+  },
+  {
+   "id": "pr-crossing",
+   "name": "the Quiet Crossing",
+   "kind": "Old Hands quiet crossing",
+   "size": "presence",
+   "territory": "t-first",
+   "region": "r-vale",
+   "x": 3.6,
+   "y": 4.0,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-old-hands",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-old-hands",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-mount",
+    "pl-oathford",
+    "pr-shrine-vale"
+   ]
+  },
+  {
+   "id": "pr-hunting",
+   "name": "the Ash Gully camp",
+   "kind": "Last Wave hunting camp",
+   "size": "presence",
+   "territory": "t-wave",
+   "region": "r-rim",
+   "x": 10.0,
+   "y": 4.6,
+   "standing": "Low",
+   "canon": false,
+   "owner_faction": "f-last-wave",
+   "quota": [
+    0,
+    1
+   ],
+   "presence_of": "f-last-wave",
+   "details_from": "faction-places.md §5b (roll a condition and a nearby detail)",
+   "near": [
+    "pl-ironstep",
+    "pl-proving"
+   ]
+  }
+ ],
+ "roads": [
+  [
+   "pl-highcrossing",
+   "pl-southroad"
+  ],
+  [
+   "pl-southroad",
+   "pl-counting-house"
+  ],
+  [
+   "pl-counting-house",
+   "pl-openharbour"
+  ],
+  [
+   "pl-highcrossing",
+   "pl-oathford"
+  ],
+  [
+   "pl-oathford",
+   "pl-elderhollow"
+  ],
+  [
+   "pl-elderhollow",
+   "pl-ninth-ring"
+  ],
+  [
+   "pl-ninth-ring",
+   "pl-reefhold"
+  ],
+  [
+   "pl-highcrossing",
+   "pl-crownsgate"
+  ],
+  [
+   "pl-crownsgate",
+   "pl-longwall"
+  ],
+  [
+   "pl-longwall",
+   "pl-breakwall"
+  ],
+  [
+   "pl-breakwall",
+   "pl-chainmarket"
+  ],
+  [
+   "pl-counting-house",
+   "pl-lanternhall"
+  ],
+  [
+   "pl-lanternhall",
+   "pl-carters-rest"
+  ],
+  [
+   "pl-carters-rest",
+   "pl-wainyard"
+  ],
+  [
+   "pl-openharbour",
+   "pl-saltmarket"
+  ],
+  [
+   "pl-carters-rest",
+   "pl-chainmarket"
+  ],
+  [
+   "pl-ninth-ring",
+   "pl-green-wall"
+  ],
+  [
+   "pl-ninth-ring",
+   "pl-firststone"
+  ],
+  [
+   "pl-highcrossing",
+   "pr-foothill"
+  ],
+  [
+   "pl-breakwall",
+   "pl-proving"
+  ],
+  [
+   "pl-proving",
+   "pl-textrim"
+  ],
+  [
+   "pl-mount",
+   "pl-ninth-ring"
+  ],
+  [
+   "pl-mount",
+   "pl-oathford"
+  ]
+ ],
+ "walking_road": [
+  "pr-pens",
+  "pr-raid-camp",
+  "pr-waystation",
+  "pl-chainmarket",
+  "pl-breakwall"
+ ],
+ "notes": [
+  "Southroad is the [Dir]road toll town: the busiest road out of Highcrossing runs south to the coast.",
+  "The Walking Road runs from the Marches' bog camps into Free Lords land and never crosses Open Hand land.",
+  "Secret places (the Womb, the Heart) get no quests in tests."
+ ]
+}

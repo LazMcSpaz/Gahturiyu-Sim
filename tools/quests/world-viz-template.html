@@ -1,0 +1,185 @@
+<title>Test World Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the island map on the left (places sized by quest count, routes for the main story and each guild story), a place/card inspector on the right; below, the test's findings. Stacks on phones. */
+:root{
+  --bg:#eef1f3; --paper:#f8fafb; --ink:#1b2430; --muted:#5d6b7a; --rule:#cfd7de; --sea:#dfe9ef; --land:#f3efe6;
+  --main:#1f4fa8; --faction:#7a4ea3; --fallout:#2a9a9a; --minor:#5b8fd9; --echo:#5aa66e; --indep:#8f9b88;
+  --move:#c2552d; --ok:#2f7d4a; --warn:#b3261e; --secret:#7a4ea3; --green:#5f8f4e; --snow:#b9c4cc;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; --f-body:"Source Serif 4",Georgia,serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10161d; --paper:#17202a; --ink:#e4eaf0; --muted:#94a3b3; --rule:#2c3946; --sea:#132433; --land:#1f2621;
+  --main:#6f9bf0; --faction:#c3a0e8; --fallout:#4cc2c2; --minor:#8db4ef; --echo:#7cc98f; --indep:#a4ad9e;
+  --move:#ec8a5e; --ok:#7fd49b; --warn:#ff8a80; --secret:#c3a0e8; --green:#7fb36b; --snow:#55626d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10161d; --paper:#17202a; --ink:#e4eaf0; --muted:#94a3b3; --rule:#2c3946; --sea:#132433; --land:#1f2621;
+  --main:#6f9bf0; --faction:#c3a0e8; --fallout:#4cc2c2; --minor:#8db4ef; --echo:#7cc98f; --indep:#a4ad9e;
+  --move:#ec8a5e; --ok:#7fd49b; --warn:#ff8a80; --secret:#c3a0e8; --green:#7fb36b; --snow:#55626d; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+h1,h2,h3{font-family:var(--f-display);letter-spacing:.02em;text-wrap:balance;margin:0}
+h1{font-size:2rem;font-weight:700} h2{font-size:1.3rem;font-weight:700}
+.wrap{max-width:1500px;margin:0 auto;display:grid;gap:16px}
+.hint{font-size:.9rem;color:var(--muted);margin:4px 0 0;max-width:80ch}
+.stats{display:flex;flex-wrap:wrap;gap:8px 22px;font-family:var(--f-mono);font-size:.8rem;color:var(--muted);margin-top:6px}
+.stats b{color:var(--ink);font-weight:500}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs button,.toggles label{font-family:var(--f-display);font-weight:600;font-size:.95rem;letter-spacing:.03em;padding:5px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+.toggles input{margin-right:6px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+@media (max-width:1050px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;min-width:0}
+.head{padding:12px 16px 6px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+.mapbox{overflow:auto;padding:0 8px 8px} .mapbox svg{display:block;max-width:100%;height:auto}
+.panel{padding:14px 16px;position:sticky;top:max(12px,env(safe-area-inset-top,0px));max-height:90vh;overflow:auto}
+.panel h3{font-size:1.35rem;font-weight:700}
+.clist{list-style:none;margin:8px 0;padding:0;display:grid;gap:6px}
+.clist li{border:1px solid var(--rule);border-left:5px solid var(--c,var(--indep));border-radius:6px;padding:6px 9px;cursor:pointer;font-size:.88rem}
+.clist li:hover{border-color:var(--ink)}
+.clist .t{font-family:var(--f-display);font-weight:600;font-size:1rem}
+.mono{font-family:var(--f-mono);font-size:.76rem;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:.87rem;margin:8px 0}
+.kv dt{font-family:var(--f-display);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.78rem;padding-top:2px}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.chip{display:inline-block;font-family:var(--f-display);font-weight:600;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase;padding:1px 7px;border-radius:999px;border:1px solid currentColor;margin:0 4px 3px 0}
+.secret{color:var(--secret)}
+.ways{margin:4px 0 0;padding-left:18px;font-size:.86rem} .ways li.off{color:var(--muted);text-decoration:line-through} .ways li.on{font-weight:600}
+.findings{padding:12px 16px} .findings summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:1.05rem}
+.findings pre{white-space:pre-wrap;font-family:var(--f-mono);font-size:.76rem;margin:8px 0 0}
+.md{font-size:.92rem} .md h3{font-size:1.1rem;margin:12px 0 4px} .md ul{margin:4px 0;padding-left:20px}
+.lbl{font-family:var(--f-display);font-weight:600;fill:var(--ink)} .tiny{font-family:var(--f-mono);fill:var(--muted)}
+.pnode{cursor:pointer} .pnode:focus{outline:none} .pnode:focus-visible circle.ring,.pnode:hover circle.ring{stroke:var(--ink);stroke-width:2.5}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--f-display);font-size:.9rem;padding:0 16px 10px}
+.legend span{display:inline-flex;align-items:center;gap:5px} .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1 id="title">Test World Map</h1>
+    <p class="hint" id="sub"></p>
+    <div class="stats" id="stats"></div>
+  </header>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="grid">
+    <div style="display:grid;gap:16px;min-width:0">
+      <section class="card">
+        <div class="head"><h2>The island</h2><span class="mono">circle size = quests there · ring colour = deepest quest · click a place</span></div>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--main)"></i>main story</span><span><i class="sw" style="background:var(--faction)"></i>guild story</span>
+          <span><i class="sw" style="background:var(--fallout)"></i>fallout / minor</span><span><i class="sw" style="background:var(--echo)"></i>echo / linked</span>
+          <span><i class="sw" style="background:var(--indep)"></i>standalone</span><span><i class="sw" style="background:var(--warn)"></i>none, though some are due</span><span><i class="sw" style="background:var(--muted)"></i>quiet spot (none due)</span>
+        </div>
+        <div class="toggles" id="toggles" style="padding:0 16px 10px"></div>
+        <div class="mapbox" id="map"></div>
+      </section>
+      <section class="card findings" id="findingsWrap"><div class="md" id="findings"></div></section>
+      <details class="card findings" id="check"><summary>Mechanical world check</summary><pre></pre></details>
+    </div>
+    <aside class="card panel" id="panel" aria-live="polite"><p class="hint">Click a place on the map to see every quest there, then click a quest for its shape.</p></aside>
+  </div>
+</div>
+
+<script>
+const WORLDS=/*DATA*/null;
+let wi=0, sel=null, card=null; const show={main:true};
+const svgNS="http://www.w3.org/2000/svg";
+function el(t,a,p,x){const e=document.createElementNS(svgNS,t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;if(p)p.appendChild(e);return e}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const trunc=(s,n)=>{s=s||"";return s.length>n?s.slice(0,n-1)+"…":s};
+const REL={main:"--main",faction:"--faction",fallout:"--fallout",minor:"--fallout",echo:"--echo",independent:"--indep"};
+function relColor(c){return c.linked_pair&&c.relatedness==="independent"?"--echo":(REL[c.relatedness]||"--indep")}
+let W,E,F,C,MAPP,PL,byPlace;
+function load(){
+  W=WORLDS[wi].data; E={}; for(const k of ["people","places","things","factions"]) for(const e of (W.registry[k]||[])) E[e.id]=e;
+  F={}; for(const f of W.facts) F[f.id]=f; C={}; for(const c of W.cards) C[c.id]=c;
+  MAPP={}; for(const p of W.map.places) MAPP[p.id]=p; PL={}; for(const p of W.registry.places) PL[p.id]=p;
+  byPlace={}; for(const c of W.cards){const h=home(c.place)||home(c.offered_at); if(h)(byPlace[h]=byPlace[h]||[]).push(c.id)}
+  for(const k in show) if(k!=="main") delete show[k];
+  (W.faction_stories||[]).forEach(fs=>show[fs.faction]=false);
+}
+function home(pid){for(let i=0;i<6&&pid;i++){if(MAPP[pid])return pid;const p=PL[pid];if(!p)return null;pid=p.at||p.in||p.parent}return null}
+const nm=id=>id&&E[id]?E[id].name:(id||"—");
+function depth(c){if(["main","faction"].includes(c.relatedness))return 4;if(["minor","fallout"].includes(c.relatedness)||c.linked_pair||c.echo_of)return 3;if(c.twist||(c.truth&&F[c.truth]?.visibility==="secret"))return 2;return 1}
+
+function draw(){
+  document.getElementById("title").textContent=WORLDS[wi].title;
+  document.getElementById("sub").textContent=WORLDS[wi].blurb;
+  const rel={};W.cards.forEach(c=>rel[c.relatedness]=(rel[c.relatedness]||0)+1);
+  document.getElementById("stats").innerHTML=`<span><b>${W.cards.length}</b> quests</span>`+Object.entries(rel).map(([k,v])=>`<span>${esc(k)} <b>${v}</b></span>`).join("")+`<span><b>${(W.faction_stories||[]).length}</b> guild stories</span>`;
+  const tabs=document.getElementById("tabs"); tabs.innerHTML=""; WORLDS.forEach((w,i)=>{const b=document.createElement("button");b.textContent=w.tab;b.setAttribute("aria-selected",i===wi);b.onclick=()=>{wi=i;sel=null;card=null;load();draw()};tabs.appendChild(b)});
+  const tg=document.getElementById("toggles"); tg.innerHTML="";
+  const opts=[["main","Main story route"]].filter(()=>W.story).concat((W.faction_stories||[]).map(fs=>[fs.faction,nm(fs.faction)]));
+  opts.forEach(([k,l])=>{const lab=document.createElement("label");lab.innerHTML=`<input type="checkbox" ${show[k]?"checked":""}>${esc(l)}`;lab.querySelector("input").onchange=e=>{show[k]=e.target.checked;drawMap()};tg.appendChild(lab)});
+  drawMap(); panel();
+  document.getElementById("findings").innerHTML=WORLDS[wi].findings||"";
+  document.getElementById("findingsWrap").style.display=WORLDS[wi].findings?"":"none";
+  document.querySelector("#check pre").textContent=WORLDS[wi].check||"";
+}
+function drawMap(){
+  const host=document.getElementById("map"); host.innerHTML="";
+  const S=88, PAD=40, w=11.6*S+PAD*2, h=9.2*S+PAD*2;
+  const X=x=>PAD+x*S, Y=y=>PAD+y*S;
+  const svg=el("svg",{viewBox:`0 0 ${w} ${h}`,width:w,height:h,role:"img","aria-label":"Island map with quests"},host);
+  el("rect",{x:0,y:0,width:w,height:h,fill:"var(--sea)"},svg);
+  // land: union of soft blobs around non-sea places
+  const land=el("g",{fill:"var(--land)"},svg);
+  W.map.places.filter(p=>p.region!=="r-sea").forEach(p=>el("circle",{cx:X(p.x),cy:Y(p.y),r:S*1.05},land));
+  // terrain hints
+  const tz=el("g",{},svg);
+  W.map.places.filter(p=>p.region==="r-green").forEach(p=>el("circle",{cx:X(p.x),cy:Y(p.y),r:S*.7,fill:"var(--green)","fill-opacity":.18},tz));
+  W.map.places.filter(p=>p.region==="r-snows").forEach(p=>el("circle",{cx:X(p.x),cy:Y(p.y),r:S*.65,fill:"var(--snow)","fill-opacity":.35},tz));
+  // region labels
+  const rg={};W.map.places.forEach(p=>{(rg[p.region]=rg[p.region]||[]).push(p)});
+  const RN={};W.map.regions.forEach(r=>RN[r.id]=r.name);
+  for(const r in rg){const ps=rg[r];const cx=ps.reduce((a,p)=>a+p.x,0)/ps.length, cy=Math.min(...ps.map(p=>p.y));
+    el("text",{x:X(cx),y:Y(cy)-30,"text-anchor":"middle",class:"tiny","font-size":12,"letter-spacing":".12em",style:"text-transform:uppercase"},svg,RN[r])}
+  // roads
+  const rd=el("g",{stroke:"var(--muted)","stroke-opacity":.35,"stroke-width":2,"stroke-dasharray":"1 5","stroke-linecap":"round"},svg);
+  (W.map.roads||[]).forEach(([a,b])=>{const A=MAPP[a],B=MAPP[b];if(A&&B)el("line",{x1:X(A.x),y1:Y(A.y),x2:X(B.x),y2:Y(B.y)},rd)});
+  // routes
+  const routeOf=ids=>{const pts=[];ids.forEach(id=>{const c=C[id];const hp=c&&(home(c.place)||home(c.offered_at));if(hp&&(!pts.length||pts.at(-1)!==hp))pts.push(hp)});return pts};
+  function drawRoute(pts,color,width,dash){if(pts.length<2)return;const d=pts.map((p,i)=>`${i?"L":"M"}${X(MAPP[p].x)} ${Y(MAPP[p].y)}`).join(" ");
+    el("path",{d,fill:"none",stroke:`var(${color})`,"stroke-width":width,"stroke-opacity":.75,"stroke-dasharray":dash||"","stroke-linejoin":"round"},svg)}
+  if(W.story&&show.main){/* every chapter in layer order: the diamond, so sibling chapters show as branches */const ids=(W.story.chapters||[]).flatMap(ch=>ch.cards||[]);const r=W.story.return;const rc=(W.story.chapters||[]).find(ch=>ch.id===r);drawRoute(routeOf(ids),"--main",4)}
+  (W.faction_stories||[]).forEach(fs=>{if(!show[fs.faction])return;const p=fs.phases;const ids=[...p.routine,p.reveal,...p.chapters.flatMap(ch=>ch.cards),...p.crisis,...(p.epilogue||[])];drawRoute(routeOf(ids),"--faction",3,"6 4")});
+  // places
+  W.map.places.forEach(p=>{if(p.secret)return;const cs=byPlace[p.id]||[];const n=cs.length;const dmax=Math.max(0,...cs.map(id=>depth(C[id])));
+    const ring=n===0?(p.quota[0]===0?"--muted":"--warn"):dmax===4?(cs.some(id=>C[id].relatedness==="main")?"--main":"--faction"):dmax===3?"--fallout":dmax===2?"--echo":"--indep";
+    const r=p.size==="presence"?5+n*2.2:7+Math.sqrt(n)*5;
+    const g=el("g",{class:"pnode",tabindex:0,role:"button","aria-label":`${p.name}: ${n} quests`},svg);
+    el("circle",{class:"ring",cx:X(p.x),cy:Y(p.y),r,fill:"var(--paper)",stroke:`var(${ring})`,"stroke-width":sel===p.id?4:2.5},g);
+    if(n)el("text",{x:X(p.x),y:Y(p.y)+4,"text-anchor":"middle",class:"tiny","font-size":11,style:"fill:var(--ink)"},g,n);
+    if(p.size!=="presence")el("text",{x:X(p.x),y:Y(p.y)+r+13,"text-anchor":"middle",class:"lbl","font-size":13},g,p.name);
+    g.onclick=()=>{sel=p.id;card=null;drawMap();panel()};g.onkeydown=e=>{if(e.key==="Enter"){sel=p.id;card=null;drawMap();panel()}};
+    const t=el("title",{},g,`${p.name} — ${p.kind} (${p.size}) · ${n} quests`)});
+}
+function panel(){
+  const P=document.getElementById("panel");
+  if(card&&C[card]){const c=C[card];
+    const slots=Object.entries(c.slots||{}).map(([r,v])=>`<div><span class="mono">${esc(r)}</span> ${esc(nm(v))}${E[v]?.standing?` <span class="mono">(${E[v].standing})</span>`:""}</div>`).join("");
+    const pool=(c.ways_pool||[]).map((w,i)=>`<li class="${(c.ways_rolled||[]).includes(i)?"on":"off"}">${esc(w.text)} <span class="mono">${esc(w.kind)}</span></li>`).join("");
+    const plants=(c.plants||[]).map(p=>`<div><span class="chip">${esc(p.type)}</span>${esc(F[p.fact]?.text||p.fact)}</div>`).join("");
+    P.innerHTML=`<button onclick="card=null;panel()" class="mono" style="border:0;background:none;cursor:pointer;padding:0">← back to ${esc(nm(sel))}</button>
+    <div><span class="chip" style="color:var(${relColor(c)})">${esc(c.relatedness)}</span>${c.phase?`<span class="chip">${esc(c.phase)}</span>`:""}${c.clock?'<span class="chip">clock</span>':""}</div>
+    <h3>${esc(c.family)}: ${esc(c.premise)}</h3><div class="mono">${esc(c.id)} · ${esc(c.scope)} · depth ${depth(c)}</div>
+    <dl class="kv"><dt>Where</dt><dd>${esc(nm(c.place))}</dd><dt>Offered</dt><dd>${esc(nm(c.offered_at))}</dd>
+    ${c.place_tie?`<dt>Place tie</dt><dd>${esc(c.place_tie)}</dd>`:""}<dt>Slots</dt><dd>${slots}</dd>
+    <dt>Pressure</dt><dd>${esc(c.pressure||"—")}</dd><dt>Truth</dt><dd class="secret">${esc(F[c.truth]?.text||"—")}</dd>
+    <dt>Twist</dt><dd>${c.twist?esc(c.twist.name||c.twist):"none"}</dd><dt>Plants</dt><dd>${plants||"—"}</dd></dl>
+    <b class="mono">Ways (bold = rolled)</b><ul class="ways">${pool}</ul>
+    <dl class="kv"><dt>Endings</dt><dd>${esc((c.possible_endings||[]).join(" · "))}</dd></dl>`;return}
+  if(!sel){P.innerHTML='<p class="hint">Click a place on the map to see every quest there, then click a quest for its shape.</p>';return}
+  const p=MAPP[sel];const cs=(byPlace[sel]||[]).map(id=>C[id]).sort((a,b)=>depth(b)-depth(a));
+  const facts=(E[sel]?.landmark?`<dt>Landmark</dt><dd>${esc(E[sel].landmark)}</dd><dt>Trade</dt><dd>${esc(E[sel].trade)}</dd><dt>Hook</dt><dd>${esc(E[sel].hook)}</dd>`:"");
+  P.innerHTML=`<h3>${esc(p.name)}</h3><div class="mono">${esc(p.kind)} · ${esc(p.size)} · ${esc(nm(p.owner_faction))} · quota ${p.quota.join("–")}</div>
+  <dl class="kv">${facts}${(p.presences_in_town||[]).length?`<dt>Presences</dt><dd>${esc(p.presences_in_town.join(" · "))}</dd>`:""}</dl>
+  <ul class="clist">${cs.map(c=>`<li style="--c:var(${relColor(c)})" data-id="${esc(c.id)}"><div class="t">${esc(c.family)}: ${esc(c.premise)}</div><div class="mono">${esc(c.relatedness)}${c.phase?" · "+esc(c.phase):""} · ${esc(nm(c.place))}${c.twist?" · twist: "+esc(c.twist.name||c.twist):""}</div>${c.place_tie?`<div style="font-size:.84rem">${esc(trunc(c.place_tie,140))}</div>`:""}</li>`).join("")||'<li style="--c:var(--warn)">No quests here.</li>'}</ul>`;
+  P.querySelectorAll("li[data-id]").forEach(li=>li.onclick=()=>{card=li.dataset.id;panel()});
+}
+load(); draw();
+</script>
