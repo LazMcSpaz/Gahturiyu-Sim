@@ -279,6 +279,54 @@ if gcards:
     for cid, fss in uses.items():
         if len(fss) == 1: note("guild placement", f"crossroads {MAPP[cid]['name']} used by one guild story only")
 
+# ---------- 11. casting, seats, main-story craft (rules v5.2, casting v1.1) ----------
+TITLE_WORDS = ("lord", "lady", "steward", "master", "captain", "speaker", "warden", "headman", "headwoman", "reeve", "magistrate", "abbot", "keeper")
+for pl in reg["places"]:
+    h = pl.get("holder")
+    holders = {h} | {t.get("holder") for t in (pl.get("titles") or []) if isinstance(t, dict)}
+    if not h: continue
+    pname = pl.get("name", "")
+    for p in reg["people"]:
+        if p["id"] in holders: continue
+        txt = (p.get("name", "") + " " + " ".join(p.get("traits") or [])).lower()
+        if pname and f"of {pname.lower()}" in txt and any(w in txt for w in TITLE_WORDS):
+            bad("seats", f"{p['id']} ({p['name']}) claims an office of {pname}, held by {h}")
+story_people = {e for c in W["cards"] if c.get("relatedness") in ("main", "faction", "minor", "fallout") for r, e in slots(c) if e in P}
+missing_voice = [i for i in story_people if not (P[i].get("people") and P[i].get("age") and P[i].get("voice"))]
+if story_people: note("person fields", f"{len(missing_voice)}/{len(story_people)} people on story cards lack people/age/voice")
+how = collections.Counter()
+for c in W["cards"]:
+    for r, v in (c.get("cast_log") or {}).items():
+        hw = v.get("how") if isinstance(v, dict) else v
+        if hw: how[hw] += 1
+if how:
+    tot = how["reused"] + how["created"]
+    note("casting", f"cast_how: {dict(how)}; reuse rate {how['reused'] / max(1, tot):.0%} (aim 25-45%)")
+NO_NONE = {("Threat", "Raiders"), ("Threat", "Protected beast"), ("Threat", "Encroachment")}
+for c in W["cards"]:
+    tw0 = c.get("twist"); twn = tw0.get("name") if isinstance(tw0, dict) else tw0
+    if (c["family"], c["premise"]) in NO_NONE and (not twn or twn == "none"): bad("blank cards", f"{c['id']}: {c['premise']} may never roll twist none")
+    if isinstance(tw0, dict) and tw0.get("name") and tw0.get("name") != "none" and not tw0.get("group"): bad("twists", f"{c['id']}: twist {tw0['name']} has no group")
+if st:
+    for t in st.get("open_threads") or []:
+        if not t.get("closed_by") or t["closed_by"] not in C: bad("loose threads", f"open thread {t.get('id')} is never closed by a card")
+    cast = st.get("cast") or {}
+    chs = [ch for ch in st.get("chapters", []) if ch.get("id")]
+    climax_ids = set()
+    if chs:
+        last_main = [ch for ch in chs if ch.get("id") != st.get("return")][-1]
+        climax_ids = set(last_main.get("cards") or [])
+    for role in ("antagonist", "lieutenant"):
+        pid = cast.get(role)
+        if pid and not any(pid in [e for r, e in slots(c)] for c in W["cards"] if c.get("relatedness") == "main" and c["id"] not in climax_ids):
+            bad("meet before matters", f"main {role} {pid} is on no main card before the climax")
+    heart = cast.get("heart"); fb = cast.get("fallback")
+    for lay in st.get("layers") or []:
+        nodes = set(lay.get("node ids") or [])
+        lcards = [c for c in W["cards"] if c.get("relatedness") in ("main", "minor") and any(ch.get("node") in nodes and c["id"] in (ch.get("cards") or []) for ch in chs)]
+        if lcards and not any(x in [e for r, e in slots(c)] for c in lcards for x in (heart, fb) if x):
+            bad("heart offstage", f"layer {lay.get('layer')} ({lay.get('role')}): heart and fallback on none of its {len(lcards)} cards")
+
 # ---------- report ----------
 rel = collections.Counter(c.get("relatedness") for c in W["cards"])
 metrics = {"cards": len(W["cards"]), "relatedness": rel, "families": fam, "depth": collections.Counter(dep.values()),

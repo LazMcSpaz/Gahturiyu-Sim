@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Merge agent outputs into one world file.
 Usage: python3 merge.py <out.json> <part1.json> [part2.json ...]"""
-import json, sys, collections
+import json, sys, collections, os
 out_path, parts = sys.argv[1], sys.argv[2:]
-mp = json.load(open("map.json")); canon = json.load(open("canon.json"))
+mp = json.load(open(os.environ.get("QMAP", "map.json"))); canon = json.load(open(os.environ.get("QCANON", "canon.json")))
 W = {"map": mp, "registry": {"people": [], "places": [], "things": [], "factions": []}, "facts": [], "cards": [],
      "story": None, "faction_stories": [], "parts": parts, "merge_notes": []}
 seen = collections.defaultdict(dict)
@@ -27,9 +27,26 @@ for path in parts:
         for e in reg.get(kind, []) or []:
             if kind == "places" and e["id"] in seen["places"] and seen["places"][e["id"]][1] == "map":
                 # agent copied a map place: keep map version, merge facts
-                seen["places"][e["id"]][0].setdefault("facts", []).extend(e.get("facts", []) or [])
+                mpl = seen["places"][e["id"]][0]
+                mpl.setdefault("facts", []).extend(e.get("facts", []) or [])
+                for k in ("holder", "titles", "context", "descriptors"):
+                    if e.get(k): mpl[k] = e[k] if not isinstance(e[k], list) else (mpl.get(k) or []) + [x for x in e[k] if x not in (mpl.get(k) or [])]
+                continue
+            if kind == "people" and e["id"] in seen["people"] and seen["people"][e["id"]][1] == "canon":
+                old = seen["people"][e["id"]][0]; old.clear(); old.update(e); seen["people"][e["id"]] = (old, src)
                 continue
             add(kind, e, src)
+    for u in d.get("registry_updates", []) or []:
+        tgt = None
+        for kind in ("people", "places", "things", "factions"):
+            if u.get("entry") in seen[kind]: tgt = seen[kind][u["entry"]][0]
+        if tgt is None: W["merge_notes"].append(f"update for unknown entry {u.get('entry')} from {src}"); continue
+        for k, v in (u.get("set") or {}).items():
+            if tgt.get(k) not in (None, v): W["merge_notes"].append(f"update would change {u['entry']}.{k} ({tgt.get(k)} -> {v}) from {src}")
+            else: tgt[k] = v
+        tgt.setdefault("links", []).extend(u.get("add_links") or [])
+        tgt.setdefault("facts", []).extend(u.get("add_facts") or [])
+        tgt.setdefault("traits", []).extend(u.get("add_traits") or [])
     for f in d.get("facts", []) or []:
         if f["id"] in fact_seen:
             if fact_seen[f["id"]] != src: W["merge_notes"].append(f"fact id clash {f['id']}")

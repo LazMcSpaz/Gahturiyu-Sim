@@ -1,0 +1,1000 @@
+{
+ "note": "Canon factions and pre-made leaders. Top roster: Gahìru only (pre-made). Reuse these ids; never invent leaders.",
+ "factions": [
+  {
+   "id": "f-first-peoples",
+   "name": "The First Peoples",
+   "size": "major",
+   "parent": null,
+   "leaders": [
+    "p-tuhudo"
+   ],
+   "seat": "pl-ninth-ring",
+   "reach": "realm",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-great-house"
+    },
+    {
+     "type": "rival",
+     "to": "f-open-hand"
+    },
+    {
+     "type": "at war",
+     "to": "f-last-wave"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-seated-houses",
+   "name": "The Seated Houses",
+   "size": "sub",
+   "parent": "f-first-peoples",
+   "leaders": [
+    "p-tuhudo"
+   ],
+   "seat": "pl-ninth-ring",
+   "reach": "region",
+   "want": "preservation",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-true-line",
+   "name": "The True Line",
+   "size": "sub",
+   "parent": "f-first-peoples",
+   "leaders": [
+    "p-garotaqa",
+    "p-ruo"
+   ],
+   "seat": "pl-firststone",
+   "reach": "region",
+   "want": "ambition",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-tide-houses",
+   "name": "The Tide Houses",
+   "size": "sub",
+   "parent": "f-first-peoples",
+   "leaders": [
+    "p-niralea"
+   ],
+   "seat": "pl-reefhold",
+   "reach": "region",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-far-sails"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-great-house",
+   "name": "The Great House",
+   "size": "major",
+   "parent": null,
+   "leaders": [
+    "p-gahiru"
+   ],
+   "seat": "pl-highcrossing",
+   "reach": "realm",
+   "want": "ambition",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-open-hand"
+    },
+    {
+     "type": "rival",
+     "to": "f-first-peoples"
+    },
+    {
+     "type": "rival",
+     "to": "f-highfolk"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-throne",
+   "name": "The Throne",
+   "size": "sub",
+   "parent": "f-great-house",
+   "leaders": [
+    "p-litita"
+   ],
+   "seat": "pl-highcrossing",
+   "reach": "realm",
+   "want": "preservation",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-banner-lords",
+   "name": "The Banner Lords",
+   "size": "sub",
+   "parent": "f-great-house",
+   "leaders": [
+    "p-haahoqo",
+    "p-shahayuh"
+   ],
+   "seat": "pl-longwall",
+   "reach": "region",
+   "want": "ambition",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-free-lords"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-free-lords",
+   "name": "The Free Lords",
+   "size": "sub",
+   "parent": "f-great-house",
+   "leaders": [
+    "p-kotqot"
+   ],
+   "seat": "pl-breakwall",
+   "reach": "region",
+   "want": "ambition",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-banner-lords"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-open-hand",
+   "name": "The Open Hand",
+   "size": "major",
+   "parent": null,
+   "leaders": [
+    "p-waarua"
+   ],
+   "seat": "pl-openharbour",
+   "reach": "realm",
+   "want": "ambition",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-first-peoples"
+    },
+    {
+     "type": "rival",
+     "to": "f-great-house"
+    },
+    {
+     "type": "rival",
+     "to": "f-binders"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-open-council",
+   "name": "The Open Council",
+   "size": "sub",
+   "parent": "f-open-hand",
+   "leaders": [
+    "p-waarua"
+   ],
+   "seat": "pl-openharbour",
+   "reach": "region",
+   "want": "ambition",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-sharp-hands",
+   "name": "The Sharp Hands",
+   "size": "sub",
+   "parent": "f-open-hand",
+   "leaders": [
+    "p-feyesh",
+    "p-dorog",
+    "p-kodor"
+   ],
+   "seat": "pl-counting-house",
+   "reach": "region",
+   "want": "greed",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-road-crews"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-road-crews",
+   "name": "The Road Crews",
+   "size": "sub",
+   "parent": "f-open-hand",
+   "leaders": [
+    "p-doruduqu"
+   ],
+   "seat": "pl-carters-rest",
+   "reach": "region",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-sharp-hands"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-holy-house",
+   "name": "The Holy House",
+   "size": "minor",
+   "parent": null,
+   "leaders": [
+    "p-hotorito",
+    "p-aloqi"
+   ],
+   "seat": "pl-mount",
+   "reach": "region",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "ally",
+     "to": "f-first-peoples"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-last-wave",
+   "name": "The Last Wave",
+   "size": "minor",
+   "parent": null,
+   "leaders": [
+    "p-textrim",
+    "p-totkit"
+   ],
+   "seat": "pl-textrim",
+   "reach": "region",
+   "want": "desperation",
+   "relations": [
+    {
+     "type": "at war",
+     "to": "f-first-peoples"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-far-sails",
+   "name": "The Far Sails",
+   "size": "minor",
+   "parent": null,
+   "leaders": [
+    "p-nemu"
+   ],
+   "seat": "pl-anchorage",
+   "reach": "region",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-tide-houses"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-binders",
+   "name": "The Binders",
+   "size": "minor",
+   "parent": null,
+   "leaders": [
+    "p-paqax"
+   ],
+   "seat": "pl-chainmarket",
+   "reach": "region",
+   "want": "ambition",
+   "relations": [
+    {
+     "type": "serves",
+     "to": "f-free-lords"
+    },
+    {
+     "type": "rival",
+     "to": "f-open-hand"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-wardens",
+   "name": "The Wardens",
+   "size": "minor",
+   "parent": null,
+   "leaders": [
+    "p-hao",
+    "p-hoqa"
+   ],
+   "seat": "pl-green-wall",
+   "reach": "community",
+   "want": "desperation",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-highfolk",
+   "name": "The Highfolk",
+   "size": "minor",
+   "parent": null,
+   "leaders": [
+    "p-shihi"
+   ],
+   "seat": "pl-high-snows",
+   "reach": "community",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-great-house"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-rooted",
+   "name": "The Rooted",
+   "size": "minor",
+   "parent": null,
+   "leaders": [],
+   "seat": "pl-soft-hollow",
+   "reach": "region",
+   "want": "ambition",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-writers",
+   "name": "The Writers",
+   "size": "guild",
+   "parent": null,
+   "leaders": [
+    "p-fiyeweya"
+   ],
+   "seat": "pl-highcrossing",
+   "reach": "realm",
+   "want": "preservation",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-lantern",
+   "name": "The Lantern Company",
+   "size": "guild",
+   "parent": null,
+   "leaders": [
+    "p-lamawina"
+   ],
+   "seat": "pl-carters-rest",
+   "reach": "realm",
+   "want": "preservation",
+   "relations": [],
+   "facts": []
+  },
+  {
+   "id": "f-old-hands",
+   "name": "The Old Hands",
+   "size": "guild",
+   "parent": null,
+   "leaders": [
+    "p-yitolao"
+   ],
+   "seat": "pl-ninth-ring",
+   "reach": "region",
+   "want": "preservation",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-night-market"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-night-market",
+   "name": "The Night Market",
+   "size": "guild",
+   "parent": null,
+   "leaders": [
+    "p-yaweth"
+   ],
+   "seat": "pl-openharbour",
+   "reach": "region",
+   "want": "greed",
+   "relations": [
+    {
+     "type": "rival",
+     "to": "f-old-hands"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "id": "f-dueling",
+   "name": "The Dueling Society",
+   "size": "guild",
+   "parent": null,
+   "leaders": [
+    "p-lio",
+    "p-kitim"
+   ],
+   "seat": "pl-openharbour",
+   "reach": "community",
+   "want": "ambition",
+   "relations": [],
+   "facts": []
+  }
+ ],
+ "people": [
+  {
+   "id": "p-tuhudo",
+   "name": "Tuhuḍo of the Ninth-Ring House",
+   "standing": "High",
+   "traits": [
+    "blind archivist-lord",
+    "sharp memory"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-first-peoples",
+    "sub": "f-seated-houses"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-ninth-ring",
+   "fallback": null
+  },
+  {
+   "id": "p-garotaqa",
+   "name": "Garoṭaqa of the First-Stone House",
+   "standing": "High",
+   "traits": [
+    "schemer",
+    "charismatic"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-first-peoples",
+    "sub": "f-true-line"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-firststone",
+   "fallback": null
+  },
+  {
+   "id": "p-ruo",
+   "name": "Ruʻo of the First-Stone House",
+   "standing": "High",
+   "traits": [
+    "the face of the True Line"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-first-peoples",
+    "sub": "f-true-line"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-firststone",
+   "fallback": null
+  },
+  {
+   "id": "p-niralea",
+   "name": "Niralea, daughter of the Reef Line",
+   "standing": "High",
+   "traits": [
+    "season's speaker",
+    "divided loyalties"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-first-peoples",
+    "sub": "f-tide-houses"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-reefhold",
+   "fallback": null
+  },
+  {
+   "id": "p-gahiru",
+   "name": "Gahìru of the Great House",
+   "standing": "Top",
+   "traits": [
+    "the emperor",
+    "fading"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-great-house",
+    "sub": "f-throne"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-highcrossing",
+   "fallback": null
+  },
+  {
+   "id": "p-litita",
+   "name": "Litiṭaʻa of the Great House",
+   "standing": "High",
+   "traits": [
+    "masterful liar",
+    "lonely"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-great-house",
+    "sub": "f-throne"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-highcrossing",
+   "fallback": null
+  },
+  {
+   "id": "p-haahoqo",
+   "name": "Haʻahoqo the General",
+   "standing": "High",
+   "traits": [
+    "old general",
+    "warm to commoners"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-great-house",
+    "sub": "f-banner-lords"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-longwall",
+   "fallback": null
+  },
+  {
+   "id": "p-shahayuh",
+   "name": "Shahayuh of the South Road",
+   "standing": "High",
+   "traits": [
+    "Ṭaḍoro-born lord",
+    "social climber"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-great-house",
+    "sub": "f-banner-lords"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-southroad",
+   "fallback": null
+  },
+  {
+   "id": "p-kotqot",
+   "name": "Kotqot Wall-breaker",
+   "standing": "High",
+   "traits": [
+    "paranoid",
+    "known fighter"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-great-house",
+    "sub": "f-free-lords"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-breakwall",
+   "fallback": null
+  },
+  {
+   "id": "p-waarua",
+   "name": "Waarua of the Harbour",
+   "standing": "High",
+   "traits": [
+    "freed bondswoman",
+    "inspiring speaker"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-open-hand",
+    "sub": "f-open-council"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-openharbour",
+   "fallback": null
+  },
+  {
+   "id": "p-feyesh",
+   "name": "Feyesh of the Silver Road",
+   "standing": "High",
+   "traits": [
+    "broker",
+    "flatterer"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-open-hand",
+    "sub": "f-sharp-hands"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-counting-house",
+   "fallback": null
+  },
+  {
+   "id": "p-dorog",
+   "name": "Dorog Coin-counter",
+   "standing": "High",
+   "traits": [
+    "twin",
+    "smiles and deals"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-open-hand",
+    "sub": "f-sharp-hands"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-counting-house",
+   "fallback": null
+  },
+  {
+   "id": "p-kodor",
+   "name": "Kodor Debt-taker",
+   "standing": "High",
+   "traits": [
+    "twin",
+    "counts and threatens"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-open-hand",
+    "sub": "f-sharp-hands"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-counting-house",
+   "fallback": null
+  },
+  {
+   "id": "p-doruduqu",
+   "name": "Doruḍoqu the Carter",
+   "standing": "Middle",
+   "traits": [
+    "elected foreman",
+    "knows every road"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-open-hand",
+    "sub": "f-road-crews"
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-carters-rest",
+   "fallback": null
+  },
+  {
+   "id": "p-hotorito",
+   "name": "Hotorìṭo the High Priest",
+   "standing": "High",
+   "traits": [
+    "militant",
+    "political"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-holy-house",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-mount",
+   "fallback": null
+  },
+  {
+   "id": "p-aloqi",
+   "name": "Aloqi the Priestess",
+   "standing": "Middle",
+   "traits": [
+    "sincere",
+    "old"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-holy-house",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-elderhollow",
+   "fallback": null
+  },
+  {
+   "id": "p-textrim",
+   "name": "Textrim, High Priestess",
+   "standing": "High",
+   "traits": [
+    "protective",
+    "pragmatic"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-last-wave",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-textrim",
+   "fallback": null
+  },
+  {
+   "id": "p-totkit",
+   "name": "Totkit Sea-crosser",
+   "standing": "High",
+   "traits": [
+    "war-chief",
+    "known fighter"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-last-wave",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-proving",
+   "fallback": null
+  },
+  {
+   "id": "p-nemu",
+   "name": "Nemu of the Wide Bay",
+   "standing": "High",
+   "traits": [
+    "fleet speaker",
+    "homesick"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-far-sails",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-anchorage",
+   "fallback": null
+  },
+  {
+   "id": "p-paqax",
+   "name": "Paqax Chain-breaker",
+   "standing": "High",
+   "traits": [
+    "ex-slave slaver",
+    "self-justifying"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-binders",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-chainmarket",
+   "fallback": null
+  },
+  {
+   "id": "p-hao",
+   "name": "Haʻo of the Green Wall",
+   "standing": "Middle",
+   "traits": [
+    "talks at the gate",
+    "unbreakable"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-wardens",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-green-wall",
+   "fallback": null
+  },
+  {
+   "id": "p-hoqa",
+   "name": "Hoqa of the Green Wall",
+   "standing": "Middle",
+   "traits": [
+    "scouts the green",
+    "knows more than she says"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-wardens",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-green-wall",
+   "fallback": null
+  },
+  {
+   "id": "p-shihi",
+   "name": "Shihi of the High Snows",
+   "standing": "High",
+   "traits": [
+    "hospitable",
+    "archaic"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-highfolk",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-high-snows",
+   "fallback": null
+  },
+  {
+   "id": "p-fiyeweya",
+   "name": "Fiyeweya of No Road",
+   "standing": "High",
+   "traits": [
+    "always travelling",
+    "puppeteer"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-writers",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-highcrossing",
+   "fallback": null
+  },
+  {
+   "id": "p-lamawina",
+   "name": "Lamawina of the Lantern",
+   "standing": "High",
+   "traits": [
+    "quartermaster",
+    "lives by the code"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-lantern",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-carters-rest",
+   "fallback": null
+  },
+  {
+   "id": "p-yitolao",
+   "name": "Yitolaʻo of the Old Gate House",
+   "standing": "High",
+   "traits": [
+    "politely menacing"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-old-hands",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-ninth-ring",
+   "fallback": null
+  },
+  {
+   "id": "p-yaweth",
+   "name": "Yaweth of the Market Road",
+   "standing": "High",
+   "traits": [
+    "cheeky",
+    "generous"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-night-market",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-openharbour",
+   "fallback": null
+  },
+  {
+   "id": "p-lio",
+   "name": "Liʻo of the Ring",
+   "standing": "High",
+   "traits": [
+    "showman"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-dueling",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-openharbour",
+   "fallback": null
+  },
+  {
+   "id": "p-kitim",
+   "name": "Kitim Duel-ender",
+   "standing": "High",
+   "traits": [
+    "known fighter",
+    "once killed in a duel"
+   ],
+   "links": [],
+   "faction": {
+    "id": "f-dueling",
+    "sub": null
+   },
+   "facts": [],
+   "premade": true,
+   "dead": false,
+   "home": "pl-openharbour",
+   "fallback": null
+  }
+ ]
+}

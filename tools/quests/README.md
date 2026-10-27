@@ -15,8 +15,11 @@ The Rust generator (`src/questgen/`, to come) replaces these one by one. Until t
 | `roll_kits.py`, `plan_locations.py`, `merge.py` | Paper-test helpers: rolled guild kits, planned location batches, merged agents' outputs into one world | — |
 | `CONTRACT.md`, `LOCATION-BRIEF.md` | The briefs the stand-in generator agents worked to | — |
 
+**World C tools:** `build_map_c.py` (the island with Lanternhall in Carter's Rest and guild halls in every large town), `roll_kits_c.py` (guild kits with variants and the world ledger), `merge.py` (now takes `QMAP`/`QCANON` and add-only `registry_updates`), and the briefs `CONTRACT-C.md` and `LOCATION-BRIEF-C.md`.
+
 **Samples:**
 - `samples/world-A.json` is the guild suite, 54 cards.
 - `samples/world-B.json` is the full world, 188 cards on the 54-place island.
+- `samples/world-C.json` is World C, 152 cards under rules v5.2, schema v1.10 and casting v1.1; it has its check report and `world-C-results.md`.
 - `samples/*-check-v5.md` are their check reports.
 - World B predates rules v5 and §8b, so it fails some of the newer checks on purpose. The reports show what a pre-v5 world gets wrong.
