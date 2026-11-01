@@ -1,0 +1,2516 @@
+[
+ {
+  "roll": "arc",
+  "r": 0.2604,
+  "options": [
+   "Rising",
+   "Ripple",
+   "Inward",
+   "Deep"
+  ],
+  "weights": [
+   35,
+   25,
+   20,
+   20
+  ],
+  "pick": "Rising",
+  "note": ""
+ },
+ {
+  "roll": "shape",
+  "pick": "Above",
+  "note": "Rising allows only Above (main-quest §6)"
+ },
+ {
+  "roll": "L",
+  "r": 0.3683,
+  "options": [
+   "5",
+   "6",
+   "7",
+   "8"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "6",
+  "note": "Rising range 5-8, uniform (main-quest §3)"
+ },
+ {
+  "roll": "W",
+  "r": 0.3615,
+  "options": [
+   "2",
+   "3"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "2",
+  "note": "2 <= W <= floor((L+1)/2)"
+ },
+ {
+  "roll": "antagonist side",
+  "r": 0.1613,
+  "options": [
+   "f-great-house",
+   "f-throne",
+   "f-banner-lords",
+   "f-free-lords",
+   "f-first-peoples",
+   "f-seated-houses",
+   "f-true-line",
+   "f-tide-houses",
+   "f-open-hand",
+   "f-open-council",
+   "f-sharp-hands",
+   "f-road-crews"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "f-throne",
+  "note": "equal weights"
+ },
+ {
+  "roll": "want",
+  "r": 0.8709,
+  "options": [
+   "greed",
+   "revenge",
+   "cover-up",
+   "desperation",
+   "ambition",
+   "preservation"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   2
+  ],
+  "pick": "preservation",
+  "note": "the Throne's own want (preservation) x2"
+ },
+ {
+  "roll": "hook settlement",
+  "r": 0.3858,
+  "options": [
+   "pl-oathford",
+   "pl-crownsgate",
+   "pl-saltmarket",
+   "pl-carters-rest"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "pl-crownsgate",
+  "note": ""
+ },
+ {
+  "roll": "hook family",
+  "r": 0.5471,
+  "options": [
+   "Investigate",
+   "Threat",
+   "Rescue",
+   "Dispute",
+   "Acquire",
+   "Passage"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute",
+  "note": ""
+ },
+ {
+  "roll": "hook premise",
+  "r": 0.1718,
+  "options": [
+   "Contested inheritance",
+   "Shared resource"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Contested inheritance",
+  "note": ""
+ },
+ {
+  "roll": "ordeal event",
+  "r": 0.1763,
+  "options": [
+   "disgraced",
+   "estranged"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "disgraced",
+  "note": ""
+ },
+ {
+  "roll": "climax premise",
+  "r": 0.4848,
+  "options": [
+   "Ruin from above",
+   "Schism"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Ruin from above",
+  "note": ""
+ },
+ {
+  "roll": "heart has a secret",
+  "r": 0.8191,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "hook turn family",
+  "r": 0.9573,
+  "options": [
+   "Investigate",
+   "Threat",
+   "Passage",
+   "Reckoning"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning",
+  "note": ""
+ },
+ {
+  "roll": "hook turn premise",
+  "r": 0.9964,
+  "options": [
+   "Betrayal",
+   "Ruin from above",
+   "Blood debt",
+   "Swindle"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Swindle",
+  "note": ""
+ },
+ {
+  "roll": "threshold turn A family",
+  "r": 0.7326,
+  "options": [
+   "Passage",
+   "Dispute",
+   "Rescue"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Rescue",
+  "note": ""
+ },
+ {
+  "roll": "threshold turn B family",
+  "r": 0.8473,
+  "options": [
+   "Passage",
+   "Dispute"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Dispute",
+  "note": ""
+ },
+ {
+  "roll": "trials-4 chapter A family",
+  "r": 0.3902,
+  "options": [
+   "Investigate",
+   "Reckoning"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Investigate",
+  "note": ""
+ },
+ {
+  "roll": "trials-3 turn A family",
+  "r": 0.9082,
+  "options": [
+   "Threat",
+   "Passage",
+   "Acquire"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Acquire",
+  "note": ""
+ },
+ {
+  "roll": "trials-3 turn B family",
+  "r": 0.9626,
+  "options": [
+   "Threat",
+   "Passage"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Passage",
+  "note": ""
+ },
+ {
+  "roll": "threshold A (Rescue) premise",
+  "r": 0.0853,
+  "options": [
+   "Kidnapped",
+   "Captured in battle",
+   "Imprisoned unjustly",
+   "Bound by debt"
+  ],
+  "weights": [
+   0,
+   0,
+   1,
+   2
+  ],
+  "pick": "Imprisoned unjustly",
+  "note": "the move takes men for an unpaid tenth: Bound by debt x2; no lawless band or battle on the card's ground"
+ },
+ {
+  "roll": "threshold B (Dispute) premise",
+  "r": 0.3628,
+  "options": [
+   "Broken agreement",
+   "Shared resource"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Broken agreement",
+  "note": "Contested inheritance is the hook's, Public offense the Ordeal door's"
+ },
+ {
+  "roll": "trials-3 A (Acquire) premise",
+  "r": 0.017,
+  "options": [
+   "Won't sell",
+   "Passed on",
+   "Under seal",
+   "Unknown worth"
+  ],
+  "weights": [
+   1,
+   1,
+   2,
+   1
+  ],
+  "pick": "Won't sell",
+  "note": "the lieutenant holds by crown warrant: Under seal x2"
+ },
+ {
+  "roll": "trials-3 B (Passage) premise",
+  "r": 0.546,
+  "options": [
+   "Smuggling",
+   "Fugitive"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Fugitive",
+  "note": ""
+ },
+ {
+  "roll": "trials-4 A (Investigate) premise",
+  "r": 0.8946,
+  "options": [
+   "Theft",
+   "Disappearance",
+   "Suspicious death",
+   "Sabotage"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Sabotage",
+  "note": ""
+ },
+ {
+  "roll": "trials-4 B (Reckoning) premise",
+  "r": 0.077,
+  "options": [
+   "Betrayal",
+   "Ruin from above",
+   "Blood debt"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Betrayal",
+  "note": "Swindle is the hook turn's; Ruin from above is also the climax's (allowed, premise <= 3)"
+ },
+ {
+  "roll": "which ordeal chapter gets which door",
+  "r": 0.8291,
+  "options": [
+   "A Dispute / B Passage",
+   "A Passage / B Dispute"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "A Passage / B Dispute",
+  "note": ""
+ },
+ {
+  "roll": "ch2a opening family",
+  "r": 0.4058,
+  "options": [
+   "Passage",
+   "Acquire",
+   "Investigate",
+   "Threat",
+   "Restore",
+   "Dispute",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   2,
+   1,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Acquire",
+  "note": "m2 takes men and levies a tenth: Passage, Acquire lean"
+ },
+ {
+  "roll": "ch2b opening family",
+  "r": 0.1544,
+  "options": [
+   "Rescue",
+   "Passage",
+   "Acquire",
+   "Investigate",
+   "Threat",
+   "Restore",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   2,
+   2,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Rescue",
+  "note": "a taking leans Rescue; a levy Acquire"
+ },
+ {
+  "roll": "c3a-open family",
+  "r": 0.7304,
+  "options": [
+   "Threat",
+   "Passage",
+   "Investigate",
+   "Restore",
+   "Reckoning",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   1,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Restore",
+  "note": "m3 is force on the road: Threat x2; Acquire (turn), Rescue and Dispute (linked turns) out"
+ },
+ {
+  "roll": "c3a-mid family",
+  "r": 0.7312,
+  "options": [
+   "Dispute",
+   "Rescue",
+   "Threat",
+   "Passage",
+   "Investigate",
+   "Reckoning",
+   "Contest"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning",
+  "note": ""
+ },
+ {
+  "roll": "c3b-open family",
+  "r": 0.6411,
+  "options": [
+   "Acquire",
+   "Threat",
+   "Investigate",
+   "Restore",
+   "Reckoning",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   1,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Restore",
+  "note": "carts stopped and goods taken: Acquire x2; Passage (turn), Rescue, Dispute out"
+ },
+ {
+  "roll": "c3b-mid family",
+  "r": 0.4478,
+  "options": [
+   "Dispute",
+   "Acquire",
+   "Rescue",
+   "Threat",
+   "Investigate",
+   "Reckoning",
+   "Contest"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Threat",
+  "note": ""
+ },
+ {
+  "roll": "c4a-open family",
+  "r": 0.9371,
+  "options": [
+   "Dispute",
+   "Threat",
+   "Rescue",
+   "Restore",
+   "Reckoning",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   1,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Contest",
+  "note": "m4 re-grants tolls and buys keepers: Dispute x2; Investigate (turn), Acquire, Passage (linked turns) out"
+ },
+ {
+  "roll": "c4a-mid family",
+  "r": 0.0972,
+  "options": [
+   "Acquire",
+   "Dispute",
+   "Threat",
+   "Rescue",
+   "Restore",
+   "Reckoning",
+   "Passage"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Acquire",
+  "note": ""
+ },
+ {
+  "roll": "c4b-open family",
+  "r": 0.1784,
+  "options": [
+   "Dispute",
+   "Threat",
+   "Rescue",
+   "Restore",
+   "Investigate",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   1,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Dispute",
+  "note": "Reckoning (turn), Acquire, Passage out"
+ },
+ {
+  "roll": "c4b-mid family",
+  "r": 0.8156,
+  "options": [
+   "Acquire",
+   "Threat",
+   "Rescue",
+   "Restore",
+   "Investigate",
+   "Passage",
+   "Contest"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Passage",
+  "note": ""
+ },
+ {
+  "roll": "c5a-open family",
+  "r": 0.5468,
+  "options": [
+   "Acquire",
+   "Dispute",
+   "Restore",
+   "Rescue",
+   "Threat",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   1,
+   1,
+   1,
+   0.5,
+   1
+  ],
+  "pick": "Restore",
+  "note": "the writ bars her papers: Acquire x2; Passage (door), Investigate, Reckoning (linked turns) out"
+ },
+ {
+  "roll": "c5a-mid family",
+  "r": 0.4163,
+  "options": [
+   "Acquire",
+   "Dispute",
+   "Rescue",
+   "Threat",
+   "Contest",
+   "Investigate",
+   "Reckoning"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Rescue",
+  "note": ""
+ },
+ {
+  "roll": "c5b-open family",
+  "r": 0.1784,
+  "options": [
+   "Acquire",
+   "Passage",
+   "Restore",
+   "Rescue",
+   "Threat",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   1,
+   1,
+   1,
+   0.5,
+   1
+  ],
+  "pick": "Acquire",
+  "note": "Dispute (door), Investigate, Reckoning out"
+ },
+ {
+  "roll": "c5b-mid family",
+  "r": 0.9974,
+  "options": [
+   "Passage",
+   "Restore",
+   "Rescue",
+   "Threat",
+   "Contest",
+   "Investigate",
+   "Reckoning"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning",
+  "note": ""
+ },
+ {
+  "roll": "c6-open family",
+  "r": 0.3349,
+  "options": [
+   "Acquire",
+   "Threat",
+   "Restore",
+   "Investigate",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   2,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Threat",
+  "note": "m6 seizes a village: Acquire, Threat x2; Rescue (the forced middle), Reckoning (turn), Dispute, Passage (linked turns) out"
+ },
+ {
+  "roll": "ret-open family",
+  "r": 0.8858,
+  "options": [
+   "Acquire",
+   "Dispute",
+   "Threat",
+   "Investigate",
+   "Rescue",
+   "Passage",
+   "Contest"
+  ],
+  "weights": [
+   2,
+   2,
+   1,
+   1,
+   1,
+   1,
+   0.5
+  ],
+  "pick": "Passage",
+  "note": "the aftermath of a seizure: Acquire, Dispute x2; Restore (turn), Reckoning (linked climax turn) out"
+ },
+ {
+  "roll": "c2a-open premise",
+  "r": 0.3391,
+  "options": [
+   "Won't sell",
+   "Passed on",
+   "Under seal",
+   "Unknown worth"
+  ],
+  "weights": [
+   1,
+   1,
+   2,
+   0
+  ],
+  "pick": "Passed on",
+  "note": "crown clerks hold Bogford's goods for the tenth: Under seal x2; nothing of unknown worth there"
+ },
+ {
+  "roll": "c2b-open premise",
+  "r": 0.2864,
+  "options": [
+   "Kidnapped",
+   "Imprisoned unjustly",
+   "Bound by debt"
+  ],
+  "weights": [
+   1,
+   1,
+   2
+  ],
+  "pick": "Imprisoned unjustly",
+  "note": "men taken for an unpaid tenth: Bound by debt x2"
+ },
+ {
+  "roll": "c3a-open premise",
+  "r": 0.9821,
+  "options": [
+   "Broken works",
+   "Estrangement",
+   "Lost livelihood"
+  ],
+  "weights": [
+   1,
+   1,
+   2
+  ],
+  "pick": "Lost livelihood",
+  "note": "riders on the road drive trade off it: Lost livelihood x2"
+ },
+ {
+  "roll": "c3b-open premise",
+  "r": 0.3783,
+  "options": [
+   "Broken works",
+   "Estrangement",
+   "Lost livelihood"
+  ],
+  "weights": [
+   2,
+   1,
+   1
+  ],
+  "pick": "Broken works",
+  "note": "carts dodging the riders load the quiet crossing: Broken works x2"
+ },
+ {
+  "roll": "c3a-mid premise",
+  "r": 0.1991,
+  "options": [
+   "Betrayal",
+   "Ruin from above",
+   "Blood debt",
+   "Swindle"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Betrayal",
+  "note": ""
+ },
+ {
+  "roll": "c3b-mid premise",
+  "r": 0.052,
+  "options": [
+   "Raiders",
+   "Protected beast",
+   "Sickness or blight",
+   "Encroachment"
+  ],
+  "weights": [
+   2,
+   0,
+   1,
+   1
+  ],
+  "pick": "Raiders",
+  "note": "a Binder raid camp lies within reach; no preserve by the march road"
+ },
+ {
+  "roll": "c4a-open premise",
+  "r": 0.2676,
+  "options": [
+   "Champion's bout",
+   "The fix",
+   "First blood or last",
+   "The ladder"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "The fix",
+  "note": ""
+ },
+ {
+  "roll": "c4a-mid premise",
+  "r": 0.9596,
+  "options": [
+   "Passed on",
+   "Under seal",
+   "Unknown worth"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Unknown worth",
+  "note": "Won't sell is the trials-3 turn's"
+ },
+ {
+  "roll": "c4b-open premise",
+  "r": 0.2256,
+  "options": [
+   "Shared resource",
+   "Contested inheritance",
+   "Broken agreement"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Shared resource",
+  "note": "Public offense is the Ordeal door's"
+ },
+ {
+  "roll": "c4b-mid premise",
+  "r": 0.5272,
+  "options": [
+   "Smuggling",
+   "Unwilling passenger"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Unwilling passenger",
+  "note": "Fugitive is the trials-3 turn's; Unwelcome cargo the Ordeal door's"
+ },
+ {
+  "roll": "c5a-open premise",
+  "r": 0.3382,
+  "options": [
+   "Broken works",
+   "Estrangement",
+   "Lost livelihood"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Estrangement",
+  "note": "Lost good name left to the Return, which repairs the disgrace"
+ },
+ {
+  "roll": "c5a-mid premise",
+  "r": 0.3711,
+  "options": [
+   "Kidnapped",
+   "Bound by debt"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Kidnapped",
+  "note": "Imprisoned unjustly already twice (threshold A turn, threshold B opening): out"
+ },
+ {
+  "roll": "c5b-open premise",
+  "r": 0.3798,
+  "options": [
+   "Won't sell",
+   "Passed on",
+   "Under seal",
+   "Unknown worth"
+  ],
+  "weights": [
+   1,
+   1,
+   2,
+   1
+  ],
+  "pick": "Passed on",
+  "note": "the writ bars her papers: Under seal x2"
+ },
+ {
+  "roll": "c5b-mid premise",
+  "r": 0.8105,
+  "options": [
+   "Betrayal",
+   "Ruin from above",
+   "Blood debt",
+   "Swindle"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Swindle",
+  "note": ""
+ },
+ {
+  "roll": "c6-open premise",
+  "r": 0.5739,
+  "options": [
+   "Raiders",
+   "Sickness or blight",
+   "Encroachment"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Sickness or blight",
+  "note": "no preserve near Oathford"
+ },
+ {
+  "roll": "ret-open premise",
+  "r": 0.7413,
+  "options": [
+   "Smuggling",
+   "Fugitive",
+   "Unwilling passenger",
+   "Unwelcome cargo"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Unwilling passenger",
+  "note": ""
+ },
+ {
+  "roll": "c27 twist?",
+  "r": 0.6282,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c27 twist",
+  "r": 0.1109,
+  "options": [
+   "the wronged don't want it",
+   "changed"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "the wronged don't want it",
+  "note": ""
+ },
+ {
+  "roll": "c25 twist?",
+  "r": 0.8298,
+  "p": 0.7,
+  "pick": false,
+  "note": "turning card"
+ },
+ {
+  "roll": "c26 twist?",
+  "r": 0.7593,
+  "p": 0.7,
+  "pick": false,
+  "note": "turning card"
+ },
+ {
+  "roll": "c29 twist?",
+  "r": 0.4038,
+  "p": 1.0,
+  "pick": true,
+  "note": "forced"
+ },
+ {
+  "roll": "c29 twist",
+  "r": 0.324,
+  "options": [
+   "someone wants it broken"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "someone wants it broken",
+  "note": ""
+ },
+ {
+  "roll": "c28 twist?",
+  "r": 0.2514,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c28 twist",
+  "r": 0.5431,
+  "options": [
+   "the one left behind"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "the one left behind",
+  "note": ""
+ },
+ {
+  "roll": "c21 twist?",
+  "r": 0.2123,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c21 twist",
+  "r": 0.6438,
+  "options": [
+   "pursuer has a point",
+   "the one left behind"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "the one left behind",
+  "note": ""
+ },
+ {
+  "roll": "c24 twist?",
+  "r": 0.5598,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c24 twist",
+  "r": 0.675,
+  "options": [
+   "old wound",
+   "law on the wrong side"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "law on the wrong side",
+  "note": ""
+ },
+ {
+  "roll": "c19 twist?",
+  "r": 0.6019,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c19 twist",
+  "r": 0.364,
+  "options": [
+   "someone wants it broken",
+   "it broke for a reason"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "someone wants it broken",
+  "note": ""
+ },
+ {
+  "roll": "c20 twist?",
+  "r": 0.1706,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c20 twist",
+  "pick": "none",
+  "note": "every eligible group spent or used in a linked chapter"
+ },
+ {
+  "roll": "c22 twist?",
+  "r": 0.984,
+  "p": 0.7,
+  "pick": false,
+  "note": "turning card"
+ },
+ {
+  "roll": "c23 twist?",
+  "r": 0.6514,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c23 twist",
+  "r": 0.8114,
+  "options": [
+   "changed",
+   "hand not head"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "hand not head",
+  "note": ""
+ },
+ {
+  "roll": "c2 twist?",
+  "r": 0.7851,
+  "p": 0.7,
+  "pick": false,
+  "note": "turning card"
+ },
+ {
+  "roll": "c4 twist?",
+  "r": 0.5741,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c4 twist",
+  "r": 0.1485,
+  "options": [
+   "unwilling captive",
+   "justified captor",
+   "not alone"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "unwilling captive",
+  "note": ""
+ },
+ {
+  "roll": "c6 twist?",
+  "r": 0.3943,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c6 twist",
+  "r": 0.4597,
+  "options": [
+   "caught in the middle",
+   "hollow prize",
+   "old wound",
+   "law on the wrong side"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "hollow prize",
+  "note": ""
+ },
+ {
+  "roll": "c9 twist?",
+  "r": 0.8691,
+  "p": 0.7,
+  "pick": false,
+  "note": "turning card"
+ },
+ {
+  "roll": "c12 twist?",
+  "r": 0.8452,
+  "p": 0.7,
+  "pick": false,
+  "note": "turning card"
+ },
+ {
+  "roll": "c15 twist?",
+  "r": 0.6202,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c15 twist",
+  "r": 0.8064,
+  "options": [
+   "wrong target"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "wrong target",
+  "note": ""
+ },
+ {
+  "roll": "c18 twist?",
+  "r": 0.023,
+  "p": 0.7,
+  "pick": true,
+  "note": "turning card"
+ },
+ {
+  "roll": "c18 twist",
+  "r": 0.7833,
+  "options": [
+   "the wronged don't want it"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "the wronged don't want it",
+  "note": ""
+ },
+ {
+  "roll": "c1 twist?",
+  "r": 0.27,
+  "p": 0.35,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "c1 twist",
+  "r": 0.3105,
+  "options": [
+   "caught in the middle",
+   "old wound",
+   "law on the wrong side"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "caught in the middle",
+  "note": ""
+ },
+ {
+  "roll": "c3 twist?",
+  "r": 0.8935,
+  "p": 0.35,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "c5 twist?",
+  "r": 0.3164,
+  "p": 0.35,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "c5 twist",
+  "r": 0.6941,
+  "options": [
+   "justified captor"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "justified captor",
+  "note": ""
+ },
+ {
+  "roll": "c7 twist?",
+  "r": 0.9701,
+  "p": 0.35,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "c8 twist?",
+  "r": 0.3176,
+  "p": 0.35,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "c8 twist",
+  "pick": "none",
+  "note": "every eligible group spent or used in a linked chapter"
+ },
+ {
+  "roll": "c10 twist?",
+  "r": 0.9741,
+  "p": 0.35,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "c11 twist?",
+  "r": 0.6071,
+  "p": 1.0,
+  "pick": true,
+  "note": "forced"
+ },
+ {
+  "roll": "c11 twist",
+  "r": 0.2678,
+  "options": [
+   "one of us caused it"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "one of us caused it",
+  "note": ""
+ },
+ {
+  "roll": "c13 twist?",
+  "r": 0.0453,
+  "p": 0.35,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "c13 twist",
+  "pick": "none",
+  "note": "every eligible group spent or used in a linked chapter"
+ },
+ {
+  "roll": "c14 twist?",
+  "r": 0.979,
+  "p": 0.35,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "c16 twist?",
+  "r": 0.5296,
+  "p": 0.35,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "c17 twist?",
+  "r": 0.6057,
+  "p": 0.35,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "c27 truth row",
+  "r": 0.1537,
+  "options": [
+   "Reckoning: as told",
+   "Reckoning: a witness exists",
+   "Reckoning: shared blame",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning: as told",
+  "note": ""
+ },
+ {
+  "roll": "c25 truth row",
+  "r": 0.5299,
+  "options": [
+   "Threat: bad water",
+   "Threat: waste from upstream",
+   "Threat: a sick animal traded in",
+   "Threat: carried in by travelers",
+   "Threat: spoiled stores"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Threat: a sick animal traded in",
+  "note": ""
+ },
+ {
+  "roll": "c26 truth row",
+  "r": 0.7814,
+  "options": [
+   "Rescue: misassigned",
+   "Rescue: paid",
+   "Rescue: inflated",
+   "Rescue: real and fair"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Rescue: real and fair",
+  "note": ""
+ },
+ {
+  "roll": "c28 truth row",
+  "r": 0.5745,
+  "options": [
+   "Passage: as declared",
+   "Passage: not what it seems",
+   "Passage: the pursuer was told"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Passage: not what it seems",
+  "note": ""
+ },
+ {
+  "roll": "c21 truth row",
+  "r": 0.991,
+  "options": [
+   "Passage: as declared",
+   "Passage: not what it seems",
+   "Passage: the pursuer was told"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Passage: the pursuer was told",
+  "note": ""
+ },
+ {
+  "roll": "c24 truth row",
+  "r": 0.3043,
+  "options": [
+   "Dispute: record survives",
+   "Dispute: no record",
+   "Dispute: one side lies",
+   "Dispute: both partly right"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute: no record",
+  "note": ""
+ },
+ {
+  "roll": "c19 truth row",
+  "r": 0.875,
+  "options": [
+   "Restore: a missed deathbed",
+   "Restore: a spouse one of them disapproved of",
+   "Restore: a side taken in someone else's quarrel",
+   "Restore: a secret that got told"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Restore: a secret that got told",
+  "note": ""
+ },
+ {
+  "roll": "c20 truth row",
+  "r": 0.8885,
+  "options": [
+   "Rescue: inside help",
+   "Rescue: a better buyer"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Rescue: a better buyer",
+  "note": ""
+ },
+ {
+  "roll": "c22 truth row",
+  "r": 0.6194,
+  "options": [
+   "Acquire: promised elsewhere",
+   "Acquire: a copy"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Acquire: a copy",
+  "note": ""
+ },
+ {
+  "roll": "c23 truth row",
+  "r": 0.2661,
+  "options": [
+   "Reckoning: as told",
+   "Reckoning: a witness exists",
+   "Reckoning: shared blame",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning: a witness exists",
+  "note": ""
+ },
+ {
+  "roll": "c2 truth row",
+  "r": 0.6279,
+  "options": [
+   "Reckoning: a witness exists",
+   "Reckoning: shared blame",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning: shared blame",
+  "note": ""
+ },
+ {
+  "roll": "c4 truth row",
+  "r": 0.7253,
+  "options": [
+   "Rescue: innocent",
+   "Rescue: guilty"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Rescue: guilty",
+  "note": ""
+ },
+ {
+  "roll": "c6 truth row",
+  "r": 0.1853,
+  "options": [
+   "Dispute: record survives",
+   "Dispute: no record",
+   "Dispute: one side lies",
+   "Dispute: both partly right"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute: record survives",
+  "note": ""
+ },
+ {
+  "roll": "c9 truth row",
+  "r": 0.9729,
+  "options": [
+   "Acquire: promised elsewhere",
+   "Acquire: a copy"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Acquire: a copy",
+  "note": ""
+ },
+ {
+  "roll": "c12 truth row",
+  "r": 0.7897,
+  "options": [
+   "Passage: not what it seems",
+   "Passage: the pursuer was told"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Passage: the pursuer was told",
+  "note": ""
+ },
+ {
+  "roll": "c18 truth row",
+  "r": 0.2968,
+  "options": [
+   "Reckoning: as told",
+   "Reckoning: a witness exists",
+   "Reckoning: shared blame",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning: a witness exists",
+  "note": ""
+ },
+ {
+  "roll": "c1 truth row",
+  "r": 0.7416,
+  "options": [
+   "Dispute: record survives",
+   "Dispute: no record",
+   "Dispute: one side lies",
+   "Dispute: both partly right"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute: one side lies",
+  "note": ""
+ },
+ {
+  "roll": "c3 truth row",
+  "r": 0.4949,
+  "options": [
+   "Acquire: as told",
+   "Acquire: promised elsewhere",
+   "Acquire: a copy"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Acquire: promised elsewhere",
+  "note": ""
+ },
+ {
+  "roll": "c7 truth row",
+  "r": 0.0712,
+  "options": [
+   "Restore: the trade road moved",
+   "Restore: buyers went elsewhere"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Restore: the trade road moved",
+  "note": ""
+ },
+ {
+  "roll": "c8 truth row",
+  "r": 0.7169,
+  "options": [
+   "Reckoning: as told",
+   "Reckoning: a witness exists",
+   "Reckoning: shared blame",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning: shared blame",
+  "note": ""
+ },
+ {
+  "roll": "c10 truth row",
+  "r": 0.3516,
+  "options": [
+   "Restore: worn out and neglected",
+   "Restore: built badly",
+   "Restore: the ground moved",
+   "Restore: stones carted off for someone's wall"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Restore: built badly",
+  "note": ""
+ },
+ {
+  "roll": "c11 truth row",
+  "r": 0.2737,
+  "options": [
+   "Threat: hunger",
+   "Threat: driven out",
+   "Threat: paid",
+   "Threat: opportunity"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Threat: driven out",
+  "note": ""
+ },
+ {
+  "roll": "c13 truth row",
+  "r": 0.0746,
+  "options": [
+   "Contest: the money",
+   "Contest: someone above"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Contest: the money",
+  "note": ""
+ },
+ {
+  "roll": "c14 truth row",
+  "r": 0.1976,
+  "options": [
+   "Acquire: as told",
+   "Acquire: promised elsewhere",
+   "Acquire: a copy"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Acquire: as told",
+  "note": ""
+ },
+ {
+  "roll": "c16 truth row",
+  "r": 0.9886,
+  "options": [
+   "Dispute: record survives",
+   "Dispute: no record",
+   "Dispute: one side lies",
+   "Dispute: both partly right"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute: both partly right",
+  "note": ""
+ },
+ {
+  "roll": "c17 truth row",
+  "r": 0.6029,
+  "options": [
+   "Passage: as declared",
+   "Passage: not what it seems",
+   "Passage: the pursuer was told"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Passage: not what it seems",
+  "note": ""
+ },
+ {
+  "roll": "c2 shield",
+  "r": 0.7367,
+  "options": [
+   "No law against it",
+   "Fled"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Fled",
+  "note": "Bought needs the arbiter linked to the clerk: no such link"
+ },
+ {
+  "roll": "c8 shield",
+  "r": 0.1882,
+  "options": [
+   "No law against it",
+   "Fled"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "No law against it",
+  "note": "Rank and Protected fail on standing"
+ },
+ {
+  "roll": "c18 shield",
+  "r": 0.4805,
+  "options": [
+   "No law against it",
+   "Bought",
+   "Protected"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Bought",
+  "note": ""
+ },
+ {
+  "roll": "c23 shield",
+  "r": 0.4554,
+  "options": [
+   "No law against it",
+   "Fled"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "No law against it",
+  "note": ""
+ },
+ {
+  "roll": "c27 shield",
+  "pick": "Rank",
+  "note": "only the emperor outranks Litiṭaʻa, and he doesn't hear such matters (fixed by standing)"
+ },
+ {
+  "roll": "minor on chapter h",
+  "r": 0.6748,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 2a",
+  "r": 0.7619,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 2b",
+  "r": 0.5174,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 3a",
+  "r": 0.2746,
+  "p": 0.5,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 3b",
+  "r": 0.475,
+  "p": 0.5,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 4a",
+  "r": 0.5728,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 4b",
+  "r": 0.5468,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 5a",
+  "r": 0.047,
+  "p": 0.5,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 5b",
+  "r": 0.585,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "minor on chapter 6",
+  "r": 0.7677,
+  "p": 0.5,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout count, ordeal move (realm)",
+  "r": 0.1044,
+  "options": [
+   "2",
+   "3"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "2",
+  "note": ""
+ },
+ {
+  "roll": "fallout count, last move (realm)",
+  "r": 0.4813,
+  "options": [
+   "2",
+   "3"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "2",
+  "note": ""
+ },
+ {
+  "roll": "minor 3a twist",
+  "pick": "one of us caused it",
+  "note": "Threat Encroachment never rolls none; only You started it is open to 3a"
+ },
+ {
+  "roll": "minor 3a truth (Encroachment, public)",
+  "r": 0.0388,
+  "options": [
+   "Threat: project flawed",
+   "Threat: project sound"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Threat: project flawed",
+  "note": ""
+ },
+ {
+  "roll": "minor 3b truth (Under seal)",
+  "r": 0.726,
+  "options": [
+   "Acquire: promised elsewhere",
+   "Acquire: a copy"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Acquire: a copy",
+  "note": "no open twist group: a non-confirming row"
+ },
+ {
+  "roll": "minor 3b seal type",
+  "r": 0.15,
+  "options": [
+   "Fine unpaid",
+   "Ownership unproven",
+   "Held as surety for someone else's debt",
+   "Held until a ruling"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Fine unpaid",
+  "note": ""
+ },
+ {
+  "roll": "minor 5a twist",
+  "r": 0.8199,
+  "options": [
+   "law on the wrong side",
+   "old wound",
+   "none"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "none",
+  "note": ""
+ },
+ {
+  "roll": "minor 5a truth (Broken agreement)",
+  "r": 0.3873,
+  "options": [
+   "Dispute: no record",
+   "Dispute: one side lies"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Dispute: no record",
+  "note": "record survives and both partly right are at 1 each; spread the rows"
+ },
+ {
+  "roll": "fallout F6a twist?",
+  "r": 0.1185,
+  "p": 1.0,
+  "pick": true,
+  "note": "Raiders never none"
+ },
+ {
+  "roll": "fallout F6a twist",
+  "r": 0.1252,
+  "options": [
+   "one of us caused it",
+   "divided community",
+   "passed along",
+   "protector's price"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "one of us caused it",
+  "note": ""
+ },
+ {
+  "roll": "fallout F1 twist?",
+  "r": 0.6493,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F2a twist?",
+  "r": 0.9899,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F2b twist?",
+  "r": 0.3448,
+  "p": 0.4,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "fallout F2b twist",
+  "r": 0.403,
+  "options": [
+   "wants to be rid of it",
+   "meant for destruction",
+   "rightful keeper",
+   "load-bearing"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "meant for destruction",
+  "note": ""
+ },
+ {
+  "roll": "fallout F2late twist?",
+  "r": 0.8491,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F3a twist?",
+  "r": 0.5486,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F3b twist?",
+  "r": 0.6976,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F3late twist?",
+  "r": 0.0482,
+  "p": 0.4,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "fallout F3late twist",
+  "r": 0.2739,
+  "options": [
+   "needs it more"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "needs it more",
+  "note": ""
+ },
+ {
+  "roll": "fallout F4a twist?",
+  "r": 0.8612,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F4b twist?",
+  "r": 0.5948,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F4late twist?",
+  "r": 0.9996,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F5a twist?",
+  "r": 0.4733,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F5b twist?",
+  "r": 0.2354,
+  "p": 0.4,
+  "pick": true,
+  "note": ""
+ },
+ {
+  "roll": "fallout F5b twist",
+  "r": 0.814,
+  "options": [
+   "wants to be rid of it"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "wants to be rid of it",
+  "note": ""
+ },
+ {
+  "roll": "fallout F5late twist?",
+  "r": 0.5849,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F6b twist?",
+  "r": 0.8382,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F6late twist?",
+  "r": 0.9887,
+  "p": 0.4,
+  "pick": false,
+  "note": ""
+ },
+ {
+  "roll": "fallout F2a truth row",
+  "r": 0.2366,
+  "options": [
+   "Rescue: misassigned",
+   "Rescue: paid",
+   "Rescue: inflated",
+   "Rescue: real and fair"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Rescue: misassigned",
+  "note": ""
+ },
+ {
+  "roll": "fallout F2b truth row",
+  "r": 0.2084,
+  "options": [
+   "Acquire: as told",
+   "Acquire: promised elsewhere"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Acquire: as told",
+  "note": ""
+ },
+ {
+  "roll": "fallout F2late truth row",
+  "r": 0.6572,
+  "options": [
+   "Passage: not what it seems",
+   "Passage: the pursuer was told"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Passage: the pursuer was told",
+  "note": ""
+ },
+ {
+  "roll": "fallout F3a truth row",
+  "r": 0.9565,
+  "options": [
+   "Restore: a missed deathbed",
+   "Restore: a spouse one of them disapproved of",
+   "Restore: a side taken in someone else's quarrel",
+   "Restore: a secret that got told"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Restore: a secret that got told",
+  "note": ""
+ },
+ {
+  "roll": "fallout F3late truth row",
+  "r": 0.1896,
+  "options": [
+   "Contest: the stated reason",
+   "Contest: a cover",
+   "Contest: a way out"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Contest: the stated reason",
+  "note": ""
+ },
+ {
+  "roll": "fallout F4a truth row",
+  "r": 0.6355,
+  "options": [
+   "Reckoning: a witness exists",
+   "Reckoning: shared blame",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1,
+   1
+  ],
+  "pick": "Reckoning: shared blame",
+  "note": ""
+ },
+ {
+  "roll": "fallout F4b truth row",
+  "r": 0.4708,
+  "options": [
+   "Passage: not what it seems"
+  ],
+  "weights": [
+   1
+  ],
+  "pick": "Passage: not what it seems",
+  "note": ""
+ },
+ {
+  "roll": "fallout F4late truth row",
+  "r": 0.7459,
+  "options": [
+   "Contest: the sponsor's price",
+   "Contest: a way out"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Contest: a way out",
+  "note": ""
+ },
+ {
+  "roll": "fallout F5a truth row",
+  "r": 0.2281,
+  "options": [
+   "Dispute: record survives",
+   "Dispute: no record",
+   "Dispute: one side lies",
+   "Dispute: both partly right"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute: record survives",
+  "note": ""
+ },
+ {
+  "roll": "fallout F5b truth row",
+  "r": 0.1701,
+  "options": [
+   "Acquire: as told",
+   "Acquire: promised elsewhere"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Acquire: as told",
+  "note": ""
+ },
+ {
+  "roll": "fallout F5late truth row",
+  "r": 0.7326,
+  "options": [
+   "Reckoning: a witness exists",
+   "Reckoning: still profiting"
+  ],
+  "weights": [
+   1,
+   1
+  ],
+  "pick": "Reckoning: still profiting",
+  "note": ""
+ },
+ {
+  "roll": "fallout F6a truth row",
+  "r": 0.2979,
+  "options": [
+   "Threat: hunger",
+   "Threat: driven out",
+   "Threat: paid",
+   "Threat: opportunity"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Threat: driven out",
+  "note": ""
+ },
+ {
+  "roll": "fallout F6late truth row",
+  "r": 0.5914,
+  "options": [
+   "Dispute: record survives",
+   "Dispute: no record",
+   "Dispute: one side lies",
+   "Dispute: both partly right"
+  ],
+  "weights": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "pick": "Dispute: one side lies",
+  "note": ""
+ }
+]

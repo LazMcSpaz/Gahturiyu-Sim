@@ -1,0 +1,42 @@
+== dueling: 130 legal combinations
+ enemies used: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9']
+ spines (enemy,stake,move,crisis): 26
+ crisis share over spines: Counter({'C7': 6, 'C1': 5, 'C6': 4, 'C2': 2, 'C5': 2, 'C9': 2, 'C4': 2, 'C8': 2, 'C3': 1})
+ share of combos per enemy: {'D1': 12, 'D2': 40, 'D3': 10, 'D4': 12, 'D5': 6, 'D6': 20, 'D7': 6, 'D8': 12, 'D9': 12}
+  D8 S3 M5 heart/disgraced C8
+    Because the headman of the village that lost the Society's first feud-bout wants desperation (the mill his village lost), he means to prove that bout was never fair, because the Society lent the other side its deadliest fighter, and take the mill back; he cries the Ring down in the taverns as a killers' yard, then has the heart accused of throwing a bout, and it comes to a head when his village comes to the Ring for the old winners' blood, the heart's kin among them.
+  D6 S1 M7 player/framed C5
+    Because the Ring's senior ring-keeper wants ambition (the Society for himself), he teaches the ladder's best the deadly half in secret, so that when 'nobody dies' fails the fighters will follow him; he overrules the yield rule in public and puts bouts on the card at first blood, then frames you for throwing a bout, or for a beating outside the ring, and it comes to a head when the fighters who follow him take the Ring and beat the heart for standing against him.
+  D2 S2 M6 guild/leader struck down C2
+    Because the council-house head who holds the Ring's lease wants ambition (his son at the top of the ladder), he has every fighter who beats his son fined, banned or pressed into his guard; he posts men at the Ring's gate on bout nights to turn the crowd away, then strikes down the sister, wounded, and it comes to a head when the licence is revoked after a riot he paid for, and the heart is fined and barred.
+  D3 S1 M7 heart/disgraced C5
+    Because the showman wants preservation (the Ring kept open), he sells the Ring's best fighters into lords' private blood matches, billed as exhibitions, to pay the Ring's debts; he overrules the yield rule in public and puts bouts on the card at first blood, then has the heart accused of throwing a bout, and it comes to a head when the fighters who follow him take the Ring and beat the heart for standing against him.
+  D7 S4 M3 guild/members taken C6
+    Because a Banner Lord's master-at-arms wants preservation (his lord's march held), he keeps giving the tournament's prize, a post in his lord's guard, that has sent the ladder's last champions to die in his lord's feud; he takes the ladder's top fighter off it in front of the crowd, into a paid post, then has a group of fighters pressed, bonded or held, and it comes to a head when he buys up the ladder's entry debts and his men take the heart and the top rungs to work them off.
+  D3 S3 M7 player/stripped C3
+    Because the showman wants preservation (the Ring kept open), he sells the Ring's best fighters into lords' private blood matches, billed as exhibitions, to pay the Ring's debts; he overrules the yield rule in public and puts bouts on the card at first blood, then has you put down the ladder, and it comes to a head when the heart is sold into a lord's private match and badly hurt.
+  D1 S3 M2 heart/disgraced C1
+    Because an old-school sword-master wants preservation (the old heads proved right), he has his students sabotage the Society's bouts so that sport fighters bleed on real steel; he calls the Society's way cowardice at a challenge stone and beats the fighter who answers, then has the heart accused of throwing a bout, and it comes to a head when a fighter dies after a bout he had a hand in, and his champion lays a blood challenge over the Ring's honour.
+  D9 S2 M4 guild/outlawed C7
+    Because a parish priest of the Holy House wants faith (the feast back at his shrine), he builds a heresy complaint, wound by wound, to have the rings banned, because the feast-day bouts emptied his shrine and closed its soup line; he gets the grand tournament's licence suspended pending an inquiry, then gets rings banned in a lordship, and it comes to a head when the grand tournament's licence is put under his seal on the grand bout's eve, and the heart is barred from the sand.
+== holy-house: 160 legal combinations
+ enemies used: ['HH1', 'HH2', 'HH3', 'HH4', 'HH5', 'HH6', 'HH7', 'HH8', 'HH9']
+ spines (enemy,stake,move,crisis): 25
+ crisis share over spines: Counter({'C2': 6, 'C1': 5, 'C3': 3, 'C6': 3, 'C7': 3, 'C4': 2, 'C8': 2, 'C5': 1})
+ share of combos per enemy: {'HH1': 40, 'HH2': 16, 'HH3': 14, 'HH4': 3, 'HH5': 12, 'HH6': 40, 'HH7': 14, 'HH8': 12, 'HH9': 9}
+  HH8 S4 M6 guild/leader struck down C6
+    Because a Last Wave raid leader wants revenge (the riders paid back for a burned smoke hall), he raids the wayside shrines and the towns that tithe to them, years after the order's riders burned his enclave's smoke hall as heathen; he cries in the markets that the house's shelter is worth nothing, then strikes down the high priest, wounded or killed, and it comes to a head when his raiders camp a night from the Mount, the tithe-towns' protection fails, and the heart's village is next.
+  HH6 S2 M2 heart/captive C2
+    Because an inquisitor wants cover-up (an old burning kept buried), he hunts as heretics the survivors of the shrine he burned with its keeper inside; he has a man taken from the Low Shrine's line, then has the heart held, and it comes to a head when the inquisitors take the heart's kin from the Low Shrine's line on a charge he laid, to be judged at the Mount on the feast day.
+  HH2 S4 M4 heart/captive C3
+    Because the Mount's tithe-master wants preservation (the order fed), he keeps the protection tithe rising town by town, though it has emptied the kitchens the priestess feeds from; he raises one valley's tithe and calls in its arrears at once, then has the heart held, and it comes to a head when the penance debts are sold, the heart's family's among them, and the debtors are penned in the Mount's yard to march at dawn.
+  HH3 S1 M1 guild/members taken C4
+    Because a Seated House patron wants ambition (the order's riders for his house's quarrel), he means to call in the old grant's last term, which pledges the order's riders to his house; he lays his house's claim to the Mount before his house's court, then has novices and penitents taken, and it comes to a head when by his house's court his men take the Mount's gate under the old grant, and the heart's company of riders is the first pledged.
+  HH7 S2 M2 guild/members taken C8
+    Because a True Line elder wants ambition (his line above the Seated Houses), he buys the inquisitors' favour with grain and horses, so heresy charges fall on the Seated Houses' clients; he has a man taken from the Low Shrine's line, then has novices and penitents taken, and it comes to a head when at the feast-day judgment his bought inquisitors find the heart's kin heretics, taken from the Low Shrine's line where they sheltered, and their fields pass to his house.
+  HH3 S5 M1 guild/members taken C4
+    Because a Seated House patron wants ambition (the order's riders for his house's quarrel), he means to call in the old grant's last term, which pledges the order's riders to his house; he lays his house's claim to the old grant before his house's court, then has novices and penitents taken, and it comes to a head when by his house's court his men take the Mount's gate under the old grant, and the heart's company of riders is the first pledged.
+  HH1 S3 M2 player/stripped C2
+    Because the high priest wants ambition (an armed house the powers must need), he has the heresy lists copied from the tithe-houses' arrears books, so whoever stops paying is named a heretic; he has a man taken from a shrine's steps, then has you stripped of your rank in the order, and it comes to a head when the inquisitors take the heart's kin from a shrine's steps on a charge he laid, to be judged at the Mount on the feast day.
+  HH9 S2 M7 heart/disgraced C7
+    Because a Low Shrine priest wants faith (a house that feeds people again), he empties the tithe-houses' stores into the hungry's bowls and writes false receipts to hide it; he feeds the outer ring from a tithe-house's door and calls it the house's duty, then has the heart accused of shaming the house in public, and it comes to a head when his false receipts are found, the riders come to the Low Shrine for the grain, and the heart, who carried it, is named the thief.

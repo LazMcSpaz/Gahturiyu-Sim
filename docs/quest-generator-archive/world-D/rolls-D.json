@@ -1,0 +1,257 @@
+{
+ "seed": 6602,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "disgraced"
+ ],
+ "rolls": {
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH8b",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Last Wave",
+   "stake": "S3b",
+   "heart": "H2b",
+   "heart_type": "fellow recruit",
+   "odd_job": "O4b",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "pattern",
+   "move": "M2b",
+   "crisis": "C6b",
+   "crisis_family": "Threat",
+   "crisis_premise": "Raiders",
+   "crisis_giver": "the heart's fallback",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "men",
+    "crisis": "men",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep the sword",
+    "break the house",
+    "ride for the pilgrims again"
+   ],
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "door": "Rescue/Kidnapped",
+   "blow_detail": {
+    "how": "marched off by a band"
+   },
+   "throughline": "Because a Last Wave raid leader wants revenge, he raids the wayside shrines and the towns that tithe to them, because the order's riders once burned his enclave's smoke hall as heathen; he has a man taken from a shrine's steps, where he was sheltering, then members are marched off by his men, and it comes to a head when his raiders camp a night from the Mount, the tithe-towns' protection fails, and the heart's village is next.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D7b",
+   "shape": "Above",
+   "want": "preservation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Banner Lords",
+   "stake": "S4c",
+   "heart": "H3c",
+   "heart_type": "veteran",
+   "odd_job": "O4a",
+   "odd_job_premise": "Contest/The ladder",
+   "odd_job_thread": "pattern",
+   "move": "M3a",
+   "crisis": "C6b",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis_giver": "a ring-keeper",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "paper"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "let the showman run the show",
+    "call the grand tournament"
+   ],
+   "blow_target": "player",
+   "blow_event": "arrested",
+   "door": "Dispute/Public offense",
+   "blow_detail": {},
+   "throughline": "Because a Banner Lord's master-at-arms, who gives the grand tournament's prize wants things kept as they are, he keeps giving the prize, a post in his lord's guard, because his lord's march is losing a feud and needs trained men, though the posts have sent the ladder's last champions to die there; he takes the ladder's top fighter off it in front of the crowd, into a paid post, then you are arrested at his word, and it comes to a head when he buys up the ladder's entry debts, and his men take the heart and the top rungs to work them off.",
+   "last_move_kills": false
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N9b",
+   "shape": "Above",
+   "want": "cover-up",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Tide Houses",
+   "stake": "S4b",
+   "heart": "H1c",
+   "heart_type": "mentor",
+   "odd_job": "O2c",
+   "odd_job_premise": "Passage/The market moves",
+   "odd_job_thread": "answers-to",
+   "move": "M4b",
+   "crisis": "C7c",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Imprisoned unjustly",
+   "crisis_giver": "a carter who got away",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "kin",
+    "crisis": "men",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "go straight",
+    "put it on the water",
+    "share it all out"
+   ],
+   "blow_target": "guild",
+   "blow_event": "hall seized",
+   "door": "Dispute/Broken agreement",
+   "blow_detail": {
+    "site": "a fence's shop"
+   },
+   "throughline": "Because a Tide House elder wants an old wrong kept buried, he is closing the coves that for years carried his house's young away to the Far Sails, and silencing the crews who rowed them, now that the Seated Houses are asking where they went; he shows the toll men a smugglers' cove's landing, then a fence's shop is shut on his order, and it comes to a head when his men take the crews at the cove's landing as the boats come in, the heart's kin among them, to be judged at dawn.",
+   "last_move_kills": false
+  },
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH6a",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": null,
+   "stake": "S6c",
+   "heart": "H2c",
+   "heart_type": "veteran",
+   "odd_job": "O4a",
+   "odd_job_premise": "Investigate/Theft",
+   "odd_job_thread": "wrong-place",
+   "move": "M3b",
+   "crisis": "C1b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "a house steward",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "name",
+    "crisis": "kin",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "sell to the lords"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "door": "Restore/Lost good name",
+   "blow_detail": {},
+   "throughline": "Because a settled Qotiro widow married into a minor river house wants revenge, she is turning the houses' heirs against the Old Hands, one betrothal at a time, with the true will she has found: thirty years ago the Old Hands forged a will that gave her father's land to an old house; she has the oldest house send its standing work elsewhere and say why before witnesses, then you are put down a rank on her word, and it comes to a head when letters to three houses' rivals tell what the Old Hands carried for whom, naming the heart as the one who carried them.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L5c",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "the Throne",
+   "stake": "S3a",
+   "heart": "H1b",
+   "heart_type": "mentor",
+   "odd_job": "O3b",
+   "odd_job_premise": "Investigate/Suspicious death",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M4a",
+   "crisis": "C1b",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Imprisoned unjustly",
+   "crisis_giver": "the refusing captain's second",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "men"
+   },
+   "writs": 1,
+   "faction_endings": [
+    "split the chapters",
+    "pick a side",
+    "buy the contract back"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Rescue/Bound by debt",
+   "blow_detail": {},
+   "throughline": "Because the crown's recruiter for one march wants more power, he buys the march's chapter contracts through go-betweens, so those chapters stand wherever the march's muster needs them. He acts through the march's magistrate and muster, **never a Throne edict or war writ**. (Never states that the Throne is hollow.); he calls in, before the contract board, a contract the Company can't refuse, binding it to one side, then his men take the heart and hold her, and it comes to a head when the march magistrate's levy writ names one chapter; it refuses, and is held in Lanternhall's yard, the heart among those pleading for them.",
+   "last_move_kills": false
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W2b",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "Free Lords",
+   "stake": "S5b",
+   "heart": "H2c",
+   "heart_type": "fellow recruit",
+   "odd_job": "O5a",
+   "odd_job_premise": "Passage/Samples from the green",
+   "odd_job_thread": "pattern",
+   "move": "M2a",
+   "crisis": "C6c",
+   "crisis_family": "Passage",
+   "crisis_premise": "Fugitive",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "men",
+    "blow": "men"
+   },
+   "writs": 1,
+   "faction_endings": [
+    "open the ledgers",
+    "a copy in every hall",
+    "take a side at last"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "door": "Reckoning/Ruin from above",
+   "blow_detail": {
+    "leader": "the leader",
+    "how": "disgraced",
+    "successor": null
+   },
+   "throughline": "Because a Free Lord's archivist wants more power, he buys the old imperial survey rolls out of Writers' digs and has the diggers who sold elsewhere killed, so his lord can file a \"restored\" claim to three valleys; he has a lord's court rule that rolls bought at a dig belong to the buyer, not the halls, then the leader is disgraced, and it comes to a head when the heart must carry the rolls lodged at the Wayhouse out of Highcrossing, with his men on every road.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 6602; syndicate pairing: unpaired; main Ordeal: (heart, disgraced)",
+  "  roll order (legal enemy + crisis pairs): holy-house(12), dueling(13), night-market(14), old-hands(16), lantern(19), writers(13)",
+  "  deal: done after 10 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 10,
+  "fallback_recent": 0
+ }
+}

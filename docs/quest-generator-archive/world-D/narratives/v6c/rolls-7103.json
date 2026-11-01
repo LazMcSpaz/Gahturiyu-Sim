@@ -1,0 +1,254 @@
+{
+ "seed": 7103,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH5c",
+   "shape": "Beside",
+   "want": "greed",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Binders",
+   "stake": "S4b",
+   "heart": "H3c",
+   "heart_type": "client",
+   "odd_job": "O4c",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "pattern",
+   "move": "M5c",
+   "crisis": "C3b",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis_giver": "the priestess",
+   "giver_is_leader": true,
+   "means_used": {
+    "move": "coin",
+    "crisis": "coin",
+    "blow": "paper"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "reform it under the priestess",
+    "break the house",
+    "open the tithe-houses to the hungry"
+   ],
+   "blow_target": "guild",
+   "blow_event": "outlawed",
+   "door": "Reckoning/Ruin from above",
+   "blow_detail": {},
+   "throughline": "Because a Binder debt broker wants money, he buys the penance debts the inquisitors' book sets, and takes the families who can't pay; he buys a tithe-house's debts at its door, in front of the town, then a lord's writ he obtained bars the guild in his lordship, and it comes to a head when the penance debts are sold, the heart's family's among them, and the debtors are penned in the Mount's yard to march at dawn.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D3c",
+   "shape": "Within",
+   "want": "preservation",
+   "kind": "hidden hand",
+   "leader_enemy": true,
+   "side": "Dueling Society",
+   "stake": "S1a",
+   "heart": "H1b",
+   "heart_type": "mentor",
+   "odd_job": "O1a",
+   "odd_job_premise": "Contest/The fix",
+   "odd_job_thread": "answers-to",
+   "move": "M7c",
+   "crisis": "C5b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Schism",
+   "crisis_giver": "the heart's fallback",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "back to the tavern yards",
+    "take the ring"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "door": "Investigate/Theft",
+   "blow_detail": {
+    "code_break": "throwing a bout"
+   },
+   "throughline": "Because the showman wants things kept as they are, he sells the Ring's best fighters into lords' private blood matches, billed as exhibitions, to pay the Ring's debts; he overrules the yield rule in public and puts bouts on the card at first blood, then you are framed for throwing a bout, and it comes to a head when the fighters who follow him take the Ring and beat the heart for standing against him.",
+   "last_move_kills": false
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N6c",
+   "shape": "Beside",
+   "want": "greed",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "Lantern Company",
+   "stake": "S3b",
+   "heart": "H1b",
+   "heart_type": "mentor",
+   "odd_job": "O1c",
+   "odd_job_premise": "Acquire/Passed on",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M3b",
+   "crisis": "C5c",
+   "crisis_family": "Acquire",
+   "crisis_premise": "The score",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "coin",
+    "crisis": "coin",
+    "blow": "coin"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "pull the big one",
+    "sell to the Sharp Hands",
+    "go straight"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Rescue/Kidnapped",
+   "blow_detail": {},
+   "throughline": "Because a Lantern Company bounty captain wants money, he pays a fence for the names of crews on the move, and collects the lords' bounty on each; he buys a fence at a card table, in front of the crews, then he buys the heart's debts and has her held for them, and it comes to a head when he holds the fences' list behind his walls as surety for the crews' debt, and the heart's crew is paid to bring it home.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L6a",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": null,
+   "stake": "S3c",
+   "heart": "H3c",
+   "heart_type": "client",
+   "odd_job": "O4a",
+   "odd_job_premise": "Rescue/Left behind on contract",
+   "odd_job_thread": "pattern",
+   "move": "M2a",
+   "crisis": "C8a",
+   "crisis_family": "Dispute",
+   "crisis_premise": "Public offense",
+   "crisis_giver": "the quartermaster",
+   "giver_is_leader": true,
+   "means_used": {
+    "move": "name",
+    "crisis": "name",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "honor it and march",
+    "split the chapters",
+    "pick a side"
+   ],
+   "blow_target": "heart",
+   "blow_event": "disgraced",
+   "door": "Dispute/Public offense",
+   "blow_detail": {
+    "code_break": "abandoning a comrade"
+   },
+   "throughline": "Because a hill-village headman whose son died when a Lantern chapter held his village for a lord wants revenge, he sends the Company false calls for help from the hill villages and turns the villages against any chapter that comes; he has it cried in every market that the Company has taken a side, then the heart is cried down for abandoning a comrade, and it comes to a head when he accuses the Company before Carter's Rest's judge of the killing at his village, naming the heart's chapter as the ones who did it.",
+   "last_move_kills": false
+  },
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH3c",
+   "shape": "Above",
+   "want": "cover-up",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Seated Houses",
+   "stake": "S1a",
+   "heart": "H3a",
+   "heart_type": "member's kin",
+   "odd_job": "O5b",
+   "odd_job_premise": "Dispute/Broken agreement",
+   "odd_job_thread": "pattern",
+   "move": "M8a",
+   "crisis": "C5b",
+   "crisis_family": "Passage",
+   "crisis_premise": "Fugitive",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "men",
+    "crisis": "men",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "sell to the lords"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "door": "Restore/Lost good name",
+   "blow_detail": {},
+   "throughline": "Because a Seated House lord wants an old wrong kept buried, he wants every record of the Old Hands' work for his house gone, and the Old Hands with it, before anyone reads what his house bought; he has the Old Gate House's quarter barred to the Old Hands for a night, then you are put down a rank on his word, and it comes to a head when his men wait at the gate that has never closed for the heart's kin, who saw the scheme at work, and the Old Hands must get them out.",
+   "last_move_kills": false
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W1a",
+   "shape": "Within",
+   "want": "preservation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Writers",
+   "stake": "S7b",
+   "heart": "H5a",
+   "heart_type": "member's kin",
+   "odd_job": "O5c",
+   "odd_job_premise": "Passage/Samples from the green",
+   "odd_job_thread": "pattern",
+   "move": "M3c",
+   "crisis": "C3a",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Schism",
+   "crisis_giver": "the eldest copyist",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "paper"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "open the ledgers",
+    "trade what we know",
+    "take a side at last"
+   ],
+   "blow_target": "player",
+   "blow_event": "arrested",
+   "door": "Passage/Fugitive",
+   "blow_detail": {},
+   "throughline": "Because a hall master wants things kept as they are, she releases two rival lords' true debts to each other through the Lending Wall, one letter at a time, keeping their feud at the simmer that suits the guild; she openly takes the lord's court rolls into her own keeping, so no other copyist touches them, then you are arrested at her word, and it comes to a head when a debt read out of the lord's court rolls turns his quarrel into a feud, and the heart's village burns.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7103; syndicate pairing: unpaired; main Ordeal: (heart, estranged)",
+  "  roll order (legal enemy + crisis pairs): holy-house(12), dueling(13), night-market(13), lantern(9), old-hands(10), writers(10)",
+  "  deal: done after 10 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 10,
+  "fallback_recent": 0
+ }
+}

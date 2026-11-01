@@ -1,0 +1,277 @@
+{
+ "seed": 7104,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH2a",
+   "shape": "Within",
+   "want": "preservation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Holy House",
+   "stake": "S4b",
+   "heart": "H5a",
+   "heart_type": "member's kin",
+   "odd_job": "O2b",
+   "odd_job_premise": "Investigate/The offering box",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M4",
+   "crisis": "C3b",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis_giver": "the priestess",
+   "giver_is_leader": true,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "reform it under the priestess",
+    "break the house",
+    "open the tithe-houses to the hungry"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "blow_how": "stripped",
+   "door": "Restore/Lost good name",
+   "door_fill": "the stain: what the Mount's tithe-master said of the player",
+   "blow_detail": {},
+   "readings_used": [],
+   "throughline": "Because the Mount's tithe-master wants things kept as they are, he keeps the protection tithe rising town by town, because the order must be fed, though it has emptied the kitchens the priestess feeds from; he raises one valley's tithe and calls in its arrears at once, then you are put down a rank on his word, and it comes to a head when the penance debts are sold, the heart's family's among them, and the debtors are penned in the Mount's yard to march at dawn.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D5c",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": null,
+   "stake": "S3a",
+   "heart": "H3b",
+   "heart_type": "veteran",
+   "odd_job": "O3b",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "wrong-place",
+   "move": "M5",
+   "crisis": "C4c",
+   "crisis_family": "Contest",
+   "crisis_premise": "First blood or last",
+   "crisis_giver": "a ring-keeper",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "name",
+    "crisis": "kin",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "make peace with the old heads"
+   ],
+   "blow_target": "heart",
+   "blow_event": "disgraced",
+   "blow_how": "cried-down",
+   "door": "Dispute/Public offense",
+   "door_fill": "offended: whoever throwing a bout wronged",
+   "blow_detail": {
+    "code_break": "throwing a bout"
+   },
+   "readings_used": [],
+   "throughline": "Because kin of the man the sister killed in a duel wants revenge, he climbs the open ladder unsworn, under another name, so the draw will bring him to her and she must kill again or lose; he cries the Ring down in the taverns as a killers' yard, then the heart is cried down for throwing a bout, and it comes to a head when the sister's old duel is cried abroad and he calls her out on blood terms in the Ring.",
+   "last_move_kills": false
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N3c",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "Sharp Hands",
+   "stake": "S3c",
+   "heart": "H1a",
+   "heart_type": "mentor",
+   "odd_job": "O3c",
+   "odd_job_premise": "Rescue/Imprisoned unjustly",
+   "odd_job_thread": "pattern",
+   "move": "M7",
+   "crisis": "C5a",
+   "crisis_family": "Acquire",
+   "crisis_premise": "The score",
+   "crisis_giver": "the leader",
+   "giver_is_leader": true,
+   "means_used": {
+    "move": "name",
+    "crisis": "coin",
+    "blow": "coin"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "pull the big one",
+    "sell to the Sharp Hands",
+    "go straight"
+   ],
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "blow_how": "taken-bonded",
+   "door": "Rescue/Bound by debt",
+   "door_fill": "creditor: a Sharp Hands broker, or whoever the debt was sold to",
+   "blow_detail": {
+    "how": "bonded for a debt"
+   },
+   "readings_used": [],
+   "throughline": "Because a Sharp Hands broker wants more power, he buys up the Market's forged notes so he can cry them down at the right hour and sink the Open Council's credit; he calls the Market out before the crews at a dockside card game, then members are bonded for debts he bought, and it comes to a head when he holds the fences' list behind his walls as surety for the crews' debt, and the heart's crew is paid to bring it home.",
+   "last_move_kills": false
+  },
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH4a",
+   "shape": "Within",
+   "want": "desperation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Old Hands",
+   "stake": "S3a",
+   "heart": "H5b",
+   "heart_type": "fellow recruit",
+   "odd_job": "O1b",
+   "odd_job_premise": "Passage/The guest who isn't allowed",
+   "odd_job_thread": "answers-to",
+   "move": "M7",
+   "crisis": "C1b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "a house steward",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "give back the pages"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "blow_how": "held-by-men",
+   "door": "Rescue/Kidnapped",
+   "door_fill": "captor: a smuggling-cache keeper's men; why taken: leverage on the guild",
+   "blow_detail": {},
+   "readings_used": [],
+   "throughline": "Because a smuggling-cache keeper wants a way out of ruin, he has made the quiet crossings a branch of the Walking Road, for Qotiro captives sold to the old houses, now that the houses' work is drying up, and it pays for half the syndicate; he has a steward who asked questions put out of a back room before the others, then his men take the heart and hold her, and it comes to a head when letters to three houses' rivals tell what the Old Hands carried for whom, naming the heart as the one who carried them.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L1a",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Free Lords",
+   "stake": "S4c",
+   "heart": "H5b",
+   "heart_type": "veteran",
+   "odd_job": "O1b",
+   "odd_job_premise": "Passage/The contract's other side",
+   "odd_job_thread": "answers-to",
+   "move": "M4",
+   "crisis": "C1c",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Imprisoned unjustly",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "name"
+   },
+   "writs": 1,
+   "faction_endings": [
+    "honor it and march",
+    "put out the lamp",
+    "buy the contract back"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "blow_how": "framed-betrayal",
+   "door": "Reckoning/Ruin from above",
+   "door_fill": "blamed for abandoning a comrade; framer: a Free Lord holding the Company's oldest contract; shield: *Protected*",
+   "blow_detail": {
+    "code_break": "abandoning a comrade"
+   },
+   "readings_used": [],
+   "throughline": "Because a Free Lord holding the Company's oldest contract wants more power, he means to call the Company's oldest contract in for his own feud with a neighbouring lord, knowing the code won't let it refuse; he calls in the old contract before the contract board, in public, then you are framed for abandoning a comrade, and it comes to a head when his seizure order under the old contract names one chapter; it refuses, and is held in Lanternhall's yard, the heart among those pleading for them.",
+   "last_move_kills": false
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W8c",
+   "shape": "Above",
+   "want": "desperation",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Wardens",
+   "stake": "S6b",
+   "heart": "H1b",
+   "heart_type": "mentor",
+   "odd_job": "O2a",
+   "odd_job_premise": "Investigate/The ledger doesn't add up",
+   "odd_job_thread": "lie-in-record",
+   "move": "M6",
+   "crisis": "C7b",
+   "crisis_family": "Dispute",
+   "crisis_premise": "Public offense",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "men",
+    "crisis": "name",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep the balance",
+    "burn your copy",
+    "take a side at last"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "blow_how": "wounded-men",
+   "door": "Passage/Fugitive",
+   "door_fill": "cargo: the leader, wounded; pursuer: a Warden captain whose stretch of towers is failing's men",
+   "blow_detail": {
+    "leader": "the leader",
+    "how": "wounded",
+    "successor": null
+   },
+   "readings_used": [],
+   "throughline": "Because a Warden captain whose stretch of towers is failing wants a way out of ruin, he has the survey camps' edge readings redrawn to put the green a mile nearer the towns, so frightened lords will pay for his wall; he closes a survey camp at the green's edge and keeps its journals, then his men wound the leader on the road, and it comes to a head when he accuses the heart before a lord's court of drawing the edge maps false.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7104; syndicate pairing: unpaired; main Ordeal: (heart, estranged)",
+  "  roll order (legal enemy + crisis pairs): holy-house(12), dueling(12), night-market(13), old-hands(14), lantern(4), writers(7)",
+  "  deal: done after 34 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 34,
+  "fallback_recent": 0
+ }
+}

@@ -1,0 +1,3254 @@
+{
+ "world": "D",
+ "layer": "0-1",
+ "seed": 4401,
+ "registry": {
+  "people": [
+   {
+    "id": "p-d0-ashring-head",
+    "name": "Ḍeshiha of the Wind-Ledge House",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "headman",
+    "traits": [
+     "holds legal authority",
+     "of an old Vale house",
+     "headman of Ashring"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-seated-houses"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-ashring",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "grown",
+    "voice": {
+     "manner": "wry",
+     "habit": "speaks_of_the_house"
+    }
+   },
+   {
+    "id": "p-d0-bogford-lord",
+    "name": "Hausethayai of the Quiet Road",
+    "standing": "High",
+    "archetype": null,
+    "class": "Free Lord",
+    "traits": [
+     "noble",
+     "holds legal authority",
+     "buys bonded labour",
+     "Free Lord of Bogford"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-free-lords"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-bogford",
+    "dies_at": null,
+    "fallback": null,
+    "people": "tadoro",
+    "age": "old",
+    "voice": {
+     "manner": "wry",
+     "habit": "have_you_noticed"
+    }
+   },
+   {
+    "id": "p-d0-crownsgate-warden",
+    "name": "Ḍuhuḍì of the Spring-Cliff House",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "crown gate-warden",
+    "traits": [
+     "holds legal authority",
+     "gate-warden of Crownsgate"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "p-gahiru",
+      "as": "employee",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: a crown gate-warden serves the Throne"
+     }
+    ],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-throne"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-crownsgate",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "careful",
+     "habit": "speaks_of_the_house"
+    }
+   },
+   {
+    "id": "p-d0-dueling-showman",
+    "name": "Waahuho of the Salt Sand",
+    "standing": "High",
+    "archetype": "a-dueling-showman",
+    "class": null,
+    "traits": [
+     "showman"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-kitim",
+      "as": "sibling",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: adopted siblings, co-founders"
+     }
+    ],
+    "faction": {
+     "id": "f-dueling",
+     "sub": null
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-openharbour",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "young",
+    "voice": {
+     "manner": "careful",
+     "habit": "out_of_the_wind"
+    }
+   },
+   {
+    "id": "p-d0-elderhollow-head",
+    "name": "Roduhuli of the Three-Ring House",
+    "standing": "High",
+    "archetype": null,
+    "class": "house head",
+    "traits": [
+     "noble",
+     "holds legal authority",
+     "head of Elderhollow's ruling house"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-seated-houses"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-elderhollow",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "grown",
+    "voice": {
+     "manner": "warm",
+     "habit": "traveller"
+    }
+   },
+   {
+    "id": "p-d0-highfolk-head",
+    "name": "Gure of the Herb-Stream House",
+    "standing": "High",
+    "archetype": "a-highfolk-head",
+    "class": null,
+    "traits": [
+     "hospitable",
+     "archaic"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-highfolk",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-highfolk-head-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-high-snows",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "grown",
+    "voice": {
+     "manner": "weary",
+     "habit": "traveller"
+    }
+   },
+   {
+    "id": "p-d0-ironstep-priestess",
+    "name": "Pentir Beast-binder",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "enclave priestess",
+    "traits": [
+     "priestess",
+     "holds legal authority",
+     "priestess of Ironstep"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "p-textrim",
+      "as": "employee",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: an enclave priestess answers to the High Priestess"
+     }
+    ],
+    "faction": {
+     "id": "f-last-wave",
+     "sub": null
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-ironstep",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "old",
+    "voice": {
+     "manner": "blunt",
+     "habit": "eat"
+    }
+   },
+   {
+    "id": "p-d0-oathford-lord",
+    "name": "Laʻetalu of the Bark-Field House",
+    "standing": "High",
+    "archetype": null,
+    "class": "Banner Lord",
+    "traits": [
+     "noble",
+     "holds legal authority",
+     "Banner Lord of Oathford"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-banner-lords"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-oathford",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "warm",
+     "habit": "traveller"
+    }
+   },
+   {
+    "id": "p-d0-old-don",
+    "name": "Ḍolo of the Four-Ring House",
+    "standing": "High",
+    "archetype": "a-old-don",
+    "class": null,
+    "traits": [
+     "politely menacing"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-yaweth",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the rival syndicates"
+     }
+    ],
+    "faction": {
+     "id": "f-old-hands",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-old-don-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-ninth-ring",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "weary",
+     "habit": "stone_keep_you"
+    }
+   },
+   {
+    "id": "p-d0-rock-keeper",
+    "name": "Walalimi of the Quiet Cove",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "rock-keeper",
+    "traits": [
+     "pilot",
+     "keeps the beacon",
+     "keeper of the Lantern Rock beacon"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "p-nemu",
+      "as": "employee",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: the beacon's keeper serves the fleet"
+     }
+    ],
+    "faction": {
+     "id": "f-far-sails",
+     "sub": null
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-lantern-rock",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "young",
+    "voice": {
+     "manner": "warm",
+     "habit": "have_you_eaten"
+    }
+   },
+   {
+    "id": "p-d0-saltmarket-head",
+    "name": "Liriwu of the Deep Island",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "town council head",
+    "traits": [
+     "holds legal authority",
+     "merchant",
+     "head of the Saltmarket council"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-open-council"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-saltmarket",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "grown",
+    "voice": {
+     "manner": "wry",
+     "habit": "another_day"
+    }
+   },
+   {
+    "id": "p-d0-shellring-head",
+    "name": "Haewano of the Eel Headland",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "headman",
+    "traits": [
+     "holds legal authority",
+     "headman of Shellring"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-tide-houses"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-shellring",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "old",
+    "voice": {
+     "manner": "wry",
+     "habit": "waits_for_a_sign"
+    }
+   },
+   {
+    "id": "p-d0-sincere-priestess",
+    "name": "Qeḍuʻata of the Rain-Shore House",
+    "standing": "Middle",
+    "archetype": "a-sincere-priestess",
+    "class": null,
+    "traits": [
+     "sincere",
+     "old",
+     "tension: t-schism"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-hotorito",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the Mount vs the Low Shrine"
+     },
+     {
+      "type": "grudge",
+      "to": "p-hotorito",
+      "as": "target",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "court state t-schism"
+     }
+    ],
+    "faction": {
+     "id": "f-holy-house",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-sincere-priestess-1",
+     "x-d0-t-schism-1",
+     "x-d0-t-schism-2"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-elderhollow",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "warm",
+     "habit": "traveller"
+    }
+   },
+   {
+    "id": "p-d0-tide-speaker",
+    "name": "Momilei of the Deep Reef",
+    "standing": "High",
+    "archetype": "a-tide-speaker",
+    "class": null,
+    "traits": [
+     "season's speaker",
+     "divided loyalties"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-nemu",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: Reefhold vs the Anchorage"
+     }
+    ],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-tide-houses"
+    },
+    "facts": [
+     "x-d0-tide-speaker-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-reefhold",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "grown",
+    "voice": {
+     "manner": "wry",
+     "habit": "another_day"
+    }
+   },
+   {
+    "id": "p-d0-wainyard-head",
+    "name": "Wayafayus of the Dusk Road",
+    "standing": "Middle",
+    "archetype": null,
+    "class": "headman",
+    "traits": [
+     "holds legal authority",
+     "Road Crews carter",
+     "yard-boss of Wainyard"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "p-doruduqu",
+      "as": "employee",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: the yard-boss answers to the crews' foreman"
+     }
+    ],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-road-crews"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-wainyard",
+    "dies_at": null,
+    "fallback": null,
+    "people": "tadoro",
+    "age": "grown",
+    "voice": {
+     "manner": "careful",
+     "habit": "writes_it_down"
+    }
+   },
+   {
+    "id": "p-d0-warden-scout",
+    "name": "Linuha of the Star Harbour",
+    "standing": "Middle",
+    "archetype": "a-warden-scout",
+    "class": null,
+    "traits": [
+     "scouts the green",
+     "knows more than she says"
+    ],
+    "links": [
+     {
+      "type": "spouse",
+      "to": "p-hao",
+      "as": "spouse",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: the old married pair"
+     }
+    ],
+    "faction": {
+     "id": "f-wardens",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-warden-scout-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-green-wall",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "old",
+    "voice": {
+     "manner": "proud",
+     "habit": "have_you_eaten"
+    }
+   },
+   {
+    "id": "p-dorog",
+    "name": "Dorog Coin-counter",
+    "standing": "High",
+    "archetype": "a-sharp-twin-deals",
+    "class": null,
+    "traits": [
+     "twin",
+     "smiles and deals"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-kodor",
+      "as": "sibling",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: twins"
+     },
+     {
+      "type": "trade",
+      "to": "p-feyesh",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: three-way partnership"
+     }
+    ],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-sharp-hands"
+    },
+    "facts": [
+     "x-d0-sharp-books"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-counting-house",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "grown",
+    "voice": {
+     "manner": "warm",
+     "habit": "eat"
+    }
+   },
+   {
+    "id": "p-doruduqu",
+    "name": "Doruḍoqu the Carter",
+    "standing": "Middle",
+    "archetype": "a-road-foreman",
+    "class": null,
+    "traits": [
+     "elected foreman",
+     "knows every road",
+     "tension: t-long-shed"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-feyesh",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "the Road Crews grumble about the Sharp Hands (world-factions)"
+     },
+     {
+      "type": "employer/employee",
+      "to": "p-d0-wainyard-head",
+      "as": "employer",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: the yard-boss answers to the crews' foreman"
+     },
+     {
+      "type": "grudge",
+      "to": "p-kodor",
+      "as": "holder",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "court state t-long-shed"
+     }
+    ],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-road-crews"
+    },
+    "facts": [
+     "x-d0-road-foreman-1",
+     "x-d0-t-long-shed-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-carters-rest",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "grown",
+    "voice": {
+     "manner": "blunt",
+     "habit": "counts_seasons"
+    }
+   },
+   {
+    "id": "p-feyesh",
+    "name": "Feyesh of the Silver Road",
+    "standing": "High",
+    "archetype": "a-sharp-broker",
+    "class": null,
+    "traits": [
+     "broker",
+     "flatterer"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-doruduqu",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "the Road Crews grumble about the Sharp Hands (world-factions)"
+     },
+     {
+      "type": "trade",
+      "to": "p-dorog",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: three-way partnership"
+     },
+     {
+      "type": "trade",
+      "to": "p-kodor",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: three-way partnership"
+     }
+    ],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-sharp-hands"
+    },
+    "facts": [
+     "x-d0-sharp-books"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-counting-house",
+    "dies_at": null,
+    "fallback": null,
+    "people": "tadoro",
+    "age": "grown",
+    "voice": {
+     "manner": "warm",
+     "habit": "what_would_you_do"
+    }
+   },
+   {
+    "id": "p-fiyeweya",
+    "name": "Fiyeweya of No Road",
+    "standing": "High",
+    "archetype": "a-writers-leader",
+    "class": null,
+    "traits": [
+     "always travelling",
+     "puppeteer"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-writers",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-writers-leader-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-highcrossing",
+    "dies_at": null,
+    "fallback": null,
+    "people": "tadoro",
+    "age": "grown",
+    "voice": {
+     "manner": "wry",
+     "habit": "writes_it_down"
+    }
+   },
+   {
+    "id": "p-gahiru",
+    "name": "Gahìru of the Great House",
+    "standing": "Top",
+    "archetype": "a-emperor",
+    "class": null,
+    "traits": [
+     "the emperor",
+     "fading"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-litita",
+      "as": "sibling",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: the emperor and his sister"
+     },
+     {
+      "type": "employer/employee",
+      "to": "p-d0-crownsgate-warden",
+      "as": "employer",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: a crown gate-warden serves the Throne"
+     }
+    ],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-throne"
+    },
+    "facts": [
+     "x-d0-emperor-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-highcrossing",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "weary",
+     "habit": "counts_seasons"
+    }
+   },
+   {
+    "id": "p-garotaqa",
+    "name": "Garoṭaqa of the First-Stone House",
+    "standing": "High",
+    "archetype": "a-true-line-schemer",
+    "class": null,
+    "traits": [
+     "schemer",
+     "charismatic"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-tuhudo",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: Succession set piece, the Ninth Ring vs Firststone"
+     },
+     {
+      "type": "family",
+      "to": "p-ruo",
+      "as": "parent",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: mother and son"
+     }
+    ],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-true-line"
+    },
+    "facts": [
+     "x-d0-true-line-schemer-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-firststone",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "grown",
+    "voice": {
+     "manner": "proud",
+     "habit": "names_the_dead"
+    }
+   },
+   {
+    "id": "p-haahoqo",
+    "name": "Haʻahoqo the General",
+    "standing": "High",
+    "archetype": "a-banner-general",
+    "class": null,
+    "traits": [
+     "old general",
+     "warm to commoners"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-shahayuh",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the two Banner Lords, Longwall vs Southroad"
+     }
+    ],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-banner-lords"
+    },
+    "facts": [
+     "x-d0-banner-general-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-longwall",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "warm",
+     "habit": "names_the_dead"
+    }
+   },
+   {
+    "id": "p-hao",
+    "name": "Haʻo of the Green Wall",
+    "standing": "Middle",
+    "archetype": "a-warden-gate",
+    "class": null,
+    "traits": [
+     "talks at the gate",
+     "unbreakable"
+    ],
+    "links": [
+     {
+      "type": "spouse",
+      "to": "p-d0-warden-scout",
+      "as": "spouse",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: the old married pair"
+     }
+    ],
+    "faction": {
+     "id": "f-wardens",
+     "sub": null
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-green-wall",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "wry",
+     "habit": "so_first"
+    }
+   },
+   {
+    "id": "p-hotorito",
+    "name": "Hotorìṭo the High Priest",
+    "standing": "High",
+    "archetype": "a-high-priest",
+    "class": null,
+    "traits": [
+     "militant",
+     "political",
+     "tension: t-schism"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-d0-sincere-priestess",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the Mount vs the Low Shrine"
+     },
+     {
+      "type": "grudge",
+      "to": "p-d0-sincere-priestess",
+      "as": "holder",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "court state t-schism"
+     }
+    ],
+    "faction": {
+     "id": "f-holy-house",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-high-priest-1",
+     "x-d0-t-schism-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-mount",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "proud",
+     "habit": "so_first"
+    }
+   },
+   {
+    "id": "p-kitim",
+    "name": "Kitim Duel-ender",
+    "standing": "High",
+    "archetype": "a-dueling-sister",
+    "class": null,
+    "traits": [
+     "known fighter",
+     "once killed in a duel"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-d0-dueling-showman",
+      "as": "sibling",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: adopted siblings, co-founders"
+     }
+    ],
+    "faction": {
+     "id": "f-dueling",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-dueling-sister-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-openharbour",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "young",
+    "voice": {
+     "manner": "blunt",
+     "habit": "one_word"
+    }
+   },
+   {
+    "id": "p-kodor",
+    "name": "Kodor Debt-taker",
+    "standing": "High",
+    "archetype": "a-sharp-twin-counts",
+    "class": null,
+    "traits": [
+     "twin",
+     "counts and threatens",
+     "tension: t-long-shed"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-dorog",
+      "as": "sibling",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: twins"
+     },
+     {
+      "type": "trade",
+      "to": "p-feyesh",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: three-way partnership"
+     },
+     {
+      "type": "grudge",
+      "to": "p-doruduqu",
+      "as": "target",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "court state t-long-shed"
+     }
+    ],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-sharp-hands"
+    },
+    "facts": [
+     "x-d0-sharp-books",
+     "x-d0-t-long-shed-2"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-counting-house",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "grown",
+    "voice": {
+     "manner": "blunt",
+     "habit": "one_word"
+    }
+   },
+   {
+    "id": "p-kotqot",
+    "name": "Kotqot Wall-breaker",
+    "standing": "High",
+    "archetype": "a-free-lord-breaker",
+    "class": null,
+    "traits": [
+     "paranoid",
+     "known fighter",
+     "Qotiro-blooded"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-free-lords"
+    },
+    "facts": [
+     "x-d0-free-lord-breaker-1",
+     "x-d0-free-lord-breaker-2",
+     "x-d0-free-lord-breaker-3"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-breakwall",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "grown",
+    "voice": {
+     "manner": "blunt",
+     "habit": "decide"
+    }
+   },
+   {
+    "id": "p-lamawina",
+    "name": "Lamawina of the Lantern",
+    "standing": "High",
+    "archetype": "a-lantern-quartermaster",
+    "class": null,
+    "traits": [
+     "quartermaster",
+     "lives by the code"
+    ],
+    "links": [],
+    "faction": {
+     "id": "f-lantern",
+     "sub": null
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-carters-rest",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "grown",
+    "voice": {
+     "manner": "blunt",
+     "habit": "another_day"
+    }
+   },
+   {
+    "id": "p-litita",
+    "name": "Litiṭaʻa of the Great House",
+    "standing": "High",
+    "archetype": "a-throne-voice",
+    "class": null,
+    "traits": [
+     "masterful liar",
+     "lonely"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-gahiru",
+      "as": "sibling",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: the emperor and his sister"
+     }
+    ],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-throne"
+    },
+    "facts": [
+     "x-d0-throne-voice-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-highcrossing",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "grown",
+    "voice": {
+     "manner": "careful",
+     "habit": "stone_keep_you"
+    }
+   },
+   {
+    "id": "p-nemu",
+    "name": "Nemu of the Wide Bay",
+    "standing": "High",
+    "archetype": "a-fleet-speaker",
+    "class": null,
+    "traits": [
+     "fleet speaker",
+     "homesick"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-d0-tide-speaker",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: Reefhold vs the Anchorage"
+     },
+     {
+      "type": "employer/employee",
+      "to": "p-d0-rock-keeper",
+      "as": "employer",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: the beacon's keeper serves the fleet"
+     }
+    ],
+    "faction": {
+     "id": "f-far-sails",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-fleet-speaker-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-anchorage",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "old",
+    "voice": {
+     "manner": "wry",
+     "habit": "talks_tide"
+    }
+   },
+   {
+    "id": "p-paqax",
+    "name": "Paqax Chain-breaker",
+    "standing": "High",
+    "archetype": "a-binder-head",
+    "class": null,
+    "traits": [
+     "ex-slave slaver",
+     "self-justifying"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-waarua",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the freed bondswoman and the ex-slave Binder"
+     }
+    ],
+    "faction": {
+     "id": "f-binders",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-binder-head-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-chainmarket",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "grown",
+    "voice": {
+     "manner": "careful",
+     "habit": "curses_the_damp"
+    }
+   },
+   {
+    "id": "p-ruo",
+    "name": "Ruʻo of the First-Stone House",
+    "standing": "High",
+    "archetype": "a-true-line-face",
+    "class": null,
+    "traits": [
+     "the face of the True Line"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "p-garotaqa",
+      "as": "child",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: mother and son"
+     }
+    ],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-true-line"
+    },
+    "facts": [],
+    "premade": true,
+    "dead": false,
+    "home": "pl-firststone",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "young",
+    "voice": {
+     "manner": "proud",
+     "habit": "so_first"
+    }
+   },
+   {
+    "id": "p-shahayuh",
+    "name": "Shahayuh of the South Road",
+    "standing": "High",
+    "archetype": "a-banner-climber",
+    "class": null,
+    "traits": [
+     "Ṭaḍoro-born lord",
+     "social climber"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-haahoqo",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the two Banner Lords, Longwall vs Southroad"
+     }
+    ],
+    "faction": {
+     "id": "f-great-house",
+     "sub": "f-banner-lords"
+    },
+    "facts": [
+     "x-d0-banner-climber-1",
+     "x-d0-banner-climber-2"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-southroad",
+    "dies_at": null,
+    "fallback": null,
+    "people": "tadoro",
+    "age": "grown",
+    "voice": {
+     "manner": "proud",
+     "habit": "guesses_where_from"
+    }
+   },
+   {
+    "id": "p-textrim",
+    "name": "Textrim, High Priestess",
+    "standing": "High",
+    "archetype": "a-wave-priestess",
+    "class": null,
+    "traits": [
+     "protective",
+     "pragmatic",
+     "High Priestess",
+     "tension: t-rim-war"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "p-totkit",
+      "as": "employer",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: her champion, who fights for her"
+     },
+     {
+      "type": "employer/employee",
+      "to": "p-d0-ironstep-priestess",
+      "as": "employer",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "class: an enclave priestess answers to the High Priestess"
+     }
+    ],
+    "faction": {
+     "id": "f-last-wave",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-wave-priestess-1",
+     "x-d0-t-rim-war-2"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-textrim",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "grown",
+    "voice": {
+     "manner": "careful",
+     "habit": "decide"
+    }
+   },
+   {
+    "id": "p-totkit",
+    "name": "Totkit Sea-crosser",
+    "standing": "High",
+    "archetype": "a-wave-warchief",
+    "class": null,
+    "traits": [
+     "war-chief",
+     "known fighter",
+     "tension: t-rim-war"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "p-textrim",
+      "as": "employee",
+      "visibility": "public",
+      "when": "before the story",
+      "note": "canon: her champion, who fights for her"
+     }
+    ],
+    "faction": {
+     "id": "f-last-wave",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-wave-warchief-1",
+     "x-d0-t-rim-war-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-proving",
+    "dies_at": null,
+    "fallback": null,
+    "people": "qotiro",
+    "age": "grown",
+    "voice": {
+     "manner": "blunt",
+     "habit": "no_goodbye"
+    }
+   },
+   {
+    "id": "p-tuhudo",
+    "name": "Tuhuḍo of the Ninth-Ring House",
+    "standing": "High",
+    "archetype": "a-seated-head",
+    "class": null,
+    "traits": [
+     "blind archivist-lord",
+     "sharp memory"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-garotaqa",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: Succession set piece, the Ninth Ring vs Firststone"
+     }
+    ],
+    "faction": {
+     "id": "f-first-peoples",
+     "sub": "f-seated-houses"
+    },
+    "facts": [
+     "x-d0-seated-head-1",
+     "x-d0-seated-head-2",
+     "x-d0-seated-head-3"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-ninth-ring",
+    "dies_at": null,
+    "fallback": null,
+    "people": "roduro",
+    "age": "old",
+    "voice": {
+     "manner": "careful",
+     "habit": "speaks_of_the_house"
+    }
+   },
+   {
+    "id": "p-waarua",
+    "name": "Waarua of the Harbour",
+    "standing": "High",
+    "archetype": "a-council-head",
+    "class": null,
+    "traits": [
+     "freed bondswoman",
+     "inspiring speaker"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-paqax",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the freed bondswoman and the ex-slave Binder"
+     }
+    ],
+    "faction": {
+     "id": "f-open-hand",
+     "sub": "f-open-council"
+    },
+    "facts": [
+     "x-d0-council-head-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-openharbour",
+    "dies_at": null,
+    "fallback": null,
+    "people": "horaro",
+    "age": "grown",
+    "voice": {
+     "manner": "warm",
+     "habit": "we_for_all"
+    }
+   },
+   {
+    "id": "p-yaweth",
+    "name": "Yaweth of the Market Road",
+    "standing": "High",
+    "archetype": "a-market-fence",
+    "class": null,
+    "traits": [
+     "cheeky",
+     "generous"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "p-d0-old-don",
+      "as": null,
+      "visibility": "public",
+      "when": "before the story",
+      "note": "foil: the rival syndicates"
+     }
+    ],
+    "faction": {
+     "id": "f-night-market",
+     "sub": null
+    },
+    "facts": [
+     "x-d0-market-fence-1"
+    ],
+    "premade": true,
+    "dead": false,
+    "home": "pl-openharbour",
+    "dies_at": null,
+    "fallback": null,
+    "people": "tadoro",
+    "age": "grown",
+    "voice": {
+     "manner": "wry",
+     "habit": "have_you_noticed"
+    }
+   }
+  ],
+  "places": [
+   {
+    "id": "pl-anchorage",
+    "name": "the Anchorage of the Wide Bay",
+    "holder": "p-nemu"
+   },
+   {
+    "id": "pl-ashring",
+    "name": "Ashring",
+    "holder": "p-d0-ashring-head"
+   },
+   {
+    "id": "pl-bogford",
+    "name": "Bogford",
+    "holder": "p-d0-bogford-lord"
+   },
+   {
+    "id": "pl-breakwall",
+    "name": "Breakwall",
+    "holder": "p-kotqot"
+   },
+   {
+    "id": "pl-carters-rest",
+    "name": "Carter's Rest",
+    "holder": "p-doruduqu",
+    "titles": [
+     {
+      "title": "head of the Lantern Company (Lanternhall)",
+      "holder": "p-lamawina",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-chainmarket",
+    "name": "the Chainmarket",
+    "holder": "p-paqax"
+   },
+   {
+    "id": "pl-counting-house",
+    "name": "the Silver Road Counting-House",
+    "holder": "p-feyesh",
+    "titles": [
+     {
+      "title": "partner who deals (Sharp Hands co-leader)",
+      "holder": "p-dorog",
+      "since": "before the story"
+     },
+     {
+      "title": "partner who keeps the count (Sharp Hands co-leader)",
+      "holder": "p-kodor",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-crownsgate",
+    "name": "Crownsgate",
+    "holder": "p-d0-crownsgate-warden"
+   },
+   {
+    "id": "pl-elderhollow",
+    "name": "Elderhollow",
+    "holder": "p-d0-elderhollow-head",
+    "titles": [
+     {
+      "title": "keeper of the Low Shrine",
+      "holder": "p-d0-sincere-priestess",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-firststone",
+    "name": "Firststone",
+    "holder": "p-garotaqa",
+    "titles": [
+     {
+      "title": "face of the True Line (co-leader)",
+      "holder": "p-ruo",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-green-wall",
+    "name": "the Green Wall",
+    "holder": "p-hao",
+    "titles": [
+     {
+      "title": "first scout of the Wall (co-leader)",
+      "holder": "p-d0-warden-scout",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-high-snows",
+    "name": "the High Snows",
+    "holder": "p-d0-highfolk-head"
+   },
+   {
+    "id": "pl-highcrossing",
+    "name": "Highcrossing",
+    "holder": "p-gahiru",
+    "titles": [
+     {
+      "title": "keeper of the Throne's court",
+      "holder": "p-litita",
+      "since": "before the story"
+     },
+     {
+      "title": "head of the Writers (the Wayhouse; never there)",
+      "holder": "p-fiyeweya",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-ironstep",
+    "name": "Ironstep",
+    "holder": "p-d0-ironstep-priestess"
+   },
+   {
+    "id": "pl-lantern-rock",
+    "name": "the Lantern Rock",
+    "holder": "p-d0-rock-keeper"
+   },
+   {
+    "id": "pl-longwall",
+    "name": "Longwall",
+    "holder": "p-haahoqo"
+   },
+   {
+    "id": "pl-mount",
+    "name": "the Mount",
+    "holder": "p-hotorito"
+   },
+   {
+    "id": "pl-ninth-ring",
+    "name": "the Ninth Ring",
+    "holder": "p-tuhudo",
+    "titles": [
+     {
+      "title": "head of the Old Hands (the Old Gate House)",
+      "holder": "p-d0-old-don",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-oathford",
+    "name": "Oathford",
+    "holder": "p-d0-oathford-lord"
+   },
+   {
+    "id": "pl-openharbour",
+    "name": "Openharbour",
+    "holder": "p-waarua",
+    "titles": [
+     {
+      "title": "head of the Night Market (Under the Market Road)",
+      "holder": "p-yaweth",
+      "since": "before the story"
+     },
+     {
+      "title": "head of the Dueling Society (the Ring)",
+      "holder": "p-d0-dueling-showman",
+      "since": "before the story"
+     },
+     {
+      "title": "co-head of the Dueling Society (the Ring)",
+      "holder": "p-kitim",
+      "since": "before the story"
+     }
+    ]
+   },
+   {
+    "id": "pl-proving",
+    "name": "the Proving Ground",
+    "holder": "p-totkit"
+   },
+   {
+    "id": "pl-reefhold",
+    "name": "Reefhold",
+    "holder": "p-d0-tide-speaker"
+   },
+   {
+    "id": "pl-saltmarket",
+    "name": "Saltmarket",
+    "holder": "p-d0-saltmarket-head"
+   },
+   {
+    "id": "pl-shellring",
+    "name": "Shellring",
+    "holder": "p-d0-shellring-head"
+   },
+   {
+    "id": "pl-southroad",
+    "name": "Southroad",
+    "holder": "p-shahayuh"
+   },
+   {
+    "id": "pl-textrim",
+    "name": "Textrim's Height",
+    "holder": "p-textrim"
+   },
+   {
+    "id": "pl-wainyard",
+    "name": "Wainyard",
+    "holder": "p-d0-wainyard-head"
+   }
+  ]
+ },
+ "facts": [
+  {
+   "id": "x-d0-banner-climber-1",
+   "text": "Shahayuh of the South Road paid for the Great Bridge from his own pocket; his name is cut into every stone, which the old blood finds vulgar.",
+   "visibility": "public",
+   "kind": "past event",
+   "source": "world",
+   "when": "years before the story"
+  },
+  {
+   "id": "x-d0-banner-climber-2",
+   "text": "Old-blood lords keep 'accidentally' damaging the Great Bridge, and Shahayuh of the South Road suspects his fellow Banner Lord.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-banner-general-1",
+   "text": "Haʻahoqo the General has quietly begun counting how many soldiers would follow him, rather than the Throne, if the emperor died.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-binder-head-1",
+   "text": "Paqax Chain-breaker had the shackles he wore as a slave set into the Block.",
+   "visibility": "public",
+   "kind": "past event",
+   "source": "world",
+   "when": "years before the story"
+  },
+  {
+   "id": "x-d0-council-head-1",
+   "text": "Waarua of the Harbour no longer has keys to all of the council hall's locked ledger rooms.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-dueling-sister-1",
+   "text": "Kitim Duel-ender once killed in a duel, and started the Dueling Society so no one else would have to.",
+   "visibility": "public",
+   "kind": "past event",
+   "source": "world",
+   "when": "years before the story"
+  },
+  {
+   "id": "x-d0-emperor-1",
+   "text": "A double sits in for Gahìru of the Great House at public audiences when his hands shake.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-fleet-speaker-1",
+   "text": "The Binders have offered Nemu of the Wide Bay a price for the list of runaways sheltered at the Anchorage.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-free-lord-breaker-1",
+   "text": "Kotqot Wall-breaker took Breakwall by smashing a hole through its outer wall, and left it open: whoever can hold the breach can have the keep.",
+   "visibility": "public",
+   "kind": "past event",
+   "source": "world",
+   "when": "years before the story"
+  },
+  {
+   "id": "x-d0-free-lord-breaker-2",
+   "text": "Kotqot Wall-breaker keeps a written record of every lie the Throne has told, to publish the day he declares independence.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-free-lord-breaker-3",
+   "text": "Kotqot Wall-breaker defies the Throne because he thinks it a lie, not out of greed.",
+   "visibility": "secret",
+   "kind": "trait",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-high-priest-1",
+   "text": "Hotorìṭo the High Priest no longer believes, and has stopped performing the inner rites; no one has checked in years.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-highfolk-head-1",
+   "text": "Gure of the Herb-Stream House guards the way to the Womb of Creation, whose location is never spoken.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-market-fence-1",
+   "text": "Yaweth of the Market Road is planning the biggest score in the island's history.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-old-don-1",
+   "text": "Ḍolo of the Four-Ring House has kept a copy of every favor done for the old houses, and they've stopped answering his letters.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-road-foreman-1",
+   "text": "The Road Crews are close to voting to strike against Sharp Hands rates; one bought vote would decide it.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-seated-head-1",
+   "text": "Tuhuḍo of the Ninth-Ring House rules the Ninth Ring's archive from memory; it has gaps only he knows about.",
+   "visibility": "public",
+   "kind": "trait",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-seated-head-2",
+   "text": "Tuhuḍo of the Ninth-Ring House has begun to forget.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-seated-head-3",
+   "text": "Tuhuḍo of the Ninth-Ring House knows the Alliance is dying, and is worn out from holding it up.",
+   "visibility": "secret",
+   "kind": "trait",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-sharp-books",
+   "text": "The Sharp Hands' three partners, Feyesh of the Silver Road, Dorog Coin-counter and Kodor Debt-taker, quietly profit from the Binder trade; a cellar below the Counting-House keeps the second set of books.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-sincere-priestess-1",
+   "text": "The Mount wants the Low Shrine closed, and Qeḍuʻata of the Rain-Shore House has more followers than she realizes.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-t-long-shed-1",
+   "text": "Doruḍoqu the Carter has called the Road Crews to vote in the Long Shed on striking against the Counting-House's rates.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-t-long-shed-2",
+   "text": "Kodor Debt-taker has let it be known that any crew that strikes will have its notes called in.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-t-rim-war-1",
+   "text": "Young warriors at the Proving Ground call for a raid below the Rim; Totkit Sea-crosser has forbidden it until the Height's stores are counted.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-t-rim-war-2",
+   "text": "Textrim, High Priestess, has sent word below the Rim that the Height will hear any offer of grain made with respect.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-t-schism-1",
+   "text": "Hotorìṭo the High Priest has ordered the Low Shrine's soup kitchen at Elderhollow closed; Qeḍuʻata of the Rain-Shore House keeps it open every evening.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-t-schism-2",
+   "text": "Pilgrims who stopped climbing to the Mount now leave their coin at the Low Shrine, and the Mount's preachers call Qeḍuʻata of the Rain-Shore House's way a heresy.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-throne-voice-1",
+   "text": "Litiṭaʻa of the Great House knows how weak the emperor has grown, and hides it behind the court's ceremony.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-tide-speaker-1",
+   "text": "Momilei of the Deep Reef knows that boats slip out from Reefhold to the Far Sails at night, and allows it.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-true-line-schemer-1",
+   "text": "Garoṭaqa of the First-Stone House is digging under the Founding Stone for older records to prove the True Line's claim.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-warden-scout-1",
+   "text": "Linuha of the Star Harbour has mapped a path deeper into the green than anyone has gone, and found something that walks there with purpose.",
+   "visibility": "secret",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-wave-priestess-1",
+   "text": "Textrim's Height is one hard winter from hunger; Textrim, High Priestess, would trade peace for grain if anyone offered it with respect.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-wave-warchief-1",
+   "text": "Young warriors at the Proving Ground want war with the lowlands; Totkit Sea-crosser is holding them back by a thread.",
+   "visibility": "public",
+   "kind": "state",
+   "source": "world"
+  },
+  {
+   "id": "x-d0-writers-leader-1",
+   "text": "Fiyeweya of No Road is never at the Wayhouse; she judges by letter, read out by the eldest copyist.",
+   "visibility": "public",
+   "kind": "trait",
+   "source": "world"
+  }
+ ],
+ "tensions": [
+  {
+   "id": "t-schism",
+   "name": "The Mount against the Low Shrine",
+   "people": [
+    "p-hotorito",
+    "p-d0-sincere-priestess"
+   ],
+   "archetypes": [
+    "a-high-priest",
+    "a-sincere-priestess"
+   ],
+   "facts": [
+    "x-d0-t-schism-1",
+    "x-d0-t-schism-2"
+   ],
+   "links": [
+    {
+     "type": "grudge",
+     "from": "p-hotorito",
+     "to": "p-d0-sincere-priestess",
+     "as": [
+      "holder",
+      "target"
+     ]
+    }
+   ],
+   "touches": [
+    "f-holy-house",
+    "f-first-peoples"
+   ],
+   "majors": [
+    "f-first-peoples"
+   ],
+   "why_majors": "the Mount and Elderhollow are First Peoples land, and the house leans on the Alliance"
+  },
+  {
+   "id": "t-long-shed",
+   "name": "The Long Shed vote",
+   "people": [
+    "p-doruduqu",
+    "p-kodor"
+   ],
+   "archetypes": [
+    "a-road-foreman",
+    "a-sharp-twin-counts"
+   ],
+   "facts": [
+    "x-d0-t-long-shed-1",
+    "x-d0-t-long-shed-2"
+   ],
+   "links": [
+    {
+     "type": "grudge",
+     "from": "p-doruduqu",
+     "to": "p-kodor",
+     "as": [
+      "holder",
+      "target"
+     ]
+    }
+   ],
+   "touches": [
+    "f-open-hand",
+    "f-road-crews",
+    "f-sharp-hands"
+   ],
+   "majors": [
+    "f-open-hand"
+   ],
+   "why_majors": "Carter's Rest and the Counting-House are Open Hand"
+  },
+  {
+   "id": "t-rim-war",
+   "name": "War talk on the Rim",
+   "people": [
+    "p-totkit",
+    "p-textrim"
+   ],
+   "archetypes": [
+    "a-wave-warchief",
+    "a-wave-priestess"
+   ],
+   "facts": [
+    "x-d0-t-rim-war-1",
+    "x-d0-t-rim-war-2"
+   ],
+   "links": [],
+   "touches": [
+    "f-last-wave",
+    "f-free-lords"
+   ],
+   "majors": [
+    "f-great-house"
+   ],
+   "why_majors": "the lowlands below the Rim are the Free Lords' frontier, Great House land"
+  }
+ ],
+ "archetypes": [
+  {
+   "id": "a-banner-climber",
+   "role": "the Ṭaḍoro-born Banner Lord of the toll road, who built the Great Bridge from his own purse",
+   "default": "p-shahayuh",
+   "filled_by": "p-shahayuh",
+   "canon": "yes",
+   "roll": 0.2729,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "Ṭaḍoro-born lord",
+     "social climber"
+    ],
+    "facts": [
+     "x-d0-banner-climber-1",
+     "x-d0-banner-climber-2"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-banner-general",
+      "as": null,
+      "note": "foil: the two Banner Lords, Longwall vs Southroad"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "proud",
+    "habit": "guesses_where_from"
+   },
+   "peoples": {
+    "tadoro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-banner-general",
+   "role": "the Banner Lords' old general at Longwall, beloved of the soldiers",
+   "default": "p-haahoqo",
+   "filled_by": "p-haahoqo",
+   "canon": "yes",
+   "roll": 0.1958,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "old general",
+     "warm to commoners"
+    ],
+    "facts": [
+     "x-d0-banner-general-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-banner-climber",
+      "as": null,
+      "note": "foil: the two Banner Lords, Longwall vs Southroad"
+     }
+    ],
+    "sex": null
+   },
+   "age": "old",
+   "voice": {
+    "manner": "warm",
+    "habit": "names_the_dead"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-binder-head",
+   "role": "head of the Binders at the Chainmarket, a slave who became a slaver",
+   "default": "p-paqax",
+   "filled_by": "p-paqax",
+   "canon": "yes",
+   "roll": 0.1933,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "ex-slave slaver",
+     "self-justifying"
+    ],
+    "facts": [
+     "x-d0-binder-head-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-council-head",
+      "as": null,
+      "note": "foil: the freed bondswoman and the ex-slave Binder"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "careful",
+    "habit": "curses_the_damp"
+   },
+   "peoples": {
+    "qotiro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-council-head",
+   "role": "head of the Open Council at Openharbour, once in bondage",
+   "default": "p-waarua",
+   "filled_by": "p-waarua",
+   "canon": "yes",
+   "roll": 0.401,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "freed bondswoman",
+     "inspiring speaker"
+    ],
+    "facts": [
+     "x-d0-council-head-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-binder-head",
+      "as": null,
+      "note": "foil: the freed bondswoman and the ex-slave Binder"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "warm",
+    "habit": "we_for_all"
+   },
+   "peoples": {
+    "horaro": 3,
+    "roduro": 1,
+    "qotiro": 1,
+    "tadoro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-dueling-showman",
+   "role": "the Dueling Society co-founder who runs the show",
+   "default": "p-lio",
+   "filled_by": "p-d0-dueling-showman",
+   "canon": "no",
+   "roll": 0.9843,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "showman"
+    ],
+    "facts": [],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-dueling-sister",
+      "as": "sibling",
+      "note": "canon: adopted siblings, co-founders"
+     }
+    ],
+    "sex": "man"
+   },
+   "age": "young",
+   "voice": {
+    "manner": "warm",
+    "habit": "traveller"
+   },
+   "peoples": {
+    "roduro": 2,
+    "horaro": 1,
+    "qotiro": 1,
+    "tadoro": 1
+   },
+   "sex": "man"
+  },
+  {
+   "id": "a-dueling-sister",
+   "role": "the Dueling Society co-founder, the showman's adopted sibling, who once killed in a duel",
+   "default": "p-kitim",
+   "filled_by": "p-kitim",
+   "canon": "yes",
+   "roll": 0.5688,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "known fighter",
+     "once killed in a duel"
+    ],
+    "facts": [
+     "x-d0-dueling-sister-1"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-dueling-showman",
+      "as": "sibling",
+      "note": "canon: adopted siblings, co-founders"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "young",
+   "voice": {
+    "manner": "blunt",
+    "habit": "one_word"
+   },
+   "peoples": {
+    "qotiro": 2,
+    "roduro": 1,
+    "horaro": 1,
+    "tadoro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-emperor",
+   "role": "the emperor of the Great House, fading on a hollow Throne",
+   "default": "p-gahiru",
+   "filled_by": "p-gahiru",
+   "canon": "yes",
+   "roll": 0.512,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "the emperor",
+     "fading"
+    ],
+    "facts": [
+     "x-d0-emperor-1"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-throne-voice",
+      "as": "sibling",
+      "note": "canon: the emperor and his sister"
+     }
+    ],
+    "sex": "man"
+   },
+   "age": "old",
+   "voice": {
+    "manner": "weary",
+    "habit": "counts_seasons"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": "man"
+  },
+  {
+   "id": "a-fleet-speaker",
+   "role": "the Far Sails' fleet speaker at the Anchorage",
+   "default": "p-nemu",
+   "filled_by": "p-nemu",
+   "canon": "yes",
+   "roll": 0.0499,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "fleet speaker",
+     "homesick"
+    ],
+    "facts": [
+     "x-d0-fleet-speaker-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-tide-speaker",
+      "as": null,
+      "note": "foil: Reefhold vs the Anchorage"
+     }
+    ],
+    "sex": null
+   },
+   "age": "old",
+   "voice": {
+    "manner": "wry",
+    "habit": "talks_tide"
+   },
+   "peoples": {
+    "horaro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-free-lord-breaker",
+   "role": "the Qotiro-blooded Free Lord who took Breakwall through its own wall",
+   "default": "p-kotqot",
+   "filled_by": "p-kotqot",
+   "canon": "yes",
+   "roll": 0.5603,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "paranoid",
+     "known fighter",
+     "Qotiro-blooded"
+    ],
+    "facts": [
+     "x-d0-free-lord-breaker-1",
+     "x-d0-free-lord-breaker-2",
+     "x-d0-free-lord-breaker-3"
+    ],
+    "links": [],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "blunt",
+    "habit": "decide"
+   },
+   "peoples": {
+    "qotiro": 2,
+    "roduro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-high-priest",
+   "role": "the militant high priest of the Holy House at the Mount",
+   "default": "p-hotorito",
+   "filled_by": "p-hotorito",
+   "canon": "yes",
+   "roll": 0.2543,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "militant",
+     "political"
+    ],
+    "facts": [
+     "x-d0-high-priest-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-sincere-priestess",
+      "as": null,
+      "note": "foil: the Mount vs the Low Shrine"
+     }
+    ],
+    "sex": null
+   },
+   "age": "old",
+   "voice": {
+    "manner": "proud",
+    "habit": "so_first"
+   },
+   "peoples": {
+    "roduro": 4,
+    "horaro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-highfolk-head",
+   "role": "head of the Highfolk clans at the High Snows, who guards the way to the Womb (guaranteed: hidden-lore)",
+   "default": "p-shihi",
+   "filled_by": "p-d0-highfolk-head",
+   "canon": "no",
+   "roll": 0.722,
+   "guaranteed": true,
+   "keeps": {
+    "traits": [
+     "hospitable",
+     "archaic"
+    ],
+    "facts": [
+     "x-d0-highfolk-head-1"
+    ],
+    "links": [],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "warm",
+    "habit": "traveller"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-lantern-quartermaster",
+   "role": "the Lantern Company's quartermaster at Lanternhall",
+   "default": "p-lamawina",
+   "filled_by": "p-lamawina",
+   "canon": "yes",
+   "roll": 0.4044,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "quartermaster",
+     "lives by the code"
+    ],
+    "facts": [],
+    "links": [],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "blunt",
+    "habit": "another_day"
+   },
+   "peoples": {
+    "horaro": 1,
+    "roduro": 1,
+    "qotiro": 1,
+    "tadoro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-market-fence",
+   "role": "the charming fence who runs the Night Market",
+   "default": "p-yaweth",
+   "filled_by": "p-yaweth",
+   "canon": "yes",
+   "roll": 0.6312,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "cheeky",
+     "generous"
+    ],
+    "facts": [
+     "x-d0-market-fence-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-old-don",
+      "as": null,
+      "note": "foil: the rival syndicates"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "wry",
+    "habit": "have_you_noticed"
+   },
+   "peoples": {
+    "tadoro": 2,
+    "horaro": 1,
+    "roduro": 1,
+    "qotiro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-old-don",
+   "role": "the old don of the Old Hands at the Old Gate House",
+   "default": "p-yitolao",
+   "filled_by": "p-d0-old-don",
+   "canon": "no",
+   "roll": 0.7094,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "politely menacing"
+    ],
+    "facts": [
+     "x-d0-old-don-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-market-fence",
+      "as": null,
+      "note": "foil: the rival syndicates"
+     }
+    ],
+    "sex": "man"
+   },
+   "age": "old",
+   "voice": {
+    "manner": "careful",
+    "habit": "speaks_of_the_house"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": "man"
+  },
+  {
+   "id": "a-road-foreman",
+   "role": "the Road Crews' elected foreman at Carter's Rest",
+   "default": "p-doruduqu",
+   "filled_by": "p-doruduqu",
+   "canon": "yes",
+   "roll": 0.0413,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "elected foreman",
+     "knows every road"
+    ],
+    "facts": [
+     "x-d0-road-foreman-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-sharp-broker",
+      "as": null,
+      "note": "the Road Crews grumble about the Sharp Hands (world-factions)"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "blunt",
+    "habit": "counts_seasons"
+   },
+   "peoples": {
+    "roduro": 2,
+    "qotiro": 1,
+    "tadoro": 1,
+    "horaro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-seated-head",
+   "role": "head of the Seated Houses, the blind archivist-lord who rules the Ninth Ring from memory",
+   "default": "p-tuhudo",
+   "filled_by": "p-tuhudo",
+   "canon": "yes",
+   "roll": 0.3085,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "blind archivist-lord",
+     "sharp memory"
+    ],
+    "facts": [
+     "x-d0-seated-head-1",
+     "x-d0-seated-head-2",
+     "x-d0-seated-head-3"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-true-line-schemer",
+      "as": null,
+      "note": "foil: Succession set piece, the Ninth Ring vs Firststone"
+     }
+    ],
+    "sex": null
+   },
+   "age": "old",
+   "voice": {
+    "manner": "careful",
+    "habit": "speaks_of_the_house"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-sharp-broker",
+   "role": "the Sharp Hands' broker at the Silver Road Counting-House, who holds the notes",
+   "default": "p-feyesh",
+   "filled_by": "p-feyesh",
+   "canon": "yes",
+   "roll": 0.5574,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "broker",
+     "flatterer"
+    ],
+    "facts": [
+     "x-d0-sharp-books"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-road-foreman",
+      "as": null,
+      "note": "the Road Crews grumble about the Sharp Hands (world-factions)"
+     },
+     {
+      "type": "trade",
+      "to": "a-sharp-twin-deals",
+      "as": null,
+      "note": "canon: three-way partnership"
+     },
+     {
+      "type": "trade",
+      "to": "a-sharp-twin-counts",
+      "as": null,
+      "note": "canon: three-way partnership"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "warm",
+    "habit": "what_would_you_do"
+   },
+   "peoples": {
+    "tadoro": 3,
+    "roduro": 1,
+    "qotiro": 1,
+    "horaro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-sharp-twin-counts",
+   "role": "the Sharp Hands twin who counts and threatens",
+   "default": "p-kodor",
+   "filled_by": "p-kodor",
+   "canon": "yes",
+   "roll": 0.3923,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "twin",
+     "counts and threatens"
+    ],
+    "facts": [
+     "x-d0-sharp-books"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-sharp-twin-deals",
+      "as": "sibling",
+      "note": "canon: twins"
+     },
+     {
+      "type": "trade",
+      "to": "a-sharp-broker",
+      "as": null,
+      "note": "canon: three-way partnership"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "blunt",
+    "habit": "one_word"
+   },
+   "peoples": {
+    "qotiro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-sharp-twin-deals",
+   "role": "the Sharp Hands twin who smiles and deals",
+   "default": "p-dorog",
+   "filled_by": "p-dorog",
+   "canon": "yes",
+   "roll": 0.1358,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "twin",
+     "smiles and deals"
+    ],
+    "facts": [
+     "x-d0-sharp-books"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-sharp-twin-counts",
+      "as": "sibling",
+      "note": "canon: twins"
+     },
+     {
+      "type": "trade",
+      "to": "a-sharp-broker",
+      "as": null,
+      "note": "canon: three-way partnership"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "warm",
+    "habit": "eat"
+   },
+   "peoples": {
+    "qotiro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-sincere-priestess",
+   "role": "the sincere priestess who keeps the Low Shrine's kitchen in the old way",
+   "default": "p-aloqi",
+   "filled_by": "p-d0-sincere-priestess",
+   "canon": "no",
+   "roll": 0.8265,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "sincere",
+     "old"
+    ],
+    "facts": [
+     "x-d0-sincere-priestess-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-high-priest",
+      "as": null,
+      "note": "foil: the Mount vs the Low Shrine"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "old",
+   "voice": {
+    "manner": "warm",
+    "habit": "stone_keep_you"
+   },
+   "peoples": {
+    "roduro": 4,
+    "horaro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-throne-voice",
+   "role": "the emperor's sibling, the Throne's masterful liar, who keeps the court's face up",
+   "default": "p-litita",
+   "filled_by": "p-litita",
+   "canon": "yes",
+   "roll": 0.0161,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "masterful liar",
+     "lonely"
+    ],
+    "facts": [
+     "x-d0-throne-voice-1"
+    ],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-emperor",
+      "as": "sibling",
+      "note": "canon: the emperor and his sister"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "careful",
+    "habit": "stone_keep_you"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-tide-speaker",
+   "role": "the Tide Houses' season's speaker at Reefhold, loyal in public and torn in private",
+   "default": "p-niralea",
+   "filled_by": "p-d0-tide-speaker",
+   "canon": "no",
+   "roll": 0.8794,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "season's speaker",
+     "divided loyalties"
+    ],
+    "facts": [
+     "x-d0-tide-speaker-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-fleet-speaker",
+      "as": null,
+      "note": "foil: Reefhold vs the Anchorage"
+     }
+    ],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "warm",
+    "habit": "waits_for_a_sign"
+   },
+   "peoples": {
+    "horaro": 1
+   },
+   "sex": null
+  },
+  {
+   "id": "a-true-line-face",
+   "role": "the True Line's public face, the schemer's child",
+   "default": "p-ruo",
+   "filled_by": "p-ruo",
+   "canon": "yes",
+   "roll": 0.2782,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "the face of the True Line"
+    ],
+    "facts": [],
+    "links": [
+     {
+      "type": "family",
+      "to": "a-true-line-schemer",
+      "as": "child",
+      "note": "canon: mother and son"
+     }
+    ],
+    "sex": "man"
+   },
+   "age": "young",
+   "voice": {
+    "manner": "proud",
+    "habit": "so_first"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": "man"
+  },
+  {
+   "id": "a-true-line-schemer",
+   "role": "the True Line's schemer at Firststone, digging under the Founding Stone for the older claim",
+   "default": "p-garotaqa",
+   "filled_by": "p-garotaqa",
+   "canon": "yes",
+   "roll": 0.6199,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "schemer",
+     "charismatic"
+    ],
+    "facts": [
+     "x-d0-true-line-schemer-1"
+    ],
+    "links": [
+     {
+      "type": "rival",
+      "to": "a-seated-head",
+      "as": null,
+      "note": "foil: Succession set piece, the Ninth Ring vs Firststone"
+     },
+     {
+      "type": "family",
+      "to": "a-true-line-face",
+      "as": "parent",
+      "note": "canon: mother and son"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "proud",
+    "habit": "names_the_dead"
+   },
+   "peoples": {
+    "roduro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-warden-gate",
+   "role": "the Warden who holds the Green Wall's gate and does the talking",
+   "default": "p-hao",
+   "filled_by": "p-hao",
+   "canon": "yes",
+   "roll": 0.5559,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "talks at the gate",
+     "unbreakable"
+    ],
+    "facts": [],
+    "links": [
+     {
+      "type": "spouse",
+      "to": "a-warden-scout",
+      "as": "spouse",
+      "note": "canon: the old married pair"
+     }
+    ],
+    "sex": "man"
+   },
+   "age": "old",
+   "voice": {
+    "manner": "wry",
+    "habit": "so_first"
+   },
+   "peoples": {
+    "roduro": 3,
+    "horaro": 1,
+    "qotiro": 1,
+    "tadoro": 1
+   },
+   "sex": "man"
+  },
+  {
+   "id": "a-warden-scout",
+   "role": "the Warden who has scouted the green deeper than anyone (guaranteed: hidden-lore)",
+   "default": "p-hoqa",
+   "filled_by": "p-d0-warden-scout",
+   "canon": "no",
+   "roll": 0.8763,
+   "guaranteed": true,
+   "keeps": {
+    "traits": [
+     "scouts the green",
+     "knows more than she/he says"
+    ],
+    "facts": [
+     "x-d0-warden-scout-1"
+    ],
+    "links": [
+     {
+      "type": "spouse",
+      "to": "a-warden-gate",
+      "as": "spouse",
+      "note": "canon: the old married pair"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "old",
+   "voice": {
+    "manner": "careful",
+    "habit": "names_the_dead"
+   },
+   "peoples": {
+    "roduro": 3,
+    "horaro": 1,
+    "qotiro": 1,
+    "tadoro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-wave-priestess",
+   "role": "the Last Wave's High Priestess at Textrim's Height (priestesses rule)",
+   "default": "p-textrim",
+   "filled_by": "p-textrim",
+   "canon": "yes",
+   "roll": 0.1465,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "High Priestess",
+     "protective",
+     "pragmatic"
+    ],
+    "facts": [
+     "x-d0-wave-priestess-1"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "a-wave-warchief",
+      "as": "employer",
+      "note": "canon: her champion, who fights for her"
+     }
+    ],
+    "sex": "woman"
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "careful",
+    "habit": "decide"
+   },
+   "peoples": {
+    "qotiro": 1
+   },
+   "sex": "woman"
+  },
+  {
+   "id": "a-wave-warchief",
+   "role": "the Last Wave's war-chief at the Proving Ground, the High Priestess's champion",
+   "default": "p-totkit",
+   "filled_by": "p-totkit",
+   "canon": "yes",
+   "roll": 0.617,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "war-chief",
+     "known fighter"
+    ],
+    "facts": [
+     "x-d0-wave-warchief-1"
+    ],
+    "links": [
+     {
+      "type": "employer/employee",
+      "to": "a-wave-priestess",
+      "as": "employee",
+      "note": "canon: her champion, who fights for her"
+     }
+    ],
+    "sex": "man"
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "blunt",
+    "habit": "no_goodbye"
+   },
+   "peoples": {
+    "qotiro": 1
+   },
+   "sex": "man"
+  },
+  {
+   "id": "a-writers-leader",
+   "role": "the Writers' head, always on the road",
+   "default": "p-fiyeweya",
+   "filled_by": "p-fiyeweya",
+   "canon": "yes",
+   "roll": 0.1054,
+   "guaranteed": false,
+   "keeps": {
+    "traits": [
+     "always travelling",
+     "puppeteer"
+    ],
+    "facts": [
+     "x-d0-writers-leader-1"
+    ],
+    "links": [],
+    "sex": null
+   },
+   "age": "grown",
+   "voice": {
+    "manner": "wry",
+    "habit": "writes_it_down"
+   },
+   "peoples": {
+    "tadoro": 4,
+    "roduro": 1,
+    "horaro": 1,
+    "qotiro": 1
+   },
+   "sex": null
+  }
+ ],
+ "faction_leaders": {
+  "f-first-peoples": [
+   "p-tuhudo"
+  ],
+  "f-seated-houses": [
+   "p-tuhudo"
+  ],
+  "f-true-line": [
+   "p-garotaqa",
+   "p-ruo"
+  ],
+  "f-tide-houses": [
+   "p-d0-tide-speaker"
+  ],
+  "f-great-house": [
+   "p-gahiru"
+  ],
+  "f-throne": [
+   "p-litita"
+  ],
+  "f-banner-lords": [
+   "p-haahoqo",
+   "p-shahayuh"
+  ],
+  "f-free-lords": [
+   "p-kotqot"
+  ],
+  "f-open-hand": [
+   "p-waarua"
+  ],
+  "f-open-council": [
+   "p-waarua"
+  ],
+  "f-sharp-hands": [
+   "p-feyesh",
+   "p-dorog",
+   "p-kodor"
+  ],
+  "f-road-crews": [
+   "p-doruduqu"
+  ],
+  "f-holy-house": [
+   "p-hotorito",
+   "p-d0-sincere-priestess"
+  ],
+  "f-last-wave": [
+   "p-textrim",
+   "p-totkit"
+  ],
+  "f-far-sails": [
+   "p-nemu"
+  ],
+  "f-binders": [
+   "p-paqax"
+  ],
+  "f-wardens": [
+   "p-hao",
+   "p-d0-warden-scout"
+  ],
+  "f-highfolk": [
+   "p-d0-highfolk-head"
+  ],
+  "f-rooted": [],
+  "f-writers": [
+   "p-fiyeweya"
+  ],
+  "f-lantern": [
+   "p-lamawina"
+  ],
+  "f-old-hands": [
+   "p-d0-old-don"
+  ],
+  "f-night-market": [
+   "p-yaweth"
+  ],
+  "f-dueling": [
+   "p-d0-dueling-showman",
+   "p-kitim"
+  ]
+ }
+}

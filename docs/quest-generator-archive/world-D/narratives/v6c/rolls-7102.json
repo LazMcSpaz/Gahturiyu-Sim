@@ -1,0 +1,259 @@
+{
+ "seed": 7102,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH4c",
+   "shape": "Beside",
+   "want": "greed",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": null,
+   "stake": "S6c",
+   "heart": "H1a",
+   "heart_type": "mentor",
+   "odd_job": "O2c",
+   "odd_job_premise": "Investigate/The offering box",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M8b",
+   "crisis": "C5c",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Swindle",
+   "crisis_giver": "a pilgrim who bought a piece",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "craft",
+    "crisis": "coin",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "reform it under the priestess",
+    "keep the sword",
+    "break the house"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "door": "Investigate/Theft",
+   "blow_detail": {
+    "code_break": "shaming the house in public"
+   },
+   "throughline": "Because a relic-seller from the pilgrim stalls wants money, he sells the house \"recovered pieces\" of the true procession relic he holds, while the one in procession is his copy; he puts a 'recovered piece' of the procession relic on show at the stalls, a keeper swearing to it, then you are framed for shaming the house in public, and it comes to a head when on the feast day the procession relic is shown to be his copy, he is gone to a lord's town, and the heart, who swore to it, is cast out.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D4b",
+   "shape": "Beside",
+   "want": "greed",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "Night Market",
+   "stake": "S3b",
+   "heart": "H5a",
+   "heart_type": "client",
+   "odd_job": "O1c",
+   "odd_job_premise": "Contest/The fix",
+   "odd_job_thread": "answers-to",
+   "move": "M3c",
+   "crisis": "C9c",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Swindle",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "coin",
+    "crisis": "coin",
+    "blow": "coin"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "let the showman run the show"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Acquire/Under seal",
+   "blow_detail": {},
+   "throughline": "Because a Night Market bookmaker wants money, she runs the ladder as a fixed book, through a ladder-keeper who answers to her; she takes the ladder's top fighter off it in front of the crowd, into a paid post, then she buys the heart's debts and has her held for them, and it comes to a head when the ladder is cried down as a book at the season's draw, and the heart, whose wins were bought without her knowing, is named the fixer.",
+   "last_move_kills": false
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N4b",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Free Lords",
+   "stake": "S2c",
+   "heart": "H1a",
+   "heart_type": "mentor",
+   "odd_job": "O1c",
+   "odd_job_premise": "Acquire/Passed on",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M6a",
+   "crisis": "C4c",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Ruin from above",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "men"
+   },
+   "writs": 1,
+   "faction_endings": [
+    "sell to the Sharp Hands",
+    "go straight",
+    "share it all out"
+   ],
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "door": "Rescue/Imprisoned unjustly",
+   "blow_detail": {
+    "how": "arrested"
+   },
+   "cast_note": "N4's toll lord is cast from the Free Lords",
+   "throughline": "Because a toll lord wants more power, he let the Market run his toll town's trails for years, to blackmail it into service when he needed it; he has a page of the fences' list read out in a dockside tavern, then members are held by his men, and it comes to a head when the Market's notes are cried down and the heart is named as the forger.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L8b",
+   "shape": "Beside",
+   "want": "greed",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Sharp Hands",
+   "stake": "S1c",
+   "heart": "H4c",
+   "heart_type": "member's kin",
+   "odd_job": "O4a",
+   "odd_job_premise": "Rescue/Left behind on contract",
+   "odd_job_thread": "pattern",
+   "move": "M8b",
+   "crisis": "C6b",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis_giver": "the heart's chapter captain",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "coin",
+    "crisis": "coin",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "honor it and march",
+    "buy the contract back",
+    "hold the road for nothing"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "door": "Contest/The ladder",
+   "blow_detail": {},
+   "throughline": "Because the Sharp Hands factor who is the Company's biggest client wants money, he holds the Lamp Room's debts, bought from the Company's own creditors, and takes his interest as contracts at cost, so chapters ride his caravans for nothing; he buys up the last of the Company's debts and posts his terms on Lanternhall's own contract board, then you are put down a rank on his word, and it comes to a head when he calls in the Company's debts, and the chapter that can't pay is held at Lanternhall to work them off, the heart's kin among them.",
+   "last_move_kills": false
+  },
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH1c",
+   "shape": "Within",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": true,
+   "side": "Old Hands",
+   "stake": "S2c",
+   "heart": "H4b",
+   "heart_type": "client",
+   "odd_job": "O2c",
+   "odd_job_premise": "Reckoning/The favor called in",
+   "odd_job_thread": "lie-in-record",
+   "move": "M7a",
+   "crisis": "C4b",
+   "crisis_family": "Acquire",
+   "crisis_premise": "Won't sell",
+   "crisis_giver": "the forger's daughter",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "paper",
+    "blow": "paper"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "make the houses need us again",
+    "give back the pages",
+    "sell to the lords",
+    "take the gate"
+   ],
+   "blow_target": "player",
+   "blow_event": "arrested",
+   "door": "Dispute/Public offense",
+   "blow_detail": {},
+   "throughline": "Because the old don himself wants revenge, he means to burn the old houses with every favour he has recorded, because they stopped answering his letters; he has a steward who asked questions put out of a back room before the others, then you are arrested at his word, and it comes to a head when his letters are sealed at the Old Gate House, to go out at the new moon.",
+   "last_move_kills": false
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W8a",
+   "shape": "Above",
+   "want": "desperation",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Wardens",
+   "stake": "S6c",
+   "heart": "H5b",
+   "heart_type": "member's kin",
+   "odd_job": "O4a",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "wrong-place",
+   "move": "M6b",
+   "crisis": "C6c",
+   "crisis_family": "Passage",
+   "crisis_premise": "Fugitive",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "men",
+    "crisis": "men",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "burn your copy",
+    "a copy in every hall",
+    "take a side at last"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "door": "Investigate/Sabotage",
+   "blow_detail": {
+    "leader": "the leader",
+    "how": "wounded",
+    "successor": null
+   },
+   "throughline": "Because a Warden captain whose stretch of towers is failing wants a way out of ruin, he has the survey camps' edge readings redrawn to put the green a mile nearer the towns, so frightened lords will pay for his wall; he closes a survey camp at the green's edge and keeps its journals, then the leader is wounded, and it comes to a head when the heart must carry the camp's true readings out of Highcrossing, with his men on every road.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7102; syndicate pairing: unpaired; main Ordeal: (heart, estranged)",
+  "  roll order (legal enemy + crisis pairs): holy-house(12), dueling(13), night-market(6), lantern(4), old-hands(5), writers(7)",
+  "  deal: done after 17 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 17,
+  "fallback_recent": 0
+ }
+}

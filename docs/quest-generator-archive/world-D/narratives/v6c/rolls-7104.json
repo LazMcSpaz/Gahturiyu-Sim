@@ -1,0 +1,260 @@
+{
+ "seed": 7104,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH7b",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "True Line",
+   "stake": "S3a",
+   "heart": "H4b",
+   "heart_type": "veteran",
+   "odd_job": "O2b",
+   "odd_job_premise": "Investigate/The offering box",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M2c",
+   "crisis": "C8b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Ruin from above",
+   "crisis_giver": "the heart's kin",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "break the house",
+    "ride for the pilgrims again",
+    "bring the inquisitors to the Nave's judgment"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "door": "Restore/Lost good name",
+   "blow_detail": {},
+   "throughline": "Because a True Line elder, who courts the Temple (canon) wants more power, he buys the inquisitors' favour with grain and horses, so heresy charges fall on the Seated Houses' clients and his line's older claim looks cleaner; he has a man taken from a shrine's steps, where he was sheltering, then you are put down a rank on his word, and it comes to a head when at the feast-day judgment his bought inquisitors find the heart's kin heretics, and their fields pass to his house.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D3c",
+   "shape": "Within",
+   "want": "preservation",
+   "kind": "hidden hand",
+   "leader_enemy": true,
+   "side": "Dueling Society",
+   "stake": "S3a",
+   "heart": "H3b",
+   "heart_type": "veteran",
+   "odd_job": "O5a",
+   "odd_job_premise": "Dispute/Public offense",
+   "odd_job_thread": "lie-in-record",
+   "move": "M7a",
+   "crisis": "C3b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "the heart's fallback",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "coin"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "make peace with the old heads",
+    "take the ring"
+   ],
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "door": "Rescue/Bound by debt",
+   "blow_detail": {
+    "how": "bonded"
+   },
+   "throughline": "Because the showman wants things kept as they are, he sells the Ring's best fighters into lords' private blood matches, billed as exhibitions, to pay the Ring's debts; he overrules the yield rule in public and puts bouts on the card at first blood, then members are bonded for debts he bought, and it comes to a head when the heart is sold into a lord's private match and badly hurt.",
+   "last_move_kills": false
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N7c",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Road Crews",
+   "stake": "S1b",
+   "heart": "H1a",
+   "heart_type": "mentor",
+   "odd_job": "O1c",
+   "odd_job_premise": "Acquire/Passed on",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M4a",
+   "crisis": "C2c",
+   "crisis_family": "Passage",
+   "crisis_premise": "The market moves",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "go straight",
+    "put it on the water",
+    "share it all out"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "door": "Investigate/Sabotage",
+   "blow_detail": {
+    "leader": "the leader",
+    "how": "wounded",
+    "successor": null
+   },
+   "throughline": "Because a Road Crews carter, the eldest of the carters who move the market wants revenge, he is showing the toll men the trails one at a time, and turning the carters away, because years ago a Market crew hid a load in his son's cart and the son paid for it at a toll gate; he shows the toll men the plain door into Under the Market Road, then the leader is wounded, and it comes to a head when a raid comes for Under the Market Road tonight with him riding along, and the whole market must move by dawn.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L1a",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Free Lords",
+   "stake": "S4a",
+   "heart": "H4b",
+   "heart_type": "member's kin",
+   "odd_job": "O2b",
+   "odd_job_premise": "Rescue/Kidnapped",
+   "odd_job_thread": "wrong-place",
+   "move": "M4b",
+   "crisis": "C1a",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Imprisoned unjustly",
+   "crisis_giver": "the quartermaster",
+   "giver_is_leader": true,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "name"
+   },
+   "writs": 1,
+   "faction_endings": [
+    "honor it and march",
+    "put out the lamp",
+    "buy the contract back"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "door": "Reckoning/Ruin from above",
+   "blow_detail": {
+    "code_break": "abandoning a contract"
+   },
+   "throughline": "Because a Free Lord holding the Company's oldest contract wants more power, he means to call the Company's oldest contract in for his own feud with a neighbouring lord, knowing the code won't let it refuse; he calls in the old contract before the contract board, in public, then you are framed for abandoning a contract, and it comes to a head when his seizure order under the old contract names one chapter; it refuses, and is held in Lanternhall's yard, the heart among those pleading for them.",
+   "last_move_kills": false
+  },
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH6b",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": null,
+   "stake": "S6c",
+   "heart": "H1a",
+   "heart_type": "mentor",
+   "odd_job": "O1b",
+   "odd_job_premise": "Passage/The guest who isn't allowed",
+   "odd_job_thread": "answers-to",
+   "move": "M3b",
+   "crisis": "C1b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "a house steward",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "name",
+    "crisis": "name",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "sell to the lords"
+   ],
+   "blow_target": "heart",
+   "blow_event": "disgraced",
+   "door": "Passage/Unwelcome cargo",
+   "blow_detail": {
+    "code_break": "going to the law"
+   },
+   "throughline": "Because a settled Qotiro widow married into a minor river house wants revenge, she is turning the houses' heirs against the Old Hands, one betrothal at a time, with the true will she has found: thirty years ago the Old Hands forged a will that gave her father's land to an old house; she has the oldest house send its standing work elsewhere and say why before witnesses, then the heart is cried down for going to the law, and it comes to a head when letters to three houses' rivals tell what the Old Hands carried for whom, naming the heart as the one who carried them.",
+   "last_move_kills": false
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W1c",
+   "shape": "Within",
+   "want": "preservation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Writers",
+   "stake": "S7b",
+   "heart": "H5a",
+   "heart_type": "member's kin",
+   "odd_job": "O4c",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "wrong-place",
+   "move": "M9c",
+   "crisis": "C7b",
+   "crisis_family": "Dispute",
+   "crisis_premise": "Public offense",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "name",
+    "blow": "paper"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep the balance",
+    "trade what we know",
+    "take a side at last"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Acquire/Under seal",
+   "blow_detail": {},
+   "throughline": "Because a hall master wants things kept as they are, she releases two rival lords' true debts to each other through the Lending Wall, one letter at a time, keeping their feud at the simmer that suits the guild; she dismisses, before the whole hall, the copyist who kept the lord's court rolls, then the heart is held under a charge she laid, and it comes to a head when she accuses the heart before the lord's court of a false copy of its rolls, and the halls' commission rides on the hearing.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7104; syndicate pairing: unpaired; main Ordeal: (heart, estranged)",
+  "  roll order (legal enemy + crisis pairs): holy-house(12), dueling(13), night-market(5), lantern(6), old-hands(6), writers(7)",
+  "  deal: done after 127 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 127,
+  "fallback_recent": 0
+ }
+}

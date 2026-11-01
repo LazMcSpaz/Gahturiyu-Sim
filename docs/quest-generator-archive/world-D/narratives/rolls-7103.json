@@ -1,0 +1,204 @@
+{
+ "seed": 7103,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "old-hands": {
+   "enemy": "OH4c",
+   "shape": "Within",
+   "revelation_kind": "the cost",
+   "leader_enemy": false,
+   "stake": "S5b",
+   "heart": "H4b",
+   "heart_type": "client",
+   "odd_job": "O2a",
+   "odd_job_premise": "Reckoning/The favor called in",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis": "C1c",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "give back the pages"
+   ],
+   "cast_notes": "employer link",
+   "blow_target": "player",
+   "blow_event": "arrested",
+   "door": "Passage/Fugitive",
+   "blow_detail": {},
+   "last_move_kills": false
+  },
+  "holy-house": {
+   "enemy": "HH5a",
+   "shape": "Beside",
+   "revelation_kind": "the cost",
+   "leader_enemy": false,
+   "stake": "S2c",
+   "heart": "H4c",
+   "heart_type": "veteran",
+   "odd_job": "O3c",
+   "odd_job_premise": "Threat/The tithe unpaid",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis": "C3b",
+   "crisis_giver": "the priestess",
+   "giver_is_leader": true,
+   "faction_endings": [
+    "reform it under the priestess",
+    "keep the sword",
+    "break the house"
+   ],
+   "cast_notes": "heart tied to the stake through the Low Shrine or parish",
+   "blow_target": "heart",
+   "blow_event": "disgraced",
+   "door": "Restore/Lost good name",
+   "blow_detail": {
+    "code_break": "shamed the house in public"
+   },
+   "last_move_kills": false
+  },
+  "night-market": {
+   "enemy": "N3a",
+   "shape": "Above",
+   "revelation_kind": "hidden hand",
+   "leader_enemy": false,
+   "stake": "S4b",
+   "heart": "H4b",
+   "heart_type": "member's kin",
+   "odd_job": "O2c",
+   "odd_job_premise": "Passage/The market moves",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Ruin from above",
+   "crisis": "C4b",
+   "crisis_giver": "a Far Sails captain",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "pull the big one",
+    "sell to the Sharp Hands",
+    "go straight",
+    "put it on the water"
+   ],
+   "blow_target": "guild",
+   "blow_event": "outlawed",
+   "door": "Dispute/Public offense",
+   "blow_detail": {
+    "writ": "a toll lord's writ against the Market's trails in his lordship"
+   },
+   "last_move_kills": false
+  },
+  "lantern": {
+   "enemy": "L4c",
+   "shape": "Beside",
+   "revelation_kind": "hidden hand",
+   "leader_enemy": false,
+   "stake": "S5c",
+   "heart": "H2a",
+   "heart_type": "fellow recruit",
+   "odd_job": "O2a",
+   "odd_job_premise": "Rescue/Kidnapped",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Swindle",
+   "crisis": "C3c",
+   "crisis_giver": "the client who switched",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "honor it and march",
+    "put out the lamp",
+    "split the chapters",
+    "pick a side"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "door": "Reckoning/Ruin from above",
+   "blow_detail": {
+    "code_break": "abandoned a contract"
+   },
+   "last_move_kills": false
+  },
+  "writers": {
+   "enemy": "W5c",
+   "shape": "Above",
+   "revelation_kind": "the old debt",
+   "leader_enemy": false,
+   "stake": "S3b",
+   "heart": "H4c",
+   "heart_type": "veteran",
+   "odd_job": "O2c",
+   "odd_job_premise": "Investigate/The ledger doesn't add up",
+   "crisis_family": "Acquire",
+   "crisis_premise": "Copy it before it burns",
+   "crisis": "C2c",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "open the ledgers",
+    "keep the balance",
+    "burn your copy"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Acquire/Won't sell",
+   "blow_detail": {},
+   "last_move_kills": false
+  },
+  "dueling": {
+   "enemy": "D5c",
+   "shape": "Beside",
+   "revelation_kind": "the old debt",
+   "leader_enemy": false,
+   "stake": "S1b",
+   "heart": "H2b",
+   "heart_type": "fellow recruit",
+   "odd_job": "O1a",
+   "odd_job_premise": "Contest/The fix",
+   "crisis_family": "Contest",
+   "crisis_premise": "First blood or last",
+   "crisis": "C4a",
+   "crisis_giver": "the showman",
+   "giver_is_leader": true,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "back to the tavern yards",
+    "let the showman run the show"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "door": "Investigate/Sabotage",
+   "blow_detail": {
+    "leader": "the showman",
+    "how": "wounded"
+   },
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7103; syndicate pairing: unpaired; main Ordeal: (heart, estranged)",
+  "levers: kit entries carry no lever (levers are rolled with the moves, §12 step 5), so the kit roll can't be constrained by them; budget handed on to the moves pass: no main lever in ledger; each lever at most 3 across guild moves",
+  "not rolled at kit time, so not checked here: reveal family (<=2 per family), twists (<=2 each), move levers, phase-3 premise positions other than the chapter-2 door, the Restore door's epilogue bar, casting needs (Lantern C1, Holy House C4)",
+  "  order: old-hands, holy-house, night-market, lantern, writers, dueling",
+  "  night-market: reroll enemy N2 (the cost >2)",
+  "  lantern: reroll enemy L5 (the cost >2)",
+  "  writers: reroll enemy W2 (hidden hand >2 (paired syndicates count once))",
+  "  writers: reroll enemy W1 (the cost >2)",
+  "  dueling: reroll enemy D4 (hidden hand >2 (paired syndicates count once))",
+  "  dueling: reroll enemy D3 (hidden hand >2 (paired syndicates count once))",
+  "  dueling: reroll enemy D2 (the cost >2)",
+  "  dueling: reroll enemy D1 (hidden hand >2 (paired syndicates count once))",
+  "  deal: main Ordeal holds (heart, estranged); dealing order: lantern, night-market, holy-house, writers, dueling, old-hands",
+  "  night-market: re-deal guild/outlawed -> Reckoning/Ruin from above (family+premise >2 across guild stories; two doors share a family+premise)",
+  "  holy-house: re-deal guild/outlawed -> Dispute/Public offense (target+event used twice; two doors share a family+premise)",
+  "  holy-house: re-deal guild/outlawed -> Reckoning/Ruin from above (family+premise >2 across guild stories; target+event used twice; two doors share a family+premise)",
+  "  dueling: re-deal guild/leader struck down -> Reckoning/Ruin from above (family+premise >2 across guild stories; two doors share a family+premise)",
+  "  dueling: re-deal guild/leader struck down -> Restore/Lost good name (two doors share a family+premise)",
+  "  old-hands: re-deal guild/outlawed -> Dispute/Public offense (target+event used twice; two doors share a family+premise)",
+  "  old-hands: re-deal guild/outlawed -> Reckoning/Ruin from above (family+premise >2 across guild stories; target+event used twice; two doors share a family+premise)",
+  "  old-hands: re-deal player/arrested -> Dispute/Public offense (two doors share a family+premise)",
+  "  deal: done after 14 tries; targets {'player': 2, 'guild': 2, 'heart': 2}"
+ ]
+}

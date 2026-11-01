@@ -1,0 +1,94 @@
+@@ 4
+**4 · Heart** *(draft 5: one heart, fixed)*: H5b, `outside`, a man (the son). **Situation:** the son of a copyist who died in debt at his copy table before he could teach the boy his letters; the heart can't read or write, works the presses at a bookbinder's widow's bindery by night in his own town, `{town}`, to pay the debt his father left, and has begged his father's old creditor, `{old_creditor}`, for time through letters `{stall}` writes for him. *(Draft 5: draft 4 made him a copyist's son who copied by night, which put a man who can write on a list of debts bought only from those who can't; review-v7d. He is the list's rule, not its exception.)*
+- **Want:** to pay the last of his father's debt by midsummer, so his sister can marry clear of it. ⟨presumes: debt-owed⟩
+- **Past:** he had his first begging letter written for him at fourteen, the month his father died, and never learned the letters his father meant to teach him.
+
+@@ 5
+**5 · Routine**
+
+| # | Place | Family · premise | The job | Quiet plant |
+|---|---|---|---|---|
+| R1 | `{town}`, the heart's own town (the stall's) | Restore *Lost livelihood* (cause `lost-knowledge`) | a bookbinder's widow can't run her late husband's bindery for want of what he knew; the heart works its presses by night. **Heart's card**: his debt (run up for his mother's burial), his want, and his sister, who is to marry; he had his first begging letter written for him at fourteen, the month his father died at his copy table, and never learned his letters (his past); his uncle, `{uncle}`, a carter who hauls for the bindery, tells him begging letters shame the family | "**a moneylender's clerk buying ink at the stall bench**" (the stall's bench, across the lane from the bindery) |
+| R2 | `{steward_seat}`, a lord's seat within three days | O1b Acquire *Copy it before it burns*. **Odd job** | the steward of `{steward_seat}`'s holder is told to burn the accounts of his master's late predecessor | "**a steward's accounts of debts his old lord forgave**" |
+| R3 | `{r3_hall}`, the other hall nearest the heart's town | Investigate *The ledger doesn't add up* (signature; *swap* below) | a moneylender's loan roll copy was altered (*for themselves*) | ∅ "**no debt bought from anyone who can write**" |
+
+*Swap:* **R3** may be Investigate *Watch them*: `{r3_hall}`'s master wants eyes on a moneylender's clerk who comes every week to read the hall's book of lodged debt sales; watching, the player sees that among the debts he buys there is "no debt bought from anyone who can write" (the plant is kept). R2 is the routine's signature either way.
+
+@@ 7
+**7 · Reveal** (giver: *the heart*; form: *laid side by side*). At `{town}`, at the stall bench where the heart's begging letters are written. Dispute *Shared resource*: two of its stall-keepers quarrel over the bench nearest the moneylenders' row; the heart brings the player, since the older one writes his letters. She is the knower: she refused to sell what she read, and lost her bench.
+- **Shows:** the clerk's letter-writer asked her for every begging letter's name and sum, paid by the name, and keeps a book of them, which she has seen and which he calls "the patience list"; she wrote to the leader of it and had no answer.
+- **Adds:** the heart adds what the book is for, from the notice in his pocket, which the stall read to him: his father's debt was bought last month by the moneylender whose clerk buys ink at this bench; the old stall-keeper adds, from what the letter-writer let slip, that the clerk of `{clerk_hall}` takes his share in the bought debts themselves.
+- **Repeats:** "a moneylender's clerk at the stall bench", "debts his old lord forgave", "no debt bought from anyone who can write".
+- **Closes:** the heart lays his debt notice beside the bench where "a moneylender's clerk" buys his ink, the copied accounts of "debts his old lord forgave" beside the debts now sold as live, and the hall's book of debt sales beside his own begging letters: "no debt bought from anyone who can write", and none from anyone who hadn't begged.
+
+@@ 9
+**9 · Chapter 2.** Opening (pressure 2): `{clerk_hall}`, Acquire *Under seal*: his father's writing case and seal, the family's one thing of worth, lodged in the hall's strongroom as surety by the debt's new holder, whom the strongroom book doesn't name: "**surety lodged for a holder unnamed**". Then the door: **two branches**, each written out in full; nothing outside a branch assumes either blow *(draft 5: draft 4's option c, the leader disgraced, is cut)*. The door's plant and its code-bending way are the same on both doors.
+
+*Branch a* · heart · *estranged* · his kin turned (`kin-turned`) · uses `name` · door Reckoning *Betrayal* at `{town}` ⟨harms: heart; makes: uncle-turned; marks: what the boy's letters begged; captor: —⟩
+- **Why here:** the clerk's man tells the uncle the begging letters shame the family; the uncle adds no secret the buyers lack, only the shame, and with it public, the families on the list won't stand with a beggar.
+- **DOOR:** In `{town}` the clerk's man tells the heart's uncle what the boy's letters begged, and the uncle, who always said begging shames the family, tells the town, which adds no secret the buyers lack, only the shame (Reckoning *Betrayal*), and on the door the moneylender's clerk from the stall bench says the boy's father's debt "wasn't ours to buy; he kept that one for himself", for the writing case and seal it holds as surety: "a debt the clerk kept for himself".
+- **BEND:** The door carries one extra way that destroys a text: burn one bought-debt slip to free one family.
+- **STANDING:** —
+- **READING:** With his uncle having told the town what the boy's letters begged, the families on the list won't stand beside a beggar at the clerk's door, and the heart comes to it alone.
+
+*Branch b* · player · *stripped of rank* (`stripped`) · uses `inside` · door Restore *Lost good name* at `{clerk_hall}` ⟨harms: player; makes: player-stripped; marks: stripped, reads the Wall's letters; captor: —⟩
+- **Why here:** the player has been asking at the stalls.
+- **DOOR:** At `{clerk_hall}` the clerk has the player stripped of rank for asking at the stalls, the stain "reads the Wall's letters" (Restore *Lost good name*), and on the door the moneylender's clerk from the stall bench says the boy's father's debt "wasn't ours to buy; he kept that one for himself", for the writing case and seal it holds as surety: "a debt the clerk kept for himself".
+- **BEND:** The door carries one extra way that destroys a text: burn one bought-debt slip to free one family.
+- **STANDING:** Stripped of rank, the player comes to the clerk's door as the heart's friend and the old creditor's witness, not as a Writer of his hall, for the clerk can shut his rooms to his hall's Writers but not to a witness to a payment.
+- **READING:** With the player stripped by the clerk's own hall, nothing the player says at his door is the halls' word, so the proof of payment must speak for itself.
+
+@@ 10
+**10 · Crisis** (at the clerk's rooms behind `{clerk_hall}`). **Last move ⚑:** quarter day. Every bought debt is called in; families who can't pay go to the broker's yard. The heart's sister is held in service at the clerk's rooms behind `{clerk_hall}`, as surety for their father's debt, under the surety clause her father signed: service until the debt is paid, which any court honours as a contract and nobody calls bondage *(Claude, draft 5: whose law lets him hold her)*. The heart comes to the clerk's door, a day's walk at most from his town; the ways go through his rooms. The enemy's want survives: the yard pays him too.
+- **Family:** Rescue *Bound by debt*. Captor: the clerk, as creditor. Captive: the heart's sister. Place: his rooms behind `{clerk_hall}`. Requester: the heart.
+- **Giver:** the heart, at the clerk's door. *Reason:* his sister.
+- **Choice:** free her by paying, by proof, or by the halls' own fire.
+- **CR:** On quarter day every bought debt is called in, families who can't pay go to the broker's yard, and the heart's sister is held in service at the clerk's rooms behind `{clerk_hall}`, {rooms_look}, as surety for their father's debt under the surety clause her father signed, so the heart gives the card at the clerk's door for his sister (Rescue *Bound by debt*, the clerk as creditor): free her by paying, by proof, or by the halls' own fire.
+- **HELD:** The player knew the clerk's sales from the reveal and holds the copied accounts of the debts the old lord forgave, and the weavers hold their creditor's letter of time, but the debts are lawfully bought and fall due on quarter day whatever anyone knows, the copied accounts free only the debts the old lord forgave, the weavers' letter answers only their own debt, and the stalls' clients won't stand together as beggars, so the one thing that answers his father's bought debt is proof that it was paid, which the stall's letter-book and the old creditor's oath hold. ⟨covers: patience-list, accounts, till-harvest⟩
+- **TELL:** The stall's own letter-book, where every payment he sent was written down for him, adds up to the debt's face, for his work at the presses has paid it, and he has never been able to read it. ⟨shows: !debt-owed; in-hands: the stall⟩
+- **WAYS:** The ways are burning the clerk's debt ledger, freeing every family in it and destroying every true debt with them (the code-break), the old creditor swearing the last payment was made before she sold (for her money back from the clerk), or the heart taking service in his sister's place.
+
+@@ 11
+**11 · Endings** *(draft 5: exactly three; no pool roll)*. Each names who pays and how it is won; the month-on account is heart / place / other side, given per branch where the blow changes it.
+- **E1 · Freed** (the old creditor's oath, with the stall's letter-book: the debt was paid) · *costs:* `{old_creditor}` (she swears she sold a paid debt; she lends no more) · *won by:* law
+  - **a:** his sister marries in summer, as he wanted, and his uncle is not asked to the wedding / the yard's families whose debts the old lord forgave walk free on the copied accounts, and the rest stay held / the clerk loses one debt and keeps the rest ⟨needs: uncle-turned⟩
+  - **b:** his sister marries in summer, as he wanted / the yard's families whose debts the old lord forgave walk free on the copied accounts, and the rest stay held / the clerk loses one debt and keeps the rest, and the player stays stripped in his hall ⟨needs: player-stripped⟩
+- **E2 · Burn your copy** (code-break: the ledger burned; every debt in it unprovable) · *costs:* the honest lenders whose true debts were in it · the halls (a halls' clerk's own ledger burned) · *won by:* stealth
+  - **all:** his sister is free and he won't say how / the yard empties, and the town's credit dries up / the clerk is ruined, and free
+- **E3 · Exchanged** (the heart works off the debt in her place) · *costs:* the heart (in the clerk's service for a year) · *won by:* none
+  - **a:** runs the clerk's errands and works his presses for a year, while his uncle drives the cart that should have been his / his sister goes home, and the weavers' forgiven debt is struck on the copied accounts / the clerk has a servant who can't refuse ⟨needs: uncle-turned⟩
+  - **b:** runs the clerk's errands and works his presses for a year / his sister goes home, and the weavers' forgiven debt is struck on the copied accounts / the clerk has a servant who can't refuse, and has the player's rank besides ⟨needs: player-stripped⟩
+
+@@ 12
+**12 · Truths and tells**
+
+| Card | Hidden truth | Tell |
+|---|---|---|
+| R2 (odd job) | *already copied* (`a-copy`): the Hand copied the accounts first | the pages are pricked at the edge, as copyists prick them |
+| R3 | culprit *for themselves* | the moneylender's clerk has a new house |
+| C1-1 | the old creditor's letter granting till harvest is dated before the sale, so the debt was sold with time on it | the family quotes a letter they can't read |
+| C1-2 | the yard's families all wrote through one stall | the yard keeper calls them by their town, not their names |
+| C1-3 | *one side lies*: the Hand struck first | the bruise is on her cheek, not his |
+| branch a | *still profiting* (`still-profiting`): the uncle has the boy's share of the family cart | the uncle's cart has new wheels |
+| branch b | cause *false, spread off the card* | the story came from the stalls, not the hall |
+| crisis | *paid* (`paid-already`): the boy's work at the presses paid it | the stall's letter-book, which he can't read, adds up to the debt's face |
+
+@@ 14
+**14 · What varies.** `{clerk_hall}`, its `{stall}` and `{town}` (where the heart lives and works the presses); `{broker}` (a Binders' debt broker, hidden where the town is Open Hand); `{steward_seat}` (registry; it may be a faction leader's seat, *Placing a spine* 13, for the lord never appears and his steward burns his predecessor's accounts on the clerk's man's word, but not the blind archivist-lord's, who remembers every debt forgiven); `{r3_hall}` drawn by nearness to the heart's town, within two days of it where any hall is (draft 5: the story's people are in the heart's town, not only round the centre); `{old_creditor}`. Fixed in the spine since draft 5 (they were flavour, and each changed a what): the clerk calls his list "the patience list"; the sister is held in service at his rooms; the father's debt was run up for his mother's burial (draft 4's "presses of a bindery that failed" made two binderies in one town).
+*Flavour* (draft 5: description only, an object, a habit or a manner; never who, what, where, when or why):
+- `{bench_look}` (the stall bench, on the reveal): a trestle bench under a striped awning · a stone bench worn smooth · a plank bench chained to the wall
+- `{rooms_look}` (the clerk's rooms, on the crisis): behind a green door with a brass grille · up a narrow stair smelling of lamp oil · behind a curtain of oiled cloth
+
+@@ 18
+**18 · Cards** *(draft 5: what the renderer prints, one sentence per line; slots stay in braces)*
+- **R1** · In `{town}` a bookbinder's widow can't run her late husband's bindery for want of what he knew (Restore *Lost livelihood*), and the heart, a dead copyist's son who never learned his letters and works her presses by night to pay the debt his father left for his mother's burial, tells the player he wants to pay the last of it by midsummer so his sister can marry clear of it (his want), that he had his first begging letter written for him at fourteen, the month his father died at his copy table (his past), and that his uncle, a carter who hauls for the bindery, says begging letters shame the family, while across the lane the player sees "a moneylender's clerk buying ink at the stall bench".
+- **R2** · At `{steward_seat}` the steward of its lord has been told to burn the accounts of his master's late predecessor, and the player copies them before they burn (Acquire *Copy it before it burns*), "a steward's accounts of debts his old lord forgave", while in secret the clerk's letter-writer (the Hand) told the steward the house would be better without the old accounts, and copied them first, so the clerk knows which forgiven debts can be sold again as live, and once the originals are ash only copies say they were forgiven. ⟨proof: accounts@player⟩
+- **R3** · At `{r3_hall}` a moneylender's loan roll copy has been altered by his own clerk for himself (Investigate *The ledger doesn't add up*), and laid beside the hall's book of lodged debt sales it shows an absence among the debts he buys: ∅ "no debt bought from anyone who can write".
+- **R3 swap** · At `{r3_hall}` the hall master wants eyes on a moneylender's clerk who comes every week to read the hall's book of lodged debt sales (Investigate *Watch them*), and watching, the player sees an absence among the debts he buys: ∅ "no debt bought from anyone who can write".
+- **RV** · At the stall bench in `{town}`, {bench_look}, where the heart's begging letters are written, two stall-keepers quarrel over the bench nearest the moneylenders' row (Dispute *Shared resource*), and the heart brings the player because the older one writes his letters and is the knower, having refused to sell what she read and lost her bench, and she shows what she saw, that the clerk's letter-writer asked her for every begging letter's name and sum, paid by the name, and keeps a book of them called "the patience list", and that she wrote to the leader of it and had no answer, while the heart adds, from the notice in his pocket that the stall read to him, that his father's debt was bought last month by the moneylender whose clerk buys ink at this bench, and the old stall-keeper adds, from what the letter-writer let slip, that the clerk of `{clerk_hall}` takes his share in the bought debts themselves. ⟨proof: patience-list@the old stall-keeper⟩
+- **RV close** · The heart lays his debt notice beside the bench where "a moneylender's clerk" buys his ink, the copied accounts of "debts his old lord forgave" beside the debts now sold as live, and the hall's book of debt sales beside his own begging letters: "no debt bought from anyone who can write", and none from anyone who hadn't begged.
+- **MOVE** · Before the hall of `{clerk_hall}` the clerk dismisses the Wall clerk who asked who reads the begging letters, silencing him by blackmail.
+- **C1-1** · Following the bought debts out of `{town}`, the player goes to a weavers' hamlet whose debts were bought, where a weaver family holds their old creditor's letter, "our creditor gave us till harvest!", not knowing it voids the debt the moneylender bought (Acquire *Unknown worth*), and finds "a debt bought for a tenth of its face", while the old creditor herself, who gave the heart time too and was tricked into selling his father's debt with theirs, has come out to the hamlet ashamed, wants to buy the debts back, and will help for her money returned. ⟨proof: till-harvest@the weavers⟩
+- **C1-2** · Therefore the player goes to see who waits in the yard of the Binders' debt broker at `{broker}` (Threat *Go and look*), and finds "families from one stall's letters, waiting in the yard".
+- **C1-3** · But at the stall the clerk's letter-writer (the Hand) cries down the old stall-keeper, who struck him in the street, and demands redress (Dispute *Public offense*), and his cry names the old creditor before the stall as the usurer who sold her debtors, so the ally is shamed before the door, and her oath will now cost her her trade.
+- **C2-0** · At pressure two, at the reading room of `{clerk_hall}`, the heart's father's writing case and seal, the family's one thing of worth, lie in the hall's strongroom as surety lodged by the debt's new holder, whom the strongroom book doesn't name: "surety lodged for a holder unnamed" (Acquire *Under seal*).

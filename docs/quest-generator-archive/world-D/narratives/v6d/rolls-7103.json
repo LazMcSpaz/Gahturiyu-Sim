@@ -1,0 +1,278 @@
+{
+ "seed": 7103,
+ "paired": false,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH5c",
+   "shape": "Beside",
+   "want": "greed",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Binders",
+   "stake": "S4c",
+   "heart": "H3b",
+   "heart_type": "client",
+   "odd_job": "O4a",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "pattern",
+   "move": "M5",
+   "crisis": "C3b",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis_giver": "the priestess",
+   "giver_is_leader": true,
+   "means_used": {
+    "move": "coin",
+    "crisis": "paper",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "reform it under the priestess",
+    "break the house",
+    "open the tithe-houses to the hungry"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "blow_how": "wounded-men",
+   "door": "Passage/Fugitive",
+   "door_fill": "cargo: the priestess, wounded; pursuer: a Binder debt broker's men",
+   "blow_detail": {
+    "leader": "the priestess",
+    "how": "wounded",
+    "successor": null
+   },
+   "readings_used": [],
+   "throughline": "Because a Binder debt broker wants money, he buys the penance debts the inquisitors' book sets, and takes the families who can't pay; he buys a tithe-house's debts at its door, in front of the town, then his men wound the priestess on the road, and it comes to a head when the penance debts are sold, the heart's family's among them, and the debtors are penned in the Mount's yard to march at dawn.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D8c",
+   "shape": "Beside",
+   "want": "desperation",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": null,
+   "stake": "S3b",
+   "heart": "H5c",
+   "heart_type": "client",
+   "odd_job": "O5b",
+   "odd_job_premise": "Dispute/Public offense",
+   "odd_job_thread": "lie-in-record",
+   "move": "M5",
+   "crisis": "C8b",
+   "crisis_family": "Dispute",
+   "crisis_premise": "A bout instead of blood",
+   "crisis_giver": "the heart's kin",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "name",
+    "crisis": "men",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "back to the tavern yards"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "blow_how": "held-by-men",
+   "door": "Rescue/Kidnapped",
+   "door_fill": "captor: the headman of the village that lost the Society's first feud-settling bout's men; why taken: leverage on the guild",
+   "blow_detail": {},
+   "readings_used": [],
+   "throughline": "Because the headman of the village that lost the Society's first feud-settling bout wants a way out of ruin, he means to prove that bout was never fair, and take back the mill his village lost by it; he cries the Ring down in the taverns as a killers' yard, then his men take the heart and hold her, and it comes to a head when his village comes to the Ring for the old winners' blood, the heart's kin among them.",
+   "last_move_kills": false
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N5c",
+   "shape": "Within",
+   "want": "desperation",
+   "kind": "the old debt",
+   "leader_enemy": true,
+   "side": "Night Market",
+   "stake": "S2b",
+   "heart": "H5b",
+   "heart_type": "veteran",
+   "odd_job": "O1c",
+   "odd_job_premise": "Acquire/Passed on",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M10",
+   "crisis": "C3a",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "the eldest fence",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "sell to the Sharp Hands",
+    "go straight",
+    "share it all out",
+    "take the shop"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "blow_how": "stripped",
+   "door": "Contest/The ladder",
+   "door_fill": "the rank, won back in the guild's own contest",
+   "blow_detail": {},
+   "readings_used": [],
+   "throughline": "Because the leader themself wants a way out of ruin, they are broke: the Market's founding debt has been called in, and they send the crews after the biggest score, which is real and will get everyone killed; they name the big score openly at the market and send crews after it, then you are put down a rank on their word, and it comes to a head when the crews learn their shares have been short for a year, and the heart's share paid for someone else's way out.",
+   "last_move_kills": false
+  },
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH5a",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "True Line",
+   "stake": "S6c",
+   "heart": "H2a",
+   "heart_type": "veteran",
+   "odd_job": "O4a",
+   "odd_job_premise": "Investigate/Theft",
+   "odd_job_thread": "wrong-place",
+   "move": "M3",
+   "crisis": "C3b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Ruin from above",
+   "crisis_giver": "the heart's fallback",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "coin",
+    "crisis": "coin",
+    "blow": "coin"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "sell to the lords"
+   ],
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "blow_how": "taken-bonded",
+   "door": "Rescue/Bound by debt",
+   "door_fill": "creditor: a True Line schemer, or whoever the debt was sold to",
+   "blow_detail": {
+    "how": "bonded for a debt"
+   },
+   "readings_used": [],
+   "throughline": "Because a True Line schemer wants more power, she needs the forgers silenced before the Seated Houses ask for proof, because **one** True Line house's line rests on Old Hands forgeries; she has the oldest house send its standing work elsewhere and say why before witnesses, then members are bonded for debts she bought, and it comes to a head when the house disowns the Old Hands in public and hands the heart to the watch as their go-between.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L2b",
+   "shape": "Within",
+   "want": "cover-up",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Lantern Company",
+   "stake": "S5a",
+   "heart": "H2b",
+   "heart_type": "fellow recruit",
+   "odd_job": "O2a",
+   "odd_job_premise": "Rescue/Kidnapped",
+   "odd_job_thread": "wrong-place",
+   "move": "M9",
+   "crisis": "C2c",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "put out the lamp",
+    "split the chapters",
+    "hold the road for nothing"
+   ],
+   "blow_target": "guild",
+   "blow_event": "hall seized",
+   "blow_how": "seized-order",
+   "door": "Acquire/Under seal",
+   "door_fill": "sealed: a chapter house's keys, held by a chapter-house captain under the guild's own rule",
+   "blow_detail": {
+    "site": "a chapter house"
+   },
+   "readings_used": [],
+   "throughline": "Because a chapter-house captain wants an old wrong kept buried, he has kept the lamps of two comrades his chapter abandoned years ago burning by hand, listed them \"still on contract\", and paid their kin out of other contracts; he throws out, before the board, the rider who asked where the chapter house's old dead lie, then a chapter house is shut on his order, and it comes to a head when on his orders the chapter house's riders who know the old story are led into an ambush and die holding a road, the heart's kin among them.",
+   "last_move_kills": true
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W8b",
+   "shape": "Above",
+   "want": "desperation",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Wardens",
+   "stake": "S6a",
+   "heart": "H5c",
+   "heart_type": "member's kin",
+   "odd_job": "O5c",
+   "odd_job_premise": "Passage/Samples from the green",
+   "odd_job_thread": "pattern",
+   "move": "M6",
+   "crisis": "C6a",
+   "crisis_family": "Passage",
+   "crisis_premise": "Fugitive",
+   "crisis_giver": "the eldest copyist",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "men",
+    "crisis": "men",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "burn your copy",
+    "a copy in every hall",
+    "take a side at last"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "blow_how": "framed-shame",
+   "door": "Dispute/Public offense",
+   "door_fill": "blamed for taking a side in public; offended: the side it shamed",
+   "blow_detail": {
+    "code_break": "taking a side in public"
+   },
+   "readings_used": [],
+   "throughline": "Because a Warden captain whose stretch of towers is failing wants a way out of ruin, he has the survey camps' edge readings redrawn to put the green a mile nearer the towns, so frightened lords will pay for his wall; he closes a survey camp at the green's edge and keeps its journals, then you are framed for taking a side in public, and it comes to a head when the heart must carry the camp's true readings out of Highcrossing, with his men on every road.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7103; syndicate pairing: unpaired; main Ordeal: (heart, estranged)",
+  "  roll order (legal enemy + crisis pairs): holy-house(12), dueling(12), night-market(13), old-hands(8), lantern(14), writers(8)",
+  "  deal: done after 19 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 19,
+  "fallback_recent": 0
+ }
+}

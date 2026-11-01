@@ -1,0 +1,283 @@
+{
+ "seed": 7101,
+ "paired": true,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "old-hands": {
+   "guild": "old-hands",
+   "enemy": "OH9c",
+   "shape": "Beside",
+   "want": "revenge",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Night Market",
+   "stake": "S1a",
+   "heart": "H3c",
+   "heart_type": "member's kin",
+   "odd_job": "O3c",
+   "odd_job_premise": "Acquire/Passed on",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M8a",
+   "crisis": "C5c",
+   "crisis_family": "Passage",
+   "crisis_premise": "Fugitive",
+   "crisis_giver": "the eldest steward",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "men",
+    "crisis": "craft",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "open the gate",
+    "sell to the lords",
+    "make peace with the Market"
+   ],
+   "paired": true,
+   "feud": {
+    "enemies": [
+     "OH9",
+     "N1"
+    ],
+    "blood_debt": "night-market",
+    "truce_letter": "c",
+    "over_what": "F3",
+    "first_striker": "Old Hands side",
+    "truce_called_by": "T3"
+   },
+   "blow_target": "guild",
+   "blow_event": "hall seized",
+   "door": "Dispute/Broken agreement",
+   "blow_detail": {
+    "site": "a back room"
+   },
+   "throughline": "Because a Night Market crew boss wants revenge, he has his crew raid the crossings and caches and leave Old Hands seals behind for the watch, because years ago an Old Hands crossing-keeper gave his brother to the watch so that a house's load could pass, and took up the feud the other side began, over an old house that began buying from the Market; he has the Old Gate House's quarter barred to the Old Hands for a night, then a back room is shut on his order, and it comes to a head when the truce meeting ends with a poisoned cup, one dead on each side; the Market blames the heart's kin, and they must be got out of the Old Gate House before the reprisal.",
+   "last_move_kills": true
+  },
+  "night-market": {
+   "guild": "night-market",
+   "enemy": "N1a",
+   "shape": "Beside",
+   "want": "ambition",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "Old Hands",
+   "stake": "S2b",
+   "heart": "H3b",
+   "heart_type": "client",
+   "odd_job": "O2a",
+   "odd_job_premise": "Passage/The market moves",
+   "odd_job_thread": "answers-to",
+   "move": "M5b",
+   "crisis": "C1c",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Blood debt",
+   "crisis_giver": "the dead man's kin",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "name",
+    "crisis": "craft",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "sell to the Sharp Hands",
+    "go straight",
+    "share it all out"
+   ],
+   "paired": true,
+   "feud": {
+    "enemies": [
+     "OH9",
+     "N1"
+    ],
+    "blood_debt": "night-market",
+    "truce_letter": "c",
+    "over_what": "F3",
+    "first_striker": "Old Hands side",
+    "truce_called_by": "T3"
+   },
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "door": "Rescue/Kidnapped",
+   "blow_detail": {
+    "how": "marched off by a band"
+   },
+   "throughline": "Because an Old Hands steward wants more power, he has set the score everyone is whispering about as a trap, to break the Market and send its buyers back to the old houses, and struck the feud's first blow, over an old house that began buying from the Market; he has an exchange refuse the Market's notes, then members are marched off by his men, and it comes to a head when the truce meeting ends with a poisoned cup, one dead on each side, and the old don shields the killer.",
+   "last_move_kills": true
+  },
+  "holy-house": {
+   "guild": "holy-house",
+   "enemy": "HH9a",
+   "shape": "Within",
+   "want": "faith",
+   "kind": "hidden hand",
+   "leader_enemy": false,
+   "side": "Holy House",
+   "stake": "S2c",
+   "heart": "H1b",
+   "heart_type": "mentor",
+   "odd_job": "O5a",
+   "odd_job_premise": "Investigate/Theft",
+   "odd_job_thread": "lie-in-record",
+   "move": "M7c",
+   "crisis": "C7b",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis_giver": "the Low Shrine's eldest priest",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "name",
+    "crisis": "name",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "reform it under the priestess",
+    "break the house",
+    "open the tithe-houses to the hungry"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "door": "Reckoning/Ruin from above",
+   "blow_detail": {
+    "code_break": "shaming the house in public"
+   },
+   "throughline": "Because a Low Shrine priest, sincere, of the priestess's way wants what he believes the gods demand, he empties the tithe-houses' stores into the hungry's bowls and writes false receipts to hide it, to make the house feed people again; he feeds the outer ring from a tithe-house's door and calls it the house's duty, then you are framed for shaming the house in public, and it comes to a head when his false receipts are found, the riders come to the Low Shrine for the grain, and the heart, who carried it, is named the thief.",
+   "last_move_kills": false
+  },
+  "dueling": {
+   "guild": "dueling",
+   "enemy": "D7b",
+   "shape": "Above",
+   "want": "preservation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Banner Lords",
+   "stake": "S4a",
+   "heart": "H2c",
+   "heart_type": "fellow recruit",
+   "odd_job": "O2a",
+   "odd_job_premise": "Investigate/Sabotage",
+   "odd_job_thread": "shouldnt-exist",
+   "move": "M3b",
+   "crisis": "C6c",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Bound by debt",
+   "crisis_giver": "a fighter who slipped away",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "men",
+    "blow": "men"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "keep it sport",
+    "let the showman run the show",
+    "call the grand tournament"
+   ],
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Rescue/Bound by debt",
+   "blow_detail": {},
+   "throughline": "Because a Banner Lord's master-at-arms, who gives the grand tournament's prize wants things kept as they are, he keeps giving the prize, a post in his lord's guard, because his lord's march is losing a feud and needs trained men, though the posts have sent the ladder's last champions to die there; he takes the ladder's top fighter off it in front of the crowd, into a paid post, then his men take the heart and hold her, and it comes to a head when he buys up the ladder's entry debts, and his men take the heart and the top rungs to work them off.",
+   "last_move_kills": false
+  },
+  "writers": {
+   "guild": "writers",
+   "enemy": "W1c",
+   "shape": "Within",
+   "want": "preservation",
+   "kind": "the cost",
+   "leader_enemy": false,
+   "side": "Writers",
+   "stake": "S7b",
+   "heart": "H4c",
+   "heart_type": "veteran",
+   "odd_job": "O4b",
+   "odd_job_premise": "Investigate/Disappearance",
+   "odd_job_thread": "wrong-place",
+   "move": "M3a",
+   "crisis": "C3a",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Schism",
+   "crisis_giver": "the eldest copyist",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "inside",
+    "crisis": "inside",
+    "blow": "inside"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "open the ledgers",
+    "keep the balance",
+    "take a side at last"
+   ],
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "door": "Investigate/Sabotage",
+   "blow_detail": {
+    "leader": "the leader",
+    "how": "wounded",
+    "successor": null
+   },
+   "throughline": "Because a hall master wants things kept as they are, she releases two rival lords' true debts to each other through the Lending Wall, one letter at a time, keeping their feud at the simmer that suits the guild; she openly takes the lord's court rolls into her own keeping, so no other copyist touches them, then the leader is wounded, and it comes to a head when a debt read out of the lord's court rolls turns his quarrel into a feud, and the heart's village burns.",
+   "last_move_kills": false
+  },
+  "lantern": {
+   "guild": "lantern",
+   "enemy": "L1a",
+   "shape": "Above",
+   "want": "ambition",
+   "kind": "the old debt",
+   "leader_enemy": false,
+   "side": "Free Lords",
+   "stake": "S3b",
+   "heart": "H5a",
+   "heart_type": "veteran",
+   "odd_job": "O4c",
+   "odd_job_premise": "Rescue/Left behind on contract",
+   "odd_job_thread": "pattern",
+   "move": "M4a",
+   "crisis": "C7c",
+   "crisis_family": "Passage",
+   "crisis_premise": "The contract's other side",
+   "crisis_giver": "a carter in the caravan",
+   "giver_is_leader": false,
+   "means_used": {
+    "move": "paper",
+    "crisis": "paper",
+    "blow": "name"
+   },
+   "writs": 0,
+   "faction_endings": [
+    "honor it and march",
+    "pick a side",
+    "hold the road for nothing"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "door": "Restore/Lost good name",
+   "blow_detail": {},
+   "throughline": "Because a Free Lord holding the Company's oldest contract wants more power, he means to call the Company's oldest contract in for his own feud with a neighbouring lord, knowing the code won't let it refuse; he calls in, before the contract board, a contract the Company can't refuse, binding it to one side, then you are put down a rank on his word, and it comes to a head when he sets a Lantern chapter against the Company's own escort leaving Lanternhall, the caravan the heart rides with in its charge.",
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7101; syndicate pairing: PAIRED; main Ordeal: (heart, estranged)",
+  "  roll order (legal enemy + crisis pairs): syndicates(8), holy-house(12), dueling(6), writers(9), lantern(5)",
+  "  deal: done after 25 tries"
+ ],
+ "stats": {
+  "restarts": 0,
+  "rerolls": 0,
+  "deal_tries": 25,
+  "fallback_recent": 0
+ }
+}

@@ -1,0 +1,198 @@
+{
+ "seed": 7102,
+ "paired": true,
+ "main_ordeal": [
+  "heart",
+  "estranged"
+ ],
+ "rolls": {
+  "old-hands": {
+   "enemy": "OH2b",
+   "shape": "Beside",
+   "revelation_kind": "hidden hand",
+   "leader_enemy": false,
+   "stake": "S1a",
+   "heart": "H2c",
+   "heart_type": "veteran",
+   "odd_job": "O3a",
+   "odd_job_premise": "Acquire/Passed on",
+   "crisis_family": "Passage",
+   "crisis_premise": "Fugitive",
+   "crisis": "C5a",
+   "crisis_giver": "the old don",
+   "giver_is_leader": true,
+   "truce_variant": "a",
+   "faction_endings": [
+    "make the houses need us again",
+    "open the gate",
+    "give back the pages"
+   ],
+   "blow_target": "player",
+   "blow_event": "stripped of rank",
+   "door": "Restore/Lost good name",
+   "blow_detail": {},
+   "last_move_kills": true
+  },
+  "night-market": {
+   "enemy": "N1c",
+   "shape": "Beside",
+   "revelation_kind": "hidden hand",
+   "leader_enemy": false,
+   "stake": "S1c",
+   "heart": "H4c",
+   "heart_type": "member's kin",
+   "odd_job": "O3c",
+   "odd_job_premise": "Rescue/Imprisoned unjustly",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Blood debt",
+   "crisis": "C1a",
+   "crisis_giver": "the leader",
+   "giver_is_leader": true,
+   "truce_variant": "a",
+   "faction_endings": [
+    "pull the big one",
+    "sell to the Sharp Hands",
+    "go straight",
+    "put it on the water"
+   ],
+   "blow_target": "guild",
+   "blow_event": "outlawed",
+   "door": "Dispute/Public offense",
+   "blow_detail": {
+    "writ": "a toll lord's writ against the Market's trails in his lordship"
+   },
+   "last_move_kills": true
+  },
+  "lantern": {
+   "enemy": "L5c",
+   "shape": "Above",
+   "revelation_kind": "the cost",
+   "leader_enemy": false,
+   "stake": "S3a",
+   "heart": "H2b",
+   "heart_type": "fellow recruit",
+   "odd_job": "O2a",
+   "odd_job_premise": "Rescue/Kidnapped",
+   "crisis_family": "Rescue",
+   "crisis_premise": "Imprisoned unjustly",
+   "crisis": "C1b",
+   "crisis_giver": "the refusing captain's second",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "honor it and march",
+    "put out the lamp",
+    "split the chapters",
+    "pick a side"
+   ],
+   "cast_notes": "casting need: the writ's lordship or march holds Lanternhall and the named chapter's house",
+   "blow_target": "guild",
+   "blow_event": "members taken",
+   "door": "Rescue/Captured in battle",
+   "blow_detail": {
+    "who": "a chapter held or marched off",
+    "how": "taken in a fight by a lord"
+   },
+   "last_move_kills": false
+  },
+  "holy-house": {
+   "enemy": "HH3a",
+   "shape": "Above",
+   "revelation_kind": "the old debt",
+   "leader_enemy": false,
+   "stake": "S5c",
+   "heart": "H3a",
+   "heart_type": "client",
+   "odd_job": "O3a",
+   "odd_job_premise": "Threat/The tithe unpaid",
+   "crisis_family": "Acquire",
+   "crisis_premise": "Under seal",
+   "crisis": "C4c",
+   "crisis_giver": "the heart",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "reform it under the priestess",
+    "keep the sword",
+    "break the house"
+   ],
+   "cast_notes": "casting need: the patron's court's lordship holds the Mount",
+   "blow_target": "heart",
+   "blow_event": "captive",
+   "door": "Acquire/Won't sell",
+   "blow_detail": {},
+   "last_move_kills": false
+  },
+  "writers": {
+   "enemy": "W4a",
+   "shape": "Within",
+   "revelation_kind": "hidden hand",
+   "leader_enemy": false,
+   "stake": "S2b",
+   "heart": "H1c",
+   "heart_type": "mentor",
+   "odd_job": "O1c",
+   "odd_job_premise": "Acquire/Copy it before it burns",
+   "crisis_family": "Reckoning",
+   "crisis_premise": "Betrayal",
+   "crisis": "C1a",
+   "crisis_giver": "the eldest copyist",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "open the ledgers",
+    "keep the balance",
+    "burn your copy"
+   ],
+   "cast_notes": "create an employer link enemy->heart if missing",
+   "blow_target": "guild",
+   "blow_event": "leader struck down",
+   "door": "Investigate/Sabotage",
+   "blow_detail": {
+    "leader": "the leader",
+    "how": "wounded"
+   },
+   "last_move_kills": false
+  },
+  "dueling": {
+   "enemy": "D5c",
+   "shape": "Beside",
+   "revelation_kind": "the old debt",
+   "leader_enemy": false,
+   "stake": "S3a",
+   "heart": "H3b",
+   "heart_type": "veteran",
+   "odd_job": "O2a",
+   "odd_job_premise": "Investigate/Sabotage",
+   "crisis_family": "Contest",
+   "crisis_premise": "First blood or last",
+   "crisis": "C4c",
+   "crisis_giver": "a ring-keeper",
+   "giver_is_leader": false,
+   "faction_endings": [
+    "keep it sport",
+    "teach the deadly half",
+    "back to the tavern yards",
+    "let the showman run the show"
+   ],
+   "blow_target": "player",
+   "blow_event": "framed",
+   "door": "Reckoning/Ruin from above",
+   "blow_detail": {
+    "code_break": "threw a bout"
+   },
+   "last_move_kills": false
+  }
+ },
+ "log": [
+  "seed 7102; syndicate pairing: PAIRED; main Ordeal: (heart, estranged)",
+  "levers: kit entries carry no lever (levers are rolled with the moves, §12 step 5), so the kit roll can't be constrained by them; budget handed on to the moves pass: no main lever in ledger; each lever at most 3 across guild moves",
+  "not rolled at kit time, so not checked here: reveal family (<=2 per family), twists (<=2 each), move levers, phase-3 premise positions other than the chapter-2 door, the Restore door's epilogue bar, casting needs (Lantern C1, Holy House C4)",
+  "  pair: night-market takes Blood debt; shared truce variant a",
+  "  order: old-hands, night-market, lantern, holy-house, writers, dueling",
+  "  dueling: reroll C4 variant a (crises given by own leader >2)",
+  "  deal: main Ordeal holds (heart, estranged); dealing order: night-market, holy-house, writers, dueling, lantern, old-hands",
+  "  dueling: re-deal player/framed -> Investigate/Sabotage (family+premise >2 across guild stories; two doors share a family+premise)",
+  "  old-hands: re-deal guild/leader struck down -> Investigate/Sabotage (family+premise >2 across guild stories; target+event used twice; target in >3 stories; two doors share a family+premise)",
+  "  old-hands: re-deal guild/leader struck down -> Restore/Lost good name (target+event used twice; target in >3 stories)",
+  "  old-hands: re-deal guild/leader struck down -> Reckoning/Ruin from above (target+event used twice; target in >3 stories; two doors share a family+premise)",
+  "  deal: done after 10 tries; targets {'guild': 3, 'heart': 1, 'player': 2}"
+ ]
+}

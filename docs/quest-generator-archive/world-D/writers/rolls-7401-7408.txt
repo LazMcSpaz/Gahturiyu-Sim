@@ -1,0 +1,385 @@
+Static checks over the 16 spines:
+  heart types: H1 ×3 (W2-B, W3-B, W5-B), H2 ×3 (W1-B, W6-A, W7-B), H3 ×3 (W3-A, W4-A, W8-A), H4 ×3 (W1-A, W6-B, W7-A), H5 ×3 (W4-B, W5-A, W8-B), H6 ×1 (W2-A)
+  all pass (hidden-hand bar, shaming guard, flavour voiced, plants for endings, parties set up, heart-type cap, routine and chapter families, the crisis where the story is, slots in the text filled, no hard-numbered deadline, no region name)
+
+==============================================================================
+seed 7401 · W2-B Sold by the Wayhouse · enemy W2 (the hidden hand)
+  heart: H1c · man
+  stake S5 · chapter-1 move M4 · openings: Investigate · Watch them / Restore · Lost livelihood
+  blow a: guild: members taken, bonded for debts he bought (taken-bonded) -> door Rescue Bound by debt
+  flavour (a · the false seal's flaw (sets the plant's words); voiced on R2): a plain rim (the halls' has a knotted rim)
+  flavour (b · the buyer's cover; voiced on C1-1): a hall's satchel
+  flavour (c · the archivist's complaint; voiced on CR): she cut the seal herself
+  routine: R1 Dispute · Broken agreement · R2 Passage · Smuggling · R3 Acquire · Copy it before it burns (swapped)
+  endings rolled: 5. Trade what we know, 2. Burn your copy, 1. Delivered
+  ending shown: 1. Delivered
+  centre: dig = the border dig, at an imperial ruin (main town: Bogford; region: the Marches)
+  crisis: at stall = Breakwall (where the story is); giver: the heart, at her stall, the summons in her hand; acted at Longwall
+  {days} = 4 = the road from Breakwall to Longwall (2.08, rounded up) + 1: she must reach the haven and swear; its holder sends her statement up by the relay lofts in a day
+  slots:
+    lord          Bogford [bog village; f-free-lords; 0.80 from centre]
+                  · holder Hausethayai of the Quiet Road (Free Lord, d-l0 p-d0-bogford-lord)
+    dig           the border dig, at an imperial ruin [Writers dig (spine site); t-free; 0.00 from centre]
+                  · ADDED at (8.39, 5.26): the map's only dig (the Old Road dig) is in Great House land; the placer adds one at a ruin in Bogford's march, 0.8 from his seat
+    stall         Breakwall [frontier keep; f-free-lords; 0.69 from centre]
+                  · holder Kotqot Wall-breaker (Free Lord, d-l0 p-kotqot)
+                  · feature added: a letter-writer's stall (the heart's) (no stall within a day of the dig; a town can hold one)
+    toll          Bogford's toll on the Highcrossing road [toll (spine site); t-free; 0.70 from centre]
+                  · ADDED at (7.74, 5.01): where the dig's road toward Highcrossing leaves his land
+    reveal_town   Bogford [bog village; f-free-lords; 0.80 from centre]
+                  · holder Hausethayai of the Quiet Road (Free Lord, d-l0 p-d0-bogford-lord)
+    haven         Longwall [fortress town; f-great-house; 2.74 from centre]
+                  · holder Haʻahoqo the General (Banner Lord, d-l0 p-haahoqo)
+    hearing_day   the court's harvest sitting  (4 days off at the last move)
+    magistrate    (role: Highcrossing's magistrate (the Throne's officer, made on demand))
+    hand          (role: the archivist's buyer (made on demand))
+    ally          (role: the diggers' headman's daughter (made on demand))
+  placement report (card · place · from centre · bound):
+    R1    Breakwall                               0.69  0.00 from stall ✓   [Dispute · Broken agreement (heart's card: her bill)]
+    R2    Bogford's toll on the Highcrossing road  0.70  0.00 from toll ✓; journey, ≤3.5: carried from her stall's town past the lord's toll   [Passage · Smuggling (odd job: a bill of sale past the toll)]
+    R3    Highcrossing                            3.21  Wayhouse (fixed)   [Acquire · Copy it before it burns (the lodging book)]
+    RV    Bogford                                 0.80  0.80 from dig ✓   [Reveal · Dispute Contested inheritance (a digger's sons)]
+    C1-1  the border dig, at an imperial ruin     0.00  0.00 from dig ✓; journey, ≤3.5: out to the dig   [Investigate · Watch them (the dig's gate)]
+    C1-2  the border dig, at an imperial ruin     0.00  0.00 from dig ✓   [Dispute · Public offense (the headman)]
+    C1-3  Bogford's toll on the Highcrossing road  0.70  0.00 from toll ✓   [Acquire · Won't sell (the last cart, held at the toll)]
+    C2-0  Breakwall                               0.69  0.00 from stall ✓   [Restore · Lost livelihood (her stall)]
+    DOOR  Bogford                                 0.80  0.80 from dig ✓   [door (blow a): Rescue Bound by debt]
+    CR    Breakwall                               0.69  0.00 from stall ✓; giver there: the heart, at her stall, the summons in her hand   [Passage · Fugitive (from her stall)]
+    CR*   Longwall                                2.74  where its action falls   [crisis acted at]
+  routine and reveal towns: 4 distinct (Bogford, Bogford's toll on the Highcrossing road, Breakwall, Highcrossing)
+  max distance from centre (Wayhouse cards aside): 0.80 · all checks pass
+
+==============================================================================
+seed 7402 · W4-A The Stalls' Oath · enemy W4 (the hidden hand)
+  passed over: W7-A: the later samples could not then be placed
+  heart: H3a · man
+  stake S2 · chapter-1 move M7 · openings: Restore · Lost good name / Threat · Go and look
+  blow c: guild: leader struck down through something rigged (wounded-rigged) -> door Investigate Sabotage
+  flavour (a · how a letter gave a house away; voiced on R3): where the key is left
+  flavour (b · what the clerk tells the letter-writers it's for; voiced on C1-1): a tally for the Wayhouse
+  flavour (c · the ally; voiced on C1-3): a fence's crewman who wants out
+  routine: R1 Dispute · Broken agreement · R2 Investigate · Disappearance · R3 Acquire · Copy it before it burns
+  endings rolled: 3. A deal is struck, 5. Take a side at last, 1. The heart wins
+  ending shown: 1. The heart wins
+  centre: clerk_hall = Openharbour (main town: Openharbour; region: the Harbour Coast)
+  crisis: at town = Saltmarket (where the story is); giver: the heart, in his robbed house in his own town; acted at Saltmarket
+  slots:
+    clerk_hall    Openharbour [great port; f-open-hand; 0.00 from centre]
+                  · holder Waarua of the Harbour (Open Council head, d-l0 p-waarua)
+    stall         Saltmarket [salt town; f-open-hand; 1.41 from centre]
+                  · holder Liriwu of the Deep Island (town council head, d-l0 p-d0-saltmarket-head)
+                  · stretched to 1.41: the nearest stall to any hall is 1.3–1.4 days out
+    town          Saltmarket [salt town; f-open-hand; 1.41 from centre]
+                  · holder Liriwu of the Deep Island (town council head, d-l0 p-d0-saltmarket-head)
+    loft          the relay loft on the hill [relay loft (spine site); t-open; 0.49 from centre]
+                  · ADDED at (4.41, 7.93): a pigeon loft on high ground beside the clerk's hall
+    fence_town    Saltmarket [salt town; f-open-hand; 1.41 from centre]
+                  · holder Liriwu of the Deep Island (town council head, d-l0 p-d0-saltmarket-head)
+    fair_town     Openharbour [great port; f-open-hand; 0.00 from centre]
+                  · holder Waarua of the Harbour (Open Council head, d-l0 p-waarua)
+    fair          the horse fair
+    robbed_town   Openharbour [great port; f-open-hand; 0.00 from centre]
+                  · holder Waarua of the Harbour (Open Council head, d-l0 p-waarua)
+    hideout       Saltmarket [salt town; f-open-hand; 1.41 from centre]
+                  · holder Liriwu of the Deep Island (town council head, d-l0 p-d0-saltmarket-head)
+    hand          (role: his list-writer (made on demand))
+    ally          (role: someone who has seen a list (made on demand; see flavour c))
+    painter       (role: the old sign-painter of the heart's town (made on demand))
+  placement report (card · place · from centre · bound):
+    R1    Saltmarket                              1.41  0.00 from stall ✓   [Dispute · Broken agreement (heart's card: his wage)]
+    R2    the relay loft on the hill              0.49  0.49 from clerk_hall ✓   [Investigate · Disappearance (odd job: the loft)]
+    R3    Openharbour                             0.00  free, ≤3.0   [Acquire · Copy it before it burns (a robbed merchant)]
+    RV    Saltmarket                              1.41  0.92 from loft ✓   [Reveal · Passage Unwilling passenger (the loft keeper)]
+    C1-1  Saltmarket                              1.41  0.00 from stall ✓   [Restore · Lost good name (the turned-off letter-writer)]
+    C1-2  Saltmarket                              1.41  0.00 from fence_town ✓; journey, ≤3.5: to the fence's shop   [Acquire · Unknown worth (the fence's boy)]
+    C1-3  Saltmarket                              1.41  0.00 from fence_town ✓; journey, ≤3.5: the road out of the fence's town   [Passage · Fugitive (the road out)]
+    C2-0  Saltmarket                              1.41  0.00 from stall ✓   [Threat · Go and look (which streets the crews walked)]
+    DOOR  Openharbour                             0.00     [door (blow c): Investigate Sabotage]
+    CR    Saltmarket                              1.41  0.00 from stall ✓; giver there: the heart, in his robbed house in his own town   [Dispute · Broken agreement (does the oath bind the halls?)]
+    CR*   Saltmarket                              1.41  where its action falls (the crisis card's own place)   [crisis acted at]
+  routine and reveal towns: 3 distinct (Openharbour, Saltmarket, the relay loft on the hill)
+  max distance from centre (Wayhouse cards aside): 1.41 · all checks pass
+
+==============================================================================
+seed 7403 · W6-A The Copies Sent for Mending · enemy W6 (the cost)
+  passed over: W7-A: the later samples could not then be placed; W1-B: would leave the rest of the set no spine under the caps; W6-B: the later samples could not then be placed; W7-B: the later samples could not then be placed; W8-B: the later samples could not then be placed
+  heart: H2a · woman
+  stake S4 · chapter-1 move M3 · openings: Acquire · Unknown worth / Acquire · Under seal
+  blow a: player framed for destroying a text (framed-damage) -> door Investigate Sabotage
+  flavour (a · who keeps the hoard; voiced on C1-1): a deaf caretaker
+  flavour (b · the leader's reason, in her letter; voiced on RV): a Sharp Hands buyer waiting
+  flavour (c · what the headwoman's claim is for; voiced on C1-3): the spring meadow
+  routine: R1 Acquire · Won't sell · R2 Dispute · Broken agreement · R3 Investigate · The ledger doesn't add up
+  endings rolled: 4. Kept by the player, 3. Seized, 2. A copy in every hall + seat ending: take the road
+  ending shown: 3. Seized
+  centre: reading_room = Longwall (main town: Longwall; region: the Crown Crossing)
+  crisis: at wayhouse = Highcrossing (about the Wayhouse and the leader (her order keeps the copy in, at the Wayhouse's door)); giver: the eldest copyist, who must read the order aloud; acted at Longwall
+  {days} = 4 = the road from Highcrossing to Longwall (2.00, rounded up) + 1: the copy must ride from the Wayhouse to the court before it sits
+  slots:
+    reading_room  Longwall [fortress town; f-great-house; 0.00 from centre]
+                  · holder Haʻahoqo the General (Banner Lord, d-l0 p-haahoqo)
+    region        the Crown Crossing
+    court         Longwall [fortress town; f-great-house; 0.00 from centre]
+                  · holder Haʻahoqo the General (Banner Lord, d-l0 p-haahoqo)
+    valley        the valley [farmland (spine site); t-great; 0.60 from centre]
+                  · ADDED at (7.49, 2.55): the valley of the claims, in the court's lordship
+    tower         the hoard's tower [lone tower (spine site); t-wave; 1.80 from centre]
+                  · ADDED at (8.69, 2.28): a lone, dry building on remote ground; the map has no scholar's tower here
+    hand          (role: the leader's courier (made on demand))
+    keeper        (role: the hoard's keeper, in the leader's pay (made on demand; see flavour a))
+    tutor         (role: the old reader at reading_room who taught the leader (made on demand))
+    claimant      (role: the valley's headwoman (made on demand))
+  placement report (card · place · from centre · bound):
+    R1    Longwall                                0.00  0.00 from court ✓   [Acquire · Won't sell (the court's archivist)]
+    R2    Highcrossing                            2.00  Wayhouse (fixed)   [Dispute · Broken agreement (heart's card: her night-copy pay)]
+    R3    Longwall                                0.00  0.00 from reading_room ✓   [Investigate · The ledger doesn't add up (odd job: the mending book)]
+    RV    Longwall                                0.00  0.00 from reading_room ✓   [Reveal · Acquire Passed on (the fallen roll-case)]
+    C1-1  the hoard's tower                       1.80  journey, ≤3.5: out to the tower, by the tolls the courier paid   [Acquire · Unknown worth (the hoard)]
+    C1-2  Longwall                                0.00  0.00 from reading_room ✓   [Investigate · Watch them (the hall's strongroom)]
+    C1-3  Longwall                                0.00  0.00 from reading_room ✓   [Dispute · Public offense (the courier, on the road out)]
+    C2-0  Highcrossing                            2.00  Wayhouse (fixed)   [Acquire · Under seal (the land rolls under her seal)]
+    DOOR  Longwall                                0.00     [door (blow a): Investigate Sabotage]
+    CR    Highcrossing                            2.00  Wayhouse (fixed): the copy must leave the Wayhouse past her courier; the heart works there, and the eldest reads the order there; giver there: the eldest copyist, who must read the order aloud   [Passage · Smuggling (out of the Wayhouse door)]
+    CR*   Longwall                                0.00  where its action falls   [crisis acted at]
+  routine and reveal towns: 2 distinct (Highcrossing, Longwall)
+  max distance from centre (Wayhouse cards aside): 1.80 · all checks pass
+
+==============================================================================
+seed 7404 · W3-B The Copy House Across the Street · enemy W3 (the hidden hand)
+  heart: H1b · woman
+  stake S7 · chapter-1 move M1 · openings: Dispute · Broken agreement / Acquire · Copy it before it burns
+  blow a: heart disgraced, cried down for taking a side (cried-down) -> door Dispute Public offense
+  flavour (a · the forger's reason for the house; voiced on CR): to keep her trade without a thief inside
+  flavour (b · why the binder sold his presses; voiced on C1-3): a debt
+  flavour (c · who reads to the half-blind heart; voiced on R1): a child of the hall
+  flavour (d · the Hand's link to the copyist; voiced on R2): his wife
+  routine: R1 Dispute · Contested inheritance · R2 Investigate · The ledger doesn't add up · R3 Restore · Lost livelihood
+  endings rolled: 1. Obtained and handed over, 4. Trade what we know, 3. Burn your copy
+  ending shown: 1. Obtained and handed over
+  centre: reading_room = the Chainmarket (main town: the Chainmarket; region: the Marches)
+  crisis: at reading_room = the Chainmarket (where the story is); giver: the heart, at the reading room, the court's letter in hand; acted at the Chainmarket
+  slots:
+    lord          the Chainmarket [market town; f-binders; 0.00 from centre]
+                  · holder Paqax Chain-breaker (the Binders' head, d-l0 p-paqax)
+    reading_room  the Chainmarket [market town; f-binders; 0.00 from centre]
+                  · holder Paqax Chain-breaker (the Binders' head, d-l0 p-paqax)
+    record_house  the court's record house outside the walls [record house (spine site); t-free; 0.50 from centre]
+                  · ADDED at (9.08, 5.92): the court's hall of record stands outside the town walls
+    pawn_town     the Chainmarket [market town; f-binders; 0.00 from centre]
+                  · holder Paqax Chain-breaker (the Binders' head, d-l0 p-paqax)
+    bindery_hall  Carter's Rest [waystation town at the march crossroads (Lanternhall); f-road-crews; 2.12 from centre]
+                  · holder Doruḍoqu the Carter (holder, d-l0 p-doruduqu)
+    house         the house of the Dusk Road (Wayafayus of the Dusk Road, d-l0 p-d0-wainyard-head, of Wainyard)
+    hand          (role: the copyist's kinswoman (flavour d), a clerk in the court's counting room (made on demand; the court's))
+    copyist       (role: a copyist of reading_room, her proxy (made on demand; the hall's))
+    binder        (role: the old bookbinder of bindery_hall's town (made on demand))
+  placement report (card · place · from centre · bound):
+    R1    the Chainmarket                         0.00  0.00 from reading_room ✓   [Dispute · Contested inheritance (heart's card)]
+    R2    Highcrossing                            3.68  Wayhouse (fixed)   [Investigate · The ledger doesn't add up (odd job: the court's bill)]
+    R3    Carter's Rest                           2.12  free, ≤3.0   [Restore · Lost livelihood (the bindery)]
+    RV    the Chainmarket                         0.00  0.00 from reading_room ✓   [Reveal · Acquire Unknown worth (the pawned sheets)]
+    C1-1  the court's record house outside the walls  0.50  0.50 from lord ✓; journey, ≤3.5: out to the record house   [Dispute · Broken agreement (the court's steward)]
+    C1-2  the Chainmarket                         0.00  0.00 from reading_room ✓   [Investigate · Watch them (the lane)]
+    C1-3  the Chainmarket                         0.00  0.00 from reading_room ✓   [Rescue · Bound by debt (the copy house)]
+    C2-0  the court's record house outside the walls  0.50  0.50 from lord ✓   [Acquire · Copy it before it burns (the archive room)]
+    DOOR  the court's record house outside the walls  0.50  0.50 from reading_room ✓   [door (blow a): Dispute Public offense]
+    CR    the Chainmarket                         0.00  0.00 from reading_room ✓; giver there: the heart, at the reading room, the court's letter in hand   [Acquire · Won't sell (the commission)]
+    CR*   the Chainmarket                         0.00  where its action falls (the crisis card's own place)   [crisis acted at]
+  routine and reveal towns: 3 distinct (Carter's Rest, Highcrossing, the Chainmarket)
+  max distance from centre (Wayhouse cards aside): 2.12 · all checks pass
+
+==============================================================================
+seed 7405 · W5-A The Letters Never Collected · enemy W5 (the old debt)
+  passed over: W1-A: the later samples could not then be placed
+  heart: H5c · man (the son)
+  stake S2 · chapter-1 move M8 · openings: Passage · Smuggling / Restore · Lost livelihood
+  blow b: player arrested on a charge (arrested-charge) -> door Passage Fugitive
+  flavour (a · what his letters to his father tell; voiced on R1): the camp's news
+  flavour (b · where the inquisitor lodges the night before; voiced on C1-2): Highcrossing's chapel
+  flavour (c · the ally; voiced on C1-3): the dead copyist's widow
+  routine: R1 Dispute · Broken agreement · R2 Acquire · Copy it before it burns · R3 Investigate · Watch them (swapped)
+  endings rolled: 5. Open the ledgers, 4. Left with the holder, 3. Trade what we know
+  ending shown: 5. Open the ledgers
+  centre: wayhouse = Highcrossing (main town: Highcrossing; region: the Crown Crossing)
+  crisis: at wayhouse = Highcrossing (about the Wayhouse (its Wall's oldest pigeonholes, burned in its own yard)); giver: the heart, at the Wall where his letters wait; acted at Highcrossing
+  slots:
+    wayhouse      (role: the Wayhouse's Lending Wall, oldest section)
+    branch_hall   the Ninth Ring [great town; f-first-peoples; 3.40 from centre]
+                  · holder Tuhuḍo of the Ninth-Ring House (Seated House head, d-l0 p-tuhudo)
+    inq_camp      the inquisitors' camp [camp (spine site); t-first; 2.98 from centre]
+                  · ADDED at (2.42, 4.27): on the road beyond the sealed branch, toward the Mount the inquisitors came from
+    tithe_hall    Longwall [fortress town; f-great-house; 2.00 from centre]
+                  · holder Haʻahoqo the General (Banner Lord, d-l0 p-haahoqo)
+    widow_hall    Southroad [toll town; f-great-house; 1.51 from centre]
+                  · holder Shahayuh of the South Road (Banner Lord, d-l0 p-shahayuh)
+    mount         the Mount [shrine-town; f-holy-house; 2.38 from centre]
+                  · holder Hotorìṭo the High Priest (the Holy House, d-l0 p-hotorito)
+    inquisitor    (role: a Holy House inquisitor, the Mount's (made on demand under its holder))
+    hand          (role: a pious copyist in the inquisitor's pay (made on demand))
+    magistrate    (role: Highcrossing's magistrate (made on demand))
+    ally          (role: of the dead copyist's house (made on demand; flavour c))
+    lodging       Highcrossing's chapel  (from flavour)
+  placement report (card · place · from centre · bound):
+    R1    Highcrossing                            0.00  Wayhouse (fixed)   [Dispute · Broken agreement (heart's card: the pigeonhole fee)]
+    R2    Southroad                               1.51  free, ≤3.0   [Acquire · Copy it before it burns (odd job: the widow)]
+    R3    Longwall                                2.00  free, ≤3.0   [Investigate · Watch them (the tithe-house)]
+    RV    Longwall                                2.00  free, ≤3.0   [Reveal · Acquire Unknown worth (the old desk)]
+    C1-1  the Ninth Ring                          3.40  0.00 from branch_hall ✓; journey, ≤3.5: the road to the branch, where the inquisitor searches   [Passage · Smuggling (the sealed branch's letters)]
+    C1-2  the inquisitors' camp                   2.98  0.50 from branch_hall ✓; journey, ≤3.5: the road beyond the branch   [Threat · Go and look (the camp)]
+    C1-3  the Mount                               2.38  free, ≤3.0   [Acquire · Won't sell (the Mount's stall)]
+    C2-0  the Ninth Ring                          3.40  0.00 from branch_hall ✓; journey, ≤3.5: the branch's town   [Restore · Lost livelihood]
+    DOOR  the Ninth Ring                          3.40  0.00 from branch_hall ✓; journey, ≤3.5: the branch's town   [door (blow b): Passage Fugitive]
+    CR    Highcrossing                            0.00  Wayhouse (fixed): the burning is in the Wayhouse's own yard, where his letters wait; he comes to it as he comes every month; giver there: the heart, at the Wall where his letters wait   [Acquire · Copy it before it burns (the Wayhouse's yard)]
+    CR*   Highcrossing                            0.00  where its action falls (the crisis card's own place)   [crisis acted at]
+  routine and reveal towns: 3 distinct (Highcrossing, Longwall, Southroad)
+  max distance from centre (Wayhouse cards aside): 3.40 · all checks pass
+
+==============================================================================
+seed 7406 · W8-A The Wall Through the Spring · enemy W8 (the hidden hand)
+  passed over: W1-B: would leave the rest of the set no spine under the caps
+  heart: H3b · man
+  stake S6 · chapter-1 move M5 · openings: Acquire · Take the readings / Dispute · Broken agreement
+  blow a: heart estranged, kin turned (kin-turned) -> door Restore Estrangement
+  flavour (a · what the captain tells himself; voiced on RV): the green will come anyway
+  flavour (b · the night the cairn was moved; voiced on C1-1): midsummer
+  flavour (c · why the surveyor signed; voiced on C1-3): his sister-in-law's post
+  routine: R1 Passage · Unwelcome cargo · R2 Investigate · The ledger doesn't add up · R3 Acquire · Unknown worth
+  endings rolled: 2. Bargain struck, 4. Relocated, 3. Protected, the threat remains
+  ending shown: 3. Protected, the threat remains
+  centre: camp = the Edge survey camp (main town: Ashring; region: the Greenmarch)
+  crisis: at edge_village = Ashring (where the story is); giver: the hall master who must certify the maps, come out to see the line; acted at Ashring
+  {days} = 3 = the road from Ashring to the Ninth Ring (1.63, rounded up) + 1: the maps must be certified at the hall before the ditch reaches the spring
+  slots:
+    camp          the Edge survey camp [Writers survey camp; f-writers; 0.00 from centre]
+    cairns        the Year Cairns [marker cairns; f-wardens; 0.92 from centre]
+    edge_village  Ashring [old village; f-first-peoples; 1.08 from centre]
+                  · holder Ḍeshiha of the Wind-Ledge House (headman, d-l0 p-d0-ashring-head)
+    green_wall    the Green Wall [wall-fort; f-wardens; 0.81 from centre]
+                  · holder Haʻo of the Green Wall (holder, d-l0 p-hao)
+    gate_town     the Ninth Ring [great town; f-first-peoples; 1.40 from centre]
+                  · holder Tuhuḍo of the Ninth-Ring House (Seated House head, d-l0 p-tuhudo)
+                  · feature added: a Warden recruiting post (the map's posts (Highcrossing, Openharbour) are over three days from the edge; the Wardens recruit where the fear is)
+    lodge_hall    the Ninth Ring [great town; f-first-peoples; 1.40 from centre]
+                  · holder Tuhuḍo of the Ninth-Ring House (Seated House head, d-l0 p-tuhudo)
+                  · feature added: a Warden recruiting post (the map's posts (Highcrossing, Openharbour) are over three days from the edge; the Wardens recruit where the fear is)
+                  · stretched to 1.40: the nearest hall, where the camp lodges its surveys
+    post_town     the Ninth Ring [great town; f-first-peoples; 1.40 from centre]
+                  · holder Tuhuḍo of the Ninth-Ring House (Seated House head, d-l0 p-tuhudo)
+                  · feature added: a Warden recruiting post (the map's posts (Highcrossing, Openharbour) are over three days from the edge; the Wardens recruit where the fear is)
+    timber_yard   the wall's timber yard [yard (spine site); t-first; 0.69 from centre]
+                  · ADDED at (1.43, 2.98): the yard where the wall's timber is cut, below the village
+    captain       (role: a Warden captain of the towers here, under the Green Wall's holder (made on demand))
+    hand          (role: lodge_hall's checker (made on demand; the hall's))
+    surveyor      (role: a camp surveyor who signed under protest (made on demand; the camp's))
+  placement report (card · place · from centre · bound):
+    R1    the Ninth Ring                          1.40  1.20 from edge_village ✓   [Passage · Unwelcome cargo (heart's card: the gate)]
+    R2    the Ninth Ring                          1.40  1.40 from camp ✓ stretched   [Investigate · The ledger doesn't add up (odd job: the survey)]
+    R3    the Ninth Ring                          1.40  free, ≤3.0   [Acquire · Unknown worth (the Warden's widow)]
+    RV    the Ninth Ring                          1.40  1.40 from camp ✓ stretched   [Reveal · Acquire Won't sell (the sister's daughter)]
+    C1-1  the Year Cairns                         0.92  0.92 from camp ✓; journey, ≤3.5: out to the cairns   [Acquire · Take the readings (the cairns)]
+    C1-2  Ashring                                 1.08  1.08 from camp ✓   [Dispute · Shared resource (the spring meadow)]
+    C1-3  the Edge survey camp                    0.00  0.00 from camp ✓   [Rescue · Imprisoned unjustly (the chain-boy held at the camp)]
+    C2-0  the wall's timber yard                  0.69  0.40 from edge_village ✓   [Dispute · Broken agreement (the timber yard's hiring)]
+    DOOR  Ashring                                 1.08  1.08 from camp ✓   [door (blow a): Restore Estrangement]
+    CR    Ashring                                 1.08  1.08 from camp ✓; giver there: the hall master who must certify the maps, come out to see the line   [Threat · Encroachment (the spring meadow)]
+    CR*   Ashring                                 1.08  where its action falls (the crisis card's own place)   [crisis acted at]
+  routine and reveal towns: 1 distinct (the Ninth Ring)
+  max distance from centre (Wayhouse cards aside): 1.40 · all checks pass
+
+==============================================================================
+seed 7407 · W1-A The Truce Held for a Debt · enemy W1 (the cost)
+  passed over: W1-B: would leave the rest of the set no spine under the caps
+  heart: H4a · man
+  stake S2 · chapter-1 move M3 · openings: Restore · Broken works / Passage · Unwilling passenger
+  blow c: player stripped of rank (stripped) -> door Restore Lost good name
+  flavour (a · the old debt's origin; voiced on RV): a wedding's cost
+  flavour (b · why the steward's clerk wants the truce; voiced on C1-3): her family farms both banks
+  flavour (c · the master's reason; voiced on RV): she believes balance is the Writers' oldest duty
+  routine: R1 Acquire · Copy it before it burns (swapped) · R2 Passage · Smuggling · R3 Acquire · Unknown worth
+  endings rolled: 3. Burn your copy, 4. Keep the balance, 2. A copy in every hall
+  ending shown: 4. Keep the balance
+  centre: reading_room = the Ninth Ring (main town: the Ninth Ring; region: the Elder Vale)
+  crisis: at reading_room = the Ninth Ring (where the story is); giver: the heart, who keeps the strongroom's key-book; acted at the Ninth Ring
+  {days} = 4 = the road from Oathford to the Ninth Ring (2.54, rounded up) + 1: the steward rides in from his master's seat to object
+  slots:
+    lord_a        Elderhollow [old town; f-first-peoples; 1.63 from centre]
+                  · holder Roduhuli of the Three-Ring House (Seated House head, d-l0 p-d0-elderhollow-head)
+    lord_b        Oathford [river town; f-great-house; 2.51 from centre]
+                  · holder Laʻetalu of the Bark-Field House (Banner Lord, d-l0 p-d0-oathford-lord)
+    reading_room  the Ninth Ring [great town; f-first-peoples; 0.00 from centre]
+                  · holder Tuhuḍo of the Ninth-Ring House (Seated House head, d-l0 p-tuhudo)
+                  · the hall both houses' lenders lodge at: 1.63 from Elderhollow, 2.51 from Oathford, neither's seat
+    ford_mill     the ford mill on the border [mill (spine site); t-first; 1.84 from centre]
+                  · ADDED at (3.3, 5.3): the debt object stands on the border, half-way between the seats; the map marks no mill
+    mill_market   Elderhollow [old town; f-first-peoples; 1.63 from centre]
+                  · holder Roduhuli of the Three-Ring House (Seated House head, d-l0 p-d0-elderhollow-head)
+    truce_day     the new moon after the sowing  (4 days off at the last move)
+    hand          (role: her Wall sorter at reading_room (made on demand; the hall's))
+    steward_clerk (role: lord_b's household (made on demand))
+  placement report (card · place · from centre · bound):
+    R1    the Ninth Ring                          0.00  0.00 from reading_room ✓   [Acquire · Copy it before it burns (heart's card)]
+    R2    Oathford                                2.51  0.00 from lord_b ✓; journey, ≤3.5: carried from reading_room's Wall branch to lord_b's steward's gate   [Passage · Smuggling (odd job)]
+    R3    Elderhollow                             1.63  1.04 from ford_mill ✓   [Acquire · Unknown worth (the miller's tally)]
+    RV    Oathford                                2.51  0.00 from lord_b ✓   [Reveal · Acquire Won't sell (lord_b's retired steward)]
+    C1-1  the ford mill on the border             1.84  0.00 from ford_mill ✓; journey, ≤3.5: the border, a ride out   [Restore · Broken works (the mill race)]
+    C1-2  the Ninth Ring                          0.00  0.00 from reading_room ✓   [Investigate · Watch them (the branch)]
+    C1-3  Oathford                                2.51  0.00 from lord_b ✓   [Dispute · Broken agreement (the steward's gatehouse)]
+    C2-0  the ford mill on the border             1.84  0.00 from ford_mill ✓; journey, ≤3.5: back to the ford   [Passage · Unwilling passenger (the miller)]
+    DOOR  the Ninth Ring                          0.00  0.00 from reading_room ✓   [door (blow c): Restore Lost good name]
+    CR    the Ninth Ring                          0.00  0.00 from reading_room ✓; giver there: the heart, who keeps the strongroom's key-book   [Acquire · Under seal (the hall's strongroom)]
+    CR*   the Ninth Ring                          0.00  where its action falls (the crisis card's own place)   [crisis acted at]
+  routine and reveal towns: 3 distinct (Elderhollow, Oathford, the Ninth Ring)
+  max distance from centre (Wayhouse cards aside): 2.51 · all checks pass
+
+==============================================================================
+seed 7408 · W7-B The Apprentice's Hand · enemy W7 (the old debt)
+  heart: H2 (W7c) · man
+  stake S3 · chapter-1 move M5 · openings: Threat · Go and look / Dispute · Broken agreement
+  blow a: heart estranged, kin turned (kin-turned) -> door Restore Estrangement
+  flavour (a · where the teacher found her; voiced on R1): copying headstones
+  flavour (b · what the false lines change; voiced on C1-2): a date
+  flavour (c · what the teacher calls her, in the letter; voiced on CR): 'the halls' next mistake'
+  routine: R1 Restore · Lost livelihood · R2 Acquire · Copy it before it burns · R3 Investigate · Watch them (swapped)
+  endings rolled: 2. Justice done formally, 1. Amends made, 4. The requester forgives
+  ending shown: 2. Justice done formally
+  centre: reading_room = Southroad (main town: Southroad; region: the Crown Crossing)
+  crisis: at wayhouse = Highcrossing (about the Wayhouse's own judging (its hearing strikes her off, as it struck her teacher)); giver: the eldest copyist, who read the letter at the Wall; acted at Highcrossing
+  slots:
+    reading_room  Southroad [toll town; f-great-house; 0.00 from centre]
+                  · holder Shahayuh of the South Road (Banner Lord, d-l0 p-shahayuh)
+    tower         the struck-off copyist's tower [lone tower (spine site); t-great; 1.00 from centre]
+                  · ADDED at (6.52, 5.21): a lone tower on remote ground within reach of the market; the map has none
+    mother_town   the Silver Road Counting-House [fortified counting-house; f-sharp-hands; 1.20 from centre]
+                  · holder Feyesh of the Silver Road (holder, d-l0 p-feyesh)
+    r3_hall       Carter's Rest [waystation town at the march crossroads (Lanternhall); f-road-crews; 2.20 from centre]
+                  · holder Doruḍoqu the Carter (holder, d-l0 p-doruduqu)
+    hand          (role: the tower's agent who sells exemplars (made on demand))
+    scribe        (role: the Wayhouse's old hearing-scribe (made on demand; the Wayhouse's))
+  placement report (card · place · from centre · bound):
+    R1    Southroad                               0.00  0.00 from reading_room ✓   [Restore · Lost livelihood (heart's card)]
+    R2    Southroad                               0.00  0.00 from reading_room ✓   [Acquire · Copy it before it burns (odd job: the exemplars)]
+    R3    Carter's Rest                           2.20  free, ≤3.0   [Investigate · Watch them (the exemplars' carrier)]
+    RV    Southroad                               0.00  1.00 from tower ✓   [Reveal · Passage Unwilling passenger (the shepherd boy)]
+    C1-1  the struck-off copyist's tower          1.00  1.00 from reading_room ✓; journey, ≤3.5: up to the tower   [Threat · Go and look (the tower)]
+    C1-2  Southroad                               0.00  0.00 from reading_room ✓   [Dispute · Public offense (the market)]
+    C1-3  Southroad                               0.00  0.00 from reading_room ✓   [Acquire · Won't sell (the paper stall)]
+    C2-0  Southroad                               0.00  0.00 from reading_room ✓   [Dispute · Broken agreement (the twelve copies' owners)]
+    DOOR  the Silver Road Counting-House          1.20  1.20 from reading_room ✓   [door (blow a): Restore Estrangement]
+    CR    Highcrossing                            1.51  Wayhouse (fixed): the Wayhouse's hearing strikes her off: summoned to it, she rides up with the hearing-scribe, and the eldest reads the teacher's letter at the Wall that night; giver there: the eldest copyist, who read the letter at the Wall   [Reckoning · Ruin from above (the Wayhouse's hearing)]
+    CR*   Highcrossing                            1.51  where its action falls (the crisis card's own place)   [crisis acted at]
+  routine and reveal towns: 2 distinct (Carter's Rest, Southroad)
+  max distance from centre (Wayhouse cards aside): 2.20 · all checks pass
+
+==============================================================================
+Set summary
+  7401 W2-B  H1c  S5 members taken      main town Bogford            max 0.80  shown: Delivered                  pass
+  7402 W4-A  H3a  S2 leader struck down main town Openharbour        max 1.41  shown: The heart wins             pass
+  7403 W6-A  H2a  S4 player framed      main town Longwall           max 1.80  shown: Seized                     pass
+  7404 W3-B  H1b  S7 heart disgraced    main town the Chainmarket    max 2.12  shown: Obtained and handed over   pass
+  7405 W5-A  H5c  S2 player arrested    main town Highcrossing       max 3.40  shown: Open the ledgers           pass
+  7406 W8-A  H3b  S6 heart estranged    main town Ashring            max 1.40  shown: Protected, the threat remains pass
+  7407 W1-A  H4a  S2 player stripped    main town the Ninth Ring     max 2.51  shown: Keep the balance           pass
+  7408 W7-B  H2 (W7c) S3 heart estranged    main town Southroad          max 2.20  shown: Justice done formally      pass
+  variety: hearts H1/H3/H2/H1/H5/H3/H4/H2 · stakes max ×3 · blows max ×2 · openings max ×2 · ledger in 3 routines, copy-it in 5 · Burn your copy rolled 3, endings shown all different: True
+
+All stories pass.

@@ -1,5 +1,7 @@
 # The Quest Generator: how the whole system works
 
+> **Parked 2026-11-01.** See [quest-generator-PARKED.md](quest-generator-PARKED.md) for what this is, where it stood and why it was parked.
+
 *Written 2026-10-26 by Claude, for Laz and for whoever builds it (v1.1, audit fixes the same day; changes at the end). No code here: this explains what the system does and how each part should work, mechanically.*
 
 **Where the detailed rules live:** the claude.ai **Gahturiyu** Project, in the `claude/quest-*.md` docs. The rulebook (`quest-generator-rulebook.md`) wins any conflict.
