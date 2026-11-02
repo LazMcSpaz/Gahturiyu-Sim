@@ -40,7 +40,7 @@ pub fn draw(c: &Canvas, w: &mut World, lead: Option<PersonId>, click: Option<Cli
         let mut b = w.behaviour(m);
         let before = b;
         // One row: its label, then a button per choice (the chosen one gold).
-        let mut row = |label: &str, n: usize, chosen: &dyn Fn(usize) -> bool, names: &dyn Fn(usize) -> String, by: f32| -> Option<usize> {
+        let row = |label: &str, n: usize, chosen: &dyn Fn(usize) -> bool, names: &dyn Fn(usize) -> String, by: f32| -> Option<usize> {
             c.text(label, x + 30.0, by + 22.0, 14.0, DIM);
             let bw = (W - 30.0 - LABEL - 20.0) / n as f32;
             let mut picked = None;

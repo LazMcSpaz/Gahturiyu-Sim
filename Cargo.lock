@@ -2792,9 +2792,11 @@ dependencies = [
  "bincode",
  "image",
  "meshopt",
+ "raw-window-handle",
  "ron",
  "serde",
  "serde_json",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

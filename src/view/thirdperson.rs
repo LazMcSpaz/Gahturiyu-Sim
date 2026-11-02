@@ -256,8 +256,10 @@ pub fn draw(c: &Canvas, game: &Game) {
 /// The pointer: captured and hidden in third person; otherwise kept inside
 /// the window while playing (Laz: "the cursor needs to lock into the window
 /// when in play"), free on the title screen and the game menu. Screenshot
-/// runs never take it.
-pub fn pointer(game: Res<Game>, mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>) {
+/// runs never take it. On Windows the clip is set here directly
+/// (`clip_to`): winit's grab, asked for through `CursorOptions`, never took
+/// on Laz's PC (measured with GetClipCursor, 2 Nov).
+pub fn pointer(game: Res<Game>, mut cursor: Single<(&mut CursorOptions, Option<&bevy::window::RawHandleWrapper>), With<PrimaryWindow>>, mut clipped: Local<bool>) {
     let playing = game.title.is_none() && game.game_menu.is_none() && game.shot.is_none() && !game.quit;
     let grab = if game.third.locked {
         CursorGrabMode::Locked
@@ -266,11 +268,73 @@ pub fn pointer(game: Res<Game>, mut cursor: Single<&mut CursorOptions, With<Prim
     } else {
         CursorGrabMode::None
     };
-    if cursor.grab_mode != grab {
-        cursor.grab_mode = grab;
+    // (Testing: `GAHT_GRAB=confined|locked|none` forces the mode.)
+    let grab = match std::env::var("GAHT_GRAB").as_deref() {
+        Ok("confined") => CursorGrabMode::Confined,
+        Ok("locked") => CursorGrabMode::Locked,
+        Ok("none") => CursorGrabMode::None,
+        _ => grab,
+    };
+    let (ref mut options, handle) = *cursor;
+    let visible = grab != CursorGrabMode::Locked;
+    if options.visible != visible {
+        options.visible = visible;
     }
-    let visible = !game.third.locked;
-    if cursor.visible != visible {
-        cursor.visible = visible;
+    #[cfg(windows)]
+    if let Some(h) = handle {
+        clip_to(h, grab, &mut clipped);
+        return;
+    }
+    let _ = (handle, &mut clipped);
+    if options.grab_mode != grab {
+        options.grab_mode = grab;
+    }
+}
+
+/// Keep the pointer in the window (Windows): while it's the window in front,
+/// the cursor is clipped to its inside (`Confined`) or to one point at its
+/// middle (`Locked`: the mouse still turns the view, by its raw movement).
+/// Let go as soon as another window is in front, or the grab ends. Only set
+/// when it differs from what stands (each set sends the window a mouse move).
+#[cfg(windows)]
+fn clip_to(handle: &bevy::window::RawHandleWrapper, grab: CursorGrabMode, clipped: &mut bool) {
+    use raw_window_handle::RawWindowHandle;
+    use windows_sys::Win32::Foundation::{POINT, RECT};
+    use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{ClipCursor, GetClientRect, GetClipCursor, GetForegroundWindow, SetCursorPos};
+    let RawWindowHandle::Win32(h) = handle.get_window_handle() else { return };
+    let hwnd = h.hwnd.get();
+    unsafe {
+        let front = GetForegroundWindow() == hwnd;
+        if grab == CursorGrabMode::None || !front {
+            if *clipped {
+                ClipCursor(std::ptr::null());
+                *clipped = false;
+            }
+            return;
+        }
+        let mut client = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        if GetClientRect(hwnd, &mut client) == 0 {
+            return;
+        }
+        let mut tl = POINT { x: client.left, y: client.top };
+        let mut br = POINT { x: client.right, y: client.bottom };
+        ClientToScreen(hwnd, &mut tl);
+        ClientToScreen(hwnd, &mut br);
+        let want = if grab == CursorGrabMode::Locked {
+            let (cx, cy) = ((tl.x + br.x) / 2, (tl.y + br.y) / 2);
+            RECT { left: cx, top: cy, right: cx + 1, bottom: cy + 1 }
+        } else {
+            RECT { left: tl.x, top: tl.y, right: br.x, bottom: br.y }
+        };
+        let mut now = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        GetClipCursor(&mut now);
+        if (now.left, now.top, now.right, now.bottom) != (want.left, want.top, want.right, want.bottom) {
+            if grab == CursorGrabMode::Locked {
+                SetCursorPos(want.left, want.top);
+            }
+            ClipCursor(&want);
+            *clipped = true;
+        }
     }
 }
