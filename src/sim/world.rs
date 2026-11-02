@@ -143,6 +143,10 @@ pub struct World {
     /// The hidden dev test quarter, once found (`testquarter.rs`).
     #[serde(default)]
     pub test_quarter: Option<super::testquarter::TestQuarter>,
+    /// Sites from the dungeon generator, and who of the squad is in one
+    /// (`dungeon.rs`).
+    #[serde(default)]
+    pub sites: super::dungeon::Sites,
     /// Diʻub and the lord, and how Diʻub's questions went (`diub.rs`).
     #[serde(default)]
     pub strangers: super::diub::Strangers,
@@ -447,6 +451,7 @@ impl World {
             rules_applied: Default::default(),
             seats: Vec::new(),
             test_quarter: None,
+            sites: Default::default(),
             strangers: Default::default(),
             caught: Default::default(),
             dosing: Vec::new(),

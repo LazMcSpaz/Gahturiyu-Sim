@@ -224,6 +224,7 @@ impl World {
             return;
         }
         // (Out to sea they stop at the water's edge: `cut_at_water`.)
+        let in_site = target;
         let target = self.order_spot(target);
         // The bound work where they're put.
         let bound: Vec<PersonId> = who.iter().copied().filter(|&m| !self.free_to_order(m)).collect();
@@ -249,7 +250,10 @@ impl World {
         let aim = if self.open_water(target) { target } else { self.free_spot(target) };
         let room = self.enclosure_at(aim).map(|t| t.id);
         for (n, &pid) in who.iter().enumerate() {
-            if let Some(k) = self.squad.index(pid) {
+            // In a dungeon site: sent within it, by its own ways.
+            if self.sites.inside.contains_key(&pid) {
+                self.order_in_site(pid, in_site, None);
+            } else if let Some(k) = self.squad.index(pid) {
                 let place = aim.add(formation(n).scale(if room.is_some() { 0.3 } else { 1.0 }));
                 let spot = if self.open_water(place) { place } else { self.free_spot(place) };
                 let spot = if self.enclosure_at(spot).map(|t| t.id) == room { spot } else { aim };
@@ -331,6 +335,11 @@ impl World {
             }
             let p = &self.people[pid as usize];
             if p.dead || body::knocked_out(&p.wounds.hp_at(&p.stats, self.time)) {
+                continue;
+            }
+            // In a dungeon site: its own way-finder, levels and all (`dungeon.rs`).
+            if self.sites.inside.contains_key(&pid) {
+                self.walk_in_site(k, dt);
                 continue;
             }
             let at = self.squad.at[k];

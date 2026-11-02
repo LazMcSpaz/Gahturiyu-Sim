@@ -35,6 +35,9 @@ fn fingerprint(w: &World) -> String {
     s += &format!("{:?}\n", w.seats);
     // The hidden test quarter, once found.
     s += &format!("{:?}\n", w.test_quarter);
+    // Sites from the dungeon generator, and who is in one.
+    s += &format!("{:?}
+", w.sites);
     // Diʻub and the lord, and Diʻub's questions answered.
     s += &format!("{:?}\n", w.strangers);
     // The caught path: who was taken, what the island saw, who's owed.
