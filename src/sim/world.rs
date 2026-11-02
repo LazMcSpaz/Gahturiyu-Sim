@@ -838,6 +838,10 @@ impl World {
         if let Some(pos) = self.fighter_pos(pid) {
             return pos;
         }
+        // A foe standing in a dungeon site (`dungeon.rs`).
+        if let Some(&at) = self.sites.foes.get(&pid) {
+            return at;
+        }
         // Aboard the ferry: read off the crossing (`ferry.rs`), never stepped.
         if let Some(n) = self.voyage.as_ref().and_then(|v| v.members.iter().position(|&x| x == pid)) {
             return self.voyage.as_ref().unwrap().at(self.time).0.add(super::squad::formation(n).scale(0.6));

@@ -357,6 +357,58 @@ pub enum Act {
     Throw { target: usize, item: ItemId, lands: f64 },
     /// Throwing a harmful brew in a flask at a spot (Part 4 rule 8).
     Flask { at: V2, mix: Mix, lands: f64 },
+    /// The player's fighter (`Drive`) striking the way they face: whoever
+    /// of the other side is in the weapon's arc when it lands (third person,
+    /// Laz 2 Nov: true aim).
+    Strike { dir: V2, lands: f64 },
+    /// The player's fighter shooting the way they face: the first body on
+    /// the line, friend or foe (Laz: ranged and spells can hit a mate).
+    Shoot { dir: V2, lands: f64 },
+}
+
+/// A fighter the player drives in real time (third person,
+/// `docs/third-person.md`): no AI; moved by the keys; strikes, shoots,
+/// blocks and dodges when told.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Drive {
+    /// The player has them.
+    pub on: bool,
+    /// The way the keys press them (unit), if any.
+    pub go: Option<V2>,
+    /// The way they face (where the crosshair points, flat).
+    pub facing: V2,
+    /// Blocking (the right button held).
+    pub guard: bool,
+    /// A dodge under way: which way, how far still to go.
+    pub dodge: Option<(V2, f32)>,
+    /// Harder to hit until then (a dodge).
+    pub dodged_until: f64,
+}
+
+/// A driven fighter blocking toward a blow: the least share of blows it
+/// turns, the most, its breath per blow turned, and how slowly they move
+/// meanwhile.
+pub const GUARD_HELD: f32 = 0.55;
+pub const GUARD_MOST: f32 = 0.9;
+pub const GUARD_COST: f32 = 3.0;
+pub const GUARD_PACE: f32 = 0.5;
+/// A dodge: its speed, and how much harder to hit meanwhile (on the dodge
+/// roll's scale).
+pub const DRIVE_DODGE_SPEED: f32 = 6.0;
+pub const DODGE_BONUS: f32 = 40.0;
+pub const DODGE_WINDOW: f64 = 0.4;
+/// How far off a shot's line a body is still in its way, metres.
+pub const SHOT_WIDTH: f32 = 0.45;
+
+/// How wide a true-aim strike reaches (the cosine of its half-angle), by the
+/// weapon's room: a thrust is narrow, a sweep wide.
+pub fn strike_arc(w: &WeaponDef) -> f32 {
+    match space_of(w) {
+        Space::Short => 0.6,
+        Space::Medium => 0.5,
+        Space::Long => 0.85,
+        Space::Sweep => 0.2,
+    }
 }
 
 /// What the player (or a leader) has told someone to do.
@@ -523,6 +575,9 @@ pub struct Fighter {
     pub shield_wear: f32,
     #[serde(default)]
     pub armor_wear: Vec<[f32; 2]>,
+    /// Driven by the player (third person), and how.
+    #[serde(default)]
+    pub drive: Drive,
 }
 
 impl Fighter {
@@ -595,6 +650,7 @@ impl Fighter {
             fled: false,
             think_at: 0.0,
             aware_at: 0.0,
+            drive: Drive::default(),
             burdened: false,
             torch: false,
             has_torch: false,
@@ -713,6 +769,7 @@ impl Fighter {
             throws: Vec::new(),
             backup: None,
             aware_at: 0.0,
+            drive: Drive::default(),
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
             held: None,
@@ -1005,6 +1062,14 @@ impl Around {
         }
     }
 
+    /// Is the straight line from `a` to `b` clear of anything solid (a shot)?
+    pub fn clear(&self, a: V2, b: V2) -> bool {
+        match &self.0 {
+            Some(sets) => sets.iter().all(|s| s.crossing(a, b, 0.05).is_none()),
+            None => true,
+        }
+    }
+
     /// Where someone at `a` making for `goal` is after `d` metres: straight
     /// at it if nothing solid stands between, else along the way round
     /// (`walk::find`, the same finder everyone walks by).
@@ -1182,7 +1247,7 @@ impl Battle {
 
         // Decide.
         for i in 0..n {
-            if self.fighters[i].active() && t >= self.fighters[i].think_at && !self.fighters[i].unaware(t) {
+            if self.fighters[i].active() && !self.fighters[i].drive.on && t >= self.fighters[i].think_at && !self.fighters[i].unaware(t) {
                 super::ai::think(self, i, &mut rng);
                 self.fighters[i].think_at = t + 0.3;
             }
@@ -1210,8 +1275,24 @@ impl Battle {
                 Act::Recover { until } => {
                     if t >= until {
                         self.fighters[i].act = Act::Idle;
+                    } else if self.fighters[i].drive.on {
+                        self.drive_step(i);
                     } else {
                         self.circle(i);
+                    }
+                }
+                Act::Strike { dir, lands } => {
+                    if t >= lands {
+                        self.resolve_strike(i, dir, &mut rng);
+                        let rec = self.fighters[i].weapon.recover * self.fighters[i].swing_time();
+                        self.fighters[i].act = Act::Recover { until: t + rec as f64 };
+                    }
+                }
+                Act::Shoot { dir, lands } => {
+                    if t >= lands {
+                        self.resolve_shot(i, dir, &mut rng);
+                        let rec = self.fighters[i].weapon.recover * self.fighters[i].swing_time();
+                        self.fighters[i].act = Act::Recover { until: t + rec as f64 };
                     }
                 }
                 Act::Cast { spell, target, point, done, scroll } => {
@@ -1245,6 +1326,7 @@ impl Battle {
                         self.fighters[i].act = Act::Recover { until: t + FLASK_RECOVER * self.fighters[i].attack_time() as f64 };
                     }
                 }
+                Act::Idle if self.fighters[i].drive.on => self.drive_step(i),
                 Act::Idle => self.idle(i),
             }
         }
@@ -1330,6 +1412,127 @@ impl Battle {
     }
 
     /// Doing nothing in particular: carry out orders, chase the target, or run.
+    /// The player's fighter moves: a dodge under way, else the keys' way at
+    /// their fighting pace (half of it blocking), round what's solid.
+    fn drive_step(&mut self, i: usize) {
+        let f = &self.fighters[i];
+        if let Some((d, rest)) = f.drive.dodge {
+            let go = (DRIVE_DODGE_SPEED * DT as f32).min(rest);
+            let to = f.pos.add(d.scale(go));
+            self.step_to(i, to);
+            let rest = rest - go;
+            self.fighters[i].drive.dodge = (rest > 1e-3).then_some((d, rest));
+            return;
+        }
+        let Some(d) = f.drive.go else { return };
+        let pace = if f.drive.guard { GUARD_PACE } else { 1.0 };
+        let to = f.pos.add(d.scale(f.speed() * DT as f32 * pace));
+        self.step_to(i, to);
+    }
+
+    /// The player's fighter strikes (or shoots, with a bow and arrows) the
+    /// way they face, when free to: not mid-blow, not blocking, not
+    /// helpless, breath left. Whether it began.
+    pub fn strike(&mut self, i: usize, dir: V2) -> bool {
+        let Some(f) = self.fighters.get(i) else { return false };
+        if !f.active() || f.helpless() || !matches!(f.act, Act::Idle) || f.fatigue <= 4.0 || f.drive.guard || dir.len() < 1e-4 {
+            return false;
+        }
+        let dir = dir.scale(1.0 / dir.len());
+        let windup = f.weapon.windup * f.swing_time();
+        if f.shooting() {
+            self.fighters[i].act = Act::Shoot { dir, lands: self.time + windup as f64 };
+        } else if f.usable_weapon().is_some() {
+            let windup = if self.needs_room(i) { windup * (1.0 + TIGHT_SLOW * self.tightness(i)) } else { windup };
+            self.fighters[i].act = Act::Strike { dir, lands: self.time + windup as f64 };
+        } else {
+            return false;
+        }
+        self.fighters[i].drive.facing = dir;
+        true
+    }
+
+    /// A dodge back from where the driven fighter faces.
+    pub fn dodge(&mut self, i: usize) {
+        let Some(f) = self.fighters.get(i) else { return };
+        if !f.active() || f.helpless() || f.drive.dodge.is_some() || f.drive.facing.len() < 1e-4 {
+            return;
+        }
+        let back = f.drive.facing.scale(-1.0 / f.drive.facing.len());
+        self.fighters[i].drive.dodge = Some((back, super::dungeon::DODGE_M));
+        self.fighters[i].drive.dodged_until = self.time + DODGE_WINDOW;
+        self.fighters[i].fatigue -= SWING_TIRES;
+    }
+
+    /// A true-aim strike lands: whoever of the other side is within the
+    /// weapon's reach and arc (the nearest; everyone there, for a sweeping
+    /// weapon). Squad mates in the arc are passed by (Laz). A swing at
+    /// nothing still costs breath.
+    fn resolve_strike(&mut self, i: usize, dir: V2, rng: &mut Rng) {
+        let me = &self.fighters[i];
+        let (from, reach, arc, sweep) = (me.pos, me.reach() * 1.05, strike_arc(&me.weapon), sweeps(&me.weapon));
+        let mut hit: Vec<(usize, f32)> = (0..self.fighters.len())
+            .filter(|&j| j != i && self.fighters[j].active() && self.hostile(i, j))
+            .filter_map(|j| {
+                let off = self.fighters[j].pos.sub(from);
+                let d = off.len();
+                (d <= reach && (d < 0.3 || (off.x * dir.x + off.y * dir.y) / d >= arc)).then_some((j, d))
+            })
+            .collect();
+        hit.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+        if !sweep {
+            hit.truncate(1);
+        }
+        if hit.is_empty() {
+            self.fighters[i].fatigue -= SWING_TIRES;
+        }
+        for (j, _) in hit {
+            self.resolve_attack(i, j, rng);
+        }
+    }
+
+    /// A shot along the line the driven fighter faces: the first body on
+    /// it within range that the way to is clear of walls, friend or foe; a
+    /// miss of everyone flies on to the range or the first wall.
+    fn resolve_shot(&mut self, i: usize, dir: V2, rng: &mut Rng) {
+        let me = &self.fighters[i];
+        let (from, range) = (me.pos, me.weapon.range);
+        let mut on_line: Vec<(usize, f32)> = (0..self.fighters.len())
+            .filter(|&j| j != i && self.fighters[j].active())
+            .filter_map(|j| {
+                let off = self.fighters[j].pos.sub(from);
+                let along = off.x * dir.x + off.y * dir.y;
+                let across = (off.x * dir.y - off.y * dir.x).abs();
+                (along > 0.2 && along <= range && across <= SHOT_WIDTH).then_some((j, along))
+            })
+            .collect();
+        on_line.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+        let first = on_line.into_iter().map(|h| h.0).find(|&j| self.around.clear(from, self.fighters[j].pos));
+        match first {
+            Some(j) => {
+                self.resolve_blow(i, j, rng, WHOLE);
+            }
+            None => {
+                self.fighters[i].ammo -= 1;
+                self.fighters[i].shots += 1;
+                let mut to = from.add(dir.scale(range));
+                if !self.around.clear(from, to) {
+                    let (mut lo, mut hi) = (0.0f32, range);
+                    for _ in 0..12 {
+                        let mid = (lo + hi) * 0.5;
+                        if self.around.clear(from, from.add(dir.scale(mid))) {
+                            lo = mid;
+                        } else {
+                            hi = mid;
+                        }
+                    }
+                    to = from.add(dir.scale(lo));
+                }
+                self.fx.push(Fx { kind: FxKind::Arrow { from, to, hit: false }, at: self.time });
+            }
+        }
+    }
+
     fn idle(&mut self, i: usize) {
         let me = &self.fighters[i];
         let speed = me.speed() * DT as f32;
@@ -1534,6 +1737,8 @@ impl Battle {
         } else {
             (def.skill(Skill::Dodge) * 0.6 + def.attr(Attr::Agility) * 0.25 - def.dodge_penalty * 100.0 + def.power(Does::Shrink) * 30.0 - def.power(Does::Enlarge) * 20.0) * def.tired()
         };
+        // A driven fighter mid-dodge is harder to hit.
+        let dodge = if !helpless && def.drive.on && self.time < def.drive.dodged_until { dodge + DODGE_BONUS } else { dodge };
         // Arrows are dodged less but lose accuracy with distance.
         let dodge = if shot { dodge * 0.5 } else { dodge };
         let far = if shot { 1.0 - 0.35 * dist / weapon.range.max(1.0) } else { 1.0 };
@@ -1585,7 +1790,17 @@ impl Battle {
         // An off-hand blade turns blows too, less well than a shield (rule 6).
         let parrying = !helpless && !def.burdened && !shot && def.offhand_up().is_some();
         let guard = guard + if parrying { OFFHAND_PARRY * 100.0 } else { 0.0 };
+        // A driven fighter holding a block, the blow coming from in front:
+        // their guard up (an arrow only with a shield to take it on).
+        let to_att = self.fighters[a].pos.sub(def.pos);
+        let facing_it = def.drive.on && def.drive.guard && !helpless && to_att.x * def.drive.facing.x + to_att.y * def.drive.facing.y > 0.0 && (!shot || def.shield_up() > 0.0);
         let p_block = if guard <= 0.0 { 0.0 } else { (guard * (0.3 + def.skill(Skill::Block) / 100.0) / (guard + atk + 20.0)).clamp(0.0, 0.75) };
+        // Held toward the blow, a block is a deliberate act: at least
+        // `GUARD_HELD`, more with skill, a shield or a parrying weapon.
+        let p_block = if facing_it { p_block.max((GUARD_HELD + def.skill(Skill::Block) * 0.004 + def.shield_up() * 0.3 + def.weapon.parry * 0.3).min(GUARD_MOST)) } else { p_block };
+        if facing_it && r_block < p_block {
+            self.fighters[d].fatigue -= GUARD_COST;
+        }
         let roll = 0.8 + r_dmg * 0.4;
         let skill_mult = 0.6 + skill * 0.006;
         // Strength puts weight behind a blow (and a throw); a bowstring
@@ -2100,7 +2315,7 @@ impl Battle {
     fn stagger(&mut self, d: usize) {
         let t = self.time;
         let f = &mut self.fighters[d];
-        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. } | Act::Throw { .. } | Act::Flask { .. }) {
+        if matches!(f.act, Act::Swing { .. } | Act::Cast { .. } | Act::Bind { .. } | Act::Throw { .. } | Act::Flask { .. } | Act::Strike { .. } | Act::Shoot { .. }) {
             f.act = Act::Recover { until: t + STAGGER_SECS };
         }
         f.think_at = f.think_at.max(t + STAGGER_SECS);

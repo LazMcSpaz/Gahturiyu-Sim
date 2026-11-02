@@ -119,6 +119,14 @@ pub fn aim(w: &World, pid: PersonId, at: V2) -> Option<f32> {
         }
     }
     if let Some((b, f)) = fight(w, pid) {
+        // Driven by the player (third person): the way they strike, else the
+        // way they face.
+        if let Act::Strike { dir, .. } | Act::Shoot { dir, .. } = f.act {
+            return Some(dir.y.atan2(dir.x));
+        }
+        if f.drive.on && f.drive.facing.len() > 1e-3 {
+            return Some(f.drive.facing.y.atan2(f.drive.facing.x));
+        }
         let t = match f.act {
             Act::Swing { target, .. } => Some(target),
             Act::Cast { target, .. } => target,
@@ -361,7 +369,7 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
         // pointed at the ground.
         let shoulder = base + side * (r * 1.1) + vec3(0.0, h * 0.72, 0.0);
         let (dir, len) = match f.act {
-            Act::Swing { .. } => (fwd, 0.9),
+            Act::Swing { .. } | Act::Shoot { .. } => (fwd, 0.9),
             Act::Recover { .. } => ((fwd * 0.35 + vec3(0.0, -1.0, 0.0)).normalize(), 0.8),
             _ => ((fwd + vec3(0.0, -0.6, 0.0)).normalize(), 0.8),
         };
@@ -390,7 +398,19 @@ pub fn draw(b: &mut Builder, gl: &mut Builder, w: &World, pid: PersonId, base: V
     // (wider for a sweeping weapon).
     let reach = (f.weapon.reach * 0.75).clamp(0.6, 2.4);
     let wide = if gahturiyu_sim::sim::combat::sweeps(&f.weapon) { 1.7 } else { 1.2 };
-    if let Act::Swing { lands, .. } = f.act {
+    // Blocking (third person, the right button): the weapon held up across
+    // the body, toward the way they face.
+    if f.drive.on && f.drive.guard {
+        let up = vec3(0.0, h * 0.78, 0.0);
+        let front = base + up + fwd * (r * 1.6);
+        b.stick(front - side * (0.45 * k) - vec3(0.0, 0.15 * k, 0.0), front + side * (0.45 * k) + vec3(0.0, 0.2 * k, 0.0), 0.08 * k, BLADE);
+        return;
+    }
+    let swinging = match f.act {
+        Act::Swing { lands, .. } | Act::Strike { lands, .. } => Some(lands),
+        _ => None,
+    };
+    if let Some(lands) = swinging {
         let windup = f.weapon.windup.max(0.2) as f64;
         let start = lands - windup * ARC_SHARE;
         let p = ((t - start) / (windup * ARC_SHARE + ARC_AFTER)).clamp(0.0, 1.0) as f32;

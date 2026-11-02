@@ -1,10 +1,11 @@
-use gahturiyu_sim::sim::{prof, worldgen};
-use std::time::Instant;
 //! What a step of the world costs per 60 Hz frame over a game day at 60×,
 //! and which sections spike (`sim::prof`). Run by hand when looking at
 //! performance: `cargo test --release --test perf -- --ignored --nocapture`.
 //! (17 Oct: mean 0.16 ms a frame; on the hour 15-30 ms, dawn 65 ms, after
 //! banding townsfolk by a rough position and keeping today's weather.)
+use gahturiyu_sim::sim::{prof, worldgen};
+use std::time::Instant;
+
 #[test]
 #[ignore]
 fn a_day_at_60x_by_section() {

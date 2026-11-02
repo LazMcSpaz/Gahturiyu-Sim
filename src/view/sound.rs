@@ -271,7 +271,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut sfx: ResMut<Sf
             let hp: f32 = f.hp.iter().sum();
             // A hand weapon's blow, once its arc starts; a spell, once begun.
             let swing = match f.act {
-                Act::Swing { lands, .. } if f.weapon.range <= 0.0 && f.is_person() && b.time >= lands - f.weapon.windup.max(0.2) as f64 * super::cues::ARC_SHARE => Some(lands),
+                Act::Swing { lands, .. } | Act::Strike { lands, .. } if f.weapon.range <= 0.0 && f.is_person() && b.time >= lands - f.weapon.windup.max(0.2) as f64 * super::cues::ARC_SHARE => Some(lands),
                 _ => None,
             };
             let cast = match f.act {

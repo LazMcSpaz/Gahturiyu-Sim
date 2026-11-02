@@ -2082,8 +2082,10 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
     let inner = floor_at(at);
     let on_ground = &|q: V2| inner.unwrap_or_else(|| ground(q));
     // Horaro at home on a stilt deck stand above the water.
-    let floor = if let Some(h) = w.site_height(pid) {
-        // In a dungeon site: on its floor, deck, ladder or water (`dungeon.rs`).
+    let floor = if let Some(h) = w.site_height(pid).filter(|_| !w.fighting.contains_key(&pid)).or_else(|| w.site_floor_at(at)) {
+        // In a dungeon site: on its floor, deck, ladder or water
+        // (`dungeon.rs`); a foe, or anyone fighting there, on the floor
+        // where they stand.
         h
     } else if geo::inland(at) < 0.0 {
         DECK + 0.3

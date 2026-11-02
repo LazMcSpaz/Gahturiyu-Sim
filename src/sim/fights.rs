@@ -253,6 +253,9 @@ impl World {
     /// Start fights that are due, run the ones in progress, settle the ones
     /// that are over.
     pub(super) fn update_battles(&mut self) {
+        // Dungeon sites: foes who see the squad, and the fighter the player
+        // drives (`dungeon.rs`).
+        self.site_fights();
         let t = self.time;
         self.corpses.retain(|c| t - c.2 < CORPSE_TIME);
 
@@ -347,7 +350,7 @@ impl World {
         self.weather_effects(pos, t).ranged_accuracy_mult
     }
 
-    fn start_battle(&mut self, sides: Vec<(Side, Vec<PersonId>)>, at: f64) -> u32 {
+    pub(super) fn start_battle(&mut self, sides: Vec<(Side, Vec<PersonId>)>, at: f64) -> u32 {
         let id = self.next_battle;
         self.next_battle += 1;
         let seed = rng::key(&[self.seed, id as u64, 0xBA77]);
@@ -407,7 +410,7 @@ impl World {
         id
     }
 
-    fn join_battle(&mut self, id: u32, side: Side, who: &[PersonId]) {
+    pub(super) fn join_battle(&mut self, id: u32, side: Side, who: &[PersonId]) {
         let Some(i) = self.battles.iter().position(|b| b.id == id) else { return };
         let mut b = self.battles[i].clone();
         self.add_fighters(&mut b, side, who);

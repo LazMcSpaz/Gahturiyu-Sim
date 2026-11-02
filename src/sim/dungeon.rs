@@ -79,6 +79,9 @@ pub const HOLD_SLACK: f32 = 0.8;
 pub const SPRINT: f32 = 1.8;
 pub const SPRINT_PER_M: f32 = 0.004;
 pub const SPRINT_MIN: f32 = 0.05;
+/// How near a foe in a site sees one of the squad (nothing between) and
+/// comes for them, metres.
+pub const NOTICE: f32 = 25.0;
 /// How far a character sees in a site, metres (Laz); walls and closed doors
 /// block it.
 pub const SIGHT: f32 = 40.0;
@@ -820,6 +823,69 @@ impl Site {
         self.cells.iter().map(|c| c.floor).fold(0.0, f32::min)
     }
 
+    /// What stops a fighter in this site, as boxes in world metres (a fight
+    /// is fought on one level, by the solid lists: `solid::things_of_wild`):
+    /// wall cells beside open ground, closed doors' doorways, pits with no
+    /// deck, water, each row's runs merged into one box; and a thin box
+    /// along every edge between open cells more than a step apart.
+    pub fn fight_blocks(&self) -> Vec<super::layout::Rect> {
+        let (w, h) = (self.w as i32, self.h as i32);
+        let open = |x: i32, y: i32| self.cell(x, y).is_some_and(|c| c.ground != Ground::Wall);
+        let blocks = |x: i32, y: i32| -> bool {
+            let Some(c) = self.cell(x, y) else { return false };
+            match c.ground {
+                Ground::Wall => (-1..=1).any(|dy| (-1..=1).any(|dx| open(x + dx, y + dy))),
+                Ground::Pit => c.deck.is_none(),
+                Ground::Water => c.deck.is_none(),
+                _ => c.water.is_some_and(|s| s > c.floor) && c.deck.is_none() || self.closed_door_in(x, y).is_some(),
+            }
+        };
+        let mut out = Vec::new();
+        for y in 0..h {
+            let mut x = 0;
+            while x < w {
+                if !blocks(x, y) {
+                    x += 1;
+                    continue;
+                }
+                let start = x;
+                while x < w && blocks(x, y) {
+                    x += 1;
+                }
+                let c = self.to_world(V2::new((start + x) as f32 * 0.5, y as f32 + 0.5));
+                out.push(super::layout::Rect::new(c, 0.0, (x - start) as f32, 1.0));
+            }
+        }
+        // Ledges: the floor's own level either side of an edge.
+        let low = |x: i32, y: i32| self.level(Node { x: x as u16, y: y as u16, lv: Lv::Low }).filter(|l| l.1 == How::Walk).map(|l| l.0);
+        for y in 0..h {
+            for x in 0..w {
+                let Some(a) = low(x, y) else { continue };
+                for (dx, dy) in [(1, 0), (0, 1)] {
+                    if x + dx >= w || y + dy >= h {
+                        continue;
+                    }
+                    let Some(b) = low(x + dx, y + dy) else { continue };
+                    if (a - b).abs() > STEP {
+                        let c = self.to_world(V2::new(x as f32 + 0.5 + dx as f32 * 0.5, y as f32 + 0.5 + dy as f32 * 0.5));
+                        out.push(if dx == 1 { super::layout::Rect::new(c, 0.0, 0.1, 1.0) } else { super::layout::Rect::new(c, 0.0, 1.0, 0.1) });
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Can someone at `a` see `b` (site metres): no wall or closed door
+    /// between?
+    pub fn line_clear(&self, a: V2, b: V2) -> bool {
+        let n = (a.dist(b) / 0.2).ceil().max(1.0) as i32;
+        (1..n).all(|k| {
+            let p = a.add(b.sub(a).scale(k as f32 / n as f32));
+            !self.opaque(p.x.floor() as i32, p.y.floor() as i32)
+        })
+    }
+
     /// Does this cell stop sight: a wall, or a closed door's doorway?
     fn opaque(&self, x: i32, y: i32) -> bool {
         match self.cell(x, y) {
@@ -941,6 +1007,12 @@ pub struct Inside {
     /// When a follower last found their way after the one controlled.
     #[serde(default)]
     pub planned: f64,
+    /// Blocking (the right button), and where they face (the crosshair):
+    /// the keys this moment, not saved.
+    #[serde(skip)]
+    pub guard: bool,
+    #[serde(skip)]
+    pub aim: Option<V2>,
 }
 
 /// Every site and who's in one (saved).
@@ -957,6 +1029,10 @@ pub struct Sites {
     /// saved.
     #[serde(skip)]
     pub sight: BTreeMap<u32, (Vec<(u16, u16)>, Vec<bool>)>,
+    /// Foes standing in a site where they were put (testing: the game's own
+    /// bandits, `World::spawn_site_foes`), until a fight moves them.
+    #[serde(default)]
+    pub foes: BTreeMap<PersonId, V2>,
 }
 
 impl Sites {
@@ -1014,7 +1090,7 @@ impl World {
         self.squad.goal[k] = at;
         self.squad.route[k].clear();
         self.squad.inside[k] = None;
-        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, sprint: false, air: None, dodge: None, safe: Some(n), planned: 0.0 });
+        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, sprint: false, air: None, dodge: None, safe: Some(n), planned: 0.0, guard: false, aim: None });
         self.recentre_squad();
         self.update_sight(site);
         true
@@ -1227,6 +1303,147 @@ impl World {
         }
     }
 
+    /// The floor's height (world) at a spot of a site: the lowest level of
+    /// its cell (for drawing foes, and anyone fighting there).
+    pub fn site_floor_at(&self, p: V2) -> Option<f32> {
+        let s = self.sites.sites.iter().find(|s| s.contains_world(p))?;
+        let l = s.to_local(p);
+        let (x, y) = (l.x.floor() as i32, l.y.floor() as i32);
+        let h = s.nodes_in(x, y).into_iter().filter_map(|n| s.level(n)).map(|l| l.0).fold(f32::INFINITY, f32::min);
+        Some(s.base_h + if h.is_finite() { h } else { s.cell(x, y)?.floor })
+    }
+
+    /// Put `n` of the game's own bandits in a site, for testing a fight
+    /// (Laz: "Spawn the game's own foes"): a band, standing round an open
+    /// spot some way from the arrival, out of its sight, on the arrival's
+    /// floor. Their camp is taken away (there's none in a dungeon). Who they
+    /// are; none if there's no such spot.
+    pub fn spawn_site_foes(&mut self, site: u32, n: usize) -> Vec<PersonId> {
+        let Some(s) = self.sites.get(site) else { return Vec::new() };
+        let Some(start) = s.spawn_node() else { return Vec::new() };
+        let reach = s.reach(start);
+        let (sh, _) = s.level(start).unwrap();
+        let roomy = |m: Node| -> bool {
+            (-2..=2).all(|dy| (-2..=2).all(|dx| s.nodes_in(m.x as i32 + dx, m.y as i32 + dy).into_iter().any(|o| s.level(o).is_some_and(|l| l.1 == How::Walk && (l.0 - sh).abs() <= STEP))))
+        };
+        // The nearest roomy spot past 18 m of walking that the arrival can't see.
+        let mut spots: Vec<(Node, f32)> = reach.iter().filter(|(m, &c)| c >= 18.0 && c <= 70.0 && m.lv == Lv::Low).map(|(m, &c)| (*m, c)).collect();
+        spots.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+        let Some(&(spot, _)) = spots.iter().find(|(m, _)| roomy(*m) && !s.line_clear(s.spawn, Site::centre(*m))) else { return Vec::new() };
+        let centre = s.to_world(Site::centre(spot));
+        self.put_site_foes(centre, n)
+    }
+
+    /// `n` of the game's own bandits standing round `centre` (world metres,
+    /// in a site), their camp taken away. Who they are.
+    pub fn put_site_foes(&mut self, centre: V2, n: usize) -> Vec<PersonId> {
+        let gid = self.add_bandits(centre, n, false, true);
+        self.camps.retain(|c| c.group != gid);
+        self.solid_changed();
+        let members = self.group(gid).map(|g| g.members.clone()).unwrap_or_default();
+        for (k, &m) in members.iter().enumerate() {
+            let a = k as f32 * 2.1;
+            let at = centre.add(V2::new(a.cos(), a.sin()).scale(if k == 0 { 0.0 } else { 1.4 }));
+            self.sites.foes.insert(m, at);
+        }
+        members
+    }
+
+    /// Fights in dungeon sites, once a step before the battles run: foes
+    /// who come to see one of the squad there (within `NOTICE`, nothing
+    /// between) start a fight with everyone of the squad in the site (or
+    /// join theirs); and the fighter the player controls is driven by the
+    /// keys, the rest by the fight's own rules.
+    pub(super) fn site_fights(&mut self) {
+        let t = self.time;
+        // Noticing.
+        let foes: Vec<(PersonId, V2)> = self.sites.foes.iter().map(|(&p, &a)| (p, a)).collect();
+        for (foe, at) in foes {
+            if self.fighting.contains_key(&foe) || self.people[foe as usize].dead {
+                continue;
+            }
+            let Some(s) = self.sites.sites.iter().find(|s| s.contains_world(at)) else { continue };
+            let (sid, la) = (s.id, s.to_local(at));
+            let squad: Vec<PersonId> = self.sites.inside.iter().filter(|(_, i)| i.site == sid).map(|(&p, _)| p).filter(|&p| !self.people[p as usize].dead).collect();
+            let seen = squad.iter().any(|&p| self.squad.index(p).is_some_and(|k| {
+                let lp = s.to_local(self.squad.at[k]);
+                lp.dist(la) <= NOTICE && s.line_clear(la, lp)
+            }));
+            if !seen {
+                continue;
+            }
+            let band: Vec<PersonId> = match self.group_of[foe as usize].and_then(|g| self.group(g)) {
+                Some(g) => g.members.iter().copied().filter(|m| !self.fighting.contains_key(m) && !self.people[*m as usize].dead).collect(),
+                None => vec![foe],
+            };
+            let ours: Option<u32> = squad.iter().find_map(|p| self.fighting.get(p).copied());
+            match ours {
+                Some(b) => self.join_battle(b, 1, &band),
+                None => {
+                    let free: Vec<PersonId> = squad.iter().copied().filter(|p| !self.fighting.contains_key(p)).collect();
+                    self.start_battle(vec![(super::combat::SQUAD_SIDE, free), (1, band)], t);
+                }
+            }
+        }
+        // Driving.
+        let lead = self.sites.lead;
+        for b in &mut self.battles {
+            for f in &mut b.fighters {
+                let mine = Some(f.pid) == lead && self.sites.inside.contains_key(&f.pid) && f.is_person();
+                if mine {
+                    let i = &self.sites.inside[&f.pid];
+                    f.drive.on = true;
+                    f.drive.go = i.steer;
+                    f.drive.guard = i.guard;
+                    if let Some(a) = i.aim.filter(|a| a.len() > 1e-4) {
+                        f.drive.facing = a.scale(1.0 / a.len());
+                    }
+                    f.think_at = f64::INFINITY;
+                    f.order = None;
+                    f.target = None;
+                } else if f.drive.on {
+                    // Let go (another taken, or out of the site): the rules again.
+                    f.drive = Default::default();
+                    f.think_at = t;
+                }
+            }
+        }
+    }
+
+    /// Where a squad member in a site faces (the crosshair, flat), and
+    /// whether they block (the right button held).
+    pub fn aim_in_site(&mut self, pid: PersonId, facing: V2, guard: bool) {
+        if let Some(i) = self.sites.inside.get_mut(&pid) {
+            i.aim = Some(facing);
+            i.guard = guard;
+        }
+    }
+
+    /// Third person's click: the one controlled strikes (or shoots) the way
+    /// they face. Out of a fight, foes in sight within `NOTICE` are taken
+    /// on (a fight starts); with none, nothing happens. Whether a blow began.
+    pub fn strike_in_site(&mut self, pid: PersonId, dir: V2) -> bool {
+        if !self.fighting.contains_key(&pid) {
+            let Some(i) = self.sites.inside.get(&pid) else { return false };
+            let Some(s) = self.sites.get(i.site) else { return false };
+            let Some(k) = self.squad.index(pid) else { return false };
+            let me = s.to_local(self.squad.at[k]);
+            let near: Vec<PersonId> = self.sites.foes.iter().filter(|(&p, &a)| !self.people[p as usize].dead && !self.fighting.contains_key(&p) && s.contains_world(a) && s.to_local(a).dist(me) <= NOTICE && s.line_clear(me, s.to_local(a))).map(|(&p, _)| p).collect();
+            if near.is_empty() {
+                return false;
+            }
+            let site = i.site;
+            let squad: Vec<PersonId> = self.sites.inside.iter().filter(|(_, x)| x.site == site).map(|(&p, _)| p).filter(|p| !self.fighting.contains_key(p)).collect();
+            let t = self.time;
+            self.start_battle(vec![(super::combat::SQUAD_SIDE, squad), (1, near)], t);
+            self.site_fights();
+        }
+        let Some(&bid) = self.fighting.get(&pid) else { return false };
+        let Some(b) = self.battles.iter_mut().find(|b| b.id == bid) else { return false };
+        let Some(i) = b.fighters.iter().position(|f| f.pid == pid && f.is_person()) else { return false };
+        b.strike(i, dir)
+    }
+
     /// A squad member in a site jumps (on firm footing: not swimming,
     /// climbing or already in the air).
     pub fn jump_in_site(&mut self, pid: PersonId) {
@@ -1241,6 +1458,18 @@ impl World {
     /// A squad member in a site dodges back from `facing` (world metres, the
     /// way they face), for stamina.
     pub fn dodge_in_site(&mut self, pid: PersonId, facing: V2) {
+        // In a fight, the fight dodges them (and it's harder to hit them meanwhile).
+        if let Some(&bid) = self.fighting.get(&pid) {
+            if let Some(b) = self.battles.iter_mut().find(|b| b.id == bid) {
+                if let Some(i) = b.fighters.iter().position(|f| f.pid == pid && f.is_person()) {
+                    if facing.len() > 1e-4 {
+                        b.fighters[i].drive.facing = facing.scale(1.0 / facing.len());
+                    }
+                    b.dodge(i);
+                }
+            }
+            return;
+        }
         let Some(i) = self.sites.inside.get_mut(&pid) else { return };
         if i.air.is_some() || i.climbing.is_some() || i.swimming || i.dodge.is_some() || facing.len() < 1e-4 {
             return;
@@ -1367,6 +1596,19 @@ impl World {
         let pid = self.squad.members[k];
         self.follow_lead(pid);
         let Some(mut i) = self.sites.inside.get(&pid).cloned() else { return };
+        // Moved by something else (a fight): where they stand now.
+        if let Some(s) = self.sites.get(i.site) {
+            let l = s.to_local(self.squad.at[k]);
+            // (Mid-step a walker is up to a cell's diagonal off their node:
+            // only further than that was it something else.)
+            if l.dist(Site::centre(i.node)) > 1.6 && i.climbing.is_none() && i.air.is_none() {
+                if let Some(n) = s.node_near(l, i.h) {
+                    i.node = n;
+                    i.h = s.level(n).map(|v| v.0).unwrap_or(i.h);
+                    i.way.clear();
+                }
+            }
+        }
         // Steered by hand they go at their own pace; sent, with the others.
         let free = i.steer.is_some() || i.air.is_some() || i.dodge.is_some();
         let speed = if free { self.member_speed(pid) } else { self.march_speed(k) }.max(0.1);

@@ -675,3 +675,183 @@ fn sprinting_is_faster_and_costs_stamina_by_the_metre() {
     assert!((ran / walked - SPRINT).abs() < 0.1, "walked {walked} m, sprinted {ran} m");
     assert!(run_cost - walk_cost > SPRINT_PER_M * ran * 0.8, "sprint cost {run_cost} vs walk {walk_cost}");
 }
+
+/// An open room `w` × `h` cells (floor at 0), as the generator writes one,
+/// with wall cells where `wall(x, y)`; the arrival at (`sx`, `sy`).
+fn room(w: usize, h: usize, wall: impl Fn(usize, usize) -> bool, sx: f32, sy: f32) -> Site {
+    let mut tiles = Vec::new();
+    for y in 0..h {
+        for x in 0..w {
+            let t = if wall(x, y) || x == 0 || y == 0 || x == w - 1 || y == h - 1 { "Wall" } else { "Floor" };
+            tiles.push(format!(r#"{{"terrain":"{t}","floor":0,"water_surface":null,"deck":null,"low_arch":false,"natural":false}}"#));
+        }
+    }
+    let json = format!(r#"{{"schema_version":1,"status":"complete","dungeon":{{"width":{w},"height":{h},"tiles":[{}],"objects":[],"spawn":[{sx},{sy}]}}}}"#, tiles.join(","));
+    Site::from_json(&json, "room").unwrap()
+}
+
+fn battle_of(w: &gahturiyu_sim::sim::world::World, pid: u32) -> usize {
+    let bid = w.fighting[&pid];
+    w.battles.iter().position(|b| b.id == bid).unwrap()
+}
+
+fn fighter(w: &gahturiyu_sim::sim::world::World, b: usize, pid: u32) -> usize {
+    w.battles[b].fighters.iter().position(|f| f.pid == pid && f.is_person()).unwrap()
+}
+
+fn hp(w: &gahturiyu_sim::sim::world::World, b: usize, i: usize) -> f32 {
+    w.battles[b].fighters[i].hp.iter().sum()
+}
+
+#[test]
+fn foes_in_a_site_come_when_they_see_you_and_fights_keep_to_the_rooms() {
+    let (mut w, id, team) = in_site(load(F43), 1);
+    let foes = w.spawn_site_foes(id, 3);
+    assert_eq!(foes.len(), 3, "no spot for foes in 43");
+    let s = w.sites.get(id).unwrap().clone();
+    // Out of sight of the arrival: nobody fights yet.
+    w.step(1.0);
+    assert!(team.iter().all(|p| !w.fighting.contains_key(p)));
+    // Walk the lead toward them: once in sight, the fight starts.
+    let at = w.sites.foes[&foes[0]];
+    assert!(w.order_in_site(team[0], at, None));
+    let mut started = false;
+    let mut in_wall = 0;
+    for _ in 0..1200 {
+        w.step(0.1);
+        started |= w.fighting.contains_key(&team[0]);
+        for b in &w.battles {
+            for f in &b.fighters {
+                if s.contains_world(f.pos) && s.cell_at(s.to_local(f.pos)).unwrap().ground == Ground::Wall {
+                    in_wall += 1;
+                }
+            }
+        }
+    }
+    assert!(started, "the foes never came");
+    assert_eq!(in_wall, 0, "fighters stood in walls {in_wall} times");
+}
+
+#[test]
+fn a_strike_lands_where_you_aim_and_nowhere_else() {
+    let run = |toward: bool| -> (f32, f32) {
+        let (mut w, id, team) = in_site(room(20, 10, |_, _| false, 5.5, 5.5), 0);
+        let lead = team[0];
+        let s = w.sites.get(id).unwrap().clone();
+        let foes = w.put_site_foes(s.to_world(V2::new(6.7, 5.5)), 1);
+        let dir = if toward { V2::new(1.0, 0.0) } else { V2::new(-1.0, 0.0) };
+        w.aim_in_site(lead, dir, false);
+        assert!(w.strike_in_site(lead, dir) || w.fighting.contains_key(&lead));
+        let b = battle_of(&w, lead);
+        let (me, foe) = (fighter(&w, b, lead), fighter(&w, b, foes[0]));
+        // The foe stands and takes it (no fight back), so only the lead's blows count.
+        w.battles[b].fighters[foe].think_at = f64::INFINITY;
+        w.battles[b].fighters[foe].target = None;
+        let full = hp(&w, b, foe);
+        for _ in 0..200 {
+            w.strike_in_site(lead, dir);
+            w.step(0.05);
+            if !w.fighting.contains_key(&lead) {
+                break;
+            }
+        }
+        let b = w.battles.iter().position(|x| x.fighters.iter().any(|f| f.pid == foes[0])).map(|b| b);
+        let after = b.map(|b| hp(&w, b, fighter(&w, b, foes[0]))).unwrap_or(0.0);
+        let _ = me;
+        (full, after)
+    };
+    let (full, after) = run(true);
+    assert!(after < full, "struck toward the foe 200 times, never hurt them");
+    let (full, after) = run(false);
+    assert_eq!(after, full, "struck away from the foe, yet hurt them");
+}
+
+#[test]
+fn an_arrow_hits_the_first_body_on_its_line_friend_or_foe_and_stops_at_walls() {
+    use gahturiyu_sim::sim::combat::FxKind;
+    use gahturiyu_sim::sim::items;
+    // The lead with a longbow and arrows put in their hands; one mate; one
+    // foe. `wall`: a wall across the room at x = 15. `foe_at`: where the foe
+    // stands for the fight to start (in sight), before being put at x = 20.5.
+    let run = |wall: bool, mate_on_line: bool| -> (f32, f32, f32, f32, Vec<f32>) {
+        let mut w = gahturiyu_sim::sim::worldgen::generate(1);
+        let (archer, mate) = (w.squad.members[0], w.squad.members[1]);
+        w.squad.retain(|m| m == archer || m == mate);
+        let id = w.add_site(room(30, 9, move |x, y| wall && x == 15 && y > 0, 3.5, 4.5), w.squad.pos);
+        assert!(w.enter_site(archer, id) && w.enter_site(mate, id));
+        w.sites.lead = Some(archer);
+        let s = w.sites.get(id).unwrap().clone();
+        let foe = w.put_site_foes(s.to_world(V2::new(10.5, 4.5)), 1)[0];
+        let east = V2::new(1.0, 0.0);
+        w.aim_in_site(archer, east, false);
+        w.step(0.1);
+        assert!(w.fighting.contains_key(&archer), "no fight began");
+        let b = battle_of(&w, archer);
+        let (ia, im, ifoe) = (fighter(&w, b, archer), fighter(&w, b, mate), fighter(&w, b, foe));
+        let bow = *items::item(items::id("longbow")).weapon().unwrap();
+        w.battles[b].fighters[ia].weapon = bow;
+        w.battles[b].fighters[ia].ammo = 40;
+        for &k in &[im, ifoe] {
+            w.battles[b].fighters[k].think_at = f64::INFINITY;
+            w.battles[b].fighters[k].target = None;
+        }
+        w.battles[b].fighters[ia].pos = s.to_world(V2::new(3.5, 4.5));
+        w.battles[b].fighters[im].pos = s.to_world(if mate_on_line { V2::new(9.5, 4.5) } else { V2::new(5.5, 1.5) });
+        w.battles[b].fighters[ifoe].pos = s.to_world(V2::new(20.5, 4.5));
+        let (mate_full, foe_full) = (hp(&w, b, im), hp(&w, b, ifoe));
+        for _ in 0..300 {
+            w.strike_in_site(archer, east);
+            w.step(0.05);
+            if !w.fighting.contains_key(&archer) {
+                break;
+            }
+        }
+        let b = battle_of(&w, archer);
+        let ends: Vec<f32> = w.battles[b].fx.iter().filter_map(|x| match x.kind { FxKind::Arrow { to, .. } => Some(s.to_local(to).x), _ => None }).collect();
+        (mate_full, hp(&w, b, fighter(&w, b, mate)), foe_full, hp(&w, b, fighter(&w, b, foe)), ends)
+    };
+    // A mate on the line: the arrows go into them, never past to the foe.
+    let (mate_full, mate_now, foe_full, foe_now, ends) = run(false, true);
+    assert!(!ends.is_empty(), "no arrows flew");
+    assert_eq!(foe_now, foe_full, "an arrow passed the mate to the foe");
+    assert!(mate_now < mate_full, "no arrow hit the mate in the way ({} shots)", ends.len());
+    // The line clear: the foe is hit.
+    let (_, _, foe_full, foe_now, _) = run(false, false);
+    assert!(foe_now < foe_full, "a clear line, and the foe never hit");
+    // A wall between: nothing reaches the foe, and every arrow comes down this side of it.
+    let (_, _, foe_full, foe_now, ends) = run(true, false);
+    assert!(!ends.is_empty());
+    assert_eq!(foe_now, foe_full, "an arrow went through the wall");
+    assert!(ends.iter().all(|&x| x <= 15.0), "arrows came down past the wall: {ends:?}");
+}
+
+#[test]
+fn blocking_toward_a_foe_turns_more_of_their_blows() {
+    // A foe beside the lead, left to fight; the lead holds a block facing
+    // them, or not. Damage taken over the same stretch.
+    let taken = |guard: bool| -> f32 {
+        let (mut w, id, team) = in_site(room(20, 10, |_, _| false, 5.5, 5.5), 0);
+        let lead = team[0];
+        let s = w.sites.get(id).unwrap().clone();
+        let foes = w.put_site_foes(s.to_world(V2::new(6.8, 5.5)), 1);
+        let east = V2::new(1.0, 0.0);
+        w.aim_in_site(lead, east, guard);
+        w.step(0.1);
+        assert!(w.fighting.contains_key(&lead));
+        let b = battle_of(&w, lead);
+        let me = fighter(&w, b, lead);
+        let full = hp(&w, b, me);
+        let _ = foes;
+        // Ten seconds, both still standing (checked), summed over a few foes' seeds.
+        for _ in 0..100 {
+            w.aim_in_site(lead, east, guard);
+            w.step(0.1);
+        }
+        assert!(w.fighting.contains_key(&lead), "the fight ended inside ten seconds");
+        let b = battle_of(&w, lead);
+        full - hp(&w, b, fighter(&w, b, lead))
+    };
+    let (open, guarded) = (taken(false), taken(true));
+    assert!(open > 0.0, "the foe never hurt them");
+    assert!(guarded < open * 0.7, "blocking took {guarded} against {open} open");
+}

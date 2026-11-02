@@ -297,6 +297,19 @@ fn dungeon_world(pick: super::title::DungeonPick, rules: Option<gahturiyu_sim::s
         }
     }
     w.sites.lead = Some(lead);
+    // Something to fight (Laz: "Spawn the game's own foes"): three bandits
+    // out of sight of the arrival.
+    // (`GAHT_FOES_NEAR=1`: two of them a few metres north of the arrival
+    // instead, for screenshots of a fight.)
+    let foes = if std::env::var("GAHT_FOES_NEAR").is_ok() {
+        // The first way round from north with a clear, roomy spot 4 m off.
+        let s = w.sites.get(id).unwrap();
+        let spot = (0..16).map(|k| k as f32 * std::f32::consts::TAU / 16.0 - std::f32::consts::FRAC_PI_2).map(|a| s.spawn.add(V2::new(a.cos(), a.sin()).scale(4.0))).find(|&p| s.line_clear(s.spawn, p) && s.stand_at(s.spawn_node().unwrap(), p).is_some()).unwrap_or(s.spawn);
+        let at = s.to_world(spot);
+        w.put_site_foes(at, 2).len()
+    } else {
+        w.spawn_site_foes(id, 3).len()
+    };
     w.step(0.001);
     let s = w.sites.get(id).unwrap();
     let mut line = format!("{} ({}). The generator says: {}", s.kind, s.culture, s.status);
@@ -309,7 +322,10 @@ fn dungeon_world(pick: super::title::DungeonPick, rules: Option<gahturiyu_sim::s
     if !s.notes.is_empty() {
         line += &format!(". Import notes: {}", s.notes.join("; "));
     }
-    line += ". WASD to move (Shift sprints), the mouse to look, E to use, Space to jump, Q to dodge, C to sneak, Alt to pause, Tab to switch, B for behaviours; E on the green marker leaves.";
+    if foes > 0 {
+        line += &format!(". {foes} bandits are somewhere inside");
+    }
+    line += ". WASD to move (Shift sprints), the mouse to look, E to use, Space to jump, Q to dodge, C to sneak, Alt to pause, Tab to switch, B for behaviours, left click to strike or shoot, hold the right button to block; E on the green marker leaves.";
     Ok((w, line))
 }
 
@@ -518,6 +534,13 @@ pub fn run() {
     game.orbit.ground = game.world.terrain.surface(game.world.squad.pos);
     // `GAHT_BEHAVE=1`: the squad's behaviours panel open (third person, B).
     game.behave = std::env::var("GAHT_BEHAVE").is_ok();
+    // A screenshot of a fight (`GAHT_FOES_NEAR`): the camera turned to the foes.
+    if dungeon_line.is_some() && std::env::var("GAHT_FOES_NEAR").is_ok() {
+        if let Some(&foe) = game.world.sites.foes.values().next() {
+            let d = foe.sub(game.world.squad.at.first().copied().unwrap_or(foe));
+            game.orbit.yaw = (-d.y).atan2(-d.x);
+        }
+    }
     if let Some(s) = &shot {
         if s.view.as_deref() == Some("map") {
             game.view = View::Map;
@@ -1375,6 +1398,17 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
                 'a' => pan.0 -= 1.0,
                 'd' => pan.0 += 1.0,
                 _ => {}
+            }
+        }
+    }
+    // `GAHT_STRIKE=1`: and strikes (or shoots) the way the camera faces;
+    // `GAHT_BLOCK=1`: holds a block.
+    if game.shot.is_some() && game.frame >= 10 {
+        if let Some(lead) = game.world.sites.lead {
+            let f = V2::new(-game.orbit.yaw.cos(), -game.orbit.yaw.sin());
+            game.world.aim_in_site(lead, f, std::env::var("GAHT_BLOCK").is_ok());
+            if std::env::var("GAHT_STRIKE").is_ok() {
+                game.world.strike_in_site(lead, f);
             }
         }
     }

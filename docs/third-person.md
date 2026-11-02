@@ -120,3 +120,33 @@ didn't say. A line marked *(default)* is Claude's call, open to change.
   close, medium or far or hold here, heal below a share, bind wounds, use
   scrolls and bottles. Following and holding act now; the rest wait for the
   fighting steps.
+
+## Step 3 done (2 Nov, evening)
+
+- **Foes:** "Test a dungeon" puts three of the game's own bandits out of
+  sight of the arrival (`World::spawn_site_foes`, their camp taken away).
+  A foe who sees one of the squad within 25 m (no wall or closed door
+  between) starts a fight with everyone of the squad in the site.
+- **Fights keep to the rooms:** a site's walls, closed doorways, pits, water
+  and ledges are in the solid lists (`Site::fight_blocks`, `solid::Id::Site`),
+  so the fight rules' movement goes round them. A fight is fought on one
+  level: no ladders or jumps mid-fight.
+- **You drive your fighter** (`combat::Drive`). The AI leaves them alone;
+  the keys move them at their fighting pace (half while blocking).
+  - **Left click strikes the way you face.** Whoever of the other side is in
+    the weapon's arc when it lands is hit: the nearest, or everyone there
+    with a sweeping weapon. The arc is narrow for a thrust, wide for a sweep.
+    The blow is the same blow as ever: hit chance, armour, wounds, bleeding,
+    stagger.
+  - **With a bow, left click shoots along the line** and hits the first body
+    on it, friend or foe. Arrows stop at walls.
+  - **Hold the right button to block.** A blow from in front is turned at
+    least 55% of the time, more with Block skill, a shield or a parrying
+    weapon, at most 90%. Each block costs breath. Arrows are turned only
+    with a shield.
+  - **Q dodges back** 1.6 m, and you're harder to hit for 0.4 s.
+- **Mates and foes:** the fight rules as before. Mates' stances and roles
+  come in step 5.
+- **Not yet:** spells by click (they need a way to choose the spell),
+  jumping and ladders mid-fight, sight blocked by height, and foes who
+  search or move about before they see you.

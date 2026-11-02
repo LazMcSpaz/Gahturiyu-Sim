@@ -154,6 +154,9 @@ pub enum Id {
     /// The test quarter's wall, stretch `k` (`testquarter.rs`), and its gate.
     Quarter(u8),
     QuarterGate,
+    /// A dungeon site's wall, pit, water or ledge, by the site and its
+    /// number (`dungeon::Site::fight_blocks`): what stops fighters there.
+    Site(u32, u32),
 }
 
 impl Id {
@@ -989,6 +992,13 @@ impl World {
         for r in &self.ruins {
             h = mark_v2(mark(h, r.id as u64), r.pos);
         }
+        for s in &self.sites.sites {
+            h = mark(h, s.id as u64 ^ 0x51_7E00);
+            for o in s.objects.iter().filter(|o| o.kind == super::dungeon::ObjKind::Door) {
+                h = mark(h, o.index as u64 * 2 + o.open as u64);
+            }
+            h = mark(h, s.clearance.as_ref().is_some_and(|c| c.restored) as u64);
+        }
         h = mark(h, self.animals.pens.len() as u64);
         for p in &self.animals.pens {
             h = mark_v2(mark(h, p.radius.to_bits() as u64 ^ (p.sp as u64) << 40), p.home);
@@ -1494,6 +1504,14 @@ impl World {
                 if let Some(shape) = forge_home_shape(h) {
                     out.push(Thing::solid(Id::ForgeHome(k as u32), What::Building, shape, 4.0));
                 }
+            }
+        }
+        // Dungeon sites: their walls and closed doors, and what a fighter
+        // can't cross on one level (pits, water, ledges), so a fight there
+        // keeps to the rooms (`dungeon.rs`).
+        for s in &self.sites.sites {
+            for (k, r) in s.fight_blocks().into_iter().enumerate() {
+                out.push(Thing::solid(Id::Site(s.id, k as u32), What::Wall, Shape::Box(r), 4.0));
             }
         }
         out

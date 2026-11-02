@@ -124,6 +124,13 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
         }
     }
     w.steer_in_site(lead, (d.len() > 1e-3).then_some(d));
+    // Where they face (the crosshair), and the right button held: a block.
+    let guard = buttons.pressed(MouseButton::Right);
+    w.aim_in_site(lead, f, guard);
+    // The left button: a strike, or a shot, the way they face.
+    if buttons.just_pressed(MouseButton::Left) && !guard {
+        w.strike_in_site(lead, f);
+    }
     w.sprint_in_site(lead, keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight));
     if keys.just_pressed(KeyCode::Space) {
         w.jump_in_site(lead);
@@ -188,7 +195,8 @@ pub fn place_camera(game: &mut Game) {
     let Some(lead) = game.world.sites.lead else { return };
     let Some(k) = game.world.squad.index(lead) else { return };
     let Some(h) = game.world.site_height(lead) else { return };
-    let at = game.world.squad.at[k];
+    // (In a fight they're where the fight has them.)
+    let at = game.world.member_pos(k);
     let f = V2::new(-game.third.yaw.cos(), -game.third.yaw.sin());
     let r = V2::new(-f.y, f.x);
     // Over the shoulder, but not into a wall beside them; and back from
