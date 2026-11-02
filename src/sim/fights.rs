@@ -82,7 +82,7 @@ impl World {
         let joining: Vec<PersonId> = self
             .squad_fit()
             .into_iter()
-            .filter(|&m| !self.fighting.contains_key(&m) && spots.iter().any(|p| p.dist(self.person_pos(m)) <= JOIN_AT))
+            .filter(|&m| !self.fighting.contains_key(&m) && !self.stays_out(m) && spots.iter().any(|p| p.dist(self.person_pos(m)) <= JOIN_AT))
             .collect();
         if !joining.is_empty() {
             self.join_battle(bid, SQUAD_SIDE, &joining);

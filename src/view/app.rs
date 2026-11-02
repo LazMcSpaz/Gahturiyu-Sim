@@ -1410,6 +1410,20 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
             if std::env::var("GAHT_STRIKE").is_ok() {
                 game.world.strike_in_site(lead, f);
             }
+            // `GAHT_QUEUE=1`: the mate given two orders (to the nearest
+            // plaque, then to read it), once.
+            if std::env::var("GAHT_QUEUE").is_ok() && game.frame == 10 {
+                use gahturiyu_sim::sim::dungeon::{ObjKind, Task};
+                let mate = game.world.squad.members.iter().copied().find(|&m| m != lead && game.world.site_of(m).is_some());
+                let site = game.world.site_of(lead).and_then(|i| game.world.sites.get(i.site)).cloned();
+                if let (Some(mate), Some(s)) = (mate, site) {
+                    let me = s.to_local(game.world.squad.at[0]);
+                    if let Some(o) = s.objects.iter().filter(|o| o.kind == ObjKind::Plaque).min_by(|a, b| a.at.dist(me).total_cmp(&b.at.dist(me))) {
+                        game.world.queue_task(mate, Task::Go(s.to_world(o.at.add(V2::new(0.0, 1.0))), s.base_h));
+                        game.world.queue_task(mate, Task::Use(o.index));
+                    }
+                }
+            }
         }
     }
     if game.view == View::Scene {

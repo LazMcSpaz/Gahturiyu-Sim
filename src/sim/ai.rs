@@ -98,6 +98,26 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
         _ => None,
     };
     let target = ordered.or_else(|| choose_target(b, i, r_pick));
+    // A squad mate set to support (or ranged with no bow): only what comes
+    // close; otherwise back by the one the player drives (`Tactics`).
+    let target = match b.fighters[i].tactics {
+        Some(t) if t.support && ordered.is_none() => {
+            let me = &b.fighters[i];
+            let close = target.filter(|&j| me.pos.dist(b.fighters[j].pos) <= super::combat::SUPPORT_GUARD);
+            if close.is_none() {
+                if let Some(k) = t.keep_near.filter(|&k| k < b.fighters.len()) {
+                    let anchor = b.fighters[k].pos;
+                    let off = me.pos.sub(anchor);
+                    if off.len() > super::combat::SUPPORT_NEAR {
+                        let back = off.scale(2.0 / off.len().max(0.01));
+                        b.fighters[i].order = Some(Order::MoveTo(anchor.add(back)));
+                    }
+                }
+            }
+            close
+        }
+        _ => target,
+    };
     b.fighters[i].target = target;
 
     // Archers: hand weapon out when someone closes in (or the arrows run
@@ -124,7 +144,8 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     // there's nothing cleaner.)
     let heal = me.potions.iter().copied().filter(|&p| potion(p, Does::Heal) > 0.0).max_by(|a, b| potion(*a, Does::Heal).total_cmp(&potion(*b, Does::Heal)));
     let heal_mix = me.bottles.iter().copied().filter(|m| mixed(m, Does::Heal) > 0.0).max_by(|a, b| (!a.harms()).cmp(&!b.harms()).then(mixed(a, Does::Heal).total_cmp(&mixed(b, Does::Heal))));
-    if me.vitality() < 0.4 {
+    // (A squad mate drinks when their setting says: `Tactics::heal_below`.)
+    if me.vitality() < me.tactics.map(|t| t.heal_below).unwrap_or(0.4) {
         if let Some(p) = heal {
             b.begin_drink(i, p);
             return;
@@ -136,7 +157,7 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     }
     // A bleed bound when nobody is close enough to stop it (themselves
     // first, then a friend beside them).
-    if !me.bandages.is_empty() && !threatened(b, i) {
+    if !me.bandages.is_empty() && me.tactics.map_or(true, |t| t.bind) && !threatened(b, i) {
         let me = &b.fighters[i];
         let near = |j: usize| j == i || me.pos.dist(b.fighters[j].pos) <= super::combat::BIND_REACH + 0.9;
         let who = (0..b.fighters.len())
@@ -150,9 +171,11 @@ pub fn think(b: &mut Battle, i: usize, rng: &mut Rng) {
     }
     // A harmful brew in a flask at a knot of foes, with no friend in the
     // splash (Part 4 rule 8).
-    if let Some((m, at)) = flask_aim(b, i) {
-        if b.begin_flask(i, m, at) {
-            return;
+    if b.fighters[i].tactics.map_or(true, |t| t.items) {
+        if let Some((m, at)) = flask_aim(b, i) {
+            if b.begin_flask(i, m, at) {
+                return;
+            }
         }
     }
     let me = &b.fighters[i];

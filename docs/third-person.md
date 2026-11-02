@@ -150,3 +150,27 @@ didn't say. A line marked *(default)* is Claude's call, open to change.
 - **Not yet:** spells by click (they need a way to choose the spell),
   jumping and ladders mid-fight, sight blocked by height, and foes who
   search or move about before they see you.
+
+## Steps 4 and 5 done (2 Nov, night)
+
+- **Orders while paused (step 4).** Paused (Alt), a click or E queues an
+  order for whoever you control: go for the foe under the crosshair, use
+  the thing it's on, or go to the spot. Up to 3, shown numbered on screen
+  with the mate's name. Tab back to your own character and unpause: the
+  mate carries them out in turn, then goes back to following or holding.
+  The character you control when the game runs has their queue dropped
+  (you act only by the keys). In a fight, the orders become the fight's
+  own: go there, go for that one.
+- **Mates fight by their settings (step 5):**
+  - **Passive:** they keep out of fights in a site; they don't join, even
+    walking past one.
+  - **Defensive:** they join a fight that starts round them (as before).
+  - **Aggressive:** they go for foes they see within 40 m (foes notice at 25 m).
+  - **Support**, and **Ranged** with no bow to shoot: they keep within 4 m
+    of you and fight only what comes within 2.5 m of them. Spells, heals
+    included, as the fight rules cast them. Ranged with a bow shoots from
+    where they are.
+  - **Heal:** they drink a healing potion below their chosen share (never,
+    ¼, ½, ¾; the default rule was 0.4).
+  - **Bind wounds, scrolls and bottles:** bandages and thrown flasks only
+    when switched on.

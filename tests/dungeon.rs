@@ -915,3 +915,93 @@ fn a_blow_turned_and_a_blow_taken_are_told_to_the_camera() {
     assert!(taken_open > taken, "open {taken_open} taken, blocking {taken}");
     assert!(turned_open < turned);
 }
+
+fn set_stance(w: &mut gahturiyu_sim::sim::world::World, pid: u32, f: impl Fn(&mut gahturiyu_sim::sim::behaviour::Behaviour)) {
+    let mut b = w.behaviour(pid);
+    f(&mut b);
+    w.set_behaviour(pid, b);
+}
+
+#[test]
+fn orders_queued_for_a_mate_are_carried_out_in_turn_then_they_follow_again() {
+    let (mut w, id, team) = in_site(load(F43), 1);
+    let (lead, mate) = (team[0], team[1]);
+    let s = w.sites.get(id).unwrap().clone();
+    // Two orders: over to plaque 16, then read it.
+    let o = s.objects.iter().find(|o| o.index == 16).unwrap().at;
+    assert!(w.queue_task(mate, Task::Go(s.to_world(o.add(V2::new(0.0, -1.0))), s.base_h)));
+    assert!(w.queue_task(mate, Task::Use(16)));
+    assert!(w.queue_task(mate, Task::Go(s.to_world(s.spawn), s.base_h)));
+    assert!(!w.queue_task(mate, Task::Use(8)), "a fourth order was taken");
+    // Orders for the one controlled are dropped once the game runs.
+    assert!(w.queue_task(lead, Task::Use(8)));
+    w.step(0.1);
+    assert!(w.site_of(lead).unwrap().tasks.is_empty());
+    let mut read = false;
+    for _ in 0..600 {
+        w.step(0.1);
+        read |= w.log.iter().any(|l| l.1.contains("A surviving account records this episode"));
+        if w.site_of(mate).unwrap().tasks.is_empty() {
+            break;
+        }
+    }
+    assert!(read, "the mate never read the plaque");
+    assert!(w.site_of(mate).unwrap().tasks.is_empty(), "orders left: {:?}", w.site_of(mate).unwrap().tasks);
+    // Done, they go back to following: the lead walks off, the mate keeps up.
+    let far = s.objects.iter().find(|o| o.index == 10).unwrap().at;
+    assert!(w.order_in_site(lead, s.to_world(far), None));
+    for _ in 0..600 {
+        w.step(0.1);
+    }
+    assert!(w.squad.at[0].dist(w.squad.at[1]) < 10.0, "the mate stayed behind");
+}
+
+/// The lead at x = 5 in a long open room, a foe at `foe_x`, one mate set by
+/// `set`; run `secs`. (world, site, lead, mate, foe)
+fn standoff(foe_x: f32, set: impl Fn(&mut gahturiyu_sim::sim::behaviour::Behaviour), secs: usize) -> (gahturiyu_sim::sim::world::World, Site, u32, u32, u32) {
+    let (mut w, id, team) = in_site(room(60, 12, |_, _| false, 5.5, 6.5), 1);
+    let (lead, mate) = (team[0], team[1]);
+    set_stance(&mut w, mate, set);
+    let s = w.sites.get(id).unwrap().clone();
+    let foe = w.put_site_foes(s.to_world(V2::new(foe_x, 6.5)), 1)[0];
+    for _ in 0..secs * 10 {
+        w.aim_in_site(lead, V2::new(1.0, 0.0), false);
+        w.step(0.1);
+    }
+    (w, s, lead, mate, foe)
+}
+
+#[test]
+fn a_passive_mate_keeps_out_of_fights() {
+    use gahturiyu_sim::sim::behaviour::Stance;
+    let (w, _, lead, mate, _) = standoff(9.5, |b| b.stance = Stance::Passive, 2);
+    assert!(w.fighting.contains_key(&lead), "no fight");
+    assert!(!w.fighting.contains_key(&mate), "the passive mate is in it");
+    let (w, _, _, mate, _) = standoff(9.5, |b| b.stance = Stance::Defensive, 2);
+    assert!(w.fighting.contains_key(&mate), "the defensive mate kept out");
+}
+
+#[test]
+fn an_aggressive_mate_goes_for_foes_further_off() {
+    use gahturiyu_sim::sim::behaviour::Stance;
+    // A foe 32 m off: beyond what they notice (25 m), within an aggressive eye (40 m).
+    let (w, _, lead, _, _) = standoff(37.5, |b| b.stance = Stance::Defensive, 2);
+    assert!(!w.fighting.contains_key(&lead), "a fight began at 32 m with nobody aggressive");
+    let (w, _, lead, mate, _) = standoff(37.5, |b| b.stance = Stance::Aggressive, 2);
+    assert!(w.fighting.contains_key(&mate) && w.fighting.contains_key(&lead), "the aggressive mate didn't go for them");
+}
+
+#[test]
+fn a_supporting_mate_keeps_back_and_a_melee_one_closes_in() {
+    use gahturiyu_sim::sim::behaviour::Role;
+    let gap = |role: Role| {
+        let (w, _, lead, mate, foe) = standoff(22.5, move |b| b.role = role, 8);
+        assert!(w.fighting.contains_key(&mate));
+        let at = |p| w.person_pos(p);
+        (at(mate).dist(at(lead)), at(mate).dist(at(foe)))
+    };
+    let (support_to_lead, _) = gap(Role::Support);
+    let (_, melee_to_foe) = gap(Role::Melee);
+    assert!(support_to_lead <= gahturiyu_sim::sim::combat::SUPPORT_NEAR + 1.5, "the supporter went {support_to_lead} m from the lead");
+    assert!(melee_to_foe <= 3.5, "the melee mate is {melee_to_foe} m from the foe");
+}

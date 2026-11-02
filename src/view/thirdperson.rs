@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use gahturiyu_sim::sim::combat::FxKind;
+use gahturiyu_sim::sim::dungeon::Task;
 use gahturiyu_sim::sim::geo::V2;
 use gahturiyu_sim::sim::person::PersonId;
 
@@ -139,10 +140,19 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
     // Where they face (the crosshair), and the right button held: a block.
     let guard = buttons.pressed(MouseButton::Right);
     w.aim_in_site(lead, f, guard);
-    // The left button: a strike, or a shot, the way they face.
-    if buttons.just_pressed(MouseButton::Left) && !guard {
-        w.strike_in_site(lead, f);
+    // Paused, a click or E queues an order for whoever is controlled (step
+    // 4): go for the foe under the crosshair, use the thing, or go there.
+    // It's carried out once the game runs with someone else controlled.
+    if game.paused {
+        if buttons.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::KeyE) {
+            let queued = queue_under(game, lead);
+            game.sounds.ui(if queued { "ui_order" } else { "ui_cant" });
+        }
+    } else if buttons.just_pressed(MouseButton::Left) && !guard {
+        // The left button: a strike, or a shot, the way they face.
+        game.world.strike_in_site(lead, f);
     }
+    let w = &mut game.world;
     w.sprint_in_site(lead, keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight));
     if keys.just_pressed(KeyCode::Space) {
         w.jump_in_site(lead);
@@ -157,7 +167,7 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
     if keys.just_pressed(KeyCode::AltLeft) || keys.just_pressed(KeyCode::AltRight) {
         game.paused = !game.paused;
     }
-    if keys.just_pressed(KeyCode::KeyE) {
+    if keys.just_pressed(KeyCode::KeyE) && !game.paused {
         if let Some((i, _, true)) = game.third.target.clone() {
             if game.world.use_in_reach(lead, i) {
                 game.sounds.ui("ui_order");
@@ -193,6 +203,49 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
         }
     }
     true
+}
+
+/// The foe under the crosshair (within 40 m, a clear line to them).
+fn foe_under(game: &Game, lead: PersonId) -> Option<PersonId> {
+    let w = &game.world;
+    let (o, d) = game.orbit.ray(game.screen, game.screen * 0.5);
+    let s = w.site_of(lead).and_then(|i| w.sites.get(i.site))?;
+    let me = s.to_local(w.person_pos(lead));
+    w.sites
+        .foes
+        .keys()
+        .copied()
+        .filter(|&p| !w.people[p as usize].dead)
+        .filter_map(|p| {
+            let at = w.person_pos(p);
+            let h = w.site_floor_at(at)? + 1.0;
+            let c = Vec3::new(at.x, h, at.y) - o;
+            let along = c.dot(d);
+            let off = (c - d * along).length();
+            (along > 0.0 && along < 40.0 && off < 0.8 && s.line_clear(me, s.to_local(at))).then_some((p, along))
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|x| x.0)
+}
+
+/// What a click would queue now (paused), and its words.
+fn task_under(game: &Game, lead: PersonId) -> Option<(Task, String)> {
+    let w = &game.world;
+    if let Some(foe) = foe_under(game, lead) {
+        return Some((Task::Attack(foe), format!("go for {}", w.people[foe as usize].name().unwrap_or("them"))));
+    }
+    if let Some((i, label, _)) = &game.third.target {
+        return Some((Task::Use(*i), label.clone()));
+    }
+    let (_, p, h) = super::dungeonview::pick(w, game.orbit.ray(game.screen, game.screen * 0.5))?;
+    Some((Task::Go(p, h), "go there".to_string()))
+}
+
+fn queue_under(game: &mut Game, lead: PersonId) -> bool {
+    match task_under(game, lead) {
+        Some((t, _)) => game.world.queue_task(lead, t),
+        None => false,
+    }
 }
 
 /// After the camera's usual follow step: in third person, behind the
@@ -283,14 +336,57 @@ pub fn draw(c: &Canvas, game: &Game) {
             c.text(&s, mid.x - tw / 2.0, mid.y + 34.0, 15.0, if *reach { TEXT } else { WARN });
         }
         if game.paused {
-            let s = "Paused (Alt)";
-            let tw = c.width(s, 15.0);
-            c.text(s, mid.x - tw / 2.0, mid.y - 30.0, 15.0, GOLD);
+            let w = &game.world;
+            let lead = w.sites.lead;
+            let name = lead.and_then(|p| w.people[p as usize].name()).unwrap_or("them");
+            let n = lead.and_then(|p| w.site_of(p)).map(|i| i.tasks.len()).unwrap_or(0);
+            let s = format!("Paused (Alt)  ·  orders for {name}: {n}/{}", gahturiyu_sim::sim::dungeon::TASKS_MOST);
+            let tw = c.width(&s, 15.0);
+            c.text(&s, mid.x - tw / 2.0, mid.y - 30.0, 15.0, GOLD);
+            if let Some((_, what)) = lead.and_then(|p| task_under(game, p)) {
+                let s = format!("Click: {what}");
+                let tw = c.width(&s, 14.0);
+                c.text(&s, mid.x - tw / 2.0, mid.y + 54.0, 14.0, DIM);
+            }
         }
+        // Every queued order, numbered where it will be carried out.
+        draw_tasks(c, game);
     } else if !wants_pointer(game) {
         let s = "Click to take control  ·  Esc frees the pointer";
         let tw = c.width(s, 14.0);
         c.text(s, mid.x - tw / 2.0, mid.y + 34.0, 14.0, DIM);
+    }
+}
+
+/// The squad's queued orders in the site, numbered on screen where each
+/// will be carried out (a thing, a foe, a spot).
+fn draw_tasks(c: &Canvas, game: &Game) {
+    let w = &game.world;
+    let vp = game.orbit.view_proj(game.screen);
+    for (&pid, inside) in &w.sites.inside {
+        let Some(s) = w.sites.get(inside.site) else { continue };
+        let name = w.people[pid as usize].name().unwrap_or("");
+        for (k, (t, _)) in inside.tasks.iter().enumerate() {
+            let at = match *t {
+                Task::Go(p, h) => Vec3::new(p.x, h + 0.3, p.y),
+                Task::Attack(foe) => {
+                    let p = w.person_pos(foe);
+                    Vec3::new(p.x, w.site_floor_at(p).unwrap_or(s.base_h) + 2.2, p.y)
+                }
+                Task::Use(i) => match s.objects.iter().find(|o| o.index == i) {
+                    Some(o) => {
+                        let p = s.to_world(o.at);
+                        Vec3::new(p.x, s.base_h + o.z + 1.2, p.y)
+                    }
+                    None => continue,
+                },
+            };
+            let Some(sp) = game.orbit.project(&vp, game.screen, at) else { continue };
+            let label = format!("{} {}", k + 1, name);
+            let tw = c.width(&label, 13.0);
+            c.rect(sp.x - tw / 2.0 - 5.0, sp.y - 15.0, tw + 10.0, 19.0, ega([0.08, 0.07, 0.05], 0.8));
+            c.text(&label, sp.x - tw / 2.0, sp.y, 13.0, GOLD);
+        }
     }
 }
 

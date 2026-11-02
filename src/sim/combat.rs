@@ -385,6 +385,29 @@ pub struct Drive {
     pub dodged_until: f64,
 }
 
+/// How a squad mate fights when the player isn't driving them (their
+/// settings, `behaviour.rs`, set as a fight in a site runs: `dungeon.rs`).
+/// None: as anyone fights.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Tactics {
+    /// Keep back by `keep_near` (a supporter, or ranged with no bow to
+    /// shoot), fighting only what comes within `SUPPORT_GUARD`.
+    pub support: bool,
+    /// The fighter to keep near (the one the player drives).
+    pub keep_near: Option<usize>,
+    /// Drink a healing potion below this share of health (0: never).
+    pub heal_below: f32,
+    /// Bind bleeding with bandages.
+    pub bind: bool,
+    /// Throw flasks (and the like) of their own accord.
+    pub items: bool,
+}
+
+/// A supporter keeps within this of the one they keep near, and fights
+/// only foes within `SUPPORT_GUARD` of them.
+pub const SUPPORT_NEAR: f32 = 4.0;
+pub const SUPPORT_GUARD: f32 = 2.5;
+
 /// A driven fighter blocking toward a blow: the least share of blows it
 /// turns, the most, its breath per blow turned, and how slowly they move
 /// meanwhile.
@@ -578,6 +601,9 @@ pub struct Fighter {
     /// Driven by the player (third person), and how.
     #[serde(default)]
     pub drive: Drive,
+    /// A squad mate's own settings in this fight (None: as anyone fights).
+    #[serde(default)]
+    pub tactics: Option<Tactics>,
 }
 
 impl Fighter {
@@ -651,6 +677,7 @@ impl Fighter {
             think_at: 0.0,
             aware_at: 0.0,
             drive: Drive::default(),
+            tactics: None,
             burdened: false,
             torch: false,
             has_torch: false,
@@ -770,6 +797,7 @@ impl Fighter {
             backup: None,
             aware_at: 0.0,
             drive: Drive::default(),
+            tactics: None,
             trained: [0.0; super::stats::N_SKILLS],
             tire: 0.0,
             held: None,

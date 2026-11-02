@@ -84,6 +84,25 @@ pub const SPRINT_MIN: f32 = 0.05;
 /// pace in a fight (`combat::Battle::drive_step`). Climbing and swimming
 /// strokes keep their own pace; a dodge's speed is doubled in its own constant.
 pub const THIRD_PACE: f32 = 2.0;
+/// A squad mate set to be aggressive sees foes this far off (nothing
+/// between) and goes for them, metres.
+pub const AGGRO_SIGHT: f32 = 40.0;
+/// The most orders queued for a squad mate (third person, paused).
+pub const TASKS_MOST: usize = 3;
+
+/// An order queued for a squad mate while paused (third person, step 4):
+/// carried out in turn once the game runs, while someone else is
+/// controlled, then they go back to their settings.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub enum Task {
+    /// Go to a spot (world metres, world height).
+    Go(V2, f32),
+    /// Go for someone.
+    Attack(PersonId),
+    /// Use a thing of the site (by its index in the file).
+    Use(u16),
+}
+
 /// How near a foe in a site sees one of the squad (nothing between) and
 /// comes for them, metres.
 pub const NOTICE: f32 = 25.0;
@@ -1018,6 +1037,9 @@ pub struct Inside {
     pub guard: bool,
     #[serde(skip)]
     pub aim: Option<V2>,
+    /// Orders queued (step 4), each with whether it has been begun.
+    #[serde(default)]
+    pub tasks: Vec<(Task, bool)>,
 }
 
 /// Every site and who's in one (saved).
@@ -1095,7 +1117,7 @@ impl World {
         self.squad.goal[k] = at;
         self.squad.route[k].clear();
         self.squad.inside[k] = None;
-        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, sprint: false, air: None, dodge: None, safe: Some(n), planned: 0.0, guard: false, aim: None });
+        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, sprint: false, air: None, dodge: None, safe: Some(n), planned: 0.0, guard: false, aim: None, tasks: Vec::new() });
         self.recentre_squad();
         self.update_sight(site);
         true
@@ -1369,10 +1391,12 @@ impl World {
             }
             let Some(s) = self.sites.sites.iter().find(|s| s.contains_world(at)) else { continue };
             let (sid, la) = (s.id, s.to_local(at));
-            let squad: Vec<PersonId> = self.sites.inside.iter().filter(|(_, i)| i.site == sid).map(|(&p, _)| p).filter(|&p| !self.people[p as usize].dead).collect();
+            let squad: Vec<PersonId> = self.sites.inside.iter().filter(|(_, i)| i.site == sid).map(|(&p, _)| p).filter(|&p| !self.people[p as usize].dead && !self.stays_out(p)).collect();
+            // Seen by the foe, or a mate set to be aggressive sees them first.
             let seen = squad.iter().any(|&p| self.squad.index(p).is_some_and(|k| {
                 let lp = s.to_local(self.squad.at[k]);
-                lp.dist(la) <= NOTICE && s.line_clear(la, lp)
+                let aggressive = self.sites.lead != Some(p) && self.behaviour(p).stance == super::behaviour::Stance::Aggressive;
+                lp.dist(la) <= if aggressive { AGGRO_SIGHT } else { NOTICE } && s.line_clear(la, lp)
             }));
             if !seen {
                 continue;
@@ -1390,10 +1414,28 @@ impl World {
                 }
             }
         }
-        // Driving.
+        self.site_tasks();
+        // Driving, and the mates' own settings.
         let lead = self.sites.lead;
+        let tactics: BTreeMap<PersonId, (super::combat::Tactics, bool)> = self
+            .sites
+            .inside
+            .keys()
+            .filter(|&&p| Some(p) != lead)
+            .map(|&p| {
+                let b = self.behaviour(p);
+                use super::behaviour::Role;
+                (p, (super::combat::Tactics { support: b.role == Role::Support || b.role == Role::Ranged, keep_near: None, heal_below: b.heal_below as f32 / 100.0, bind: b.bind, items: b.items }, b.role == Role::Ranged))
+            })
+            .collect();
         for b in &mut self.battles {
+            let lead_at = b.fighters.iter().position(|f| Some(f.pid) == lead && f.is_person());
             for f in &mut b.fighters {
+                if let Some((t, ranged)) = tactics.get(&f.pid).filter(|_| f.is_person() && f.side == super::combat::SQUAD_SIDE) {
+                    // (Ranged with a bow to shoot fights from where they are.)
+                    let support = t.support && !(*ranged && f.shooting());
+                    f.tactics = Some(super::combat::Tactics { support, keep_near: lead_at, ..*t });
+                }
                 let mine = Some(f.pid) == lead && self.sites.inside.contains_key(&f.pid) && f.is_person();
                 if mine {
                     let i = &self.sites.inside[&f.pid];
@@ -1410,6 +1452,99 @@ impl World {
                     // Let go (another taken, or out of the site): the rules again.
                     f.drive = Default::default();
                     f.think_at = t;
+                }
+            }
+        }
+    }
+
+    /// Queue an order for a squad member in a site (third person, paused):
+    /// false if their queue is full.
+    pub fn queue_task(&mut self, pid: PersonId, task: Task) -> bool {
+        let Some(i) = self.sites.inside.get_mut(&pid) else { return false };
+        if i.tasks.len() >= TASKS_MOST {
+            return false;
+        }
+        i.tasks.push((task, false));
+        true
+    }
+
+    /// Carry out the squad's queued orders in sites, the first of each in
+    /// turn: the one controlled has none (theirs are dropped: they act only
+    /// on the keys). A fight takes them as the fight's orders.
+    fn site_tasks(&mut self) {
+        let who: Vec<PersonId> = self.sites.inside.iter().filter(|(_, i)| !i.tasks.is_empty()).map(|(&p, _)| p).collect();
+        for pid in who {
+            if self.sites.lead == Some(pid) || self.people[pid as usize].dead {
+                if let Some(i) = self.sites.inside.get_mut(&pid) {
+                    i.tasks.clear();
+                }
+                continue;
+            }
+            let Some(k) = self.squad.index(pid) else { continue };
+            let (task, begun) = self.sites.inside[&pid].tasks[0];
+            let fighter = self.fighting.get(&pid).copied().and_then(|bid| {
+                let b = self.battles.iter().position(|b| b.id == bid)?;
+                let i = self.battles[b].fighters.iter().position(|f| f.pid == pid && f.is_person())?;
+                Some((b, i))
+            });
+            let here = self.member_pos(k);
+            let done = match task {
+                Task::Go(p, h) => match fighter {
+                    Some((b, i)) => {
+                        self.battles[b].fighters[i].order = Some(super::combat::Order::MoveTo(p));
+                        here.dist(p) < 0.8
+                    }
+                    None => {
+                        if !begun {
+                            let ok = self.order_in_site(pid, p, Some(h));
+                            self.sites.inside.get_mut(&pid).unwrap().tasks[0].1 = true;
+                            !ok
+                        } else {
+                            self.sites.inside[&pid].way.is_empty()
+                        }
+                    }
+                },
+                Task::Attack(foe) => {
+                    let gone = self.people[foe as usize].dead || !self.sites.foes.contains_key(&foe) && !self.fighting.contains_key(&foe);
+                    match fighter {
+                        _ if gone => true,
+                        Some((b, i)) => match self.battles[b].fighters.iter().position(|f| f.pid == foe && f.is_person()) {
+                            Some(j) if self.battles[b].fighters[j].active() => {
+                                self.battles[b].fighters[i].order = Some(super::combat::Order::Attack(j));
+                                false
+                            }
+                            Some(_) => true,
+                            None => false,
+                        },
+                        None => {
+                            // Off to them; the fight starts when they're seen.
+                            if !begun {
+                                let at = self.person_pos(foe);
+                                self.order_in_site(pid, at, None);
+                                self.sites.inside.get_mut(&pid).unwrap().tasks[0].1 = true;
+                            }
+                            false
+                        }
+                    }
+                }
+                Task::Use(t) => {
+                    if fighter.is_some() {
+                        false
+                    } else if !begun {
+                        let ok = self.order_use_in_site(pid, t);
+                        self.sites.inside.get_mut(&pid).unwrap().tasks[0].1 = true;
+                        !ok
+                    } else {
+                        let i = &self.sites.inside[&pid];
+                        i.using.is_none() && i.way.is_empty()
+                    }
+                }
+            };
+            if done {
+                if let Some(i) = self.sites.inside.get_mut(&pid) {
+                    if !i.tasks.is_empty() {
+                        i.tasks.remove(0);
+                    }
                 }
             }
         }
@@ -1438,7 +1573,7 @@ impl World {
                 return false;
             }
             let site = i.site;
-            let squad: Vec<PersonId> = self.sites.inside.iter().filter(|(_, x)| x.site == site).map(|(&p, _)| p).filter(|p| !self.fighting.contains_key(p)).collect();
+            let squad: Vec<PersonId> = self.sites.inside.iter().filter(|(_, x)| x.site == site).map(|(&p, _)| p).filter(|p| !self.fighting.contains_key(p) && !self.stays_out(*p)).collect();
             let t = self.time;
             self.start_battle(vec![(super::combat::SQUAD_SIDE, squad), (1, near)], t);
             self.site_fights();
@@ -1556,7 +1691,7 @@ impl World {
     fn follow_lead(&mut self, pid: PersonId) {
         let Some(lead) = self.sites.lead.filter(|&l| l != pid) else { return };
         let (Some(me), Some(them)) = (self.sites.inside.get(&pid).cloned(), self.sites.inside.get(&lead).cloned()) else { return };
-        if me.site != them.site || me.steer.is_some() || me.climbing.is_some() || me.air.is_some() || me.using.is_some() || self.time - me.planned < FOLLOW_REPLAN {
+        if me.site != them.site || me.steer.is_some() || me.climbing.is_some() || me.air.is_some() || me.using.is_some() || !me.tasks.is_empty() || self.time - me.planned < FOLLOW_REPLAN {
             return;
         }
         let (Some(km), Some(kl)) = (self.squad.index(pid), self.squad.index(lead)) else { return };

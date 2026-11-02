@@ -90,6 +90,12 @@ impl World {
         self.behaviours.get(&pid).copied().unwrap_or_default()
     }
 
+    /// A squad mate in a site set to keep out of fights (`Stance::Passive`)
+    /// and not the one the player controls: left out of fights there.
+    pub fn stays_out(&self, pid: PersonId) -> bool {
+        self.sites.inside.contains_key(&pid) && self.sites.lead != Some(pid) && self.behaviour(pid).stance == Stance::Passive
+    }
+
     /// Change a squad member's settings. Choosing to hold holds where they
     /// stand now (in a site: its spot and height).
     pub fn set_behaviour(&mut self, pid: PersonId, mut b: Behaviour) {
