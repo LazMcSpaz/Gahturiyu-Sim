@@ -29,10 +29,12 @@ pub enum Screen {
     Options,
     Keys,
     Menu,
+    /// The squad's behaviours (`behaviourui.rs`).
+    Behaviour,
 }
 
 impl Screen {
-    pub const ALL: [Screen; 10] = [Screen::Pack, Screen::Craft, Screen::Spells, Screen::Stats, Screen::Journal, Screen::Town, Screen::Build, Screen::Options, Screen::Keys, Screen::Menu];
+    pub const ALL: [Screen; 11] = [Screen::Pack, Screen::Craft, Screen::Spells, Screen::Stats, Screen::Journal, Screen::Town, Screen::Build, Screen::Options, Screen::Keys, Screen::Menu, Screen::Behaviour];
 }
 
 /// What `settle` remembers between frames.
@@ -80,6 +82,7 @@ pub fn is_open(game: &Game, s: Screen) -> bool {
         Screen::Options => game.options,
         Screen::Keys => game.keys,
         Screen::Menu => game.game_menu.is_some(),
+        Screen::Behaviour => game.behave,
     }
 }
 
@@ -101,6 +104,7 @@ pub fn close(game: &mut Game, s: Screen) {
         Screen::Options => game.options = false,
         Screen::Keys => game.keys = false,
         Screen::Menu => game.game_menu = None,
+        Screen::Behaviour => game.behave = false,
     }
 }
 

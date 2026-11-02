@@ -6,6 +6,7 @@ pub mod animals;
 pub mod apothecary;
 pub mod bands;
 pub mod bedding;
+pub mod behaviour;
 pub mod binders;
 pub mod island;
 pub mod tutorial;

@@ -3,6 +3,7 @@
 pub mod animals;
 pub mod app;
 pub mod baseui;
+pub mod behaviourui;
 pub mod cam;
 pub mod castfx;
 pub mod cues;

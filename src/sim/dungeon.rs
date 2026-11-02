@@ -69,10 +69,16 @@ pub const JUMP_CARRY: f32 = 5.0;
 pub const DODGE_M: f32 = 1.6;
 pub const DODGE_SPEED: f32 = 6.0;
 pub const DODGE_STAMINA: f32 = 0.04;
-/// A squad mate following the one you control keeps about this far behind,
-/// and finds their way again at most this often (seconds).
-pub const FOLLOW_GAP: f32 = 2.5;
+/// A squad mate following the one you control finds their way again at
+/// most this often (seconds); how far behind they keep is their setting
+/// (`behaviour::Follow::gap`). Holding a spot, they go back once this far off it.
 pub const FOLLOW_REPLAN: f64 = 0.6;
+pub const HOLD_SLACK: f32 = 0.8;
+/// Sprinting (Shift): this much faster, for this share of their most
+/// stamina a metre (by the metre, like climbing), not below this share left.
+pub const SPRINT: f32 = 1.8;
+pub const SPRINT_PER_M: f32 = 0.004;
+pub const SPRINT_MIN: f32 = 0.05;
 /// How far a character sees in a site, metres (Laz); walls and closed doors
 /// block it.
 pub const SIGHT: f32 = 40.0;
@@ -919,6 +925,9 @@ pub struct Inside {
     /// saved (it's the keys held this moment).
     #[serde(skip)]
     pub steer: Option<V2>,
+    /// Sprinting while steered (Shift held). Not saved, like the keys.
+    #[serde(skip)]
+    pub sprint: bool,
     /// In the air (a jump, or a fall): rising speed now, metres a second.
     #[serde(default)]
     pub air: Option<f32>,
@@ -1005,7 +1014,7 @@ impl World {
         self.squad.goal[k] = at;
         self.squad.route[k].clear();
         self.squad.inside[k] = None;
-        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, air: None, dodge: None, safe: Some(n), planned: 0.0 });
+        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, sprint: false, air: None, dodge: None, safe: Some(n), planned: 0.0 });
         self.recentre_squad();
         self.update_sight(site);
         true
@@ -1211,6 +1220,13 @@ impl World {
         i.steer = dir;
     }
 
+    /// Sprint (Shift) while steered, or stop.
+    pub fn sprint_in_site(&mut self, pid: PersonId, on: bool) {
+        if let Some(i) = self.sites.inside.get_mut(&pid) {
+            i.sprint = on;
+        }
+    }
+
     /// A squad member in a site jumps (on firm footing: not swimming,
     /// climbing or already in the air).
     pub fn jump_in_site(&mut self, pid: PersonId) {
@@ -1293,24 +1309,46 @@ impl World {
     }
 
     /// A squad mate in a site who isn't the one controlled keeps up with
-    /// the one who is: once they're more than `FOLLOW_GAP` away, a way to
-    /// just behind them, found again now and then.
+    /// the one who is: once they're further off than their setting allows
+    /// (`behaviour::Follow::gap`), a way to just behind them, found again
+    /// now and then; or, holding a spot, back to it.
     fn follow_lead(&mut self, pid: PersonId) {
         let Some(lead) = self.sites.lead.filter(|&l| l != pid) else { return };
         let (Some(me), Some(them)) = (self.sites.inside.get(&pid).cloned(), self.sites.inside.get(&lead).cloned()) else { return };
-        if me.site != them.site || me.steer.is_some() || me.climbing.is_some() || me.air.is_some() || me.using.is_some() {
+        if me.site != them.site || me.steer.is_some() || me.climbing.is_some() || me.air.is_some() || me.using.is_some() || self.time - me.planned < FOLLOW_REPLAN {
             return;
         }
         let (Some(km), Some(kl)) = (self.squad.index(pid), self.squad.index(lead)) else { return };
-        let gap = self.squad.at[km].dist(self.squad.at[kl]) + (me.h - them.h).abs();
-        if gap <= FOLLOW_GAP || self.time - me.planned < FOLLOW_REPLAN {
+        let b = self.behaviour(pid);
+        let Some(s) = self.sites.get(me.site) else { return };
+        // Holding a spot in this site: back to it once they're off it.
+        let (target, gap_ok, stop) = match (b.follow, b.hold) {
+            (super::behaviour::Follow::Hold, Some((site, spot, h))) if site == me.site => {
+                let Some(n) = s.node_near(s.to_local(spot), h) else { return };
+                let off = self.squad.at[km].dist(spot) + (me.h - h).abs();
+                (n, off <= HOLD_SLACK || me.node == n, 0.0)
+            }
+            (super::behaviour::Follow::Hold, _) => return,
+            (f, _) => {
+                let gap = self.squad.at[km].dist(self.squad.at[kl]) + (me.h - them.h).abs();
+                // Caught up, they stand off at about half their gap.
+                (them.node, gap <= f.gap(), f.gap() * 0.5)
+            }
+        };
+        if gap_ok {
             return;
         }
-        let Some(s) = self.sites.get(me.site) else { return };
-        let Some(mut way) = s.route(me.node, them.node).map(|w| w.nodes) else { return };
-        // Stop a little short of them.
-        let keep = way.len().saturating_sub(2);
-        way.truncate(keep.max(if gap > FOLLOW_GAP * 2.0 { 1 } else { 0 }));
+        let Some(mut way) = s.route(me.node, target).map(|w| w.nodes) else { return };
+        // Following, stop that far short of them (by the way's own length).
+        if stop > 0.0 {
+            let end = Site::centre(target);
+            while way.len() > 1 && Site::centre(way[way.len() - 2]).dist(end) <= stop {
+                way.pop();
+            }
+            if way.last().is_some_and(|&n| Site::centre(n).dist(end) < stop.min(1.0)) {
+                way.pop();
+            }
+        }
         let points: Vec<V2> = way.iter().map(|&n| s.to_world(Site::centre(n))).collect();
         if let Some(m) = self.sites.inside.get_mut(&pid) {
             m.way = way;
@@ -1337,6 +1375,8 @@ impl World {
         let mut at = site.to_local(self.squad.at[k]);
         let mut opened: Vec<u16> = Vec::new();
         let mut rise = 0.0f32;
+        let mut sprinted = 0.0f32;
+        let sprint_ok = self.stamina_of(pid).unwrap_or(1.0) > SPRINT_MIN;
         while left > 1e-6 {
             if let Some((from, to, done)) = i.climbing {
                 let span = (to - from).abs().max(1e-3);
@@ -1362,9 +1402,11 @@ impl World {
                 let sub = left.min(0.02);
                 left -= sub;
                 let pace = if i.swimming { SWIM_PACE } else { 1.0 };
+                let sprinting = i.sprint && i.steer.is_some() && !i.swimming && i.air.is_none() && sprint_ok;
+                let run = if sprinting { SPRINT } else { 1.0 };
                 let v = match i.dodge {
                     Some((d, _)) => d.scale(DODGE_SPEED),
-                    None => i.steer.map(|d| d.scale(if i.air.is_some() { (speed * pace).max(JUMP_CARRY) } else { speed * pace })).unwrap_or_default(),
+                    None => i.steer.map(|d| d.scale(if i.air.is_some() { (speed * pace).max(JUMP_CARRY) } else { speed * pace * run })).unwrap_or_default(),
                 };
                 let tries = [v, V2::new(v.x, 0.0), V2::new(0.0, v.y)];
                 if let Some(vz) = i.air {
@@ -1417,6 +1459,9 @@ impl World {
                             let (nh, how) = site.level(n).unwrap();
                             if nh > i.h {
                                 rise += nh - i.h;
+                            }
+                            if sprinting {
+                                sprinted += to.dist(at);
                             }
                             at = to;
                             i.node = n;
@@ -1511,6 +1556,12 @@ impl World {
         }
         if rise > 0.0 {
             self.climb(pid, rise);
+        }
+        if sprinted > 0.0 {
+            // By the metre, like climbing.
+            if let Some(c) = self.people[pid as usize].cond.as_mut() {
+                c.stamina = (c.stamina - c.max_stamina * SPRINT_PER_M * sprinted).max(0.0);
+            }
         }
         self.update_sight(site_id);
     }

@@ -76,6 +76,8 @@ pub enum Hover {
 pub struct Game {
     /// Third-person control in dungeon sites (`thirdperson.rs`).
     pub third: super::thirdperson::Third,
+    /// The squad's behaviours panel is open (`behaviourui.rs`).
+    pub behave: bool,
     pub world: World,
     pub view: View,
     pub orbit: OrbitCam,
@@ -307,7 +309,7 @@ fn dungeon_world(pick: super::title::DungeonPick, rules: Option<gahturiyu_sim::s
     if !s.notes.is_empty() {
         line += &format!(". Import notes: {}", s.notes.join("; "));
     }
-    line += ". WASD to move, the mouse to look, E to use, Space to jump, Q to dodge, C to sneak, Alt to pause, Tab to switch; E on the green marker leaves.";
+    line += ". WASD to move (Shift sprints), the mouse to look, E to use, Space to jump, Q to dodge, C to sneak, Alt to pause, Tab to switch, B for behaviours; E on the green marker leaves.";
     Ok((w, line))
 }
 
@@ -510,9 +512,12 @@ pub fn run() {
         castfx: Default::default(),
         shot: None,
         third: Default::default(),
+        behave: false,
         world,
     };
     game.orbit.ground = game.world.terrain.surface(game.world.squad.pos);
+    // `GAHT_BEHAVE=1`: the squad's behaviours panel open (third person, B).
+    game.behave = std::env::var("GAHT_BEHAVE").is_ok();
     if let Some(s) = &shot {
         if s.view.as_deref() == Some("map") {
             game.view = View::Map;
@@ -2097,6 +2102,16 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
         let (act, boxes) = super::frame::bottom(&c, w, &fs, click);
         bottom_act = act;
         panels.extend(boxes);
+    }
+    if game.behave {
+        let at = game.slides.begin(&c);
+        let lead = w.sites.lead;
+        let (bx, close) = super::behaviourui::draw(&c, w, lead, click, size);
+        panels.push(bx);
+        if close {
+            game.behave = false;
+        }
+        game.slides.end(&c, "behaviour", at);
     }
     if game.keys {
         let at = game.slides.begin(&c);

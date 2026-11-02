@@ -147,6 +147,10 @@ pub struct World {
     /// (`dungeon.rs`).
     #[serde(default)]
     pub sites: super::dungeon::Sites,
+    /// Each squad member's settings for when they aren't controlled
+    /// (`behaviour.rs`).
+    #[serde(default)]
+    pub behaviours: std::collections::BTreeMap<PersonId, super::behaviour::Behaviour>,
     /// Diʻub and the lord, and how Diʻub's questions went (`diub.rs`).
     #[serde(default)]
     pub strangers: super::diub::Strangers,
@@ -452,6 +456,7 @@ impl World {
             seats: Vec::new(),
             test_quarter: None,
             sites: Default::default(),
+            behaviours: Default::default(),
             strangers: Default::default(),
             caught: Default::default(),
             dosing: Vec::new(),

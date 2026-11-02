@@ -289,8 +289,7 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
     // Dungeon sites: each its own mesh, drawn again when a door or the
     // clearance changes (`dungeonview.rs`).
     {
-        let sees = |id: u32| if game.world.sites.inside.values().any(|i| i.site == id) { game.world.sites.sees(id) } else { None };
-        let want: Vec<(u32, u64)> = game.world.sites.sites.iter().map(|s| (s.id, super::dungeonview::key(s, sees(s.id)))).collect();
+        let want: Vec<(u32, u64)> = game.world.sites.sites.iter().map(|s| (s.id, super::dungeonview::key(s))).collect();
         scene.sites.retain(|&(id, k, e)| {
             let keep = want.contains(&(id, k));
             if !keep {
@@ -301,7 +300,10 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         for (id, k) in want {
             if !scene.sites.iter().any(|s| s.0 == id) {
                 let site = game.world.sites.get(id).unwrap();
-                let e = spawn_mesh(&mut commands, &mut meshes, &mats.lit, super::dungeonview::build(site, sees(id)), ()).0;
+                let e = spawn_mesh(&mut commands, &mut meshes, &mats.lit, super::dungeonview::build(site), ()).0;
+                // (No shadows from its walls and ceilings: under them the
+                // sun would leave it all dark. Lighting is visual work, on hold.)
+                commands.entity(e).insert(bevy::light::NotShadowCaster);
                 scene.sites.push((id, k, e));
             }
         }

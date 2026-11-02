@@ -85,6 +85,12 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
     // (Screenshots never take the pointer: it's Laz's mouse.)
     game.third.locked = game.third.want && !wants_pointer(game) && game.shot.is_none();
     let Some(lead) = game.world.sites.lead else { return false };
+    // B: the squad's behaviours (open, the pointer is free for it).
+    if keys.just_pressed(KeyCode::KeyB) {
+        game.behave = !game.behave;
+        game.world.steer_in_site(lead, None);
+        return true;
+    }
     if !game.third.locked {
         let on_panels = game.panels.iter().any(|b| b.contains(mouse));
         if buttons.just_pressed(MouseButton::Left) && !on_panels && !wants_pointer(game) && game.shot.is_none() {
@@ -118,6 +124,7 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
         }
     }
     w.steer_in_site(lead, (d.len() > 1e-3).then_some(d));
+    w.sprint_in_site(lead, keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight));
     if keys.just_pressed(KeyCode::Space) {
         w.jump_in_site(lead);
     }
@@ -184,11 +191,27 @@ pub fn place_camera(game: &mut Game) {
     let at = game.world.squad.at[k];
     let f = V2::new(-game.third.yaw.cos(), -game.third.yaw.sin());
     let r = V2::new(-f.y, f.x);
-    game.orbit.target = at.add(r.scale(SHOULDER));
-    game.orbit.ground = h + HEAD;
-    game.orbit.yaw = game.third.yaw;
-    game.orbit.pitch = game.third.pitch;
-    game.orbit.dist = game.third.dist;
+    // Over the shoulder, but not into a wall beside them; and back from
+    // there, but not through a wall or the ceiling behind.
+    let solid = |p: Vec3| super::dungeonview::solid_at(&game.world, p).unwrap_or(false);
+    let head = Vec3::new(at.x, h + HEAD, at.y);
+    let side = Vec3::new(r.x, 0.0, r.y);
+    let mut shoulder = 0.0;
+    while shoulder < SHOULDER && !solid(head + side * (shoulder + 0.25)) {
+        shoulder += 0.05;
+    }
+    let look = head + side * shoulder;
+    let (p, y) = (game.third.pitch, game.third.yaw);
+    let back = Vec3::new(p.cos() * y.cos(), p.sin(), p.cos() * y.sin());
+    let mut dist = 0.3;
+    while dist < game.third.dist && !solid(look + back * (dist + 0.25)) {
+        dist += 0.05;
+    }
+    game.orbit.target = V2::new(look.x, look.z);
+    game.orbit.ground = look.y;
+    game.orbit.yaw = y;
+    game.orbit.pitch = p;
+    game.orbit.dist = dist.max(0.4);
     game.follow = false;
     game.glide = None;
     // What the crosshair is on (the screen's middle).
@@ -230,9 +253,19 @@ pub fn draw(c: &Canvas, game: &Game) {
     }
 }
 
-/// Capture the pointer, or free it, as third person wants.
+/// The pointer: captured and hidden in third person; otherwise kept inside
+/// the window while playing (Laz: "the cursor needs to lock into the window
+/// when in play"), free on the title screen and the game menu. Screenshot
+/// runs never take it.
 pub fn pointer(game: Res<Game>, mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>) {
-    let grab = if game.third.locked { CursorGrabMode::Locked } else { CursorGrabMode::None };
+    let playing = game.title.is_none() && game.game_menu.is_none() && game.shot.is_none() && !game.quit;
+    let grab = if game.third.locked {
+        CursorGrabMode::Locked
+    } else if playing {
+        CursorGrabMode::Confined
+    } else {
+        CursorGrabMode::None
+    };
     if cursor.grab_mode != grab {
         cursor.grab_mode = grab;
     }

@@ -26,12 +26,14 @@ didn't say. A line marked *(default)* is Claude's call, open to change.
 | Mouse | turn the camera (and the aim) |
 | Left click | attack toward the crosshair: one swing or shot per click |
 | Right button (hold) | block / parry with what's carried |
+| Shift (hold) | sprint: faster, costs stamina by the metre (Laz, 2 Nov, later) |
 | Space | jump |
 | Q | dodge backwards (costs stamina, briefly harder to hit) |
 | C | sneak, on and off (the game's stealth rules) |
 | E | use what the crosshair points at, within reach: open a door, climb a ladder, open a chest, read a plaque, talk; a small label says what E will do |
 | Alt | pause and unpause |
 | Tab | the next squad member; clicking a portrait takes that one |
+| B | the squad's behaviours panel |
 | Esc | free the pointer / the game menu |
 
 - **Alt currently shows labels on everything** (the long tooltips). In
@@ -102,3 +104,19 @@ didn't say. A line marked *(default)* is Claude's call, open to change.
    mates on the existing fight AI and its rules.
 4. Pause orders for mates.
 5. Mates' fighting under their behaviours (stance, role, healing).
+
+## Added 2 Nov, later (Laz)
+
+- **Sprint** on Shift.
+- **The pointer stays in the window while playing.** It's confined to the
+  window everywhere in play, and captured and hidden in third person. The
+  title screen and the game menu free it; screenshot runs never take it.
+- **The view changed, so the drawing changed.** Walls now stand to the
+  ceiling, and a ceiling covers every walkable cell. The whole site is drawn,
+  not only what's in sight. The camera stops short of walls and ceilings.
+  The sim still works out what the squad sees: 40 m, not past walls (for
+  foes, later).
+- **Step 2 done:** the behaviours panel (B). Stance, role and range, follow
+  close, medium or far or hold here, heal below a share, bind wounds, use
+  scrolls and bottles. Following and holding act now; the rest wait for the
+  fighting steps.

@@ -582,7 +582,8 @@ fn the_mate_follows_the_one_you_control() {
         worst = worst.max(w.squad.at[0].dist(w.squad.at[1]));
     }
     let gap = w.squad.at[0].dist(w.squad.at[1]);
-    assert!(gap < FOLLOW_GAP * 2.5, "the mate is {gap} m behind (worst {worst})");
+    let allowed = gahturiyu_sim::sim::behaviour::Follow::Medium.gap();
+    assert!(gap < allowed * 2.5, "the mate is {gap} m behind (worst {worst})");
     assert!((w.site_of(mate).unwrap().h - 2.4).abs() < 1e-3, "the mate didn't come up the ladder");
 }
 
@@ -604,4 +605,73 @@ fn e_uses_only_what_is_within_reach() {
     assert!(w.use_in_reach(lead, 16));
     assert!(w.log.front().unwrap().1.contains("A surviving account"));
     assert_eq!(w.site_use_label(id, 19).unwrap(), "Leave: Return to the Company");
+}
+
+/// Walk the lead `secs` seconds east along a long open strip; the gap to the mate.
+fn gap_after_walk(follow: gahturiyu_sim::sim::behaviour::Follow) -> f32 {
+    let cells: Vec<_> = (0..80).map(|_| ("Floor", 0.0, None, None)).collect();
+    let (mut w, _id, team) = in_site(strip(&cells, "", 2.5), 1);
+    let (lead, mate) = (team[0], team[1]);
+    let mut b = w.behaviour(mate);
+    b.follow = follow;
+    w.set_behaviour(mate, b);
+    w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+    for _ in 0..200 {
+        w.step(0.1);
+    }
+    w.steer_in_site(lead, None);
+    for _ in 0..100 {
+        w.step(0.1);
+    }
+    w.squad.at[0].dist(w.squad.at[1])
+}
+
+#[test]
+fn the_follow_setting_decides_how_close_the_mate_keeps() {
+    use gahturiyu_sim::sim::behaviour::Follow;
+    let (close, far) = (gap_after_walk(Follow::Close), gap_after_walk(Follow::Far));
+    assert!(close <= Follow::Close.gap() + 0.5, "close: {close}");
+    assert!(far > Follow::Close.gap() + 1.0 && far <= Follow::Far.gap() + 0.5, "far: {far}");
+    // Holding, they stay where they were told and the lead walks off.
+    let held = gap_after_walk(Follow::Hold);
+    assert!(held > 20.0, "held: {held}");
+}
+
+#[test]
+fn holding_brings_them_back_to_their_spot() {
+    use gahturiyu_sim::sim::behaviour::Follow;
+    let cells: Vec<_> = (0..40).map(|_| ("Floor", 0.0, None, None)).collect();
+    let (mut w, id, team) = in_site(strip(&cells, "", 2.5), 1);
+    let mate = team[1];
+    let mut b = w.behaviour(mate);
+    b.follow = Follow::Hold;
+    w.set_behaviour(mate, b);
+    let spot = w.behaviour(mate).hold.unwrap();
+    assert_eq!(spot.0, id);
+    // Sent off by hand, they come back to it.
+    assert!(w.order_in_site(mate, w.sites.get(id).unwrap().to_world(V2::new(15.5, 0.5)), None));
+    for _ in 0..400 {
+        w.step(0.1);
+    }
+    assert!(w.squad.at[1].dist(spot.1) < 1.0, "{:?} vs {:?}", w.squad.at[1], spot.1);
+}
+
+#[test]
+fn sprinting_is_faster_and_costs_stamina_by_the_metre() {
+    let cells: Vec<_> = (0..80).map(|_| ("Floor", 0.0, None, None)).collect();
+    let run = |sprint: bool| {
+        let (mut w, id, team) = in_site(strip(&cells, "", 2.5), 0);
+        let lead = team[0];
+        let s0 = w.stamina_of(lead).unwrap();
+        w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+        w.sprint_in_site(lead, sprint);
+        for _ in 0..50 {
+            w.step(0.1);
+        }
+        (local_x(&w, id) - 2.5, s0 - w.stamina_of(lead).unwrap())
+    };
+    let (walked, walk_cost) = run(false);
+    let (ran, run_cost) = run(true);
+    assert!((ran / walked - SPRINT).abs() < 0.1, "walked {walked} m, sprinted {ran} m");
+    assert!(run_cost - walk_cost > SPRINT_PER_M * ran * 0.8, "sprint cost {run_cost} vs walk {walk_cost}");
 }
