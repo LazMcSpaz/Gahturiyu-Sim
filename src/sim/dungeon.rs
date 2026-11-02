@@ -67,7 +67,7 @@ pub const JUMP_CARRY: f32 = 5.0;
 /// A dodge backwards: this far, this fast, for this share of the most
 /// stamina they can have.
 pub const DODGE_M: f32 = 1.6;
-pub const DODGE_SPEED: f32 = 6.0;
+pub const DODGE_SPEED: f32 = 12.0;
 pub const DODGE_STAMINA: f32 = 0.04;
 /// A squad mate following the one you control finds their way again at
 /// most this often (seconds); how far behind they keep is their setting
@@ -79,6 +79,11 @@ pub const HOLD_SLACK: f32 = 0.8;
 pub const SPRINT: f32 = 1.8;
 pub const SPRINT_PER_M: f32 = 0.004;
 pub const SPRINT_MIN: f32 = 0.05;
+/// Laz: "Double all movement speed (walk, run, dodge)" in third person:
+/// walking and running in a site (the squad there), and the driven fighter's
+/// pace in a fight (`combat::Battle::drive_step`). Climbing and swimming
+/// strokes keep their own pace; a dodge's speed is doubled in its own constant.
+pub const THIRD_PACE: f32 = 2.0;
 /// How near a foe in a site sees one of the squad (nothing between) and
 /// comes for them, metres.
 pub const NOTICE: f32 = 25.0;
@@ -1460,22 +1465,29 @@ impl World {
     pub fn dodge_in_site(&mut self, pid: PersonId, facing: V2) {
         // In a fight, the fight dodges them (and it's harder to hit them meanwhile).
         if let Some(&bid) = self.fighting.get(&pid) {
+            let moving = self.sites.inside.get(&pid).and_then(|x| x.steer);
             if let Some(b) = self.battles.iter_mut().find(|b| b.id == bid) {
                 if let Some(i) = b.fighters.iter().position(|f| f.pid == pid && f.is_person()) {
                     if facing.len() > 1e-4 {
                         b.fighters[i].drive.facing = facing.scale(1.0 / facing.len());
                     }
+                    b.fighters[i].drive.go = moving;
                     b.dodge(i);
                 }
             }
             return;
         }
         let Some(i) = self.sites.inside.get_mut(&pid) else { return };
-        if i.air.is_some() || i.climbing.is_some() || i.swimming || i.dodge.is_some() || facing.len() < 1e-4 {
+        if i.air.is_some() || i.climbing.is_some() || i.swimming || i.dodge.is_some() {
             return;
         }
-        let back = facing.scale(-1.0 / facing.len());
-        i.dodge = Some((back, DODGE_M));
+        // The way they're moving (Laz), or back from where they face.
+        let way = match i.steer.filter(|s| s.len() > 1e-4) {
+            Some(s) => s.scale(1.0 / s.len()),
+            None if facing.len() > 1e-4 => facing.scale(-1.0 / facing.len()),
+            None => return,
+        };
+        i.dodge = Some((way, DODGE_M));
         i.way.clear();
         i.using = None;
         let t = self.time;
@@ -1648,7 +1660,7 @@ impl World {
                 let run = if sprinting { SPRINT } else { 1.0 };
                 let v = match i.dodge {
                     Some((d, _)) => d.scale(DODGE_SPEED),
-                    None => i.steer.map(|d| d.scale(if i.air.is_some() { (speed * pace).max(JUMP_CARRY) } else { speed * pace * run })).unwrap_or_default(),
+                    None => i.steer.map(|d| d.scale(if i.air.is_some() { (speed * pace * THIRD_PACE).max(JUMP_CARRY) } else { speed * pace * run * THIRD_PACE })).unwrap_or_default(),
                 };
                 let tries = [v, V2::new(v.x, 0.0), V2::new(0.0, v.y)];
                 if let Some(vz) = i.air {
@@ -1752,7 +1764,7 @@ impl World {
             }
             let target = Site::centre(next);
             let pace = if how == How::Swim || i.swimming { SWIM_PACE } else { 1.0 };
-            let v = speed * pace;
+            let v = speed * pace * THIRD_PACE;
             let d = at.dist(target);
             let can = v * left;
             if can >= d {

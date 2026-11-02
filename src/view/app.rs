@@ -1544,7 +1544,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         game.orbit.ground = g;
     }
     // In third person, behind the one controlled (`thirdperson.rs`).
-    super::thirdperson::place_camera(game);
+    super::thirdperson::place_camera(game, dt);
 }
 
 /// Aim the 3D camera; switch it off on the map.

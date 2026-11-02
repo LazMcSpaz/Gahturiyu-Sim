@@ -11,6 +11,7 @@ use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll};
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
+use gahturiyu_sim::sim::combat::FxKind;
 use gahturiyu_sim::sim::geo::V2;
 use gahturiyu_sim::sim::person::PersonId;
 
@@ -18,6 +19,12 @@ use super::app::{Game, View};
 use super::hud::Canvas;
 use super::palette::{ega, DIM, GOLD, TEXT, WARN};
 
+/// The camera's shake: how strong for a blow turned and one taken (0 to 1),
+/// how far it throws the view at full strength, how fast it dies away.
+const SHAKE_BLOCK: f32 = 0.4;
+const SHAKE_HIT: f32 = 1.0;
+const SHAKE_M: f32 = 0.14;
+const SHAKE_FADE: f32 = 7.0;
 /// Radians of turn per pixel of mouse movement.
 const SENSE: f32 = 0.0035;
 /// The camera: how far behind, how far to the right of the head, how high
@@ -39,11 +46,16 @@ pub struct Third {
     pub target: Option<(u16, String, bool)>,
     /// Third person was on last frame (the camera starts from the view).
     was: bool,
+    /// The camera shaking (0 to 1, dying away), the window's clock for it,
+    /// and how far into which fight's moments it has looked.
+    shake: f32,
+    clock: f32,
+    seen: (u32, f64),
 }
 
 impl Default for Third {
     fn default() -> Self {
-        Third { locked: false, want: true, yaw: 0.0, pitch: 0.32, dist: BEHIND, target: None, was: false }
+        Third { locked: false, want: true, yaw: 0.0, pitch: 0.32, dist: BEHIND, target: None, was: false, shake: 0.0, clock: 0.0, seen: (u32::MAX, f64::MIN) }
     }
 }
 
@@ -185,7 +197,7 @@ pub fn input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonInput
 
 /// After the camera's usual follow step: in third person, behind the
 /// controlled character, over the shoulder, and what the crosshair is on.
-pub fn place_camera(game: &mut Game) {
+pub fn place_camera(game: &mut Game, dt: f32) {
     if !active(game) {
         game.third.was = false;
         game.third.locked = false;
@@ -209,7 +221,28 @@ pub fn place_camera(game: &mut Game) {
         shoulder += 0.05;
     }
     let look = head + side * shoulder;
-    let (p, y) = (game.third.pitch, game.third.yaw);
+    // A blow turned shakes the camera a little; one taken, more (Laz).
+    if let Some(&bid) = game.world.fighting.get(&lead) {
+        if let Some(b) = game.world.battles.iter().find(|b| b.id == bid) {
+            if let Some(me) = b.fighters.iter().position(|f| f.pid == lead && f.is_person()) {
+                let since = if game.third.seen.0 == bid { game.third.seen.1 } else { f64::MIN };
+                for x in b.fx.iter().filter(|x| x.at > since) {
+                    match x.kind {
+                        FxKind::Guarded { who } if who == me => game.third.shake = game.third.shake.max(SHAKE_BLOCK),
+                        FxKind::Struck { who } if who == me => game.third.shake = game.third.shake.max(SHAKE_HIT),
+                        _ => {}
+                    }
+                }
+                game.third.seen = (bid, b.time);
+            }
+        }
+    }
+    game.third.clock += dt;
+    game.third.shake *= (-SHAKE_FADE * dt).exp();
+    let c = game.third.clock;
+    let a = game.third.shake;
+    let look = look + Vec3::new((c * 53.0).sin() * 0.6 + (c * 31.0).sin() * 0.4, (c * 47.0).sin() * 0.5, (c * 59.0).cos() * 0.6) * (a * SHAKE_M);
+    let (p, y) = (game.third.pitch + (c * 43.0).sin() * a * 0.02, game.third.yaw);
     let back = Vec3::new(p.cos() * y.cos(), p.sin(), p.cos() * y.sin());
     let mut dist = 0.3;
     while dist < game.third.dist && !solid(look + back * (dist + 0.25)) {

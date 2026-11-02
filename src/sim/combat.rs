@@ -394,7 +394,7 @@ pub const GUARD_COST: f32 = 3.0;
 pub const GUARD_PACE: f32 = 0.5;
 /// A dodge: its speed, and how much harder to hit meanwhile (on the dodge
 /// roll's scale).
-pub const DRIVE_DODGE_SPEED: f32 = 6.0;
+pub const DRIVE_DODGE_SPEED: f32 = 12.0;
 pub const DODGE_BONUS: f32 = 40.0;
 pub const DODGE_WINDOW: f64 = 0.4;
 /// How far off a shot's line a body is still in its way, metres.
@@ -982,6 +982,10 @@ pub enum FxKind {
     Splash { at: V2, radius: f32, does: Does },
     /// A bottle in fighter `who`'s pack cracking, where they stood (`at`).
     Glass { who: usize, at: V2 },
+    /// The player's fighter (`Drive`) turned a blow, or took one (the
+    /// camera shakes, a little or more: `thirdperson.rs`).
+    Guarded { who: usize },
+    Struck { who: usize },
 }
 
 /// A visual moment for the window to show.
@@ -1426,7 +1430,7 @@ impl Battle {
         }
         let Some(d) = f.drive.go else { return };
         let pace = if f.drive.guard { GUARD_PACE } else { 1.0 };
-        let to = f.pos.add(d.scale(f.speed() * DT as f32 * pace));
+        let to = f.pos.add(d.scale(f.speed() * DT as f32 * pace * super::dungeon::THIRD_PACE));
         self.step_to(i, to);
     }
 
@@ -1452,14 +1456,19 @@ impl Battle {
         true
     }
 
-    /// A dodge back from where the driven fighter faces.
+    /// A dodge the way the driven fighter is moving (Laz), or back from
+    /// where they face if they're standing still.
     pub fn dodge(&mut self, i: usize) {
         let Some(f) = self.fighters.get(i) else { return };
-        if !f.active() || f.helpless() || f.drive.dodge.is_some() || f.drive.facing.len() < 1e-4 {
+        if !f.active() || f.helpless() || f.drive.dodge.is_some() {
             return;
         }
-        let back = f.drive.facing.scale(-1.0 / f.drive.facing.len());
-        self.fighters[i].drive.dodge = Some((back, super::dungeon::DODGE_M));
+        let way = match f.drive.go.filter(|g| g.len() > 1e-4) {
+            Some(g) => g.scale(1.0 / g.len()),
+            None if f.drive.facing.len() > 1e-4 => f.drive.facing.scale(-1.0 / f.drive.facing.len()),
+            None => return,
+        };
+        self.fighters[i].drive.dodge = Some((way, super::dungeon::DODGE_M));
         self.fighters[i].drive.dodged_until = self.time + DODGE_WINDOW;
         self.fighters[i].fatigue -= SWING_TIRES;
     }
@@ -1818,6 +1827,9 @@ impl Battle {
         }
 
         if r_block < p_block {
+            if self.fighters[d].drive.on {
+                self.fx.push(Fx { kind: FxKind::Guarded { who: d }, at: self.time });
+            }
             if self.fighters[d].shield > 0.0 {
                 self.fighters[d].shield_wear += 1.0;
             }
@@ -1840,6 +1852,9 @@ impl Battle {
                 }
             }
             return Landed::Blocked;
+        }
+        if self.fighters[d].drive.on {
+            self.fx.push(Fx { kind: FxKind::Struck { who: d }, at: self.time });
         }
 
         // Where it lands.

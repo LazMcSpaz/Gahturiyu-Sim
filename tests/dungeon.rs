@@ -258,8 +258,9 @@ fn a_squad_of_one_goes_in_climbs_to_the_chest_and_comes_out() {
     assert!(climbed, "never climbed");
     assert!(w.squad.at[0].dist(spot) < 0.05, "stopped at {:?}, not {:?}", s.to_local(w.squad.at[0]), Site::centre(at));
     assert!((w.site_height(lead).unwrap() - (s.base_h + 2.4)).abs() < 1e-3);
-    // The way there costs about 112 s at 1 m/s; walking pace is slower.
-    assert!(secs > 60.0 && secs < 400.0, "{secs}");
+    // The way there costs about 112 s at 1 m/s; third person walks at
+    // twice their pace (Laz), climbs at the ladder's own.
+    assert!(secs > 25.0 && secs < 200.0, "{secs}");
     // The doors they went through are open now (and saved so).
     let opened = w.sites.get(id).unwrap().objects.iter().filter(|o| o.kind == ObjKind::Door && o.open).count();
     assert!(opened > 0);
@@ -854,4 +855,63 @@ fn blocking_toward_a_foe_turns_more_of_their_blows() {
     let (open, guarded) = (taken(false), taken(true));
     assert!(open > 0.0, "the foe never hurt them");
     assert!(guarded < open * 0.7, "blocking took {guarded} against {open} open");
+}
+
+#[test]
+fn third_person_walks_at_double_pace() {
+    let cells: Vec<_> = (0..80).map(|_| ("Floor", 0.0, None, None)).collect();
+    let (mut w, id, team) = in_site(strip(&cells, "", 2.5), 0);
+    let lead = team[0];
+    let pace = w.member_speed(lead);
+    w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+    for _ in 0..20 {
+        w.step(0.1);
+    }
+    let went = local_x(&w, id) - 2.5;
+    assert!((went / (pace * THIRD_PACE * 2.0) - 1.0).abs() < 0.05, "went {went} m in 2 s at a pace of {pace}");
+}
+
+#[test]
+fn a_dodge_goes_the_way_you_move_or_back_if_you_stand() {
+    let cells: Vec<_> = (0..20).map(|_| ("Floor", 0.0, None, None)).collect();
+    // Moving east and facing west: the dodge goes east (the way they move).
+    let (mut w, id, team) = in_site(strip(&cells, "", 10.5), 0);
+    let lead = team[0];
+    w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+    w.dodge_in_site(lead, V2::new(-1.0, 0.0));
+    w.steer_in_site(lead, None);
+    let i = w.site_of(lead).unwrap().dodge.unwrap();
+    assert!(i.0.x > 0.99, "{:?}", i.0);
+    for _ in 0..10 {
+        w.step(0.05);
+    }
+    assert!(local_x(&w, id) > 10.5 + DODGE_M * 0.9);
+    // Standing, facing east: back, west.
+    let (mut w, _, team) = in_site(strip(&cells, "", 10.5), 0);
+    w.dodge_in_site(team[0], V2::new(1.0, 0.0));
+    assert!(w.site_of(team[0]).unwrap().dodge.unwrap().0.x < -0.99);
+}
+
+#[test]
+fn a_blow_turned_and_a_blow_taken_are_told_to_the_camera() {
+    use gahturiyu_sim::sim::combat::FxKind;
+    let count = |guard: bool| -> (usize, usize) {
+        let (mut w, id, team) = in_site(room(20, 10, |_, _| false, 5.5, 5.5), 0);
+        let lead = team[0];
+        let s = w.sites.get(id).unwrap().clone();
+        w.put_site_foes(s.to_world(V2::new(6.8, 5.5)), 1);
+        for _ in 0..80 {
+            w.aim_in_site(lead, V2::new(1.0, 0.0), guard);
+            w.step(0.1);
+        }
+        let b = battle_of(&w, lead);
+        let me = fighter(&w, b, lead);
+        let n = |f: &dyn Fn(&FxKind) -> bool| w.battles[b].fx.iter().filter(|x| f(&x.kind)).count();
+        (n(&|k| matches!(k, FxKind::Guarded { who } if *who == me)), n(&|k| matches!(k, FxKind::Struck { who } if *who == me)))
+    };
+    let (turned, taken) = count(true);
+    assert!(turned > 0, "blocking, no blow turned");
+    let (turned_open, taken_open) = count(false);
+    assert!(taken_open > taken, "open {taken_open} taken, blocking {taken}");
+    assert!(turned_open < turned);
 }
