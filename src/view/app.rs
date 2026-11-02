@@ -1344,6 +1344,35 @@ fn camera_input(game: &mut Game, keys: &ButtonInput<KeyCode>, buttons: &ButtonIn
             pan.1 += dy;
         }
     }
+    // In a dungeon site the keys steer the selected instead (Laz): W away
+    // from the camera, S toward it, A and D to the sides; letting go stops them.
+    // `GAHT_STEER=w|a|s|d|wd…`: a screenshot run holds those keys from its tenth frame.
+    if game.shot.is_some() && game.frame >= 10 {
+        for ch in std::env::var("GAHT_STEER").unwrap_or_default().chars() {
+            match ch {
+                'w' => pan.1 += 1.0,
+                's' => pan.1 -= 1.0,
+                'a' => pan.0 -= 1.0,
+                'd' => pan.0 += 1.0,
+                _ => {}
+            }
+        }
+    }
+    if game.view == View::Scene {
+        let inside: Vec<_> = game.sel.who(&game.world).into_iter().filter(|&m| game.world.site_of(m).is_some()).collect();
+        if !inside.is_empty() {
+            let f = V2::new(-game.orbit.yaw.cos(), -game.orbit.yaw.sin());
+            let r = V2::new(-f.y, f.x);
+            let dir = r.scale(pan.0).add(f.scale(pan.1));
+            for m in inside {
+                game.world.steer_in_site(m, (pan != (0.0, 0.0)).then_some(dir));
+            }
+            if pan != (0.0, 0.0) {
+                game.follow = true;
+            }
+            pan = (0.0, 0.0);
+        }
+    }
     let on_panels = game.panels.iter().any(|b| b.contains(mouse));
     match game.view {
         View::Map => {

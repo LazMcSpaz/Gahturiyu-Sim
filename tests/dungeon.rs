@@ -264,7 +264,8 @@ fn a_squad_of_one_goes_in_climbs_to_the_chest_and_comes_out() {
     let opened = w.sites.get(id).unwrap().objects.iter().filter(|o| o.kind == ObjKind::Door && o.open).count();
     assert!(opened > 0);
     let back = gahturiyu_sim::sim::world::World::load_bytes(&w.save_bytes()).unwrap();
-    assert_eq!(back.sites, w.sites);
+    assert_eq!(back.sites.sites, w.sites.sites);
+    assert_eq!(back.sites.inside, w.sites.inside);
     // Back to the exit, and out by it.
     let exit = s.to_world(s.spawn);
     assert!(w.order_in_site(lead, exit, None));
@@ -355,4 +356,125 @@ fn in_fixture_5_using_the_work_marker_clears_the_way() {
     }
     assert!(w.sites.get(id).unwrap().clearance.as_ref().unwrap().restored);
     assert!(w.order_in_site(lead, far, Some(s.base_h)));
+}
+
+#[test]
+fn sight_reaches_40_m_and_stops_at_walls_and_closed_doors() {
+    let s = load(F43);
+    let eye = s.spawn;
+    let seen = s.sight(eye, SIGHT);
+    let at = |x: i32, y: i32| seen[y as usize * s.w as usize + x as usize];
+    let mut n = 0;
+    for y in 0..s.h as i32 {
+        for x in 0..s.w as i32 {
+            if !at(x, y) {
+                continue;
+            }
+            n += 1;
+            let c = V2::new(x as f32 + 0.5, y as f32 + 0.5);
+            assert!(c.dist(eye) <= SIGHT + 1.0, "({x}, {y}) seen from {} m", c.dist(eye));
+        }
+    }
+    assert!(n > 50);
+    // Every floor cell seen has a clear line from the eye: no wall between.
+    for y in 0..s.h as i32 {
+        for x in 0..s.w as i32 {
+            if !at(x, y) || s.cell(x, y).unwrap().ground == Ground::Wall {
+                continue;
+            }
+            // A cell is seen when any part of it is: some point of it (its
+            // middle or near a corner) has a line from the eye crossing no wall.
+            let clear = [(0.5, 0.5), (0.1, 0.1), (0.9, 0.1), (0.1, 0.9), (0.9, 0.9)].iter().any(|&(ox, oy)| {
+                let c = V2::new(x as f32 + ox, y as f32 + oy);
+                let len = c.dist(eye);
+                (1..(len * 20.0) as i32).all(|k| {
+                    let p = eye.add(c.sub(eye).scale(k as f32 / (len * 20.0)));
+                    s.cell(p.x.floor() as i32, p.y.floor() as i32).unwrap().ground != Ground::Wall
+                })
+            });
+            assert!(clear, "({x}, {y}) seen through a wall");
+        }
+    }
+    // A closed door hides the room behind it; open, it doesn't.
+    let d = s.objects.iter().find(|o| o.index == 2).unwrap().clone();
+    let north = V2::new(30.5, 49.5);
+    let behind = (30, 54);
+    assert!(s.cell(behind.0, behind.1).unwrap().ground != Ground::Wall);
+    let shut = s.sight(north, SIGHT);
+    assert!(!shut[behind.1 as usize * s.w as usize + behind.0 as usize]);
+    let mut open = s.clone();
+    open.objects.iter_mut().find(|o| o.index == d.index).unwrap().open = true;
+    let wide = open.sight(north, SIGHT);
+    assert!(wide[behind.1 as usize * s.w as usize + behind.0 as usize]);
+}
+
+#[test]
+fn what_the_squad_sees_is_kept_as_seen() {
+    let mut w = gahturiyu_sim::sim::worldgen::generate(1);
+    let lead = w.squad.members[0];
+    w.squad.retain(|m| m == lead);
+    let id = w.import_site(F43, w.squad.pos).unwrap();
+    assert!(w.enter_site(lead, id));
+    let first = w.sites.get(id).unwrap().seen.iter().filter(|&&b| b).count();
+    assert!(first > 0 && w.sites.sees(id).is_some());
+    let s = w.sites.get(id).unwrap().clone();
+    let reach = s.reach(s.spawn_node().unwrap());
+    let (at, _) = s.approach(9, &reach).unwrap();
+    assert!(w.order_in_site(lead, s.to_world(Site::centre(at)), Some(s.base_h + 2.4)));
+    for _ in 0..3000 {
+        w.step(0.1);
+    }
+    let after = w.sites.get(id).unwrap().seen.iter().filter(|&&b| b).count();
+    assert!(after > first * 2, "{first} -> {after}");
+    // Now: only what's in sight from the chest, all of it seen before.
+    let now = w.sites.sees(id).unwrap();
+    assert!(now.iter().zip(&w.sites.get(id).unwrap().seen).all(|(n, s)| !n || *s));
+    assert!(now.iter().filter(|&&b| b).count() < after);
+}
+
+#[test]
+fn steered_by_the_keys_they_walk_slide_on_walls_and_keep_off_ledges() {
+    let mut w = gahturiyu_sim::sim::worldgen::generate(1);
+    let lead = w.squad.members[0];
+    w.squad.retain(|m| m == lead);
+    let id = w.import_site(F43, w.squad.pos).unwrap();
+    assert!(w.enter_site(lead, id));
+    let s = w.sites.get(id).unwrap().clone();
+    let start = s.to_local(w.squad.at[0]);
+    // East for ten seconds: they go east, and never into a wall cell.
+    w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+    for _ in 0..100 {
+        w.step(0.1);
+        let l = s.to_local(w.squad.at[0]);
+        assert_ne!(s.cell_at(l).unwrap().ground, Ground::Wall, "in a wall at {l:?}");
+    }
+    let l = s.to_local(w.squad.at[0]);
+    assert!(l.x > start.x + 1.0, "{start:?} -> {l:?}");
+    // Pressed into a wall for long: they stop at it, still standing clear.
+    for _ in 0..600 {
+        w.step(0.1);
+    }
+    let stop = s.to_local(w.squad.at[0]);
+    let c = s.cell_at(stop).unwrap();
+    assert_ne!(c.ground, Ground::Wall);
+    assert!(s.cell((stop.x + 0.3).floor() as i32, stop.y.floor() as i32).is_some_and(|c| c.ground != Ground::Wall) || s.cell((stop.x + 0.31).floor() as i32, stop.y.floor() as i32).unwrap().ground == Ground::Wall);
+    // Let go: they stop.
+    w.steer_in_site(lead, None);
+    w.step(0.5);
+    let still = w.squad.at[0];
+    w.step(0.5);
+    assert!(w.squad.at[0].dist(still) < 1e-4);
+    // Off a ledge: at the foot of ladder 6, steered west into the raised
+    // floor (2.4 m up), they don't go up it.
+    let foot = Node { x: 57, y: 41, lv: Lv::Low };
+    let mut s2 = s.clone();
+    assert!(s2.stand_at(foot, V2::new(56.4, 41.5)).is_none(), "walked up 2.4 m");
+    s2.objects.clear();
+    assert!(s2.stand_at(foot, V2::new(57.5, 42.5)).is_some());
+}
+
+#[test]
+fn caverns_and_built_halls_are_told_apart() {
+    assert!(load(F43).cells.iter().all(|c| !c.natural), "43 is a built fortress");
+    assert!(load(F276).cells.iter().all(|c| c.natural), "276 is a cave");
 }

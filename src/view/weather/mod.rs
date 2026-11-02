@@ -275,7 +275,10 @@ fn observe(game: Res<Game>, mut view: ResMut<WeatherView>, time: Res<Time>, sett
     // Screenshots run on a fixed clock, so a set of flags gives one picture.
     v.clock = if game.shot.is_some() { game.frame as f64 / 30.0 } else { time.elapsed_secs_f64() };
     v.time = world.time + v.ahead * HOUR;
+    // Inside a dungeon site there's no weather to see (it's underground).
+    let below = world.sites.sites.iter().any(|s| s.contains_world(game.orbit.target));
     v.skies = match v.force {
+        _ if below => [presets::Preset::Clear.sky(0.0); REGIONS],
         Some(p) => [p.sky(v.strength); REGIONS],
         // The weather as it has reached the spot the camera looks at. (Across the
         // view it differs by minutes at most.)

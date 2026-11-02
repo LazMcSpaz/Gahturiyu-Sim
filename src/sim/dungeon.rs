@@ -57,6 +57,9 @@ pub const DOOR_SECS: f32 = 1.0;
 /// metres across, and up or down.
 pub const USE_REACH: f32 = 1.6;
 pub const USE_RISE: f32 = 1.3;
+/// How far a character sees in a site, metres (Laz); walls and closed doors
+/// block it.
+pub const SIGHT: f32 = 40.0;
 /// Where sites stand: a pocket east of the map, one every `POCKET_STEP`
 /// metres, with their datum `POCKET_H` up (clear of any sea drawn there).
 pub const POCKET_X: f32 = WORLD_SIZE + 5000.0;
@@ -109,6 +112,9 @@ struct FileDungeon {
 #[derive(Deserialize)]
 struct FileTile {
     terrain: String,
+    /// Natural rock (a cavern) rather than built (a hall).
+    #[serde(default)]
+    natural: bool,
     floor: f32,
     #[serde(default)]
     water_surface: Option<f32>,
@@ -183,6 +189,9 @@ pub struct Cell {
     pub water: Option<f32>,
     pub deck: Option<f32>,
     pub low_arch: bool,
+    /// Natural rock (a cavern), not built (a hall): drawn in its own colours.
+    #[serde(default)]
+    pub natural: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -280,6 +289,9 @@ pub struct Site {
     pub portal: V2,
     /// What the import couldn't represent, one line each (shown, not hidden).
     pub notes: Vec<String>,
+    /// Cells the squad has seen (by index), kept.
+    #[serde(default)]
+    pub seen: Vec<bool>,
 }
 
 /// Which level of a cell: its floor (or the water's surface), or its deck.
@@ -380,6 +392,7 @@ impl Site {
                 water: t.water_surface,
                 deck: t.deck,
                 low_arch: t.low_arch,
+                natural: t.natural,
             })
             .collect();
         let unknown = d.tiles.iter().filter(|t| !matches!(t.terrain.as_str(), "Wall" | "Floor" | "Water" | "Pit" | "Rubble")).count();
@@ -458,7 +471,9 @@ impl Site {
             base_h: 0.0,
             portal: V2::default(),
             notes,
+            seen: Vec::new(),
         };
+        site.seen = vec![false; site.cells.len()];
         // Arrivals stand on the spawn cell's deck if it has one, else its floor.
         let Some(sc) = site.cell_at(site.spawn) else {
             return Err(ImportError::Shape(format!("spawn ({}, {}) is outside the site", site.spawn.x, site.spawn.y)));
@@ -721,6 +736,76 @@ impl Site {
         self.level(n).map(|_| n)
     }
 
+    /// Where a body (`solid::BODY` each side) at `p` would stand, coming
+    /// from node `from`: the node of `p`'s cell it can step to (`from`
+    /// itself in its own cell), so long as every cell the body reaches into
+    /// can be stepped to as well. None: it can't be there.
+    pub fn stand_at(&self, from: Node, p: V2) -> Option<Node> {
+        let (cx, cy) = (p.x.floor() as i32, p.y.floor() as i32);
+        let here = if cx == from.x as i32 && cy == from.y as i32 {
+            from
+        } else {
+            if (cx - from.x as i32).abs() > 1 || (cy - from.y as i32).abs() > 1 {
+                return None;
+            }
+            let mut ok: Vec<Node> = self.nodes_in(cx, cy).into_iter().filter(|&n| self.step_ok(from, n)).collect();
+            // On a deck or a floor, the same kind of level first.
+            ok.sort_by_key(|n| (n.lv != from.lv) as u8);
+            *ok.first()?
+        };
+        let r = super::solid::BODY * 0.9;
+        for (ox, oy) in [(r, 0.0), (-r, 0.0), (0.0, r), (0.0, -r), (r * 0.7, r * 0.7), (-r * 0.7, r * 0.7), (r * 0.7, -r * 0.7), (-r * 0.7, -r * 0.7)] {
+            let (qx, qy) = ((p.x + ox).floor() as i32, (p.y + oy).floor() as i32);
+            if (qx, qy) == (cx, cy) || (qx, qy) == (from.x as i32, from.y as i32) {
+                continue;
+            }
+            if !self.nodes_in(qx, qy).into_iter().any(|m| self.step_ok(here, m)) {
+                return None;
+            }
+        }
+        Some(here)
+    }
+
+    /// Does this cell stop sight: a wall, or a closed door's doorway?
+    fn opaque(&self, x: i32, y: i32) -> bool {
+        match self.cell(x, y) {
+            None => true,
+            Some(c) => c.ground == Ground::Wall || self.closed_door_in(x, y).is_some(),
+        }
+    }
+
+    /// The cells seen from `from` (site metres) out to `range`: rays every
+    /// quarter of a degree, each stopping at the first wall or closed door
+    /// (which is itself seen). Heights hide nothing (a ledge or a deck is
+    /// seen over).
+    pub fn sight(&self, from: V2, range: f32) -> Vec<bool> {
+        let mut seen = vec![false; self.cells.len()];
+        let w = self.w as usize;
+        let h = self.h as usize;
+        let mark = |seen: &mut Vec<bool>, x: i32, y: i32| {
+            if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
+                seen[y as usize * w + x as usize] = true;
+            }
+        };
+        mark(&mut seen, from.x.floor() as i32, from.y.floor() as i32);
+        const RAYS: usize = 1440;
+        const STEP: f32 = 0.2;
+        for k in 0..RAYS {
+            let a = k as f32 / RAYS as f32 * std::f32::consts::TAU;
+            let (dx, dy) = (a.cos(), a.sin());
+            let mut t = STEP;
+            while t <= range {
+                let (x, y) = ((from.x + dx * t).floor() as i32, (from.y + dy * t).floor() as i32);
+                mark(&mut seen, x, y);
+                if self.opaque(x, y) {
+                    break;
+                }
+                t += STEP;
+            }
+        }
+        seen
+    }
+
     /// Fixture 5's clearance (the generator's rule): exactly the listed
     /// debris becomes floor at 0; nothing else changes.
     pub fn clear_route(&mut self) {
@@ -782,6 +867,10 @@ pub struct Inside {
     /// The thing (by its index in the file) they're on their way to use.
     #[serde(default)]
     pub using: Option<u16>,
+    /// Steered by the keys (WASD): the way pressed, in site metres. Not
+    /// saved (it's the keys held this moment).
+    #[serde(skip)]
+    pub steer: Option<V2>,
 }
 
 /// Every site and who's in one (saved).
@@ -789,9 +878,19 @@ pub struct Inside {
 pub struct Sites {
     pub sites: Vec<Site>,
     pub inside: BTreeMap<PersonId, Inside>,
+    /// What the squad sees in each site now (by site: the cells looked from,
+    /// and the cells seen). Worked out again when someone moves a cell; not
+    /// saved.
+    #[serde(skip)]
+    pub sight: BTreeMap<u32, (Vec<(u16, u16)>, Vec<bool>)>,
 }
 
 impl Sites {
+    /// The cells of a site in the squad's sight now (None: not worked out yet).
+    pub fn sees(&self, site: u32) -> Option<&Vec<bool>> {
+        self.sight.get(&site).map(|s| &s.1)
+    }
+
     pub fn get(&self, id: u32) -> Option<&Site> {
         self.sites.iter().find(|s| s.id == id)
     }
@@ -837,8 +936,9 @@ impl World {
         self.squad.goal[k] = at;
         self.squad.route[k].clear();
         self.squad.inside[k] = None;
-        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None });
+        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None });
         self.recentre_squad();
+        self.update_sight(site);
         true
     }
 
@@ -906,7 +1006,18 @@ impl World {
         let Some(inside) = self.sites.inside.get(&pid).cloned() else { return false };
         let Some(s) = self.sites.get(inside.site) else { return false };
         let reach = s.reach(inside.node);
-        let Some((at, _)) = s.approach(i, &reach) else {
+        // A ladder used is climbed: to whichever of its ends is further from
+        // where they stand now.
+        let ladder = s.objects.iter().find(|o| o.index == i && o.kind == ObjKind::Ladder).map(|o| (o.at.x.floor() as u16, o.at.y.floor() as u16));
+        let far_end = ladder.and_then(|(x, y)| {
+            let h = |n: &Node| (s.level(*n).map(|l| l.0).unwrap_or(0.0) - inside.h).abs();
+            [Lv::Low, Lv::Deck].into_iter().map(|lv| Node { x, y, lv }).filter(|n| reach.contains_key(n)).max_by(|a, b| h(a).total_cmp(&h(b)))
+        });
+        let found = match far_end {
+            Some(n) => Some((n, 0.0)),
+            None => s.approach(i, &reach),
+        };
+        let Some((at, _)) = found else {
             let line = "There's no way through to there.".to_string();
             if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
                 self.log.push_front((self.time, line));
@@ -921,10 +1032,11 @@ impl World {
             self.squad.goal[k] = goal;
             self.squad.route[k] = points;
         }
-        let now = way.is_empty();
+        let now = way.is_empty() && far_end.is_none();
         if let Some(m) = self.sites.inside.get_mut(&pid) {
             m.way = way;
-            m.using = Some(i);
+            m.using = if far_end.is_some() { None } else { Some(i) };
+            m.steer = None;
         }
         if now {
             self.use_site_object(pid);
@@ -977,6 +1089,59 @@ impl World {
         self.log.truncate(14);
     }
 
+    /// What the squad in site `id` sees now, worked out again if anyone of
+    /// them has moved a cell; what's seen is kept as seen.
+    pub(super) fn update_sight(&mut self, id: u32) {
+        let Some(s) = self.sites.get(id) else { return };
+        let mut from: Vec<(u16, u16)> = Vec::new();
+        for (&pid, i) in &self.sites.inside {
+            if i.site != id {
+                continue;
+            }
+            if let Some(k) = self.squad.index(pid) {
+                let l = s.to_local(self.squad.at[k]);
+                from.push((l.x.floor().max(0.0) as u16, l.y.floor().max(0.0) as u16));
+            }
+        }
+        if self.sites.sight.get(&id).is_some_and(|c| c.0 == from) {
+            return;
+        }
+        let mut now = vec![false; s.cells.len()];
+        for f in &from {
+            // From the middle of the cell, so one cell always sees the same.
+            let eye = V2::new(f.0 as f32 + 0.5, f.1 as f32 + 0.5);
+            for (a, b) in now.iter_mut().zip(s.sight(eye, SIGHT)) {
+                *a |= b;
+            }
+        }
+        if let Some(s) = self.sites.get_mut(id) {
+            if s.seen.len() != now.len() {
+                s.seen = vec![false; now.len()];
+            }
+            for (a, b) in s.seen.iter_mut().zip(&now) {
+                *a |= *b;
+            }
+        }
+        self.sites.sight.insert(id, (from, now));
+    }
+
+    /// Steer a squad member in a site by the keys: `dir` the way pressed
+    /// (world metres, any length; None: let go). Any way they were walking or
+    /// thing they were going to use is dropped.
+    pub fn steer_in_site(&mut self, pid: PersonId, dir: Option<V2>) {
+        let Some(i) = self.sites.inside.get_mut(&pid) else { return };
+        let dir = dir.filter(|d| d.len() > 1e-4).map(|d| d.scale(1.0 / d.len()));
+        if dir.is_some() && i.climbing.is_none() {
+            i.way.clear();
+            i.using = None;
+            if let Some(k) = self.squad.index(pid) {
+                self.squad.route[k].clear();
+                self.squad.goal[k] = self.squad.at[k];
+            }
+        }
+        i.steer = dir;
+    }
+
     /// A squad member in a site moves along their way for `dt` seconds:
     /// walking, swimming, climbing; a closed door on the way opens as they
     /// reach it. (The squad's own stepping, like walking outside.)
@@ -1005,6 +1170,41 @@ impl World {
                     i.h = to;
                 } else {
                     i.climbing = Some((from, to, now));
+                }
+                continue;
+            }
+            if let Some(dir) = i.steer {
+                // Steered by the keys: straight on, sliding along whatever
+                // stops them, in steps of at most 10 cm.
+                let pace = if i.swimming { SWIM_PACE } else { 1.0 };
+                let go = (speed * pace * left).min(0.1);
+                left -= go / (speed * pace);
+                let mut moved = false;
+                for d in [dir, V2::new(dir.x, 0.0), V2::new(0.0, dir.y)] {
+                    if d.len() < 0.2 {
+                        continue;
+                    }
+                    let to = at.add(d.scale(go / d.len()));
+                    if let Some(n) = site.stand_at(i.node, to) {
+                        if let Some(dr) = site.closed_door_in(n.x as i32, n.y as i32) {
+                            if !opened.contains(&dr.index) {
+                                opened.push(dr.index);
+                            }
+                        }
+                        let (nh, how) = site.level(n).unwrap();
+                        if nh > i.h {
+                            rise += nh - i.h;
+                        }
+                        at = to;
+                        i.node = n;
+                        i.h = nh;
+                        i.swimming = how == How::Swim;
+                        moved = true;
+                        break;
+                    }
+                }
+                if !moved {
+                    break;
                 }
                 continue;
             }
@@ -1051,7 +1251,7 @@ impl World {
             }
         }
         let world_at = site.to_world(at);
-        let done = i.way.is_empty() && i.climbing.is_none();
+        let done = i.way.is_empty() && i.climbing.is_none() && i.steer.is_none();
         let site_id = i.site;
         self.sites.inside.insert(pid, i);
         if let Some(s) = self.sites.get_mut(site_id) {
@@ -1074,6 +1274,7 @@ impl World {
         if rise > 0.0 {
             self.climb(pid, rise);
         }
+        self.update_sight(site_id);
     }
 }
 
