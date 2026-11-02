@@ -21,7 +21,28 @@ pub enum Page {
     Main,
     Arena,
     Load,
+    /// Testing the dungeon generator's sites (`sim/dungeon.rs`).
+    Dungeon,
 }
+
+/// Which dungeon to test: one of the generator's three test exports (kept in
+/// `assets/dungeons`), or a new one its program makes now.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DungeonPick {
+    /// The page itself (the row on the main page).
+    Menu,
+    Fixture(&'static str),
+    /// A random story of the generator's accepted ones (`any`: of all its
+    /// stories, finished or not).
+    Generate { any: bool },
+}
+
+/// The test exports: file, name, what it tests.
+pub const FIXTURES: [(&str, &str, &str); 3] = [
+    ("assets/dungeons/story-43-0.json", "Fortress (test 43)", "Doors, two ladders, a chest up on the dry store"),
+    ("assets/dungeons/story-276-0.json", "Flooded cave (test 276)", "A water basin to swim, a ladder down from the arrival"),
+    ("assets/dungeons/story-5-0.json", "Blocked route (test 5)", "A route closed by fallen stone, and water"),
+];
 
 /// What the testing arena offers.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -61,6 +82,7 @@ pub enum TitleAct {
     NewGame,
     Load(PathBuf),
     Arena(Arena),
+    Dungeon(DungeonPick),
     Settings,
     Quit,
 }
@@ -193,12 +215,20 @@ pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Opt
             rows.push((Some(TitleAct::NewGame), "New game".into(), if newest.is_some() || t.from_game { Kind::Plain } else { Kind::Primary }, true, Some("Wrecked on Salt Isle's shore".into())));
             rows.push((Some(TitleAct::Load(PathBuf::new())), "Load game".into(), Kind::Plain, newest.is_some(), None));
             rows.push((Some(TitleAct::Arena(Arena::TestArea)), "Testing arena".into(), Kind::Plain, true, None));
+            rows.push((Some(TitleAct::Dungeon(DungeonPick::Menu)), "Test a dungeon".into(), Kind::Plain, true, None));
             rows.push((Some(TitleAct::Settings), "Settings".into(), Kind::Plain, true, None));
             rows.push((Some(TitleAct::Quit), "Quit".into(), Kind::Plain, true, None));
             rows
         }
         Page::Arena => {
             let mut rows: Vec<_> = [Arena::Combat, Arena::Building, Arena::TestArea].into_iter().map(|a| (Some(TitleAct::Arena(a)), a.label().to_string(), Kind::Plain, true, Some(a.about().to_string()))).collect();
+            rows.push((None, "Back".into(), Kind::Plain, true, None));
+            rows
+        }
+        Page::Dungeon => {
+            let mut rows: Vec<_> = FIXTURES.iter().map(|&(f, name, about)| (Some(TitleAct::Dungeon(DungeonPick::Fixture(f))), name.to_string(), Kind::Plain, true, Some(about.to_string()))).collect();
+            rows.push((Some(TitleAct::Dungeon(DungeonPick::Generate { any: false })), "Generate one".into(), Kind::Primary, true, Some("A random story the generator finished, made now".into())));
+            rows.push((Some(TitleAct::Dungeon(DungeonPick::Generate { any: true })), "Generate any".into(), Kind::Plain, true, Some("Any of its 2,000 stories, finished or not".into())));
             rows.push((None, "Back".into(), Kind::Plain, true, None));
             rows
         }
@@ -224,6 +254,7 @@ pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Opt
         Page::Main => "a world that runs whether you watch or not",
         Page::Arena => "testing arena",
         Page::Load => "load a game",
+        Page::Dungeon => "test a dungeon: you alone, spawned inside",
     };
     let sw = c.width(sub, 14.0);
     c.text(sub, x + (W - sw) / 2.0, y + 74.0, 14.0, DIM);
@@ -238,6 +269,7 @@ pub fn draw(c: &Canvas, t: &mut Title, click: Option<Click>, size: Vec2) -> (Opt
                 // Pages, not choices.
                 (Some(TitleAct::Load(p)), Page::Main) if p.as_os_str().is_empty() => t.page = Page::Load,
                 (Some(TitleAct::Arena(_)), Page::Main) => t.page = Page::Arena,
+                (Some(TitleAct::Dungeon(DungeonPick::Menu)), _) => t.page = Page::Dungeon,
                 (None, _) => t.page = Page::Main,
                 (Some(a), _) => picked = Some(a.clone()),
             }

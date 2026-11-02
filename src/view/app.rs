@@ -243,6 +243,7 @@ fn title_at_launch(shot: bool) -> Option<super::title::Title> {
     match std::env::var("GAHT_TITLE").as_deref() {
         Ok("arena") => return Some(Title::on(Page::Arena)),
         Ok("load") => return Some(Title::on(Page::Load)),
+        Ok("dungeon") => return Some(Title::on(Page::Dungeon)),
         Ok("game") => return Some(Title::from_game()),
         Ok(_) => return Some(Title::new()),
         Err(_) => {}
@@ -252,6 +253,55 @@ fn title_at_launch(shot: bool) -> Option<super::title::Title> {
     } else {
         Some(Title::new())
     }
+}
+
+/// A fresh world with the squad cut to one (Laz: "parties of a single
+/// character" for testing) and that one spawned inside a dungeon site: one
+/// of the generator's test exports, or one its program makes now
+/// (`sim/dungeon.rs`). The world, and a line saying what it is.
+fn dungeon_world(pick: super::title::DungeonPick, rules: Option<gahturiyu_sim::sim::rules::Rules>) -> Result<(World, String), String> {
+    use gahturiyu_sim::sim::dungeon;
+    use super::title::DungeonPick;
+    let (path, made) = match pick {
+        DungeonPick::Menu => return Err("no dungeon picked".into()),
+        DungeonPick::Fixture(f) => (std::path::PathBuf::from(f), None),
+        DungeonPick::Generate { any } => {
+            let stories = dungeon::understory_stories()?;
+            let pool: Vec<&(u64, String, String)> = stories.iter().filter(|s| any || s.1 == "complete").collect();
+            if pool.is_empty() {
+                return Err("the generator has no stories to make".into());
+            }
+            let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos() as usize ^ d.as_secs() as usize).unwrap_or(0);
+            let (story, verdict, what) = pool[nanos % pool.len()].clone();
+            (dungeon::make_with_understory(story, 0)?, Some(format!("story {story}, {what}, the generator's batch verdict {verdict}")))
+        }
+    };
+    let seed = seed_now();
+    let mut w = fresh_world(seed, true, worldgen::Start::Town);
+    if let Some(r) = rules {
+        w.rules = r;
+    }
+    let lead = w.squad.members[0];
+    w.squad.retain(|m| m == lead);
+    let portal = w.squad.pos;
+    let id = w.import_site(path.to_str().unwrap_or_default(), portal).map_err(|e| format!("{}: {e}", path.display()))?;
+    if !w.enter_site(lead, id) {
+        return Err("the site has nowhere to arrive".into());
+    }
+    w.step(0.001);
+    let s = w.sites.get(id).unwrap();
+    let mut line = format!("{} ({}). The generator says: {}", s.kind, s.culture, s.status);
+    if s.unmet > 0 {
+        line += &format!(", {} unmet", s.unmet);
+    }
+    if let Some(m) = made {
+        line += &format!(". Made now: {m}");
+    }
+    if !s.notes.is_empty() {
+        line += &format!(". Import notes: {}", s.notes.join("; "));
+    }
+    line += ". Click the green marker to leave.";
+    Ok((w, line))
 }
 
 /// Seconds since the epoch: a seed for a new world.
@@ -340,6 +390,24 @@ pub fn run() {
         None if maprender.is_some() => gahturiyu_sim::sim::grounds::world_for(seed),
         None => fresh_world(seed, shot.is_some() && std::env::var("GAHT_MAP").is_err(), start_kind(shot.is_some())),
     };
+    // `GAHT_DUNGEON=43|276|5|generate|any|<path>`: start inside a dungeon site.
+    let mut dungeon_line = None;
+    if let Ok(d) = std::env::var("GAHT_DUNGEON") {
+        use super::title::{DungeonPick, FIXTURES};
+        let pick = match d.as_str() {
+            "generate" => DungeonPick::Generate { any: false },
+            "any" => DungeonPick::Generate { any: true },
+            n => FIXTURES.iter().find(|f| f.0.contains(&format!("story-{n}-"))).map(|f| DungeonPick::Fixture(f.0)).unwrap_or(DungeonPick::Fixture(Box::leak(n.to_string().into_boxed_str()))),
+        };
+        match dungeon_world(pick, None) {
+            Ok((w, line)) => {
+                world = w;
+                world.log.push_front((world.time, line.clone()));
+                dungeon_line = Some(line);
+            }
+            Err(e) => eprintln!("GAHT_DUNGEON: {e}"),
+        }
+    }
     if let Some(s) = &shot {
         s.prepare(&mut world);
     }
@@ -429,7 +497,7 @@ pub fn run() {
         sounds: Default::default(),
         stats: None,
         game_menu: None,
-        title: title_at_launch(shot.is_some() || maprender.is_some()),
+        title: if dungeon_line.is_some() { None } else { title_at_launch(shot.is_some() || maprender.is_some()) },
         screens: Default::default(),
         quit: false,
         castfx: Default::default(),
@@ -1387,7 +1455,7 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
         super::talkui::aim(&mut game.orbit, &mut game.talk_cam, spots, &cost, game.follow, dt, snap);
     }
     // Keep the camera's pivot on the ground, easing so it doesn't jolt.
-    let g = game.world.terrain.surface(game.orbit.target);
+    let g = super::dungeonview::ground(&game.world).unwrap_or_else(|| game.world.terrain.surface(game.orbit.target));
     game.orbit.ground += (g - game.orbit.ground) * (1.0 - (-8.0 * dt).exp());
     if (g - game.orbit.ground).abs() > 60.0 || game.frame < 2 {
         game.orbit.ground = g;
@@ -1602,6 +1670,30 @@ fn click_world(game: &mut Game, mouse: Vec2, shift: bool) {
                 if answered {
                     answer_order(game, &who);
                 }
+            }
+        }
+        return;
+    }
+    // In a dungeon site: the spot under the mouse on its floors, decks and
+    // water; a thing there (the exit, a plaque, the chest, a door) is gone to
+    // and used (`sim/dungeon.rs`).
+    if game.view == View::Scene && who.iter().any(|&m| game.world.site_of(m).is_some()) {
+        if let Some((site, p, h)) = super::dungeonview::pick(&game.world, game.orbit.ray(game.screen, mouse)) {
+            let thing = game.world.site_object_near(site, p, h);
+            let mut any = false;
+            for &m in &who {
+                if game.world.site_of(m).map(|i| i.site) != Some(site) {
+                    continue;
+                }
+                any |= match thing {
+                    Some(i) => game.world.order_use_in_site(m, i),
+                    None => game.world.order_in_site(m, p, Some(h)),
+                };
+            }
+            game.sounds.ui(if any { "ui_order" } else { "ui_cant" });
+            game.feel.mark(p, if any { super::feel::MarkKind::Walk } else { super::feel::MarkKind::Cant });
+            if any {
+                answer_order(game, &who);
             }
         }
         return;
@@ -2661,6 +2753,15 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     game.notice = Some((format!("{} (seed {seed}).{tip}", a.label()), std::time::Instant::now()));
                     keep = false;
                 }
+                TitleAct::Dungeon(pick) => match dungeon_world(pick, Some(rules)) {
+                    Ok((w, line)) => {
+                        swap_world(game, w);
+                        game.world.log.push_front((game.world.time, line.clone()));
+                        game.notice = Some((line, std::time::Instant::now()));
+                        keep = false;
+                    }
+                    Err(e) => game.notice = Some((format!("Couldn't make the dungeon: {e}"), std::time::Instant::now())),
+                },
                 TitleAct::Settings => game.options = true,
                 TitleAct::Quit => game.quit = true,
             }
@@ -2779,6 +2880,11 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
                     game.notice = Some(("Ashore on the mainland.".to_string(), std::time::Instant::now()));
                 }
                 MenuAct::Title => game.title = Some(super::title::Title::from_game()),
+                MenuAct::Dungeon => {
+                    let mut t = super::title::Title::from_game();
+                    t.page = super::title::Page::Dungeon;
+                    game.title = Some(t);
+                }
                 MenuAct::Quit => game.quit = true,
             }
         }
@@ -2947,6 +3053,13 @@ impl From<egui::Rect> for Bx {
 fn screenshot(mut commands: Commands, mut game: ResMut<Game>, mut exit: MessageWriter<AppExit>) {
     super::prof::frame();
     game.frame += 1;
+    // `GAHT_CLICK=x,y`: a screenshot run left-clicks there on its tenth frame
+    // (to see an order carried out, e.g. inside a dungeon site).
+    if game.shot.is_some() && game.frame == 10 {
+        if let Some((x, y)) = std::env::var("GAHT_CLICK").ok().and_then(|v| v.split_once(',').and_then(|(a, b)| Some((a.trim().parse::<f32>().ok()?, b.trim().parse::<f32>().ok()?)))) {
+            click_world(&mut game, vec2(x, y), false);
+        }
+    }
     if game.quit {
         exit.write(AppExit::Success);
         return;

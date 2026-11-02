@@ -779,6 +779,9 @@ pub struct Inside {
     pub climbing: Option<(f32, f32, f32)>,
     /// Swimming now.
     pub swimming: bool,
+    /// The thing (by its index in the file) they're on their way to use.
+    #[serde(default)]
+    pub using: Option<u16>,
 }
 
 /// Every site and who's in one (saved).
@@ -834,7 +837,7 @@ impl World {
         self.squad.goal[k] = at;
         self.squad.route[k].clear();
         self.squad.inside[k] = None;
-        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false });
+        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None });
         self.recentre_squad();
         true
     }
@@ -878,8 +881,100 @@ impl World {
         }
         if let Some(i) = self.sites.inside.get_mut(&pid) {
             i.way = way.nodes;
+            i.using = None;
         }
         true
+    }
+
+    /// The thing of a site nearest a spot of it (world metres, world height),
+    /// if one is within a click's slack.
+    pub fn site_object_near(&self, site: u32, p: V2, h: f32) -> Option<u16> {
+        let s = self.sites.get(site)?;
+        let l = s.to_local(p);
+        let hz = h - s.base_h;
+        s.objects
+            .iter()
+            .filter(|o| o.at.dist(l) <= 1.2 && (o.z - hz).abs() <= 2.0)
+            .min_by(|a, b| a.at.dist(l).total_cmp(&b.at.dist(l)))
+            .map(|o| o.index)
+    }
+
+    /// Send a squad member in a site to use thing `i` (by its index in the
+    /// file): to the nearest spot within reach of it, and then use it
+    /// (`use_site_object`). False if no way leads there.
+    pub fn order_use_in_site(&mut self, pid: PersonId, i: u16) -> bool {
+        let Some(inside) = self.sites.inside.get(&pid).cloned() else { return false };
+        let Some(s) = self.sites.get(inside.site) else { return false };
+        let reach = s.reach(inside.node);
+        let Some((at, _)) = s.approach(i, &reach) else {
+            let line = "There's no way through to there.".to_string();
+            if self.log.front().map(|l| l.1 != line).unwrap_or(true) {
+                self.log.push_front((self.time, line));
+                self.log.truncate(14);
+            }
+            return false;
+        };
+        let way = s.route(inside.node, at).map(|w| w.nodes).unwrap_or_default();
+        let points: Vec<V2> = way.iter().map(|&n| s.to_world(Site::centre(n))).collect();
+        let goal = points.last().copied().unwrap_or(s.to_world(Site::centre(at)));
+        if let Some(k) = self.squad.index(pid) {
+            self.squad.goal[k] = goal;
+            self.squad.route[k] = points;
+        }
+        let now = way.is_empty();
+        if let Some(m) = self.sites.inside.get_mut(&pid) {
+            m.way = way;
+            m.using = Some(i);
+        }
+        if now {
+            self.use_site_object(pid);
+        }
+        true
+    }
+
+    /// A squad member in reach of the thing they set out to use uses it: the
+    /// exit takes them out; a plaque is read; a chest opened (what it holds is
+    /// named: what it gives isn't agreed with the generator yet); a door opened
+    /// or shut.
+    pub(super) fn use_site_object(&mut self, pid: PersonId) {
+        let Some(inside) = self.sites.inside.get_mut(&pid) else { return };
+        let Some(i) = inside.using.take() else { return };
+        let site = inside.site;
+        let Some(s) = self.sites.get_mut(site) else { return };
+        // The work marker of a blocked route (fixture 5): the listed debris
+        // is cleared, as in the generator.
+        if s.clearance.as_ref().is_some_and(|c| c.marker == i && !c.restored) {
+            s.clear_route();
+            self.log.push_front((self.time, "The fallen stone is cleared from the dry bypass.".to_string()));
+            self.log.truncate(14);
+            return;
+        }
+        let Some(o) = s.objects.iter_mut().find(|o| o.index == i) else { return };
+        let line = match o.kind {
+            ObjKind::Exit => {
+                let line = format!("Out of {}. ({})", s.kind.to_lowercase(), o.name);
+                self.leave_site(pid);
+                line
+            }
+            ObjKind::Chest => {
+                if o.open {
+                    format!("{} is empty.", o.name)
+                } else {
+                    o.open = true;
+                    match &o.reward {
+                        Some(r) => format!("Found: {r}. {}", o.text),
+                        None => format!("{}: {}", o.name, o.text),
+                    }
+                }
+            }
+            ObjKind::Door => {
+                o.open = !o.open;
+                format!("{} {}.", o.name, if o.open { "opened" } else { "shut" })
+            }
+            _ => format!("{}: {}", o.name, o.text),
+        };
+        self.log.push_front((self.time, line));
+        self.log.truncate(14);
     }
 
     /// A squad member in a site moves along their way for `dt` seconds:
@@ -968,6 +1063,9 @@ impl World {
         if done {
             self.squad.goal[k] = world_at;
             self.squad.route[k].clear();
+            if self.sites.inside.get(&pid).is_some_and(|i| i.using.is_some()) {
+                self.use_site_object(pid);
+            }
         } else if let Some(r) = self.squad.route[k].first().copied() {
             if r.dist(world_at) < 0.05 {
                 self.squad.route[k].remove(0);
@@ -976,5 +1074,66 @@ impl World {
         if rise > 0.0 {
             self.climb(pid, rise);
         }
+    }
+}
+
+// ---- Making a new one with the generator's own program ----------------------------
+
+/// Where the generator's outputs live on Laz's PC (its `outputs` folder);
+/// `GAHT_UNDERSTORY` points elsewhere.
+pub const UNDERSTORY: &str = r"C:\Users\Laz PC\Documents\Codex\2026-10-28\files-mentioned-by-the-user-grinblat2017subverting\outputs";
+/// Where the engine keeps what it has the generator make (its own folder;
+/// nothing is written into the generator's).
+pub const MADE: &str = "dungeons-made";
+
+pub fn understory_root() -> std::path::PathBuf {
+    std::env::var("GAHT_UNDERSTORY").map(Into::into).unwrap_or_else(|_| UNDERSTORY.into())
+}
+
+/// The generator's audited histories (its `story-to-map/batch/report.json`):
+/// each story's seed and its verdict there ("complete": an accepted mission).
+pub fn understory_stories() -> Result<Vec<(u64, String, String)>, String> {
+    let path = understory_root().join("story-to-map").join("batch").join("report.json");
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let rows = v["layouts"].as_array().ok_or("no layouts in the report")?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| Some((r["story"].as_u64()?, r["status"].as_str().unwrap_or("").to_string(), format!("{} ({})", r["site"].as_str().unwrap_or("?"), r["culture"].as_str().unwrap_or("?")))))
+        .collect())
+}
+
+/// Have the generator make story `story`'s site at layout seed `layout`:
+/// its history record is copied out of `batch-inputs.jsonl` into the engine's
+/// own folder, and its checker (`understory-general-check.exe`, the same call
+/// its "Play Random Story" launcher makes) writes the `LayoutResult` there.
+/// The file made, whatever the generator's verdict (that's in the file).
+pub fn make_with_understory(story: u64, layout: u32) -> Result<std::path::PathBuf, String> {
+    let root = understory_root();
+    let inputs = root.join("story-to-map").join("batch-inputs.jsonl");
+    let text = std::fs::read_to_string(&inputs).map_err(|e| format!("{}: {e}", inputs.display()))?;
+    let record = text
+        .lines()
+        .find(|l| serde_json::from_str::<serde_json::Value>(l).ok().and_then(|v| v["seed"].as_u64()) == Some(story))
+        .ok_or_else(|| format!("story {story} isn't among the generator's histories"))?;
+    let out = std::path::PathBuf::from(MADE).join(format!("story-{story}"));
+    std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+    let rec = out.join("record.json");
+    std::fs::write(&rec, record).map_err(|e| e.to_string())?;
+    let exe = root.join("understory-general-check.exe");
+    let run = std::process::Command::new(&exe)
+        .arg("--file")
+        .arg(&rec)
+        .arg("--count")
+        .arg((layout + 1).to_string())
+        .arg("--out")
+        .arg(&out)
+        .output()
+        .map_err(|e| format!("couldn't run {}: {e}", exe.display()))?;
+    let made = out.join(format!("story-{story}-{layout}.json"));
+    if made.exists() {
+        Ok(made)
+    } else {
+        Err(format!("the generator made nothing: {}{}", String::from_utf8_lossy(&run.stderr), String::from_utf8_lossy(&run.stdout)).chars().take(400).collect())
     }
 }

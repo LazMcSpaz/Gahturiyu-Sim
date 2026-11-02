@@ -279,3 +279,80 @@ fn a_squad_of_one_goes_in_climbs_to_the_chest_and_comes_out() {
     assert!(w.site_of(lead).is_none());
     assert!(w.squad.at[0].dist(portal) < 6.0);
 }
+
+/// The generator's own program makes a new site and it imports. Needs the
+/// generator's workspace on this PC (`dungeon::understory_root`), so it's
+/// run by hand: `cargo test --release --test dungeon -- --ignored`.
+#[test]
+#[ignore]
+fn the_generator_makes_a_site_that_imports() {
+    let stories = understory_stories().unwrap();
+    assert_eq!(stories.len(), 2000);
+    let accepted: Vec<u64> = stories.iter().filter(|s| s.1 == "complete").map(|s| s.0).collect();
+    assert_eq!(accepted.len(), 303);
+    let path = make_with_understory(accepted[1], 1).unwrap();
+    let s = Site::load(path.to_str().unwrap()).unwrap();
+    let reach = s.reach(s.spawn_node().unwrap());
+    println!("story {} layout 1: {} ({}), status {}, {} nodes reachable, notes {:?}", accepted[1], s.kind, s.culture, s.status, reach.len(), s.notes);
+    assert!(reach.len() > 100);
+}
+
+#[test]
+fn clicking_the_chest_and_the_exit_goes_there_and_uses_them() {
+    let mut w = gahturiyu_sim::sim::worldgen::generate(1);
+    let lead = w.squad.members[0];
+    w.squad.retain(|m| m == lead);
+    let portal = w.squad.at[0];
+    let id = w.import_site(F43, portal).unwrap();
+    assert!(w.enter_site(lead, id));
+    let run = |w: &mut gahturiyu_sim::sim::world::World| {
+        let mut secs = 0.0;
+        while w.site_of(lead).is_some_and(|i| i.using.is_some()) && secs < 600.0 {
+            w.step(0.1);
+            secs += 0.1;
+        }
+        secs
+    };
+    // The chest (the objective, up the ladder): gone to, opened, its find named.
+    assert!(w.order_use_in_site(lead, 9));
+    assert!(run(&mut w) < 600.0);
+    let chest = w.sites.get(id).unwrap().objects.iter().find(|o| o.index == 9).unwrap().open;
+    assert!(chest);
+    assert!(w.log.iter().any(|l| l.1.starts_with("Found: a reserve of repair fittings")), "{:?}", w.log.front());
+    // A plaque is read where it stands.
+    assert!(w.order_use_in_site(lead, 17));
+    run(&mut w);
+    assert!(w.log.front().unwrap().1.contains("A packing note"));
+    // The exit: back down, across, and out by the portal.
+    assert!(w.order_use_in_site(lead, 19));
+    let mut secs = 0.0;
+    while w.site_of(lead).is_some() && secs < 600.0 {
+        w.step(0.1);
+        secs += 0.1;
+    }
+    assert!(w.site_of(lead).is_none(), "still inside");
+    assert!(w.squad.at[0].dist(portal) < 6.0);
+}
+
+#[test]
+fn in_fixture_5_using_the_work_marker_clears_the_way() {
+    let mut w = gahturiyu_sim::sim::worldgen::generate(1);
+    let lead = w.squad.members[0];
+    w.squad.retain(|m| m == lead);
+    let portal = w.squad.at[0];
+    let id = w.import_site(F5, portal).unwrap();
+    assert!(w.enter_site(lead, id));
+    let s = w.sites.get(id).unwrap().clone();
+    let c = s.clearance.clone().unwrap();
+    let far = s.to_world(V2::new(c.to[0] as f32 + 0.5, c.to[1] as f32 + 0.5));
+    // Sent to the far side first: no way (they stay put).
+    assert!(!w.order_in_site(lead, far, Some(s.base_h)));
+    assert!(w.order_use_in_site(lead, c.marker));
+    let mut secs = 0.0;
+    while w.site_of(lead).is_some_and(|i| i.using.is_some()) && secs < 600.0 {
+        w.step(0.1);
+        secs += 0.1;
+    }
+    assert!(w.sites.get(id).unwrap().clearance.as_ref().unwrap().restored);
+    assert!(w.order_in_site(lead, far, Some(s.base_h)));
+}

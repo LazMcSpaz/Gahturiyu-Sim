@@ -63,6 +63,8 @@ pub enum MenuAct {
     SkipIsland,
     /// Back to the title screen (the world stands still under it).
     Title,
+    /// The title's dungeon page (`title::Page::Dungeon`).
+    Dungeon,
     Quit,
 }
 
@@ -154,7 +156,7 @@ pub fn escape(game: &mut Game) {
     }
 }
 
-const ITEMS: [(MenuAct, &str); 8] = [(MenuAct::Resume, "Resume"), (MenuAct::Settings, "Settings"), (MenuAct::Keys, "Keys"), (MenuAct::Save, "Save"), (MenuAct::Load, "Load"), (MenuAct::NewGame, "New game"), (MenuAct::Title, "Title screen"), (MenuAct::Quit, "Quit")];
+const ITEMS: [(MenuAct, &str); 9] = [(MenuAct::Resume, "Resume"), (MenuAct::Settings, "Settings"), (MenuAct::Keys, "Keys"), (MenuAct::Save, "Save"), (MenuAct::Load, "Load"), (MenuAct::NewGame, "New game"), (MenuAct::Dungeon, "Test a dungeon"), (MenuAct::Title, "Title screen"), (MenuAct::Quit, "Quit")];
 const W: f32 = 320.0;
 const ROW: f32 = 46.0;
 

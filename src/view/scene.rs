@@ -119,6 +119,9 @@ pub struct Scene3d {
     pub town_triangles: usize,
     /// Which loaded save the caches were built for (see `Game::loads`).
     loads: u32,
+    /// The dungeon sites drawn (`dungeonview.rs`): site, what it was drawn
+    /// from, its entity.
+    sites: Vec<(u32, u64, Entity)>,
     /// Which version of the land's hand edits the ground and towns were
     /// built for, and the rocks drawn (with what they were built for).
     edits: u32,
@@ -277,6 +280,28 @@ pub fn update(mut commands: Commands, mut game: ResMut<Game>, mut scene: ResMut<
         for (_, t) in scene.towns.drain() {
             for e in t.entities {
                 commands.entity(e).despawn();
+            }
+        }
+        for (_, _, e) in scene.sites.drain(..) {
+            commands.entity(e).despawn();
+        }
+    }
+    // Dungeon sites: each its own mesh, drawn again when a door or the
+    // clearance changes (`dungeonview.rs`).
+    {
+        let want: Vec<(u32, u64)> = game.world.sites.sites.iter().map(|s| (s.id, super::dungeonview::key(s))).collect();
+        scene.sites.retain(|&(id, k, e)| {
+            let keep = want.contains(&(id, k));
+            if !keep {
+                commands.entity(e).despawn();
+            }
+            keep
+        });
+        for (id, k) in want {
+            if !scene.sites.iter().any(|s| s.0 == id) {
+                let site = game.world.sites.get(id).unwrap();
+                let e = spawn_mesh(&mut commands, &mut meshes, &mats.lit, super::dungeonview::build(site), ()).0;
+                scene.sites.push((id, k, e));
             }
         }
     }
@@ -2054,7 +2079,14 @@ fn person_shape(b: &mut Builder, gl: &mut Builder, fl: &mut Builder, gaits: &mut
     let inner = floor_at(at);
     let on_ground = &|q: V2| inner.unwrap_or_else(|| ground(q));
     // Horaro at home on a stilt deck stand above the water.
-    let floor = if geo::inland(at) < 0.0 { DECK + 0.3 } else { on_ground(at) };
+    let floor = if let Some(h) = w.site_height(pid) {
+        // In a dungeon site: on its floor, deck, ladder or water (`dungeon.rs`).
+        h
+    } else if geo::inland(at) < 0.0 {
+        DECK + 0.3
+    } else {
+        on_ground(at)
+    };
     let (h, r) = body_size(p.race);
     let (h, r) = (h * k, r * k);
     // (A nod to an order just given: the figure dips and comes up. UI-8)
