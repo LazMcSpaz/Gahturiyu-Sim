@@ -478,3 +478,130 @@ fn caverns_and_built_halls_are_told_apart() {
     assert!(load(F43).cells.iter().all(|c| !c.natural), "43 is a built fortress");
     assert!(load(F276).cells.iter().all(|c| c.natural), "276 is a cave");
 }
+
+/// A world with a squad of one (and `mates` more) standing at a site's spawn.
+fn in_site(site: Site, mates: usize) -> (gahturiyu_sim::sim::world::World, u32, Vec<u32>) {
+    let mut w = gahturiyu_sim::sim::worldgen::generate(1);
+    let keep: Vec<u32> = w.squad.members.iter().copied().take(1 + mates).collect();
+    w.squad.retain(|m| keep.contains(&m));
+    let id = w.add_site(site, w.squad.pos);
+    for &m in &keep {
+        assert!(w.enter_site(m, id));
+    }
+    w.sites.lead = Some(keep[0]);
+    (w, id, keep)
+}
+
+fn local_x(w: &gahturiyu_sim::sim::world::World, id: u32) -> f32 {
+    w.sites.get(id).unwrap().to_local(w.squad.at[0]).x
+}
+
+#[test]
+fn a_jump_crosses_a_pit_and_gets_up_a_low_ledge_that_walking_cannot() {
+    // Floor, floor, two cells of open pit, floor, a ledge 0.8 m up.
+    let cells = [("Floor", 0.0, None, None), ("Floor", 0.0, None, None), ("Pit", -3.0, None, None), ("Pit", -3.0, None, None), ("Floor", 0.0, None, None), ("Floor", 0.0, None, None), ("Floor", 0.8, None, None), ("Floor", 0.8, None, None)];
+    // Walking east: they stop at the pit's edge.
+    let (mut w, id, team) = in_site(strip(&cells, "", 1.5), 0);
+    let lead = team[0];
+    w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+    for _ in 0..40 {
+        w.step(0.1);
+    }
+    assert!(local_x(&w, id) < 2.0, "walked over the pit: {}", local_x(&w, id));
+    // A running jump from there: over, and on across.
+    w.jump_in_site(lead);
+    for _ in 0..30 {
+        w.step(0.05);
+    }
+    assert!(local_x(&w, id) > 4.0, "the jump fell short: {}", local_x(&w, id));
+    assert!(w.site_of(lead).unwrap().air.is_none());
+    // Walking on, the 0.8 m ledge stops them; a jump gets them up.
+    for _ in 0..40 {
+        w.step(0.1);
+    }
+    assert!(local_x(&w, id) < 6.0, "walked up 0.8 m: {}", local_x(&w, id));
+    w.jump_in_site(lead);
+    for _ in 0..30 {
+        w.step(0.05);
+    }
+    assert!(local_x(&w, id) > 6.0, "{}", local_x(&w, id));
+    assert!((w.site_of(lead).unwrap().h - 0.8).abs() < 1e-3);
+}
+
+#[test]
+fn a_fall_into_a_pit_puts_them_back_where_they_last_stood() {
+    let cells = [("Floor", 0.0, None, None), ("Floor", 0.0, None, None), ("Pit", -3.0, None, None), ("Pit", -3.0, None, None), ("Pit", -3.0, None, None), ("Pit", -3.0, None, None), ("Floor", 0.0, None, None)];
+    let (mut w, id, team) = in_site(strip(&cells, "", 1.5), 0);
+    let lead = team[0];
+    w.steer_in_site(lead, Some(V2::new(1.0, 0.0)));
+    for _ in 0..20 {
+        w.step(0.1);
+    }
+    // Too far to jump: they come down in the pit and are put back on the floor.
+    w.jump_in_site(lead);
+    let mut lowest = f32::MAX;
+    for _ in 0..80 {
+        w.step(0.05);
+        lowest = lowest.min(w.site_of(lead).unwrap().h);
+    }
+    assert!(lowest < -1.0, "never fell: {lowest}");
+    let i = w.site_of(lead).unwrap();
+    assert_eq!((i.h, i.air), (0.0, None));
+    assert!(local_x(&w, id) < 2.0, "{}", local_x(&w, id));
+}
+
+#[test]
+fn a_dodge_steps_back_for_stamina() {
+    let cells: Vec<_> = (0..12).map(|_| ("Floor", 0.0, None, None)).collect();
+    let (mut w, id, team) = in_site(strip(&cells, "", 6.5), 0);
+    let lead = team[0];
+    let before = local_x(&w, id);
+    let s0 = w.stamina_of(lead).unwrap();
+    // Facing east, the dodge goes west.
+    w.dodge_in_site(lead, V2::new(1.0, 0.0));
+    assert!((s0 - w.stamina_of(lead).unwrap() - DODGE_STAMINA).abs() < 0.005, "stamina {s0} -> {}", w.stamina_of(lead).unwrap());
+    for _ in 0..10 {
+        w.step(0.05);
+    }
+    let moved = before - local_x(&w, id);
+    assert!((moved - DODGE_M).abs() < 0.15, "dodged {moved} m");
+}
+
+#[test]
+fn the_mate_follows_the_one_you_control() {
+    let (mut w, id, team) = in_site(load(F43), 1);
+    let (lead, mate) = (team[0], team[1]);
+    let s = w.sites.get(id).unwrap().clone();
+    // The lead goes to the chest (up the ladder, far off); the mate keeps up.
+    let reach = s.reach(s.spawn_node().unwrap());
+    let (at, _) = s.approach(9, &reach).unwrap();
+    assert!(w.order_in_site(lead, s.to_world(Site::centre(at)), Some(s.base_h + 2.4)));
+    let mut worst = 0.0f32;
+    for _ in 0..3000 {
+        w.step(0.1);
+        worst = worst.max(w.squad.at[0].dist(w.squad.at[1]));
+    }
+    let gap = w.squad.at[0].dist(w.squad.at[1]);
+    assert!(gap < FOLLOW_GAP * 2.5, "the mate is {gap} m behind (worst {worst})");
+    assert!((w.site_of(mate).unwrap().h - 2.4).abs() < 1e-3, "the mate didn't come up the ladder");
+}
+
+#[test]
+fn e_uses_only_what_is_within_reach() {
+    let (mut w, id, team) = in_site(load(F43), 0);
+    let lead = team[0];
+    let s = w.sites.get(id).unwrap().clone();
+    // Plaque 16 is a few metres from the arrival: out of reach from there.
+    assert!(!w.site_in_reach(lead, 16));
+    assert!(!w.use_in_reach(lead, 16));
+    assert!(w.site_use_label(id, 16).unwrap().starts_with("Read: "));
+    let o = s.objects.iter().find(|o| o.index == 16).unwrap().at;
+    assert!(w.order_in_site(lead, s.to_world(o.add(V2::new(0.0, -1.0))), None));
+    for _ in 0..200 {
+        w.step(0.1);
+    }
+    assert!(w.site_in_reach(lead, 16));
+    assert!(w.use_in_reach(lead, 16));
+    assert!(w.log.front().unwrap().1.contains("A surviving account"));
+    assert_eq!(w.site_use_label(id, 19).unwrap(), "Leave: Return to the Company");
+}

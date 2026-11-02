@@ -57,6 +57,22 @@ pub const DOOR_SECS: f32 = 1.0;
 /// metres across, and up or down.
 pub const USE_REACH: f32 = 1.6;
 pub const USE_RISE: f32 = 1.3;
+/// A jump (the generator's own numbers, so its jumpable gaps agree): up at
+/// this speed, pulled down at `GRAVITY`; about a metre up, two across.
+pub const JUMP: f32 = 6.2;
+pub const GRAVITY: f32 = 18.0;
+/// A jump made while moving carries at least this fast (the generator's
+/// running pace), so the gaps it calls jumpable are.
+pub const JUMP_CARRY: f32 = 5.0;
+/// A dodge backwards: this far, this fast, for this share of the most
+/// stamina they can have.
+pub const DODGE_M: f32 = 1.6;
+pub const DODGE_SPEED: f32 = 6.0;
+pub const DODGE_STAMINA: f32 = 0.04;
+/// A squad mate following the one you control keeps about this far behind,
+/// and finds their way again at most this often (seconds).
+pub const FOLLOW_GAP: f32 = 2.5;
+pub const FOLLOW_REPLAN: f64 = 0.6;
 /// How far a character sees in a site, metres (Laz); walls and closed doors
 /// block it.
 pub const SIGHT: f32 = 40.0;
@@ -766,6 +782,38 @@ impl Site {
         Some(here)
     }
 
+    /// What a body in the air at `p` with its feet at `z` would land on in
+    /// that cell: the highest level at or below its feet (`was`: their
+    /// height a moment ago). None: nothing (a pit's open floor).
+    pub fn landing(&self, p: V2, was: f32) -> Option<(Node, f32)> {
+        let (cx, cy) = (p.x.floor() as i32, p.y.floor() as i32);
+        self.nodes_in(cx, cy).into_iter().filter_map(|n| self.level(n).map(|l| (n, l.0))).filter(|&(_, h)| h <= was + 0.05).max_by(|a, b| a.1.total_cmp(&b.1))
+    }
+
+    /// Can a body in the air with its feet at `z` be at `p`: no wall or
+    /// closed door in reach, and nothing there standing higher than a step
+    /// above its feet?
+    pub fn air_ok(&self, p: V2, z: f32) -> bool {
+        let r = super::solid::BODY * 0.9;
+        for (ox, oy) in [(0.0, 0.0), (r, 0.0), (-r, 0.0), (0.0, r), (0.0, -r), (r * 0.7, r * 0.7), (-r * 0.7, r * 0.7), (r * 0.7, -r * 0.7), (-r * 0.7, -r * 0.7)] {
+            let (x, y) = ((p.x + ox).floor() as i32, (p.y + oy).floor() as i32);
+            let Some(c) = self.cell(x, y) else { return false };
+            if c.ground == Ground::Wall || self.closed_door_in(x, y).is_some() {
+                return false;
+            }
+            let lowest = self.nodes_in(x, y).into_iter().filter_map(|n| self.level(n)).map(|l| l.0).fold(f32::INFINITY, f32::min);
+            if lowest.is_finite() && lowest > z + STEP {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// The lowest floor in the site (a fall below it is caught).
+    pub fn lowest(&self) -> f32 {
+        self.cells.iter().map(|c| c.floor).fold(0.0, f32::min)
+    }
+
     /// Does this cell stop sight: a wall, or a closed door's doorway?
     fn opaque(&self, x: i32, y: i32) -> bool {
         match self.cell(x, y) {
@@ -871,6 +919,19 @@ pub struct Inside {
     /// saved (it's the keys held this moment).
     #[serde(skip)]
     pub steer: Option<V2>,
+    /// In the air (a jump, or a fall): rising speed now, metres a second.
+    #[serde(default)]
+    pub air: Option<f32>,
+    /// Dodging: which way, and how far still to go.
+    #[serde(default)]
+    pub dodge: Option<(V2, f32)>,
+    /// The last place they stood on dry floor (a fall into a pit puts them
+    /// back there, as the generator does).
+    #[serde(default)]
+    pub safe: Option<Node>,
+    /// When a follower last found their way after the one controlled.
+    #[serde(default)]
+    pub planned: f64,
 }
 
 /// Every site and who's in one (saved).
@@ -878,6 +939,10 @@ pub struct Inside {
 pub struct Sites {
     pub sites: Vec<Site>,
     pub inside: BTreeMap<PersonId, Inside>,
+    /// The squad member the player controls in a site (third person,
+    /// `docs/third-person.md`); the others in the same site follow them.
+    #[serde(default)]
+    pub lead: Option<PersonId>,
     /// What the squad sees in each site now (by site: the cells looked from,
     /// and the cells seen). Worked out again when someone moves a cell; not
     /// saved.
@@ -903,14 +968,18 @@ impl World {
     /// Read a site's file and stand it in its pocket, with its portal at
     /// `portal` on the overworld. Its id.
     pub fn import_site(&mut self, path: &str, portal: V2) -> Result<u32, ImportError> {
-        let mut site = Site::load(path)?;
+        Ok(self.add_site(Site::load(path)?, portal))
+    }
+
+    /// Stand a site already read in its pocket, its portal at `portal`. Its id.
+    pub fn add_site(&mut self, mut site: Site, portal: V2) -> u32 {
         let id = self.sites.sites.iter().map(|s| s.id + 1).max().unwrap_or(0);
         site.id = id;
         site.origin = V2::new(POCKET_X + id as f32 * POCKET_STEP, POCKET_Y);
         site.base_h = POCKET_H;
         site.portal = portal;
         self.sites.sites.push(site);
-        Ok(id)
+        id
     }
 
     /// The site a squad member is in, if any.
@@ -936,7 +1005,7 @@ impl World {
         self.squad.goal[k] = at;
         self.squad.route[k].clear();
         self.squad.inside[k] = None;
-        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None });
+        self.sites.inside.insert(pid, Inside { site, node: n, h, way: Vec::new(), climbing: None, swimming: false, using: None, steer: None, air: None, dodge: None, safe: Some(n), planned: 0.0 });
         self.recentre_squad();
         self.update_sight(site);
         true
@@ -1142,13 +1211,127 @@ impl World {
         i.steer = dir;
     }
 
+    /// A squad member in a site jumps (on firm footing: not swimming,
+    /// climbing or already in the air).
+    pub fn jump_in_site(&mut self, pid: PersonId) {
+        let Some(i) = self.sites.inside.get_mut(&pid) else { return };
+        if i.air.is_none() && i.climbing.is_none() && !i.swimming {
+            i.air = Some(JUMP);
+            i.way.clear();
+            i.using = None;
+        }
+    }
+
+    /// A squad member in a site dodges back from `facing` (world metres, the
+    /// way they face), for stamina.
+    pub fn dodge_in_site(&mut self, pid: PersonId, facing: V2) {
+        let Some(i) = self.sites.inside.get_mut(&pid) else { return };
+        if i.air.is_some() || i.climbing.is_some() || i.swimming || i.dodge.is_some() || facing.len() < 1e-4 {
+            return;
+        }
+        let back = facing.scale(-1.0 / facing.len());
+        i.dodge = Some((back, DODGE_M));
+        i.way.clear();
+        i.using = None;
+        let t = self.time;
+        self.settle_condition(pid, t);
+        if let Some(c) = self.people[pid as usize].cond.as_mut() {
+            c.stamina = (c.stamina - c.max_stamina * DODGE_STAMINA).max(0.0);
+        }
+    }
+
+    /// Is thing `i` of the site within a squad member's reach where they stand?
+    pub fn site_in_reach(&self, pid: PersonId, i: u16) -> bool {
+        let Some(m) = self.sites.inside.get(&pid) else { return false };
+        let Some(s) = self.sites.get(m.site) else { return false };
+        let Some(k) = self.squad.index(pid) else { return false };
+        let Some(o) = s.objects.iter().find(|o| o.index == i) else { return false };
+        let at = s.to_local(self.squad.at[k]);
+        at.dist(o.at) <= USE_REACH + 0.3 && (o.z - m.h).abs() <= USE_RISE + if o.kind == ObjKind::Ladder { 2.6 } else { 0.0 }
+    }
+
+    /// What using thing `i` would do, in a word or two ("Open the timber
+    /// door", "Climb", "Read", "Leave").
+    pub fn site_use_label(&self, site: u32, i: u16) -> Option<String> {
+        let s = self.sites.get(site)?;
+        let o = s.objects.iter().find(|o| o.index == i)?;
+        if s.clearance.as_ref().is_some_and(|c| c.marker == i && !c.restored) {
+            return Some(format!("Clear the way ({})", o.name));
+        }
+        Some(match o.kind {
+            ObjKind::Door => format!("{} {}", if o.open { "Shut" } else { "Open" }, o.name),
+            ObjKind::Ladder => "Climb the ladder".to_string(),
+            ObjKind::Chest => {
+                if o.open {
+                    format!("{} (empty)", o.name)
+                } else {
+                    format!("Open {}", o.name)
+                }
+            }
+            ObjKind::Exit => format!("Leave: {}", o.name),
+            _ => format!("Read: {}", o.name),
+        })
+    }
+
+    /// Use thing `i` now, from where they stand (third person's E): a ladder
+    /// is climbed, anything else used at once. False if it's out of reach.
+    pub fn use_in_reach(&mut self, pid: PersonId, i: u16) -> bool {
+        if !self.site_in_reach(pid, i) {
+            return false;
+        }
+        let ladder = self.sites.inside.get(&pid).and_then(|m| self.sites.get(m.site)).is_some_and(|s| s.objects.iter().any(|o| o.index == i && o.kind == ObjKind::Ladder));
+        if ladder {
+            return self.order_use_in_site(pid, i);
+        }
+        if let Some(m) = self.sites.inside.get_mut(&pid) {
+            m.using = Some(i);
+            m.way.clear();
+            m.steer = None;
+        }
+        self.use_site_object(pid);
+        true
+    }
+
+    /// A squad mate in a site who isn't the one controlled keeps up with
+    /// the one who is: once they're more than `FOLLOW_GAP` away, a way to
+    /// just behind them, found again now and then.
+    fn follow_lead(&mut self, pid: PersonId) {
+        let Some(lead) = self.sites.lead.filter(|&l| l != pid) else { return };
+        let (Some(me), Some(them)) = (self.sites.inside.get(&pid).cloned(), self.sites.inside.get(&lead).cloned()) else { return };
+        if me.site != them.site || me.steer.is_some() || me.climbing.is_some() || me.air.is_some() || me.using.is_some() {
+            return;
+        }
+        let (Some(km), Some(kl)) = (self.squad.index(pid), self.squad.index(lead)) else { return };
+        let gap = self.squad.at[km].dist(self.squad.at[kl]) + (me.h - them.h).abs();
+        if gap <= FOLLOW_GAP || self.time - me.planned < FOLLOW_REPLAN {
+            return;
+        }
+        let Some(s) = self.sites.get(me.site) else { return };
+        let Some(mut way) = s.route(me.node, them.node).map(|w| w.nodes) else { return };
+        // Stop a little short of them.
+        let keep = way.len().saturating_sub(2);
+        way.truncate(keep.max(if gap > FOLLOW_GAP * 2.0 { 1 } else { 0 }));
+        let points: Vec<V2> = way.iter().map(|&n| s.to_world(Site::centre(n))).collect();
+        if let Some(m) = self.sites.inside.get_mut(&pid) {
+            m.way = way;
+            m.planned = self.time;
+        }
+        if let Some(last) = points.last().copied() {
+            self.squad.goal[km] = last;
+            self.squad.route[km] = points;
+        }
+    }
+
     /// A squad member in a site moves along their way for `dt` seconds:
     /// walking, swimming, climbing; a closed door on the way opens as they
     /// reach it. (The squad's own stepping, like walking outside.)
     pub(super) fn walk_in_site(&mut self, k: usize, dt: f64) {
         let pid = self.squad.members[k];
-        let speed = self.march_speed(k).max(0.1);
+        self.follow_lead(pid);
         let Some(mut i) = self.sites.inside.get(&pid).cloned() else { return };
+        // Steered by hand they go at their own pace; sent, with the others.
+        let free = i.steer.is_some() || i.air.is_some() || i.dodge.is_some();
+        let speed = if free { self.member_speed(pid) } else { self.march_speed(k) }.max(0.1);
         let Some(site) = self.sites.get(i.site) else { return };
         let mut left = dt as f32;
         let mut at = site.to_local(self.squad.at[k]);
@@ -1173,37 +1356,92 @@ impl World {
                 }
                 continue;
             }
-            if let Some(dir) = i.steer {
-                // Steered by the keys: straight on, sliding along whatever
-                // stops them, in steps of at most 10 cm.
+            if i.steer.is_some() || i.air.is_some() || i.dodge.is_some() {
+                // Moved by hand: the keys' way (or a dodge), and in the air
+                // under gravity, in slices of at most 20 ms.
+                let sub = left.min(0.02);
+                left -= sub;
                 let pace = if i.swimming { SWIM_PACE } else { 1.0 };
-                let go = (speed * pace * left).min(0.1);
-                left -= go / (speed * pace);
-                let mut moved = false;
-                for d in [dir, V2::new(dir.x, 0.0), V2::new(0.0, dir.y)] {
-                    if d.len() < 0.2 {
-                        continue;
+                let v = match i.dodge {
+                    Some((d, _)) => d.scale(DODGE_SPEED),
+                    None => i.steer.map(|d| d.scale(if i.air.is_some() { (speed * pace).max(JUMP_CARRY) } else { speed * pace })).unwrap_or_default(),
+                };
+                let tries = [v, V2::new(v.x, 0.0), V2::new(0.0, v.y)];
+                if let Some(vz) = i.air {
+                    let vz = vz - GRAVITY * sub;
+                    let z = i.h + vz * sub;
+                    for d in tries {
+                        if d.len() < 1e-4 {
+                            continue;
+                        }
+                        let to = at.add(d.scale(sub));
+                        if site.air_ok(to, i.h.min(z)) {
+                            at = to;
+                            break;
+                        }
                     }
-                    let to = at.add(d.scale(go / d.len()));
-                    if let Some(n) = site.stand_at(i.node, to) {
-                        if let Some(dr) = site.closed_door_in(n.x as i32, n.y as i32) {
-                            if !opened.contains(&dr.index) {
-                                opened.push(dr.index);
+                    match site.landing(at, i.h).filter(|&(_, lv)| vz <= 0.0 && z <= lv) {
+                        Some((n, lv)) => {
+                            i.node = n;
+                            i.h = lv;
+                            i.air = None;
+                            i.swimming = site.level(n).is_some_and(|l| l.1 == How::Swim);
+                        }
+                        None => {
+                            i.h = z;
+                            i.air = Some(vz);
+                            // A fall past the bottom: back to where they last stood.
+                            if z < site.lowest() - 1.5 {
+                                let back = i.safe.unwrap_or(i.node);
+                                at = Site::centre(back);
+                                i.node = back;
+                                i.h = site.level(back).map(|l| l.0).unwrap_or(i.h);
+                                i.air = None;
+                                i.dodge = None;
                             }
                         }
-                        let (nh, how) = site.level(n).unwrap();
-                        if nh > i.h {
-                            rise += nh - i.h;
+                    }
+                } else {
+                    let mut moved = false;
+                    for d in tries {
+                        if d.len() < 1e-4 {
+                            continue;
                         }
-                        at = to;
-                        i.node = n;
-                        i.h = nh;
-                        i.swimming = how == How::Swim;
-                        moved = true;
-                        break;
+                        let to = at.add(d.scale(sub));
+                        if let Some(n) = site.stand_at(i.node, to) {
+                            if let Some(dr) = site.closed_door_in(n.x as i32, n.y as i32) {
+                                if !opened.contains(&dr.index) {
+                                    opened.push(dr.index);
+                                }
+                            }
+                            let (nh, how) = site.level(n).unwrap();
+                            if nh > i.h {
+                                rise += nh - i.h;
+                            }
+                            at = to;
+                            i.node = n;
+                            i.h = nh;
+                            i.swimming = how == How::Swim;
+                            if how == How::Walk && n.lv == Lv::Low {
+                                i.safe = Some(n);
+                            }
+                            moved = true;
+                            break;
+                        }
+                    }
+                    if !moved && i.dodge.is_none() && i.steer.is_some() && v.len() > 1e-4 {
+                        // Pressed against something: stand still this slice.
+                    }
+                    if !moved {
+                        i.dodge = None;
                     }
                 }
-                if !moved {
+                if let Some((d, rest)) = i.dodge {
+                    let rest = rest - DODGE_SPEED * sub;
+                    i.dodge = (rest > 0.0).then_some((d, rest));
+                }
+                // Nothing to do this slice and on the ground: done.
+                if i.air.is_none() && i.dodge.is_none() && v.len() < 1e-4 {
                     break;
                 }
                 continue;
@@ -1251,7 +1489,7 @@ impl World {
             }
         }
         let world_at = site.to_world(at);
-        let done = i.way.is_empty() && i.climbing.is_none() && i.steer.is_none();
+        let done = i.way.is_empty() && i.climbing.is_none() && i.steer.is_none() && i.air.is_none() && i.dodge.is_none();
         let site_id = i.site;
         self.sites.inside.insert(pid, i);
         if let Some(s) = self.sites.get_mut(site_id) {

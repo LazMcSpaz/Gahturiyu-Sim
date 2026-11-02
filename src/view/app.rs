@@ -74,6 +74,8 @@ pub enum Hover {
 /// Everything the window keeps between frames.
 #[derive(Resource)]
 pub struct Game {
+    /// Third-person control in dungeon sites (`thirdperson.rs`).
+    pub third: super::thirdperson::Third,
     pub world: World,
     pub view: View,
     pub orbit: OrbitCam,
@@ -281,13 +283,18 @@ fn dungeon_world(pick: super::title::DungeonPick, rules: Option<gahturiyu_sim::s
     if let Some(r) = rules {
         w.rules = r;
     }
-    let lead = w.squad.members[0];
-    w.squad.retain(|m| m == lead);
+    // You and one mate (Laz, for third person: `docs/third-person.md`).
+    let team: Vec<_> = w.squad.members.iter().copied().take(2).collect();
+    let lead = team[0];
+    w.squad.retain(|m| team.contains(&m));
     let portal = w.squad.pos;
     let id = w.import_site(path.to_str().unwrap_or_default(), portal).map_err(|e| format!("{}: {e}", path.display()))?;
-    if !w.enter_site(lead, id) {
-        return Err("the site has nowhere to arrive".into());
+    for &m in &team {
+        if !w.enter_site(m, id) {
+            return Err("the site has nowhere to arrive".into());
+        }
     }
+    w.sites.lead = Some(lead);
     w.step(0.001);
     let s = w.sites.get(id).unwrap();
     let mut line = format!("{} ({}). The generator says: {}", s.kind, s.culture, s.status);
@@ -300,7 +307,7 @@ fn dungeon_world(pick: super::title::DungeonPick, rules: Option<gahturiyu_sim::s
     if !s.notes.is_empty() {
         line += &format!(". Import notes: {}", s.notes.join("; "));
     }
-    line += ". Click the green marker to leave.";
+    line += ". WASD to move, the mouse to look, E to use, Space to jump, Q to dodge, C to sneak, Alt to pause, Tab to switch; E on the green marker leaves.";
     Ok((w, line))
 }
 
@@ -502,6 +509,7 @@ pub fn run() {
         quit: false,
         castfx: Default::default(),
         shot: None,
+        third: Default::default(),
         world,
     };
     game.orbit.ground = game.world.terrain.surface(game.world.squad.pos);
@@ -731,7 +739,7 @@ pub fn run() {
         .init_resource::<super::sound::Sfx>()
         .insert_resource(ClearColor(Color::srgb(0.63, 0.69, 0.72)))
         .add_systems(Startup, (setup, scene::setup, light::setup, models::start, super::foliage::setup))
-        .add_systems(Update, (input, simulate, camera.run_if(super::maprender::off), super::maprender::step, light::update.run_if(super::maprender::off), models::finish, scene::update.run_if(super::maprender::off), super::foliage::update.run_if(super::maprender::off), super::sound::update.run_if(super::maprender::off), screenshot).chain())
+        .add_systems(Update, (input, super::thirdperson::pointer, simulate, camera.run_if(super::maprender::off), super::maprender::step, light::update.run_if(super::maprender::off), models::finish, scene::update.run_if(super::maprender::off), super::foliage::update.run_if(super::maprender::off), super::sound::update.run_if(super::maprender::off), screenshot).chain())
         .add_systems(EguiPrimaryContextPass, ui.run_if(super::maprender::off))
         .run();
 }
@@ -873,7 +881,7 @@ pub(super) struct StrokeScript {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<ButtonInput<MouseButton>>, scroll: Res<AccumulatedMouseScroll>, window: Single<&Window, With<PrimaryWindow>>, time: Res<Time>, mut stroke: Local<StrokeScript>) {
+fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<ButtonInput<MouseButton>>, scroll: Res<AccumulatedMouseScroll>, motion: Res<bevy::input::mouse::AccumulatedMouseMotion>, window: Single<&Window, With<PrimaryWindow>>, time: Res<Time>, mut stroke: Local<StrokeScript>) {
     let _prof = super::prof::span("input");
     let game = &mut *game;
     game.screen = Vec2::new(window.width(), window.height());
@@ -978,6 +986,13 @@ fn input(mut game: ResMut<Game>, keys: Res<ButtonInput<KeyCode>>, buttons: Res<B
         if buttons.just_released(MouseButton::Left) && game.press_at.take().is_some_and(|p| (p - mouse).length() < 6.0) {
             game.ui_click = Some(Click { at: mouse, right: false, shift });
         }
+        game.last_mouse = mouse;
+        return;
+    }
+    // Third person in a dungeon site (`thirdperson.rs`): with the pointer
+    // captured its keys are all there is.
+    super::thirdperson::sync_lead(game);
+    if super::thirdperson::active(game) && super::thirdperson::input(game, &keys, &buttons, &motion, &scroll, mouse, dt) {
         game.last_mouse = mouse;
         return;
     }
@@ -1489,6 +1504,8 @@ fn simulate(mut game: ResMut<Game>, time: Res<Time>) {
     if (g - game.orbit.ground).abs() > 60.0 || game.frame < 2 {
         game.orbit.ground = g;
     }
+    // In third person, behind the one controlled (`thirdperson.rs`).
+    super::thirdperson::place_camera(game);
 }
 
 /// Aim the 3D camera; switch it off on the map.
@@ -2922,6 +2939,8 @@ fn ui(mut contexts: EguiContexts, mut game: ResMut<Game>, mut st: Local<UiState>
     super::screens::settle(game);
     // Panels just closed fade where they were (under the tooltips).
     game.slides.finish(&c);
+    // Third person's crosshair and what E would do.
+    super::thirdperson::draw(&c, game);
 
     // ---- Hover --------------------------------------------------------------
     let on_panels = panels.iter().any(|b| b.contains(game.mouse));
